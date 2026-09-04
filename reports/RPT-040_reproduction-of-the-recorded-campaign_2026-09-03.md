@@ -196,7 +196,9 @@ the band: largest 0.0025969 at Total.Cz.
 ## The scripts, verb for verb
 
 - scripts 3 of 3 within the allow-list: the three rendered scripts against her recorded ones, outside an enumerated allow-list nothing differs.
+- her recorded unsteady 3224 script states `DELTA_TIME 0.00388`; the package derives the step from the azimuthal pair and emits it at five decimals, her tool's precision
 - her recorded unsteady_rotor 9001 script states `SET_MOTION_ROTOR_RPM 1 473.1723 0.0 0.0`; the package derives the speed from the advance ratio and emits it at four decimals, her tool's precision
+- her recorded unsteady_rotor 9001 script states `DELTA_TIME 0.00352`; the package derives the step from the azimuthal pair and emits it at five decimals, her tool's precision
 
 ## The products and the export set
 

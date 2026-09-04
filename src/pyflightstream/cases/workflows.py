@@ -781,11 +781,14 @@ _DERIVED_RPM_DECIMALS = 4
 #: The runs that produced her tables marched at the rounded value.
 #:
 #: WHAT IT COSTS, said here because the decision it replaces was taken for
-#: this reason: 54 steps of 0.00352 s cover 1.4990 revolutions and not the
+#: this reason: 54 steps of 0.00352 s cover 1.49901 revolutions and not the
 #: 1.5 the row asks for. The step COUNT is unaffected, since it comes from
-#: the revolutions and the azimuthal step and never from the seconds, so
-#: the run ends on the step the author asked for at an azimuth 0.04 degrees
-#: short of the one they named.
+#: the revolutions and the azimuthal step and never from the seconds, so the
+#: run ends on the step the author asked for, at an azimuth 0.356 degrees
+#: short of the one they named (0.00099 of a revolution, 0.0066 degrees per
+#: step over 54 of them). A review lens recomputed this paragraph on
+#: 2026-09-04 and found it claiming 0.04 degrees, which understated by
+#: ninefold the cost of the decision it exists to state.
 _DERIVED_TIME_STEP_DECIMALS = 5
 
 
@@ -966,8 +969,9 @@ class TimeStepping:
         from the seconds only where it was not. A revolution is 360
         degrees, so a ten-degree step is thirty-six steps exactly;
         deriving it from the seconds instead reads the rounding of the
-        emitted step back as physics, and answered 36.0234 for a run that
-        resolves 36 once the step took her tool's five decimals.
+        emitted step back as physics: 60 / (473.1723 * 0.00352) is 36.0238
+        for a run that resolves 36, once the step took her tool's five
+        decimals.
         """
         if self.delta_theta_deg:
             return 360.0 / self.delta_theta_deg
@@ -1648,15 +1652,30 @@ class ExportWindow:
     rpm: float | None
     delta_time_s: float | None
     time_iterations: int
+    #: The azimuthal step the clock was stated with, where it was; None
+    #: where the row stated the seconds directly. Carried so that a
+    #: revolution is counted from the ANGLE rather than from the emitted
+    #: step, which is rounded to the author's precision since 2026-09-04.
+    delta_theta_deg: float | None = None
 
     @property
     def steps_per_revolution(self) -> float | None:
         """Solver steps in one revolution, or None without the inputs.
 
-        One revolution lasts ``60 / rpm`` seconds and one step lasts
-        ``delta_time_s`` seconds, so a revolution is
+        FROM THE AZIMUTHAL STEP WHERE THE CLOCK WAS STATED THAT WAY: a
+        revolution is 360 degrees, so a ten-degree step is thirty-six
+        steps exactly. Otherwise one revolution lasts ``60 / rpm`` seconds
+        and one step lasts ``delta_time_s`` seconds, so a revolution is
         ``60 / (rpm * delta_time_s)`` steps.
+
+        THE ANGLE FIRST, and a review lens is why. The emitted step is
+        rounded to the author's precision since 2026-09-04, so counting a
+        revolution from the seconds answered 36.0238 where the run
+        resolves 36, and a one-revolution window then recorded 359.77
+        degrees instead of 360.
         """
+        if self.delta_theta_deg:
+            return 360.0 / self.delta_theta_deg
         if self.rpm is None or self.delta_time_s is None:
             return None
         return 60.0 / (self.rpm * self.delta_time_s)
@@ -1742,6 +1761,7 @@ class ExportWindow:
             revolutions=revolutions,
             rpm=None if speed is None else speed.rpm,
             delta_time_s=stepping.delta_time_s,
+            delta_theta_deg=stepping.delta_theta_deg,
             time_iterations=stepping.time_iterations,
         )
 
@@ -1753,6 +1773,7 @@ def export_window(
     revolutions: float | None = None,
     rpm: float | None = None,
     delta_time_s: float | None = None,
+    delta_theta_deg: float | None = None,
     time_iterations: int,
 ) -> ExportWindow:
     """Build one :class:`ExportWindow`, keeping the stated form verbatim.
@@ -1846,6 +1867,7 @@ def export_window(
         steps=span,
         rpm=rpm,
         delta_time_s=delta_time_s,
+        delta_theta_deg=delta_theta_deg,
         time_iterations=int(time_iterations),
     )
 
@@ -3129,12 +3151,16 @@ def _build_steady(case: SimCase, script: Script, conventions: WorkflowConvention
 def unsteady_time_stepping(case: SimCase) -> TimeStepping:
     """Resolve the physical clock of a run that turns nothing.
 
-    THE SECONDS AND THE COUNT, AND NOT THE ANGULAR PAIR. A degree of
-    rotation has no duration in a run with no rotation: the rotor
-    resolver turns ``DELTA_THETA`` into seconds as ``theta / (6 |rpm|)``,
-    and there is no rpm here for it to divide by. So the angular pair is
-    refused rather than left to fail further in, and the refusal says
-    which of the two spellings this run type has.
+    THE SECONDS AND THE COUNT, OR THE ANGULAR PAIR WITH A SPEED BESIDE IT
+    (her decision of 2026-09-04). A degree of rotation has a duration only
+    against a rotor speed, and this run type meshes nothing that turns, so
+    the pair was refused here outright until a row of the author's own
+    campaign showed the case it exists for: a wing-body in a propeller's
+    slipstream, whose step is an azimuthal step of that propeller and
+    whose row states its advance ratio. A row stating the pair and a speed
+    is resolved exactly as the rotor type resolves it; a row stating the
+    pair and no speed is refused as before, naming the two keys that
+    would make it resolvable.
 
     IT IS A SEPARATE FUNCTION AND :func:`rotor_time_stepping` IS NOT
     TOUCHED. Extracting the shape checks the two share would save about
@@ -3159,9 +3185,10 @@ def unsteady_time_stepping(case: SimCase) -> TimeStepping:
     Raises
     ------
     CampaignConfigError
-        If the row states the angular pair, states neither pair, or
-        states half of the explicit one. Each message names the case,
-        which is the matrix POL, and the keys involved.
+        If the row states the angular pair with no rotor speed to
+        divide by, states neither pair, or states half of the explicit
+        one. Each message names the case, which is the matrix POL, and
+        the keys involved.
     """
     angular = {
         key: value

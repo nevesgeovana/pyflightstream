@@ -16,10 +16,9 @@ FlightStream versions.
   at five decimals, her tool's precision: ten degrees at 473.1723 rev/min is
   0.0035223250952 and her script states `DELTA_TIME 0.00352`, and her runs
   marched at the rounded value. What that costs is asserted rather than
-  dropped: 54 such steps cover 1.4990 revolutions and not the 1.5 the row
+  dropped: 54 such steps cover 1.49901 revolutions and not the 1.5 the row
   asks for, and the step COUNT still comes from the revolutions, so a run
-  ends on the step its author named four hundredths of a degree short of the
-  azimuth. The steps per revolution now come from the azimuthal step itself
+  ends on the step its author named, 0.356 degrees short of the azimuth. The steps per revolution now come from the azimuthal step itself
   rather than from the rounded seconds.
 - **An unsteady run that meshes nothing turning may state its clock
   azimuthally**, when the row states the speed whose azimuth the step

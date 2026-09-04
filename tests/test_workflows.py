@@ -4091,3 +4091,55 @@ def test_a_derived_rotor_speed_is_emitted_at_her_four_decimals():
     RPT-040), so equality is exact here, not approximate.
     """
     assert rotor_speed(ratio_case()).rpm == 473.1778
+
+
+def test_a_rotorless_row_builds_its_whole_script_from_the_azimuthal_clock(tmp_path):
+    """The end-to-end route the QA lens found untested: the builder, not the resolver.
+
+    Her POLAR-3224 is a wing-body in a propeller's slipstream whose row
+    states the advance ratio and the azimuthal step; the reference it names
+    carries the propeller diameter that turns the ratio into a speed. The
+    resolver was covered and the BUILDER was not, so the branch could have
+    been unreachable through a script and the suite would not have said so.
+    """
+    from pyflightstream.cases import ReferenceData
+
+    geometry = _saved_simulation(tmp_path / "wb.fsm", ["W", "B"])
+    case = unsteady_case(
+        DELTA_TIME=None,
+        TIME_ITERATIONS=None,
+        DELTA_THETA="20",
+        REVOLUTIONS="8.0",
+        ADVANCE_RATIO="1.3",
+    ).model_copy(
+        update={
+            "geometry": str(geometry),
+            "reference": ReferenceData(area=50.0, length=2.526, propeller_diameter=3.6576),
+        }
+    )
+    script = Script("26.123")
+    build_script(case, script)
+    lines = script.render().splitlines()
+    at = lines.index("SET_SOLVER_UNSTEADY")
+    # 30 m/s through a 3.6576 m diameter at J 1.3 is 378.5584 rev/min, and
+    # twenty degrees of it is 0.0088053 s, emitted at her five decimals.
+    assert lines[at + 1 : at + 3] == ["TIME_ITERATIONS 144", "DELTA_TIME 0.00881"], lines[
+        at : at + 3
+    ]
+    assert not any(line.startswith("CREATE_NEW_MOTION") for line in lines), (
+        "a run type that meshes nothing turning emitted a motion"
+    )
+
+
+def test_a_rotorless_row_at_a_standstill_is_refused_naming_both_keys():
+    """The zero-speed half of the guard, which the QA lens found unasserted."""
+    from pyflightstream.cases.workflows import unsteady_time_stepping
+
+    case = unsteady_case(
+        DELTA_TIME=None, TIME_ITERATIONS=None, DELTA_THETA="20", REVOLUTIONS="8.0", RPM="0"
+    )
+    with pytest.raises(CampaignConfigError) as raised:
+        unsteady_time_stepping(case)
+    message = str(raised.value)
+    assert "ADVANCE_RATIO" in message and "RPM" in message
+    assert "DELTA_TIME" in message and "TIME_ITERATIONS" in message
