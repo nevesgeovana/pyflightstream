@@ -35,6 +35,9 @@ date-released: 2026-09-04
 repository-code: "https://github.com/nevesgeovana/pyflightstream"
 identifiers:
   - type: doi
+    value: 10.5281/zenodo.22310078
+    description: "Zenodo archive of release v0.12.0"
+  - type: doi
     value: 10.5281/zenodo.22269023
     description: "Zenodo archive of release v0.11.0"
   - type: doi
