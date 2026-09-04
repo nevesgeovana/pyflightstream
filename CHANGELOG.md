@@ -7,6 +7,24 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Added
+
+- **A setup artifact may carry the campaign's fluid constants**, in a
+  `[flight_condition]` table, so a row states only what varies from point to
+  point. The five pins of v0.11.0 keep working exactly as they did on a row,
+  and a row that states one overrides the setup's; a row that states none
+  inherits it. The reason is repetition: a thirteen-point polar repeats the
+  same four numbers thirteen times down the `FLIGHT_CONDITION` column, and one
+  mistyped digit on one row is then a physics nobody selected on that row
+  alone. The table holds the pins and nothing else: `MACH`, `TASmps` and
+  `REmi` are what a point IS and are refused there with that reason, and
+  `ALTFT` and `dISA` locate a point in the atmosphere the pins exist to
+  replace. A setup pinning `RHOkgm3` under a row stating `REmi` has that one
+  default dropped rather than refused, since the row has determined the
+  density itself. The run record gains `flight_condition_defaults`, the pins
+  that came from the setup with their values, beside the condition as
+  written, so a record stays recomputable once the constants leave the row.
+
 ### Changed
 
 - **A time step derived from `DELTA_THETA` and `REVOLUTIONS` is emitted as

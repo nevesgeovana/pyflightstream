@@ -397,6 +397,13 @@ solver's default. Those runs converge, export and publish numbers
 against a physics nobody selected. A refusal costs an edit; a silent
 drop costs a result.
 
+A preset may also carry a `[flight_condition]` table, which is not a
+solver setting and is not judged as one: it holds the fluid pins
+(`RHOkgm3`, `MUPas`, `ASMPS`, `TK`, `PPA`) that every row naming this
+setup inherits for the keys it does not state itself. See
+[Flight conditions](flight-conditions.md) for what may and may not go in
+it, and why a velocity may not.
+
 `stabilization` and `stabilization_strength` resolve as a PAIR into one
 number. Disabled means ABSENT and not a strength of zero, which would
 still be switched on.

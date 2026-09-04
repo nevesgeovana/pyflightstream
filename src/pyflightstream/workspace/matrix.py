@@ -638,6 +638,56 @@ _PRESET_RECORDED_ONLY = {
 #: is that the author knows their setting is not reaching the solver.
 _PRESET_RECORDED_ONLY_KEY = "recorded_only"
 
+#: The table a setup carries for the FLIGHT CONDITION rather than for the
+#: solver (PFS-2030.08). It is not a solver setting and is consumed before
+#: the key loop that would otherwise refuse it as one; its contents are
+#: judged by the resolver, which owns the pin vocabulary.
+_FLIGHT_CONDITION_TABLE = "flight_condition"
+
+
+def _condition_defaults(setup: SetupArtifact, set_code: str) -> dict[str, float]:
+    """Read a setup's flight-condition defaults, refusing what is not a number.
+
+    WHAT THIS FUNCTION DECIDES AND WHAT IT DOES NOT. It decides the
+    SHAPE: that the key names a table and that every value in it is a
+    finite number. It does NOT decide which keys may appear or whether
+    their values make sense, because that is the pin vocabulary and it
+    lives with the resolver that owns it
+    (:func:`~pyflightstream.workspace.flight_condition.resolve_flight_condition`).
+    Splitting it that way is what keeps one rule in one place: a key
+    added to the pins is accepted here the day it is added there, with no
+    second list to move.
+
+    A bool is excluded on its own line because it is an int in Python, so
+    ``MUPas = true`` would otherwise pin a viscosity of 1.0.
+    """
+    table = setup.settings.get(_FLIGHT_CONDITION_TABLE)
+    if table is None:
+        return {}
+    if not isinstance(table, dict):
+        raise InputArtifactError(
+            f"setup preset {set_code!r} states {_FLIGHT_CONDITION_TABLE} as {table!r}, "
+            f"and it is a TABLE of flight-condition pins, for example "
+            f"[{_FLIGHT_CONDITION_TABLE}] with MUPas = 1.789e-5 under it."
+        )
+    defaults: dict[str, float] = {}
+    for key, value in table.items():
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise InputArtifactError(
+                f"setup preset {set_code!r} states {_FLIGHT_CONDITION_TABLE}.{key} as "
+                f"{value!r}, and a flight-condition pin is a number."
+            )
+        number = float(value)
+        if number != number or number in (float("inf"), float("-inf")):
+            raise InputArtifactError(
+                f"setup preset {set_code!r} states {_FLIGHT_CONDITION_TABLE}.{key} as "
+                f"{value!r}, which is not a finite number. A fluid constant cannot be "
+                "stated as a NaN or an infinity, and one would otherwise reach the "
+                "emitted script unrefused."
+            )
+        defaults[key] = number
+    return defaults
+
 
 def _resolve_stabilization(settings: Mapping[str, object], set_code: str) -> float | None:
     """Resolve the two-key stabilization pair into one strength, or None.
@@ -715,6 +765,12 @@ def _solver_from_setup(setup: SetupArtifact, set_code: str) -> SolverSettings:
     # warning then told an author that a stabilization they had switched
     # ON emitted nothing, while the strength was in fact reaching the
     # script. A message that names the wrong outcome is worse than none.
+    # THE FLIGHT-CONDITION TABLE IS CONSUMED HERE, for the same reason
+    # the pair below it is: it is accepted, it is not a solver setting,
+    # and a key left in `settings` reaches the loop that refuses anything
+    # naming no setting this package can emit. `_condition_defaults`
+    # reads it from the artifact, so nothing is lost by dropping it.
+    settings.pop(_FLIGHT_CONDITION_TABLE, None)
     stabilization = _resolve_stabilization(settings, set_code)
     gated = "stabilization" in settings or "stabilization_strength" in settings
     settings.pop("stabilization", None)
@@ -769,7 +825,12 @@ def _solver_from_setup(setup: SetupArtifact, set_code: str) -> SolverSettings:
         available = sorted(
             known
             | set(_PRESET_ALIASES)
-            | {"stabilization", "stabilization_strength", _PRESET_RECORDED_ONLY_KEY}
+            | {
+                "stabilization",
+                "stabilization_strength",
+                _PRESET_RECORDED_ONLY_KEY,
+                _FLIGHT_CONDITION_TABLE,
+            }
         )
         raise InputArtifactError(
             f"setup preset {set_code!r} states key(s) {', '.join(sorted(refused))}, "
@@ -960,12 +1021,17 @@ def resolve_matrix(
     setups: dict[str, SetupArtifact] = {}
     pprocs: dict[str, PprocArtifact] = {}
     solvers: dict[str, SolverSettings] = {}
+    #: The flight-condition pins each setup supplies, by setup id
+    #: (PFS-2030.08). Read once per setup beside the solver settings, so a
+    #: malformed table is refused at the first row that names the file.
+    setup_pins: dict[str, dict[str, float]] = {}
     for row in rows:
         if row.ref_code not in references:
             references[row.ref_code] = _resolve_code(workspace, "reference", row.ref_code, row.pol)
         if row.set_code not in setups:
             setups[row.set_code] = _resolve_code(workspace, "setup", row.set_code, row.pol)
             solvers[row.set_code] = _solver_from_setup(setups[row.set_code], row.set_code)
+            setup_pins[row.set_code] = _condition_defaults(setups[row.set_code], row.set_code)
         if row.pproc_code not in pprocs:
             pprocs[row.pproc_code] = _resolve_code(workspace, "pproc", row.pproc_code, row.pol)
     sims: list[SimCase] = []
@@ -1050,6 +1116,13 @@ def resolve_matrix(
                 row.flight_condition,
                 pol=row.pol,
                 reference_length_m=reference.chord_m,
+                # PFS-2030.08: the fluid constants of the campaign live in
+                # the setup the row names, and the row states what varies.
+                # The origin travels as WORDS because the resolver never
+                # reaches an artifact and its refusals have to name the
+                # file the reader must open.
+                defaults=setup_pins[row.set_code],
+                defaults_origin=f"setup {row.set_code!r}",
             )
             conditions[row.pol] = resolved
             # The three the case already has fields for. The rest of the
@@ -1058,6 +1131,12 @@ def resolve_matrix(
             # rides on `conditions` rather than being flattened onto the
             # case, because the run record is what has to carry it and a
             # case is not a record.
+            # WHICH PINS CAME FROM THE SETUP, carried onto the case so the
+            # run record can say. Without it a row that states four fewer
+            # keys because its setup states them would record a resolution
+            # nothing in the record explains, and PFS-2027.05 asks the
+            # record to be recomputable rather than trusted.
+            update["flight_condition_defaults"] = dict(resolved.defaulted)
             update["mach"] = resolved.mach
             update["velocity"] = resolved.velocity_m_per_s
             update["reynolds"] = resolved.reynolds

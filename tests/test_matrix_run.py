@@ -51,6 +51,7 @@ from pyflightstream.workspace import (
     RunStatus,
     WorkspaceError,
 )
+from pyflightstream.workspace.flight_condition import FlightConditionError
 from pyflightstream.workspace.matrix import GEOMETRY_VARIABLE, resolve_matrix
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -297,6 +298,94 @@ def test_the_flight_condition_resolves_against_the_rows_own_reference(tmp_path):
     assert condition.stated == {"MACH": 0.1441, "REmi": 4.38}
     assert condition.density_source == "solved-from-reynolds"
     assert condition.reynolds == pytest.approx(4.38e6)
+
+
+def test_a_setup_supplies_the_flight_condition_pins(tmp_path):
+    """PFS-2030.08: the pins live in the setup, and the row states what varies.
+
+    The table is read where `recorded_only` and the stabilization pair are
+    read, BEFORE the loop that refuses a key naming no solver setting;
+    without that it would be refused as a misspelling of something.
+    """
+    workspace = make_library(tmp_path)
+    setup = workspace.inputs_dir / "setups" / f"{code_for('9001', 'set')}.toml"
+    setup.write_text(
+        setup.read_text(encoding="utf-8")
+        + "\n[flight_condition]\nMUPas = 1.789e-5\nASMPS = 340.29\n",
+        encoding="utf-8",
+    )
+    with pytest.warns(UserWarning, match="wake_layers"):
+        resolved = resolve_matrix(
+            FIXTURE,
+            workspace,
+            name="matrix",
+            fs_version="26.120",
+            recipes=RECIPES,
+            fs_exe="C:/fs/FlightStream.exe",
+        )
+    condition = resolved.conditions["9001"]
+    assert condition.viscosity_pa_s == 1.789e-5
+    assert condition.sonic_velocity_m_per_s == 340.29
+    # The row is unchanged and says so; the four it did not state are
+    # beside it, not folded into it.
+    assert condition.stated == {"MACH": 0.1441, "REmi": 4.38}
+    assert condition.defaulted == {"MUPas": 1.789e-5, "ASMPS": 340.29}
+    assert code_for("9001", "set") in condition.defaults_origin
+    # AND THE PINS ARE LOAD-BEARING, which is the half an equality of
+    # dictionaries would not show: Mach is taken against the pinned sonic
+    # velocity and the density is solved against the pinned viscosity.
+    assert condition.velocity_m_per_s == pytest.approx(0.1441 * 340.29)
+    assert condition.density_kg_m3 == pytest.approx(
+        4.38e6 * 1.789e-5 / (condition.velocity_m_per_s * 1.2)
+    )
+    # And the record's half: the case carries what the row did not state,
+    # so a run record written from it is recomputable.
+    case = {sim.sim_id: sim for sim in resolved.campaign.sims}["9001"]
+    assert case.flight_condition == {"MACH": 0.1441, "REmi": 4.38}
+    assert case.flight_condition_defaults == {"MUPas": 1.789e-5, "ASMPS": 340.29}
+    assert case.fluid.viscosity_pa_s == 1.789e-5
+
+
+def test_a_setup_flight_condition_table_refuses_a_key_that_is_not_a_pin(tmp_path):
+    """And it is refused as a flight-condition key, not as a solver setting."""
+    workspace = make_library(tmp_path)
+    setup = workspace.inputs_dir / "setups" / f"{code_for('9001', 'set')}.toml"
+    setup.write_text(
+        setup.read_text(encoding="utf-8") + "\n[flight_condition]\nMACH = 0.2\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(FlightConditionError, match="MACH") as refused:
+        with pytest.warns(UserWarning, match="wake_layers"):
+            resolve_matrix(
+                FIXTURE,
+                workspace,
+                name="matrix",
+                fs_version="26.120",
+                recipes=RECIPES,
+                fs_exe="C:/fs/FlightStream.exe",
+            )
+    assert code_for("9001", "set") in str(refused.value)
+    assert "MUPas" in str(refused.value), "the refusal lists what the table may hold"
+
+
+def test_a_setup_flight_condition_table_of_the_wrong_shape_is_refused(tmp_path):
+    """A number is a number: a string there would reach a solved state."""
+    workspace = make_library(tmp_path)
+    setup = workspace.inputs_dir / "setups" / f"{code_for('9001', 'set')}.toml"
+    setup.write_text(
+        setup.read_text(encoding="utf-8") + '\n[flight_condition]\nMUPas = "thin"\n',
+        encoding="utf-8",
+    )
+    with pytest.raises(InputArtifactError, match="MUPas"):
+        with pytest.warns(UserWarning, match="wake_layers"):
+            resolve_matrix(
+                FIXTURE,
+                workspace,
+                name="matrix",
+                fs_version="26.120",
+                recipes=RECIPES,
+                fs_exe="C:/fs/FlightStream.exe",
+            )
 
 
 def test_the_resolved_state_reaches_the_case_fields_it_has(tmp_path):

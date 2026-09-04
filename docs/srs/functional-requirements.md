@@ -1616,3 +1616,28 @@ nodes.
     `cases/workflows.py:167-175`; named reference points already resolve
     by name (PFS-2025.15, evidenced), so what is new is the nesting and
     the repetition, not the points.
+
+!!! requirement "FR-58 The fluid constants of a campaign have one home <span class='srs-pending'>pending</span>"
+    *Origin: the author's instruction of 2026-09-04, 'vamos trabalhar com
+    valores default ... dessa forma nao precisa inputar na matrix, eles podem
+    ficar no s001'. Carried by PFS-2030.08. Evidence owed: the tests that node
+    names.*
+
+    A setup artifact may carry a `[flight_condition]` table holding the five
+    pins of FR-54 and nothing else. A row that states a pin overrides the
+    setup's, key by key; a row that states none inherits it; and the resolved
+    state is the same state either way. A velocity key or a Reynolds number
+    there is refused, because those are what a point IS and a preset several
+    rows share cannot state them; an altitude or an ISA deviation is refused,
+    because those locate a point in the atmosphere the pins exist to replace.
+    A setup pinning a density under a row stating a Reynolds number has that
+    one default dropped rather than refused. The run record carries the pins
+    the setup supplied beside the condition as written, so it stays
+    recomputable once the constants leave the row.
+
+    Measured 2026-09-04: the author's three reproduction rows each repeat the
+    same four constants, and her thirteen-point polar would repeat them
+    thirteen times; the package's own sea-level atmosphere gives viscosity
+    1.7892976260350732e-05 and sonic velocity 340.293988026089 where her tool
+    states 1.789e-5 and 340.29, so the pins cannot be dropped in favour of the
+    standard atmosphere.

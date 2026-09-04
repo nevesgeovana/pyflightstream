@@ -71,6 +71,34 @@ state as an altitude, which is why :attr:`ResolvedCondition.density_source`
 exists, and why the run record carries both it and the inputs as
 written, in ``density_source`` and ``flight_condition``.
 
+WHERE A PIN MAY LIVE (PFS-2030.08). The five pins state constants of
+the fluid, and a constant of the fluid is usually a constant of the
+CAMPAIGN rather than of the point: one campaign's thirteen-point polar
+would otherwise repeat the same four numbers thirteen times down the
+FLIGHT_CONDITION column, where a single mistyped digit on one row is a
+physics nobody selected on that row alone. So a setup artifact may carry
+them, and this resolver takes them as ``defaults``: a row that states a
+pin overrides the setup's, key by key, and a row that states none
+inherits it.
+
+WHAT MAY NOT BE DEFAULTED, and the line is the design rather than
+caution. The velocity keys and ``REmi`` are what the resolver solves
+FOR, and a preset several rows share cannot state them: a row inheriting
+a Mach number would be a case nobody wrote, and it would look exactly
+like a row that stated one. ``ALTFT`` and ``dISA`` select a point IN the
+atmosphere, which the pins exist to replace rather than to locate. So
+the defaults table holds pins and nothing else, and anything else in it
+is refused naming where it came from.
+
+ONE DEFAULT CAN BE SUPERSEDED WITHOUT CONTRADICTING ANYTHING, and it is
+``RHOkgm3``. A ROW stating both it and ``REmi`` is refused, because each
+fixes the density and the two together are a contradiction. A SETUP
+pinning a density is not making that statement about any one row: a row
+that solves its own density has determined that quantity itself, so the
+default is DROPPED rather than refused, and :attr:`ResolvedCondition.defaulted`
+says so by not listing it. Refusing instead would mean a setup carrying
+a density could never serve a Reynolds row.
+
 WHY A REYNOLDS CONSTRAINT NEEDS THE REFERENCE (PFS-2027.04). A Reynolds
 number is meaningless without a length, and the dependency is not
 academic: the same ``MACH:0.20, REmi:5.5`` against a unit chord gives a
@@ -90,6 +118,7 @@ state, and the resolver runs AFTER reference resolution.
 from __future__ import annotations
 
 import math
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 
 from pyflightstream._atmosphere import (
@@ -116,6 +145,33 @@ PINNED_KEYS = {
     "ASMPS": "sonic_velocity_m_per_s",
     "TK": "temperature_k",
     "PPA": "pressure_pa",
+}
+
+
+#: What a defaults table may NOT hold, with the reason each refusal
+#: states. Built from the tables above so the two cannot drift: a key
+#: added to the velocity set is refused here the day it is added.
+_UNDEFAULTABLE = {
+    **{
+        key: (
+            "states the VELOCITY, which is what makes a point that point; a row "
+            "inheriting it from a preset several rows share would be a case nobody "
+            "wrote, and would look exactly like a row that stated one"
+        )
+        for key in VELOCITY_KEYS
+    },
+    DENSITY_KEY: (
+        "is a constraint the resolver solves the DENSITY from, not a constant of the "
+        "fluid; it belongs on the row whose point it describes"
+    ),
+    "ALTFT": (
+        "selects a point IN the atmosphere, and the pins exist to replace what the "
+        "atmosphere supplies rather than to locate a point in it"
+    ),
+    "dISA": (
+        "selects a point IN the atmosphere, and the pins exist to replace what the "
+        "atmosphere supplies rather than to locate a point in it"
+    ),
 }
 
 
@@ -163,10 +219,23 @@ class ResolvedCondition:
     #: because the state cannot be checked without it.
     reference_length_m: float | None = None
     stated: dict[str, float] = field(default_factory=dict)
-    #: Which resolved fields were PINNED by the row rather than derived, in
-    #: the order the keys are declared. Empty for a condition that pins
-    #: nothing, which is every condition written before 0.11.0.
+    #: Which resolved fields were PINNED rather than derived, in the order
+    #: the keys are declared, WHEREVER the pin came from. Empty for a
+    #: condition that pins nothing, which is every condition written
+    #: before 0.11.0. What it answers is which quantities were pinned;
+    #: :attr:`defaulted` answers where from.
     pinned: tuple[str, ...] = ()
+    #: The pins that came from the DEFAULTS rather than from the row, with
+    #: the values used. ``stated`` stays as the row wrote it, so a record
+    #: carrying both is recomputable: without this, a row that states four
+    #: fewer keys because its setup states them would record a resolution
+    #: nothing in the record explains.
+    defaulted: dict[str, float] = field(default_factory=dict)
+    #: Where those defaults came from, as the caller named it, for example
+    #: ``"setup s001"``. None when none were supplied. Carried because a
+    #: reader of the record has to know which FILE to open, and this
+    #: module never reaches an artifact.
+    defaults_origin: str | None = None
 
 
 def resolve_flight_condition(
@@ -174,6 +243,8 @@ def resolve_flight_condition(
     *,
     pol: str,
     reference_length_m: float | None = None,
+    defaults: Mapping[str, float] | None = None,
+    defaults_origin: str | None = None,
 ) -> ResolvedCondition:
     """Resolve a parsed flight condition into one flow state.
 
@@ -191,6 +262,18 @@ def resolve_flight_condition(
         The reference length the row's REF artifact carries. Required
         only when ``REmi`` is stated, and refused-for by name when it is
         stated and this is None.
+    defaults : mapping or None
+        Pins the row's SETUP artifact supplies, applied to the keys the
+        row does not state (PFS-2030.08). Only the five pins may appear;
+        anything else is refused naming ``defaults_origin``. A
+        ``RHOkgm3`` default is dropped, not refused, on a row that states
+        ``REmi``.
+    defaults_origin : str or None
+        Where those defaults came from, in words a reader can act on, for
+        example ``"setup s001"``. Named in every refusal about the table,
+        and recorded on the resolved state. Required in practice whenever
+        ``defaults`` is given: this module never reaches an artifact, so
+        without it a refusal cannot say which file to edit.
 
     Returns
     -------
@@ -243,7 +326,52 @@ def resolve_flight_condition(
             f"'MACH:0.20, REmi:5.5' or 'TASmps:68.08, ALTFT:10000, dISA:5'."
         )
 
-    given_velocity = [key for key in VELOCITY_KEYS if key in stated]
+    # THE DEFAULTS ARE JUDGED FIRST, before anything about this row, and
+    # for the reason that they are not about this row: a setup several
+    # rows share is one file, and refusing it at the first row that reads
+    # it names the file rather than whichever point happened to be first.
+    supplied = dict(defaults or {})
+    origin = defaults_origin or "the defaults"
+    for key, value in supplied.items():
+        if key in _UNDEFAULTABLE:
+            raise FlightConditionError(
+                f"{origin} states {key}, and {key} {_UNDEFAULTABLE[key]}. A defaults "
+                f"table holds the fluid pins and nothing else: "
+                f"{', '.join(PINNED_KEYS)}. State {key} on the row it describes."
+            )
+        if key not in PINNED_KEYS:
+            raise FlightConditionError(
+                f"{origin} states {key!r}, which is not a flight-condition pin. A "
+                f"defaults table holds the fluid pins and nothing else: "
+                f"{', '.join(PINNED_KEYS)}."
+            )
+        if value <= 0.0:
+            raise FlightConditionError(
+                f"{origin} pins {key}:{value:g}, and {key} is a positive quantity."
+            )
+    # A DEFAULT THE ROW SUPERSEDES IS DROPPED, and `RHOkgm3` under a
+    # stated `REmi` is the only way that happens: see the module
+    # docstring for why this is not the contradiction the row-level check
+    # below refuses.
+    defaulted = {
+        key: value
+        for key, value in supplied.items()
+        if key not in stated and not (key == "RHOkgm3" and DENSITY_KEY in stated)
+    }
+    # THE ROW WINS, KEY BY KEY, AND THE COMPREHENSION ABOVE IS WHERE IT
+    # WINS, not this merge. The two mappings are disjoint by
+    # construction, since a key the row states never enters `defaulted`,
+    # so swapping the order below changes no outcome: measured
+    # 2026-09-04 by a mutation that survived the whole suite. It is
+    # written in the order that reads correctly anyway, and the
+    # disjointness is asserted in the tests rather than left to this
+    # paragraph. Everything from here down reads the merged mapping;
+    # `stated` survives untouched into the record, which is what keeps
+    # the resolution recomputable from the row plus the file the origin
+    # names.
+    effective = {**defaulted, **stated}
+
+    given_velocity = [key for key in VELOCITY_KEYS if key in effective]
     if not given_velocity:
         raise FlightConditionError(
             f"the flight condition of POL {pol} determines no VELOCITY, so the flow "
@@ -255,15 +383,15 @@ def resolve_flight_condition(
     if len(given_velocity) > 1:
         raise FlightConditionError(
             f"the flight condition of POL {pol} states both "
-            f"{' and '.join(f'{key}:{stated[key]}' for key in given_velocity)}, and "
+            f"{' and '.join(f'{key}:{effective[key]}' for key in given_velocity)}, and "
             "each fixes the velocity on its own, so the two together are a "
             "contradiction rather than more information. Preferring one silently "
             "would solve a condition nobody asked for; state one and delete the "
             "other."
         )
 
-    altitude_ft = stated.get("ALTFT", 0.0)
-    delta_isa_c = stated.get("dISA", 0.0)
+    altitude_ft = effective.get("ALTFT", 0.0)
+    delta_isa_c = effective.get("dISA", 0.0)
     # The floor speaks metres, because the model is defined in metres,
     # and the user wrote feet. Re-raise here rather than letting the
     # floor's message reach a matrix user unchanged: this is the layer
@@ -309,7 +437,11 @@ def resolve_flight_condition(
     # against; a pinned sonic velocity is what MACH is taken against; a
     # pinned density wins over the atmosphere, and beside REmi it is a
     # contradiction that is refused rather than silently ignored.
-    pinned = tuple(key for key in PINNED_KEYS if key in stated)
+    pinned = tuple(key for key in PINNED_KEYS if key in effective)
+    # ON THE ROW, and deliberately not on the merged mapping: this is the
+    # contradiction of stating both, and a setup's density under a row's
+    # Reynolds number is not that statement. The drop above is what makes
+    # the distinction, and it makes this check unreachable for a default.
     if "RHOkgm3" in stated and DENSITY_KEY in stated:
         raise FlightConditionError(
             f"the flight condition of POL {pol} states both RHOkgm3:{stated['RHOkgm3']} "
@@ -317,27 +449,27 @@ def resolve_flight_condition(
             "own: the first pins it and the second solves it. State one."
         )
     for key in pinned:
-        if stated[key] <= 0.0:
+        if effective[key] <= 0.0:
             raise FlightConditionError(
-                f"the flight condition of POL {pol} pins {key}:{stated[key]:g}, and "
+                f"the flight condition of POL {pol} pins {key}:{effective[key]:g}, and "
                 f"{key} is a positive quantity."
             )
-    sonic_velocity = stated.get("ASMPS", atmosphere.sonic_velocity_m_per_s)
-    viscosity = stated.get("MUPas", atmosphere.viscosity_pa_s)
-    temperature = stated.get("TK", atmosphere.temperature_k)
-    pressure = stated.get("PPA", atmosphere.pressure_pa)
-    if "MACH" in stated:
-        velocity = stated["MACH"] * sonic_velocity
+    sonic_velocity = effective.get("ASMPS", atmosphere.sonic_velocity_m_per_s)
+    viscosity = effective.get("MUPas", atmosphere.viscosity_pa_s)
+    temperature = effective.get("TK", atmosphere.temperature_k)
+    pressure = effective.get("PPA", atmosphere.pressure_pa)
+    if "MACH" in effective:
+        velocity = effective["MACH"] * sonic_velocity
     else:
-        velocity = stated["TASmps"]
+        velocity = effective["TASmps"]
     mach = velocity / sonic_velocity
 
     reynolds: float | None
-    if DENSITY_KEY in stated:
+    if DENSITY_KEY in effective:
         if reference_length_m is None:
             raise FlightConditionError(
                 f"the flight condition of POL {pol} states "
-                f"{DENSITY_KEY}:{stated[DENSITY_KEY]}, and a Reynolds number is "
+                f"{DENSITY_KEY}:{effective[DENSITY_KEY]}, and a Reynolds number is "
                 "meaningless without the reference LENGTH it is measured against, "
                 "which lives in the reference artifact the row's REF cell names. "
                 "That row names no reference. Give it one, or state the condition "
@@ -348,12 +480,12 @@ def resolve_flight_condition(
                 "about 0.15 m gives densities differing by the ratio of the two "
                 "lengths, near a factor of seven."
             )
-        reynolds = stated[DENSITY_KEY] * 1e6
+        reynolds = effective[DENSITY_KEY] * 1e6
         density = reynolds * viscosity / (velocity * reference_length_m)
         density_source = "solved-from-reynolds"
     else:
-        if "RHOkgm3" in stated:
-            density = stated["RHOkgm3"]
+        if "RHOkgm3" in effective:
+            density = effective["RHOkgm3"]
             density_source = "pinned"
         else:
             density = atmosphere.density_kg_m3
@@ -380,4 +512,6 @@ def resolve_flight_condition(
         reference_length_m=reference_length_m,
         stated=dict(stated),
         pinned=pinned,
+        defaulted=defaulted,
+        defaults_origin=defaults_origin,
     )

@@ -2,8 +2,8 @@
  "source": "docs/srs",
  "generated_by": "scripts/gen_requirements_index.py",
  "traceability": {
-  "cited_by_a_test": 48,
-  "total": 109,
+  "cited_by_a_test": 49,
+  "total": 110,
   "method": "upper bound: an id mentioned anywhere in tests/**/*.py excluding conftest.py, which is not the marked falsifying test NFR-13 asks for"
  },
  "requirements": [
@@ -621,6 +621,14 @@
    "priority": "M",
    "status": "pending",
    "evidence": "*Origin: the author's item #4 of 2026-09-02, the multirotor syntax. Carried by PFS-2029.11 and its children. Evidence owed: the tests each node names.*",
+   "verification": "none"
+  },
+  {
+   "id": "FR-58",
+   "text": "A setup artifact may carry a [flight_condition] table holding the five pins of FR-54 and nothing else. A row that states a pin overrides the setup's, key by key; a row that states none inherits it; and the resolved state is the same state either way. A velocity key or a Reynolds number there is refused, because those are what a point IS and a preset several rows share cannot state them; an altitude or an ISA deviation is refused, because those locate a point in the atmosphere the pins exist to replace. A setup pinning a density under a row stating a Reynolds number has that one default dropped rather than refused. The run record carries the pins the setup supplied beside the condition as written, so it stays recomputable once the constants leave the row.",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: the author's instruction of 2026-09-04, 'vamos trabalhar com valores default ... dessa forma nao precisa inputar na matrix, eles podem ficar no s001'. Carried by PFS-2030.08. Evidence owed: the tests that node names.*",
    "verification": "none"
   },
   {

@@ -96,6 +96,61 @@ as an altitude, which is why the run record carries **which branch**
 produced the density, in its `density_source` field, beside the resolved
 density, temperature and viscosity and the condition as written.
 
+## Where a pin may live: the row, or the setup it names
+
+A pin states a constant of the FLUID, and a constant of the fluid is
+usually a constant of the whole campaign rather than of one point. So it
+may live in the setup artifact the row's `SET` cell names:
+
+```toml
+# inputs/setups/s001.toml
+NITER = 500
+convergence = 1e-5
+
+[flight_condition]
+MUPas = 1.789e-5
+ASMPS = 340.29
+TK = 288.15
+PPA = 101325
+```
+
+and the rows then state only what varies:
+
+```text
+3207 | ... | MACH:0.2, REmi:11.7716754 | ... | s001 | ...
+```
+
+The row wins, key by key. A row stating `ASMPS:335.0` against that setup
+resolves at 335.0 and inherits the other three. A row stating nothing
+inherits all four. Nothing about the resolution changes: the same state
+comes out, whichever file the number was written in.
+
+Why bother: a thirteen-point polar repeats those four numbers thirteen
+times in the column, and a single mistyped digit on one row is a physics
+nobody selected **on that row alone**, which is the version of the
+mistake that is hardest to see in the results.
+
+The table holds the five pins and nothing else, and the two exclusions
+are the design rather than caution.
+
+* `MACH`, `TASmps` and `REmi` are what the resolver solves for, and a
+  preset several rows share cannot state them. A row inheriting a Mach
+  number would be a case nobody wrote, and it would look exactly like a
+  row that stated one.
+* `ALTFT` and `dISA` select a point IN the atmosphere, which the pins
+  exist to replace rather than to locate.
+
+One default can be superseded without contradicting anything, and it is
+`RHOkgm3`. A ROW stating both it and `REmi` is refused, because each
+fixes the density; a SETUP pinning a density is not making that statement
+about any one row, so a row that solves its own density simply drops that
+default. Refusing instead would mean a setup carrying a density could
+never serve a Reynolds row.
+
+The run record says where each number came from: `flight_condition` is
+the row as written, and `flight_condition_defaults` is what the setup
+supplied, with the values used.
+
 ## A Reynolds number needs a reference length
 
 `REmi` on a row that names no `REF` is refused, naming both. The

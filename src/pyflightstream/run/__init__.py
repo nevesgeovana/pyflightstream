@@ -2791,6 +2791,7 @@ def _execute_point(
         # PFS-2027.05: the inputs as written and the resolved state, so
         # the record is recomputable rather than merely trusted.
         "flight_condition": dict(case.flight_condition),
+        "flight_condition_defaults": dict(case.flight_condition_defaults),
         "density_kg_m3": None if case.fluid is None else case.fluid.density_kg_m3,
         "temperature_k": None if case.fluid is None else case.fluid.temperature_k,
         "viscosity_pa_s": None if case.fluid is None else case.fluid.viscosity_pa_s,

@@ -120,6 +120,10 @@ _DIMENSIONLESS_OR_DEBT = {
     # suffix on the CONTAINER would be a claim about the container that
     # is not true of any one entry (PFS-2027.01).
     "flight_condition",
+    # Same table, same keys, and therefore the same reason: it holds the
+    # pins a setup artifact supplied for a row that did not state them
+    # (PFS-2030.08), so MUPas is Pa s and ASMPS is m/s inside one dict.
+    "flight_condition_defaults",
     "point",  # sweep point: axis name to value
     "values",  # sweep values along a declared axis
     "default",  # command-schema default, type per command

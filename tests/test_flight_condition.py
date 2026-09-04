@@ -281,6 +281,168 @@ def test_a_non_positive_pin_is_refused_naming_the_key(key):
         resolve_flight_condition({"TASmps": 68.0, key: 0.0}, pol="P1", reference_length_m=1.0)
 
 
+# --- FR-58, PFS-2030.08: a setup supplies the pins a row leaves out ----------
+#
+# Her instruction of 2026-09-04: the four constants her tool writes on every
+# script are constants of the campaign's fluid, so they belong in the SETUP
+# artifact a row names and not repeated down the FLIGHT_CONDITION column. The
+# resolver owns which keys may be defaulted, because it owns the pin table;
+# the caller supplies the origin string, because it knows which file the
+# table came from and the refusal has to name it.
+
+ORIGIN = "setup s001"
+
+
+def test_a_setup_supplies_the_pins_a_row_leaves_out():
+    """Her steady state, with the four constants moved out of the row.
+
+    The assertion that carries the change is the LAST one: the same
+    resolved state, to the last digit, as the row that stated all five.
+    """
+    state = resolve_flight_condition(
+        {"TASmps": 68.058, "RHOkgm3": 1.225},
+        pol="3207",
+        reference_length_m=CHORD_M,
+        defaults=HER_PINS,
+        defaults_origin=ORIGIN,
+    )
+    assert state.viscosity_pa_s == 1.789e-5
+    assert state.sonic_velocity_m_per_s == 340.29
+    assert state.temperature_k == 288.15
+    assert state.pressure_pa == 101325.0
+    # AS WRITTEN stays as written: the row stated two keys and the record
+    # says two, with the inherited four beside them rather than folded in.
+    assert state.stated == {"TASmps": 68.058, "RHOkgm3": 1.225}
+    assert state.defaulted == HER_PINS
+    assert state.defaults_origin == ORIGIN
+    # THE TWO MAPPINGS ARE DISJOINT, always, and the resolver's merge
+    # therefore decides nothing: what the row states never enters
+    # `defaulted`, which is where the row's precedence actually lives.
+    assert not set(state.defaulted) & set(state.stated)
+    # `pinned` is the union, in the pin table's own order, because what it
+    # answers is which quantities were pinned rather than where from.
+    assert state.pinned == ("RHOkgm3", "MUPas", "ASMPS", "TK", "PPA")
+    stated_in_the_row = resolve_flight_condition(
+        {"TASmps": 68.058, "RHOkgm3": 1.225, **HER_PINS},
+        pol="3207",
+        reference_length_m=CHORD_M,
+    )
+    assert _render_fluid(state) == _render_fluid(stated_in_the_row)
+
+
+def test_a_row_pin_overrides_the_setup_default():
+    """The row is the narrower statement and wins, key by key."""
+    state = resolve_flight_condition(
+        {"TASmps": 68.058, "ASMPS": 300.0},
+        pol="P1",
+        reference_length_m=CHORD_M,
+        defaults=HER_PINS,
+        defaults_origin=ORIGIN,
+    )
+    assert state.sonic_velocity_m_per_s == 300.0
+    assert state.viscosity_pa_s == 1.789e-5, "the other three still come from the setup"
+    assert "ASMPS" not in state.defaulted
+    assert state.defaulted == {"MUPas": 1.789e-5, "TK": 288.15, "PPA": 101325.0}
+
+
+def test_a_setup_density_default_yields_to_a_stated_reynolds():
+    """The one default a row can supersede without contradicting it.
+
+    A row stating RHOkgm3 AND REmi is refused, because each fixes the
+    density and the two together are a contradiction. A SETUP that pins a
+    density is not making that statement about this row: it is the
+    campaign's fluid, and a row that solves its own density has simply
+    determined that quantity itself. Refusing here would mean a setup
+    carrying a density could never serve a Reynolds row, so the default is
+    DROPPED, and the record says so by not listing it.
+    """
+    state = resolve_flight_condition(
+        {"TASmps": 68.058, "REmi": 11.7717},
+        pol="3224",
+        reference_length_m=CHORD_M,
+        defaults={"RHOkgm3": 1.225, "MUPas": 1.789e-5},
+        defaults_origin=ORIGIN,
+    )
+    assert state.density_kg_m3 == 1.2250025634834727
+    assert state.density_source == "solved-from-reynolds"
+    assert state.defaulted == {"MUPas": 1.789e-5}
+    assert state.pinned == ("MUPas",)
+
+
+@pytest.mark.parametrize(
+    ("key", "because"),
+    [
+        # EACH REFUSAL IS ASSERTED ON ITS OWN REASON and not merely on
+        # the key, and a mutation is why: deleting the whole reason table
+        # left every one of these green, because the generic "not a pin"
+        # refusal below it also names the key, the origin and the pins.
+        # A message that refuses for the wrong reason teaches the wrong
+        # thing, and the reason is the entire content of this rule.
+        ("MACH", "VELOCITY"),
+        ("TASmps", "VELOCITY"),
+        ("REmi", "DENSITY"),
+        ("ALTFT", "atmosphere"),
+        ("dISA", "atmosphere"),
+    ],
+)
+def test_a_setup_flight_condition_table_refuses_a_key_that_states_the_point(key, because):
+    """A point may not inherit what makes it that point.
+
+    The velocity keys and REmi are what the resolver solves FOR, and a
+    preset several rows share cannot state them: a row inheriting MACH
+    would be a case nobody wrote, and it would look exactly like a row
+    that stated one. ALTFT and dISA locate a point IN the atmosphere,
+    which the pins exist to replace rather than to locate.
+    """
+    with pytest.raises(FlightConditionError, match=key) as refused:
+        resolve_flight_condition(
+            {"TASmps": 68.058},
+            pol="P1",
+            reference_length_m=CHORD_M,
+            defaults={key: 0.2},
+            defaults_origin=ORIGIN,
+        )
+    assert because in str(refused.value), "refused, but not for the reason the rule has"
+    assert ORIGIN in str(refused.value)
+    assert "MUPas" in str(refused.value), "the refusal lists what the table may hold"
+
+
+def test_a_setup_flight_condition_table_refuses_a_key_it_has_never_heard_of():
+    """The fallback the parametrised refusals above must NOT be answered by."""
+    with pytest.raises(FlightConditionError, match="MUpas") as refused:
+        resolve_flight_condition(
+            {"TASmps": 68.058},
+            pol="P1",
+            reference_length_m=CHORD_M,
+            defaults={"MUpas": 1.789e-5},
+            defaults_origin=ORIGIN,
+        )
+    assert "not a flight-condition pin" in str(refused.value)
+    assert ORIGIN in str(refused.value)
+
+
+def test_a_non_positive_setup_default_is_refused_naming_the_setup():
+    """The same rule as a row pin, and the message names the file to edit."""
+    with pytest.raises(FlightConditionError, match="MUPas") as refused:
+        resolve_flight_condition(
+            {"TASmps": 68.058},
+            pol="P1",
+            reference_length_m=CHORD_M,
+            defaults={"MUPas": 0.0},
+            defaults_origin=ORIGIN,
+        )
+    assert ORIGIN in str(refused.value)
+
+
+def test_no_defaults_resolves_exactly_as_before():
+    """Every condition written before this node, unchanged and unpinned."""
+    state = resolve_flight_condition({"MACH": 0.20, "REmi": 5.5}, pol="P1", reference_length_m=1.0)
+    assert state.defaulted == {}
+    assert state.defaults_origin is None
+    assert state.pinned == ()
+    assert round(state.velocity_m_per_s, 4) == 68.0588
+
+
 def _render_fluid(state) -> list[str]:
     fluid = FluidState(
         velocity_m_per_s=state.velocity_m_per_s,
