@@ -11,10 +11,13 @@ release rather than per commit.
 
 from __future__ import annotations
 
+import re
 import tomllib
 from pathlib import Path
 
+import pytest
 import yaml
+from packaging.version import parse as parse_version
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
@@ -249,6 +252,85 @@ def test_every_release_heading_has_a_link_definition_and_the_compare_base_is_cur
     )
 
 
+DECLARATION = re.compile(r"This is a (RELEASE|DEVELOPMENT) tree")
+
+
+def test_the_header_declares_the_kind_of_tree_it_actually_heads():
+    """The paragraph that flips with each release, made a refusal.
+
+    IT HAD FAILED TWICE, once in each direction: on 2026-08-11 the version
+    moved to .dev0 while the paragraph still said RELEASE, and on
+    2026-09-04 the v0.12.0 release commit set the version and the date and
+    left it saying DEVELOPMENT. Both were caught by a reviewer reading
+    prose against fields, which is the most expensive detector available
+    and the one not always in the room. The file itself concluded that a
+    paragraph a human must remember to flip will keep not flipping, and
+    then accepted the residual; a quality review measured that the residual
+    was avoidable, and this is the six lines it costs.
+
+    THE ANCHOR IS LOAD-BEARING and a naive form does not work. Both words
+    now appear in the paragraph, because it narrates its own two failures,
+    so asserting on the PRESENCE of RELEASE or DEVELOPMENT would be
+    ambiguous in exactly the tree that motivated the guard. The declaration
+    sentence is matched instead, and its uniqueness is asserted, so moving
+    the wording says the anchor moved rather than silently reading a
+    narrative sentence.
+
+    PROVED AGAINST THE BASE rather than against its own name: run over the
+    blob of c90e921 this reads DEVELOPMENT and fails, and over 192af7d it
+    reads RELEASE and passes.
+    """
+    citation = (REPO_ROOT / "CITATION.cff").read_text(encoding="utf-8")
+    found = DECLARATION.findall(citation)
+    assert len(found) == 1, (
+        f"the header carries {len(found)} tree declarations and this guard reads one; "
+        "the anchor 'This is a <KIND> tree' moved, so fix the anchor rather than "
+        "the assertion"
+    )
+    version = parse_version(_pyproject_version())
+    expected = "DEVELOPMENT" if version.is_prerelease or version.is_devrelease else "RELEASE"
+    assert found[0] == expected, (
+        f"CITATION.cff heads itself '{found[0]} tree' while pyproject declares "
+        f"{_pyproject_version()!r}, which is a {expected} version. The paragraph is "
+        "written as a statement about the tree and has stopped being one."
+    )
+
+
+def test_the_newest_archive_row_names_the_version_this_tree_states():
+    """The identifiers block is read by nothing, and it is what the row IS.
+
+    Measured by a quality review on 2026-09-04: no test in this repository
+    reads `identifiers`, so the whole content of the commit that added the
+    v0.12.0 archive row was invariant under the suite. The row could have
+    been mistyped, duplicated, or left naming the previous release, and
+    every assertion would still have passed.
+
+    THIS DOES NOT RESOLVE A DOI. Resolution is network evidence and belongs
+    beside the archive read-back the release records by hand; what a tier-1
+    test can hold is that the newest row NAMES this tree's version, that the
+    rows are unique, and that the concept DOI is last.
+    """
+    citation = yaml.safe_load((REPO_ROOT / "CITATION.cff").read_text(encoding="utf-8"))
+    rows = [i for i in citation.get("identifiers", []) if i.get("type") == "doi"]
+    assert rows, "CITATION.cff carries no archive identifier at all"
+    values = [row["value"] for row in rows]
+    assert len(values) == len(set(values)), (
+        f"an archive DOI appears twice in CITATION.cff: {values}"
+    )
+    assert "concept" in rows[-1].get("description", "").lower(), (
+        "the last identifier is not the concept DOI, which the file's own header "
+        f"says it must be; it reads {rows[-1].get('description')!r}"
+    )
+    version = parse_version(_pyproject_version())
+    if version.is_prerelease or version.is_devrelease:
+        pytest.skip("a development tree's newest row names the release before it")
+    assert f"v{_pyproject_version()}" in rows[0].get("description", ""), (
+        f"the newest archive row reads {rows[0].get('description')!r} while this tree "
+        f"states version {_pyproject_version()}. A version DOI is recorded one commit "
+        "after the tag it names, so on a release tree the two agree."
+    )
+
+
 def test_the_release_date_is_the_one_the_changelog_states():
     """Asserted present since v0.4.0, and never asserted correct.
 
@@ -262,7 +344,11 @@ def test_the_release_date_is_the_one_the_changelog_states():
     citation = (root / "CITATION.cff").read_text(encoding="utf-8")
     stated = re.search(r"^date-released:\s*(\S+)", citation, re.M)
     if stated is None:
-        return  # a development version carries none, which its own guard covers
+        # SKIPPED AND NOT PASSED. A bare `return` here reported green for a
+        # check that asserted nothing, which is the difference between a
+        # test that ran and a test that was not applicable. Found by a
+        # quality review, 2026-09-04.
+        pytest.skip("a development version carries no date; its own guard covers the absence")
     text = (root / "CHANGELOG.md").read_text(encoding="utf-8")
     heading = re.search(r"^## \[(?!Unreleased)([^\]]+)\] - (\S+)", text, re.M)
     assert heading, "no dated release heading to compare against"
