@@ -11,23 +11,29 @@ license: MIT
 # because a development tree has no release date; it once stated the
 # v0.3.0 date beside version 0.4.0.dev0, so a citation generated from
 # that tree asserted a release date for an artifact that was never
-# released (REV010-015). This is a DEVELOPMENT tree: the version
-# carries .dev0 and NO date-released stands beside it, which is the
-# pair the guard in tests/test_metadata_currency.py enforces in both
-# directions. The release commit sets the two together the other way
-# and this sentence flips with them; it is written as a statement
-# about the tree rather than as a rule so that it cannot quietly stop
-# describing the file it heads. It did stop once, on 2026-08-11, when
-# the version moved to .dev0 and this paragraph still said RELEASE:
-# the guard reads the two fields and cannot read prose, which is the
-# residual the wording was chosen to make visible rather than remove.
+# released (REV010-015). This is a RELEASE tree: the version carries no
+# .dev0 and a date-released stands beside it, which is the pair the
+# guard in tests/test_metadata_currency.py enforces in both directions.
+# The next development commit sets the two together the other way and
+# this sentence flips with them; it is written as a statement about the
+# tree rather than as a rule so that it cannot quietly stop describing
+# the file it heads. It has now stopped TWICE, once in each direction:
+# on 2026-08-11 the version moved to .dev0 and this paragraph still
+# said RELEASE, and on 2026-09-04 the v0.12.0 release commit set the
+# version and the date and left the paragraph saying DEVELOPMENT. Both
+# were found by a review reading the prose against the fields, which is
+# the residual the wording was chosen to make VISIBLE rather than
+# remove: the guard reads the two fields and cannot read a sentence.
+# Twice is a pattern, and the honest reading of it is that a paragraph
+# a human must remember to flip will keep not flipping.
 # The archive DOIs below are one per release from v0.3.0, newest first,
 # with the concept DOI last. v0.1.0 and v0.2.0 are absent: v0.2.0 was the
 # first release to archive, and its version DOI was not recorded here at
 # the time. The concept DOI resolves to the newest archived version
 # either way, so nothing points at a release that cannot be cited; the
-# two missing rows are a gap in this list rather than in the archive. A version DOI is minted from the GitHub release, so
-# it is always recorded one commit AFTER the tag it names. Older ones
+# two missing rows are a gap in this list rather than in the archive.
+# A version DOI is minted from the GitHub release, so it is always
+# recorded one commit AFTER the tag it names. Older ones
 # stay, because those releases did happen and are still what a citation
 # of them should resolve to.
 version: 0.12.0
