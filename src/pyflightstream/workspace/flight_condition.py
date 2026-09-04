@@ -165,14 +165,28 @@ _UNDEFAULTABLE = {
         "fluid; it belongs on the row whose point it describes"
     ),
     "ALTFT": (
-        "selects a point IN the atmosphere, and the pins exist to replace what the "
-        "atmosphere supplies rather than to locate a point in it"
+        "is an ALTITUDE, and an altitude locates a point IN the atmosphere; the pins "
+        "exist to replace what that atmosphere supplies rather than to choose where "
+        "in it to stand"
     ),
     "dISA": (
-        "selects a point IN the atmosphere, and the pins exist to replace what the "
-        "atmosphere supplies rather than to locate a point in it"
+        "is a TEMPERATURE OFFSET on the standard atmosphere, and offsetting an "
+        "atmosphere is choosing a point in it; the pins exist to replace what that "
+        "atmosphere supplies rather than to move it"
     ),
 }
+
+_UNDEFAULTABLE_CANONICAL = {key.upper(): key for key in _UNDEFAULTABLE}
+
+
+#: Canonical spelling by upper-cased key, for the pins and for what may
+#: not be defaulted. Built from the tables so the three cannot drift.
+#: THE TABLE MATCHES CASE-INSENSITIVELY, exactly as a FLIGHT_CONDITION
+#: cell does and for the same reason: ``MUPas``, ``ASMPS`` and ``TASmps``
+#: carry deliberate internal capitals that a user types from memory, and
+#: refusing ``mupas`` in a file while accepting it in a cell would teach
+#: two rules for one vocabulary. Found by an interface review, 2026-09-04.
+_PIN_CANONICAL = {key.upper(): key for key in PINNED_KEYS}
 
 
 class FlightConditionError(PyflightstreamError, ValueError):
@@ -182,6 +196,81 @@ class FlightConditionError(PyflightstreamError, ValueError):
     raised BEFORE any script is emitted and before any solver exists,
     which is the whole point of stating a condition declaratively.
     """
+
+
+def canonical_condition_defaults(
+    defaults: Mapping[str, float] | None, origin: str
+) -> dict[str, float]:
+    """Judge a defaults table's VOCABULARY, and answer in canonical keys.
+
+    Separated from :func:`resolve_flight_condition` so the rule can fire
+    where the FILE is read rather than where a row is resolved, and it is
+    not a refactor for tidiness: the check used to run only under
+    ``if row.flight_condition``, so a setup pinning ``MACH`` was refused
+    or accepted depending on whether some OTHER row stated a condition.
+    An architecture review found it on 2026-09-04. Every matrix row does
+    state one today, because the reader refuses an empty cell, so the
+    defect was unreachable through the matrix; it was reachable through
+    any other caller, and a guarantee that rests on a distant invariant
+    is not a guarantee.
+
+    Parameters
+    ----------
+    defaults : mapping or None
+        The table as written, keys in whatever case its author typed.
+    origin : str
+        Where it came from, named in every refusal, for example
+        ``"setup 's001' (inputs/setups/s001.toml)"``.
+
+    Returns
+    -------
+    dict
+        Canonical pin key to float, in the order written.
+
+    Raises
+    ------
+    FlightConditionError
+        A key that states the POINT rather than the fluid, a key that is
+        no pin at all, the same pin twice in two spellings, or a pin that
+        is not positive.
+    """
+    supplied: dict[str, float] = {}
+    for key, value in (defaults or {}).items():
+        upper = key.strip().upper()
+        stated_point = _UNDEFAULTABLE_CANONICAL.get(upper)
+        if stated_point is not None:
+            raise FlightConditionError(
+                f"{origin} states {stated_point}, and {stated_point} "
+                f"{_UNDEFAULTABLE[stated_point]}. A defaults table holds the fluid "
+                f"pins and nothing else: {', '.join(PINNED_KEYS)}. State "
+                f"{stated_point} on the row it describes."
+            )
+        canonical = _PIN_CANONICAL.get(upper)
+        if canonical is None:
+            raise FlightConditionError(
+                f"{origin} states {key!r}, which is not a flight-condition pin. A "
+                f"defaults table holds the fluid pins and nothing else: "
+                f"{', '.join(PINNED_KEYS)}."
+            )
+        if canonical in supplied:
+            # THE SAME PIN IN TWO SPELLINGS, which case-insensitive
+            # matching makes possible and TOML does not: `MUPas` and
+            # `mupas` are two keys to a TOML reader and one constant to
+            # this one. Refused rather than last-wins, exactly as the
+            # cell parser refuses a repeated key, because a silently
+            # dropped constant changes what is solved.
+            raise FlightConditionError(
+                f"{origin} names the pin {canonical} more than once, as "
+                f"{supplied[canonical]:g} and {value:g}. Pin names match "
+                "case-insensitively, so two spellings of one pin are one pin. "
+                "State it once."
+            )
+        if value <= 0.0:
+            raise FlightConditionError(
+                f"{origin} pins {canonical}:{value:g}, and {canonical} is a positive quantity."
+            )
+        supplied[canonical] = float(value)
+    return supplied
 
 
 @dataclass(frozen=True)
@@ -219,8 +308,11 @@ class ResolvedCondition:
     #: because the state cannot be checked without it.
     reference_length_m: float | None = None
     stated: dict[str, float] = field(default_factory=dict)
-    #: Which resolved fields were PINNED rather than derived, in the order
-    #: the keys are declared, WHEREVER the pin came from. Empty for a
+    #: Which PIN KEYS were pinned rather than derived, in the order
+    #: :data:`PINNED_KEYS` declares them, WHEREVER the pin came from. The
+    #: KEYS and not the resolved field names those keys map to: an
+    #: interface review read this as ``viscosity_pa_s`` and got
+    #: ``MUPas``. Empty for a
     #: condition that pins nothing, which is every condition written
     #: before 0.11.0. What it answers is which quantities were pinned;
     #: :attr:`defaulted` answers where from.
@@ -231,10 +323,13 @@ class ResolvedCondition:
     #: fewer keys because its setup states them would record a resolution
     #: nothing in the record explains.
     defaulted: dict[str, float] = field(default_factory=dict)
-    #: Where those defaults came from, as the caller named it, for example
-    #: ``"setup s001"``. None when none were supplied. Carried because a
-    #: reader of the record has to know which FILE to open, and this
-    #: module never reaches an artifact.
+    #: Where those defaults came from, as the caller named it, for
+    #: example ``"setup 's001' (inputs/setups/s001.toml)"``. None when
+    #: none were supplied. It travels as WORDS because this module never
+    #: reaches an artifact and its refusals have to name the file a
+    #: reader must open; the workspace layer carries it on to the run
+    #: record, so a record whose row states four fewer keys names the
+    #: file that supplied them.
     defaults_origin: str | None = None
 
 
@@ -330,25 +425,11 @@ def resolve_flight_condition(
     # for the reason that they are not about this row: a setup several
     # rows share is one file, and refusing it at the first row that reads
     # it names the file rather than whichever point happened to be first.
-    supplied = dict(defaults or {})
-    origin = defaults_origin or "the defaults"
-    for key, value in supplied.items():
-        if key in _UNDEFAULTABLE:
-            raise FlightConditionError(
-                f"{origin} states {key}, and {key} {_UNDEFAULTABLE[key]}. A defaults "
-                f"table holds the fluid pins and nothing else: "
-                f"{', '.join(PINNED_KEYS)}. State {key} on the row it describes."
-            )
-        if key not in PINNED_KEYS:
-            raise FlightConditionError(
-                f"{origin} states {key!r}, which is not a flight-condition pin. A "
-                f"defaults table holds the fluid pins and nothing else: "
-                f"{', '.join(PINNED_KEYS)}."
-            )
-        if value <= 0.0:
-            raise FlightConditionError(
-                f"{origin} pins {key}:{value:g}, and {key} is a positive quantity."
-            )
+    #
+    # THE RULE LIVES IN ONE FUNCTION and this is its second caller: the
+    # workspace judges the FILE once per setup, and this judges whatever
+    # a direct caller passed. Both reach the same list.
+    supplied = canonical_condition_defaults(defaults, defaults_origin or "the defaults")
     # A DEFAULT THE ROW SUPERSEDES IS DROPPED, and `RHOkgm3` under a
     # stated `REmi` is the only way that happens: see the module
     # docstring for why this is not the contradiction the row-level check

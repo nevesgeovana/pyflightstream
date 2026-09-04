@@ -22,8 +22,16 @@ FlightStream versions.
   replace. A setup pinning `RHOkgm3` under a row stating `REmi` has that one
   default dropped rather than refused, since the row has determined the
   density itself. The run record gains `flight_condition_defaults`, the pins
-  that came from the setup with their values, beside the condition as
-  written, so a record stays recomputable once the constants leave the row.
+  that came from the setup with their values, and
+  `flight_condition_defaults_from`, which names the setup by id AND path, so
+  a record stays recomputable once the constants leave the row. Pin names in
+  that table match **case-insensitively**, exactly as they do in a
+  `FLIGHT_CONDITION` cell and for the same reason: `MUPas`, `ASMPS` and
+  `TASmps` carry internal capitals a user types from memory, and one
+  vocabulary may not have two matching rules. Two spellings of one pin are
+  refused as one pin stated twice. A table misspelt `[flight_conditions]` is
+  refused AS THAT, rather than as an unknown solver setting whose stock
+  remedy (`recorded_only`) would have made it legal, silent and inert.
 
 ### Changed
 

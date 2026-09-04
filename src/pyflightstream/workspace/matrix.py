@@ -87,7 +87,9 @@ from pyflightstream.workspace import (
 # into a flow state. It needs the reference LENGTH, which is why it is
 # here and not on the floor with the atmosphere (PFS-2027.02).
 from pyflightstream.workspace.flight_condition import (
+    PINNED_KEYS,
     ResolvedCondition,
+    canonical_condition_defaults,
     resolve_flight_condition,
 )
 
@@ -645,18 +647,40 @@ _PRESET_RECORDED_ONLY_KEY = "recorded_only"
 _FLIGHT_CONDITION_TABLE = "flight_condition"
 
 
+def condition_defaults_origin(set_code: str) -> str:
+    """Name the setup a defaults table came from, id AND path.
+
+    One home, because it is written in a refusal the user acts on and
+    recorded on the resolved state, and an interface review found the two
+    disagreeing by two quote characters. THE PATH IS THE POINT: an id
+    tells a reader WHICH artifact is wrong and not which of a dozen files
+    under ``inputs/setups/`` to open.
+    """
+    return f"setup {set_code!r} (inputs/setups/{set_code}.toml)"
+
+
 def _condition_defaults(setup: SetupArtifact, set_code: str) -> dict[str, float]:
     """Read a setup's flight-condition defaults, refusing what is not a number.
 
     WHAT THIS FUNCTION DECIDES AND WHAT IT DOES NOT. It decides the
     SHAPE: that the key names a table and that every value in it is a
-    finite number. It does NOT decide which keys may appear or whether
-    their values make sense, because that is the pin vocabulary and it
-    lives with the resolver that owns it
-    (:func:`~pyflightstream.workspace.flight_condition.resolve_flight_condition`).
-    Splitting it that way is what keeps one rule in one place: a key
-    added to the pins is accepted here the day it is added there, with no
-    second list to move.
+    finite number. It does NOT decide which keys may appear, because that
+    is the pin vocabulary and it lives with the resolver that owns it; it
+    CALLS that rule rather than restating it
+    (:func:`~pyflightstream.workspace.flight_condition.canonical_condition_defaults`),
+    so a key added to the pins is accepted here the day it is added
+    there, with no second list to move.
+
+    IT CALLS IT HERE, once per setup, and that placement is the finding
+    of an architecture review on 2026-09-04 rather than a preference:
+    while the vocabulary was judged only inside the resolver, it ran once
+    per ROW THAT STATED A CONDITION, so one file was legal or illegal
+    depending on other rows' cells.
+
+    Two exception classes leave this function, and the split is the one
+    the rest of the package makes: a malformed FILE is an
+    ``InputArtifactError``, and a well-formed file stating the wrong
+    CONSTANT is a ``FlightConditionError`` from the rule above.
 
     A bool is excluded on its own line because it is an int in Python, so
     ``MUPas = true`` would otherwise pin a viscosity of 1.0.
@@ -686,7 +710,7 @@ def _condition_defaults(setup: SetupArtifact, set_code: str) -> dict[str, float]
                 "emitted script unrefused."
             )
         defaults[key] = number
-    return defaults
+    return canonical_condition_defaults(defaults, condition_defaults_origin(set_code))
 
 
 def _resolve_stabilization(settings: Mapping[str, object], set_code: str) -> float | None:
@@ -770,6 +794,10 @@ def _solver_from_setup(setup: SetupArtifact, set_code: str) -> SolverSettings:
     # and a key left in `settings` reaches the loop that refuses anything
     # naming no setting this package can emit. `_condition_defaults`
     # reads it from the artifact, so nothing is lost by dropping it.
+    # Its CONTENTS are read by `_condition_defaults` above, and the two
+    # are load-bearing on each other through this constant alone: delete
+    # this pop and a valid file is refused, delete that read and valid
+    # pins are silently ignored.
     settings.pop(_FLIGHT_CONDITION_TABLE, None)
     stabilization = _resolve_stabilization(settings, set_code)
     gated = "stabilization" in settings or "stabilization_strength" in settings
@@ -802,6 +830,30 @@ def _solver_from_setup(setup: SetupArtifact, set_code: str) -> SolverSettings:
             recorded.append(key)
         else:
             refused.append(key)
+    near_miss = sorted(
+        key
+        for key in refused
+        if key.strip().lower().replace("-", "_").replace(" ", "_").rstrip("s")
+        == _FLIGHT_CONDITION_TABLE.rstrip("s")
+    )
+    if near_miss:
+        # A MISSPELLING OF THE TABLE MUST NOT BE ANSWERED BY THE GENERIC
+        # REFUSAL, and an interface review found why on 2026-09-04. That
+        # message calls the key a solver setting, which this table is
+        # explicitly not, and its closing sentence offers `recorded_only`
+        # as the remedy -- which would make the table legal, silent and
+        # INERT, four pinned fluid constants reaching no script, on a
+        # surface whose whole premise is that a silent drop costs a
+        # result.
+        raise InputArtifactError(
+            f"setup preset {set_code!r} states key(s) {', '.join(near_miss)}, which "
+            f"look like the flight-condition table misspelled. That table is spelled "
+            f"exactly [{_FLIGHT_CONDITION_TABLE}] and holds the fluid pins "
+            f"({', '.join(PINNED_KEYS)}) every row naming this setup inherits. Rename "
+            f"it. Do NOT name it in {_PRESET_RECORDED_ONLY_KEY}: that would make it "
+            "legal, silent and inert, and the constants under it would reach no "
+            "script."
+        )
     post_processing = sorted(set(refused) & set(_POST_PROCESSING_KEYS))
     if post_processing:
         # PFS-2029.16: a setup artifact carries solver settings only. Her
@@ -809,9 +861,9 @@ def _solver_from_setup(setup: SetupArtifact, set_code: str) -> SolverSettings:
         # table's home is the pproc artifact the row's PPROC cell names.
         raise InputArtifactError(
             f"setup preset {set_code!r} states key(s) {', '.join(post_processing)}, "
-            "which name post-processing, not a solver setting. A setup artifact "
-            "carries solver settings only; sections, plots, probes, products, exports "
-            "and groups live in the pproc artifact the row's PPROC cell names "
+            "which name post-processing, not a solver setting. Post-processing does "
+            "not belong in a setup artifact: sections, plots, probes, products, "
+            "exports and groups live in the pproc artifact the row's PPROC cell names "
             "(inputs/pproc/p001.toml, PFS-2029.07). Move the table there."
         )
     if refused:
@@ -1122,7 +1174,7 @@ def resolve_matrix(
                 # reaches an artifact and its refusals have to name the
                 # file the reader must open.
                 defaults=setup_pins[row.set_code],
-                defaults_origin=f"setup {row.set_code!r}",
+                defaults_origin=condition_defaults_origin(row.set_code),
             )
             conditions[row.pol] = resolved
             # The three the case already has fields for. The rest of the
@@ -1137,6 +1189,14 @@ def resolve_matrix(
             # nothing in the record explains, and PFS-2027.05 asks the
             # record to be recomputable rather than trusted.
             update["flight_condition_defaults"] = dict(resolved.defaulted)
+            # AND WHERE THEY CAME FROM. Two reviews found the origin dying
+            # at this boundary while its own docstring claimed a record
+            # role: the record carried four numbers and could not name the
+            # file that supplied them, which is one hop short of the
+            # recomputability PFS-2027.05 asks for.
+            update["flight_condition_defaults_from"] = (
+                resolved.defaults_origin if resolved.defaulted else ""
+            )
             update["mach"] = resolved.mach
             update["velocity"] = resolved.velocity_m_per_s
             update["reynolds"] = resolved.reynolds

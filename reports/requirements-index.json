@@ -625,11 +625,11 @@
   },
   {
    "id": "FR-58",
-   "text": "A setup artifact may carry a [flight_condition] table holding the five pins of FR-54 and nothing else. A row that states a pin overrides the setup's, key by key; a row that states none inherits it; and the resolved state is the same state either way. A velocity key or a Reynolds number there is refused, because those are what a point IS and a preset several rows share cannot state them; an altitude or an ISA deviation is refused, because those locate a point in the atmosphere the pins exist to replace. A setup pinning a density under a row stating a Reynolds number has that one default dropped rather than refused. The run record carries the pins the setup supplied beside the condition as written, so it stays recomputable once the constants leave the row.",
+   "text": "A setup artifact may carry a [flight_condition] table holding the five pins of FR-54 and nothing else, its pin names matching case-insensitively as a FLIGHT_CONDITION cell's do. A row that states a pin overrides the setup's, key by key; a row that states none inherits it; and the resolved state is the same state either way, which tests/test_matrix_run.py::test_a_workspace_renders_the_same_script_whichever_file_states_the_pins holds to the strongest available form: one workspace built twice from the same numbers, pins on the rows and pins in the setup, and the rendered script text equal BYTE FOR BYTE with nothing allowed to differ. A velocity key or a Reynolds number there is refused, because those are what a point IS and a preset several rows share cannot state them; an altitude or an ISA deviation is refused, because those locate a point in the atmosphere the pins exist to replace. A setup pinning a density under a row stating a Reynolds number has that one default dropped rather than refused. The run record carries the pins the setup supplied beside the condition as written, so it stays recomputable once the constants leave the row.",
    "priority": "M",
-   "status": "pending",
-   "evidence": "*Origin: the author's instruction of 2026-09-04, 'vamos trabalhar com valores default ... dessa forma nao precisa inputar na matrix, eles podem ficar no s001'. Carried by PFS-2030.08. Evidence owed: the tests that node names.*",
-   "verification": "none"
+   "status": "implemented",
+   "evidence": "*Origin: the author's instruction of 2026-09-04, 'vamos trabalhar com valores default ... dessa forma nao precisa inputar na matrix, eles podem ficar no s001'. Carried by PFS-2030.08. Evidence: tests/test_flight_condition.py (the resolver, its refusals and each refusal's own reason), tests/test_matrix_run.py (the file, the record the run layer writes, and the equal-render arm below), scored against nineteen mutants with an unmutated control.*",
+   "verification": "test"
   },
   {
    "id": "NFR-01",

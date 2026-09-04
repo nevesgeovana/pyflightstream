@@ -15,6 +15,8 @@ parsed and then dropped would be worse than one that is refused.
 
 from __future__ import annotations
 
+import dataclasses
+
 import pytest
 
 from pyflightstream.cases import FluidState, ReferenceData, SimCase, SweepAxis
@@ -28,6 +30,7 @@ from pyflightstream.script import Script
 from pyflightstream.workspace.flight_condition import (
     PINNED_KEYS,
     FlightConditionError,
+    ResolvedCondition,
     resolve_flight_condition,
 )
 
@@ -290,7 +293,7 @@ def test_a_non_positive_pin_is_refused_naming_the_key(key):
 # the caller supplies the origin string, because it knows which file the
 # table came from and the refusal has to name it.
 
-ORIGIN = "setup s001"
+ORIGIN = "setup 's001' (inputs/setups/s001.toml)"
 
 
 def test_a_setup_supplies_the_pins_a_row_leaves_out():
@@ -328,6 +331,106 @@ def test_a_setup_supplies_the_pins_a_row_leaves_out():
         reference_length_m=CHORD_M,
     )
     assert _render_fluid(state) == _render_fluid(stated_in_the_row)
+    # THE WHOLE STATE, not only the emitted fluid block: FR-58 says "the
+    # resolved state is the same state either way" and a verification
+    # review measured the assertion one notch narrower than the sentence.
+    # The three provenance fields are what SHOULD differ, and they are
+    # excluded by name rather than by comparing a subset nobody lists.
+    provenance = {"stated", "defaulted", "defaults_origin"}
+    for field in dataclasses.fields(ResolvedCondition):
+        if field.name in provenance:
+            continue
+        assert getattr(state, field.name) == getattr(stated_in_the_row, field.name), field.name
+
+
+def test_a_setup_alone_may_pin_the_density():
+    """The headline case of this node for its one density-valued pin.
+
+    Found untested by a quality review: every other case either stated
+    RHOkgm3 on the ROW or stated REmi beside it, so the branch where a
+    setup's density is the density nobody reached. Reverting `effective`
+    to `stated` in the density branch restores the pre-change behaviour --
+    the setup's pin silently ignored and the standard atmosphere used
+    instead -- and until this test existed nothing noticed.
+    """
+    state = resolve_flight_condition(
+        {"TASmps": 68.058},
+        pol="P1",
+        reference_length_m=CHORD_M,
+        defaults={"RHOkgm3": 1.225},
+        defaults_origin=ORIGIN,
+    )
+    assert state.density_kg_m3 == 1.225
+    assert state.density_source == "pinned"
+    assert state.pinned == ("RHOkgm3",)
+    assert state.defaulted == {"RHOkgm3": 1.225}
+
+
+def test_the_same_pin_in_two_spellings_is_one_pin_and_is_refused():
+    """Case-insensitive matching makes a duplicate possible that TOML does not.
+
+    `MUPas` and `mupas` are two keys to a TOML reader and one constant
+    here, so last-wins would silently drop a stated constant. Refused,
+    exactly as the cell parser refuses a repeated key.
+    """
+    with pytest.raises(FlightConditionError, match="MUPas") as refused:
+        resolve_flight_condition(
+            {"TASmps": 68.058},
+            pol="P1",
+            reference_length_m=CHORD_M,
+            defaults={"MUPas": 1.789e-5, "mupas": 1.8e-5},
+            defaults_origin=ORIGIN,
+        )
+    assert "more than once" in str(refused.value)
+
+
+@pytest.mark.parametrize("spelling", ["MUPas", "mupas", "MUPAS", "muPAS"])
+def test_a_pin_in_the_table_matches_case_insensitively(spelling):
+    """The page promises it for the cell; the file may not teach a second rule.
+
+    docs/flight-conditions.md states "Keys are matched case-insensitively"
+    of the FLIGHT_CONDITION cell, and MUPas, ASMPS and TASmps are exactly
+    the spellings whose internal capitals that rule exists for. An
+    interface review found the table matching exactly, so `mupas` resolved
+    in a cell and was refused in a file.
+    """
+    state = resolve_flight_condition(
+        {"TASmps": 68.058},
+        pol="P1",
+        reference_length_m=CHORD_M,
+        defaults={spelling: 1.789e-5},
+        defaults_origin=ORIGIN,
+    )
+    assert state.viscosity_pa_s == 1.789e-5
+    assert state.defaulted == {"MUPas": 1.789e-5}, "reported in the canonical spelling"
+
+
+def test_a_defaults_table_with_no_origin_still_refuses_readably():
+    """The fallback nothing exercised, and the docstring that leans on it.
+
+    `defaults_origin` is documented as required in practice and is
+    enforced by nothing, so the fallback string is what a direct caller
+    who omits it actually reads. A mutant deleting the `or` clause made
+    the refusal open `None states MACH` and survived the whole suite.
+    """
+    with pytest.raises(FlightConditionError, match="MACH") as refused:
+        resolve_flight_condition(
+            {"TASmps": 68.058}, pol="P1", reference_length_m=CHORD_M, defaults={"MACH": 0.2}
+        )
+    assert str(refused.value).startswith("the defaults states MACH")
+
+
+def test_every_pin_names_a_field_the_resolved_state_carries():
+    """PINNED_KEYS' values are documentation, and documentation is checkable.
+
+    The mapping says each key names the resolved field it replaces, and
+    no code reads the values, so an interface review called it
+    documentation a later reader would trust without a guard. This is the
+    guard.
+    """
+    fields = {field.name for field in dataclasses.fields(ResolvedCondition)}
+    for key, field_name in PINNED_KEYS.items():
+        assert field_name in fields, f"{key} names {field_name}, which is not a field"
 
 
 def test_a_row_pin_overrides_the_setup_default():
@@ -381,8 +484,11 @@ def test_a_setup_density_default_yields_to_a_stated_reynolds():
         ("MACH", "VELOCITY"),
         ("TASmps", "VELOCITY"),
         ("REmi", "DENSITY"),
-        ("ALTFT", "atmosphere"),
-        ("dISA", "atmosphere"),
+        # DISTINCT WORDS, and a mutant is why: the two reasons were one
+        # string, so asserting "atmosphere" for both discriminated nothing
+        # beyond the key and swapping them survived.
+        ("ALTFT", "ALTITUDE"),
+        ("dISA", "TEMPERATURE OFFSET"),
     ],
 )
 def test_a_setup_flight_condition_table_refuses_a_key_that_states_the_point(key, because):
@@ -408,13 +514,19 @@ def test_a_setup_flight_condition_table_refuses_a_key_that_states_the_point(key,
 
 
 def test_a_setup_flight_condition_table_refuses_a_key_it_has_never_heard_of():
-    """The fallback the parametrised refusals above must NOT be answered by."""
-    with pytest.raises(FlightConditionError, match="MUpas") as refused:
+    """The fallback the parametrised refusals above must NOT be answered by.
+
+    The example was `MUpas` until the table was made case-insensitive, at
+    which point that spelling became a CORRECT one and this test was
+    asserting a refusal the package had just stopped making. `VISCOSITY`
+    is a plausible thing to type and is no pin in any casing.
+    """
+    with pytest.raises(FlightConditionError, match="VISCOSITY") as refused:
         resolve_flight_condition(
             {"TASmps": 68.058},
             pol="P1",
             reference_length_m=CHORD_M,
-            defaults={"MUpas": 1.789e-5},
+            defaults={"VISCOSITY": 1.789e-5},
             defaults_origin=ORIGIN,
         )
     assert "not a flight-condition pin" in str(refused.value)

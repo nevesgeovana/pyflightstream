@@ -72,7 +72,7 @@
 \title[pyflightstream User Guide]{pyflightstream User Guide}
 \subtitle{A version-aware, didactic Python driver for the FlightStream solver}
 \author[G. Neves]{Geovana Neves}
-\institute[]{pyflightstream 0.11.1, MIT licensed}
+\institute[]{pyflightstream 0.12.0, MIT licensed}
 \date{August 2026}
 
 \AtBeginSection[]{
@@ -949,7 +949,7 @@ FLIGHT_CONDITION: TASmps:68.08, ALTFT:10000, dISA:5
   \begin{itemize}
     \item \textbf{Read the units off the key names.} They are ugly on purpose: \code{ALTITUDE:10000} would be ambiguous between feet and metres. \code{REmi} is the one to get right, because a Reynolds number written in absolute units instead of millions is wrong by a factor of a million and still RESOLVES: it produces a density, emits, solves and reports.
     \item State \textbf{exactly one} of \code{MACH} or \code{TASmps}: neither is under-determined and both is a contradiction, and each is refused. \code{REmi} needs the row's \code{REF}, because a Reynolds number has no meaning without a length. The set is CLOSED, so an unknown key is refused rather than ignored.
-    \item \textbf{Five further keys PIN the fluid} (v0.11.0): \code{RHOkgm3}, \code{MUPas}, \code{ASMPS} (speed of sound), \code{TK} and \code{PPA}, each replacing what the standard atmosphere would supply and each recorded as pinned. From v0.11.1 they may instead live in the setup artifact the row's \code{SET} names, under a \code{[flight\_condition]} table, so a thirteen-point polar states them once rather than thirteen times; a row that states one wins over the setup's. The velocity keys and \code{REmi} may NOT go there, because they are what makes a point that point.
+    \item \textbf{Five further keys PIN the fluid} (v0.11.0): \code{RHOkgm3}, \code{MUPas}, \code{ASMPS} (speed of sound), \code{TK} and \code{PPA}, each replacing what the standard atmosphere would supply and each recorded as pinned. From v0.12.0 they may instead live in the setup artifact the row's \code{SET} names, under a \code{[flight\_condition]} table, so a thirteen-point polar states them once rather than thirteen times; a row that states one wins over the setup's. The velocity keys and \code{REmi} may NOT go there, because they are what makes a point that point.
     \item Full grammar, every refusal and the migration: \code{docs/flight-conditions.md}.
   \end{itemize}
 \end{frame}

@@ -463,12 +463,20 @@ class RunRecord(BaseModel):
         The fluid pins the row's SETUP artifact supplied, with the values
         used, for the keys the row did not state (PFS-2030.08). Empty
         means the row stated everything its resolution used, which is
-        every record written before 0.11.1; it is NOT a claim that the
-        setup carried no table. Recorded beside the condition as written
-        because without it a record cannot be recomputed once the
+        every record written before 0.12.0; it is NOT a claim that the
+        setup carried no table. HOW TO READ THE PAIR: a pin in
+        ``flight_condition`` and not here was stated by the ROW and
+        overrode whatever the setup said, since a key the row states
+        never enters this mapping. Recorded beside the condition as
+        written because without it a record cannot be recomputed once the
         constants move out of the row, and adding it did not move
         :data:`MANIFEST_SCHEMA`, whose rule bumps for a removal or a
         change of meaning and never for an addition.
+    flight_condition_defaults_from : str
+        Which setup supplied those pins, id and path, for example
+        ``setup 's001' (inputs/setups/s001.toml)``. Empty when the row
+        inherited nothing, which includes every record written before
+        0.12.0.
     flight_condition : dict of str to float
         The flight condition AS WRITTEN in the row, canonical key to
         value, in the units the key names (``MACH`` dimensionless,
@@ -508,6 +516,7 @@ class RunRecord(BaseModel):
     #: none (PFS-2027.05).
     flight_condition: dict[str, float] = Field(default_factory=dict)
     flight_condition_defaults: dict[str, float] = Field(default_factory=dict)
+    flight_condition_defaults_from: str = ""
     #: The resolved flow state, and WHICH BRANCH produced the density.
     #: Recorded so a reader can RECOMPUTE the resolution rather than
     #: trust it: the inputs above plus these values plus the reference

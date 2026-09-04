@@ -1054,6 +1054,8 @@ class SimCase(BaseModel):
         not state (PFS-2030.08). Beside ``flight_condition`` rather than
         merged into it, so the row stays as written and the record still
         says what the resolution used.
+    flight_condition_defaults_from : str, optional
+        Which setup supplied them, id and path.
     flight_condition : dict, optional
         The FLIGHT_CONDITION cell of the row this case came from, as
         WRITTEN: canonical key to value, in the units the keys name
@@ -1129,8 +1131,13 @@ class SimCase(BaseModel):
     #: by the workspace resolver and never by the matrix reader: a matrix
     #: converted without a workspace has no setup to read, and leaves it
     #: empty. Empty also means "the row stated everything it resolved
-    #: against", which is every case written before 0.11.1.
+    #: against", which is every case written before 0.12.0.
     flight_condition_defaults: dict[str, float] = Field(default_factory=dict)
+    #: WHERE those defaults came from, as the workspace named it, for
+    #: example ``"setup 's001' (inputs/setups/s001.toml)"``. Empty when the
+    #: row inherited nothing. Without it the record states four numbers
+    #: and cannot name the file that supplied them.
+    flight_condition_defaults_from: str = ""
     fluid: FluidState | None = None
     reference: ReferenceData | None = None
     solver: SolverSettings = Field(default_factory=SolverSettings)

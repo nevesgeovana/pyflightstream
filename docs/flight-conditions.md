@@ -25,8 +25,8 @@ point and **the Reynolds number comes out** of it.
 
 ## The keys, and the units ride the names
 
-The set is CLOSED. Five keys, and each carries its unit in its own
-spelling, deliberately:
+The set is CLOSED. Ten keys, and each carries its unit in its own
+spelling, deliberately. Five CONSTRAIN the state:
 
 | Key | Unit | What it constrains |
 |---|---|---|
@@ -35,6 +35,22 @@ spelling, deliberately:
 | `REmi` | **millions** -- `5.5` means 5 500 000 | density [^re] |
 | `ALTFT` | **feet** | pressure, and temperature through the standard lapse |
 | `dISA` | **Celsius, as a DELTA** | temperature, as an offset on the standard value |
+
+and five PIN it, each replacing what the standard atmosphere would
+otherwise supply, and each recorded on the run as pinned (v0.11.0):
+
+| Key | Unit | What it replaces |
+|---|---|---|
+| `RHOkgm3` | kilograms per cubic metre | density; a contradiction beside `REmi`, which solves it |
+| `MUPas` | pascal seconds | dynamic viscosity, which is what a Reynolds number is taken against |
+| `ASMPS` | metres per second | the speed of sound, which is what `MACH` is taken against |
+| `TK` | **kelvin** | static temperature |
+| `PPA` | pascals | static pressure |
+
+A pin says the state rather than implying it, which is what a reproduction
+of someone else's run needs: their tool wrote 1.789e-5 and 340.29 where
+this package's own sea-level atmosphere gives 1.7892976260350732e-05 and
+340.293988026089, and that is a different fluid in the fourth digit.
 
 [^re]: A Reynolds number is density times velocity times reference
     length over viscosity. Velocity and the length come from elsewhere on
@@ -120,6 +136,10 @@ and the rows then state only what varies:
 3207 | ... | MACH:0.2, REmi:11.7716754 | ... | s001 | ...
 ```
 
+Pin names in that table match **case-insensitively**, exactly as they do
+in a cell, so `mupas` and `MUPas` are one key -- and stating both is
+refused as one pin written twice rather than taken last.
+
 The row wins, key by key. A row stating `ASMPS:335.0` against that setup
 resolves at 335.0 and inherits the other three. A row stating nothing
 inherits all four. Nothing about the resolution changes: the same state
@@ -190,6 +210,20 @@ than typing numbers into columns.
 | `MACH:0.20, TASmps:68.08` | refused as a contradiction: each fixes the velocity alone | `FlightConditionError` |
 | `ALTFT:70000` | refused naming the altitude range the model covers | `AtmosphereError` |
 
+And in a setup's `[flight_condition]` table, which is judged when the FILE
+is read rather than when a row is resolved:
+
+| You write there | What happens | Exception |
+|---|---|---|
+| `MACH`, `TASmps` or `REmi` | refused: those state the POINT, and a preset several rows share cannot | `FlightConditionError` |
+| `ALTFT` or `dISA` | refused: those locate a point in the atmosphere the pins replace | `FlightConditionError` |
+| `VISCOSITY = 1.8e-5` | refused: not a pin in any spelling, and the accepted five are listed | `FlightConditionError` |
+| `MUPas = 1.8e-5` twice, in two casings | refused as one pin stated twice, since the names match case-insensitively | `FlightConditionError` |
+| `MUPas = 0` | refused: a pin is a positive quantity | `FlightConditionError` |
+| `flight_condition = 5` | refused: it is a TABLE of pins | `InputArtifactError` |
+| `MUPas = "thin"`, `= true`, `= nan`, `= inf` | refused: a pin is a finite number | `InputArtifactError` |
+| `[flight_conditions]`, misspelt | refused as the table misspelt, and NOT as an unknown solver setting | `InputArtifactError` |
+
 ### Which exception, and why there are three
 
 The table is ordered by the three, because the boundary between them is the
@@ -205,7 +239,14 @@ thing worth knowing before you write an `except` clause:
   the physics does not reach there**: an altitude outside the model's range, or
   a temperature at or below absolute zero.
 
-All three descend from the package's base exception, so `except
+A fourth class, **`InputArtifactError`**, reaches a reader through a
+flight-condition mistake made in a SETUP file rather than in a cell, and
+that is the boundary rather than an exception to it: a malformed
+artifact is the artifact reader's refusal, and a well-formed artifact
+stating the wrong CONSTANT is a `FlightConditionError` like any other.
+The three above are what a `FLIGHT_CONDITION` CELL can raise.
+
+All four descend from the package's base exception, so `except
 PyflightstreamError` catches every one of them and is the right clause if you
 do not need to tell them apart.
 

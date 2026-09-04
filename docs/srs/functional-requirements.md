@@ -1617,16 +1617,24 @@ nodes.
     by name (PFS-2025.15, evidenced), so what is new is the nesting and
     the repetition, not the points.
 
-!!! requirement "FR-58 The fluid constants of a campaign have one home <span class='srs-pending'>pending</span>"
+!!! requirement "FR-58 The fluid constants of a campaign have one home <span class='srs-implemented'>implemented</span>"
     *Origin: the author's instruction of 2026-09-04, 'vamos trabalhar com
     valores default ... dessa forma nao precisa inputar na matrix, eles podem
-    ficar no s001'. Carried by PFS-2030.08. Evidence owed: the tests that node
-    names.*
+    ficar no s001'. Carried by PFS-2030.08. Evidence:
+    `tests/test_flight_condition.py` (the resolver, its refusals and each
+    refusal's own reason), `tests/test_matrix_run.py` (the file, the record
+    the run layer writes, and the equal-render arm below), scored against
+    nineteen mutants with an unmutated control.*
 
     A setup artifact may carry a `[flight_condition]` table holding the five
-    pins of FR-54 and nothing else. A row that states a pin overrides the
+    pins of FR-54 and nothing else, its pin names matching case-insensitively
+    as a `FLIGHT_CONDITION` cell's do. A row that states a pin overrides the
     setup's, key by key; a row that states none inherits it; and the resolved
-    state is the same state either way. A velocity key or a Reynolds number
+    state is the same state either way, which
+    `tests/test_matrix_run.py::test_a_workspace_renders_the_same_script_whichever_file_states_the_pins`
+    holds to the strongest available form: one workspace built twice from the
+    same numbers, pins on the rows and pins in the setup, and the rendered
+    script text equal BYTE FOR BYTE with nothing allowed to differ. A velocity key or a Reynolds number
     there is refused, because those are what a point IS and a preset several
     rows share cannot state them; an altitude or an ISA deviation is refused,
     because those locate a point in the atmosphere the pins exist to replace.
@@ -1640,4 +1648,8 @@ nodes.
     thirteen times; the package's own sea-level atmosphere gives viscosity
     1.7892976260350732e-05 and sonic velocity 340.293988026089 where her tool
     states 1.789e-5 and 340.29, so the pins cannot be dropped in favour of the
-    standard atmosphere.
+    standard atmosphere. Those two figures are
+    RE-MEASURED by
+    `tests/test_atmosphere.py::test_the_sea_level_state_is_stated_to_the_digit_the_srs_quotes`
+    rather than left as prose: a full-precision literal that nothing pins goes
+    silently false the moment a floor constant moves.

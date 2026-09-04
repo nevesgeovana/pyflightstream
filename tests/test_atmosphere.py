@@ -107,6 +107,24 @@ def test_the_derived_quantities_follow_from_the_pinned_ones(altitude_m):
     assert state.viscosity_pa_s == pytest.approx(sutherland_viscosity(state.temperature_k))
 
 
+def test_the_sea_level_state_is_stated_to_the_digit_the_srs_quotes():
+    """FR-58 quotes these two in full precision; nothing re-measured them.
+
+    The requirement's measured paragraph states the package's sea-level
+    viscosity and sonic velocity to seventeen figures, to argue that the
+    author's pinned 1.789e-5 and 340.29 are a DIFFERENT fluid and cannot
+    be dropped in favour of the standard atmosphere. A full-precision
+    literal in prose that no test pins goes silently false the moment a
+    floor constant moves. Found by a verification review, 2026-09-04.
+    """
+    state = isa(0.0)
+    assert repr(state.viscosity_pa_s) == "1.7892976260350732e-05"
+    assert repr(state.sonic_velocity_m_per_s) == "340.293988026089"
+    # And the claim those digits are FOR: her two pins differ from them.
+    assert state.viscosity_pa_s != 1.789e-5
+    assert state.sonic_velocity_m_per_s != 340.29
+
+
 def test_the_sea_level_speed_of_sound_matches_the_published_value():
     """340.294 m/s, the standard's own sea-level figure."""
     assert isa().sonic_velocity_m_per_s == pytest.approx(340.294, rel=TOLERANCE)

@@ -368,15 +368,29 @@ def test_a_setup_flight_condition_table_refuses_a_key_that_is_not_a_pin(tmp_path
     assert "MUPas" in str(refused.value), "the refusal lists what the table may hold"
 
 
-def test_a_setup_flight_condition_table_of_the_wrong_shape_is_refused(tmp_path):
-    """A number is a number: a string there would reach a solved state."""
+@pytest.mark.parametrize(
+    ("body", "expected"),
+    [
+        # EVERY REFUSAL OF THE READER, and a quality review is why the list
+        # is complete: three of these four branches were reached by no
+        # test, each was a surviving mutant, and the bool line is the
+        # sharpest -- a documented hazard, a deliberate line of code, and
+        # nothing that failed if it were deleted. TOML spells nan and inf
+        # natively, so all four are reachable from a real file.
+        ("flight_condition = 5\n", "is a TABLE"),
+        ('[flight_condition]\nMUPas = "thin"\n', "is a number"),
+        ("[flight_condition]\nMUPas = true\n", "is a number"),
+        ("[flight_condition]\nMUPas = nan\n", "not a finite number"),
+        ("[flight_condition]\nMUPas = inf\n", "not a finite number"),
+        ("[flight_condition]\nMUPas = -inf\n", "not a finite number"),
+    ],
+)
+def test_a_setup_flight_condition_table_of_the_wrong_shape_is_refused(tmp_path, body, expected):
+    """A pin is a finite number: anything else would reach a solved state."""
     workspace = make_library(tmp_path)
     setup = workspace.inputs_dir / "setups" / f"{code_for('9001', 'set')}.toml"
-    setup.write_text(
-        setup.read_text(encoding="utf-8") + '\n[flight_condition]\nMUPas = "thin"\n',
-        encoding="utf-8",
-    )
-    with pytest.raises(InputArtifactError, match="MUPas"):
+    setup.write_text(setup.read_text(encoding="utf-8") + "\n" + body, encoding="utf-8")
+    with pytest.raises(InputArtifactError, match="MUPas|flight_condition") as refused:
         with pytest.warns(UserWarning, match="wake_layers"):
             resolve_matrix(
                 FIXTURE,
@@ -386,6 +400,64 @@ def test_a_setup_flight_condition_table_of_the_wrong_shape_is_refused(tmp_path):
                 recipes=RECIPES,
                 fs_exe="C:/fs/FlightStream.exe",
             )
+    assert expected in str(refused.value)
+
+
+def test_a_setup_table_is_judged_without_asking_what_any_row_states(tmp_path):
+    """PFS-2030.08, and the reason it is a separate test from the one above.
+
+    The vocabulary rule used to live only inside the resolver, which the
+    workspace calls per ROW THAT STATES A CONDITION. Every matrix row
+    states one, because the reader refuses an empty cell, so the defect
+    was unreachable through the matrix -- and a guarantee resting on an
+    invariant enforced in another module is not a guarantee. The reader is
+    asked here DIRECTLY, with no row and no matrix, which is the only way
+    to assert that the file alone decides.
+    """
+    from pyflightstream.workspace.inputs import SetupArtifact
+    from pyflightstream.workspace.matrix import _condition_defaults
+
+    with pytest.raises(FlightConditionError, match="MACH") as refused:
+        _condition_defaults(SetupArtifact(settings={"flight_condition": {"MACH": 0.2}}), "s001")
+    assert "inputs/setups/s001.toml" in str(refused.value), "the refusal names the file"
+    # And the accepting half, so the refusal is not satisfied by a constant.
+    assert _condition_defaults(
+        SetupArtifact(settings={"flight_condition": {"mupas": 1.789e-5}}), "s001"
+    ) == {"MUPas": 1.789e-5}
+
+
+def test_a_misspelt_flight_condition_table_is_not_answered_as_a_solver_setting(tmp_path):
+    """The near miss whose generic remedy would have made the table inert.
+
+    `[flight_conditions]` reaches no pin, so it used to fall to the
+    unknown-solver-setting refusal, which calls it a setting this package
+    cannot emit and offers `recorded_only` as the remedy. Following that
+    advice makes the table legal, silent and INERT: four pinned fluid
+    constants reaching no script, on a surface whose premise is that a
+    silent drop costs a result.
+    """
+    workspace = make_library(tmp_path)
+    setup = workspace.inputs_dir / "setups" / f"{code_for('9001', 'set')}.toml"
+    setup.write_text(
+        setup.read_text(encoding="utf-8") + "\n[flight_conditions]\nMUPas = 1.789e-5\n",
+        encoding="utf-8",
+    )
+    # NO `pytest.warns` HERE, and the difference is the finding: this
+    # refusal fires inside `_solver_from_setup`, BEFORE the recorded-only
+    # warning that every other refusal in this file arrives after.
+    with pytest.raises(InputArtifactError, match="flight_conditions") as refused:
+        resolve_matrix(
+            FIXTURE,
+            workspace,
+            name="matrix",
+            fs_version="26.120",
+            recipes=RECIPES,
+            fs_exe="C:/fs/FlightStream.exe",
+        )
+    message = str(refused.value)
+    assert "misspelled" in message
+    assert "Do NOT name it in recorded_only" in message
+    assert "no solver setting this package can emit" not in message
 
 
 def test_the_resolved_state_reaches_the_case_fields_it_has(tmp_path):
@@ -2707,6 +2779,13 @@ def test_the_run_record_carries_the_condition_and_the_resolved_state(tmp_path):
 
     for field in (
         "flight_condition",
+        # THE TWO OF PFS-2030.08, listed here because this test exists for
+        # exactly the omission they repeated: a field added to the case,
+        # the docs and the changelog, and not to the artifact that
+        # outlives the session. A quality review deleted the record write
+        # on 2026-09-04 and the whole suite stayed green.
+        "flight_condition_defaults",
+        "flight_condition_defaults_from",
         "density_kg_m3",
         "temperature_k",
         "viscosity_pa_s",
@@ -2742,6 +2821,96 @@ def test_the_run_record_carries_the_condition_and_the_resolved_state(tmp_path):
     assert case.fluid.density_kg_m3 == pytest.approx(condition.density_kg_m3)
     assert case.fluid.source == "solved-from-reynolds"
     assert case.flight_condition == {"MACH": 0.1441, "REmi": 4.38}
+
+
+@pytest.mark.filterwarnings("ignore:none of the")
+@pytest.mark.filterwarnings("ignore:setup preset")
+def test_the_written_record_names_the_setup_that_supplied_the_pins(tmp_path):
+    """PFS-2030.08 at the ARTIFACT, and through the writer rather than the model.
+
+    THE FIRST VERSION OF THIS TEST BUILT A `RunRecord` BY HAND and was
+    therefore green with both record writes deleted, which is the exact
+    defect a quality review had just found by deleting one of them. So it
+    runs the matrix through the stub solver and reads the record the run
+    layer wrote: nothing here asserts what the model ACCEPTS, only what
+    the run PUT THERE.
+    """
+    exe = real_executable(tmp_path)
+    workspace = make_library(tmp_path, register_build=("26.120", exe.as_posix()))
+    setup = workspace.inputs_dir / "setups" / f"{code_for('8001', 'set', REGISTRY_FIXTURE)}.toml"
+    setup.write_text(
+        setup.read_text(encoding="utf-8") + "\n[flight_condition]\nMUPas = 1.789e-5\n",
+        encoding="utf-8",
+    )
+    records = run_for_records(REGISTRY_FIXTURE, workspace)
+
+    assert records, "the run recorded nothing to judge"
+    inherited = [r for r in records if r.sim_id == "8001"]
+    assert inherited, "POL 8001 is the row that names the pinned setup"
+    for record in inherited:
+        assert record.flight_condition_defaults == {"MUPas": 1.789e-5}, (
+            "the run wrote a record that does not say the setup supplied its viscosity"
+        )
+        assert "inputs/setups/" in record.flight_condition_defaults_from, (
+            "the record names no file, so a reader cannot open what supplied the pins"
+        )
+        # AND THE PAIR READS AS THE DOCSTRING SAYS: a pin the row stated is
+        # in the condition and NOT here, which is how a reader sees an
+        # override without holding the setup file open.
+        assert set(record.flight_condition) & set(record.flight_condition_defaults) == set()
+
+
+def test_a_workspace_renders_the_same_script_whichever_file_states_the_pins(tmp_path):
+    """The claim that carried this node, made checkable (PFS-2030.08).
+
+    A verification review found the byte comparison behind
+    "moving the constants changed nothing the solver receives" living
+    only in a session: nothing committed re-ran it and neither side of it
+    was on disk. This is that comparison, in the repository, over a
+    workspace built twice from the same numbers -- once with the pins on
+    the ROWS and once with them in the SETUP -- asserting the rendered
+    script text is equal BYTE FOR BYTE, with nothing allowed to differ.
+
+    It is seat-free: nothing here runs a solver.
+    """
+    from pyflightstream.cases.workflows import build_script
+    from pyflightstream.script import Script
+
+    pins = "MUPas:1.789e-5, ASMPS:340.29, TK:288.15, PPA:101325"
+
+    def render(in_the_row):
+        workspace = make_library(tmp_path / ("row" if in_the_row else "setup"))
+        setup = workspace.inputs_dir / "setups" / f"{code_for('9001', 'set')}.toml"
+        if not in_the_row:
+            setup.write_text(
+                setup.read_text(encoding="utf-8")
+                + "\n[flight_condition]\nMUPas = 1.789e-5\nASMPS = 340.29\n"
+                + "TK = 288.15\nPPA = 101325\n",
+                encoding="utf-8",
+            )
+        matrix = tmp_path / ("row" if in_the_row else "setup") / "matriz.fs"
+        body = FIXTURE.read_text(encoding="utf-8")
+        if in_the_row:
+            body = body.replace("MACH:0.1441, REmi:4.38", f"MACH:0.1441, REmi:4.38, {pins}")
+        matrix.write_text(body, encoding="utf-8")
+        with pytest.warns(UserWarning, match="wake_layers"):
+            resolved = resolve_matrix(
+                matrix,
+                workspace,
+                name="matrix",
+                fs_version="26.120",
+                recipes=RECIPES,
+                fs_exe="C:/fs/FlightStream.exe",
+            )
+        case = {sim.sim_id: sim for sim in resolved.campaign.sims}["9001"]
+        script = Script("26.120")
+        build_script(case.model_copy(update={"point": {"alpha": 0.0}}), script)
+        return script.render()
+
+    from_the_row = render(True)
+    from_the_setup = render(False)
+    assert "1.789e-05" in from_the_row, "the fixture does not exercise the pins at all"
+    assert from_the_setup == from_the_row
 
 
 def test_the_record_that_outlives_the_session_can_be_recomputed_from_itself(tmp_path):
