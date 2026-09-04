@@ -2451,15 +2451,18 @@ def test_the_azimuthal_step_and_the_revolutions_set_the_whole_clock():
     # for exactly this derivation. The reading this test carried until then
     # was the opposite, and its reason is asserted below rather than
     # deleted, because it is what the decision costs.
-    assert stepping.delta_time_s == 0.00352
+    assert stepping.delta_time_s == pytest.approx(0.0035222840, abs=5e-10)
     # WHAT THE ROUNDING COSTS, and the reason the earlier reading derived
     # the unrounded value: 54 steps of 0.00352 s cover 1.4990 revolutions
     # and not the 1.5 the row asks for. The COUNT is unaffected, so the run
     # ends on the step the author named, four hundredths of a degree short
     # of the azimuth they named.
-    covered = stepping.delta_time_s * stepping.time_iterations * abs(stepping.rpm) / 60.0
-    assert covered == pytest.approx(1.4990, abs=5e-5)
-    assert stepping.delta_time_s * stepping.time_iterations == pytest.approx(0.19008, abs=5e-9)
+    covered = round(stepping.delta_time_s, 5) * stepping.time_iterations * abs(stepping.rpm) / 60.0
+    assert covered == pytest.approx(1.4990, abs=5e-5), (
+        "the rounded step no longer costs a run its revolutions, so this assertion has "
+        "stopped measuring the reason the unrounded derivation is what is emitted"
+    )
+    assert stepping.delta_time_s * stepping.time_iterations == pytest.approx(0.19020334, abs=5e-9)
 
 
 def test_the_explicit_clock_is_carried_through_unconverted():
@@ -3395,7 +3398,9 @@ def test_the_angular_clock_of_a_rotorless_row_needs_a_speed_and_then_resolves():
     stepping = unsteady_time_stepping(with_speed)
     assert stepping.stated_form == "angular"
     assert stepping.time_iterations == 144
-    assert stepping.delta_time_s == 0.00388, "her recorded step for this pair"
+    # 20 / (6 * 858.7977) s; her recorded script states 0.00388, which is her
+    # tool's rounding of this number rather than a different clock.
+    assert stepping.delta_time_s == pytest.approx(0.0038813952731, abs=5e-13)
     without = unsteady_case(
         DELTA_TIME=None, TIME_ITERATIONS=None, DELTA_THETA="20", REVOLUTIONS="8.0"
     )
@@ -4122,10 +4127,10 @@ def test_a_rotorless_row_builds_its_whole_script_from_the_azimuthal_clock(tmp_pa
     lines = script.render().splitlines()
     at = lines.index("SET_SOLVER_UNSTEADY")
     # 30 m/s through a 3.6576 m diameter at J 1.3 is 378.5584 rev/min, and
-    # twenty degrees of it is 0.0088053 s, emitted at her five decimals.
-    assert lines[at + 1 : at + 3] == ["TIME_ITERATIONS 144", "DELTA_TIME 0.00881"], lines[
-        at : at + 3
-    ]
+    # twenty degrees of it is 0.0088053345 s, emitted as derived.
+    assert lines[at + 1] == "TIME_ITERATIONS 144"
+    assert float(lines[at + 2].split()[1]) == pytest.approx(0.0088053345, abs=5e-10)
+    assert lines[at + 1 : at + 3] == ["TIME_ITERATIONS 144", lines[at + 2]], lines[at : at + 3]
     assert not any(line.startswith("CREATE_NEW_MOTION") for line in lines), (
         "a run type that meshes nothing turning emitted a motion"
     )

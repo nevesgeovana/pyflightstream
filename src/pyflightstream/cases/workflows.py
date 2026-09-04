@@ -772,25 +772,6 @@ def _rpm_sign(case: SimCase) -> int:
 #: the author's tool wrote four, and her recorded runs turned at that value.
 _DERIVED_RPM_DECIMALS = 4
 
-#: The decimals a time step derived from an azimuthal step is emitted at.
-#: HER DECISION OF 2026-09-04, taken with the measurement in hand and
-#: against the reading this package shipped with. Her tool wrote five, in
-#: both of her recorded unsteady scripts: 10 degrees at 473.1723 rev/min is
-#: 0.0035223250952 and her 9001 script states DELTA_TIME 0.00352; 20 degrees
-#: at 858.7977 rev/min is 0.0038813952731 and her 3224 script states 0.00388.
-#: The runs that produced her tables marched at the rounded value.
-#:
-#: WHAT IT COSTS, said here because the decision it replaces was taken for
-#: this reason: 54 steps of 0.00352 s cover 1.49901 revolutions and not the
-#: 1.5 the row asks for. The step COUNT is unaffected, since it comes from
-#: the revolutions and the azimuthal step and never from the seconds, so the
-#: run ends on the step the author asked for, at an azimuth 0.356 degrees
-#: short of the one they named (0.00099 of a revolution, 0.0066 degrees per
-#: step over 54 of them). A review lens recomputed this paragraph on
-#: 2026-09-04 and found it claiming 0.04 degrees, which understated by
-#: ninefold the cost of the decision it exists to state.
-_DERIVED_TIME_STEP_DECIMALS = 5
-
 
 def rotor_speed(case: SimCase) -> RotorSpeed:
     """Resolve the rotor speed a row states, in either form.
@@ -1135,7 +1116,16 @@ def rotor_time_stepping(case: SimCase, *, speed: RotorSpeed | None = None) -> Ti
     # One revolution lasts 60/rpm seconds, so one degree lasts 1/(6 rpm)
     # seconds. The magnitude is what sets the clock: a rotor turning the
     # other way takes the same time to sweep the same angle.
-    delta_time_s = round(theta / (6.0 * abs(resolved.rpm)), _DERIVED_TIME_STEP_DECIMALS)
+    #
+    # DERIVED AND NOT ROUNDED. The author's own scripts state 0.00352 where
+    # this gives 0.0035223250952, and that is her tool's rounding of the
+    # same derivation rather than a different clock: her correction of
+    # 2026-09-04, after a session had read the rounded value as the number
+    # to emit. Rounding here would end a run at an azimuth nobody chose,
+    # which is what stating the revolutions exists to prevent; a comparison
+    # against a file she rounded belongs in that comparison rather than in
+    # the number this package emits.
+    delta_time_s = theta / (6.0 * abs(resolved.rpm))
     exact_steps = revolutions * 360.0 / theta
     steps = int(round(exact_steps))
     if abs(exact_steps - steps) > 1e-6:

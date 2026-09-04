@@ -9,17 +9,15 @@ FlightStream versions.
 
 ### Changed
 
-- **The azimuthal clock is the matrix's form, and it is emitted at the
-  author's precision.** Two decisions of hers, taken on 2026-09-04 with her
-  recorded scripts measured and against the readings this package shipped
-  with. A time step derived from `DELTA_THETA` and `REVOLUTIONS` is emitted
-  at five decimals, her tool's precision: ten degrees at 473.1723 rev/min is
-  0.0035223250952 and her script states `DELTA_TIME 0.00352`, and her runs
-  marched at the rounded value. What that costs is asserted rather than
-  dropped: 54 such steps cover 1.49901 revolutions and not the 1.5 the row
-  asks for, and the step COUNT still comes from the revolutions, so a run
-  ends on the step its author named, 0.356 degrees short of the azimuth. The steps per revolution now come from the azimuthal step itself
-  rather than from the rounded seconds.
+- **A time step derived from `DELTA_THETA` and `REVOLUTIONS` is emitted as
+  derived, never rounded.** That was always so and is stated here because a
+  session briefly made it otherwise: the author's own scripts write
+  `DELTA_TIME 0.00352` where the same derivation gives 0.0035223250952, and
+  her correction is that the rounding belongs to that file rather than to
+  what a run emits. Rounding would end a run at an azimuth nobody chose,
+  which is what stating the revolutions exists to prevent. The steps per
+  revolution come from the azimuthal step itself rather than from a
+  quotient of the seconds and the speed.
 - **An unsteady run that meshes nothing turning may state its clock
   azimuthally**, when the row states the speed whose azimuth the step
   measures. Her `POLAR-3224` is the case: a wing-body in a propeller's

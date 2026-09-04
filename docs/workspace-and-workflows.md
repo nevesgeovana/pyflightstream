@@ -156,19 +156,11 @@ the decisions and the package derives the rest.
     mesh it opened.
 
 * `DELTA_THETA: <deg>` and `REVOLUTIONS: <turns>` set the clock:
-  `DELTA_TIME = theta / (6 rpm)`, emitted at five decimals, and
+  `DELTA_TIME = theta / (6 rpm)`, emitted as derived, and
   `TIME_ITERATIONS = REVOLUTIONS * 360 / DELTA_THETA`. `DELTA_TIME` and
   `TIME_ITERATIONS` state the same thing directly and still work; a row
   states one pair, and half a pair is refused naming the key that is
   missing, because neither half implies the other.
-
-    The five decimals are the author's precision, her decision of
-    2026-09-04: her recorded scripts state `0.00352` where the derivation
-    gives `0.0035223250952`, and her runs marched at the rounded number.
-    It costs a thousandth of a revolution, since the step COUNT still
-    comes from the revolutions: fifty-four steps of that length cover
-    1.49901 turns and not 1.5, so a run ends on the step its author
-    named, 0.356 degrees short of the azimuth they named.
 
     An unsteady run that meshes nothing turning takes this pair too, when
     the row states the speed whose azimuth the step measures
