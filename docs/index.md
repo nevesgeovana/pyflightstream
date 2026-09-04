@@ -3,10 +3,24 @@
 Version-aware, didactic Python driver for the FlightStream panel-method
 solver. MIT licensed.
 
-Status: v0.11.0 is the current release; the changelog records what
+Status: v0.12.0 is the current release; the changelog records what
 each release adds and what each one asks you to do.
 
-**v0.11.0 changes the run-matrix FILE FORMAT, and one command moves a
+**Nothing you have written changes.** v0.12.0 changes no column of the
+run-matrix file, no cell already in one, and no number any of them resolves
+to. It ADDS two ways to say what you were already saying. A setup artifact
+may carry a `[flight_condition]` table holding the fluid pins (`RHOkgm3`,
+`MUPas`, `ASMPS`, `TK`, `PPA`), so a thirteen-point polar states its
+campaign's constants once instead of thirteen times; a row that states a pin
+still overrides the setup's, and the resolved state is the same state either
+way, which a test holds to the rendered script BYTE FOR BYTE. And an unsteady
+run that meshes nothing turning may state its clock as `DELTA_THETA` and
+`REVOLUTIONS`, resolved against the rotor speed whose azimuth the step
+measures, where before only the seconds and the step count were accepted. The
+reproduction workspace of the author's recorded campaign needs both, which is
+why this release exists.
+
+**v0.11.0 changed the run-matrix FILE FORMAT, and one command moved a
 workspace.** The `ENTRY` column is now `PPROC` and names the post-processing
 artifact, the `FS_SCRIPT` column is gone and a `LEGACY` row carries its recipe
 code in its cell, and the `GEOMETRY` cell names the file with its extension.
@@ -21,7 +35,7 @@ order of a geometry is read from the file (`pyfs-matrix inventory`), a row may
 state several rotors, and every point opens its geometry through a link
 rather than a copy. The reproduction of the author's recorded campaign, script
 by script and product by product, is the exit condition of GOAL-011 and is
-what the release was built against.
+what that release was built against.
 
 **v0.10.1 changed no column of the run-matrix file and no cell you had
 already written.** What it changed is what one cell MEANS. A rotor row's
