@@ -481,7 +481,11 @@ def _resolve_code(workspace: CampaignWorkspace, kind: str, code: str, pol: str):
 
 
 def _bind_motion(
-    workspace: CampaignWorkspace, record: Mapping[str, str], pol: str
+    workspace: CampaignWorkspace,
+    record: Mapping[str, str],
+    pol: str,
+    *,
+    where: str = "a MOTIONS record",
 ) -> dict[str, str]:
     """Bind one motion record: a ROTOR_ORIGIN naming a point becomes that point's coordinates.
 
@@ -489,6 +493,9 @@ def _bind_motion(
     resolved against ``inputs/reference_points.toml`` and must be an
     engine point, and the record keeps the name beside the coordinates
     as ``ROTOR_ORIGIN_POINT`` so the run record says which point it was.
+    Since 0.13.0 the flat rotor row's own ``ROTOR_ORIGIN`` is bound through
+    the same function (PFS-2031.12), ``where`` naming which of the two the
+    refusal is about.
     """
     bound = dict(record)
     origin = bound.get("ROTOR_ORIGIN")
@@ -498,7 +505,7 @@ def _bind_motion(
         point = workspace.engine_point(origin)
     except InputArtifactError as error:
         raise InputArtifactError(
-            f"matrix row POL {pol}: a MOTIONS record states ROTOR_ORIGIN: {origin}, which "
+            f"matrix row POL {pol}: {where} states ROTOR_ORIGIN: {origin}, which "
             f"the workspace cannot turn a rotor about. {error}",
             kind=error.kind,
             artifact_id=error.artifact_id,
@@ -1144,7 +1151,7 @@ def resolve_matrix(
         # and a second strip could never change an outcome: a mutation
         # deleting it left the whole suite green, which is what an
         # unreachable guard does. The composed behaviour is asserted in
-        # `tests/test_matrix_run.py`, at the reader AND here, rather than
+        # `tests/tier1_offline/test_matrix_run.py`, at the reader AND here, rather than
         # defended twice in code and proven in neither place.
         stem = row.variables.get(GEOMETRY_VARIABLE, "")
         if stem:
@@ -1153,6 +1160,13 @@ def resolve_matrix(
             update["inventory"], update["inventory_source"] = _inventory_of(geometry_path)
         if row.motions:
             update["motions"] = [_bind_motion(workspace, record, row.pol) for record in row.motions]
+        # THE FLAT ROW'S OWN HUB, bound the same way (PFS-2031.12): one rotor
+        # is not less entitled to a named hub than two, and the name stays
+        # beside the coordinates so the record says which point it was.
+        flat_origin = row.variables.get("ROTOR_ORIGIN", "")
+        if flat_origin and not _is_three_numbers(flat_origin):
+            bound = _bind_motion(workspace, {"ROTOR_ORIGIN": flat_origin}, row.pol, where="the row")
+            update["variables"] = {**case.variables, **bound}
         # PFS-2027.02 and .04. THE POSITION IS LOAD-BEARING and it is not
         # a comment asking for an ordering: the reference is bound at the
         # top of this loop body and reaches the case only through the
@@ -1161,7 +1175,7 @@ def resolve_matrix(
         # a resolver moved above that binding would silently resolve
         # every Reynolds constraint against no length at all -- which is
         # the failure `.04` exists to prevent, and which
-        # `tests/test_flight_condition_resolution.py` fails on rather
+        # `tests/tier1_offline/test_flight_condition_resolution.py` fails on rather
         # than describing.
         if row.flight_condition:
             resolved = resolve_flight_condition(
