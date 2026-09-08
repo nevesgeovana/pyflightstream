@@ -478,3 +478,25 @@ def test_the_rotor_facts_argument_lives_on_the_mesh_inputs_page():
 
     for key in ROTOR_FACT_KEYS:
         assert key in section
+
+
+def test_the_tiers_page_names_the_three_folders_that_exist():
+    """PFS-2031.10: docs/tiers.md names each tier by its folder under tests/, every
+    folder it names exists, and it names the workspace's six matrices and the
+    tests beside them, so the page cannot describe a layout the tree no longer has."""
+    page = (REPO / "docs" / "tiers.md").read_text(encoding="utf-8")
+    folders = sorted(
+        p.name for p in (REPO / "tests").iterdir() if p.is_dir() and p.name.startswith("tier")
+    )
+    assert folders == ["tier1_offline", "tier2_validity", "tier3_licensed"]
+    for folder in folders:
+        assert f"tests/{folder}" in page, f"the page does not name tests/{folder}"
+    tier3 = REPO / "tests" / "tier3_licensed"
+    for matrix in sorted(tier3.glob("*.fs")):
+        assert f"`{matrix.name}`" in page, f"the page does not name {matrix.name}"
+    for module in ("test_tour.py", "test_studies.py", "test_physics.py", "test_actions_probe.py"):
+        assert (tier3 / module).is_file()
+        assert module in page
+    assert "executables.local.toml" in page
+    nav = (REPO / "properdocs.yml").read_text(encoding="utf-8")
+    assert "tiers.md" in nav, "the page is not reachable from the site nav"
