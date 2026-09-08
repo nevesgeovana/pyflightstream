@@ -106,6 +106,13 @@ from pyflightstream.versions import (
 
 INPUT_KINDS = ("geometries", "references", "setups", "pproc", "profiles")
 EXECUTABLES_FILE = "executables.toml"
+#: This machine's overlay of the build registry (PFS-2031.15). A workspace
+#: kept in version control carries placeholder paths in the registry,
+#: because where a solver is installed is machine configuration; the
+#: overlay beside it, gitignored, supplies the real path of a build id. A
+#: bare path keeps the committed entry's declared version, a table replaces
+#: the entry, and a build id the overlay is silent on reads as committed.
+LOCAL_EXECUTABLES_FILE = "executables.local.toml"
 
 #: Every key a TABLE-valued entry of the build registry carries, and the
 #: only ones read. A key outside this tuple is REFUSED naming itself
@@ -1012,6 +1019,14 @@ def resolve_build(
             "never guessed."
         )
     table = _load_toml(registry_path, "executables")
+    overlay_path = registry_path.with_name(LOCAL_EXECUTABLES_FILE)
+    if overlay_path.is_file():
+        for key, local in _load_toml(overlay_path, "executables").items():
+            committed = table.get(key)
+            if isinstance(local, str) and isinstance(committed, dict):
+                table[key] = {**committed, "path": local}
+            else:
+                table[key] = local
     entry = table.get(build_id)
     if entry is None:
         # BOTH shapes count as registered. Listing only the string entries,

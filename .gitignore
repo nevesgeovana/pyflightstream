@@ -109,7 +109,7 @@ CONTRIBUTING.md
 # the simulations, the products, the manifest, and the STL parts the
 # preparation recipe regenerates on every build.
 tests/tier3_licensed/_generated/
-tests/tier3_licensed/executables.local.toml
+tests/tier3_licensed/inputs/executables.local.toml
 tests/tier3_licensed/sims/
 tests/tier3_licensed/post/
 tests/tier3_licensed/archive/

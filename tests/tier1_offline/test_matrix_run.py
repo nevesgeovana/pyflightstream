@@ -3395,6 +3395,40 @@ def test_a_flat_rotor_row_naming_an_airframe_point_is_refused_naming_the_kind(tm
     assert "airframe" in str(caught.value)
 
 
+# --- PFS-2031.15: a local registry overlay supplies this machine's paths ----------
+
+
+def test_a_local_registry_overlay_supplies_this_machines_paths(tmp_path):
+    """A committed workspace carries placeholder paths in inputs/executables.toml,
+    because an installation path is machine configuration; the gitignored
+    inputs/executables.local.toml beside it supplies this machine's paths for the
+    same build ids. A bare local path keeps the committed entry's version; a local
+    table replaces the entry."""
+    from pyflightstream.workspace.inputs import resolve_build
+
+    workspace = make_library(tmp_path)
+    inputs = workspace.inputs_dir
+    (inputs / "executables.toml").write_text(
+        '"26.123" = { path = "FlightStream_26123.exe", version = "26.123" }\n'
+        '"26.120" = "FlightStream_26120.exe"\n'
+        '"26.121" = "FlightStream_26121.exe"\n',
+        encoding="utf-8",
+    )
+    (inputs / "executables.local.toml").write_text(
+        '"26.123" = "C:/local/fs26123/FlightStream.exe"\n'
+        '"26.120" = { path = "C:/local/fs26120/FlightStream.exe", version = "26.120" }\n',
+        encoding="utf-8",
+    )
+    newest = resolve_build(inputs, "26.123")
+    assert newest.fs_exe == Path("C:/local/fs26123/FlightStream.exe")
+    assert newest.fs_version == "26.123", "a bare local path keeps the committed version"
+    older = resolve_build(inputs, "26.120")
+    assert older.fs_exe == Path("C:/local/fs26120/FlightStream.exe")
+    assert older.fs_version == "26.120"
+    untouched = resolve_build(inputs, "26.121")
+    assert untouched.fs_exe == Path("FlightStream_26121.exe"), "an entry the overlay is silent on"
+
+
 # --- PFS-2031.14: the override with no default version is refused, not crashed ---
 
 

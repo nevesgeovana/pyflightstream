@@ -56,17 +56,18 @@ FILES = {
 
 
 #: This machine's installations, gitignored: the committed registry carries
-#: placeholders because an installation path is machine configuration.
-LOCAL_EXECUTABLES = HERE / "executables.local.toml"
+#: placeholders because an installation path is machine configuration, and
+#: the package reads this overlay over it for every row (PFS-2031.15).
+LOCAL_EXECUTABLES = INPUTS / "executables.local.toml"
 
 
 def executable(build: str = BUILD) -> Path:
     """The solver of ``build`` on this machine, from the gitignored local file."""
     if not LOCAL_EXECUTABLES.is_file():
         raise RuntimeError(
-            f"no {LOCAL_EXECUTABLES.name} beside the tier-3 workspace: write one naming this "
+            f"no {LOCAL_EXECUTABLES.name} in the tier-3 inputs/ folder: write one naming this "
             f'machine\'s installation, \'"{build}" = "<path>"\', gitignored like every '
-            "machine path"
+            "machine path; pyfs-matrix reads the same file over inputs/executables.toml"
         )
     registry = tomllib.loads(LOCAL_EXECUTABLES.read_text(encoding="utf-8"))
     entry = registry[build]

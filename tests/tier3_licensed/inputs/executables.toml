@@ -4,9 +4,10 @@
 # what the FS_BUILD column exists for. The PATHS ARE PLACEHOLDERS on purpose:
 # where a solver is installed is machine configuration and never enters Git
 # (the container-directory guard of tests/tier1_offline/test_house_style.py).
-# Tier 1 only resolves these entries; tier 3 runs with the executable named on
-# the command line, `pyfs-matrix run <matrix> --workspace <this folder>
-# --fs-exe <path>`, which overrides every entry for that run, the path coming
-# from the machine's own gitignored configuration.
+# The machine that runs tier 3 writes the gitignored overlay beside this file,
+# inputs/executables.local.toml, with the same build ids and its own paths
+# (PFS-2031.15); the package reads the overlay over this registry, a bare
+# path there keeps the version declared here, and every row runs on the
+# build its FS_BUILD cell names. Tier 1 resolves these entries as they are.
 "26.120" = { path = "FlightStream_26120.exe", version = "26.120" }
 "26.123" = { path = "FlightStream_26123.exe", version = "26.123" }
