@@ -40,3 +40,8 @@ tests/tier1_offline/fixtures/** text eol=lf
 # solver wrote; their provenance record carries their sha256, so their bytes
 # are the assertion and no line-ending translation may touch them.
 tests/tier3_licensed/inputs/geometries/*.fsm binary
+
+# The tier-3 goldens are the same argument: the offline module writes them LF
+# and the tier-1 control reads them normalized, so the file on disk is the same
+# on every machine and a CRLF checkout does not read as a moved script.
+tests/tier3_licensed/goldens/** text eol=lf
