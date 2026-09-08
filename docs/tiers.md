@@ -76,7 +76,7 @@ line but the matrix and the workspace.
 |---|---|---|
 | `matriz.fs` | the tour: every column, every key, every run type, every input kind | 1001 a steady polar with the fluid pins from the setup; 1002 the half wing mirrored with velocity and density on the row; 1003 a sideslip sweep at altitude on a hot day; 1004 a combined sweep with every pin on the row; 1005 the body detecting its base on the second build; 1006 an inactive row; 1010 and 1011 the rotorless unsteady clock in seconds and in azimuth; 1020 one blade under periodic symmetry; 1021 the installed pusher with a signed RPM and its hub by a point; 1022 two rotors from a MOTIONS list; 1090 a LEGACY row naming its recipe in the cell |
 | `matriz_setup.fs` | one point, three presets | 2001 the tour preset, 2002 tighter and longer, 2003 incompressible without stabilization |
-| `matriz_time.fs` | one rotor at three step sizes, one wing at two | 3001 to 3003, 3010 and 3011 |
+| `matriz_time.fs` | one rotor at six step sizes, 30 down to 2.5 deg, one wing at two | 3001 to 3006, 3010 and 3011 |
 | `matriz_geometry.fs` | one condition, three shapes | 4001 the wing, 4002 its mirrored half, 4003 the body |
 | `matriz_physics.fs` | the qa physics cases as rows | 5001 PHY-01, 5002 and 5003 PHY-02, 5005 PHY-05, 5006 PHY-06 |
 | `matriz_actions.fs` | the action re-read probe | 6001 on 26.123, RPT-031 |

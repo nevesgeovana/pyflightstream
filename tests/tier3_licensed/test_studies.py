@@ -78,8 +78,17 @@ def test_the_setup_study_agrees_on_the_lift_to_the_convergence_it_asked_for(runs
 
 
 def test_the_time_study_states_the_rotor_clock_in_azimuth_steps(runs):
-    _all_terminal(runs, "matriz_time", ("3001", "3002", "3003", "3010", "3011"))
-    expected = {"3001": (30, 6), "3002": (15, 12), "3003": (10, 18)}
+    _all_terminal(
+        runs, "matriz_time", ("3001", "3002", "3003", "3004", "3005", "3006", "3010", "3011")
+    )
+    expected = {
+        "3001": (30, 6),
+        "3002": (15, 12),
+        "3003": (10, 18),
+        "3004": (7.5, 24),
+        "3005": (5, 36),
+        "3006": (2.5, 72),
+    }
     deltas = {}
     for pol, (_theta, steps) in expected.items():
         script = runs.script(runs.one("matriz_time", pol, alpha=0.0, beta=0.0))
@@ -100,17 +109,20 @@ def test_the_time_study_states_the_wing_clock_in_seconds(runs):
     assert line(fine, "TIME_ITERATIONS") == "TIME_ITERATIONS 12"
 
 
-def test_the_time_study_sequence_is_recorded_for_her_to_band(runs):
-    """The thrust of the rotor at three step sizes and the lift of the wing at two are
-    read from the loads the rows exported and must exist; whether the sequence has
-    converged is hers to decide, and no band is asserted here."""
+def test_the_time_study_sequence_is_recorded_for_her_to_read(runs):
+    """Her decision of 2026-09-08: the rotor's sequence to look at is 15, 10, 7.5, 5
+    and 2.5 deg per step (rows 3002 to 3006; 3001 at 30 deg is the coarse anchor),
+    and the rest of the study is recorded, not judged. The thrust at each step size
+    and the lift of the wing at two are read from the loads the rows exported and
+    must exist as distinct answers; no band is asserted, and the sequence is in
+    post/matriz_time/sweep.csv for her to read."""
     thrust = [
         runs.total(runs.one("matriz_time", pol, alpha=0.0, beta=0.0))["CDi"]
-        for pol in ("3001", "3002", "3003")
+        for pol in ("3002", "3003", "3004", "3005", "3006")
     ]
     lift = [runs.total(runs.one("matriz_time", pol, alpha=2.0))["CL"] for pol in ("3010", "3011")]
     assert all(isinstance(value, float) for value in thrust + lift)
-    assert len({round(value, 7) for value in thrust}) == 3, "three step sizes, three answers"
+    assert len({round(value, 7) for value in thrust}) == 5, "five step sizes, five answers"
 
 
 # --- matriz_geometry.fs: one condition, three shapes -------------------------------

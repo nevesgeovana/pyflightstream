@@ -481,7 +481,7 @@ Milestones and session records are listed in the
     *Origin: BRF-03. Evidence: milestone M3; the committed compat
     reports and the promotion mechanism.*
 
-    Read with PFS-2031.08 and PFS-2031.09 at 0.13.0 (GOAL-012): the action re-read probe runs as a row of the tier-3 matrix and writes its verdict into the command database, and the pyfs-qa study decides where the probe harness lives beside the workspace.
+    Read with PFS-2031.08 and PFS-2031.09 at 0.13.0 (GOAL-012): the action re-read probe runs as a row of the tier-3 matrix and writes its verdict into the command database, and the pyfs-qa study decides where the probe harness lives beside the workspace; PFS-2031.17 carries her answer, pyfs-qa physics reading the workspace, and PFS-2031.18 the unsteady actions design the probe confirmed.
 
     A probe harness runs per-command probe scripts on a licensed
     machine, asserts real effects, and promotes results into database
