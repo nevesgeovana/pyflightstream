@@ -302,7 +302,8 @@ def test_the_workspace_directory_names_the_campaign(tmp_path, capsys):
     workspace.root.rename(root)
     argv = ["plan", str(WORKFLOW_FIXTURE), "--workspace", str(root)]
     assert main(argv) == 0
-    plan = json.loads((root / "plan.json").read_text(encoding="utf-8"))
+    plan_file = root / "post" / WORKFLOW_FIXTURE.stem / "plan.json"
+    plan = json.loads(plan_file.read_text(encoding="utf-8"))
     assert plan["campaign"] == "pfs0101"
     assert plan["campaign_name_from"] == "directory"
     assert all(point["run_id"].startswith("pfs0101/") for point in plan["points"])
@@ -316,7 +317,8 @@ def test_name_overrides_the_directory_and_the_record_says_so(tmp_path):
     workspace.root.rename(root)
     argv = ["plan", str(WORKFLOW_FIXTURE), "--workspace", str(root), "--name", "study"]
     assert main(argv) == 0
-    plan = json.loads((root / "plan.json").read_text(encoding="utf-8"))
+    plan_file = root / "post" / WORKFLOW_FIXTURE.stem / "plan.json"
+    plan = json.loads(plan_file.read_text(encoding="utf-8"))
     assert plan["campaign"] == "study"
     assert plan["campaign_name_from"] == "option"
 

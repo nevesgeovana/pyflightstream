@@ -247,14 +247,18 @@ def test_a_campaign_with_a_failing_point_still_leaves_its_table(tmp_path, monkey
         )
 
 
-def test_the_default_sweep_table_lands_in_the_workspace_root(tmp_path, capsys):
-    """ "One command" has to include the table, so it has a default name."""
+def test_the_default_sweep_table_lands_under_post_and_the_matrix_stem(tmp_path, capsys):
+    """ "One command" has to include the table, so it has a default name, and the
+    place is the matrix's own folder so several matrices of one workspace keep
+    their own (PFS-2031.04)."""
     workspace = make_workspace(tmp_path)
-    assert main(run_args(workspace, single_point_matrix(tmp_path))) == 0
-    assert (workspace.root / "sweep.csv").is_file(), (
-        "no --sweep-csv was given and no table was written, so the one command did not "
-        "produce the study's table"
+    matrix = single_point_matrix(tmp_path)
+    assert main(run_args(workspace, matrix)) == 0
+    assert (workspace.root / "post" / matrix.stem / "sweep.csv").is_file(), (
+        "no --sweep-csv was given and no table was written under post/<matrix>/, so the "
+        "one command did not produce the study's table where the matrix keeps it"
     )
+    assert not (workspace.root / "sweep.csv").exists(), "the table landed in the root"
     assert "sweep.csv" in capsys.readouterr().out
 
 

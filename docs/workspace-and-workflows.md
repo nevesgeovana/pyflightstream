@@ -681,16 +681,49 @@ attack, the wind axes by turning the stability axes through the sideslip,
 and the rolling and yawing moments are `CMx` and `CMz` scaled from the chord
 to the span, with her sign.
 
-The run writes these after collection, under `post/products`, and
-`post/products/products.json` names every file with the run ids it derives
+The run writes these after collection, under `post/<matrix stem>/`, the
+folder named after the matrix file (`post/matriz/` for `matriz.fs`), and
+`products.json` beside them names every file with the run ids it derives
 from and the pproc artifact; a campaign resumed with new points rewrites
 them, since they derive from the manifest. To rebuild them by hand, with no
 solver and no executable configured:
 
 ```text
-pyfs-matrix post --workspace .            # refuses a product that exists
-pyfs-matrix post --workspace . --overwrite
+pyfs-matrix post matriz.fs --workspace .            # refuses a product that exists
+pyfs-matrix post matriz.fs --workspace . --overwrite
+pyfs-matrix post --workspace .                      # every matrix the manifest names
 ```
+
+### Several matrices in one workspace
+
+One workspace may hold several matrices, each a study of its own over the
+same input library: a tour, a setup study, a time-convergence study. The
+rule that keeps them apart is one folder per matrix (PFS-2031.04): `plan`
+writes `post/<stem>/plan.json`, `run` writes `post/<stem>/sweep.csv` and
+`post/<stem>/campaign_sweep.csv`, and the products of that matrix's points
+land beside them. `runs.json` stays the one manifest of the workspace, and
+every record in it names the matrix its point came from, so the sweep table
+and the products of one matrix are rebuilt from its own records alone. From
+Python the same identity is the `matrix` keyword of `sweep_table` and
+`write_campaign_products`, and the `matrix` field of a run record.
+
+What two matrices of one workspace may not share is a POL. A POL names the
+simulation folder `sims/sim_<POL>` and the run ids of the manifest, so two
+rows stating one POL would write into one folder and a resume of either
+would find the other's points already recorded. `plan` and `run` read every
+`*.fs` beside the matrix in the workspace root before anything binds, and a
+shared POL is refused naming both files and both rows:
+
+```text
+matrix not planned: POL 1001 is stated by two matrices of this workspace,
+matriz.fs (row 1) and matriz_setup.fs (row 3). A POL names the simulation
+folder sims/sim_1001 and the run ids of the one manifest, runs.json, so each
+matrix of a workspace states its own POLs; renumber the rows of one of the two.
+```
+
+The tier-3 workspace of this repository, `tests/tier3_licensed`, is the
+worked example: five matrices, one library, one manifest, and a thousands
+digit per matrix in their POLs.
 
 ### One row, several rotors
 
@@ -915,8 +948,9 @@ pyfs-matrix run workflow_rotor_matrix.fs \
 ```
 
 No Python is written, no notebook is opened, and nothing sits between
-the file and the result. The sweep table lands as `sweep.csv`, in the
-workspace root when you do not say where.
+the file and the result. The sweep table lands as `sweep.csv` under
+`post/<matrix stem>/` in the workspace when you do not say where, so a
+second matrix of the same workspace keeps its own.
 
 One limitation applies to that command TODAY and it is worth knowing
 before you meet it. `run` judges each finished point with the standard

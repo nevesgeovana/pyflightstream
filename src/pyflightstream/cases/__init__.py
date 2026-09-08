@@ -1398,6 +1398,16 @@ class Campaign(BaseModel):
         generated this campaign, which is the ordinary case and is not a
         lesser one: an authored campaign is the source of its study and
         the package says nothing about it.
+    matrix : str, optional
+        The stem of the run matrix this campaign was converted from, for
+        example ``"matriz_setup"`` for ``matriz_setup.fs``, and None for
+        a campaign authored in Python or loaded from a file. It is the
+        identity under which the matrix keeps its own products in a
+        workspace that holds several: the plan, the sweep table and the
+        product tables of a matrix land under ``post/<matrix>/`` and
+        every run record says which matrix it came from (PFS-2031.04).
+        Distinct from ``name``, which is the campaign name every run id
+        carries and which a whole workspace usually shares.
 
     Notes
     -----
@@ -1414,6 +1424,7 @@ class Campaign(BaseModel):
     fs_exe: str
     sims: list[SimCase]
     derived_from: DerivedFrom | None = None
+    matrix: str | None = None
 
     #: The file this campaign was loaded from, or None for one built in
     #: Python. Private so it cannot be set from a file; read through

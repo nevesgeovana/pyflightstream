@@ -477,6 +477,15 @@ class RunRecord(BaseModel):
         ``setup 's001' (inputs/setups/s001.toml)``. Empty when the row
         inherited nothing, which includes every record written before
         0.12.0.
+    matrix : str, optional
+        The stem of the run matrix the point came from, when the campaign
+        was converted from one (PFS-2031.04). A workspace may hold several
+        matrices sharing this one manifest, and the sweep table and the
+        products of each are rebuilt from the records that name it. None
+        means the record predates the field or the campaign was authored
+        in Python; such a record belongs to no matrix and is left out of a
+        per-matrix table rather than counted in every one. Adding it did
+        not move :data:`MANIFEST_SCHEMA`.
     flight_condition : dict of str to float
         The flight condition AS WRITTEN in the row, canonical key to
         value, in the units the key names (``MACH`` dimensionless,
@@ -517,6 +526,7 @@ class RunRecord(BaseModel):
     flight_condition: dict[str, float] = Field(default_factory=dict)
     flight_condition_defaults: dict[str, float] = Field(default_factory=dict)
     flight_condition_defaults_from: str = ""
+    matrix: str | None = None
     #: The resolved flow state, and WHICH BRANCH produced the density.
     #: Recorded so a reader can RECOMPUTE the resolution rather than
     #: trust it: the inputs above plus these values plus the reference

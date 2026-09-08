@@ -307,7 +307,8 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     run.add_argument(
         "--sweep-csv",
-        help="write the campaign sweep table here (default: sweep.csv in the workspace root)",
+        help="write the campaign sweep table here (default: post/<matrix stem>/sweep.csv "
+        "in the workspace, so each matrix of a workspace keeps its own)",
     )
 
     post = subparsers.add_parser(
@@ -315,9 +316,17 @@ def _build_parser() -> argparse.ArgumentParser:
         help="rebuild the post-processed CSV products from the manifest, with no solver",
         description=(
             "Reads runs.json and the collected exports of every successful point and writes "
-            "the polar, section and plot tables under post/products, exactly as `run` left "
-            "them; needs no executable and spends no seat (PFS-2029.15.03)."
+            "the polar, section and plot tables under post/<matrix stem>/, exactly as `run` "
+            "left them; needs no executable and spends no seat (PFS-2029.15.03). Given a "
+            "matrix, rebuilds that matrix's products; given none, every matrix the manifest "
+            "names, and the records naming none under post/products."
         ),
+    )
+    post.add_argument(
+        "matrix",
+        nargs="?",
+        help="the run matrix whose products to rebuild, matched by its file stem against "
+        "the records of runs.json (default: every matrix the manifest names)",
     )
     post.add_argument(
         "--workspace",
@@ -418,15 +427,25 @@ def _cmd_post(args: argparse.Namespace) -> int:
 
     workspace = CampaignWorkspace(args.workspace)
     try:
+        if args.matrix is not None:
+            matrices: list[str | None] = [Path(args.matrix).stem]
+        else:
+            # Every matrix the manifest names, in first-seen order, and the
+            # records naming none as their own group (PFS-2031.04).
+            matrices = list(dict.fromkeys(record.matrix for record in workspace.read_manifest()))
         written: list[Path] = []
-        for stage in post_stages():
-            written.extend(stage(workspace, overwrite=args.overwrite))
+        for matrix in matrices:
+            for stage in post_stages():
+                written.extend(stage(workspace, overwrite=args.overwrite, matrix=matrix))
     except (OSError, PyflightstreamError) as error:
         print(str(error), file=sys.stderr)
         return 2
     for path in written:
         print(path)
-    print(f"{len(written)} product(s) written under {workspace.root / 'post' / 'products'}")
+    folders = ", ".join(
+        str(workspace.root / "post" / (matrix if matrix else "products")) for matrix in matrices
+    )
+    print(f"{len(written)} product(s) written under {folders or workspace.root / 'post'}")
     return 0
 
 
@@ -596,7 +615,10 @@ def _cmd_run(args: argparse.Namespace, recipes: dict[str, str]) -> int:
     else:
         status = 0
 
-    target = args.sweep_csv or str(workspace.root / "sweep.csv")
+    # The matrix's own folder, so several matrices of one workspace keep
+    # their own table (PFS-2031.04); the table holds this matrix's records.
+    stem = Path(args.matrix).stem
+    target = args.sweep_csv or str(workspace.root / "post" / stem / "sweep.csv")
     try:
         # `require_loads=False` is the keyword written for exactly this
         # condition: a sweep in which no run yielded coefficients still
@@ -605,7 +627,8 @@ def _cmd_run(args: argparse.Namespace, recipes: dict[str, str]) -> int:
         # the one write path of the tabular layer and refuses a frame
         # that cannot say what produced its numbers; `to_csv` bypassed
         # that and was correct only by coincidence.
-        write_table(sweep_table(workspace, require_loads=False), target)
+        Path(target).parent.mkdir(parents=True, exist_ok=True)
+        write_table(sweep_table(workspace, require_loads=False, matrix=stem), target)
     except (LoadsNotFoundError, MalformedOutputError, OSError, ValueError) as error:
         print(f"runs completed, sweep table not written: {error}", file=sys.stderr)
         return 2

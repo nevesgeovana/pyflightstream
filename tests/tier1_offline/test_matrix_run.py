@@ -710,7 +710,9 @@ def test_plan_matrix_preflights_every_point_without_executing(tmp_path):
     )
     assert [entry.status for entry in plan.points] == [PlanStatus.READY] * 4
     assert workspace.read_manifest() == []
-    assert plan.plan_file == workspace.root / "plan.json"
+    # Under the matrix's own folder, so several matrices of one workspace
+    # keep their own plan (PFS-2031.04).
+    assert plan.plan_file == workspace.root / "post" / REGISTRY_FIXTURE.stem / "plan.json"
     assert plan.plan_file.is_file()
 
 
@@ -3391,3 +3393,123 @@ def test_a_flat_rotor_row_naming_an_airframe_point_is_refused_naming_the_kind(tm
             recipes={},
         )
     assert "airframe" in str(caught.value)
+
+
+# --- PFS-2031.04: several matrices share one workspace ----------------------------
+
+
+def _two_matrices(tmp_path):
+    """A workspace whose root holds two matrices with disjoint POLs.
+
+    Every row is one point at the operating point the loads fixture of
+    ``test_post_products`` prints (alpha -2 deg, Mach 0.2), so the products
+    and the sweep table can be built from what the stub solver writes.
+    """
+    workspace = make_library(tmp_path, register_build=("26.120", "C:/fs26120/FlightStream.exe"))
+    (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
+        '[groups]\n"1" = ["W", "B"]\n', encoding="utf-8"
+    )
+    header, rule, first_row, *_ = REGISTRY_FIXTURE.read_text(encoding="utf-8").splitlines()
+
+    def row(pol, description):
+        return (
+            f"{pol} | TestWing  | {description:22} | TASmps:68.058 | AL | -2.0 | r003 | s002 | "
+            "p001 | 26.120 | 0 | 1 | LEGACY | FSM_FILE:wing_clean / OUTPUTS: loads_{point}.txt "
+            "/ RECIPE: 003"
+        )
+
+    first = workspace.root / "wing_alpha.fs"
+    first.write_text(
+        "\n".join([header, rule, row(8001, "ALPHA_ONE"), row(8002, "ALPHA_TWO")]) + "\n",
+        encoding="utf-8",
+    )
+    second = workspace.root / "wing_beta.fs"
+    second.write_text(
+        "\n".join([header, rule, row(8101, "BETA_ONE"), row(8102, "BETA_TWO")]) + "\n",
+        encoding="utf-8",
+    )
+    return workspace, first, second
+
+
+def _writes_her_loads(tmp_path):
+    """A stub solver that writes a real loads spreadsheet where the script exports one."""
+    from tests.tier1_offline.test_post_products import LOADS
+
+    source = tmp_path / "loads.txt"
+    source.write_text(LOADS, encoding="utf-8")
+    return StubSolver(
+        "import pathlib, sys; "
+        "lines = pathlib.Path(sys.argv[1]).read_text().splitlines(); "
+        f"text = pathlib.Path({source.as_posix()!r}).read_text(); "
+        "[pathlib.Path(lines[i + 1]).write_text(text) "
+        "for i, line in enumerate(lines) if line == 'EXPORT_SOLVER_ANALYSIS_SPREADSHEET']"
+    )
+
+
+def test_two_matrices_of_one_workspace_keep_their_own_plan_sweep_and_products(tmp_path):
+    """Each matrix's plan, sweep table and products land under post/<its stem>/;
+    runs.json stays the one manifest, and a record says which matrix it came from."""
+    import json
+
+    from pyflightstream.results import sweep_table
+
+    workspace, first, second = _two_matrices(tmp_path)
+    for matrix in (first, second):
+        plan = plan_matrix(
+            matrix,
+            workspace,
+            name="camp",
+            default_fs_version="26.120",
+            recipes=RECIPES,
+            recipe_registry={"steady": matrix_recipe},
+        )
+        assert plan.plan_file == workspace.root / "post" / matrix.stem / "plan.json", (
+            f"the plan of {matrix.name} landed at {plan.plan_file}"
+        )
+        assert plan.plan_file.is_file()
+        run_matrix(
+            matrix,
+            workspace,
+            name="camp",
+            default_fs_version="26.120",
+            recipes=RECIPES,
+            assess=converged,
+            executor=_writes_her_loads(tmp_path),
+            recipe_registry={"steady": matrix_recipe},
+        )
+    records = workspace.read_manifest()
+    assert len(records) == 4, "one manifest holds the points of both matrices"
+    assert [record.matrix for record in records] == ["wing_alpha"] * 2 + ["wing_beta"] * 2
+    # The sweep of one matrix holds that matrix's points and no other's.
+    table = sweep_table(workspace, matrix="wing_alpha")
+    assert sorted(set(table["sim_id"].astype(str))) == ["8001", "8002"]
+    for stem, sims in (("wing_alpha", {"8001", "8002"}), ("wing_beta", {"8101", "8102"})):
+        folder = workspace.root / "post" / stem
+        assert (folder / "campaign_sweep.csv").is_file(), f"no sweep table under {folder}"
+        manifest = json.loads((folder / "products.json").read_text(encoding="utf-8"))
+        assert {entry["sim_id"] for entry in manifest["products"].values()} == sims
+    assert not (workspace.root / "post" / "products").exists(), (
+        "a matrix run left products in the shared folder"
+    )
+
+
+def test_a_pol_stated_by_two_matrices_of_one_workspace_is_refused_naming_both(tmp_path):
+    """A POL names the simulation folder and the run ids of the one manifest, so two
+    matrices of one workspace may not state the same one; the refusal names both files."""
+    workspace, first, second = _two_matrices(tmp_path)
+    second.write_text(first.read_text(encoding="utf-8"), encoding="utf-8")
+    with pytest.raises(MatrixError) as caught:
+        plan_matrix(
+            first,
+            workspace,
+            name="camp",
+            default_fs_version="26.120",
+            recipes=RECIPES,
+            recipe_registry={"steady": matrix_recipe},
+        )
+    message = str(caught.value)
+    assert "8001" in message and "wing_alpha.fs" in message and "wing_beta.fs" in message, message
+    assert workspace.read_manifest() == []
+    assert not (workspace.root / "post").exists() or not list(
+        (workspace.root / "post").rglob("plan.json")
+    ), "a refused plan was still written"

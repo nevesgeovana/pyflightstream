@@ -1742,8 +1742,21 @@ def _check_scheduled_builds(
 SWEEP_TABLE_NAME = "campaign_sweep.csv"
 
 
-def _leave_products(workspace: CampaignWorkspace) -> str | None:
-    """Write the campaign's products under ``post/products``, never raising.
+def products_root(workspace: CampaignWorkspace, matrix: str | None) -> Path:
+    """Where a campaign's derived files land: ``post/<matrix>/`` or the root.
+
+    PFS-2031.04. A campaign converted from a run matrix keeps its plan,
+    its sweep table and its products under ``post/<matrix stem>/``, so
+    several matrices of one workspace keep their own; a campaign with no
+    matrix, authored in Python or loaded from a file, keeps the historical
+    places: ``plan.json`` in the root, the tables under ``post/``.
+    """
+    root = Path(workspace.root)
+    return root / "post" / matrix if matrix else root
+
+
+def _leave_products(workspace: CampaignWorkspace, matrix: str | None) -> str | None:
+    """Write the campaign's products under its products root, never raising.
 
     PFS-2029.15.03, the sibling of :func:`_leave_sweep_table` and under the
     same rule: the products are derived from the manifest and the collected
@@ -1752,13 +1765,14 @@ def _leave_products(workspace: CampaignWorkspace) -> str | None:
     outcome. ``pyfs-matrix post`` is the same writer run by hand, which is
     where an existing product is refused without ``--overwrite``.
     """
+    where = products_root(workspace, matrix) if matrix else Path(workspace.root) / "post"
     try:
         for stage in post_stages():
-            stage(workspace, overwrite=True)
+            stage(workspace, overwrite=True, matrix=matrix)
     except Exception as error:
         return (
             f"the campaign ran and its products were NOT written under "
-            f"{Path(workspace.root) / 'post' / 'products'}: {type(error).__name__}: {error}. "
+            f"{where}: {type(error).__name__}: {error}. "
             f"No run outcome is affected and nothing is lost: every point is recorded in "
             f"{workspace.manifest_path}. Fix the cause and rebuild them with "
             "`pyfs-matrix post --workspace <root> --overwrite`."
@@ -1766,8 +1780,11 @@ def _leave_products(workspace: CampaignWorkspace) -> str | None:
     return None
 
 
-def _leave_sweep_table(workspace: CampaignWorkspace) -> str | None:
+def _leave_sweep_table(workspace: CampaignWorkspace, matrix: str | None) -> str | None:
     """Write the campaign's sweep table under ``post/``, never raising.
+
+    Under ``post/<matrix>/`` for a campaign converted from a run matrix,
+    holding that matrix's records alone (PFS-2031.04).
 
     PFS-2014.03. A completed sweep leaves its csv WITHOUT ANYONE ASKING
     FOR IT: until this existed, only ``pyfs-matrix run`` wrote one, so a
@@ -1820,10 +1837,11 @@ def _leave_sweep_table(workspace: CampaignWorkspace) -> str | None:
     ``BaseException`` is NOT caught: a ``KeyboardInterrupt`` means the
     operator asked for the process to stop.
     """
-    target = Path(workspace.root) / "post" / SWEEP_TABLE_NAME
+    where = products_root(workspace, matrix) if matrix else Path(workspace.root) / "post"
+    target = where / SWEEP_TABLE_NAME
     try:
         target.parent.mkdir(parents=True, exist_ok=True)
-        write_table(sweep_table(workspace, require_loads=False), target)
+        write_table(sweep_table(workspace, require_loads=False, matrix=matrix), target)
     except Exception as error:
         return (
             f"the campaign ran and its sweep table was NOT written to {target}: "
@@ -2087,10 +2105,10 @@ def run_campaign(
     # no problem to report, and complaining would put a warning on every
     # resume that found its work already done.
     if recorded:
-        problem = _leave_products(workspace)
+        problem = _leave_products(workspace, campaign.matrix)
         if problem is not None:
             warnings.warn(problem, PyflightstreamWarning, stacklevel=2)
-        problem = _leave_sweep_table(workspace)
+        problem = _leave_sweep_table(workspace, campaign.matrix)
         if problem is not None:
             # The one residual, stated rather than hidden: under
             # `-W error` this warning is promoted to an exception and
@@ -2254,8 +2272,10 @@ class CampaignPlan:
     points : list of PointPlan
         One entry per campaign point, in campaign order.
     plan_file : Path or None
-        Where the JSON summary was written (``plan.json`` in the
-        campaign root), or None when writing was disabled.
+        Where the JSON summary was written: ``post/<matrix>/plan.json``
+        for a campaign converted from a run matrix, ``plan.json`` in the
+        campaign root otherwise (PFS-2031.04); None when writing was
+        disabled.
     build_groups : dict of str to list of str
         Which cases run on which solver installation, keyed by
         :attr:`~pyflightstream.cases.SimCase.fs_build` with the empty
@@ -2358,9 +2378,10 @@ def plan_campaign(
     recipes : dict of str to ScriptRecipe, optional
         Named recipe registry, as in :func:`run_campaign`.
     write_plan : bool
-        Write the JSON summary as ``plan.json`` in the campaign root
-        (overwritten on each call; a convenience report, never an
-        identity source). Default True.
+        Write the JSON summary as ``plan.json``, under ``post/<matrix>/``
+        for a campaign converted from a run matrix and in the campaign
+        root otherwise (overwritten on each call; a convenience report,
+        never an identity source). Default True.
     builds : mapping of str to SolverBuild, optional
         As in :func:`run_campaign`, and pre-flighting is where it earns
         its keep: a case sent to a second build has its dry-run script
@@ -2417,7 +2438,7 @@ def plan_campaign(
     groups = _build_groups(campaign)
     plan_file = None
     if write_plan:
-        plan_file = workspace.root / "plan.json"
+        plan_file = products_root(workspace, campaign.matrix) / "plan.json"
         payload = {
             "campaign": campaign.name,
             "campaign_name_from": name_from,
@@ -2426,7 +2447,7 @@ def plan_campaign(
             "build_groups": groups,
             "points": [{**asdict(entry), "status": str(entry.status)} for entry in points],
         }
-        workspace.root.mkdir(parents=True, exist_ok=True)
+        plan_file.parent.mkdir(parents=True, exist_ok=True)
         plan_file.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
     return CampaignPlan(
         campaign=campaign.name,
@@ -2742,6 +2763,7 @@ def _execute_point(
         "run_id": run_id,
         "sim_id": case.sim_id,
         "point": dict(point),
+        "matrix": campaign.matrix,
         "fs_version_requested": canonical,
         "package_version": pyflightstream.__version__,
         "package_commit": package_commit,

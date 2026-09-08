@@ -25,7 +25,28 @@ FlightStream versions.
   Found by the tier-3 tour's installed rotor row, which was refused with
   "a rotor hub is three coordinates" for the same cell a two-rotor row accepts.
 
+- **`pyfs-matrix post` takes the matrix whose products to rebuild**, and with
+  none given rebuilds every matrix the manifest names (PFS-2031.04).
+
+- **A POL stated by two matrices of one workspace is refused at plan time**,
+  naming both files and both rows: a POL names the simulation folder and the
+  run ids of the one manifest, so each matrix of a workspace states its own
+  (PFS-2031.04).
+
 ### Changed
+
+- **Each matrix of a workspace keeps its own plan, sweep table and products
+  under `post/<matrix stem>/`** (PFS-2031.04). `plan.json` moves from the
+  workspace root to `post/<stem>/plan.json`, the default `sweep.csv` of
+  `pyfs-matrix run` from the root to `post/<stem>/sweep.csv`, the run's own
+  `campaign_sweep.csv` from `post/` to `post/<stem>/`, and the product tables
+  with `products.json` from `post/products/` to `post/<stem>/`. `runs.json`
+  stays the one manifest, and every record now names the matrix its point
+  came from (`matrix`), which is what `sweep_table(..., matrix=)` and
+  `write_campaign_products(..., matrix=)` filter by. A campaign authored in
+  Python or loaded from a file has no matrix and keeps the previous places.
+  The reason is the tier-3 workspace, which holds five matrices over one
+  library and could not keep their tables apart.
 
 - **The test suite is organized by tier**, explicitly: `tests/tier1_offline`
   runs without a solver and is what `pytest` runs by default,

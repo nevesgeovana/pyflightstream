@@ -306,8 +306,9 @@ def plan_matrix(
         treating a recipe reference as ``module:function``, forwarded
         to the campaign pre-flight.
     write_plan : bool
-        Write the JSON summary as ``plan.json`` in the campaign root
-        (default True), as in the campaign pre-flight.
+        Write the JSON summary as ``post/<matrix stem>/plan.json`` in the
+        workspace (default True), the matrix's own folder so several
+        matrices of one workspace keep their own (PFS-2031.04).
 
     Returns
     -------

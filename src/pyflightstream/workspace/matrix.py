@@ -943,6 +943,52 @@ def _solver_from_setup(setup: SetupArtifact, set_code: str) -> SolverSettings:
         ) from error
 
 
+def _refuse_a_pol_stated_by_a_sibling(
+    path: str | Path, workspace: CampaignWorkspace, rows: list[MatrixRow]
+) -> None:
+    """Refuse a POL that another matrix of the same workspace root also states.
+
+    PFS-2031.04. Several matrices may share one workspace, each keeping
+    its own plan, sweep table and products under ``post/<stem>/``, and
+    ``runs.json`` stays the one manifest of all of them. A POL names the
+    simulation folder ``sims/sim_<POL>`` and the run ids of that
+    manifest, so two matrices stating one POL would write into one
+    folder and a resume of either would find the other's points already
+    recorded. The siblings are every ``*.fs`` beside the matrix in the
+    workspace root, read the way the matrix itself is; a sibling that
+    cannot be read is named as the problem rather than skipped, because
+    a check that skips what it cannot read accepts the collision it
+    exists to refuse.
+    """
+    matrix = Path(path).resolve()
+    root = Path(workspace.root).resolve()
+    if matrix.parent != root:
+        return
+    mine = {row.pol: row.row_number for row in rows}
+    for sibling in sorted(root.glob("*.fs")):
+        if sibling.resolve() == matrix:
+            continue
+        try:
+            theirs = read_matrix(sibling)
+        except MatrixError as error:
+            raise MatrixError(
+                f"{sibling.name} shares this workspace with {matrix.name} and could not be "
+                f"read: {error}. Every matrix of one workspace is read at plan time, because "
+                f"a POL stated by two of them would share one simulation folder."
+            ) from error
+        shared = [row for row in theirs if row.pol in mine]
+        if shared:
+            first = shared[0]
+            raise MatrixError(
+                f"POL {first.pol} is stated by two matrices of this workspace, {matrix.name} "
+                f"(row {mine[first.pol]}) and {sibling.name} (row {first.row_number})"
+                + (f", and {len(shared) - 1} more POL(s) likewise" if len(shared) > 1 else "")
+                + f". A POL names the simulation folder sims/sim_{first.pol} and the run ids "
+                f"of the one manifest, {workspace.manifest_path.name}, so each matrix of a "
+                f"workspace states its own POLs; renumber the rows of one of the two."
+            )
+
+
 def resolve_matrix(
     path: str | Path,
     workspace: CampaignWorkspace,
@@ -1056,6 +1102,7 @@ def resolve_matrix(
     rows = read_matrix(path)
     if not rows:
         raise MatrixError(f"{path} has no active rows (RUN = 1); nothing to resolve or run")
+    _refuse_a_pol_stated_by_a_sibling(path, workspace, rows)
     # BEFORE the build is selected, not after: a silent row falls back to
     # this default, so a blank one leaves nothing naming a build for that
     # row, and the refusal has to arrive before an executable is looked up

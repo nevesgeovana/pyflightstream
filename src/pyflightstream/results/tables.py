@@ -622,6 +622,7 @@ def sweep_table(
     *,
     loads_file: str | None = None,
     require_loads: bool = True,
+    matrix: str | None = None,
 ) -> pd.DataFrame:
     """Assemble the tidy table of a whole campaign sweep.
 
@@ -655,6 +656,13 @@ def sweep_table(
         nothing to write. The condition is warned about instead, and
         the identity rows are returned; per-record misses are already
         tolerated either way, as NaN coefficient rows.
+    matrix : str, optional
+        The stem of one run matrix of the workspace; the table then holds
+        the records that name it and no other's (PFS-2031.04). A record
+        that names no matrix, written before the field existed or by a
+        campaign authored in Python, is left out rather than counted in
+        every matrix's table. None, the default, tabulates the whole
+        manifest.
 
     Returns
     -------
@@ -697,6 +705,14 @@ def sweep_table(
             "run_campaign writes one runs.json record per executed point, so "
             "aggregate after the campaign ran, and check the root path"
         )
+    if matrix is not None:
+        records = [record for record in records if record.matrix == matrix]
+        if not records:
+            raise MalformedOutputError(
+                f"the manifest of {workspace.root} holds no record of matrix {matrix!r}; a "
+                "record names the matrix its point came from, so run that matrix first, or "
+                "leave matrix unset to tabulate the whole manifest"
+            )
     rows: list[dict[str, object]] = []
     runs_with_loads = 0
     for record in records:

@@ -714,23 +714,32 @@ def _sim_products(
     return written, written_names
 
 
-def write_campaign_products(workspace: CampaignWorkspace, *, overwrite: bool = False) -> list[Path]:
-    """Write the products of every simulation in a workspace's manifest under ``post/products``.
+def write_campaign_products(
+    workspace: CampaignWorkspace, *, overwrite: bool = False, matrix: str | None = None
+) -> list[Path]:
+    """Write the products of the simulations in a workspace's manifest.
 
     PFS-2029.15.03. Reads the manifest alone: each successful record names
     its collected exports, its pproc artifact, its description, its Mach and
     its reference block, so the products are rebuilt with no executable
-    configured. ``post/products/products.json`` names every file written
+    configured. ``products.json`` beside them names every file written
     with the run ids it derives from. An existing product is refused
     unless ``overwrite`` is set; the run itself passes it, since a product
     is derived and a resume rewrites it with the new points.
+
+    Where they land is the matrix's own folder (PFS-2031.04): with
+    ``matrix`` given, the records naming that matrix stem are written under
+    ``post/<matrix>/``, so several matrices of one workspace keep their
+    own; with it None, every record that names no matrix is written under
+    ``post/products``, the historical place of a campaign authored in
+    Python.
     """
     import json
 
     from pyflightstream.workspace import RunStatus
 
-    records = workspace.read_manifest()
-    out = Path(workspace.root) / "post" / "products"
+    records = [record for record in workspace.read_manifest() if record.matrix == matrix]
+    out = Path(workspace.root) / "post" / (matrix if matrix else "products")
     by_sim: dict[str, list[RunRecord]] = {}
     for record in records:
         if record.status in (RunStatus.CONVERGED, RunStatus.COMPLETED_MAX_ITER):
