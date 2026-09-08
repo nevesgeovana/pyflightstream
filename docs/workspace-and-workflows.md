@@ -335,6 +335,8 @@ inputs/
                            what the groups file held until v0.11.0)
   executables.toml        which executable, and optionally which version,
                           each build identifier means
+  executables.local.toml  this machine's paths for the same identifiers,
+                          gitignored; read over executables.toml when present
 ```
 
 `REF r003` therefore means "the reference quantities in
@@ -415,6 +417,16 @@ still be switched on.
 rather than about your study: it maps a build identifier such as
 `26.120` onto the executable on this computer. It is why the matrix can
 name a build and stay portable.
+
+A workspace kept in version control keeps that file portable too, by
+carrying placeholder paths in it and the real ones in
+`inputs/executables.local.toml` beside it, which is gitignored
+(PFS-2031.15). The package reads the overlay over the registry when it
+exists: a bare local path keeps the version the committed entry declares,
+a local table replaces the entry, and a build identifier the overlay is
+silent on reads as committed. The tier-3 workspace of this repository
+runs that way, every row on the build its `FS_BUILD` cell names and no
+`--fs-exe` on the command line.
 
 An entry takes one of two shapes and the difference is what a row's
 script is emitted under:
@@ -685,8 +697,11 @@ The run writes these after collection, under `post/<matrix stem>/`, the
 folder named after the matrix file (`post/matriz/` for `matriz.fs`), and
 `products.json` beside them names every file with the run ids it derives
 from and the pproc artifact; a campaign resumed with new points rewrites
-them, since they derive from the manifest. To rebuild them by hand, with no
-solver and no executable configured:
+them, since they derive from the manifest. A simulation whose product is
+refused by design, a polar under sideslip for one, is listed under
+`skipped` in that file with the reason, and the others are written
+(PFS-2031.16). To rebuild them by hand, with no solver and no executable
+configured:
 
 ```text
 pyfs-matrix post matriz.fs --workspace .            # refuses a product that exists

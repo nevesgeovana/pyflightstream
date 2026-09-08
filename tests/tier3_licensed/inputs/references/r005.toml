@@ -1,0 +1,29 @@
+# r005: the reference block of the qa wing cases, PHY-01, PHY-02 and PHY-06.
+# The planform of r001 (chord 1 m, span 8 m, area 8 m^2) with the MOMENT
+# POINT AT THE ORIGIN, the leading edge of the root section, which is where
+# the hand-built qa scripts leave it: they emit no moment point, and the
+# solver's default is the global origin. r001 moves it to the quarter chord,
+# which is right for the tour and wrong for a reference whose pitching-moment
+# slope was recorded about the origin (measured 2026-09-08: -0.011 per rad
+# about the quarter chord against a reference of -1.215 about the origin,
+# which is CL_alpha times a quarter chord).
+area_m2 = 8.0      # SREF, m^2: chord x span
+chord_m = 1.0      # CREF, m
+span_m = 8.0       # BREF, m
+propeller_diameter_m = 3.6576   # as r001, so the unsteady wing row's clock resolves
+
+[moment_point]
+x_m = 0.0
+y_m = 0.0
+z_m = 0.0
+
+[propeller]
+radius_m = 1.8288
+n_blades = 2
+pitch_deg = 0.0
+toe_deg = 0.0
+
+[propeller.position]
+x_m = -3.0
+y_m = 0.0
+z_m = 0.0

@@ -1,0 +1,16 @@
+# s007: s005 with the symmetry loads switched on, for the mirrored half-span
+# row of PHY-02 (5003). The qa script passes SET_ANALYSIS_SYMMETRY_LOADS
+# ENABLE for the half model alone, so the half reports full-model loads
+# against the full planform reference area; the full-span row keeps s005.
+convergence = 1e-5
+NITER = 500
+set_solver_model = "INCOMPRESSIBLE"
+proximity_avoidance = "DISABLE"
+vorticity_drag_boundaries = ["Wing"]
+symmetry_loads = true                      # SET_ANALYSIS_SYMMETRY_LOADS ENABLE
+
+[flight_condition]
+MUPas = 1.7894e-5
+ASMPS = 340.29
+TK = 288.15
+PPA = 101325

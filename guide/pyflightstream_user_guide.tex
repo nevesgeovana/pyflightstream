@@ -278,15 +278,15 @@ resolve("26.12")           # Ambiguous: 26.120, 26.121, 26.122 or 26.123?
     \toprule
     Tier & What it checks & Where it runs & Evidence artifact \\
     \midrule
-    1 & schema, builder goldens, parsers & CI, no solver & green test suite in continuous integration, no solver needed \\
+    1 & schema, builder goldens, parsers, the tier-3 matrices planned offline & CI, no solver & green test suite in continuous integration, no solver needed \\
     2 & per-command validity probes & licensed machine & \code{reports/compat/} \\
-    3 & physics regression and drift & licensed machine & \code{reports/physics/} \\
+    3 & the workspace runs: every matrix capability as a row, the physics cases among them & licensed machine & \code{tests/tier3\_licensed/runs.json}, \code{reports/physics/} \\
     \bottomrule
   \end{tabular}
   \vspace{3mm}
   \begin{itemize}
     \item Tier 2 asks: does this command do what the manual says, on this build? How many passed and how many were found broken is published per version by the compatibility matrix, which regenerates on every docs build.
-    \item Tier 3 asks: does the physics still hold? A synthetic wing polar is anchored to finite-wing theory; a cross-version drift suite compares solver builds on identical inputs.
+    \item Tier 3 asks: does the whole workspace run, and does the physics still hold? \code{tests/tier3\_licensed} is a campaign workspace of six run matrices over a synthetic library, one test per row; the physics cases are rows of it, judged against their committed references, and a cross-version drift suite compares solver builds on identical inputs.
   \end{itemize}
 \end{frame}
 

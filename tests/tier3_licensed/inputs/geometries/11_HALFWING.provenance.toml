@@ -11,5 +11,5 @@ body_length_m = 4.0
 build = "26.120"
 executable = "the build named above, installed on the preparing machine; its path is machine configuration and is not recorded here"
 prepared_on = "2026-09-08"
-sha256 = "5cda37734243972e1bf984d0a2ea7b19da9b366e52aaa4967a96b1fd02d1b22c"
+sha256 = "9d7313da3912ea7260b984ac41ca5bd74233dcba482562c809837cd75f26c3c1"
 sidecar = "11_HALFWING.boundaries.toml"

@@ -9,6 +9,23 @@ FlightStream versions.
 
 ### Added
 
+- **`tests/tier3_licensed` is a campaign workspace, run on the licensed
+  machine, with one test per row** (PFS-2031.03, PFS-2031.05, PFS-2031.07,
+  GOAL-012). Six run matrices over a synthetic library of nine saved
+  simulations: the tour (`matriz.fs`), which states every column, every key,
+  every run type and every input kind the package reads; a setup study, a
+  time-step study and a geometry study; the qa physics cases PHY-01, PHY-02,
+  PHY-05 and PHY-06 as rows of `matriz_physics.fs`, reduced with the
+  functions of `pyflightstream.qa.physics` and judged against the same
+  committed references; and the action re-read probe. `test_tour.py`,
+  `test_studies.py`, `test_physics.py` and `test_actions_probe.py` read the
+  manifest, the script each solver received, the loads and the products,
+  and assert per row what the cell was meant to reach. Tier 1 keeps the
+  offline control: every matrix plans READY and every rendered script equals
+  its golden, and seven plan-time refusals are asserted over a copy of the
+  library. The new page `docs/tiers.md` walks it; the README, CONTRIBUTING
+  and the guide name the three tiers by their folders.
+
 - **A `LEGACY` row may name its recipe in the cell**, as
   `RECIPE: package.module:function`, and then plans and runs with no
   `--recipe` option, which is what FR-50 promises of a matrix. A bare code
@@ -27,6 +44,16 @@ FlightStream versions.
 
 - **`pyfs-matrix post` takes the matrix whose products to rebuild**, and with
   none given rebuilds every matrix the manifest names (PFS-2031.04).
+
+- **A workspace kept in version control runs on this machine through
+  `inputs/executables.local.toml`** (PFS-2031.15): the committed registry
+  carries placeholder paths, because an installation path is machine
+  configuration, and the gitignored overlay beside it supplies the real path
+  of a build id. A bare local path keeps the committed entry's declared
+  version, a local table replaces the entry, and a build id the overlay is
+  silent on reads as committed. Found by the tier-3 tour, whose second-build
+  row could reach the second installation only through the override, which
+  overrules every row.
 
 - **A POL stated by two matrices of one workspace is refused at plan time**,
   naming both files and both rows: a POL names the simulation folder and the
@@ -70,6 +97,17 @@ FlightStream versions.
   after the point script and before the executor is called. Found by the
   tier-3 action re-read probe row, the first script in this repository to
   register one.
+
+- **A product refused by design no longer costs the other simulations their
+  products** (PFS-2031.16). The polar under sideslip is refused, as before,
+  because its wind-axis columns are checked at zero sideslip only; until now
+  that one refusal aborted the products stage of the whole run, and the
+  tier-3 tour's sideslip row left the nine rows after it without a table and
+  the workspace without `products.json`. The refusal is now a `skipped`
+  entry of `products.json` carrying the reason, warned about and printed by
+  `pyfs-matrix post`, and every other simulation's products are written. An
+  existing product without `--overwrite` still stops the stage, as its own
+  `ProductExistsError`.
 
 - **An executable override with no default version is refused naming the
   option** (PFS-2031.14). `pyfs-matrix plan <matrix> --fs-exe <path>` over a

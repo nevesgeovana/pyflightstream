@@ -137,6 +137,11 @@ added, never dropped.
   workspace is and what it is for, in plain language, then the path from a
   filled-in run matrix to results. Every artefact on it is lifted from an
   executed test, and it states what is NOT built as plainly as what is.
+* [The test tiers and the licensed workspace](tiers.md): the three
+  folders of the suite and what each proves, and `tests/tier3_licensed`,
+  which IS a campaign workspace: six matrices over one synthetic library,
+  every capability of the matrix as a row, one test per row, and the qa
+  physics cases judged against their references through the workflow.
 * [The numeric settings codebook](settings-codebook.md): the frozen
   encoding of the optional all-numeric settings table, for tools that
   cannot read strings. The page is the contract and a test holds the
@@ -175,12 +180,17 @@ added, never dropped.
 
 The three QA tiers behind the statuses:
 
-* Tier 1 runs in CI without the solver: schema integrity, builder
-  goldens, parser fixtures.
-* Tier 2 probes command validity on a licensed machine; reports live
-  under `reports/compat/` and statuses are promoted only from them.
-* Tier 3 runs a physics regression matrix and a cross-version drift
-  suite; reports live under `reports/physics/`.
+* Tier 1 (`tests/tier1_offline`) runs in CI without the solver: schema
+  integrity, builder goldens, parser fixtures, and the offline control
+  over the tier-3 matrices.
+* Tier 2 (`tests/tier2_validity`, `pyfs-qa probe`) probes command
+  validity on a licensed machine; reports live under `reports/compat/`
+  and statuses are promoted only from them.
+* Tier 3 (`tests/tier3_licensed`) is a campaign workspace run on the
+  licensed machine: six matrices over a synthetic library, the qa
+  physics cases among them judged against `qa/references/`; the
+  cross-version drift suite (`pyfs-qa`) writes under `reports/physics/`.
+  [The tiers page](tiers.md) walks it.
 
 The [campaign from a run matrix](examples/campaign_matrix.md) example
 already walks the run-matrix to `campaign.toml` to pre-flight path

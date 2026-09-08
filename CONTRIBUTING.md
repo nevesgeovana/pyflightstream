@@ -315,17 +315,34 @@ probe suite needs to reproduce and classify the break.
 
 ## QA tiers and what each proves
 
-* Tier 1 (`pytest`, runs anywhere): the database is internally consistent,
-  the emitter refuses invalid commands per version, parsers read the
-  committed fixtures, generated scripts match the goldens.
-* Tier 2 (`pyfs-qa probe`, licensed machine): each database command actually
-  works in a given FlightStream version; results are committed under
-  `reports/compat/` and promoted into the database by `pyfs-qa apply-compat`.
-* Tier 3 (`pyfs-qa physics`, licensed machine): physics regression matrix
-  with WARN and FAIL tolerance bands; reference updates demand a reason.
+The suite is three folders under `tests/`, one per tier, and the folder
+says what a test needs before it says what it checks
+(`docs/tiers.md`).
 
-All three tiers are operational; `pyfs-qa cases` prints the Tier 3
-matrix without running anything, and the committed reports live under
+* Tier 1 (`tests/tier1_offline`, `pytest`, runs anywhere): the database is
+  internally consistent, the emitter refuses invalid commands per version,
+  parsers read the committed fixtures, generated scripts match the
+  goldens, and every matrix of the tier-3 workspace plans READY with its
+  scripts equal to their goldens (`test_tier3_offline.py`).
+* Tier 2 (`tests/tier2_validity`, `pyfs-qa probe`, licensed machine): each
+  database command actually works in a given FlightStream version; results
+  are committed under `reports/compat/` and promoted into the database by
+  `pyfs-qa apply-compat`.
+* Tier 3 (`tests/tier3_licensed`, licensed machine): the folder IS a
+  campaign workspace. Six run matrices over one synthetic library, every
+  capability of the matrix as a row, run by `pyfs-matrix run` on the build
+  each row names through the gitignored `inputs/executables.local.toml`,
+  and one test per row beside them, selected by
+  `pytest -m needs_flightstream tests/tier3_licensed`. The qa physics
+  cases are rows of `matriz_physics.fs`, reduced with the functions of
+  `pyflightstream.qa.physics` and judged against `qa/references/` with the
+  WARN and FAIL bands the author set; `pyfs-qa physics` still runs the
+  hand-built scripts and the cross-version drift suite, and where that
+  command lives beside the workspace is the open study of PFS-2031.09.
+
+Every module of the two licensed tiers carries `needs_flightstream` and the
+default `pytest` deselects it. `pyfs-qa cases` prints the physics matrix
+without running anything, and the committed reports live under
 `reports/compat/` and `reports/physics/`.
 
 Executable examples: the docstring doctests and the python code blocks

@@ -602,6 +602,8 @@ the session records.
     *Origin: usage feedback. Evidence: the v0.3 line; table tests on
     the sanitized fixtures.*
 
+    Read with PFS-2031.16 at 0.13.0 (GOAL-012): a product refused by design is a recorded skip in products.json, and the other simulations' products are written.
+
     Every parser result converts to a tidy table
     ([glossary](index.md#glossary)) and to csv; a run merges into one
     wide row (identity, conditions, coefficients, with identity
@@ -795,7 +797,7 @@ the base could not offer while it bundled several.
     *Origin: Phase 4 split of FR-33, accepted 2026-07-27. Evidence: the
     v0.3 line; `tests/tier1_offline/test_workspace.py`.*
 
-    Read with PFS-2031.03 at 0.13.0 (GOAL-012): the tier-3 library holds synthetic geometries only, each with a mesh block and a boundary sidecar.
+    Read with PFS-2031.03 and PFS-2031.15 at 0.13.0 (GOAL-012): the tier-3 library holds synthetic geometries only, each with a mesh block and a boundary sidecar, and a gitignored `inputs/executables.local.toml` supplies this machine's paths over the committed registry's placeholders.
 
     The workspace organizes declarative TOML input artifacts
     (references, setups, groups, geometries, profiles, and executables

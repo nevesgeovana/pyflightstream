@@ -1,25 +1,24 @@
-# s005: the PHY-01, PHY-02 and PHY-06 preset, the settings the physics
-# regression cases of pyflightstream.qa.physics run with, stated as a setup so
-# the same cases run as rows: 500 iterations to 1e-5, symmetry loads on so the
-# mirrored half wing reports full-model loads, the induced drag over every
-# boundary (the solver's own default).
-boundary_layer_type = "TURBULENT"
-viscous_coupling = false
+# s005: the qa physics preset of the wing cases, PHY-01, the full-span half
+# of PHY-02, and PHY-06. Every key here is a line the hand-built script of
+# pyflightstream.qa.physics emits (_build_wing_point_script), and nothing
+# else is stated, so the matrix row builds that script through the workflow
+# and its coefficients are judged against the same committed reference.
+#
+# What is deliberately ABSENT, because the qa script does not emit it: a
+# boundary-layer type, viscous coupling, convergence iterations, a minimum
+# Cp, a thread count, stabilization, symmetry loads (the mirrored half is
+# s007) and the mesh-induced wake velocity. Measured 2026-09-08: the first
+# version of this preset carried the tour's s001 keys and the PHY-01 row's
+# induced drag at 4 deg came out 0.0082 against a reference of 0.0049; the
+# vorticity drag selection below is the line that decides that number.
 convergence = 1e-5
-max_parallel_threads = 8
 NITER = 500
-set_solver_model = "SUBSONIC_PRANDTL_GLAUERT"
-proximity_avoidance = "ENABLE"
-stabilization = "ENABLE"
-stabilization_strength = 1.0
-symmetry_loads = true
-induced_wake_velocity = true
-significant_digits = 7
-convergence_iterations = 20
-solver_minimum_cp = -100
+set_solver_model = "INCOMPRESSIBLE"
+proximity_avoidance = "DISABLE"            # WALL_COLLISION_AVOIDANCE DISABLE
+vorticity_drag_boundaries = ["Wing"]       # SET_VORTICITY_DRAG_BOUNDARIES, the one boundary
 
 [flight_condition]
-MUPas = 1.789e-5
+MUPas = 1.7894e-5                          # the qa fluid block, to its last digit
 ASMPS = 340.29
 TK = 288.15
 PPA = 101325

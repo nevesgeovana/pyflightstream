@@ -11,5 +11,5 @@ body_length_m = 4.0
 build = "26.120"
 executable = "the build named above, installed on the preparing machine; its path is machine configuration and is not recorded here"
 prepared_on = "2026-09-08"
-sha256 = "46127fa79b90b8cb294bf0a69605c7f3cf8edbfee75cfdd333fe96b232488a61"
+sha256 = "ad936e82c22ce248addab293997326736e8998bea2240c6a2d1e50d42d1146f8"
 sidecar = "12_WING_PHY.boundaries.toml"

@@ -147,9 +147,22 @@ def _translate(triangles: np.ndarray, dx: float, dy: float, dz: float) -> np.nda
     return triangles + np.array([dx, dy, dz])
 
 
-def two_blade_rotor(hub: tuple[float, float, float]) -> np.ndarray:
-    """Two BladeSpec blades opposite each other, hub at ``hub``."""
+def two_blade_rotor(hub: tuple[float, float, float], *, mirrored: bool = False) -> np.ndarray:
+    """Two BladeSpec blades opposite each other, hub at ``hub``.
+
+    ``mirrored`` reflects the blade through the XZ plane before it is
+    placed, which is the blade of the OTHER hand: a counter-rotating pair
+    is one blade and its mirror image spun the opposite way, so both
+    thrust forward and their torques cancel. The same blade spun backwards
+    is not a counter-rotating rotor, it is a rotor working in reverse
+    (measured 2026-09-08 on the first twin row: a rolling moment a quarter
+    of the thrust where the pair should cancel).
+    """
     one = blade_triangles(BLADE)
+    if mirrored:
+        # y -> -y flips the winding, so the vertex order is swapped back to
+        # keep every normal outward.
+        one = (one * np.array([1.0, -1.0, 1.0]))[:, [0, 2, 1], :]
     both = np.concatenate([one, _rotate_about_x(one, 180.0)])
     return _translate(both, *hub)
 
@@ -180,7 +193,7 @@ SHAPES = {
         ("Body", body_triangles()[0]),
         ("Base", body_triangles()[1]),
         ("Blade1", two_blade_rotor((HUB_X_M, TWIN_Y_M, 0.0))),
-        ("Blade2", two_blade_rotor((HUB_X_M, -TWIN_Y_M, 0.0))),
+        ("Blade2", two_blade_rotor((HUB_X_M, -TWIN_Y_M, 0.0), mirrored=True)),
     ],
 }
 
@@ -217,6 +230,12 @@ def prepare_geometry(case, script) -> None:
         script.emit("IMPORT", "METER", "STL", part.as_posix(), clear=(index == 0))
     script.emit("SET_SIMULATION_LENGTH_UNITS", "METER")
     script.emit("AUTO_DETECT_TRAILING_EDGES")
+    # The qa cases detect the wake termination nodes right after the
+    # trailing edges, and a workflow opens the saved simulation as it is,
+    # so the detection has to be in the file (measured 2026-09-08: the
+    # PHY-01 row's induced drag missed its band with geometries prepared
+    # without it, among other differences).
+    script.emit("AUTO_DETECT_WAKE_TERMINATION_NODES")
     script.emit("SAVEAS", case.outputs[0])
     script.emit("CLOSE_FLIGHTSTREAM")
 
