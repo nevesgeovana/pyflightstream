@@ -45,7 +45,7 @@ from pyflightstream.script.helpers import initialize_solver
 #: non-underscore definition here is public the moment the wheel ships,
 #: which would make three effect-assertion helpers of this module part
 #: of the supported surface by accident (the rule is stated in
-#: tests/test_exceptions_catalog.py: an absent __all__ means the module
+#: tests/tier1_offline/test_exceptions_catalog.py: an absent __all__ means the module
 #: declares none, and then every top-level name is public).
 __all__ = ["PROBE_SPECS"]
 

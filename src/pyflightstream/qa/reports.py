@@ -25,14 +25,14 @@ to predict it. Two independent expressions agreeing today is not the same
 as one rule, and the day a series changes its key the pre-flight silently
 asks about a stem nobody writes, with every guard still green. That is
 the original defect, one field over: a licensed seat spent and then
-discarded. ``tests/test_qa_cli.py`` now asserts each writer's own output
+discarded. ``tests/tier1_offline/test_qa_cli.py`` now asserts each writer's own output
 path against the helper the CLI asks, rather than against a literal.
 
 The date is NOT defaulted here, deliberately. The caller resolves it once
 and passes the same value to this function and into the document body,
 so the stem and the body cannot disagree; a second default here is
 exactly the shape that wrote ``date: null`` under a dated file name
-(``INC-20260817-2210-pyflightstream``). ``tests/test_qa_compat.py``
+(``INC-20260817-2210-pyflightstream``). ``tests/tier1_offline/test_qa_compat.py``
 guards that pairing on both sides.
 """
 
@@ -94,7 +94,7 @@ def resolve_report_date(date: str | None = None) -> str:
     computed, which is registered in
     ``PLN-20260818-0300-the-preflight-answer-does-not-reach-the-writer``.
     ``pyfs-qa`` itself is not exposed: each subcommand resolves once and
-    passes the value to both, which ``tests/test_qa_cli.py`` pins by
+    passes the value to both, which ``tests/tier1_offline/test_qa_cli.py`` pins by
     replacing this function in the CLI's namespace.
     """
     if date is None:
@@ -124,7 +124,7 @@ def _validated_date(date: str) -> str:
     THE ROUND TRIP IS THE TEST, not `fromisoformat` alone. On Python 3.11
     and later that function also accepts ``20260817`` and ``2026-W33-1``,
     neither of which carries a separator, so nothing would fail until a
-    committed stem met the tier-1 walk in ``tests/test_command_db.py``,
+    committed stem met the tier-1 walk in ``tests/tier1_offline/test_command_db.py``,
     which is after the seat is spent. Comparing the parsed date's own
     ``isoformat()`` against the input admits exactly ``YYYY-MM-DD``, which
     is what the message promises.
@@ -337,7 +337,7 @@ def refuse_existing_report(*paths: Path) -> None:
         If any named path exists. The BUILTIN, deliberately, and not a
         catalogued type: this preserves what the three writers have
         always raised, so ``except FileExistsError`` around a write still
-        catches it. It is named in ``tests/test_exceptions_catalog.py``'s
+        catches it. It is named in ``tests/tier1_offline/test_exceptions_catalog.py``'s
         ratchet rather than left unobserved.
 
     Notes

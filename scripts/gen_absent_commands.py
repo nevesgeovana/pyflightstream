@@ -43,7 +43,7 @@ from pyflightstream.versions import (
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-GOLDENS = REPO_ROOT / "tests" / "goldens"
+GOLDENS = REPO_ROOT / "tests" / "tier1_offline" / "goldens"
 
 
 def absent_commands(canonical: str) -> list[str]:

@@ -2936,7 +2936,7 @@ def mark_wake_edges(script: Script, *, edge_type: str, tolerance: float) -> str:
 # declared as a COMPONENT parameter, written where a component is defined
 # rather than in a script, and no command on any registered build takes
 # its fields (the reading is recorded on SET_TRAILING_EDGE_TYPE in the
-# command database, and `tests/test_wake_edges.py` pins it). So these
+# command database, and `tests/tier1_offline/test_wake_edges.py` pins it). So these
 # read and write the specification TEXT, and take no `script`.
 
 #: Field count of the relaxed trailing-edge component specification: what

@@ -1,0 +1,314 @@
+"""Shared tier 1 fixtures: registry hygiene and the FSI synthetic blades.
+
+Registry hygiene (D1d adoption of the 2026-07-23 library review,
+pyvista conftest discipline): every module-level registry or cached
+mutable default a test could touch is snapshotted before each test and
+restored after it, so a mutating test can never leak state into its
+neighbors. The snapshot list below is the inventory of such state; a
+new module-level registry joins it in the same commit that creates it.
+
+Synthetic blades generated here are the only blade definitions in the
+repository (DLV-007 Sections 1 and 8): real blade property sets are
+research data and never enter Git (NFR-08). The uniform blade has
+closed-form clamped-beam answers, which the WP3 and WP4 benchmarks
+compare against.
+"""
+
+import contextlib
+import sys
+from pathlib import Path
+
+import pytest
+
+from pyflightstream import options as _options
+from pyflightstream import versions as _versions
+from pyflightstream.cases import matrix as _matrix
+from pyflightstream.cases import workflows as _workflows
+from pyflightstream.commands import CommandRegistry
+from pyflightstream.fsi.config import BladeProperties, FsiConfig
+from pyflightstream.qa import physics as _physics
+from pyflightstream.qa import specs as _specs
+from pyflightstream.script import entities as _entities
+from pyflightstream.script import solver_setup as _solver_setup
+from pyflightstream.utils import manual as _manual
+
+
+def _repo_root() -> Path:
+    """The repository root, resolved from THIS file and then verified.
+
+    A declared anchor, because the two ways a test used to find the
+    tree both answered a different question than the one asked
+    (OPS-2009.02.04). A working-directory-relative path answers "what
+    is below wherever pytest was invoked", so a suite run from
+    anywhere but the root matched nothing and reported the absence as
+    a finding about the repository; a ``sys.path`` insertion answers
+    "what is importable under this name", which is whatever already
+    holds the name in ``sys.modules``.
+
+    The marker is checked rather than assumed. A parent count is a
+    fact about the layout of this file, so it goes wrong silently the
+    day the file moves; a missing ``pyproject.toml`` at the resolved
+    path fails HERE, naming the path it looked at, instead of turning
+    into an empty match somewhere downstream.
+    """
+    root = Path(__file__).resolve().parents[2]
+    marker = root / "pyproject.toml"
+    assert marker.is_file(), (
+        f"the repository anchor resolved to {root}, which holds no pyproject.toml. "
+        "Every test that reads a committed file locates it from this anchor, so a "
+        "wrong root would make each of them report an empty tree as a finding "
+        "about the repository rather than as a lookup that missed."
+    )
+    return root
+
+
+#: The shared anchor. Module-level so a test that needs it at import
+#: time (a parametrization over committed files, for instance) can take
+#: it without a fixture; the ``repo_root`` fixture below is the same
+#: object for tests that prefer to ask for it.
+#:
+#: NOT YET THE ONLY ONE, and saying so here is the point: 44 test
+#: modules resolve the root from their own ``__file__`` today, and
+#: OPS-2009.02.04 converted the two whose lookups were WRONG rather
+#: than merely repeated. The other 42 are correct as written; a reader
+#: meeting this constant must not read it as a claim that they are gone.
+REPO = _repo_root()
+
+
+@pytest.fixture
+def repo_root() -> Path:
+    """The repository root, verified by its ``pyproject.toml`` marker.
+
+    Returns
+    -------
+    pathlib.Path
+        Absolute, resolved path of the repository root.
+    """
+    return REPO
+
+
+def _mutable_module_state() -> list[dict]:
+    """Enumerate every module-level mutable registry or cached default.
+
+    The list is the single inventory of test-mutable module state:
+    public case and spec registries, private derived mappings, and the
+    mutable objects held by the two lru caches (the loaded command
+    database and the manual-edition map), which would otherwise carry a
+    test's mutation for the rest of the session. The snapshot contract
+    is shallow (top-level membership and bindings): registry values are
+    frozen models by construction, and a future mutable value joins
+    consciously or deepens the snapshot.
+    """
+    return [
+        _physics.PHYSICS_CASES,
+        _physics.SMI_CASES,
+        _specs.PROBE_SPECS,
+        _solver_setup._SPEC_BY_COMMAND,
+        _matrix._SWEEP_CODES,
+        _entities._NOUNS,
+        _options._REGISTRY,
+        _options._VALUES,
+        # The reach record of the last citation check, written as a side
+        # effect of `stale_citations` and read by the CLI afterwards. It
+        # joined on 2026-08-10, one commit after it was created, which
+        # is one commit later than the paragraph above asks for.
+        #
+        # Its VALUES became per-outcome count mappings at 0.8.0
+        # (OPS-2003.10.02), where they were two-slot lists. The shallow
+        # contract above still holds it, and for the same reason it held
+        # the lists: every run rebuilds the inner container from scratch
+        # rather than mutating the one a snapshot captured.
+        _manual.citation_reach,
+        # The workflow table, joined 2026-08-19 after a QA pass found it
+        # outside this inventory. It is a plain mutable dict on a public
+        # module and nothing mutates it today, which is exactly the state
+        # the paragraph above calls "joins consciously": a rule with no
+        # entry is documentation, and this repository does not count that
+        # as a guard.
+        _workflows.WORKFLOWS,
+        # Cached mutable objects: the cache keeps returning the same
+        # dict, so an in-place mutation outlives the test that made it.
+        CommandRegistry.load().commands,
+        _versions.manual_editions(),
+    ]
+
+
+@pytest.fixture
+def restored_module():
+    """Context manager putting ``sys.modules[name]`` back as it was.
+
+    For the shim tests, which import a module the way a user would and
+    therefore have to pop it first. Popping a package module and
+    re-importing it leaves the process holding TWO copies: the new one
+    under the name, and the old one inside every module that already did
+    ``from it import Thing``. Where the module defines a class,
+    ``isinstance`` then fails between the two halves of the package.
+
+    Not hypothetical, and not cheap to diagnose. Three test modules did
+    this, one of them on ``pyflightstream.versions`` itself as an
+    "importable stand-in", and the damage surfaced in an unrelated
+    module later in the session as a version that would not resolve
+    against a registry listing it. The autouse fixture below now fails
+    any test that leaves a replaced module behind, which is what found
+    the other two.
+    """
+
+    @contextlib.contextmanager
+    def _restore(name: str):
+        before = sys.modules.get(name)
+        try:
+            yield
+        finally:
+            if before is not None:
+                sys.modules[name] = before
+            else:
+                sys.modules.pop(name, None)
+
+    return _restore
+
+
+@pytest.fixture(autouse=True)
+def _restore_module_registries():
+    """Snapshot and restore the module registries around every test.
+
+    Teardown re-resolves the inventory so a test that cleared an lru
+    cache (rebinding the cached dict) still gets its live objects
+    restored; a fresh cache object is pristine, so restoring the
+    pre-clear snapshot into it is a no-op by content.
+    """
+    saved = [dict(state) for state in _mutable_module_state()]
+    modules = {
+        name: module
+        for name, module in sys.modules.items()
+        if name == "pyflightstream" or name.startswith("pyflightstream.")
+    }
+    yield
+    for state, snapshot in zip(_mutable_module_state(), saved, strict=True):
+        if state != snapshot:
+            state.clear()
+            state.update(snapshot)
+    replaced = sorted(
+        name
+        for name, module in modules.items()
+        if sys.modules.get(name) is not module and name in sys.modules
+    )
+    assert not replaced, (
+        f"this test left a DIFFERENT module object in sys.modules for {replaced}. "
+        "Popping a package module and re-importing it leaves the process holding two "
+        "copies of it, the new one under the name and the old one inside every module "
+        "that already did `from it import Thing`, so isinstance fails between the two "
+        "halves of the package. The failure then surfaces in an unrelated test module "
+        "later in the session with no visible connection to its cause, which is how "
+        "this went unnoticed until a run-time version check met two FsVersion classes. "
+        "Restore sys.modules in a finally block (see _module_registry_restored in "
+        "tests/tier1_offline/test_deprecation_deadline.py)."
+    )
+
+
+def make_uniform_blade_config(
+    n_stations: int = 11,
+    root_radius_m: float = 0.2,
+    tip_radius_m: float = 1.2,
+    chord_m: float = 0.1,
+    mass_per_length_kg_per_m: float = 2.0,
+    bending_stiffness_n_m2: float = 120.0,
+    torsion_stiffness_n_m2: float = 40.0,
+    inertia_major_kg_m: float = 1.0e-3,
+    inertia_minor_kg_m: float = 2.0e-4,
+    omega_rad_per_s: float = 0.0,
+    blade_count: int = 2,
+) -> FsiConfig:
+    """Build a uniform synthetic blade with analytically known answers.
+
+    The blade is a clamped uniform beam of length L = tip - root with
+    constant EI, GJ, and mu, zero elastic axis and CG offsets, and zero
+    geometric pitch, so tip deflection, tip rotation, and the first
+    modal frequencies have textbook closed forms.
+    """
+    n = n_stations
+    step = (tip_radius_m - root_radius_m) / (n - 1)
+    radii = [root_radius_m + i * step for i in range(n)]
+    blade = BladeProperties(
+        station_radii_m=radii,
+        chord_m=[chord_m] * n,
+        mass_per_length_kg_per_m=[mass_per_length_kg_per_m] * n,
+        inertia_major_kg_m=[inertia_major_kg_m] * n,
+        inertia_minor_kg_m=[inertia_minor_kg_m] * n,
+        bending_stiffness_n_m2=[bending_stiffness_n_m2] * n,
+        torsion_stiffness_n_m2=[torsion_stiffness_n_m2] * n,
+        elastic_axis_offset_chordwise_m=[0.0] * n,
+        elastic_axis_offset_normal_m=[0.0] * n,
+        cg_offset_chordwise_m=[0.0] * n,
+        cg_offset_normal_m=[0.0] * n,
+        geometric_pitch_deg=[0.0] * n,
+    )
+    return FsiConfig(
+        blade_count=blade_count,
+        omega_rad_per_s=omega_rad_per_s,
+        blade=blade,
+    )
+
+
+@pytest.fixture
+def uniform_blade_config() -> FsiConfig:
+    """Default uniform synthetic blade (see make_uniform_blade_config)."""
+    return make_uniform_blade_config()
+
+
+# Structural prescription of the project's generic wing (the synthetic
+# NACA 0012 of qa.geometry: chord 1 m, span 8 m, AR 8) as a clamped
+# semi-wing beam, sized so the static response at the steady polar
+# design point is reasonable for a light aircraft wing: EI gives about
+# 3 percent of the half span in tip deflection, GJ about half a degree
+# of nose-up tip twist through the AC to EA arm, and the mass numbers
+# put the first bending mode near 3 Hz. All values synthetic.
+WING_HALF_SPAN_M = 4.0
+WING_CHORD_M = 1.0
+WING_EI_N_M2 = 6.0e4
+WING_GJ_N_M2 = 3.0e4
+WING_MU_KG_PER_M = 8.0
+WING_I1_KG_M = 0.45
+WING_I2_KG_M = 0.05
+WING_EA_ARM_FRACTION = 0.15  # AC at 25 percent chord, EA at 40 percent
+
+
+def make_wing_config(n_stations: int = 21) -> FsiConfig:
+    """Build the generic wing semi-span as an FsiConfig at Omega = 0.
+
+    With Omega = 0 the blade machinery reduces to a classic clamped
+    cantilever wing: no centrifugal tension, no propeller moment; the
+    CG offsets are inert and left zero. blade_count 2 stands for the
+    two half wings, solved once by symmetry.
+    """
+    n = n_stations
+    step = WING_HALF_SPAN_M / (n - 1)
+    radii = [i * step for i in range(n)]
+    blade = BladeProperties(
+        station_radii_m=radii,
+        chord_m=[WING_CHORD_M] * n,
+        mass_per_length_kg_per_m=[WING_MU_KG_PER_M] * n,
+        inertia_major_kg_m=[WING_I1_KG_M] * n,
+        inertia_minor_kg_m=[WING_I2_KG_M] * n,
+        bending_stiffness_n_m2=[WING_EI_N_M2] * n,
+        torsion_stiffness_n_m2=[WING_GJ_N_M2] * n,
+        elastic_axis_offset_chordwise_m=[0.0] * n,
+        elastic_axis_offset_normal_m=[0.0] * n,
+        cg_offset_chordwise_m=[0.0] * n,
+        cg_offset_normal_m=[0.0] * n,
+        geometric_pitch_deg=[0.0] * n,
+    )
+    return FsiConfig(blade_count=2, omega_rad_per_s=0.0, blade=blade)
+
+
+def elliptical_lift_distribution(
+    radii: list[float], half_wing_lift_n: float, half_span_m: float
+) -> list[float]:
+    """Sample the elliptical lift distribution at the stations [N/m].
+
+    L'(y) = L0 sqrt(1 - (y / L)^2) with L0 = 4 W / (pi L), so the
+    distribution integrates to the half-wing lift W over the half span.
+    """
+    import math
+
+    peak = 4.0 * half_wing_lift_n / (math.pi * half_span_m)
+    return [peak * math.sqrt(max(0.0, 1.0 - (r / half_span_m) ** 2)) for r in radii]

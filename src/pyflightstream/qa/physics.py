@@ -75,7 +75,7 @@ __all__ = [
     # one; `case_table` is the function whose key this release renames.
     # `PhysicsCase` and `case_table` were announced as public breaks
     # while being absent from this list, which also kept them outside the
-    # FR-39 bare-raise walk in `tests/test_exceptions_catalog.py`, since
+    # FR-39 bare-raise walk in `tests/tier1_offline/test_exceptions_catalog.py`, since
     # that walk follows `__all__` where a module declares one.
     "PhysicsCase",
     "case_table",

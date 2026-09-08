@@ -12,7 +12,7 @@
     *Origin: Phase 4 split of NFR-01, accepted 2026-07-27. Evidence:
     the numpydoc convention enforced by ruff (NFR-09) for the docstring
     STRUCTURE, and the unit-suffix audit of
-    `tests/test_conventions.py` for model fields. That units and frames
+    `tests/tier1_offline/test_conventions.py` for model fields. That units and frames
     are actually stated in the prose of every public function is
     checked by review, because the tools check shape and not meaning,
     and this tag says so rather than letting the badge imply a guard.*
@@ -22,7 +22,7 @@
 
 !!! requirement "NFR-01b Modules state their pipeline role <span class='srs-implemented'>implemented</span>"
     *Origin: Phase 4 split of NFR-01, accepted 2026-07-27. Evidence:
-    `tests/test_package_imports.py`, which asserts a non-empty top
+    `tests/tier1_offline/test_package_imports.py`, which asserts a non-empty top
     docstring on every subpackage, and the architecture overview, which
     renders them. What is guarded is that the docstring EXISTS at
     subpackage level; that its text states a pipeline role, for every
@@ -33,8 +33,8 @@
 !!! requirement "NFR-01c Errors name the cause, not the symptom <span class='srs-implemented'>implemented</span>"
     *Origin: Phase 4 split of NFR-01, accepted 2026-07-27, absorbing
     the C3 acceptance on error content. Evidence:
-    `tests/test_error_messages.py` and the attribute cases of
-    `tests/test_exceptions_catalog.py`, which pin a named list of
+    `tests/tier1_offline/test_error_messages.py` and the attribute cases of
+    `tests/tier1_offline/test_exceptions_catalog.py`, which pin a named list of
     errors rather than enumerating every raise site. The list is the
     guard's scope, in the manner NFR-24 states for its own.*
 
@@ -46,7 +46,7 @@
 
 !!! requirement "NFR-01d Worked examples per workflow <span class='srs-implemented'>implemented</span>"
     *Origin: Phase 4 split of NFR-01, accepted 2026-07-27. Evidence:
-    `tests/test_examples.py` runs each of the `examples/*.py` and holds
+    `tests/tier1_offline/test_examples.py` runs each of the `examples/*.py` and holds
     each to the extras it declares; the Sybil run covers the docstring
     doctests and the markdown code blocks. Nothing enumerates the public
     workflows and checks one example per workflow, so the per-workflow
@@ -165,7 +165,7 @@
 
     A tier-1 guard now compares this table against
     `[project].dependencies` name for name
-    (`tests/test_extras.py`), because until v0.8.0 nothing did, and
+    (`tests/tier1_offline/test_extras.py`), because until v0.8.0 nothing did, and
     that is why the promotion reached `pyproject.toml`, the extras
     module, three documentation pages and the changelog without ever
     reaching the requirement that answers for it.
@@ -311,7 +311,7 @@
     What landed: the published index now carries `status`, `evidence`
     and a `verification` method per requirement, where it published id,
     text and priority alone; a `requirement` pytest marker declares
-    that a test FALSIFIES a requirement; and `tests/test_traceability.py`
+    that a test FALSIFIES a requirement; and `tests/tier1_offline/test_traceability.py`
     holds every marker to a live identifier and ratchets the covered
     set so it cannot shrink by accident.
 
@@ -323,7 +323,7 @@
 !!! requirement "NFR-14 Confidentiality commit guard <span class='srs-implemented'>implemented</span>"
     *Origin: Phase 4 review, accepted 2026-07-27. Evidence: PFS-3
     (2026-08-02);
-    `tests/test_house_style.py::test_no_geometry_file_is_tracked_outside_the_synthetic_allowlist`
+    `tests/tier1_offline/test_house_style.py::test_no_geometry_file_is_tracked_outside_the_synthetic_allowlist`
     walks every tracked path and fails on a geometry suffix outside the
     allowlist, with
     `test_the_geometry_guard_fires_on_what_it_exists_to_catch` as its
@@ -352,11 +352,11 @@
     EXTENSION, which is what this requirement asks for and which cannot
     see geometry carried in a generic container. A node coordinate list
     in a `.csv` is invisible to it, and one is tracked
-    (`tests/fixtures/fsi/structural_nodes.csv`). NFR-08 is the wider
+    (`tests/tier1_offline/fixtures/fsi/structural_nodes.csv`). NFR-08 is the wider
     requirement and stays a discipline for that residual. The guard also
     walks the TREE, not the built wheel. The tool that can also read the
     ARTIFACT side, `tools/check_shipped_surface.py`, has its tree
-    boundary wired in tier 1 by `tests/test_repository_guards.py`; its
+    boundary wired in tier 1 by `tests/tier1_offline/test_repository_guards.py`; its
     `--dist` boundary over a built wheel and sdist is not, because that
     needs a build in the loop and two archive floors, recorded in
     `tools/shipped_surface.conf`. Note the scope difference rather than
@@ -370,7 +370,7 @@
     state-hash mirror. Statement rewritten 2026-08-19 (PFS-2012.10),
     the author's decision. Evidence: `pyflightstream._digest`, which
     carries `ALGORITHM`, `EXCLUDED_FROM_EVERY_DIGEST` and
-    `CANONICAL_FORMS` as data; `tests/test_digest.py`, including the
+    `CANONICAL_FORMS` as data; `tests/tier1_offline/test_digest.py`, including the
     walk that fails a module hashing without declaring its canonical
     form.*
 
@@ -471,7 +471,7 @@
 !!! requirement "NFR-19 Result column-schema stability <span class='srs-implemented'>implemented</span>"
     *Origin: Phase 4 review theme 5, accepted 2026-07-27. Evidence:
     the column schemas documented in the docstrings of
-    `results/tables.py`; `tests/test_tables.py` pins the run row's
+    `results/tables.py`; `tests/tier1_offline/test_tables.py` pins the run row's
     COMPLETE column list against a literal, so a column added or
     reordered in the middle fails the suite rather than passing the
     per-name lookups.*
@@ -528,7 +528,7 @@
     Pending because the policy it states begins at 1.0 and the package
     is at 0.x; the recorded-promise mechanism it relies on is already
     shipped and guarded (the ledger in `pyflightstream._deprecations`
-    and the Tier 1 deadline guard `tests/test_deprecation_deadline.py`).*
+    and the Tier 1 deadline guard `tests/tier1_offline/test_deprecation_deadline.py`).*
 
     **This policy takes effect at 1.0.** From 1.0, a public API element
     (function, parameter, CLI flag, manifest key, or result column) is
@@ -664,7 +664,7 @@
     *Origin: Phase 4 review theme 7 (item TERM-software-jargon),
     accepted 2026-07-27. Evidence: the glossary in
     [the SRS index](index.md), pinned by
-    `tests/test_metadata_currency.py`.*
+    `tests/tier1_offline/test_metadata_currency.py`.*
 
     Each software term on this requirement's list (clean-room, golden,
     round-trip, escape hatch, tidy table, shim, substrate,
@@ -692,8 +692,8 @@
     2026-07-27, which the author accepted as elevating AD-05 to a
     tested requirement. Evidence:
     `pyflightstream.extras.MissingExtraError` and `missing_extra`;
-    `tests/test_extras.py`, parametrized over every extra;
-    `tests/test_extras_isolation.py` and the `test-all-extras` job in
+    `tests/tier1_offline/test_extras.py`, parametrized over every extra;
+    `tests/tier1_offline/test_extras_isolation.py` and the `test-all-extras` job in
     `ci.yml`, added 2026-08-10 for the residual below.*
 
     A missing optional dependency raises a typed error carrying the
@@ -728,7 +728,7 @@
     other two passed on every maintainer machine and failed in CI. It
     reached the v0.7.0 tag (INC-20260810-2140-shared).
 
-    Two things closed it. `tests/test_extras_isolation.py` derives, from
+    Two things closed it. `tests/tier1_offline/test_extras_isolation.py` derives, from
     pyproject and the workflow install lines, which distributions a CI
     job may lack, and refuses an unguarded import of one in `src/`,
     `tests/`, `examples/`, `scripts/`, `tools/`, the root conftest, the

@@ -8,7 +8,7 @@ enumeration in seven committed places at once, with the whole tier-1
 currency suite green: the SRS requirement text, the generated
 conventions page, two docstrings in ``versions.py``, the ordering
 authority's own header, the getting-started page and a shipped example.
-``tests/test_claim_currency.py`` gained a guard for that class, and this
+``tests/tier1_offline/test_claim_currency.py`` gained a guard for that class, and this
 is what shows the guard would have caught them.
 
 Each mutant puts the stale sentences of ONE file back exactly as they
@@ -64,7 +64,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _mutation_harness import REPO, verdict  # noqa: E402
 
 TEST = (
-    "tests/test_claim_currency.py::"
+    "tests/tier1_offline/test_claim_currency.py::"
     "test_no_committed_page_writes_a_stale_tally_of_a_shared_vendor_name"
 )
 

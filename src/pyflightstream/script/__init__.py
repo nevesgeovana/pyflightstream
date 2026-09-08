@@ -112,7 +112,7 @@ _ORDERED_PHASES = (
 # a name list and not a type rule. That is the hazard: a command whose
 # count carries a new spelling escapes the check entirely and nothing
 # says so. `test_every_declared_count_is_a_known_count_name` in
-# tests/test_script.py closes that class by walking the database and
+# tests/tier1_offline/test_script.py closes that class by walking the database and
 # failing on any int scalar that introduces a list from outside this set.
 # It was added after two commands were found escaping (PFS-8, 2026-08-02).
 _COUNT_ARG_NAMES = {
@@ -914,7 +914,7 @@ class Script:
         # Before argument binding, on purpose. A broken record is a fact
         # about the command and not about this call, so it is the more
         # important of the two errors when both apply; refusing first
-        # also lets the class guard in tests/test_script.py walk the
+        # also lets the class guard in tests/tier1_offline/test_script.py walk the
         # whole database and emit each broken command with no arguments
         # at all, which is what makes that guard writable for commands
         # whose grammars have nothing in common.

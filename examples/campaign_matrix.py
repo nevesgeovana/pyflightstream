@@ -135,7 +135,7 @@ print("\n".join(campaign_toml.splitlines()[:8]))
 # a geometry COLUMN. It was true the day it was written. The release that
 # made it false is the one that shipped the key, and no test READ an
 # example's prose, so nothing but a reader was ever going to catch it.
-# One does now: `tests/test_docs_example_currency.py` asserts that this
+# One does now: `tests/tier1_offline/test_docs_example_currency.py` asserts that this
 # note names the key a row fills the field with, and that the two claims
 # which went stale cannot come back.
 

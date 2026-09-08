@@ -38,11 +38,11 @@ from dataclasses import dataclass
 #: fire on rounding alone.
 #:
 #: WHERE THE PRINTED WIDTH WAS READ, cited rather than recalled. The
-#: committed export ``tests/fixtures/loads_steady_26.120.txt`` prints all
+#: committed export ``tests/tier1_offline/fixtures/loads_steady_26.120.txt`` prints all
 #: three of these header fields with three decimals, and its own footer
 #: names FlightStream 26.120, build #7012026. Its layout mirrors a real
 #: run on that build while its values are synthetic, which is what
-#: ``tests/test_results.py`` records in its module docstring. A licensed
+#: ``tests/tier1_offline/test_results.py`` records in its module docstring. A licensed
 #: run on the same build recorded the same width for another header
 #: quantity, the unsteady time increment, in
 #: ``reports/RPT-006_wp7-nearrigid-pilot_2026-07-21.md``; that is
@@ -58,7 +58,7 @@ from dataclasses import dataclass
 #: which is not a decision this module is entitled to make; tightening it
 #: below print resolution would fire on rounding.
 #:
-#: ``tests/test_conditions.py`` reads this citation out of this file,
+#: ``tests/tier1_offline/test_conditions.py`` reads this citation out of this file,
 #: opens the export it names and asserts the three printed widths against
 #: these tolerances, so the premise cannot rot back into a recollection.
 FIELD_BINDINGS: tuple[tuple[str, str, float, str], ...] = (
@@ -86,7 +86,7 @@ class ConditionCheck:
         Largest deviation attributable to print rounding, in `unit`.
         Half a count of the last printed digit, the width being read
         from the committed export
-        ``tests/fixtures/loads_steady_26.120.txt`` (FlightStream 26.120,
+        ``tests/tier1_offline/fixtures/loads_steady_26.120.txt`` (FlightStream 26.120,
         build #7012026), which prints these fields with three decimals.
         One measured build is not a solver guarantee: see
         :data:`FIELD_BINDINGS` for what that citation does and does not

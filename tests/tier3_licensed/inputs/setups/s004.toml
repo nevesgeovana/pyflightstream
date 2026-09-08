@@ -1,0 +1,21 @@
+# s004: the setup study's third point. s001 with the solver model changed and
+# no stabilization, the two settings a user most often flips when a case
+# misbehaves; the setup study shows their cost on the same geometry and the
+# same condition.
+boundary_layer_type = "TURBULENT"
+viscous_coupling = false
+convergence = 1e-5
+max_parallel_threads = 8
+NITER = 300
+set_solver_model = "INCOMPRESSIBLE"      # s001 runs SUBSONIC_PRANDTL_GLAUERT
+proximity_avoidance = "ENABLE"
+stabilization = "DISABLE"                # s001 stabilizes
+symmetry_loads = true
+induced_wake_velocity = true
+significant_digits = 7
+convergence_iterations = 20
+solver_minimum_cp = -100
+
+# No [flight_condition] table: every row naming this preset states its own
+# pins or takes the standard atmosphere, which is the third form a
+# condition can take and the tour shows it on purpose.

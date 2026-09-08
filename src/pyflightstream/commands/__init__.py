@@ -923,7 +923,7 @@ class CommandEntry(BaseModel):
         """Refuse a probe citation that is not a repository path to a report.
 
         The shape only; that the file EXISTS and names this command is a
-        tier-1 walk (``tests/test_command_db.py``), because a validator
+        tier-1 walk (``tests/tier1_offline/test_command_db.py``), because a validator
         that touched the filesystem would make loading the database
         depend on the working directory.
         """
@@ -1034,7 +1034,7 @@ class CommandEntry(BaseModel):
         the published compatibility matrix showed the column as fully
         covered. The count is deliberately not written here: it moves
         with every probe run, the matrix generates it in an ``Of which
-        inherited`` column, and ``tests/test_evidence_provenance.py``
+        inherited`` column, and ``tests/tier1_offline/test_evidence_provenance.py``
         measures it where a wrong number can fail. A hotfix had already
         been measured changing a command's behaviour, so the assumption
         was known to be falsifiable (PLN-20260802-2016).

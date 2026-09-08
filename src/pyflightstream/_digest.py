@@ -47,7 +47,7 @@ missing:
   not a paragraph. "sha256" says nothing about whether two identical
   runs agree; what decides that is the exact byte string fed to the
   hash. :data:`CANONICAL_FORMS` names it for every module in this
-  package that computes one, and ``tests/test_digest.py`` fails when a
+  package that computes one, and ``tests/tier1_offline/test_digest.py`` fails when a
   module hashes without declaring one. A rule written only as prose
   cannot notice a fourth site appearing.
 * THE EXCLUSIONS, :data:`EXCLUDED_FROM_EVERY_DIGEST`, hold for all of
@@ -59,7 +59,7 @@ missing:
   is either the raw bytes of a file or a text this package renders from
   validated data, and none of them reads a clock, a path or an
   environment. Each entry is SPENT rather than declared:
-  ``tests/test_digest.py`` requires one demonstration per entry, three
+  ``tests/tier1_offline/test_digest.py`` requires one demonstration per entry, three
   of them by hashing (a modification time that moves, the same bytes
   under two names, two files hashed in both orders) and two by scanning
   this module's own source, because no fixture can show that a clock
@@ -70,7 +70,7 @@ WHERE THE RULE IS STATED FOR A USER. This docstring is the home of the
 rule, and a user staging a mesh does not read it. ``docs/mesh-inputs.md``
 is the page that asks a reader to rely on the manifest checksum, so it
 names the algorithm and the exclusions in prose and points back here;
-``tests/test_digest.py`` fails on a docs page that promises a content
+``tests/tier1_offline/test_digest.py`` fails on a docs page that promises a content
 hash and names neither, so the page cannot go stale quietly and a
 changed :data:`ALGORITHM` breaks it rather than agreeing with it.
 
@@ -119,7 +119,7 @@ EXCLUDED_FROM_EVERY_DIGEST = (
 #: This is the part of the rule that was never written down, and the
 #: reason it is a mapping is that "sha256" alone decides nothing: two
 #: runs agree exactly when the BYTE STRING handed to the hash agrees, and
-#: that is chosen at the call site. ``tests/test_digest.py`` walks the
+#: that is chosen at the call site. ``tests/tier1_offline/test_digest.py`` walks the
 #: package for every ``hashlib`` call and fails on a module absent here,
 #: so a new digest cannot enter with its canonical form unstated.
 CANONICAL_FORMS = {

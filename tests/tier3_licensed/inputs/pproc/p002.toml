@@ -1,0 +1,7 @@
+# p002: groups only, for the steady rows. A steady script defines no plots,
+# probes or sections, so a steady row naming p001 would carry three empty
+# blocks; this artifact says so by carrying only the groups.
+[groups]
+"1" = ["Wing", "Body", "Base"]
+"2" = ["Wing"]
+"3" = ["Body", "Base"]

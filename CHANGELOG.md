@@ -7,6 +7,37 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Added
+
+- **A `LEGACY` row may name its recipe in the cell**, as
+  `RECIPE: package.module:function`, and then plans and runs with no
+  `--recipe` option, which is what FR-50 promises of a matrix. A bare code
+  is still mapped by the option, and a mapping given for the same string wins,
+  so nothing a user mapped changes meaning (PFS-2031.11). Found by the first
+  matrix of the tier-3 workspace, whose preparation rows carried the whole
+  reference and could not be planned without repeating it on the command line.
+
+- **A flat rotor row may name its hub by a reference point**, `ROTOR_ORIGIN:
+  ERP1`, exactly as a `MOTIONS` record has since 0.11.0: the point's
+  coordinates are bound from `inputs/reference_points.toml`, the name stays
+  beside them as `ROTOR_ORIGIN_POINT` in the case and the run record, and a
+  point that is not an engine point is refused naming its kind (PFS-2031.12).
+  Found by the tier-3 tour's installed rotor row, which was refused with
+  "a rotor hub is three coordinates" for the same cell a two-rotor row accepts.
+
+### Changed
+
+- **The test suite is organized by tier**, explicitly: `tests/tier1_offline`
+  runs without a solver and is what `pytest` runs by default,
+  `tests/tier2_validity` holds the per-command probes and
+  `tests/tier3_licensed` IS a campaign workspace run on a licensed solver;
+  both licensed tiers carry `needs_flightstream` on every module. Every
+  existing module moved into tier 1 with `git mv` and changed in no other
+  way; the paths that cited them followed. The reason is GOAL-012: every
+  capability of the run matrix becomes a row a fresh clone can plan and a
+  licensed seat can run, and tier 3 is the worked example of how each one is
+  set through the workspace.
+
 ## [0.12.0] - 2026-09-04
 
 ### Added

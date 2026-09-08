@@ -1,0 +1,29 @@
+# Named points a row may cite instead of coordinates. ARP is the airframe
+# point by convention and ERPn an engine point; a MOTIONS record's
+# ROTOR_ORIGIN must name an engine point, and one declaring another kind is
+# refused naming the point and its kind (PFS-2029.11.02).
+
+[ARP]
+x_m = 2.0
+y_m = 0.0
+z_m = 0.0
+
+[ERP1]
+x_m = 4.5
+y_m = 2.5
+z_m = 0.0
+
+[ERP2]
+x_m = 4.5
+y_m = -2.5
+z_m = 0.0
+
+# The pusher's hub, on the axis behind the base. The convention names it
+# ERP3: ERP1 through ERPn say how many propulsors the campaign describes and
+# a name outside the convention is refused, so a point may declare its kind
+# only under a conventional name.
+[ERP3]
+kind = "engine"
+x_m = 4.5
+y_m = 0.0
+z_m = 0.0

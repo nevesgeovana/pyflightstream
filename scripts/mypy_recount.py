@@ -8,7 +8,7 @@ per-module table, a per-code table, a concentration list and a delta table.
 On 2026-08-19 it held THREE MUTUALLY CONTRADICTORY statements of that one
 measurement, because the sentence had been retyped to follow a new module
 total and the tool output beside it had not.
-`tests/test_traceability.py` now guards two of the six against each other,
+`tests/tier1_offline/test_traceability.py` now guards two of the six against each other,
 which is what caught it. This script closes the rest of the gap from the other
 side: every figure comes out of one run, so retyping one of them cannot be
 done at all.

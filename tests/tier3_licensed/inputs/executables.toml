@@ -1,0 +1,12 @@
+# The build registry of the tier-3 workspace (GOAL-012, PFS-2031.03).
+#
+# Two builds, so that one matrix can send rows to two installations, which is
+# what the FS_BUILD column exists for. The PATHS ARE PLACEHOLDERS on purpose:
+# where a solver is installed is machine configuration and never enters Git
+# (the container-directory guard of tests/tier1_offline/test_house_style.py).
+# Tier 1 only resolves these entries; tier 3 runs with the executable named on
+# the command line, `pyfs-matrix run <matrix> --workspace <this folder>
+# --fs-exe <path>`, which overrides every entry for that run, the path coming
+# from the machine's own gitignored configuration.
+"26.120" = { path = "FlightStream_26120.exe", version = "26.120" }
+"26.123" = { path = "FlightStream_26123.exe", version = "26.123" }

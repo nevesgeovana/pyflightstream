@@ -1,9 +1,9 @@
-"""Regenerate the per-build workflow renders under ``tests/goldens/workflows/``.
+"""Regenerate the per-build workflow renders under ``tests/tier1_offline/goldens/workflows/``.
 
 WHY THESE EXIST, stated here because the reason is a measurement rather
 than a convention. v0.8.1 claimed that a matrix naming none of its three
 new keys renders byte for byte as it always did, and cited the 23 files
-in ``tests/goldens/`` and the 18 in ``tests/fixtures/`` as the evidence.
+in ``tests/tier1_offline/goldens/`` and the 18 in ``tests/tier1_offline/fixtures/`` as the evidence.
 Not one of those 41 files is produced by a workflow builder, so they
 could not have changed whatever the builders did. A QA pass measured the
 hole by inserting one extra ``script.emit`` into ``_build_steady``; it
@@ -26,7 +26,7 @@ everywhere would be laundered into "expected" by one run of this
 generator, and the suite would agree.
 
 The case definitions are NOT written here. They are ``GOLDEN_CASES`` in
-``tests/test_workflows.py``, which is the single home the guard reads
+``tests/tier1_offline/test_workflows.py``, which is the single home the guard reads
 them from too, so a generator and a test cannot drift into disagreeing
 about what "the historical case" is.
 
@@ -47,7 +47,7 @@ Usage
 
 ``--check`` writes nothing and exits non-zero if any golden is missing
 or stale, which is what CI would run if it ran this at all; the tier 1
-guard in ``tests/test_workflows.py`` is the real check.
+guard in ``tests/tier1_offline/test_workflows.py`` is the real check.
 """
 
 from __future__ import annotations
@@ -57,7 +57,7 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
-TESTS = REPO / "tests"
+TESTS = REPO / "tests" / "tier1_offline"
 GOLDENS = TESTS / "goldens" / "workflows"
 
 # The case table and the expected-refusal set live in the test module,
@@ -94,7 +94,7 @@ def build() -> dict[Path, bytes]:
                 "Refusing to write that as a golden: an unexpected refusal is a defect "
                 "in the builder, and pinning it here would record the defect as the "
                 "expected behaviour. Fix the builder, or add the pair to "
-                "EXPECTED_REFUSALS in tests/test_workflows.py and say why."
+                "EXPECTED_REFUSALS in tests/tier1_offline/test_workflows.py and say why."
             )
         rendered[GOLDENS / golden_name(name, label, build_id)] = text.encode("utf-8")
     return rendered

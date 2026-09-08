@@ -25,7 +25,7 @@ machine.
 
 Tier 1 also runs a tree-wide forbidden-identifier scan
 (`tools/check_shipped_surface.py` against `tools/shipped_surface.conf`,
-run by `tests/test_repository_guards.py`). It
+run by `tests/tier1_offline/test_repository_guards.py`). It
 reads every tracked file, so a new file carrying an email address or a
 user-profile path reddens CI rather than being noticed at review. If it
 refuses something that is an identifier by design, the fix is an
@@ -50,7 +50,7 @@ transitively: PyNiteFEA requires it, so the `fsi` extra brings it in
 (measured against PyNiteFEA 3.0.0 on 2026-08-10).
 
 Whichever you install, do not reach for an optional distribution without
-a guard. `tests/test_extras_isolation.py` refuses it, and the refusal
+a guard. `tests/tier1_offline/test_extras_isolation.py` refuses it, and the refusal
 names the form to use for the tree you are in. Its evidence is
 `python scripts/prove_extras_isolation.py`, which re-runs the mutation
 battery behind it. It EDITS THE WORKING
@@ -215,7 +215,7 @@ translated copies collide, and that made the loads parser refuse all
 sixteen exports of a licensed run on 2026-08-17.
 
 `scripts/gen_absent_commands.py <build>` writes the list of commands a
-registered build cannot emit, into `tests/goldens/absent_on_<build>.txt`,
+registered build cannot emit, into `tests/tier1_offline/goldens/absent_on_<build>.txt`,
 and a tier 1 test compares every such file against the database. Run it
 in the same commit as any row you write for a build that inherits
 nothing, because the file carries counts as well as names and both move.
@@ -229,7 +229,7 @@ whose nine sentences enumerated the builds sharing a vendor name before
 `scripts/prove_published_invocation_guards.py`, added 2026-08-18,
 restores the two published reproduction commands that shipped broken, a
 required flag omitted and a flag no parser defines, and requires
-`tests/test_documented_invocations.py` to deny each.
+`tests/tier1_offline/test_documented_invocations.py` to deny each.
 
 THE EIGHT BATTERIES AND WHAT EACH ONE DOES, as a table rather than as
 prose. Four booleans restated across five paragraphs is what produced
@@ -353,7 +353,7 @@ command after editing a docstring example or a README/docs snippet.
 * Aerodynamic symbols keep their standard names (CL, CDi, J, alpha_deg);
   ruff N803/N806 are exempted for this reason.
 * House style: no em or en dash characters in Markdown or docstrings
-  (enforced by tests/test_house_style.py).
+  (enforced by tests/tier1_offline/test_house_style.py).
 
 ## AI-assisted development disclosure
 
@@ -384,7 +384,7 @@ message:
 Clean-room: emitter specified from the official manual and probe evidence only; no code, structure or docstrings from the AGPL predecessor
 ```
 
-`tests/test_clean_room.py` asserts it on every commit since its
+`tests/tier1_offline/test_clean_room.py` asserts it on every commit since its
 baseline and fails the suite without it.
 
 Amending is banned in this repository, so a commit that missed the

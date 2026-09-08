@@ -65,7 +65,7 @@ def _pypdf():
     mirroring ``pyflightstream.probes.geometry._trimesh``. Both earlier
     forms were defects of their own: one site imported bare, which reads
     as a base dependency and is what
-    ``tests/test_extras_isolation.py`` now refuses, and the other wrote
+    ``tests/tier1_offline/test_extras_isolation.py`` now refuses, and the other wrote
     its own install command out by hand, which is the duplication
     ``pyflightstream.extras`` exists to end (a renamed extra would have
     left that string pointing at a command that fails).

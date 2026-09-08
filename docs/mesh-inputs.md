@@ -176,8 +176,8 @@ That block is skipped by the executable-examples run rather than checked,
 and the reason is worth one line because every other python block on this page
 IS executed: it names a blade mesh, and this repository commits no blade.
 NOTHING GUARDS THE NAMES IN IT, which is said rather than left to be assumed:
-`tests/test_guide_api_names.py` reads the user guide alone and
-`tests/test_docs_example_currency.py` reads `workspace-and-workflows.md`
+`tests/tier1_offline/test_guide_api_names.py` reads the user guide alone and
+`tests/tier1_offline/test_docs_example_currency.py` reads `workspace-and-workflows.md`
 alone, so a rename would leave this block stale and no test would say so. The
 first version of this paragraph claimed a guard that does not read this page,
 which is worse than no guard at all.

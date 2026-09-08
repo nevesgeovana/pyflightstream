@@ -1,0 +1,15 @@
+# Provenance of a SYNTHETIC geometry of the tier-3 workspace (GOAL-012).
+# Generated from public shape laws by tests.tier3_licensed.recipes and saved
+# by the solver named below; nothing of the author's went into it.
+shape = "body"
+generator = "tests.tier3_licensed.recipes.SHAPES['body']"
+parts = ['Body', 'Base']
+wing_spec = "WingSpec(naca='0012', chord_m=1.0, span_m=8.0, n_chord=12, n_span=16)"
+blade_spec = "BladeSpec(naca='4409', r_tip_m=1.8288, hub_ratio=0.15, chord_root_ratio=0.14, chord_tip_ratio=0.06, advance_ratio_design=1.7, beta_75_deg=45.0, n_chord=10, n_span=12)"
+body_radius_m = 0.5
+body_length_m = 4.0
+build = "26.120"
+executable = "the build named above, installed on the preparing machine; its path is machine configuration and is not recorded here"
+prepared_on = "2026-09-08"
+sha256 = "d56685ac0052c0e1a6d90c14c4376aadf99590f89f434cd6bbe856ee51694366"
+sidecar = "20_BODY.boundaries.toml"

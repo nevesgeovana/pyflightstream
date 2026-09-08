@@ -2,7 +2,7 @@
 
 This page is the CONTRACT for the optional all-numeric settings table
 that `pyflightstream.post.settings_table` writes. It is not a
-description of the code: `tests/test_settings_codebook.py` reads this
+description of the code: `tests/tier1_offline/test_settings_codebook.py` reads this
 page and fails when the library disagrees with it, so the two cannot
 drift. That direction matters. If the only thing holding the encoding
 still were a page describing the code, they would part the first time a

@@ -33,9 +33,14 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _mutation_harness import REPO, verdict  # noqa: E402
 
-SCANNER = "tests/test_yamlflow.py::test_no_module_builds_a_flow_mapping_by_hand"
-SIGNATURE = "tests/test_yamlflow.py::test_insert_version_row_takes_no_pre_rendered_yaml"
-ROUND_TRIP = "tests/test_yamlflow.py::test_a_rendered_row_round_trips_whatever_the_note_carries"
+SCANNER = "tests/tier1_offline/test_yamlflow.py::test_no_module_builds_a_flow_mapping_by_hand"
+SIGNATURE = (
+    "tests/tier1_offline/test_yamlflow.py::test_insert_version_row_takes_no_pre_rendered_yaml"
+)
+ROUND_TRIP = (
+    "tests/tier1_offline/test_yamlflow.py"
+    "::test_a_rendered_row_round_trips_whatever_the_note_carries"
+)
 
 MANUAL = "src/pyflightstream/utils/manual.py"
 YAMLFLOW = "src/pyflightstream/_yamlflow.py"

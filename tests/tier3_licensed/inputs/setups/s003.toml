@@ -1,0 +1,25 @@
+# s003: the setup study's second point. The same steady preset as s001 with
+# a tighter convergence and more iterations, so the setup study of
+# matriz_setup.fs varies one thing at a time and the products say what it
+# cost. Everything else is s001's.
+boundary_layer_type = "TURBULENT"
+viscous_coupling = false
+convergence = 1e-6                       # one decade tighter than s001
+max_parallel_threads = 8
+NITER = 600                              # twice s001
+set_solver_model = "SUBSONIC_PRANDTL_GLAUERT"
+proximity_avoidance = "ENABLE"
+stabilization = "ENABLE"
+stabilization_strength = 1.0
+symmetry_loads = true
+induced_wake_velocity = true
+significant_digits = 7
+convergence_iterations = 20
+solver_minimum_cp = -100
+vorticity_drag_boundaries = ["Wing"]     # the induced-drag selection, stated: the setup study runs the wing
+
+[flight_condition]
+MUPas = 1.789e-5
+ASMPS = 340.29
+TK = 288.15
+PPA = 101325

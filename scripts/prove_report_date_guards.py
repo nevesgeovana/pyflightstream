@@ -55,24 +55,32 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _mutation_harness import REPO, verdict  # noqa: E402
 
 WRITER_TEST = (
-    "tests/test_qa_compat.py::test_the_writer_stamps_one_date_in_the_stem_the_body_and_the_header"
+    "tests/tier1_offline/test_qa_compat.py"
+    "::test_the_writer_stamps_one_date_in_the_stem_the_body_and_the_header"
 )
-HELPER_TEST = "tests/test_qa_compat.py::test_the_path_helper_defaults_its_date_the_same_way"
+HELPER_TEST = (
+    "tests/tier1_offline/test_qa_compat.py::test_the_path_helper_defaults_its_date_the_same_way"
+)
 ARTIFACT_TEST = (
-    "tests/test_command_db.py::test_every_compat_report_carries_the_date_its_own_name_claims"
+    "tests/tier1_offline/test_command_db.py"
+    "::test_every_compat_report_carries_the_date_its_own_name_claims"
 )
-RATCHET_TEST = "tests/test_command_db.py::test_the_undated_report_exemption_has_not_grown"
+RATCHET_TEST = (
+    "tests/tier1_offline/test_command_db.py::test_the_undated_report_exemption_has_not_grown"
+)
 
 COMPAT = "src/pyflightstream/qa/compat.py"
 PHYSICS = "src/pyflightstream/qa/physics.py"
 DRIFT = "src/pyflightstream/qa/drift.py"
-DB_TEST = "tests/test_command_db.py"
+DB_TEST = "tests/tier1_offline/test_command_db.py"
 
 PHYSICS_TEST = (
-    "tests/test_qa_physics.py::test_the_physics_helper_and_writer_default_their_date_the_same_way"
+    "tests/tier1_offline/test_qa_physics.py"
+    "::test_the_physics_helper_and_writer_default_their_date_the_same_way"
 )
 DRIFT_TEST = (
-    "tests/test_qa_drift.py::test_the_drift_helper_and_writer_default_their_date_the_same_way"
+    "tests/tier1_offline/test_qa_drift.py"
+    "::test_the_drift_helper_and_writer_default_their_date_the_same_way"
 )
 
 #: THE SAME PAIR, ONE SERIES OVER, twice. Physics and drift acquired

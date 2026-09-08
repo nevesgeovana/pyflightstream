@@ -23,7 +23,7 @@ was.
 
 THE CODEBOOK IS FROZEN AND ITS HOME IS THE PAGE. ``docs/settings-codebook.md``
 carries the flag ids, the provenance and kind codes and the per-flag
-enumerations, and ``tests/test_settings_codebook.py`` reads that page
+enumerations, and ``tests/tier1_offline/test_settings_codebook.py`` reads that page
 and fails when this module disagrees with it. That direction is
 deliberate: if the only thing holding the encoding still were a page
 describing the code, the two would drift the first time a flag gained a

@@ -70,7 +70,7 @@ Milestones and session records are listed in the
 
 !!! requirement "FR-02c Ambiguous vendor names are refused <span class='srs-implemented'>implemented</span>"
     *Origin: BRF-03, BRF-19. Evidence: PFS-8 (2026-08-02); the
-    ambiguous-alias tests in `tests/test_versions.py`.*
+    ambiguous-alias tests in `tests/tier1_offline/test_versions.py`.*
 
     The vendor reuses a release name across builds, so a display alias
     can name more than one registered build. Resolution refuses such a
@@ -170,7 +170,7 @@ Milestones and session records are listed in the
 !!! requirement "FR-08 Clean-room emitter <span class='srs-implemented'>implemented</span>"
     *Origin: BRF-10. Evidence: the `Clean-room` commit trailer,
     asserted for every commit under review by
-    `tests/test_clean_room.py`; repository invariant; contribution
+    `tests/tier1_offline/test_clean_room.py`; repository invariant; contribution
     policy.*
 
     The emitter layer is specified exclusively from the official
@@ -245,8 +245,8 @@ Milestones and session records are listed in the
     what keeps this requirement's forever promise honest. Width could
     not serve: two of the three layouts are fifteen columns wide. The
     fixtures carrying that claim are
-    `tests/fixtures/pfs202512_matrix15.fs` and
-    `tests/fixtures/pfs202701_matrix16.fs`.*
+    `tests/tier1_offline/fixtures/pfs202512_matrix15.fs` and
+    `tests/tier1_offline/fixtures/pfs202701_matrix16.fs`.*
 
     A dedicated reader consumes the documented pipe-delimited
     run-matrix format: rows with RUN = 1 are active, the sweep columns
@@ -420,7 +420,7 @@ Milestones and session records are listed in the
     Probe field data is a separate matter and already ships: the VTK
     legacy and Tecplot point writers of `post/writers.py` export it
     with a documented field-to-column mapping
-    (`tests/test_post_writers.py`). Recorded here rather than under an
+    (`tests/tier1_offline/test_post_writers.py`). Recorded here rather than under an
     identifier of its own because that is where the author folded it
     when she accepted it, against the option of making it a public
     functional requirement.
@@ -639,7 +639,7 @@ the session records.
     *Origin: usage feedback, amending the posture of FR-10/FR-11.
     Evidence: the v0.3 line; resolution hit and miss tests.*
 
-    Read with PFS-2031.03, PFS-2031.04, PFS-2031.05, PFS-2031.06 and PFS-2031.07 at 0.13.0 (GOAL-012): the tier-3 folder is a workspace, several matrices share it with their own plan, sweep and products under post/<matrix>/, and every token the package defines is a row that plans offline and runs on the licensed machine.
+    Read with PFS-2031.03, PFS-2031.04, PFS-2031.05, PFS-2031.06, PFS-2031.07 and PFS-2031.12 at 0.13.0 (GOAL-012): the tier-3 folder is a workspace, several matrices share it with their own plan, sweep and products under post/<matrix>/, and every token the package defines is a row that plans offline and runs on the licensed machine.
 
     The run matrix is a first-class interface of the file-managed
     modality: its reference columns resolve against the workspace
@@ -676,7 +676,7 @@ the base could not offer while it bundled several.
 
 !!! requirement "FR-02b Version ordering authority <span class='srs-implemented'>implemented</span>"
     *Origin: Phase 4 split of FR-02, accepted 2026-07-27. Evidence:
-    milestone M1; `tests/test_versions.py`.*
+    milestone M1; `tests/tier1_offline/test_versions.py`.*
 
     Version ordering never relies on string or float comparison, and
     the ordered list in `commands/_meta.yaml` is the sole ordering
@@ -721,7 +721,7 @@ the base could not offer while it bundled several.
 
 !!! requirement "FR-30a Entities carry labels, not positions <span class='srs-implemented'>implemented</span>"
     *Origin: Phase 4 split of FR-30, accepted 2026-07-27. Evidence: the
-    v0.3 line; `tests/test_script_entities.py`.*
+    v0.3 line; `tests/tier1_offline/test_script_entities.py`.*
 
     The builder registry identifies frames, actuators, motions, and
     boundaries by optional label rather than by the solver's positional
@@ -732,17 +732,17 @@ the base could not offer while it bundled several.
     implemented and put back the same day, 2026-09-02 (PFS-2028.00): the
     claim was true at the script layer and false at the surface a user
     writes, because nothing declared a boundary inventory there. Evidence:
-    the v0.3 line; `tests/test_script_entities.py` for the script layer;
-    `tests/test_workflows.py`, whose rotor-row tests fail on 0.10.0 because
+    the v0.3 line; `tests/tier1_offline/test_script_entities.py` for the script layer;
+    `tests/tier1_offline/test_workflows.py`, whose rotor-row tests fail on 0.10.0 because
     the inventory is never declared, for a MATRIX ROW; and
-    `tests/test_workspace.py` for a named boundary group, whose members
+    `tests/tier1_offline/test_workspace.py` for a named boundary group, whose members
     may now be written as names.*
 
     Every entity-citing argument accepts either an index or a label.
 
 !!! requirement "FR-30c Declared inventories are range-checked <span class='srs-implemented'>implemented</span>"
     *Origin: Phase 4 split of FR-30, accepted 2026-07-27. Evidence: the
-    v0.3 line; `tests/test_script_entities.py`.*
+    v0.3 line; `tests/tier1_offline/test_script_entities.py`.*
 
     A declared boundary inventory is range-checked, and an undeclared
     inventory stays permissive, because the total lives in the geometry
@@ -760,7 +760,7 @@ the base could not offer while it bundled several.
 
 !!! requirement "FR-31a Solver settings are one entry point with provenance <span class='srs-implemented'>implemented</span>"
     *Origin: Phase 4 split of FR-31, accepted 2026-07-27. Evidence: the
-    v0.3 line; `tests/test_solver_setup.py`.*
+    v0.3 line; `tests/tier1_offline/test_solver_setup.py`.*
 
     The solver-settings helper is the single entry point for every
     solver flag and returns a snapshot recording each flag's effective
@@ -769,7 +769,7 @@ the base could not offer while it bundled several.
 
 !!! requirement "FR-31b The snapshot rides the manifest <span class='srs-implemented'>implemented</span>"
     *Origin: Phase 4 split of FR-31, accepted 2026-07-27. Evidence: the
-    v0.3 line; `tests/test_solver_setup.py`.*
+    v0.3 line; `tests/tier1_offline/test_solver_setup.py`.*
 
     The snapshot rides the manifest, and a runnable script is
     regenerated from it.
@@ -791,7 +791,7 @@ the base could not offer while it bundled several.
 
 !!! requirement "FR-33a Input-artifact library <span class='srs-implemented'>implemented</span>"
     *Origin: Phase 4 split of FR-33, accepted 2026-07-27. Evidence: the
-    v0.3 line; `tests/test_workspace.py`.*
+    v0.3 line; `tests/tier1_offline/test_workspace.py`.*
 
     Read with PFS-2031.03 at 0.13.0 (GOAL-012): the tier-3 library holds synthetic geometries only, each with a mesh block and a boundary sidecar.
 
@@ -808,7 +808,7 @@ the base could not offer while it bundled several.
 
 !!! requirement "FR-33b Naming is output-only <span class='srs-implemented'>implemented</span>"
     *Origin: Phase 4 split of FR-33, accepted 2026-07-27. Evidence: the
-    v0.3 line; the no-parse-back guard in `tests/test_workspace.py`.*
+    v0.3 line; the no-parse-back guard in `tests/tier1_offline/test_workspace.py`.*
 
     Output naming is templatable and output-only; the manifest is the
     sole identity authority and no parse-back API exists.
@@ -822,8 +822,8 @@ the base could not offer while it bundled several.
     *Origin: Phase 4 split of FR-33, accepted 2026-07-27, giving the
     incident guard its own identifier. Widened 2026-08-19
     (OPS-2005.10.03, PFS-2011.02), the author's decision. Evidence:
-    incident INC-20260723-2113; `tests/test_run_campaign.py`;
-    `tests/test_silent_overwrites.py`.*
+    incident INC-20260723-2113; `tests/tier1_offline/test_run_campaign.py`;
+    `tests/tier1_offline/test_silent_overwrites.py`.*
 
     A write that would destroy a record without saying so is refused
     before it happens, and this requirement carries three shapes of it. A
@@ -882,8 +882,8 @@ the base could not offer while it bundled several.
     Evidence: `_check_output_containment` in
     `pyflightstream.workspace.naming`, raising `NamingTemplateError`,
     reached from `NamingTemplate.render_output`;
-    `tests/test_error_messages.py::test_an_escaping_output_name_says_that_collection_moves`;
-    the behavioural cases in `tests/test_workspace.py`.*
+    `tests/tier1_offline/test_error_messages.py::test_an_escaping_output_name_says_that_collection_moves`;
+    the behavioural cases in `tests/tier1_offline/test_workspace.py`.*
 
     A declared output name that is empty, that is absolute, or that
     climbs out of the simulation folder with `..` is refused when the
@@ -916,8 +916,8 @@ the base could not offer while it bundled several.
     half of review finding PYFS-005 the identifier it had never had.
     Evidence: `CampaignWorkspace.collect_outputs` in
     `pyflightstream.workspace`, raising `WorkspaceError`;
-    `tests/test_error_messages.py::test_two_outputs_collecting_to_one_name_offer_the_placeholder_remedy`;
-    the behavioural cases in `tests/test_workspace.py`.*
+    `tests/tier1_offline/test_error_messages.py::test_two_outputs_collecting_to_one_name_offer_the_placeholder_remedy`;
+    the behavioural cases in `tests/tier1_offline/test_workspace.py`.*
 
     Two declared outputs of one collection whose base names agree are
     refused, and so is a declared output whose base name is already held
@@ -951,8 +951,8 @@ the base could not offer while it bundled several.
     of review finding PYFS-005 the identifier it had never had.
     Evidence: `CampaignWorkspace.stage_inputs` in
     `pyflightstream.workspace`, raising `WorkspaceError`;
-    `tests/test_error_messages.py::test_two_inputs_sharing_a_base_name_name_both_sources`;
-    the behavioural cases in `tests/test_workspace.py`.*
+    `tests/tier1_offline/test_error_messages.py::test_two_inputs_sharing_a_base_name_name_both_sources`;
+    the behavioural cases in `tests/tier1_offline/test_workspace.py`.*
 
     Two declared inputs whose base names agree are refused before any
     file is staged, and the refusal names both sources. Two references
@@ -976,7 +976,7 @@ the base could not offer while it bundled several.
     2026-08-03. Evidence: `RunStatus.COMPLETED_MAX_ITER` and
     `RunStatus.FAILED_INCOMPLETE_OUTPUT` in `pyflightstream.workspace`, the
     judgment rules of `run.LoadsAssessor`, and the status tests in
-    `tests/test_run_campaign.py`.*
+    `tests/tier1_offline/test_run_campaign.py`.*
 
     A datapoint whose recorded residual does not reach the configured
     convergence threshold terminates with a status distinct from the
@@ -1033,7 +1033,7 @@ the base could not offer while it bundled several.
 !!! requirement "FR-38 Far-field conservation ledgers <span class='srs-deferred'>deferred</span>"
     *Origin: Phase 4 review, accepted 2026-07-27, absorbing the C11
     acceptance of the same subject. Evidence for the delivered half:
-    milestone M7; the G0 synthetic gate in `tests/test_farfield.py`.*
+    milestone M7; the G0 synthetic gate in `tests/tier1_offline/test_farfield.py`.*
 
     The far-field subpackage computes the mass, momentum, swirl,
     crossflow-kinetic-energy, and rothalpy conservation ledgers on the
@@ -1053,7 +1053,7 @@ the base could not offer while it bundled several.
     PFS-2 (2026-08-02); the sweep of 2026-08-03 and 2026-08-04, 137
     sites over three widenings of the walk;
     `src/pyflightstream/exceptions.py`;
-    `tests/test_exceptions_catalog.py`, whose third guard walks every
+    `tests/tier1_offline/test_exceptions_catalog.py`, whose third guard walks every
     exported public name, and every module-private helper an exported
     one calls, for bare standard-library raises.*
 
@@ -1101,7 +1101,7 @@ the base could not offer while it bundled several.
 
     **18 sites remain and this requirement does not claim them.** They
     are named one by one in a ratchet in
-    `tests/test_exceptions_catalog.py`, so the residual is countable and
+    `tests/tier1_offline/test_exceptions_catalog.py`, so the residual is countable and
     any site THE WALK REACHES that is not on that list fails today:
     three raise `TypeError` for an argument of an unaccepted type, which
     needs a base class this catalogue does not have
@@ -1191,7 +1191,7 @@ the base could not offer while it bundled several.
 
     Pending on its quantifier. The registry exists and its refusal
     behaviour is tested (`src/pyflightstream/options.py`,
-    `tests/test_options.py`), but it holds three keys, all under `qa`,
+    `tests/tier1_offline/test_options.py`), but it holds three keys, all under `qa`,
     with one CLI consuming it and no Python-API parameter resolving
     through it. "Every" is the promise; a first consumer is what
     shipped.
@@ -1213,7 +1213,7 @@ the base could not offer while it bundled several.
 !!! requirement "FR-42 Reference-frame and sign conventions <span class='srs-implemented'>implemented</span>"
     *Origin: Phase 4 review, accepted 2026-07-27. Evidence:
     `reference.CONVENTIONS`, rendered offline and on the docs site from
-    one source; `tests/test_conventions.py`. The implemented status
+    one source; `tests/tier1_offline/test_conventions.py`. The implemented status
     covers the STATING half: the conventions are published from one
     home and guarded there. That every emitted coefficient conforms to
     them is asserted by no test, and saying so here is the alternative
@@ -1286,7 +1286,7 @@ The allocation is recorded in the
 
 !!! requirement "FR-45 Strict manifest record <span class='srs-implemented'>implemented</span>"
     *Origin: the C5 acceptance, 2026-07-27. Evidence: both halves
-    pinned in `tests/test_workspace.py`, the unknown-field refusal by a
+    pinned in `tests/tier1_offline/test_workspace.py`, the unknown-field refusal by a
     test added with this consolidation after review found the clause
     resting on a model-config line no assertion observed.*
 
@@ -1295,7 +1295,7 @@ The allocation is recorded in the
 
 !!! requirement "FR-46 Closed terminal-status set <span class='srs-implemented'>implemented</span>"
     *Origin: the C6 acceptance, 2026-07-27. Evidence: the member set
-    of `RunStatus` pinned in `tests/test_workspace.py`, added with this
+    of `RunStatus` pinned in `tests/tier1_offline/test_workspace.py`, added with this
     consolidation; using the members, which the campaign tests do, does
     not notice an addition.*
 
@@ -1308,7 +1308,7 @@ The allocation is recorded in the
 
 !!! requirement "FR-47 Public test-support assertions <span class='srs-implemented'>implemented</span>"
     *Origin: the C8 acceptance, 2026-07-27. Evidence:
-    `src/pyflightstream/testing.py`; `tests/test_testing.py`.*
+    `src/pyflightstream/testing.py`; `tests/tier1_offline/test_testing.py`.*
 
     The package exposes public assertion helpers that compare records
     and scripts and report the quantified violation on failure, so a
@@ -1322,8 +1322,8 @@ The allocation is recorded in the
     `Script.allow_broken` and the emission refusal in
     `src/pyflightstream/script/__init__.py`; `broken_commands` on
     `RunRecord`; the database-driven refusal guard and the waiver
-    guards in `tests/test_script.py`,
-    `tests/test_script_helpers.py` and `tests/test_run_campaign.py`.*
+    guards in `tests/tier1_offline/test_script.py`,
+    `tests/tier1_offline/test_script_helpers.py` and `tests/tier1_offline/test_run_campaign.py`.*
 
     Emitting a command whose per-version record is `broken` raises at
     build time. The refusal has one documented way through: a waiver
@@ -1356,7 +1356,7 @@ The allocation is recorded in the
 !!! requirement "FR-49 Named per-version support levels <span class='srs-implemented'>implemented</span>"
     *Origin: the independent review's finding PYFS-019, reproduced
     2026-07-28 and again at HEAD on 2026-08-02. Evidence:
-    `src/pyflightstream/support.py`; `tests/test_support.py`.*
+    `src/pyflightstream/support.py`; `tests/tier1_offline/test_support.py`.*
 
     A registered version reports its support level as one of four named
     values, ascending: `registered` (ordered, no command carries
@@ -1426,6 +1426,8 @@ nodes.
     obrigatorio aqui". Carried by PFS-2029.01, PFS-2029.02, PFS-2029.03
     and its two children, and PFS-2029.04. Evidence owed: the tests each
     node names.*
+
+    Read with PFS-2031.11 at 0.13.0 (GOAL-012): a LEGACY row whose RECIPE cell carries a module:function reference plans and runs with no --recipe option.
 
     `pyfs-matrix run matriz.fs` and `pyfs-matrix plan matriz.fs` need no
     option beyond the matrix path: the solver build comes from each row's
@@ -1631,8 +1633,8 @@ nodes.
     *Origin: the author's instruction of 2026-09-04, 'vamos trabalhar com
     valores default ... dessa forma nao precisa inputar na matrix, eles podem
     ficar no s001'. Carried by PFS-2030.08. Evidence:
-    `tests/test_flight_condition.py` (the resolver, its refusals and each
-    refusal's own reason), `tests/test_matrix_run.py` (the file, the record
+    `tests/tier1_offline/test_flight_condition.py` (the resolver, its refusals and each
+    refusal's own reason), `tests/tier1_offline/test_matrix_run.py` (the file, the record
     the run layer writes, and the equal-render arm below), scored against
     nineteen mutants with an unmutated control.*
 
@@ -1641,7 +1643,7 @@ nodes.
     as a `FLIGHT_CONDITION` cell's do. A row that states a pin overrides the
     setup's, key by key; a row that states none inherits it; and the resolved
     state is the same state either way, which
-    `tests/test_matrix_run.py::test_a_workspace_renders_the_same_script_whichever_file_states_the_pins`
+    `tests/tier1_offline/test_matrix_run.py::test_a_workspace_renders_the_same_script_whichever_file_states_the_pins`
     holds to the strongest available form: one workspace built twice from the
     same numbers, pins on the rows and pins in the setup, and the rendered
     script text equal BYTE FOR BYTE with nothing allowed to differ. A velocity key or a Reynolds number
@@ -1660,6 +1662,6 @@ nodes.
     states 1.789e-5 and 340.29, so the pins cannot be dropped in favour of the
     standard atmosphere. Those two figures are
     RE-MEASURED by
-    `tests/test_atmosphere.py::test_the_sea_level_state_is_stated_to_the_digit_the_srs_quotes`
+    `tests/tier1_offline/test_atmosphere.py::test_the_sea_level_state_is_stated_to_the_digit_the_srs_quotes`
     rather than left as prose: a full-precision literal that nothing pins goes
     silently false the moment a floor constant moves.

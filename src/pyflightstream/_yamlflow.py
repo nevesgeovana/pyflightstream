@@ -27,7 +27,7 @@ written silently truncated. Moving the renderer below both writers is
 what makes "there is now no site" true of the package rather than of one
 module.
 
-The guard is ``tests/test_yamlflow.py``, which refuses a hand-built flow
+The guard is ``tests/tier1_offline/test_yamlflow.py``, which refuses a hand-built flow
 mapping anywhere under ``src/`` but here, and it is proven by mutation
 rather than by passing: ``scripts/prove_flow_mapping_guard.py`` restores
 the concatenated form and requires a deny.

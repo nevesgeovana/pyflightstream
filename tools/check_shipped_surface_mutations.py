@@ -91,7 +91,7 @@ exempt-path: README.md
 exempt-tree: docs/
 wheel-floor: pkg/core.py
 sdist-floor: pkg/core.py
-sdist-floor: tests/test_core.py
+sdist-floor: tests/tier1_offline/test_core.py
 """
 
 
@@ -191,7 +191,7 @@ CLEAN_TREE: dict[str, bytes] = {
     # Three directories deep. A narrowing by depth was invisible while every
     # fixture file sat at depth two.
     "tests/unit/inner/test_deep.py": CLEAN_TEXT.encode(),
-    "tests/test_core.py": CLEAN_TEXT.encode(),
+    "tests/tier1_offline/test_core.py": CLEAN_TEXT.encode(),
     # A dot-directory, which a walk that skips them would drop silently.
     ".ci/steps.yml": b"steps: []\n",
     "docs/design.md": DIRTY_PROSE.encode(),  # exempt tree: the decision record
@@ -201,13 +201,13 @@ CLEAN_TREE: dict[str, bytes] = {
     # Genuinely binary: no text codec decodes it, so it is counted as
     # undecodable rather than scanned, and the pair of assertions below pins
     # both directions of that classification.
-    "tests/data/blob.bin": bytes(range(256)) * 8,
+    "tests/tier1_offline/data/blob.bin": bytes(range(256)) * 8,
     # Large and clean. It carries no identifier, so no case can notice a
     # narrowing INSIDE a file by an identifier going missing; only the
     # character counters can. Without a file this size the counters were
     # unfalsifiable on this fixture set, which is a guard nobody tried to
     # break.
-    "tests/data/large_clean.txt": b"a clean line of filler text\n" * 8000,
+    "tests/tier1_offline/data/large_clean.txt": b"a clean line of filler text\n" * 8000,
 }
 CLEAN_WHEEL: dict[str, bytes] = {
     "pkg/__init__.py": b"",
@@ -218,7 +218,7 @@ CLEAN_WHEEL: dict[str, bytes] = {
 CLEAN_SDIST: dict[str, bytes] = {
     "pkg/__init__.py": b"",
     "pkg/core.py": CLEAN_TEXT.encode(),
-    "tests/test_core.py": CLEAN_TEXT.encode(),
+    "tests/tier1_offline/test_core.py": CLEAN_TEXT.encode(),
     "docs/design.md": DIRTY_PROSE.encode(),
     "LICENSE": f"Copyright (c) 2026 {_GIVEN} {_FAMILY}\n".encode(),
     "README.md": f"By {_GIVEN} {_FAMILY}.\n".encode(),
@@ -261,13 +261,13 @@ CASES: list[tuple[str, str, int, str]] = [
         "an identifier only in the test tree is refused in the sdist",
         "dirty_sdist_tests",
         1,
-        "sdist: tests/test_core.py",
+        "sdist: tests/tier1_offline/test_core.py",
     ),
     (
         "an identifier tracked in the test tree is refused in the tree scan",
         "dirty_tree_tests",
         1,
-        "tracked: tests/test_core.py",
+        "tracked: tests/tier1_offline/test_core.py",
     ),
     (
         "an identifier three directories deep is refused",
@@ -468,14 +468,14 @@ _CONFIG_VARIANTS = {
     "bad_key": GOOD_CONFIG + "exempt-paths: LICENSE\n",
     "bad_tree": GOOD_CONFIG.replace("exempt-tree: docs/", "exempt-tree: docs"),
     "narrow_floor": GOOD_CONFIG.replace(
-        "sdist-floor: tests/test_core.py", "sdist-floor: pkg/other.py"
+        "sdist-floor: tests/tier1_offline/test_core.py", "sdist-floor: pkg/other.py"
     ),
     # Two ROOT FILES, neither of them exempt, so this case reaches the
     # two-directories rule instead of dying on the exempt-floor rule first.
     # It failed exactly that way when written with LICENSE and README.md, and
     # the fragment assertion is what caught it.
     "root_file_floor": GOOD_CONFIG.replace(
-        "sdist-floor: pkg/core.py\nsdist-floor: tests/test_core.py",
+        "sdist-floor: pkg/core.py\nsdist-floor: tests/tier1_offline/test_core.py",
         "sdist-floor: pyproject.toml\nsdist-floor: CHANGELOG.md",
     ),
     # The single line that turned a leaking artifact green before the loader
@@ -483,7 +483,7 @@ _CONFIG_VARIANTS = {
     "exempt_floor": GOOD_CONFIG + "exempt-tree: tests/\n",
     "no_wheel_floor": GOOD_CONFIG.replace("wheel-floor: pkg/core.py\n", ""),
     "no_sdist_floor": GOOD_CONFIG.replace(
-        "sdist-floor: pkg/core.py\nsdist-floor: tests/test_core.py\n", ""
+        "sdist-floor: pkg/core.py\nsdist-floor: tests/tier1_offline/test_core.py\n", ""
     ),
     # No archive floor at all, which is legitimate for a repository that
     # builds no wheel. The requirement lives at the boundary that uses it, so
@@ -516,7 +516,7 @@ def build_case(name: str, tmp: Path) -> list[str]:
         dist = make_dist(
             tmp,
             CLEAN_WHEEL,
-            _replace(CLEAN_SDIST, "tests/test_core.py", DIRTY_DOCSTRING.encode()),
+            _replace(CLEAN_SDIST, "tests/tier1_offline/test_core.py", DIRTY_DOCSTRING.encode()),
         )
         return ["--config", str(config), "--dist", str(dist)]
     if name == "dirty_below_line_one":
@@ -587,7 +587,7 @@ def build_case(name: str, tmp: Path) -> list[str]:
         )
         return ["--config", str(config), "--dist", str(dist)]
     if name == "sdist_floor_absent":
-        thin = {k: v for k, v in CLEAN_SDIST.items() if k != "tests/test_core.py"}
+        thin = {k: v for k, v in CLEAN_SDIST.items() if k != "tests/tier1_offline/test_core.py"}
         dist = make_dist(tmp, CLEAN_WHEEL, thin)
         return ["--config", str(config), "--dist", str(dist)]
     if name == "stale_wheel":
@@ -603,7 +603,9 @@ def build_case(name: str, tmp: Path) -> list[str]:
 
     # ---- tree-only cases
     tree_files = {
-        "dirty_tree_tests": _replace(CLEAN_TREE, "tests/test_core.py", DIRTY_DOCSTRING.encode()),
+        "dirty_tree_tests": _replace(
+            CLEAN_TREE, "tests/tier1_offline/test_core.py", DIRTY_DOCSTRING.encode()
+        ),
         "dirty_deep_tree": _replace(
             CLEAN_TREE, "tests/unit/inner/test_deep.py", DIRTY_DOCSTRING.encode()
         ),
@@ -621,7 +623,7 @@ def build_case(name: str, tmp: Path) -> list[str]:
         repo = make_repo(tmp, CLEAN_TREE, untracked={"pkg/scratch.py": DIRTY_DOCSTRING.encode()})
         return ["--config", str(config), "--tree", str(repo)]
     if name == "unreadable":
-        repo = make_repo(tmp, CLEAN_TREE, delete_after_add="tests/test_core.py")
+        repo = make_repo(tmp, CLEAN_TREE, delete_after_add="tests/tier1_offline/test_core.py")
         return ["--config", str(config), "--tree", str(repo)]
     if name == "empty_repo":
         repo = make_repo(tmp, {}, empty=True)

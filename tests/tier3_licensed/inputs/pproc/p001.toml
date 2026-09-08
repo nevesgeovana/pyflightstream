@@ -1,0 +1,85 @@
+# p001: the full post-processing set, groups, sections, plots and probes,
+# written once and filtered by the builders to the families each geometry
+# carries: a family the opened file does not have is left out, an entry
+# resolving to no family is skipped, and BLADE_AXIS entries need a rotor.
+[groups]
+# The group tables the products are written per, one table per entry; the
+# families are the synthetic geometries' boundary names.
+"1" = ["Wing", "Body", "Base", "Blade1", "Blade2"]
+"2" = ["Wing"]
+"3" = ["Body", "Base"]
+"4" = ["Blade1", "Blade2"]
+"5" = ["Base"]
+
+[exports]
+# All eight export kinds are written unless one is set to false here.
+
+[sections]
+count = 20
+plot_direction = 1
+include_symmetry = false
+
+[[sections.distributions]]
+families = ["Wing"]
+frame = "MRP"
+planes = ["XZ"]
+
+[[sections.distributions]]
+families = "each_blade"
+frame = "BLADE_AXIS"
+planes = ["XY"]
+
+[plots]
+# One force plot per group and parameter, named {parameter}_{group}; the
+# four coefficients in COEFFICIENTS and the six loads in NEWTONS.
+parameters = ["CL", "CDI", "CDO", "CD", "FX", "FY", "FZ", "MX", "MY", "MZ"]
+
+[[plots.groups]]
+name = "MRP_TOTAL"
+frame = "MRP"
+families = "all"
+
+[[plots.groups]]
+name = "MRP_AIRFRAME"
+frame = "MRP"
+families = "airframe"
+
+[[plots.groups]]
+name = "MRP_{family}"
+frame = "MRP"
+families = "each"
+
+[[plots.groups]]
+name = "PROP_X"
+frame = "PROP_MRP"
+families = "blades"
+
+[[plots.groups]]
+name = "PROP_{family}"
+frame = "PROP_MRP"
+families = "each_blade"
+
+[[plots.groups]]
+name = "LOCAL_{family}"
+frame = "BLADE_AXIS"
+families = "each_blade"
+
+[probes]
+# Three lines across the rotor disk, in propeller radii of the reference,
+# 15 vertices each.
+frame = "PROP_MRP"
+parameters = ["MACH", "VELOCITY", "VX", "VY", "VZ", "STATIC_PRESSURE_RATIO"]
+points = 15
+scale = "propeller_radius"
+
+[[probes.lines]]
+start = [-1.0, -1.2, 0.0]
+end = [-1.0, 1.2, 0.0]
+
+[[probes.lines]]
+start = [0.5, -1.2, 0.0]
+end = [0.5, 1.2, 0.0]
+
+[[probes.lines]]
+start = [1.0, 0.0, -1.2]
+end = [1.0, 0.0, 1.2]

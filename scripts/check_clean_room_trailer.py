@@ -1,7 +1,7 @@
 """commit-msg guard: the Clean-room trailer must be in the FINAL paragraph.
 
 FR-08 asks every commit after the baseline to declare its clean-room
-provenance, and `tests/test_clean_room.py` checks it with
+provenance, and `tests/tier1_offline/test_clean_room.py` checks it with
 `git interpret-trailers`, which reads the LAST PARAGRAPH of the message
 and nothing else. So a message carrying the line in a paragraph of its
 own, followed by any other block, has no trailer at all as far as git is

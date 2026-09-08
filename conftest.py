@@ -11,7 +11,7 @@ Three scoped Sybil instances (docstrings under ``src``, markdown under
 ``docs``, and the root README) keep this off the normal ``pytest`` run
 (``testpaths = ["tests"]``): each carries an explicit ``path``, so a
 plain ``pytest`` collects nothing here (asserted by
-``tests/test_examples_isolation.py``). The examples run only when the
+``tests/tier1_offline/test_examples_isolation.py``). The examples run only when the
 suite is pointed at the source and docs, which the CI "Executable
 examples" step runs as::
 

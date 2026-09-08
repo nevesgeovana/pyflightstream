@@ -40,7 +40,7 @@
 # chapter it is why `frame` declares nothing while `frame1`, `frame2`,
 # `coordinate_system`, `index` and `surface_indices` all do.
 #
-# Forgetting is not silent: tests/test_script.py fails on any index
+# Forgetting is not silent: tests/tier1_offline/test_script.py fails on any index
 # argument whose name says it cites something and that resolves to
 # nothing.
 

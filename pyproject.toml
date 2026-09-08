@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pyflightstream"
-version = "0.12.0"
+version = "0.13.0.dev0"
 description = "Version-aware, didactic Python driver for the FlightStream panel-method solver"
 readme = "README.md"
 license = {text = "MIT"}
@@ -45,7 +45,7 @@ classifiers = [
 # BOTH ENDS ARE PINNED DELIBERATELY. The floor is the oldest release this
 # package has been exercised against, and the ceiling excludes the next
 # major, which is a boundary this repository has no evidence about; a new
-# install resolves 5.0.0 today. tests/test_extras.py holds the installed
+# install resolves 5.0.0 today. tests/tier1_offline/test_extras.py holds the installed
 # version inside the declared range, so the envelope is a measurement rather
 # than a hope.
 dependencies = [
@@ -81,7 +81,7 @@ dev = [
     # reports/RPT-033_development-tool-licences_2026-08-19.md, one card
     # section per distribution, read from installed metadata (NFR-02).
     "pytest",
-    # PEP 440 version parsing for tests/test_version_identity.py
+    # PEP 440 version parsing for tests/tier1_offline/test_version_identity.py
     # (REV010-015). Declared rather than relied on as pytest's transitive
     # dependency: the architect pass found tier 1 importing it with
     # nothing in this file naming it, so a pytest release that dropped
@@ -143,7 +143,7 @@ markers = [
     "validity: tier 2 per-command probe tests",
     "physics: tier 3 physics regression matrix (slow)",
     # NFR-13 traceability: requirement("FR-48") on a test declares that
-    # the test FALSIFIES that requirement. tests/test_traceability.py
+    # the test FALSIFIES that requirement. tests/tier1_offline/test_traceability.py
     # holds every marker to a live identifier and ratchets the covered
     # set, so the marker cannot name a requirement that was withdrawn.
     "requirement(identifier): the SRS requirement this test falsifies",
@@ -210,7 +210,7 @@ exclude_also = [
 #
 # THE PROSE AROUND THE SENTENCE IS NOT GUARDED AND WENT STALE ON 2026-08-20,
 # which is worth one line because it is the same failure one layer out. The
-# guard (`RECOUNT_SENTENCE` in tests/test_traceability.py) parses the ONE
+# guard (`RECOUNT_SENTENCE` in tests/tier1_offline/test_traceability.py) parses the ONE
 # sentence form above, so when the numbers were revised it saw the sentence
 # move and this paragraph stay at 274, 71, eighteen and 51. An architect pass
 # found it, not the guard. Read the two numbers differently: the ERROR TOTAL
@@ -357,7 +357,7 @@ ignore = ["N803", "N806"]
 convention = "numpy"
 
 [tool.ruff.lint.per-file-ignores]
-"tests/*" = ["D"]
+"tests/**/*" = ["D"]
 # The maintainer checkers under `tools/` are standalone command-line
 # scripts, not part of the documented public surface, and their reasoning
 # lives in long module docstrings rather than in a numpydoc block per

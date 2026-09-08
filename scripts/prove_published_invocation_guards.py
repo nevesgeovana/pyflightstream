@@ -13,7 +13,7 @@ reader trying the command rather than by any test:
 * ``scripts/restate_26123_notes.py`` documented itself with
   ``--dry-run``, a flag its parser does not define. Also exit 2.
 
-``tests/test_documented_invocations.py`` is the guard for that class and
+``tests/tier1_offline/test_documented_invocations.py`` is the guard for that class and
 this is what shows it would have caught both. Each mutant restores ONE of
 the two defects exactly as it shipped, runs the matching guard alone, and
 requires it to DENY.
@@ -48,7 +48,7 @@ from _mutation_harness import (  # noqa: E402
     verdict,
 )
 
-GUARD = "tests/test_documented_invocations.py"
+GUARD = "tests/tier1_offline/test_documented_invocations.py"
 
 #: ``(label, spans, the guard arm)`` where each span is
 #: ``(file, live text, the text as it SHIPPED)``. The stale text is
@@ -97,7 +97,7 @@ MUTANTS = (
                 "    scripts/measure_edition_page_delta.py --editions <manifest> \\\n",
             ),
             (
-                "tests/test_documented_invocations.py",
+                "tests/tier1_offline/test_documented_invocations.py",
                 '_INVOCATION = re.compile(r"^[ \\t]*(?:python[ \\t]+)?'
                 '(scripts/[A-Za-z0-9_]+\\.py)(.*)$")\n',
                 '_INVOCATION = re.compile(r"^[ \\t]*python[ \\t]+'

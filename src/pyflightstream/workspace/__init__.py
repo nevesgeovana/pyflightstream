@@ -1960,7 +1960,7 @@ class CampaignWorkspace:
         :attr:`RunRecord.manifest_schema` is optional so that a row which
         never carried it stays honest about that (REV010-014), and the
         run layer stamps every record it builds, which
-        ``tests/test_run_campaign.py`` measures separately. Requiring a
+        ``tests/tier1_offline/test_run_campaign.py`` measures separately. Requiring a
         stamp on every append is a wider public break than this item
         carries evidence for.
 

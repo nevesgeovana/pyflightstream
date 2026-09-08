@@ -1,0 +1,9 @@
+# Boundary inventory of 41_TWIN.fsm, read from its mesh block by `pyfs-matrix inventory`.
+# The solver's own order: the name at position i is boundary i (1-based).
+file = "41_TWIN.fsm"
+boundaries = [
+    "Body",
+    "Base",
+    "Blade1",
+    "Blade2",
+]

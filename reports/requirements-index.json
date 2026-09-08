@@ -2,7 +2,7 @@
  "source": "docs/srs",
  "generated_by": "scripts/gen_requirements_index.py",
  "traceability": {
-  "cited_by_a_test": 49,
+  "cited_by_a_test": 50,
   "total": 110,
   "method": "upper bound: an id mentioned anywhere in tests/**/*.py excluding conftest.py, which is not the marked falsifying test NFR-13 asks for"
  },
@@ -36,7 +36,7 @@
    "text": "Version ordering never relies on string or float comparison, and the ordered list in commands/_meta.yaml is the sole ordering authority, so that 26.100 sorts before 26.120.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: Phase 4 split of FR-02, accepted 2026-07-27. Evidence: milestone M1; tests/test_versions.py.*",
+   "evidence": "*Origin: Phase 4 split of FR-02, accepted 2026-07-27. Evidence: milestone M1; tests/tier1_offline/test_versions.py.*",
    "verification": "test"
   },
   {
@@ -44,7 +44,7 @@
    "text": "The vendor reuses a release name across builds, so a display alias can name more than one registered build. Resolution refuses such a name rather than returning any of the builds carrying it, and the refusal names every candidate so the caller can choose. The candidates are not enumerated in this requirement: two families exist and they exist for different reasons, one release with its hotfixes sharing a name and two separate releases that happen to share one, and which builds sit in either is a fact about the registry rather than about this requirement. A canonical identifier is matched across the whole registry before any alias is considered, so a build is never shadowed by an earlier entry whose alias equals its canonical.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: BRF-03, BRF-19. Evidence: PFS-8 (2026-08-02); the ambiguous-alias tests in tests/test_versions.py.*",
+   "evidence": "*Origin: BRF-03, BRF-19. Evidence: PFS-8 (2026-08-02); the ambiguous-alias tests in tests/tier1_offline/test_versions.py.*",
    "verification": "test"
   },
   {
@@ -92,7 +92,7 @@
    "text": "The emitter layer is specified exclusively from the official manual and from probe evidence, and its clean-room provenance is declared per change in a Clean-room commit trailer, or on a commit's behalf by a later commit's Clean-room-for trailer naming it, which a Tier 1 test asserts for every commit a push makes new. No code, structure, or docstrings derive from the AGPL ecosystem predecessor.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: BRF-10. Evidence: the Clean-room commit trailer, asserted for every commit under review by tests/test_clean_room.py; repository invariant; contribution policy.*",
+   "evidence": "*Origin: BRF-10. Evidence: the Clean-room commit trailer, asserted for every commit under review by tests/tier1_offline/test_clean_room.py; repository invariant; contribution policy.*",
    "verification": "test"
   },
   {
@@ -116,7 +116,7 @@
    "text": "A dedicated reader consumes the documented pipe-delimited run-matrix format: rows with RUN = 1 are active, the sweep columns define alpha, beta, or advance-ratio sweeps, and the variables column holds KEY:VALUE pairs. A column the reader does not recognize is preserved and reported rather than silently dropped.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: BRF-08. Evidence: milestone M2; the verified 15-column layout and its fixtures. The layout has broken twice and each older LAYOUT is recognised by its HEADER ROW, never by its width, and refused naming pyfs-matrix upgrade rather than misread, which is what keeps this requirement's forever promise honest. Width could not serve: two of the three layouts are fifteen columns wide. The fixtures carrying that claim are tests/fixtures/pfs202512_matrix15.fs and tests/fixtures/pfs202701_matrix16.fs.*",
+   "evidence": "*Origin: BRF-08. Evidence: milestone M2; the verified 15-column layout and its fixtures. The layout has broken twice and each older LAYOUT is recognised by its HEADER ROW, never by its width, and refused naming pyfs-matrix upgrade rather than misread, which is what keeps this requirement's forever promise honest. Width could not serve: two of the three layouts are fifteen columns wide. The fixtures carrying that claim are tests/tier1_offline/fixtures/pfs202512_matrix15.fs and tests/tier1_offline/fixtures/pfs202701_matrix16.fs.*",
    "verification": "test"
   },
   {
@@ -249,7 +249,7 @@
   },
   {
    "id": "FR-24",
-   "text": "A CI-runnable suite covers database integrity, emission validation including removed and renamed command scenarios, parser fixtures, golden scripts, and matrix reader equivalence. FlightStream itself is never required in CI.",
+   "text": "Read with PFS-2031.02, PFS-2031.06 and PFS-2031.01 at 0.13.0 (GOAL-012): the suite is organized by tier, tier 1 plans and builds the tier-3 matrices without a solver, and the goal's checker is its own falsifiable command.",
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: PP-9. Evidence: the Tier 1 suite in CI on every push.*",
@@ -257,7 +257,7 @@
   },
   {
    "id": "FR-25",
-   "text": "A probe harness runs per-command probe scripts on a licensed machine, asserts real effects, and promotes results into database statuses through committed compatibility reports.",
+   "text": "Read with PFS-2031.08 and PFS-2031.09 at 0.13.0 (GOAL-012): the action re-read probe runs as a row of the tier-3 matrix and writes its verdict into the command database, and the pyfs-qa study decides where the probe harness lives beside the workspace.",
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: BRF-03. Evidence: milestone M3; the committed compat reports and the promotion mechanism.*",
@@ -265,7 +265,7 @@
   },
   {
    "id": "FR-26",
-   "text": "A physics regression matrix on synthetic geometry guards physical sanity per release. Each guarded coefficient is compared against a committed reference with a per-coefficient error metric, absolute for coefficients that pass through zero and relative otherwise, and with WARN and FAIL band values derived from measured run-to-run repeatability rather than chosen. A reference update states its reason.",
+   "text": "Read with PFS-2031.05, PFS-2031.07 and PFS-2031.09 at 0.13.0 (GOAL-012): the four physics cases become rows of the tier-3 matrices judged against the same references from the campaign products, every synthetic row carries a physical verification, and the pyfs-qa study puts the command's future to the author.",
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: BRF-12, BRF-17. Evidence: milestones M4 onward; the banded-reference reports. Expansion (mesh refinement, solver-flag cases) queued for licensed sessions.*",
@@ -316,7 +316,7 @@
    "text": "The builder registry identifies frames, actuators, motions, and boundaries by optional label rather than by the solver's positional index.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: Phase 4 split of FR-30, accepted 2026-07-27. Evidence: the v0.3 line; tests/test_script_entities.py.*",
+   "evidence": "*Origin: Phase 4 split of FR-30, accepted 2026-07-27. Evidence: the v0.3 line; tests/tier1_offline/test_script_entities.py.*",
    "verification": "test"
   },
   {
@@ -324,7 +324,7 @@
    "text": "Every entity-citing argument accepts either an index or a label.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: Phase 4 split of FR-30, accepted 2026-07-27. Taken off implemented and put back the same day, 2026-09-02 (PFS-2028.00): the claim was true at the script layer and false at the surface a user writes, because nothing declared a boundary inventory there. Evidence: the v0.3 line; tests/test_script_entities.py for the script layer; tests/test_workflows.py, whose rotor-row tests fail on 0.10.0 because the inventory is never declared, for a MATRIX ROW; and tests/test_workspace.py for a named boundary group, whose members may now be written as names.*",
+   "evidence": "*Origin: Phase 4 split of FR-30, accepted 2026-07-27. Taken off implemented and put back the same day, 2026-09-02 (PFS-2028.00): the claim was true at the script layer and false at the surface a user writes, because nothing declared a boundary inventory there. Evidence: the v0.3 line; tests/tier1_offline/test_script_entities.py for the script layer; tests/tier1_offline/test_workflows.py, whose rotor-row tests fail on 0.10.0 because the inventory is never declared, for a MATRIX ROW; and tests/tier1_offline/test_workspace.py for a named boundary group, whose members may now be written as names.*",
    "verification": "test"
   },
   {
@@ -332,7 +332,7 @@
    "text": "A declared boundary inventory is range-checked, and an undeclared inventory stays permissive, because the total lives in the geometry file rather than in the script.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: Phase 4 split of FR-30, accepted 2026-07-27. Evidence: the v0.3 line; tests/test_script_entities.py.*",
+   "evidence": "*Origin: Phase 4 split of FR-30, accepted 2026-07-27. Evidence: the v0.3 line; tests/tier1_offline/test_script_entities.py.*",
    "verification": "test"
   },
   {
@@ -348,7 +348,7 @@
    "text": "The solver-settings helper is the single entry point for every solver flag and returns a snapshot recording each flag's effective value with its provenance: explicit, evidence-cited default, or unknown, never guessed.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: Phase 4 split of FR-31, accepted 2026-07-27. Evidence: the v0.3 line; tests/test_solver_setup.py.*",
+   "evidence": "*Origin: Phase 4 split of FR-31, accepted 2026-07-27. Evidence: the v0.3 line; tests/tier1_offline/test_solver_setup.py.*",
    "verification": "test"
   },
   {
@@ -356,7 +356,7 @@
    "text": "The snapshot rides the manifest, and a runnable script is regenerated from it.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: Phase 4 split of FR-31, accepted 2026-07-27. Evidence: the v0.3 line; tests/test_solver_setup.py.*",
+   "evidence": "*Origin: Phase 4 split of FR-31, accepted 2026-07-27. Evidence: the v0.3 line; tests/tier1_offline/test_solver_setup.py.*",
    "verification": "test"
   },
   {
@@ -385,10 +385,10 @@
   },
   {
    "id": "FR-33a",
-   "text": "The workspace organizes declarative TOML input artifacts (references, setups, groups, geometries, profiles, and executables by build id) resolved by stable id, with a didactic message when an id misses.",
+   "text": "Read with PFS-2031.03 at 0.13.0 (GOAL-012): the tier-3 library holds synthetic geometries only, each with a mesh block and a boundary sidecar.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: Phase 4 split of FR-33, accepted 2026-07-27. Evidence: the v0.3 line; tests/test_workspace.py.*",
+   "evidence": "*Origin: Phase 4 split of FR-33, accepted 2026-07-27. Evidence: the v0.3 line; tests/tier1_offline/test_workspace.py.*",
    "verification": "test"
   },
   {
@@ -396,7 +396,7 @@
    "text": "Output naming is templatable and output-only; the manifest is the sole identity authority and no parse-back API exists.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: Phase 4 split of FR-33, accepted 2026-07-27. Evidence: the v0.3 line; the no-parse-back guard in tests/test_workspace.py.*",
+   "evidence": "*Origin: Phase 4 split of FR-33, accepted 2026-07-27. Evidence: the v0.3 line; the no-parse-back guard in tests/tier1_offline/test_workspace.py.*",
    "verification": "test"
   },
   {
@@ -404,7 +404,7 @@
    "text": "A write that would destroy a record without saying so is refused before it happens, and this requirement carries three shapes of it. A case whose sweep points would render the same output name is blocked before it runs, because every point of the case executes in one simulation folder. A writer handed a destination that already exists refuses rather than replacing it, and overwrite=True is the only way through. A run folder that already holds a previous run's history with no state beside it is refused rather than appended to.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: Phase 4 split of FR-33, accepted 2026-07-27, giving the incident guard its own identifier. Widened 2026-08-19 (OPS-2005.10.03, PFS-2011.02), the author's decision. Evidence: incident INC-20260723-2113; tests/test_run_campaign.py; tests/test_silent_overwrites.py.*",
+   "evidence": "*Origin: Phase 4 split of FR-33, accepted 2026-07-27, giving the incident guard its own identifier. Widened 2026-08-19 (OPS-2005.10.03, PFS-2011.02), the author's decision. Evidence: incident INC-20260723-2113; tests/tier1_offline/test_run_campaign.py; tests/tier1_offline/test_silent_overwrites.py.*",
    "verification": "test"
   },
   {
@@ -412,7 +412,7 @@
    "text": "A declared output name that is empty, that is absolute, or that climbs out of the simulation folder with .. is refused when the name is rendered, before any run can collect it. A subdirectory is not an escape and stays legal, because a solver export may legitimately land in one. The name is checked as declared and again after rendering, so a placeholder value cannot reintroduce an escape the template itself did not contain.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: OPS-2005.10.03, accepted 2026-08-20, giving the containment half of review finding PYFS-005 the identifier it had never had. Evidence: _check_output_containment in pyflightstream.workspace.naming, raising NamingTemplateError, reached from NamingTemplate.render_output; tests/test_error_messages.py::test_an_escaping_output_name_says_that_collection_moves; the behavioural cases in tests/test_workspace.py.*",
+   "evidence": "*Origin: OPS-2005.10.03, accepted 2026-08-20, giving the containment half of review finding PYFS-005 the identifier it had never had. Evidence: _check_output_containment in pyflightstream.workspace.naming, raising NamingTemplateError, reached from NamingTemplate.render_output; tests/tier1_offline/test_error_messages.py::test_an_escaping_output_name_says_that_collection_moves; the behavioural cases in tests/tier1_offline/test_workspace.py.*",
    "verification": "test"
   },
   {
@@ -420,7 +420,7 @@
    "text": "Two declared outputs of one collection whose base names agree are refused, and so is a declared output whose base name is already held in raw/ from an earlier point or run. Neither refusal has an overwrite argument, deliberately, because the record either would replace is a run's evidence rather than a product a caller can choose to regenerate; the remedies are a per-point output name and an archived simulation, and both refusals name them.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: OPS-2005.10.03, accepted 2026-08-20, giving the collection half of review finding PYFS-005 the identifier it had never had. Evidence: CampaignWorkspace.collect_outputs in pyflightstream.workspace, raising WorkspaceError; tests/test_error_messages.py::test_two_outputs_collecting_to_one_name_offer_the_placeholder_remedy; the behavioural cases in tests/test_workspace.py.*",
+   "evidence": "*Origin: OPS-2005.10.03, accepted 2026-08-20, giving the collection half of review finding PYFS-005 the identifier it had never had. Evidence: CampaignWorkspace.collect_outputs in pyflightstream.workspace, raising WorkspaceError; tests/tier1_offline/test_error_messages.py::test_two_outputs_collecting_to_one_name_offer_the_placeholder_remedy; the behavioural cases in tests/tier1_offline/test_workspace.py.*",
    "verification": "test"
   },
   {
@@ -428,7 +428,7 @@
    "text": "Two declared inputs whose base names agree are refused before any file is staged, and the refusal names both sources. Two references written as the SAME path are not a collision and stage as one input; two different spellings of one file are refused like any other pair, because the rule is decided on the declared path rather than on what it resolves to.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: OPS-2005.10.03, accepted 2026-08-20, giving the staging half of review finding PYFS-005 the identifier it had never had. Evidence: CampaignWorkspace.stage_inputs in pyflightstream.workspace, raising WorkspaceError; tests/test_error_messages.py::test_two_inputs_sharing_a_base_name_name_both_sources; the behavioural cases in tests/test_workspace.py.*",
+   "evidence": "*Origin: OPS-2005.10.03, accepted 2026-08-20, giving the staging half of review finding PYFS-005 the identifier it had never had. Evidence: CampaignWorkspace.stage_inputs in pyflightstream.workspace, raising WorkspaceError; tests/tier1_offline/test_error_messages.py::test_two_inputs_sharing_a_base_name_name_both_sources; the behavioural cases in tests/tier1_offline/test_workspace.py.*",
    "verification": "test"
   },
   {
@@ -441,7 +441,7 @@
   },
   {
    "id": "FR-35",
-   "text": "The run matrix is a first-class interface of the file-managed modality: its reference columns resolve against the workspace input library, and one call takes a matrix through conversion, pre-flight, and execution. The native campaign format remains the canonical internal form.",
+   "text": "Read with PFS-2031.03, PFS-2031.04, PFS-2031.05, PFS-2031.06, PFS-2031.07 and PFS-2031.12 at 0.13.0 (GOAL-012): the tier-3 folder is a workspace, several matrices share it with their own plan, sweep and products under post/<matrix>/, and every token the package defines is a row that plans offline and runs on the licensed machine.",
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: usage feedback, amending the posture of FR-10/FR-11. Evidence: the v0.3 line; resolution hit and miss tests.*",
@@ -460,7 +460,7 @@
    "text": "A datapoint whose recorded residual does not reach the configured convergence threshold terminates with a status distinct from the CONVERGED status, even when the output footer is structurally complete.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: Phase 4 review, accepted 2026-07-27. Resolved by the author 2026-08-03. Evidence: RunStatus.COMPLETED_MAX_ITER and RunStatus.FAILED_INCOMPLETE_OUTPUT in pyflightstream.workspace, the judgment rules of run.LoadsAssessor, and the status tests in tests/test_run_campaign.py.*",
+   "evidence": "*Origin: Phase 4 review, accepted 2026-07-27. Resolved by the author 2026-08-03. Evidence: RunStatus.COMPLETED_MAX_ITER and RunStatus.FAILED_INCOMPLETE_OUTPUT in pyflightstream.workspace, the judgment rules of run.LoadsAssessor, and the status tests in tests/tier1_offline/test_run_campaign.py.*",
    "verification": "test"
   },
   {
@@ -468,7 +468,7 @@
    "text": "The far-field subpackage computes the mass, momentum, swirl, crossflow-kinetic-energy, and rothalpy conservation ledgers on the survey lattice, evaluates gates G1, G3, and G4 and the near-field versus far-field spurious diagnostic, and records each ledger and gate outcome in the run outputs.",
    "priority": "D",
    "status": "deferred",
-   "evidence": "*Origin: Phase 4 review, accepted 2026-07-27, absorbing the C11 acceptance of the same subject. Evidence for the delivered half: milestone M7; the G0 synthetic gate in tests/test_farfield.py.*",
+   "evidence": "*Origin: Phase 4 review, accepted 2026-07-27, absorbing the C11 acceptance of the same subject. Evidence for the delivered half: milestone M7; the G0 synthetic gate in tests/tier1_offline/test_farfield.py.*",
    "verification": "test"
   },
   {
@@ -476,7 +476,7 @@
    "text": "Every exception raised by the public API derives from a single documented base exception, each type is documented with the condition that raises it, and every exception and warning is re-exported from one catalog module, so that a class defined outside the catalog fails the suite.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: Phase 4 review, accepted 2026-07-27, absorbing the C2 catalog acceptance and the M1 typed-hierarchy mirror. Evidence: PFS-2 (2026-08-02); the sweep of 2026-08-03 and 2026-08-04, 137 sites over three widenings of the walk; src/pyflightstream/exceptions.py; tests/test_exceptions_catalog.py, whose third guard walks every exported public name, and every module-private helper an exported one calls, for bare standard-library raises.*",
+   "evidence": "*Origin: Phase 4 review, accepted 2026-07-27, absorbing the C2 catalog acceptance and the M1 typed-hierarchy mirror. Evidence: PFS-2 (2026-08-02); the sweep of 2026-08-03 and 2026-08-04, 137 sites over three widenings of the walk; src/pyflightstream/exceptions.py; tests/tier1_offline/test_exceptions_catalog.py, whose third guard walks every exported public name, and every module-private helper an exported one calls, for bare standard-library raises.*",
    "verification": "test"
   },
   {
@@ -500,7 +500,7 @@
    "text": "The package states the reference-frame and sign conventions for reported forces, moments, and rotor quantities, naming the positive axis directions, the moment reference point, and the rotor-rotation sign, and every coefficient the results layer emits conforms to them.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: Phase 4 review, accepted 2026-07-27. Evidence: reference.CONVENTIONS, rendered offline and on the docs site from one source; tests/test_conventions.py. The implemented status covers the STATING half: the conventions are published from one home and guarded there. That every emitted coefficient conforms to them is asserted by no test, and saying so here is the alternative to a badge that implies one.*",
+   "evidence": "*Origin: Phase 4 review, accepted 2026-07-27. Evidence: reference.CONVENTIONS, rendered offline and on the docs site from one source; tests/tier1_offline/test_conventions.py. The implemented status covers the STATING half: the conventions are published from one home and guarded there. That every emitted coefficient conforms to them is asserted by no test, and saying so here is the alternative to a badge that implies one.*",
    "verification": "test"
   },
   {
@@ -524,7 +524,7 @@
    "text": "The manifest record rejects unknown fields and duplicate run identifiers; its field set is fixed and validated at construction.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: the C5 acceptance, 2026-07-27. Evidence: both halves pinned in tests/test_workspace.py, the unknown-field refusal by a test added with this consolidation after review found the clause resting on a model-config line no assertion observed.*",
+   "evidence": "*Origin: the C5 acceptance, 2026-07-27. Evidence: both halves pinned in tests/tier1_offline/test_workspace.py, the unknown-field refusal by a test added with this consolidation after review found the clause resting on a model-config line no assertion observed.*",
    "verification": "test"
   },
   {
@@ -532,7 +532,7 @@
    "text": "Every executed point terminates in exactly one value of a closed set of six status values, and a seventh cannot be introduced silently.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: the C6 acceptance, 2026-07-27. Evidence: the member set of RunStatus pinned in tests/test_workspace.py, added with this consolidation; using the members, which the campaign tests do, does not notice an addition.*",
+   "evidence": "*Origin: the C6 acceptance, 2026-07-27. Evidence: the member set of RunStatus pinned in tests/tier1_offline/test_workspace.py, added with this consolidation; using the members, which the campaign tests do, does not notice an addition.*",
    "verification": "test"
   },
   {
@@ -540,7 +540,7 @@
    "text": "The package exposes public assertion helpers that compare records and scripts and report the quantified violation on failure, so a user can assert against this package's outputs in their own tests.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: the C8 acceptance, 2026-07-27. Evidence: src/pyflightstream/testing.py; tests/test_testing.py.*",
+   "evidence": "*Origin: the C8 acceptance, 2026-07-27. Evidence: src/pyflightstream/testing.py; tests/tier1_offline/test_testing.py.*",
    "verification": "test"
   },
   {
@@ -548,7 +548,7 @@
    "text": "Emitting a command whose per-version record is broken raises at build time. The refusal has one documented way through: a waiver naming the command and the caller's justification, which lets the command emit and records the command, TWO versions, the committed probe report and the justification in the script and in the run manifest. Two, because a hotfix build inherits its base release's record: version is the build the script targeted and source_version is the build whose record is broken, which is the build the cited report was run on. A record that carried one field for both would make an inherited waiver cite a report run on a version the manifest never names.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: the independent review's finding PYFS-002, reproduced 2026-07-28 and again at HEAD on 2026-08-02. Evidence: Script.allow_broken and the emission refusal in src/pyflightstream/script/__init__.py; broken_commands on RunRecord; the database-driven refusal guard and the waiver guards in tests/test_script.py, tests/test_script_helpers.py and tests/test_run_campaign.py.*",
+   "evidence": "*Origin: the independent review's finding PYFS-002, reproduced 2026-07-28 and again at HEAD on 2026-08-02. Evidence: Script.allow_broken and the emission refusal in src/pyflightstream/script/__init__.py; broken_commands on RunRecord; the database-driven refusal guard and the waiver guards in tests/tier1_offline/test_script.py, tests/tier1_offline/test_script_helpers.py and tests/tier1_offline/test_run_campaign.py.*",
    "verification": "test"
   },
   {
@@ -556,12 +556,12 @@
    "text": "A registered version reports its support level as one of four named values, ascending: registered (ordered, no command carries evidence, nothing can be built), documented (commands drafted from the manual, none measured against a running solver), verified (probe evidence REACHABLE for this version, measured on it or carried from its base release by declared hotfix inheritance; amended 2026-08-10, the definition having said \"measured on this version\" while the derivation counted inherited evidence, which the paragraph below now depends on) and operational (verified, and the minimal end-to-end workflow builds for it). Every level is derived from the command database; none is declared.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: the independent review's finding PYFS-019, reproduced 2026-07-28 and again at HEAD on 2026-08-02. Evidence: src/pyflightstream/support.py; tests/test_support.py.*",
+   "evidence": "*Origin: the independent review's finding PYFS-019, reproduced 2026-07-28 and again at HEAD on 2026-08-02. Evidence: src/pyflightstream/support.py; tests/tier1_offline/test_support.py.*",
    "verification": "test"
   },
   {
    "id": "FR-50",
-   "text": "pyfs-matrix run matriz.fs and pyfs-matrix plan matriz.fs need no option beyond the matrix path: the solver build comes from each row's FS_BUILD cell, with the version option remaining as the default for rows that leave the cell empty; the run type comes from the WORKFLOW column wherever it names a registered type, with the recipe option remaining for LEGACY rows; the campaign name comes from the workspace directory, recorded as such, with the name option remaining as an override; and the FS_SCRIPT column is no longer part of the layout, the reader recognising the older layout by its header row and refusing it naming pyfs-matrix upgrade.",
+   "text": "Read with PFS-2031.11 at 0.13.0 (GOAL-012): a LEGACY row whose RECIPE cell carries a module:function reference plans and runs with no --recipe option.",
    "priority": "M",
    "status": "pending",
    "evidence": "*Origin: the author's item #1 of 2026-09-02, \"nao quero nenhum input obrigatorio aqui\". Carried by PFS-2029.01, PFS-2029.02, PFS-2029.03 and its two children, and PFS-2029.04. Evidence owed: the tests each node names.*",
@@ -625,10 +625,10 @@
   },
   {
    "id": "FR-58",
-   "text": "A setup artifact may carry a [flight_condition] table holding the five pins of FR-54 and nothing else, its pin names matching case-insensitively as a FLIGHT_CONDITION cell's do. A row that states a pin overrides the setup's, key by key; a row that states none inherits it; and the resolved state is the same state either way, which tests/test_matrix_run.py::test_a_workspace_renders_the_same_script_whichever_file_states_the_pins holds to the strongest available form: one workspace built twice from the same numbers, pins on the rows and pins in the setup, and the rendered script text equal BYTE FOR BYTE with nothing allowed to differ. A velocity key or a Reynolds number there is refused, because those are what a point IS and a preset several rows share cannot state them; an altitude or an ISA deviation is refused, because those locate a point in the atmosphere the pins exist to replace. A setup pinning a density under a row stating a Reynolds number has that one default dropped rather than refused. The run record carries the pins the setup supplied beside the condition as written, so it stays recomputable once the constants leave the row.",
+   "text": "A setup artifact may carry a [flight_condition] table holding the five pins of FR-54 and nothing else, its pin names matching case-insensitively as a FLIGHT_CONDITION cell's do. A row that states a pin overrides the setup's, key by key; a row that states none inherits it; and the resolved state is the same state either way, which tests/tier1_offline/test_matrix_run.py::test_a_workspace_renders_the_same_script_whichever_file_states_the_pins holds to the strongest available form: one workspace built twice from the same numbers, pins on the rows and pins in the setup, and the rendered script text equal BYTE FOR BYTE with nothing allowed to differ. A velocity key or a Reynolds number there is refused, because those are what a point IS and a preset several rows share cannot state them; an altitude or an ISA deviation is refused, because those locate a point in the atmosphere the pins exist to replace. A setup pinning a density under a row stating a Reynolds number has that one default dropped rather than refused. The run record carries the pins the setup supplied beside the condition as written, so it stays recomputable once the constants leave the row.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: the author's instruction of 2026-09-04, 'vamos trabalhar com valores default ... dessa forma nao precisa inputar na matrix, eles podem ficar no s001'. Carried by PFS-2030.08. Evidence: tests/test_flight_condition.py (the resolver, its refusals and each refusal's own reason), tests/test_matrix_run.py (the file, the record the run layer writes, and the equal-render arm below), scored against nineteen mutants with an unmutated control.*",
+   "evidence": "*Origin: the author's instruction of 2026-09-04, 'vamos trabalhar com valores default ... dessa forma nao precisa inputar na matrix, eles podem ficar no s001'. Carried by PFS-2030.08. Evidence: tests/tier1_offline/test_flight_condition.py (the resolver, its refusals and each refusal's own reason), tests/tier1_offline/test_matrix_run.py (the file, the record the run layer writes, and the equal-render arm below), scored against nineteen mutants with an unmutated control.*",
    "verification": "test"
   },
   {
@@ -644,7 +644,7 @@
    "text": "Every public function has a numpydoc docstring stating units and reference frames.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: Phase 4 split of NFR-01, accepted 2026-07-27. Evidence: the numpydoc convention enforced by ruff (NFR-09) for the docstring STRUCTURE, and the unit-suffix audit of tests/test_conventions.py for model fields. That units and frames are actually stated in the prose of every public function is checked by review, because the tools check shape and not meaning, and this tag says so rather than letting the badge imply a guard.*",
+   "evidence": "*Origin: Phase 4 split of NFR-01, accepted 2026-07-27. Evidence: the numpydoc convention enforced by ruff (NFR-09) for the docstring STRUCTURE, and the unit-suffix audit of tests/tier1_offline/test_conventions.py for model fields. That units and frames are actually stated in the prose of every public function is checked by review, because the tools check shape and not meaning, and this tag says so rather than letting the badge imply a guard.*",
    "verification": "test"
   },
   {
@@ -652,7 +652,7 @@
    "text": "Every module's top docstring states its role in the pipeline.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: Phase 4 split of NFR-01, accepted 2026-07-27. Evidence: tests/test_package_imports.py, which asserts a non-empty top docstring on every subpackage, and the architecture overview, which renders them. What is guarded is that the docstring EXISTS at subpackage level; that its text states a pipeline role, for every one of the modules below that level, is a review check.*",
+   "evidence": "*Origin: Phase 4 split of NFR-01, accepted 2026-07-27. Evidence: tests/tier1_offline/test_package_imports.py, which asserts a non-empty top docstring on every subpackage, and the architecture overview, which renders them. What is guarded is that the docstring EXISTS at subpackage level; that its text states a pipeline role, for every one of the modules below that level, is a review check.*",
    "verification": "test"
   },
   {
@@ -660,15 +660,15 @@
    "text": "Every raised error names the physical or version cause rather than the internal symptom, identifies the object or version involved and the operation attempted, states a suggested fix where a remedy is known, and carries the machine-readable attributes a caller needs to recover.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: Phase 4 split of NFR-01, accepted 2026-07-27, absorbing the C3 acceptance on error content. Evidence: tests/test_error_messages.py and the attribute cases of tests/test_exceptions_catalog.py, which pin a named list of errors rather than enumerating every raise site. The list is the guard's scope, in the manner NFR-24 states for its own.*",
+   "evidence": "*Origin: Phase 4 split of NFR-01, accepted 2026-07-27, absorbing the C3 acceptance on error content. Evidence: tests/tier1_offline/test_error_messages.py and the attribute cases of tests/tier1_offline/test_exceptions_catalog.py, which pin a named list of errors rather than enumerating every raise site. The list is the guard's scope, in the manner NFR-24 states for its own.*",
    "verification": "test"
   },
   {
    "id": "NFR-01d",
-   "text": "The published docs include at least one worked example per public workflow.",
+   "text": "Read with PFS-2031.10 at 0.13.0 (GOAL-012): tests/tier3_licensed is the worked example of every feature and the pages name it.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: Phase 4 split of NFR-01, accepted 2026-07-27. Evidence: tests/test_examples.py runs each of the examples/*.py and holds each to the extras it declares; the Sybil run covers the docstring doctests and the markdown code blocks. Nothing enumerates the public workflows and checks one example per workflow, so the per-workflow coverage is a review check and the badge covers the examples' correctness.*",
+   "evidence": "*Origin: Phase 4 split of NFR-01, accepted 2026-07-27. Evidence: tests/tier1_offline/test_examples.py runs each of the examples/*.py and holds each to the extras it declares; the Sybil run covers the docstring doctests and the markdown code blocks. Nothing enumerates the public workflows and checks one example per workflow, so the per-workflow coverage is a review check and the badge covers the examples' correctness.*",
    "verification": "test"
   },
   {
@@ -745,7 +745,7 @@
   },
   {
    "id": "NFR-11",
-   "text": "Documentation may never drift silently from the code. The mechanisms, in force from 2026-07-22:",
+   "text": "Read with PFS-2031.10 at 0.13.0 (GOAL-012): the tiers page, the workspace page, the guide and CONTRIBUTING move in the same session as the folders.",
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: the 2026-07-22 staleness audit, which found the public documentation frozen at earlier milestones while the code moved. Evidence: the process rules below plus the consistency guard test.*",
@@ -772,7 +772,7 @@
    "text": "A Tier 1 guard rejects the commit of any file whose extension is in the known geometry or mesh set unless its path is in the synthetic-fixtures allowlist.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: Phase 4 review, accepted 2026-07-27. Evidence: PFS-3 (2026-08-02); tests/test_house_style.py::test_no_geometry_file_is_tracked_outside_the_synthetic_allowlist walks every tracked path and fails on a geometry suffix outside the allowlist, with test_the_geometry_guard_fires_on_what_it_exists_to_catch as its mutation proof; the forbid-geometry pre-commit hook refuses the same class at commit time.*",
+   "evidence": "*Origin: Phase 4 review, accepted 2026-07-27. Evidence: PFS-3 (2026-08-02); tests/tier1_offline/test_house_style.py::test_no_geometry_file_is_tracked_outside_the_synthetic_allowlist walks every tracked path and fails on a geometry suffix outside the allowlist, with test_the_geometry_guard_fires_on_what_it_exists_to_catch as its mutation proof; the forbid-geometry pre-commit hook refuses the same class at commit time.*",
    "verification": "test"
   },
   {
@@ -780,12 +780,12 @@
    "text": "Every digest this package writes is sha256, and the canonical form it is taken over is stated per kind rather than implied. A FILE digest (a staged input, a collected output, the written script, the solver executable) is taken over the file's raw bytes. A TEXT digest (the rendered script text, the recipe source) is taken over the UTF-8 encoding of that text. No wall-clock timestamp, elapsed time, absolute path, machine name or staging order enters any of them, so two runs with identical inputs produce identical digests.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: Phase 4 review, accepted 2026-07-27, absorbing the M3b state-hash mirror. Statement rewritten 2026-08-19 (PFS-2012.10), the author's decision. Evidence: pyflightstream._digest, which carries ALGORITHM, EXCLUDED_FROM_EVERY_DIGEST and CANONICAL_FORMS as data; tests/test_digest.py, including the walk that fails a module hashing without declaring its canonical form.*",
+   "evidence": "*Origin: Phase 4 review, accepted 2026-07-27, absorbing the M3b state-hash mirror. Statement rewritten 2026-08-19 (PFS-2012.10), the author's decision. Evidence: pyflightstream._digest, which carries ALGORITHM, EXCLUDED_FROM_EVERY_DIGEST and CANONICAL_FORMS as data; tests/tier1_offline/test_digest.py, including the walk that fails a module hashing without declaring its canonical form.*",
    "verification": "test"
   },
   {
    "id": "NFR-16",
-   "text": "The Tier 1 suite holds STATEMENT and BRANCH coverage at or above a stated floor, set against measured coverage rather than aspiration, and CI fails when either falls below it.",
+   "text": "Read with PFS-2031.02 at 0.13.0 (GOAL-012): the floor is measured again after every module moves into its tier folder.",
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: Phase 4 review, accepted 2026-07-27, absorbing the M5 coverage mirror. Measured for the first time 2026-08-02 (session PFS-B1, review finding PYFS-024). Evidence: [tool.coverage.report] fail_under in pyproject.toml; the coverage job of .github/workflows/ci.yml.*",
@@ -812,7 +812,7 @@
    "text": "Every table the results layer produces exposes a documented column schema. Where this requirement additionally promises STABILITY, in the scope stated below, a change to that schema is announced in the changelog's API surface delta, and from 1.0 a column is renamed or removed only under NFR-20. Documentation is universal; the stability promise is not, and separating the two is what lets the exclusion below be an exclusion from a promise rather than from the docs.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: Phase 4 review theme 5, accepted 2026-07-27. Evidence: the column schemas documented in the docstrings of results/tables.py; tests/test_tables.py pins the run row's COMPLETE column list against a literal, so a column added or reordered in the middle fails the suite rather than passing the per-name lookups.*",
+   "evidence": "*Origin: Phase 4 review theme 5, accepted 2026-07-27. Evidence: the column schemas documented in the docstrings of results/tables.py; tests/tier1_offline/test_tables.py pins the run row's COMPLETE column list against a literal, so a column added or reordered in the middle fails the suite rather than passing the per-name lookups.*",
    "verification": "test"
   },
   {
@@ -820,7 +820,7 @@
    "text": "This policy takes effect at 1.0. From 1.0, a public API element (function, parameter, CLI flag, manifest key, or result column) is removed only after the warning has shipped in at least one released minor version, naming the replacement and the removal version, and is still present in the last release before the removal; the removal itself lands in a MAJOR release. Stated as releases rather than as \"one full minor\" because the latter has no meaning when a major follows a minor directly. Naming the removal release is not a detail: a policy that says only \"after a warning\" permits deleting public API in a minor, which NFR-04's SemVer commitment forbids, and this requirement exists to stop a reader having to reconcile the two.",
    "priority": "M",
    "status": "pending",
-   "evidence": "*Origin: Phase 4 review theme 5; the window decided by the author 2026-07-27 and recorded in the revision history. Pending because the policy it states begins at 1.0 and the package is at 0.x; the recorded-promise mechanism it relies on is already shipped and guarded (the ledger in pyflightstream._deprecations and the Tier 1 deadline guard tests/test_deprecation_deadline.py).*",
+   "evidence": "*Origin: Phase 4 review theme 5; the window decided by the author 2026-07-27 and recorded in the revision history. Pending because the policy it states begins at 1.0 and the package is at 0.x; the recorded-promise mechanism it relies on is already shipped and guarded (the ledger in pyflightstream._deprecations and the Tier 1 deadline guard tests/tier1_offline/test_deprecation_deadline.py).*",
    "verification": "none"
   },
   {
@@ -852,7 +852,7 @@
    "text": "Each software term on this requirement's list (clean-room, golden, round-trip, escape hatch, tidy table, shim, substrate, shell=True) has a glossary entry and is glossed at its first use in the SRS. The list is the authority: a chapter that introduces a new software term adds it here, and the guard follows.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: Phase 4 review theme 7 (item TERM-software-jargon), accepted 2026-07-27. Evidence: the glossary in the SRS index, pinned by tests/test_metadata_currency.py.*",
+   "evidence": "*Origin: Phase 4 review theme 7 (item TERM-software-jargon), accepted 2026-07-27. Evidence: the glossary in the SRS index, pinned by tests/tier1_offline/test_metadata_currency.py.*",
    "verification": "test"
   },
   {
@@ -860,7 +860,7 @@
    "text": "A missing optional dependency raises a typed error carrying the exact pip install pyflightstream[<extra>] remedy, never a bare ImportError.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: the C9 acceptance and the M6 mirror of the same subject, 2026-07-27, which the author accepted as elevating AD-05 to a tested requirement. Evidence: pyflightstream.extras.MissingExtraError and missing_extra; tests/test_extras.py, parametrized over every extra; tests/test_extras_isolation.py and the test-all-extras job in ci.yml, added 2026-08-10 for the residual below.*",
+   "evidence": "*Origin: the C9 acceptance and the M6 mirror of the same subject, 2026-07-27, which the author accepted as elevating AD-05 to a tested requirement. Evidence: pyflightstream.extras.MissingExtraError and missing_extra; tests/tier1_offline/test_extras.py, parametrized over every extra; tests/tier1_offline/test_extras_isolation.py and the test-all-extras job in ci.yml, added 2026-08-10 for the residual below.*",
    "verification": "test"
   },
   {

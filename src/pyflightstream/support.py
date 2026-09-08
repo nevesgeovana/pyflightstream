@@ -93,7 +93,7 @@ class SupportLevel(enum.StrEnum):
 #: Ascending order of :class:`SupportLevel`, which is the enum's own
 #: declaration order. Written out rather than derived from ``__members__``
 #: so that a reordering of the class body cannot silently reorder the
-#: ladder, and asserted against the class in tests/test_support.py.
+#: ladder, and asserted against the class in tests/tier1_offline/test_support.py.
 SUPPORT_LADDER: tuple[SupportLevel, ...] = (
     SupportLevel.REGISTERED,
     SupportLevel.DOCUMENTED,
@@ -152,7 +152,7 @@ class VersionSupport(BaseModel):
         here: it moves with every probe run. Nor is the split asserted
         anywhere today, which is worth saying plainly because this
         docstring used to credit
-        ``tests/test_evidence_provenance.py`` with measuring it and that
+        ``tests/tier1_offline/test_evidence_provenance.py`` with measuring it and that
         file measures the neighbouring claim, the inherited cell count of
         the rendered matrix, whose two sides both derive from this same
         registry. Reporting the two separately, with the guard that makes

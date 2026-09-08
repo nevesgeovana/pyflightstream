@@ -50,7 +50,7 @@ class PyflightstreamError(Exception):
     to ``ValueError``. Read the word CATALOGUED before relying on it: a
     residual of bare standard-library raises survives in the package.
     Every site the guard's walk REACHES is named in the ratchet in
-    ``tests/test_exceptions_catalog.py``, which is the single home of
+    ``tests/tier1_offline/test_exceptions_catalog.py``, which is the single home of
     that list; the walk's own reach is stated in SRS FR-39, and at least
     one site sits outside it. Those escape this base.
 
@@ -124,7 +124,7 @@ class InputArtifactError(PyflightstreamError, RuntimeError):
         shape, which is about what the caller wrote rather than about
         what the library holds. The distinction is stated because an
         empty tuple would otherwise be read as an empty library;
-        ``tests/test_exceptions_catalog.py`` pins both branches.
+        ``tests/tier1_offline/test_exceptions_catalog.py`` pins both branches.
     """
 
     def __init__(
@@ -167,7 +167,7 @@ class PyflightstreamWarning(UserWarning):
     is not yet re-exported by :mod:`pyflightstream.exceptions`, so it is
     imported from here for now; and the package's own warning sites still
     raise the categories they always did, held one by one in the ratchet
-    ``UNPROMOTED_WARNING_CATEGORIES`` in ``tests/test_examples.py``.
+    ``UNPROMOTED_WARNING_CATEGORIES`` in ``tests/tier1_offline/test_examples.py``.
     Until that ratchet is empty, narrowing a ``-W error`` command onto
     this category would stop catching them, so the two halves land
     together, which is what OPS-2006.02.02 is for.

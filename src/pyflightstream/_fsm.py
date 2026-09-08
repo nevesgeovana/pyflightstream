@@ -4,7 +4,7 @@ Pipeline role: a floor, like :mod:`pyflightstream._digest` and
 :mod:`pyflightstream._mesh`. It imports only the base exception and the
 standard library, and it is a floor BY BEHAVIOUR rather than a declared
 row of the layer table, which is the same standing `_digest` has and
-which ``tests/test_conventions.py`` records in those words.
+which ``tests/tier1_offline/test_conventions.py`` records in those words.
 
 WHY IT EXISTS (PFS-2028.00). A run matrix used to cite a mesh boundary
 by its POSITION in one geometry's boundary order. Those positions are

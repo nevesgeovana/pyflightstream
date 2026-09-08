@@ -74,7 +74,7 @@ _BASE_LAYERS: tuple[tuple[tuple[str, ...], str], ...] = (
 
 #: The layer table: the pipeline stack, then the floor under it, top row
 #: first. This is what both rendering layers draw and what the SRS
-#: chapter is checked against (tests/test_overview.py).
+#: chapter is checked against (tests/tier1_offline/test_overview.py).
 _LAYER_STACK: tuple[tuple[tuple[str, ...], str], ...] = _CORE_LAYERS + _BASE_LAYERS
 
 _SIDE_BRANCHES: tuple[tuple[str, str], ...] = (

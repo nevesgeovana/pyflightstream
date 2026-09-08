@@ -97,7 +97,7 @@ solution = beam.extract_solution(model, cfg)   # (w, theta) per station
 modal = beam.modal_frequencies(model, cfg)     # flap/torsion classified
 ```
 
-WP3 verification (tier 1, `tests/test_fsi_beam.py`): tip deflection,
+WP3 verification (tier 1, `tests/tier1_offline/test_fsi_beam.py`): tip deflection,
 tip rotation, and the first flap and torsion frequencies of a clamped
 uniform beam match the closed forms within 1 percent.
 
@@ -274,7 +274,7 @@ The convergence log (`fsi_convergence_log.csv`) states the
 quasi-steady validity boundary in its header and carries the config
 hash on every row (FSI-R15), so any point of a later parametric map is
 traceable to its exact configuration. The whole machine runs offline
-in the tier 1 replay harness (`tests/test_fsi_driver.py`), fed by the
+in the tier 1 replay harness (`tests/tier1_offline/test_fsi_driver.py`), fed by the
 archived WP1 fixtures, no FlightStream in the loop.
 
 ## cli: the executable FlightStream calls (`cli.py`)
@@ -294,7 +294,7 @@ real fixtures the loads parser (WP2) will be written against.
 Executed 2026-07-21 on 26.120 build 7012026 with the generic blade
 case over half a revolution; full evidence in
 `reports/RPT-005_fsi-dry-run_2026-07-21.md`, fixtures in
-`tests/fixtures/fsi/`. What the run established:
+`tests/tier1_offline/fixtures/fsi/`. What the run established:
 
 * The implemented scripting interface is the Aeroelastic Coupling
   Toolbox family (SRC-003 pp.375-376; `aeroelastic_coupling.yaml` in

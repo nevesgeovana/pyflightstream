@@ -157,7 +157,7 @@ versions:
   # solver's own banner and written into RPT-018, and the registry stayed
   # silent for four days anyway: the rule above admits a build from a
   # report's solver_identity field, an ad-hoc probe report has no such
-  # field, and tests/test_results.py checks every registered build
+  # field, and tests/tier1_offline/test_results.py checks every registered build
   # against one. Known and cited was not enough; machine-readable was
   # the requirement (PLN-20260805-1520, closed by that run).
   - canonical: "26.100"
@@ -289,7 +289,7 @@ versions:
     # own, so the build claims support for what was measured or read on
     # IT. The cost is stated where a user meets it: a script emitting a
     # command with no 26.123 row is refused rather than emitted, and
-    # tests/goldens/absent_on_26123.txt is the enumeration of what that
+    # tests/tier1_offline/goldens/absent_on_26123.txt is the enumeration of what that
     # covers at each commit.
     inherits_base: false
 
@@ -312,7 +312,7 @@ versions:
 # Two of those four numbers were wrong before that, both by exactly five
 # pages at each end, and the database had been disagreeing with them in
 # writing the whole time: 22 of its own SRC-003 citations fell outside
-# the range this file declared for SRC-003. tests/test_command_db.py now
+# the range this file declared for SRC-003. tests/tier1_offline/test_command_db.py now
 # fails on that, so the next drift is caught without reading a pdf.
 manual_editions:
   "25.000": >

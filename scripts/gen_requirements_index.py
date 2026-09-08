@@ -41,7 +41,7 @@ The top level carries ``source``, ``generated_by``, ``traceability``
 and ``requirements``. ``traceability`` counts how many requirement ids
 are MENTIONED anywhere under ``tests/``, which is an upper bound rather
 than a measure; the marker ratchet is a separate and smaller number,
-held in ``tests/test_traceability.py``. See :func:`traceability` for
+held in ``tests/tier1_offline/test_traceability.py``. See :func:`traceability` for
 why the looser count is reported at all.
 
 What the index does NOT carry, and why. Only ``requirement`` boxes are
@@ -335,7 +335,7 @@ def traceability(ids: list[str], tests_dir: Path) -> dict[str, object]:
     comment; a mention is not a falsifying test. Under the marker
     convention NFR-13 asks for, eight requirements carry a falsifying
     marker today (the ratchet is `MARKED_FLOOR` in
-    tests/test_traceability.py), and this number counts far more than
+    tests/tier1_offline/test_traceability.py), and this number counts far more than
     that because it counts mentions. It read "today's honest count
     would be zero" until 2026-08-03, which was true when the markers
     did not exist and stayed in place after they landed.

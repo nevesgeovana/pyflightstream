@@ -33,7 +33,7 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
         with:
-          # Full history: tests/test_clean_room.py walks every commit
+          # Full history: tests/tier1_offline/test_clean_room.py walks every commit
           # since its baseline, and a shallow clone does not contain it.
           # The test fails rather than skips when it cannot reach the
           # baseline, so a forgotten fetch-depth is loud (FR-08).
@@ -110,7 +110,7 @@ jobs:
     # correction rather than left as a sentence describing a job that
     # did not exist.
     #
-    # tests/test_extras_isolation.py derives its forbidden set from the
+    # tests/tier1_offline/test_extras_isolation.py derives its forbidden set from the
     # INTERSECTION of every install line, so this richer leg does not
     # weaken it: pypdf and matplotlib stay forbidden for the trees the
     # other legs run.
@@ -145,7 +145,7 @@ jobs:
     # code path (pyflightstream.extras.EXTRAS omits it by name) and it
     # installs the test runner, without which this job cannot run a test
     # at all. An EMPTY bracket would also drop `dev` out of the
-    # intersection tests/test_extras_isolation.py derives from every
+    # intersection tests/tier1_offline/test_extras_isolation.py derives from every
     # install line, which would put pytest itself into that guard's
     # forbidden set and refuse `import pytest` in every test file. The
     # measurement wanted here is "no user-facing extra", and that is
@@ -167,7 +167,7 @@ jobs:
         # reads as a broken test rather than as a broken dependency set.
         run: python -c "import trimesh; print('trimesh', trimesh.__version__)"
       - name: Mark a trailing edge end to end, with no extras present
-        run: pytest tests/test_trailing_edges.py
+        run: pytest tests/tier1_offline/test_trailing_edges.py
 
   types:
     # One leg, like the coverage floor and for the same reason: the answer

@@ -73,7 +73,7 @@ temperature and leaves PRESSURE alone, so density follows from the
 offset temperature at the unchanged pressure altitude. That is the
 standard reading of "ISA+5". The other reading, shifting pressure too,
 is what a reader who has not met the convention will assume, which is
-why it is stated here and asserted in ``tests/test_atmosphere.py``
+why it is stated here and asserted in ``tests/tier1_offline/test_atmosphere.py``
 rather than left to be inferred from the arithmetic.
 
 ``delta_isa_c`` is a DELTA in Celsius, and a temperature difference in
@@ -112,7 +112,7 @@ book, and it is the domain-expert seat's call rather than this
 module's.
 
 THE OPEN QUESTION HAS A MECHANICAL TRIGGER, which is worth stating so
-the arbiter knows the cost of each answer: ``tests/test_atmosphere.py``
+the arbiter knows the cost of each answer: ``tests/tier1_offline/test_atmosphere.py``
 pins viscosity at three temperatures to ``rel=1e-4``, and the 273/111
 reading differs by 1.64e-4 at 216.65 K, 3.59e-4 at 255.65 K and 5.36e-4
 at 300 K. So resolving the citation the other way turns this file RED at

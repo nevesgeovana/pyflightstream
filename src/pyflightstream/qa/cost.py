@@ -142,7 +142,7 @@ COST_VIEW_IDENTITY_COLUMNS = ("sim_id", "point")
 #: rather than listed, so a status added to
 #: :class:`pyflightstream.workspace.RunStatus` under the FAILED_ prefix
 #: is counted the day it arrives; one added under any other name is not,
-#: which is why ``tests/test_qa_cost.py`` pins the complement.
+#: which is why ``tests/tier1_offline/test_qa_cost.py`` pins the complement.
 _FAILED_STATUSES = frozenset(status for status in RunStatus if status.name.startswith("FAILED"))
 
 #: Rendered when a point carries no sweep axes at all (a single-point

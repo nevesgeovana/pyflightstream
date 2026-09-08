@@ -1,0 +1,30 @@
+# s002: the unsteady preset, for the rotorless and the rotor rows alike. The
+# clock is not here: a row states it, as DELTA_TIME with TIME_ITERATIONS or
+# as DELTA_THETA with REVOLUTIONS, because the clock is what a point IS.
+boundary_layer_type = "TURBULENT"
+viscous_coupling = false
+convergence = 1e-5
+max_parallel_threads = 8
+NITER = 300
+set_solver_model = "SUBSONIC_PRANDTL_GLAUERT"
+proximity_avoidance = "DISABLE"
+stabilization = "ENABLE"
+stabilization_strength = 1.0
+symmetry_loads = false
+induced_wake_velocity = true
+farfield_layers = 3
+significant_digits = 7
+convergence_iterations = 10
+solver_minimum_cp = -100
+unsteady_pressure_kutta = "DISABLE"
+additional_wake_relaxation_iteration = "DISABLE"
+reynolds_averaged_drag_forces = "DISABLE"
+wake_on_wake_induction = "ENABLE"
+# No induced-drag selection: this preset serves the wing and the rotor rows alike,
+# and a family list a geometry lacks is refused as an empty selection. s003 states one.
+
+[flight_condition]
+MUPas = 1.789e-5
+ASMPS = 340.29
+TK = 288.15
+PPA = 101325

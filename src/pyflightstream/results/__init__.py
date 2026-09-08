@@ -627,7 +627,7 @@ def reduction_for_solver_mode(printed: str | None) -> str:
 # the classification has to be explicit data rather than a filter.
 #
 # The keys are compared against the live command database by
-# ``tests/test_results.py``, so an export command added to any yaml fails
+# ``tests/tier1_offline/test_results.py``, so an export command added to any yaml fails
 # the suite until it is classified here.
 
 #: The export has a parser and a tabular conversion in this package.
@@ -1701,7 +1701,7 @@ def parse_unsteady_plots(text: str) -> UnsteadyPlotsReport:
 # Every format below is written against an OBSERVED file. The capture script
 # `scripts/capture_export_corpus.py` put a coarse generated NACA 0012 wing
 # through a licensed 26.123 solve on 2026-08-20 and committed one small file
-# per format under `tests/fixtures/`; two earlier 26.120 captures sit beside
+# per format under `tests/tier1_offline/fixtures/`; two earlier 26.120 captures sit beside
 # them. Nothing here is written from the manual alone, and the one format
 # that has never been observed keeps its `owed` verdict rather than a parser
 # guessed from its page (see EXPORT_BL_VELOCITY_PROFILE in

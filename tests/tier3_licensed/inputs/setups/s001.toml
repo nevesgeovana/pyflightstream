@@ -1,0 +1,28 @@
+# s001: the steady preset of the tour. Every key names a solver setting the
+# package emits; a key that reaches no script is refused at plan time.
+boundary_layer_type = "TURBULENT"        # SET_BOUNDARY_LAYER_TYPE
+viscous_coupling = false                 # SET_SOLVER_VISCOUS_COUPLING
+convergence = 1e-5                       # SOLVER_SET_CONVERGENCE
+max_parallel_threads = 8                 # SET_MAX_PARALLEL_THREADS
+NITER = 300                              # SOLVER_SET_ITERATIONS
+set_solver_model = "SUBSONIC_PRANDTL_GLAUERT"
+proximity_avoidance = "ENABLE"
+stabilization = "ENABLE"
+stabilization_strength = 1.0
+symmetry_loads = true                    # SET_ANALYSIS_SYMMETRY_LOADS, the mirrored rows read full-model loads
+induced_wake_velocity = true             # SOLVER_SET_MESH_INDUCED_WAKE_VELOCITY
+significant_digits = 7
+convergence_iterations = 20              # SET_SOLVER_CONVERGENCE_ITERATIONS
+solver_minimum_cp = -100
+# No induced-drag selection here: the solver's own default applies, and s003
+# states one so the tour shows both forms.
+
+[flight_condition]
+# The four fluid constants of the campaign, in the units the key names
+# carry: viscosity Pa s, speed of sound m/s, temperature K, pressure Pa. A
+# row states MACH or TASmps and REmi or a density, which vary per point;
+# a row that states one of these four overrides the preset's, key by key.
+MUPas = 1.789e-5
+ASMPS = 340.29
+TK = 288.15
+PPA = 101325

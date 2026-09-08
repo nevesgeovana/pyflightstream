@@ -6,7 +6,7 @@ stated package version and disappears at that version, never silently
 later. This module is the single home of those promises; the shim
 modules build their DeprecationWarning text from their ledger entry, so
 the message users see and the deadline the Tier 1 guard enforces
-(``tests/test_deprecation_deadline.py``) can never disagree (NFR-11).
+(``tests/tier1_offline/test_deprecation_deadline.py``) can never disagree (NFR-11).
 
 Lifecycle of an entry: it is added in the commit that creates the shim,
 its ``removal_version`` is cited by the shim's warning, and the entry
@@ -157,7 +157,7 @@ class DeprecatedModule:
 #: NARROW, and that reading is recorded here rather than acted on
 #: tonight: a keyword deprecation, a parameter deprecation and an
 #: unlanded rename each need a row this type cannot hold, so
-#: ``tests/test_deprecation_deadline.py`` sees none of them and this
+#: ``tests/tier1_offline/test_deprecation_deadline.py`` sees none of them and this
 #: comment is the only enumeration. Giving ``DeprecatedModule`` a sibling
 #: that models a parameter or keyword promise is registered in the local
 #: plan ledger; until it lands, adding a fourth promise means editing

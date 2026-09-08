@@ -109,7 +109,7 @@ argument count the printed sample is what settles. Closing this means
 parsing with overlapping page windows
 (PLN-20260807-0900).
 
-The rules and the ordering are held by ``tests/test_utils_manual.py`` on
+The rules and the ordering are held by ``tests/tier1_offline/test_utils_manual.py`` on
 synthetic fixtures; the percentages are not, and cannot be, since a
 fixture set is not a corpus. The manual itself is licensed, lives in
 ``_private/`` and never enters Git, so the fixtures imitate its SHAPE and
@@ -1829,7 +1829,7 @@ def _read_alternatives(_placeholder: str, text: str) -> tuple[str, tuple[str, ..
 
 #: The rules in the order they are tried. THE ORDER IS THE SPECIFICATION:
 #: read it top to bottom and each rule's docstring says why it sits where
-#: it does. ``tests/test_utils_manual.py`` pins both the sequence and one
+#: it does. ``tests/tier1_offline/test_utils_manual.py`` pins both the sequence and one
 #: worked case per adjacent pair.
 TYPE_RULES: tuple[TypeRule, ...] = (
     TypeRule("opening", "the description opens with what the value is", _read_opening),

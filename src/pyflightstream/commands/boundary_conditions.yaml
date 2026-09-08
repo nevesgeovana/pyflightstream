@@ -388,7 +388,7 @@ TRAILING_EDGES_IMPORT:
     does: no run has asked this build whether it still answers to the
     name, and an edition dropping a page is a fact about a document. So
     26.123 answers ABSENT, which the committed enumeration
-    tests/goldens/absent_on_26123.txt already records, and the reading
+    tests/tier1_offline/goldens/absent_on_26123.txt already records, and the reading
     lives here.
 
     THAT ENCODING IS NOW DECIDED rather than pending (the author,

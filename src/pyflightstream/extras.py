@@ -31,7 +31,7 @@ __all__ = ["EXTRAS", "MissingExtraError", "UnknownExtraError", "missing_extra"]
 
 #: The optional extras of this package, and the distributions each one
 #: installs. Kept beside the refusal that cites them, and asserted
-#: against ``pyproject.toml`` in tests/test_extras.py so the two cannot
+#: against ``pyproject.toml`` in tests/tier1_offline/test_extras.py so the two cannot
 #: drift: an extra renamed in packaging and not here would print an
 #: install command that fails.
 #:

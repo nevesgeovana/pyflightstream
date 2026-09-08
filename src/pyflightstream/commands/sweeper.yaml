@@ -8,7 +8,7 @@
 # missing entirely, and the velocity command could take a file where
 # the angle commands could take a list, an asymmetry the manual does
 # not have. The file's own header predicted the widening; the citation
-# range guard in tests/test_command_db.py is what will now say so
+# range guard in tests/tier1_offline/test_command_db.py is what will now say so
 # before a reader has to.
 #
 # The four sweep commands share one parameter table, word for word, in

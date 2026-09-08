@@ -27,7 +27,7 @@ the obvious fixture is a 3-4-5 triangle, whose mean over three edges and
 mean over two are BOTH exactly 4, so a test pinning the value on it
 passes under the sabotage while looking stricter than the test it
 replaced. That reasoning lives beside the fixture, in
-``tests/test_qa_geometry.py``, which states in its own comment why the
+``tests/tier1_offline/test_qa_geometry.py``, which states in its own comment why the
 triangle is a unit right one; the first mutant below is what makes it
 load bearing.
 
@@ -49,11 +49,12 @@ from _mutation_harness import REPO, apply_mutant, verdict  # noqa: E402
 TARGET = REPO / "src" / "pyflightstream" / "qa" / "geometry.py"
 
 FACE_TEST = (
-    "tests/test_qa_geometry.py::"
+    "tests/tier1_offline/test_qa_geometry.py::"
     "test_the_local_face_length_is_measured_from_the_mesh_and_not_assumed"
 )
 STL_TEST = (
-    "tests/test_qa_geometry.py::test_the_written_stl_carries_the_offset_and_a_name_of_its_own"
+    "tests/tier1_offline/test_qa_geometry.py"
+    "::test_the_written_stl_carries_the_offset_and_a_name_of_its_own"
 )
 
 CLOSING_EDGE_LIVE = (

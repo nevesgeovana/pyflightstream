@@ -102,3 +102,17 @@ htmlcov/
 # force push, which is the author's decision and not a side effect of
 # this change.
 CONTRIBUTING.md
+
+# The tier-3 workspace's run-time state (GOAL-012). The definition is
+# versioned: the matrices, inputs/ and the test modules beside them. What a
+# run leaves is this machine's record until the author decides otherwise:
+# the simulations, the products, the manifest, and the STL parts the
+# preparation recipe regenerates on every build.
+tests/tier3_licensed/_generated/
+tests/tier3_licensed/executables.local.toml
+tests/tier3_licensed/sims/
+tests/tier3_licensed/post/
+tests/tier3_licensed/archive/
+tests/tier3_licensed/runs.json
+tests/tier3_licensed/plan.json
+tests/tier3_licensed/sweep.csv

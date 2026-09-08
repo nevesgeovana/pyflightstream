@@ -57,7 +57,7 @@ code { font-family: ui-monospace, monospace; }
 #: ``scripts/gen_docs_pages.py`` (this comment said the wiring was
 #: still owed until 2026-08-19, when a reviewer pass read the script),
 #: and the
-#: tier 1 adherence audit (``tests/test_conventions.py``) enforces the
+#: tier 1 adherence audit (``tests/tier1_offline/test_conventions.py``) enforces the
 #: mechanical rules against the code.
 CONVENTIONS: tuple[tuple[str, str], ...] = (
     (
@@ -162,7 +162,7 @@ CONVENTIONS: tuple[tuple[str, str], ...] = (
         "ValueError or RuntimeError still works. Read that word: a "
         "residual of bare standard-library raises survives outside the "
         "catalog. Every site the guard's walk REACHES is named in the "
-        "ratchet in tests/test_exceptions_catalog.py, which is the "
+        "ratchet in tests/tier1_offline/test_exceptions_catalog.py, which is the "
         "single home of that list; the walk's own reach is stated in "
         "SRS FR-39, and at least one site sits outside it. Until the "
         "residual is empty the standard-library bases are what covers "

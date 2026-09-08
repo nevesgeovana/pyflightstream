@@ -73,7 +73,7 @@ PROVENANCE_SCHEMA = "pyfs-output-provenance/1"
 #: Appended rather than substituted, and the reason was measured in this
 #: repository's own suite rather than reasoned about: writing the same
 #: survey to ``ring.vtk`` and ``ring.dat``, which
-#: ``tests/test_post_writers.py`` has done since the far-field ledger
+#: ``tests/tier1_offline/test_post_writers.py`` has done since the far-field ledger
 #: landed, gives both files the stem ``ring``. A record named for the
 #: STEM would therefore be one file for two different exports, and the
 #: second call would either overwrite the first's record or be refused

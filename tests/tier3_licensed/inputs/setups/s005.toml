@@ -1,0 +1,25 @@
+# s005: the PHY-01, PHY-02 and PHY-06 preset, the settings the physics
+# regression cases of pyflightstream.qa.physics run with, stated as a setup so
+# the same cases run as rows: 500 iterations to 1e-5, symmetry loads on so the
+# mirrored half wing reports full-model loads, the induced drag over every
+# boundary (the solver's own default).
+boundary_layer_type = "TURBULENT"
+viscous_coupling = false
+convergence = 1e-5
+max_parallel_threads = 8
+NITER = 500
+set_solver_model = "SUBSONIC_PRANDTL_GLAUERT"
+proximity_avoidance = "ENABLE"
+stabilization = "ENABLE"
+stabilization_strength = 1.0
+symmetry_loads = true
+induced_wake_velocity = true
+significant_digits = 7
+convergence_iterations = 20
+solver_minimum_cp = -100
+
+[flight_condition]
+MUPas = 1.789e-5
+ASMPS = 340.29
+TK = 288.15
+PPA = 101325

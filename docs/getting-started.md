@@ -82,7 +82,7 @@ does. The command above is one the new edition stops documenting, which is why
 it is still refused after that build's documented rows were written. The
 list of what is currently in that state is committed, so you can see the
 size of the gap without running anything:
-`tests/goldens/absent_on_26123.txt` carries every affected command and
+`tests/tier1_offline/goldens/absent_on_26123.txt` carries every affected command and
 its own count in the header.
 
 If you meet this refusal and need the command today, use a build the

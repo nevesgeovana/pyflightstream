@@ -1,0 +1,25 @@
+# Reference of the installed and the twin-rotor configurations: the body of
+# r002 carrying full two-blade rotors of the BladeSpec blade. SREF is the
+# rotor disk so that a thrust coefficient reads against the disk; the rotors
+# sit at the reference points ERP1 and ERP2 of inputs/reference_points.toml,
+# which is what a MOTIONS record names instead of coordinates.
+area_m2 = 10.507   # SREF, m^2: pi x 1.8288^2, one rotor disk
+chord_m = 4.0      # CREF, m: the body length
+span_m = 3.6576    # BREF, m: the rotor diameter
+propeller_diameter_m = 3.6576
+
+[moment_point]
+x_m = 2.0
+y_m = 0.0
+z_m = 0.0
+
+[propeller]
+radius_m = 1.8288
+n_blades = 2       # both blades meshed, no periodic copy
+pitch_deg = 0.0
+toe_deg = 0.0
+
+[propeller.position]
+x_m = 4.5          # behind the base, the pusher position
+y_m = 0.0
+z_m = 0.0

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-r"""Mutation proof for the extras-isolation guard, tests/test_extras_isolation.py.
+r"""Mutation proof for the extras-isolation guard, tests/tier1_offline/test_extras_isolation.py.
 
 ONE OF THE TWO GUARDS THAT CLOSED THE v0.7.0 FAILURE, and this file was named
 for both until 2026-08-11. The other was a check that a version tag names a
@@ -91,14 +91,14 @@ def _git_dir() -> Path:
 
 BACKUP = _git_dir() / "mutation-backup"
 
-GUARD_A = "tests/test_extras_isolation.py"
-# GUARD_B WAS `tests/test_ci_release_gate.py` AND IS GONE, with its whole
+GUARD_A = "tests/tier1_offline/test_extras_isolation.py"
+# GUARD_B WAS `tests/tier1_offline/test_ci_release_gate.py` AND IS GONE, with its whole
 # battery (BM1..BM16), on 2026-08-11. The repository-owned bridge hook it
 # proved was deleted in the commit that vendored kit 0.2.18, which carries the
 # CI-green tag rule in the SHARED gate. Its replacement evidence is not
 # nothing and is not here: `ci_state_mutations.py` ships beside the vendored
-# `ci_state.py` and is run by `tests/test_ci_state.py` in tier 1, and the
-# refusal at the push boundary is pinned by `tests/test_push_gate.py`. This
+# `ci_state.py` and is run by `tests/tier1_offline/test_ci_state.py` in tier 1, and the
+# refusal at the push boundary is pinned by `tests/tier1_offline/test_push_gate.py`. This
 # file was renamed from `prove_extras_and_ci_guards.py` in the same commit,
 # because a battery named for two guards that proves one is the stale success
 # line this project registers most.
@@ -309,8 +309,8 @@ def prove_guard_a() -> list[str]:
         return ["guard A control is not green"]
 
     battery = Battery(GUARD_A)
-    tests = REPO / "tests" / "test_utils_manual.py"
-    guard = REPO / "tests" / "test_extras_isolation.py"
+    tests = REPO / "tests" / "tier1_offline" / "test_utils_manual.py"
+    guard = REPO / "tests" / "tier1_offline" / "test_extras_isolation.py"
     original = 'pypdf = pytest.importorskip("pypdf")'
 
     battery.patch(tests, original, "import pypdf", "M1  the original defect, restored")

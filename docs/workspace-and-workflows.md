@@ -71,7 +71,10 @@ needs nothing else to build its script; `LEGACY` means "none, use the
 recipe", which is what every matrix written before v0.8.0 means and what
 these two rows say, and such a row names its recipe code as the `RECIPE`
 key of its variables (until v0.11.0 that code sat in a column of its own,
-`FS_SCRIPT`, which `pyfs-matrix upgrade` moves). `RUN` is the switch that
+`FS_SCRIPT`, which `pyfs-matrix upgrade` moves). Since 0.13.0 that cell may
+carry the reference itself, `package.module:function`, and a row written so
+plans and runs with no `--recipe` option at all; a bare code such as `003`
+is still mapped by that option (PFS-2031.11). `RUN` is the switch that
 says whether the row takes part at all.
 
 `VAR_NAMES_VALUES` is the last cell and the one that carries everything
@@ -265,7 +268,7 @@ are two separate claims.
 
 Going forward, every workflow crossed with three case shapes and every
 build it covers is pinned as a committed golden under
-`tests/goldens/workflows/` and compared byte for byte on every run of the
+`tests/tier1_offline/goldens/workflows/` and compared byte for byte on every run of the
 suite. On one of the workflow-and-build pairs, `steady` on FlightStream
 25.000, the builder refuses instead of rendering, and both of that pair's
 goldens pin the refusal text; the changelog's "Known gaps" says why.
@@ -703,9 +706,14 @@ axis, speed and boundaries; the row's `PROP_MRP` stays the frame the pproc
 entries cite, the time step follows the fastest rotor, and the run record
 lists every record as bound. A record's `ROTOR_ORIGIN` may name a point of
 `inputs/reference_points.toml` instead of three coordinates; the point must
-be an engine point, `ERP` or `ERP1` through `ERPn` by the naming convention
-or any point declaring `kind = "engine"`, and a motion on a point declared
-otherwise is refused naming the point and its kind. A flat row renders
+be an engine point, `ERP` or `ERP1` through `ERPn` by the naming convention,
+and a motion on a point declared `kind = "airframe"` is refused naming the
+point and its kind. A name outside the convention is refused when the file is
+read, whatever kind it declares, because the names are what say how many
+propulsors the campaign describes (measured 2026-09-08 on the tier-3
+workspace, which had named a hub `HUB`). Since 0.13.0 the flat rotor row's
+own `ROTOR_ORIGIN` may name a point the same way (PFS-2031.12); until then
+only a `MOTIONS` record could, and the one-rotor row demanded three numbers. A flat row renders
 exactly as before; a row with a `MOTIONS` list and a flat motion key beside
 it is refused, as is an unclosed brace or a record repeating a key.
 
@@ -986,22 +994,22 @@ sits above execution, so the runner cannot call it).
 
 Every artefact on this page is lifted from the test suite rather than
 written for the page. The first matrix is
-`tests/fixtures/matrix_registry.fs` byte for byte; the input library,
+`tests/tier1_offline/fixtures/matrix_registry.fs` byte for byte; the input library,
 the recipe and the call are those of
 `test_run_matrix_executes_and_records_every_point` in
-`tests/test_matrix_run.py`, and the four run identifiers above are the
+`tests/tier1_offline/test_matrix_run.py`, and the four run identifiers above are the
 ones that test asserts.
 
-The workflow matrix is `tests/fixtures/workflow_rotor_matrix.fs` byte
+The workflow matrix is `tests/tier1_offline/fixtures/workflow_rotor_matrix.fs` byte
 for byte, and the test that runs it is
 `test_the_committed_matrix_drives_the_workflow_with_no_python_recipe` in
-`tests/test_workflows.py`, which builds every row of it and asserts that
+`tests/tier1_offline/test_workflows.py`, which builds every row of it and asserts that
 no `module:function` reference appears anywhere in the call.
 
 That is the point of doing it this way. An example written for a page is
 true the day it is written and quietly false afterwards; an example
 lifted from an executed test fails CI when it stops being true.
-`tests/test_docs_example_currency.py` holds the two together, so this
+`tests/tier1_offline/test_docs_example_currency.py` holds the two together, so this
 page cannot drift from the suite without the suite going red.
 
 The code blocks are not executed by the docs build, and are marked so.

@@ -8,7 +8,7 @@ from the pitch axis to the elastic axis, delivering the aerodynamic
 load set the beam solve consumes.
 
 Everything here is anchored on the WP1 dry-run evidence
-(reports/RPT-005, fixtures in ``tests/fixtures/fsi/``):
+(reports/RPT-005, fixtures in ``tests/tier1_offline/fixtures/fsi/``):
 
 * The file carries the standard labeled FlightStream header; the SI
   assertion (FSI-R03) anchors on the unit-carrying labels
@@ -87,10 +87,10 @@ _SPAN_TOLERANCE = 0.01
 # some margin is physical and expected.
 #
 # Measured on the committed WP1 export
-# (tests/fixtures/fsi/FS_SurfaceSection_Loads_call0002.txt, blade_1
+# (tests/tier1_offline/fixtures/fsi/FS_SurfaceSection_Loads_call0002.txt, blade_1
 # extremes 0.2899 m and 1.813 m) against THE BLADE IT WAS CUT ON, whose
 # 11 imported pitch-axis nodes are the committed fixture
-# tests/fixtures/fsi/structural_nodes.csv, root 0.274320 m and tip
+# tests/tier1_offline/fixtures/fsi/structural_nodes.csv, root 0.274320 m and tip
 # 1.828800 m; RPT-006 Section 2 states the same span as 0.274 to 1.829 m.
 # Span 1.554480 m, so the real margins are 1.00% at the root and 1.02%
 # at the tip.
@@ -104,7 +104,7 @@ _SPAN_TOLERANCE = 0.01
 # instructive part. This comment first reported 2.49% and 2.31% and
 # attributed them to "the blade it was cut on". Those numbers are exact
 # for the SYNTHETIC test blade [0.25, 1.85] in
-# tests/test_fsi_loads.py:fixture_covering_config, which is deliberately
+# tests/tier1_offline/test_fsi_loads.py:fixture_covering_config, which is deliberately
 # wider than the physical one; roughly 60% of each quoted margin was
 # that config's outward rounding rather than the section cut. The
 # constant is unchanged because 5% clears the real 1.0% by more than it

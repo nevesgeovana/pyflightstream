@@ -16,7 +16,7 @@ so ``except ValueError`` and ``except RuntimeError`` keep catching
 exactly what they used to. Catalogued is the operative word and the
 requirement says so in bold: a residual of bare standard-library raises
 survives outside this catalog. Every site the guard's walk REACHES is
-named in the ratchet in ``tests/test_exceptions_catalog.py``, which is
+named in the ratchet in ``tests/tier1_offline/test_exceptions_catalog.py``, which is
 the single home of that list; the walk's own reach is stated in SRS
 FR-39, and at least one site sits outside it.
 Until the residual is empty, the standard-library bases are what covers it,

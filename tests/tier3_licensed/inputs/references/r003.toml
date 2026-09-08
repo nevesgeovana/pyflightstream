@@ -1,0 +1,24 @@
+# Reference of the synthetic rotor: one blade of pyflightstream.qa.geometry
+# .BladeSpec, tip radius 1.8288 m, meshed alone; the row's SYMMETRY PERIODIC
+# supplies the wheel. The same numbers the PHY-05 physics case runs against,
+# so the reference bands under qa/references keep their meaning.
+area_m2 = 10.0     # SREF, m^2, PHY-05's reference area
+chord_m = 2.0      # CREF, m, PHY-05's reference length
+span_m = 3.6576    # BREF, m: the rotor diameter
+propeller_diameter_m = 3.6576   # D = 2 x 1.8288 m
+
+[moment_point]
+x_m = 0.0
+y_m = 0.0
+z_m = 0.0
+
+[propeller]
+radius_m = 1.8288
+n_blades = 1       # one blade meshed; PERIODIC in the row supplies the others
+pitch_deg = 0.0
+toe_deg = 0.0
+
+[propeller.position]
+x_m = 0.0
+y_m = 0.0
+z_m = 0.0
