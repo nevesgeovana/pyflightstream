@@ -1,4 +1,14 @@
-# RPT-030: what an unsteady solver action receives (2026-08-19)
+# RPT-030: what an unsteady solver action receives (2026-08-19, amended 2026-09-08)
+
+Amendment of 2026-09-08: the licensed run this report names under "What
+follows, and it costs a seat" was made on 26.123 and is
+`RPT-031_script-action-reread-on-26123_2026-09-08.md`. It answers the
+four parts below on that build (no arguments, the simulation folder as
+working directory, no step index passed but an `_iteration=N` stamp on
+an export's name, no solver-named environment) and the count (exactly
+the step count, nothing before the first step), and it settles a fifth
+question this report did not ask: a SCRIPT action's file is re-read on
+every invocation. The reading below is unchanged.
 
 A reading of both registered manual editions, asking one question about
 `SET_NEW_UNSTEADY_SOLVER_ACTION`: when the solver runs the registered

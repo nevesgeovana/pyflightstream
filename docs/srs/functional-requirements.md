@@ -151,6 +151,8 @@ Milestones and session records are listed in the
     *Origin: BRF-04. Evidence: milestone M2; helper goldens
     ([glossary](index.md#glossary)).*
 
+    Read with PFS-2031.13 at 0.13.0 (GOAL-012): the child script a helper parks for a SCRIPT action is written by the run before the solver starts, so a helper's promise about the run is kept by the run.
+
     A curated set of thin helpers covers the common steady and
     unsteady workflows, and each helper emits only database-validated
     commands, adding no emitted line the command database does not
@@ -639,7 +641,7 @@ the session records.
     *Origin: usage feedback, amending the posture of FR-10/FR-11.
     Evidence: the v0.3 line; resolution hit and miss tests.*
 
-    Read with PFS-2031.03, PFS-2031.04, PFS-2031.05, PFS-2031.06, PFS-2031.07 and PFS-2031.12 at 0.13.0 (GOAL-012): the tier-3 folder is a workspace, several matrices share it with their own plan, sweep and products under post/<matrix>/, and every token the package defines is a row that plans offline and runs on the licensed machine.
+    Read with PFS-2031.03, PFS-2031.04, PFS-2031.05, PFS-2031.06, PFS-2031.07, PFS-2031.12 and PFS-2031.14 at 0.13.0 (GOAL-012): the tier-3 folder is a workspace, several matrices share it with their own plan, sweep and products under post/<matrix>/, every token the package defines is a row that plans offline and runs on the licensed machine, and an executable override with no default version is refused naming the option.
 
     The run matrix is a first-class interface of the file-managed
     modality: its reference columns resolve against the workspace

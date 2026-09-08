@@ -221,6 +221,20 @@ def prepare_geometry(case, script) -> None:
     script.emit("CLOSE_FLIGHTSTREAM")
 
 
+def _log_name(case) -> str:
+    """The row's ``LOG_OUTPUT`` with ``{point}`` filled the way ``OUTPUTS`` was.
+
+    The package names the declared outputs per point and leaves every other
+    variable as the row wrote it, so a recipe that wants a per-point log
+    takes the point token from the first named output, ``loads_<point>.txt``.
+    """
+    log = str(case.variables.get("LOG_OUTPUT", "")).strip()
+    if "{point}" in log:
+        point = Path(case.outputs[0]).stem.split("_", 1)[-1]
+        log = log.replace("{point}", point)
+    return log
+
+
 def steady_with_a_log(case, script) -> None:
     """One steady point of the row's geometry, the recipe way, with a log."""
     from pyflightstream.script import helpers
@@ -233,13 +247,68 @@ def steady_with_a_log(case, script) -> None:
         script,
         vorticity_drag_boundaries="all",
         aoa=float(case.point.get("alpha", 0.0)),
-        velocity=float(case.variables.get("VELOCITY", 30.0)),
+        velocity=case.velocity,
         iterations=case.solver.iterations,
         convergence=case.solver.convergence,
     )
     helpers.start_solver(script)
     script.emit("EXPORT_SOLVER_ANALYSIS_SPREADSHEET", case.outputs[0])
-    log = str(case.variables.get("LOG_OUTPUT", "")).strip()
+    log = _log_name(case)
+    if log:
+        script.emit("EXPORT_LOG", log)
+    script.emit("CLOSE_FLIGHTSTREAM")
+
+
+def actions_reread_probe(case, script) -> None:
+    """The action re-read probe: an unsteady point with two actions registered.
+
+    GOAL-012 item 7b, PFS-2031.08. Before ``INITIALIZE_SOLVER`` and in this
+    order, a ``COMMAND_LINE`` action running ``actions_probe.cmd`` beside
+    this module, and a ``SCRIPT`` action pointing at ``actions/reread.txt``
+    in the row's simulation folder, whose registration-time text the run
+    layer writes (PFS-2031.13) and which every invocation of the command
+    rewrites. The paths are absolute and derived from this file's location,
+    because nothing documented says which directory the solver runs an
+    action from (RPT-030). The row's ``DELTA_TIME`` and ``TIME_ITERATIONS``
+    keys set the stepping; the loads export at the end is what the assessor
+    judges the point by.
+    """
+    from pyflightstream.script import helpers
+    from tests.tier3_licensed import actions_probe
+
+    script.emit("NEW_SIMULATION")
+    script.emit("OPEN", str(case.geometry))
+    helpers.free_stream(script)
+    helpers.unsteady_solver(
+        script,
+        time_iterations=int(case.variables.get("TIME_ITERATIONS", 8)),
+        delta_time=float(case.variables.get("DELTA_TIME", 0.01)),
+    )
+    helpers.solver_settings(
+        script,
+        vorticity_drag_boundaries="all",
+        aoa=float(case.point.get("alpha", 0.0)),
+        velocity=case.velocity,
+        iterations=case.solver.iterations,
+        convergence=case.solver.convergence,
+    )
+    helpers.unsteady_action(
+        script,
+        name="probe_count",
+        kind="COMMAND_LINE",
+        filename=str(HERE / "actions_probe.cmd"),
+    )
+    helpers.unsteady_action(
+        script,
+        name="probe_reread",
+        kind="SCRIPT",
+        filename=str(actions_probe.ACTION_SCRIPT),
+        action_script=actions_probe.initial_script(),
+    )
+    helpers.initialize_solver(script)
+    helpers.start_solver(script)
+    script.emit("EXPORT_SOLVER_ANALYSIS_SPREADSHEET", case.outputs[0])
+    log = _log_name(case)
     if log:
         script.emit("EXPORT_LOG", log)
     script.emit("CLOSE_FLIGHTSTREAM")

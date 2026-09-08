@@ -365,8 +365,30 @@ SET_NEW_UNSTEADY_SOLVER_ACTION:
     another reading; the reading is
     reports/RPT-030_what-an-unsteady-action-receives_2026-08-19.md and
     it names the probe that would answer it.
+
+    THAT RUN WAS MADE ON 26.123 ON 2026-09-08
+    (reports/RPT-031_script-action-reread-on-26123_2026-09-08.md), and
+    it answers the five things, on that build alone. A SCRIPT action's
+    file is re-read on every invocation, so a program run by an earlier
+    COMMAND_LINE action may rewrite it between steps. The invocation
+    count equals the time-step count exactly and nothing fires before
+    the first step. The action receives no arguments and no
+    solver-named environment variable, and runs from the directory the
+    solver was started in, which is the simulation folder. The solver
+    appends _iteration=<time iteration> to the name of an export made
+    from an action script. 26.122 documents the command in the same
+    words and was not run.
   versions:
     "26.122":
       status: documented
       note: "SRC-750 p.353, the first edition to document it"
-    "26.123": {status: documented, note: "SRC-751 p.353, unchanged from SRC-750 p.353"}
+    "26.123":
+      status: documented
+      note: >-
+        SRC-751 p.353, unchanged from SRC-750 p.353. Run on 2026-09-08 as
+        tests/tier3_licensed/matriz_actions.fs row 6001, eight time steps
+        (reports/RPT-031_script-action-reread-on-26123_2026-09-08.md):
+        SCRIPT action file re-read on every invocation: YES; eight
+        invocations for eight steps, none before the first; no arguments,
+        no solver-named environment, working directory the simulation
+        folder; exports from an action script are stamped _iteration=N.

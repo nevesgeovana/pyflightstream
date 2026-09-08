@@ -59,6 +59,26 @@ FlightStream versions.
   licensed seat can run, and tier 3 is the worked example of how each one is
   set through the workspace.
 
+### Fixed
+
+- **The run writes the child script of a `SCRIPT` action before the solver
+  starts** (PFS-2031.13). `helpers.unsteady_action` has parked the child
+  script "for the run layer to write" since 0.8.0, and nothing in the run
+  layer wrote it, so a `SCRIPT` action registered through the helper named a
+  file that was never there. The run now writes every parked script where
+  the registration line names it, relative to the simulation folder, right
+  after the point script and before the executor is called. Found by the
+  tier-3 action re-read probe row, the first script in this repository to
+  register one.
+
+- **An executable override with no default version is refused naming the
+  option** (PFS-2031.14). `pyfs-matrix plan <matrix> --fs-exe <path>` over a
+  matrix whose every row names a build ended in a bare `StopIteration`: the
+  override overrules the cells and nothing was left to say which version to
+  build for. It is now a `MatrixError` naming the matrix, the override and
+  `--fs-version`. Found by the first pre-flight of the tier-3 actions matrix
+  on the licensed machine.
+
 ## [0.12.0] - 2026-09-04
 
 ### Added
