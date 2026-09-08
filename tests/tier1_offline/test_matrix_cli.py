@@ -290,6 +290,74 @@ def test_post_reruns_from_the_manifest_without_a_solver(tmp_path, capsys):
     assert main(["post", "--workspace", str(workspace.root), "--overwrite"]) == 0
 
 
+# --- PFS-2031.16: one simulation's refusal does not cost the others their products --
+
+
+def test_a_refused_polar_is_recorded_as_skipped_and_the_other_products_are_written(
+    tmp_path, capsys
+):
+    """A polar under sideslip is refused by design (its wind-axis columns are checked
+    at zero sideslip only). Until 2026-09-08 that one refusal aborted the whole
+    products stage: the tier-3 tour's sideslip row left every later row without a
+    table and the workspace without products.json. Now the refusal is a skip the
+    manifest records with its reason, and every other simulation's products land."""
+    import json
+
+    from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
+    from tests.tier1_offline.test_post_products import LOADS
+
+    workspace = CampaignWorkspace.init(tmp_path / "camp")
+    (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
+        '[groups]\n"1" = ["W", "B"]\n', encoding="utf-8"
+    )
+    sideslip = LOADS.replace(
+        "Side-slip angle (Deg)                       .000",
+        "Side-slip angle (Deg)                       -4.000",
+    )
+    assert sideslip != LOADS
+    for sim_id, point, text in (
+        ("3207", {"alpha": -2.0}, LOADS),
+        ("3208", {"alpha": -2.0, "beta": -4.0}, sideslip),
+    ):
+        raw = workspace.sim_dir(sim_id) / "raw"
+        raw.mkdir(parents=True)
+        (raw / "POLAR.txt").write_text(text, encoding="utf-8")
+        workspace.append_record(
+            RunRecord(
+                run_id=f"camp/sim_{sim_id}/{'a-02.0' if sim_id == '3207' else 'a-02.0_b-04.0'}",
+                sim_id=sim_id,
+                point=point,
+                fs_version_requested="26.120",
+                package_version="0.13.0.dev0",
+                script_sha256="",
+                raw_flag=False,
+                status=RunStatus.CONVERGED,
+                outputs=["raw/POLAR.txt"],
+                pproc="p001",
+                description="STEADY_WB",
+                mach=0.2,
+                reference={
+                    "SREF": 50.0,
+                    "CREF": 2.526,
+                    "BREF": 20.0,
+                    "XMOM": 9.152,
+                    "YMOM": 0.0,
+                    "ZMOM": 0.0,
+                },
+            )
+        )
+    assert main(["post", "--workspace", str(workspace.root)]) == 0
+    out = capsys.readouterr()
+    products = workspace.root / "post" / "products"
+    assert (products / "3207_M20_g01.csv").is_file(), "the zero-sideslip simulation's polar"
+    assert not (products / "3208_M20_g01.csv").exists(), "the refused polar is not written"
+    manifest = json.loads((products / "products.json").read_text(encoding="utf-8"))
+    assert manifest["products"]["3207_M20_g01.csv"]["runs"] == ["camp/sim_3207/a-02.0"]
+    assert "3208" in manifest["skipped"]
+    assert "sideslip" in manifest["skipped"]["3208"]
+    assert "3208" in out.err and "sideslip" in out.err, "the skip is said where the user looks"
+
+
 # --- PFS-2029.03: the workspace directory names the campaign -----------------------
 
 

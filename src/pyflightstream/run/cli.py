@@ -446,6 +446,17 @@ def _cmd_post(args: argparse.Namespace) -> int:
         str(workspace.root / "post" / (matrix if matrix else "products")) for matrix in matrices
     )
     print(f"{len(written)} product(s) written under {folders or workspace.root / 'post'}")
+    # A simulation whose product was refused by design is a skip the
+    # manifest records (PFS-2031.16); say it where the user looks.
+    import json
+
+    for matrix in matrices:
+        manifest = workspace.root / "post" / (matrix if matrix else "products") / "products.json"
+        if manifest.is_file():
+            for sim_id, reason in (
+                json.loads(manifest.read_text(encoding="utf-8")).get("skipped", {}).items()
+            ):
+                print(f"skipped simulation {sim_id}: {reason}", file=sys.stderr)
     return 0
 
 

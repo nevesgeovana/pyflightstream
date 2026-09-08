@@ -38,6 +38,7 @@ from __future__ import annotations
 
 import csv
 import math
+import warnings
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -45,7 +46,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from pyflightstream._errors import PyflightstreamError
+from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning
 from pyflightstream.fsi.loads import SectionalLoadsReport, parse_sectional_loads
 from pyflightstream.results import (
     LoadsReport,
@@ -69,6 +70,7 @@ __all__ = [
     "PRODUCTS_MANIFEST",
     "PolarPoint",
     "ProductError",
+    "ProductExistsError",
     "ReferenceValues",
     "group_coefficients",
     "polar_file_name",
@@ -155,6 +157,16 @@ _DECIMALS = 5
 
 class ProductError(PyflightstreamError, ValueError):
     """A product cannot be written from what the run left."""
+
+
+class ProductExistsError(ProductError):
+    """A product exists and ``overwrite`` was not given.
+
+    Its own class because the campaign writer treats it differently from
+    every other refusal (PFS-2031.16): a refusal about one simulation's
+    content is recorded as a skip and the other simulations are written,
+    while this one is about the caller's flag and stops the stage.
+    """
 
 
 @dataclass(frozen=True)
@@ -669,7 +681,7 @@ def _sim_products(
 
     def _target(path: Path) -> Path:
         if path.exists() and not overwrite:
-            raise ProductError(
+            raise ProductExistsError(
                 f"the product {path} exists; pass overwrite (CLI: --overwrite) to rewrite "
                 "it from the manifest"
             )
@@ -747,8 +759,27 @@ def write_campaign_products(
     written: list[Path] = []
     products_index: dict[str, dict[str, object]] = {}
     manifest: dict[str, object] = {"products": products_index}
+    # PFS-2031.16. A simulation whose product is REFUSED by design, the
+    # polar under sideslip among them, is recorded as skipped with the
+    # reason, and the others are written: until 2026-09-08 the first
+    # refusal aborted the stage, and a sideslip row cost every later row
+    # of its matrix its tables and the workspace its products.json. An
+    # existing product without overwrite is still the whole stage's
+    # refusal, since it is about the caller's flag and not about a row.
+    skipped: dict[str, str] = {}
     for sim_id, sim_records in by_sim.items():
-        files, names = _sim_products(workspace, sim_id, sim_records, out, overwrite=overwrite)
+        try:
+            files, names = _sim_products(workspace, sim_id, sim_records, out, overwrite=overwrite)
+        except ProductExistsError:
+            raise
+        except ProductError as error:
+            skipped[sim_id] = str(error)
+            warnings.warn(
+                f"products of simulation {sim_id} not written: {error}",
+                PyflightstreamWarning,
+                stacklevel=2,
+            )
+            continue
         written.extend(files)
         for name, run_ids in names.items():
             products_index[name] = {
@@ -756,7 +787,9 @@ def write_campaign_products(
                 "pproc": sim_records[0].pproc,
                 "runs": run_ids,
             }
-    if written:
+    if skipped:
+        manifest["skipped"] = skipped
+    if written or skipped:
         out.mkdir(parents=True, exist_ok=True)
         (out / PRODUCTS_MANIFEST).write_text(
             json.dumps(manifest, indent=1) + "\n", encoding="utf-8"

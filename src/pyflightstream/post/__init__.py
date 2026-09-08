@@ -35,6 +35,7 @@ Sweep assembly is not here either, it is
 
 from pyflightstream.post.products import (
     ProductError,
+    ProductExistsError,
     ReferenceValues,
     read_csv_table,
     write_campaign_products,
@@ -65,6 +66,7 @@ __all__ = [
     "FrameAverage",
     "OutputProvenance",
     "ProductError",
+    "ProductExistsError",
     "ReferenceValues",
     "TimestepSeries",
     "blade_passage_average",
