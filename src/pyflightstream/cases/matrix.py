@@ -162,6 +162,12 @@ _LAYOUT_0_9_0 = (
 #: a LEGACY row's ``--recipe CODE=...`` still finds its code.
 RECIPE_VARIABLE = "RECIPE"
 
+#: The shape of a recipe REFERENCE as opposed to a recipe CODE: a dotted
+#: module path, a colon, a function name. A RECIPE cell carrying this shape
+#: is the reference itself and needs no mapping (PFS-2031.11); a bare code
+#: such as ``003`` is mapped by ``recipes`` or refused.
+_RECIPE_REFERENCE = re.compile(r"^[A-Za-z_][\w]*(?:\.[A-Za-z_][\w]*)*:[A-Za-z_][\w]*$")
+
 #: The width that preceded ``WORKFLOW``, frozen so a file written under
 #: it is RECOGNISED and refused with the command that fixes it instead of
 #: meeting the generic "this is not a run matrix" message. It is only
@@ -1593,6 +1599,13 @@ def to_campaign(
             recipe = recipes.get(row.script_code, row.workflow) if row.script_code else row.workflow
         elif row.script_code in recipes:
             recipe = recipes[row.script_code]
+        elif _RECIPE_REFERENCE.match(row.script_code or ""):
+            # THE CELL CARRIES THE REFERENCE ITSELF (PFS-2031.11): a matrix
+            # whose LEGACY rows name their recipe as package.module:function
+            # plans and runs with no --recipe option, which is what FR-50
+            # promises of a matrix. A mapping for that same string, if one is
+            # given, wins above, so nothing a user mapped changes meaning.
+            recipe = row.script_code
         else:
             raise MatrixError(
                 f"POL {row.pol} writes {LEGACY_WORKFLOW} and its {RECIPE_VARIABLE} code "
