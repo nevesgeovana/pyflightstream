@@ -413,8 +413,8 @@ def _resolve_build(
     # already knows.
     if any(build.upper() == "MANUAL" for build in effective):
         raise MatrixError(
-            "FS_BUILD is MANUAL, the explicit-path mode: pass fs_exe=... "
-            "(the explicit override path). MANUAL never reads the build registry, "
+            "FS_BUILD is MANUAL, the explicit-path mode: pass fs_exe (CLI: --fs-exe), "
+            "the explicit override path. MANUAL never reads the build registry, "
             "and the executable is never guessed"
         )
     # `dict.fromkeys` rather than `set`, so the registry is read in the
@@ -1075,7 +1075,10 @@ def resolve_matrix(
     ------
     pyflightstream.cases.matrix.MatrixError
         Layout deviations, no active row, MANUAL mode without the
-        explicit override, or a row naming no build with a campaign
+        explicit override, a POL that another matrix of the workspace
+        root states (PFS-2031.04, naming both files and rows), an
+        executable override with no default version and no row build
+        left (PFS-2031.14), or a row naming no build with a campaign
         default that strips to empty. The last is raised before the
         build is selected, so no executable is looked up
         (PFS-2009.08.03). Two FS_BUILD values USED TO BE REFUSED here

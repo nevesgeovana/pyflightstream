@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sys
 import time
 from pathlib import Path
@@ -53,10 +54,16 @@ def initial_script() -> str:
     return export_script("initial")
 
 
-def invocations() -> int:
-    if not LOG.is_file():
+def invocations(sim: Path = SIM) -> int:
+    log = sim / LOG.name
+    if not log.is_file():
         return 0
-    return sum(1 for line in LOG.read_text(encoding="utf-8").splitlines() if line.strip())
+    return sum(1 for line in log.read_text(encoding="utf-8").splitlines() if line.strip())
+
+
+#: An export the rewritten script asked for, named for its invocation count;
+#: the solver appends ``_iteration=<n>`` to the name it was given.
+_NUMBERED = re.compile(rf"^{EXPORT_STEM}_(\d{{3}})(_iteration=\d+)?\.txt$")
 
 
 def invoke() -> int:
@@ -79,12 +86,20 @@ def invoke() -> int:
     return 0
 
 
-def verdict() -> dict[str, object]:
-    """Read the run folder and say what it shows."""
-    exports = sorted(path.name for path in SIM.glob(f"{EXPORT_STEM}_*.txt"))
-    initial = f"{EXPORT_STEM}_initial.txt"
-    numbered = [name for name in exports if name != initial]
-    count = invocations()
+def verdict(sim: Path = SIM) -> dict[str, object]:
+    """Read the run folder and say what it shows.
+
+    The two worlds are told apart by the NAME PATTERN and not by a literal:
+    the solver stamps ``_iteration=<n>`` on every export an action makes,
+    so a NO world holds ``probe_export_initial_iteration=1.txt`` and so on,
+    and a verdict that looked for ``probe_export_initial.txt`` scored that
+    world as YES (review of 2026-09-08). A numbered export is one the
+    rewritten script asked for; an initial export is one the
+    registration-time text asked for.
+    """
+    exports = sorted(path.name for path in sim.glob(f"{EXPORT_STEM}_*.txt"))
+    numbered = [name for name in exports if _NUMBERED.match(name)]
+    count = invocations(sim)
     if count == 0:
         word = "NOT_RUN"
         meaning = (
@@ -117,7 +132,7 @@ def verdict() -> dict[str, object]:
         "meaning": meaning,
         "invocations": count,
         "exports": exports,
-        "simulation_folder": str(SIM),
+        "simulation_folder": str(sim),
     }
 
 

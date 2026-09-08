@@ -1014,20 +1014,40 @@ def resolve_build(
     if not registry_path.is_file():
         raise InputArtifactError(
             f"no executable registry at {registry_path}; register builds as "
-            '"<build_id>" = "<path>" entries in that TOML file, or pass the '
-            "explicit override path. The executable is always explicit input, "
-            "never guessed."
+            '"<build_id>" = "<path>" entries in that TOML file (this machine\'s paths may '
+            f"go in {LOCAL_EXECUTABLES_FILE} beside it, read over the registry, but the "
+            "registry itself must exist), or pass the explicit override path. The "
+            "executable is always explicit input, never guessed."
         )
     table = _load_toml(registry_path, "executables")
     overlay_path = registry_path.with_name(LOCAL_EXECUTABLES_FILE)
+    #: Which file each build id's entry came from, so a refusal about an
+    #: entry names the file the user has to edit (a review of 2026-09-08
+    #: found the overlay's own mistakes reported against the registry).
+    source_of: dict[str, Path] = dict.fromkeys(table, registry_path)
     if overlay_path.is_file():
         for key, local in _load_toml(overlay_path, "executables").items():
             committed = table.get(key)
+            if committed is None:
+                # The committed registry is the declaration of which builds
+                # this workspace knows; the overlay supplies paths for them
+                # and may not add one, or a row would run on one machine
+                # and be refused as unregistered on another from the same
+                # tree, with the file that explains it gitignored.
+                raise InputArtifactError(
+                    f"{overlay_path} supplies build {key!r}, which {registry_path.name} "
+                    f"does not register (registered: "
+                    f"{', '.join(sorted(table)) if table else 'none yet'}). The overlay "
+                    "gives this machine's path for a build the committed registry "
+                    "declares; declare the build there first, with a placeholder path."
+                )
             if isinstance(local, str) and isinstance(committed, dict):
                 table[key] = {**committed, "path": local}
             else:
                 table[key] = local
+            source_of[key] = overlay_path
     entry = table.get(build_id)
+    entry_path = source_of.get(build_id, registry_path)
     if entry is None:
         # BOTH shapes count as registered. Listing only the string entries,
         # which is what this did while a string was the only shape, would
@@ -1044,7 +1064,7 @@ def resolve_build(
         return RegisteredBuild(fs_exe=Path(entry), fs_version=None)
     if not isinstance(entry, dict):
         raise InputArtifactError(
-            f"the registry entry for build {build_id!r} in {registry_path} must be "
+            f"the registry entry for build {build_id!r} in {entry_path} must be "
             f"a path string or a table, got {type(entry).__name__}; write "
             f'"{build_id}" = "C:/path/to/FlightStream.exe" for a build whose scripts '
             f'are emitted under the campaign default version, or "{build_id}" = '
@@ -1054,7 +1074,7 @@ def resolve_build(
     unknown = sorted(key for key in entry if key not in EXECUTABLE_ENTRY_KEYS)
     if unknown:
         raise InputArtifactError(
-            f"the registry entry for build {build_id!r} in {registry_path} carries "
+            f"the registry entry for build {build_id!r} in {entry_path} carries "
             f"key(s) {', '.join(unknown)}, and a build entry reads "
             f"{', '.join(EXECUTABLE_ENTRY_KEYS)} and nothing else. The key is refused "
             "rather than ignored because an ignored one is invisible: a misspelled "
@@ -1066,7 +1086,7 @@ def resolve_build(
     if not isinstance(path_value, str):
         stated = "declares no path" if path_value is None else f"declares path {path_value!r}"
         raise InputArtifactError(
-            f"the registry entry for build {build_id!r} in {registry_path} {stated}, "
+            f"the registry entry for build {build_id!r} in {entry_path} {stated}, "
             "and a table entry must carry path as a string; write "
             f'"{build_id}" = {{ path = "C:/path/to/FlightStream.exe" }}. The '
             "executable is always explicit input, never guessed."
@@ -1076,7 +1096,7 @@ def resolve_build(
         return RegisteredBuild(fs_exe=Path(path_value), fs_version=None)
     if not isinstance(version, str):
         raise InputArtifactError(
-            f"the registry entry for build {build_id!r} in {registry_path} declares "
+            f"the registry entry for build {build_id!r} in {entry_path} declares "
             f"version {version!r} of type {type(version).__name__}, and a FlightStream "
             'version is written as a string: version = "26.123". A bare 26.123 is a '
             "TOML float and loses the three-digit form the canonical identifier is."

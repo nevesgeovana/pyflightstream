@@ -331,7 +331,8 @@ def _build_parser() -> argparse.ArgumentParser:
     post.add_argument(
         "--workspace",
         default=".",
-        help="managed campaign root carrying runs.json and the inputs/ library",
+        help="managed campaign root carrying runs.json and the inputs/ library (default: "
+        "the current directory)",
     )
     post.add_argument(
         "--overwrite",
@@ -427,12 +428,31 @@ def _cmd_post(args: argparse.Namespace) -> int:
 
     workspace = CampaignWorkspace(args.workspace)
     try:
+        records = workspace.read_manifest()
+        if not records:
+            print(
+                f"the manifest {workspace.manifest_path} records no run, so there is nothing "
+                "to rebuild products from; run a matrix first, or check --workspace.",
+                file=sys.stderr,
+            )
+            return 2
+        named = list(dict.fromkeys(record.matrix for record in records))
         if args.matrix is not None:
-            matrices: list[str | None] = [Path(args.matrix).stem]
+            stem = Path(args.matrix).stem
+            if stem not in named:
+                stems = ", ".join(sorted(m for m in named if m)) or "none"
+                print(
+                    f"the manifest of {workspace.root} holds no record of matrix {stem!r}; "
+                    f"the matrices it names are {stems}. Run that matrix first, or name one "
+                    "of those.",
+                    file=sys.stderr,
+                )
+                return 2
+            matrices: list[str | None] = [stem]
         else:
             # Every matrix the manifest names, in first-seen order, and the
             # records naming none as their own group (PFS-2031.04).
-            matrices = list(dict.fromkeys(record.matrix for record in workspace.read_manifest()))
+            matrices = named
         written: list[Path] = []
         for matrix in matrices:
             for stage in post_stages():
@@ -442,16 +462,14 @@ def _cmd_post(args: argparse.Namespace) -> int:
         return 2
     for path in written:
         print(path)
-    folders = ", ".join(
-        str(workspace.root / "post" / (matrix if matrix else "products")) for matrix in matrices
-    )
-    print(f"{len(written)} product(s) written under {folders or workspace.root / 'post'}")
+    folders = ", ".join(str(workspace.products_dir(matrix)) for matrix in matrices)
+    print(f"{len(written)} product(s) written under {folders}")
     # A simulation whose product was refused by design is a skip the
     # manifest records (PFS-2031.16); say it where the user looks.
     import json
 
     for matrix in matrices:
-        manifest = workspace.root / "post" / (matrix if matrix else "products") / "products.json"
+        manifest = workspace.products_dir(matrix) / "products.json"
         if manifest.is_file():
             for sim_id, reason in (
                 json.loads(manifest.read_text(encoding="utf-8")).get("skipped", {}).items()
@@ -629,7 +647,17 @@ def _cmd_run(args: argparse.Namespace, recipes: dict[str, str]) -> int:
     # The matrix's own folder, so several matrices of one workspace keep
     # their own table (PFS-2031.04); the table holds this matrix's records.
     stem = Path(args.matrix).stem
-    target = args.sweep_csv or str(workspace.root / "post" / stem / "sweep.csv")
+    target = args.sweep_csv or str(workspace.sweep_dir(stem) / "sweep.csv")
+    # A record written before 0.13.0 names no matrix and is left out of
+    # this table by design (PFS-2031.04); say so at the moment it happens
+    # rather than leave a shorter table to be discovered.
+    unnamed = sum(1 for record in workspace.read_manifest() if record.matrix is None)
+    if unnamed:
+        print(
+            f"{unnamed} recorded point(s) name no matrix (written before 0.13.0) and are "
+            f"not in this table; their own products live under {workspace.products_dir(None)}",
+            file=sys.stderr,
+        )
     try:
         # `require_loads=False` is the keyword written for exactly this
         # condition: a sweep in which no run yielded coefficients still

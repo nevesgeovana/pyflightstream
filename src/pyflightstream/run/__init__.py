@@ -1742,19 +1742,6 @@ def _check_scheduled_builds(
 SWEEP_TABLE_NAME = "campaign_sweep.csv"
 
 
-def products_root(workspace: CampaignWorkspace, matrix: str | None) -> Path:
-    """Where a campaign's derived files land: ``post/<matrix>/`` or the root.
-
-    PFS-2031.04. A campaign converted from a run matrix keeps its plan,
-    its sweep table and its products under ``post/<matrix stem>/``, so
-    several matrices of one workspace keep their own; a campaign with no
-    matrix, authored in Python or loaded from a file, keeps the historical
-    places: ``plan.json`` in the root, the tables under ``post/``.
-    """
-    root = Path(workspace.root)
-    return root / "post" / matrix if matrix else root
-
-
 def _leave_products(workspace: CampaignWorkspace, matrix: str | None) -> str | None:
     """Write the campaign's products under its products root, never raising.
 
@@ -1765,7 +1752,7 @@ def _leave_products(workspace: CampaignWorkspace, matrix: str | None) -> str | N
     outcome. ``pyfs-matrix post`` is the same writer run by hand, which is
     where an existing product is refused without ``--overwrite``.
     """
-    where = products_root(workspace, matrix) if matrix else Path(workspace.root) / "post"
+    where = workspace.products_dir(matrix)
     try:
         for stage in post_stages():
             stage(workspace, overwrite=True, matrix=matrix)
@@ -1837,8 +1824,7 @@ def _leave_sweep_table(workspace: CampaignWorkspace, matrix: str | None) -> str 
     ``BaseException`` is NOT caught: a ``KeyboardInterrupt`` means the
     operator asked for the process to stop.
     """
-    where = products_root(workspace, matrix) if matrix else Path(workspace.root) / "post"
-    target = where / SWEEP_TABLE_NAME
+    target = workspace.sweep_dir(matrix) / SWEEP_TABLE_NAME
     try:
         target.parent.mkdir(parents=True, exist_ok=True)
         write_table(sweep_table(workspace, require_loads=False, matrix=matrix), target)
@@ -2438,7 +2424,7 @@ def plan_campaign(
     groups = _build_groups(campaign)
     plan_file = None
     if write_plan:
-        plan_file = products_root(workspace, campaign.matrix) / "plan.json"
+        plan_file = workspace.plan_dir(campaign.matrix) / "plan.json"
         payload = {
             "campaign": campaign.name,
             "campaign_name_from": name_from,

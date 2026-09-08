@@ -27,13 +27,12 @@ import datetime as _dt
 import hashlib
 import shutil
 import sys
-import tomllib
 import types
 from pathlib import Path
 
 from pyflightstream.run import LocalExecutor
 from pyflightstream.script import Script
-from pyflightstream.workspace.inputs import write_inventory
+from pyflightstream.workspace.inputs import resolve_build, write_inventory
 from tests.tier3_licensed import recipes
 
 HERE = Path(__file__).resolve().parent
@@ -62,16 +61,20 @@ LOCAL_EXECUTABLES = INPUTS / "executables.local.toml"
 
 
 def executable(build: str = BUILD) -> Path:
-    """The solver of ``build`` on this machine, from the gitignored local file."""
+    """The solver of ``build`` on this machine, the way every row resolves it.
+
+    Through the package's own registry reader, so the overlay is read over
+    the committed registry with the precedence ``pyfs-matrix`` applies and
+    not a second one written here; the local file is named in the refusal
+    because it is the one a fresh machine has to write.
+    """
     if not LOCAL_EXECUTABLES.is_file():
         raise RuntimeError(
             f"no {LOCAL_EXECUTABLES.name} in the tier-3 inputs/ folder: write one naming this "
             f'machine\'s installation, \'"{build}" = "<path>"\', gitignored like every '
             "machine path; pyfs-matrix reads the same file over inputs/executables.toml"
         )
-    registry = tomllib.loads(LOCAL_EXECUTABLES.read_text(encoding="utf-8"))
-    entry = registry[build]
-    return Path(entry["path"] if isinstance(entry, dict) else entry)
+    return resolve_build(INPUTS, build).fs_exe
 
 
 def prepare_script(shape: str, output_name: str) -> Script:
@@ -88,6 +91,8 @@ def _sha256(path: Path) -> str:
 
 def prepare(shape: str, *, build: str = BUILD, timeout_s: float = 600.0) -> Path:
     """Generate, import and save one shape into the library; return the file."""
+    if shape not in FILES:
+        raise ValueError(f"shape {shape!r} names no synthetic shape; one of {', '.join(FILES)}")
     target = LIBRARY / FILES[shape]
     if target.exists():
         return target

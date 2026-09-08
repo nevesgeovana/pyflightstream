@@ -3418,6 +3418,40 @@ def test_a_case_whose_declared_outputs_are_absent_is_judged_over_the_folder(tmp_
     assert "several of them parse" in (LoadsAssessor()(case, None, tmp_path).error or "")
 
 
+# --- PFS-2031.04: a registered post stage receives the matrix keyword -----------------
+
+
+def test_a_registered_post_stage_receives_the_workspace_the_overwrite_flag_and_the_matrix(
+    tmp_path,
+):
+    """The post-stage contract since PFS-2031.04 (review of 2026-09-08): the campaign
+    loop calls every registered stage with the workspace, overwrite=True and the
+    matrix stem of the campaign, None for one authored in Python."""
+    from pyflightstream.workspace import _POST_STAGES, register_post_stage
+
+    calls = []
+
+    def spy_stage(workspace, *, overwrite=False, matrix=None):
+        calls.append((workspace.root, overwrite, matrix))
+        return []
+
+    register_post_stage(spy_stage)
+    try:
+        campaign = make_campaign(tmp_path, alphas=(0.0,))
+        workspace = CampaignWorkspace(tmp_path / "camp")
+        run_campaign(
+            campaign,
+            StubSolver(WRITES_LOADS),
+            workspace,
+            assess=converged,
+            recipes={"steady": steady_recipe},
+        )
+    finally:
+        _POST_STAGES.remove(spy_stage)
+    assert calls == [(workspace.root, True, None)]
+    assert campaign.matrix is None
+
+
 # --- PFS-2031.13: the run writes the child script of a SCRIPT action ---------------
 
 

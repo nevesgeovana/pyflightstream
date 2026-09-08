@@ -23,7 +23,8 @@ FlightStream versions.
   and assert per row what the cell was meant to reach. Tier 1 keeps the
   offline control: every matrix plans READY and every rendered script equals
   its golden, and seven plan-time refusals are asserted over a copy of the
-  library. The new page `docs/tiers.md` walks it; the README, CONTRIBUTING
+  library, six one-row matrices and one second matrix stating a POL the tour
+  states. The new page `docs/tiers.md` walks it; the README, CONTRIBUTING
   and the guide name the three tiers by their folders.
 
 - **A `LEGACY` row may name its recipe in the cell**, as
@@ -50,8 +51,12 @@ FlightStream versions.
   carries placeholder paths, because an installation path is machine
   configuration, and the gitignored overlay beside it supplies the real path
   of a build id. A bare local path keeps the committed entry's declared
-  version, a local table replaces the entry, and a build id the overlay is
-  silent on reads as committed. Found by the tier-3 tour, whose second-build
+  version, a local table replaces the entry, a build id the overlay is
+  silent on reads as committed, and a build id the committed registry does
+  not declare is refused naming both files, so a row cannot run on one
+  machine and be unregistered on another from the same tree. A refusal
+  about an entry names the file the entry came from. Found by the tier-3
+  tour, whose second-build
   row could reach the second installation only through the override, which
   overrules every row.
 
@@ -70,9 +75,16 @@ FlightStream versions.
   with `products.json` from `post/products/` to `post/<stem>/`. `runs.json`
   stays the one manifest, and every record now names the matrix its point
   came from (`matrix`), which is what `sweep_table(..., matrix=)` and
-  `write_campaign_products(..., matrix=)` filter by. A campaign authored in
-  Python or loaded from a file has no matrix and keeps the previous places.
-  The reason is the tier-3 workspace, which holds five matrices over one
+  `write_campaign_products(..., matrix=)` filter by, and both refuse a stem
+  the manifest never recorded naming the stems it does; `pyfs-matrix post`
+  refuses the same way, and refuses an empty manifest naming `runs.json`.
+  A campaign authored in Python or loaded from a file has no matrix and
+  keeps the previous places, which `CampaignWorkspace.plan_dir`, `sweep_dir`
+  and `products_dir` state in one place. A registered post stage is now
+  called with a third keyword, `matrix`; a stage written to the earlier
+  two-argument shape fails with a `TypeError` naming it, and
+  `register_post_stage`'s contract says so.
+  The reason is the tier-3 workspace, which holds six matrices over one
   library and could not keep their tables apart.
 
 - **The test suite is organized by tier**, explicitly: `tests/tier1_offline`

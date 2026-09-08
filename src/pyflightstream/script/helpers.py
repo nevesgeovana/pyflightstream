@@ -2732,10 +2732,11 @@ def unsteady_action(
         The path the registration line names, passed through unchanged.
         NOTHING IN EITHER MANUAL EDITION SAYS WHICH DIRECTORY THE SOLVER
         RUNS AN ACTION FROM (RPT-030), so this helper neither resolves
-        nor rewrites it. Measured on 26.123 (RPT-031): the action runs
-        from the directory the solver was started in, the simulation
-        folder; a relative path resolves there on that build, and an
-        absolute one does not depend on it.
+        nor rewrites it. Measured on 26.123 (RPT-041, the script-action
+        re-read probe): the action runs from the directory the solver was
+        started in, the simulation folder. That a relative path resolves
+        there follows from it and was not measured; the probe used
+        absolute paths.
     action_script : str, optional
         Text of the child FlightStream script, parked on the script for
         the run layer to write at ``filename``. Only for ``SCRIPT``
@@ -2768,7 +2769,8 @@ def unsteady_action(
     has to behave differently on different steps therefore needs state
     of its own, and the correctness of that route rests on the
     invocation count being exactly the step count. MEASURED ON 26.123
-    (RPT-031, 2026-09-08): a SCRIPT action's file is re-read on every
+    (RPT-041, the script-action re-read probe, 2026-09-08): a SCRIPT
+    action's file is re-read on every
     invocation, the count is exactly the step count with nothing before
     the first step, the action gets no arguments and no solver-named
     environment, runs from the simulation folder, and an export it makes

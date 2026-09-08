@@ -576,11 +576,42 @@ SYNTHETIC_GEOMETRY_ALLOWLIST = {
 SYNTHETIC_LIBRARY = "tests/tier3_licensed/inputs/geometries/"
 
 
-def _geometry_offenses(relative_posix_paths):
+def _read_tracked(path):
+    """The bytes of one tracked path, or None when it is not on disk."""
+    target = REPO_ROOT / path
+    return target.read_bytes() if target.is_file() else None
+
+
+def _provenance_admits(fsm_bytes, record_bytes):
+    """Whether a provenance record admits the saved simulation beside it.
+
+    The record must parse as TOML, name the generator and the build, and
+    carry the sha256 of the file's own bytes; a record that exists and says
+    nothing, or says it of another file, admits nothing (review of
+    2026-09-08: the guard used to admit on the sidecar's existence alone).
+    """
+    import hashlib
+    import tomllib
+
+    if fsm_bytes is None or record_bytes is None:
+        return False
+    try:
+        record = tomllib.loads(record_bytes.decode("utf-8"))
+    except (UnicodeDecodeError, tomllib.TOMLDecodeError):
+        return False
+    for key in ("generator", "build", "sha256"):
+        if not isinstance(record.get(key), str) or not record[key].strip():
+            return False
+    return record["sha256"].strip().lower() == hashlib.sha256(fsm_bytes).hexdigest()
+
+
+def _geometry_offenses(relative_posix_paths, read=_read_tracked):
     """Tracked paths carrying a geometry extension without an allowlist entry.
 
     Factored out so the tree scan and the mutation proof run the SAME code,
-    for the reason ``_names_the_author`` states above.
+    for the reason ``_names_the_author`` states above. ``read`` returns the
+    bytes of a path, so the mutation proof can hand the guard a record
+    whose content it controls.
     """
     paths = list(relative_posix_paths)
     tracked = set(paths)
@@ -589,7 +620,8 @@ def _geometry_offenses(relative_posix_paths):
         if path in SYNTHETIC_GEOMETRY_ALLOWLIST:
             return True
         if path.startswith(SYNTHETIC_LIBRARY) and path.lower().endswith(".fsm"):
-            return path[: -len(".fsm")] + ".provenance.toml" in tracked
+            record = path[: -len(".fsm")] + ".provenance.toml"
+            return record in tracked and _provenance_admits(read(path), read(record))
         return False
 
     return sorted(
@@ -652,18 +684,48 @@ def test_the_geometry_guard_fires_on_what_it_exists_to_catch():
 
 def test_a_tier3_saved_simulation_is_admitted_only_with_its_provenance_record():
     """The library rule of GOAL-012: a ``.fsm`` under the tier-3 library is
-    admitted with its provenance record tracked beside it and refused without
-    one, and the same file anywhere else is refused with or without one."""
+    admitted with its provenance record tracked beside it, naming the generator
+    and the build and carrying the file's own sha256, and refused without one,
+    with an empty one, or with one whose digest is another file's; the same file
+    anywhere else is refused with or without a record."""
+    import hashlib
+
     fsm = SYNTHETIC_LIBRARY + "10_WING.fsm"
     record = SYNTHETIC_LIBRARY + "10_WING.provenance.toml"
-    assert _geometry_offenses([fsm, record]) == []
-    assert _geometry_offenses([fsm]) == [fsm]
+    mesh = b"$MESH_START synthetic bytes $MESH_END"
+    digest = hashlib.sha256(mesh).hexdigest()
+    good = f'generator = "tests.tier3_licensed.recipes"\nbuild = "26.120"\nsha256 = "{digest}"\n'
+    flipped = digest[:-1] + ("0" if digest[-1] != "0" else "1")
+
+    def reader(files):
+        return lambda path: files.get(path)
+
+    assert _geometry_offenses([fsm, record], read=reader({fsm: mesh, record: good.encode()})) == []
+    assert _geometry_offenses([fsm], read=reader({fsm: mesh})) == [fsm]
+    assert _geometry_offenses([fsm, record], read=reader({fsm: mesh, record: b""})) == [fsm]
+    other = good.replace(digest, flipped)
+    assert _geometry_offenses([fsm, record], read=reader({fsm: mesh, record: other.encode()})) == [
+        fsm
+    ], "a record carrying another file's digest admits nothing"
+    unsigned = good.replace(f'sha256 = "{digest}"\n', "")
+    assert _geometry_offenses(
+        [fsm, record], read=reader({fsm: mesh, record: unsigned.encode()})
+    ) == [fsm]
     elsewhere = "tests/tier1_offline/fixtures/10_WING.fsm"
     assert _geometry_offenses(
-        [elsewhere, "tests/tier1_offline/fixtures/10_WING.provenance.toml"]
+        [elsewhere, "tests/tier1_offline/fixtures/10_WING.provenance.toml"],
+        read=reader({elsewhere: mesh}),
     ) == [elsewhere]
     stl = SYNTHETIC_LIBRARY + "wing.stl"
     assert _geometry_offenses([stl, SYNTHETIC_LIBRARY + "wing.provenance.toml"]) == [stl]
+    # And the live library: every committed saved simulation is admitted by
+    # its own record read from disk, which is the digest check the records
+    # were written for (prepare.py) and nothing read back until now.
+    library = sorted(
+        str(p.relative_to(REPO_ROOT).as_posix()) for p in (REPO_ROOT / SYNTHETIC_LIBRARY).glob("*")
+    )
+    assert any(p.endswith(".fsm") for p in library)
+    assert _geometry_offenses(library) == []
 
 
 # --- The container directory's absolute path (PYFS-023) --------------------

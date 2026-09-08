@@ -37,6 +37,7 @@ converted to this shape outside the package: 32 of 32 equal on 2026-09-03.
 from __future__ import annotations
 
 import csv
+import json
 import math
 import warnings
 from collections.abc import Mapping, Sequence
@@ -56,6 +57,7 @@ from pyflightstream.results import (
     parse_loads,
     parse_unsteady_plots,
 )
+from pyflightstream.workspace import RunStatus
 
 if TYPE_CHECKING:
     from pyflightstream.workspace import CampaignWorkspace, RunRecord
@@ -65,8 +67,6 @@ __all__ = [
     "POLAR_COLUMNS",
     "SECTION_COLUMNS",
     "GroupCoefficients",
-    "PRODUCTS_MANIFEST",
-    "PRODUCTS_MANIFEST",
     "PRODUCTS_MANIFEST",
     "PolarPoint",
     "ProductError",
@@ -746,12 +746,19 @@ def write_campaign_products(
     ``post/products``, the historical place of a campaign authored in
     Python.
     """
-    import json
-
-    from pyflightstream.workspace import RunStatus
-
-    records = [record for record in workspace.read_manifest() if record.matrix == matrix]
-    out = Path(workspace.root) / "post" / (matrix if matrix else "products")
+    everything = workspace.read_manifest()
+    records = [record for record in everything if record.matrix == matrix]
+    if matrix is not None and not records:
+        # The same refusal sweep_table gives the same keyword (PFS-2031.04):
+        # a stem the manifest never recorded is a typo or a matrix not yet
+        # run, and an empty product folder would say neither.
+        stems = sorted({r.matrix for r in everything if r.matrix})
+        raise ProductError(
+            f"the manifest of {workspace.root} holds no record of matrix {matrix!r}; the "
+            f"matrices it names are {', '.join(stems) if stems else 'none'}. Run that matrix "
+            "first, or name one of those."
+        )
+    out = workspace.products_dir(matrix)
     by_sim: dict[str, list[RunRecord]] = {}
     for record in records:
         if record.status in (RunStatus.CONVERGED, RunStatus.COMPLETED_MAX_ITER):

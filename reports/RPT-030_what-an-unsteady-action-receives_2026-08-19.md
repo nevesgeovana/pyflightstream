@@ -2,7 +2,7 @@
 
 Amendment of 2026-09-08: the licensed run this report names under "What
 follows, and it costs a seat" was made on 26.123 and is
-`RPT-031_script-action-reread-on-26123_2026-09-08.md`. It answers the
+`RPT-041_script-action-reread-on-26123_2026-09-08.md`. It answers the
 four parts below on that build (no arguments, the simulation folder as
 working directory, no step index passed but an `_iteration=N` stamp on
 an export's name, no solver-named environment) and the count (exactly

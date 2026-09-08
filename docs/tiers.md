@@ -79,7 +79,7 @@ line but the matrix and the workspace.
 | `matriz_time.fs` | one rotor at six step sizes, 30 down to 2.5 deg, one wing at two | 3001 to 3006, 3010 and 3011 |
 | `matriz_geometry.fs` | one condition, three shapes | 4001 the wing, 4002 its mirrored half, 4003 the body |
 | `matriz_physics.fs` | the qa physics cases as rows | 5001 PHY-01, 5002 and 5003 PHY-02, 5005 PHY-05, 5006 PHY-06 |
-| `matriz_actions.fs` | the action re-read probe | 6001 on 26.123, RPT-031 |
+| `matriz_actions.fs` | the action re-read probe | 6001 on 26.123, RPT-041 the script-action re-read probe |
 
 Each matrix keeps its own `plan.json`, `sweep.csv` and products under
 `post/<matrix stem>/` (PFS-2031.04); `runs.json` holds every point of
@@ -114,8 +114,9 @@ workspace with the package and compares every rendered script to its
 golden under `tests/tier3_licensed/goldens/`, with the workspace path
 replaced by `<tier3>`, so a change in the package that moves a tier-3
 script is seen on the row it moves before any seat is spent; and it
-plans the refusals, one-row matrices over a copy of the library, each
-asserting that the workspace refuses the row naming the cause. Regenerate
+plans the refusals, six one-row matrices over a copy of the library and
+one second matrix stating a POL the tour states, each asserting that the
+workspace refuses the row naming the cause. Regenerate
 the goldens when a script is meant to move:
 
 ```text

@@ -3429,6 +3429,47 @@ def test_a_local_registry_overlay_supplies_this_machines_paths(tmp_path):
     assert untouched.fs_exe == Path("FlightStream_26121.exe"), "an entry the overlay is silent on"
 
 
+def test_the_overlay_may_not_register_a_build_the_committed_registry_lacks(tmp_path):
+    """Review of 2026-09-08: the overlay could add a build id, so a row ran on one
+    machine and was refused as unregistered on another from the same tree, with the
+    file that explained it gitignored. It is refused naming both files."""
+    from pyflightstream.workspace.inputs import resolve_build
+
+    workspace = make_library(tmp_path)
+    inputs = workspace.inputs_dir
+    (inputs / "executables.toml").write_text(
+        '"26.120" = "FlightStream_26120.exe"\n', encoding="utf-8"
+    )
+    (inputs / "executables.local.toml").write_text(
+        '"26.130" = "C:/local/fs26130/FlightStream.exe"\n', encoding="utf-8"
+    )
+    with pytest.raises(InputArtifactError) as caught:
+        resolve_build(inputs, "26.120")
+    message = str(caught.value)
+    assert "executables.local.toml" in message and "26.130" in message, message
+    assert "executables.toml" in message
+
+
+def test_a_refusal_about_an_overlay_entry_names_the_overlay(tmp_path):
+    """A mistake in executables.local.toml used to be reported against
+    executables.toml, the file that was correct."""
+    from pyflightstream.workspace.inputs import resolve_build
+
+    workspace = make_library(tmp_path)
+    inputs = workspace.inputs_dir
+    (inputs / "executables.toml").write_text(
+        '"26.123" = { path = "FlightStream_26123.exe", version = "26.123" }\n',
+        encoding="utf-8",
+    )
+    (inputs / "executables.local.toml").write_text(
+        '"26.123" = { path = "C:/local/FlightStream.exe", verison = "26.123" }\n',
+        encoding="utf-8",
+    )
+    with pytest.raises(InputArtifactError) as caught:
+        resolve_build(inputs, "26.123")
+    assert "executables.local.toml" in str(caught.value), str(caught.value)
+
+
 # --- PFS-2031.14: the override with no default version is refused, not crashed ---
 
 

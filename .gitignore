@@ -110,6 +110,8 @@ CONTRIBUTING.md
 # preparation recipe regenerates on every build.
 tests/tier3_licensed/_generated/
 tests/tier3_licensed/inputs/executables.local.toml
+# The same file in any workspace this tree may hold: its content is machine paths.
+**/executables.local.toml
 tests/tier3_licensed/sims/
 tests/tier3_licensed/post/
 tests/tier3_licensed/archive/

@@ -47,7 +47,13 @@ def _point(runs, record) -> PointResult:
 def _judge(case_id: str, metrics: dict[str, float]) -> dict[str, Verdict]:
     reference = load_reference(case_id)
     assert reference is not None, f"no committed reference for {case_id}"
+    assert metrics, f"{case_id}: no metric was reduced, so nothing was judged"
+    assert set(metrics) == set(reference.metrics), (
+        f"{case_id}: the row reduces {sorted(metrics)} and the reference judges "
+        f"{sorted(reference.metrics)}; every metric of the reference is judged, not fewer"
+    )
     verdicts = compare_metrics(metrics, reference)
+    assert all(v in (Verdict.PASS, Verdict.WARN) for v in verdicts.values()), verdicts
     failed = {
         name: (metrics[name], reference.metrics[name].value)
         for name, v in verdicts.items()

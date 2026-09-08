@@ -393,7 +393,8 @@ class UnsteadyActionUse(BaseModel):
         which working directory the solver runs an action from
         (RPT-030), so this library records the caller's own string and
         claims nothing about how the solver resolves it. On 26.123 the
-        action was measured to run from the simulation folder (RPT-031).
+        action was measured to run from the simulation folder (RPT-041, the
+        script-action re-read probe).
     evidence : str or None
         Recorded status of the command on the script's build
         (``documented``, ``verified``, ``broken``), or None where the

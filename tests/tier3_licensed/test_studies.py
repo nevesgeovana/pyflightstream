@@ -90,10 +90,14 @@ def test_the_time_study_states_the_rotor_clock_in_azimuth_steps(runs):
         "3006": (2.5, 72),
     }
     deltas = {}
-    for pol, (_theta, steps) in expected.items():
+    for pol, (theta, steps) in expected.items():
         script = runs.script(runs.one("matriz_time", pol, alpha=0.0, beta=0.0))
         assert line(script, "TIME_ITERATIONS") == f"TIME_ITERATIONS {steps}", pol
         deltas[pol] = float(line(script, "DELTA_TIME").split()[1])
+        # The DELTA_THETA cell reaches the script as a time step: a degree
+        # lasts 1 / (6 rpm) s at the rotor speed the same script states.
+        rpm = float(line(script, "SET_MOTION_ROTOR_RPM").split()[2])
+        assert abs(deltas[pol] * 6.0 * rpm - theta) < 1e-6, (pol, theta, deltas[pol], rpm)
         assert line(script, "SYMMETRY") == "SYMMETRY PERIODIC 6"
     # half a revolution every time: steps x delta is the same wall of azimuth
     spans = {pol: expected[pol][1] * deltas[pol] for pol in expected}
@@ -121,8 +125,8 @@ def test_the_time_study_sequence_is_recorded_for_her_to_read(runs):
         for pol in ("3002", "3003", "3004", "3005", "3006")
     ]
     lift = [runs.total(runs.one("matriz_time", pol, alpha=2.0))["CL"] for pol in ("3010", "3011")]
-    assert all(isinstance(value, float) for value in thrust + lift)
     assert len({round(value, 7) for value in thrust}) == 5, "five step sizes, five answers"
+    assert round(lift[0], 7) != round(lift[1], 7), "two step sizes, two answers"
 
 
 # --- matriz_geometry.fs: one condition, three shapes -------------------------------

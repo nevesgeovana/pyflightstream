@@ -1607,11 +1607,16 @@ def to_campaign(
             # given, wins above, so nothing a user mapped changes meaning.
             recipe = row.script_code
         else:
+            stated = (
+                f"code {row.script_code!r} has no recipe mapping"
+                if row.script_code
+                else "cell is empty"
+            )
             raise MatrixError(
-                f"POL {row.pol} writes {LEGACY_WORKFLOW} and its {RECIPE_VARIABLE} code "
-                f"{row.script_code!r} has no recipe mapping; a LEGACY row is built by a "
-                "function of your own: map the code with recipes={code: "
-                "'package.module:function'} in Python, or --recipe "
+                f"POL {row.pol} writes {LEGACY_WORKFLOW} and its {RECIPE_VARIABLE} {stated}; "
+                "a LEGACY row is built by a function of your own: write the reference itself "
+                f"in the cell, {RECIPE_VARIABLE}: package.module:function, or map the code "
+                "with recipes={code: 'package.module:function'} in Python, or --recipe "
                 "CODE=package.module:function on the pyfs-matrix command line. A row "
                 "that wants a run type this package builds itself writes the type in "
                 f"its WORKFLOW cell instead, one of: {', '.join(workflow_names())}"

@@ -358,6 +358,35 @@ def test_a_refused_polar_is_recorded_as_skipped_and_the_other_products_are_writt
     assert "3208" in out.err and "sideslip" in out.err, "the skip is said where the user looks"
 
 
+def test_post_refuses_a_matrix_the_manifest_never_recorded_and_an_empty_manifest(tmp_path, capsys):
+    """Review of 2026-09-08: a mistyped matrix stem printed "0 product(s) written" and
+    exited 0. The refusal names the stems the manifest does name, and a workspace
+    with no run names runs.json."""
+    from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
+
+    workspace = CampaignWorkspace.init(tmp_path / "camp")
+    assert main(["post", "--workspace", str(workspace.root)]) == 2
+    assert "records no run" in capsys.readouterr().err
+    workspace.append_record(
+        RunRecord(
+            run_id="camp/sim_3207/a-02.0",
+            sim_id="3207",
+            point={"alpha": -2.0},
+            matrix="matriz_physics",
+            fs_version_requested="26.120",
+            package_version="0.13.0.dev0",
+            script_sha256="",
+            raw_flag=False,
+            status=RunStatus.CONVERGED,
+            outputs=[],
+        )
+    )
+    assert main(["post", "matriz_phyics.fs", "--workspace", str(workspace.root)]) == 2
+    err = capsys.readouterr().err
+    assert "matriz_phyics" in err and "matriz_physics" in err, err
+    assert not (workspace.root / "post" / "matriz_phyics").exists()
+
+
 # --- PFS-2029.03: the workspace directory names the campaign -----------------------
 
 

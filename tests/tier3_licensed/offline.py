@@ -14,6 +14,15 @@ script on purpose.
 A path in a rendered script is the workspace's own (the staged geometry), so
 the goldens are compared with every absolute path of this folder replaced by
 ``<tier3>``; a clone elsewhere then reads the same golden.
+
+THE GOLDEN IS THE PLAN-TIME RENDER, NOT THE RUN'S BYTES, and the two differ
+in two known ways ``pyflightstream.run._plan_point`` states beside its own
+render: the plan renders ``OPEN <library path>`` where the run renders
+``OPEN <staged copy>``, and the run writes the script in text mode, so the
+solver's bytes carry CRLF where ``render()`` returns LF. The golden pins
+what the builders emit for a row; what the solver received is read from
+``sims/<sim>/scripts/`` by the tier-3 tests (``conftest.Runs.script``),
+which is a different artifact under a similar name.
 """
 
 from __future__ import annotations
@@ -91,8 +100,13 @@ def golden_of(matrix: Path, stem: str) -> Path:
     return GOLDENS / matrix.stem / f"{stem}.txt"
 
 
-def compare(matrix: Path) -> tuple[int, list[str], list[str]]:
-    """Return (points, scripts without a golden, scripts differing from theirs)."""
+def compare(matrix: Path) -> tuple[int, list[str], list[str], list[str]]:
+    """Return (points, scripts without a golden, scripts differing, orphan goldens).
+
+    An orphan is a golden no rendered point produced, left behind when a row
+    is renumbered, deactivated or deleted; it is reported so the goldens
+    folder cannot quietly carry a script of a row that no longer exists.
+    """
     count, rendered = render(matrix)
     absent, differ = [], []
     for stem, text in rendered.items():
@@ -101,7 +115,13 @@ def compare(matrix: Path) -> tuple[int, list[str], list[str]]:
             absent.append(stem)
         elif golden.read_text(encoding="utf-8").replace("\r\n", "\n") != text:
             differ.append(stem)
-    return count, absent, differ
+    folder = GOLDENS / matrix.stem
+    orphans = (
+        sorted(p.stem for p in folder.glob("*.txt") if p.stem not in rendered)
+        if folder.is_dir()
+        else []
+    )
+    return count, absent, differ, orphans
 
 
 def write_goldens(matrix: Path) -> int:
@@ -121,11 +141,11 @@ def main(argv: list[str] | None = None) -> int:
         if write:
             print(f"{matrix.name}: {write_goldens(matrix)} points written")
             continue
-        count, absent, differ = compare(matrix)
-        bad += len(absent) + len(differ)
+        count, absent, differ, orphans = compare(matrix)
+        bad += len(absent) + len(differ) + len(orphans)
         print(
             f"{matrix.name}: {count} points, {len(absent)} without a golden, "
-            f"{len(differ)} differing"
+            f"{len(differ)} differing, {len(orphans)} orphan golden(s)"
         )
     return 1 if bad else 0
 

@@ -1,4 +1,4 @@
-# RPT-031: a SCRIPT action re-reads its file on every time step, measured on 26.123 (2026-09-08)
+# RPT-041: a SCRIPT action re-reads its file on every time step, measured on 26.123 (2026-09-08)
 
 The licensed run that RPT-030 named and could not make. One row of the
 tier-3 workspace, `tests/tier3_licensed/matriz_actions.fs` row 6001,
@@ -97,8 +97,9 @@ holds eight records, invocations 1 to 8, about 0.2 s apart.
 4. **The four RPT-030 silences, answered on this build:**
    * Arguments: none. The argument vector of every invocation is empty.
    * Working directory: the simulation folder, which is the directory the
-     executor started the solver in. A relative path inside an action
-     resolves there; the probe used absolute paths and did not depend on it.
+     executor started the solver in, read from the record each invocation
+     wrote. That a relative path inside an action would resolve there
+     FOLLOWS from it and was not measured: the probe used absolute paths.
    * Step index or physical time: not passed. The stamp of finding 3 is the
      one place the solver states the step to an action, and it is on the
      export name, not in the invocation.

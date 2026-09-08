@@ -218,6 +218,10 @@ _EXECUTABLES_TEMPLATE = """\
 # resolve_executable(build_id) reads the path and resolve_build(build_id)
 # reads both; an explicit override path is the only way to run an
 # unregistered build, and it declares no version either.
+#
+# A workspace kept in version control keeps placeholder paths here and this
+# machine's real ones in executables.local.toml beside this file, which is
+# read over it for the same build ids and belongs in .gitignore.
 """
 
 
@@ -279,8 +283,12 @@ BrokenCommandRecord.__pydantic_config__ = ConfigDict(extra="allow")  # type: ign
 
 
 #: THE POST STAGES A RUN LEAVES BEHIND IT (PFS-2029.15.03). A stage is a
-#: callable taking the workspace and ``overwrite`` and returning the paths
-#: it wrote. The post layer sits ABOVE the run layer, since engineering
+#: callable taking the workspace, ``overwrite`` and, since PFS-2031.04,
+#: ``matrix`` (the stem of the run matrix whose records it writes for, or
+#: None for the records that name none), and returning the paths it wrote.
+#: Every caller passes the third keyword, so a stage written to the earlier
+#: two-argument shape fails with a TypeError naming it.
+#: The post layer sits ABOVE the run layer, since engineering
 #: data derives from runs, so the run cannot import it; the post layer
 #: registers its stage here at import time and the run calls whatever is
 #: registered. This module shares the run layer's row of the layer table,
@@ -1400,6 +1408,33 @@ class CampaignWorkspace:
             this delegates to, which carries the full refusal rules.
         """
         return resolve_build(self.inputs_dir, build_id, override=override)
+
+    # --- Where a matrix's derived files land (PFS-2031.04) --------------------
+    #
+    # ONE HOME FOR THE RULE. A campaign converted from a run matrix keeps its
+    # plan, its sweep tables and its products under ``post/<matrix stem>/``,
+    # so several matrices of one workspace keep their own. A campaign with
+    # no matrix (authored in Python, loaded from a file, or recorded before
+    # 0.13.0) keeps the historical places, which are three and not one:
+    # ``plan.json`` in the root, the run's sweep table under ``post/``, the
+    # products under ``post/products/``. The three methods say which; a
+    # caller spelling the rule itself is the defect a review found five
+    # times over on 2026-09-08.
+
+    def plan_dir(self, matrix: str | None) -> Path:
+        """Where ``plan.json`` lands: ``post/<matrix>/``, or the root without a matrix."""
+        return self.root / "post" / matrix if matrix else self.root
+
+    def sweep_dir(self, matrix: str | None) -> Path:
+        """Where the sweep tables land: ``post/<matrix>/``, or ``post/`` without a matrix."""
+        return self.root / "post" / matrix if matrix else self.root / "post"
+
+    def products_dir(self, matrix: str | None) -> Path:
+        """Where the products and ``products.json`` land: ``post/<matrix>/`` or ``post/products/``.
+
+        The matrix-less fallback is the historical products folder.
+        """
+        return self.root / "post" / (matrix if matrix else "products")
 
     def sim_dir(self, sim_id: str) -> Path:
         """Return the managed folder of one simulation.

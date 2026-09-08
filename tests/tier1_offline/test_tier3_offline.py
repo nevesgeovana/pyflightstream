@@ -151,7 +151,10 @@ def test_the_workspace_refuses_a_pol_the_tour_already_states(tmp_path):
 
 @pytest.mark.parametrize("matrix", MATRICES, ids=[m.name for m in MATRICES])
 def test_every_tier3_script_equals_its_golden(matrix):
-    count, absent, differ = offline.compare(matrix)
+    """The golden is the PLAN-TIME render of the builders (offline.py says how it
+    differs from the bytes the solver receives); this pins what a row's cells make
+    the builders emit, and an orphan golden is a row that no longer exists."""
+    count, absent, differ, orphans = offline.compare(matrix)
     assert not absent, (
         f"{len(absent)} of {count} scripts have no golden: {absent[:4]}; regenerate with "
         "python -m tests.tier3_licensed.offline --write"
@@ -160,3 +163,33 @@ def test_every_tier3_script_equals_its_golden(matrix):
         f"{len(differ)} of {count} scripts differ from their golden: {differ[:4]}; a moved "
         "script is either a defect or a golden to regenerate, and the diff says which"
     )
+    assert not orphans, f"goldens of no rendered point: {orphans[:4]}; delete them"
+
+
+# --- the probe's verdict discriminates its two worlds (review of 2026-09-08) --------
+
+
+def test_the_probe_verdict_says_no_when_only_the_registration_text_ever_ran(tmp_path):
+    """The solver stamps _iteration=N on every export an action makes, so the
+    registration-time export of a NO world is probe_export_initial_iteration=N.txt
+    and not probe_export_initial.txt; a verdict that told the two worlds apart by
+    that literal name scored the NO world as YES."""
+    from tests.tier3_licensed import actions_probe
+
+    def world(name, exports):
+        sim = tmp_path / name
+        sim.mkdir()
+        (sim / "actions_probe.log").write_text("{}\n" * 8, encoding="utf-8")
+        for export in exports:
+            (sim / export).write_text("", encoding="utf-8")
+        return sim
+
+    yes = world("yes", [f"probe_export_{n:03d}_iteration={n}.txt" for n in range(1, 9)])
+    no = world("no", [f"probe_export_initial_iteration={n}.txt" for n in range(1, 9)])
+    none = world("none", [])
+    assert actions_probe.verdict(yes)["verdict"] == "YES"
+    assert actions_probe.verdict(no)["verdict"] == "NO"
+    assert actions_probe.verdict(none)["verdict"] == "NONE"
+    silent = tmp_path / "silent"
+    silent.mkdir()
+    assert actions_probe.verdict(silent)["verdict"] == "NOT_RUN"

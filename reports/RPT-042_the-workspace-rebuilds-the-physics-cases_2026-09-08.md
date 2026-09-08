@@ -1,4 +1,4 @@
-# RPT-032: the workspace rebuilds the physics cases, to the reference's last digit (2026-09-08)
+# RPT-042: the workspace rebuilds the physics cases inside every band she set (2026-09-08)
 
 The four shareable physics cases of `pyflightstream.qa.physics`, PHY-01,
 PHY-02, PHY-05 and PHY-06, ran as rows of the tier-3 workspace's
@@ -10,8 +10,13 @@ functions from the loads the rows exported, were judged against the
 committed references under `qa/references/`. GOAL-012 item 7,
 PFS-2031.07.
 
-Verdict: every metric PASS, and every metric equal to its reference to
-the decimals the reference carries.
+Verdict: every metric PASS inside the committed bands, and every metric
+agreeing with its reference to the decimals printed in the table below.
+The references carry more decimals than the table prints (seven for
+PHY-05, sixteen for the PHY-06 slopes), and at that precision the
+agreement is a PASS and not an identity: PHY-05's CL is -0.00009 against
+-0.0001012, inside an absolute band of 0.002. The tier-3 test asserts the
+bands (no FAIL, no metric without a reference), never equality.
 
 ## How it was measured
 
@@ -43,10 +48,10 @@ then judges with `compare_metrics` against `load_reference`.
 | PHY-02 | CL_half_a4 | 0.3385 | 0.3385 | pass |
 | PHY-02 | delta_CL_a4 | 0.0015 | 0.0015 | pass |
 | PHY-02 | delta_CDi_a4 | 0.0 | 0.0 | pass |
-| PHY-05 | CL | -0.00009 | -0.0001 | pass |
-| PHY-05 | CDi | -0.04517 | -0.04517 | pass |
-| PHY-05 | CDo | 0.0007 | 0.0007 | pass |
-| PHY-05 | CMy | 0.02864 | 0.02864 | pass |
+| PHY-05 | CL | -0.00009 | -0.0001012 | pass |
+| PHY-05 | CDi | -0.04517 | -0.0451749 | pass |
+| PHY-05 | CDo | 0.0007 | 0.0007011 | pass |
+| PHY-05 | CMy | 0.02864 | 0.0286429 | pass |
 | PHY-06 | delta_CL at 0, 2, 4, 6 | 0.0004, 0.0013, 0.0022, 0.003 | the same | pass |
 | PHY-06 | delta_CD at 0, 2, 4, 6 | -0.0001, -0.0001, -0.0004, -0.0005 | the same | pass |
 | PHY-06 | delta_CMy at 0, 2, 4, 6 | -0.0001, -0.0002, -0.0002, -0.0004 | the same | pass |
@@ -72,8 +77,8 @@ to orderings, a boundary index in place of "all", and a rotor speed
 rounded to four decimals instead of two, and the coefficients above
 followed.
 
-Two things follow for the reader. A workflow row is the hand-built
-script when its setup states the same lines, and the setup is where a
+Two things follow for the reader. A workflow row reproduces the
+hand-built script's coefficients when its setup states the same lines, and the setup is where a
 physics case is stated in this repository from now on; the script diff
 is the instrument that says whether it does, and it costs no seat. And
 the four cases are now judged twice on this build, by `pyfs-qa physics`
@@ -83,6 +88,7 @@ study of PFS-2031.09.
 ## What this does not say
 
 Nothing here was measured on 26.123; the physics rows name 26.120, the
-build the references were seeded on. The identity holds to the four or
-five decimals the references carry, and nothing finer was compared. The
+build the references were seeded on. The agreement is stated to the
+decimals the table prints, PASS inside the bands beyond that, and the
+test holds the bands and not an equality. The
 SMI class, whose geometry is local and never committed, has no row.
