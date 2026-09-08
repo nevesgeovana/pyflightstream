@@ -3416,3 +3416,58 @@ def test_a_case_whose_declared_outputs_are_absent_is_judged_over_the_folder(tmp_
     own.point = {"alpha": 2.0}
     assert LoadsAssessor()(own, None, tmp_path).status is RunStatus.CONVERGED
     assert "several of them parse" in (LoadsAssessor()(case, None, tmp_path).error or "")
+
+
+# --- PFS-2031.13: the run writes the child script of a SCRIPT action ---------------
+
+
+def test_the_run_writes_the_child_script_of_a_script_action_before_the_solver_starts(tmp_path):
+    """``helpers.unsteady_action`` parks the child script for the run layer to
+    write; the run writes it where the registration line names, relative to the
+    simulation folder, BEFORE the solver is started, so the SCRIPT action the
+    solver registers has a file to read. Measured by the stub solver itself: it
+    copies the child script it finds at solver time, so a file written after the
+    run would not count."""
+    child = "EXPORT_SOLVER_ANALYSIS_SPREADSHEET\nstep.txt\n"
+
+    def acting_recipe(case, script):
+        script.emit("OPEN", case.geometry)
+        helpers.free_stream(script)
+        helpers.unsteady_solver(script, time_iterations=4, delta_time=0.01)
+        helpers.unsteady_action(
+            script,
+            name="sections",
+            kind="SCRIPT",
+            filename="actions/sections.txt",
+            action_script=child,
+        )
+        helpers.initialize_solver(script)
+        helpers.start_solver(script)
+        script.emit("EXPORT_SOLVER_ANALYSIS_SPREADSHEET", case.outputs[0])
+        script.emit("CLOSE_FLIGHTSTREAM")
+
+    campaign = make_campaign(tmp_path, recipe="acting", alphas=(0.0,)).model_copy(
+        update={"fs_version": "26.123"}
+    )
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    copies_the_child = (
+        "import pathlib, sys; "
+        "lines = pathlib.Path(sys.argv[1]).read_text().splitlines(); "
+        "[pathlib.Path(lines[i + 1]).write_text('LOADS') "
+        "for i, line in enumerate(lines) if line == 'EXPORT_SOLVER_ANALYSIS_SPREADSHEET']; "
+        "child = pathlib.Path('actions/sections.txt'); "
+        "pathlib.Path('seen_by_the_solver.txt').write_text("
+        "child.read_text() if child.is_file() else 'ABSENT AT SOLVER TIME')"
+    )
+    records = run_campaign(
+        campaign,
+        StubSolver(copies_the_child),
+        workspace,
+        assess=converged,
+        recipes={"acting": acting_recipe},
+    )
+    assert records[0].status is RunStatus.CONVERGED, records[0].error
+    sim_dir = workspace.sim_dir("9001")
+    seen = (sim_dir / "seen_by_the_solver.txt").read_text(encoding="utf-8")
+    assert seen == child, f"the solver found: {seen!r}"
+    assert (sim_dir / "actions" / "sections.txt").read_text(encoding="utf-8") == child

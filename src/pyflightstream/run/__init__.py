@@ -2859,6 +2859,19 @@ def _execute_point(
     if setup is not None:
         base["solver_setup"] = setup.model_dump(mode="json")
     script_path, script_sha = workspace.write_script(case.sim_id, f"{stem}.txt", script.render())
+    # PFS-2031.13. The child script of a SCRIPT action is parked on the
+    # script by helpers.unsteady_action and written HERE, before the
+    # solver starts, where the registration line names it: a relative
+    # path lands in the simulation folder, which is the solver's working
+    # directory, an absolute one where it says. Until this existed the
+    # helper promised a writer that did not exist, and a SCRIPT action
+    # registered through it named a file that was never there.
+    for action_file, action_text in script.pending_action_scripts.items():
+        target = Path(action_file)
+        if not target.is_absolute():
+            target = sim_dir / target
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(action_text, encoding="utf-8")
     base["script_sha256"] = script_sha
     base["script_path"] = str(Path(script_path).relative_to(sim_dir).as_posix())
     base["raw_flag"] = script.raw_flag
