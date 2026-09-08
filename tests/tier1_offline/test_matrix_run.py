@@ -3395,6 +3395,31 @@ def test_a_flat_rotor_row_naming_an_airframe_point_is_refused_naming_the_kind(tm
     assert "airframe" in str(caught.value)
 
 
+# --- PFS-2031.14: the override with no default version is refused, not crashed ---
+
+
+def test_an_override_with_no_default_version_is_refused_naming_the_option(tmp_path):
+    """Every row of the registry fixture names a build. The explicit executable
+    override overrules those cells, so with no default version nothing says which
+    version to build the scripts for; that is a refusal naming the option, and it
+    was a bare StopIteration out of resolve_matrix until 2026-09-08."""
+    workspace = make_library(tmp_path, register_build=("26.120", "C:/fs26120/FlightStream.exe"))
+    with pytest.raises(MatrixError) as caught:
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", PyflightstreamWarning)
+            resolve_matrix(
+                REGISTRY_FIXTURE,
+                workspace,
+                name="matrix",
+                fs_version=None,
+                recipes=RECIPES,
+                fs_exe="C:/fs26123/FlightStream.exe",
+            )
+    message = str(caught.value)
+    assert DEFAULT_VERSION_OPTION in message, message
+    assert "override" in message, message
+
+
 # --- PFS-2031.04: several matrices share one workspace ----------------------------
 
 

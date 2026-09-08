@@ -66,6 +66,7 @@ from pyflightstream.cases import (
     SolverSettings,
 )
 from pyflightstream.cases.matrix import (
+    DEFAULT_VERSION_OPTION,
     LEGACY_WORKFLOW,
     MatrixError,
     MatrixRow,
@@ -1119,7 +1120,25 @@ def resolve_matrix(
     # row's build, which is the installation _resolve_build already chose
     # the campaign executable from (PFS-2029.01); every row still runs on
     # the build its own cell names.
-    campaign_version = fs_version if fs_version is not None else next(b for b in row_builds if b)
+    if fs_version is not None:
+        campaign_version = fs_version
+    else:
+        named = [build for build in row_builds if build]
+        if not named:
+            # Every active row named a build and the explicit override
+            # overruled all of them, so nothing left says which version
+            # the scripts are built for. A refusal naming the option,
+            # where a bare StopIteration stood until 2026-09-08
+            # (PFS-2031.14).
+            raise MatrixError(
+                f"{Path(path).name}: the explicit executable override overrules the "
+                f"FS_BUILD cell of every active row, and no default version was given, so "
+                f"nothing says which FlightStream version to build the scripts for. Pass "
+                f"default_fs_version (CLI: {DEFAULT_VERSION_OPTION}), the version of the "
+                f"installation the override names, or drop the override so each row runs "
+                f"on the build its cell names through the registry."
+            )
+        campaign_version = named[0]
     campaign = to_campaign(
         path, name=name, fs_version=campaign_version, fs_exe=str(exe), recipes=recipes
     )
