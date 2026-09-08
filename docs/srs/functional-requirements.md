@@ -468,6 +468,8 @@ Milestones and session records are listed in the
 !!! requirement "FR-24 CI-runnable test suite <span class='srs-implemented'>implemented</span>"
     *Origin: PP-9. Evidence: the Tier 1 suite in CI on every push.*
 
+    Read with PFS-2031.02, PFS-2031.06 and PFS-2031.01 at 0.13.0 (GOAL-012): the suite is organized by tier, tier 1 plans and builds the tier-3 matrices without a solver, and the goal's checker is its own falsifiable command.
+
     A CI-runnable suite covers database integrity, emission
     validation including removed and renamed command scenarios,
     parser fixtures, golden scripts, and matrix reader equivalence.
@@ -477,6 +479,8 @@ Milestones and session records are listed in the
     *Origin: BRF-03. Evidence: milestone M3; the committed compat
     reports and the promotion mechanism.*
 
+    Read with PFS-2031.08 and PFS-2031.09 at 0.13.0 (GOAL-012): the action re-read probe runs as a row of the tier-3 matrix and writes its verdict into the command database, and the pyfs-qa study decides where the probe harness lives beside the workspace.
+
     A probe harness runs per-command probe scripts on a licensed
     machine, asserts real effects, and promotes results into database
     statuses through committed compatibility reports.
@@ -485,6 +489,8 @@ Milestones and session records are listed in the
     *Origin: BRF-12, BRF-17. Evidence: milestones M4 onward; the
     banded-reference reports. Expansion (mesh refinement, solver-flag
     cases) queued for licensed sessions.*
+
+    Read with PFS-2031.05, PFS-2031.07 and PFS-2031.09 at 0.13.0 (GOAL-012): the four physics cases become rows of the tier-3 matrices judged against the same references from the campaign products, every synthetic row carries a physical verification, and the pyfs-qa study puts the command's future to the author.
 
     A physics regression matrix on synthetic geometry guards physical
     sanity per release. Each guarded coefficient is compared against a
@@ -632,6 +638,8 @@ the session records.
 !!! requirement "FR-35 Matrix as first-class interface <span class='srs-implemented'>implemented</span>"
     *Origin: usage feedback, amending the posture of FR-10/FR-11.
     Evidence: the v0.3 line; resolution hit and miss tests.*
+
+    Read with PFS-2031.03, PFS-2031.04, PFS-2031.05, PFS-2031.06 and PFS-2031.07 at 0.13.0 (GOAL-012): the tier-3 folder is a workspace, several matrices share it with their own plan, sweep and products under post/<matrix>/, and every token the package defines is a row that plans offline and runs on the licensed machine.
 
     The run matrix is a first-class interface of the file-managed
     modality: its reference columns resolve against the workspace
@@ -784,6 +792,8 @@ the base could not offer while it bundled several.
 !!! requirement "FR-33a Input-artifact library <span class='srs-implemented'>implemented</span>"
     *Origin: Phase 4 split of FR-33, accepted 2026-07-27. Evidence: the
     v0.3 line; `tests/test_workspace.py`.*
+
+    Read with PFS-2031.03 at 0.13.0 (GOAL-012): the tier-3 library holds synthetic geometries only, each with a mesh block and a boundary sidecar.
 
     The workspace organizes declarative TOML input artifacts
     (references, setups, groups, geometries, profiles, and executables

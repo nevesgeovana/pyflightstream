@@ -53,6 +53,8 @@
     coverage is a review check and the badge covers the examples'
     correctness.*
 
+    Read with PFS-2031.10 at 0.13.0 (GOAL-012): tests/tier3_licensed is the worked example of every feature and the pages name it.
+
     The published docs include at least one worked example per public
     workflow.
 
@@ -249,6 +251,8 @@
     Evidence: the process rules below plus the consistency guard
     test.*
 
+    Read with PFS-2031.10 at 0.13.0 (GOAL-012): the tiers page, the workspace page, the guide and CONTRIBUTING move in the same session as the folders.
+
     Documentation may never drift silently from the code. The
     mechanisms, in force from 2026-07-22:
 
@@ -396,6 +400,8 @@
     PFS-B1, review finding PYFS-024). Evidence:
     `[tool.coverage.report] fail_under` in `pyproject.toml`; the
     `coverage` job of `.github/workflows/ci.yml`.*
+
+    Read with PFS-2031.02 at 0.13.0 (GOAL-012): the floor is measured again after every module moves into its tier folder.
 
     The Tier 1 suite holds STATEMENT and BRANCH coverage at or above a
     stated floor, set against measured coverage rather than aspiration,
