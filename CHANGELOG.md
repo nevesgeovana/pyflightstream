@@ -262,6 +262,13 @@ FlightStream versions.
 
 ### Changed
 
+- **Two type-check exemptions retired, `qa.cli` and `qa.physics`**, which the
+  physics rewrite (PFS-2031.17) left clean under the strict configuration;
+  the exemption recount of RPT-029 is re-measured for 2026-09-09 and its four
+  records move together. The command census moves with RPT-043's promotions
+  (26.120 from 66 to 79 verified rows, 26.123 from 84 to 92), and a verified
+  row measured through a workflow row counts as re-measurable by that row.
+
 - **A simulation folder has three managed subfolders, and `parsed/` is no
   longer created** (PFS-2032.01). `CampaignWorkspace.create_sim` makes
   `inputs/`, `scripts/` and `raw/`; the fourth folder existed from the first
@@ -2940,7 +2947,7 @@ costs the reader the whole warning window the shim exists to buy.
   `[tool.mypy]` header has promised since 2026-08-03 that an exemption is
   removed as its module is typed and never added, and this is that
   direction happening rather than being restated. The re-count moves with
-  it: mypy recount 2026-09-02: 318 errors in 20 of 77 modules, where the
+  it: mypy recount 2026-09-09: 345 errors in 18 of 79 modules, where the
   tree carried 275 in 21 of 64 two days before, and the four records that
   state it move together because a tier-1 guard compares them.
 

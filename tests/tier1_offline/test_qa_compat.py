@@ -1,6 +1,7 @@
 """Tier 1: compat report writing, reading, and status promotion."""
 
 import re
+from pathlib import Path
 
 import pytest
 import yaml
@@ -1788,15 +1789,28 @@ def test_every_candidate_can_actually_be_re_measured():
     so it has a specification, and this pins that the two populations
     have not drifted apart.
     """
+    from pyflightstream.qa.compat import read_compat_report
     from pyflightstream.qa.specs import PROBE_SPECS
+
+    def re_measured_by_the_workflow(citation):
+        # Since 2026-09-08 a verified row can come from a matrix row run
+        # through pyfs-matrix run (RPT-043); its compat report says so in
+        # its executor field, and re-measuring it is running that row.
+        if not citation:
+            return False
+        report = read_compat_report(Path(__file__).resolve().parents[2] / citation)
+        return "pyfs-matrix run" in str(report.get("executor", ""))
 
     candidates = licence_sensitive_candidates("26.123")
     unrunnable = [
-        candidate.command for candidate in candidates if candidate.command not in PROBE_SPECS
+        candidate.command
+        for candidate in candidates
+        if candidate.command not in PROBE_SPECS
+        and not re_measured_by_the_workflow(candidate.citation)
     ]
     assert not unrunnable, (
-        "these candidates have no probe specification, so a seat spent on them would "
-        f"measure nothing: {unrunnable}"
+        "these candidates have no probe specification and no workflow row that measured "
+        f"them, so a seat spent on them would measure nothing: {unrunnable}"
     )
 
 

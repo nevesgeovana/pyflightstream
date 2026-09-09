@@ -39,14 +39,26 @@
 > the per-module table, the code table, the concentration lines and the
 > delta table are all that run rather than edits to the previous one:
 >
->     Found 318 errors in 20 files (checked 77 source files)
+>     Found 345 errors in 18 files (checked 79 source files)
 >     Success: no issues found in 76 source files
 >
 > Every figure below is that re-measurement.
 
 The result, in the sentence every record of it carries:
 
-**mypy recount 2026-09-02: 318 errors in 20 of 77 modules.**
+**mypy recount 2026-09-09: 345 errors in 18 of 79 modules.**
+
+## Re-measured 2026-09-09: two modules arrived with the 0.13.0 night, and the debt moved with them
+
+`python scripts/mypy_recount.py` on 2026-09-09, at the tree that holds the
+0.13.0 scope: 345 errors in 18 of 79 modules. Two modules arrived (the
+qa driver that reads the workspace, `qa/matrix.py`, and the counter
+program template of the unsteady actions, `run/_actions_counter.py`),
+two dirty modules left the dirty set with the physics runner's
+retirement, and the total rose by 27 with the actions and reductions
+code under the existing overrides. The exempted set did not change. The
+sentence above is this measurement; the earlier ones stay below as the
+history of the figure.
 
 ## Re-measured 2026-09-02: one module arrived, and the error total had gone stale unwatched
 
@@ -202,7 +214,7 @@ configuration to be in a state the repository does not ship:
 
 The final line of that run is the measurement:
 
-    Found 318 errors in 20 files (checked 77 source files)
+    Found 345 errors in 18 files (checked 79 source files)
 
 The same run with the shipped configuration, overrides and all, is green:
 
@@ -312,7 +324,7 @@ reported four codes this checker does not emit.
 The 2026-08-03 table had one column, and the plan built on it says two modules
 carry 73 percent of the debt and sizes the small modules at an afternoon each.
 The error count is a poor size estimate here, and the re-count shows why
-rather than asserting it: **310 errors sit on 111 distinct source lines.**
+rather than asserting it: **345 errors sit on 110 distinct source lines.**
 
 While reading that table a second defect in it surfaced, small and worth one
 sentence because it is the same class: its prose says "the eleven with one or

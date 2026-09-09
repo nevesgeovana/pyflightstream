@@ -137,12 +137,6 @@ CANONICAL_FORMS = {
         "independent of field order and formatting, which a byte digest of "
         "config.json would not be."
     ),
-    "qa/physics.py": (
-        "the raw bytes of the geometry file a QA reference was measured on. It "
-        "identifies the case behind a committed reference without committing "
-        "the geometry, which invariant 5 forbids; it is not a manifest field "
-        "and never enters a run record."
-    ),
 }
 
 __all__ = ["file_sha256", "optional_file_sha256", "text_sha256"]

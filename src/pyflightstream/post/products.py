@@ -58,7 +58,6 @@ converted to this shape outside the package: 32 of 32 equal on 2026-09-03.
 from __future__ import annotations
 
 import csv
-import hashlib
 import json
 import math
 import warnings
@@ -70,6 +69,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
+from pyflightstream._digest import file_sha256
 from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning
 from pyflightstream.cases.workflows import REDUCTION_NAMES
 from pyflightstream.fsi.loads import SectionalLoadsReport, parse_sectional_loads
@@ -1294,7 +1294,7 @@ def _prov_document(record: RunRecord, sim_dir: Path) -> dict[str, object]:
         entity_id = f"pyfs:output/{name}"
         path = sim_dir / name
         if path.is_file():
-            output_sha256: str | None = hashlib.sha256(path.read_bytes()).hexdigest()
+            output_sha256: str | None = file_sha256(path)
             sha256_from: str | None = "file"
         else:
             output_sha256 = record.outputs_sha256.get(name)

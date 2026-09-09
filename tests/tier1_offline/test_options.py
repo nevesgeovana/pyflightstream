@@ -168,7 +168,11 @@ def test_qa_cli_defaults_follow_the_options():
     drift = parser._subparsers._group_actions[0].choices["drift"]
     assert probe.get_default("workroot") == "scratch/probes"
     assert probe.get_default("timeout") == 7.0
-    assert physics.get_default("workroot") == "scratch/physics"
-    assert physics.get_default("timeout") == 11.0
+    # Since 0.13.0 physics runs in a campaign workspace of its own and takes
+    # no scratch root and no case timeout (PFS-2031.17); drift still makes
+    # one workspace per side under the scratch root.
+    assert physics.get_default("workroot") is None
     assert drift.get_default("workroot") == "scratch/drift"
-    assert drift.get_default("timeout") == 11.0
+    # drift runs the matrix through the run layer, whose timeout is the
+    # campaign's and not a qa option any more (PFS-2031.17).
+    assert drift.get_default("timeout") is None

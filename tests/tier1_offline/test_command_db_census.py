@@ -103,7 +103,11 @@ VERIFIED = {
     "26.000": 0,
     "26.100": 13,
     "26.101": 35,
-    "26.120": 66,
+    # 66 until 2026-09-08; the rotor path's thirteen solver-setting
+    # emitters were then measured through the workflow on this build
+    # (RPT-043, CMP-26120_2026-09-08_rotor-path), all thirteen documented
+    # to verified: 79.
+    "26.120": 79,
     "26.121": 84,
     # It had zero of its own until 2026-08-11, deriving `operational`
     # from 26.120's records by hotfix inheritance, and the comment here
@@ -126,7 +130,10 @@ VERIFIED = {
     # SET_INVISCID_LOADS, which was unprobed there. Nothing 26.122
     # verified is unverified here, so the newer build refuses nothing the
     # older one accepted (CMP-26123_2026-08-17_full-sim).
-    "26.123": 84,
+    # 84 until 2026-09-08, then the same sweep on this build
+    # (CMP-26123_2026-09-08_rotor-path): eight of the thirteen were
+    # documented here and are verified now, five were already: 92.
+    "26.123": 92,
 }
 
 #: 388 at v0.5.0, then +16 on 2026-08-10 for the commands only the
