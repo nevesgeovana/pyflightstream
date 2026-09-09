@@ -7,6 +7,8 @@ FlightStream versions.
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-09-09
+
 ### Added
 
 - **The geometry library reads one subfolder per geometry beside the flat
@@ -550,7 +552,7 @@ FlightStream versions.
 ### Fixed
 
 - **The release review of 0.13.0, round one: five lenses over
-  237a47a..83d856a, thirty-three findings, twenty-six fixed here, three
+  237a47a..83d856a, thirty-three findings, twenty-six fixed here, two
   registered for 0.14.0, five questions to the author** (the round ledger
   REL-0130 in the coordination tree). What moved in the package:
   `apply-compat` never replaces the citation of a row already `verified`
@@ -7946,7 +7948,8 @@ the repository seeding and this tag (milestones M0 through M5).
 * 26.000: registered, no recorded evidence yet (honest empty column;
   backfill planned for v0.2+).
 
-[Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.12.0...HEAD
+[Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.13.0...HEAD
+[0.13.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.13.0
 [0.12.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.12.0
 [0.11.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.11.0
 [0.10.1]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.10.1

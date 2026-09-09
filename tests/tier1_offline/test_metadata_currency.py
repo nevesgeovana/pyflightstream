@@ -11,9 +11,12 @@ release rather than per commit.
 
 from __future__ import annotations
 
+import os
 import re
+import subprocess
 import tomllib
 from pathlib import Path
+from typing import NamedTuple
 
 import pytest
 import yaml
@@ -324,11 +327,139 @@ def test_the_newest_archive_row_names_the_version_this_tree_states():
     version = parse_version(_pyproject_version())
     if version.is_prerelease or version.is_devrelease:
         pytest.skip("a development tree's newest row names the release before it")
+    position = _is_the_release_commit_itself(_pyproject_version(), _tags_here())
+    assert position is not None, (
+        "this checkout carries no tags, so the guard cannot tell the release commit "
+        "from a commit after it; fetch the tags (every pytest job checks out with "
+        "fetch-depth 0) rather than reading this as a pass"
+    )
+    if position:
+        pytest.skip(
+            "the release commit is the one tree that legitimately lacks its own row: "
+            "the DOI is minted from the release the tag creates"
+        )
     assert f"v{_pyproject_version()}" in rows[0].get("description", ""), (
         f"the newest archive row reads {rows[0].get('description')!r} while this tree "
         f"states version {_pyproject_version()}. A version DOI is recorded one commit "
-        "after the tag it names, so on a release tree the two agree."
+        "after the tag it names, so on a release tree past the tag the two agree."
     )
+
+
+class TreePosition(NamedTuple):
+    """Where this checkout stands relative to the tag of its own version."""
+
+    #: Every tag the checkout knows; empty means the question cannot be answered.
+    listed: frozenset[str]
+    #: The tags pointing at HEAD.
+    at_head: frozenset[str]
+    #: HEAD is the commit that last set pyproject.toml, or pyproject.toml is
+    #: dirty in the working tree: the release cut, committed or about to be.
+    head_set_the_version: bool
+
+
+def _git(*args: str) -> str:
+    # A read of the checkout's own git: the ambient environment, deliberately,
+    # because git resolves its config and credentials through it (the spawn
+    # ratchet asks every test to say which environment a child gets).
+    run = subprocess.run(
+        ["git", *args],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+        env=os.environ.copy(),
+    )
+    return run.stdout if run.returncode == 0 else ""
+
+
+def _tags_here() -> TreePosition:
+    """Read the tree's position from git; a git-less checkout reads as no tags.
+
+    The QA lens of the release cut (2026-09-09) measured the first form of
+    this reader: it folded a missing git, a non-repository and a tag-less
+    clone into empty sets that the predicate read as "the tag is not made
+    yet", so on the one commit the guard polices, the DOI commit, a shallow
+    checkout skipped instead of refusing. Empty ``listed`` now reaches the
+    guard as a state it cannot judge, and the guard fails on it.
+    """
+    try:
+        listed = frozenset(_git("tag", "--list").split())
+        at_head = frozenset(_git("tag", "--points-at", "HEAD").split())
+        head = _git("rev-parse", "HEAD").strip()
+        version_commit = _git("log", "-1", "--format=%H", "--", "pyproject.toml").strip()
+        dirty = bool(_git("status", "--porcelain", "--", "pyproject.toml").strip())
+    except OSError:
+        return TreePosition(frozenset(), frozenset(), False)
+    return TreePosition(listed, at_head, dirty or (bool(head) and head == version_commit))
+
+
+def _is_the_release_commit_itself(version: str, position: TreePosition) -> bool | None:
+    """Is this tree the commit ``v<version>`` tags, or the cut about to be tagged?
+
+    The v0.13.0 release cut of 2026-09-09 met the guard above red on the
+    release commit: a version DOI exists only after the GitHub release the
+    tag creates, so the tagged tree states its version and cannot carry
+    its row, and the guard as first written refused every release commit
+    and would have refused it inside release.yml too. The trees allowed
+    past are exactly the release commit's: the tag points at HEAD (the
+    tagged tree, in CI), or the tag is not made yet AND HEAD is the commit
+    that set the version (the cut, before tagging). A commit after the cut
+    that did not touch pyproject.toml, tagged or not, is held to the row;
+    the DOI commit touches CITATION.cff alone, so it is held. None means
+    the checkout carries no tags at all and the question has no answer.
+    """
+    if not position.listed:
+        return None
+    tag = f"v{version}"
+    if tag in position.at_head:
+        return True
+    if tag in position.listed:
+        return False
+    return position.head_set_the_version
+
+
+def test_the_release_commit_is_the_one_tree_allowed_past_the_archive_row_guard(monkeypatch):
+    """Five positions, one decision each, driven through the guard itself.
+
+    The QA lens of the release cut measured the first form of this test as
+    calling the predicate alone, so a mutant returning True always was
+    killed while a reader returning empty sets survived with the guard
+    skipping; the wiring from position to skip is what this drives now.
+    """
+    tags = frozenset({"v0.12.0", "v0.13.0"})
+    monkeypatch.setattr(f"{__name__}._pyproject_version", lambda: "0.13.0")
+    cases = [
+        (TreePosition(tags, frozenset({"v0.13.0"}), False), "skip", "the tagged tree"),
+        (
+            TreePosition(frozenset({"v0.12.0"}), frozenset(), True),
+            "skip",
+            "the cut, not yet tagged",
+        ),
+        (TreePosition(tags, frozenset(), True), "refuse", "a commit after the tag: the DOI commit"),
+        (
+            TreePosition(frozenset({"v0.12.0"}), frozenset(), False),
+            "refuse",
+            "a commit after the cut, before the tag",
+        ),
+        (
+            TreePosition(frozenset(), frozenset(), True),
+            "fail",
+            "a checkout with no tags cannot answer",
+        ),
+    ]
+    for position, expected, why in cases:
+        monkeypatch.setattr(f"{__name__}._tags_here", lambda position=position: position)
+        try:
+            test_the_newest_archive_row_names_the_version_this_tree_states()
+        except pytest.skip.Exception:
+            outcome = "skip"
+        except AssertionError as error:
+            outcome = "refuse" if "v0.12.0" in str(error) else "fail"
+            if outcome == "fail":
+                assert "no tags" in str(error), str(error)
+        else:
+            outcome = "pass"
+        assert outcome == expected, (why, outcome, expected)
 
 
 def test_the_release_date_is_the_one_the_changelog_states():

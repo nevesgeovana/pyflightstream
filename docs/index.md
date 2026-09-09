@@ -3,12 +3,54 @@
 Version-aware, didactic Python driver for the FlightStream panel-method
 solver. MIT licensed.
 
-Status: v0.12.0 is the current release; the changelog records what
+Status: v0.13.0 is the current release; the changelog records what
 each release adds and what each one asks you to do.
 
-**What changes for you: nothing you have written.** v0.12.0 changes no
-column of the run-matrix file and no cell already in one. It ADDS two ways
-to say what you were already saying. A setup artifact may carry a
+**What changes for you, and what you must do.** v0.13.0 changes no
+column of the run-matrix file. Two inputs that used to plan are refused at
+plan time now, each naming the cell: a row carrying a key its run type does
+not register (a misspelt key planned READY and reached the solver as
+nothing), and a pproc artifact whose `[groups]` table is keyed by a word or
+whose groups cite a boundary name the opened geometry does not carry.
+Python 3.11 leaves the supported window: the floor follows SPEC 0, the
+scientific-python schedule, computed on 2026-09-09 as Python 3.12, numpy
+2.2 and pandas 2.3, and the window now moves by a published rule rather
+than by choice. The hand-built physics runner is gone: `run_physics`,
+`run_drift` and the four `build_phy*_script` builders are removed, and
+`pyfs-qa physics --workspace <root>` and `pyfs-qa drift --workspace <root>`
+read the physics cases as rows of a campaign workspace; an import of a
+removed name says so and names the replacement. Anything you wrote against
+`runs.json` or the campaign products meets three moves: the manifest key
+`broken_commands` is `waived_commands` and the schema stamp is
+`pyfs-manifest/3` (the old key is read until 0.15.0); `plan.json`,
+`sweep.csv`, `campaign_sweep.csv` and the product tables live under
+`post/<matrix stem>/`, one folder per matrix; and a registered post stage is
+called with a third keyword, `matrix_stem`. `sweep_editions` is
+`manual_editions` and `propose_type` takes its two strings by keyword; the
+old spellings warn and name the release that removes them. A simulation
+folder has three managed subfolders, since `parsed/` was never written to;
+an empty one left by an earlier release is left alone.
+
+**What it adds.** An unsteady row may say when its exports begin,
+`EXPORT_UNSTEADY_AFTER_REV` or `EXPORT_UNSTEADY_AFTER_ITER`, and the run
+registers the two solver actions that make the solver export from that
+step on, measured on 26.123. The products stage writes a PROV-JSON
+provenance document per point, every reduction of an unsteady row (the
+time average over the window the row states, the phase-locked passages,
+the per-blade split), and the polar tables in the author's own plot format
+when the pproc artifact asks for it. The geometry library may hold one
+folder per geometry beside the flat layout, `pyfs-workspace
+migrate-geometries` moves a library into it, and `pyfs-workspace archive
+<root> <sim_id>` zips one recorded simulation. Every command-line option
+states what it reads, the run record says how the solver was called
+(`executor`, `export_window`, the waived commands by their name), and the
+whole test suite is organized by tier, with the licensed tier a campaign
+workspace of seven run matrices whose goldens are rendered offline on every
+commit.
+
+**v0.12.0 changed no column of the run-matrix file and no cell already in
+one.** It added two ways to say what you were already saying. A setup
+artifact may carry a
 `[flight_condition]` table holding the fluid pins (`RHOkgm3`, `MUPas`,
 `ASMPS`, `TK`, `PPA`), so a thirteen-point polar states its campaign's
 constants once instead of thirteen times; a row that states a pin still
@@ -18,15 +60,15 @@ that meshes nothing turning may state its clock as `DELTA_THETA` and
 `REVOLUTIONS`, resolved against the rotor speed whose azimuth the step
 measures, where before only the seconds and the step count were accepted.
 The reproduction workspace of the author's recorded campaign needs both,
-which is why this release exists.
+which is why that release existed.
 
-**TWO DERIVED NUMBERS DO MOVE, and a row you have already written will feel
-them.** A rotor speed derived from `ADVANCE_RATIO` is now emitted at four
+**Two derived numbers moved with it, and a row already written felt
+them.** A rotor speed derived from `ADVANCE_RATIO` is emitted at four
 decimals, the author's own precision: 473.1723 rev/min where the unrounded
-derivation gives 473.17227304. And the default loads assessor now judges a
+derivation gives 473.17227304. And the default loads assessor judged a
 point's OWN declared outputs, so a two-point sweep whose points name their
 own tables is judged where it used to be refused as ambiguous. Re-baseline
-against this release rather than comparing its tables with v0.11.0's.
+against v0.12.0 rather than comparing its tables with v0.11.0's.
 
 **v0.11.0 changed the run-matrix FILE FORMAT, and one command moved a
 workspace.** The `ENTRY` column is now `PPROC` and names the post-processing
