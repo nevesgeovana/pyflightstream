@@ -292,7 +292,9 @@ FlightStream versions.
   and `tests/tier1_offline/test_qa_matrix.py` measures that no module of a
   lower row imports qa back. RPT-042 is the measurement that the workflow
   rows reproduce every coefficient of the hand-built scripts inside her
-  bands, which is what made the second builder redundant.
+  bands, which is what made the second builder redundant. The first report written this way from the tier-3 workspace, with no seat spent, is
+  `reports/physics/PHY-26120_2026-09-09`: 30 pass, 0 warn, 0 fail on 26.120,
+  the same four cases the hand-built scripts judged.
 
 - **Each matrix of a workspace keeps its own plan, sweep table and products
   under `post/<matrix stem>/`** (PFS-2031.04). `plan.json` moves from the
