@@ -7,6 +7,8 @@ FlightStream versions.
 
 ## [Unreleased]
 
+## [0.13.1] - 2026-09-09
+
 ### Fixed
 
 - **`pyfs-matrix run` pre-flights a row on a second build under that
@@ -7976,7 +7978,8 @@ the repository seeding and this tag (milestones M0 through M5).
 * 26.000: registered, no recorded evidence yet (honest empty column;
   backfill planned for v0.2+).
 
-[Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.13.0...HEAD
+[Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.13.1...HEAD
+[0.13.1]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.13.1
 [0.13.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.13.0
 [0.12.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.12.0
 [0.11.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.11.0

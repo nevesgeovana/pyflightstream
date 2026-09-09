@@ -3,8 +3,16 @@
 Version-aware, didactic Python driver for the FlightStream panel-method
 solver. MIT licensed.
 
-Status: v0.13.0 is the current release; the changelog records what
+Status: v0.13.1 is the current release; the changelog records what
 each release adds and what each one asks you to do.
+
+**v0.13.1 is a patch on the same day**, for two things her master's
+cases met on the published 0.13.0: `pyfs-matrix run` refused a matrix
+whose row on a second build `plan` had said READY (the run path
+pre-flighted it under the campaign default), and a sideslip sweep under
+`SYMMETRY: MIRROR` ran on the solver at zero sideslip with no word but the
+log, so it is refused at plan time now, naming the cell. Nothing else
+moves.
 
 **What changes for you, and what you must do.** v0.13.0 changes no
 column of the run-matrix file. Two inputs that used to plan are refused at
