@@ -681,9 +681,10 @@ ENTITY_SELECTIONS: tuple[EntitySelection, ...] = (
         "pproc",
         "groups.<name>",
         "the polar table written per group (products.polars)",
-        None,
-        "A group names the families its polar table sums, and the manual says nothing "
-        "about a group, which is this package's own concept.",
+        True,
+        "An empty group is every family the geometry carries, her decision of "
+        "2026-09-09: the polar table sums every surface row of the loads table, and a "
+        "motion naming the group moves every boundary of the file.",
     ),
     EntitySelection(
         "pproc",

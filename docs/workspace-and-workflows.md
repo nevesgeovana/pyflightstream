@@ -778,6 +778,8 @@ base_regions = ["W", "B"]      # families the base-region autodetect may conside
 [groups]                       # what the groups file held: number -> families
 "1" = ["Blade1", "S", "N", "P", "W", "B", "H"]
 "2" = ["W", "B"]
+"3" = []                       # every family the geometry carries
+"4" = ["Blade", "airframe"]    # a family is every member of it; blades and airframe select
 
 [exports]                      # which of the eight export kinds a point writes
 tecplot = false                # a kind not named is written; loads cannot be off
@@ -819,7 +821,7 @@ end = [-2.0, 1.0, 0.0]
 polars = true                  # one polar table per group, per point
 sections = true                # one table per point from its sectional loads export
 plots = true                   # one table per unsteady point from its plots export
-custom_polar_format = false       # beside each polar table, the text file her existing tooling opens
+custom_polar_format = false    # beside each polar table, the text file the author's tooling opens
 ```
 
 Three things carry the artifact across configurations. A `families` entry
@@ -841,24 +843,32 @@ it did.
 
 An entry that resolves to nothing is skipped; an entry WRITTEN as nothing
 is refused, at `pyfs-matrix plan`, naming the file, the key as the file
-spells it, and what the empty list feeds (PFS-2005.02). A group
+spells it, and what the empty list feeds (PFS-2005.02), except where the
+domain seat has given the empty list a meaning. A group is one such key
+since 0.14.0, her decision of 2026-09-09:
 
 ```toml
 [groups]
 "1" = []
 ```
 
-is refused naming `inputs/pproc/p001.toml`, `groups."1"` and the polar
-table written per group, with the verdict beside it: a group is this
-package's own concept, the manual has no sentence about it, so whether
-an empty group can mean anything is the domain seat's call, not yet
-decided, and it is refused until she says. `families = []` in a
-`[[plots.groups]]` or a `[[sections.distributions]]` entry is refused the
-same way, naming `UNSTEADY_SOLVER_NEW_FORCE_PLOT` or
+is EVERY FAMILY the geometry carries: the polar table of group 1 sums
+every surface row of the loads table, and `MOVING_BOUNDARIES: g1` moves
+every boundary of the file. A member of a group is, tried in this order,
+a boundary name of the file; one of the selector words `blades` and
+`airframe` (the words a `families` entry accepts, told apart by
+`blade_pattern`); or a FAMILY, the label without its trailing number, so
+`"2" = ["Blade"]` sums `Blade1` to `Blade6` and `"2" = ["Blades"]` reads
+as the selector. A member the geometry does not carry is left out, and
+a position passes through to the motion. Until 0.14.0 the empty group
+was refused as her undecided call, and a family name in a group summed
+nothing at products time. `families = []` in a
+`[[plots.groups]]` or a `[[sections.distributions]]` entry is refused,
+naming `UNSTEADY_SOLVER_NEW_FORCE_PLOT` or
 `NEW_SURFACE_SECTION_DISTRIBUTION`: the entry exists to emit over the
 families it names, and over none it would emit nothing while reading as
-though it had. `base_regions` is the one selection whose empty list has a
-documented meaning, the autodetect off, which is its default. The table
+though it had. `base_regions` is the other selection whose empty list has
+a documented meaning, the autodetect off, which is its default. The table
 the readers consult is `pyflightstream.workspace.inputs.ENTITY_SELECTIONS`,
 one row per key with the verdict and its reason.
 
@@ -968,9 +978,9 @@ one, and it changes the exit code alone, after every product is written.
 #### Custom polar format
 
 The author's existing tooling opens a fixed-width text polar file, not a
-CSV, and `[products] custom_polar_format = true` on the pproc artifact writes
-that file
-beside every polar table the stage writes, `<polar>_M<code>_g<group>.dat`
+CSV, and `[products] custom_polar_format = true` on the pproc artifact
+writes that file beside every polar table the stage writes,
+`<polar>_M<code>_g<group>.dat`
 beside the `.csv`, the same rows a second time (PFS-2014.01.01). Off by
 default. The shape, read off a file of hers and pinned by the committed
 fixture `tests/tier1_offline/fixtures/custom_polar_format_sample.dat` (every
@@ -996,9 +1006,9 @@ group; then the reference names and values, the row and column counts,
 the twenty-four column names of the polar table in its order, and every
 number at `%10.5f`. The docstring of
 `pyflightstream.post.write_custom_polar_format` is the specification, line
-by line, and `read_custom_polar_format` reads the file back (until 0.14.0 the
-five names carried the prefix `her_`; the old names and the old key still
-work and warn, removed in 0.16.0); the tier-1 test
+by line, and `read_custom_polar_format` reads the file back (before
+0.14.0 the five names were spelled `her`; the old names and the old key
+still work and warn, and are removed in 0.16.0); the tier-1 test
 feeds the fixture's rows through the writer and requires the fixture's
 bytes, and writes, reads and writes again what the stage produced,
 requiring equal bytes (PFS-2014.01.02).

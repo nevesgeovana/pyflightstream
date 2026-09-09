@@ -605,23 +605,25 @@ def test_groups_map_names_to_labels_or_indices(tmp_path):
     assert groups.groups["tail"] == [3, 4]
 
 
-def test_empty_group_is_refused(tmp_path):
-    """The reader refuses it before the model does (PFS-2005.02), naming the
-    file, the key as the file spells it, what the group feeds, and whose call
-    an empty group is; the model's own "no members" refusal stays behind it
-    for the Python path.
+def test_an_empty_group_means_every_family(tmp_path):
+    """Her decision of 2026-09-09 (PFS-2005.02): a group written empty is every
+    family the geometry carries. Until 0.14.0 the reader refused it as the
+    domain seat's undecided call; now the reader and the model both accept it,
+    and the recipe tool ``expand_group``, which numbers members by position,
+    refuses it naming the meaning, since every family has no positions to number.
     """
+    from pyflightstream.workspace import expand_group
+
     workspace = library(tmp_path)
-    (workspace.inputs_dir / "pproc" / "pbad.toml").write_text(
-        "[groups]\nwing = []\n", encoding="utf-8"
+    (workspace.inputs_dir / "pproc" / "pall.toml").write_text(
+        '[groups]\n"1" = []\n', encoding="utf-8"
     )
-    with pytest.raises(InputArtifactError) as refused:
-        workspace.resolve_pproc("pbad")
-    message = str(refused.value)
-    assert "pbad.toml" in message and 'groups."wing"' in message, message
-    assert "polar" in message and "domain seat" in message, message
-    with pytest.raises(ValueError, match="no members"):
-        PprocArtifact(groups={"wing": []})
+    artifact = workspace.resolve_pproc("pall")
+    assert artifact.groups == {"1": []}
+    assert PprocArtifact(groups={"1": []}).groups == {"1": []}
+    with pytest.raises(InputArtifactError, match="every family") as refused:
+        expand_group(artifact, "1", "pall")
+    assert "position" in str(refused.value), str(refused.value)
 
 
 def test_a_geometry_resolves_by_file_name_and_a_profile_by_stem(tmp_path):
@@ -2246,7 +2248,9 @@ def test_the_documented_pproc_artifact_resolves_as_the_page_reads(tmp_path):
     (workspace.inputs_dir / "pproc" / "p020.toml").write_text(block, encoding="utf-8")
     pproc = workspace.resolve_pproc("p020")
     assert pproc.base_regions == ["W", "B"], "the documented off switch did not resolve"
-    assert set(pproc.groups) == {"1", "2"}, pproc.groups
+    assert set(pproc.groups) == {"1", "2", "3", "4"}, pproc.groups
+    assert pproc.groups["3"] == [], "the page's empty group, every family (2026-09-09)"
+    assert pproc.groups["4"] == ["Blade", "airframe"], "a family and a selector word"
     # The old shape is still told apart: a bare list that is not the one
     # top-level key the pproc shape defines is a groups file of before 0.11.0.
     (workspace.inputs_dir / "pproc" / "p021.toml").write_text('wing = ["W"]\n', encoding="utf-8")

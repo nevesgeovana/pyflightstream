@@ -14,8 +14,8 @@ rather than left to be discovered:
   Re-exported here;
 * :mod:`pyflightstream.post.products` writes the campaign's CSV products,
   the polar table per group, the sections table and the plots table per
-  point, from the collected exports and the manifest (PFS-2029.15); her
-  plot format beside the polar table when asked (PFS-2014.01.01), its
+  point, from the collected exports and the manifest (PFS-2029.15); the
+  custom polar format beside the polar table when asked (PFS-2014.01.01), its
   writer and reader re-exported here; and a PROV-JSON provenance document
   per recorded run (PFS-2012.08.01).
 * :mod:`pyflightstream.post.series` tables the stamped per-step exports
@@ -41,6 +41,9 @@ Sweep assembly is not here either, it is
 :mod:`pyflightstream.results.tables`.
 """
 
+import warnings
+
+from pyflightstream._errors import PyflightstreamDeprecationWarning
 from pyflightstream.post.products import (
     CustomPolarTable,
     ProductError,
@@ -76,11 +79,18 @@ from pyflightstream.workspace import register_post_stage
 
 
 def __getattr__(name: str) -> object:
-    """Serve the polar format's former ``her_`` names here too, warning as products does."""
+    """Serve the polar format's former ``her`` names here too, warning once from the ledger.
+
+    The package warns itself rather than routing through the products
+    shim: a from-import asks the package twice (``hasattr`` before the
+    import opcode's own lookup), and routing warned twice for it.
+    """
     if name in ("HerPolarTable", "write_her_polar_format", "read_her_polar_format"):
         from pyflightstream.post import products as _products
 
-        return getattr(_products, name)
+        entry = _products._FORMER_NAMES[name]
+        warnings.warn(entry.message(), PyflightstreamDeprecationWarning, stacklevel=2)
+        return getattr(_products, entry.new)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 

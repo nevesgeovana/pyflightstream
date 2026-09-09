@@ -208,6 +208,48 @@ def test_the_two_promises_made_before_the_ledger_could_hold_them_are_in_it() -> 
         assert subject in subjects, f"{subject} is not in the ledger; it warns without a deadline"
 
 
+def test_every_promise_defined_in_the_ledger_is_in_the_tuple() -> None:
+    """The QA lens of the rename round, a SURVIVED mutant: deleting one entry
+    from ``DEPRECATIONS`` left the suite green while the shim kept warning,
+    because the shim reaches its entry by name and the deadline tests iterate
+    the tuple. An entry defined at module scope and absent from the tuple is a
+    promise with no deadline, which is the defect this module exists to refuse."""
+    from pyflightstream import _deprecations
+    from pyflightstream._deprecations import (
+        DeprecatedColumn,
+        DeprecatedFlag,
+        DeprecatedParameter,
+    )
+
+    kinds = (
+        DeprecatedModule,
+        DeprecatedParameter,
+        DeprecatedFlag,
+        DeprecatedManifestKey,
+        DeprecatedColumn,
+    )
+    defined = {
+        name: value for name, value in vars(_deprecations).items() if isinstance(value, kinds)
+    }
+    assert defined, "the ledger defines no entry at module scope, so this proves nothing"
+    listed = {id(entry) for entry in DEPRECATIONS}
+    missing = sorted(name for name, entry in defined.items() if id(entry) not in listed)
+    assert not missing, f"defined in the ledger and absent from DEPRECATIONS: {missing}"
+
+
+@pytest.mark.parametrize("entry", DEPRECATIONS, ids=_subject)
+def test_no_promise_is_dated_ahead_of_the_version_being_built(entry: Deprecation) -> None:
+    """The QA lens of the rename round: the suite checked deprecated_since
+    against removal_version and the tree against removal_version, and never
+    that deprecated_since is at or before the version being built, so five
+    entries said 0.14.0 on a 0.13.2.dev0 tree. A development tree of the next
+    release counts as that release (0.14.1.dev0 is after 0.14.0)."""
+    assert parse_version(entry.deprecated_since) <= parse_version(_project_version()), (
+        f"{entry.subject} says deprecated since {entry.deprecated_since}, and the tree is "
+        f"{_project_version()}: the promise names a release that has not been cut"
+    )
+
+
 def test_parse_version_refuses_non_semver_strings() -> None:
     with pytest.raises(ValueError, match=r"plain MAJOR\.MINOR\.PATCH"):
         parse_version("0.4")

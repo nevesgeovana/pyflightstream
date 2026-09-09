@@ -1049,6 +1049,17 @@ def expand_group(
     {'Blade1': 1, 'Blade2': 2}
     """
     members = artifact.groups.get(name)
+    if members == []:
+        raise InputArtifactError(
+            f"group {name!r} of the group artifact {artifact_id!r} is written empty, which "
+            "means every family the geometry carries (her decision of 2026-09-09); this "
+            "expansion numbers members by their position in the list and has none to "
+            "number. Write the members, or use the group on the campaign path, where "
+            "the polar table and the motion resolve it against the file.",
+            kind="group",
+            artifact_id=artifact_id,
+            available=tuple(sorted(artifact.groups)),
+        )
     if members is None:
         declared = ", ".join(sorted(artifact.groups)) or "none"
         raise InputArtifactError(

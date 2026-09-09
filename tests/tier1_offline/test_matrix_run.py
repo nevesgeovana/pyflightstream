@@ -3674,11 +3674,13 @@ def test_an_empty_entity_selection_in_an_artifact_is_refused_at_plan_time(tmp_pa
     ``vorticity_drag_boundaries = []`` planned READY on both rows, because the
     reader accepted the list and nothing on a LEGACY row's path read it, and a
     workflow row would have met a refusal about a geometry carrying none of
-    no families. A pproc group ``"1" = []`` was refused by the model, naming
-    the file and the group and not what the group feeds. Both are refused by
-    the reader now, naming the artifact, the key and what the empty list
-    would have disabled; which keys admit an empty list is the domain seat's
-    call and is written beside each entry of the table the reader consults.
+    no families. The setup is refused by the reader now, naming the artifact,
+    the key and what the empty list would have disabled; which keys admit an
+    empty list is the domain seat's call and is written beside each entry of
+    the table the reader consults. A pproc group ``"1" = []`` was refused the
+    same way until 0.14.0 as her undecided call; on her word of 2026-09-09 it
+    is every family, and plans READY (the products it writes are
+    ``test_an_empty_group_writes_the_polar_of_every_family``).
     """
     workspace, first, _ = _two_matrices(tmp_path)
     pproc = workspace.inputs_dir / "pproc" / "p001.toml"
@@ -3686,13 +3688,10 @@ def test_an_empty_entity_selection_in_an_artifact_is_refused_at_plan_time(tmp_pa
     kept = pproc.read_text(encoding="utf-8"), setup.read_text(encoding="utf-8")
 
     pproc.write_text('[groups]\n"1" = []\n', encoding="utf-8")
-    with pytest.raises(InputArtifactError) as refused:
-        _plan_first_matrix(workspace, first)
-    message = str(refused.value).replace("\\", "/")
-    assert "inputs/pproc/p001.toml" in message, message
-    assert 'groups."1"' in message, f"the key as the file spells it: {message}"
-    assert "polar" in message, f"what the group feeds: {message}"
-    assert "domain seat" in message, f"whose call an empty group is: {message}"
+    plan = _plan_first_matrix(workspace, first)
+    assert [point.status for point in plan.points] == [PlanStatus.READY, PlanStatus.READY], (
+        "an empty group is every family and plans READY"
+    )
 
     pproc.write_text(kept[0], encoding="utf-8")
     setup.write_text("iterations = 800\nvorticity_drag_boundaries = []\n", encoding="utf-8")
@@ -3710,6 +3709,36 @@ def test_an_empty_entity_selection_in_an_artifact_is_refused_at_plan_time(tmp_pa
     pproc.write_text(kept[0], encoding="utf-8")
     plan = _plan_first_matrix(workspace, first)
     assert [point.status for point in plan.points] == [PlanStatus.READY, PlanStatus.READY]
+
+
+def test_an_empty_group_writes_the_polar_of_every_family(tmp_path):
+    """Her decision of 2026-09-09 (PFS-2005.02): ``"1" = []`` is every family.
+    Through the campaign path the polar table it writes is, byte for byte, the
+    table of the group naming every surface the loads fixture carries, W and B,
+    which is what ``_two_matrices`` writes; the two workspaces differ in the
+    artifact alone."""
+    tables = {}
+    for spelling in ('"1" = []', '"1" = ["W", "B"]'):
+        workspace, first, _ = _two_matrices(
+            tmp_path / spelling.replace('"', "").replace("[", "").replace("]", "").strip(" =,")
+        )
+        (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
+            f"[groups]\n{spelling}\n", encoding="utf-8"
+        )
+        run_matrix(
+            first,
+            workspace,
+            name="camp",
+            default_fs_version="26.120",
+            recipes=RECIPES,
+            assess=converged,
+            executor=_writes_her_loads(tmp_path),
+            recipe_registry={"steady": matrix_recipe},
+        )
+        polars = sorted((workspace.root / "post" / "wing_alpha").glob("*_g01.csv"))
+        assert len(polars) == 2, f"one polar table per point of group 1: {polars}"
+        tables[spelling] = [path.read_bytes() for path in polars]
+    assert tables['"1" = []'] == tables['"1" = ["W", "B"]']
 
 
 # --- PFS-2015.04: the reductions reach the products through the workflow --------

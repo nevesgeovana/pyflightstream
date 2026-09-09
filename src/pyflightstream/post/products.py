@@ -24,10 +24,10 @@ record, so any spreadsheet or dataframe reads them with nothing else:
   (:func:`pyflightstream.cases.workflows.reduction_windows`), and a
   reduction the row could not window is recorded under ``skipped`` in
   ``products.json`` with its reason, as a refused polar is;
-* HER PLOT FORMAT beside each polar table when the pproc artifact asks
+* THE CUSTOM POLAR FORMAT beside each polar table when the pproc artifact asks
   (``[products] custom_polar_format = true``, PFS-2014.01.01):
   ``<polar>_M<mach code>_g<group>.dat``, the same rows in the fixed-width
-  text file her existing tooling opens, specified line by line in
+  text file the author's existing tooling opens, specified line by line in
   :func:`write_custom_polar_format` and read back by
   :func:`read_custom_polar_format`;
 * a PROVENANCE document per recorded run, ``provenance/<run id>.prov.json``
@@ -69,8 +69,19 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
+from pyflightstream._deprecations import (
+    POST_HER_POLAR_FILE_NAME,
+    POST_HER_POLAR_TABLE,
+    POST_READ_HER_POLAR_FORMAT,
+    POST_WRITE_HER_POLAR_FORMAT,
+)
 from pyflightstream._digest import file_sha256
-from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning
+from pyflightstream._errors import (
+    PyflightstreamDeprecationWarning,
+    PyflightstreamError,
+    PyflightstreamWarning,
+)
+from pyflightstream.cases import PprocSpec, select_group_members
 from pyflightstream.cases.workflows import REDUCTION_NAMES
 from pyflightstream.fsi.loads import SectionalLoadsReport, parse_sectional_loads
 from pyflightstream.post._tables import (
@@ -255,27 +266,36 @@ class PolarPoint:
 
 
 def group_coefficients(
-    loads: LoadsReport, families: Sequence[str], *, bref_m: float
+    loads: LoadsReport,
+    families: Sequence[int | str],
+    *,
+    bref_m: float,
+    is_blade: Callable[[str], bool] | None = None,
 ) -> GroupCoefficients:
     """Sum the loads table's rows over the families of one group.
 
-    A family the table does not carry is left out, as her writer left it
-    out; a group none of whose families is in the table sums to zero,
-    which is what her products carry for the propeller groups of a
-    wing-body polar. The rolling and yawing moments are the solver's
-    ``CMx`` and ``CMz``, scaled from the reference chord to the span and
-    negated, her convention.
+    The members are resolved against the table's surface rows by
+    :func:`pyflightstream.cases.select_group_members`: an EMPTY group is
+    every surface (her decision of 2026-09-09), a name is its row, a
+    family is every row of it, ``blades`` and ``airframe`` are the
+    selector words, told apart by ``is_blade`` (the pproc artifact's
+    pattern; the artifact's default when none is given). A family the table does
+    not carry is left out, as her writer left it out; a group none of
+    whose families is in the table sums to zero, which is what her
+    products carry for the propeller groups of a wing-body polar. The
+    rolling and yawing moments are the solver's ``CMx`` and ``CMz``,
+    scaled from the reference chord to the span and negated, her
+    convention.
     """
     cref = loads.reference_length
     if cref is None:
         raise ProductError("the loads table states no reference length, so no span scaling")
     drag = side = lift = roll = pitch = yaw = profile = induced = 0.0
     used: list[str] = []
-    for family in families:
-        row = loads.surfaces.get(str(family))
-        if row is None:
-            continue
-        used.append(str(family))
+    blade = is_blade if is_blade is not None else PprocSpec().is_blade
+    for family in select_group_members(families, list(loads.surfaces), blade):
+        row = loads.surfaces[family]
+        used.append(family)
         drag += row["CDi"] + row["CDo"]
         side += row["Cy"]
         lift += row["CL"]
@@ -383,24 +403,24 @@ def write_polar_table(
     return write_csv_table(path, POLAR_COLUMNS, full)
 
 
-# --- PFS-2014.01: her plot format, the polar table as her existing tooling reads it --
+# --- PFS-2014.01: the custom polar format, the polar table as the author's tooling reads it --
 
-#: The columns of her format's reference line: the nominal Mach and then the
+#: The columns of the custom format's reference line: the nominal Mach and then the
 #: reference block in the polar table's own order.
-_HER_REFERENCE_COLUMNS: tuple[str, ...] = ("MNOM", *_REFERENCE_COLUMNS)
+_CUSTOM_REFERENCE_COLUMNS: tuple[str, ...] = ("MNOM", *_REFERENCE_COLUMNS)
 
-#: Every field of her format is right-aligned to this width.
-_HER_WIDTH = 10
+#: Every field of the custom format is right-aligned to this width.
+_CUSTOM_WIDTH = 10
 
 #: Her date line, ``Tue Sep 08 23:41:07  2026``: two spaces before the year.
-_HER_DATE_FORMAT = "%a %b %d %H:%M:%S  %Y"
+_CUSTOM_DATE_FORMAT = "%a %b %d %H:%M:%S  %Y"
 
-_HER_TITLE_PREFIX = "FlightStream - "
+_CUSTOM_TITLE_PREFIX = "FlightStream - "
 
 
 @dataclass(frozen=True)
 class CustomPolarTable:
-    """One file of her polar format, read back: the header block and the rows.
+    """One file of the custom polar format, read back: the header block and the rows.
 
     Attributes
     ----------
@@ -434,32 +454,32 @@ class CustomPolarTable:
 
 
 _FORMER_NAMES = {
-    "HerPolarTable": "POST_HER_POLAR_TABLE",
-    "her_polar_file_name": "POST_HER_POLAR_FILE_NAME",
-    "write_her_polar_format": "POST_WRITE_HER_POLAR_FORMAT",
-    "read_her_polar_format": "POST_READ_HER_POLAR_FORMAT",
+    entry.old: entry
+    for entry in (
+        POST_HER_POLAR_TABLE,
+        POST_HER_POLAR_FILE_NAME,
+        POST_WRITE_HER_POLAR_FORMAT,
+        POST_READ_HER_POLAR_FORMAT,
+    )
 }
 
 
 def __getattr__(name: str) -> object:
-    """Serve the polar format's former ``her_`` names, warning from the ledger (until 0.16.0)."""
+    """Serve the polar format's former ``her`` names, warning from the ledger (until 0.16.0)."""
     if name in _FORMER_NAMES:
-        from pyflightstream import _deprecations
-        from pyflightstream._errors import PyflightstreamDeprecationWarning
-
-        entry = getattr(_deprecations, _FORMER_NAMES[name])
+        entry = _FORMER_NAMES[name]
         warnings.warn(entry.message(), PyflightstreamDeprecationWarning, stacklevel=2)
         return globals()[entry.new]
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 def custom_polar_file_name(polar: str | int, *, mach: float, group: str | int) -> str:
-    """``<polar>_M<mach code:02d>_g<group:02d>.dat``: her format beside the polar table."""
+    """``<polar>_M<mach code:02d>_g<group:02d>.dat``: the custom format beside the polar table."""
     return polar_file_name(polar, mach, group)[: -len(".csv")] + ".dat"
 
 
 def _custom_field(value: object) -> str:
-    return f"{value!s:>{_HER_WIDTH}}"
+    return f"{value!s:>{_CUSTOM_WIDTH}}"
 
 
 def write_custom_polar_format(
@@ -473,7 +493,7 @@ def write_custom_polar_format(
     rows: Sequence[Sequence[float]],
     date: str | None = None,
 ) -> Path:
-    """Write one polar of one group in the fixed-width text format her existing tooling opens.
+    """Write one polar of one group in the fixed-width text format the author's tooling opens.
 
     THIS DOCSTRING IS THE SPECIFICATION OF THE FORMAT (PFS-2014.01.02). The
     shape was read off a file of hers and is pinned by the committed fixture
@@ -544,11 +564,11 @@ def write_custom_polar_format(
         If a row is not twenty-four values wide.
     """
     lines = [
-        f"{_HER_TITLE_PREFIX}{description}",
+        f"{_CUSTOM_TITLE_PREFIX}{description}",
         f"{polar}{_mach_code(mach):02d}",
-        date if date is not None else datetime.now().strftime(_HER_DATE_FORMAT),
-        f"{len(_HER_REFERENCE_COLUMNS):03d} {int(group):02d}",
-        "".join(_custom_field(name) for name in _HER_REFERENCE_COLUMNS),
+        date if date is not None else datetime.now().strftime(_CUSTOM_DATE_FORMAT),
+        f"{len(_CUSTOM_REFERENCE_COLUMNS):03d} {int(group):02d}",
+        "".join(_custom_field(name) for name in _CUSTOM_REFERENCE_COLUMNS),
         "".join(_custom_field(float(value)) for value in (mach, *reference.as_row())),
         f"{len(rows):03d}",
         f"{len(COEFFICIENT_COLUMNS):03d}",
@@ -557,14 +577,14 @@ def write_custom_polar_format(
     for row in rows:
         if len(row) != len(COEFFICIENT_COLUMNS):
             raise ProductError(f"a polar row has {len(row)} values, not {len(COEFFICIENT_COLUMNS)}")
-        lines.append("".join(f"{float(value):{_HER_WIDTH}.{_DECIMALS}f}" for value in row))
+        lines.append("".join(f"{float(value):{_CUSTOM_WIDTH}.{_DECIMALS}f}" for value in row))
     target = Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_bytes(("\n".join(lines) + "\n").encode("ascii"))
     return target
 
 
-def _her_count(line: str, path: Path, number: int, what: str) -> int:
+def _custom_count(line: str, path: Path, number: int, what: str) -> int:
     try:
         return int(line.split()[0])
     except (IndexError, ValueError):
@@ -574,7 +594,7 @@ def _her_count(line: str, path: Path, number: int, what: str) -> int:
 
 
 def read_custom_polar_format(path: str | Path) -> CustomPolarTable:
-    """Read a file of her polar format back, as :func:`write_custom_polar_format` specifies it.
+    """Read a custom polar format file back, as :func:`write_custom_polar_format` specifies it.
 
     The counts the file states are checked against what it holds, which is
     what makes the round trip (write, read, write again) a proof rather
@@ -584,7 +604,7 @@ def read_custom_polar_format(path: str | Path) -> CustomPolarTable:
     Parameters
     ----------
     path : str or pathlib.Path
-        A file in her format.
+        A file in the custom format.
 
     Returns
     -------
@@ -601,12 +621,12 @@ def read_custom_polar_format(path: str | Path) -> CustomPolarTable:
     lines = target.read_text(encoding="ascii").split("\n")
     if lines and lines[-1] == "":
         lines.pop()
-    if len(lines) < 9 or not lines[0].startswith(_HER_TITLE_PREFIX):
+    if len(lines) < 9 or not lines[0].startswith(_CUSTOM_TITLE_PREFIX):
         raise ProductError(
-            f"{target} is not in her polar format: it needs nine header lines, the first "
-            f"beginning {_HER_TITLE_PREFIX!r}"
+            f"{target} is not in the custom polar format: it needs nine header lines, the first "
+            f"beginning {_CUSTOM_TITLE_PREFIX!r}"
         )
-    description = lines[0][len(_HER_TITLE_PREFIX) :]
+    description = lines[0][len(_CUSTOM_TITLE_PREFIX) :]
     identifier = lines[1].strip()
     if len(identifier) < 3 or not identifier[-2:].isdigit():
         raise ProductError(
@@ -628,8 +648,8 @@ def read_custom_polar_format(path: str | Path) -> CustomPolarTable:
             f"carry {len(names)} names and {len(values)} values"
         )
     reference_values = dict(zip(names, (float(v) for v in values), strict=True))
-    row_count = _her_count(lines[6], target, 7, "data rows")
-    column_count = _her_count(lines[7], target, 8, "data columns")
+    row_count = _custom_count(lines[6], target, 7, "data rows")
+    column_count = _custom_count(lines[7], target, 8, "data columns")
     columns = tuple(lines[8].split())
     if len(columns) != column_count:
         raise ProductError(
@@ -868,10 +888,11 @@ def _polar_points(polar_dir: Path, *, loads_suffix: str = ".txt") -> list[PolarP
 
 def _polar_rows(
     points: Sequence[PolarPoint],
-    families: Sequence[str],
+    families: Sequence[int | str],
     *,
     mach: float,
     reference: ReferenceValues,
+    is_blade: Callable[[str], bool] | None = None,
 ) -> list[tuple[float, ...]]:
     """Return the coefficient rows of one group over the points of a polar, alpha ascending."""
     rows = []
@@ -886,21 +907,9 @@ def _polar_rows(
                 "zero sideslip only; a polar under sideslip is not written by this release. "
                 "Leave the point out of the products, or state the sweep without sideslip."
             )
-        if point.beta_deg != 0.0:
-            raise ProductError(
-                f"{point.loads_path} states a sideslip of {point.beta_deg} deg, and the polar "
-                "table's wind-axis columns have been checked against her recorded tables at "
-                "zero sideslip only; a polar under sideslip is not written by this release. "
-                "Leave the point out of the products, or state the sweep without sideslip."
-            )
-        if point.beta_deg != 0.0:
-            raise ProductError(
-                f"{point.loads_path} states a sideslip of {point.beta_deg} deg, and the polar "
-                "table's wind-axis columns have been checked against her recorded tables at "
-                "zero sideslip only; a polar under sideslip is not written by this release. "
-                "Leave the point out of the products, or state the sweep without sideslip."
-            )
-        coefficients = group_coefficients(point.loads, list(families), bref_m=reference.bref_m)
+        coefficients = group_coefficients(
+            point.loads, list(families), bref_m=reference.bref_m, is_blade=is_blade
+        )
         rows.append(
             polar_row(
                 point.alpha_deg,
@@ -1064,7 +1073,9 @@ def _sim_products(
 
     if products.polars:
         for group, families in pproc.groups.items():
-            rows = _polar_rows(points, [str(f) for f in families], mach=mach, reference=reference)
+            rows = _polar_rows(
+                points, list(families), mach=mach, reference=reference, is_blade=pproc.is_blade
+            )
             target = _target(out / polar_file_name(sim_id, mach, group))
             write_polar_table(
                 target,
@@ -1078,7 +1089,7 @@ def _sim_products(
             written_names[target.relative_to(out).as_posix()] = {"runs": run_ids}
             if products.custom_polar_format:
                 # PFS-2014.01.01: the same rows, a second time, in the
-                # format her existing tooling opens, beside the table.
+                # format the author's existing tooling opens, beside the table.
                 target = _target(out / custom_polar_file_name(sim_id, mach=mach, group=group))
                 write_custom_polar_format(
                     target,

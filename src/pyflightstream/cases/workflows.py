@@ -76,12 +76,15 @@ from pyflightstream._fsm import (
 from pyflightstream.cases import (
     EXPORT_KINDS,
     FORCE_PLOT_PARAMETERS,
+    GROUP_SELECTORS,
     RAW_PHASES,
     CampaignConfigError,
+    PprocSpec,
     ScriptRecipe,
     SimCase,
     classify_outputs,
     select_families,
+    select_group_members,
 )
 from pyflightstream.commands import CommandRegistry, Phase
 from pyflightstream.script import CommandArgumentError, Script, ScriptReferenceError, helpers
@@ -1465,28 +1468,28 @@ def _group_indices(
 ) -> list[int]:
     """Resolve one pproc group's members against the inventory, as the polar tables do.
 
-    A member the geometry does not carry is left out, which is the
-    artifact's own rule (one artifact serves a wing-body and an isolated
-    rotor); a position passes through; a group that resolves to NOTHING
-    is refused naming the group, its members, the file and its inventory,
-    because a motion over no boundary is the silent no-op the rule of
-    2026-09-08 forbids.
+    The names go through :func:`pyflightstream.cases.select_group_members`
+    over the inventory's labels: an EMPTY group is every boundary of the
+    file (her decision of 2026-09-09), a member the geometry does not
+    carry is left out, which is the artifact's own rule (one artifact
+    serves a wing-body and an isolated rotor), and ``blades`` and
+    ``airframe`` are told apart by the artifact's pattern; a position
+    passes through. A group that resolves to NOTHING is refused naming
+    the group, its members, the file and its inventory, because a motion
+    over no boundary is the silent no-op the rule of 2026-09-08 forbids.
     """
-    indices: list[int] = []
-    for member in members:
-        if isinstance(member, int):
-            indices.append(member)
-            continue
-        indices.extend(
-            index for index in resolve_family(str(member), labels) if index not in indices
-        )
+    ordered = [name for name, _ in sorted(labels.items(), key=lambda item: item[1])]
+    is_blade = case.pproc.is_blade if case.pproc is not None else PprocSpec().is_blade
+    indices = [member for member in members if isinstance(member, int)]
+    indices.extend(labels[name] for name in select_group_members(members, ordered, is_blade))
     if indices:
         return sorted(set(indices))
     declared = _declared_labels(labels)
+    spelled = ", ".join(repr(member) for member in members) or "nothing, meaning every family"
     raise ScriptReferenceError(
         f"case {case.sim_id!r} states {MOVING_BOUNDARIES_VARIABLE} with {token!r}, group "
-        f"{token[1:]} of {_artifact_of(case)}, whose members are "
-        f"{', '.join(repr(member) for member in members)}, and {_inventory_source(case)} "
+        f"{token[1:]} of {_artifact_of(case)}, whose members are {spelled}, "
+        f"and {_inventory_source(case)} "
         f"declares none of those names or families; it declares {declared}. Name a group "
         "written for this geometry, or write the names the file carries."
     )
@@ -1524,7 +1527,10 @@ def _refuse_a_pproc_the_geometry_shares_no_name_with(case: SimCase, script: Scri
     the wing rows is what her products carry for the body groups of a
     wing polar. An artifact that cites a POSITION resolves by construction.
     With no inventory declared there is nothing to check against, which
-    is the permissive state FR-30c licenses.
+    is the permissive state FR-30c licenses. An EMPTY group is every
+    family and resolves by construction (her decision of 2026-09-09), and
+    a selector word (``blades``, ``airframe``) is not a name the file
+    could lack, so neither counts as a cited name.
     """
     pproc = case.pproc
     if pproc is None or not pproc.groups:
@@ -1534,12 +1540,16 @@ def _refuse_a_pproc_the_geometry_shares_no_name_with(case: SimCase, script: Scri
         return
     cited: list[str] = []
     for members in pproc.groups.values():
+        if not members:
+            return
         for member in members:
             if isinstance(member, int):
                 return
+            if str(member).casefold() in GROUP_SELECTORS:
+                continue
             if str(member) not in cited:
                 cited.append(str(member))
-    if any(resolve_family(name, labels) for name in cited):
+    if not cited or any(resolve_family(name, labels) for name in cited):
         return
     raise ScriptReferenceError(
         f"case {case.sim_id!r} names {_artifact_of(case)}, whose groups cite "

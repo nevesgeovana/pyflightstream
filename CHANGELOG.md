@@ -9,15 +9,35 @@ FlightStream versions.
 
 ### Changed
 
-- **The polar format's five names carry `custom_` where they carried
-  `her_`** (her decision of 2026-09-09, closing API-4 of the 0.13.0
-  review): `[products] custom_polar_format` on the pproc artifact,
+- **The polar format's five names are spelled `custom` where they were
+  spelled `her`** (her decision of 2026-09-09, closing the 0.13.0 review's
+  finding API-4, "her_* on five public names has no antecedent"):
+  `[products] custom_polar_format` on the pproc artifact,
   `CustomPolarTable`, `custom_polar_file_name`, `write_custom_polar_format`
   and `read_custom_polar_format`, and the fixture
   `tests/tier1_offline/fixtures/custom_polar_format_sample.dat`. The old
-  key is read as the new one and the four old Python names forward to
-  the new ones, each warning from the deprecation ledger with the
-  removal version, 0.16.0. The format itself does not change by a byte.
+  key `her_polar_format` is read as the new one, and the four old Python
+  names, `HerPolarTable`, `her_polar_file_name`, `write_her_polar_format`
+  and `read_her_polar_format`, forward to the new ones, each warning from
+  the deprecation ledger with the removal version, 0.16.0. The format
+  itself does not change by a byte.
+
+- **An empty `[groups]` entry of the pproc artifact is every family the
+  geometry carries, and a group member may be a family name or a
+  selector word** (her decisions of 2026-09-09, settling the verdict
+  PFS-2005.02 left to the domain seat). `"1" = []` was refused at plan
+  time as "domain seat, not yet decided"; it now plans READY, its polar
+  table sums every surface row of the loads table, and
+  `MOVING_BOUNDARIES: g1` naming it moves every boundary of the file. A
+  member is resolved by the one function `pyflightstream.cases.select_group_members`,
+  on the script path against the file's boundary labels and at products
+  time against the loads table's surface rows: an exact name first, then
+  the selector words `blades` and `airframe` (case folded, the words a
+  `families` entry accepts), then a family, the label without its
+  trailing number, so `"2" = ["Blade"]` sums `Blade1` to `Blade6` where it
+  summed nothing before. `expand_group`, the recipe tool that numbers
+  members by position, refuses an empty group naming the meaning.
+  `ENTITY_SELECTIONS` carries her verdict beside the key.
 
 ### Added
 

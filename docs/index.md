@@ -45,7 +45,7 @@ registers the two solver actions that make the solver export from that
 step on, measured on 26.123. The products stage writes a PROV-JSON
 provenance document per point, every reduction of an unsteady row (the
 time average over the window the row states, the phase-locked passages,
-the per-blade split), and the polar tables in the author's own plot format
+the per-blade split), and the polar tables in the custom polar format
 when the pproc artifact asks for it. The geometry library may hold one
 folder per geometry beside the flat layout, `pyfs-workspace
 migrate-geometries` moves a library into it, and `pyfs-workspace archive

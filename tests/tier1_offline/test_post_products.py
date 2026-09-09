@@ -8,10 +8,12 @@ against a row she wrote, column by column, at her five decimals.
 
 from __future__ import annotations
 
+import warnings
 from pathlib import Path
 
 import pytest
 
+from pyflightstream._errors import PyflightstreamDeprecationWarning
 from pyflightstream.post.products import (
     COEFFICIENT_COLUMNS,
     POLAR_COLUMNS,
@@ -108,6 +110,53 @@ def test_a_group_the_table_carries_none_of_sums_to_zero():
     coefficients = group_coefficients(_loads(), ["Blade1", "S"], bref_m=20.0)
     assert coefficients.families_used == ()
     assert coefficients.drag == coefficients.lift == coefficients.pitch == 0.0
+
+
+def test_an_empty_group_sums_every_family_the_table_carries():
+    """Her decision of 2026-09-09 (PFS-2005.02): a group written empty is every
+    family, so its row is the sum over every surface row of the loads table,
+    here W and B, and equals the group that names them; the Total row is not
+    a surface and is not summed twice."""
+    loads = _loads()
+    everything = group_coefficients(loads, [], bref_m=20.0)
+    assert everything.families_used == tuple(loads.surfaces), "every surface, in table order"
+    assert everything.families_used == ("W", "B")
+    assert everything == group_coefficients(loads, ["W", "B"], bref_m=20.0)
+
+
+def test_a_group_member_may_be_a_family_or_a_selector_word():
+    """Her question of 2026-09-09, answered by the rule the motion path already
+    had: a member is an exact surface name first, then a selector word
+    (``blades``, ``airframe``, case folded), then a family, the label without
+    its trailing number, so ``Blade`` is every blade of the table and ``Blades``
+    reads as the selector. Until 0.14.0 a family name in a group summed nothing
+    at products time, since the summer matched the table's rows exactly."""
+    from dataclasses import replace
+
+    loads = _loads()
+    wing, body = loads.surfaces["W"], loads.surfaces["B"]
+    with_blades = replace(loads, surfaces={"Blade1": body, "Blade2": wing, "W": wing, "B": body})
+    by_family = group_coefficients(with_blades, ["Blade"], bref_m=20.0)
+    assert by_family.families_used == ("Blade1", "Blade2")
+    assert group_coefficients(with_blades, ["Blades"], bref_m=20.0) == by_family
+    assert group_coefficients(with_blades, ["blades"], bref_m=20.0) == by_family
+    assert by_family.lift == pytest.approx(wing["CL"] + body["CL"])
+    airframe = group_coefficients(with_blades, ["airframe"], bref_m=20.0)
+    assert airframe.families_used == ("W", "B")
+    assert group_coefficients(with_blades, ["Blade2", "airframe"], bref_m=20.0).families_used == (
+        "Blade2",
+        "W",
+        "B",
+    ), "an exact name first, then the selector, each name once"
+    assert group_coefficients(with_blades, [], bref_m=20.0).families_used == (
+        "Blade1",
+        "Blade2",
+        "W",
+        "B",
+    )
+    # The artifact's own pattern decides what a blade is.
+    rotor = group_coefficients(with_blades, ["blades"], bref_m=20.0, is_blade=lambda n: n == "W")
+    assert rotor.families_used == ("W",)
 
 
 def test_polar_table_round_trips(tmp_path):
@@ -842,7 +891,7 @@ def _her_format_functions():
     writer = getattr(module, "write_custom_polar_format", None)
     reader = getattr(module, "read_custom_polar_format", None)
     assert writer is not None and reader is not None, (
-        "post.products has no writer and reader of her polar format (PFS-2014.01)"
+        "post.products has no writer and reader of the custom polar format (PFS-2014.01)"
     )
     return writer, reader
 
@@ -926,9 +975,11 @@ def test_pyfs_matrix_post_writes_her_format_beside_the_polar_tables_when_asked(t
 
     asked = _workspace(
         tmp_path / "asked",
-        '[groups]\n"1" = ["W", "B"]\n"3" = ["W"]\n[products]\nher_polar_format = true\n',
+        '[groups]\n"1" = ["W", "B"]\n"3" = ["W"]\n[products]\ncustom_polar_format = true\n',
     )
-    assert asked.resolve_pproc("p001").products.custom_polar_format is True
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", PyflightstreamDeprecationWarning)
+        assert asked.resolve_pproc("p001").products.custom_polar_format is True
     written = write_campaign_products(asked)
     out = asked.root / "post" / "products"
     names = sorted(p.name for p in out.iterdir())
@@ -944,7 +995,7 @@ def test_pyfs_matrix_post_writes_her_format_beside_the_polar_tables_when_asked(t
     manifest = json.loads((out / "products.json").read_text(encoding="utf-8"))
     assert manifest["products"]["3207_M20_g01.dat"]["runs"] == ["camp/sim_3207/a-02.0"]
 
-    # The two serializations carry the same rows: her format at %10.5f, the
+    # The two serializations carry the same rows: the custom format at %10.5f, the
     # CSV at five decimals.
     table = read_custom_polar_format(out / "3207_M20_g01.dat")
     assert table.polar == "3207" and table.group == 1 and table.mach == 0.2
@@ -978,13 +1029,13 @@ def test_pyfs_matrix_post_writes_her_format_beside_the_polar_tables_when_asked(t
         "3207_M20_g01.csv",
         "products.json",
         "provenance",
-    ], "without the key her format is not written"
+    ], "without the key the custom format is not written"
 
     # The docs name the key and what the format is for.
     page = (Path(__file__).parents[2] / "docs" / "workspace-and-workflows.md").read_text(
         encoding="utf-8"
     )
-    assert "custom_polar_format" in page and "her existing tooling" in page
+    assert "custom_polar_format" in page and "existing tooling" in page
 
 
 # --- PFS-2031.18.01: the per-step exports of a windowed point as a series ------------
@@ -1196,6 +1247,43 @@ def test_a_step_whose_surfaces_differ_from_the_first_refuses_the_loads_series_na
     )
 
 
+def test_the_former_key_of_the_polar_format_reaches_the_stage_and_warns(tmp_path):
+    """The old key ``her_polar_format = true`` on a real artifact file warns from
+    the ledger and writes the same files the new key writes (the QA lens of the
+    rename round: the supported spelling carries the stage test above, and the
+    deprecated one has this case, deleted whole at 0.16.0)."""
+    from pyflightstream.post.products import write_campaign_products
+    from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
+
+    workspace = CampaignWorkspace.init(tmp_path / "old")
+    (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
+        '[groups]\n"1" = ["W", "B"]\n[products]\nher_polar_format = true\n', encoding="utf-8"
+    )
+    raw = workspace.sim_dir("3207") / "raw"
+    raw.mkdir(parents=True)
+    (raw / "POLAR-3207_M20AL-020BE+000.txt").write_text(LOADS, encoding="utf-8")
+    workspace.append_record(
+        RunRecord(
+            run_id="camp/sim_3207/a-02.0",
+            sim_id="3207",
+            point={"alpha": -2.0},
+            fs_version_requested="26.120",
+            package_version="0.14.0",
+            script_sha256="",
+            raw_flag=False,
+            status=RunStatus.CONVERGED,
+            outputs=["raw/POLAR-3207_M20AL-020BE+000.txt"],
+            pproc="p001",
+            description="STEADY_WB",
+            mach=0.2,
+            reference={"SREF": 50.0, "CREF": 2.526, "BREF": 20.0, "XMOM": 9.152},
+        )
+    )
+    with pytest.warns(PyflightstreamDeprecationWarning, match="her_polar_format.*0.16.0"):
+        written = write_campaign_products(workspace)
+    assert {p.name for p in written} >= {"3207_M20_g01.csv", "3207_M20_g01.dat"}
+
+
 def test_the_former_her_names_of_the_polar_format_forward_and_warn(tmp_path):
     """Her decision of 2026-09-09: custom_ names the thing. The old key on a pproc
     artifact is read as the new one, and the old Python names forward, each
@@ -1221,8 +1309,9 @@ def test_the_former_her_names_of_the_polar_format_forward_and_warn(tmp_path):
         ("write_her_polar_format", post.write_custom_polar_format),
         ("read_her_polar_format", post.read_custom_polar_format),
     ):
-        with pytest.warns(PyflightstreamDeprecationWarning, match=f"{old}.*0.16.0"):
+        with pytest.warns(PyflightstreamDeprecationWarning, match=f"{old}.*0.16.0") as caught:
             assert getattr(post, old) is new
+        assert len(caught) == 1, "the package warns once, not once per lookup (QA-5)"
     with pytest.warns(PyflightstreamDeprecationWarning, match="her_polar_file_name.*0.16.0"):
         assert products_module.her_polar_file_name is products_module.custom_polar_file_name
     missing = "no_such_name"

@@ -41,8 +41,10 @@ from pydantic import (
 )
 
 from pyflightstream._atmosphere import ISA
+from pyflightstream._deprecations import PPROC_HER_POLAR_FORMAT
 from pyflightstream._digest import file_sha256, text_sha256
-from pyflightstream._errors import PyflightstreamError
+from pyflightstream._errors import PyflightstreamDeprecationWarning, PyflightstreamError
+from pyflightstream._fsm import family_of
 from pyflightstream.commands import Phase
 from pyflightstream.script import Script
 from pyflightstream.script.toggles import resolve_toggle
@@ -78,6 +80,8 @@ __all__ = [
     "SectionDistribution",
     "ProbeLine",
     "select_families",
+    "select_group_members",
+    "GROUP_SELECTORS",
     "default_outputs",
     "classify_outputs",
     "SweepAxis",
@@ -480,7 +484,7 @@ class ProductsSpec(BaseModel):
     export. All CSV, one header line and one row per record.
 
     ``custom_polar_format``: beside every polar table, the same rows in the
-    fixed-width text format her existing tooling opens
+    fixed-width text format the author's existing tooling opens
     (PFS-2014.01.01), ``<polar>_M<mach code>_g<group>.dat``. Off by
     default, since it is a second serialization of the polar table for
     one reader.
@@ -498,9 +502,6 @@ class ProductsSpec(BaseModel):
     def _the_former_name_of_the_custom_format(cls, data: object) -> object:
         """Read ``her_polar_format``, the key's name until 0.14.0, warning from the ledger."""
         if isinstance(data, dict) and "her_polar_format" in data:
-            from pyflightstream._deprecations import PPROC_HER_POLAR_FORMAT
-            from pyflightstream._errors import PyflightstreamDeprecationWarning
-
             if "custom_polar_format" in data:
                 raise ValueError(
                     "the [products] table states her_polar_format and custom_polar_format "
@@ -624,8 +625,10 @@ class PprocSpec(BaseModel):
 
     PFS-2029.07.01, her decision of 2026-09-02: the groups artifact IS the
     home of post-processing and is renamed pproc. Six tables. ``groups``
-    is exactly what the groups file held, a name to the families it
-    aggregates, and the polar tables are written per group of it; ``exports`` says which of
+    is exactly what the groups file held, a number to the families it
+    aggregates, and the polar tables are written per group of it; a
+    member is resolved by :func:`select_group_members`, and an empty
+    group is every family (her decision of 2026-09-09); ``exports`` says which of
     the eight export kinds a point writes, all of them unless a kind is
     set to false; ``sections``, ``plots`` and ``probes`` are the solver
     definitions the builders emit before the solver runs; ``products``
@@ -648,17 +651,6 @@ class PprocSpec(BaseModel):
     #: those families, after OPEN. Empty, the default, emits nothing; a
     #: row's BASE_REGIONS key overrides the artifact.
     base_regions: list[str] = Field(default_factory=list)
-
-    @field_validator("groups")
-    @classmethod
-    def _groups_have_members(cls, value: dict[str, list[int | str]]) -> dict:
-        empty = sorted(name for name, members in value.items() if not members)
-        if empty:
-            raise ValueError(
-                f"group(s) {', '.join(empty)} have no members; a named boundary "
-                "group aggregates at least one boundary label or index"
-            )
-        return value
 
     @field_validator("exports")
     @classmethod
@@ -733,6 +725,52 @@ def select_families(
         elif item in inventory and item not in chosen:
             chosen.append(item)
     return [chosen] if chosen else []
+
+
+#: The two selector words a group member may be, the same words a
+#: ``families`` entry accepts in a list; ``all`` is what an empty group is.
+GROUP_SELECTORS = ("blades", "airframe")
+
+
+def select_group_members(
+    members: Sequence[int | str], inventory: Sequence[str], is_blade: Callable[[str], bool]
+) -> list[str]:
+    """Resolve one ``[groups]`` entry's members against an inventory, in member order.
+
+    Her decisions of 2026-09-09 (PFS-2005.02). An EMPTY group is every
+    name of the inventory. Otherwise each member is, tried in this order,
+    an exact name of the inventory; one of :data:`GROUP_SELECTORS`, case
+    folded (``blades`` is every name ``is_blade`` accepts, ``airframe``
+    every other); or a FAMILY, the label without its trailing number,
+    selecting every member of it the inventory carries (``Blade`` is
+    ``Blade1`` to ``Blade6``). A member resolving to nothing is left out,
+    which is how one artifact serves a wing-body and an isolated rotor;
+    a POSITION is not a name and is left to the caller, which is the
+    motion path that has an index to give it. The inventory is whatever
+    the caller judges by: the boundary labels of the opened file on the
+    script path, the surface rows of the loads table at products time.
+    """
+    if not members:
+        return list(inventory)
+    chosen: list[str] = []
+
+    def take(names: Sequence[str]) -> None:
+        chosen.extend(name for name in names if name not in chosen)
+
+    for member in members:
+        if isinstance(member, int):
+            continue
+        token = str(member)
+        if token in inventory:
+            take([token])
+        elif token.casefold() == "blades":
+            take([name for name in inventory if is_blade(name)])
+        elif token.casefold() == "airframe":
+            take([name for name in inventory if not is_blade(name)])
+        else:
+            wanted = family_of(token)
+            take([name for name in inventory if family_of(name) == wanted])
+    return chosen
 
 
 def point_tag(point: dict[str, float]) -> str:

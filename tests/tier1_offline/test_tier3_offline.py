@@ -412,6 +412,18 @@ def test_moving_boundaries_may_name_a_group_of_the_pproc_artifact(tmp_path):
         assert fragment in message, message
 
 
+def test_moving_boundaries_naming_an_empty_group_moves_every_boundary(tmp_path):
+    """Her decision of 2026-09-09 (PFS-2005.02): a group written empty is every
+    family the geometry carries, so `MOVING_BOUNDARIES: g1` against an artifact
+    whose group 1 is `[]` moves every boundary of 40_PUSHER, the three of its
+    inventory, and the artifact plans READY although it cites no name."""
+    root = _tier3_copy(tmp_path)
+    _pproc(root, "p001", '[groups]\n"1" = []\n')
+    every = _one_row_matrix(root, "all.fs", _rotor_row("7208", "MOVING_BOUNDARIES: g1"))
+    assert not _plan(root, every).blocked, "an empty group is every family and plans READY"
+    assert _moving_payload(root, every) == "1,2,3"
+
+
 def test_a_pproc_artifact_naming_nothing_the_geometry_carries_is_refused_at_plan(tmp_path):
     """PFS-2028.00, the RED of RPT-044: a group citing the mesh solid name `Wing`
     against 14_WING_RENAMED.fsm, whose inventory carries MainWing only, planned

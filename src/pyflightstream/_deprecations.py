@@ -522,14 +522,15 @@ SWEEP_EDITIONS = DeprecatedParameter(
         "parameter sweep. The pyfs-manual sweep subcommand keeps its name."
     ),
 )
-#: The polar format's five public names carried the prefix ``her_`` from
-#: 0.13.0, naming the author rather than the thing; on her decision of
-#: 2026-09-09 they are ``custom_`` (ENTRY 020's API-4). The old names
+#: The polar format's five public names were spelled ``her`` from 0.13.0,
+#: naming the author rather than the thing; on her decision of 2026-09-09
+#: they are spelled ``custom`` (the CHANGELOG entry of 0.14.0 names the
+#: finding). The old names
 #: warn and forward; the pproc key ``her_polar_format`` is read as
 #: ``custom_polar_format`` with the same warning.
 _CUSTOM_POLAR_EXTRA = (
     "The format is the fixed-width polar table the author's existing tooling reads; "
-    "custom names the thing, her named the person."
+    "the new name names the format rather than a person."
 )
 PPROC_HER_POLAR_FORMAT = DeprecatedParameter(
     owner="the pproc artifact's [products] table",
