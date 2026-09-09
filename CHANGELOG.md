@@ -7,6 +7,32 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Fixed
+
+- **`pyfs-matrix run` pre-flights a row on a second build under that
+  build's grammar, as `plan` already did** (PFS-2009.05.02, met by pfs0130
+  on the published 0.13.0 on 2026-09-09). The first fix (PFS-2009.05.01)
+  reached `plan_matrix` alone: `pyfs-matrix plan` said READY and
+  `pyfs-matrix run` refused the same matrix, whole, with
+  `CommandNotInVersionError` for 26.120 on the row that named 26.123, so
+  the matrix of her master's cases that states the unsteady actions on a
+  second build could not run from the released package. One function,
+  `_row_versions`, now feeds both pre-flights. RED on 7b20deb: MatrixError,
+  pre-flight blocked 1 matrix point(s); the tier-1 test runs the two-build
+  matrix on a stand-in solver and reads both records.
+
+- **A nonzero sideslip under `SYMMETRY: MIRROR` is refused at plan time,
+  naming the cell** (PFS-2005.09, met by pfs0130 row 4207 on 2026-09-09).
+  MEASURED on 26.120: a script stating `SOLVER_SET_SIDESLIP -4.0` under
+  mirror symmetry ran to completion at zero sideslip, the log reading
+  "Symmetry is mirror." and then "Side-slip angle (Deg): .000", and the
+  export printing .000; the run layer recorded the point
+  FAILED_INCOMPLETE_OUTPUT because the export was evidence of another
+  operating point, two seats after the plan had said READY. A mirrored
+  half model has its symmetry plane in the flow direction, so the refusal
+  is physics rather than grammar; the command database carries the fact
+  on `SOLVER_SET_SIDESLIP`. RED on 7b20deb: 3 ready, 0 blocked.
+
 ## [0.13.0] - 2026-09-09
 
 ### Added

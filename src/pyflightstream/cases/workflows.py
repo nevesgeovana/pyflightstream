@@ -3014,6 +3014,33 @@ def _analysis(case: SimCase, script: Script, frame: int | None) -> None:
     helpers.analysis_setup(script, loads_frame=frame, moments_model="PRESSURE")
 
 
+def _refuse_sideslip_under_mirror(case: SimCase) -> None:
+    """Refuse a nonzero sideslip under mirror symmetry, which the solver runs at zero.
+
+    MEASURED on 26.120 (pfs0130 row 4207, 2026-09-09): a script stating
+    ``SOLVER_SET_SIDESLIP -4.0`` before ``INITIALIZE_SOLVER`` and
+    ``SYMMETRY MIRROR`` after it ran to completion with the log reading
+    "Symmetry is mirror." and then "Side-slip angle (Deg): .000", and the
+    loads export printing .000 too; the point was recorded
+    FAILED_INCOMPLETE_OUTPUT because the export was evidence of another
+    operating point than the row requested. The symmetry plane of a mirror
+    run lies in the flow direction, so a sideslip has no meaning there and
+    the solver runs at zero without a word. A seat spent on that is a seat
+    spent on a case the row did not state, so the row is refused before the
+    first emission, naming the cell to change (PFS-2005.09).
+    """
+    beta = float(case.point.get("beta", 0.0))
+    symmetry = _variable(case, SYMMETRY_VARIABLE)
+    if symmetry is not None and symmetry.upper() == "MIRROR" and beta != 0.0:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} states a sideslip of {beta:+.4f} deg at a point under "
+            f"{SYMMETRY_VARIABLE}: MIRROR. A mirrored half model has its symmetry plane in the "
+            "flow direction, and the solver runs it at zero sideslip whatever the script states "
+            "(measured on 26.120: the log and the export print .000). Sweep the sideslip on a "
+            f"full geometry with {SYMMETRY_VARIABLE}: NONE, or keep the sideslip at 0 under MIRROR."
+        )
+
+
 def _settings(
     case: SimCase, script: Script, *, wake_termination_time_steps: int | None = None
 ) -> None:
@@ -3058,6 +3085,7 @@ def _settings(
     # scripts set the sideslip even at zero and the reference velocity
     # equal to the free stream, and a setting nobody states is a setting
     # the solver defaults, which is the silence this release removes.
+    _refuse_sideslip_under_mirror(case)
     helpers.solver_settings(
         script,
         aoa=case.point.get("alpha", 0.0),

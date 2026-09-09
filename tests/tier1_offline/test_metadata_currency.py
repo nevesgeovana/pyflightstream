@@ -425,10 +425,13 @@ def test_the_release_commit_is_the_one_tree_allowed_past_the_archive_row_guard(m
     killed while a reader returning empty sets survived with the guard
     skipping; the wiring from position to skip is what this drives now.
     """
-    tags = frozenset({"v0.12.0", "v0.13.0"})
-    monkeypatch.setattr(f"{__name__}._pyproject_version", lambda: "0.13.0")
+    # A version no archive row names, so the file on disk decides nothing:
+    # the DOI commit of 2026-09-09 turned the refuse case into a pass the
+    # moment the v0.13.0 row landed, which was the test reading the tree.
+    tags = frozenset({"v0.12.0", "v0.99.0"})
+    monkeypatch.setattr(f"{__name__}._pyproject_version", lambda: "0.99.0")
     cases = [
-        (TreePosition(tags, frozenset({"v0.13.0"})), "skip", "the tagged tree"),
+        (TreePosition(tags, frozenset({"v0.99.0"})), "skip", "the tagged tree"),
         (
             TreePosition(frozenset({"v0.12.0"}), frozenset()),
             "skip",
@@ -444,7 +447,7 @@ def test_the_release_commit_is_the_one_tree_allowed_past_the_archive_row_guard(m
         except pytest.skip.Exception:
             outcome = "skip"
         except AssertionError as error:
-            outcome = "refuse" if "v0.12.0" in str(error) else "fail"
+            outcome = "refuse" if "newest archive row reads" in str(error) else "fail"
             if outcome == "fail":
                 assert "no tags" in str(error), str(error)
         else:

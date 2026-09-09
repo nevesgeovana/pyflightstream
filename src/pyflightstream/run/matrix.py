@@ -349,22 +349,34 @@ def plan_matrix(
     resolved = resolve_matrix(
         path, workspace, name=name, fs_version=default, recipes=recipes, fs_exe=fs_exe
     )
-    # Per simulation, from the build each row named and the version its
-    # registry entry declares; a row on a build declaring no version, or on
-    # the campaign's own, is pre-flighted under the default.
-    versions: dict[str, str] = {}
-    for case, build in zip(resolved.campaign.sims, resolved.row_builds, strict=True):
-        registered = resolved.builds.get(build) if build else None
-        if registered is not None and registered.fs_version:
-            versions[case.sim_id] = registered.fs_version
     return plan_campaign(
         resolved.campaign,
         workspace,
         recipes=recipe_registry,
         write_plan=write_plan,
         name_from=name_from,
-        versions=versions,
+        versions=_row_versions(resolved),
     )
+
+
+def _row_versions(resolved: ResolvedMatrix) -> dict[str, str]:
+    """Return the version each simulation is pre-flighted under, keyed by sim id.
+
+    Per simulation, from the build each row named and the version its
+    registry entry declares; a row on a build declaring no version, or on
+    the campaign's own, is absent here and is pre-flighted under the
+    default. One function for the two callers, because the first fix
+    (PFS-2009.05.01) reached ``plan_matrix`` alone and ``pyfs-matrix run``
+    kept refusing the row ``plan`` had said READY: pfs0130's row 1226 on
+    26.123, in a matrix whose default is 26.120, met exactly that on the
+    published 0.13.0 (PFS-2009.05.02).
+    """
+    versions: dict[str, str] = {}
+    for case, build in zip(resolved.campaign.sims, resolved.row_builds, strict=True):
+        registered = resolved.builds.get(build) if build else None
+        if registered is not None and registered.fs_version:
+            versions[case.sim_id] = registered.fs_version
+    return versions
 
 
 def run_matrix(
@@ -502,7 +514,9 @@ def run_matrix(
     resolved = resolve_matrix(
         path, workspace, name=name, fs_version=default, recipes=recipes, fs_exe=fs_exe
     )
-    plan = plan_campaign(resolved.campaign, workspace, recipes=recipe_registry)
+    plan = plan_campaign(
+        resolved.campaign, workspace, recipes=recipe_registry, versions=_row_versions(resolved)
+    )
     if plan.blocked:
         raise MatrixError(
             f"pre-flight blocked {len(plan.blocked)} matrix point(s); nothing was "
@@ -539,18 +553,14 @@ def run_matrix(
     # after the pre-flight above, which is planned from the resolved
     # campaign.
     #
-    # THE TWO CAMPAIGNS CAN NOW DIFFER in the version a point's script is
-    # emitted under: the pre-flight above builds every script under the
-    # campaign default, while a row whose build declares a version of its
-    # own runs under that one (PFS-2009.05). It said here that they could
-    # not, and that was true while every build declared `default`. The
-    # residual is stated rather than closed because closing it means
-    # constructing the executors above the pre-flight, and an executor
-    # refuses a path that is not there, which would put an existence check
-    # ahead of the promise this function makes about a blocked plan: that
-    # a broken recipe is reported with its summary and costs no solver
-    # time. `plan_matrix` carries the same residual for the same reason
-    # and has no executor at all to offer.
+    # The pre-flight above and the run below agree on the version a point's
+    # script is emitted under: a row whose build declares a version of its
+    # own is pre-flighted under that version (`_row_versions`, read off the
+    # registry with no executable bound) and runs under it (PFS-2009.05,
+    # .05.01 for plan, .05.02 for this path). The executors are still built
+    # after the pre-flight, because an executor refuses a path that is not
+    # there, and a blocked plan is reported with its summary and costs no
+    # solver time before any path is asked for.
     campaign, builds = _bind_row_builds(resolved, default, executor, executor_for)
     return run_campaign(
         campaign,

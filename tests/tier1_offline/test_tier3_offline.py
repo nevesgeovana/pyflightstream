@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import re
 import shutil
+import sys
 
 import pytest
 
@@ -514,3 +515,89 @@ def test_the_probe_verdict_says_no_when_only_the_registration_text_ever_ran(tmp_
     silent = tmp_path / "silent"
     silent.mkdir()
     assert actions_probe.verdict(silent)["verdict"] == "NOT_RUN"
+
+
+def test_a_nonzero_sideslip_under_mirror_symmetry_is_refused_at_plan_time(tmp_path):
+    """PFS-2005.09, met by pfs0130 on the published 0.13.0 (2026-09-09): row 4207, a
+    sideslip sweep of -4, 0, 4 deg on a mirrored half wing-body, planned READY, ran
+    three seats, and the solver ran every point at zero sideslip, saying so only in
+    the log; two of three points were recorded FAILED_INCOMPLETE_OUTPUT because the
+    export was evidence of another operating point. RED on 7b20deb: three READY."""
+    root = _tier3_copy(tmp_path)
+    sweep = STEADY.replace("| AL | 0.0 |", "| BE | -4,0,4 |")
+    assert sweep != STEADY
+    mirrored = _one_row_matrix(
+        root,
+        "yawed_mirror.fs",
+        f"4207 | Wing | YAWED | {sweep}GEOMETRY: 10_WING.fsm / SYMMETRY: MIRROR",
+    )
+    plan = _plan(root, mirrored)
+    blocked = {p.run_id: p.error for p in plan.blocked}
+    assert set(blocked) == {"refusal/sim_4207/b-04.0", "refusal/sim_4207/b+04.0"}, plan.summary()
+    for error in blocked.values():
+        assert "SYMMETRY: MIRROR" in error and "-4.0000 deg" in error or "+4.0000 deg" in error, (
+            error
+        )
+        assert "SYMMETRY: NONE" in error, (
+            "the refusal does not name the cell that lets the sweep run"
+        )
+    assert len(plan.ready) == 1, "the zero-sideslip point of the same row is refused too"
+    full = _one_row_matrix(
+        root,
+        "yawed_full.fs",
+        f"4208 | Wing | YAWED | {sweep}GEOMETRY: 10_WING.fsm / SYMMETRY: NONE",
+    )
+    plan = _plan(root, full)
+    assert not plan.blocked, plan.summary()
+
+
+def test_a_row_on_a_second_build_is_run_under_that_builds_grammar(tmp_path, monkeypatch):
+    """PFS-2009.05.02: the residual PFS-2009.05.01 left on the run path, met by
+    pfs0130 on the published 0.13.0 (2026-09-09): `pyfs-matrix plan` said READY and
+    `pyfs-matrix run` refused the same matrix, whole, with CommandNotInVersionError
+    for 26.120 on the row that named 26.123, so nothing ran. RED on 7b20deb:
+    MatrixError, pre-flight blocked 1 matrix point(s)."""
+    from pyflightstream.run import LoadsAssessor, LocalExecutor
+    from pyflightstream.run.matrix import run_matrix
+    from tests.tier1_offline.test_qa_matrix import STUB_PPROC, STUB_SOLVER
+
+    root = _tier3_copy(tmp_path)
+    header, rule = TOUR.read_text(encoding="utf-8").splitlines()[:2]
+    steady = f"1001 | Wing | STEADY | {STEADY}GEOMETRY: 10_WING.fsm / SYMMETRY: NONE"
+    actions = next(
+        line
+        for line in (TIER3 / "matriz_actions.fs").read_text(encoding="utf-8").splitlines()
+        if line.startswith("6002 ")
+    )
+    matrix = root / "two_builds.fs"
+    matrix.write_text("\n".join([header, rule, steady, actions]) + "\n", encoding="utf-8")
+    # The stand-in solver writes the loads table alone, so the artifacts the
+    # two rows cite declare no other export (test_qa_matrix's STUB_PPROC).
+    for artifact in ("p001", "p002"):
+        (root / "inputs" / "pproc" / f"{artifact}.toml").write_text(STUB_PPROC, encoding="utf-8")
+    stub = tmp_path / "stub_solver.py"
+    stub.write_text(STUB_SOLVER, encoding="utf-8")
+    loads = TIER3.parent / "tier1_offline" / "fixtures" / "loads_steady_26.120.txt"
+
+    class StubSolver(LocalExecutor):
+        def __init__(self, *args, **kwargs):
+            super().__init__(fs_exe=sys.executable, hidden=True)
+
+        def _argv(self, script_path):
+            return [sys.executable, str(stub), str(script_path), str(loads)]
+
+    monkeypatch.setattr("pyflightstream.run.matrix.LocalExecutor", StubSolver)
+    records = run_matrix(
+        matrix,
+        CampaignWorkspace(root),
+        name="two_builds",
+        default_fs_version="26.120",
+        recipes={},
+        recipe_registry=workflow_registry(),
+        assess=LoadsAssessor(),
+    )
+    by_sim = {record.sim_id: record for record in records}
+    assert set(by_sim) == {"1001", "6002"}, sorted(by_sim)
+    assert by_sim["6002"].fs_version_requested == "26.123"
+    assert by_sim["6002"].fs_version_source == "row"
+    assert by_sim["1001"].fs_version_requested == "26.120"

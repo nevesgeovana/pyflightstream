@@ -42,7 +42,11 @@ SOLVER_SET_SIDESLIP:
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
     "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.344, unchanged from SRC-750 p.344"}
   notes: >
-    Side-slip angle; magnitude must stay below 90 degrees.
+    Side-slip angle; magnitude must stay below 90 degrees. Under SYMMETRY MIRROR the
+    solver runs at zero sideslip whatever this command states and says so only in the
+    log, whose side-slip line reads .000; measured on 26.120 on 2026-09-09 (pfs0130
+    row 4207, the export printing .000 for a stated -4.0); the package refuses a
+    nonzero sideslip under MIRROR at plan time.
 
 SOLVER_SET_VELOCITY:
   layout: inline
