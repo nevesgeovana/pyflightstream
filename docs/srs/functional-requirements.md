@@ -768,6 +768,12 @@ the base could not offer while it bundled several.
     inventory stays permissive, because the total lives in the geometry
     file rather than in the script.
 
+    Read with PFS-2005.04.01 at 0.14.0 (GOAL-013), her decision of
+    2026-09-09: a boundary cited by a row may be a name the row's setup
+    defines under `[aliases]`, resolved against the same declared
+    inventory, and a member the inventory lacks is left out rather than
+    refused.
+
     Amended 2026-09-02, carried by PFS-2029.12, pending until it ships:
     an inventory that could not be declared says why. When a row cites a
     label and the opened geometry carries no mesh block, the refusal
@@ -1527,6 +1533,8 @@ nodes.
     GOAL-011.*
 
     Read with PFS-2031.18.01 and PFS-2015.04.01 at 0.14.0 (GOAL-013): the series tables join the products beside the reductions, and the blade count of a sector is read from `PERIODIC_COPIES` when `BLADES` is absent, so the per-blade reductions of her isolated propeller are written.
+
+    Read with PFS-2005.03, PFS-2005.04.01 and PFS-2029.07.04 at 0.14.0 (GOAL-013), her decisions of 2026-09-09: an empty `[groups]` entry is every family the geometry carries and a member may be a family name; a setup preset names groups of mesh families under `[aliases]`, read wherever a boundary is cited, a member the mesh lacks ignored; and a `families` entry may be a bare word while an entry's `frame` may name a frame the setup defines or a rotor's own.
 
     The artifact kind `group` becomes `pproc`, kept under `inputs/pproc`
     with ids `p###`, and carries the whole post-processing definition of a
