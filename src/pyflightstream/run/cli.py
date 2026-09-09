@@ -342,9 +342,10 @@ def _build_parser() -> argparse.ArgumentParser:
     post.add_argument(
         "--strict",
         action="store_true",
-        help="exit 2 when any simulation's product was skipped by design (a polar under "
-        "sideslip, for one); without it a recorded skip is printed and the exit is 0, "
-        "since everything producible was produced",
+        help="exit 3 when any simulation's product was skipped by design (a polar under "
+        "sideslip, for one), after every product is written in full; without it a "
+        "recorded skip is printed and the exit is 0, since everything producible was "
+        "produced. 2 stays the code of a refusal that wrote nothing",
     )
     return parser
 
@@ -473,24 +474,44 @@ def _cmd_post(args: argparse.Namespace) -> int:
     print(f"{len(written)} product(s) written under {folders}")
     # A simulation whose product was refused by design is a skip the
     # manifest records (PFS-2031.16); say it where the user looks.
+    skipped = _report_skips(workspace, matrices)
+    if skipped and args.strict:
+        # Her decision of 2026-09-08: a skip is a success by default, since
+        # everything producible was produced, and a wrapper that needs to
+        # tell a partial rebuild apart asks for it. The code is 3, its own,
+        # beside 2 for a refusal that wrote nothing (review round two).
+        print(
+            f"--strict: {skipped} simulation(s) skipped; the products of the rest were "
+            f"written under {folders}; exit 3",
+            file=sys.stderr,
+        )
+        return 3
+    return 0
+
+
+def _report_skips(workspace: CampaignWorkspace, matrices: list[str | None]) -> int:
+    """Print every recorded skip of the given matrices to stderr; return the count.
+
+    Shared by ``post`` and ``run`` (PFS-2031.16, PFS-2031.19): the surface
+    that spent the seat says what it skipped too, rather than leaving it
+    for a later rebuild to discover.
+    """
     import json
 
     skipped = 0
     for matrix in matrices:
         manifest = workspace.products_dir(matrix) / "products.json"
-        if manifest.is_file():
-            for sim_id, reason in (
-                json.loads(manifest.read_text(encoding="utf-8")).get("skipped", {}).items()
-            ):
-                print(f"skipped simulation {sim_id}: {reason}", file=sys.stderr)
-                skipped += 1
-    if skipped and args.strict:
-        # Her decision of 2026-09-08: a skip is a success by default, since
-        # everything producible was produced, and a wrapper that needs to
-        # tell a partial rebuild apart asks for it.
-        print(f"--strict: {skipped} simulation(s) skipped, exit 2", file=sys.stderr)
-        return 2
-    return 0
+        if not manifest.is_file():
+            continue
+        for sim_id, reason in (
+            json.loads(manifest.read_text(encoding="utf-8")).get("skipped", {}).items()
+        ):
+            print(
+                f"skipped simulation {sim_id} of {matrix or 'the matrix-less records'}: {reason}",
+                file=sys.stderr,
+            )
+            skipped += 1
+    return skipped
 
 
 def _cmd_inventory(args: argparse.Namespace) -> int:
@@ -687,6 +708,7 @@ def _cmd_run(args: argparse.Namespace, recipes: dict[str, str]) -> int:
         print(f"runs completed, sweep table not written: {error}", file=sys.stderr)
         return 2
     print(f"sweep table: {target}")
+    _report_skips(workspace, [stem])
     return status
 
 

@@ -707,7 +707,12 @@ configured:
 pyfs-matrix post matriz.fs --workspace .            # refuses a product that exists
 pyfs-matrix post matriz.fs --workspace . --overwrite
 pyfs-matrix post --workspace .                      # every matrix the manifest names
+pyfs-matrix post --workspace . --strict             # exit 3 if any product was skipped
 ```
+
+A skip is a success by default, since everything producible was produced;
+`--strict` is for a wrapper that must tell a partial rebuild from a whole
+one, and it changes the exit code alone, after every product is written.
 
 ### Several matrices in one workspace
 

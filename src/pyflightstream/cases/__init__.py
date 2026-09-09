@@ -1429,6 +1429,15 @@ class Campaign(BaseModel):
     derived_from: DerivedFrom | None = None
     matrix_stem: str | None = None
 
+    @model_validator(mode="before")
+    @classmethod
+    def _take_the_earlier_name_of_the_matrix_stem(cls, data: object) -> object:
+        """Read a campaign file written under the field's one-day name, ``matrix``."""
+        if isinstance(data, dict) and "matrix" in data and "matrix_stem" not in data:
+            data = {**data, "matrix_stem": data["matrix"]}
+            del data["matrix"]
+        return data
+
     #: The file this campaign was loaded from, or None for one built in
     #: Python. Private so it cannot be set from a file; read through
     #: :attr:`source_path`.

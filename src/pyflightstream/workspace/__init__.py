@@ -61,7 +61,7 @@ else:  # pragma: no cover - the 3.11 leg of the support range
     # is present wherever this package is.
     from typing_extensions import TypedDict
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 from pyflightstream._digest import file_sha256
 from pyflightstream._errors import PyflightstreamError
@@ -535,6 +535,22 @@ class RunRecord(BaseModel):
     flight_condition_defaults: dict[str, float] = Field(default_factory=dict)
     flight_condition_defaults_from: str = ""
     matrix_stem: str | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _take_the_earlier_name_of_the_matrix_stem(cls, data: object) -> object:
+        """Read a record written under the field's one-day name, ``matrix``.
+
+        The field was ``matrix`` for one day of the 0.13.0 development line
+        and no release carried it; a manifest written that day still reads
+        (review round two of 2026-09-08 found the alternative was a bare
+        pydantic traceback out of ``pyfs-matrix post``).
+        """
+        if isinstance(data, dict) and "matrix" in data and "matrix_stem" not in data:
+            data = {**data, "matrix_stem": data["matrix"]}
+            del data["matrix"]
+        return data
+
     #: The resolved flow state, and WHICH BRANCH produced the density.
     #: Recorded so a reader can RECOMPUTE the resolution rather than
     #: trust it: the inputs above plus these values plus the reference
@@ -1422,15 +1438,17 @@ class CampaignWorkspace:
     # times over on 2026-09-08.
 
     def plan_dir(self, matrix_stem: str | None) -> Path:
-        """Where ``plan.json`` lands: ``post/<matrix>/``, or the root without a matrix."""
+        """Where ``plan.json`` lands: ``post/<matrix stem>/``, or the root without a matrix."""
         return self.root / "post" / matrix_stem if matrix_stem else self.root
 
     def sweep_dir(self, matrix_stem: str | None) -> Path:
-        """Where the sweep tables land: ``post/<matrix>/``, or ``post/`` without a matrix."""
+        """Where the sweep tables land: ``post/<matrix stem>/``, or ``post/`` without one."""
         return self.root / "post" / matrix_stem if matrix_stem else self.root / "post"
 
     def products_dir(self, matrix_stem: str | None) -> Path:
-        """Where the products and ``products.json`` land: ``post/<matrix>/`` or ``post/products/``.
+        """Where the products and ``products.json`` land.
+
+        ``post/<matrix stem>/`` for a matrix, ``post/products/`` without one.
 
         The matrix-less fallback is the historical products folder.
         """

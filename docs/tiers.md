@@ -112,7 +112,9 @@ a band she has not set is read and reported, not judged.
 `tests/tier1_offline/test_tier3_offline.py` plans every matrix of the
 workspace with the package and compares every rendered script to its
 golden under `tests/tier3_licensed/goldens/`, with the workspace path
-replaced by `<tier3>`, so a change in the package that moves a tier-3
+replaced by `<tier3>` and its separators written as forward slashes, so one
+set of goldens serves Windows and Linux and a change in the package that
+moves a tier-3
 script is seen on the row it moves before any seat is spent; and it
 plans the refusals, six one-row matrices over a copy of the library and
 one second matrix stating a POL the tour states, each asserting that the

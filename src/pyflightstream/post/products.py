@@ -741,7 +741,7 @@ def write_campaign_products(
 
     Where they land is the matrix's own folder (PFS-2031.04): with
     ``matrix_stem`` given, the records naming that matrix stem are written under
-    ``post/<matrix>/``, so several matrices of one workspace keep their
+    ``post/<matrix stem>/``, so several matrices of one workspace keep their
     own; with it None, every record that names no matrix is written under
     ``post/products``, the historical place of a campaign authored in
     Python.

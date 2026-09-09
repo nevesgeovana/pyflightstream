@@ -45,9 +45,12 @@ FlightStream versions.
 
 - **`pyfs-matrix post` takes the matrix whose products to rebuild**, and with
   none given rebuilds every matrix the manifest names (PFS-2031.04). Its
-  `--strict` flag makes a product skipped by design exit 2; without it a
+  `--strict` flag makes a product skipped by design exit 3, a code of its
+  own beside 2 for a refusal, after every product is written; without it a
   recorded skip is printed and the exit is 0, since everything producible was
-  produced (her decision of 2026-09-08, PFS-2031.19).
+  produced (her decision of 2026-09-08, PFS-2031.19). `pyfs-matrix run`
+  prints the same skip lines at the end of the run, so the surface that spent
+  the seat is not silent about them.
 
 - **A workspace kept in version control runs on this machine through
   `inputs/executables.local.toml`** (PFS-2031.15): the committed registry
@@ -87,9 +90,11 @@ FlightStream versions.
   A campaign authored in Python or loaded from a file has no matrix and
   keeps the previous places, which `CampaignWorkspace.plan_dir`, `sweep_dir`
   and `products_dir` state in one place. A registered post stage is now
-  called with a third keyword, `matrix`; a stage written to the earlier
-  two-argument shape fails with a `TypeError` naming it, and
-  `register_post_stage`'s contract says so.
+  called with a third keyword, `matrix_stem`, which moved with the field; a
+  stage written to the earlier two-argument shape fails with a `TypeError`
+  naming it, and `register_post_stage`'s contract says so. A manifest or a
+  campaign file written on the one day the field was called `matrix` still
+  reads: the old key is taken as the new one.
   The reason is the tier-3 workspace, which holds six matrices over one
   library and could not keep their tables apart.
 
@@ -105,6 +110,12 @@ FlightStream versions.
   set through the workspace.
 
 ### Fixed
+
+- **The tier-3 goldens are the same file on Windows and on Linux.** CI on
+  Linux measured every tier-3 golden as differing from its render, because a
+  golden written on Windows carried the backslash in its placeholder paths;
+  the portable form now writes those paths with forward slashes on every
+  machine, and the 44 goldens were regenerated.
 
 - **The run writes the child script of a `SCRIPT` action before the solver
   starts** (PFS-2031.13). `helpers.unsteady_action` has parked the child
