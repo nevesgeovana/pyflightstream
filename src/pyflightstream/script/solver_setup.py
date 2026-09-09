@@ -286,6 +286,58 @@ FLAG_SPECS: tuple[FlagSpec, ...] = (
 
 _SPEC_BY_COMMAND: dict[str, FlagSpec] = {spec.command: spec for spec in FLAG_SPECS}
 
+#: The flag kinds whose EXPLICIT record carries a boundary selection.
+#: An explicit record of one of these never holds the empty list: the
+#: helper refuses an empty selection before it emits, and no selection
+#: is recorded as the default (or as unknown on a build without the
+#: command). The clearing kinds are deliberately absent, because their
+#: explicit value IS the empty sequence: that is how a caller asks for
+#: the list to be erased.
+_SELECTION_KINDS = ("boundary_list", "boundary_selection", "separation_boundaries")
+
+
+def explicit_empty_selections(flags: Mapping[str, object]) -> list[tuple[str, str]]:
+    """Return the flags marked explicit whose selection is the empty list.
+
+    PFS-2012.01. That record is one no ``solver_settings`` call writes,
+    so a snapshot carrying it was edited or written by hand, and
+    replaying it used to reach the helper's own refusal, which tells the
+    reader to omit an argument nobody wrote and sends them to the wrong
+    file. Both readers of a snapshot consult this: the manifest reader,
+    which names the manifest and the run, and :func:`script_from_setup`
+    through :meth:`SolverSetup.explicit_kwargs`, which names the flag.
+
+    Parameters
+    ----------
+    flags : mapping of str to object
+        The snapshot's ``flags``, either :class:`FlagRecord` instances
+        or the raw mappings of a manifest record. The raw form is
+        accepted so a manifest is judged as it was written, without
+        first being validated against today's model: the reader that
+        refuses it must name the row rather than fail on a shape the
+        model has since outgrown.
+
+    Returns
+    -------
+    list of (str, str)
+        ``(command, parameter)`` per offending flag, in snapshot order:
+        the FlightStream command the record names and the
+        ``solver_settings`` keyword that carries it.
+    """
+    found: list[tuple[str, str]] = []
+    for name, record in flags.items():
+        spec = _SPEC_BY_COMMAND.get(name)
+        if spec is None or spec.kind not in _SELECTION_KINDS:
+            continue
+        if isinstance(record, Mapping):
+            provenance, value = record.get("provenance"), record.get("value")
+        else:
+            provenance = getattr(record, "provenance", None)
+            value = getattr(record, "value", None)
+        if provenance == _EXPLICIT and isinstance(value, list) and not value:
+            found.append((name, spec.param))
+    return found
+
 
 class BulkSeparation(BaseModel):
     """One bulk (bluff-body) flow-separation assignment (SRC-003 p.342).
@@ -534,7 +586,26 @@ class SolverSetup(BaseModel):
         dict of str to object
             Keyword arguments for
             :func:`pyflightstream.script.helpers.solver_settings`.
+
+        Raises
+        ------
+        CommandArgumentError
+            A flag marked explicit whose selection is empty
+            (PFS-2012.01), named by command and keyword. The record is
+            what to fix, and the message says so rather than naming an
+            argument for removal, since no call wrote one.
         """
+        for command, parameter in explicit_empty_selections(self.flags):
+            raise CommandArgumentError(
+                f"snapshot flag {command} (the {parameter} keyword of solver_settings) is "
+                "marked explicit and carries an empty selection, a record no "
+                "solver_settings call writes: an explicit selection names at least one "
+                "boundary, and the helper refuses an empty one before it emits. The "
+                "snapshot was edited or written by hand, so the record is what to fix "
+                "and no argument of any call: restore the selection the script carried, "
+                "or give the flag the provenance the helper records when the keyword is "
+                "not passed."
+            )
         kwargs: dict[str, object] = {}
         for name, record in self.flags.items():
             if record.provenance != _EXPLICIT:

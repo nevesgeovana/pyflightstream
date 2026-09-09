@@ -181,6 +181,51 @@ FlightStream versions.
   so the next rename moves the page in the same commit or goes red. The
   history paragraphs that say the folder was renamed stay as they are.
 
+- **`campaign.toml` stores the resolved build identifier, never the vendor
+  name the row typed** (PFS-2009.04). The campaign model resolved the version
+  a user wrote and then stored what they wrote, so a matrix converted with a
+  vendor name such as `26.0` wrote `26.0` into the file, and the day a second
+  build claimed that name the file was refused on a machine where nothing
+  changed but the installed package, in a file its owner never edited (that
+  day came for `26.1` on 2026-08-04, when 26.101 was registered). The model
+  now keeps the canonical identifier the validator resolves, so
+  `pyfs-matrix convert` writes `fs_version = "26.000"` for a row typing
+  `26.0`, whether the name arrives as the default or as the first active
+  row's `FS_BUILD`, and `pyfs-matrix plan` on that file reads the same build
+  on the day the alias is reused. The `matrix_fs_build` variable keeps the
+  cell as typed: it is the key a workspace resolves through its own build
+  registry, and a registry key is not required to be a version.
+
+- **A manifest whose snapshot marks a selection flag explicit with an empty
+  selection is refused where the manifest is read, naming the manifest, the
+  run and the flag** (PFS-2012.01). No run writes that record, since the
+  curated helper refuses an empty selection before the script exists, so a
+  manifest carrying one was edited or written by hand; replaying it through
+  `script_from_setup` reached the helper's own refusal, which told the reader
+  to omit an argument nobody wrote. `read_manifest` refuses the row naming
+  `runs.json`, the run id and the flag by command and keyword, and
+  `SolverSetup.explicit_kwargs` refuses the snapshot naming the flag, and
+  neither names an argument for removal. There is no `pyfs-matrix`
+  subcommand that regenerates a script from a record; the regeneration path
+  is `pyflightstream.script.solver_setup.script_from_setup`, and the reader
+  is where a hand-edited row is judged.
+
+- **An empty list for an entity-selecting key of a setup or pproc artifact
+  is refused at plan time, naming the artifact file, the key as the file
+  spells it, and what the empty list would have disabled** (PFS-2005.02). A
+  setup stating `vorticity_drag_boundaries = []` planned READY, because the
+  reader accepted the list and a LEGACY row's recipe never read it; a pproc
+  group `"1" = []` was refused by the model naming the file and the group
+  and not what the group feeds. Both readers now consult one table,
+  `pyflightstream.workspace.inputs.ENTITY_SELECTIONS`, which carries per key
+  the command or product the list feeds and the domain seat's verdict on an
+  empty list: refused on the manual's word for the induced-drag selection
+  and for the families of a plot group or a section distribution, admitted
+  for `base_regions` (its documented off switch), and "domain seat, not yet
+  decided: refused until she says" for a group, which is this package's own
+  concept and one the manual has no sentence about. The refusal prints the
+  verdict beside the key.
+
 - **The tier-3 goldens are the same file on Windows and on Linux.** CI on
   Linux measured every tier-3 golden as differing from its render, because a
   golden written on Windows carried the backslash in its placeholder paths;

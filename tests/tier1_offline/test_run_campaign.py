@@ -39,7 +39,8 @@ from pyflightstream.run import (
     reconstruct,
     run_campaign,
 )
-from pyflightstream.script import helpers
+from pyflightstream.script import Script, helpers
+from pyflightstream.script.solver_setup import VORTICITY_COMMAND
 from pyflightstream.versions import resolve as version_resolve
 from pyflightstream.workspace import (
     MANIFEST_SCHEMA,
@@ -3505,3 +3506,66 @@ def test_the_run_writes_the_child_script_of_a_script_action_before_the_solver_st
     seen = (sim_dir / "seen_by_the_solver.txt").read_text(encoding="utf-8")
     assert seen == child, f"the solver found: {seen!r}"
     assert (sim_dir / "actions" / "sections.txt").read_text(encoding="utf-8") == child
+
+
+# --- PFS-2012.01: an explicit flag with an empty selection is a record nobody wrote ---
+
+
+def _snapshot_with_an_explicit_empty_selection() -> dict:
+    """A manifest snapshot edited by hand into a state no helper call writes.
+
+    The helper refuses an empty selection before it emits, so the loop never
+    records one; a hand-edited or borrowed manifest is the only way the
+    record reaches a reader, which is why the fixture edits the dump rather
+    than calling the helper with the empty list.
+    """
+    script = Script(version="26.120")
+    setup = helpers.solver_settings(script, vorticity_drag_boundaries=[1, 2], aoa=1.0)
+    dumped = setup.model_dump(mode="json")
+    assert dumped["flags"][VORTICITY_COMMAND]["provenance"] == "explicit"
+    dumped["flags"][VORTICITY_COMMAND]["value"] = []
+    return dumped
+
+
+def _synthetic_record(solver_setup: dict) -> RunRecord:
+    return RunRecord(
+        run_id="camp/sim_9001/a+00.0",
+        sim_id="9001",
+        point={"alpha": 0.0},
+        fs_version_requested="26.120",
+        package_version="0.0.0-synthetic",
+        script_sha256="0" * 64,
+        raw_flag=False,
+        status=RunStatus.CONVERGED,
+        solver_setup=solver_setup,
+    )
+
+
+def test_an_explicit_empty_selection_in_a_manifest_is_refused_naming_manifest_and_flag(
+    tmp_path,
+):
+    """THE DEFECT: nothing rejected a snapshot flag marked explicit with an
+    empty selection, and replaying it through the regeneration path
+    (``script_from_setup``) reached the helper's own refusal, which tells the
+    user to omit an argument they never wrote and sends them to the wrong
+    file. The reader is where a manifest is judged, so the refusal names the
+    manifest, the run and the flag, and never an argument.
+    """
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    workspace.append_record(_synthetic_record(_snapshot_with_an_explicit_empty_selection()))
+    with pytest.raises(WorkspaceError) as refused:
+        workspace.read_manifest()
+    message = str(refused.value)
+    assert str(workspace.manifest_path) in message, message
+    assert "camp/sim_9001/a+00.0" in message, message
+    assert VORTICITY_COMMAND in message, message
+    assert "vorticity_drag_boundaries" in message, "the flag as a call names it"
+    assert "omit" not in message.lower() and "remove" not in message.lower(), (
+        f"the user wrote no argument, so none may be named for removal: {message}"
+    )
+    # The control: the record as the helper wrote it reads back untouched.
+    untouched = CampaignWorkspace(tmp_path / "untouched")
+    script = Script(version="26.120")
+    setup = helpers.solver_settings(script, vorticity_drag_boundaries=[1, 2], aoa=1.0)
+    untouched.append_record(_synthetic_record(setup.model_dump(mode="json")))
+    assert untouched.read_manifest()[0].solver_setup == setup.model_dump(mode="json")

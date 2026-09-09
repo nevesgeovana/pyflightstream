@@ -69,6 +69,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_valida
 
 from pyflightstream._digest import file_sha256
 from pyflightstream._errors import PyflightstreamError
+from pyflightstream.script.solver_setup import explicit_empty_selections
 from pyflightstream.workspace.inputs import (
     EXECUTABLES_FILE,
     INPUT_KINDS,
@@ -1918,12 +1919,51 @@ class CampaignWorkspace:
         WorkspaceError
             When a ``broken_commands`` entry carries no
             ``source_version``, naming the manifest and the stamp the
-            row was written under (PFS-2012.03).
+            row was written under (PFS-2012.03); or when a solver-setup
+            snapshot marks a selection flag explicit with an empty
+            selection, naming the manifest, the run and the flag
+            (PFS-2012.01).
         """
         records = [RunRecord.model_validate(entry) for entry in self.read_raw_manifest()]
         for record in records:
             self._check_waivers_name_their_source(record)
+            self._check_explicit_selections_are_not_empty(record)
         return records
+
+    def _check_explicit_selections_are_not_empty(self, record: RunRecord) -> None:
+        """Refuse a snapshot flag marked explicit whose selection is empty.
+
+        PFS-2012.01. No run writes that record: the curated helper
+        refuses an empty selection before the script exists, and no
+        selection is recorded as the default, so a manifest carrying
+        one was edited or written by hand. Left alone, it reached the
+        regeneration path (:func:`pyflightstream.script.solver_setup.script_from_setup`)
+        and met the helper's refusal, which tells the reader to omit an
+        argument nobody wrote and sends them looking in the wrong file.
+
+        The refusal is HERE, beside the waiver check, for the same
+        reason that one is: the reader is what knows which manifest and
+        which run, and a hand-edited row is judged where it is read
+        rather than where its consequence surfaces. The snapshot is read
+        raw, not through the model, so a row written under an older
+        layout is judged by its provenance and value alone.
+        """
+        flags = (record.solver_setup or {}).get("flags")
+        if not isinstance(flags, dict):
+            return
+        for command, parameter in explicit_empty_selections(flags):
+            raise WorkspaceError(
+                f"the manifest {self.manifest_path} records run {record.run_id!r} with a "
+                f"solver-setup snapshot whose flag {command} (the {parameter} keyword of "
+                "solver_settings) is marked explicit and carries an empty selection. No "
+                "run writes that record: an explicit selection names at least one "
+                "boundary, and the helper refuses an empty one before the script exists, "
+                "so the snapshot was edited or written by hand after the run. What to fix "
+                "is that row of the manifest and not an argument of any call, since none "
+                "was written: restore the selection the script carried, or give the flag "
+                "the provenance the helper records when the keyword is not passed "
+                "(default, with the empty selection, for the induced-drag flag)."
+            )
 
     def _check_waivers_name_their_source(self, record: RunRecord) -> None:
         """Refuse a waiver row that does not say which build it rests on.

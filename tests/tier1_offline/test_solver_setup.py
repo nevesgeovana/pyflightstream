@@ -263,6 +263,26 @@ def test_an_empty_selection_is_refused_and_emits_nothing(empty):
     assert script.render() == "\n"  # nothing was emitted
 
 
+def test_a_snapshot_marked_explicit_with_an_empty_selection_is_refused_naming_the_flag():
+    """PFS-2012.01, the regeneration half. A snapshot edited by hand into a
+    state no helper call writes used to reach the helper's own refusal, which
+    tells the user to omit an argument they never wrote; the snapshot names
+    the flag and says the record is what to fix.
+    """
+    script = Script(version="26.120")
+    setup = helpers.solver_settings(script, vorticity_drag_boundaries=[1, 2], aoa=1.0)
+    dumped = setup.model_dump(mode="json")
+    dumped["flags"][VORTICITY_COMMAND]["value"] = []
+    edited = SolverSetup.model_validate(dumped)
+    with pytest.raises(CommandArgumentError) as refused:
+        script_from_setup(Script(version="26.120"), edited)
+    message = str(refused.value)
+    assert VORTICITY_COMMAND in message and "vorticity_drag_boundaries" in message, message
+    assert "omit" not in message.lower(), f"no argument was written: {message}"
+    # The control: the snapshot as written replays.
+    assert script_from_setup(Script(version="26.120"), setup) == setup
+
+
 def test_a_second_settings_call_keeps_the_selection_in_script_and_snapshot():
     # solver_settings emits only what it is passed, so a second call on
     # the same script must not drop the selection of the first: the

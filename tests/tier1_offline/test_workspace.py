@@ -20,6 +20,7 @@ from pyflightstream.workspace import (
     InputArtifactError,
     NamingTemplate,
     NamingTemplateError,
+    PprocArtifact,
     RunRecord,
     RunStatus,
     WorkspaceError,
@@ -605,12 +606,22 @@ def test_groups_map_names_to_labels_or_indices(tmp_path):
 
 
 def test_empty_group_is_refused(tmp_path):
+    """The reader refuses it before the model does (PFS-2005.02), naming the
+    file, the key as the file spells it, what the group feeds, and whose call
+    an empty group is; the model's own "no members" refusal stays behind it
+    for the Python path.
+    """
     workspace = library(tmp_path)
     (workspace.inputs_dir / "pproc" / "pbad.toml").write_text(
         "[groups]\nwing = []\n", encoding="utf-8"
     )
-    with pytest.raises(InputArtifactError, match="no members"):
+    with pytest.raises(InputArtifactError) as refused:
         workspace.resolve_pproc("pbad")
+    message = str(refused.value)
+    assert "pbad.toml" in message and 'groups."wing"' in message, message
+    assert "polar" in message and "domain seat" in message, message
+    with pytest.raises(ValueError, match="no members"):
+        PprocArtifact(groups={"wing": []})
 
 
 def test_a_geometry_resolves_by_file_name_and_a_profile_by_stem(tmp_path):

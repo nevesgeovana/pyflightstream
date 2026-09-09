@@ -1383,9 +1383,10 @@ class Campaign(BaseModel):
     fs_version : str
         FlightStream version, canonical identifier (26.120); a vendor
         release name works only where it names exactly one registered
-        build. Validated against
-        the registered versions at load time, resolved to canonical in
-        the manifest.
+        build. Validated against the registered versions at load time
+        and STORED canonical (PFS-2009.04): a name accepted today is
+        resolved today, so what the model holds, and what a converted
+        matrix writes, is the build and never the name.
     fs_exe : str
         Explicit path of the FlightStream executable; existence is
         checked by the executor at construction, not here, so a
@@ -1472,8 +1473,20 @@ class Campaign(BaseModel):
     @field_validator("fs_version")
     @classmethod
     def _version_is_registered(cls, value: str) -> str:
-        resolve(value)
-        return value
+        """Resolve the version and KEEP the answer (PFS-2009.04).
+
+        Until 0.13.0 this resolved for the side effect and returned the
+        string as written, so a campaign built from a vendor name stored
+        the name. ``26.1`` named one build until 2026-08-04 and two
+        after it, and a campaign.toml holding it was refused on a
+        machine where nothing changed but the installed package, in a
+        file its owner never edited. The model holds the canonical
+        identifier; the alias is accepted at the door and goes no
+        further, so a converted matrix writes the build and not the
+        name, and ``pyfs-matrix plan`` reads the same build on the day a
+        second build claims the alias.
+        """
+        return resolve(value).canonical
 
     @model_validator(mode="after")
     def _sim_ids_are_distinct(self) -> Campaign:

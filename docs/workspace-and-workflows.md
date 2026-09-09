@@ -402,6 +402,29 @@ solver's default. Those runs converge, export and publish numbers
 against a physics nobody selected. A refusal costs an edit; a silent
 drop costs a result.
 
+One key of a preset selects boundaries rather than setting a number:
+`vorticity_drag_boundaries` (also spelled `set_vorticity_drag_boundaries`
+or `vorticity_drag_families`), the families whose induced drag comes from
+vorticity integration, `SET_VORTICITY_DRAG_BOUNDARIES`. Stating it as an
+EMPTY list is refused when the file is read, at `pyfs-matrix plan`
+(PFS-2005.02):
+
+```toml
+iterations = 800
+vorticity_drag_boundaries = []
+```
+
+is refused naming `inputs/setups/s002.toml`, the key, the command, and
+the reason: the solver's default, surface pressure integration on every
+boundary, is expressed by never emitting the command (SRC-003 p.202), so
+an empty list asks for a selection and names none, and the run would
+converge and publish induced drag against a setup nobody selected. Drop
+the key for the default, or name the families. Which entity-selecting
+keys admit an empty list is the domain seat's call, written beside each
+key in `pyflightstream.workspace.inputs.ENTITY_SELECTIONS`, and the
+refusal prints her verdict; the post-processing artifact's keys are
+listed under that artifact below.
+
 A preset may also carry a `[flight_condition]` table, which is not a
 solver setting and is not judged as one: it holds the fluid pins
 (`RHOkgm3`, `MUPas`, `ASMPS`, `TK`, `PPA`) that every row naming this
@@ -640,6 +663,29 @@ cited by NAME: `MRP`, the moment frame the reference artifact creates;
 blade's share of a turn) and registers as the motion's moving frames. An
 entry citing a frame the run did not create is refused naming the frames
 it did.
+
+An entry that resolves to nothing is skipped; an entry WRITTEN as nothing
+is refused, at `pyfs-matrix plan`, naming the file, the key as the file
+spells it, and what the empty list feeds (PFS-2005.02). A group
+
+```toml
+[groups]
+"1" = []
+```
+
+is refused naming `inputs/pproc/p001.toml`, `groups."1"` and the polar
+table written per group, with the verdict beside it: a group is this
+package's own concept, the manual has no sentence about it, so whether
+an empty group can mean anything is the domain seat's call, not yet
+decided, and it is refused until she says. `families = []` in a
+`[[plots.groups]]` or a `[[sections.distributions]]` entry is refused the
+same way, naming `UNSTEADY_SOLVER_NEW_FORCE_PLOT` or
+`NEW_SURFACE_SECTION_DISTRIBUTION`: the entry exists to emit over the
+families it names, and over none it would emit nothing while reading as
+though it had. `base_regions` is the one selection whose empty list has a
+documented meaning, the autodetect off, which is its default. The table
+the readers consult is `pyflightstream.workspace.inputs.ENTITY_SELECTIONS`,
+one row per key with the verdict and its reason.
 
 The `[exports]` table decides the row's export set (FR-51): a workflow row
 declares no `OUTPUTS` of its own any more, every export is named for the

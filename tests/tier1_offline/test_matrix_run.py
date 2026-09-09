@@ -3613,3 +3613,60 @@ def test_a_pol_stated_by_two_matrices_of_one_workspace_is_refused_naming_both(tm
     assert not (workspace.root / "post").exists() or not list(
         (workspace.root / "post").rglob("plan.json")
     ), "a refused plan was still written"
+
+
+# --- PFS-2005.02: an empty entity selection in an artifact is refused at plan time ---
+
+
+def _plan_first_matrix(workspace, first):
+    return plan_matrix(
+        first,
+        workspace,
+        name="camp",
+        default_fs_version="26.120",
+        recipes=RECIPES,
+        recipe_registry={"steady": matrix_recipe},
+    )
+
+
+def test_an_empty_entity_selection_in_an_artifact_is_refused_at_plan_time(tmp_path):
+    """THE DEFECT, measured 2026-09-08 on the base tree: a setup stating
+    ``vorticity_drag_boundaries = []`` planned READY on both rows, because the
+    reader accepted the list and nothing on a LEGACY row's path read it, and a
+    workflow row would have met a refusal about a geometry carrying none of
+    no families. A pproc group ``"1" = []`` was refused by the model, naming
+    the file and the group and not what the group feeds. Both are refused by
+    the reader now, naming the artifact, the key and what the empty list
+    would have disabled; which keys admit an empty list is the domain seat's
+    call and is written beside each entry of the table the reader consults.
+    """
+    workspace, first, _ = _two_matrices(tmp_path)
+    pproc = workspace.inputs_dir / "pproc" / "p001.toml"
+    setup = workspace.inputs_dir / "setups" / "s002.toml"
+    kept = pproc.read_text(encoding="utf-8"), setup.read_text(encoding="utf-8")
+
+    pproc.write_text('[groups]\n"1" = []\n', encoding="utf-8")
+    with pytest.raises(InputArtifactError) as refused:
+        _plan_first_matrix(workspace, first)
+    message = str(refused.value).replace("\\", "/")
+    assert "inputs/pproc/p001.toml" in message, message
+    assert 'groups."1"' in message, f"the key as the file spells it: {message}"
+    assert "polar" in message, f"what the group feeds: {message}"
+    assert "domain seat" in message, f"whose call an empty group is: {message}"
+
+    pproc.write_text(kept[0], encoding="utf-8")
+    setup.write_text("iterations = 800\nvorticity_drag_boundaries = []\n", encoding="utf-8")
+    with pytest.raises(InputArtifactError) as refused:
+        _plan_first_matrix(workspace, first)
+    message = str(refused.value).replace("\\", "/")
+    assert "inputs/setups/s002.toml" in message, message
+    assert "vorticity_drag_boundaries" in message, message
+    assert "SET_VORTICITY_DRAG_BOUNDARIES" in message, f"the command: {message}"
+    assert "SRC-003 p.202" in message, f"the manual's sentence: {message}"
+
+    # The control, so the check is not satisfied by refusing every list: a
+    # group with members and a setup naming families plan READY.
+    setup.write_text("iterations = 800\nvorticity_drag_boundaries = ['W']\n", encoding="utf-8")
+    pproc.write_text(kept[0], encoding="utf-8")
+    plan = _plan_first_matrix(workspace, first)
+    assert [point.status for point in plan.points] == [PlanStatus.READY, PlanStatus.READY]

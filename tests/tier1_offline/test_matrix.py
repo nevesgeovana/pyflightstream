@@ -35,6 +35,7 @@ from pyflightstream.cases.matrix import (
     read_matrix,
     to_campaign,
 )
+from pyflightstream.versions import resolve
 
 FIXTURE = Path(__file__).parent / "fixtures" / "matrix.fs"
 #: The same matrix at the width that preceded ``WORKFLOW``.
@@ -1467,3 +1468,40 @@ def test_a_legacy_row_with_a_bare_code_and_no_mapping_is_still_refused(tmp_path)
     matrix = _one_legacy_row(tmp_path / "bare.fs", 7102, "003")
     with pytest.raises(MatrixError, match="has no recipe mapping"):
         to_campaign(matrix, name="bare", fs_version="26.120", fs_exe="C:/fs.exe", recipes={})
+
+
+# --- PFS-2009.04: campaign.toml stores the resolved build identifier --------------
+
+
+def test_campaign_toml_carries_the_resolved_build_identifier(tmp_path):
+    """THE DEFECT: the campaign model resolved the version a user wrote and then
+    stored what they wrote, so a matrix converted with the vendor name ``26.1``
+    wrote ``26.1`` into campaign.toml, and the day a second build claimed that
+    name (2026-08-04, when 26.101 was registered) the file was refused on a
+    machine where nothing changed but the installed package. ``26.0`` is the
+    alias that still names exactly one build, 26.000, so it is the one that
+    converts today and would be refused tomorrow; the file holds the canonical
+    identifier and the alias stays in the matrix, where it is read with today's
+    registry every time.
+    """
+    assert resolve("26.0").canonical == "26.000", "this arm needs an alias naming ONE build"
+    path = _silent_matrix(tmp_path, ["26.0", "26.0"])
+    assert [row.fs_build for row in read_matrix(path)] == ["26.0", "26.0"]
+    # No default: the first active row's build is the campaign version.
+    text = convert_matrix(path, name="camp", fs_version="", fs_exe="fs.exe", recipes=RECIPES)
+    assert 'fs_version = "26.000"' in text, text
+    assert 'fs_version = "26.0"' not in text, text
+    # A default typed as the alias resolves the same way.
+    text = convert_matrix(path, name="camp", fs_version="26.0", fs_exe="fs.exe", recipes=RECIPES)
+    assert 'fs_version = "26.000"' in text, text
+    # The cell itself survives as typed: matrix_fs_build is the registry key
+    # the row named, which a workspace resolves through its own build
+    # registry (FR-11), and a registry key is not required to be a version.
+    assert text.count('"matrix_fs_build" = "26.0"') == 2, text
+    # What is written is what loads back, and it loads back canonical.
+    (tmp_path / "campaign.toml").write_text(text, encoding="utf-8")
+    assert load_campaign(tmp_path / "campaign.toml").fs_version == "26.000"
+    # And the model itself is where the answer is kept: a campaign built
+    # in Python from the alias records the build, not the name.
+    campaign = to_campaign(path, name="camp", fs_version="26.0", fs_exe="fs.exe", recipes=RECIPES)
+    assert campaign.fs_version == "26.000"

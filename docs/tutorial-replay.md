@@ -48,6 +48,16 @@ function; the hash says which version of it.
 snapshot of every solver flag with its provenance: explicit, a
 documented default with its manual citation, or honestly unknown.
 
+One combination in that snapshot is a record no run writes: a boundary
+selection marked `explicit` whose value is the empty list, since the
+curated helper refuses an empty selection before the script exists. A
+manifest carrying one was edited or written by hand, and `read_manifest`
+refuses it naming `runs.json`, the run id and the flag by command and
+keyword (`SET_VORTICITY_DRAG_BOUNDARIES`, the `vorticity_drag_boundaries`
+keyword), and says the row is what to fix; it names no argument for
+removal, because none was written (PFS-2012.01). Replaying such a
+snapshot through `script_from_setup` is refused the same way.
+
 Two fields are about the tooling rather than the run.
 `package_version` reads the installed distribution's metadata, which is
 a static string, so every commit between two tags reports the earlier

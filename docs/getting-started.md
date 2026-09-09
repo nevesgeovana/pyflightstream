@@ -93,7 +93,11 @@ The vendor reuses a release name across builds, so both `"26.12"` and
 its vendor build number named. Pass the canonical identifier, and note
 what the growing count means for one you wrote down earlier: a vendor
 name is unambiguous only until the vendor ships the next build under
-it. This page does not say how many are in either family, for exactly
+it. A campaign never keeps the name: a `Campaign` resolves the version it
+is given and stores the canonical identifier, so a matrix converted with
+`26.0` writes `fs_version = "26.000"` into `campaign.toml` and the file
+still loads on the day a second build claims `26.0` (PFS-2009.04). This
+page does not say how many are in either family, for exactly
 that reason; run the refusal and read its candidates, which this page
 does rather than only recommending:
 
