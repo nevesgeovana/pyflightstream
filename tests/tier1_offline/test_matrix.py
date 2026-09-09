@@ -1505,3 +1505,65 @@ def test_campaign_toml_carries_the_resolved_build_identifier(tmp_path):
     # in Python from the alias records the build, not the name.
     campaign = to_campaign(path, name="camp", fs_version="26.0", fs_exe="fs.exe", recipes=RECIPES)
     assert campaign.fs_version == "26.000"
+
+
+# --- PFS-2034.02: the variables cell reads a ROTATE list of records ---------------------
+
+
+def _rotate_cell(text):
+    variables = matrix_mod._parse_variables(text)
+    return variables, matrix_mod._parse_rotations(variables, "9001")
+
+
+def test_a_cell_reads_a_rotate_list_in_the_order_written():
+    """PFS-2034.02, her grammar: ROTATE: {...}, {...} is two rotations, in input
+    order, each with ANGLE, AXIS as frame-axis, FAMILIES and optionally AUX_FRAMES;
+    the list leaves the flat keys, and a cell without it reads as before."""
+    variables, rotations = _rotate_cell(
+        "VELOCITY: 30.0 / ROTATE: "
+        "{ANGLE: 3 / AXIS: NAC-Y / FAMILIES: Blade,S / AUX_FRAMES: PROP_MRP},"
+        " {ANGLE: -2 / AXIS: NAC-Z / FAMILIES: Blade,S} / OUTPUTS: l.txt"
+    )
+    assert variables == {"VELOCITY": "30.0", "OUTPUTS": "l.txt"}
+    assert rotations == [
+        {"ANGLE": "3", "AXIS": "NAC-Y", "FAMILIES": "Blade,S", "AUX_FRAMES": "PROP_MRP"},
+        {"ANGLE": "-2", "AXIS": "NAC-Z", "FAMILIES": "Blade,S"},
+    ]
+    variables, rotations = _rotate_cell("VELOCITY: 30.0")
+    assert variables == {"VELOCITY": "30.0"} and rotations == []
+
+
+@pytest.mark.parametrize(
+    ("cell", "pattern"),
+    [
+        ("ROTATE: {ANGLE: 3 / AXIS: NAC-Y", "POL 9001.*ROTATE.*brace"),
+        (
+            "ROTATE: {ANGLE: 3 / AXIS: NAC-Y / FAMILIES: S / ANGLE: 4}",
+            "POL 9001.*ROTATE.*ANGLE twice",
+        ),
+        ("ROTATE: {AXIS: NAC-Y / FAMILIES: S}", "POL 9001.*ROTATE.*ANGLE"),
+        ("ROTATE: {ANGLE: three / AXIS: NAC-Y / FAMILIES: S}", "POL 9001.*ROTATE.*three.*degrees"),
+        ("ROTATE: {ANGLE: 3 / AXIS: NACY / FAMILIES: S}", "POL 9001.*ROTATE.*NACY.*frame-axis"),
+        ("ROTATE: {ANGLE: 3 / AXIS: NAC-Y / FAMILIES: S / PITCH: 1}", "POL 9001.*ROTATE.*PITCH"),
+    ],
+)
+def test_a_malformed_rotate_record_is_refused_naming_the_cell(cell, pattern):
+    with pytest.raises(MatrixError, match=pattern):
+        _rotate_cell(cell)
+
+
+def test_a_rotate_list_reaches_the_row_and_the_case(tmp_path):
+    """The records travel MatrixRow.rotations to SimCase.rotations, beside motions."""
+    text = FIXTURE.read_text(encoding="utf-8")
+    header, rule, first = text.splitlines()[:3]
+    cells = first.split("|")
+    cells[-1] = cells[-1].rstrip() + " / ROTATE: {ANGLE: 3 / AXIS: NAC-Y / FAMILIES: S}"
+    path = tmp_path / "rotate.fs"
+    path.write_text("\n".join([header, rule, "|".join(cells)]) + "\n", encoding="utf-8")
+    row = read_matrix(path, active_only=False)[0]
+    assert row.rotations == [{"ANGLE": "3", "AXIS": "NAC-Y", "FAMILIES": "S"}]
+    assert "ROTATE" not in row.variables
+    case = to_campaign(
+        path, name="m", fs_version="26.123", fs_exe="C:/fs.exe", recipes=RECIPES
+    ).sims[0]
+    assert case.rotations == row.rotations

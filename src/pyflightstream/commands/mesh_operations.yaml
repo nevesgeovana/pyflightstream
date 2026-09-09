@@ -46,9 +46,21 @@
 
 # --- moving a surface -------------------------------------------------------
 
+# THE TWO MESH ROTATIONS ARE PHASE SETUP, AND THE REST OF THE CHAPTER IS
+# PHASE GEOMETRY, since 0.14.0 (PFS-2034.02). Both cite a FRAME, and the
+# manual's own sample cites frame 3, which exists only once a
+# CREATE_NEW_COORDINATE_SYSTEM (phase setup) created it; under the
+# package's ordering a geometry-phase rotation could therefore never
+# cite the frame the manual shows it citing, and a row rotating a blade
+# family about a frame its setup defines (her incidence study, design
+# 69) was refused at the frame it named. The phase is this package's
+# reading of the sample, as the header of cad_create.yaml records for
+# the CAD family, whose FRAME arguments keep the reference frame;
+# whether the solver accepts the rotation after the frame is what
+# RPT-046 measures (PFS-2034.05).
 SURFACE_ROTATE:
   layout: keyword_block
-  phase: geometry
+  phase: setup
   args:
     - name: frame
       type: int
@@ -803,7 +815,7 @@ TRANSFORM_SELECTED_NODES:
 
 ROTATE_SURFACE:
   layout: payload_lines
-  phase: geometry
+  phase: setup
   args:
     - name: frame
       type: int

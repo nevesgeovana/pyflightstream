@@ -1193,6 +1193,11 @@ class SimCase(BaseModel):
     #: one record each in cell order; empty for a row stating one rotor
     #: flat, which is every row written before 0.11.0.
     motions: list[dict[str, str]] = Field(default_factory=list)
+    #: The rotations of the opened mesh a row's ``ROTATE`` list states
+    #: (PFS-2034.02), one record each in cell order, applied in that order
+    #: after every frame exists and before any motion; empty for a row
+    #: stating none, which is every row written before 0.14.0.
+    rotations: list[dict[str, str]] = Field(default_factory=list)
     outputs: list[str] = Field(default_factory=list)
     #: The post-processing specification the row's PPROC cell named, bound
     #: by the workspace (PFS-2029.07); None for a case built without one,

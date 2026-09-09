@@ -22,6 +22,37 @@ FlightStream versions.
   setup defining none emits nothing: the seven tier-3 matrices render
   byte-identical (`python -m tests.tier3_licensed.offline`, 0 differing).
   RED on b376b14: the table was refused as a key naming no solver setting.
+- **A row turns the mesh: `ROTATE`, a list of records like `MOTIONS`,
+  one rotation each in the order written** (PFS-2034.02, her design of
+  2026-09-09, design/69: the incidence study's pitch and toe from a row,
+  the geometry file untouched). `ROTATE: {ANGLE: 3 / AXIS: NAC-Y /
+  FAMILIES: Blade,S / AUX_FRAMES: PROP_MRP}, {...}`: `AXIS` names a
+  frame the setup defines or the package creates and one of its axes,
+  `FAMILIES` resolves by name against the geometry's inventory as
+  `MOVING_BOUNDARIES` does, `AUX_FRAMES` names the frames that turn with
+  the mesh, and a frame the package derived from one of them (the blade
+  axis frames, from `PROP_MRP`) turns with it. Registered on every run
+  type; emitted after every frame exists and before any motion, so a
+  rotor whose axis frame is among the auxiliaries turns about the
+  pitched axis. A family the inventory lacks, a frame nothing defined,
+  an axis token of another shape, a missing or unknown record key and a
+  non-numeric angle are refused at plan time naming the row. The reader
+  generalized the `MOTIONS` record grammar (`_parse_records`), which
+  the two keys share. RED on bf9fe31, fifteen tests: the tour's rotor
+  row stating the key was BLOCKED as a key of no run type, the built
+  case rendered no rotation, the reader had no records.
+- **The two mesh rotations, `SURFACE_ROTATE` and `ROTATE_SURFACE`, are
+  setup-phase commands** (PFS-2034.02). Both cite a frame, and the
+  manual's own sample cites frame 3, a created one; under the package's
+  ordering a geometry-phase rotation could never follow the
+  `CREATE_NEW_COORDINATE_SYSTEM` that makes the frame it cites, so the
+  row above was refused at the frame it named (`ScriptOrderError`,
+  measured on bf9fe31). The rest of the mesh-operations chapter keeps
+  the geometry phase and the narrowing the CAD chapter's header records
+  (`test_the_threshold_command_can_only_cite_the_reference_frame`);
+  whether the solver accepts the rotation after the frame is the seat
+  run's measurement (PFS-2034.05). The chapter test emits its rotation
+  sample last and its golden moved with it, byte for byte otherwise.
 
 ## [0.13.1] - 2026-09-09
 

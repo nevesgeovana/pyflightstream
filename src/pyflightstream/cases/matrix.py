@@ -90,7 +90,12 @@ from pyflightstream.cases import (
 # registry which types exist rather than keeping a second list, because a
 # second list is how a value gets refused for naming a workflow that was
 # registered last week.
-from pyflightstream.cases.workflows import LOG_OUTPUT_VARIABLE, MOTIONS_VARIABLE, workflow_names
+from pyflightstream.cases.workflows import (
+    LOG_OUTPUT_VARIABLE,
+    MOTIONS_VARIABLE,
+    ROTATE_VARIABLE,
+    workflow_names,
+)
 
 __all__ = [
     "CODE_COLUMNS",
@@ -312,6 +317,9 @@ class MatrixRow:
     #: The rotor motions the cell's ``MOTIONS`` list states, one record
     #: each, in cell order (PFS-2029.11.01); empty for a flat row.
     motions: list[dict[str, str]] = field(default_factory=list)
+    #: The mesh rotations the cell's ``ROTATE`` list states, one record
+    #: each, in cell order (PFS-2034.02); empty for a row stating none.
+    rotations: list[dict[str, str]] = field(default_factory=list)
 
 
 #: The CLOSED set of flight-condition keys, each with the unit it is
@@ -594,6 +602,13 @@ def _parse_variables(cell: str) -> dict[str, str]:
     return variables
 
 
+#: The keys a rotation record carries (PFS-2034.02): the three every
+#: record states and the one it may.
+ROTATION_RECORD_KEYS = ("ANGLE", "AXIS", "FAMILIES")
+ROTATION_OPTIONAL_KEYS = ("AUX_FRAMES",)
+_ROTATION_AXIS = re.compile(r"^.+-[XYZ]$")
+
+
 def _parse_motions(variables: dict[str, str], pol: str) -> list[dict[str, str]]:
     """Take the ``MOTIONS`` list out of the flat variables and read its records.
 
@@ -616,11 +631,64 @@ def _parse_motions(variables: dict[str, str], pol: str) -> list[dict[str, str]]:
             f"{', '.join(flat)}; a row with a motion list states every rotor inside "
             "its record, so the flat key would be a second statement of one rotor."
         )
+    return _parse_records(text, pol, MOTIONS_VARIABLE, "rotor")
+
+
+def _parse_rotations(variables: dict[str, str], pol: str) -> list[dict[str, str]]:
+    """Take the ``ROTATE`` list out of the flat variables and read its records.
+
+    PFS-2034.02, the same grammar as ``MOTIONS`` (her answer of
+    2026-09-09: "the declaration stays as we do with motion; two braces
+    are two, in the order of the input"). Each record states ``ANGLE``
+    in degrees, ``AXIS`` as ``<frame>-<X|Y|Z>`` and ``FAMILIES``, and may
+    state ``AUX_FRAMES``; a key outside those four, a missing one, an
+    angle that is not a number and an axis token of another shape are
+    refused here, naming the cell, so a row is refused at plan time and
+    never at the solver. What the names RESOLVE to (the frame, the
+    families) is the builder's, which holds the geometry and the setup.
+    """
+    text = variables.pop(ROTATE_VARIABLE, None)
+    if text is None:
+        return []
+    records = _parse_records(text, pol, ROTATE_VARIABLE, "rotation")
+    allowed = (*ROTATION_RECORD_KEYS, *ROTATION_OPTIONAL_KEYS)
+    for record in records:
+        unknown = sorted(key for key in record if key not in allowed)
+        if unknown:
+            raise MatrixError(
+                f"POL {pol}: {ROTATE_VARIABLE} record states {', '.join(unknown)}, which a "
+                f"rotation does not read; a record holds {', '.join(ROTATION_RECORD_KEYS)} and "
+                f"optionally {', '.join(ROTATION_OPTIONAL_KEYS)}."
+            )
+        missing = [key for key in ROTATION_RECORD_KEYS if key not in record]
+        if missing:
+            written = " / ".join(f"{k}: {v}" for k, v in record.items())
+            raise MatrixError(
+                f"POL {pol}: {ROTATE_VARIABLE} record {{{written}}} states no "
+                f"{', '.join(missing)}; every rotation states {', '.join(ROTATION_RECORD_KEYS)}."
+            )
+        try:
+            float(record["ANGLE"])
+        except ValueError:
+            raise MatrixError(
+                f"POL {pol}: {ROTATE_VARIABLE} ANGLE is {record['ANGLE']!r}, which is not a "
+                "number; write the angle in degrees, as 3 or -2.5."
+            ) from None
+        if not _ROTATION_AXIS.match(record["AXIS"]):
+            raise MatrixError(
+                f"POL {pol}: {ROTATE_VARIABLE} AXIS is {record['AXIS']!r}, which is not of the "
+                "form frame-axis; write the frame's name, a hyphen and X, Y or Z, as NAC-Y."
+            )
+    return records
+
+
+def _parse_records(text: str, pol: str, key: str, noun: str) -> list[dict[str, str]]:
+    """Read ``{KEY: value / KEY: value}, {...}`` into records, one ``noun`` each."""
     if text.count("{") != text.count("}") or not text.startswith("{") or not text.endswith("}"):
         raise MatrixError(
-            f"POL {pol}: {MOTIONS_VARIABLE} is {text!r}, which is not a list of "
+            f"POL {pol}: {key} is {text!r}, which is not a list of "
             "brace-closed records; write {KEY: value / KEY: value}, {...}, one pair of "
-            "braces per rotor."
+            f"braces per {noun}."
         )
     records: list[dict[str, str]] = []
     body = text
@@ -630,14 +698,14 @@ def _parse_motions(variables: dict[str, str], pol: str) -> list[dict[str, str]]:
             break
         if not body.startswith("{") or "}" not in body:
             raise MatrixError(
-                f"POL {pol}: {MOTIONS_VARIABLE} is {text!r}, and {body[:20]!r} is not a "
+                f"POL {pol}: {key} is {text!r}, and {body[:20]!r} is not a "
                 "brace-closed record; the records are separated by commas and each one "
                 "opens and closes its own braces."
             )
         inner, _, body = body[1:].partition("}")
         if "{" in inner:
             raise MatrixError(
-                f"POL {pol}: {MOTIONS_VARIABLE} is {text!r}, and a record opens a brace "
+                f"POL {pol}: {key} is {text!r}, and a record opens a brace "
                 "inside another; a record holds KEY: value pairs only."
             )
         record: dict[str, str] = {}
@@ -647,26 +715,25 @@ def _parse_motions(variables: dict[str, str], pol: str) -> list[dict[str, str]]:
             name, separator, value = pair.partition(":")
             if not separator:
                 raise MatrixError(
-                    f"POL {pol}: {MOTIONS_VARIABLE} record {pair.strip()!r} is not a "
-                    "KEY: value pair."
+                    f"POL {pol}: {key} record {pair.strip()!r} is not a KEY: value pair."
                 )
-            key = name.strip()
-            if key in record:
+            field_name = name.strip()
+            if field_name in record:
                 raise MatrixError(
-                    f"POL {pol}: {MOTIONS_VARIABLE} record {{{inner.strip()}}} states "
-                    f"{key} twice, and one rotor has one {key}."
+                    f"POL {pol}: {key} record {{{inner.strip()}}} states "
+                    f"{field_name} twice, and one {noun} has one {field_name}."
                 )
-            record[key] = value.strip()
+            record[field_name] = value.strip()
         if not record:
             raise MatrixError(
-                f"POL {pol}: {MOTIONS_VARIABLE} is {text!r}, and one of its records is empty; "
-                "a record holds KEY: value pairs, one rotor each."
+                f"POL {pol}: {key} is {text!r}, and one of its records is empty; "
+                f"a record holds KEY: value pairs, one {noun} each."
             )
         records.append(record)
     if not records:
         raise MatrixError(
-            f"POL {pol}: {MOTIONS_VARIABLE} is {text!r}, which names no record at all; "
-            "write {KEY: value / KEY: value}, {...}, one pair of braces per rotor."
+            f"POL {pol}: {key} is {text!r}, which names no record at all; "
+            "write {KEY: value / KEY: value}, {...}, one pair of braces per " + f"{noun}."
         )
     return records
 
@@ -866,6 +933,7 @@ def read_matrix(path: str | Path, *, active_only: bool = True) -> list[MatrixRow
         record = dict(zip(_COLUMNS, cells, strict=True))
         variables = _parse_variables(record["VAR_NAMES_VALUES"])
         motions = _parse_motions(variables, record["POL"])
+        rotations = _parse_rotations(variables, record["POL"])
         row = MatrixRow(
             # From the enumerate above, so it is assigned before the RUN
             # filter below and an inactive row does not shift the numbers
@@ -888,6 +956,7 @@ def read_matrix(path: str | Path, *, active_only: bool = True) -> list[MatrixRow
             workflow=_check_workflow(record["WORKFLOW"], record["POL"]),
             variables=variables,
             motions=motions,
+            rotations=rotations,
         )
         # Every row is checked, active or not: the sweep codes and the
         # variable grammar already are, and a refusal a user only meets
@@ -1650,6 +1719,7 @@ def to_campaign(
                 recipe=recipe,
                 outputs=_declared_outputs(row, required=require_outputs),
                 motions=[dict(record) for record in row.motions],
+                rotations=[dict(record) for record in row.rotations],
                 variables=variables,
             )
         )

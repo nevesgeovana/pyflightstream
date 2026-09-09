@@ -53,6 +53,7 @@ from pyflightstream._fsm import (
 )
 from pyflightstream.cases import (
     CampaignConfigError,
+    FrameSpec,
     ReferenceData,
     SimCase,
     SolverSettings,
@@ -4262,3 +4263,84 @@ def test_a_sideslip_under_mirror_is_refused_before_the_solver_settings_in_any_sp
     assert "SOLVER_SET_SIDESLIP" not in rendered and "SOLVER_SET_AOA" not in rendered, rendered
     zero = rotor_case(SYMMETRY=spelling).model_copy(update={"point": {"alpha": 0.0, "beta": 0.0}})
     build_script(zero, Script("26.120"))
+
+
+# --- PFS-2034.02: the row's rotation variable ----------------------------------
+
+
+def _pitched_rotor(tmp_path, **overrides) -> SimCase:
+    """A rotor case whose setup defines NAC and whose row rotates blade and spinner about it."""
+    sector = _saved_simulation(tmp_path / "prop.fsm", ["Blade1", "S", "N"])
+    update = {
+        "frames": [FrameSpec(name="NAC", origin=(0.4, 0.0, 0.1))],
+        "rotations": [
+            {"ANGLE": "3", "AXIS": "NAC-Y", "FAMILIES": "Blade1,S", "AUX_FRAMES": "PROP_MRP"},
+            {"ANGLE": "-2", "AXIS": "NAC-Z", "FAMILIES": "Blade1,S", "AUX_FRAMES": "PROP_MRP"},
+        ],
+    }
+    update.update(overrides)
+    return _rotor_row(sector, "Blade1").model_copy(update=update)
+
+
+def test_two_rotation_records_are_two_rotations_in_the_order_written(tmp_path):
+    """PFS-2034.02 through build_script: each record is one mesh rotation citing the
+    frame by name and the families by name, followed by the auxiliary frame's own
+    rotation about the same axis and angle, record one before record two."""
+    script = Script("26.123")
+    build_script(_pitched_rotor(tmp_path), script)
+    lines = script.render().splitlines()
+    nac = int(lines[lines.index("NAME NAC") - 1].split()[1])
+    prop = int(lines[lines.index("NAME PROP_MRP") - 1].split()[1])
+    rotations = [i for i, line in enumerate(lines) if line.startswith("ROTATE_SURFACE ")]
+    assert [lines[i] for i in rotations] == [
+        f"ROTATE_SURFACE {nac} Y 3.0 2 DISABLE",
+        f"ROTATE_SURFACE {nac} Z -2.0 2 DISABLE",
+    ], [line for line in lines if "ROTATE" in line]
+    assert [lines[i + 1] for i in rotations] == ["1,2", "1,2"], (
+        "Blade1 and S are boundaries 1 and 2"
+    )
+    aux = [
+        i for i, line in enumerate(lines) if line == "ROTATE_COORDINATE_SYSTEM" and i > rotations[0]
+    ]
+    turned = [lines[i + 1 : i + 5] for i in aux]
+    assert [f"FRAME {prop}", f"ROTATION_FRAME {nac}", "ROTATION_AXIS Y", "ANGLE 3.0"] in turned, (
+        turned
+    )
+    assert [f"FRAME {prop}", f"ROTATION_FRAME {nac}", "ROTATION_AXIS Z", "ANGLE -2.0"] in turned, (
+        turned
+    )
+    motion = lines.index("CREATE_NEW_MOTION ROTARY")
+    assert rotations[0] < rotations[1] < motion and max(aux) < motion
+    assert lines.index("NAME NAC") < rotations[0], "the frame exists before it is cited"
+
+
+def test_a_case_without_the_rotation_variable_emits_no_rotation(tmp_path):
+    """The control: the variable absent, the script carries the blade axis frame's
+    own zero-angle rotation and nothing else, which is every golden."""
+    script = Script("26.123")
+    build_script(_pitched_rotor(tmp_path, rotations=[]), script)
+    text = script.render()
+    assert "ROTATE_SURFACE" not in text and text.count("ROTATE_COORDINATE_SYSTEM") == 1
+
+
+@pytest.mark.parametrize(
+    ("record", "fragment"),
+    [
+        ({"ANGLE": "3", "AXIS": "NAC-Y", "FAMILIES": "Blade1", "AUX_FRAMES": "HUB"}, "HUB"),
+        ({"ANGLE": "3", "AXIS": "TAIL-Y", "FAMILIES": "Blade1"}, "TAIL"),
+        ({"ANGLE": "3", "AXIS": "NAC-Q", "FAMILIES": "Blade1"}, "NAC-Q"),
+        ({"ANGLE": "3", "AXIS": "NAC-Y", "FAMILIES": "Fin"}, "Fin"),
+        ({"ANGLE": "3", "AXIS": "NAC-Y"}, "FAMILIES"),
+    ],
+)
+def test_a_rotation_citing_what_the_case_does_not_have_is_refused_naming_it(
+    tmp_path, record, fragment
+):
+    """An auxiliary frame or an axis frame no setup or builder defines, an axis token
+    not of the form frame-axis, and a family the inventory lacks: each refused before
+    any emission, naming the token and what the case does define."""
+    with pytest.raises(PyflightstreamError) as refused:
+        build_script(_pitched_rotor(tmp_path, rotations=[record]), Script("26.123"))
+    message = str(refused.value)
+    assert "ROTATE" in message and fragment in message, message
+    assert "NAC" in message or "Blade1" in message or "ANGLE" in message, message

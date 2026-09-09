@@ -11,6 +11,7 @@ from pyflightstream.commands import (
     CommandEntry,
     CommandNotInVersionError,
     CommandRegistry,
+    Phase,
     Status,
 )
 from pyflightstream.script import (
@@ -21,6 +22,7 @@ from pyflightstream.script import (
     ScriptOrderError,
     ScriptReferenceError,
     _check_list,
+    helpers,
 )
 from pyflightstream.versions import known_versions
 
@@ -1605,27 +1607,40 @@ def test_the_cad_mesh_selector_is_not_given_an_invented_token_set():
 # --- Mesh Operations --------------------------------------------------------
 
 
+@pytest.mark.parametrize(
+    ("version", "command"), [("26.120", "SURFACE_ROTATE"), ("26.123", "ROTATE_SURFACE")]
+)
+def test_a_mesh_rotation_may_cite_a_frame_created_before_it(version, command):
+    """PFS-2034.02: the rotation cites a frame, and the manual's own sample cites
+    a created one, so the command is phase setup and follows the frame it names;
+    a rotation about the reference frame still leads a script. RED on bf9fe31:
+    ScriptOrderError, a geometry command after the setup phase."""
+    script = Script(version=version)
+    script.declare_existing(boundaries={"Blade1": 1, "S": 2})
+    frame = helpers.coordinate_frame(
+        script, name="NAC", origin=(0.4, 0.0, 0.1), x_axis=(1, 0, 0), y_axis=(0, 1, 0)
+    )
+    helpers.rotate_surfaces(script, frame=frame, axis="Y", angle_deg=3.0, boundaries=[1, 2])
+    lines = script.render().splitlines()
+    assert lines.index("NAME NAC") < next(
+        i for i, line in enumerate(lines) if line.startswith(command)
+    )
+    assert CommandRegistry.load().commands[command].phase is Phase.SETUP
+
+
 @pytest.mark.parametrize("version", ["26.100", "26.101", "26.120", "26.121"])
 def test_the_mesh_operations_chapter_emits_on_every_registered_build(version):
     """Each line is the manual's own sample, including the two blocks.
 
     The frame is declared because the samples cite frame 3 and a
     coordinate system is created in the setup phase, which cannot
-    precede a geometry command (PLN-20260806-0900).
+    precede a geometry command (PLN-20260806-0900); the rotation, the
+    one sample that is a setup command since 0.14.0 (PFS-2034.02), could
+    follow a created frame, and is emitted LAST here so the geometry
+    samples before it keep their phase; the golden moved with it.
     """
     script = Script(version=version)
     script.declare_existing(frames=3)
-    script.emit(
-        "SURFACE_ROTATE",
-        frame=3,
-        axis="X",
-        angle=-20.0,
-        surfaces=1,
-        surface_indices=[2],
-        split_vertices="DISABLE",
-        adaptive_mesh="DISABLE",
-        detach_normal_to_axis="ENABLE",
-    )
     script.emit("TRANSLATE_SURFACE_IN_FRAME", 1, 0.0, 1.0, 1.4, "INCH", 3, "ENABLE")
     script.emit("TRANSLATE_SURFACE_BY_FRAME", 1, 3, 2)
     script.emit("SURFACE_SCALE", 1, 1.0, 0.5, 0.5, 2)
@@ -1638,6 +1653,17 @@ def test_the_mesh_operations_chapter_emits_on_every_registered_build(version):
     script.emit("SURFACE_RENAME", 2, "Fuselage")
     script.emit("SELECT_MESH_NODE", 3)
     script.emit("TRANSFORM_SELECTED_NODES", 1, "TRANSLATION", -1.0, 0.0, 0.0)
+    script.emit(
+        "SURFACE_ROTATE",
+        frame=3,
+        axis="X",
+        angle=-20.0,
+        surfaces=1,
+        surface_indices=[2],
+        split_vertices="DISABLE",
+        adaptive_mesh="DISABLE",
+        detach_normal_to_axis="ENABLE",
+    )
     # Byte-exact, not spot checks. Three substrings out of thirteen
     # emitted commands left ten of the manual's own sample lines
     # asserted only for "does not raise", and the 2026-08-07 QA pass

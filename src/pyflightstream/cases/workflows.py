@@ -98,6 +98,7 @@ __all__ = [
     "BASE_REGIONS_VARIABLE",
     "MOTIONS_VARIABLE",
     "MOVING_BOUNDARIES_VARIABLE",
+    "ROTATE_VARIABLE",
     "PERIODIC_COPIES_VARIABLE",
     "REVOLUTIONS_VARIABLE",
     "ROTORLESS_REFUSED_KEYS",
@@ -204,6 +205,17 @@ ROTOR_ORIGIN_POINT_KEY = "ROTOR_ORIGIN_POINT"
 #: :mod:`pyflightstream.cases.matrix`, whose reader consumes the list
 #: into :attr:`~pyflightstream.cases.SimCase.motions`, re-exports it.
 MOTIONS_VARIABLE = "MOTIONS"
+#: The row's ROTATION of the opened mesh (PFS-2034.02, her design of
+#: 2026-09-09, design/69): a list of records like ``MOTIONS``, each one
+#: rotation, in the order written, ``ROTATE: {ANGLE: 3 / AXIS: NAC-Y /
+#: FAMILIES: Blade,S / AUX_FRAMES: PROP_MRP}, {...}``. ``AXIS`` names a
+#: frame the setup defines or the package creates and one of its axes;
+#: ``FAMILIES`` names boundaries or families of the geometry, never
+#: indices; ``AUX_FRAMES`` names the frames that turn with the mesh. One
+#: row is one geometry, so a row states its angles here and not as a
+#: sweep. Read by :mod:`pyflightstream.cases.matrix` into
+#: :attr:`~pyflightstream.cases.SimCase.rotations`.
+ROTATE_VARIABLE = "ROTATE"
 #: The direction a rotor case's relaxed trailing edges shed their wake:
 #: AXIAL (0) or AZIMUTH (1), the second being what 26.123 adds and what a
 #: rotor case wants (SRC-751 p.85). Absent means the row asks for nothing
@@ -3313,6 +3325,108 @@ def _setup_frames(case: SimCase, script: Script) -> dict[str, int]:
     return created
 
 
+_AXIS_TOKEN = re.compile(r"^(?P<frame>.+)-(?P<axis>[XYZ])$")
+
+
+def _rotations(
+    case: SimCase,
+    script: Script,
+    named: Mapping[str, int | None],
+    followers: Mapping[str, Sequence[int]] | None = None,
+) -> None:
+    """Rotate the mesh families the row's ``ROTATE`` records name, in the order written.
+
+    PFS-2034.02, her design of 2026-09-09 (design/69). Each record is one
+    rotation of the named families about the named axis of the named
+    frame, emitted after every frame exists and before any motion is
+    created, so a rotor whose axis frame is among the auxiliaries turns
+    about the rotated axis with nothing else to do. The families resolve
+    by NAME against the opened geometry's inventory, exact label first and
+    family second, as ``MOVING_BOUNDARIES`` does (a user never writes an
+    index); the frames resolve by the name the solver shows, ``named``
+    being the frames the builder created so far (the package's own and
+    the setup's). An auxiliary frame is turned by the same command the
+    blade axes use, ``ROTATE_COORDINATE_SYSTEM``, and a frame the package
+    DERIVED from an auxiliary (the blade axis frames from ``PROP_MRP``,
+    listed in ``followers``) turns with it, because it was placed from
+    that frame and would otherwise be left behind by the incidence the
+    row states. A row without the variable emits nothing.
+    """
+    if not case.rotations:
+        return
+    frames = {name: index for name, index in named.items() if index is not None}
+    labels = script.entities.labels("boundaries")
+    for record in case.rotations:
+        # The matrix reader refused these already; a case authored in
+        # Python meets the same sentence here rather than a KeyError.
+        missing = [key for key in ("ANGLE", "AXIS", "FAMILIES") if key not in record]
+        if missing:
+            raise CampaignConfigError(
+                f"case {case.sim_id!r} states a {ROTATE_VARIABLE} record without "
+                f"{', '.join(missing)}; every rotation states ANGLE, AXIS and FAMILIES."
+            )
+        angle = float(record["ANGLE"])
+        token = record["AXIS"]
+        matched = _AXIS_TOKEN.match(token)
+        if matched is None:
+            raise CampaignConfigError(
+                f"case {case.sim_id!r} states {ROTATE_VARIABLE} with AXIS {token!r}, which is "
+                "not of the form frame-axis; write the frame's name, a hyphen and X, Y or Z, "
+                f"as NAC-Y. The frames this case defines are {_frame_names(frames)}."
+            )
+        frame_name, axis = matched.group("frame"), matched.group("axis")
+        frame = _rotation_frame(case, frame_name, frames, "AXIS")
+        boundaries: list[int] = []
+        for name in (part.strip() for part in record["FAMILIES"].split(",")):
+            if not name:
+                continue
+            if not labels:
+                _refuse_name_without_inventory(case, ROTATE_VARIABLE, name)
+            found = resolve_family(name, labels)
+            if not found:
+                _refuse_name_absent_from_inventory(case, ROTATE_VARIABLE, name, labels)
+            boundaries.extend(index for index in found if index not in boundaries)
+        if not boundaries:
+            raise CampaignConfigError(
+                f"case {case.sim_id!r} states {ROTATE_VARIABLE} with FAMILIES "
+                f"{record['FAMILIES']!r}, which names no boundary; name the families or "
+                f"boundaries to turn, of {_declared_labels(labels)}."
+            )
+        helpers.rotate_surfaces(
+            script, frame=frame, axis=axis, angle_deg=angle, boundaries=sorted(boundaries)
+        )
+        for aux_name in (part.strip() for part in record.get("AUX_FRAMES", "").split(",")):
+            if not aux_name:
+                continue
+            aux = _rotation_frame(case, aux_name, frames, "AUX_FRAMES")
+            turned = [aux, *((followers or {}).get(aux_name, ()))]
+            for index in turned:
+                script.emit(
+                    "ROTATE_COORDINATE_SYSTEM",
+                    frame=index,
+                    rotation_frame=frame,
+                    rotation_axis=axis,
+                    angle=angle,
+                )
+
+
+def _frame_names(frames: Mapping[str, int]) -> str:
+    """Return the frames a rotation may cite, by the name the solver shows, for a message."""
+    return ", ".join(repr(name) for name in frames) or "none"
+
+
+def _rotation_frame(case: SimCase, name: str, frames: Mapping[str, int], key: str) -> int:
+    """Resolve a frame name a rotation record cites, refusing one nothing defined."""
+    if name in frames:
+        return frames[name]
+    raise CampaignConfigError(
+        f"case {case.sim_id!r} states {ROTATE_VARIABLE} with {key} naming {name!r}, and "
+        f"no frame of that name exists when the rotation is emitted; the frames this case "
+        f"defines are {_frame_names(frames)}. A setup preset defines one in its [[frames]] "
+        "table, and MRP and PROP_MRP are the package's own."
+    )
+
+
 def _blade_frames(case: SimCase, script: Script, prop_frame: int) -> dict[str, int]:
     """Create one axis frame per blade family, turned about the rotor frame.
 
@@ -3625,7 +3739,9 @@ def _build_steady(case: SimCase, script: Script, conventions: WorkflowConvention
     _open_geometry(case, script)
     frame = _moment_frame(case, script)
     frames: dict[str, int | None | Mapping[str, int]] = {"MRP": frame, "PROP_MRP": None}
-    frames.update(_setup_frames(case, script))
+    setup_frames = _setup_frames(case, script)
+    frames.update(setup_frames)
+    _rotations(case, script, {"MRP": frame, **setup_frames})
     _significant_digits(case, script)
     helpers.free_stream(script)
     _fluid(case, script)
@@ -4110,11 +4226,14 @@ def _build_unsteady(case: SimCase, script: Script, conventions: WorkflowConventi
     _refuse_unregistered_keys(case, "unsteady")
     _open_geometry(case, script)
     frame = _moment_frame(case, script)
+    prop_frame = _propeller_frame(case, script)
     frames: dict[str, int | None | Mapping[str, int]] = {
         "MRP": frame,
-        "PROP_MRP": _propeller_frame(case, script),
+        "PROP_MRP": prop_frame,
     }
-    frames.update(_setup_frames(case, script))
+    setup_frames = _setup_frames(case, script)
+    frames.update(setup_frames)
+    _rotations(case, script, {"MRP": frame, "PROP_MRP": prop_frame, **setup_frames})
     _pproc_plots(case, script, frames)
     _significant_digits(case, script)
     helpers.free_stream(script)
@@ -4168,7 +4287,7 @@ def _build_unsteady_rotor(case: SimCase, script: Script, conventions: WorkflowCo
         )
     setup_frames = _setup_frames(case, script)
     if case.motions:
-        _rotor_motions(conventions, case, script, frame, prop_frame, threshold)
+        _rotor_motions(conventions, case, script, frame, prop_frame, threshold, setup_frames)
         return
     blade_frames = _blade_frames(case, script, prop_frame)
     frames: dict[str, int | None | Mapping[str, int]] = {
@@ -4177,6 +4296,12 @@ def _build_unsteady_rotor(case: SimCase, script: Script, conventions: WorkflowCo
         "BLADE_AXIS": blade_frames or None,
     }
     frames.update(setup_frames)
+    _rotations(
+        case,
+        script,
+        {"MRP": frame, "PROP_MRP": prop_frame, **setup_frames},
+        followers={"PROP_MRP": sorted(blade_frames.values())},
+    )
     _pproc_plots(case, script, frames)
     _significant_digits(case, script)
     helpers.free_stream(script)
@@ -4221,6 +4346,7 @@ def _rotor_motions(
     frame: int | None,
     prop_frame: int | None,
     threshold: UnsteadyExportThreshold | None,
+    setup_frames: Mapping[str, int],
 ) -> None:
     """Finish a rotor script whose row states N motions (PFS-2029.11.03).
 
@@ -4240,15 +4366,18 @@ def _rotor_motions(
     """
     views = [_motion_view(case, record) for record in case.motions]
     moving: list[int] = []
+    hubs: list[int] = []
     for number, view in enumerate(views, start=1):
         origin = _origin(view)
-        helpers.coordinate_frame(
-            script,
-            name=f"PROP_MRP{number}",
-            origin=origin,
-            x_axis=(1.0, 0.0, 0.0),
-            y_axis=(0.0, 1.0, 0.0),
-            label=f"rotor:{number}",
+        hubs.append(
+            helpers.coordinate_frame(
+                script,
+                name=f"PROP_MRP{number}",
+                origin=origin,
+                x_axis=(1.0, 0.0, 0.0),
+                y_axis=(0.0, 1.0, 0.0),
+                label=f"rotor:{number}",
+            )
         )
         moving.append(
             helpers.coordinate_frame(
@@ -4265,6 +4394,17 @@ def _rotor_motions(
         "PROP_MRP": prop_frame,
         "BLADE_AXIS": None,
     }
+    frames.update(setup_frames)
+    # A record's own frames are citable by the names the solver shows
+    # (PROP_MRP1, RotorAxis1, ...), and a rotor's moving frame follows
+    # its hub frame the way the blade axes follow PROP_MRP (PFS-2034.02).
+    named: dict[str, int | None] = {"MRP": frame, "PROP_MRP": prop_frame, **setup_frames}
+    followers: dict[str, list[int]] = {}
+    for number, (hub, axis) in enumerate(zip(hubs, moving, strict=True), start=1):
+        named[f"PROP_MRP{number}"] = hub
+        named[f"RotorAxis{number}"] = axis
+        followers[f"PROP_MRP{number}"] = [axis]
+    _rotations(case, script, named, followers=followers)
     _pproc_plots(case, script, frames)
     _significant_digits(case, script)
     helpers.free_stream(script)
@@ -4390,6 +4530,7 @@ _STEADY_KEYS: tuple[str, ...] = (
     SYMMETRY_VARIABLE,
     PERIODIC_COPIES_VARIABLE,
     BASE_REGIONS_VARIABLE,
+    ROTATE_VARIABLE,
     VELOCITY_VARIABLE,
     ADVANCE_RATIO_VARIABLE,
     LOG_OUTPUT_VARIABLE,

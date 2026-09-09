@@ -229,6 +229,7 @@ read by the package rather than ignored:
 | v0.11.0 | `BASE_REGIONS`, the mesh families the base-region autodetect may consider, one `DETECT_BASE_REGIONS_BY_SURFACE` per boundary of them after `OPEN`; it overrides the pproc artifact's `base_regions`, and naming none emits nothing (PFS-2029.10) |
 | v0.13.0 | `EXPORT_UNSTEADY_AFTER_REV` and `EXPORT_UNSTEADY_AFTER_ITER`, the step the per-step exports begin on, one per row at most; the first on `unsteady_rotor` only, both refused on `steady` (PFS-2031.18) |
 | v0.13.0 | none. What changed is that the list above is now CLOSED for a workflow row: a key no run type registers is refused at `pyfs-matrix plan` (PFS-2008.02.01), see below |
+| v0.14.0 | `ROTATE`, a list of records, one rotation of the opened mesh each, in the order written: `ROTATE: {ANGLE: 3 / AXIS: NAC-Y / FAMILIES: Blade,S / AUX_FRAMES: PROP_MRP}, {...}`; on every run type; the frame is one the setup defines or the package creates, the families are names, never indices (PFS-2034.02), see [One row, one geometry, turned](#one-row-one-geometry-turned) |
 
 **A WORKFLOW ROW STATES ONLY WHAT THE SCRIPT WILL CARRY.** Each run type
 registers the keys it reads (`Workflow.keys` in
@@ -1177,6 +1178,60 @@ pyfs-matrix upgrade matriz.fs --in-place --inputs inputs
 which renames the column, drops `FS_SCRIPT`, moves `inputs/groups/e001.toml`
 to `inputs/pproc/p001.toml` under a `[groups]` header (the file's own lines,
 comments and all), and gives the cells that named it their `p`.
+
+### One row, one geometry, turned
+
+An installed propeller's incidence is a parametric study: the same mesh, the
+blade and spinner families turned a few degrees in pitch or in toe, one
+run per angle. Since 0.14.0 a row states that turn in its cell
+(PFS-2034.02, her design of 2026-09-09) and the geometry file stays what
+it was:
+
+```text
+ROTATE: {ANGLE: 3 / AXIS: NAC-Y / FAMILIES: Blade,S / AUX_FRAMES: PROP_MRP}
+```
+
+`ROTATE` is a list of records with the `MOTIONS` grammar, braces around
+each record, commas between them, `/` between the pairs inside. Each
+record is ONE rotation and two records are two rotations in the order
+written, so a pitch and then a toe is `{...}, {...}`. `ANGLE` is in
+degrees; `AXIS` names a coordinate system and one of its axes, as
+`NAC-Y`, where the system is one the setup preset defines in its
+`[[frames]]` table (above) or one the package creates itself (`MRP`,
+`PROP_MRP`, and on a `MOTIONS` row `PROP_MRP1`, `RotorAxis1`, ...);
+`FAMILIES` names the boundaries or families to turn, resolved against the
+geometry's own inventory exactly as `MOVING_BOUNDARIES` is (a label first,
+a family second, never an index); `AUX_FRAMES`, optional, names the frames
+that turn with the mesh, which for a rotor is its axis frame `PROP_MRP`, so
+the motion created after it turns about the pitched axis with nothing else
+to write. A frame the package derived from an auxiliary turns with it: the
+blade axis frames are placed from `PROP_MRP`, so naming `PROP_MRP` turns
+them too, and the blade loads the pproc entries read in those frames stay
+in the blade's own axes.
+
+The rotation is emitted after every frame exists and before any motion is
+created, on every run type. One row is one geometry, so the angles of a
+study are one row each, and the sweep column keeps its meaning: a row
+stating `angle_sweep_deg` is refused as it always was.
+
+A family the geometry lacks, a frame nothing defined, an axis token not of
+the form `frame-axis`, a record missing one of its three keys or carrying a
+key a rotation does not read, and an angle that is not a number are each
+refused at `pyfs-matrix plan` naming the row, and the first two name what
+the case DOES define:
+
+```text
+case '1020' states ROTATE with 'NoSuchFamily', and the sidecar
+30_BLADE.boundaries.toml beside 30_BLADE.fsm declares no boundary of that
+name or family; it declares 'Blade1', 'S', 'N'. Write one of those, or a
+family name (the label without its trailing number) to select every member
+the file carries.
+```
+
+What the solver does with the rotated mesh is the measurement of the seat
+run her study books (PFS-2034.05): the package emits the rotation the
+manual documents, citing a frame the manual's own sample cites, and the
+run record is where the accepted geometry will be read from.
 
 ## From a filled-in matrix to results, in one call
 

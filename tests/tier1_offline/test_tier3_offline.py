@@ -671,3 +671,91 @@ def test_a_setup_with_frames_renders_them_after_the_packages_own_and_before_the_
     named = lines.index("NAME NAC")
     motion = next(i for i, line in enumerate(lines) if line.startswith("CREATE_NEW_MOTION"))
     assert named < motion, "the setup's frame must exist before the motion is created"
+
+
+ROTATE_TWO = (
+    " / ROTATE: {ANGLE: 3 / AXIS: NAC-Y / FAMILIES: Blade / AUX_FRAMES: PROP_MRP},"
+    " {ANGLE: -2 / AXIS: NAC-Z / FAMILIES: Blade / AUX_FRAMES: PROP_MRP}"
+)
+
+
+def _rotor_row_on_a_setup_with_nac(tmp_path, tail):
+    """The tour's first rotor row on setup s090, which defines frame NAC, plus ``tail``."""
+    root = _tier3_copy(tmp_path)
+    plain = (root / "inputs" / "setups" / "s002.toml").read_text(encoding="utf-8")
+    (root / "inputs" / "setups" / "s090.toml").write_text(
+        plain.rstrip("\n") + '\n\n[[frames]]\nname = "NAC"\norigin = [0.4, 0.0, 0.1]\n',
+        encoding="utf-8",
+    )
+    rotor = next(
+        line
+        for line in TOUR.read_text(encoding="utf-8").splitlines()
+        if "| unsteady_rotor " in line
+    )
+    cells = rotor.split("|")
+    cells[7] = " s090 "
+    return root, _one_row_matrix(root, "rotate.fs", "|".join(cells).rstrip() + tail)
+
+
+def test_a_rotor_row_rotating_its_blades_renders_the_rotations_after_the_frames_before_the_motion(
+    tmp_path,
+):
+    """PFS-2034.02, her design of 2026-09-09: two ROTATE records are two rotations
+    in the order written, each about the named axis of the setup's frame, emitted
+    after every frame exists and before the motion is created; PROP_MRP, named
+    as an auxiliary, is rotated with the mesh and so are the blade axis frames the
+    package derived from it. RED on bf9fe31: BLOCKED as a key of no run type."""
+    root, matrix = _rotor_row_on_a_setup_with_nac(tmp_path, ROTATE_TWO)
+    plan, rendered = _rendered(root, matrix)
+    assert not plan.blocked, plan.summary()
+    lines = next(iter(rendered.values())).splitlines()
+    nac = int(lines[lines.index("NAME NAC") - 1].split()[1])
+    prop = int(lines[lines.index("NAME PROP_MRP") - 1].split()[1])
+    frames = [
+        i
+        for i, line in enumerate(lines)
+        if line in ("EDIT_COORDINATE_SYSTEM", "CREATE_NEW_COORDINATE_SYSTEM")
+    ]
+    # On 26.120 the rotation is the keyword block SURFACE_ROTATE: FRAME, AXIS, ANGLE, ...
+    rotations = [i for i, line in enumerate(lines) if line == "SURFACE_ROTATE"]
+    assert len(rotations) == 2, [line for line in lines if "ROTATE" in line]
+    first, second = (lines[i + 1 : i + 4] for i in rotations)
+    assert first == [f"FRAME {nac}", "AXIS Y", "ANGLE 3.0"], first
+    assert second == [f"FRAME {nac}", "AXIS Z", "ANGLE -2.0"], second
+    motion = next(i for i, line in enumerate(lines) if line.startswith("CREATE_NEW_MOTION"))
+    assert max(frames) < rotations[0] < rotations[1] < motion, (frames[-1], rotations, motion)
+    # A frame rotation is a keyword block: FRAME, ROTATION_FRAME, ROTATION_AXIS, ANGLE.
+    aux = [
+        i for i, line in enumerate(lines) if line == "ROTATE_COORDINATE_SYSTEM" and i > rotations[0]
+    ]
+    turned = [(lines[i + 1], lines[i + 2], lines[i + 3], lines[i + 4]) for i in aux]
+    assert (f"FRAME {prop}", f"ROTATION_FRAME {nac}", "ROTATION_AXIS Y", "ANGLE 3.0") in turned, (
+        turned
+    )
+    assert (f"FRAME {prop}", f"ROTATION_FRAME {nac}", "ROTATION_AXIS Z", "ANGLE -2.0") in turned, (
+        turned
+    )
+    blade_axis = int(lines[lines.index("NAME BladeAxis1") - 1].split()[1])
+    assert (
+        f"FRAME {blade_axis}",
+        f"ROTATION_FRAME {nac}",
+        "ROTATION_AXIS Y",
+        "ANGLE 3.0",
+    ) in turned, "the blade axis frame the package derived from PROP_MRP did not turn with it"
+    assert all(i < motion for i in aux), "an auxiliary frame turned after the motion was created"
+    # The rotations of record one all precede the rotation of record two.
+    assert all(i < rotations[1] for i in aux if lines[i + 4] == "ANGLE 3.0"), aux
+
+
+def test_a_rotation_naming_a_family_the_inventory_lacks_is_blocked_naming_the_cell(tmp_path):
+    """PFS-2034.02: the family is resolved by name against the geometry's own inventory
+    (her rule: a user never writes an index), and a name it lacks blocks the row at
+    plan time naming the key, the token and the labels the file declares."""
+    root, matrix = _rotor_row_on_a_setup_with_nac(
+        tmp_path, ROTATE_TWO.replace("FAMILIES: Blade", "FAMILIES: NoSuchFamily")
+    )
+    plan, _ = _rendered(root, matrix)
+    assert plan.blocked, "a rotation naming a family the geometry lacks planned READY"
+    reason = str(plan.blocked[0].error)
+    assert "ROTATE" in reason and "NoSuchFamily" in reason, reason
+    assert "declares" in reason and "Blade" in reason, reason
