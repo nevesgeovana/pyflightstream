@@ -31,6 +31,38 @@ def _all_terminal(runs, matrix, pols):
 # --- matriz_setup.fs: one case, three presets --------------------------------------
 
 
+def test_a_row_carrying_a_raw_command_records_it(runs):
+    """PFS-2033.03, run on the author's seat: row 2004 states s008, the tour preset
+    plus one raw line before init, SOLVER_SET_ITERATIONS 350 over the preset's 300.
+    The solver's own loads spreadsheet says which it took, the record carries the
+    line, and the provenance carries it on the solver run. Skips with its reason
+    until the row has run."""
+    records = runs.of("matriz_setup", "2004")
+    if not records:
+        pytest.skip(
+            "row 2004 of matriz_setup.fs has not run on this machine yet (the author's seat)"
+        )
+    record = runs.one("matriz_setup", "2004", alpha=4.0)
+    assert record.status in TERMINAL_OK, (record.status, record.error)
+    assert record.raw_commands == [
+        {"command": "SOLVER_SET_ITERATIONS 350", "before": "init", "setup": "s008"}
+    ], record.raw_commands
+    script = runs.script(record)
+    texts = script.splitlines()
+    raw = [i for i, text in enumerate(texts) if text == "SOLVER_SET_ITERATIONS 350"]
+    assert raw and raw[-1] < texts.index("INITIALIZE_SOLVER"), raw
+    assert "SOLVER_SET_ITERATIONS 300" in texts, (
+        "the preset's own line stays, the raw line follows it"
+    )
+    assert runs.loads(record).requested_iterations == 350, "the solver took the last word"
+    import json
+
+    provenance = runs.products("matriz_setup") / "provenance"
+    document = json.loads(next(provenance.glob("*2004*.prov.json")).read_text(encoding="utf-8"))
+    (_, activity), *_ = document["activity"].items()
+    assert activity["pyfs:raw_commands"] == record.raw_commands
+
+
 def test_the_setup_study_ran_every_preset_over_the_same_point(runs):
     _all_terminal(runs, "matriz_setup", ("2001", "2002", "2003"))
     for pol in ("2001", "2002", "2003"):

@@ -48,9 +48,11 @@ python -m tests.tier3_licensed.prepare twin       # one shape
 
 The rest of the library is five references (`r001` the wing, `r002`
 the body, `r003` the isolated rotor, `r004` the installed rotor, `r005`
-the qa cases' block with the moment point at the origin), seven setups
-(`s001` the tour preset through `s007`, each a comment on what it
-changes), three post-processing profiles, and a reference-point file
+the qa cases' block with the moment point at the origin), eight setups
+(`s001` the tour preset through `s008`, each a comment on what it
+changes; `s008` is `s001` plus one raw solver line before init,
+PFS-2033.03, whose row 2004 runs on the author's seat), three
+post-processing profiles, and a reference-point file
 with the airframe point `ARP` and the engine points `ERP1` to `ERP3`.
 
 ### The machine's own file
@@ -75,7 +77,7 @@ line but the matrix and the workspace.
 | Matrix | What it is | Rows |
 |---|---|---|
 | `matriz.fs` | the tour: every column, every key, every run type, every input kind | 1001 a steady polar with the fluid pins from the setup; 1002 the half wing mirrored with velocity and density on the row; 1003 a sideslip sweep at altitude on a hot day; 1004 a combined sweep with every pin on the row; 1005 the body detecting its base on the second build; 1006 an inactive row; 1010 and 1011 the rotorless unsteady clock in seconds and in azimuth; 1020 one blade under periodic symmetry; 1021 the installed pusher with a signed RPM and its hub by a point; 1022 two rotors from a MOTIONS list; 1090 a LEGACY row naming its recipe in the cell |
-| `matriz_setup.fs` | one point, three presets | 2001 the tour preset, 2002 tighter and longer, 2003 incompressible without stabilization |
+| `matriz_setup.fs` | one point, four presets | 2001 the tour preset, 2002 tighter and longer, 2003 incompressible without stabilization, 2004 the tour preset plus one raw line (her seat) |
 | `matriz_time.fs` | one rotor at six step sizes, 30 down to 2.5 deg, one wing at two | 3001 to 3006, 3010 and 3011 |
 | `matriz_geometry.fs` | one condition, four shapes | 4001 the wing, 4002 its mirrored half, 4003 the body, 4004 the wing with its boundary renamed before the save (RPT-044) |
 | `matriz_physics.fs` | the qa physics cases as rows | 5001 PHY-01, 5002 and 5003 PHY-02, 5005 PHY-05, 5006 PHY-06 |

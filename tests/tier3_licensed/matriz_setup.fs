@@ -3,3 +3,4 @@ POL  | AIRCRAFT | DESCRIPTION                                              | FLI
 2001 | Wing     | SETUP_STUDY_s001_the_steady_preset_of_the_tour           | MACH:0.1, REmi:2.3 | AL         | 4.0          | r001 | s001 | p002  | 26.120   |    0   |  1  | steady   | GEOMETRY: 10_WING.fsm / SYMMETRY: NONE
 2002 | Wing     | SETUP_STUDY_s003_tighter_convergence_twice_the_iterations | MACH:0.1, REmi:2.3 | AL         | 4.0          | r001 | s003 | p002  | 26.120   |    0   |  1  | steady   | GEOMETRY: 10_WING.fsm / SYMMETRY: NONE
 2003 | Wing     | SETUP_STUDY_s004_incompressible_model_no_stabilization   | MACH:0.1, REmi:2.3 | AL         | 4.0          | r001 | s004 | p002  | 26.120   |    0   |  1  | steady   | GEOMETRY: 10_WING.fsm / SYMMETRY: NONE
+2004 | Wing     | SETUP_STUDY_s008_the_tour_preset_plus_one_raw_line       | MACH:0.1, REmi:2.3 | AL         | 4.0          | r001 | s008 | p002  | 26.120   |    0   |  1  | steady   | GEOMETRY: 10_WING.fsm / SYMMETRY: NONE

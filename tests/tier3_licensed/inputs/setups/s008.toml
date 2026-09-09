@@ -1,0 +1,33 @@
+# s008: s001, the tour preset, plus ONE raw solver command declared before the
+# init phase (PFS-2033.01): SOLVER_SET_ITERATIONS 350 overrides the preset's
+# NITER = 300 at the last word, which is how a raw line differs from a setting.
+# The solver's own loads spreadsheet says which number it took ("Requested
+# solver iterations"), the run record carries the line as raw_commands, and
+# the provenance document carries it on the solver run (PFS-2033.02). Row
+# 2004 of matriz_setup.fs states this preset; its run is the author's seat
+# (PFS-2033.03), and tests/tier3_licensed/test_studies.py reads the result.
+boundary_layer_type = "TURBULENT"        # SET_BOUNDARY_LAYER_TYPE
+viscous_coupling = false                 # SET_SOLVER_VISCOUS_COUPLING
+convergence = 1e-5                       # SOLVER_SET_CONVERGENCE
+max_parallel_threads = 8                 # SET_MAX_PARALLEL_THREADS
+NITER = 300                              # SOLVER_SET_ITERATIONS, overridden below by the raw line
+set_solver_model = "SUBSONIC_PRANDTL_GLAUERT"
+proximity_avoidance = "ENABLE"
+stabilization = "ENABLE"
+stabilization_strength = 1.0
+symmetry_loads = true                    # SET_ANALYSIS_SYMMETRY_LOADS
+induced_wake_velocity = true             # SOLVER_SET_MESH_INDUCED_WAKE_VELOCITY
+significant_digits = 7
+convergence_iterations = 20              # SET_SOLVER_CONVERGENCE_ITERATIONS
+solver_minimum_cp = -100
+
+[[raw]]
+command = "SOLVER_SET_ITERATIONS 350"    # the line as the solver reads it
+before = "init"                          # emitted after every setup command, before INITIALIZE_SOLVER
+
+[flight_condition]
+# The four fluid constants of the campaign, s001's own.
+MUPas = 1.789e-5
+ASMPS = 340.29
+TK = 288.15
+PPA = 101325
