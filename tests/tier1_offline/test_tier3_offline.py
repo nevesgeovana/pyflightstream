@@ -39,6 +39,44 @@ def test_every_tier3_matrix_plans_ready(matrix):
     assert len(rendered) == count, "a ready point rendered no script"
 
 
+# --- what the suite's own workspace exercises (OPS-2006.01, PFS-2018.01) -----------
+
+
+def _rows_of_every_matrix():
+    from pyflightstream.cases.matrix import read_matrix
+
+    return [row for matrix in MATRICES for row in read_matrix(matrix)]
+
+
+def test_every_registered_run_type_plans_from_the_suite_workspace():
+    """OPS-2006.01: the suite's shared case inputs are one workspace with a matrix,
+    and every registered run type builds its script through that path rather than
+    through a hand-built case. Each name of the registry is the WORKFLOW cell of at
+    least one active tier-3 row, and every matrix plans READY (the test above)."""
+    from pyflightstream.cases.workflows import workflow_names
+
+    named = {row.workflow for row in _rows_of_every_matrix()}
+    missing = [name for name in workflow_names() if name not in named]
+    assert not missing, (
+        f"registered run type(s) no tier-3 row names in WORKFLOW: {missing}; "
+        f"the rows name {sorted(named)}"
+    )
+
+
+def test_the_physics_matrix_plans_ready_on_both_geometries():
+    """PFS-2018.01: the physics cases that vary mesh density and isolate one solver
+    flag are rows of a committed physics matrix, run through the workflow on both
+    geometry families, the wing and the rotor blade."""
+    from pyflightstream.cases.matrix import read_matrix
+
+    physics = offline.HERE / "matriz_physics.fs"
+    rows = read_matrix(physics)
+    families = {row.variables.get("GEOMETRY", "").split("_")[1] for row in rows}
+    assert {"WING", "BLADE"} <= families, f"the physics matrix names {sorted(families)}"
+    count, rendered = offline.render(physics)
+    assert count >= len(rows) and len(rendered) == count, "a row is several points, all READY"
+
+
 # --- the refusals, at plan time, over the tier-3 workspace's own library ----------
 #
 # PFS-2031.05 asked for the refusals as RUN 0 rows of the matrices; the
