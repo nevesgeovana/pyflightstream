@@ -222,6 +222,30 @@ def test_1022_two_counter_rotating_rotors_cancel_in_side_force_and_roll(runs):
     assert abs(total["CMx"]) <= 0.02 * thrust, total
 
 
+def test_every_unsteady_row_left_the_plots_export_its_record_names(runs):
+    """PFS-2015.02.01: the unsteady run type's plot export, measured on a licensed
+    run through the workflow. Every recorded point of an unsteady run type, in every
+    matrix, names one `_plots.txt` among its outputs, the file is present at that
+    path, and it says the solver ran unsteady. The coupled probe specification of
+    the three plot commands (qa/specs.py) is written from this measurement."""
+    # The record's recipe field carries the run type's name for a workflow
+    # row and the recipe reference for a LEGACY one, whose recipe exports
+    # what it likes.
+    unsteady = [
+        r
+        for r in runs.records
+        if r.status in TERMINAL_OK and r.recipe in ("unsteady", "unsteady_rotor")
+    ]
+    assert len(unsteady) >= 4, [r.run_id for r in unsteady]
+    for record in unsteady:
+        plots = [o for o in record.outputs if o.endswith("_plots.txt")]
+        assert len(plots) == 1, (record.run_id, record.outputs)
+        path = runs.workspace.sim_dir(record.sim_id) / plots[0]
+        assert path.is_file(), path
+        head = path.read_text(encoding="utf-8", errors="replace")[:4000]
+        assert "Unsteady Solver Plots" in head and "Unsteady" in head, path
+
+
 def test_1090_the_legacy_row_names_its_recipe_in_the_cell_and_leaves_a_log(runs):
     records = runs.of(MATRIX, "1090")
     assert sorted(r.point["alpha"] for r in records) == [0.0, 2.0]

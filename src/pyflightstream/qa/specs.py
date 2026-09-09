@@ -842,6 +842,110 @@ _spec(
 )
 
 
+# --- unsteady plots (SRC-003 pp.347-348), one coupled specification --------
+#
+# WRITTEN FROM A MEASUREMENT, NOT FROM THE MANUAL (PFS-2015.02.01). The
+# three commands are coupled: a plot is defined in the setup phase, the
+# solver runs unsteady, and the export writes one file carrying every
+# defined plot as a column, named for the plot. The tier-3 workspace
+# measured that coupling on 2026-09-08 through the `unsteady_rotor` and
+# `unsteady` run types (rows 1011, 1020, 5005, 7001 and 7002 of
+# tests/tier3_licensed): the run record names `<point>_plots.txt`, the
+# file exists, its header carries `Solver mode: Unsteady` and a column per
+# plot the run type defined. The specifications below reproduce that
+# shape at probe scale: SIM tier (OPEN only), then the steady setup with
+# SET_SOLVER_UNSTEADY over it, the plot definition BEFORE INITIALIZE_SOLVER
+# (a definition after it was not measured and is not assumed), and the
+# export after START_SOLVER as the epilogue whose file is the effect.
+
+_PLOTS_FILE = "plots_probe.txt"
+
+
+def _unsteady_setup(script: Script, workdir: Path) -> None:
+    """Emit the tiers' steady setup with the unsteady mode over it.
+
+    Init phase, so it follows the plot definitions, which are setup phase.
+    """
+    emit_solver_setup(script)
+    script.emit("SET_SOLVER_UNSTEADY", time_iterations=3, delta_time=0.0123)
+
+
+def _force_plot(script: Script, workdir: Path) -> None:
+    script.emit(
+        "UNSTEADY_SOLVER_NEW_FORCE_PLOT",
+        frame=1,
+        units="COEFFICIENTS",
+        parameter="CL",
+        name="CL_PYFS_PLOT",
+        boundaries=-1,
+    )
+
+
+def _fluid_plot(script: Script, workdir: Path) -> None:
+    script.emit(
+        "UNSTEADY_SOLVER_NEW_FLUID_PLOT",
+        frame=1,
+        parameter="VELOCITY",
+        name="VELOCITY_PYFS_PLOT",
+        vertex="0.0 0.0 1.0",
+    )
+
+
+def _solve_and_export_plots(script: Script, workdir: Path) -> None:
+    _unsteady_setup(script, workdir)
+    initialize_solver(script)
+    script.emit("START_SOLVER")
+    script.emit("UNSTEADY_SOLVER_EXPORT_PLOTS", workdir / _PLOTS_FILE)
+
+
+def _plots_file_names(plot: str) -> Callable[[ProbeArtifacts], bool | None]:
+    """Effect: the exported plots file carries a column named for the plot."""
+
+    def check(artifacts: ProbeArtifacts) -> bool | None:
+        text = _read(artifacts.workdir, _PLOTS_FILE)
+        if text is None:
+            return None
+        return True if plot in text else False
+
+    return check
+
+
+_spec(
+    command="UNSTEADY_SOLVER_NEW_FORCE_PLOT",
+    build_target=_force_plot,
+    requires=Requires.SIM,
+    epilogue=_solve_and_export_plots,
+    assert_effect=_plots_file_names("CL_PYFS_PLOT"),
+    effect_note="the plots file exported after the unsteady solve carries the CL plot by name",
+    timeout_s=240.0,
+)
+_spec(
+    command="UNSTEADY_SOLVER_NEW_FLUID_PLOT",
+    build_target=_fluid_plot,
+    requires=Requires.SIM,
+    epilogue=_solve_and_export_plots,
+    assert_effect=_plots_file_names("VELOCITY_PYFS_PLOT"),
+    effect_note="the plots file exported after the unsteady solve carries the fluid plot by name",
+    timeout_s=240.0,
+)
+_spec(
+    command="UNSTEADY_SOLVER_EXPORT_PLOTS",
+    build_target=lambda script, workdir: script.emit(
+        "UNSTEADY_SOLVER_EXPORT_PLOTS", workdir / _PLOTS_FILE
+    ),
+    requires=Requires.SIM,
+    prelude=_seq(
+        _force_plot,
+        _unsteady_setup,
+        lambda script, workdir: initialize_solver(script),
+        _emit("START_SOLVER"),
+    ),
+    assert_effect=file_effect(_PLOTS_FILE),
+    effect_note="the plots file the command names exists and is not empty after an unsteady solve",
+    timeout_s=240.0,
+)
+
+
 # --- probe points (SRC-003 pp.362-363) ---------------------------------
 
 _spec(

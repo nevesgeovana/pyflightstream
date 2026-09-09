@@ -1182,12 +1182,12 @@ def test_the_argument_bearing_split_is_derived_rather_than_written_down():
     groups = module.classify()
     renders = len(groups["with_arguments"]) + len(groups["bare"])
     where = f"{script.name}, VERSION = {module.VERSION}"
-    assert len(PROBE_SPECS) == 109, (
-        f"the catalog holds {len(PROBE_SPECS)} specifications, not 109. Adding one is "
+    assert len(PROBE_SPECS) == 112, (
+        f"the catalog holds {len(PROBE_SPECS)} specifications, not 112. Adding one is "
         f"fine; update this number and the three sentences that quote it ({where})"
     )
-    assert renders == 87, (
-        f"{renders} specifications render their target line in isolation, not 87. This "
+    assert renders == 90, (
+        f"{renders} specifications render their target line in isolation, not 90. This "
         f"figure depends on the STATUS VIEW as well as the catalog ({where}): a "
         "promotion that removes a command from the view, or marks it broken, moves it"
     )

@@ -9,6 +9,21 @@ FlightStream versions.
 
 ### Added
 
+- **The unsteady run types' plots export is measured through the workflow,
+  and the three plot commands have a coupled probe specification written
+  from it** (PFS-2015.02.01). Every recorded point of an `unsteady` or
+  `unsteady_rotor` row in the tier-3 workspace names one `_plots.txt`, the
+  file is present at that path and says the solver ran unsteady
+  (`test_tour.py::test_every_unsteady_row_left_the_plots_export_its_record_names`);
+  tier 1 holds that every rendered unsteady script exports it under the
+  record's name. `UNSTEADY_SOLVER_NEW_FORCE_PLOT`,
+  `UNSTEADY_SOLVER_NEW_FLUID_PLOT` and `UNSTEADY_SOLVER_EXPORT_PLOTS` enter
+  the probe catalog as one coupled specification in the shape the rows
+  measured: the definition before `INITIALIZE_SOLVER`, the export after
+  `START_SOLVER`, the exported file carrying the plot by name as the effect.
+  The catalog holds 112 specifications, 90 of which render their target
+  line in isolation.
+
 - **The thirteen solver-setting emitters of the rotor path are measured on
   every build this machine holds** (PFS-2028.02, RPT-043). `matriz_builds.fs`
   states the tour's one-blade periodic row once per build, 7001 on 26.120 and

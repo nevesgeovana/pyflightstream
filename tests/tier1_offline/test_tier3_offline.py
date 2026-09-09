@@ -77,6 +77,30 @@ def test_the_physics_matrix_plans_ready_on_both_geometries():
     assert count >= len(rows) and len(rendered) == count, "a row is several points, all READY"
 
 
+def test_the_unsteady_plots_export_is_named_by_the_run_record():
+    """PFS-2015.02.01: a row naming an unsteady run type, planned through the
+    workflow, declares the plots export among the outputs the record will name;
+    the licensed half (the file present at that path after the run) is
+    tests/tier3_licensed/test_tour.py::test_every_unsteady_row_left_the_plots_export_its_record_names."""
+    from pyflightstream.cases.matrix import read_matrix
+    from pyflightstream.cases.workflows import workflow_names
+
+    unsteady = [n for n in workflow_names() if n.startswith("unsteady")]
+    assert unsteady, "the registry names no unsteady run type"
+    seen = set()
+    for matrix in MATRICES:
+        rows = {row.pol: row for row in read_matrix(matrix)}
+        _, rendered = offline.render(matrix)
+        for stem, script in rendered.items():
+            pol = stem.split("-", 1)[1].split("_", 1)[0]
+            row = rows.get(pol)
+            if row is None or row.workflow not in unsteady:
+                continue
+            seen.add(row.workflow)
+            assert "UNSTEADY_SOLVER_EXPORT_PLOTS\n" + stem + "_plots.txt" in script, stem
+    assert seen == set(unsteady), f"rendered {sorted(seen)}, registry {unsteady}"
+
+
 # --- the refusals, at plan time, over the tier-3 workspace's own library ----------
 #
 # PFS-2031.05 asked for the refusals as RUN 0 rows of the matrices; the
