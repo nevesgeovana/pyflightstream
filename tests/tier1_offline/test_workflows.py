@@ -4244,3 +4244,21 @@ def test_a_rotorless_row_at_a_standstill_is_refused_naming_both_keys():
     message = str(raised.value)
     assert "ADVANCE_RATIO" in message and "RPM" in message
     assert "DELTA_TIME" in message and "TIME_ITERATIONS" in message
+
+
+@pytest.mark.parametrize("spelling", ["MIRROR", "mirror", "Mirror"])
+def test_a_sideslip_under_mirror_is_refused_before_the_solver_settings_in_any_spelling(spelling):
+    """PFS-2005.09, the two things the QA lens of 0.13.1 measured unasserted:
+    the refusal fires BEFORE the solver settings are emitted (moving it after
+    them left every test green, because a later refusal blocks the same
+    point with the same words), and the MIRROR comparison folds case (the
+    reader strips whitespace and folds nothing, so `mirror` in a cell was
+    one dropped .upper() away from a silent zero-sideslip run)."""
+    case = rotor_case(SYMMETRY=spelling).model_copy(update={"point": {"alpha": 0.0, "beta": -4.0}})
+    script = Script("26.120")
+    with pytest.raises(CampaignConfigError, match=r"sideslip of -4\.0000 deg .*SYMMETRY: MIRROR"):
+        build_script(case, script)
+    rendered = script.render()
+    assert "SOLVER_SET_SIDESLIP" not in rendered and "SOLVER_SET_AOA" not in rendered, rendered
+    zero = rotor_case(SYMMETRY=spelling).model_copy(update={"point": {"alpha": 0.0, "beta": 0.0}})
+    build_script(zero, Script("26.120"))

@@ -713,7 +713,7 @@ helpers.analysis_setup(script, symmetry_loads=True,
                        load_units="COEFFICIENTS")
 \end{lstlisting}
   \begin{alertblock}{Pitfalls (all evidence backed)}
-    Initializing MIRROR with a full model diverges instantly (SRC-003 p.217, paraphrased). The post-MIRROR symmetry loads default was calibrated on the real solver as ENABLE, but emit it explicitly: with DISABLE the loads halve and a one-wing rolling moment appears. Expected equivalence versus the full model: $\Delta C_L \approx +0.0015$, $\Delta C_{Di} = 0.0$ (committed physics report).
+    A nonzero sideslip under MIRROR is refused at plan time since 0.13.1: the solver was measured (26.120) running a mirrored half model at zero sideslip whatever the script states; sweep sideslip on a full geometry with SYMMETRY NONE. Initializing MIRROR with a full model diverges instantly (SRC-003 p.217, paraphrased). The post-MIRROR symmetry loads default was calibrated on the real solver as ENABLE, but emit it explicitly: with DISABLE the loads halve and a one-wing rolling moment appears. Expected equivalence versus the full model: $\Delta C_L \approx +0.0015$, $\Delta C_{Di} = 0.0$ (committed physics report).
   \end{alertblock}
 \end{frame}
 

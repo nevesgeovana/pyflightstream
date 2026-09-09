@@ -118,7 +118,15 @@ them close the gap that made the capability unusable:
   sector was solved as a one-bladed rotor: the run completed and the
   numbers were wrong, silently.
 
-    `MIRROR` carries two cautions the cell cannot enforce. The mode
+    `MIRROR` carries three cautions, and since 0.13.1 the cell enforces
+    one of them: a nonzero sideslip (a `BE` sweep value, or a point under
+    sideslip) under `SYMMETRY: MIRROR` is refused at plan time, naming the
+    cell, because a mirrored half model is a valid model of the full one
+    only while the free stream lies in the symmetry plane, and the solver
+    was measured (26.120, 2026-09-09) running such a point at zero
+    sideslip whatever the script states, saying so only in its log. Sweep
+    the sideslip on a full geometry with `SYMMETRY: NONE`. The other two
+    the cell cannot enforce. The mode
     describes what you MESHED, so a row declaring it must have staged the
     half model; initializing a mirrored solution with the full model
     loaded diverges immediately, because the model is then its own mirror

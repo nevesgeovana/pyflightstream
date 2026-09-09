@@ -3023,19 +3023,23 @@ def _refuse_sideslip_under_mirror(case: SimCase) -> None:
     "Symmetry is mirror." and then "Side-slip angle (Deg): .000", and the
     loads export printing .000 too; the point was recorded
     FAILED_INCOMPLETE_OUTPUT because the export was evidence of another
-    operating point than the row requested. The symmetry plane of a mirror
-    run lies in the flow direction, so a sideslip has no meaning there and
-    the solver runs at zero without a word. A seat spent on that is a seat
-    spent on a case the row did not state, so the row is refused before the
-    first emission, naming the cell to change (PFS-2005.09).
+    operating point than the row requested. A mirrored half model is a
+    valid model of the full one only while the free stream lies in the
+    symmetry plane; a nonzero sideslip takes it out of that plane, and the
+    solver runs at zero without a word. A seat spent on that is a seat
+    spent on a case the row did not state, so the row is refused before
+    the solver settings are emitted, naming the cell to change
+    (PFS-2005.09); the geometry and frame lines above it are already in
+    the script, which the dry run discards.
     """
     beta = float(case.point.get("beta", 0.0))
     symmetry = _variable(case, SYMMETRY_VARIABLE)
     if symmetry is not None and symmetry.upper() == "MIRROR" and beta != 0.0:
         raise CampaignConfigError(
             f"case {case.sim_id!r} states a sideslip of {beta:+.4f} deg at a point under "
-            f"{SYMMETRY_VARIABLE}: MIRROR. A mirrored half model has its symmetry plane in the "
-            "flow direction, and the solver runs it at zero sideslip whatever the script states "
+            f"{SYMMETRY_VARIABLE}: MIRROR. A mirrored half model is a valid model of the full one "
+            "only while the free stream lies in the symmetry plane; a nonzero sideslip takes it "
+            "out of that plane, and the solver runs at zero sideslip whatever the script states "
             "(measured on 26.120: the log and the export print .000). Sweep the sideslip on a "
             f"full geometry with {SYMMETRY_VARIABLE}: NONE, or keep the sideslip at 0 under MIRROR."
         )

@@ -360,11 +360,11 @@ def plan_matrix(
 
 
 def _row_versions(resolved: ResolvedMatrix) -> dict[str, str]:
-    """Return the version each simulation is pre-flighted under, keyed by sim id.
+    """Return the per-simulation version override, keyed by sim id.
 
     Per simulation, from the build each row named and the version its
     registry entry declares; a row on a build declaring no version, or on
-    the campaign's own, is absent here and is pre-flighted under the
+    the campaign's own, is absent here and pre-flights under the campaign
     default. One function for the two callers, because the first fix
     (PFS-2009.05.01) reached ``plan_matrix`` alone and ``pyfs-matrix run``
     kept refusing the row ``plan`` had said READY: pfs0130's row 1226 on
@@ -404,6 +404,9 @@ def run_matrix(
     through :func:`pyflightstream.run.run_campaign`, landing one
     manifest record per point. A blocked pre-flight refuses to execute
     at all, so a broken recipe or missing artifact costs no solver time.
+    A row whose build declares a version of its own pre-flights and runs
+    under that version (PFS-2009.05.02; :func:`plan_matrix` says how the
+    version is read).
 
     Parameters
     ----------

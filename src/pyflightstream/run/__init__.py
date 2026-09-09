@@ -2493,13 +2493,15 @@ def plan_campaign(
         configuration the run will reject.
     versions : mapping of str to str, optional
         Per simulation id, the version its scripts are emitted under,
-        for a pre-flight that binds no executable: ``plan_matrix`` reads
-        it off the build registry for the build each row named, so a row
-        naming a second build has its dry-run script validated against
-        that build's grammar away from
-        the licensed machine (the residual PFS-2009.05 left, closed
-        2026-09-09: a row on 26.123 in a matrix whose default is 26.120
-        was BLOCKED for a command 26.120 lacks and 26.123 carries).
+        for a pre-flight that binds no executable: ``plan_matrix`` and
+        ``run_matrix`` both read it off the build registry for the build
+        each row named (``_row_versions``), so a row naming a second build
+        has its dry-run script validated against that build's grammar
+        away from the licensed machine (the residual PFS-2009.05 left,
+        closed on the plan path 2026-09-09 as .05.01 and on the run path
+        the same day as .05.02: a row on 26.123 in a matrix whose default
+        is 26.120 was BLOCKED for a command 26.120 lacks and 26.123
+        carries).
         ``builds`` wins where both name a build.
 
     Returns

@@ -534,14 +534,22 @@ def test_a_nonzero_sideslip_under_mirror_symmetry_is_refused_at_plan_time(tmp_pa
     plan = _plan(root, mirrored)
     blocked = {p.run_id: p.error for p in plan.blocked}
     assert set(blocked) == {"refusal/sim_4207/b-04.0", "refusal/sim_4207/b+04.0"}, plan.summary()
-    for error in blocked.values():
-        assert "SYMMETRY: MIRROR" in error and "-4.0000 deg" in error or "+4.0000 deg" in error, (
-            error
-        )
+    for run_id, error in blocked.items():
+        stated = "-4.0000 deg" if run_id.endswith("b-04.0") else "+4.0000 deg"
+        assert "SYMMETRY: MIRROR" in error, error
+        assert stated in error, (run_id, error)
         assert "SYMMETRY: NONE" in error, (
             "the refusal does not name the cell that lets the sweep run"
         )
-    assert len(plan.ready) == 1, "the zero-sideslip point of the same row is refused too"
+    assert len(plan.ready) == 1, "the zero-sideslip point of the same row is not refused"
+    # The cell as a user may spell it: the reader folds nothing, the refusal does.
+    lower = _one_row_matrix(
+        root,
+        "yawed_mirror_lower.fs",
+        f"4209 | Wing | YAWED | {sweep}GEOMETRY: 10_WING.fsm / SYMMETRY: mirror",
+    )
+    plan = _plan(root, lower)
+    assert len(plan.blocked) == 2, plan.summary()
     full = _one_row_matrix(
         root,
         "yawed_full.fs",

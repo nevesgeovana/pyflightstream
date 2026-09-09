@@ -29,8 +29,10 @@ FlightStream versions.
   export printing .000; the run layer recorded the point
   FAILED_INCOMPLETE_OUTPUT because the export was evidence of another
   operating point, two seats after the plan had said READY. A mirrored
-  half model has its symmetry plane in the flow direction, so the refusal
-  is physics rather than grammar; the command database carries the fact
+  half model is a valid model of the full one only while the free stream
+  lies in the symmetry plane, and a nonzero sideslip takes it out of that
+  plane, so the refusal is physics rather than grammar; the command
+  database carries the fact
   on `SOLVER_SET_SIDESLIP`. RED on 7b20deb: 3 ready, 0 blocked.
 
 ## [0.13.0] - 2026-09-09
