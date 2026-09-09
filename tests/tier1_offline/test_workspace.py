@@ -43,11 +43,38 @@ def make_record(run_id="camp/sim_9001/a+02.0", sim_id="9001", **overrides):
 
 
 def test_create_sim_builds_the_managed_subfolders(tmp_path):
+    """Three managed folders, and no ``parsed/`` (PFS-2032.01).
+
+    ``parsed/`` was created from the first version and written by nothing:
+    typed extracts go to ``post/<matrix stem>/`` at campaign level, so
+    every simulation carried an empty folder promising a content that
+    never arrived.
+    """
     workspace = CampaignWorkspace(tmp_path)
     sim = workspace.create_sim("9001")
     assert sim == tmp_path / "sims" / "sim_9001"
-    for name in ("inputs", "scripts", "raw", "parsed"):
+    for name in ("inputs", "scripts", "raw"):
         assert (sim / name).is_dir()
+    assert not (sim / "parsed").exists()
+
+
+def test_a_workspace_that_still_carries_an_empty_parsed_folder_is_untouched(tmp_path):
+    """A campaign created before 0.13.0 keeps its ``parsed/`` and nothing refuses it.
+
+    The folder is neither removed nor managed: ``create_sim`` leaves it,
+    collection and archiving proceed over it, and it travels into the zip
+    like any other unmanaged subfolder of the simulation.
+    """
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    sim = tmp_path / "camp" / "sims" / "sim_9001"
+    (sim / "parsed").mkdir(parents=True)
+    assert workspace.create_sim("9001") == sim
+    assert (sim / "parsed").is_dir()
+    produced = tmp_path / "loads.txt"
+    produced.write_text("x", encoding="utf-8")
+    assert workspace.collect_outputs("9001", [produced]) == ["raw/loads.txt"]
+    workspace.append_record(make_record())
+    assert workspace.archive_sim("9001").is_file()
 
 
 def test_sim_id_must_be_a_portable_name(tmp_path):

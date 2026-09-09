@@ -209,7 +209,7 @@ The managed folder tree of a campaign:
     profiles/        input profiles (e.g. actuator loading shapes)
     executables.toml the build-id to executable registry, with an
                      optional declared version per build
-  sims/sim_<id>/     per-simulation staging, scripts, raw and parsed outputs
+  sims/sim_<id>/     per-simulation staged inputs, scripts and raw outputs
   post/              post-processing outputs
   archive/           archived simulations (zip)
   runs.json          the manifest

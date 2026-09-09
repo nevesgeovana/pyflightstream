@@ -100,6 +100,17 @@ FlightStream versions.
 
 ### Changed
 
+- **A simulation folder has three managed subfolders, and `parsed/` is no
+  longer created** (PFS-2032.01). `CampaignWorkspace.create_sim` makes
+  `inputs/`, `scripts/` and `raw/`; the fourth folder existed from the first
+  release and nothing in the package ever wrote to it, since the typed
+  extracts it was named for are built at campaign level under
+  `post/<matrix stem>/`. A workspace made by an earlier release may still
+  carry an empty `parsed/` beside each simulation: it is left where it is,
+  nothing refuses it, and it travels into the archive like any other
+  unmanaged subfolder. The data-model page and the docstrings list three
+  folders.
+
 - **Each matrix of a workspace keeps its own plan, sweep table and products
   under `post/<matrix stem>/`** (PFS-2031.04). `plan.json` moves from the
   workspace root to `post/<stem>/plan.json`, the default `sweep.csv` of

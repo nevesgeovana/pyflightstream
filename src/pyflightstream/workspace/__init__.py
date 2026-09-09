@@ -22,8 +22,12 @@ The managed layout under a user-chosen campaign root, created by
   resolved by stable id.
 - ``sims/sim_<sim_id>/``: per-simulation folder with ``inputs/``
   (staged copies with recorded sha256), ``scripts/`` (generated script
-  text per point), ``raw/`` (solver outputs as produced), and
-  ``parsed/`` (typed extracts).
+  text per point), and ``raw/`` (solver outputs as produced). Until
+  0.13.0 a fourth folder, ``parsed/``, was created here and written by
+  nothing (PFS-2032.01): the typed extracts it was named for are built
+  at campaign level under ``post/``, so a workspace made by an earlier
+  release may still carry an empty ``parsed/`` per simulation, which is
+  left where it is and refused by nothing.
 - ``post/``: post-processing products (sweep tables and exports built
   by reading the manifest).
 - ``archive/``: zipped completed simulations, manifest-driven.
@@ -198,7 +202,10 @@ def collection_name(declared: str | Path) -> str:
 
 
 _SIM_ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]*$")
-_SIM_SUBDIRS = ("inputs", "scripts", "raw", "parsed")
+#: The managed folders of one simulation. Three since 0.13.0: ``parsed/``
+#: was the fourth from the first release and nothing ever wrote there
+#: (PFS-2032.01), so it promised typed extracts that ``post/`` holds.
+_SIM_SUBDIRS = ("inputs", "scripts", "raw")
 
 # Comment-only template written by init when no registry exists yet;
 # didactic: shows the entry shape without registering a fake build.
@@ -1475,8 +1482,9 @@ class CampaignWorkspace:
     def create_sim(self, sim_id: str) -> Path:
         """Create the managed subfolders of one simulation and return its path.
 
-        Creates ``inputs/``, ``scripts/``, ``raw/``, and ``parsed/``;
-        existing folders are kept, so the call is idempotent.
+        Creates ``inputs/``, ``scripts/`` and ``raw/``; existing folders
+        are kept, so the call is idempotent, and a ``parsed/`` left by a
+        release before 0.13.0 is kept with them (PFS-2032.01).
         """
         sim = self.sim_dir(sim_id)
         for name in _SIM_SUBDIRS:
@@ -1636,7 +1644,6 @@ class CampaignWorkspace:
         "inputs": "this simulation's staged input artifacts",
         "scripts": "this simulation's generated solver scripts",
         "raw": "this simulation's own collected outputs",
-        "parsed": "this simulation's parsed results",
     }
 
     def _output_trespass(self, sim: Path, origin: Path) -> str | None:
@@ -1654,7 +1661,7 @@ class CampaignWorkspace:
           working directory is not managed here.
         * inside the root but outside this simulation's folder: refuse,
           naming the simulation it actually belongs to when it is one.
-        * inside this simulation's folder but under one of the four
+        * inside this simulation's folder but under one of the three
           managed subdirectories: refuse, naming the role of that
           subdirectory.
 
@@ -1716,7 +1723,7 @@ class CampaignWorkspace:
             Output files the run declared it would produce. Anywhere
             OUTSIDE this campaign root, which is where a solver working
             directory normally sits; inside the root, only in this
-            simulation's own folder and not in one of its four managed
+            simulation's own folder and not in one of its three managed
             subdirectories. See Raises.
 
         Returns
@@ -1734,7 +1741,7 @@ class CampaignWorkspace:
 
             If a declared output RESOLVES INSIDE this campaign root but
             outside this simulation's own folder, or inside one of that
-            folder's four managed subdirectories. Collection MOVES, so
+            folder's three managed subdirectories. Collection MOVES, so
             without this a run could take another run's collected
             evidence: naming ``sims/sim_OTHER/raw/loads.txt`` as an
             output moved it into this simulation's ``raw/``, and both
