@@ -22,6 +22,7 @@ below states, rather than a copy of each argument list.
 """
 
 from importlib import resources
+from pathlib import Path
 
 import pytest
 
@@ -740,8 +741,14 @@ def test_an_axis_enum_whose_page_names_letters_alone_lists_letters_alone(row):
 
 
 def test_the_data_model_page_states_what_values_means():
-    """RED on the base tree: the rule in force was unwritten."""
-    page = resources.files("pyflightstream").parent.parent / "docs" / "srs" / "data-model.md"
+    """RED on the base tree: the rule in force was unwritten.
+
+    The page is reached from this file, not through the installed package:
+    release.yml tests the WHEEL, whose parent is site-packages, and the
+    v0.13.0 tag run went red here on both platforms (FileNotFoundError
+    under the interpreter's Lib) with nothing else wrong.
+    """
+    page = Path(__file__).resolve().parents[2] / "docs" / "srs" / "data-model.md"
     text = page.read_text(encoding="utf-8")
     assert "`values` is the accepted vocabulary" in text, (
         "docs/srs/data-model.md does not state that `values` is the accepted vocabulary"

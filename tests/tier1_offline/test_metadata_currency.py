@@ -352,9 +352,6 @@ class TreePosition(NamedTuple):
     listed: frozenset[str]
     #: The tags pointing at HEAD.
     at_head: frozenset[str]
-    #: HEAD is the commit that last set pyproject.toml, or pyproject.toml is
-    #: dirty in the working tree: the release cut, committed or about to be.
-    head_set_the_version: bool
 
 
 def _git(*args: str) -> str:
@@ -385,41 +382,43 @@ def _tags_here() -> TreePosition:
     try:
         listed = frozenset(_git("tag", "--list").split())
         at_head = frozenset(_git("tag", "--points-at", "HEAD").split())
-        head = _git("rev-parse", "HEAD").strip()
-        version_commit = _git("log", "-1", "--format=%H", "--", "pyproject.toml").strip()
-        dirty = bool(_git("status", "--porcelain", "--", "pyproject.toml").strip())
     except OSError:
-        return TreePosition(frozenset(), frozenset(), False)
-    return TreePosition(listed, at_head, dirty or (bool(head) and head == version_commit))
+        return TreePosition(frozenset(), frozenset())
+    return TreePosition(listed, at_head)
 
 
 def _is_the_release_commit_itself(version: str, position: TreePosition) -> bool | None:
-    """Is this tree the commit ``v<version>`` tags, or the cut about to be tagged?
+    """Is this tree at or before the tag ``v<version>``, where its row cannot exist?
 
     The v0.13.0 release cut of 2026-09-09 met the guard above red on the
     release commit: a version DOI exists only after the GitHub release the
     tag creates, so the tagged tree states its version and cannot carry
     its row, and the guard as first written refused every release commit
-    and would have refused it inside release.yml too. The trees allowed
-    past are exactly the release commit's: the tag points at HEAD (the
-    tagged tree, in CI), or the tag is not made yet AND HEAD is the commit
-    that set the version (the cut, before tagging). A commit after the cut
-    that did not touch pyproject.toml, tagged or not, is held to the row;
-    the DOI commit touches CITATION.cff alone, so it is held. None means
-    the checkout carries no tags at all and the question has no answer.
+    and would have refused it inside release.yml too. The trees let past
+    are the ones whose row cannot exist yet: the tag points at HEAD (the
+    tagged tree, in CI), or the tag is not made at all (the cut and any
+    fix-up before the tag; v0.12.0 was tagged one commit after its cut and
+    v0.13.0 two, both on review fixes, so the window before the tag is
+    real and the guard has nothing to say inside it). A commit after the
+    tag, where the tag exists and points elsewhere, is held to the row;
+    the DOI commit is that tree. None means the checkout carries no tags
+    at all and the question has no answer.
+
+    A second form of this predicate also required HEAD to be the commit
+    that set pyproject.toml, to narrow the pre-tag window to one commit;
+    it refused the fix-up the v0.13.0 tag itself had to sit on, so the
+    narrowing was withdrawn with its reason written here.
     """
     if not position.listed:
         return None
     tag = f"v{version}"
     if tag in position.at_head:
         return True
-    if tag in position.listed:
-        return False
-    return position.head_set_the_version
+    return tag not in position.listed
 
 
 def test_the_release_commit_is_the_one_tree_allowed_past_the_archive_row_guard(monkeypatch):
-    """Five positions, one decision each, driven through the guard itself.
+    """Four positions, one decision each, driven through the guard itself.
 
     The QA lens of the release cut measured the first form of this test as
     calling the predicate alone, so a mutant returning True always was
@@ -429,23 +428,14 @@ def test_the_release_commit_is_the_one_tree_allowed_past_the_archive_row_guard(m
     tags = frozenset({"v0.12.0", "v0.13.0"})
     monkeypatch.setattr(f"{__name__}._pyproject_version", lambda: "0.13.0")
     cases = [
-        (TreePosition(tags, frozenset({"v0.13.0"}), False), "skip", "the tagged tree"),
+        (TreePosition(tags, frozenset({"v0.13.0"})), "skip", "the tagged tree"),
         (
-            TreePosition(frozenset({"v0.12.0"}), frozenset(), True),
+            TreePosition(frozenset({"v0.12.0"}), frozenset()),
             "skip",
-            "the cut, not yet tagged",
+            "the cut or a fix-up, before the tag",
         ),
-        (TreePosition(tags, frozenset(), True), "refuse", "a commit after the tag: the DOI commit"),
-        (
-            TreePosition(frozenset({"v0.12.0"}), frozenset(), False),
-            "refuse",
-            "a commit after the cut, before the tag",
-        ),
-        (
-            TreePosition(frozenset(), frozenset(), True),
-            "fail",
-            "a checkout with no tags cannot answer",
-        ),
+        (TreePosition(tags, frozenset()), "refuse", "a commit after the tag: the DOI commit"),
+        (TreePosition(frozenset(), frozenset()), "fail", "a checkout with no tags cannot answer"),
     ]
     for position, expected, why in cases:
         monkeypatch.setattr(f"{__name__}._tags_here", lambda position=position: position)
