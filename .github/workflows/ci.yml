@@ -18,10 +18,15 @@ jobs:
   test:
     # Windows is where this package is USED, because FlightStream runs on
     # Windows (NFR-05), and until 2026-08-02 nothing here had ever run on it:
-    # a Windows-only path could break and every check stayed green. Both
-    # declared Python bounds now run on both platforms, which is four legs.
-    # The docs build and the guards stay on Linux alone below, because they
-    # test the repository rather than the package's behaviour on a platform.
+    # a Windows-only path could break and every check stayed green. The
+    # declared Python floor runs on both platforms. The docs build and the
+    # guards stay on Linux alone below, because they test the repository
+    # rather than the package's behaviour on a platform.
+    #
+    # The floor follows pyproject.toml, which follows SPEC 0 (PFS-2024.07):
+    # 3.11 left the community window in 2025-10 and the leg went with it on
+    # 2026-09-09. SPEC 0 also holds 3.13 and 3.14 inside the window; a leg
+    # for either is added when it is measured, and the classifier with it.
     runs-on: ${{ matrix.os }}
     strategy:
       # Each leg is evidence about a different platform, so a failure on one
@@ -29,7 +34,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
-        python-version: ["3.11", "3.12"]
+        python-version: ["3.12"]
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
         with:

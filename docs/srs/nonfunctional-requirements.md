@@ -95,9 +95,23 @@
 
 !!! requirement "NFR-05 Platforms <span class='srs-implemented'>implemented</span>"
     Windows is the primary execution target (FlightStream runs on
-    Windows); the package itself is pure Python >= 3.11 and passes CI
-    on Linux AND on Windows, at both declared Python bounds. HPC
-    submission stays a deferred executor (FR-15).
+    Windows); the package itself is pure Python at or above the floor
+    `pyproject.toml` declares, and passes CI on Linux AND on Windows
+    at that floor. The floor follows SPEC 0, the scientific-python
+    community schedule (three years of support after a Python
+    version's initial release, two after a core package version's),
+    computed on a date `pyproject.toml` states beside it; on
+    2026-09-09 that is Python 3.12, numpy 2.2 and pandas 2.3
+    (PFS-2024.07). HPC submission stays a deferred executor (FR-15).
+
+    Following a published schedule rather than choosing is what lets a
+    user predict the window: until 0.13.0 the floor was `>=3.11` since
+    the first release and the numerical dependencies carried none, so
+    a reader could see the window and not how it would move.
+    `tests/tier1_offline/test_support_window.py` re-derives the floors
+    from the release dates and the stated date, so the schedule
+    overtaking the declaration fails the suite rather than going
+    unnoticed.
 
     The Windows leg was added 2026-08-02 (review finding PYFS-024) and
     the gap it closes is worth naming: this requirement said Windows

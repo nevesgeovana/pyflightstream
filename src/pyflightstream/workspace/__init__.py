@@ -57,14 +57,11 @@ import zipfile
 from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 
-if sys.version_info >= (3, 12):
-    from typing import TypedDict
-else:  # pragma: no cover - the 3.11 leg of the support range
-    # pydantic cannot build a schema from `typing.TypedDict` below 3.12,
-    # and the floor of this package is 3.11, so the runtime import has to
-    # branch. `typing_extensions` is pydantic's own hard dependency, so it
-    # is present wherever this package is.
-    from typing_extensions import TypedDict
+# `typing.TypedDict` directly: pydantic cannot build a schema from it
+# below 3.12, and this import branched on the interpreter while the floor
+# was 3.11. The floor follows SPEC 0 since 0.13.0 (PFS-2024.07) and is
+# 3.12, so the branch went with the leg.
+from typing import TypedDict
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 

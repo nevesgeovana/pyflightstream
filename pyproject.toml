@@ -9,18 +9,36 @@ description = "Version-aware, didactic Python driver for the FlightStream panel-
 readme = "README.md"
 license = {text = "MIT"}
 authors = [{name = "Geovana Neves"}]
-requires-python = ">=3.11"
+# THE WINDOW FOLLOWS SPEC 0, the scientific-python community schedule
+# (https://scientific-python.org/specs/spec-0000/), since 0.13.0
+# (PFS-2024.07): a Python version is supported for three years after its
+# initial release and a core package version for two, and the floor is the
+# oldest version still inside that window on the date it was computed.
+# Computed on 2026-09-09: Python 3.11 (released 2022-10-24) left the window
+# in 2025-10, so the floor is 3.12; numpy 2.2 (2024-12-08) and pandas 2.3
+# (2025-06-05) are the oldest of theirs still inside it. Until then the
+# window was chosen (">=3.11" since the first release, no floor on the
+# numerical dependencies), and a user reading it could not know how it
+# would move. tests/tier1_offline/test_support_window.py re-derives the
+# floors from the release dates and the date above, so moving one is a
+# commit that moves the date with it. The CI matrices, the ruff target and
+# the classifiers below follow this line.
+requires-python = ">=3.12"
 # PyPA well-known metadata (audit 2026-07-23). The SPDX license
 # expression form is deferred with the VCS-versioning item: it needs a
 # setuptools floor bump, and the build toolchain does not move in a
 # release week (PLN-024).
+#
+# One Python classifier, and that is a measurement rather than a promise:
+# CI runs the floor on Linux and Windows, and no leg has yet run 3.13 or
+# 3.14, which SPEC 0 also holds inside the window; a classifier is added
+# with the leg that measures it.
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Science/Research",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Topic :: Scientific/Engineering :: Physics",
 ]
@@ -48,10 +66,20 @@ classifiers = [
 # install resolves 5.0.0 today. tests/tier1_offline/test_extras.py holds the installed
 # version inside the declared range, so the envelope is a measurement rather
 # than a hope.
+#
+# numpy and pandas carry the SPEC 0 floor computed on 2026-09-09 (see
+# requires-python above); neither is above the version this tree runs
+# with, which tests/tier1_offline/test_support_window.py measures. pydantic
+# is not a SPEC 0 project: its floor is the major whose API this package
+# is written against (field_validator, model_validator). xarray is a SPEC 0
+# project and carries no floor yet: its oldest in-window release on the
+# computed date (2024.9.0) leaves the window two days later, so the floor
+# would be stale before the release shipped; it is set when the date
+# above next moves.
 dependencies = [
-    "numpy",
-    "pandas",
-    "pydantic",
+    "numpy>=2.2",
+    "pandas>=2.3",
+    "pydantic>=2",
     "pyyaml",
     "trimesh>=4.12,<6",
     "xarray",
@@ -317,7 +345,9 @@ ignore_errors = true
 
 [tool.ruff]
 line-length = 100
-target-version = "py311"
+# Follows requires-python (SPEC 0, PFS-2024.07); the support-window test
+# holds the two together.
+target-version = "py312"
 src = ["src"]
 # Markdown is out of ruff's scope: committed .md files (the root
 # README.md, the docs pages, and the illustrative developer READMEs under

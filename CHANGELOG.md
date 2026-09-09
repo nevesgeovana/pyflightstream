@@ -269,6 +269,30 @@ FlightStream versions.
   (26.120 from 66 to 79 verified rows, 26.123 from 84 to 92), and a verified
   row measured through a workflow row counts as re-measurable by that row.
 
+- **The Python and dependency window follows SPEC 0; Python 3.11 leaves it,
+  and numpy and pandas gain floors** (PFS-2024.07). `requires-python` was
+  `>=3.11` since the first release and the numerical dependencies carried no
+  floor, so a user reading the window to learn whether their environment
+  is supported could see it and not how it would move. The window now
+  follows the scientific-python community schedule (three years of support
+  after a Python version's initial release, two after a core package
+  version's), computed on 2026-09-09 and stated beside the floor in
+  `pyproject.toml`: Python 3.12 (3.11 left the window in 2025-10), numpy 2.2
+  and pandas 2.3, neither above the versions this tree runs with; pydantic
+  declares the major its API is written against, and xarray's floor waits
+  for the next date move because its oldest in-window release leaves the
+  window two days after the computed date. The CI matrices, the ruff target
+  and the classifiers follow the same line, the one `sys.version_info`
+  branch the 3.11 leg needed is gone, NFR-05 says how the floor moves, and
+  `tests/tier1_offline/test_support_window.py` re-derives every floor from
+  the release dates and the stated date so the schedule overtaking the
+  declaration fails the suite. Decision to adopt SPEC 0 taken in the
+  session's seat under the author's night authorization of 2026-09-08.
+  ANNOUNCEMENT, for NFR-21: 3.11 is dropped in this release without a
+  release before it saying so; NFR-21 is pending and this entry is the
+  announcement it asks for. No leg runs 3.13 or 3.14 yet, so no classifier
+  claims them; SPEC 0 holds both inside the window.
+
 - **`sweep_editions` is `manual_editions`, and `propose_type` takes its two
   strings by keyword; `probe_ref` stays** (PFS-2022.05). The maintainer
   function that reads every registered manual edition was named for the
