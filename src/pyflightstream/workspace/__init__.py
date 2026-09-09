@@ -533,6 +533,15 @@ class RunRecord(BaseModel):
         Final residual, when parsed.
     wall_time_s : float, optional
         Wall-clock duration of the solver process in seconds.
+    started_at : str, optional
+        When the solver process was started, ISO 8601 in UTC to the
+        second, as the executor read its clock (PFS-2012.08.01); the
+        provenance document the products stage writes states it as the
+        run activity's start. None where no solver ran, where the
+        executor reports no clock, and on every row written before
+        0.13.0. Adding it did not move :data:`MANIFEST_SCHEMA`.
+    finished_at : str, optional
+        When the process ended, or was killed on timeout, the same way.
     outputs : list of str
         Collected output files, relative to the simulation folder
         (for example ``"raw/loads.txt"``).
@@ -718,6 +727,10 @@ class RunRecord(BaseModel):
     #: How the solver was called (PFS-2012.04), None where no solver ran
     #: and on every row written before the field existed.
     executor: ExecutorRecord | None = None
+    #: When the solver process started and ended (PFS-2012.08.01), None
+    #: where no solver ran and on every row written before the fields.
+    started_at: str | None = None
+    finished_at: str | None = None
     #: The unsteady export window as resolved for this run, keyed by the
     #: row key that stated it; None until a row key states one
     #: (PFS-2031.18), and on every row written before the field existed.

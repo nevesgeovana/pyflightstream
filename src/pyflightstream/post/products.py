@@ -23,7 +23,18 @@ record, so any spreadsheet or dataframe reads them with nothing else:
   the run stage resolved from the row
   (:func:`pyflightstream.cases.workflows.reduction_windows`), and a
   reduction the row could not window is recorded under ``skipped`` in
-  ``products.json`` with its reason, as a refused polar is.
+  ``products.json`` with its reason, as a refused polar is;
+* HER PLOT FORMAT beside each polar table when the pproc artifact asks
+  (``[products] her_polar_format = true``, PFS-2014.01.01):
+  ``<polar>_M<mach code>_g<group>.dat``, the same rows in the fixed-width
+  text file her existing tooling opens, specified line by line in
+  :func:`write_her_polar_format` and read back by
+  :func:`read_her_polar_format`;
+* a PROVENANCE document per recorded run, ``provenance/<run id>.prov.json``
+  (PFS-2012.08.01): W3C PROV in its PROV-JSON serialization, the staged
+  inputs, the script and the outputs as entities with their sha256, the
+  solver run as the activity with its start, end and argv, the package
+  and the solver build as agents.
 
 THE ARITHMETIC IS THE AUTHOR'S, re-derived here from her recorded files and
 never imported. FlightStream's ``CL``, ``CDi + CDo`` and ``Cy`` are the
@@ -47,11 +58,13 @@ converted to this shape outside the package: 32 of 32 equal on 2026-09-03.
 from __future__ import annotations
 
 import csv
+import hashlib
 import json
 import math
 import warnings
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -77,8 +90,11 @@ if TYPE_CHECKING:
 __all__ = [
     "COEFFICIENT_COLUMNS",
     "POLAR_COLUMNS",
+    "PROVENANCE_DIR",
+    "PROVENANCE_SUFFIX",
     "SECTION_COLUMNS",
     "GroupCoefficients",
+    "HerPolarTable",
     "PRODUCTS_MANIFEST",
     "REDUCTION_COLUMNS",
     "PolarPoint",
@@ -86,11 +102,15 @@ __all__ = [
     "ProductExistsError",
     "ReferenceValues",
     "group_coefficients",
+    "her_polar_file_name",
     "plots_table_series",
     "polar_file_name",
     "polar_row",
+    "provenance_file_name",
     "read_csv_table",
+    "read_her_polar_format",
     "write_csv_table",
+    "write_her_polar_format",
     "write_plots_table",
     "write_reduction_table",
     "write_polar_table",
@@ -408,6 +428,266 @@ def write_polar_table(
             raise ProductError(f"a polar row has {len(row)} values, not {len(COEFFICIENT_COLUMNS)}")
         full.append((*lead, *row))
     return write_csv_table(path, POLAR_COLUMNS, full)
+
+
+# --- PFS-2014.01: her plot format, the polar table as her existing tooling reads it --
+
+#: The columns of her format's reference line: the nominal Mach and then the
+#: reference block in the polar table's own order.
+_HER_REFERENCE_COLUMNS: tuple[str, ...] = ("MNOM", *_REFERENCE_COLUMNS)
+
+#: Every field of her format is right-aligned to this width.
+_HER_WIDTH = 10
+
+#: Her date line, ``Tue Sep 08 23:41:07  2026``: two spaces before the year.
+_HER_DATE_FORMAT = "%a %b %d %H:%M:%S  %Y"
+
+_HER_TITLE_PREFIX = "FlightStream - "
+
+
+@dataclass(frozen=True)
+class HerPolarTable:
+    """One file of her polar format, read back: the header block and the rows.
+
+    Attributes
+    ----------
+    description : str
+        The title line's description, after ``FlightStream - ``.
+    polar : str
+        The polar identifier, line 2 without its two-digit Mach code.
+    mach : float
+        The nominal Mach number, ``MNOM`` of the reference line.
+    date : str
+        Line 3 as written; :func:`write_her_polar_format` takes it back so
+        a read file is rewritten byte for byte.
+    group : int
+        The group number of line 4.
+    reference : ReferenceValues
+        The reference block of line 6.
+    columns : tuple of str
+        The column names of line 9, in the file's order.
+    rows : list of dict
+        One mapping per data row, column name to value.
+    """
+
+    description: str
+    polar: str
+    mach: float
+    date: str
+    group: int
+    reference: ReferenceValues
+    columns: tuple[str, ...]
+    rows: list[dict[str, float]]
+
+
+def her_polar_file_name(polar: str | int, mach: float, group: str | int) -> str:
+    """``<polar>_M<mach code:02d>_g<group:02d>.dat``: her format beside the polar table."""
+    return polar_file_name(polar, mach, group)[: -len(".csv")] + ".dat"
+
+
+def _her_field(value: object) -> str:
+    return f"{value!s:>{_HER_WIDTH}}"
+
+
+def write_her_polar_format(
+    path: str | Path,
+    *,
+    polar: str | int,
+    description: str,
+    group: str | int,
+    mach: float,
+    reference: ReferenceValues,
+    rows: Sequence[Sequence[float]],
+    date: str | None = None,
+) -> Path:
+    """Write one polar of one group in the fixed-width text format her existing tooling opens.
+
+    THIS DOCSTRING IS THE SPECIFICATION OF THE FORMAT (PFS-2014.01.02). The
+    shape was read off a file of hers and is pinned by the committed fixture
+    ``tests/tier1_offline/fixtures/her_polar_format_sample.dat``, whose
+    every value is synthetic; the tier-1 test feeds the fixture's rows
+    through this writer and requires byte equality with the fixture,
+    except line 3. The file is ASCII, one line feed per line, a line feed
+    after the last line, and no line carries a trailing space beyond the
+    width of its fields:
+
+    * line 1: the title, ``FlightStream - <description>``;
+    * line 2: the polar identifier followed by the two-digit Mach code,
+      ``<polar><round(mach * 100):02d>``, the same code the polar table's
+      file name carries (``3207`` at Mach 0.20 is ``320720``);
+    * line 3: the write time, ``%a %b %d %H:%M:%S  %Y`` of the local
+      clock (``Tue Sep 08 23:41:07  2026``, two spaces before the year),
+      or ``date`` verbatim when given, which is how a read file is
+      rewritten byte for byte;
+    * line 4: the number of reference columns as three digits, a space,
+      and the group number as two digits: ``007 01``;
+    * line 5: the reference column names ``MNOM SREF CREF BREF XMOM YMOM
+      ZMOM``, each right-aligned to width 10;
+    * line 6: their values, the nominal Mach and the reference block, each
+      written as Python writes a float (the shortest text that reads
+      back to the same number, ``50.0`` and ``2.526``) and right-aligned
+      to width 10;
+    * line 7: the number of data rows as three digits, ``013``;
+    * line 8: the number of data columns as three digits, ``024``;
+    * line 9: the twenty-four column names, exactly
+      :data:`COEFFICIENT_COLUMNS` in that order, each right-aligned to
+      width 10;
+    * then one line per data row, every number formatted ``%10.5f``
+      (width 10, five decimals, her precision), in the column order of
+      line 9, the rows in the order given (the stage gives them alpha
+      ascending, as the polar table).
+
+    The rows are the same twenty-four values the polar table carries per
+    point (:func:`polar_row`), so the two files are two serializations of
+    one table; :func:`read_her_polar_format` reads this one back.
+
+    Parameters
+    ----------
+    path : str or pathlib.Path
+        Destination, ``<polar>_M<code>_g<group>.dat`` beside the polar table.
+    polar : str or int
+        The polar identifier, the simulation id.
+    description : str
+        The row's description, as the polar table carries it.
+    group : str or int
+        The group number.
+    mach : float
+        The nominal Mach number, written as ``MNOM`` and as the code of line 2.
+    reference : ReferenceValues
+        The reference block.
+    rows : sequence of sequence of float
+        The coefficient rows, each of :data:`COEFFICIENT_COLUMNS` width.
+    date : str, optional
+        Line 3 as it should be written; the local clock when None.
+
+    Returns
+    -------
+    pathlib.Path
+        The file written.
+
+    Raises
+    ------
+    ProductError
+        If a row is not twenty-four values wide.
+    """
+    lines = [
+        f"{_HER_TITLE_PREFIX}{description}",
+        f"{polar}{_mach_code(mach):02d}",
+        date if date is not None else datetime.now().strftime(_HER_DATE_FORMAT),
+        f"{len(_HER_REFERENCE_COLUMNS):03d} {int(group):02d}",
+        "".join(_her_field(name) for name in _HER_REFERENCE_COLUMNS),
+        "".join(_her_field(float(value)) for value in (mach, *reference.as_row())),
+        f"{len(rows):03d}",
+        f"{len(COEFFICIENT_COLUMNS):03d}",
+        "".join(_her_field(name) for name in COEFFICIENT_COLUMNS),
+    ]
+    for row in rows:
+        if len(row) != len(COEFFICIENT_COLUMNS):
+            raise ProductError(f"a polar row has {len(row)} values, not {len(COEFFICIENT_COLUMNS)}")
+        lines.append("".join(f"{float(value):{_HER_WIDTH}.{_DECIMALS}f}" for value in row))
+    target = Path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_bytes(("\n".join(lines) + "\n").encode("ascii"))
+    return target
+
+
+def _her_count(line: str, path: Path, number: int, what: str) -> int:
+    try:
+        return int(line.split()[0])
+    except (IndexError, ValueError):
+        raise ProductError(
+            f"{path} line {number} should be the number of {what} as digits; it reads {line!r}"
+        ) from None
+
+
+def read_her_polar_format(path: str | Path) -> HerPolarTable:
+    """Read a file of her polar format back, as :func:`write_her_polar_format` specifies it.
+
+    The counts the file states are checked against what it holds, which is
+    what makes the round trip (write, read, write again) a proof rather
+    than a re-echo: a reference line, a row or a row's width that does not
+    fit its count is refused naming the line.
+
+    Parameters
+    ----------
+    path : str or pathlib.Path
+        A file in her format.
+
+    Returns
+    -------
+    HerPolarTable
+        The header block and the rows, each row a mapping of column name to
+        value.
+
+    Raises
+    ------
+    ProductError
+        If the file does not have the shape the writer's docstring states.
+    """
+    target = Path(path)
+    lines = target.read_text(encoding="ascii").split("\n")
+    if lines and lines[-1] == "":
+        lines.pop()
+    if len(lines) < 9 or not lines[0].startswith(_HER_TITLE_PREFIX):
+        raise ProductError(
+            f"{target} is not in her polar format: it needs nine header lines, the first "
+            f"beginning {_HER_TITLE_PREFIX!r}"
+        )
+    description = lines[0][len(_HER_TITLE_PREFIX) :]
+    identifier = lines[1].strip()
+    if len(identifier) < 3 or not identifier[-2:].isdigit():
+        raise ProductError(
+            f"{target} line 2 should be the polar identifier and a two-digit Mach code; "
+            f"it reads {lines[1]!r}"
+        )
+    counts = lines[3].split()
+    if len(counts) != 2:
+        raise ProductError(
+            f"{target} line 4 should be the reference count and the group number; "
+            f"it reads {lines[3]!r}"
+        )
+    reference_count, group = int(counts[0]), int(counts[1])
+    names = tuple(lines[4].split())
+    values = lines[5].split()
+    if len(names) != reference_count or len(values) != reference_count:
+        raise ProductError(
+            f"{target} line 4 states {reference_count} reference columns and lines 5 and 6 "
+            f"carry {len(names)} names and {len(values)} values"
+        )
+    reference_values = dict(zip(names, (float(v) for v in values), strict=True))
+    row_count = _her_count(lines[6], target, 7, "data rows")
+    column_count = _her_count(lines[7], target, 8, "data columns")
+    columns = tuple(lines[8].split())
+    if len(columns) != column_count:
+        raise ProductError(
+            f"{target} line 8 states {column_count} columns and line 9 names {len(columns)}"
+        )
+    data = lines[9:]
+    if len(data) != row_count:
+        raise ProductError(
+            f"{target} line 7 states {row_count} rows and the file holds {len(data)}"
+        )
+    rows: list[dict[str, float]] = []
+    for number, line in enumerate(data, start=10):
+        cells = line.split()
+        if len(cells) != column_count:
+            raise ProductError(
+                f"{target} line {number} carries {len(cells)} values for {column_count} columns"
+            )
+        rows.append(dict(zip(columns, (float(c) for c in cells), strict=True)))
+    mach = reference_values.pop("MNOM", None)
+    if mach is None:
+        raise ProductError(f"{target} line 5 names no MNOM column; it names {names}")
+    return HerPolarTable(
+        description=description,
+        polar=identifier[:-2],
+        mach=mach,
+        date=lines[2],
+        group=group,
+        reference=ReferenceValues.from_mapping(reference_values),
+        columns=columns,
+        rows=rows,
+    )
 
 
 def _reynolds_millions(text: str) -> float:
@@ -811,6 +1091,7 @@ def _sim_products(
 
     if products.polars:
         for group, families in pproc.groups.items():
+            rows = _polar_rows(points, [str(f) for f in families], mach=mach, reference=reference)
             target = _target(out / polar_file_name(sim_id, mach, group))
             write_polar_table(
                 target,
@@ -818,12 +1099,25 @@ def _sim_products(
                 description=description,
                 group=str(group),
                 reference=reference,
-                rows=_polar_rows(
-                    points, [str(f) for f in families], mach=mach, reference=reference
-                ),
+                rows=rows,
             )
             written.append(target)
             written_names[target.relative_to(out).as_posix()] = {"runs": run_ids}
+            if products.her_polar_format:
+                # PFS-2014.01.01: the same rows, a second time, in the
+                # format her existing tooling opens, beside the table.
+                target = _target(out / her_polar_file_name(sim_id, mach, group))
+                write_her_polar_format(
+                    target,
+                    polar=sim_id,
+                    description=description,
+                    group=group,
+                    mach=mach,
+                    reference=reference,
+                    rows=rows,
+                )
+                written.append(target)
+                written_names[target.relative_to(out).as_posix()] = {"runs": run_ids}
     for point in points:
         sloads_path, plots_path = exports[point.name]
         if products.sections and sloads_path is not None and sloads_path.is_file():
@@ -921,6 +1215,191 @@ def _point_reductions(
         written_names[relative] = record
 
 
+# --- PFS-2012.08.01: a run's provenance in an interchange format, PROV-JSON --------
+
+#: The folder under the matrix's products where the documents land.
+PROVENANCE_DIR = "provenance"
+
+#: The suffix of one document, appended to the run id with its separators
+#: replaced: ``camp/sim_3207/a-02.0`` is ``camp_sim_3207_a-02.0.prov.json``.
+PROVENANCE_SUFFIX = ".prov.json"
+
+#: The namespaces a document declares. ``prov`` and ``xsd`` are the W3C's;
+#: ``pyfs`` is this package's, for the attributes and identifiers it coins,
+#: a URN rather than a web address so the document promises no page.
+_PROV_PREFIX = {
+    "prov": "http://www.w3.org/ns/prov#",
+    "xsd": "http://www.w3.org/2001/XMLSchema#",
+    "pyfs": "urn:pyflightstream:",
+}
+
+
+def provenance_file_name(run_id: str) -> str:
+    """``<run id with '/' replaced by '_'>.prov.json``: one document per recorded run."""
+    return run_id.replace("/", "_") + PROVENANCE_SUFFIX
+
+
+def _attributes(**pairs: object) -> dict[str, object]:
+    """Return the attributes of one PROV node, a None value left out rather than written."""
+    return {name: value for name, value in pairs.items() if value is not None}
+
+
+def _prov_document(record: RunRecord, sim_dir: Path) -> dict[str, object]:
+    """Build one run's PROV-JSON document from its record and the files it left.
+
+    W3C PROV, in the PROV-JSON serialization (her decision of 2026-09-08,
+    design 68): the run record carried every fact a provenance document
+    needs and lacked a shape another tool reads without reading this
+    package's docs. ENTITIES are each staged input (``inputs_sha256``), the
+    script (``script_sha256``) and each collected output, every one with
+    its sha256 under ``pyfs:sha256``; an output's hash is computed from
+    the file when it is still there and taken from the record otherwise,
+    and ``pyfs:sha256_from`` says which. The ACTIVITY is the solver run,
+    with ``prov:startTime`` and ``prov:endTime`` where the record carries
+    them, the wall time, the status and the executor's argv. The AGENTS
+    are the package at its version and commit and the solver build at its
+    executable identity, both ``prov:SoftwareAgent``. The activity
+    ``used`` the inputs and the script, every output ``wasGeneratedBy``
+    it, it ``wasAssociatedWith`` both agents, the outputs are attributed
+    to the solver and the script to the package. Standard library only:
+    the document is a mapping :mod:`json` writes.
+    """
+    activity_id = f"pyfs:run/{record.run_id}"
+    package_id = f"pyfs:package/pyflightstream/{record.package_version}"
+    solver_id = f"pyfs:solver/FlightStream/{record.fs_version_requested}"
+    entities: dict[str, dict[str, object]] = {}
+    used: dict[str, dict[str, str]] = {}
+    generated: dict[str, dict[str, str]] = {}
+    attributed: dict[str, dict[str, str]] = {}
+    for name, input_sha256 in sorted(record.inputs_sha256.items()):
+        entity_id = f"pyfs:input/{name}"
+        entities[entity_id] = _attributes(
+            **{"prov:type": "pyfs:StagedInput", "pyfs:name": name, "pyfs:sha256": input_sha256}
+        )
+        used[f"_:used{len(used) + 1}"] = {"prov:activity": activity_id, "prov:entity": entity_id}
+    script_id = f"pyfs:script/{record.script_path or 'script'}"
+    entities[script_id] = _attributes(
+        **{
+            "prov:type": "pyfs:Script",
+            "pyfs:name": record.script_path,
+            "pyfs:sha256": record.script_sha256,
+            "pyfs:raw": record.raw_flag,
+            "pyfs:recipe": record.recipe,
+            "pyfs:recipe_sha256": record.recipe_sha256,
+        }
+    )
+    used[f"_:used{len(used) + 1}"] = {"prov:activity": activity_id, "prov:entity": script_id}
+    attributed["_:attributed1"] = {"prov:entity": script_id, "prov:agent": package_id}
+    for name in record.outputs:
+        entity_id = f"pyfs:output/{name}"
+        path = sim_dir / name
+        if path.is_file():
+            output_sha256: str | None = hashlib.sha256(path.read_bytes()).hexdigest()
+            sha256_from: str | None = "file"
+        else:
+            output_sha256 = record.outputs_sha256.get(name)
+            sha256_from = "record" if output_sha256 is not None else None
+        entities[entity_id] = _attributes(
+            **{
+                "prov:type": "pyfs:Output",
+                "pyfs:name": name,
+                "pyfs:sha256": output_sha256,
+                "pyfs:sha256_from": sha256_from,
+            }
+        )
+        generated[f"_:generated{len(generated) + 1}"] = {
+            "prov:entity": entity_id,
+            "prov:activity": activity_id,
+        }
+        attributed[f"_:attributed{len(attributed) + 1}"] = {
+            "prov:entity": entity_id,
+            "prov:agent": solver_id,
+        }
+    executor = record.executor
+    activity = _attributes(
+        **{
+            "prov:type": "pyfs:SolverRun",
+            "prov:startTime": record.started_at,
+            "prov:endTime": record.finished_at,
+            "pyfs:run_id": record.run_id,
+            "pyfs:sim_id": record.sim_id,
+            "pyfs:status": record.status.value,
+            "pyfs:wall_time_s": record.wall_time_s,
+            "pyfs:iterations": record.iterations,
+            "pyfs:residual": record.residual,
+            "pyfs:executor": executor["class_name"] if executor else None,
+            "pyfs:argv": list(executor["argv"]) if executor else None,
+            "pyfs:cwd": record.cwd,
+            "pyfs:error": record.error,
+        }
+    )
+    agents = {
+        package_id: _attributes(
+            **{
+                "prov:type": "prov:SoftwareAgent",
+                "pyfs:name": "pyflightstream",
+                "pyfs:version": record.package_version,
+                "pyfs:commit": record.package_commit,
+                "pyfs:dirty": record.package_dirty,
+            }
+        ),
+        solver_id: _attributes(
+            **{
+                "prov:type": "prov:SoftwareAgent",
+                "pyfs:name": "FlightStream",
+                "pyfs:version_requested": record.fs_version_requested,
+                "pyfs:version_reported": record.fs_version_reported,
+                "pyfs:build": record.fs_build,
+                "pyfs:executable": record.fs_exe,
+                "pyfs:executable_sha256": record.fs_exe_sha256,
+            }
+        ),
+    }
+    document: dict[str, object] = {
+        "prefix": dict(_PROV_PREFIX),
+        "entity": entities,
+        "activity": {activity_id: activity},
+        "agent": agents,
+        "used": used,
+        "wasAssociatedWith": {
+            f"_:associated{number}": {"prov:activity": activity_id, "prov:agent": agent_id}
+            for number, agent_id in enumerate(agents, start=1)
+        },
+        "wasAttributedTo": attributed,
+    }
+    # As applicable: a run that collected nothing generated nothing, and the
+    # key is absent rather than empty.
+    if generated:
+        document["wasGeneratedBy"] = generated
+    return document
+
+
+def _run_provenance(
+    workspace: CampaignWorkspace, records: Sequence[RunRecord], out: Path, *, overwrite: bool
+) -> dict[str, str]:
+    """Write one PROV-JSON document per record under ``out/provenance``.
+
+    Every recorded run, whatever its status: a failed run's provenance is
+    evidence about the failure. Returns the manifest's ``provenance`` map,
+    run id to the document's path relative to ``out``. An existing document
+    is refused as an existing table is, unless ``overwrite`` is set.
+    """
+    index: dict[str, str] = {}
+    for record in records:
+        relative = f"{PROVENANCE_DIR}/{provenance_file_name(record.run_id)}"
+        target = out / relative
+        if target.exists() and not overwrite:
+            raise ProductExistsError(
+                f"the provenance document {target} exists; pass overwrite (CLI: --overwrite) "
+                "to rewrite it from the manifest"
+            )
+        document = _prov_document(record, workspace.sim_dir(record.sim_id))
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(json.dumps(document, indent=1) + "\n", encoding="utf-8")
+        index[record.run_id] = relative
+    return index
+
+
 def write_campaign_products(
     workspace: CampaignWorkspace, *, overwrite: bool = False, matrix_stem: str | None = None
 ) -> list[Path]:
@@ -933,6 +1412,12 @@ def write_campaign_products(
     with the run ids it derives from. An existing product is refused
     unless ``overwrite`` is set; the run itself passes it, since a product
     is derived and a resume rewrites it with the new points.
+
+    Beside the tables, one PROV-JSON document per recorded run, every
+    status, under ``provenance/`` (PFS-2012.08.01), named in
+    ``products.json`` under ``provenance`` keyed by run id; the documents
+    are not in the returned list, which is the tables, and the manifest is
+    where they are found.
 
     Where they land is the matrix's own folder (PFS-2031.04): with
     ``matrix_stem`` given, the records naming that matrix stem are written under
@@ -997,7 +1482,9 @@ def write_campaign_products(
     # Always present, empty when nothing was refused, so a wrapper reads one
     # key rather than testing for it (review round two of 2026-09-08).
     manifest["skipped"] = skipped
-    if written or skipped:
+    # PFS-2012.08.01: one document per recorded run, whatever its status.
+    manifest["provenance"] = _run_provenance(workspace, records, out, overwrite=overwrite)
+    if written or skipped or records:
         out.mkdir(parents=True, exist_ok=True)
         (out / PRODUCTS_MANIFEST).write_text(
             json.dumps(manifest, indent=1) + "\n", encoding="utf-8"

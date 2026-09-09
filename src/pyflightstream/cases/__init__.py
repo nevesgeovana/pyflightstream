@@ -472,6 +472,12 @@ class ProductsSpec(BaseModel):
     group per point; ``sections``: one table per point from its sectional
     loads export; ``plots``: one table per unsteady point from its plots
     export. All CSV, one header line and one row per record.
+
+    ``her_polar_format``: beside every polar table, the same rows in the
+    fixed-width text format her existing tooling opens
+    (PFS-2014.01.01), ``<polar>_M<mach code>_g<group>.dat``. Off by
+    default, since it is a second serialization of the polar table for
+    one reader.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -479,6 +485,7 @@ class ProductsSpec(BaseModel):
     polars: bool = True
     sections: bool = True
     plots: bool = True
+    her_polar_format: bool = False
 
 
 class PprocSpec(BaseModel):

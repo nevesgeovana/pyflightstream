@@ -9,6 +9,42 @@ FlightStream versions.
 
 ### Added
 
+- **The products stage writes a PROV-JSON provenance document per recorded
+  run** (PFS-2012.08, PFS-2012.08.01). The run record carried every fact a
+  provenance document needs and lacked a shape another tool reads without
+  reading this package's docs; her decision of 2026-09-08 (design 68) is
+  W3C PROV, serialized as PROV-JSON, one document per recorded run, a
+  product and never a function a user calls on a record. `pyfs-matrix
+  post` and the run's own products stage write
+  `post/<matrix stem>/provenance/<run id>.prov.json`, every status, and
+  `products.json` names each under `provenance` keyed by run id. Entities
+  are every staged input, the script and every collected output with its
+  sha256 under `pyfs:sha256`, an output's computed from the file when it is
+  still there; the activity is the solver run with `prov:startTime`,
+  `prov:endTime`, the wall time, the status and the executor's argv; the
+  agents are the package at its version and commit and the solver build at
+  its executable identity. For the start and end the run record gained
+  `started_at` and `finished_at`, ISO 8601 in UTC, read off the executor's
+  clock (`ExecutionResult` carries them; a stub that reports none leaves
+  None), and adding them did not move the manifest schema. Standard
+  library only; the tier-1 test reads the document back with a reader of
+  a few lines and requires every relation to name a declared node.
+
+- **The campaign stage writes her plot format beside the polar tables, and
+  the format is specified against a committed sample** (PFS-2014.01.01,
+  PFS-2014.01.02). Her existing tooling opens a fixed-width text polar
+  file; `[products] her_polar_format = true` on the pproc artifact writes
+  `<polar>_M<code>_g<group>.dat` beside every `.csv` the stage writes, the
+  same twenty-four columns a second time at `%10.5f`, and
+  `pyflightstream.post.read_her_polar_format` reads it back. The shape was
+  read off a file of hers and is pinned by
+  `tests/tier1_offline/fixtures/her_polar_format_sample.dat`, every value
+  of which is synthetic (the tour's wing at Mach 0.1); the writer's
+  docstring names every line of the format and the tier-1 test feeds the
+  fixture's rows through the writer and requires the fixture's bytes with
+  the date line masked, then writes, reads and rewrites what the stage
+  produced and requires equal bytes.
+
 - **A boundary renamed in the solver before the save reaches every export by
   its new name, measured** (PFS-2007.01, RPT-044). The tier-3 library gained
   `14_WING_RENAMED.fsm`, the tour's wing with `SURFACE_RENAME 1 MainWing`

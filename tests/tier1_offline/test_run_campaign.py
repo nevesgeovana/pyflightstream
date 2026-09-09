@@ -3290,6 +3290,7 @@ def test_the_campaign_writes_its_products_and_names_them(tmp_path):
         "9001_M20_g01.csv",
         "9001_M20_g03.csv",
         "products.json",
+        "provenance",  # one PROV-JSON document per recorded run (PFS-2012.08.01)
     ]
     manifest = json.loads((products / "products.json").read_text(encoding="utf-8"))
     assert manifest["products"]["9001_M20_g01.csv"]["runs"] == ["camp/sim_9001/a-02.0"]

@@ -72,6 +72,7 @@ import time
 import warnings
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass, field
+from datetime import UTC, datetime
 from functools import lru_cache
 from pathlib import Path
 from typing import Protocol
@@ -245,6 +246,14 @@ class ExecutionResult:
     timeout_s : float, optional
         The wall-clock limit actually applied, which is the case's
         limit resolved rather than the default a reader would assume.
+    started_at : str, optional
+        When the process was started, ISO 8601 in UTC to the second
+        (PFS-2012.08.01). ``wall_time_s`` says how long the solver ran
+        and nothing said WHEN, which a provenance document states as the
+        activity's start and end. None for an executor that reports no
+        clock, and the record keeps that rather than filling it.
+    finished_at : str, optional
+        When the process ended, or was killed on timeout, the same way.
     """
 
     return_code: int | None
@@ -256,6 +265,8 @@ class ExecutionResult:
     argv: tuple[str, ...] = ()
     cwd: str | None = None
     timeout_s: float | None = None
+    started_at: str | None = None
+    finished_at: str | None = None
 
     @property
     def failed(self) -> bool:
@@ -584,6 +595,7 @@ class LocalExecutor:
             "timeout_s": timeout_s,
         }
         start = time.perf_counter()
+        started_at = _utc_now()
         timed_out = False
         return_code: int | None = None
         stdout = ""
@@ -614,6 +626,7 @@ class LocalExecutor:
             stdout = _decode(expired.stdout)
             stderr = _decode(expired.stderr)
         wall_time_s = time.perf_counter() - start
+        finished_at = _utc_now()
         log_path = Path(working_dir) / _LOG_NAME
         log_text = None
         if log_path.is_file():
@@ -625,8 +638,15 @@ class LocalExecutor:
             log_text=log_text,
             stdout=stdout,
             stderr=stderr,
+            started_at=started_at,
+            finished_at=finished_at,
             **invocation,
         )
+
+
+def _utc_now() -> str:
+    """Return the clock reading a run record carries: ISO 8601, UTC, to the second."""
+    return datetime.now(UTC).isoformat(timespec="seconds")
 
 
 def _decode(stream: str | bytes | None) -> str:
@@ -3055,6 +3075,10 @@ def _execute_point(
     base["cwd"] = result.cwd
     base["timeout_s"] = result.timeout_s
     base["executor"] = invocation_record(executor, result)
+    # PFS-2012.08.01. WHEN the solver ran, for the provenance document's
+    # activity; None where the executor reports no clock.
+    base["started_at"] = result.started_at
+    base["finished_at"] = result.finished_at
     # PFS-2031.18. How far the counter got, read from the file the
     # program left, on every path below: a failed execution's count is
     # evidence about the failure. None when the file was never written,

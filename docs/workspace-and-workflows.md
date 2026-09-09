@@ -659,6 +659,7 @@ end = [-2.0, 1.0, 0.0]
 polars = true                  # one polar table per group, per point
 sections = true                # one table per point from its sectional loads export
 plots = true                   # one table per unsteady point from its plots export
+her_polar_format = false       # beside each polar table, the text file her existing tooling opens
 ```
 
 Three things carry the artifact across configurations. A `families` entry
@@ -775,6 +776,77 @@ pyfs-matrix post --workspace . --strict             # exit 3 if any product was 
 A skip is a success by default, since everything producible was produced;
 `--strict` is for a wrapper that must tell a partial rebuild from a whole
 one, and it changes the exit code alone, after every product is written.
+
+#### Her plot format
+
+Her existing tooling opens a fixed-width text polar file, not a CSV, and
+`[products] her_polar_format = true` on the pproc artifact writes that file
+beside every polar table the stage writes, `<polar>_M<code>_g<group>.dat`
+beside the `.csv`, the same rows a second time (PFS-2014.01.01). Off by
+default. The shape, read off a file of hers and pinned by the committed
+fixture `tests/tier1_offline/fixtures/her_polar_format_sample.dat` (every
+value in it synthetic), is nine header lines and then one line per point:
+
+```text
+FlightStream - STEADY_polar_AL_sweep_MACH_REmi_pins_from_the_setup
+100110
+Tue Sep 08 23:41:07  2026
+007 01
+      MNOM      SREF      CREF      BREF      XMOM      YMOM      ZMOM
+       0.1       8.0       1.0       8.0      0.25       0.0       0.0
+013
+024
+     ALPHA      BETA      MACH        RE       CDB       CYB       CLB  ...
+  -2.00000   0.00000   0.10000   2.30000   0.00398   0.00000  -0.16424  ...
+```
+
+The title carries the row's description; line 2 is the polar and the
+two-digit Mach code of the file name (`1001` at Mach 0.10 is `100110`);
+line 3 the write time; `007 01` the number of reference columns and the
+group; then the reference names and values, the row and column counts,
+the twenty-four column names of the polar table in its order, and every
+number at `%10.5f`. The docstring of
+`pyflightstream.post.write_her_polar_format` is the specification, line
+by line, and `read_her_polar_format` reads the file back; the tier-1 test
+feeds the fixture's rows through the writer and requires the fixture's
+bytes, and writes, reads and writes again what the stage produced,
+requiring equal bytes (PFS-2014.01.02).
+
+#### A run's provenance, in an interchange format
+
+Beside the tables, the stage writes one provenance document per recorded
+run, every status, as W3C PROV in its PROV-JSON serialization
+(PFS-2012.08.01): `post/<matrix stem>/provenance/<run id>.prov.json`, the
+run id's separators replaced by underscores (`camp/sim_3207/a-02.0` is
+`provenance/camp_sim_3207_a-02.0.prov.json`), and `products.json` names
+each under `provenance` keyed by run id. The run record already carried
+every fact; the document is the shape another tool reads without reading
+this page. Its entities are every staged input, the script and every
+collected output, each with its sha256 under `pyfs:sha256` (an output's
+computed from the file when it is still there, `pyfs:sha256_from` says
+`file` or `record`); its one activity is the solver run, with
+`prov:startTime` and `prov:endTime` as the executor read its clock,
+the wall time, the status and the executor's argv; its agents are the
+package at its version and commit and the solver build at its executable
+identity. The activity `used` the inputs and the script, every output
+`wasGeneratedBy` it, and it `wasAssociatedWith` both agents:
+
+```text
+"activity": {
+ "pyfs:run/camp/sim_3207/a-02.0": {
+  "prov:type": "pyfs:SolverRun",
+  "prov:startTime": "2026-09-08T21:41:07+00:00",
+  "prov:endTime": "2026-09-08T21:41:19+00:00",
+  "pyfs:status": "CONVERGED", "pyfs:wall_time_s": 12.5,
+  "pyfs:executor": "LocalExecutor",
+  "pyfs:argv": ["C:/builds/26120/FlightStream.exe", "-hidden", "-script", "run.fs"]
+ }
+}
+```
+
+The document is written with the standard library alone and read back in
+the suite by a reader of a few lines that checks every relation names a
+node the document declares; a PROV tool reads it as any PROV-JSON.
 
 ### Archiving a completed simulation
 

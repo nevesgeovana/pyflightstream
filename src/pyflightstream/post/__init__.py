@@ -14,7 +14,10 @@ rather than left to be discovered:
   Re-exported here;
 * :mod:`pyflightstream.post.products` writes the campaign's CSV products,
   the polar table per group, the sections table and the plots table per
-  point, from the collected exports and the manifest (PFS-2029.15).
+  point, from the collected exports and the manifest (PFS-2029.15); her
+  plot format beside the polar table when asked (PFS-2014.01.01), its
+  writer and reader re-exported here; and a PROV-JSON provenance document
+  per recorded run (PFS-2012.08.01).
 * :mod:`pyflightstream.post.reductions` is the writing seam that keeps
   a reduction from overwriting the file it came from. Re-exported
   here, and it was the one this list omitted while naming the module
@@ -34,12 +37,15 @@ Sweep assembly is not here either, it is
 """
 
 from pyflightstream.post.products import (
+    HerPolarTable,
     ProductError,
     ProductExistsError,
     ReferenceValues,
     read_csv_table,
+    read_her_polar_format,
     write_campaign_products,
     write_csv_table,
+    write_her_polar_format,
     write_plots_table,
     write_polar_table,
     write_recorded_polar,
@@ -64,6 +70,7 @@ from pyflightstream.workspace import register_post_stage
 
 __all__ = [
     "FrameAverage",
+    "HerPolarTable",
     "OutputProvenance",
     "ProductError",
     "ProductExistsError",
@@ -75,8 +82,10 @@ __all__ = [
     "read_timestep_series",
     "settings_records",
     "read_csv_table",
+    "read_her_polar_format",
     "write_campaign_products",
     "write_csv_table",
+    "write_her_polar_format",
     "write_plots_table",
     "write_polar_table",
     "write_recorded_polar",

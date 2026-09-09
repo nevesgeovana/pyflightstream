@@ -640,3 +640,347 @@ def test_a_missing_sample_poisons_the_harmonic_in_plane_moment_product():
         f"instead of NaN; the complete field gives {float(whole['loading_term'])!r}"
     )
     assert np.isnan(float(product["total"])), "the poison reaches the total"
+
+
+# --- PFS-2012.08.01: a PROV-JSON document per recorded run --------------------------
+#
+# The run record carries every fact a provenance document needs; what it
+# lacked was a shape another tool reads without reading this package's docs.
+# W3C PROV, serialized as PROV-JSON, one document per recorded run, written by
+# the products stage (her decision of 2026-09-08, design 68).
+
+
+def _steady_workspace_with_provenance(tmp_path):
+    """One converged steady record with the provenance fields filled, and one failed."""
+    from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
+
+    workspace = CampaignWorkspace.init(tmp_path / "camp")
+    (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
+        '[groups]\n"1" = ["W", "B"]\n', encoding="utf-8"
+    )
+    raw = workspace.sim_dir("3207") / "raw"
+    raw.mkdir(parents=True)
+    (raw / "POLAR-3207_M20AL-020BE+000.txt").write_text(LOADS, encoding="utf-8")
+    common: dict[str, object] = dict(
+        sim_id="3207",
+        fs_version_requested="26.120",
+        fs_version_reported="26.1",
+        fs_build="7012026",
+        fs_exe="C:/builds/26120/FlightStream.exe",
+        fs_exe_sha256="e" * 64,
+        package_version="0.13.0.dev0",
+        package_commit="8f7740f",
+        package_dirty=False,
+        script_path="scripts/POLAR-3207_M20AL-020BE+000.fs",
+        script_sha256="c" * 64,
+        inputs_sha256={"10_WING.fsm": "a" * 64, "10_WING.boundaries.json": "b" * 64},
+        raw_flag=False,
+        pproc="p001",
+        description="STEADY_WB",
+        mach=0.2,
+        reference={"SREF": 50.0, "CREF": 2.526, "BREF": 20.0, "XMOM": 9.152},
+        executor={
+            "class_name": "LocalExecutor",
+            "argv": ["C:/builds/26120/FlightStream.exe", "-hidden", "-script", "run.fs"],
+        },
+        wall_time_s=12.5,
+    )
+    # Guarded so the RED measurement lands on the assertion rather than on
+    # the record refusing a field it does not have yet (extra="forbid").
+    if "started_at" in RunRecord.model_fields:
+        common["started_at"] = "2026-09-08T21:41:07+00:00"
+        common["finished_at"] = "2026-09-08T21:41:19+00:00"
+    workspace.append_record(
+        RunRecord(
+            run_id="camp/sim_3207/a-02.0",
+            point={"alpha": -2.0},
+            status=RunStatus.CONVERGED,
+            outputs=["raw/POLAR-3207_M20AL-020BE+000.txt"],
+            **common,
+        )
+    )
+    workspace.append_record(
+        RunRecord(
+            run_id="camp/sim_3207/a+02.0",
+            point={"alpha": 2.0},
+            status=RunStatus.FAILED_EXECUTION,
+            outputs=[],
+            error="the solver returned 3",
+            **common,
+        )
+    )
+    return workspace
+
+
+def _read_prov_json(path):
+    """A small PROV-JSON reader: the structure, and that every relation resolves.
+
+    Every ``used`` names an activity and an entity the document declares,
+    every ``wasGeneratedBy`` an entity and the activity, every
+    ``wasAssociatedWith`` an agent, every ``wasAttributedTo`` an entity and
+    an agent. Returns the parsed document once it holds.
+    """
+    import json
+
+    document = json.loads(Path(path).read_text(encoding="utf-8"))
+    for key in ("prefix", "entity", "activity", "agent"):
+        assert key in document, f"{path} carries no {key!r}"
+    assert "prov" in document["prefix"] and "pyfs" in document["prefix"]
+    entities, activities, agents = document["entity"], document["activity"], document["agent"]
+    relations = {
+        "used": ("prov:activity", activities, "prov:entity", entities),
+        "wasGeneratedBy": ("prov:entity", entities, "prov:activity", activities),
+        "wasAssociatedWith": ("prov:activity", activities, "prov:agent", agents),
+        "wasAttributedTo": ("prov:entity", entities, "prov:agent", agents),
+    }
+    for relation, (left, left_in, right, right_in) in relations.items():
+        for name, entry in document.get(relation, {}).items():
+            assert entry[left] in left_in, f"{relation} {name} names {entry[left]!r}, not declared"
+            assert entry[right] in right_in, (
+                f"{relation} {name} names {entry[right]!r}, not declared"
+            )
+    return document
+
+
+def test_pyfs_matrix_post_writes_a_prov_json_document_per_recorded_run(tmp_path):
+    """PFS-2012.08.01. One PROV-JSON document per recorded run, failed runs
+    included, under post/<stem>/provenance/, named in products.json under
+    ``provenance`` keyed by run id: entities for every staged input, the script
+    and every collected output with their sha256, one activity for the solver
+    run with its start, end and argv, agents for the package and the solver."""
+    import hashlib
+    import json
+
+    from pyflightstream.post.products import write_campaign_products
+
+    workspace = _steady_workspace_with_provenance(tmp_path)
+    write_campaign_products(workspace)
+    out = workspace.root / "post" / "products"
+    manifest = json.loads((out / "products.json").read_text(encoding="utf-8"))
+    assert "provenance" in manifest, f"products.json carries {sorted(manifest)} and no provenance"
+    assert manifest["provenance"] == {
+        "camp/sim_3207/a-02.0": "provenance/camp_sim_3207_a-02.0.prov.json",
+        "camp/sim_3207/a+02.0": "provenance/camp_sim_3207_a+02.0.prov.json",
+    }
+    for relative in manifest["provenance"].values():
+        assert (out / relative).is_file(), f"{relative} was named and not written"
+
+    document = _read_prov_json(out / "provenance" / "camp_sim_3207_a-02.0.prov.json")
+    entities = document["entity"]
+    by_sha = {entry.get("pyfs:sha256"): name for name, entry in entities.items()}
+    assert "a" * 64 in by_sha and "b" * 64 in by_sha, "every staged input is an entity"
+    assert "c" * 64 in by_sha, "the script is an entity carrying its sha256"
+    # Of the file's BYTES, which on Windows carry the line endings write_text
+    # gave them, not of the text the test holds.
+    loads_file = workspace.sim_dir("3207") / "raw" / "POLAR-3207_M20AL-020BE+000.txt"
+    loads_sha = hashlib.sha256(loads_file.read_bytes()).hexdigest()
+    assert loads_sha in by_sha, "the collected output carries the sha256 of the file itself"
+    assert entities[by_sha[loads_sha]]["pyfs:sha256_from"] == "file"
+    assert by_sha[loads_sha].endswith("POLAR-3207_M20AL-020BE+000.txt")
+
+    (activity_name, activity), *rest = document["activity"].items()
+    assert not rest, "one activity, the solver run"
+    assert activity["pyfs:argv"] == [
+        "C:/builds/26120/FlightStream.exe",
+        "-hidden",
+        "-script",
+        "run.fs",
+    ]
+    assert activity["prov:startTime"] == "2026-09-08T21:41:07+00:00"
+    assert activity["prov:endTime"] == "2026-09-08T21:41:19+00:00"
+    assert activity["pyfs:wall_time_s"] == 12.5
+
+    agents = document["agent"]
+    versions = {entry.get("pyfs:version") for entry in agents.values()}
+    assert "0.13.0.dev0" in versions, "the package at its version is an agent"
+    assert {entry.get("pyfs:commit") for entry in agents.values()} >= {"8f7740f"}
+    builds = {entry.get("pyfs:build") for entry in agents.values()}
+    assert "7012026" in builds, "the solver build is an agent"
+    assert {entry.get("pyfs:executable_sha256") for entry in agents.values()} >= {"e" * 64}
+    assert {entry.get("pyfs:version_reported") for entry in agents.values()} >= {"26.1"}
+
+    used = {entry["prov:entity"] for entry in document["used"].values()}
+    assert used == {by_sha["a" * 64], by_sha["b" * 64], by_sha["c" * 64]}, (
+        "the activity used every staged input and the script, and nothing else"
+    )
+    generated = {entry["prov:entity"] for entry in document["wasGeneratedBy"].values()}
+    assert generated == {by_sha[loads_sha]}
+    assert {e["prov:activity"] for e in document["wasGeneratedBy"].values()} == {activity_name}
+    associated = {entry["prov:agent"] for entry in document["wasAssociatedWith"].values()}
+    assert associated == set(agents), "the run is associated with both agents"
+    assert document["wasAttributedTo"], "the outputs are attributed"
+
+    # The failed run has no output and no generation, and still its document.
+    failed = _read_prov_json(out / "provenance" / "camp_sim_3207_a+02.0.prov.json")
+    assert "wasGeneratedBy" not in failed or failed["wasGeneratedBy"] == {}
+    assert len(failed["used"]) == 3
+
+    # The docs name the folder and the format.
+    page = (Path(__file__).parents[2] / "docs" / "workspace-and-workflows.md").read_text(
+        encoding="utf-8"
+    )
+    assert "PROV-JSON" in page and ".prov.json" in page
+
+
+# --- PFS-2014.01.02 and .01.01: her plot format ------------------------------------
+#
+# Her existing tooling opens a fixed-width text polar file. The committed
+# fixture has that file's SHAPE, read off a file of hers; every value in it is
+# synthetic, invented for the tier-3 wing of the tour's row 1001.
+
+HER_FORMAT_SAMPLE = FIXTURES / "her_polar_format_sample.dat"
+
+#: ``Tue Sep 08 23:41:07  2026``: weekday, month, zero-padded day, clock, two
+#: spaces, year. Her sample carries the two spaces.
+DATE_LINE = r"^[A-Z][a-z]{2} [A-Z][a-z]{2} \d{2} \d{2}:\d{2}:\d{2}  \d{4}$"
+
+
+def _her_format_functions():
+    from pyflightstream.post import products as module
+
+    writer = getattr(module, "write_her_polar_format", None)
+    reader = getattr(module, "read_her_polar_format", None)
+    assert writer is not None and reader is not None, (
+        "post.products has no writer and reader of her polar format (PFS-2014.01)"
+    )
+    return writer, reader
+
+
+def test_her_plot_format_sample_against_the_stage_product(tmp_path):
+    """PFS-2014.01.02. The fixture is the specification: its rows fed through the
+    writer come back byte for byte, except line 3, the write time, which is
+    masked and matched against the date pattern. The fixture's shape was read
+    off a file of hers; every value in it is synthetic."""
+    import re
+
+    write_her_polar_format, read_her_polar_format = _her_format_functions()
+    expected = HER_FORMAT_SAMPLE.read_bytes()
+    assert b"\r" not in expected, "the fixture is pinned LF (.gitattributes)"
+    table = read_her_polar_format(HER_FORMAT_SAMPLE)
+    assert table.polar == "1001" and table.mach == 0.1 and table.group == 1
+    assert table.description == "STEADY_polar_AL_sweep_MACH_REmi_pins_from_the_setup"
+    assert table.reference.sref_m2 == 8.0 and table.reference.xmom_m == 0.25
+    assert len(table.rows) == 13 and [row["ALPHA"] for row in table.rows][:3] == [-2.0, -1.0, 0.0]
+
+    written = write_her_polar_format(
+        tmp_path / "1001_M10_g01.dat",
+        polar=table.polar,
+        description=table.description,
+        group=table.group,
+        mach=table.mach,
+        reference=table.reference,
+        rows=[tuple(row[name] for name in COEFFICIENT_COLUMNS) for row in table.rows],
+    )
+    actual = written.read_bytes()
+    actual_lines = actual.split(b"\n")
+    expected_lines = expected.split(b"\n")
+    assert re.match(DATE_LINE, actual_lines[2].decode("ascii")), actual_lines[2]
+    assert re.match(DATE_LINE, expected_lines[2].decode("ascii")), expected_lines[2]
+    actual_lines[2] = expected_lines[2] = b"<date>"
+    assert actual_lines == expected_lines, "the writer's bytes differ from the fixture's"
+
+    # The writer's docstring is the specification: every line of the format named.
+    specification = write_her_polar_format.__doc__ or ""
+    for line in range(1, 10):
+        assert f"line {line}" in specification, f"the docstring names no line {line}"
+    assert "%10.5f" in specification
+
+
+def test_pyfs_matrix_post_writes_her_format_beside_the_polar_tables_when_asked(tmp_path):
+    """PFS-2014.01.01. ``[products] her_polar_format = true`` on the pproc artifact
+    writes ``<polar>_M<code>_g<group>.dat`` beside every polar table the stage
+    writes, products.json names it, the reader opens it, and write, read, write
+    again is byte equal. Without the key nothing is written."""
+    import json
+
+    from pyflightstream.post.products import write_campaign_products
+    from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
+
+    write_her_polar_format, read_her_polar_format = _her_format_functions()
+
+    def _workspace(root, pproc_text):
+        workspace = CampaignWorkspace.init(root)
+        (workspace.inputs_dir / "pproc" / "p001.toml").write_text(pproc_text, encoding="utf-8")
+        raw = workspace.sim_dir("3207") / "raw"
+        raw.mkdir(parents=True)
+        (raw / "POLAR-3207_M20AL-020BE+000.txt").write_text(LOADS, encoding="utf-8")
+        workspace.append_record(
+            RunRecord(
+                run_id="camp/sim_3207/a-02.0",
+                sim_id="3207",
+                point={"alpha": -2.0},
+                fs_version_requested="26.120",
+                package_version="0.13.0.dev0",
+                script_sha256="",
+                raw_flag=False,
+                status=RunStatus.CONVERGED,
+                outputs=["raw/POLAR-3207_M20AL-020BE+000.txt"],
+                pproc="p001",
+                description="STEADY_WB",
+                mach=0.2,
+                reference={"SREF": 50.0, "CREF": 2.526, "BREF": 20.0, "XMOM": 9.152},
+            )
+        )
+        return workspace
+
+    asked = _workspace(
+        tmp_path / "asked",
+        '[groups]\n"1" = ["W", "B"]\n"3" = ["W"]\n[products]\nher_polar_format = true\n',
+    )
+    assert asked.resolve_pproc("p001").products.her_polar_format is True
+    written = write_campaign_products(asked)
+    out = asked.root / "post" / "products"
+    names = sorted(p.name for p in out.iterdir())
+    assert names == [
+        "3207_M20_g01.csv",
+        "3207_M20_g01.dat",
+        "3207_M20_g03.csv",
+        "3207_M20_g03.dat",
+        "products.json",
+        "provenance",
+    ], names
+    assert {p.name for p in written} >= {"3207_M20_g01.dat", "3207_M20_g03.dat"}
+    manifest = json.loads((out / "products.json").read_text(encoding="utf-8"))
+    assert manifest["products"]["3207_M20_g01.dat"]["runs"] == ["camp/sim_3207/a-02.0"]
+
+    # The two serializations carry the same rows: her format at %10.5f, the
+    # CSV at five decimals.
+    table = read_her_polar_format(out / "3207_M20_g01.dat")
+    assert table.polar == "3207" and table.group == 1 and table.mach == 0.2
+    assert table.description == "STEADY_WB"
+    _, csv_rows = read_csv_table(out / "3207_M20_g01.csv")
+    assert [f"{table.rows[0][c]:.5f}" for c in COEFFICIENT_COLUMNS] == [
+        csv_rows[0][c] for c in COEFFICIENT_COLUMNS
+    ]
+    assert [f"{table.rows[0][c]:.5f}" for c in COEFFICIENT_COLUMNS] == HER_ROW
+    text = (out / "3207_M20_g01.dat").read_text(encoding="ascii")
+    assert text.splitlines()[:2] == ["FlightStream - STEADY_WB", "320720"]
+    assert text.splitlines()[6:8] == ["001", "024"]
+
+    # Write, read, write again: byte equal, the date carried through.
+    first = (out / "3207_M20_g01.dat").read_bytes()
+    again = write_her_polar_format(
+        tmp_path / "again.dat",
+        polar=table.polar,
+        description=table.description,
+        group=table.group,
+        mach=table.mach,
+        reference=table.reference,
+        rows=[tuple(row[name] for name in COEFFICIENT_COLUMNS) for row in table.rows],
+        date=table.date,
+    )
+    assert again.read_bytes() == first
+
+    silent = _workspace(tmp_path / "silent", '[groups]\n"1" = ["W", "B"]\n')
+    write_campaign_products(silent)
+    assert sorted(p.name for p in (silent.root / "post" / "products").iterdir()) == [
+        "3207_M20_g01.csv",
+        "products.json",
+        "provenance",
+    ], "without the key her format is not written"
+
+    # The docs name the key and what the format is for.
+    page = (Path(__file__).parents[2] / "docs" / "workspace-and-workflows.md").read_text(
+        encoding="utf-8"
+    )
+    assert "her_polar_format" in page and "her existing tooling" in page
