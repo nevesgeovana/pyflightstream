@@ -769,10 +769,10 @@
   },
   {
    "id": "NFR-14",
-   "text": "A Tier 1 guard rejects the commit of any file whose extension is in the known geometry or mesh set unless its path is in the synthetic-fixtures allowlist.",
+   "text": "A Tier 1 guard rejects the commit of any file whose extension is in the known geometry or mesh set, or in the spreadsheet set, unless its path is in the allowlist of that set with a written reason.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: Phase 4 review, accepted 2026-07-27. Evidence: PFS-3 (2026-08-02); tests/tier1_offline/test_house_style.py::test_no_geometry_file_is_tracked_outside_the_synthetic_allowlist walks every tracked path and fails on a geometry suffix outside the allowlist, with test_the_geometry_guard_fires_on_what_it_exists_to_catch as its mutation proof; the forbid-geometry pre-commit hook refuses the same class at commit time.*",
+   "evidence": "*Origin: Phase 4 review, accepted 2026-07-27. Evidence: PFS-3 (2026-08-02); tests/tier1_offline/test_house_style.py::test_no_geometry_file_is_tracked_outside_the_synthetic_allowlist walks every tracked path and fails on a geometry suffix outside the allowlist, with test_the_geometry_guard_fires_on_what_it_exists_to_catch as its mutation proof; the forbid-geometry pre-commit hook refuses the same class at commit time. Extended 2026-09-08 (OPS-2010.23): test_no_spreadsheet_is_tracked_outside_the_allowlist refuses a spreadsheet extension the same way, with test_the_spreadsheet_guard_fires_on_what_it_exists_to_catch as its mutation proof and the forbid-spreadsheets hook at commit time.*",
    "verification": "test"
   },
   {

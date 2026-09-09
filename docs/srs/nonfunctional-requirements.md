@@ -328,11 +328,27 @@
     allowlist, with
     `test_the_geometry_guard_fires_on_what_it_exists_to_catch` as its
     mutation proof; the `forbid-geometry` pre-commit hook refuses the
-    same class at commit time.*
+    same class at commit time. Extended 2026-09-08 (OPS-2010.23):
+    `test_no_spreadsheet_is_tracked_outside_the_allowlist` refuses a
+    spreadsheet extension the same way, with
+    `test_the_spreadsheet_guard_fires_on_what_it_exists_to_catch` as
+    its mutation proof and the `forbid-spreadsheets` hook at commit
+    time.*
 
     A Tier 1 guard rejects the commit of any file whose extension is in
-    the known geometry or mesh set unless its path is in the
-    synthetic-fixtures allowlist.
+    the known geometry or mesh set, or in the spreadsheet set, unless
+    its path is in the allowlist of that set with a written reason.
+
+    The spreadsheet set (`.xlsx`, `.xlsm`, `.xlsb`, `.xls`, `.ods`) is
+    the one generic container point coordinates of a proprietary mesh
+    actually travel in, and it is opaque to a diff and to a review.
+    Measured before the guard existed: a spreadsheet staged under
+    `examples/` passed every pre-commit hook, and the suite reddened
+    only by accident, on the control-byte scan and on the shipped-surface
+    checker's undecodable count, neither of which names the class.
+    `.csv` is deliberately outside the set: it is text a reader can
+    check, and fixture tables are tracked in it. Its allowlist was
+    measured empty when the guard was written.
 
     This extends the pdf-rejection pattern NFR-03 already uses to the
     class NFR-08 forbids, which was until PFS-3 enforced by discipline

@@ -728,6 +728,106 @@ def test_a_tier3_saved_simulation_is_admitted_only_with_its_provenance_record():
     assert _geometry_offenses(library) == []
 
 
+# ---------------------------------------------------------------------------
+# OPS-2010.23: proprietary geometry cannot enter the public tree inside an
+# ordinary spreadsheet.
+#
+# The geometry guard above keys on the extensions a mesh travels in, and its
+# own scope note says what that cannot see: coordinates carried in a generic
+# container. A spreadsheet is the generic container a research group actually
+# uses for point coordinates, and it is opaque to every reader of this
+# repository: a diff shows nothing, a review shows nothing, and the identifier
+# scan cannot decode it. Measured on 2026-09-08 with a 353 byte .xlsx staged
+# under examples/: every pre-commit hook passed or skipped it, and the suite
+# reddened only by accident, on the control-byte scan and on the shipped-
+# surface checker's undecodable count, neither of which names the class or
+# tells the user what the file is not allowed to be.
+#
+# Refused BY EXTENSION, like geometry, so a plain refusal stands at commit
+# time (the forbid-spreadsheets hook in .pre-commit-config.yaml carries the
+# same set) and here with the mutation proof. `.csv` is deliberately NOT in
+# the set: it is text, a diff and a review can read it, and this repository
+# tracks fixture tables in it. The residual is the same as the geometry
+# guard's, one class narrower.
+SPREADSHEET_SUFFIXES = frozenset({".xlsx", ".xlsm", ".xlsb", ".xls", ".ods"})
+
+#: Tracked paths allowed to carry a spreadsheet extension, each with the
+#: reason it cannot carry proprietary geometry. Measured empty on the day the
+#: guard was written (`git ls-files` matched none of the suffixes), and an
+#: entry joins only with such a reason, never because the file was already
+#: there.
+SPREADSHEET_ALLOWLIST: frozenset[str] = frozenset()
+
+
+def _spreadsheet_offenses(relative_posix_paths):
+    """Tracked paths carrying a spreadsheet extension without an allowlist entry.
+
+    Factored out so the tree scan and the mutation proof run the SAME code,
+    for the reason ``_geometry_offenses`` states.
+    """
+    return sorted(
+        path
+        for path in relative_posix_paths
+        if Path(path).suffix.lower() in SPREADSHEET_SUFFIXES and path not in SPREADSHEET_ALLOWLIST
+    )
+
+
+@pytest.mark.requirement("NFR-14")
+def test_no_spreadsheet_is_tracked_outside_the_allowlist():
+    """OPS-2010.23. A spreadsheet in the public tree is opaque to review and may carry a mesh."""
+    offenders = _spreadsheet_offenses(
+        str(path.relative_to(REPO_ROOT).as_posix()) for path in _tracked_files()
+    )
+    assert not offenders, (
+        "these tracked files are spreadsheets and are not in SPREADSHEET_ALLOWLIST:\n"
+        + "\n".join(offenders)
+        + "\n\nA spreadsheet can carry the point coordinates of a proprietary mesh and "
+        "no diff or review can see it (CONTRIBUTING.md invariant 5, SRS NFR-14, "
+        "OPS-2010.23). Keep it in _private/ and commit the table as .csv, which is "
+        "text a reader can check, or add the path to SPREADSHEET_ALLOWLIST with the "
+        "reason it cannot carry research geometry."
+    )
+
+
+def test_the_spreadsheet_guard_fires_on_what_it_exists_to_catch(monkeypatch):
+    """Mutation proof: the case measured passing every hook, and the guard's own control.
+
+    The leak is refused; a mixed-case suffix is refused, since the hook
+    lowercases nothing and the detector must; every allowlisted path is
+    tracked; a `.csv` and a `.md` pass; and with the suffix set emptied, which
+    is the tree before this guard, the same leak passes, so the refusal comes
+    from the set and not from anything else in the scan.
+    """
+    leak = "examples/leaked_mesh_points.xlsx"
+    assert _spreadsheet_offenses([leak]) == [leak], (
+        "the detector does not fire on a spreadsheet committed under examples/, "
+        "which is the case measured passing every pre-commit hook on 2026-09-08"
+    )
+    assert _spreadsheet_offenses(["docs/Blade.XLSM", "tools/table.ods"]) == [
+        "docs/Blade.XLSM",
+        "tools/table.ods",
+    ]
+    assert _spreadsheet_offenses(sorted(SPREADSHEET_ALLOWLIST)) == []
+    tracked = {str(path.relative_to(REPO_ROOT).as_posix()) for path in _tracked_files()}
+    stale = sorted(SPREADSHEET_ALLOWLIST - tracked)
+    assert not stale, (
+        f"allowlisted paths {stale} are not tracked; remove the entry rather "
+        "than leaving an exemption waiting for a future file of that name"
+    )
+    assert (
+        _spreadsheet_offenses(
+            ["tests/tier1_offline/fixtures/fsi/structural_nodes.csv", "README.md"]
+        )
+        == []
+    )
+    # The control: restore the defect (no suffix set) and the leak passes.
+    monkeypatch.setitem(globals(), "SPREADSHEET_SUFFIXES", frozenset())
+    assert _spreadsheet_offenses([leak]) == [], (
+        "with the suffix set emptied the detector still fires, so the refusal "
+        "above was not coming from the rule this test exists to prove"
+    )
+
+
 # --- The container directory's absolute path (PYFS-023) --------------------
 #
 # The identifier guard above catches an email address and a user-profile path.

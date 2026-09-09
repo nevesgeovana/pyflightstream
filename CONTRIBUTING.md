@@ -32,6 +32,17 @@ refuses something that is an identifier by design, the fix is an
 exemption in that config with the reason written beside it, never a
 narrowing of the scan.
 
+Two guards of the same shape refuse a file class by extension, each
+once at commit time (a `forbid-` hook in `.pre-commit-config.yaml`) and
+once in tier 1 (`tests/tier1_offline/test_house_style.py`, which holds
+the mutation proof): geometry and mesh files (NFR-14), and spreadsheets
+(OPS-2010.23), because a spreadsheet is the container point coordinates
+of a proprietary mesh actually travel in and no diff or review can see
+inside one. Commit a table as `.csv`, which is text. A file that must
+carry one of those extensions joins the allowlist beside the guard with
+the reason it cannot hold research geometry, and the hook's suffix list
+and the test's move together.
+
 `manual` and `plot` are deliberately NOT in it, and the omission is load
 bearing rather than an oversight: those legs are what proves the package
 works for a reader who installed it plainly. One CI leg,

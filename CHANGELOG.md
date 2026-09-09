@@ -35,6 +35,18 @@ FlightStream versions.
   from which `pyfs-qa apply-compat` promoted 13 statuses per build. 26.121 and
   26.122 are named as not covered: no executable of theirs is registered here.
   The sweep was the known gap the 0.10.0 note recorded.
+- **Repository guard: a spreadsheet cannot enter the public tree**
+  (OPS-2010.23). The geometry guard keys on the extensions a mesh travels in
+  and says itself what it cannot see: coordinates in a generic container. A
+  spreadsheet (`.xlsx`, `.xlsm`, `.xlsb`, `.xls`, `.ods`) is that container,
+  opaque to a diff and to a review, and measured before the guard existed a
+  `.xlsx` staged under `examples/` passed every pre-commit hook. A
+  `forbid-spreadsheets` hook refuses the class at commit time and a tier-1
+  walk over every tracked path refuses it in the suite, with a mutation
+  proof that restores the defect and watches the guard deny; the allowlist
+  beside it takes an entry only with the reason written, and was measured
+  empty. `.csv` stays allowed: it is text a reader can check.
+
 - **`pyfs-workspace archive <root> <sim_id>` zips one recorded simulation
   under `archive/`** (OPS-2009.01.10). Two refusals already told the user to
   run it: collecting onto a name already in `raw/`, and starting a point

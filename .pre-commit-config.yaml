@@ -117,6 +117,23 @@ repos:
         # them (test_house_style.SYNTHETIC_LIBRARY); the hook lets that folder
         # through and the guard, which has the mutation proof, judges it.
         exclude: '^(tests/tier1_offline/fixtures/cube\.obj|tests/tier1_offline/goldens/planar_probes\.vtk|tests/tier3_licensed/inputs/geometries/[^/]+\.fsm)$'
+      # Spreadsheets (OPS-2010.23, the same invariant 5 and NFR-14). A
+      # spreadsheet is the generic container point coordinates of a
+      # proprietary mesh actually travel in, and it is opaque to a diff and
+      # to a review. Measured on 2026-09-08 with a .xlsx staged under
+      # examples/: every hook here passed or skipped it. .csv is NOT in the
+      # set, deliberately: it is text a reader can check, and fixture tables
+      # are tracked in it. The tier-1 twin with the mutation proof is
+      # tests/tier1_offline/test_house_style.py (SPREADSHEET_SUFFIXES), and
+      # its allowlist is empty; the two lists move together.
+      - id: forbid-spreadsheets
+        name: forbid spreadsheet files
+        entry: >
+          a spreadsheet can carry proprietary mesh coordinates and no review can
+          see it (invariant 5, NFR-14, OPS-2010.23); keep it in _private/ and
+          commit the table as .csv
+        language: fail
+        files: '(?i)\.(xlsx|xlsm|xlsb|xls|ods)$'
 
       # Guard: the FR-08 clean-room trailer must be a real git trailer, and
       # this fires while the message can still be edited. The tier-1 walk
