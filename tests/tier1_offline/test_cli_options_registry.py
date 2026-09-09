@@ -55,15 +55,18 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     ("pyfs-qa", "fs_versions"): SOLVER,
     ("pyfs-qa", "fs_exe"): SOLVER,
     ("pyfs-qa", "commands"): CASE,
-    ("pyfs-qa", "cases"): CASE,
     ("pyfs-qa", "fsm"): CASE,
+    # physics and drift read a campaign workspace since 0.13.0 (PFS-2031.17)
+    ("pyfs-qa", "workspace"): SUBJECT,
+    ("pyfs-qa", "matrix"): SUBJECT,
+    ("pyfs-qa", "name"): CASE,
+    ("pyfs-qa", "resume"): SWITCH,
     ("pyfs-qa", "label"): CASE,
     ("pyfs-qa", "identity_only"): SWITCH,
     ("pyfs-qa", "include_smi"): SWITCH,
     ("pyfs-qa", "report_dir"): OUTPUT,
     ("pyfs-qa", "report"): SUBJECT,
     ("pyfs-qa", "root"): SUBJECT,
-    ("pyfs-qa", "smi_root"): SUBJECT,
     ("pyfs-qa", "campaign"): SUBJECT,
     ("pyfs-qa", "compare"): SUBJECT,
     ("pyfs-qa", "case"): SUBJECT,
@@ -112,11 +115,8 @@ ALLOWLIST: dict[tuple[str, str], str] = {
 #: under ``option_context`` and the default must move.
 RESOLVED: dict[tuple[str, str, str], tuple[str, object]] = {
     ("pyfs-qa", "probe", "workroot"): ("qa.scratch_root", "probe-root-of-this-test"),
-    ("pyfs-qa", "physics", "workroot"): ("qa.scratch_root", "probe-root-of-this-test"),
     ("pyfs-qa", "drift", "workroot"): ("qa.scratch_root", "probe-root-of-this-test"),
     ("pyfs-qa", "probe", "timeout"): ("qa.probe_timeout_s", 61.5),
-    ("pyfs-qa", "physics", "timeout"): ("qa.case_timeout_s", 61.5),
-    ("pyfs-qa", "drift", "timeout"): ("qa.case_timeout_s", 61.5),
 }
 
 
