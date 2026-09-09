@@ -4344,3 +4344,37 @@ def test_a_rotation_citing_what_the_case_does_not_have_is_refused_naming_it(
     message = str(refused.value)
     assert "ROTATE" in message and fragment in message, message
     assert "NAC" in message or "Blade1" in message or "ANGLE" in message, message
+
+
+def test_the_rotor_motion_reads_the_rotated_prop_mrp(tmp_path):
+    """PFS-2034.03: PROP_MRP named among the auxiliaries is turned before the motion is
+    created, and the motion cites that same frame, so it spins about the pitched axis
+    with nothing else written."""
+    script = Script("26.123")
+    build_script(_pitched_rotor(tmp_path), script)
+    lines = script.render().splitlines()
+    prop = int(lines[lines.index("NAME PROP_MRP") - 1].split()[1])
+    turned = [
+        i
+        for i, line in enumerate(lines)
+        if line == f"FRAME {prop}" and lines[i - 1] == "ROTATE_COORDINATE_SYSTEM"
+    ]
+    motion = lines.index("CREATE_NEW_MOTION ROTARY")
+    assert turned and max(turned) < motion, (turned, motion)
+    cited = [line for line in lines if line.startswith("SET_MOTION_COORDINATE_SYSTEM 1 ")]
+    assert cited == [f"SET_MOTION_COORDINATE_SYSTEM 1 {prop}"], cited
+
+
+def test_a_rotation_of_the_blades_without_the_axis_frame_warns_naming_it(tmp_path):
+    """PFS-2034.03: turning the blades and not the frame they spin about is a physics
+    call the row may mean, so it warns naming the frame rather than refusing; naming
+    PROP_MRP, or turning a family that does not spin, warns nothing."""
+    blades_only = [{"ANGLE": "3", "AXIS": "NAC-Y", "FAMILIES": "Blade1"}]
+    with pytest.warns(PyflightstreamWarning, match="PROP_MRP") as caught:
+        build_script(_pitched_rotor(tmp_path, rotations=blades_only), Script("26.123"))
+    assert any("AUX_FRAMES" in str(w.message) for w in caught), [str(w.message) for w in caught]
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", PyflightstreamWarning)
+        build_script(_pitched_rotor(tmp_path), Script("26.123"))
+        nacelle = [{"ANGLE": "3", "AXIS": "NAC-Y", "FAMILIES": "N"}]
+        build_script(_pitched_rotor(tmp_path, rotations=nacelle), Script("26.123"))

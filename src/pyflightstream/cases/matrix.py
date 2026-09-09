@@ -934,6 +934,17 @@ def read_matrix(path: str | Path, *, active_only: bool = True) -> list[MatrixRow
         variables = _parse_variables(record["VAR_NAMES_VALUES"])
         motions = _parse_motions(variables, record["POL"])
         rotations = _parse_rotations(variables, record["POL"])
+        if rotations and record["WORKFLOW"] == LEGACY_WORKFLOW:
+            # A LEGACY row is built by its recipe, which is the reader of
+            # its keys (her rule of 2026-09-08, design 68) and reads no
+            # rotation, so the list would be dropped in silence
+            # (PFS-2034.03). Refused here, where the cell is read.
+            raise MatrixError(
+                f"POL {record['POL']} writes LEGACY and states {ROTATE_VARIABLE}; a LEGACY row "
+                "is built by its own recipe, which reads no rotation, so the list would turn "
+                "nothing. Name a run type in the WORKFLOW column (steady, unsteady, "
+                "unsteady_rotor), which rotates what the records name, or drop the key."
+            )
         row = MatrixRow(
             # From the enumerate above, so it is assigned before the RUN
             # filter below and an inactive row does not shift the numbers

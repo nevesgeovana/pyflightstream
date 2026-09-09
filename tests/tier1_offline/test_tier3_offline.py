@@ -21,6 +21,7 @@ import sys
 import pytest
 
 from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning
+from pyflightstream.cases.matrix import MatrixError
 from pyflightstream.cases.workflows import workflow_registry
 from pyflightstream.run.matrix import plan_matrix
 from pyflightstream.workspace import CampaignWorkspace
@@ -759,3 +760,34 @@ def test_a_rotation_naming_a_family_the_inventory_lacks_is_blocked_naming_the_ce
     reason = str(plan.blocked[0].error)
     assert "ROTATE" in reason and "NoSuchFamily" in reason, reason
     assert "declares" in reason and "Blade" in reason, reason
+
+
+def test_a_rotation_naming_an_unknown_frame_is_refused(tmp_path):
+    """PFS-2034.03: an AXIS or AUX_FRAMES frame nothing defined blocks the row at plan
+    time naming the token and the frames the case does define."""
+    root, matrix = _rotor_row_on_a_setup_with_nac(tmp_path, ROTATE_TWO.replace("NAC-Z", "TAIL-Z"))
+    plan, _ = _rendered(root, matrix)
+    assert plan.blocked, "a rotation about a frame nothing defined planned READY"
+    reason = str(plan.blocked[0].error)
+    assert "ROTATE" in reason and "TAIL" in reason, reason
+    assert "NAC" in reason and "PROP_MRP" in reason, reason
+
+
+def test_a_rotation_axis_not_of_the_form_frame_axis_is_refused(tmp_path):
+    """PFS-2034.03: the axis token is refused when the matrix is read, naming the POL,
+    so no point of the row is ever planned."""
+    root, matrix = _rotor_row_on_a_setup_with_nac(tmp_path, ROTATE_TWO.replace("NAC-Y", "NACY"))
+    with pytest.raises(MatrixError, match="POL 1020.*ROTATE.*NACY.*frame-axis"):
+        _rendered(root, matrix)
+
+
+def test_a_rotation_on_a_legacy_row_is_refused(tmp_path):
+    """PFS-2034.03: a LEGACY row is built by its recipe, which reads no rotation, so the
+    variable on it is refused when the matrix is read rather than silently dropped."""
+    root = _tier3_copy(tmp_path)
+    legacy = next(
+        line for line in TOUR.read_text(encoding="utf-8").splitlines() if "| LEGACY " in line
+    )
+    matrix = _one_row_matrix(root, "legacy_rotate.fs", legacy.rstrip() + ROTATE_TWO)
+    with pytest.raises(MatrixError, match="LEGACY.*ROTATE|ROTATE.*LEGACY"):
+        _rendered(root, matrix)

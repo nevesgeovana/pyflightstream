@@ -3333,6 +3333,7 @@ def _rotations(
     script: Script,
     named: Mapping[str, int | None],
     followers: Mapping[str, Sequence[int]] | None = None,
+    spinning: Mapping[str, Sequence[int]] | None = None,
 ) -> None:
     """Rotate the mesh families the row's ``ROTATE`` records name, in the order written.
 
@@ -3351,6 +3352,14 @@ def _rotations(
     listed in ``followers``) turns with it, because it was placed from
     that frame and would otherwise be left behind by the incidence the
     row states. A row without the variable emits nothing.
+
+    ``spinning`` maps a frame's name to the boundaries whose motion turns
+    about it (``PROP_MRP`` to the blades on a flat rotor row, ``PROP_MRP<k>``
+    to record k's on a ``MOTIONS`` row). A record that turns any of those
+    boundaries and does not name that frame among its auxiliaries turns
+    the blades and leaves the axis they spin about where it was: a
+    physics call the row may mean, so it WARNS naming the frame rather
+    than refusing (PFS-2034.03).
     """
     if not case.rotations:
         return
@@ -3395,9 +3404,23 @@ def _rotations(
         helpers.rotate_surfaces(
             script, frame=frame, axis=axis, angle_deg=angle, boundaries=sorted(boundaries)
         )
-        for aux_name in (part.strip() for part in record.get("AUX_FRAMES", "").split(",")):
-            if not aux_name:
-                continue
+        aux_names = [part.strip() for part in record.get("AUX_FRAMES", "").split(",")]
+        aux_names = [name for name in aux_names if name]
+        for spun_about, spun in (spinning or {}).items():
+            turned_blades = sorted(set(boundaries) & set(spun))
+            if turned_blades and spun_about not in aux_names:
+                warnings.warn(
+                    f"case {case.sim_id!r} states {ROTATE_VARIABLE} turning "
+                    f"{_named_boundaries(turned_blades, labels)} by {angle} degrees about "
+                    f"{token} and does not name {spun_about} among its AUX_FRAMES, so the "
+                    "blades turn and the axis they spin about stays where it was. If the "
+                    f"incidence is meant for the rotor, add AUX_FRAMES: {spun_about} to the "
+                    "record; if the blades alone are meant to turn, this is your call and "
+                    "the script does what the row says.",
+                    PyflightstreamWarning,
+                    stacklevel=3,
+                )
+        for aux_name in aux_names:
             aux = _rotation_frame(case, aux_name, frames, "AUX_FRAMES")
             turned = [aux, *((followers or {}).get(aux_name, ()))]
             for index in turned:
@@ -3408,6 +3431,12 @@ def _rotations(
                     rotation_axis=axis,
                     angle=angle,
                 )
+
+
+def _named_boundaries(indices: Sequence[int], labels: Mapping[str, int]) -> str:
+    """Return the labels of ``indices`` in that order, quoted, for a message."""
+    by_index = {index: name for name, index in labels.items()}
+    return ", ".join(repr(by_index.get(index, str(index))) for index in indices)
 
 
 def _frame_names(frames: Mapping[str, int]) -> str:
@@ -3425,6 +3454,14 @@ def _rotation_frame(case: SimCase, name: str, frames: Mapping[str, int], key: st
         f"defines are {_frame_names(frames)}. A setup preset defines one in its [[frames]] "
         "table, and MRP and PROP_MRP are the package's own."
     )
+
+
+def _blade_indices(case: SimCase, script: Script) -> list[int]:
+    """Return the boundary indices of the blade families, by the pproc's own test or the default."""
+    pproc = case.pproc
+    is_blade = pproc.is_blade if pproc is not None else _default_is_blade
+    labels = script.entities.labels("boundaries")
+    return sorted(index for name, index in labels.items() if is_blade(name))
 
 
 def _blade_frames(case: SimCase, script: Script, prop_frame: int) -> dict[str, int]:
@@ -4301,6 +4338,7 @@ def _build_unsteady_rotor(case: SimCase, script: Script, conventions: WorkflowCo
         script,
         {"MRP": frame, "PROP_MRP": prop_frame, **setup_frames},
         followers={"PROP_MRP": sorted(blade_frames.values())},
+        spinning={"PROP_MRP": _blade_indices(case, script)},
     )
     _pproc_plots(case, script, frames)
     _significant_digits(case, script)
@@ -4400,11 +4438,24 @@ def _rotor_motions(
     # its hub frame the way the blade axes follow PROP_MRP (PFS-2034.02).
     named: dict[str, int | None] = {"MRP": frame, "PROP_MRP": prop_frame, **setup_frames}
     followers: dict[str, list[int]] = {}
-    for number, (hub, axis) in enumerate(zip(hubs, moving, strict=True), start=1):
+    spinning: dict[str, list[int]] = {}
+    labels = script.entities.labels("boundaries")
+    for number, (hub, axis, view) in enumerate(zip(hubs, moving, views, strict=True), start=1):
         named[f"PROP_MRP{number}"] = hub
         named[f"RotorAxis{number}"] = axis
         followers[f"PROP_MRP{number}"] = [axis]
-    _rotations(case, script, named, followers=followers)
+        cell = str(_variable(view, MOVING_BOUNDARIES_VARIABLE) or "")
+        # Names only: a token that is not a name is the motion's own to
+        # refuse or warn about, when it is emitted below.
+        spinning[f"PROP_MRP{number}"] = sorted(
+            {
+                index
+                for token in cell.split(",")
+                if token.strip()
+                for index in resolve_family(token.strip(), labels)
+            }
+        )
+    _rotations(case, script, named, followers=followers, spinning=spinning)
     _pproc_plots(case, script, frames)
     _significant_digits(case, script)
     helpers.free_stream(script)

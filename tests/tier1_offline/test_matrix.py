@@ -1557,7 +1557,10 @@ def test_a_rotate_list_reaches_the_row_and_the_case(tmp_path):
     text = FIXTURE.read_text(encoding="utf-8")
     header, rule, first = text.splitlines()[:3]
     cells = first.split("|")
-    cells[-1] = cells[-1].rstrip() + " / ROTATE: {ANGLE: 3 / AXIS: NAC-Y / FAMILIES: S}"
+    # The fixture row is LEGACY, whose recipe reads no rotation, and a
+    # workflow row decides its own exports, so the cell is rewritten whole.
+    cells[-2] = " steady "
+    cells[-1] = " GEOMETRY: wb.fsm / ROTATE: {ANGLE: 3 / AXIS: NAC-Y / FAMILIES: S}"
     path = tmp_path / "rotate.fs"
     path.write_text("\n".join([header, rule, "|".join(cells)]) + "\n", encoding="utf-8")
     row = read_matrix(path, active_only=False)[0]
@@ -1567,3 +1570,17 @@ def test_a_rotate_list_reaches_the_row_and_the_case(tmp_path):
         path, name="m", fs_version="26.123", fs_exe="C:/fs.exe", recipes=RECIPES
     ).sims[0]
     assert case.rotations == row.rotations
+
+
+def test_a_rotate_list_on_a_legacy_row_is_refused_naming_the_pol(tmp_path):
+    """PFS-2034.03: the recipe of a LEGACY row is the reader of its keys and reads no
+    rotation, so the list on such a row is refused when the matrix is read."""
+    text = FIXTURE.read_text(encoding="utf-8")
+    header, rule, first = text.splitlines()[:3]
+    cells = first.split("|")
+    assert cells[-2].strip() == "LEGACY", cells[-2]
+    cells[-1] = cells[-1].rstrip() + " / ROTATE: {ANGLE: 3 / AXIS: NAC-Y / FAMILIES: S}"
+    path = tmp_path / "legacy.fs"
+    path.write_text("\n".join([header, rule, "|".join(cells)]) + "\n", encoding="utf-8")
+    with pytest.raises(MatrixError, match="POL 9001.*LEGACY.*ROTATE"):
+        read_matrix(path, active_only=False)

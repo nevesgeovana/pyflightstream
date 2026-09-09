@@ -53,6 +53,19 @@ FlightStream versions.
   whether the solver accepts the rotation after the frame is the seat
   run's measurement (PFS-2034.05). The chapter test emits its rotation
   sample last and its golden moved with it, byte for byte otherwise.
+- **The rotation's refusals, and the rotor axis turning with its blades**
+  (PFS-2034.03). `ROTATE` on a `LEGACY` row is refused when the matrix is
+  read, naming the POL, because that row's recipe reads its keys and
+  reads no rotation, so the list would have turned nothing in silence; a
+  frame nothing defined and an axis token of another shape block the row
+  at plan time naming what the case does define (tests pinned at the
+  tier-3 workspace). `PROP_MRP` named among the auxiliaries is turned
+  before the motion is created and the motion cites that same frame, so
+  it spins about the pitched axis. A rotor row that turns its blades and
+  does not name the frame they spin about warns naming the frame, and is
+  not refused: the blades alone turning is a call the row may mean. RED
+  on d665201: the LEGACY row read fine, the blades-only row warned
+  nothing.
 
 ## [0.13.1] - 2026-09-09
 

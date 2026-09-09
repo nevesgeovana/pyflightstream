@@ -1216,7 +1216,8 @@ stating `angle_sweep_deg` is refused as it always was.
 
 A family the geometry lacks, a frame nothing defined, an axis token not of
 the form `frame-axis`, a record missing one of its three keys or carrying a
-key a rotation does not read, and an angle that is not a number are each
+key a rotation does not read, an angle that is not a number, and the key on
+a `LEGACY` row (whose recipe reads its keys and reads no rotation) are each
 refused at `pyfs-matrix plan` naming the row, and the first two name what
 the case DOES define:
 
@@ -1227,6 +1228,12 @@ name or family; it declares 'Blade1', 'S', 'N'. Write one of those, or a
 family name (the label without its trailing number) to select every member
 the file carries.
 ```
+
+A rotor row that turns its blades and does not name the frame they spin
+about among the auxiliaries (`PROP_MRP` on a flat row, `PROP_MRP1` and so
+on for the records of a `MOTIONS` row) is accepted and WARNS naming the
+frame: the blades turn and the axis stays, which is a physics call the row
+may mean, so it is not refused.
 
 What the solver does with the rotated mesh is the measurement of the seat
 run her study books (PFS-2034.05): the package emits the rotation the
