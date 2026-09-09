@@ -81,7 +81,7 @@
   },
   {
    "id": "FR-07",
-   "text": "A raw-emission escape hatch allows arbitrary lines, and its use is recorded in the run manifest, so no run silently depends on unvalidated commands.",
+   "text": "Read with PFS-2033.01, PFS-2033.02 and PFS-2033.03 at 0.14.0 (GOAL-013): a setup artifact states raw solver commands before a named phase, each through the emitter's own checks; the run record and the provenance carry the lines the script took, and one tier-3 row on a registered build proves the record.",
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: BRF-12. Evidence: milestone M2; the manifest raw flag.*",
@@ -185,7 +185,7 @@
   },
   {
    "id": "FR-19",
-   "text": "Every campaign writes runs.json recording per run: identity, case point, versions and build, package version, input and script hashes, status, iterations, residual, wall time, outputs, and error text. Folder names are never authoritative.",
+   "text": "Read with PFS-2033.02 at 0.14.0 (GOAL-013): the record gains raw_commands, the setup's raw lines the script carried, absent on older records and read as empty.",
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: PP-6. Evidence: milestone M2; manifest tests; extended by FR-31.*",
@@ -337,7 +337,7 @@
   },
   {
    "id": "FR-31",
-   "text": "The solver settings helper is the single entry point for every solver flag and returns a snapshot recording each flag's effective value with provenance: explicit, evidence-cited default, or unknown (never guessed). The snapshot rides the manifest, and a script can be regenerated from it. The set of physics-material flags carried as unknown is confirmed complete per supported version, and the confirmation is recorded in that version's compatibility report.",
+   "text": "Read with PFS-2033.01 and PFS-2034.01 at 0.14.0 (GOAL-013): a setup artifact defines custom coordinate systems and raw solver commands, both consumed out of its settings, so the snapshot of solver flags stays what it was and the raw lines are recorded beside it rather than inside it.",
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: usage feedback. Evidence: the v0.3 line; snapshot round-trip tests. Evidence for the remaining unknown defaults is <span class='srs-deferred'>deferred</span> to the licensed queue.*",
@@ -441,7 +441,7 @@
   },
   {
    "id": "FR-35",
-   "text": "Read with PFS-2031.03, PFS-2031.04, PFS-2031.05, PFS-2031.06, PFS-2031.07, PFS-2031.12, PFS-2031.14 and PFS-2031.20 at 0.13.0 (GOAL-012): the tier-3 folder is a workspace, several matrices share it with their own plan, sweep and products under post/<matrix>/, every token the package defines is a row that plans offline and runs on the licensed machine, an executable override with no default version is refused naming the option, and the matrix identity of a campaign and a record is matrix_stem.",
+   "text": "Read with PFS-2034.01, PFS-2034.02, PFS-2034.03, PFS-2034.04 and PFS-2034.05 at 0.14.0 (GOAL-013): the row turns the mesh (ROTATE, a list of records in the order written, one row per angle), the setup defines the frames the row cites, the refusals name the cell, and her seat run measures the rotated propeller on the solver.",
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: usage feedback, amending the posture of FR-10/FR-11. Evidence: the v0.3 line; resolution hit and miss tests.*",
@@ -497,7 +497,7 @@
   },
   {
    "id": "FR-42",
-   "text": "The package states the reference-frame and sign conventions for reported forces, moments, and rotor quantities, naming the positive axis directions, the moment reference point, and the rotor-rotation sign, and every coefficient the results layer emits conforms to them.",
+   "text": "Read with PFS-2028.09 at 0.14.0 (GOAL-013): the sense of rotation derived into the reference of her record is hers to confirm, and it is asked in writing rather than decided.",
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: Phase 4 review, accepted 2026-07-27. Evidence: reference.CONVENTIONS, rendered offline and on the docs site from one source; tests/tier1_offline/test_conventions.py. The implemented status covers the STATING half: the conventions are published from one home and guarded there. That every emitted coefficient conforms to them is asserted by no test, and saying so here is the alternative to a badge that implies one.*",
@@ -521,7 +521,7 @@
   },
   {
    "id": "FR-45",
-   "text": "The manifest record rejects unknown fields and duplicate run identifiers; its field set is fixed and validated at construction.",
+   "text": "Read with PFS-2033.02 at 0.14.0 (GOAL-013): the strict record gains one field, raw_commands, and the manifest schema stays at 3 because an absent key reads as an empty list.",
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: the C5 acceptance, 2026-07-27. Evidence: both halves pinned in tests/tier1_offline/test_workspace.py, the unknown-field refusal by a test added with this consolidation after review found the clause resting on a model-config line no assertion observed.*",
@@ -569,7 +569,7 @@
   },
   {
    "id": "FR-51",
-   "text": "Every point of a workflow campaign leaves, beside the loads table and the log it leaves today, the saved simulation, the tecplot export, the surface sections, the surface sectional loads and the probe points, and an unsteady point additionally its unsteady plots; the sections, sectional loads and probe points are updated and computed before they are exported, so no export is of a previous state; the saved simulation is written first, as the author's driver did; a post-processing artifact may deselect a kind; a kind whose command carries no row on the row's build is refused at pre-flight naming the build; and every export is named after the point in the author's convention, POLAR-{pol}_M{mach}AL{alpha}BE{beta} with a J{ratio} suffix for a rotor point, so two rows differing only in Mach or in advance ratio never render one name.",
+   "text": "Read with PFS-2031.18.01 and PFS-2034.05 at 0.14.0 (GOAL-013): the stamped per-step exports of a windowed point are tabled as a series under the matrix's products, and her seat run reads them for the rotated propeller.",
    "priority": "M",
    "status": "pending",
    "evidence": "*Origin: the author's run log of 2026-09-02 and her master's driver, which exported eight kinds per point and named every file for the point it came from. Carried by PFS-2029.14 and its children, PFS-2029.18 and PFS-2029.19 and its children. Evidence owed: the export goldens and the script-parity arm of GOAL-011.*",
@@ -577,7 +577,7 @@
   },
   {
    "id": "FR-52",
-   "text": "The artifact kind group becomes pproc, kept under inputs/pproc with ids p###, and carries the whole post-processing definition of a study in six tables: the boundary groups, the export kinds a point writes, the surface-section distributions, the unsteady force plots, the probe lines, and the products the campaign writes; a matrix row names the artifact in its PPROC column, which replaces ENTRY, and the OUTPUTS and LOG_OUTPUT cells leave the row; the builders consume the definition, emitting one section distribution per family and plane, one force plot per group and frame, and one fluid plot per probe vertex and parameter; and a post-processing stage runs inside the campaign after each case's outputs are collected, writing the products under post/ and naming them in the manifest, with pyfs-matrix post re-running the stage from the manifest alone. A setup artifact carries solver settings only, and a setup key naming post-processing is refused pointing at the pproc artifact.",
+   "text": "Read with PFS-2031.18.01 and PFS-2015.04.01 at 0.14.0 (GOAL-013): the series tables join the products beside the reductions, and the blade count of a sector is read from PERIODIC_COPIES when BLADES is absent, so the per-blade reductions of her isolated propeller are written.",
    "priority": "M",
    "status": "pending",
    "evidence": "*Origin: the author's item #3 of 2026-09-02 and her decision of the same day that the groups artifact becomes pproc, and her clarification that post-processing means both the data treatment and the files and data types available. Carried by PFS-2029.07 and its children, PFS-2029.15 and its children, and PFS-2029.16. Evidence owed: the tests each node names and the offline parity arm of GOAL-011.*",
@@ -585,7 +585,7 @@
   },
   {
    "id": "FR-53",
-   "text": "One recorded point per registered run type of the author's master's campaign, run on the solver build that produced the record, is reproduced by a workspace the package plans with nothing on the command line: the emitted script differs from the recorded script only on an enumerated allow-list of paths, comments, scene verbs and edition grammar; the run leaves the same export set under the same names; the package's post-processing, fed the author's recorded exports, writes her plot-format products equal to hers except the timestamp line; and the reproduced loads are compared coefficient by coefficient against the recorded ones with the solver's own measured repeatability as the arbiter of any difference.",
+   "text": "Read with PFS-2028.08 at 0.14.0 (GOAL-013): the installed full model of her record is one row whose symmetry, rotation sign and moving boundaries are asked in writing and run on her seat.",
    "priority": "M",
    "status": "pending",
    "evidence": "*Origin: the author's instruction of 2026-09-02, \"nao para ate reproduzir EXATAMENTE corridas selecionadas que fiz no meu script do mestrado, com posproc e tudo\", and her clarification that the guarantee she wants is that exactly the same post-processing is produced. Carried by PFS-2030.01 to PFS-2030.07, under PFS-2030. Evidence owed: GeoversePlan/goals/check_goal_011.py, item one of GOAL-011.*",
@@ -601,7 +601,7 @@
   },
   {
    "id": "FR-55",
-   "text": "The GEOMETRY cell of a matrix row carries a file name with its extension, a bare stem being refused naming the files that carry it, so that a saved simulation and a bare mesh are told apart by the row and not guessed; in this release the builders accept a saved simulation and refuse a mesh file naming the release that defines its boundary conditions; a geometry's boundary inventory has one source, the geometry file, with an optional sidecar written by pyfs-matrix inventory and never by a run, and a sidecar that disagrees with the file is refused naming both; mesh_order_list is refused in a setup rather than recorded; and a row or artifact may name the mesh families the base-region autodetect is allowed to consider.",
+   "text": "Read with PFS-2034.02 and PFS-2034.03 at 0.14.0 (GOAL-013): the rotation's families resolve by name against the geometry's inventory, never by index, and a name the inventory lacks is refused naming the cell.",
    "priority": "M",
    "status": "pending",
    "evidence": "*Origin: the author's items #2 and #6 of 2026-09-02. Carried by PFS-2029.06 and its children, PFS-2029.09 and its children, and PFS-2029.10. Evidence owed: the tests each node names. AMENDS FR-33a's resolution of a geometry by stable id, and the acceptance sentence of PFS-2009.01, in the same change.*",
@@ -609,7 +609,7 @@
   },
   {
    "id": "FR-56",
-   "text": "The reference artifact carries the propeller diameter and no radius, refusing a file that states both with values that disagree; and it carries no blade_travel, rotation, rpm_sign_installed or rpm_sign_isolated, because the hand of a rotor is a property of the mesh a row opens and is stated in the row, a file still carrying them being refused naming the row keys.",
+   "text": "Read with PFS-2028.09 at 0.14.0 (GOAL-013): the sign the reference's derived rotation produced for her rows is hers to confirm.",
    "priority": "M",
    "status": "pending",
    "evidence": "*Origin: the author's items #4 and #5 of 2026-09-02. Carried by PFS-2029.05 and PFS-2029.08. Evidence owed: the tests each node names.*",
@@ -617,7 +617,7 @@
   },
   {
    "id": "FR-57",
-   "text": "A matrix row states its motions as a list of records in one cell, each record carrying its moving boundaries, its rotor speed sign, its axis and its origin point, the cell parser reading one level of nesting; a row with the flat single-motion keys of 0.10.1 reads unchanged; each motion creates its own fixed frame at its named point and its own moving frame that follows it, with its own motion block in the script; and a reference point declares that it is an engine point explicitly, a motion naming a point of another kind being refused.",
+   "text": "Read with PFS-2028.08 and PFS-2015.04.01 at 0.14.0 (GOAL-013): the installed model's row is hers to state, and a sector meshed as one blade takes its blade count from its periodic copies.",
    "priority": "M",
    "status": "pending",
    "evidence": "*Origin: the author's item #4 of 2026-09-02, the multirotor syntax. Carried by PFS-2029.11 and its children. Evidence owed: the tests each node names.*",

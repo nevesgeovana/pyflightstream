@@ -165,6 +165,8 @@ Milestones and session records are listed in the
 !!! requirement "FR-07 Recorded escape hatch <span class='srs-implemented'>implemented</span>"
     *Origin: BRF-12. Evidence: milestone M2; the manifest raw flag.*
 
+    Read with PFS-2033.01, PFS-2033.02 and PFS-2033.03 at 0.14.0 (GOAL-013): a setup artifact states raw solver commands before a named phase, each through the emitter's own checks; the run record and the provenance carry the lines the script took, and one tier-3 row on a registered build proves the record.
+
     A raw-emission escape hatch allows arbitrary lines, and its use
     is recorded in the run manifest, so no run silently depends on
     unvalidated commands.
@@ -381,6 +383,8 @@ Milestones and session records are listed in the
     *Origin: PP-6. Evidence: milestone M2; manifest tests; extended
     by FR-31.*
 
+    Read with PFS-2033.02 at 0.14.0 (GOAL-013): the record gains `raw_commands`, the setup's raw lines the script carried, absent on older records and read as empty.
+
     Every campaign writes `runs.json` recording per run: identity,
     case point, versions and build, package version, input and script
     hashes, status, iterations, residual, wall time, outputs, and
@@ -586,6 +590,8 @@ the session records.
     round-trip tests. Evidence for the remaining unknown defaults is
     <span class='srs-deferred'>deferred</span> to the licensed queue.*
 
+    Read with PFS-2033.01 and PFS-2034.01 at 0.14.0 (GOAL-013): a setup artifact defines custom coordinate systems and raw solver commands, both consumed out of its settings, so the snapshot of solver flags stays what it was and the raw lines are recorded beside it rather than inside it.
+
     The solver settings helper is the single entry point for every
     solver flag and returns a snapshot recording each flag's
     effective value with provenance: explicit, evidence-cited
@@ -644,6 +650,8 @@ the session records.
 !!! requirement "FR-35 Matrix as first-class interface <span class='srs-implemented'>implemented</span>"
     *Origin: usage feedback, amending the posture of FR-10/FR-11.
     Evidence: the v0.3 line; resolution hit and miss tests.*
+
+    Read with PFS-2034.01, PFS-2034.02, PFS-2034.03, PFS-2034.04 and PFS-2034.05 at 0.14.0 (GOAL-013): the row turns the mesh (`ROTATE`, a list of records in the order written, one row per angle), the setup defines the frames the row cites, the refusals name the cell, and her seat run measures the rotated propeller on the solver.
 
     Read with PFS-2031.03, PFS-2031.04, PFS-2031.05, PFS-2031.06, PFS-2031.07, PFS-2031.12, PFS-2031.14 and PFS-2031.20 at 0.13.0 (GOAL-012): the tier-3 folder is a workspace, several matrices share it with their own plan, sweep and products under post/<matrix>/, every token the package defines is a row that plans offline and runs on the licensed machine, an executable override with no default version is refused naming the option, and the matrix identity of a campaign and a record is matrix_stem.
 
@@ -1244,6 +1252,8 @@ the base could not offer while it bundled several.
     them is asserted by no test, and saying so here is the alternative
     to a badge that implies one.*
 
+    Read with PFS-2028.09 at 0.14.0 (GOAL-013): the sense of rotation derived into the reference of her record is hers to confirm, and it is asked in writing rather than decided.
+
     *Amended 2026-08-19. The rotor half of this requirement was badged
     implemented while `CONVENTIONS` carried no rotor entry at all: the
     sign a reader was told is published was published nowhere, and a
@@ -1314,6 +1324,8 @@ The allocation is recorded in the
     pinned in `tests/tier1_offline/test_workspace.py`, the unknown-field refusal by a
     test added with this consolidation after review found the clause
     resting on a model-config line no assertion observed.*
+
+    Read with PFS-2033.02 at 0.14.0 (GOAL-013): the strict record gains one field, `raw_commands`, and the manifest schema stays at 3 because an absent key reads as an empty list.
 
     The manifest record rejects unknown fields and duplicate run
     identifiers; its field set is fixed and validated at construction.
@@ -1482,6 +1494,8 @@ nodes.
     PFS-2029.18 and PFS-2029.19 and its children. Evidence owed: the
     export goldens and the script-parity arm of GOAL-011.*
 
+    Read with PFS-2031.18.01 and PFS-2034.05 at 0.14.0 (GOAL-013): the stamped per-step exports of a windowed point are tabled as a series under the matrix's products, and her seat run reads them for the rotated propeller.
+
     Every point of a workflow campaign leaves, beside the loads table and
     the log it leaves today, the saved simulation, the tecplot export, the
     surface sections, the surface sectional loads and the probe points,
@@ -1511,6 +1525,8 @@ nodes.
     children, PFS-2029.15 and its children, and PFS-2029.16. Evidence
     owed: the tests each node names and the offline parity arm of
     GOAL-011.*
+
+    Read with PFS-2031.18.01 and PFS-2015.04.01 at 0.14.0 (GOAL-013): the series tables join the products beside the reductions, and the blade count of a sector is read from `PERIODIC_COPIES` when `BLADES` is absent, so the per-blade reductions of her isolated propeller are written.
 
     The artifact kind `group` becomes `pproc`, kept under `inputs/pproc`
     with ids `p###`, and carries the whole post-processing definition of a
@@ -1542,6 +1558,8 @@ nodes.
     guarantee she wants is that exactly the same post-processing is
     produced. Carried by PFS-2030.01 to PFS-2030.07, under PFS-2030. Evidence owed:
     `GeoversePlan/goals/check_goal_011.py`, item one of GOAL-011.*
+
+    Read with PFS-2028.08 at 0.14.0 (GOAL-013): the installed full model of her record is one row whose symmetry, rotation sign and moving boundaries are asked in writing and run on her seat.
 
     One recorded point per registered run type of the author's master's
     campaign, run on the solver build that produced the record, is
@@ -1603,6 +1621,8 @@ nodes.
     resolution of a geometry by stable id, and the acceptance sentence of
     PFS-2009.01, in the same change.*
 
+    Read with PFS-2034.02 and PFS-2034.03 at 0.14.0 (GOAL-013): the rotation's families resolve by name against the geometry's inventory, never by index, and a name the inventory lacks is refused naming the cell.
+
     The `GEOMETRY` cell of a matrix row carries a file name with its
     extension, a bare stem being refused naming the files that carry it,
     so that a saved simulation and a bare mesh are told apart by the row
@@ -1624,6 +1644,8 @@ nodes.
     *Origin: the author's items #4 and #5 of 2026-09-02. Carried by
     PFS-2029.05 and PFS-2029.08. Evidence owed: the tests each node names.*
 
+    Read with PFS-2028.09 at 0.14.0 (GOAL-013): the sign the reference's derived rotation produced for her rows is hers to confirm.
+
     The reference artifact carries the propeller diameter and no radius,
     refusing a file that states both with values that disagree; and it
     carries no `blade_travel`, `rotation`, `rpm_sign_installed` or
@@ -1640,6 +1662,8 @@ nodes.
     *Origin: the author's item #4 of 2026-09-02, the multirotor syntax.
     Carried by PFS-2029.11 and its children. Evidence owed: the tests each
     node names.*
+
+    Read with PFS-2028.08 and PFS-2015.04.01 at 0.14.0 (GOAL-013): the installed model's row is hers to state, and a sector meshed as one blade takes its blade count from its periodic copies.
 
     A matrix row states its motions as a list of records in one cell, each
     record carrying its moving boundaries, its rotor speed sign, its axis
