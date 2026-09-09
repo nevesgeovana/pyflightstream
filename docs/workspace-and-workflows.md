@@ -1507,6 +1507,34 @@ exports: the exports begin AFTER a threshold, in her definition, and the
 `WINDOW_*` keys keep their one job, the averaging window of the
 reductions.
 
+**The stamped files as a series** (since 0.14.0, PFS-2031.18.01). Thirty
+seven spreadsheets are not a history until something tables them, so the
+products stage writes, per windowed point, one table per export kind
+under `post/<matrix>/series/`:
+
+```text
+post/matriz/series/POLAR-7001_M10AL+000BE+000J+170_loads_series.csv
+post/matriz/series/POLAR-7001_M10AL+000BE+000J+170_sections_series.csv
+post/matriz/series/POLAR-7001_M10AL+000BE+000J+170_probes_series.csv
+```
+
+Every table leads with `step`, `time_s` and `azimuth_deg`, the step's
+time and azimuth computed from the clock the run record carries
+(`export_window.delta_time_s` and `step_deg`, written by the run since
+0.14.0) by the same arithmetic the counter program runs on the machine,
+so the two agree by construction; a record written before the clock
+leaves the time blank and reads the azimuth off its reductions plan. The
+loads series is wide, one row per step and one column per surface and
+coefficient (`Total_CL`, `Blade1_CMx`, ...); the sections and the probes
+series are long, one row per step and section or probe, with the
+export's own columns. A run defining no section or no probe gets the
+table's header and nothing under it. A step the solver never stamped is
+absent and the `products.json` entry says which steps were tabled; the
+Tecplot and the `_cp` files of the window are listed there by path and
+not tabled, since they are the solver's own formats. The series rest on
+the stamped files and the record alone, so a simulation whose polar the
+stage refuses keeps them.
+
 ### The build is an input
 
 A workflow declares the commands it always emits, and the builds it

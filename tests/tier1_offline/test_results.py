@@ -141,6 +141,28 @@ def test_parse_probe_points_reads_the_fixture():
     assert "vtot" in report.fields() and "X" not in report.fields()
 
 
+def test_a_probe_export_declaring_no_point_reads_as_an_empty_table():
+    """PFS-2031.18.01, found on her workspace on 2026-09-09: a run defining no probe
+    point exports the header, the count 0 and the opening and closing dashed
+    lines with nothing between them, which is a complete table of no rows and not
+    a file cut mid-table. Measured on the solver's own files (every stamped
+    probes file of her rows 1226 and 5913); this text is the fixture with its
+    twelve rows removed and its count set to 0, the same shape."""
+    text = read_fixture("probe_points_26.120.txt")
+    lines = text.splitlines(keepends=True)
+    header = next(i for i, line in enumerate(lines) if line.strip().startswith("X, Y, Z,"))
+    closing = next(i for i in range(header + 2, len(lines)) if lines[i].strip().startswith("----"))
+    empty = "".join(lines[: header + 2] + lines[closing:]).replace(
+        "Number of Probe Points:                     12",
+        "Number of Probe Points:                     0",
+    )
+    report = parse_probe_points(empty)
+    assert report.count == 0
+    assert report.columns[:3] == ("X", "Y", "Z") and report.columns[-1] == "Transition"
+    assert report.values.shape == (0, len(report.columns))
+    assert report.current_iteration == 58
+
+
 def test_parse_probe_points_checks_completeness_and_version():
     text = read_fixture("probe_points_26.120.txt")
     truncated = text[: text.index("Force Units")]

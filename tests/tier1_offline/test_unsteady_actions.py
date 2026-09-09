@@ -249,6 +249,38 @@ RUNS_THE_COUNTER_FOUR_TIMES = (
 )
 
 
+#: What the solver does after each action on 26.123 (RPT-041 finding 3), as
+#: a stub: when the rewritten script carries the exports, the loads file it
+#: names is written as ``<name>_iteration=<count>.txt`` from a fixture, the
+#: count read off the counter's own state file.
+STAMPING_PROGRAM = (
+    "import json\n"
+    "fixture = pathlib.Path(FIXTURE_PATH).read_text()\n"
+    "exports = pathlib.Path('actions/pfs_unsteady_exports.txt')\n"
+    "count = pathlib.Path('actions/pfs_unsteady_actions.count')\n"
+    "def stamp():\n"
+    "    text = exports.read_text().splitlines()\n"
+    "    names = [text[i + 1] for i, line in enumerate(text) "
+    "if line == 'EXPORT_SOLVER_ANALYSIS_SPREADSHEET']\n"
+    "    n = json.loads(count.read_text())['count']\n"
+    "    for name in names:\n"
+    "        pathlib.Path(name[:-4] + f'_iteration={n}.txt').write_text(fixture)\n"
+    "for _ in range(4):\n"
+    "    subprocess.run(command, shell=True, check=True)\n"
+    "    stamp()\n"
+)
+
+
+def runs_the_counter_and_stamps_the_exports(loads_fixture: Path) -> str:
+    """The stub above, and after each action the solver's own stamping (RPT-041
+    finding 3): when the rewritten script carries the exports, the loads file it
+    names is written as ``<name>_iteration=<count>.txt``, from ``loads_fixture``."""
+    return RUNS_THE_COUNTER_FOUR_TIMES.replace(
+        "[subprocess.run(command, shell=True, check=True) for _ in range(4)]",
+        STAMPING_PROGRAM.replace("FIXTURE_PATH", repr(str(loads_fixture))),
+    )
+
+
 def _threshold_campaign(tmp_path, **variables) -> Campaign:
     case = SimCase(
         sim_id="9001",
@@ -396,3 +428,46 @@ def test_the_program_first_exports_on_the_step_the_package_computed(tmp_path, st
     assert exporting == list(range(threshold.first_step, threshold.time_iterations + 1)), (
         "once reached, the export runs on every later step"
     )
+
+
+# --- PFS-2031.18.01: the stamped exports of a stub run, tabled as a series ------------
+
+
+def test_the_series_of_a_stub_run_agrees_with_the_counter_step_for_step(tmp_path):
+    """The record carries the clock the counter ran with, and the series table
+    computes each step's time the way the counter's own state() does; the steps
+    tabled are exactly the ones the counter exported on. RED on d908092: the
+    record's window has no clock and no series folder exists."""
+    from pyflightstream.post.products import write_campaign_products
+    from tests.tier1_offline.test_post_products import LOADS
+
+    fixture = tmp_path / "loads_fixture.txt"
+    fixture.write_text(LOADS, encoding="utf-8")
+    campaign = _threshold_campaign(tmp_path, **{ITER: "2"})
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    records = run_campaign(
+        campaign,
+        StubSolver(runs_the_counter_and_stamps_the_exports(fixture)),
+        workspace,
+        assess=converged,
+        recipes={"unsteady": workflow_registry()["unsteady"]},
+    )
+    record = records[0]
+    assert record.status is RunStatus.CONVERGED, record.error
+    assert record.export_window["delta_time_s"] == pytest.approx(0.01), record.export_window
+    assert "step_deg" not in record.export_window, "a rotorless row has no azimuth"
+    sim_dir = workspace.sim_dir("9001")
+    stamped = sorted(p.name for p in sim_dir.iterdir() if "_iteration=" in p.name)
+    assert stamped == [f"loads_a+00.0_iteration={n}.txt" for n in (2, 3, 4)], stamped
+    state = json.loads((sim_dir / COUNT_FILE).read_text(encoding="utf-8"))
+    # The run wrote the products itself; the stage rewrites them from the manifest alone.
+    write_campaign_products(workspace, overwrite=True)
+    table = workspace.root / "post" / "products" / "series" / "loads_a+00.0_loads_series.csv"
+    assert table.is_file(), sorted((workspace.root / "post").rglob("*"))
+    rows = table.read_text(encoding="utf-8").splitlines()
+    assert rows[0].startswith("step,time_s,azimuth_deg,"), rows[0]
+    body = [line.split(",") for line in rows[1:]]
+    assert [int(cells[0]) for cells in body] == [2, 3, 4]
+    # The counter's last state is step 4 at 4 * DELTA_TIME; the table's last row says the same.
+    assert float(body[-1][1]) == pytest.approx(state["time_s"])
+    assert all(cells[2] == "" for cells in body), "no rotor, no azimuth"

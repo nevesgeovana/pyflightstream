@@ -1157,6 +1157,35 @@ def _sim_products(
     return written, written_names, skipped
 
 
+def _point_series(
+    workspace: CampaignWorkspace,
+    sim_id: str,
+    record: RunRecord,
+    out: Path,
+    *,
+    overwrite: bool,
+) -> tuple[list[Path], dict[str, dict[str, object]]]:
+    """Write the series tables of one windowed record (PFS-2031.18.01)."""
+    from pyflightstream.cases import classify_outputs
+    from pyflightstream.post.series import write_point_series
+
+    kinds = classify_outputs([Path(o).name for o in record.outputs])
+    loads_name = kinds.get("loads")
+    if loads_name is None:
+        return [], {}
+    stem = loads_name[: -len(".txt")]
+
+    def _target(path: Path) -> Path:
+        if path.exists() and not overwrite:
+            raise ProductExistsError(
+                f"the product {path} exists; pass overwrite (CLI: --overwrite) to rewrite "
+                "it from the manifest"
+            )
+        return path
+
+    return write_point_series(workspace.sim_dir(sim_id), record, stem, out, target=_target)
+
+
 def _point_reductions(
     plots_table: Path,
     plan: Mapping[str, object] | None,
@@ -1460,6 +1489,19 @@ def write_campaign_products(
     # refusal, since it is about the caller's flag and not about a row.
     skipped: dict[str, str] = {}
     for sim_id, sim_records in by_sim.items():
+        # PFS-2031.18.01: the per-step exports of a windowed point as a
+        # series, written before the polar so a simulation the polar
+        # refuses (no Mach, a sideslip) keeps its series, which rest on
+        # the stamped files and the record alone.
+        for record in sim_records:
+            if not record.export_window:
+                continue
+            series_files, series_names = _point_series(
+                workspace, sim_id, record, out, overwrite=overwrite
+            )
+            written.extend(series_files)
+            for name, entry in series_names.items():
+                products_index[name] = {"sim_id": sim_id, "pproc": record.pproc, **entry}
         try:
             files, names, reductions_skipped = _sim_products(
                 workspace, sim_id, sim_records, out, overwrite=overwrite

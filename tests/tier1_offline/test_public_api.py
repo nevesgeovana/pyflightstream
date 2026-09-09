@@ -48,6 +48,7 @@ PUBLIC_MODULES = [
     "pyflightstream.post",
     "pyflightstream.post.products",
     "pyflightstream.post.reductions",
+    "pyflightstream.post.series",
     "pyflightstream.post.settings_table",
     "pyflightstream.post.unsteady",
     "pyflightstream.post.writers",

@@ -106,3 +106,49 @@ def test_the_rewritten_script_carries_the_exports_after_the_threshold(workspace)
         "EXPORT_PROBE_POINTS",
     ):
         assert line(text, command) == command
+
+
+def test_the_stamped_files_of_the_window_table_as_a_series(runs, workspace):
+    """PFS-2031.18.01 on the solver's own files: the products stage tables the
+    stamped loads, sectional loads and probes of steps 4 to 8 under series/, the
+    step's time from the record's clock, the Tecplot and cp files listed by path."""
+    import csv
+
+    from pyflightstream.post.products import write_campaign_products
+
+    record = _record(runs)
+    if not record.export_window:
+        pytest.skip(
+            "row 6002 was recorded before the run record carried its export window "
+            "(0.13.0), so the series has no window to read; rerun the row on the "
+            "licensed machine and this test measures the series on the solver's files"
+        )
+    stem = record.script_path.rsplit("/", 1)[-1].rsplit(".", 1)[0]
+    write_campaign_products(workspace, matrix_stem=MATRIX, overwrite=True)
+    series = runs.products(MATRIX) / "series"
+    tables = {}
+    for kind in ("loads", "sections", "probes"):
+        path = series / f"{stem}_{kind}_series.csv"
+        assert path.is_file(), (
+            sorted(p.name for p in series.iterdir()) if series.is_dir() else series
+        )
+        with path.open(encoding="utf-8", newline="") as handle:
+            reader = csv.DictReader(handle)
+            tables[kind] = (tuple(reader.fieldnames or ()), list(reader))
+    columns, rows = tables["loads"]
+    assert columns[:3] == ("step", "time_s", "azimuth_deg") and "Total_CL" in columns
+    assert [int(r["step"]) for r in rows] == list(range(THRESHOLD, STEPS + 1))
+    delta = record.export_window["delta_time_s"]
+    assert [float(r["time_s"]) for r in rows] == pytest.approx(
+        [s * delta for s in range(THRESHOLD, STEPS + 1)]
+    )
+    assert all(r["azimuth_deg"] == "" for r in rows), "row 6002 turns nothing"
+    # The wing row defines no section and no probe: the two tables are their header.
+    assert tables["sections"][1] == [] and tables["probes"][1] == []
+    assert tables["probes"][0][:3] == ("step", "time_s", "azimuth_deg")
+    index = json.loads((runs.products(MATRIX) / "products.json").read_text(encoding="utf-8"))
+    entry = index["products"][f"series/{stem}_loads_series.csv"]
+    assert entry["steps"] == [THRESHOLD, STEPS] and entry["steps_tabled"] == list(
+        range(THRESHOLD, STEPS + 1)
+    )
+    assert len(entry["cp_files"]) == len(entry["dat_files"]) == STEPS - THRESHOLD + 1

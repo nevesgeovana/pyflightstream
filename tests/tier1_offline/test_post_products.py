@@ -22,6 +22,7 @@ from pyflightstream.post.products import (
     polar_file_name,
     polar_row,
     read_csv_table,
+    write_campaign_products,
     write_plots_table,
     write_polar_table,
     write_recorded_polar,
@@ -984,3 +985,151 @@ def test_pyfs_matrix_post_writes_her_format_beside_the_polar_tables_when_asked(t
         encoding="utf-8"
     )
     assert "her_polar_format" in page and "her existing tooling" in page
+
+
+# --- PFS-2031.18.01: the per-step exports of a windowed point as a series ------------
+
+PROBES = (Path(__file__).parent / "fixtures" / "probe_points_26.120.txt").read_text(
+    encoding="utf-8"
+)
+
+
+def _windowed_workspace(tmp_path, *, window, reductions=None, kinds=("", "_sloads", "_probes")):
+    """One converged unsteady record whose simulation folder holds stamped exports.
+
+    The loads, sectional loads and probe fixtures of this module stand in
+    for what the solver stamps on every step of the window, ``_cp`` and
+    ``.dat`` files beside them; the whole-run exports sit under ``raw/``.
+    """
+    from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
+
+    workspace = CampaignWorkspace.init(tmp_path / "camp")
+    (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
+        '[groups]\n"1" = ["W", "B"]\n', encoding="utf-8"
+    )
+    sim = workspace.sim_dir("7001")
+    raw = sim / "raw"
+    raw.mkdir(parents=True)
+    (raw / "a-02.0.txt").write_text(LOADS, encoding="utf-8")
+    texts = {"": LOADS, "_sloads": SLOADS, "_probes": PROBES}
+    for step in range(int(window["first_step"]), int(window["time_iterations"]) + 1):
+        for kind in kinds:
+            (sim / f"a-02.0{kind}_iteration={step}.txt").write_text(texts[kind], encoding="utf-8")
+        (sim / f"a-02.0_cp_iteration={step}.txt").write_text("cp", encoding="utf-8")
+        (sim / f"a-02.0_iteration={step}.dat").write_text("tecplot", encoding="utf-8")
+    fields: dict[str, object] = dict(
+        run_id="camp/sim_7001/a-02.0",
+        sim_id="7001",
+        point={"alpha": -2.0},
+        fs_version_requested="26.123",
+        package_version="0.14.0.dev0",
+        script_sha256="",
+        raw_flag=False,
+        status=RunStatus.CONVERGED,
+        outputs=["raw/a-02.0.txt"],
+        pproc="p001",
+        recipe="unsteady_rotor",
+        description="ROTOR_UNSTEADY",
+        mach=0.2,
+        reference={"SREF": 50.0, "CREF": 2.526, "BREF": 20.0},
+        export_window=window,
+        action_count=int(window["time_iterations"]),
+    )
+    if reductions is not None:
+        fields["reductions"] = reductions
+    workspace.append_record(RunRecord(**fields))
+    return workspace
+
+
+def _series(workspace, name):
+    import csv
+
+    path = workspace.root / "post" / "products" / "series" / name
+    assert path.is_file(), (
+        sorted(p.name for p in path.parent.iterdir())
+        if path.parent.is_dir()
+        else "no series folder"
+    )
+    with path.open(encoding="utf-8", newline="") as handle:
+        reader = csv.DictReader(handle)
+        return list(reader.fieldnames or ()), list(reader)
+
+
+def test_a_windowed_point_gets_one_series_table_per_export_kind(tmp_path):
+    """PFS-2031.18.01: the stamped exports of the window, one table per kind under
+    series/, a row per step (and per section or probe), the step's time and azimuth
+    from the record's clock, which is the counter program's own arithmetic. RED on
+    d908092: no series folder."""
+    window = {
+        "stated_form": "iterations",
+        "stated_value": 3.0,
+        "first_step": 3,
+        "time_iterations": 5,
+        "delta_time_s": 0.01,
+        "step_deg": 30.0,
+    }
+    workspace = _windowed_workspace(tmp_path, window=window)
+    write_campaign_products(workspace)
+    columns, rows = _series(workspace, "a-02.0_loads_series.csv")
+    assert columns[:3] == ["step", "time_s", "azimuth_deg"], columns
+    assert [int(r["step"]) for r in rows] == [3, 4, 5]
+    assert [float(r["time_s"]) for r in rows] == pytest.approx([0.03, 0.04, 0.05])
+    assert [float(r["azimuth_deg"]) for r in rows] == pytest.approx([90.0, 120.0, 150.0])
+    assert "W_CL" in columns and "Total_CL" in columns and "B_CMy" in columns, columns
+    assert float(rows[0]["Total_CL"]) == pytest.approx(0.1882829, abs=1e-5), "five decimals"
+    columns, rows = _series(workspace, "a-02.0_sections_series.csv")
+    assert columns[:3] == ["step", "time_s", "azimuth_deg"] and "Chord" in columns, columns
+    assert [int(r["step"]) for r in rows] == [3, 3, 4, 4, 5, 5], "two sections per step"
+    columns, rows = _series(workspace, "a-02.0_probes_series.csv")
+    assert columns[:3] == ["step", "time_s", "azimuth_deg"] and "Cp" in columns, columns
+    assert len(rows) == 3 * 12 and {int(r["step"]) for r in rows} == {3, 4, 5}
+    index = _products_manifest(workspace)["products"]
+    entry = index["series/a-02.0_loads_series.csv"]
+    assert entry["steps"] == [3, 5] and entry["steps_tabled"] == [3, 4, 5], entry
+    assert len(entry["cp_files"]) == 3 and len(entry["dat_files"]) == 3, entry
+    assert all(name.endswith(".dat") for name in entry["dat_files"]), entry["dat_files"]
+    assert "series/a-02.0_probes_series.csv" in index
+
+
+def test_a_record_without_the_clock_leaves_the_time_blank_and_reads_the_azimuth_off_the_reductions(
+    tmp_path,
+):
+    """A record written before 0.14.0 carries no clock: its time column stays blank
+    rather than guessed, and its azimuth comes from the steps per revolution the
+    reductions plan already carries."""
+    window = {
+        "stated_form": "iterations",
+        "stated_value": 4.0,
+        "first_step": 4,
+        "time_iterations": 5,
+    }
+    workspace = _windowed_workspace(
+        tmp_path, window=window, reductions={**ROTOR_PLAN, "steps_per_revolution": 12.0}
+    )
+    write_campaign_products(workspace)
+    _, rows = _series(workspace, "a-02.0_loads_series.csv")
+    assert [r["time_s"] for r in rows] == ["", ""], rows
+    assert [float(r["azimuth_deg"]) for r in rows] == pytest.approx([120.0, 150.0])
+
+
+def test_a_step_the_solver_never_stamped_is_absent_from_the_series_and_named_in_the_index(tmp_path):
+    """The record says which steps exist; a step without a file is not invented."""
+    window = {
+        "stated_form": "iterations",
+        "stated_value": 2.0,
+        "first_step": 2,
+        "time_iterations": 4,
+        "delta_time_s": 0.5,
+    }
+    workspace = _windowed_workspace(tmp_path, window=window, kinds=("",))
+    (workspace.sim_dir("7001") / "a-02.0_iteration=3.txt").unlink()
+    write_campaign_products(workspace)
+    _, rows = _series(workspace, "a-02.0_loads_series.csv")
+    assert [int(r["step"]) for r in rows] == [2, 4]
+    assert [r["azimuth_deg"] for r in rows] == ["", ""], "no rotor, no azimuth"
+    entry = _products_manifest(workspace)["products"]["series/a-02.0_loads_series.csv"]
+    assert entry["steps_tabled"] == [2, 4] and entry["steps"] == [2, 4]
+    columns, rows = _series(workspace, "a-02.0_probes_series.csv")
+    assert columns == ["step", "time_s", "azimuth_deg"] and rows == [], (
+        "no probe export, a header alone"
+    )

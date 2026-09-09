@@ -2141,6 +2141,35 @@ class ReductionPlan:
         ]
 
 
+def _blade_count(case: SimCase) -> int | None:
+    """Return the row's blade count: ``BLADES``, else ``PERIODIC_COPIES``, else None.
+
+    PFS-2015.04.01, found by her reproduction of 2026-09-09: an isolated
+    propeller meshed as one blade and stated as ``PERIODIC_COPIES: 6``
+    with no ``BLADES`` is a six-bladed rotor, and its phase-locked and
+    per-blade reductions were skipped for want of a key that said the
+    same number twice. The copies are the count when the blades are not
+    stated; a row stating both keeps ``BLADES``, the key written for it.
+    """
+    if _variable(case, BLADES_VARIABLE) is not None:
+        return _required_int(case, BLADES_VARIABLE, quantity="blade count", unit="blades")
+    if _variable(case, PERIODIC_COPIES_VARIABLE) is not None:
+        return _required_int(
+            case, PERIODIC_COPIES_VARIABLE, quantity="periodic copy count", unit="copies"
+        )
+    return None
+
+
+def _no_blade_count(case: SimCase) -> str:
+    """Return the sentence a rotor row stating neither count is refused or skipped with."""
+    return (
+        f"the row of case {case.sim_id!r} states no {BLADES_VARIABLE} and no "
+        f"{PERIODIC_COPIES_VARIABLE}, so one blade passage has no length in steps and "
+        "neither the phase-locked nor the per-blade reduction can be windowed. State "
+        f"'{BLADES_VARIABLE}: <count>', or the sector's '{PERIODIC_COPIES_VARIABLE}: <count>'."
+    )
+
+
 def reduction_plan(case: SimCase) -> ReductionPlan:
     """Build the reduction plan of one unsteady rotor case.
 
@@ -2161,7 +2190,9 @@ def reduction_plan(case: SimCase) -> ReductionPlan:
         blade passage.
     """
     window = ExportWindow.from_case(case)
-    blades = _required_int(case, BLADES_VARIABLE, quantity="blade count", unit="blades")
+    blades = _blade_count(case)
+    if blades is None:
+        raise CampaignConfigError(_no_blade_count(case))
     if blades < 1:
         raise CampaignConfigError(
             f"case {case.sim_id!r} declares {blades} blades; a rotor has at least one."
@@ -2357,20 +2388,16 @@ def reduction_windows(case: SimCase) -> dict[str, object] | None:
         return plan
 
     # THE PASSAGE REDUCTIONS need a revolution and a blade count.
-    if _variable(case, BLADES_VARIABLE) is None:
-        reason = (
-            f"the row of case {case.sim_id!r} states no {BLADES_VARIABLE}, so one blade "
-            "passage has no length in steps and neither the phase-locked nor the "
-            f"per-blade reduction can be windowed. State '{BLADES_VARIABLE}: <count>'."
-        )
-        plan["phase_locked"] = {"skipped": reason}
-        plan["per_blade"] = {"skipped": reason}
-        return plan
     try:
-        blades = _required_int(case, BLADES_VARIABLE, quantity="blade count", unit="blades")
+        blades = _blade_count(case)
     except CampaignConfigError as error:
         plan["phase_locked"] = {"skipped": str(error)}
         plan["per_blade"] = {"skipped": str(error)}
+        return plan
+    if blades is None:
+        reason = _no_blade_count(case)
+        plan["phase_locked"] = {"skipped": reason}
+        plan["per_blade"] = {"skipped": reason}
         return plan
     plan["blades"] = blades
     if revolution is None or per_revolution is None or blades < 1:

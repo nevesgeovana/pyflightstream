@@ -1430,7 +1430,13 @@ def parse_probe_points(text: str, requested_version=None) -> ProbePointsReport:
     # coefficient reading 0.086 is not obviously wrong to anyone.
     reject_duplicate_columns(columns, what="probe export")
     reject_trailing_export(text, what="probe export")
-    rows = delimited_table(text, "X, Y, Z,")
+    # A run defining no probe point exports the header, the count 0 and
+    # the opening and closing dashed lines with nothing between them
+    # (measured 2026-09-09 on every stamped probes file of a per-step
+    # export, PFS-2031.18.01): a complete table of no rows, which the
+    # walker below would read as a table with no closing line, since it
+    # skips every dashed line after the header until a row appears.
+    rows = [] if declared == 0 else delimited_table(text, "X, Y, Z,")
     parsed_rows = []
     for row in rows:
         cells = [cell for cell in row if cell]
@@ -1449,7 +1455,7 @@ def parse_probe_points(text: str, requested_version=None) -> ProbePointsReport:
         _cross_check_version(software.group("version"), requested_version, software.group("build"))
     return ProbePointsReport(
         columns=columns,
-        values=np.asarray(parsed_rows, dtype=float),
+        values=np.asarray(parsed_rows, dtype=float).reshape(len(parsed_rows), len(columns)),
         angle_of_attack_deg=parse_number(labeled_value(text, "Angle of attack (Deg)")),
         freestream_velocity_m_s=parse_number(labeled_value(text, "Freestream velocity (m/s)")),
         current_iteration=parse_count(

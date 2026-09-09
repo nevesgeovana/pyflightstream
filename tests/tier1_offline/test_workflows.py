@@ -4378,3 +4378,34 @@ def test_a_rotation_of_the_blades_without_the_axis_frame_warns_naming_it(tmp_pat
         build_script(_pitched_rotor(tmp_path), Script("26.123"))
         nacelle = [{"ANGLE": "3", "AXIS": "NAC-Y", "FAMILIES": "N"}]
         build_script(_pitched_rotor(tmp_path, rotations=nacelle), Script("26.123"))
+
+
+# --- PFS-2015.04.01: the blade count of a sector mesh stated as periodic copies ------
+
+
+def test_a_sector_row_stating_periodic_copies_and_no_blades_gets_its_blade_reductions():
+    """Her isolated propeller on pfs0131 (rows 5901, 5903, 5913, measured 2026-09-09) is
+    one blade meshed and PERIODIC_COPIES: 6, with no BLADES; the per-blade and the
+    phase-locked reductions read the count from the copies rather than skipping."""
+    plan = _reduction_windows()(rotor_case(BLADES=None, SYMMETRY="PERIODIC", PERIODIC_COPIES="4"))
+    assert plan["blades"] == 4, plan
+    assert "windows" in plan["per_blade"] and "windows" in plan["phase_locked"], plan
+    assert plan == _reduction_windows()(rotor_case(SYMMETRY="PERIODIC", PERIODIC_COPIES="4")), (
+        "BLADES: 4 and PERIODIC_COPIES: 4 are one count"
+    )
+    assert (
+        reduction_plan(rotor_case(BLADES=None, SYMMETRY="PERIODIC", PERIODIC_COPIES="4")).blades
+        == 4
+    )
+
+
+def test_a_rotor_row_stating_neither_count_skips_naming_both_keys():
+    plan = _reduction_windows()(rotor_case(BLADES=None))
+    assert (
+        "BLADES" in plan["per_blade"]["skipped"]
+        and "PERIODIC_COPIES" in plan["per_blade"]["skipped"]
+    )
+    with pytest.raises(
+        CampaignConfigError, match="BLADES.*PERIODIC_COPIES|PERIODIC_COPIES.*BLADES"
+    ):
+        reduction_plan(rotor_case(BLADES=None))

@@ -66,6 +66,38 @@ FlightStream versions.
   not refused: the blades alone turning is a call the row may mean. RED
   on d665201: the LEGACY row read fine, the blades-only row warned
   nothing.
+- **The per-step exports of a windowed point as a series**
+  (PFS-2031.18.01, her incidence study's unsteady plots and surface
+  sections after N revolutions). The products stage tables the stamped
+  files of the export window, one table per kind under
+  `post/<matrix>/series/`: the loads wide (a row per step, a column per
+  surface and coefficient), the sections and the probes long (a row per
+  step and section or probe), every table leading with `step`, `time_s`
+  and `azimuth_deg` computed from the clock the run record now carries
+  (`export_window.delta_time_s`, `step_deg`) by the counter program's own
+  arithmetic; the Tecplot and `_cp` files listed in `products.json` by
+  path. A record without the clock leaves the time blank and reads the
+  azimuth off its reductions plan; a step never stamped is absent and
+  named; a run with no section or probe gets the header alone. The
+  series rest on the record and the stamped files, so a simulation whose
+  polar is refused keeps them. RED on d908092: no series folder, the
+  record's window without a clock.
+- **A probe export declaring no point reads as an empty table**
+  (PFS-2031.18.01, found on her workspace on 2026-09-09). Every stamped
+  probes file of her rows 1226 and 5913 declares `Number of Probe
+  Points: 0` with the header and the opening and closing dashed lines
+  and nothing between them, and the parser refused it as a file cut
+  mid-table, because its walker skips every dashed line after the header
+  until a row appears. A declared count of zero is now a complete table
+  of no rows. RED on d908092 with the fixture's rows removed.
+- **The blade count of a sector mesh comes from `PERIODIC_COPIES` when
+  `BLADES` is absent** (PFS-2015.04.01, found by her reproduction on
+  2026-09-09: rows 5901, 5903 and 5913 of pfs0131, one blade meshed and
+  `PERIODIC_COPIES: 6`, had their phase-locked and per-blade reductions
+  skipped for want of a key saying the same number twice). A row stating
+  both keeps `BLADES`; a row stating neither is skipped or refused naming
+  both keys. RED on d908092: `blades` None and the skip naming `BLADES`
+  alone.
 
 ## [0.13.1] - 2026-09-09
 

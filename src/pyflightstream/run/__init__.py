@@ -3036,7 +3036,13 @@ def _execute_point(
             "stated_value": threshold.stated_value,
             "first_step": threshold.first_step,
             "time_iterations": threshold.time_iterations,
+            # The clock the counter program ran with, so the series tables
+            # compute each step's time and azimuth by the same arithmetic
+            # (PFS-2031.18.01); a rotorless row has no azimuth step.
+            "delta_time_s": threshold.delta_time_s,
         }
+        if threshold.step_deg is not None:
+            base["export_window"]["step_deg"] = threshold.step_deg
     base["script_sha256"] = script_sha
     base["script_path"] = str(Path(script_path).relative_to(sim_dir).as_posix())
     base["raw_flag"] = script.raw_flag
