@@ -293,6 +293,63 @@ def test_post_reruns_from_the_manifest_without_a_solver(tmp_path, capsys):
 # --- PFS-2031.16: one simulation's refusal does not cost the others their products --
 
 
+def _record_a_converged_polar(workspace, sim_id, point, text):
+    """One converged steady record with a POLAR.txt under raw/, as the run leaves it."""
+    from pyflightstream.workspace import RunRecord, RunStatus
+
+    raw = workspace.sim_dir(sim_id) / "raw"
+    raw.mkdir(parents=True)
+    (raw / "POLAR.txt").write_text(text, encoding="utf-8")
+    suffix = "a-02.0" if "beta" not in point else "a-02.0_b-04.0"
+    workspace.append_record(
+        RunRecord(
+            run_id=f"camp/sim_{sim_id}/{suffix}",
+            sim_id=sim_id,
+            point=point,
+            fs_version_requested="26.120",
+            package_version="0.13.0.dev0",
+            script_sha256="",
+            raw_flag=False,
+            status=RunStatus.CONVERGED,
+            outputs=["raw/POLAR.txt"],
+            pproc="p001",
+            description="STEADY_WB",
+            mach=0.2,
+            reference={
+                "SREF": 50.0,
+                "CREF": 2.526,
+                "BREF": 20.0,
+                "XMOM": 9.152,
+                "YMOM": 0.0,
+                "ZMOM": 0.0,
+            },
+        )
+    )
+
+
+def test_strict_exits_zero_when_nothing_was_skipped(tmp_path, capsys):
+    """Review round two of 2026-09-08 (QA lens, F3): the mutant that drops the
+    ``skipped and`` conjunct survived tier one, because --strict had only ever run
+    on a workspace with a refused polar. A clean rebuild under --strict exits 0."""
+    import json
+
+    from pyflightstream.workspace import CampaignWorkspace
+    from tests.tier1_offline.test_post_products import LOADS
+
+    workspace = CampaignWorkspace.init(tmp_path / "camp")
+    (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
+        '[groups]\n"1" = ["W", "B"]\n', encoding="utf-8"
+    )
+    _record_a_converged_polar(workspace, "3207", {"alpha": -2.0}, LOADS)
+    assert main(["post", "--workspace", str(workspace.root), "--strict"]) == 0
+    err = capsys.readouterr().err
+    assert "exit 3" not in err and "skipped" not in err, err
+    manifest = json.loads(
+        (workspace.root / "post" / "products" / "products.json").read_text(encoding="utf-8")
+    )
+    assert manifest["skipped"] == {}
+
+
 def test_a_refused_polar_is_recorded_as_skipped_and_the_other_products_are_written(
     tmp_path, capsys
 ):
@@ -303,7 +360,7 @@ def test_a_refused_polar_is_recorded_as_skipped_and_the_other_products_are_writt
     manifest records with its reason, and every other simulation's products land."""
     import json
 
-    from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
+    from pyflightstream.workspace import CampaignWorkspace
     from tests.tier1_offline.test_post_products import LOADS
 
     workspace = CampaignWorkspace.init(tmp_path / "camp")
@@ -319,33 +376,7 @@ def test_a_refused_polar_is_recorded_as_skipped_and_the_other_products_are_writt
         ("3207", {"alpha": -2.0}, LOADS),
         ("3208", {"alpha": -2.0, "beta": -4.0}, sideslip),
     ):
-        raw = workspace.sim_dir(sim_id) / "raw"
-        raw.mkdir(parents=True)
-        (raw / "POLAR.txt").write_text(text, encoding="utf-8")
-        workspace.append_record(
-            RunRecord(
-                run_id=f"camp/sim_{sim_id}/{'a-02.0' if sim_id == '3207' else 'a-02.0_b-04.0'}",
-                sim_id=sim_id,
-                point=point,
-                fs_version_requested="26.120",
-                package_version="0.13.0.dev0",
-                script_sha256="",
-                raw_flag=False,
-                status=RunStatus.CONVERGED,
-                outputs=["raw/POLAR.txt"],
-                pproc="p001",
-                description="STEADY_WB",
-                mach=0.2,
-                reference={
-                    "SREF": 50.0,
-                    "CREF": 2.526,
-                    "BREF": 20.0,
-                    "XMOM": 9.152,
-                    "YMOM": 0.0,
-                    "ZMOM": 0.0,
-                },
-            )
-        )
+        _record_a_converged_polar(workspace, sim_id, point, text)
     assert main(["post", "--workspace", str(workspace.root)]) == 0
     out = capsys.readouterr()
     products = workspace.root / "post" / "products"

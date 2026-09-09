@@ -700,7 +700,7 @@ from and the pproc artifact; a campaign resumed with new points rewrites
 them, since they derive from the manifest. A simulation whose product is
 refused by design, a polar under sideslip for one, is listed under
 `skipped` in that file with the reason, and the others are written
-(PFS-2031.16). To rebuild them by hand, with no solver and no executable
+(PFS-2031.16); the key is always there, empty when nothing was refused. To rebuild them by hand, with no solver and no executable
 configured:
 
 ```text

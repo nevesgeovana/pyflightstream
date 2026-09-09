@@ -134,7 +134,8 @@ FlightStream versions.
   tier-3 tour's sideslip row left the nine rows after it without a table and
   the workspace without `products.json`. The refusal is now a `skipped`
   entry of `products.json` carrying the reason, warned about and printed by
-  `pyfs-matrix post`, and every other simulation's products are written. An
+  `pyfs-matrix post`, and every other simulation's products are written;
+  the `skipped` key is always present, empty when nothing was refused. An
   existing product without `--overwrite` still stops the stage, as its own
   `ProductExistsError`.
 

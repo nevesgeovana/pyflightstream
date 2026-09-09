@@ -14,6 +14,7 @@ when a script is meant to move.
 
 from __future__ import annotations
 
+import re
 import shutil
 
 import pytest
@@ -164,6 +165,22 @@ def test_every_tier3_script_equals_its_golden(matrix):
         "script is either a defect or a golden to regenerate, and the diff says which"
     )
     assert not orphans, f"goldens of no rendered point: {orphans[:4]}; delete them"
+
+
+@pytest.mark.parametrize("matrix", MATRICES, ids=[m.name for m in MATRICES])
+def test_no_golden_carries_a_machine_path(matrix):
+    """Review round two of 2026-09-08 (QA lens, F5): ``offline.portable`` rewrites
+    the separators of a line that STARTS with the placeholder, so a builder that
+    one day put a path inline after a keyword would leave a backslash the golden
+    control never sees. This asserts the property the normalization is for: no
+    golden carries a backslash or a drive letter anywhere."""
+    folder = offline.GOLDENS / matrix.stem
+    bad = []
+    for golden in sorted(folder.glob("*.txt")):
+        for number, line in enumerate(golden.read_text(encoding="utf-8").splitlines(), 1):
+            if "\\" in line or re.search(r"\b[A-Za-z]:[/\\]", line):
+                bad.append(f"{golden.name}:{number}: {line.strip()[:60]}")
+    assert not bad, f"{len(bad)} golden line(s) carry a machine path: {bad[:4]}"
 
 
 # --- the probe's verdict discriminates its two worlds (review of 2026-09-08) --------

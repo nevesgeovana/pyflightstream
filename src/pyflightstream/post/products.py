@@ -794,8 +794,9 @@ def write_campaign_products(
                 "pproc": sim_records[0].pproc,
                 "runs": run_ids,
             }
-    if skipped:
-        manifest["skipped"] = skipped
+    # Always present, empty when nothing was refused, so a wrapper reads one
+    # key rather than testing for it (review round two of 2026-09-08).
+    manifest["skipped"] = skipped
     if written or skipped:
         out.mkdir(parents=True, exist_ok=True)
         (out / PRODUCTS_MANIFEST).write_text(
