@@ -407,6 +407,31 @@ class SetupArtifact(BaseModel):
     #: (PFS-2033.01), each before a named phase, in the order written;
     #: consumed out of ``settings`` by :func:`resolve_setup` the same way.
     raw_commands: list[RawCommand] = Field(default_factory=list)
+    #: The boundary aliases the ``[aliases]`` table defines (her decision
+    #: of 2026-09-09): a name to the boundary names or families it stands
+    #: for, read wherever a boundary is cited (a matrix cell, a pproc
+    #: group, a families entry), a member the mesh lacks ignored; consumed
+    #: out of ``settings`` by :func:`resolve_setup` the same way.
+    aliases: dict[str, list[str]] = Field(default_factory=dict)
+
+    @field_validator("aliases")
+    @classmethod
+    def _aliases_are_lists_of_names(cls, value: dict[str, list[str]]) -> dict[str, list[str]]:
+        for name, members in value.items():
+            if not name.strip():
+                raise ValueError("an alias needs a name; the [aliases] table holds an empty one")
+            if not members:
+                raise ValueError(
+                    f"alias {name!r} names no member; an alias stands for the boundary names "
+                    "or families listed after it"
+                )
+            for member in members:
+                if not isinstance(member, str) or not member.strip():
+                    raise ValueError(
+                        f"alias {name!r} lists {member!r}, and a member is a boundary name or a "
+                        "family name (a string)"
+                    )
+        return value
 
     @model_validator(mode="after")
     def _one_frame_per_name(self) -> SetupArtifact:
@@ -431,6 +456,10 @@ FRAMES_TABLE = "frames"
 #: (PFS-2033.01): ``[[raw]]``, one entry per line with ``command`` and
 #: ``before``. Read by the goal checker of 0.14.0 and the documentation.
 RAW_TABLE = "raw"
+#: The table of a setup artifact that names groups of boundaries (her
+#: decision of 2026-09-09): ``[aliases]``, one key per alias, a list of
+#: boundary names or families. Read by the documentation.
+ALIASES_TABLE = "aliases"
 
 
 class PprocArtifact(PprocSpec):
@@ -877,8 +906,25 @@ def resolve_setup(inputs_dir: Path, artifact_id: str) -> SetupArtifact:
             f"table is a list of records: write [[{RAW_TABLE}]] once per command with "
             "command (the line as the solver reads it) and before (the phase it precedes)."
         )
+    # THE ALIASES TABLE IS NOT A SOLVER SETTING (her decision of 2026-09-09):
+    # a name to the boundaries it stands for, read wherever a boundary is cited.
+    aliases = data.pop(ALIASES_TABLE, {})
+    if not isinstance(aliases, dict) or not all(isinstance(v, list) for v in aliases.values()):
+        bad = (
+            sorted(k for k, v in aliases.items() if not isinstance(v, list))
+            if isinstance(aliases, dict)
+            else [repr(aliases)]
+        )
+        raise InputArtifactError(
+            f"setup preset {artifact_id!r} ({path}) states [{ALIASES_TABLE}] with "
+            f"{', '.join(bad)} not a list: an alias is a name and the list of boundary names "
+            f'or families it stands for, as lifters = ["LiftBlade", "Hub1"].'
+        )
     return _validate(
-        SetupArtifact, {"settings": data, "frames": frames, "raw_commands": raw}, path, "setup"
+        SetupArtifact,
+        {"settings": data, "frames": frames, "raw_commands": raw, "aliases": aliases},
+        path,
+        "setup",
     )
 
 

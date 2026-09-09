@@ -2823,6 +2823,35 @@ def test_a_frame_the_package_names_or_a_repeated_frame_is_refused_naming_the_set
     assert fragment in str(caught.value)
 
 
+ALIASES = (
+    'NITER = 100\n\n[aliases]\nlifters = ["LiftBlade", "Hub1"]\nairframe = ["W", "B", "Nothing"]\n'
+)
+
+
+def test_a_setup_defines_boundary_aliases(tmp_path):
+    """Her decision of 2026-09-09: a setup names groups of mesh families under
+    ``[aliases]``, and the name is read wherever a boundary is cited (a matrix
+    cell, a pproc group, a families entry); a member the mesh lacks is ignored.
+    RED on 46b3850: the reader kept the table in the settings and the solver
+    refused ``aliases`` as a key naming no setting."""
+    from pyflightstream.workspace.inputs import ALIASES_TABLE
+    from pyflightstream.workspace.matrix import _solver_from_setup
+
+    workspace = library(tmp_path)
+    (workspace.inputs_dir / "setups" / "salias.toml").write_text(ALIASES, encoding="utf-8")
+    setup = workspace.resolve_setup("salias")
+    assert ALIASES_TABLE == "aliases"
+    assert setup.aliases == {"lifters": ["LiftBlade", "Hub1"], "airframe": ["W", "B", "Nothing"]}
+    assert ALIASES_TABLE not in setup.settings, "the table is not a solver setting"
+    assert _solver_from_setup(setup, "salias").iterations == 100
+    (workspace.inputs_dir / "setups" / "sbadalias.toml").write_text(
+        "NITER = 100\n\n[aliases]\nlifters = 3\n", encoding="utf-8"
+    )
+    with pytest.raises(InputArtifactError, match="sbadalias") as caught:
+        workspace.resolve_setup("sbadalias")
+    assert "lifters" in str(caught.value) and "list" in str(caught.value), str(caught.value)
+
+
 # --- PFS-2033.01: raw solver commands in the setup, declared before a phase -------
 
 RAW = (

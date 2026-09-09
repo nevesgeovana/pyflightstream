@@ -1262,6 +1262,10 @@ def resolve_matrix(
                 entry.model_copy(update={"setup": row.set_code})
                 for entry in _not_on_a_legacy_row(row, setups[row.set_code].raw_commands, "raw")
             ],
+            # THE SETUP'S ALIASES RIDE ON THE CASE (her decision of 2026-09-09),
+            # on a LEGACY row too: the products stage resolves a group by them
+            # whatever built the script.
+            "aliases": {k: list(v) for k, v in setups[row.set_code].aliases.items()},
             # THE PPROC ARTIFACT RIDES ON THE CASE (PFS-2029.07.03): the
             # builders emit its sections, plots and probes and export the
             # kinds it selects, and the record names its id. A LEGACY row's

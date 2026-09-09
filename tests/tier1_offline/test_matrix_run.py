@@ -3741,6 +3741,42 @@ def test_an_empty_group_writes_the_polar_of_every_family(tmp_path):
     assert tables['"1" = []'] == tables['"1" = ["W", "B"]']
 
 
+def test_an_alias_of_the_setup_reaches_the_polar_table_through_the_record(tmp_path):
+    """Her decision of 2026-09-09: aliases live in the setup and the record
+    carries them, so the products stage, which reads records and never the
+    setup, resolves a group naming one. ``wing = ["W", "Missing"]`` on s002 and
+    ``"1" = ["wing"]`` on p001 write, byte for byte, the polar of ``"1" = ["W"]``
+    on the plain setup; the member the table lacks is ignored."""
+    tables = {}
+    for folder, setup_text, group in (
+        ("alias", 'iterations = 800\n\n[aliases]\nwing = ["W", "Missing"]\n', '"1" = ["wing"]'),
+        ("plain", "iterations = 800\n", '"1" = ["W"]'),
+    ):
+        workspace, first, _ = _two_matrices(tmp_path / folder)
+        (workspace.inputs_dir / "setups" / "s002.toml").write_text(setup_text, encoding="utf-8")
+        (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
+            f"[groups]\n{group}\n", encoding="utf-8"
+        )
+        run_matrix(
+            first,
+            workspace,
+            name="camp",
+            default_fs_version="26.120",
+            recipes=RECIPES,
+            assess=converged,
+            executor=_writes_her_loads(tmp_path),
+            recipe_registry={"steady": matrix_recipe},
+        )
+        records = workspace.read_manifest()
+        assert [r.aliases for r in records] == [
+            {"wing": ["W", "Missing"]} if folder == "alias" else {}
+        ] * 2, "the record carries the setup's aliases"
+        polars = sorted((workspace.root / "post" / "wing_alpha").glob("*_g01.csv"))
+        assert len(polars) == 2, polars
+        tables[folder] = [path.read_bytes() for path in polars]
+    assert tables["alias"] == tables["plain"]
+
+
 # --- PFS-2015.04: the reductions reach the products through the workflow --------
 
 

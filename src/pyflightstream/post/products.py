@@ -81,7 +81,7 @@ from pyflightstream._errors import (
     PyflightstreamError,
     PyflightstreamWarning,
 )
-from pyflightstream.cases import PprocSpec, select_group_members
+from pyflightstream.cases import select_group_members
 from pyflightstream.cases.workflows import REDUCTION_NAMES
 from pyflightstream.fsi.loads import SectionalLoadsReport, parse_sectional_loads
 from pyflightstream.post._tables import (
@@ -270,30 +270,28 @@ def group_coefficients(
     families: Sequence[int | str],
     *,
     bref_m: float,
-    is_blade: Callable[[str], bool] | None = None,
+    aliases: Mapping[str, Sequence[str]] | None = None,
 ) -> GroupCoefficients:
     """Sum the loads table's rows over the families of one group.
 
     The members are resolved against the table's surface rows by
     :func:`pyflightstream.cases.select_group_members`: an EMPTY group is
-    every surface (her decision of 2026-09-09), a name is its row, a
-    family is every row of it, ``blades`` and ``airframe`` are the
-    selector words, told apart by ``is_blade`` (the pproc artifact's
-    pattern; the artifact's default when none is given). A family the table does
-    not carry is left out, as her writer left it out; a group none of
-    whose families is in the table sums to zero, which is what her
-    products carry for the propeller groups of a wing-body polar. The
-    rolling and yawing moments are the solver's ``CMx`` and ``CMz``,
-    scaled from the reference chord to the span and negated, her
-    convention.
+    every surface (her decision of 2026-09-09), a name is its row, an
+    alias of the row's setup (``aliases``, as the run record carries
+    them) is its members' rows, a family is every row of it. A family
+    the table does not carry is left out, as her writer left it out; a
+    group none of whose families is in the table sums to zero, which is
+    what her products carry for the propeller groups of a wing-body
+    polar. The rolling and yawing moments are the solver's ``CMx`` and
+    ``CMz``, scaled from the reference chord to the span and negated,
+    her convention.
     """
     cref = loads.reference_length
     if cref is None:
         raise ProductError("the loads table states no reference length, so no span scaling")
     drag = side = lift = roll = pitch = yaw = profile = induced = 0.0
     used: list[str] = []
-    blade = is_blade if is_blade is not None else PprocSpec().is_blade
-    for family in select_group_members(families, list(loads.surfaces), blade):
+    for family in select_group_members(families, list(loads.surfaces), aliases):
         row = loads.surfaces[family]
         used.append(family)
         drag += row["CDi"] + row["CDo"]
@@ -892,7 +890,7 @@ def _polar_rows(
     *,
     mach: float,
     reference: ReferenceValues,
-    is_blade: Callable[[str], bool] | None = None,
+    aliases: Mapping[str, Sequence[str]] | None = None,
 ) -> list[tuple[float, ...]]:
     """Return the coefficient rows of one group over the points of a polar, alpha ascending."""
     rows = []
@@ -908,7 +906,7 @@ def _polar_rows(
                 "Leave the point out of the products, or state the sweep without sideslip."
             )
         coefficients = group_coefficients(
-            point.loads, list(families), bref_m=reference.bref_m, is_blade=is_blade
+            point.loads, list(families), bref_m=reference.bref_m, aliases=aliases
         )
         rows.append(
             polar_row(
@@ -933,6 +931,7 @@ def write_recorded_polar(
     mach: float,
     sections: bool = True,
     plots: bool = False,
+    aliases: Mapping[str, Sequence[str]] | None = None,
 ) -> list[Path]:
     """Write every product of one recorded polar from its point folders.
 
@@ -962,7 +961,7 @@ def write_recorded_polar(
                 description=description,
                 group=group,
                 reference=ref,
-                rows=_polar_rows(points, list(families), mach=mach, reference=ref),
+                rows=_polar_rows(points, list(families), mach=mach, reference=ref, aliases=aliases),
             )
         )
     for point in points:
@@ -1074,7 +1073,7 @@ def _sim_products(
     if products.polars:
         for group, families in pproc.groups.items():
             rows = _polar_rows(
-                points, list(families), mach=mach, reference=reference, is_blade=pproc.is_blade
+                points, list(families), mach=mach, reference=reference, aliases=first.aliases
             )
             target = _target(out / polar_file_name(sim_id, mach, group))
             write_polar_table(
@@ -1344,6 +1343,8 @@ def _prov_document(record: RunRecord, sim_dir: Path) -> dict[str, object]:
             # PFS-2033.02: the setup's raw commands the script carried, or nothing.
             "pyfs:raw_commands": [entry.model_dump(mode="json") for entry in record.raw_commands]
             or None,
+            # Her decision of 2026-09-09: the setup's aliases the polar tables resolved by.
+            "pyfs:aliases": dict(record.aliases) or None,
         }
     )
     agents = {

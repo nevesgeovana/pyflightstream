@@ -23,8 +23,8 @@ FlightStream versions.
   itself does not change by a byte.
 
 - **An empty `[groups]` entry of the pproc artifact is every family the
-  geometry carries, and a group member may be a family name or a
-  selector word** (her decisions of 2026-09-09, settling the verdict
+  geometry carries, and a group member may be a family name or an alias
+  of the setup** (her decisions of 2026-09-09, settling the verdict
   PFS-2005.02 left to the domain seat). `"1" = []` was refused at plan
   time as "domain seat, not yet decided"; it now plans READY, its polar
   table sums every surface row of the loads table, and
@@ -32,12 +32,29 @@ FlightStream versions.
   member is resolved by the one function `pyflightstream.cases.select_group_members`,
   on the script path against the file's boundary labels and at products
   time against the loads table's surface rows: an exact name first, then
-  the selector words `blades` and `airframe` (case folded, the words a
-  `families` entry accepts), then a family, the label without its
-  trailing number, so `"2" = ["Blade"]` sums `Blade1` to `Blade6` where it
-  summed nothing before. `expand_group`, the recipe tool that numbers
-  members by position, refuses an empty group naming the meaning.
+  an alias, then a family, the label without its trailing number, so
+  `"2" = ["Blade"]` sums `Blade1` to `Blade6` where it summed nothing
+  before. `expand_group`, the recipe tool that numbers members by
+  position, refuses an empty group naming the meaning.
   `ENTITY_SELECTIONS` carries her verdict beside the key.
+
+- **A setup preset names groups of mesh families under `[aliases]`, read
+  wherever a boundary is cited** (her decision of 2026-09-09). One key per
+  alias, a list of boundary names or families in any mix; a member the
+  file does not carry is ignored, so one preset serves every geometry of
+  a study. The alias resolves in `MOVING_BOUNDARIES`, `ROTATE`'s
+  `FAMILIES`, `BASE_REGIONS`, a pproc `[groups]` member and a `families`
+  entry, between the exact boundary name and the family, and before the
+  five selector words of a `families` entry, so `airframe` and `blades`
+  are the preset's own where it defines them and nothing is hardcoded
+  (`pyflightstream.cases.resolve_alias`; `SetupArtifact.aliases`;
+  `SimCase.aliases`; `select_families` and `group_coefficients` take
+  `aliases=`). The run record carries them as `aliases` (the manifest
+  schema does not move; a record written before reads them as empty)
+  and the provenance document as `pyfs:aliases`, so the products stage
+  resolves a group by them without opening the preset. A cell naming an
+  alias none of whose members the file carries is refused naming the
+  alias.
 
 ### Added
 

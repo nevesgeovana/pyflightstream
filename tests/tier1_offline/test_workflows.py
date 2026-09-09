@@ -4504,3 +4504,22 @@ def test_a_rotorless_row_stating_a_rotation_renders_it_before_the_settings(tmp_p
     assert lines[rotation + 1] == "1"
     settings = next(i for i, line in enumerate(lines) if line.startswith("SOLVER_SET_VELOCITY"))
     assert lines.index("NAME NAC") < rotation < settings
+
+
+def test_a_families_entry_reads_the_setup_aliases_before_the_built_in_words():
+    """Her decision of 2026-09-09: `airframe` and `blades` are whatever the setup
+    says; a `families` entry resolves an alias before the five built-in
+    selectors, as a list member and as the bare string, and a member the
+    geometry lacks is ignored."""
+    from pyflightstream.cases import select_families
+
+    inventory = ["Blade1", "Blade2", "W", "B"]
+    is_blade = lambda name: name.startswith("Blade")  # noqa: E731
+    aliases = {"airframe": ["W", "Nothing"], "lifters": ["Blade2"]}
+    assert select_families(["airframe"], inventory, is_blade) == [["W", "B"]]
+    assert select_families(["airframe"], inventory, is_blade, aliases=aliases) == [["W"]]
+    assert select_families("lifters", inventory, is_blade, aliases=aliases) == [["Blade2"]]
+    assert select_families(["lifters", "airframe"], inventory, is_blade, aliases=aliases) == [
+        ["Blade2", "W"]
+    ]
+    assert select_families("blades", inventory, is_blade, aliases=aliases) == [["Blade1", "Blade2"]]

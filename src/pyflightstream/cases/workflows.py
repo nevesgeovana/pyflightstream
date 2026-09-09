@@ -76,13 +76,12 @@ from pyflightstream._fsm import (
 from pyflightstream.cases import (
     EXPORT_KINDS,
     FORCE_PLOT_PARAMETERS,
-    GROUP_SELECTORS,
     RAW_PHASES,
     CampaignConfigError,
-    PprocSpec,
     ScriptRecipe,
     SimCase,
     classify_outputs,
+    resolve_alias,
     select_families,
     select_group_members,
 )
@@ -1402,7 +1401,7 @@ def _moving_boundaries(case: SimCase, script: Script, cell: str) -> list[int | s
     resolved: list[int | str] = []
     positional: list[str] = []
     for token in tokens:
-        found = resolve_family(token, labels)
+        found = _resolve_token(case, token, labels)
         if found:
             resolved.extend(found)
             continue
@@ -1446,6 +1445,23 @@ def _moving_boundaries(case: SimCase, script: Script, cell: str) -> list[int | s
 _GROUP_TOKEN = re.compile(r"^g(\d+)$")
 
 
+def _resolve_token(case: SimCase, token: str, labels: Mapping[str, int]) -> tuple[int, ...]:
+    """Resolve one cited boundary token: an exact label, an alias of the setup, or a family.
+
+    Her decision of 2026-09-09: the alias comes between the exact name
+    and the family, and its members resolve the same way, a member the
+    file lacks ignored. Empty when the token names nothing, which the
+    caller refuses for its own key.
+    """
+    if token in labels:
+        return (labels[token],)
+    ordered = [name for name, _ in sorted(labels.items(), key=lambda item: item[1])]
+    aliased = resolve_alias(token, ordered, case.aliases)
+    if aliased is not None:
+        return tuple(labels[name] for name in aliased)
+    return resolve_family(token, labels)
+
+
 def _group_members(case: SimCase, token: str) -> list[int | str] | None:
     """Return the members of the pproc group ``token`` spells as g<number>, or None.
 
@@ -1472,16 +1488,15 @@ def _group_indices(
     over the inventory's labels: an EMPTY group is every boundary of the
     file (her decision of 2026-09-09), a member the geometry does not
     carry is left out, which is the artifact's own rule (one artifact
-    serves a wing-body and an isolated rotor), and ``blades`` and
-    ``airframe`` are told apart by the artifact's pattern; a position
-    passes through. A group that resolves to NOTHING is refused naming
+    serves a wing-body and an isolated rotor), and an alias of the
+    setup is its members; a position passes through. A group that
+    resolves to NOTHING is refused naming
     the group, its members, the file and its inventory, because a motion
     over no boundary is the silent no-op the rule of 2026-09-08 forbids.
     """
     ordered = [name for name, _ in sorted(labels.items(), key=lambda item: item[1])]
-    is_blade = case.pproc.is_blade if case.pproc is not None else PprocSpec().is_blade
     indices = [member for member in members if isinstance(member, int)]
-    indices.extend(labels[name] for name in select_group_members(members, ordered, is_blade))
+    indices.extend(labels[name] for name in select_group_members(members, ordered, case.aliases))
     if indices:
         return sorted(set(indices))
     declared = _declared_labels(labels)
@@ -1529,8 +1544,7 @@ def _refuse_a_pproc_the_geometry_shares_no_name_with(case: SimCase, script: Scri
     With no inventory declared there is nothing to check against, which
     is the permissive state FR-30c licenses. An EMPTY group is every
     family and resolves by construction (her decision of 2026-09-09), and
-    a selector word (``blades``, ``airframe``) is not a name the file
-    could lack, so neither counts as a cited name.
+    an alias of the setup cites its members, so those are the names read.
     """
     pproc = case.pproc
     if pproc is None or not pproc.groups:
@@ -1545,10 +1559,9 @@ def _refuse_a_pproc_the_geometry_shares_no_name_with(case: SimCase, script: Scri
         for member in members:
             if isinstance(member, int):
                 return
-            if str(member).casefold() in GROUP_SELECTORS:
-                continue
-            if str(member) not in cited:
-                cited.append(str(member))
+            for name in case.aliases.get(str(member), [str(member)]):
+                if str(name) not in cited:
+                    cited.append(str(name))
     if not cited or any(resolve_family(name, labels) for name in cited):
         return
     raise ScriptReferenceError(
@@ -2619,7 +2632,7 @@ def _detect_base_regions(case: SimCase, script: Script) -> None:
     for family in families:
         if not labels:
             _refuse_name_without_inventory(case, BASE_REGIONS_VARIABLE, family)
-        found = resolve_family(family, labels)
+        found = _resolve_token(case, family, labels)
         if not found:
             _refuse_name_absent_from_inventory(case, BASE_REGIONS_VARIABLE, family, labels)
         indices.extend(index for index in found if index not in indices)
@@ -3501,7 +3514,7 @@ def _rotations(
                 continue
             if not labels:
                 _refuse_name_without_inventory(case, ROTATE_VARIABLE, name)
-            found = resolve_family(name, labels)
+            found = _resolve_token(case, name, labels)
             if not found:
                 _refuse_name_absent_from_inventory(case, ROTATE_VARIABLE, name, labels)
             boundaries.extend(index for index in found if index not in boundaries)
@@ -3650,7 +3663,9 @@ def _pproc_plots(case: SimCase, script: Script, frames: Frames) -> None:
         return
     inventory = _inventory(script)
     for group in pproc.plots.groups:
-        for families in select_families(group.families, inventory, pproc.is_blade):
+        for families in select_families(
+            group.families, inventory, pproc.is_blade, aliases=case.aliases
+        ):
             frame = _pproc_frame(case, frames, group.frame, f"plot group {group.name!r}", families)
             name = group.name.format(family=families[0]) if "{family}" in group.name else group.name
             indices = [script.resolve_boundary(f, context="pproc plot") for f in families]
@@ -3724,7 +3739,9 @@ def _pproc_sections(case: SimCase, script: Script, frames: Frames) -> None:
     inventory = _inventory(script)
     sections = pproc.sections
     for entry in sections.distributions:
-        for families in select_families(entry.families, inventory, pproc.is_blade):
+        for families in select_families(
+            entry.families, inventory, pproc.is_blade, aliases=case.aliases
+        ):
             frame = _pproc_frame(case, frames, entry.frame, "a section distribution", families)
             indices = [script.resolve_boundary(f, context="pproc section") for f in families]
             if not indices:
@@ -4569,7 +4586,7 @@ def _rotor_motions(
                 index
                 for token in cell.split(",")
                 if token.strip()
-                for index in resolve_family(token.strip(), labels)
+                for index in _resolve_token(case, token.strip(), labels)
             }
         )
     _rotations(case, script, named, followers=followers, spinning=spinning)

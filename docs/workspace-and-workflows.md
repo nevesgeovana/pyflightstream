@@ -599,6 +599,30 @@ the script took as `raw_commands` (`command`, `before`, `setup`), and the
 provenance document carries them on the solver run (PFS-2033.02). A
 preset stating none changes nothing.
 
+A preset may also name **groups of mesh families**, since 0.14.0 (her
+decision of 2026-09-09), in an `[aliases]` table, one key per alias:
+
+    [aliases]
+    lifters = ["LiftBlade", "Hub1"]       # families and boundary names, in any mix
+    pusher = ["PushBlade", "Spinner"]
+    airframe = ["W", "B", "S", "N", "H"]  # the word means what this preset says
+
+An alias is read wherever a boundary is cited by a row of the preset:
+`MOVING_BOUNDARIES: lifters`, `ROTATE: {... / FAMILIES: pusher}`,
+`BASE_REGIONS`, a `[groups]` member and a `families` entry of the pproc
+artifact. Each member resolves as a name does, an exact boundary name
+of the file first and a family (the label without its trailing number)
+second, and a member the file does not carry is ignored, so one preset
+serves the wing-body and the isolated rotor of a study. The alias is
+tried before the family and, in a `families` entry, before the five
+selector words, so `airframe` and `blades` mean whatever the preset
+says where it defines them and the built-in reading where it does not.
+A cell naming an alias none of whose members the file carries is
+refused as a name the inventory lacks, naming the alias. The run record
+carries the preset's aliases, so the products stage resolves a group
+by them without opening the preset, and the provenance document carries
+them on the solver run.
+
 A preset may also carry a `[flight_condition]` table, which is not a
 solver setting and is not judged as one: it holds the fluid pins
 (`RHOkgm3`, `MUPas`, `ASMPS`, `TK`, `PPA`) that every row naming this
@@ -779,7 +803,7 @@ base_regions = ["W", "B"]      # families the base-region autodetect may conside
 "1" = ["Blade1", "S", "N", "P", "W", "B", "H"]
 "2" = ["W", "B"]
 "3" = []                       # every family the geometry carries
-"4" = ["Blade", "airframe"]    # a family is every member of it; blades and airframe select
+"4" = ["Blade", "airframe"]    # a family is every member of it; airframe is the setup's alias
 
 [exports]                      # which of the eight export kinds a point writes
 tecplot = false                # a kind not named is written; loads cannot be off
@@ -825,7 +849,8 @@ custom_polar_format = false    # beside each polar table, the text file the auth
 ```
 
 Three things carry the artifact across configurations. A `families` entry
-is a list of family names, or one of five SELECTORS: `all` (every
+is a list of family names, an alias of the row's setup (read first,
+above), or one of five SELECTORS: `all` (every
 boundary, the command's own `-1` form), `airframe` (every family that is
 not a blade), `blades`, `each` (one entry per family the geometry carries,
 the name carrying `{family}`) and `each_blade`; a family the geometry does
@@ -855,13 +880,13 @@ since 0.14.0, her decision of 2026-09-09:
 is EVERY FAMILY the geometry carries: the polar table of group 1 sums
 every surface row of the loads table, and `MOVING_BOUNDARIES: g1` moves
 every boundary of the file. A member of a group is, tried in this order,
-a boundary name of the file; one of the selector words `blades` and
-`airframe` (the words a `families` entry accepts, told apart by
-`blade_pattern`); or a FAMILY, the label without its trailing number, so
-`"2" = ["Blade"]` sums `Blade1` to `Blade6` and `"2" = ["Blades"]` reads
-as the selector. A member the geometry does not carry is left out, and
-a position passes through to the motion. Until 0.14.0 the empty group
-was refused as her undecided call, and a family name in a group summed
+a boundary name of the file; an ALIAS of the row's setup (its
+`[aliases]` table, above), so `"2" = ["airframe"]` is whatever the
+setup calls airframe and nothing is hardcoded; or a FAMILY, the label
+without its trailing number, so `"3" = ["Blade"]` sums `Blade1` to
+`Blade6`. A member the geometry does not carry is left out, and a
+position passes through to the motion. Until 0.14.0 the empty group was
+refused as her undecided call, and a family name in a group summed
 nothing at products time. `families = []` in a
 `[[plots.groups]]` or a `[[sections.distributions]]` entry is refused,
 naming `UNSTEADY_SOLVER_NEW_FORCE_PLOT` or

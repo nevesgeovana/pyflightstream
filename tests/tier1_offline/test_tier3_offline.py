@@ -412,6 +412,35 @@ def test_moving_boundaries_may_name_a_group_of_the_pproc_artifact(tmp_path):
         assert fragment in message, message
 
 
+def test_moving_boundaries_may_name_an_alias_of_the_setup(tmp_path):
+    """Her decision of 2026-09-09: an alias defined in the row's setup is read
+    wherever a boundary is cited. `rotor = ["Blade", "Spinner"]` on a copy of the
+    unsteady preset resolves to Blade1 of 40_PUSHER, the third boundary, and the
+    member the file lacks is ignored; an alias no member of which the file
+    carries is refused as a name the inventory lacks, naming the alias."""
+    root = _tier3_copy(tmp_path)
+    s002 = (root / "inputs" / "setups" / "s002.toml").read_text(encoding="utf-8")
+    (root / "inputs" / "setups" / "s009.toml").write_text(
+        s002 + '\n[aliases]\nrotor = ["Blade", "Spinner"]\nghost = ["Spinner"]\n',
+        encoding="utf-8",
+    )
+    aliased = _one_row_matrix(
+        root,
+        "alias.fs",
+        _rotor_row("7209", "MOVING_BOUNDARIES: rotor").replace("| s002 |", "| s009 |"),
+    )
+    assert not _plan(root, aliased).blocked
+    assert _moving_payload(root, aliased) == "3"
+    ghost = _one_row_matrix(
+        root,
+        "ghost.fs",
+        _rotor_row("7210", "MOVING_BOUNDARIES: ghost").replace("| s002 |", "| s009 |"),
+    )
+    plan = _plan(root, ghost)
+    assert plan.blocked, "an alias resolving to nothing planned READY"
+    assert "ghost" in str(plan.blocked[0].error)
+
+
 def test_moving_boundaries_naming_an_empty_group_moves_every_boundary(tmp_path):
     """Her decision of 2026-09-09 (PFS-2005.02): a group written empty is every
     family the geometry carries, so `MOVING_BOUNDARIES: g1` against an artifact

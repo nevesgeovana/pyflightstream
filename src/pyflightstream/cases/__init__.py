@@ -81,7 +81,7 @@ __all__ = [
     "ProbeLine",
     "select_families",
     "select_group_members",
-    "GROUP_SELECTORS",
+    "resolve_alias",
     "default_outputs",
     "classify_outputs",
     "SweepAxis",
@@ -690,7 +690,10 @@ class PprocSpec(BaseModel):
 
 
 def select_families(
-    selection: str | Sequence[str], inventory: Sequence[str], is_blade: Callable[[str], bool]
+    selection: str | Sequence[str],
+    inventory: Sequence[str],
+    is_blade: Callable[[str], bool],
+    aliases: Mapping[str, Sequence[str]] | None = None,
 ) -> list[list[str]]:
     """Expand one families entry over the geometry's inventory, in inventory order.
 
@@ -700,10 +703,16 @@ def select_families(
     as her driver filtered its tables to the components it opened; an
     entry that resolves to nothing is an empty result and the caller
     skips it. ``all`` is the empty list standing for the command's own
-    every-boundary form, which the caller spells as -1.
+    every-boundary form, which the caller spells as -1. An ALIAS of the
+    row's setup (her decision of 2026-09-09) is read before the five
+    selector words, as the bare string and as a list member, so
+    ``airframe`` and ``blades`` are the setup's own where it defines them.
     """
     blades = [name for name in inventory if is_blade(name)]
     if isinstance(selection, str):
+        aliased = resolve_alias(selection, inventory, aliases)
+        if aliased is not None:
+            return [aliased] if aliased else []
         if selection == "all":
             return [[]]
         if selection == "airframe":
@@ -718,7 +727,10 @@ def select_families(
         raise CampaignConfigError(f"unknown family selector {selection!r}")
     chosen = []
     for item in selection:
-        if item == "blades":
+        aliased = resolve_alias(item, inventory, aliases)
+        if aliased is not None:
+            chosen.extend(name for name in aliased if name not in chosen)
+        elif item == "blades":
             chosen.extend(name for name in blades if name not in chosen)
         elif item == "airframe":
             chosen.extend(name for name in inventory if not is_blade(name) and name not in chosen)
@@ -727,49 +739,71 @@ def select_families(
     return [chosen] if chosen else []
 
 
-#: The two selector words a group member may be, the same words a
-#: ``families`` entry accepts in a list; ``all`` is what an empty group is.
-GROUP_SELECTORS = ("blades", "airframe")
+def resolve_alias(
+    token: str, inventory: Sequence[str], aliases: Mapping[str, Sequence[str]] | None
+) -> list[str] | None:
+    """Resolve one cited name as an alias of the setup, or None when it is not one.
+
+    Her decision of 2026-09-09: an alias is a name the setup's
+    ``[aliases]`` table gives to a list of boundary names or families,
+    and it is read wherever a boundary is cited. Each member resolves as
+    a name does, an exact name of the inventory first and a family (the
+    label without its trailing number) second; a member the inventory
+    does not carry is ignored, which is how one setup serves a wing-body
+    and a rotor. The names come back in member order, each once; an
+    alias every member of which is absent resolves to an empty list, and
+    the caller says what that means for its key.
+    """
+    if not aliases or token not in aliases:
+        return None
+    names: list[str] = []
+    for member in aliases[token]:
+        for name in _names_of(str(member), inventory):
+            if name not in names:
+                names.append(name)
+    return names
+
+
+def _names_of(token: str, inventory: Sequence[str]) -> list[str]:
+    """Return the exact name of the inventory, else every member of the family the token names."""
+    if token in inventory:
+        return [token]
+    wanted = family_of(token)
+    return [name for name in inventory if family_of(name) == wanted]
 
 
 def select_group_members(
-    members: Sequence[int | str], inventory: Sequence[str], is_blade: Callable[[str], bool]
+    members: Sequence[int | str],
+    inventory: Sequence[str],
+    aliases: Mapping[str, Sequence[str]] | None = None,
 ) -> list[str]:
     """Resolve one ``[groups]`` entry's members against an inventory, in member order.
 
     Her decisions of 2026-09-09 (PFS-2005.02). An EMPTY group is every
     name of the inventory. Otherwise each member is, tried in this order,
-    an exact name of the inventory; one of :data:`GROUP_SELECTORS`, case
-    folded (``blades`` is every name ``is_blade`` accepts, ``airframe``
-    every other); or a FAMILY, the label without its trailing number,
-    selecting every member of it the inventory carries (``Blade`` is
-    ``Blade1`` to ``Blade6``). A member resolving to nothing is left out,
-    which is how one artifact serves a wing-body and an isolated rotor;
-    a POSITION is not a name and is left to the caller, which is the
-    motion path that has an index to give it. The inventory is whatever
-    the caller judges by: the boundary labels of the opened file on the
-    script path, the surface rows of the loads table at products time.
+    an exact name of the inventory; an ALIAS of the row's setup
+    (:func:`resolve_alias`), so ``airframe`` and ``blades`` are whatever
+    the setup says and nothing is hardcoded; or a FAMILY, the label
+    without its trailing number, selecting every member of it the
+    inventory carries (``Blade`` is ``Blade1`` to ``Blade6``). A member
+    resolving to nothing is left out, which is how one artifact serves a
+    wing-body and an isolated rotor; a POSITION is not a name and is left
+    to the caller, which is the motion path that has an index to give it.
+    The inventory is whatever the caller judges by: the boundary labels
+    of the opened file on the script path, the surface rows of the loads
+    table at products time.
     """
     if not members:
         return list(inventory)
     chosen: list[str] = []
-
-    def take(names: Sequence[str]) -> None:
-        chosen.extend(name for name in names if name not in chosen)
-
     for member in members:
         if isinstance(member, int):
             continue
         token = str(member)
-        if token in inventory:
-            take([token])
-        elif token.casefold() == "blades":
-            take([name for name in inventory if is_blade(name)])
-        elif token.casefold() == "airframe":
-            take([name for name in inventory if not is_blade(name)])
-        else:
-            wanted = family_of(token)
-            take([name for name in inventory if family_of(name) == wanted])
+        names = [token] if token in inventory else resolve_alias(token, inventory, aliases)
+        if names is None:
+            names = _names_of(token, inventory)
+        chosen.extend(name for name in names if name not in chosen)
     return chosen
 
 
@@ -1343,6 +1377,12 @@ class SimCase(BaseModel):
     #: each emitted before the phase it names, in the order written; empty
     #: for a setup stating none.
     raw_commands: list[RawCommand] = Field(default_factory=list)
+    #: The boundary aliases the row's setup defines (her decision of
+    #: 2026-09-09), a name to the boundary names or families it stands
+    #: for; read by every builder that resolves a cited boundary and
+    #: carried on the record for the products stage. Empty for a setup
+    #: defining none, which is every setup written before 0.14.0.
+    aliases: dict[str, list[str]] = Field(default_factory=dict)
     #: The boundary order a sidecar beside the geometry states
     #: (PFS-2029.06.03), bound by the workspace; the builder refuses the
     #: run when the file's own mesh block disagrees with it.

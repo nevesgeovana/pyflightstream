@@ -124,39 +124,38 @@ def test_an_empty_group_sums_every_family_the_table_carries():
     assert everything == group_coefficients(loads, ["W", "B"], bref_m=20.0)
 
 
-def test_a_group_member_may_be_a_family_or_a_selector_word():
-    """Her question of 2026-09-09, answered by the rule the motion path already
-    had: a member is an exact surface name first, then a selector word
-    (``blades``, ``airframe``, case folded), then a family, the label without
-    its trailing number, so ``Blade`` is every blade of the table and ``Blades``
-    reads as the selector. Until 0.14.0 a family name in a group summed nothing
-    at products time, since the summer matched the table's rows exactly."""
+def test_a_group_member_may_be_a_family_or_an_alias_of_the_setup():
+    """Her decisions of 2026-09-09: a member is an exact surface name first, then
+    an ALIAS the row's setup defines (its members resolved the same way, a
+    member the table lacks ignored), then a family, the label without its
+    trailing number. Nothing is hardcoded: ``airframe`` and ``blades`` are
+    whatever the setup says they are, and without an alias those words are
+    families the table does not carry. Until 0.14.0 a family name in a group
+    summed nothing at products time."""
     from dataclasses import replace
 
     loads = _loads()
     wing, body = loads.surfaces["W"], loads.surfaces["B"]
     with_blades = replace(loads, surfaces={"Blade1": body, "Blade2": wing, "W": wing, "B": body})
+    aliases = {"airframe": ["W", "B", "Nothing"], "rotor": ["Blade"], "one": ["Blade2"]}
     by_family = group_coefficients(with_blades, ["Blade"], bref_m=20.0)
     assert by_family.families_used == ("Blade1", "Blade2")
-    assert group_coefficients(with_blades, ["Blades"], bref_m=20.0) == by_family
-    assert group_coefficients(with_blades, ["blades"], bref_m=20.0) == by_family
     assert by_family.lift == pytest.approx(wing["CL"] + body["CL"])
-    airframe = group_coefficients(with_blades, ["airframe"], bref_m=20.0)
-    assert airframe.families_used == ("W", "B")
-    assert group_coefficients(with_blades, ["Blade2", "airframe"], bref_m=20.0).families_used == (
-        "Blade2",
-        "W",
-        "B",
-    ), "an exact name first, then the selector, each name once"
+    assert group_coefficients(with_blades, ["rotor"], bref_m=20.0, aliases=aliases) == by_family
+    airframe = group_coefficients(with_blades, ["airframe"], bref_m=20.0, aliases=aliases)
+    assert airframe.families_used == ("W", "B"), "the member the table lacks is ignored"
+    assert group_coefficients(with_blades, ["airframe"], bref_m=20.0).families_used == (), (
+        "without the setup's alias the word is a family the table does not carry"
+    )
+    assert group_coefficients(with_blades, ["blades"], bref_m=20.0).families_used == ()
+    mixed = group_coefficients(with_blades, ["one", "airframe"], bref_m=20.0, aliases=aliases)
+    assert mixed.families_used == ("Blade2", "W", "B"), "alias by alias, each name once"
     assert group_coefficients(with_blades, [], bref_m=20.0).families_used == (
         "Blade1",
         "Blade2",
         "W",
         "B",
     )
-    # The artifact's own pattern decides what a blade is.
-    rotor = group_coefficients(with_blades, ["blades"], bref_m=20.0, is_blade=lambda n: n == "W")
-    assert rotor.families_used == ("W",)
 
 
 def test_polar_table_round_trips(tmp_path):

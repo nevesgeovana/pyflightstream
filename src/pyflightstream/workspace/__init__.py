@@ -748,6 +748,11 @@ class RunRecord(BaseModel):
     #: empty for a setup stating none and for every record written before
     #: the field existed, which the reader takes as the same thing.
     raw_commands: list[RawCommand] = Field(default_factory=list)
+    #: The boundary aliases the row's setup defined (her decision of
+    #: 2026-09-09), carried so the products stage resolves a group naming
+    #: one without opening the setup; empty for a setup defining none and
+    #: for every record written before the field existed.
+    aliases: dict[str, list[str]] = Field(default_factory=dict)
     conditions: list[dict] | None = None
 
     @model_validator(mode="before")
