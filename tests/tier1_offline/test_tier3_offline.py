@@ -200,6 +200,24 @@ REFUSALS = {
         "| 1 | steady | GEOMETRY: 10_WING.fsm / SYMMETRY: NONE",
         ("27.000", "executables.toml"),
     ),
+    # PFS-2008.02.01: a key no run type registers planned READY on 2026-09-08,
+    # and the run would have spent a seat on a row stating something the
+    # script does not carry. The refusal names the row, the key and the keys
+    # the run type registers; a key ANOTHER run type registers is named with
+    # the run type that reads it.
+    "a key no run type registers, on a steady row": (
+        f"7007 | Wing | REFUSED | {STEADY}GEOMETRY: 10_WING.fsm / SYMMETRY: NONE / FOO_BAR: 1",
+        ("7007", "FOO_BAR", "'steady'", "GEOMETRY", "SYMMETRY"),
+    ),
+    "a key no run type registers, on a rotor row": (
+        f"7008 | Pusher | REFUSED | {ROTOR}RPM: -800 / ROTOR_ORIGIN: ERP3 / FOO_BAR: 1",
+        ("7008", "FOO_BAR", "'unsteady_rotor'", "MOVING_BOUNDARIES"),
+    ),
+    "a key another run type registers, on a steady row": (
+        f"7009 | Wing | REFUSED | {STEADY}GEOMETRY: 10_WING.fsm / SYMMETRY: NONE / "
+        "WINDOW_DEGREES: 90",
+        ("7009", "WINDOW_DEGREES", "'steady'", "unsteady_rotor"),
+    ),
 }
 
 
@@ -242,6 +260,92 @@ def test_a_row_on_a_second_build_is_pre_flighted_under_that_builds_grammar(tmp_p
     matrix.write_text("\n".join([header, rule, steady, actions]) + "\n", encoding="utf-8")
     plan = _plan(root, matrix)
     assert not plan.blocked, [(p.run_id, p.error) for p in plan.blocked]
+
+
+def test_a_legacy_row_with_a_recipe_keeps_its_free_keys(tmp_path):
+    """PFS-2008.02.01, the other half: a LEGACY row's recipe is the reader of its
+    keys, so the tour's own LEGACY row (1090) with FOO_BAR appended plans READY."""
+    from pyflightstream.cases.matrix import read_matrix
+
+    legacy = [row for row in read_matrix(TOUR) if row.workflow == "LEGACY"]
+    assert legacy, "the tour holds no LEGACY row"
+    line = next(
+        text
+        for text in TOUR.read_text(encoding="utf-8").splitlines()
+        if text.startswith(legacy[0].pol)
+    )
+    root = _tier3_copy(tmp_path)
+    matrix = _one_row_matrix(
+        root, "legacy.fs", line.replace(legacy[0].pol, "7090", 1) + " / FOO_BAR: 1"
+    )
+    plan = _plan(root, matrix)
+    assert not plan.blocked, f"a LEGACY row lost its free keys: {plan.summary()}"
+
+
+def _pproc(root, name, text):
+    """One more pproc artifact in the copied library, written as a user writes it."""
+    path = root / "inputs" / "pproc" / f"{name}.toml"
+    path.write_text(text, encoding="utf-8")
+    return path
+
+
+WING_ROW = "MACH:0.1, REmi:2.3 | AL | 0.0 | r001 | s001 | {pproc} | 26.120 | 0 | 1 | steady | "
+
+
+def test_a_pproc_group_named_by_a_word_is_refused_at_plan_time(tmp_path):
+    """PFS-2032.03: `polar_file_name` writes the group NUMBER into the polar table's
+    name, so a group named `wing` crashed the whole products stage with a bare
+    ValueError after the seat was spent; measured planning READY on 2026-09-08.
+    The refusal names the artifact, the key and the polar table the number is for."""
+    root = _tier3_copy(tmp_path)
+    _pproc(root, "p006", '[groups]\n"wing" = ["Wing"]\n')
+    matrix = _one_row_matrix(
+        root,
+        "word.fs",
+        f"7106 | Wing | REFUSED | {WING_ROW.format(pproc='p006')}GEOMETRY: 10_WING.fsm / "
+        "SYMMETRY: NONE",
+    )
+    with pytest.raises(PyflightstreamError) as caught:
+        _plan(root, matrix)
+    message = str(caught.value)
+    assert "p006" in message and "wing" in message and "polar" in message, message
+
+
+def test_a_top_level_base_regions_list_is_the_documented_off_switch(tmp_path):
+    """PFS-2005.04: the docs page shows `base_regions = [...]` at the top level of the
+    pproc artifact, and the reader refused exactly that form as an old-shape groups
+    file (measured 2026-09-08). The empty list is the documented off switch and
+    plans READY; a list naming a family reaches the script as one
+    DETECT_BASE_REGIONS_BY_SURFACE per boundary of it."""
+    from pyflightstream.cases.workflows import build_script
+    from pyflightstream.script import Script
+    from pyflightstream.workspace.matrix import resolve_matrix
+
+    root = _tier3_copy(tmp_path)
+    _pproc(root, "p007", 'base_regions = []\n\n[groups]\n"1" = ["Wing"]\n')
+    matrix = _one_row_matrix(
+        root,
+        "off.fs",
+        f"7107 | Wing | READY | {WING_ROW.format(pproc='p007')}GEOMETRY: 10_WING.fsm / "
+        "SYMMETRY: NONE",
+    )
+    plan = _plan(root, matrix)
+    assert not plan.blocked, plan.summary()
+    _pproc(root, "p008", 'base_regions = ["Base"]\n\n[groups]\n"1" = ["Body"]\n')
+    body = _one_row_matrix(
+        root,
+        "on.fs",
+        f"7108 | Body | READY | {WING_ROW.format(pproc='p008')}GEOMETRY: 20_BODY.fsm / "
+        "SYMMETRY: NONE",
+    )
+    resolved = resolve_matrix(
+        body, CampaignWorkspace(root), name="switch", fs_version="26.120", recipes={}
+    )
+    assert resolved.pprocs["p008"].base_regions == ["Base"]
+    script = Script("26.120")
+    build_script(resolved.campaign.sims[0].model_copy(update={"point": {"alpha": 0.0}}), script)
+    detected = [line for line in script.render().splitlines() if "DETECT_BASE_REGIONS" in line]
+    assert detected == ["DETECT_BASE_REGIONS_BY_SURFACE 2"], script.render()
 
 
 def test_the_workspace_refuses_a_pol_the_tour_already_states(tmp_path):

@@ -220,6 +220,38 @@ read by the package rather than ignored:
 | v0.11.0 | `MOTIONS`, a list of records, one rotor each: `MOTIONS: {MOVING_BOUNDARIES: Blade1 / RPM: 1200 / RPM_SIGN: 1 / ROTOR_AXIS: X / ROTOR_ORIGIN: ERP1}, {...}`; a record's `ROTOR_ORIGIN` is three coordinates or the name of an engine point of `inputs/reference_points.toml`, and no flat motion key may stand beside the list (PFS-2029.11) |
 | v0.11.0 | `BASE_REGIONS`, the mesh families the base-region autodetect may consider, one `DETECT_BASE_REGIONS_BY_SURFACE` per boundary of them after `OPEN`; it overrides the pproc artifact's `base_regions`, and naming none emits nothing (PFS-2029.10) |
 | v0.13.0 | `EXPORT_UNSTEADY_AFTER_REV` and `EXPORT_UNSTEADY_AFTER_ITER`, the step the per-step exports begin on, one per row at most; the first on `unsteady_rotor` only, both refused on `steady` (PFS-2031.18) |
+| v0.13.0 | none. What changed is that the list above is now CLOSED for a workflow row: a key no run type registers is refused at `pyfs-matrix plan` (PFS-2008.02.01), see below |
+
+**A WORKFLOW ROW STATES ONLY WHAT THE SCRIPT WILL CARRY.** Each run type
+registers the keys it reads (`Workflow.keys` in
+`pyflightstream.cases.workflows`, the wider types extending the
+narrower), and a row naming a run type is refused at `pyfs-matrix plan`
+for any key outside that vocabulary. Measured on 2026-09-08: a copy of
+the suite's own tour with `FOO_BAR: 1` appended to a row planned READY on
+every point, and the run would have spent a seat on a row stating
+something the script does not carry. The row
+
+```text
+7007 | Wing | REFUSED | MACH:0.1, REmi:2.3 | AL | 0.0 | r001 | s001 | p002 | 26.120 | 0 | 1 | steady | GEOMETRY: 10_WING.fsm / SYMMETRY: NONE / FOO_BAR: 1
+```
+
+is marked BLOCKED with the reason naming the row (`case '7007'`), the run
+type, the key and what reads it (`FOO_BAR (a key of no run type)`), and
+the keys `steady` registers. A key ANOTHER run type reads is refused the
+same way and named with that type: `WINDOW_DEGREES: 90` on a `steady` row
+is `a key of unsteady, unsteady_rotor`. The refusals a builder already
+had for a key it cannot honor come first and keep their own sentences: a
+rotor key on `unsteady` still says that nothing would turn, and an export
+threshold on `steady` still says there is no time loop. A LEGACY row
+keeps its free keys, because its RECIPE is their reader: the tour's own
+LEGACY row with `FOO_BAR: 1` appended plans READY.
+
+`VELOCITY` is registered on every run type and is unreachable from a
+matrix row: the mandatory `FLIGHT_CONDITION` column resolves the
+velocity onto the case and the builders read that first, so the key is
+read for a case authored in Python and nowhere else. `ADVANCE_RATIO` is
+registered on every run type because the point NAME reads it (the `J`
+field, PFS-2029.19) and the export names carry it into the script.
 
 **`MOVING_BOUNDARIES` NAMES SURFACES, AND SHOULD NOT COUNT THEM.** Write
 the boundary names the geometry carries, or a FAMILY name, which is a
@@ -613,11 +645,11 @@ was renamed (PFS-2029.07). It carries six tables, every one optional, and a
 file holding `[groups]` alone is what the old file was:
 
 ```toml
-[groups]                       # what the groups file held: name -> families
+base_regions = ["W", "B"]      # families the base-region autodetect may consider; [] = off
+
+[groups]                       # what the groups file held: number -> families
 "1" = ["Blade1", "S", "N", "P", "W", "B", "H"]
 "2" = ["W", "B"]
-
-base_regions = ["W", "B"]      # families the base-region autodetect may consider; none = off
 
 [exports]                      # which of the eight export kinds a point writes
 tecplot = false                # a kind not named is written; loads cannot be off
@@ -701,6 +733,32 @@ though it had. `base_regions` is the one selection whose empty list has a
 documented meaning, the autodetect off, which is its default. The table
 the readers consult is `pyflightstream.workspace.inputs.ENTITY_SELECTIONS`,
 one row per key with the verdict and its reason.
+
+`base_regions` is a TOP-LEVEL key, so it goes above the first table
+header, as the example above places it: TOML puts a key written under
+`[groups]` INTO that table, where it is a group named base_regions. Until
+0.13.0 the reader refused the top-level form as a groups file of before
+0.11.0, which is what a bare list at the top level otherwise is
+(PFS-2005.04); `base_regions = []` there is the documented off switch and
+plans READY, and `base_regions = ["Base"]` reaches the script as one
+`DETECT_BASE_REGIONS_BY_SURFACE` per boundary of the family.
+
+A group is keyed by its NUMBER, and a word there is refused at
+`pyfs-matrix plan` (PFS-2032.03): the polar table written per group
+carries the number in its name (`3207_M20_g01.csv` is group 1 of polar
+3207 at Mach 0.20), so an artifact
+
+```toml
+[groups]
+"wing" = ["Wing"]
+```
+
+is refused naming the row, `inputs/pproc/p006.toml`, the key `'wing'`
+and the table name the number is for; write `"1" = ["Wing"]`. Until
+0.13.0 that artifact planned READY and stopped the whole products stage
+after the seat was spent, outside the skip mechanism. An artifact whose
+groups are not for polar tables says so with `products.polars = false`
+and keeps its names.
 
 The `[exports]` table decides the row's export set (FR-51): a workflow row
 declares no `OUTPUTS` of its own any more, every export is named for the

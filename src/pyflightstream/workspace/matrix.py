@@ -74,7 +74,7 @@ from pyflightstream.cases.matrix import (
     refuse_silent_rows_without_default,
     to_campaign,
 )
-from pyflightstream.cases.workflows import GEOMETRY_VARIABLE
+from pyflightstream.cases.workflows import GEOMETRY_VARIABLE, ROTOR_ORIGIN_POINT_KEY
 from pyflightstream.script.toggles import resolve_toggle
 from pyflightstream.workspace import (
     CampaignWorkspace,
@@ -513,7 +513,7 @@ def _bind_motion(
             available=error.available,
         ) from error
     bound["ROTOR_ORIGIN"] = f"{point.x_m},{point.y_m},{point.z_m}"
-    bound["ROTOR_ORIGIN_POINT"] = origin
+    bound[ROTOR_ORIGIN_POINT_KEY] = origin
     return bound
 
 
@@ -944,6 +944,40 @@ def _solver_from_setup(setup: SetupArtifact, set_code: str) -> SolverSettings:
         ) from error
 
 
+def _refuse_groups_named_by_a_word(pproc: PprocArtifact, code: str, pol: str) -> None:
+    """Refuse a pproc artifact whose polar groups are keyed by a word.
+
+    PFS-2032.03. The polar table written per group carries the group
+    NUMBER in its name (``<polar>_M<mach>_g<number>.csv``, her
+    convention, :func:`pyflightstream.post.products.polar_file_name`), so
+    a group named ``wing`` reached ``int(group)`` in the products stage
+    and stopped the whole stage with a bare ValueError, outside the skip
+    mechanism and after the seat was spent; measured planning READY on
+    2026-09-08. Refused HERE, at binding, and not at the artifact's shape:
+    a group's members are also what :func:`pyflightstream.workspace.expand_group`
+    numbers by the group's own name (``Blade`` to ``Blade1``, ``Blade2``),
+    which is a recipe's tool and reads no polar, so the shape stays free
+    and the campaign path, where the number is the table's name, is what
+    refuses. An artifact that writes no polar tables is left alone.
+    """
+    if not pproc.products.polars:
+        return
+    words = sorted(name for name in pproc.groups if not str(name).strip().isdigit())
+    if not words:
+        return
+    raise InputArtifactError(
+        f"matrix row POL {pol}: the PPROC column names pproc {code!r} "
+        f"(inputs/pproc/{code}.toml), whose [groups] table is keyed by "
+        f"{', '.join(repr(name) for name in words)}. A group is keyed by its NUMBER, "
+        "which is the entry the polar table written per group carries in its name "
+        "(<polar>_M<mach>_g<number>.csv), and the families it sums are the list: write "
+        '"1" = ["Wing"] rather than wing = ["Wing"]. An artifact whose groups are not '
+        "for polar tables says so with products.polars = false.",
+        kind="pproc",
+        artifact_id=code,
+    )
+
+
 def _refuse_a_pol_stated_by_a_sibling(
     path: str | Path, workspace: CampaignWorkspace, rows: list[MatrixRow]
 ) -> None:
@@ -1162,6 +1196,7 @@ def resolve_matrix(
             setup_pins[row.set_code] = _condition_defaults(setups[row.set_code], row.set_code)
         if row.pproc_code not in pprocs:
             pprocs[row.pproc_code] = _resolve_code(workspace, "pproc", row.pproc_code, row.pol)
+            _refuse_groups_named_by_a_word(pprocs[row.pproc_code], row.pproc_code, row.pol)
     sims: list[SimCase] = []
     conditions: dict[str, ResolvedCondition] = {}
     for case, row in zip(campaign.sims, rows, strict=True):

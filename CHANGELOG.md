@@ -62,6 +62,25 @@ FlightStream versions.
   scripts, so the test can enumerate it. The SRS is 1.33.0 and the
   requirement is marked; it stays pending on its Python-API half.
 
+- **A key no run type registers is refused at plan time, naming the row, the
+  key and the keys the run type does register** (PFS-2008.02.01, her rule of
+  2026-09-08 recorded in design 68: a row states only what the script will
+  carry). Each run type carries its vocabulary on the `Workflow` object
+  (`keys`, beside `commands`), the wider types extending the narrower, and
+  each builder refuses a row stating a key outside it after its own
+  refusals and before its first emission, so a rotor key on `unsteady` and
+  an export threshold on `steady` keep the sentences that say why. Measured
+  before the change: a one-row copy of the tier-3 tour with `FOO_BAR: 1`
+  appended planned READY, and the run would have spent a seat on a row
+  stating something the script does not carry. A key another run type
+  reads is named with that type (`WINDOW_DEGREES (a key of unsteady,
+  unsteady_rotor)` on a `steady` row); a LEGACY row keeps its free keys,
+  because its RECIPE is their reader, and the tour's own LEGACY row with
+  `FOO_BAR: 1` appended plans READY. `VELOCITY` is registered and
+  unreachable from a matrix row (the flight condition resolves the
+  velocity first), and `MOTIONS` moved home to `cases.workflows` so the
+  rotor run type could register it; `cases.matrix` re-exports it.
+
 - **A boundary renamed in the solver before the save reaches every export by
   its new name, measured** (PFS-2007.01, RPT-044). The tier-3 library gained
   `14_WING_RENAMED.fsm`, the tour's wing with `SURFACE_RENAME 1 MainWing`
@@ -458,6 +477,32 @@ FlightStream versions.
   named build's version off the registry, with no executable bound, and
   validates the row against it; a build whose entry declares no version is
   pre-flighted under the default, which is what its scripts run under.
+
+- **A pproc group named by a word is refused at plan time, naming the
+  artifact, the key and the polar table the number is for** (PFS-2032.03).
+  `polar_file_name` writes the group NUMBER into the polar table's name
+  (`<polar>_M<mach>_g<number>.csv`), so an artifact whose `[groups]` table
+  was keyed `wing` planned READY and stopped the whole products stage with a
+  bare ValueError, outside the skip mechanism and after the seat was spent
+  (measured 2026-09-08). `resolve_matrix` now refuses it at binding for every
+  row whose artifact writes polar tables, and an artifact whose groups are
+  for something else says so with `products.polars = false`. The shape stays
+  free: `expand_group` numbers a group's members by the group's own name
+  and reads no polar. The tier-1 fixtures that carried `wing` and `body`
+  groups are keyed `"1"` and `"2"` now, which is what they encoded wrongly.
+
+- **A top-level `base_regions` list in a pproc artifact is read as the
+  documented off switch** (PFS-2005.04). The reader refused `base_regions =
+  []` at the top level as a groups file of before 0.11.0, the bare-list
+  check that tells the old shape apart, while the docs page showed exactly
+  that form; measured 2026-09-08. The one top-level list the pproc shape
+  itself defines is exempt from that check, so the empty list plans READY
+  and `base_regions = ["Base"]` reaches the script as one
+  `DETECT_BASE_REGIONS_BY_SURFACE` per boundary of the family; a bare list
+  under any other key is still the old shape and is still refused naming
+  the migration. The docs example placed the key UNDER `[groups]`, where
+  TOML makes it a group named base_regions; it sits above the header now,
+  and a tier-1 test resolves the documented block off the page.
 
 - **The data-model page and the workspace docstring name `pproc/` as the
   fourth input kind, not `groups/`** (PFS-2032.02). The kind has been `pproc`

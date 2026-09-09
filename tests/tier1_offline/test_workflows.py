@@ -1482,12 +1482,18 @@ def unsteady_case(**overrides) -> SimCase:
 
 
 def unsteady_case_full() -> SimCase:
-    """A third clock again, and the optional cells a rotorless row may set."""
+    """A third clock again, and the optional cells a rotorless row may set.
+
+    ``OUTPUTS`` sat in the variables until 0.13.0 and was read by nobody:
+    the reader turns that cell into ``outputs`` and refuses it on a
+    workflow row since 0.11.0, so a builder never sees it. The vocabulary
+    check of PFS-2008.02.01 refuses a key no run type reads, and the
+    outputs are what the case field carries; the goldens did not move.
+    """
     return unsteady_case(
         DELTA_TIME="0.0005",
         TIME_ITERATIONS="240",
         LOG_OUTPUT="2",
-        **{"OUTPUTS": "loads_a+00.0.txt, loads_a+00.0_log.txt"},
     ).model_copy(update={"outputs": ["loads_a+00.0.txt", "loads_a+00.0_log.txt"]})
 
 

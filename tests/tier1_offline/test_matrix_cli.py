@@ -117,9 +117,7 @@ def make_planned_workspace(tmp_path):
         "area_m2 = 10.0\nchord_m = 1.2\nspan_m = 8.0\n", encoding="utf-8"
     )
     (inputs / "setups" / "s002.toml").write_text("iterations = 800\n", encoding="utf-8")
-    (inputs / "pproc" / "p001.toml").write_text(
-        '[groups]\nwing = ["wing_left"]\n', encoding="utf-8"
-    )
+    (inputs / "pproc" / "p001.toml").write_text('[groups]\n"1" = ["wing_left"]\n', encoding="utf-8")
     with open(inputs / "executables.toml", "a", encoding="utf-8") as handle:
         handle.write('"26.120" = "C:/fs26120/FlightStream.exe"\n')
     return workspace

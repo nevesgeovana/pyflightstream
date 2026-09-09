@@ -844,6 +844,18 @@ def resolve_pproc(inputs_dir: Path, artifact_id: str) -> PprocArtifact:
         Unknown id (the message lists the available ids), a file that
         does not validate, or a file in the shape the groups artifact
         had, which is named with the command that moves it.
+
+    Notes
+    -----
+    An old-shape groups file is told by its BARE LISTS: a group name to
+    its members at the top level, with no ``[groups]`` table. The one
+    top-level list the pproc shape itself defines, ``base_regions``, is
+    not that (PFS-2005.04): until 0.13.0 this reader refused the
+    documented off switch ``base_regions = []`` as an old-shape file,
+    while the docs page showed exactly that form. TOML puts a top-level
+    key BEFORE the first table header, so the line goes above
+    ``[groups]``; written under it, it is a group named base_regions and
+    is refused as one.
     """
     _check_id(artifact_id, "pproc")
     directory = Path(inputs_dir) / "pproc"
@@ -851,7 +863,9 @@ def resolve_pproc(inputs_dir: Path, artifact_id: str) -> PprocArtifact:
     if not path.is_file():
         raise _miss("pproc", artifact_id, directory)
     data = _load_toml(path, "pproc")
-    bare = sorted(key for key, value in data.items() if isinstance(value, list))
+    bare = sorted(
+        key for key, value in data.items() if isinstance(value, list) and key != "base_regions"
+    )
     if bare:
         raise InputArtifactError(
             f"the pproc artifact {path} carries group(s) {', '.join(bare)} at the top "

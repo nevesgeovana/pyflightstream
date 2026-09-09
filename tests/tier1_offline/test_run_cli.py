@@ -116,7 +116,7 @@ def make_workspace(tmp_path: Path) -> CampaignWorkspace:
     # exactly that export (PFS-2029.14.02); the test of the default set
     # below rewrites the artifact to select nothing out.
     (inputs / "pproc" / "p001.toml").write_text(
-        "[groups]\nwing = [1]\n\n[exports]\nsimulation = false\ntecplot = false\n"
+        '[groups]\n"1" = [1]\n\n[exports]\nsimulation = false\ntecplot = false\n'
         "sections = false\nsectional_loads = false\nprobes = false\nplots = false\n"
         "log = false\n",
         encoding="utf-8",
@@ -344,7 +344,7 @@ def test_a_workflow_row_declaring_no_outputs_gets_the_study_export_set(tmp_path,
 
     workspace = make_workspace(tmp_path)
     (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
-        "[groups]\nwing = [1]\n", encoding="utf-8"
+        '[groups]\n"1" = [1]\n', encoding="utf-8"
     )
     matrix = tmp_path / "no_outputs.fs"
     matrix.write_text(FIXTURE.read_text(encoding="utf-8"), encoding="utf-8")

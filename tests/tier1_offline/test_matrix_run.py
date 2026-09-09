@@ -128,7 +128,9 @@ SETUP_BODIES = {
     "002": "iterations = 800\nconvergence = 1e-6\n",
     "003": "iterations = 400\nwake_layers = 4\n",
 }
-GROUP_BODIES = {"001": '[groups]\nwing = ["wing_left", "wing_right"]\nbody = [1]\n'}
+#: Keyed by NUMBER since 0.13.0 (PFS-2032.03): the polar table written per
+#: group carries the number in its name, and a word there is refused at plan.
+GROUP_BODIES = {"001": '[groups]\n"1" = ["wing_left", "wing_right"]\n"2" = [1]\n'}
 
 
 def fixture_codes(path=FIXTURE):
@@ -256,8 +258,8 @@ def test_resolve_matrix_applies_reference_and_setup_to_the_cases(tmp_path):
     assert by_sim["9001"].variables["matrix_set"] == code_for("9001", "set")
     # ENTRY groups come back verbatim for the script and post layers.
     assert resolved.pprocs[code_for("9001", "entry")].groups == {
-        "wing": ["wing_left", "wing_right"],
-        "body": [1],
+        "1": ["wing_left", "wing_right"],
+        "2": [1],
     }
     # The unmapped preset key stays verbatim in the artifact.
     assert resolved.setups[code_for("9001", "set")].settings["wake_layers"] == 4

@@ -96,11 +96,13 @@ __all__ = [
     "GEOMETRY_VARIABLE",
     "LOG_OUTPUT_VARIABLE",
     "BASE_REGIONS_VARIABLE",
+    "MOTIONS_VARIABLE",
     "MOVING_BOUNDARIES_VARIABLE",
     "PERIODIC_COPIES_VARIABLE",
     "REVOLUTIONS_VARIABLE",
     "ROTORLESS_REFUSED_KEYS",
     "ROTOR_AXIS_VARIABLE",
+    "ROTOR_ORIGIN_POINT_KEY",
     "ROTOR_ORIGIN_VARIABLE",
     "ROTOR_SHEDDING_VARIABLE",
     "RPM_SIGN_VARIABLE",
@@ -189,6 +191,19 @@ VELOCITY_VARIABLE = "VELOCITY"
 RPM_VARIABLE = "RPM"
 ROTOR_AXIS_VARIABLE = "ROTOR_AXIS"
 ROTOR_ORIGIN_VARIABLE = "ROTOR_ORIGIN"
+#: The key the WORKSPACE writes beside a bound ``ROTOR_ORIGIN``, carrying
+#: the engine point's name once the coordinates replaced it, so the run
+#: record says which point the hub was (PFS-2029.11.02). A user never
+#: writes it, which is why the vocabulary check below leaves it alone.
+ROTOR_ORIGIN_POINT_KEY = "ROTOR_ORIGIN_POINT"
+#: The one ``VAR_NAMES_VALUES`` key whose value is a LIST OF RECORDS
+#: (PFS-2029.11.01): ``MOTIONS: {A: 1 / B: x}, {A: 2 / B: y}``. Each
+#: record holds the keys one rotor motion is stated with; a row with the
+#: list states no flat motion key beside it. Defined HERE, beside the
+#: other cell keys, since 0.13.0, so the rotor run type can register it;
+#: :mod:`pyflightstream.cases.matrix`, whose reader consumes the list
+#: into :attr:`~pyflightstream.cases.SimCase.motions`, re-exports it.
+MOTIONS_VARIABLE = "MOTIONS"
 #: The direction a rotor case's relaxed trailing edges shed their wake:
 #: AXIAL (0) or AZIMUTH (1), the second being what 26.123 adds and what a
 #: rotor case wants (SRC-751 p.85). Absent means the row asks for nothing
@@ -417,12 +432,24 @@ class Workflow:
         listing it would narrow the range for runs that never reach it.
     builder : callable
         ``builder(case, script, conventions) -> None``.
+    keys : tuple of str
+        Every ``VAR_NAMES_VALUES`` key the run type READS: the row's
+        vocabulary, and the list a refusal prints when a row states a
+        key outside it (PFS-2008.02.01, her rule of 2026-09-08: a row
+        states only what the script will carry). A key here is one the
+        builder, the clock, the window or the point name resolves; a key
+        another run type reads is refused on this one naming that type,
+        because a value nothing reads would change nothing about the
+        run while reading as though it had. The tier-3 workspace is the
+        control that the tuple is complete: every matrix there plans
+        READY, so a key a row of it states is registered here.
     """
 
     name: str
     summary: str
     commands: tuple[str, ...]
     builder: Callable[[SimCase, Script, WorkflowConventions], None]
+    keys: tuple[str, ...]
 
 
 def workflow_names() -> tuple[str, ...]:
@@ -3389,6 +3416,7 @@ def _build_steady(case: SimCase, script: Script, conventions: WorkflowConvention
     # A steady row stating an export threshold is refused there, naming
     # the time loop it lacks (PFS-2031.18); a row stating none returns.
     unsteady_export_threshold(case, conventions)
+    _refuse_unregistered_keys(case, "steady")
     _open_geometry(case, script)
     frame = _moment_frame(case, script)
     frames: dict[str, int | None | Mapping[str, int]] = {"MRP": frame, "PROP_MRP": None}
@@ -3873,6 +3901,7 @@ def _build_unsteady(case: SimCase, script: Script, conventions: WorkflowConventi
     _refuse_rotor_keys_on_a_rotorless_run(case)
     _refuse_wake_termination_without_a_rotor(case)
     threshold = unsteady_export_threshold(case, conventions)
+    _refuse_unregistered_keys(case, "unsteady")
     _open_geometry(case, script)
     frame = _moment_frame(case, script)
     frames: dict[str, int | None | Mapping[str, int]] = {
@@ -3914,6 +3943,7 @@ def _build_unsteady_rotor(case: SimCase, script: Script, conventions: WorkflowCo
     # Resolved before the first emission, as every refusal of a row key
     # is; a row stating no threshold pays nothing here.
     threshold = unsteady_export_threshold(case, conventions)
+    _refuse_unregistered_keys(case, "unsteady_rotor")
     _open_geometry(case, script)
     frame = _moment_frame(case, script)
     # THE ROTOR FRAME IS THE PROPELLER FRAME, named as her scripts named it
@@ -4067,7 +4097,7 @@ def _motion_view(case: SimCase, record: Mapping[str, str]) -> SimCase:
     variables: dict[str, str | float | int | bool] = {
         key: value for key, value in case.variables.items() if key not in _MOTION_RECORD_KEYS
     }
-    variables.update({key: value for key, value in record.items() if key != "ROTOR_ORIGIN_POINT"})
+    variables.update({key: value for key, value in record.items() if key != ROTOR_ORIGIN_POINT_KEY})
     return case.model_copy(update={"variables": variables, "motions": []})
 
 
@@ -4132,6 +4162,112 @@ def _origin(case: SimCase) -> tuple[float, float, float]:
 #: narrows nothing on any of them, and a build that ever lacked it
 #: would refuse the emission at the line itself rather than silently
 #: omitting it.
+#:
+#: THE ``keys`` TUPLES BELOW ARE THE ROW'S VOCABULARY (PFS-2008.02.01),
+#: each key typed once and the wider run types extending the narrower:
+#: ``unsteady`` reads everything ``steady`` reads plus a clock and a
+#: window, ``unsteady_rotor`` everything ``unsteady`` reads plus the
+#: rotor. ``VELOCITY`` is registered on all three and is unreachable from
+#: a matrix row (GOAL-012): the mandatory FLIGHT_CONDITION column resolves
+#: the velocity onto the case and ``_velocity`` reads that first, so the
+#: key is read for a case authored in Python and nowhere else.
+#: ``ADVANCE_RATIO`` is registered on all three because the point NAME
+#: reads it on every case (``J<J*100>``, PFS-2029.19) and the export
+#: names carry it into the script. ``LOG_OUTPUT`` is read by every
+#: export block and refused on a matrix row by the reader since 0.11.0,
+#: so it is reachable from Python alone, like ``VELOCITY``.
+_STEADY_KEYS: tuple[str, ...] = (
+    GEOMETRY_VARIABLE,
+    SYMMETRY_VARIABLE,
+    PERIODIC_COPIES_VARIABLE,
+    BASE_REGIONS_VARIABLE,
+    VELOCITY_VARIABLE,
+    ADVANCE_RATIO_VARIABLE,
+    LOG_OUTPUT_VARIABLE,
+)
+_UNSTEADY_KEYS: tuple[str, ...] = (
+    *_STEADY_KEYS,
+    DELTA_TIME_VARIABLE,
+    TIME_ITERATIONS_VARIABLE,
+    DELTA_THETA_VARIABLE,
+    REVOLUTIONS_VARIABLE,
+    WINDOW_DEGREES_VARIABLE,
+    WINDOW_STEPS_VARIABLE,
+    WINDOW_REVOLUTIONS_VARIABLE,
+    BLADES_VARIABLE,
+    EXPORT_UNSTEADY_AFTER_ITER_VARIABLE,
+)
+_UNSTEADY_ROTOR_KEYS: tuple[str, ...] = (
+    *_UNSTEADY_KEYS,
+    RPM_VARIABLE,
+    RPM_SIGN_VARIABLE,
+    ROTOR_AXIS_VARIABLE,
+    ROTOR_ORIGIN_VARIABLE,
+    ROTOR_SHEDDING_VARIABLE,
+    MOVING_BOUNDARIES_VARIABLE,
+    MOTIONS_VARIABLE,
+    EXPORT_UNSTEADY_AFTER_REV_VARIABLE,
+)
+
+#: The converter's namespace in the case variables (``matrix_ref``,
+#: ``matrix_workflow`` and the rest), written over the cell after the
+#: cell is read and never by a user; :data:`WORKFLOW_KEY` is one of them.
+_CONVERTER_PREFIX = "matrix_"
+
+
+def _refuse_unregistered_keys(case: SimCase, name: str) -> None:
+    """Refuse a row stating a key the run type does not register.
+
+    PFS-2008.02.01, measured on 2026-09-08: a one-row copy of the tier-3
+    tour with ``FOO_BAR: 1`` appended planned READY on every point, and
+    the run would have spent a seat on a row stating something the
+    script does not carry. The refusal names the case (its ``sim_id`` is
+    the matrix POL), the run type, every key outside the vocabulary with
+    the run types that DO read it, and the keys this run type registers.
+
+    CALLED BY EACH BUILDER AFTER ITS OWN REFUSALS AND BEFORE ITS FIRST
+    EMISSION, not by :func:`build_script` ahead of the builder, and the
+    placement is the point: a rotor key on the run type that turns
+    nothing, or an export threshold on the run type with no time loop,
+    is refused by the builder's own sentence, which says WHY the key
+    cannot be honored there; this check is the general rule behind
+    those sentences and catches what they do not name.
+
+    A row selected through its RECIPE keeps its keys: a LEGACY row whose
+    RECIPE code maps to a run type, or a case authored in Python naming
+    the type as its recipe, is the recipe path, and the recipe is the
+    reader of its keys (her rule of 2026-09-08, design 68). The
+    converter's own ``matrix_`` keys and the workspace's
+    ``ROTOR_ORIGIN_POINT`` are not the row's and are left alone.
+    """
+    if _workflow_cell(case) is None:
+        return
+    workflow = WORKFLOWS[name]
+    stated = sorted(
+        key
+        for key in case.variables
+        if not key.startswith(_CONVERTER_PREFIX)
+        and key != ROTOR_ORIGIN_POINT_KEY
+        and key not in workflow.keys
+    )
+    if not stated:
+        return
+    described = []
+    for key in stated:
+        readers = [name for name, other in WORKFLOWS.items() if key in other.keys]
+        described.append(
+            f"{key} (a key of {', '.join(readers)})" if readers else f"{key} (a key of no run type)"
+        )
+    raise CampaignConfigError(
+        f"case {case.sim_id!r} names the run type {workflow.name!r} and states "
+        f"{', '.join(described)}, which that run type does not register. A key nothing "
+        "reads would change nothing about the run while reading as though it had, so it "
+        f"is refused rather than ignored. The keys {workflow.name!r} registers are: "
+        f"{', '.join(sorted(workflow.keys))}. A LEGACY row keeps its own keys, because its "
+        "RECIPE is their reader; docs/workspace-and-workflows.md says what each key means."
+    )
+
+
 WORKFLOWS: Mapping[str, Workflow] = {
     "steady": Workflow(
         name="steady",
@@ -4161,6 +4297,7 @@ WORKFLOWS: Mapping[str, Workflow] = {
             "CLOSE_FLIGHTSTREAM",
         ),
         builder=_build_steady,
+        keys=_STEADY_KEYS,
     ),
     "unsteady": Workflow(
         name="unsteady",
@@ -4194,6 +4331,7 @@ WORKFLOWS: Mapping[str, Workflow] = {
             "CLOSE_FLIGHTSTREAM",
         ),
         builder=_build_unsteady,
+        keys=_UNSTEADY_KEYS,
     ),
     "unsteady_rotor": Workflow(
         name="unsteady_rotor",
@@ -4235,6 +4373,7 @@ WORKFLOWS: Mapping[str, Workflow] = {
             "CLOSE_FLIGHTSTREAM",
         ),
         builder=_build_unsteady_rotor,
+        keys=_UNSTEADY_ROTOR_KEYS,
     ),
 }
 

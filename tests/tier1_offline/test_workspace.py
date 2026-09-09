@@ -2229,6 +2229,31 @@ def test_the_pproc_artifact_validates_its_six_tables(tmp_path):
         workspace.resolve_pproc("p013")
 
 
+def test_the_documented_pproc_artifact_resolves_as_the_page_reads(tmp_path):
+    """The pproc example of docs/workspace-and-workflows.md, resolved as written.
+
+    PFS-2005.04. The page showed ``base_regions`` under the ``[groups]``
+    header, where TOML makes it a GROUP named base_regions, and the reader
+    refused the top-level form the comment meant as an old-shape groups
+    file. The block is read off the page so the two cannot drift.
+    """
+    page = (Path(__file__).parents[2] / "docs" / "workspace-and-workflows.md").read_text(
+        encoding="utf-8"
+    )
+    section = page.split("### What the post-processing artifact holds", 1)[1]
+    block = section.split("```toml", 1)[1].split("```", 1)[0]
+    workspace = library(tmp_path)
+    (workspace.inputs_dir / "pproc" / "p020.toml").write_text(block, encoding="utf-8")
+    pproc = workspace.resolve_pproc("p020")
+    assert pproc.base_regions == ["W", "B"], "the documented off switch did not resolve"
+    assert set(pproc.groups) == {"1", "2"}, pproc.groups
+    # The old shape is still told apart: a bare list that is not the one
+    # top-level key the pproc shape defines is a groups file of before 0.11.0.
+    (workspace.inputs_dir / "pproc" / "p021.toml").write_text('wing = ["W"]\n', encoding="utf-8")
+    with pytest.raises(InputArtifactError, match="migrate_groups_to_pproc"):
+        workspace.resolve_pproc("p021")
+
+
 def test_a_setup_key_naming_post_processing_is_refused_pointing_at_pproc(tmp_path):
     """PFS-2029.16: a setup carries solver settings only."""
     from pyflightstream.workspace.matrix import _solver_from_setup

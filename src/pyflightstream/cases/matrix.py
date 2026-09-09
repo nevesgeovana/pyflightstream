@@ -90,7 +90,7 @@ from pyflightstream.cases import (
 # registry which types exist rather than keeping a second list, because a
 # second list is how a value gets refused for naming a workflow that was
 # registered last week.
-from pyflightstream.cases.workflows import LOG_OUTPUT_VARIABLE, workflow_names
+from pyflightstream.cases.workflows import LOG_OUTPUT_VARIABLE, MOTIONS_VARIABLE, workflow_names
 
 __all__ = [
     "CODE_COLUMNS",
@@ -544,11 +544,12 @@ def _parse_sweep(sweep_type: str, sweep_values: str) -> SweepAxis:
     return SweepAxis(type=axis_name, values=axis_values)
 
 
-#: The one ``VAR_NAMES_VALUES`` key whose value is a LIST OF RECORDS
-#: (PFS-2029.11.01): ``MOTIONS: {A: 1 / B: x}, {A: 2 / B: y}``. Each
-#: record holds the keys one rotor motion is stated with; a row with the
-#: list states no flat motion key beside it.
-MOTIONS_VARIABLE = "MOTIONS"
+#: ``MOTIONS_VARIABLE``, the one ``VAR_NAMES_VALUES`` key whose value is a
+#: LIST OF RECORDS (PFS-2029.11.01), is imported above from
+#: :mod:`pyflightstream.cases.workflows`, its home since 0.13.0 beside
+#: the other cell keys, so the rotor run type can register it
+#: (PFS-2008.02.01); this module keeps the published name and reads the
+#: list into :attr:`MatrixRow.motions`.
 
 #: The keys a motion record may carry, and which a row may not state flat
 #: beside a ``MOTIONS`` list, because two statements of one rotor's speed
