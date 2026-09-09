@@ -15,6 +15,7 @@ from pydantic import ValidationError
 import pyflightstream
 from pyflightstream.script import Script
 from pyflightstream.workspace import (
+    INPUT_KINDS,
     CampaignWorkspace,
     InputArtifactError,
     NamingTemplate,
@@ -274,6 +275,26 @@ def test_cli_init_builds_the_tree_and_returns_zero(tmp_path, capsys):
     out = capsys.readouterr().out
     assert "campaign workspace ready" in out
     assert "idempotent" in out
+
+
+def test_the_data_model_page_lists_exactly_the_input_kinds():
+    """The SRS data-model page's folder tree names the kinds `init` creates (PFS-2032.02).
+
+    The page listed `groups/` two releases after the kind became `pproc`
+    (0.11.0), because nothing read the page back against the package. The
+    tree under "The workspace" is parsed for the folders indented under
+    `inputs/`, and they are required to be `INPUT_KINDS`, in order, so the
+    next rename moves the page in the same commit or goes red here.
+    """
+    page = Path(__file__).resolve().parents[2] / "docs" / "srs" / "data-model.md"
+    text = page.read_text(encoding="utf-8")
+    tree = text.split("## The workspace", 1)[1].split("```", 2)[1]
+    listed = tuple(re.findall(r"^    ([a-z_]+)/", tree, flags=re.MULTILINE))
+    assert listed == INPUT_KINDS, (
+        f"docs/srs/data-model.md lists the input kinds {listed} under inputs/ and the "
+        f"package creates {INPUT_KINDS}; the page and pyflightstream.workspace.INPUT_KINDS "
+        "move together"
+    )
 
 
 # --- input-artifact library -------------------------------------------------

@@ -17,9 +17,9 @@ The managed layout under a user-chosen campaign root, created by
   point.
 - ``inputs/``: the reusable input-artifact library
   (:mod:`pyflightstream.workspace.inputs`): ``geometries/``,
-  ``references/``, ``setups/``, ``groups/``, ``profiles/``, plus the
-  ``executables.toml`` build registry; artifacts are declarative TOML
-  resolved by stable id.
+  ``references/``, ``setups/``, ``pproc/`` (``groups/`` until 0.11.0),
+  ``profiles/``, plus the ``executables.toml`` build registry; artifacts
+  are declarative TOML resolved by stable id.
 - ``sims/sim_<sim_id>/``: per-simulation folder with ``inputs/``
   (staged copies with recorded sha256), ``scripts/`` (generated script
   text per point), and ``raw/`` (solver outputs as produced). Until

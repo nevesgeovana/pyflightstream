@@ -205,7 +205,7 @@ The managed folder tree of a campaign:
     geometries/      geometry files, registered by filename stem
     references/      reference-data artifacts (areas, lengths, moment points, propeller data)
     setups/          named solver-setup presets
-    groups/          named boundary groups (labels for aggregation)
+    pproc/           post-processing artifacts (named boundary groups and the product tables; groups/ until 0.11.0)
     profiles/        input profiles (e.g. actuator loading shapes)
     executables.toml the build-id to executable registry, with an
                      optional declared version per build

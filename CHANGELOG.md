@@ -149,6 +149,15 @@ FlightStream versions.
 
 ### Fixed
 
+- **The data-model page and the workspace docstring name `pproc/` as the
+  fourth input kind, not `groups/`** (PFS-2032.02). The kind has been `pproc`
+  since 0.11.0 and two pages still listed the old folder, because nothing
+  read them back against the package. A tier-1 test now parses the folder
+  tree of `docs/srs/data-model.md` and requires the kinds it lists under
+  `inputs/` to be exactly `pyflightstream.workspace.INPUT_KINDS`, in order,
+  so the next rename moves the page in the same commit or goes red. The
+  history paragraphs that say the folder was renamed stay as they are.
+
 - **The tier-3 goldens are the same file on Windows and on Linux.** CI on
   Linux measured every tier-3 golden as differing from its render, because a
   golden written on Windows carried the backslash in its placeholder paths;
