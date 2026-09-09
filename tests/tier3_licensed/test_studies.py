@@ -154,6 +154,31 @@ def test_the_mirrored_half_wing_reproduces_the_full_wing_lift(runs):
     assert isinstance(half["CDi"], float) and isinstance(full["CDi"], float)
 
 
+def test_a_boundary_renamed_before_the_save_reaches_every_export_by_its_new_name(runs):
+    """PFS-2007.01, RPT-044. The STL part that became boundary 1 of
+    14_WING_RENAMED.fsm was called Wing; SURFACE_RENAME called it MainWing before
+    SAVEAS. Row 4004 cites MainWing through its pproc group and nothing else. The
+    renamed name overrides the mesh solid name on export: the loads table, the log
+    and the saved file say MainWing, the mesh name appears nowhere, and the products
+    stage resolved the group by it. Same mesh as 4001, so the lift is the same."""
+    record = runs.one("matriz_geometry", "4004", alpha=4.0)
+    assert record.status in TERMINAL_OK, (record.status, record.error)
+    loads = runs.loads(record)
+    assert list(loads.surfaces) == ["MainWing"], list(loads.surfaces)
+    raw = runs.workspace.sim_dir("4004") / "raw"
+    for output in record.outputs:
+        text = (runs.workspace.sim_dir("4004") / output).read_bytes().decode("utf-8", "replace")
+        assert " Wing" not in text and "\tWing" not in text and ",Wing" not in text, output
+    assert raw.is_dir()
+    table = runs.products("matriz_geometry") / "4004_M10_g01.csv"
+    assert table.is_file(), "p004 group 1 is MainWing, resolved by the products stage"
+    plain = runs.total(runs.one("matriz_geometry", "4001", alpha=4.0))
+    assert abs(runs.total(record)["CL"] - plain["CL"]) < 1e-6, (
+        plain["CL"],
+        runs.total(record)["CL"],
+    )
+
+
 def test_the_blunt_body_row_detects_its_base_and_the_base_group_has_a_table(runs):
     record = runs.one("matriz_geometry", "4003", alpha=4.0)
     assert "DETECT_BASE_REGIONS_BY_SURFACE" in runs.script(record)

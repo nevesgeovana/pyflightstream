@@ -51,6 +51,7 @@ FILES = {
     "wing_phy": "12_WING_PHY.fsm",
     "halfwing_phy": "13_HALFWING_PHY.fsm",
     "blade_phy": "31_BLADE_PHY.fsm",
+    "wing_renamed": "14_WING_RENAMED.fsm",
 }
 
 

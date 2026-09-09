@@ -189,12 +189,22 @@ SHAPES = {
     "wing_phy": lambda: [("Wing", wing_triangles(WING_PHY))],
     "halfwing_phy": lambda: [("Wing", wing_triangles(WING_PHY, half=True))],
     "blade_phy": lambda: [("Blade1", blade_triangles(BLADE_PHY))],
+    # The tour's wing with its one boundary RENAMED in the solver before the
+    # save (PFS-2007.01): the mesh solid is still called Wing in the STL and
+    # the saved simulation calls it what SURFACE_RENAME said.
+    "wing_renamed": lambda: [("Wing", wing_triangles(WING))],
     "twin": lambda: [
         ("Body", body_triangles()[0]),
         ("Base", body_triangles()[1]),
         ("Blade1", two_blade_rotor((HUB_X_M, TWIN_Y_M, 0.0))),
         ("Blade2", two_blade_rotor((HUB_X_M, -TWIN_Y_M, 0.0), mirrored=True)),
     ],
+}
+
+#: The rename a shape's preparation applies after the import, by boundary
+#: index and new name; only the shape that measures renaming has one.
+RENAMES: dict[str, tuple[int, str]] = {
+    "wing_renamed": (1, "MainWing"),
 }
 
 
@@ -228,6 +238,10 @@ def prepare_geometry(case, script) -> None:
     script.emit("NEW_SIMULATION")
     for index, part in enumerate(parts):
         script.emit("IMPORT", "METER", "STL", part.as_posix(), clear=(index == 0))
+    if shape in RENAMES:
+        # A geometry-phase command, so it precedes the units line.
+        index, name = RENAMES[shape]
+        script.emit("SURFACE_RENAME", index, name)
     script.emit("SET_SIMULATION_LENGTH_UNITS", "METER")
     script.emit("AUTO_DETECT_TRAILING_EDGES")
     # The qa cases detect the wake termination nodes right after the

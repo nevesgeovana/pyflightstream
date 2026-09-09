@@ -9,6 +9,19 @@ FlightStream versions.
 
 ### Added
 
+- **A boundary renamed in the solver before the save reaches every export by
+  its new name, measured** (PFS-2007.01, RPT-044). The tier-3 library gained
+  `14_WING_RENAMED.fsm`, the tour's wing with `SURFACE_RENAME 1 MainWing`
+  applied by the preparation script before the save; its inventory sidecar,
+  read off the file's own mesh block, carries `MainWing` and not the mesh
+  solid's `Wing`. Row 4004 of `matriz_geometry.fs` cites `MainWing` through
+  a pproc group and nothing else: the loads table, the log and the saved file
+  of the run say `MainWing`, the mesh name appears nowhere, the products stage
+  resolved the group by it, and the lift equals the plain wing's to every
+  printed decimal. The same measurement showed that a group citing the mesh
+  name plans READY, since groups resolve at products time; that is
+  PFS-2028.00's ground and is recorded there.
+
 - **The unsteady run types' plots export is measured through the workflow,
   and the three plot commands have a coupled probe specification written
   from it** (PFS-2015.02.01). Every recorded point of an `unsteady` or

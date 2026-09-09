@@ -1,0 +1,8 @@
+# p004: groups citing a boundary by the name it was RENAMED to in the solver
+# before the save (PFS-2007.01). The STL part that became the boundary was
+# called Wing; SURFACE_RENAME called it MainWing before SAVEAS, and the
+# inventory sidecar of 14_WING_RENAMED.fsm reads MainWing off the file's own
+# mesh block. A row naming this artifact cites the renamed name and nothing
+# else, so the run measures which name reaches the loads export.
+[groups]
+"1" = ["MainWing"]

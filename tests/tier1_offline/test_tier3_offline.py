@@ -101,6 +101,28 @@ def test_the_unsteady_plots_export_is_named_by_the_run_record():
     assert seen == set(unsteady), f"rendered {sorted(seen)}, registry {unsteady}"
 
 
+def test_a_row_may_cite_a_boundary_by_its_renamed_name():
+    """PFS-2007.01: the inventory sidecar of the renamed wing, read off the saved
+    file's own mesh block, carries the name SURFACE_RENAME gave the boundary and not
+    the mesh solid's; the pproc artifact p004 cites that name; row 4004 plans READY
+    on it (the plans-ready test above). The licensed half is
+    tests/tier3_licensed/test_studies.py::test_a_boundary_renamed_before_the_save_reaches_every_export_by_its_new_name."""
+    import tomllib
+
+    sidecar = offline.HERE / "inputs" / "geometries" / "14_WING_RENAMED.boundaries.toml"
+    inventory = tomllib.loads(sidecar.read_text(encoding="utf-8"))
+    assert inventory["boundaries"] == ["MainWing"], inventory
+    pproc = tomllib.loads(
+        (offline.HERE / "inputs" / "pproc" / "p004.toml").read_text(encoding="utf-8")
+    )
+    assert pproc["groups"]["1"] == ["MainWing"]
+    from pyflightstream.cases.matrix import read_matrix
+
+    rows = {r.pol: r for r in read_matrix(offline.HERE / "matriz_geometry.fs")}
+    assert rows["4004"].pproc_code == "p004"
+    assert rows["4004"].variables["GEOMETRY"] == "14_WING_RENAMED.fsm"
+
+
 # --- the refusals, at plan time, over the tier-3 workspace's own library ----------
 #
 # PFS-2031.05 asked for the refusals as RUN 0 rows of the matrices; the
