@@ -7,19 +7,25 @@
 Version-aware, didactic Python driver for the FlightStream panel-method
 solver. Successor of the author's legacy research scripts. MIT licensed.
 
-Status: v0.13.1 is the current release. It publishes to
+Status: v0.14.0 is the current release. It publishes to
 [PyPI](https://pypi.org/project/pyflightstream/) and archives on Zenodo
 from the tag, so the concept DOI in CITATION.cff resolves to the newest
 archived version and the version DOI is recorded one commit after the
 tag that names it. CHANGELOG.md carries the release history.
 
-**v0.13.1 is a patch on the same day**, for two things her master's
-cases met on the published 0.13.0: `pyfs-matrix run` refused a matrix
-whose row on a second build `plan` had said READY (the run path
-pre-flighted it under the campaign default), and a sideslip sweep under
-`SYMMETRY: MIRROR` ran on the solver at zero sideslip with no word but the
-log, so it is refused at plan time now, naming the cell. Nothing else
-moves.
+**v0.14.0 is the incidence study from a row.** A setup preset defines
+custom coordinate systems (`[[frames]]`) and states raw solver commands
+before a named phase (`[[raw]]`, through the same emitter as every curated
+line); a row turns the mesh (`ROTATE`, a list of records in the order
+written, families by name, the rotor's axis frame turned with them); the
+products stage tables the stamped per-step exports of a windowed point as
+a series under `post/<matrix>/series/`; the blade count of a sector comes
+from `PERIODIC_COPIES` when `BLADES` is absent; the run record carries the
+raw lines and the clock of its export window. Two things that used to be
+refused are read now: a zero-probe export (a complete table of no rows),
+and a mesh rotation after the frame it cites was created (the two rotation
+commands are setup-phase). Nothing already written plans differently: a
+setup stating neither table and a row stating no `ROTATE` render as before.
 
 **What changes for you, and what you must do.** v0.13.0 changes no
 column of the run-matrix file. Two inputs that used to plan are refused at
