@@ -335,3 +335,308 @@ def test_the_mach_code_rounds_rather_than_truncates():
     from pyflightstream.post.products import _mach_code
 
     assert _mach_code(0.1465) == 15 and _mach_code(0.1441) == 14 and _mach_code(0.2) == 20
+
+
+# --- PFS-2015.04: the reductions reach the products through the stage --------------
+#
+# The four reductions existed as library functions since 0.8.0 and nothing on
+# the campaign path called them (measured 2026-09-08). Her rule of the same
+# day: every capability enters through the workflow. So the products stage
+# writes them, one file per reduction beside the plots table, over the window
+# the row states, which the run record carries as `reductions`.
+
+#: The header of the plots export above, everything before its table, so a
+#: synthetic history carries the free-stream and reference velocities the
+#: plots table scales by: (100 / 50) squared, four.
+PLOTS_HEADER = PLOTS.split("Time-step")[0]
+
+
+def _plots_export(rows: int) -> str:
+    """A synthetic plots export of ``rows`` time steps whose CL is 0.1 times the step.
+
+    The step is the value, so the mean over any window is the mean step
+    times 0.1 and, after the free-stream scaling, times 0.4.
+    """
+    table = "Time-step,CL_MRP_TOTAL,CDI_MRP_TOTAL\n" + "".join(
+        f"{i}.0000,{0.1 * i:.5f},{0.01 * i:.5f},\n" for i in range(1, rows + 1)
+    )
+    return PLOTS_HEADER + table + "-" * 60 + "\n     Force Units: Coefficients\n"
+
+
+#: The windows a rotor row of eight steps states: four steps per revolution,
+#: two blades, an export window of six steps. The per-blade split is the last
+#: revolution (5 to 8) cut in two; the phase-locked passages cut the export
+#: window (3 to 8) into three passages of one blade passage each.
+ROTOR_PLAN = {
+    "time_iterations": 8,
+    "steps_per_revolution": 4.0,
+    "blades": 2,
+    "time_average": {"windows": [[3, 8]], "window_from": "the export window: 6 steps"},
+    "phase_locked": {
+        "windows": [[3, 4], [5, 6], [7, 8]],
+        "period_steps": 2,
+        "window_from": "the export window: 6 steps, cut into blade passages",
+    },
+    "per_blade": {
+        "windows": [[5, 6], [7, 8]],
+        "period_steps": 2,
+        "window_from": "the last revolution, one window per blade",
+    },
+}
+
+
+def _unsteady_workspace(tmp_path, *, reductions, recipe="unsteady_rotor", rows=8):
+    """One converged unsteady record with a loads table and a plots export under raw/."""
+    from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
+
+    workspace = CampaignWorkspace.init(tmp_path / "camp")
+    (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
+        '[groups]\n"1" = ["W", "B"]\n', encoding="utf-8"
+    )
+    raw = workspace.sim_dir("7001") / "raw"
+    raw.mkdir(parents=True)
+    (raw / "a-02.0.txt").write_text(LOADS, encoding="utf-8")
+    (raw / "a-02.0_plots.txt").write_text(_plots_export(rows), encoding="utf-8")
+    fields: dict[str, object] = dict(
+        run_id="camp/sim_7001/a-02.0",
+        sim_id="7001",
+        point={"alpha": -2.0},
+        fs_version_requested="26.120",
+        package_version="0.13.0.dev0",
+        script_sha256="",
+        raw_flag=False,
+        status=RunStatus.CONVERGED,
+        outputs=["raw/a-02.0.txt", "raw/a-02.0_plots.txt"],
+        pproc="p001",
+        recipe=recipe,
+        description="ROTOR_UNSTEADY",
+        mach=0.2,
+        reference={"SREF": 50.0, "CREF": 2.526, "BREF": 20.0},
+    )
+    # Guarded so the RED measurement lands on the assertion rather than on
+    # the record refusing a field it does not have yet (extra="forbid").
+    if reductions is not None and "reductions" in RunRecord.model_fields:
+        fields["reductions"] = reductions
+    workspace.append_record(RunRecord(**fields))
+    return workspace
+
+
+def _products_manifest(workspace):
+    import json
+
+    return json.loads(
+        (workspace.root / "post" / "products" / "products.json").read_text(encoding="utf-8")
+    )
+
+
+def test_pyfs_matrix_post_writes_every_reduction_beside_the_plots_table(tmp_path):
+    """PFS-2015.04. One file per applicable reduction beside the plots table, each
+    named in products.json with the reduction and the window it used; raw is the
+    plots table itself and is written once."""
+    from pyflightstream.post.products import write_campaign_products
+
+    workspace = _unsteady_workspace(tmp_path, reductions=ROTOR_PLAN)
+    written = write_campaign_products(workspace)
+    plots = workspace.root / "post" / "products" / "plots"
+    names = sorted(p.name for p in plots.iterdir())
+    assert names == [
+        "a-02.0_per_blade.csv",
+        "a-02.0_phase_locked.csv",
+        "a-02.0_plots.csv",
+        "a-02.0_time_average.csv",
+    ], f"the plots folder holds {names}"
+    assert {p.name for p in written} >= set(names), "every reduction is a product returned"
+
+    columns, rows = read_csv_table(plots / "a-02.0_time_average.csv")
+    assert columns == (
+        "REDUCTION",
+        "WINDOW",
+        "FIRST_STEP",
+        "LAST_STEP",
+        "STEPS",
+        "Time-step",
+        "CL_MRP_TOTAL",
+        "CDI_MRP_TOTAL",
+    ), "the reduction carries the window block and then the plots table's own columns"
+    assert len(rows) == 1
+    assert rows[0]["REDUCTION"] == "time_average" and rows[0]["WINDOW"] == "1"
+    assert (rows[0]["FIRST_STEP"], rows[0]["LAST_STEP"], rows[0]["STEPS"]) == ("3", "8", "6")
+    assert rows[0]["CL_MRP_TOTAL"] == "2.20000", "mean step 5.5 times 0.1, scaled by four"
+
+    _, blades = read_csv_table(plots / "a-02.0_per_blade.csv")
+    assert [(r["WINDOW"], r["FIRST_STEP"], r["LAST_STEP"]) for r in blades] == [
+        ("1", "5", "6"),
+        ("2", "7", "8"),
+    ]
+    assert [r["CL_MRP_TOTAL"] for r in blades] == ["2.20000", "3.00000"]
+
+    _, passages = read_csv_table(plots / "a-02.0_phase_locked.csv")
+    assert [(r["FIRST_STEP"], r["LAST_STEP"]) for r in passages] == [
+        ("3", "4"),
+        ("5", "6"),
+        ("7", "8"),
+    ]
+    assert passages[0]["CL_MRP_TOTAL"] == "1.40000"
+
+    manifest = _products_manifest(workspace)
+    entry = manifest["products"]["plots/a-02.0_per_blade.csv"]
+    assert entry["runs"] == ["camp/sim_7001/a-02.0"] and entry["sim_id"] == "7001"
+    assert entry["reduction"] == "per_blade"
+    assert entry["windows"] == [[5, 6], [7, 8]] and entry["period_steps"] == 2
+    assert "last revolution" in entry["window_from"]
+    average = manifest["products"]["plots/a-02.0_time_average.csv"]
+    assert average["reduction"] == "time_average" and average["windows"] == [[3, 8]]
+    assert "reduction" not in manifest["products"]["plots/a-02.0_plots.csv"], (
+        "raw is the plots table itself, not a reduction"
+    )
+    assert manifest["skipped"] == {}
+
+    # The docs name the files a user meets beside the plots table.
+    page = (Path(__file__).parents[2] / "docs" / "workspace-and-workflows.md").read_text(
+        encoding="utf-8"
+    )
+    for name in ("<point>_time_average.csv", "<point>_phase_locked.csv", "<point>_per_blade.csv"):
+        assert name in page, f"docs/workspace-and-workflows.md does not name {name}"
+
+
+def test_a_rotorless_unsteady_point_gets_the_time_average_alone(tmp_path):
+    """Without a rotor the row states DELTA_TIME and TIME_ITERATIONS: only the time
+    average and raw apply; a blade passage has no length, so the other two are
+    neither written nor recorded as skipped."""
+    from pyflightstream.post.products import write_campaign_products
+
+    plan = {
+        "time_iterations": 8,
+        "steps_per_revolution": None,
+        "blades": None,
+        "time_average": {
+            "windows": [[1, 8]],
+            "window_from": "the whole run: DELTA_TIME and TIME_ITERATIONS",
+        },
+    }
+    workspace = _unsteady_workspace(tmp_path, reductions=plan, recipe="unsteady")
+    write_campaign_products(workspace)
+    plots = workspace.root / "post" / "products" / "plots"
+    assert sorted(p.name for p in plots.iterdir()) == [
+        "a-02.0_plots.csv",
+        "a-02.0_time_average.csv",
+    ]
+    _, rows = read_csv_table(plots / "a-02.0_time_average.csv")
+    assert rows[0]["CL_MRP_TOTAL"] == "1.80000", "mean step 4.5 times 0.1, scaled by four"
+    manifest = _products_manifest(workspace)
+    assert manifest["skipped"] == {}, "not applicable is not skipped"
+
+
+def test_a_reduction_the_row_cannot_window_is_recorded_as_skipped(tmp_path):
+    """Three ways a window is missing, each a skip naming its reason under the
+    file that was not written, the way a refused polar is recorded."""
+    from pyflightstream.post.products import write_campaign_products
+
+    # A rotor row with no BLADES: the run stage records the reason on the plan.
+    plan = dict(ROTOR_PLAN)
+    plan["per_blade"] = {"skipped": "the row states no BLADES, so one blade passage has no length"}
+    plan["phase_locked"] = {
+        "skipped": "the row states no BLADES, so one blade passage has no length"
+    }
+    workspace = _unsteady_workspace(tmp_path / "blades", reductions=plan)
+    write_campaign_products(workspace)
+    manifest = _products_manifest(workspace)
+    assert "plots/a-02.0_per_blade.csv" in manifest["skipped"], manifest["skipped"]
+    assert "BLADES" in manifest["skipped"]["plots/a-02.0_per_blade.csv"]
+    assert "BLADES" in manifest["skipped"]["plots/a-02.0_phase_locked.csv"]
+    assert "plots/a-02.0_time_average.csv" in manifest["products"]
+    assert not (workspace.root / "post" / "products" / "plots" / "a-02.0_per_blade.csv").exists()
+
+    # A plots table shorter than the window: a shorter history averaged as a
+    # whole one is the shape every reader here refuses.
+    workspace = _unsteady_workspace(tmp_path / "short", reductions=ROTOR_PLAN, rows=6)
+    write_campaign_products(workspace)
+    manifest = _products_manifest(workspace)
+    reason = manifest["skipped"]["plots/a-02.0_per_blade.csv"]
+    assert "6" in reason and "8" in reason, reason
+    assert "plots/a-02.0_phase_locked.csv" in manifest["skipped"]
+    assert "plots/a-02.0_time_average.csv" in manifest["skipped"]
+    assert (workspace.root / "post" / "products" / "plots" / "a-02.0_plots.csv").is_file()
+
+    # A record carrying no windows at all, written before this release or by
+    # hand: the time average is skipped naming the record, and nothing guesses.
+    workspace = _unsteady_workspace(tmp_path / "none", reductions=None)
+    write_campaign_products(workspace)
+    manifest = _products_manifest(workspace)
+    assert "record" in manifest["skipped"]["plots/a-02.0_time_average.csv"]
+    assert "plots/a-02.0_plots.csv" in manifest["products"]
+
+
+def test_the_reductions_sit_beside_the_plots_table_and_never_replace_it(tmp_path):
+    """PFS-2015.03, closed on 2026-09-08 with nothing behind it; this is its proof.
+    After the reductions are written the plots table is present and byte-identical
+    to what the stage wrote before them."""
+    from pyflightstream.post.products import write_campaign_products
+
+    before = _unsteady_workspace(tmp_path / "before", reductions=None)
+    write_campaign_products(before)
+    table_before = before.root / "post" / "products" / "plots" / "a-02.0_plots.csv"
+    assert table_before.is_file()
+    assert not (table_before.parent / "a-02.0_time_average.csv").exists(), (
+        "the control wrote no reduction; it is the plots table alone"
+    )
+
+    after = _unsteady_workspace(tmp_path / "after", reductions=ROTOR_PLAN)
+    write_campaign_products(after)
+    table_after = after.root / "post" / "products" / "plots" / "a-02.0_plots.csv"
+    assert table_after.is_file(), "the plots table is present after the reductions"
+    assert (table_after.parent / "a-02.0_per_blade.csv").is_file(), "the reductions were written"
+    assert table_after.read_bytes() == table_before.read_bytes(), (
+        "the plots table changed under the reductions; a reduction ships beside the "
+        "history and never in its place (her rule of 2026-08-16)"
+    )
+
+
+# --- OPS-2008.01: the seventh propagation test ---------------------------------------
+
+
+def test_a_missing_sample_poisons_the_harmonic_in_plane_moment_product():
+    """OPS-2008.01. Six of the seven far-field reductions hold ``skipna=False`` behind
+    a test that turns red when it is reverted; the harmonic branch of the in-plane
+    moment was the seventh and had none. One sample of the axial velocity missing
+    on the outlet plane must arrive as NaN in the harmonic loading term rather than
+    as a number one sample short.
+
+    Written at the reduction's own seam, and that is said here rather than left
+    to be found: on 2026-09-08 the campaign products stage carries no far-field
+    product (nothing outside ``pyflightstream.farfield`` calls the ledger, and no
+    reader turns a probe export into its lattice dataset), so the acceptance's
+    phrase "runs the campaign products stage" has no stage to run through yet.
+    When a far-field product enters the stage, this test moves onto it.
+    """
+    import numpy as np
+
+    from pyflightstream.farfield import cylindrical_components, in_plane_moment, lattice_dataset
+    from pyflightstream.probes import build_lattice
+
+    lattice = build_lattice(tip_radius=1.0, stations=(-2.0, 2.0), lateral_radius=None)
+    shape = (len(lattice.stations), lattice.n_r, lattice.n_psi)
+    # A pure 1P cosine loading on the axial velocity at the OUTLET alone, so
+    # the harmonic loading term, outlet minus inlet, is finite and non-zero on
+    # the complete field.
+    fields = {
+        "u": np.full(shape, 30.0),
+        "v": np.zeros(shape),
+        "w": np.zeros(shape),
+        "p_prime": np.zeros(shape),
+    }
+    fields["u"][1] += 2.0 * np.cos(lattice.psi)[None, :]
+    complete = cylindrical_components(lattice_dataset(lattice, fields))
+    whole = in_plane_moment(complete, 1.2, 30.0, inlet=-2.0, outlet=2.0, method="harmonic")
+    assert np.isfinite(float(whole["loading_term"])) and float(whole["loading_term"]) != 0.0
+
+    holed = {name: value.copy() for name, value in fields.items()}
+    holed["u"][1, 0, 0] = np.nan
+    poisoned = cylindrical_components(lattice_dataset(lattice, holed))
+    product = in_plane_moment(poisoned, 1.2, 30.0, inlet=-2.0, outlet=2.0, method="harmonic")
+    loading = float(product["loading_term"])
+    assert np.isnan(loading), (
+        f"one missing sample produced the finite harmonic loading term {loading!r} "
+        f"instead of NaN; the complete field gives {float(whole['loading_term'])!r}"
+    )
+    assert np.isnan(float(product["total"])), "the poison reaches the total"

@@ -91,6 +91,38 @@ FlightStream versions.
   is the stated fallback and is what every report written before this
   release carries.
 
+- **The campaign products stage writes every reduction of an unsteady
+  point beside its plots table, over the window the row states**
+  (PFS-2015.04, PFS-2015.03, OPS-2008.01). The four reductions existed as
+  library functions since 0.8.0 and nothing on the campaign path called
+  them; under her rule of 2026-09-08 that every capability enters through
+  the workflow, `pyfs-matrix run` now resolves the windows off the row when
+  it writes the run record (`reductions` in `runs.json`, from
+  `pyflightstream.cases.workflows.reduction_windows`), and the products
+  stage, run by `run` and by `pyfs-matrix post` alike, writes
+  `plots/<point>_time_average.csv`, `plots/<point>_phase_locked.csv` and
+  `plots/<point>_per_blade.csv` beside `plots/<point>_plots.csv`, each named
+  in `products.json` with the reduction and the windows it used. The time
+  average is over the export window the row states, else a rotor row's last
+  revolution, else a rotorless row's whole run; the phase-locked passages
+  cut that window into blade passages; the per-blade split is the last
+  revolution, one window per blade, as `ReductionPlan` already defined it.
+  Raw is the plots table itself, written once. A reduction the row cannot
+  window (no `BLADES`, a run shorter than one revolution, a plots table
+  shorter than the window, a record written before the field existed) is
+  recorded under `skipped` with the reason, keyed by the file it would have
+  been; a rotorless point lists no passage reduction at all. The plots table
+  is written first and the reductions are read off the written file, which
+  is PFS-2015.03's rule (a reduction ships beside the history and never in
+  its place) kept by construction and now proved:
+  `test_the_reductions_sit_beside_the_plots_table_and_never_replace_it`
+  reads the table byte-identical before and after the reductions. And the
+  seventh propagation test of the far-field ledger,
+  `test_a_missing_sample_poisons_the_harmonic_in_plane_moment_product`,
+  turns red when the harmonic in-plane-moment branch stops propagating a
+  missing sample; it is written at the reduction's own seam because the
+  products stage carries no far-field product yet, and the test says so.
+
 - **`tests/tier3_licensed` is a campaign workspace, run on the licensed
   machine, with one test per row** (PFS-2031.03, PFS-2031.05, PFS-2031.07,
   GOAL-012). Seven run matrices over a synthetic library of nine saved

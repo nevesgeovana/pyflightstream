@@ -731,7 +731,9 @@ of its sectional loads export, in the export's units; a run that defined no
 distribution leaves an export declaring zero sections and gets no table. A
 PLOTS table per unsteady point, `plots/<point>_plots.csv`, the plots export
 re-tabled with its coefficient columns brought from the solver's reference
-velocity to the free stream. The arithmetic behind the polar table is the
+velocity to the free stream. And the REDUCTIONS of that table, one file per
+applicable reduction beside it (PFS-2015.04), over the window the row
+states; the next section walks them. The arithmetic behind the polar table is the
 author's own and was checked column by column against the tables she
 recorded: FlightStream's `CL`, `CDi + CDo` and `Cy` are the stability-axis
 coefficients, the body axes follow by turning them through the angle of
@@ -789,6 +791,59 @@ and nothing more; the suite runs the line above on a recorded
 simulation and on an unrecorded one
 (`test_workspace.py::test_archive_subcommand_zips_a_recorded_simulation`
 and the refusal beside it).
+
+### The reductions of an unsteady point
+
+An unsteady point's plots table is its raw time history, one row per solver
+time step. The stage writes its reductions beside it, one file per
+reduction, each named in `products.json` with the reduction and the window
+it used (PFS-2015.04); raw is the plots table itself and is written once,
+never a second time under another name. Which reductions apply is the run
+type's, and the window is the one the row states:
+
+| file | run type | window |
+|---|---|---|
+| `plots/<point>_time_average.csv` | `unsteady_rotor` and `unsteady` | the export window the row states (`WINDOW_DEGREES`, `WINDOW_STEPS` or `WINDOW_REVOLUTIONS`); without one, a rotor row's last revolution (from `DELTA_THETA` and `REVOLUTIONS`, or `RPM` and `DELTA_TIME`), and a rotorless row's whole run (`DELTA_TIME` and `TIME_ITERATIONS`) |
+| `plots/<point>_phase_locked.csv` | `unsteady_rotor` | the time-average window cut into blade passages, one revolution over `BLADES` steps each, a trailing partial passage dropped; one row per passage |
+| `plots/<point>_per_blade.csv` | `unsteady_rotor` | the last revolution of the run cut into one window per blade, contiguous and ending at the run's last step; one row per blade |
+
+Every window is counted in solver steps, inclusive, 1-based, and row `k` of
+the plots table is step `k`; the table's own time column is averaged like
+any other column and is not read as the clock. The average is the one
+implementation of blade-passage averaging the package holds
+(`pyflightstream.post.blade_passage_average`), applied once per window, and
+it is taken over the WRITTEN plots table, so a reduction can be recomputed
+from the file beside it. The windows travel on the run record: `pyfs-matrix
+run` resolves them off the row when it writes the record (`reductions` in
+`runs.json`), and `pyfs-matrix post` reads the record alone. A reduction the
+row cannot window is listed under `skipped` with the reason, keyed by the
+file it would have been: a rotor row stating no `BLADES` skips the two
+passage reductions; a plots table shorter than the window skips every
+reduction over it; a record written before this field existed skips the
+time average naming the record. Not applicable is not skipped: a rotorless
+point lists no per-blade file anywhere.
+
+A worked example, the tier-1 fixture: a rotor row of eight steps, four
+steps per revolution, two blades, an export window of six steps. The
+reductions of `a-02.0_plots.csv` land as
+
+```text
+plots/a-02.0_plots.csv           raw, one row per step
+plots/a-02.0_time_average.csv    one row, steps 3 to 8
+plots/a-02.0_phase_locked.csv    three rows, steps 3 to 4, 5 to 6, 7 to 8
+plots/a-02.0_per_blade.csv       two rows, steps 5 to 6 and 7 to 8
+```
+
+each reduction file carrying `REDUCTION,WINDOW,FIRST_STEP,LAST_STEP,STEPS`
+and then the plots table's own columns, and `products.json` naming each:
+
+```text
+"plots/a-02.0_per_blade.csv": {
+ "sim_id": "7001", "pproc": "p001", "runs": ["camp/sim_7001/a-02.0"],
+ "reduction": "per_blade", "windows": [[5, 6], [7, 8]], "period_steps": 2,
+ "window_from": "the last revolution, one window per blade"
+}
+```
 
 ### Several matrices in one workspace
 

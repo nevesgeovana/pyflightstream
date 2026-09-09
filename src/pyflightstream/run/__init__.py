@@ -91,6 +91,7 @@ from pyflightstream.cases import (
     point_tag,
     resolve_recipe,
 )
+from pyflightstream.cases.workflows import reduction_windows
 from pyflightstream.results import (
     SOLVER_MODES,
     IncompleteOutputError,
@@ -2842,6 +2843,11 @@ def _execute_point(
         "pproc": case.pproc_id,
         "inventory_source": case.inventory_source,
         "motions": [dict(record) for record in case.motions],
+        # The windows of every reduction the products stage will write for
+        # this point (PFS-2015.04), resolved off the row HERE, where the
+        # clock and the blade count are stated, so the stage reads the
+        # record alone as it reads everything else. None for a steady row.
+        "reductions": reduction_windows(case),
         # How the geometry was staged (PFS-2029.17), read off the workspace
         # that staged it, so the record says link or copy and why.
         **dict(

@@ -13,7 +13,17 @@ record, so any spreadsheet or dataframe reads them with nothing else:
   sectional loads export re-tabled, when the run defined sections at all;
 * a PLOTS table per unsteady point, ``plots/<point>_plots.csv``: the
   unsteady plots export re-tabled, its coefficient columns brought from
-  the solver's reference velocity to the free stream.
+  the solver's reference velocity to the free stream;
+* the REDUCTIONS of that table, one file per applicable reduction beside
+  it (PFS-2015.04): ``plots/<point>_time_average.csv``,
+  ``plots/<point>_phase_locked.csv`` and ``plots/<point>_per_blade.csv``,
+  each a row per window with the window in solver steps and then the
+  plots table's own columns averaged over it. Raw is the plots table
+  itself and is written once. The windows come off the run record, which
+  the run stage resolved from the row
+  (:func:`pyflightstream.cases.workflows.reduction_windows`), and a
+  reduction the row could not window is recorded under ``skipped`` in
+  ``products.json`` with its reason, as a refused polar is.
 
 THE ARITHMETIC IS THE AUTHOR'S, re-derived here from her recorded files and
 never imported. FlightStream's ``CL``, ``CDi + CDo`` and ``Cy`` are the
@@ -40,7 +50,7 @@ import csv
 import json
 import math
 import warnings
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -48,7 +58,9 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning
+from pyflightstream.cases.workflows import REDUCTION_NAMES
 from pyflightstream.fsi.loads import SectionalLoadsReport, parse_sectional_loads
+from pyflightstream.post.unsteady import TimestepSeries, blade_passage_average
 from pyflightstream.results import (
     LoadsReport,
     MalformedOutputError,
@@ -68,16 +80,19 @@ __all__ = [
     "SECTION_COLUMNS",
     "GroupCoefficients",
     "PRODUCTS_MANIFEST",
+    "REDUCTION_COLUMNS",
     "PolarPoint",
     "ProductError",
     "ProductExistsError",
     "ReferenceValues",
     "group_coefficients",
+    "plots_table_series",
     "polar_file_name",
     "polar_row",
     "read_csv_table",
     "write_csv_table",
     "write_plots_table",
+    "write_reduction_table",
     "write_polar_table",
     "write_campaign_products",
     "write_recorded_polar",
@@ -481,6 +496,105 @@ def write_plots_table(path: str | Path, export_text: str) -> Path | None:
     )
 
 
+# --- PFS-2015.04: the reductions of a plots table, beside it -----------------------
+
+#: The window block every reduction row carries before the plots table's own
+#: columns: which reduction, which window of it (1-based), the inclusive
+#: solver steps it spans, and how many rows of the table fell inside.
+REDUCTION_COLUMNS: tuple[str, ...] = ("REDUCTION", "WINDOW", "FIRST_STEP", "LAST_STEP", "STEPS")
+
+
+def plots_table_series(path: str | Path) -> tuple[tuple[str, ...], TimestepSeries]:
+    """Read a written plots table back as the series its reductions are taken over.
+
+    Row ``k`` of the table is solver step ``k``: the export writes one row
+    per time step (the manual's paraphrase in the database entry for
+    ``UNSTEADY_SOLVER_EXPORT_PLOTS``), so the step axis is the row number,
+    1-based, and the table's own time column is carried as a field like
+    any other rather than read as the clock. Every column is one field of
+    one sample, since the plots table samples no position; the sample
+    position is the origin, which stands for the configuration the plot
+    was defined over.
+
+    Read from the WRITTEN table rather than from the export in memory, so a
+    reduction is of the file a user holds and can be recomputed from it.
+
+    Returns
+    -------
+    tuple
+        The table's columns, in its order, and the series.
+    """
+    columns, rows = read_csv_table(path)
+    values = np.asarray([[float(row[name]) for name in columns] for row in rows], dtype=float)
+    return columns, TimestepSeries(
+        steps=np.arange(1, len(rows) + 1, dtype=int),
+        times_s=None,
+        points=np.zeros((1, 3)),
+        fields={name: values[:, index][:, None] for index, name in enumerate(columns)},
+        sources=(Path(path),),
+    )
+
+
+def write_reduction_table(
+    path: str | Path,
+    series: TimestepSeries,
+    columns: Sequence[str],
+    *,
+    reduction: str,
+    windows: Sequence[Sequence[int]],
+) -> Path:
+    """Write one reduction of a plots table: one row per window, the table's columns averaged.
+
+    The average is :func:`pyflightstream.post.unsteady.blade_passage_average`,
+    the only implementation of that average in the package, applied once
+    per window; the time average is one window, the phase-locked reduction
+    one per passage, the per-blade reduction one per blade. Values are at
+    the table's five decimals.
+
+    Parameters
+    ----------
+    path : str or pathlib.Path
+        Destination CSV, beside the plots table it reduces.
+    series : TimestepSeries
+        The plots table as :func:`plots_table_series` reads it.
+    columns : sequence of str
+        The plots table's columns, in its order.
+    reduction : str
+        ``time_average``, ``phase_locked`` or ``per_blade``.
+    windows : sequence of (first, last)
+        Inclusive solver-step windows, 1-based, each inside the table.
+
+    Raises
+    ------
+    ProductError
+        If a window reaches past the rows the table holds: a shorter
+        history averaged as a whole one is the shape every reader here
+        refuses, and the caller records the refusal as a skip.
+    """
+    rows: list[tuple[object, ...]] = []
+    last_row = series.n_frames
+    for index, (first, last) in enumerate(windows, start=1):
+        if int(last) > last_row or int(first) < 1:
+            raise ProductError(
+                f"the plots table holds {last_row} rows and the {reduction} window {index} "
+                f"spans steps {first} to {last}, so the history is shorter than the window "
+                "the row states; a shorter history averaged as a whole one would be an "
+                "average of a run that did not finish writing"
+            )
+        average = blade_passage_average(series, window=(int(first), int(last)))
+        rows.append(
+            (
+                reduction,
+                index,
+                int(first),
+                int(last),
+                average.n_frames,
+                *(float(average.fields[name][0]) for name in columns),
+            )
+        )
+    return write_csv_table(path, (*REDUCTION_COLUMNS, *columns), rows)
+
+
 def _polar_points(polar_dir: Path, *, loads_suffix: str = ".txt") -> list[PolarPoint]:
     """Return the points of a recorded polar: one folder per point, its loads table inside."""
     points: list[PolarPoint] = []
@@ -625,14 +739,19 @@ def _sim_products(
     out: Path,
     *,
     overwrite: bool,
-) -> tuple[list[Path], dict[str, list[str]]]:
-    """Write one simulation's products from its successful records."""
+) -> tuple[list[Path], dict[str, dict[str, object]], dict[str, str]]:
+    """Write one simulation's products from its successful records.
+
+    Returns the files written, the manifest entry of each (its run ids and,
+    for a reduction, the reduction and the windows it used), and the
+    reductions skipped by name with the reason.
+    """
     from pyflightstream.cases import classify_outputs
 
     first = records[0]
     pproc_id = first.pproc
     if pproc_id is None:
-        return [], {}
+        return [], {}, {}
     pproc = workspace.resolve_pproc(pproc_id)
     products = pproc.products
     reference_block = first.reference
@@ -642,6 +761,7 @@ def _sim_products(
     sources: dict[str, list[str]] = {}
     points: list[PolarPoint] = []
     exports: dict[str, tuple[Path | None, Path | None]] = {}
+    plans: dict[str, dict[str, object] | None] = {}
     sim_dir = workspace.sim_dir(sim_id)
     for record in records:
         if not record.outputs:
@@ -661,9 +781,10 @@ def _sim_products(
         sloads_path = by_name.get(kinds["sectional_loads"]) if "sectional_loads" in kinds else None
         plots_path = by_name.get(kinds["plots"]) if "plots" in kinds else None
         exports[stem] = (sloads_path, plots_path)
+        plans.setdefault(stem, record.reductions)
         sources.setdefault(stem, []).append(record.run_id)
     if not points:
-        return [], {}
+        return [], {}, {}
     points.sort(key=lambda point: point.alpha_deg)
     if mach is None:
         raise ProductError(
@@ -677,7 +798,8 @@ def _sim_products(
         )
     reference = ReferenceValues.from_mapping(reference_block)
     run_ids = [rid for stem in sources for rid in sources[stem]]
-    written_names: dict[str, list[str]] = {}
+    written_names: dict[str, dict[str, object]] = {}
+    skipped: dict[str, str] = {}
 
     def _target(path: Path) -> Path:
         if path.exists() and not overwrite:
@@ -701,7 +823,7 @@ def _sim_products(
                 ),
             )
             written.append(target)
-            written_names[target.relative_to(out).as_posix()] = run_ids
+            written_names[target.relative_to(out).as_posix()] = {"runs": run_ids}
     for point in points:
         sloads_path, plots_path = exports[point.name]
         if products.sections and sloads_path is not None and sloads_path.is_file():
@@ -714,7 +836,7 @@ def _sim_products(
             )
             if done is not None:
                 written.append(done)
-                written_names[done.relative_to(out).as_posix()] = sources[point.name]
+                written_names[done.relative_to(out).as_posix()] = {"runs": sources[point.name]}
         if products.plots and plots_path is not None and plots_path.is_file():
             target = _target(out / "plots" / f"{point.name}_plots.csv")
             done = write_plots_table(
@@ -722,8 +844,81 @@ def _sim_products(
             )
             if done is not None:
                 written.append(done)
-                written_names[done.relative_to(out).as_posix()] = sources[point.name]
-    return written, written_names
+                written_names[done.relative_to(out).as_posix()] = {"runs": sources[point.name]}
+                _point_reductions(
+                    done,
+                    plans[point.name],
+                    out,
+                    runs=sources[point.name],
+                    target=_target,
+                    written=written,
+                    written_names=written_names,
+                    skipped=skipped,
+                )
+    return written, written_names, skipped
+
+
+def _point_reductions(
+    plots_table: Path,
+    plan: Mapping[str, object] | None,
+    out: Path,
+    *,
+    runs: list[str],
+    target: Callable[[Path], Path],
+    written: list[Path],
+    written_names: dict[str, dict[str, object]],
+    skipped: dict[str, str],
+) -> None:
+    """Write every applicable reduction of one plots table beside it (PFS-2015.04).
+
+    The plots table is written FIRST and is never touched here: the
+    reductions are read off it and land under their own names beside it,
+    which is her rule of 2026-08-16 (a reduction ships beside the history
+    and never in its place) kept by construction. A reduction the record
+    cannot window, or whose window reaches past the table, is a skip
+    recorded under the file it would have been, with the reason.
+    """
+    stem = plots_table.name[: -len("_plots.csv")]
+    if plan is None:
+        skipped[f"plots/{stem}_time_average.csv"] = (
+            "the run record carries no reduction windows, so no reduction of the plots "
+            "table can say which steps it averaged; the record was written before the "
+            "field existed or by hand. Rerun the row, and the record will carry the "
+            "windows its row states."
+        )
+        return
+    series: TimestepSeries | None = None
+    columns: tuple[str, ...] = ()
+    for name in REDUCTION_NAMES:
+        entry = plan.get(name)
+        if not isinstance(entry, Mapping):
+            continue  # not applicable to this run type
+        relative = f"plots/{stem}_{name}.csv"
+        if "skipped" in entry:
+            skipped[relative] = str(entry["skipped"])
+            continue
+        stated = entry.get("windows", ())
+        windows = [tuple(int(v) for v in window) for window in stated]  # type: ignore[union-attr]
+        if series is None:
+            columns, series = plots_table_series(plots_table)
+        destination = target(out / relative)
+        try:
+            done = write_reduction_table(
+                destination, series, columns, reduction=name, windows=windows
+            )
+        except ProductError as error:
+            skipped[relative] = str(error)
+            continue
+        written.append(done)
+        record: dict[str, object] = {
+            "runs": runs,
+            "reduction": name,
+            "windows": [list(window) for window in windows],
+            "window_from": entry.get("window_from"),
+        }
+        if "period_steps" in entry:
+            record["period_steps"] = entry["period_steps"]
+        written_names[relative] = record
 
 
 def write_campaign_products(
@@ -776,7 +971,9 @@ def write_campaign_products(
     skipped: dict[str, str] = {}
     for sim_id, sim_records in by_sim.items():
         try:
-            files, names = _sim_products(workspace, sim_id, sim_records, out, overwrite=overwrite)
+            files, names, reductions_skipped = _sim_products(
+                workspace, sim_id, sim_records, out, overwrite=overwrite
+            )
         except ProductExistsError:
             raise
         except ProductError as error:
@@ -788,12 +985,15 @@ def write_campaign_products(
             )
             continue
         written.extend(files)
-        for name, run_ids in names.items():
+        for name, entry in names.items():
             products_index[name] = {
                 "sim_id": sim_id,
                 "pproc": sim_records[0].pproc,
-                "runs": run_ids,
+                **entry,
             }
+        # A reduction the row could not window is a skip under the file it
+        # would have been (PFS-2015.04), beside the simulations refused whole.
+        skipped.update(reductions_skipped)
     # Always present, empty when nothing was refused, so a wrapper reads one
     # key rather than testing for it (review round two of 2026-09-08).
     manifest["skipped"] = skipped

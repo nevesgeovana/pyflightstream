@@ -793,6 +793,95 @@ def test_a_row_with_no_blade_count_cannot_ask_for_a_per_blade_split():
     assert "BLADES" in str(raised.value)
 
 
+# --- PFS-2015.04: the windows the run record carries for the products stage ---
+
+
+def _reduction_windows():
+    """The resolver, fetched by name so the RED measurement lands on an assertion."""
+    from pyflightstream.cases import workflows as module
+
+    resolver = getattr(module, "reduction_windows", None)
+    assert resolver is not None, (
+        "pyflightstream.cases.workflows has no reduction_windows; the run record "
+        "cannot carry the windows the row states, so the products stage cannot "
+        "window a reduction"
+    )
+    return resolver
+
+
+def test_a_rotor_row_states_every_window_from_its_clock_and_its_blades():
+    """The rotor case: 500 steps per revolution, four blades, a 90 degree export
+    window of 125 steps. The time average is the export window; the per-blade
+    split is the last revolution cut in four; the phase-locked passages cut
+    the export window into blade passages, one here."""
+    plan = _reduction_windows()(rotor_case())
+    assert plan["time_iterations"] == 720 and plan["blades"] == 4
+    assert plan["steps_per_revolution"] == pytest.approx(STEPS_PER_REV)
+    assert plan["time_average"]["windows"] == [[596, 720]]
+    assert "WINDOW_DEGREES" in plan["time_average"]["window_from"]
+    blades = plan["per_blade"]
+    assert blades["period_steps"] == 125
+    assert blades["windows"] == [[221, 345], [346, 470], [471, 595], [596, 720]]
+    assert plan["phase_locked"]["windows"] == [[596, 720]]
+    assert plan["phase_locked"]["period_steps"] == 125
+
+
+def test_a_rotor_row_stating_no_export_window_averages_its_last_revolution():
+    """The row states DELTA_THETA and REVOLUTIONS, or RPM and the seconds, so a
+    revolution in steps is known; with no WINDOW_* key that revolution is the
+    window, counted backwards from the end of the run."""
+    plan = _reduction_windows()(rotor_case(WINDOW_DEGREES=None))
+    assert plan["time_average"]["windows"] == [[221, 720]]
+    assert "revolution" in plan["time_average"]["window_from"]
+    assert plan["phase_locked"]["windows"] == plan["per_blade"]["windows"], (
+        "over one revolution the passages and the blades are the same four windows"
+    )
+
+
+def test_a_rotor_row_with_no_blade_count_skips_the_two_blade_reductions_naming_it():
+    plan = _reduction_windows()(rotor_case(BLADES=None))
+    assert plan["time_average"]["windows"] == [[596, 720]], "the time average needs no blades"
+    assert "BLADES" in plan["per_blade"]["skipped"]
+    assert "BLADES" in plan["phase_locked"]["skipped"]
+    assert "windows" not in plan["per_blade"]
+
+
+def test_a_rotorless_row_gets_the_time_average_over_the_whole_run_and_nothing_else():
+    """DELTA_TIME and TIME_ITERATIONS state the run; that is the window the row
+    states, and a blade passage has no length, so the other two do not apply."""
+    case = rotor_case(
+        RPM=None, ROTOR_AXIS=None, BLADES=None, WINDOW_DEGREES=None, DELTA_TIME="0.00025"
+    ).model_copy(update={"recipe": "unsteady"})
+    case.variables[WORKFLOW_KEY] = "unsteady"
+    plan = _reduction_windows()(case)
+    assert plan["time_average"]["windows"] == [[1, 720]]
+    assert "TIME_ITERATIONS" in plan["time_average"]["window_from"]
+    assert "phase_locked" not in plan and "per_blade" not in plan
+    assert plan["steps_per_revolution"] is None
+
+
+def test_a_rotorless_row_stating_a_window_in_steps_averages_over_it():
+    case = rotor_case(
+        RPM=None, ROTOR_AXIS=None, BLADES=None, WINDOW_DEGREES=None, WINDOW_STEPS="100"
+    ).model_copy(update={"recipe": "unsteady"})
+    case.variables[WORKFLOW_KEY] = "unsteady"
+    plan = _reduction_windows()(case)
+    assert plan["time_average"]["windows"] == [[621, 720]]
+
+
+def test_a_steady_row_has_no_reduction_windows():
+    case = rotor_case().model_copy(update={"recipe": "steady"})
+    assert _reduction_windows()(case) is None
+
+
+def test_a_row_whose_clock_cannot_be_resolved_records_the_reason_and_raises_nothing():
+    """The record is built before the script, so a refusal here would abort the
+    campaign in place of the FAILED_SCRIPT record the builder writes."""
+    plan = _reduction_windows()(rotor_case(TIME_ITERATIONS=None))
+    assert "TIME_ITERATIONS" in plan["time_average"]["skipped"]
+    assert "skipped" in plan["per_blade"] and "skipped" in plan["phase_locked"]
+
+
 def _write_frame(path: Path, step: int, value: float) -> Path:
     """One Tecplot ASCII point zone, two samples, one scalar field."""
     path.write_text(

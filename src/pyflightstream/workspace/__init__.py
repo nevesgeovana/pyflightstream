@@ -565,6 +565,18 @@ class RunRecord(BaseModel):
         in Python; such a record belongs to no matrix and is left out of a
         per-matrix table rather than counted in every one. Adding it did
         not move :data:`MANIFEST_SCHEMA`.
+    reductions : dict or None
+        The windows of every reduction the products stage writes beside
+        the point's plots table (PFS-2015.04), resolved off the row by
+        :func:`pyflightstream.cases.workflows.reduction_windows` when the
+        record was written: ``time_iterations``, ``steps_per_revolution``,
+        ``blades``, and one entry per applicable reduction (``time_average``,
+        ``phase_locked``, ``per_blade``) carrying its ``windows`` in solver
+        steps and ``window_from``, how the row stated them, or ``skipped``
+        with the reason the row could not window it. None means the row
+        carries no time history (a steady point) or the record predates
+        the field; a products stage reading None writes no reduction and
+        records why. Adding it did not move :data:`MANIFEST_SCHEMA`.
     flight_condition : dict of str to float
         The flight condition AS WRITTEN in the row, canonical key to
         value, in the units the key names (``MACH`` dimensionless,
@@ -674,6 +686,10 @@ class RunRecord(BaseModel):
     #: The rotor motions the row's ``MOTIONS`` list stated, as bound
     #: (PFS-2029.11.03): a named hub carries its coordinates and the name.
     motions: list[dict[str, str]] = Field(default_factory=list)
+    #: The reduction windows the products stage reads (PFS-2015.04); see
+    #: the class docstring. A mapping rather than a model so the record
+    #: carries exactly what the resolver wrote and a reader never guesses.
+    reductions: dict[str, object] | None = None
     recipe_sha256: str | None = None
     script_path: str | None = None
     script_sha256: str

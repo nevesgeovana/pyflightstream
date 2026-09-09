@@ -112,6 +112,7 @@ __all__ = [
     "WORKFLOWS",
     "WORKFLOW_KEY",
     "ExportWindow",
+    "REDUCTION_NAMES",
     "ReductionPlan",
     "RotorSpeed",
     "TimeStepping",
@@ -124,6 +125,7 @@ __all__ = [
     "emit_rotor_motion",
     "export_window",
     "reduction_plan",
+    "reduction_windows",
     "require_coverage",
     "resolve_workflow",
     "rotor_relaxed_trailing_edges",
@@ -1983,6 +1985,243 @@ def reduction_plan(case: SimCase) -> ReductionPlan:
             f"{stem}_per_blade.csv",
         ),
     )
+
+
+# --- PFS-2015.04: the windows the run record carries for the products stage ---
+#
+# The reductions reach the campaign products through the workflow (her rule
+# of 2026-09-08): the run stage resolves the windows off the ROW, where the
+# clock and the blade count are stated, writes them on the run record, and
+# the products stage reads the record alone, as it reads everything else.
+# This is the consumer :meth:`ExportWindow.record` waited for since 0.8.1.
+
+#: The three reductions the products stage writes beside the plots table,
+#: in the order they are written. Raw is the plots table itself.
+REDUCTION_NAMES: tuple[str, ...] = ("time_average", "phase_locked", "per_blade")
+
+#: The two run types whose points carry a time history, and therefore the
+#: only ones a reduction applies to.
+_UNSTEADY_RECIPES = ("unsteady", "unsteady_rotor")
+
+
+def _passages(window: tuple[int, int], period: int) -> list[tuple[int, int]]:
+    """Cut an inclusive step window into successive passages of ``period`` steps.
+
+    The arithmetic of :func:`pyflightstream.post.unsteady.passage_windows`
+    on a window rather than on a series, so the two agree: from the first
+    step forward, a trailing partial passage dropped rather than averaged
+    against a shorter one.
+    """
+    first, last = window
+    windows: list[tuple[int, int]] = []
+    start = first
+    while start + period - 1 <= last:
+        windows.append((start, start + period - 1))
+        start += period
+    return windows
+
+
+def _every_reduction_skipped(rotor: bool, reason: str) -> dict[str, object]:
+    """Build the plan of a row whose clock could not be resolved: every reduction skipped."""
+    refused = {"skipped": reason}
+    plan: dict[str, object] = {
+        "time_iterations": None,
+        "steps_per_revolution": None,
+        "blades": None,
+        "time_average": refused,
+    }
+    if rotor:
+        plan["phase_locked"] = refused
+        plan["per_blade"] = refused
+    return plan
+
+
+def reduction_windows(case: SimCase) -> dict[str, object] | None:
+    """Resolve the windows of every applicable reduction off one row, for its record.
+
+    The window is the one the row states. Where the row states an export
+    window (``WINDOW_DEGREES``, ``WINDOW_STEPS`` or ``WINDOW_REVOLUTIONS``)
+    that is the time-average window, as :class:`ReductionPlan` already
+    holds (one window, not two). Where it states none, a rotor row states
+    ``DELTA_THETA`` and ``REVOLUTIONS`` (or a speed and the seconds), so a
+    revolution in steps is known and the LAST revolution is the window;
+    a rotorless row states ``DELTA_TIME`` and ``TIME_ITERATIONS`` and
+    nothing shorter, so the whole run is. Every window is counted in
+    solver steps, inclusive and 1-based, and ends at the run's last step.
+
+    Which reductions apply is the run type's: ``unsteady_rotor`` carries
+    all three, ``unsteady`` the time average alone, because a blade
+    passage has no length without a rotor, and a steady row carries no
+    history at all and gets None. Within a rotor row a reduction the row
+    cannot window is recorded as ``skipped`` with the reason, never
+    guessed: no ``BLADES`` means no passage length; a run shorter than
+    one revolution has no last revolution to split by blade.
+
+    IT NEVER RAISES for a row the builder would refuse. The record is
+    built before the script, so a refusal here would abort the campaign in
+    place of the ``FAILED_SCRIPT`` record the builder writes; the reason
+    lands on every reduction instead, and the products stage records it.
+
+    Parameters
+    ----------
+    case : SimCase
+        The case, as the run stage holds it when it writes the record.
+
+    Returns
+    -------
+    dict or None
+        None for a run type with no time history. Otherwise a JSON-ready
+        mapping: ``time_iterations``, ``steps_per_revolution`` (None
+        without a rotor speed), ``blades`` (None where unstated), and one
+        entry per applicable reduction, each either
+        ``{"windows": [[first, last], ...], "window_from": <how the
+        window was stated>}`` (the two passage reductions add
+        ``period_steps``) or ``{"skipped": <reason>}``.
+
+    Examples
+    --------
+    >>> from pyflightstream.cases import SimCase, SweepAxis
+    >>> case = SimCase(
+    ...     sim_id="7001", aircraft="RotorRig", recipe="unsteady_rotor",
+    ...     sweep=SweepAxis(type="alpha", values=[0.0]),
+    ...     variables={"VELOCITY": "30", "RPM": "1200", "BLADES": "4",
+    ...                "DELTA_TIME": "0.0001", "TIME_ITERATIONS": "720",
+    ...                "WINDOW_DEGREES": "90"},
+    ... )
+    >>> plan = reduction_windows(case)
+    >>> plan["time_average"]["windows"], plan["per_blade"]["period_steps"]
+    ([[596, 720]], 125)
+    >>> plan["per_blade"]["windows"][-1]
+    [596, 720]
+    """
+    if case.recipe not in _UNSTEADY_RECIPES:
+        return None
+    rotor = case.recipe == "unsteady_rotor"
+    try:
+        if rotor:
+            stepping = rotor_time_stepping(case, speed=rotor_speed(case))
+        else:
+            stepping = unsteady_time_stepping(case)
+    except CampaignConfigError as error:
+        return _every_reduction_skipped(rotor, str(error))
+
+    last_step = stepping.time_iterations
+    per_revolution = stepping.steps_per_revolution
+    revolution = None if per_revolution is None else int(round(per_revolution))
+
+    # THE TIME-AVERAGE WINDOW: stated, else the last revolution, else the run.
+    stated = {
+        key: value
+        for key in (WINDOW_DEGREES_VARIABLE, WINDOW_STEPS_VARIABLE, WINDOW_REVOLUTIONS_VARIABLE)
+        if (value := _variable(case, key)) is not None
+    }
+    try:
+        if stated:
+            window = ExportWindow.from_case(case)
+            span = window.window_steps()
+            key, value = next(iter(stated.items()))
+            window_from = f"the export window the row states: {key} {value}, {window.steps} steps"
+        elif revolution is not None:
+            span = (max(last_step - revolution + 1, 1), last_step)
+            window_from = (
+                f"the last revolution of the run, {revolution} steps: the row states its "
+                f"clock as {stepping.stated_form} and no WINDOW_* key"
+            )
+        else:
+            span = (1, last_step)
+            window_from = (
+                "the whole run: the row states DELTA_TIME and TIME_ITERATIONS and no "
+                "WINDOW_* key, and nothing shorter is stated"
+            )
+    except CampaignConfigError as error:
+        return _every_reduction_skipped(rotor, str(error))
+    plan: dict[str, object] = {
+        "time_iterations": last_step,
+        "steps_per_revolution": per_revolution,
+        "blades": None,
+        "time_average": {"windows": [list(span)], "window_from": window_from},
+    }
+    if not rotor:
+        return plan
+
+    # THE PASSAGE REDUCTIONS need a revolution and a blade count.
+    if _variable(case, BLADES_VARIABLE) is None:
+        reason = (
+            f"the row of case {case.sim_id!r} states no {BLADES_VARIABLE}, so one blade "
+            "passage has no length in steps and neither the phase-locked nor the "
+            f"per-blade reduction can be windowed. State '{BLADES_VARIABLE}: <count>'."
+        )
+        plan["phase_locked"] = {"skipped": reason}
+        plan["per_blade"] = {"skipped": reason}
+        return plan
+    try:
+        blades = _required_int(case, BLADES_VARIABLE, quantity="blade count", unit="blades")
+    except CampaignConfigError as error:
+        plan["phase_locked"] = {"skipped": str(error)}
+        plan["per_blade"] = {"skipped": str(error)}
+        return plan
+    plan["blades"] = blades
+    if revolution is None or per_revolution is None or blades < 1:
+        reason = (
+            f"case {case.sim_id!r} declares {blades} blades and "
+            f"{per_revolution} steps per revolution, so a blade passage has no length"
+        )
+        plan["phase_locked"] = {"skipped": reason}
+        plan["per_blade"] = {"skipped": reason}
+        return plan
+    period = int(round(per_revolution / blades))
+    if period < 1:
+        reason = (
+            f"case {case.sim_id!r} works out at {per_revolution:.3f} solver steps per "
+            f"revolution across {blades} blades, so one blade passage is under one time "
+            "step and cannot be resolved at all"
+        )
+        plan["phase_locked"] = {"skipped": reason}
+        plan["per_blade"] = {"skipped": reason}
+        return plan
+
+    passages = _passages(span, period)
+    if passages:
+        plan["phase_locked"] = {
+            "windows": [list(item) for item in passages],
+            "period_steps": period,
+            "window_from": f"{window_from}, cut into blade passages of {period} steps",
+        }
+    else:
+        plan["phase_locked"] = {
+            "skipped": (
+                f"the window {span[0]} to {span[1]} holds {span[1] - span[0] + 1} steps, "
+                f"fewer than one blade passage of {period} steps, so no complete passage "
+                "can be averaged"
+            )
+        }
+    # One window per blade over the LAST complete revolution, contiguous
+    # and ending at the run's last step: :meth:`ReductionPlan.blade_windows`.
+    per_blade = [
+        (
+            last_step - (blades - index) * period + 1,
+            last_step - (blades - 1 - index) * period,
+        )
+        for index in range(blades)
+    ]
+    if per_blade[0][0] < 1:
+        plan["per_blade"] = {
+            "skipped": (
+                f"the run is {last_step} steps and {blades} blades of {period} steps each "
+                f"need {blades * period}, so it holds no complete revolution to split "
+                "by blade"
+            )
+        }
+    else:
+        plan["per_blade"] = {
+            "windows": [list(item) for item in per_blade],
+            "period_steps": period,
+            "window_from": (
+                f"the last revolution of the run, one window of {period} steps per blade, "
+                f"{blades} blades"
+            ),
+        }
+    return plan
 
 
 # --- the builders -------------------------------------------------------------

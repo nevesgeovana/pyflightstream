@@ -3670,3 +3670,82 @@ def test_an_empty_entity_selection_in_an_artifact_is_refused_at_plan_time(tmp_pa
     pproc.write_text(kept[0], encoding="utf-8")
     plan = _plan_first_matrix(workspace, first)
     assert [point.status for point in plan.points] == [PlanStatus.READY, PlanStatus.READY]
+
+
+# --- PFS-2015.04: the reductions reach the products through the workflow --------
+
+
+def _rotor_matrix(tmp_path):
+    """One rotor row of the workflow fixture at the loads fixture's condition."""
+    header, rule, row, *_ = (
+        (FIXTURES / "workflow_rotor_matrix.fs").read_text(encoding="utf-8").splitlines()
+    )
+    row = row.replace("TASmps:30.0, REmi:1.20  ", "MACH:0.2, REmi:11.77    ").replace(
+        "| 0.0            |", "| -2.0           |"
+    )
+    assert "MACH:0.2" in row and "-2.0" in row, row
+    matrix = tmp_path / "rotor_products.fs"
+    matrix.write_text("\n".join((header, rule, row)) + "\n", encoding="utf-8")
+    return matrix
+
+
+def test_a_rotor_row_run_through_the_workflow_leaves_its_reductions_beside_the_plots(
+    tmp_path,
+):
+    """PFS-2015.04 end to end: the row states its clock, its blades and its export
+    window; the run record carries the windows resolved from them; the products
+    stage the run leaves writes the three reductions beside the plots table."""
+    import json
+
+    import pyflightstream.post  # noqa: F401  (registers the products stage)
+    from tests.tier1_offline.test_post_products import LOADS, SLOADS, _plots_export
+
+    # Every export the script names is written, the three the products
+    # stage reads as real tables: a sectional export it cannot read costs
+    # the simulation every later product, the plots table among them.
+    writes_every_export = (
+        "import pathlib, sys; "
+        "lines = pathlib.Path(sys.argv[1]).read_text().splitlines(); "
+        "LOADS = " + repr(LOADS) + "; SLOADS = " + repr(SLOADS) + "; "
+        "PLOTS = " + repr(_plots_export(720)) + "; "
+        "exports = {'EXPORT_SOLVER_ANALYSIS_SPREADSHEET': LOADS, "
+        "'EXPORT_SURFACE_SECTIONAL_LOADS': SLOADS, "
+        "'UNSTEADY_SOLVER_EXPORT_PLOTS': PLOTS}; "
+        "[pathlib.Path(lines[i + 1]).write_text(exports.get(line, 'x')) "
+        "for i, line in enumerate(lines[:-1]) "
+        "if line.startswith(('EXPORT_', 'SAVEAS', 'UNSTEADY_SOLVER_EXPORT_PLOTS'))]"
+    )
+    workspace = make_library(tmp_path, register_build=("26.120", "C:/fs26120/FlightStream.exe"))
+    (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
+        '[groups]\n"1" = ["W", "B"]\n', encoding="utf-8"
+    )
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", PyflightstreamWarning)
+        records = run_matrix(
+            _rotor_matrix(tmp_path),
+            workspace,
+            name="rotor",
+            recipes={},
+            recipe_registry=workflow_registry(),
+            assess=converged,
+            executor=StubSolver(writes_every_export),
+        )
+    (record,) = records
+    assert record.status == RunStatus.CONVERGED, record.error
+    plan = getattr(record, "reductions", None)
+    assert plan is not None, "the run record carries no reduction windows"
+    assert plan["time_average"]["windows"] == [[596, 720]]
+    assert plan["per_blade"]["windows"][-1] == [596, 720] and plan["blades"] == 4
+    reread = workspace.read_manifest()[0]
+    assert reread.reductions == plan, "the windows round-trip through the manifest"
+
+    plots = workspace.root / "post" / "rotor_products" / "plots"
+    assert sorted(p.name for p in plots.iterdir()) == [
+        "a-02.0_per_blade.csv",
+        "a-02.0_phase_locked.csv",
+        "a-02.0_plots.csv",
+        "a-02.0_time_average.csv",
+    ]
+    manifest = json.loads((plots.parent / "products.json").read_text(encoding="utf-8"))
+    assert manifest["products"]["plots/a-02.0_time_average.csv"]["windows"] == [[596, 720]]
+    assert manifest["skipped"] == {}

@@ -503,11 +503,14 @@ def _report_skips(workspace: CampaignWorkspace, matrices: list[str | None]) -> i
         manifest = workspace.products_dir(matrix) / "products.json"
         if not manifest.is_file():
             continue
-        for sim_id, reason in (
+        # Keyed by the simulation refused whole, or by the reduction file the
+        # row could not window (PFS-2015.04); the key says which.
+        for key, reason in (
             json.loads(manifest.read_text(encoding="utf-8")).get("skipped", {}).items()
         ):
+            what = key if "/" in key else f"simulation {key}"
             print(
-                f"skipped simulation {sim_id} of {matrix or 'the matrix-less records'}: {reason}",
+                f"skipped {what} of {matrix or 'the matrix-less records'}: {reason}",
                 file=sys.stderr,
             )
             skipped += 1
