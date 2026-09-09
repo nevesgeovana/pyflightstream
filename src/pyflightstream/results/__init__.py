@@ -1432,8 +1432,12 @@ def parse_probe_points(text: str, requested_version=None) -> ProbePointsReport:
     reject_trailing_export(text, what="probe export")
     # A run defining no probe point exports the header, the count 0 and
     # the opening and closing dashed lines with nothing between them
-    # (measured 2026-09-09 on every stamped probes file of a per-step
-    # export, PFS-2031.18.01): a complete table of no rows, which the
+    # (the solver's own file is committed as the fixture
+    # tests/tier1_offline/fixtures/probe_points_zero_26.123.txt, step 4 of
+    # the tier-3 actions row 6002 on 26.123, 2026-09-09; every stamped
+    # probes file of the author's rows 1226 and 5913 carries the same
+    # shape, read off her workspace and not committed; PFS-2031.18.01):
+    # a complete table of no rows, which the
     # walker below would read as a table with no closing line, since it
     # skips every dashed line after the header until a row appears.
     rows = [] if declared == 0 else delimited_table(text, "X, Y, Z,")

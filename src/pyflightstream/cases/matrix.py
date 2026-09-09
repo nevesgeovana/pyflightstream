@@ -677,7 +677,8 @@ def _parse_rotations(variables: dict[str, str], pol: str) -> list[dict[str, str]
         if not _ROTATION_AXIS.match(record["AXIS"]):
             raise MatrixError(
                 f"POL {pol}: {ROTATE_VARIABLE} AXIS is {record['AXIS']!r}, which is not of the "
-                "form frame-axis; write the frame's name, a hyphen and X, Y or Z, as NAC-Y."
+                "form frame-axis; write the frame's name, a hyphen and X, Y or Z (the axis letter "
+                "uppercase), as NAC-Y."
             )
     return records
 
@@ -942,8 +943,8 @@ def read_matrix(path: str | Path, *, active_only: bool = True) -> list[MatrixRow
             raise MatrixError(
                 f"POL {record['POL']} writes LEGACY and states {ROTATE_VARIABLE}; a LEGACY row "
                 "is built by its own recipe, which reads no rotation, so the list would turn "
-                "nothing. Name a run type in the WORKFLOW column (steady, unsteady, "
-                "unsteady_rotor), which rotates what the records name, or drop the key."
+                f"nothing. Name a run type in the WORKFLOW column ({', '.join(workflow_names())}), "
+                "which rotates what the records name, or drop the key."
             )
         row = MatrixRow(
             # From the enumerate above, so it is assigned before the RUN

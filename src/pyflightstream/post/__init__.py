@@ -18,6 +18,11 @@ rather than left to be discovered:
   plot format beside the polar table when asked (PFS-2014.01.01), its
   writer and reader re-exported here; and a PROV-JSON provenance document
   per recorded run (PFS-2012.08.01).
+* :mod:`pyflightstream.post.series` tables the stamped per-step exports
+  of a windowed unsteady point, one table per export kind under the
+  matrix's ``series/`` (PFS-2031.18.01); its ``write_point_series`` is
+  re-exported here. It is not :func:`write_series` below, which writes the
+  plots export's own history for the reductions;
 * :mod:`pyflightstream.post.reductions` is the writing seam that keeps
   a reduction from overwriting the file it came from. Re-exported
   here, and it was the one this list omitted while naming the module
@@ -52,6 +57,7 @@ from pyflightstream.post.products import (
     write_sections_table,
 )
 from pyflightstream.post.reductions import write_reduction, write_series
+from pyflightstream.post.series import write_point_series
 from pyflightstream.post.unsteady import (
     FrameAverage,
     TimestepSeries,
@@ -91,6 +97,7 @@ __all__ = [
     "write_recorded_polar",
     "write_reduction",
     "write_sections_table",
+    "write_point_series",
     "write_series",
     "write_tecplot_points",
     "write_vtk_points",

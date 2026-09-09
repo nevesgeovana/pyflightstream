@@ -1086,8 +1086,8 @@ def test_a_windowed_point_gets_one_series_table_per_export_kind(tmp_path):
     index = _products_manifest(workspace)["products"]
     entry = index["series/a-02.0_loads_series.csv"]
     assert entry["steps"] == [3, 5] and entry["steps_tabled"] == [3, 4, 5], entry
-    assert len(entry["cp_files"]) == 3 and len(entry["dat_files"]) == 3, entry
-    assert all(name.endswith(".dat") for name in entry["dat_files"]), entry["dat_files"]
+    assert len(entry["sections_files"]) == 3 and len(entry["tecplot_files"]) == 3, entry
+    assert all(name.endswith(".dat") for name in entry["tecplot_files"]), entry["tecplot_files"]
     assert "series/a-02.0_probes_series.csv" in index
 
 
@@ -1112,6 +1112,38 @@ def test_a_record_without_the_clock_leaves_the_time_blank_and_reads_the_azimuth_
     assert [float(r["azimuth_deg"]) for r in rows] == pytest.approx([120.0, 150.0])
 
 
+def test_a_stamped_file_the_parser_cannot_read_skips_that_series_and_not_the_stage(tmp_path):
+    """The V&V lens of REL-0140: a truncated stamped file is the ordinary outcome of
+    a run stopped mid-window, and it must cost that point its series and nothing
+    else, as a refused polar costs its simulation and not the stage (PFS-2031.16).
+    RED on 5a770de: the stage raised ProductError and wrote no products.json."""
+    import warnings
+
+    from pyflightstream._errors import PyflightstreamWarning
+
+    window = {
+        "stated_form": "iterations",
+        "stated_value": 3.0,
+        "first_step": 3,
+        "time_iterations": 4,
+        "delta_time_s": 0.01,
+    }
+    workspace = _windowed_workspace(tmp_path, window=window, kinds=("",))
+    torn = workspace.sim_dir("7001") / "a-02.0_iteration=4.txt"
+    torn.write_text(LOADS[: LOADS.index("Surface, Cx")], encoding="utf-8")
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always", PyflightstreamWarning)
+        write_campaign_products(workspace)
+    manifest = _products_manifest(workspace)
+    assert "series/camp/sim_7001/a-02.0" in manifest["skipped"], manifest["skipped"]
+    assert "iteration=4" in manifest["skipped"]["series/camp/sim_7001/a-02.0"]
+    assert any("series of camp/sim_7001/a-02.0 not written" in str(w.message) for w in caught)
+    assert not (workspace.root / "post" / "products" / "series").exists() or not list(
+        (workspace.root / "post" / "products" / "series").glob("a-02.0_loads_series.csv")
+    ), "the torn point's loads series was written anyway"
+    assert any(name.endswith("_g01.csv") for name in manifest["products"]), "the polar still wrote"
+
+
 def test_a_step_the_solver_never_stamped_is_absent_from_the_series_and_named_in_the_index(tmp_path):
     """The record says which steps exist; a step without a file is not invented."""
     window = {
@@ -1132,4 +1164,33 @@ def test_a_step_the_solver_never_stamped_is_absent_from_the_series_and_named_in_
     columns, rows = _series(workspace, "a-02.0_probes_series.csv")
     assert columns == ["step", "time_s", "azimuth_deg"] and rows == [], (
         "no probe export, a header alone"
+    )
+
+
+def test_a_step_whose_surfaces_differ_from_the_first_refuses_the_loads_series_naming_both(tmp_path):
+    """QA-7 of REL-0140: the wide loads table fixed its columns from the first
+    stamped step and dropped, silently, a surface a later step added. One column
+    set over every step, or the point's series is a recorded skip naming the step
+    and the surfaces."""
+    window = {
+        "stated_form": "iterations",
+        "stated_value": 3.0,
+        "first_step": 3,
+        "time_iterations": 4,
+        "delta_time_s": 0.01,
+    }
+    workspace = _windowed_workspace(tmp_path, window=window, kinds=("",))
+    later = workspace.sim_dir("7001") / "a-02.0_iteration=4.txt"
+    later.write_text(
+        LOADS.replace(
+            "     B,+0.0081038",
+            "     Nacelle" + ",+0.0000000" * 9 + "\n     B,+0.0081038",
+        ),
+        encoding="utf-8",
+    )
+    write_campaign_products(workspace)
+    skipped = _products_manifest(workspace)["skipped"]
+    reason = skipped.get("series/camp/sim_7001/a-02.0", "")
+    assert "iteration=4" in reason and "'Nacelle'" in reason and "'W', 'B', 'Total'" in reason, (
+        skipped
     )

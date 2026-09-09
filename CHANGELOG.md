@@ -17,7 +17,8 @@ FlightStream versions.
   so the solver-setting loop never meets it, carried on the case as
   `SimCase.frames`, and emitted by every run type after `MRP` and
   `PROP_MRP` and before any motion, through `helpers.coordinate_frame`.
-  A name the package creates itself, a name defined twice, or an origin
+  A name the package creates itself (`RESERVED_FRAME_NAMES`, public in
+  `pyflightstream.cases` beside `FrameSpec`), a name defined twice, or an origin
   that is not three numbers is refused at plan time naming the preset. A
   setup defining none emits nothing: the seven tier-3 matrices render
   byte-identical (`python -m tests.tier3_licensed.offline`, 0 differing).
@@ -70,7 +71,9 @@ FlightStream versions.
   (PFS-2031.18.01, her incidence study's unsteady plots and surface
   sections after N revolutions). The products stage tables the stamped
   files of the export window, one table per kind under
-  `post/<matrix>/series/`: the loads wide (a row per step, a column per
+  `post/<matrix stem>/series/` (the new public module
+  `pyflightstream.post.series`: `write_point_series`, `stamped_exports`,
+  `SERIES_DIR`, `SERIES_KINDS`, `SERIES_LEAD`): the loads wide (a row per step, a column per
   surface and coefficient), the sections and the probes long (a row per
   step and section or probe), every table leading with `step`, `time_s`
   and `azimuth_deg` computed from the clock the run record now carries
@@ -83,7 +86,8 @@ FlightStream versions.
   polar is refused keeps them. RED on d908092: no series folder, the
   record's window without a clock.
 - **A probe export declaring no point reads as an empty table**
-  (PFS-2031.18.01, found on her workspace on 2026-09-09). Every stamped
+  (PFS-2031.18.01, found on her workspace on 2026-09-09; the fixture is
+  the solver's own file from the tier-3 actions row 6002, committed). Every stamped
   probes file of her rows 1226 and 5913 declares `Number of Probe
   Points: 0` with the header and the opening and closing dashed lines
   and nothing between them, and the parser refused it as a file cut
@@ -104,7 +108,8 @@ FlightStream versions.
   entry per line with `command` (the line as the solver reads it) and
   `before` (geometry, setup, init, exec, analysis, export, or control
   for the head of the script), read out of the raw settings by
-  `resolve_setup`, validated as `RawCommand`, carried on the case as
+  `resolve_setup`, validated as `RawCommand` (its phases `RAW_PHASES`,
+  both public in `pyflightstream.cases`), carried on the case as
   `SimCase.raw_commands` naming the preset, and emitted by every run type
   at the seam before the first command of the phase, in the order
   written, through `Script.emit` after splitting the line and coercing
@@ -119,6 +124,14 @@ FlightStream versions.
   stating none changes nothing: the seven tier-3 matrices render
   byte-identical. RED on aff689e: the table refused as a key naming no
   solver setting, and no `RAW_TABLE`.
+- **The tier-3 setup study gains a row carrying one raw line, for the
+  author's seat** (PFS-2033.03). Setup `s008` is the tour preset plus
+  `SOLVER_SET_ITERATIONS 350` before init, over the preset's 300; row
+  2004 of `matriz_setup.fs` states it, its golden is rendered offline,
+  and the tier-3 test that reads the record, the script order, the loads
+  spreadsheet's requested iterations and the provenance skips with its
+  reason until the row runs on the licensed machine. `docs/tiers.md`
+  counts eight setups and four rows of the study.
 
 ## [0.13.1] - 2026-09-09
 
@@ -3341,7 +3354,7 @@ costs the reader the whole warning window the shim exists to buy.
   `[tool.mypy]` header has promised since 2026-08-03 that an exemption is
   removed as its module is typed and never added, and this is that
   direction happening rather than being restated. The re-count moves with
-  it: mypy recount 2026-09-09: 356 errors in 18 of 80 modules, where the
+  it: mypy recount 2026-09-09: 356 errors in 18 of 81 modules, where the
   tree carried 275 in 21 of 64 two days before, and the four records that
   state it move together because a tier-1 guard compares them.
 

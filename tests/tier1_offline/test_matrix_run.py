@@ -3795,37 +3795,56 @@ def test_a_rotor_row_run_through_the_workflow_leaves_its_reductions_beside_the_p
 
 
 def test_the_record_and_the_provenance_carry_the_raw_commands_of_the_setup(tmp_path):
-    """RED on d908092: the setup with the table is refused before any point runs."""
+    """RED on aff689e: the setup with the table is refused before any point runs.
+    Over the tier-3 setup study on a stub solver: row 2004 states s008, the tour
+    preset plus one raw line before init (the row prepared for the author's seat),
+    and its record and provenance carry that line while rows 2001 to 2003 carry
+    none. A LEGACY row is refused the table (QA-4 of REL-0140), so the registry
+    fixture's rows, all LEGACY, are not the ones to read it back from."""
     import json
+    import shutil
 
     from pyflightstream.post.products import write_campaign_products
-    from pyflightstream.workspace import RunRecord
+    from pyflightstream.workspace import CampaignWorkspace, RunRecord
 
-    workspace = make_library(tmp_path, register_build=("26.120", "C:/fs26120/FlightStream.exe"))
-    code = code_for("8001", "set", REGISTRY_FIXTURE)
-    setup = workspace.inputs_dir / "setups" / f"{code}.toml"
-    setup.write_text(
-        setup.read_text(encoding="utf-8").rstrip("\n")
-        + '\n\n[[raw]]\ncommand = "SOLVER_SET_AOA 1.0"\nbefore = "init"\n',
+    tier3 = Path(__file__).resolve().parents[1] / "tier3_licensed"
+    root = tmp_path / "ws"
+    shutil.copytree(
+        tier3 / "inputs", root / "inputs", ignore=shutil.ignore_patterns("*.local.toml")
+    )
+    shutil.copy(tier3 / "matriz_setup.fs", root / "matriz_setup.fs")
+    # The stand-in solver writes the loads spreadsheet alone, so the study's
+    # pproc keeps its groups and declares no other export.
+    (root / "inputs" / "pproc" / "p002.toml").write_text(
+        '[groups]\n"1" = ["Wing"]\n\n[exports]\nsimulation = false\ntecplot = false\n'
+        "sections = false\nsectional_loads = false\nprobes = false\nplots = false\nlog = false\n",
         encoding="utf-8",
     )
+    workspace = CampaignWorkspace(root)
     run_matrix(
-        REGISTRY_FIXTURE,
+        root / "matriz_setup.fs",
         workspace,
-        name="matrix",
+        name="matriz_setup",
         default_fs_version="26.120",
-        recipes=RECIPES,
+        recipes={},
         assess=converged,
         executor=StubSolver(WRITES_LOADS),
-        recipe_registry={"steady": matrix_recipe},
+        recipe_registry=workflow_registry(),
     )
-    records = [r for r in workspace.read_manifest() if r.sim_id == "8001"]
-    assert records, "no record of 8001"
+    by_sim = {}
+    for record in workspace.read_manifest():
+        by_sim.setdefault(record.sim_id, []).append(record)
+    assert set(by_sim) == {"2001", "2002", "2003", "2004"}, sorted(by_sim)
     assert "raw_commands" in RunRecord.model_fields
-    expected = [{"command": "SOLVER_SET_AOA 1.0", "before": "init", "setup": code}]
-    assert all(r.raw_commands == expected for r in records), [r.raw_commands for r in records]
-    write_campaign_products(workspace, matrix_stem="matrix_registry", overwrite=True)
-    provenance = workspace.root / "post" / "matrix_registry" / "provenance"
-    document = json.loads(next(provenance.glob("*8001*.prov.json")).read_text(encoding="utf-8"))
+    expected = [{"command": "SOLVER_SET_ITERATIONS 350", "before": "init", "setup": "s008"}]
+    carried = [e.model_dump(mode="json") for e in by_sim["2004"][0].raw_commands]
+    assert carried == expected, carried
+    assert all(r.raw_commands == [] for sim, rs in by_sim.items() if sim != "2004" for r in rs)
+    write_campaign_products(workspace, matrix_stem="matriz_setup", overwrite=True)
+    provenance = workspace.root / "post" / "matriz_setup" / "provenance"
+    document = json.loads(next(provenance.glob("*2004*.prov.json")).read_text(encoding="utf-8"))
     (_, activity), *_ = document["activity"].items()
     assert activity["pyfs:raw_commands"] == expected, activity
+    other = json.loads(next(provenance.glob("*2001*.prov.json")).read_text(encoding="utf-8"))
+    (_, activity), *_ = other["activity"].items()
+    assert "pyfs:raw_commands" not in activity, "a run that carried no raw line carries no key"

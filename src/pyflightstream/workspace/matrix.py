@@ -481,6 +481,26 @@ def _resolve_code(workspace: CampaignWorkspace, kind: str, code: str, pol: str):
         ) from error
 
 
+def _not_on_a_legacy_row(row: MatrixRow, entries: list, table: str) -> list:
+    """Refuse a setup table a LEGACY row's recipe would drop in silence (the QA lens of REL-0140).
+
+    A LEGACY row is built by its own recipe, which is the reader of its
+    keys and reads no frames and no raw commands; the case would carry
+    them and the record would claim them while the script never took
+    them, which is the silence the ROTATE refusal of PFS-2034.03 ends for
+    the row's own key.
+    """
+    if entries and row.workflow == LEGACY_WORKFLOW:
+        raise MatrixError(
+            f"POL {row.pol} writes LEGACY and names setup {row.set_code!r}, which states a "
+            f"[[{table}]] table; a LEGACY row is built by its own recipe, which reads no "
+            f"{table} table, so the entries would reach no script while the record claimed "
+            "them. Name a run type in the WORKFLOW column, or point the row at a setup "
+            "without the table."
+        )
+    return list(entries)
+
+
 def _bind_motion(
     workspace: CampaignWorkspace,
     record: Mapping[str, str],
@@ -1235,12 +1255,12 @@ def resolve_matrix(
             # THE SETUP'S FRAMES RIDE ON THE CASE (PFS-2034.01), created by the
             # builders after the package's own; a setup defining none leaves
             # the list empty and the script unchanged.
-            "frames": list(setups[row.set_code].frames),
+            "frames": _not_on_a_legacy_row(row, setups[row.set_code].frames, "frames"),
             # THE SETUP'S RAW COMMANDS RIDE ON THE CASE TOO (PFS-2033.01),
             # each naming the artifact it came from, for the run record.
             "raw_commands": [
                 entry.model_copy(update={"setup": row.set_code})
-                for entry in setups[row.set_code].raw
+                for entry in _not_on_a_legacy_row(row, setups[row.set_code].raw_commands, "raw")
             ],
             # THE PPROC ARTIFACT RIDES ON THE CASE (PFS-2029.07.03): the
             # builders emit its sections, plots and probes and export the

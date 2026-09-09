@@ -26,7 +26,12 @@ from pathlib import Path
 
 from pyflightstream._errors import PyflightstreamError
 from pyflightstream.fsi.loads import parse_sectional_loads
-from pyflightstream.post.products import SECTION_COLUMNS, ProductError, write_csv_table
+from pyflightstream.post._tables import (
+    SECTION_COLUMNS,
+    ProductError,
+    ProductExistsError,
+    write_csv_table,
+)
 from pyflightstream.results import (
     MalformedOutputError,
     labeled_value,
@@ -55,7 +60,12 @@ SERIES_KINDS: tuple[tuple[str, str | None], ...] = (
 #: The three columns every series table leads with.
 SERIES_LEAD: tuple[str, ...] = ("step", "time_s", "azimuth_deg")
 #: The stamped kinds that are listed by path and not tabled.
-LISTED_KINDS: tuple[tuple[str, str, str], ...] = (("cp", "_cp", "txt"), ("dat", "", "dat"))
+#: The keys carry the package's own kind names (``cases.EXPORT_KINDS``):
+#: ``sections`` is the ``_cp`` export and ``tecplot`` the ``.dat`` file.
+LISTED_KINDS: tuple[tuple[str, str, str], ...] = (
+    ("sections", "_cp", "txt"),
+    ("tecplot", "", "dat"),
+)
 
 #: The columns of one loads spreadsheet row, in the solver's order.
 LOADS_COLUMNS: tuple[str, ...] = ("Cx", "Cy", "Cz", "CL", "CDi", "CDo", "CMx", "CMy", "CMz")
@@ -127,6 +137,16 @@ def _loads_rows(
         surfaces = {**report.surfaces, "Total": report.total}
         if not columns:
             columns = [f"{name}_{column}" for name in surfaces for column in LOADS_COLUMNS]
+        elif list(surfaces) != _names(columns):
+            # The wide table has one column set; a step whose surfaces differ
+            # from the first would lose a surface or read as a missing
+            # measurement, silently (the QA lens of REL-0140).
+            first = ", ".join(repr(n) for n in _names(columns))
+            raise ProductError(
+                f"{path} lists the surfaces {', '.join(repr(n) for n in surfaces)} and the "
+                f"first stamped step of the window lists {first}; a series is one column set "
+                "over every step, so the window cannot be tabled as written"
+            )
         values = [
             surfaces.get(name, {}).get(column, "")
             for name in _names(columns)
@@ -201,17 +221,20 @@ _ROWS: dict[str, Callable[..., tuple[tuple[str, ...], list[tuple[object, ...]]]]
 
 
 def write_point_series(
+    root: Path,
+    *,
     sim_dir: Path,
     record: RunRecord,
     stem: str,
     out: Path,
-    *,
-    target: Callable[[Path], Path],
+    overwrite: bool = False,
 ) -> tuple[list[Path], dict[str, dict[str, object]]]:
     """Write the series tables of one point from its stamped exports.
 
     Parameters
     ----------
+    root : Path
+        The workspace root, which the listed files are named relative to.
     sim_dir : Path
         The simulation folder, where the solver left the stamped files.
     record : RunRecord
@@ -221,16 +244,19 @@ def write_point_series(
         The point's name, the loads spreadsheet's name without ``.txt``.
     out : Path
         The matrix's products folder; the tables land under ``series/``.
-    target : callable
-        The products stage's own overwrite gate, applied to each path.
+    overwrite : bool
+        Whether an existing table may be rewritten; refused otherwise
+        with :class:`~pyflightstream.post.products.ProductExistsError`,
+        the products stage's own rule.
 
     Returns
     -------
     tuple
         The tables written, and their ``products.json`` entries keyed by
         path relative to ``out``: the runs, the steps tabled, the steps the
-        window states, and on the loads entry the ``_cp`` and ``.dat``
-        files of the window by path.
+        window states, and on the loads entry the sections (``_cp``) and
+        Tecplot (``.dat``) files of the window by path, under
+        ``sections_files`` and ``tecplot_files``.
     """
     window = record.export_window
     if not window:
@@ -245,7 +271,13 @@ def write_point_series(
         files = stamped.get((suffix or "", "txt"), {})
         columns, rows = _ROWS[kind](files, steps, delta, step_deg)
         relative = f"{SERIES_DIR}/{stem}_{kind}_series.csv"
-        done = write_csv_table(target(out / relative), columns, rows)
+        path = out / relative
+        if path.exists() and not overwrite:
+            raise ProductExistsError(
+                f"the product {path} exists; pass overwrite (CLI: --overwrite) to rewrite "
+                "it from the manifest"
+            )
+        done = write_csv_table(path, columns, rows)
         written.append(done)
         tabled = sorted(step for step in steps if step in files)
         entry: dict[str, object] = {
@@ -258,9 +290,7 @@ def write_point_series(
             for listed, listed_suffix, extension in LISTED_KINDS:
                 found = stamped.get((listed_suffix, extension), {})
                 entry[f"{listed}_files"] = [
-                    found[step].relative_to(sim_dir.parent.parent).as_posix()
-                    for step in steps
-                    if step in found
+                    found[step].relative_to(root).as_posix() for step in steps if step in found
                 ]
         names[relative] = entry
     return written, names

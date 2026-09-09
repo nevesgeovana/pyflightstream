@@ -42,6 +42,7 @@ from pydantic import (
 from pyflightstream._atmosphere import ISA
 from pyflightstream._digest import file_sha256, text_sha256
 from pyflightstream._errors import PyflightstreamError
+from pyflightstream.commands import Phase
 from pyflightstream.script import Script
 from pyflightstream.script.toggles import resolve_toggle
 from pyflightstream.versions import resolve
@@ -494,21 +495,22 @@ class ProductsSpec(BaseModel):
 
 #: Frame names the package creates itself (PFS-2030.03.02); a setup may
 #: not define one of these, because the row's rotation and the pproc
-#: definitions resolve them to the package's own frames.
+#: definitions resolve them to the package's own frames. The rotor run
+#: type also creates ``PROP_MRP<k>``, ``RotorAxis<k>`` and ``BladeAxis<k>``,
+#: one per record or blade family, refused by pattern below (the
+#: interface lens of REL-0140: a setup defining PROP_MRP1 was shadowed).
 RESERVED_FRAME_NAMES: tuple[str, ...] = ("MRP", "PROP_MRP")
+RESERVED_FRAME_PATTERN = re.compile(r"^(PROP_MRP|ROTORAXIS|BLADEAXIS)\d+$")
 
 
-#: The phases a raw command may be declared before (PFS-2033.01): the
-#: command database's own, and ``control`` for a line at the head of the
-#: script, since a control command may appear anywhere.
+#: The phases a raw command may be declared before (PFS-2033.01):
+#: ``control`` for a line at the head of the script, since a control
+#: command may appear anywhere, then the command database's own in the
+#: order the script layer enforces, read off the enum rather than
+#: restated (the architecture lens of REL-0140).
 RAW_PHASES: tuple[str, ...] = (
-    "control",
-    "geometry",
-    "setup",
-    "init",
-    "exec",
-    "analysis",
-    "export",
+    Phase.CONTROL.value,
+    *(phase.value for phase in Phase if phase is not Phase.CONTROL),
 )
 
 
@@ -529,9 +531,16 @@ class RawCommand(BaseModel):
     before: str
     setup: str | None = None
 
+    @field_validator("command", mode="before")
+    @classmethod
+    def _stripped(cls, value: object) -> object:
+        # On both construction paths (the QA lens of REL-0140 measured the
+        # constructor keeping the padding the validate path stripped).
+        return value.strip() if isinstance(value, str) else value
+
     @model_validator(mode="after")
     def _one_line_before_a_known_phase(self) -> RawCommand:
-        line = self.command.strip()
+        line = self.command
         if not line:
             raise ValueError("a raw entry needs a command, the line as the solver reads it")
         if "\n" in line or "\r" in line:
@@ -542,9 +551,10 @@ class RawCommand(BaseModel):
         if self.before not in RAW_PHASES:
             raise ValueError(
                 f"the raw command {line!r} is declared before {self.before!r}, which is not a "
-                f"phase; write one of {', '.join(RAW_PHASES)}"
+                f"phase; write one of {', '.join(RAW_PHASES[1:])}, or control for a line at "
+                "the head of the script"
             )
-        return self.model_copy(update={"command": line})
+        return self
 
 
 class FrameSpec(BaseModel):
@@ -552,9 +562,10 @@ class FrameSpec(BaseModel):
 
     Her design of 2026-09-09 (design/69): the row's rotation names an
     axis as ``<frame>-<X|Y|Z>``, and the frame is one the setup defined
-    here or one the package creates (``MRP``, ``PROP_MRP``). The origin
-    and the two axes are in the geometry's own frame, the solver's
-    reference frame; the third axis is the right-handed cross product,
+    here or one the package creates (``MRP``; ``PROP_MRP`` on the rotor
+    run types). The origin is in the geometry's own frame, the solver's
+    reference frame, in the simulation's length unit, and the two axes
+    are direction vectors in that frame; the third axis is the right-handed cross product,
     as :func:`pyflightstream.script.helpers.coordinate_frame` computes it.
     """
 
@@ -565,15 +576,24 @@ class FrameSpec(BaseModel):
     x_axis: tuple[float, float, float] = (1.0, 0.0, 0.0)
     y_axis: tuple[float, float, float] = (0.0, 1.0, 0.0)
 
+    @field_validator("name", mode="before")
+    @classmethod
+    def _stripped(cls, value: object) -> object:
+        # The name the solver shows and a row's AXIS token cites, stored as
+        # validated (the architecture lens of REL-0140: " NAC " passed and
+        # no token could then resolve it).
+        return value.strip() if isinstance(value, str) else value
+
     @model_validator(mode="after")
     def _a_name_of_its_own(self) -> FrameSpec:
-        name = self.name.strip()
+        name = self.name
         if not name:
             raise ValueError("a frame needs a name")
-        if name.upper() in RESERVED_FRAME_NAMES:
+        if name.upper() in RESERVED_FRAME_NAMES or RESERVED_FRAME_PATTERN.match(name.upper()):
             raise ValueError(
                 f"the frame name {self.name!r} is one the package creates itself "
-                f"({', '.join(RESERVED_FRAME_NAMES)}); choose another name"
+                f"({', '.join(RESERVED_FRAME_NAMES)}, and PROP_MRP<k>, RotorAxis<k> and "
+                "BladeAxis<k> on a rotor row); choose another name"
             )
         return self
 

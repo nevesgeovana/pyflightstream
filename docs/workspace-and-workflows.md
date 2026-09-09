@@ -519,48 +519,6 @@ knowing.
     with its reason. What the paragraph is for is that the set is
     closed and short enough to see at once.
 
-A preset may also define **custom coordinate systems**, since 0.14.0
-(PFS-2034.01), in a `[[frames]]` table, one entry per frame:
-
-    [[frames]]
-    name = "NAC"                # the name the solver shows and a row's rotation cites
-    origin = [0.42, 0.0, 0.11]  # in the geometry's own frame, simulation length units
-    x_axis = [1.0, 0.0, 0.0]    # optional; the reference axes when left unstated
-    y_axis = [0.0, 1.0, 0.0]
-
-Every row citing the preset has them created right after the frames the
-package makes itself (`MRP` at the moment point, `PROP_MRP` at the
-propeller), in the order written and before any motion, so a rotor whose
-axis frame is one of these turns about a frame that exists. The table is
-not a solver setting and never reaches the refusal above. A name the
-package creates itself (`MRP`, `PROP_MRP`), a name defined twice, or an
-origin that is not three numbers is refused at plan time naming the
-preset. What the frames are FOR is the row's rotation of a boundary
-family about one of their axes, which 0.14.0 adds beside them.
-
-A preset may also state **raw solver commands**, since 0.14.0
-(PFS-2033.01, her design of 2026-09-09), in a `[[raw]]` table, one entry
-per line, each naming the phase it goes before:
-
-    [[raw]]
-    command = "SOLVER_SET_AOA 1.0"   # the line as the solver reads it, arguments included
-    before = "init"                  # geometry, setup, init, exec, analysis, export, or control
-
-The line is emitted by every run type at the seam before the first
-command of that phase (`control` puts it at the head of the script, since
-a control command may appear anywhere), in the order written, and it
-passes exactly the checks every curated emission passes: the command's
-existence on the row's build, its grammar and its argument types, and
-the script's phase order. A command the build has no evidence for is the
-emitter's own refusal, naming the preset and the line, at `pyfs-matrix
-plan`; so is an argument of the wrong type, a command whose grammar is a
-block rather than a line (the table carries one-line commands only), and
-a command of a later phase than the one it is declared before, which
-would put the script past that phase. The run record carries the lines
-the script took as `raw_commands` (command, phase, preset), and the
-provenance document carries them on the solver run (PFS-2033.02). A
-preset stating none changes nothing.
-
     A preset may declare its own with `recorded_only = ["my_setting"]`,
     for a setting from a build or a workflow this package has not met. A
     declared key still warns, because the point is that its author knows
@@ -597,6 +555,49 @@ keys admit an empty list is the domain seat's call, written beside each
 key in `pyflightstream.workspace.inputs.ENTITY_SELECTIONS`, and the
 refusal prints her verdict; the post-processing artifact's keys are
 listed under that artifact below.
+
+A preset may also define **custom coordinate systems**, since 0.14.0
+(PFS-2034.01), in a `[[frames]]` table, one entry per frame:
+
+    [[frames]]
+    name = "NAC"                # the name the solver shows and a row's rotation cites
+    origin = [0.42, 0.0, 0.11]  # in the geometry's own frame, simulation length units
+    x_axis = [1.0, 0.0, 0.0]    # optional; the reference axes when left unstated
+    y_axis = [0.0, 1.0, 0.0]
+
+Every row citing the preset has them created right after the frames the
+package makes itself (`MRP` at the moment point on every run type,
+`PROP_MRP` at the propeller on the rotor run types), in the order
+written and before any motion, so a rotor whose
+axis frame is one of these turns about a frame that exists. The table is
+not a solver setting and never reaches the refusal above. A name the
+package creates itself (`MRP`, `PROP_MRP`), a name defined twice, or an
+origin that is not three numbers is refused at plan time naming the
+preset. What the frames are FOR is the row's rotation of a boundary
+family about one of their axes, which 0.14.0 adds beside them.
+
+A preset may also state **raw solver commands**, since 0.14.0
+(PFS-2033.01, her design of 2026-09-09), in a `[[raw]]` table, one entry
+per line, each naming the phase it goes before:
+
+    [[raw]]
+    command = "SOLVER_SET_AOA 1.0"   # the line as the solver reads it, arguments included
+    before = "init"                  # geometry, setup, init, exec, analysis, export, or control
+
+The line is emitted by every run type at the seam before the first
+command of that phase (`control` puts it at the head of the script, since
+a control command may appear anywhere), in the order written, and it
+passes exactly the checks every curated emission passes: the command's
+existence on the row's build, its grammar and its argument types, and
+the script's phase order. A command the build has no evidence for is the
+emitter's own refusal, naming the preset and the line, at `pyfs-matrix
+plan`; so is an argument of the wrong type, a command whose grammar is a
+block rather than a line (the table carries one-line commands only), and
+a command of a later phase than the one it is declared before, which
+would put the script past that phase. The run record carries the lines
+the script took as `raw_commands` (`command`, `before`, `setup`), and the
+provenance document carries them on the solver run (PFS-2033.02). A
+preset stating none changes nothing.
 
 A preset may also carry a `[flight_condition]` table, which is not a
 solver setting and is not judged as one: it holds the fluid pins
@@ -948,7 +949,9 @@ from and the pproc artifact; a campaign resumed with new points rewrites
 them, since they derive from the manifest. A simulation whose product is
 refused by design, a polar under sideslip for one, is listed under
 `skipped` in that file with the reason, and the others are written
-(PFS-2031.16); the key is always there, empty when nothing was refused. To rebuild them by hand, with no solver and no executable
+(PFS-2031.16); the key is always there, empty when nothing was refused. A
+windowed unsteady point also gets its per-step series under `series/`,
+described with the export threshold below (the stamped files as a series). To rebuild them by hand, with no solver and no executable
 configured:
 
 ```text
@@ -1220,8 +1223,9 @@ record is ONE rotation and two records are two rotations in the order
 written, so a pitch and then a toe is `{...}, {...}`. `ANGLE` is in
 degrees; `AXIS` names a coordinate system and one of its axes, as
 `NAC-Y`, where the system is one the setup preset defines in its
-`[[frames]]` table (above) or one the package creates itself (`MRP`,
-`PROP_MRP`, and on a `MOTIONS` row `PROP_MRP1`, `RotorAxis1`, ...);
+`[[frames]]` table (above) or one the package creates itself (`MRP` on
+every run type; `PROP_MRP` on the rotor run types, and on a `MOTIONS` row
+`PROP_MRP1`, `RotorAxis1`, ...);
 `FAMILIES` names the boundaries or families to turn, resolved against the
 geometry's own inventory exactly as `MOVING_BOUNDARIES` is (a label first,
 a family second, never an index); `AUX_FRAMES`, optional, names the frames
@@ -1234,8 +1238,11 @@ in the blade's own axes.
 
 The rotation is emitted after every frame exists and before any motion is
 created, on every run type. One row is one geometry, so the angles of a
-study are one row each, and the sweep column keeps its meaning: a row
-stating `angle_sweep_deg` is refused as it always was.
+study are one row each, and the sweep column keeps its meaning: the
+reserved key `angle_sweep_deg` (the reserved-keys paragraph above) is
+still read as a geometric rotation sweep of its own, and a row sweeping it
+beside an aerodynamic axis is refused as it always was; it is not the way
+to state the study's angles, `ROTATE` is.
 
 A family the geometry lacks, a frame nothing defined, an axis token not of
 the form `frame-axis`, a record missing one of its three keys or carrying a
@@ -1533,7 +1540,7 @@ reductions.
 **The stamped files as a series** (since 0.14.0, PFS-2031.18.01). Thirty
 seven spreadsheets are not a history until something tables them, so the
 products stage writes, per windowed point, one table per export kind
-under `post/<matrix>/series/`:
+under `post/<matrix stem>/series/`:
 
 ```text
 post/matriz/series/POLAR-7001_M10AL+000BE+000J+170_loads_series.csv
@@ -1548,15 +1555,23 @@ time and azimuth computed from the clock the run record carries
 so the two agree by construction; a record written before the clock
 leaves the time blank and reads the azimuth off its reductions plan. The
 loads series is wide, one row per step and one column per surface and
-coefficient (`Total_CL`, `Blade1_CMx`, ...); the sections and the probes
-series are long, one row per step and section or probe, with the
-export's own columns. A run defining no section or no probe gets the
-table's header and nothing under it. A step the solver never stamped is
-absent and the `products.json` entry says which steps were tabled; the
-Tecplot and the `_cp` files of the window are listed there by path and
-not tabled, since they are the solver's own formats. The series rest on
-the stamped files and the record alone, so a simulation whose polar the
-stage refuses keeps them.
+coefficient (`Total_CL`, `Blade1_CMx`, ...); the sections series (from
+the sectional loads export, `_sloads`, the same export the sections
+table of the products reads) and the probes series are long, one row per
+step and section or probe, with the export's own columns. A run defining
+no section or no probe gets the table's header and nothing under it. A
+step the solver never stamped is absent and the `products.json` entry
+says which steps were tabled; the surface sections export (`_cp`) and
+the Tecplot file (`.dat`) of the window are listed there by path, as
+`sections_files` and `tecplot_files`, and not tabled, since they are the
+solver's own formats. A stamped file the parsers cannot read costs that
+point its series, recorded under `skipped` as `series/<run id>`, and
+never the stage. These tables are not the "raw series" the reductions
+write beside the plots table: that one is the plots export's history of
+the coefficients per step, this one is the stamped spreadsheets, surface
+by surface and section by section, over the exported window. The series
+rest on the stamped files and the record alone, so a simulation whose
+polar the stage refuses keeps them.
 
 ### The build is an input
 

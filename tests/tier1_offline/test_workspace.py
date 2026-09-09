@@ -2795,6 +2795,8 @@ def test_a_setup_defines_custom_frames_by_name(tmp_path):
     [
         ('[[frames]]\nname = "MRP"\norigin = [0.0, 0.0, 0.0]\n', "MRP"),
         ('[[frames]]\nname = "PROP_MRP"\norigin = [0.0, 0.0, 0.0]\n', "PROP_MRP"),
+        ('[[frames]]\nname = "PROP_MRP1"\norigin = [0.0, 0.0, 0.0]\n', "PROP_MRP<k>"),
+        ('[[frames]]\nname = "BladeAxis2"\norigin = [0.0, 0.0, 0.0]\n', "BladeAxis<k>"),
         (
             '[[frames]]\nname = "A"\norigin = [0.0, 0.0, 0.0]\n'
             '[[frames]]\nname = "A"\norigin = [1.0, 0.0, 0.0]\n',
@@ -2828,7 +2830,7 @@ RAW = (
 def test_a_setup_carries_raw_commands_each_before_a_named_phase(tmp_path):
     """PFS-2033.01, her design of 2026-09-09 (design/69): a setup states a solver
     command verbatim and the phase it goes before; the table is not a solver
-    setting. RED on d908092: the artifact refuses the table as a key naming no
+    setting. RED on aff689e: the artifact refuses the table as a key naming no
     setting."""
     from pyflightstream.workspace.inputs import RAW_TABLE
     from pyflightstream.workspace.matrix import _solver_from_setup
@@ -2837,7 +2839,7 @@ def test_a_setup_carries_raw_commands_each_before_a_named_phase(tmp_path):
     (workspace.inputs_dir / "setups" / "sraw.toml").write_text(RAW, encoding="utf-8")
     setup = workspace.resolve_setup("sraw")
     assert RAW_TABLE == "raw"
-    assert [(entry.command, entry.before) for entry in setup.raw] == [
+    assert [(entry.command, entry.before) for entry in setup.raw_commands] == [
         ("SOLVER_SET_AOA 1.0", "init"),
         ("PRINT hello", "control"),
     ]
@@ -2866,3 +2868,37 @@ def test_a_raw_entry_outside_the_grammar_is_refused_naming_the_setup(tmp_path, b
     if fragment == "warmup":
         for phase in ("geometry", "setup", "init", "exec", "analysis", "export", "control"):
             assert phase in message, message
+
+
+def test_a_record_written_before_the_raw_commands_field_reads_them_as_empty():
+    """QA-8 of REL-0140: the promise "absent on older records, read as empty",
+    asserted on a record dict without the key rather than on the field's presence."""
+    from pyflightstream.workspace import RunRecord, RunStatus
+
+    record = RunRecord.model_validate(
+        dict(
+            run_id="camp/sim_1/a+00.0",
+            sim_id="1",
+            point={"alpha": 0.0},
+            fs_version_requested="26.120",
+            package_version="0.13.1",
+            script_sha256="",
+            raw_flag=False,
+            status=RunStatus.CONVERGED,
+        )
+    )
+    assert record.raw_commands == []
+
+
+def test_the_two_setup_models_store_the_name_and_the_line_they_validated():
+    """AR-8 and QA-5 of REL-0140: a padded frame name and a padded command are
+    stored stripped on both construction paths, so a row's AXIS token resolves
+    the frame and the record carries the line as the solver read it."""
+    from pyflightstream.cases import FrameSpec, RawCommand
+
+    assert FrameSpec(name=" NAC ", origin=(0.0, 0.0, 0.0)).name == "NAC"
+    assert FrameSpec.model_validate({"name": " NAC ", "origin": [0, 0, 0]}).name == "NAC"
+    assert RawCommand(command="  PRINT x  ", before="init").command == "PRINT x"
+    assert (
+        RawCommand.model_validate({"command": "  PRINT x  ", "before": "init"}).command == "PRINT x"
+    )

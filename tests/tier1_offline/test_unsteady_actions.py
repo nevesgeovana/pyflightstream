@@ -433,6 +433,40 @@ def test_the_program_first_exports_on_the_step_the_package_computed(tmp_path, st
 # --- PFS-2031.18.01: the stamped exports of a stub run, tabled as a series ------------
 
 
+def test_the_series_of_a_rotor_stub_run_agrees_with_the_counter_on_the_azimuth(tmp_path):
+    """The V&V lens of REL-0140: the azimuth column against the counter's own state
+    file on a rotor row (0.72 degrees a step at 1200 rev/min and 0.0001 s), not
+    against a hand-written expectation. A pin, green on 5a770de: the arithmetic
+    was the same by reading, and this is the measurement the lens asked for."""
+    from pyflightstream.post.products import write_campaign_products
+    from tests.tier1_offline.test_post_products import LOADS
+
+    fixture = tmp_path / "loads_fixture.txt"
+    fixture.write_text(LOADS, encoding="utf-8")
+    case = rotor_case(**{ITER: "2"}).model_copy(
+        update={"sim_id": "9002", "outputs": ["loads_{point}.txt"], "point": None}
+    )
+    campaign = Campaign(name="camp", fs_version="26.123", fs_exe=sys.executable, sims=[case])
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    records = run_campaign(
+        campaign,
+        StubSolver(runs_the_counter_and_stamps_the_exports(fixture)),
+        workspace,
+        assess=converged,
+        recipes={"unsteady_rotor": workflow_registry()["unsteady_rotor"]},
+    )
+    record = records[0]
+    assert record.status is RunStatus.CONVERGED, record.error
+    assert record.export_window["step_deg"] == pytest.approx(0.72), record.export_window
+    state = json.loads((workspace.sim_dir("9002") / COUNT_FILE).read_text(encoding="utf-8"))
+    write_campaign_products(workspace, overwrite=True)
+    table = workspace.root / "post" / "products" / "series" / "loads_a+00.0_loads_series.csv"
+    body = [line.split(",") for line in table.read_text(encoding="utf-8").splitlines()[1:]]
+    assert [int(cells[0]) for cells in body] == [2, 3, 4]
+    assert float(body[-1][2]) == pytest.approx(state["azimuth_deg"])
+    assert float(body[-1][1]) == pytest.approx(state["time_s"])
+
+
 def test_the_series_of_a_stub_run_agrees_with_the_counter_step_for_step(tmp_path):
     """The record carries the clock the counter ran with, and the series table
     computes each step's time the way the counter's own state() does; the steps

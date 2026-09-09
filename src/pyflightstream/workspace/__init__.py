@@ -68,6 +68,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_valida
 from pyflightstream._deprecations import RUN_RECORD_BROKEN_COMMANDS, WAIVED_COMMANDS_MANIFEST_KEY
 from pyflightstream._digest import file_sha256
 from pyflightstream._errors import PyflightstreamDeprecationWarning, PyflightstreamError
+from pyflightstream.cases import RawCommand
 from pyflightstream.script.solver_setup import explicit_empty_selections
 from pyflightstream.workspace.inputs import (
     EXECUTABLES_FILE,
@@ -736,12 +737,17 @@ class RunRecord(BaseModel):
     #: The unsteady export window as resolved for this run, keyed by the
     #: row key that stated it; None until a row key states one
     #: (PFS-2031.18), and on every row written before the field existed.
+    #: Since 0.14.0 it also carries the clock the counter program ran with
+    #: (PFS-2031.18.01): ``delta_time_s``, the solver time step in seconds,
+    #: always; ``step_deg``, the azimuth per step in degrees, on the rotor
+    #: run type alone, absent on a rotorless row. A record written before
+    #: carries neither, and the series tables leave the time blank for it.
     export_window: dict[str, float | int | str] | None = None
     #: The solver commands the row's setup stated verbatim and the script
     #: carried (PFS-2033.02): ``command``, ``before`` and ``setup`` each;
     #: empty for a setup stating none and for every record written before
     #: the field existed, which the reader takes as the same thing.
-    raw_commands: list[dict[str, str | None]] = Field(default_factory=list)
+    raw_commands: list[RawCommand] = Field(default_factory=list)
     conditions: list[dict] | None = None
 
     @model_validator(mode="before")

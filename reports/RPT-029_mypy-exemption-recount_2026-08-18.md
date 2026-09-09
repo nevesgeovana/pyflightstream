@@ -41,23 +41,31 @@
 > THIS BLOCK IS LIVE: it carries the latest re-measurement, whose date
 > the headline sentence below names, and each earlier run keeps its
 > section further down; the two lines here were last replaced by the
-> 2026-09-09 run:
+> second 2026-09-09 run:
 >
->     Found 356 errors in 18 files (checked 80 source files)
->     Success: no issues found in 80 source files
+>     Found 356 errors in 18 files (checked 81 source files)
+>     Success: no issues found in 81 source files
 >
 > Every figure below is that re-measurement.
 
 The result, in the sentence every record of it carries:
 
-**mypy recount 2026-09-09: 356 errors in 18 of 80 modules.**
+**mypy recount 2026-09-09: 356 errors in 18 of 81 modules.**
 
-## Re-measured 2026-09-09, second time: one module arrived with the 0.14.0 series, and the debt moved inside the exempted set
+## Re-measured 2026-09-09, second run: two modules arrived with the 0.14.0 series, and the debt moved inside the exempted set
+
+The first run of the day, superseded by this one and kept here as the
+erratum the in-place replacement would otherwise erase: `Found 345
+errors in 18 files (checked 79 source files)`, `Success: no issues found
+in 79 source files`, 345 errors on 110 distinct source lines.
 
 `python scripts/mypy_recount.py` on 2026-09-09, at the tree that holds the
 per-step series of 0.14.0 (PFS-2031.18.01): 356 errors in 18 of 80
-modules. One module arrived, `post/series.py`, type-clean, and the tracked
-total moved 79 to 80, which is what the tier-1 guard asked about. The
+modules. Two modules arrived, `post/series.py` and the private
+`post/_tables.py` the review's architecture lens asked for (the CSV writer
+and the product errors below both, so neither imports the other), both
+type-clean, and the tracked total moved 79 to 81, which is what the tier-1
+guard asked about. The
 error total moved 345 to 356, and none of it is the new module's: the
 eleven sit inside the eighteen modules exempted since the first count,
 `pyflightstream.run` leading the table at 189 on 31 lines (the export
@@ -65,7 +73,7 @@ window's clock and the raw commands of the record are written into the
 same untyped base dict the earlier errors sit on). No override was added
 or removed; the override count and the dirty count both still read 18.
 
-## Re-measured 2026-09-09: two modules arrived with the 0.13.0 night, and the debt moved with them
+## Re-measured 2026-09-09, first run: two modules arrived with the 0.13.0 night, and the debt moved with them
 
 `python scripts/mypy_recount.py` on 2026-09-09, at the tree that holds the
 0.13.0 scope: 345 errors in 18 of 79 modules. Two modules arrived (the
@@ -233,11 +241,11 @@ configuration to be in a state the repository does not ship:
 
 The final line of that run is the measurement:
 
-    Found 356 errors in 18 files (checked 80 source files)
+    Found 356 errors in 18 files (checked 81 source files)
 
 The same run with the shipped configuration, overrides and all, is green:
 
-    Success: no issues found in 80 source files
+    Success: no issues found in 81 source files
 
 mypy walks the FILESYSTEM rather than the git index, so the state of the
 working tree is part of the measurement, and this report has already been

@@ -4,7 +4,16 @@
 # after it is imported and before the solver initializes. Phase is
 # geometry throughout, for the same reason the CAD chapters are: these
 # act on geometry, and the ordering check refuses them after
-# INITIALIZE_SOLVER.
+# INITIALIZE_SOLVER. The two rotations are the exception since 0.14.0,
+# phase setup, for the reason their own header below gives. The six other
+# commands of this chapter that cite a FRAME keep the geometry phase, so
+# under this package's ordering their frame can only be the reference
+# one: TRANSLATE_SURFACE_IN_FRAME, TRANSLATE_SURFACE_BY_FRAME,
+# SURFACE_SCALE, SURFACE_SELECT_BY_THRESHOLD, SURFACE_CUT_BY_PLANE and
+# TRANSFORM_SELECTED_NODES. That is the narrowing the header of
+# cad_create.yaml records for the CAD family, kept here deliberately
+# until a row reaches one of them, and it is a cost of the phase model
+# rather than a measured solver rule.
 #
 # TWO THINGS IN THIS CHAPTER ARE NOT UNIFORM AND BOTH BITE.
 #
@@ -56,8 +65,8 @@
 # 69) was refused at the frame it named. The phase is this package's
 # reading of the sample, as the header of cad_create.yaml records for
 # the CAD family, whose FRAME arguments keep the reference frame;
-# whether the solver accepts the rotation after the frame is what
-# RPT-046 measures (PFS-2034.05).
+# whether the solver accepts the rotation after the frame is the seat
+# run's measurement (PFS-2034.05), whose report is not yet allocated.
 SURFACE_ROTATE:
   layout: keyword_block
   phase: setup

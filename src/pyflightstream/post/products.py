@@ -73,6 +73,15 @@ from pyflightstream._digest import file_sha256
 from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning
 from pyflightstream.cases.workflows import REDUCTION_NAMES
 from pyflightstream.fsi.loads import SectionalLoadsReport, parse_sectional_loads
+from pyflightstream.post._tables import (
+    _COEFFICIENT_PLOT_PREFIXES,
+    _DECIMALS,
+    SECTION_COLUMNS,
+    ProductError,
+    ProductExistsError,
+    write_csv_table,
+)
+from pyflightstream.post.series import write_point_series
 from pyflightstream.post.unsteady import TimestepSeries, blade_passage_average
 from pyflightstream.results import (
     LoadsReport,
@@ -163,47 +172,9 @@ POLAR_COLUMNS: tuple[str, ...] = (
     *COEFFICIENT_COLUMNS,
 )
 
+
 #: A sections table's columns: the point and its condition, then the
 #: sectional loads export's own seven columns, in its units.
-SECTION_COLUMNS: tuple[str, ...] = (
-    "POINT",
-    "ALPHA",
-    "BETA",
-    "MACH",
-    "VINF",
-    "RE",
-    "ALT",
-    "Offset",
-    "Chord",
-    "X_QC",
-    "Z_QC",
-    "Fx",
-    "Fz",
-    "Moment",
-)
-
-#: The plot-column prefixes that are coefficients, which the solver
-#: normalises by its reference velocity and the product by the free stream.
-_COEFFICIENT_PLOT_PREFIXES = ("CL_", "CDI_", "CDO_", "CD_")
-
-#: Decimals written for every coefficient and section value, her precision.
-_DECIMALS = 5
-
-
-class ProductError(PyflightstreamError, ValueError):
-    """A product cannot be written from what the run left."""
-
-
-class ProductExistsError(ProductError):
-    """A product exists and ``overwrite`` was not given.
-
-    Its own class because the campaign writer treats it differently from
-    every other refusal (PFS-2031.16): a refusal about one simulation's
-    content is recorded as a skip and the other simulations are written,
-    while this one is about the caller's flag and stops the stage.
-    """
-
-
 @dataclass(frozen=True)
 class ReferenceValues:
     """The reference block of a product: SREF, CREF, BREF and the moment point.
@@ -367,29 +338,6 @@ def _mach_code(mach: float) -> int:
 def polar_file_name(polar: str | int, mach: float, group: str | int) -> str:
     """``<polar>_M<mach code:02d>_g<group:02d>.csv``: one polar table per group."""
     return f"{polar}_M{_mach_code(mach):02d}_g{int(group):02d}.csv"
-
-
-def _cell(value: object) -> str:
-    """One CSV cell: floats at five decimals, everything else as written."""
-    if isinstance(value, float | np.floating):
-        return f"{float(value):.{_DECIMALS}f}"
-    return str(value)
-
-
-def write_csv_table(
-    path: str | Path, columns: Sequence[str], rows: Sequence[Sequence[object]]
-) -> Path:
-    """Write one CSV table: a header line and one line per row, floats at five decimals."""
-    target = Path(path)
-    target.parent.mkdir(parents=True, exist_ok=True)
-    with target.open("w", encoding="utf-8", newline="") as handle:
-        writer = csv.writer(handle, lineterminator="\n")
-        writer.writerow(columns)
-        for row in rows:
-            if len(row) != len(columns):
-                raise ProductError(f"a row has {len(row)} values for {len(columns)} columns")
-            writer.writerow([_cell(value) for value in row])
-    return target
 
 
 def read_csv_table(path: str | Path) -> tuple[tuple[str, ...], list[dict[str, str]]]:
@@ -1167,23 +1115,20 @@ def _point_series(
 ) -> tuple[list[Path], dict[str, dict[str, object]]]:
     """Write the series tables of one windowed record (PFS-2031.18.01)."""
     from pyflightstream.cases import classify_outputs
-    from pyflightstream.post.series import write_point_series
 
     kinds = classify_outputs([Path(o).name for o in record.outputs])
     loads_name = kinds.get("loads")
     if loads_name is None:
         return [], {}
     stem = loads_name[: -len(".txt")]
-
-    def _target(path: Path) -> Path:
-        if path.exists() and not overwrite:
-            raise ProductExistsError(
-                f"the product {path} exists; pass overwrite (CLI: --overwrite) to rewrite "
-                "it from the manifest"
-            )
-        return path
-
-    return write_point_series(workspace.sim_dir(sim_id), record, stem, out, target=_target)
+    return write_point_series(
+        workspace.root,
+        sim_dir=workspace.sim_dir(sim_id),
+        record=record,
+        stem=stem,
+        out=out,
+        overwrite=overwrite,
+    )
 
 
 def _point_reductions(
@@ -1366,7 +1311,8 @@ def _prov_document(record: RunRecord, sim_dir: Path) -> dict[str, object]:
             "pyfs:cwd": record.cwd,
             "pyfs:error": record.error,
             # PFS-2033.02: the setup's raw commands the script carried, or nothing.
-            "pyfs:raw_commands": list(record.raw_commands) or None,
+            "pyfs:raw_commands": [entry.model_dump(mode="json") for entry in record.raw_commands]
+            or None,
         }
     )
     agents = {
@@ -1495,12 +1441,27 @@ def write_campaign_products(
         # series, written before the polar so a simulation the polar
         # refuses (no Mach, a sideslip) keeps its series, which rest on
         # the stamped files and the record alone.
+        # A stamped file the parsers cannot read (a run stopped mid-window
+        # leaves one) is that point's skip, recorded under series/<run id>,
+        # and never the stage's abort: the same rule the polar below follows
+        # since 2026-09-08 (the V&V lens of REL-0140).
         for record in sim_records:
             if not record.export_window:
                 continue
-            series_files, series_names = _point_series(
-                workspace, sim_id, record, out, overwrite=overwrite
-            )
+            try:
+                series_files, series_names = _point_series(
+                    workspace, sim_id, record, out, overwrite=overwrite
+                )
+            except ProductExistsError:
+                raise
+            except ProductError as error:
+                skipped[f"series/{record.run_id}"] = str(error)
+                warnings.warn(
+                    f"series of {record.run_id} not written: {error}",
+                    PyflightstreamWarning,
+                    stacklevel=2,
+                )
+                continue
             written.extend(series_files)
             for name, entry in series_names.items():
                 products_index[name] = {"sim_id": sim_id, "pproc": record.pproc, **entry}

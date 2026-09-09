@@ -814,7 +814,7 @@ def _steady_row_on_a_setup_with_raw(tmp_path, entries, name="raw.fs"):
 
 
 def test_a_raw_command_is_emitted_before_the_phase_it_names_and_after_the_one_before(tmp_path):
-    """RED on d908092: the setup is refused as stating a key naming no setting."""
+    """RED on aff689e: the setup is refused as stating a key naming no setting."""
     root, matrix = _steady_row_on_a_setup_with_raw(
         tmp_path, [("SOLVER_SET_AOA 1.0", "init"), ("PRINT raw_before_export", "export")]
     )
@@ -873,3 +873,30 @@ def test_a_setup_without_the_raw_table_renders_as_before(tmp_path):
     assert not plan.blocked, plan.summary()
     text = next(iter(rendered.values()))
     assert "PRINT" not in text and text.count("SOLVER_SET_AOA") == 1
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        '\n[[raw]]\ncommand = "SOLVER_SET_ITERATIONS 350"\nbefore = "init"\n',
+        '\n[[frames]]\nname = "NAC"\norigin = [0.4, 0.0, 0.1]\n',
+    ],
+)
+def test_a_legacy_row_naming_a_setup_with_a_frames_or_raw_table_is_refused(tmp_path, body):
+    """QA-4 of REL-0140, measured: the tour's LEGACY row on a setup carrying either
+    table planned READY, the script carried neither, and the record would have
+    claimed the raw line. Refused when the matrix binds, naming the POL, the setup
+    and the table."""
+    root = _tier3_copy(tmp_path)
+    plain = (root / "inputs" / "setups" / "s001.toml").read_text(encoding="utf-8")
+    (root / "inputs" / "setups" / "s093.toml").write_text(
+        plain.rstrip("\n") + "\n" + body, encoding="utf-8"
+    )
+    legacy = next(
+        line for line in TOUR.read_text(encoding="utf-8").splitlines() if "| LEGACY " in line
+    )
+    cells = legacy.split("|")
+    cells[7] = " s093 "
+    matrix = _one_row_matrix(root, "legacy_setup.fs", "|".join(cells))
+    with pytest.raises(MatrixError, match="LEGACY.*s093.*table"):
+        _rendered(root, matrix)

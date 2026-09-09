@@ -998,6 +998,70 @@ class Script:
         elif entry.name in _DELETION_COMMANDS:
             self.entities.delete(_DELETION_COMMANDS[entry.name])
 
+    def entry(self, name: str, /) -> CommandEntry:
+        """Return the database entry of ``name`` on this script's build.
+
+        The public reading of the per-version view a builder needs
+        before it emits (the phase of a command, its layout): a caller
+        outside this package read the private view until 0.14.0, and the
+        architecture lens of REL-0140 asked for the door. Raises
+        :class:`~pyflightstream.commands.CommandNotInVersionError` as
+        :meth:`emit` would.
+        """
+        return self._view[name]
+
+    def emit_line(self, line: str, /) -> None:
+        """Emit one command line as the solver reads it (PFS-2033.01).
+
+        The line is split on whitespace; the first token is the command
+        and the rest its arguments, each coerced to the scalar type the
+        database declares for its position (an int, a float, or the
+        token itself for an enum, a string or a path), then handed to
+        :meth:`emit`, so every check of a curated emission applies. Only a
+        command whose grammar is one line (``bare`` or ``inline``) is
+        carried: a block, a payload or a parameter list is refused naming
+        the layout, since the line the user wrote cannot be it.
+
+        Raises
+        ------
+        CommandArgumentError
+            If the command's layout is not one line, or a token is not
+            the number its position declares.
+        """
+        tokens = line.split()
+        if not tokens:
+            raise CommandArgumentError("an empty line names no command")
+        name, arguments = tokens[0], tokens[1:]
+        spec = self.entry(name)
+        if spec.layout not in (Layout.BARE, Layout.INLINE):
+            raise CommandArgumentError(
+                f"{name} is a {spec.layout.value.replace('_', ' ')} and not a one-line "
+                "command; a raw entry is one line as the solver reads it, and a block "
+                "has no place in it. State what the block sets through the preset's own "
+                "keys or the row's, or drop the entry"
+            )
+        typed: list[object] = []
+        for argument, token in zip(spec.args, arguments, strict=False):
+            try:
+                if argument.type is ArgType.INT:
+                    typed.append(int(token))
+                elif argument.type is ArgType.FLOAT:
+                    typed.append(float(token))
+                else:
+                    typed.append(token)
+            except ValueError:
+                example = (
+                    "a whole number such as 300"
+                    if argument.type is ArgType.INT
+                    else "a number such as 1.0"
+                )
+                raise CommandArgumentError(
+                    f"{name}: argument {argument.name!r} is {token!r}, which is not "
+                    f"{argument.type.value}; write it as the manual prints it, {example}"
+                ) from None
+        typed.extend(arguments[len(spec.args) :])
+        self.emit(name, *typed)
+
     def raw(self, text: str) -> None:
         """Append unvalidated script text and flag the script (FR-07)."""
         self.raw_flag = True

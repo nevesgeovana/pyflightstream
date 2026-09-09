@@ -406,7 +406,7 @@ class SetupArtifact(BaseModel):
     #: The solver commands the ``[[raw]]`` table states verbatim
     #: (PFS-2033.01), each before a named phase, in the order written;
     #: consumed out of ``settings`` by :func:`resolve_setup` the same way.
-    raw: list[RawCommand] = Field(default_factory=list)
+    raw_commands: list[RawCommand] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def _one_frame_per_name(self) -> SetupArtifact:
@@ -876,7 +876,9 @@ def resolve_setup(inputs_dir: Path, artifact_id: str) -> SetupArtifact:
             f"table is a list of records: write [[{RAW_TABLE}]] once per command with "
             "command (the line as the solver reads it) and before (the phase it precedes)."
         )
-    return _validate(SetupArtifact, {"settings": data, "frames": frames, "raw": raw}, path, "setup")
+    return _validate(
+        SetupArtifact, {"settings": data, "frames": frames, "raw_commands": raw}, path, "setup"
+    )
 
 
 def resolve_pproc(inputs_dir: Path, artifact_id: str) -> PprocArtifact:

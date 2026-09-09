@@ -4168,3 +4168,34 @@ def test_the_live_waiver_path_still_records_a_source_version():
         "the one live construction site produced a waiver with no source_version, "
         "so making the field required breaks a path the change assumed was dead"
     )
+
+
+def test_a_mesh_rotation_ends_the_geometry_phase_and_a_geometry_command_after_it_is_refused():
+    """QA-6 of REL-0140: the cost of the two rotations' move to the setup phase,
+    asserted rather than implied by a reordered golden. A user who rotates a mesh
+    and then renames a surface is refused by the order guard naming the rotation;
+    whether that order is in scope for the seat run is the author's call."""
+    script = Script(version="26.120")
+    script.declare_existing(boundaries=2)
+    helpers.rotate_surfaces(script, frame=1, axis="X", angle_deg=5.0, boundaries=[1])
+    with pytest.raises(
+        ScriptOrderError, match="SURFACE_RENAME is a geometry command.*SURFACE_ROTATE"
+    ):
+        script.emit("SURFACE_RENAME", 2, "Fuselage")
+
+
+def test_emit_line_carries_a_one_line_command_through_every_check_of_emit():
+    """AR-3 and AR-4 of REL-0140: the emitter owns the line. A typed line lands as
+    emit would emit it; a block is refused naming the layout; a token that is not
+    the number its position declares is refused naming the argument."""
+    script = Script(version="26.123")
+    script.emit_line("SOLVER_SET_AOA 1.0")
+    script.emit_line("SOLVER_SET_ITERATIONS 350")
+    assert script.render().splitlines() == ["SOLVER_SET_AOA 1.0", "SOLVER_SET_ITERATIONS 350"]
+    assert script.entry("SOLVER_SET_AOA").name == "SOLVER_SET_AOA"
+    with pytest.raises(CommandArgumentError, match="keyword block"):
+        Script(version="26.120").emit_line("SURFACE_ROTATE 1 X 20")
+    with pytest.raises(CommandArgumentError, match="'one'.*float.*such as 1.0"):
+        Script(version="26.123").emit_line("SOLVER_SET_AOA one")
+    with pytest.raises(CommandNotInVersionError):
+        Script(version="26.120").emit_line("SET_NEW_UNSTEADY_SOLVER_ACTION COMMAND_LINE")

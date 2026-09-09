@@ -4409,3 +4409,98 @@ def test_a_rotor_row_stating_neither_count_skips_naming_both_keys():
         CampaignConfigError, match="BLADES.*PERIODIC_COPIES|PERIODIC_COPIES.*BLADES"
     ):
         reduction_plan(rotor_case(BLADES=None))
+
+
+# --- REL-0140, the QA lens: the rotation on the run types its mutants survived -------
+
+
+def test_a_rotation_on_a_motions_row_turns_the_records_hub_and_its_moving_frame(tmp_path):
+    """QA-1 of REL-0140: three mutants of the MOTIONS tail's rotation wiring
+    survived the suite. A two-rotor row rotating Blade2 about NAC-Y with
+    AUX_FRAMES: PROP_MRP2 must turn record two's hub, and its moving frame with it,
+    before the motions are created."""
+    sector = _saved_simulation(tmp_path / "twin.fsm", ["Blade1", "S", "N", "Blade2"])
+    flat = _rotor_row(sector, "Blade1")
+    record_keys = {
+        "MOVING_BOUNDARIES",
+        "RPM",
+        "ADVANCE_RATIO",
+        "RPM_SIGN",
+        "ROTOR_AXIS",
+        "ROTOR_ORIGIN",
+    }
+    variables = {key: value for key, value in flat.variables.items() if key not in record_keys}
+    twin = flat.model_copy(
+        update={
+            "variables": variables,
+            "frames": [FrameSpec(name="NAC", origin=(0.4, 0.0, 0.1))],
+            "motions": [
+                {
+                    "MOVING_BOUNDARIES": "Blade1",
+                    "RPM": "1200",
+                    "ROTOR_AXIS": "X",
+                    "ROTOR_ORIGIN": "0,1.5,0",
+                },
+                {
+                    "MOVING_BOUNDARIES": "Blade2",
+                    "RPM": "-2400",
+                    "ROTOR_AXIS": "X",
+                    "ROTOR_ORIGIN": "0,-1.5,0",
+                },
+            ],
+            "rotations": [
+                {"ANGLE": "3", "AXIS": "NAC-Y", "FAMILIES": "Blade2", "AUX_FRAMES": "PROP_MRP2"}
+            ],
+        }
+    )
+    script = Script("26.123")
+    build_script(twin, script)
+    lines = script.render().splitlines()
+    nac = int(lines[lines.index("NAME NAC") - 1].split()[1])
+    hub = int(lines[lines.index("NAME PROP_MRP2") - 1].split()[1])
+    moving = int(lines[lines.index("NAME RotorAxis2") - 1].split()[1])
+    rotation = lines.index(f"ROTATE_SURFACE {nac} Y 3.0 1 DISABLE")
+    assert lines[rotation + 1] == "4", "Blade2 is boundary 4"
+    turned = [
+        lines[i + 1 : i + 5]
+        for i, line in enumerate(lines)
+        if line == "ROTATE_COORDINATE_SYSTEM" and i > rotation
+    ]
+    assert [f"FRAME {hub}", f"ROTATION_FRAME {nac}", "ROTATION_AXIS Y", "ANGLE 3.0"] in turned, (
+        turned
+    )
+    assert [f"FRAME {moving}", f"ROTATION_FRAME {nac}", "ROTATION_AXIS Y", "ANGLE 3.0"] in turned, (
+        "the moving frame the package derived from the hub did not follow it"
+    )
+    assert rotation < lines.index("CREATE_NEW_MOTION ROTARY")
+    # The warning of PFS-2034.03 reaches a MOTIONS row too: Blade2 turned without its hub.
+    with pytest.warns(PyflightstreamWarning, match="PROP_MRP2"):
+        build_script(
+            twin.model_copy(
+                update={"rotations": [{"ANGLE": "3", "AXIS": "NAC-Y", "FAMILIES": "Blade2"}]}
+            ),
+            Script("26.123"),
+        )
+
+
+@pytest.mark.parametrize("factory", [steady_case, unsteady_case])
+def test_a_rotorless_row_stating_a_rotation_renders_it_before_the_settings(tmp_path, factory):
+    """QA-2 of REL-0140: deleting the _rotations call from the steady or the
+    unsteady builder left the suite green. The rotation must be in the rendered
+    script, cite the setup's frame, and sit before the solver settings."""
+    wing = _saved_simulation(tmp_path / "wing.fsm", ["Wing", "Body"])
+    case = factory().model_copy(
+        update={
+            "geometry": str(wing),
+            "frames": [FrameSpec(name="NAC", origin=(0.4, 0.0, 0.1))],
+            "rotations": [{"ANGLE": "-2", "AXIS": "NAC-Z", "FAMILIES": "Wing"}],
+        }
+    )
+    script = Script("26.123")
+    build_script(case, script)
+    lines = script.render().splitlines()
+    nac = int(lines[lines.index("NAME NAC") - 1].split()[1])
+    rotation = lines.index(f"ROTATE_SURFACE {nac} Z -2.0 1 DISABLE")
+    assert lines[rotation + 1] == "1"
+    settings = next(i for i, line in enumerate(lines) if line.startswith("SOLVER_SET_VELOCITY"))
+    assert lines.index("NAME NAC") < rotation < settings

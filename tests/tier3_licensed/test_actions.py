@@ -151,4 +151,4 @@ def test_the_stamped_files_of_the_window_table_as_a_series(runs, workspace):
     assert entry["steps"] == [THRESHOLD, STEPS] and entry["steps_tabled"] == list(
         range(THRESHOLD, STEPS + 1)
     )
-    assert len(entry["cp_files"]) == len(entry["dat_files"]) == STEPS - THRESHOLD + 1
+    assert len(entry["sections_files"]) == len(entry["tecplot_files"]) == STEPS - THRESHOLD + 1

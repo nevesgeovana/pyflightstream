@@ -83,7 +83,7 @@ from pyflightstream.cases import (
     classify_outputs,
     select_families,
 )
-from pyflightstream.commands import ArgType, CommandEntry, CommandRegistry, Layout, Phase
+from pyflightstream.commands import CommandRegistry, Phase
 from pyflightstream.script import CommandArgumentError, Script, ScriptReferenceError, helpers
 from pyflightstream.versions import FsVersion, known_versions, resolve
 
@@ -3375,20 +3375,14 @@ def _raw_commands(case: SimCase, script: Script, phase: str) -> None:
         if entry.before != phase:
             continue
         where = f"setup {entry.setup!r}" if entry.setup else "the case's raw commands"
-        tokens = entry.command.split()
-        name, arguments = tokens[0], tokens[1:]
+        name = entry.command.split()[0]
         try:
-            spec = script._view[name]
-            if spec.layout not in (Layout.BARE, Layout.INLINE):
-                raise CampaignConfigError(
-                    f"{name} is a {spec.layout.value.replace('_', ' ')} and not a one-line "
-                    "command; a raw entry is one line as the solver reads it, and a block "
-                    "has no place in it"
-                )
+            spec = script.entry(name)
             # A command of a LATER phase than the one it is declared before
             # would advance the script past that phase, and the order guard
             # would then refuse every command of the phase itself; said here,
-            # naming the setup, rather than at the first such command.
+            # naming the setup, rather than at the first such command. The
+            # layout and the argument types are the emitter's own checks.
             if (
                 spec.phase is not Phase.CONTROL
                 and phase in RAW_PHASES
@@ -3400,32 +3394,12 @@ def _raw_commands(case: SimCase, script: Script, phase: str) -> None:
                     f"commands are written, which the order guard refuses; declare it before "
                     f"{spec.phase.value}, or drop it"
                 )
-            script.emit(name, *_typed_arguments(spec, arguments))
+            script.emit_line(entry.command)
         except PyflightstreamError as error:
             raise type(error)(
                 f"case {case.sim_id!r}: the raw command {entry.command!r} of {where}, declared "
                 f"before {phase}, is refused by the emitter: {error}"
             ) from error
-
-
-def _typed_arguments(spec: CommandEntry, tokens: list[str]) -> list[object]:
-    """Coerce a raw line's tokens to the scalar types the entry declares, refusing the rest."""
-    typed: list[object] = []
-    for argument, token in zip(spec.args, tokens, strict=False):
-        try:
-            if argument.type is ArgType.INT:
-                typed.append(int(token))
-            elif argument.type is ArgType.FLOAT:
-                typed.append(float(token))
-            else:
-                typed.append(token)
-        except ValueError:
-            raise CampaignConfigError(
-                f"{spec.name}: argument {argument.name!r} is {token!r}, which is not "
-                f"{argument.type.value}"
-            ) from None
-    typed.extend(tokens[len(spec.args) :])
-    return typed
 
 
 def _setup_frames(case: SimCase, script: Script) -> dict[str, int]:
@@ -3505,7 +3479,8 @@ def _rotations(
         if matched is None:
             raise CampaignConfigError(
                 f"case {case.sim_id!r} states {ROTATE_VARIABLE} with AXIS {token!r}, which is "
-                "not of the form frame-axis; write the frame's name, a hyphen and X, Y or Z, "
+                "not of the form frame-axis; write the frame's name, a hyphen and X, Y or Z "
+                "(the axis letter uppercase), "
                 f"as NAC-Y. The frames this case defines are {_frame_names(frames)}."
             )
         frame_name, axis = matched.group("frame"), matched.group("axis")
@@ -3531,6 +3506,11 @@ def _rotations(
         )
         aux_names = [part.strip() for part in record.get("AUX_FRAMES", "").split(",")]
         aux_names = [name for name in aux_names if name]
+        # Resolved BEFORE the warning below, so a misspelt auxiliary meets its
+        # refusal and not an advisory about a different frame (the QA lens).
+        aux_frames = [
+            _rotation_frame(case, aux_name, frames, "AUX_FRAMES") for aux_name in aux_names
+        ]
         for spun_about, spun in (spinning or {}).items():
             turned_blades = sorted(set(boundaries) & set(spun))
             if turned_blades and spun_about not in aux_names:
@@ -3545,8 +3525,7 @@ def _rotations(
                     PyflightstreamWarning,
                     stacklevel=3,
                 )
-        for aux_name in aux_names:
-            aux = _rotation_frame(case, aux_name, frames, "AUX_FRAMES")
+        for aux_name, aux in zip(aux_names, aux_frames, strict=True):
             turned = [aux, *((followers or {}).get(aux_name, ()))]
             for index in turned:
                 script.emit(
@@ -3570,14 +3549,20 @@ def _frame_names(frames: Mapping[str, int]) -> str:
 
 
 def _rotation_frame(case: SimCase, name: str, frames: Mapping[str, int], key: str) -> int:
-    """Resolve a frame name a rotation record cites, refusing one nothing defined."""
-    if name in frames:
-        return frames[name]
+    """Resolve a frame name a rotation record cites, refusing one nothing defined.
+
+    Matched case folded, the one rule the setup already teaches by refusing
+    two names that differ by case alone (the interface lens of REL-0140).
+    """
+    by_upper = {known.upper(): index for known, index in frames.items()}
+    if name.upper() in by_upper:
+        return by_upper[name.upper()]
     raise CampaignConfigError(
         f"case {case.sim_id!r} states {ROTATE_VARIABLE} with {key} naming {name!r}, and "
         f"no frame of that name exists when the rotation is emitted; the frames this case "
         f"defines are {_frame_names(frames)}. A setup preset defines one in its [[frames]] "
-        "table, and MRP and PROP_MRP are the package's own."
+        "table; MRP is the package's own on every run type, and PROP_MRP on the rotor run "
+        "types."
     )
 
 

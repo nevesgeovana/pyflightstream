@@ -1,7 +1,8 @@
 # s008: s001, the tour preset, plus ONE raw solver command declared before the
-# init phase (PFS-2033.01): SOLVER_SET_ITERATIONS 350 overrides the preset's
-# NITER = 300 at the last word, which is how a raw line differs from a setting.
-# The solver's own loads spreadsheet says which number it took ("Requested
+# init phase (PFS-2033.01): SOLVER_SET_ITERATIONS 350 after the preset's own
+# NITER = 300, the raw line the last word by position. Whether the solver takes
+# the last of the two is what row 2004 measures, not what this file asserts:
+# the solver's own loads spreadsheet says which number it took ("Requested
 # solver iterations"), the run record carries the line as raw_commands, and
 # the provenance document carries it on the solver run (PFS-2033.02). Row
 # 2004 of matriz_setup.fs states this preset; its run is the author's seat

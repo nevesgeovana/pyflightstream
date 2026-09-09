@@ -44,9 +44,10 @@ def test_a_row_carrying_a_raw_command_records_it(runs):
         )
     record = runs.one("matriz_setup", "2004", alpha=4.0)
     assert record.status in TERMINAL_OK, (record.status, record.error)
-    assert record.raw_commands == [
+    carried = [entry.model_dump(mode="json") for entry in record.raw_commands]
+    assert carried == [
         {"command": "SOLVER_SET_ITERATIONS 350", "before": "init", "setup": "s008"}
-    ], record.raw_commands
+    ], carried
     script = runs.script(record)
     texts = script.splitlines()
     raw = [i for i, text in enumerate(texts) if text == "SOLVER_SET_ITERATIONS 350"]
@@ -60,7 +61,7 @@ def test_a_row_carrying_a_raw_command_records_it(runs):
     provenance = runs.products("matriz_setup") / "provenance"
     document = json.loads(next(provenance.glob("*2004*.prov.json")).read_text(encoding="utf-8"))
     (_, activity), *_ = document["activity"].items()
-    assert activity["pyfs:raw_commands"] == record.raw_commands
+    assert activity["pyfs:raw_commands"] == carried
 
 
 def test_the_setup_study_ran_every_preset_over_the_same_point(runs):
