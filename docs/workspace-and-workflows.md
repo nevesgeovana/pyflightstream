@@ -819,7 +819,7 @@ end = [-2.0, 1.0, 0.0]
 polars = true                  # one polar table per group, per point
 sections = true                # one table per point from its sectional loads export
 plots = true                   # one table per unsteady point from its plots export
-her_polar_format = false       # beside each polar table, the text file her existing tooling opens
+custom_polar_format = false       # beside each polar table, the text file her existing tooling opens
 ```
 
 Three things carry the artifact across configurations. A `families` entry
@@ -965,14 +965,15 @@ A skip is a success by default, since everything producible was produced;
 `--strict` is for a wrapper that must tell a partial rebuild from a whole
 one, and it changes the exit code alone, after every product is written.
 
-#### Her plot format
+#### Custom polar format
 
-Her existing tooling opens a fixed-width text polar file, not a CSV, and
-`[products] her_polar_format = true` on the pproc artifact writes that file
+The author's existing tooling opens a fixed-width text polar file, not a
+CSV, and `[products] custom_polar_format = true` on the pproc artifact writes
+that file
 beside every polar table the stage writes, `<polar>_M<code>_g<group>.dat`
 beside the `.csv`, the same rows a second time (PFS-2014.01.01). Off by
 default. The shape, read off a file of hers and pinned by the committed
-fixture `tests/tier1_offline/fixtures/her_polar_format_sample.dat` (every
+fixture `tests/tier1_offline/fixtures/custom_polar_format_sample.dat` (every
 value in it synthetic), is nine header lines and then one line per point:
 
 ```text
@@ -994,8 +995,10 @@ line 3 the write time; `007 01` the number of reference columns and the
 group; then the reference names and values, the row and column counts,
 the twenty-four column names of the polar table in its order, and every
 number at `%10.5f`. The docstring of
-`pyflightstream.post.write_her_polar_format` is the specification, line
-by line, and `read_her_polar_format` reads the file back; the tier-1 test
+`pyflightstream.post.write_custom_polar_format` is the specification, line
+by line, and `read_custom_polar_format` reads the file back (until 0.14.0 the
+five names carried the prefix `her_`; the old names and the old key still
+work and warn, removed in 0.16.0); the tier-1 test
 feeds the fixture's rows through the writer and requires the fixture's
 bytes, and writes, reads and writes again what the stage produced,
 requiring equal bytes (PFS-2014.01.02).

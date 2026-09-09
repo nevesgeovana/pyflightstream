@@ -7,6 +7,18 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Changed
+
+- **The polar format's five names carry `custom_` where they carried
+  `her_`** (her decision of 2026-09-09, closing API-4 of the 0.13.0
+  review): `[products] custom_polar_format` on the pproc artifact,
+  `CustomPolarTable`, `custom_polar_file_name`, `write_custom_polar_format`
+  and `read_custom_polar_format`, and the fixture
+  `tests/tier1_offline/fixtures/custom_polar_format_sample.dat`. The old
+  key is read as the new one and the four old Python names forward to
+  the new ones, each warning from the deprecation ledger with the
+  removal version, 0.16.0. The format itself does not change by a byte.
+
 ### Added
 
 - **A setup artifact defines custom coordinate systems, created after the

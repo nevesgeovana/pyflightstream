@@ -829,7 +829,7 @@ def test_pyfs_matrix_post_writes_a_prov_json_document_per_recorded_run(tmp_path)
 # fixture has that file's SHAPE, read off a file of hers; every value in it is
 # synthetic, invented for the tier-3 wing of the tour's row 1001.
 
-HER_FORMAT_SAMPLE = FIXTURES / "her_polar_format_sample.dat"
+HER_FORMAT_SAMPLE = FIXTURES / "custom_polar_format_sample.dat"
 
 #: ``Tue Sep 08 23:41:07  2026``: weekday, month, zero-padded day, clock, two
 #: spaces, year. Her sample carries the two spaces.
@@ -839,8 +839,8 @@ DATE_LINE = r"^[A-Z][a-z]{2} [A-Z][a-z]{2} \d{2} \d{2}:\d{2}:\d{2}  \d{4}$"
 def _her_format_functions():
     from pyflightstream.post import products as module
 
-    writer = getattr(module, "write_her_polar_format", None)
-    reader = getattr(module, "read_her_polar_format", None)
+    writer = getattr(module, "write_custom_polar_format", None)
+    reader = getattr(module, "read_custom_polar_format", None)
     assert writer is not None and reader is not None, (
         "post.products has no writer and reader of her polar format (PFS-2014.01)"
     )
@@ -854,16 +854,16 @@ def test_her_plot_format_sample_against_the_stage_product(tmp_path):
     off a file of hers; every value in it is synthetic."""
     import re
 
-    write_her_polar_format, read_her_polar_format = _her_format_functions()
+    write_custom_polar_format, read_custom_polar_format = _her_format_functions()
     expected = HER_FORMAT_SAMPLE.read_bytes()
     assert b"\r" not in expected, "the fixture is pinned LF (.gitattributes)"
-    table = read_her_polar_format(HER_FORMAT_SAMPLE)
+    table = read_custom_polar_format(HER_FORMAT_SAMPLE)
     assert table.polar == "1001" and table.mach == 0.1 and table.group == 1
     assert table.description == "STEADY_polar_AL_sweep_MACH_REmi_pins_from_the_setup"
     assert table.reference.sref_m2 == 8.0 and table.reference.xmom_m == 0.25
     assert len(table.rows) == 13 and [row["ALPHA"] for row in table.rows][:3] == [-2.0, -1.0, 0.0]
 
-    written = write_her_polar_format(
+    written = write_custom_polar_format(
         tmp_path / "1001_M10_g01.dat",
         polar=table.polar,
         description=table.description,
@@ -881,14 +881,14 @@ def test_her_plot_format_sample_against_the_stage_product(tmp_path):
     assert actual_lines == expected_lines, "the writer's bytes differ from the fixture's"
 
     # The writer's docstring is the specification: every line of the format named.
-    specification = write_her_polar_format.__doc__ or ""
+    specification = write_custom_polar_format.__doc__ or ""
     for line in range(1, 10):
         assert f"line {line}" in specification, f"the docstring names no line {line}"
     assert "%10.5f" in specification
 
 
 def test_pyfs_matrix_post_writes_her_format_beside_the_polar_tables_when_asked(tmp_path):
-    """PFS-2014.01.01. ``[products] her_polar_format = true`` on the pproc artifact
+    """PFS-2014.01.01. ``[products] custom_polar_format = true`` on the pproc artifact
     writes ``<polar>_M<code>_g<group>.dat`` beside every polar table the stage
     writes, products.json names it, the reader opens it, and write, read, write
     again is byte equal. Without the key nothing is written."""
@@ -897,7 +897,7 @@ def test_pyfs_matrix_post_writes_her_format_beside_the_polar_tables_when_asked(t
     from pyflightstream.post.products import write_campaign_products
     from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
 
-    write_her_polar_format, read_her_polar_format = _her_format_functions()
+    write_custom_polar_format, read_custom_polar_format = _her_format_functions()
 
     def _workspace(root, pproc_text):
         workspace = CampaignWorkspace.init(root)
@@ -928,7 +928,7 @@ def test_pyfs_matrix_post_writes_her_format_beside_the_polar_tables_when_asked(t
         tmp_path / "asked",
         '[groups]\n"1" = ["W", "B"]\n"3" = ["W"]\n[products]\nher_polar_format = true\n',
     )
-    assert asked.resolve_pproc("p001").products.her_polar_format is True
+    assert asked.resolve_pproc("p001").products.custom_polar_format is True
     written = write_campaign_products(asked)
     out = asked.root / "post" / "products"
     names = sorted(p.name for p in out.iterdir())
@@ -946,7 +946,7 @@ def test_pyfs_matrix_post_writes_her_format_beside_the_polar_tables_when_asked(t
 
     # The two serializations carry the same rows: her format at %10.5f, the
     # CSV at five decimals.
-    table = read_her_polar_format(out / "3207_M20_g01.dat")
+    table = read_custom_polar_format(out / "3207_M20_g01.dat")
     assert table.polar == "3207" and table.group == 1 and table.mach == 0.2
     assert table.description == "STEADY_WB"
     _, csv_rows = read_csv_table(out / "3207_M20_g01.csv")
@@ -960,7 +960,7 @@ def test_pyfs_matrix_post_writes_her_format_beside_the_polar_tables_when_asked(t
 
     # Write, read, write again: byte equal, the date carried through.
     first = (out / "3207_M20_g01.dat").read_bytes()
-    again = write_her_polar_format(
+    again = write_custom_polar_format(
         tmp_path / "again.dat",
         polar=table.polar,
         description=table.description,
@@ -984,7 +984,7 @@ def test_pyfs_matrix_post_writes_her_format_beside_the_polar_tables_when_asked(t
     page = (Path(__file__).parents[2] / "docs" / "workspace-and-workflows.md").read_text(
         encoding="utf-8"
     )
-    assert "her_polar_format" in page and "her existing tooling" in page
+    assert "custom_polar_format" in page and "her existing tooling" in page
 
 
 # --- PFS-2031.18.01: the per-step exports of a windowed point as a series ------------
@@ -1194,3 +1194,37 @@ def test_a_step_whose_surfaces_differ_from_the_first_refuses_the_loads_series_na
     assert "iteration=4" in reason and "'Nacelle'" in reason and "'W', 'B', 'Total'" in reason, (
         skipped
     )
+
+
+def test_the_former_her_names_of_the_polar_format_forward_and_warn(tmp_path):
+    """Her decision of 2026-09-09: custom_ names the thing. The old key on a pproc
+    artifact is read as the new one, and the old Python names forward, each
+    warning from the ledger with its removal version; both keys at once are
+    refused."""
+    import warnings
+
+    import pyflightstream.post as post
+    from pyflightstream._errors import PyflightstreamDeprecationWarning
+    from pyflightstream.cases import ProductsSpec
+    from pyflightstream.post import products as products_module
+
+    with pytest.warns(PyflightstreamDeprecationWarning, match="her_polar_format.*0.16.0"):
+        spec = ProductsSpec.model_validate({"her_polar_format": True})
+    assert spec.custom_polar_format is True
+    with pytest.raises(ValueError, match="one key"):
+        ProductsSpec.model_validate({"her_polar_format": True, "custom_polar_format": True})
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", PyflightstreamDeprecationWarning)
+        assert ProductsSpec.model_validate({"custom_polar_format": True}).custom_polar_format
+    for old, new in (
+        ("HerPolarTable", post.CustomPolarTable),
+        ("write_her_polar_format", post.write_custom_polar_format),
+        ("read_her_polar_format", post.read_custom_polar_format),
+    ):
+        with pytest.warns(PyflightstreamDeprecationWarning, match=f"{old}.*0.16.0"):
+            assert getattr(post, old) is new
+    with pytest.warns(PyflightstreamDeprecationWarning, match="her_polar_file_name.*0.16.0"):
+        assert products_module.her_polar_file_name is products_module.custom_polar_file_name
+    missing = "no_such_name"
+    with pytest.raises(AttributeError):
+        getattr(post, missing)

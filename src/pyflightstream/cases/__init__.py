@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import re
 import tomllib
+import warnings
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from datetime import UTC, datetime
 from importlib import import_module
@@ -478,7 +479,7 @@ class ProductsSpec(BaseModel):
     loads export; ``plots``: one table per unsteady point from its plots
     export. All CSV, one header line and one row per record.
 
-    ``her_polar_format``: beside every polar table, the same rows in the
+    ``custom_polar_format``: beside every polar table, the same rows in the
     fixed-width text format her existing tooling opens
     (PFS-2014.01.01), ``<polar>_M<mach code>_g<group>.dat``. Off by
     default, since it is a second serialization of the polar table for
@@ -490,7 +491,27 @@ class ProductsSpec(BaseModel):
     polars: bool = True
     sections: bool = True
     plots: bool = True
-    her_polar_format: bool = False
+    custom_polar_format: bool = False
+
+    @model_validator(mode="before")
+    @classmethod
+    def _the_former_name_of_the_custom_format(cls, data: object) -> object:
+        """Read ``her_polar_format``, the key's name until 0.14.0, warning from the ledger."""
+        if isinstance(data, dict) and "her_polar_format" in data:
+            from pyflightstream._deprecations import PPROC_HER_POLAR_FORMAT
+            from pyflightstream._errors import PyflightstreamDeprecationWarning
+
+            if "custom_polar_format" in data:
+                raise ValueError(
+                    "the [products] table states her_polar_format and custom_polar_format "
+                    "both; they are one key, and custom_polar_format is its name"
+                )
+            warnings.warn(
+                PPROC_HER_POLAR_FORMAT.message(), PyflightstreamDeprecationWarning, stacklevel=2
+            )
+            data = {**data, "custom_polar_format": data["her_polar_format"]}
+            del data["her_polar_format"]
+        return data
 
 
 #: Frame names the package creates itself (PFS-2030.03.02); a setup may

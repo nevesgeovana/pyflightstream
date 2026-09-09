@@ -25,11 +25,11 @@ record, so any spreadsheet or dataframe reads them with nothing else:
   reduction the row could not window is recorded under ``skipped`` in
   ``products.json`` with its reason, as a refused polar is;
 * HER PLOT FORMAT beside each polar table when the pproc artifact asks
-  (``[products] her_polar_format = true``, PFS-2014.01.01):
+  (``[products] custom_polar_format = true``, PFS-2014.01.01):
   ``<polar>_M<mach code>_g<group>.dat``, the same rows in the fixed-width
   text file her existing tooling opens, specified line by line in
-  :func:`write_her_polar_format` and read back by
-  :func:`read_her_polar_format`;
+  :func:`write_custom_polar_format` and read back by
+  :func:`read_custom_polar_format`;
 * a PROVENANCE document per recorded run, ``provenance/<run id>.prov.json``
   (PFS-2012.08.01): W3C PROV in its PROV-JSON serialization, the staged
   inputs, the script and the outputs as entities with their sha256, the
@@ -103,7 +103,7 @@ __all__ = [
     "PROVENANCE_SUFFIX",
     "SECTION_COLUMNS",
     "GroupCoefficients",
-    "HerPolarTable",
+    "CustomPolarTable",
     "PRODUCTS_MANIFEST",
     "REDUCTION_COLUMNS",
     "PolarPoint",
@@ -111,15 +111,15 @@ __all__ = [
     "ProductExistsError",
     "ReferenceValues",
     "group_coefficients",
-    "her_polar_file_name",
+    "custom_polar_file_name",
     "plots_table_series",
     "polar_file_name",
     "polar_row",
     "provenance_file_name",
     "read_csv_table",
-    "read_her_polar_format",
+    "read_custom_polar_format",
     "write_csv_table",
-    "write_her_polar_format",
+    "write_custom_polar_format",
     "write_plots_table",
     "write_reduction_table",
     "write_polar_table",
@@ -399,7 +399,7 @@ _HER_TITLE_PREFIX = "FlightStream - "
 
 
 @dataclass(frozen=True)
-class HerPolarTable:
+class CustomPolarTable:
     """One file of her polar format, read back: the header block and the rows.
 
     Attributes
@@ -411,7 +411,7 @@ class HerPolarTable:
     mach : float
         The nominal Mach number, ``MNOM`` of the reference line.
     date : str
-        Line 3 as written; :func:`write_her_polar_format` takes it back so
+        Line 3 as written; :func:`write_custom_polar_format` takes it back so
         a read file is rewritten byte for byte.
     group : int
         The group number of line 4.
@@ -433,16 +433,36 @@ class HerPolarTable:
     rows: list[dict[str, float]]
 
 
-def her_polar_file_name(polar: str | int, *, mach: float, group: str | int) -> str:
+_FORMER_NAMES = {
+    "HerPolarTable": "POST_HER_POLAR_TABLE",
+    "her_polar_file_name": "POST_HER_POLAR_FILE_NAME",
+    "write_her_polar_format": "POST_WRITE_HER_POLAR_FORMAT",
+    "read_her_polar_format": "POST_READ_HER_POLAR_FORMAT",
+}
+
+
+def __getattr__(name: str) -> object:
+    """Serve the polar format's former ``her_`` names, warning from the ledger (until 0.16.0)."""
+    if name in _FORMER_NAMES:
+        from pyflightstream import _deprecations
+        from pyflightstream._errors import PyflightstreamDeprecationWarning
+
+        entry = getattr(_deprecations, _FORMER_NAMES[name])
+        warnings.warn(entry.message(), PyflightstreamDeprecationWarning, stacklevel=2)
+        return globals()[entry.new]
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+def custom_polar_file_name(polar: str | int, *, mach: float, group: str | int) -> str:
     """``<polar>_M<mach code:02d>_g<group:02d>.dat``: her format beside the polar table."""
     return polar_file_name(polar, mach, group)[: -len(".csv")] + ".dat"
 
 
-def _her_field(value: object) -> str:
+def _custom_field(value: object) -> str:
     return f"{value!s:>{_HER_WIDTH}}"
 
 
-def write_her_polar_format(
+def write_custom_polar_format(
     path: str | Path,
     *,
     polar: str | int,
@@ -457,7 +477,7 @@ def write_her_polar_format(
 
     THIS DOCSTRING IS THE SPECIFICATION OF THE FORMAT (PFS-2014.01.02). The
     shape was read off a file of hers and is pinned by the committed fixture
-    ``tests/tier1_offline/fixtures/her_polar_format_sample.dat``, whose
+    ``tests/tier1_offline/fixtures/custom_polar_format_sample.dat``, whose
     every value is synthetic; the tier-1 test feeds the fixture's rows
     through this writer and requires byte equality with the fixture,
     except line 3. The file is ASCII, one line feed per line, a line feed
@@ -492,7 +512,7 @@ def write_her_polar_format(
 
     The rows are the same twenty-four values the polar table carries per
     point (:func:`polar_row`), so the two files are two serializations of
-    one table; :func:`read_her_polar_format` reads this one back.
+    one table; :func:`read_custom_polar_format` reads this one back.
 
     Parameters
     ----------
@@ -528,11 +548,11 @@ def write_her_polar_format(
         f"{polar}{_mach_code(mach):02d}",
         date if date is not None else datetime.now().strftime(_HER_DATE_FORMAT),
         f"{len(_HER_REFERENCE_COLUMNS):03d} {int(group):02d}",
-        "".join(_her_field(name) for name in _HER_REFERENCE_COLUMNS),
-        "".join(_her_field(float(value)) for value in (mach, *reference.as_row())),
+        "".join(_custom_field(name) for name in _HER_REFERENCE_COLUMNS),
+        "".join(_custom_field(float(value)) for value in (mach, *reference.as_row())),
         f"{len(rows):03d}",
         f"{len(COEFFICIENT_COLUMNS):03d}",
-        "".join(_her_field(name) for name in COEFFICIENT_COLUMNS),
+        "".join(_custom_field(name) for name in COEFFICIENT_COLUMNS),
     ]
     for row in rows:
         if len(row) != len(COEFFICIENT_COLUMNS):
@@ -553,8 +573,8 @@ def _her_count(line: str, path: Path, number: int, what: str) -> int:
         ) from None
 
 
-def read_her_polar_format(path: str | Path) -> HerPolarTable:
-    """Read a file of her polar format back, as :func:`write_her_polar_format` specifies it.
+def read_custom_polar_format(path: str | Path) -> CustomPolarTable:
+    """Read a file of her polar format back, as :func:`write_custom_polar_format` specifies it.
 
     The counts the file states are checked against what it holds, which is
     what makes the round trip (write, read, write again) a proof rather
@@ -568,7 +588,7 @@ def read_her_polar_format(path: str | Path) -> HerPolarTable:
 
     Returns
     -------
-    HerPolarTable
+    CustomPolarTable
         The header block and the rows, each row a mapping of column name to
         value.
 
@@ -631,7 +651,7 @@ def read_her_polar_format(path: str | Path) -> HerPolarTable:
     mach = reference_values.pop("MNOM", None)
     if mach is None:
         raise ProductError(f"{target} line 5 names no MNOM column; it names {names}")
-    return HerPolarTable(
+    return CustomPolarTable(
         description=description,
         polar=identifier[:-2],
         mach=mach,
@@ -1056,11 +1076,11 @@ def _sim_products(
             )
             written.append(target)
             written_names[target.relative_to(out).as_posix()] = {"runs": run_ids}
-            if products.her_polar_format:
+            if products.custom_polar_format:
                 # PFS-2014.01.01: the same rows, a second time, in the
                 # format her existing tooling opens, beside the table.
-                target = _target(out / her_polar_file_name(sim_id, mach=mach, group=group))
-                write_her_polar_format(
+                target = _target(out / custom_polar_file_name(sim_id, mach=mach, group=group))
+                write_custom_polar_format(
                     target,
                     polar=sim_id,
                     description=description,

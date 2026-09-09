@@ -42,15 +42,15 @@ Sweep assembly is not here either, it is
 """
 
 from pyflightstream.post.products import (
-    HerPolarTable,
+    CustomPolarTable,
     ProductError,
     ProductExistsError,
     ReferenceValues,
     read_csv_table,
-    read_her_polar_format,
+    read_custom_polar_format,
     write_campaign_products,
     write_csv_table,
-    write_her_polar_format,
+    write_custom_polar_format,
     write_plots_table,
     write_polar_table,
     write_recorded_polar,
@@ -74,9 +74,19 @@ from pyflightstream.post.writers import (
 )
 from pyflightstream.workspace import register_post_stage
 
+
+def __getattr__(name: str) -> object:
+    """Serve the polar format's former ``her_`` names here too, warning as products does."""
+    if name in ("HerPolarTable", "write_her_polar_format", "read_her_polar_format"):
+        from pyflightstream.post import products as _products
+
+        return getattr(_products, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
 __all__ = [
     "FrameAverage",
-    "HerPolarTable",
+    "CustomPolarTable",
     "OutputProvenance",
     "ProductError",
     "ProductExistsError",
@@ -88,10 +98,10 @@ __all__ = [
     "read_timestep_series",
     "settings_records",
     "read_csv_table",
-    "read_her_polar_format",
+    "read_custom_polar_format",
     "write_campaign_products",
     "write_csv_table",
-    "write_her_polar_format",
+    "write_custom_polar_format",
     "write_plots_table",
     "write_polar_table",
     "write_recorded_polar",

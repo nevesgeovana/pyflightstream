@@ -522,6 +522,55 @@ SWEEP_EDITIONS = DeprecatedParameter(
         "parameter sweep. The pyfs-manual sweep subcommand keeps its name."
     ),
 )
+#: The polar format's five public names carried the prefix ``her_`` from
+#: 0.13.0, naming the author rather than the thing; on her decision of
+#: 2026-09-09 they are ``custom_`` (ENTRY 020's API-4). The old names
+#: warn and forward; the pproc key ``her_polar_format`` is read as
+#: ``custom_polar_format`` with the same warning.
+_CUSTOM_POLAR_EXTRA = (
+    "The format is the fixed-width polar table the author's existing tooling reads; "
+    "custom names the thing, her named the person."
+)
+PPROC_HER_POLAR_FORMAT = DeprecatedParameter(
+    owner="the pproc artifact's [products] table",
+    old="her_polar_format",
+    new="custom_polar_format",
+    deprecated_since="0.14.0",
+    removal_version="0.16.0",
+    extra=_CUSTOM_POLAR_EXTRA,
+)
+POST_HER_POLAR_TABLE = DeprecatedParameter(
+    owner="pyflightstream.post",
+    old="HerPolarTable",
+    new="CustomPolarTable",
+    deprecated_since="0.14.0",
+    removal_version="0.16.0",
+    extra=_CUSTOM_POLAR_EXTRA,
+)
+POST_HER_POLAR_FILE_NAME = DeprecatedParameter(
+    owner="pyflightstream.post.products",
+    old="her_polar_file_name",
+    new="custom_polar_file_name",
+    deprecated_since="0.14.0",
+    removal_version="0.16.0",
+    extra=_CUSTOM_POLAR_EXTRA,
+)
+POST_WRITE_HER_POLAR_FORMAT = DeprecatedParameter(
+    owner="pyflightstream.post",
+    old="write_her_polar_format",
+    new="write_custom_polar_format",
+    deprecated_since="0.14.0",
+    removal_version="0.16.0",
+    extra=_CUSTOM_POLAR_EXTRA,
+)
+POST_READ_HER_POLAR_FORMAT = DeprecatedParameter(
+    owner="pyflightstream.post",
+    old="read_her_polar_format",
+    new="read_custom_polar_format",
+    deprecated_since="0.14.0",
+    removal_version="0.16.0",
+    extra=_CUSTOM_POLAR_EXTRA,
+)
 PROPOSE_TYPE_POSITIONAL = DeprecatedParameter(
     owner="propose_type",
     old="positional placeholder and description",
@@ -544,4 +593,9 @@ DEPRECATIONS: tuple[Deprecation, ...] = (
     RUN_MATRIX_FS_VERSION,
     SWEEP_EDITIONS,
     PROPOSE_TYPE_POSITIONAL,
+    PPROC_HER_POLAR_FORMAT,
+    POST_HER_POLAR_TABLE,
+    POST_HER_POLAR_FILE_NAME,
+    POST_WRITE_HER_POLAR_FORMAT,
+    POST_READ_HER_POLAR_FORMAT,
 )
