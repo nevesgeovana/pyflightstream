@@ -1,5 +1,5 @@
 OPEN
-<tier3>\inputs\geometries\12_WING_PHY.fsm
+<tier3>/inputs/geometries/12_WING_PHY.fsm
 LOAD_SOLVER_INITIALIZATION DISABLE
 
 CREATE_NEW_COORDINATE_SYSTEM

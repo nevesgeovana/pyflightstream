@@ -1,5 +1,5 @@
 OPEN
-<tier3>\inputs\geometries\40_PUSHER.fsm
+<tier3>/inputs/geometries/40_PUSHER.fsm
 LOAD_SOLVER_INITIALIZATION DISABLE
 
 DETECT_BASE_REGIONS_BY_SURFACE 1

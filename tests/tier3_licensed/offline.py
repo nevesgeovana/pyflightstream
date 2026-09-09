@@ -41,10 +41,20 @@ def matrices() -> list[Path]:
 
 
 def portable(text: str) -> str:
-    """The rendered script with this folder's absolute path replaced."""
+    """The rendered script with this folder's absolute path replaced, separators too.
+
+    A path the builders render under the placeholder is spelled with the
+    machine's own separator, so a golden written on Windows read
+    ``<tier3>\\inputs`` where Linux renders ``<tier3>/inputs``; CI measured
+    every tier-3 golden as differing on 2026-09-08. The placeholder's paths
+    are therefore written with forward slashes on every machine.
+    """
     for spelling in (HERE.as_posix(), str(HERE), str(HERE).replace("\\", "\\\\")):
         text = text.replace(spelling, PLACEHOLDER)
-    return text.replace("\r\n", "\n")
+    lines = []
+    for line in text.replace("\r\n", "\n").split("\n"):
+        lines.append(line.replace("\\", "/") if line.startswith(PLACEHOLDER) else line)
+    return "\n".join(lines)
 
 
 def render(matrix: Path) -> tuple[int, dict[str, str]]:

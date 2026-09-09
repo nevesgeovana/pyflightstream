@@ -1,6 +1,6 @@
 NEW_SIMULATION
 OPEN
-<tier3>\inputs\geometries\10_WING.fsm
+<tier3>/inputs/geometries/10_WING.fsm
 
 SET_FREESTREAM CONSTANT
 INITIALIZE_SOLVER
