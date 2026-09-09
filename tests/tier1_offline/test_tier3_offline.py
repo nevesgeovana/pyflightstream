@@ -223,6 +223,27 @@ def test_the_workspace_refuses_a_row_it_cannot_plan_naming_the_cause(tmp_path, c
         assert fragment in message, f"{case}: {message}"
 
 
+def test_a_row_on_a_second_build_is_pre_flighted_under_that_builds_grammar(tmp_path):
+    """The residual PFS-2009.05 left, met on 2026-09-09 while pfs0130 was written: a
+    matrix whose default is 26.120 with one row on 26.123 stating the unsteady actions
+    was BLOCKED at plan time with CommandNotInVersionError for 26.120, a build the row
+    never named, and would have run. The plan reads each build's version off the
+    registry, no executable bound, and validates the row against it."""
+    root = _tier3_copy(tmp_path)
+    header, rule = TOUR.read_text(encoding="utf-8").splitlines()[:2]
+    steady = f"1001 | Wing | STEADY | {STEADY}GEOMETRY: 10_WING.fsm / SYMMETRY: NONE"
+    actions = next(
+        line
+        for line in (TIER3 / "matriz_actions.fs").read_text(encoding="utf-8").splitlines()
+        if line.startswith("6002 ")
+    )
+    assert "| 26.123 " in actions and "EXPORT_UNSTEADY_AFTER_ITER" in actions
+    matrix = root / "two_builds.fs"
+    matrix.write_text("\n".join([header, rule, steady, actions]) + "\n", encoding="utf-8")
+    plan = _plan(root, matrix)
+    assert not plan.blocked, [(p.run_id, p.error) for p in plan.blocked]
+
+
 def test_the_workspace_refuses_a_pol_the_tour_already_states(tmp_path):
     root = _tier3_copy(tmp_path, with_tour=True)
     matrix = _one_row_matrix(

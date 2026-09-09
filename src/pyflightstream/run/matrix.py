@@ -278,15 +278,14 @@ def plan_matrix(
     are marked ALREADY_RECORDED, exactly what
     ``run_matrix(..., resume=True)`` would skip.
 
-    ONE RESIDUAL, stated rather than discovered: every point is
-    pre-flighted under ``default_fs_version``, including a point whose
-    row names a build whose registry entry declares a version of its own
-    (PFS-2009.05). Binding those builds needs one executor per
-    installation, an executor refuses a path that is not there, and
-    pre-flighting away from the licensed machine is what this function
-    is for. So a multi-build matrix is pre-flighted under one version
-    and run under each build's own, and a command that differs between
-    them is met at run time rather than here.
+    A point whose row names a build whose registry entry declares a
+    version of its own is pre-flighted under THAT version, read off the
+    registry with no executable bound (the residual PFS-2009.05 left,
+    closed 2026-09-09): a row on 26.123 in a matrix whose default is
+    26.120 used to be BLOCKED for a command 26.120 lacks and 26.123
+    carries, and would have run. A build whose entry declares no version
+    is pre-flighted under the default, which is what its scripts are
+    emitted under at run time too.
 
     Parameters
     ----------
@@ -349,12 +348,21 @@ def plan_matrix(
     resolved = resolve_matrix(
         path, workspace, name=name, fs_version=default, recipes=recipes, fs_exe=fs_exe
     )
+    # Per simulation, from the build each row named and the version its
+    # registry entry declares; a row on a build declaring no version, or on
+    # the campaign's own, is pre-flighted under the default.
+    versions: dict[str, str] = {}
+    for case, build in zip(resolved.campaign.sims, resolved.row_builds, strict=True):
+        registered = resolved.builds.get(build) if build else None
+        if registered is not None and registered.fs_version:
+            versions[case.sim_id] = registered.fs_version
     return plan_campaign(
         resolved.campaign,
         workspace,
         recipes=recipe_registry,
         write_plan=write_plan,
         name_from=name_from,
+        versions=versions,
     )
 
 

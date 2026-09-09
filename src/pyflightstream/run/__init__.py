@@ -2427,6 +2427,7 @@ def plan_campaign(
     write_plan: bool = True,
     name_from: str | None = None,
     builds: Mapping[str, SolverBuild] | None = None,
+    versions: Mapping[str, str] | None = None,
 ) -> CampaignPlan:
     """Pre-flight a campaign: validate every point without executing any.
 
@@ -2470,6 +2471,16 @@ def plan_campaign(
         build the mapping does not carry is refused, exactly as the
         campaign loop refuses it, so the pre-flight cannot pass a
         configuration the run will reject.
+    versions : mapping of str to str, optional
+        Per simulation id, the version its scripts are emitted under,
+        for a pre-flight that binds no executable: ``plan_matrix`` reads
+        it off the build registry for the build each row named, so a row
+        naming a second build has its dry-run script validated against
+        that build's grammar away from
+        the licensed machine (the residual PFS-2009.05 left, closed
+        2026-09-09: a row on 26.123 in a matrix whose default is 26.120
+        was BLOCKED for a command 26.120 lacks and 26.123 carries).
+        ``builds`` wins where both name a build.
 
     Returns
     -------
@@ -2491,7 +2502,12 @@ def plan_campaign(
     recorded = {record.run_id for record in workspace.read_manifest()}
     points: list[PointPlan] = []
     for case, build in zip(campaign.sims, case_builds, strict=True):
-        case_version = build.fs_version if build is not None else campaign.fs_version
+        if build is not None:
+            case_version = build.fs_version
+        elif versions is not None and case.sim_id in versions:
+            case_version = versions[case.sim_id]
+        else:
+            case_version = campaign.fs_version
         workspace.create_sim(case.sim_id)
         case_error = _plan_case_error(campaign, case, workspace, recipes)
         recipe = None

@@ -334,6 +334,16 @@ FlightStream versions.
 
 ### Fixed
 
+- **A row on a second build is pre-flighted under that build's grammar**
+  (the residual PFS-2009.05 left, met while pfs0130 was written on
+  2026-09-09). `pyfs-matrix plan` validated every point under the campaign
+  default, so a row on 26.123 in a matrix whose default is 26.120, stating
+  the unsteady actions, was BLOCKED with `CommandNotInVersionError` for a
+  build the row never named, and would have run. The plan now reads each
+  named build's version off the registry, with no executable bound, and
+  validates the row against it; a build whose entry declares no version is
+  pre-flighted under the default, which is what its scripts run under.
+
 - **The data-model page and the workspace docstring name `pproc/` as the
   fourth input kind, not `groups/`** (PFS-2032.02). The kind has been `pproc`
   since 0.11.0 and two pages still listed the old folder, because nothing
