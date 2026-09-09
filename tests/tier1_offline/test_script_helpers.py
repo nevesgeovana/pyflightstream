@@ -457,7 +457,7 @@ def test_the_altitude_path_is_pinned_where_the_command_works():
     script = Script(version="26.121")
     helpers.atmosphere(script, altitude=1000.0)
     assert script.render().splitlines() == ["AIR_ALTITUDE 1000.0 METERS"]
-    assert script.broken_commands == ()
+    assert script.waived_commands == ()
 
 
 def test_the_altitude_path_refuses_on_the_version_that_reads_metres_as_feet():
@@ -488,7 +488,7 @@ def test_the_altitude_path_still_works_under_a_waiver():
     script.allow_broken("AIR_ALTITUDE", reason="reproducing an older run")
     helpers.atmosphere(script, altitude=1000.0)
     assert script.render().splitlines() == ["AIR_ALTITUDE 1000.0 METERS"]
-    assert [use.command for use in script.broken_commands] == ["AIR_ALTITUDE"]
+    assert [use.command for use in script.waived_commands] == ["AIR_ALTITUDE"]
 
 
 @pytest.mark.parametrize("canonical", ["26.120", "26.121"])

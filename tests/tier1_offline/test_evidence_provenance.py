@@ -270,7 +270,7 @@ def test_a_waived_broken_command_records_which_build_the_evidence_belongs_to():
     script.allow_broken(name, reason="testing the provenance field")
     script.emit(name, 1.0)
 
-    uses = [use for use in script.broken_commands if use.command == name]
+    uses = [use for use in script.waived_commands if use.command == name]
     assert uses, "the waived emission recorded no BrokenCommandUse"
     use = uses[0]
     assert use.version == "26.121", "version holds the build the script targeted"
@@ -320,7 +320,7 @@ def test_a_direct_broken_record_reports_the_two_builds_as_equal():
     script.allow_broken("SET_EXAMPLE_DIRECT", reason="testing the agreeing case")
     script.emit("SET_EXAMPLE_DIRECT", 2.0)
 
-    use = script.broken_commands[0]
+    use = script.waived_commands[0]
     assert use.version == "26.121"
     assert use.source_version == "26.121", (
         "the record is this build's own, so the two keys agree; source_version is "
@@ -343,7 +343,7 @@ def test_an_unexercised_waiver_records_nothing():
     registry = _inheriting_broken_registry()
     script = Script(version="26.121", registry=registry)
     script.allow_broken("SET_EXAMPLE_BROKEN", reason="registered and never used")
-    assert script.broken_commands == (), (
+    assert script.waived_commands == (), (
         "a waiver that was never exercised must leave no trace in the manifest"
     )
 

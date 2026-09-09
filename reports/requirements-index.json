@@ -548,7 +548,7 @@
    "text": "Emitting a command whose per-version record is broken raises at build time. The refusal has one documented way through: a waiver naming the command and the caller's justification, which lets the command emit and records the command, TWO versions, the committed probe report and the justification in the script and in the run manifest. Two, because a hotfix build inherits its base release's record: version is the build the script targeted and source_version is the build whose record is broken, which is the build the cited report was run on. A record that carried one field for both would make an inherited waiver cite a report run on a version the manifest never names.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: the independent review's finding PYFS-002, reproduced 2026-07-28 and again at HEAD on 2026-08-02. Evidence: Script.allow_broken and the emission refusal in src/pyflightstream/script/__init__.py; broken_commands on RunRecord; the database-driven refusal guard and the waiver guards in tests/tier1_offline/test_script.py, tests/tier1_offline/test_script_helpers.py and tests/tier1_offline/test_run_campaign.py.*",
+   "evidence": "*Origin: the independent review's finding PYFS-002, reproduced 2026-07-28 and again at HEAD on 2026-08-02. Evidence: Script.allow_broken and the emission refusal in src/pyflightstream/script/__init__.py; waived_commands on RunRecord (broken_commands until 0.13.0, PFS-2022.01.05); the database-driven refusal guard and the waiver guards in tests/tier1_offline/test_script.py, tests/tier1_offline/test_script_helpers.py and tests/tier1_offline/test_run_campaign.py.*",
    "verification": "test"
   },
   {

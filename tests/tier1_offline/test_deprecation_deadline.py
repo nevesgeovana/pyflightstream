@@ -23,11 +23,19 @@ import pytest
 
 from pyflightstream._deprecations import (
     DEPRECATED_MODULES,
+    DEPRECATIONS,
+    DeprecatedManifestKey,
     DeprecatedModule,
+    Deprecation,
+    expired_promise,
     parse_version,
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+
+
+def _subject(entry: Deprecation) -> str:
+    return entry.subject
 
 
 def _project_version() -> str:
@@ -79,14 +87,35 @@ def _fresh_import(module: str):
         return importlib.import_module(module)
 
 
-@pytest.mark.parametrize("entry", DEPRECATED_MODULES, ids=lambda e: e.module)
-def test_removal_promise_is_well_formed(entry: DeprecatedModule) -> None:
-    """Each ledger entry promises removal strictly after deprecation."""
+@pytest.mark.parametrize("entry", DEPRECATIONS, ids=_subject)
+def test_removal_promise_is_well_formed(entry: Deprecation) -> None:
+    """Each ledger entry, of every kind, promises removal strictly after deprecation."""
     assert parse_version(entry.deprecated_since) < parse_version(entry.removal_version), (
-        f"{entry.module} records removal_version {entry.removal_version} "
+        f"{entry.subject} records removal_version {entry.removal_version} "
         f"not after deprecated_since {entry.deprecated_since}; a shim must "
         "live for at least one release before it disappears."
     )
+
+
+@pytest.mark.parametrize("entry", DEPRECATIONS, ids=_subject)
+def test_no_promise_of_any_kind_survives_its_removal_version(entry: Deprecation) -> None:
+    """The deadline for every kind the ledger holds (PFS-2021.07.01).
+
+    A module shim is additionally imported below, which is a check only
+    a module admits; a parameter, a flag, a manifest key and a column
+    are judged here, by the same function and against the same version,
+    so no kind can outlive its promise because the guard only knew
+    modules.
+    """
+    refusal = expired_promise(entry, _project_version())
+    assert refusal is None, refusal
+
+
+@pytest.mark.parametrize("entry", DEPRECATIONS, ids=_subject)
+def test_every_promise_states_its_removal_version_in_its_warning(entry: Deprecation) -> None:
+    """The text a shim emits is built from the entry, so it names the deadline."""
+    message = entry.message()
+    assert f"removed in v{entry.removal_version}" in message and entry.subject in message, message
 
 
 @pytest.mark.parametrize("entry", DEPRECATED_MODULES, ids=lambda e: e.module)
@@ -99,22 +128,15 @@ def test_no_shim_survives_its_removal_version(entry: DeprecatedModule, restored_
     shim module, its tests, and the ledger entry in the same commit
     that bumps the version.
     """
-    current = parse_version(_project_version())
-    expired = current >= parse_version(entry.removal_version)
+    refusal = expired_promise(entry, _project_version())
     with restored_module(entry.module):
         try:
             _fresh_import(entry.module)
             importable = True
         except ModuleNotFoundError:
             importable = False
-    if expired:
-        assert not importable, (
-            f"{entry.module} promised removal in v{entry.removal_version} "
-            f"and the project version is now {_project_version()}; delete "
-            "the shim (and this ledger entry) before releasing, or move "
-            "the promise deliberately and document the extension in the "
-            "changelog."
-        )
+    if refusal is not None:
+        assert not importable, refusal
     else:
         assert importable, (
             f"{entry.module} has a ledger entry but does not import; if the "
@@ -141,6 +163,30 @@ def test_the_guard_itself_fires_on_an_expired_shim(monkeypatch, restored_module)
     monkeypatch.setattr(sys.modules[__name__], "_project_version", lambda: "0.0.2")
     with pytest.raises(AssertionError, match="promised removal in v0.0.2"):
         test_no_shim_survives_its_removal_version(entry, restored_module)
+
+
+def test_the_guard_refuses_an_expired_manifest_key(monkeypatch) -> None:
+    """The red of PFS-2021.07.01: a kind that is not a module expires too.
+
+    Measured on the base tree before the ledger grew: the guard iterated
+    ``DEPRECATED_MODULES`` three times and nothing else, and no class
+    could hold a manifest key, so a promise of that kind could not be
+    refused because it could not be recorded.
+    """
+    entry = DeprecatedManifestKey(
+        old="broken_commands",
+        new="waived_commands",
+        deprecated_since="0.13.0",
+        removal_version="0.15.0",
+    )
+    assert expired_promise(entry, "0.14.9") is None, "refused a promise that is still live"
+    refusal = expired_promise(entry, "0.15.0")
+    assert refusal is not None and "manifest key broken_commands promised removal in v0.15.0" in (
+        refusal
+    ), refusal
+    monkeypatch.setattr(sys.modules[__name__], "_project_version", lambda: "0.15.0")
+    with pytest.raises(AssertionError, match="promised removal in v0.15.0"):
+        test_no_promise_of_any_kind_survives_its_removal_version(entry)
 
 
 def test_parse_version_refuses_non_semver_strings() -> None:

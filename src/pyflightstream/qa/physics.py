@@ -51,7 +51,13 @@ from pyflightstream.qa.reports import (
     resolve_report_date,
 )
 from pyflightstream.results import IncompleteOutputError, LoadsReport, parse_loads
-from pyflightstream.run import ExecutionResult, LocalExecutor, describe_invocation
+from pyflightstream.run import (
+    ExecutionResult,
+    ExecutorRecord,
+    LocalExecutor,
+    describe_invocation,
+    invocation_record,
+)
 from pyflightstream.script import Script
 from pyflightstream.versions import known_versions, resolve
 
@@ -292,6 +298,10 @@ class PhysicsRun:
     #: ``Flightstream_2612.exe``, so a committed report naming one can
     #: mean any of them and a publication citing it cannot say which.
     fs_exe_sha256: str | None = None
+    #: How the solver was called, read off the first point that ran
+    #: (PFS-2012.04); None when no point reached the solver, and the
+    #: report then states the asserted sentence and says so.
+    executor: ExecutorRecord | None = None
 
     def verdict_counts(self) -> dict[str, int]:
         """Count metric verdicts over every case, for the summary line."""
@@ -1335,6 +1345,8 @@ class _CaseContext:
         self.timeout_s = timeout_s
         self.smi_root = smi_root
         self.solver_identity: list[str] = []
+        #: How the solver was called, read off the first point that ran.
+        self.invocation: ExecutorRecord | None = None
 
     def solve_point(self, script: Script, script_name: str, loads_name: str) -> LoadsReport:
         """Run one rendered script and parse its loads spreadsheet.
@@ -1355,6 +1367,8 @@ class _CaseContext:
         result: ExecutionResult = self.executor.run_script(
             script_path, working_dir=self.workdir, timeout_s=self.timeout_s
         )
+        if self.invocation is None:
+            self.invocation = invocation_record(self.executor, result)
         if result.failed:
             raise RuntimeError(f"solver run {script_name} failed: {result.diagnosis()}")
         loads_path = self.workdir / loads_name
@@ -1628,6 +1642,7 @@ def run_physics(
         raise PhysicsEnvironmentError(str(error)) from error
     results: list[CaseResult] = []
     identity: list[str] = []
+    invocation: ExecutorRecord | None = None
     for case_id in wanted:
         case = registry[case_id]
         workdir = Path(workroot) / canonical / case_id.lower().replace("-", "_")
@@ -1651,6 +1666,11 @@ def run_physics(
                 )
             )
             continue
+        finally:
+            # From the first case that reached the solver, whether or not
+            # it then failed: a failed point was still called somehow.
+            if invocation is None:
+                invocation = context.invocation
         reference = load_reference(case_id, references_dir)
         results.append(
             CaseResult(
@@ -1671,6 +1691,7 @@ def run_physics(
         results=tuple(results),
         solver_identity=tuple(identity),
         fs_exe_sha256=optional_file_sha256(fs_exe),
+        executor=invocation,
     )
 
 
@@ -1796,7 +1817,7 @@ def write_physics_report(
         # Written even when it is None: see the compat writer, which
         # carries the same field for the same reason.
         "fs_exe_sha256": run.fs_exe_sha256,
-        "executor": describe_invocation(),
+        "executor": describe_invocation(run.executor),
         "solver_identity": list(run.solver_identity),
         "summary": counts,
         "cases": {
@@ -1851,7 +1872,7 @@ def _render_markdown(run: PhysicsRun, date: str, counts: dict[str, int]) -> str:
         f"| Executable | {run.fs_exe_name} "
         f"(sha256 {run.fs_exe_sha256 or 'not recorded'}, "
         "local, `_private/exe/`, never committed) |",
-        f"| Executor | {describe_invocation(markdown=True)} |",
+        f"| Executor | {describe_invocation(run.executor, markdown=True)} |",
         f"| Package | pyflightstream {run.package_version} |",
         f"| Solver identity | {'; '.join(run.solver_identity) or 'none captured'} |",
         "",

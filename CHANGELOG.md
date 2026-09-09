@@ -59,6 +59,38 @@ FlightStream versions.
   spell the whole command. The workspace page carries the worked example,
   which the suite runs on a recorded and on an unrecorded simulation.
 
+- **The deprecation ledger holds a parameter, a flag, a manifest key and a
+  matrix column, not only a module** (PFS-2021.07.01).
+  `pyflightstream._deprecations` gained `DeprecatedParameter`,
+  `DeprecatedFlag`, `DeprecatedManifestKey` and `DeprecatedColumn` beside
+  `DeprecatedModule`, each carrying the old name, the new name, the
+  release that introduced the shim and the removal version, and
+  `DEPRECATIONS` enumerates every live promise of every kind. The Tier 1
+  deadline guard judges each of them through one checker,
+  `expired_promise`, which is the red this item was built on: the guard
+  iterated modules alone, and a promise of any other shape could not be
+  refused because it could not be recorded. Every shim builds its warning
+  text from its entry, so the release a warning names and the one the
+  guard enforces cannot disagree. Two live promises still sit outside the
+  ledger, the `fs_version=` keyword of `plan_matrix` and the
+  `vorticity_drag_boundaries=` parameter of `analysis_setup`, because each
+  says "a future release" and carries no removal version to record.
+
+- **The run record carries how the solver was called, and the evidence
+  reports read it rather than assert it** (PFS-2012.04). `RunRecord`
+  gained `executor`, the executor's class name with the argv it ran, read
+  off the executor and its result by `pyflightstream.run.invocation_record`
+  once the point has run, and `export_window`, the unsteady export window
+  as resolved for the point, which is `None` for every row this version
+  writes because no row key states one yet (PFS-2031.18 fills it). Both
+  default to `None`, a manifest without them reads, and neither moved
+  `MANIFEST_SCHEMA`. The probe, physics and drift runs record the same
+  fact off their own solver calls, and `describe_invocation(record)` builds
+  the executor sentence of a compat, drift or physics report from it,
+  marked `as run`; a run with no record keeps the asserted sentence, which
+  is the stated fallback and is what every report written before this
+  release carries.
+
 - **`tests/tier3_licensed` is a campaign workspace, run on the licensed
   machine, with one test per row** (PFS-2031.03, PFS-2031.05, PFS-2031.07,
   GOAL-012). Seven run matrices over a synthetic library of nine saved
@@ -133,6 +165,25 @@ FlightStream versions.
   nothing refuses it, and it travels into the archive like any other
   unmanaged subfolder. The data-model page and the docstrings list three
   folders.
+
+- **The waived-command surface says waived** (PFS-2022.01.05,
+  OPS-2009.02.08). The entries a run manifest held under `broken_commands`
+  are waivers, commands the database records broken that a recipe emitted
+  anyway under `Script.allow_broken`, and the key read as the commands
+  that broke in the run, which is the opposite claim. The manifest key
+  `pyfs-matrix run` writes is `waived_commands`, and so are
+  `Script.waived_commands`, `PointPlan.waived_commands` (with the
+  `plan.json` key) and `RunRecord.waived_commands`; each old name reads
+  until 0.15.0 with a DeprecationWarning built from its ledger entry, a
+  manifest written under the old key reads the same way, and a row
+  carrying both spellings is refused. `MANIFEST_SCHEMA` moved to
+  `pyfs-manifest/3` because the rule on that constant says a removal bumps
+  it and a key no longer written is a removal: a reader of "2" that
+  tolerates unknown keys would read a row with no `broken_commands` as a
+  run that waived nothing. Every stamp from `pyfs-manifest/2` on still
+  satisfies the waiver writer's stamp arm, named apart as
+  `SOURCE_VERSION_REQUIRED_SINCE`, so a row stamped "2" is not refused as
+  the layout in which `source_version` was optional.
 
 - **Each matrix of a workspace keeps its own plan, sweep table and products
   under `post/<matrix stem>/`** (PFS-2031.04). `plan.json` moves from the

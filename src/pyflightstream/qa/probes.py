@@ -54,7 +54,13 @@ from pyflightstream._digest import optional_file_sha256, text_sha256
 from pyflightstream._errors import PyflightstreamError
 from pyflightstream.commands import CommandNotInVersionError, CommandRegistry
 from pyflightstream.qa.errors import QaEvidenceError
-from pyflightstream.run import ExecutionResult, Executor, LocalExecutor
+from pyflightstream.run import (
+    ExecutionResult,
+    Executor,
+    ExecutorRecord,
+    LocalExecutor,
+    invocation_record,
+)
 from pyflightstream.script import CommandArgumentError, Script
 from pyflightstream.script.helpers import initialize_solver
 from pyflightstream.versions import FsVersion, known_versions, resolve
@@ -478,6 +484,13 @@ class ProbeRun:
         so two reports can name one executable and mean two solvers.
         The digest is what separates them, and ``None`` records that
         nobody measured one rather than that the binary is unknown.
+    executor : ExecutorRecord or None
+        How the solver was called, read off the baseline run
+        (PFS-2012.04): the executor's class name and the argv it ran.
+        The report builds its executor sentence from this rather than
+        asserting the default executor; ``None`` means the run was
+        assembled without one, and the report then states the asserted
+        sentence and says so.
     """
 
     version: str
@@ -486,6 +499,7 @@ class ProbeRun:
     package_version: str
     results: tuple[ProbeResult, ...]
     fs_exe_sha256: str | None = None
+    executor: ExecutorRecord | None = None
 
     def outcome_counts(self) -> dict[str, int]:
         """Return how many commands landed in each outcome."""
@@ -1073,7 +1087,7 @@ def probe_version(
     # report. `None` still means every command with a spec.
     requested = None if commands is None else set(commands)
 
-    solver_identity = _run_baseline(executor, resolved, workroot, timeout_s, registry)
+    solver_identity, invocation = _run_baseline(executor, resolved, workroot, timeout_s, registry)
 
     planned = [
         active_specs[name]
@@ -1133,6 +1147,7 @@ def probe_version(
         package_version=pyflightstream.__version__,
         results=tuple(results),
         fs_exe_sha256=fs_exe_sha256,
+        executor=invocation,
     )
 
 
@@ -1261,13 +1276,18 @@ def _run_baseline(
     workroot: Path,
     timeout_s: float,
     registry: CommandRegistry | None,
-) -> tuple[str, ...]:
+) -> tuple[tuple[str, ...], ExecutorRecord]:
     """Validate the probe instruments and capture the solver identity.
 
     The baseline script is PRINT plus EXPORT_LOG plus
     CLOSE_FLIGHTSTREAM, the instrument set every probe relies on. Its
     failure means the environment (executable, license, log export) is
     unusable, and the run aborts instead of producing false evidence.
+
+    Returns the identity lines and the record of how the solver was
+    called, read off this very run (PFS-2012.04): the baseline is the
+    one script every probe run executes, so its invocation is the one
+    the report can state for the run.
     """
     workdir = _fresh_dir(workroot / _BASELINE_DIR)
     log_path = workdir / _LOG_AFTER
@@ -1345,7 +1365,7 @@ def _run_baseline(
         for line in log_text.splitlines()
         if ("version" in line.lower() or "build" in line.lower()) and _BASELINE_MARKER not in line
     )[:5]
-    return identity
+    return identity, invocation_record(executor, execution)
 
 
 def _run_probe(

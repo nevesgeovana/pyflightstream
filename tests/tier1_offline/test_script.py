@@ -752,7 +752,7 @@ def test_every_broken_record_is_refused_at_emission(canonical, command):
         "the refusal must not consume the script: nothing was appended for the "
         "refused command, and an unrelated command still emits"
     )
-    assert script.broken_commands == ()
+    assert script.waived_commands == ()
 
 
 def test_the_broken_refusal_names_its_evidence_and_the_way_through():
@@ -784,7 +784,7 @@ def test_the_same_command_emits_freely_in_the_version_that_fixed_it():
     script = Script(version="26.121")
     script.emit("AIR_ALTITUDE", 5000.0, "METERS")
     assert script.render().splitlines() == ["AIR_ALTITUDE 5000.0 METERS"]
-    assert script.broken_commands == ()
+    assert script.waived_commands == ()
 
 
 def test_a_waiver_lets_the_command_emit_and_records_what_it_waived():
@@ -800,7 +800,7 @@ def test_a_waiver_lets_the_command_emit_and_records_what_it_waived():
     script.allow_broken("AIR_ALTITUDE", reason="re-probing the units defect")
     script.emit("AIR_ALTITUDE", 5000.0, "METERS")
     assert script.render().splitlines() == ["AIR_ALTITUDE 5000.0 METERS"]
-    (use,) = script.broken_commands
+    (use,) = script.waived_commands
     assert use.command == "AIR_ALTITUDE"
     assert use.version == "26.120"
     assert use.report == "reports/compat/CMP-26120_2026-08-08_full.yaml"
@@ -826,10 +826,10 @@ def test_a_waiver_records_one_entry_however_often_the_command_is_emitted():
     for altitude in (0.0, 1000.0, 5000.0):
         script.emit("AIR_ALTITUDE", altitude, "METERS")
     assert len(script.render().splitlines()) == 3
-    assert len(script.broken_commands) == 1
-    assert script.broken_commands[0].first_line == "AIR_ALTITUDE 0.0 METERS", (
+    assert len(script.waived_commands) == 1
+    assert script.waived_commands[0].first_line == "AIR_ALTITUDE 0.0 METERS", (
         "first_line must hold the FIRST waived emission, not the latest; got "
-        f"{script.broken_commands[0].first_line!r}"
+        f"{script.waived_commands[0].first_line!r}"
     )
 
 
@@ -872,7 +872,7 @@ def test_a_waiver_for_a_command_that_is_not_broken_here_records_nothing():
     script.allow_broken("AIR_ALTITUDE", reason="broken in 26.120, harmless here")
     script.emit("AIR_ALTITUDE", 5000.0, "METERS")
     assert script.render().splitlines() == ["AIR_ALTITUDE 5000.0 METERS"]
-    assert script.broken_commands == ()
+    assert script.waived_commands == ()
 
 
 # --- REV010-004: emit() type checked a FLOAT and NaN IS a float ------------
@@ -4091,7 +4091,7 @@ def test_the_live_waiver_path_still_records_a_source_version():
     script = Script(version="26.120")
     script.allow_broken("AIR_ALTITUDE", reason="re-probing the units defect")
     script.emit("AIR_ALTITUDE", 0.0, "METERS")
-    (use,) = script.broken_commands
+    (use,) = script.waived_commands
     assert use.source_version, (
         "the one live construction site produced a waiver with no source_version, "
         "so making the field required breaks a path the change assumed was dead"

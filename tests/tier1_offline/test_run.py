@@ -167,14 +167,29 @@ def test_each_report_writer_actually_calls_the_single_home():
     and leave the reports with no provenance field at all.
     """
     qa = Path(__file__).resolve().parents[2] / "src" / "pyflightstream" / "qa"
-    for name in ("compat.py", "drift.py", "physics.py"):
+    # Each writer hands the single home the RECORD its run carries
+    # (PFS-2012.04): the compat and physics runs one record, the drift
+    # run one per version through its own sentence helper, which is the
+    # one place the two halves of a comparison are read side by side.
+    from_record = ('"executor": describe_invocation(run.executor)', "run.executor, markdown=True")
+    expected = {
+        "compat.py": from_record,
+        "physics.py": from_record,
+        "drift.py": (
+            '"executor": _executor_sentence(run)',
+            "_executor_sentence(run, markdown=True)",
+        ),
+    }
+    for name, (machine, rendered) in expected.items():
         text = (qa / name).read_text(encoding="utf-8")
-        assert '"executor": describe_invocation()' in text, (
+        assert machine in text, (
             f"{name} no longer writes the machine-readable executor field from the single home"
         )
-        assert "describe_invocation(markdown=True)" in text, (
-            f"{name} no longer renders the executor row from the single home"
-        )
+        assert rendered in text, f"{name} no longer renders the executor row from the single home"
+    drift = (qa / "drift.py").read_text(encoding="utf-8")
+    assert "describe_invocation(run.executors.get(version), markdown=markdown)" in drift, (
+        "drift.py's sentence helper no longer reads each version's record through the single home"
+    )
 
 
 def test_missing_executable_fails_at_construction(tmp_path):

@@ -13,11 +13,24 @@ its ``removal_version`` is cited by the shim's warning, and the entry
 is deleted together with the shim in the release that reaches that
 version. The Tier 1 guard fails the suite when a shim survives past its
 promise, so a release cannot ship an expired shim unnoticed.
+
+FIVE KINDS OF PROMISE, since 0.13.0 (PFS-2021.07.01). The ledger held
+module shims only until then, and three live promises of other shapes
+sat outside it in a comment, where nothing enforced them: the dataclass
+was too narrow, and the comment said so. A promise now has a home
+whatever it renames: a module (:class:`DeprecatedModule`), a parameter
+of a function or an attribute of a class (:class:`DeprecatedParameter`),
+a command-line flag (:class:`DeprecatedFlag`), a key of the run manifest
+(:class:`DeprecatedManifestKey`) or a column of a run matrix
+(:class:`DeprecatedColumn`). Every kind carries the old name, the new
+name, the release that introduced the shim and the release that removes
+it, and :func:`expired_promise` judges every kind the same way.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import ClassVar
 
 
 def parse_version(version: str) -> tuple[int, int, int]:
@@ -50,6 +63,24 @@ def parse_version(version: str) -> tuple[int, int, int]:
     return (major, minor, patch)
 
 
+def _promise_text(
+    what: str, old: str, new: str, since: str, removal: str, advice: str, extra: str
+) -> str:
+    """Render one promise in the one sentence shape every kind shares.
+
+    One renderer rather than five, so the words the deadline guard
+    greps for (``removed in v<version>``) cannot be spelled differently
+    by one kind of entry.
+    """
+    text = (
+        f"{what} {old} was renamed to {new} in v{since} and will be removed in "
+        f"v{removal}; {advice}."
+    )
+    if extra:
+        text = f"{text} {extra}"
+    return text
+
+
 @dataclass(frozen=True)
 class DeprecatedModule:
     """One deprecated module and its recorded removal promise.
@@ -77,6 +108,13 @@ class DeprecatedModule:
     removal_version: str
     extra: str = ""
 
+    kind: ClassVar[str] = "module"
+
+    @property
+    def subject(self) -> str:
+        """The old name, as the deadline guard names it in a refusal."""
+        return self.module
+
     def message(self) -> str:
         """Render the DeprecationWarning text emitted by the shim.
 
@@ -97,69 +135,326 @@ class DeprecatedModule:
         return text
 
 
+@dataclass(frozen=True)
+class DeprecatedParameter:
+    """A parameter of a function, or an attribute of a class, under its former name.
+
+    One kind for both because the shim is the same: the old name is
+    still accepted, or still readable, and warns. ``owner`` says whose
+    it is, so ``Script.broken_commands`` and ``plan_matrix(fs_version=)``
+    are each one row rather than one comment.
+
+    Attributes
+    ----------
+    owner : str
+        The function or class that carries the name, as a user spells it
+        (``Script``, ``plan_matrix``).
+    old : str
+        The former name, which the shim still accepts.
+    new : str
+        The name that supersedes it.
+    deprecated_since : str
+        Package version (SemVer) whose release introduced the shim.
+    removal_version : str
+        First package version (SemVer) that must no longer accept the
+        old name.
+    extra : str
+        Optional extra sentence appended to the warning message.
+    """
+
+    owner: str
+    old: str
+    new: str
+    deprecated_since: str
+    removal_version: str
+    extra: str = ""
+
+    kind: ClassVar[str] = "parameter"
+
+    @property
+    def subject(self) -> str:
+        """The old name, as the deadline guard names it in a refusal."""
+        return f"{self.old} of {self.owner}"
+
+    def message(self) -> str:
+        """Render the DeprecationWarning text the shim emits."""
+        return _promise_text(
+            f"{self.old} of",
+            self.owner,
+            self.new,
+            self.deprecated_since,
+            self.removal_version,
+            f"use {self.new}",
+            self.extra,
+        )
+
+
+@dataclass(frozen=True)
+class DeprecatedFlag:
+    """A command-line flag under its former spelling.
+
+    Attributes
+    ----------
+    command : str
+        The console script that takes the flag (``pyfs-matrix``).
+    old : str
+        The former spelling, with its dashes (``--fs-version``).
+    new : str
+        The spelling that supersedes it.
+    deprecated_since : str
+        Package version (SemVer) whose release introduced the shim.
+    removal_version : str
+        First package version (SemVer) that must no longer accept the
+        old spelling.
+    extra : str
+        Optional extra sentence appended to the warning message.
+    """
+
+    command: str
+    old: str
+    new: str
+    deprecated_since: str
+    removal_version: str
+    extra: str = ""
+
+    kind: ClassVar[str] = "flag"
+
+    @property
+    def subject(self) -> str:
+        """The old name, as the deadline guard names it in a refusal."""
+        return f"{self.command} {self.old}"
+
+    def message(self) -> str:
+        """Render the DeprecationWarning text the shim emits."""
+        return _promise_text(
+            self.command,
+            self.old,
+            self.new,
+            self.deprecated_since,
+            self.removal_version,
+            f"pass {self.new}",
+            self.extra,
+        )
+
+
+@dataclass(frozen=True)
+class DeprecatedManifestKey:
+    """A key of a run-manifest row under its former name.
+
+    The manifest is the one surface that cannot be regenerated, so the
+    shim here is a READER: a row written with the old key still reads,
+    warning, until the removal version, and no row is written with it
+    from the release that introduced the shim.
+
+    Attributes
+    ----------
+    old : str
+        The former key.
+    new : str
+        The key that supersedes it, which every row written since
+        ``deprecated_since`` carries.
+    deprecated_since : str
+        Package version (SemVer) whose release renamed the key.
+    removal_version : str
+        First package version (SemVer) whose reader must no longer
+        accept the old key.
+    extra : str
+        Optional extra sentence appended to the warning message.
+    """
+
+    old: str
+    new: str
+    deprecated_since: str
+    removal_version: str
+    extra: str = ""
+
+    kind: ClassVar[str] = "manifest_key"
+
+    @property
+    def subject(self) -> str:
+        """The old name, as the deadline guard names it in a refusal."""
+        return f"manifest key {self.old}"
+
+    def message(self) -> str:
+        """Render the DeprecationWarning text the reader emits."""
+        return _promise_text(
+            "manifest key",
+            self.old,
+            self.new,
+            self.deprecated_since,
+            self.removal_version,
+            f"a row written with {self.old} reads until then and every row written "
+            f"since v{self.deprecated_since} carries {self.new}",
+            self.extra,
+        )
+
+
+@dataclass(frozen=True)
+class DeprecatedColumn:
+    """A column of a run matrix under its former heading.
+
+    Attributes
+    ----------
+    old : str
+        The former heading.
+    new : str
+        The heading that supersedes it.
+    deprecated_since : str
+        Package version (SemVer) whose release renamed the column.
+    removal_version : str
+        First package version (SemVer) whose matrix reader must no
+        longer accept the old heading.
+    extra : str
+        Optional extra sentence appended to the warning message.
+    """
+
+    old: str
+    new: str
+    deprecated_since: str
+    removal_version: str
+    extra: str = ""
+
+    kind: ClassVar[str] = "column"
+
+    @property
+    def subject(self) -> str:
+        """The old name, as the deadline guard names it in a refusal."""
+        return f"matrix column {self.old}"
+
+    def message(self) -> str:
+        """Render the DeprecationWarning text the matrix reader emits."""
+        return _promise_text(
+            "matrix column",
+            self.old,
+            self.new,
+            self.deprecated_since,
+            self.removal_version,
+            f"rename the column heading to {self.new}",
+            self.extra,
+        )
+
+
+#: Every kind of promise the ledger holds, for a caller that iterates them.
+Deprecation = (
+    DeprecatedModule
+    | DeprecatedParameter
+    | DeprecatedFlag
+    | DeprecatedManifestKey
+    | DeprecatedColumn
+)
+
+
+def expired_promise(entry: Deprecation, project_version: str) -> str | None:
+    """Judge one promise against the version being built; the deadline itself.
+
+    The Tier 1 deadline guard calls this for every entry of every kind,
+    which is what makes the five kinds one policy rather than five: an
+    entry is expired when the project version has REACHED its
+    ``removal_version``, and the refusal text says which promise and
+    which version, so the guard's assertion message is the same sentence
+    for a module and for a manifest key.
+
+    Parameters
+    ----------
+    entry : Deprecation
+        The ledger entry to judge.
+    project_version : str
+        The plain SemVer release the tree being built belongs to, a
+        development suffix already stripped by the caller.
+
+    Returns
+    -------
+    str or None
+        The refusal, naming the subject, the promised version and the
+        current one, when the promise has expired; None while the shim
+        may still live.
+    """
+    if parse_version(project_version) < parse_version(entry.removal_version):
+        return None
+    return (
+        f"{entry.subject} promised removal in v{entry.removal_version} and the "
+        f"project version is now {project_version}; delete the shim (and this "
+        "ledger entry) before releasing, or move the promise deliberately and "
+        "document the extension in the changelog."
+    )
+
+
 #: Every live MODULE shim of the package, one entry each; the Tier 1
-#: deadline guard iterates this tuple.
+#: deadline guard imports each of these to check the shim still exists,
+#: which is a check only a module admits.
 #:
-#: WHAT AN EMPTY TUPLE MEANS, and it is not what this comment said until
-#: 2026-08-18. :class:`DeprecatedModule` carries a ``module`` field and
-#: nothing narrower, so the tuple models module shims only: an old import
-#: path that still resolves. It is empty since v0.4.0, when
-#: ``pyflightstream.files`` and ``pyflightstream.cases.matrix_legacy``
-#: were deleted on the horizon their own entries recorded. Empty
-#: therefore means that no module shim is live. It has never meant that
-#: the package owes a user nothing, and THREE live promises sit outside
-#: this tuple right now. It said TWO until 2026-08-20, and the third had
-#: shipped in the same release whose changelog announces the correction
-#: that made this list enumerate them at all; an architect pass found it,
-#: not a guard, which is the point the last paragraph here makes:
+#: It is empty since v0.4.0, when ``pyflightstream.files`` and
+#: ``pyflightstream.cases.matrix_legacy`` were deleted on the horizon
+#: their own entries recorded. Empty means that no module shim is live,
+#: and nothing more: the promises of the other four kinds live in
+#: :data:`DEPRECATIONS` below.
+DEPRECATED_MODULES: tuple[DeprecatedModule, ...] = ()
+
+#: The rename of the waived-command surface (PFS-2022.01.05 and
+#: OPS-2009.02.08). The entries a run manifest holds under this key are
+#: WAIVERS, commands the database records broken that a recipe emitted
+#: anyway under ``Script.allow_broken``; a reader met ``broken_commands``
+#: and read it as the commands that broke, which is the opposite claim.
+#: The manifest key, and the property of the same name on the three
+#: objects that carry it, moved to ``waived_commands`` in 0.13.0; each
+#: old name reads until 0.15.0 and warns with the text below.
+WAIVED_COMMANDS_MANIFEST_KEY = DeprecatedManifestKey(
+    old="broken_commands",
+    new="waived_commands",
+    deprecated_since="0.13.0",
+    removal_version="0.15.0",
+)
+SCRIPT_BROKEN_COMMANDS = DeprecatedParameter(
+    owner="Script",
+    old="broken_commands",
+    new="waived_commands",
+    deprecated_since="0.13.0",
+    removal_version="0.15.0",
+)
+POINT_PLAN_BROKEN_COMMANDS = DeprecatedParameter(
+    owner="PointPlan",
+    old="broken_commands",
+    new="waived_commands",
+    deprecated_since="0.13.0",
+    removal_version="0.15.0",
+)
+RUN_RECORD_BROKEN_COMMANDS = DeprecatedParameter(
+    owner="RunRecord",
+    old="broken_commands",
+    new="waived_commands",
+    deprecated_since="0.13.0",
+    removal_version="0.15.0",
+)
+
+#: Every live promise of every kind, one entry each; the Tier 1 deadline
+#: guard judges each of these through :func:`expired_promise`.
 #:
-#: * the argument warning at ``run/matrix.py``, quoted as "is the former
+#: TWO LIVE PROMISES ARE STILL NOT HERE, and the reason is no longer
+#: that they have no home. Each warns "in a future release" and carries
+#: no removal version, and setting one is the author's call rather than
+#: a date invented here (NFR-20's policy does not bind before 1.0):
+#:
+#: * the keyword warning at ``run/matrix.py``, quoted as "is the former
 #:   name of default_fs_version and will be removed in a future release",
 #:   which tells a caller of ``plan_matrix`` or ``run_matrix`` that
 #:   ``fs_version=`` is the former spelling of ``default_fs_version=``
-#:   (PFS-2009.08.01). It deprecates a KEYWORD of two functions that
-#:   stay, so again there is no module to record. The ``pyfs-matrix
-#:   --fs-version`` flag is NOT deprecated and keeps its spelling, which
-#:   is worth stating here because the two look like one promise;
+#:   (PFS-2009.08.01). The ``pyfs-matrix --fs-version`` flag is NOT
+#:   deprecated and keeps its spelling, which is worth stating because
+#:   the two look like one promise;
 #: * the parameter warning at ``script/helpers.py``, which tells a
 #:   caller that ``analysis_setup(vorticity_drag_boundaries=...)`` is
 #:   deprecated, the selection having been a parameter of
-#:   ``solver_settings`` since v0.3.0, and that it will leave
-#:   ``analysis_setup`` in a future minor release. It deprecates a
-#:   PARAMETER of a function that stays, so there is no module to record;
-#: * the dry-run rename, announced as breaking and with no alias, and
-#:   recorded as NOT LANDED in the v0.5.0 section of ``CHANGELOG.md``
-#:   (heading ``## [0.5.0] - 2026-08-09``, the paragraph opening "ONE
-#:   THING THE v0.4.0 NOTES PROMISED FOR THIS RELEASE AND THIS RELEASE
-#:   DOES NOT DO", lines 1306 to 1317 as measured on 2026-08-18). That
-#:   statement is the live one; the v0.4.0 notes that first announced the
-#:   rename are superseded by it, and are where a reader otherwise lands
-#:   first. ``plan_matrix``, ``plan_campaign`` and ``pyfs-matrix plan``
-#:   are unrenamed and keep working. A rename of public names is not a
-#:   module shim either, so again there is nothing this tuple can hold.
+#:   ``solver_settings`` since v0.3.0.
 #:
-#: The changelog line numbers above shift whenever the Unreleased section
-#: grows; the heading and the quoted opening are the anchors to grep for.
-#: NO FILE:LINE APPEARS IN THIS LIST ANY MORE, and that is a change made
-#: on 2026-08-20 rather than an omission: the helpers entry cited
-#: ``script/helpers.py:1852``, the file moved in the same release, and
-#: line 1852 became the closing paren of an unrelated call. Each entry is
-#: anchored by the warning TEXT quoted with it, which survives a move.
-#:
-#: NO PROMISE HERE CARRIES A REMOVAL VERSION, deliberately. Setting one
-#: is the author's call and NFR-20's policy does not bind before 1.0, so
-#: a date invented here would look decided. The machinery stays rather
-#: than going with the two shims it outlived, so the next module shim
-#: registers here; a promise of any shape above still has no home in this
-#: dataclass, which is how all three went unrecorded.
-#:
-#: THREE PROMISES IN THREE SHAPES IS THE DATACLASS SAYING IT IS TOO
-#: NARROW, and that reading is recorded here rather than acted on
-#: tonight: a keyword deprecation, a parameter deprecation and an
-#: unlanded rename each need a row this type cannot hold, so
-#: ``tests/tier1_offline/test_deprecation_deadline.py`` sees none of them and this
-#: comment is the only enumeration. Giving ``DeprecatedModule`` a sibling
-#: that models a parameter or keyword promise is registered in the local
-#: plan ledger; until it lands, adding a fourth promise means editing
-#: this comment, and nothing will remind you.
-DEPRECATED_MODULES: tuple[DeprecatedModule, ...] = ()
+#: Each is anchored by the warning TEXT quoted with it, which survives a
+#: move, rather than by a file and line, which did not. The day the
+#: author names a removal version for either, it becomes a
+#: :class:`DeprecatedParameter` row here and its warning is built from
+#: the row.
+DEPRECATIONS: tuple[Deprecation, ...] = (
+    *DEPRECATED_MODULES,
+    WAIVED_COMMANDS_MANIFEST_KEY,
+    SCRIPT_BROKEN_COMMANDS,
+    POINT_PLAN_BROKEN_COMMANDS,
+    RUN_RECORD_BROKEN_COMMANDS,
+)

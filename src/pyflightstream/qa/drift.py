@@ -39,7 +39,7 @@ from pyflightstream.qa.reports import (
     report_paths,
     resolve_report_date,
 )
-from pyflightstream.run import describe_invocation
+from pyflightstream.run import ExecutorRecord, describe_invocation
 from pyflightstream.versions import resolve
 
 DRIFT_SCHEMA = "pyflightstream-drift-report/1"
@@ -115,6 +115,10 @@ class DriftRun:
     #: print one string on both rows of a comparison between two of
     #: them. A version with no measured digest maps to ``None``.
     fs_exe_sha256s: dict[str, str | None] = field(default_factory=dict)
+    #: How each version's solver was called, keyed like the names above
+    #: and read off the physics run of that version (PFS-2012.04); a
+    #: version whose run recorded none maps to ``None``.
+    executors: dict[str, ExecutorRecord | None] = field(default_factory=dict)
 
     def verdict_counts(self) -> dict[str, int]:
         """Count metric verdicts over every case, for the summary line."""
@@ -210,6 +214,7 @@ def diff_runs(run_a: PhysicsRun, run_b: PhysicsRun) -> DriftRun:
         package_version=pyflightstream.__version__,
         results=tuple(results),
         solver_identity=tuple(identity),
+        executors={run_a.version: run_a.executor, run_b.version: run_b.executor},
     )
 
 
@@ -410,7 +415,7 @@ def write_drift_report(
         # reasoning: an absent key reads as an older schema, and a
         # reader cannot tell that from a digest nobody took.
         "fs_exe_sha256s": dict(run.fs_exe_sha256s),
-        "executor": describe_invocation(),
+        "executor": _executor_sentence(run),
         "solver_identity": list(run.solver_identity),
         "summary": counts,
         "cases": {
@@ -438,6 +443,25 @@ def write_drift_report(
     return yaml_path, md_path
 
 
+def _executor_sentence(run: DriftRun, *, markdown: bool = False) -> str:
+    """Return the executor sentence of a drift report, read off both runs.
+
+    One sentence when both versions were called the same way, which is
+    the usual case and the one the compat and physics reports state;
+    two labelled halves when they were not, because a comparison whose
+    two sides ran under different flags is a fact the report must not
+    average away.
+    """
+    a, b = run.version_a, run.version_b
+    sentence = {
+        version: describe_invocation(run.executors.get(version), markdown=markdown)
+        for version in (a, b)
+    }
+    if sentence[a] == sentence[b]:
+        return sentence[a]
+    return f"A ({a}): {sentence[a]}; B ({b}): {sentence[b]}"
+
+
 def _render_markdown(run: DriftRun, date: str, counts: dict[str, int]) -> str:
     """Render the human-readable side of the drift report."""
     a, b = run.version_a, run.version_b
@@ -459,7 +483,7 @@ def _render_markdown(run: DriftRun, date: str, counts: dict[str, int]) -> str:
         f"(sha256 {run.fs_exe_sha256s.get(a) or 'not recorded'}, local, `_private/exe/`) |",
         f"| Compared (B) | FlightStream {b}, {run.fs_exe_names.get(b, '?')} "
         f"(sha256 {run.fs_exe_sha256s.get(b) or 'not recorded'}, local, `_private/exe/`) |",
-        f"| Executor | {describe_invocation(markdown=True)} |",
+        f"| Executor | {_executor_sentence(run, markdown=True)} |",
         f"| Package | pyflightstream {run.package_version} |",
         f"| Solver identity | {'; '.join(run.solver_identity) or 'none captured'} |",
         "",

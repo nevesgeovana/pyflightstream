@@ -149,7 +149,7 @@ def write_compat_report(
         # look like an older schema, and a reader cannot tell "nobody
         # measured it" from "this file predates the field".
         "fs_exe_sha256": run.fs_exe_sha256,
-        "executor": describe_invocation(),
+        "executor": describe_invocation(run.executor),
         "solver_identity": list(run.solver_identity),
         "summary": counts,
         "commands": {
@@ -193,7 +193,7 @@ def _render_markdown(run: ProbeRun, date: str, counts: dict[str, int]) -> str:
         f"| Executable | {run.fs_exe_name} "
         f"(sha256 {run.fs_exe_sha256 or 'not recorded'}, "
         "local, `_private/exe/`, never committed) |",
-        f"| Executor | {describe_invocation(markdown=True)} |",
+        f"| Executor | {describe_invocation(run.executor, markdown=True)} |",
         f"| Package | pyflightstream {run.package_version} |",
         f"| Solver identity lines | {'; '.join(run.solver_identity) or 'none captured'} |",
         "",

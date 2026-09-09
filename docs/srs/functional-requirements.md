@@ -1326,8 +1326,9 @@ The allocation is recorded in the
     *Origin: the independent review's finding PYFS-002, reproduced
     2026-07-28 and again at HEAD on 2026-08-02. Evidence:
     `Script.allow_broken` and the emission refusal in
-    `src/pyflightstream/script/__init__.py`; `broken_commands` on
-    `RunRecord`; the database-driven refusal guard and the waiver
+    `src/pyflightstream/script/__init__.py`; `waived_commands` on
+    `RunRecord` (`broken_commands` until 0.13.0, PFS-2022.01.05); the
+    database-driven refusal guard and the waiver
     guards in `tests/tier1_offline/test_script.py`,
     `tests/tier1_offline/test_script_helpers.py` and `tests/tier1_offline/test_run_campaign.py`.*
 

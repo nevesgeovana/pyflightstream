@@ -152,7 +152,7 @@ def test_every_operational_version_builds_the_minimal_workflow(canonical):
         )
     # No waiver was needed, so the reference workflow leans on no
     # command a probe measured broken (FR-48).
-    assert script.broken_commands == ()
+    assert script.waived_commands == ()
 
 
 def test_there_is_at_least_one_operational_version():

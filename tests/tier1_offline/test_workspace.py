@@ -1037,16 +1037,16 @@ def test_collect_still_takes_a_source_outside_the_campaign_root(tmp_path):
 # `script.BrokenCommandUse`, and nothing mechanical agreed with it.
 
 
-def test_broken_commands_declares_the_record_shape_field_for_field():
+def test_waived_commands_declares_the_record_shape_field_for_field():
     """The member type names the same fields BrokenCommandUse declares."""
     from typing import get_args, get_type_hints
 
     from pyflightstream.script import BrokenCommandUse
 
-    annotation = RunRecord.model_fields["broken_commands"].annotation
+    annotation = RunRecord.model_fields["waived_commands"].annotation
     (member,) = get_args(annotation)
     assert member is not dict, (
-        "RunRecord.broken_commands is still list[dict], which a type checker "
+        "RunRecord.waived_commands is still list[dict], which a type checker "
         "reads as dict[Any, Any]; the docstring says the entries are serialized "
         "script.BrokenCommandUse and the annotation must say so too (OPS-2009.02.03)"
     )
@@ -1061,7 +1061,7 @@ def test_every_broken_command_key_is_optional_so_an_older_row_reads_back():
     """Totality is the compatibility half: a row may carry fewer keys."""
     from typing import get_args
 
-    (member,) = get_args(RunRecord.model_fields["broken_commands"].annotation)
+    (member,) = get_args(RunRecord.model_fields["waived_commands"].annotation)
     assert getattr(member, "__required_keys__", None) == frozenset(), (
         "a required key would refuse a manifest row written before that key "
         "existed; the record type is total=False for the same reason "
@@ -1095,16 +1095,16 @@ def test_a_manifest_row_written_before_the_annotation_still_reads_back(tmp_path)
     # that one, so the entry is still the sparsest row the schema allows
     # and the totality property is still measured.
     sparse = {"source_version": "26.000"}
-    row = json.loads(make_record(broken_commands=[waived]).model_dump_json())
-    row["broken_commands"] = [waived, sparse]
+    row = json.loads(make_record(waived_commands=[waived]).model_dump_json())
+    row["waived_commands"] = [waived, sparse]
     workspace.manifest_path.write_text(json.dumps([row]), encoding="utf-8")
 
     (record,) = workspace.read_manifest()
-    assert record.broken_commands[0] == waived, (
+    assert record.waived_commands[0] == waived, (
         "reading a manifest row must not drop a key the row actually carries; "
         "the typed view is a view, never an edit of the evidence"
     )
-    assert record.broken_commands[1] == sparse
+    assert record.waived_commands[1] == sparse
 
 
 # --- OPS-2005.08.05: an ambiguous stem is refused when the library opens ----
@@ -1487,7 +1487,7 @@ def _manifest_with_waiver(tmp_path, waiver, *, stamp):
     workspace = CampaignWorkspace(tmp_path / "camp")
     workspace.root.mkdir(parents=True)
     row = json.loads(make_record(manifest_schema=stamp).model_dump_json())
-    row["broken_commands"] = [waiver]
+    row["waived_commands"] = [waiver]
     workspace.manifest_path.write_text(json.dumps([row]), encoding="utf-8")
     return workspace
 
@@ -1598,7 +1598,7 @@ def test_a_complete_waiver_row_reads_back_untouched(tmp_path):
     """The control: the refusal is about the missing key, not about waivers."""
     workspace = _manifest_with_waiver(tmp_path, WAIVER_ROW, stamp="pyfs-manifest/1")
     (record,) = workspace.read_manifest()
-    assert record.broken_commands == [WAIVER_ROW], (
+    assert record.waived_commands == [WAIVER_ROW], (
         "reading a complete row must not edit it; the typed view is a view"
     )
 
@@ -1606,21 +1606,21 @@ def test_a_complete_waiver_row_reads_back_untouched(tmp_path):
 def test_a_manifest_with_no_waiver_at_all_still_reads_under_the_old_stamp(tmp_path):
     """The bump must not make an ordinary historical manifest unreadable.
 
-    Every run that waived nothing carries an empty ``broken_commands``,
+    Every run that waived nothing carries an empty ``waived_commands``,
     which is the overwhelming majority of them, and none of those rows is
     touched by the key becoming required.
     """
     from pyflightstream.workspace import KNOWN_MANIFEST_SCHEMAS, MANIFEST_SCHEMA
 
     assert "pyfs-manifest/1" in KNOWN_MANIFEST_SCHEMAS
-    assert MANIFEST_SCHEMA == "pyfs-manifest/2"
+    assert MANIFEST_SCHEMA == "pyfs-manifest/3"
     workspace = CampaignWorkspace(tmp_path / "camp")
     workspace.root.mkdir(parents=True)
     row = json.loads(make_record(manifest_schema="pyfs-manifest/1").model_dump_json())
     workspace.manifest_path.write_text(json.dumps([row]), encoding="utf-8")
     (record,) = workspace.read_manifest()
     assert record.manifest_schema == "pyfs-manifest/1"
-    assert record.broken_commands == []
+    assert record.waived_commands == []
 
 
 # --- PFS-2012.03: and the WRITER may not produce the row the reader refuses --
@@ -1641,7 +1641,7 @@ def _record_waiving(**overrides):
     """A record carrying one complete waiver row, stamped current."""
     from pyflightstream.workspace import MANIFEST_SCHEMA
 
-    body = dict(manifest_schema=MANIFEST_SCHEMA, broken_commands=[dict(WAIVER_ROW)])
+    body = dict(manifest_schema=MANIFEST_SCHEMA, waived_commands=[dict(WAIVER_ROW)])
     body.update(overrides)
     return make_record(**body)
 
@@ -1655,7 +1655,7 @@ def test_the_writer_refuses_a_waiver_row_with_no_source_version(tmp_path):
     workspace = CampaignWorkspace(tmp_path / "camp")
 
     with pytest.raises(WorkspaceError) as caught:
-        workspace.append_record(_record_waiving(broken_commands=[unsourced]))
+        workspace.append_record(_record_waiving(waived_commands=[unsourced]))
     message = str(caught.value)
     assert "source_version" in message and "AIR_ALTITUDE" in message
     assert str(workspace.manifest_path) in message, (
@@ -1680,7 +1680,7 @@ def test_a_refused_append_writes_nothing_at_all(tmp_path):
 
     with pytest.raises(WorkspaceError):
         workspace.append_record(
-            _record_waiving(run_id="camp/sim_9001/a+04.0", broken_commands=[unsourced])
+            _record_waiving(run_id="camp/sim_9001/a+04.0", waived_commands=[unsourced])
         )
     assert workspace.manifest_path.read_bytes() == before, (
         "the refused append edited the manifest; the refusal must precede every write"
@@ -1697,13 +1697,13 @@ def test_the_writer_refuses_an_empty_source_version_exactly_as_the_reader_does(t
     workspace = CampaignWorkspace(tmp_path / "camp")
     hollow = {**WAIVER_ROW, "source_version": ""}
     with pytest.raises(WorkspaceError, match="source_version"):
-        workspace.append_record(_record_waiving(broken_commands=[hollow]))
+        workspace.append_record(_record_waiving(waived_commands=[hollow]))
 
 
 def test_the_writer_refuses_a_blank_source_version(tmp_path):
     """The model refuses " " now, and the manifest row is not the model.
 
-    ``RunRecord.broken_commands`` entries are a ``total=False`` typed
+    ``RunRecord.waived_commands`` entries are a ``total=False`` typed
     mapping, so a hand-built row never passes through
     ``BrokenCommandUse`` and inherits none of its constraints. The writer
     therefore needs the blank test of its own, and this is it.
@@ -1712,7 +1712,7 @@ def test_the_writer_refuses_a_blank_source_version(tmp_path):
     for blank in (" ", "\t"):
         with pytest.raises(WorkspaceError) as caught:
             workspace.append_record(
-                _record_waiving(broken_commands=[{**WAIVER_ROW, "source_version": blank}])
+                _record_waiving(waived_commands=[{**WAIVER_ROW, "source_version": blank}])
             )
         message = str(caught.value)
         assert "source_version" in message
@@ -1753,7 +1753,7 @@ def test_a_complete_waiver_row_is_written_and_reads_back_unchanged(tmp_path):
     workspace = CampaignWorkspace(tmp_path / "camp")
     workspace.append_record(_record_waiving())
     (record,) = workspace.read_manifest()
-    assert record.broken_commands == [WAIVER_ROW]
+    assert record.waived_commands == [WAIVER_ROW]
     assert record.manifest_schema == MANIFEST_SCHEMA
 
 
@@ -1769,7 +1769,7 @@ def test_a_record_waiving_nothing_may_still_be_appended_unstamped(tmp_path):
     workspace = CampaignWorkspace(tmp_path / "camp")
     workspace.append_record(make_record())
     (record,) = workspace.read_manifest()
-    assert record.manifest_schema is None and record.broken_commands == []
+    assert record.manifest_schema is None and record.waived_commands == []
 
 
 # --- PFS-2009.03: the corpus migration, both halves in one call -------------
@@ -2503,3 +2503,104 @@ def test_a_junction_is_recognised_without_isjunction(tmp_path, monkeypatch):
         "a plain folder read as a junction"
     )
     assert not _is_junction(tmp_path / "absent")
+
+
+# --- PFS-2022.01.05 and OPS-2009.02.08: the waived-command key says waived --
+#
+# The manifest key was `broken_commands` and the entries it holds are
+# WAIVERS: a command the database records broken that a recipe emitted
+# anyway under `Script.allow_broken`. A reader met the key and read it as
+# the list of commands that broke in the run, which is the opposite of a
+# record that says the run leaned on them knowingly.
+
+
+def test_a_run_record_names_waived_commands():
+    """The manifest key and the typed field both say waived."""
+    assert "waived_commands" in RunRecord.model_fields, (
+        "RunRecord carries no waived_commands field; the manifest key is still "
+        "broken_commands, which reads as the commands that broke (PFS-2022.01.05)"
+    )
+    assert "broken_commands" not in RunRecord.model_fields, (
+        "the old key is still a field, so a row this version writes carries it; "
+        "the old name reads through the ledger's alias and is never written"
+    )
+    row = json.loads(make_record(waived_commands=[dict(WAIVER_ROW)]).model_dump_json())
+    assert row["waived_commands"] == [WAIVER_ROW]
+    assert "broken_commands" not in row
+
+
+def test_an_old_manifest_key_still_reads():
+    """A row written under the old key reads, and the warning names the deadline.
+
+    The warning text is the ledger entry's own, so the release it names is
+    the one the deadline guard enforces (PFS-2021.07.01, NFR-11).
+    """
+    from pyflightstream._deprecations import WAIVED_COMMANDS_MANIFEST_KEY
+
+    row = json.loads(make_record().model_dump_json())
+    # An old manifest carries the old key alone; a row this version
+    # writes carries the new one, so the dump's own is dropped first.
+    del row["waived_commands"]
+    row["broken_commands"] = [dict(WAIVER_ROW)]
+    with pytest.warns(DeprecationWarning, match="broken_commands") as caught:
+        record = RunRecord.model_validate(row)
+    assert record.waived_commands == [WAIVER_ROW]
+    (message,) = {str(w.message) for w in caught}
+    assert message == WAIVED_COMMANDS_MANIFEST_KEY.message()
+    assert f"removed in v{WAIVED_COMMANDS_MANIFEST_KEY.removal_version}" in message
+
+
+def test_a_row_carrying_both_spellings_is_refused():
+    """Two keys for one list is not a row this package ever wrote."""
+    row = json.loads(make_record().model_dump_json())
+    row["broken_commands"] = []
+    row["waived_commands"] = [dict(WAIVER_ROW)]
+    with pytest.raises(ValidationError, match="broken_commands"):
+        RunRecord.model_validate(row)
+
+
+# --- PFS-2012.04: the executor and the window are read off the run ---------
+
+
+def test_the_run_record_carries_the_executor_and_the_window():
+    """Both fields exist, both default to None, and a row without them reads."""
+    for name in ("executor", "export_window"):
+        assert name in RunRecord.model_fields, (
+            f"RunRecord carries no {name} field, so a report can only assert how "
+            "the solver was called rather than read it (PFS-2012.04)"
+        )
+    plain = make_record()
+    assert plain.executor is None and plain.export_window is None
+    record = make_record(
+        executor={"class_name": "LocalExecutor", "argv": ["fs.exe", "-hidden", "-script", "p"]},
+        export_window={"EXPORT_UNSTEADY_AFTER_REV": 3},
+    )
+    row = json.loads(record.model_dump_json())
+    assert row["executor"] == {
+        "class_name": "LocalExecutor",
+        "argv": ["fs.exe", "-hidden", "-script", "p"],
+    }
+    assert row["export_window"] == {"EXPORT_UNSTEADY_AFTER_REV": 3}
+    assert RunRecord.model_validate(row) == record
+
+
+def test_the_old_property_names_warn_from_the_ledger():
+    """`RunRecord.broken_commands` and `Script.broken_commands` still read, warning.
+
+    The warning text is the ledger entry's, so the deadline the guard
+    enforces is the one the user is told (PFS-2021.07.01).
+    """
+    from pyflightstream._deprecations import (
+        RUN_RECORD_BROKEN_COMMANDS,
+        SCRIPT_BROKEN_COMMANDS,
+    )
+
+    record = make_record(waived_commands=[dict(WAIVER_ROW)])
+    with pytest.warns(DeprecationWarning) as caught:
+        assert record.broken_commands == [WAIVER_ROW]
+    assert [str(w.message) for w in caught] == [RUN_RECORD_BROKEN_COMMANDS.message()]
+
+    script = Script("26.120")
+    with pytest.warns(DeprecationWarning) as caught:
+        assert script.broken_commands == ()
+    assert [str(w.message) for w in caught] == [SCRIPT_BROKEN_COMMANDS.message()]

@@ -52,6 +52,7 @@ import shutil
 import stat
 import sys
 import tomllib
+import warnings
 import zipfile
 from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
@@ -67,8 +68,9 @@ else:  # pragma: no cover - the 3.11 leg of the support range
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
+from pyflightstream._deprecations import RUN_RECORD_BROKEN_COMMANDS, WAIVED_COMMANDS_MANIFEST_KEY
 from pyflightstream._digest import file_sha256
-from pyflightstream._errors import PyflightstreamError
+from pyflightstream._errors import PyflightstreamDeprecationWarning, PyflightstreamError
 from pyflightstream.script.solver_setup import explicit_empty_selections
 from pyflightstream.workspace.inputs import (
     EXECUTABLES_FILE,
@@ -106,6 +108,8 @@ __all__ = [
     "KIND_LETTERS",
     "KNOWN_MANIFEST_SCHEMAS",
     "MANIFEST_SCHEMA",
+    "SOURCE_VERSION_REQUIRED_SINCE",
+    "ExecutorRecord",
     "REFERENCE_POINTS_FILE",
     "STEM_REGISTERED_KINDS",
     "BrokenCommandRecord",
@@ -155,7 +159,20 @@ __all__ = [
 #: were ADDED in the same release, ``fs_version_source`` and
 #: ``velocity_requested_m_s``, and neither of them moved this constant,
 #: which is the half of the rule that is easy to lose.
-MANIFEST_SCHEMA = "pyfs-manifest/2"
+#:
+#: IT MOVED TO "3" ON 2026-09-08 (PFS-2022.01.05, OPS-2009.02.08), and
+#: the reason is the rule again, applied to a RENAME. The waiver list is
+#: written under ``waived_commands`` now and the key ``broken_commands``
+#: is no longer written, which is a removal by the rule's own words: a
+#: reader written against "2" that tolerates a key it does not know
+#: meets a row with no ``broken_commands`` and reads it as a run that
+#: waived nothing, while the waivers sit beside it under the new key.
+#: Absence changed meaning, exactly as it did for ``source_version``.
+#: The old key still READS under every stamp, warning from the
+#: deprecation ledger, which is the compatibility half and does not
+#: touch this constant. Two fields were ADDED in the same release,
+#: ``executor`` and ``export_window`` (PFS-2012.04), and moved nothing.
+MANIFEST_SCHEMA = "pyfs-manifest/3"
 
 #: Every stamp this version can still READ, newest last. The bump above
 #: is a change of what may be WRITTEN, and a reader that refused every
@@ -164,7 +181,14 @@ MANIFEST_SCHEMA = "pyfs-manifest/2"
 #: there would be no route back. A stamp outside this tuple is refused,
 #: which is the "must refuse when the value is one it has never seen"
 #: half, and that includes a stamp from a LATER version.
-KNOWN_MANIFEST_SCHEMAS = ("pyfs-manifest/1", "pyfs-manifest/2")
+KNOWN_MANIFEST_SCHEMAS = ("pyfs-manifest/1", "pyfs-manifest/2", "pyfs-manifest/3")
+
+#: The stamp from which every waiver row carries ``source_version``
+#: (PFS-2012.03). Named apart from :data:`MANIFEST_SCHEMA` the day that
+#: constant moved for a second reason: the refusals below cite the stamp
+#: that made the key required, and citing the CURRENT stamp there would
+#: have told a reader the key arrived with the rename.
+SOURCE_VERSION_REQUIRED_SINCE = "pyfs-manifest/2"
 
 
 def collection_name(declared: str | Path) -> str:
@@ -258,10 +282,27 @@ class RunStatus(enum.StrEnum):
     FAILED_DIVERGED = "FAILED_DIVERGED"
 
 
+class ExecutorRecord(TypedDict):
+    """How the solver was called, as the run layer read it off the run.
+
+    The JSON shape of the ``executor`` entry of a manifest row
+    (PFS-2012.04). ``class_name`` is the executor's class as it ran
+    (``LocalExecutor`` today; an HPC executor the day FR-15 lands) and
+    ``argv`` the command line it returned, which is the same list as the
+    row's own ``argv`` and travels here as well so the entry is one
+    self-contained fact a report can be built from. Both keys are
+    required: the entry is written whole or, on a point where no solver
+    ran, not at all, and the row says ``None``.
+    """
+
+    class_name: str
+    argv: list[str]
+
+
 class BrokenCommandRecord(TypedDict, total=False):
     """One serialized :class:`~pyflightstream.script.BrokenCommandUse`.
 
-    The JSON shape of a ``broken_commands`` entry of the manifest,
+    The JSON shape of a ``waived_commands`` entry of the manifest,
     declared here rather than imported so the workspace layer keeps its
     manifest schema and the script layer keeps the model. The model is
     the single home of what each field MEANS: read
@@ -437,7 +478,7 @@ class RunRecord(BaseModel):
         a record could name evidence that had since been edited,
         truncated or replaced with nothing to compare against
         (PYFS-006).
-    broken_commands : list of BrokenCommandRecord
+    waived_commands : list of BrokenCommandRecord
         Serialized
         :class:`~pyflightstream.script.BrokenCommandUse` entries, one
         per command the script emitted under an ``allow_broken`` waiver
@@ -446,6 +487,28 @@ class RunRecord(BaseModel):
         are not interchangeable, ``version`` being the build the script
         targeted and ``source_version`` the build whose record is broken,
         which is the build the cited report was run on.
+
+        The key was ``broken_commands`` until 0.13.0 (PFS-2022.01.05,
+        OPS-2009.02.08), and read as the commands that broke in the run,
+        which is the opposite of a waiver the recipe registered on
+        purpose. A row written under the old key still reads, with a
+        DeprecationWarning built from the ledger entry that names the
+        release dropping it; no row is written under it. The rename
+        moved :data:`MANIFEST_SCHEMA` to ``pyfs-manifest/3``, for the
+        reason recorded on that constant.
+    executor : ExecutorRecord or None
+        Which executor ran the point and the argv it ran, read off the
+        run rather than asserted (PFS-2012.04); None on a point where
+        no solver ran, and on every row written before 0.13.0. Adding
+        it did not move :data:`MANIFEST_SCHEMA`.
+    export_window : dict or None
+        The window the row states for its unsteady exports, as resolved
+        for this run, keyed by the row key that stated it. No row key
+        states one today, so every row this version writes carries None;
+        PFS-2031.18 fills it with ``EXPORT_UNSTEADY_AFTER_REV`` or
+        ``EXPORT_UNSTEADY_AFTER_ITER`` as resolved. None also means the
+        row predates the field. Adding it did not move
+        :data:`MANIFEST_SCHEMA`.
         Empty for the ordinary run, which is the
         point: a run that leaned on a command known not to work is
         distinguishable from one that did not, forever, without
@@ -617,8 +680,47 @@ class RunRecord(BaseModel):
     inputs_sha256: dict[str, str] = Field(default_factory=dict)
     raw_flag: bool
     outputs_sha256: dict[str, str] = Field(default_factory=dict)
-    broken_commands: list[BrokenCommandRecord] = Field(default_factory=list)
+    waived_commands: list[BrokenCommandRecord] = Field(default_factory=list)
+    #: How the solver was called (PFS-2012.04), None where no solver ran
+    #: and on every row written before the field existed.
+    executor: ExecutorRecord | None = None
+    #: The unsteady export window as resolved for this run, keyed by the
+    #: row key that stated it; None until a row key states one
+    #: (PFS-2031.18), and on every row written before the field existed.
+    export_window: dict[str, float | int | str] | None = None
     conditions: list[dict] | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _take_the_earlier_name_of_the_waived_commands(cls, data: object) -> object:
+        """Read a row written under ``broken_commands``, warning from the ledger.
+
+        The key was renamed in 0.13.0 (PFS-2022.01.05) and a manifest is
+        the one surface that cannot be regenerated, so the old key reads
+        until the release the ledger entry names and the warning text is
+        the entry's own. A row carrying BOTH spellings is left alone, and
+        ``extra="forbid"`` then refuses it naming the old key: this
+        package never wrote such a row and two lists for one fact is not
+        a row to guess at.
+        """
+        if isinstance(data, dict) and "broken_commands" in data and "waived_commands" not in data:
+            warnings.warn(
+                WAIVED_COMMANDS_MANIFEST_KEY.message(),
+                PyflightstreamDeprecationWarning,
+                stacklevel=2,
+            )
+            data = {**data, "waived_commands": data["broken_commands"]}
+            del data["broken_commands"]
+        return data
+
+    @property
+    def broken_commands(self) -> list[BrokenCommandRecord]:
+        """The former name of :attr:`waived_commands`; warns from the ledger."""
+        warnings.warn(
+            RUN_RECORD_BROKEN_COMMANDS.message(), PyflightstreamDeprecationWarning, stacklevel=2
+        )
+        return self.waived_commands
+
     log_file_used: str | None = None
     solver_setup: dict | None = None
     status: RunStatus
@@ -1917,7 +2019,7 @@ class CampaignWorkspace:
         Raises
         ------
         WorkspaceError
-            When a ``broken_commands`` entry carries no
+            When a ``waived_commands`` entry carries no
             ``source_version``, naming the manifest and the stamp the
             row was written under (PFS-2012.03); or when a solver-setup
             snapshot marks a selection flag explicit with an empty
@@ -1987,7 +2089,7 @@ class CampaignWorkspace:
         provenance row asserting nothing, and it would be indistinguishable
         from one whose source happened to equal the script's own version.
         """
-        for entry in record.broken_commands:
+        for entry in record.waived_commands:
             # Blank, not merely empty: " " is truthy and names no build,
             # so a row carrying it would pass a truthiness test while
             # asserting exactly what the missing key asserts. The value is
@@ -2025,7 +2127,7 @@ class CampaignWorkspace:
                 "no build, so the row does not say which build's "
                 "record says the command is broken, and the cited report cannot be "
                 f"tied to a build. That row was written under {stamp}, and "
-                f"source_version has been required since {MANIFEST_SCHEMA}."
+                f"source_version has been required since {SOURCE_VERSION_REQUIRED_SINCE}."
                 f"{relabel}"
             )
 
@@ -2047,7 +2149,7 @@ class CampaignWorkspace:
 
         Two arms, both scoped to records that actually carry a waiver.
 
-        The FIELD arm is the acceptance clause: every ``broken_commands``
+        The FIELD arm is the acceptance clause: every ``waived_commands``
         row written carries a ``source_version`` that names a build,
         which rules out the missing key, the empty string and the blank
         one alike. The test is the reader's, deliberately the same
@@ -2080,7 +2182,7 @@ class CampaignWorkspace:
             The record about to be appended. Not modified: a record this
             method would have to repair is one it refuses instead.
         """
-        for entry in record.broken_commands:
+        for entry in record.waived_commands:
             # The reader's expression, deliberately identical, including
             # the blank case: a writer that admitted a value its reader
             # refuses is the whole defect, and " " is that value.
@@ -2092,21 +2194,29 @@ class CampaignWorkspace:
                     f"{entry.get('source_version')!r}, which names no build, so "
                     "the row would not say which build's record says the command is "
                     "broken, and the cited report could not be tied to a build. "
-                    f"source_version has been required since {MANIFEST_SCHEMA}, and "
-                    "reading this manifest back would refuse the row this call is "
+                    f"source_version has been required since {SOURCE_VERSION_REQUIRED_SINCE}, "
+                    "and reading this manifest back would refuse the row this call is "
                     "about to add, with nothing in the package able to migrate it. "
                     "Nothing was written. Name the build the report was run on, which "
                     "is what Script.allow_broken records for you."
                 )
-            if record.manifest_schema != MANIFEST_SCHEMA:
+            # Every stamp from the one that made the key required onward,
+            # not only the current one: the stamp moved again for the
+            # rename of the key itself, and a row stamped with the stamp
+            # that made source_version required is not a row from the
+            # layout in which it was optional.
+            sourced = KNOWN_MANIFEST_SCHEMAS[
+                KNOWN_MANIFEST_SCHEMAS.index(SOURCE_VERSION_REQUIRED_SINCE) :
+            ]
+            if record.manifest_schema not in sourced:
                 stamp = record.manifest_schema or "no stamp at all"
                 raise WorkspaceError(
                     f"refusing to write run {record.run_id!r} into the manifest "
                     f"{self.manifest_path}: it waives the broken command "
                     f"{entry.get('command', '<unnamed>')!r} under {stamp}, and a waiver "
-                    f"row is the row {MANIFEST_SCHEMA} exists for. Under the older "
-                    "layout source_version was optional, so a row written today under "
-                    "that stamp tells a later reader that an absent key means the "
+                    f"row is the row {SOURCE_VERSION_REQUIRED_SINCE} exists for. Under the "
+                    "older layout source_version was optional, so a row written today "
+                    "under that stamp tells a later reader that an absent key means the "
                     "writer predated the field. Nothing was written. Stamp the record "
                     f"with the current schema ({MANIFEST_SCHEMA}), which is what the "
                     "run layer does for every record it builds."

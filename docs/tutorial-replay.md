@@ -37,7 +37,14 @@ of one release, and the registry records it from committed evidence.
 
 **How it ran.** `argv`, `cwd`, `timeout_s`, `fs_exe` with its hash, the
 `recipe` with the hash of its source, and `script_path` with the hash
-of the script text. The recipe hash is the one people are surprised by:
+of the script text. Since 0.13.0 the row also carries `executor`, the
+class that ran the point together with the argv it ran, read off the run
+rather than assumed (`{"class_name": "LocalExecutor", "argv": [...]}`),
+and `export_window`, the unsteady export window as resolved for the
+point, which is `None` until a row key states one; a row written before
+0.13.0 carries neither and reads as `None` for both. The evidence
+reports build their executor sentence from that record when the run
+carries one. The recipe hash is the one people are surprised by:
 a recipe is your code, resolved by a dotted name, and it can be edited
 between two runs that record the same name. The name says which
 function; the hash says which version of it.
@@ -165,7 +172,9 @@ installation, which is as far as a file-level record can go.
 
 And a record can only be as honest as the run that wrote it. A point
 that used a command a probe measured broken says so in
-`broken_commands`, with the report and the reason; a point built with
+`waived_commands` (the key was `broken_commands` before 0.13.0, and a
+manifest written under that key still reads, with a warning naming the
+release that drops it), with the report and the reason; a point built with
 `Script.raw()` says so in `raw_flag`. Both are worth reading before
 trusting the numbers, and both are there precisely so that trusting
 them is a decision rather than an assumption.

@@ -128,6 +128,12 @@ _DIMENSIONLESS_OR_DEBT = {
     "values",  # sweep values along a declared axis
     "default",  # command-schema default, type per command
     "residual",  # RunRecord: solver residual, dimensionless
+    # RunRecord: the unsteady export window keyed by the ROW KEY that
+    # stated it, and each key names its own count (EXPORT_UNSTEADY_AFTER_REV
+    # in revolutions, EXPORT_UNSTEADY_AFTER_ITER in iterations), so the
+    # unit rides the key inside the mapping rather than the field name
+    # (PFS-2012.04; PFS-2031.18 fills it).
+    "export_window",
     # (b) naming debt pinned by released formats or frames
     "area",  # campaign.toml key (ReferenceData), m2 in docs
     "length",  # campaign.toml key (ReferenceData), m in docs

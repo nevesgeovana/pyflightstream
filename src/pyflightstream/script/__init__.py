@@ -53,12 +53,14 @@ from __future__ import annotations
 
 import math
 import os
+import warnings
 from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from pyflightstream._errors import PyflightstreamError
+from pyflightstream._deprecations import SCRIPT_BROKEN_COMMANDS
+from pyflightstream._errors import PyflightstreamDeprecationWarning, PyflightstreamError
 from pyflightstream.commands import (
     ArgSpec,
     ArgType,
@@ -281,7 +283,7 @@ class BrokenCommandUse(BaseModel):
     version : str
         Canonical identifier of the build the script was written for,
         which is what it has always held. Unchanged deliberately: it
-        travels inside ``RunRecord.broken_commands``, every row carries a
+        travels inside ``RunRecord.waived_commands``, every row carries a
         manifest stamp, and that identifier's own rule is that it bumps
         when a field CHANGES MEANING. Redefining this one would have made
         a reader of an existing manifest read two meanings under one key
@@ -622,7 +624,7 @@ class Script:
     raw_flag : bool
         True once ``raw()`` was used; recorded in the run manifest so
         unvalidated scripts stay identifiable (FR-07).
-    broken_commands : tuple of BrokenCommandUse
+    waived_commands : tuple of BrokenCommandUse
         Commands emitted under a :meth:`allow_broken` waiver, one entry
         per command, recorded in the run manifest for the same reason
         as ``raw_flag`` (FR-48). Empty for a script that emitted
@@ -776,7 +778,7 @@ class Script:
         return self.entities.count("boundaries")
 
     @property
-    def broken_commands(self) -> tuple[BrokenCommandUse, ...]:
+    def waived_commands(self) -> tuple[BrokenCommandUse, ...]:
         """Commands emitted under a waiver, in the order first emitted.
 
         One entry per command however many times it was emitted, because
@@ -787,8 +789,21 @@ class Script:
         FIRST: a script-lifetime waiver covers every later emission, and
         the reason was written for a particular one.
         :class:`BrokenCommandUse` is the single home of the field list.
+
+        Named for what the entries ARE (PFS-2022.01.05): each is a
+        waiver the recipe registered, and the former name
+        ``broken_commands`` read as the commands that broke in the run,
+        which is the opposite claim.
         """
         return tuple(self._broken_uses.values())
+
+    @property
+    def broken_commands(self) -> tuple[BrokenCommandUse, ...]:
+        """The former name of :attr:`waived_commands`; warns from the ledger."""
+        warnings.warn(
+            SCRIPT_BROKEN_COMMANDS.message(), PyflightstreamDeprecationWarning, stacklevel=2
+        )
+        return self.waived_commands
 
     def declare_existing(
         self,
@@ -978,7 +993,7 @@ class Script:
         Registers a waiver for ``name``; a later :meth:`emit` of it then
         appends the command instead of raising
         :class:`BrokenCommandError`, and records what was waived in
-        :attr:`broken_commands`, which the run manifest carries.
+        :attr:`waived_commands`, which the run manifest carries.
 
         Two callers legitimately need this. A tier 2 probe re-measuring
         the record cannot avoid emitting the command, since emitting it

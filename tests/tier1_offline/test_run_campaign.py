@@ -1013,13 +1013,13 @@ def test_a_waived_broken_command_rides_into_the_manifest(tmp_path):
     )
     assert all(record.status is RunStatus.CONVERGED for record in records)
     for record in records:
-        (use,) = record.broken_commands
+        (use,) = record.waived_commands
         assert use["command"] == "AIR_ALTITUDE"
         assert use["version"] == "26.120"
         assert use["report"] == "reports/compat/CMP-26120_2026-08-08_full.yaml"
         assert use["reason"].startswith("reproducing a run")
     # It survives the round trip through runs.json, which is the point.
-    assert workspace.read_manifest()[0].broken_commands == records[0].broken_commands
+    assert workspace.read_manifest()[0].waived_commands == records[0].waived_commands
     # The control: the ordinary recipe records nothing, so an empty list
     # keeps meaning "this run leaned on nothing broken".
     plain_root = tmp_path / "plain"
@@ -1033,7 +1033,7 @@ def test_a_waived_broken_command_rides_into_the_manifest(tmp_path):
         assess=converged,
         recipes={"steady": steady_recipe},
     )
-    assert plain_records[0].broken_commands == []
+    assert plain_records[0].waived_commands == []
 
 
 def test_an_unwaived_broken_command_fails_the_point_before_the_solver(tmp_path):
@@ -1060,7 +1060,7 @@ def test_an_unwaived_broken_command_fails_the_point_before_the_solver(tmp_path):
     # Nothing was waived, so nothing is recorded as waived: the refusal
     # and the record are separate mechanisms and must not stand in for
     # each other.
-    assert all(record.broken_commands == [] for record in records)
+    assert all(record.waived_commands == [] for record in records)
     assert len(caught.value.failures) == 2
 
 
@@ -1528,7 +1528,7 @@ def test_the_plan_reports_a_waived_command_before_any_solver_time(tmp_path):
     )
     point = plan.points[0]
     assert point.status is PlanStatus.READY
-    assert point.broken_commands == ("AIR_ALTITUDE",)
+    assert point.waived_commands == ("AIR_ALTITUDE",)
     assert point.raw is False
     assert "waive a command recorded broken: AIR_ALTITUDE" in plan.summary()
 
@@ -1538,7 +1538,7 @@ def test_an_ordinary_plan_reports_no_waiver(tmp_path):
     campaign = make_campaign(tmp_path, alphas=(0.0,))
     workspace = CampaignWorkspace(tmp_path / "camp")
     plan = plan_campaign(campaign, workspace, recipes={"steady": steady_recipe}, write_plan=False)
-    assert plan.points[0].broken_commands == ()
+    assert plan.points[0].waived_commands == ()
     assert "waive a command" not in plan.summary()
     assert "escape hatch" not in plan.summary()
 
@@ -3569,3 +3569,61 @@ def test_an_explicit_empty_selection_in_a_manifest_is_refused_naming_manifest_an
     setup = helpers.solver_settings(script, vorticity_drag_boundaries=[1, 2], aoa=1.0)
     untouched.append_record(_synthetic_record(setup.model_dump(mode="json")))
     assert untouched.read_manifest()[0].solver_setup == setup.model_dump(mode="json")
+
+
+# --- PFS-2012.04: the record says which executor ran the point --------------
+
+
+def test_a_run_record_reads_the_executor_off_the_run(tmp_path):
+    """The class name is the executor's own and the argv is the result's.
+
+    A report can only read what the run recorded; before this the record
+    carried the argv and nothing said which executor built it.
+    """
+    campaign = make_campaign(tmp_path, alphas=(0.0,))
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    (record,) = run_campaign(
+        campaign,
+        StubSolver(WRITES_LOADS),
+        workspace,
+        assess=converged,
+        recipes={"steady": steady_recipe},
+    )
+    assert record.executor == {"class_name": "StubSolver", "argv": list(record.argv)}
+    assert record.export_window is None, "no row key states a window yet (PFS-2031.18)"
+    # It survives the round trip through runs.json.
+    assert workspace.read_manifest()[0].executor == record.executor
+
+
+def test_a_point_that_never_reached_the_solver_records_no_executor(tmp_path):
+    """None where no solver ran, which is a fact and not a default."""
+    campaign = make_campaign(tmp_path, recipe="refused", alphas=(0.0,))
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    with pytest.raises(CampaignErrors):
+        run_campaign(
+            campaign,
+            StubSolver(WRITES_LOADS),
+            workspace,
+            assess=converged,
+            recipes={"refused": refused_altitude_recipe},
+        )
+    (record,) = workspace.read_manifest()
+    assert record.status is RunStatus.FAILED_SCRIPT
+    assert record.executor is None
+
+
+# --- PFS-2022.01.05: the old plan-time name warns from the ledger ----------
+
+
+def test_the_old_point_plan_name_warns_from_the_ledger(tmp_path):
+    from pyflightstream._deprecations import POINT_PLAN_BROKEN_COMMANDS
+
+    campaign = make_campaign(tmp_path, recipe="waived", alphas=(0.0,))
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    plan = plan_campaign(
+        campaign, workspace, recipes={"waived": waived_altitude_recipe}, write_plan=False
+    )
+    with pytest.warns(DeprecationWarning) as caught:
+        old = plan.points[0].broken_commands
+    assert old == plan.points[0].waived_commands == ("AIR_ALTITUDE",)
+    assert [str(w.message) for w in caught] == [POINT_PLAN_BROKEN_COMMANDS.message()]

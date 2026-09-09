@@ -76,8 +76,13 @@ from pathlib import Path
 from typing import Protocol
 
 import pyflightstream
+from pyflightstream._deprecations import POINT_PLAN_BROKEN_COMMANDS
 from pyflightstream._digest import file_sha256, optional_file_sha256, text_sha256
-from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning
+from pyflightstream._errors import (
+    PyflightstreamDeprecationWarning,
+    PyflightstreamError,
+    PyflightstreamWarning,
+)
 from pyflightstream.cases import (
     Campaign,
     ScriptRecipe,
@@ -103,6 +108,7 @@ from pyflightstream.workspace import (
     KNOWN_MANIFEST_SCHEMAS,
     MANIFEST_SCHEMA,
     CampaignWorkspace,
+    ExecutorRecord,
     NamingTemplateError,
     RunRecord,
     RunStatus,
@@ -122,6 +128,7 @@ __all__ = [
     "ExecutionResult",
     "Executor",
     "ExecutorConfigurationError",
+    "ExecutorRecord",
     "LoadsAssessor",
     "LocalExecutor",
     "OutcomeAssessor",
@@ -133,6 +140,7 @@ __all__ = [
     "check_solver_identity",
     "describe_invocation",
     "export_surface_mesh",
+    "invocation_record",
     "package_vcs_state",
     "plan_campaign",
     "reconstruct",
@@ -385,7 +393,36 @@ class SolverBuild:
 SCRIPT_ARGUMENT = "-script"
 
 
-def describe_invocation(*, hidden: bool = True, markdown: bool = False) -> str:
+def invocation_record(executor: Executor, result: ExecutionResult) -> ExecutorRecord:
+    """Record how the solver was called, read off the executor and its result.
+
+    The half of the invocation the run record did not carry (PFS-2012.04):
+    ``argv`` said which command line ran and nothing said which executor
+    built it, so a report could only ASSERT the class name. The class
+    name is read off the object that ran, and the argv off the result it
+    returned, so neither is a description of what the package usually
+    does.
+
+    Parameters
+    ----------
+    executor : Executor
+        The executor that ran the script.
+    result : ExecutionResult
+        What it returned; ``argv`` is empty for an executor that reports
+        none, and the record keeps that emptiness rather than filling it.
+
+    Returns
+    -------
+    ExecutorRecord
+        The class name and the argv, in the shape the run manifest and
+        the evidence reports carry.
+    """
+    return {"class_name": type(executor).__name__, "argv": list(result.argv)}
+
+
+def describe_invocation(
+    record: ExecutorRecord | None = None, *, hidden: bool = True, markdown: bool = False
+) -> str:
     """Return the one-line description of the solver invocation.
 
     Single home of the sentence every report prints about how the
@@ -394,23 +431,28 @@ def describe_invocation(*, hidden: bool = True, markdown: bool = False) -> str:
     copies of that sentence used to sit in the report writers, where
     nothing would have noticed them disagreeing with the code (NFR-11).
 
-    What it derives and what it still restates, stated because the
-    difference is the residual: the script argument is read from
-    :data:`SCRIPT_ARGUMENT`, while the executor's class name and the
-    windowless flag are described rather than read from an executor.
-    Both are true of every report this package can currently write, the
-    QA layer building a default :class:`LocalExecutor` at each of its
-    three entry points, and both would become wrong the day an HPC
-    executor lands (FR-15) or a report is written from a visible run.
-    Taking the executor as an argument is registered as
-    PLN-20260809-2340.
+    READ FROM THE RUN WHEN A RECORD IS GIVEN (PFS-2012.04), asserted
+    otherwise, and the two sentences differ by construction so a reader
+    of committed evidence can tell which one it holds. With a record the
+    class name and the flags are the record's own: the flags are every
+    argv token between the executable and the script path, which is the
+    windowless flag and the script argument for :class:`LocalExecutor`
+    and whatever another executor passes. Without one the sentence
+    describes the executor the QA layer builds by default, a hidden
+    :class:`LocalExecutor`, which is true of every report written before
+    the runs carried a record and is the stated fallback for a run that
+    carries none.
 
     Parameters
     ----------
+    record : ExecutorRecord, optional
+        The invocation as :func:`invocation_record` read it off a real
+        run; None for the asserted sentence.
     hidden : bool
-        Whether the description covers a windowless run. Keyword-only:
-        two adjacent booleans read as nothing at a call site, and this
-        value is written verbatim into committed evidence.
+        Whether the ASSERTED description covers a windowless run;
+        ignored when a record is given, the record saying what ran.
+        Keyword-only: two adjacent booleans read as nothing at a call
+        site, and this value is written verbatim into committed evidence.
     markdown : bool
         Wrap the flags in a markdown code span, for the rendered table
         of a report; the machine-readable field takes them plain. Named
@@ -423,16 +465,25 @@ def describe_invocation(*, hidden: bool = True, markdown: bool = False) -> str:
         Description naming the executor class and its flags, for the
         ``executor`` field of a compat, drift, or physics report.
     """
-    flags = f"-hidden {SCRIPT_ARGUMENT}" if hidden else SCRIPT_ARGUMENT
-    if markdown:
-        flags = f"`{flags}`"
     # The two citations are split because they answer different halves
     # and one of them does NOT support the spelling beside it: SRC-003
     # documents the mechanism and the windowless flag, and documents the
     # script argument with TWO dashes. Printing that page beside one
     # dash, as this string did when it was first written, cites a page
     # for a claim it denies. RPT-023 is what carries the spelling.
-    return f"LocalExecutor, {flags} (mechanism SRC-003 pp.279-280; argument spelling RPT-023)"
+    citation = "mechanism SRC-003 pp.279-280; argument spelling RPT-023"
+    if record is None:
+        flags = f"-hidden {SCRIPT_ARGUMENT}" if hidden else SCRIPT_ARGUMENT
+        if markdown:
+            flags = f"`{flags}`"
+        return f"LocalExecutor, {flags} ({citation})"
+    tokens = record["argv"][1:-1]
+    if not tokens:
+        return f"{record['class_name']}, no argv recorded (as run; {citation})"
+    flags = " ".join(tokens)
+    if markdown:
+        flags = f"`{flags}`"
+    return f"{record['class_name']}, {flags} (as run; {citation})"
 
 
 class LocalExecutor:
@@ -2223,12 +2274,15 @@ class PointPlan:
         The pre-flight status.
     error : str or None
         What blocks the point, for BLOCKED entries.
-    broken_commands : tuple of str
+    waived_commands : tuple of str
         Commands the point's script emits under an ``allow_broken``
         waiver. Known at plan time, because the dry run builds the same
         script, and reported here so an operator learns the campaign
         leans on a command a probe measured broken BEFORE spending
-        solver time rather than from the manifest afterwards.
+        solver time rather than from the manifest afterwards. Named
+        ``broken_commands`` until 0.13.0 (PFS-2022.01.05); the old name
+        still reads, warning from the deprecation ledger, and the
+        ``plan.json`` key moved with the field.
     raw : bool
         Whether the point's script used the ``raw()`` escape hatch.
         Same reason.
@@ -2240,8 +2294,16 @@ class PointPlan:
     script_name: str | None
     status: PlanStatus
     error: str | None = None
-    broken_commands: tuple[str, ...] = ()
+    waived_commands: tuple[str, ...] = ()
     raw: bool = False
+
+    @property
+    def broken_commands(self) -> tuple[str, ...]:
+        """The former name of :attr:`waived_commands`; warns from the ledger."""
+        warnings.warn(
+            POINT_PLAN_BROKEN_COMMANDS.message(), PyflightstreamDeprecationWarning, stacklevel=2
+        )
+        return self.waived_commands
 
 
 @dataclass(frozen=True)
@@ -2314,9 +2376,9 @@ class CampaignPlan:
         # hatch, plans READY and is otherwise indistinguishable from a
         # clean one. The operator should learn that here rather than
         # from the manifest, after the solver time is spent.
-        waiving = [entry for entry in self.points if entry.broken_commands]
+        waiving = [entry for entry in self.points if entry.waived_commands]
         if waiving:
-            commands = sorted({name for entry in waiving for name in entry.broken_commands})
+            commands = sorted({name for entry in waiving for name in entry.waived_commands})
             lines.append(
                 f"  {len(waiving)} point(s) waive a command recorded broken: {', '.join(commands)}"
             )
@@ -2535,20 +2597,20 @@ def _plan_point(
     # rather than only in the manifest: an operator who learns from the
     # manifest that a point leaned on a broken command has already spent
     # the solver time (PYFS-002, and the pre-flight promise of FR-14).
-    waived = tuple(use.command for use in script.broken_commands)
+    waived = tuple(use.command for use in script.waived_commands)
     if run_id in recorded:
         return PointPlan(
             **base,
             script_name=script_name,
             status=PlanStatus.ALREADY_RECORDED,
-            broken_commands=waived,
+            waived_commands=waived,
             raw=script.raw_flag,
         )
     return PointPlan(
         **base,
         script_name=script_name,
         status=PlanStatus.READY,
-        broken_commands=waived,
+        waived_commands=waived,
         raw=script.raw_flag,
     )
 
@@ -2809,7 +2871,18 @@ def _execute_point(
         "inputs_sha256": inputs_sha256,
         "script_sha256": "",
         "raw_flag": False,
-        "broken_commands": [],
+        "waived_commands": [],
+        # PFS-2012.04: how the solver was called, read off the executor
+        # and its result once the point has run, and None on the four
+        # early returns below, where no solver ran. `argv` beside it is
+        # the command line alone; this says which executor built it.
+        "executor": None,
+        # The export window the row states for its unsteady exports, as
+        # resolved for this run. TODAY NO ROW KEY STATES ONE, so this is
+        # None for every record this version writes; PFS-2031.18 fills it
+        # with EXPORT_UNSTEADY_AFTER_REV or EXPORT_UNSTEADY_AFTER_ITER as
+        # resolved, and the field is typed wide enough to take either.
+        "export_window": None,
         # Stated, not defaulted (REV010-014). The field defaults to None so
         # that a row which never carried it stays honest about that; a row
         # this version writes DOES carry it, and says so here.
@@ -2866,7 +2939,7 @@ def _execute_point(
     # run, not with the recipe: this is the only place a reader of the
     # manifest can learn that the numbers below came from a command a
     # probe measured not to work.
-    base["broken_commands"] = [use.model_dump(mode="json") for use in script.broken_commands]
+    base["waived_commands"] = [use.model_dump(mode="json") for use in script.waived_commands]
 
     # PYFS-006. Every point of a case runs in the same simulation folder,
     # and collection asks only whether the declared output EXISTS, never
@@ -2905,6 +2978,7 @@ def _execute_point(
     base["argv"] = list(result.argv)
     base["cwd"] = result.cwd
     base["timeout_s"] = result.timeout_s
+    base["executor"] = invocation_record(executor, result)
     if result.failed:
         # One composer, never a chain here: the timeout branch used to
         # discard every captured channel, and the timeout branch is the
