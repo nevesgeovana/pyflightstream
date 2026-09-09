@@ -482,7 +482,7 @@ def test_the_rotor_facts_argument_lives_on_the_mesh_inputs_page():
 
 def test_the_tiers_page_names_the_three_folders_that_exist():
     """PFS-2031.10: docs/tiers.md names each tier by its folder under tests/, every
-    folder it names exists, and it names the workspace's six matrices and the
+    folder it names exists, and it names the workspace's matrices, all of them, and the
     tests beside them, so the page cannot describe a layout the tree no longer has."""
     page = (REPO / "docs" / "tiers.md").read_text(encoding="utf-8")
     folders = sorted(
@@ -494,7 +494,13 @@ def test_the_tiers_page_names_the_three_folders_that_exist():
     tier3 = REPO / "tests" / "tier3_licensed"
     for matrix in sorted(tier3.glob("*.fs")):
         assert f"`{matrix.name}`" in page, f"the page does not name {matrix.name}"
-    for module in ("test_tour.py", "test_studies.py", "test_physics.py", "test_actions_probe.py"):
+    for module in (
+        "test_tour.py",
+        "test_studies.py",
+        "test_physics.py",
+        "test_actions_probe.py",
+        "test_builds.py",
+    ):
         assert (tier3 / module).is_file()
         assert module in page
     assert "executables.local.toml" in page

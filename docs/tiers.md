@@ -20,7 +20,7 @@ their matrices are sound.
 workspace. It IS a campaign workspace, laid out exactly as
 [the workspace page](workspace-and-workflows.md) describes: `inputs/`
 with the library, `sims/` and `post/` written by the runs, `runs.json`
-as the one manifest, and six run matrices at the root. The tests sit
+as the one manifest, and seven run matrices at the root. The tests sit
 beside the matrices and read what the runs recorded. That makes it the
 largest usage example this repository carries: every feature of the
 matrix, set through the workspace, with the row that sets it and the
@@ -70,7 +70,7 @@ The package reads that overlay over the registry, so every row runs on
 the build its `FS_BUILD` cell names and nothing is passed on the command
 line but the matrix and the workspace.
 
-### The six matrices
+### The seven matrices
 
 | Matrix | What it is | Rows |
 |---|---|---|
@@ -80,10 +80,11 @@ line but the matrix and the workspace.
 | `matriz_geometry.fs` | one condition, three shapes | 4001 the wing, 4002 its mirrored half, 4003 the body |
 | `matriz_physics.fs` | the qa physics cases as rows | 5001 PHY-01, 5002 and 5003 PHY-02, 5005 PHY-05, 5006 PHY-06 |
 | `matriz_actions.fs` | the action re-read probe | 6001 on 26.123, RPT-041 the script-action re-read probe |
+| `matriz_builds.fs` | one rotor row per build this machine holds | 7001 on 26.120 and 7002 on 26.123, RPT-043 the thirteen solver-setting emitters of the rotor path |
 
 Each matrix keeps its own `plan.json`, `sweep.csv` and products under
 `post/<matrix stem>/` (PFS-2031.04); `runs.json` holds every point of
-all six.
+all seven.
 
 ### Running it
 
@@ -93,8 +94,8 @@ pyfs-matrix run matriz.fs --workspace tests/tier3_licensed      # the seat
 pytest -m needs_flightstream tests/tier3_licensed
 ```
 
-`test_tour.py`, `test_studies.py`, `test_physics.py` and
-`test_actions_probe.py` read the manifest, the script each point's
+`test_tour.py`, `test_studies.py`, `test_physics.py`,
+`test_actions_probe.py` and `test_builds.py` read the manifest, the script each point's
 solver received, the loads it exported and the products the run left,
 through the package's own readers, and assert per row what the row's
 cell was meant to reach. The physics module reduces the rows' loads with

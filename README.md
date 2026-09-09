@@ -279,7 +279,7 @@ table is that boundary.
 |---|---|---|
 | Command database, script builder, version refusals | supported | tier 1 over every registered version; probe reports under `reports/` |
 | Parsers, tables, run manifest, reconstruction | supported | tier 1 on committed solver fixtures |
-| Campaigns, run matrices, workspace, pre-flight | supported | tier 1 end-to-end with a stub solver; tier 3 on the licensed machine, `tests/tier3_licensed`, a workspace of six matrices with one test per row |
+| Campaigns, run matrices, workspace, pre-flight | supported | tier 1 end-to-end with a stub solver; tier 3 on the licensed machine, `tests/tier3_licensed`, a workspace of seven matrices with one test per row |
 | Far-field ledgers and probe surveys | **experimental** | tier 1 on synthetic fields; the licensed far-field acceptance work is deferred, not done |
 | FSI structural beam and modal analysis | **experimental** | tier 1 against analytic beam solutions; `examples/wing_static_deflection.py`, `examples/fsi_campbell_diagram.py` |
 | FSI coupled driver (the four-phase loop) | **experimental** | tier 1 offline replay on archived WP1 fixtures only; never run against a live solver in CI |

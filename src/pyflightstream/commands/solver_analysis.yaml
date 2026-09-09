@@ -108,8 +108,8 @@ SET_ANALYSIS_SYMMETRY_LOADS:
     "26.121": {status: documented, note: "SRC-740 p.353, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.346, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.349, same grammar as 26.120"}
-    "26.120": {status: documented}
-    "26.123": {status: documented, note: "SRC-751 p.356, unchanged from SRC-750 p.356"}
+    "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-09-08_rotor-path.yaml"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-09-08_rotor-path.yaml", note: "SRC-751 p.356, unchanged from SRC-750 p.356"}
   notes: >
     Includes the loads of symmetry boundaries in the analysis; relevant
     to half-model and periodic runs. Phase init on empirical evidence

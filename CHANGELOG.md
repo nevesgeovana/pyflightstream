@@ -9,9 +9,21 @@ FlightStream versions.
 
 ### Added
 
+- **The thirteen solver-setting emitters of the rotor path are measured on
+  every build this machine holds** (PFS-2028.02, RPT-043). `matriz_builds.fs`
+  states the tour's one-blade periodic row once per build, 7001 on 26.120 and
+  7002 on 26.123, both CONVERGED through `pyfs-matrix run`; `test_builds.py`
+  asserts each row ran terminal on the build it names, that every one of the
+  thirteen reached the script the solver received, that the log names no
+  error for any of them, and that the database says `verified` on that build
+  citing the sweep's compat report (`reports/compat/CMP-<build>_2026-09-08_rotor-path`),
+  from which `pyfs-qa apply-compat` promoted 13 statuses per build. 26.121 and
+  26.122 are named as not covered: no executable of theirs is registered here.
+  The sweep was the known gap the 0.10.0 note recorded.
+
 - **`tests/tier3_licensed` is a campaign workspace, run on the licensed
   machine, with one test per row** (PFS-2031.03, PFS-2031.05, PFS-2031.07,
-  GOAL-012). Six run matrices over a synthetic library of nine saved
+  GOAL-012). Seven run matrices over a synthetic library of nine saved
   simulations: the tour (`matriz.fs`), which states every column, every key,
   every run type and every input kind the package reads; a setup study, a
   time-step study and a geometry study; the qa physics cases PHY-01, PHY-02,

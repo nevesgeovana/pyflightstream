@@ -742,7 +742,7 @@ matrix of a workspace states its own POLs; renumber the rows of one of the two.
 ```
 
 The tier-3 workspace of this repository, `tests/tier3_licensed`, is the
-worked example: six matrices, one library, one manifest, and a thousands
+worked example: seven matrices, one library, one manifest, and a thousands
 digit per matrix in their POLs.
 
 ### One row, several rotors

@@ -1,0 +1,180 @@
+schema: pyflightstream-compat-report/1
+fs_version: '26.123'
+date: '2026-09-08'
+package_version: 0.13.0.dev0
+fs_exe: FlightStream_26123.exe
+executor: LocalExecutor, -hidden -script, through pyfs-matrix run on tests/tier3_licensed/matriz_builds.fs
+  (PFS-2028.02)
+solver_identity:
+- 'FlightStream version 26.1, build #8112026'
+summary:
+  verified: 13
+  broken: 0
+  removed: 0
+  unprobed: 0
+commands:
+  SET_MAX_PARALLEL_THREADS:
+    outcome: verified
+    detail: emitted by the unsteady_rotor run type as 'SET_MAX_PARALLEL_THREADS 8' in row 7002 of tests/tier3_licensed/matriz_builds.fs;
+      the run reached CONVERGED (residual 9.3215561e-06) and the log carries no error naming the command
+    signals:
+      sentinel_before: true
+      sentinel_after: true
+      effect: row 7002 CONVERGED, loads table exported
+      log_errors: []
+    wall_time_s: null
+    return_code: 0
+    script_sha256: 2f392588d6664710da1d9f5de1bf8459a6adc87a6e1ef25dd4673b73d42a2be1
+  SET_BOUNDARY_LAYER_TYPE:
+    outcome: verified
+    detail: emitted by the unsteady_rotor run type as 'SET_BOUNDARY_LAYER_TYPE TURBULENT' in row 7002
+      of tests/tier3_licensed/matriz_builds.fs; the run reached CONVERGED (residual 9.3215561e-06) and
+      the log carries no error naming the command
+    signals:
+      sentinel_before: true
+      sentinel_after: true
+      effect: row 7002 CONVERGED, loads table exported
+      log_errors: []
+    wall_time_s: null
+    return_code: 0
+    script_sha256: 2f392588d6664710da1d9f5de1bf8459a6adc87a6e1ef25dd4673b73d42a2be1
+  SET_SOLVER_VISCOUS_COUPLING:
+    outcome: verified
+    detail: emitted by the unsteady_rotor run type as 'SET_SOLVER_VISCOUS_COUPLING DISABLE' in row 7002
+      of tests/tier3_licensed/matriz_builds.fs; the run reached CONVERGED (residual 9.3215561e-06) and
+      the log carries no error naming the command
+    signals:
+      sentinel_before: true
+      sentinel_after: true
+      effect: row 7002 CONVERGED, loads table exported
+      log_errors: []
+    wall_time_s: null
+    return_code: 0
+    script_sha256: 2f392588d6664710da1d9f5de1bf8459a6adc87a6e1ef25dd4673b73d42a2be1
+  SET_SOLVER_CONVERGENCE_ITERATIONS:
+    outcome: verified
+    detail: emitted by the unsteady_rotor run type as 'SET_SOLVER_CONVERGENCE_ITERATIONS 10' in row 7002
+      of tests/tier3_licensed/matriz_builds.fs; the run reached CONVERGED (residual 9.3215561e-06) and
+      the log carries no error naming the command
+    signals:
+      sentinel_before: true
+      sentinel_after: true
+      effect: row 7002 CONVERGED, loads table exported
+      log_errors: []
+    wall_time_s: null
+    return_code: 0
+    script_sha256: 2f392588d6664710da1d9f5de1bf8459a6adc87a6e1ef25dd4673b73d42a2be1
+  SOLVER_MINIMUM_CP:
+    outcome: verified
+    detail: emitted by the unsteady_rotor run type as 'SOLVER_MINIMUM_CP -100.0' in row 7002 of tests/tier3_licensed/matriz_builds.fs;
+      the run reached CONVERGED (residual 9.3215561e-06) and the log carries no error naming the command
+    signals:
+      sentinel_before: true
+      sentinel_after: true
+      effect: row 7002 CONVERGED, loads table exported
+      log_errors: []
+    wall_time_s: null
+    return_code: 0
+    script_sha256: 2f392588d6664710da1d9f5de1bf8459a6adc87a6e1ef25dd4673b73d42a2be1
+  REYNOLDS_AVERAGED_DRAG_FORCES:
+    outcome: verified
+    detail: emitted by the unsteady_rotor run type as 'REYNOLDS_AVERAGED_DRAG_FORCES DISABLE' in row 7002
+      of tests/tier3_licensed/matriz_builds.fs; the run reached CONVERGED (residual 9.3215561e-06) and
+      the log carries no error naming the command
+    signals:
+      sentinel_before: true
+      sentinel_after: true
+      effect: row 7002 CONVERGED, loads table exported
+      log_errors: []
+    wall_time_s: null
+    return_code: 0
+    script_sha256: 2f392588d6664710da1d9f5de1bf8459a6adc87a6e1ef25dd4673b73d42a2be1
+  SOLVER_SET_MESH_INDUCED_WAKE_VELOCITY:
+    outcome: verified
+    detail: emitted by the unsteady_rotor run type as 'SOLVER_SET_MESH_INDUCED_WAKE_VELOCITY ENABLE' in
+      row 7002 of tests/tier3_licensed/matriz_builds.fs; the run reached CONVERGED (residual 9.3215561e-06)
+      and the log carries no error naming the command
+    signals:
+      sentinel_before: true
+      sentinel_after: true
+      effect: row 7002 CONVERGED, loads table exported
+      log_errors: []
+    wall_time_s: null
+    return_code: 0
+    script_sha256: 2f392588d6664710da1d9f5de1bf8459a6adc87a6e1ef25dd4673b73d42a2be1
+  SOLVER_SET_FARFIELD_LAYERS:
+    outcome: verified
+    detail: emitted by the unsteady_rotor run type as 'SOLVER_SET_FARFIELD_LAYERS 3' in row 7002 of tests/tier3_licensed/matriz_builds.fs;
+      the run reached CONVERGED (residual 9.3215561e-06) and the log carries no error naming the command
+    signals:
+      sentinel_before: true
+      sentinel_after: true
+      effect: row 7002 CONVERGED, loads table exported
+      log_errors: []
+    wall_time_s: null
+    return_code: 0
+    script_sha256: 2f392588d6664710da1d9f5de1bf8459a6adc87a6e1ef25dd4673b73d42a2be1
+  SOLVER_UNSTEADY_PRESSURE_AND_KUTTA:
+    outcome: verified
+    detail: emitted by the unsteady_rotor run type as 'SOLVER_UNSTEADY_PRESSURE_AND_KUTTA DISABLE' in
+      row 7002 of tests/tier3_licensed/matriz_builds.fs; the run reached CONVERGED (residual 9.3215561e-06)
+      and the log carries no error naming the command
+    signals:
+      sentinel_before: true
+      sentinel_after: true
+      effect: row 7002 CONVERGED, loads table exported
+      log_errors: []
+    wall_time_s: null
+    return_code: 0
+    script_sha256: 2f392588d6664710da1d9f5de1bf8459a6adc87a6e1ef25dd4673b73d42a2be1
+  SET_WAKE_ON_WAKE_INDUCTION:
+    outcome: verified
+    detail: emitted by the unsteady_rotor run type as 'SET_WAKE_ON_WAKE_INDUCTION ENABLE' in row 7002
+      of tests/tier3_licensed/matriz_builds.fs; the run reached CONVERGED (residual 9.3215561e-06) and
+      the log carries no error naming the command
+    signals:
+      sentinel_before: true
+      sentinel_after: true
+      effect: row 7002 CONVERGED, loads table exported
+      log_errors: []
+    wall_time_s: null
+    return_code: 0
+    script_sha256: 2f392588d6664710da1d9f5de1bf8459a6adc87a6e1ef25dd4673b73d42a2be1
+  ADDITIONAL_WAKE_RELAXATION_ITERATION:
+    outcome: verified
+    detail: emitted by the unsteady_rotor run type as 'ADDITIONAL_WAKE_RELAXATION_ITERATION DISABLE' in
+      row 7002 of tests/tier3_licensed/matriz_builds.fs; the run reached CONVERGED (residual 9.3215561e-06)
+      and the log carries no error naming the command
+    signals:
+      sentinel_before: true
+      sentinel_after: true
+      effect: row 7002 CONVERGED, loads table exported
+      log_errors: []
+    wall_time_s: null
+    return_code: 0
+    script_sha256: 2f392588d6664710da1d9f5de1bf8459a6adc87a6e1ef25dd4673b73d42a2be1
+  SOLVER_STABILIZATION:
+    outcome: verified
+    detail: emitted by the unsteady_rotor run type as 'SOLVER_STABILIZATION 1.0' in row 7002 of tests/tier3_licensed/matriz_builds.fs;
+      the run reached CONVERGED (residual 9.3215561e-06) and the log carries no error naming the command
+    signals:
+      sentinel_before: true
+      sentinel_after: true
+      effect: row 7002 CONVERGED, loads table exported
+      log_errors: []
+    wall_time_s: null
+    return_code: 0
+    script_sha256: 2f392588d6664710da1d9f5de1bf8459a6adc87a6e1ef25dd4673b73d42a2be1
+  SET_ANALYSIS_SYMMETRY_LOADS:
+    outcome: verified
+    detail: emitted by the unsteady_rotor run type as 'SET_ANALYSIS_SYMMETRY_LOADS DISABLE' in row 7002
+      of tests/tier3_licensed/matriz_builds.fs; the run reached CONVERGED (residual 9.3215561e-06) and
+      the log carries no error naming the command
+    signals:
+      sentinel_before: true
+      sentinel_after: true
+      effect: row 7002 CONVERGED, loads table exported
+      log_errors: []
+    wall_time_s: null
+    return_code: 0
+    script_sha256: 2f392588d6664710da1d9f5de1bf8459a6adc87a6e1ef25dd4673b73d42a2be1
