@@ -292,6 +292,8 @@ Milestones and session records are listed in the
     tests ([glossary](index.md#glossary)); the `pyfs-matrix convert`
     CLI (v0.3 line).*
 
+    Read with PFS-2031.20 at 0.13.0 (GOAL-012): the conversion emits the matrix identity as `matrix_stem`, so the round trip through the campaign file stays lossless with the field named apart from the path the conversion read.
+
     A convert command turns a run matrix into the native campaign
     format in one optional invocation, and a reverse conversion
     reproduces every field of the original matrix, verified by a
@@ -602,7 +604,7 @@ the session records.
     *Origin: usage feedback. Evidence: the v0.3 line; table tests on
     the sanitized fixtures.*
 
-    Read with PFS-2031.16 at 0.13.0 (GOAL-012): a product refused by design is a recorded skip in products.json, and the other simulations' products are written.
+    Read with PFS-2031.16 and PFS-2031.19 at 0.13.0 (GOAL-012): a product refused by design is a recorded skip in products.json, the other simulations' products are written, and pyfs-matrix post --strict makes such a skip exit 2.
 
     Every parser result converts to a tidy table
     ([glossary](index.md#glossary)) and to csv; a run merges into one
@@ -643,7 +645,7 @@ the session records.
     *Origin: usage feedback, amending the posture of FR-10/FR-11.
     Evidence: the v0.3 line; resolution hit and miss tests.*
 
-    Read with PFS-2031.03, PFS-2031.04, PFS-2031.05, PFS-2031.06, PFS-2031.07, PFS-2031.12 and PFS-2031.14 at 0.13.0 (GOAL-012): the tier-3 folder is a workspace, several matrices share it with their own plan, sweep and products under post/<matrix>/, every token the package defines is a row that plans offline and runs on the licensed machine, and an executable override with no default version is refused naming the option.
+    Read with PFS-2031.03, PFS-2031.04, PFS-2031.05, PFS-2031.06, PFS-2031.07, PFS-2031.12, PFS-2031.14 and PFS-2031.20 at 0.13.0 (GOAL-012): the tier-3 folder is a workspace, several matrices share it with their own plan, sweep and products under post/<matrix>/, every token the package defines is a row that plans offline and runs on the licensed machine, an executable override with no default version is refused naming the option, and the matrix identity of a campaign and a record is matrix_stem.
 
     The run matrix is a first-class interface of the file-managed
     modality: its reference columns resolve against the workspace
