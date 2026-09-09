@@ -66,6 +66,7 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 import time
 import warnings
@@ -91,7 +92,14 @@ from pyflightstream.cases import (
     point_tag,
     resolve_recipe,
 )
-from pyflightstream.cases.workflows import reduction_windows
+from pyflightstream.cases.workflows import (
+    UNSTEADY_ACTION_COUNT,
+    UNSTEADY_ACTION_PROGRAM,
+    UNSTEADY_ACTION_SCRIPT,
+    UNSTEADY_COUNTER_ACTION,
+    reduction_windows,
+    unsteady_export_threshold,
+)
 from pyflightstream.results import (
     SOLVER_MODES,
     IncompleteOutputError,
@@ -103,6 +111,7 @@ from pyflightstream.results import (
 )
 from pyflightstream.results.conditions import ConditionBinding, bind_conditions
 from pyflightstream.results.tables import sweep_table, write_table
+from pyflightstream.run._actions_counter import render_program
 from pyflightstream.script import Script
 from pyflightstream.versions import FsVersion, resolve
 from pyflightstream.workspace import (
@@ -1243,6 +1252,19 @@ def _file_digest(path: str | Path) -> str | None:
     copy of the same chunked read.
     """
     return optional_file_sha256(path)
+
+
+def _action_count(path: Path) -> int | None:
+    """Read the count the point's counter program reached, or None when it never wrote.
+
+    The program writes its state as one JSON object per invocation,
+    replacing the previous one, and ``count`` is the number of times the
+    solver ran it, which is the number of time steps it completed
+    (RPT-041 finding 2).
+    """
+    if not path.is_file():
+        return None
+    return int(json.loads(path.read_text(encoding="utf-8"))["count"])
 
 
 def _recipe_digest(recipe: ScriptRecipe | None) -> str | None:
@@ -2937,6 +2959,30 @@ def _execute_point(
             target = sim_dir / target
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(action_text, encoding="utf-8")
+    # PFS-2031.18. A script that registered the counter action names a
+    # program this layer writes: the threshold is resolved from the case
+    # again (the same function the builder called, so the two agree),
+    # the program is rendered with the interpreter the registration
+    # line names, and both files are hashed into the record as the
+    # staged inputs they are. The count file of an EARLIER point of the
+    # same case is removed: every point runs in the same folder, and a
+    # count carried over would put the second point past its threshold
+    # before its first step.
+    threshold = None
+    if any(use.name == UNSTEADY_COUNTER_ACTION for use in script.unsteady_actions):
+        threshold = unsteady_export_threshold(point_case)
+    if threshold is not None:
+        program = sim_dir / UNSTEADY_ACTION_PROGRAM
+        program.parent.mkdir(parents=True, exist_ok=True)
+        program.write_text(render_program(threshold, interpreter=sys.executable), encoding="utf-8")
+        (sim_dir / UNSTEADY_ACTION_COUNT).unlink(missing_ok=True)
+        base["inputs_sha256"] = {
+            **inputs_sha256,
+            UNSTEADY_ACTION_PROGRAM: file_sha256(program),
+            UNSTEADY_ACTION_SCRIPT: file_sha256(sim_dir / UNSTEADY_ACTION_SCRIPT),
+        }
+        base["action_program"] = UNSTEADY_ACTION_PROGRAM
+        base["action_script"] = UNSTEADY_ACTION_SCRIPT
     base["script_sha256"] = script_sha
     base["script_path"] = str(Path(script_path).relative_to(sim_dir).as_posix())
     base["raw_flag"] = script.raw_flag
@@ -2985,6 +3031,13 @@ def _execute_point(
     base["cwd"] = result.cwd
     base["timeout_s"] = result.timeout_s
     base["executor"] = invocation_record(executor, result)
+    # PFS-2031.18. How far the counter got, read from the file the
+    # program left, on every path below: a failed execution's count is
+    # evidence about the failure. None when the file was never written,
+    # which is a run with no threshold or a solver that never reached a
+    # time step.
+    if threshold is not None:
+        base["action_count"] = _action_count(sim_dir / UNSTEADY_ACTION_COUNT)
     if result.failed:
         # One composer, never a chain here: the timeout branch used to
         # discard every captured channel, and the timeout branch is the

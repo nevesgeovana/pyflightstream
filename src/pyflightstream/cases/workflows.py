@@ -60,6 +60,7 @@ from __future__ import annotations
 
 import math
 import re
+import sys
 import warnings
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
@@ -90,6 +91,8 @@ __all__ = [
     "BLADES_VARIABLE",
     "DELTA_THETA_VARIABLE",
     "DELTA_TIME_VARIABLE",
+    "EXPORT_UNSTEADY_AFTER_ITER_VARIABLE",
+    "EXPORT_UNSTEADY_AFTER_REV_VARIABLE",
     "GEOMETRY_VARIABLE",
     "LOG_OUTPUT_VARIABLE",
     "BASE_REGIONS_VARIABLE",
@@ -116,6 +119,13 @@ __all__ = [
     "ReductionPlan",
     "RotorSpeed",
     "TimeStepping",
+    "UNSTEADY_ACTION_COUNT",
+    "UNSTEADY_ACTION_PROGRAM",
+    "UNSTEADY_ACTION_SCRIPT",
+    "UNSTEADY_COUNTER_ACTION",
+    "UNSTEADY_EXPORTS_ACTION",
+    "UnsteadyExportThreshold",
+    "WHOLE_RUN_EXPORT_KINDS",
     "Workflow",
     "WorkflowConventions",
     "WorkflowCoverageError",
@@ -132,6 +142,8 @@ __all__ = [
     "rotor_shedding_direction",
     "rotor_speed",
     "rotor_time_stepping",
+    "unsteady_action_command_line",
+    "unsteady_export_threshold",
     "unsteady_time_stepping",
     "select_workflow",
     "workflow_names",
@@ -244,6 +256,21 @@ LOG_OUTPUT_VARIABLE = "LOG_OUTPUT"
 WINDOW_DEGREES_VARIABLE = "WINDOW_DEGREES"
 WINDOW_STEPS_VARIABLE = "WINDOW_STEPS"
 WINDOW_REVOLUTIONS_VARIABLE = "WINDOW_REVOLUTIONS"
+#: The step the per-step exports BEGIN on, stated in revolutions of the
+#: rotor or in time iterations (PFS-2031.18, her design of 2026-09-08,
+#: GeoversePlan design 67). A row states at most one. From that step to
+#: the end of the run the solver exports every per-step kind of the row's
+#: output set after each time step, each file stamped ``_iteration=N`` by
+#: the solver itself (RPT-041 finding 3). Revolutions need a rotor clock,
+#: so the form is refused on the run type that turns nothing; iterations
+#: are accepted on both unsteady types and refused on a steady row, which
+#: has no time loop for an action to run in.
+#:
+#: This is the "after N" form that supersedes the degrees-backwards window
+#: of PFS-2025.08 for the mid-run exports; ``WINDOW_*`` stays what it was,
+#: the averaging window of the reductions.
+EXPORT_UNSTEADY_AFTER_REV_VARIABLE = "EXPORT_UNSTEADY_AFTER_REV"
+EXPORT_UNSTEADY_AFTER_ITER_VARIABLE = "EXPORT_UNSTEADY_AFTER_ITER"
 
 #: The mode the case is initialized under. The accepted tokens are READ
 #: FROM THE COMMAND DATABASE per build rather than restated here, and on
@@ -3359,6 +3386,9 @@ def _build_steady(case: SimCase, script: Script, conventions: WorkflowConvention
     the lines this workflow emitted before 0.8.1.
     """
     _refuse_wake_termination_without_a_clock(case)
+    # A steady row stating an export threshold is refused there, naming
+    # the time loop it lacks (PFS-2031.18); a row stating none returns.
+    unsteady_export_threshold(case, conventions)
     _open_geometry(case, script)
     frame = _moment_frame(case, script)
     frames: dict[str, int | None | Mapping[str, int]] = {"MRP": frame, "PROP_MRP": None}
@@ -3547,6 +3577,292 @@ def _refuse_wake_termination_without_a_rotor(case: SimCase) -> None:
     )
 
 
+# --- PFS-2031.18: exports that begin after a threshold the row states --------
+#
+# HER DESIGN OF 2026-09-08, written down as GeoversePlan design 67 and
+# built here as she drew it. The solver hands an unsteady action nothing
+# about where it is in the run (RPT-041 finding 4), so the run type
+# registers TWO actions, in this order: a COMMAND_LINE running a Python
+# program the run layer writes, which counts its own invocations in a
+# file beside itself and rewrites the second action's file; and a SCRIPT
+# action pointing at that file, which the solver re-reads on every
+# invocation (RPT-041 finding 1). The file is empty until the count
+# reaches the threshold and carries the per-step exports from then on,
+# each stamped ``_iteration=N`` by the solver (finding 3). The count is
+# the step count exactly, with nothing before the first step (finding
+# 2), which is what lets a count stand for a step at all.
+#
+# The paths are RELATIVE TO THE SIMULATION FOLDER, which is the solver's
+# working directory (finding 4, the child's cwd) and the directory the
+# main script's own relative exports land in on every tier-3 row. A
+# relative registration line is the same on every machine, so the tier-3
+# golden pins it; the run layer resolves it against the simulation folder
+# when it writes the two files (PFS-2031.13), and the program derives its
+# own folder from its own location, so the solver's cwd is not what the
+# count depends on. Whether the SOLVER resolves an action's SCRIPT file
+# name relative to its cwd is not measured (the probe used absolute
+# paths); row 6002 of the tier-3 actions matrix is the measurement.
+
+#: The names the two registration lines carry, in creation order. The
+#: solver runs actions in creation order and the order cannot be changed
+#: afterwards, so the counter is registered FIRST: it rewrites the file
+#: before the SCRIPT action of the same step reads it.
+UNSTEADY_COUNTER_ACTION = "pfs_unsteady_counter"
+UNSTEADY_EXPORTS_ACTION = "pfs_unsteady_exports"
+#: The program, the file it rewrites, and the count it keeps, relative to
+#: the simulation folder. Under ``actions/`` and NOT under ``inputs/``:
+#: ``inputs/`` is a junction to the workspace geometry library whenever
+#: the geometry came from it (PFS-2029.17), and a file written there
+#: would land in the library. The two are staged inputs all the same:
+#: the record carries their sha256 beside the geometry's.
+UNSTEADY_ACTION_PROGRAM = "actions/pfs_unsteady_actions.py"
+UNSTEADY_ACTION_SCRIPT = "actions/pfs_unsteady_exports.txt"
+UNSTEADY_ACTION_COUNT = "actions/pfs_unsteady_actions.count"
+#: The export kinds that describe the WHOLE RUN and are therefore not
+#: exported per step: a saved simulation is the full state and is the
+#: size that sends every .fsm to cloud storage, the plots file already
+#: carries every step, and the log is the run's own history. The per-step
+#: set is :data:`~pyflightstream.cases.EXPORT_KINDS` minus these, filtered
+#: by the row's outputs, which the pproc artifact's export set rendered;
+#: nothing here retypes a verb or a suffix.
+WHOLE_RUN_EXPORT_KINDS: tuple[str, ...] = ("simulation", "plots", "log")
+
+
+@dataclass(frozen=True)
+class UnsteadyExportThreshold:
+    """The step the per-step exports begin on, and what they export.
+
+    Attributes
+    ----------
+    stated_form : str
+        ``revolutions`` or ``iterations``: the key the row wrote.
+    stated_value : float
+        The value it wrote.
+    first_step : int
+        The first time step whose export runs: the step at which the
+        invocation count reaches the threshold. ``EXPORT_UNSTEADY_AFTER_ITER:
+        4`` exports at steps 4 to the end; one revolution at ten degrees a
+        step exports from step 36.
+    time_iterations : int
+        Physical time steps of the whole run.
+    delta_time_s : float
+        Solver physical time step in s, written into the program so it
+        can state the physical time of each count.
+    step_deg : float or None
+        Degrees of rotor azimuth per time step, None on a run whose clock
+        has no rotor behind it.
+    rpm : float or None
+        The rotor speed the azimuth is counted against, None likewise.
+    exports : str
+        The child script text the file carries from ``first_step`` on.
+    """
+
+    stated_form: str
+    stated_value: float
+    first_step: int
+    time_iterations: int
+    delta_time_s: float
+    step_deg: float | None
+    rpm: float | None
+    exports: str
+
+    def record(self) -> dict[str, object]:
+        """Return the stated form and the derived step, for a reader of the run."""
+        return {
+            "form": self.stated_form,
+            "stated": self.stated_value,
+            "first_step": self.first_step,
+            "time_iterations": self.time_iterations,
+            "step_deg": self.step_deg,
+            "rpm": self.rpm,
+        }
+
+
+def _per_step_exports(conventions: WorkflowConventions, case: SimCase) -> str:
+    """Return the child script text: the per-step kinds of the row's outputs.
+
+    The names are the row's rendered outputs, the same names the
+    end-of-run block exports, and the solver tells the two apart by the
+    ``_iteration=N`` it stamps on an action's export (RPT-041 finding 3).
+    The verbs are read off :data:`~pyflightstream.cases.EXPORT_KINDS` in
+    its order, and the three update commands precede the exports whenever
+    a section, sectional-loads or probe export is among them, which is the
+    rule :func:`_export_block` follows for the same reason: an export of
+    sections nobody updated is an export of the previous state.
+    """
+    names = list(conventions.outputs or case.outputs)
+    kinds = {
+        kind: name
+        for kind, name in classify_outputs(names).items()
+        if kind not in WHOLE_RUN_EXPORT_KINDS
+    }
+    lines: list[str] = []
+    if any(kind in kinds for kind in ("sections", "sectional_loads", "probes")):
+        lines += ["UPDATE_ALL_SURFACE_SECTIONS", "COMPUTE_SURFACE_SECTIONAL_LOADS NEWTONS"]
+        lines.append("UPDATE_PROBE_POINTS")
+    for kind, _, verb, _ in EXPORT_KINDS:
+        if kind in kinds:
+            lines += [verb, kinds[kind]]
+    return "".join(f"{line}\n" for line in lines)
+
+
+def _rotor_clock(case: SimCase) -> TimeStepping:
+    """Resolve the rotor run type's clock, off the fastest rotor where the row states several."""
+    if case.motions:
+        speeds = [rotor_speed(_motion_view(case, record)) for record in case.motions]
+        speed = max(speeds, key=lambda each: abs(each.rpm))
+    else:
+        speed = rotor_speed(case)
+    return rotor_time_stepping(case, speed=speed)
+
+
+def unsteady_export_threshold(
+    case: SimCase, conventions: WorkflowConventions | None = None
+) -> UnsteadyExportThreshold | None:
+    """Resolve the export threshold a row states, or None when it states none.
+
+    Called by the two unsteady builders before their first emission, so a
+    refusal leaves the script as it was, and again by the run layer, which
+    writes the program from it: it is a function of the case alone, so the
+    two calls agree.
+
+    Parameters
+    ----------
+    case : SimCase
+        The case; its variables may carry ``EXPORT_UNSTEADY_AFTER_REV`` or
+        ``EXPORT_UNSTEADY_AFTER_ITER``.
+    conventions : WorkflowConventions, optional
+        The rendered output names; defaults to the case's own.
+
+    Returns
+    -------
+    UnsteadyExportThreshold or None
+        None when the row states neither key, which is every row written
+        before 0.13.0.
+
+    Raises
+    ------
+    CampaignConfigError
+        If both keys are stated, naming both; if the row names the steady
+        run type, which has no time loop; if the revolutions form is
+        stated on the run type that turns nothing, naming the iterations
+        form that would work; if the value is not a positive number; or if
+        the threshold lies beyond the run, naming both numbers.
+    """
+    stated = {
+        key: text
+        for key in (EXPORT_UNSTEADY_AFTER_REV_VARIABLE, EXPORT_UNSTEADY_AFTER_ITER_VARIABLE)
+        if (text := _variable(case, key)) is not None
+    }
+    if not stated:
+        return None
+    if len(stated) == 2:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} states {EXPORT_UNSTEADY_AFTER_REV_VARIABLE} and "
+            f"{EXPORT_UNSTEADY_AFTER_ITER_VARIABLE} both. The per-step exports begin at "
+            "ONE step, stated in revolutions of the rotor or in time iterations; two "
+            "statements would be two steps nobody keeps in agreement. Keep one."
+        )
+    key = next(iter(stated))
+    workflow = select_workflow(case)
+    if workflow == "steady":
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} states {key} and names the steady run type, which has "
+            "no time loop: an unsteady solver action runs after each time step, and a "
+            "steady solve has none. State the key on an unsteady run type, or drop it."
+        )
+    if workflow == "unsteady_rotor":
+        stepping = _rotor_clock(case)
+    else:
+        stepping = unsteady_time_stepping(case)
+    per_revolution = stepping.steps_per_revolution
+    number: float
+    if key == EXPORT_UNSTEADY_AFTER_REV_VARIABLE:
+        number = _required_float(case, key, quantity="export threshold", unit="revolutions")
+        if workflow != "unsteady_rotor" or per_revolution is None:
+            hint = ""
+            if per_revolution is not None:
+                hint = (
+                    f" This row's azimuthal clock makes {number} revolutions "
+                    f"{math.ceil(number * per_revolution - 1e-9)} steps."
+                )
+            raise CampaignConfigError(
+                f"case {case.sim_id!r} states {key} and names a run type with no rotor "
+                "clock: a revolution is counted on a rotor the run turns, and this one "
+                f"turns nothing. State '{EXPORT_UNSTEADY_AFTER_ITER_VARIABLE}: <steps>' "
+                f"instead.{hint}"
+            )
+        form = "revolutions"
+        first_step = math.ceil(number * per_revolution - 1e-9)
+    else:
+        number = _required_int(case, key, quantity="export threshold", unit="time steps")
+        form = "iterations"
+        first_step = int(number)
+    if number <= 0:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} states {key} as {number}, and the threshold is the step "
+            "the exports begin on, so it is a positive number. "
+            f"'{EXPORT_UNSTEADY_AFTER_ITER_VARIABLE}: 1' exports from the first step."
+        )
+    if first_step > stepping.time_iterations:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} states {key} as {number}, which is step {first_step}, "
+            f"and the run is {stepping.time_iterations} steps long, so no step would "
+            "reach the threshold and nothing would be exported. Lower it, or lengthen "
+            "the run."
+        )
+    return UnsteadyExportThreshold(
+        stated_form=form,
+        stated_value=float(number),
+        first_step=first_step,
+        time_iterations=stepping.time_iterations,
+        delta_time_s=stepping.delta_time_s,
+        # Nine decimals: below what any cell states, so a step of 1200
+        # rev/min at 0.0001 s reads 0.72 in the program and not the
+        # product's last bit.
+        step_deg=None if per_revolution is None else round(360.0 / per_revolution, 9),
+        rpm=stepping.rpm,
+        exports=_per_step_exports(conventions or WorkflowConventions.for_case(case), case),
+    )
+
+
+def unsteady_action_command_line(interpreter: str = sys.executable) -> str:
+    """Return the shell line the COMMAND_LINE action runs: the interpreter, then the program.
+
+    Both quoted, because an interpreter path with a space in it is one
+    argument. The interpreter is the one building the script, which is
+    the one the run layer names when it writes the program, so the line
+    the solver runs and the program it runs agree on which Python.
+    """
+    return f'"{interpreter}" "{UNSTEADY_ACTION_PROGRAM}"'
+
+
+def _unsteady_actions(script: Script, threshold: UnsteadyExportThreshold | None) -> None:
+    """Register the counter and the exports file, in that order, or nothing.
+
+    The SCRIPT file is parked EMPTY: until the count reaches the threshold
+    the solver must find a file with no command in it, and the run layer
+    writes what is parked before the solver starts (PFS-2031.13). A build
+    that does not document the action command is refused by the emitter,
+    naming the command and the builds that do.
+    """
+    if threshold is None:
+        return
+    helpers.unsteady_action(
+        script,
+        name=UNSTEADY_COUNTER_ACTION,
+        kind="COMMAND_LINE",
+        filename=unsteady_action_command_line(),
+    )
+    helpers.unsteady_action(
+        script,
+        name=UNSTEADY_EXPORTS_ACTION,
+        kind="SCRIPT",
+        filename=UNSTEADY_ACTION_SCRIPT,
+        action_script="",
+    )
+
+
 def _build_unsteady(case: SimCase, script: Script, conventions: WorkflowConventions) -> None:
     """Build an unsteady point of a body that does not move.
 
@@ -3556,6 +3872,7 @@ def _build_unsteady(case: SimCase, script: Script, conventions: WorkflowConventi
     """
     _refuse_rotor_keys_on_a_rotorless_run(case)
     _refuse_wake_termination_without_a_rotor(case)
+    threshold = unsteady_export_threshold(case, conventions)
     _open_geometry(case, script)
     frame = _moment_frame(case, script)
     frames: dict[str, int | None | Mapping[str, int]] = {
@@ -3576,6 +3893,7 @@ def _build_unsteady(case: SimCase, script: Script, conventions: WorkflowConventi
     # (PFS-2030.03.04); the revolutions form was refused above.
     _settings(case, script, wake_termination_time_steps=case.solver.wake_termination_steps)
     _pproc_sections(case, script, frames)
+    _unsteady_actions(script, threshold)
     _initialize(case, script)
     helpers.start_solver(script)
     _analysis(case, script, frame)
@@ -3593,6 +3911,9 @@ def _build_unsteady_rotor(case: SimCase, script: Script, conventions: WorkflowCo
     with nothing said, and the rotary motion would then turn about a
     frame that no longer exists.
     """
+    # Resolved before the first emission, as every refusal of a row key
+    # is; a row stating no threshold pays nothing here.
+    threshold = unsteady_export_threshold(case, conventions)
     _open_geometry(case, script)
     frame = _moment_frame(case, script)
     # THE ROTOR FRAME IS THE PROPELLER FRAME, named as her scripts named it
@@ -3609,7 +3930,7 @@ def _build_unsteady_rotor(case: SimCase, script: Script, conventions: WorkflowCo
             label="rotor",
         )
     if case.motions:
-        _rotor_motions(conventions, case, script, frame, prop_frame)
+        _rotor_motions(conventions, case, script, frame, prop_frame, threshold)
         return
     blade_frames = _blade_frames(case, script, prop_frame)
     frames: dict[str, int | None | Mapping[str, int]] = {
@@ -3646,6 +3967,7 @@ def _build_unsteady_rotor(case: SimCase, script: Script, conventions: WorkflowCo
     )
     _settings(case, script, wake_termination_time_steps=_wake_termination(case, stepping))
     _pproc_sections(case, script, frames)
+    _unsteady_actions(script, threshold)
     _initialize(case, script)
     helpers.start_solver(script)
     _analysis(case, script, frame)
@@ -3659,6 +3981,7 @@ def _rotor_motions(
     script: Script,
     frame: int | None,
     prop_frame: int | None,
+    threshold: UnsteadyExportThreshold | None,
 ) -> None:
     """Finish a rotor script whose row states N motions (PFS-2029.11.03).
 
@@ -3725,6 +4048,7 @@ def _rotor_motions(
     )
     _settings(case, script, wake_termination_time_steps=_wake_termination(case, stepping))
     _pproc_sections(case, script, frames)
+    _unsteady_actions(script, threshold)
     _initialize(case, script)
     helpers.start_solver(script)
     _analysis(case, script, frame)

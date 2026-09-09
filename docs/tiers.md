@@ -79,7 +79,7 @@ line but the matrix and the workspace.
 | `matriz_time.fs` | one rotor at six step sizes, 30 down to 2.5 deg, one wing at two | 3001 to 3006, 3010 and 3011 |
 | `matriz_geometry.fs` | one condition, four shapes | 4001 the wing, 4002 its mirrored half, 4003 the body, 4004 the wing with its boundary renamed before the save (RPT-044) |
 | `matriz_physics.fs` | the qa physics cases as rows | 5001 PHY-01, 5002 and 5003 PHY-02, 5005 PHY-05, 5006 PHY-06 |
-| `matriz_actions.fs` | the action re-read probe | 6001 on 26.123, RPT-041 the script-action re-read probe |
+| `matriz_actions.fs` | the unsteady solver actions | 6001 on 26.123, RPT-041 the script-action re-read probe; 6002 the `unsteady` type exporting after iteration 4 of 8 through the two actions of PFS-2031.18 |
 | `matriz_builds.fs` | one rotor row per build this machine holds | 7001 on 26.120 and 7002 on 26.123, RPT-043 the thirteen solver-setting emitters of the rotor path |
 
 Each matrix keeps its own `plan.json`, `sweep.csv` and products under

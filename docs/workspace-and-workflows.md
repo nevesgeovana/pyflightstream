@@ -193,6 +193,19 @@ the decisions and the package derives the rest.
     `loads_a+00.0.txt`, so a name could never match. Order survives
     rendering; a name does not.
 
+* `EXPORT_UNSTEADY_AFTER_REV: <turns>` or `EXPORT_UNSTEADY_AFTER_ITER:
+  <steps>`, at most one per row, is the step the PER-STEP exports begin
+  on. From that step to the end of the run the solver exports every
+  per-step kind of the row's output set after each time step, and stamps
+  each file with the iteration: a row whose stem is `POLAR-7001_...`
+  leaves `POLAR-7001_..._iteration=72.txt`, `_iteration=73.txt` and so
+  on beside the end-of-run export of the same name. Revolutions are
+  counted on the rotor the run turns, so that form belongs to
+  `unsteady_rotor`; `unsteady` takes the iterations form only, and a
+  steady row is refused either, having no time loop for an action to
+  run in. See [exports that begin after a threshold](#exports-that-begin-after-a-threshold)
+  for the worked example and what the run leaves.
+
 **THE RESERVED NAMES ARE THESE, AND THE LIST HAS GROWN TWICE.**
 `VAR_NAMES_VALUES` is your namespace except for the keys the package
 itself reads, and a cell of yours that already spells one of them is
@@ -206,6 +219,7 @@ read by the package rather than ignored:
 | v0.10.1 | none. What changed is what `MOVING_BOUNDARIES` ACCEPTS: see below |
 | v0.11.0 | `MOTIONS`, a list of records, one rotor each: `MOTIONS: {MOVING_BOUNDARIES: Blade1 / RPM: 1200 / RPM_SIGN: 1 / ROTOR_AXIS: X / ROTOR_ORIGIN: ERP1}, {...}`; a record's `ROTOR_ORIGIN` is three coordinates or the name of an engine point of `inputs/reference_points.toml`, and no flat motion key may stand beside the list (PFS-2029.11) |
 | v0.11.0 | `BASE_REGIONS`, the mesh families the base-region autodetect may consider, one `DETECT_BASE_REGIONS_BY_SURFACE` per boundary of them after `OPEN`; it overrides the pproc artifact's `base_regions`, and naming none emits nothing (PFS-2029.10) |
+| v0.13.0 | `EXPORT_UNSTEADY_AFTER_REV` and `EXPORT_UNSTEADY_AFTER_ITER`, the step the per-step exports begin on, one per row at most; the first on `unsteady_rotor` only, both refused on `steady` (PFS-2031.18) |
 
 **`MOVING_BOUNDARIES` NAMES SURFACES, AND SHOULD NOT COUNT THEM.** Write
 the boundary names the geometry carries, or a FAMILY name, which is a
@@ -1134,6 +1148,64 @@ naming both numbers.
 The same window is the AVERAGING window of the reductions below. There
 is one window, not two, because two windows you have to keep consistent
 is a defect waiting to happen.
+
+### Exports that begin after a threshold
+
+A rotor run settles over its first revolutions, and the loads, sections
+and probes worth keeping are the ones after that. `EXPORT_UNSTEADY_AFTER_REV`
+states the revolution the per-step exports begin at; `EXPORT_UNSTEADY_AFTER_ITER`
+states it as a time step instead. Put one of them on row 7001 above,
+with the azimuthal clock:
+
+```text
+VELOCITY: 30.0 / RPM: 1200 / ROTOR_AXIS: X / BLADES: 4 / DELTA_THETA: 10 / REVOLUTIONS: 3 / WINDOW_DEGREES: 90 / EXPORT_UNSTEADY_AFTER_REV: 2
+```
+
+Ten degrees a step and three revolutions are 108 steps, and two
+revolutions are step 72, so the solver exports after each of steps 72 to
+108: 37 files per kind, each stamped with its iteration by the solver
+itself, `POLAR-7001_..._iteration=72.txt` and so on, beside the
+end-of-run export of the same name. The script the row builds registers
+two unsteady solver actions before the solver is initialized, in this
+order:
+
+```text
+SET_NEW_UNSTEADY_SOLVER_ACTION COMMAND_LINE pfs_unsteady_counter
+"<python>" "actions/pfs_unsteady_actions.py"
+
+SET_NEW_UNSTEADY_SOLVER_ACTION SCRIPT pfs_unsteady_exports
+actions/pfs_unsteady_exports.txt
+```
+
+`<python>` is the interpreter that built the script. The solver hands an
+action nothing about where it is in the run, no step, no azimuth, no
+environment (RPT-041), so the first action is a small Python program the
+run layer writes into the point's `actions/` folder. It counts its own
+invocations in a file beside itself, derives the azimuth and the
+revolution from the count with the step in degrees and the rotor speed
+the package wrote into it, and rewrites the second action's file: empty
+until the count reaches the threshold, and from then on the export of
+every per-step kind the row's output set declares. The solver runs the
+two in creation order after every time step and re-reads the file each
+time, so the rewrite is what it executes. Both files are staged inputs
+of the point: the run record names them as `action_program` and
+`action_script`, hashes them in `inputs_sha256`, and keeps in
+`action_count` the count the program reached, which is the number of time
+steps the solver completed.
+
+What is exported per step is read from the row's outputs and nowhere
+else: the loads table, the Tecplot file, the sections, the sectional
+loads and the probes, whichever the pproc artifact's export set kept.
+The saved simulation, the plots file and the log describe the whole run
+and stay at the end. A row stating both keys is refused naming both; a
+threshold beyond the run is refused naming both numbers; the revolutions
+form on `unsteady` is refused naming the iterations form that would work,
+because a run that turns nothing has no revolution to count.
+
+This replaces the degrees-backwards window of PFS-2025.08 for the mid-run
+exports: the exports begin AFTER a threshold, in her definition, and the
+`WINDOW_*` keys keep their one job, the averaging window of the
+reductions.
 
 ### The build is an input
 

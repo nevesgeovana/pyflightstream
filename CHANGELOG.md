@@ -136,6 +136,29 @@ FlightStream versions.
   missing sample; it is written at the reduction's own seam because the
   products stage carries no far-field product yet, and the test says so.
 
+- **Exports that begin after a threshold the row states** (PFS-2031.18,
+  her design of 2026-09-08, GeoversePlan design 67). Two row keys enter the
+  vocabulary of the two unsteady run types, `EXPORT_UNSTEADY_AFTER_REV` on
+  `unsteady_rotor` and `EXPORT_UNSTEADY_AFTER_ITER` on both, one per row at
+  most and refused on a steady row. A row stating one registers two unsteady
+  solver actions before the solver is initialized: a `COMMAND_LINE` running a
+  counter program the run layer writes into the point's `actions/` folder,
+  which counts its own invocations, derives the azimuth and the revolution
+  from the count with the step in degrees and the rotor speed written into
+  it, and rewrites the second action's file; and a `SCRIPT` pointing at that
+  file, empty until the count reaches the threshold and carrying the export
+  of every per-step kind of the row's output set from then on. The scheme
+  rests on the five facts RPT-041 measured on 26.123: the SCRIPT file is
+  re-read on every invocation, the count is the step count exactly, the
+  action gets no arguments and no solver-named environment, it runs from the
+  simulation folder, and the solver stamps `_iteration=N` on each export.
+  The run record names the two files as `action_program` and
+  `action_script`, hashes them in `inputs_sha256`, and keeps in
+  `action_count` the count the program reached. Row 6002 of
+  `tests/tier3_licensed/matriz_actions.fs` runs the `unsteady` type with
+  the threshold at iteration 4 of 8 on 26.123; its golden is new and no
+  other moved.
+
 - **`tests/tier3_licensed` is a campaign workspace, run on the licensed
   machine, with one test per row** (PFS-2031.03, PFS-2031.05, PFS-2031.07,
   GOAL-012). Seven run matrices over a synthetic library of nine saved

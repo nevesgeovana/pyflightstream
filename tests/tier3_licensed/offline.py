@@ -34,6 +34,10 @@ HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[1]
 GOLDENS = HERE / "goldens"
 PLACEHOLDER = "<tier3>"
+#: The interpreter a row stating an export threshold names on its
+#: COMMAND_LINE registration line (PFS-2031.18): the one building the
+#: script, so the golden replaces it as it replaces this folder.
+INTERPRETER = "<python>"
 
 
 def matrices() -> list[Path]:
@@ -47,10 +51,12 @@ def portable(text: str) -> str:
     machine's own separator, so a golden written on Windows read
     ``<tier3>\\inputs`` where Linux renders ``<tier3>/inputs``; CI measured
     every tier-3 golden as differing on 2026-09-08. The placeholder's paths
-    are therefore written with forward slashes on every machine.
+    are therefore written with forward slashes on every machine. The
+    interpreter of the machine that rendered is replaced the same way.
     """
     for spelling in (HERE.as_posix(), str(HERE), str(HERE).replace("\\", "\\\\")):
         text = text.replace(spelling, PLACEHOLDER)
+    text = text.replace(sys.executable, INTERPRETER)
     lines = []
     for line in text.replace("\r\n", "\n").split("\n"):
         lines.append(line.replace("\\", "/") if line.startswith(PLACEHOLDER) else line)

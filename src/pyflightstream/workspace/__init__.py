@@ -599,6 +599,24 @@ class RunRecord(BaseModel):
         The reference length in m that the resolution used, which is
         ``None`` unless a Reynolds number was stated. Recorded because
         the resolved density cannot be checked without it.
+    action_program : str, optional
+        The counter program the run layer wrote for a row stating
+        ``EXPORT_UNSTEADY_AFTER_REV`` or ``EXPORT_UNSTEADY_AFTER_ITER``
+        (PFS-2031.18), relative to the simulation folder; its sha256 is
+        in ``inputs_sha256`` under the same name, because the program is
+        an input of the run like the geometry. None for a row stating
+        neither key, which is every record written before 0.13.0.
+    action_script : str, optional
+        The file the SCRIPT action points at and the program rewrites,
+        relative to the simulation folder; ``inputs_sha256`` carries the
+        hash of the EMPTY file the run layer wrote, not of what the run
+        left, which is the rewritten one. None likewise.
+    action_count : int, optional
+        The invocation count the program reached, read from its count
+        file after the solver exited: the number of time steps the
+        solver completed, since the count is the step count exactly
+        (RPT-041). None when the file was never written: a row with no
+        threshold, or a solver that never reached a time step.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -745,6 +763,13 @@ class RunRecord(BaseModel):
     wall_time_s: float | None = None
     outputs: list[str] = Field(default_factory=list)
     error: str | None = None
+    #: The two files of a row stating an export threshold (PFS-2031.18),
+    #: relative to the simulation folder, and the count the program
+    #: reached; None on every record written before 0.13.0 and on a row
+    #: stating no threshold. Adding them did not move MANIFEST_SCHEMA.
+    action_program: str | None = None
+    action_script: str | None = None
+    action_count: int | None = None
 
 
 def _is_link(path: Path) -> bool:
