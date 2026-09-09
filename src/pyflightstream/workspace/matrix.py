@@ -1232,6 +1232,10 @@ def resolve_matrix(
                 ),
             ),
             "solver": solvers[row.set_code],
+            # THE SETUP'S FRAMES RIDE ON THE CASE (PFS-2034.01), created by the
+            # builders after the package's own; a setup defining none leaves
+            # the list empty and the script unchanged.
+            "frames": list(setups[row.set_code].frames),
             # THE PPROC ARTIFACT RIDES ON THE CASE (PFS-2029.07.03): the
             # builders emit its sections, plots and probes and export the
             # kinds it selects, and the record names its id. A LEGACY row's

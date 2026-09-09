@@ -63,7 +63,9 @@ __all__ = [
     "FLUID_PLOT_PARAMETERS",
     "FORCE_PLOT_PARAMETERS",
     "PPROC_FRAMES",
+    "FrameSpec",
     "PprocSpec",
+    "RESERVED_FRAME_NAMES",
     "SectionsSpec",
     "PlotsSpec",
     "ProbesSpec",
@@ -486,6 +488,43 @@ class ProductsSpec(BaseModel):
     sections: bool = True
     plots: bool = True
     her_polar_format: bool = False
+
+
+#: Frame names the package creates itself (PFS-2030.03.02); a setup may
+#: not define one of these, because the row's rotation and the pproc
+#: definitions resolve them to the package's own frames.
+RESERVED_FRAME_NAMES: tuple[str, ...] = ("MRP", "PROP_MRP")
+
+
+class FrameSpec(BaseModel):
+    """One custom coordinate system a setup artifact defines (PFS-2034.01).
+
+    Her design of 2026-09-09 (design/69): the row's rotation names an
+    axis as ``<frame>-<X|Y|Z>``, and the frame is one the setup defined
+    here or one the package creates (``MRP``, ``PROP_MRP``). The origin
+    and the two axes are in the geometry's own frame, the solver's
+    reference frame; the third axis is the right-handed cross product,
+    as :func:`pyflightstream.script.helpers.coordinate_frame` computes it.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str
+    origin: tuple[float, float, float]
+    x_axis: tuple[float, float, float] = (1.0, 0.0, 0.0)
+    y_axis: tuple[float, float, float] = (0.0, 1.0, 0.0)
+
+    @model_validator(mode="after")
+    def _a_name_of_its_own(self) -> FrameSpec:
+        name = self.name.strip()
+        if not name:
+            raise ValueError("a frame needs a name")
+        if name.upper() in RESERVED_FRAME_NAMES:
+            raise ValueError(
+                f"the frame name {self.name!r} is one the package creates itself "
+                f"({', '.join(RESERVED_FRAME_NAMES)}); choose another name"
+            )
+        return self
 
 
 class PprocSpec(BaseModel):
@@ -1160,6 +1199,11 @@ class SimCase(BaseModel):
     #: which emits the default export set and no sections, plots or probes.
     pproc: PprocSpec | None = None
     pproc_id: str | None = None
+    #: The custom coordinate systems the row's setup defines (PFS-2034.01),
+    #: created after the package's own frames in the order written; empty
+    #: for a setup that defines none, which is every setup written before
+    #: 0.14.0.
+    frames: list[FrameSpec] = Field(default_factory=list)
     #: The boundary order a sidecar beside the geometry states
     #: (PFS-2029.06.03), bound by the workspace; the builder refuses the
     #: run when the file's own mesh block disagrees with it.

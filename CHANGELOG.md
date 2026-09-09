@@ -7,6 +7,22 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Added
+
+- **A setup artifact defines custom coordinate systems, created after the
+  package's own** (PFS-2034.01, her design of 2026-09-09, design/69, the
+  first node of the incidence study). A `[[frames]]` table, one entry per
+  frame with `name`, `origin` and optionally `x_axis` and `y_axis` in the
+  geometry's own frame, read out of the raw settings by `resolve_setup`
+  so the solver-setting loop never meets it, carried on the case as
+  `SimCase.frames`, and emitted by every run type after `MRP` and
+  `PROP_MRP` and before any motion, through `helpers.coordinate_frame`.
+  A name the package creates itself, a name defined twice, or an origin
+  that is not three numbers is refused at plan time naming the preset. A
+  setup defining none emits nothing: the seven tier-3 matrices render
+  byte-identical (`python -m tests.tier3_licensed.offline`, 0 differing).
+  RED on b376b14: the table was refused as a key naming no solver setting.
+
 ## [0.13.1] - 2026-09-09
 
 ### Fixed

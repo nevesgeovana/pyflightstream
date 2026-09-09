@@ -609,3 +609,65 @@ def test_a_row_on_a_second_build_is_run_under_that_builds_grammar(tmp_path, monk
     assert by_sim["6002"].fs_version_requested == "26.123"
     assert by_sim["6002"].fs_version_source == "row"
     assert by_sim["1001"].fs_version_requested == "26.120"
+
+
+def _rendered(root, matrix):
+    """The dry-run scripts of a matrix over ``root``, by point stem.
+
+    The hook the offline renderer of tier 3 uses, so a test reads what the
+    solver would receive rather than what a builder was told.
+    """
+    import pyflightstream.run as prun
+    from pyflightstream.script import Script
+
+    rendered = {}
+    original = prun._plan_point
+
+    def hooked(campaign, case, point, ws, recipe, case_error, recorded, *, fs_version):
+        plan = original(
+            campaign, case, point, ws, recipe, case_error, recorded, fs_version=fs_version
+        )
+        if plan.status.name in ("READY", "ALREADY_RECORDED") and recipe is not None:
+            stem, outputs = prun._point_names(campaign, case, point, ws)
+            script = Script(version=fs_version)
+            recipe(case.model_copy(update={"point": dict(point), "outputs": outputs}), script)
+            rendered[stem] = script.render()
+        return plan
+
+    prun._plan_point = hooked
+    try:
+        plan = _plan(root, matrix)
+    finally:
+        prun._plan_point = original
+    return plan, rendered
+
+
+def test_a_setup_with_frames_renders_them_after_the_packages_own_and_before_the_motion(tmp_path):
+    """PFS-2034.01: a rotor row citing a setup that defines NAC has the frame created
+    after PROP_MRP and before the motion; a row citing the plain setup renders no
+    extra frame (the goldens are the control). RED on b376b14: the setup is refused
+    as stating a key naming no setting."""
+    root = _tier3_copy(tmp_path)
+    plain = (root / "inputs" / "setups" / "s002.toml").read_text(encoding="utf-8")
+    (root / "inputs" / "setups" / "s090.toml").write_text(
+        plain.rstrip("\n") + '\n\n[[frames]]\nname = "NAC"\norigin = [0.4, 0.0, 0.1]\n',
+        encoding="utf-8",
+    )
+    rotor = next(
+        line
+        for line in TOUR.read_text(encoding="utf-8").splitlines()
+        if "| unsteady_rotor " in line
+    )
+    cells = rotor.split("|")
+    cells[7] = " s090 "
+    matrix = _one_row_matrix(root, "frames.fs", "|".join(cells))
+    plan, rendered = _rendered(root, matrix)
+    assert not plan.blocked, plan.summary()
+    lines = next(iter(rendered.values())).splitlines()
+    # A frame is a keyword block: EDIT_COORDINATE_SYSTEM, then FRAME n, then NAME.
+    edits = [i for i, line in enumerate(lines) if line == "EDIT_COORDINATE_SYSTEM"]
+    names = [lines[i + 2].split(" ", 1)[1] for i in edits]
+    assert names[:3] == ["MRP", "PROP_MRP", "NAC"], names
+    named = lines.index("NAME NAC")
+    motion = next(i for i, line in enumerate(lines) if line.startswith("CREATE_NEW_MOTION"))
+    assert named < motion, "the setup's frame must exist before the motion is created"

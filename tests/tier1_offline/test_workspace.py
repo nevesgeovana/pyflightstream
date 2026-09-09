@@ -2762,3 +2762,56 @@ def test_the_old_property_names_warn_from_the_ledger():
     with pytest.warns(DeprecationWarning) as caught:
         assert script.broken_commands == ()
     assert [str(w.message) for w in caught] == [SCRIPT_BROKEN_COMMANDS.message()]
+
+
+FRAMES = (
+    'NITER = 100\n\n[[frames]]\nname = "NAC"\norigin = [1.0, 0.5, 0.0]\n'
+    "x_axis = [1.0, 0.0, 0.0]\ny_axis = [0.0, 1.0, 0.0]\n\n"
+    '[[frames]]\nname = "WING"\norigin = [0.0, 0.0, 0.0]\n'
+)
+
+
+def test_a_setup_defines_custom_frames_by_name(tmp_path):
+    """PFS-2034.01, her design of 2026-09-09 (design/69): the setup artifact defines
+    coordinate systems the row's rotation points at. RED on b376b14: the artifact
+    keeps the table verbatim and carries no frames; _solver_from_setup then refuses
+    the key as one naming no setting."""
+    from pyflightstream.workspace.inputs import FRAMES_TABLE
+    from pyflightstream.workspace.matrix import _solver_from_setup
+
+    workspace = library(tmp_path)
+    (workspace.inputs_dir / "setups" / "sframes.toml").write_text(FRAMES, encoding="utf-8")
+    setup = workspace.resolve_setup("sframes")
+    assert FRAMES_TABLE == "frames"
+    assert [f.name for f in setup.frames] == ["NAC", "WING"]
+    assert setup.frames[0].origin == (1.0, 0.5, 0.0)
+    assert setup.frames[1].x_axis == (1.0, 0.0, 0.0), "an axis left unstated is the reference axis"
+    assert FRAMES_TABLE not in setup.settings, "the table is not a solver setting"
+    assert _solver_from_setup(setup, "sframes").iterations == 100
+
+
+@pytest.mark.parametrize(
+    ("body", "fragment"),
+    [
+        ('[[frames]]\nname = "MRP"\norigin = [0.0, 0.0, 0.0]\n', "MRP"),
+        ('[[frames]]\nname = "PROP_MRP"\norigin = [0.0, 0.0, 0.0]\n', "PROP_MRP"),
+        (
+            '[[frames]]\nname = "A"\norigin = [0.0, 0.0, 0.0]\n'
+            '[[frames]]\nname = "A"\norigin = [1.0, 0.0, 0.0]\n',
+            "twice",
+        ),
+        ('[[frames]]\nname = "A"\norigin = [0.0, 0.0]\n', "origin"),
+    ],
+)
+def test_a_frame_the_package_names_or_a_repeated_frame_is_refused_naming_the_setup(
+    tmp_path, body, fragment
+):
+    from pyflightstream.workspace import InputArtifactError
+
+    workspace = library(tmp_path)
+    (workspace.inputs_dir / "setups" / "sbad.toml").write_text(
+        "NITER = 100\n" + body, encoding="utf-8"
+    )
+    with pytest.raises(InputArtifactError, match=r"sbad") as caught:
+        workspace.resolve_setup("sbad")
+    assert fragment in str(caught.value)

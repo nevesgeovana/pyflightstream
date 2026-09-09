@@ -518,6 +518,25 @@ knowing.
     with its reason. What the paragraph is for is that the set is
     closed and short enough to see at once.
 
+A preset may also define **custom coordinate systems**, since 0.14.0
+(PFS-2034.01), in a `[[frames]]` table, one entry per frame:
+
+    [[frames]]
+    name = "NAC"                # the name the solver shows and a row's rotation cites
+    origin = [0.42, 0.0, 0.11]  # in the geometry's own frame, simulation length units
+    x_axis = [1.0, 0.0, 0.0]    # optional; the reference axes when left unstated
+    y_axis = [0.0, 1.0, 0.0]
+
+Every row citing the preset has them created right after the frames the
+package makes itself (`MRP` at the moment point, `PROP_MRP` at the
+propeller), in the order written and before any motion, so a rotor whose
+axis frame is one of these turns about a frame that exists. The table is
+not a solver setting and never reaches the refusal above. A name the
+package creates itself (`MRP`, `PROP_MRP`), a name defined twice, or an
+origin that is not three numbers is refused at plan time naming the
+preset. What the frames are FOR is the row's rotation of a boundary
+family about one of their axes, which 0.14.0 adds beside them.
+
     A preset may declare its own with `recorded_only = ["my_setting"]`,
     for a setting from a build or a workflow this package has not met. A
     declared key still warns, because the point is that its author knows

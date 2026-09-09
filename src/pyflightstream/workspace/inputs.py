@@ -85,7 +85,7 @@ from pydantic import (
 # same public spelling.
 from pyflightstream._errors import InputArtifactError
 from pyflightstream._fsm import MeshReadError, boundary_names
-from pyflightstream.cases import PprocSpec
+from pyflightstream.cases import FrameSpec, PprocSpec
 
 # DOWNWARD, and the two imports in this module that leave the workspace
 # layer: `cases` sits below `workspace` in the house order, and the
@@ -399,6 +399,30 @@ class SetupArtifact(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     settings: dict[str, Any]
+    #: The custom coordinate systems the ``[[frames]]`` table defines
+    #: (PFS-2034.01), in the order written; consumed out of ``settings``
+    #: by :func:`resolve_setup` so the solver-setting loop never sees them.
+    frames: list[FrameSpec] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _one_frame_per_name(self) -> SetupArtifact:
+        seen: set[str] = set()
+        for frame in self.frames:
+            key = frame.name.strip().upper()
+            if key in seen:
+                raise ValueError(
+                    f"the frame name {frame.name!r} is defined twice; one definition per name"
+                )
+            seen.add(key)
+        return self
+
+
+#: The table of a setup artifact that defines custom coordinate systems
+#: (PFS-2034.01): ``[[frames]]``, one entry per frame with ``name``,
+#: ``origin`` and optionally ``x_axis`` and ``y_axis``. The name is read
+#: by the goal checker of 0.14.0 and by the documentation; change it here
+#: and both follow.
+FRAMES_TABLE = "frames"
 
 
 class PprocArtifact(PprocSpec):
@@ -825,7 +849,17 @@ def resolve_setup(inputs_dir: Path, artifact_id: str) -> SetupArtifact:
         raise _miss("setup", artifact_id, directory)
     data = _load_toml(path, "setup")
     refuse_empty_selections("setup", path, data)
-    return _validate(SetupArtifact, {"settings": data}, path, "setup")
+    # THE FRAMES TABLE IS NOT A SOLVER SETTING (PFS-2034.01): it leaves the
+    # raw table here, so the loop that refuses a key naming no setting never
+    # meets it, and it is validated as the list of records it is.
+    frames = data.pop(FRAMES_TABLE, [])
+    if not isinstance(frames, list) or not all(isinstance(entry, dict) for entry in frames):
+        raise InputArtifactError(
+            f"setup preset {artifact_id!r} ({path}) states [{FRAMES_TABLE}] as {frames!r}, "
+            f"and the table is a list of records: write [[{FRAMES_TABLE}]] once per frame "
+            "with name, origin and optionally x_axis and y_axis."
+        )
+    return _validate(SetupArtifact, {"settings": data, "frames": frames}, path, "setup")
 
 
 def resolve_pproc(inputs_dir: Path, artifact_id: str) -> PprocArtifact:

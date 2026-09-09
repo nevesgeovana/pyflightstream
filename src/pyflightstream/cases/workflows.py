@@ -3291,6 +3291,28 @@ def _pproc_frame(
     return found
 
 
+def _setup_frames(case: SimCase, script: Script) -> dict[str, int]:
+    """Create the custom frames the row's setup defines, returning name to index.
+
+    PFS-2034.01, her design of 2026-09-09 (design/69). Emitted after the
+    package's own frames (MRP, PROP_MRP) so their indices stay what her
+    scripts numbered them, and before any motion, so a rotor whose axis
+    frame is one of these turns about a frame that exists. A setup that
+    defines none emits nothing, which is every golden.
+    """
+    created: dict[str, int] = {}
+    for spec in case.frames:
+        created[spec.name] = helpers.coordinate_frame(
+            script,
+            name=spec.name,
+            origin=spec.origin,
+            x_axis=spec.x_axis,
+            y_axis=spec.y_axis,
+            label=spec.name,
+        )
+    return created
+
+
 def _blade_frames(case: SimCase, script: Script, prop_frame: int) -> dict[str, int]:
     """Create one axis frame per blade family, turned about the rotor frame.
 
@@ -3603,6 +3625,7 @@ def _build_steady(case: SimCase, script: Script, conventions: WorkflowConvention
     _open_geometry(case, script)
     frame = _moment_frame(case, script)
     frames: dict[str, int | None | Mapping[str, int]] = {"MRP": frame, "PROP_MRP": None}
+    frames.update(_setup_frames(case, script))
     _significant_digits(case, script)
     helpers.free_stream(script)
     _fluid(case, script)
@@ -4091,6 +4114,7 @@ def _build_unsteady(case: SimCase, script: Script, conventions: WorkflowConventi
         "MRP": frame,
         "PROP_MRP": _propeller_frame(case, script),
     }
+    frames.update(_setup_frames(case, script))
     _pproc_plots(case, script, frames)
     _significant_digits(case, script)
     helpers.free_stream(script)
@@ -4142,6 +4166,7 @@ def _build_unsteady_rotor(case: SimCase, script: Script, conventions: WorkflowCo
             y_axis=(0.0, 1.0, 0.0),
             label="rotor",
         )
+    setup_frames = _setup_frames(case, script)
     if case.motions:
         _rotor_motions(conventions, case, script, frame, prop_frame, threshold)
         return
@@ -4151,6 +4176,7 @@ def _build_unsteady_rotor(case: SimCase, script: Script, conventions: WorkflowCo
         "PROP_MRP": prop_frame,
         "BLADE_AXIS": blade_frames or None,
     }
+    frames.update(setup_frames)
     _pproc_plots(case, script, frames)
     _significant_digits(case, script)
     helpers.free_stream(script)
