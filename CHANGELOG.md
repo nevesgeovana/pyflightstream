@@ -54,7 +54,15 @@ FlightStream versions.
   and the provenance document as `pyfs:aliases`, so the products stage
   resolves a group by them without opening the preset. A cell naming an
   alias none of whose members the file carries is refused naming the
-  alias.
+  alias. With them, two readings of the pproc artifact widen (her own
+  p001 of the same day): a `families` entry may be a bare word, an alias
+  or a family name, judged at build time and skipped when it resolves to
+  nothing, where the reader refused any word outside the five selectors;
+  and an entry's `frame` may name a frame the setup's `[[frames]]` table
+  defines or, on a row with several rotors, one rotor's own `PROP_MRP<k>`
+  or `RotorAxis<k>`, where the reader accepted MRP, PROP_MRP and
+  BLADE_AXIS alone. A frame the run did not create is still refused at
+  plan time naming the frames it did.
 
 ### Added
 

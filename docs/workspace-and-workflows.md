@@ -849,8 +849,8 @@ custom_polar_format = false    # beside each polar table, the text file the auth
 ```
 
 Three things carry the artifact across configurations. A `families` entry
-is a list of family names, an alias of the row's setup (read first,
-above), or one of five SELECTORS: `all` (every
+is a list of family names, a bare word (an alias of the row's setup, read
+first, above; else a family name), or one of five SELECTORS: `all` (every
 boundary, the command's own `-1` form), `airframe` (every family that is
 not a blade), `blades`, `each` (one entry per family the geometry carries,
 the name carrying `{family}`) and `each_blade`; a family the geometry does
@@ -859,12 +859,15 @@ isolated rotor, and an entry that resolves to nothing is skipped. A blade
 is told from the airframe by `blade_pattern`, a regular expression over the
 family name, `^Blade\d+$` unless the file says otherwise. A `frame` is
 cited by NAME: `MRP`, the moment frame the reference artifact creates;
-`PROP_MRP`, the propeller frame of the two unsteady run types; and
+`PROP_MRP`, the propeller frame of the two unsteady run types;
 `BLADE_AXIS`, one frame per blade that the rotor run type creates
 (`BladeAxis1`, `BladeAxis2`, ..., turned about the rotor axis by each
-blade's share of a turn) and registers as the motion's moving frames. An
-entry citing a frame the run did not create is refused naming the frames
-it did.
+blade's share of a turn) and registers as the motion's moving frames; a
+frame the row's setup defines in its `[[frames]]` table, by the name
+written there (`LIFTERS_MRP`); and, on a row with several rotors, one
+rotor's own frames, `PROP_MRP1` (its hub) and `RotorAxis1` (its moving
+frame). An entry citing a frame the run did not create is refused at
+plan time naming the frames it did.
 
 An entry that resolves to nothing is skipped; an entry WRITTEN as nothing
 is refused, at `pyfs-matrix plan`, naming the file, the key as the file

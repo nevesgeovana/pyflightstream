@@ -2222,13 +2222,22 @@ def test_the_pproc_artifact_validates_its_six_tables(tmp_path):
     )
     with pytest.raises(InputArtifactError, match="cannot be deselected"):
         workspace.resolve_pproc("p012")
-    # A family selector outside the five, and a name placeholder on a group
-    # that does not expand, are each refused by shape.
+    # A bare word outside the five selectors is an alias of the setup or a
+    # family, judged at build time against the row (her p001 of 2026-09-09
+    # writes families = "Lifters"); so is a frame name the package does not
+    # create itself, which the build refuses naming the frames it created.
     (workspace.inputs_dir / "pproc" / "p013.toml").write_text(
-        '[[sections.distributions]]\nfamilies = "every"\nplanes = ["XZ"]\n', encoding="utf-8"
+        '[[sections.distributions]]\nfamilies = "Lifters"\nframe = "LIFTERS_MRP"\n'
+        'planes = ["XZ"]\n',
+        encoding="utf-8",
     )
-    with pytest.raises(InputArtifactError, match="all, airframe, blades, each, each_blade"):
-        workspace.resolve_pproc("p013")
+    read = workspace.resolve_pproc("p013").sections.distributions[0]
+    assert (read.families, read.frame) == ("Lifters", "LIFTERS_MRP")
+    (workspace.inputs_dir / "pproc" / "p014.toml").write_text(
+        '[[sections.distributions]]\nfamilies = ""\nplanes = ["XZ"]\n', encoding="utf-8"
+    )
+    with pytest.raises(InputArtifactError, match="families"):
+        workspace.resolve_pproc("p014")
 
 
 def test_the_documented_pproc_artifact_resolves_as_the_page_reads(tmp_path):

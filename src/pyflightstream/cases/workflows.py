@@ -4590,6 +4590,9 @@ def _rotor_motions(
             }
         )
     _rotations(case, script, named, followers=followers, spinning=spinning)
+    # The pproc entries cite a rotor's frames by the same names (her p001
+    # of 2026-09-09: PUSHER_X in PROP_MRP2 while the lifters spin).
+    frames.update({name: index for name, index in named.items() if index is not None})
     _pproc_plots(case, script, frames)
     _significant_digits(case, script)
     helpers.free_stream(script)

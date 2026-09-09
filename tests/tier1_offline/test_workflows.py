@@ -4523,3 +4523,137 @@ def test_a_families_entry_reads_the_setup_aliases_before_the_built_in_words():
         ["Blade2", "W"]
     ]
     assert select_families("blades", inventory, is_blade, aliases=aliases) == [["Blade1", "Blade2"]]
+    assert select_families("LIFTERS", inventory, is_blade, aliases=aliases) == [["Blade2"]], (
+        "an alias is read case folded, as a family is"
+    )
+    assert select_families("Blade", inventory, is_blade) == [["Blade1", "Blade2"]], (
+        "a bare family word reads as the family"
+    )
+    assert select_families("Nothing", inventory, is_blade) == [], "a word resolving to nothing"
+
+
+def _force_plots(lines):
+    """Return each UNSTEADY_SOLVER_NEW_FORCE_PLOT block by its NAME: frame, boundaries payload."""
+    blocks = {}
+    for index, line in enumerate(lines):
+        if line != "UNSTEADY_SOLVER_NEW_FORCE_PLOT":
+            continue
+        block = {}
+        cursor = index + 1
+        while cursor < len(lines) and lines[cursor] and not lines[cursor].startswith("UNSTEADY_"):
+            key, _, value = lines[cursor].partition(" ")
+            block[key] = value
+            if key == "BOUNDARIES":
+                block["INDICES"] = lines[cursor + 1] if int(value) > 0 else ""
+                break
+            cursor += 1
+        blocks[block["NAME"]] = block
+    return blocks
+
+
+def test_a_pproc_entry_cites_a_setup_frame_and_an_alias_word(tmp_path):
+    """Her p001 of 2026-09-09: `frame = "LIFTERS_MRP"` names a frame the setup's
+    `[[frames]]` table defines, and `families = "Lifters"` is a bare alias word
+    (a bare family word reads the same way). The plot takes the setup frame's
+    index; an entry whose word resolves to nothing is skipped, not refused; a
+    frame no table defines is still refused naming the created ones."""
+    from pyflightstream.cases import CampaignConfigError, FrameSpec, PprocSpec
+
+    sector = _saved_simulation(tmp_path / "evtol.fsm", ["LiftBlade1", "S", "Blade1", "LiftBlade2"])
+    pproc = PprocSpec.model_validate(
+        {
+            "plots": {
+                "parameters": ["CL"],
+                "groups": [
+                    {"name": "LIFTERS_X", "frame": "LIFTERS_MRP", "families": "Lifters"},
+                    {"name": "PUSHER_X", "frame": "PROP_MRP", "families": "blade"},
+                    {"name": "GHOST_X", "frame": "MRP", "families": "Ghost"},
+                ],
+            }
+        }
+    )
+    case = _with_pproc(_rotor_row(sector, "Blade1"), sector, pproc).model_copy(
+        update={
+            "frames": [FrameSpec(name="LIFTERS_MRP", origin=(0.0, 1.5, 0.0))],
+            "aliases": {"lifters": ["LiftBlade", "Nothing"], "Ghost": ["Nothing"]},
+        }
+    )
+    lines = rendered(case, "26.123").splitlines()
+    plots = _force_plots(lines)
+    assert "CL_GHOST_X" not in plots, "an entry resolving to nothing is skipped"
+    assert set(plots) == {"CL_LIFTERS_X", "CL_PUSHER_X"}, sorted(plots)
+    # The frame indices are read off the script's own coordinate-system blocks,
+    # so the assertion does not depend on how many frames the run type makes.
+    frames_by_name = {}
+    for index, line in enumerate(lines):
+        if line == "EDIT_COORDINATE_SYSTEM":
+            frames_by_name[lines[index + 2].split(" ", 1)[1]] = lines[index + 1].split(" ", 1)[1]
+    assert {"MRP", "PROP_MRP", "LIFTERS_MRP"} <= set(frames_by_name), frames_by_name
+    assert plots["CL_LIFTERS_X"]["FRAME"] == frames_by_name["LIFTERS_MRP"], plots["CL_LIFTERS_X"]
+    assert plots["CL_PUSHER_X"]["FRAME"] == frames_by_name["PROP_MRP"], plots["CL_PUSHER_X"]
+    assert plots["CL_LIFTERS_X"]["INDICES"] == "1,4", (
+        "the alias, case folded, is the two lifter blades and not Nothing"
+    )
+    unknown = case.model_copy(update={"frames": []})
+    with pytest.raises(CampaignConfigError, match="LIFTERS_MRP.*created: "):
+        rendered(unknown, "26.123")
+
+
+def test_a_pproc_entry_cites_a_rotors_own_frame_in_a_motions_row(tmp_path):
+    """Her p001 of 2026-09-09, the eVTOL transition: with several rotors a plot
+    group cites one rotor's hub frame (`PROP_MRP1`) or moving frame
+    (`RotorAxis2`) by the name the solver shows, the same names a rotation's
+    axis may cite (PFS-2034.02)."""
+    from pyflightstream.cases import PprocSpec
+
+    sector = _saved_simulation(tmp_path / "twin.fsm", ["Blade1", "S", "N", "Blade2"])
+    flat = _rotor_row(sector, "Blade1")
+    record_keys = {
+        "MOVING_BOUNDARIES",
+        "RPM",
+        "ADVANCE_RATIO",
+        "RPM_SIGN",
+        "ROTOR_AXIS",
+        "ROTOR_ORIGIN",
+    }
+    variables = {key: value for key, value in flat.variables.items() if key not in record_keys}
+    pproc = PprocSpec.model_validate(
+        {
+            "plots": {
+                "parameters": ["CL"],
+                "groups": [
+                    {"name": "ONE", "frame": "PROP_MRP1", "families": ["Blade1"]},
+                    {"name": "TWO", "frame": "RotorAxis2", "families": ["Blade2"]},
+                ],
+            }
+        }
+    )
+    twin = _with_pproc(flat, sector, pproc).model_copy(
+        update={
+            "variables": variables,
+            "motions": [
+                {
+                    "MOVING_BOUNDARIES": "Blade1",
+                    "RPM": "1200",
+                    "ROTOR_AXIS": "X",
+                    "ROTOR_ORIGIN": "0,1.5,0",
+                },
+                {
+                    "MOVING_BOUNDARIES": "Blade2",
+                    "RPM": "-2400",
+                    "ROTOR_AXIS": "X",
+                    "ROTOR_ORIGIN": "0,-1.5,0",
+                },
+            ],
+        }
+    )
+    lines = rendered(twin, "26.123").splitlines()
+    plots = _force_plots(lines)
+    systems = [line.split() for line in lines if line.startswith("SET_MOTION_COORDINATE_SYSTEM")]
+    moving = {
+        line.split()[1]: lines[index + 1]
+        for index, line in enumerate(lines)
+        if line.startswith("SET_MOTION_MOVING_FRAMES")
+    }
+    assert plots["CL_ONE"]["FRAME"] == systems[0][2], "PROP_MRP1 is the first motion's fixed frame"
+    assert plots["CL_TWO"]["FRAME"] == moving["2"], "RotorAxis2 is the second motion's moving frame"

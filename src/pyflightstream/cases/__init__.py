@@ -327,29 +327,45 @@ FLUID_PLOT_PARAMETERS = (
 #: opened file carried, and the selectors are that filter written down.
 FAMILY_SELECTORS = ("all", "airframe", "blades", "each", "each_blade")
 
-#: The frames a pproc entry may cite by NAME. MRP is the moment frame the
-#: reference creates (PFS-2030.03.02), PROP_MRP the propeller frame, and
-#: BLADE_AXIS the per-blade frame of the multirotor work (PFS-2029.11.03);
-#: an entry citing a frame the builder did not create is refused naming it.
+#: The frames the package creates itself, which a pproc entry may cite by
+#: NAME beside the setup's own ``[[frames]]`` and a motions row's
+#: ``PROP_MRP<k>`` and ``RotorAxis<k>`` (her p001 of 2026-09-09). MRP is
+#: the moment frame the reference creates (PFS-2030.03.02), PROP_MRP the
+#: propeller frame, and BLADE_AXIS the per-blade frame of the multirotor
+#: work (PFS-2029.11.03); an entry citing a frame the run did not create is
+#: refused at build time naming the frames it did.
 PPROC_FRAMES = ("MRP", "PROP_MRP", "BLADE_AXIS")
 
 Plane = Literal["XY", "XZ", "YZ"]
 
 
 def _check_family_selection(value: object) -> str | list[str]:
-    """Accept a selector word, or a list of family names and selector words."""
+    """Accept one word, or a list of words; what a word IS is judged at build time.
+
+    A bare word is one of the five selectors, an alias of the row's setup
+    or a family name (her p001 of 2026-09-09 writes ``families =
+    "Lifters"``), and :func:`select_families` reads it against the row's
+    inventory and aliases; a word resolving to nothing is an entry the
+    builder skips. The shape refused here is an empty word and an empty
+    list.
+    """
     if isinstance(value, str):
-        if value not in FAMILY_SELECTORS:
+        if not value.strip():
             raise ValueError(
-                f"{value!r} is neither a family selector ({', '.join(FAMILY_SELECTORS)}) "
-                "nor a list of family names"
+                "families is a selector word, an alias of the setup, a family name, or a "
+                "non-empty list of those; it is empty"
             )
         return value
     if isinstance(value, list) and value and all(isinstance(item, str) for item in value):
         if any(item in ("each", "each_blade") for item in value):
             raise ValueError("'each' and 'each_blade' expand an entry and stand alone")
+        if any(not item.strip() for item in value):
+            raise ValueError("families lists an empty word")
         return list(value)
-    raise ValueError("families is a selector word or a non-empty list of family names")
+    raise ValueError(
+        "families is a selector word, an alias of the setup, a family name, or a non-empty "
+        "list of those"
+    )
 
 
 class SectionDistribution(BaseModel):
@@ -363,9 +379,13 @@ class SectionDistribution(BaseModel):
 
     @field_validator("frame")
     @classmethod
-    def _known_frame(cls, value: str) -> str:
-        if value not in PPROC_FRAMES:
-            raise ValueError(f"frame {value!r} is not one of {', '.join(PPROC_FRAMES)}")
+    def _named_frame(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError(
+                f"frame names one the run creates ({', '.join(PPROC_FRAMES)}, a rotor's "
+                "PROP_MRP<k> or RotorAxis<k>) or one the setup's [[frames]] table defines; "
+                "it is empty"
+            )
         return value
 
 
@@ -391,9 +411,13 @@ class ForcePlotGroup(BaseModel):
 
     @field_validator("frame")
     @classmethod
-    def _known_frame(cls, value: str) -> str:
-        if value not in PPROC_FRAMES:
-            raise ValueError(f"frame {value!r} is not one of {', '.join(PPROC_FRAMES)}")
+    def _named_frame(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError(
+                f"frame names one the run creates ({', '.join(PPROC_FRAMES)}, a rotor's "
+                "PROP_MRP<k> or RotorAxis<k>) or one the setup's [[frames]] table defines; "
+                "it is empty"
+            )
         return value
 
     @model_validator(mode="after")
@@ -458,9 +482,13 @@ class ProbesSpec(BaseModel):
 
     @field_validator("frame")
     @classmethod
-    def _known_frame(cls, value: str) -> str:
-        if value not in PPROC_FRAMES:
-            raise ValueError(f"frame {value!r} is not one of {', '.join(PPROC_FRAMES)}")
+    def _named_frame(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError(
+                f"frame names one the run creates ({', '.join(PPROC_FRAMES)}, a rotor's "
+                "PROP_MRP<k> or RotorAxis<k>) or one the setup's [[frames]] table defines; "
+                "it is empty"
+            )
         return value
 
     @field_validator("parameters")
@@ -706,7 +734,8 @@ def select_families(
     every-boundary form, which the caller spells as -1. An ALIAS of the
     row's setup (her decision of 2026-09-09) is read before the five
     selector words, as the bare string and as a list member, so
-    ``airframe`` and ``blades`` are the setup's own where it defines them.
+    ``airframe`` and ``blades`` are the setup's own where it defines them;
+    a bare word that is neither is a family name.
     """
     blades = [name for name in inventory if is_blade(name)]
     if isinstance(selection, str):
@@ -724,7 +753,10 @@ def select_families(
             return [[name] for name in inventory]
         if selection == "each_blade":
             return [[name] for name in blades]
-        raise CampaignConfigError(f"unknown family selector {selection!r}")
+        # A bare word outside the five and the aliases is a family (her
+        # p001 of 2026-09-09); one the inventory lacks is an empty result.
+        names = _names_of(selection, inventory)
+        return [names] if names else []
     chosen = []
     for item in selection:
         aliased = resolve_alias(item, inventory, aliases)
@@ -746,7 +778,8 @@ def resolve_alias(
 
     Her decision of 2026-09-09: an alias is a name the setup's
     ``[aliases]`` table gives to a list of boundary names or families,
-    and it is read wherever a boundary is cited. Each member resolves as
+    and it is read wherever a boundary is cited, the exact spelling
+    first and case folded second, as a family is. Each member resolves as
     a name does, an exact name of the inventory first and a family (the
     label without its trailing number) second; a member the inventory
     does not carry is ignored, which is how one setup serves a wing-body
@@ -754,10 +787,17 @@ def resolve_alias(
     alias every member of which is absent resolves to an empty list, and
     the caller says what that means for its key.
     """
-    if not aliases or token not in aliases:
+    if not aliases:
+        return None
+    key = (
+        token
+        if token in aliases
+        else next((name for name in aliases if name.casefold() == token.casefold()), None)
+    )
+    if key is None:
         return None
     names: list[str] = []
-    for member in aliases[token]:
+    for member in aliases[key]:
         for name in _names_of(str(member), inventory):
             if name not in names:
                 names.append(name)
