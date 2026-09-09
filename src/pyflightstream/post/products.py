@@ -1365,6 +1365,8 @@ def _prov_document(record: RunRecord, sim_dir: Path) -> dict[str, object]:
             "pyfs:argv": list(executor["argv"]) if executor else None,
             "pyfs:cwd": record.cwd,
             "pyfs:error": record.error,
+            # PFS-2033.02: the setup's raw commands the script carried, or nothing.
+            "pyfs:raw_commands": list(record.raw_commands) or None,
         }
     )
     agents = {

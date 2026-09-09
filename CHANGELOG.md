@@ -98,6 +98,27 @@ FlightStream versions.
   both keeps `BLADES`; a row stating neither is skipped or refused naming
   both keys. RED on d908092: `blades` None and the skip naming `BLADES`
   alone.
+- **A setup artifact states raw solver commands, each before a named
+  phase, through the same emitter as every curated line** (PFS-2033.01
+  and .02, her design of 2026-09-09, design/69). A `[[raw]]` table, one
+  entry per line with `command` (the line as the solver reads it) and
+  `before` (geometry, setup, init, exec, analysis, export, or control
+  for the head of the script), read out of the raw settings by
+  `resolve_setup`, validated as `RawCommand`, carried on the case as
+  `SimCase.raw_commands` naming the preset, and emitted by every run type
+  at the seam before the first command of the phase, in the order
+  written, through `Script.emit` after splitting the line and coercing
+  its arguments to the database's types. A command the build lacks, an
+  argument of the wrong type, a command whose grammar is a block, and a
+  command of a later phase than the one named are each refused at plan
+  time naming the preset and the line, the first three by the emitter's
+  own sentence. The run record gains `raw_commands` (absent on older
+  records, read as empty) and the provenance document carries them on
+  the solver run. The four builders' tails (init, exec, analysis,
+  export) are one `_script_tail`, so the seam exists once. A setup
+  stating none changes nothing: the seven tier-3 matrices render
+  byte-identical. RED on aff689e: the table refused as a key naming no
+  solver setting, and no `RAW_TABLE`.
 
 ## [0.13.1] - 2026-09-09
 
@@ -3320,7 +3341,7 @@ costs the reader the whole warning window the shim exists to buy.
   `[tool.mypy]` header has promised since 2026-08-03 that an exemption is
   removed as its module is typed and never added, and this is that
   direction happening rather than being restated. The re-count moves with
-  it: mypy recount 2026-09-09: 345 errors in 18 of 79 modules, where the
+  it: mypy recount 2026-09-09: 356 errors in 18 of 80 modules, where the
   tree carried 275 in 21 of 64 two days before, and the four records that
   state it move together because a tier-1 guard compares them.
 

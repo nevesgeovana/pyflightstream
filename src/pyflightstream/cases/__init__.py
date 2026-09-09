@@ -64,6 +64,8 @@ __all__ = [
     "FORCE_PLOT_PARAMETERS",
     "PPROC_FRAMES",
     "FrameSpec",
+    "RAW_PHASES",
+    "RawCommand",
     "PprocSpec",
     "RESERVED_FRAME_NAMES",
     "SectionsSpec",
@@ -494,6 +496,55 @@ class ProductsSpec(BaseModel):
 #: not define one of these, because the row's rotation and the pproc
 #: definitions resolve them to the package's own frames.
 RESERVED_FRAME_NAMES: tuple[str, ...] = ("MRP", "PROP_MRP")
+
+
+#: The phases a raw command may be declared before (PFS-2033.01): the
+#: command database's own, and ``control`` for a line at the head of the
+#: script, since a control command may appear anywhere.
+RAW_PHASES: tuple[str, ...] = (
+    "control",
+    "geometry",
+    "setup",
+    "init",
+    "exec",
+    "analysis",
+    "export",
+)
+
+
+class RawCommand(BaseModel):
+    """One solver command a setup artifact states verbatim (PFS-2033.01).
+
+    Her design of 2026-09-09 (design/69): the user writes the command
+    line as the solver reads it, arguments included, and names the phase
+    it goes before; the builders emit it through the same emitter every
+    curated helper uses, so the database's grammar, version, argument
+    and phase checks apply to it unchanged. ``setup`` is the artifact
+    the entry came from, bound by the workspace for the run record.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    command: str
+    before: str
+    setup: str | None = None
+
+    @model_validator(mode="after")
+    def _one_line_before_a_known_phase(self) -> RawCommand:
+        line = self.command.strip()
+        if not line:
+            raise ValueError("a raw entry needs a command, the line as the solver reads it")
+        if "\n" in line or "\r" in line:
+            raise ValueError(
+                f"the raw command {self.command!r} spans several lines; an entry is one "
+                "command line, and a command that is a block is not carried here"
+            )
+        if self.before not in RAW_PHASES:
+            raise ValueError(
+                f"the raw command {line!r} is declared before {self.before!r}, which is not a "
+                f"phase; write one of {', '.join(RAW_PHASES)}"
+            )
+        return self.model_copy(update={"command": line})
 
 
 class FrameSpec(BaseModel):
@@ -1209,6 +1260,10 @@ class SimCase(BaseModel):
     #: for a setup that defines none, which is every setup written before
     #: 0.14.0.
     frames: list[FrameSpec] = Field(default_factory=list)
+    #: The solver commands the row's setup states verbatim (PFS-2033.01),
+    #: each emitted before the phase it names, in the order written; empty
+    #: for a setup stating none.
+    raw_commands: list[RawCommand] = Field(default_factory=list)
     #: The boundary order a sidecar beside the geometry states
     #: (PFS-2029.06.03), bound by the workspace; the builder refuses the
     #: run when the file's own mesh block disagrees with it.

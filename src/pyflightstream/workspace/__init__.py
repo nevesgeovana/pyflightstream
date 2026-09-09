@@ -737,6 +737,11 @@ class RunRecord(BaseModel):
     #: row key that stated it; None until a row key states one
     #: (PFS-2031.18), and on every row written before the field existed.
     export_window: dict[str, float | int | str] | None = None
+    #: The solver commands the row's setup stated verbatim and the script
+    #: carried (PFS-2033.02): ``command``, ``before`` and ``setup`` each;
+    #: empty for a setup stating none and for every record written before
+    #: the field existed, which the reader takes as the same thing.
+    raw_commands: list[dict[str, str | None]] = Field(default_factory=list)
     conditions: list[dict] | None = None
 
     @model_validator(mode="before")

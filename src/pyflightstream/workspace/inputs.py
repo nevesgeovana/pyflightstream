@@ -85,7 +85,7 @@ from pydantic import (
 # same public spelling.
 from pyflightstream._errors import InputArtifactError
 from pyflightstream._fsm import MeshReadError, boundary_names
-from pyflightstream.cases import FrameSpec, PprocSpec
+from pyflightstream.cases import FrameSpec, PprocSpec, RawCommand
 
 # DOWNWARD, and the two imports in this module that leave the workspace
 # layer: `cases` sits below `workspace` in the house order, and the
@@ -403,6 +403,10 @@ class SetupArtifact(BaseModel):
     #: (PFS-2034.01), in the order written; consumed out of ``settings``
     #: by :func:`resolve_setup` so the solver-setting loop never sees them.
     frames: list[FrameSpec] = Field(default_factory=list)
+    #: The solver commands the ``[[raw]]`` table states verbatim
+    #: (PFS-2033.01), each before a named phase, in the order written;
+    #: consumed out of ``settings`` by :func:`resolve_setup` the same way.
+    raw: list[RawCommand] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def _one_frame_per_name(self) -> SetupArtifact:
@@ -423,6 +427,10 @@ class SetupArtifact(BaseModel):
 #: by the goal checker of 0.14.0 and by the documentation; change it here
 #: and both follow.
 FRAMES_TABLE = "frames"
+#: The table of a setup artifact that states solver commands verbatim
+#: (PFS-2033.01): ``[[raw]]``, one entry per line with ``command`` and
+#: ``before``. Read by the goal checker of 0.14.0 and the documentation.
+RAW_TABLE = "raw"
 
 
 class PprocArtifact(PprocSpec):
@@ -859,7 +867,16 @@ def resolve_setup(inputs_dir: Path, artifact_id: str) -> SetupArtifact:
             f"and the table is a list of records: write [[{FRAMES_TABLE}]] once per frame "
             "with name, origin and optionally x_axis and y_axis."
         )
-    return _validate(SetupArtifact, {"settings": data, "frames": frames}, path, "setup")
+    # THE RAW TABLE IS NOT A SOLVER SETTING EITHER (PFS-2033.01): the
+    # lines are the solver's own, emitted before the phase each names.
+    raw = data.pop(RAW_TABLE, [])
+    if not isinstance(raw, list) or not all(isinstance(entry, dict) for entry in raw):
+        raise InputArtifactError(
+            f"setup preset {artifact_id!r} ({path}) states [{RAW_TABLE}] as {raw!r}, and the "
+            f"table is a list of records: write [[{RAW_TABLE}]] once per command with "
+            "command (the line as the solver reads it) and before (the phase it precedes)."
+        )
+    return _validate(SetupArtifact, {"settings": data, "frames": frames, "raw": raw}, path, "setup")
 
 
 def resolve_pproc(inputs_dir: Path, artifact_id: str) -> PprocArtifact:

@@ -538,6 +538,29 @@ origin that is not three numbers is refused at plan time naming the
 preset. What the frames are FOR is the row's rotation of a boundary
 family about one of their axes, which 0.14.0 adds beside them.
 
+A preset may also state **raw solver commands**, since 0.14.0
+(PFS-2033.01, her design of 2026-09-09), in a `[[raw]]` table, one entry
+per line, each naming the phase it goes before:
+
+    [[raw]]
+    command = "SOLVER_SET_AOA 1.0"   # the line as the solver reads it, arguments included
+    before = "init"                  # geometry, setup, init, exec, analysis, export, or control
+
+The line is emitted by every run type at the seam before the first
+command of that phase (`control` puts it at the head of the script, since
+a control command may appear anywhere), in the order written, and it
+passes exactly the checks every curated emission passes: the command's
+existence on the row's build, its grammar and its argument types, and
+the script's phase order. A command the build has no evidence for is the
+emitter's own refusal, naming the preset and the line, at `pyfs-matrix
+plan`; so is an argument of the wrong type, a command whose grammar is a
+block rather than a line (the table carries one-line commands only), and
+a command of a later phase than the one it is declared before, which
+would put the script past that phase. The run record carries the lines
+the script took as `raw_commands` (command, phase, preset), and the
+provenance document carries them on the solver run (PFS-2033.02). A
+preset stating none changes nothing.
+
     A preset may declare its own with `recorded_only = ["my_setting"]`,
     for a setting from a build or a workflow this package has not met. A
     declared key still warns, because the point is that its author knows

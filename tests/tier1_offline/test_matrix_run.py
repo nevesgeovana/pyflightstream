@@ -3789,3 +3789,43 @@ def test_a_rotor_row_run_through_the_workflow_leaves_its_reductions_beside_the_p
     manifest = json.loads((plots.parent / "products.json").read_text(encoding="utf-8"))
     assert manifest["products"]["plots/a-02.0_time_average.csv"]["windows"] == [[596, 720]]
     assert manifest["skipped"] == {}
+
+
+# --- PFS-2033.02: the run record carries the raw commands, and so does the provenance ---
+
+
+def test_the_record_and_the_provenance_carry_the_raw_commands_of_the_setup(tmp_path):
+    """RED on d908092: the setup with the table is refused before any point runs."""
+    import json
+
+    from pyflightstream.post.products import write_campaign_products
+    from pyflightstream.workspace import RunRecord
+
+    workspace = make_library(tmp_path, register_build=("26.120", "C:/fs26120/FlightStream.exe"))
+    code = code_for("8001", "set", REGISTRY_FIXTURE)
+    setup = workspace.inputs_dir / "setups" / f"{code}.toml"
+    setup.write_text(
+        setup.read_text(encoding="utf-8").rstrip("\n")
+        + '\n\n[[raw]]\ncommand = "SOLVER_SET_AOA 1.0"\nbefore = "init"\n',
+        encoding="utf-8",
+    )
+    run_matrix(
+        REGISTRY_FIXTURE,
+        workspace,
+        name="matrix",
+        default_fs_version="26.120",
+        recipes=RECIPES,
+        assess=converged,
+        executor=StubSolver(WRITES_LOADS),
+        recipe_registry={"steady": matrix_recipe},
+    )
+    records = [r for r in workspace.read_manifest() if r.sim_id == "8001"]
+    assert records, "no record of 8001"
+    assert "raw_commands" in RunRecord.model_fields
+    expected = [{"command": "SOLVER_SET_AOA 1.0", "before": "init", "setup": code}]
+    assert all(r.raw_commands == expected for r in records), [r.raw_commands for r in records]
+    write_campaign_products(workspace, matrix_stem="matrix_registry", overwrite=True)
+    provenance = workspace.root / "post" / "matrix_registry" / "provenance"
+    document = json.loads(next(provenance.glob("*8001*.prov.json")).read_text(encoding="utf-8"))
+    (_, activity), *_ = document["activity"].items()
+    assert activity["pyfs:raw_commands"] == expected, activity

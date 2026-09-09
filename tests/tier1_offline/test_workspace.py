@@ -2815,3 +2815,54 @@ def test_a_frame_the_package_names_or_a_repeated_frame_is_refused_naming_the_set
     with pytest.raises(InputArtifactError, match=r"sbad") as caught:
         workspace.resolve_setup("sbad")
     assert fragment in str(caught.value)
+
+
+# --- PFS-2033.01: raw solver commands in the setup, declared before a phase -------
+
+RAW = (
+    'NITER = 100\n\n[[raw]]\ncommand = "SOLVER_SET_AOA 1.0"\nbefore = "init"\n\n'
+    '[[raw]]\ncommand = "PRINT hello"\nbefore = "control"\n'
+)
+
+
+def test_a_setup_carries_raw_commands_each_before_a_named_phase(tmp_path):
+    """PFS-2033.01, her design of 2026-09-09 (design/69): a setup states a solver
+    command verbatim and the phase it goes before; the table is not a solver
+    setting. RED on d908092: the artifact refuses the table as a key naming no
+    setting."""
+    from pyflightstream.workspace.inputs import RAW_TABLE
+    from pyflightstream.workspace.matrix import _solver_from_setup
+
+    workspace = library(tmp_path)
+    (workspace.inputs_dir / "setups" / "sraw.toml").write_text(RAW, encoding="utf-8")
+    setup = workspace.resolve_setup("sraw")
+    assert RAW_TABLE == "raw"
+    assert [(entry.command, entry.before) for entry in setup.raw] == [
+        ("SOLVER_SET_AOA 1.0", "init"),
+        ("PRINT hello", "control"),
+    ]
+    assert RAW_TABLE not in setup.settings, "the table is not a solver setting"
+    assert _solver_from_setup(setup, "sraw").iterations == 100
+
+
+@pytest.mark.parametrize(
+    ("body", "fragment"),
+    [
+        ('[[raw]]\ncommand = "SOLVER_SET_AOA 1.0"\nbefore = "warmup"\n', "warmup"),
+        ('[[raw]]\nbefore = "init"\n', "command"),
+        ('[[raw]]\ncommand = "   "\nbefore = "init"\n', "command"),
+        ('raw = "SOLVER_SET_AOA 1.0"\n', "list of records"),
+    ],
+)
+def test_a_raw_entry_outside_the_grammar_is_refused_naming_the_setup(tmp_path, body, fragment):
+    workspace = library(tmp_path)
+    (workspace.inputs_dir / "setups" / "sbad.toml").write_text(
+        "NITER = 100\n\n" + body, encoding="utf-8"
+    )
+    with pytest.raises(InputArtifactError) as refused:
+        workspace.resolve_setup("sbad")
+    message = str(refused.value)
+    assert "sbad" in message and fragment in message, message
+    if fragment == "warmup":
+        for phase in ("geometry", "setup", "init", "exec", "analysis", "export", "control"):
+            assert phase in message, message

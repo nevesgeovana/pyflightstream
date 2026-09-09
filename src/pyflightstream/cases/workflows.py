@@ -76,13 +76,14 @@ from pyflightstream._fsm import (
 from pyflightstream.cases import (
     EXPORT_KINDS,
     FORCE_PLOT_PARAMETERS,
+    RAW_PHASES,
     CampaignConfigError,
     ScriptRecipe,
     SimCase,
     classify_outputs,
     select_families,
 )
-from pyflightstream.commands import CommandRegistry
+from pyflightstream.commands import ArgType, CommandEntry, CommandRegistry, Layout, Phase
 from pyflightstream.script import CommandArgumentError, Script, ScriptReferenceError, helpers
 from pyflightstream.versions import FsVersion, known_versions, resolve
 
@@ -3330,6 +3331,103 @@ def _pproc_frame(
     return found
 
 
+def _script_tail(
+    conventions: WorkflowConventions,
+    case: SimCase,
+    script: Script,
+    frame: int | None,
+    *,
+    unsteady: bool,
+) -> None:
+    """Emit the four phases every run type ends with, each preceded by its raw commands.
+
+    Init, exec, analysis and export, in the order the four builders
+    always emitted them; written once so the raw commands of a setup
+    (PFS-2033.01) meet each phase at one seam rather than at four copies
+    of it.
+    """
+    _raw_commands(case, script, "init")
+    _initialize(case, script)
+    _raw_commands(case, script, "exec")
+    helpers.start_solver(script)
+    _raw_commands(case, script, "analysis")
+    _analysis(case, script, frame)
+    _raw_commands(case, script, "export")
+    _export_block(conventions, case, script, unsteady=unsteady)
+    script.emit("CLOSE_FLIGHTSTREAM")
+
+
+def _raw_commands(case: SimCase, script: Script, phase: str) -> None:
+    """Emit the setup's raw commands declared before ``phase``, in the order written.
+
+    PFS-2033.01, her design of 2026-09-09 (design/69). Each line is split
+    on whitespace, its arguments coerced to the types the command's
+    database entry declares, and emitted through :meth:`Script.emit`, so
+    the line passes exactly the checks every curated emission passes: a
+    command the build has no evidence for, an argument of the wrong type
+    or count, a phase out of order. The emitter's error is the refusal,
+    raised again under its own class with the setup and the line named.
+    A command whose grammar is not one line (a keyword block, a payload,
+    a parameter block) is refused naming the layout, since an entry is
+    one line as the solver reads it. A setup stating none emits nothing.
+    """
+    for entry in case.raw_commands:
+        if entry.before != phase:
+            continue
+        where = f"setup {entry.setup!r}" if entry.setup else "the case's raw commands"
+        tokens = entry.command.split()
+        name, arguments = tokens[0], tokens[1:]
+        try:
+            spec = script._view[name]
+            if spec.layout not in (Layout.BARE, Layout.INLINE):
+                raise CampaignConfigError(
+                    f"{name} is a {spec.layout.value.replace('_', ' ')} and not a one-line "
+                    "command; a raw entry is one line as the solver reads it, and a block "
+                    "has no place in it"
+                )
+            # A command of a LATER phase than the one it is declared before
+            # would advance the script past that phase, and the order guard
+            # would then refuse every command of the phase itself; said here,
+            # naming the setup, rather than at the first such command.
+            if (
+                spec.phase is not Phase.CONTROL
+                and phase in RAW_PHASES
+                and RAW_PHASES.index(spec.phase.value) > RAW_PHASES.index(phase)
+            ):
+                raise CampaignConfigError(
+                    f"{name} is a {spec.phase.value} command, and declared before {phase} it "
+                    f"would put the script in its {spec.phase.value} phase before the {phase} "
+                    f"commands are written, which the order guard refuses; declare it before "
+                    f"{spec.phase.value}, or drop it"
+                )
+            script.emit(name, *_typed_arguments(spec, arguments))
+        except PyflightstreamError as error:
+            raise type(error)(
+                f"case {case.sim_id!r}: the raw command {entry.command!r} of {where}, declared "
+                f"before {phase}, is refused by the emitter: {error}"
+            ) from error
+
+
+def _typed_arguments(spec: CommandEntry, tokens: list[str]) -> list[object]:
+    """Coerce a raw line's tokens to the scalar types the entry declares, refusing the rest."""
+    typed: list[object] = []
+    for argument, token in zip(spec.args, tokens, strict=False):
+        try:
+            if argument.type is ArgType.INT:
+                typed.append(int(token))
+            elif argument.type is ArgType.FLOAT:
+                typed.append(float(token))
+            else:
+                typed.append(token)
+        except ValueError:
+            raise CampaignConfigError(
+                f"{spec.name}: argument {argument.name!r} is {token!r}, which is not "
+                f"{argument.type.value}"
+            ) from None
+    typed.extend(tokens[len(spec.args) :])
+    return typed
+
+
 def _setup_frames(case: SimCase, script: Script) -> dict[str, int]:
     """Create the custom frames the row's setup defines, returning name to index.
 
@@ -3800,7 +3898,10 @@ def _build_steady(case: SimCase, script: Script, conventions: WorkflowConvention
     # the time loop it lacks (PFS-2031.18); a row stating none returns.
     unsteady_export_threshold(case, conventions)
     _refuse_unregistered_keys(case, "steady")
+    _raw_commands(case, script, "control")
+    _raw_commands(case, script, "geometry")
     _open_geometry(case, script)
+    _raw_commands(case, script, "setup")
     frame = _moment_frame(case, script)
     frames: dict[str, int | None | Mapping[str, int]] = {"MRP": frame, "PROP_MRP": None}
     setup_frames = _setup_frames(case, script)
@@ -3811,11 +3912,7 @@ def _build_steady(case: SimCase, script: Script, conventions: WorkflowConvention
     _fluid(case, script)
     _settings(case, script)
     _pproc_sections(case, script, frames)
-    _initialize(case, script)
-    helpers.start_solver(script)
-    _analysis(case, script, frame)
-    _export_block(conventions, case, script, unsteady=False)
-    script.emit("CLOSE_FLIGHTSTREAM")
+    _script_tail(conventions, case, script, frame, unsteady=False)
 
 
 # --- PFS-2028.01: the third run type, unsteady with nothing turning ----------
@@ -4288,7 +4385,10 @@ def _build_unsteady(case: SimCase, script: Script, conventions: WorkflowConventi
     _refuse_wake_termination_without_a_rotor(case)
     threshold = unsteady_export_threshold(case, conventions)
     _refuse_unregistered_keys(case, "unsteady")
+    _raw_commands(case, script, "control")
+    _raw_commands(case, script, "geometry")
     _open_geometry(case, script)
+    _raw_commands(case, script, "setup")
     frame = _moment_frame(case, script)
     prop_frame = _propeller_frame(case, script)
     frames: dict[str, int | None | Mapping[str, int]] = {
@@ -4313,11 +4413,7 @@ def _build_unsteady(case: SimCase, script: Script, conventions: WorkflowConventi
     _settings(case, script, wake_termination_time_steps=case.solver.wake_termination_steps)
     _pproc_sections(case, script, frames)
     _unsteady_actions(script, threshold)
-    _initialize(case, script)
-    helpers.start_solver(script)
-    _analysis(case, script, frame)
-    _export_block(conventions, case, script, unsteady=True)
-    script.emit("CLOSE_FLIGHTSTREAM")
+    _script_tail(conventions, case, script, frame, unsteady=True)
 
 
 def _build_unsteady_rotor(case: SimCase, script: Script, conventions: WorkflowConventions) -> None:
@@ -4334,7 +4430,10 @@ def _build_unsteady_rotor(case: SimCase, script: Script, conventions: WorkflowCo
     # is; a row stating no threshold pays nothing here.
     threshold = unsteady_export_threshold(case, conventions)
     _refuse_unregistered_keys(case, "unsteady_rotor")
+    _raw_commands(case, script, "control")
+    _raw_commands(case, script, "geometry")
     _open_geometry(case, script)
+    _raw_commands(case, script, "setup")
     frame = _moment_frame(case, script)
     # THE ROTOR FRAME IS THE PROPELLER FRAME, named as her scripts named it
     # and placed where the reference puts the propeller, unless the row
@@ -4397,11 +4496,7 @@ def _build_unsteady_rotor(case: SimCase, script: Script, conventions: WorkflowCo
     _settings(case, script, wake_termination_time_steps=_wake_termination(case, stepping))
     _pproc_sections(case, script, frames)
     _unsteady_actions(script, threshold)
-    _initialize(case, script)
-    helpers.start_solver(script)
-    _analysis(case, script, frame)
-    _export_block(conventions, case, script, unsteady=True)
-    script.emit("CLOSE_FLIGHTSTREAM")
+    _script_tail(conventions, case, script, frame, unsteady=True)
 
 
 def _rotor_motions(
@@ -4506,11 +4601,7 @@ def _rotor_motions(
     _settings(case, script, wake_termination_time_steps=_wake_termination(case, stepping))
     _pproc_sections(case, script, frames)
     _unsteady_actions(script, threshold)
-    _initialize(case, script)
-    helpers.start_solver(script)
-    _analysis(case, script, frame)
-    _export_block(conventions, case, script, unsteady=True)
-    script.emit("CLOSE_FLIGHTSTREAM")
+    _script_tail(conventions, case, script, frame, unsteady=True)
 
 
 def _motion_view(case: SimCase, record: Mapping[str, str]) -> SimCase:

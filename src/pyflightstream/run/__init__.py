@@ -2946,6 +2946,8 @@ def _execute_point(
         "script_sha256": "",
         "raw_flag": False,
         "waived_commands": [],
+        # PFS-2033.02: the setup's raw commands, as the script carried them.
+        "raw_commands": [entry.model_dump(mode="json") for entry in case.raw_commands],
         # PFS-2012.04: how the solver was called, read off the executor
         # and its result once the point has run, and None on the four
         # early returns below, where no solver ran. `argv` beside it is

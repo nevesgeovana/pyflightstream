@@ -791,3 +791,85 @@ def test_a_rotation_on_a_legacy_row_is_refused(tmp_path):
     matrix = _one_row_matrix(root, "legacy_rotate.fs", legacy.rstrip() + ROTATE_TWO)
     with pytest.raises(MatrixError, match="LEGACY.*ROTATE|ROTATE.*LEGACY"):
         _rendered(root, matrix)
+
+
+# --- PFS-2033.01: raw commands emitted before the named phase, through the emitter ----
+
+
+def _steady_row_on_a_setup_with_raw(tmp_path, entries, name="raw.fs"):
+    root = _tier3_copy(tmp_path)
+    plain = (root / "inputs" / "setups" / "s001.toml").read_text(encoding="utf-8")
+    body = "".join(
+        f'\n[[raw]]\ncommand = "{command}"\nbefore = "{before}"\n' for command, before in entries
+    )
+    (root / "inputs" / "setups" / "s091.toml").write_text(
+        plain.rstrip("\n") + "\n" + body, encoding="utf-8"
+    )
+    steady = next(
+        line for line in TOUR.read_text(encoding="utf-8").splitlines() if "| steady " in line
+    )
+    cells = steady.split("|")
+    cells[7] = " s091 "
+    return root, _one_row_matrix(root, name, "|".join(cells))
+
+
+def test_a_raw_command_is_emitted_before_the_phase_it_names_and_after_the_one_before(tmp_path):
+    """RED on d908092: the setup is refused as stating a key naming no setting."""
+    root, matrix = _steady_row_on_a_setup_with_raw(
+        tmp_path, [("SOLVER_SET_AOA 1.0", "init"), ("PRINT raw_before_export", "export")]
+    )
+    plan, rendered = _rendered(root, matrix)
+    assert not plan.blocked, plan.summary()
+    lines = next(iter(rendered.values())).splitlines()
+    raw = [i for i, line in enumerate(lines) if line == "SOLVER_SET_AOA 1.0"]
+    assert raw, [line for line in lines if line.startswith("SOLVER_SET_AOA")]
+    init = lines.index("INITIALIZE_SOLVER")
+    velocity = next(i for i, line in enumerate(lines) if line.startswith("SOLVER_SET_VELOCITY"))
+    assert velocity < raw[-1] < init, (velocity, raw, init)
+    printed = lines.index("PRINT raw_before_export")
+    export = next(i for i, line in enumerate(lines) if line.startswith("EXPORT_"))
+    analysis = lines.index("START_SOLVER")
+    assert analysis < printed < export, (analysis, printed, export)
+
+
+def test_a_raw_command_the_build_lacks_blocks_the_row_with_the_emitters_own_refusal(tmp_path):
+    """The line passes the same check every emission passes: a command the build
+    has no evidence for is the emitter's refusal, naming the setup and the entry."""
+    root, matrix = _steady_row_on_a_setup_with_raw(
+        tmp_path, [("SET_NEW_UNSTEADY_SOLVER_ACTION COMMAND_LINE", "control")]
+    )
+    plan, _ = _rendered(root, matrix)
+    assert plan.blocked, "a raw command the build lacks planned READY"
+    reason = str(plan.blocked[0].error)
+    assert "CommandNotInVersionError" in reason or "no recorded evidence" in reason, reason
+    assert "s091" in reason and "SET_NEW_UNSTEADY_SOLVER_ACTION" in reason, reason
+
+
+@pytest.mark.parametrize(
+    ("entry", "fragment"),
+    [
+        (("SOLVER_SET_AOA one", "init"), "SOLVER_SET_AOA"),
+        (("SURFACE_ROTATE 1 X 20", "setup"), "keyword block"),
+        (("START_SOLVER", "setup"), "exec command"),
+    ],
+)
+def test_a_raw_line_the_emitter_cannot_carry_blocks_the_row_naming_the_setup(
+    tmp_path, entry, fragment
+):
+    """An argument of the wrong type, a command that is a block and not a line, and a
+    command of a later phase declared before an earlier one are each the emitter's
+    refusal, naming the setup and the line."""
+    root, matrix = _steady_row_on_a_setup_with_raw(tmp_path, [entry])
+    plan, _ = _rendered(root, matrix)
+    assert plan.blocked, f"{entry} planned READY"
+    reason = str(plan.blocked[0].error)
+    assert "s091" in reason and fragment in reason, reason
+
+
+def test_a_setup_without_the_raw_table_renders_as_before(tmp_path):
+    """The control: the seven tier-3 matrices are the goldens; here one row of them."""
+    root, matrix = _steady_row_on_a_setup_with_raw(tmp_path, [])
+    plan, rendered = _rendered(root, matrix)
+    assert not plan.blocked, plan.summary()
+    text = next(iter(rendered.values()))
+    assert "PRINT" not in text and text.count("SOLVER_SET_AOA") == 1

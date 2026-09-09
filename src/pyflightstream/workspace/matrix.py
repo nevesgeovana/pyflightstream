@@ -1236,6 +1236,12 @@ def resolve_matrix(
             # builders after the package's own; a setup defining none leaves
             # the list empty and the script unchanged.
             "frames": list(setups[row.set_code].frames),
+            # THE SETUP'S RAW COMMANDS RIDE ON THE CASE TOO (PFS-2033.01),
+            # each naming the artifact it came from, for the run record.
+            "raw_commands": [
+                entry.model_copy(update={"setup": row.set_code})
+                for entry in setups[row.set_code].raw
+            ],
             # THE PPROC ARTIFACT RIDES ON THE CASE (PFS-2029.07.03): the
             # builders emit its sections, plots and probes and export the
             # kinds it selects, and the record names its id. A LEGACY row's
