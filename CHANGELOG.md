@@ -305,6 +305,22 @@ FlightStream versions.
   (26.120 from 66 to 79 verified rows, 26.123 from 84 to 92), and a verified
   row measured through a workflow row counts as re-measurable by that row.
 
+- **An enum's `values` list is the accepted vocabulary, in every chapter**
+  (PFS-2003.03). One entry listed the letters and the digits its page
+  accepts for an axis while ten neighbours listed the letters alone, so the
+  field meant "what the solver takes" in one file and "what the library
+  offers" in another and the rule in force was unwritten. It is written now,
+  in `docs/srs/data-model.md` and on `ArgSpec.values`: `values` is
+  everything the manual page states or samples for the argument, because
+  the emitter reads it to refuse and a refusal of a token the solver accepts
+  is a false refusal; a narrowing the library chooses belongs to the helper
+  that offers it, and the field such a narrowing would take, `offered`, is
+  named without any entry needing it. Measured on 2026-09-09, the only enums
+  mixing names and digits are the six of the axis family, and
+  `tests/tier1_offline/test_command_db_grammar.py` now pins both halves of
+  that family (six with the index form, ten with letters alone) so a reading
+  that moves one costs a line. No status or evidence field changed.
+
 - **The Python and dependency window follows SPEC 0; Python 3.11 leaves it,
   and numpy and pandas gain floors** (PFS-2024.07). `requires-python` was
   `>=3.11` since the first release and the numerical dependencies carried no
@@ -503,6 +519,22 @@ FlightStream versions.
   the migration. The docs example placed the key UNDER `[groups]`, where
   TOML makes it a group named base_regions; it sits above the header now,
   and a tier-1 test resolves the documented block off the page.
+
+- **An axis printed as a digit on the manual page is accepted as an
+  integer, and the refusal names every spelling** (PFS-2003.04). A caller
+  transcribing `CAD_BODY_ROTATE 1 2 15.0` off the page had two integers and
+  a float in front of them and exactly one of the integers had to be
+  written in quotes; the refusal listed `2` among the accepted values and
+  then rejected the integer 2, naming no remedy. The emitter now accepts an
+  integer that prints as a listed digit and prints it as that digit, on
+  every one of the six axis arguments whose page takes the index form
+  (`CAD_BODY_ROTATE`, `CAD_CREATE_ROTATE_CURVES`, `ROTATE_COORDINATE_SYSTEM`,
+  `SURFACE_ROTATE`, `SET_MOTION_ROTOR_AXIS`, `CREATE_AXIAL_VORTEX_SEPARATION`);
+  a value outside the set is refused by a message that lists the letters
+  and the digits and says a listed digit may be passed as an int. A bool is
+  not an integer here, and an enum that lists no digit still refuses one.
+  The getting-started page shows the transcribed line, and the example
+  runs in tier 1.
 
 - **The data-model page and the workspace docstring name `pproc/` as the
   fourth input kind, not `groups/`** (PFS-2032.02). The kind has been `pproc`

@@ -624,3 +624,126 @@ def test_every_value_delta_in_the_database_is_one_this_table_names():
         f"table: {sorted(listed - measured)}. A value set is a manual claim and costs "
         "a line here"
     )
+
+
+# --- what an enum's `values` list MEANS (PFS-2003.03) -------------------------
+#
+# Measured on 2026-09-09 over every enum of the database: the only
+# arguments whose value list mixes names and digits are the AXIS family,
+# six of them, each listing X, Y, Z beside 1, 2, 3. Ten more axis
+# arguments list the letters alone. Nothing else in the database mixes
+# the two alphabets, so the rule below is written for the family it was
+# measured on, and the pins name every member of both halves so a
+# reading that moves one is a line here.
+#
+# The rule, decided in the session's seat under the author's night
+# authorization of 2026-09-08 and written in docs/srs/data-model.md:
+# `values` is the ACCEPTED vocabulary, everything the manual says the
+# solver takes for that argument, digits included. A narrowing this
+# library chooses to offer belongs to the helper that offers it, never
+# to `values`, because the emitter reads `values` to refuse and a
+# refusal of a token the solver accepts is a false refusal.
+
+#: Axis arguments whose page, as read on 2026-08-06, states or samples
+#: the index form beside the letters (the notes at CAD_BODY_ROTATE and
+#: SURFACE_ROTATE record the two ways a page says so).
+AXIS_WITH_INDEX_FORM = {
+    ("CAD_BODY_ROTATE", "axis"),
+    ("CAD_CREATE_ROTATE_CURVES", "axis"),
+    ("ROTATE_COORDINATE_SYSTEM", "rotation_axis"),
+    ("SURFACE_ROTATE", "axis"),
+    ("SET_MOTION_ROTOR_AXIS", "axis"),
+    ("CREATE_AXIAL_VORTEX_SEPARATION", "body_axis"),
+}
+
+#: Axis arguments whose page, as read then, names the letters alone. A
+#: later reading that finds a digit on one of these pages moves the row
+#: to the set above and adds the digits to `values`; it never leaves the
+#: digits to a helper.
+AXIS_LETTERS_ONLY = {
+    ("SET_ACTUATOR_AXIS", "axis"),
+    ("SET_FREESTREAM", "axis"),
+    ("CAD_BODY_SELECT_BY_THRESHOLD", "parameter"),
+    ("CAD_CREATE_AUTO_CROSS_SECTIONS", "axis"),
+    ("CAD_CREATE_REVOLVE_MESH_FROM_CCS", "axis"),
+    ("NEW_CCS_WING_CONTROL_SURFACE", "axis"),
+    ("SET_COORDINATE_SYSTEM_AXIS", "axis"),
+    ("NEW_OFF_BODY_STREAMTUBE", "axis"),
+    ("ROTATE_SURFACE", "axis"),
+    ("SET_MOTION_IS_ROTOR", "axis"),
+}
+
+LETTERS = ("X", "Y", "Z")
+DIGITS = ("1", "2", "3")
+
+
+def _axis_enums() -> dict[tuple[str, str], tuple[str, ...]]:
+    """Every enum argument whose NAMED values are exactly the three axis letters.
+
+    Digits are set aside before comparing, so the family is the one
+    whose names are X, Y and Z and nothing else; a contour variable or
+    an export variable list that happens to contain the three letters
+    among a dozen others is not an axis.
+    """
+    registry = CommandRegistry.load()
+    return {
+        (name, arg.name): arg.values
+        for name, entry in registry.commands.items()
+        for arg in entry.args
+        if arg.values and {v.upper() for v in arg.values if not v.isdigit()} == set(LETTERS)
+    }
+
+
+def test_the_only_enums_mixing_names_and_digits_are_the_axis_family():
+    """The measurement the rule rests on, re-taken on every run."""
+    registry = CommandRegistry.load()
+    mixed = {
+        (name, arg.name)
+        for name, entry in registry.commands.items()
+        for arg in entry.args
+        if arg.values
+        and any(v.isdigit() for v in arg.values)
+        and any(not v.isdigit() for v in arg.values)
+    }
+    assert mixed == AXIS_WITH_INDEX_FORM, (
+        "an enum outside the axis family now mixes names and digits, or an axis "
+        f"row moved: {sorted(mixed ^ AXIS_WITH_INDEX_FORM)}. Read the rule in "
+        "docs/srs/data-model.md and pin the new member here"
+    )
+
+
+def test_every_axis_enum_is_pinned_in_one_of_the_two_sets():
+    found = set(_axis_enums())
+    assert found == AXIS_WITH_INDEX_FORM | AXIS_LETTERS_ONLY, (
+        f"axis enums not pinned here: {sorted(found - AXIS_WITH_INDEX_FORM - AXIS_LETTERS_ONLY)}; "
+        f"pinned but gone: {sorted((AXIS_WITH_INDEX_FORM | AXIS_LETTERS_ONLY) - found)}"
+    )
+
+
+@pytest.mark.parametrize("row", sorted(AXIS_WITH_INDEX_FORM), ids=lambda r: r[0])
+def test_an_axis_enum_whose_page_states_the_index_form_carries_all_three_digits(row):
+    """`values` is the accepted vocabulary: a page that takes 2 takes 1 and 3."""
+    values = _axis_enums()[row]
+    assert set(DIGITS) <= set(values) and set(LETTERS) <= set(values), (
+        f"{row[0]}.{row[1]} lists {values}; the page states the index form, so the "
+        "accepted vocabulary is the three letters and the three digits"
+    )
+
+
+@pytest.mark.parametrize("row", sorted(AXIS_LETTERS_ONLY), ids=lambda r: r[0])
+def test_an_axis_enum_whose_page_names_letters_alone_lists_letters_alone(row):
+    values = _axis_enums()[row]
+    assert set(values) == set(LETTERS), (
+        f"{row[0]}.{row[1]} lists {values}; the page was read as naming the letters "
+        "alone. If a reading found the index form, move the row to AXIS_WITH_INDEX_FORM"
+    )
+
+
+def test_the_data_model_page_states_what_values_means():
+    """RED on the base tree: the rule in force was unwritten."""
+    page = resources.files("pyflightstream").parent.parent / "docs" / "srs" / "data-model.md"
+    text = page.read_text(encoding="utf-8")
+    assert "`values` is the accepted vocabulary" in text, (
+        "docs/srs/data-model.md does not state that `values` is the accepted vocabulary"
+    )
+    assert "`offered`" in text, "the page does not say where a narrowing the library chooses goes"

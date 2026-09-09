@@ -527,11 +527,27 @@ def _reject_non_finite(entry: CommandEntry, spec: ArgSpec, value: float) -> None
 
 
 def _match_enum(entry: CommandEntry, spec: ArgSpec, value: object) -> str:
+    """Return the member ``value`` spells, or refuse naming every spelling.
+
+    A string matches case-insensitively. An integer matches the member
+    it prints as, so a caller transcribing ``CAD_BODY_ROTATE 1 2 15.0``
+    off the manual page passes two integers and a float rather than
+    one integer, one quoted digit and a float (PFS-2003.04). Until
+    0.13.0 the refusal listed ``2`` among the accepted values and then
+    rejected the integer 2, naming no remedy. A bool is not an integer
+    here: ``True`` prints as ``True``, never as ``1``.
+    """
     if isinstance(value, str):
         for member in spec.values:
             if member.upper() == value.upper():
                 return member
-    _type_error(entry, spec, f"one of {', '.join(spec.values)}", value)
+    elif isinstance(value, int) and not isinstance(value, bool):
+        for member in spec.values:
+            if member == str(value):
+                return member
+    digits = [member for member in spec.values if member.isdigit()]
+    remedy = " (a listed digit may be passed as an int)" if digits else ""
+    _type_error(entry, spec, f"one of {', '.join(spec.values)}{remedy}", value)
     raise AssertionError("unreachable")
 
 

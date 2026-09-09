@@ -148,12 +148,30 @@ page that settles it:
 * a command that does not exist in this version, with its successor
   when one is recorded;
 * an argument of the wrong type, or an enum token outside the
-  documented set;
+  documented set (the set is everything the manual page accepts: where
+  a page takes an axis as a letter or as its index, the integer `2`
+  and the string `"2"` both print as `2`, and a refusal lists every
+  spelling);
 * a command emitted after its phase has passed (geometry, setup, init,
   exec, analysis, export);
 * a command a probe measured **broken** on this version, which is the
   one that would otherwise produce a plausible wrong number rather than
   an error.
+
+A line transcribed straight off a manual page is typed as the page
+prints it, integers included:
+
+```python
+from pyflightstream.script import CommandArgumentError, Script
+
+script = Script(version="26.120")
+script.emit("CAD_BODY_ROTATE", 1, 2, 15.0)
+assert "CAD_BODY_ROTATE 1 2 15.0" in script.render()
+try:
+    script.emit("CAD_BODY_ROTATE", 1, 4, 15.0)
+except CommandArgumentError as error:
+    assert "one of X, Y, Z, 1, 2, 3" in str(error)
+```
 
 That last one has a documented way through, because a run sometimes
 needs it anyway:

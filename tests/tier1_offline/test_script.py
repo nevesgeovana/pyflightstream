@@ -991,6 +991,52 @@ def test_a_cad_token_outside_the_documented_set_is_refused(command, args, expect
         script.emit(command, *args)
 
 
+# --- an axis printed as a digit is accepted as an integer (PFS-2003.04) -------
+#
+# A caller transcribing CAD_BODY_ROTATE 1 2 15.0 off the manual page has
+# two integers and a float in front of them, and until 0.13.0 exactly
+# one of the integers had to be written in quotes: the refusal listed
+# the digit among the accepted values and rejected it, naming no remedy.
+# An integer that prints as an accepted digit is now accepted and
+# printed as that digit; a value outside the set is refused by a message
+# that names the accepted spellings, digits included, and the int form.
+
+
+@pytest.mark.parametrize(
+    ("command", "args", "line"),
+    [
+        ("CAD_BODY_ROTATE", (1, 2, 15.0), "CAD_BODY_ROTATE 1 2 15.0"),
+        ("CAD_BODY_ROTATE", (1, "2", 15.0), "CAD_BODY_ROTATE 1 2 15.0"),
+        ("CAD_CREATE_ROTATE_CURVES", (1, 3, 20.0, "RETAIN"), "CAD_CREATE_ROTATE_CURVES 1 3 20.0"),
+    ],
+)
+def test_an_axis_given_as_an_integer_is_accepted_and_printed_as_the_digit(command, args, line):
+    """RED on the base tree: the int 2 was refused, the string "2" accepted."""
+    script = Script(version="26.120")
+    script.emit(command, *args)
+    assert line in script.render()
+
+
+def test_an_axis_outside_the_set_is_refused_naming_the_digits_and_the_int_form():
+    script = Script(version="26.120")
+    with pytest.raises(CommandArgumentError, match=r"one of X, Y, Z, 1, 2, 3.*as an int") as caught:
+        script.emit("CAD_BODY_ROTATE", 1, 4, 15.0)
+    assert "got 4" in str(caught.value)
+
+
+def test_a_boolean_is_not_an_axis_even_though_it_is_an_int():
+    """True == 1 in Python; it is not the digit 1 on the manual page."""
+    with pytest.raises(CommandArgumentError, match="one of X, Y, Z, 1, 2, 3"):
+        Script(version="26.120").emit("CAD_BODY_ROTATE", 1, True, 15.0)
+
+
+def test_an_integer_is_still_refused_where_the_enum_lists_no_digit():
+    """The letters-only family keeps refusing an index: the page names letters."""
+    with pytest.raises(CommandArgumentError, match="one of X, Y, Z") as caught:
+        Script(version="26.120").emit("CAD_BODY_SELECT_BY_THRESHOLD", 1, 3, 0.0, "ABOVE", "DELETE")
+    assert "got 3" in str(caught.value)
+
+
 def test_a_cad_body_command_is_refused_after_the_solver_is_initialized():
     """Phase geometry: a CAD body exists before the mesh does."""
     script = Script(version="26.120")

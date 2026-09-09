@@ -59,6 +59,26 @@ tokens. Four further fields exist because the emitter would otherwise
 decide a PER-COMMAND fact by a per-family rule or by guessing from the
 argument's name. Each was added after that guess was measured wrong.
 
+**`values` is the accepted vocabulary**: everything the manual page
+says the solver takes for that argument, in every spelling the page
+states or samples. The rule was in force and unwritten until
+2026-09-09 (PFS-2003.03): one entry listed the letters and the digits
+its page accepts for an axis while ten neighbours listed the letters
+alone, so a reader could not tell whether `values` meant what the
+solver accepts or what this library offers. It means the former, for
+one reason: the emitter reads `values` to REFUSE, and a refusal of a
+token the solver accepts is a false refusal with a page citation
+beside it. A narrowing this library chooses to offer (a helper that
+exposes three of six spellings, say) belongs to the helper and its
+docstring, never to `values`; should such a narrowing ever need to be
+data, its field is `offered`, and no entry has needed one. The axis
+family is the measured case: six arguments whose page states or
+samples the index form list `X, Y, Z, "1", "2", "3"`, ten whose page
+names the letters alone list the letters, and
+`tests/tier1_offline/test_command_db_grammar.py` pins every member of
+both halves. An integer passed where the digit is accepted is printed
+as that digit (PFS-2003.04).
+
 | Field | Declare it when |
 |---|---|
 | `cites` | The argument is a 1-based index into one of the entity kinds the script builder tracks (local coordinate systems, actuators, motions, mesh boundaries). Declaring it is what makes a declared label resolve and an out-of-range index refuse. |

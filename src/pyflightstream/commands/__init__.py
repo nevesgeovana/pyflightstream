@@ -258,7 +258,15 @@ class ArgSpec(BaseModel):
         ``values``.
     values : tuple of str, optional
         Allowed tokens; required for ``enum`` and ``enum_list`` types
-        and forbidden otherwise.
+        and forbidden otherwise. THE ACCEPTED VOCABULARY: every
+        spelling the manual page states or samples for the argument,
+        digits included where the page takes an index beside a letter,
+        because the emitter reads this list to refuse and a refusal of
+        a token the solver accepts is a false refusal. A narrowing this
+        library chooses to offer belongs to the helper that offers it,
+        never here (``docs/srs/data-model.md``, PFS-2003.03). An
+        integer that prints as a listed digit is accepted and printed
+        as that digit (PFS-2003.04).
     unit : str, optional
         Physical unit of the value as the solver expects it (for
         example ``"m/s"``); absent for dimensionless or textual
