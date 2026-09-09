@@ -65,6 +65,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ValidationError
 
+from pyflightstream._deprecations import ANALYSIS_SETUP_VORTICITY_DRAG_BOUNDARIES
 from pyflightstream._errors import (
     PyflightstreamDeprecationWarning,
     PyflightstreamWarning,
@@ -1855,10 +1856,12 @@ def analysis_setup(
         Restrict the analysis to inviscid loads and moments.
     vorticity_drag_boundaries : sequence of int or str, ``"all"``, or None
         Deprecated here since v0.3.0: the induced-drag boundary
-        selection belongs to :func:`solver_settings` and will leave
-        analysis_setup in a future minor release. Passing it still
-        works (with a DeprecationWarning) and replaces any selection
-        deferred by :func:`solver_settings`. Boundaries whose induced
+        selection belongs to :func:`solver_settings` and leaves
+        analysis_setup at v1.0.0, the release the ledger entry
+        ``ANALYSIS_SETUP_VORTICITY_DRAG_BOUNDARIES`` records
+        (PFS-2021.02; the warning text is built from it). Passing it
+        still works (with a DeprecationWarning) and replaces any
+        selection deferred by :func:`solver_settings`. Boundaries whose induced
         drag comes from surface vorticity integration, by index or
         declared label; a bluff body without a user-defined
         trailing-edge condition reports zero induced drag when placed
@@ -1890,15 +1893,14 @@ def analysis_setup(
                 for item in items
             ]
         replaced = (
-            "; this explicit call replaces the selection deferred by solver_settings"
+            " This explicit call replaces the selection deferred by solver_settings."
             if script._pending_vorticity is not None
             else ""
         )
+        # The text comes from the ledger, so the version it names and
+        # the one the deadline guard enforces cannot disagree.
         warnings.warn(
-            "analysis_setup(vorticity_drag_boundaries=...) is deprecated: the "
-            "induced-drag boundary selection is a parameter of solver_settings "
-            "since v0.3.0 and will leave analysis_setup in a future minor "
-            f"release{replaced}",
+            f"{ANALYSIS_SETUP_VORTICITY_DRAG_BOUNDARIES.message()}{replaced}",
             PyflightstreamDeprecationWarning,
             stacklevel=2,
         )

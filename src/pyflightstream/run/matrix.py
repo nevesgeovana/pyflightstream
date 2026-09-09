@@ -26,6 +26,7 @@ import warnings
 from collections.abc import Callable, Mapping
 from pathlib import Path
 
+from pyflightstream._deprecations import MATRIX_FS_VERSION
 from pyflightstream._errors import PyflightstreamDeprecationWarning
 from pyflightstream.cases import Campaign, ScriptRecipe
 from pyflightstream.cases.matrix import (
@@ -96,12 +97,11 @@ def _default_version(
                 f"fs_version={fs_version!r}, which are two names for one argument and "
                 "disagree; pass default_fs_version alone."
             )
+        # The text comes from the ledger row of this entry point, so the
+        # release it names (1.0.0, PFS-2021.02) is the one the deadline
+        # guard enforces.
         warnings.warn(
-            f"{caller}(fs_version=...) is the former name of default_fs_version and "
-            "will be removed in a future release. The argument is the version rows "
-            "whose FS_BUILD column names no build fall back to, so it is a DEFAULT "
-            "rather than the version the matrix runs under; a row that names a build "
-            "is authoritative. The pyfs-matrix command line keeps --fs-version.",
+            MATRIX_FS_VERSION[caller].message(),
             PyflightstreamDeprecationWarning,
             stacklevel=3,
         )
@@ -298,8 +298,9 @@ def plan_matrix(
         to None only so the former spelling below can still be given.
     fs_version : str, optional
         The former name of ``default_fs_version``. Still accepted, with
-        a DeprecationWarning; the ``pyfs-matrix`` command line keeps
-        ``--fs-version``.
+        a DeprecationWarning, until v1.0.0 (the ledger row
+        ``PLAN_MATRIX_FS_VERSION``, PFS-2021.02); the ``pyfs-matrix``
+        command line keeps ``--fs-version``.
     recipe_registry : dict of str to ScriptRecipe, optional
         Named recipe registry (name to callable) consulted before
         treating a recipe reference as ``module:function``, forwarded
@@ -404,7 +405,8 @@ def run_matrix(
         build; a DEFAULT rather than an override (PFS-2009.08.01).
     fs_version : str, optional
         The former name of ``default_fs_version``, still accepted with
-        a DeprecationWarning.
+        a DeprecationWarning until v1.0.0 (the ledger row
+        ``RUN_MATRIX_FS_VERSION``, PFS-2021.02).
     assess : pyflightstream.run.OutcomeAssessor
         Solver-quality judgment, for example
         :class:`pyflightstream.run.LoadsAssessor`; required because

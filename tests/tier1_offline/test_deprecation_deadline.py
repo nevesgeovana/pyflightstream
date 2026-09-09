@@ -189,6 +189,25 @@ def test_the_guard_refuses_an_expired_manifest_key(monkeypatch) -> None:
         test_no_promise_of_any_kind_survives_its_removal_version(entry)
 
 
+def test_the_two_promises_made_before_the_ledger_could_hold_them_are_in_it() -> None:
+    """PFS-2021.02: a promise that names no release cannot be checked.
+
+    Two shims warned "in a future release" and sat outside the ledger in
+    a comment. Measured RED on the base tree: neither subject was among
+    the ledger's entries, and the warning text of ``analysis_setup``
+    said "a future minor release", which NFR-20's policy forbids from
+    1.0 and which no test could hold to a date before it. Both stay
+    until 1.0.0, the decision recorded beside the entries.
+    """
+    subjects = {entry.subject for entry in DEPRECATIONS}
+    for subject in (
+        "vorticity_drag_boundaries of analysis_setup",
+        "fs_version of plan_matrix",
+        "fs_version of run_matrix",
+    ):
+        assert subject in subjects, f"{subject} is not in the ledger; it warns without a deadline"
+
+
 def test_parse_version_refuses_non_semver_strings() -> None:
     with pytest.raises(ValueError, match=r"plain MAJOR\.MINOR\.PATCH"):
         parse_version("0.4")

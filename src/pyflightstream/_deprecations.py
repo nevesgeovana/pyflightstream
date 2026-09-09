@@ -426,35 +426,75 @@ RUN_RECORD_BROKEN_COMMANDS = DeprecatedParameter(
     removal_version="0.15.0",
 )
 
+#: The two promises made before the ledger could hold them, registered
+#: on 2026-09-09 (PFS-2021.02). Each warned "in a future release" and
+#: carried no removal version, which NFR-20's policy forbids from 1.0
+#: and which no test could hold to a date before it. THE DECISION,
+#: taken in the session's seat under the author's night authorization
+#: of 2026-09-08: BOTH STAY UNTIL 1.0.0. Removing either earlier buys
+#: nothing (each shim is a keyword that forwards to its replacement)
+#: and would cost a caller outside this package a release they were
+#: never told about; 1.0.0 is the first release at which the policy
+#: binds and a removal is announced by the major version itself.
+#:
+#: The selection ``analysis_setup(vorticity_drag_boundaries=)`` moved
+#: to ``solver_settings`` in v0.3.0 rather than changing its name, so
+#: the "renamed to" of the shared sentence is read as "moved to"; the
+#: ``extra`` says so.
+ANALYSIS_SETUP_VORTICITY_DRAG_BOUNDARIES = DeprecatedParameter(
+    owner="analysis_setup",
+    old="vorticity_drag_boundaries",
+    new="solver_settings(vorticity_drag_boundaries=)",
+    deprecated_since="0.3.0",
+    removal_version="1.0.0",
+    extra=(
+        "The induced-drag boundary selection is a parameter of solver_settings "
+        "since v0.3.0 and analysis_setup only forwards it."
+    ),
+)
+
+#: ``fs_version=`` is the former spelling of ``default_fs_version=`` on
+#: the two matrix entry points (PFS-2009.08.01, v0.8.0). One row per
+#: entry point, because the warning names the call the user made. The
+#: ``pyfs-matrix --fs-version`` flag is NOT deprecated and keeps its
+#: spelling, which is worth stating because the two look like one
+#: promise.
+_MATRIX_FS_VERSION_EXTRA = (
+    "The argument is the version rows whose FS_BUILD column names no build fall "
+    "back to, so it is a DEFAULT rather than the version the matrix runs under; a "
+    "row that names a build is authoritative. The pyfs-matrix command line keeps "
+    "--fs-version."
+)
+PLAN_MATRIX_FS_VERSION = DeprecatedParameter(
+    owner="plan_matrix",
+    old="fs_version",
+    new="default_fs_version",
+    deprecated_since="0.8.0",
+    removal_version="1.0.0",
+    extra=_MATRIX_FS_VERSION_EXTRA,
+)
+RUN_MATRIX_FS_VERSION = DeprecatedParameter(
+    owner="run_matrix",
+    old="fs_version",
+    new="default_fs_version",
+    deprecated_since="0.8.0",
+    removal_version="1.0.0",
+    extra=_MATRIX_FS_VERSION_EXTRA,
+)
+#: The row for each entry point, keyed by the name the caller passes.
+MATRIX_FS_VERSION: dict[str, DeprecatedParameter] = {
+    entry.owner: entry for entry in (PLAN_MATRIX_FS_VERSION, RUN_MATRIX_FS_VERSION)
+}
+
 #: Every live promise of every kind, one entry each; the Tier 1 deadline
 #: guard judges each of these through :func:`expired_promise`.
-#:
-#: TWO LIVE PROMISES ARE STILL NOT HERE, and the reason is no longer
-#: that they have no home. Each warns "in a future release" and carries
-#: no removal version, and setting one is the author's call rather than
-#: a date invented here (NFR-20's policy does not bind before 1.0):
-#:
-#: * the keyword warning at ``run/matrix.py``, quoted as "is the former
-#:   name of default_fs_version and will be removed in a future release",
-#:   which tells a caller of ``plan_matrix`` or ``run_matrix`` that
-#:   ``fs_version=`` is the former spelling of ``default_fs_version=``
-#:   (PFS-2009.08.01). The ``pyfs-matrix --fs-version`` flag is NOT
-#:   deprecated and keeps its spelling, which is worth stating because
-#:   the two look like one promise;
-#: * the parameter warning at ``script/helpers.py``, which tells a
-#:   caller that ``analysis_setup(vorticity_drag_boundaries=...)`` is
-#:   deprecated, the selection having been a parameter of
-#:   ``solver_settings`` since v0.3.0.
-#:
-#: Each is anchored by the warning TEXT quoted with it, which survives a
-#: move, rather than by a file and line, which did not. The day the
-#: author names a removal version for either, it becomes a
-#: :class:`DeprecatedParameter` row here and its warning is built from
-#: the row.
 DEPRECATIONS: tuple[Deprecation, ...] = (
     *DEPRECATED_MODULES,
     WAIVED_COMMANDS_MANIFEST_KEY,
     SCRIPT_BROKEN_COMMANDS,
     POINT_PLAN_BROKEN_COMMANDS,
     RUN_RECORD_BROKEN_COMMANDS,
+    ANALYSIS_SETUP_VORTICITY_DRAG_BOUNDARIES,
+    PLAN_MATRIX_FS_VERSION,
+    RUN_MATRIX_FS_VERSION,
 )

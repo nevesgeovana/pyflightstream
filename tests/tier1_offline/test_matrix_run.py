@@ -1209,7 +1209,10 @@ def test_the_former_spelling_still_works_and_says_it_is_the_former_one(tmp_path)
     removes it.
     """
     workspace = make_library(tmp_path, register_build=("26.120", "C:/fs26120/FlightStream.exe"))
-    with pytest.warns(DeprecationWarning, match="default_fs_version"):
+    # The former spelling names the release that removes it, 1.0.0, and
+    # the text is the ledger entry's (PFS-2021.02); "a future release"
+    # was a promise no test could check.
+    with pytest.warns(DeprecationWarning, match=r"fs_version of plan_matrix .*removed in v1\.0\.0"):
         plan = plan_matrix(
             REGISTRY_FIXTURE,
             workspace,

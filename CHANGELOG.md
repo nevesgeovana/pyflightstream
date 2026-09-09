@@ -269,6 +269,21 @@ FlightStream versions.
   (26.120 from 66 to 79 verified rows, 26.123 from 84 to 92), and a verified
   row measured through a workflow row counts as re-measurable by that row.
 
+- **The two deprecation warnings that promised removal "in a future release"
+  now name it: both shims stay until 1.0.0** (PFS-2021.02).
+  `analysis_setup(vorticity_drag_boundaries=)` and the `fs_version=` keyword
+  of `plan_matrix` and `run_matrix` warned without a version, which the
+  deprecation policy of NFR-20 forbids from 1.0 and which no test could hold
+  to a date. Each is now a `DeprecatedParameter` row of the ledger
+  (`pyflightstream._deprecations`) with `removal_version` 1.0.0, the warning
+  text is built from the row, and the tier-1 deadline guard judges them with
+  every other promise. The decision to keep them until 1.0.0 rather than
+  pick an earlier minor was taken in the session's seat under the author's
+  night authorization of 2026-09-08 and is recorded beside the entries: each
+  shim is a keyword that forwards to its replacement, so removing it earlier
+  saves nothing and costs an outside caller a release they were never told
+  about. Nothing changes for a caller except the sentence they read.
+
 - **A simulation folder has three managed subfolders, and `parsed/` is no
   longer created** (PFS-2032.01). `CampaignWorkspace.create_sim` makes
   `inputs/`, `scripts/` and `raw/`; the fourth folder existed from the first

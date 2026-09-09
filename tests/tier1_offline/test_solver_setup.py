@@ -551,10 +551,13 @@ def test_analysis_setup_vorticity_is_deprecated_but_works():
     script = Script(version="26.120")
     helpers.solver_settings(script, vorticity_drag_boundaries="all")
     script.emit("START_SOLVER")
+    # The promise names its release (PFS-2021.02): it stays until 1.0.0,
+    # and the text comes from the ledger entry, so this regex and the
+    # deadline guard read the same version.
     with pytest.warns(
         DeprecationWarning,
-        match=r"deprecated.*will leave analysis_setup in a future minor "
-        r"release; this explicit call replaces the selection deferred by "
+        match=r"vorticity_drag_boundaries of analysis_setup .*will be removed in "
+        r"v1\.0\.0.*This explicit call replaces the selection deferred by "
         r"solver_settings",
     ):
         helpers.analysis_setup(script, vorticity_drag_boundaries=[1])
