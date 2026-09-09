@@ -53,7 +53,7 @@ reaches into, which is the shape this subpackage is most at risk of
 becoming.
 """
 
-from pyflightstream.utils.errors import ManualDraftError
+from pyflightstream.utils.errors import ManualCallError, ManualDraftError
 from pyflightstream.utils.manual import (
     TYPE_RULES,
     CommandEntryLike,
@@ -102,6 +102,7 @@ __all__ = [
     "ManualCommand",
     "Reachability",
     "RegistryLike",
+    "ManualCallError",
     "ManualDraftError",
     "SurfaceChange",
     "UnreachableCommand",

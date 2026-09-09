@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from pyflightstream._errors import PyflightstreamError
 
-__all__ = ["ManualDraftError"]
+__all__ = ["ManualCallError", "ManualDraftError"]
 
 
 class ManualDraftError(PyflightstreamError, ValueError):
@@ -26,4 +26,17 @@ class ManualDraftError(PyflightstreamError, ValueError):
     ``ValueError`` as the second base, because that is what this refusal
     raised before the catalogue existed and what a caller written against
     it would still catch (FR-39).
+    """
+
+
+class ManualCallError(PyflightstreamError, TypeError):
+    """A drafting function was called with the wrong argument shape.
+
+    Raised by ``propose_type`` when its two strings arrive twice, or
+    positionally with a count other than two, or not at all: the keyword
+    form is the one that says which string is which (PFS-2022.05).
+
+    ``TypeError`` as the second base, because that is what a wrong call
+    shape raised before the catalogue held a class for it, and what a
+    caller written against it would still catch (FR-39).
     """

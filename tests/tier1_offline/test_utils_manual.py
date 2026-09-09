@@ -254,7 +254,7 @@ def test_the_module_reaches_up_to_nothing():
         "from pyflightstream._deprecations import PROPOSE_TYPE_POSITIONAL, SWEEP_EDITIONS",
         "from pyflightstream._errors import PyflightstreamDeprecationWarning",
         "from pyflightstream._yamlflow import flow_mapping",
-        "from pyflightstream.utils.errors import ManualDraftError",
+        "from pyflightstream.utils.errors import ManualCallError, ManualDraftError",
         "from pyflightstream.extras import missing_extra",
     ], reaching
 

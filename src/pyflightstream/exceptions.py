@@ -121,7 +121,7 @@ from pyflightstream.script import (
     ScriptReferenceError,
 )
 from pyflightstream.script.entities import ScriptDeclarationTypeError
-from pyflightstream.utils.errors import ManualDraftError
+from pyflightstream.utils.errors import ManualCallError, ManualDraftError
 from pyflightstream.versions import AmbiguousVersionAliasError, UnknownVersionError
 from pyflightstream.workspace import (
     InputArtifactError,
@@ -151,6 +151,7 @@ __all__ = [
     "InputArtifactError",
     "LoadsNotFoundError",
     "MalformedOutputError",
+    "ManualCallError",
     "ManualDraftError",
     "MatrixError",
     "MeshReadError",

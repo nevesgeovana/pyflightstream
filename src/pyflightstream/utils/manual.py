@@ -131,7 +131,7 @@ import yaml
 from pyflightstream._deprecations import PROPOSE_TYPE_POSITIONAL, SWEEP_EDITIONS
 from pyflightstream._errors import PyflightstreamDeprecationWarning
 from pyflightstream._yamlflow import flow_mapping
-from pyflightstream.utils.errors import ManualDraftError
+from pyflightstream.utils.errors import ManualCallError, ManualDraftError
 
 __all__ = [
     "TYPE_RULES",
@@ -1947,13 +1947,13 @@ def propose_type(
 
     Raises
     ------
-    TypeError
+    ManualCallError
         The two strings given twice (positionally and by keyword), or a
         positional call with a count other than two, or either missing.
     """
     if positional:
         if placeholder is not None or description is not None or len(positional) != 2:
-            raise TypeError(
+            raise ManualCallError(
                 "propose_type takes placeholder= and description= by keyword; "
                 f"got {len(positional)} positional argument(s)"
                 + (" and a keyword" if placeholder is not None or description is not None else "")
@@ -1963,7 +1963,7 @@ def propose_type(
         )
         placeholder, description = positional
     if placeholder is None or description is None:
-        raise TypeError("propose_type needs both placeholder= and description=")
+        raise ManualCallError("propose_type needs both placeholder= and description=")
     text = description.strip()
     upper = placeholder.upper()
 

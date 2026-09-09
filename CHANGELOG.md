@@ -320,6 +320,12 @@ FlightStream versions.
 
 ### Changed
 
+- **`utils.ManualCallError`, in the catalogue**: `propose_type` called with the
+  wrong argument shape raised a bare `TypeError` after its keyword-only
+  change (PFS-2022.05), which the FR-39 ratchet refused; the class keeps
+  `TypeError` as its base so an existing `except TypeError` catches what it
+  caught before.
+
 - **Two type-check exemptions retired, `qa.cli` and `qa.physics`**, which the
   physics rewrite (PFS-2031.17) left clean under the strict configuration;
   the exemption recount of RPT-029 is re-measured for 2026-09-09 and its four

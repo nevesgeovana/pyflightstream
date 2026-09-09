@@ -144,6 +144,7 @@ def test_the_package_base_does_not_widen_what_the_builtin_bases_caught():
         "InputArtifactError": RuntimeError,
         "LoadsNotFoundError": ValueError,
         "MalformedOutputError": ValueError,
+        "ManualCallError": TypeError,
         "ManualDraftError": ValueError,
         "MatrixError": ValueError,
         # PFS-2028.00: a saved simulation whose mesh block opens and
@@ -246,6 +247,9 @@ _COMMON_BASES = (ValueError, RuntimeError, LookupError, KeyError, ImportError)
 #: outside the five as well, and counting them would make the number say
 #: nothing about the rows the comments are beside.
 _UNUSUAL_BASE_CLASSES = (
+    # TypeError: a drafting function called with the wrong argument shape
+    # (PFS-2022.05, 2026-09-09).
+    "ManualCallError",
     "OutputExistsError",
     "ScriptDeclarationTypeError",
     "UnsupportedResultTypeError",
