@@ -714,6 +714,36 @@ A skip is a success by default, since everything producible was produced;
 `--strict` is for a wrapper that must tell a partial rebuild from a whole
 one, and it changes the exit code alone, after every product is written.
 
+### Archiving a completed simulation
+
+Every point of a row runs into the same simulation folder, and a run
+refuses to collect onto a name that is already in `raw/`, or to start a
+point whose declared output is already in the folder, rather than
+attribute somebody else's file to the new point. Both refusals say to
+archive the simulation, and this is the command they mean:
+
+```text
+pyfs-workspace archive . 8001        # sims/sim_8001/ becomes archive/sim_8001.zip
+```
+
+It zips the simulation's staged inputs, scripts and raw outputs into
+one file under `archive/`, then removes the folder, so the row can be
+re-run into a clean one while its evidence stays and the manifest keeps
+its records. The products already under `post/` are untouched, and a
+later `pyfs-matrix post` reads the exports from the simulation folder,
+which is now in the zip: rebuild the products first, archive after.
+Three things are refused, each by name and with
+nothing written or deleted: a simulation the manifest does not record
+(`refusing to archive sim_8001: the manifest has no record of this
+simulation`), a campaign root without `runs.json`, and an archive name
+already taken, since writing it would replace an earlier archive and
+then delete the folder it came from. The Python surface is
+`CampaignWorkspace.archive_sim`, and this command does the same thing
+and nothing more; the suite runs the line above on a recorded
+simulation and on an unrecorded one
+(`test_workspace.py::test_archive_subcommand_zips_a_recorded_simulation`
+and the refusal beside it).
+
 ### Several matrices in one workspace
 
 One workspace may hold several matrices, each a study of its own over the

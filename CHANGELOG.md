@@ -35,6 +35,17 @@ FlightStream versions.
   from which `pyfs-qa apply-compat` promoted 13 statuses per build. 26.121 and
   26.122 are named as not covered: no executable of theirs is registered here.
   The sweep was the known gap the 0.10.0 note recorded.
+- **`pyfs-workspace archive <root> <sim_id>` zips one recorded simulation
+  under `archive/`** (OPS-2009.01.10). Two refusals already told the user to
+  run it: collecting onto a name already in `raw/`, and starting a point
+  whose declared output is already in the simulation folder, both say to
+  archive the simulation and re-run, and the command they named was not
+  there. It is `CampaignWorkspace.archive_sim` from the terminal and nothing
+  more: a simulation the manifest does not record is refused by name with
+  exit 2 and nothing written or deleted, as is a campaign root without
+  `runs.json` and an archive name already taken. Both refusal messages now
+  spell the whole command. The workspace page carries the worked example,
+  which the suite runs on a recorded and on an unrecorded simulation.
 
 - **`tests/tier3_licensed` is a campaign workspace, run on the licensed
   machine, with one test per row** (PFS-2031.03, PFS-2031.05, PFS-2031.07,

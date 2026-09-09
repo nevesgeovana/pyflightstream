@@ -2893,7 +2893,7 @@ def _execute_point(
                 "somebody else's file to this run. Every point of a case shares the "
                 "folder, and collection cannot tell a file this solver wrote from one "
                 "that was already there. Archive the simulation (pyfs-workspace "
-                "archive) or remove the leftover, then re-run."
+                "archive <root> <sim_id>) or remove the leftover, then re-run."
             ),
         )
 

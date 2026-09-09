@@ -277,6 +277,48 @@ def test_cli_init_builds_the_tree_and_returns_zero(tmp_path, capsys):
     assert "idempotent" in out
 
 
+# --- OPS-2009.01.10: the archive subcommand the refusals already named ------
+
+
+def test_archive_subcommand_zips_a_recorded_simulation(tmp_path, capsys):
+    """``pyfs-workspace archive <root> <sim_id>`` zips one recorded simulation.
+
+    The worked example of docs/workspace-and-workflows.md, executed: a
+    completed simulation of the manifest goes under ``archive/`` as one zip
+    and its folder is removed, through the same ``archive_sim`` the Python
+    surface has had since the first release.
+    """
+    root = tmp_path / "camp"
+    workspace = CampaignWorkspace.init(root)
+    workspace.write_script("8001", "point.txt", "START_SOLVER\n")
+    workspace.append_record(make_record(sim_id="8001", run_id="matriz/sim_8001/a+00.0"))
+    assert workspace_cli(["archive", str(root), "8001"]) == 0
+    bundle = root / "archive" / "sim_8001.zip"
+    assert bundle.is_file()
+    with zipfile.ZipFile(bundle) as archive:
+        assert "scripts/point.txt" in archive.namelist()
+    assert not (root / "sims" / "sim_8001").exists()
+    assert str(bundle) in capsys.readouterr().out
+
+
+def test_archive_subcommand_refuses_an_unrecorded_simulation(tmp_path, capsys):
+    """A simulation the manifest does not record is refused by name, exit 2.
+
+    Same refusal as ``archive_sim``: file management never destroys an
+    unrecorded run, so the folder is still there afterwards and the
+    message names the simulation it declined to touch.
+    """
+    root = tmp_path / "camp"
+    workspace = CampaignWorkspace.init(root)
+    workspace.create_sim("8001")
+    workspace.append_record(make_record(sim_id="8002", run_id="matriz/sim_8002/a+00.0"))
+    assert workspace_cli(["archive", str(root), "8001"]) == 2
+    err = capsys.readouterr().err
+    assert "sim_8001" in err and "no record of this simulation" in err
+    assert (root / "sims" / "sim_8001").is_dir()
+    assert not (root / "archive" / "sim_8001.zip").exists()
+
+
 def test_the_data_model_page_lists_exactly_the_input_kinds():
     """The SRS data-model page's folder tree names the kinds `init` creates (PFS-2032.02).
 

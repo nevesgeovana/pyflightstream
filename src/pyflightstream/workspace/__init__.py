@@ -1835,7 +1835,7 @@ class CampaignWorkspace:
                     "the file, so continuing would destroy the collected evidence "
                     "and leave two manifest records pointing at one file. Use a "
                     "per-point output name, or archive the simulation before "
-                    "re-running it."
+                    "re-running it (pyfs-workspace archive <root> <sim_id>)."
                 )
             shutil.move(str(origin), destination)
             collected.append(f"raw/{origin.name}")

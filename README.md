@@ -295,7 +295,7 @@ runs, not that its physics is right for a case nobody has measured.
 | Tool | Purpose |
 |---|---|
 | `pyfs-qa` | Tier 2 command-validity probes, Tier 3 physics regression and cross-version drift, status promotion from committed reports |
-| `pyfs-workspace` | Initialize the managed campaign workspace tree |
+| `pyfs-workspace` | Initialize the managed campaign workspace tree (`init`); zip one recorded simulation under `archive/` (`archive`) |
 | `pyfs-matrix` | Upgrade, convert, pre-flight and run run matrices |
 | `pyfs-manual` | Compare FlightStream manuals against the command database: one manual, every registered edition at once (`sweep`, which reports both what has no entry and what an edition documents that its build cannot emit), what each build documents and what changed between builds (`surface`), or whether the citations already written still point where they say (`citations`, the one subcommand that fails by default on a finding, because a citation that does not hold is a statement already shipped rather than work remaining). `register` carries a build's documentation forward: for every command a new edition describes exactly as its predecessor did, it writes a `documented` row citing the new edition, and it reports rather than writes anything described differently. Maintainer tool; needs the `[manual]` extra, and only `draft` and `register` write, both with `--write` and both dry-run by default. `register` is the one that edits the command database rather than emitting a file |
 | `pyfs-fsi` | The structural executable of the aeroelastic coupling loop |
