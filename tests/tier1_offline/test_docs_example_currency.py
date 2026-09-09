@@ -499,6 +499,7 @@ def test_the_tiers_page_names_the_three_folders_that_exist():
         "test_studies.py",
         "test_physics.py",
         "test_actions_probe.py",
+        "test_actions.py",
         "test_builds.py",
     ):
         assert (tier3 / module).is_file()

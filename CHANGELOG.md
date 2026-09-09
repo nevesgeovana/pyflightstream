@@ -157,7 +157,10 @@ FlightStream versions.
   `action_count` the count the program reached. Row 6002 of
   `tests/tier3_licensed/matriz_actions.fs` runs the `unsteady` type with
   the threshold at iteration 4 of 8 on 26.123; its golden is new and no
-  other moved.
+  other moved. The row RAN on 26.123 the same night (RPT-045):
+  CONVERGED, count 8, 25 stamped exports for iterations 4 to 8 and none
+  before, and the four things design 67 left unmeasured are measured, all
+  four as the design assumed; `test_actions.py` reads the run back.
 
 - **`tests/tier3_licensed` is a campaign workspace, run on the licensed
   machine, with one test per row** (PFS-2031.03, PFS-2031.05, PFS-2031.07,
