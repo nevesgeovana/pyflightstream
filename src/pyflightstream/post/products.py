@@ -727,7 +727,7 @@ def _sim_products(
 
 
 def write_campaign_products(
-    workspace: CampaignWorkspace, *, overwrite: bool = False, matrix: str | None = None
+    workspace: CampaignWorkspace, *, overwrite: bool = False, matrix_stem: str | None = None
 ) -> list[Path]:
     """Write the products of the simulations in a workspace's manifest.
 
@@ -740,25 +740,25 @@ def write_campaign_products(
     is derived and a resume rewrites it with the new points.
 
     Where they land is the matrix's own folder (PFS-2031.04): with
-    ``matrix`` given, the records naming that matrix stem are written under
+    ``matrix_stem`` given, the records naming that matrix stem are written under
     ``post/<matrix>/``, so several matrices of one workspace keep their
     own; with it None, every record that names no matrix is written under
     ``post/products``, the historical place of a campaign authored in
     Python.
     """
     everything = workspace.read_manifest()
-    records = [record for record in everything if record.matrix == matrix]
-    if matrix is not None and not records:
+    records = [record for record in everything if record.matrix_stem == matrix_stem]
+    if matrix_stem is not None and not records:
         # The same refusal sweep_table gives the same keyword (PFS-2031.04):
         # a stem the manifest never recorded is a typo or a matrix not yet
         # run, and an empty product folder would say neither.
-        stems = sorted({r.matrix for r in everything if r.matrix})
+        stems = sorted({r.matrix_stem for r in everything if r.matrix_stem})
         raise ProductError(
-            f"the manifest of {workspace.root} holds no record of matrix {matrix!r}; the "
+            f"the manifest of {workspace.root} holds no record of matrix {matrix_stem!r}; the "
             f"matrices it names are {', '.join(stems) if stems else 'none'}. Run that matrix "
             "first, or name one of those."
         )
-    out = workspace.products_dir(matrix)
+    out = workspace.products_dir(matrix_stem)
     by_sim: dict[str, list[RunRecord]] = {}
     for record in records:
         if record.status in (RunStatus.CONVERGED, RunStatus.COMPLETED_MAX_ITER):

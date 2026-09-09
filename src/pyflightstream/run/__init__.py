@@ -1742,7 +1742,7 @@ def _check_scheduled_builds(
 SWEEP_TABLE_NAME = "campaign_sweep.csv"
 
 
-def _leave_products(workspace: CampaignWorkspace, matrix: str | None) -> str | None:
+def _leave_products(workspace: CampaignWorkspace, matrix_stem: str | None) -> str | None:
     """Write the campaign's products under its products root, never raising.
 
     PFS-2029.15.03, the sibling of :func:`_leave_sweep_table` and under the
@@ -1752,10 +1752,10 @@ def _leave_products(workspace: CampaignWorkspace, matrix: str | None) -> str | N
     outcome. ``pyfs-matrix post`` is the same writer run by hand, which is
     where an existing product is refused without ``--overwrite``.
     """
-    where = workspace.products_dir(matrix)
+    where = workspace.products_dir(matrix_stem)
     try:
         for stage in post_stages():
-            stage(workspace, overwrite=True, matrix=matrix)
+            stage(workspace, overwrite=True, matrix_stem=matrix_stem)
     except Exception as error:
         return (
             f"the campaign ran and its products were NOT written under "
@@ -1767,7 +1767,7 @@ def _leave_products(workspace: CampaignWorkspace, matrix: str | None) -> str | N
     return None
 
 
-def _leave_sweep_table(workspace: CampaignWorkspace, matrix: str | None) -> str | None:
+def _leave_sweep_table(workspace: CampaignWorkspace, matrix_stem: str | None) -> str | None:
     """Write the campaign's sweep table under ``post/``, never raising.
 
     Under ``post/<matrix>/`` for a campaign converted from a run matrix,
@@ -1824,10 +1824,10 @@ def _leave_sweep_table(workspace: CampaignWorkspace, matrix: str | None) -> str 
     ``BaseException`` is NOT caught: a ``KeyboardInterrupt`` means the
     operator asked for the process to stop.
     """
-    target = workspace.sweep_dir(matrix) / SWEEP_TABLE_NAME
+    target = workspace.sweep_dir(matrix_stem) / SWEEP_TABLE_NAME
     try:
         target.parent.mkdir(parents=True, exist_ok=True)
-        write_table(sweep_table(workspace, require_loads=False, matrix=matrix), target)
+        write_table(sweep_table(workspace, require_loads=False, matrix_stem=matrix_stem), target)
     except Exception as error:
         return (
             f"the campaign ran and its sweep table was NOT written to {target}: "
@@ -2091,10 +2091,10 @@ def run_campaign(
     # no problem to report, and complaining would put a warning on every
     # resume that found its work already done.
     if recorded:
-        problem = _leave_products(workspace, campaign.matrix)
+        problem = _leave_products(workspace, campaign.matrix_stem)
         if problem is not None:
             warnings.warn(problem, PyflightstreamWarning, stacklevel=2)
-        problem = _leave_sweep_table(workspace, campaign.matrix)
+        problem = _leave_sweep_table(workspace, campaign.matrix_stem)
         if problem is not None:
             # The one residual, stated rather than hidden: under
             # `-W error` this warning is promoted to an exception and
@@ -2424,7 +2424,7 @@ def plan_campaign(
     groups = _build_groups(campaign)
     plan_file = None
     if write_plan:
-        plan_file = workspace.plan_dir(campaign.matrix) / "plan.json"
+        plan_file = workspace.plan_dir(campaign.matrix_stem) / "plan.json"
         payload = {
             "campaign": campaign.name,
             "campaign_name_from": name_from,
@@ -2749,7 +2749,7 @@ def _execute_point(
         "run_id": run_id,
         "sim_id": case.sim_id,
         "point": dict(point),
-        "matrix": campaign.matrix,
+        "matrix_stem": campaign.matrix_stem,
         "fs_version_requested": canonical,
         "package_version": pyflightstream.__version__,
         "package_commit": package_commit,

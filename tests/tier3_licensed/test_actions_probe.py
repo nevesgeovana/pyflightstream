@@ -31,7 +31,7 @@ def _probe_record():
     records = [
         record
         for record in CampaignWorkspace(HERE).read_manifest()
-        if record.sim_id == actions_probe.PROBE_POL and record.matrix == MATRIX
+        if record.sim_id == actions_probe.PROBE_POL and record.matrix_stem == MATRIX
     ]
     assert records, f"no record of {MATRIX}.fs row {actions_probe.PROBE_POL}; run it first"
     return records[-1]

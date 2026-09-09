@@ -339,6 +339,13 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="rewrite products that already exist; without it an existing product is refused",
     )
+    post.add_argument(
+        "--strict",
+        action="store_true",
+        help="exit 2 when any simulation's product was skipped by design (a polar under "
+        "sideslip, for one); without it a recorded skip is printed and the exit is 0, "
+        "since everything producible was produced",
+    )
     return parser
 
 
@@ -436,7 +443,7 @@ def _cmd_post(args: argparse.Namespace) -> int:
                 file=sys.stderr,
             )
             return 2
-        named = list(dict.fromkeys(record.matrix for record in records))
+        named = list(dict.fromkeys(record.matrix_stem for record in records))
         if args.matrix is not None:
             stem = Path(args.matrix).stem
             if stem not in named:
@@ -456,7 +463,7 @@ def _cmd_post(args: argparse.Namespace) -> int:
         written: list[Path] = []
         for matrix in matrices:
             for stage in post_stages():
-                written.extend(stage(workspace, overwrite=args.overwrite, matrix=matrix))
+                written.extend(stage(workspace, overwrite=args.overwrite, matrix_stem=matrix))
     except (OSError, PyflightstreamError) as error:
         print(str(error), file=sys.stderr)
         return 2
@@ -468,6 +475,7 @@ def _cmd_post(args: argparse.Namespace) -> int:
     # manifest records (PFS-2031.16); say it where the user looks.
     import json
 
+    skipped = 0
     for matrix in matrices:
         manifest = workspace.products_dir(matrix) / "products.json"
         if manifest.is_file():
@@ -475,6 +483,13 @@ def _cmd_post(args: argparse.Namespace) -> int:
                 json.loads(manifest.read_text(encoding="utf-8")).get("skipped", {}).items()
             ):
                 print(f"skipped simulation {sim_id}: {reason}", file=sys.stderr)
+                skipped += 1
+    if skipped and args.strict:
+        # Her decision of 2026-09-08: a skip is a success by default, since
+        # everything producible was produced, and a wrapper that needs to
+        # tell a partial rebuild apart asks for it.
+        print(f"--strict: {skipped} simulation(s) skipped, exit 2", file=sys.stderr)
+        return 2
     return 0
 
 
@@ -651,7 +666,7 @@ def _cmd_run(args: argparse.Namespace, recipes: dict[str, str]) -> int:
     # A record written before 0.13.0 names no matrix and is left out of
     # this table by design (PFS-2031.04); say so at the moment it happens
     # rather than leave a shorter table to be discovered.
-    unnamed = sum(1 for record in workspace.read_manifest() if record.matrix is None)
+    unnamed = sum(1 for record in workspace.read_manifest() if record.matrix_stem is None)
     if unnamed:
         print(
             f"{unnamed} recorded point(s) name no matrix (written before 0.13.0) and are "
@@ -667,7 +682,7 @@ def _cmd_run(args: argparse.Namespace, recipes: dict[str, str]) -> int:
         # that cannot say what produced its numbers; `to_csv` bypassed
         # that and was correct only by coincidence.
         Path(target).parent.mkdir(parents=True, exist_ok=True)
-        write_table(sweep_table(workspace, require_loads=False, matrix=stem), target)
+        write_table(sweep_table(workspace, require_loads=False, matrix_stem=stem), target)
     except (LoadsNotFoundError, MalformedOutputError, OSError, ValueError) as error:
         print(f"runs completed, sweep table not written: {error}", file=sys.stderr)
         return 2

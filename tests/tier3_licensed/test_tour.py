@@ -25,7 +25,7 @@ MATRIX = "matriz"
 
 def test_every_active_row_of_the_tour_is_recorded_terminal_and_the_inactive_one_is_not(runs):
     """18 points of 11 active rows; row 1006 says RUN 0 and left nothing."""
-    tour = [record for record in runs.records if record.matrix == MATRIX]
+    tour = [record for record in runs.records if record.matrix_stem == MATRIX]
     by_row = {}
     for record in tour:
         by_row.setdefault(record.sim_id, []).append(record)
@@ -135,7 +135,7 @@ def test_1005_the_body_detects_its_base_and_runs_on_the_second_build(runs):
     assert line(script, "SOLVER_SET_REF_LENGTH") == "SOLVER_SET_REF_LENGTH 4.0"
     # HIDDEN 1 on this row and 0 on the tour's first: one visible row makes the
     # whole campaign visible, so no point of the tour ran windowless.
-    assert all("-hidden" not in r.argv for r in runs.records if r.matrix == MATRIX)
+    assert all("-hidden" not in r.argv for r in runs.records if r.matrix_stem == MATRIX)
 
 
 def test_1010_the_rotorless_unsteady_row_states_its_clock_in_seconds(runs):

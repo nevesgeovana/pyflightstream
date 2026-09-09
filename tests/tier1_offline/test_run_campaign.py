@@ -3431,8 +3431,8 @@ def test_a_registered_post_stage_receives_the_workspace_the_overwrite_flag_and_t
 
     calls = []
 
-    def spy_stage(workspace, *, overwrite=False, matrix=None):
-        calls.append((workspace.root, overwrite, matrix))
+    def spy_stage(workspace, *, overwrite=False, matrix_stem=None):
+        calls.append((workspace.root, overwrite, matrix_stem))
         return []
 
     register_post_stage(spy_stage)
@@ -3449,7 +3449,7 @@ def test_a_registered_post_stage_receives_the_workspace_the_overwrite_flag_and_t
     finally:
         _POST_STAGES.remove(spy_stage)
     assert calls == [(workspace.root, True, None)]
-    assert campaign.matrix is None
+    assert campaign.matrix_stem is None
 
 
 # --- PFS-2031.13: the run writes the child script of a SCRIPT action ---------------

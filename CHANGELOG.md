@@ -44,7 +44,10 @@ FlightStream versions.
   "a rotor hub is three coordinates" for the same cell a two-rotor row accepts.
 
 - **`pyfs-matrix post` takes the matrix whose products to rebuild**, and with
-  none given rebuilds every matrix the manifest names (PFS-2031.04).
+  none given rebuilds every matrix the manifest names (PFS-2031.04). Its
+  `--strict` flag makes a product skipped by design exit 2; without it a
+  recorded skip is printed and the exit is 0, since everything producible was
+  produced (her decision of 2026-09-08, PFS-2031.19).
 
 - **A workspace kept in version control runs on this machine through
   `inputs/executables.local.toml`** (PFS-2031.15): the committed registry
@@ -74,8 +77,11 @@ FlightStream versions.
   `campaign_sweep.csv` from `post/` to `post/<stem>/`, and the product tables
   with `products.json` from `post/products/` to `post/<stem>/`. `runs.json`
   stays the one manifest, and every record now names the matrix its point
-  came from (`matrix`), which is what `sweep_table(..., matrix=)` and
-  `write_campaign_products(..., matrix=)` filter by, and both refuse a stem
+  came from (`matrix_stem`, named so on her decision of 2026-09-08 to stay
+  apart from `DerivedFrom.matrix`, the path a conversion read; the field had
+  been `matrix` for one day of the 0.13.0 development line and no release
+  carried it, PFS-2031.20), which is what `sweep_table(..., matrix_stem=)` and
+  `write_campaign_products(..., matrix_stem=)` filter by, and both refuse a stem
   the manifest never recorded naming the stems it does; `pyfs-matrix post`
   refuses the same way, and refuses an empty manifest naming `runs.json`.
   A campaign authored in Python or loaded from a file has no matrix and

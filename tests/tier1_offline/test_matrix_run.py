@@ -3579,9 +3579,9 @@ def test_two_matrices_of_one_workspace_keep_their_own_plan_sweep_and_products(tm
         )
     records = workspace.read_manifest()
     assert len(records) == 4, "one manifest holds the points of both matrices"
-    assert [record.matrix for record in records] == ["wing_alpha"] * 2 + ["wing_beta"] * 2
+    assert [record.matrix_stem for record in records] == ["wing_alpha"] * 2 + ["wing_beta"] * 2
     # The sweep of one matrix holds that matrix's points and no other's.
-    table = sweep_table(workspace, matrix="wing_alpha")
+    table = sweep_table(workspace, matrix_stem="wing_alpha")
     assert sorted(set(table["sim_id"].astype(str))) == ["8001", "8002"]
     for stem, sims in (("wing_alpha", {"8001", "8002"}), ("wing_beta", {"8101", "8102"})):
         folder = workspace.root / "post" / stem

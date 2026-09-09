@@ -36,7 +36,7 @@ class Runs:
         """Every record of one row, in manifest order; the latest per point wins."""
         latest: dict[str, RunRecord] = {}
         for record in self.records:
-            if record.matrix == matrix and record.sim_id == pol:
+            if record.matrix_stem == matrix and record.sim_id == pol:
                 latest[record.run_id] = record
         return list(latest.values())
 

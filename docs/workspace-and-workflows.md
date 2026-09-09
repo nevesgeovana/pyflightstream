@@ -719,8 +719,8 @@ writes `post/<stem>/plan.json`, `run` writes `post/<stem>/sweep.csv` and
 land beside them. `runs.json` stays the one manifest of the workspace, and
 every record in it names the matrix its point came from, so the sweep table
 and the products of one matrix are rebuilt from its own records alone. From
-Python the same identity is the `matrix` keyword of `sweep_table` and
-`write_campaign_products`, and the `matrix` field of a run record.
+Python the same identity is the `matrix_stem` keyword of `sweep_table` and
+`write_campaign_products`, and the `matrix_stem` field of a run record.
 
 What two matrices of one workspace may not share is a POL. A POL names the
 simulation folder `sims/sim_<POL>` and the run ids of the manifest, so two

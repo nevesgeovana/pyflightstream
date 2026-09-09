@@ -284,7 +284,7 @@ BrokenCommandRecord.__pydantic_config__ = ConfigDict(extra="allow")  # type: ign
 
 #: THE POST STAGES A RUN LEAVES BEHIND IT (PFS-2029.15.03). A stage is a
 #: callable taking the workspace, ``overwrite`` and, since PFS-2031.04,
-#: ``matrix`` (the stem of the run matrix whose records it writes for, or
+#: ``matrix_stem`` (the stem of the run matrix whose records it writes for, or
 #: None for the records that name none), and returning the paths it wrote.
 #: Every caller passes the third keyword, so a stage written to the earlier
 #: two-argument shape fails with a TypeError naming it.
@@ -485,7 +485,7 @@ class RunRecord(BaseModel):
         ``setup 's001' (inputs/setups/s001.toml)``. Empty when the row
         inherited nothing, which includes every record written before
         0.12.0.
-    matrix : str, optional
+    matrix_stem : str, optional
         The stem of the run matrix the point came from, when the campaign
         was converted from one (PFS-2031.04). A workspace may hold several
         matrices sharing this one manifest, and the sweep table and the
@@ -534,7 +534,7 @@ class RunRecord(BaseModel):
     flight_condition: dict[str, float] = Field(default_factory=dict)
     flight_condition_defaults: dict[str, float] = Field(default_factory=dict)
     flight_condition_defaults_from: str = ""
-    matrix: str | None = None
+    matrix_stem: str | None = None
     #: The resolved flow state, and WHICH BRANCH produced the density.
     #: Recorded so a reader can RECOMPUTE the resolution rather than
     #: trust it: the inputs above plus these values plus the reference
@@ -1421,20 +1421,20 @@ class CampaignWorkspace:
     # caller spelling the rule itself is the defect a review found five
     # times over on 2026-09-08.
 
-    def plan_dir(self, matrix: str | None) -> Path:
+    def plan_dir(self, matrix_stem: str | None) -> Path:
         """Where ``plan.json`` lands: ``post/<matrix>/``, or the root without a matrix."""
-        return self.root / "post" / matrix if matrix else self.root
+        return self.root / "post" / matrix_stem if matrix_stem else self.root
 
-    def sweep_dir(self, matrix: str | None) -> Path:
+    def sweep_dir(self, matrix_stem: str | None) -> Path:
         """Where the sweep tables land: ``post/<matrix>/``, or ``post/`` without a matrix."""
-        return self.root / "post" / matrix if matrix else self.root / "post"
+        return self.root / "post" / matrix_stem if matrix_stem else self.root / "post"
 
-    def products_dir(self, matrix: str | None) -> Path:
+    def products_dir(self, matrix_stem: str | None) -> Path:
         """Where the products and ``products.json`` land: ``post/<matrix>/`` or ``post/products/``.
 
         The matrix-less fallback is the historical products folder.
         """
-        return self.root / "post" / (matrix if matrix else "products")
+        return self.root / "post" / (matrix_stem if matrix_stem else "products")
 
     def sim_dir(self, sim_id: str) -> Path:
         """Return the managed folder of one simulation.

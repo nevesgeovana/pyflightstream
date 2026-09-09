@@ -1681,7 +1681,7 @@ def to_campaign(
     if fs_version is None or not fs_version.strip():
         fs_version = next(row.fs_build.strip() for row in rows if row.fs_build.strip())
     return Campaign(
-        name=name, fs_version=fs_version, fs_exe=fs_exe, sims=sims, matrix=Path(path).stem
+        name=name, fs_version=fs_version, fs_exe=fs_exe, sims=sims, matrix_stem=Path(path).stem
     )
 
 
@@ -1745,7 +1745,7 @@ def convert_matrix(
         # The matrix identity travels with the conversion (PFS-2031.04), so
         # a converted campaign keeps its products where the matrix would,
         # and the round trip through load_campaign stays lossless (FR-11).
-        f"matrix = {_toml_value(campaign.matrix)}",
+        f"matrix_stem = {_toml_value(campaign.matrix_stem)}",
     ]
     for sim in campaign.sims:
         lines += [
