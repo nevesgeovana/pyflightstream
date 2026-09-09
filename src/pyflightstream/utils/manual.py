@@ -120,6 +120,7 @@ from __future__ import annotations
 
 import enum
 import re
+import warnings
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -127,6 +128,8 @@ from typing import Any, Protocol, runtime_checkable
 
 import yaml
 
+from pyflightstream._deprecations import PROPOSE_TYPE_POSITIONAL, SWEEP_EDITIONS
+from pyflightstream._errors import PyflightstreamDeprecationWarning
 from pyflightstream._yamlflow import flow_mapping
 from pyflightstream.utils.errors import ManualDraftError
 
@@ -154,6 +157,7 @@ __all__ = [
     "propose_layout",
     "propose_type",
     "insert_version_row",
+    "manual_editions",
     "read_edition",
     "read_edition_manifest",
     "read_pdf_pages",
@@ -688,13 +692,21 @@ class SweptCommand:
     detail: ManualCommand
 
 
-def sweep_editions(
+def manual_editions(
     editions: Iterable[Edition],
     *,
     recorded: Iterable[str],
     reader: Callable[..., Mapping[int, str]] | None = None,
 ) -> tuple[SweptCommand, ...]:
-    """Read every edition and report what none of them has an entry for.
+    """Read every manual edition and report what none of them has an entry for.
+
+    Named for what it reads rather than for the motion of reading it.
+    This was ``sweep_editions`` until 0.13.0, and ``sweep`` is the
+    solver's own word for a parameter sweep (``SWEEPER_START``, the
+    ``sweep`` run type), so one word meant two things in one library
+    (PFS-2022.05). The old name warns and forwards until 0.15.0; the
+    ``pyfs-manual sweep`` subcommand keeps its name and its help says
+    what it reads.
 
     The multi-edition form of :func:`coverage_against`, and it exists
     because the single-edition one answers a question no sweep asks. A
@@ -791,6 +803,22 @@ def sweep_editions(
     )
 
 
+def sweep_editions(
+    editions: Iterable[Edition],
+    *,
+    recorded: Iterable[str],
+    reader: Callable[..., Mapping[int, str]] | None = None,
+) -> tuple[SweptCommand, ...]:
+    """Former name of :func:`manual_editions`; warns from the ledger and forwards.
+
+    Kept until the release the ledger row ``SWEEP_EDITIONS`` records
+    (0.15.0), so a maintainer script outside this package meets one
+    warning rather than an ImportError.
+    """
+    warnings.warn(SWEEP_EDITIONS.message(), PyflightstreamDeprecationWarning, stacklevel=2)
+    return manual_editions(editions, recorded=recorded, reader=reader)
+
+
 @dataclass(frozen=True, kw_only=True)
 class SurfaceChange:
     """What one build's scripting surface gained and lost against the one before it.
@@ -827,7 +855,7 @@ def edition_surfaces(
     """Read each edition and return the command names it documents.
 
     The whole surface, not the part the database lacks, which is what
-    :func:`sweep_editions` reports. Both read the chapter body the same
+    :func:`manual_editions` reports. Both read the chapter body the same
     way, and the difference is the question: a sweep asks what is
     missing from the database, this asks what each build documents so
     two builds can be compared.
@@ -840,7 +868,7 @@ def edition_surfaces(
         consecutive entries, so the intended order is release order.
     reader : callable, optional
         What turns a manual and a page range into text, defaulting to
-        :func:`read_pdf_pages`. Same seam as :func:`sweep_editions`,
+        :func:`read_pdf_pages`. Same seam as :func:`manual_editions`,
         for the same reason.
 
     Returns
@@ -968,7 +996,7 @@ def unreachable_commands(
 
     This is the row-level half of the coverage question, and it exists
     because the entry-level half cannot answer it.
-    :func:`sweep_editions` compares the manuals against the set of entry
+    :func:`manual_editions` compares the manuals against the set of entry
     NAMES, so an entry that exists but carries no row for one edition is
     invisible to it: the sweep reports zero absent while that build's
     emitter refuses a command the caller's own manual documents. That is
@@ -1251,7 +1279,7 @@ def stale_citations(
     editions : iterable of Edition
         The manuals to check against. The manual side comes first and
         the database is keyword-only, matching
-        :func:`sweep_editions` and :func:`coverage_against`; two
+        :func:`manual_editions` and :func:`coverage_against`; two
         adjacent positional parameters of unrelated kinds is a call
         nobody can read.
     recorded : RegistryLike
@@ -1871,8 +1899,18 @@ def _tokens_in(span: str) -> tuple[str, ...]:
     return tuple(dict.fromkeys(_ENUM_TOKEN.findall(span)))
 
 
-def propose_type(placeholder: str, description: str) -> tuple[str | None, tuple[str, ...], str]:
+def propose_type(
+    *positional: str,
+    placeholder: str | None = None,
+    description: str | None = None,
+) -> tuple[str | None, tuple[str, ...], str]:
     """Suggest an argument type from the manual's parameter table.
+
+    The two strings are KEYWORD-ONLY since 0.13.0 (PFS-2022.05).
+    ``propose_type("AXIS", "the axis")`` and ``propose_type("the axis",
+    "AXIS")`` are both well-typed and only one is right, and nothing at
+    the call site said which; a positional call warns from the ledger
+    row ``PROPOSE_TYPE_POSITIONAL`` and still answers until 0.15.0.
 
     The third source, after the signature line and the sample block, and
     the only one that says anything about a TYPE. It answered 57 percent
@@ -1906,7 +1944,26 @@ def propose_type(placeholder: str, description: str) -> tuple[str | None, tuple[
         value, or None when no rule matched. ``values`` is the token
         tuple of an ``enum`` and empty otherwise. ``reason`` says which
         rule answered, or why none did.
+
+    Raises
+    ------
+    TypeError
+        The two strings given twice (positionally and by keyword), or a
+        positional call with a count other than two, or either missing.
     """
+    if positional:
+        if placeholder is not None or description is not None or len(positional) != 2:
+            raise TypeError(
+                "propose_type takes placeholder= and description= by keyword; "
+                f"got {len(positional)} positional argument(s)"
+                + (" and a keyword" if placeholder is not None or description is not None else "")
+            )
+        warnings.warn(
+            PROPOSE_TYPE_POSITIONAL.message(), PyflightstreamDeprecationWarning, stacklevel=2
+        )
+        placeholder, description = positional
+    if placeholder is None or description is None:
+        raise TypeError("propose_type needs both placeholder= and description=")
     text = description.strip()
     upper = placeholder.upper()
 
@@ -2099,7 +2156,9 @@ def render_entry(
     if command.inline_args:
         lines.append("  args:")
         for index, raw in enumerate(command.inline_args):
-            proposed, values, _ = propose_type(raw, command.parameters.get(raw.upper(), ""))
+            proposed, values, _ = propose_type(
+                placeholder=raw, description=command.parameters.get(raw.upper(), "")
+            )
             refused = sample_contradiction(command, index=index, proposed=proposed, values=values)
             if refused is not None:
                 contradicted.append(f"{raw} (the sample passes {refused})")
@@ -2321,7 +2380,7 @@ def read_edition(
     reader : callable, optional
         Page reader, defaulting to :func:`read_pdf_pages`. It is a
         parameter for the same reason it is one on
-        :func:`sweep_editions` and :func:`edition_surfaces`: this
+        :func:`manual_editions` and :func:`edition_surfaces`: this
         module keeps its parsing testable without a pdf and without the
         ``[manual]`` extra. It was omitted when this function was
         written, which left the one code path in this repository that

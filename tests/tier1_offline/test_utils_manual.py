@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import pathlib
 import re
+import warnings
 
 import pytest
 
@@ -28,6 +29,7 @@ from pyflightstream.utils import (
     documentation_delta,
     edition_surfaces,
     insert_version_row,
+    manual_editions,
     parse_script_index,
     parse_signatures,
     propose_layout,
@@ -231,6 +233,12 @@ def test_the_module_reaches_up_to_nothing():
     forbidden. It is imported rather than duplicated because a second
     renderer is what produced ``INC-20260811-1511-both`` and then
     reproduced it.
+
+    Two more since 0.13.0 (PFS-2022.05), both reaching down for the
+    same reason ``_yamlflow`` does: ``_deprecations`` is the ledger the
+    two shims of this module build their warning text from, and
+    ``_errors`` is the warning category. Each imports nothing from the
+    package, which the deadline guard's own layer statement records.
     """
     import pathlib
 
@@ -243,6 +251,8 @@ def test_the_module_reaches_up_to_nothing():
         if "import pyflightstream" in line or "from pyflightstream" in line
     ]
     assert reaching == [
+        "from pyflightstream._deprecations import PROPOSE_TYPE_POSITIONAL, SWEEP_EDITIONS",
+        "from pyflightstream._errors import PyflightstreamDeprecationWarning",
         "from pyflightstream._yamlflow import flow_mapping",
         "from pyflightstream.utils.errors import ManualDraftError",
         "from pyflightstream.extras import missing_extra",
@@ -421,7 +431,9 @@ def test_the_parameter_table_is_read_and_keyed_by_the_signature():
 )
 def test_each_rule_reads_the_type_it_claims(placeholder, expected, values):
     command = typed_command()
-    proposed, tokens, reason = propose_type(placeholder, command.parameters[placeholder])
+    proposed, tokens, reason = propose_type(
+        placeholder=placeholder, description=command.parameters[placeholder]
+    )
     assert proposed == expected
     assert tokens == values
     assert reason  # every proposal says which rule answered
@@ -429,15 +441,37 @@ def test_each_rule_reads_the_type_it_claims(placeholder, expected, values):
 
 def test_a_description_no_rule_reads_proposes_nothing():
     command = typed_command()
-    proposed, tokens, reason = propose_type("MYSTERY", command.parameters["MYSTERY"])
+    proposed, tokens, reason = propose_type(
+        placeholder="MYSTERY", description=command.parameters["MYSTERY"]
+    )
     assert proposed is None and tokens == ()
     assert "no rule" in reason
 
 
 def test_a_command_with_no_table_says_so_rather_than_guessing():
-    proposed, _tokens, reason = propose_type("ANYTHING", "")
+    proposed, _tokens, reason = propose_type(placeholder="ANYTHING", description="")
     assert proposed is None
     assert "no parameter table" in reason
+
+
+def test_propose_type_takes_its_two_strings_by_keyword_and_a_positional_call_warns():
+    """PFS-2022.05: two adjacent same-typed parameters, passed positionally.
+
+    ``propose_type(placeholder="AXIS", description="the axis")`` and ``propose_type("the axis",
+    "AXIS")`` are both well-typed and only one is right; nothing at the
+    call site says which. The two are keyword-only from 0.13.0; a
+    positional call warns from the ledger and still answers, until
+    0.15.0. RED on the base tree: the positional call was silent.
+    """
+    command = typed_command()
+    by_keyword = propose_type(placeholder="AXIS", description=command.parameters["AXIS"])
+    assert by_keyword[0] == "enum"
+    with pytest.warns(
+        DeprecationWarning,
+        match=r"positional placeholder and description of propose_type .*removed in v0\.15\.0",
+    ):
+        positional = propose_type("AXIS", command.parameters["AXIS"])
+    assert positional == by_keyword
 
 
 def test_the_toggle_rule_matches_the_tokens_as_printed():
@@ -458,8 +492,8 @@ def test_the_toggle_rule_matches_the_tokens_as_printed():
     opening, so the toggle rule is the only rule that can answer it.
     """
     proposed, _tokens, _reason = propose_type(
-        "VISCOUS_LIST",
-        "The boundaries being enabled for viscous coupling; the rest are disabled.",
+        placeholder="VISCOUS_LIST",
+        description="The boundaries being enabled for viscous coupling; the rest are disabled.",
     )
     assert proposed is None, (
         "lowercase 'enabled' and 'disabled' are ordinary words here, and the toggle "
@@ -467,7 +501,8 @@ def test_the_toggle_rule_matches_the_tokens_as_printed():
     )
     # The control, on the same rule: the tokens AS PRINTED are read.
     proposed, tokens, _reason = propose_type(
-        "VISCOUS_LIST", "Switch viscous coupling on the list. ENABLE/DISABLE"
+        placeholder="VISCOUS_LIST",
+        description="Switch viscous coupling on the list. ENABLE/DISABLE",
     )
     assert proposed == "enum" and tokens == ("ENABLE", "DISABLE")
 
@@ -483,7 +518,8 @@ def test_a_counting_opening_wins_over_the_toggle_rule():
     a counting phrase and so answered before the toggle rule either way.
     """
     proposed, tokens, _reason = propose_type(
-        "NUM_BOUNDARIES", "Number of boundaries. ENABLE or DISABLE the list"
+        placeholder="NUM_BOUNDARIES",
+        description="Number of boundaries. ENABLE or DISABLE the list",
     )
     assert proposed == "int" and tokens == ()
 
@@ -524,7 +560,7 @@ def test_a_count_whose_description_mentions_alternatives_is_still_a_count(placeh
     invented token list loads into the schema and then validates other
     people's scripts.
     """
-    proposed, values, _reason = propose_type(placeholder, description)
+    proposed, values, _reason = propose_type(placeholder=placeholder, description=description)
     assert proposed == "int"
     assert values == ()
 
@@ -535,11 +571,15 @@ def test_the_float_suffix_rule_runs_after_the_openings():
     The ordering is stated in the module and was unguarded: moving the
     suffix check above the openings passed the whole file.
     """
-    proposed, _values, _reason = propose_type("SWEEP_TIME", "Number of time slices to sweep")
+    proposed, _values, _reason = propose_type(
+        placeholder="SWEEP_TIME", description="Number of time slices to sweep"
+    )
     assert proposed == "int"
     # The control, so a rule that answered int for everything would fail:
     # the same suffix with no opening is a real dimension.
-    proposed, _values, _reason = propose_type("SPAN_LENGTH", "the span of the section")
+    proposed, _values, _reason = propose_type(
+        placeholder="SPAN_LENGTH", description="the span of the section"
+    )
     assert proposed == "float"
 
 
@@ -567,7 +607,7 @@ def test_an_enum_reads_one_sentence_and_the_short_tokens_in_it(placeholder, desc
     whose tokens are two characters, so the alternatives pattern is tried
     inside that sentence before the general one.
     """
-    proposed, values, _reason = propose_type(placeholder, description)
+    proposed, values, _reason = propose_type(placeholder=placeholder, description=description)
     assert proposed == "enum"
     assert values == expected
 
@@ -739,7 +779,7 @@ def test_the_earlier_rule_answers_where_two_adjacent_rules_both_could(
     assert by_name[later].read(upper, description) is not None, (
         "the later rule must also answer, or this row does not test the order"
     )
-    proposed, _values, reason = propose_type(placeholder, description)
+    proposed, _values, reason = propose_type(placeholder=placeholder, description=description)
     assert proposed == expected
     assert reason == by_name[earlier].reason
 
@@ -751,14 +791,17 @@ def test_a_leading_article_does_not_hide_an_opening():
     startswith. The manual writes both.
     """
     for description in ("Number of boundaries in the list", "The number of boundaries in the list"):
-        proposed, _values, _reason = propose_type("NUM_BOUNDARIES", description)
+        proposed, _values, _reason = propose_type(
+            placeholder="NUM_BOUNDARIES", description=description
+        )
         assert proposed == "int", description
 
 
 def test_an_enumeration_that_contains_the_toggle_tokens_is_not_truncated():
     """The toggle rule sits below the explicit enumeration for this case."""
     proposed, tokens, _reason = propose_type(
-        "MODE", "Can be one of ENABLE, DISABLE or AUTO for the automatic setting."
+        placeholder="MODE",
+        description="Can be one of ENABLE, DISABLE or AUTO for the automatic setting.",
     )
     assert proposed == "enum"
     assert set(tokens) >= {"ENABLE", "DISABLE", "AUTO"}
@@ -794,7 +837,9 @@ def _rotate_shaped_command():
 
 def test_a_table_that_contradicts_the_sample_is_reported():
     command = _rotate_shaped_command()
-    proposed, values, _reason = propose_type("AXIS", command.parameters["AXIS"])
+    proposed, values, _reason = propose_type(
+        placeholder="AXIS", description=command.parameters["AXIS"]
+    )
     assert proposed == "enum" and set(values) == {"X", "Y", "Z"}, (
         "this fixture only means something while the table rule still answers"
     )
@@ -940,7 +985,7 @@ def test_the_enumeration_rule_reads_one_sentence_and_this_fixture_proves_it():
         "Mode this operation runs in. One of the following: ENABLE, DISABLE, AUTO. "
         "The chosen mode is recorded in the SNAPSHOT written afterwards."
     )
-    proposed, tokens, _reason = propose_type("MODE", description)
+    proposed, tokens, _reason = propose_type(placeholder="MODE", description=description)
     assert proposed == "enum"
     assert set(tokens) == {"ENABLE", "DISABLE", "AUTO"}, (
         "SNAPSHOT belongs to the sentence after the list and must not be a value"
@@ -1111,7 +1156,7 @@ def test_a_command_one_edition_documents_is_swept_with_that_edition_named(tmp_pa
         "new": {1: {1: "Function name: X_BOTH <A>\nFunction name: X_NEW <A>\n"}},
     }
     read, _calls = _recording_reader(pages)
-    swept = sweep_editions(
+    swept = manual_editions(
         [_edition(tmp_path, "old", (1, 1)), _edition(tmp_path, "new", (1, 1))],
         recorded=[],
         reader=read,
@@ -1136,7 +1181,7 @@ def test_the_sweep_records_the_page_each_edition_prints_a_command_on(tmp_path):
         "new": {9: {9: "Function name: X_BOTH <A>\n"}},
     }
     read, _calls = _recording_reader(pages)
-    (command,) = sweep_editions(
+    (command,) = manual_editions(
         [_edition(tmp_path, "old", (7, 7)), _edition(tmp_path, "new", (9, 9))],
         recorded=[],
         reader=read,
@@ -1159,7 +1204,7 @@ def test_the_chapter_range_is_read_for_signatures_and_the_index_range_for_labels
         }
     }
     read, calls = _recording_reader(pages)
-    (command,) = sweep_editions(
+    (command,) = manual_editions(
         [_edition(tmp_path, "ed", (10, 10), index=(50, 50))], recorded=[], reader=read
     )
     assert calls == [("ed", 50, 50), ("ed", 10, 10)]
@@ -1172,7 +1217,7 @@ def test_an_edition_with_no_index_range_is_read_once_and_left_unlabelled(tmp_pat
     """The control for the test above, and the reason the index is optional."""
     pages = {"ed": {10: {10: "Function name: X_BOTH <A>\n"}}}
     read, calls = _recording_reader(pages)
-    (command,) = sweep_editions([_edition(tmp_path, "ed", (10, 10))], recorded=[], reader=read)
+    (command,) = manual_editions([_edition(tmp_path, "ed", (10, 10))], recorded=[], reader=read)
     assert calls == [("ed", 10, 10)]
     assert command.section is None
 
@@ -1181,7 +1226,7 @@ def test_a_command_recorded_in_the_database_is_not_swept(tmp_path):
     """The control: absence is measured against the database."""
     pages = {"new": {1: {1: "Function name: X_BOTH <A>\nFunction name: X_NEW <A>\n"}}}
     read, _calls = _recording_reader(pages)
-    swept = sweep_editions([_edition(tmp_path, "new", (1, 1))], recorded=["X_BOTH"], reader=read)
+    swept = manual_editions([_edition(tmp_path, "new", (1, 1))], recorded=["X_BOTH"], reader=read)
     assert [command.name for command in swept] == ["X_NEW"]
 
 
@@ -1194,7 +1239,52 @@ def test_a_sweep_of_no_editions_refuses_rather_than_reporting_nothing_absent():
     is the one shape worth refusing outright.
     """
     with pytest.raises(ManualDraftError, match="indistinguishable from a complete database"):
-        sweep_editions([], recorded=["X_BOTH"])
+        manual_editions([], recorded=["X_BOTH"])
+
+
+# --- the rename of the word sweep (PFS-2022.05) ------------------------------
+#
+# `sweep_editions` reads the vendor manuals; `sweep` is the solver's own
+# word for a parameter sweep (SWEEPER_START, the sweep run type), and one
+# word meaning two things in one library costs every reader a check.
+# The function is `manual_editions` from 0.13.0; the old name warns from
+# the ledger and forwards until 0.15.0. The `pyfs-manual sweep` subcommand
+# keeps its name, and its help says what it reads.
+
+
+def test_the_former_name_sweep_editions_warns_from_the_ledger_and_still_answers(tmp_path):
+    """RED on the base tree: the old name answered without a word."""
+    pages = {"new": {1: {1: "Function name: X_BOTH <A>\nFunction name: X_NEW <A>\n"}}}
+    read, _calls = _recording_reader(pages)
+    editions = [_edition(tmp_path, "new", (1, 1))]
+    with pytest.warns(
+        DeprecationWarning, match=r"sweep_editions of pyflightstream\.utils .*removed in v0\.15\.0"
+    ):
+        old = sweep_editions(editions, recorded=["X_BOTH"], reader=read)
+    assert old == manual_editions(editions, recorded=["X_BOTH"], reader=read)
+
+
+def test_the_new_name_is_the_public_one_and_carries_no_warning(tmp_path):
+    import pyflightstream.utils as utils
+
+    assert "manual_editions" in utils.__all__, "the rename is not on the public surface"
+    pages = {"new": {1: {1: "Function name: X_NEW <A>\n"}}}
+    read, _calls = _recording_reader(pages)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", DeprecationWarning)
+        (command,) = manual_editions([_edition(tmp_path, "new", (1, 1))], recorded=[], reader=read)
+    assert command.name == "X_NEW"
+
+
+def test_the_sweep_subcommand_help_says_it_reads_the_manuals(capsys):
+    """The subcommand keeps its name; its one line of help says what the
+    word means here, so a reader who knows the solver's sweep is not
+    misled by the listing."""
+    with pytest.raises(SystemExit):
+        cli_main(["--help"])
+    listing = capsys.readouterr().out
+    line = next(line for line in listing.splitlines() if line.strip().startswith("sweep"))
+    assert "manual" in line, line
 
 
 def _manifest(tmp_path, body, *, manuals=("x.pdf",)):

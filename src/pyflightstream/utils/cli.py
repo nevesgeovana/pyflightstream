@@ -67,6 +67,7 @@ from pyflightstream.utils.manual import (
     citation_reach,
     coverage_against,
     edition_surfaces,
+    manual_editions,
     parse_script_index,
     parse_signatures,
     propose_layout,
@@ -75,7 +76,6 @@ from pyflightstream.utils.manual import (
     render_chapter,
     stale_citations,
     surface_changes,
-    sweep_editions,
     unreachable_commands,
     write_chapter,
 )
@@ -126,7 +126,7 @@ def _parser() -> argparse.ArgumentParser:
         p.add_argument(
             # Optional, because the library treats the Script Index as
             # optional: it supplies the section label only, and
-            # sweep_editions documents that an edition without one is
+            # manual_editions documents that an edition without one is
             # read unlabelled rather than skipped. Requiring it here
             # would leave the same maintainer unable to run `coverage`
             # against an edition that `sweep` handles.
@@ -143,11 +143,16 @@ def _parser() -> argparse.ArgumentParser:
     # sweep takes a manifest instead of the four single-manual flags: it
     # reads every registered edition at once, and the page ranges differ
     # per edition, so there is nothing for those flags to mean here.
+    #
+    # The subcommand keeps the word sweep (PFS-2022.05 renamed the
+    # function it calls to manual_editions, since sweep is the solver's
+    # word for a parameter sweep); its help line says what it reads, so
+    # the listing cannot be mistaken for the solver's sweep.
     swp = sub.add_parser(
         "sweep",
         help=(
-            "report what no entry covers, and what an edition documents that "
-            "its own build cannot emit"
+            "read every manual edition and report what no entry covers, and "
+            "what an edition documents that its own build cannot emit"
         ),
         epilog=_MANIFEST_EXAMPLE,
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -468,7 +473,7 @@ def _sweep(parser: argparse.ArgumentParser, args: argparse.Namespace) -> int:
     try:
         editions = read_edition_manifest(args.editions)
         registry = CommandRegistry.load()
-        absent = sweep_editions(editions, recorded=registry.commands)
+        absent = manual_editions(editions, recorded=registry.commands)
         reachability = unreachable_commands(editions, recorded=registry)
         unreachable = reachability.findings
     except FileNotFoundError as missing:
@@ -494,7 +499,7 @@ def _sweep(parser: argparse.ArgumentParser, args: argparse.Namespace) -> int:
             f"    {label}: read, but the registry resolves that label to no single "
             "build, so nothing is known about what it can emit"
         )
-    # ONE TERM, because the other is subsumed. `sweep_editions` reports
+    # ONE TERM, because the other is subsumed. `manual_editions` reports
     # names the database has no entry for; `unreachable_commands`
     # reports the same names with reason "no entry" plus the row-level
     # gaps, over the same parsed set. So a non-empty `absent` implies a

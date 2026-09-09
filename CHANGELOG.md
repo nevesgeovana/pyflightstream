@@ -269,6 +269,22 @@ FlightStream versions.
   (26.120 from 66 to 79 verified rows, 26.123 from 84 to 92), and a verified
   row measured through a workflow row counts as re-measurable by that row.
 
+- **`sweep_editions` is `manual_editions`, and `propose_type` takes its two
+  strings by keyword; `probe_ref` stays** (PFS-2022.05). The maintainer
+  function that reads every registered manual edition was named for the
+  motion of reading, and `sweep` is the solver's own word for a parameter
+  sweep (`SWEEPER_START`, the `sweep` run type), so one word meant two
+  things in one library. The old name warns from the ledger and forwards
+  until 0.15.0; the `pyfs-manual sweep` subcommand keeps its name and its
+  help line now says it reads the manuals. `propose_type(placeholder,
+  description)` took two adjacent strings positionally and nothing at the
+  call site said which was which: both are keyword-only, and a positional
+  call warns from the ledger and still answers until 0.15.0. `probe_ref`,
+  the third name the node measured, is a committed YAML key of the command
+  database on both the entry and the version row, with no Python-side name
+  apart from the key; it is deliberately not renamed, and the ledger comment
+  records why.
+
 - **The two deprecation warnings that promised removal "in a future release"
   now name it: both shims stay until 1.0.0** (PFS-2021.02).
   `analysis_setup(vorticity_drag_boundaries=)` and the `fs_version=` keyword

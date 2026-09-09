@@ -486,6 +486,51 @@ MATRIX_FS_VERSION: dict[str, DeprecatedParameter] = {
     entry.owner: entry for entry in (PLAN_MATRIX_FS_VERSION, RUN_MATRIX_FS_VERSION)
 }
 
+#: Three shipped names measured on 2026-09-09 (PFS-2022.05), two renamed
+#: here and one deliberately left:
+#:
+#: * ``pyflightstream.utils.sweep_editions`` reads the vendor manuals,
+#:   and ``sweep`` is the solver's own word for a parameter sweep
+#:   (``SWEEPER_START``, the ``sweep`` run type). It is
+#:   ``manual_editions`` from 0.13.0; the old name is one public
+#:   function with one caller in this package and seven in its tests,
+#:   and a maintainer script outside the package may hold it, so it
+#:   warns and forwards until 0.15.0. The ``pyfs-manual sweep``
+#:   subcommand keeps its name (a subcommand rename costs every
+#:   documented invocation) and its help says what it reads;
+#: * ``propose_type(placeholder, description)`` took two adjacent
+#:   strings positionally and nothing at the call site said which was
+#:   which. Both are keyword-only from 0.13.0; a positional call warns
+#:   with the row below and still answers until 0.15.0;
+#: * ``probe_ref`` is NOT renamed. It is a committed YAML key of the
+#:   command database, on the entry and on the version row, and the
+#:   Python attribute is the key itself (pydantic models, no alias), so
+#:   there is no Python-side name to move without touching every
+#:   chapter that carries the key and every reader of a committed
+#:   file. The two meanings (a probe report on the entry, the removal
+#:   evidence on a version row) are stated in the field docstrings of
+#:   ``pyflightstream.commands``, which is where a reader of the key
+#:   meets them.
+SWEEP_EDITIONS = DeprecatedParameter(
+    owner="pyflightstream.utils",
+    old="sweep_editions",
+    new="manual_editions",
+    deprecated_since="0.13.0",
+    removal_version="0.15.0",
+    extra=(
+        "The function reads the vendor manuals; sweep is the solver's word for a "
+        "parameter sweep. The pyfs-manual sweep subcommand keeps its name."
+    ),
+)
+PROPOSE_TYPE_POSITIONAL = DeprecatedParameter(
+    owner="propose_type",
+    old="positional placeholder and description",
+    new="placeholder= and description= by keyword",
+    deprecated_since="0.13.0",
+    removal_version="0.15.0",
+    extra=("The two are adjacent strings and a positional call cannot be read for which is which."),
+)
+
 #: Every live promise of every kind, one entry each; the Tier 1 deadline
 #: guard judges each of these through :func:`expired_promise`.
 DEPRECATIONS: tuple[Deprecation, ...] = (
@@ -497,4 +542,6 @@ DEPRECATIONS: tuple[Deprecation, ...] = (
     ANALYSIS_SETUP_VORTICITY_DRAG_BOUNDARIES,
     PLAN_MATRIX_FS_VERSION,
     RUN_MATRIX_FS_VERSION,
+    SWEEP_EDITIONS,
+    PROPOSE_TYPE_POSITIONAL,
 )
