@@ -740,7 +740,13 @@ the base could not offer while it bundled several.
     writes, because nothing declared a boundary inventory there. Evidence:
     the v0.3 line; `tests/tier1_offline/test_script_entities.py` for the script layer;
     `tests/tier1_offline/test_workflows.py`, whose rotor-row tests fail on 0.10.0 because
-    the inventory is never declared, for a MATRIX ROW; and
+    the inventory is never declared, for a MATRIX ROW built by hand;
+    `tests/tier1_offline/test_tier3_offline.py`
+    (`test_a_rotor_row_cites_its_moving_boundaries_by_name_at_the_matrix_surface`)
+    for a matrix row planned against a STAGED geometry and its inventory
+    sidecar, where `MOVING_BOUNDARIES: Blade1,S` is refused as the
+    inventory says and `Blade1` and `3` both move the third boundary
+    (2026-09-09, PFS-2028.00); and
     `tests/tier1_offline/test_workspace.py` for a named boundary group, whose members
     may now be written as names.*
 

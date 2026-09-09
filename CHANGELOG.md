@@ -62,6 +62,28 @@ FlightStream versions.
   scripts, so the test can enumerate it. The SRS is 1.33.0 and the
   requirement is marked; it stays pending on its Python-API half.
 
+- **Names, not indices, on every boundary-citing surface, judged at plan
+  time; and FR-30b carries a test at the matrix surface it claims**
+  (PFS-2028.00). The RED of RPT-044: a pproc group citing the mesh solid
+  name `Wing` against `14_WING_RENAMED.fsm`, whose inventory carries
+  `MainWing` because the boundary was renamed before the save, planned
+  READY, since a steady row's groups resolve at products time after the
+  seat is spent. A row whose pproc artifact's groups cite no name the
+  opened geometry carries is now BLOCKED at `pyfs-matrix plan` naming the
+  row, the artifact, the names, the file and its inventory. What is refused
+  is the artifact and the geometry sharing no name, not a member missing
+  from one group: the tier-3 artifacts are written once and shared by rows
+  opening different geometries, a family a file lacks is left out by
+  design, and every tier-3 matrix still plans READY with every golden
+  unchanged, which is the control. `MOVING_BOUNDARIES` accepts a group of
+  the artifact as `g<number>`, resolved to the members the geometry
+  carries and refused when it names nothing the file holds; a bare number
+  is still a position, so the goldens that carry one are untouched. FR-30b's
+  evidence now names `test_tier3_offline.py`, where a one-row copy of the
+  tour plans `MOVING_BOUNDARIES: Blade1,S` on the pusher row against its
+  inventory sidecar and is refused as the sidecar says, `Blade1` and `3`
+  both moving the third boundary.
+
 - **A key no run type registers is refused at plan time, naming the row, the
   key and the keys the run type does register** (PFS-2008.02.01, her rule of
   2026-09-08 recorded in design 68: a row states only what the script will

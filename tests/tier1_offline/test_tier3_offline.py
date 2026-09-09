@@ -19,7 +19,7 @@ import shutil
 
 import pytest
 
-from pyflightstream._errors import PyflightstreamError
+from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning
 from pyflightstream.cases.workflows import workflow_registry
 from pyflightstream.run.matrix import plan_matrix
 from pyflightstream.workspace import CampaignWorkspace
@@ -346,6 +346,101 @@ def test_a_top_level_base_regions_list_is_the_documented_off_switch(tmp_path):
     build_script(resolved.campaign.sims[0].model_copy(update={"point": {"alpha": 0.0}}), script)
     detected = [line for line in script.render().splitlines() if "DETECT_BASE_REGIONS" in line]
     assert detected == ["DETECT_BASE_REGIONS_BY_SURFACE 2"], script.render()
+
+
+# --- PFS-2028.00: names, not indices, on every boundary-citing surface ----------
+
+
+def _rotor_row(pol, cell):
+    return f"{pol} | Pusher | PFS-2028 | {ROTOR.replace('MOVING_BOUNDARIES: Blade', cell)}RPM: -800"
+
+
+def _moving_payload(root, matrix):
+    """The SET_MOTION_BOUNDARIES payload of a one-row matrix, rendered as the plan renders it."""
+    from pyflightstream.cases.workflows import build_script
+    from pyflightstream.script import Script
+    from pyflightstream.workspace.matrix import resolve_matrix
+
+    resolved = resolve_matrix(
+        matrix, CampaignWorkspace(root), name="names", fs_version="26.120", recipes={}
+    )
+    script = Script("26.120")
+    build_script(resolved.campaign.sims[0].model_copy(update={"point": {"alpha": 0.0}}), script)
+    lines = script.render().splitlines()
+    at = next(index for index, line in enumerate(lines) if line.startswith("SET_MOTION_BOUNDARIES"))
+    return lines[at + 1]
+
+
+@pytest.mark.requirement("FR-30b")
+def test_a_rotor_row_cites_its_moving_boundaries_by_name_at_the_matrix_surface(tmp_path):
+    """FR-30b at the surface it claims, which is a matrix row against a staged
+    geometry and its inventory sidecar: `MOVING_BOUNDARIES: Blade1,S` on the pusher
+    row is refused because 40_PUSHER carries Body, Base and Blade1 and no S, and the
+    refusal names the file, the sidecar and what it declares; `Blade1` alone is
+    accepted and resolves to the position the sidecar holds it at; a position still
+    works. The script-layer half is tests/tier1_offline/test_script_entities.py."""
+    root = _tier3_copy(tmp_path)
+    refused = _one_row_matrix(root, "s.fs", _rotor_row("7201", "MOVING_BOUNDARIES: Blade1,S"))
+    plan = _plan(root, refused)
+    assert plan.blocked, "a name the inventory lacks planned READY"
+    message = str(plan.blocked[0].error)
+    for fragment in ("7201", "'S'", "40_PUSHER.fsm", "40_PUSHER.boundaries.toml", "'Blade1'"):
+        assert fragment in message, message
+    named = _one_row_matrix(root, "n.fs", _rotor_row("7202", "MOVING_BOUNDARIES: Blade1"))
+    assert _moving_payload(root, named) == "3", "Blade1 is the third boundary of 40_PUSHER"
+    with pytest.warns(PyflightstreamWarning, match="POSITION"):
+        positional = _one_row_matrix(root, "p.fs", _rotor_row("7203", "MOVING_BOUNDARIES: 3"))
+        assert _moving_payload(root, positional) == "3"
+
+
+def test_moving_boundaries_may_name_a_group_of_the_pproc_artifact(tmp_path):
+    """PFS-2028.00: MOVING_BOUNDARIES accepts a group of the row's pproc artifact as
+    g<number>, resolved to the members the geometry carries. Group 4 of p001 is
+    Blade1 and Blade2; the pusher carries Blade1, so the cell moves boundary 3."""
+    root = _tier3_copy(tmp_path)
+    grouped = _one_row_matrix(root, "g.fs", _rotor_row("7204", "MOVING_BOUNDARIES: g4"))
+    assert _moving_payload(root, grouped) == "3"
+    # Group 2 of p001 is Wing, which the pusher does not carry: a group that
+    # names nothing the geometry holds is refused, not silently emptied.
+    empty = _one_row_matrix(root, "e.fs", _rotor_row("7205", "MOVING_BOUNDARIES: g2"))
+    plan = _plan(root, empty)
+    assert plan.blocked, "a group naming nothing the geometry carries planned READY"
+    message = str(plan.blocked[0].error)
+    for fragment in ("7205", "g2", "p001", "'Wing'", "40_PUSHER.fsm", "'Blade1'"):
+        assert fragment in message, message
+
+
+def test_a_pproc_artifact_naming_nothing_the_geometry_carries_is_refused_at_plan(tmp_path):
+    """PFS-2028.00, the RED of RPT-044: a group citing the mesh solid name `Wing`
+    against 14_WING_RENAMED.fsm, whose inventory carries MainWing only, planned
+    READY on 2026-09-09 because a steady row's groups resolve at products time.
+    An artifact none of whose cited names the opened geometry carries is refused
+    at plan time naming the row, the artifact, the names, the file and its
+    inventory. The tier-3 artifacts are shared across geometries and a member
+    the file lacks is left out by design, so a member missing from ONE group is
+    not what is refused (p002's group 3 is Body and Base, and the wing rows plan
+    READY with it): the refusal is the artifact and the geometry sharing no name."""
+    root = _tier3_copy(tmp_path)
+    _pproc(root, "p005", '[groups]\n"1" = ["Wing"]\n')
+    matrix = _one_row_matrix(
+        root,
+        "renamed.fs",
+        f"7206 | Wing | RPT-044 | {WING_ROW.format(pproc='p005')}"
+        "GEOMETRY: 14_WING_RENAMED.fsm / SYMMETRY: NONE",
+    )
+    plan = _plan(root, matrix)
+    assert plan.blocked, "the mesh solid name against the renamed file planned READY"
+    message = str(plan.blocked[0].error)
+    for fragment in ("7206", "p005", "'Wing'", "14_WING_RENAMED.fsm", "'MainWing'"):
+        assert fragment in message, message
+    # The same artifact against the file whose inventory carries Wing plans READY.
+    plain = _one_row_matrix(
+        root,
+        "plain.fs",
+        f"7207 | Wing | RPT-044 | {WING_ROW.format(pproc='p005')}"
+        "GEOMETRY: 10_WING.fsm / SYMMETRY: NONE",
+    )
+    assert not _plan(root, plain).blocked
 
 
 def test_the_workspace_refuses_a_pol_the_tour_already_states(tmp_path):

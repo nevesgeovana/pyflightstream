@@ -1334,8 +1334,13 @@ def _moving_boundaries(case: SimCase, script: Script, cell: str) -> list[int | s
        cell is correct for a sector mesh and a full wheel alike;
     3. otherwise a 1-based POSITION, which still works and now warns,
        naming the surfaces those positions actually select;
-    4. otherwise the token passes through as a name and the script layer
-       refuses it, listing the labels the geometry declared.
+    4. otherwise a GROUP of the row's pproc artifact, spelled
+       ``g<number>`` (``g4`` is ``[groups]`` entry ``"4"``), resolved to
+       the members the geometry carries the way the polar tables resolve
+       it, and refused when it names nothing the file holds
+       (PFS-2028.00, "MOVING_BOUNDARIES accepts ENTRY group names");
+    5. otherwise the token is refused, listing the labels the geometry
+       declared.
 
     Exact before family is not arbitrary. ``Blade1`` is both a label and
     a member of family ``blade``, so trying the family first would
@@ -1389,6 +1394,10 @@ def _moving_boundaries(case: SimCase, script: Script, cell: str) -> list[int | s
         if isinstance(read, int):
             positional.append(token)
         else:
+            members = _group_members(case, token)
+            if members is not None:
+                resolved.extend(_group_indices(case, token, members, labels))
+                continue
             _refuse_name_absent_from_inventory(case, MOVING_BOUNDARIES_VARIABLE, token, labels)
         resolved.append(read)
     if positional:
@@ -1412,6 +1421,124 @@ def _moving_boundaries(case: SimCase, script: Script, cell: str) -> list[int | s
     return resolved
 
 
+#: The spelling of a pproc group in a boundary-citing cell: ``g`` and the
+#: group's number, which is the ``[groups]`` key and the ``_g<number>``
+#: of the polar table written per group. A bare number is a POSITION and
+#: keeps meaning one (sixteen committed goldens carry positional cells),
+#: so a group needs a letter the file's own labels do not start a number
+#: with.
+_GROUP_TOKEN = re.compile(r"^g(\d+)$")
+
+
+def _group_members(case: SimCase, token: str) -> list[int | str] | None:
+    """Return the members of the pproc group ``token`` spells as g<number>, or None.
+
+    None means the token is not a group of the row's artifact: either it
+    is not spelled as one, or the artifact carries no group of that
+    number, and the caller refuses it as a name the inventory lacks.
+    """
+    match = _GROUP_TOKEN.match(token)
+    if match is None or case.pproc is None:
+        return None
+    number = int(match.group(1))
+    for key, members in case.pproc.groups.items():
+        if str(key).strip().isdigit() and int(key) == number:
+            return list(members)
+    return None
+
+
+def _group_indices(
+    case: SimCase, token: str, members: Sequence[int | str], labels: Mapping[str, int]
+) -> list[int]:
+    """Resolve one pproc group's members against the inventory, as the polar tables do.
+
+    A member the geometry does not carry is left out, which is the
+    artifact's own rule (one artifact serves a wing-body and an isolated
+    rotor); a position passes through; a group that resolves to NOTHING
+    is refused naming the group, its members, the file and its inventory,
+    because a motion over no boundary is the silent no-op the rule of
+    2026-09-08 forbids.
+    """
+    indices: list[int] = []
+    for member in members:
+        if isinstance(member, int):
+            indices.append(member)
+            continue
+        indices.extend(
+            index for index in resolve_family(str(member), labels) if index not in indices
+        )
+    if indices:
+        return sorted(set(indices))
+    declared = _declared_labels(labels)
+    raise ScriptReferenceError(
+        f"case {case.sim_id!r} states {MOVING_BOUNDARIES_VARIABLE} with {token!r}, group "
+        f"{token[1:]} of {_artifact_of(case)}, whose members are "
+        f"{', '.join(repr(member) for member in members)}, and {_inventory_source(case)} "
+        f"declares none of those names or families; it declares {declared}. Name a group "
+        "written for this geometry, or write the names the file carries."
+    )
+
+
+def _artifact_of(case: SimCase) -> str:
+    """Name the row's pproc artifact for a message, with its file where the id is known."""
+    if case.pproc_id:
+        return f"the pproc artifact {case.pproc_id!r} (inputs/pproc/{case.pproc_id}.toml)"
+    return "the row's pproc artifact"
+
+
+def _declared_labels(labels: Mapping[str, int]) -> str:
+    """Return the declared labels in inventory order, quoted, for a message."""
+    return ", ".join(repr(name) for name, _ in sorted(labels.items(), key=lambda item: item[1]))
+
+
+def _refuse_a_pproc_the_geometry_shares_no_name_with(case: SimCase, script: Script) -> None:
+    """Refuse a pproc artifact none of whose cited names the opened geometry carries.
+
+    PFS-2028.00, the RED of RPT-044: a group citing the mesh solid name
+    ``Wing`` against a file whose inventory carries ``MainWing`` only
+    planned READY, because a steady row's groups are resolved at products
+    time, after the seat is spent, where a group none of whose families
+    is in the loads table sums to zero. That is the case of a boundary
+    renamed in the solver before the save: the new name is the file's
+    and the mesh solid's resolves nothing.
+
+    WHAT IS REFUSED IS THE ARTIFACT AND THE GEOMETRY SHARING NO NAME, not
+    a member missing from one group. The artifact is written once for a
+    study and shared by rows opening different geometries (the tier-3
+    ``p002`` is ``Wing``, ``Body`` and ``Base`` and serves the wing rows
+    and the body rows alike), so a family the file lacks is left out by
+    design, per group and per plot entry, and a group summing to zero on
+    the wing rows is what her products carry for the body groups of a
+    wing polar. An artifact that cites a POSITION resolves by construction.
+    With no inventory declared there is nothing to check against, which
+    is the permissive state FR-30c licenses.
+    """
+    pproc = case.pproc
+    if pproc is None or not pproc.groups:
+        return
+    labels = script.entities.labels("boundaries")
+    if not labels:
+        return
+    cited: list[str] = []
+    for members in pproc.groups.values():
+        for member in members:
+            if isinstance(member, int):
+                return
+            if str(member) not in cited:
+                cited.append(str(member))
+    if any(resolve_family(name, labels) for name in cited):
+        return
+    raise ScriptReferenceError(
+        f"case {case.sim_id!r} names {_artifact_of(case)}, whose groups cite "
+        f"{', '.join(repr(name) for name in cited)}, and {_inventory_source(case)} declares "
+        f"none of those names or families; it declares {_declared_labels(labels)}. Every "
+        "polar table of this row would sum nothing. A boundary renamed in the solver "
+        "before the save carries its new name in the saved file and the mesh solid's name "
+        "resolves nothing (RPT-044): write the names the file carries, or name the "
+        "artifact written for this geometry."
+    )
+
+
 def _inventory_source(case: SimCase) -> str:
     """Say where this case's boundary inventory was read from, for a message."""
     file_name = PurePath(str(case.geometry)).name
@@ -1424,12 +1551,15 @@ def _refuse_name_absent_from_inventory(
     case: SimCase, key: str, token: str, labels: Mapping[str, int]
 ) -> None:
     """Refuse a boundary name the declared inventory lacks, naming the inventory read."""
-    declared = ", ".join(repr(name) for name, _ in sorted(labels.items(), key=lambda item: item[1]))
+    groups = ""
+    if key == MOVING_BOUNDARIES_VARIABLE and case.pproc is not None and case.pproc.groups:
+        numbers = ", ".join(f"g{number}" for number in case.pproc.groups)
+        groups = f", or a group of {_artifact_of(case)} as {numbers}"
     raise ScriptReferenceError(
         f"case {case.sim_id!r} states {key} with {token!r}, and {_inventory_source(case)} "
-        f"declares no boundary of that name or family; it declares {declared}. Write one "
-        "of those, or a family name (the label without its trailing number) to select "
-        "every member the file carries."
+        f"declares no boundary of that name or family; it declares "
+        f"{_declared_labels(labels)}. Write one of those, or a family name (the label "
+        f"without its trailing number) to select every member the file carries{groups}."
     )
 
 
@@ -2387,6 +2517,11 @@ def _open_geometry(case: SimCase, script: Script) -> None:
     load = case.solver.load_solver_initialization
     script.emit("OPEN", case.geometry, "ENABLE" if load else "DISABLE")
     _declare_boundaries(case, script)
+    # EVERY BOUNDARY-CITING SURFACE OF THE ROW IS JUDGED HERE, at plan
+    # time, against the inventory just declared (PFS-2028.00): the pproc
+    # groups below, the base regions next, and the moving boundaries,
+    # plots and sections where each builder resolves them.
+    _refuse_a_pproc_the_geometry_shares_no_name_with(case, script)
     _detect_base_regions(case, script)
 
 

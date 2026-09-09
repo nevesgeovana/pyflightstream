@@ -277,7 +277,35 @@ loads for a rotor whose moving set was wrong.
 
 An exact label beats a family, so `Blade1` is one blade and `Blade` is all
 of them. A name the geometry does not carry is refused, listing the ones it
-does.
+does: `MOVING_BOUNDARIES: Blade1,S` on the suite's pusher row, whose
+geometry `40_PUSHER.fsm` carries `Body`, `Base` and `Blade1`, is marked
+BLOCKED at `pyfs-matrix plan` naming the row, `'S'`, the file, the
+sidecar `40_PUSHER.boundaries.toml` it was read from and the three names
+it declares; `Blade1` alone moves boundary 3, and so does `3`, with the
+warning.
+
+**A cell may also name a GROUP of the row's pproc artifact**, spelled
+`g<number>` (PFS-2028.00): `MOVING_BOUNDARIES: g4` moves the members of
+`[groups]` entry `"4"`, resolved against the geometry the way the polar
+tables resolve them, a member the file does not carry being left out.
+The letter is what tells a group from a position, since `4` alone is
+still the fourth boundary. A group that names nothing the file holds is
+refused naming the group, its members, the artifact, the file and its
+inventory; on the pusher, `g2` (group 2 of `p001`, which is `Wing`)
+is refused that way.
+
+**And the pproc artifact itself is judged against the geometry at plan
+time.** A row whose artifact's groups cite no name the opened file
+carries is BLOCKED naming the row, the artifact, the names, the file and
+its inventory: `"1" = ["Wing"]` against `14_WING_RENAMED.fsm`, whose
+inventory reads `MainWing` because the boundary was renamed in the solver
+before the save (RPT-044), planned READY until 0.13.0 and every polar
+table of the row would have summed nothing. What is refused is the
+artifact and the geometry sharing NO name, not a member missing from one
+group: an artifact is written once for a study and shared by rows
+opening different geometries, so a family a file lacks is left out by
+design, and `p002`'s group 3 (`Body`, `Base`) sums to zero on the wing
+rows exactly as her products carry it.
 
 `angle_sweep_deg` IS RESERVED TOO, since v0.7.0, and it is the one whose
 match FOLDS CASE rather than being exact: a cell spelling it in any
