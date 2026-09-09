@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 import subprocess
 import sys
@@ -212,6 +213,10 @@ def test_the_program_leaves_the_script_empty_until_the_count_reaches_the_thresho
             capture_output=True,
             text=True,
             check=False,
+            # The solver hands the action no environment of its own (RPT-041
+            # fact 4), and the spawn ratchet asks every test to say which
+            # environment a child gets: the ambient one, deliberately.
+            env=os.environ.copy(),
         )
         assert run.returncode == 0, run.stderr
         seen.append(script_file.read_text(encoding="utf-8"))
