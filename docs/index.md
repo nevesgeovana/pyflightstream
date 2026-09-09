@@ -19,6 +19,13 @@ refused are read now: a zero-probe export (a complete table of no rows),
 and a mesh rotation after the frame it cites was created (the two rotation
 commands are setup-phase). Nothing already written plans differently: a
 setup stating neither table and a row stating no `ROTATE` render as before.
+Three of her decisions of the same day land beside them: a setup preset
+names **groups of mesh families** in an `[aliases]` table, read wherever a
+boundary is cited, so `airframe` and `blades` are your own words; an empty
+`[groups]` entry of the pproc artifact is **every family the geometry
+carries**, and a group member may be a family name; and the polar format's
+five public names are spelled `custom` where they were spelled `her`, the
+old key and the old names warning until 0.16.0.
 
 **What changes for you, and what you must do.** v0.13.0 changes no
 column of the run-matrix file. Two inputs that used to plan are refused at
@@ -43,7 +50,12 @@ called with a third keyword, `matrix_stem`. `sweep_editions` is
 `manual_editions` and `propose_type` takes its two strings by keyword; the
 old spellings warn and name the release that removes them. A simulation
 folder has three managed subfolders, since `parsed/` was never written to;
-an empty one left by an earlier release is left alone.
+an empty one left by an earlier release is left alone. At v0.14.0 one
+artifact key is renamed: `[products] her_polar_format` is
+`custom_polar_format`, and the four Python names `HerPolarTable`,
+`her_polar_file_name`, `write_her_polar_format` and
+`read_her_polar_format` are spelled `custom`; the old spellings are read,
+warn, and are removed at 0.16.0.
 
 **What it adds.** An unsteady row may say when its exports begin,
 `EXPORT_UNSTEADY_AFTER_REV` or `EXPORT_UNSTEADY_AFTER_ITER`, and the run

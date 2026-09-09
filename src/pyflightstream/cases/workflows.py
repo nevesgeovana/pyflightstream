@@ -71,7 +71,6 @@ from pyflightstream._fsm import (
     MeshReadError,
     boundary_labels,
     boundary_names,
-    resolve_family,
 )
 from pyflightstream.cases import (
     EXPORT_KINDS,
@@ -81,7 +80,6 @@ from pyflightstream.cases import (
     ScriptRecipe,
     SimCase,
     classify_outputs,
-    resolve_alias,
     select_families,
     select_group_members,
 )
@@ -1344,20 +1342,25 @@ def _moving_boundaries(case: SimCase, script: Script, cell: str) -> list[int | s
 
     1. an exact boundary label of the opened geometry, so a row can
        always name one surface;
-    2. otherwise a FAMILY, which is a label with its trailing index
+    2. otherwise an ALIAS the row's setup defines in its ``[aliases]``
+       table (her decision of 2026-09-09), whose members resolve as names
+       do, a member the file lacks ignored;
+    3. otherwise a FAMILY, which is a label with its trailing index
        removed, so ``Blade`` selects every blade the file carries and one
        cell is correct for a sector mesh and a full wheel alike;
-    3. otherwise a 1-based POSITION, which still works and now warns,
+    4. otherwise a 1-based POSITION, which still works and now warns,
        naming the surfaces those positions actually select;
-    4. otherwise a GROUP of the row's pproc artifact, spelled
+    5. otherwise a GROUP of the row's pproc artifact, spelled
        ``g<number>`` (``g4`` is ``[groups]`` entry ``"4"``), resolved to
        the members the geometry carries the way the polar tables resolve
        it, and refused when it names nothing the file holds
        (PFS-2028.00, "MOVING_BOUNDARIES accepts ENTRY group names");
-    5. otherwise the token is refused, listing the labels the geometry
+    6. otherwise the token is refused, listing the labels the geometry
        declared.
 
-    Exact before family is not arbitrary. ``Blade1`` is both a label and
+    The alias sits between the two so a preset's word cannot shadow a
+    label the file actually carries. Exact before family is not
+    arbitrary either. ``Blade1`` is both a label and
     a member of family ``blade``, so trying the family first would
     silently turn a row citing ONE blade into a row citing six, which is
     the same class of silent wrong answer this release exists to end.
@@ -1448,18 +1451,16 @@ _GROUP_TOKEN = re.compile(r"^g(\d+)$")
 def _resolve_token(case: SimCase, token: str, labels: Mapping[str, int]) -> tuple[int, ...]:
     """Resolve one cited boundary token: an exact label, an alias of the setup, or a family.
 
-    Her decision of 2026-09-09: the alias comes between the exact name
-    and the family, and its members resolve the same way, a member the
-    file lacks ignored. Empty when the token names nothing, which the
-    caller refuses for its own key.
+    An ADAPTER over :func:`pyflightstream.cases.select_group_members`,
+    which is the one home of that precedence (the architecture lens of
+    2026-09-09 measured the order written out twice): one token, the
+    inventory in its own order, and the row's aliases. Her decision of
+    2026-09-09 puts the alias between the exact name and the family, and
+    a member the file lacks is ignored. Empty when the token names
+    nothing, which the caller refuses for its own key.
     """
-    if token in labels:
-        return (labels[token],)
     ordered = [name for name, _ in sorted(labels.items(), key=lambda item: item[1])]
-    aliased = resolve_alias(token, ordered, case.aliases)
-    if aliased is not None:
-        return tuple(labels[name] for name in aliased)
-    return resolve_family(token, labels)
+    return tuple(labels[name] for name in select_group_members([token], ordered, case.aliases))
 
 
 def _group_members(case: SimCase, token: str) -> list[int | str] | None:
@@ -1543,8 +1544,11 @@ def _refuse_a_pproc_the_geometry_shares_no_name_with(case: SimCase, script: Scri
     wing polar. An artifact that cites a POSITION resolves by construction.
     With no inventory declared there is nothing to check against, which
     is the permissive state FR-30c licenses. An EMPTY group is every
-    family and resolves by construction (her decision of 2026-09-09), and
-    an alias of the setup cites its members, so those are the names read.
+    family and resolves by construction (her decision of 2026-09-09) and
+    is passed over rather than ending the check. A word is resolved as
+    every boundary-citing cell resolves it, exact name then alias then
+    family, and the message cites the word THE FILE WRITES, not what an
+    alias expands to.
     """
     pproc = case.pproc
     if pproc is None or not pproc.groups:
@@ -1555,14 +1559,17 @@ def _refuse_a_pproc_the_geometry_shares_no_name_with(case: SimCase, script: Scri
     cited: list[str] = []
     for members in pproc.groups.values():
         if not members:
-            return
+            # Every family, which resolves by construction; the OTHER
+            # groups of the same artifact are still read (the interface
+            # lens of 2026-09-09: this returned from the function and
+            # disabled the guard for the whole file).
+            continue
         for member in members:
             if isinstance(member, int):
                 return
-            for name in case.aliases.get(str(member), [str(member)]):
-                if str(name) not in cited:
-                    cited.append(str(name))
-    if not cited or any(resolve_family(name, labels) for name in cited):
+            if str(member) not in cited:
+                cited.append(str(member))
+    if not cited or any(_resolve_token(case, name, labels) for name in cited):
         return
     raise ScriptReferenceError(
         f"case {case.sim_id!r} names {_artifact_of(case)}, whose groups cite "
@@ -3323,6 +3330,39 @@ def _inventory(script: Script) -> list[str]:
 Frames = Mapping[str, int | None | Mapping[str, int]]
 
 
+def _selected_families(
+    case: SimCase,
+    selection: str | Sequence[str],
+    inventory: Sequence[str],
+    is_blade: Callable[[str], bool],
+    what: str,
+) -> list[list[str]]:
+    """Expand one pproc ``families`` entry, warning when it selects nothing.
+
+    The skip itself is the artifact's own rule, and it is what lets one
+    file serve a wing-body and an isolated rotor. What the warning adds
+    is the difference between a geometry that legitimately carries none
+    of those families and a MISSPELLED word, which read alike from the
+    script (the interface lens of 2026-09-09): both left the entry out
+    and said nothing, and the user met it as a plot that is not in the
+    products.
+    """
+    expanded = select_families(selection, inventory, is_blade, aliases=case.aliases)
+    if not expanded:
+        known = ", ".join(sorted(case.aliases)) or "none"
+        warnings.warn(
+            f"case {case.sim_id!r}: {what} of {_artifact_of(case)} selects "
+            f"{selection!r}, and this geometry carries no family of it, so the entry is "
+            f"left out. The aliases the row's setup defines are {known}; the geometry "
+            f"declares {', '.join(repr(name) for name in inventory) or 'no boundary'}. "
+            "That is the artifact's own rule where the geometry simply lacks the "
+            "families, and a misspelling reads exactly the same way from here.",
+            PyflightstreamWarning,
+            stacklevel=2,
+        )
+    return expanded
+
+
 def _pproc_frame(
     case: SimCase, frames: Frames, name: str, what: str, families: Sequence[str] = ()
 ) -> int:
@@ -3663,8 +3703,8 @@ def _pproc_plots(case: SimCase, script: Script, frames: Frames) -> None:
         return
     inventory = _inventory(script)
     for group in pproc.plots.groups:
-        for families in select_families(
-            group.families, inventory, pproc.is_blade, aliases=case.aliases
+        for families in _selected_families(
+            case, group.families, inventory, pproc.is_blade, f"plot group {group.name!r}"
         ):
             frame = _pproc_frame(case, frames, group.frame, f"plot group {group.name!r}", families)
             name = group.name.format(family=families[0]) if "{family}" in group.name else group.name
@@ -3738,9 +3778,9 @@ def _pproc_sections(case: SimCase, script: Script, frames: Frames) -> None:
         return
     inventory = _inventory(script)
     sections = pproc.sections
-    for entry in sections.distributions:
-        for families in select_families(
-            entry.families, inventory, pproc.is_blade, aliases=case.aliases
+    for position, entry in enumerate(sections.distributions, start=1):
+        for families in _selected_families(
+            case, entry.families, inventory, pproc.is_blade, f"section distribution {position}"
         ):
             frame = _pproc_frame(case, frames, entry.frame, "a section distribution", families)
             indices = [script.resolve_boundary(f, context="pproc section") for f in families]

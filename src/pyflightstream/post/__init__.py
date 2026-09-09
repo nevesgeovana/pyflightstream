@@ -43,6 +43,7 @@ Sweep assembly is not here either, it is
 
 import warnings
 
+from pyflightstream._deprecations import FORMER_POLAR_NAMES
 from pyflightstream._errors import PyflightstreamDeprecationWarning
 from pyflightstream.post.products import (
     CustomPolarTable,
@@ -88,7 +89,7 @@ def __getattr__(name: str) -> object:
     if name in ("HerPolarTable", "write_her_polar_format", "read_her_polar_format"):
         from pyflightstream.post import products as _products
 
-        entry = _products._FORMER_NAMES[name]
+        entry = FORMER_POLAR_NAMES[name]
         warnings.warn(entry.message(), PyflightstreamDeprecationWarning, stacklevel=2)
         return getattr(_products, entry.new)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

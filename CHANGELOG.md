@@ -27,7 +27,8 @@ FlightStream versions.
 - **An empty `[groups]` entry of the pproc artifact is every family the
   geometry carries, and a group member may be a family name or an alias
   of the setup** (her decisions of 2026-09-09, settling the verdict
-  PFS-2005.02 left to the domain seat). `"1" = []` was refused at plan
+  PFS-2005.02, "an empty boundary list is refused wherever the solver
+  would read it as disable everything", left to the domain seat). `"1" = []` was refused at plan
   time as "domain seat, not yet decided"; it now plans READY, its polar
   table sums every surface row of the loads table, and
   `MOVING_BOUNDARIES: g1` naming it moves every boundary of the file. A
@@ -36,9 +37,24 @@ FlightStream versions.
   time against the loads table's surface rows: an exact name first, then
   an alias, then a family, the label without its trailing number, so
   `"2" = ["Blade"]` sums `Blade1` to `Blade6` where it summed nothing
-  before. `expand_group`, the recipe tool that numbers members by
+  before. A `families` entry resolves the alias FIRST, before the five
+  selector words, because shadowing them is what an alias is for; a
+  boundary-citing cell and a group member take the exact name first, so
+  a preset's word cannot shadow a label the file carries. `expand_group`, the recipe tool that numbers members by
   position, refuses an empty group naming the meaning.
   `ENTITY_SELECTIONS` carries her verdict beside the key.
+
+- **Two readings of the pproc artifact widen with them** (her own p001 of
+  the same day): a `families` entry may be a bare word, an alias or a
+  family name, judged at build time and skipped when it resolves to
+  nothing, where the reader refused any word outside the five selectors;
+  and an entry's `frame` may name a frame the setup's `[[frames]]` table
+  defines or, on a row with several rotors, one rotor's own `PROP_MRP<k>`
+  or `RotorAxis<k>`, where the reader accepted MRP, PROP_MRP and
+  BLADE_AXIS alone. A frame the run did not create is still refused at
+  plan time naming the frames it did.
+
+### Added
 
 - **A setup preset names groups of mesh families under `[aliases]`, read
   wherever a boundary is cited** (her decision of 2026-09-09). One key per
@@ -56,17 +72,7 @@ FlightStream versions.
   and the provenance document as `pyfs:aliases`, so the products stage
   resolves a group by them without opening the preset. A cell naming an
   alias none of whose members the file carries is refused naming the
-  alias. With them, two readings of the pproc artifact widen (her own
-  p001 of the same day): a `families` entry may be a bare word, an alias
-  or a family name, judged at build time and skipped when it resolves to
-  nothing, where the reader refused any word outside the five selectors;
-  and an entry's `frame` may name a frame the setup's `[[frames]]` table
-  defines or, on a row with several rotors, one rotor's own `PROP_MRP<k>`
-  or `RotorAxis<k>`, where the reader accepted MRP, PROP_MRP and
-  BLADE_AXIS alone. A frame the run did not create is still refused at
-  plan time naming the frames it did.
-
-### Added
+  alias.
 
 - **A setup artifact defines custom coordinate systems, created after the
   package's own** (PFS-2034.01, her design of 2026-09-09, design/69, the

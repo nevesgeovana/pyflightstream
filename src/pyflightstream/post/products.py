@@ -69,12 +69,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from pyflightstream._deprecations import (
-    POST_HER_POLAR_FILE_NAME,
-    POST_HER_POLAR_TABLE,
-    POST_READ_HER_POLAR_FORMAT,
-    POST_WRITE_HER_POLAR_FORMAT,
-)
+from pyflightstream._deprecations import FORMER_POLAR_NAMES
 from pyflightstream._digest import file_sha256
 from pyflightstream._errors import (
     PyflightstreamDeprecationWarning,
@@ -271,13 +266,13 @@ def group_coefficients(
     *,
     bref_m: float,
     aliases: Mapping[str, Sequence[str]] | None = None,
+    empty_is_every: bool = False,
 ) -> GroupCoefficients:
     """Sum the loads table's rows over the families of one group.
 
     The members are resolved against the table's surface rows by
-    :func:`pyflightstream.cases.select_group_members`: an EMPTY group is
-    every surface (her decision of 2026-09-09), a name is its row, an
-    alias of the row's setup (``aliases``, as the run record carries
+    :func:`pyflightstream.cases.select_group_members`: a name is its row,
+    an alias of the row's setup (``aliases``, as the run record carries
     them) is its members' rows, a family is every row of it. A family
     the table does not carry is left out, as her writer left it out; a
     group none of whose families is in the table sums to zero, which is
@@ -285,13 +280,24 @@ def group_coefficients(
     polar. The rolling and yawing moments are the solver's ``CMx`` and
     ``CMz``, scaled from the reference chord to the span and negated,
     her convention.
+
+    ``empty_is_every`` is what an EMPTY member list means, and it is
+    False here on purpose (the interface lens of 2026-09-09). Her
+    decision of that day is about the ARTIFACT: a ``[groups]`` entry
+    written empty is every family, and the products stage passes True
+    for it. A Python caller that built ``families`` by filtering and got
+    an empty list still sums to zero, which is what this function did
+    before and what its docstring promised.
     """
     cref = loads.reference_length
     if cref is None:
         raise ProductError("the loads table states no reference length, so no span scaling")
     drag = side = lift = roll = pitch = yaw = profile = induced = 0.0
     used: list[str] = []
-    for family in select_group_members(families, list(loads.surfaces), aliases):
+    selected: list[str] = []
+    if families or empty_is_every:
+        selected = select_group_members(families, list(loads.surfaces), aliases)
+    for family in selected:
         row = loads.surfaces[family]
         used.append(family)
         drag += row["CDi"] + row["CDo"]
@@ -451,21 +457,10 @@ class CustomPolarTable:
     rows: list[dict[str, float]]
 
 
-_FORMER_NAMES = {
-    entry.old: entry
-    for entry in (
-        POST_HER_POLAR_TABLE,
-        POST_HER_POLAR_FILE_NAME,
-        POST_WRITE_HER_POLAR_FORMAT,
-        POST_READ_HER_POLAR_FORMAT,
-    )
-}
-
-
 def __getattr__(name: str) -> object:
     """Serve the polar format's former ``her`` names, warning from the ledger (until 0.16.0)."""
-    if name in _FORMER_NAMES:
-        entry = _FORMER_NAMES[name]
+    if name in FORMER_POLAR_NAMES:
+        entry = FORMER_POLAR_NAMES[name]
         warnings.warn(entry.message(), PyflightstreamDeprecationWarning, stacklevel=2)
         return globals()[entry.new]
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
@@ -892,7 +887,11 @@ def _polar_rows(
     reference: ReferenceValues,
     aliases: Mapping[str, Sequence[str]] | None = None,
 ) -> list[tuple[float, ...]]:
-    """Return the coefficient rows of one group over the points of a polar, alpha ascending."""
+    """Return the coefficient rows of one group over the points of a polar, alpha ascending.
+
+    This is the ARTIFACT's path, so an empty member list is every family
+    (her decision of 2026-09-09) and the summer is asked for that reading.
+    """
     rows = []
     for point in points:
         reynolds = point.loads.reynolds
@@ -906,7 +905,11 @@ def _polar_rows(
                 "Leave the point out of the products, or state the sweep without sideslip."
             )
         coefficients = group_coefficients(
-            point.loads, list(families), bref_m=reference.bref_m, aliases=aliases
+            point.loads,
+            list(families),
+            bref_m=reference.bref_m,
+            aliases=aliases,
+            empty_is_every=True,
         )
         rows.append(
             polar_row(

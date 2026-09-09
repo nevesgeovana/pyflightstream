@@ -583,6 +583,20 @@ PROPOSE_TYPE_POSITIONAL = DeprecatedParameter(
 
 #: Every live promise of every kind, one entry each; the Tier 1 deadline
 #: guard judges each of these through :func:`expired_promise`.
+#: The polar format's four former Python names, each to the ledger entry
+#: that promises its removal; read by the two shims that serve them (the
+#: architecture lens of 2026-09-09: the mapping was private to one module
+#: and its sibling reached into it).
+FORMER_POLAR_NAMES: dict[str, DeprecatedParameter] = {
+    entry.old: entry
+    for entry in (
+        POST_HER_POLAR_TABLE,
+        POST_HER_POLAR_FILE_NAME,
+        POST_WRITE_HER_POLAR_FORMAT,
+        POST_READ_HER_POLAR_FORMAT,
+    )
+}
+
 DEPRECATIONS: tuple[Deprecation, ...] = (
     *DEPRECATED_MODULES,
     WAIVED_COMMANDS_MANIFEST_KEY,

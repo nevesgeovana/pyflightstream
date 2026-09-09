@@ -4530,6 +4530,11 @@ def test_a_families_entry_reads_the_setup_aliases_before_the_built_in_words():
         "a bare family word reads as the family"
     )
     assert select_families("Nothing", inventory, is_blade) == [], "a word resolving to nothing"
+    # The interface lens of 2026-09-09: a family name selected six blades
+    # written alone and NOTHING written in a list, one word two answers.
+    assert select_families(["Blade"], inventory, is_blade) == [["Blade1", "Blade2"]]
+    assert select_families(["Blade", "W"], inventory, is_blade) == [["Blade1", "Blade2", "W"]]
+    assert select_families(["Nothing"], inventory, is_blade) == []
 
 
 def _force_plots(lines):
@@ -4597,6 +4602,29 @@ def test_a_pproc_entry_cites_a_setup_frame_and_an_alias_word(tmp_path):
     unknown = case.model_copy(update={"frames": []})
     with pytest.raises(CampaignConfigError, match="LIFTERS_MRP.*created: "):
         rendered(unknown, "26.123")
+
+
+def test_a_families_entry_that_selects_nothing_says_so(tmp_path):
+    """The interface lens of 2026-09-09: a misspelled word and a geometry that
+    legitimately lacks the families read alike from the script, both leaving the
+    entry out in silence, and the user met it as a plot missing from the products.
+    The skip stays; the warning names the artifact, the entry, the word, the
+    aliases in scope and the inventory declared."""
+    from pyflightstream._errors import PyflightstreamWarning
+    from pyflightstream.cases import PprocSpec
+
+    sector = _saved_simulation(tmp_path / "wb.fsm", ["W", "B"])
+    pproc = PprocSpec.model_validate(
+        {"plots": {"parameters": ["CL"], "groups": [{"name": "X", "families": "airfram"}]}}
+    )
+    case = _with_pproc(_rotor_row(sector, "W"), sector, pproc).model_copy(
+        update={"aliases": {"lifters": ["LiftBlade"]}}
+    )
+    with pytest.warns(PyflightstreamWarning, match="airfram") as caught:
+        text = rendered(case, "26.123")
+    assert "CL_X" not in text, "the entry is still skipped, which is the artifact's rule"
+    message = str(caught[0].message)
+    assert "p001" in message and "lifters" in message and "'W'" in message, message
 
 
 def test_a_pproc_entry_cites_a_rotors_own_frame_in_a_motions_row(tmp_path):

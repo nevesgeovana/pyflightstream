@@ -383,7 +383,7 @@ Milestones and session records are listed in the
     *Origin: PP-6. Evidence: milestone M2; manifest tests; extended
     by FR-31.*
 
-    Read with PFS-2033.02 at 0.14.0 (GOAL-013): the record gains `raw_commands`, the setup's raw lines the script carried, absent on older records and read as empty.
+    Read with PFS-2033.02 at 0.14.0 (GOAL-013): the record gains `raw_commands`, the setup's raw lines the script carried, and `aliases`, the setup's boundary aliases the polar tables resolve by (her decision of 2026-09-09), both absent on older records and read as empty.
 
     Every campaign writes `runs.json` recording per run: identity,
     case point, versions and build, package version, input and script
@@ -1325,7 +1325,7 @@ The allocation is recorded in the
     test added with this consolidation after review found the clause
     resting on a model-config line no assertion observed.*
 
-    Read with PFS-2033.02 at 0.14.0 (GOAL-013): the strict record gains one field, `raw_commands`, and the manifest schema stays at 3 because an absent key reads as an empty list.
+    Read with PFS-2033.02 at 0.14.0 (GOAL-013): the strict record gains two fields, `raw_commands` and `aliases` (the setup's boundary aliases, her decision of 2026-09-09), and the manifest schema stays at 3 because an absent key reads as empty.
 
     The manifest record rejects unknown fields and duplicate run
     identifiers; its field set is fixed and validated at construction.

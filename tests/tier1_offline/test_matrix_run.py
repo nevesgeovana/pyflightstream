@@ -3774,6 +3774,18 @@ def test_an_alias_of_the_setup_reaches_the_polar_table_through_the_record(tmp_pa
         polars = sorted((workspace.root / "post" / "wing_alpha").glob("*_g01.csv"))
         assert len(polars) == 2, polars
         tables[folder] = [path.read_bytes() for path in polars]
+        # The provenance document carries them too, as it carries the raw
+        # lines: a survived mutant of the QA lens of 2026-09-09 dropped the
+        # key from the document and the whole suite stayed green.
+        import json as _json
+
+        provenance = workspace.root / "post" / "wing_alpha" / "provenance"
+        document = _json.loads(next(provenance.glob("*.prov.json")).read_text(encoding="utf-8"))
+        (_, activity), *_ = document["activity"].items()
+        if folder == "alias":
+            assert activity["pyfs:aliases"] == {"wing": ["W", "Missing"]}, activity
+        else:
+            assert "pyfs:aliases" not in activity, "a run whose setup defines none carries no key"
     assert tables["alias"] == tables["plain"]
 
 

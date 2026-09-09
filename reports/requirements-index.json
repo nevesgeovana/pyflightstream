@@ -185,7 +185,7 @@
   },
   {
    "id": "FR-19",
-   "text": "Read with PFS-2033.02 at 0.14.0 (GOAL-013): the record gains raw_commands, the setup's raw lines the script carried, absent on older records and read as empty.",
+   "text": "Read with PFS-2033.02 at 0.14.0 (GOAL-013): the record gains raw_commands, the setup's raw lines the script carried, and aliases, the setup's boundary aliases the polar tables resolve by (her decision of 2026-09-09), both absent on older records and read as empty.",
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: PP-6. Evidence: milestone M2; manifest tests; extended by FR-31.*",
@@ -521,7 +521,7 @@
   },
   {
    "id": "FR-45",
-   "text": "Read with PFS-2033.02 at 0.14.0 (GOAL-013): the strict record gains one field, raw_commands, and the manifest schema stays at 3 because an absent key reads as an empty list.",
+   "text": "Read with PFS-2033.02 at 0.14.0 (GOAL-013): the strict record gains two fields, raw_commands and aliases (the setup's boundary aliases, her decision of 2026-09-09), and the manifest schema stays at 3 because an absent key reads as empty.",
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: the C5 acceptance, 2026-07-27. Evidence: both halves pinned in tests/tier1_offline/test_workspace.py, the unknown-field refusal by a test added with this consolidation after review found the clause resting on a model-config line no assertion observed.*",

@@ -68,7 +68,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_valida
 from pyflightstream._deprecations import RUN_RECORD_BROKEN_COMMANDS, WAIVED_COMMANDS_MANIFEST_KEY
 from pyflightstream._digest import file_sha256
 from pyflightstream._errors import PyflightstreamDeprecationWarning, PyflightstreamError
-from pyflightstream.cases import RawCommand
+from pyflightstream.cases import BoundaryAliases, RawCommand
 from pyflightstream.script.solver_setup import explicit_empty_selections
 from pyflightstream.workspace.inputs import (
     EXECUTABLES_FILE,
@@ -746,13 +746,16 @@ class RunRecord(BaseModel):
     #: The solver commands the row's setup stated verbatim and the script
     #: carried (PFS-2033.02): ``command``, ``before`` and ``setup`` each;
     #: empty for a setup stating none and for every record written before
-    #: the field existed, which the reader takes as the same thing.
+    #: the field existed, which the reader takes as the same thing, and
+    #: which is why MANIFEST_SCHEMA does not move for it.
     raw_commands: list[RawCommand] = Field(default_factory=list)
     #: The boundary aliases the row's setup defined (her decision of
     #: 2026-09-09), carried so the products stage resolves a group naming
     #: one without opening the setup; empty for a setup defining none and
-    #: for every record written before the field existed.
-    aliases: dict[str, list[str]] = Field(default_factory=dict)
+    #: for every record written before the field existed, which is why
+    #: MANIFEST_SCHEMA does not move for it (ARCH-8 of the round of
+    #: 2026-09-09): an absent key reads as the empty table.
+    aliases: BoundaryAliases = Field(default_factory=dict)
     conditions: list[dict] | None = None
 
     @model_validator(mode="before")
@@ -1031,7 +1034,10 @@ def expand_group(
     Raises
     ------
     InputArtifactError
-        If the descriptor declares no group of that name (the message
+        If the group is written EMPTY, which means every family the
+        geometry carries (her decision of 2026-09-09) and leaves this
+        expansion no positions to number; if the descriptor declares no
+        group of that name (the message
         lists the ones it does declare), if a member is a boundary label
         and no inventory was given to resolve it against, or if a member
         names a boundary the given inventory does not carry (the message

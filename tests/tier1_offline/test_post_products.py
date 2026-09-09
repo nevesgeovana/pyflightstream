@@ -116,12 +116,29 @@ def test_an_empty_group_sums_every_family_the_table_carries():
     """Her decision of 2026-09-09 (PFS-2005.02): a group written empty is every
     family, so its row is the sum over every surface row of the loads table,
     here W and B, and equals the group that names them; the Total row is not
-    a surface and is not summed twice."""
+    a surface and is not summed twice. The reading is the ARTIFACT's, so the
+    products stage asks for it by name (the interface lens of 2026-09-09); the
+    other half is pinned by
+    test_an_empty_member_list_sums_to_zero_unless_the_caller_asks_for_every_family."""
     loads = _loads()
-    everything = group_coefficients(loads, [], bref_m=20.0)
+    everything = group_coefficients(loads, [], bref_m=20.0, empty_is_every=True)
     assert everything.families_used == tuple(loads.surfaces), "every surface, in table order"
     assert everything.families_used == ("W", "B")
     assert everything == group_coefficients(loads, ["W", "B"], bref_m=20.0)
+
+
+def test_an_empty_member_list_sums_to_zero_unless_the_caller_asks_for_every_family():
+    """The interface lens of 2026-09-09: her decision that an empty [groups] entry
+    is every family is about the ARTIFACT, and it had flipped this public function
+    in silence, where an empty list summed to zero and its docstring said so. A
+    caller that filtered its families down to none still gets zero; the products
+    stage, which reads the artifact, asks for every family by name."""
+    loads = _loads()
+    zero = group_coefficients(loads, [], bref_m=20.0)
+    assert zero.families_used == () and zero.lift == 0.0
+    every = group_coefficients(loads, [], bref_m=20.0, empty_is_every=True)
+    assert every.families_used == ("W", "B")
+    assert every == group_coefficients(loads, ["W", "B"], bref_m=20.0)
 
 
 def test_a_group_member_may_be_a_family_or_an_alias_of_the_setup():
@@ -150,7 +167,7 @@ def test_a_group_member_may_be_a_family_or_an_alias_of_the_setup():
     assert group_coefficients(with_blades, ["blades"], bref_m=20.0).families_used == ()
     mixed = group_coefficients(with_blades, ["one", "airframe"], bref_m=20.0, aliases=aliases)
     assert mixed.families_used == ("Blade2", "W", "B"), "alias by alias, each name once"
-    assert group_coefficients(with_blades, [], bref_m=20.0).families_used == (
+    assert group_coefficients(with_blades, [], bref_m=20.0, empty_is_every=True).families_used == (
         "Blade1",
         "Blade2",
         "W",

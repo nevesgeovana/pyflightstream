@@ -486,6 +486,69 @@ def test_a_pproc_artifact_naming_nothing_the_geometry_carries_is_refused_at_plan
     assert not _plan(root, plain).blocked
 
 
+def test_an_empty_group_does_not_disable_the_shares_no_name_refusal(tmp_path):
+    """The interface lens of 2026-09-09: `if not members: return` returned from the
+    FUNCTION, so one empty group anywhere in an artifact disabled the RPT-044 guard
+    for every other group in it; an artifact holding `"1" = []` and `"2" = ["Wing"]`
+    against 14_WING_RENAMED, whose inventory carries MainWing, planned READY and
+    every group-2 polar would have summed nothing."""
+    root = _tier3_copy(tmp_path)
+    _pproc(root, "p007", '[groups]\n"1" = []\n"2" = ["Wing"]\n')
+    matrix = _one_row_matrix(
+        root,
+        "empty_and_named.fs",
+        f"7211 | Wing | RPT-044 | {WING_ROW.format(pproc='p007')}"
+        "GEOMETRY: 14_WING_RENAMED.fsm / SYMMETRY: NONE",
+    )
+    plan = _plan(root, matrix)
+    assert plan.blocked, "an empty group beside a named one disabled the guard"
+    message = str(plan.blocked[0].error)
+    for fragment in ("7211", "p007", "'Wing'", "14_WING_RENAMED.fsm", "'MainWing'"):
+        assert fragment in message, message
+
+
+def test_an_artifact_whose_only_group_is_empty_plans_ready_against_any_geometry(tmp_path):
+    """Her decision of 2026-09-09 read at the guard: an empty group is every family
+    and resolves by construction, so an artifact that cites no name at all is not
+    the artifact-and-geometry-share-no-name case (RPT-044) and plans READY against
+    the renamed file, where a group citing `Wing` is refused. A survived mutant of
+    the QA lens of the same day: nothing held the by-construction reading."""
+    root = _tier3_copy(tmp_path)
+    _pproc(root, "p009", '[groups]\n"1" = []\n')
+    matrix = _one_row_matrix(
+        root,
+        "only_empty.fs",
+        f"7213 | Wing | RPT-044 | {WING_ROW.format(pproc='p009')}"
+        "GEOMETRY: 14_WING_RENAMED.fsm / SYMMETRY: NONE",
+    )
+    assert not _plan(root, matrix).blocked, "an artifact citing no name was refused"
+
+
+def test_the_refusal_cites_the_word_the_artifact_writes_not_the_alias_members(tmp_path):
+    """The interface lens of 2026-09-09: the guard substituted the alias MEMBERS
+    into its message, so it reported names the user never wrote and could not find
+    in the file, and it looked them up without case folding while every other site
+    folds. The artifact writes `wing`; the message says `wing`."""
+    root = _tier3_copy(tmp_path)
+    s001 = (root / "inputs" / "setups" / "s001.toml").read_text(encoding="utf-8")
+    (root / "inputs" / "setups" / "s010.toml").write_text(
+        s001 + '\n[aliases]\nwing = ["Wing"]\n', encoding="utf-8"
+    )
+    _pproc(root, "p008", '[groups]\n"1" = ["wing"]\n')
+    matrix = _one_row_matrix(
+        root,
+        "aliased_renamed.fs",
+        f"7212 | Wing | RPT-044 | {WING_ROW.format(pproc='p008').replace('| s001 |', '| s010 |')}"
+        "GEOMETRY: 14_WING_RENAMED.fsm / SYMMETRY: NONE",
+    )
+    plan = _plan(root, matrix)
+    assert plan.blocked, "the alias resolving to nothing planned READY"
+    message = str(plan.blocked[0].error)
+    assert "'wing'" in message, f"the word the file writes: {message}"
+    assert "'Wing'" not in message, f"the alias's member, which the file never writes: {message}"
+    assert "MainWing" in message, message
+
+
 def test_the_workspace_refuses_a_pol_the_tour_already_states(tmp_path):
     root = _tier3_copy(tmp_path, with_tour=True)
     matrix = _one_row_matrix(

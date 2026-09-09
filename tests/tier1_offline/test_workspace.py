@@ -2861,6 +2861,34 @@ def test_a_setup_defines_boundary_aliases(tmp_path):
     assert "lifters" in str(caught.value) and "list" in str(caught.value), str(caught.value)
 
 
+@pytest.mark.parametrize(
+    ("body", "fragment"),
+    [
+        ('[aliases]\neach = ["W"]\n', "expands an entry"),
+        ('[aliases]\nEACH_BLADE = ["W"]\n', "expands an entry"),
+        ('[aliases]\nall = ["W"]\n', "expands an entry"),
+        ('[aliases]\ng1 = ["W"]\n', "g<number>"),
+        ("[aliases]\nlifters = []\n", "aliases"),
+        ("[aliases]\nlifters = [3]\n", "valid string"),
+    ],
+)
+def test_an_alias_taking_a_word_the_package_reserves_is_refused(tmp_path, body, fragment):
+    """The interface lens of 2026-09-09: her decision lets a preset shadow airframe
+    and blades, words that name a SET. `all` is the command's own every-boundary
+    form and the two `each` words EXPAND an entry, one per family, so an alias of
+    those names would collapse per-family plots with no message; `g<number>` is
+    what a boundary-citing cell reads as a pproc group, so the same cell would
+    mean two things depending on the mesh. An alias listing no member is refused
+    by the reader with the verdict table's own reason (ENTITY_SELECTIONS)."""
+    workspace = library(tmp_path)
+    (workspace.inputs_dir / "setups" / "sres.toml").write_text(
+        "NITER = 100\n\n" + body, encoding="utf-8"
+    )
+    with pytest.raises(InputArtifactError, match="sres") as caught:
+        workspace.resolve_setup("sres")
+    assert fragment in str(caught.value), str(caught.value)
+
+
 # --- PFS-2033.01: raw solver commands in the setup, declared before a phase -------
 
 RAW = (

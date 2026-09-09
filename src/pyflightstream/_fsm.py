@@ -261,6 +261,23 @@ def boundary_labels(
     return labels, ambiguous
 
 
+def names_of(token: str, names: Sequence[str]) -> list[str]:
+    """Return the names one cell token selects out of a declared inventory, in its order.
+
+    The rule, and the reason for its order, are
+    :func:`resolve_family`'s: an exact name wins over a family, and the
+    family match is case folded where the exact one is not. This is the
+    same rule expressed over a SEQUENCE of names, which is what a caller
+    holds when it judges by the surface rows of a loads table rather
+    than by a label-to-index map, and it is the one home both readers
+    call (the architecture lens of 2026-09-09 measured two).
+    """
+    if token in names:
+        return [token]
+    wanted = family_of(token)
+    return [name for name in names if family_of(name) == wanted]
+
+
 def resolve_family(token: str, labels: Mapping[str, int]) -> tuple[int, ...]:
     """Resolve one cell token against a declared boundary inventory.
 
@@ -293,7 +310,4 @@ def resolve_family(token: str, labels: Mapping[str, int]) -> tuple[int, ...]:
     differ deliberately: an exact name is the file's own spelling, and a
     family is a word the user chooses.
     """
-    if token in labels:
-        return (labels[token],)
-    wanted = family_of(token)
-    return tuple(sorted(index for label, index in labels.items() if family_of(label) == wanted))
+    return tuple(sorted(labels[name] for name in names_of(token, list(labels))))

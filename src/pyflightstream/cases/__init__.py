@@ -31,6 +31,7 @@ from pathlib import Path
 from typing import Annotated, Literal, Protocol, runtime_checkable
 
 from pydantic import (
+    AfterValidator,
     BaseModel,
     BeforeValidator,
     ConfigDict,
@@ -44,7 +45,7 @@ from pyflightstream._atmosphere import ISA
 from pyflightstream._deprecations import PPROC_HER_POLAR_FORMAT
 from pyflightstream._digest import file_sha256, text_sha256
 from pyflightstream._errors import PyflightstreamDeprecationWarning, PyflightstreamError
-from pyflightstream._fsm import family_of
+from pyflightstream._fsm import names_of
 from pyflightstream.commands import Phase
 from pyflightstream.script import Script
 from pyflightstream.script.toggles import resolve_toggle
@@ -82,6 +83,8 @@ __all__ = [
     "select_families",
     "select_group_members",
     "resolve_alias",
+    "BoundaryAliases",
+    "EXPANDING_SELECTORS",
     "default_outputs",
     "classify_outputs",
     "SweepAxis",
@@ -339,6 +342,17 @@ PPROC_FRAMES = ("MRP", "PROP_MRP", "BLADE_AXIS")
 Plane = Literal["XY", "XZ", "YZ"]
 
 
+def _a_named_frame(value: str) -> str:
+    """Refuse a pproc entry's frame that names nothing; WHICH frame is judged at build time."""
+    if not value.strip():
+        raise ValueError(
+            f"frame names one the run creates ({', '.join(PPROC_FRAMES)}, a rotor's "
+            "PROP_MRP<k> or RotorAxis<k>) or one the setup's [[frames]] table defines; "
+            "it is empty"
+        )
+    return value
+
+
 def _check_family_selection(value: object) -> str | list[str]:
     """Accept one word, or a list of words; what a word IS is judged at build time.
 
@@ -377,16 +391,7 @@ class SectionDistribution(BaseModel):
     frame: str = "MRP"
     planes: list[Plane] = Field(min_length=1)
 
-    @field_validator("frame")
-    @classmethod
-    def _named_frame(cls, value: str) -> str:
-        if not value.strip():
-            raise ValueError(
-                f"frame names one the run creates ({', '.join(PPROC_FRAMES)}, a rotor's "
-                "PROP_MRP<k> or RotorAxis<k>) or one the setup's [[frames]] table defines; "
-                "it is empty"
-            )
-        return value
+    _frame_is_named = field_validator("frame")(_a_named_frame)
 
 
 class SectionsSpec(BaseModel):
@@ -409,16 +414,7 @@ class ForcePlotGroup(BaseModel):
     frame: str = "MRP"
     families: Annotated[str | list[str], BeforeValidator(_check_family_selection)]
 
-    @field_validator("frame")
-    @classmethod
-    def _named_frame(cls, value: str) -> str:
-        if not value.strip():
-            raise ValueError(
-                f"frame names one the run creates ({', '.join(PPROC_FRAMES)}, a rotor's "
-                "PROP_MRP<k> or RotorAxis<k>) or one the setup's [[frames]] table defines; "
-                "it is empty"
-            )
-        return value
+    _frame_is_named = field_validator("frame")(_a_named_frame)
 
     @model_validator(mode="after")
     def _expansion_names_the_family(self) -> ForcePlotGroup:
@@ -480,16 +476,7 @@ class ProbesSpec(BaseModel):
     scale: Literal["m", "propeller_radius"] = "m"
     lines: list[ProbeLine] = Field(default_factory=list)
 
-    @field_validator("frame")
-    @classmethod
-    def _named_frame(cls, value: str) -> str:
-        if not value.strip():
-            raise ValueError(
-                f"frame names one the run creates ({', '.join(PPROC_FRAMES)}, a rotor's "
-                "PROP_MRP<k> or RotorAxis<k>) or one the setup's [[frames]] table defines; "
-                "it is empty"
-            )
-        return value
+    _frame_is_named = field_validator("frame")(_a_named_frame)
 
     @field_validator("parameters")
     @classmethod
@@ -755,20 +742,79 @@ def select_families(
             return [[name] for name in blades]
         # A bare word outside the five and the aliases is a family (her
         # p001 of 2026-09-09); one the inventory lacks is an empty result.
-        names = _names_of(selection, inventory)
+        names = names_of(selection, inventory)
         return [names] if names else []
-    chosen = []
+    chosen: list[str] = []
     for item in selection:
         aliased = resolve_alias(item, inventory, aliases)
         if aliased is not None:
-            chosen.extend(name for name in aliased if name not in chosen)
+            names = aliased
         elif item == "blades":
-            chosen.extend(name for name in blades if name not in chosen)
+            names = blades
         elif item == "airframe":
-            chosen.extend(name for name in inventory if not is_blade(name) and name not in chosen)
-        elif item in inventory and item not in chosen:
-            chosen.append(item)
+            names = [name for name in inventory if not is_blade(name)]
+        else:
+            # A list member resolves as the bare word does, family
+            # fallback included (the interface lens of 2026-09-09: the
+            # same word selected six blades written alone and nothing
+            # written in a list).
+            names = names_of(str(item), inventory)
+        chosen.extend(name for name in names if name not in chosen)
     return [chosen] if chosen else []
+
+
+#: The words a ``families`` entry EXPANDS rather than naming a set with,
+#: which an alias may not take (the interface lens of 2026-09-09): ``all``
+#: is the command's own every-boundary form and the two ``each`` words emit
+#: one entry per family. ``airframe`` and ``blades`` name a set and stay
+#: shadowable, which is what her decision asked for.
+EXPANDING_SELECTORS = ("all", "each", "each_blade")
+#: A boundary-citing cell reads ``g<number>`` as a pproc group, so an alias
+#: may not take that spelling.
+_GROUP_SPELLING = re.compile(r"^g\d+$")
+
+
+def _check_aliases(value: dict[str, list[str]]) -> dict[str, list[str]]:
+    """Refuse an alias table that names nothing, or takes a word the package reserves.
+
+    One home for the shape, carried by the type rather than spent at the
+    artifact's door (the architecture lens of 2026-09-09 measured the
+    rule enforced on one of the three models the value crosses).
+    """
+    for name, members in value.items():
+        if not name.strip():
+            raise ValueError("an alias needs a name; the [aliases] table holds an empty one")
+        if name.strip().casefold() in EXPANDING_SELECTORS:
+            raise ValueError(
+                f"alias {name!r} takes a word that expands an entry rather than naming a "
+                f"set of surfaces ({', '.join(EXPANDING_SELECTORS)}): an alias may shadow "
+                "airframe and blades, which name a set, and not these. Choose another name"
+            )
+        if _GROUP_SPELLING.match(name.strip()):
+            raise ValueError(
+                f"alias {name!r} is spelled as a pproc group, which a boundary-citing cell "
+                f"reads as [groups] entry {name.strip()[1:]!r}; choose a name that is not "
+                "g<number>"
+            )
+        if not members:
+            raise ValueError(
+                f"alias {name!r} names no member; an alias stands for the boundary names "
+                "or families listed after it"
+            )
+        for member in members:
+            if not isinstance(member, str) or not member.strip():
+                raise ValueError(
+                    f"alias {name!r} lists {member!r}, and a member is a boundary name or a "
+                    "family name (a string)"
+                )
+    return value
+
+
+#: The boundary aliases a setup preset defines, her decision of 2026-09-09:
+#: a name to the boundary names or families it stands for. The type carries
+#: the shape, so the setup artifact, the case and the run record hold one
+#: rule between them rather than one validator at the artifact's door.
+BoundaryAliases = Annotated[dict[str, list[str]], AfterValidator(_check_aliases)]
 
 
 def resolve_alias(
@@ -798,18 +844,10 @@ def resolve_alias(
         return None
     names: list[str] = []
     for member in aliases[key]:
-        for name in _names_of(str(member), inventory):
+        for name in names_of(str(member), inventory):
             if name not in names:
                 names.append(name)
     return names
-
-
-def _names_of(token: str, inventory: Sequence[str]) -> list[str]:
-    """Return the exact name of the inventory, else every member of the family the token names."""
-    if token in inventory:
-        return [token]
-    wanted = family_of(token)
-    return [name for name in inventory if family_of(name) == wanted]
 
 
 def select_group_members(
@@ -842,7 +880,7 @@ def select_group_members(
         token = str(member)
         names = [token] if token in inventory else resolve_alias(token, inventory, aliases)
         if names is None:
-            names = _names_of(token, inventory)
+            names = names_of(token, inventory)
         chosen.extend(name for name in names if name not in chosen)
     return chosen
 
@@ -1422,7 +1460,7 @@ class SimCase(BaseModel):
     #: for; read by every builder that resolves a cited boundary and
     #: carried on the record for the products stage. Empty for a setup
     #: defining none, which is every setup written before 0.14.0.
-    aliases: dict[str, list[str]] = Field(default_factory=dict)
+    aliases: BoundaryAliases = Field(default_factory=dict)
     #: The boundary order a sidecar beside the geometry states
     #: (PFS-2029.06.03), bound by the workspace; the builder refuses the
     #: run when the file's own mesh block disagrees with it.

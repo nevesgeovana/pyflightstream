@@ -85,7 +85,7 @@ from pydantic import (
 # same public spelling.
 from pyflightstream._errors import InputArtifactError
 from pyflightstream._fsm import MeshReadError, boundary_names
-from pyflightstream.cases import FrameSpec, PprocSpec, RawCommand
+from pyflightstream.cases import BoundaryAliases, FrameSpec, PprocSpec, RawCommand
 
 # DOWNWARD, and the two imports in this module that leave the workspace
 # layer: `cases` sits below `workspace` in the house order, and the
@@ -412,26 +412,7 @@ class SetupArtifact(BaseModel):
     #: for, read wherever a boundary is cited (a matrix cell, a pproc
     #: group, a families entry), a member the mesh lacks ignored; consumed
     #: out of ``settings`` by :func:`resolve_setup` the same way.
-    aliases: dict[str, list[str]] = Field(default_factory=dict)
-
-    @field_validator("aliases")
-    @classmethod
-    def _aliases_are_lists_of_names(cls, value: dict[str, list[str]]) -> dict[str, list[str]]:
-        for name, members in value.items():
-            if not name.strip():
-                raise ValueError("an alias needs a name; the [aliases] table holds an empty one")
-            if not members:
-                raise ValueError(
-                    f"alias {name!r} names no member; an alias stands for the boundary names "
-                    "or families listed after it"
-                )
-            for member in members:
-                if not isinstance(member, str) or not member.strip():
-                    raise ValueError(
-                        f"alias {name!r} lists {member!r}, and a member is a boundary name or a "
-                        "family name (a string)"
-                    )
-        return value
+    aliases: BoundaryAliases = Field(default_factory=dict)
 
     @model_validator(mode="after")
     def _one_frame_per_name(self) -> SetupArtifact:
@@ -707,6 +688,15 @@ ENTITY_SELECTIONS: tuple[EntitySelection, ...] = (
         "setup", "vorticity_drag_families", "SET_VORTICITY_DRAG_BOUNDARIES", False, _VORTICITY_EMPTY
     ),
     EntitySelection(
+        "setup",
+        "aliases.<name>",
+        "every boundary-citing key of a row naming this preset",
+        False,
+        "An alias stands for the boundary names or families listed after it, and over none "
+        "it would name nothing while reading as though it named a set; the empty list that "
+        "means every family is the pproc group's, one line below.",
+    ),
+    EntitySelection(
         "pproc",
         "groups.<name>",
         "the polar table written per group (products.polars)",
@@ -764,6 +754,14 @@ def _stated_empty_selections(
         for rule in ENTITY_SELECTIONS:
             if rule.kind == kind and data.get(rule.key) == []:
                 found.append((rule.key, rule))
+        aliases = data.get(ALIASES_TABLE)
+        if isinstance(aliases, Mapping):
+            rule = _SELECTION_BY_KEY[("setup", "aliases.<name>")]
+            found.extend(
+                (f'{ALIASES_TABLE}."{name}"', rule)
+                for name, members in aliases.items()
+                if members == []
+            )
         return found
     groups = data.get("groups")
     if isinstance(groups, Mapping):

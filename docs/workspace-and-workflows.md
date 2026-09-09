@@ -229,6 +229,7 @@ read by the package rather than ignored:
 | v0.11.0 | `BASE_REGIONS`, the mesh families the base-region autodetect may consider, one `DETECT_BASE_REGIONS_BY_SURFACE` per boundary of them after `OPEN`; it overrides the pproc artifact's `base_regions`, and naming none emits nothing (PFS-2029.10) |
 | v0.13.0 | `EXPORT_UNSTEADY_AFTER_REV` and `EXPORT_UNSTEADY_AFTER_ITER`, the step the per-step exports begin on, one per row at most; the first on `unsteady_rotor` only, both refused on `steady` (PFS-2031.18) |
 | v0.13.0 | none. What changed is that the list above is now CLOSED for a workflow row: a key no run type registers is refused at `pyfs-matrix plan` (PFS-2008.02.01), see below |
+| v0.14.0 | none. What changed again is what `MOVING_BOUNDARIES` ACCEPTS: a name the row's setup defines under `[aliases]`, between the exact label and the family, see What a solver preset may say |
 | v0.14.0 | `ROTATE`, a list of records, one rotation of the opened mesh each, in the order written: `ROTATE: {ANGLE: 3 / AXIS: NAC-Y / FAMILIES: Blade,S / AUX_FRAMES: PROP_MRP}, {...}`; on every run type; the frame is one the setup defines or the package creates, the families are names, never indices (PFS-2034.02), see [One row, one geometry, turned](#one-row-one-geometry-turned) |
 
 **A WORKFLOW ROW STATES ONLY WHAT THE SCRIPT WILL CARRY.** Each run type
@@ -285,7 +286,11 @@ this release nothing said so. The run completed, exported, and reported
 loads for a rotor whose moving set was wrong.
 
 An exact label beats a family, so `Blade1` is one blade and `Blade` is all
-of them. A name the geometry does not carry is refused, listing the ones it
+of them. Between the two sits an ALIAS the row's setup defines in its
+`[aliases]` table, so a preset may give one word to a set of families and a
+member the file lacks is ignored; a cell naming an alias none of whose
+members the file carries is refused naming the alias. A name the geometry
+does not carry is refused, listing the ones it
 does: `MOVING_BOUNDARIES: Blade1,S` on the suite's pusher row, whose
 geometry `40_PUSHER.fsm` carries `Body`, `Base` and `Blade1`, is marked
 BLOCKED at `pyfs-matrix plan` naming the row, `'S'`, the file, the
@@ -621,7 +626,10 @@ A cell naming an alias none of whose members the file carries is
 refused as a name the inventory lacks, naming the alias. The run record
 carries the preset's aliases, so the products stage resolves a group
 by them without opening the preset, and the provenance document carries
-them on the solver run.
+them on the solver run. The alias name is matched as written and then case
+folded, as a family name is, so `LIFTERS` finds `lifters`; an alias listing
+no member is refused when the preset is read, because an alias stands for
+the names after it.
 
 A preset may also carry a `[flight_condition]` table, which is not a
 solver setting and is not judged as one: it holds the fluid pins
@@ -871,7 +879,9 @@ plan time naming the frames it did.
 
 An entry that resolves to nothing is skipped; an entry WRITTEN as nothing
 is refused, at `pyfs-matrix plan`, naming the file, the key as the file
-spells it, and what the empty list feeds (PFS-2005.02), except where the
+spells it, and what the empty list feeds (PFS-2005.02, "an empty boundary
+list is refused wherever the solver would read it as disable everything"),
+except where the
 domain seat has given the empty list a meaning. A group is one such key
 since 0.14.0, her decision of 2026-09-09:
 
@@ -884,10 +894,10 @@ is EVERY FAMILY the geometry carries: the polar table of group 1 sums
 every surface row of the loads table, and `MOVING_BOUNDARIES: g1` moves
 every boundary of the file. A member of a group is, tried in this order,
 a boundary name of the file; an ALIAS of the row's setup (its
-`[aliases]` table, above), so `"2" = ["airframe"]` is whatever the
+`[aliases]` table, above), so `["airframe"]` is whatever the
 setup calls airframe and nothing is hardcoded; or a FAMILY, the label
-without its trailing number, so `"3" = ["Blade"]` sums `Blade1` to
-`Blade6`. A member the geometry does not carry is left out, and a
+without its trailing number, so `["Blade"]` sums `Blade1` to
+`Blade6`, which is group 4 of the example above. A member the geometry does not carry is left out, and a
 position passes through to the motion. Until 0.14.0 the empty group was
 refused as her undecided call, and a family name in a group summed
 nothing at products time. `families = []` in a
