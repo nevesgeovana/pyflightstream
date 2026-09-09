@@ -52,7 +52,13 @@ INDEX = REPO / "reports" / "requirements-index.json"
 #: marked because the requirement had no falsifying test at the surface
 #: its own word "everywhere" reaches, which is how it stayed marked
 #: implemented through a release that did not satisfy it.
-MARKED_FLOOR = 17
+#: Raised from 17 to 18 on 2026-09-09 (PFS-2022.06.01), for FR-40. Its
+#: quantifier became "every command-line option" the same day, and
+#: `tests/tier1_offline/test_cli_options_registry.py` is the first test
+#: that can falsify it: it builds every console script's parser and
+#: fails on an option that neither resolves through the registry nor
+#: carries its reason.
+MARKED_FLOOR = 18
 
 
 def _marked() -> dict[str, list[str]]:

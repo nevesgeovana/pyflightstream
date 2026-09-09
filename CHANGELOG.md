@@ -45,6 +45,23 @@ FlightStream versions.
   the date line masked, then writes, reads and rewrites what the stage
   produced and requires equal bytes.
 
+- **Every command-line option of every console script has chosen: it reads
+  its default from the options registry or carries the reason it is not a
+  knob** (PFS-2022.06.01, on the decision of design/68 section PFS-2022.06).
+  FR-40's quantifier was "every user-facing option or parameter", a set
+  nothing could enumerate; it is now "every command-line option", and
+  `tests/tier1_offline/test_cli_options_registry.py` builds the parser of
+  each of the five scripts named in `pyproject.toml` and holds each option
+  to the rule. Six flags of `pyfs-qa` resolve through the three registry
+  keys, which the test measures by moving a key and watching the default
+  move; the other fifty-odd flags are allowlisted in the test with the
+  reason beside each (the subject of the command, a case fact the manifest
+  records, a mode switch, an output place, licensed material named per
+  call). A new flag that does neither fails the suite in the commit that
+  adds it. `pyfs-fsi` builds its parser in `_build_parser()` like the other
+  scripts, so the test can enumerate it. The SRS is 1.33.0 and the
+  requirement is marked; it stays pending on its Python-API half.
+
 - **A boundary renamed in the solver before the save reaches every export by
   its new name, measured** (PFS-2007.01, RPT-044). The tier-3 library gained
   `14_WING_RENAMED.fsm`, the tour's wing with `SURFACE_RENAME 1 MainWing`

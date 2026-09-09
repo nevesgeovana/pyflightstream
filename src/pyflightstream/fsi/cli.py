@@ -167,18 +167,14 @@ def _step(cwd: Path, received_argv: tuple[str, ...] = ()) -> int:
     return dummy_step(cwd, received_argv=received_argv)
 
 
-def main(argv: list[str] | None = None) -> int:
-    """Entry point of the ``pyfs-fsi`` console script."""
-    argv = sys.argv[1:] if argv is None else argv
-    if not argv:
-        # FlightStream calls the executable bare: one coupling step,
-        # coupled when the working directory carries a config.json.
-        return _step(Path.cwd())
-    if argv[0] not in ("init-dummy", "step", "-h", "--help"):
-        # Unknown call convention: the Toolbox may pass arguments of its
-        # own. Execute the coupling step anyway and record the arguments
-        # as evidence instead of dying on argparse.
-        return _step(Path.cwd(), received_argv=tuple(argv))
+def _build_parser() -> argparse.ArgumentParser:
+    """Build the ``pyfs-fsi`` parser without parsing anything.
+
+    A function of its own, as every other console script has, so the
+    tier-1 registry guard (``tests/tier1_offline/test_cli_options_registry.py``,
+    FR-40) can enumerate the options; it was inline in :func:`main`
+    until 0.13.0 (PFS-2022.06.01).
+    """
     parser = argparse.ArgumentParser(
         prog="pyfs-fsi",
         description=(
@@ -193,6 +189,22 @@ def main(argv: list[str] | None = None) -> int:
     p_init.add_argument("--dir", type=Path, default=Path.cwd())
     p_step = sub.add_parser("step", help="execute one coupling step explicitly")
     p_step.add_argument("--dir", type=Path, default=Path.cwd())
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    """Entry point of the ``pyfs-fsi`` console script."""
+    argv = sys.argv[1:] if argv is None else argv
+    if not argv:
+        # FlightStream calls the executable bare: one coupling step,
+        # coupled when the working directory carries a config.json.
+        return _step(Path.cwd())
+    if argv[0] not in ("init-dummy", "step", "-h", "--help"):
+        # Unknown call convention: the Toolbox may pass arguments of its
+        # own. Execute the coupling step anyway and record the arguments
+        # as evidence instead of dying on argparse.
+        return _step(Path.cwd(), received_argv=tuple(argv))
+    parser = _build_parser()
     args = parser.parse_args(argv)
     if args.command == "init-dummy":
         if args.node_count < 1:

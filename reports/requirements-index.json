@@ -481,7 +481,7 @@
   },
   {
    "id": "FR-40",
-   "text": "Every user-facing option or parameter is declared in a single registry recording its type, default, and validation rule, and the CLIs and the Python API resolve options through that registry; setting an unknown option, or a value outside its declared domain, raises an error naming the option and its allowed values. Every registered option name is a stable public contract, which is the form she chose against the review's recommended narrowing.",
+   "text": "Every command-line option is declared in a single registry recording its type, default, and validation rule, or is recorded with the reason it is not a knob of the machine, and the CLIs and the Python API resolve options through that registry; setting an unknown option, or a value outside its declared domain, raises an error naming the option and its allowed values. Every registered option name is a stable public contract, which is the form she chose against the review's recommended narrowing.",
    "priority": "M",
    "status": "pending",
    "evidence": "*Origin: Phase 4 review, accepted 2026-07-27, absorbing the C1 acceptance of the same subject.*",

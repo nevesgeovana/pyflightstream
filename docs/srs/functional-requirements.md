@@ -1187,20 +1187,33 @@ the base could not offer while it bundled several.
     *Origin: Phase 4 review, accepted 2026-07-27, absorbing the C1
     acceptance of the same subject.*
 
-    Every user-facing option or parameter is declared in a single
-    registry recording its type, default, and validation rule, and the
-    CLIs and the Python API resolve options through that registry;
-    setting an unknown option, or a value outside its declared domain,
-    raises an error naming the option and its allowed values. Every
-    registered option name is a stable public contract, which is the
-    form she chose against the review's recommended narrowing.
+    Every command-line option is declared in a single registry
+    recording its type, default, and validation rule, or is recorded
+    with the reason it is not a knob of the machine, and the CLIs and
+    the Python API resolve options through that registry; setting an
+    unknown option, or a value outside its declared domain, raises an
+    error naming the option and its allowed values. Every registered
+    option name is a stable public contract, which is the form she
+    chose against the review's recommended narrowing.
 
-    Pending on its quantifier. The registry exists and its refusal
+    The quantifier was "every user-facing option or parameter" until
+    2026-09-09 and nothing could hold a console script to it; it is
+    "every command-line option" on the decision of design/68 section
+    PFS-2022.06, and `tests/tier1_offline/test_cli_options_registry.py`
+    holds every console script named in `pyproject.toml` to it: each
+    option either reads its default from a registry key, which the
+    test measures by moving the key, or carries in the test the reason
+    it is not a knob (the subject of the command, a case fact the
+    manifest records, a mode switch, an output place, licensed
+    material named per call). A new option must choose in the commit
+    that adds it (PFS-2022.06.01).
+
+    Pending on the Python-API half. The registry exists and its refusal
     behaviour is tested (`src/pyflightstream/options.py`,
-    `tests/tier1_offline/test_options.py`), but it holds three keys, all under `qa`,
-    with one CLI consuming it and no Python-API parameter resolving
-    through it. "Every" is the promise; a first consumer is what
-    shipped.
+    `tests/tier1_offline/test_options.py`), it holds three keys, all
+    under `qa`, six flags of one CLI resolve through them and every
+    other flag of every script is recorded with its reason; no
+    Python-API parameter resolves through it yet.
 
 !!! requirement "FR-41 ITACA adapter <span class='srs-pending'>pending</span>"
     *Origin: Phase 4 review, accepted 2026-07-27.*
