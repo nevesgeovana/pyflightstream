@@ -98,15 +98,46 @@ pytest -m needs_flightstream tests/tier3_licensed
 `test_actions_probe.py`, `test_actions.py` and `test_builds.py` read the manifest, the script each point's
 solver received, the loads it exported and the products the run left,
 through the package's own readers, and assert per row what the row's
-cell was meant to reach. The physics module reduces the rows' loads with
-the same functions `pyflightstream.qa.physics` uses and judges them
-against the same committed references under `qa/references/`, so a FAIL
-there says either that the workflow builds the case differently from the
-hand-built script or that the solver moved, and the diff of the two
-scripts says which. An identity that holds without a band of the
-author's, the antisymmetry of the side force under sideslip for one, is
-asserted to the solver's measured noise and says so; a number that needs
-a band she has not set is read and reported, not judged.
+cell was meant to reach. The physics module asks
+`pyflightstream.qa.matrix.reduce_physics` for the judged run: the rows'
+loads reduced with the functions of `pyflightstream.qa.physics` and judged
+against the committed references under `qa/references/`, so a FAIL there
+says either that the workflow builds the case differently from what the
+reference was recorded on or that the solver moved, and the diff of the
+row's script against its golden says which. An identity that holds
+without a band of the author's, the antisymmetry of the side force under
+sideslip for one, is asserted to the solver's measured noise and says so;
+a number that needs a band she has not set is read and reported, not
+judged.
+
+### The physics report is read out of the workspace
+
+`pyfs-qa physics` is a reader of this workspace since 0.13.0
+(PFS-2031.17, the author's decision B of 2026-09-08): it runs
+`matriz_physics.fs` through the run layer exactly as `pyfs-matrix run`
+does, reduces the records with the qa functions and writes the same
+`reports/physics/PHY-*` pair the hand-built scripts wrote. The hand-built
+builders of PHY-01, PHY-02, PHY-05 and PHY-06 retired with it; the rows
+are the one place a case is stated.
+
+```text
+pyfs-qa physics --workspace tests/tier3_licensed --resume     # the matrix already ran: no seat
+pyfs-qa physics --workspace tests/tier3_licensed              # runs the matrix, then reports
+pyfs-qa drift   --workspace tests/tier3_licensed --fs-versions 26.120,26.123 --fs-exe 26.120=C:/builds/26120/FlightStream.exe --fs-exe 26.123=C:/builds/26123/FlightStream.exe
+```
+
+`--resume` is the form for a workspace whose matrix already ran: the
+recorded points are skipped, nothing executes, and the report is the
+reduction of what `runs.json` holds. Without it a recorded point is
+refused before anything executes, as `pyfs-matrix run` refuses it. The
+report names its source (`matriz_physics.fs in workspace tier3_licensed`)
+and the one build every active row names; rows naming two builds are
+refused, because two builds of one case set is a drift. `pyfs-qa drift`
+makes a workspace per side under `--workroot` (`a_26120`, `b_26123`), a
+copy of the library and the matrix with an `executables.local.toml`
+overlay sending every build id the rows name to that side's executable,
+runs the matrix in each, and diffs the two reductions inside the case
+bands centered on side A (`reports/physics/DRF-*`).
 
 ### What a clone without a seat still gets
 

@@ -347,9 +347,12 @@ says what a test needs before it says what it checks
   `pytest -m needs_flightstream tests/tier3_licensed`. The qa physics
   cases are rows of `matriz_physics.fs`, reduced with the functions of
   `pyflightstream.qa.physics` and judged against `qa/references/` with the
-  WARN and FAIL bands the author set; `pyfs-qa physics` still runs the
-  hand-built scripts and the cross-version drift suite, and where that
-  command lives beside the workspace is the open study of PFS-2031.09.
+  WARN and FAIL bands the author set; `pyfs-qa physics --workspace
+  tests/tier3_licensed` runs that matrix through the run layer, reduces
+  the records the same way and writes the `reports/physics/PHY-*` pair,
+  and `pyfs-qa drift` runs it twice under two registries and diffs the
+  two reductions (PFS-2031.17, her decision B of 2026-09-08; the
+  hand-built case builders retired with it).
 
 Every module of the two licensed tiers carries `needs_flightstream` and the
 default `pytest` deselects it. `pyfs-qa cases` prints the physics matrix

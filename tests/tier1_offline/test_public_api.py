@@ -62,6 +62,9 @@ PUBLIC_MODULES = [
     "pyflightstream.qa.drift",
     "pyflightstream.qa.errors",
     "pyflightstream.qa.geometry",
+    # PFS-2031.17: the driver that reads the physics cases out of a
+    # campaign workspace, the library half of `pyfs-qa physics`.
+    "pyflightstream.qa.matrix",
     "pyflightstream.qa.physics",
     "pyflightstream.qa.probes",
     "pyflightstream.qa.reports",

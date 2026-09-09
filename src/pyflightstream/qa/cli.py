@@ -4,30 +4,36 @@ Pipeline role: drives the qa evidence workflow from a terminal on the
 licensed machine. ``pyfs-qa probe`` runs the Tier 2 command-validity
 probes for one FlightStream version and writes the compat report;
 ``pyfs-qa apply-compat`` promotes database statuses from a committed
-report. ``pyfs-qa physics`` runs the Tier 3 physics regression matrix
-and writes the physics report; ``pyfs-qa update-reference`` is the only
-write path into the stored physics references and demands a reason
-string (SAD Section 11); ``pyfs-qa drift`` runs the same case set on
-two versions and diffs the aggregated coefficients (FR-27);
-``pyfs-qa cases`` prints the Tier 3 test matrix itself, one line per
-case id, without running anything; ``pyfs-qa cost`` reads a campaign's
-``runs.json`` and prints what each sweep point cost in wall-clock
-seconds, one column per solver build, so a build that got slower can be
-shown (FR-19 records the field, this reads it).
+report. ``pyfs-qa physics`` runs the physics matrix of a campaign
+workspace through the run layer, reduces the records with the qa
+functions and writes the physics report (PFS-2031.17);
+``pyfs-qa update-reference`` is the only write path into the stored
+physics references and demands a reason string (SAD Section 11);
+``pyfs-qa drift`` runs the same matrix on two builds, each under its own
+registry, and diffs the two reductions (FR-27); ``pyfs-qa cases`` prints
+the case registry, one line per case id, without running anything;
+``pyfs-qa cost`` reads a campaign's ``runs.json`` and prints what each
+sweep point cost in wall-clock seconds, one column per solver build, so a
+build that got slower can be shown (FR-19 records the field, this reads
+it).
 
 Three of the seven subcommands need a licensed machine (``probe``,
 ``physics``, ``drift``) and four do not: ``apply-compat``,
 ``update-reference``, ``cases`` and ``cost`` read committed or recorded
-evidence and start no solver.
+evidence and start no solver. ``physics --resume`` on a workspace whose
+matrix already ran is the fourth reader: it executes nothing and reports
+what the manifest holds.
 """
 
 from __future__ import annotations
 
 import argparse
-import re
 import sys
 from pathlib import Path
 
+from pyflightstream.cases import CampaignConfigError
+from pyflightstream.cases.matrix import MatrixError
+from pyflightstream.cases.workflows import WorkflowCoverageError
 from pyflightstream.commands import CommandRegistry
 from pyflightstream.options import get_option
 from pyflightstream.qa.compat import (
@@ -38,20 +44,40 @@ from pyflightstream.qa.compat import (
     write_compat_report,
 )
 from pyflightstream.qa.cost import ABSENT, NOT_RUN, CostView, PointKey, cost_view
-from pyflightstream.qa.drift import drift_report_paths, run_drift, write_drift_report
+from pyflightstream.qa.drift import drift_report_paths, write_drift_report
 from pyflightstream.qa.errors import QaEvidenceError
+from pyflightstream.qa.matrix import (
+    DEFAULT_MATRIX,
+    drift_from_workspace,
+    physics_build,
+    physics_from_workspace,
+    physics_matrix,
+)
 from pyflightstream.qa.physics import (
     PhysicsEnvironmentError,
     case_table,
     physics_report_paths,
-    run_physics,
     update_reference,
     write_physics_report,
 )
 from pyflightstream.qa.probes import ProbeEnvironmentError, probe_version
 from pyflightstream.qa.reports import refuse_existing_report, resolve_report_date
 from pyflightstream.versions import AmbiguousVersionAliasError, UnknownVersionError, resolve
-from pyflightstream.workspace import CampaignWorkspace
+from pyflightstream.workspace import CampaignWorkspace, InputArtifactError, WorkspaceError
+
+#: The refusals the run layer raises BEFORE anything executes, caught the
+#: way ``pyfs-matrix run`` catches them, plus the workspace's own refusal
+#: of a recorded point re-run without --resume, which is the one a reader
+#: of a workspace that already ran meets first.
+_RUN_LAYER_REFUSALS = (
+    MatrixError,
+    InputArtifactError,
+    WorkspaceError,
+    CampaignConfigError,
+    WorkflowCoverageError,
+    OSError,
+    ValueError,
+)
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -136,35 +162,33 @@ def _build_parser() -> argparse.ArgumentParser:
 
     physics = subparsers.add_parser(
         "physics",
-        help="run the Tier 3 physics regression matrix and write the physics report",
+        help="run the physics matrix of a workspace, reduce its records and write the "
+        "physics report",
     )
     physics.add_argument(
-        "--fs-version",
-        required=True,
-        help="target FlightStream version: canonical identifier (for example "
-        "26.120); a vendor release name works only where it names exactly one "
-        "registered build",
+        "--workspace",
+        default=".",
+        help="the campaign workspace holding inputs/ and the physics matrix at its root "
+        "(default: the current directory); tests/tier3_licensed is this repository's",
     )
     physics.add_argument(
-        "--fs-exe",
-        required=True,
-        help="explicit path of the FlightStream executable (never guessed)",
+        "--matrix",
+        default=DEFAULT_MATRIX,
+        help=f"the matrix file name at the workspace root (default {DEFAULT_MATRIX}); "
+        "every active row fills FS_BUILD with one build id, which the report names",
     )
     physics.add_argument(
-        "--cases",
-        help="comma-separated case subset (for example PHY-01); default: every case",
+        "--name",
+        default=None,
+        help="campaign name; without it the workspace directory's name is the campaign's, "
+        "as pyfs-matrix run names it, so a resumed run finds the points it recorded",
     )
     physics.add_argument(
-        "--workroot",
-        default=f"{get_option('qa.scratch_root')}/physics",
-        help="scratch root for geometry, scripts, and outputs (default from "
-        "the qa.scratch_root option: runs/physics/)",
-    )
-    physics.add_argument(
-        "--timeout",
-        type=float,
-        default=get_option("qa.case_timeout_s"),
-        help="per-point wall-clock limit, seconds (default from the qa.case_timeout_s option)",
+        "--resume",
+        action="store_true",
+        help="skip points already in the manifest and run the rest; on a workspace whose "
+        "matrix already ran this executes nothing and reports what was recorded. "
+        "Without it an already-recorded point refuses before anything executes",
     )
     physics.add_argument(
         "--report-dir",
@@ -175,15 +199,22 @@ def _build_parser() -> argparse.ArgumentParser:
         "--label",
         help="report stem suffix distinguishing several reports on one day",
     )
-    physics.add_argument(
-        "--smi-root",
-        help="local SMI geometry root (normally _private/geometry/smi); enables the "
-        "SMI drift class, geometry never enters Git",
-    )
 
     drift = subparsers.add_parser(
         "drift",
-        help="run the case set on two versions and diff the coefficients (FR-27)",
+        help="run the physics matrix on two builds, each under its own registry, and "
+        "diff the two reductions (FR-27)",
+    )
+    drift.add_argument(
+        "--workspace",
+        default=".",
+        help="the campaign workspace whose inputs/ library and physics matrix both sides "
+        "copy (default: the current directory)",
+    )
+    drift.add_argument(
+        "--matrix",
+        default=DEFAULT_MATRIX,
+        help=f"the matrix file name at the workspace root (default {DEFAULT_MATRIX})",
     )
     drift.add_argument(
         "--fs-versions",
@@ -200,20 +231,17 @@ def _build_parser() -> argparse.ArgumentParser:
         "for example --fs-exe 26.100=C:/fs26100/FS.exe",
     )
     drift.add_argument(
-        "--cases",
-        help="comma-separated case subset (for example PHY-01); default: every case",
+        "--name",
+        default=None,
+        help="campaign name of both sides; without it the workspace directory's name",
     )
     drift.add_argument(
         "--workroot",
         default=f"{get_option('qa.scratch_root')}/drift",
-        help="scratch root, each version nesting under its canonical name "
-        "(default from the qa.scratch_root option: runs/drift/)",
-    )
-    drift.add_argument(
-        "--timeout",
-        type=float,
-        default=get_option("qa.case_timeout_s"),
-        help="per-point wall-clock limit, seconds (default from the qa.case_timeout_s option)",
+        help="where the two side workspaces are made, a_<build> and b_<build>, each a "
+        "copy of the library with an overlay registry naming that side's executable "
+        "(default from the qa.scratch_root option: runs/drift/); a side that exists "
+        "is refused, a drift being two fresh runs",
     )
     drift.add_argument(
         "--report-dir",
@@ -223,11 +251,6 @@ def _build_parser() -> argparse.ArgumentParser:
     drift.add_argument(
         "--label",
         help="report stem suffix distinguishing several reports on one day",
-    )
-    drift.add_argument(
-        "--smi-root",
-        help="local SMI geometry root (normally _private/geometry/smi); enables the "
-        "SMI drift class on both versions, geometry never enters Git",
     )
 
     cases = subparsers.add_parser(
@@ -498,32 +521,6 @@ def _cmd_probe(args: argparse.Namespace) -> int:
     return 0
 
 
-def _in_command_line_words(message: str) -> str:
-    """Re-word a library refusal in this CLI's own vocabulary.
-
-    The library names its OWN parameter, which is right: a message from
-    ``run_physics`` telling a Python caller to pass ``--cases`` names a
-    flag they cannot type, and this repository has already fixed that
-    class once in the other direction. Where a CLI delivers the same
-    message it owns the translation, including the fact that its own
-    flag is comma separated, which the library has no reason to know.
-    """
-    # EVERY PARAMETER NAME IS TRANSLATED, not just the one that happens
-    # to appear in the message under test. `smi_root` used to be
-    # translated only when a `cases=[...]` datum was also present, because
-    # the early return above it fired first.
-    message = message.replace("smi_root", "--smi-root")
-    match = re.search(r"cases=\[([^\]]*)\]", message)
-    if match is None:
-        return message
-    names = [name.strip().strip("'\"") for name in match.group(1).split(",") if name.strip()]
-    # AND THE TAIL IS KEPT. The first version returned only what preceded
-    # the match, which works exactly while the datum happens to be the
-    # last token of the producer's sentence, and silently truncates the
-    # message the day it is not.
-    return message[: match.start()] + "--cases " + ",".join(names) + message[match.end() :]
-
-
 def _refuse_before_the_solver(paths: tuple[Path, Path]) -> bool:
     """Ask whether the report already exists, BEFORE anything is run.
 
@@ -562,28 +559,34 @@ def _refuse_before_the_solver(paths: tuple[Path, Path]) -> bool:
 
 
 def _cmd_physics(args: argparse.Namespace) -> int:
-    canonical = _resolve_or_report(args.fs_version)
-    if canonical is None:
+    """Run the workspace's physics matrix, reduce it and write the report.
+
+    The build the stem names is read off the matrix rows BEFORE anything
+    runs, so the pre-flight below can refuse a colliding stem while the
+    seat is still unspent; the run's own version, read back from the
+    records, is what the writer stamps, and the pairing test in
+    ``tests/tier1_offline/test_qa_cli.py`` holds the two to one stem.
+    """
+    try:
+        matrix = physics_matrix(args.workspace, args.matrix)
+        canonical = physics_build(matrix)
+    except (PhysicsEnvironmentError, MatrixError, OSError) as error:
+        print(f"nothing run: {error}", file=sys.stderr)
         return 2
-    cases = None
-    if args.cases:
-        cases = [name.strip() for name in args.cases.split(",") if name.strip()]
     date = resolve_report_date()
     if _refuse_before_the_solver(
         physics_report_paths(args.report_dir, version=canonical, date=date, label=args.label)
     ):
         return 2
     try:
-        run = run_physics(
-            canonical,
-            fs_exe=args.fs_exe,
-            workroot=args.workroot,
-            cases=cases,
-            timeout_s=args.timeout,
-            smi_root=args.smi_root,
+        run = physics_from_workspace(
+            args.workspace, matrix=args.matrix, name=args.name, resume=args.resume
         )
     except PhysicsEnvironmentError as error:
-        print(f"physics run aborted: {_in_command_line_words(str(error))}", file=sys.stderr)
+        print(f"physics run aborted: {error}", file=sys.stderr)
+        return 2
+    except _RUN_LAYER_REFUSALS as error:
+        print(f"matrix not run: {error}", file=sys.stderr)
         return 2
     yaml_path, md_path = write_physics_report(run, args.report_dir, date=date, label=args.label)
     counts = run.verdict_counts()
@@ -635,9 +638,11 @@ def _cmd_drift(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
         return 2
-    cases = None
-    if args.cases:
-        cases = [name.strip() for name in args.cases.split(",") if name.strip()]
+    try:
+        physics_matrix(args.workspace, args.matrix)
+    except PhysicsEnvironmentError as error:
+        print(f"nothing run: {error}", file=sys.stderr)
+        return 2
     date = resolve_report_date()
     if _refuse_before_the_solver(
         drift_report_paths(
@@ -650,17 +655,20 @@ def _cmd_drift(args: argparse.Namespace) -> int:
     ):
         return 2
     try:
-        run = run_drift(
+        run = drift_from_workspace(
+            args.workspace,
             canonicals[0],
             canonicals[1],
             fs_exes=fs_exes,
             workroot=args.workroot,
-            cases=cases,
-            timeout_s=args.timeout,
-            smi_root=args.smi_root,
+            matrix=args.matrix,
+            name=args.name,
         )
     except PhysicsEnvironmentError as error:
-        print(f"drift run aborted: {_in_command_line_words(str(error))}", file=sys.stderr)
+        print(f"drift run aborted: {error}", file=sys.stderr)
+        return 2
+    except _RUN_LAYER_REFUSALS as error:
+        print(f"matrix not run: {error}", file=sys.stderr)
         return 2
     yaml_path, md_path = write_drift_report(run, args.report_dir, date=date, label=args.label)
     counts = run.verdict_counts()

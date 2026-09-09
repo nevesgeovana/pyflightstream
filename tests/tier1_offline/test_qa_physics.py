@@ -1,4 +1,12 @@
-"""Tier 1: physics harness bands, references, report, and script build."""
+"""Tier 1: physics bands, reductions, references and the report.
+
+The script builders of PHY-01, PHY-02, PHY-05 and PHY-06 and the run
+machinery around them retired at 0.13.0 with their tests (PFS-2031.17):
+the cases are rows of the tier-3 workspace matrix, and
+``tests/tier1_offline/test_qa_matrix.py`` proves the driver that reads
+them. What stays here is what stayed in the module: the judge, the
+reductions, the references, the report and the case registry.
+"""
 
 import pytest
 import yaml
@@ -11,8 +19,6 @@ from pyflightstream.qa.physics import (
     PointResult,
     ReferenceBand,
     Verdict,
-    build_phy01_script,
-    build_phy02_script,
     build_smi_script,
     compare_metrics,
     load_reference,
@@ -20,7 +26,6 @@ from pyflightstream.qa.physics import (
     phy02_metrics,
     physics_report_paths,
     registered_cases,
-    run_physics,
     smi_metrics,
     update_reference,
     write_physics_report,
@@ -88,49 +93,6 @@ def test_phy01_metrics_reduce_the_sweep():
     assert metrics["CDi_a4"] == pytest.approx(0.0074)
 
 
-def test_phy01_script_builds_validated_for_26120(tmp_path):
-    script = build_phy01_script("26.120", 4.0, tmp_path / "wing.stl", "loads.txt", "log.txt")
-    rendered = script.render()
-    assert not script.raw_flag
-    assert "IMPORT\nUNITS METER\nFILE_TYPE STL" in rendered
-    assert "CLEAR" in rendered
-    assert "SOLVER_SET_AOA 4.0" in rendered
-    # AIR_ALTITUDE is broken on 26.120 (CMP-26120_2026-07-21_full); the
-    # case must set the fluid state through FLUID_PROPERTIES instead.
-    assert "AIR_ALTITUDE" not in rendered
-    assert "FLUID_PROPERTIES" in rendered
-
-
-def test_phy02_half_script_mirrors_and_enables_symmetry_loads(tmp_path):
-    script = build_phy02_script(
-        "26.120",
-        half=True,
-        stl_path=tmp_path / "half.stl",
-        loads_name="loads.txt",
-        log_name="log.txt",
-    )
-    rendered = script.render()
-    assert not script.raw_flag
-    assert "SYMMETRY MIRROR" in rendered
-    # Explicit on purpose: the 2026-07-21 calibration observed ENABLE as
-    # the solver default after MIRROR init, but the case must not depend
-    # on a default that could move between versions.
-    assert "SET_ANALYSIS_SYMMETRY_LOADS ENABLE" in rendered
-
-
-def test_phy02_full_script_keeps_the_baseline_shape(tmp_path):
-    script = build_phy02_script(
-        "26.120",
-        half=False,
-        stl_path=tmp_path / "full.stl",
-        loads_name="loads.txt",
-        log_name="log.txt",
-    )
-    rendered = script.render()
-    assert "SYMMETRY NONE" in rendered
-    assert "SET_ANALYSIS_SYMMETRY_LOADS" not in rendered
-
-
 def test_phy02_metrics_are_the_pair_and_its_deltas():
     full = PointResult(4.0, {"CL": 0.3370, "CDi": 0.0049}, 58, True, label="full")
     half = PointResult(4.0, {"CL": 0.3385, "CDi": 0.0049}, 55, True, label="half")
@@ -172,16 +134,6 @@ def test_smi_cases_join_the_registry_only_with_a_root():
     assert "SMI-01" in SMI_CASES and "SMI-02" in SMI_CASES
 
 
-def test_smi_case_without_root_is_refused_with_a_citation(tmp_path):
-    with pytest.raises(Exception, match="SMI"):
-        run_physics(
-            "26.120",
-            fs_exe="no_such.exe",
-            workroot=tmp_path,
-            cases=["SMI-01"],
-        )
-
-
 def test_smi_script_opens_and_solves_the_local_file(tmp_path):
     script = build_smi_script("26.120", tmp_path / "28_B.fsm", "loads.txt", "log.txt")
     rendered = script.render()
@@ -213,9 +165,13 @@ def test_report_pair_written_and_never_overwritten(tmp_path):
     document = yaml.safe_load(yaml_path.read_text(encoding="utf-8"))
     assert document["schema"] == "pyflightstream-physics-report/1"
     assert document["cases"]["PHY-01"]["verdicts"]["CL_a4"] == "no_reference"
+    # A run built in Python names no workspace, and the report says so
+    # rather than leaving the key out (PFS-2031.17).
+    assert document["source"] is None
     markdown = md_path.read_text(encoding="utf-8")
     assert "| CL_a4 |" in markdown
     assert "no_reference" in markdown
+    assert "| Source | cases built in Python |" in markdown
     with pytest.raises(FileExistsError, match="never"):
         write_physics_report(run, tmp_path, date="2026-07-21")
 
@@ -295,41 +251,6 @@ def test_full_run_against_seeded_reference_passes(tmp_path):
     assert compared.verdict_counts()["pass"] == len(verdicts)
 
 
-def test_phy05_script_pins_the_proven_unsteady_flow():
-    from pyflightstream.qa.physics import PHY05_DELTA_TIME_S, PHY05_RPM, build_phy05_script
-
-    text = build_phy05_script("26.120", "C:/work/blade.stl", "loads.txt", "log.txt").render()
-    assert "SYMMETRY PERIODIC 6" in text
-    assert f"SET_MOTION_ROTOR_RPM 1 {PHY05_RPM}" in text
-    assert f"TIME_ITERATIONS 54\nDELTA_TIME {PHY05_DELTA_TIME_S}" in text
-    assert "SET_WAKE_TERMINATION_TIME_STEPS -36" in text
-    # In-solve consumers precede the solve (2026-07-21 case-reproduction run).
-    assert text.index("SET_ANALYSIS_SYMMETRY_LOADS DISABLE") < text.index("START_SOLVER")
-    assert text.index("SET_SOLVER_UNSTEADY") < text.index("INITIALIZE_SOLVER")
-
-
-def test_phy06_unsteady_script_differs_from_steady_only_by_time_stepping():
-    from pyflightstream.qa.physics import (
-        PHY06_ALPHAS_DEG,
-        _build_wing_point_script,
-        build_phy06_unsteady_script,
-    )
-
-    for alpha in PHY06_ALPHAS_DEG:
-        steady = _build_wing_point_script(
-            "PHY-06", "26.120", alpha, "C:/w/wing.stl", "l.txt", "g.txt"
-        ).render()
-        unsteady = build_phy06_unsteady_script(
-            "26.120", alpha, "C:/w/wing.stl", "l.txt", "g.txt"
-        ).render()
-        extra = [
-            line
-            for line in unsteady.splitlines()
-            if line not in steady.splitlines() and line.strip()
-        ]
-        assert extra == ["SET_SOLVER_UNSTEADY", "TIME_ITERATIONS 120", "DELTA_TIME 0.01"]
-
-
 def test_phy06_metric_specs_cover_the_polar_trend():
     from pyflightstream.qa.physics import PHY06_ALPHAS_DEG, PHYSICS_CASES
 
@@ -345,25 +266,10 @@ def test_phy06_metric_specs_cover_the_polar_trend():
     assert len(names) == 3 * len(PHY06_ALPHAS_DEG) + 4
 
 
-def test_unsteady_cases_are_gated_to_versions_with_evidence(tmp_path):
-    from pyflightstream.qa.physics import (
-        PHYSICS_CASES,
-        PhysicsEnvironmentError,
-        run_physics,
-    )
-
+def test_unsteady_cases_are_gated_to_versions_with_evidence():
     assert PHYSICS_CASES["PHY-05"].supports("26.120")
     assert not PHYSICS_CASES["PHY-05"].supports("26.101")
     assert not PHYSICS_CASES["PHY-06"].supports("26.101")
-    fake_exe = tmp_path / "fs.exe"
-    fake_exe.write_text("not a solver")
-    with pytest.raises(PhysicsEnvironmentError, match="no command evidence"):
-        run_physics(
-            "26.101",
-            fs_exe=fake_exe,
-            workroot=tmp_path / "runs",
-            cases=["PHY-05"],
-        )
 
 
 # --- the test matrix as an inspectable table (pyfs-qa cases) ----------------
@@ -483,7 +389,6 @@ def test_the_minimum_follows_release_order_and_not_the_identifier(monkeypatch):
         title="ordering probe",
         minimum_version="26.120",
         metric_specs=(),
-        runner=lambda context: None,
     )
     assert not case.supports("26.130"), (
         "26.130 is EARLIER in release order than the minimum, so it is not supported; "
@@ -513,38 +418,6 @@ def test_a_build_registered_later_is_inside_the_minimum_without_an_edit():
                 f"{case_id}.supports({canonical}) disagrees with the release order the "
                 "ordering authority declares"
             )
-
-
-def test_the_full_suite_refuses_rather_than_running_a_subset(tmp_path):
-    """A run that cannot deliver every case must not report success on four.
-
-    The selection used to FILTER the registry by support, so a build the
-    unsteady cases excluded ran the other four and reported success, and
-    the report said nothing about the two that never entered the loop. On
-    a build about to carry a large study that is worse than no run: it
-    produces a record saying the build was validated.
-
-    Asking for a SUBSET by name is still allowed; what is refused is
-    asking for everything and silently getting less.
-    """
-    from pyflightstream.qa.physics import PhysicsEnvironmentError, run_physics
-
-    fake_exe = tmp_path / "fs.exe"
-    fake_exe.write_text("not a solver")
-    with pytest.raises(PhysicsEnvironmentError) as caught:
-        run_physics("26.101", fs_exe=fake_exe, workroot=tmp_path / "runs")
-    message = str(caught.value)
-    assert "PHY-05" in message and "PHY-06" in message, message
-    assert "26.120" in message, "the refusal does not say what the restriction IS"
-    assert "cases=" in message and "PHY-01" in message, (
-        "the refusal does not tell the caller how to ask for the subset deliberately, "
-        "and it must name the runnable set rather than leaving them to work it out"
-    )
-    assert "--cases" not in message, (
-        "a library refusal must not name a command-line flag: this function's own "
-        "parameter is `cases`, and a Python caller cannot type a flag. The CLI owns "
-        "that translation, and tests/tier1_offline/test_qa_cli.py pins it"
-    )
 
 
 def test_the_physics_helper_and_writer_default_their_date_the_same_way(tmp_path):
@@ -625,42 +498,3 @@ def test_a_physics_run_without_a_digest_says_so(tmp_path):
     document = yaml.safe_load(yaml_path.read_text(encoding="utf-8"))
     assert document["fs_exe_sha256"] is None
     assert "sha256 not recorded" in md_path.read_text(encoding="utf-8")
-
-
-def test_the_physics_run_hashes_the_executable_it_was_handed(tmp_path, monkeypatch):
-    """The FILL, not only the writer, and it was missed once.
-
-    The adversarial pass over this item found that every test here built
-    a ``PhysicsRun`` by hand, so replacing the digest in
-    :func:`run_physics` with ``None`` broke nothing: the writer was
-    covered and the measurement was not. ``run_physics`` needs a
-    licensed solver, so the executor and the case registry are stood in
-    for and no process starts; what is exercised is the identity the run
-    records about itself.
-    """
-    from pyflightstream._digest import file_sha256
-    from pyflightstream.qa import physics as physics_module
-
-    stand_in = tmp_path / "Flightstream_2612.exe"
-    stand_in.write_bytes(b"not a solver, but a file with a digest")
-
-    class StandInExecutor:
-        def __init__(self, fs_exe):
-            self.fs_exe = fs_exe
-
-    def runner(context):
-        return CaseResult(case_id="PHY-01", title="stub", geometry="stub", metrics={"CL_a4": 1.0})
-
-    case = physics_module.PhysicsCase(
-        case_id="PHY-01", title="stub", metric_specs=(), runner=runner
-    )
-    monkeypatch.setattr(physics_module, "LocalExecutor", StandInExecutor)
-    monkeypatch.setattr(physics_module, "registered_cases", lambda **kwargs: {"PHY-01": case})
-    monkeypatch.setattr(physics_module, "load_reference", lambda case_id, directory: None)
-
-    run = run_physics("26.120", fs_exe=stand_in, workroot=tmp_path / "work")
-    assert run.fs_exe_name == "Flightstream_2612.exe"
-    assert run.fs_exe_sha256 == file_sha256(stand_in), (
-        "the run names the executable and does not identify it; four registered builds "
-        "share this basename"
-    )

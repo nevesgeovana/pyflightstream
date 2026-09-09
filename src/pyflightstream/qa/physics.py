@@ -1,38 +1,53 @@
-"""Tier 3 physics regression harness (SAD Section 11).
+"""Tier 3 physics regression: the judge, the reductions, the references, the report.
 
-Pipeline role: runs the committed synthetic physics cases on a licensed
-machine, compares every measured metric against its stored reference
-inside WARN and FAIL tolerance bands, and writes the physics report
-under ``reports/physics/``. References live as package data in
-``qa/references/`` and change only through :func:`update_reference`,
-which demands a reason string; a reference update never shares a commit
-with code changes (SAD Section 11).
+Pipeline role: the physics cases are judged here. A case is a set of
+metrics reduced from solved points (:func:`phy01_metrics`,
+:func:`phy02_metrics`, :func:`phy05_metrics`, :func:`phy06_metrics`),
+compared against a committed reference inside WARN and FAIL bands
+(:func:`compare_metrics`), and written as a dated ``PHY-*`` report pair
+under ``reports/physics/`` (:func:`write_physics_report`). References
+live as package data in ``qa/references/`` and change only through
+:func:`update_reference`, which demands a reason string; a reference
+update never shares a commit with code changes (SAD Section 11).
 
-The delivered cases share one synthetic NACA 0012 rectangular wing
-(written by :mod:`pyflightstream.qa.geometry`, no research geometry).
-PHY-01 is the wing polar: an angle-of-attack sweep whose metrics are
-the total lift coefficient per angle, the lift slope, and the induced
-drag at the reference angle. Physical anchor: finite-wing theory puts
-the lift slope of an aspect-ratio-8 wing near 2*pi / (1 + 2/AR) = 5.0
-per radian, so a grossly wrong slope points at a broken import or
-symmetry setup rather than solver drift. PHY-02 is the symmetry
-equivalence: the open-root half wing under MIRROR symmetry with
-symmetry loads enabled must reproduce the full-span coefficients on
-the same full planform reference area; its metrics are the two lift
-coefficients and their near-zero deltas.
+WHERE THE CASES ARE STATED, since 0.13.0 (PFS-2031.17, her decision B of
+2026-09-08 in design study 66): as rows of a run matrix in a campaign
+workspace, built by the package's own workflows, and nowhere in Python.
+``tests/tier3_licensed/matriz_physics.fs`` states them: row 5001 is
+PHY-01, 5002 and 5003 are PHY-02, 5005 is PHY-05 and 5006 is PHY-06, each
+row's preset written to emit exactly the lines the hand-built script
+emitted. :mod:`pyflightstream.qa.matrix` is the driver that runs that
+matrix through the run layer, reduces the records with the functions
+here and writes the report; ``pyfs-qa physics --workspace <root>`` is
+its command line. Until 0.13.0 this module built every case as a script
+in Python (``build_phy01_script`` and its siblings) and ran it itself;
+those builders retired with the decision, because two builders of one
+case drift apart and the diff of their scripts was the only thing that
+said so (RPT-042 is the measurement that the workflow reproduces every
+coefficient inside her bands).
 
-The SMI class (FR-27) adds local-only drift cases over the research
-simulation files: they run only when an explicit ``smi_root`` is
-given, the geometry never enters Git, and the committed reports carry
-aggregated Total coefficients plus the sha256 of the opened file
-(CONTRIBUTING.md invariant 5).
+What a case measures, kept here because the reductions carry it. PHY-01
+is the wing polar of a synthetic NACA 0012 rectangular wing of aspect
+ratio 8: the total lift coefficient per angle, the lift slope and the
+induced drag at the reference angle. Physical anchor: finite-wing theory
+puts the lift slope near 2*pi / (1 + 2/AR) = 5.0 per radian, so a grossly
+wrong slope points at a broken import or symmetry setup rather than at
+solver drift. PHY-02 is the symmetry equivalence: the open-root half wing
+under MIRROR symmetry with symmetry loads enabled must reproduce the
+full-span coefficients on the same full planform reference area. PHY-05
+is the rigid unsteady periodic propeller after a revolution and a half.
+PHY-06 is the time march of the static wing against its own steady polar.
+
+The SMI class (FR-27) is the local-only pair over the research
+simulation files, whose geometry never enters Git (CONTRIBUTING.md
+invariant 5). It keeps its script builder, its metric specifications and
+its references here, and has no runner since 0.13.0: it runs again when
+it is a row of a private workspace, which is the next release's work.
 """
 
 from __future__ import annotations
 
 import enum
-import hashlib
-from collections.abc import Callable
 from dataclasses import dataclass, field
 from importlib import resources
 from pathlib import Path
@@ -40,26 +55,20 @@ from pathlib import Path
 import numpy as np
 import yaml
 
-import pyflightstream
-from pyflightstream._digest import optional_file_sha256
 from pyflightstream._errors import PyflightstreamError
 from pyflightstream.qa.errors import QaEvidenceError
-from pyflightstream.qa.geometry import BladeSpec, WingSpec, generate_blade_stl, generate_wing_stl
+from pyflightstream.qa.geometry import WingSpec
 from pyflightstream.qa.reports import (
     refuse_existing_report,
     report_paths,
     resolve_report_date,
 )
-from pyflightstream.results import IncompleteOutputError, LoadsReport, parse_loads
 from pyflightstream.run import (
-    ExecutionResult,
     ExecutorRecord,
-    LocalExecutor,
     describe_invocation,
-    invocation_record,
 )
 from pyflightstream.script import Script
-from pyflightstream.versions import known_versions, resolve
+from pyflightstream.versions import known_versions
 
 PHYSICS_SCHEMA = "pyflightstream-physics-report/1"
 REFERENCE_SCHEMA = "pyflightstream-physics-reference/1"
@@ -90,15 +99,18 @@ __all__ = [
     # comment above covered two names and sat over three until
     # 2026-08-18.
     "registered_cases",
-    "build_phy01_script",
-    "build_phy02_script",
-    "build_phy05_script",
-    "build_phy06_unsteady_script",
     "build_smi_script",
+    # The reductions, exported since 0.13.0 because the workspace driver
+    # and the tier-3 test both call them: they are the one statement of
+    # what each case measures now that no script builder carries it.
+    "phy01_metrics",
+    "phy02_metrics",
+    "phy05_metrics",
+    "phy06_metrics",
+    "smi_metrics",
     "compare_metrics",
     "load_reference",
     "update_reference",
-    "run_physics",
     "physics_report_paths",
     "write_physics_report",
 ]
@@ -107,9 +119,9 @@ __all__ = [
 class PhysicsEnvironmentError(PyflightstreamError, RuntimeError):
     """The physics run cannot start as configured.
 
-    Raised before any case runs: a missing executable or an unknown
-    case identifier must surface immediately, not after minutes of
-    solver time.
+    Raised before any row runs: a workspace without the physics matrix,
+    rows naming two builds, or a row naming a case the registry does not
+    know must surface immediately, not after minutes of solver time.
     """
 
 
@@ -302,6 +314,12 @@ class PhysicsRun:
     #: (PFS-2012.04); None when no point reached the solver, and the
     #: report then states the asserted sentence and says so.
     executor: ExecutorRecord | None = None
+    #: One sentence naming what the run read, ``"<matrix> in workspace
+    #: <name>"``, written into the report so a reader can find the rows
+    #: the cases came from. The workspace is named by its directory and
+    #: never by its path: a report is committed, and a machine's path is
+    #: not (the container-directory guard of the house style).
+    source: str | None = None
 
     def verdict_counts(self) -> dict[str, int]:
         """Count metric verdicts over every case, for the summary line."""
@@ -313,177 +331,22 @@ class PhysicsRun:
 
 
 # --------------------------------------------------------------------------
-# PHY-01 (NACA wing polar) and PHY-02 (half versus full equivalence)
+# The reductions: what each case measures, from its solved points
 # --------------------------------------------------------------------------
 
+#: The wing the PHY-01, PHY-02 and PHY-06 references were recorded on: a
+#: NACA 0012 rectangular wing of chord 1 m and span 8 m. The workspace
+#: rows open a saved simulation of the same planform (``12_WING_PHY.fsm``,
+#: whose provenance record names the spec it was meshed from); this
+#: constant is what a maintainer script generates the STL from.
 PHY01_WING = WingSpec(naca="0012", chord_m=1.0, span_m=8.0, n_chord=25, n_span=40)
 PHY01_ALPHAS_DEG = (0.0, 2.0, 4.0, 6.0)
-PHY01_VELOCITY_M_S = 30.0
 PHY01_ITERATIONS = 500
 PHY01_CONVERGENCE = 1.0e-5
 PHY02_ALPHA_DEG = 4.0
 
-
-def _build_wing_point_script(
-    case_id: str,
-    version: str,
-    alpha_deg: float,
-    stl_path: str | Path,
-    loads_name: str,
-    log_name: str,
-    symmetry: str = "NONE",
-    symmetry_loads: str | None = None,
-    unsteady: tuple[int, float] | None = None,
-) -> Script:
-    """Build the one-point wing script the PHY cases share.
-
-    Every command is validated against the version's database view;
-    the fluid state is set through FLUID_PROPERTIES (verified on
-    26.120) rather than AIR_ALTITUDE, whose units argument the full
-    compat sweep judged broken (CMP-26120_2026-07-21_full). The
-    reference area is always the full planform, so a MIRROR half
-    model with symmetry loads enabled must reproduce the full-span
-    coefficients (the PHY-02 equivalence).
-    """
-    script = Script(version=version)
-    script.comment(
-        f"{case_id} NACA wing, alpha {alpha_deg:+.1f} deg, symmetry {symmetry} "
-        "(Tier 3, SAD Section 11)"
-    )
-    script.emit("NEW_SIMULATION")
-    script.emit("IMPORT", "METER", "STL", str(stl_path), clear=True)
-    script.emit("SET_SIMULATION_LENGTH_UNITS", "METER")
-    script.emit("AUTO_DETECT_TRAILING_EDGES")
-    script.emit("AUTO_DETECT_WAKE_TERMINATION_NODES")
-    script.emit(
-        "FLUID_PROPERTIES",
-        density=1.225,
-        pressure=101325.0,
-        temperature=288.15,
-        viscosity=1.7894e-05,
-        specific_heat_ratio=1.4,
-    )
-    script.emit("SET_FREESTREAM", "CONSTANT")
-    if unsteady is not None:
-        # Physical time stepping selected before initialization, the
-        # order the 2026-07-21 case-reproduction run proved.
-        script.emit("SET_SOLVER_UNSTEADY", unsteady[0], unsteady[1])
-    script.emit(
-        "INITIALIZE_SOLVER",
-        solver_model="INCOMPRESSIBLE",
-        surfaces=-1,
-        wake_termination_x="DEFAULT",
-        symmetry=symmetry,
-        wall_collision_avoidance="DISABLE",
-    )
-    script.emit("SOLVER_SET_AOA", alpha_deg)
-    script.emit("SOLVER_SET_VELOCITY", PHY01_VELOCITY_M_S)
-    script.emit("SOLVER_SET_REF_VELOCITY", PHY01_VELOCITY_M_S)
-    script.emit("SOLVER_SET_REF_AREA", PHY01_WING.area_m2)
-    script.emit("SOLVER_SET_REF_LENGTH", PHY01_WING.chord_m)
-    script.emit("SOLVER_SET_ITERATIONS", PHY01_ITERATIONS)
-    script.emit("SOLVER_SET_CONVERGENCE", PHY01_CONVERGENCE)
-    if symmetry_loads is not None:
-        # Phase init since the case-reproduction run of 2026-07-21:
-        # the setting is consumed during the solve by the unsteady
-        # per-step monitors, so it precedes START_SOLVER; the exported
-        # loads read the same state either way (HND-013 calibration).
-        script.emit("SET_ANALYSIS_SYMMETRY_LOADS", symmetry_loads)
-    script.emit("START_SOLVER")
-    script.emit("SET_VORTICITY_DRAG_BOUNDARIES", -1)
-    script.emit("SET_LOADS_AND_MOMENTS_UNITS", "COEFFICIENTS")
-    script.emit("EXPORT_SOLVER_ANALYSIS_SPREADSHEET", loads_name)
-    script.emit("EXPORT_LOG", log_name)
-    script.emit("CLOSE_FLIGHTSTREAM")
-    return script
-
-
-def build_phy01_script(
-    version: str,
-    alpha_deg: float,
-    stl_path: str | Path,
-    loads_name: str,
-    log_name: str,
-) -> Script:
-    """Build the PHY-01 script for one angle of attack.
-
-    Parameters
-    ----------
-    version : str
-        Target FlightStream version, canonical identifier (26.120); a
-        vendor release name works only where it names exactly one
-        registered build.
-    alpha_deg : float
-        Angle of attack in degrees, positive nose up.
-    stl_path : str or Path
-        The generated full-span wing STL to import (meters).
-    loads_name : str
-        File name of the loads spreadsheet exported into the working
-        directory.
-    log_name : str
-        File name of the exported solver log.
-
-    Returns
-    -------
-    Script
-        The validated script, ready to render.
-    """
-    return _build_wing_point_script("PHY-01", version, alpha_deg, stl_path, loads_name, log_name)
-
-
-def build_phy02_script(
-    version: str,
-    *,
-    half: bool,
-    stl_path: str | Path,
-    loads_name: str,
-    log_name: str,
-) -> Script:
-    """Build one PHY-02 script: the full baseline or the mirrored half.
-
-    The half model initializes with MIRROR symmetry and asks for the
-    symmetry-plane loads explicitly (SET_ANALYSIS_SYMMETRY_LOADS
-    ENABLE, SRC-003 p.350) rather than relying on the solver default,
-    which the 2026-07-21 calibration on 26.120 observed to be ENABLE
-    after a MIRROR initialization.
-
-    Parameters
-    ----------
-    version : str
-        Target FlightStream version, canonical identifier (26.120); a
-        vendor release name works only where it names exactly one
-        registered build.
-    half : bool, keyword-only
-        Build the mirrored open-root half model instead of the
-        full-span baseline.
-    stl_path : str or Path, keyword-only
-        The matching generated STL (half or full) to import (meters).
-    loads_name, log_name : str, keyword-only
-        Output file names, written into the working directory.
-
-        THESE THREE ARE KEYWORD-ONLY AS COLLATERAL, and saying so is
-        the point. Making `half` keyword-only meant putting the star
-        immediately after `version`, because `half` sat there; the
-        three parameters behind it moved with it. The sibling
-        :func:`build_phy01_script` still takes its three
-        positionally, so the two functions now differ, and a caller
-        copying one call into the other gets a `TypeError`.
-
-    Returns
-    -------
-    Script
-        The validated script, ready to render.
-    """
-    return _build_wing_point_script(
-        "PHY-02",
-        version,
-        PHY02_ALPHA_DEG,
-        stl_path,
-        loads_name,
-        log_name,
-        symmetry="MIRROR" if half else "NONE",
-        symmetry_loads="ENABLE" if half else None,
-    )
+#: The four aggregated coefficients PHY-05 and the SMI class judge.
+_TOTAL_METRIC_NAMES = ("CL", "CDi", "CDo", "CMy")
 
 
 def phy01_metrics(points: list[PointResult]) -> dict[str, float]:
@@ -505,42 +368,6 @@ def phy01_metrics(points: list[PointResult]) -> dict[str, float]:
     return metrics
 
 
-def _run_phy01(context: _CaseContext) -> CaseResult:
-    """Run the PHY-01 sweep end to end inside its scratch directory."""
-    # The executor sets the solver's working directory, so bare output
-    # names resolve there; the imported geometry path is absolute so it
-    # never depends on where the solver process was started.
-    stl_path = generate_wing_stl(PHY01_WING, (context.workdir / "naca0012_full.stl").resolve())
-    points: list[PointResult] = []
-    for alpha in PHY01_ALPHAS_DEG:
-        tag = f"a{alpha:g}".replace("-", "m").replace(".", "p")
-        loads_name = f"loads_{tag}.txt"
-        script = build_phy01_script(context.version, alpha, stl_path, loads_name, f"log_{tag}.txt")
-        report = context.solve_point(script, f"phy01_{tag}.txt", loads_name)
-        points.append(
-            PointResult(
-                alpha_deg=alpha,
-                total=dict(report.total),
-                iterations=report.current_iteration,
-                converged=report.current_iteration < report.requested_iterations,
-                label=tag,
-            )
-        )
-        context.stamp_solver(report)
-    geometry = (
-        f"NACA {PHY01_WING.naca} rectangular wing, chord {PHY01_WING.chord_m:g} m, "
-        f"span {PHY01_WING.span_m:g} m (AR {PHY01_WING.aspect_ratio:g}), full span, "
-        "generated by qa.geometry as ASCII STL"
-    )
-    return CaseResult(
-        case_id="PHY-01",
-        title=PHYSICS_CASES["PHY-01"].title,
-        geometry=geometry,
-        points=tuple(points),
-        metrics=phy01_metrics(points),
-    )
-
-
 def phy02_metrics(full: PointResult, half: PointResult) -> dict[str, float]:
     """Reduce the PHY-02 pair to the equivalence metrics.
 
@@ -556,47 +383,68 @@ def phy02_metrics(full: PointResult, half: PointResult) -> dict[str, float]:
     }
 
 
-def _run_phy02(context: _CaseContext) -> CaseResult:
-    """Run the PHY-02 full/half pair inside its scratch directory."""
-    points: list[PointResult] = []
-    for half in (False, True):
-        variant = "half" if half else "full"
-        stl_path = generate_wing_stl(
-            PHY01_WING, (context.workdir / f"naca0012_{variant}.stl").resolve(), half=half
+def phy05_metrics(point: PointResult) -> dict[str, float]:
+    """Reduce the PHY-05 final step to the four aggregated coefficients.
+
+    The propeller's evidence is the Total row at the last of its 54
+    steps: the blade sector's lift (near zero, the loads balance around
+    the disc), the axial force coefficient (negative, a net thrust), the
+    viscous drag and the pitching moment. The tier-3 test carried this
+    selection inline until 0.13.0; it lives here so the driver and the
+    test reduce the same way.
+    """
+    return {name: point.total[name] for name in _TOTAL_METRIC_NAMES}
+
+
+def phy06_metrics(steady: list[PointResult], unsteady: list[PointResult]) -> dict[str, float]:
+    """Reduce the two polars of PHY-06 to the equivalence metrics.
+
+    Per angle, the unsteady-final minus steady deltas of CL, CD (CDi +
+    CDo; the loads Total row carries no combined column) and CMy, then
+    the least-squares lift and pitching-moment slopes of each polar in
+    per-radian units, which is what :func:`_phy06_metric_specs`
+    declares. The two polars are matched BY ANGLE, not by position: a
+    march at an angle the steady polar did not solve is refused rather
+    than paired with whatever sat at the same index.
+
+    Parameters
+    ----------
+    steady : list of PointResult
+        The steady polar, the PHY-01 row's points in the workspace.
+    unsteady : list of PointResult
+        The unsteady-final polar, the PHY-06 row's points, at the same
+        angles.
+
+    Raises
+    ------
+    QaEvidenceError
+        When the two polars do not solve the same angles. A ``ValueError``
+        by base, per FR-39, so a caller's ``except ValueError`` catches it.
+    """
+    by_alpha_steady = {point.alpha_deg: point for point in steady}
+    by_alpha_unsteady = {point.alpha_deg: point for point in unsteady}
+    if set(by_alpha_steady) != set(by_alpha_unsteady):
+        raise QaEvidenceError(
+            "PHY-06 pairs the unsteady march with the steady polar at the same angles; "
+            f"steady solved {sorted(by_alpha_steady)} deg and unsteady "
+            f"{sorted(by_alpha_unsteady)} deg. The steady polar is the PHY-01 row, so "
+            "both rows sweep the same SWEEP_VALUES."
         )
-        loads_name = f"loads_{variant}.txt"
-        script = build_phy02_script(
-            context.version,
-            half=half,
-            stl_path=stl_path,
-            loads_name=loads_name,
-            log_name=f"log_{variant}.txt",
-        )
-        report = context.solve_point(script, f"phy02_{variant}.txt", loads_name)
-        points.append(
-            PointResult(
-                alpha_deg=PHY02_ALPHA_DEG,
-                total=dict(report.total),
-                iterations=report.current_iteration,
-                converged=report.current_iteration < report.requested_iterations,
-                label=variant,
-            )
-        )
-        context.stamp_solver(report)
-    full, half_point = points
-    geometry = (
-        f"NACA {PHY01_WING.naca} rectangular wing, chord {PHY01_WING.chord_m:g} m, "
-        f"span {PHY01_WING.span_m:g} m (AR {PHY01_WING.aspect_ratio:g}); full span "
-        "versus open-root MIRROR half with symmetry loads enabled, both on the "
-        "full planform reference area, generated by qa.geometry as ASCII STL"
-    )
-    return CaseResult(
-        case_id="PHY-02",
-        title=PHYSICS_CASES["PHY-02"].title,
-        geometry=geometry,
-        points=tuple(points),
-        metrics=phy02_metrics(full, half_point),
-    )
+    alphas = sorted(by_alpha_steady)
+    metrics: dict[str, float] = {}
+    for alpha in alphas:
+        tag = f"a{alpha:g}"
+        s, u = by_alpha_steady[alpha].total, by_alpha_unsteady[alpha].total
+        metrics[f"delta_CL_{tag}"] = u["CL"] - s["CL"]
+        metrics[f"delta_CD_{tag}"] = (u["CDi"] + u["CDo"]) - (s["CDi"] + s["CDo"])
+        metrics[f"delta_CMy_{tag}"] = u["CMy"] - s["CMy"]
+    alphas_rad = np.radians(alphas)
+    for label, series in (("steady", by_alpha_steady), ("unsteady", by_alpha_unsteady)):
+        lifts = [series[alpha].total["CL"] for alpha in alphas]
+        moments = [series[alpha].total["CMy"] for alpha in alphas]
+        metrics[f"CL_slope_{label}_per_rad"] = float(np.polyfit(alphas_rad, lifts, 1)[0])
+        metrics[f"CMy_slope_{label}_per_rad"] = float(np.polyfit(alphas_rad, moments, 1)[0])
+    return metrics
 
 
 @dataclass(frozen=True)
@@ -610,9 +458,12 @@ class PhysicsCase:
     metric_specs : tuple of MetricSpec
         Declared metrics with the default bands used at reference
         seeding time.
-    runner : callable
-        Case implementation; receives the run context and returns the
-        measured :class:`CaseResult`.
+
+        NO RUNNER, since 0.13.0. The entry used to carry the callable
+        that built and ran the case's scripts; a case is a row of the
+        workspace matrix now, and :mod:`pyflightstream.qa.matrix` maps
+        the row to the reduction by the case id the row's DESCRIPTION
+        names (PFS-2031.17).
     minimum_version : str, optional
         Earliest canonical identifier this case's command set has
         evidence for. None means every registered version.
@@ -631,7 +482,6 @@ class PhysicsCase:
     case_id: str
     title: str
     metric_specs: tuple[MetricSpec, ...]
-    runner: Callable[[_CaseContext], CaseResult]
     minimum_version: str | None = None
 
     @property
@@ -662,8 +512,6 @@ class PhysicsCase:
 
 
 PHY06_ALPHAS_DEG = (0.0, 2.0, 4.0, 6.0)
-PHY06_TIME_ITERATIONS = 120
-PHY06_DELTA_TIME_S = 0.01
 
 
 def _phy06_metric_specs() -> tuple[MetricSpec, ...]:
@@ -764,7 +612,6 @@ PHYSICS_CASES: dict[str, PhysicsCase] = {
                 fail=0.15,
             ),
         ),
-        runner=_run_phy01,
     ),
     "PHY-02": PhysicsCase(
         case_id="PHY-02",
@@ -790,7 +637,6 @@ PHYSICS_CASES: dict[str, PhysicsCase] = {
                 fail=0.002,
             ),
         ),
-        runner=_run_phy02,
     ),
     "PHY-05": PhysicsCase(
         case_id="PHY-05",
@@ -824,301 +670,15 @@ PHYSICS_CASES: dict[str, PhysicsCase] = {
                 fail=0.03,
             ),
         ),
-        runner=lambda context: _run_phy05(context),
         minimum_version="26.120",
     ),
     "PHY-06": PhysicsCase(
         case_id="PHY-06",
         title="Steady versus unsteady polar equivalence (NACA 0012, AR 8)",
         metric_specs=_phy06_metric_specs(),
-        runner=lambda context: _run_phy06(context),
         minimum_version="26.120",
     ),
 }
-
-
-# --------------------------------------------------------------------------
-# PHY-05 (rigid unsteady periodic propeller) and PHY-06 (steady versus
-# unsteady equivalence)
-# --------------------------------------------------------------------------
-#
-# PHY-05 promotes the shareable generic-blade case into the matrix: the
-# BladeSpec blade (public analytic shape laws, qa.geometry) under
-# PERIODIC 6 with rotary motion and physical time stepping, the flow
-# the 2026-07-21 case-reproduction run proved command by command.
-# PHY-06 anchors the unsteady solver against the steady one: a time
-# march of the static PHY-01 wing must asymptote to the steady
-# solution. Both were 26.120-only until 2026-08-11, when they were
-# registered for 26.121 and 26.122 as well: the pin was owed to a
-# backfill of the motion, coordinate-system, unsteady and
-# advanced-settings chapters for builds EARLIER than 26.120, which
-# never covered later ones, and RPT-025 ran the PHY-05 command content
-# unchanged on all three.
-
-PHY05_BLADE = BladeSpec()
-PHY05_FLUID = {
-    "density": 1.225,
-    "pressure": 101325.0,
-    "temperature": 288.15,
-    "viscosity": 1.789e-05,
-    "specific_heat_ratio": 1.4,
-}
-PHY05_VELOCITY_M_S = 49.0
-PHY05_REF_AREA_M2 = 10.0
-PHY05_REF_LENGTH_M = 2.0
-PHY05_N_BLADES = 6
-PHY05_ADVANCE_RATIO = 1.7
-# rpm = 60 V / (J D); dt spans 10 deg of rotation; 54 steps make 1.5
-# revolutions and the wake terminates after one revolution.
-PHY05_RPM = round(60.0 * PHY05_VELOCITY_M_S / (PHY05_ADVANCE_RATIO * 2.0 * PHY05_BLADE.r_tip_m), 2)
-PHY05_DELTA_TIME_S = round(10.0 / (6.0 * PHY05_RPM), 6)
-PHY05_TIME_ITERATIONS = 54
-PHY05_WAKE_TERMINATION_STEPS = -36
-
-
-def build_phy05_script(
-    version: str,
-    stl_path: str | Path,
-    loads_name: str,
-    log_name: str,
-) -> Script:
-    """Build the PHY-05 unsteady periodic propeller script.
-
-    The command content mirrors the proven generic-blade case: three
-    identity frames (analysis, rotation, blade axis), rotary motion on
-    the rotation frame with the blade-axis frame attached, physical
-    time stepping sized to 10 deg per step, PERIODIC 6 initialization
-    of the Prandtl-Glauert model, and the symmetry-loads state set
-    before the solve (in-solve consumers precede START_SOLVER).
-
-    Parameters
-    ----------
-    version : str
-        Target FlightStream version, canonical identifier (26.120); a
-        vendor release name works only where it names exactly one
-        registered build.
-    stl_path : str or Path
-        The generated blade STL to import (meters, absolute path).
-    loads_name, log_name : str
-        Output file names, written into the working directory.
-
-    Returns
-    -------
-    Script
-        The validated script, ready to render.
-    """
-    script = Script(version=version)
-    script.comment("PHY-05 generic-blade unsteady periodic propeller (Tier 3, SAD Section 11)")
-    script.emit("NEW_SIMULATION")
-    script.emit("IMPORT", "METER", "STL", str(stl_path), clear=True)
-    script.emit("SET_SIMULATION_LENGTH_UNITS", "METER")
-    script.emit("AUTO_DETECT_TRAILING_EDGES")
-    script.emit("AUTO_DETECT_WAKE_TERMINATION_NODES")
-    script.emit("SET_SIGNIFICANT_DIGITS", 7)
-    for frame, name in ((2, "MRP"), (3, "PROP_MRP"), (4, "BladeAxis1")):
-        script.emit("CREATE_NEW_COORDINATE_SYSTEM")
-        script.emit(
-            "EDIT_COORDINATE_SYSTEM",
-            frame=frame,
-            name=name,
-            origin_x=0.0,
-            origin_y=0.0,
-            origin_z=0.0,
-            vector_x_x=1,
-            vector_x_y=0,
-            vector_x_z=0,
-            vector_y_x=0,
-            vector_y_y=1,
-            vector_y_z=0,
-            vector_z_x=0,
-            vector_z_y=0,
-            vector_z_z=1,
-        )
-    script.emit("ROTATE_COORDINATE_SYSTEM", frame=4, rotation_frame=3, rotation_axis="X", angle=0.0)
-    script.emit("FLUID_PROPERTIES", **PHY05_FLUID)
-    script.emit("SET_FREESTREAM", "CONSTANT")
-    script.emit("CREATE_NEW_MOTION", "ROTARY")
-    script.emit("SET_MOTION_COORDINATE_SYSTEM", 1, 3)
-    script.emit("SET_MOTION_MOVING_FRAMES", 1, 1, [4])
-    script.emit("SET_MOTION_ROTOR_RPM", 1, PHY05_RPM)
-    script.emit("SET_MOTION_BOUNDARIES", 1, 1, [1])
-    script.emit("SOLVER_SET_MESH_INDUCED_WAKE_VELOCITY", "ENABLE")
-    script.emit("SOLVER_SET_FARFIELD_LAYERS", 5)
-    script.emit("SET_SOLVER_UNSTEADY", PHY05_TIME_ITERATIONS, PHY05_DELTA_TIME_S)
-    script.emit("SET_WAKE_TERMINATION_TIME_STEPS", PHY05_WAKE_TERMINATION_STEPS)
-    script.emit(
-        "INITIALIZE_SOLVER",
-        solver_model="SUBSONIC_PRANDTL_GLAUERT",
-        surfaces=-1,
-        wake_termination_x="DEFAULT",
-        symmetry="PERIODIC",
-        symmetry_copies=PHY05_N_BLADES,
-        wall_collision_avoidance="DISABLE",
-    )
-    script.emit("SOLVER_SET_VELOCITY", PHY05_VELOCITY_M_S)
-    script.emit("SOLVER_SET_REF_VELOCITY", PHY05_VELOCITY_M_S)
-    script.emit("SOLVER_SET_ITERATIONS", PHY01_ITERATIONS)
-    script.emit("SOLVER_SET_CONVERGENCE", PHY01_CONVERGENCE)
-    script.emit("SOLVER_SET_REF_AREA", PHY05_REF_AREA_M2)
-    script.emit("SOLVER_SET_REF_LENGTH", PHY05_REF_LENGTH_M)
-    script.emit("SET_MAX_PARALLEL_THREADS", 8)
-    script.emit("SOLVER_SET_AOA", 0.0)
-    script.emit("SOLVER_SET_SIDESLIP", 0.0)
-    script.emit("SET_BOUNDARY_LAYER_TYPE", "TURBULENT")
-    script.emit("SET_SOLVER_VISCOUS_COUPLING", "DISABLE")
-    script.emit("SET_SOLVER_CONVERGENCE_ITERATIONS", 20)
-    script.emit("SOLVER_MINIMUM_CP", -100)
-    script.emit("ADDITIONAL_WAKE_RELAXATION_ITERATION", "DISABLE")
-    script.emit("REYNOLDS_AVERAGED_DRAG_FORCES", "DISABLE")
-    script.emit("SET_WAKE_ON_WAKE_INDUCTION", "ENABLE")
-    script.emit("SOLVER_UNSTEADY_PRESSURE_AND_KUTTA", "DISABLE")
-    script.emit("SET_ANALYSIS_SYMMETRY_LOADS", "DISABLE")
-    script.emit("START_SOLVER")
-    script.emit("SET_SOLVER_ANALYSIS_LOADS_FRAME", 2)
-    script.emit("SET_ANALYSIS_MOMENTS_MODEL", "PRESSURE")
-    script.emit("EXPORT_SOLVER_ANALYSIS_SPREADSHEET", loads_name)
-    script.emit("EXPORT_LOG", log_name)
-    script.emit("CLOSE_FLIGHTSTREAM")
-    return script
-
-
-def _run_phy05(context: _CaseContext) -> CaseResult:
-    """Run PHY-05: generate the blade, march 1.5 revolutions, reduce."""
-    stl_path = generate_blade_stl(PHY05_BLADE, (context.workdir / "generic_blade.stl").resolve())
-    script = build_phy05_script(context.version, stl_path, "loads_prop.txt", "log_prop.txt")
-    report = context.solve_point(script, "phy05.txt", "loads_prop.txt")
-    point = PointResult(
-        alpha_deg=0.0,
-        total=dict(report.total),
-        iterations=report.current_iteration,
-        converged=True,
-        label="final_step",
-    )
-    context.stamp_solver(report)
-    spec = PHY05_BLADE
-    geometry = (
-        f"generic BladeSpec blade, NACA {spec.naca}, R {spec.r_tip_m:g} m, taper "
-        f"{spec.chord_root_ratio:g}R to {spec.chord_tip_ratio:g}R, ideal twist anchored "
-        f"at beta(0.75R) = {spec.beta_75_deg:g} deg for J {spec.advance_ratio_design:g}; "
-        f"one blade under PERIODIC {PHY05_N_BLADES}, {PHY05_TIME_ITERATIONS} steps of "
-        f"{PHY05_DELTA_TIME_S:g} s at {PHY05_RPM:g} rev/min"
-    )
-    metrics = {name: point.total[name] for name in ("CL", "CDi", "CDo", "CMy")}
-    return CaseResult(
-        case_id="PHY-05",
-        title=PHYSICS_CASES["PHY-05"].title,
-        geometry=geometry,
-        points=(point,),
-        metrics=metrics,
-    )
-
-
-def build_phy06_unsteady_script(
-    version: str,
-    alpha_deg: float,
-    stl_path: str | Path,
-    loads_name: str,
-    log_name: str,
-) -> Script:
-    """Build one PHY-06 unsteady time march of the static PHY-01 wing.
-
-    Identical to the steady point script at the same angle except that
-    physical time stepping is selected before initialization: 120
-    steps of 0.01 s at 30 m/s sweep 36 chord lengths of wake past the
-    AR-8 wing, deep in the steady asymptote.
-    """
-    return _build_wing_point_script(
-        "PHY-06",
-        version,
-        alpha_deg,
-        stl_path,
-        loads_name,
-        log_name,
-        unsteady=(PHY06_TIME_ITERATIONS, PHY06_DELTA_TIME_S),
-    )
-
-
-def _run_phy06(context: _CaseContext) -> CaseResult:
-    """Run PHY-06: the steady and unsteady polars of the same wing."""
-    stl_path = generate_wing_stl(PHY01_WING, (context.workdir / "naca0012_full.stl").resolve())
-    points: list[PointResult] = []
-    steady_by_alpha: dict[float, dict[str, float]] = {}
-    unsteady_by_alpha: dict[float, dict[str, float]] = {}
-    for alpha in PHY06_ALPHAS_DEG:
-        tag = f"a{alpha:g}".replace(".", "p")
-        steady_script = _build_wing_point_script(
-            "PHY-06",
-            context.version,
-            alpha,
-            stl_path,
-            f"loads_steady_{tag}.txt",
-            f"log_steady_{tag}.txt",
-        )
-        steady = context.solve_point(
-            steady_script, f"phy06_steady_{tag}.txt", f"loads_steady_{tag}.txt"
-        )
-        context.stamp_solver(steady)
-        steady_by_alpha[alpha] = dict(steady.total)
-        points.append(
-            PointResult(
-                alpha_deg=alpha,
-                total=dict(steady.total),
-                iterations=steady.current_iteration,
-                converged=steady.current_iteration < steady.requested_iterations,
-                label=f"steady_{tag}",
-            )
-        )
-        unsteady_script = build_phy06_unsteady_script(
-            context.version,
-            alpha,
-            stl_path,
-            f"loads_unsteady_{tag}.txt",
-            f"log_unsteady_{tag}.txt",
-        )
-        unsteady = context.solve_point(
-            unsteady_script, f"phy06_unsteady_{tag}.txt", f"loads_unsteady_{tag}.txt"
-        )
-        context.stamp_solver(unsteady)
-        unsteady_by_alpha[alpha] = dict(unsteady.total)
-        points.append(
-            PointResult(
-                alpha_deg=alpha,
-                total=dict(unsteady.total),
-                iterations=unsteady.current_iteration,
-                converged=True,
-                label=f"unsteady_final_{tag}",
-            )
-        )
-    metrics: dict[str, float] = {}
-    for alpha in PHY06_ALPHAS_DEG:
-        tag = f"a{alpha:g}"
-        steady_total = steady_by_alpha[alpha]
-        unsteady_total = unsteady_by_alpha[alpha]
-        cd_steady = steady_total["CDi"] + steady_total["CDo"]
-        cd_unsteady = unsteady_total["CDi"] + unsteady_total["CDo"]
-        metrics[f"delta_CL_{tag}"] = unsteady_total["CL"] - steady_total["CL"]
-        metrics[f"delta_CD_{tag}"] = cd_unsteady - cd_steady
-        metrics[f"delta_CMy_{tag}"] = unsteady_total["CMy"] - steady_total["CMy"]
-    alphas_rad = np.radians(PHY06_ALPHAS_DEG)
-    for label, series in (("steady", steady_by_alpha), ("unsteady", unsteady_by_alpha)):
-        lifts = [series[alpha]["CL"] for alpha in PHY06_ALPHAS_DEG]
-        moments = [series[alpha]["CMy"] for alpha in PHY06_ALPHAS_DEG]
-        metrics[f"CL_slope_{label}_per_rad"] = float(np.polyfit(alphas_rad, lifts, 1)[0])
-        metrics[f"CMy_slope_{label}_per_rad"] = float(np.polyfit(alphas_rad, moments, 1)[0])
-    geometry = (
-        f"NACA {PHY01_WING.naca} rectangular wing, chord {PHY01_WING.chord_m:g} m, "
-        f"span {PHY01_WING.span_m:g} m (AR {PHY01_WING.aspect_ratio:g}), full span, "
-        "generated by qa.geometry as ASCII STL; steady polar versus the "
-        f"unsteady-final polar over alphas {PHY06_ALPHAS_DEG}, "
-        f"{PHY06_TIME_ITERATIONS} steps of {PHY06_DELTA_TIME_S:g} s per march"
-    )
-    return CaseResult(
-        case_id="PHY-06",
-        title=PHYSICS_CASES["PHY-06"].title,
-        geometry=geometry,
-        points=tuple(points),
-        metrics=metrics,
-    )
 
 
 # --------------------------------------------------------------------------
@@ -1126,17 +686,17 @@ def _run_phy06(context: _CaseContext) -> CaseResult:
 # --------------------------------------------------------------------------
 #
 # The SMI simulation files live under _private/geometry/smi/ and never
-# enter Git (CONTRIBUTING.md invariant 5); these cases run only when the run
-# is given an explicit --smi-root, and the committed reports carry the
-# aggregated Total coefficients plus the sha256 of the opened file,
-# never the geometry itself. Reference values use the unit reference
-# area and length convention (coefficients scale consistently on both
-# sides of any comparison, which is all drift needs).
+# enter Git (CONTRIBUTING.md invariant 5); the committed reports carry the
+# aggregated Total coefficients plus the sha256 of the opened file, never
+# the geometry itself. Reference values use the unit reference area and
+# length convention (coefficients scale consistently on both sides of any
+# comparison, which is all drift needs). The class has no runner since
+# 0.13.0 (PFS-2031.17): the hand-built run machinery retired with the
+# PHY builders, and an SMI case runs again as a row of a private
+# workspace whose recipe emits this script.
 
 SMI_ALPHA_DEG = 2.0
 SMI_VELOCITY_M_S = 30.0
-
-_SMI_METRIC_NAMES = ("CL", "CDi", "CDo", "CMy")
 
 
 def _smi_metric_specs(kind: str) -> tuple[MetricSpec, ...]:
@@ -1157,7 +717,7 @@ def _smi_metric_specs(kind: str) -> tuple[MetricSpec, ...]:
             "CMy": (0.005, 0.02),
         }
     else:
-        bands = {name: (0.005, 0.02) for name in _SMI_METRIC_NAMES}
+        bands = {name: (0.005, 0.02) for name in _TOTAL_METRIC_NAMES}
     descriptions = {
         "CL": "aggregated total lift coefficient at 2 deg (unit reference area)",
         "CDi": "aggregated induced drag coefficient at 2 deg",
@@ -1166,7 +726,7 @@ def _smi_metric_specs(kind: str) -> tuple[MetricSpec, ...]:
     }
     return tuple(
         MetricSpec(name, descriptions[name], kind=kind, warn=bands[name][0], fail=bands[name][1])
-        for name in _SMI_METRIC_NAMES
+        for name in _TOTAL_METRIC_NAMES
     )
 
 
@@ -1244,150 +804,28 @@ def build_smi_script(
 
 def smi_metrics(point: PointResult) -> dict[str, float]:
     """Reduce one SMI point to its aggregated coefficient metrics."""
-    return {name: point.total[name] for name in _SMI_METRIC_NAMES}
+    return {name: point.total[name] for name in _TOTAL_METRIC_NAMES}
 
 
-def _make_smi_runner(case_id: str, fsm_name: str, title: str):
-    """Build the runner of one SMI case bound to its local file name."""
-
-    def run(context: _CaseContext) -> CaseResult:
-        if context.smi_root is None:
-            # `smi_root`, this function's own parameter, with the CLI's
-            # spelling BESIDE it rather than instead of it. A library
-            # refusal naming a flag alone tells a Python caller to pass
-            # something they cannot type; `run_physics` was corrected for
-            # exactly this on 2026-08-17 and this site, one screen away,
-            # kept the defect. The shape here is the one `probes.py` and
-            # `cases/matrix.py` already use.
-            raise RuntimeError(
-                f"{case_id} needs the local SMI geometry root; pass smi_root "
-                "(CLI: --smi-root). The files never enter Git, CONTRIBUTING.md invariant 5."
-            )
-        fsm_path = (Path(context.smi_root) / fsm_name).resolve()
-        if not fsm_path.is_file():
-            raise RuntimeError(f"{case_id}: {fsm_name} not found under {context.smi_root}")
-        digest = hashlib.sha256(fsm_path.read_bytes()).hexdigest()
-        script = build_smi_script(context.version, fsm_path, "loads_smi.txt", "log_smi.txt")
-        report = context.solve_point(
-            script, f"{case_id.lower().replace('-', '_')}.txt", "loads_smi.txt"
-        )
-        point = PointResult(
-            alpha_deg=SMI_ALPHA_DEG,
-            total=dict(report.total),
-            iterations=report.current_iteration,
-            converged=report.current_iteration < report.requested_iterations,
-            label=fsm_name.removesuffix(".fsm"),
-        )
-        context.stamp_solver(report)
-        geometry = (
-            f"SMI case {fsm_name} (local, never committed), sha256 {digest}; "
-            "unit reference area and length, aggregated coefficients only"
-        )
-        return CaseResult(
-            case_id=case_id,
-            title=title,
-            geometry=geometry,
-            points=(point,),
-            metrics=smi_metrics(point),
-        )
-
-    return run
+def _smi_case(case_id: str, title: str, band_kind: str) -> PhysicsCase:
+    """One SMI entry; the title names the local simulation file the case opens."""
+    return PhysicsCase(case_id=case_id, title=title, metric_specs=_smi_metric_specs(band_kind))
 
 
-def _smi_case(case_id: str, fsm_name: str, title: str, band_kind: str) -> PhysicsCase:
-    return PhysicsCase(
-        case_id=case_id,
-        title=title,
-        metric_specs=_smi_metric_specs(band_kind),
-        runner=_make_smi_runner(case_id, fsm_name, title),
-    )
-
-
+#: The two local cases: ``28_B.fsm`` (SMI-01) and ``31_WBH_IH0.fsm`` (SMI-02),
+#: each opened by :func:`build_smi_script` at the fixed comparison point.
 SMI_CASES: dict[str, PhysicsCase] = {
     "SMI-01": _smi_case(
         "SMI-01",
-        "28_B.fsm",
         "SMI isolated body (28_B, smallest corpus file)",
         band_kind="abs",
     ),
     "SMI-02": _smi_case(
         "SMI-02",
-        "31_WBH_IH0.fsm",
         "SMI full configuration (31_WBH_IH0, wing-body-tail)",
         band_kind="rel",
     ),
 }
-
-
-# --------------------------------------------------------------------------
-# Run machinery
-# --------------------------------------------------------------------------
-
-
-class _CaseContext:
-    """Execution context handed to case runners.
-
-    Owns the executor, the per-case scratch directory, and the loads
-    parsing of each solved point, so case runners stay declarative.
-    """
-
-    def __init__(
-        self,
-        version: str,
-        executor: LocalExecutor,
-        workdir: Path,
-        timeout_s: float,
-        smi_root: Path | None = None,
-    ):
-        self.version = version
-        self.executor = executor
-        self.workdir = workdir
-        self.timeout_s = timeout_s
-        self.smi_root = smi_root
-        self.solver_identity: list[str] = []
-        #: How the solver was called, read off the first point that ran.
-        self.invocation: ExecutorRecord | None = None
-
-    def solve_point(self, script: Script, script_name: str, loads_name: str) -> LoadsReport:
-        """Run one rendered script and parse its loads spreadsheet.
-
-        Raises
-        ------
-        RuntimeError
-            When the solver fails, times out, or leaves the loads
-            spreadsheet missing or unparseable; the message carries
-            the failure evidence for the case error field.
-        """
-        # Absolute on purpose: the executor sets the solver's working
-        # directory to workdir, so a workdir-relative script path would
-        # be resolved against itself and FlightStream exits silently
-        # (code 0, no outputs) when -script names a missing file.
-        script_path = (self.workdir / script_name).resolve()
-        script_path.write_text(script.render(), encoding="utf-8")
-        result: ExecutionResult = self.executor.run_script(
-            script_path, working_dir=self.workdir, timeout_s=self.timeout_s
-        )
-        if self.invocation is None:
-            self.invocation = invocation_record(self.executor, result)
-        if result.failed:
-            raise RuntimeError(f"solver run {script_name} failed: {result.diagnosis()}")
-        loads_path = self.workdir / loads_name
-        try:
-            text = loads_path.read_text(encoding="utf-8", errors="replace")
-        except OSError as error:
-            raise RuntimeError(
-                f"solver run {script_name} left no loads spreadsheet {loads_name}: {error}"
-            ) from error
-        try:
-            return parse_loads(text, requested_version=self.version)
-        except (IncompleteOutputError, ValueError) as error:
-            raise RuntimeError(f"loads spreadsheet {loads_name} unusable: {error}") from error
-
-    def stamp_solver(self, report: LoadsReport) -> None:
-        """Record the solver identity printed in a loads footer (FR-18)."""
-        line = f"Flightstream version {report.fs_version_reported}, build {report.fs_build}"
-        if line not in self.solver_identity:
-            self.solver_identity.append(line)
 
 
 def _references_dir() -> Path:
@@ -1537,164 +975,6 @@ def case_table(*, include_smi: bool = False) -> list[dict[str, str | int]]:
     return rows
 
 
-def run_physics(
-    version: str,
-    *,
-    fs_exe: str | Path,
-    workroot: str | Path,
-    cases: list[str] | None = None,
-    timeout_s: float = 900.0,
-    references_dir: str | Path | None = None,
-    smi_root: str | Path | None = None,
-) -> PhysicsRun:
-    """Run the Tier 3 physics matrix for one FlightStream version.
-
-    Parameters
-    ----------
-    version : str
-        Target version, canonical identifier (26.120); a vendor release
-        name works only where it names exactly one registered build.
-        Every script is validated
-        against this version's database view.
-    fs_exe : str or Path
-        Explicit FlightStream executable path (never guessed).
-    workroot : str or Path
-        Scratch root receiving per-case directories with geometry,
-        scripts, and solver outputs; local, never committed.
-    cases : list of str, optional
-        Subset of case identifiers; defaults to every registered case
-        (the SMI class joins the default only when ``smi_root`` is
-        given).
-    timeout_s : float
-        Wall-clock limit per solver point.
-    references_dir : str or Path, optional
-        Alternative reference directory, used by tests.
-    smi_root : str or Path, optional
-        Local SMI geometry root (normally ``_private/geometry/smi``);
-        enables the SMI drift class. Explicit input, never guessed;
-        the geometry never enters Git.
-
-    Returns
-    -------
-    PhysicsRun
-        Measured metrics and verdicts per case; a case that aborted
-        carries its error text instead of hiding the rest of the run.
-
-    Raises
-    ------
-    PhysicsEnvironmentError
-        When the executable is missing, a requested case is unknown, or
-        a requested case has no command evidence on this build. The
-        last is the newest and is a behaviour break: a run that
-        measured part of the matrix and reported success is a record
-        saying the build was validated, so it refuses and names the
-        runnable subset. `run_drift` documents the same refusal.
-    """
-    canonical = resolve(version).canonical
-    registry = registered_cases(include_smi=smi_root is not None)
-
-    # ASKING FOR EVERYTHING NOW MEANS EVERYTHING, and it did not. The
-    # default used to FILTER the registry by support, so a build the
-    # unsteady cases excluded ran the other four and reported success,
-    # with nothing in the report about the two that never entered the
-    # loop. On a build about to carry a large study that is worse than no
-    # run, because it produces a record saying the build was validated.
-    #
-    # Asking for a SUBSET by name is still allowed and is how a partial
-    # run is now made deliberate rather than accidental.
-    wanted = cases or sorted(registry)
-    unknown = [case_id for case_id in wanted if case_id not in registry]
-    if unknown:
-        raise PhysicsEnvironmentError(
-            f"unknown physics case(s) {', '.join(unknown)}; registered: "
-            # `smi_root`, this function's own parameter, not `--smi-root`.
-            # A library message naming a command-line flag names something
-            # a Python caller cannot type, which is the class corrected
-            # eleven lines below for `--cases`; the CLI translates.
-            f"{', '.join(sorted(registry))} (SMI cases need smi_root)"
-        )
-    unsupported = [case_id for case_id in wanted if not registry[case_id].supports(canonical)]
-    if unsupported:
-        detail = "; ".join(
-            f"{case_id} needs {registry[case_id].minimum_version} or later"
-            for case_id in unsupported
-        )
-        # THE RUNNABLE SET IS NAMED, and it is named in the spelling of
-        # THIS function's own parameter rather than of a command line.
-        # This repository has already ruled on that class in the other
-        # direction (`utils/cli.py`, where `write_chapter`'s message
-        # named the Python keyword `write=True` at a command-line user);
-        # a library message naming `--cases` is the same defect
-        # mirrored, and `run_drift` carries it to a second CLI. The CLI
-        # re-words it, which is where a CLI's own vocabulary belongs.
-        runnable = [case_id for case_id in sorted(registry) if case_id not in unsupported]
-        raise PhysicsEnvironmentError(
-            f"case(s) {', '.join(unsupported)} have no command evidence for "
-            f"FlightStream {canonical}: {detail}. The suite REFUSES rather than "
-            "running the rest, because a run that measured some of the matrix and "
-            "reported success is a record saying the build was validated. To run a "
-            "subset deliberately, name it: "
-            f"cases={runnable!r}"
-        )
-    try:
-        executor = LocalExecutor(fs_exe)
-    except ValueError as error:
-        raise PhysicsEnvironmentError(str(error)) from error
-    results: list[CaseResult] = []
-    identity: list[str] = []
-    invocation: ExecutorRecord | None = None
-    for case_id in wanted:
-        case = registry[case_id]
-        workdir = Path(workroot) / canonical / case_id.lower().replace("-", "_")
-        workdir.mkdir(parents=True, exist_ok=True)
-        context = _CaseContext(
-            canonical,
-            executor,
-            workdir,
-            timeout_s,
-            smi_root=None if smi_root is None else Path(smi_root),
-        )
-        try:
-            measured = case.runner(context)
-        except RuntimeError as error:
-            results.append(
-                CaseResult(
-                    case_id=case_id,
-                    title=case.title,
-                    geometry="",
-                    error=str(error),
-                )
-            )
-            continue
-        finally:
-            # From the first case that reached the solver, whether or not
-            # it then failed: a failed point was still called somehow.
-            if invocation is None:
-                invocation = context.invocation
-        reference = load_reference(case_id, references_dir)
-        results.append(
-            CaseResult(
-                case_id=measured.case_id,
-                title=measured.title,
-                geometry=measured.geometry,
-                points=measured.points,
-                metrics=measured.metrics,
-                verdicts=compare_metrics(measured.metrics, reference),
-                reference=reference,
-            )
-        )
-        identity.extend(line for line in context.solver_identity if line not in identity)
-    return PhysicsRun(
-        version=canonical,
-        fs_exe_name=Path(fs_exe).name,
-        package_version=pyflightstream.__version__,
-        results=tuple(results),
-        solver_identity=tuple(identity),
-        fs_exe_sha256=optional_file_sha256(fs_exe),
-        executor=invocation,
-    )
-
-
 # --------------------------------------------------------------------------
 # Report and reference update
 # --------------------------------------------------------------------------
@@ -1818,6 +1098,9 @@ def write_physics_report(
         # carries the same field for the same reason.
         "fs_exe_sha256": run.fs_exe_sha256,
         "executor": describe_invocation(run.executor),
+        # The rows the cases came from, since 0.13.0; None for a run
+        # built in Python, which the tier-1 tests still do.
+        "source": run.source,
         "solver_identity": list(run.solver_identity),
         "summary": counts,
         "cases": {
@@ -1859,19 +1142,22 @@ def _render_markdown(run: PhysicsRun, date: str, counts: dict[str, int]) -> str:
         f"# Physics report: FlightStream {run.version} ({date})",
         "",
         "Tier 3 physics regression evidence produced by `pyfs-qa physics`",
-        "(SAD Section 11): synthetic committed cases, measured metrics",
-        "compared against stored references inside WARN and FAIL bands.",
-        "References change only through `pyfs-qa update-reference`, which",
-        "records a reason; geometry is generated by the suite and no",
-        "research geometry is involved.",
+        "(SAD Section 11): the physics cases as rows of a run matrix in a",
+        "campaign workspace, built by the package's workflows over the",
+        "workspace's synthetic library, their loads reduced to the case",
+        "metrics and compared against stored references inside WARN and",
+        "FAIL bands. References change only through",
+        "`pyfs-qa update-reference`, which records a reason; no research",
+        "geometry is involved.",
         "",
         "## Setup",
         "",
         "| Item | Value |",
         "|---|---|",
+        f"| Source | {run.source or 'cases built in Python'} |",
         f"| Executable | {run.fs_exe_name} "
         f"(sha256 {run.fs_exe_sha256 or 'not recorded'}, "
-        "local, `_private/exe/`, never committed) |",
+        "local, never committed) |",
         f"| Executor | {describe_invocation(run.executor, markdown=True)} |",
         f"| Package | pyflightstream {run.package_version} |",
         f"| Solver identity | {'; '.join(run.solver_identity) or 'none captured'} |",

@@ -1,11 +1,13 @@
 """Cross-version drift suite (FR-27, SAD Section 11).
 
-Pipeline role: runs the same physics case set on two FlightStream
-versions and diffs the aggregated coefficients, so a solver release
-cannot silently move the physics the research depends on. The case
-set is exactly the Tier 3 registry of :mod:`pyflightstream.qa.physics`
-(synthetic committed geometry; the SMI class joins later as more
-registry cases, geometry staying local under ``_private/``).
+Pipeline role: diffs the same physics case set measured on two
+FlightStream versions, so a solver release cannot silently move the
+physics the research depends on. The case set is the Tier 3 registry of
+:mod:`pyflightstream.qa.physics`, and since 0.13.0 the two measurements
+are two runs of the workspace's physics matrix under two registries,
+made by :func:`pyflightstream.qa.matrix.drift_from_workspace`
+(PFS-2031.17); this module owns the diff and the report and runs
+nothing itself.
 
 Drift needs no stored references: version A is the baseline and
 version B is judged against it inside the same WARN and FAIL half
@@ -32,7 +34,6 @@ from pyflightstream.qa.physics import (
     ReferenceBand,
     Verdict,
     registered_cases,
-    run_physics,
 )
 from pyflightstream.qa.reports import (
     refuse_existing_report,
@@ -40,7 +41,6 @@ from pyflightstream.qa.reports import (
     resolve_report_date,
 )
 from pyflightstream.run import ExecutorRecord, describe_invocation
-from pyflightstream.versions import resolve
 
 DRIFT_SCHEMA = "pyflightstream-drift-report/1"
 
@@ -49,7 +49,6 @@ __all__ = [
     "DriftCaseResult",
     "DriftRun",
     "diff_runs",
-    "run_drift",
     "drift_report_paths",
     "write_drift_report",
 ]
@@ -218,93 +217,6 @@ def diff_runs(run_a: PhysicsRun, run_b: PhysicsRun) -> DriftRun:
     )
 
 
-def run_drift(
-    version_a: str,
-    version_b: str,
-    *,
-    fs_exes: dict[str, str | Path],
-    workroot: str | Path,
-    cases: list[str] | None = None,
-    timeout_s: float = 900.0,
-    smi_root: str | Path | None = None,
-) -> DriftRun:
-    """Run the physics case set on both versions and diff the results.
-
-    Parameters
-    ----------
-    version_a, version_b : str
-        Baseline and compared versions, canonical identifiers (26.120);
-        a vendor release name works only where it names exactly one
-        registered build. The same
-        version twice is the degenerate self-comparison that proves
-        the machinery.
-    fs_exes : dict of str to path
-        Explicit executable per canonical version (never guessed);
-        must cover both versions.
-    workroot : str or Path
-        Scratch root; each version nests its own per-case directories
-        under its canonical name.
-    cases : list of str, optional
-        Case subset; defaults to every registered case (the SMI class
-        joins the default only when ``smi_root`` is given).
-    timeout_s : float
-        Wall-clock limit per solver point.
-    smi_root : str or Path, optional
-        Local SMI geometry root; enables the SMI drift class on both
-        versions. Explicit input, never guessed.
-
-    Returns
-    -------
-    DriftRun
-        The comparison.
-
-    Raises
-    ------
-    PhysicsEnvironmentError
-        When an executable is missing for either version, a case is
-        unknown, or the full suite cannot be delivered on one of the two
-        builds because a case has no command evidence there. The last is
-        the one that is easy to miss and it is the newest: a comparison
-        that quietly measured the cases both builds happen to support
-        would answer a different question from the one asked, so it
-        refuses and names the runnable subset. All three are raised by
-        the underlying physics runs.
-    KeyError
-        When ``fs_exes`` does not cover a requested version.
-    """
-    canonical_a = resolve(version_a).canonical
-    canonical_b = resolve(version_b).canonical
-    run_a = run_physics(
-        canonical_a,
-        fs_exe=fs_exes[canonical_a],
-        workroot=workroot,
-        cases=cases,
-        timeout_s=timeout_s,
-        smi_root=smi_root,
-    )
-    if canonical_b != canonical_a:
-        run_b = run_physics(
-            canonical_b,
-            fs_exe=fs_exes[canonical_b],
-            workroot=workroot,
-            cases=cases,
-            timeout_s=timeout_s,
-            smi_root=smi_root,
-        )
-    else:
-        # Degenerate self-comparison: run the case set a second time so
-        # the diff really compares two independent solver executions.
-        run_b = run_physics(
-            canonical_b,
-            fs_exe=fs_exes[canonical_b],
-            workroot=Path(workroot) / "self_b",
-            cases=cases,
-            timeout_s=timeout_s,
-            smi_root=smi_root,
-        )
-    return diff_runs(run_a, run_b)
-
-
 def drift_report_paths(
     out_dir: str | Path,
     *,
@@ -469,11 +381,12 @@ def _render_markdown(run: DriftRun, date: str, counts: dict[str, int]) -> str:
         f"# Drift report: FlightStream {a} versus {b} ({date})",
         "",
         "Cross-version drift evidence produced by `pyfs-qa drift` (FR-27,",
-        "SAD Section 11): the committed synthetic physics cases run on both",
-        "versions, aggregated coefficients diffed, version B judged against",
+        "SAD Section 11): the rows of the workspace's physics matrix run",
+        "on both versions, each under its own registry, the case metrics",
+        "reduced from each run and diffed, version B judged against",
         "version A inside the WARN and FAIL half widths the case metrics",
-        "declare. Geometry is generated by the suite; no research geometry",
-        "is involved.",
+        "declare. The geometry is the workspace's synthetic library; no",
+        "research geometry is involved.",
         "",
         "## Setup",
         "",

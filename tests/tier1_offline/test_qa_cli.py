@@ -13,6 +13,9 @@ user whose script stopped working.
 
 from __future__ import annotations
 
+import shutil
+from pathlib import Path
+
 import pytest
 
 from pyflightstream.qa.cli import main
@@ -61,6 +64,34 @@ def _drift_paths(out_dir, **kwargs):
     return drift_report_paths(out_dir, version_a="26.122", version_b="26.123", **kwargs)
 
 
+#: The tier-3 workspace's physics matrix, whose active rows all name 26.120.
+_TIER3_MATRIX = Path(__file__).resolve().parents[1] / "tier3_licensed" / "matriz_physics.fs"
+
+#: Stands for the workspace path in an argv written before the tmp_path exists.
+_WORKSPACE = "<workspace>"
+
+
+def _workspace_with_the_matrix(tmp_path: Path) -> Path:
+    """A root holding the physics matrix alone: enough for the pre-flight.
+
+    `pyfs-qa physics` reads the build its stem names off the matrix rows
+    BEFORE anything runs, and nothing below that read needs the library,
+    so a refusal before the solver is provable without one.
+    """
+    root = tmp_path / "ws"
+    root.mkdir()
+    shutil.copy(_TIER3_MATRIX, root / _TIER3_MATRIX.name)
+    return root
+
+
+def _with_workspace(argv: list[str], root: Path) -> list[str]:
+    return [str(root) if item == _WORKSPACE else item for item in argv]
+
+
+#: The three runners a `pyfs-qa` subcommand hands a licensed seat to.
+_RUNNERS = ("probe_version", "physics_from_workspace", "drift_from_workspace")
+
+
 @pytest.mark.parametrize(
     ("subcommand", "paths_for", "stem_prefix", "argv"),
     [
@@ -74,7 +105,7 @@ def _drift_paths(out_dir, **kwargs):
             "physics",
             _physics_paths,
             "PHY-26120_",
-            ["physics", "--fs-version", "26.120", "--fs-exe", "nowhere.exe"],
+            ["physics", "--workspace", _WORKSPACE],
         ),
         (
             "drift",
@@ -82,6 +113,8 @@ def _drift_paths(out_dir, **kwargs):
             "DRF-26122-26123_",
             [
                 "drift",
+                "--workspace",
+                _WORKSPACE,
                 "--fs-versions",
                 "26.122,26.123",
                 "--fs-exe",
@@ -128,7 +161,7 @@ def test_every_evidence_writer_refuses_before_it_starts_the_solver(
     def never(*args, **kwargs):
         raise AssertionError("the solver was started, so a licensed seat was spent")
 
-    for runner in ("probe_version", "run_physics", "run_drift"):
+    for runner in _RUNNERS:
         monkeypatch.setattr(cli_module, runner, never)
 
     existing, _ = paths_for(tmp_path, label="x")
@@ -138,6 +171,7 @@ def test_every_evidence_writer_refuses_before_it_starts_the_solver(
     assert existing.name.startswith(stem_prefix), existing.name
     existing.write_text("stub", encoding="utf-8")
 
+    argv = _with_workspace(argv, _workspace_with_the_matrix(tmp_path))
     code = cli_module.main(argv + ["--report-dir", str(tmp_path), "--label", "x"])
     error = capsys.readouterr().err
 
@@ -187,19 +221,21 @@ class _StubRun:
             ["probe", "--fs-version", "26.123", "--fs-exe", "nowhere.exe"],
         ),
         (
-            "run_physics",
+            "physics_from_workspace",
             "write_physics_report",
             "physics_report_paths",
             {"version": "26.120"},
-            ["physics", "--fs-version", "26.120", "--fs-exe", "nowhere.exe"],
+            ["physics", "--workspace", _WORKSPACE],
         ),
         (
-            "run_drift",
+            "drift_from_workspace",
             "write_drift_report",
             "drift_report_paths",
             {"version_a": "26.122", "version_b": "26.123"},
             [
                 "drift",
+                "--workspace",
+                _WORKSPACE,
                 "--fs-versions",
                 "26.122,26.123",
                 "--fs-exe",
@@ -286,6 +322,7 @@ def test_one_date_serves_the_pre_flight_and_the_write(
 
     monkeypatch.setattr(cli_module, writer, capture)
 
+    argv = _with_workspace(argv, _workspace_with_the_matrix(tmp_path))
     cli_module.main(argv + ["--report-dir", str(tmp_path), "--label", "pinned"])
 
     assert asked, f"{helper} was never asked, so the pre-flight did not run"
@@ -306,44 +343,34 @@ def test_one_date_serves_the_pre_flight_and_the_write(
         )
 
 
-def test_the_cli_rewords_a_library_refusal_into_its_own_flags(monkeypatch, capsys):
-    """The claim `tests/tier1_offline/test_qa_physics.py` makes about this file, made true.
+def test_a_driver_refusal_reaches_the_operator_without_a_traceback(tmp_path, monkeypatch, capsys):
+    """A refusal of the workspace driver is printed in full and exits 2.
 
-    That test's own message says "The CLI owns that translation, and
-    tests/tier1_offline/test_qa_cli.py pins it". It did not: `--cases` appeared in the
-    whole test tree exactly once, as the NEGATIVE assertion on the library
-    side, so `_in_command_line_words` could be replaced with
-    `return message` and 421 tests stayed green while the operator read
-    Python list syntax at a command line.
-
-    Two properties, and the second is the one a regex over a message
-    invites losing: the datum is translated, and NOTHING AFTER IT is
-    dropped.
+    Until 0.13.0 the CLI translated the library's `cases=[...]` datum into
+    `--cases`; the driver's refusals name their parameter with the flag
+    beside it (``resume (CLI: --resume)``), the form the flag guard of
+    ``test_error_messages.py`` accepts, so nothing is translated and
+    nothing after the datum can be dropped.
     """
     from pyflightstream.qa import cli as cli_module
     from pyflightstream.qa.physics import PhysicsEnvironmentError
 
     def refusing(*args, **kwargs):
         raise PhysicsEnvironmentError(
-            "case(s) PHY-05 have no command evidence for FlightStream 26.101. "
-            "To run a subset deliberately, name it: cases=['PHY-01', 'PHY-02'] "
-            "(SMI cases need smi_root)"
+            "row 5001 has no record in the manifest; pass resume (CLI: --resume) to "
+            "run the missing points"
         )
 
-    monkeypatch.setattr(cli_module, "run_physics", refusing)
+    monkeypatch.setattr(cli_module, "physics_from_workspace", refusing)
+    root = _workspace_with_the_matrix(tmp_path)
     code = cli_module.main(
-        ["physics", "--fs-version", "26.101", "--fs-exe", "nowhere.exe", "--report-dir", "."]
+        ["physics", "--workspace", str(root), "--report-dir", str(tmp_path / "reports")]
     )
     error = capsys.readouterr().err
 
     assert code == 2
-    assert "--cases PHY-01,PHY-02" in error, error
-    assert "cases=[" not in error, "the library spelling reached the operator"
-    assert "(SMI cases need --smi-root)" in error, (
-        "either a parameter name went untranslated, or the tail after the translated "
-        "datum was dropped, which is what a message[: match.start()] return does the "
-        "day the datum is not the last token"
-    )
+    assert error.startswith("physics run aborted: row 5001"), error
+    assert "(CLI: --resume) to run the missing points" in error, "the tail was dropped"
 
 
 def test_probe_refuses_an_existing_report_before_it_starts_the_solver(
@@ -416,14 +443,14 @@ def test_the_refusal_happens_before_the_executable_is_touched(capsys):
 @pytest.mark.parametrize(
     "argv",
     [
-        ["physics", "--fs-version", "26.12", "--fs-exe", "nowhere.exe"],
         ["drift", "--fs-versions", "26.12,26.120", "--fs-exe", "26.120=nowhere.exe"],
         ["drift", "--fs-versions", "26.100,26.120", "--fs-exe", "26.12=nowhere.exe"],
     ],
 )
 def test_every_subcommand_taking_a_version_refuses_the_same_way(argv, capsys):
     # drift resolves versions in two places, the --versions pair and the
-    # VERSION half of --fs-exe, so both are exercised.
+    # VERSION half of --fs-exe, so both are exercised. `physics` takes no
+    # version since 0.13.0: the build is what the matrix rows name.
     assert main(argv) == 2
     assert capsys.readouterr().err.startswith("version not resolved: ")
 

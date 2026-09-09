@@ -256,6 +256,44 @@ FlightStream versions.
   `SOURCE_VERSION_REQUIRED_SINCE`, so a row stamped "2" is not refused as
   the layout in which `source_version` was optional.
 
+- **`pyfs-qa physics` reads the workspace, and the hand-built physics
+  builders retire** (PFS-2031.17, the author's decision B of 2026-09-08 in
+  design study 66). `pyfs-qa physics --workspace <root>` runs the
+  workspace's `matriz_physics.fs` through the run layer exactly as
+  `pyfs-matrix run` does, reduces the records with the reductions of
+  `pyflightstream.qa.physics` (`phy01_metrics`, `phy02_metrics`, and the
+  new `phy05_metrics` and `phy06_metrics`, which the tier-3 test carried
+  inline until now) and writes the same `reports/physics/PHY-*` pair, with a
+  `Source` row naming the matrix and the workspace; `--resume` on a
+  workspace whose matrix already ran executes nothing and reports what
+  `runs.json` holds, which is the form for the tier-3 workspace after
+  `pyfs-matrix run`. `pyfs-qa drift --workspace <root>` is two runs of the
+  same matrix, one workspace per side under `--workroot` with an
+  `executables.local.toml` overlay naming that side's executable, and a diff
+  of the two reductions inside the case bands (`DRF-*`). The row names its
+  case at the head of its DESCRIPTION (`PHY-01_...`), and the package makes
+  the link: PHY-02 is the full-span row and the row under `SYMMETRY
+  MIRROR`, PHY-06 is its own unsteady row against the steady polar of the
+  PHY-01 row. BREAKS: `build_phy01_script`, `build_phy02_script`,
+  `build_phy05_script`, `build_phy06_unsteady_script`, `run_physics`,
+  `run_drift` and `PhysicsCase.runner` are gone, and the `physics` and
+  `drift` subcommands lost `--fs-version`, `--fs-exe` (physics), `--cases`,
+  `--workroot` (physics), `--timeout` and `--smi-root` for `--workspace`,
+  `--matrix`, `--name` and `--resume`. The SMI class keeps its script
+  builder, specifications and references and has no runner until it is a
+  row of a private workspace. WHERE THE DRIVER LIVES,
+  `pyflightstream.qa.matrix`, is the decision the study said the design
+  settles first: the study feared that reading the workspace inverts the
+  direction, "qa sits below workspace", and the package's own layer table
+  (`pyflightstream.overview._CORE_LAYERS`, asserted by
+  `tests/tier1_offline/test_conventions.py`) puts qa on the top row beside
+  post, above run and workspace, with the qa package already importing both
+  at module level before this release; so the driver's imports point down,
+  and `tests/tier1_offline/test_qa_matrix.py` measures that no module of a
+  lower row imports qa back. RPT-042 is the measurement that the workflow
+  rows reproduce every coefficient of the hand-built scripts inside her
+  bands, which is what made the second builder redundant.
+
 - **Each matrix of a workspace keeps its own plan, sweep table and products
   under `post/<matrix stem>/`** (PFS-2031.04). `plan.json` moves from the
   workspace root to `post/<stem>/plan.json`, the default `sweep.csv` of

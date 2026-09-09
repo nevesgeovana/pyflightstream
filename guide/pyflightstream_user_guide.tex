@@ -1213,9 +1213,9 @@ samples = parse_residual_history(log_text)
 \begin{lstlisting}[style=txt]
 pyfs-qa probe            --fs-version ... --fs-exe ...   # Tier 2 probes
 pyfs-qa apply-compat     REPORT.yaml                  # promote statuses
-pyfs-qa physics          --fs-version ... --fs-exe ...   # Tier 3 matrix
-pyfs-qa drift            --fs-versions 26.101,26.120 --fs-exe 26.101=A.exe --fs-exe 26.120=B.exe
-pyfs-qa cases                                         # print Tier 3 matrix
+pyfs-qa physics          --workspace DIR [--resume]   # the workspace's physics matrix, reduced and reported
+pyfs-qa drift            --workspace DIR --fs-versions 26.101,26.120 --fs-exe 26.101=A.exe --fs-exe 26.120=B.exe
+pyfs-qa cases                                         # print the case registry
 pyfs-qa update-reference --case ... --reason "..."    # guarded write
 pyfs-qa cost             --workspace DIR              # what a run cost
 pyfs-workspace init      DIR                          # scaffold a workspace

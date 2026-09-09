@@ -447,7 +447,8 @@ def describe_invocation(
     class name and the flags are the record's own: the flags are every
     argv token between the executable and the script path, which is the
     windowless flag and the script argument for :class:`LocalExecutor`
-    and whatever another executor passes. Without one the sentence
+    and whatever another executor passes, a path token reduced to its
+    last component so the sentence carries no machine path. Without one the sentence
     describes the executor the QA layer builds by default, a hidden
     :class:`LocalExecutor`, which is true of every report written before
     the runs carried a record and is the stated fallback for a run that
@@ -487,7 +488,14 @@ def describe_invocation(
         if markdown:
             flags = f"`{flags}`"
         return f"LocalExecutor, {flags} ({citation})"
-    tokens = record["argv"][1:-1]
+    # A token that is a path is printed by its last component: the
+    # sentence goes into committed evidence, and a machine path in a
+    # committed file is the container-directory defect the house style
+    # guards against (a stub executor's argv carries its script's path).
+    tokens = [
+        token.replace("\\", "/").rsplit("/", 1)[-1] if ("/" in token or "\\" in token) else token
+        for token in record["argv"][1:-1]
+    ]
     if not tokens:
         return f"{record['class_name']}, no argv recorded (as run; {citation})"
     flags = " ".join(tokens)

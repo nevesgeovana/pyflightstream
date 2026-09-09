@@ -10,11 +10,14 @@ produce different refusals for a caller. A command that runs but does
 nothing is `broken`, not `verified`;
 :mod:`pyflightstream.qa.compat` writes the compat report under
 ``reports/compat/`` and promotes database statuses from it. Tier 3 is
-here as well: the physics regression matrix
-(:mod:`pyflightstream.qa.physics`) and the version-comparison drift
-suite (:mod:`pyflightstream.qa.drift`), both run on the synthetic
-geometry of :mod:`pyflightstream.qa.geometry` so no research geometry is
-needed. :mod:`pyflightstream.qa.reports` holds the report-naming and
+here as well: the physics judge, reductions and references
+(:mod:`pyflightstream.qa.physics`), the version-comparison drift diff
+(:mod:`pyflightstream.qa.drift`), and since 0.13.0 the driver that reads
+both out of a campaign workspace (:mod:`pyflightstream.qa.matrix`): the
+cases are rows of the workspace's physics matrix, run through the run
+layer over the workspace's synthetic library, so no research geometry is
+needed and no case is stated in Python (PFS-2031.17).
+:mod:`pyflightstream.qa.reports` holds the report-naming and
 never-overwrite rule all three writers share, so a run is refused before
 a licensed seat is spent rather than after. The ``pyfs-qa`` CLI
 (:mod:`pyflightstream.qa.cli`) drives all three.
