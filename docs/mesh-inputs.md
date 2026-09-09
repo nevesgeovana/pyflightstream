@@ -139,7 +139,10 @@ pyfs-matrix inventory inputs/geometries/30_WB.fsm
 
 writes `inputs/geometries/30_WB.boundaries.toml`, a `boundaries` list in
 the file's order, and refuses to overwrite one that exists without
-`--overwrite`. A file without a mesh block (a raw mesh, or a file the
+`--overwrite`. The sidecar sits beside the file, so a geometry kept in
+its own folder, `inputs/geometries/30_WB/30_WB.fsm` (PFS-2032.04, the
+layout `pyfs-workspace migrate-geometries` produces), has it inside that
+folder, and the run reads it from there. A file without a mesh block (a raw mesh, or a file the
 solver never saved) is refused by name, because its order is only known
 once the solver has opened it. A row whose geometry has a sidecar is
 checked when the script opens the file: a sidecar that disagrees with the

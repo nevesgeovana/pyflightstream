@@ -420,6 +420,54 @@ file name simply have to agree. An identifier that is not staged is
 refused before anything runs, and the refusal names the identifier, the
 kind and what is available.
 
+### The geometry library: flat, or one folder per geometry
+
+`inputs/geometries/` is read in two layouts, and the `GEOMETRY` cell is
+the same in both (PFS-2032.04, her reading of 2026-09-08). Flat, the
+file sits directly in the folder with its boundary inventory beside it;
+one folder per geometry, the file sits in a folder named by its stem,
+and everything that belongs to that geometry sits with it:
+
+```text
+inputs/geometries/
+  30_WB.fsm                    flat: the cell reads GEOMETRY: 30_WB.fsm
+  30_WB.boundaries.toml
+  31_TAIL/                     one folder per geometry: the same cell,
+    31_TAIL.fsm                GEOMETRY: 31_TAIL.fsm, resolves here
+    31_TAIL.boundaries.toml
+    31_TAIL.provenance.toml
+```
+
+The package looks in `geometries/<stem>/` first and at
+`geometries/<file>` second, so no matrix written since v0.11.0 changes
+and a library can hold both layouts while it moves. What the folder
+buys is a home: the inventory sidecar and the provenance record stop
+being loose files among forty others, and a point staged from a folder
+shows that geometry's files only, never the whole library (the link
+under `sims/<sim>/inputs` points at the folder; see "A point opens its
+geometry through a link" below). A flat library moves in one command:
+
+```text
+pyfs-workspace migrate-geometries .    # geometries/30_WB.fsm and its sidecars
+                                       # become geometries/30_WB/
+```
+
+It moves every `geometries/<stem>.<ext>` with its `<stem>.boundaries.toml`
+and `<stem>.provenance.toml` into `geometries/<stem>/`, prints each move
+and each folder it left alone (a folder that already exists is not
+touched, whatever it holds), and a second run moves nothing. A root with
+no `inputs/geometries` is refused, exit 2, with nothing created. The run
+records of the workspace keep reading: a record names its inputs by file
+name and hashes their bytes, and neither moved. The suite runs the line
+above over a library holding a saved simulation with both sidecars, a
+raw mesh with none and a folder already made, then runs it again
+(`test_workspace.py::test_migrate_geometries_moves_a_flat_library_into_folders_once`),
+and runs a matrix row against the folder layout on the campaign path
+(`test_matrix_run.py::test_a_row_naming_a_folded_geometry_runs_on_that_folder_alone`).
+The flat layout is not deprecated: nothing migrates by itself, and the
+cycle that retires it is hers to open once the folders have run a
+campaign.
+
 ### What a solver preset may say, and what happens to a key that reaches nothing
 
 A preset is a table of solver settings, written in the SOLVER's own key
@@ -1077,12 +1125,17 @@ A point opens its geometry through a link (PFS-2029.17): `sims/<sim>/inputs`
 is a directory junction on Windows and a symbolic link elsewhere, pointing at
 `inputs/geometries/`, so a campaign of forty points holds one copy of each
 mesh and the record still carries the opened path and its sha256, with
-`staged_as: link`. Where a link cannot be made, the inputs are copied and the
-record says `staged_as: copy` with the reason. Archiving writes the link as a
-one-line `inputs/STAGED_AS_LINK.txt` and never the library's bytes.
+`staged_as: link`. A geometry that has its own folder,
+`inputs/geometries/30_WB/`, is linked at that folder (PFS-2032.04), so the
+point's inputs show that geometry's files, its boundary inventory among
+them, and never the rest of the library. Where a link cannot be made, the
+inputs are copied and the record says `staged_as: copy` with the reason.
+Archiving writes the link as a one-line `inputs/STAGED_AS_LINK.txt` and
+never the library's bytes.
 
 The boundary order of a staged geometry is read from the file and written
-beside it, never stated in a setup (PFS-2029.06; `docs/mesh-inputs.md`):
+beside it, never stated in a setup (PFS-2029.06; `docs/mesh-inputs.md`),
+which puts it inside the geometry's folder when the geometry has one:
 
 ```text
 pyfs-matrix inventory inputs/geometries/30_WB.fsm    # writes 30_WB.boundaries.toml

@@ -9,6 +9,40 @@ FlightStream versions.
 
 ### Added
 
+- **The geometry library reads one subfolder per geometry beside the flat
+  layout, and a point's staged inputs show one geometry's files**
+  (PFS-2032.04, her reading of 2026-09-08, design 68 section A3). The cell
+  keeps saying `GEOMETRY: 30_WB.fsm`; the resolver looks for
+  `inputs/geometries/30_WB/30_WB.fsm` first and `inputs/geometries/30_WB.fsm`
+  second, so no matrix written since 0.11.0 changes and a library can hold
+  both layouts. The boundary inventory `pyfs-matrix inventory` writes and
+  the provenance record sit inside the folder when the geometry has one,
+  the binding reads the sidecar from there, and a point staged from a
+  folder is linked at that folder (PFS-2029.17's junction, pointed one
+  level down), so `sims/<sim>/inputs` holds that geometry's files and
+  never the whole library; the record still says `staged_as: link` with
+  the file's sha256. A bare stem or an absent file is refused naming the
+  geometries of both layouts, and the two sidecars are no longer offered
+  as geometries a cell could name. The flat layout is not deprecated: the
+  tier-3 library stays flat and is the control that nothing broke (every
+  matrix READY, every golden equal), and the cycle that retires the flat
+  form is hers to open once the folders have run a campaign.
+
+- **`pyfs-workspace migrate-geometries <root>` moves a flat geometry library
+  into one folder per geometry, idempotently** (PFS-2032.05). Every
+  `inputs/geometries/<stem>.<ext>` moves to `inputs/geometries/<stem>/`
+  with its `<stem>.boundaries.toml` and `<stem>.provenance.toml`; the
+  command prints each move and each folder it left alone, a folder that
+  already exists is not touched whatever it holds, a second run moves
+  nothing and says so, and a root with no `inputs/geometries` is refused
+  with exit 2 and nothing created. A workspace whose manifest records
+  runs keeps working, because a record names its inputs by file name and
+  hashes their bytes, and neither moved; a recorded simulation re-staged
+  from the folder is re-pointed rather than copied. The Python surface is
+  `pyflightstream.workspace.migrate_geometry_layout`, returning what
+  moved and what was kept. Nothing migrates by itself, and the flat
+  layout is not deprecated.
+
 - **The products stage writes a PROV-JSON provenance document per recorded
   run** (PFS-2012.08, PFS-2012.08.01). The run record carried every fact a
   provenance document needs and lacked a shape another tool reads without

@@ -1220,6 +1220,7 @@ pyfs-qa update-reference --case ... --reason "..."    # guarded write
 pyfs-qa cost             --workspace DIR              # what a run cost
 pyfs-workspace init      DIR                          # scaffold a workspace
 pyfs-workspace archive   DIR SIM_ID                   # zip one recorded simulation
+pyfs-workspace migrate-geometries DIR                 # flat library to one folder per geometry
 pyfs-matrix upgrade      matrix.fs --in-place         # older layout to current
 pyfs-matrix convert      matrix.fs -o campaign.toml   # run matrix to campaign
 pyfs-matrix plan         matrix.fs                    # pre-flight, no solver

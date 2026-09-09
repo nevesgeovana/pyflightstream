@@ -2472,6 +2472,139 @@ def test_archive_does_not_cross_a_staged_link(tmp_path):
     )
 
 
+# --- PFS-2032.04 and PFS-2032.05: one subfolder per geometry beside the flat library ---
+
+
+def _saved_simulation(path, names):
+    """Write a saved simulation carrying a mesh block that names ``names`` in order."""
+    from pyflightstream._fsm import MESH_MARKER
+
+    body = [MESH_MARKER, "9999", "99", str(len(names))]
+    for offset, name in enumerate(names):
+        body += [f"{offset + 2}, T, T, F", name, ".500,.500,.500"]
+    body += ["$MESH_END$"]
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("\r\n".join(body) + "\r\n", encoding="utf-8", newline="")
+    return path
+
+
+def test_a_geometry_folder_is_read_first_and_staged_alone(tmp_path):
+    """PFS-2032.04, her reading of design 68 section A3: the cell keeps saying
+    ``30_WB.fsm``, the package looks in ``geometries/30_WB/`` first and at
+    ``geometries/30_WB.fsm`` second, the inventory sidecar sits inside the folder,
+    and a point's staged inputs show that geometry's files and never the whole
+    library. The flat neighbour beside it keeps resolving, so a library can hold
+    both layouts while the flat one is not deprecated."""
+    from pyflightstream._digest import file_sha256
+    from pyflightstream.workspace.inputs import inventory_sidecar, write_inventory
+
+    workspace = library(tmp_path)
+    geometries = workspace.inputs_dir / "geometries"
+    folded = _saved_simulation(geometries / "30_WB" / "30_WB.fsm", ["W", "B"])
+    flat = geometries / "31_TAIL.fsm"
+    flat.write_bytes(b"flat neighbour")
+    assert workspace.resolve_geometry("30_WB.fsm") == folded, "the folder is not read first"
+    assert workspace.resolve_geometry("31_TAIL.fsm") == flat, "the flat layout stopped resolving"
+    # The sidecar is written beside the file, which is inside the folder, and
+    # the resolver's answer is where the binding looks for it.
+    sidecar = write_inventory(folded)
+    assert sidecar == geometries / "30_WB" / "30_WB.boundaries.toml"
+    assert inventory_sidecar(workspace.resolve_geometry("30_WB.fsm")) == sidecar
+    # A bare stem and an absent file are refused naming what the folder holds.
+    with pytest.raises(InputArtifactError) as caught:
+        workspace.resolve_geometry("30_WB")
+    assert caught.value.available == ("30_WB.fsm",)
+    with pytest.raises(InputArtifactError) as caught:
+        workspace.resolve_geometry("32_NOSE.fsm")
+    assert set(caught.value.available) == {"30_WB.fsm", "31_TAIL.fsm"}
+    # Staging links the point at the folder, so its inputs are that geometry's
+    # files only: the flat neighbour is not among them.
+    hashes = workspace.stage_inputs("9001", [folded])
+    inputs = workspace.sim_dir("9001") / "inputs"
+    assert _is_link(inputs), "the folder layout fell back to a copy"
+    assert sorted(path.name for path in inputs.iterdir()) == [
+        "30_WB.boundaries.toml",
+        "30_WB.fsm",
+    ]
+    assert hashes == {"30_WB.fsm": file_sha256(folded)}
+    assert workspace.staged_as("9001") == ("link", None)
+    # The same simulation re-staged from the flat neighbour is re-pointed, not copied.
+    workspace.stage_inputs("9001", [flat])
+    assert _is_link(inputs) and (inputs / "31_TAIL.fsm").is_file()
+    assert not (inputs / "30_WB.fsm").exists()
+
+
+def test_a_folder_wins_over_a_flat_file_of_the_same_name(tmp_path):
+    """The reading's order, measured: when both exist the folder is the answer."""
+    workspace = library(tmp_path)
+    geometries = workspace.inputs_dir / "geometries"
+    (geometries / "30_WB").mkdir()
+    (geometries / "30_WB" / "30_WB.fsm").write_bytes(b"in the folder")
+    (geometries / "30_WB.fsm").write_bytes(b"flat")
+    assert workspace.resolve_geometry("30_WB.fsm").read_bytes() == b"in the folder"
+
+
+def test_migrate_geometries_moves_a_flat_library_into_folders_once(tmp_path, capsys):
+    """PFS-2032.05: ``pyfs-workspace migrate-geometries <root>`` moves every
+    ``geometries/<stem>.<ext>`` with its ``.boundaries.toml`` and
+    ``.provenance.toml`` into ``geometries/<stem>/``, says what it moved, leaves
+    a folder that exists alone, and moves nothing on a second run. A workspace
+    whose manifest records runs keeps working: the record names its inputs by
+    file name, and the file's bytes did not move with its path."""
+    from pyflightstream._digest import file_sha256
+    from pyflightstream.workspace.inputs import write_inventory
+
+    root = tmp_path / "camp"
+    workspace = CampaignWorkspace.init(root)
+    geometries = workspace.inputs_dir / "geometries"
+    saved = _saved_simulation(geometries / "30_WB.fsm", ["W", "B"])
+    write_inventory(saved)
+    (geometries / "30_WB.provenance.toml").write_text('generator = "by hand"\n', encoding="utf-8")
+    (geometries / "31_TAIL.stl").write_bytes(b"a mesh with no sidecar")
+    (geometries / "40_DONE").mkdir()
+    (geometries / "40_DONE" / "40_DONE.fsm").write_bytes(b"already a folder")
+    hashes = workspace.stage_inputs("9001", [saved])
+    workspace.append_record(
+        make_record(sim_id="9001", run_id="camp/sim_9001/a+00.0", inputs_sha256=hashes)
+    )
+
+    assert workspace_cli(["migrate-geometries", str(root)]) == 0
+    out = capsys.readouterr().out
+    assert sorted(path.name for path in (geometries / "30_WB").iterdir()) == [
+        "30_WB.boundaries.toml",
+        "30_WB.fsm",
+        "30_WB.provenance.toml",
+    ]
+    assert (geometries / "31_TAIL" / "31_TAIL.stl").is_file()
+    assert sorted(path.name for path in geometries.iterdir()) == ["30_WB", "31_TAIL", "40_DONE"], (
+        "a flat file survived the migration"
+    )
+    assert "30_WB.fsm" in out and "30_WB.boundaries.toml" in out and "31_TAIL.stl" in out
+    assert "40_DONE" in out, "the folder left alone is not named"
+    # The library reads as before, and the recorded hash still names the file.
+    moved = workspace.resolve_geometry("30_WB.fsm")
+    assert moved == geometries / "30_WB" / "30_WB.fsm"
+    record = workspace.read_manifest()[0]
+    assert record.inputs_sha256["30_WB.fsm"] == file_sha256(moved)
+    assert workspace.stage_inputs("9001", [moved]) == hashes, (
+        "the recorded simulation cannot be re-staged from the folder"
+    )
+    # A second run moves nothing and says so.
+    assert workspace_cli(["migrate-geometries", str(root)]) == 0
+    out = capsys.readouterr().out
+    assert "nothing to move" in out
+    assert sorted(path.name for path in geometries.iterdir()) == ["30_WB", "31_TAIL", "40_DONE"]
+
+
+def test_migrate_geometries_refuses_a_root_without_a_library(tmp_path, capsys):
+    bare = tmp_path / "bare"
+    bare.mkdir()
+    assert workspace_cli(["migrate-geometries", str(bare)]) == 2
+    err = capsys.readouterr().err
+    assert "inputs/geometries" in err.replace("\\", "/") and "pyfs-workspace init" in err
+    assert not (bare / "inputs").exists(), "the refusal created the library"
+
+
 # --- PFS-2029.11.02: a reference point declares its kind ------------------------------
 
 

@@ -3292,6 +3292,41 @@ def test_a_disagreeing_sidecar_is_refused_before_the_solver_naming_both_lists(tm
     assert workspace.read_manifest() == [], "a refused row reached the manifest"
 
 
+def test_a_row_naming_a_folded_geometry_runs_on_that_folder_alone(tmp_path):
+    """PFS-2032.04 on the campaign path: ``GEOMETRY: wb.fsm`` with the file under
+    ``geometries/wb/`` resolves there, the sidecar inside the folder is the
+    inventory source, and the point's inputs are the folder's two files while a
+    flat neighbour stays in the library and out of the point."""
+    from pyflightstream.workspace.inputs import write_inventory
+
+    workspace = make_library(tmp_path, register_build=("26.120", Path(sys.executable).as_posix()))
+    folder = workspace.inputs_dir / "geometries" / "wb"
+    folder.mkdir()
+    library = _saved_simulation_with(folder / "wb.fsm", ["W", "B"])
+    assert write_inventory(library) == folder / "wb.boundaries.toml"
+    stage_geometry(workspace, "neighbour.fsm")
+    matrix = geometry_matrix(tmp_path, " / VELOCITY: 30.0 / GEOMETRY: wb.fsm")
+    records = run_matrix(
+        matrix,
+        workspace,
+        name="matrix",
+        default_fs_version="26.120",
+        recipes=RECIPES,
+        assess=converged,
+        executor=StubSolver(WRITES_LOADS),
+        recipe_registry=workflow_registry(),
+    )
+    assert [record.status for record in records] == [RunStatus.CONVERGED]
+    assert records[0].inventory_source == "sidecar"
+    assert records[0].staged_as == "link" and records[0].staged_as_reason is None
+    inputs = workspace.sim_dir("7001") / "inputs"
+    assert sorted(path.name for path in inputs.iterdir()) == ["wb.boundaries.toml", "wb.fsm"], (
+        "the point's inputs show more than its own geometry's files"
+    )
+    assert os.path.samefile(inputs / "wb.fsm", library), "the point opened a second copy"
+    assert records[0].inputs_sha256 == {"wb.fsm": file_sha256(library)}
+
+
 # --- PFS-2029.11.02/.03: a motion record is bound and recorded ------------------------
 
 

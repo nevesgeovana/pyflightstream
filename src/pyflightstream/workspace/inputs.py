@@ -40,7 +40,12 @@ The library tree, created by ``CampaignWorkspace.init``:
   after the PPROC column that carries it; ``pyfs-matrix upgrade --inputs``
   moves a groups library (``inputs/groups/e<id>.toml``) here.
 - ``inputs/geometries/``: staged geometry files of any extension,
-  registered by file name; the id is the stem.
+  registered by file name; the id is the stem. A geometry sits either
+  directly in the folder (the flat layout) or in one subfolder named by
+  its stem, ``geometries/30_WB/30_WB.fsm``, with its boundary inventory
+  and provenance record beside it (PFS-2032.04, since 0.13.0); the cell
+  says ``30_WB.fsm`` in both cases, the folder is read first, and
+  :func:`migrate_geometry_layout` moves a flat library into folders.
 - ``inputs/profiles/``: input profile files (for example actuator
   thrust distributions), registered by file name.
 - ``inputs/executables.toml``: the build registry, mapping a
@@ -993,12 +998,25 @@ def resolve_geometry(inputs_dir: Path, name: str) -> Path:
     simulation with its boundary conditions in it, a mesh is not, and the
     workflow can tell the two apart before any seat is spent.
 
+    TWO LAYOUTS, THE FOLDER READ FIRST (PFS-2032.04, her reading of
+    2026-09-08, design 68 section A3). ``30_WB.fsm`` resolves to
+    ``geometries/30_WB/30_WB.fsm`` when that folder exists and to
+    ``geometries/30_WB.fsm`` otherwise, so the cell does not change and
+    no matrix written since 0.11.0 breaks. What the folder buys is a home
+    for the files that belong to one geometry: its boundary inventory and
+    its provenance record sit beside it, and a point staged from the
+    folder shows that geometry's files and never the whole library
+    (:meth:`~pyflightstream.workspace.CampaignWorkspace.stage_inputs`).
+    The flat layout is not deprecated; :func:`migrate_geometry_layout`
+    moves a library when its owner decides to.
+
     Parameters
     ----------
     inputs_dir : Path
         The workspace ``inputs/`` directory.
     name : str
-        File name directly under ``geometries/``, extension included.
+        File name, extension included, of a file directly under
+        ``geometries/`` or under ``geometries/<stem>/``.
 
     Returns
     -------
@@ -1009,22 +1027,21 @@ def resolve_geometry(inputs_dir: Path, name: str) -> Path:
     ------
     InputArtifactError
         A bare stem (no extension), naming every staged file that carries
-        that stem so the cell can be completed; a name the directory does
+        that stem so the cell can be completed; a name the library does
         not hold, naming the files it does; a path, which is never an id.
     """
     directory = Path(inputs_dir) / "geometries"
     if "/" in name or "\\" in name:
         base = PurePosixPath(name.replace("\\", "/")).name
         raise InputArtifactError(
-            f"geometry {name!r} is a path, and the GEOMETRY cell names a file directly "
+            f"geometry {name!r} is a path, and the GEOMETRY cell names a file "
             f"under {directory} by its file name, never a path: stage the file there "
-            f"and write GEOMETRY: {base}.",
+            f"(directly, or in a folder named by its stem) and write GEOMETRY: {base}.",
             kind="geometry",
             artifact_id=name,
         )
-    staged = (
-        sorted(p.name for p in directory.iterdir() if p.is_file()) if directory.is_dir() else []
-    )
+    found = _staged_geometries(directory)
+    staged = sorted(found)
     stem, suffix = PurePath(name).stem, PurePath(name).suffix
     if not suffix:
         _check_id(name, "geometry")
@@ -1040,18 +1057,61 @@ def resolve_geometry(inputs_dir: Path, name: str) -> Path:
                 artifact_id=name,
                 available=tuple(candidates),
             )
-        raise _miss("geometry", name, directory, suffix=None)
-    _check_id(stem, "geometry")
-    if name not in staged:
         raise InputArtifactError(
-            f"geometry {name!r} is not under {directory}; it holds "
-            f"{', '.join(staged) if staged else 'no file at all'}. Stage the file "
-            "there under exactly that name, or fix the cell.",
+            f"no geometry artifact with id {name!r}; "
+            + (
+                f"the library {directory} holds {', '.join(staged)}"
+                if staged
+                else f"the library directory {directory} holds no geometry yet (stage "
+                "the file there, directly or in a folder named by its stem)"
+            ),
             kind="geometry",
             artifact_id=name,
             available=tuple(staged),
         )
-    return directory / name
+    _check_id(stem, "geometry")
+    if name not in found:
+        raise InputArtifactError(
+            f"geometry {name!r} is not under {directory}; it holds "
+            f"{', '.join(staged) if staged else 'no file at all'}. Stage the file "
+            f"there under exactly that name (directly, or as {stem}/{name}), or fix "
+            "the cell.",
+            kind="geometry",
+            artifact_id=name,
+            available=tuple(staged),
+        )
+    return found[name]
+
+
+def _is_sidecar(name: str) -> bool:
+    """Whether a file name is a geometry's inventory or provenance record."""
+    return name.endswith(SIDECAR_SUFFIXES)
+
+
+def _staged_geometries(directory: Path) -> dict[str, Path]:
+    """Map every staged geometry file name to its path, both layouts read.
+
+    A file directly under ``geometries/`` is the flat layout. A folder
+    ``geometries/<stem>/`` is one geometry's home (PFS-2032.04), and the
+    geometry files in it are the ones whose stem is the folder's name, so
+    its ``<stem>.boundaries.toml`` (stem ``<stem>.boundaries``) and its
+    provenance record are not offered as geometries a cell could name;
+    a flat sidecar is left out by its suffix for the same reason. The
+    folder is read first: a file in it stands in front of a flat file of
+    the same name, which is the order the reading states.
+    """
+    if not directory.is_dir():
+        return {}
+    found: dict[str, Path] = {}
+    for entry in sorted(directory.iterdir()):
+        if entry.is_file():
+            if not _is_sidecar(entry.name):
+                found.setdefault(entry.name, entry)
+        elif entry.is_dir():
+            for path in sorted(entry.iterdir()):
+                if path.is_file() and path.stem == entry.name:
+                    found[path.name] = path
+    return found
 
 
 def resolve_profile(inputs_dir: Path, artifact_id: str) -> Path:
@@ -1516,6 +1576,14 @@ def migrate_input_ids(
 #: Suffix of the sidecar that states a geometry's boundary order, appended
 #: to the geometry's stem: ``30_WB.fsm`` has ``30_WB.boundaries.toml``.
 INVENTORY_SUFFIX = ".boundaries.toml"
+#: Suffix of the record that says where a geometry came from, appended to
+#: its stem the same way. The package writes none: the tier-3 preparer and
+#: a user do, and the library carries it beside the file it describes.
+PROVENANCE_SUFFIX = ".provenance.toml"
+#: The two files that belong to a geometry and are never geometries
+#: themselves: the resolver leaves them out of what a cell could name and
+#: the layout migration moves them with their geometry (PFS-2032.05).
+SIDECAR_SUFFIXES = (INVENTORY_SUFFIX, PROVENANCE_SUFFIX)
 
 
 def inventory_sidecar(geometry: str | Path) -> Path:
@@ -1614,3 +1682,89 @@ def read_inventory(sidecar: str | Path) -> tuple[str, ...]:
             "overwrite (CLI: --overwrite)."
         )
     return tuple(names)
+
+
+# --- one subfolder per geometry (PFS-2032.05) ----------------------------------------
+
+
+@dataclass(frozen=True)
+class GeometryMigration:
+    """What :func:`migrate_geometry_layout` did to one library.
+
+    Attributes
+    ----------
+    moved : tuple of (Path, Path)
+        Every file moved, as ``(where it was, where it is)``, in the order
+        the moves were made: each geometry file, then the sidecars that
+        carry its stem.
+    kept : tuple of str
+        The stems whose folder already existed and was left alone, a flat
+        file of that stem included: the folder is the reading's first
+        answer, so the migration does not decide which of the two the
+        owner meant.
+    """
+
+    moved: tuple[tuple[Path, Path], ...]
+    kept: tuple[str, ...]
+
+
+def migrate_geometry_layout(inputs_dir: str | Path) -> GeometryMigration:
+    """Move a flat geometry library into one folder per geometry, idempotently.
+
+    Every ``geometries/<stem>.<ext>`` directly under the library moves to
+    ``geometries/<stem>/<stem>.<ext>``, and its ``<stem>.boundaries.toml``
+    and ``<stem>.provenance.toml`` move with it, so what belongs to one
+    geometry sits in one place (PFS-2032.05, design 68 section A3). A
+    folder that already exists is left alone with whatever it holds, and a
+    second run over the same library moves nothing: nothing here decides
+    for the owner. The run records of a workspace are untouched and keep
+    reading, because a record names its inputs by file name and hashes
+    their bytes, and neither moved.
+
+    Nothing migrates by itself: the resolver reads both layouts, and the
+    flat one is not deprecated.
+
+    Parameters
+    ----------
+    inputs_dir : str or Path
+        The workspace ``inputs/`` directory.
+
+    Returns
+    -------
+    GeometryMigration
+        The files moved and the folders left alone.
+
+    Raises
+    ------
+    InputArtifactError
+        A root with no ``inputs/geometries``: there is no library to move,
+        and creating one here would hide a wrong path.
+    """
+    directory = Path(inputs_dir) / "geometries"
+    if not directory.is_dir():
+        raise InputArtifactError(
+            f"{directory} does not exist, so there is no geometry library to migrate: "
+            "the root of a campaign workspace carries inputs/geometries (create the "
+            "tree with pyfs-workspace init), and the path given holds none.",
+            kind="geometry",
+            artifact_id=None,
+        )
+    entries = sorted(directory.iterdir())
+    kept = tuple(entry.name for entry in entries if entry.is_dir())
+    created: set[Path] = set()
+    moved: list[tuple[Path, Path]] = []
+    for entry in entries:
+        if not entry.is_file() or _is_sidecar(entry.name):
+            continue
+        folder = directory / entry.stem
+        if folder.exists() and folder not in created:
+            continue
+        if folder not in created:
+            folder.mkdir()
+            created.add(folder)
+        sidecars = [directory / (entry.stem + suffix) for suffix in SIDECAR_SUFFIXES]
+        for source in (entry, *[sidecar for sidecar in sidecars if sidecar.is_file()]):
+            target = folder / source.name
+            source.rename(target)
+            moved.append((source, target))
+    return GeometryMigration(moved=tuple(moved), kept=kept)

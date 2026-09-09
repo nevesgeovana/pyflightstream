@@ -73,6 +73,7 @@ from pyflightstream.workspace.inputs import (
     EXECUTABLES_FILE,
     INPUT_KINDS,
     KIND_LETTERS,
+    GeometryMigration,
     IdMigration,
     InputArtifactError,
     PointXyz,
@@ -81,6 +82,7 @@ from pyflightstream.workspace.inputs import (
     ReferenceArtifact,
     RegisteredBuild,
     SetupArtifact,
+    migrate_geometry_layout,
     migrate_groups_to_pproc,
     migrate_input_ids,
     resolve_build,
@@ -112,6 +114,7 @@ __all__ = [
     "BrokenCommandRecord",
     "CampaignWorkspace",
     "PprocArtifact",
+    "GeometryMigration",
     "IdMigration",
     "InputArtifactError",
     "NamingTemplate",
@@ -131,6 +134,7 @@ __all__ = [
     "collection_name",
     "expand_group",
     "extract_trailing_edge",
+    "migrate_geometry_layout",
     "migrate_groups_to_pproc",
     "strip_rotor_facts",
     "migrate_input_ids",
@@ -702,8 +706,9 @@ class RunRecord(BaseModel):
     #: (PFS-2029.06.03); None when the geometry declares none.
     inventory_source: str | None = None
     #: How the inputs were staged (PFS-2029.17): ``link``, a directory
-    #: junction on Windows and a symbolic link elsewhere, or ``copy``; None
-    #: for a point with no staged input.
+    #: junction on Windows and a symbolic link elsewhere, at the geometry's
+    #: own folder of the library or at the flat library (PFS-2032.04), or
+    #: ``copy``; None for a point with no staged input.
     staged_as: str | None = None
     #: Why a copy was made where a link was asked for; None otherwise.
     staged_as_reason: str | None = None
@@ -1665,6 +1670,15 @@ class CampaignWorkspace:
         was made and why, because a junction is not a copy and a scan
         that crosses one double-counts; the run record carries the answer.
 
+        AT THE GEOMETRY'S OWN FOLDER WHEN IT HAS ONE (PFS-2032.04). A
+        library laid out one folder per geometry
+        (``inputs/geometries/30_WB/30_WB.fsm``) is linked at that folder,
+        so the point's inputs show that geometry's files, its boundary
+        inventory beside it, and never the whole library; a flat library
+        is linked as before. A link left by an earlier staging that points
+        elsewhere, the whole library after a migration for instance, is
+        replaced rather than kept.
+
         Parameters
         ----------
         sim_id : str
@@ -1717,21 +1731,28 @@ class CampaignWorkspace:
         return hashes
 
     def _link_inputs(self, inputs: Path, origins: Sequence[Path]) -> tuple[str, str | None]:
-        """Make ``inputs`` a link to the geometry library, or say why not."""
+        """Make ``inputs`` a link to the geometry library, or say why not.
+
+        The link's target is the one folder every source sits in: the
+        library itself (the flat layout) or one geometry's folder directly
+        under it (PFS-2032.04). Anything else is copied, with the reason.
+        """
         library = (self.inputs_dir / "geometries").resolve()
         if not origins:
             return "copy", None
         parents = {origin.resolve().parent for origin in origins}
-        if parents != {library}:
+        target = parents.pop() if len(parents) == 1 else None
+        if target is None or (target != library and target.parent != library):
             if _is_link(inputs):
                 _remove_link(inputs)
                 inputs.mkdir()
             return "copy", (
-                "the source is not in the workspace geometry library (inputs/geometries), "
-                "and a link would expose a directory the workspace does not own"
+                "the source is not in the workspace geometry library (inputs/geometries, "
+                "directly or in one geometry's folder), and a link would expose a "
+                "directory the workspace does not own"
             )
         if _is_link(inputs):
-            if Path(os.path.realpath(inputs)) == library:
+            if Path(os.path.realpath(inputs)) == target:
                 return "link", None
             _remove_link(inputs)
         elif any(inputs.iterdir()):
@@ -1742,7 +1763,7 @@ class CampaignWorkspace:
         else:
             inputs.rmdir()
         try:
-            _make_dir_link(library, inputs)
+            _make_dir_link(target, inputs)
         except OSError as error:
             inputs.mkdir(exist_ok=True)
             return "copy", f"the filesystem refused the link: {error}"
