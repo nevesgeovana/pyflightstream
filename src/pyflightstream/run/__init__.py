@@ -2950,10 +2950,9 @@ def _execute_point(
         # the command line alone; this says which executor built it.
         "executor": None,
         # The export window the row states for its unsteady exports, as
-        # resolved for this run. TODAY NO ROW KEY STATES ONE, so this is
-        # None for every record this version writes; PFS-2031.18 fills it
-        # with EXPORT_UNSTEADY_AFTER_REV or EXPORT_UNSTEADY_AFTER_ITER as
-        # resolved, and the field is typed wide enough to take either.
+        # resolved for this run (PFS-2031.18): filled below beside the two
+        # action files when the row states EXPORT_UNSTEADY_AFTER_REV or
+        # EXPORT_UNSTEADY_AFTER_ITER; None for a row that states neither.
         "export_window": None,
         # Stated, not defaulted (REV010-014). The field defaults to None so
         # that a row which never carried it stays honest about that; a row
@@ -3027,6 +3026,15 @@ def _execute_point(
         }
         base["action_program"] = UNSTEADY_ACTION_PROGRAM
         base["action_script"] = UNSTEADY_ACTION_SCRIPT
+        # What the row stated and the step the exports begin on, so a
+        # reader of the manifest answers "from which step" without opening
+        # the counter program (the release review of 2026-09-09).
+        base["export_window"] = {
+            "stated_form": threshold.stated_form,
+            "stated_value": threshold.stated_value,
+            "first_step": threshold.first_step,
+            "time_iterations": threshold.time_iterations,
+        }
     base["script_sha256"] = script_sha
     base["script_path"] = str(Path(script_path).relative_to(sim_dir).as_posix())
     base["raw_flag"] = script.raw_flag

@@ -135,7 +135,7 @@
 
 \begin{frame}[fragile]{Installation and requirements}
   \begin{itemize}
-    \item Python 3.11 or newer. Runtime dependencies: numpy, pandas, pydantic, pyyaml, trimesh, xarray.
+    \item Python 3.12 or newer (SPEC 0, computed 2026-09-09). Runtime dependencies: numpy 2.2 or newer, pandas 2.3 or newer, pydantic 2, pyyaml, trimesh, xarray.
     \item Install from PyPI (\code{pip install pyflightstream}); contributors use the editable clone below:
   \end{itemize}
 \begin{lstlisting}[style=txt]
@@ -286,7 +286,7 @@ resolve("26.12")           # Ambiguous: 26.120, 26.121, 26.122 or 26.123?
   \vspace{3mm}
   \begin{itemize}
     \item Tier 2 asks: does this command do what the manual says, on this build? How many passed and how many were found broken is published per version by the compatibility matrix, which regenerates on every docs build.
-    \item Tier 3 asks: does the whole workspace run, and does the physics still hold? \code{tests/tier3\_licensed} is a campaign workspace of six run matrices over a synthetic library, one test per row; the physics cases are rows of it, judged against their committed references, and a cross-version drift suite compares solver builds on identical inputs.
+    \item Tier 3 asks: does the whole workspace run, and does the physics still hold? \code{tests/tier3\_licensed} is a campaign workspace of seven run matrices over a synthetic library, one test per row; the physics cases are rows of it, judged against their committed references, and a cross-version drift suite compares solver builds on identical inputs.
   \end{itemize}
 \end{frame}
 

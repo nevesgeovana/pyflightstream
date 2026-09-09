@@ -173,7 +173,10 @@ FlightStream versions.
   thirteen reached the script the solver received, that the log names no
   error for any of them, and that the database says `verified` on that build
   citing the sweep's compat report (`reports/compat/CMP-<build>_2026-09-08_rotor-path`),
-  from which `pyfs-qa apply-compat` promoted 13 statuses per build. 26.121 and
+  from which `pyfs-qa apply-compat` promoted 13 statuses on 26.120 and eight
+  on 26.123, the five already verified there keeping their earlier probe
+  citation, which the tool now does by construction (a verified row is
+  corroborated by a later verified report, never re-cited). 26.121 and
   26.122 are named as not covered: no executable of theirs is registered here.
   The sweep was the known gap the 0.10.0 note recorded.
 - **Repository guard: a spreadsheet cannot enter the public tree**
@@ -212,10 +215,10 @@ FlightStream versions.
   iterated modules alone, and a promise of any other shape could not be
   refused because it could not be recorded. Every shim builds its warning
   text from its entry, so the release a warning names and the one the
-  guard enforces cannot disagree. Two live promises still sit outside the
-  ledger, the `fs_version=` keyword of `plan_matrix` and the
-  `vorticity_drag_boundaries=` parameter of `analysis_setup`, because each
-  says "a future release" and carries no removal version to record.
+  guard enforces cannot disagree. The two promises that said "a future
+  release", the `fs_version=` keyword of `plan_matrix` and the
+  `vorticity_drag_boundaries=` parameter of `analysis_setup`, joined the
+  ledger the same night naming 1.0.0; see the PFS-2021.02 entry below.
 
 - **The run record carries how the solver was called, and the evidence
   reports read it rather than assert it** (PFS-2012.04). `RunRecord`
@@ -530,7 +533,7 @@ FlightStream versions.
   naming it, and `register_post_stage`'s contract says so. A manifest or a
   campaign file written on the one day the field was called `matrix` still
   reads: the old key is taken as the new one.
-  The reason is the tier-3 workspace, which holds six matrices over one
+  The reason is the tier-3 workspace, which holds seven matrices over one
   library and could not keep their tables apart.
 
 - **The test suite is organized by tier**, explicitly: `tests/tier1_offline`
@@ -545,6 +548,41 @@ FlightStream versions.
   set through the workspace.
 
 ### Fixed
+
+- **The release review of 0.13.0, round one: five lenses over
+  237a47a..83d856a, thirty-three findings, twenty-six fixed here, three
+  registered for 0.14.0, five questions to the author** (the round ledger
+  REL-0130 in the coordination tree). What moved in the package:
+  `apply-compat` never replaces the citation of a row already `verified`
+  elsewhere, the new report corroborates it (outcome `corroborated`, counted
+  apart from promotions), and the five 26.123 rows of the rotor-path sweep
+  carry their 2026-08-17 full-sim citation again (RPT-043 amended); a
+  physics matrix whose one-row case is named by two rows is refused BEFORE
+  the run by `physics_rows`, at plan time in both drivers and `pyfs-qa
+  physics`, where the refusal had sat in the reduction after every seat was
+  spent, and the two-builds test now measures the manifest empty; the record
+  of an unsteady row carries the resolved export threshold in
+  `export_window` (`stated_form`, `stated_value`, `first_step`,
+  `time_iterations`), which had shipped permanently None under a comment
+  calling it future work; a name 0.13.0 removed from `qa.physics`
+  (`run_physics`, `run_drift`, the four `build_phy*_script`) answers an
+  import with the release that removed it and the workspace call that
+  replaced it, rather than a bare name error; a `MOVING_BOUNDARIES` token
+  spelled as a group is refused as a group problem, naming the missing
+  PPROC artifact or the groups the artifact carries; `pyfs-workspace
+  migrate-geometries` takes the current directory when no root is given;
+  `her_polar_file_name` takes `mach` and `group` by keyword only. What the
+  tests gained: the emitted counter program is loaded as a module and its
+  first exporting step compared with the package's `first_step` in every
+  threshold form (the revolutions branch had been executed by nothing at any
+  tier, two mutants survived); `propose_type`'s two `ManualCallError`
+  refusals asserted; the forbid-spreadsheets hook's suffix pattern compared
+  with `SPREADSHEET_SUFFIXES`. What the prose gained: the guide's Python
+  floor, NFR-27's example and NFR-05's evidence line follow the declared
+  floor; seven matrices everywhere a live sentence counts them; the
+  PFS-2021.07.01 entry no longer says two promises sit outside the ledger;
+  the moment point's frame on `ReferenceValues`; `test_support_window`'s
+  docstring says the stated date is frozen on purpose.
 
 - **A row on a second build is pre-flighted under that build's grammar**
   (the residual PFS-2009.05 left, met while pfs0130 was written on
@@ -595,8 +633,8 @@ FlightStream versions.
   a value outside the set is refused by a message that lists the letters
   and the digits and says a listed digit may be passed as an int. A bool is
   not an integer here, and an enum that lists no digit still refuses one.
-  The getting-started page shows the transcribed line, and the example
-  runs in tier 1.
+  The getting-started page shows the transcribed line, and the same
+  calls are exercised in tests/tier1_offline/test_script.py.
 
 - **The data-model page and the workspace docstring name `pproc/` as the
   fourth input kind, not `groups/`** (PFS-2032.02). The kind has been `pproc`

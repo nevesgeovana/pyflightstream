@@ -111,7 +111,9 @@
     `tests/tier1_offline/test_support_window.py` re-derives the floors
     from the release dates and the stated date, so the schedule
     overtaking the declaration fails the suite rather than going
-    unnoticed.
+    unnoticed. Evidence: `.github/workflows/ci.yml` (the Linux and
+    Windows legs at the floor), `tests/tier1_offline/test_support_window.py`,
+    and the CHANGELOG entry for PFS-2024.07.
 
     The Windows leg was added 2026-08-02 (review finding PYFS-024) and
     the gap it closes is worth naming: this requirement said Windows
@@ -649,7 +651,8 @@
     3. **A core dependency's Python ceiling propagates.** This
        package's `requires-python` is never wider than any core
        dependency's. ITACA declares `>=3.11,<3.14`, so taking it as a
-       core dependency narrows this package from `>=3.11` to
+       core dependency narrows this package from its declared floor (`>=3.12`
+       since 2026-09-09, SPEC 0) to
        `>=3.11,<3.14`. Leaving ours open would keep the metadata
        claiming 3.14 works while the resolver proves it does not. The
        narrowing is not metadata alone: NFR-05, the README install

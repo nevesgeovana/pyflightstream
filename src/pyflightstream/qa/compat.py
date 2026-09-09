@@ -614,14 +614,19 @@ def apply_compat(
         names = [name for name in _load_yaml(chapter_path) if name in pending]
         if not names:
             continue
+        outcomes: dict[str, str] = {}
         for name in names:
             body = pending.pop(name)
+            before = text
             text = _rewrite_version_line(
                 text, chapter_path.name, name, canonical, body, citation, order
             )
+            # A verified row that kept its earlier citation leaves the text
+            # as it was; the report corroborates it and promotes nothing.
+            outcomes[name] = CORROBORATED if text == before else str(body["outcome"])
         _validate_chapter(chapter_path.name, text, names)
         rewritten.append((chapter_path, text))
-        promotions.extend((name, targets[name]["outcome"], chapter_path.name) for name in names)
+        promotions.extend((name, outcomes[name], chapter_path.name) for name in names)
     if pending:
         raise QaEvidenceError(
             f"report judges {', '.join(sorted(pending))} but no chapter file defines "
@@ -631,6 +636,11 @@ def apply_compat(
         chapter_path.write_text(text, encoding="utf-8")
     return promotions
 
+
+#: The outcome apply_compat reports for a verified row whose earlier
+#: citation it kept (see _rewritten_flow_entry): not a promotion, and the
+#: caller prints it as such.
+CORROBORATED = "corroborated"
 
 _VERSION_LINE = re.compile(r'^(\s+)"(\d{2}\.\d{3})":\s*\{.*\}\s*$')
 
@@ -822,6 +832,22 @@ def _rewritten_flow_entry(
                 "Promoting would write a row the loader refuses. Decide whether the "
                 "override or the measurement is wrong before promoting"
             )
+
+    # A row already verified on the strength of ANOTHER committed report
+    # keeps that citation: the incoming run corroborates it and does not
+    # replace it. Measured 2026-09-09 (the release review of 0.13.0): a
+    # workflow sweep whose effect line was the same run-level outcome for
+    # thirteen commands overwrote five rows whose probe reports carried a
+    # discriminating per-command effect, and the stronger evidence was then
+    # cited from nowhere. The caller sees the line unchanged and reports
+    # the row as corroborated rather than promoted.
+    if (
+        status == ProbeOutcome.VERIFIED.value
+        and existing.get("status") == ProbeOutcome.VERIFIED.value
+        and existing.get("report")
+        and existing.get("report") != citation
+    ):
+        return line
 
     # The keys this promotion OWNS are rendered exactly as they were
     # before this function existed, because the shape of a promoted line

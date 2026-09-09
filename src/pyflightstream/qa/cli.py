@@ -37,6 +37,7 @@ from pyflightstream.cases.workflows import WorkflowCoverageError
 from pyflightstream.commands import CommandRegistry
 from pyflightstream.options import get_option
 from pyflightstream.qa.compat import (
+    CORROBORATED,
     PROMOTABLE_OUTCOMES,
     apply_compat,
     compat_report_paths,
@@ -52,6 +53,7 @@ from pyflightstream.qa.matrix import (
     physics_build,
     physics_from_workspace,
     physics_matrix,
+    physics_rows,
 )
 from pyflightstream.qa.physics import (
     PhysicsEnvironmentError,
@@ -570,6 +572,7 @@ def _cmd_physics(args: argparse.Namespace) -> int:
     try:
         matrix = physics_matrix(args.workspace, args.matrix)
         canonical = physics_build(matrix)
+        physics_rows(matrix)
     except (PhysicsEnvironmentError, MatrixError, OSError) as error:
         print(f"nothing run: {error}", file=sys.stderr)
         return 2
@@ -746,7 +749,10 @@ def _cmd_apply_compat(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
         return 2
-    print(f"{len(promotions)} status(es) promoted; database reloaded and valid")
+    promoted = sum(1 for _, status, _ in promotions if status != CORROBORATED)
+    corroborated = len(promotions) - promoted
+    tail = f" and {corroborated} corroborated (citation kept)" if corroborated else ""
+    print(f"{promoted} status(es) promoted{tail}; database reloaded and valid")
     return 0
 
 

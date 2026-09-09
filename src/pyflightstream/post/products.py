@@ -206,7 +206,12 @@ class ProductExistsError(ProductError):
 
 @dataclass(frozen=True)
 class ReferenceValues:
-    """The reference block of a product: SREF, CREF, BREF and the moment point."""
+    """The reference block of a product: SREF, CREF, BREF and the moment point.
+
+    The moment point is in the geometry's own coordinate system, the one the
+    solver holds the mesh in and reports loads about (the MRP frame her
+    scripts created sits at this point); the units ride on the field names.
+    """
 
     sref_m2: float
     cref_m: float
@@ -480,7 +485,7 @@ class HerPolarTable:
     rows: list[dict[str, float]]
 
 
-def her_polar_file_name(polar: str | int, mach: float, group: str | int) -> str:
+def her_polar_file_name(polar: str | int, *, mach: float, group: str | int) -> str:
     """``<polar>_M<mach code:02d>_g<group:02d>.dat``: her format beside the polar table."""
     return polar_file_name(polar, mach, group)[: -len(".csv")] + ".dat"
 
@@ -1106,7 +1111,7 @@ def _sim_products(
             if products.her_polar_format:
                 # PFS-2014.01.01: the same rows, a second time, in the
                 # format her existing tooling opens, beside the table.
-                target = _target(out / her_polar_file_name(sim_id, mach, group))
+                target = _target(out / her_polar_file_name(sim_id, mach=mach, group=group))
                 write_her_polar_format(
                     target,
                     polar=sim_id,

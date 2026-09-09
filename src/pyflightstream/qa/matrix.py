@@ -86,6 +86,7 @@ __all__ = [
     "case_of_row",
     "drift_from_workspace",
     "physics_build",
+    "physics_rows",
     "physics_from_workspace",
     "physics_matrix",
     "point_result",
@@ -383,6 +384,47 @@ def _one_row_each(case_id: str, rows: list[MatrixRow]) -> None:
         )
 
 
+def physics_rows(matrix: str | Path) -> dict[str, list[MatrixRow]]:
+    """Return the active rows of the matrix grouped by the case each names.
+
+    The shape of the matrix is known before anything runs, so it is
+    refused before anything runs: a row naming a case the registry does
+    not know, and a case named by two rows where the reduction reads one
+    (every case but PHY-02, whose two rows are the full span and the
+    mirrored half). The release review of 2026-09-09 measured the second
+    refusal firing only in the reduction, after every point of the matrix
+    had spent its seat.
+
+    Raises
+    ------
+    PhysicsEnvironmentError
+        When a row names an unregistered case, or a one-row case is named
+        by more than one row. Rows naming no case are not grouped and not
+        refused: a workspace matrix may carry rows of its own.
+    """
+    path = Path(matrix)
+    by_case: dict[str, list[MatrixRow]] = {}
+    for row in read_matrix(path):
+        case_id = case_of_row(row)
+        if case_id is None:
+            continue
+        if case_id not in PHYSICS_CASES:
+            raise PhysicsEnvironmentError(
+                f"row {row.pol} of {path.name} names case {case_id}, which the registry "
+                f"does not know; registered: {', '.join(PHYSICS_CASES)}. A row names its "
+                "case at the head of DESCRIPTION, and the reduction is the registry's."
+            )
+        by_case.setdefault(case_id, []).append(row)
+    for case_id, rows in by_case.items():
+        if case_id != "PHY-02" and len(rows) != 1:
+            raise PhysicsEnvironmentError(
+                f"{case_id} is one row of {path.name} and {len(rows)} rows name it: "
+                f"{', '.join(row.pol for row in rows)}. The reduction reads one row for "
+                "this case; keep one active, or move the others to another matrix."
+            )
+    return by_case
+
+
 def reduce_physics(
     workspace: CampaignWorkspace,
     matrix: str | Path,
@@ -427,19 +469,7 @@ def reduce_physics(
         one build; two is a drift).
     """
     path = Path(matrix)
-    rows = read_matrix(path)
-    by_case: dict[str, list[MatrixRow]] = {}
-    for row in rows:
-        case_id = case_of_row(row)
-        if case_id is None:
-            continue
-        if case_id not in PHYSICS_CASES:
-            raise PhysicsEnvironmentError(
-                f"row {row.pol} of {path.name} names case {case_id}, which the registry "
-                f"does not know; registered: {', '.join(PHYSICS_CASES)}. A row names its "
-                "case at the head of DESCRIPTION, and the reduction is the registry's."
-            )
-        by_case.setdefault(case_id, []).append(row)
+    by_case = physics_rows(path)
     by_row = _records_by_row(workspace, path.stem)
     if not by_row:
         raise PhysicsEnvironmentError(
@@ -561,6 +591,7 @@ def physics_from_workspace(
     """
     path = physics_matrix(root, matrix)
     physics_build(path)
+    physics_rows(path)
     workspace = _workspace(root)
     try:
         run_physics_matrix(workspace, path, name=name, resume=resume)
@@ -627,6 +658,7 @@ def drift_from_workspace(
         that already exists.
     """
     path = physics_matrix(root, matrix)
+    physics_rows(path)
     canonical_a = resolve(version_a).canonical
     canonical_b = resolve(version_b).canonical
     builds = sorted({row.fs_build.strip() for row in read_matrix(path) if row.fs_build.strip()})

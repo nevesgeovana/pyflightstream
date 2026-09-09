@@ -2601,3 +2601,23 @@ def test_insert_version_row_refuses_what_it_cannot_find():
             status="documented",
             note="n",
         )
+
+
+def test_propose_type_refuses_the_call_shapes_it_cannot_read():
+    """The catalogued class of 74472ce, asserted: the QA lens of 2026-09-09
+    measured both refusals as untested (each ``if`` neutered, 213 passed).
+    A string given twice, a positional count other than two, and a missing
+    string are each refused with the shape that was seen."""
+    from pyflightstream.utils.errors import ManualCallError
+
+    command = typed_command()
+    description = command.parameters["AXIS"]
+    with pytest.raises(ManualCallError, match=r"got 1 positional argument\(s\)$"):
+        propose_type("AXIS")
+    with pytest.raises(ManualCallError, match=r"got 2 positional argument\(s\) and a keyword$"):
+        propose_type("AXIS", description, placeholder="AXIS")
+    with pytest.raises(ManualCallError, match=r"needs both placeholder= and description="):
+        propose_type(placeholder="AXIS")
+    with pytest.raises(ManualCallError, match=r"needs both placeholder= and description="):
+        propose_type(description=description)
+    assert issubclass(ManualCallError, TypeError), "a wrong call shape is a TypeError to a caller"

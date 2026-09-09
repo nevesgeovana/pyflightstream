@@ -340,7 +340,7 @@ says what a test needs before it says what it checks
   are committed under `reports/compat/` and promoted into the database by
   `pyfs-qa apply-compat`.
 * Tier 3 (`tests/tier3_licensed`, licensed machine): the folder IS a
-  campaign workspace. Six run matrices over one synthetic library, every
+  campaign workspace. Seven run matrices over one synthetic library, every
   capability of the matrix as a row, run by `pyfs-matrix run` on the build
   each row names through the gitignored `inputs/executables.local.toml`,
   and one test per row beside them, selected by

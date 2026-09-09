@@ -497,19 +497,6 @@ class RunRecord(BaseModel):
         release dropping it; no row is written under it. The rename
         moved :data:`MANIFEST_SCHEMA` to ``pyfs-manifest/3``, for the
         reason recorded on that constant.
-    executor : ExecutorRecord or None
-        Which executor ran the point and the argv it ran, read off the
-        run rather than asserted (PFS-2012.04); None on a point where
-        no solver ran, and on every row written before 0.13.0. Adding
-        it did not move :data:`MANIFEST_SCHEMA`.
-    export_window : dict or None
-        The window the row states for its unsteady exports, as resolved
-        for this run, keyed by the row key that stated it. No row key
-        states one today, so every row this version writes carries None;
-        PFS-2031.18 fills it with ``EXPORT_UNSTEADY_AFTER_REV`` or
-        ``EXPORT_UNSTEADY_AFTER_ITER`` as resolved. None also means the
-        row predates the field. Adding it did not move
-        :data:`MANIFEST_SCHEMA`.
         Empty for the ordinary run, which is the
         point: a run that leaned on a command known not to work is
         distinguishable from one that did not, forever, without
@@ -519,6 +506,19 @@ class RunRecord(BaseModel):
         (PFS-2012.03). :meth:`read_manifest` refuses an entry that lacks
         it, naming this manifest and the stamp the row carries, rather
         than reading the field as empty.
+    executor : ExecutorRecord or None
+        Which executor ran the point and the argv it ran, read off the
+        run rather than asserted (PFS-2012.04); None on a point where
+        no solver ran, and on every row written before 0.13.0. Adding
+        it did not move :data:`MANIFEST_SCHEMA`.
+    export_window : dict or None
+        The export threshold the row states for its unsteady exports
+        (PFS-2031.18), as resolved for this run: ``stated_form``
+        (``revolutions`` or ``iterations``, the key the row wrote),
+        ``stated_value``, ``first_step`` (the first time step whose
+        export runs) and ``time_iterations``. None for a row that states
+        neither key, and for a row that predates the field. Adding it
+        did not move :data:`MANIFEST_SCHEMA`.
     solver_setup : dict, optional
         Serialized solver-setup snapshot
         (:class:`pyflightstream.script.solver_setup.SolverSetup`) of

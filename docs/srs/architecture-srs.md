@@ -151,8 +151,9 @@ structural side of the aeroelastic loop), `probes` and `farfield`
 ## Command-line surface
 
 Five console entry points, one per operational concern: `pyfs-qa`
-(evidence tiers 2 and 3), `pyfs-workspace` (workspace initialization and
-archiving of a recorded simulation),
+(evidence tiers 2 and 3), `pyfs-workspace` (workspace initialization,
+archiving of a recorded simulation, and migration of a flat geometry
+library into one folder per geometry),
 `pyfs-matrix` (run-matrix upgrade, conversion, pre-flight and run),
 `pyfs-fsi` (the coupling-loop executable), and `pyfs-manual`
 (reading a vendor manual against the command database, and WRITING

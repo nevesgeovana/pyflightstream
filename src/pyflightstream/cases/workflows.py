@@ -1555,6 +1555,22 @@ def _refuse_name_absent_from_inventory(
     if key == MOVING_BOUNDARIES_VARIABLE and case.pproc is not None and case.pproc.groups:
         numbers = ", ".join(f"g{number}" for number in case.pproc.groups)
         groups = f", or a group of {_artifact_of(case)} as {numbers}"
+    if key == MOVING_BOUNDARIES_VARIABLE and _GROUP_TOKEN.match(token):
+        # The token is spelled as a GROUP, so the cause is the artifact and
+        # not the geometry (the release review of 2026-09-09).
+        if case.pproc is None:
+            raise ScriptReferenceError(
+                f"case {case.sim_id!r} states {key} with {token!r}, a group spelling, and "
+                "names no PPROC artifact, so it resolves to no group. Name the artifact "
+                "in the PPROC column, or write a boundary name of "
+                f"{_inventory_source(case)}: {_declared_labels(labels)}."
+            )
+        raise ScriptReferenceError(
+            f"case {case.sim_id!r} states {key} with {token!r}, a group spelling, and "
+            f"{_artifact_of(case)} carries no group of that number; it carries "
+            f"{', '.join(f'g{n}' for n in case.pproc.groups) or 'no group'}. Write one of "
+            f"those, or a boundary name of {_inventory_source(case)}: {_declared_labels(labels)}."
+        )
     raise ScriptReferenceError(
         f"case {case.sim_id!r} states {key} with {token!r}, and {_inventory_source(case)} "
         f"declares no boundary of that name or family; it declares "

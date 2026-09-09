@@ -23,6 +23,7 @@ import hashlib
 import json
 import os
 import re
+import runpy
 import subprocess
 import sys
 from pathlib import Path
@@ -359,3 +360,39 @@ def test_the_worked_example_on_the_page_builds_to_the_lines_it_shows():
     assert threshold is not None
     assert threshold.first_step == 72 and threshold.time_iterations == 108
     assert "step 72" in text and "108" in text
+
+
+@pytest.mark.parametrize(
+    "stated",
+    [
+        pytest.param({REV: "1"}, id="one-revolution"),
+        pytest.param({REV: "0.5"}, id="half-revolution"),
+        pytest.param({ITER: "4"}, id="four-iterations"),
+    ],
+)
+def test_the_program_first_exports_on_the_step_the_package_computed(tmp_path, stated):
+    """The arithmetic is written twice, once in the package (``first_step``)
+    and once in the emitted program (``state``), and the two can diverge
+    silently. The QA lens of the 0.13.0 release measured that the revolutions
+    branch of the program was executed by no test at any tier: ``reached =
+    count`` and ``azimuth / 180.0`` both survived. This pins the two
+    arithmetics to each other in every form a row can state."""
+    from pyflightstream.cases.workflows import unsteady_export_threshold
+    from pyflightstream.run._actions_counter import render_program
+
+    threshold = unsteady_export_threshold(rotor_case(**stated))
+    assert threshold is not None
+    program = tmp_path / PROGRAM
+    program.parent.mkdir(parents=True)
+    program.write_text(render_program(threshold, interpreter=sys.executable), encoding="utf-8")
+    # Loaded as a module, not run: ``main`` is behind the name guard, so no
+    # file is written; ``state`` is what the solver's clock drives.
+    namespace = runpy.run_path(str(program), run_name="pfs_unsteady_actions_under_test")
+    state = namespace["state"]
+    steps = range(1, threshold.time_iterations + 1)
+    exporting = [count for count in steps if state(count)["exporting"]]
+    assert exporting, "the program never exports inside the row's time loop"
+    assert exporting[0] == threshold.first_step, (stated, exporting[:3], threshold)
+    assert exporting == list(range(threshold.first_step, threshold.time_iterations + 1)), (
+        "once reached, the export runs on every later step"
+    )

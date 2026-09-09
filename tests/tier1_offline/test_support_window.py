@@ -10,12 +10,16 @@ supported for THREE years after its initial release and a core package
 version for TWO, and the floor is the oldest version still inside that
 window on the date the window was computed.
 
-The test re-derives the floor from the release dates and a stated date
-rather than holding a constant, so the day the schedule moves past the
-declared floor this file says so, and the commit that moves the floor
-states the new date beside it. The release dates below were read from
-PyPI (``upload_time`` of the first file of each release) and from the
-Python release schedule on 2026-09-09.
+The test re-derives the floor from the release dates and the stated
+date rather than holding the floor as a constant, so a declared floor
+that disagrees with the schedule ON THAT DATE fails here, and the commit
+that moves the floor states the new date beside it. The date itself is
+frozen on purpose: tier 1 reads no clock, so the day the calendar moves
+past the window is a release-review item and not a red test (the QA
+lens of 2026-09-09 measured that this file cannot go red with time).
+The release dates below were read from PyPI (``upload_time`` of the
+first file of each release) and from the Python release schedule on
+2026-09-09.
 """
 
 from __future__ import annotations

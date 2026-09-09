@@ -3591,7 +3591,7 @@ def test_a_run_record_reads_the_executor_off_the_run(tmp_path):
         recipes={"steady": steady_recipe},
     )
     assert record.executor == {"class_name": "StubSolver", "argv": list(record.argv)}
-    assert record.export_window is None, "no row key states a window yet (PFS-2031.18)"
+    assert record.export_window is None, "a steady row states no export threshold"
     # It survives the round trip through runs.json.
     assert workspace.read_manifest()[0].executor == record.executor
 

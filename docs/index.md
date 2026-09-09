@@ -94,7 +94,7 @@ and what each of them registered or broke, are in the changelog rather
 than re-threaded here. Five command-line
 tools ship with the package: `pyfs-qa`
 (probes, physics regression, drift), `pyfs-workspace` (campaign
-workspace init and archive), `pyfs-matrix` (run-matrix upgrade, convert, pre-flight and run),
+workspace init, archive and migrate-geometries), `pyfs-matrix` (run-matrix upgrade, convert, pre-flight and run),
 `pyfs-fsi` (the aeroelastic coupling executable), and `pyfs-manual`
 (maintainer tool: compares a vendor manual against the command
 database, reports what each build documents and what changed between

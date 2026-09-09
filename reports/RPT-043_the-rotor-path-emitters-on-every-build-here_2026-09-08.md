@@ -65,8 +65,13 @@ sweep's compat report.
 The compat reports are `reports/compat/CMP-26120_2026-09-08_rotor-path.yaml`
 and `CMP-26123_2026-09-08_rotor-path.yaml`, one entry per command with
 the emitted line, the row, the status and the script's sha256, applied
-with `pyfs-qa apply-compat`, which promoted 13 statuses on each build
-("database reloaded and valid").
+with `pyfs-qa apply-compat`: 13 statuses promoted on 26.120, and on 26.123
+eight promoted and five corroborated. AMENDED 2026-09-09 by the release
+review: the tool first overwrote the five rows already `verified` on 26.123
+with this sweep's citation, replacing a per-command probe effect with the
+run-level one; those five keep their earlier citation
+(`CMP-26123_2026-08-17_full-sim`), the sweep stands as corroboration, and
+`apply-compat` now keeps an earlier verified citation by construction.
 
 ## What this does and does not say
 

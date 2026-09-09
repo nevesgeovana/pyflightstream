@@ -244,6 +244,45 @@ def test_apply_compat_promotes_citing_the_report(tmp_path):
     assert data["PRINT"]["versions"]["26.120"]["report"] == citation
 
 
+def test_apply_compat_keeps_the_citation_of_a_row_already_verified_elsewhere(tmp_path):
+    """The release review of 0.13.0 measured the defect: a workflow sweep whose
+    effect line was one run-level outcome for thirteen commands overwrote five
+    rows whose probe reports carried a discriminating per-command effect, and
+    the stronger report was cited from nowhere. A verified row keeps its earlier
+    citation; the new report corroborates it and promotes nothing."""
+    commands_dir = tmp_path / "commands"
+    write_chapter_fixture(commands_dir)
+    chapter = commands_dir / "script_controls.yaml"
+    earlier = "reports/compat/CMP-26120_2026-07-01_probe.yaml"
+    text = chapter.read_text(encoding="utf-8")
+    documented = '    "26.120": {status: documented}'
+    verified = f'    "26.120": {{status: verified, report: "{earlier}"}}'
+    head, print_block = text.split("PRINT:", 1)
+    assert documented in print_block
+    text = head + "PRINT:" + print_block.replace(documented, verified, 1)
+    chapter.write_text(text, encoding="utf-8")
+    (tmp_path / "reports" / "compat").mkdir(parents=True, exist_ok=True)
+    (tmp_path / earlier).write_text(
+        "schema: pyflightstream-compat-report/1\nfs_version: '26.120'\ncommands: {}\n",
+        encoding="utf-8",
+    )
+    report_path = write_report(
+        tmp_path,
+        {
+            "PRINT": {"outcome": "verified", "detail": "the run reached its end"},
+            "STOP": {"outcome": "verified", "detail": "halted"},
+        },
+    )
+    promotions = apply_compat(report_path, repo_root=tmp_path, commands_dir=commands_dir)
+    assert sorted(promotions) == [
+        ("PRINT", "corroborated", "script_controls.yaml"),
+        ("STOP", "verified", "script_controls.yaml"),
+    ]
+    after = chapter.read_text(encoding="utf-8")
+    assert verified in after, after
+    assert "CMP-26120_2026-07-21" in after.split("STOP:")[1].split("PRINT:")[0]
+
+
 def test_apply_compat_refuses_unknown_commands(tmp_path):
     commands_dir = tmp_path / "commands"
     write_chapter_fixture(commands_dir)

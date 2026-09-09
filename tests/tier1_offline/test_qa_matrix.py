@@ -345,6 +345,15 @@ def test_rows_naming_two_builds_are_refused_before_anything_runs(stub_workspace,
     assert code == 2
     assert "26.120" in error and "26.123" in error and "drift" in error, error
     assert not list(tmp_path.glob("PHY-*")), "a report was written for a run that was refused"
+    # THE FALSIFYING MEASUREMENT is the manifest: with physics_build neutered
+    # the command still exits 2 with the same words, from the reduction, after
+    # every point of both builds has run (the QA lens of 2026-09-09 measured
+    # it). A refusal that spends the seats first is not a pre-flight.
+    from pyflightstream.workspace import CampaignWorkspace
+
+    assert CampaignWorkspace(stub_workspace).read_manifest() == [], (
+        "points ran before the two-builds refusal; the pre-flight fired after the seat was spent"
+    )
 
 
 # --- the reductions moved into the package ------------------------------------
@@ -441,3 +450,29 @@ def test_the_driver_sits_in_the_qa_layer_and_nothing_below_imports_it():
             if back:
                 offenders.append(f"{module.relative_to(SRC).as_posix()} imports {sorted(back)}")
     assert not offenders, "a layer below qa imports it back:\n  " + "\n  ".join(offenders)
+
+
+def test_a_case_named_by_two_rows_is_refused_naming_both(stub_workspace, tmp_path, capsys):
+    """Every case but PHY-02 is one row; a second row naming PHY-01 would
+    leave the reduction to pick one silently. The QA lens of 2026-09-09
+    measured the refusal in ``_one_row_each`` as untested (``if False`` survived),
+    and this test then measured it firing after the run. It is a pre-flight now."""
+    matrix = stub_workspace / "matriz_physics.fs"
+    lines = matrix.read_text(encoding="utf-8").splitlines(keepends=True)
+    (first,) = [line for line in lines if "PHY-01_" in line]
+    assert first.startswith("5001 ")
+    lines.append(first.replace("5001 ", "5009 ", 1))
+    matrix.write_text("".join(lines), encoding="utf-8")
+    from pyflightstream.workspace import CampaignWorkspace
+
+    code = _cli(["physics", "--workspace", str(stub_workspace), "--report-dir", str(tmp_path)])
+    error = capsys.readouterr().err
+    assert "PHY-01 is one row of matriz_physics.fs and 2 rows name it: 5001, 5009" in error, error
+    assert error.startswith("nothing run:"), error
+    assert code == 2, error
+    assert not list(tmp_path.glob("PHY-*")), "a report was written for a matrix that was refused"
+    # RED before the move: the refusal sat in the reduction, so the whole
+    # matrix ran on the stub first (exit 1, "PHY-01 aborted", 12 records).
+    assert CampaignWorkspace(stub_workspace).read_manifest() == [], (
+        "points ran before the two-rows refusal; the shape of the matrix is known before the run"
+    )

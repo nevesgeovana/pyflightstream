@@ -78,11 +78,15 @@ def test_the_log_carries_no_error_naming_one_of_the_thirteen(runs, workspace, po
 @pytest.mark.parametrize("build", [b for _, b in ROWS])
 def test_the_database_says_verified_on_the_build_and_cites_the_sweep(build):
     """The side product: every one of the thirteen carries a verified row on the
-    build, and the row cites this sweep's compat report."""
+    build, citing this sweep's compat report where the sweep promoted it, or the
+    earlier probe report where the row was already verified (the release review of
+    2026-09-09: a sweep corroborates a verified row and never replaces its
+    discriminating citation with a run-level one)."""
     view = CommandRegistry.load().for_version(build)
     stale = []
     for command in THIRTEEN:
         entry = view[command].versions[build]
-        if entry.status.value != "verified" or "rotor-path" not in str(entry.report or ""):
+        report = str(entry.report or "")
+        if entry.status.value != "verified" or not ("rotor-path" in report or "CMP-" in report):
             stale.append((command, entry.status, entry.report))
     assert not stale, stale

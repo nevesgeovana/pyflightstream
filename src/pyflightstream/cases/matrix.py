@@ -312,9 +312,6 @@ class MatrixRow:
     #: The rotor motions the cell's ``MOTIONS`` list states, one record
     #: each, in cell order (PFS-2029.11.01); empty for a flat row.
     motions: list[dict[str, str]] = field(default_factory=list)
-    #: The rotor motions the cell's ``MOTIONS`` list states, one record
-    #: each, in cell order (PFS-2029.11.01); empty for a flat row.
-    motions: list[dict[str, str]] = field(default_factory=list)
 
 
 #: The CLOSED set of flight-condition keys, each with the unit it is

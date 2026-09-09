@@ -29,6 +29,11 @@ build that got slower on the same points can be shown. FR-19 has
 recorded the field since the v0.3 line; this is what reads it.
 """
 
+# ``qa.matrix`` (the physics driver over a campaign workspace, PFS-2031.17)
+# is NOT re-exported here on purpose: it imports the run and workspace
+# layers at module level, and a bare ``import pyflightstream.qa`` would
+# then pull both. Reach it as ``pyflightstream.qa.matrix``.
+
 from pyflightstream.qa.compat import (
     COMPAT_SCHEMA,
     PROMOTABLE_OUTCOMES,

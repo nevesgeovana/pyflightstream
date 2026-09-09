@@ -349,6 +349,36 @@ PHY02_ALPHA_DEG = 4.0
 _TOTAL_METRIC_NAMES = ("CL", "CDi", "CDo", "CMy")
 
 
+#: Names 0.13.0 removed from this module (PFS-2031.17, the CHANGELOG entry
+#: marks them BREAKS): each ran the physics cases through a recipe path
+#: that no longer exists, so no shim could answer for them. An import
+#: of one is refused with the release and the call that replaced it,
+#: rather than with a bare name error.
+REMOVED_IN_0_13_0: frozenset[str] = frozenset(
+    {
+        "build_phy01_script",
+        "build_phy02_script",
+        "build_phy05_script",
+        "build_phy06_unsteady_script",
+        "run_physics",
+        "run_drift",
+    }
+)
+
+
+def __getattr__(name: str) -> object:
+    if name in REMOVED_IN_0_13_0:
+        raise ImportError(
+            f"{__name__}.{name} was removed in 0.13.0 (PFS-2031.17): the physics cases "
+            "are rows of a campaign workspace now. Call "
+            "pyflightstream.qa.matrix.physics_from_workspace(root) or "
+            "drift_from_workspace(root, ...), with root the workspace (CLI: --workspace) "
+            "of pyfs-qa physics and pyfs-qa drift.",
+            name=name,
+        )
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
 def phy01_metrics(points: list[PointResult]) -> dict[str, float]:
     """Reduce the PHY-01 sweep points to the case metrics.
 

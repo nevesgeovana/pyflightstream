@@ -91,7 +91,12 @@ def _build_parser() -> argparse.ArgumentParser:
             "both layouts, the folder first. Refuses a root with no inputs/geometries."
         ),
     )
-    migrate.add_argument("root", help="campaign root carrying inputs/geometries/")
+    migrate.add_argument(
+        "root",
+        nargs="?",
+        default=".",
+        help="campaign root carrying inputs/geometries/ (default: the current directory)",
+    )
     return parser
 
 

@@ -498,3 +498,34 @@ def test_a_physics_run_without_a_digest_says_so(tmp_path):
     document = yaml.safe_load(yaml_path.read_text(encoding="utf-8"))
     assert document["fs_exe_sha256"] is None
     assert "sha256 not recorded" in md_path.read_text(encoding="utf-8")
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "build_phy01_script",
+        "build_phy02_script",
+        "build_phy05_script",
+        "build_phy06_unsteady_script",
+        "run_physics",
+        "run_drift",
+    ],
+)
+def test_a_name_the_workspace_driver_replaced_says_where_it_went(name):
+    """The QA lens of 2026-09-09 asked whether the 0.13.0 BREAKS should have
+    carried shims. They could not: each name ran a recipe path the workspace
+    replaced. What a caller gets instead is the release and the replacement,
+    from both spellings of the import."""
+    import importlib
+
+    import pyflightstream.qa.physics as physics
+
+    with pytest.raises(
+        ImportError, match=r"removed in 0\.13\.0 .*physics_from_workspace\(root\).*--workspace"
+    ) as caught:
+        getattr(physics, name)
+    assert caught.value.name == name
+    with pytest.raises(ImportError, match=r"physics_from_workspace"):
+        importlib.import_module("pyflightstream.qa.physics").__getattr__(name)
+    with pytest.raises(AttributeError, match=r"no attribute 'never_existed'"):
+        _ = physics.never_existed

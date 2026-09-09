@@ -4,7 +4,10 @@ Committed evidence from Tier 2 probe runs on licensed machines: for each
 FlightStream version, which database commands are verified, broken,
 removed or unprobed, with pointers to the evidence. Re-applying a
 report that a later run has contradicted is refused, so an older report
-cannot revert a status. Command database statuses are
+cannot revert a status. A row already verified on the strength of
+another committed report keeps that citation when a later report verifies
+it again: the later report corroborates, and `apply-compat` reports the
+row as corroborated rather than promoted (2026-09-09). Command database statuses are
 promoted only from these reports, never hand-edited (CLAUDE.md
 invariant 3). Reports are named `CMP-<version digits>_<date>[_label]`
 and are never overwritten.

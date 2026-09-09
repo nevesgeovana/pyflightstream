@@ -1,4 +1,4 @@
-# RPT-029: the type-checker exemption re-count at 0.8.0.dev0 (2026-08-18, amended twice on 2026-08-19, re-measured 2026-08-20, 2026-08-24 and 2026-09-02)
+# RPT-029: the type-checker exemption re-count at 0.8.0.dev0 (2026-08-18, amended twice on 2026-08-19, re-measured 2026-08-20, 2026-08-24, 2026-09-02 and 2026-09-09)
 
 > **Amended before this file was ever committed, and the amendment is the
 > report's own reproduction rule catching its own author.**
@@ -37,10 +37,14 @@
 > **The expensive remedy was applied this time.** Both runs were made
 > again on the settled tree, and the headline, the reproduction outputs,
 > the per-module table, the code table, the concentration lines and the
-> delta table are all that run rather than edits to the previous one:
+> delta table are all that run rather than edits to the previous one.
+> THIS BLOCK IS LIVE: it carries the latest re-measurement, whose date
+> the headline sentence below names, and each earlier run keeps its
+> section further down; the two lines here were last replaced by the
+> 2026-09-09 run:
 >
 >     Found 345 errors in 18 files (checked 79 source files)
->     Success: no issues found in 76 source files
+>     Success: no issues found in 79 source files
 >
 > Every figure below is that re-measurement.
 
@@ -56,9 +60,11 @@ qa driver that reads the workspace, `qa/matrix.py`, and the counter
 program template of the unsteady actions, `run/_actions_counter.py`),
 two dirty modules left the dirty set with the physics runner's
 retirement, and the total rose by 27 with the actions and reductions
-code under the existing overrides. The exempted set did not change. The
-sentence above is this measurement; the earlier ones stay below as the
-history of the figure.
+code under the existing overrides. Two overrides were retired with the rewrite,
+`pyflightstream.qa.cli` and `pyflightstream.qa.physics`, so the override
+count and the dirty count both read 18 (the invariant the tier-1 guard
+holds). The sentence above is this measurement; the earlier ones stay
+below as the history of the figure.
 
 ## Re-measured 2026-09-02: one module arrived, and the error total had gone stale unwatched
 
@@ -156,8 +162,8 @@ the numbers describe.
 
 No override was removed. That is not restraint, it is the measurement: the set
 of modules that report an error with the overrides off is EXACTLY the set of
-modules the overrides name. Nothing outside the 20 is dirty, and nothing
-inside the 20 is clean, so there is no override here whose removal could be
+modules the overrides name. Nothing outside the 18 is dirty, and nothing
+inside the 18 is clean (20 until 2026-09-09), so there is no override here whose removal could be
 justified on evidence today and no clean module quietly going unchecked.
 
 THOSE FOUR NUMBERS SAID 21 UNTIL 2026-08-20, which is the third recurrence
@@ -199,8 +205,8 @@ The manual procedure is kept below because the script has to be checkable
 against something.
 
 
-The configuration used is `[tool.mypy]` exactly as committed, minus the 20
-override blocks. It was supplied as a separate config file rather than by
+The configuration used is `[tool.mypy]` exactly as committed, minus the 18
+override blocks (20 until 2026-09-09). It was supplied as a separate config file rather than by
 editing `pyproject.toml`, so the measurement never required the shipped
 configuration to be in a state the repository does not ship:
 
@@ -218,7 +224,7 @@ The final line of that run is the measurement:
 
 The same run with the shipped configuration, overrides and all, is green:
 
-    Success: no issues found in 76 source files
+    Success: no issues found in 79 source files
 
 mypy walks the FILESYSTEM rather than the git index, so the state of the
 working tree is part of the measurement, and this report has already been
@@ -324,7 +330,9 @@ reported four codes this checker does not emit.
 The 2026-08-03 table had one column, and the plan built on it says two modules
 carry 73 percent of the debt and sizes the small modules at an afternoon each.
 The error count is a poor size estimate here, and the re-count shows why
-rather than asserting it: **345 errors sit on 110 distinct source lines.**
+rather than asserting it: **345 errors sit on 110 distinct source lines** (re-measured 2026-09-09;
+the 2026-08-19 pass read 310 on 111, and the 2026-08-03 table's own
+figures are the ones this paragraph analyses).
 
 While reading that table a second defect in it surfaced, small and worth one
 sentence because it is the same class: its prose says "the eleven with one or

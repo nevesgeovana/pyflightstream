@@ -773,6 +773,19 @@ def _spreadsheet_offenses(relative_posix_paths):
 
 
 @pytest.mark.requirement("NFR-14")
+def test_the_spreadsheet_hook_refuses_the_same_suffixes_as_the_suite():
+    """The forbid-spreadsheets hook's ``files`` pattern and SPREADSHEET_SUFFIXES
+    are one set: the comment on the set says they move together, and until the
+    release review of 2026-09-09 nothing compared them."""
+    config = (REPO_ROOT / ".pre-commit-config.yaml").read_text(encoding="utf-8")
+    hook = config.split("- id: forbid-spreadsheets", 1)[1]
+    pattern = re.search(r"files: '\(\?i\)\\\.\(([a-z|]+)\)\$'", hook)
+    assert pattern is not None, (
+        "the forbid-spreadsheets hook's files pattern is not the shape this test reads"
+    )
+    assert frozenset("." + s for s in pattern.group(1).split("|")) == SPREADSHEET_SUFFIXES
+
+
 def test_no_spreadsheet_is_tracked_outside_the_allowlist():
     """OPS-2010.23. A spreadsheet in the public tree is opaque to review and may carry a mesh."""
     offenders = _spreadsheet_offenses(
