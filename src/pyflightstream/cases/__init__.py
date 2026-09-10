@@ -52,6 +52,9 @@ from pyflightstream.script.toggles import resolve_toggle
 from pyflightstream.versions import resolve
 
 __all__ = [
+    "AliasCycleError",
+    "BladeDatum",
+    "EngineBlock",
     "ROTATION_OFFSET_KEY",
     "ROTATION_SWEEP_KEY",
     "Campaign",
@@ -72,9 +75,6 @@ __all__ = [
     "RAW_PHASES",
     "RawCommand",
     "PprocSpec",
-    "AliasCycleError",
-    "BladeDatum",
-    "EngineBlock",
     "RESERVED_FRAME_NAMES",
     "SectionsSpec",
     "PlotsSpec",
@@ -539,6 +539,9 @@ class ProductsSpec(BaseModel):
 #: type also creates ``PROP_MRP<k>``, ``RotorAxis<k>`` and ``BladeAxis<k>``,
 #: one per record or blade family, refused by pattern below (the
 #: interface lens of REL-0140: a setup defining PROP_MRP1 was shadowed).
+#: An axis letter with at most one leading sign, which is exactly what
+#: a blade datum may be written as.
+_AXIS_TOKEN = re.compile(r"^[+-]?[XYZ]$")
 RESERVED_FRAME_NAMES: tuple[str, ...] = ("MRP", "PROP_MRP")
 RESERVED_FRAME_PATTERN = re.compile(r"^(PROP_MRP|ROTORAXIS|BLADEAXIS)\d+$")
 
@@ -661,10 +664,15 @@ class BladeDatum(BaseModel):
         if not isinstance(value, str):
             return value
         token = value.strip().upper()
-        if token.lstrip("+-") not in ("X", "Y", "Z") or len(token.lstrip("+-")) != 1:
+        # ONE SIGN AT MOST, and the pattern says so: `lstrip("+-")` strips a
+        # RUN, so "+-X" and "-+X" validated and were then stored verbatim,
+        # a spelling this package never meant to accept (the interface lens
+        # of 2026-09-10).
+        if not _AXIS_TOKEN.match(token):
             raise ValueError(
                 f"blade1 states zero = {value!r}, which is not an axis; write X, Y or Z, "
-                "with an optional sign"
+                "with at most one leading sign. The sign reverses the direction the "
+                "azimuth is measured FROM, not the sense in which it increases"
             )
         return token
 
@@ -675,15 +683,26 @@ class EngineBlock(BaseModel):
     Her design of 2026-09-10. The block's NAME is an alias over
     everything the rotor owns, the union of :attr:`families_general` and
     :attr:`families_blades` in that order: what a row moves when it cites
-    it, and what a group summing the rotor sums. The name is free and is
-    refused only when it ends in a digit, because a number after a
-    radical reads as a blade.
+    it, and what a group summing the rotor sums.
+
+    THE NAME IS FREE, AND A TRAILING DIGIT IS FINE: the eight lifters of
+    a four-a-side aircraft are ``LIFT_L1`` to ``LIFT_R4``. What it may
+    not carry is ``_SMRP`` or ``_RMRP``, the radical of the frames the
+    package builds from it (the static and rotating moment reference
+    points of the rotor), because then a rotor and a frame spell the
+    same. PFS-2035.02 said a name ending in a digit is refused, which was
+    true of the frame names of 0.14.0 and would refuse her own study
+    under these: the number in ``<ALIAS>_RMRP<k>`` follows ``RMRP``, never
+    the alias.
 
     Attributes
     ----------
-    alias : str
-        The word a row moves. Required, and equal to the block's name;
-        the reference refuses a block whose two names disagree.
+    alias : str, optional
+        The word a row moves. It is the block's NAME, and this field is a
+        restatement of it: absent, the reader fills it in; present, it
+        must equal the name, case folded, and a block whose two names
+        disagree is refused naming both. Whether the field is worth
+        keeping at all is the author's open question of 2026-09-10.
     x_m, y_m, z_m : float
         The hub, in the geometry's own frame.
     axis : str
@@ -709,7 +728,7 @@ class EngineBlock(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    alias: str
+    alias: str | None = None
     axis: str
     diameter_m: float = Field(gt=0.0)
     families_blades: list[str]
@@ -980,6 +999,20 @@ def resolve_alias(
     and a rotor. The names come back in member order, each once; an
     alias every member of which is absent resolves to an empty list, and
     the caller says what that means for its key.
+
+    HER DESIGN OF 2026-09-10 ADDED ONE THING and it changes this
+    function's contract: a member may be ANOTHER ALIAS, and the reader
+    follows it to the end. A member the inventory carries is that
+    boundary first, whatever else shares its spelling, so the addition
+    cannot change what an existing file resolves to.
+
+    Raises
+    ------
+    AliasCycleError
+        If following the members returns to an alias already on the path,
+        naming both sides. A member that names its OWN alias is not a
+        ring: it is the case of an alias resolving to nothing, and it
+        resolves to an empty list as it did before.
     """
     if not aliases:
         return None
@@ -1661,12 +1694,20 @@ class SimCase(BaseModel):
     #: each emitted before the phase it names, in the order written; empty
     #: for a setup stating none.
     raw_commands: list[RawCommand] = Field(default_factory=list)
-    #: The boundary aliases the row's setup defines (her decision of
-    #: 2026-09-09), a name to the boundary names or families it stands
-    #: for; read by every builder that resolves a cited boundary and
-    #: carried on the record for the products stage. Empty for a setup
-    #: defining none, which is every setup written before 0.14.0.
+    #: The boundary aliases the row's REFERENCE declares (FR-59, her
+    #: design of 2026-09-10; the setup's until 0.14.0), a name to the
+    #: boundary names, families or other aliases it stands for; read by
+    #: every builder that resolves a cited boundary and carried on the
+    #: record for the products stage. Empty for a configuration defining
+    #: none, which is every one written before 0.14.0.
     aliases: BoundaryAliases = Field(default_factory=dict)
+    #: The rotors the row's reference declares (FR-60), keyed by the word
+    #: a motion record cites. A record naming one takes its hub, axis,
+    #: sign, blades and diameter from it and states none of them itself,
+    #: which is what lets a row state nine rotors without repeating nine
+    #: hubs. Empty for a configuration with no engine block, which is
+    #: every one written before 0.15.0.
+    engines: dict[str, EngineBlock] = Field(default_factory=dict)
     #: The boundary order a sidecar beside the geometry states
     #: (PFS-2029.06.03), bound by the workspace; the builder refuses the
     #: run when the file's own mesh block disagrees with it.

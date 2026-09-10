@@ -283,6 +283,75 @@ def test_a_cycle_of_aliases_is_refused_naming_both_sides(tmp_path):
     assert "'b'" in message
 
 
+def test_the_alias_field_may_be_omitted_and_is_filled_from_the_name(tmp_path):
+    """It is a restatement of the block's name, so the reader can supply it.
+
+    The refusal for a disagreeing pair told a user to "drop the field",
+    which the model then refused as missing: the message and the model
+    disagreed (the interface lens of 2026-09-10).
+    """
+    body = VOCABULARY_TOML.replace('alias = "PUSHER"\n', "")
+    reference = _reference(tmp_path, body, "r906")
+    assert reference.engines["PUSHER"].alias == "PUSHER"
+
+
+def test_a_stated_alias_matching_the_name_case_folded_is_accepted(tmp_path):
+    """Every other alias comparison in the package folds case; this one did not."""
+    body = VOCABULARY_TOML.replace('alias = "PUSHER"', 'alias = "pusher"')
+    reference = _reference(tmp_path, body, "r907")
+    assert "PUSHER" in reference.engines
+
+
+def test_a_rotor_block_that_forgot_its_kind_is_refused_naming_kind(tmp_path):
+    """The likeliest hand-editing mistake, and it used to read as an unknown key."""
+    body = VOCABULARY_TOML.replace('[PUSHER]\nkind = "engine"\n', "[PUSHER]\n")
+    message = _refused(tmp_path, body, "r908")
+    assert "kind" in message
+    assert "families_blades" in message, "the refusal names what made it look like a rotor"
+
+
+def test_an_alias_entry_shadowing_a_rotor_is_refused_naming_both(tmp_path):
+    """The design's central claim, quietly reversed, is what this refuses.
+
+    A rotor's name already stands for everything it owns. An [aliases]
+    entry of the same name used to win by `setdefault`, so the rotor's
+    membership silently became whatever the table said.
+    """
+    body = VOCABULARY_TOML.replace("[aliases]\nairframe", '[aliases]\nPUSHER = ["W"]\nairframe')
+    message = _refused(tmp_path, body, "r909")
+    assert "PUSHER" in message
+    assert "aliases" in message
+
+
+def test_a_frame_named_after_a_rotors_frame_is_refused(tmp_path):
+    """The other side of the collision the rotor-name guard closes.
+
+    A rotor may not be named after its frames. Until this ran, a
+    `[[frames]]` entry or an alias named `LIFT_L1_RMRP` was accepted and
+    shadowed the frame the package builds for that rotor, which is the
+    same shadowing an interface lens had already found once.
+    """
+    body = VOCABULARY_TOML.replace('name = "NAC_PUSH"', 'name = "PUSHER_RMRP"')
+    message = _refused(tmp_path, body, "r911")
+    assert "PUSHER" in message
+    assert "RMRP" in message
+
+
+def test_an_alias_named_after_a_rotors_blade_frame_is_refused(tmp_path):
+    body = VOCABULARY_TOML.replace(
+        "[aliases]\nairframe", '[aliases]\nPUSHER_RMRP2 = ["W"]\nairframe'
+    )
+    message = _refused(tmp_path, body, "r912")
+    assert "PUSHER_RMRP2" in message
+
+
+def test_a_blade_datum_with_two_signs_is_refused(tmp_path):
+    """`lstrip("+-")` strips a RUN, so "+-X" validated and was stored verbatim."""
+    body = VOCABULARY_TOML.replace('zero = "Y" }', 'zero = "+-Y" }')
+    message = _refused(tmp_path, body, "r910")
+    assert "zero" in message
+
+
 def test_an_alias_naming_itself_is_not_a_ring(tmp_path):
     """The distinction a real workspace forced, on 2026-09-10.
 

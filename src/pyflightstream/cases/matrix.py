@@ -560,6 +560,11 @@ def _parse_sweep(sweep_type: str, sweep_values: str) -> SweepAxis:
 #: beside a ``MOTIONS`` list, because two statements of one rotor's speed
 #: or hub cannot both be the one the script obeys.
 MOTION_RECORD_KEYS = (
+    # FR-61, her design of 2026-09-10: the rotor's identity, and since
+    # 0.15.0 the only one a row states. The five below it are what the
+    # reference now says once, read with a deprecation warning until
+    # 0.17.0 and refused in the same record as this one.
+    "MOVING_BC_ALIAS",
     "MOVING_BOUNDARIES",
     "RPM",
     "ADVANCE_RATIO",

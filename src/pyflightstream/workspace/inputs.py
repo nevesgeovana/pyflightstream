@@ -370,11 +370,22 @@ class ReferenceArtifact(BaseModel):
     #: rotor instantiates were always derived from this file.
     frames: list[FrameSpec] = Field(default_factory=list)
     #: One entry per rotor, keyed by the block's name, read out of every
-    #: top-level table whose ``kind`` is ``engine`` (FR-60). The key is
-    #: the word a row moves.
+    #: top-level table whose ``kind`` is ``engine`` (FR-60). THE KEY EQUALS
+    #: :attr:`~pyflightstream.cases.EngineBlock.alias`, which is the word a
+    #: row moves, so a caller iterating this mapping may use either.
     engines: dict[str, EngineBlock] = Field(default_factory=dict)
-    #: The named points of the configuration that are not rotors, keyed by
-    #: the block's name: today the airframe point a study cites by name.
+    #: The named points of the configuration that are NOT rotors, keyed by
+    #: the block's name: today the airframe point a configuration writes
+    #: beside its rotors.
+    #:
+    #: NOTHING READS THIS YET, and that is stated rather than left for a
+    #: reader to discover. A row resolving a point by name resolves it
+    #: against ``inputs/reference_points.toml``
+    #: (:meth:`CampaignWorkspace.reference_point`), which is the file every
+    #: refusal names. The field exists so that a reference carrying its
+    #: airframe point beside its rotors is READ rather than refused, which
+    #: is how the author writes one; which of the two files owns a named
+    #: point is her question of 2026-09-10 and is not answered here.
     points: dict[str, PointXyz] = Field(default_factory=dict)
 
     @model_validator(mode="after")
@@ -429,6 +440,11 @@ class SetupArtifact(BaseModel):
     #: The custom coordinate systems the ``[[frames]]`` table defines
     #: (PFS-2034.01), in the order written; consumed out of ``settings``
     #: by :func:`resolve_setup` so the solver-setting loop never sees them.
+    #:
+    #: DEPRECATED SINCE 0.15.0 (FR-72): the table's home is the REFERENCE
+    #: artifact, because a coordinate system is geometric data. A preset
+    #: still stating it is read with a warning and the reference wins; the
+    #: preset stops being read for it at 0.17.0.
     frames: list[FrameSpec] = Field(default_factory=list)
     #: The solver commands the ``[[raw]]`` table states verbatim
     #: (PFS-2033.01), each before a named phase, in the order written;
@@ -439,6 +455,11 @@ class SetupArtifact(BaseModel):
     #: for, read wherever a boundary is cited (a matrix cell, a pproc
     #: group, a families entry), a member the mesh lacks ignored; consumed
     #: out of ``settings`` by :func:`resolve_setup` the same way.
+    #:
+    #: DEPRECATED SINCE 0.15.0 (FR-59): the table's home is the REFERENCE
+    #: artifact, which is per configuration where a preset is per
+    #: condition. A preset still stating it is read with a warning and the
+    #: reference wins; the preset stops being read for it at 0.17.0.
     aliases: BoundaryAliases = Field(default_factory=dict)
 
     @model_validator(mode="after")
@@ -881,6 +902,28 @@ def resolve_reference(inputs_dir: Path, artifact_id: str) -> ReferenceArtifact:
     return _validate(ReferenceArtifact, _split_reference_tables(data, path), path, "reference")
 
 
+#: The keys only a rotor block carries. A top-level table stating one of
+#: these and no ``kind`` is a rotor that forgot to say so, and is refused
+#: with that sentence rather than as an unknown key.
+_ROTOR_ONLY_KEYS = ("families_blades", "families_general", "diameter_m", "rpm_sign", "blade1")
+
+#: The frames a rotor instantiates, as spellings to compare a declared
+#: name against: ``<ALIAS>_SMRP``, ``<ALIAS>_RMRP`` and ``<ALIAS>_RMRP<k>``
+#: for each blade k. The digits are matched rather than enumerated,
+#: because a block's blade count is not known where a name is checked.
+_ROTOR_FRAME_SUFFIX = re.compile(r"_(SMRP|RMRP\d*)$")
+
+
+def _frame_of_a_rotor(spelling: str, engines: Mapping[str, Any]) -> str | None:
+    """Return the rotor whose own frames a declared name would collide with, if any."""
+    token = spelling.strip().upper()
+    match = _ROTOR_FRAME_SUFFIX.search(token)
+    if match is None:
+        return None
+    radical = token[: match.start()]
+    return next((name for name in engines if name.upper() == radical), None)
+
+
 def _split_reference_tables(data: dict[str, Any], path: Path) -> dict[str, Any]:
     """Sort a reference file's top-level tables into the model's fields (FR-59, FR-60, FR-72).
 
@@ -907,18 +950,39 @@ def _split_reference_tables(data: dict[str, Any], path: Path) -> dict[str, Any]:
     engines: dict[str, Any] = {}
     points: dict[str, Any] = {}
     for name, value in list(rest.items()):
-        if not isinstance(value, dict) or "kind" not in value:
+        if not isinstance(value, dict):
+            continue
+        if "kind" not in value:
+            # A BLOCK THAT FORGOT ITS `kind` LINE is the likeliest mistake a
+            # hand-written rotor makes, and without this it falls through to
+            # a strict model and reads as "extra inputs are not permitted",
+            # which says nothing about rotors. The rotor-only keys are what
+            # identify it (the interface lens of 2026-09-10).
+            wanted = sorted(key for key in _ROTOR_ONLY_KEYS if key in value)
+            if wanted:
+                raise InputArtifactError(
+                    f"the reference artifact {path} declares [{name}] with "
+                    f"{', '.join(wanted)} and no kind. A block that states a rotor's "
+                    'own keys is a rotor, and a rotor says so: add kind = "engine" to '
+                    "it. Every other top-level table of this file is a reference "
+                    "quantity.",
+                    kind="reference",
+                )
             continue
         if value.get("kind") != "engine":
             points[name] = rest.pop(name)
             continue
         block = rest.pop(name)
         stated = block.get("alias")
-        if stated is not None and str(stated) != name:
+        # CASE FOLDED, as every other alias comparison in this package is:
+        # `alias = "pusher"` under [PUSHER] names one word and was refused
+        # for its spelling alone (the interface lens of 2026-09-10).
+        if stated is not None and str(stated).casefold() != name.casefold():
             raise InputArtifactError(
                 f"the reference artifact {path} declares the rotor {name!r} and states "
                 f"alias = {stated!r} inside it. The block's name IS the alias, so the two "
-                "can only agree or disagree; make them equal, or drop the field.",
+                "can only agree or disagree; make them equal, or drop the field, which "
+                "the reader then fills in from the name.",
                 kind="reference",
             )
         collision = next((part for part in ("_SMRP", "_RMRP") if part in name.upper()), None)
@@ -926,15 +990,45 @@ def _split_reference_tables(data: dict[str, Any], path: Path) -> dict[str, Any]:
             raise InputArtifactError(
                 f"the reference artifact {path} declares the rotor {name!r}, whose name "
                 f"carries {collision}. That is the radical this package gives a rotor's own "
-                f"frames ({name}_SMRP, {name}_RMRP and {name}_RMRP<k> per blade), so a rotor "
-                "named after a frame makes two different things spell the same. Choose "
-                "another name.",
+                f"frames, its static and rotating moment reference points ({name}_SMRP, "
+                f"{name}_RMRP and {name}_RMRP<k> per blade), so a rotor named after a "
+                "frame makes two different things spell the same. Choose another name.",
                 kind="reference",
             )
         block.setdefault("alias", name)
         engines[name] = block
         members = [*block.get("families_general", []), *block.get("families_blades", [])]
-        aliases.setdefault(name, members)
+        # THE ROTOR'S NAME IS AN ALIAS OVER WHAT IT OWNS, and a hand-written
+        # [aliases] entry of the same name would SHADOW that silently, which
+        # is the design's central claim quietly reversed. Refused naming
+        # both places rather than resolved by precedence.
+        if name in aliases and list(aliases[name]) != members:
+            raise InputArtifactError(
+                f"the reference artifact {path} declares the rotor {name!r} and also an "
+                f"[{ALIASES_TABLE}] entry of that name. The rotor's name already stands "
+                f"for everything it owns ({', '.join(members)}), so the table entry would "
+                "quietly replace the rotor's own membership. Rename the alias, or drop "
+                "it.",
+                kind="reference",
+            )
+        aliases[name] = members
+    # THE COLLISION IS TWO SIDED, and the guard above closes one side. A
+    # rotor may not be named after its frames; a FRAME or an ALIAS may not
+    # be named after a rotor's frames either, and until this ran the guard
+    # sat on one side of the same shadowing the interface lens of REL-0140
+    # had already found once (the interface lens of 2026-09-10).
+    for spelling, what in [(frame.get("name", ""), FRAMES_TABLE) for frame in frames] + [
+        (name, ALIASES_TABLE) for name in aliases
+    ]:
+        owner = _frame_of_a_rotor(str(spelling), engines)
+        if owner is not None:
+            raise InputArtifactError(
+                f"the reference artifact {path} declares [{what}] {spelling!r}, which is "
+                f"the name of a frame this package builds for the rotor {owner!r}: a "
+                f"rotor instantiates {owner}_SMRP, {owner}_RMRP and {owner}_RMRP<k> per "
+                "blade. Two different things would spell the same. Choose another name.",
+                kind="reference",
+            )
     if aliases:
         rest[ALIASES_TABLE] = aliases
     if frames:

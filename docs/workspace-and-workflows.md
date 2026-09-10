@@ -561,7 +561,7 @@ key in `pyflightstream.workspace.inputs.ENTITY_SELECTIONS`, and the
 refusal prints her verdict; the post-processing artifact's keys are
 listed under that artifact below.
 
-A preset may also define **custom coordinate systems**, since 0.14.0
+A preset defined **custom coordinate systems** at 0.14.0
 (PFS-2034.01), in a `[[frames]]` table, one entry per frame:
 
     [[frames]]
@@ -580,6 +580,16 @@ package creates itself (`MRP`, `PROP_MRP`), a name defined twice, or an
 origin that is not three numbers is refused at plan time naming the
 preset. What the frames are FOR is the row's rotation of a boundary
 family about one of their axes, which 0.14.0 adds beside them.
+
+!!! warning "Since 0.15.0 the table's home is the REFERENCE artifact"
+
+    A coordinate system is a place on the aircraft, so it belongs beside
+    the lengths and the rotors rather than in a preset, which is per
+    condition where a reference is per configuration (FR-72). **Write the
+    same table, unchanged, in `inputs/references/<id>.toml`.** A preset
+    that still states it is read with a deprecation warning naming the
+    reference, the reference's entries are the ones a row uses, and the
+    preset stops being read for it at 0.17.0.
 
 A preset may also state **raw solver commands**, since 0.14.0
 (PFS-2033.01, her design of 2026-09-09), in a `[[raw]]` table, one entry
@@ -604,7 +614,7 @@ the script took as `raw_commands` (`command`, `before`, `setup`), and the
 provenance document carries them on the solver run (PFS-2033.02). A
 preset stating none changes nothing.
 
-A preset may also name **groups of mesh families**, since 0.14.0 (her
+A preset named **groups of mesh families** at 0.14.0 (her
 decision of 2026-09-09), in an `[aliases]` table, one key per alias:
 
     [aliases]
@@ -630,6 +640,22 @@ them on the solver run. The alias name is matched as written and then case
 folded, as a family name is, so `LIFTERS` finds `lifters`; an alias listing
 no member is refused when the preset is read, because an alias stands for
 the names after it.
+
+!!! warning "Since 0.15.0 the table's home is the REFERENCE artifact"
+
+    A boundary name is not a solver setting, and the words a study uses
+    for its own geometry belong with the configuration (FR-59). **Write
+    the same table in `inputs/references/<id>.toml`.** A preset still
+    stating it is read with a deprecation warning naming the reference,
+    the reference wins where both declare a name, and the preset stops
+    being read for it at 0.17.0.
+
+    The reference's table can do one thing the preset's could not: **a
+    member may be another alias**, resolved to the end, so `lifters` may
+    name `lifters_left` and `lifters_right` and each of those may name
+    the rotors. A ring is refused naming both sides. And every rotor the
+    reference declares is an alias over everything it owns, without being
+    written in this table at all.
 
 A preset may also carry a `[flight_condition]` table, which is not a
 solver setting and is not judged as one: it holds the fluid pins

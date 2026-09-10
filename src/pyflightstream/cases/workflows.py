@@ -77,6 +77,7 @@ from pyflightstream.cases import (
     FORCE_PLOT_PARAMETERS,
     RAW_PHASES,
     CampaignConfigError,
+    EngineBlock,
     ScriptRecipe,
     SimCase,
     classify_outputs,
@@ -224,6 +225,15 @@ ROTATE_VARIABLE = "ROTATE"
 ROTOR_SHEDDING_VARIABLE = "ROTOR_SHEDDING"
 BLADES_VARIABLE = "BLADES"
 MOVING_BOUNDARIES_VARIABLE = "MOVING_BOUNDARIES"
+#: The word a motion record uses to name its rotor since 0.15.0 (FR-61,
+#: her design of 2026-09-10): an ALIAS the reference declares as an engine
+#: block, and the only rotor identity a row carries. The hub, the axis,
+#: the sign, the blade count and the diameter come from that block, so a
+#: row states which rotors turn and at what operating point and nothing
+#: else about them. It replaces :data:`MOVING_BOUNDARIES_VARIABLE` and the
+#: four keys beside it, which are read with a deprecation warning until
+#: 0.17.0 and refused in the same record as this one.
+MOVING_BC_ALIAS_VARIABLE = "MOVING_BC_ALIAS"
 #: The mesh families the base-region autodetect is allowed to consider
 #: (PFS-2029.10), comma separated; overrides the pproc artifact's list.
 BASE_REGIONS_VARIABLE = "BASE_REGIONS"
@@ -4671,13 +4681,88 @@ def _motion_view(case: SimCase, record: Mapping[str, str]) -> SimCase:
         key: value for key, value in case.variables.items() if key not in _MOTION_RECORD_KEYS
     }
     variables.update({key: value for key, value in record.items() if key != ROTOR_ORIGIN_POINT_KEY})
-    return case.model_copy(update={"variables": variables, "motions": []})
+    update: dict[str, object] = {"variables": variables, "motions": []}
+    engine = _engine_of(case, record)
+    if engine is not None:
+        _refuse_two_rotor_identities(case, record)
+        # THE BLOCK FILLS THE VIEW, and this is the one seam where it can:
+        # every reader below (rotor_speed, _origin, emit_rotor_motion) reads
+        # the row's variables, so filling them here makes the whole rotor
+        # path read the reference without one of those readers changing.
+        variables[MOVING_BOUNDARIES_VARIABLE] = engine.alias
+        variables[ROTOR_AXIS_VARIABLE] = engine.axis
+        variables[ROTOR_ORIGIN_VARIABLE] = "{},{},{}".format(*engine.origin)
+        variables[BLADES_VARIABLE] = str(engine.blade_count)
+        if RPM_VARIABLE not in record:
+            variables[RPM_SIGN_VARIABLE] = str(engine.rpm_sign)
+        # THE DIAMETER IS THIS ROTOR'S (FR-63). It is the reason one ratio
+        # written once can govern rotors of different sizes: n = V/(J D)
+        # is resolved per rotor, and the configuration's single
+        # propeller_diameter_m cannot answer for a second size.
+        update["reference"] = case.reference.model_copy(
+            update={"propeller_diameter": engine.diameter_m}
+        )
+    return case.model_copy(update=update)
 
+
+def _engine_of(case: SimCase, record: Mapping[str, str]) -> EngineBlock | None:
+    """Return the rotor a motion record names by alias, or None when it names none.
+
+    A record citing a word the reference does not declare as an engine is
+    refused here rather than at the boundary resolver, because the
+    resolver's message would be about a mesh family and the mistake is
+    about a rotor.
+    """
+    alias = record.get(MOVING_BC_ALIAS_VARIABLE)
+    if alias is None:
+        return None
+    token = str(alias).strip()
+    engine = case.engines.get(token) or next(
+        (block for name, block in case.engines.items() if name.casefold() == token.casefold()),
+        None,
+    )
+    if engine is None:
+        declared = ", ".join(sorted(case.engines)) or "none"
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} states {MOVING_BC_ALIAS_VARIABLE}: {token}, and the "
+            f"reference artifact declares no rotor of that name. The rotors it declares "
+            f"are {declared}. A rotor is a block of the reference whose kind is engine, "
+            "and the block's name is the word a row moves."
+        )
+    return engine
+
+
+def _refuse_two_rotor_identities(case: SimCase, record: Mapping[str, str]) -> None:
+    """Refuse a record stating the alias AND one of the keys the alias replaces."""
+    also = sorted(key for key in _RETIRED_MOTION_KEYS if key in record)
+    if also:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} states {MOVING_BC_ALIAS_VARIABLE}: "
+            f"{record[MOVING_BC_ALIAS_VARIABLE]} and {', '.join(also)} in one motion "
+            "record. The alias names the rotor and the reference states the rest of it, "
+            f"so {', '.join(also)} would be a second answer to a question already "
+            "answered. Drop them from the record; the reference is where they live."
+        )
+
+
+#: The four keys an alias replaces (FR-61). A record stating the alias and
+#: any of these states one rotor twice, and is refused naming both.
+#: ``BLADES`` is here too: the blade count is the length of the block's
+#: ``families_blades``, and a row stating its own is the same second
+#: answer.
+_RETIRED_MOTION_KEYS = (
+    "MOVING_BOUNDARIES",
+    "ROTOR_AXIS",
+    "ROTOR_ORIGIN",
+    "RPM_SIGN",
+    "BLADES",
+)
 
 #: The keys a motion record carries, mirrored from the matrix reader so a
 #: record's view of the row holds its own rotor and no other.
 _MOTION_RECORD_KEYS = frozenset(
     {
+        MOVING_BC_ALIAS_VARIABLE,
         MOVING_BOUNDARIES_VARIABLE,
         RPM_VARIABLE,
         ADVANCE_RATIO_VARIABLE,

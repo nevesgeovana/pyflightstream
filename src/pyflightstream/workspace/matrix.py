@@ -489,22 +489,41 @@ def _moved_to_the_reference(row: MatrixRow, table: str) -> None:
     holding a workspace that still plans and has one edit to make. The
     tables are read from the preset until 0.17.0.
     """
+    # THE MESSAGE CARRIES NO ROW NUMBER, deliberately. The warning filter
+    # dedupes on the message, and the EDIT is one edit per preset: keyed on
+    # the POL, a fifty-row campaign citing one unmigrated preset printed
+    # fifty warnings for one file, and pointed at a row rather than at the
+    # file to change (the interface lens of 2026-09-10).
     warnings.warn(
-        f"matrix row POL {row.pol}: the setup preset {row.set_code!r} states [{table}], "
-        f"which moved to the reference artifact {row.ref_code!r} at 0.15.0: a boundary "
-        "name and a coordinate system are properties of the CONFIGURATION, and a preset "
-        "is per condition. The reference's entries are the ones this row uses. Move the "
-        "table and the warning goes; the preset stops being read for it at 0.17.0.",
+        f"the setup preset {row.set_code!r} states [{table}], which moved to the "
+        f"reference artifact {row.ref_code!r} at 0.15.0: a boundary name and a "
+        "coordinate system are properties of the CONFIGURATION, and a preset is per "
+        "condition. The reference's entries are the ones every row citing it uses. Move "
+        "the table and the warning goes; the preset stops being read for it at 0.17.0.",
         PyflightstreamDeprecationWarning,
         stacklevel=2,
     )
 
 
 def _aliases_of(reference, setup, row: MatrixRow) -> dict[str, list[str]]:
-    """Return a row case's aliases: the reference's, with the preset's deprecated."""
+    """Return a row case's aliases: the reference's, with the preset's deprecated.
+
+    THE COMPARISON FOLDS CASE, and a merge by exact key does not. An alias
+    is looked up case folded everywhere else in this package, so a preset
+    stating ``Wing`` and a reference stating ``wing`` name ONE word; merged
+    by exact key both survive, the preset's is inserted first, and the
+    folded lookup then returns the DEPRECATED file's members. The
+    interface lens of 2026-09-10 found it, and the frames merge beside
+    this one had already got it right.
+    """
     if setup.aliases:
         _moved_to_the_reference(row, "aliases")
-    merged = {name: list(members) for name, members in setup.aliases.items()}
+    taken = {name.casefold() for name in reference.aliases}
+    merged = {
+        name: list(members)
+        for name, members in setup.aliases.items()
+        if name.casefold() not in taken
+    }
     merged.update({name: list(members) for name, members in reference.aliases.items()})
     return merged
 
@@ -523,7 +542,17 @@ def _frames_of(reference, setup, row: MatrixRow) -> list:
     return [*reference.frames, *kept]
 
 
-def _not_on_a_legacy_row(row: MatrixRow, entries: list, table: str) -> list:
+def _frame_sources(reference, setup, row: MatrixRow) -> str:
+    """Name the file or files a row's custom frames came from, for a refusal."""
+    parts = []
+    if reference.frames:
+        parts.append(f"reference {row.ref_code!r}")
+    if setup.frames:
+        parts.append(f"setup {row.set_code!r}")
+    return " and ".join(parts)
+
+
+def _not_on_a_legacy_row(row: MatrixRow, entries: list, table: str, sources: str = "") -> list:
     """Refuse a setup table a LEGACY row's recipe would drop in silence (the QA lens of REL-0140).
 
     A LEGACY row is built by its own recipe, which is the reader of its
@@ -533,12 +562,18 @@ def _not_on_a_legacy_row(row: MatrixRow, entries: list, table: str) -> list:
     the row's own key.
     """
     if entries and row.workflow == LEGACY_WORKFLOW:
+        # THE MESSAGE NAMES THE FILE THE ENTRIES CAME FROM, and it used to
+        # name the preset always. Since 0.15.0 the frames may come from the
+        # REFERENCE, so the old sentence could name a preset that states
+        # nothing and prescribe an edit that changes nothing (the interface
+        # lens of 2026-09-10). The caller knows which file contributed and
+        # says so in `sources`.
+        sources = sources or f"setup {row.set_code!r}"
         raise MatrixError(
-            f"POL {row.pol} writes LEGACY and names setup {row.set_code!r}, which states a "
-            f"[[{table}]] table; a LEGACY row is built by its own recipe, which reads no "
-            f"{table} table, so the entries would reach no script while the record claimed "
-            "them. Name a run type in the WORKFLOW column, or point the row at a setup "
-            "without the table."
+            f"POL {row.pol} writes LEGACY and takes a [[{table}]] table from {sources}; a "
+            f"LEGACY row is built by its own recipe, which reads no {table} table, so the "
+            "entries would reach no script while the record claimed them. Name a run type "
+            "in the WORKFLOW column, or take the table out of the file named here."
         )
     return list(entries)
 
@@ -1302,7 +1337,10 @@ def resolve_matrix(
             # lengths and the rotors; a preset still stating them is read with a
             # deprecation warning and the reference wins.
             "frames": _not_on_a_legacy_row(
-                row, _frames_of(reference, setups[row.set_code], row), "frames"
+                row,
+                _frames_of(reference, setups[row.set_code], row),
+                "frames",
+                _frame_sources(reference, setups[row.set_code], row),
             ),
             # THE SETUP'S RAW COMMANDS RIDE ON THE CASE TOO (PFS-2033.01),
             # each naming the artifact it came from, for the run record.
@@ -1318,6 +1356,12 @@ def resolve_matrix(
             # preset still stating them is read with a deprecation warning and
             # the reference wins, so an unmigrated workspace keeps planning.
             "aliases": _aliases_of(reference, setups[row.set_code], row),
+            # THE ROTORS RIDE ON THE CASE (FR-60): a motion record names one
+            # by alias and takes its hub, axis, sign, blades and diameter
+            # from it, so a row states nine rotors without repeating nine
+            # hubs. A reference declaring none leaves this empty and every
+            # row written before 0.15.0 resolves exactly as it did.
+            "engines": dict(reference.engines),
             # THE PPROC ARTIFACT RIDES ON THE CASE (PFS-2029.07.03): the
             # builders emit its sections, plots and probes and export the
             # kinds it selects, and the record names its id. A LEGACY row's
