@@ -3,30 +3,48 @@
 Version-aware, didactic Python driver for the FlightStream panel-method
 solver. MIT licensed.
 
-Status: v0.14.0 is the current release; the changelog records what
+Status: v0.15.0 is the current release; the changelog records what
 each release adds and what each one asks you to do.
 
-**v0.14.0 is the incidence study from a row.** A setup preset defines
-custom coordinate systems (`[[frames]]`) and states raw solver commands
-before a named phase (`[[raw]]`, through the same emitter as every curated
-line); a row turns the mesh (`ROTATE`, a list of records in the order
-written, families by name, the rotor's axis frame turned with them); the
-products stage tables the stamped per-step exports of a windowed point as
-a series under `post/<matrix>/series/`; the blade count of a sector comes
-from the rotor's own engine block where the row names its rotors by alias,
-and from `PERIODIC_COPIES` when `BLADES` is absent on a row that does not; the run record carries the
-raw lines and the clock of its export window. Two things that used to be
-refused are read now: a zero-probe export (a complete table of no rows),
-and a mesh rotation after the frame it cites was created (the two rotation
-commands are setup-phase). Nothing already written plans differently: a
-setup stating neither table and a row stating no `ROTATE` render as before.
-Three of her decisions of the same day land beside them: a setup preset
-names **groups of mesh families** in an `[aliases]` table, read wherever a
-boundary is cited, so `airframe` and `blades` are your own words; an empty
-`[groups]` entry of the pproc artifact is **every family the geometry
-carries**, and a group member may be a family name; and the polar format's
-five public names are spelled `custom` where they were spelled `her`, the
-old key and the old names warning until 0.16.0.
+**v0.15.0 is the use case become the release.** A study's vocabulary
+lives in the REFERENCE artifact now: an `[aliases]` table whose members may
+be other aliases, resolved to the end; the `[[frames]]` table moved out of
+the setup preset; and ONE BLOCK PER ROTOR whose name is an alias over
+everything that rotor owns, carrying its hub, axis, rotation sign, diameter
+and blade families. A row names its rotor by alias and states nothing else
+about it, so nine rotors are nine words rather than nine hubs; one advance
+ratio written once in the flight condition gives a 1.20 m lifter and a
+1.80 m pusher two different speeds; and each rotor's frames take its alias
+as their radical, so nine rotors instantiate nine sets rather than colliding
+on one. THE FRAME DECIDES how a post-processing entry expands, so there is
+no `expand` key: an entry in `MRP` is one over the set it names, one in
+`SMRP` or `RMRP` is one per rotor in that rotor's own frame, and one in
+`LOCAL_AXIS` is one per blade. Six lines of a `[plots]` table become
+twenty-seven emissions on a nine-rotor aircraft. Her three master's cases
+ran against the wheel before the tag and MOVED NO NUMBER: 0.15.0 reproduces
+the 0.14.0 run coefficient for coefficient, and the rotor case's emitted
+script is byte for byte 0.14.0's.
+
+**What changes for you at v0.15.0.** The run matrix LOSES A COLUMN:
+`SWEEP_TYPE` is gone, because a sweep is applied to a variable that DEFINES
+the flight condition and the `FLIGHT_CONDITION` cell says which by carrying
+the word `sweep` where that key's value would be. Run `pyfs-matrix upgrade
+<path> --in-place`, which folds the cell and DOES NOT RENAME A RUN: a held
+angle is carried at every point, so the point tags that end every `run_id`
+in your manifests are the ones the converted file plans under, and a resume
+after the upgrade finds its records. The one row it refuses to convert is
+one that sweeps BOTH angles, which is one row per sideslip and each needs a
+POL of its own. `CLOCK_MOTION` is now REQUIRED on a row that states a
+`MOTIONS` list, naming the rotor that owns the time step; the flat
+pre-0.15.0 form is exempt. The `airframe` and `blades` family SELECTORS are
+retired with a warning until 0.17.0: declare the set in your reference's
+`[aliases]` table and cite it by name, because those two decided what a
+blade IS from a pattern over the family name and a mesh spelled another way
+was guessed wrong in silence. An alias of the same name is read FIRST and
+warns about nothing, so a file that already declares `airframe` is
+untouched. New: `--ignore-missing-families false` on `plan` and `run` turns
+a family the opened mesh does not carry from a skip into a refusal, for a
+run against the one geometry you believe carries everything.
 
 **What changes for you, and what you must do.** v0.13.0 changes no
 column of the run-matrix file. Two inputs that used to plan are refused at

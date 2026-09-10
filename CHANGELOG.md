@@ -7,6 +7,29 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Owed
+
+- **The Zenodo archive of v0.14.0 DOES NOT EXIST**, and that is stronger
+  than the sentence that stood here, which said the row was deferred until
+  Zenodo answered. Measured 2026-09-10 against Zenodo's own API over ALL
+  versions: fifteen pyflightstream records are archived, the newest is
+  v0.13.1, and no v0.14.0 is among them. The GitHub release v0.14.0 has
+  existed since 2026-09-09T21:42:45Z, so the archive is not late, it was
+  never minted: Zenodo answered 504 all that evening and the release
+  webhook fired into the outage. It will not appear on its own. What it
+  takes is a new release event on that tag or a manual deposit, and that
+  is an action on a published artifact rather than a wait.
+  It is recorded here rather than remembered, because the guard that
+  would ask for it, `test_the_newest_archive_row_names_the_version_this_tree_states`,
+  skips on a development tree and this tree became one first: from this
+  commit nothing in the suite asks for the v0.14.0 row. The gap in the
+  guard, which is that a released TAG with no archive row is invisible
+  whatever the tree's version says, is registered as PFS-2024.09 for
+  0.15.0. Until the row lands, cite v0.14.0 by the concept DOI, which
+  resolves to the newest archived version.
+
+## [0.15.0] - 2026-09-10
+
 ### Added
 
 - **A study's vocabulary lives in the reference artifact** (FR-59, FR-60,
@@ -297,21 +320,6 @@ Five shims whose ledger promise named this release. Each has warned since
 - `pyflightstream.utils.sweep_editions`. Use `manual_editions`.
 - The positional call of `propose_type`. The two strings are keyword-only
   and the signature now refuses a positional call itself.
-
-### Owed
-
-- **The Zenodo archive identifier of v0.14.0 is not in `CITATION.cff` yet.**
-  The archive is minted from the GitHub release, so the row is always
-  written one commit after the tag; Zenodo answered 504 to every request
-  on the evening of 2026-09-09 and the row is deferred until it answers.
-  It is recorded here rather than remembered, because the guard that
-  would ask for it, `test_the_newest_archive_row_names_the_version_this_tree_states`,
-  skips on a development tree and this tree became one first: from this
-  commit nothing in the suite asks for the v0.14.0 row. The gap in the
-  guard, which is that a released TAG with no archive row is invisible
-  whatever the tree's version says, is registered as PFS-2024.09 for
-  0.15.0. Until the row lands, cite v0.14.0 by the concept DOI, which
-  resolves to the newest archived version.
 
 ## [0.14.0] - 2026-09-09
 
@@ -8475,7 +8483,8 @@ the repository seeding and this tag (milestones M0 through M5).
 * 26.000: registered, no recorded evidence yet (honest empty column;
   backfill planned for v0.2+).
 
-[Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.14.0...HEAD
+[Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.15.0...HEAD
+[0.15.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.15.0
 [0.14.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.14.0
 [0.13.1]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.13.1
 [0.13.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.13.0

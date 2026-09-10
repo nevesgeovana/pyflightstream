@@ -61,6 +61,21 @@ def _unreleased_body(text: str | None = None) -> str:
     if match is None:
         return ""
     body = match.group(1)
+    # AN `### Owed` SECTION IS NOT UNRELEASED BEHAVIOUR, and this is the one
+    # exclusion. It records a DEBT about a release that already shipped, put
+    # there because the archive guard asks for it there and because a
+    # released section records what happened on a date. This guard is about
+    # REV010-015, two incompatible ARTIFACTS answering to one number, and a
+    # debt is neither an artifact nor a behaviour: the wheel built from this
+    # tree behaves exactly as its tag says whatever that paragraph holds.
+    # Measured 2026-09-10: the two guards refused each other at the 0.15.0
+    # release commit, one demanding the paragraph be in Unreleased and the
+    # other refusing a final version because it was.
+    #
+    # NARROW ON PURPOSE. Every other section still counts, so an Added or a
+    # Changed entry under Unreleased still refuses a final version, which is
+    # the whole point of this file.
+    body = re.sub(r"^### Owed\s*$.*?(?=^### |\Z)", "", body, flags=re.M | re.S)
     # Section headings alone are not content: "### API surface delta" with
     # nothing under it is an empty section, not an unreleased change.
     without_headings = re.sub(r"^#+ .*$", "", body, flags=re.M)
@@ -79,6 +94,39 @@ def release_identity_holds(version: str, unreleased: str) -> bool:
         return True
     parsed = parse_version(version)
     return parsed.is_prerelease or parsed.is_devrelease
+
+
+def test_an_owed_debt_is_not_unreleased_behaviour():
+    """A debt about a PAST release does not make this tree a prerelease.
+
+    The archive guard puts the outstanding v0.14.0 row in the Unreleased
+    section, which is where a debt belongs. Reading it as behaviour refused
+    the 0.15.0 release commit, and the two guards then refused each other.
+    """
+    owed_only = (
+        "## [Unreleased]\n\n### Owed\n\n"
+        "- The Zenodo archive of v0.14.0 does not exist yet.\n\n"
+        "## [0.15.0] - 2026-09-10\n\n### Added\n\n- A flag.\n"
+    )
+    assert _unreleased_body(owed_only) == ""
+    assert release_identity_holds("0.15.0", _unreleased_body(owed_only))
+
+
+def test_a_real_unreleased_change_still_refuses_a_final_version():
+    """THE DISCRIMINATOR. Without it the exclusion above is a constant.
+
+    An Added entry under Unreleased is behaviour this tree has and its tag
+    does not, which is REV010-015 exactly, and it must still refuse.
+    """
+    with_change = (
+        "## [Unreleased]\n\n### Owed\n\n"
+        "- The Zenodo archive of v0.14.0 does not exist yet.\n\n"
+        "### Added\n\n- A behaviour this tree has and 0.15.0 does not.\n\n"
+        "## [0.15.0] - 2026-09-10\n\n### Added\n\n- A flag.\n"
+    )
+    assert "behaviour this tree has" in _unreleased_body(with_change)
+    assert not release_identity_holds("0.15.0", _unreleased_body(with_change))
+    assert release_identity_holds("0.16.0.dev0", _unreleased_body(with_change))
 
 
 def test_a_final_version_never_coexists_with_unreleased_behavior():

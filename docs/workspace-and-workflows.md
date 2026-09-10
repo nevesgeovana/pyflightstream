@@ -1045,7 +1045,31 @@ per family the geometry carries, the name carrying `{family}`). A family
 the geometry does not carry is left out, which is how one artifact serves
 a wing-body and an isolated rotor, and an entry that resolves to nothing
 is skipped; pass `--ignore-missing-families false` to `pyfs-matrix plan`
-or `run` to hear about both instead of having them pass in silence.
+or `run` to hear about both instead of having them pass in silence. The word
+is read: `true`, `yes` and `1` mean yes, `false`, `no` and `0` mean no, and
+anything else is refused naming the flag and the word rather than quietly
+meaning yes.
+
+The choice reaches each case as the row variable
+`IGNORE_MISSING_FAMILIES`, which is what a refusal quotes back at you and
+what `pyflightstream.cases.workflows.IGNORE_MISSING_FAMILIES_VARIABLE`
+spells for a Python caller:
+
+<!-- skip: next -->
+```python
+from pyflightstream.cases.workflows import IGNORE_MISSING_FAMILIES_VARIABLE
+
+case = case.model_copy(
+    update={"variables": {**case.variables, IGNORE_MISSING_FAMILIES_VARIABLE: "false"}}
+)
+```
+
+**A MATRIX CELL MAY NOT WRITE IT.** The reader refuses a row that states the
+key and points you at the flag, because whether a family the mesh lacks is a
+skip or a refusal is a property of the RUN and not of the row: the same row
+is planned across a wing and a rotor, which is the whole reason the skip
+exists. At the default nothing at all is written onto a case, so every
+recorded run keeps its identity and every emitted script its bytes.
 
 There were five selectors until 0.15.0 and three left in one release.
 `each_blade` went because the FRAME says how an entry expands now, so
