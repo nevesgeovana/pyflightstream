@@ -43,12 +43,31 @@ FlightStream versions.
 
 ### Added
 
+- **A setup declares CUSTOM FLAGS, and a row sets a solver command by
+  name** (FR-74, PFS-2035.20, the author's instruction of 2026-09-10). A preset
+  states `[[flags]]` once per flag with `name`, the word a row writes, and
+  `command`, the FlightStream command it becomes, bare; a row citing that
+  preset then writes `base_bending: 12.5` and the script carries
+  `SET_BASE_REGION_BENDING_ANGLE 12.5`. THE DIFFERENCE FROM `[[raw]]`, which
+  is the whole point: a raw entry is a whole line with its arguments, fixed
+  in the preset, so every row citing it emits the same one; a flag names the
+  command and the ROW states the value, so one preset serves a SWEEP over it.
+  That is what leaves RAW to the particular case its name promises. The line
+  passes the same emit check every curated emission passes, so a flag naming
+  a command this build cannot emit, or a value of the wrong type, is refused
+  at PLAN time with the flag, the preset and the value named, never at the
+  machine. A flag reaches the three seams a raw entry reaches; one whose
+  command belongs to a later phase is refused naming that phase rather than
+  quietly not appearing. Worked and executed:
+  `tests/tier3_licensed/inputs/setups/s006.toml` declares it, row 8006 of
+  `matriz_vocab.fs` sets it, and the committed golden carries the line.
+
 - **A study's vocabulary lives in the reference artifact** (FR-59, FR-60,
   FR-72, the author's design of 2026-09-10). `inputs/references/<id>.toml` now reads
   three tables: `[aliases]`, where a member may be another alias and the
   reader follows to the end, refusing a ring by naming both sides;
   `[[frames]]`, unchanged in shape; and ONE BLOCK PER ROTOR, `kind =
-  "engine"`, whose name is an alias over everything that rotor owns. A
+  "rotor"`, whose name is an alias over everything that rotor owns. A
   rotor block states its hub, `axis`, `rpm_sign`, `diameter_m`,
   `families_general`, `families_blades` and `blade1`; the BLADE COUNT is
   the length of `families_blades`, so a row states no count and a sector
@@ -249,6 +268,38 @@ FlightStream versions.
   types one.
 
 ### Changed
+
+- **ONE WORD FOR THE ROTATING THING: ROTOR, everywhere** (PFS-2035.21, the
+  author's decisions of 2026-09-10: "engine vs rotor: vamos de rotor" and
+  "normaliza tudo para rotor que e o mais generico"). Engine, propeller and
+  PROP named one object across three artifacts, and each was a guess about
+  the configuration; a propeller is a rotor and so is a lift fan, so the
+  general word is the one that never has to change again. The reference
+  block is `kind = "rotor"`, its length is `rotor_diameter_m`, the recorded
+  block is `[rotor]`, the point kind is `rotor`, the probe scale is
+  `rotor_radius` and the workspace accessor is `rotor_point`.
+
+- **THE PACKAGE-LEVEL ROTOR FRAME IS GONE, not renamed** (the author, on the
+  rename made first: "isso nao deveria nem existir agora que o padrao e por
+  <ALIAS>"). At 0.14.0 a reference described one propulsor, so one frame at
+  one position was the whole story; a reference declares one block per rotor
+  now and each carries `<ALIAS>_SMRP` at its hub, `<ALIAS>_RMRP` turning
+  with it and `<ALIAS>_RMRP<k>` per blade. `PROP_MRP` was the one-propulsor
+  assumption spelled out. The positional `PROP_MRP<k>` and `RotorAxis<k>` go
+  with it: they read as names and were an INDEX, so a post-processing entry
+  citing one silently followed the ORDER of the MOTIONS list.
+
+- **NO OLD SPELLING IS ACCEPTED, and each refuses naming its replacement**
+  (the author: "nomenclatura antiga e para dar erro com mensagem que aquela
+  nomenclatura foi depreciada e como corrigir"). The principle that decides
+  which promises break is recorded in `_deprecations.py`: A DEPRECATION
+  INTRODUCED IN AN UNRELEASED VERSION IS NOT A PROMISE ANYONE HAS RECEIVED.
+  The twelve entries of the 0.15.0 batch were written in 0.15.0, which had
+  not shipped, so no workspace was ever told the old spelling would keep
+  working; they move to `REFUSED_IN_0_15_0` and refuse. THE 0.14.0 BATCH IS
+  UNTOUCHED: those promises were published, they expire at 0.16.0 anyway,
+  and breaking them would break a workspace that upgraded on their strength.
+  A new module, `_retired_names.py`, holds what each word became and why.
 
 - **THE RUN MATRIX LOST A COLUMN: `SWEEP_TYPE` is gone** (FR-69, the author's rule of
   2026-09-10). A sweep is applied to a variable that DEFINES the flight
