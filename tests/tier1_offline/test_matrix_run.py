@@ -4066,7 +4066,21 @@ def test_the_record_and_the_provenance_carry_the_raw_commands_of_the_setup(tmp_p
         by_sim.setdefault(record.sim_id, []).append(record)
     assert set(by_sim) == {"2001", "2002", "2003", "2004"}, sorted(by_sim)
     assert "raw_commands" in RunRecord.model_fields
-    expected = [{"command": "SOLVER_SET_ITERATIONS 350", "before": "init", "setup": "s008"}]
+    # `source` joined the record at 0.15.0 (FR-67), and it answers ONE
+    # question for all three origins a line can have: a setup's id, the word
+    # `matrix` for a line written in the row's own RAW cell, or
+    # `<path>:<line>` for a line read out of a raw file. A preset's line
+    # carries its setup id in both fields, which is the shape a reader of
+    # the older record already expects, plus the field that now answers
+    # uniformly.
+    expected = [
+        {
+            "command": "SOLVER_SET_ITERATIONS 350",
+            "before": "init",
+            "setup": "s008",
+            "source": "s008",
+        }
+    ]
     carried = [e.model_dump(mode="json") for e in by_sim["2004"][0].raw_commands]
     assert carried == expected, carried
     assert all(r.raw_commands == [] for sim, rs in by_sim.items() if sim != "2004" for r in rs)

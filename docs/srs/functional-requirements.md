@@ -2081,10 +2081,20 @@ requirement below is one seam of that division.
     second answer of that hour: the first was to refuse both stating it, as
     the rotor speed is refused.
 
-!!! requirement "FR-67 A row may state raw solver commands, after the preset's at the same seam <span class='srs-pending'>pending</span>"
+!!! requirement "FR-67 A row may state raw solver commands, after the preset's at the same seam <span class='srs-implemented'>implemented</span>"
     *Origin: her decision of 2026-09-10, "a linha ganha um jeito de passar
     comando bruto, mantendo a feature original preservada". Carried by
-    PFS-2035.10. Evidence owed: the tests it names. EXTENDS the preset-level `[[raw]]`
+    PFS-2035.10. Evidence: `tests/tier1_offline/test_raw_on_the_row.py` (the cell
+    states one record and several; a file path survives the record separator; a
+    record stating both forms, neither form, no phase, or a key a raw command
+    does not read is refused; a row stating none carries none; a file becomes
+    one command per line in order; a blank line and a comment are skipped; each
+    line carries the file and its line number; the row's cell line comes after
+    the row's file; a file the workspace does not carry and a file outside the
+    inputs are refused) and
+    `test_the_record_and_the_provenance_carry_the_raw_commands_of_the_setup` of
+    `tests/tier1_offline/test_matrix_run.py` (the record names each line's
+    source). EXTENDS the preset-level `[[raw]]`
     table of FR-31, "Solver-setup provenance", to the row.*
 
     A cell's `RAW` list states solver commands, each before a named phase, in
@@ -2102,6 +2112,14 @@ requirement below is one seam of that division.
     The run record names each line's source, the setup's id, the word
     `matrix`, or the file's path, and a file's lines are recorded AS EMITTED,
     so a record still reproduces the run after the file has changed.
+
+    ONE THING THIS TEXT DID NOT ANTICIPATE, and her own row 9209 is where it
+    showed: a record's key and value pairs are separated by a slash, and a PATH
+    carries slashes, so `FILE: raw/pusher_extra.txt / BEFORE: init` was cut at
+    the path's own separator and refused as not a pair. A raw record splits on
+    a SPACED separator, because its two values are a path and a command line
+    and both carry punctuation of their own. Every other record kind is
+    unchanged.
 
 !!! requirement "FR-68 The reductions read each rotor's blade count from its own declaration <span class='srs-implemented'>implemented</span>"
     *Origin: her design of 2026-09-10. Carried by PFS-2035.11. Evidence:

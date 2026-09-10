@@ -61,6 +61,7 @@ from pyflightstream._fsm import MeshReadError, boundary_names
 from pyflightstream.cases import (
     Campaign,
     FluidState,
+    RawCommand,
     ReferenceData,
     SimCase,
     SolverSettings,
@@ -68,6 +69,10 @@ from pyflightstream.cases import (
 from pyflightstream.cases.matrix import (
     DEFAULT_VERSION_OPTION,
     LEGACY_WORKFLOW,
+    RAW_BEFORE_KEY,
+    RAW_COMMAND_KEY,
+    RAW_FILE_KEY,
+    RAW_VARIABLE,
     MatrixError,
     MatrixRow,
     read_matrix,
@@ -540,6 +545,52 @@ def _frames_of(reference, setup, row: MatrixRow) -> list:
     taken = {frame.name.strip().upper() for frame in reference.frames}
     kept = [frame for frame in setup.frames if frame.name.strip().upper() not in taken]
     return [*reference.frames, *kept]
+
+
+def _the_rows_raw_commands(row: MatrixRow, inputs_dir: Path) -> list[RawCommand]:
+    """Expand the row's ``RAW`` records into commands, reading any file (FR-67).
+
+    A ``COMMAND`` record is one command, sourced to the word ``matrix``. A
+    ``FILE`` record is a text file of the workspace's inputs, and becomes
+    ONE COMMAND PER LINE, each sourced to ``<path>:<line number>``: a blank
+    line and a line opening with ``#`` are skipped, so a raw file may
+    explain itself, and every other line is emitted verbatim in order.
+
+    THE LINE NUMBER IS THE POINT of the source field. A file carrying a
+    command this build lacks is refused by the emitter naming THE FILE and
+    THE LINE, not the cell that pointed at it, because the cell holds a
+    path and the mistake is thirty lines away.
+    """
+    entries: list[RawCommand] = []
+    for record in row.raw:
+        before = record[RAW_BEFORE_KEY].strip()
+        line = record.get(RAW_COMMAND_KEY)
+        if line:
+            entries.append(RawCommand(command=line, before=before, source="matrix"))
+            continue
+        stated = record[RAW_FILE_KEY].strip()
+        path = (inputs_dir / stated).resolve()
+        # UNDER THE INPUTS AND NOWHERE ELSE. A relative path that climbs out
+        # of the workspace would read a file the run record cannot describe
+        # and a second machine does not have.
+        if not path.is_relative_to(inputs_dir.resolve()):
+            raise MatrixError(
+                f"POL {row.pol}: {RAW_VARIABLE} names the file {stated!r}, which resolves "
+                f"outside the workspace's inputs ({inputs_dir}). A raw file is a file of "
+                "the workspace, so that the run record names a path a second machine has."
+            )
+        if not path.is_file():
+            raise MatrixError(
+                f"POL {row.pol}: {RAW_VARIABLE} names the file {stated!r}, and "
+                f"{path} is not a file. A raw file is written under the workspace's "
+                "inputs and its path is stated relative to them."
+            )
+        for number, raw_line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+            stripped = raw_line.strip()
+            if not stripped or stripped.startswith("#"):
+                continue
+            entries.append(RawCommand(command=stripped, before=before, source=f"{stated}:{number}"))
+    return entries
 
 
 def _frames_for_row(reference, setup, row: MatrixRow) -> list:
@@ -1378,8 +1429,16 @@ def resolve_matrix(
             # THE SETUP'S RAW COMMANDS RIDE ON THE CASE TOO (PFS-2033.01),
             # each naming the artifact it came from, for the run record.
             "raw_commands": [
-                entry.model_copy(update={"setup": row.set_code})
-                for entry in _not_on_a_legacy_row(row, setups[row.set_code].raw_commands, "raw")
+                *(
+                    entry.model_copy(update={"setup": row.set_code, "source": row.set_code})
+                    for entry in _not_on_a_legacy_row(row, setups[row.set_code].raw_commands, "raw")
+                ),
+                # THE PRESET'S LINES ARE THE GROUND AND THE ROW'S COME OVER
+                # THEM, which is her answer of 2026-09-10 and the whole of the
+                # ordering question at a shared seam (FR-67). Her row 9210 is
+                # the case that fixes it: a preset line, then the row's file,
+                # then the row's own cell line.
+                *_the_rows_raw_commands(row, workspace.inputs_dir),
             ],
             # THE REFERENCE'S ALIASES RIDE ON THE CASE (FR-59, her decision of
             # 2026-09-10), on a LEGACY row too: the products stage resolves a

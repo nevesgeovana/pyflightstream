@@ -70,6 +70,18 @@ FlightStream versions.
   it by, which is what lets one row sweep the pusher while the lifters hold.
   A record may not state the word `sweep`: sweeping is the condition's job,
   stated once for the row, and a record that writes it is refused.
+- **A row may state raw solver commands of its own** (FR-67), in a `RAW`
+  cell listing records: `{COMMAND: SOLVER_SET_ITERATIONS 350 / BEFORE:
+  init}` writes the line in the cell, and `{FILE: raw/extra.txt / BEFORE:
+  init}` points at a text file of the workspace whose lines are emitted
+  in order. A blank line and a line opening with `#` are skipped, so a
+  raw file may explain itself. Every line passes the same emitter checks
+  the preset's `[[raw]]` table passes, and a file carrying a command this
+  build lacks is refused naming THE FILE AND THE LINE rather than the
+  cell, because the cell holds a path and the mistake is thirty lines
+  away. At one seam the preset's lines come first and the row's after,
+  which is the ground and the specific over it. The run record names each
+  line's source: the setup's id, the word `matrix`, or `<path>:<line>`.
 - **Each rotor reduces over its OWN blade passage** (FR-68). A transition
   row turns the lifters and the pusher in one run at different speeds and
   with different blade counts, so one blade passage of the ROW has no

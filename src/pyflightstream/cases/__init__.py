@@ -760,6 +760,14 @@ class RawCommand(BaseModel):
     command: str
     before: str
     setup: str | None = None
+    #: WHERE THIS LINE CAME FROM, for the run record and for the refusal
+    #: (FR-67). A setup's id, the word ``matrix`` for a line written in the
+    #: row's own cell, or ``<path>:<line number>`` for a line read out of a
+    #: file of the workspace. The last is why this exists at all: a file
+    #: carrying a command the build lacks must be refused naming THE FILE
+    #: and THE LINE, not the cell that pointed at it, because the cell
+    #: holds a path and the mistake is thirty lines away.
+    source: str | None = None
 
     @field_validator("command", mode="before")
     @classmethod

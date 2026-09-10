@@ -109,6 +109,10 @@ __all__ = [
     "MOVING_BOUNDARIES_VARIABLE",
     "ROTATE_VARIABLE",
     "PERIODIC_COPIES_VARIABLE",
+    "RAW_BEFORE_KEY",
+    "RAW_COMMAND_KEY",
+    "RAW_FILE_KEY",
+    "RAW_VARIABLE",
     "REVOLUTIONS_VARIABLE",
     "ROTORLESS_REFUSED_KEYS",
     "ROTOR_AXIS_VARIABLE",
@@ -414,6 +418,21 @@ SYMMETRY_VARIABLE = "SYMMETRY"
 #: :func:`pyflightstream.script.helpers.initialize_solver`; a
 #: four-bladed rotor modelled as one 90 degree sector declares 4.
 PERIODIC_COPIES_VARIABLE = "PERIODIC_COPIES"
+
+#: The cell key whose value is a LIST OF RECORDS, each one raw solver
+#: command line the row states, or one file of them (FR-67, her decision of
+#: 2026-09-10, "a linha ganha um jeito de passar comando bruto, mantendo a
+#: feature original preservada").
+RAW_VARIABLE = "RAW"
+
+#: The two forms a raw record takes, and exactly one of them is written:
+#: the line itself, or a text file of the workspace holding lines.
+RAW_COMMAND_KEY = "COMMAND"
+RAW_FILE_KEY = "FILE"
+
+#: The key every raw record states beside its form: the phase the line goes
+#: before, spelled as the preset's `[[raw]]` table spells it.
+RAW_BEFORE_KEY = "BEFORE"
 
 #: The sentence on ``docs/mesh-inputs.md`` that the suffix refusal sends
 #: a blocked user to, quoted VERBATIM so the two cannot drift.
@@ -4141,7 +4160,19 @@ def _raw_commands(case: SimCase, script: Script, phase: str) -> None:
     for entry in case.raw_commands:
         if entry.before != phase:
             continue
-        where = f"setup {entry.setup!r}" if entry.setup else "the case's raw commands"
+        # WHERE THE LINE CAME FROM, in the words that let the author find it
+        # (FR-67). A file's line says the path AND the line number, because
+        # the cell holds a path and the mistake is thirty lines away.
+        if entry.source and entry.source != "matrix":
+            where = (
+                f"setup {entry.setup!r}"
+                if entry.source == entry.setup
+                else f"the raw file {entry.source}"
+            )
+        elif entry.source == "matrix":
+            where = "the row's own RAW cell"
+        else:
+            where = f"setup {entry.setup!r}" if entry.setup else "the case's raw commands"
         name = entry.command.split()[0]
         try:
             spec = script.entry(name)

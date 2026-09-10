@@ -93,6 +93,11 @@ from pyflightstream.cases import (
 from pyflightstream.cases.workflows import (
     LOG_OUTPUT_VARIABLE,
     MOTIONS_VARIABLE,
+    RAW_BEFORE_KEY,
+    RAW_COMMAND_KEY,
+    RAW_FILE_KEY,
+    RAW_PHASES,
+    RAW_VARIABLE,
     ROTATE_VARIABLE,
     ROTATION_ALIAS_KEY,
     ROTATION_FAMILIES_KEY,
@@ -347,6 +352,10 @@ class MatrixRow:
     #: The mesh rotations the cell's ``ROTATE`` list states, one record
     #: each, in cell order (PFS-2034.02); empty for a row stating none.
     rotations: list[dict[str, str]] = field(default_factory=list)
+    #: The raw solver commands the cell's ``RAW`` list states, one record
+    #: each, in cell order (FR-67); empty for a row stating none. A record
+    #: holds ``COMMAND`` or ``FILE``, never both, and ``BEFORE``.
+    raw: list[dict[str, str]] = field(default_factory=list)
 
 
 #: The CLOSED set of flight-condition keys, each with the unit it is
@@ -769,6 +778,65 @@ def _parse_motions(variables: dict[str, str], pol: str) -> list[dict[str, str]]:
     return _parse_records(text, pol, MOTIONS_VARIABLE, "rotor")
 
 
+def _raw_records(variables: dict[str, str], pol: str) -> list[dict[str, str]]:
+    """Read the cell's ``RAW`` list into one record per raw command (FR-67).
+
+    Her decision of 2026-09-10, EXTENDING the preset's ``[[raw]]`` table to
+    the row. A record states the line itself, ``COMMAND``, or a text file
+    of the workspace holding lines, ``FILE``, and never both: the two are
+    the same statement made twice and there would be no order between
+    them. It states ``BEFORE`` either way, which is the phase the line
+    goes before, spelled as the preset spells it.
+
+    THE LINE IS NOT CHECKED HERE and that is the layering. Whether the
+    build has the command, whether its arguments are the right type and
+    count, whether its phase permits it: all of that is the EMITTER's, and
+    a second implementation of it here is how the two come to disagree.
+    This reader checks only the shape of the record, which is a matrix
+    fact.
+    """
+    text = variables.pop(RAW_VARIABLE, None)
+    if text is None:
+        return []
+    # A SPACED SEPARATOR, and only here. A raw record's values are a PATH
+    # and a COMMAND LINE, both of which carry slashes of their own, so the
+    # bare separator every other record uses would cut `raw/pusher_extra.txt`
+    # in half. Her own row 9209 is the case: it is the shape she wrote the
+    # specification in, and it did not parse.
+    records = _parse_records(text, pol, RAW_VARIABLE, "raw command", pair_separator=" / ")
+    allowed = (RAW_COMMAND_KEY, RAW_FILE_KEY, RAW_BEFORE_KEY)
+    for record in records:
+        written = " / ".join(f"{k}: {v}" for k, v in record.items())
+        unknown = sorted(key for key in record if key not in allowed)
+        if unknown:
+            raise MatrixError(
+                f"POL {pol}: {RAW_VARIABLE} record states {', '.join(unknown)}, which a raw "
+                f"command does not read; a record holds {RAW_COMMAND_KEY} or {RAW_FILE_KEY}, "
+                f"and {RAW_BEFORE_KEY}."
+            )
+        forms = [key for key in (RAW_COMMAND_KEY, RAW_FILE_KEY) if record.get(key)]
+        if len(forms) != 1:
+            states = (
+                f"both {' and '.join(forms)}"
+                if forms
+                else f"neither {RAW_COMMAND_KEY} nor {RAW_FILE_KEY}"
+            )
+            raise MatrixError(
+                f"POL {pol}: {RAW_VARIABLE} record {{{written}}} states {states}; a record "
+                f"is ONE of the two. {RAW_COMMAND_KEY} is the line as the solver reads it, "
+                f"arguments included; {RAW_FILE_KEY} is a path under the workspace's "
+                "inputs, whose lines are emitted in order."
+            )
+        if not record.get(RAW_BEFORE_KEY):
+            raise MatrixError(
+                f"POL {pol}: {RAW_VARIABLE} record {{{written}}} states no {RAW_BEFORE_KEY}; "
+                f"every raw command names the phase it goes before, one of "
+                f"{', '.join(RAW_PHASES[1:])}, or control for a line at the head of the "
+                "script."
+            )
+    return records
+
+
 def _parse_rotations(variables: dict[str, str], pol: str) -> list[dict[str, str]]:
     """Take the ``ROTATE`` list out of the flat variables and read its records.
 
@@ -856,7 +924,9 @@ def _refuse_a_rotation_that_names_its_set_twice_or_not_at_all(
         )
 
 
-def _parse_records(text: str, pol: str, key: str, noun: str) -> list[dict[str, str]]:
+def _parse_records(
+    text: str, pol: str, key: str, noun: str, pair_separator: str = "/"
+) -> list[dict[str, str]]:
     """Read ``{KEY: value / KEY: value}, {...}`` into records, one ``noun`` each."""
     if text.count("{") != text.count("}") or not text.startswith("{") or not text.endswith("}"):
         raise MatrixError(
@@ -883,7 +953,7 @@ def _parse_records(text: str, pol: str, key: str, noun: str) -> list[dict[str, s
                 "inside another; a record holds KEY: value pairs only."
             )
         record: dict[str, str] = {}
-        for pair in inner.split("/"):
+        for pair in inner.split(pair_separator):
             if not pair.strip():
                 continue
             name, separator, value = pair.partition(":")
@@ -1128,6 +1198,7 @@ def read_matrix(path: str | Path, *, active_only: bool = True) -> list[MatrixRow
         variables = _parse_variables(record["VAR_NAMES_VALUES"])
         motions = _parse_motions(variables, record["POL"])
         rotations = _parse_rotations(variables, record["POL"])
+        raw = _raw_records(variables, record["POL"])
         if rotations and record["WORKFLOW"] == LEGACY_WORKFLOW:
             # A LEGACY row is built by its recipe, which is the reader of
             # its keys (her rule of 2026-09-08, design 68) and reads no
@@ -1175,6 +1246,7 @@ def read_matrix(path: str | Path, *, active_only: bool = True) -> list[MatrixRow
             variables=variables,
             motions=motions,
             rotations=rotations,
+            raw=raw,
         )
         # Every row is checked, active or not: the sweep codes and the
         # variable grammar already are, and a refusal a user only meets
@@ -2204,6 +2276,12 @@ def to_campaign(
                 outputs=_declared_outputs(row, required=require_outputs),
                 motions=[dict(record) for record in row.motions],
                 rotations=[dict(record) for record in row.rotations],
+                # THE ROW'S RAW RECORDS DO NOT RIDE ON THE CASE, deliberately.
+                # A record may name a FILE, and resolving one needs the
+                # workspace's inputs, which this layer does not have; the
+                # workspace expands them into `raw_commands`, which is the
+                # RESOLVED form and the one a hand-authored case states
+                # directly (FR-67).
                 variables=variables,
             )
         )
