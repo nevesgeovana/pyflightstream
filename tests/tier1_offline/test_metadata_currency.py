@@ -299,6 +299,113 @@ def test_the_header_declares_the_kind_of_tree_it_actually_heads():
     )
 
 
+#: The first release whose archive row this file carries. CITATION.cff's own
+#: header states the rule and the reason: "The archive DOIs below are one per
+#: release from v0.3.0 ... v0.1.0 and v0.2.0 are absent: v0.2.0 was the first
+#: release to archive, and its version DOI was not recorded here at the time
+#: ... the two missing rows are a gap in this list rather than in the
+#: archive." Read off the file rather than chosen here, so a guard and the
+#: file it guards cannot disagree about which releases are in scope.
+ARCHIVE_ROWS_BEGIN_AT = (0, 3, 0)
+
+
+def test_every_released_tag_has_an_archive_row_or_the_changelog_says_it_is_owed():
+    """PFS-2024.09. A released tag with no archive row must be VISIBLE.
+
+    The sibling guard above asks about the version THIS TREE states, and
+    after the dev bump a development tree states a development version, so
+    it skips. A tag that shipped and never got its row falls through that
+    hole and nothing anywhere notices. The changelog's own Owed section
+    names the hole: "a released TAG with no archive row is invisible".
+
+    THE TWO READINGS ARE BOTH LEGITIMATE and this says which one it took.
+    A version DOI is minted from the GitHub release, so the row is always
+    written one commit AFTER the tag; between those two commits, and for
+    as long as the archive is unreachable, the honest record is a line in
+    the changelog's Unreleased section saying the row is owed. What is not
+    legitimate is neither.
+    """
+    import subprocess
+
+    tags = subprocess.run(
+        ["git", "tag", "--list", "v*"],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+        # Explicit, and identical to the inherited default: the estate's
+        # rule is that a spawn SAYS so rather than letting a
+        # runner-injected variable arrive unnoticed.
+        env=os.environ.copy(),
+    )
+    if tags.returncode != 0:
+        pytest.skip(f"this checkout has no tags to read: {tags.stderr.strip()[:120]}")
+    released = []
+    for line in tags.stdout.split():
+        raw = line.strip().lstrip("v")
+        try:
+            parts = tuple(int(piece) for piece in raw.split("."))
+        except ValueError:
+            continue
+        if len(parts) == 3 and parts >= ARCHIVE_ROWS_BEGIN_AT:
+            released.append((parts, line.strip()))
+    assert released, (
+        "no tag of this checkout parses as a release, so this guard measured "
+        "nothing; an empty set is not a pass"
+    )
+
+    citation = (REPO_ROOT / "CITATION.cff").read_text(encoding="utf-8")
+    changelog = (REPO_ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+    unreleased = changelog.split("## [Unreleased]", 1)
+    owed = unreleased[1].split("\n## [", 1)[0] if len(unreleased) > 1 else ""
+
+    by_row, by_changelog, invisible = [], [], []
+    for _parts, tag in sorted(released):
+        version = tag.lstrip("v")
+        # THE ROW NAMES THE RELEASE, which is what the description says;
+        # matching the bare version anywhere in the file would also match a
+        # prose paragraph, and this guard is about the identifiers block.
+        rows = [
+            line
+            for line in citation.splitlines()
+            if "description" in line and f"v{version}" in line
+        ]
+        if rows:
+            by_row.append(tag)
+        elif any(
+            f"v{version}" in line
+            and any(word in line.lower() for word in ("archive", "doi", "identifier"))
+            for line in owed.splitlines()
+        ):
+            # THE LINE MUST NAME THE ARCHIVE, not merely the version. The
+            # first writing asked whether the version appeared ANYWHERE in
+            # the Unreleased section, and the section mentions v0.14.0 in
+            # three sentences about other things entirely, one of them
+            # about frame names still resolving. Sabotaging the real Owed
+            # line left the guard green (measured 2026-09-10), which is the
+            # check-that-accepts-everything defect this estate records.
+            by_changelog.append(tag)
+        else:
+            invisible.append(tag)
+
+    print(
+        f"\n  archive rows read for {len(by_row)} tag(s); the changelog's Owed "
+        f"section read for {len(by_changelog)} ({', '.join(by_changelog) or 'none'})"
+    )
+    assert not invisible, (
+        f"{len(invisible)} released tag(s) have no archive row in CITATION.cff and "
+        f"are not named as owed in the changelog's Unreleased section: "
+        f"{', '.join(invisible)}. A version DOI is minted from the GitHub release "
+        "and the row is written one commit after the tag; until it is, the "
+        "Unreleased section says so. Neither is how a shipped release stops "
+        "being citable without anyone noticing (PFS-2024.09)."
+    )
+    assert by_row or by_changelog, (
+        "neither reading matched any tag, so this guard passed without reading "
+        "either of the two things it exists to read"
+    )
+
+
 def test_the_newest_archive_row_names_the_version_this_tree_states():
     """The identifiers block is read by nothing, and it is what the row IS.
 
