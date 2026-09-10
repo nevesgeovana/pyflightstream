@@ -1195,11 +1195,26 @@ def _point_reductions(
         return
     series: TimestepSeries | None = None
     columns: tuple[str, ...] = ()
-    for name in REDUCTION_NAMES:
-        entry = plan.get(name)
+    # ONE READING LIST, TWO SHAPES (FR-68). A row turning several rotors
+    # has no single blade passage, so its two passage reductions live one
+    # per ROTOR under `rotors` and land in files that NAME the rotor; the
+    # flat keys carry the skip that says where they went, and the products
+    # record it as it records any skip. A row turning one rotor, and every
+    # row written before 0.15.0, reads the flat keys alone and its files
+    # keep the names they have always had.
+    reading: list[tuple[str, object, str]] = [
+        (name, plan.get(name), f"plots/{stem}_{name}.csv") for name in REDUCTION_NAMES
+    ]
+    rotors = plan.get("rotors")
+    if isinstance(rotors, Mapping) and len(rotors) > 1:
+        for alias, block in rotors.items():
+            if not isinstance(block, Mapping):
+                continue
+            for name in ("phase_locked", "per_blade"):
+                reading.append((name, block.get(name), f"plots/{stem}_{name}_{alias}.csv"))
+    for name, entry, relative in reading:
         if not isinstance(entry, Mapping):
             continue  # not applicable to this run type
-        relative = f"plots/{stem}_{name}.csv"
         if "skipped" in entry:
             skipped[relative] = str(entry["skipped"])
             continue

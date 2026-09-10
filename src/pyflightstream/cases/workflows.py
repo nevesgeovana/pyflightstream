@@ -1065,10 +1065,52 @@ def _optional_rotor_speed(case: SimCase) -> RotorSpeed | None:
 
     A window stated in STEPS needs no rotor speed, and refusing a case
     that never asked for one would break every such row.
+
+    A ROW STATING ITS SPEEDS IN MOTIONS STATES ONE HERE TOO, through the
+    motion that owns the clock (FR-64). Without that, a 0.15.0 transition
+    row reduced over NOTHING: the row itself carries no `RPM` because each
+    rotor carries its own, so this returned None and every reduction of
+    the point, the time average included, was skipped with "states no
+    rotor speed" (measured on a two rotor row, 2026-09-10). The clock
+    motion is the right one and not merely an available one: the row's
+    step and the row's length are already ITS, which is what FR-64
+    settled, so the window they cut is its revolutions.
     """
-    if _variable(case, ADVANCE_RATIO_VARIABLE) is None and _variable(case, RPM_VARIABLE) is None:
+    if (
+        _variable(case, ADVANCE_RATIO_VARIABLE) is not None
+        or _variable(case, RPM_VARIABLE) is not None
+    ):
+        return rotor_speed(case)
+    turning = _the_rotors_the_row_turns(case)
+    if not turning:
         return None
-    return rotor_speed(case)
+    views = [view for _, view, _ in turning]
+    speeds = [speed for _, _, speed in turning]
+    return _clock_speed(case, views, speeds)
+
+
+def _the_rotors_the_row_turns(case: SimCase) -> list[tuple[str, SimCase, RotorSpeed]]:
+    """Return one (alias, motion view, speed) per rotor the row's motions name (FR-68).
+
+    Empty for a row that states no motion record, which is every row
+    written before 0.15.0 and every steady row, so a caller that finds
+    nothing here behaves exactly as it did.
+
+    A record whose speed cannot be resolved drops OUT rather than raising:
+    the callers report per rotor, and one rotor that cannot be windowed is
+    a skip beside the rotors that can, not the loss of all of them.
+    """
+    turning: list[tuple[str, SimCase, RotorSpeed]] = []
+    for record in case.motions or []:
+        alias = record.get(MOVING_BC_ALIAS_VARIABLE)
+        if not alias:
+            continue
+        try:
+            view = _motion_view(case, record)
+            turning.append((str(alias), view, rotor_speed(view)))
+        except CampaignConfigError:
+            continue
+    return turning
 
 
 @dataclass(frozen=True)
@@ -2373,6 +2415,17 @@ def _blade_count(case: SimCase) -> int | None:
         return _required_int(
             case, PERIODIC_COPIES_VARIABLE, quantity="periodic copy count", unit="copies"
         )
+    # THE REFERENCE ALREADY STATES IT (FR-68). A row naming ONE rotor by
+    # alias has said how many blades it has, in the file where the study's
+    # vocabulary lives, so asking the ROW for the number again is the
+    # second home this release exists to remove. One rotor only here: a
+    # row turning several has no single count, and its rotors are reduced
+    # one at a time by `_the_passages_of_one_rotor`.
+    turning = _the_rotors_the_row_turns(case)
+    if len(turning) == 1:
+        block = case.engines.get(turning[0][0])
+        if block is not None and block.families_blades:
+            return len(block.families_blades)
     return None
 
 
@@ -2495,6 +2548,102 @@ def _every_reduction_skipped(rotor: bool, reason: str) -> dict[str, object]:
     return plan
 
 
+def _the_passages_of_one_rotor(
+    case: SimCase,
+    alias: str,
+    speed: RotorSpeed,
+    *,
+    delta_time_s: float | None,
+    span: tuple[int, int],
+    last_step: int,
+) -> dict[str, object]:
+    """Return one rotor's blade count and its two passage reductions (FR-68).
+
+    ITS OWN REVOLUTION, not the row's. The row's clock is one rotor's
+    (FR-64), and a rotor turning at another speed sweeps a different angle
+    per solver step, so its revolution is a different number of steps:
+    ``60 / (rpm * dt)``. Reducing the pusher over the lifters' passage is
+    the defect this whole requirement is against, and it does not announce
+    itself: the file is written, the columns are right, and the average is
+    over the wrong window.
+
+    The blade count is the length of the rotor's ``families_blades``,
+    which is where this release already reads it for the frames and for
+    the sector's copies, so the three cannot give different answers.
+    """
+    # THE BLOCK IS ALWAYS THERE, and neither guard below is defensive
+    # coding: a MOTION record whose alias the reference declares as no
+    # rotor is refused by `_motion_view` and never reaches this list, and
+    # the model refuses an engine block whose `families_blades` is empty.
+    # Both were measured on 2026-09-10 while writing a case for the empty
+    # branch that could not be built. A ROTATE record MAY name a non-rotor
+    # alias (FR-71) and is a different record.
+    blades = len(case.engines[alias].families_blades)
+    entry: dict[str, object] = {"blades": blades, "rpm": speed.rpm}
+    if delta_time_s is None or not speed.rpm:
+        reason = (
+            f"case {case.sim_id!r} turns {alias!r} at {speed.rpm} rev/min with a solver "
+            f"step of {delta_time_s}, so one blade passage of it has no length in steps."
+        )
+        entry["phase_locked"] = {"skipped": reason}
+        entry["per_blade"] = {"skipped": reason}
+        return entry
+    per_revolution = 60.0 / (abs(speed.rpm) * delta_time_s)
+    entry["steps_per_revolution"] = per_revolution
+    period = int(round(per_revolution / blades))
+    if period < 1:
+        reason = (
+            f"case {case.sim_id!r} turns {alias!r} at {per_revolution:.3f} solver steps "
+            f"per revolution across {blades} blades, so one blade passage is under one "
+            "time step and cannot be resolved at all"
+        )
+        entry["phase_locked"] = {"skipped": reason}
+        entry["per_blade"] = {"skipped": reason}
+        return entry
+    entry["period_steps"] = period
+    passages = _passages(span, period)
+    if passages:
+        entry["phase_locked"] = {
+            "windows": [list(item) for item in passages],
+            "period_steps": period,
+            "window_from": (
+                f"the row's window cut into blade passages of {alias}, {period} steps each"
+            ),
+        }
+    else:
+        entry["phase_locked"] = {
+            "skipped": (
+                f"the window {span[0]} to {span[1]} holds {span[1] - span[0] + 1} steps, "
+                f"fewer than one blade passage of {alias}, which is {period} steps"
+            )
+        }
+    per_blade = [
+        (
+            last_step - (blades - index) * period + 1,
+            last_step - (blades - 1 - index) * period,
+        )
+        for index in range(blades)
+    ]
+    if per_blade[0][0] < 1:
+        entry["per_blade"] = {
+            "skipped": (
+                f"the run is {last_step} steps and {alias} has {blades} blades of "
+                f"{period} steps each, needing {blades * period}, so the run holds no "
+                "complete revolution of it to split by blade"
+            )
+        }
+    else:
+        entry["per_blade"] = {
+            "windows": [list(item) for item in per_blade],
+            "period_steps": period,
+            "window_from": (
+                f"the last revolution of {alias}, one window of {period} steps per blade, "
+                f"{blades} blades"
+            ),
+        }
+    return entry
+
+
 def reduction_windows(case: SimCase) -> dict[str, object] | None:
     """Resolve the windows of every applicable reduction off one row, for its record.
 
@@ -2558,7 +2707,16 @@ def reduction_windows(case: SimCase) -> dict[str, object] | None:
     rotor = case.recipe == "unsteady_rotor"
     try:
         if rotor:
-            stepping = rotor_time_stepping(case, speed=rotor_speed(case))
+            # THE CLOCK MOTION'S SPEED where the row states its speeds in
+            # MOTIONS, which `_optional_rotor_speed` resolves; `rotor_speed`
+            # alone asks the ROW, and a 0.15.0 transition row carries no RPM
+            # of its own, so every reduction of the point was skipped
+            # (FR-64, FR-68). Falling through to `rotor_speed` keeps the
+            # refusal a row with no speed anywhere has always been given.
+            clock = _optional_rotor_speed(case)
+            stepping = rotor_time_stepping(
+                case, speed=clock if clock is not None else rotor_speed(case)
+            )
         else:
             stepping = unsteady_time_stepping(case)
     except CampaignConfigError as error:
@@ -2603,6 +2761,25 @@ def reduction_windows(case: SimCase) -> dict[str, object] | None:
     if not rotor:
         return plan
 
+    # ONE BLOCK PER ROTOR THE ROW TURNS (FR-68), each over its OWN blade
+    # passage. A row turning one rotor also gets a block, so the products
+    # may name it, and the flat keys below stay exactly what they were: a
+    # row that states no motion, which is every row written before 0.15.0,
+    # reduces as it always did.
+    turning = _the_rotors_the_row_turns(case)
+    if turning:
+        plan["rotors"] = {
+            alias: _the_passages_of_one_rotor(
+                case,
+                alias,
+                speed,
+                delta_time_s=stepping.delta_time_s,
+                span=span,
+                last_step=last_step,
+            )
+            for alias, _view, speed in turning
+        }
+
     # THE PASSAGE REDUCTIONS need a revolution and a blade count.
     try:
         blades = _blade_count(case)
@@ -2611,7 +2788,19 @@ def reduction_windows(case: SimCase) -> dict[str, object] | None:
         plan["per_blade"] = {"skipped": str(error)}
         return plan
     if blades is None:
-        reason = _no_blade_count(case)
+        # A ROW TURNING SEVERAL ROTORS HAS NO SINGLE BLADE PASSAGE, and
+        # saying so is better than picking one: the flat keys are read by
+        # a products stage that writes ONE file per reduction, and the
+        # rotors block above is where such a row's reductions are. The
+        # older sentence, which tells the author to state BLADES, would be
+        # advice to write a number that is now two different numbers.
+        reason = (
+            f"case {case.sim_id!r} turns {len(turning)} rotors, so one blade passage of "
+            "the ROW has no length: each rotor reduces over its own, and the windows are "
+            f"under 'rotors' ({', '.join(alias for alias, _view, _speed in turning)})."
+            if len(turning) > 1
+            else _no_blade_count(case)
+        )
         plan["phase_locked"] = {"skipped": reason}
         plan["per_blade"] = {"skipped": reason}
         return plan

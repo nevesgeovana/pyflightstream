@@ -451,6 +451,61 @@ ROTOR_PLAN = {
 }
 
 
+#: A TRANSITION row's plan (FR-68): two rotors, two blade counts, two
+#: passages. The flat keys carry the skip that says where the reductions
+#: went, exactly as `reduction_windows` writes them for such a row.
+TWO_ROTOR_PLAN = {
+    "time_iterations": 8,
+    "steps_per_revolution": 4.0,
+    "blades": None,
+    "time_average": {"windows": [[3, 8]], "window_from": "the export window: 6 steps"},
+    "rotors": {
+        "LIFT_L1": {
+            "blades": 2,
+            "rpm": 2200.0,
+            "steps_per_revolution": 4.0,
+            "period_steps": 2,
+            "phase_locked": {
+                "windows": [[3, 4], [5, 6], [7, 8]],
+                "period_steps": 2,
+                "window_from": "blade passages of LIFT_L1, 2 steps each",
+            },
+            "per_blade": {
+                "windows": [[5, 6], [7, 8]],
+                "period_steps": 2,
+                "window_from": "the last revolution of LIFT_L1",
+            },
+        },
+        "PUSHER": {
+            "blades": 2,
+            "rpm": 900.0,
+            "steps_per_revolution": 8.0,
+            "period_steps": 4,
+            "phase_locked": {
+                "windows": [[3, 6]],
+                "period_steps": 4,
+                "window_from": "blade passages of PUSHER, 4 steps each",
+            },
+            "per_blade": {
+                "windows": [[1, 4], [5, 8]],
+                "period_steps": 4,
+                "window_from": "the last revolution of PUSHER",
+            },
+        },
+    },
+    "phase_locked": {
+        "skipped": "case '7001' turns 2 rotors, so one blade passage of the ROW has no "
+        "length: each rotor reduces over its own, and the windows are under 'rotors' "
+        "(LIFT_L1, PUSHER)."
+    },
+    "per_blade": {
+        "skipped": "case '7001' turns 2 rotors, so one blade passage of the ROW has no "
+        "length: each rotor reduces over its own, and the windows are under 'rotors' "
+        "(LIFT_L1, PUSHER)."
+    },
+}
+
+
 def _unsteady_workspace(tmp_path, *, reductions, recipe="unsteady_rotor", rows=8):
     """One converged unsteady record with a loads table and a plots export under raw/."""
     from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
@@ -591,6 +646,69 @@ def test_a_rotorless_unsteady_point_gets_the_time_average_alone(tmp_path):
     assert rows[0]["CL_MRP_TOTAL"] == "1.80000", "mean step 4.5 times 0.1, scaled by four"
     manifest = _products_manifest(workspace)
     assert manifest["skipped"] == {}, "not applicable is not skipped"
+
+
+def test_a_transition_row_writes_one_passage_reduction_per_rotor(tmp_path):
+    """FR-68: the reduction files NAME the rotor, and each carries its own windows.
+
+    A transition row turns the lifters and the pusher in ONE run, and one
+    file per reduction cannot hold two blade passages. The time average is
+    still one file, because it is one window of the whole run whatever
+    turns in it.
+    """
+    from pyflightstream.post.products import write_campaign_products
+
+    workspace = _unsteady_workspace(tmp_path, reductions=TWO_ROTOR_PLAN)
+    write_campaign_products(workspace)
+    plots = workspace.root / "post" / "products" / "plots"
+    names = sorted(p.name for p in plots.iterdir())
+    assert names == [
+        "a-02.0_per_blade_LIFT_L1.csv",
+        "a-02.0_per_blade_PUSHER.csv",
+        "a-02.0_phase_locked_LIFT_L1.csv",
+        "a-02.0_phase_locked_PUSHER.csv",
+        "a-02.0_plots.csv",
+        "a-02.0_time_average.csv",
+    ], f"the plots folder holds {names}"
+
+    _, lifter = read_csv_table(plots / "a-02.0_per_blade_LIFT_L1.csv")
+    _, pusher = read_csv_table(plots / "a-02.0_per_blade_PUSHER.csv")
+    assert [(r["FIRST_STEP"], r["LAST_STEP"]) for r in lifter] == [("5", "6"), ("7", "8")]
+    assert [(r["FIRST_STEP"], r["LAST_STEP"]) for r in pusher] == [("1", "4"), ("5", "8")]
+    assert lifter[0]["CL_MRP_TOTAL"] != pusher[0]["CL_MRP_TOTAL"], (
+        "both rotors were averaged over one window, so one of them is not its own"
+    )
+
+    manifest = _products_manifest(workspace)
+    entry = manifest["products"]["plots/a-02.0_per_blade_PUSHER.csv"]
+    assert entry["reduction"] == "per_blade" and entry["period_steps"] == 4
+    assert "PUSHER" in entry["window_from"], "the record does not say whose window it is"
+    skipped = manifest["skipped"]
+    assert "rotors" in skipped["plots/a-02.0_per_blade.csv"], (
+        "the flat file's skip does not say where the row's reductions went"
+    )
+
+
+def test_a_row_turning_one_rotor_keeps_the_file_names_it_has_always_had(tmp_path):
+    """The rotor's name enters a file name only where there are several to tell apart.
+
+    A one-rotor row's record carries a `rotors` block too, and its files
+    are still `<point>_per_blade.csv`: every workspace written before
+    0.15.0 keeps its names, and so does every golden.
+    """
+    from pyflightstream.post.products import write_campaign_products
+
+    plan = {**ROTOR_PLAN, "rotors": {"LIFT_L1": TWO_ROTOR_PLAN["rotors"]["LIFT_L1"]}}
+    workspace = _unsteady_workspace(tmp_path, reductions=plan)
+    write_campaign_products(workspace)
+    plots = workspace.root / "post" / "products" / "plots"
+    names = sorted(p.name for p in plots.iterdir())
+    assert names == [
+        "a-02.0_per_blade.csv",
+        "a-02.0_phase_locked.csv",
+        "a-02.0_plots.csv",
+        "a-02.0_time_average.csv",
+    ], f"a one-rotor row's file names moved: {names}"
 
 
 def test_a_reduction_the_row_cannot_window_is_recorded_as_skipped(tmp_path):

@@ -2103,10 +2103,26 @@ requirement below is one seam of that division.
     `matrix`, or the file's path, and a file's lines are recorded AS EMITTED,
     so a record still reproduces the run after the file has changed.
 
-!!! requirement "FR-68 The reductions read each rotor's blade count from its own declaration <span class='srs-pending'>pending</span>"
-    *Origin: her design of 2026-09-10. Carried by PFS-2035.11. Evidence owed:
-    the test it names. AMENDS PFS-2015.04.01, which reads the count from
-    `PERIODIC_COPIES` at 0.14.0.*
+!!! requirement "FR-68 The reductions read each rotor's blade count from its own declaration <span class='srs-implemented'>implemented</span>"
+    *Origin: her design of 2026-09-10. Carried by PFS-2035.11. Evidence:
+    `tests/tier1_offline/test_reduce_by_rotor.py` (a row stating its speeds in
+    motions reduces at all; each rotor's passage is its own and the two are
+    asserted UNEQUAL before either is pinned; the per-blade windows are
+    contiguous and end at the run's last step; a several-rotor row says where
+    its reductions went instead of naming a count; a one-rotor row takes the
+    count from that rotor's block; a sector row reduces over the whole wheel; a
+    motion naming no rotor of the reference leaves the others reducing) and
+    `tests/tier1_offline/test_post_products.py` (the files name the rotor, and a
+    one-rotor row keeps the names it has always had). AMENDS PFS-2015.04.01,
+    which reads the count from `PERIODIC_COPIES` at 0.14.0.*
+
+    A HALF THAT IS NOT IN THE TEXT BELOW, because nothing had measured it until
+    the implementation: a row stating its speeds in MOTIONS carries no `RPM` of
+    its own, so the window reader found no speed and EVERY reduction of the
+    point was skipped, the time average included, with the sentence "states no
+    rotor speed, and a rotary motion turns at one" on a row that states two. The
+    row's window is the CLOCK motion's (FR-64), which is the same rotor whose
+    revolutions already set the row's step and its length.
 
     The per-blade and phase-locked reductions of a point are computed PER
     ROTOR, each from the blade count of its own engine block, so a transition

@@ -70,6 +70,21 @@ FlightStream versions.
   it by, which is what lets one row sweep the pusher while the lifters hold.
   A record may not state the word `sweep`: sweeping is the condition's job,
   stated once for the row, and a record that writes it is refused.
+- **Each rotor reduces over its OWN blade passage** (FR-68). A transition
+  row turns the lifters and the pusher in one run at different speeds and
+  with different blade counts, so one blade passage of the ROW has no
+  length: the phase-locked and per-blade reductions are computed per
+  rotor, each from its own engine block's blade count and its own
+  revolution, and the files name the rotor
+  (`<point>_per_blade_PUSHER.csv`). A row turning ONE rotor keeps the
+  file names it has always had, and takes the count from that rotor's
+  block, so `BLADES` and `PERIODIC_COPIES` are no longer the only places
+  a blade count can be written.
+- **A row that states its speeds in `MOTIONS` reduces at all.** It carried
+  no `RPM` of its own, so the window reader found no speed and every
+  reduction of the point was skipped, the time average included, with a
+  sentence saying the row states no rotor speed on a row that states
+  several. The row's window is the clock motion's (FR-64).
 - **A sector row takes its copy count from its two files** (FR-61, "a
   property of the file the row opens rather than of the rotor the
   reference declares"). A row
