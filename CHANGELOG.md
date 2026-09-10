@@ -9,26 +9,26 @@ FlightStream versions.
 
 ### Owed
 
-- **The Zenodo archive identifier of v0.15.0 is owed**, and it is written
-  here BEFORE the tag rather than after it. The archive is minted from the
-  GitHub release, so the row can only be added one commit later; the guard
-  `test_every_released_tag_has_an_archive_row_or_the_changelog_says_it_is_owed`
-  walks every released tag and accepts either an archive row or this
-  sentence, and it carries no release-commit exemption. Without this line
-  the tagged tree fails its own CI, which a V&V lens measured on the
-  release review rather than the release discovering it. The lesson of
-  0.14.0 was that the DOI row goes in before the dev bump; the lesson of
-  this one is that the DEBT goes in before the tag.
 - **The Zenodo archive of v0.14.0 DOES NOT EXIST**, and that is stronger
   than the sentence that stood here, which said the row was deferred until
   Zenodo answered. Measured 2026-09-10 against Zenodo's own API over ALL
   versions: fifteen pyflightstream records are archived, the newest is
   v0.13.1, and no v0.14.0 is among them. The GitHub release v0.14.0 has
   existed since 2026-09-09T21:42:45Z, so the archive is not late, it was
-  never minted: Zenodo answered 504 all that evening and the release
-  webhook fired into the outage. It will not appear on its own. What it
-  takes is a new release event on that tag or a manual deposit, and that
-  is an action on a published artifact rather than a wait.
+  never minted. This paragraph said the cause was an outage, that Zenodo
+  answered 504 all that evening and the release webhook fired into it. That
+  reading is no longer safe. On 2026-09-10 the v0.15.0 tag was pushed, PyPI
+  served the wheel, and NO archive appeared either, for a reason that has
+  nothing to do with Zenodo's health: `gh release list` showed no GitHub
+  release for v0.15.0 at all, because `release.yml` has four jobs, build,
+  test-artifact, gates and publish, and none of them creates one; it
+  declares `contents: read` and could not. A GitHub release here has always
+  been made BY HAND. Creating it minted v0.15.0's archive within minutes,
+  which is the control: the connection works. So v0.14.0's absence has two
+  candidate causes and the outage is only one of them. It will not appear
+  on its own either way. What it takes is a new release event on that tag
+  or a manual deposit, and that is an action on a published artifact rather
+  than a wait.
   It is recorded here rather than remembered. The guard that would ask for
   it by version, `test_the_newest_archive_row_names_the_version_this_tree_states`,
   skips on a development tree, which is what let the row go missing in the
