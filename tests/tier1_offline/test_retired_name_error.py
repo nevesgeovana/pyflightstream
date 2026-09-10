@@ -65,3 +65,46 @@ def test_the_error_is_reachable_from_the_public_exceptions_module():
     import pyflightstream.exceptions as public
 
     assert public.RetiredAttributeError is RetiredAttributeError
+
+
+def test_the_package_base_is_named_first_as_every_sibling_names_it():
+    """The ORDER, not only the membership, because the order is the finding.
+
+    Round one of the 0.15.0 release review found this class written
+    `(AttributeError, PyflightstreamError)` while its own docstring claimed
+    it followed `MatrixError`, and every dual-base error in the catalogue
+    names the package base first. The order was corrected; a mutation run
+    then reverted it and the whole tier-one suite stayed green, so nothing
+    held the correction. This does.
+
+    It is asserted against the SIBLINGS rather than against a literal, so a
+    later class that changes the house shape has to change it here too
+    rather than finding a copy of the old shape frozen in a test.
+    """
+    from pyflightstream._errors import InputArtifactError, PyflightstreamError
+    from pyflightstream.cases.matrix import MatrixError
+    from pyflightstream.post.writers import OutputExistsError
+    from pyflightstream.utils.errors import ManualCallError
+
+    siblings = (MatrixError, ManualCallError, OutputExistsError, InputArtifactError)
+    for sibling in siblings:
+        assert sibling.__bases__[0] is PyflightstreamError, (
+            f"{sibling.__name__} no longer names the package base first, so the "
+            "house shape this case measures against has moved"
+        )
+    assert RetiredAttributeError.__bases__ == (PyflightstreamError, AttributeError)
+
+
+def test_the_class_is_on_both_surfaces_that_re_export_it():
+    """A name another module imports is a name its own __all__ must state.
+
+    Dropping it from either list left the suite green in a mutation run,
+    which is what an unstated public name looks like from the inside.
+    """
+    from pyflightstream import _retired_names, exceptions
+
+    assert "RetiredAttributeError" in _retired_names.__all__
+    assert "RetiredAttributeError" in exceptions.__all__
+    for module in (_retired_names, exceptions):
+        names = list(module.__all__)
+        assert names == sorted(names), f"{module.__name__}.__all__ is unsorted"
