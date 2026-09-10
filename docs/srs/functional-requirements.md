@@ -289,6 +289,17 @@ Milestones and session records are listed in the
     `ENTRY` to `PPROC` and moves the output cells out of the row, one
     layout and one `upgrade` for both.
 
+    A FOURTH BREAK is planned for 0.15.0 and travels through the same
+    mechanism, carried by PFS-2035.14 and stated by FR-69, "A sweep is one
+    variable of the flight condition, and the angles are always written":
+    `SWEEP_TYPE` leaves the layout, because the flight-condition cell now
+    says which variable varies by carrying the word `sweep` on it. The
+    mechanism holds unchanged, and one thing about this break is unlike the
+    three before it and is said here rather than discovered: the conversion
+    of a PAIRED `AL/BE` sweep is one row per sideslip, so the upgrade of
+    such a file changes its ROW COUNT and prints what it did. Lossless in
+    content, and not row for row.
+
 !!! requirement "FR-11 Lossless one-command conversion <span class='srs-implemented'>implemented</span>"
     *Origin: BRF-08, BRF-16. Evidence: milestone M2; TOML round-trip
     tests ([glossary](index.md#glossary)); the `pyfs-matrix convert`
@@ -777,6 +788,17 @@ the base could not offer while it bundled several.
     than refused, so one preset serves a wing-body and a rotor; an alias
     no member of which the inventory carries resolves to nothing and is
     refused as an absent name, naming the alias.
+
+    Amended 2026-09-10, carried by PFS-2035.01, pending until it ships:
+    the `[aliases]` table moves to the REFERENCE artifact (FR-59, "The
+    reference holds the vocabulary of a study's boundaries"), a member may
+    be another alias, and a cycle is refused naming both sides. The rule
+    above that a member the inventory lacks is left out survives the move
+    unchanged. THE RULE THAT DOES NOT SURVIVE UNSTATED is the one in the
+    sentence before this paragraph: whether an alias none of whose members
+    the inventory carries is still refused as an absent name is what
+    PFS-2035.13 asks, and it is the author's, so FR-59 is deliberately
+    silent on it rather than quietly reversing it.
 
     Amended 2026-09-02, carried by PFS-2029.12, pending until it ships:
     an inventory that could not be declared says why. When a row cites a
@@ -1540,6 +1562,16 @@ nodes.
 
     Read with PFS-2005.10, "an empty pproc group is every family, her verdict on the question PFS-2005.02 left to the domain seat", PFS-2005.04.01, "boundary aliases live in the setup and are read wherever a boundary is cited", and PFS-2029.07.04, "a pproc families entry may be a bare word", at 0.14.0 (GOAL-013), her decisions of 2026-09-09: an empty `[groups]` entry is every family the geometry carries; a `[groups]` member or a `families` entry may name an alias the row's setup defines, read as FR-30c states it; and a `families` entry may be a bare word, read as a selector, then as an alias, then as a family name, while an entry's `frame` may name a frame the setup defines or, on a row with several rotors, that rotor's own.
 
+    Amended 2026-09-10, carried by PFS-2035.08 and PFS-2035.19, pending
+    until it ships: the frames an entry may cite are the REFERENCE's
+    (FR-72, "A custom frame is declared in the reference, where the
+    geometry is"), and how an entry expands is decided by the frame it
+    cites rather than by an `each_blade` word (FR-65, "The frame decides
+    how a post-processing entry expands"). The sentence above stays true
+    of every artifact written against 0.14.0 and names a home that empties
+    at 0.15.0, which is why the amendment is here rather than only in the
+    requirements that move it.
+
     The artifact kind `group` becomes `pproc`, kept under `inputs/pproc`
     with ids `p###`, and carries the whole post-processing definition of a
     study in six tables: the boundary groups, the export kinds a point
@@ -1693,7 +1725,8 @@ nodes.
 
     **SUPERSEDED on 2026-09-10 by FR-60 and FR-61**, and superseded rather
     than met: the half of this requirement that shipped is the nesting, the
-    list of records in one cell, which 0.13.0 built. The other half said each
+    list of records in one cell, which 0.11.0 built (CHANGELOG.md, the
+    PFS-2029.11 entry under `## [0.11.0] - 2026-09-03`). The other half said each
     record carries its own moving boundaries, speed sign, axis and origin
     point, and her design of 2026-09-10 moves all four OUT of the record and
     into the reference's engine block, so the row states an alias and nothing
@@ -1701,6 +1734,17 @@ nodes.
     delivered by a different division of the same subject: FR-60 states the
     rotor, FR-61 states the row, and the keys named above are deprecated by
     FR-61 rather than implemented here.
+
+    IT KEEPS THE `pending` MARKER DELIBERATELY, and the reason is written
+    here so the published dashboard's reading is a choice rather than an
+    oversight: this specification's status vocabulary is implemented,
+    pending, deferred and deprecated, and none of the four says
+    superseded. Introducing a fifth costs a generator and a stylesheet;
+    marking this one implemented would claim its second half shipped;
+    leaving it pending counts work that will never be done under this
+    identifier. The three cost different things and choosing is the
+    author's, asked in writing on 2026-09-10. Until she answers the marker
+    stays, and this paragraph is what a reader meets beside it.
 
 !!! requirement "FR-58 The fluid constants of a campaign have one home <span class='srs-implemented'>implemented</span>"
     *Origin: the author's instruction of 2026-09-04, 'vamos trabalhar com
@@ -1741,9 +1785,9 @@ nodes.
 
 ## The rotor vocabulary she designed (2026-09-10)
 
-Fourteen requirements from one design, written out as a use case before a
-line of it was built: `GeoverseResearch/tools/fts_workspace/pfs0150-draft`,
-which she read three times and changed at every reading. The nineteen leaves
+Fourteen requirements from one design, written out as a use case
+workspace before a line of it was built, which the author read three times
+and changed at every reading. The nineteen leaves
 of PFS-2035 are that design one decision per node, and the requirements below
 are those decisions stated as behaviour. Her sentence of that night defines
 the release around them: the use case is what defines the scope of 0.15.0.
@@ -1756,8 +1800,9 @@ requirement below is one seam of that division.
 !!! requirement "FR-59 The reference holds the vocabulary of a study's boundaries <span class='srs-pending'>pending</span>"
     *Origin: her decisions of 2026-09-09 and 2026-09-10, "todos os aliases vao
     para referencia". Carried by PFS-2035.01 and PFS-2035.13. Evidence owed:
-    the tests those nodes name. SUPERSEDES the `[aliases]` table FR-52 placed
-    in the setup preset one release earlier.*
+    the tests those nodes name. SUPERSEDES the `[aliases]` table of
+    FR-30c, "Declared inventories are range-checked", which shipped it in the
+    setup preset one release earlier.*
 
     An `[aliases]` table of the REFERENCE artifact declares every name a study
     gives to a set of boundaries. A member may be a mesh family, a boundary
@@ -1793,7 +1838,7 @@ requirement below is one seam of that division.
     `families_general` and `families_blades` in that order: what a row moves
     when it cites it, and what a group summing the rotor sums. The name is
     free and is refused only when it ends in a digit, because a number after a
-    radical always means a blade. `rpm_sign` is `+1` by the right-hand rule
+    radical reads as a blade. `rpm_sign` is `+1` by the right-hand rule
     about `axis`, which is the one reading that does not depend on where the
     reader stands.
 
@@ -1802,7 +1847,8 @@ requirement below is one seam of that division.
     both.
 
     The campaign's propulsor count is therefore the number of engine blocks,
-    rather than the `ERP1..ERPn` naming convention it is today.
+    rather than the point kind and its `ERP`/`ARP` fallback that answer it
+    today (0.11.0, PFS-2029.11.02).
 
 !!! requirement "FR-61 A row names a rotor by its alias and states nothing else about it <span class='srs-pending'>pending</span>"
     *Origin: her design of 2026-09-10, "vamos mudar MOVING_BOUNDARIES para
@@ -1844,7 +1890,9 @@ requirement below is one seam of that division.
     *Origin: her design of 2026-09-10 and her reminder of the same night, "a
     razao de avanco vira RPM usando o diametro de cada rotor". Carried by
     PFS-2035.05 and PFS-2035.18. Evidence owed: the tests those nodes name.
-    AMENDS FR-30's single `propeller_diameter_m` as the advance-ratio length.*
+    AMENDS FR-56, "The reference artifact states only what rows share, with
+    one length per quantity", whose single `propeller_diameter_m` is the
+    advance-ratio length today.*
 
     A motion record states `RPM` or `ADVANCE_RATIO`, never both and never
     neither, refused PER ROTOR with the message the row-level refusal carries
@@ -1878,6 +1926,10 @@ requirement below is one seam of that division.
     until 0.17.0. Today the clock follows the fastest rotor by the package's
     own arithmetic, which is an inference the author never wrote down; a
     declaration replaces it.
+
+    Measured 2026-09-10: `cases/workflows.py:4649` reads
+    `fastest = max(speeds, key=lambda each: abs(each.rpm))`, and nothing in
+    the row says which rotor that is.
 
 !!! requirement "FR-65 The frame decides how a post-processing entry expands <span class='srs-pending'>pending</span>"
     *Origin: her design of 2026-09-10 and her spinner decision of the same
@@ -1922,8 +1974,8 @@ requirement below is one seam of that division.
 !!! requirement "FR-67 A row may state raw solver commands, after the preset's at the same seam <span class='srs-pending'>pending</span>"
     *Origin: her decision of 2026-09-10, "a linha ganha um jeito de passar
     comando bruto, mantendo a feature original preservada". Carried by
-    PFS-2035.10. Evidence owed: the tests it names. EXTENDS FR-53's
-    preset-level `[[raw]]` table to the row.*
+    PFS-2035.10. Evidence owed: the tests it names. EXTENDS the preset-level `[[raw]]`
+    table of FR-31, "Solver-setup provenance", to the row.*
 
     A cell's `RAW` list states solver commands, each before a named phase, in
     either of two forms: `COMMAND`, the line written in the cell, and `FILE`,
@@ -1960,7 +2012,8 @@ requirement below is one seam of that division.
     *Origin: her rule of 2026-09-10, "um sweep e aplicado a uma variavel que
     DEFINE a condicao de voo e a apenas uma variavel". Carried by PFS-2035.14,
     which closes PFS-2035.12 and bounds PFS-2035.06. Evidence owed: the tests
-    it names. SUPERSEDES the `SWEEP_TYPE` column of FR-09.*
+    it names. SUPERSEDES the `SWEEP_TYPE` column of FR-10, "Run-matrix
+    reader, forever".*
 
     `FLIGHT_CONDITION` states `ALPHA` and `BETA` on every row, so no run
     reaches the solver at an angle nobody wrote. The swept variable is the one
@@ -2008,8 +2061,9 @@ requirement below is one seam of that division.
 !!! requirement "FR-71 A rotation cites an alias, carries its frames, and keeps the frame it turned from <span class='srs-pending'>pending</span>"
     *Origin: her decision of 2026-09-10, "o comando de rotate tambem tem que
     ser atualizado para ficar compativel com o do movimento". Carried by
-    PFS-2035.17. Evidence owed: the test it names. AMENDS FR-30c's `ROTATE`
-    record, whose `FAMILIES` and `AUX_FRAMES` keys this replaces.*
+    PFS-2035.17. Evidence owed: the test it names. AMENDS the `ROTATE` record of
+    FR-35, "Matrix as first-class interface", whose `FAMILIES` and
+    `AUX_FRAMES` keys this replaces.*
 
     A `ROTATE` record states `ALIAS` where it stated `FAMILIES`, so a rotation
     and a motion cite a set of boundaries the same way. `AUX_FRAMES` retires:
@@ -2023,6 +2077,11 @@ requirement below is one seam of that division.
     installed propeller keeps the frame it turned FROM. Today that frame is
     lost the moment the mesh moves.
 
+    Measured 2026-09-10: the builder emits `ROTATE_COORDINATE_SYSTEM` at
+    `cases/workflows.py:3595` and `:3673` and keeps no copy of a frame
+    anywhere; `grep -c "_ORIGINAL" src/pyflightstream/cases/workflows.py`
+    answers 0.
+
     A rotation citing an alias the reference does not declare is refused
     naming the alias.
 
@@ -2034,7 +2093,8 @@ requirement below is one seam of that division.
     *Origin: her decision of 2026-09-10, "definicao de eixo customizado como o
     NAC_FL vai para o ref, onde fica dados geometricos". Carried by
     PFS-2035.19. Evidence owed: the tests it names. SUPERSEDES the
-    `[[frames]]` table FR-30b placed in the setup preset.*
+    `[[frames]]` table of FR-31, "Solver-setup provenance", which places it in
+    the setup preset.*
 
     The `[[frames]]` table moves from the setup preset to the reference
     artifact, keeping the shape it has: `name`, `origin`, and optionally

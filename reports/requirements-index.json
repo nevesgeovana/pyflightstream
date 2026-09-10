@@ -3,7 +3,7 @@
  "generated_by": "scripts/gen_requirements_index.py",
  "traceability": {
   "cited_by_a_test": 52,
-  "total": 110,
+  "total": 124,
   "method": "upper bound: an id mentioned anywhere in tests/**/*.py excluding conftest.py, which is not the marked falsifying test NFR-13 asks for"
  },
  "requirements": [
@@ -630,6 +630,118 @@
    "status": "implemented",
    "evidence": "*Origin: the author's instruction of 2026-09-04, 'vamos trabalhar com valores default ... dessa forma nao precisa inputar na matrix, eles podem ficar no s001'. Carried by PFS-2030.08. Evidence: tests/tier1_offline/test_flight_condition.py (the resolver, its refusals and each refusal's own reason), tests/tier1_offline/test_matrix_run.py (the file, the record the run layer writes, and the equal-render arm below), scored against nineteen mutants with an unmutated control.*",
    "verification": "test"
+  },
+  {
+   "id": "FR-59",
+   "text": "An [aliases] table of the REFERENCE artifact declares every name a study gives to a set of boundaries. A member may be a mesh family, a boundary name or another alias; the reader resolves to the end and refuses a cycle naming both sides. A member the opened mesh does not carry is ignored, so one reference serves the full aircraft and a cut of it. The setup preset's [aliases] table of 0.14.0 is read with a deprecation warning naming the reference to move it to, and is removed at 0.17.0.",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: her decisions of 2026-09-09 and 2026-09-10, \"todos os aliases vao para referencia\". Carried by PFS-2035.01 and PFS-2035.13. Evidence owed: the tests those nodes name. SUPERSEDES the [aliases] table of FR-30c, \"Declared inventories are range-checked\", which shipped it in the setup preset one release earlier.*",
+   "verification": "none"
+  },
+  {
+   "id": "FR-60",
+   "text": "A block of the reference whose kind is engine declares one rotor: its hub coordinates, axis, rpm_sign, families_general (what turns and is not a blade), families_blades (one entry per blade, in order), blade1 (the azimuth of blade one and the axis its zero is measured from) and diameter_m. The BLADE COUNT is the length of families_blades, so a row states no blade count and a sector mesh carrying one blade of four still reduces over four.",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: her design of 2026-09-10. Carried by PFS-2035.02 and PFS-2035.16. Evidence owed: the tests those nodes name.*",
+   "verification": "none"
+  },
+  {
+   "id": "FR-61",
+   "text": "MOVING_BC_ALIAS names an engine block of the row's reference and is the only rotor identity a row carries. ROTOR_AXIS, ROTOR_ORIGIN, RPM_SIGN, BLADES and PERIODIC_COPIES leave the row, each read with a deprecation warning and removed at 0.17.0, because the reference states them once. SYMMETRY stays, because what was meshed is a property of the file the row opens.",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: her design of 2026-09-10, \"vamos mudar MOVING_BOUNDARIES para MOVING_BC_ALIAS\". Carried by PFS-2035.03. Evidence owed: the tests it names.*",
+   "verification": "none"
+  },
+  {
+   "id": "FR-62",
+   "text": "A rotor creates <ALIAS>_SMRP at its hub, static; <ALIAS>_RMRP turning with the motion; and <ALIAS>_RMRP<k> per blade of families_blades, turning with blade k and numbered from the blade1 datum. A family of families_general has no local axis of its own: its local frame IS the rotor's, SMRP when static and RMRP when turning.",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: her design of 2026-09-10, \"<ALIAS>_SMRP para o eixo local estatico e <ALIAS>_RMRP para o eixo rodando junto com o movimento\". Carried by PFS-2035.04, absorbing PFS-2029.21. Evidence owed: the tests those nodes name.*",
+   "verification": "none"
+  },
+  {
+   "id": "FR-63",
+   "text": "A motion record states RPM or ADVANCE_RATIO, never both and never neither, refused PER ROTOR with the message the row-level refusal carries today.",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: her design of 2026-09-10 and her reminder of the same night, \"a razao de avanco vira RPM usando o diametro de cada rotor\". Carried by PFS-2035.05 and PFS-2035.18. Evidence owed: the tests those nodes name. AMENDS FR-56, \"The reference artifact states only what rows share, with one length per quantity\", whose single propeller_diameter_m is the advance-ratio length today.*",
+   "verification": "none"
+  },
+  {
+   "id": "FR-64",
+   "text": "CLOCK_MOTION is a cell key, required on every row that states a motion, even a row with one, and it names a motion the same row states. The time step and the run length are that motion's. rotor_speed becomes rotor_speed_ref so the call site says which speed it is.",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: her design of 2026-09-10, \"o setup temporal exige qual o movimento de referencia\". Carried by PFS-2035.07. Evidence owed: the tests it names.*",
+   "verification": "none"
+  },
+  {
+   "id": "FR-65",
+   "text": "An entry citing MRP or a frame the reference declares emits ONCE over the whole cited set, and an engine name in that set is its own union, so a propulsor's total carries its hub and spinner with its blades. An entry citing SMRP or RMRP emits one per ROTOR, in that rotor's frame. An entry citing LOCAL_AXIS emits one per BLADE, in that blade's frame, plus one for the rotor's general families, which ride the rotor's own frame.",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: her design of 2026-09-10 and her spinner decision of the same night. Carried by PFS-2035.08, absorbing PFS-2029.20. Evidence owed: the tests those nodes name.*",
+   "verification": "none"
+  },
+  {
+   "id": "FR-66",
+   "text": "SYMMETRY_LOADS is a row key registered on every run type. A row stating it overrides the preset's value and warns, naming both files and the value used; a row stating nothing inherits the preset silently, as today.",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: her decision of 2026-09-10, \"vale promover ele para flag sim e vamos manter isso na matriz\". Carried by PFS-2035.09. Evidence owed: the test it names.*",
+   "verification": "none"
+  },
+  {
+   "id": "FR-67",
+   "text": "A cell's RAW list states solver commands, each before a named phase, in either of two forms: COMMAND, the line written in the cell, and FILE, a text file of the workspace whose lines are emitted in order. Both pass the same emitter checks the preset's [[raw]] table passes, line by line, so a file carrying a command the build lacks is refused naming the FILE and the LINE NUMBER rather than the cell. A blank line and a line opening with # are skipped, so a raw file may explain itself.",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: her decision of 2026-09-10, \"a linha ganha um jeito de passar comando bruto, mantendo a feature original preservada\". Carried by PFS-2035.10. Evidence owed: the tests it names. EXTENDS the preset-level [[raw]] table of FR-31, \"Solver-setup provenance\", to the row.*",
+   "verification": "none"
+  },
+  {
+   "id": "FR-68",
+   "text": "The per-blade and phase-locked reductions of a point are computed PER ROTOR, each from the blade count of its own engine block, so a transition row reduces the lifters and the pusher in one run and the reduction files name the rotor. A row stating no motion reduces as today.",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: her design of 2026-09-10. Carried by PFS-2035.11. Evidence owed: the test it names. AMENDS PFS-2015.04.01, which reads the count from PERIODIC_COPIES at 0.14.0.*",
+   "verification": "none"
+  },
+  {
+   "id": "FR-69",
+   "text": "FLIGHT_CONDITION states ALPHA and BETA on every row, so no run reaches the solver at an angle nobody wrote. The swept variable is the one whose value is the word sweep, EXACTLY ONE key carries it, and SWEEP_VALUES holds its values. Any key of the flight condition may be the one: the five that fix the state (MACH, TASmps, REmi, ALTFT, dISA), the five pins (RHOkgm3, MUPas, ASMPS, TK, PPA), the two angles, and the advance ratio when the row states it there.",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: her rule of 2026-09-10, \"um sweep e aplicado a uma variavel que DEFINE a condicao de voo e a apenas uma variavel\". Carried by PFS-2035.14, which closes PFS-2035.12 and bounds PFS-2035.06. Evidence owed: the tests it names. SUPERSEDES the SWEEP_TYPE column of FR-10, \"Run-matrix reader, forever\".*",
+   "verification": "none"
+  },
+  {
+   "id": "FR-70",
+   "text": "ADVANCE_RATIO may be stated in FLIGHT_CONDITION, as a value or as sweep, and it then reaches every motion of the row THAT STATES NO SPEED OF ITS OWN. A motion stating its own RPM or ADVANCE_RATIO holds that value and the condition's ratio passes it by. A motion may not state the word sweep: sweeping is the condition's job, and a record that writes it is refused at plan time naming the cell, the record and the key.",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: her decision of 2026-09-10 and its widening the same night, \"entao o sweep vale so para o movimento que nao tem advance ratio declarado\". Carried by PFS-2035.15. Evidence owed: the tests it names.*",
+   "verification": "none"
+  },
+  {
+   "id": "FR-71",
+   "text": "A ROTATE record states ALIAS where it stated FAMILIES, so a rotation and a motion cite a set of boundaries the same way. AUX_FRAMES retires: every frame the alias owns turns with its boundaries, which for a rotor is <ALIAS>_SMRP, <ALIAS>_RMRP and every <ALIAS>_RMRP<k>, and for a non-rotor alias is none.",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: her decision of 2026-09-10, \"o comando de rotate tambem tem que ser atualizado para ficar compativel com o do movimento\". Carried by PFS-2035.17. Evidence owed: the test it names. AMENDS the ROTATE record of FR-35, \"Matrix as first-class interface\", whose FAMILIES and AUX_FRAMES keys this replaces.*",
+   "verification": "none"
+  },
+  {
+   "id": "FR-72",
+   "text": "The [[frames]] table moves from the setup preset to the reference artifact, keeping the shape it has: name, origin, and optionally x_axis and y_axis, the third axis being the right-handed cross product. A row's ROTATE axis token and a post-processing entry's frame resolve against the reference's frames, the package's own names staying reserved. A preset still stating [[frames]] is read with a deprecation warning naming the reference to move it to, and the table is removed at 0.17.0.",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: her decision of 2026-09-10, \"definicao de eixo customizado como o NAC_FL vai para o ref, onde fica dados geometricos\". Carried by PFS-2035.19. Evidence owed: the tests it names. SUPERSEDES the [[frames]] table of FR-31, \"Solver-setup provenance\", which places it in the setup preset.*",
+   "verification": "none"
   },
   {
    "id": "NFR-01",

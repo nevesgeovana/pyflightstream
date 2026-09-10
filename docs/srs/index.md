@@ -10,7 +10,7 @@ requirements trace to evidence. It follows the author's SRS template
 | Field | Value |
 |---|---|
 | Document | pyflightstream Software Requirements Specification |
-| Version | 1.33.0 |
+| Version | 1.34.0 |
 | Status | Living document |
 | Author | Geovana Neves |
 | First published | 2026-07-22 |
@@ -41,7 +41,7 @@ or ambiguous.
    rules, with the generated [architecture overview](../architecture.md)
    as the live companion.
 6. [Functional requirements](functional-requirements.md): FR-01 to
-   FR-58, each with origin, status, and evidence.
+   FR-72, each with origin, status, and evidence.
 7. [Non-functional requirements](nonfunctional-requirements.md):
    NFR-01 to NFR-28.
 8. [Standards alignment](standards.md): the external practices this
@@ -98,6 +98,7 @@ ledger and its deadline guard exist, and the policy itself starts at
 
 | Version | Date | Change |
 |---|---|---|
+| 1.34.0 | 2026-09-10 | THE ROTOR VOCABULARY SHE DESIGNED ENTERS AS FOURTEEN REQUIREMENTS, FR-59 to FR-72, all pending with their evidence owed. They are her design of 2026-09-10, written out first as a use case workspace and read three times before a line of it was built, and they share one shape: a study's vocabulary lives in the reference, a row states which of it moves and at what operating point, and the mesh says what was actually meshed. FR-57 is SUPERSEDED in its own text, because the half of it that shipped is the nesting and the other half moves the rotor's axis, origin, sign and boundaries out of the row and into the reference. Three implemented requirements are amended in the same change rather than left to contradict the new set: FR-10 gains a fourth layout break, the removal of `SWEEP_TYPE`, and says that the conversion of a paired `AL/BE` sweep changes a file's ROW COUNT; FR-30c records that the `[aliases]` table moves to the reference and that whether an alias no member of which resolves is still refused is the author's open question; FR-52 records that a pproc entry's frame is the reference's and that the frame decides the expansion. FR-52's own status is unchanged |
 | 1.33.0 | 2026-09-09 | FR-40'S QUANTIFIER IS "EVERY COMMAND-LINE OPTION", on the decision of design/68 section PFS-2022.06 (PFS-2022.06.01). "Every user-facing option or parameter" named a set nothing could enumerate; a console script's options can be, and a tier-1 test now builds every parser named in `pyproject.toml` and holds each option to the rule: it reads its default from a registry key (measured by moving the key) or carries the reason it is not a machine knob. Six flags of `pyfs-qa` resolve; every other flag of the five scripts is recorded with its reason, and a new flag must choose in the commit that adds it. The requirement stays pending on its Python-API half, which the statement now names as the open part |
 | 1.32.0 | 2026-09-09 | NFR-05 STATES HOW ITS FLOOR MOVES rather than a chosen number (PFS-2024.07). The Python and core-dependency window follows SPEC 0, the scientific-python community schedule, computed on a date `pyproject.toml` states: on 2026-09-09 the floor is Python 3.12, numpy 2.2 and pandas 2.3, where it had been `>=3.11` since the first release with no floor on the numerical dependencies. The CI matrices, the ruff target and the classifiers follow the same line, and a tier-1 test re-derives the floors from the release dates and the stated date so the schedule cannot overtake the declaration unnoticed. The decision to adopt SPEC 0 was taken in the session's seat under the author's night authorization of 2026-09-08. NFR-21's clause that a supported version leaves the range only after a release announcing the removal is noted as NOT met by this move, which announces and removes 3.11 in one release; NFR-21 is pending and the changelog carries the announcement |
 | 1.31.0 | 2026-09-04 | FR-58 MOVES TO IMPLEMENTED, the same day it entered, because its evidence arrived in the review round that followed it rather than in a later release. The statement gains two things that round produced: the table's pin names match case-insensitively, since the page teaching the FLIGHT_CONDITION cell already promises that of the same three internally capitalised spellings and a file may not teach a second rule; and the claim that the resolved state is the same either way is now held to a workspace built twice and rendered BYTE FOR BYTE, where before it was a session measurement with nothing committed that could re-take it. The two full-precision atmosphere figures the measured paragraph quotes are re-measured by a test for the same reason |
