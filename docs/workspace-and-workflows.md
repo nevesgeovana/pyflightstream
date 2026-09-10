@@ -844,15 +844,26 @@ you reached for in Python, it arrives as
 `PyflightstreamError`, so one `except` around a whole workspace load catches
 either:
 
-    from pyflightstream.exceptions import PyflightstreamError
-    from pyflightstream.workspace import CampaignWorkspace
+<!-- skip: next -->
+```python
+from pyflightstream.exceptions import PyflightstreamError
+from pyflightstream.workspace import CampaignWorkspace
 
-    try:
-        workspace.engine_point("HUB")
-    except PyflightstreamError as refusal:
-        print(refusal)
-    # engine_point of the CampaignWorkspace API is no longer accepted
-    # since v0.15.0. Write rotor_point. ...
+workspace = CampaignWorkspace("a-study")
+try:
+    workspace.engine_point("HUB")
+except PyflightstreamError as refusal:
+    print(refusal)
+# engine_point of the CampaignWorkspace API is no longer accepted since
+# v0.15.0. Write rotor_point. ...
+```
+
+Every python block on this page is marked skip, because the rest of them
+need a solver. The claim this one makes is executed elsewhere: the
+`RetiredAttributeError` docstring carries a doctest that asserts both
+parents, and `tests/tier1_offline/test_retired_attribute_error.py` catches
+the refusal through `PyflightstreamError` and compares the message against
+the registry's own.
 
 `RetiredAttributeError` also descends from `AttributeError`, which is what a
 caller who typed the old method name was already catching, so nothing that
