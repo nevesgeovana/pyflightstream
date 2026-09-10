@@ -2548,11 +2548,14 @@ def _angle(case: SimCase, axis: str) -> float:
     incidence was that nobody had written one (measured 2026-09-09 while
     reading her p001).
 
-    The row's angle does NOT enter the point, deliberately. The point's
-    coordinates are run IDENTITY: they tag the script, the exports and the
-    run_id of every record already written. Carrying a held angle there
-    would rename runs that already exist to say something they always
-    meant.
+    THE ROW-STATED ANGLE IS USUALLY IN THE POINT ALREADY, and this
+    function is what answers when it is not. The point's coordinates are
+    run IDENTITY, so a held angle written in FLIGHT_CONDITION joins every
+    point of the sweep, and a row spelled `ALPHA:sweep, BETA:0.0` tags its
+    points exactly as the paired `AL/BE` row it was upgraded from did (see
+    `SweepAxis.held`). What reaches the row and not the point is the
+    advance ratio a row holds, and an angle written among the free
+    variables rather than in the cell.
     """
     if axis in case.point:
         return float(case.point[axis])
@@ -4772,7 +4775,11 @@ def _rotor_motions(
             )
         )
         if engine is not None:
-            blade_frames.update(_rotor_blade_frames(script, engine, hubs[-1], radical, view))
+            # `engine.alias`, not `radical`: they are the same string here
+            # and only this one is visibly non-None, the other having been
+            # zipped out of a list that carries a None for every record
+            # naming no rotor.
+            blade_frames.update(_rotor_blade_frames(script, engine, hubs[-1], engine.alias, view))
     frames: dict[str, int | None | Mapping[str, int]] = {
         "MRP": frame,
         "PROP_MRP": prop_frame,

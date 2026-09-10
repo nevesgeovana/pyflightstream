@@ -63,8 +63,17 @@ def test_run_filtering_follows_the_run_flag():
 
 
 def test_sweeps_convert_to_native_axes():
+    """The axis is the FLIGHT_CONDITION key that carries the word (FR-69).
+
+    POL 9001 writes `ALPHA:sweep, BETA:0.0` and POL 9002 writes
+    `BETA:sweep`, so the axis is read off the cell rather than off a
+    column naming it a second time.
+    """
     rows = read_matrix(FIXTURE)
-    assert rows[0].sweep.type == "alpha_beta"
+    assert rows[0].sweep.type == "alpha"
+    # The sideslip the row HOLDS rides along on every point, which is what
+    # keeps the point tag of an upgraded row the one its manifest already
+    # carries; the sweep is still one variable.
     assert list(rows[0].sweep.points()) == [
         {"alpha": -4.0, "beta": 0.0},
         {"alpha": 0.0, "beta": 0.0},
@@ -74,20 +83,78 @@ def test_sweeps_convert_to_native_axes():
     assert rows[1].sweep.values == [-6.0, 0.0, 6.0]
 
 
-def test_single_beta_broadcasts_over_the_alpha_sweep():
-    # POL 9001: three alphas against one beta value.
-    sweep = read_matrix(FIXTURE)[0].sweep
-    assert sweep.type == "alpha_beta"
-    assert [point["beta"] for point in sweep.points()] == [0.0, 0.0, 0.0]
+def test_the_held_angle_is_stated_once_and_still_reaches_every_point():
+    """POL 9001: three incidences at one sideslip, and the run keeps its name.
+
+    Until 0.15.0 this row was `AL/BE` over `-4.0,0.0,4.0/0.0` and the
+    reader BROADCAST the single sideslip across the three points. The row
+    STATES it once now, in the cell, beside every other quantity it
+    holds; what the reader does with it is unchanged, because a point tag
+    is run identity and `pyfs-matrix upgrade` may not rename a run.
+    """
+    row = read_matrix(FIXTURE)[0]
+    assert row.sweep.type == "alpha"
+    assert row.sweep.values == [-4.0, 0.0, 4.0]
+    assert row.sweep.held == {"beta": 0.0}, "the sideslip is not held on the sweep"
+    assert row.variables["BETA"] == 0.0, "the sideslip is not on the row either"
 
 
-def test_single_alpha_broadcasts_over_the_beta_sweep():
-    # POL 9004: one alpha against five beta values.
-    sweep = next(row for row in read_matrix(FIXTURE) if row.pol == "9004").sweep
-    assert sweep.type == "alpha_beta"
-    points = list(sweep.points())
-    assert [point["alpha"] for point in points] == [2.0] * 5
-    assert [point["beta"] for point in points] == [-6.0, -3.0, 0.0, 3.0, 6.0]
+def test_the_upgrade_does_not_rename_a_run(tmp_path):
+    """The promise the fourth stage is held to, beyond lossless content.
+
+    A paired `AL/BE` row whose second axis held one value tagged its
+    points with BOTH angles, and those tags end the run_id of every record
+    in every manifest written before 0.15.0. If the conversion dropped the
+    held angle from the point, an upgraded workspace would plan runs under
+    new names, find no record of them, and spend a seat re-running work
+    that is already done. The tags are therefore compared against the ones
+    the previous layout produced, taken from the frozen 0.11.0 fixture
+    rather than written out here.
+    """
+    from pyflightstream.cases import point_tag
+
+    code_at = matrix_mod._LAYOUT_0_11_0.index("SWEEP_TYPE")
+    values_at = matrix_mod._LAYOUT_0_11_0.index("SWEEP_VALUES")
+    upgraded = tmp_path / "upgraded.fs"
+    upgraded.write_bytes(_upgrade()(LAYOUT_0_11_0_FIXTURE))
+    before = {}
+    for line in LAYOUT_0_11_0_FIXTURE.read_text(encoding="utf-8").splitlines():
+        cells = [cell.strip() for cell in line.split("|")]
+        if len(cells) != len(matrix_mod._LAYOUT_0_11_0) or "/" not in cells[code_at]:
+            continue
+        before[cells[0]] = (cells[code_at], cells[values_at])
+    assert before, "the 0.11.0 fixture carries no paired row, so this case measures nothing"
+
+    def tags_the_old_reader_produced(code, values):
+        """The retired paired reader, restated: one axis varies, the other broadcasts."""
+        groups = dict(zip(code.split("/"), values.split("/"), strict=True))
+        alpha = [float(v) for v in groups["AL"].split(",")]
+        beta = [float(v) for v in groups["BE"].split(",")]
+        if len(alpha) == 1:
+            alpha *= len(beta)
+        if len(beta) == 1:
+            beta *= len(alpha)
+        return [f"a{a:+05.1f}_b{b:+05.1f}" for a, b in zip(alpha, beta, strict=True)]
+
+    for row in read_matrix(upgraded, active_only=False):
+        if row.pol not in before:
+            continue
+        assert [point_tag(point) for point in row.sweep.points()] == tags_the_old_reader_produced(
+            *before[row.pol]
+        ), f"POL {row.pol} would be planned under names no manifest holds"
+
+
+def test_a_beta_sweep_holds_its_incidence_the_same_way():
+    """POL 9004: five sideslips at one incidence, and the mirror image.
+
+    The two angles are symmetric in the format: whichever carries the
+    word varies, and whichever carries a number is held on the row. A
+    reader who learns one has learned the other.
+    """
+    row = next(row for row in read_matrix(FIXTURE) if row.pol == "9004")
+    assert row.sweep.type == "beta"
+    assert row.sweep.values == [-6.0, -3.0, 0.0, 3.0, 6.0]
+    assert row.variables["ALPHA"] == 2.0
 
 
 def test_alpha_only_sweep_reads_every_value():
@@ -105,13 +172,16 @@ def test_a_row_sweeps_one_angle_and_holds_the_other():
     sideslip, which is what the same row means when only one angle varies
     and what the upgrade writes for it.
 
-    The held angle is not lost and it is not the point's: it rides on the
-    row, where `_angle` reads it, so the solver is told -2 degrees at
-    every point of the sweep.
+    The held angle is not lost. It is STATED once, in the cell, and it is
+    still carried at every point, so the solver is told -2 degrees at each
+    of the three and the run keeps the name its manifest holds.
     """
     row = next(row for row in read_matrix(FIXTURE) if row.pol == "9008")
     assert row.sweep.type == "alpha"
-    assert list(row.sweep.points()) == [{"alpha": -4.0}, {"alpha": 0.0}, {"alpha": 4.0}]
+    assert [point["alpha"] for point in row.sweep.points()] == [-4.0, 0.0, 4.0]
+    assert {point["beta"] for point in row.sweep.points()} == {-2.0}, (
+        "the held sideslip is not carried at every point of the sweep"
+    )
     assert row.variables["BETA"] == -2.0
 
 
@@ -146,18 +216,83 @@ def test_full_variables_cell_keeps_every_pair_verbatim():
     assert "\n" not in variables["NOTE"]
 
 
-def test_unverified_sweep_code_is_refused_with_evidence_language(tmp_path):
-    text = FIXTURE.read_text(encoding="utf-8").replace("| AL/BE ", "| J     ")
+def _with_condition(tmp_path, replacement):
+    """Rewrite POL 9001's FLIGHT_CONDITION cell and return the file."""
+    original = "MACH:0.1441, REmi:4.38, ALPHA:sweep, BETA:0.0"
+    text = FIXTURE.read_text(encoding="utf-8")
+    assert text.count(original) == 1, "the fixture no longer writes the cell this case edits"
     bad = tmp_path / "matrix.fs"
-    bad.write_text(text, encoding="utf-8")
-    with pytest.raises(MatrixError, match="verified\\s+codes"):
+    bad.write_text(text.replace(original, replacement, 1), encoding="utf-8")
+    return bad
+
+
+def test_a_row_whose_condition_names_no_swept_variable_is_refused(tmp_path):
+    """FR-69: SWEEP_VALUES with nothing to apply it to is a column nobody reads.
+
+    The word IS the declaration since 0.15.0, so a cell carrying only
+    numbers describes a single point, and the values beside it would be
+    read by nothing. Refused where the row is read, rather than run as
+    its first point.
+    """
+    bad = _with_condition(tmp_path, "MACH:0.1441, REmi:4.38, ALPHA:2.0, BETA:0.0")
+    with pytest.raises(MatrixError) as caught:
+        read_matrix(bad)
+    message = str(caught.value)
+    assert "9001" in message and "sweep" in message
+    assert "ALPHA:sweep" in message, "the refusal shows no cell the user could write instead"
+
+
+def test_a_row_that_sweeps_two_variables_is_refused_naming_both(tmp_path):
+    """Her rule of 2026-09-10: a sweep is applied to EXACTLY ONE variable.
+
+    This is the paired AL/BE sweep arriving through the new spelling, and
+    it is refused for the reason the column's removal rests on: two swept
+    variables are two runs per point and the row states one.
+    """
+    bad = _with_condition(tmp_path, "MACH:0.1441, REmi:4.38, ALPHA:sweep, BETA:sweep")
+    with pytest.raises(MatrixError) as caught:
+        read_matrix(bad)
+    message = str(caught.value)
+    assert "9001" in message
+    assert "ALPHA" in message and "BETA" in message, "the refusal names neither swept key"
+    assert "one row per value" in message, "the refusal says no and not what to do instead"
+
+
+def test_a_key_this_release_cannot_vary_is_refused_naming_the_ones_it_can(tmp_path):
+    """The gap between her rule and this release, said out loud.
+
+    Her rule licenses ANY key that defines the flight condition, and
+    0.15.0 varies the two angles and the advance ratio. A row sweeping
+    MACH is therefore legal in the design and unimplemented in the code,
+    which is a refusal naming the set rather than a silent single point:
+    accepted-and-ignored is how the advance-ratio sweep failed before
+    this release.
+    """
+    bad = _with_condition(tmp_path, "MACH:sweep, REmi:4.38, BETA:0.0")
+    with pytest.raises(MatrixError) as caught:
+        read_matrix(bad)
+    message = str(caught.value)
+    assert "MACH" in message
+    for key in ("ALPHA", "BETA", "ADVANCE_RATIO"):
+        assert key in message, f"the refusal does not name {key}, which this release does vary"
+
+
+def test_a_swept_row_with_no_values_is_refused(tmp_path):
+    """The other half of the pair: a declaration with nothing to apply."""
+    text = FIXTURE.read_text(encoding="utf-8")
+    line = next(line for line in text.splitlines() if line.startswith("9005"))
+    emptied = line.replace("| -2.0,0.0,2.0,4.0,6.0 ", "|                      ")
+    assert emptied != line, "the fixture no longer writes the values cell this case empties"
+    bad = tmp_path / "matrix.fs"
+    bad.write_text(text.replace(line, emptied, 1), encoding="utf-8")
+    with pytest.raises(MatrixError, match=r"9005.*SWEEP_VALUES is empty"):
         read_matrix(bad)
 
 
 def test_header_deviation_is_refused(tmp_path):
     bad = tmp_path / "matrix.fs"
     bad.write_text("A | B | C\n1 | 2 | 3\n", encoding="utf-8")
-    with pytest.raises(MatrixError, match="verified 14-column layout"):
+    with pytest.raises(MatrixError, match="verified 13-column layout"):
         read_matrix(bad)
 
 
@@ -175,7 +310,7 @@ def test_truncated_row_is_refused_naming_the_row(tmp_path):
     bad = tmp_path / "matrix.fs"
     bad.write_text("\n".join(lines) + "\n", encoding="utf-8")
     with pytest.raises(
-        MatrixError, match=r"data row 1 of .* holds 13 cells against the 14 verified"
+        MatrixError, match=r"data row 1 of .* holds 12 cells against the 13 verified"
     ):
         read_matrix(bad)
 
@@ -314,7 +449,7 @@ def test_the_verified_layout_names_thirteen_columns_and_no_sweep_type():
     # the only cell whose width is not fixed by the format. The flight
     # condition takes the slot the two numeric columns had.
     assert matrix_mod._COLUMNS[-1] == "VAR_NAMES_VALUES"
-    assert matrix_mod._COLUMNS.index("WORKFLOW") == 12
+    assert matrix_mod._COLUMNS.index("WORKFLOW") == 11
     assert matrix_mod._COLUMNS.index("FLIGHT_CONDITION") == 3
 
 
@@ -403,7 +538,7 @@ def test_the_legacy_refusal_is_a_different_message_from_the_foreign_one(tmp_path
     with pytest.raises(MatrixError) as caught:
         read_matrix(foreign)
     message = str(caught.value)
-    assert "does not match the verified 14-column layout" in message
+    assert "does not match the verified 13-column layout" in message
     assert "upgrade_matrix" not in message
 
 
@@ -669,14 +804,16 @@ def test_the_third_stage_changes_only_the_cells_it_owns(tmp_path):
     cell it was, the id gained its kind letter in the same width, and the
     variables gained exactly the recipe code the removed cell carried.
     """
-    original = (Path(__file__).parent / "fixtures" / "matrix.fs").read_bytes()
-    # The committed fixture is at the current layout; the stage is measured
-    # on its 0.9.0 form, which the two older stages produce from the
-    # sixteen-column fixture of v0.8.0.
+    # THE STAGE'S OWN OUTPUT IS THE 0.11.0 FIXTURE, not the committed
+    # matrix: since 0.15.0 a FOURTH stage follows this one, so comparing
+    # here against the current layout would measure two stages and call
+    # them one. Each stage lands on the fixture of the layout it produces,
+    # and the fourth is measured in the case below.
+    landing = (Path(__file__).parent / "fixtures" / "pfs202609_matrix14.fs").read_bytes()
     legacy = (Path(__file__).parent / "fixtures" / "pfs202701_matrix16.fs").read_bytes()
     before = matrix_mod._fold_flight_condition(legacy, "legacy16")
     after = matrix_mod._drop_fs_script_and_name_pproc(before, "legacy16")
-    assert after == original, "the committed fixture is not the third stage's own output"
+    assert after == landing, "the 0.11.0 fixture is not the third stage's own output"
     entry = matrix_mod._LAYOUT_0_9_0.index("ENTRY")
     script = matrix_mod._LAYOUT_0_9_0.index("FS_SCRIPT")
     variables = matrix_mod._LAYOUT_0_9_0.index("VAR_NAMES_VALUES")
@@ -701,6 +838,105 @@ def test_the_third_stage_changes_only_the_cells_it_owns(tmp_path):
                 assert new_cell == old_cell, (
                     f"cell {position} changed: {old_cell!r} -> {new_cell!r}"
                 )
+
+
+def test_the_fourth_stage_changes_only_the_two_cells_it_folds(tmp_path):
+    """SWEEP_TYPE goes into FLIGHT_CONDITION; nothing else moves (FR-69).
+
+    Measured on the 0.11.0 fixture, which the three older stages produce
+    from the file that precedes WORKFLOW, and it lands byte for byte on
+    the committed matrix. The invariant is the one every stage carries: a
+    user diffing the converted file sees the conversion and nothing else,
+    so of the fourteen cells exactly one disappears, one is rewritten,
+    one may be re-padded, and eleven are byte for byte what they were.
+    """
+    before = (Path(__file__).parent / "fixtures" / "pfs202609_matrix14.fs").read_bytes()
+    after = matrix_mod._fold_sweep_type(before, "layout14")
+    assert matrix_mod._name_geometry_files(after) == FIXTURE.read_bytes(), (
+        "the committed fixture is not what the fourth stage writes"
+    )
+    type_index = matrix_mod._LAYOUT_0_11_0.index("SWEEP_TYPE")
+    condition = matrix_mod._LAYOUT_0_11_0.index("FLIGHT_CONDITION")
+    values = matrix_mod._LAYOUT_0_11_0.index("SWEEP_VALUES")
+    before_rows = [line.split(b"|") for line in before.splitlines() if b"|" in line]
+    after_rows = [line.split(b"|") for line in after.splitlines() if b"|" in line]
+    assert len(before_rows) == len(after_rows)
+    for row, (old_cells, new_cells) in enumerate(zip(before_rows, after_rows, strict=True)):
+        assert len(new_cells) == len(old_cells) - 1, f"row {row} did not lose exactly one cell"
+        expected = list(old_cells)
+        code = expected.pop(type_index).strip()
+        for position, (new_cell, old_cell) in enumerate(zip(new_cells, expected, strict=True)):
+            if position == condition:
+                # The header keeps its cell; a data row gains the key the
+                # code named, and it is the ONLY thing it gains.
+                assert old_cell.strip() in new_cell.strip(), f"row {row}: the condition was lost"
+            elif position == values - 1:
+                # A held second axis leaves the values cell, so its
+                # content may shrink; what it holds must stay a prefix of
+                # what it held, which is what "the values stay" means.
+                assert new_cell.strip() in old_cell.strip(), f"row {row}: the values moved"
+            else:
+                assert new_cell == old_cell, (
+                    f"row {row}: cell {position} changed and the fold does not touch it: "
+                    f"{old_cell!r} -> {new_cell!r}"
+                )
+        if row:
+            assert code.upper() != b"", "a data row with no code measures nothing here"
+
+
+def test_a_row_that_varies_both_angles_is_refused_naming_it(tmp_path):
+    """The one row the converter will NOT convert, and why it must not.
+
+    FOUND BY A SURVIVING MUTANT, not by reading. No fixture in this tree
+    varies both angles any more, so a converter that folded such a row by
+    QUIETLY DROPPING its second axis passed every case in this module.
+    That is the worst failure this lane could ship: `AL/BE` over
+    `-4,0,4/-2,0,2` is three DIAGONAL points, and dropping the beta list
+    turns it into three points at one sideslip, which is a different
+    study wearing the same POL.
+
+    The file is built here rather than committed as a fixture: the tree
+    deliberately holds no such row, and one committed to test this would
+    be a row every other case has to keep stepping around.
+    """
+    layout = matrix_mod._LAYOUT_0_11_0
+    header = " | ".join(layout)
+    cells = dict.fromkeys(layout, "")
+    cells.update(
+        {
+            "POL": "9100",
+            "AIRCRAFT": "TestWing",
+            "DESCRIPTION": "DIAGONAL",
+            "FLIGHT_CONDITION": "MACH:0.0890, REmi:3.10",
+            "SWEEP_TYPE": "AL/BE",
+            "SWEEP_VALUES": "-4.0,0.0,4.0/-2.0,0.0,2.0",
+            "REF": "r003",
+            "SET": "s003",
+            "PPROC": "p001",
+            "FS_BUILD": "MANUAL",
+            "HIDDEN": "0",
+            "RUN": "1",
+            "WORKFLOW": "LEGACY",
+            "VAR_NAMES_VALUES": "FSM_FILE:wing_clean / RECIPE: 003",
+        }
+    )
+    row = " | ".join(cells[name] for name in layout)
+    diagonal = tmp_path / "diagonal.fs"
+    diagonal.write_text("\n".join([header, "-" * 20, row]) + "\n", encoding="utf-8")
+
+    with pytest.raises(MatrixError) as caught:
+        _upgrade()(diagonal)
+    message = str(caught.value)
+    assert "9100" in message, "the refusal does not name the row a person has to split"
+    assert "-4.0,0.0,4.0/-2.0,0.0,2.0" in message, "the refusal does not show the cell"
+    assert "one row per" in message.lower(), "the refusal says no and not what to do instead"
+    assert "POL" in message, "the refusal does not say why the converter will not do it"
+    # AND NOTHING IS WRITTEN: an in-place run that refuses must leave the
+    # file as it was, or the author loses the row she has to split.
+    before = diagonal.read_bytes()
+    with pytest.raises(MatrixError):
+        _upgrade()(diagonal, in_place=True)
+    assert diagonal.read_bytes() == before, "the refused conversion wrote to the source"
 
 
 def _unfolded(data: bytes) -> bytes:
@@ -745,16 +981,18 @@ def test_the_upgrade_changes_only_the_cells_the_conversion_touches(tmp_path):
     upgrade_matrix = _upgrade()
     index = matrix_mod._LAYOUT_0_9_0.index("WORKFLOW")
     for label, path, original in _line_ending_variants(tmp_path):
-        # THREE STAGES SINCE 0.11.0 (PFS-2029.04): the converted file is the
-        # two older stages followed by the third, and this invariant reads
-        # the two-stage result, whose inverse is the one written below;
-        # the third stage has an invariant of its own in
-        # test_the_third_stage_changes_only_the_cells_it_owns.
+        # FOUR STAGES SINCE 0.15.0 (PFS-2029.04, FR-69): the converted file
+        # is the two older stages followed by the third and the fourth, and
+        # this invariant reads the two-stage result, whose inverse is the
+        # one written below; the third and fourth stages have invariants of
+        # their own in the two cases above.
         two_stage = matrix_mod._fold_flight_condition(
             matrix_mod._insert_workflow_cell(original, label), label
         )
-        assert upgrade_matrix(path) == matrix_mod._drop_fs_script_and_name_pproc(
-            two_stage, label
+        assert upgrade_matrix(path) == matrix_mod._name_geometry_files(
+            matrix_mod._fold_sweep_type(
+                matrix_mod._drop_fs_script_and_name_pproc(two_stage, label), label
+            )
         ), label
         upgraded = two_stage
         restored = _unfolded(_without_the_new_cell(upgraded, index))
@@ -929,7 +1167,10 @@ def test_an_aerodynamic_and_a_geometric_sweep_together_are_refused(tmp_path):
         read_matrix(bad)
     message = str(caught.value)
     assert "9001" in message
-    assert "alpha_beta" in message
+    assert "alpha" in message
+    assert "FLIGHT_CONDITION" in message, (
+        "the refusal still names the column the layout dropped at 0.15.0"
+    )
     assert "3" in message
     assert "0.0,5.0,10.0" in message
     assert "angle_deg" in message, "the refusal names no fixed-offset form, so it only says no"
@@ -1086,8 +1327,7 @@ def _silent_matrix(tmp_path, builds):
                 f"900{index}",
                 "TestWing",
                 "ROW",
-                "MACH:0.0890, REmi:3.10",
-                "AL",
+                "MACH:0.0890, REmi:3.10, ALPHA:sweep",
                 "0.0",
                 "r003",
                 "s002",
@@ -1262,8 +1502,7 @@ def test_a_cell_with_no_padding_to_spare_grows_rather_than_losing_a_character(tm
             "9001",
             "TestWing",
             "ROW",
-            "MACH:0.0890, REmi:3.10",
-            "AL",
+            "MACH:0.0890, REmi:3.10, ALPHA:sweep",
             "0.0",
             "003",
             "s002",
@@ -1333,35 +1572,48 @@ LAYOUT_0_9_0_FIXTURE = Path(__file__).parent / "fixtures" / "pfs202609_matrix15.
 LAYOUT_0_11_0_FIXTURE = Path(__file__).parent / "fixtures" / "pfs202609_matrix14.fs"
 
 
-def test_the_0_11_0_layout_reads():
-    """Fourteen columns, PPROC where ENTRY was, and no FS_SCRIPT."""
-    rows = read_matrix(LAYOUT_0_11_0_FIXTURE, active_only=False)
-    assert len(rows) == 8
-    assert {row.pproc_code for row in rows} == {"p001"}
-    assert matrix_mod._COLUMNS == (
-        "POL",
-        "AIRCRAFT",
-        "DESCRIPTION",
-        "FLIGHT_CONDITION",
-        "SWEEP_TYPE",
-        "SWEEP_VALUES",
-        "REF",
-        "SET",
-        "PPROC",
-        "FS_BUILD",
-        "HIDDEN",
-        "RUN",
-        "WORKFLOW",
-        "VAR_NAMES_VALUES",
+def test_the_0_11_0_layout_is_recognised_and_refused_naming_its_converter():
+    """The layout EVERY 0.14.0 matrix on disk is written in (FR-69).
+
+    It is the one a user upgrading to 0.15.0 actually meets, so it is
+    recognised by its header and answered with the command that converts
+    it. Before this case the file fell through to the generic break,
+    which offers the half-edited remedy: restore the original and upgrade
+    THAT. That sentence is false for a file nobody edited, and it sends a
+    user looking for a backup they do not need.
+    """
+    with pytest.raises(MatrixError) as caught:
+        read_matrix(LAYOUT_0_11_0_FIXTURE)
+    message = str(caught.value)
+    assert "v0.11.0 to v0.14.0" in message and "SWEEP_TYPE" in message
+    assert "pyfs-matrix upgrade" in message and "in_place" in message
+    assert "restore the original" not in message, (
+        "a file at a known layout is told to restore a backup it does not need"
     )
+    assert matrix_mod._LAYOUT_0_11_0[4] == "SWEEP_TYPE"
 
 
-def test_the_layout_without_fs_script_reads():
-    """A LEGACY row carries its recipe code as the RECIPE variable (PFS-2029.04)."""
-    rows = read_matrix(LAYOUT_0_11_0_FIXTURE, active_only=False)
+def test_the_0_11_0_refusal_reaches_the_planner_too():
+    """The same refusal from `to_campaign`, so nothing parses past the header."""
+    with pytest.raises(MatrixError, match="pyfs-matrix upgrade"):
+        to_campaign(
+            LAYOUT_0_11_0_FIXTURE, name="m", fs_version="26.120", fs_exe="fs.exe", recipes=RECIPES
+        )
+
+
+def test_a_legacy_row_carries_its_recipe_code_as_a_variable():
+    """A LEGACY row carries its recipe code as the RECIPE variable (PFS-2029.04).
+
+    Read on the CURRENT fixture. It was read on the 0.11.0 one until
+    0.15.0, when that layout stopped being readable at all, and the claim
+    is about the variables cell rather than about a layout: measuring it
+    on a file the reader refuses would measure the refusal.
+    """
+    rows = read_matrix(FIXTURE, active_only=False)
     assert all(row.workflow == "LEGACY" for row in rows)
     assert {row.script_code for row in rows} == {"003", "004"}
     assert all(row.variables[matrix_mod.RECIPE_VARIABLE] == row.script_code for row in rows)
+    assert {row.pproc_code for row in rows} == {"p001"}
 
 
 def test_the_0_9_0_layout_is_refused_naming_upgrade():
@@ -1390,7 +1642,7 @@ def test_a_partly_edited_layout_is_refused_naming_upgrade(tmp_path):
         read_matrix(half)
     message = str(caught.value)
     assert "upgrade" in message, message
-    assert "15" in message and "14" in message
+    assert "15" in message and "13" in message
 
 
 # --- PFS-2029.11.01: the variables cell reads a list of records ------------------------
@@ -1441,7 +1693,7 @@ def test_every_fixture_cell_parses_unchanged():
 # --- a LEGACY row names its recipe in the cell (PFS-2031.11, GOAL-012) -----
 
 _NAMED_RECIPE_HEADER = (
-    "POL | AIRCRAFT | DESCRIPTION | FLIGHT_CONDITION | SWEEP_TYPE | SWEEP_VALUES | REF | SET "
+    "POL | AIRCRAFT | DESCRIPTION | FLIGHT_CONDITION | SWEEP_VALUES | REF | SET "
     "| PPROC | FS_BUILD | HIDDEN | RUN | WORKFLOW | VAR_NAMES_VALUES"
 )
 
@@ -1454,7 +1706,7 @@ def a_recipe_named_in_the_cell(case, script):
 
 def _one_legacy_row(path, pol, recipe_cell):
     row = (
-        f"{pol} | Wing | NAMED | MACH:0.2, REmi:3.1 | AL | 0.0 | r003 | s002 | p001 "
+        f"{pol} | Wing | NAMED | MACH:0.2, REmi:3.1, ALPHA:sweep | 0.0 | r003 | s002 | p001 "
         f"| 26.120 | 0 | 1 | LEGACY | RECIPE: {recipe_cell} / OUTPUTS: out.txt"
     )
     path.write_text(_NAMED_RECIPE_HEADER + "\n" + "-" * 20 + "\n" + row + "\n", encoding="utf-8")

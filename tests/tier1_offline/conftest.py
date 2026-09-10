@@ -104,7 +104,7 @@ def _mutable_module_state() -> list[dict]:
         _physics.SMI_CASES,
         _specs.PROBE_SPECS,
         _solver_setup._SPEC_BY_COMMAND,
-        _matrix._SWEEP_CODES,
+        _matrix._SWEEP_CODE_KEYS,
         _entities._NOUNS,
         _options._REGISTRY,
         _options._VALUES,

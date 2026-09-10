@@ -27,12 +27,12 @@ def test_restore_logic_reverts_a_mutation_directly():
     next(gen)
     _physics.PHYSICS_CASES[_SENTINEL] = object()
     _specs.PROBE_SPECS[_SENTINEL] = object()
-    _matrix._SWEEP_CODES[_SENTINEL] = "sentinel"
+    _matrix._SWEEP_CODE_KEYS[_SENTINEL] = "SENTINEL"
     with pytest.raises(StopIteration):
         next(gen)
     assert _SENTINEL not in _physics.PHYSICS_CASES
     assert _SENTINEL not in _specs.PROBE_SPECS
-    assert _SENTINEL not in _matrix._SWEEP_CODES
+    assert _SENTINEL not in _matrix._SWEEP_CODE_KEYS
 
 
 def test_inventory_snapshots_only_mutable_mappings():

@@ -99,7 +99,23 @@ would be, and `SWEEP_VALUES` holds its values:
 
 A row with no `sweep`, or with two, is refused naming the keys. Two swept
 variables were the paired `AL/BE` sweep, which retires with the
-`SWEEP_TYPE` column: a paired row becomes one row per sideslip.
+`SWEEP_TYPE` column: a row that varies BOTH angles becomes one row per
+sideslip, and `pyfs-matrix upgrade` refuses it by name rather than
+inventing a POL for each new row. A paired row whose second axis held one
+value is not one of those: it varied one variable all along, and it
+converts with the same rows.
+
+**The keys this release can sweep are `ALPHA`, `BETA` and
+`ADVANCE_RATIO`.** Any other key of the cell may carry the word in a later
+release; today it is refused naming those three, rather than accepted and
+quietly run as a single point.
+
+**An angle the row HOLDS still names the point.** `ALPHA:sweep, BETA:0.0`
+over `-4,0,4` plans three runs tagged `a-04.0_b+00.0`, `a+00.0_b+00.0` and
+`a+04.0_b+00.0`, which are the tags the paired row it was upgraded from
+produced. The tag ends the `run_id` in every manifest, so the converter is
+held to more than lossless content: it does not rename a run, and a
+`--resume` after an upgrade finds the records it already has.
 
 ## Which quantity gets solved for
 

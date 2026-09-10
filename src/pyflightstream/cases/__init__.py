@@ -166,12 +166,33 @@ class SweepAxis(BaseModel):
     values : list
         Axis values; for ``alpha_beta`` each entry is an
         ``[alpha, beta]`` pair in deg.
+    held : dict of str to float
+        Coordinates the row HOLDS at every point, keyed like the swept
+        axis. Merged into every point, so a row that sweeps the incidence
+        at a fixed sideslip yields the same coordinates, and therefore
+        the same run identity, as the paired sweep that spelled it before
+        0.15.0. Empty for a row that holds nothing.
     """
 
     model_config = ConfigDict(extra="forbid")
 
     type: Literal["alpha", "beta", "alpha_beta", "advance_ratio"]
     values: list[float] | list[tuple[float, float]]
+    #: WHY A HELD COORDINATE IS PART OF THE POINT AND NOT ONLY OF THE ROW.
+    #: THE TAG IS IDENTITY. A row written `AL/BE` over `-4,0,4/0` swept the
+    #: incidence and held the sideslip, and its points have been tagged
+    #: `a-04.0_b+00.0` in every manifest ever written here. At 0.15.0 the
+    #: same row is written `ALPHA:sweep, BETA:0.0` and the held value
+    #: reaches the solver off the row; if it did not also reach the POINT,
+    #: `pyfs-matrix upgrade` would rename every one of those runs to say
+    #: what they always meant, and a resume would re-run them. Seats are
+    #: the scarce thing here, so the converter is held to a stronger
+    #: promise than lossless content: it does not rename a run.
+    #:
+    #: Only the two ANGLES are carried, because only they were ever
+    #: capable of appearing in a tag as a held value. An advance ratio the
+    #: row holds stays on the row, where it was before this release.
+    held: dict[str, float] = {}
 
     @model_validator(mode="after")
     def _values_match_the_axis_type(self) -> SweepAxis:
@@ -225,14 +246,20 @@ class SweepAxis(BaseModel):
         ------
         dict of str to float
             One mapping per point, keyed ``alpha``, ``beta``, or
-            ``advance_ratio`` (both keys for ``alpha_beta``).
+            ``advance_ratio`` (both keys for ``alpha_beta``), plus every
+            coordinate in :attr:`held`.
         """
         for value in self.values:
             if self.type == "alpha_beta":
                 alpha, beta = value
-                yield {"alpha": alpha, "beta": beta}
+                point = {"alpha": alpha, "beta": beta}
             else:
-                yield {self.type: value}
+                point = {self.type: value}
+            # The swept axis wins a key it shares with a held one, which
+            # cannot happen through the matrix reader (a key carrying the
+            # word is not also a number) and can be written by hand into a
+            # campaign.toml.
+            yield {**self.held, **point}
 
 
 #: THE EXPORT KINDS A POINT LEAVES (FR-51, PFS-2029.14), in the order the
@@ -702,12 +729,20 @@ class EngineBlock(BaseModel):
 
     Attributes
     ----------
-    alias : str, optional
+    alias : str
         The word a row moves. It is the block's NAME, and this field is a
-        restatement of it: absent, the reader fills it in; present, it
-        must equal the name, case folded, and a block whose two names
-        disagree is refused naming both. Whether the field is worth
+        restatement of it: a reference file may leave it out and the
+        reader fills it in from the name before the block is built;
+        stated, it must equal the name, case folded, and a block whose two
+        names disagree is refused naming both. Whether the field is worth
         keeping at all is the author's open question of 2026-09-10.
+
+        IT IS REQUIRED ON THE MODEL even though a file may omit it,
+        because everything downstream reads it as the rotor's identity:
+        it is the radical of the frames, the word written back into
+        MOVING_BC_ALIAS, and what a refusal names. An optional field left
+        None built frames called ``None_RMRP1`` rather than refusing, and
+        a type check is what found it.
     x_m, y_m, z_m : float
         The hub, in the geometry's own frame.
     axis : str
@@ -733,7 +768,7 @@ class EngineBlock(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    alias: str | None = None
+    alias: str
     axis: str
     diameter_m: float = Field(gt=0.0)
     families_blades: list[str]

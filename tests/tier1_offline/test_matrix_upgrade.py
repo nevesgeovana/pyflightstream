@@ -1,9 +1,12 @@
 """The third stage of `pyfs-matrix upgrade`: the 0.11.0 layout and the pproc library.
 
-PFS-2029.04, PFS-2029.07.01 and PFS-2029.07.02. The two committed samples are
-the same eight rows at the v0.9.0 layout (fifteen columns, ENTRY and
-FS_SCRIPT) and at the v0.11.0 layout (fourteen, PPROC), so the converter is
-measured against a file a reader can diff.
+PFS-2029.04, PFS-2029.07.01 and PFS-2029.07.02. The committed samples are the
+same eight rows at three layouts, so every stage is measured against a file a
+reader can diff: v0.9.0 (fifteen columns, ENTRY and FS_SCRIPT), v0.11.0
+(fourteen, PPROC) and the current one (thirteen, no SWEEP_TYPE). The stage
+this module is about is the third; the fourth has its own case in
+`test_matrix.py`, and what is measured here is that a file at ANY of the
+older layouts lands on the current one.
 """
 
 from __future__ import annotations
@@ -26,10 +29,18 @@ PFS0101 = (
 )
 
 
-def test_upgrade_to_0_11_0_round_trips():
-    """The 0.9.0 sample converts byte for byte into the committed 0.11.0 sample."""
-    assert upgrade_matrix(LAYOUT_0_9_0) == LAYOUT_0_11_0.read_bytes()
-    assert upgrade_matrix(LAYOUT_0_11_0) == LAYOUT_0_11_0.read_bytes(), "running it twice is safe"
+def test_every_older_layout_converts_to_the_one_the_reader_takes():
+    """Both older samples land byte for byte on the committed current sample.
+
+    The 0.9.0 file needs two stages and the 0.11.0 file needs one, and
+    the point is that they AGREE: a workspace half converted at 0.11.0
+    and one never converted at all reach the same bytes, so which release
+    a matrix was last touched in leaves no trace in the result.
+    """
+    current = (FIXTURES / "matrix.fs").read_bytes()
+    assert upgrade_matrix(LAYOUT_0_11_0) == current
+    assert upgrade_matrix(LAYOUT_0_9_0) == current
+    assert upgrade_matrix(FIXTURES / "matrix.fs") == current, "running it twice is safe"
 
 
 @pytest.mark.parametrize(

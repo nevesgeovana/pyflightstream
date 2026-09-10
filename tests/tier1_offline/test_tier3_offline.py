@@ -21,7 +21,7 @@ import sys
 import pytest
 
 from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning
-from pyflightstream.cases.matrix import MatrixError
+from pyflightstream.cases.matrix import _COLUMNS, MatrixError
 from pyflightstream.cases.workflows import workflow_registry
 from pyflightstream.run.matrix import plan_matrix
 from pyflightstream.workspace import CampaignWorkspace
@@ -167,9 +167,10 @@ def _plan(root, matrix):
     )
 
 
-STEADY = "MACH:0.1, REmi:2.3 | AL | 0.0 | r001 | s001 | p002 | 26.120 | 0 | 1 | steady | "
+STEADY = "MACH:0.1, REmi:2.3, ALPHA:sweep | 0.0 | r001 | s001 | p002 | 26.120 | 0 | 1 | steady | "
 ROTOR = (
-    "MACH:0.1, REmi:2.3 | AL | 0.0 | r004 | s002 | p001 | 26.120 | 0 | 1 | unsteady_rotor | "
+    "MACH:0.1, REmi:2.3, ALPHA:sweep | 0.0 | r004 | s002 | p001 | 26.120 | 0 | 1 "
+    "| unsteady_rotor | "
     "GEOMETRY: 40_PUSHER.fsm / SYMMETRY: NONE / ROTOR_AXIS: X / MOVING_BOUNDARIES: Blade / "
     "DELTA_THETA: 30 / REVOLUTIONS: 0.5 / "
 )
@@ -180,7 +181,8 @@ REFUSALS = {
         ("99_MISSING", "geometries"),
     ),
     "a reference code the library does not hold": (
-        "7002 | Wing | REFUSED | MACH:0.1, REmi:2.3 | AL | 0.0 | r999 | s001 | p002 | 26.120 | 0 "
+        "7002 | Wing | REFUSED | MACH:0.1, REmi:2.3, ALPHA:sweep | 0.0 | r999 | s001 "
+        "| p002 | 26.120 | 0 "
         "| 1 | steady | GEOMETRY: 10_WING.fsm / SYMMETRY: NONE",
         ("r999", "references"),
     ),
@@ -193,12 +195,14 @@ REFUSALS = {
         ("RPM_SIGN",),
     ),
     "a LEGACY row with a bare recipe code and no mapping": (
-        "7005 | Wing | REFUSED | MACH:0.1, REmi:2.3 | AL | 0.0 | r001 | s001 | p002 | 26.120 | 0 "
+        "7005 | Wing | REFUSED | MACH:0.1, REmi:2.3, ALPHA:sweep | 0.0 | r001 | s001 "
+        "| p002 | 26.120 | 0 "
         "| 1 | LEGACY | RECIPE: 003 / GEOMETRY: 10_WING.fsm / OUTPUTS: loads_{point}.txt",
         ("recipe mapping",),
     ),
     "a build the registry does not hold": (
-        "7006 | Wing | REFUSED | MACH:0.1, REmi:2.3 | AL | 0.0 | r001 | s001 | p002 | 27.000 | 0 "
+        "7006 | Wing | REFUSED | MACH:0.1, REmi:2.3, ALPHA:sweep | 0.0 | r001 | s001 "
+        "| p002 | 27.000 | 0 "
         "| 1 | steady | GEOMETRY: 10_WING.fsm / SYMMETRY: NONE",
         ("27.000", "executables.toml"),
     ),
@@ -291,7 +295,9 @@ def _pproc(root, name, text):
     return path
 
 
-WING_ROW = "MACH:0.1, REmi:2.3 | AL | 0.0 | r001 | s001 | {pproc} | 26.120 | 0 | 1 | steady | "
+WING_ROW = (
+    "MACH:0.1, REmi:2.3, ALPHA:sweep | 0.0 | r001 | s001 | {pproc} | 26.120 | 0 | 1 | steady | "
+)
 
 
 def test_a_pproc_group_named_by_a_word_is_refused_at_plan_time(tmp_path):
@@ -629,7 +635,7 @@ def test_a_nonzero_sideslip_under_mirror_symmetry_is_refused_at_plan_time(tmp_pa
     the log; two of three points were recorded FAILED_INCOMPLETE_OUTPUT because the
     export was evidence of another operating point. RED on 7b20deb: three READY."""
     root = _tier3_copy(tmp_path)
-    sweep = STEADY.replace("| AL | 0.0 |", "| BE | -4,0,4 |")
+    sweep = STEADY.replace("ALPHA:sweep | 0.0 |", "BETA:sweep | -4,0,4 |")
     assert sweep != STEADY
     mirrored = _one_row_matrix(
         root,
@@ -764,7 +770,7 @@ def test_a_setup_with_frames_renders_them_after_the_packages_own_and_before_the_
         if "| unsteady_rotor " in line
     )
     cells = rotor.split("|")
-    cells[7] = " s090 "
+    cells[_COLUMNS.index("SET")] = " s090 "
     matrix = _one_row_matrix(root, "frames.fs", "|".join(cells))
     plan, rendered = _rendered(root, matrix)
     assert not plan.blocked, plan.summary()
@@ -798,7 +804,7 @@ def _rotor_row_on_a_setup_with_nac(tmp_path, tail):
         if "| unsteady_rotor " in line
     )
     cells = rotor.split("|")
-    cells[7] = " s090 "
+    cells[_COLUMNS.index("SET")] = " s090 "
     return root, _one_row_matrix(root, "rotate.fs", "|".join(cells).rstrip() + tail)
 
 
@@ -913,7 +919,7 @@ def _steady_row_on_a_setup_with_raw(tmp_path, entries, name="raw.fs"):
         line for line in TOUR.read_text(encoding="utf-8").splitlines() if "| steady " in line
     )
     cells = steady.split("|")
-    cells[7] = " s091 "
+    cells[_COLUMNS.index("SET")] = " s091 "
     return root, _one_row_matrix(root, name, "|".join(cells))
 
 
@@ -1000,7 +1006,7 @@ def test_a_legacy_row_naming_a_setup_with_a_frames_or_raw_table_is_refused(tmp_p
         line for line in TOUR.read_text(encoding="utf-8").splitlines() if "| LEGACY " in line
     )
     cells = legacy.split("|")
-    cells[7] = " s093 "
+    cells[_COLUMNS.index("SET")] = " s093 "
     matrix = _one_row_matrix(root, "legacy_setup.fs", "|".join(cells))
     with pytest.raises(MatrixError, match="LEGACY.*s093.*table"):
         _rendered(root, matrix)

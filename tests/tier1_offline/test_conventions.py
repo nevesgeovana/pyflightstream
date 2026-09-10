@@ -126,6 +126,7 @@ _DIMENSIONLESS_OR_DEBT = {
     "flight_condition_defaults",
     "point",  # sweep point: axis name to value
     "values",  # sweep values along a declared axis
+    "held",  # coordinates held along the same declared axes as `values`
     "default",  # command-schema default, type per command
     "residual",  # RunRecord: solver residual, dimensionless
     # RunRecord: the unsteady export window keyed by the ROW KEY that

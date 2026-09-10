@@ -36,11 +36,37 @@ FlightStream versions.
 - **`SYMMETRY_LOADS` on the row** (FR-66), overriding the preset with a
   warning, because whether the solver reports the sector's loads or the
   wheel's is a per-row choice.
+- `SweepAxis.held`, the coordinates a row holds at every point of its
+  sweep. A converted `campaign.toml` writes them beside `values`.
 - Public names: `EngineBlock`, `BladeDatum` and `AliasCycleError` in
   `pyflightstream.cases`, the last also in `pyflightstream.exceptions`.
 
 ### Changed
 
+- **THE RUN MATRIX LOST A COLUMN: `SWEEP_TYPE` is gone** (FR-69, her rule of
+  2026-09-10). A sweep is applied to a variable that DEFINES the flight
+  condition, and to exactly one, so the `FLIGHT_CONDITION` cell says which
+  by carrying the word `sweep` where that key's value would be, and
+  `SWEEP_VALUES` holds its values. The verified layout is 13 columns. A
+  file at the 14-column layout is RECOGNISED by its header and refused
+  naming `pyfs-matrix upgrade <path> --in-place`, which folds the cell:
+  `AL` becomes `ALPHA:sweep`, `BE` becomes `BETA:sweep`, and a paired
+  `AL/BE` whose second axis held ONE value becomes `ALPHA:sweep, BETA:<v>`
+  with the same rows. **THE UPGRADE DOES NOT RENAME A RUN**: a held angle
+  is carried at every point, so the point tags that end every `run_id` in
+  every existing manifest are the ones the converted file plans under, and
+  a resume after the upgrade finds its records.
+- A row that sweeps BOTH angles is the one case the converter refuses
+  rather than guessing: it is one row per sideslip, each needing a POL of
+  its own, and a POL is run identity. The refusal names every such row.
+  Exactly one row in this repository was one.
+- The keys a row may sweep today are `ALPHA`, `BETA` and `ADVANCE_RATIO`.
+  Any other key of the cell is refused NAMING those three, rather than
+  accepted and silently run as a single point.
+- `EngineBlock.alias` is REQUIRED on the model. A reference file may still
+  omit it and the reader fills it in from the block's name, so nothing a
+  user writes changes; a block built in Python without one used to build
+  frames named `None_RMRP1` instead of refusing.
 - `resolve_alias` follows a member that is itself an alias, and can now
   raise `AliasCycleError`. A member the mesh carries is that boundary
   first, so no file that resolved before resolves differently.

@@ -508,7 +508,6 @@ def test_a_row_stating_no_condition_is_refused_by_the_reader(tmp_path):
             "AIRCRAFT": "TestWing",
             "DESCRIPTION": "NO_CONDITION",
             "FLIGHT_CONDITION": "",
-            "SWEEP_TYPE": "AL",
             "SWEEP_VALUES": "0.0",
             "REF": code_for("9001", "ref"),
             "SET": code_for("9001", "set"),
@@ -3374,14 +3373,14 @@ def test_a_motion_record_binds_its_engine_point_and_reaches_the_record(tmp_path)
 # --- a flat rotor row names its origin by a reference point (PFS-2031.12) ---
 
 _FLAT_ORIGIN_HEADER = (
-    "POL | AIRCRAFT | DESCRIPTION | FLIGHT_CONDITION | SWEEP_TYPE | SWEEP_VALUES | REF | SET "
+    "POL | AIRCRAFT | DESCRIPTION | FLIGHT_CONDITION | SWEEP_VALUES | REF | SET "
     "| PPROC | FS_BUILD | HIDDEN | RUN | WORKFLOW | VAR_NAMES_VALUES"
 )
 
 
 def _flat_rotor_matrix(tmp_path, origin):
     row = (
-        "7201 | Rotor | FLAT_ORIGIN | MACH:0.1, REmi:1.0 | AL | 0.0 | r003 | s002 | p001 "
+        "7201 | Rotor | FLAT_ORIGIN | MACH:0.1, REmi:1.0, ALPHA:sweep | 0.0 | r003 | s002 | p001 "
         "| 26.120 | 0 | 1 | unsteady_rotor | GEOMETRY: rotor.fsm / SYMMETRY: NONE / RPM: 800 "
         f"/ RPM_SIGN: 1 / ROTOR_AXIS: X / ROTOR_ORIGIN: {origin} / MOVING_BOUNDARIES: Blade "
         "/ DELTA_THETA: 30 / REVOLUTIONS: 0.5"
@@ -3553,7 +3552,8 @@ def _two_matrices(tmp_path):
 
     def row(pol, description):
         return (
-            f"{pol} | TestWing  | {description:22} | TASmps:68.058 | AL | -2.0 | r003 | s002 | "
+            f"{pol} | TestWing  | {description:22} | TASmps:68.058, ALPHA:sweep "
+            "| -2.0 | r003 | s002 | "
             "p001 | 26.120 | 0 | 1 | LEGACY | FSM_FILE:wing_clean / OUTPUTS: loads_{point}.txt "
             "/ RECIPE: 003"
         )
@@ -3950,7 +3950,7 @@ def _rotor_matrix(tmp_path):
     header, rule, row, *_ = (
         (FIXTURES / "workflow_rotor_matrix.fs").read_text(encoding="utf-8").splitlines()
     )
-    row = row.replace("TASmps:30.0, REmi:1.20  ", "MACH:0.2, REmi:11.77    ").replace(
+    row = row.replace("TASmps:30.0, REmi:1.20,", "MACH:0.2, REmi:11.77,").replace(
         "| 0.0            |", "| -2.0           |"
     )
     assert "MACH:0.2" in row and "-2.0" in row, row

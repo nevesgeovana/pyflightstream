@@ -40,30 +40,35 @@ workdir = Path(tempfile.mkdtemp(prefix="pyfs_campaign_"))
 #
 # Three things in the header are newer than the format itself.
 # `FLIGHT_CONDITION` states the whole flow condition of a row in one
-# cell, as comma-separated `KEY:value` pairs from a closed set; it
-# REPLACED the `RE` and `MACH` columns at 0.9.0, and which quantity the
-# resolver solves for follows from which keys are present rather than
-# from which columns are mandatory. `WORKFLOW`
+# cell, as comma-separated `KEY:value` pairs; it REPLACED the `RE` and
+# `MACH` columns at 0.9.0, and which quantity the resolver solves for
+# follows from which keys are present rather than from which columns are
+# mandatory. The cell also says WHICH VARIABLE THE ROW SWEEPS, by
+# carrying the word `sweep` where that key's value would be: `ALPHA:sweep`
+# below means the values in `SWEEP_VALUES` are incidences, and `BETA:0.0`
+# beside it is the sideslip held at every one of them. Exactly one key may
+# carry the word, which is why the `SWEEP_TYPE` column that named it a
+# second time went at 0.15.0. `WORKFLOW`
 # names which workflow builds the row's script, in a column of its own
 # so the type never competes with the free `KEY:VALUE` case data;
 # `LEGACY` is the workflow every row written before the column existed
-# asks for. `upgrade_matrix` converts a file written under either older
-# layout, adding the workflow cell and folding `RE` and `MACH` into a
-# flight condition, and touches no other byte. And the `REF`, `SET` and `PPROC` codes carry a
+# asks for. `upgrade_matrix` converts a file written under any older
+# layout and touches no other byte. And the `REF`, `SET` and `PPROC` codes carry a
 # letter naming their kind (`r`, `s`, `e`), so a number mistyped between
 # the three columns cannot resolve to another artifact's file.
 
 # %%
 _HEADER = (
-    "POL|AIRCRAFT|DESCRIPTION|FLIGHT_CONDITION|SWEEP_TYPE|SWEEP_VALUES|REF|SET"
+    "POL|AIRCRAFT|DESCRIPTION|FLIGHT_CONDITION|SWEEP_VALUES|REF|SET"
     "|PPROC|FS_BUILD|HIDDEN|RUN|WORKFLOW|VAR_NAMES_VALUES"
 )
 _ROW_1 = (
-    "9001|TestWing|POLAR|MACH:0.1441, REmi:4.38|AL|0.0,2.0,4.0|r003|s003|p001|MANUAL|0|1|LEGACY"
+    "9001|TestWing|POLAR|MACH:0.1441, REmi:4.38, ALPHA:sweep, BETA:0.0|0.0,2.0,4.0"
+    "|r003|s003|p001|MANUAL|0|1|LEGACY"
     "|FSM_FILE:wing_clean / OUTPUTS: loads_{point}.txt / RECIPE: 003"
 )
 _ROW_2 = (
-    "9002|TestWing|PARKED|MACH:0.0890, REmi:3.10|AL|0.0|r003|s002|p001|MANUAL|0|0|LEGACY"
+    "9002|TestWing|PARKED|MACH:0.0890, REmi:3.10, ALPHA:sweep|0.0|r003|s002|p001|MANUAL|0|0|LEGACY"
     "|FSM_FILE:wing_clean / OUTPUTS: loads_{point}.txt / RECIPE: 003"
 )
 MATRIX = "\n".join([_HEADER, "-" * len(_HEADER), _ROW_1, _ROW_2]) + "\n"

@@ -715,9 +715,9 @@
    "id": "FR-69",
    "text": "FLIGHT_CONDITION states ALPHA and BETA on every row, so no run reaches the solver at an angle nobody wrote. The swept variable is the one whose value is the word sweep, EXACTLY ONE key carries it, and SWEEP_VALUES holds its values. Any key of the flight condition may be the one: the five that fix the state (MACH, TASmps, REmi, ALTFT, dISA), the five pins (RHOkgm3, MUPas, ASMPS, TK, PPA), the two angles, and the advance ratio when the row states it there.",
    "priority": "M",
-   "status": "pending",
-   "evidence": "*Origin: her rule of 2026-09-10, \"um sweep e aplicado a uma variavel que DEFINE a condicao de voo e a apenas uma variavel\". Carried by PFS-2035.14, which closes PFS-2035.12 and bounds PFS-2035.06. Evidence owed: the tests it names. SUPERSEDES the SWEEP_TYPE column of FR-10, \"Run-matrix reader, forever\".*",
-   "verification": "none"
+   "status": "implemented",
+   "evidence": "*Origin: her rule of 2026-09-10, \"um sweep e aplicado a uma variavel que DEFINE a condicao de voo e a apenas uma variavel\". Carried by PFS-2035.14, which closes PFS-2035.12 and bounds PFS-2035.06. Evidence: tests/tier1_offline/test_matrix.py (the axis is read off the cell; a row with no swept key, with two, with a key this release cannot vary, or with an empty values cell is refused; the fourth stage folds the column and changes no other cell; the 0.11.0 layout is recognised and refused naming its converter; and the upgrade does not rename a run) and tests/tier1_offline/test_matrix_upgrade.py (both older layouts land on the same bytes). SUPERSEDES the SWEEP_TYPE column of FR-10, \"Run-matrix reader, forever\".*",
+   "verification": "test"
   },
   {
    "id": "FR-70",

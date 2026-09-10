@@ -423,19 +423,32 @@ def test_two_inputs_sharing_a_base_name_name_both_sources(tmp_path):
 # --- run-matrix reader ------------------------------------------------------
 
 
-def test_unknown_sweep_code_states_the_evidence_rule(tmp_path):
-    """Extending the sweep mapping is an evidence question, and the message says so."""
+def test_a_key_the_release_cannot_sweep_states_the_not_yet_rule(tmp_path):
+    """Not-yet is a different answer from never, and the message says which.
+
+    This case read the SWEEP_TYPE mapping until 0.15.0, where the column
+    went and the swept variable became a key of the flight condition
+    (FR-69). The rule it measures survived the move and got stronger: the
+    author's rule licenses ANY key of the cell, so a key this release
+    does not vary is a not-yet rather than a no, and the refusal has to
+    say so rather than reading as a closed list.
+    """
     munged = tmp_path / "matrix.fs"
     munged.write_text(
-        MATRIX_FIXTURE.read_text(encoding="utf-8").replace("AL/BE", "ZZ/BE"),
+        MATRIX_FIXTURE.read_text(encoding="utf-8").replace(
+            "MACH:0.1441, REmi:4.38, ALPHA:sweep, BETA:0.0",
+            "MACH:0.1441, REmi:sweep, ALPHA:2.0, BETA:0.0",
+            1,
+        ),
         encoding="utf-8",
     )
     with pytest.raises(
         MatrixError,
-        match=r"SWEEP_TYPE code\(s\) ZZ are not among the verified codes "
-        r"\(AL, BE\); extending the mapping needs evidence",
-    ):
+        match=r"sweeps REmi, which this release cannot vary yet\. The keys it varies "
+        r"are ADVANCE_RATIO, ALPHA, BETA\.",
+    ) as caught:
         read_matrix(munged)
+    assert "later release" in str(caught.value), "the refusal reads as a closed list"
 
 
 def test_foreign_header_names_the_verified_layout(tmp_path):
@@ -443,7 +456,7 @@ def test_foreign_header_names_the_verified_layout(tmp_path):
     bad.write_text("POL | ANGLE\n9001 | 4.0\n", encoding="utf-8")
     with pytest.raises(
         MatrixError,
-        match=r"header does not match the verified 14-column layout; expected ",
+        match=r"header does not match the verified 13-column layout; expected ",
     ):
         read_matrix(bad)
 

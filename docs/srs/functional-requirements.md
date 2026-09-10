@@ -289,16 +289,24 @@ Milestones and session records are listed in the
     `ENTRY` to `PPROC` and moves the output cells out of the row, one
     layout and one `upgrade` for both.
 
-    A FOURTH BREAK is planned for 0.15.0 and travels through the same
+    A FOURTH BREAK SHIPPED AT 0.15.0 and travelled through the same
     mechanism, carried by PFS-2035.14 and stated by FR-69, "A sweep is one
     variable of the flight condition, and the angles are always written":
-    `SWEEP_TYPE` leaves the layout, because the flight-condition cell now
-    says which variable varies by carrying the word `sweep` on it. The
-    mechanism holds unchanged, and one thing about this break is unlike the
-    three before it and is said here rather than discovered: the conversion
-    of a PAIRED `AL/BE` sweep is one row per sideslip, so the upgrade of
-    such a file changes its ROW COUNT and prints what it did. Lossless in
-    content, and not row for row.
+    `SWEEP_TYPE` left the layout, because the flight-condition cell says
+    which variable varies by carrying the word `sweep` on it. The verified
+    layout is 13 columns and the 14-column one is frozen beside the three
+    older ones, recognised by its header and refused naming the converter.
+
+    One thing about this break is unlike the three before it, and it is
+    NARROWER than this paragraph first said. It said the conversion of a
+    PAIRED `AL/BE` sweep is one row per sideslip, so such a file's upgrade
+    changes its ROW COUNT. What was measured instead: a paired code whose
+    second axis holds ONE value is one swept variable written in two
+    columns, and it folds with the same rows. Only a code whose two halves
+    BOTH vary changes the row count, and that the converter REFUSES rather
+    than doing, because each new row needs a POL of its own and a POL is
+    run identity. So the upgrade is lossless in content AND row for row,
+    or it stops and names the rows a person has to split.
 
 !!! requirement "FR-11 Lossless one-command conversion <span class='srs-implemented'>implemented</span>"
     *Origin: BRF-08, BRF-16. Evidence: milestone M2; TOML round-trip
@@ -1858,13 +1866,20 @@ requirement below is one seam of that division.
     about `axis`, which is the one reading that does not depend on where the
     reader stands.
 
-    The block also carries `alias`, OPTIONAL and equal to the block's name
-    when it is written; a block whose two names disagree, case folded, is
-    refused naming both, and a block omitting it has it filled in from the
-    name. It was specified as required and shipped optional, because the
-    refusal for a disagreement told the user to drop a field the model
-    then refused as missing (the interface lens of 2026-09-10). Whether
-    the field is worth keeping at all is the author's open question.
+    The block also carries `alias`, equal to the block's name when it is
+    written; a block whose two names disagree, case folded, is refused
+    naming both. **OPTIONAL IN THE FILE AND REQUIRED ON THE MODEL**, and
+    the distinction is where the two earlier readings of this paragraph
+    both went wrong. A reference file may omit it and the reader fills it
+    in from the name, which is what the interface lens of 2026-09-10
+    asked for: the refusal for a disagreement told the user to drop a
+    field the model then refused as missing. Making the MODEL field
+    optional too was the fix that shipped, and a type check found what it
+    cost: everything downstream reads the alias as the rotor's identity,
+    so a block built in Python without one built frames named
+    `None_RMRP1` rather than refusing. The reader fills the name in before
+    the block is built, so the file's freedom is unchanged. Whether the
+    field is worth keeping at all is the author's open question.
 
     The campaign's propulsor count is therefore the number of engine blocks,
     rather than the point kind and its `ERP`/`ARP` fallback that answer it
@@ -2056,11 +2071,17 @@ requirement below is one seam of that division.
     blade of four still reduces over four, and `PERIODIC_COPIES` is not
     replaced by another key but by a fact the reference already states.
 
-!!! requirement "FR-69 A sweep is one variable of the flight condition, and the angles are always written <span class='srs-pending'>pending</span>"
+!!! requirement "FR-69 A sweep is one variable of the flight condition, and the angles are always written <span class='srs-implemented'>implemented</span>"
     *Origin: her rule of 2026-09-10, "um sweep e aplicado a uma variavel que
     DEFINE a condicao de voo e a apenas uma variavel". Carried by PFS-2035.14,
-    which closes PFS-2035.12 and bounds PFS-2035.06. Evidence owed: the tests
-    it names. SUPERSEDES the `SWEEP_TYPE` column of FR-10, "Run-matrix
+    which closes PFS-2035.12 and bounds PFS-2035.06. Evidence:
+    `tests/tier1_offline/test_matrix.py` (the axis is read off the cell; a row
+    with no swept key, with two, with a key this release cannot vary, or with
+    an empty values cell is refused; the fourth stage folds the column and
+    changes no other cell; the 0.11.0 layout is recognised and refused naming
+    its converter; and the upgrade does not rename a run) and
+    `tests/tier1_offline/test_matrix_upgrade.py` (both older layouts land on
+    the same bytes). SUPERSEDES the `SWEEP_TYPE` column of FR-10, "Run-matrix
     reader, forever".*
 
     `FLIGHT_CONDITION` states `ALPHA` and `BETA` on every row, so no run
@@ -2077,14 +2098,36 @@ requirement below is one seam of that division.
     time naming the keys.
 
     THE COST, stated once and not hedged: the paired `AL/BE` sweep is two
-    swept variables and retires with the column. Eleven rows of the licensed
-    matrices use it, and each becomes one row per sideslip. The sweep type
-    `alpha_beta` is deprecated with it.
+    swept variables and retires with the column. The sweep type `alpha_beta`
+    is deprecated with it, and stays readable from a hand-written
+    `campaign.toml`, which is a door of its own.
 
-    Measured 2026-09-10: the matrix reader accepts two sweep codes and only
-    two, `{"AL": "alpha", "BE": "beta"}` at `cases/matrix.py:238`, so a sweep
-    of Mach, of Reynolds, of altitude or of a pinned temperature is new
-    surface rather than a rename.
+    Measured 2026-09-10, and it is SMALLER than the estimate this paragraph
+    first carried. That estimate said eleven rows of the licensed matrices
+    use the paired code and each becomes one row per sideslip. Counting them
+    instead: a paired code whose second axis holds ONE value is one swept
+    variable written in two columns, which is what the reader always did with
+    it, so it folds automatically. **Exactly one row in the whole repository
+    varies both angles** (POL 9008 of `tests/tier1_offline/fixtures/matrix.fs`,
+    a fixture built for the feature this release retires), and 9 of the 10
+    live matrices convert with no hand edit at all.
+
+    THE UPGRADE DOES NOT RENAME A RUN, which is a stronger promise than
+    lossless content and is the one that costs seats if it is broken. A
+    paired row tagged its points with BOTH angles, and those tags end the
+    `run_id` of every record in every manifest written before this release.
+    So an angle the row HOLDS is carried at every point of the sweep
+    (`SweepAxis.held`), the tags are unchanged, and a resume after the upgrade
+    finds its records. Only the two angles are carried: they are the only
+    coordinates a tag has ever held.
+
+    Measured 2026-09-10: the matrix reader accepted two sweep codes and only
+    two, `{"AL": "alpha", "BE": "beta"}`, so a sweep of Mach, of Reynolds, of
+    altitude or of a pinned temperature is new surface rather than a rename.
+    What this release implements is `ALPHA`, `BETA` and `ADVANCE_RATIO`; every
+    other key is refused NAMING those three and saying it may carry the word
+    in a later release, because accepted-and-ignored is how the advance-ratio
+    sweep failed before this release.
 
 !!! requirement "FR-70 An advance ratio in the flight condition governs the motions that state no speed <span class='srs-pending'>pending</span>"
     *Origin: her decision of 2026-09-10 and its widening the same night,

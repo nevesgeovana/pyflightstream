@@ -49,10 +49,10 @@ solver preset and the boundary group it should be resolved against.
 This is the matrix the test suite runs, byte for byte:
 
 ```text title="matrix_registry.fs"
-POL  | AIRCRAFT  | DESCRIPTION            | FLIGHT_CONDITION | SWEEP_TYPE  | SWEEP_VALUES   | REF  | SET  | PPROC  | FS_BUILD | HIDDEN | RUN | WORKFLOW | VAR_NAMES_VALUES
+POL  | AIRCRAFT  | DESCRIPTION            | FLIGHT_CONDITION | SWEEP_VALUES   | REF  | SET  | PPROC  | FS_BUILD | HIDDEN | RUN | WORKFLOW | VAR_NAMES_VALUES
 ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-8001 | TestWing  | REGISTRY_ALPHA         | MACH:0.0890, REmi:3.10 | AL          | 0.0,2.0        | r003 | s002 | p001   | 26.120   |    0   |  1  | LEGACY   | FSM_FILE:wing_clean / OUTPUTS: loads_{point}.txt / RECIPE: 003
-8002 | TestWing  | REGISTRY_BETA          | MACH:0.0890, REmi:3.10 | BE          | -3.0,3.0       | r003 | s002 | p001   | 26.120   |    1   |  1  | LEGACY   | FSM_FILE:wing_clean / OUTPUTS: loads_{point}.txt / RECIPE: 003
+8001 | TestWing  | REGISTRY_ALPHA         | MACH:0.0890, REmi:3.10, ALPHA:sweep | 0.0,2.0        | r003 | s002 | p001   | 26.120   |    0   |  1  | LEGACY   | FSM_FILE:wing_clean / OUTPUTS: loads_{point}.txt / RECIPE: 003
+8002 | TestWing  | REGISTRY_BETA          | MACH:0.0890, REmi:3.10, BETA:sweep | -3.0,3.0       | r003 | s002 | p001   | 26.120   |    1   |  1  | LEGACY   | FSM_FILE:wing_clean / OUTPUTS: loads_{point}.txt / RECIPE: 003
 ```
 
 Read one row across. `POL` is the point of interest, and it becomes the
@@ -60,9 +60,13 @@ simulation identifier (`sim_8001`). `FLIGHT_CONDITION` states the flow
 condition the row runs at, as comma-separated `KEY:value` pairs from a
 closed set; it is MANDATORY, and it replaced the `RE` and `MACH` columns
 at v0.9.0. What it means and which quantity gets solved for is
-[its own page](flight-conditions.md). `SWEEP_TYPE` and `SWEEP_VALUES` say
-what varies: `AL 0.0,2.0` is an angle-of-attack sweep at zero and two
-degrees, so this one row is two runs. `REF`, `SET` and `PPROC` are the
+[its own page](flight-conditions.md). The same cell says WHAT VARIES,
+and `SWEEP_VALUES` says over which values: `ALPHA:sweep` with `0.0,2.0`
+is an angle-of-attack sweep at zero and two degrees, so this one row is
+two runs. Exactly one key of the cell may carry the word `sweep`; every
+other key is a quantity the row HOLDS. Until v0.15.0 the swept variable
+was named a second time in a `SWEEP_TYPE` column, which is the column
+`pyfs-matrix upgrade` folds into this cell. `REF`, `SET` and `PPROC` are the
 three identifiers that reach into the input library; `PPROC` was `ENTRY`
 until v0.11.0, when the groups artifact it names became the
 post-processing artifact (PFS-2029.07). `FS_BUILD` names the FlightStream
@@ -381,7 +385,8 @@ job.
 
 ### One sweep per row, and the geometry variant that is its own row
 
-A row sweeps ONE thing. `SWEEP_TYPE` and `SWEEP_VALUES` sweep the
+A row sweeps ONE thing. The swept key of `FLIGHT_CONDITION` and
+`SWEEP_VALUES` sweep the
 aerodynamic condition, and a geometric variation of the same
 configuration, a rotated blade or a trailing-edge variant, does **not**
 multiply with it. A row that asks for both is refused when the file is
@@ -1345,6 +1350,22 @@ which renames the column, drops `FS_SCRIPT`, moves `inputs/groups/e001.toml`
 to `inputs/pproc/p001.toml` under a `[groups]` header (the file's own lines,
 comments and all), and gives the cells that named it their `p`.
 
+**A workspace written before v0.15.0 moves with the same command**, which
+also folds `SWEEP_TYPE` into the flight condition: `AL` becomes
+`ALPHA:sweep`, `BE` becomes `BETA:sweep`, and a paired `AL/BE` whose second
+axis held one value becomes `ALPHA:sweep, BETA:<value>` with the same rows.
+The matrix is refused until you run it, by a message that names it.
+
+Two things about that conversion are worth knowing before you run it:
+
+* **It does not rename a run.** A held angle is carried at every point, so
+  the point tags that end every `run_id` in `runs.json` are the ones the
+  converted file plans under, and a `--resume` finds the records it has.
+* **It stops on a row that varies BOTH angles**, naming every such row.
+  That row is one run per sideslip and each new row needs a POL of its
+  own, which is run identity and not a converter's to invent. Split them
+  by hand, giving each the POL you want, then run the command.
+
 ### One row, one geometry, turned
 
 An installed propeller's incidence is a parametric study: the same mesh, the
@@ -1538,11 +1559,11 @@ of them is refused before anything runs, naming the row and the cell.
 This is the matrix the suite runs for all three types, byte for byte:
 
 ```text title="workflow_rotor_matrix.fs"
-POL  | AIRCRAFT  | DESCRIPTION            | FLIGHT_CONDITION | SWEEP_TYPE  | SWEEP_VALUES   | REF  | SET  | PPROC  | FS_BUILD | HIDDEN | RUN | WORKFLOW       | VAR_NAMES_VALUES
+POL  | AIRCRAFT  | DESCRIPTION            | FLIGHT_CONDITION | SWEEP_VALUES   | REF  | SET  | PPROC  | FS_BUILD | HIDDEN | RUN | WORKFLOW       | VAR_NAMES_VALUES
 ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-7001 | RotorRig  | ROTOR_UNSTEADY         | TASmps:30.0, REmi:1.20   | AL          | 0.0            | r003 | s002 | p001   | 26.120   |    1   |  1  | unsteady_rotor | VELOCITY: 30.0 / RPM: 1200 / ROTOR_AXIS: X / BLADES: 4 / DELTA_TIME: 0.0001 / TIME_ITERATIONS: 720 / WINDOW_DEGREES: 90
-7002 | RotorRig  | STEADY_REFERENCE       | TASmps:30.0, REmi:1.20   | AL          | 0.0,2.0        | r003 | s002 | p001   | 26.120   |    1   |  1  | steady         | VELOCITY: 30.0
-7003 | RotorRig  | UNSTEADY_NO_ROTOR      | TASmps:30.0, REmi:1.20   | AL          | 0.0            | r003 | s002 | p001   | 26.120   |    1   |  1  | unsteady       | VELOCITY: 30.0 / DELTA_TIME: 0.00025 / TIME_ITERATIONS: 480
+7001 | RotorRig  | ROTOR_UNSTEADY         | TASmps:30.0, REmi:1.20, ALPHA:sweep | 0.0            | r003 | s002 | p001   | 26.120   |    1   |  1  | unsteady_rotor | VELOCITY: 30.0 / RPM: 1200 / ROTOR_AXIS: X / BLADES: 4 / DELTA_TIME: 0.0001 / TIME_ITERATIONS: 720 / WINDOW_DEGREES: 90
+7002 | RotorRig  | STEADY_REFERENCE       | TASmps:30.0, REmi:1.20, ALPHA:sweep | 0.0,2.0        | r003 | s002 | p001   | 26.120   |    1   |  1  | steady         | VELOCITY: 30.0
+7003 | RotorRig  | UNSTEADY_NO_ROTOR      | TASmps:30.0, REmi:1.20, ALPHA:sweep | 0.0            | r003 | s002 | p001   | 26.120   |    1   |  1  | unsteady       | VELOCITY: 30.0 / DELTA_TIME: 0.00025 / TIME_ITERATIONS: 480
 ```
 
 **NO ROW HERE NAMES A `GEOMETRY`, AND THAT IS WHAT THEY ARE FOR.** This

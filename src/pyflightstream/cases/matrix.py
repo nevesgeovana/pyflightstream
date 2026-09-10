@@ -7,13 +7,13 @@ matrix and running it is one call,
 :func:`pyflightstream.run.matrix.run_matrix`, with the native
 ``campaign.toml`` model staying the canonical internal form, so
 nothing changes for campaign.toml users. The verified layout is read as
-is: POL, AIRCRAFT, DESCRIPTION, FLIGHT_CONDITION, SWEEP_TYPE,
-SWEEP_VALUES, REF, SET, PPROC, FS_BUILD, HIDDEN, RUN,
-WORKFLOW, VAR_NAMES_VALUES. Rows with RUN = 1 are active. SWEEP_TYPE names its
-axes separated by ``/`` (verified codes: ``AL`` for alpha, ``BE`` for
-beta) and SWEEP_VALUES carries one comma-separated value list per
-axis, also ``/``-separated; the matrix workflow varies one axis while
-the other holds a single value, which broadcasts here.
+is: POL, AIRCRAFT, DESCRIPTION, FLIGHT_CONDITION, SWEEP_VALUES, REF,
+SET, PPROC, FS_BUILD, HIDDEN, RUN, WORKFLOW, VAR_NAMES_VALUES. Rows
+with RUN = 1 are active. THE SWEPT VARIABLE IS A KEY OF
+FLIGHT_CONDITION: whichever key carries the word ``sweep`` where its
+value would be is the one that varies, exactly one may, and
+SWEEP_VALUES carries its comma-separated values. Every other key of the
+cell is a quantity the row holds at every point of the sweep.
 VAR_NAMES_VALUES holds ``/``-separated ``KEY:VALUE`` pairs; values may
 contain spaces and escaped newlines (a literal backslash-n sequence),
 which are preserved verbatim.
@@ -257,8 +257,6 @@ _LEGACY_COLUMNS_16 = (
 #: :mod:`pyflightstream.cases.workflows` because the two modules meet
 #: only through the file format, and neither owns the other's constant.
 LEGACY_WORKFLOW = "LEGACY"
-
-_SWEEP_CODES = {"AL": "alpha", "BE": "beta"}
 
 # The two rotation keys of VAR_NAMES_VALUES this reader knows about, one
 # fixed offset and one geometric sweep, ARE NOT DEFINED HERE. They and the
@@ -595,9 +593,7 @@ def split_attitude(condition: dict[str, float | str]) -> tuple[dict[str, float],
     return state, attitude
 
 
-def sweep_of_condition(
-    condition: dict[str, float | str], sweep_values: str, pol: str
-) -> SweepAxis:
+def sweep_of_condition(condition: dict[str, float | str], sweep_values: str, pol: str) -> SweepAxis:
     """Build the row's sweep from the key of its condition that carries the word (FR-69).
 
     Her rule of 2026-09-10: a sweep is applied to a variable that DEFINES
@@ -635,10 +631,25 @@ def sweep_of_condition(
         )
     values = [float(token) for token in sweep_values.split(",") if token.strip()]
     if not values:
-        raise MatrixError(
-            f"POL {pol}: FLIGHT_CONDITION sweeps {key} and SWEEP_VALUES is empty."
-        )
-    return SweepAxis(type=axis, values=values)
+        raise MatrixError(f"POL {pol}: FLIGHT_CONDITION sweeps {key} and SWEEP_VALUES is empty.")
+    # A HELD ANGLE IS PART OF THE POINT, which is what keeps the upgrade
+    # from renaming a run: `AL/BE` over `-4,0,4/0` tagged its points
+    # `a-04.0_b+00.0`, and the same row spelled `ALPHA:sweep, BETA:0.0`
+    # tags them the same way. The reasoning is on `SweepAxis.held`.
+    held = {
+        _CONDITION_SWEEP_AXES[name]: float(value)
+        for name, value in condition.items()
+        if name in _HELD_POINT_KEYS and value != SWEEP_WORD
+    }
+    return SweepAxis(type=axis, values=values, held=held)
+
+
+#: The FLIGHT_CONDITION keys whose HELD value joins every point of the
+#: sweep rather than staying on the row. The two angles and no more: they
+#: are the only ones a run tag has ever carried as a held value, through
+#: the paired ``AL/BE`` code, and widening the set would rename runs in
+#: the other direction. See :attr:`pyflightstream.cases.SweepAxis.held`.
+_HELD_POINT_KEYS = ("ALPHA", "BETA")
 
 
 #: The FLIGHT_CONDITION keys a row may sweep TODAY, to the sweep axis each
@@ -653,43 +664,6 @@ _CONDITION_SWEEP_AXES = {
     "BETA": "beta",
     "ADVANCE_RATIO": "advance_ratio",
 }
-
-
-def _parse_sweep(sweep_type: str, sweep_values: str) -> SweepAxis:
-    axes = [token.strip() for token in sweep_type.split("/")]
-    groups = [token.strip() for token in sweep_values.split("/")]
-    unknown = [axis for axis in axes if axis not in _SWEEP_CODES]
-    if unknown:
-        raise MatrixError(
-            f"SWEEP_TYPE code(s) {', '.join(unknown)} are not among the verified "
-            f"codes ({', '.join(sorted(_SWEEP_CODES))}); extending the mapping needs "
-            "evidence from a matrix that uses the code"
-        )
-    if len(axes) != len(groups):
-        raise MatrixError(
-            f"SWEEP_TYPE names {len(axes)} axes but SWEEP_VALUES holds {len(groups)} "
-            "value groups; each axis takes one '/'-separated group"
-        )
-    values = {
-        _SWEEP_CODES[axis]: [float(token) for token in group.split(",")]
-        for axis, group in zip(axes, groups, strict=True)
-    }
-    if set(values) == {"alpha", "beta"}:
-        alpha, beta = values["alpha"], values["beta"]
-        if len(alpha) > 1 and len(beta) == 1:
-            beta = beta * len(alpha)
-        elif len(beta) > 1 and len(alpha) == 1:
-            alpha = alpha * len(beta)
-        elif len(alpha) != len(beta):
-            raise MatrixError(
-                "an AL/BE sweep varies one axis while the other holds a single "
-                f"value; got {len(alpha)} alpha and {len(beta)} beta values"
-            )
-        return SweepAxis(
-            type="alpha_beta", values=[list(pair) for pair in zip(alpha, beta, strict=True)]
-        )
-    axis_name, axis_values = next(iter(values.items()))
-    return SweepAxis(type=axis_name, values=axis_values)
 
 
 #: ``MOTIONS_VARIABLE``, the one ``VAR_NAMES_VALUES`` key whose value is a
@@ -931,7 +905,7 @@ def _check_one_sweep_per_row(pol: str, sweep: SweepAxis, variables: dict[str, st
     :func:`pyflightstream.cases.multiplied_sweep`, which is called here
     rather than restated: this function owns only the matrix's own
     vocabulary, so the refusal a matrix user reads names POL,
-    ``SWEEP_TYPE`` and the cell they typed instead of naming a
+    ``FLIGHT_CONDITION`` and the cell they typed instead of naming a
     ``campaign.toml`` field they have never seen.
 
     The refusal names the fixed-offset form, because the user asking for
@@ -942,7 +916,7 @@ def _check_one_sweep_per_row(pol: str, sweep: SweepAxis, variables: dict[str, st
     if not rotation:
         return
     raise MatrixError(
-        f"POL {pol} asks for two sweeps at once: the SWEEP_TYPE {sweep.type} sweep of "
+        f"POL {pol} asks for two sweeps at once: the FLIGHT_CONDITION {sweep.type} sweep of "
         f"{len(sweep.values)} points and the geometric sweep "
         f"{ROTATION_SWEEP_KEY}: {','.join(rotation)} of {len(rotation)} angles. The "
         f"two would multiply into {len(sweep.values) * len(rotation)} runs this row "
@@ -1020,6 +994,22 @@ def read_matrix(path: str | Path, *, active_only: bool = True) -> list[MatrixRow
             "artifact now decides. Every other cell, separator and line ending is "
             "untouched."
         )
+    if header == _LAYOUT_0_11_0:
+        raise MatrixError(
+            f"{path} carries the {len(_LAYOUT_0_11_0)}-column layout of v0.11.0 to "
+            "v0.14.0, with a SWEEP_TYPE column. At v0.15.0 the column went: a sweep is "
+            "applied to a variable that DEFINES the flight condition, and to exactly "
+            f"one, so the cell says which by carrying {SWEEP_WORD!r} where that key's "
+            "value would be, and a column naming the same variable a second time is a "
+            "second home for one fact. To upgrade it, pass in_place=True to "
+            "pyflightstream.cases.matrix.upgrade_matrix(path), or run "
+            "`pyfs-matrix upgrade <path> --in-place`. It "
+            f"drops the cell and writes ALPHA:{SWEEP_WORD} or BETA:{SWEEP_WORD} into "
+            "FLIGHT_CONDITION, with a paired code's held angle beside it as a number. "
+            "Every other cell, separator and line ending is untouched. THE ONE THING "
+            "IT WILL NOT DO is split a row that sweeps BOTH angles: that is one row "
+            "per sideslip, each needing a POL of its own, and a POL is run identity."
+        )
     if header != _COLUMNS:
         # The fallthrough, and the one an upgrading user is most likely
         # to reach: legacy recognition above is exact tuple equality, so
@@ -1052,7 +1042,11 @@ def read_matrix(path: str | Path, *, active_only: bool = True) -> list[MatrixRow
         # get. Overlap against the current layout and both frozen legacy
         # ones, majority of the expected width, decides which they are.
         known = (
-            set(_COLUMNS) | set(_LEGACY_COLUMNS_15) | set(_LEGACY_COLUMNS_16) | set(_LAYOUT_0_9_0)
+            set(_COLUMNS)
+            | set(_LEGACY_COLUMNS_15)
+            | set(_LEGACY_COLUMNS_16)
+            | set(_LAYOUT_0_9_0)
+            | set(_LAYOUT_0_11_0)
         )
         looks_half_edited = len(known & set(header)) * 2 > len(_COLUMNS)
         remedy = (
@@ -1594,9 +1588,10 @@ def _upgraded_bytes(data: bytes, source: str) -> bytes:
             f"header names {', '.join(header)}. The layouts it reads are the "
             f"{len(_LEGACY_COLUMNS_15)}-column one that precedes WORKFLOW "
             f"({', '.join(_LEGACY_COLUMNS_15)}), the {len(_LEGACY_COLUMNS_16)}-column "
-            f"one that precedes FLIGHT_CONDITION ({', '.join(_LEGACY_COLUMNS_16)}) and "
+            f"one that precedes FLIGHT_CONDITION ({', '.join(_LEGACY_COLUMNS_16)}), "
             f"the {len(_LAYOUT_0_9_0)}-column one of v0.9.0 to v0.10.1 "
-            f"({', '.join(_LAYOUT_0_9_0)})."
+            f"({', '.join(_LAYOUT_0_9_0)}) and the {len(_LAYOUT_0_11_0)}-column one of "
+            f"v0.11.0 to v0.14.0 ({', '.join(_LAYOUT_0_11_0)})."
         )
     return _name_geometry_files(
         _fold_sweep_type(_drop_fs_script_and_name_pproc(data, source), source)
@@ -2141,9 +2136,16 @@ def convert_matrix(
         plain_values = [
             list(value) if isinstance(value, tuple) else value for value in sim.sweep.values
         ]
+        held = (
+            ", held = {"
+            + ", ".join(f"{key} = {_toml_value(value)}" for key, value in sim.sweep.held.items())
+            + "}"
+            if sim.sweep.held
+            else ""
+        )
         lines.append(
             f"sweep = {{type = {_toml_value(sim.sweep.type)}, "
-            f"values = {_toml_value(plain_values)}}}"
+            f"values = {_toml_value(plain_values)}{held}}}"
         )
         lines.append(f"recipe = {_toml_value(sim.recipe)}")
         # FR-11 says the conversion is lossless, and the outputs are part
