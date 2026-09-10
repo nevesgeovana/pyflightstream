@@ -356,6 +356,30 @@ def test_a_record_citing_an_alias_the_reference_does_not_declare_is_refused(tmp_
     assert "PUSHER" in message, "the refusal names the engines the reference does declare"
 
 
+def test_a_record_still_naming_its_boundaries_warns_from_the_ledger(tmp_path):
+    """TW2-15: the promise was registered and never spoken.
+
+    `ROW_MOVING_BOUNDARIES` sat in the deprecation ledger with a removal
+    version, and nothing called its `message()`. A record stating
+    `MOVING_BOUNDARIES` was accepted in SILENCE, so the deprecation the
+    ledger announces was invisible to the user it is for.
+
+    The text is the ledger entry's own, so the release it names is the one
+    the deadline guard enforces rather than a second copy nothing keeps
+    equal.
+    """
+    from pyflightstream._deprecations import ROW_MOVING_BOUNDARIES
+    from pyflightstream.cases.workflows import _motion_view
+
+    case = two_rotor_case(tmp_path).model_copy(
+        update={"engines": {}, "motions": [{"MOVING_BOUNDARIES": "LB_L1_1", "RPM": "2200"}]}
+    )
+    with pytest.warns(match="MOVING_BOUNDARIES") as caught:
+        _motion_view(case, case.motions[0])
+    assert ROW_MOVING_BOUNDARIES.message() in str(caught[0].message)
+    assert f"removed in v{ROW_MOVING_BOUNDARIES.removal_version}" in str(caught[0].message)
+
+
 def test_a_record_stating_both_spellings_is_refused(tmp_path):
     """One rotor identity per record: the new spelling and the old cannot both decide."""
     case = two_rotor_case(tmp_path)

@@ -539,9 +539,6 @@ class ProductsSpec(BaseModel):
 #: type also creates ``PROP_MRP<k>``, ``RotorAxis<k>`` and ``BladeAxis<k>``,
 #: one per record or blade family, refused by pattern below (the
 #: interface lens of REL-0140: a setup defining PROP_MRP1 was shadowed).
-#: An axis letter with at most one leading sign, which is exactly what
-#: a blade datum may be written as.
-_AXIS_TOKEN = re.compile(r"^[+-]?[XYZ]$")
 RESERVED_FRAME_NAMES: tuple[str, ...] = ("MRP", "PROP_MRP")
 RESERVED_FRAME_PATTERN = re.compile(r"^(PROP_MRP|ROTORAXIS|BLADEAXIS)\d+$")
 
@@ -639,6 +636,14 @@ class FrameSpec(BaseModel):
                 "BladeAxis<k> on a rotor row); choose another name"
             )
         return self
+
+
+#: An axis letter with at most one leading sign, which is exactly what a
+#: blade datum may be written as. It sits with its only user rather than
+#: among the frame names, where an earlier edit put it between a doc
+#: comment and the constants that comment describes (the technical
+#: writing lens and the architecture lens, independently, 2026-09-10).
+_AXIS_TOKEN = re.compile(r"^[+-]?[XYZ]$")
 
 
 class BladeDatum(BaseModel):

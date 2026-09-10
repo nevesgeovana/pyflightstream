@@ -1797,12 +1797,16 @@ study's vocabulary lives in the reference, a row states which of it moves and
 at what operating point, and the mesh says what was actually meshed.** Every
 requirement below is one seam of that division.
 
-!!! requirement "FR-59 The reference holds the vocabulary of a study's boundaries <span class='srs-pending'>pending</span>"
+!!! requirement "FR-59 The reference holds the vocabulary of a study's boundaries <span class='srs-implemented'>implemented</span>"
     *Origin: her decisions of 2026-09-09 and 2026-09-10, "todos os aliases vao
     para referencia". Carried by PFS-2035.01 and PFS-2035.13. Evidence owed:
     the tests those nodes name. SUPERSEDES the `[aliases]` table of
     FR-30c, "Declared inventories are range-checked", which shipped it in the
-    setup preset one release earlier.*
+    setup preset one release earlier. Evidence:
+    `tests/tier1_offline/test_reference_vocabulary.py` (the table, a nested alias, a ring, and
+    the self-reference that is not one) and
+    `tests/tier1_offline/test_matrix_run.py::test_the_reference_aliases_reach_the_record`;
+    commits f0032d3 and 661dd5d.*
 
     An `[aliases]` table of the REFERENCE artifact declares every name a study
     gives to a set of boundaries. A member may be a mesh family, a boundary
@@ -1822,9 +1826,9 @@ requirement below is one seam of that division.
     and the words a study uses for its own geometry belong with the
     configuration.
 
-!!! requirement "FR-60 A rotor is one engine block of the reference, and the block is its alias <span class='srs-pending'>pending</span>"
+!!! requirement "FR-60 A rotor is one engine block of the reference, and the block is its alias <span class='srs-implemented'>implemented</span>"
     *Origin: her design of 2026-09-10. Carried by PFS-2035.02 and PFS-2035.16.
-    Evidence owed: the tests those nodes name.*
+    Evidence: `tests/tier1_offline/test_reference_vocabulary.py` (the block, the blade count, the union the name stands for, and every refusal it carries). Commits f0032d3 and 45b9b6b.*
 
     A block of the reference whose `kind` is `engine` declares one rotor: its
     hub coordinates, `axis`, `rpm_sign`, `families_general` (what turns and is
@@ -1854,35 +1858,54 @@ requirement below is one seam of that division.
     about `axis`, which is the one reading that does not depend on where the
     reader stands.
 
-    The block also carries `alias`, required, and it must equal the block's
-    name; a block whose two names disagree is refused at plan time naming
-    both.
+    The block also carries `alias`, OPTIONAL and equal to the block's name
+    when it is written; a block whose two names disagree, case folded, is
+    refused naming both, and a block omitting it has it filled in from the
+    name. It was specified as required and shipped optional, because the
+    refusal for a disagreement told the user to drop a field the model
+    then refused as missing (the interface lens of 2026-09-10). Whether
+    the field is worth keeping at all is the author's open question.
 
     The campaign's propulsor count is therefore the number of engine blocks,
     rather than the point kind and its `ERP`/`ARP` fallback that answer it
     today (0.11.0, PFS-2029.11.02).
 
-!!! requirement "FR-61 A row names a rotor by its alias and states nothing else about it <span class='srs-pending'>pending</span>"
+!!! requirement "FR-61 A row names a rotor by its alias and states nothing else about it <span class='srs-implemented'>implemented</span>"
     *Origin: her design of 2026-09-10, "vamos mudar MOVING_BOUNDARIES para
-    MOVING_BC_ALIAS". Carried by PFS-2035.03. Evidence owed: the tests it
-    names.*
+    MOVING_BC_ALIAS". Carried by PFS-2035.03. Evidence:
+    `tests/tier1_offline/test_rotor_by_alias.py`, where the alias moves that rotor's
+    boundaries, an unknown alias is refused naming the engines the reference
+    does declare, and a record stating both spellings is refused; commit
+    45b9b6b.*
 
     `MOVING_BC_ALIAS` names an engine block of the row's reference and is the
-    only rotor identity a row carries. `ROTOR_AXIS`, `ROTOR_ORIGIN`,
-    `RPM_SIGN`, `BLADES` and `PERIODIC_COPIES` leave the row, each read with a
-    deprecation warning and removed at 0.17.0, because the reference states
-    them once. `SYMMETRY` stays, because what was meshed is a property of the
+    only rotor identity a motion record carries. `MOVING_BOUNDARIES`,
+    `ROTOR_AXIS`, `ROTOR_ORIGIN`, `RPM_SIGN` and `BLADES` are what it
+    replaces, because the reference states each once; a record stating any
+    of them BESIDE the alias is refused naming both, and a record stating
+    them without an alias is read as it always was, which is what keeps
+    every row written before this release working. They are removed at
+    0.17.0.
+
+    `PERIODIC_COPIES` is NOT among them and the earlier wording said it
+    was: it states what the MESH is, a sector of a wheel, which is a
+    property of the file the row opens rather than of the rotor the
+    reference declares. What the reference replaces is the blade COUNT
+    that `PERIODIC_COPIES` was also read for (FR-68). `SYMMETRY` stays, because what was meshed is a property of the
     file the row opens.
 
     A cell naming an alias the reference does not declare as an engine is
     refused at plan time, naming the alias and the engines the reference does
     declare.
 
-!!! requirement "FR-62 The frames a rotor instantiates take its alias as their radical <span class='srs-pending'>pending</span>"
+!!! requirement "FR-62 The frames a rotor instantiates take its alias as their radical <span class='srs-implemented'>implemented</span>"
     *Origin: her design of 2026-09-10, "<ALIAS>_SMRP para o eixo local
     estatico e <ALIAS>_RMRP para o eixo rodando junto com o movimento".
-    Carried by PFS-2035.04, absorbing PFS-2029.21. Evidence owed: the tests
-    those nodes name.*
+    Carried by PFS-2035.04, absorbing PFS-2029.21. Evidence:
+    `tests/tier1_offline/test_rotor_by_alias.py`, where the frames take the radical, the blade
+    frames TURN with the blades, a record naming no engine keeps the 0.14.0
+    names, and a blade the mesh lacks gets no frame while the count stays;
+    commits 6288aaf and 927ef8b.*
 
     A rotor creates `<ALIAS>_SMRP` at its hub, static; `<ALIAS>_RMRP` turning
     with the motion; and `<ALIAS>_RMRP<k>` per blade of `families_blades`,
@@ -1898,10 +1921,10 @@ requirement below is one seam of that division.
     the rotor's identity, so nine rotors instantiate nine sets rather than
     colliding on one radical.
 
-!!! requirement "FR-63 The rotor speed lives in the motion record, resolved against that rotor's own diameter <span class='srs-pending'>pending</span>"
+!!! requirement "FR-63 The rotor speed lives in the motion record, resolved against that rotor's own diameter <span class='srs-implemented'>implemented</span>"
     *Origin: her design of 2026-09-10 and her reminder of the same night, "a
     razao de avanco vira RPM usando o diametro de cada rotor". Carried by
-    PFS-2035.05 and PFS-2035.18. Evidence owed: the tests those nodes name.
+    PFS-2035.05 and PFS-2035.18. Evidence: `tests/tier1_offline/test_rotor_by_alias.py::test_one_ratio_gives_two_rotors_two_speeds_when_their_diameters_differ`, which asserts the two speeds are in the inverse ratio of the diameters. Commit 45b9b6b.
     AMENDS FR-56, "The reference artifact states only what rows share, with
     one length per quantity", whose single `propeller_diameter_m` is the
     advance-ratio length today.*
@@ -1934,10 +1957,21 @@ requirement below is one seam of that division.
     step and the run length are that motion's. `rotor_speed` becomes
     `rotor_speed_ref` so the call site says which speed it is.
 
-    A row without the key is read with a warning naming the motion assumed,
-    until 0.17.0. Today the clock follows the fastest rotor by the package's
-    own arithmetic, which is an inference the author never wrote down; a
-    declaration replaces it.
+    A row of SEVERAL motions without the key is read with a warning naming
+    the motion assumed, until 0.17.0; a row of ONE is silent, because there
+    is nothing to choose between. Today the clock follows the fastest rotor
+    by the package's own arithmetic, which is an inference the author never
+    wrote down; a declaration replaces it.
+
+    IMPLEMENTED IN PART at 0.15.0, and the part that is owed is named here
+    rather than left for a reader to discover: the key is read, the named
+    motion owns the clock, and a row of several motions that states none
+    warns. What is NOT done is the rename of `rotor_speed` to
+    `rotor_speed_ref` at the call site, and the key is not yet REQUIRED on
+    a row of one motion. Evidence for the part that shipped:
+    `tests/tier1_offline/test_rotor_by_alias.py` (the clock follows the
+    named motion and not the fastest; a clock naming no motion of the row
+    is refused); commit 91a7302.
 
     Measured 2026-09-10: `cases/workflows.py:4649` reads
     `fastest = max(speeds, key=lambda each: abs(each.rpm))`, and nothing in
@@ -1968,10 +2002,12 @@ requirement below is one seam of that division.
     unlike an entry that resolves to nothing, it cannot come right on another
     mesh.
 
-!!! requirement "FR-66 A row may state the symmetry-loads flag, overriding the preset with a warning <span class='srs-pending'>pending</span>"
+!!! requirement "FR-66 A row may state the symmetry-loads flag, overriding the preset with a warning <span class='srs-implemented'>implemented</span>"
     *Origin: her decision of 2026-09-10, "vale promover ele para flag sim e
-    vamos manter isso na matriz". Carried by PFS-2035.09. Evidence owed: the
-    test it names.*
+    vamos manter isso na matriz". Carried by PFS-2035.09. Evidence:
+    `tests/tier1_offline/test_rotor_by_alias.py`, where the row overrides the preset and warns,
+    agreeing warns nothing, and a value that is not a yes or a no is refused;
+    commit 91a7302.*
 
     `SYMMETRY_LOADS` is a row key registered on every run type. A row stating
     it overrides the preset's value and warns, naming both files and the value
@@ -2101,10 +2137,10 @@ requirement below is one seam of that division.
     moves them, turns them or measures them, which is what makes the fourteen
     requirements of this section one vocabulary rather than fourteen features.
 
-!!! requirement "FR-72 A custom frame is declared in the reference, where the geometry is <span class='srs-pending'>pending</span>"
+!!! requirement "FR-72 A custom frame is declared in the reference, where the geometry is <span class='srs-implemented'>implemented</span>"
     *Origin: her decision of 2026-09-10, "definicao de eixo customizado como o
     NAC_FL vai para o ref, onde fica dados geometricos". Carried by
-    PFS-2035.19. Evidence owed: the tests it names. SUPERSEDES the
+    PFS-2035.19. Evidence: `tests/tier1_offline/test_reference_vocabulary.py` and `tests/tier1_offline/test_matrix_run.py` (the frames reach the case, a preset still stating them warns and the reference wins, a LEGACY row leaves them out and says so). Commits f0032d3, 661dd5d and 2840078. SUPERSEDES the
     `[[frames]]` table of FR-31, "Solver-setup provenance", which places it in
     the setup preset.*
 

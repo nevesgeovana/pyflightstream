@@ -390,14 +390,18 @@ def expired_promise(entry: Deprecation, project_version: str) -> str | None:
 #: :data:`DEPRECATIONS` below.
 DEPRECATED_MODULES: tuple[DeprecatedModule, ...] = ()
 
-#: The rename of the waived-command surface (PFS-2022.01.05 and
-#: OPS-2009.02.08). The entries a run manifest holds under this key are
-#: WAIVERS, commands the database records broken that a recipe emitted
-#: anyway under ``Script.allow_broken``; a reader met ``broken_commands``
-#: and read it as the commands that broke, which is the opposite claim.
-#: The manifest key, and the property of the same name on the three
-#: objects that carry it, moved to ``waived_commands`` in 0.13.0; each
-#: old name reads until 0.15.0 and warns with the text below.
+# THE RENAME OF THE WAIVED-COMMAND SURFACE (PFS-2022.01.05 and
+# OPS-2009.02.08). The entries a run manifest holds under that key are
+# WAIVERS, commands the database records broken that a recipe emitted
+# anyway under `Script.allow_broken`; a reader met `broken_commands` and
+# read it as the commands that broke, which is the opposite claim. The
+# key and the property of the same name on three objects moved to
+# `waived_commands` in 0.13.0.
+#
+# THE THREE PROPERTIES WERE REMOVED AT 0.15.0, on their promise. The KEY
+# was not: its entry, and the reason it moved to 0.16.0, are below with
+# the rest of the live promises. This comment introduced a statement that
+# was deleted from under it and is kept as history rather than as a claim.
 
 #: The two promises made before the ledger could hold them, registered
 #: on 2026-09-09 (PFS-2021.02). Each warned "in a future release" and
@@ -459,22 +463,21 @@ MATRIX_FS_VERSION: dict[str, DeprecatedParameter] = {
     entry.owner: entry for entry in (PLAN_MATRIX_FS_VERSION, RUN_MATRIX_FS_VERSION)
 }
 
-#: Three shipped names measured on 2026-09-09 (PFS-2022.05), two renamed
-#: here and one deliberately left:
-#:
-#: * ``pyflightstream.utils.sweep_editions`` reads the vendor manuals,
-#:   and ``sweep`` is the solver's own word for a parameter sweep
-#:   (``SWEEPER_START``, the ``sweep`` run type). It is
-#:   ``manual_editions`` from 0.13.0; the old name is one public
-#:   function with one caller in this package and seven in its tests,
-#:   and a maintainer script outside the package may hold it, so it
-#:   warns and forwards until 0.15.0. The ``pyfs-manual sweep``
-#:   subcommand keeps its name (a subcommand rename costs every
-#:   documented invocation) and its help says what it reads;
-#: * ``propose_type(placeholder, description)`` took two adjacent
-#:   strings positionally and nothing at the call site said which was
-#:   which. Both are keyword-only from 0.13.0; a positional call warns
-#:   with the row below and still answers until 0.15.0;
+# THREE SHIPPED NAMES MEASURED ON 2026-09-09 (PFS-2022.05), two renamed
+# then and one deliberately left. The first two were REMOVED AT 0.15.0 on
+# their promise, so their rows are gone from this file; what follows is
+# the history of the decision, not a live claim about the tree:
+#
+# * `pyflightstream.utils.sweep_editions` read the vendor manuals, and
+#   `sweep` is the solver's own word for a parameter sweep
+#   (`SWEEPER_START`, the `sweep` run type). It became `manual_editions`
+#   at 0.13.0, warned and forwarded, and is gone at 0.15.0. The
+#   `pyfs-manual sweep` subcommand keeps its name (a subcommand rename
+#   costs every documented invocation) and its help says what it reads;
+# * `propose_type(placeholder, description)` took two adjacent strings
+#   positionally and nothing at the call site said which was which. Both
+#   are keyword-only from 0.13.0; the positional call warned until
+#   0.15.0 and the signature refuses it now;
 #: * ``probe_ref`` is NOT renamed. It is a committed YAML key of the
 #:   command database, on the entry and on the version row, and the
 #:   Python attribute is the key itself (pydantic models, no alias), so

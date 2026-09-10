@@ -66,6 +66,7 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import PurePath
 
+from pyflightstream._deprecations import ROW_MOVING_BOUNDARIES
 from pyflightstream._errors import (
     PyflightstreamDeprecationWarning,
     PyflightstreamError,
@@ -243,8 +244,11 @@ MOVING_BC_ALIAS_VARIABLE = "MOVING_BC_ALIAS"
 #: length are that motion's. A row without it keeps the arithmetic of
 #: 0.14.0, the fastest rotor, with a warning naming the motion assumed;
 #: the key becomes required at 0.17.0. `rotor_speed` is what a one-rotor
-#: row resolves; on a row of several this is which of them the clock
-#: follows, which is why the call site reads `rotor_speed_ref`.
+#: row resolves; on a row of several, `_clock_speed` is which of them the
+#: clock follows. FR-64 also asks for `rotor_speed` to be renamed
+#: `rotor_speed_ref` at the call site, and that half is NOT done: the
+#: requirement says so rather than this comment naming a symbol the tree
+#: does not carry (the technical writing lens of 2026-09-10).
 CLOCK_MOTION_VARIABLE = "CLOCK_MOTION"
 #: Whether the solver reports the loads of the meshed sector or of the
 #: whole wheel (FR-66, her decision of 2026-09-10). A preset key promoted
@@ -4920,7 +4924,9 @@ def _motion_view(case: SimCase, record: Mapping[str, str]) -> SimCase:
     variables.update({key: value for key, value in record.items() if key != ROTOR_ORIGIN_POINT_KEY})
     update: dict[str, object] = {"variables": variables, "motions": []}
     engine = _engine_of(case, record)
-    if engine is not None:
+    if engine is None:
+        _warn_a_record_still_naming_its_boundaries(case, record)
+    else:
         _refuse_two_rotor_identities(case, record)
         # THE BLOCK FILLS THE VIEW, and this is the one seam where it can:
         # every reader below (rotor_speed, _origin, emit_rotor_motion) reads
@@ -4974,6 +4980,28 @@ def _engine_of(case: SimCase, record: Mapping[str, str]) -> EngineBlock | None:
             "and the block's name is the word a row moves."
         )
     return engine
+
+
+def _warn_a_record_still_naming_its_boundaries(case: SimCase, record: Mapping[str, str]) -> None:
+    """Warn from the ledger for a record that names its rotor the 0.14.0 way (FR-61).
+
+    THE PROMISE WAS REGISTERED AND NEVER SPOKEN: `ROW_MOVING_BOUNDARIES`
+    sat in the ledger with a removal version and nothing called its
+    `message()`, so the deprecation it announces was invisible to the user
+    it is for, and a record stating `MOVING_BOUNDARIES` was accepted in
+    silence (the technical writing lens of 2026-09-10).
+
+    The text is the LEDGER ENTRY'S OWN, so the release it names is the one
+    the deadline guard enforces rather than a second copy that nothing
+    keeps equal.
+    """
+    if MOVING_BOUNDARIES_VARIABLE not in record:
+        return
+    warnings.warn(
+        f"case {case.sim_id!r}: {ROW_MOVING_BOUNDARIES.message()}",
+        PyflightstreamDeprecationWarning,
+        stacklevel=2,
+    )
 
 
 def _refuse_two_rotor_identities(case: SimCase, record: Mapping[str, str]) -> None:

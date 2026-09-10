@@ -146,9 +146,13 @@ work out to at the run's own velocity, so an `unsteady_rotor` row states
 the decisions and the package derives the rest.
 
 * `ADVANCE_RATIO: <J>` sets the rotor speed as `n = V / (J D)`, against
-  the velocity this row already resolves and the `propeller_diameter_m`
-  its reference artifact carries. `RPM: <rev/min>` states the speed
-  directly instead. A row states exactly one of the two, and stating
+  the velocity this row already resolves and the diameter `D`. **Since
+  0.15.0 that diameter is the ROTOR'S OWN** where the motion names an
+  engine block of the reference, so one ratio written once gives rotors
+  of different sizes different speeds (FR-63); where no alias is cited it
+  is the `propeller_diameter_m` the reference artifact carries, which is
+  one number for the whole configuration. `RPM: <rev/min>` states the
+  speed directly instead. A row states exactly one of the two, and stating
   both is refused: the rev/min are what the ratio works out to, so a
   second stated form is a second number nobody keeps in agreement with
   the first.
@@ -231,6 +235,10 @@ read by the package rather than ignored:
 | v0.13.0 | none. What changed is that the list above is now CLOSED for a workflow row: a key no run type registers is refused at `pyfs-matrix plan` (PFS-2008.02.01), see below |
 | v0.14.0 | none. What changed again is what `MOVING_BOUNDARIES` ACCEPTS: a name the row's setup defines under `[aliases]`, between the exact label and the family, see What a solver preset may say |
 | v0.14.0 | `ROTATE`, a list of records, one rotation of the opened mesh each, in the order written: `ROTATE: {ANGLE: 3 / AXIS: NAC-Y / FAMILIES: Blade,S / AUX_FRAMES: PROP_MRP}, {...}`; on every run type; the frame is one the setup defines or the package creates, the families are names, never indices (PFS-2034.02), see [One row, one geometry, turned](#one-row-one-geometry-turned) |
+
+| v0.15.0 | `MOVING_BC_ALIAS`, the rotor a motion record moves, an alias the reference declares as an engine block. It is the ONLY rotor identity a row carries: the hub, the axis, the sign, the blade count and the diameter come from that block, and a record stating `MOVING_BOUNDARIES`, `ROTOR_AXIS`, `ROTOR_ORIGIN`, `RPM_SIGN` or `BLADES` beside it is refused naming both (FR-61) |
+| v0.15.0 | `CLOCK_MOTION`, which of the row's motions owns the time step and the run length. A row of several motions that states none keeps the arithmetic of 0.14.0, the fastest rotor, and warns naming the motion it assumed; the key becomes required at 0.17.0 (FR-64) |
+| v0.15.0 | `SYMMETRY_LOADS`, whether the solver reports the loads of the meshed sector or of the whole wheel. On every run type, because a mirrored or periodic mesh is opened by a steady row too; a row stating it overrides the preset and warns naming both files (FR-66) |
 
 **A WORKFLOW ROW STATES ONLY WHAT THE SCRIPT WILL CARRY.** Each run type
 registers the keys it reads (`Workflow.keys` in
@@ -764,6 +772,36 @@ artifact still carrying any of the four is refused naming the row keys;
 the signs, and the derivation from a published sense to a sign, are on
 [the mesh inputs page](mesh-inputs.md).
 
+!!! warning "Since 0.15.0 the reference declares the study's vocabulary"
+
+    Three tables joined this artifact, and the paragraphs above are
+    written for a configuration with ONE propeller (FR-59, FR-60, FR-72).
+
+        [aliases]                  a name for a set of boundaries; a member
+                                   may be another alias, resolved to the end
+        [[frames]]                 the custom coordinate systems, moved here
+                                   from the setup preset
+        [<ROTOR>] kind = "engine"  one block per rotor, and the block's NAME
+                                   is an alias over everything it owns
+
+    A rotor block states `alias` (optional, and equal to its name), the hub
+    as `x_m`, `y_m`, `z_m`, then `axis`, `rpm_sign`, `diameter_m`,
+    `families_general`, `families_blades` and `blade1`. **The blade count
+    is the length of `families_blades`** and nothing else, so a row states
+    no count and a sector mesh carrying one blade of four still reduces
+    over four.
+
+    **`diameter_m` is per rotor, and it is what an advance ratio resolves
+    against for a motion citing that block.** The top-level
+    `propeller_diameter_m` above still answers for a row that names no
+    alias; it is one number for a whole configuration, so it cannot answer
+    for a second rotor of another size, which is why the length moved into
+    the block.
+
+    `RPM_SIGN` on a row likewise answers only where no alias is cited: a
+    record naming a rotor takes the sign from its block, and a record
+    stating both is refused naming both.
+
 Two warnings, and neither is a detail.
 
 Nothing in the package reads the propeller block except its `position`,
@@ -902,6 +940,23 @@ written there (`LIFTERS_MRP`); and, on a row with several rotors, one
 rotor's own frames, `PROP_MRP1` (its hub) and `RotorAxis1` (its moving
 frame). An entry citing a frame the run did not create is refused at
 plan time naming the frames it did.
+
+!!! warning "Since 0.15.0 a rotor's frames are named from its alias"
+
+    A motion record that names an engine block of the reference
+    instantiates `<ALIAS>_SMRP` at the hub, `<ALIAS>_RMRP` turning with
+    the motion, and `<ALIAS>_RMRP<k>` per blade of that block's
+    `families_blades`, turning with blade k (FR-62). Nine rotors
+    instantiate nine sets rather than colliding on one radical, so a
+    post-processing entry can say WHICH rotor it is about:
+    `frame = "PUSHER_RMRP"`.
+
+    `PROP_MRP<k>` and `RotorAxis<k>` still resolve for an entry written
+    against 0.14.0, and a record that names no alias still emits them, so
+    a workspace may migrate its rows before its post-processing. The
+    custom frames come from the REFERENCE now, not the preset, and a
+    family of `families_general` gets no frame of its own: its local frame
+    IS the rotor's, which is what makes the spinner ride the hub.
 
 An entry that resolves to nothing is skipped; an entry WRITTEN as nothing
 is refused, at `pyfs-matrix plan`, naming the file, the key as the file

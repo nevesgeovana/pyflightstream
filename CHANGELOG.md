@@ -7,6 +7,71 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Added
+
+- **A study's vocabulary lives in the reference artifact** (FR-59, FR-60,
+  FR-72, her design of 2026-09-10). `inputs/references/<id>.toml` now reads
+  three tables: `[aliases]`, where a member may be another alias and the
+  reader follows to the end, refusing a ring by naming both sides;
+  `[[frames]]`, unchanged in shape; and ONE BLOCK PER ROTOR, `kind =
+  "engine"`, whose name is an alias over everything that rotor owns. A
+  rotor block states its hub, `axis`, `rpm_sign`, `diameter_m`,
+  `families_general`, `families_blades` and `blade1`; the BLADE COUNT is
+  the length of `families_blades`, so a row states no count and a sector
+  mesh carrying one blade of four still reduces over four.
+- **A row names its rotor by alias and states nothing else about it**
+  (FR-61). A motion record carries `MOVING_BC_ALIAS` and takes the hub, the
+  axis, the sign, the blade count and the diameter from the block it names.
+- **An advance ratio resolves against that rotor's own diameter** (FR-63),
+  so one ratio written once gives a 1.20 m lifter and a 1.80 m pusher two
+  different speeds, which one `propeller_diameter_m` could not express.
+- **The frames a rotor instantiates take its alias as their radical**
+  (FR-62): `<ALIAS>_SMRP` at the hub, `<ALIAS>_RMRP` turning with the
+  motion, `<ALIAS>_RMRP<k>` per blade and turning with it. Nine rotors
+  instantiate nine sets rather than colliding on one radical. A
+  post-processing entry may cite them; the 0.14.0 names still resolve.
+- **`CLOCK_MOTION`**, the motion that owns the time step (FR-64). A row of
+  several motions that states none keeps the fastest-rotor arithmetic and
+  warns naming the motion assumed; the key becomes required at 0.17.0.
+- **`SYMMETRY_LOADS` on the row** (FR-66), overriding the preset with a
+  warning, because whether the solver reports the sector's loads or the
+  wheel's is a per-row choice.
+- Public names: `EngineBlock`, `BladeDatum` and `AliasCycleError` in
+  `pyflightstream.cases`, the last also in `pyflightstream.exceptions`.
+
+### Changed
+
+- `resolve_alias` follows a member that is itself an alias, and can now
+  raise `AliasCycleError`. A member the mesh carries is that boundary
+  first, so no file that resolved before resolves differently.
+- The `broken_commands` MANIFEST key now reads until **0.16.0** rather
+  than 0.15.0. The promise moved deliberately and the ledger carries the
+  measurement: a manifest is the one surface this package cannot
+  regenerate, and recorded campaigns still carry the old key. The three
+  PROPERTY shims of the same rename went on time.
+
+### Deprecated
+
+- The setup preset's `[aliases]` and `[[frames]]` tables. Write them in the
+  reference; a preset still stating either is read with a warning and the
+  reference wins. Removed at 0.17.0.
+- A motion record's `MOVING_BOUNDARIES`, `ROTOR_AXIS`, `ROTOR_ORIGIN`,
+  `RPM_SIGN` and `BLADES`: the reference states each once, in the rotor's
+  own block. Removed at 0.17.0.
+- A rotor row with no `CLOCK_MOTION`. Removed at 0.17.0.
+
+### Removed
+
+Five shims whose ledger promise named this release. Each has warned since
+0.13.0:
+
+- `Script.broken_commands`, `PointPlan.broken_commands` and
+  `RunRecord.broken_commands`. Use `waived_commands`: the entries are
+  waivers a recipe registered, not commands that broke in a run.
+- `pyflightstream.utils.sweep_editions`. Use `manual_editions`.
+- The positional call of `propose_type`. The two strings are keyword-only
+  and the signature now refuses a positional call itself.
+
 ### Owed
 
 - **The Zenodo archive identifier of v0.14.0 is not in `CITATION.cff` yet.**

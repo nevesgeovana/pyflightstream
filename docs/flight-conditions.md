@@ -25,8 +25,8 @@ point and **the Reynolds number comes out** of it.
 
 ## The keys, and the units ride the names
 
-The set is CLOSED. Ten keys, and each carries its unit in its own
-spelling, deliberately. Five CONSTRAIN the state:
+The set is CLOSED. Ten keys constrain or pin the AIR, and each carries
+its unit in its own spelling, deliberately. Five CONSTRAIN the state:
 
 | Key | Unit | What it constrains |
 |---|---|---|
@@ -63,6 +63,43 @@ key cannot be lost the way a unit in a comment can.
 
 Keys are matched **case-insensitively**, so `remi`, `REmi` and `REMI` are
 one key. A key written twice is refused rather than taking the last one.
+
+## The same cell carries the attitude, since 0.15.0
+
+The ten keys above are about the AIR. Three more are about what the
+aircraft is doing in it, and the same cell carries them because a point
+is both (FR-69, FR-70):
+
+| Key | Unit | What it states |
+|---|---|---|
+| `ALPHA` | degrees | the incidence of the free stream |
+| `BETA` | degrees | the sideslip of the free stream |
+| `ADVANCE_RATIO` | dimensionless | the speed of every motion of the row that states none of its own |
+
+They are parsed here and NEVER handed to the resolver above: an angle
+constrains no fluid property, and asking the resolver about one would be
+asking it a question it has no answer to. The reader splits the cell
+where it reads it, and the attitude rides on the row.
+
+**A ROW STATES THE ANGLE IT IS NOT SWEEPING.** Before this release there
+was nowhere to write one: a row sweeping the advance ratio reached the
+solver at incidence zero, and the only record of the incidence was that
+nobody had written one. The held angle does not enter the POINT, because
+a point's coordinates are run identity and every recorded run carries
+them; it rides on the row and the builder reads it there.
+
+### One variable sweeps, and it is one that defines the condition
+
+Her rule of 2026-09-10, and it is the whole shape of a row: **a sweep is
+applied to a variable that DEFINES the flight condition, and to exactly
+one variable.** The swept key carries the word `sweep` where its value
+would be, and `SWEEP_VALUES` holds its values:
+
+    MACH:0.14, REmi:5.6, ALPHA:sweep, BETA:0   |   0,2,4
+
+A row with no `sweep`, or with two, is refused naming the keys. Two swept
+variables were the paired `AL/BE` sweep, which retires with the
+`SWEEP_TYPE` column: a paired row becomes one row per sideslip.
 
 ## Which quantity gets solved for
 
