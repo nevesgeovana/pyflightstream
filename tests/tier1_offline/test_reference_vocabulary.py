@@ -385,6 +385,32 @@ def test_a_ring_of_three_is_refused_naming_the_whole_path(tmp_path):
     message = str(refused.value)
     for name in ("'a'", "'b'", "'c'"):
         assert name in message, message
+    # THE PATH AS THE PAGE PRINTS IT, verbatim. Asserting that the three
+    # names appear leaves the SEPARATOR unmeasured, so a mutant replacing
+    # the arrow with a comma survived and the documentation page quoting
+    # the arrow would have become false (the technical-writing lens,
+    # 2026-09-10).
+    assert "'a' -> 'b' -> 'c' -> 'a'" in message, message
+
+
+def test_a_member_naming_its_own_alias_is_not_a_ring_and_reads_the_family():
+    """The branch that stops a FALSE ring, and what it actually returns.
+
+    Unmeasured until the technical-writing lens read the paragraph
+    documenting it: no test anywhere built an alias whose member names its
+    own alias, so the branch that keeps `wing = ["wing"]` from being
+    reported as a ring could have been deleted in silence.
+
+    AND WHAT IT RETURNS IS THE FAMILY, not nothing. Three places said "it
+    resolves to nothing", which is the RENAMED-mesh case mistaken for the
+    rule: over a mesh that still has its wings it gives both of them. The
+    page, the docstring and the source comment all said the narrower
+    thing, so the tree agreed with itself and disagreed with the code.
+    """
+    from pyflightstream.cases import resolve_alias
+
+    assert resolve_alias("wing", ["wing1", "wing2"], {"wing": ["wing"]}) == ["wing1", "wing2"]
+    assert resolve_alias("wing", ["Asa1", "Asa2"], {"wing": ["wing"]}) == []
 
 
 def test_an_axis_that_is_not_an_axis_is_refused(tmp_path):

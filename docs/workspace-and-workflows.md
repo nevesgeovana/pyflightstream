@@ -700,13 +700,27 @@ the names after it.
     everything it owns, without being written in this table at all.
 
     Following a member to the end is what makes a RING possible, so one is
-    refused rather than recursed into:
+    refused rather than followed forever:
     `pyflightstream.exceptions.AliasCycleError` names the alias that
     closed the ring and the member that closed it, and prints the whole
-    path (`'a' -> 'b' -> 'c' -> 'a'`), because a reader holding one of the
-    two names would otherwise have to open the file to find the other. A
-    member that names its OWN alias is not a ring: it is the older case of
-    an alias resolving to nothing, and it still resolves to nothing.
+    path, because a reader holding one of the two names would otherwise
+    have to open the file to find the other. Written out, `lifters` naming
+    `lifters_left` and `lifters_left` naming `lifters` back is refused
+    with:
+
+    ```text
+    the alias 'lifters_left' resolves through 'lifters', which resolves
+    back to 'lifters': 'lifters' -> 'lifters_left' -> 'lifters'. An alias
+    may name another alias, and the reader follows to the end, so a ring
+    has no end; break it in the reference
+    ```
+
+    A member that names its OWN alias is NOT a ring, and it is not
+    refused: it falls back to the family reading, exactly as it did before
+    aliases could nest. `wing = ["wing"]` over a mesh carrying `wing1` and
+    `wing2` gives you both, and over a mesh whose wing was renamed it
+    gives you nothing, which is the case that would have been reported as
+    a false ring.
 
 A preset may also carry a `[flight_condition]` table, which is not a
 solver setting and is not judged as one: it holds the fluid pins

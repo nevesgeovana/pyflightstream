@@ -1096,8 +1096,10 @@ def resolve_alias(
     AliasCycleError
         If following the members returns to an alias already on the path,
         naming both sides. A member that names its OWN alias is not a
-        ring: it is the case of an alias resolving to nothing, and it
-        resolves to an empty list as it did before.
+        ring: it falls back to the FAMILY reading, exactly as it did
+        before aliases could nest, so `wing = ["wing"]` gives the wings
+        of a mesh that has them and nothing at all of one whose wing was
+        renamed.
     """
     if not aliases:
         return None
@@ -1150,9 +1152,12 @@ def _resolve_alias_key(
         # 0.14.0 case of an alias resolving to nothing: `wing = ["Wing"]`
         # over a mesh whose wing was renamed matches the alias itself when
         # names are folded, and that file has no ring in it. It falls
-        # through to the family reading, which finds nothing, and the
-        # caller says the alias resolved to nothing exactly as it did
-        # before. A ring needs two distinct aliases, and that is what is
+        # through to the FAMILY reading, which finds the wings of a mesh
+        # that has them and nothing of one whose wing was renamed, which
+        # is what it did before aliases could nest. Saying "it resolves to
+        # nothing" was the RENAMED case mistaken for the rule, and a
+        # technical-writing pass caught it in three places at once
+        # (2026-09-10). A ring needs two distinct aliases, and that is what is
         # refused below.
         if nested is not None and nested == key:
             nested = None
