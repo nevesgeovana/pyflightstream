@@ -282,7 +282,7 @@ FlightStream versions.
   block is `[rotor]`, the point kind is `rotor`, the probe scale is
   `rotor_radius` and the workspace accessor is `rotor_point`.
 
-- **A RETIRED NAME REFUSES WITH AN ERROR THE PACKAGE CATEGORY CATCHES**
+- **A RETIRED ATTRIBUTE REFUSES WITH AN ERROR THE PACKAGE CATEGORY CATCHES**
   (PFS-2035.21, the author's call of 2026-09-10: "parece detalhe, decide o
   que for mais razoavel"). `CampaignWorkspace.engine_point` is kept so that
   it can refuse, and it raised a bare `AttributeError`: correct about what
@@ -290,12 +290,23 @@ FlightStream versions.
   callers to catch. A caller wrapping workspace work in
   `except PyflightstreamError` got a traceback instead of the sentence the
   retirement registry wrote for that moment. It now raises
-  `pyflightstream.exceptions.RetiredNameError`, which inherits BOTH
-  `AttributeError` and `PyflightstreamError`, so neither reading is
-  privileged and no caller who was catching the first is broken. This is
-  the shape `MatrixError` has carried since it was catalogued, and the
-  exceptions catalog's two base guards both refused the class until it was
-  registered in their tables by name.
+  `pyflightstream.exceptions.RetiredAttributeError`, which inherits
+  `PyflightstreamError` and `AttributeError`, in that order, as every other
+  dual-base class in the catalogue does; no caller who was catching the
+  second is broken.
+
+  **IT IS NAMED FOR AN ATTRIBUTE AND NOT FOR THE REGISTRY, deliberately.**
+  The registry retires nine spellings and this class covers one. The other
+  eight are values inside FILES, and they cannot use it rather than merely
+  declining to: they refuse inside pydantic field validators, which
+  intercept only `ValueError` and `AssertionError`, so an `AttributeError`
+  raised there would escape the model uncaught instead of arriving as the
+  artifact's own refusal. They keep raising `ValueError` and surface as
+  `InputArtifactError`, which is already in the package category. A name
+  like `RetiredNameError` would have promised that one `except` catches a
+  retired `[propeller]` table, and it does not. The interface and
+  technical-writing lenses of the release review reached that finding
+  independently and the architecture lens measured the pydantic reason.
 
 - **THE PACKAGE-LEVEL ROTOR FRAME IS GONE, not renamed** (the author, on the
   rename made first: "isso nao deveria nem existir agora que o padrao e por

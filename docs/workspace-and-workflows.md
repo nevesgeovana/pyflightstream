@@ -690,14 +690,20 @@ saying so.
 **WHY THIS TABLE DID NOT MOVE TO THE REFERENCE**, which is the question a
 reader has after being told twice that a table's home changed. `[aliases]` and
 `[[frames]]` moved because a boundary name and a coordinate system are
-properties of the CONFIGURATION, and a preset is per condition. A flag is a
-SOLVER SETTING reached by another route, so it belongs exactly where the other
-solver settings are. The reader's own constant for it is `FLAGS_TABLE`, beside
+properties of the CONFIGURATION, and a preset is per condition. A flag names a
+SOLVER COMMAND, and how hard to solve is what a preset answers, so the table
+lives beside the settings rather than in the reference. It is not itself one
+of them: the reader takes `[[flags]]` OUT of the settings it hands on, because
+a declaration is not a value to send, and
+`test_the_reader_takes_the_table_out_of_the_solver_settings` pins that.
+
+The reader's own constant for it is `FLAGS_TABLE`, beside
 `RAW_TABLE`, in `pyflightstream.workspace.inputs`; the model a declaration
 becomes is `pyflightstream.cases.CustomFlag`, and the recorded rotor block of
-a reference is `RotorReference` in the same module as the reader. A `LEGACY` row takes no flags
-table, for the reason it takes no raw table: its own recipe is the reader of
-its keys and reads neither.
+a reference is `RotorReference` in the same module as the reader.
+
+A `LEGACY` row takes no flags table, for the reason it takes no raw table:
+its own recipe is the reader of its keys and reads neither.
 
 **A worked one you can take.** `tests/tier3_licensed/inputs/setups/s006.toml`
 declares
@@ -811,8 +817,13 @@ second, and a member the file does not carry is ignored, so one preset
 serves the wing-body and the isolated rotor of a study. The alias is
 tried before the family and, in a `families` entry, before the selector
 words, so `airframe` and `blades` mean whatever the file says where it
-defines them. Where it does not, both are RETIRED at 0.15.0 and read with
-a deprecation warning until 0.17.0: declare the name yourself.
+defines them. Where it does not, both are RETIRED at 0.15.0 and REFUSED,
+not warned about: this package has no stable release, so an old word owes
+no compatibility window, and the refusal names what to write instead.
+Declare the alias yourself, in the reference. The refusal arrives when the
+ROW is built, at `plan`, and not when the artifact loads, because whether
+`airframe` is an alias or the retired selector is a question about the
+reference the row cites.
 A cell naming an alias none of whose members the file carries is
 refused as a name the inventory lacks, naming the alias. The run record
 carries the preset's aliases, so the products stage resolves a group
@@ -821,6 +832,36 @@ them on the solver run. The alias name is matched as written and then case
 folded, as a family name is, so `LIFTERS` finds `lifters`; an alias listing
 no member is refused when the preset is read, because an alias stands for
 the names after it.
+
+### When a name you used no longer exists
+
+A word this package retired refuses on sight, and the refusal names the
+replacement, so the fix is in the message rather than in the changelog. Where
+the old spelling was a value inside a FILE, the refusal arrives as
+`InputArtifactError`, naming the artifact and the word. Where it was a METHOD
+you reached for in Python, it arrives as
+`pyflightstream.exceptions.RetiredAttributeError`, and both descend from
+`PyflightstreamError`, so one `except` around a whole workspace load catches
+either:
+
+    from pyflightstream.exceptions import PyflightstreamError
+    from pyflightstream.workspace import CampaignWorkspace
+
+    try:
+        workspace.engine_point("HUB")
+    except PyflightstreamError as refusal:
+        print(refusal)
+    # engine_point of the CampaignWorkspace API is no longer accepted
+    # since v0.15.0. Write rotor_point. ...
+
+`RetiredAttributeError` also descends from `AttributeError`, which is what a
+caller who typed the old method name was already catching, so nothing that
+worked before the class arrived stopped working.
+
+**It is named for an ATTRIBUTE and not for the registry**, which retires nine
+spellings of which this covers the ones you reach for in code. The rest are
+file values and refuse through the artifact reader, which is where a file's
+mistakes belong.
 
 !!! warning "Since 0.15.0 the table's home is the REFERENCE artifact"
 

@@ -250,7 +250,6 @@ def test_a_flag_taking_a_word_a_run_type_reads_is_refused_where_it_is_declared(t
     declared flag is deliberately exempt from, which is what made it
     invisible (the architecture lens of the 0.15.0 release review).
     """
-    from pyflightstream._errors import PyflightstreamError
     from pyflightstream.workspace.inputs import FLAGS_TABLE, resolve_setup
 
     setups = tmp_path / "setups"
@@ -262,8 +261,22 @@ def test_a_flag_taking_a_word_a_run_type_reads_is_refused_where_it_is_declared(t
         'command = "' + SETUP_COMMAND + '"\n',
         encoding="utf-8",
     )
-    with pytest.raises(PyflightstreamError, match="VELOCITY"):
+    # PINNED ON THE CAUSE, not on the flag's name being echoed. `VELOCITY`
+    # alone is produced by the duplicate-word refusal three lines below it in
+    # the reader too, so an edit routing a collision into the wrong refusal,
+    # or emptying the didactic sentence, stayed green under it: the QA lens
+    # of the 0.15.0 release review emptied the cause clause and the case
+    # still passed. `already reads` plus an interpolated run type can only
+    # come from this branch.
+    from pyflightstream.workspace.inputs import InputArtifactError
+
+    with pytest.raises(InputArtifactError) as caught:
         resolve_setup(tmp_path, "s901")
+    refusal = str(caught.value)
+    assert "VELOCITY" in refusal
+    assert "already reads" in refusal
+    assert "unsteady_rotor" in refusal, "the refusal must name who reads the word"
+    assert "one cell, two effects" in refusal
 
 
 # --- the declaration itself --------------------------------------------------

@@ -37,7 +37,7 @@ from dataclasses import dataclass
 from pyflightstream._errors import PyflightstreamError
 
 
-class RetiredNameError(AttributeError, PyflightstreamError):
+class RetiredAttributeError(PyflightstreamError, AttributeError):
     """A retired ATTRIBUTE was reached for, and the message says what to write.
 
     IT HAS TWO PARENTS BECAUSE TWO READINGS ARE BOTH RIGHT. Reaching for a
@@ -45,19 +45,49 @@ class RetiredNameError(AttributeError, PyflightstreamError):
     ``except AttributeError`` must keep catching it; and it is also this
     package refusing something on purpose, so the one category the
     documentation tells callers to catch,
-    :class:`~pyflightstream._errors.PyflightstreamError`, must reach it too.
-    A caller who wraps workspace work in that category was getting a
+    :class:`~pyflightstream.exceptions.PyflightstreamError`, must reach it
+    too. A caller who wraps workspace work in that category was getting a
     traceback rather than the sentence the registry wrote for the moment.
 
-    This is not a new pattern. :class:`~pyflightstream.cases.MatrixError`
-    already inherits both ``PyflightstreamError`` and ``ValueError`` for the
-    same reason, and the public exceptions module documents that pairing as
-    the house shape. Here the second seat is ``AttributeError`` because that
-    is the shape of the mistake being made.
+    This is not a new pattern, and the ORDER of the bases is the house's
+    too: :class:`~pyflightstream.exceptions.MatrixError`,
+    ``ManualCallError``, ``OutputExistsError`` and ``InputArtifactError``
+    all name ``PyflightstreamError`` first and the standard-library base
+    second. Here the second seat is ``AttributeError`` because that is the
+    shape of the mistake being made.
 
-    It carries no attributes of its own: the facts belong to the
-    :class:`RetiredName` entry that produced the message, which is the one
-    home for them.
+    IT IS NAMED FOR AN ATTRIBUTE AND NOT FOR THE REGISTRY, which retires
+    nine spellings of which this covers one. The other eight are values
+    inside FILES, and they cannot use this class rather than merely
+    choosing not to: they refuse inside pydantic field validators, which
+    intercept only ``ValueError`` and ``AssertionError``, so an
+    ``AttributeError`` raised there would escape the model uncaught instead
+    of arriving as the artifact's own refusal. They raise ``ValueError``
+    and surface as
+    :class:`~pyflightstream.exceptions.InputArtifactError`, which is
+    already in the package category. Calling this class ``RetiredNameError``
+    would promise a reader that ``except`` on it catches a retired
+    ``[propeller]`` table, and it does not (the interface and
+    technical-writing lenses of the 0.15.0 release review, which reached it
+    independently, and the architecture lens which measured the pydantic
+    reason).
+
+    It carries no attributes of its own, and the honest reason is not that
+    the facts have a better home but that that home is CLOSED: they live on
+    the :class:`RetiredName` entry in this private module, which 0.15.0 does
+    not make public. Adding an attribute later is additive and breaks
+    nobody.
+
+    Examples
+    --------
+    >>> from pyflightstream.exceptions import (
+    ...     PyflightstreamError,
+    ...     RetiredAttributeError,
+    ... )
+    >>> issubclass(RetiredAttributeError, PyflightstreamError), issubclass(
+    ...     RetiredAttributeError, AttributeError
+    ... )
+    (True, True)
     """
 
 
@@ -116,7 +146,7 @@ class RetiredName:
 
 #: The reason shared by every rotor-word retirement, written once.
 _THE_ROTOR_WORD = (
-    "This package says ROTOR everywhere since 0.15.0, one word for the block, "
+    "This package says ROTOR everywhere, one word for the block, "
     "the key, the frame and the point: a propeller is a rotor, and so is a "
     "lift fan, so the general word is the one that never has to change again."
 )
@@ -157,7 +187,7 @@ PROBE_SCALE_PROPELLER_RADIUS = RetiredName(
     why=_THE_ROTOR_WORD,
 )
 WORKSPACE_ENGINE_POINT = RetiredName(
-    owner="CampaignWorkspace",
+    owner="the CampaignWorkspace API",
     old="engine_point",
     new="rotor_point",
     retired_in="0.15.0",
@@ -277,6 +307,7 @@ __all__ = [
     "REFERENCE_PROPELLER_TABLE",
     "RETIRED",
     "RETIRED_FRAME_CITATIONS",
+    "RetiredAttributeError",
     "RetiredName",
     "WORKSPACE_ENGINE_POINT",
     "retired_frame",

@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import pytest
 
-from pyflightstream._retired_names import WORKSPACE_ENGINE_POINT, RetiredNameError
+from pyflightstream._retired_names import WORKSPACE_ENGINE_POINT, RetiredAttributeError
 from pyflightstream.exceptions import PyflightstreamError
 from pyflightstream.workspace import CampaignWorkspace
 
@@ -46,13 +46,13 @@ def test_a_retired_method_is_still_caught_as_an_attribute_error(tmp_path):
 
 def test_the_error_carries_both_parents(tmp_path):
     """Stated as a property, because either half alone is a regression."""
-    assert issubclass(RetiredNameError, AttributeError)
-    assert issubclass(RetiredNameError, PyflightstreamError)
+    assert issubclass(RetiredAttributeError, AttributeError)
+    assert issubclass(RetiredAttributeError, PyflightstreamError)
 
 
 def test_the_message_is_the_registrys_own(tmp_path):
     """The raise site quotes the registry; it does not paraphrase it."""
-    with pytest.raises(RetiredNameError) as caught:
+    with pytest.raises(RetiredAttributeError) as caught:
         _workspace(tmp_path).engine_point("HUB")
     message = str(caught.value)
     assert message == WORKSPACE_ENGINE_POINT.message()
@@ -64,4 +64,4 @@ def test_the_error_is_reachable_from_the_public_exceptions_module():
     """A caller who wants the narrow class should not import a private name."""
     import pyflightstream.exceptions as public
 
-    assert public.RetiredNameError is RetiredNameError
+    assert public.RetiredAttributeError is RetiredAttributeError

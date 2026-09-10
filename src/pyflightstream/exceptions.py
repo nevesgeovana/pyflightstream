@@ -70,7 +70,7 @@ from pyflightstream._errors import (
     PyflightstreamWarning,
 )
 from pyflightstream._fsm import MeshReadError
-from pyflightstream._retired_names import RetiredNameError
+from pyflightstream._retired_names import RetiredAttributeError
 from pyflightstream.cases import (
     AliasCycleError,
     CampaignConfigError,
@@ -172,7 +172,7 @@ __all__ = [
     "PyflightstreamError",
     "PyflightstreamWarning",
     "QaEvidenceError",
-    "RetiredNameError",
+    "RetiredAttributeError",
     "ScriptDeclarationTypeError",
     "ScriptLabelError",
     "ScriptLineBreakError",

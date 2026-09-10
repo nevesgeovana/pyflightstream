@@ -153,7 +153,7 @@ def test_the_package_base_does_not_widen_what_the_builtin_bases_caught():
         # PFS-2035.21: reaching for a retired attribute. AttributeError is
         # what a caller who typed the old method name was already catching,
         # so the pairing must not move it off that builtin.
-        "RetiredNameError": AttributeError,
+        "RetiredAttributeError": AttributeError,
         # PFS-2028.00: a saved simulation whose mesh block opens and
         # then does not hold its shape. ValueError because the caller
         # reaches it with a FILE whose contents do not parse, which is
@@ -262,7 +262,7 @@ _UNUSUAL_BASE_CLASSES = (
     # base is the shape of the mistake, and it has to stay a builtin one so
     # that `except AttributeError` around a renamed method keeps catching what
     # it caught before the class arrived (PFS-2035.21, 2026-09-10).
-    "RetiredNameError",
+    "RetiredAttributeError",
     "ScriptDeclarationTypeError",
     "UnsupportedResultTypeError",
 )
