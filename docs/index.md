@@ -23,7 +23,7 @@ no `expand` key: an entry in `MRP` is one over the set it names, one in
 twenty-seven emissions on a nine-rotor aircraft. Her three master's cases
 ran against the wheel before the tag and MOVED NO NUMBER: 0.15.0 reproduces
 the 0.14.0 run coefficient for coefficient, and the rotor case's emitted
-script is byte for byte 0.14.0's.
+script is byte for byte 0.14.0's, the staged geometry path apart.
 
 **What changes for you at v0.15.0.** The run matrix LOSES A COLUMN:
 `SWEEP_TYPE` is gone, because a sweep is applied to a variable that DEFINES

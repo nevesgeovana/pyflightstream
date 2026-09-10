@@ -229,6 +229,114 @@ def write_matrix(path, rows):
 # --- resolution: hits ------------------------------------------------------
 
 
+def _preset_gains(workspace, text):
+    """Append a table to a setup preset the fixture matrix names."""
+    setup = workspace.inputs_dir / "setups" / "s003.toml"
+    setup.write_text(setup.read_text(encoding="utf-8") + text, encoding="utf-8")
+    return setup
+
+
+def _resolve_the_fixture(workspace):
+    return resolve_matrix(
+        FIXTURE,
+        workspace,
+        name="matrix",
+        fs_version="26.120",
+        recipes=RECIPES,
+        fs_exe="C:/fs/FlightStream.exe",
+    )
+
+
+def test_a_preset_that_still_states_aliases_warns_and_names_the_release(tmp_path):
+    """A SURVIVING MUTANT FOUND THIS, and it is the only thing telling a user.
+
+    The QA lens of the release review replaced the `_moved_to_the_reference`
+    call with `pass`, verified the mutation was live, and ran three modules:
+    310 passed in BOTH arms. The warning fires five times in that run and
+    nothing asserted it, so the one sentence that tells a user to move their
+    table before 0.17.0 stops reading it could be deleted with a green
+    suite.
+
+    TWO BRANCHES, TWO CASES, because a mutant that blanks one survives the
+    other. This is the aliases branch; the next case is the frames one.
+    """
+    from pyflightstream._errors import PyflightstreamDeprecationWarning
+
+    workspace = make_library(tmp_path)
+    _preset_gains(workspace, '\n[aliases]\nairframe = ["Wing"]\n')
+    with pytest.warns(PyflightstreamDeprecationWarning, match="0.17.0"):
+        _resolve_the_fixture(workspace)
+
+
+def test_a_preset_that_still_states_frames_warns_and_names_the_release(tmp_path):
+    """The second branch, which the mutant that blanked it survived.
+
+    ON A RUN-TYPE ROW, because a LEGACY row meets a different answer: its
+    recipe reads no frames table, so the entries would reach no script while
+    the record claimed them, and the reader REFUSES rather than warns. Both
+    are right and they are different sentences; this case is the warning and
+    the case below is the refusal.
+    """
+    from pyflightstream._errors import PyflightstreamDeprecationWarning
+
+    workspace = make_library(tmp_path)
+    _preset_gains(workspace, '\n[[frames]]\nname = "NAC"\norigin = [0.4, 0.0, 0.1]\n')
+    row = (
+        "9001 | TestWing | FRAMED | 3.10 | 0.0890 | AL | 0.0 | r003 | s003 | e001 "
+        "| 003 |          | 0 | 1 | OUTPUTS: loads_{point}.txt"
+    )
+    path = write_matrix(tmp_path / "framed.fs", [row])
+    text = path.read_text(encoding="utf-8")
+    path.write_text(
+        text.replace("| LEGACY ", "| steady ").replace("OUTPUTS: loads_{point}.txt / ", ""),
+        encoding="utf-8",
+    )
+    with pytest.warns(PyflightstreamDeprecationWarning, match="0.17.0"):
+        resolve_matrix(
+            path,
+            workspace,
+            name="framed",
+            fs_version="26.120",
+            recipes=RECIPES,
+            fs_exe="C:/fs/FlightStream.exe",
+        )
+
+
+def test_a_legacy_row_is_refused_the_frames_table_rather_than_warned(tmp_path):
+    """The other half of the same fact, and the reason it is not one branch.
+
+    A LEGACY row's recipe is the reader of its own inputs and it reads no
+    frames table, so a preset that still carries one would have the entries
+    recorded and never emitted. That is a refusal rather than a deprecation,
+    and it names the row and the file.
+    """
+    workspace = make_library(tmp_path)
+    _preset_gains(workspace, '\n[[frames]]\nname = "NAC"\norigin = [0.4, 0.0, 0.1]\n')
+    with pytest.raises(MatrixError) as refused:
+        _resolve_the_fixture(workspace)
+    message = str(refused.value)
+    assert "9001" in message and "s003" in message and "LEGACY" in message
+
+
+def test_a_preset_that_states_neither_warns_about_neither(tmp_path):
+    """The discriminator. Without it the two above are satisfied by a constant."""
+    import warnings as _warnings
+
+    from pyflightstream._errors import PyflightstreamDeprecationWarning
+
+    workspace = make_library(tmp_path)
+    with _warnings.catch_warnings(record=True) as caught:
+        _warnings.simplefilter("always")
+        _resolve_the_fixture(workspace)
+    moved = [
+        w
+        for w in caught
+        if issubclass(w.category, PyflightstreamDeprecationWarning)
+        and "reference" in str(w.message)
+    ]
+    assert not moved, [str(w.message)[:90] for w in moved]
+
+
 def test_resolve_matrix_applies_reference_and_setup_to_the_cases(tmp_path):
     workspace = make_library(tmp_path)
     with pytest.warns(UserWarning, match="wake_layers"):

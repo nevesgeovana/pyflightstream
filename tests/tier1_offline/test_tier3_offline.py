@@ -571,7 +571,15 @@ def test_every_tier3_script_equals_its_golden(matrix):
     """The golden is the PLAN-TIME render of the builders (offline.py says how it
     differs from the bytes the solver receives); this pins what a row's cells make
     the builders emit, and an orphan golden is a row that no longer exists."""
+    # A COMPARISON OF NOTHING IS NOT A COMPARISON. The three arms below
+    # catch a drop, a difference and a stale golden, and all three are
+    # satisfied by a matrix that rendered no point at all: `count` was only
+    # ever interpolated into a failure message. Measured on this tree, the
+    # seven matrices render 18, 2, 2, 4, 11, 4 and 8, so the arm is not
+    # inert today and nothing held it there (the QA lens of the 0.15.0
+    # release review).
     count, absent, differ, orphans = offline.compare(matrix)
+    assert count, f"{matrix.name} rendered no script, so this case compared nothing"
     assert not absent, (
         f"{len(absent)} of {count} scripts have no golden: {absent[:4]}; regenerate with "
         "python -m tests.tier3_licensed.offline --write"

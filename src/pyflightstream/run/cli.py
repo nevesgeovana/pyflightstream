@@ -229,9 +229,9 @@ def _build_parser() -> argparse.ArgumentParser:
         "upgrade",
         help=(
             "convert a matrix written under an older layout to the current one "
-            "(the file converts losslessly; the RESULTS move, see --help)"
+            "(what moves depends on the layout it entered at, see --help)"
         ),
-        description=_UPGRADE_NOTICE,
+        description=_HELP_NOTICE,
     )
     upgrade.add_argument("matrix", help="path of the run matrix to upgrade")
     upgrade.add_argument(
@@ -439,13 +439,53 @@ def main(argv: list[str] | None = None) -> int:
 #: subcommand exists precisely BECAUSE the previous migration path was a
 #: Python call that a matrix user does not write, so it cannot assume
 #: that user read any of the three.
-_UPGRADE_NOTICE = (
-    "The file is converted; your RESULTS are not preserved. Under v0.8.x the "
-    "RE column was recorded metadata that reached no emitted line. From "
-    "v0.9.0 REmi is a CONSTRAINT that solves for density, so every upgraded "
-    "row emits an explicit fluid state it never emitted before and its "
-    "numbers will differ. To keep the previous behaviour, state the condition "
-    "without REmi. See docs/flight-conditions.md."
+#:
+#: IT IS ABOUT THE v0.8.x LAYOUT AND NOTHING ELSE, and saying so is the
+#: 0.15.0 release review's severity-one finding. It used to print on every
+#: upgrade of every layout, so a user converting a 14-column file was told
+#: their RESULTS ARE NOT PRESERVED by the one surface they read at the
+#: moment of committing, while this release's own guarantee is the exact
+#: opposite: the sweep fold carries a held angle at every point, so every
+#: existing run_id resolves and a resume finds its records. A user who
+#: believed the notice would discard a recorded campaign and spend a
+#: licensed seat re-running it, which is the resource this whole package
+#: exists to ration.
+_RE_NOTICE = (
+    "This file entered at the v0.8.x layout, and across that boundary your "
+    "RESULTS are not preserved: the RE column was recorded metadata that "
+    "reached no emitted line, and from v0.9.0 REmi is a CONSTRAINT that "
+    "solves for density, so every upgraded row emits an explicit fluid state "
+    "it never emitted before and its numbers will differ. To keep the "
+    "previous behaviour, state the condition without REmi. See "
+    "docs/flight-conditions.md."
+)
+
+#: The subcommand's own help, which is read BEFORE a file is named and so
+#: cannot know which stages will fire. It says both directions rather than
+#: one, because the single unconditional paragraph it replaces said only
+#: the frightening one.
+_HELP_NOTICE = (
+    "What an upgrade moves depends on the layout the file entered at. A file "
+    "at the v0.8.x layout crosses the REmi boundary and its numbers will "
+    "differ; a file whose SWEEP_TYPE column is folded keeps every run "
+    "identity, so a resume still finds its records. The command says which "
+    "applied to the file you named."
+)
+
+#: Printed when no stage that moves a number fired, so the user is not
+#: left wondering which of the two paragraphs above was withheld.
+_NO_STAGE_NOTICE = (
+    "The file is converted. No stage that moves a number fired, so your results stand as they are."
+)
+
+#: Printed when the fourth stage folded a SWEEP_TYPE cell, which is the
+#: 0.15.0 migration. It says the OPPOSITE of the notice above, and it is
+#: the sentence that stops a user re-running a campaign they still have.
+_SWEEP_NOTICE = (
+    "The SWEEP_TYPE column is folded into FLIGHT_CONDITION. THIS DOES NOT "
+    "RENAME A RUN: a held angle is carried at every point, so the point tags "
+    "that end every run_id in your manifests are the ones the converted file "
+    "plans under, and a resume after this upgrade finds its records."
 )
 
 
@@ -580,6 +620,34 @@ def _cmd_inventory(args: argparse.Namespace) -> int:
     return 0
 
 
+def _notices_for(before: str) -> list[str]:
+    """Return the notices this upgrade owes, one per stage its INPUT needs.
+
+    The single unconditional notice this replaces told every user, at every
+    layout, that their RESULTS ARE NOT PRESERVED. That is true across the
+    v0.8.x boundary and it is the OPPOSITE of what this release guarantees
+    about its own stage, so a user converting a 14-column file read the one
+    surface they meet at the moment of committing and were told to throw
+    away a campaign that still resolves. The release review raised it at
+    severity one, and the cost of believing it is a licensed seat.
+
+    The header is what decides, because the header is what the reader
+    refuses on: a file carrying an `RE` column entered at the v0.8.x layout
+    and needs the REmi paragraph; a file carrying `SWEEP_TYPE` is the
+    migration this release is for and needs the opposite sentence.
+    """
+    header = next((line for line in before.splitlines() if "|" in line), "")
+    cells = [cell.strip().upper() for cell in header.split("|")]
+    notices = []
+    if "RE" in cells:
+        notices.append(_RE_NOTICE)
+    if "SWEEP_TYPE" in cells:
+        notices.append(_SWEEP_NOTICE)
+    if not notices:
+        notices.append(_NO_STAGE_NOTICE)
+    return notices
+
+
 def _cmd_upgrade(args: argparse.Namespace) -> int:
     """Bring a matrix at an older layout up to the current one."""
     if args.inputs is not None and not args.in_place:
@@ -591,6 +659,9 @@ def _cmd_upgrade(args: argparse.Namespace) -> int:
         )
         return 2
     try:
+        # READ BEFORE THE CONVERSION, because the notices are decided by the
+        # layout the file ENTERED at and `--in-place` overwrites it.
+        original = Path(args.matrix).read_text(encoding="utf-8", errors="replace")
         upgraded = upgrade_matrix(args.matrix, in_place=args.in_place)
         if args.inputs is not None:
             from pyflightstream.workspace.inputs import (
@@ -619,9 +690,12 @@ def _cmd_upgrade(args: argparse.Namespace) -> int:
         return 2
     if args.in_place:
         print(f"upgraded {args.matrix}", file=sys.stderr)
-    # On stderr on BOTH routes, so it never contaminates the bytes the
-    # stdout route exists to hand back cleanly for a diff.
-    print(_UPGRADE_NOTICE, file=sys.stderr)
+    # ONE NOTICE PER STAGE THAT ACTUALLY FIRED, on stderr on BOTH routes so
+    # it never contaminates the bytes the stdout route hands back for a diff.
+    # A file that never carried an RE column is not told about REmi, and a
+    # file whose sweep cell was folded is told the thing that matters to it.
+    for notice in _notices_for(original):
+        print(notice, file=sys.stderr)
     if args.in_place:
         return 0
     sys.stdout.buffer.write(upgraded)

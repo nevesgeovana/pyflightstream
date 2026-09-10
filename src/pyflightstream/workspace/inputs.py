@@ -1002,15 +1002,28 @@ def _split_reference_tables(data: dict[str, Any], path: Path) -> dict[str, Any]:
         # [aliases] entry of the same name would SHADOW that silently, which
         # is the design's central claim quietly reversed. Refused naming
         # both places rather than resolved by precedence.
-        if name in aliases and list(aliases[name]) != members:
+        # CASE FOLDED, as every other alias comparison in this package is
+        # and as the `alias =` check twenty-five lines above already was.
+        # Exact-case here let `[PUSHER]` and `pusher = [...]` both stand, so
+        # the returned table carried TWO keys for one word, one holding the
+        # rotor's real membership and one holding the hand-written list, and
+        # which of them moved was decided downstream by whichever the reader
+        # folded to first (the architecture lens of the 0.15.0 release
+        # review). The existing case spelled the alias exactly like the
+        # block, which is the one spelling the guard did catch.
+        shadow = next((key for key in aliases if key.casefold() == name.casefold()), None)
+        if shadow is not None and list(aliases[shadow]) != members:
             raise InputArtifactError(
                 f"the reference artifact {path} declares the rotor {name!r} and also an "
-                f"[{ALIASES_TABLE}] entry of that name. The rotor's name already stands "
+                f"[{ALIASES_TABLE}] entry named {shadow!r}. An alias is matched case "
+                "folded, so those are one word. The rotor's name already stands "
                 f"for everything it owns ({', '.join(members)}), so the table entry would "
                 "quietly replace the rotor's own membership. Rename the alias, or drop "
                 "it.",
                 kind="reference",
             )
+        if shadow is not None:
+            del aliases[shadow]
         aliases[name] = members
     # THE COLLISION IS TWO SIDED, and the guard above closes one side. A
     # rotor may not be named after its frames; a FRAME or an ALIAS may not

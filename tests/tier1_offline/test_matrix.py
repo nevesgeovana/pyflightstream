@@ -108,8 +108,21 @@ def test_the_upgrade_does_not_rename_a_run(tmp_path):
     held angle from the point, an upgraded workspace would plan runs under
     new names, find no record of them, and spend a seat re-running work
     that is already done. The tags are therefore compared against the ones
-    the previous layout produced, taken from the frozen 0.11.0 fixture
-    rather than written out here.
+    the previous layout produced, taken from the 0.11.0 fixture rather than
+    written out here.
+
+    THE FIXTURE'S POL 9008 WAS DE-DIAGONALISED IN THIS RELEASE, and that is
+    deliberate rather than convenient: it held the tree's only TRUE diagonal,
+    both axes varying point by point, which the 0.15.0 fold structurally
+    cannot represent and which the converter now REFUSES naming the row.
+    That shape is tested by its refusal, at
+    `test_a_row_that_varies_both_angles_is_refused_naming_it`, which
+    reconstructs the diagonal by substitution rather than keeping it in the
+    fixture. This case is about the rows that DO convert, and the helper
+    below broadcasts a single-valued axis because that is the only pairing
+    the fold produces. Said here because the QA lens of the release review
+    found this docstring calling the fixture frozen while the same range had
+    edited it.
     """
     from pyflightstream.cases import point_tag
 

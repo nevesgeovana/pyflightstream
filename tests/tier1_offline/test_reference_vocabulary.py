@@ -323,6 +323,25 @@ def test_an_alias_entry_shadowing_a_rotor_is_refused_naming_both(tmp_path):
     assert "aliases" in message
 
 
+def test_the_shadow_is_caught_case_folded_as_every_alias_comparison_is(tmp_path):
+    """THE SPELLING THE GUARD USED TO MISS, and a mutant proves it did.
+
+    An alias is matched case folded everywhere in this package, and the
+    `alias =` check twenty-five lines above this guard says so in its own
+    comment. The guard itself compared exact case, so `[PUSHER]` beside
+    `pusher = [...]` was accepted and the returned table then carried TWO
+    keys for one word: one holding the rotor's real membership and one
+    holding the hand-written list, with the downstream reader deciding
+    which moved. The case above spells the alias letter for letter like the
+    block, which is the one spelling the guard did catch, so it could not
+    see this (the architecture lens of the 0.15.0 release review).
+    """
+    body = VOCABULARY_TOML.replace("[aliases]\nairframe", '[aliases]\npusher = ["W"]\nairframe')
+    message = _refused(tmp_path, body, "r910")
+    assert "PUSHER" in message and "pusher" in message
+    assert "case folded" in message
+
+
 def test_a_frame_named_after_a_rotors_frame_is_refused(tmp_path):
     """The other side of the collision the rotor-name guard closes.
 

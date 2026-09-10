@@ -30,7 +30,7 @@ no `expand` key: an entry in `MRP` is one over the set it names, one in
 twenty-seven emissions on a nine-rotor aircraft. Her three master's cases
 ran against the wheel before the tag and MOVED NO NUMBER: 0.15.0 reproduces
 the 0.14.0 run coefficient for coefficient, and the rotor case's emitted
-script is byte for byte 0.14.0's.
+script is byte for byte 0.14.0's, the staged geometry path apart.
 
 **What changes for you at v0.15.0.** The run matrix LOSES A COLUMN:
 `SWEEP_TYPE` is gone, because a sweep is applied to a variable that DEFINES
@@ -335,10 +335,10 @@ Nothing is guessed; the honest gaps are reported as such.
   solver outputs, and a pandas table layer (per-result tables, one wide
   row per run, whole-sweep DataFrame straight from the manifest).
 - Run-matrix support as a first-class interface: read, upgrade,
-  convert, pre-flight, and run the pipe-delimited 15-column matrix
+  convert, pre-flight, and run the pipe-delimited 13-column matrix
   format. Each row states its whole flow condition in one mandatory
   `FLIGHT_CONDITION` cell, and `WORKFLOW` names the run type the package
-  builds for that row. A matrix written under either older layout is
+  builds for that row. A matrix written under any older layout is
   RECOGNISED and refused naming its converter:
   `pyfs-matrix upgrade <path> --in-place`.
 - Far-field probe surveys (planar grids, geometry gating, VTK/Tecplot

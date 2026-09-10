@@ -299,8 +299,8 @@ this release nothing said so. The run completed, exported, and reported
 loads for a rotor whose moving set was wrong.
 
 An exact label beats a family, so `Blade1` is one blade and `Blade` is all
-of them. Between the two sits an ALIAS the row's setup defines in its
-`[aliases]` table, so a preset may give one word to a set of families and a
+of them. Between the two sits an ALIAS the row's REFERENCE declares in its
+`[aliases]` table, so a study may give one word to a set of families and a
 member the file lacks is ignored; a cell naming an alias none of whose
 members the file carries is refused naming the alias. A name the geometry
 does not carry is refused, listing the ones it
@@ -992,7 +992,7 @@ base_regions = ["W", "B"]      # families the base-region autodetect may conside
 "1" = ["Blade1", "S", "N", "P", "W", "B", "H"]
 "2" = ["W", "B"]
 "3" = []                       # every family the geometry carries
-"4" = ["Blade", "airframe"]    # a family is every member of it; airframe is the setup's alias
+"4" = ["Blade", "airframe"]    # a family is every member of it; airframe is the reference's alias
 
 [exports]                      # which of the eight export kinds a point writes
 tecplot = false                # a kind not named is written; loads cannot be off
@@ -1071,7 +1071,8 @@ is planned across a wing and a rotor, which is the whole reason the skip
 exists. At the default nothing at all is written onto a case, so every
 recorded run keeps its identity and every emitted script its bytes.
 
-There were five selectors until 0.15.0 and three left in one release.
+There were five selectors until 0.15.0 and three of them retired in one
+release, leaving `all` and `each`.
 `each_blade` went because the FRAME says how an entry expands now, so
 `frame = "LOCAL_AXIS"` is what one distribution per blade is written as.
 `airframe` and `blades` went because they are the two that decide what a
@@ -1164,9 +1165,9 @@ since 0.14.0, her decision of 2026-09-09:
 is EVERY FAMILY the geometry carries: the polar table of group 1 sums
 every surface row of the loads table, and `MOVING_BOUNDARIES: g1` moves
 every boundary of the file. A member of a group is, tried in this order,
-a boundary name of the file; an ALIAS of the row's setup (its
+a boundary name of the file; an ALIAS of the row's REFERENCE (its
 `[aliases]` table, above), so `["airframe"]` is whatever the
-setup calls airframe and nothing is hardcoded; or a FAMILY, the label
+reference calls airframe and nothing is hardcoded; or a FAMILY, the label
 without its trailing number, so `["Blade"]` sums `Blade1` to
 `Blade6`, which is group 4 of the example above. A member the geometry does not carry is left out, and a
 position passes through to the motion. Until 0.14.0 the empty group was
@@ -1594,8 +1595,8 @@ each record, commas between them, `/` between the pairs inside. Each
 record is ONE rotation and two records are two rotations in the order
 written, so a pitch and then a toe is `{...}, {...}`. `ANGLE` is in
 degrees; `AXIS` names a coordinate system and one of its axes, as
-`PUSHER_SMRP-Y`, where the system is one the setup preset defines in its
-`[[frames]]` table (above) or one the package creates itself (`MRP` on
+`PUSHER_SMRP-Y`, where the system is one the row's REFERENCE declares in
+its `[[frames]]` table (above) or one the package creates itself (`MRP` on
 every run type; `PROP_MRP` on the rotor run types, and a rotor's own
 `<ALIAS>_SMRP`, `<ALIAS>_RMRP` and `<ALIAS>_RMRP<k>`).
 

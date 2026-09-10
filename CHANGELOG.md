@@ -9,6 +9,16 @@ FlightStream versions.
 
 ### Owed
 
+- **The Zenodo archive identifier of v0.15.0 is owed**, and it is written
+  here BEFORE the tag rather than after it. The archive is minted from the
+  GitHub release, so the row can only be added one commit later; the guard
+  `test_every_released_tag_has_an_archive_row_or_the_changelog_says_it_is_owed`
+  walks every released tag and accepts either an archive row or this
+  sentence, and it carries no release-commit exemption. Without this line
+  the tagged tree fails its own CI, which a V&V lens measured on the
+  release review rather than the release discovering it. The lesson of
+  0.14.0 was that the DOI row goes in before the dev bump; the lesson of
+  this one is that the DEBT goes in before the tag.
 - **The Zenodo archive of v0.14.0 DOES NOT EXIST**, and that is stronger
   than the sentence that stood here, which said the row was deferred until
   Zenodo answered. Measured 2026-09-10 against Zenodo's own API over ALL
@@ -19,10 +29,11 @@ FlightStream versions.
   webhook fired into the outage. It will not appear on its own. What it
   takes is a new release event on that tag or a manual deposit, and that
   is an action on a published artifact rather than a wait.
-  It is recorded here rather than remembered, because the guard that
-  would ask for it, `test_the_newest_archive_row_names_the_version_this_tree_states`,
-  skips on a development tree and this tree became one first: from this
-  commit nothing in the suite asks for the v0.14.0 row. The gap in the
+  It is recorded here rather than remembered. The guard that would ask for
+  it by version, `test_the_newest_archive_row_names_the_version_this_tree_states`,
+  skips on a development tree, which is what let the row go missing in the
+  first place; the guard that closed that gap walks the TAGS instead and is
+  what these two paragraphs answer. The gap in the
   guard, which is that a released TAG with no archive row is invisible
   whatever the tree's version says, is registered as PFS-2024.09 for
   0.15.0. Until the row lands, cite v0.14.0 by the concept DOI, which
@@ -119,6 +130,16 @@ FlightStream versions.
   it by, which is what lets one row sweep the pusher while the lifters hold.
   A record may not state the word `sweep`: sweeping is the condition's job,
   stated once for the row, and a record that writes it is refused.
+- **HER THREE MASTER'S CASES RAN AGAINST THIS RELEASE'S WHEEL BEFORE THE
+  TAG, AND IT MOVED NO NUMBER.** Rows 3207, 3224 and 9001, rewritten in the
+  new vocabulary, reproduce the 0.14.0 run coefficient for coefficient and
+  residual for residual, and the rotor case's emitted script is byte for
+  byte 0.14.0's. The comparison is `reports/master-cases-0150.json`, whose
+  band is read from her own recorded deltas rather than chosen, and the
+  report is `reports/RPT-046_her-master-cases-against-the-0-15-0-wheel_2026-09-10.md`,
+  which also lists what it could NOT check. Both are committed, and this
+  entry exists because a V&V lens found the release's headline evidence
+  cited by no shipped artifact.
 - **`--ignore-missing-families`, on `pyfs-matrix plan` and `run`** (FR-73,
   her design of 2026-09-10). The default is true and it reads a word, so
   `--ignore-missing-families false` is what a shell writes. With false, three silences become refusals ON A
