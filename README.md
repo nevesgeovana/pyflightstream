@@ -61,11 +61,11 @@ one that sweeps BOTH angles, which is one row per sideslip and each needs a
 POL of its own. `CLOCK_MOTION` is now REQUIRED on a row that states a
 `MOTIONS` list, naming the rotor that owns the time step; the flat
 pre-0.15.0 form is exempt. The `airframe` and `blades` family SELECTORS are
-retired with a warning until 0.17.0: declare the set in your reference's
+REFUSED since 0.15.0, not warned about: declare the set in your reference's
 `[aliases]` table and cite it by name, because those two decided what a
 blade IS from a pattern over the family name and a mesh spelled another way
 was guessed wrong in silence. An alias of the same name is read FIRST and
-warns about nothing, so a file that already declares `airframe` is
+keeps its own meaning, so a reference that already declares `airframe` is
 untouched. New: `--ignore-missing-families false` on `plan` and `run` turns
 a family the opened mesh does not carry from a skip into a refusal, for a
 run against the one geometry you believe carries everything.

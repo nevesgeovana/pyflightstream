@@ -1952,8 +1952,14 @@ requirement below is one seam of that division.
     rotor's, `SMRP` when static and `RMRP` when turning.
 
     `ROTOR_MRP<k>`, `RotorAxis<k>` and `BladeAxis<k>` are the names these
-    replace, and a post-processing entry citing them is read with a
-    deprecation warning until 0.17.0.
+    replace, and a post-processing entry citing them is REFUSED, naming the
+    replacement. This paragraph said "read with a deprecation warning until
+    0.17.0" until the author's instruction of 2026-09-10, "nomenclatura
+    antiga e para dar erro com mensagem que aquela nomenclatura foi
+    depreciada e como corrigir": this package has no stable release, so it
+    owes no compatibility window for a word it chose badly. The refusal
+    arrives when the ROW is built, at `plan`, because which frames exist is
+    a question about the row.
 
     This is what makes a multirotor row possible at all: the frame names carry
     the rotor's identity, so nine rotors instantiate nine sets rather than
@@ -2371,10 +2377,12 @@ requirement below is one seam of that division.
     list spanning two rotors converts to and the one case the conversion
     cannot do by substitution.
 
-    The `FAMILIES` spelling is read with a deprecation warning until 0.17.0,
-    so every matrix written before this release keeps working, and the
-    warning names the words the reference declares, because the key changes
-    AND SO DOES THE VALUE and the warn site holds that information.
+    The `FAMILIES` spelling is REFUSED since 0.15.0, naming `ALIAS` as the
+    word to write, on the author's instruction of 2026-09-10. This paragraph
+    promised a warning and that every matrix written before this release
+    keeps working; neither is true, and a matrix stating `FAMILIES` is
+    refused with the replacement named, because the key changes AND SO DOES
+    THE VALUE and the refusal site holds that information.
     `AUX_FRAMES` beside it still names frames that turn, because what the
     alias makes unnecessary it does not forbid; it is not deprecated and
     carries no removal promise. A record stating `ALIAS` and `FAMILIES`

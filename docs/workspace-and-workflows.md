@@ -1208,9 +1208,12 @@ BLADE IS, from `blade_pattern`, a regular expression over the family name,
 spelled another way gets an airframe with blades in it and nothing says
 so. Declare the set in the reference's `[aliases]` table and cite it by
 name, and a study that named its own surfaces cannot be guessed wrong.
-All three are read with a deprecation warning until 0.17.0, and an alias
-of the same name is read FIRST and warns about nothing, so a file that
-already declares `airframe` is untouched. A `frame` is
+All three are REFUSED, not warned about, and the refusal names what to
+write instead; an alias of the same name is read FIRST, so a reference
+that already declares `airframe` is untouched and keeps its own meaning.
+The refusal arrives when the ROW is built, at `plan`, because whether
+`airframe` is an alias or the retired selector is a question about the
+reference the row cites. A `frame` is
 cited by NAME: `MRP`, the moment frame the reference artifact creates;
 `SMRP` and `RMRP`, a rotor's hub frame and its turning frame, and
 `LOCAL_AXIS`, one frame per blade (0.15.0, and see the next paragraph for
@@ -1750,9 +1753,10 @@ created after it spins about the pitched axis and the blade loads a pproc
 entry reads in those frames stay in the blade's own axes, with nothing
 else to write. An alias that is not a rotor owns no frame and turns none.
 
-`FAMILIES` is the 0.14.0 spelling of `ALIAS` and is read with a
-deprecation warning until 0.17.0. A record stating `ALIAS` and `FAMILIES`
-both is refused: one rotation turns ONE set.
+`FAMILIES` is the 0.14.0 spelling of `ALIAS` and is REFUSED since 0.15.0,
+naming `ALIAS` as the word to write. A record stating `ALIAS` and
+`FAMILIES` both is refused for a second reason: one rotation turns ONE
+set.
 
 `AUX_FRAMES` is **not deprecated and not removed**: it is no longer
 NEEDED for a rotor, because the alias carries that rotor's frames, and it
