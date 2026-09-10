@@ -105,6 +105,26 @@ inventing a POL for each new row. A paired row whose second axis held one
 value is not one of those: it varied one variable all along, and it
 converts with the same rows.
 
+The word itself is one constant, `pyflightstream.cases.matrix.SWEEP_WORD`.
+It is there for the script that WRITES a matrix rather than for the person
+who types one: a generator building rows in Python spells the declaration
+by importing the name instead of repeating the literal, so a row it writes
+is a row this reader accepts, and the two cannot drift apart. Reading a
+cell needs it too, if you want to ask which key of a parsed condition is
+the swept one:
+
+```python
+from pyflightstream.cases.matrix import SWEEP_WORD
+
+condition = {"MACH": 0.2, "REmi": 5.5, "ALPHA": SWEEP_WORD, "BETA": 0.0}
+swept = [key for key, value in condition.items() if value == SWEEP_WORD]
+# -> ['ALPHA']
+```
+
+The reader folds case and strips spaces around it, so `SWEEP`, `Sweep` and
+`sweep ` all mean the same thing in a file a person typed; the constant is
+the canonical spelling the package stores.
+
 **The keys this release can sweep are `ALPHA`, `BETA` and
 `ADVANCE_RATIO`.** Any other key of the cell may carry the word in a later
 release; today it is refused naming those three, rather than accepted and

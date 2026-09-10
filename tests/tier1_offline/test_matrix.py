@@ -443,6 +443,28 @@ def test_the_campaign_toml_sweep_on_the_page_is_the_one_the_loader_takes(tmp_pat
     assert SweepAxis(type="alpha", values=[0.0]).held == {}
 
 
+def test_the_swept_key_is_found_by_the_constant_the_page_names():
+    """The worked example of `SWEEP_WORD`, executed so the page cannot rot.
+
+    `docs/flight-conditions.md` names the constant for the script that
+    WRITES a matrix rather than for the person who types one, and shows
+    the two lines that ask a parsed condition which key it varies. Those
+    lines are run here, and the tolerance the page promises beside them,
+    which is what makes the constant the canonical spelling rather than
+    the only accepted one.
+    """
+    from pyflightstream.cases.matrix import SWEEP_WORD
+
+    condition = {"MACH": 0.2, "REmi": 5.5, "ALPHA": SWEEP_WORD, "BETA": 0.0}
+    assert [key for key, value in condition.items() if value == SWEEP_WORD] == ["ALPHA"]
+    # And a row a person typed in any casing parses to that same constant.
+    for typed in ("sweep", "SWEEP", "Sweep", " sweep "):
+        parsed = matrix_mod._parse_flight_condition(
+            f"MACH:0.2, REmi:5.5, ALPHA:{typed}, BETA:0.0", "9001"
+        )
+        assert parsed["ALPHA"] == SWEEP_WORD, typed
+
+
 def test_every_held_key_is_a_key_the_release_can_sweep():
     """The containment `_HELD_POINT_KEYS` relies on, as a rule and not a coincidence.
 
