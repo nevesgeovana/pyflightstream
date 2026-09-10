@@ -1691,6 +1691,17 @@ nodes.
     by name (PFS-2025.15, evidenced), so what is new is the nesting and
     the repetition, not the points.
 
+    **SUPERSEDED on 2026-09-10 by FR-60 and FR-61**, and superseded rather
+    than met: the half of this requirement that shipped is the nesting, the
+    list of records in one cell, which 0.13.0 built. The other half said each
+    record carries its own moving boundaries, speed sign, axis and origin
+    point, and her design of 2026-09-10 moves all four OUT of the record and
+    into the reference's engine block, so the row states an alias and nothing
+    else about the rotor. What this requirement asked for is therefore
+    delivered by a different division of the same subject: FR-60 states the
+    rotor, FR-61 states the row, and the keys named above are deprecated by
+    FR-61 rather than implemented here.
+
 !!! requirement "FR-58 The fluid constants of a campaign have one home <span class='srs-implemented'>implemented</span>"
     *Origin: the author's instruction of 2026-09-04, 'vamos trabalhar com
     valores default ... dessa forma nao precisa inputar na matrix, eles podem
@@ -1727,3 +1738,314 @@ nodes.
     `tests/tier1_offline/test_atmosphere.py::test_the_sea_level_state_is_stated_to_the_digit_the_srs_quotes`
     rather than left as prose: a full-precision literal that nothing pins goes
     silently false the moment a floor constant moves.
+
+## The rotor vocabulary she designed (2026-09-10)
+
+Fourteen requirements from one design, written out as a use case before a
+line of it was built: `GeoverseResearch/tools/fts_workspace/pfs0150-draft`,
+which she read three times and changed at every reading. The nineteen leaves
+of PFS-2035 are that design one decision per node, and the requirements below
+are those decisions stated as behaviour. Her sentence of that night defines
+the release around them: the use case is what defines the scope of 0.15.0.
+
+The shape they share, and the reason the set is worth reading as one: **a
+study's vocabulary lives in the reference, a row states which of it moves and
+at what operating point, and the mesh says what was actually meshed.** Every
+requirement below is one seam of that division.
+
+!!! requirement "FR-59 The reference holds the vocabulary of a study's boundaries <span class='srs-pending'>pending</span>"
+    *Origin: her decisions of 2026-09-09 and 2026-09-10, "todos os aliases vao
+    para referencia". Carried by PFS-2035.01 and PFS-2035.13. Evidence owed:
+    the tests those nodes name. SUPERSEDES the `[aliases]` table FR-52 placed
+    in the setup preset one release earlier.*
+
+    An `[aliases]` table of the REFERENCE artifact declares every name a study
+    gives to a set of boundaries. A member may be a mesh family, a boundary
+    name or another alias; the reader resolves to the end and refuses a cycle
+    naming both sides. A member the opened mesh does not carry is ignored, so
+    one reference serves the full aircraft and a cut of it. The setup preset's
+    `[aliases]` table of 0.14.0 is read with a deprecation warning naming the
+    reference to move it to, and is removed at 0.17.0.
+
+    Only `all` and `each` remain the package's own words. `airframe`, `blades`
+    and `blade_pattern` leave, because a study declares its own names and a
+    built-in word that means one thing to the package and another to the
+    author is the defect this requirement removes.
+
+    Why the reference and not the preset: a boundary name is not a solver
+    setting. A preset is per condition and a reference is per configuration,
+    and the words a study uses for its own geometry belong with the
+    configuration.
+
+!!! requirement "FR-60 A rotor is one engine block of the reference, and the block is its alias <span class='srs-pending'>pending</span>"
+    *Origin: her design of 2026-09-10. Carried by PFS-2035.02 and PFS-2035.16.
+    Evidence owed: the tests those nodes name.*
+
+    A block of the reference whose `kind` is `engine` declares one rotor: its
+    hub coordinates, `axis`, `rpm_sign`, `families_general` (what turns and is
+    not a blade), `families_blades` (one entry per blade, in order), `blade1`
+    (the azimuth of blade one and the axis its zero is measured from) and
+    `diameter_m`. The BLADE COUNT is the length of `families_blades`, so a
+    row states no blade count and a sector mesh carrying one blade of four
+    still reduces over four.
+
+    The block's NAME IS AN ALIAS over everything the rotor owns, the union of
+    `families_general` and `families_blades` in that order: what a row moves
+    when it cites it, and what a group summing the rotor sums. The name is
+    free and is refused only when it ends in a digit, because a number after a
+    radical always means a blade. `rpm_sign` is `+1` by the right-hand rule
+    about `axis`, which is the one reading that does not depend on where the
+    reader stands.
+
+    The block also carries `alias`, required, and it must equal the block's
+    name; a block whose two names disagree is refused at plan time naming
+    both.
+
+    The campaign's propulsor count is therefore the number of engine blocks,
+    rather than the `ERP1..ERPn` naming convention it is today.
+
+!!! requirement "FR-61 A row names a rotor by its alias and states nothing else about it <span class='srs-pending'>pending</span>"
+    *Origin: her design of 2026-09-10, "vamos mudar MOVING_BOUNDARIES para
+    MOVING_BC_ALIAS". Carried by PFS-2035.03. Evidence owed: the tests it
+    names.*
+
+    `MOVING_BC_ALIAS` names an engine block of the row's reference and is the
+    only rotor identity a row carries. `ROTOR_AXIS`, `ROTOR_ORIGIN`,
+    `RPM_SIGN`, `BLADES` and `PERIODIC_COPIES` leave the row, each read with a
+    deprecation warning and removed at 0.17.0, because the reference states
+    them once. `SYMMETRY` stays, because what was meshed is a property of the
+    file the row opens.
+
+    A cell naming an alias the reference does not declare as an engine is
+    refused at plan time, naming the alias and the engines the reference does
+    declare.
+
+!!! requirement "FR-62 The frames a rotor instantiates take its alias as their radical <span class='srs-pending'>pending</span>"
+    *Origin: her design of 2026-09-10, "<ALIAS>_SMRP para o eixo local
+    estatico e <ALIAS>_RMRP para o eixo rodando junto com o movimento".
+    Carried by PFS-2035.04, absorbing PFS-2029.21. Evidence owed: the tests
+    those nodes name.*
+
+    A rotor creates `<ALIAS>_SMRP` at its hub, static; `<ALIAS>_RMRP` turning
+    with the motion; and `<ALIAS>_RMRP<k>` per blade of `families_blades`,
+    turning with blade k and numbered from the `blade1` datum. A family of
+    `families_general` has no local axis of its own: its local frame IS the
+    rotor's, `SMRP` when static and `RMRP` when turning.
+
+    `PROP_MRP<k>`, `RotorAxis<k>` and `BladeAxis<k>` are the names these
+    replace, and a post-processing entry citing them is read with a
+    deprecation warning until 0.17.0.
+
+    This is what makes a multirotor row possible at all: the frame names carry
+    the rotor's identity, so nine rotors instantiate nine sets rather than
+    colliding on one radical.
+
+!!! requirement "FR-63 The rotor speed lives in the motion record, resolved against that rotor's own diameter <span class='srs-pending'>pending</span>"
+    *Origin: her design of 2026-09-10 and her reminder of the same night, "a
+    razao de avanco vira RPM usando o diametro de cada rotor". Carried by
+    PFS-2035.05 and PFS-2035.18. Evidence owed: the tests those nodes name.
+    AMENDS FR-30's single `propeller_diameter_m` as the advance-ratio length.*
+
+    A motion record states `RPM` or `ADVANCE_RATIO`, never both and never
+    neither, refused PER ROTOR with the message the row-level refusal carries
+    today.
+
+    An advance ratio is resolved rotor by rotor, against the `diameter_m` of
+    the engine block the motion names: `n = V / (J * diameter_m)` and
+    `rpm = 60 n`, with `V` the freestream speed of the flight condition. One
+    ratio therefore yields a DIFFERENT speed per rotor whenever the diameters
+    differ, which is what a row of eight 1.20 m lifters and one 1.80 m pusher
+    needs. A motion whose block states no `diameter_m` is refused at plan
+    time naming the block, the row and the key, because there is nothing to
+    resolve against.
+
+    The top-level `propeller_diameter_m` of the reference therefore stops
+    being the advance-ratio length: it is one number for a whole
+    configuration, and a second rotor of another size cannot be resolved by
+    it.
+
+!!! requirement "FR-64 Every rotor row names the motion that owns the clock <span class='srs-pending'>pending</span>"
+    *Origin: her design of 2026-09-10, "o setup temporal exige qual o
+    movimento de referencia". Carried by PFS-2035.07. Evidence owed: the tests
+    it names.*
+
+    `CLOCK_MOTION` is a cell key, required on every row that states a motion,
+    even a row with one, and it names a motion the same row states. The time
+    step and the run length are that motion's. `rotor_speed` becomes
+    `rotor_speed_ref` so the call site says which speed it is.
+
+    A row without the key is read with a warning naming the motion assumed,
+    until 0.17.0. Today the clock follows the fastest rotor by the package's
+    own arithmetic, which is an inference the author never wrote down; a
+    declaration replaces it.
+
+!!! requirement "FR-65 The frame decides how a post-processing entry expands <span class='srs-pending'>pending</span>"
+    *Origin: her design of 2026-09-10 and her spinner decision of the same
+    night. Carried by PFS-2035.08, absorbing PFS-2029.20. Evidence owed: the
+    tests those nodes name.*
+
+    An entry citing `MRP` or a frame the reference declares emits ONCE over
+    the whole cited set, and an engine name in that set is its own union, so a
+    propulsor's total carries its hub and spinner with its blades. An entry
+    citing `SMRP` or `RMRP` emits one per ROTOR, in that rotor's frame. An
+    entry citing `LOCAL_AXIS` emits one per BLADE, in that blade's frame, plus
+    one for the rotor's general families, which ride the rotor's own frame.
+
+    There is no `expand` key: the frame already says it. `each` stays, because
+    one emission per family in a common frame is a reading no frame implies;
+    `each_blade` is read with a deprecation warning until 0.17.0. `{family}`
+    is the only placeholder and means WHAT THE EMISSION IS ABOUT: the alias on
+    a per-rotor entry, the blade's label on a per-blade one, the family on an
+    `each` one.
+
+    An entry citing `LOCAL_AXIS` over a set holding no rotor is refused at
+    plan time, naming the entry, the set and the engines the reference
+    declares. It is a writing error rather than a configuration difference:
+    unlike an entry that resolves to nothing, it cannot come right on another
+    mesh.
+
+!!! requirement "FR-66 A row may state the symmetry-loads flag, overriding the preset with a warning <span class='srs-pending'>pending</span>"
+    *Origin: her decision of 2026-09-10, "vale promover ele para flag sim e
+    vamos manter isso na matriz". Carried by PFS-2035.09. Evidence owed: the
+    test it names.*
+
+    `SYMMETRY_LOADS` is a row key registered on every run type. A row stating
+    it overrides the preset's value and warns, naming both files and the value
+    used; a row stating nothing inherits the preset silently, as today.
+
+    Whether the solver reports the loads of the meshed sector or of the whole
+    wheel is a per-row choice, because the same preset serves a sector row and
+    a full-wheel row. The override warns rather than refusing, which is her
+    second answer of that hour: the first was to refuse both stating it, as
+    the rotor speed is refused.
+
+!!! requirement "FR-67 A row may state raw solver commands, after the preset's at the same seam <span class='srs-pending'>pending</span>"
+    *Origin: her decision of 2026-09-10, "a linha ganha um jeito de passar
+    comando bruto, mantendo a feature original preservada". Carried by
+    PFS-2035.10. Evidence owed: the tests it names. EXTENDS FR-53's
+    preset-level `[[raw]]` table to the row.*
+
+    A cell's `RAW` list states solver commands, each before a named phase, in
+    either of two forms: `COMMAND`, the line written in the cell, and `FILE`,
+    a text file of the workspace whose lines are emitted in order. Both pass
+    the same emitter checks the preset's `[[raw]]` table passes, line by line,
+    so a file carrying a command the build lacks is refused naming the FILE
+    and the LINE NUMBER rather than the cell. A blank line and a line opening
+    with `#` are skipped, so a raw file may explain itself.
+
+    At one seam the preset's lines come first and the row's after, on her
+    answer that the shared lines are the ground and the specific ones come
+    over them.
+
+    The run record names each line's source, the setup's id, the word
+    `matrix`, or the file's path, and a file's lines are recorded AS EMITTED,
+    so a record still reproduces the run after the file has changed.
+
+!!! requirement "FR-68 The reductions read each rotor's blade count from its own declaration <span class='srs-pending'>pending</span>"
+    *Origin: her design of 2026-09-10. Carried by PFS-2035.11. Evidence owed:
+    the test it names. AMENDS PFS-2015.04.01, which reads the count from
+    `PERIODIC_COPIES` at 0.14.0.*
+
+    The per-blade and phase-locked reductions of a point are computed PER
+    ROTOR, each from the blade count of its own engine block, so a transition
+    row reduces the lifters and the pusher in one run and the reduction files
+    name the rotor. A row stating no motion reduces as today.
+
+    A sector mesh needs nothing of its own: the count is the length of
+    `families_blades` and not a property of the file, so a mesh carrying one
+    blade of four still reduces over four, and `PERIODIC_COPIES` is not
+    replaced by another key but by a fact the reference already states.
+
+!!! requirement "FR-69 A sweep is one variable of the flight condition, and the angles are always written <span class='srs-pending'>pending</span>"
+    *Origin: her rule of 2026-09-10, "um sweep e aplicado a uma variavel que
+    DEFINE a condicao de voo e a apenas uma variavel". Carried by PFS-2035.14,
+    which closes PFS-2035.12 and bounds PFS-2035.06. Evidence owed: the tests
+    it names. SUPERSEDES the `SWEEP_TYPE` column of FR-09.*
+
+    `FLIGHT_CONDITION` states `ALPHA` and `BETA` on every row, so no run
+    reaches the solver at an angle nobody wrote. The swept variable is the one
+    whose value is the word `sweep`, EXACTLY ONE key carries it, and
+    `SWEEP_VALUES` holds its values. Any key of the flight condition may be
+    the one: the five that fix the state (`MACH`, `TASmps`, `REmi`, `ALTFT`,
+    `dISA`), the five pins (`RHOkgm3`, `MUPas`, `ASMPS`, `TK`, `PPA`), the two
+    angles, and the advance ratio when the row states it there.
+
+    The `SWEEP_TYPE` column is removed, because the cell already says which
+    variable varies. A row with no `sweep`, with two of them, or with a
+    `sweep` on a key that does not define the condition is refused at plan
+    time naming the keys.
+
+    THE COST, stated once and not hedged: the paired `AL/BE` sweep is two
+    swept variables and retires with the column. Eleven rows of the licensed
+    matrices use it, and each becomes one row per sideslip. The sweep type
+    `alpha_beta` is deprecated with it.
+
+    Measured 2026-09-10: the matrix reader accepts two sweep codes and only
+    two, `{"AL": "alpha", "BE": "beta"}` at `cases/matrix.py:238`, so a sweep
+    of Mach, of Reynolds, of altitude or of a pinned temperature is new
+    surface rather than a rename.
+
+!!! requirement "FR-70 An advance ratio in the flight condition governs the motions that state no speed <span class='srs-pending'>pending</span>"
+    *Origin: her decision of 2026-09-10 and its widening the same night,
+    "entao o sweep vale so para o movimento que nao tem advance ratio
+    declarado". Carried by PFS-2035.15. Evidence owed: the tests it names.*
+
+    `ADVANCE_RATIO` may be stated in `FLIGHT_CONDITION`, as a value or as
+    `sweep`, and it then reaches every motion of the row THAT STATES NO SPEED
+    OF ITS OWN. A motion stating its own `RPM` or `ADVANCE_RATIO` holds that
+    value and the condition's ratio passes it by. A motion may not state the
+    word `sweep`: sweeping is the condition's job, and a record that writes it
+    is refused at plan time naming the cell, the record and the key.
+
+    The rule is precedence, record over condition, and it exists for one case
+    she named: a transition sweeps the pusher while the lifters hold. Eight
+    records carrying an RPM and one carrying nothing but its alias is that
+    row, and the held motions hold at EVERY point of the sweep.
+
+    The key stays optional precisely so that a row may prescribe the speed per
+    motion instead, which is FR-63.
+
+!!! requirement "FR-71 A rotation cites an alias, carries its frames, and keeps the frame it turned from <span class='srs-pending'>pending</span>"
+    *Origin: her decision of 2026-09-10, "o comando de rotate tambem tem que
+    ser atualizado para ficar compativel com o do movimento". Carried by
+    PFS-2035.17. Evidence owed: the test it names. AMENDS FR-30c's `ROTATE`
+    record, whose `FAMILIES` and `AUX_FRAMES` keys this replaces.*
+
+    A `ROTATE` record states `ALIAS` where it stated `FAMILIES`, so a rotation
+    and a motion cite a set of boundaries the same way. `AUX_FRAMES` retires:
+    every frame the alias owns turns with its boundaries, which for a rotor is
+    `<ALIAS>_SMRP`, `<ALIAS>_RMRP` and every `<ALIAS>_RMRP<k>`, and for a
+    non-rotor alias is none.
+
+    Before the first rotation of an alias the builder creates
+    `<ALIAS>_SMRP_ORIGINAL`, a copy of that frame as it stood, which nothing
+    turns and which a post-processing entry may cite, so a study of an
+    installed propeller keeps the frame it turned FROM. Today that frame is
+    lost the moment the mesh moves.
+
+    A rotation citing an alias the reference does not declare is refused
+    naming the alias.
+
+    After this requirement a row names a set of boundaries one way, whether it
+    moves them, turns them or measures them, which is what makes the fourteen
+    requirements of this section one vocabulary rather than fourteen features.
+
+!!! requirement "FR-72 A custom frame is declared in the reference, where the geometry is <span class='srs-pending'>pending</span>"
+    *Origin: her decision of 2026-09-10, "definicao de eixo customizado como o
+    NAC_FL vai para o ref, onde fica dados geometricos". Carried by
+    PFS-2035.19. Evidence owed: the tests it names. SUPERSEDES the
+    `[[frames]]` table FR-30b placed in the setup preset.*
+
+    The `[[frames]]` table moves from the setup preset to the reference
+    artifact, keeping the shape it has: `name`, `origin`, and optionally
+    `x_axis` and `y_axis`, the third axis being the right-handed cross
+    product. A row's `ROTATE` axis token and a post-processing entry's frame
+    resolve against the reference's frames, the package's own names staying
+    reserved. A preset still stating `[[frames]]` is read with a deprecation
+    warning naming the reference to move it to, and the table is removed at
+    0.17.0.
+
+    A coordinate system is geometric data, so it belongs beside the lengths
+    and the rotors. It also puts the two halves of one subject in one file:
+    the frames a rotor instantiates were always derived from the reference's
+    rotor block, while the hand-written ones sat in the preset.
