@@ -56,7 +56,7 @@ from pathlib import Path
 
 from pydantic import ValidationError
 
-from pyflightstream._errors import PyflightstreamWarning
+from pyflightstream._errors import PyflightstreamDeprecationWarning, PyflightstreamWarning
 from pyflightstream._fsm import MeshReadError, boundary_names
 from pyflightstream.cases import (
     Campaign,
@@ -479,6 +479,48 @@ def _resolve_code(workspace: CampaignWorkspace, kind: str, code: str, pol: str):
             artifact_id=error.artifact_id,
             available=error.available,
         ) from error
+
+
+def _moved_to_the_reference(row: MatrixRow, table: str) -> None:
+    """Warn that a setup preset still carries a table the reference now owns.
+
+    FR-59 and FR-72, her decision of 2026-09-10. The warning names the row,
+    both artifacts and where the table belongs, because a user meeting it is
+    holding a workspace that still plans and has one edit to make. The
+    tables are read from the preset until 0.17.0.
+    """
+    warnings.warn(
+        f"matrix row POL {row.pol}: the setup preset {row.set_code!r} states [{table}], "
+        f"which moved to the reference artifact {row.ref_code!r} at 0.15.0: a boundary "
+        "name and a coordinate system are properties of the CONFIGURATION, and a preset "
+        "is per condition. The reference's entries are the ones this row uses. Move the "
+        "table and the warning goes; the preset stops being read for it at 0.17.0.",
+        PyflightstreamDeprecationWarning,
+        stacklevel=2,
+    )
+
+
+def _aliases_of(reference, setup, row: MatrixRow) -> dict[str, list[str]]:
+    """Return a row case's aliases: the reference's, with the preset's deprecated."""
+    if setup.aliases:
+        _moved_to_the_reference(row, "aliases")
+    merged = {name: list(members) for name, members in setup.aliases.items()}
+    merged.update({name: list(members) for name, members in reference.aliases.items()})
+    return merged
+
+
+def _frames_of(reference, setup, row: MatrixRow) -> list:
+    """Return a row case's custom frames: the reference's, with the preset's deprecated.
+
+    A name declared in both files is the REFERENCE's, and the preset's is
+    dropped rather than emitted twice, because two frames of one name are
+    what :class:`SetupArtifact` refuses inside one file.
+    """
+    if setup.frames:
+        _moved_to_the_reference(row, "frames")
+    taken = {frame.name.strip().upper() for frame in reference.frames}
+    kept = [frame for frame in setup.frames if frame.name.strip().upper() not in taken]
+    return [*reference.frames, *kept]
 
 
 def _not_on_a_legacy_row(row: MatrixRow, entries: list, table: str) -> list:
@@ -1252,20 +1294,30 @@ def resolve_matrix(
                 ),
             ),
             "solver": solvers[row.set_code],
-            # THE SETUP'S FRAMES RIDE ON THE CASE (PFS-2034.01), created by the
-            # builders after the package's own; a setup defining none leaves
-            # the list empty and the script unchanged.
-            "frames": _not_on_a_legacy_row(row, setups[row.set_code].frames, "frames"),
+            # THE REFERENCE'S FRAMES RIDE ON THE CASE (FR-72, her decision of
+            # 2026-09-10), created by the builders after the package's own; a
+            # configuration defining none leaves the list empty and the script
+            # unchanged. They lived in the SETUP at 0.14.0 (PFS-2034.01), and a
+            # coordinate system is geometric data, so it belongs beside the
+            # lengths and the rotors; a preset still stating them is read with a
+            # deprecation warning and the reference wins.
+            "frames": _not_on_a_legacy_row(
+                row, _frames_of(reference, setups[row.set_code], row), "frames"
+            ),
             # THE SETUP'S RAW COMMANDS RIDE ON THE CASE TOO (PFS-2033.01),
             # each naming the artifact it came from, for the run record.
             "raw_commands": [
                 entry.model_copy(update={"setup": row.set_code})
                 for entry in _not_on_a_legacy_row(row, setups[row.set_code].raw_commands, "raw")
             ],
-            # THE SETUP'S ALIASES RIDE ON THE CASE (her decision of 2026-09-09),
-            # on a LEGACY row too: the products stage resolves a group by them
-            # whatever built the script.
-            "aliases": {k: list(v) for k, v in setups[row.set_code].aliases.items()},
+            # THE REFERENCE'S ALIASES RIDE ON THE CASE (FR-59, her decision of
+            # 2026-09-10), on a LEGACY row too: the products stage resolves a
+            # group by them whatever built the script. They lived in the SETUP
+            # at 0.14.0, which is per condition where a reference is per
+            # configuration, and a boundary name is not a solver setting; a
+            # preset still stating them is read with a deprecation warning and
+            # the reference wins, so an unmigrated workspace keeps planning.
+            "aliases": _aliases_of(reference, setups[row.set_code], row),
             # THE PPROC ARTIFACT RIDES ON THE CASE (PFS-2029.07.03): the
             # builders emit its sections, plots and probes and export the
             # kinds it selects, and the record names its id. A LEGACY row's

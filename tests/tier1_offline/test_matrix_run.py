@@ -24,7 +24,7 @@ from pathlib import Path
 import pytest
 
 from pyflightstream._digest import file_sha256
-from pyflightstream._errors import PyflightstreamWarning
+from pyflightstream._errors import PyflightstreamDeprecationWarning, PyflightstreamWarning
 from pyflightstream._fsm import MESH_MARKER
 from pyflightstream.cases.matrix import (
     DEFAULT_VERSION_OPTION,
@@ -3787,6 +3787,79 @@ def test_an_alias_of_the_setup_reaches_the_polar_table_through_the_record(tmp_pa
         else:
             assert "pyfs:aliases" not in activity, "a run whose setup defines none carries no key"
     assert tables["alias"] == tables["plain"]
+
+
+def test_the_reference_aliases_reach_the_record(tmp_path):
+    """FR-59, her decision of 2026-09-10: the aliases move to the REFERENCE.
+
+    The same alias, the same polar and the same record field, declared one
+    file over: ``wing = ["W", "Missing"]`` in r003 rather than in s002. A
+    boundary name is not a solver setting, and a preset is per condition
+    where a reference is per configuration.
+
+    RED on f0032d3: the case takes its aliases from ``setups[...]`` alone
+    (``workspace/matrix.py``), so a reference declaring them reaches no
+    record, the group resolves to nothing and no polar is written.
+    """
+    workspace, first, _ = _two_matrices(tmp_path)
+    reference = workspace.inputs_dir / "references" / "r003.toml"
+    reference.write_text(
+        reference.read_text(encoding="utf-8") + '\n[aliases]\nwing = ["W", "Missing"]\n',
+        encoding="utf-8",
+    )
+    (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
+        '[groups]\n"1" = ["wing"]\n', encoding="utf-8"
+    )
+    run_matrix(
+        first,
+        workspace,
+        name="camp",
+        default_fs_version="26.120",
+        recipes=RECIPES,
+        assess=converged,
+        executor=_writes_her_loads(tmp_path),
+        recipe_registry={"steady": matrix_recipe},
+    )
+    records = workspace.read_manifest()
+    assert [r.aliases for r in records] == [{"wing": ["W", "Missing"]}] * 2, (
+        "the record carries the REFERENCE's aliases"
+    )
+    polars = sorted((workspace.root / "post" / "wing_alpha").glob("*_g01.csv"))
+    assert len(polars) == 2, polars
+
+
+def test_a_setup_still_stating_aliases_warns_and_the_reference_wins(tmp_path):
+    """The deprecation half of FR-59, measured on the warning AND on the value.
+
+    A workspace that has not migrated keeps planning and is told where the
+    table belongs; where both files state the same name, the reference is
+    what the record carries.
+    """
+    workspace, first, _ = _two_matrices(tmp_path)
+    reference = workspace.inputs_dir / "references" / "r003.toml"
+    reference.write_text(
+        reference.read_text(encoding="utf-8") + '\n[aliases]\nwing = ["W"]\n',
+        encoding="utf-8",
+    )
+    (workspace.inputs_dir / "setups" / "s002.toml").write_text(
+        'iterations = 800\n\n[aliases]\nwing = ["B"]\n', encoding="utf-8"
+    )
+    (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
+        '[groups]\n"1" = ["wing"]\n', encoding="utf-8"
+    )
+    with pytest.warns(PyflightstreamDeprecationWarning, match="aliases"):
+        run_matrix(
+            first,
+            workspace,
+            name="camp",
+            default_fs_version="26.120",
+            recipes=RECIPES,
+            assess=converged,
+            executor=_writes_her_loads(tmp_path),
+            recipe_registry={"steady": matrix_recipe},
+        )
+    records = workspace.read_manifest()
+    assert [r.aliases for r in records] == [{"wing": ["W"]}] * 2, "the reference wins"
 
 
 # --- PFS-2015.04: the reductions reach the products through the workflow --------
