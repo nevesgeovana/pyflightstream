@@ -170,6 +170,69 @@ def test_one_ratio_gives_two_rotors_two_speeds_when_their_diameters_differ(tmp_p
     assert speeds[0] == pytest.approx(speeds[1] * 1.5, rel=1e-9)
 
 
+def test_the_frames_a_rotor_instantiates_take_its_alias_as_their_radical(tmp_path):
+    """FR-62: nine rotors instantiate nine sets rather than colliding on one radical.
+
+    `<ALIAS>_SMRP` at the hub, `<ALIAS>_RMRP` turning with the motion, and
+    `<ALIAS>_RMRP<k>` per blade of the block's own list. A family of
+    `families_general` gets no frame: its local frame IS the rotor's,
+    which is what makes the spinner ride the hub.
+    """
+    text = rendered(two_rotor_case(tmp_path))
+    for name in (
+        "LIFT_L1_SMRP",
+        "LIFT_L1_RMRP",
+        "LIFT_L1_RMRP1",
+        "LIFT_L1_RMRP4",
+        "PUSHER_SMRP",
+        "PUSHER_RMRP",
+        "PUSHER_RMRP3",
+    ):
+        assert name in text, f"{name} is not among the frames:\n{text[:400]}"
+    assert "Spinner_SMRP" not in text, "a general family has no frame of its own"
+    assert "PUSHER_RMRP4" not in text, "the pusher has three blades"
+
+
+def test_the_0140_frame_names_survive_a_record_that_names_no_engine(tmp_path):
+    """A row written before this release renders the frames it always did.
+
+    The alias radical belongs to a record that CITES a rotor of the
+    reference. A record still stating MOVING_BOUNDARIES has no alias to
+    take one from, and renaming its frames would rewrite every golden of
+    every 0.14.0 rotor row.
+    """
+    case = two_rotor_case(tmp_path)
+    case = case.model_copy(
+        update={
+            "engines": {},
+            "motions": [
+                {"MOVING_BOUNDARIES": "LB_L1_1", "RPM": "2200", "ROTOR_AXIS": "Z"},
+                {"MOVING_BOUNDARIES": "Blade_1", "RPM": "900", "ROTOR_AXIS": "X"},
+            ],
+        }
+    )
+    text = rendered(case)
+    assert "PROP_MRP1" in text and "RotorAxis1" in text
+    assert "PROP_MRP2" in text and "RotorAxis2" in text
+    assert "_SMRP" not in text
+
+
+def test_a_blade_the_mesh_lacks_gets_no_frame_and_the_count_stays(tmp_path):
+    """The sector case: four blades declared, one meshed, one frame, count still four."""
+    case = two_rotor_case(tmp_path)
+    sector = ["LH_L1", "LB_L1_1", "W"]
+    case = case.model_copy(
+        update={
+            "geometry": str(saved_simulation(tmp_path / "sector.fsm", sector)),
+            "motions": [{"MOVING_BC_ALIAS": "LIFT_L1", "RPM": "2200"}],
+        }
+    )
+    text = rendered(case)
+    assert "LIFT_L1_RMRP1" in text
+    assert "LIFT_L1_RMRP2" not in text, "no frame for a blade the mesh does not carry"
+    assert case.engines["LIFT_L1"].blade_count == 4, "the count is the list, not the file"
+
+
 def test_the_clock_follows_the_named_motion_and_not_the_fastest(tmp_path):
     """FR-64: the owner of the time step is declared, not inferred.
 

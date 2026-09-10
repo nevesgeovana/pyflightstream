@@ -3748,6 +3748,55 @@ def _blade_frames(case: SimCase, script: Script, prop_frame: int) -> dict[str, i
     return created
 
 
+def _rotor_blade_frames(
+    script: Script,
+    engine: EngineBlock,
+    hub: int,
+    radical: str,
+    view: SimCase,
+) -> dict[str, int]:
+    """Create one frame per blade of a rotor, named from its alias (FR-62).
+
+    ``<ALIAS>_RMRP<k>`` for blade k of the block's ``families_blades``, at
+    the rotor's hub, turned about the rotor's axis by the blade's share of
+    a turn measured from the ``blade1`` datum: blade k of N sits at
+    ``azimuth_deg + (k - 1) * 360 / N``. The frames turn with the blades,
+    so a per-blade product is read in the frame of the blade it is about.
+
+    A BLADE THE MESH DOES NOT CARRY GETS NO FRAME, and the count is not
+    reduced by its absence: a periodic sector meshing one blade of four
+    creates one frame, at the datum, and the reductions still divide by
+    four, because the count is the length of the list and not a property
+    of the file. The returned mapping is keyed by the blade's FAMILY, as
+    the flat form's is, so a pproc entry citing a blade resolves the same
+    way on either.
+    """
+    inventory = set(_inventory(script))
+    count = engine.blade_count
+    created: dict[str, int] = {}
+    for number, family in enumerate(engine.families_blades, start=1):
+        if family not in inventory:
+            continue
+        index = helpers.coordinate_frame(
+            script,
+            name=f"{radical}_RMRP{number}",
+            origin=engine.origin,
+            x_axis=(1.0, 0.0, 0.0),
+            y_axis=(0.0, 1.0, 0.0),
+            label=f"blade_axis:{family}",
+        )
+        script.emit(
+            "ROTATE_COORDINATE_SYSTEM",
+            frame=index,
+            rotation_frame=hub,
+            rotation_axis=engine.axis,
+            angle=engine.blade1.azimuth_deg + (number - 1) * 360.0 / count,
+        )
+        created[family] = index
+        created[f"{radical}_RMRP{number}"] = index
+    return created
+
+
 def _default_is_blade(family: str) -> bool:
     """Tell a blade family from the airframe when no pproc artifact says how."""
     return re.match(r"^Blade\d+$", family) is not None
@@ -4630,29 +4679,46 @@ def _rotor_motions(
 ) -> None:
     """Finish a rotor script whose row states N motions (PFS-2029.11.03).
 
-    N records, N motions, each with its own fixed frame at its hub
-    (``PROP_MRP<k>``) and its own moving frame (``RotorAxis<k>``) attached
-    to it by ``SET_MOTION_MOVING_FRAMES`` (documented on every build,
-    SRC-003 p.333, and verified on none); the row's ``PROP_MRP``, already
-    created from the reference, stays the frame the pproc entries cite.
-    The time step follows the FASTEST rotor, because ``DELTA_THETA`` bounds
-    every blade's travel per step and the slower rotor travels less; a
-    wake termination or a run length stated in REVOLUTIONS is therefore
-    counted in revolutions of the fastest rotor, and the slower one turns
-    fewer, which is package arithmetic and hers to confirm. No blade-axis
-    frames here: they belong to the one rotor the flat form states, and a
-    pproc entry citing ``BLADE_AXIS`` on a multi-rotor row is refused by
-    the frame resolver as a frame the run did not create.
+    N records, N motions, each with its own fixed frame at its hub and its
+    own moving frame attached to it by ``SET_MOTION_MOVING_FRAMES``
+    (documented on every build, SRC-003 p.333, and verified on none).
+
+    THE FRAMES TAKE THE ROTOR'S ALIAS AS THEIR RADICAL (FR-62, her design
+    of 2026-09-10): ``<ALIAS>_SMRP`` at the hub, static; ``<ALIAS>_RMRP``
+    turning with the motion; and ``<ALIAS>_RMRP<k>`` per blade of the
+    block's ``families_blades``, turning with blade k and numbered from
+    the ``blade1`` datum. A family of ``families_general`` gets no frame
+    of its own: its local frame IS the rotor's, which is what makes the
+    spinner ride the hub. The names a record's frames had at 0.14.0,
+    ``PROP_MRP<k>`` and ``RotorAxis<k>``, still resolve for a pproc entry
+    that cites them, until 0.17.0.
+
+    The row's ``PROP_MRP``, already created from the reference, stays the
+    frame an older pproc entry cites. The time step follows the motion
+    ``CLOCK_MOTION`` names, and the fastest rotor when a row names none
+    (FR-64).
     """
     views = [_motion_view(case, record) for record in case.motions]
+    engines = [_engine_of(case, record) for record in case.motions]
+    # A RECORD THAT NAMES NO ENGINE KEEPS THE 0.14.0 FRAME NAMES, and this
+    # is what makes a row written before this release render byte for byte
+    # as it did: the alias radical belongs to a record that cites a rotor
+    # of the reference, and a record still stating MOVING_BOUNDARIES has no
+    # alias to take one from.
+    radicals = [(engine.alias if engine is not None else None) for engine in engines]
     moving: list[int] = []
     hubs: list[int] = []
-    for number, view in enumerate(views, start=1):
+    blade_frames: dict[str, int] = {}
+    for number, (view, engine, radical) in enumerate(
+        zip(views, engines, radicals, strict=True), start=1
+    ):
         origin = _origin(view)
+        hub_name = f"{radical}_SMRP" if radical else f"PROP_MRP{number}"
+        moving_name = f"{radical}_RMRP" if radical else f"RotorAxis{number}"
         hubs.append(
             helpers.coordinate_frame(
                 script,
-                name=f"PROP_MRP{number}",
+                name=hub_name,
                 origin=origin,
                 x_axis=(1.0, 0.0, 0.0),
                 y_axis=(0.0, 1.0, 0.0),
@@ -4662,13 +4728,15 @@ def _rotor_motions(
         moving.append(
             helpers.coordinate_frame(
                 script,
-                name=f"RotorAxis{number}",
+                name=moving_name,
                 origin=origin,
                 x_axis=(1.0, 0.0, 0.0),
                 y_axis=(0.0, 1.0, 0.0),
                 label=f"rotor_moving:{number}",
             )
         )
+        if engine is not None:
+            blade_frames.update(_rotor_blade_frames(script, engine, hubs[-1], radical, view))
     frames: dict[str, int | None | Mapping[str, int]] = {
         "MRP": frame,
         "PROP_MRP": prop_frame,
@@ -4682,14 +4750,24 @@ def _rotor_motions(
     followers: dict[str, list[int]] = {}
     spinning: dict[str, list[int]] = {}
     labels = script.entities.labels("boundaries")
-    for number, (hub, axis, view) in enumerate(zip(hubs, moving, views, strict=True), start=1):
+    for number, (hub, axis, view, radical) in enumerate(
+        zip(hubs, moving, views, radicals, strict=True), start=1
+    ):
+        # THE ALIAS NAMES, and the 0.14.0 names beside them: a pproc entry
+        # written against PROP_MRP2 keeps resolving until 0.17.0, which is
+        # what makes this release readable by a workspace that has not
+        # migrated its post-processing yet.
+        if radical:
+            named[f"{radical}_SMRP"] = hub
+            named[f"{radical}_RMRP"] = axis
+            followers[f"{radical}_SMRP"] = [axis]
         named[f"PROP_MRP{number}"] = hub
         named[f"RotorAxis{number}"] = axis
         followers[f"PROP_MRP{number}"] = [axis]
         cell = str(_variable(view, MOVING_BOUNDARIES_VARIABLE) or "")
         # Names only: a token that is not a name is the motion's own to
         # refuse or warn about, when it is emitted below.
-        spinning[f"PROP_MRP{number}"] = sorted(
+        turning = sorted(
             {
                 index
                 for token in cell.split(",")
@@ -4697,10 +4775,14 @@ def _rotor_motions(
                 for index in _resolve_token(case, token.strip(), labels)
             }
         )
+        if radical:
+            spinning[f"{radical}_SMRP"] = turning
+        spinning[f"PROP_MRP{number}"] = turning
     _rotations(case, script, named, followers=followers, spinning=spinning)
     # The pproc entries cite a rotor's frames by the same names (her p001
     # of 2026-09-09: PUSHER_X in PROP_MRP2 while the lifters spin).
     frames.update({name: index for name, index in named.items() if index is not None})
+    frames.update(blade_frames)
     _pproc_plots(case, script, frames)
     _significant_digits(case, script)
     helpers.free_stream(script)
