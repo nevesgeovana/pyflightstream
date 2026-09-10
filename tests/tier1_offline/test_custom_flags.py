@@ -212,6 +212,60 @@ def test_a_flag_naming_a_command_of_a_later_phase_is_refused_rather_than_dropped
         rendered(case(flags=[flag(command="SOLVER_SET_ITERATIONS")], variables={"digits": "600"}))
 
 
+def test_the_reader_takes_the_table_out_of_the_solver_settings(tmp_path):
+    """`[[flags]]` is not a solver setting, so the loop that refuses a key
+    naming no setting never meets it.
+
+    THE CONSTANT IS THE ONE THE READER USES, `FLAGS_TABLE`, rather than the
+    literal written again here: a test that spells the table itself passes
+    while the reader looks for another word, which is the shape this
+    repository calls a guard satisfied by a mention.
+    """
+    from pyflightstream.workspace.inputs import FLAGS_TABLE, resolve_setup
+
+    setups = tmp_path / "setups"
+    setups.mkdir(parents=True)
+    (setups / "s900.toml").write_text(
+        "iterations = 800\n\n"
+        "[[" + FLAGS_TABLE + "]]\n"
+        'name = "digits"\n'
+        'command = "' + SETUP_COMMAND + '"\n',
+        encoding="utf-8",
+    )
+    setup = resolve_setup(tmp_path, "s900")
+    assert [flag.name for flag in setup.flags] == ["digits"]
+    assert [flag.command for flag in setup.flags] == [SETUP_COMMAND]
+    assert FLAGS_TABLE not in setup.settings, (
+        "the flags table reached the solver settings, where the loop that refuses a key "
+        "naming no setting would refuse it"
+    )
+
+
+def test_a_flag_taking_a_word_a_run_type_reads_is_refused_where_it_is_declared(tmp_path):
+    """One cell, one reader.
+
+    A flag named for a key a run type already reads made the row's cell drive
+    the curated handling AND emit the flag's command, with nothing anywhere
+    saying so; the vocabulary check that catches a stray key is the one a
+    declared flag is deliberately exempt from, which is what made it
+    invisible (the architecture lens of the 0.15.0 release review).
+    """
+    from pyflightstream._errors import PyflightstreamError
+    from pyflightstream.workspace.inputs import FLAGS_TABLE, resolve_setup
+
+    setups = tmp_path / "setups"
+    setups.mkdir(parents=True)
+    (setups / "s901.toml").write_text(
+        "iterations = 800\n\n"
+        "[[" + FLAGS_TABLE + "]]\n"
+        'name = "VELOCITY"\n'
+        'command = "' + SETUP_COMMAND + '"\n',
+        encoding="utf-8",
+    )
+    with pytest.raises(PyflightstreamError, match="VELOCITY"):
+        resolve_setup(tmp_path, "s901")
+
+
 # --- the declaration itself --------------------------------------------------
 
 

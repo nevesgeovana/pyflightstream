@@ -682,7 +682,20 @@ mean whichever record was read last. And a `before` that names no phase.
 
 A declared flag's word is a key the row MAY state: the preset registered it by
 declaring it, so the guard that refuses a key no run type reads leaves it
-alone. A word no flag declares is still refused. A `LEGACY` row takes no flags
+alone. A word no flag declares is still refused, and so is a word a run type
+ALREADY reads, because a row stating it would drive the curated handling AND
+emit the flag's command: one cell with two readers, and nothing anywhere
+saying so.
+
+**WHY THIS TABLE DID NOT MOVE TO THE REFERENCE**, which is the question a
+reader has after being told twice that a table's home changed. `[aliases]` and
+`[[frames]]` moved because a boundary name and a coordinate system are
+properties of the CONFIGURATION, and a preset is per condition. A flag is a
+SOLVER SETTING reached by another route, so it belongs exactly where the other
+solver settings are. The reader's own constant for it is `FLAGS_TABLE`, beside
+`RAW_TABLE`, in `pyflightstream.workspace.inputs`; the model a declaration
+becomes is `pyflightstream.cases.CustomFlag`, and the recorded rotor block of
+a reference is `RotorReference` in the same module as the reader. A `LEGACY` row takes no flags
 table, for the reason it takes no raw table: its own recipe is the reader of
 its keys and reads neither.
 

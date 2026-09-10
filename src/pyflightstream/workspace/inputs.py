@@ -173,7 +173,7 @@ KIND_COLUMNS = {"reference": "REF", "setup": "SET", "pproc": "PPROC"}
 #: file and on no wrong one; nothing failed, because a guard that
 #: refuses everything and a guard that refuses the right thing look
 #: alike from a suite that only writes correct files.
-POINT_KIND_ENGINE_WORD = "engine"
+_POINT_KIND_ENGINE_WORD = "engine"
 
 #: What a reference point may declare itself to be (PFS-2029.11.02).
 #: It was ``engine`` until 0.15.0; see :mod:`pyflightstream._retired_names`.
@@ -210,7 +210,7 @@ class PointXyz(BaseModel):
         # THE RETIRED SPELLING FIRST, because it is the likeliest wrong
         # value in an existing workspace and the generic refusal below
         # would send its author looking for a kind that never existed.
-        if value == POINT_KIND_ENGINE_WORD:
+        if value == _POINT_KIND_ENGINE_WORD:
             raise ValueError(POINT_KIND_ENGINE.message())
         if value is not None and value not in POINT_KINDS:
             raise ValueError(
@@ -984,7 +984,7 @@ def _refuse_a_retired_spelling(data: Mapping[str, Any], path: Path) -> None:
                 f"the reference artifact {path}: {entry.message()}",
                 kind="reference",
             )
-        if isinstance(value, dict) and value.get("kind") == POINT_KIND_ENGINE_WORD:
+        if isinstance(value, dict) and value.get("kind") == _POINT_KIND_ENGINE_WORD:
             raise InputArtifactError(
                 f"the reference artifact {path} declares [{key}] with "
                 f"{BLOCK_KIND_ENGINE.message()}",
