@@ -136,6 +136,41 @@ def _one_builder_per_code(recipes: dict[str, str], workflows: dict[str, str]) ->
     return {**recipes, **workflows}
 
 
+def _a_word_that_means_false(word: str) -> bool:
+    """Read a flag's word as a choice, so `false` at the shell means False.
+
+    A THREE-STATE FLAG WRITTEN AS ONE, because she asked to be able to
+    pass FALSE and argparse's ``store_true`` cannot: bare, the flag is
+    true; with a word, the word decides; absent, the default stands.
+    """
+    return str(word).strip().lower() not in ("false", "no", "0")
+
+
+def _add_the_missing_family_choice(parser: argparse.ArgumentParser) -> None:
+    """Declare --ignore-missing-families, her design of 2026-09-10.
+
+    ON `plan` AND `run` ONLY, and deliberately not on `convert`. The
+    choice is a property of THIS INVOCATION and not of an artifact:
+    `convert` writes a campaign file that outlives the command that
+    wrote it, and a per-invocation choice frozen into a file stops being
+    one (PFS-2035.13).
+    """
+    parser.add_argument(
+        "--ignore-missing-families",
+        type=_a_word_that_means_false,
+        nargs="?",
+        const=True,
+        default=True,
+        metavar="true|false",
+        help="whether a family the opened mesh does not carry is left out "
+        "(the default, true) or REFUSES the point (false). One artifact "
+        "serves a wing-body and an isolated rotor because a family the "
+        "geometry lacks is skipped; pass false when you believe this "
+        "geometry carries every family the artifact names and want to hear "
+        "about it if it does not (PFS-2035.13)",
+    )
+
+
 def _add_common_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("matrix", help="the pipe-delimited run matrix file")
     parser.add_argument(
@@ -241,6 +276,7 @@ def _build_parser() -> argparse.ArgumentParser:
         "point, executing nothing",
     )
     _add_common_arguments(plan)
+    _add_the_missing_family_choice(plan)
     plan.add_argument(
         "--workflow",
         action="append",
@@ -273,6 +309,7 @@ def _build_parser() -> argparse.ArgumentParser:
         help="run every active point of the matrix and write the sweep table",
     )
     _add_common_arguments(run)
+    _add_the_missing_family_choice(run)
     run.add_argument(
         "--workflow",
         action="append",
@@ -623,6 +660,7 @@ def _cmd_plan(args: argparse.Namespace, recipes: dict[str, str]) -> int:
             recipes=recipes,
             fs_exe=args.fs_exe,
             recipe_registry=workflow_registry(),
+            ignore_missing_families=args.ignore_missing_families,
         )
     except (MatrixError, InputArtifactError, OSError, ValueError) as error:
         print(f"matrix not planned: {error}", file=sys.stderr)
@@ -659,6 +697,7 @@ def _cmd_run(args: argparse.Namespace, recipes: dict[str, str]) -> int:
             fs_exe=args.fs_exe,
             recipe_registry=workflow_registry(),
             resume=args.resume,
+            ignore_missing_families=args.ignore_missing_families,
         )
     except CampaignErrors as error:
         # SEPARATED FROM THE OTHERS on purpose. Every arm below this one

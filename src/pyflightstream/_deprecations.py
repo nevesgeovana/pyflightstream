@@ -630,6 +630,32 @@ ROW_EACH_BLADE = DeprecatedParameter(
         "second statement of one fact."
     ),
 )
+ROW_AIRFRAME_SELECTOR = DeprecatedParameter(
+    owner="a families cell",
+    old="families = 'airframe'",
+    new="an alias the reference declares, for example airframe = [...]",
+    deprecated_since="0.15.0",
+    removal_version="0.17.0",
+    extra=(
+        "The selector decides what is NOT a blade from a pattern over the "
+        "family name, so a mesh whose blades are spelled another way gets "
+        "an airframe with blades in it and nothing says so. An alias names "
+        "the surfaces, and a study that named them cannot be guessed wrong."
+    ),
+)
+ROW_BLADES_SELECTOR = DeprecatedParameter(
+    owner="a families cell",
+    old="families = 'blades'",
+    new="the rotor's own alias, or an alias the reference declares",
+    deprecated_since="0.15.0",
+    removal_version="0.17.0",
+    extra=(
+        "Same pattern, same guess, and since 0.15.0 there is a better "
+        "answer for a rotor: its block lists families_blades, so naming the "
+        "rotor in a frame that expands per blade gives one emission per "
+        "blade with no pattern in it."
+    ),
+)
 ROW_PROBE_SCALE = DeprecatedParameter(
     owner="a probe table",
     old="scale = 'propeller_radius'",
@@ -639,17 +665,6 @@ ROW_PROBE_SCALE = DeprecatedParameter(
     extra=(
         "This release says ROTOR everywhere: a lifter is not a propeller, "
         "and an aircraft may carry eight of them and one pusher."
-    ),
-)
-ROW_CLOCK_MOTION_ABSENT = DeprecatedParameter(
-    owner="a rotor row",
-    old="no CLOCK_MOTION, the clock following the fastest rotor",
-    new="CLOCK_MOTION naming the motion that owns the clock",
-    deprecated_since="0.15.0",
-    removal_version="0.17.0",
-    extra=(
-        "Which rotor bounds the time step is a decision the row states, "
-        "not arithmetic the package performs in silence."
     ),
 )
 
@@ -685,6 +700,7 @@ DEPRECATIONS: tuple[Deprecation, ...] = (
     ROW_MOVING_BOUNDARIES,
     ROW_ROTATE_FAMILIES,
     ROW_EACH_BLADE,
+    ROW_AIRFRAME_SELECTOR,
+    ROW_BLADES_SELECTOR,
     ROW_PROBE_SCALE,
-    ROW_CLOCK_MOTION_ABSENT,
 )

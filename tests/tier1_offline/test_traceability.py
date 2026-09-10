@@ -58,7 +58,13 @@ INDEX = REPO / "reports" / "requirements-index.json"
 #: that can falsify it: it builds every console script's parser and
 #: fails on an option that neither resolves through the registry nor
 #: carries its reason.
-MARKED_FLOOR = 18
+#: Raised from 18 to 19 on 2026-09-10 (PFS-2035.13), for FR-73. The
+#: requirement is new and its test was written with it: whether a family
+#: the opened mesh does not carry is a skip or a refusal is a choice of
+#: the invocation, and the test measures all three layers it crosses,
+#: the word the shell passes, the variable the resolution writes, and
+#: the reader that honours it.
+MARKED_FLOOR = 19
 
 
 def _marked() -> dict[str, list[str]]:

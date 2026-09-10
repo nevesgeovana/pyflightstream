@@ -731,9 +731,10 @@ artifact. Each member resolves as a name does, an exact boundary name
 of the file first and a family (the label without its trailing number)
 second, and a member the file does not carry is ignored, so one preset
 serves the wing-body and the isolated rotor of a study. The alias is
-tried before the family and, in a `families` entry, before the five
-selector words, so `airframe` and `blades` mean whatever the preset
-says where it defines them and the built-in reading where it does not.
+tried before the family and, in a `families` entry, before the selector
+words, so `airframe` and `blades` mean whatever the file says where it
+defines them. Where it does not, both are RETIRED at 0.15.0 and read with
+a deprecation warning until 0.17.0: declare the name yourself.
 A cell naming an alias none of whose members the file carries is
 refused as a name the inventory lacks, naming the alias. The run record
 carries the preset's aliases, so the products stage resolves a group
@@ -1037,19 +1038,27 @@ custom_polar_format = false    # beside each polar table, the text file the auth
 ```
 
 Three things carry the artifact across configurations. A `families` entry
-is a list of family names, a bare word (an alias of the row's setup, read
-first, above; else a family name), or one of four SELECTORS: `all` (every
-boundary, the command's own `-1` form), `airframe` (every family that is
-not a blade), `blades`, and `each` (one entry per family the geometry
-carries, the name carrying `{family}`); a family the geometry does not
-carry is left out, which is how one artifact serves a wing-body and an
-isolated rotor, and an entry that resolves to nothing is skipped. There
-were five until 0.15.0, and `each_blade` is the one that left: the FRAME
-says how an entry expands now, so `frame = "LOCAL_AXIS"` is what one
-distribution per blade is written as. It is read with a warning until
-0.17.0. A blade
-is told from the airframe by `blade_pattern`, a regular expression over the
-family name, `^Blade\d+$` unless the file says otherwise. A `frame` is
+is a list of family names, a bare word (an alias the row's reference
+declares, read first, above; else a family name), or one of TWO SELECTORS:
+`all` (every boundary, the command's own `-1` form) and `each` (one entry
+per family the geometry carries, the name carrying `{family}`). A family
+the geometry does not carry is left out, which is how one artifact serves
+a wing-body and an isolated rotor, and an entry that resolves to nothing
+is skipped; pass `--ignore-missing-families false` to `pyfs-matrix plan`
+or `run` to hear about both instead of having them pass in silence.
+
+There were five selectors until 0.15.0 and three left in one release.
+`each_blade` went because the FRAME says how an entry expands now, so
+`frame = "LOCAL_AXIS"` is what one distribution per blade is written as.
+`airframe` and `blades` went because they are the two that decide what a
+BLADE IS, from `blade_pattern`, a regular expression over the family name,
+`^Blade\d+$` unless the file says otherwise: a mesh whose blades are
+spelled another way gets an airframe with blades in it and nothing says
+so. Declare the set in the reference's `[aliases]` table and cite it by
+name, and a study that named its own surfaces cannot be guessed wrong.
+All three are read with a deprecation warning until 0.17.0, and an alias
+of the same name is read FIRST and warns about nothing, so a file that
+already declares `airframe` is untouched. A `frame` is
 cited by NAME: `MRP`, the moment frame the reference artifact creates;
 `SMRP` and `RMRP`, a rotor's hub frame and its turning frame, and
 `LOCAL_AXIS`, one frame per blade (0.15.0, and see the next paragraph for

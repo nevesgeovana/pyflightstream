@@ -267,6 +267,7 @@ def plan_matrix(
     write_plan: bool = True,
     fs_version: str | None = None,
     name_from: str | None = None,
+    ignore_missing_families: bool = True,
 ) -> CampaignPlan:
     """Pre-flight a run matrix without executing anything.
 
@@ -309,6 +310,13 @@ def plan_matrix(
         Write the JSON summary as ``post/<matrix stem>/plan.json`` in the
         workspace (default True), the matrix's own folder so several
         matrices of one workspace keep their own (PFS-2031.04).
+    ignore_missing_families : bool
+        Whether a pproc entry naming a family the opened mesh does not
+        carry is left out (the default, True) or BLOCKS the point
+        (False). Forwarded to
+        :func:`pyflightstream.workspace.matrix.resolve_matrix`
+        (PFS-2035.13); the command line spells it
+        ``--ignore-missing-families``.
 
     Returns
     -------
@@ -347,7 +355,13 @@ def plan_matrix(
     default = _default_version(default_fs_version, fs_version, caller="plan_matrix")
     _refuse_a_run_that_names_no_build(path, default)
     resolved = resolve_matrix(
-        path, workspace, name=name, fs_version=default, recipes=recipes, fs_exe=fs_exe
+        path,
+        workspace,
+        name=name,
+        fs_version=default,
+        recipes=recipes,
+        fs_exe=fs_exe,
+        ignore_missing_families=ignore_missing_families,
     )
     return plan_campaign(
         resolved.campaign,
@@ -394,6 +408,7 @@ def run_matrix(
     hidden: bool | None = None,
     fs_version: str | None = None,
     name_from: str | None = None,
+    ignore_missing_families: bool = True,
 ) -> list[RunRecord]:
     """Read a run matrix and run it: the one-call first-class entry.
 
@@ -444,6 +459,14 @@ def run_matrix(
         grown matrix re-runs only its new points; with False (the
         default) an already-recorded point raises before anything
         executes, as in :func:`pyflightstream.run.run_campaign`.
+    ignore_missing_families : bool
+        Whether a pproc entry naming a family the opened mesh does not
+        carry is left out (the default, True) or BLOCKS the point
+        (False), in which case the blocked pre-flight refuses the whole
+        run before a seat is spent. Forwarded to
+        :func:`pyflightstream.workspace.matrix.resolve_matrix`
+        (PFS-2035.13); the command line spells it
+        ``--ignore-missing-families``.
     hidden : bool or None
         Windowless solver runs, forwarded to the default executor only
         and ignored when ``executor`` is given. The default is None,
@@ -515,7 +538,13 @@ def run_matrix(
     default = _default_version(default_fs_version, fs_version, caller="run_matrix")
     _refuse_a_run_that_names_no_build(path, default)
     resolved = resolve_matrix(
-        path, workspace, name=name, fs_version=default, recipes=recipes, fs_exe=fs_exe
+        path,
+        workspace,
+        name=name,
+        fs_version=default,
+        recipes=recipes,
+        fs_exe=fs_exe,
+        ignore_missing_families=ignore_missing_families,
     )
     plan = plan_campaign(
         resolved.campaign, workspace, recipes=recipe_registry, versions=_row_versions(resolved)

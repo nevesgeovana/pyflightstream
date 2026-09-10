@@ -44,6 +44,8 @@ from pydantic import (
 from pyflightstream._atmosphere import ISA
 from pyflightstream._deprecations import (
     PPROC_HER_POLAR_FORMAT,
+    ROW_AIRFRAME_SELECTOR,
+    ROW_BLADES_SELECTOR,
     ROW_EACH_BLADE,
     ROW_PROBE_SCALE,
 )
@@ -90,6 +92,7 @@ __all__ = [
     "select_families",
     "select_group_members",
     "resolve_alias",
+    "alias_members_the_geometry_lacks",
     "BoundaryAliases",
     "EXPANDING_SELECTORS",
     "default_outputs",
@@ -1082,6 +1085,25 @@ class PprocSpec(BaseModel):
         return default_outputs(unsteady, self.exports)
 
 
+#: The two selector words this release retires, each to its ledger entry.
+#: They are the two that decide what a BLADE is from a pattern over the
+#: family name; `all` and `each` guess nothing and stay (her decision of
+#: 2026-09-10).
+_SELECTORS_THAT_GUESS = {
+    "airframe": ROW_AIRFRAME_SELECTOR,
+    "blades": ROW_BLADES_SELECTOR,
+}
+
+
+def _warn_a_selector_that_guesses(word: str) -> None:
+    """Warn that a families selector deciding what a blade is has retired."""
+    warnings.warn(
+        f"a families cell: {_SELECTORS_THAT_GUESS[word].message()}",
+        PyflightstreamDeprecationWarning,
+        stacklevel=3,
+    )
+
+
 def select_families(
     selection: str | Sequence[str],
     inventory: Sequence[str],
@@ -1109,10 +1131,17 @@ def select_families(
             return [aliased] if aliased else []
         if selection == "all":
             return [[]]
+        # THE ALIAS WAS TRIED FIRST, six lines up, so reaching here means
+        # the word was read AS A SELECTOR and no alias of that name
+        # resolved. That is the only case her retirement is about: a
+        # reference that declares `airframe` keeps working unchanged, which
+        # is what every one of hers does (her decision of 2026-09-10).
         if selection == "airframe":
+            _warn_a_selector_that_guesses(selection)
             chosen = [name for name in inventory if not is_blade(name)]
             return [chosen] if chosen else []
         if selection == "blades":
+            _warn_a_selector_that_guesses(selection)
             return [blades] if blades else []
         if selection == "each":
             return [[name] for name in inventory]
@@ -1128,8 +1157,10 @@ def select_families(
         if aliased is not None:
             names = aliased
         elif item == "blades":
+            _warn_a_selector_that_guesses(item)
             names = blades
         elif item == "airframe":
+            _warn_a_selector_that_guesses(item)
             names = [name for name in inventory if not is_blade(name)]
         else:
             # A list member resolves as the bare word does, family
@@ -1303,6 +1334,67 @@ def _resolve_alias_key(
             if name not in names:
                 names.append(name)
     return names
+
+
+def alias_members_the_geometry_lacks(
+    token: str,
+    inventory: Sequence[str],
+    aliases: Mapping[str, Sequence[str]] | None,
+) -> list[str]:
+    """Return the members of one cited alias that NO boundary answers.
+
+    THE OTHER HALF OF THE SENTENCE :func:`resolve_alias` implements. That
+    reader IGNORES a member the opened mesh does not carry, which is what
+    lets one reference serve a wing-body and an isolated rotor
+    (PFS-2035.01). Whether the silence is right is a property of the run
+    rather than of the file, so a run may ask to hear about it instead
+    (PFS-2035.13), and this function is what it hears: the members, in
+    the order the table wrote them, that resolve to nothing at all.
+
+    A token that names no alias, or an alias every member of which
+    resolves, gives an empty list. A ring is NOT reported here; it is
+    already a refusal of :func:`resolve_alias`, raised whichever way the
+    run chose, and reporting it twice would name it as a missing member.
+    """
+    if not aliases:
+        return []
+    key = _alias_key(token, aliases)
+    if key is None:
+        return []
+    return _absent_members(key, inventory, aliases, seen=())
+
+
+def _absent_members(
+    key: str,
+    inventory: Sequence[str],
+    aliases: Mapping[str, Sequence[str]],
+    *,
+    seen: tuple[str, ...],
+) -> list[str]:
+    """Walk one alias the way the resolver does, collecting what answers nothing."""
+    absent: list[str] = []
+    path = (*seen, key)
+    for member in aliases[key]:
+        token = str(member)
+        # THE SAME THREE READINGS IN THE SAME ORDER as `_resolve_alias_key`,
+        # deliberately: a reporter that resolves a member differently from
+        # the resolver reports members that resolve and misses ones that do
+        # not, which is worse than staying silent.
+        if token in inventory:
+            continue
+        nested = _alias_key(token, aliases)
+        if nested is not None and nested == key:
+            nested = None
+        if nested is not None and nested in path:
+            # The resolver raises on this one; see the docstring.
+            continue
+        if nested is not None:
+            for name in _absent_members(nested, inventory, aliases, seen=path):
+                if name not in absent:
+                    absent.append(name)
+        elif not names_of(token, inventory) and token not in absent:
+            absent.append(token)
+    return absent
 
 
 def select_group_members(

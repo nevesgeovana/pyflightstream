@@ -91,6 +91,13 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     ("pyfs-matrix", "overwrite"): SWITCH,
     ("pyfs-matrix", "resume"): SWITCH,
     ("pyfs-matrix", "strict"): SWITCH,
+    # PFS-2035.13, her design of 2026-09-10. A SWITCH and deliberately not a
+    # registry knob: whether a family the opened mesh lacks is a skip or a
+    # refusal is a property of THIS invocation's intent, not of the machine.
+    # A study planned across a wing and a rotor wants the skip; the same
+    # matrix planned against the one geometry that should carry everything
+    # wants the refusal, and neither is a setting the estate holds for you.
+    ("pyfs-matrix", "ignore_missing_families"): SWITCH,
     ("pyfs-matrix", "output"): OUTPUT,
     ("pyfs-manual", "manual"): MANUAL,
     ("pyfs-manual", "source"): MANUAL,

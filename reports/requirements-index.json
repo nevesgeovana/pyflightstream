@@ -2,8 +2,8 @@
  "source": "docs/srs",
  "generated_by": "scripts/gen_requirements_index.py",
  "traceability": {
-  "cited_by_a_test": 66,
-  "total": 124,
+  "cited_by_a_test": 67,
+  "total": 125,
   "method": "upper bound: an id mentioned anywhere in tests/**/*.py excluding conftest.py, which is not the marked falsifying test NFR-13 asks for"
  },
  "requirements": [
@@ -673,11 +673,11 @@
   },
   {
    "id": "FR-64",
-   "text": "CLOCK_MOTION is a cell key, required on every row that states a motion, even a row with one, and it names a motion the same row states. The time step and the run length are that motion's. rotor_speed becomes rotor_speed_ref so the call site says which speed it is.",
+   "text": "CLOCK_MOTION is a cell key, REQUIRED on every row that states a MOTIONS list, and it names a motion the same row states. The time step and the run length are that motion's.",
    "priority": "M",
-   "status": "pending",
-   "evidence": "*Origin: her design of 2026-09-10, \"o setup temporal exige qual o movimento de referencia\". Carried by PFS-2035.07. Evidence owed: the tests it names.*",
-   "verification": "none"
+   "status": "implemented",
+   "evidence": "*Origin: her design of 2026-09-10, \"o setup temporal exige qual o movimento de referencia\". Carried by PFS-2035.07. Evidence: tests/tier1_offline/test_rotor_by_alias.py (the clock follows the named motion and not the fastest; a row stating a MOTIONS list without the key is refused naming the motions it could choose; the flat pre-0.15.0 form is exempt) and tests/tier1_offline/test_reduce_by_rotor.py. Commit 91a7302 and the decisions commit that made the key required. TWO OF HER DECISIONS OF 2026-09-10 CHANGED THIS TEXT, and both are recorded in GeoversePlan/coordination/decisions/DEC-010.*",
+   "verification": "test"
   },
   {
    "id": "FR-65",
@@ -731,9 +731,9 @@
    "id": "FR-71",
    "text": "A ROTATE record states ALIAS where it stated FAMILIES, so a rotation and a motion cite a set of boundaries the same way. AUX_FRAMES retires: every frame the alias owns turns with its boundaries, which for a rotor is <ALIAS>_SMRP, <ALIAS>_RMRP and every <ALIAS>_RMRP<k>, and for a non-rotor alias is none.",
    "priority": "M",
-   "status": "pending",
-   "evidence": "*Origin: her decision of 2026-09-10, \"o comando de rotate tambem tem que ser atualizado para ficar compativel com o do movimento\". Carried by PFS-2035.17. Evidence: tests/tier1_offline/test_rotor_by_alias.py (the rotation cites the alias and turns that rotor's boundaries and no other's; the frames the alias owns turn with it, by name; an undeclared alias is refused naming it; a record stating both spellings is refused naming both; a record stating neither is refused; the 0.14.0 spelling warns and turns the same boundaries). PENDING ON ONE HALF, and it is the half the author owes rather than the one the code owes: see the SMRP_ORIGINAL paragraph below. AMENDS the ROTATE record of FR-35, \"Matrix as first-class interface\", whose FAMILIES and AUX_FRAMES keys this replaces.*",
-   "verification": "none"
+   "status": "implemented",
+   "evidence": "*Origin: her decision of 2026-09-10, \"o comando de rotate tambem tem que ser atualizado para ficar compativel com o do movimento\". Carried by PFS-2035.17. Evidence: tests/tier1_offline/test_rotor_by_alias.py (the rotation cites the alias and turns that rotor's boundaries and no other's; the frames the alias owns turn with it, by name; an undeclared alias is refused naming it; a record stating both spellings is refused naming both; a record stating neither is refused; the 0.14.0 spelling warns and turns the same boundaries; and four cases over SMRP_ORIGINAL: one copy per alias for a row that turns the same alias twice, nothing turns it, a non-rotor alias gets none, and a pproc entry may cite it). AMENDS the ROTATE record of FR-35, \"Matrix as first-class interface\", whose FAMILIES and AUX_FRAMES keys this replaces.*",
+   "verification": "test"
   },
   {
    "id": "FR-72",
@@ -741,6 +741,14 @@
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: her decision of 2026-09-10, \"definicao de eixo customizado como o NAC_FL vai para o ref, onde fica dados geometricos\". Carried by PFS-2035.19. Evidence: tests/tier1_offline/test_reference_vocabulary.py and tests/tier1_offline/test_matrix_run.py (the frames reach the case, a preset still stating them warns and the reference wins, a LEGACY row leaves them out and says so). Commits f0032d3, 661dd5d and 2840078. SUPERSEDES the [[frames]] table of FR-31, \"Solver-setup provenance\", which places it in the setup preset.*",
+   "verification": "test"
+  },
+  {
+   "id": "FR-73",
+   "text": "pyfs-matrix plan and pyfs-matrix run take --ignore-missing-families, whose default is true and which reads a word, so --ignore-missing-families false is what a shell writes; the value reaches each case as the variable IGNORE_MISSING_FAMILIES, which the builders read like any other. At the default nothing at all is written onto a case, so every recorded run keeps its identity and every emitted script its bytes.",
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: her decision of 2026-09-10, \"a minha ideia era ter uma flag na chamada da linha de comando --ignore_missing_families e ali o usuario poder passar false, sendo que o default e true\". Carried by PFS-2035.13, recorded in GeoversePlan/coordination/decisions/DEC-010. Evidence: tests/tier1_offline/test_missing_families_choice.py (twenty-six cases over the three layers, six mutants scored). AMENDS FR-59, \"A reference declares the names a study gives to its boundaries\", whose rule that a member the opened mesh does not carry is ignored becomes the DEFAULT rather than the only reading.*",
    "verification": "test"
   },
   {

@@ -98,6 +98,12 @@ def two_rotor_case(tmp_path, **overrides) -> SimCase:
         "DELTA_TIME": "0.0001",
         "TIME_ITERATIONS": "720",
         "SYMMETRY": "NONE",
+        # REQUIRED SINCE 0.15.0 on a row that states a MOTIONS list, which
+        # is her answer of 2026-09-10 (DEC-010). The fixture carries it so
+        # every case below is about what it says it is about;
+        # `test_a_motions_row_without_a_clock_is_refused` is the one that
+        # takes it away.
+        "CLOCK_MOTION": "LIFT_L1",
     }
     variables.update({k: v for k, v in overrides.items() if v is not None})
     return SimCase(
@@ -671,6 +677,12 @@ def test_the_0140_frame_names_survive_a_record_that_names_no_engine(tmp_path):
     case = case.model_copy(
         update={
             "engines": {},
+            # THE KEY NAMES ONE OF THIS ROW'S OWN MOTIONS. It states a
+            # MOTIONS list in the spelling of before 0.15.0, and the key is
+            # required of any list whatever spelling names it: her
+            # correction of 2026-09-10, "nao precisa manter promessa que
+            # toda linha segue rodando, nao temos release estavel ainda".
+            "variables": {**case.variables, "CLOCK_MOTION": "LB_L1_1"},
             "motions": [
                 {"MOVING_BOUNDARIES": "LB_L1_1", "RPM": "2200", "ROTOR_AXIS": "Z"},
                 {"MOVING_BOUNDARIES": "Blade_1", "RPM": "900", "ROTOR_AXIS": "X"},
@@ -797,8 +809,64 @@ def test_the_clock_follows_the_named_motion_and_not_the_fastest(tmp_path):
     speeds = [rotor_speed(view) for view in views]
     named = base.model_copy(update={"variables": {**base.variables, "CLOCK_MOTION": "PUSHER"}})
     assert _clock_speed(named, views, speeds).rpm == 900
-    with pytest.warns(match="CLOCK_MOTION"):
-        assert _clock_speed(base, views, speeds).rpm == 2200
+    # AND WITHOUT THE KEY IT IS REFUSED, not warned. Her answer of
+    # 2026-09-10 (DEC-010) made the key REQUIRED on a row that states a
+    # MOTIONS list; until then this row read with a warning and the clock
+    # followed the fastest, which is the inference the key exists to
+    # replace.
+    silent = base.model_copy(
+        update={"variables": {k: v for k, v in base.variables.items() if k != "CLOCK_MOTION"}}
+    )
+    with pytest.raises(PyflightstreamError, match="CLOCK_MOTION"):
+        _clock_speed(silent, views, speeds)
+
+
+def test_a_motions_row_without_a_clock_is_refused_naming_what_it_could_choose(tmp_path):
+    """Her answer of 2026-09-10: the key is REQUIRED on a row with a MOTIONS list.
+
+    Which rotor bounds the time step and counts the revolutions is a
+    decision the ROW states, not arithmetic the package performs in
+    silence. The refusal names the motions the row states, so the author
+    can choose without opening the reference.
+    """
+    from pyflightstream.cases.workflows import _clock_speed, _motion_view
+
+    case = two_rotor_case(tmp_path)
+    case = case.model_copy(
+        update={"variables": {k: v for k, v in case.variables.items() if k != "CLOCK_MOTION"}}
+    )
+    views = [_motion_view(case, record) for record in case.motions]
+    speeds = [rotor_speed(view) for view in views]
+    with pytest.raises(PyflightstreamError) as refused:
+        _clock_speed(case, views, speeds)
+    said = str(refused.value)
+    assert "LIFT_L1" in said and "PUSHER" in said, said
+    assert "before 0.15.0" in said, "the refusal does not say who is exempt"
+
+
+def test_a_row_stating_its_rotor_in_the_flat_keys_needs_no_clock(tmp_path):
+    """The pre-0.15.0 form turns ONE rotor, so there is nothing to choose.
+
+    This is the scope she set once the consequence was measured: her own
+    master's case 9001, which arm 4 of GOAL-014 runs, is written this way,
+    and refusing it would have cost her the comparison to buy a key that
+    decides nothing.
+    """
+    from pyflightstream.cases.workflows import _clock_speed
+
+    case = two_rotor_case(tmp_path)
+    flat = case.model_copy(
+        update={
+            "motions": [],
+            "variables": {
+                **{k: v for k, v in case.variables.items() if k != "CLOCK_MOTION"},
+                "MOVING_BOUNDARIES": "LB_L1_1",
+                "RPM": "2200",
+            },
+        }
+    )
+    speeds = [rotor_speed(flat)]
+    assert _clock_speed(flat, [flat], speeds).rpm == 2200
 
 
 def test_a_clock_naming_a_motion_the_row_does_not_state_is_refused(tmp_path):
@@ -934,3 +1002,56 @@ def test_a_record_stating_both_spellings_is_refused(tmp_path):
         rendered(case)
     assert "MOVING_BC_ALIAS" in str(refused.value)
     assert "MOVING_BOUNDARIES" in str(refused.value)
+
+
+# --- FR-71's last half: the frame a rotor turned FROM (her answer of 2026-09-10)
+
+
+def test_a_rotated_rotor_keeps_a_copy_of_the_frame_it_turned_from(tmp_path):
+    """`<ALIAS>_SMRP_ORIGINAL`, which nothing turns and the pproc may cite.
+
+    FR-71's own sentence, and the half that waited on her: a run keeps the
+    frame it turned FROM, so a product can be read in it.
+    """
+    case = rotating_case(tmp_path, "{ANGLE: 3 / AXIS: PUSHER_SMRP-Y / ALIAS: PUSHER}")
+    text = rendered(case)
+    names = set(frame_names(text).values())
+    assert "PUSHER_SMRP_ORIGINAL" in names, sorted(names)
+
+
+def test_the_frame_it_turned_from_is_kept_once_per_alias_and_not_once_per_record(tmp_path):
+    """HER ANSWER OF 2026-09-10, asked in her seat and recorded in DEC-010.
+
+    The discriminator she was given was this row: one alias rotated TWICE.
+    Once per RECORD would also keep the state BETWEEN the two rotations,
+    which is the reading she did not want, so the second rotation adds no
+    frame and the copy still names the state before the row touched
+    anything.
+    """
+    case = rotating_case(
+        tmp_path,
+        "{ANGLE: 3 / AXIS: PUSHER_SMRP-Y / ALIAS: PUSHER}, "
+        "{ANGLE: 2 / AXIS: PUSHER_SMRP-Y / ALIAS: PUSHER}",
+    )
+    text = rendered(case)
+    originals = [name for name in frame_names(text).values() if name.endswith("_ORIGINAL")]
+    assert originals == ["PUSHER_SMRP_ORIGINAL"], originals
+
+
+def test_nothing_turns_the_frame_it_turned_from(tmp_path):
+    """It is the state BEFORE, so a rotation that moved it would erase the point of it."""
+    case = rotating_case(tmp_path, "{ANGLE: 3 / AXIS: PUSHER_SMRP-Y / ALIAS: PUSHER}")
+    text = rendered(case)
+    names = frame_names(text)
+    turned = {names.get(index, index) for index in rotated_frames(text)}
+    assert "PUSHER_SMRP_ORIGINAL" not in turned, sorted(turned)
+    assert "PUSHER_SMRP" in turned, "the hub itself did not turn, so the case proves nothing"
+
+
+def test_a_rotation_of_a_non_rotor_alias_keeps_no_frame(tmp_path):
+    """A declared alias that is not a rotor has no hub, so there is nothing to copy."""
+    case = rotating_case(tmp_path, "{ANGLE: 3 / AXIS: PUSHER_SMRP-Y / ALIAS: WING}")
+    case.aliases["WING"] = ["W"]
+    text = rendered(case)
+    originals = [name for name in frame_names(text).values() if name.endswith("_ORIGINAL")]
+    assert originals == [], originals

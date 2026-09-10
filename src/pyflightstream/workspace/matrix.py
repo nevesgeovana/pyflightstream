@@ -79,7 +79,11 @@ from pyflightstream.cases.matrix import (
     refuse_silent_rows_without_default,
     to_campaign,
 )
-from pyflightstream.cases.workflows import GEOMETRY_VARIABLE, ROTOR_ORIGIN_POINT_KEY
+from pyflightstream.cases.workflows import (
+    GEOMETRY_VARIABLE,
+    IGNORE_MISSING_FAMILIES_VARIABLE,
+    ROTOR_ORIGIN_POINT_KEY,
+)
 from pyflightstream.script.toggles import resolve_toggle
 from pyflightstream.workspace import (
     CampaignWorkspace,
@@ -1254,6 +1258,7 @@ def resolve_matrix(
     fs_version: str | None,
     recipes: Mapping[str, str],
     fs_exe: str | Path | None = None,
+    ignore_missing_families: bool = True,
 ) -> ResolvedMatrix:
     """Bind a run matrix to the workspace input library.
 
@@ -1316,6 +1321,17 @@ def resolve_matrix(
     fs_exe : str or Path, optional
         Explicit executable override; it always wins over the build
         registry and is the only way to run the MANUAL mode.
+    ignore_missing_families : bool
+        Whether a pproc entry naming a family the opened mesh does not
+        carry is left out (the default, True) or REFUSES the point
+        (False, PFS-2035.13). It is a PER-INVOCATION choice and not a
+        property of the row or of the artifact, both of which are meant
+        to serve several geometries, so it travels as an argument and
+        lands on each case's variables as ``IGNORE_MISSING_FAMILIES``,
+        where the builders read it. FALSE ALONE WRITES ANYTHING: at the
+        default every case resolves to exactly the case it resolved to
+        before this argument existed, which is what keeps a run's
+        identity and its emitted script unchanged.
 
     Returns
     -------
@@ -1538,6 +1554,19 @@ def resolve_matrix(
         if flat_origin and not _is_three_numbers(flat_origin):
             bound = _bind_motion(workspace, {"ROTOR_ORIGIN": flat_origin}, row.pol, where="the row")
             update["variables"] = {**case.variables, **bound}
+        # THE INVOCATION'S OWN CHOICE, written onto the row's variables so
+        # the builders read it like any other variable and never learn that
+        # a command line exists (PFS-2035.13, her design of 2026-09-10).
+        #
+        # ONLY THE FALSE SIDE WRITES. At the default the case is left
+        # byte-for-byte the case it was before this argument existed, which
+        # is what keeps every recorded run's identity and every emitted
+        # script unchanged; a variable written on both sides would have put
+        # a new key into every campaign of the 0.14.0 comparison.
+        if not ignore_missing_families:
+            stated = update.get("variables")
+            base = stated if isinstance(stated, Mapping) else case.variables
+            update["variables"] = {**base, IGNORE_MISSING_FAMILIES_VARIABLE: "false"}
         # PFS-2027.02 and .04. THE POSITION IS LOAD-BEARING and it is not
         # a comment asking for an ordering: the reference is bound at the
         # top of this loop body and reaches the case only through the

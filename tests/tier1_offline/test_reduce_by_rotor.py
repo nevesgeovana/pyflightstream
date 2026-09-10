@@ -281,6 +281,8 @@ def test_a_row_turning_one_rotor_takes_the_count_from_that_rotors_block():
             "VELOCITY": "30.0",
             "DELTA_TIME": "0.0001",
             "TIME_ITERATIONS": "720",
+            # REQUIRED SINCE 0.15.0 on a row naming its rotors by alias.
+            "CLOCK_MOTION": "LIFT_L1",
         },
     )
     plan = reduction_windows(case)
@@ -308,6 +310,7 @@ def test_a_sector_row_reduces_over_the_whole_wheel():
             "DELTA_TIME": "0.0001",
             "TIME_ITERATIONS": "720",
             "SYMMETRY": "PERIODIC",
+            "CLOCK_MOTION": "LIFT_L1",
         },
     )
     plan = reduction_windows(case)

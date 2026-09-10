@@ -62,7 +62,7 @@ import math
 import re
 import sys
 import warnings
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Mapping, MutableMapping, Sequence
 from dataclasses import dataclass
 from pathlib import PurePath
 
@@ -86,6 +86,7 @@ from pyflightstream.cases import (
     EngineBlock,
     ScriptRecipe,
     SimCase,
+    alias_members_the_geometry_lacks,
     classify_outputs,
     resolve_alias,
     select_families,
@@ -3907,6 +3908,90 @@ def _inventory(script: Script) -> list[str]:
 Frames = Mapping[str, int | None | Mapping[str, int]]
 
 
+#: The row variable the command line writes its choice into, so the reader
+#: can honour it without the cases layer knowing a command line exists
+#: (PFS-2035.13, her design of 2026-09-10).
+IGNORE_MISSING_FAMILIES_VARIABLE = "IGNORE_MISSING_FAMILIES"
+
+
+def _ignore_missing_families(case: SimCase) -> bool:
+    """Whether a family the mesh lacks is skipped (the default) or refuses.
+
+    A PER-INVOCATION CHOICE and not a property of the row: the same matrix
+    planned across a wing and a rotor wants the skip, and planned against
+    the one geometry that should carry everything wants the refusal. The
+    command line writes it onto the case's variables, so this layer reads a
+    variable like any other and does not learn that a command line exists.
+
+    Absent, it is TRUE, which is what every row written before this flag
+    means and what PFS-2035.01 states.
+    """
+    stated = _variable(case, IGNORE_MISSING_FAMILIES_VARIABLE)
+    if stated is None:
+        return True
+    return str(stated).strip().lower() not in ("false", "no", "0")
+
+
+def _refuse_what_the_geometry_does_not_carry(
+    case: SimCase,
+    selection: str | Sequence[str],
+    inventory: Sequence[str],
+    aliases: Mapping[str, Sequence[str]],
+    expanded: Sequence[Sequence[str]],
+    what: str,
+) -> None:
+    """Say what the skip left out, for a run that asked to hear it (PFS-2035.13).
+
+    TWO SITES, because there are two silences and the flag is named after
+    both. An ALIAS MEMBER no boundary answers is dropped inside the
+    resolver, so an alias of six members over a mesh that carries five
+    still selects five and nothing says which one went (PFS-2035.01); and
+    an ENTRY that selects nothing at all is left out of the products
+    (PFS-2029.07.04). The first is the one the acceptance sentence names
+    and it is reported FIRST, because it is the one a passing entry can
+    hide.
+
+    Neither is a defect at the default. The whole point of the silence is
+    that one artifact serves a wing-body and an isolated rotor; what this
+    function serves is the other intent, where the user believes THIS
+    geometry carries every family the artifact names and wants to hear
+    about it when it does not.
+    """
+    cited = [selection] if isinstance(selection, str) else [str(item) for item in selection]
+    missing: list[tuple[str, list[str]]] = []
+    for token in cited:
+        absent = alias_members_the_geometry_lacks(token, inventory, aliases)
+        if absent:
+            missing.append((token, absent))
+    declared = ", ".join(repr(name) for name in inventory) or "no boundary"
+    if missing:
+        told = "; ".join(
+            f"the alias {token!r} names {', '.join(repr(name) for name in absent)}"
+            for token, absent in missing
+        )
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: {what} of {_artifact_of(case)} cites members no "
+            f"boundary of this geometry answers: {told}. The geometry declares "
+            f"{declared}. This run was asked for the refusal rather than the "
+            "skip: ignore_missing_families (CLI: --ignore-missing-families) was given "
+            "as false, so a member the mesh does not carry is an error here and not "
+            "the difference between two geometries one reference serves "
+            "(PFS-2035.13)."
+        )
+    if expanded:
+        return
+    known = ", ".join(sorted(case.aliases)) or "none"
+    raise CampaignConfigError(
+        f"case {case.sim_id!r}: {what} of {_artifact_of(case)} selects "
+        f"{selection!r}, and this geometry carries no family of it. The aliases the "
+        f"row's reference defines are {known}; the geometry declares {declared}. This "
+        "run was asked for the refusal rather than the skip: ignore_missing_families "
+        "(CLI: --ignore-missing-families) was given as false, so a family the mesh "
+        "does not carry is an error and not a difference between geometries "
+        "(PFS-2035.13)."
+    )
+
+
 def _selected_families(
     case: SimCase,
     selection: str | Sequence[str],
@@ -3924,9 +4009,10 @@ def _selected_families(
     and said nothing, and the user met it as a plot that is not in the
     products.
     """
-    expanded = select_families(
-        selection, inventory, is_blade, aliases=_the_names_a_rotor_answers_to(case)
-    )
+    names = _the_names_a_rotor_answers_to(case)
+    expanded = select_families(selection, inventory, is_blade, aliases=names)
+    if not _ignore_missing_families(case):
+        _refuse_what_the_geometry_does_not_carry(case, selection, inventory, names, expanded, what)
     if not expanded:
         known = ", ".join(sorted(case.aliases)) or "none"
         warnings.warn(
@@ -4019,14 +4105,14 @@ def _rotors_the_entry_cites(
     if not case.engines:
         return []
     wanted = [families] if isinstance(families, str) else list(families)
-    # EVERY ROTOR IS WHAT `all` AND `blades` MEAN HERE, and reading them is
+    # EVERY ROTOR IS WHAT `all` MEANS HERE, and reading it is
     # the answer to a refusal that lied: `frame = "SMRP", families = "all"`
     # is the natural way to write "every rotor, each in its own frame", and
     # it was refused saying the families reach no rotor of the reference,
     # which diagnoses a misspelling. The selectors were simply not read (the
     # interface lens, 2026-09-10). `airframe` still reaches none, and that
     # refusal is true: an airframe has no rotor.
-    if any(str(token).strip().casefold() in ("all", "blades") for token in wanted):
+    if any(str(token).strip().casefold() == "all" for token in wanted):
         return [(alias, []) for alias in case.engines]
     vocabulary = _the_reference_vocabulary(case)
     known = _the_names_a_rotor_answers_to(case)
@@ -4370,6 +4456,10 @@ def _rotations(
         return
     frames = {name: index for name, index in named.items() if index is not None}
     labels = script.entities.labels("boundaries")
+    #: The aliases whose `<ALIAS>_SMRP_ORIGINAL` this row has already kept.
+    #: ONE PER ALIAS is her answer of 2026-09-10 (DEC-010), so a row that
+    #: rotates one alias twice keeps the state before the FIRST rotation.
+    kept: set[str] = set()
     for record in case.rotations:
         # The matrix reader refused these already; a case authored in
         # Python meets the same sentence here rather than a KeyError.
@@ -4419,6 +4509,11 @@ def _rotations(
         # a row that turned the blades and left them behind was stating an
         # incidence the axes did not get, and the row had to list them by
         # hand to fix it. A non-rotor alias owns no frame and adds none.
+        # THE FRAME THIS ALIAS TURNS FROM, kept before it turns (FR-71).
+        # Once per alias: `kept` is the set of aliases already copied, so a
+        # row that rotates one alias twice keeps the state before the FIRST
+        # rotation and adds nothing at the second.
+        _keep_the_frame_this_alias_turns_from(case, record, script, frames, kept)
         owned = _frames_the_alias_owns(case, record, frames)
         aux_names = [*owned, *(name for name in aux_names if name not in owned)]
         # Resolved BEFORE the warning below, so a misspelt auxiliary meets its
@@ -4571,6 +4666,70 @@ def _what_the_rotation_turns(case: SimCase, record: Mapping[str, str]) -> str:
         stacklevel=3,
     )
     return families
+
+
+#: The suffix of the copy a rotor's hub keeps of itself, before anything
+#: turned it (FR-71). It is a frame like any other to the post-processing,
+#: which may cite it by name, and nothing ever rotates it.
+ORIGINAL_FRAME_SUFFIX = "_ORIGINAL"
+
+
+def _keep_the_frame_this_alias_turns_from(
+    case: SimCase,
+    record: Mapping[str, str],
+    script: Script,
+    # NARROWER THAN THE `Frames` ALIAS ON PURPOSE. This function only asks
+    # whether the hub is placed and writes ONE index, so it takes the
+    # mapping the rotation loop actually holds, which carries indices and
+    # nothing else. A `dict` is invariant in its value type, so declaring
+    # the wide alias here refused the caller's own dictionary.
+    frames: MutableMapping[str, int],
+    kept: set[str],
+) -> None:
+    """Create ``<ALIAS>_SMRP_ORIGINAL`` once per alias, before its first turn (FR-71).
+
+    ONCE PER ALIAS AND NOT ONCE PER RECORD, which is her answer of
+    2026-09-10 (DEC-010). The discriminator she was given was a row that
+    rotates one alias TWICE: per record would also keep the state BETWEEN
+    the two rotations, and she does not want that reading, so a second
+    rotation of the same alias adds nothing and the copy still names the
+    state before the row touched anything.
+
+    WHY THE COPY IS TAKEN HERE and not where the hub is created: at the
+    moment the hub is placed nothing has turned, so a copy made there and a
+    copy made here are the same frame. Here is where the ROW's intent is
+    known, so a row that turns NO rotor creates no copy of one, and a
+    reader of the script meets the copy immediately above the rotation it
+    exists to survive.
+
+    A record naming no alias, or an alias the reference declares as no
+    rotor, keeps nothing: there is no hub to copy.
+    """
+    alias = (record.get(ROTATION_ALIAS_KEY) or "").strip()
+    if not alias:
+        return
+    radical = next(
+        (name for name in {*case.engines} if name.casefold() == alias.casefold()),
+        None,
+    )
+    if radical is None or radical in kept:
+        return
+    hub = f"{radical}_SMRP"
+    if hub not in frames:
+        # The rotor has no motion on this row, so its frames were never
+        # placed and there is nothing to keep a copy OF. The rotation
+        # still turns the alias's boundaries; it simply turns no frame.
+        return
+    block = case.engines[radical]
+    frames[f"{hub}{ORIGINAL_FRAME_SUFFIX}"] = helpers.coordinate_frame(
+        script,
+        name=f"{hub}{ORIGINAL_FRAME_SUFFIX}",
+        origin=block.origin,
+        x_axis=(1.0, 0.0, 0.0),
+        y_axis=(0.0, 1.0, 0.0),
+        label=f"rotor_original:{radical}",
+    )
+    kept.add(radical)
 
 
 def _frames_the_alias_owns(
@@ -5883,15 +6042,58 @@ def _clock_speed(case: SimCase, views: Sequence[SimCase], speeds: Sequence[Rotor
     fastest = max(speeds, key=lambda each: abs(each.rpm))
     named = _variable(case, CLOCK_MOTION_VARIABLE)
     if named is None:
+        # REQUIRED ON A ROW THAT STATES A `MOTIONS` LIST, which is her
+        # answer of 2026-09-10 (DEC-010) with the scope she set once the
+        # consequence was measured in front of her. The list is the 0.15.0
+        # vocabulary and it is where a row has something to choose between;
+        # the flat pre-0.15.0 form names one rotor and has nothing to
+        # choose, and it is how her master's case 9001 is written, which
+        # arm 4 of GOAL-014 runs. Refusing that row would have cost her the
+        # comparison to buy a key that decides nothing.
+        # ANY ROW THAT STATES A `MOTIONS` LIST, in either spelling. Her
+        # answer of 2026-09-10, and then her correction of the same day
+        # when I had scoped it narrower to protect rows written at 0.14.0:
+        # "nao precisa manter promessa que toda linha segue rodando, nao
+        # temos release estavel ainda". A 0.x release is not bound to the
+        # rows of the release before it, and a list of several motions has
+        # something to choose between whatever spelling names them.
+        #
+        # The FLAT form is still exempt, and that exemption is hers and was
+        # measured: it turns ONE rotor, so there is nothing to choose, and
+        # it is how her master's case 9001 is written, which arm 4 runs.
+        if case.motions:
+            owner = _variable(views[speeds.index(fastest)], MOVING_BOUNDARIES_VARIABLE)
+            stated = ", ".join(
+                str(
+                    record.get(MOVING_BC_ALIAS_VARIABLE)
+                    or record.get(MOVING_BOUNDARIES_VARIABLE)
+                    or "?"
+                )
+                for record in case.motions
+            )
+            raise CampaignConfigError(
+                f"case {case.sim_id!r} states {len(case.motions)} motion(s) and no "
+                f"{CLOCK_MOTION_VARIABLE}. Which rotor bounds the time step and counts "
+                "the revolutions is a decision the ROW states, not arithmetic the "
+                f"package performs in silence: without the key the clock would follow "
+                f"the fastest, which here is {owner!r} at {fastest.rpm:g} rev/min, and "
+                "nothing in the row would say so. Write "
+                f"'{CLOCK_MOTION_VARIABLE}: <alias>' naming one of {stated}.\n\n"
+                "A row written before 0.15.0, which states its rotor in the flat keys "
+                f"rather than in a {MOTIONS_VARIABLE} list, needs no key: it turns one "
+                "rotor and there is nothing to choose between."
+            )
         if len(speeds) > 1:
             owner = _variable(views[speeds.index(fastest)], MOVING_BOUNDARIES_VARIABLE)
             warnings.warn(
-                f"case {case.sim_id!r} states {len(speeds)} motions and no "
-                f"{CLOCK_MOTION_VARIABLE}, so the time step and the run length follow the "
-                f"FASTEST rotor, which is {owner!r} at {fastest.rpm:g} rev/min. That is "
-                "the package's own arithmetic and not a decision the row wrote: name the "
-                f"motion that owns the clock with {CLOCK_MOTION_VARIABLE}. The key becomes "
-                "required at 0.17.0.",
+                f"case {case.sim_id!r} states {len(speeds)} motions in the spelling of "
+                f"before 0.15.0 and no {CLOCK_MOTION_VARIABLE}, so the time step and the "
+                f"run length follow the FASTEST rotor, which is {owner!r} at "
+                f"{fastest.rpm:g} rev/min. That is the package's own arithmetic and not a "
+                f"decision the row wrote: name the motion that owns the clock with "
+                f"{CLOCK_MOTION_VARIABLE}. A row that names its rotors by alias is "
+                "refused without it since 0.15.0, and the key becomes required for every "
+                "row at 0.17.0.",
                 PyflightstreamDeprecationWarning,
                 stacklevel=2,
             )
@@ -6140,6 +6342,11 @@ _STEADY_KEYS: tuple[str, ...] = (
     # belong to every run type: every point has an attitude.
     ALPHA_VARIABLE,
     BETA_VARIABLE,
+    # PFS-2035.13: the command line writes this one onto the case, so it
+    # is registered on every run type for the same reason the two angles
+    # are, and it is refused in a matrix CELL by the reader, so it stays a
+    # choice of the invocation and never becomes a property of the row.
+    IGNORE_MISSING_FAMILIES_VARIABLE,
     PERIODIC_COPIES_VARIABLE,
     BASE_REGIONS_VARIABLE,
     ROTATE_VARIABLE,

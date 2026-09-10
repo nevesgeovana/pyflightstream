@@ -4123,6 +4123,11 @@ def test_two_motions_emit_two_motion_blocks_with_their_frames(tmp_path):
         "ROTOR_ORIGIN",
     }
     variables = {key: value for key, value in flat.variables.items() if key not in record_keys}
+    # REQUIRED ON A ROW STATING A MOTIONS LIST since 0.15.0 (FR-64, her
+    # decision of 2026-09-10). It names the FASTEST of the two, which is
+    # the rotor the package chose in silence before the key existed, so
+    # this fixture asserts what it asserted and the key changes no number.
+    variables["CLOCK_MOTION"] = "Blade2"
     twin = flat.model_copy(
         update={
             "variables": variables,
@@ -4440,6 +4445,11 @@ def test_a_rotation_on_a_motions_row_turns_the_records_hub_and_its_moving_frame(
         "ROTOR_ORIGIN",
     }
     variables = {key: value for key, value in flat.variables.items() if key not in record_keys}
+    # REQUIRED ON A ROW STATING A MOTIONS LIST since 0.15.0 (FR-64, her
+    # decision of 2026-09-10). It names the FASTEST of the two, which is
+    # the rotor the package chose in silence before the key existed, so
+    # this fixture asserts what it asserted and the key changes no number.
+    variables["CLOCK_MOTION"] = "Blade2"
     twin = flat.model_copy(
         update={
             "variables": variables,
@@ -4655,6 +4665,11 @@ def test_a_pproc_entry_cites_a_rotors_own_frame_in_a_motions_row(tmp_path):
         "ROTOR_ORIGIN",
     }
     variables = {key: value for key, value in flat.variables.items() if key not in record_keys}
+    # REQUIRED ON A ROW STATING A MOTIONS LIST since 0.15.0 (FR-64, her
+    # decision of 2026-09-10). It names the FASTEST of the two, which is
+    # the rotor the package chose in silence before the key existed, so
+    # this fixture asserts what it asserted and the key changes no number.
+    variables["CLOCK_MOTION"] = "Blade2"
     pproc = PprocSpec.model_validate(
         {
             "plots": {

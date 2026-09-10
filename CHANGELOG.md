@@ -30,9 +30,24 @@ FlightStream versions.
   motion, `<ALIAS>_RMRP<k>` per blade and turning with it. Nine rotors
   instantiate nine sets rather than colliding on one radical. A
   post-processing entry may cite them; the 0.14.0 names still resolve.
-- **`CLOCK_MOTION`**, the motion that owns the time step (FR-64). A row of
-  several motions that states none keeps the fastest-rotor arithmetic and
-  warns naming the motion assumed; the key becomes required at 0.17.0.
+- **`CLOCK_MOTION`**, the motion that owns the time step (FR-64), REQUIRED
+  on any row that states a `MOTIONS` list. Which rotor bounds the time step
+  and counts the revolutions is a decision the row states, not arithmetic
+  the package performs in silence: without the key the clock followed the
+  fastest rotor and nothing in the row said so. A row states the key or it
+  is refused, naming the motions it could have named.
+
+  The flat pre-0.15.0 form is EXEMPT: it names one rotor in its own keys and
+  has nothing to choose between. `rotor_speed` keeps its name; the draft of
+  FR-64 renamed it `rotor_speed_ref` and she struck the rename.
+- **`<ALIAS>_SMRP_ORIGINAL`, the frame a rotation turned FROM** (FR-71).
+  Once per alias, before its FIRST rotation, the builder copies that rotor's
+  hub frame; nothing turns the copy and a post-processing entry may cite it,
+  so a study of an installed propeller can still be read in the frame it
+  started in. Before this release that frame was lost the moment the mesh
+  moved. ONCE PER ALIAS AND NOT ONCE PER RECORD is her answer of 2026-09-10:
+  a row that turns one alias twice keeps the state before the first rotation
+  and adds nothing at the second.
 - **`SYMMETRY_LOADS` on the row** (FR-66), overriding the preset with a
   warning, because whether the solver reports the sector's loads or the
   wheel's is a per-row choice.
@@ -70,6 +85,24 @@ FlightStream versions.
   it by, which is what lets one row sweep the pusher while the lifters hold.
   A record may not state the word `sweep`: sweeping is the condition's job,
   stated once for the row, and a record that writes it is refused.
+- **`--ignore-missing-families`, on `pyfs-matrix plan` and `run`** (FR-73,
+  her design of 2026-09-10). The default is true and it reads a word, so
+  `--ignore-missing-families false` is what a shell writes. With false, two
+  silences become refusals, each naming the geometry's own boundaries beside
+  what was cited: an alias member no boundary answers, which the resolver
+  drops so quietly that an alias of six members over a mesh carrying five
+  still expands and writes its plot; and a post-processing entry that
+  selects nothing at all, which is left out of the products.
+
+  The skip is what lets one reference and one post-processing artifact serve
+  a wing-body and an isolated rotor, and from the emitted script that skip
+  and a MISSPELLED family are the same event. Which of the two you are
+  looking at is a property of what THIS RUN was for, not of the row or of
+  the artifact, so it is a flag and not a cell. `convert` does not take it:
+  it writes a file that outlives the command, and a per-invocation choice
+  frozen into an artifact stops being one. AT THE DEFAULT NOTHING IS WRITTEN
+  onto a case, so every recorded run keeps its identity and every emitted
+  script its bytes.
 - **A row may state raw solver commands of its own** (FR-67), in a `RAW`
   list inside the row's `VAR_NAMES_VALUES` cell, beside `MOTIONS` and
   `ROTATE`. A record writes the line itself or names a text file of the
@@ -193,7 +226,17 @@ FlightStream versions.
 - A motion record's `MOVING_BOUNDARIES`, `ROTOR_AXIS`, `ROTOR_ORIGIN`,
   `RPM_SIGN` and `BLADES`: the reference states each once, in the rotor's
   own block. Removed at 0.17.0.
-- A rotor row with no `CLOCK_MOTION`. Removed at 0.17.0.
+- A `families` entry's `airframe` and `blades` SELECTORS, read as
+  selectors. They are the two that decide what a BLADE is, from
+  `blade_pattern`, a regular expression over the family name: a mesh whose
+  blades are spelled another way gets an airframe with blades in it and
+  nothing says so. Declare the set in the reference's `[aliases]` table and
+  cite it by name. `all` and `each` stay, because they guess nothing.
+  Removed at 0.17.0.
+
+  AN ALIAS OF THE SAME NAME IS READ FIRST AND WARNS ABOUT NOTHING, which is
+  what makes this cheap: a reference that already declares `airframe` is
+  untouched, and every one of the author's does.
 - A post-processing entry's `families = "each_blade"`. The FRAME says it
   now: write `frame = "LOCAL_AXIS"`, which is one per blade. Removed at
   0.17.0.

@@ -92,6 +92,7 @@ from pyflightstream.cases import (
 # second list is how a value gets refused for naming a workflow that was
 # registered last week.
 from pyflightstream.cases.workflows import (
+    IGNORE_MISSING_FAMILIES_VARIABLE,
     LOG_OUTPUT_VARIABLE,
     MOTIONS_VARIABLE,
     RAW_BEFORE_KEY,
@@ -1307,9 +1308,37 @@ def read_matrix(path: str | Path, *, active_only: bool = True) -> list[MatrixRow
         # variable grammar already are, and a refusal a user only meets
         # after flipping RUN to 1 is a refusal that waited.
         _check_one_sweep_per_row(row.pol, row.sweep, row.variables)
+        _refuse_a_choice_that_belongs_to_the_invocation(row)
         if row.run == 1 or not active_only:
             rows.append(row)
     return rows
+
+
+def _refuse_a_choice_that_belongs_to_the_invocation(row: MatrixRow) -> None:
+    """Refuse a cell key that is a property of the RUN and not of the row.
+
+    One key today, and it is registered on every run type because the
+    command line writes it onto the case (PFS-2035.13). Registered means
+    typable, and typed into a cell it would become a property of the row,
+    which is the one thing this design is not: whether a family the opened
+    mesh does not carry is a skip or a refusal depends on what THIS RUN was
+    for, and the row is written to serve several geometries.
+
+    The same shape as the LOG_OUTPUT refusal above, and for the same
+    reason: a key with two homes is a key whose two homes disagree.
+    """
+    if IGNORE_MISSING_FAMILIES_VARIABLE not in row.variables:
+        return
+    raise MatrixError(
+        f"POL {row.pol} states {IGNORE_MISSING_FAMILIES_VARIABLE} among its variables, "
+        "and that is a choice of the RUN rather than a property of the row. Whether a "
+        "family the opened mesh does not carry is left out or REFUSES the point depends "
+        "on what this run is for: the same row planned across a wing and a rotor wants "
+        "the skip, and planned against the one geometry that should carry everything "
+        "wants the refusal. Take the key out of the cell and pass "
+        "ignore_missing_families (CLI: --ignore-missing-families) to plan or run "
+        "instead, which is where the intent of one invocation belongs (PFS-2035.13)."
+    )
 
 
 #: The command-line spelling of the campaign default, named in the

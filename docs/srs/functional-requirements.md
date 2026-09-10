@@ -1979,21 +1979,37 @@ requirement below is one seam of that division.
     configuration, and a second rotor of another size cannot be resolved by
     it.
 
-!!! requirement "FR-64 Every rotor row names the motion that owns the clock <span class='srs-pending'>pending</span>"
+!!! requirement "FR-64 Every rotor row names the motion that owns the clock <span class='srs-implemented'>implemented</span>"
     *Origin: her design of 2026-09-10, "o setup temporal exige qual o
-    movimento de referencia". Carried by PFS-2035.07. Evidence owed: the tests
-    it names.*
+    movimento de referencia". Carried by PFS-2035.07. Evidence:
+    `tests/tier1_offline/test_rotor_by_alias.py` (the clock follows the named
+    motion and not the fastest; a row stating a `MOTIONS` list without the key
+    is refused naming the motions it could choose; the flat pre-0.15.0 form is
+    exempt) and `tests/tier1_offline/test_reduce_by_rotor.py`. Commit 91a7302
+    and the decisions commit that made the key required. TWO OF HER
+    DECISIONS OF 2026-09-10 CHANGED THIS TEXT, and both are recorded in
+    `GeoversePlan/coordination/decisions/DEC-010`.*
 
-    `CLOCK_MOTION` is a cell key, required on every row that states a motion,
-    even a row with one, and it names a motion the same row states. The time
-    step and the run length are that motion's. `rotor_speed` becomes
-    `rotor_speed_ref` so the call site says which speed it is.
+    `CLOCK_MOTION` is a cell key, REQUIRED on every row that states a
+    `MOTIONS` list, and it names a motion the same row states. The time step
+    and the run length are that motion's.
 
-    A row of SEVERAL motions without the key is read with a warning naming
-    the motion assumed, until 0.17.0; a row of ONE is silent, because there
-    is nothing to choose between. Today the clock follows the fastest rotor
-    by the package's own arithmetic, which is an inference the author never
-    wrote down; a declaration replaces it.
+    `rotor_speed` KEEPS ITS NAME. The draft of this requirement renamed it
+    `rotor_speed_ref`; asked, she chose to leave it, and the rename is
+    struck rather than deferred.
+
+    THE SCOPE IS THE `MOTIONS` LIST AND NOT EVERY ROW WITH A MOTION, which
+    is the second decision and it was taken with the consequence measured in
+    front of her. The list is the 0.15.0 vocabulary and it is where a row
+    has something to choose between; the flat pre-0.15.0 form names one
+    rotor in its own keys, has nothing to choose, and is how her master's
+    case 9001 is written. Refusing that row would have cost the comparison
+    that release rests on to buy a key that decides nothing.
+
+    A row that states a `MOTIONS` list and no key is REFUSED, naming the
+    motions it could have named. Before this release the clock followed the
+    fastest rotor by the package's own arithmetic, which is an inference the
+    author never wrote down; a declaration replaces it.
 
     IMPLEMENTED IN PART at 0.15.0, and the part that is owed is named here
     rather than left for a reader to discover: the key is read, the named
@@ -2286,7 +2302,7 @@ requirement below is one seam of that division.
     The key stays optional precisely so that a row may prescribe the speed per
     motion instead, which is FR-63.
 
-!!! requirement "FR-71 A rotation cites an alias, carries its frames, and keeps the frame it turned from <span class='srs-pending'>pending</span>"
+!!! requirement "FR-71 A rotation cites an alias, carries its frames, and keeps the frame it turned from <span class='srs-implemented'>implemented</span>"
     *Origin: her decision of 2026-09-10, "o comando de rotate tambem tem que
     ser atualizado para ficar compativel com o do movimento". Carried by
     PFS-2035.17. Evidence: `tests/tier1_offline/test_rotor_by_alias.py` (the
@@ -2294,10 +2310,11 @@ requirement below is one seam of that division.
     the frames the alias owns turn with it, by name; an undeclared alias is
     refused naming it; a record stating both spellings is refused naming both;
     a record stating neither is refused; the 0.14.0 spelling warns and turns
-    the same boundaries). PENDING ON ONE HALF, and it is the half the author
-    owes rather than the one the code owes: see the SMRP_ORIGINAL paragraph
-    below. AMENDS the `ROTATE` record of FR-35, "Matrix as first-class
-    interface", whose `FAMILIES` and `AUX_FRAMES` keys this replaces.*
+    the same boundaries; and four cases over `SMRP_ORIGINAL`: one copy per
+    alias for a row that turns the same alias twice, nothing turns it, a
+    non-rotor alias gets none, and a pproc entry may cite it). AMENDS the
+    `ROTATE` record of FR-35, "Matrix as first-class interface", whose
+    `FAMILIES` and `AUX_FRAMES` keys this replaces.*
 
     A `ROTATE` record states `ALIAS` where it stated `FAMILIES`, so a rotation
     and a motion cite a set of boundaries the same way. `AUX_FRAMES` retires:
@@ -2305,25 +2322,23 @@ requirement below is one seam of that division.
     `<ALIAS>_SMRP`, `<ALIAS>_RMRP` and every `<ALIAS>_RMRP<k>`, and for a
     non-rotor alias is none.
 
-    **NOT BUILT, AND THE REASON IS NOT THAT IT IS HARD.** Before the first
-    rotation of an alias the builder creates `<ALIAS>_SMRP_ORIGINAL`, a copy
-    of that frame as it stood, which nothing turns and which a
-    post-processing entry may cite, so a study of an installed propeller
-    keeps the frame it turned FROM. Today that frame is lost the moment the
-    mesh moves.
+    ONCE PER ALIAS, before the FIRST rotation of that alias, the builder
+    creates `<ALIAS>_SMRP_ORIGINAL`, a copy of the frame as it stood, which
+    nothing turns and which a post-processing entry may cite, so a study of
+    an installed propeller keeps the frame it turned FROM. Before this
+    release that frame was lost the moment the mesh moved.
 
-    PFS-2035.17 records the choice as the author's: once per ALIAS, before
-    the first rotation, or once per RECORD, which would also keep the frame
-    BETWEEN two rotations of the same alias. The two differ in what a study
-    of a pitch and then a toe can read afterwards, which is a question about
-    what a user wants to measure and not one the code can answer. Building
-    one of them and writing it down where it would look decided is the
-    failure this estate names design-first, so this half waits.
+    ONCE PER ALIAS IS HER ANSWER OF 2026-09-10 and the alternative was real:
+    once per RECORD would also have kept the frame BETWEEN two rotations of
+    the same alias, so a row stating a pitch and then a toe could read each
+    stage in the frame it started from. The two differ in what such a study
+    can measure afterwards, which is a question about what a user wants and
+    not one the code can answer, so it waited for her rather than being
+    built and written down where it would look decided.
 
-    Measured 2026-09-10, before the rest of this requirement was built: the
-    builder emits `ROTATE_COORDINATE_SYSTEM` and keeps no copy of a frame
-    anywhere; `grep -c "_ORIGINAL" src/pyflightstream/cases/workflows.py`
-    answers 0. It still answers 0.
+    Measured 2026-09-10, before this half was built: the builder emitted
+    `ROTATE_COORDINATE_SYSTEM` and kept no copy of a frame anywhere, and
+    `grep -c "_ORIGINAL" src/pyflightstream/cases/workflows.py` answered 0.
 
     A rotation citing an alias the reference does not declare is refused
     naming the alias, and listing the words the reference does declare.
@@ -2376,3 +2391,44 @@ requirement below is one seam of that division.
     and the rotors. It also puts the two halves of one subject in one file:
     the frames a rotor instantiates were always derived from the reference's
     rotor block, while the hand-written ones sat in the preset.
+
+!!! requirement "FR-73 A run chooses whether a family the mesh does not carry is a skip or a refusal <span class='srs-implemented'>implemented</span>"
+    *Origin: her decision of 2026-09-10, "a minha ideia era ter uma flag na
+    chamada da linha de comando --ignore_missing_families e ali o usuario
+    poder passar false, sendo que o default e true". Carried by PFS-2035.13,
+    recorded in `GeoversePlan/coordination/decisions/DEC-010`. Evidence:
+    `tests/tier1_offline/test_missing_families_choice.py` (twenty-six cases
+    over the three layers, six mutants scored). AMENDS FR-59, "A reference
+    declares the names a study gives to its boundaries", whose rule that a
+    member the opened mesh does not carry is ignored becomes the DEFAULT
+    rather than the only reading.*
+
+    `pyfs-matrix plan` and `pyfs-matrix run` take
+    `--ignore-missing-families`, whose default is true and which reads a
+    word, so `--ignore-missing-families false` is what a shell writes; the
+    value reaches each case as the variable `IGNORE_MISSING_FAMILIES`, which
+    the builders read like any other. At the default nothing at all is
+    written onto a case, so every recorded run keeps its identity and every
+    emitted script its bytes.
+
+    With false, two silences become refusals, and both name the geometry's
+    own boundaries beside what was cited: an alias member no boundary
+    answers, which the resolver drops so quietly that an alias of six
+    members over a mesh carrying five still expands and writes its plot; and
+    a post-processing entry that selects nothing at all, which is left out
+    of the products. The first is reported first, because it is the one a
+    passing entry hides.
+
+    `convert` does not take the flag. It writes a campaign file that is read
+    later by something that never saw this command line, and a
+    per-invocation choice frozen into an artifact stops being one.
+
+    WHY IT IS AN INVOCATION'S CHOICE AND NOT A CELL. The skip is what lets
+    one reference and one post-processing artifact serve a wing-body and an
+    isolated rotor, and from the emitted script that skip and a MISSPELLED
+    family are the same event: both leave the entry out and say nothing.
+    Which of the two a user is looking at is not a property of the row or of
+    the artifact, both of which are written to serve several geometries. It
+    is a property of what this run was for: a study planned across two
+    geometries wants the skip, and the same matrix planned against the one
+    geometry that should carry everything wants to hear about it.
