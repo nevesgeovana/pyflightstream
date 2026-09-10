@@ -923,6 +923,81 @@ def _steady_row_on_a_setup_with_raw(tmp_path, entries, name="raw.fs"):
     return root, _one_row_matrix(root, name, "|".join(cells))
 
 
+def _row_with_a_raw_cell(tmp_path, cell, name="rawcell.fs", preset=()):
+    """A steady row of the tour whose VAR_NAMES_VALUES carries a RAW list (FR-67)."""
+    root = _tier3_copy(tmp_path)
+    if preset:
+        plain = (root / "inputs" / "setups" / "s001.toml").read_text(encoding="utf-8")
+        body = "".join(
+            f'\n[[raw]]\ncommand = "{command}"\nbefore = "{before}"\n' for command, before in preset
+        )
+        (root / "inputs" / "setups" / "s091.toml").write_text(
+            plain.rstrip("\n") + "\n" + body, encoding="utf-8"
+        )
+    steady = next(
+        line for line in TOUR.read_text(encoding="utf-8").splitlines() if "| steady " in line
+    )
+    cells = steady.split("|")
+    if preset:
+        cells[_COLUMNS.index("SET")] = " s091 "
+    tail = cells[-1].strip()
+    cells[-1] = f" {tail} / {cell}" if tail else f" {cell}"
+    return root, _one_row_matrix(root, name, "|".join(cells))
+
+
+def _raw_file(root, body, name="extra.txt"):
+    """Write a raw command file under the workspace's inputs."""
+    raw = root / "inputs" / "raw"
+    raw.mkdir(exist_ok=True)
+    (raw / name).write_text(body, encoding="utf-8")
+    return f"raw/{name}"
+
+
+def test_a_raw_line_from_a_file_reaches_the_emitted_script_in_file_order(tmp_path):
+    """NOTHING RENDERED A SCRIPT FROM A ROW'S RAW CELL until this round.
+
+    Every case of `test_raw_on_the_row.py` stops at the resolved case, so
+    the whole path from a FILE record to an emitted line was measured
+    nowhere (the QA lens, 2026-09-10).
+    """
+    root, matrix = _row_with_a_raw_cell(tmp_path, "RAW: {FILE: raw/extra.txt / BEFORE: init}")
+    _raw_file(
+        root, "# a file that explains itself\n\nPRINT from_line_three\nPRINT from_line_four\n"
+    )
+    plan, rendered = _rendered(root, matrix)
+    assert not plan.blocked, plan.summary()
+    lines = next(iter(rendered.values())).splitlines()
+    assert "PRINT from_line_three" in lines, [line for line in lines if line.startswith("PRINT")]
+    assert lines.index("PRINT from_line_three") < lines.index("PRINT from_line_four"), (
+        "the file's lines are emitted out of file order"
+    )
+    assert lines.index("PRINT from_line_four") < lines.index("INITIALIZE_SOLVER")
+
+
+def test_a_refusal_from_a_raw_file_names_the_file_and_the_line(tmp_path):
+    """FR-67's own capitalised sentence, measured for the first time.
+
+    The cell holds a PATH and the mistake may be thirty lines away, so a
+    refusal that named the cell would send the author to the wrong file.
+    """
+    root, matrix = _row_with_a_raw_cell(tmp_path, "RAW: {FILE: raw/extra.txt / BEFORE: init}")
+    _raw_file(root, "# two good lines and then one this build lacks\nPRINT fine\nNOT_A_COMMAND 1\n")
+    plan = _plan(root, matrix)
+    assert plan.blocked, plan.summary()
+    reason = plan.summary()
+    assert "raw/extra.txt:3" in reason, reason
+    assert "NOT_A_COMMAND" in reason, reason
+
+
+def test_a_refusal_from_the_rows_own_cell_says_so(tmp_path):
+    """The other arm: the line IS in the cell, so the cell is where to look."""
+    root, matrix = _row_with_a_raw_cell(tmp_path, "RAW: {COMMAND: NOT_A_COMMAND 1 / BEFORE: init}")
+    plan = _plan(root, matrix)
+    assert plan.blocked, plan.summary()
+    reason = plan.summary()
+    assert "the row's own RAW cell" in reason, reason
+
+
 def test_a_raw_command_is_emitted_before_the_phase_it_names_and_after_the_one_before(tmp_path):
     """RED on aff689e: the setup is refused as stating a key naming no setting."""
     root, matrix = _steady_row_on_a_setup_with_raw(

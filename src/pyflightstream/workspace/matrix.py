@@ -569,11 +569,18 @@ def _the_rows_raw_commands(row: MatrixRow, inputs_dir: Path) -> list[RawCommand]
             entries.append(RawCommand(command=line, before=before, source="matrix"))
             continue
         stated = record[RAW_FILE_KEY].strip()
+        inputs = inputs_dir.resolve()
+        # RESOLVED BEFORE COMPARED, and that ORDER is the whole soundness of
+        # the check: `.resolve()` normalises `..` AND follows a link, so a
+        # junction placed inside the inputs and pointing out is caught. A
+        # lexical comparison defeats `..` and lets the junction through, and
+        # the QA lens measured that a lexical mutant survived the whole
+        # suite because no case reached the link (2026-09-10).
         path = (inputs_dir / stated).resolve()
         # UNDER THE INPUTS AND NOWHERE ELSE. A relative path that climbs out
         # of the workspace would read a file the run record cannot describe
         # and a second machine does not have.
-        if not path.is_relative_to(inputs_dir.resolve()):
+        if not path.is_relative_to(inputs):
             raise MatrixError(
                 f"POL {row.pol}: {RAW_VARIABLE} names the file {stated!r}, which resolves "
                 f"outside the workspace's inputs ({inputs_dir}). A raw file is a file of "
@@ -585,11 +592,40 @@ def _the_rows_raw_commands(row: MatrixRow, inputs_dir: Path) -> list[RawCommand]
                 f"{path} is not a file. A raw file is written under the workspace's "
                 "inputs and its path is stated relative to them."
             )
-        for number, raw_line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+        # THE SOURCE IS THE RESOLVED PATH, NOT THE CELL'S TEXT, and this is
+        # the containment check's own stated purpose kept rather than
+        # merely claimed. `RAW/EXTRA.TXT`, `raw\\extra.txt`,
+        # `raw/../raw/extra.txt` and `raw/extra.txt.` all resolve inside the
+        # inputs on this platform and all four were written into the run
+        # record verbatim: an upper-cased name that no Linux machine
+        # resolves, a Windows separator, a non-canonical path, and a
+        # trailing dot the file system strips and the record did not. Each
+        # satisfies containment and defeats the reason for it (the QA lens,
+        # 2026-09-10). One canonical POSIX-relative spelling, so the record
+        # is separator-stable for the same reason the goldens are.
+        canonical = path.relative_to(inputs).as_posix()
+        try:
+            body = path.read_text(encoding="utf-8-sig")
+        except UnicodeDecodeError as error:
+            # EVERY OTHER REFUSAL ON THIS PATH NAMES THE POL AND THE FILE,
+            # and this one reached the user as a bare decode error naming
+            # neither. A UTF-16 file saved from a Windows editor is an
+            # ordinary artifact. `utf-8-sig` above also eats a byte-order
+            # mark, which would otherwise ride into the first command name
+            # and produce an emitter refusal about a command the author can
+            # see is spelled correctly.
+            raise MatrixError(
+                f"POL {row.pol}: {RAW_VARIABLE} names the file {stated!r}, and {path} is "
+                f"not UTF-8 text ({error}). A raw file is read line by line as text; save "
+                "it as UTF-8, which is what every other input of the workspace is."
+            ) from error
+        for number, raw_line in enumerate(body.splitlines(), start=1):
             stripped = raw_line.strip()
             if not stripped or stripped.startswith("#"):
                 continue
-            entries.append(RawCommand(command=stripped, before=before, source=f"{stated}:{number}"))
+            entries.append(
+                RawCommand(command=stripped, before=before, source=f"{canonical}:{number}")
+            )
     return entries
 
 

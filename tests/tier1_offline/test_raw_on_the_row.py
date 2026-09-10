@@ -407,3 +407,137 @@ def test_the_documented_generator_example_writes_a_cell_this_reader_accepts(tmp_
     tight = f"{RAW_VARIABLE}: {{" + "/".join(f"{k}: {v}" for k, v in by_file.items()) + "}"
     with pytest.raises(MatrixError):
         only_row(tmp_path, f"{BASE} / {tight}")
+
+
+# --- the round of 2026-09-10: four arms no case reached ----------------------
+
+
+@pytest.mark.parametrize(
+    "spelling",
+    ["RAW/EXTRA.TXT", "raw\\extra.txt", "raw/../raw/extra.txt", "raw/extra.txt."],
+)
+def test_a_spelling_the_file_system_forgives_is_recorded_canonically(tmp_path, spelling):
+    """The run record names a path a second machine has, which is why containment exists.
+
+    All four of these resolve INSIDE the inputs on this platform, so the
+    containment check passes them, and all four were written into the
+    record verbatim: an upper-cased name no Linux machine resolves, a
+    Windows separator, a non-canonical path, and a trailing dot the file
+    system strips and the record did not. Each satisfies the check and
+    defeats the reason for it (the QA lens, 2026-09-10).
+    """
+    row = RAW_ROW.replace("raw/extra.txt", spelling)
+    case = resolved_row(tmp_path, FILE_TEXT, row=row)
+    sources = [entry.source for entry in case.raw_commands if entry.source != "matrix"]
+    assert sources == ["raw/extra.txt:5", "raw/extra.txt:6"], sources
+
+
+def test_a_raw_file_that_is_not_utf8_is_refused_naming_the_pol(tmp_path):
+    """Every other refusal on this path names the POL and the file; this one named neither.
+
+    It reached the user as a bare `UnicodeDecodeError`. A UTF-16 file saved
+    from a Windows editor is an ordinary artifact (the QA lens,
+    2026-09-10).
+    """
+    from pyflightstream.workspace.matrix import resolve_matrix
+    from tests.tier1_offline.test_matrix_run import RECIPES, make_library, write_matrix
+
+    workspace = make_library(tmp_path)
+    raw_dir = workspace.inputs_dir / "raw"
+    raw_dir.mkdir(exist_ok=True)
+    (raw_dir / "extra.txt").write_bytes(b"\xff\xfe\x00A")
+    path = write_matrix(tmp_path / "utf16.fs", [RAW_ROW])
+    body = path.read_text(encoding="utf-8")
+    path.write_text(
+        body.replace("| LEGACY ", "| steady ").replace("OUTPUTS: loads_{point}.txt / ", ""),
+        encoding="utf-8",
+    )
+    with pytest.raises(MatrixError) as refused:
+        resolve_matrix(
+            path,
+            workspace,
+            name="utf16",
+            fs_version="26.120",
+            recipes=RECIPES,
+            fs_exe="C:/fs/FlightStream.exe",
+        )
+    said = str(refused.value)
+    assert "9301" in said and "raw/extra.txt" in said, said
+    assert "UTF-8" in said, said
+
+
+def test_a_byte_order_mark_does_not_ride_into_the_first_command(tmp_path):
+    """A mark from a Windows editor became part of the first command's NAME.
+
+    The emitter then refused a command the author can see is spelled
+    correctly, which is the worst shape a refusal takes.
+    """
+    marked = "\ufeff" + FILE_TEXT
+    case = resolved_row(tmp_path, marked)
+    from_file = [entry for entry in case.raw_commands if entry.source != "matrix"]
+    assert from_file[0].command == "SOLVER_SET_ITERATIONS 400", from_file[0].command
+
+
+def test_a_link_inside_the_inputs_pointing_out_is_refused(tmp_path):
+    """The containment check is sound BECAUSE `.resolve()` precedes the comparison.
+
+    `.resolve()` normalises `..` AND follows a link, so a junction placed
+    inside the inputs and pointing out is caught. A lexical comparison
+    defeats `..` and lets the junction through, and the QA lens measured
+    that such a mutant survived the whole suite because no case reached a
+    link (2026-09-10). This is that case.
+    """
+    import os
+    import subprocess
+
+    from tests.tier1_offline.test_matrix_run import make_library
+
+    workspace = make_library(tmp_path)
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "extra.txt").write_text("PRINT i_am_outside\n", encoding="utf-8")
+    link = workspace.inputs_dir / "raw"
+    done = subprocess.run(
+        ["cmd", "/c", "mklink", "/J", str(link), str(outside)],
+        capture_output=True,
+        text=True,
+        # EXPLICIT, and identical to the inherited default. The estate's
+        # rule is that the call SAYS so rather than letting a
+        # runner-injected variable arrive unnoticed, and a guard under
+        # tests/ counts the spawns that do not.
+        env=os.environ.copy(),
+    )
+    if done.returncode != 0 or not link.exists():
+        pytest.skip(f"this host cannot create a junction: {done.stdout}{done.stderr}")
+
+    from pyflightstream.cases.matrix import read_matrix
+    from pyflightstream.workspace.matrix import _the_rows_raw_commands
+
+    path = tmp_path / "linked.fs"
+    path.write_text(
+        HEADER
+        + "9001 | WORK | LINK | MACH:0.14, REmi:5.6, ALPHA:sweep, BETA:0 | 0,2 | r011 | s010 "
+        + "| p011 | 26.123 | 0 | 1 | unsteady_rotor | "
+        + f"{BASE} / RAW: {{FILE: raw/extra.txt / BEFORE: init}}\n",
+        encoding="utf-8",
+    )
+    row = read_matrix(path)[0]
+    with pytest.raises(MatrixError) as refused:
+        _the_rows_raw_commands(row, workspace.inputs_dir)
+    assert "outside the workspace" in str(refused.value)
+
+
+def test_a_records_pairs_still_split_on_the_bare_slash_for_every_other_key(tmp_path):
+    """The default separator is the one MOTIONS and ROTATE have always used.
+
+    A mutant changing that default to the spaced form survived the whole
+    suite, because no case anywhere writes an UNSPACED record (the QA
+    lens, 2026-09-10). The tolerance the default provides was exercised by
+    nothing, so a later tidy of the raw reader could take it away and no
+    test would notice.
+    """
+    row = only_row(
+        tmp_path,
+        f"{BASE} / MOTIONS: {{MOVING_BC_ALIAS: PUSHER/RPM: 900}}",
+    )
+    assert row.motions == [{"MOVING_BC_ALIAS": "PUSHER", "RPM": "900"}], row.motions
