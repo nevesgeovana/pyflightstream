@@ -170,6 +170,77 @@ def test_one_ratio_gives_two_rotors_two_speeds_when_their_diameters_differ(tmp_p
     assert speeds[0] == pytest.approx(speeds[1] * 1.5, rel=1e-9)
 
 
+def test_the_clock_follows_the_named_motion_and_not_the_fastest(tmp_path):
+    """FR-64: the owner of the time step is declared, not inferred.
+
+    The lifter turns at 2200 rev/min and the pusher slower. Naming the
+    PUSHER as the clock must give a different time step from the one the
+    fastest-rotor arithmetic gives, and this asserts the two are not equal
+    rather than asserting a number, so it cannot be satisfied by a
+    constant.
+    """
+    from pyflightstream.cases.workflows import _clock_speed, _motion_view
+
+    base = two_rotor_case(tmp_path)
+    base = base.model_copy(
+        update={
+            "motions": [
+                {"MOVING_BC_ALIAS": "LIFT_L1", "RPM": "2200"},
+                {"MOVING_BC_ALIAS": "PUSHER", "RPM": "900"},
+            ]
+        }
+    )
+    views = [_motion_view(base, record) for record in base.motions]
+    speeds = [rotor_speed(view) for view in views]
+    named = base.model_copy(update={"variables": {**base.variables, "CLOCK_MOTION": "PUSHER"}})
+    assert _clock_speed(named, views, speeds).rpm == 900
+    with pytest.warns(match="CLOCK_MOTION"):
+        assert _clock_speed(base, views, speeds).rpm == 2200
+
+
+def test_a_clock_naming_a_motion_the_row_does_not_state_is_refused(tmp_path):
+    from pyflightstream.cases.workflows import _clock_speed, _motion_view
+
+    case = two_rotor_case(tmp_path)
+    views = [_motion_view(case, record) for record in case.motions]
+    speeds = [rotor_speed(view) for view in views]
+    case = case.model_copy(update={"variables": {**case.variables, "CLOCK_MOTION": "LIFT_R4"}})
+    with pytest.raises(PyflightstreamError) as refused:
+        _clock_speed(case, views, speeds)
+    assert "LIFT_R4" in str(refused.value)
+    assert "PUSHER" in str(refused.value), "the refusal names the motions the row states"
+
+
+def test_a_row_stating_symmetry_loads_overrides_the_preset_and_warns(tmp_path):
+    """FR-66: one preset serves a sector row and a full-wheel row.
+
+    The value the script carries is the ROW's, and the warning names both
+    so the override is not silent. Her first answer that hour was to
+    refuse both stating it; she changed it the same hour.
+    """
+    from pyflightstream.cases.workflows import _row_symmetry_loads
+
+    case = two_rotor_case(tmp_path)
+    quiet = case.model_copy(update={"variables": {**case.variables}})
+    assert _row_symmetry_loads(quiet, True) is True, "a row stating nothing inherits"
+    stated = case.model_copy(update={"variables": {**case.variables, "SYMMETRY_LOADS": "false"}})
+    with pytest.warns(match="SYMMETRY_LOADS"):
+        assert _row_symmetry_loads(stated, True) is False
+    # Agreeing is not an override and warns nothing.
+    agreeing = case.model_copy(update={"variables": {**case.variables, "SYMMETRY_LOADS": "true"}})
+    assert _row_symmetry_loads(agreeing, True) is True
+
+
+def test_a_symmetry_loads_that_is_not_a_yes_or_a_no_is_refused(tmp_path):
+    from pyflightstream.cases.workflows import _row_symmetry_loads
+
+    case = two_rotor_case(tmp_path)
+    case = case.model_copy(update={"variables": {**case.variables, "SYMMETRY_LOADS": "sector"}})
+    with pytest.raises(PyflightstreamError) as refused:
+        _row_symmetry_loads(case, None)
+    assert "sector" in str(refused.value)
+
+
 def test_a_record_citing_an_alias_the_reference_does_not_declare_is_refused(tmp_path):
     case = two_rotor_case(tmp_path)
     case = case.model_copy(update={"motions": [{"MOVING_BC_ALIAS": "LIFT_L9"}]})

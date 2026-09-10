@@ -66,7 +66,11 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import PurePath
 
-from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning
+from pyflightstream._errors import (
+    PyflightstreamDeprecationWarning,
+    PyflightstreamError,
+    PyflightstreamWarning,
+)
 from pyflightstream._fsm import (
     MeshReadError,
     boundary_labels,
@@ -234,6 +238,19 @@ MOVING_BOUNDARIES_VARIABLE = "MOVING_BOUNDARIES"
 #: four keys beside it, which are read with a deprecation warning until
 #: 0.17.0 and refused in the same record as this one.
 MOVING_BC_ALIAS_VARIABLE = "MOVING_BC_ALIAS"
+#: The motion that owns the row's clock (FR-64, her design of 2026-09-10).
+#: It names a motion the same row states, and the time step and the run
+#: length are that motion's. A row without it keeps the arithmetic of
+#: 0.14.0, the fastest rotor, with a warning naming the motion assumed;
+#: the key becomes required at 0.17.0. `rotor_speed` is what a one-rotor
+#: row resolves; on a row of several this is which of them the clock
+#: follows, which is why the call site reads `rotor_speed_ref`.
+CLOCK_MOTION_VARIABLE = "CLOCK_MOTION"
+#: Whether the solver reports the loads of the meshed sector or of the
+#: whole wheel (FR-66, her decision of 2026-09-10). A preset key promoted
+#: to a row key, because one preset serves a sector row and a full-wheel
+#: row; a row stating it overrides the preset and warns naming both.
+SYMMETRY_LOADS_VARIABLE = "SYMMETRY_LOADS"
 #: The mesh families the base-region autodetect is allowed to consider
 #: (PFS-2029.10), comma separated; overrides the pproc artifact's list.
 BASE_REGIONS_VARIABLE = "BASE_REGIONS"
@@ -3204,8 +3221,49 @@ def _settings(
     # init-phase setting, emitted alone here as the helper asks; an absent
     # key emits nothing, so a preset written before this release is silent
     # exactly as it was.
-    if solver.symmetry_loads is not None:
-        helpers.analysis_setup(script, symmetry_loads=solver.symmetry_loads)
+    symmetry_loads = _row_symmetry_loads(case, solver.symmetry_loads)
+    if symmetry_loads is not None:
+        helpers.analysis_setup(script, symmetry_loads=symmetry_loads)
+
+
+def _row_symmetry_loads(case: SimCase, from_setup: bool | None) -> bool | None:
+    """Resolve the symmetry-loads flag: the ROW's when it states one (FR-66).
+
+    Her decision of 2026-09-10. Whether the solver reports the loads of the
+    meshed SECTOR or of the whole wheel is a per-row choice, because one
+    preset serves a sector row and a full-wheel row. A row stating it
+    OVERRIDES the preset and warns naming both files and the value used;
+    a row stating nothing inherits silently, as every row written before
+    this release does.
+
+    Her first answer that hour was to refuse both stating it, as the rotor
+    speed is refused; she changed it the same hour, and the warning is what
+    keeps the override from being silent.
+    """
+    stated = _variable(case, SYMMETRY_LOADS_VARIABLE)
+    if stated is None:
+        return from_setup
+    word = str(stated).strip().upper()
+    # THE ROW'S OWN VOCABULARY, which is the cell a user types: TRUE and
+    # FALSE as the presets write them, and the solver's own ENABLE and
+    # DISABLE, which is what `resolve_toggle` accepts one layer down.
+    value = {"TRUE": True, "FALSE": False, "ENABLE": True, "DISABLE": False}.get(word)
+    if value is None:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} states {SYMMETRY_LOADS_VARIABLE}: {stated!r}, which is "
+            "not a yes or a no. Write true or false, or the solver's own ENABLE or "
+            "DISABLE. True means the solver reports the loads of the whole wheel; false "
+            "means the loads of the sector that was meshed."
+        )
+    if from_setup is not None and from_setup != value:
+        warnings.warn(
+            f"case {case.sim_id!r} states {SYMMETRY_LOADS_VARIABLE}: {value} and its setup "
+            f"preset states {from_setup}. The ROW wins, and the run reports the loads of "
+            f"{'the whole wheel' if value else 'the meshed sector'}.",
+            PyflightstreamWarning,
+            stacklevel=2,
+        )
+    return value
 
 
 def _fluid(case: SimCase, script: Script) -> None:
@@ -4656,8 +4714,7 @@ def _rotor_motions(
             speed=speeds[number - 1],
             moving_frames=[moving[number - 1]],
         )
-    fastest = max(speeds, key=lambda each: abs(each.rpm))
-    stepping = rotor_time_stepping(case, speed=fastest)
+    stepping = rotor_time_stepping(case, speed=_clock_speed(case, views, speeds))
     helpers.unsteady_solver(
         script,
         time_iterations=stepping.time_iterations,
@@ -4667,6 +4724,47 @@ def _rotor_motions(
     _pproc_sections(case, script, frames)
     _unsteady_actions(script, threshold)
     _script_tail(conventions, case, script, frame, unsteady=True)
+
+
+def _clock_speed(case: SimCase, views: Sequence[SimCase], speeds: Sequence[RotorSpeed]):
+    """Return the speed that owns the row's clock (FR-64).
+
+    Her design of 2026-09-10: ``CLOCK_MOTION`` names a motion the same row
+    states, and the time step and the run length are that motion's. A row
+    without the key keeps the arithmetic of 0.14.0, the FASTEST rotor,
+    and says so in a warning naming the motion it assumed, because that
+    was an inference nobody had written down: ``DELTA_THETA`` bounds a
+    blade's travel per step, so the fastest rotor bounds the step, and a
+    length in REVOLUTIONS is then counted in ITS revolutions while the
+    others turn fewer.
+    """
+    fastest = max(speeds, key=lambda each: abs(each.rpm))
+    named = _variable(case, CLOCK_MOTION_VARIABLE)
+    if named is None:
+        if len(speeds) > 1:
+            owner = _variable(views[speeds.index(fastest)], MOVING_BOUNDARIES_VARIABLE)
+            warnings.warn(
+                f"case {case.sim_id!r} states {len(speeds)} motions and no "
+                f"{CLOCK_MOTION_VARIABLE}, so the time step and the run length follow the "
+                f"FASTEST rotor, which is {owner!r} at {fastest.rpm:g} rev/min. That is "
+                "the package's own arithmetic and not a decision the row wrote: name the "
+                f"motion that owns the clock with {CLOCK_MOTION_VARIABLE}. The key becomes "
+                "required at 0.17.0.",
+                PyflightstreamDeprecationWarning,
+                stacklevel=2,
+            )
+        return fastest
+    token = str(named).strip()
+    for view, speed in zip(views, speeds, strict=True):
+        owner = str(_variable(view, MOVING_BOUNDARIES_VARIABLE) or "")
+        if owner.casefold() == token.casefold():
+            return speed
+    stated = ", ".join(str(_variable(view, MOVING_BOUNDARIES_VARIABLE) or "") for view in views)
+    raise CampaignConfigError(
+        f"case {case.sim_id!r} states {CLOCK_MOTION_VARIABLE}: {token}, and no motion of "
+        f"this row moves it. The motions it states are {stated}. The clock is one of the "
+        "row's own motions, because the time step is that rotor's blade travel per step."
+    )
 
 
 def _motion_view(case: SimCase, record: Mapping[str, str]) -> SimCase:
@@ -4837,6 +4935,10 @@ def _origin(case: SimCase) -> tuple[float, float, float]:
 _STEADY_KEYS: tuple[str, ...] = (
     GEOMETRY_VARIABLE,
     SYMMETRY_VARIABLE,
+    # FR-66: registered on every run type, because whether the solver
+    # reports the sector's loads or the wheel's is a per-row choice
+    # wherever a mirrored or periodic mesh is opened, not a rotor matter.
+    SYMMETRY_LOADS_VARIABLE,
     PERIODIC_COPIES_VARIABLE,
     BASE_REGIONS_VARIABLE,
     ROTATE_VARIABLE,
@@ -4858,6 +4960,8 @@ _UNSTEADY_KEYS: tuple[str, ...] = (
 )
 _UNSTEADY_ROTOR_KEYS: tuple[str, ...] = (
     *_UNSTEADY_KEYS,
+    # FR-64: which of the row's motions owns the time step.
+    CLOCK_MOTION_VARIABLE,
     RPM_VARIABLE,
     RPM_SIGN_VARIABLE,
     ROTOR_AXIS_VARIABLE,
