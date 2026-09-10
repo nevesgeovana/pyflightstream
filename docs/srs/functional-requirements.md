@@ -1824,8 +1824,10 @@ requirement below is one seam of that division.
     name or another alias; the reader resolves to the end and refuses a cycle
     naming both sides. A member the opened mesh does not carry is ignored, so
     one reference serves the full aircraft and a cut of it. The setup preset's
-    `[aliases]` table of 0.14.0 is read with a deprecation warning naming the
-    reference to move it to, and is removed at 0.17.0.
+    `[aliases]` table of 0.14.0 is REFUSED when a row binds it, naming the
+    reference to move it to. This paragraph promised a warning and a 0.17.0
+    removal until the author's instruction of 2026-09-10; the refusal is
+    what the package does.
 
     AMENDED BY FR-73, "A run chooses whether a family the mesh does not
     carry is a skip or a refusal": ignoring a member the opened mesh does
@@ -2412,9 +2414,10 @@ requirement below is one seam of that division.
     `x_axis` and `y_axis`, the third axis being the right-handed cross
     product. A row's `ROTATE` axis token and a post-processing entry's frame
     resolve against the reference's frames, the package's own names staying
-    reserved. A preset still stating `[[frames]]` is read with a deprecation
-    warning naming the reference to move it to, and the table is removed at
-    0.17.0.
+    reserved. A preset still stating `[[frames]]` is REFUSED when a row binds
+    it, naming the reference to move it to. This paragraph promised a warning
+    and a 0.17.0 removal until the author's instruction of 2026-09-10; the
+    refusal is what the package does.
 
     A coordinate system is geometric data, so it belongs beside the lengths
     and the rotors. It also puts the two halves of one subject in one file:

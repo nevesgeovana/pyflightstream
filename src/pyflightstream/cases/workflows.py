@@ -258,7 +258,7 @@ ROTATION_RECORD_KEYS = ("ANGLE", "AXIS")
 #: study says what its groups are.
 ROTATION_ALIAS_KEY = "ALIAS"
 
-#: The 0.14.0 spelling, read with a deprecation warning until 0.17.0. It
+#: The 0.14.0 spelling, REFUSED since 0.15.0 naming ``ALIAS``. It
 #: named the boundaries INLINE, which is the thing the alias replaces: a
 #: row listing families is a row that has to be edited when the mesh is
 #: renamed, and there are as many of those rows as there are studies.
@@ -286,8 +286,8 @@ MOVING_BOUNDARIES_VARIABLE = "MOVING_BOUNDARIES"
 #: the sign, the blade count and the diameter come from that block, so a
 #: row states which rotors turn and at what operating point and nothing
 #: else about them. It replaces :data:`MOVING_BOUNDARIES_VARIABLE` and the
-#: four keys beside it, which are read with a deprecation warning until
-#: 0.17.0 and refused in the same record as this one.
+#: four keys beside it, which are REFUSED since 0.15.0 naming their
+#: replacements, and refused a second way in the same record as this one.
 MOVING_BC_ALIAS_VARIABLE = "MOVING_BC_ALIAS"
 #: The motion that owns the row's clock (FR-64, the author's design of 2026-09-10).
 #: It names a motion the same row states, and the time step and the run

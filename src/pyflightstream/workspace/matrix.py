@@ -491,18 +491,25 @@ def _resolve_code(workspace: CampaignWorkspace, kind: str, code: str, pol: str):
 
 
 def _moved_to_the_reference(row: MatrixRow, table: str) -> None:
-    """Warn that a setup preset still carries a table the reference now owns.
+    """REFUSE a setup preset that still carries a table the reference now owns.
 
-    FR-59 and FR-72, the author's decision of 2026-09-10. The warning names the row,
-    both artifacts and where the table belongs, because a user meeting it is
-    holding a workspace that still plans and has one edit to make. The
-    tables are read from the preset until 0.17.0.
+    FR-59 and FR-72. It raises and never returns: this function once warned
+    and let the preset's table be read until 0.17.0, and its name and this
+    docstring still said so after the behaviour changed to a refusal, which
+    is how a reader learns the wrong rule from the file that implements the
+    right one (the technical-writing lens of the 0.15.0 release review,
+    which read those words and reported the package as accepting what it
+    refuses).
+
+    The message names the row's two artifacts and where the table belongs,
+    because whoever meets it has exactly one edit to make.
     """
-    # THE MESSAGE CARRIES NO ROW NUMBER, deliberately. The warning filter
-    # dedupes on the message, and the EDIT is one edit per preset: keyed on
-    # the POL, a fifty-row campaign citing one unmigrated preset printed
-    # fifty warnings for one file, and pointed at a row rather than at the
-    # file to change (the interface lens of 2026-09-10).
+    # THE MESSAGE CARRIES NO ROW NUMBER, deliberately: the edit is one edit
+    # per PRESET, not per row, so naming a row would point a fifty-row
+    # campaign at a row rather than at the file to change (the interface
+    # lens of 2026-09-10, when this warned and the warning filter deduped
+    # on the message; a refusal stops at the first row, and the reasoning
+    # for naming the file rather than the row is unchanged).
     raise InputArtifactError(
         f"the setup preset {row.set_code!r} states [{table}], which moved to the "
         f"reference artifact {row.ref_code!r} at 0.15.0: a boundary name and a "
@@ -514,40 +521,28 @@ def _moved_to_the_reference(row: MatrixRow, table: str) -> None:
 
 
 def _aliases_of(reference, setup, row: MatrixRow) -> dict[str, list[str]]:
-    """Return a row case's aliases: the reference's, with the preset's deprecated.
+    """Return a row case's aliases, which are the REFERENCE's and only those.
 
-    THE COMPARISON FOLDS CASE, and a merge by exact key does not. An alias
-    is looked up case folded everywhere else in this package, so a preset
-    stating ``Wing`` and a reference stating ``wing`` name ONE word; merged
-    by exact key both survive, the preset's is inserted first, and the
-    folded lookup then returns the DEPRECATED file's members. The
-    interface lens of 2026-09-10 found it, and the frames merge beside
-    this one had already got it right.
+    A preset stating any of its own is refused above, so there is nothing
+    to merge and no case-folding question left: this used to merge the two
+    tables, and the merge is gone with the deprecation it served rather
+    than left behind as unreachable code that tells the next reader a
+    preset's aliases still reach a case.
     """
     if setup.aliases:
         _moved_to_the_reference(row, "aliases")
-    taken = {name.casefold() for name in reference.aliases}
-    merged = {
-        name: list(members)
-        for name, members in setup.aliases.items()
-        if name.casefold() not in taken
-    }
-    merged.update({name: list(members) for name, members in reference.aliases.items()})
-    return merged
+    return {name: list(members) for name, members in reference.aliases.items()}
 
 
 def _frames_of(reference, setup, row: MatrixRow) -> list:
-    """Return a row case's custom frames: the reference's, with the preset's deprecated.
+    """Return a row case's custom frames, which are the REFERENCE's and only those.
 
-    A name declared in both files is the REFERENCE's, and the preset's is
-    dropped rather than emitted twice, because two frames of one name are
-    what :class:`SetupArtifact` refuses inside one file.
+    A preset stating any of its own is refused above, so there is nothing
+    to merge, for the reason given in :func:`_aliases_of`.
     """
     if setup.frames:
         _moved_to_the_reference(row, "frames")
-    taken = {frame.name.strip().upper() for frame in reference.frames}
-    kept = [frame for frame in setup.frames if frame.name.strip().upper() not in taken]
-    return [*reference.frames, *kept]
+    return list(reference.frames)
 
 
 def _the_rows_raw_commands(row: MatrixRow, inputs_dir: Path) -> list[RawCommand]:
@@ -1483,8 +1478,8 @@ def resolve_matrix(
             # configuration defining none leaves the list empty and the script
             # unchanged. They lived in the SETUP at 0.14.0 (PFS-2034.01), and a
             # coordinate system is geometric data, so it belongs beside the
-            # lengths and the rotors; a preset still stating them is read with a
-            # deprecation warning and the reference wins.
+            # lengths and the rotors; a preset still stating them is REFUSED
+            # when a row binds it, naming the reference to move them into.
             "frames": _frames_for_row(reference, setups[row.set_code], row),
             # THE SETUP'S RAW COMMANDS RIDE ON THE CASE TOO (PFS-2033.01),
             # each naming the artifact it came from, for the run record.
@@ -1514,8 +1509,8 @@ def resolve_matrix(
             # group by them whatever built the script. They lived in the SETUP
             # at 0.14.0, which is per condition where a reference is per
             # configuration, and a boundary name is not a solver setting; a
-            # preset still stating them is read with a deprecation warning and
-            # the reference wins, so an unmigrated workspace keeps planning.
+            # preset still stating them is REFUSED when a row binds it,
+            # naming the reference to move them into.
             "aliases": _aliases_of(reference, setups[row.set_code], row),
             # THE ROTORS RIDE ON THE CASE (FR-60): a motion record names one
             # by alias and takes its hub, axis, sign, blades and diameter

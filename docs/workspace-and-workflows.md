@@ -868,9 +868,9 @@ mistakes belong.
     A boundary name is not a solver setting, and the words a study uses
     for its own geometry belong with the configuration (FR-59). **Write
     the same table in `inputs/references/<id>.toml`.** A preset still
-    stating it is read with a deprecation warning naming the reference,
-    the reference wins where both declare a name, and the preset stops
-    being read for it at 0.17.0.
+    stating it is REFUSED when a row binds it, naming the reference to
+    move the table into. The refusal arrives at `plan`, not when the
+    preset loads, because it names the reference the ROW cites.
 
     The reference's table can do one thing the preset's could not: **a
     member may be another alias**, resolved to the end, so `lifters` may
@@ -1766,8 +1766,8 @@ twice however many names it answers to.
 
 **Migrating a `FAMILIES` record.** The key changes AND SO DOES THE VALUE:
 `FAMILIES: Blade,S` becomes `ALIAS: PUSHER`, the rotor those families
-belong to, not the list itself. The deprecation warning names the words
-your reference declares, so the value is in front of you. A families list
+belong to, not the list itself. The refusal names the words the
+reference declares, so the value is in front of whoever reads it. A families list
 spanning two rotors becomes one record per rotor. `ANGLE` and `AXIS` are
 unaffected.
 

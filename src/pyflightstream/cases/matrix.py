@@ -707,8 +707,9 @@ def _sweep_of_condition(
 MOTION_RECORD_KEYS = (
     # FR-61, the author's design of 2026-09-10: the rotor's identity, and since
     # 0.15.0 the only one a row states. FOUR of the keys below it are what
-    # the reference now says once, read with a deprecation warning until
-    # 0.17.0 and refused in the same record as this one: MOVING_BOUNDARIES,
+    # the reference now says once, REFUSED since 0.15.0 naming the
+    # replacement, and refused a second way in the same record as this
+    # one: MOVING_BOUNDARIES,
     # ROTOR_AXIS, ROTOR_ORIGIN and RPM_SIGN, with BLADES a fifth further
     # down the tuple. RPM and ADVANCE_RATIO are NOT among them: a speed is
     # what the row states and the reference does not. The count said five
@@ -888,8 +889,8 @@ def _parse_rotations(variables: dict[str, str], pol: str) -> list[dict[str, str]
     PFS-2034.02, the same grammar as ``MOTIONS`` (the author's answer of
     2026-09-09: "the declaration stays as we do with motion; two braces
     are two, in the order of the input"). Each record states ``ANGLE``
-    in degrees, ``AXIS`` as ``<frame>-<X|Y|Z>`` and ``ALIAS`` (or the
-    0.14.0 ``FAMILIES``, read with a warning until 0.17.0), and may
+    in degrees, ``AXIS`` as ``<frame>-<X|Y|Z>`` and ``ALIAS`` (the
+    0.14.0 ``FAMILIES`` is refused, naming ``ALIAS``), and may
     state ``AUX_FRAMES``; a key outside those five, a missing one, an
     angle that is not a number and an axis token of another shape are
     refused here, naming the cell, so a row is refused at plan time and

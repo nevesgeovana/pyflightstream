@@ -466,8 +466,9 @@ class SetupArtifact(BaseModel):
     #:
     #: DEPRECATED SINCE 0.15.0 (FR-72): the table's home is the REFERENCE
     #: artifact, because a coordinate system is geometric data. A preset
-    #: still stating it is read with a warning and the reference wins; the
-    #: preset stops being read for it at 0.17.0.
+    #: still stating it is REFUSED when a row binds it, naming the
+    #: reference to move the table into. The field survives so that the
+    #: refusal can name what it found.
     frames: list[FrameSpec] = Field(default_factory=list)
     #: The solver commands the ``[[raw]]`` table states verbatim
     #: (PFS-2033.01), each before a named phase, in the order written;
@@ -492,8 +493,9 @@ class SetupArtifact(BaseModel):
     #:
     #: DEPRECATED SINCE 0.15.0 (FR-59): the table's home is the REFERENCE
     #: artifact, which is per configuration where a preset is per
-    #: condition. A preset still stating it is read with a warning and the
-    #: reference wins; the preset stops being read for it at 0.17.0.
+    #: condition. A preset still stating it is REFUSED when a row binds it,
+    #: naming the reference to move the table into. The field survives so
+    #: that the refusal can name what it found.
     aliases: BoundaryAliases = Field(default_factory=dict)
 
     @model_validator(mode="after")

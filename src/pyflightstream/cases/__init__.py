@@ -499,8 +499,8 @@ class SectionDistribution(BaseModel):
     def _the_retired_selector_says_it_in_the_frame(self) -> SectionDistribution:
         """Refuse as the plot group does, because it is the same retirement.
 
-        The ledger promise and the changelog both say `each_blade` is read
-        with a warning until 0.17.0, and the sections path gave none: a
+        The ledger promise said `each_blade` is read with a warning until
+        0.17.0, and the sections path gave none: a
         distribution is the OTHER consumer of the same selector, and the author's own
         `p010.toml` writes one (the interface lens, 2026-09-10). A promise
         kept on one of two paths is a false sentence on the page, not a
