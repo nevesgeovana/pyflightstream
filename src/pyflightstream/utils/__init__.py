@@ -87,7 +87,6 @@ from pyflightstream.utils.manual import (
     sample_contradiction,
     stale_citations,
     surface_changes,
-    sweep_editions,
     unreachable_commands,
     write_chapter,
 )
@@ -127,7 +126,6 @@ __all__ = [
     "StaleCitation",
     "stale_citations",
     "surface_changes",
-    "sweep_editions",
     "unreachable_commands",
     "write_chapter",
 ]

@@ -120,7 +120,6 @@ from __future__ import annotations
 
 import enum
 import re
-import warnings
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -128,10 +127,8 @@ from typing import Any, Protocol, runtime_checkable
 
 import yaml
 
-from pyflightstream._deprecations import PROPOSE_TYPE_POSITIONAL, SWEEP_EDITIONS
-from pyflightstream._errors import PyflightstreamDeprecationWarning
 from pyflightstream._yamlflow import flow_mapping
-from pyflightstream.utils.errors import ManualCallError, ManualDraftError
+from pyflightstream.utils.errors import ManualDraftError
 
 __all__ = [
     "TYPE_RULES",
@@ -166,7 +163,6 @@ __all__ = [
     "sample_contradiction",
     "stale_citations",
     "surface_changes",
-    "sweep_editions",
     "unreachable_commands",
     "write_chapter",
 ]
@@ -801,22 +797,6 @@ def manual_editions(
         )
         for name, labels in sorted(seen.items())
     )
-
-
-def sweep_editions(
-    editions: Iterable[Edition],
-    *,
-    recorded: Iterable[str],
-    reader: Callable[..., Mapping[int, str]] | None = None,
-) -> tuple[SweptCommand, ...]:
-    """Former name of :func:`manual_editions`; warns from the ledger and forwards.
-
-    Kept until the release the ledger row ``SWEEP_EDITIONS`` records
-    (0.15.0), so a maintainer script outside this package meets one
-    warning rather than an ImportError.
-    """
-    warnings.warn(SWEEP_EDITIONS.message(), PyflightstreamDeprecationWarning, stacklevel=2)
-    return manual_editions(editions, recorded=recorded, reader=reader)
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -1900,17 +1880,18 @@ def _tokens_in(span: str) -> tuple[str, ...]:
 
 
 def propose_type(
-    *positional: str,
-    placeholder: str | None = None,
-    description: str | None = None,
+    *,
+    placeholder: str,
+    description: str,
 ) -> tuple[str | None, tuple[str, ...], str]:
     """Suggest an argument type from the manual's parameter table.
 
-    The two strings are KEYWORD-ONLY since 0.13.0 (PFS-2022.05).
+    The two strings are KEYWORD-ONLY since 0.13.0 (PFS-2022.05), and a
+    positional call is refused rather than warned about since 0.15.0,
+    which is the release the ledger promised.
     ``propose_type("AXIS", "the axis")`` and ``propose_type("the axis",
     "AXIS")`` are both well-typed and only one is right, and nothing at
-    the call site said which; a positional call warns from the ledger
-    row ``PROPOSE_TYPE_POSITIONAL`` and still answers until 0.15.0.
+    the call site said which.
 
     The third source, after the signature line and the sample block, and
     the only one that says anything about a TYPE. It answered 57 percent
@@ -1947,23 +1928,10 @@ def propose_type(
 
     Raises
     ------
-    ManualCallError
-        The two strings given twice (positionally and by keyword), or a
-        positional call with a count other than two, or either missing.
+    TypeError
+        A positional call, which Python itself refuses on this signature
+        since 0.15.0.
     """
-    if positional:
-        if placeholder is not None or description is not None or len(positional) != 2:
-            raise ManualCallError(
-                "propose_type takes placeholder= and description= by keyword; "
-                f"got {len(positional)} positional argument(s)"
-                + (" and a keyword" if placeholder is not None or description is not None else "")
-            )
-        warnings.warn(
-            PROPOSE_TYPE_POSITIONAL.message(), PyflightstreamDeprecationWarning, stacklevel=2
-        )
-        placeholder, description = positional
-    if placeholder is None or description is None:
-        raise ManualCallError("propose_type needs both placeholder= and description=")
     text = description.strip()
     upper = placeholder.upper()
 

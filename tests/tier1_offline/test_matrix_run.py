@@ -3828,6 +3828,86 @@ def test_the_reference_aliases_reach_the_record(tmp_path):
     assert len(polars) == 2, polars
 
 
+def test_the_reference_frames_reach_the_case(tmp_path):
+    """QA1-1, the severest finding of the lane's quality round.
+
+    Replacing `return [*reference.frames, *kept]` with `return [*kept]`
+    left 367 tests green: FR-72 is half the lane's stated intent and
+    nothing measured that a frame declared in the reference reaches a run
+    at all. The model was tested; the CASE was not.
+    """
+    # A WORKFLOW row, because a LEGACY row reads no frames and the rule
+    # for that is the test below this one.
+    matrix = _rotor_matrix(tmp_path)
+    workspace = make_library(tmp_path, register_build=("26.120", "C:/fs26120/FlightStream.exe"))
+    reference = workspace.inputs_dir / "references" / "r003.toml"
+    reference.write_text(
+        reference.read_text(encoding="utf-8")
+        + '\n[[frames]]\nname = "NAC_PUSH"\norigin = [7.2, 0.0, 0.0]\n',
+        encoding="utf-8",
+    )
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", PyflightstreamWarning)
+        resolved = resolve_matrix(
+            matrix, workspace, name="camp", fs_version="26.120", recipes=RECIPES
+        )
+    frames = resolved.campaign.sims[0].frames
+    assert [frame.name for frame in frames] == ["NAC_PUSH"]
+    assert frames[0].origin == (7.2, 0.0, 0.0)
+
+
+def test_a_legacy_row_leaves_the_references_frames_out_and_says_so(tmp_path):
+    """The consequence the interface lens named: one legacy row must not block a study.
+
+    A LEGACY row reads no frames. When the table was the SETUP's, refusing
+    was right: the row chose that preset. The reference is per
+    CONFIGURATION and every row cites it, so refusing would let one legacy
+    row block every row of the study. They are dropped for that row, with
+    a warning, and the setup's are refused exactly as before.
+    """
+    workspace, first, _ = _two_matrices(tmp_path)
+    reference = workspace.inputs_dir / "references" / "r003.toml"
+    reference.write_text(
+        reference.read_text(encoding="utf-8")
+        + '\n[[frames]]\nname = "NAC_PUSH"\norigin = [7.2, 0.0, 0.0]\n',
+        encoding="utf-8",
+    )
+    with pytest.warns(PyflightstreamWarning, match="LEGACY"):
+        resolved = resolve_matrix(
+            first, workspace, name="camp", fs_version="26.120", recipes=RECIPES
+        )
+    assert resolved.campaign.sims[0].frames == []
+
+
+def test_a_setup_still_stating_frames_warns_and_the_reference_wins(tmp_path):
+    """QA1-6: the frames half of the deprecation, both sides of it.
+
+    The aliases half had two tests and the frames half none, so removing
+    the warning and emptying the name dedup both survived the suite.
+    """
+    matrix = _rotor_matrix(tmp_path)
+    workspace = make_library(tmp_path, register_build=("26.120", "C:/fs26120/FlightStream.exe"))
+    reference = workspace.inputs_dir / "references" / "r003.toml"
+    reference.write_text(
+        reference.read_text(encoding="utf-8")
+        + '\n[[frames]]\nname = "NAC"\norigin = [1.0, 0.0, 0.0]\n',
+        encoding="utf-8",
+    )
+    setup = workspace.inputs_dir / "setups" / "s002.toml"
+    setup.write_text(
+        setup.read_text(encoding="utf-8")
+        + '\n[[frames]]\nname = "NAC"\norigin = [9.0, 0.0, 0.0]\n',
+        encoding="utf-8",
+    )
+    with pytest.warns(PyflightstreamDeprecationWarning, match="frames"):
+        resolved = resolve_matrix(
+            matrix, workspace, name="camp", fs_version="26.120", recipes=RECIPES
+        )
+    frames = resolved.campaign.sims[0].frames
+    assert [frame.name for frame in frames] == ["NAC"], "one frame of that name, not two"
+    assert frames[0].origin == (1.0, 0.0, 0.0), "the reference's"
+
+
 def test_a_setup_still_stating_aliases_warns_and_the_reference_wins(tmp_path):
     """The deprecation half of FR-59, measured on the warning AND on the value.
 

@@ -369,9 +369,29 @@ FLIGHT_CONDITION_KEYS: dict[str, tuple[str, str]] = {
     "PPA": ("pascal", "pressure, stated rather than lapsed"),
 }
 
+#: THE ATTITUDE KEYS (FR-69, her rule of 2026-09-10), which the same cell
+#: carries and which are NOT part of the flow state: they fix where the
+#: aircraft points, not what the air is doing, so they are parsed here and
+#: never handed to the atmosphere resolver. A row states both on every
+#: row, so that no run reaches the solver at an angle nobody wrote; the
+#: swept one carries the word `sweep` and the other a number.
+#:
+#: ADVANCE_RATIO joins them (FR-70): stated here it governs every motion
+#: of the row that states no speed of its own.
+ATTITUDE_KEYS: dict[str, tuple[str, str]] = {
+    "ALPHA": ("degrees", "the incidence of the free stream"),
+    "BETA": ("degrees", "the sideslip of the free stream"),
+    "ADVANCE_RATIO": ("dimensionless", "the speed of every motion that states none"),
+}
+
+#: The word a value carries instead of a number when its key is the one
+#: the row sweeps (FR-69). SWEEP_VALUES then holds its values, and exactly
+#: one key of the cell may carry it.
+SWEEP_WORD = "sweep"
+
 #: Canonical spelling by upper-cased key, for the case-insensitive match
-#: below. Built from the table so the two cannot drift apart.
-_FLIGHT_CONDITION_CANONICAL = {key.upper(): key for key in FLIGHT_CONDITION_KEYS}
+#: below. Built from the tables so the three cannot drift apart.
+_FLIGHT_CONDITION_CANONICAL = {key.upper(): key for key in (*FLIGHT_CONDITION_KEYS, *ATTITUDE_KEYS)}
 
 
 def _parse_flight_condition(cell: str, pol: str) -> dict[str, float]:
@@ -424,10 +444,10 @@ def _parse_flight_condition(cell: str, pol: str) -> dict[str, float]:
     >>> _parse_flight_condition("  MACH : 0.20 ,REmi:5.5  ", "P1")
     {'MACH': 0.2, 'REmi': 5.5}
     """
-    condition: dict[str, float] = {}
+    condition: dict[str, float | str] = {}
     if not cell.strip():
         return condition
-    accepted = ", ".join(FLIGHT_CONDITION_KEYS)
+    accepted = ", ".join((*FLIGHT_CONDITION_KEYS, *ATTITUDE_KEYS))
     for pair in cell.split(","):
         if not pair.strip():
             raise MatrixError(
@@ -457,12 +477,20 @@ def _parse_flight_condition(cell: str, pol: str) -> dict[str, float]:
                 "one flow state and a silently dropped constraint changes what is "
                 "solved."
             )
+        # THE SWEPT KEY CARRIES A WORD (FR-69): the one variable this row
+        # varies says so where its value would be, and SWEEP_VALUES holds
+        # the values. Every other key carries a number.
+        if value.strip().casefold() == SWEEP_WORD:
+            condition[key] = SWEEP_WORD
+            continue
         try:
             number = float(value.strip())
         except ValueError:
+            units = (FLIGHT_CONDITION_KEYS.get(key) or ATTITUDE_KEYS[key])[0]
             raise MatrixError(
                 f"FLIGHT_CONDITION key {key} of POL {pol} carries {value.strip()!r}, "
-                f"which is not a number. {key} is in {FLIGHT_CONDITION_KEYS[key][0]}."
+                f"which is neither a number nor the word {SWEEP_WORD!r}. {key} is in "
+                f"{units}."
             ) from None
         # `float()` accepts 'nan' and 'inf', and both would travel all
         # the way into a solved flow state and out into a script without
@@ -510,6 +538,29 @@ def _require_flight_condition(
             "'TASmps:68.08, ALTFT:10000, dISA:5'."
         )
     return condition
+
+
+def split_attitude(condition: dict[str, float | str]) -> tuple[dict[str, float], dict[str, object]]:
+    """Split a parsed cell into the FLOW STATE and the row's attitude (FR-69, FR-70).
+
+    The same cell carries both since 0.15.0, and they go to different
+    readers: the flow state is resolved into density, velocity and
+    temperature, and the attitude is what the aircraft is doing in it.
+    Handing an angle to the flow resolver would ask it about a key that
+    constrains nothing, so the two are separated where the cell is read
+    rather than where either is consumed.
+
+    Returns
+    -------
+    tuple
+        ``(state, attitude)``. The state carries numbers only. The
+        attitude is keyed by the row's own key names (``ALPHA``,
+        ``BETA``, ``ADVANCE_RATIO``) and its values are numbers, or the
+        word ``sweep`` for the one key the row varies.
+    """
+    state = {key: float(value) for key, value in condition.items() if key in FLIGHT_CONDITION_KEYS}
+    attitude = {key: value for key, value in condition.items() if key in ATTITUDE_KEYS}
+    return state, attitude
 
 
 def _parse_sweep(sweep_type: str, sweep_values: str) -> SweepAxis:
@@ -951,6 +1002,16 @@ def read_matrix(path: str | Path, *, active_only: bool = True) -> list[MatrixRow
                 f"nothing. Name a run type in the WORKFLOW column ({', '.join(workflow_names())}), "
                 "which rotates what the records name, or drop the key."
             )
+        # THE CELL CARRIES TWO SUBJECTS SINCE 0.15.0 (FR-69, FR-70): the
+        # flow state, which is resolved into density and velocity, and the
+        # row's ATTITUDE, which is what the aircraft does in it. They are
+        # separated here, so the flow resolver is never handed an angle,
+        # and the attitude joins the row's own variables where the
+        # builders read it.
+        state, attitude = split_attitude(
+            _require_flight_condition(record["FLIGHT_CONDITION"], record["POL"], row_number, path)
+        )
+        variables.update(attitude)
         row = MatrixRow(
             # From the enumerate above, so it is assigned before the RUN
             # filter below and an inactive row does not shift the numbers
@@ -959,9 +1020,7 @@ def read_matrix(path: str | Path, *, active_only: bool = True) -> list[MatrixRow
             pol=record["POL"],
             aircraft=record["AIRCRAFT"],
             description=record["DESCRIPTION"],
-            flight_condition=_require_flight_condition(
-                record["FLIGHT_CONDITION"], record["POL"], row_number, path
-            ),
+            flight_condition=state,
             sweep=_parse_sweep(record["SWEEP_TYPE"], record["SWEEP_VALUES"]),
             ref_code=record["REF"],
             set_code=record["SET"],

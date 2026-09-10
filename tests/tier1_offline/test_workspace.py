@@ -2700,17 +2700,24 @@ def test_a_run_record_names_waived_commands():
     assert "broken_commands" not in row
 
 
-def test_an_old_manifest_key_still_reads():
-    """A row written under the old key reads, and the warning names the deadline.
+def test_an_old_manifest_key_still_reads_and_its_promise_moved_to_0_16_0():
+    """The one promise of 0.15.0 that moved rather than being kept.
 
-    The warning text is the ledger entry's own, so the release it names is
-    the one the deadline guard enforces (PFS-2021.07.01, NFR-11).
+    The removal was made on 2026-09-10 and the suite went red on the
+    tier-3 fixture, which led to the reading that moved it: the author's
+    own recorded campaign at `pfs0110/runs.json` carries the OLD key,
+    that workspace is the reference her reproduction is measured against,
+    and it is held. A manifest is the one surface this package cannot
+    regenerate.
+
+    The three PROPERTY shims of the same rename were removed on time,
+    because an attribute is code and code is re-typed. The warning text
+    is the ledger entry's own, so the release it names is the one the
+    deadline guard enforces (PFS-2021.07.01, NFR-11).
     """
     from pyflightstream._deprecations import WAIVED_COMMANDS_MANIFEST_KEY
 
     row = json.loads(make_record().model_dump_json())
-    # An old manifest carries the old key alone; a row this version
-    # writes carries the new one, so the dump's own is dropped first.
     del row["waived_commands"]
     row["broken_commands"] = [dict(WAIVER_ROW)]
     with pytest.warns(DeprecationWarning, match="broken_commands") as caught:
@@ -2718,7 +2725,7 @@ def test_an_old_manifest_key_still_reads():
     assert record.waived_commands == [WAIVER_ROW]
     (message,) = {str(w.message) for w in caught}
     assert message == WAIVED_COMMANDS_MANIFEST_KEY.message()
-    assert f"removed in v{WAIVED_COMMANDS_MANIFEST_KEY.removal_version}" in message
+    assert "removed in v0.16.0" in message
 
 
 def test_a_row_carrying_both_spellings_is_refused():
@@ -2755,26 +2762,20 @@ def test_the_run_record_carries_the_executor_and_the_window():
     assert RunRecord.model_validate(row) == record
 
 
-def test_the_old_property_names_warn_from_the_ledger():
-    """`RunRecord.broken_commands` and `Script.broken_commands` still read, warning.
+def test_the_old_property_names_are_gone_at_0_15_0():
+    """Both promised removal in 0.15.0, and a promise kept is a name that is gone.
 
-    The warning text is the ledger entry's, so the deadline the guard
-    enforces is the one the user is told (PFS-2021.07.01).
+    They warned from 0.13.0. The ledger's deadline guard fails the suite
+    when a shim outlives its promise, which is what asked for this: the
+    attribute is absent, so a caller meets an AttributeError naming it
+    rather than a value that quietly still works.
     """
-    from pyflightstream._deprecations import (
-        RUN_RECORD_BROKEN_COMMANDS,
-        SCRIPT_BROKEN_COMMANDS,
-    )
-
     record = make_record(waived_commands=[dict(WAIVER_ROW)])
-    with pytest.warns(DeprecationWarning) as caught:
-        assert record.broken_commands == [WAIVER_ROW]
-    assert [str(w.message) for w in caught] == [RUN_RECORD_BROKEN_COMMANDS.message()]
-
+    assert not hasattr(record, "broken_commands")
+    assert record.waived_commands == [WAIVER_ROW]
     script = Script("26.120")
-    with pytest.warns(DeprecationWarning) as caught:
-        assert script.broken_commands == ()
-    assert [str(w.message) for w in caught] == [SCRIPT_BROKEN_COMMANDS.message()]
+    assert not hasattr(script, "broken_commands")
+    assert script.waived_commands == ()
 
 
 FRAMES = (

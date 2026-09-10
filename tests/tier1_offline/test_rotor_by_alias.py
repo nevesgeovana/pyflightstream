@@ -304,6 +304,42 @@ def test_a_symmetry_loads_that_is_not_a_yes_or_a_no_is_refused(tmp_path):
     assert "sector" in str(refused.value)
 
 
+def test_an_incidence_the_row_states_reaches_the_solver(tmp_path):
+    """FR-69, and the measured defect it closes.
+
+    A row sweeping the advance ratio reached the solver at incidence
+    ZERO, and the only record of the incidence was that nobody had
+    written one: the point carries the swept axis alone and the builder
+    read `case.point.get("alpha", 0.0)`. The row can now state the angle
+    it is not sweeping, and it is read.
+
+    THE ANGLE DOES NOT ENTER THE POINT, deliberately: the point's
+    coordinates are run IDENTITY, and carrying a held angle there would
+    rename runs that already exist to say something they always meant.
+    """
+    from pyflightstream.cases.workflows import _angle
+
+    # A J SWEEP: the point carries the ratio and no angle, which is the
+    # shape the defect was measured in.
+    swept_ratio = two_rotor_case(tmp_path).model_copy(
+        update={
+            "sweep": SweepAxis(type="advance_ratio", values=[0.85]),
+            "point": {"advance_ratio": 0.85},
+        }
+    )
+    assert _angle(swept_ratio, "alpha") == 0.0, "a row stating nothing is at zero, as before"
+    stated = swept_ratio.model_copy(
+        update={"variables": {**swept_ratio.variables, "ALPHA": "4.0", "BETA": "1.5"}}
+    )
+    assert _angle(stated, "alpha") == 4.0
+    assert _angle(stated, "beta") == 1.5
+    assert "alpha" not in stated.point, "the row's angle does not become run identity"
+    # The POINT still wins, because a swept angle is the point's.
+    swept_angle = stated.model_copy(update={"point": {"alpha": 2.0}})
+    assert _angle(swept_angle, "alpha") == 2.0
+    assert _angle(swept_angle, "beta") == 1.5, "the one it does not sweep is still the row's"
+
+
 def test_a_record_citing_an_alias_the_reference_does_not_declare_is_refused(tmp_path):
     case = two_rotor_case(tmp_path)
     case = case.model_copy(update={"motions": [{"MOVING_BC_ALIAS": "LIFT_L9"}]})

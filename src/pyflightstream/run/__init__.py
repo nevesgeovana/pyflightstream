@@ -78,13 +78,8 @@ from pathlib import Path
 from typing import Protocol
 
 import pyflightstream
-from pyflightstream._deprecations import POINT_PLAN_BROKEN_COMMANDS
 from pyflightstream._digest import file_sha256, optional_file_sha256, text_sha256
-from pyflightstream._errors import (
-    PyflightstreamDeprecationWarning,
-    PyflightstreamError,
-    PyflightstreamWarning,
-)
+from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning
 from pyflightstream.cases import (
     Campaign,
     ScriptRecipe,
@@ -2347,14 +2342,6 @@ class PointPlan:
     error: str | None = None
     waived_commands: tuple[str, ...] = ()
     raw: bool = False
-
-    @property
-    def broken_commands(self) -> tuple[str, ...]:
-        """The former name of :attr:`waived_commands`; warns from the ledger."""
-        warnings.warn(
-            POINT_PLAN_BROKEN_COMMANDS.message(), PyflightstreamDeprecationWarning, stacklevel=2
-        )
-        return self.waived_commands
 
 
 @dataclass(frozen=True)

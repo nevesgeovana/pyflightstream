@@ -352,6 +352,87 @@ def test_a_blade_datum_with_two_signs_is_refused(tmp_path):
     assert "zero" in message
 
 
+def test_a_member_the_mesh_carries_wins_over_an_alias_of_the_same_name(tmp_path):
+    """QA1-2: the ordering that had a comment claiming a measurement and no test.
+
+    The comment cited the tier-3 refusal test, and the QA lens measured
+    that the mutant survives it. This is the discriminating input it
+    could not have: a member that is BOTH a boundary the mesh carries and
+    the case-folded name of a DIFFERENT alias.
+    """
+    from pyflightstream.cases import resolve_alias
+
+    aliases = {"a": ["Wing"], "wing": ["W", "B"]}
+    assert resolve_alias("a", ["Wing", "W", "B"], aliases) == ["Wing"]
+    # And with the mesh NOT carrying it, the alias is what answers.
+    assert resolve_alias("a", ["W", "B"], aliases) == ["W", "B"]
+
+
+def test_two_paths_to_one_alias_yield_it_once(tmp_path):
+    """QA1-7: the diamond. `a` reaches `d` twice and `d` appears once."""
+    from pyflightstream.cases import resolve_alias
+
+    aliases = {"a": ["b", "c"], "b": ["d"], "c": ["d"], "d": ["W"]}
+    assert resolve_alias("a", ["W"], aliases) == ["W"]
+
+
+def test_a_ring_of_three_is_refused_naming_the_whole_path(tmp_path):
+    """QA1: only the two-alias ring was measured; this is the shape a study writes."""
+    from pyflightstream.cases import AliasCycleError, resolve_alias
+
+    with pytest.raises(AliasCycleError) as refused:
+        resolve_alias("a", ["W"], {"a": ["b"], "b": ["c"], "c": ["a"]})
+    message = str(refused.value)
+    for name in ("'a'", "'b'", "'c'"):
+        assert name in message, message
+
+
+def test_an_axis_that_is_not_an_axis_is_refused(tmp_path):
+    """QA1-3: three didactic refusals had no test, so each was satisfied by a constant."""
+    body = VOCABULARY_TOML.replace(
+        'axis = "X"\nrpm_sign = 1\ndiameter_m = 1.8', 'axis = "Q"\nrpm_sign = 1\ndiameter_m = 1.8'
+    )
+    message = _refused(tmp_path, body, "r913")
+    assert "not an axis" in message
+
+
+def test_a_sign_that_is_not_a_sign_is_refused(tmp_path):
+    body = VOCABULARY_TOML.replace(
+        "rpm_sign = 1\ndiameter_m = 1.8", "rpm_sign = 0\ndiameter_m = 1.8"
+    )
+    message = _refused(tmp_path, body, "r914")
+    assert "not a sign" in message
+
+
+def test_a_lower_case_axis_and_datum_are_normalised(tmp_path):
+    """The `.upper()` a mutant could drop with the whole suite green."""
+    body = VOCABULARY_TOML.replace(
+        'axis = "X"\nrpm_sign = 1\ndiameter_m = 1.8', 'axis = "x"\nrpm_sign = 1\ndiameter_m = 1.8'
+    ).replace(
+        'blade1 = { azimuth_deg = 0.0, zero = "Y" }', 'blade1 = { azimuth_deg = 0.0, zero = "y" }'
+    )
+    reference = _reference(tmp_path, body, "r915")
+    assert reference.engines["PUSHER"].axis == "X"
+    assert reference.engines["PUSHER"].blade1.zero == "Y"
+
+
+def test_a_reference_may_declare_a_named_point_beside_its_rotors(tmp_path):
+    """QA1-5: the `points` table was dead, and the lens doubted it even validates."""
+    body = VOCABULARY_TOML + '\n[ARP]\nkind = "airframe"\nx_m = 3.5\ny_m = 0.0\nz_m = 0.0\n'
+    reference = _reference(tmp_path, body, "r916")
+    assert reference.points["ARP"].x_m == 3.5
+    assert reference.points["ARP"].kind == "airframe"
+
+
+def test_the_members_property_is_the_order_the_alias_takes(tmp_path):
+    """QA1-8: two orderings of one rule lived in two places and one was untested."""
+    reference = _reference(tmp_path, VOCABULARY_TOML)
+    pusher = reference.engines["PUSHER"]
+    assert pusher.members == reference.aliases["PUSHER"]
+    assert pusher.members[0] == "Spinner", "the general families come first"
+    assert pusher.origin == (7.2, 0.0, 0.0)
+
+
 def test_an_alias_naming_itself_is_not_a_ring(tmp_path):
     """The distinction a real workspace forced, on 2026-09-10.
 

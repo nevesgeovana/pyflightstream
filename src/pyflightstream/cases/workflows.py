@@ -251,6 +251,15 @@ CLOCK_MOTION_VARIABLE = "CLOCK_MOTION"
 #: to a row key, because one preset serves a sector row and a full-wheel
 #: row; a row stating it overrides the preset and warns naming both.
 SYMMETRY_LOADS_VARIABLE = "SYMMETRY_LOADS"
+#: The two angles that fix the attitude of a point (FR-69, her rule of
+#: 2026-09-10). They are keys of the FLIGHT_CONDITION cell, stated on
+#: every row, so that no run reaches the solver at an angle nobody wrote;
+#: the swept one carries the word `sweep` instead of a number and is the
+#: point's, and the other is read from here. They are the row's own keys
+#: on the case, put there by the matrix reader, and are NOT registered in
+#: the run types' key vocabularies for that reason.
+ALPHA_VARIABLE = "ALPHA"
+BETA_VARIABLE = "BETA"
 #: The mesh families the base-region autodetect is allowed to consider
 #: (PFS-2029.10), comma separated; overrides the pproc artifact's list.
 BASE_REGIONS_VARIABLE = "BASE_REGIONS"
@@ -2524,6 +2533,29 @@ def reduction_windows(case: SimCase) -> dict[str, object] | None:
 # --- the builders -------------------------------------------------------------
 
 
+def _angle(case: SimCase, axis: str) -> float:
+    """Return the incidence or the sideslip the row states, in degrees (FR-69).
+
+    THE POINT FIRST, THEN THE ROW, THEN ZERO. A swept angle is the
+    point's, which is what it has always been. An angle the row states in
+    its FLIGHT_CONDITION and does not sweep is the row's, and until this
+    release there was nowhere to write one: a row sweeping the advance
+    ratio reached the solver at incidence zero, and the only record of the
+    incidence was that nobody had written one (measured 2026-09-09 while
+    reading her p001).
+
+    The row's angle does NOT enter the point, deliberately. The point's
+    coordinates are run IDENTITY: they tag the script, the exports and the
+    run_id of every record already written. Carrying a held angle there
+    would rename runs that already exist to say something they always
+    meant.
+    """
+    if axis in case.point:
+        return float(case.point[axis])
+    stated = _variable(case, ALPHA_VARIABLE if axis == "alpha" else BETA_VARIABLE)
+    return 0.0 if stated is None else float(stated)
+
+
 def _velocity(case: SimCase) -> float:
     if case.velocity is not None:
         return float(case.velocity)
@@ -3129,7 +3161,7 @@ def _refuse_sideslip_under_mirror(case: SimCase) -> None:
     (PFS-2005.09); the geometry and frame lines above it are already in
     the script, which the dry run discards.
     """
-    beta = float(case.point.get("beta", 0.0))
+    beta = _angle(case, "beta")
     symmetry = _variable(case, SYMMETRY_VARIABLE)
     if symmetry is not None and symmetry.upper() == "MIRROR" and beta != 0.0:
         raise CampaignConfigError(
@@ -3189,8 +3221,8 @@ def _settings(
     _refuse_sideslip_under_mirror(case)
     helpers.solver_settings(
         script,
-        aoa=case.point.get("alpha", 0.0),
-        sideslip=case.point.get("beta", 0.0),
+        aoa=_angle(case, "alpha"),
+        sideslip=_angle(case, "beta"),
         velocity=_velocity(case),
         ref_velocity=(
             solver.reference_velocity_m_per_s

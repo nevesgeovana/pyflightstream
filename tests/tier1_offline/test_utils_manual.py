@@ -40,7 +40,6 @@ from pyflightstream.utils import (
     sample_contradiction,
     stale_citations,
     surface_changes,
-    sweep_editions,
     unreachable_commands,
 )
 from pyflightstream.utils.cli import main as cli_main
@@ -251,10 +250,8 @@ def test_the_module_reaches_up_to_nothing():
         if "import pyflightstream" in line or "from pyflightstream" in line
     ]
     assert reaching == [
-        "from pyflightstream._deprecations import PROPOSE_TYPE_POSITIONAL, SWEEP_EDITIONS",
-        "from pyflightstream._errors import PyflightstreamDeprecationWarning",
         "from pyflightstream._yamlflow import flow_mapping",
-        "from pyflightstream.utils.errors import ManualCallError, ManualDraftError",
+        "from pyflightstream.utils.errors import ManualDraftError",
         "from pyflightstream.extras import missing_extra",
     ], reaching
 
@@ -454,24 +451,21 @@ def test_a_command_with_no_table_says_so_rather_than_guessing():
     assert "no parameter table" in reason
 
 
-def test_propose_type_takes_its_two_strings_by_keyword_and_a_positional_call_warns():
+def test_propose_type_refuses_a_positional_call_at_0_15_0():
     """PFS-2022.05: two adjacent same-typed parameters, passed positionally.
 
-    ``propose_type(placeholder="AXIS", description="the axis")`` and ``propose_type("the axis",
-    "AXIS")`` are both well-typed and only one is right; nothing at the
-    call site says which. The two are keyword-only from 0.13.0; a
-    positional call warns from the ledger and still answers, until
-    0.15.0. RED on the base tree: the positional call was silent.
+    ``propose_type(placeholder="AXIS", description="the axis")`` and
+    ``propose_type("the axis", "AXIS")`` are both well-typed and only one
+    is right; nothing at the call site says which. The two are
+    keyword-only from 0.13.0 and warned until 0.15.0; the promise this
+    release keeps is that the signature itself refuses the positional
+    call.
     """
     command = typed_command()
     by_keyword = propose_type(placeholder="AXIS", description=command.parameters["AXIS"])
     assert by_keyword[0] == "enum"
-    with pytest.warns(
-        DeprecationWarning,
-        match=r"positional placeholder and description of propose_type .*removed in v0\.15\.0",
-    ):
-        positional = propose_type("AXIS", command.parameters["AXIS"])
-    assert positional == by_keyword
+    with pytest.raises(TypeError):
+        propose_type("AXIS", command.parameters["AXIS"])
 
 
 def test_the_toggle_rule_matches_the_tokens_as_printed():
@@ -1252,16 +1246,19 @@ def test_a_sweep_of_no_editions_refuses_rather_than_reporting_nothing_absent():
 # keeps its name, and its help says what it reads.
 
 
-def test_the_former_name_sweep_editions_warns_from_the_ledger_and_still_answers(tmp_path):
-    """RED on the base tree: the old name answered without a word."""
-    pages = {"new": {1: {1: "Function name: X_BOTH <A>\nFunction name: X_NEW <A>\n"}}}
-    read, _calls = _recording_reader(pages)
-    editions = [_edition(tmp_path, "new", (1, 1))]
-    with pytest.warns(
-        DeprecationWarning, match=r"sweep_editions of pyflightstream\.utils .*removed in v0\.15\.0"
-    ):
-        old = sweep_editions(editions, recorded=["X_BOTH"], reader=read)
-    assert old == manual_editions(editions, recorded=["X_BOTH"], reader=read)
+def test_the_former_name_sweep_editions_is_gone_at_0_15_0():
+    """It warned and forwarded from 0.13.0, and its promise names this release.
+
+    `sweep_editions` reads the vendor manuals and `sweep` is the solver's
+    own word for a parameter sweep; one word meaning two things in one
+    library costs every reader a check, which is why it was renamed.
+    """
+    import pyflightstream.utils as utils
+    import pyflightstream.utils.manual as manual
+
+    assert not hasattr(manual, "sweep_editions")
+    assert "sweep_editions" not in utils.__all__
+    assert "manual_editions" in utils.__all__
 
 
 def test_the_new_name_is_the_public_one_and_carries_no_warning(tmp_path):
@@ -2612,12 +2609,15 @@ def test_propose_type_refuses_the_call_shapes_it_cannot_read():
 
     command = typed_command()
     description = command.parameters["AXIS"]
-    with pytest.raises(ManualCallError, match=r"got 1 positional argument\(s\)$"):
-        propose_type("AXIS")
-    with pytest.raises(ManualCallError, match=r"got 2 positional argument\(s\) and a keyword$"):
-        propose_type("AXIS", description, placeholder="AXIS")
-    with pytest.raises(ManualCallError, match=r"needs both placeholder= and description="):
-        propose_type(placeholder="AXIS")
-    with pytest.raises(ManualCallError, match=r"needs both placeholder= and description="):
-        propose_type(description=description)
+    # SINCE 0.15.0 THE SIGNATURE ITSELF REFUSES, which is what the ledger
+    # promised and what makes the hand-written refusals unnecessary: the
+    # two strings are keyword-only with no positional tail to sort out.
+    for call in (
+        lambda: propose_type("AXIS"),
+        lambda: propose_type("AXIS", description, placeholder="AXIS"),
+        lambda: propose_type(placeholder="AXIS"),
+        lambda: propose_type(description=description),
+    ):
+        with pytest.raises(TypeError):
+            call()
     assert issubclass(ManualCallError, TypeError), "a wrong call shape is a TypeError to a caller"

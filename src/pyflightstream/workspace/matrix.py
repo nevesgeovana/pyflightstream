@@ -542,6 +542,44 @@ def _frames_of(reference, setup, row: MatrixRow) -> list:
     return [*reference.frames, *kept]
 
 
+def _frames_for_row(reference, setup, row: MatrixRow) -> list:
+    """Return a row's custom frames, refusing only what the ROW chose (FR-72).
+
+    A LEGACY row is built by its own recipe, which reads no frames, so a
+    table it would carry and never emit is refused rather than dropped in
+    silence. That was written when the table was the SETUP's, which a row
+    chooses by its SET cell.
+
+    THE REFERENCE IS NOT A ROW'S CHOICE. It is per configuration, and
+    every row of that configuration cites it, so refusing a legacy row for
+    a table the reference declares would let one legacy row block a whole
+    study. The reference's frames are DROPPED for that row, with a warning
+    naming it, so the record cannot claim what the script never took; the
+    setup's are refused exactly as before.
+
+    Whether that is the right division is the author's question of
+    2026-09-10 (the interface lens, API1-20): refusing is the other
+    defensible answer and costs a study one edit per legacy row.
+    """
+    if row.workflow == LEGACY_WORKFLOW and reference.frames:
+        warnings.warn(
+            f"POL {row.pol} writes LEGACY and its reference {row.ref_code!r} declares "
+            f"{len(reference.frames)} custom frame(s). A LEGACY row is built by its own "
+            "recipe, which reads no frames, so they are left out of this row rather than "
+            "carried into a record the script would not match. Every row of this "
+            "configuration that names a run type gets them.",
+            PyflightstreamWarning,
+            stacklevel=2,
+        )
+        return _not_on_a_legacy_row(row, list(setup.frames), "frames", f"setup {row.set_code!r}")
+    return _not_on_a_legacy_row(
+        row,
+        _frames_of(reference, setup, row),
+        "frames",
+        _frame_sources(reference, setup, row),
+    )
+
+
 def _frame_sources(reference, setup, row: MatrixRow) -> str:
     """Name the file or files a row's custom frames came from, for a refusal."""
     parts = []
@@ -1336,12 +1374,7 @@ def resolve_matrix(
             # coordinate system is geometric data, so it belongs beside the
             # lengths and the rotors; a preset still stating them is read with a
             # deprecation warning and the reference wins.
-            "frames": _not_on_a_legacy_row(
-                row,
-                _frames_of(reference, setups[row.set_code], row),
-                "frames",
-                _frame_sources(reference, setups[row.set_code], row),
-            ),
+            "frames": _frames_for_row(reference, setups[row.set_code], row),
             # THE SETUP'S RAW COMMANDS RIDE ON THE CASE TOO (PFS-2033.01),
             # each naming the artifact it came from, for the run record.
             "raw_commands": [

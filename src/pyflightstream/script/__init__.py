@@ -53,14 +53,12 @@ from __future__ import annotations
 
 import math
 import os
-import warnings
 from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from pyflightstream._deprecations import SCRIPT_BROKEN_COMMANDS
-from pyflightstream._errors import PyflightstreamDeprecationWarning, PyflightstreamError
+from pyflightstream._errors import PyflightstreamError
 from pyflightstream.commands import (
     ArgSpec,
     ArgType,
@@ -812,14 +810,6 @@ class Script:
         which is the opposite claim.
         """
         return tuple(self._broken_uses.values())
-
-    @property
-    def broken_commands(self) -> tuple[BrokenCommandUse, ...]:
-        """The former name of :attr:`waived_commands`; warns from the ledger."""
-        warnings.warn(
-            SCRIPT_BROKEN_COMMANDS.message(), PyflightstreamDeprecationWarning, stacklevel=2
-        )
-        return self.waived_commands
 
     def declare_existing(
         self,

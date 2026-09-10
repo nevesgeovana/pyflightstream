@@ -3613,18 +3613,19 @@ def test_a_point_that_never_reached_the_solver_records_no_executor(tmp_path):
     assert record.executor is None
 
 
-# --- PFS-2022.01.05: the old plan-time name warns from the ledger ----------
+# --- PFS-2022.01.05: the old plan-time name is gone at 0.15.0 --------------
 
 
-def test_the_old_point_plan_name_warns_from_the_ledger(tmp_path):
-    from pyflightstream._deprecations import POINT_PLAN_BROKEN_COMMANDS
+def test_the_old_point_plan_name_is_gone_at_0_15_0(tmp_path):
+    """It warned from 0.13.0 and its ledger promise names this release.
 
+    What survives is the name that says what the entries ARE: a waiver
+    the recipe registered, not a command that broke in the run.
+    """
     campaign = make_campaign(tmp_path, recipe="waived", alphas=(0.0,))
     workspace = CampaignWorkspace(tmp_path / "camp")
     plan = plan_campaign(
         campaign, workspace, recipes={"waived": waived_altitude_recipe}, write_plan=False
     )
-    with pytest.warns(DeprecationWarning) as caught:
-        old = plan.points[0].broken_commands
-    assert old == plan.points[0].waived_commands == ("AIR_ALTITUDE",)
-    assert [str(w.message) for w in caught] == [POINT_PLAN_BROKEN_COMMANDS.message()]
+    assert not hasattr(plan.points[0], "broken_commands")
+    assert plan.points[0].waived_commands == ("AIR_ALTITUDE",)

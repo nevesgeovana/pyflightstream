@@ -398,33 +398,6 @@ DEPRECATED_MODULES: tuple[DeprecatedModule, ...] = ()
 #: The manifest key, and the property of the same name on the three
 #: objects that carry it, moved to ``waived_commands`` in 0.13.0; each
 #: old name reads until 0.15.0 and warns with the text below.
-WAIVED_COMMANDS_MANIFEST_KEY = DeprecatedManifestKey(
-    old="broken_commands",
-    new="waived_commands",
-    deprecated_since="0.13.0",
-    removal_version="0.15.0",
-)
-SCRIPT_BROKEN_COMMANDS = DeprecatedParameter(
-    owner="Script",
-    old="broken_commands",
-    new="waived_commands",
-    deprecated_since="0.13.0",
-    removal_version="0.15.0",
-)
-POINT_PLAN_BROKEN_COMMANDS = DeprecatedParameter(
-    owner="PointPlan",
-    old="broken_commands",
-    new="waived_commands",
-    deprecated_since="0.13.0",
-    removal_version="0.15.0",
-)
-RUN_RECORD_BROKEN_COMMANDS = DeprecatedParameter(
-    owner="RunRecord",
-    old="broken_commands",
-    new="waived_commands",
-    deprecated_since="0.13.0",
-    removal_version="0.15.0",
-)
 
 #: The two promises made before the ledger could hold them, registered
 #: on 2026-09-09 (PFS-2021.02). Each warned "in a future release" and
@@ -511,17 +484,6 @@ MATRIX_FS_VERSION: dict[str, DeprecatedParameter] = {
 #:   evidence on a version row) are stated in the field docstrings of
 #:   ``pyflightstream.commands``, which is where a reader of the key
 #:   meets them.
-SWEEP_EDITIONS = DeprecatedParameter(
-    owner="pyflightstream.utils",
-    old="sweep_editions",
-    new="manual_editions",
-    deprecated_since="0.13.0",
-    removal_version="0.15.0",
-    extra=(
-        "The function reads the vendor manuals; sweep is the solver's word for a "
-        "parameter sweep. The pyfs-manual sweep subcommand keeps its name."
-    ),
-)
 #: The polar format's five public names were spelled ``her`` from 0.13.0,
 #: naming the author rather than the thing; on her decision of 2026-09-09
 #: they are spelled ``custom`` (the CHANGELOG entry of 0.14.0 names the
@@ -572,13 +534,84 @@ POST_READ_HER_POLAR_FORMAT = DeprecatedParameter(
     removal_version="0.16.0",
     extra=_CUSTOM_POLAR_EXTRA,
 )
-PROPOSE_TYPE_POSITIONAL = DeprecatedParameter(
-    owner="propose_type",
-    old="positional placeholder and description",
-    new="placeholder= and description= by keyword",
+
+#: THE ONE PROMISE OF 0.15.0 THAT MOVED RATHER THAN BEING KEPT, and the
+#: measurement that moved it. A manifest is the ONE surface this package
+#: cannot regenerate: every other name it renamed lives in code a user
+#: re-types, and a record is data a run produced once. On 2026-09-10 the
+#: removal was made and the suite went red on the tier-3 fixture, which
+#: led to the reading that matters: the author's own recorded campaign at
+#: `pfs0110/runs.json` carries the OLD key, and that workspace is the
+#: reference her reproduction is compared against and is HELD, so nothing
+#: rewrites it. Keeping the promise on time would have made her recorded
+#: campaign unreadable by the release that reproduces it.
+#:
+#: So it moves to 0.16.0, deliberately and on the record, which is what
+#: the deadline guard's own message offers as the second reading. The
+#: three PROPERTY shims of the same rename were removed on time: an
+#: attribute is code, and code is re-typed.
+WAIVED_COMMANDS_MANIFEST_KEY = DeprecatedManifestKey(
+    old="broken_commands",
+    new="waived_commands",
     deprecated_since="0.13.0",
-    removal_version="0.15.0",
-    extra=("The two are adjacent strings and a positional call cannot be read for which is which."),
+    removal_version="0.16.0",
+    extra=(
+        "The entries are WAIVERS the recipe registered, not commands that broke in the "
+        "run, which is the opposite claim. Extended from 0.15.0 on 2026-09-10: a "
+        "manifest cannot be regenerated and recorded campaigns still carry the old key."
+    ),
+)
+
+#: THE VOCABULARY THAT MOVED TO THE REFERENCE (FR-59 and FR-72, her design
+#: of 2026-09-10). Both tables were the setup preset's at 0.14.0, are read
+#: from it with a warning at 0.15.0, and stop being read at 0.17.0. Two
+#: releases rather than one because a workspace migrates its inputs by
+#: hand and the tables are shared by every row of a configuration.
+_MOVED_TO_THE_REFERENCE = (
+    "A boundary name and a coordinate system are properties of the "
+    "CONFIGURATION, and a preset is per condition."
+)
+SETUP_ALIASES_TABLE = DeprecatedParameter(
+    owner="the setup preset",
+    old="[aliases]",
+    new="the same table in the reference artifact",
+    deprecated_since="0.15.0",
+    removal_version="0.17.0",
+    extra=_MOVED_TO_THE_REFERENCE,
+)
+SETUP_FRAMES_TABLE = DeprecatedParameter(
+    owner="the setup preset",
+    old="[[frames]]",
+    new="the same table in the reference artifact",
+    deprecated_since="0.15.0",
+    removal_version="0.17.0",
+    extra=_MOVED_TO_THE_REFERENCE,
+)
+#: THE FIVE ROW KEYS AN ALIAS REPLACES (FR-61). The reference states each
+#: of them once, in the rotor's own block, so a row states the alias and
+#: nothing else about the rotor.
+_STATED_IN_THE_BLOCK = (
+    "The reference states it once, in the rotor's own engine block, and a "
+    "row names the rotor by alias."
+)
+ROW_MOVING_BOUNDARIES = DeprecatedParameter(
+    owner="a motion record",
+    old="MOVING_BOUNDARIES",
+    new="MOVING_BC_ALIAS",
+    deprecated_since="0.15.0",
+    removal_version="0.17.0",
+    extra=_STATED_IN_THE_BLOCK,
+)
+ROW_CLOCK_MOTION_ABSENT = DeprecatedParameter(
+    owner="a rotor row",
+    old="no CLOCK_MOTION, the clock following the fastest rotor",
+    new="CLOCK_MOTION naming the motion that owns the clock",
+    deprecated_since="0.15.0",
+    removal_version="0.17.0",
+    extra=(
+        "Which rotor bounds the time step is a decision the row states, "
+        "not arithmetic the package performs in silence."
+    ),
 )
 
 #: Every live promise of every kind, one entry each; the Tier 1 deadline
@@ -599,18 +632,17 @@ FORMER_POLAR_NAMES: dict[str, DeprecatedParameter] = {
 
 DEPRECATIONS: tuple[Deprecation, ...] = (
     *DEPRECATED_MODULES,
-    WAIVED_COMMANDS_MANIFEST_KEY,
-    SCRIPT_BROKEN_COMMANDS,
-    POINT_PLAN_BROKEN_COMMANDS,
-    RUN_RECORD_BROKEN_COMMANDS,
     ANALYSIS_SETUP_VORTICITY_DRAG_BOUNDARIES,
     PLAN_MATRIX_FS_VERSION,
     RUN_MATRIX_FS_VERSION,
-    SWEEP_EDITIONS,
-    PROPOSE_TYPE_POSITIONAL,
     PPROC_HER_POLAR_FORMAT,
     POST_HER_POLAR_TABLE,
     POST_HER_POLAR_FILE_NAME,
     POST_WRITE_HER_POLAR_FORMAT,
     POST_READ_HER_POLAR_FORMAT,
+    WAIVED_COMMANDS_MANIFEST_KEY,
+    SETUP_ALIASES_TABLE,
+    SETUP_FRAMES_TABLE,
+    ROW_MOVING_BOUNDARIES,
+    ROW_CLOCK_MOTION_ABSENT,
 )

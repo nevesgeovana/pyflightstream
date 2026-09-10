@@ -65,7 +65,7 @@ from typing import TypedDict
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
-from pyflightstream._deprecations import RUN_RECORD_BROKEN_COMMANDS, WAIVED_COMMANDS_MANIFEST_KEY
+from pyflightstream._deprecations import WAIVED_COMMANDS_MANIFEST_KEY
 from pyflightstream._digest import file_sha256
 from pyflightstream._errors import PyflightstreamDeprecationWarning, PyflightstreamError
 from pyflightstream.cases import BoundaryAliases, RawCommand
@@ -727,6 +727,37 @@ class RunRecord(BaseModel):
     raw_flag: bool
     outputs_sha256: dict[str, str] = Field(default_factory=dict)
     waived_commands: list[BrokenCommandRecord] = Field(default_factory=list)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _take_the_earlier_name_of_the_waived_commands(cls, data: object) -> object:
+        """Read a row written under ``broken_commands``, warning from the ledger.
+
+        The key was renamed in 0.13.0 (PFS-2022.01.05) and a manifest is
+        the one surface that cannot be regenerated, so the old key reads
+        until the release the ledger entry names and the warning text is
+        the entry's own. A row carrying BOTH spellings is left alone, and
+        ``extra="forbid"`` then refuses it naming the old key: this
+        package never wrote such a row and two lists for one fact is not
+        a row to guess at.
+
+        THE PROMISE MOVED FROM 0.15.0 TO 0.16.0 on 2026-09-10, and the
+        ledger entry carries the measurement that moved it. The three
+        PROPERTY shims of this same rename were removed on time, because
+        an attribute is code and code is re-typed; a RECORD is data a run
+        produced once, and the author's recorded campaign still carries
+        this key.
+        """
+        if isinstance(data, dict) and "broken_commands" in data and "waived_commands" not in data:
+            warnings.warn(
+                WAIVED_COMMANDS_MANIFEST_KEY.message(),
+                PyflightstreamDeprecationWarning,
+                stacklevel=2,
+            )
+            data = {**data, "waived_commands": data["broken_commands"]}
+            del data["broken_commands"]
+        return data
+
     #: How the solver was called (PFS-2012.04), None where no solver ran
     #: and on every row written before the field existed.
     executor: ExecutorRecord | None = None
@@ -757,37 +788,6 @@ class RunRecord(BaseModel):
     #: 2026-09-09): an absent key reads as the empty table.
     aliases: BoundaryAliases = Field(default_factory=dict)
     conditions: list[dict] | None = None
-
-    @model_validator(mode="before")
-    @classmethod
-    def _take_the_earlier_name_of_the_waived_commands(cls, data: object) -> object:
-        """Read a row written under ``broken_commands``, warning from the ledger.
-
-        The key was renamed in 0.13.0 (PFS-2022.01.05) and a manifest is
-        the one surface that cannot be regenerated, so the old key reads
-        until the release the ledger entry names and the warning text is
-        the entry's own. A row carrying BOTH spellings is left alone, and
-        ``extra="forbid"`` then refuses it naming the old key: this
-        package never wrote such a row and two lists for one fact is not
-        a row to guess at.
-        """
-        if isinstance(data, dict) and "broken_commands" in data and "waived_commands" not in data:
-            warnings.warn(
-                WAIVED_COMMANDS_MANIFEST_KEY.message(),
-                PyflightstreamDeprecationWarning,
-                stacklevel=2,
-            )
-            data = {**data, "waived_commands": data["broken_commands"]}
-            del data["broken_commands"]
-        return data
-
-    @property
-    def broken_commands(self) -> list[BrokenCommandRecord]:
-        """The former name of :attr:`waived_commands`; warns from the ledger."""
-        warnings.warn(
-            RUN_RECORD_BROKEN_COMMANDS.message(), PyflightstreamDeprecationWarning, stacklevel=2
-        )
-        return self.waived_commands
 
     log_file_used: str | None = None
     solver_setup: dict | None = None
