@@ -243,7 +243,7 @@ class RotorReference(BaseModel):
         Recorded installation angles; read by nothing in the package.
     position : PointXyz
         The rotor position, the one field of this block a builder
-        reads: the two unsteady run types turn it into the ROTOR_MRP frame
+        reads: the two unsteady run types turn it into the rotor's hub frame
         (PFS-2030.03), the frame the author's probe lines and rotor plots
         are defined in and the frame a rotor row turns about unless it
         states ``ROTOR_ORIGIN``.
@@ -350,7 +350,7 @@ class ReferenceArtifact(BaseModel):
         IT LIVES HERE, BESIDE THE OTHER THREE LENGTHS, and not in
         :class:`RotorReference`, which is the natural-looking home
         and the wrong one. The rotor block is RECORDED metadata of which
-        this package reads one field, the position (0.11.0, the ROTOR_MRP
+        this package reads one field, the position (0.11.0, the rotor hub
         frame); the diameter is a DIVISOR of
         published numbers, exactly like the area and the chord. It sets
         the rotor speed a row asks for by advance ratio

@@ -477,6 +477,118 @@ def test_blades_reaches_every_rotor_on_an_expanding_frame_when_it_is_an_alias():
     ]
 
 
+def test_an_unstated_probe_frame_is_the_rotor_this_row_turns(tmp_path):
+    """FR-65: an artifact that states no frame lays its lines about the rotor
+    the row moves, which is what the one package-level frame stood for when a
+    reference described one propulsor.
+
+    THE ROUND-TWO FIX GOT THIS WRONG IN A QUIETER WAY THAN THE DEFECT IT
+    REPLACED. It resolved the default through the rotor a row with no MOTIONS
+    turns, which answers None whenever the reference declares more than one,
+    so the name became `ROTOR_SMRP`, no builder created it, and the probe
+    lines were DROPPED behind a warning saying the row does not turn that
+    rotor when there is no rotor of that name at all (the interface lens, on
+    the fix).
+    """
+    from pyflightstream.cases.workflows import _the_probe_frame
+
+    case = expanding_case(motions=[{"MOVING_BC_ALIAS": "PUSHER", "RPM": "2200"}])
+    assert _the_probe_frame(case, "") == "PUSHER_SMRP"
+    assert _the_probe_frame(case, "  LIFT_L1_SMRP ") == "LIFT_L1_SMRP", (
+        "a stated frame is the stated one, whatever the row turns"
+    )
+
+
+def test_an_unstated_probe_frame_on_a_row_turning_several_is_refused(tmp_path):
+    """Which rotor's disk the lines lie over is a question only the row answers.
+
+    Resolving it to a guess is what dropped them; refusing names the
+    candidates, which is the useful half.
+    """
+    from pyflightstream.cases import CampaignConfigError
+    from pyflightstream.cases.workflows import _the_probe_frame
+
+    case = expanding_case(
+        motions=[
+            {"MOVING_BC_ALIAS": "LIFT_L1", "RPM": "2200"},
+            {"MOVING_BC_ALIAS": "PUSHER", "RPM": "900"},
+        ]
+    )
+    with pytest.raises(CampaignConfigError, match="PUSHER"):
+        _the_probe_frame(case, "")
+
+
+def test_the_clock_answers_it_where_a_row_turns_several(tmp_path):
+    """A row that names the motion owning its clock has answered this too.
+
+    Without this arm the refusal above is a wall on every multirotor row,
+    which is the shape the fix it replaced already had.
+    """
+    from pyflightstream.cases.workflows import _the_probe_frame
+
+    case = expanding_case(
+        variables={"CLOCK_MOTION": "PUSHER"},
+        motions=[
+            {"MOVING_BC_ALIAS": "LIFT_L1", "RPM": "2200"},
+            {"MOVING_BC_ALIAS": "PUSHER", "RPM": "900"},
+        ],
+    )
+    assert _the_probe_frame(case, "") == "PUSHER_SMRP"
+
+
+def test_a_rotorless_row_lays_its_lines_in_the_moment_frame():
+    """Where a row turns nothing there is no hub, and MRP is where an unstated
+    frame put them on a rotorless run before this release too."""
+    from pyflightstream.cases import SimCase, SweepAxis
+    from pyflightstream.cases.workflows import _the_probe_frame
+
+    plain = SimCase(
+        sim_id="9401",
+        aircraft="WORK",
+        recipe="steady",
+        sweep=SweepAxis(type="alpha", values=[0.0]),
+    )
+    assert _the_probe_frame(plain, "") == "MRP"
+
+
+def test_a_frame_declared_under_a_retired_name_is_refused_where_it_is_written():
+    """The mirror of the citation refusal, and the one that reaches the file.
+
+    The reserved set lost these spellings with the frames themselves, so a
+    reference could DECLARE `[[frames]] name = "PROP_MRP"`, load clean, and
+    have the citation refused later with a message saying the user's own
+    declared frame was renamed (the interface lens, on the fix).
+    """
+    from pydantic import ValidationError
+
+    from pyflightstream.cases import FrameSpec
+
+    for name in ("PROP_MRP", "ROTOR_MRP", "RotorAxis2"):
+        with pytest.raises(ValidationError, match="no longer accepted"):
+            FrameSpec(name=name, origin=(0.0, 0.0, 0.0))
+    # THE CONTROL: a name of the study's own still loads.
+    assert FrameSpec(name="NACELLE", origin=(0.0, 0.0, 0.0)).name == "NACELLE"
+
+
+def test_the_refusal_names_the_spelling_the_user_actually_wrote():
+    """Three spellings reach one kind of retirement, and each is told its own.
+
+    A user who wrote `RotorAxis1` was told about `PROP_MRP`: a sentence
+    asserting they wrote something they did not. The reasons differ too, and
+    they are not interchangeable: two of them were ONE frame for several
+    rotors, and the third was a name that was an INDEX.
+    """
+    from pyflightstream._retired_names import retired_frame
+
+    axis = retired_frame("RotorAxis2")
+    assert axis is not None
+    assert "INDEX" in axis.why, axis.why
+    assert "PROP_MRP" not in axis.message(wrote="RotorAxis2"), axis.message(wrote="RotorAxis2")
+
+    one = retired_frame("PROP_MRP")
+    assert one is not None and "one-propulsor" in one.why, one.why
+
+
 def test_the_probe_scale_is_the_rotor_radius():
     """The author's `p010.toml` writes `scale = "rotor_radius"`, which is the word the rest of
     the release uses: a rotor, not a propeller."""

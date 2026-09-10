@@ -5341,17 +5341,7 @@ def _pproc_plots(case: SimCase, script: Script, frames: Frames) -> None:
     probes = pproc.probes
     if not probes.lines or not probes.parameters:
         return
-    # AN UNSTATED FRAME IS THE ROW'S OWN ROTOR HUB (FR-65). It was the
-    # literal `PROP_MRP` until 0.15.0, when a reference described one
-    # propulsor and one name could stand for it; a name is not enough now,
-    # because which hub it is depends on the row, so the DEFAULT is resolved
-    # here and the artifact states nothing. A row that turns no rotor lays
-    # its lines in the moment frame, which is where an unstated frame put
-    # them on a rotorless run before this release too.
-    wanted_frame = probes.frame.strip() or (
-        _the_flat_frame_name(case) if case.rotors or case.motions else "MRP"
-    )
-    probes = probes.model_copy(update={"frame": wanted_frame})
+    probes = probes.model_copy(update={"frame": _the_probe_frame(case, probes.frame)})
     # A PROBE TABLE NAMES ONE ROTOR'S FRAME, and a row that does not turn
     # that rotor places it nowhere. The same rule the plots and the
     # sections already keep (FR-65): an entry this RUN cannot place is left
@@ -5405,6 +5395,67 @@ def _pproc_plots(case: SimCase, script: Script, frames: Frames) -> None:
 #: reference declares may share a rotor's prefix and reading the shape
 #: backward once scaled probe lines to the wrong disk.
 _ROTOR_FRAME_SPELLING = re.compile(r"_(SMRP|RMRP\d*)$")
+
+
+def _the_probe_frame(case: SimCase, stated: str) -> str:
+    """Resolve an unstated probe frame to a rotor THIS ROW TURNS (FR-65).
+
+    It was the literal ``PROP_MRP`` until 0.15.0, when a reference described
+    one propulsor and one name could stand for it. A name is not enough now,
+    because which hub it is depends on the row, so the default is resolved
+    here and the artifact states nothing.
+
+    WHICH ROTOR, and this is the part the first fix got wrong. It read the
+    rotor a row with no MOTIONS turns, which answers None whenever the
+    reference declares more than one, so the name became ``ROTOR_SMRP``, no
+    builder created it, and the probe lines were DROPPED behind a warning
+    saying the row does not turn that rotor when there is no rotor of that
+    name at all (the interface lens of the 0.15.0 release review, on the
+    round-two fix). The rotors a row TURNS are the ones its motions name, and
+    the clock names which of them the row is about.
+
+    Raises
+    ------
+    CampaignConfigError
+        The row turns several rotors and the artifact states no frame, so
+        which of them the lines are laid out in is unanswered. Naming the
+        candidates is the useful half of the refusal.
+    """
+    if stated.strip():
+        return stated.strip()
+    moved = (_rotor_of(case, record) for record in case.motions)
+    turning = [block.alias for block in moved if block is not None]
+    if not turning:
+        block = _the_rotor_a_flat_row_turns(case)
+        if block is not None:
+            return f"{block.alias}_SMRP"
+        # A ROW THAT TURNS NOTHING lays its lines in the moment frame, which
+        # is where an unstated frame put them on a rotorless run before this
+        # release too.
+        if not case.rotors:
+            return "MRP"
+        declared = ", ".join(sorted(case.rotors))
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: the pproc artifact {case.pproc_id!r} states no frame "
+            f"for its probe lines, and the reference declares more than one rotor "
+            f"({declared}) while the row moves none of them, so there is no hub to lay "
+            "them out about. Write the frame, as <ALIAS>_SMRP."
+        )
+    if len(set(turning)) == 1:
+        return f"{turning[0]}_SMRP"
+    # THE CLOCK ALREADY NAMES THE ROTOR THE ROW IS ABOUT, so a row that
+    # states it has answered this question too.
+    clock = str(_variable(case, CLOCK_MOTION_VARIABLE) or "").strip()
+    for alias in turning:
+        if alias.casefold() == clock.casefold():
+            return f"{alias}_SMRP"
+    raise CampaignConfigError(
+        f"case {case.sim_id!r}: the pproc artifact {case.pproc_id!r} states no frame for "
+        f"its probe lines and this row turns {', '.join(sorted(set(turning)))}, so which "
+        "rotor's disk they are laid out over is unanswered. Write the frame in the "
+        "artifact, as <ALIAS>_SMRP; an unstated frame is only an answer where one rotor "
+        "turns."
+    )
 
 
 def _the_rotor_whose_frame_this_is(case: SimCase, frame: str) -> str | None:

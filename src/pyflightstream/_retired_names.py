@@ -63,12 +63,28 @@ class RetiredName:
     retired_in: str
     why: str
 
-    def message(self) -> str:
-        """Render the refusal text, which names the fix before the reason."""
+    def message(self, wrote: str | None = None) -> str:
+        """Render the refusal text, which names the fix before the reason.
+
+        Parameters
+        ----------
+        wrote : str, optional
+            The spelling the user actually wrote, where several reach one
+            entry. Without it the message names `old`, and a user who wrote
+            `RotorAxis1` was told about `PROP_MRP`: a sentence asserting
+            they wrote something they did not (the interface lens of the
+            0.15.0 release review).
+
+        Notes
+        -----
+        THE REPLACEMENT IS INTERPOLATED ONCE. Where `new` is a shape rather
+        than a token it is a sentence of its own, and rendering it twice
+        read as a stutter.
+        """
+        said = wrote or self.old
         return (
-            f"{self.old} of {self.owner} was renamed to {self.new} in "
-            f"v{self.retired_in} and is no longer accepted. Write {self.new}. "
-            f"{self.why}"
+            f"{said} of {self.owner} is no longer accepted since v{self.retired_in}. "
+            f"Write {self.new}. {self.why}"
         )
 
 
@@ -114,22 +130,6 @@ PROBE_SCALE_PROPELLER_RADIUS = RetiredName(
     retired_in="0.15.0",
     why=_THE_ROTOR_WORD,
 )
-#: THE ONE RETIREMENT THAT CHANGES AN EMITTED SCRIPT, called out rather than
-#: listed. There is no package-level rotor frame since 0.15.0: a reference
-#: declares one block per rotor and each carries its own, so the replacement
-#: is a SHAPE rather than a name, and the message says so. It said
-#: `ROTOR_MRP` for one round, which is a frame this release also removed, so
-#: it would have told a user to write a name a later refusal rejects (the
-#: interface and V&V lenses of the 0.15.0 release review).
-FRAME_PROP_MRP = RetiredName(
-    owner="a frame citation",
-    old="PROP_MRP",
-    new="the rotor's own frame, <ALIAS>_SMRP for its hub or <ALIAS>_RMRP for "
-    "the frame that turns with it, where <ALIAS> is the name the reference "
-    "gives that rotor",
-    retired_in="0.15.0",
-    why=_THE_ROTOR_WORD,
-)
 WORKSPACE_ENGINE_POINT = RetiredName(
     owner="CampaignWorkspace",
     old="engine_point",
@@ -139,14 +139,57 @@ WORKSPACE_ENGINE_POINT = RetiredName(
 )
 
 
+#: WHY EACH RETIRED FRAME SPELLING WENT, and they did not all go for the same
+#: reason: `PROP_MRP` and `ROTOR_MRP` were the ONE package-level rotor frame,
+#: which a reference declaring several rotors cannot have; `RotorAxis<k>` and
+#: the numbered `PROP_MRP<k>` were POSITIONAL, so a post-processing entry
+#: citing one silently followed the ORDER of the MOTIONS list. Giving both the
+#: rotor-word reason was a non-sequitur for the two that already said rotor
+#: (the interface lens of the 0.15.0 release review).
+_ONE_FRAME_FOR_SEVERAL_ROTORS = (
+    "It was the package's ONE rotor frame, which is the one-propulsor "
+    "assumption spelled out: a reference declares a block per rotor since "
+    "0.15.0, and each rotor carries its own frames."
+)
+_A_NAME_THAT_WAS_AN_INDEX = (
+    "It read as a name and was an INDEX into the row's own MOTIONS list, so "
+    "an entry citing it followed the ORDER the records happened to be "
+    "written in, and reordering the row moved the plot to another rotor "
+    "with nothing saying so."
+)
+
 #: EVERY SPELLING A FRAME CITATION MAY CARRY FROM BEFORE 0.15.0, mapped to the
-#: retirement that explains it. `PROP_MRP` was the package-level rotor frame
-#: and `ROTOR_MRP` the name it briefly took in this release before the frame
-#: itself went; the numbered forms were positional, which is why they went
-#: with it. A citation matching any of these is refused naming the shape to
-#: write, rather than falling through to "this run created no such frame",
-#: which is true and says nothing about the rename.
-RETIRED_FRAME_CITATIONS = ("PROP_MRP", "ROTOR_MRP", "ROTORAXIS")
+#: retirement that explains it. A citation matching any of these is refused
+#: naming the shape to write, rather than falling through to "this run created
+#: no such frame", which is true and says nothing about the rename.
+_THE_ROTOR_FRAMES = (
+    "the rotor's own frames, <ALIAS>_SMRP for its hub or <ALIAS>_RMRP for the "
+    "frame that turns with it, where <ALIAS> is the name the reference gives "
+    "that rotor"
+)
+RETIRED_FRAME_CITATIONS: dict[str, RetiredName] = {
+    "PROP_MRP": RetiredName(
+        owner="a frame citation",
+        old="PROP_MRP",
+        new=_THE_ROTOR_FRAMES,
+        retired_in="0.15.0",
+        why=_ONE_FRAME_FOR_SEVERAL_ROTORS,
+    ),
+    "ROTOR_MRP": RetiredName(
+        owner="a frame citation",
+        old="ROTOR_MRP",
+        new=_THE_ROTOR_FRAMES,
+        retired_in="0.15.0",
+        why=_ONE_FRAME_FOR_SEVERAL_ROTORS,
+    ),
+    "ROTORAXIS": RetiredName(
+        owner="a frame citation",
+        old="RotorAxis<k>",
+        new=_THE_ROTOR_FRAMES,
+        retired_in="0.15.0",
+        why=_A_NAME_THAT_WAS_AN_INDEX,
+    ),
+}
 
 
 def retired_frame(name: str) -> RetiredName | None:
@@ -160,20 +203,25 @@ def retired_frame(name: str) -> RetiredName | None:
         stripped, because the positional forms carried one.
     """
     token = name.strip().upper().rstrip("0123456789")
-    return FRAME_PROP_MRP if token in RETIRED_FRAME_CITATIONS else None
+    return RETIRED_FRAME_CITATIONS.get(token)
 
 
 #: Every retirement, one entry each. Iterated by the input readers, which
 #: match a file's own text against :attr:`RetiredName.old`, and by the Tier 1
 #: guard that proves each one refuses.
+#: THE FRAME RETIREMENTS ARE SPLICED IN rather than listed again. They are
+#: three entries with three reasons and they live in the mapping the frame
+#: reader asks; a second object for one of them made `RETIRED` and the
+#: mapping disagree about `PROP_MRP`, which is the second-home defect this
+#: module is written against and which its own Tier 1 guard caught.
 RETIRED: tuple[RetiredName, ...] = (
     REFERENCE_PROPELLER_DIAMETER,
     REFERENCE_PROPELLER_TABLE,
     POINT_KIND_ENGINE,
     BLOCK_KIND_ENGINE,
     PROBE_SCALE_PROPELLER_RADIUS,
-    FRAME_PROP_MRP,
     WORKSPACE_ENGINE_POINT,
+    *RETIRED_FRAME_CITATIONS.values(),
 )
 
 
@@ -197,7 +245,6 @@ def retired_key(key: str) -> RetiredName | None:
 
 __all__ = [
     "BLOCK_KIND_ENGINE",
-    "FRAME_PROP_MRP",
     "POINT_KIND_ENGINE",
     "PROBE_SCALE_PROPELLER_RADIUS",
     "REFERENCE_PROPELLER_DIAMETER",

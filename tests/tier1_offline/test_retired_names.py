@@ -67,10 +67,16 @@ def _provoke(entry: RetiredName, tmp_path: Path) -> str:
         with pytest.raises(Exception) as caught:
             ProbesSpec(frame="PUSHER_SMRP", scale="propeller_radius")
         return str(caught.value)
-    if entry.old == "PROP_MRP":
-        found = retired_frame("PROP_MRP")
-        assert found is entry, "the frame registry does not answer with this entry"
-        return found.message()
+    if entry.owner == "a frame citation":
+        # THE SPELLING AS A USER WRITES IT, which for the positional form is
+        # `RotorAxis<k>` in the entry and `RotorAxis2` in a file.
+        wrote = entry.old.replace("<k>", "2")
+        found = retired_frame(wrote)
+        assert found is entry, (
+            f"the frame registry answers {found} for {wrote!r} and the tuple holds "
+            f"{entry}, so one fact has two homes"
+        )
+        return found.message(wrote=wrote)
     if entry.old == "engine_point":
         workspace = CampaignWorkspace(tmp_path)
         with pytest.raises(AttributeError) as caught:
@@ -93,6 +99,9 @@ def test_every_retired_spelling_refuses_and_names_its_replacement(entry, tmp_pat
     )
     assert "no longer accepted" in message, (
         f"the refusal for {entry.old!r} does not say the spelling is refused: {message}"
+    )
+    assert entry.why in message, (
+        f"the refusal for {entry.old!r} carries no reason, so it reads as churn: {message}"
     )
 
 

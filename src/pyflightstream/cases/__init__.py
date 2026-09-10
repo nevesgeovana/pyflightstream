@@ -52,7 +52,7 @@ from pyflightstream._deprecations import (
 from pyflightstream._digest import file_sha256, text_sha256
 from pyflightstream._errors import PyflightstreamDeprecationWarning, PyflightstreamError
 from pyflightstream._fsm import names_of
-from pyflightstream._retired_names import PROBE_SCALE_PROPELLER_RADIUS
+from pyflightstream._retired_names import PROBE_SCALE_PROPELLER_RADIUS, retired_frame
 from pyflightstream.commands import Phase
 from pyflightstream.script import Script
 from pyflightstream.script.toggles import resolve_toggle
@@ -435,9 +435,9 @@ def _a_named_frame(value: str) -> str:
     """Refuse a pproc entry's frame that names nothing; WHICH frame is judged at build time."""
     if not value.strip():
         raise ValueError(
-            f"frame names one the run creates ({', '.join(PPROC_FRAMES)}, a rotor's "
-            "ROTOR_MRP<k> or RotorAxis<k>) or one the setup's [[frames]] table defines; "
-            "it is empty"
+            f"frame names one the run creates ({', '.join(PPROC_FRAMES)}, LOCAL_AXIS, "
+            "or a rotor's own <ALIAS>_SMRP and <ALIAS>_RMRP) or one the REFERENCE's "
+            "[[frames]] table declares; it is empty"
         )
     return value
 
@@ -745,7 +745,7 @@ class ProductsSpec(BaseModel):
 #: Frame names the package creates itself (PFS-2030.03.02); a setup may
 #: not define one of these, because the row's rotation and the pproc
 #: definitions resolve them to the package's own frames. The rotor run
-#: type also creates ``ROTOR_MRP<k>``, ``RotorAxis<k>`` and ``BladeAxis<k>``,
+#: type also creates each rotor's ``<ALIAS>_SMRP`` and ``BladeAxis<k>``,
 #: one per record or blade family, refused by pattern below (the
 #: interface lens of REL-0140: a setup defining ROTOR_MRP1 was shadowed).
 #: `ROTOR_MRP` LEFT THIS TUPLE AT 0.15.0 with the frame itself. Reserving
@@ -932,11 +932,22 @@ class FrameSpec(BaseModel):
         name = self.name
         if not name:
             raise ValueError("a frame needs a name")
+        retired = retired_frame(name)
+        if retired is not None:
+            # REFUSED WHERE IT IS WRITTEN, not only where it is cited. The
+            # reserved set lost these spellings with the frames themselves,
+            # so a reference could DECLARE `[[frames]] name = "PROP_MRP"`,
+            # load clean, and have the citation refused later with a message
+            # saying the user's own declared frame was renamed (the interface
+            # lens of the 0.15.0 release review).
+            raise ValueError(retired.message(wrote=name))
         if name.upper() in RESERVED_FRAME_NAMES or RESERVED_FRAME_PATTERN.match(name.upper()):
             raise ValueError(
                 f"the frame name {self.name!r} is one the package creates itself "
-                f"({', '.join(RESERVED_FRAME_NAMES)}, and ROTOR_MRP<k>, RotorAxis<k> and "
-                "BladeAxis<k> on a rotor row); choose another name"
+                f"({', '.join(RESERVED_FRAME_NAMES)}, and BladeAxis<k> on a rotor "
+                "row); choose another name. A rotor's own frames are protected "
+                "separately, by the guard that composes <ALIAS>_SMRP forward from the "
+                "rotors the reference declares"
             )
         return self
 
