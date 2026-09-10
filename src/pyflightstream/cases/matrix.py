@@ -123,6 +123,29 @@ _COLUMNS = (
     "AIRCRAFT",
     "DESCRIPTION",
     "FLIGHT_CONDITION",
+    "SWEEP_VALUES",
+    "REF",
+    "SET",
+    "PPROC",
+    "FS_BUILD",
+    "HIDDEN",
+    "RUN",
+    "WORKFLOW",
+    "VAR_NAMES_VALUES",
+)
+
+#: The layout of v0.11.0 to v0.14.0, frozen as a literal for the same
+#: reason the three older ones are: it is RECOGNISED and refused naming
+#: the converter, never read. At 0.15.0 it LOST ``SWEEP_TYPE`` (FR-69,
+#: her rule of 2026-09-10): the swept variable is the key of
+#: ``FLIGHT_CONDITION`` whose value is the word ``sweep``, so the cell
+#: already says which variable varies and a column naming it a second
+#: time is a second home for one fact.
+_LAYOUT_0_11_0 = (
+    "POL",
+    "AIRCRAFT",
+    "DESCRIPTION",
+    "FLIGHT_CONDITION",
     "SWEEP_TYPE",
     "SWEEP_VALUES",
     "REF",
@@ -558,9 +581,78 @@ def split_attitude(condition: dict[str, float | str]) -> tuple[dict[str, float],
         ``BETA``, ``ADVANCE_RATIO``) and its values are numbers, or the
         word ``sweep`` for the one key the row varies.
     """
-    state = {key: float(value) for key, value in condition.items() if key in FLIGHT_CONDITION_KEYS}
+    # THE SWEPT KEY IS NOT A VALUE. Whichever key carries the word, it
+    # names the variable that VARIES, and its values are the row's
+    # SWEEP_VALUES; the flow state is what the row holds FIXED, so the
+    # swept key is left out of it and the resolver never meets a word
+    # where it expects a number.
+    state = {
+        key: float(value)
+        for key, value in condition.items()
+        if key in FLIGHT_CONDITION_KEYS and value != SWEEP_WORD
+    }
     attitude = {key: value for key, value in condition.items() if key in ATTITUDE_KEYS}
     return state, attitude
+
+
+def sweep_of_condition(
+    condition: dict[str, float | str], sweep_values: str, pol: str
+) -> SweepAxis:
+    """Build the row's sweep from the key of its condition that carries the word (FR-69).
+
+    Her rule of 2026-09-10: a sweep is applied to a variable that DEFINES
+    the flight condition, and to exactly ONE variable. The cell says which
+    by carrying ``sweep`` where that key's value would be, and
+    ``SWEEP_VALUES`` holds the values.
+
+    A row with no swept key, or with two, is refused naming the keys: the
+    first would run one point under a column of values nobody reads, and
+    the second is the paired sweep this release retires.
+    """
+    swept = [key for key, value in condition.items() if value == SWEEP_WORD]
+    if not swept:
+        raise MatrixError(
+            f"POL {pol}: no key of FLIGHT_CONDITION carries the word {SWEEP_WORD!r}, so "
+            "nothing says which variable this row varies, and SWEEP_VALUES would be a "
+            f"column nobody reads. Write {SWEEP_WORD} as the value of the one key that "
+            "varies, for example 'MACH:0.2, REmi:5.5, ALPHA:sweep, BETA:0'."
+        )
+    if len(swept) > 1:
+        raise MatrixError(
+            f"POL {pol}: {len(swept)} keys of FLIGHT_CONDITION carry the word "
+            f"{SWEEP_WORD!r} ({', '.join(swept)}), and a row sweeps ONE variable. Two "
+            "swept variables were the paired AL/BE sweep, which this release retires: "
+            "write one row per value of the second."
+        )
+    key = swept[0]
+    axis = _CONDITION_SWEEP_AXES.get(key)
+    if axis is None:
+        raise MatrixError(
+            f"POL {pol}: FLIGHT_CONDITION sweeps {key}, which this release cannot vary "
+            f"yet. The keys it varies are {', '.join(sorted(_CONDITION_SWEEP_AXES))}. "
+            "Every other key of the cell may carry the word in a later release; today "
+            "it is refused rather than accepted and ignored."
+        )
+    values = [float(token) for token in sweep_values.split(",") if token.strip()]
+    if not values:
+        raise MatrixError(
+            f"POL {pol}: FLIGHT_CONDITION sweeps {key} and SWEEP_VALUES is empty."
+        )
+    return SweepAxis(type=axis, values=values)
+
+
+#: The FLIGHT_CONDITION keys a row may sweep TODAY, to the sweep axis each
+#: becomes. Her rule licenses ANY key of the cell; what this release
+#: implements is the two angles and the ratio, which is what her own
+#: matrices vary. A key outside this map is refused NAMING the set rather
+#: than accepted and silently ignored, which is the failure the ratio
+#: sweep had before this release (PFS-2035.06, measured 2026-09-10: the
+#: axis existed, the point carried it and nothing read it).
+_CONDITION_SWEEP_AXES = {
+    "ALPHA": "alpha",
+    "BETA": "beta",
+    "ADVANCE_RATIO": "advance_ratio",
+}
 
 
 def _parse_sweep(sweep_type: str, sweep_values: str) -> SweepAxis:
@@ -1008,10 +1100,15 @@ def read_matrix(path: str | Path, *, active_only: bool = True) -> list[MatrixRow
         # separated here, so the flow resolver is never handed an angle,
         # and the attitude joins the row's own variables where the
         # builders read it.
-        state, attitude = split_attitude(
-            _require_flight_condition(record["FLIGHT_CONDITION"], record["POL"], row_number, path)
+        condition = _require_flight_condition(
+            record["FLIGHT_CONDITION"], record["POL"], row_number, path
         )
-        variables.update(attitude)
+        state, attitude = split_attitude(condition)
+        # The swept key is not a value the row states: it is the word that
+        # says which variable varies, and the axis it becomes is the row's
+        # sweep. The other attitude keys ride on the variables, where the
+        # builders read them (FR-69).
+        variables.update({key: value for key, value in attitude.items() if value != SWEEP_WORD})
         row = MatrixRow(
             # From the enumerate above, so it is assigned before the RUN
             # filter below and an inactive row does not shift the numbers
@@ -1021,7 +1118,7 @@ def read_matrix(path: str | Path, *, active_only: bool = True) -> list[MatrixRow
             aircraft=record["AIRCRAFT"],
             description=record["DESCRIPTION"],
             flight_condition=state,
-            sweep=_parse_sweep(record["SWEEP_TYPE"], record["SWEEP_VALUES"]),
+            sweep=sweep_of_condition(condition, record["SWEEP_VALUES"], record["POL"]),
             ref_code=record["REF"],
             set_code=record["SET"],
             pproc_code=record["PPROC"],
@@ -1342,15 +1439,138 @@ def _name_geometry_files(data: bytes) -> bytes:
     )
 
 
+def _paired_sweep_as_one(code: str, values: str) -> tuple[str, str] | None:
+    """Return the folded cell of a paired code that sweeps ONE variable, or None.
+
+    ``AL/BE`` over ``0.0,2.0/0.0`` varies the incidence and HOLDS the
+    sideslip: the reader has always broadcast the single value across the
+    other axis, so it is one swept variable written in two columns. It
+    folds to ``ALPHA:sweep, BETA:0.0`` with the same values and the same
+    number of rows.
+
+    None means the code is not a pair, or that both halves vary, which is
+    the two-variable sweep this release retires and which cannot fold
+    without inventing a POL per row.
+    """
+    codes = [token.strip().upper() for token in code.split("/")]
+    groups = [token.strip() for token in values.split("/")]
+    if len(codes) != 2 or len(groups) != 2:
+        return None
+    if any(token not in _SWEEP_CODE_KEYS for token in codes):
+        return None
+    counts = [len([v for v in group.split(",") if v.strip()]) for group in groups]
+    if counts[0] > 1 and counts[1] > 1:
+        return None
+    swept, held = (0, 1) if counts[1] == 1 else (1, 0)
+    return (
+        f"{_SWEEP_CODE_KEYS[codes[swept]]}:{SWEEP_WORD}, "
+        f"{_SWEEP_CODE_KEYS[codes[held]]}:{groups[held]}",
+        groups[swept],
+    )
+
+
+def _fold_sweep_type(data: bytes, source: str) -> bytes:
+    """Stage four: the SWEEP_TYPE cell folds into FLIGHT_CONDITION (FR-69).
+
+    Her rule of 2026-09-10: a sweep is one variable, it is one that
+    DEFINES the flight condition, and the cell says which by carrying the
+    word ``sweep`` where that key's value would be. The column named the
+    same fact a second time, so it goes and its content moves into the
+    cell beside it: ``AL`` becomes ``ALPHA:sweep``, ``BE`` becomes
+    ``BETA:sweep``.
+
+    LOSSLESS IN CONTENT, and the one place it is not lossless ROW FOR ROW
+    is refused rather than guessed: a PAIRED ``AL/BE`` sweep is two swept
+    variables, which the rule forbids, and it becomes one row per
+    sideslip. That changes the row COUNT and every new row needs a POL of
+    its own, which is run identity and is not a converter's to invent. So
+    a file carrying one is refused, naming every such row, and the author
+    splits them with the POLs she wants.
+    """
+    type_index = _LAYOUT_0_11_0.index("SWEEP_TYPE")
+    condition_index = _LAYOUT_0_11_0.index("FLIGHT_CONDITION")
+    values_index = _LAYOUT_0_11_0.index("SWEEP_VALUES")
+    rebuilt: list[bytes] = []
+    header_seen = False
+    row_number = 0
+    paired: list[str] = []
+    for line in data.splitlines(keepends=True):
+        body, terminator = _peel_terminator(line)
+        if b"|" not in body:
+            rebuilt.append(line)
+            continue
+        parts = body.split(b"|")
+        if not header_seen:
+            header_seen = True
+        else:
+            row_number += 1
+            if len(parts) != len(_LAYOUT_0_11_0):
+                raise MatrixError(
+                    f"data row {row_number} of {source} holds {len(parts)} cells "
+                    f"against the {len(_LAYOUT_0_11_0)} columns of the layout being "
+                    "upgraded, so this converter cannot say which cell carries "
+                    "SWEEP_TYPE; repair the row first."
+                )
+            code = parts[type_index].strip().decode("utf-8", "replace")
+            pol = parts[0].strip().decode("utf-8", "replace")
+            values_cell = parts[values_index].strip().decode("utf-8", "replace")
+            folded = _paired_sweep_as_one(code, values_cell)
+            if folded is not None:
+                # A PAIRED CODE IS NOT ALWAYS A PAIRED SWEEP. `AL/BE` with
+                # `0.0,2.0/0.0` varies ONE variable and holds the other,
+                # which the reader has always broadcast; written in the new
+                # cell it is `ALPHA:sweep, BETA:0.0`, and the row count does
+                # not change. Only a code whose two groups BOTH hold several
+                # values is the two-variable sweep this release retires.
+                condition = parts[condition_index].strip().decode("utf-8", "replace")
+                extra, values = folded
+                joined = f"{condition}, {extra}" if condition else extra
+                parts[condition_index] = f" {joined} ".encode()
+                parts[values_index] = f" {values} ".encode()
+            elif "/" in code:
+                paired.append(f"POL {pol} sweeps {code} over {values_cell}")
+            else:
+                key = _SWEEP_CODE_KEYS.get(code.upper())
+                if key is None:
+                    raise MatrixError(
+                        f"data row {row_number} of {source}, POL {pol}, states "
+                        f"SWEEP_TYPE {code!r}, which this converter does not know. The "
+                        f"codes it folds are {', '.join(sorted(_SWEEP_CODE_KEYS))}."
+                    )
+                condition = parts[condition_index].strip().decode("utf-8", "replace")
+                joined = f"{condition}, {key}:{SWEEP_WORD}" if condition else f"{key}:{SWEEP_WORD}"
+                parts[condition_index] = f" {joined} ".encode()
+        del parts[type_index]
+        rebuilt.append(b"|".join(parts) + terminator)
+    if paired:
+        raise MatrixError(
+            f"{source} carries {len(paired)} row(s) that sweep TWO variables at once, "
+            f"which 0.15.0 does not admit: {'; '.join(paired)}. A sweep is one variable "
+            "and it is one that defines the flight condition (FR-69), so a paired sweep "
+            "becomes ONE ROW PER SIDESLIP. This converter will not do it for you: each "
+            "new row needs a POL of its own, a POL is run identity, and an invented "
+            "identity is worse than a refusal. Split them by hand, giving each the POL "
+            "you want, then upgrade the file."
+        )
+    return b"".join(rebuilt)
+
+
+#: The SWEEP_TYPE codes the fold above knows, to the FLIGHT_CONDITION key
+#: each becomes. Built from the reader's own code table so the two cannot
+#: drift: a code the reader accepts is a code the converter folds.
+_SWEEP_CODE_KEYS = {"AL": "ALPHA", "BE": "BETA"}
+
+
 def _upgraded_bytes(data: bytes, source: str) -> bytes:
     """Bring a matrix of any earlier layout up to the current one.
 
-    THREE STAGES, because three layouts precede the current one and a
-    file written before v0.8.0 needs all of them: it gains the WORKFLOW
-    column, then its RE and MACH columns fold into FLIGHT_CONDITION, and
-    then FS_SCRIPT goes and ENTRY becomes PPROC. Chaining them rather
-    than writing direct converters is what keeps the oldest path
-    exercised by the same code the newest one uses.
+    FOUR STAGES, because four layouts precede the current one and a file
+    written before v0.8.0 needs all of them: it gains the WORKFLOW
+    column, then its RE and MACH columns fold into FLIGHT_CONDITION, then
+    FS_SCRIPT goes and ENTRY becomes PPROC, and then SWEEP_TYPE folds
+    into the flight condition too. Chaining them rather than writing
+    direct converters is what keeps the oldest path exercised by the same
+    code the newest one uses.
     """
     header: tuple[str, ...] | None = None
     for line in data.splitlines():
@@ -1362,6 +1582,8 @@ def _upgraded_bytes(data: bytes, source: str) -> bytes:
         raise MatrixError(f"{source} holds no matrix content: no line carries a cell separator")
     if header == _COLUMNS:
         return _name_geometry_files(data)
+    if header == _LAYOUT_0_11_0:
+        return _name_geometry_files(_fold_sweep_type(data, source))
     if header == _LEGACY_COLUMNS_15:
         data = _fold_flight_condition(_insert_workflow_cell(data, source), source)
     elif header == _LEGACY_COLUMNS_16:
@@ -1376,7 +1598,9 @@ def _upgraded_bytes(data: bytes, source: str) -> bytes:
             f"the {len(_LAYOUT_0_9_0)}-column one of v0.9.0 to v0.10.1 "
             f"({', '.join(_LAYOUT_0_9_0)})."
         )
-    return _name_geometry_files(_drop_fs_script_and_name_pproc(data, source))
+    return _name_geometry_files(
+        _fold_sweep_type(_drop_fs_script_and_name_pproc(data, source), source)
+    )
 
 
 #: The columns whose cells carry an input-library id, in file order.

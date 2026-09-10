@@ -96,14 +96,23 @@ def test_alpha_only_sweep_reads_every_value():
     assert sweep.values == [-2.0, 0.0, 2.0, 4.0, 6.0]
 
 
-def test_equal_length_al_be_lists_pair_up():
-    sweep = next(row for row in read_matrix(FIXTURE) if row.pol == "9008").sweep
-    assert sweep.type == "alpha_beta"
-    assert list(sweep.points()) == [
-        {"alpha": -4.0, "beta": -2.0},
-        {"alpha": 0.0, "beta": 0.0},
-        {"alpha": 4.0, "beta": 2.0},
-    ]
+def test_a_row_sweeps_one_angle_and_holds_the_other():
+    """FR-69, and the cost her rule accepts: the paired sweep retires.
+
+    This row was `AL/BE` over `-4.0,0.0,4.0/-2.0,0.0,2.0`, a DIAGONAL
+    through the two angles, and it read as three paired points. A sweep is
+    one variable now, so the row sweeps the incidence and HOLDS the
+    sideslip, which is what the same row means when only one angle varies
+    and what the upgrade writes for it.
+
+    The held angle is not lost and it is not the point's: it rides on the
+    row, where `_angle` reads it, so the solver is told -2 degrees at
+    every point of the sweep.
+    """
+    row = next(row for row in read_matrix(FIXTURE) if row.pol == "9008")
+    assert row.sweep.type == "alpha"
+    assert list(row.sweep.points()) == [{"alpha": -4.0}, {"alpha": 0.0}, {"alpha": 4.0}]
+    assert row.variables["BETA"] == -2.0
 
 
 def test_variables_parse_spaced_values_and_lowercase_keys():
@@ -255,7 +264,7 @@ def test_the_matrix_legacy_shim_is_gone():
 # --- the sixteenth column (PFS-2025.01, PFS-2025.12.01) ---------------------
 
 
-def test_the_verified_layout_names_fourteen_columns_including_the_workflow():
+def test_the_verified_layout_names_thirteen_columns_and_no_sweep_type():
     """The current layout, and both predecessors kept beside it.
 
     THE PREDECESSORS ARE ASSERTED AS LITERALS, which is a deliberate
@@ -271,7 +280,16 @@ def test_the_verified_layout_names_fourteen_columns_including_the_workflow():
     assert "WORKFLOW" in matrix_mod._COLUMNS
     assert "FLIGHT_CONDITION" in matrix_mod._COLUMNS
     assert "PPROC" in matrix_mod._COLUMNS
-    assert len(matrix_mod._COLUMNS) == 14
+    assert len(matrix_mod._COLUMNS) == 13
+    # SWEEP_TYPE is gone at 0.15.0 (FR-69): the flight-condition cell says
+    # which variable varies by carrying the word `sweep` on it, and a
+    # column naming the same fact is a second home for one fact. The
+    # layout that carried it is frozen as a literal of its own, like the
+    # three before it.
+    assert "SWEEP_TYPE" not in matrix_mod._COLUMNS
+    assert "SWEEP_VALUES" in matrix_mod._COLUMNS
+    assert matrix_mod._LAYOUT_0_11_0[4] == "SWEEP_TYPE"
+    assert len(matrix_mod._LAYOUT_0_11_0) == 14
     # FS_SCRIPT and ENTRY are gone at 0.11.0 (PFS-2029.04, PFS-2029.07.02),
     # and the layout that carried them is frozen as a literal of its own.
     assert "FS_SCRIPT" not in matrix_mod._COLUMNS
