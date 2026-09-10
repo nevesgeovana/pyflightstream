@@ -92,6 +92,7 @@ from pyflightstream._retired_names import (
 )
 from pyflightstream.cases import (
     BoundaryAliases,
+    CustomFlag,
     FrameSpec,
     PprocSpec,
     RawCommand,
@@ -469,6 +470,17 @@ class SetupArtifact(BaseModel):
     #: (PFS-2033.01), each before a named phase, in the order written;
     #: consumed out of ``settings`` by :func:`resolve_setup` the same way.
     raw_commands: list[RawCommand] = Field(default_factory=list)
+    #: The custom flags the ``[[flags]]`` table declares (PFS-2035.20),
+    #: in the order written; consumed out of ``settings`` by
+    #: :func:`resolve_setup` the way the raw table is, so the loop that
+    #: refuses a key naming no solver setting never meets it.
+    #:
+    #: A FLAG IS NOT A RAW LINE. A raw entry is a whole command with its
+    #: arguments, fixed here, so every row citing this preset emits the
+    #: same one; a flag names the command and the ROW states the value,
+    #: so one preset serves a sweep over it. That is what leaves RAW to
+    #: the particular case it is named for.
+    flags: list[CustomFlag] = Field(default_factory=list)
     #: The boundary aliases the ``[aliases]`` table defines (the author's decision
     #: of 2026-09-09): a name to the boundary names or families it stands
     #: for, read wherever a boundary is cited (a matrix cell, a pproc
@@ -504,6 +516,11 @@ FRAMES_TABLE = "frames"
 #: (PFS-2033.01): ``[[raw]]``, one entry per line with ``command`` and
 #: ``before``. Read by the goal checker of 0.14.0 and the documentation.
 RAW_TABLE = "raw"
+
+#: The table a setup preset declares its custom flags in (PFS-2035.20).
+#: One record per flag: the word a matrix row writes, and the
+#: FlightStream command it becomes.
+FLAGS_TABLE = "flags"
 #: The table of a setup artifact that names groups of boundaries (the author's
 #: decision of 2026-09-09): ``[aliases]``, one key per alias, a list of
 #: boundary names or families. Read by the documentation.
@@ -1174,6 +1191,30 @@ def resolve_setup(inputs_dir: Path, artifact_id: str) -> SetupArtifact:
             f"table is a list of records: write [[{RAW_TABLE}]] once per command with "
             "command (the line as the solver reads it) and before (the phase it precedes)."
         )
+    # THE FLAGS TABLE IS NOT A SOLVER SETTING EITHER (PFS-2035.20): each
+    # record names a FlightStream command and the word a row sets it by.
+    flags = data.pop(FLAGS_TABLE, [])
+    if not isinstance(flags, list) or not all(isinstance(entry, dict) for entry in flags):
+        raise InputArtifactError(
+            f"setup preset {artifact_id!r} ({path}) states [{FLAGS_TABLE}] as {flags!r}, and "
+            f"the table is a list of records: write [[{FLAGS_TABLE}]] once per flag with "
+            "name (the word a matrix row writes) and command (the FlightStream command it "
+            "becomes, bare)."
+        )
+    # ONE WORD, ONE FLAG. Two records giving one name two commands make the
+    # row's cell mean whichever the reader saw last, which is the shape this
+    # package refuses everywhere a name is declared.
+    seen: dict[str, str] = {}
+    for entry in flags:
+        word = str(entry.get("name", "")).strip().casefold()
+        if word in seen:
+            raise InputArtifactError(
+                f"setup preset {artifact_id!r} ({path}) declares the flag "
+                f"{entry.get('name')!r} twice, as {seen[word]} and as "
+                f"{entry.get('command')}. One word names one command, or a row stating it "
+                "means whichever record was read last."
+            )
+        seen[word] = str(entry.get("command"))
     # THE ALIASES TABLE IS NOT A SOLVER SETTING (the author's decision of 2026-09-09):
     # a name to the boundaries it stands for, read wherever a boundary is cited.
     aliases = data.pop(ALIASES_TABLE, {})
@@ -1190,7 +1231,13 @@ def resolve_setup(inputs_dir: Path, artifact_id: str) -> SetupArtifact:
         )
     return _validate(
         SetupArtifact,
-        {"settings": data, "frames": frames, "raw_commands": raw, "aliases": aliases},
+        {
+            "settings": data,
+            "frames": frames,
+            "raw_commands": raw,
+            "flags": flags,
+            "aliases": aliases,
+        },
         path,
         "setup",
     )

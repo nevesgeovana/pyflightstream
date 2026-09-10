@@ -87,6 +87,7 @@ from pyflightstream.cases import (
     FORCE_PLOT_PARAMETERS,
     RAW_PHASES,
     CampaignConfigError,
+    CustomFlag,
     RotorBlock,
     ScriptRecipe,
     SimCase,
@@ -4586,6 +4587,87 @@ def _script_tail(
     script.emit("CLOSE_FLIGHTSTREAM")
 
 
+#: THE SEAMS A FLAG MAY REACH, which are the three the builders open for a
+#: raw entry too. A command of a later phase is part of the RUN rather than
+#: of its setting up, and this package emits those itself.
+FLAG_PHASES: tuple[str, ...] = ("control", "geometry", "setup")
+
+
+def _the_flag_a_row_states(case: SimCase, flag: CustomFlag) -> str | None:
+    """Return the value the row states for one declared flag, or None.
+
+    The word is read CASE FOLDED, as every other row key is, so a cell
+    writing `WAKE_LENGTH` reaches a flag declared `wake_length`. A row
+    that states the word with an empty value states nothing: a cell
+    written `wake_length:` is a half-finished edit and not a request to
+    emit the command with no argument, which the emitter would refuse
+    one layer down with a message about arity rather than about the row.
+    """
+    wanted = flag.name.strip().casefold()
+    for key, value in case.variables.items():
+        if key.strip().casefold() != wanted:
+            continue
+        text = str(value).strip()
+        return text or None
+    return None
+
+
+def _custom_flags(case: SimCase, script: Script, phase: str) -> None:
+    """Emit the declared flags this row states, before ``phase`` (PFS-2035.20).
+
+    A flag is the command and the ROW is the value, which is what makes
+    this different from a raw entry and what leaves RAW to the particular
+    case: one preset declaring `wake_length = SET_WAKE_LENGTH` serves a
+    sweep over the wake length, where a raw line would fix it.
+
+    THE SAME EMIT CHECK EVERY CURATED EMISSION PASSES, which is the
+    author's own condition on the feature. The line is built as
+    ``<command> <value>`` and emitted through :meth:`Script.emit_line`,
+    so the database's grammar, version, argument and phase checks apply
+    unchanged; the emitter's error is the refusal, raised again under its
+    own class with the flag, the setup and the row's value named.
+
+    WHICH PHASE. A flag with no ``before`` takes the phase its command's
+    own database entry declares, which is the answer for every command
+    that has one; a CONTROL command, whose phase the database leaves
+    open, is emitted in the control phase unless the declaration says
+    otherwise.
+    """
+    for flag in case.flags:
+        value = _the_flag_a_row_states(case, flag)
+        if value is None:
+            continue
+        name = flag.command
+        try:
+            spec = script.entry(name)
+            wanted = flag.before or (phase if spec.phase is Phase.CONTROL else spec.phase.value)
+            if wanted not in FLAG_PHASES:
+                # NOT SILENTLY DROPPED. The builders open three seams,
+                # and a flag whose command belongs to a later phase has
+                # nowhere to go: emitting it at one of these would
+                # advance the script past that phase and the order guard
+                # would then refuse the phase's own commands. Said here,
+                # naming the flag and the phase, rather than by the row
+                # quietly not carrying it.
+                raise CampaignConfigError(
+                    f"the flag {flag.name!r} of setup {flag.setup!r} names {name}, "
+                    f"a {wanted} command, and a flag is emitted before one of "
+                    f"{', '.join(FLAG_PHASES)}. A {wanted} command is part of the "
+                    "run rather than of its setting up, and this package emits "
+                    "those itself; a row that needs one states it in the [[raw]] "
+                    "table, which is what that table is the escape for."
+                )
+            if wanted != phase:
+                continue
+            script.emit_line(f"{name} {value}")
+        except PyflightstreamError as error:
+            raise type(error)(
+                f"case {case.sim_id!r}: the flag {flag.name!r} of setup {flag.setup!r}, "
+                f"declared as {name}, is refused by the emitter with the row's value "
+                f"{value!r}: {error}"
+            ) from error
+
+
 def _raw_commands(case: SimCase, script: Script, phase: str) -> None:
     """Emit the setup's raw commands declared before ``phase``, in the order written.
 
@@ -5538,9 +5620,12 @@ def _build_steady(case: SimCase, script: Script, conventions: WorkflowConvention
     unsteady_export_threshold(case, conventions)
     _refuse_unregistered_keys(case, "steady")
     _raw_commands(case, script, "control")
+    _custom_flags(case, script, "control")
     _raw_commands(case, script, "geometry")
+    _custom_flags(case, script, "geometry")
     _open_geometry(case, script)
     _raw_commands(case, script, "setup")
+    _custom_flags(case, script, "setup")
     frame = _moment_frame(case, script)
     frames: dict[str, int | None | Mapping[str, int]] = {
         "MRP": frame,
@@ -6028,9 +6113,12 @@ def _build_unsteady(case: SimCase, script: Script, conventions: WorkflowConventi
     threshold = unsteady_export_threshold(case, conventions)
     _refuse_unregistered_keys(case, "unsteady")
     _raw_commands(case, script, "control")
+    _custom_flags(case, script, "control")
     _raw_commands(case, script, "geometry")
+    _custom_flags(case, script, "geometry")
     _open_geometry(case, script)
     _raw_commands(case, script, "setup")
+    _custom_flags(case, script, "setup")
     frame = _moment_frame(case, script)
     rotor_frame = _rotor_frame(case, script)
     rotor_frames = _flat_rotor_frames(case, rotor_frame)
@@ -6071,9 +6159,12 @@ def _build_unsteady_rotor(case: SimCase, script: Script, conventions: WorkflowCo
     threshold = unsteady_export_threshold(case, conventions)
     _refuse_unregistered_keys(case, "unsteady_rotor")
     _raw_commands(case, script, "control")
+    _custom_flags(case, script, "control")
     _raw_commands(case, script, "geometry")
+    _custom_flags(case, script, "geometry")
     _open_geometry(case, script)
     _raw_commands(case, script, "setup")
+    _custom_flags(case, script, "setup")
     _refuse_an_unanswered_hub(case)
     frame = _moment_frame(case, script)
     # THE ROTOR'S HUB FRAME, named <ALIAS>_SMRP for the rotor the reference
@@ -6721,12 +6812,18 @@ def _refuse_unregistered_keys(case: SimCase, name: str) -> None:
     if _workflow_cell(case) is None:
         return
     workflow = WORKFLOWS[name]
+    # A FLAG'S OWN WORD IS A KEY THE ROW MAY STATE (PFS-2035.20). The
+    # setup declared it, so it is registered by declaration rather than by
+    # the run type's table, and refusing it here would refuse the one key
+    # the preset just said the row could write.
+    declared = {flag.name.strip().casefold() for flag in case.flags}
     stated = sorted(
         key
         for key in case.variables
         if not key.startswith(_CONVERTER_PREFIX)
         and key != ROTOR_ORIGIN_POINT_KEY
         and key not in workflow.keys
+        and key.strip().casefold() not in declared
     )
     if not stated:
         return

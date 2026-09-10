@@ -7,6 +7,23 @@
 Version-aware, didactic Python driver for the FlightStream panel-method
 solver. Successor of the author's legacy research scripts. MIT licensed.
 
+## Documentation
+
+**[nevesgeovana.github.io/pyflightstream](https://nevesgeovana.github.io/pyflightstream/)**
+
+New here? Start with
+[Getting started](https://nevesgeovana.github.io/pyflightstream/getting-started/),
+which walks a first workspace file by file and says what each of the four
+kinds of artifact answers. Then
+[The workspace and the workflow](https://nevesgeovana.github.io/pyflightstream/workspace-and-workflows/)
+is the reference chapter, and
+[Which build do I have](https://nevesgeovana.github.io/pyflightstream/builds/)
+answers the question a version-aware driver exists for.
+
+Every example on those pages is a file this repository ships under
+`tests/tier3_licensed/`, rendered by a test on every commit, so a page
+cannot describe something the suite does not execute.
+
 Status: v0.15.0 is the current release. It publishes to
 [PyPI](https://pypi.org/project/pyflightstream/) and archives on Zenodo
 from the tag, so the concept DOI in CITATION.cff resolves to the newest

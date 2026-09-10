@@ -68,7 +68,11 @@ INDEX = REPO / "reports" / "requirements-index.json"
 #: `[aliases]` table stopped being read from the setup preset and the
 #: refusal that says so is measured, so the requirement gained a
 #: falsifying test in the same change that made it refusable.
-MARKED_FLOOR = 20
+#: Raised from 20 to 21 on 2026-09-10 (PFS-2035.20), for FR-74. The
+#: requirement is new and its test was written with it: the setup's
+#: custom flags are measured on both sides, the line that reaches the
+#: script and each of the three ways to get it wrong.
+MARKED_FLOOR = 21
 
 
 def _marked() -> dict[str, list[str]]:
@@ -202,7 +206,7 @@ def test_the_marker_is_registered_so_a_typo_is_not_silent():
 #: Re-counted at 0.8.0.dev0, and the SET DID move: one name left it, which
 #: the comment inside this frozenset records and this line denied until
 #: 2026-08-20. What did not move is the count of DIRTY modules:
-#: mypy recount 2026-09-09: 356 errors in 18 of 81 modules (reports/RPT-029).
+#: mypy recount 2026-09-10: 370 errors in 18 of 82 modules (reports/RPT-029).
 #: Removing one means deleting its override AND its line here, in the same
 #: commit.
 MYPY_EXEMPTIONS = frozenset(

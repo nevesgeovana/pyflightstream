@@ -41,16 +41,17 @@
 > THIS BLOCK IS LIVE: it carries the latest re-measurement, whose date
 > the headline sentence below names, and each earlier run keeps its
 > section further down; the two lines here were last replaced by the
-> second 2026-09-09 run:
+> 2026-09-10 run, on the tree that carries the one-word rotor
+> vocabulary and the setup's custom flags:
 >
->     Found 356 errors in 18 files (checked 81 source files)
->     Success: no issues found in 81 source files
+>     Found 370 errors in 18 files (checked 82 source files)
+>     Success: no issues found in 82 source files
 >
 > Every figure below is that re-measurement.
 
 The result, in the sentence every record of it carries:
 
-**mypy recount 2026-09-09: 356 errors in 18 of 81 modules.**
+**mypy recount 2026-09-10: 370 errors in 18 of 82 modules.**
 
 ## Re-measured 2026-09-09, second run: two modules arrived with the 0.14.0 series, and the debt moved inside the exempted set
 
@@ -241,11 +242,11 @@ configuration to be in a state the repository does not ship:
 
 The final line of that run is the measurement:
 
-    Found 356 errors in 18 files (checked 81 source files)
+    Found 370 errors in 18 files (checked 82 source files)
 
 The same run with the shipped configuration, overrides and all, is green:
 
-    Success: no issues found in 81 source files
+    Success: no issues found in 82 source files
 
 mypy walks the FILESYSTEM rather than the git index, so the state of the
 working tree is part of the measurement, and this report has already been

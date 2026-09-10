@@ -1500,6 +1500,15 @@ def resolve_matrix(
                 # then the row's own cell line.
                 *_the_rows_raw_commands(row, workspace.inputs_dir),
             ],
+            # THE SETUP'S CUSTOM FLAGS RIDE ON THE CASE (PFS-2035.20), each
+            # naming the artifact that declared it. A flag is what makes RAW
+            # the escape rather than the ordinary way to reach a setting: the
+            # preset names the command, and the ROW states the value, so one
+            # preset serves a sweep over it.
+            "flags": [
+                entry.model_copy(update={"setup": row.set_code})
+                for entry in _not_on_a_legacy_row(row, setups[row.set_code].flags, "flags")
+            ],
             # THE REFERENCE'S ALIASES RIDE ON THE CASE (FR-59, the author's decision of
             # 2026-09-10), on a LEGACY row too: the products stage resolves a
             # group by them whatever built the script. They lived in the SETUP

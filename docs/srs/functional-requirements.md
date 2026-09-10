@@ -2479,3 +2479,64 @@ requirement below is one seam of that division.
     is a property of what this run was for: a study planned across two
     geometries wants the skip, and the same matrix planned against the one
     geometry that should carry everything wants to hear about it.
+
+!!! requirement "FR-74 A setup declares custom flags, so a row sets a solver command by name <span class='srs-implemented'>implemented</span>"
+
+    A setup preset declares, once per flag, the FlightStream COMMAND and the
+    WORD a matrix row writes for it:
+
+    ```toml
+    [[flags]]
+    name = "digits"
+    command = "SET_SIGNIFICANT_DIGITS"
+    ```
+
+    After that, any row citing that preset may write `digits: 6` in its
+    `VAR_NAMES_VALUES` cell and the builder emits `SET_SIGNIFICANT_DIGITS 6`.
+    The word is read case folded, as every other key of a row is.
+
+    WHY THIS IS NOT THE `[[raw]]` TABLE, which already exists and which a
+    reader will otherwise ask about. A raw entry is a whole command LINE with
+    its arguments, fixed in the preset, so every row citing that preset emits
+    the same one. A flag names the command and the ROW states the value, so
+    one preset serves a SWEEP over that value. That difference is the whole
+    point of the feature: it leaves RAW to the particular case its name
+    promises, rather than making it the ordinary way to reach any setting
+    this package does not curate.
+
+    IT PASSES THE SAME EMIT CHECK EVERY CURATED EMISSION PASSES, and that is
+    what makes it a declaration rather than a string substitution. The line
+    goes out through the emitter, so the command database's grammar, version,
+    argument and phase checks apply to it unchanged: a flag naming a command
+    this build cannot emit, or given a value of the wrong type, is refused
+    when the row is PLANNED and never at the licensed machine, which is the
+    one place a refusal costs a seat.
+
+    A FLAG REACHES THREE SEAMS, the three a raw entry reaches: before the
+    control, geometry and setup phases. A flag with no `before` takes the
+    phase its command's own database entry declares, which is the answer for
+    every command that has one; a control command, whose phase the database
+    leaves open, is emitted in the control phase. A flag whose command
+    belongs to a LATER phase is refused naming that phase rather than
+    quietly not appearing: a later command is part of the RUN rather than of
+    its setting up, this package emits those itself, and emitting one early
+    would advance the script past its phase so that the order guard then
+    refused the phase's own commands.
+
+    A declaration whose `command` carries arguments is refused, because the
+    value would then be stated twice and the two could disagree; two
+    declarations giving one word two commands are refused, because a row
+    stating the word would mean whichever record was read last; and a cell
+    written with an EMPTY value states nothing, because a half-finished edit
+    read as a value reaches the emitter as a bare command and is refused
+    there for its arity, which is a true sentence about the command and says
+    nothing about the row the user is holding.
+
+    A declared flag's word is a key the row MAY state: the preset registered
+    it by declaring it, so the guard that refuses a key no run type reads
+    leaves it alone. A word no flag declares is still refused, which is the
+    control that keeps the guard a guard.
+
+    A LEGACY row takes no flags table, for the reason it takes no raw table:
+    its own recipe is the reader of its keys and reads neither, so the
+    entries would reach no script while the record claimed them.

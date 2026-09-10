@@ -80,6 +80,7 @@ __all__ = [
     "PPROC_FRAMES",
     "FrameSpec",
     "RAW_PHASES",
+    "CustomFlag",
     "RawCommand",
     "PprocSpec",
     "RESERVED_FRAME_NAMES",
@@ -750,6 +751,72 @@ RAW_PHASES: tuple[str, ...] = (
     Phase.CONTROL.value,
     *(phase.value for phase in Phase if phase is not Phase.CONTROL),
 )
+
+
+class CustomFlag(BaseModel):
+    """One solver command a setup exposes to the matrix under a name (PFS-2035.20).
+
+    The author's design of 2026-09-10: a setup declares the FlightStream
+    command and the word a row uses for it, and the row then states the
+    VALUE. RAW states a whole line and every row citing that setup emits
+    the same one; a flag states the command and lets the row sweep what
+    it is set to, which is what makes RAW the escape for a particular
+    case rather than the ordinary way to reach a setting.
+
+    Attributes
+    ----------
+    name : str
+        The word a matrix row writes in its VAR_NAMES_VALUES cell. It is
+        read case folded, as every other row key is.
+    command : str
+        The FlightStream command the flag becomes, bare: the row supplies
+        the arguments. A line with arguments is refused, because the
+        value would then be stated twice and the two could disagree.
+    before : str or None
+        The phase the command is emitted before. None takes the phase the
+        command's own database entry declares, which is the answer for
+        every command that has one; state it only to move a CONTROL
+        command, whose phase the database leaves open.
+    setup : str or None
+        The artifact the declaration came from, bound by the workspace
+        for the run record and for the refusal.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str
+    command: str
+    before: str | None = None
+    setup: str | None = None
+
+    @field_validator("name", "command", mode="before")
+    @classmethod
+    def _stripped(cls, value: object) -> object:
+        return value.strip() if isinstance(value, str) else value
+
+    @model_validator(mode="after")
+    def _a_name_and_a_bare_command(self) -> CustomFlag:
+        if not self.name:
+            raise ValueError("a flag needs a name, the word a matrix row writes for it")
+        if not self.command:
+            raise ValueError(
+                f"the flag {self.name!r} names no command; write the FlightStream "
+                'command it becomes, bare, as command = "SET_WAKE_LENGTH"'
+            )
+        if len(self.command.split()) > 1:
+            raise ValueError(
+                f"the flag {self.name!r} states command = {self.command!r}, which carries "
+                "arguments. A flag is the command alone and the ROW states the value; a "
+                "line with its arguments already in it is a [[raw]] entry, which is what "
+                "that table is for."
+            )
+        if self.before is not None and self.before not in RAW_PHASES:
+            raise ValueError(
+                f"the flag {self.name!r} is declared before {self.before!r}, which names no "
+                f"phase; the phases are {', '.join(RAW_PHASES)}. Leave it out to take the "
+                "phase the command's own entry declares."
+            )
+        return self
 
 
 class RawCommand(BaseModel):
@@ -2024,6 +2091,10 @@ class SimCase(BaseModel):
     #: each emitted before the phase it names, in the order written; empty
     #: for a setup stating none.
     raw_commands: list[RawCommand] = Field(default_factory=list)
+    #: The custom flags the row's setup declares (PFS-2035.20), each a
+    #: FlightStream command the row may set by name. Bound by the
+    #: workspace from the setup artifact, as the raw commands are.
+    flags: list[CustomFlag] = Field(default_factory=list)
     #: The boundary aliases the row's REFERENCE declares (FR-59, the author's
     #: design of 2026-09-10; the setup's until 0.14.0), a name to the
     #: boundary names, families or other aliases it stands for; read by

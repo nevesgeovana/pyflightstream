@@ -1,31 +1,43 @@
-# s006: the qa physics preset of PHY-05, the rigid unsteady periodic
-# propeller. Every key is a line pyflightstream.qa.physics.build_phy05_script
-# emits and nothing else is stated; the row's ADVANCE_RATIO, DELTA_THETA and
-# REVOLUTIONS supply the rotor speed and the clock the script computes.
-# Stabilization is absent because the qa script emits none (the first version
-# of this preset enabled it, and the row's thrust came out 11 percent low
-# beside the wake termination below, 2026-09-08).
-significant_digits = 7
-induced_wake_velocity = true               # SOLVER_SET_MESH_INDUCED_WAKE_VELOCITY ENABLE
-farfield_layers = 5
-wake_termination_steps = -36               # SET_WAKE_TERMINATION_TIME_STEPS -36, one revolution back
-set_solver_model = "SUBSONIC_PRANDTL_GLAUERT"
-proximity_avoidance = "DISABLE"
-NITER = 500
-convergence = 1e-5
-max_parallel_threads = 8
+# s006: s002 with a CUSTOM FLAG declared (FR-74). It is a preset of its own
+# rather than an addition to s002 because a LEGACY row of the tour cites
+# s002, and a LEGACY row is built by its own recipe, which reads no flags
+# table: the declaration would reach no script while the record claimed it.
+#
+# The vocabulary matrix's row 8006 is what uses it.
 boundary_layer_type = "TURBULENT"
 viscous_coupling = false
-convergence_iterations = 20
+convergence = 1e-5
+max_parallel_threads = 8
+NITER = 300
+set_solver_model = "SUBSONIC_PRANDTL_GLAUERT"
+proximity_avoidance = "DISABLE"
+stabilization = "ENABLE"
+stabilization_strength = 1.0
+symmetry_loads = false
+induced_wake_velocity = true
+farfield_layers = 3
+significant_digits = 7
+convergence_iterations = 10
 solver_minimum_cp = -100
+unsteady_pressure_kutta = "DISABLE"
 additional_wake_relaxation_iteration = "DISABLE"
 reynolds_averaged_drag_forces = "DISABLE"
 wake_on_wake_induction = "ENABLE"
-unsteady_pressure_kutta = "DISABLE"
-symmetry_loads = false                     # SET_ANALYSIS_SYMMETRY_LOADS DISABLE
+# No induced-drag selection: this preset serves the wing and the rotor rows alike,
+# and a family list a geometry lacks is refused as an empty selection. s003 states one.
+
+# A CUSTOM FLAG (FR-74): the preset names a FlightStream command and the word
+# a row writes for it, and the ROW states the value. That is the difference
+# from a [[raw]] entry, which fixes the whole line here so every row citing
+# this preset emits the same one: a flag lets one preset serve a SWEEP over
+# the value. The line passes the same emit check every curated emission
+# passes, so a wrong command or a wrong type is refused at plan time.
+[[flags]]
+name = "base_bending"
+command = "SET_BASE_REGION_BENDING_ANGLE"
 
 [flight_condition]
-MUPas = 1.789e-5                           # PHY05_FLUID
+MUPas = 1.789e-5
 ASMPS = 340.29
 TK = 288.15
 PPA = 101325

@@ -635,6 +635,70 @@ family about one of their axes, which 0.14.0 adds beside them.
     reference, the reference's entries are the ones a row uses, and the
     preset stops being read for it at 0.17.0.
 
+A preset may declare **custom flags**, since 0.15.0 (FR-74), in a
+`[[flags]]` table. A flag names a FlightStream command and the word a matrix
+row writes for it, and after that the ROW states the value:
+
+    [[flags]]
+    name = "digits"                  # the word a row writes in VAR_NAMES_VALUES
+    command = "SET_SIGNIFICANT_DIGITS"   # the command it becomes, bare
+
+A row citing that preset then writes `digits: 6` in its `VAR_NAMES_VALUES`
+cell and the script carries `SET_SIGNIFICANT_DIGITS 6`. The word is read case
+folded, as every other key of a row is, and a row that states nothing for a
+declared flag emits nothing for it.
+
+**THIS IS WHAT LEAVES `RAW` TO THE PARTICULAR CASE ITS NAME PROMISES.** A raw
+entry is a whole command line with its arguments, fixed in the preset, so
+every row citing that preset emits the same one. A flag names the command and
+the row supplies the value, so ONE PRESET SERVES A SWEEP over it: three rows
+at three values are three rows, not three presets. Reach for a flag when a
+setting varies with the point, and for `[[raw]]` when a line is the same for
+every row of the study.
+
+**A flag passes the same emit check every curated emission passes**, which is
+what makes it a declaration rather than a text substitution. The line goes out
+through the emitter, so the command's existence on the row's build, its
+grammar and its argument types are all judged at `pyfs-matrix plan`: a flag
+naming a command this build cannot emit, or a row giving it a value of the
+wrong type, is refused before a seat is spent, with the flag, the preset that
+declared it and the row's value all named.
+
+A flag reaches the three seams a raw entry reaches, before the `control`,
+`geometry` and `setup` phases. Leave `before` out and the flag takes the phase
+its command's own database entry declares, which is the answer for every
+command that has one; state it only to place a `control` command, whose phase
+the database leaves open. A flag whose command belongs to a LATER phase is
+refused naming that phase rather than quietly not appearing: a later command
+is part of the run rather than of its setting up, this package emits those
+itself, and a row that needs one states it in `[[raw]]`.
+
+Three declarations are refused as written. A `command` that carries its own
+arguments, because the value would then be stated twice and the two could
+disagree, and a line with its arguments already in it is a `[[raw]]` entry.
+Two records giving one word two commands, because a row stating the word would
+mean whichever record was read last. And a `before` that names no phase.
+
+A declared flag's word is a key the row MAY state: the preset registered it by
+declaring it, so the guard that refuses a key no run type reads leaves it
+alone. A word no flag declares is still refused. A `LEGACY` row takes no flags
+table, for the reason it takes no raw table: its own recipe is the reader of
+its keys and reads neither.
+
+**A worked one you can take.** `tests/tier3_licensed/inputs/setups/s006.toml`
+declares
+
+    [[flags]]
+    name = "base_bending"
+    command = "SET_BASE_REGION_BENDING_ANGLE"
+
+and row 8006 of `tests/tier3_licensed/matriz_vocab.fs` writes
+`base_bending: 12.5` in its cell. The rendered script,
+`tests/tier3_licensed/goldens/matriz_vocab/POLAR-8006_M10AL+000BE+000.txt`,
+carries `SET_BASE_REGION_BENDING_ANGLE 12.5`, and it is compared against that
+golden on every commit, so the example cannot rot into a description of
+something the package no longer does.
+
 A preset may also state **raw solver commands**, since 0.14.0
 (PFS-2033.01, the author's design of 2026-09-09), in a `[[raw]]` table, one entry
 per line, each naming the phase it goes before:

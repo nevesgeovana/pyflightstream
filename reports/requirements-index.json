@@ -2,8 +2,8 @@
  "source": "docs/srs",
  "generated_by": "scripts/gen_requirements_index.py",
  "traceability": {
-  "cited_by_a_test": 67,
-  "total": 125,
+  "cited_by_a_test": 68,
+  "total": 126,
   "method": "upper bound: an id mentioned anywhere in tests/**/*.py excluding conftest.py, which is not the marked falsifying test NFR-13 asks for"
  },
  "requirements": [
@@ -750,6 +750,14 @@
    "status": "implemented",
    "evidence": "*Origin: the author's decision of 2026-09-10, \"a minha ideia era ter uma flag na chamada da linha de comando --ignore_missing_families e ali o usuario poder passar false, sendo que o default e true\". Carried by PFS-2035.13, recorded in GeoversePlan/coordination/decisions/DEC-010. Evidence: tests/tier1_offline/test_missing_families_choice.py (forty-two cases over the three layers, and the lane's mutation scoring recorded in GeoversePlan/coordination/projects/pyflightstream/IMPL-0150-DECISIONS_rounds.ledger and REL-0150_rounds.ledger, which name each mutant, its verdict and the one that survives). AMENDS FR-59, \"A reference declares the names a study gives to its boundaries\", whose rule that a member the opened mesh does not carry is ignored becomes the DEFAULT rather than the only reading.*",
    "verification": "test"
+  },
+  {
+   "id": "FR-74",
+   "text": "A setup preset declares, once per flag, the FlightStream COMMAND and the WORD a matrix row writes for it:",
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "",
+   "verification": "review"
   },
   {
    "id": "NFR-01",
