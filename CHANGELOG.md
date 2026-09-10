@@ -45,11 +45,19 @@ FlightStream versions.
   axis and ride the rotor's. Six lines of a `[plots]` table become
   twenty-seven emissions on a nine-rotor aircraft. The same rule governs
   the `[sections]` distributions and the `[probes]` table.
+- **An alias may name ROTORS, and a rotor's name stands for its own
+  families.** `lifters = ["LIFT_L1", "LIFT_L2"]` in the reference's
+  `[aliases]` is how a group of rotors is written, and an entry citing it
+  reaches every rotor in it: the words are matched against each rotor's
+  families by INTERSECTION, so an alias spanning several is not a subset
+  of any one of them and still reaches all. An entry citing PART of a
+  rotor emits that part, not the block's union under the name you wrote.
 - **An entry this run cannot place is left out; one the reference cannot is
   refused.** A steady row places no rotor frames and a lifters-only row
   places no pusher frames, and one artifact serves all three, so such an
   entry is skipped with a warning exactly as an entry whose families the
-  geometry lacks is. An entry whose families reach no rotor the REFERENCE
+  geometry lacks is, and the warning NAMES the frames it dropped, so a
+  partly working entry is as visible as a wholly skipped one. An entry whose families reach no rotor the REFERENCE
   declares is refused instead, naming the entry, the set and the rotors,
   because that one cannot come right on another row.
 - **A probe table's `rotor_radius` is the radius of the rotor whose frame
@@ -62,12 +70,20 @@ FlightStream versions.
   it by, which is what lets one row sweep the pusher while the lifters hold.
   A record may not state the word `sweep`: sweeping is the condition's job,
   stated once for the row, and a record that writes it is refused.
-- **A sector row takes its copy count from the rotor it names.** A row
-  declaring `SYMMETRY: PERIODIC` and no `PERIODIC_COPIES` reads the count
-  from its rotor's `families_blades`, which is where the per-blade
-  reductions already read it, so a sector mesh carrying one blade of four
-  needs no second statement of the four. One rotor only: a sector is a
-  slice of ONE wheel, so a row turning several still states a count.
+- **A sector row takes its copy count from its two files** (FR-61, "a
+  property of the file the row opens rather than of the rotor the
+  reference declares"). A row
+  declaring `SYMMETRY: PERIODIC` and no `PERIODIC_COPIES` reads the
+  wheel's blade families from the reference and divides by the ones the
+  geometry it opens actually carries, which is how many times the slice
+  repeats: a rotor of four blade families meshed as a sector carrying one
+  stands for four copies, and the same rotor meshed as a half, carrying
+  two, stands for two. A pair that does not divide evenly is refused
+  rather than rounded, and so is a geometry carrying every blade family
+  of the rotor, which is the whole wheel and not a slice of anything. One
+  rotor only: a sector is a slice of ONE wheel, so a row turning several
+  still states a count. The per-rotor REDUCTIONS that also read a blade
+  count are FR-68 and are not in this release.
 - **A rotation names what it turns by ALIAS** (FR-71), the same word a
   motion uses, so every surface that names a group of boundaries now names
   it the same way and the reference is the one place a study says what its

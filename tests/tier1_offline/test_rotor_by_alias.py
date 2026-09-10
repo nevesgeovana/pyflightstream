@@ -507,7 +507,16 @@ def test_a_swept_ratio_reaches_the_motion_that_states_no_speed(tmp_path):
 
 
 def test_a_record_that_states_its_own_ratio_holds_it_against_the_sweep(tmp_path):
-    """Precedence is record over condition, which is what makes a transition possible."""
+    """Precedence is record over condition, which is what makes a transition possible.
+
+    WHAT THIS IS EVIDENCE OF, said plainly because the requirement id it
+    sits under would otherwise claim more: this asserts an INVARIANCE that
+    the code already had before FR-70, and it passes with FR-70's two
+    added lines reverted (the QA lens measured it, 2026-09-10). It holds
+    FR-63's precedence against the new fallback, which is a real thing to
+    hold and is not the same thing as proving FR-70. The case that fails
+    without FR-70 is the one above it.
+    """
     case = swept_ratio_case(tmp_path, {"advance_ratio": 0.2, "alpha": 0.0})
     case.motions[1]["ADVANCE_RATIO"] = "0.85"
     view = _motion_view(case, case.motions[1])
@@ -688,6 +697,80 @@ def test_a_blade_the_mesh_lacks_gets_no_frame_and_the_count_stays(tmp_path):
     assert "LIFT_L1_RMRP1" in text
     assert "LIFT_L1_RMRP2" not in text, "no frame for a blade the mesh does not carry"
     assert case.engines["LIFT_L1"].blade_count == 4, "the count is the list, not the file"
+
+
+def sector_case(tmp_path, blades_in_the_mesh: int, name: str):
+    """A PERIODIC row over a mesh carrying ``blades_in_the_mesh`` of the lifter's four."""
+    carried = ["LH_L1", *[f"LB_L1_{n}" for n in range(1, blades_in_the_mesh + 1)]]
+    case = two_rotor_case(tmp_path, SYMMETRY="PERIODIC")
+    return case.model_copy(
+        update={
+            "geometry": str(saved_simulation(tmp_path / f"{name}.fsm", carried)),
+            "motions": [{"MOVING_BC_ALIAS": "LIFT_L1", "RPM": "2200"}],
+        }
+    )
+
+
+def test_a_sector_carrying_one_blade_of_four_stands_for_four_copies(tmp_path):
+    """FR-59 and FR-61: the row states no count and her 9207 still initializes."""
+    lines = rendered(sector_case(tmp_path, 1, "quarter")).splitlines()
+    assert "SYMMETRY PERIODIC 4" in lines, lines
+
+
+def test_a_sector_carrying_two_blades_of_four_stands_for_two_copies(tmp_path):
+    """FR-61: the count is the MESH's, so it is read from the mesh.
+
+    THIS IS THE CASE THE FIRST WRITING GOT WRONG. Reading the reference's
+    `families_blades` alone answered four here, which would initialize a
+    half wheel as though it were a quarter and export loads for eight
+    blades on a four bladed rotor. The reference is unchanged between this
+    case and the one above; only the file the row opens differs, which is
+    the whole content of FR-61's line.
+    """
+    lines = rendered(sector_case(tmp_path, 2, "half")).splitlines()
+    assert "SYMMETRY PERIODIC 2" in lines, lines
+    assert "SYMMETRY PERIODIC 4" not in lines, (
+        "the wheel's blade count reached the mesh's copy count"
+    )
+
+
+def test_a_sector_that_does_not_divide_the_wheel_is_refused(tmp_path):
+    """A slice repeating a whole number of times, or a refusal naming both counts."""
+    with pytest.raises(PyflightstreamError) as refused:
+        rendered(sector_case(tmp_path, 3, "three_quarters"))
+    said = str(refused.value)
+    assert "4" in said and "3" in said, said
+    assert "PERIODIC_COPIES" in said, "the refusal names the key the row may state"
+
+
+def test_a_mesh_carrying_every_blade_is_not_a_sector_of_itself(tmp_path):
+    """A whole wheel declared PERIODIC is a question, not one copy.
+
+    The arithmetic answers four divided by four, and one copy is a whole
+    positive number that the earlier guard accepts, so a full mesh would
+    initialize as a periodic sector of itself. A row meaning a half MODEL
+    rather than a blade sector reaches the same place, and 0.14.0 refused
+    it for the missing key (the QA lens, 2026-09-10).
+    """
+    with pytest.raises(PyflightstreamError) as refused:
+        rendered(sector_case(tmp_path, 4, "whole_wheel"))
+    said = str(refused.value)
+    assert "whole wheel" in said, said
+    assert "PERIODIC_COPIES" in said, "the refusal names the key the row may state"
+
+
+def test_a_sector_whose_mesh_carries_no_blade_of_the_rotor_is_refused(tmp_path):
+    """The divisor is zero, and a zero divisor is a question rather than a count."""
+    case = two_rotor_case(tmp_path, SYMMETRY="PERIODIC")
+    case = case.model_copy(
+        update={
+            "geometry": str(saved_simulation(tmp_path / "hub_only.fsm", ["LH_L1", "W"])),
+            "motions": [{"MOVING_BC_ALIAS": "LIFT_L1", "RPM": "2200"}],
+        }
+    )
+    with pytest.raises(PyflightstreamError) as refused:
+        rendered(case)
+    assert "LB_L1_1" in str(refused.value), "the refusal names the blades it looked for"
 
 
 def test_the_clock_follows_the_named_motion_and_not_the_fastest(tmp_path):

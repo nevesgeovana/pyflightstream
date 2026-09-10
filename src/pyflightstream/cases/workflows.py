@@ -87,6 +87,7 @@ from pyflightstream.cases import (
     ScriptRecipe,
     SimCase,
     classify_outputs,
+    resolve_alias,
     select_families,
     select_group_members,
 )
@@ -1309,18 +1310,33 @@ def rotor_time_stepping(case: SimCase, *, speed: RotorSpeed | None = None) -> Ti
 # --- PFS-2025.05: the rotor motion, off the row ------------------------------
 
 
-def _the_copies_the_reference_declares(case: SimCase) -> int | None:
-    """Return the copy count a sector row's rotor block implies, or None (FR-59).
+def _the_copies_the_sector_stands_for(case: SimCase, script: Script) -> tuple[int | None, str]:
+    """Return the copy count a sector row implies, and WHY not (FR-59, FR-61).
+
+    THE COUNT IS THE MESH'S AND IS READ FROM THE MESH. FR-61 draws the
+    line and this function stands on it: ``PERIODIC_COPIES`` states what
+    the FILE THE ROW OPENS is, a sector of a wheel, while the blade COUNT
+    it was also read for belongs to the reference (FR-68). So the count is
+    the wheel's blades divided by the blades this file carries, which is
+    how many times the slice repeats:
+
+        copies = len(block.families_blades) // (those the geometry carries)
+
+    Her 91_LIFTER_SECTOR carries LH and LB_1 of a rotor declared with four
+    blade families, so it stands for four copies; the same rotor meshed as
+    a half, carrying two of them, stands for two. The first writing of
+    this default returned the wheel's four in BOTH cases, because it read
+    the reference alone, and that is the SRS and the code saying different
+    things about the same key (the architecture lens, 2026-09-10).
 
     ONE ROTOR ONLY, and deliberately: a sector is a slice of ONE wheel, so
     a row turning several rotors has no single count and is left to state
-    one. The number is the length of the block's ``families_blades``,
-    which is where this release already reads the blade count for the
-    per-blade reductions, so the two cannot give different answers.
+    one.
 
-    None when the row names no rotor, names more than one, or names one
-    whose block declares no blades: each of those is a row the refusal
-    below still belongs to.
+    THE SECOND RETURN IS THE REASON, because five different rows reach the
+    same None and the refusal used to tell all of them the same thing,
+    including one that told a row to do what it had already done (the
+    interface lens, 2026-09-10).
     """
     aliases = [
         record.get(MOVING_BC_ALIAS_VARIABLE)
@@ -1331,15 +1347,66 @@ def _the_copies_the_reference_declares(case: SimCase) -> int | None:
         alias = _variable(case, MOVING_BC_ALIAS_VARIABLE)
         aliases = [str(alias)] if alias else []
     named = {str(alias).strip().casefold() for alias in aliases}
+    if not named:
+        return None, (
+            f"Add it to the row's variables, or name the rotor by alias "
+            f"({MOVING_BC_ALIAS_VARIABLE}) and let its block's blades say it."
+        )
     if len(named) != 1:
-        return None
+        return None, (
+            f"This row turns {len(named)} rotors, so there is no single wheel for the "
+            "sector to be a slice of; a sector row states one count of its own."
+        )
     block = next(
         (engine for name, engine in case.engines.items() if name.casefold() in named),
         None,
     )
-    if block is None or not block.families_blades:
-        return None
-    return len(block.families_blades)
+    if block is None:
+        return None, (
+            f"The row names {', '.join(sorted(named))}, which the reference declares as "
+            "no rotor, so its blades cannot say the count."
+        )
+    if not block.families_blades:
+        return None, (
+            f"The row names {block.alias}, whose reference block lists no "
+            "families_blades, so its blades cannot say the count either: add them to "
+            "the block, or state the count on the row."
+        )
+    inventory = {name.casefold() for name in script.entities.labels("boundaries")}
+    carried = [name for name in block.families_blades if name.casefold() in inventory]
+    if not carried:
+        return None, (
+            f"The row names {block.alias}, whose blade list "
+            f"({', '.join(block.families_blades)}) reaches no boundary of the geometry "
+            "this row opens, so the file cannot say how many of itself it stands for. "
+            "State the count on the row, or name in the reference the blade families "
+            "this mesh actually carries."
+        )
+    whole, sector = len(block.families_blades), len(carried)
+    if whole == sector:
+        # THE FILE IS THE WHOLE WHEEL, so it is not a slice of anything and
+        # the arithmetic would answer one copy, which passes the positive
+        # check above and initializes a full mesh as a sector of itself. A
+        # row that means a half MODEL rather than a blade sector lands here
+        # too, and it is the row 0.14.0 refused for the missing key (the QA
+        # lens, 2026-09-10). Both are questions rather than counts.
+        return None, (
+            f"The row names {block.alias} and the geometry carries all "
+            f"{whole} of its blade families, so the file is the whole wheel "
+            "rather than a slice of it and there is nothing for it to stand "
+            f"for {whole} of. State {PERIODIC_COPIES_VARIABLE} on the row if "
+            "the periodicity is of something else, such as a half model, or "
+            f"write {SYMMETRY_VARIABLE} as the mode that mesh actually is."
+        )
+    if whole % sector:
+        return None, (
+            f"The row names {block.alias}, whose reference declares {whole} blade "
+            f"families while the geometry carries {sector} of them "
+            f"({', '.join(carried)}), and {whole} is not a whole number of {sector}. A "
+            "periodic sector repeats an exact number of times, so this pair cannot be "
+            "one: state the count on the row."
+        )
+    return whole // sector, ""
 
 
 def emit_rotor_motion(
@@ -3073,13 +3140,14 @@ def _initialize(case: SimCase, script: Script) -> None:
     # rule about where a matrix value is refused. The rule itself is the
     # command's: PERIODIC appends the number of copies (SRC-003 p.337).
     if mode == "PERIODIC" and copies is None:
-        # THE REFERENCE MAY ALREADY KNOW (FR-59, FR-65). A rotor block
-        # declares its blades one per entry, so a row naming that rotor has
-        # said how many copies its sector stands for, in the file where the
-        # study's vocabulary lives. It is the same number the reductions
-        # already take from there, and asking the ROW for it again is the
-        # second home this release exists to remove.
-        copies = _the_copies_the_reference_declares(case)
+        # THE PAIR OF FILES ALREADY KNOWS (FR-59, FR-61). The reference
+        # declares the wheel's blades one per entry and the geometry
+        # carries the ones this mesh holds, so the slice's repeat count is
+        # the first divided by the second, and asking the ROW for it again
+        # is the second home this release exists to remove. The count
+        # stays the MESH's, which is FR-61's line, because the divisor is
+        # read from the file the row opens.
+        copies, why = _the_copies_the_sector_stands_for(case, script)
         if copies is None:
             raise CampaignConfigError(
                 f"case {case.sim_id!r} declares {SYMMETRY_VARIABLE} as {symmetry!r} and "
@@ -3087,8 +3155,7 @@ def _initialize(case: SimCase, script: Script) -> None:
                 "stands for a whole number of copies of itself, and the solver cannot "
                 "know how many the slice you meshed represents: a four-bladed rotor "
                 f"modelled as one 90 degree sector declares "
-                f"'{PERIODIC_COPIES_VARIABLE}: 4'. Add it to the row's variables, or "
-                "name the rotor by alias and let its block's blades say it."
+                f"'{PERIODIC_COPIES_VARIABLE}: 4'. {why}"
             )
     if mode != "PERIODIC" and copies is not None:
         # A row declaring the count and NO symmetry at all is the likely
@@ -3541,7 +3608,9 @@ def _selected_families(
     and said nothing, and the user met it as a plot that is not in the
     products.
     """
-    expanded = select_families(selection, inventory, is_blade, aliases=case.aliases)
+    expanded = select_families(
+        selection, inventory, is_blade, aliases=_the_names_a_rotor_answers_to(case)
+    )
     if not expanded:
         known = ", ".join(sorted(case.aliases)) or "none"
         warnings.warn(
@@ -3557,35 +3626,129 @@ def _selected_families(
     return expanded
 
 
-def _rotors_the_entry_cites(case: SimCase, families: str | Sequence[str]) -> list[str]:
-    """Return the rotors an entry's family selection reaches, in the reference's order.
+def _the_names_a_rotor_answers_to(case: SimCase) -> dict[str, list[str]]:
+    """Return the setup's aliases with each rotor's own name added to them.
 
-    A selection reaches a rotor when it names the rotor itself, or an
-    alias whose members the rotor owns. `lifters` naming four lifters
-    reaches four rotors and one line of the artifact becomes four
-    emissions, which is the whole economy of FR-65: her aircraft has nine
-    rotors and her `[plots]` table has six lines.
+    A ROTOR'S NAME IS AN ALIAS FOR ITS OWN FAMILIES, which is FR-65's
+    sentence "an engine name in that set is its own union" written where
+    both readers can use it. Her `lifters = ["LIFT_L1", "LIFT_L2"]` lists
+    ROTORS rather than families, which is the natural way to write a group
+    of rotors and the shape the whole per-rotor economy is for, and its
+    members resolved to nothing because a rotor's name was a family name
+    to nobody and sat in no alias table (the QA lens, 2026-09-10).
+
+    ONE MAP FOR BOTH PATHS, deliberately. The expanding path and the
+    common-frame path read the same words out of the same file, and the
+    first fix gave the vocabulary to the expanding one alone: an entry
+    written `frame = "MRP", families = ["lifters", "PUSHER"]`, which is
+    how the total of the rotors in the moment frame is asked for, then
+    selected NOTHING and warned that the geometry carries no family of it.
+
+    Her own table takes precedence, so a study that gives one of these
+    names a meaning of its own keeps it.
+    """
+    return {
+        **{
+            name: [*block.families_general, *block.families_blades]
+            for name, block in case.engines.items()
+        },
+        **case.aliases,
+    }
+
+
+def _the_reference_vocabulary(case: SimCase) -> list[str]:
+    """Return every family name the reference's rotors declare, in their order.
+
+    THE REFERENCE'S OWN INVENTORY, and deliberately not the mesh's. Which
+    rotors an entry reaches is a property of the two FILES, so it must
+    give the same answer on a steady row and a rotor row; resolving the
+    entry's words against the geometry would make an entry reach a rotor
+    on one row and be refused on another, and the refusal below says in so
+    many words that it cannot come right on another mesh.
+    """
+    return [
+        family
+        for block in case.engines.values()
+        for family in (*block.families_general, *block.families_blades)
+    ]
+
+
+def _rotors_the_entry_cites(
+    case: SimCase, families: str | Sequence[str]
+) -> list[tuple[str, list[str]]]:
+    """Return the rotors an entry reaches and WHAT OF EACH, in the reference's order.
+
+    The second half of each pair is the families the entry cited INSIDE
+    that rotor, or an empty list meaning the whole of it, which is what an
+    entry naming the rotor itself asks for. Returning only the aliases
+    made a partial citation emit the rotor's whole union under the name
+    the user wrote: an entry asking for the hub's loads in the rotor frame
+    got a plot summing hub AND blades (the QA lens, 2026-09-10).
+
+    A selection reaches a rotor when it names the rotor itself, or when
+    its members INTERSECT that rotor's families. Intersect, not
+    "are a subset of": an alias spanning four lifters is a subset of no
+    single block and so reached NONE of them, which is the opposite of
+    what an alias over several rotors is for, and it under-emitted in
+    silence because one other token in the same entry matched and stopped
+    the refusal from firing. `lifters` naming four lifters reaches four
+    rotors and one line of the artifact becomes four emissions, which is
+    the whole economy of FR-65: her aircraft has nine rotors and her
+    `[plots]` table has six lines.
+
+    A member may be another alias, and the members are resolved through
+    :func:`resolve_alias` so that a nested one is followed to the end
+    rather than read as a family name that nothing carries.
     """
     if not case.engines:
         return []
     wanted = [families] if isinstance(families, str) else list(families)
-    reached: list[str] = []
+    # EVERY ROTOR IS WHAT `all` AND `blades` MEAN HERE, and reading them is
+    # the answer to a refusal that lied: `frame = "SMRP", families = "all"`
+    # is the natural way to write "every rotor, each in its own frame", and
+    # it was refused saying the families reach no rotor of the reference,
+    # which diagnoses a misspelling. The selectors were simply not read (the
+    # interface lens, 2026-09-10). `airframe` still reaches none, and that
+    # refusal is true: an airframe has no rotor.
+    if any(str(token).strip().casefold() in ("all", "blades") for token in wanted):
+        return [(alias, []) for alias in case.engines]
+    vocabulary = _the_reference_vocabulary(case)
+    known = _the_names_a_rotor_answers_to(case)
+    whole: set[str] = set()
+    cited: dict[str, list[str]] = {}
     for token in wanted:
-        folded = token.strip().casefold()
+        word = str(token).strip()
+        folded = word.casefold()
+        for name in case.engines:
+            if folded == name.casefold():
+                whole.add(name)
+        members = resolve_alias(word, vocabulary, known)
+        if members is None:
+            # NOT AN ALIAS, so it is a boundary or a family name, and it
+            # is resolved the same way a member of one would be.
+            members = [family for family in vocabulary if _the_same_family(family, word)]
         for name, block in case.engines.items():
-            if name in reached:
-                continue
             owns = {
-                family.casefold() for family in (*block.families_general, *block.families_blades)
+                family.casefold(): family
+                for family in (*block.families_general, *block.families_blades)
             }
-            members = {
-                member.strip().casefold()
-                for member in case.aliases.get(token.strip(), [])
-                if isinstance(member, str)
-            }
-            if folded == name.casefold() or (members and members <= owns):
-                reached.append(name)
+            inside = [owns[member.casefold()] for member in members if member.casefold() in owns]
+            if inside:
+                kept = cited.setdefault(name, [])
+                kept.extend(family for family in inside if family not in kept)
+    reached: list[tuple[str, list[str]]] = []
+    for name in case.engines:
+        if name in whole:
+            reached.append((name, []))
+        elif name in cited:
+            reached.append((name, cited[name]))
     return reached
+
+
+def _the_same_family(family: str, word: str) -> bool:
+    """Whether ``word`` names ``family`` exactly or as its family radical."""
+    folded, wanted = family.casefold(), word.casefold()
+    return folded == wanted or folded.rstrip("0123456789") == wanted
 
 
 def _pproc_emissions(
@@ -3595,7 +3758,7 @@ def _pproc_emissions(
     inventory: Sequence[str],
     is_blade,
     what: str,
-    frames: Frames | None = None,
+    frames: Frames,
 ) -> list[tuple[str, list[str], str]]:
     """Return one ``(frame, families, label)`` per emission the entry stands for (FR-65).
 
@@ -3631,41 +3794,51 @@ def _pproc_emissions(
         ]
     rotors = _rotors_the_entry_cites(case, families)
     if not rotors:
+        declared = ", ".join(sorted(case.engines)) or "none"
+        aliases = ", ".join(sorted(case.aliases)) or "none"
         raise CampaignConfigError(
             f"case {case.sim_id!r}: {what} of {_artifact_of(case)} is measured in "
             f"{frame}, which is a frame per "
             f"{'rotor' if kind == 'rotor' else 'blade'}, and its families "
-            f"{families!r} reach no rotor of the reference. The rotors it "
-            f"declares are {', '.join(sorted(case.engines)) or 'none'}. That is a "
-            "writing error rather than a configuration difference: unlike an entry "
-            "whose families this geometry simply lacks, it cannot come right on "
-            "another mesh."
+            f"{families!r} reach no rotor of the reference. On a frame that expands "
+            f"per rotor the families name a ROTOR, an alias whose families one rotor "
+            f"owns, or 'all'; the rotors this reference declares are {declared} and "
+            f"the aliases are {aliases}. A misspelling reads exactly the same way from "
+            "here. That is a writing error rather than a configuration difference: "
+            "unlike an entry whose families this geometry simply lacks, it cannot come "
+            "right on another mesh."
         )
     carried = {name.casefold() for name in inventory}
     emissions: list[tuple[str, list[str], str]] = []
-    placed = {name for name, index in (frames or {}).items() if index is not None}
-    for alias in rotors:
+    placed = {name for name, index in frames.items() if index is not None}
+    for alias, inside in rotors:
         block = case.engines[alias]
+        # AN EMPTY `inside` IS THE WHOLE ROTOR, which is what naming the
+        # rotor itself asks for; anything else is the part of it the entry
+        # actually cited, so an entry asking for the hub gets the hub.
+        asked = {family.casefold() for family in inside}
         if kind == "rotor":
             owned = [
                 family
                 for family in (*block.families_general, *block.families_blades)
-                if family.casefold() in carried
+                if family.casefold() in carried and (not asked or family.casefold() in asked)
             ]
             if owned:
                 emissions.append((f"{alias}_{frame.strip().upper()}", owned, alias))
             continue
         for number, family in enumerate(block.families_blades, start=1):
-            if family.casefold() in carried:
+            if family.casefold() in carried and (not asked or family.casefold() in asked):
                 emissions.append((f"{alias}_RMRP{number}", [family], family))
-        general = [family for family in block.families_general if family.casefold() in carried]
+        general = [
+            family
+            for family in block.families_general
+            if family.casefold() in carried and (not asked or family.casefold() in asked)
+        ]
         if general:
             # THE HUB AND THE SPINNER HAVE NO LOCAL AXIS OF THEIR OWN: their
             # local frame IS the rotor's, which is what makes the spinner
             # ride the hub (FR-59). One emission for them, in that frame.
             emissions.append((f"{alias}_RMRP", general, alias))
-    if frames is None:
-        return emissions
     # A ROW THAT DOES NOT TURN THE ROTOR PLACES NONE OF ITS FRAMES, and one
     # artifact serves a steady row and a rotor row: that is the whole point
     # of the skip rule, and FR-65 draws the line where it draws every other
@@ -3674,13 +3847,28 @@ def _pproc_emissions(
     # another row; an entry whose frames this RUN did not create can, and is
     # left out, exactly as an entry whose families the geometry lacks is.
     kept = [emission for emission in emissions if emission[0] in placed]
-    if emissions and not kept:
+    dropped = [emission[0] for emission in emissions if emission[0] not in placed]
+    if dropped:
+        # ONE WARNING PER ENTRY AND IT NAMES WHAT WENT, because the first
+        # writing warned only when EVERY emission was unplaced: a row
+        # turning the lifters and not the pusher dropped the pusher's
+        # emissions in silence, which is the very row FR-65's paragraph is
+        # about (the QA lens, 2026-09-10). A partly working entry is the
+        # harder case to notice, not the easier one, because the products
+        # do contain a plot by that name.
+        missing = (
+            "none of those frames"
+            if not kept
+            else f"{len(kept)} of the {len(emissions)} frames it expands over"
+        )
         warnings.warn(
             f"case {case.sim_id!r}: {what} of {_artifact_of(case)} is measured in "
-            f"{frame}, one per {kind}, and this run created none of those frames "
-            f"({', '.join(sorted(placed)) or 'none'}), so the entry is left out. A row "
-            "that does not turn its rotors places no rotor frames, which is the same "
-            "rule that lets one artifact serve a wing-body and a rotor row.",
+            f"{frame}, one per {kind}, and this run created {missing} "
+            f"({', '.join(dropped)} not placed; placed: "
+            f"{', '.join(sorted(placed)) or 'none'}), so "
+            f"{'the entry is left out' if not kept else 'those emissions are left out'}. "
+            "A row that does not turn a rotor places none of its frames, which is the "
+            "same rule that lets one artifact serve a wing-body and a rotor row.",
             PyflightstreamWarning,
             stacklevel=2,
         )
@@ -3702,8 +3890,11 @@ def _pproc_frame(
             raise CampaignConfigError(
                 f"case {case.sim_id!r}: the pproc artifact {case.pproc_id!r} cites frame "
                 f"{name!r} for {what} over families {list(families)}, and that frame is "
-                'one per blade: write the entry with families = "each_blade", so each '
-                f"blade takes its own axis frame (blades with one: {', '.join(found)})."
+                "one per blade. Since 0.15.0 the FRAME says how an entry expands, so "
+                'write frame = "LOCAL_AXIS" over the rotor or the alias you want and it '
+                "is one emission per blade, each in that blade's own axes. The retired "
+                'spelling is families = "each_blade", read with a warning until 0.17.0 '
+                f"(blades with an axis frame here: {', '.join(found)})."
             )
         return found[families[0]]
     if found is None:
@@ -4282,7 +4473,7 @@ def _pproc_plots(case: SimCase, script: Script, frames: Frames) -> None:
     # another row.
     if (
         EXPANDING_FRAMES.get(probes.frame.strip().upper()) is None
-        and _names_a_rotor_frame(case, probes.frame)
+        and _the_rotor_whose_frame_this_is(case, probes.frame) is not None
         and frames.get(probes.frame) is None
     ):
         warnings.warn(
@@ -4318,10 +4509,32 @@ def _pproc_plots(case: SimCase, script: Script, frames: Frames) -> None:
                 )
 
 
-def _names_a_rotor_frame(case: SimCase, frame: str) -> bool:
-    """Whether ``frame`` is spelled as a frame one of the reference's rotors owns."""
-    radical = frame.strip().rsplit("_", 1)[0]
-    return any(name.casefold() == radical.casefold() for name in case.engines)
+def _the_rotor_whose_frame_this_is(case: SimCase, frame: str) -> str | None:
+    """Return the alias of the rotor that OWNS ``frame``, or None (FR-62, FR-65).
+
+    COMPOSED FORWARD, never parsed backward. A rotor's frames are exactly
+    ``<ALIAS>_SMRP``, ``<ALIAS>_RMRP`` and ``<ALIAS>_RMRP<k>``, so the
+    question is answered by building those names and comparing, which is
+    what `_frames_the_alias_owns` does one layer up.
+
+    Splitting the NAME on its last underscore instead was the shape this
+    replaced, and it answered PUSHER for `PUSHER_TIP`: a custom frame the
+    reference declares under any name it likes (FR-72) that merely shares
+    a rotor's prefix was read as that rotor's, so probe lines were scaled
+    to its disk. That is the failure the caller exists to prevent,
+    reintroduced one level down (the architecture lens, 2026-09-10;
+    measured: PUSHER_TIP returned the pusher's 1.8 m).
+    """
+    wanted = frame.strip().casefold()
+    for alias, block in case.engines.items():
+        owned = {f"{alias}_SMRP".casefold(), f"{alias}_RMRP".casefold()}
+        owned |= {
+            f"{alias}_RMRP{number}".casefold()
+            for number in range(1, len(block.families_blades) + 1)
+        }
+        if wanted in owned:
+            return alias
+    return None
 
 
 def _the_radius_the_probe_lines_are_in(case: SimCase, frame: str) -> float:
@@ -4340,13 +4553,9 @@ def _the_radius_the_probe_lines_are_in(case: SimCase, frame: str) -> float:
     propeller diameter, which is what every artifact written before this
     release meant and what keeps them reading.
     """
-    radical = frame.strip().rsplit("_", 1)[0]
-    block = next(
-        (engine for name, engine in case.engines.items() if name.casefold() == radical.casefold()),
-        None,
-    )
-    if block is not None:
-        return block.diameter_m
+    alias = _the_rotor_whose_frame_this_is(case, frame)
+    if alias is not None:
+        return case.engines[alias].diameter_m
     diameter = None if case.reference is None else case.reference.propeller_diameter
     if diameter is None:
         declared = ", ".join(sorted(case.engines)) or "none"

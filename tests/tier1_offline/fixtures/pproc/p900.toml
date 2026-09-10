@@ -1,0 +1,87 @@
+# A post-processing artifact in the 0.15.0 vocabulary, for the tier that runs
+# everywhere. It is the SHAPE of the artifact her use case writes, with this
+# module's own rotor names in place of hers: the entries she wrote are read
+# from her workspace by one further case, which SKIPS on a machine that does
+# not carry it, and until this file existed that skip meant the only case
+# reaching the reader proved nothing on any other machine (the QA lens,
+# 2026-09-10).
+#
+# NOT ONE MESH FAMILY IS NAMED HERE, which is what the design buys: a rotor is
+# a word, and the reference says which blades it has.
+
+[groups]
+"1" = []
+"2" = ["airframe"]
+"3" = ["lifters"]
+"4" = ["PUSHER"]
+"5" = ["airframe", "PUSHER"]
+
+[exports]
+
+[sections]
+count = 50
+plot_direction = 1
+include_symmetry = false
+
+[[sections.distributions]]
+families = ["lifters", "PUSHER"]
+frame = "LOCAL_AXIS"
+planes = ["XY"]
+
+[[sections.distributions]]
+families = "wing"
+frame = "MRP"
+planes = ["XZ"]
+
+[plots]
+parameters = ["CL", "CDI", "CDO", "CD", "FX", "FY", "FZ", "MX", "MY", "MZ"]
+
+[[plots.groups]]
+name = "MRP_TOTAL"
+frame = "MRP"
+families = "all"
+
+[[plots.groups]]
+name = "MRP_AIRFRAME"
+frame = "MRP"
+families = "airframe"
+
+[[plots.groups]]
+name = "MRP_{family}"
+frame = "MRP"
+families = "each"
+
+[[plots.groups]]
+name = "SMRP_{family}"
+families = ["lifters", "PUSHER"]
+frame = "SMRP"
+
+[[plots.groups]]
+name = "RMRP_{family}"
+families = ["lifters", "PUSHER"]
+frame = "RMRP"
+
+[[plots.groups]]
+name = "LOCAL_{family}"
+families = ["lifters", "PUSHER"]
+frame = "LOCAL_AXIS"
+
+[probes]
+frame = "PUSHER_SMRP"
+parameters = ["MACH", "VELOCITY", "VX", "VY", "VZ", "STATIC_PRESSURE_RATIO"]
+points = 25
+scale = "rotor_radius"
+
+[[probes.lines]]
+start = [-2.0, -1.0, 0.0]
+end = [-2.0, 1.0, 0.0]
+
+[[probes.lines]]
+start = [0.0, -1.0, 0.0]
+end = [0.0, 1.0, 0.0]
+
+[products]
+polars = true
+sections = true
+plots = true
+custom_polar_format = true

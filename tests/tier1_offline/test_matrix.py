@@ -459,7 +459,11 @@ def test_the_swept_key_is_found_by_the_constant_the_page_names():
     assert [key for key, value in condition.items() if value == SWEEP_WORD] == ["ALPHA"]
     # And a row a person typed in any casing parses to that same constant.
     # The three the page names, plus the canonical one.
-    for typed in ("sweep", "SWEEP", "Sweep", "sweep "):
+    # THE LEADING SPACE IS BACK and is the one that exercises the key and
+    # value split rather than the value fold; it went out of this list in
+    # the FR-65 commit with no cause visible in the diff, and it still
+    # passes (the QA lens, 2026-09-10).
+    for typed in ("sweep", "SWEEP", "Sweep", "sweep ", " sweep "):
         parsed = matrix_mod._parse_flight_condition(
             f"MACH:0.2, REmi:5.5, ALPHA:{typed}, BETA:0.0", "9001"
         )

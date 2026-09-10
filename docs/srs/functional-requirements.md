@@ -1912,6 +1912,20 @@ requirement below is one seam of that division.
     that `PERIODIC_COPIES` was also read for (FR-68). `SYMMETRY` stays, because what was meshed is a property of the
     file the row opens.
 
+    A sector row stating no `PERIODIC_COPIES` takes the count from the two
+    files, and that is not a departure from the line above: the count is
+    the wheel's blade families divided by the ones THIS GEOMETRY CARRIES,
+    so the divisor is read from the file the row opens and the number
+    stays the mesh's. A rotor declared with four blade families, meshed as
+    a sector carrying one of them, stands for four copies; the same rotor
+    meshed as a half, carrying two, stands for two. A pair that does not
+    divide evenly is refused rather than rounded, as is a geometry
+    carrying none of the rotor's blade families, because neither can be a
+    slice that repeats a whole number of times. Reading the reference's
+    blade count ALONE was the first writing of this rule and it answered
+    four for the half, which is the SRS and the code saying different
+    things about one key.
+
     A cell naming an alias the reference does not declare as an engine is
     refused at plan time, naming the alias and the engines the reference does
     declare.

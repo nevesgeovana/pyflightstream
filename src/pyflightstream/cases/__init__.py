@@ -480,6 +480,25 @@ class SectionDistribution(BaseModel):
 
     _frame_is_named = field_validator("frame")(_a_named_frame)
 
+    @model_validator(mode="after")
+    def _the_retired_selector_says_it_in_the_frame(self) -> SectionDistribution:
+        """Warn as the plot group does, because it is the same retirement.
+
+        The ledger promise and the changelog both say `each_blade` is read
+        with a warning until 0.17.0, and the sections path gave none: a
+        distribution is the OTHER consumer of the same selector, and her own
+        `p010.toml` writes one (the interface lens, 2026-09-10). A promise
+        kept on one of two paths is a false sentence on the page, not a
+        partial one.
+        """
+        if self.families == "each_blade":
+            warnings.warn(
+                f"section distribution over {self.planes}: {ROW_EACH_BLADE.message()}",
+                PyflightstreamDeprecationWarning,
+                stacklevel=2,
+            )
+        return self
+
 
 class SectionsSpec(BaseModel):
     """The ``[sections]`` table: NEW_SURFACE_SECTION_DISTRIBUTION per entry and plane."""
@@ -525,7 +544,7 @@ class ForcePlotGroup(BaseModel):
     _frame_is_named = field_validator("frame")(_a_named_frame)
 
     @property
-    def emits_per(self) -> str:
+    def emits_per(self) -> Literal["once", "rotor", "blade", "family"]:
         """What this entry is one of: ``once``, ``rotor``, ``blade`` or ``family``.
 
         The frame is asked first, because it is the statement that cannot
@@ -561,6 +580,29 @@ class ForcePlotGroup(BaseModel):
                 "{family}, which names what each emission is about. The frames that "
                 f"expand are {', '.join(sorted(EXPANDING_FRAMES))}, and the selector "
                 "'each' expands in a common frame."
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _a_frame_that_expands_is_not_also_a_selector_that_expands(self) -> ForcePlotGroup:
+        """One statement of how many, not two (FR-65).
+
+        The frame decides, so a selector that ALSO decides is a second
+        answer to one question. `each` in a rotor frame validated and was
+        then refused at build time by a message about families reaching no
+        rotor, which describes a different mistake: the model accepted
+        what the builder cannot emit (the architecture lens, 2026-09-10).
+        """
+        if EXPANDING_FRAMES.get(self.frame.strip().upper()) and self.families in (
+            "each",
+            "each_blade",
+        ):
+            raise ValueError(
+                f"plot group {self.name!r}: the frame {self.frame} already expands, one "
+                f"per {self.emits_per}, and families = {self.families!r} expands too, so "
+                "the entry states how many it is twice. Name the rotors or the alias "
+                f"whose families they own, or 'all' for every rotor; write "
+                f"families = 'each' only in a frame that does not expand."
             )
         return self
 

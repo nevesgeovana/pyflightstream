@@ -946,8 +946,8 @@ families = ["W"]
 frame = "MRP"
 planes = ["XZ"]
 [[sections.distributions]]
-families = "each_blade"        # one distribution per blade, in its own axis frame
-frame = "BLADE_AXIS"
+families = "LIFT"              # the rotor; LOCAL_AXIS makes it one per blade
+frame = "LOCAL_AXIS"           # since 0.15.0 the FRAME says how the entry expands
 planes = ["XY"]
 
 [plots]                        # UNSTEADY_SOLVER_NEW_FORCE_PLOT per group and parameter
@@ -962,10 +962,10 @@ frame = "MRP"
 families = "each"
 
 [probes]                       # UNSTEADY_SOLVER_NEW_FLUID_PLOT per vertex and parameter
-frame = "PROP_MRP"
+frame = "LIFT_SMRP"            # a rotor frame: one probe set per rotor it reaches
 parameters = ["MACH", "VELOCITY", "VX", "VY", "VZ", "STATIC_PRESSURE_RATIO"]
 points = 25
-scale = "propeller_radius"     # or "m"
+scale = "rotor_radius"         # or "m"; the radius is THAT rotor's, not the configuration's
 [[probes.lines]]
 start = [-2.0, -1.0, 0.0]
 end = [-2.0, 1.0, 0.0]
@@ -979,24 +979,47 @@ custom_polar_format = false    # beside each polar table, the text file the auth
 
 Three things carry the artifact across configurations. A `families` entry
 is a list of family names, a bare word (an alias of the row's setup, read
-first, above; else a family name), or one of five SELECTORS: `all` (every
+first, above; else a family name), or one of four SELECTORS: `all` (every
 boundary, the command's own `-1` form), `airframe` (every family that is
-not a blade), `blades`, `each` (one entry per family the geometry carries,
-the name carrying `{family}`) and `each_blade`; a family the geometry does
-not carry is left out, which is how one artifact serves a wing-body and an
-isolated rotor, and an entry that resolves to nothing is skipped. A blade
+not a blade), `blades`, and `each` (one entry per family the geometry
+carries, the name carrying `{family}`); a family the geometry does not
+carry is left out, which is how one artifact serves a wing-body and an
+isolated rotor, and an entry that resolves to nothing is skipped. There
+were five until 0.15.0, and `each_blade` is the one that left: the FRAME
+says how an entry expands now, so `frame = "LOCAL_AXIS"` is what one
+distribution per blade is written as. It is read with a warning until
+0.17.0. A blade
 is told from the airframe by `blade_pattern`, a regular expression over the
 family name, `^Blade\d+$` unless the file says otherwise. A `frame` is
 cited by NAME: `MRP`, the moment frame the reference artifact creates;
-`PROP_MRP`, the propeller frame of the two unsteady run types;
-`BLADE_AXIS`, one frame per blade that the rotor run type creates
-(`BladeAxis1`, `BladeAxis2`, ..., turned about the rotor axis by each
-blade's share of a turn) and registers as the motion's moving frames; a
-frame the row's setup defines in its `[[frames]]` table, by the name
-written there (`LIFTERS_MRP`); and, on a row with several rotors, one
-rotor's own frames, `PROP_MRP1` (its hub) and `RotorAxis1` (its moving
-frame). An entry citing a frame the run did not create is refused at
-plan time naming the frames it did.
+`SMRP` and `RMRP`, a rotor's hub frame and its turning frame, and
+`LOCAL_AXIS`, one frame per blade (0.15.0, and see the next paragraph for
+what those three do to the entry); `<ALIAS>_SMRP`, `<ALIAS>_RMRP` and
+`<ALIAS>_RMRP<k>`, the same frames named for ONE rotor, which is how an
+entry says which rotor it is about on a row that turns nine; a frame the
+row's REFERENCE declares in its `[[frames]]` table, by the name written
+there (`LIFTERS_MRP`, `PUSHER_TIP`); and, from before 0.15.0, `PROP_MRP`,
+`BLADE_AXIS`, `PROP_MRP<k>` and `RotorAxis<k>`, which still resolve.
+
+**THE FRAME DECIDES HOW THE ENTRY EXPANDS**, which is why there is no
+`expand` key and why `each_blade` retired. An entry in `MRP` or a declared
+frame is ONE over the families it names. One in `SMRP` or `RMRP` is one
+per ROTOR those families reach, each in that rotor's own frame. One in
+`LOCAL_AXIS` is one per BLADE, plus one for the rotor's `families_general`,
+which have no local axis and ride the rotor's. Six lines of a `[plots]`
+table are twenty-seven emissions on a nine-rotor aircraft. A name that
+would collide carries `{family}`, and the reader refuses a name without it
+where the entry emits more than once.
+
+TWO WAYS AN ENTRY CAN FAIL TO LAND, and they are deliberately different.
+An entry whose families reach no rotor the REFERENCE declares is REFUSED
+at plan time, naming the rotors and the aliases it could have named,
+because that is a writing error and cannot come right on another mesh. An
+entry whose rotors the reference does declare, but whose frames THIS RUN
+did not place, is LEFT OUT with a warning, exactly as an entry whose
+families the geometry lacks is: a steady row places no rotor frames and a
+lifters-only row places none of the pusher's, and one artifact serves all
+three rows.
 
 !!! warning "Since 0.15.0 a rotor's frames are named from its alias"
 
