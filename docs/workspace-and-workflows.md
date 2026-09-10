@@ -241,7 +241,7 @@ read by the package rather than ignored:
 | v0.14.0 | `ROTATE`, a list of records, one rotation of the opened mesh each, in the order written: `ROTATE: {ANGLE: 3 / AXIS: NAC-Y / FAMILIES: Blade,S / AUX_FRAMES: PROP_MRP}, {...}`; on every run type; the frame is one the setup defines or the package creates, the families are names, never indices (PFS-2034.02), see [One row, one geometry, turned](#one-row-one-geometry-turned) |
 
 | v0.15.0 | `MOVING_BC_ALIAS`, the rotor a motion record moves, an alias the reference declares as an engine block. It is the ONLY rotor identity a row carries: the hub, the axis, the sign, the blade count and the diameter come from that block, and a record stating `MOVING_BOUNDARIES`, `ROTOR_AXIS`, `ROTOR_ORIGIN`, `RPM_SIGN` or `BLADES` beside it is refused naming both (FR-61) |
-| v0.15.0 | `CLOCK_MOTION`, which of the row's motions owns the time step and the run length. A row of several motions that states none keeps the arithmetic of 0.14.0, the fastest rotor, and warns naming the motion it assumed; the key becomes required at 0.17.0 (FR-64) |
+| v0.15.0 | `CLOCK_MOTION`, which of the row's motions owns the time step and the run length. REQUIRED on any row that states a `MOTIONS` list: a row that states the list and no key is refused, naming the motions it could have named. The flat pre-0.15.0 form, which names one rotor in its own keys, is exempt because it has nothing to choose between; that form becomes required at 0.17.0 too (FR-64) |
 | v0.15.0 | `SYMMETRY_LOADS`, whether the solver reports the loads of the meshed sector or of the whole wheel. On every run type, because a mirrored or periodic mesh is opened by a steady row too; a row stating it overrides the preset and warns naming both files (FR-66) |
 | v0.15.0 | `RAW`, a list of records, one raw solver command each or one file of them, in the order written: `RAW: {COMMAND: SOLVER_SET_ITERATIONS 350 / BEFORE: init}, {FILE: raw/extra.txt / BEFORE: init}`; a record states `COMMAND` or `FILE` and never both, and `BEFORE`, the phase it goes before, spelled as the preset's `[[raw]]` table spells it. **ITS PAIRS SPLIT ON A SPACED SLASH**, ` / `, and not on the bare one every other record kind uses, because its values are a path and a command line and both carry slashes of their own. A raw file is a path under `inputs/` whose blank lines and `#` lines are skipped (FR-67), see [What a solver preset may say](#what-a-solver-preset-may-say) |
 
@@ -1099,6 +1099,23 @@ three rows.
     post-processing entry can say WHICH rotor it is about:
     `frame = "PUSHER_RMRP"`.
 
+    A row that ROTATES that alias also gets `<ALIAS>_SMRP_ORIGINAL`, a
+    copy of the hub frame as it stood before the first rotation, which
+    nothing turns (FR-71). It is created once per alias, so a row that
+    turns one alias twice keeps the state before the FIRST rotation.
+
+    **AND YOU DO NOT HAVE TO CITE IT.** An entry naming a hub frame that
+    this row rotated is written in BOTH: once in `<ALIAS>_SMRP`, where the
+    rotation left it, and once in `<ALIAS>_SMRP_ORIGINAL`, where it
+    started. The plot names differ by the same suffix, so the two tables
+    sit beside each other. That is the author's rule of 2026-09-10: an
+    entry says which ROTOR it is about, and the row's rotation decides how
+    many readings of it there are, exactly as the frame decides how many
+    emissions an entry stands for. A rotor this row did not turn has no
+    original frame and nothing doubles. `<ALIAS>_RMRP` and
+    `<ALIAS>_RMRP<k>` never double: they turn WITH the motion at every step
+    of an unsteady run, so there is no single frame they turned from.
+
     `PROP_MRP<k>` and `RotorAxis<k>` still resolve for an entry written
     against 0.14.0, and a record that names no alias still emits them, so
     a workspace may migrate its rows before its post-processing. The
@@ -1106,7 +1123,8 @@ three rows.
     family of `families_general` gets no frame of its own: its local frame
     IS the rotor's, which is what makes the spinner ride the hub.
 
-An entry that resolves to nothing is skipped; an entry WRITTEN as nothing
+An entry that resolves to nothing is skipped, unless this run asked for the
+refusal (see `--ignore-missing-families` above); an entry WRITTEN as nothing
 is refused, at `pyfs-matrix plan`, naming the file, the key as the file
 spells it, and what the empty list feeds (PFS-2005.02, "an empty boundary
 list is refused wherever the solver would read it as disable everything"),
@@ -1474,7 +1492,7 @@ builder then creates, per record, a fixed frame at the record's hub
 (`PROP_MRP1`, `PROP_MRP2`, ...), a moving frame turned by the motion
 (`RotorAxis1`, ...) and one `CREATE_NEW_MOTION` block citing its own frame,
 axis, speed and boundaries; the row's `PROP_MRP` stays the frame the pproc
-entries cite, the time step follows the fastest rotor, and the run record
+entries cite, the time step follows the rotor `CLOCK_MOTION` names, and the run record
 lists every record as bound. A record's `ROTOR_ORIGIN` may name a point of
 `inputs/reference_points.toml` instead of three coordinates; the point must
 be an engine point, `ERP` or `ERP1` through `ERPn` by the naming convention,

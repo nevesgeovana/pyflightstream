@@ -1328,7 +1328,7 @@ def resolve_matrix(
         property of the row or of the artifact, both of which are meant
         to serve several geometries, so it travels as an argument and
         lands on each case's variables as ``IGNORE_MISSING_FAMILIES``,
-        where the builders read it. FALSE ALONE WRITES ANYTHING: at the
+        where the builders read it. ONLY FALSE WRITES ANYTHING: at the
         default every case resolves to exactly the case it resolved to
         before this argument existed, which is what keeps a run's
         identity and its emitted script unchanged.

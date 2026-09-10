@@ -59,6 +59,7 @@ from pyflightstream.cases import CampaignConfigError
 from pyflightstream.cases.matrix import MatrixError, convert_matrix, upgrade_matrix
 from pyflightstream.cases.workflows import (
     WorkflowCoverageError,
+    read_a_choice,
     resolve_workflow,
     workflow_names,
     workflow_registry,
@@ -142,8 +143,20 @@ def _a_word_that_means_false(word: str) -> bool:
     A THREE-STATE FLAG WRITTEN AS ONE, because she asked to be able to
     pass FALSE and argparse's ``store_true`` cannot: bare, the flag is
     true; with a word, the word decides; absent, the default stands.
+
+    A WORD OUTSIDE THE VOCABULARY IS REFUSED, through the same reader the
+    row variable uses. argparse turns the ArgumentTypeError into a usage
+    error naming the flag and the word, so `--ignore-missing-families off`
+    and `--ignore-missing-families flase` say what is wrong instead of
+    quietly meaning yes. It is also what turns
+    `--ignore-missing-families matrix.fs`, where the optional value eats
+    the positional, from "the following arguments are required: matrix"
+    into a message about the word that was eaten.
     """
-    return str(word).strip().lower() not in ("false", "no", "0")
+    try:
+        return read_a_choice(word, context="--ignore-missing-families")
+    except ValueError as error:
+        raise argparse.ArgumentTypeError(str(error)) from None
 
 
 def _add_the_missing_family_choice(parser: argparse.ArgumentParser) -> None:

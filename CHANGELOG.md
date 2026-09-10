@@ -42,12 +42,23 @@ FlightStream versions.
   FR-64 renamed it `rotor_speed_ref` and she struck the rename.
 - **`<ALIAS>_SMRP_ORIGINAL`, the frame a rotation turned FROM** (FR-71).
   Once per alias, before its FIRST rotation, the builder copies that rotor's
-  hub frame; nothing turns the copy and a post-processing entry may cite it,
-  so a study of an installed propeller can still be read in the frame it
-  started in. Before this release that frame was lost the moment the mesh
-  moved. ONCE PER ALIAS AND NOT ONCE PER RECORD is her answer of 2026-09-10:
-  a row that turns one alias twice keeps the state before the first rotation
-  and adds nothing at the second.
+  hub frame; nothing turns the copy, so a study of an installed propeller can
+  still be read in the frame it started in. Before this release that frame was
+  lost the moment the mesh moved. ONCE PER ALIAS AND NOT ONCE PER RECORD is
+  her answer of 2026-09-10: a row that turns one alias twice keeps the state
+  before the first rotation and adds nothing at the second.
+- **AND YOU DO NOT HAVE TO CITE IT.** A post-processing entry naming a hub
+  frame this row ROTATED is written in BOTH: once in `<ALIAS>_SMRP`, where
+  the rotation left it, and once in `<ALIAS>_SMRP_ORIGINAL`, where it
+  started, the two plot names differing by the same suffix so neither
+  overwrites the other. Her rule of 2026-09-10: an entry says which ROTOR it
+  is about, and the row's rotation decides how many readings of it there
+  are, exactly as the frame decides how many emissions an entry stands for.
+  The alternative was a second entry written by hand on every row that
+  rotates, which is a second home for one question. A rotor this row did not
+  turn has no copy and doubles nothing; `<ALIAS>_RMRP` and `<ALIAS>_RMRP<k>`
+  never double, because they turn WITH the motion at every step and so have
+  no single frame they turned from.
 - **`SYMMETRY_LOADS` on the row** (FR-66), overriding the preset with a
   warning, because whether the solver reports the sector's loads or the
   wheel's is a per-row choice.
@@ -87,12 +98,24 @@ FlightStream versions.
   stated once for the row, and a record that writes it is refused.
 - **`--ignore-missing-families`, on `pyfs-matrix plan` and `run`** (FR-73,
   her design of 2026-09-10). The default is true and it reads a word, so
-  `--ignore-missing-families false` is what a shell writes. With false, two
-  silences become refusals, each naming the geometry's own boundaries beside
-  what was cited: an alias member no boundary answers, which the resolver
-  drops so quietly that an alias of six members over a mesh carrying five
-  still expands and writes its plot; and a post-processing entry that
-  selects nothing at all, which is left out of the products.
+  `--ignore-missing-families false` is what a shell writes. With false, three silences become refusals ON A
+  POST-PROCESSING `families` SELECTION, each naming the geometry's own boundaries beside what was
+  cited: an alias member no boundary answers, which the resolver drops so
+  quietly that an alias of six members over a mesh carrying five still
+  expands and writes its plot, and whose message names the alias that
+  DECLARES the member rather than the word the entry wrote; a LIST member
+  that names nothing, which is worse, because a list aggregates into one set
+  that is non-empty as soon as one member resolves, so `["WING", "BLADE_1"]`
+  over a mesh with no blade selects the wing and passes; and an entry that
+  selects nothing at all, which is left out of the products. An alias cited
+  by `MOVING_BC_ALIAS`, `BASE_REGIONS` or a `[groups]` member is NOT covered
+  and still drops an absent member in silence.
+
+  A WORD OUTSIDE THE VOCABULARY IS REFUSED. `true`, `yes` and `1` mean yes;
+  `false`, `no` and `0` mean no; anything else is a usage error naming the
+  flag and the word. The first version read every other word as yes, so
+  `--ignore-missing-families off` would have given you the silence you were
+  turning off and said nothing about it.
 
   The skip is what lets one reference and one post-processing artifact serve
   a wing-body and an isolated rotor, and from the emitted script that skip

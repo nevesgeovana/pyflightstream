@@ -92,7 +92,6 @@ __all__ = [
     "select_families",
     "select_group_members",
     "resolve_alias",
-    "alias_members_the_geometry_lacks",
     "BoundaryAliases",
     "EXPANDING_SELECTORS",
     "default_outputs",
@@ -1095,10 +1094,14 @@ _SELECTORS_THAT_GUESS = {
 }
 
 
-def _warn_a_selector_that_guesses(word: str) -> None:
+def warn_a_selector_that_guesses(word: str) -> None:
     """Warn that a families selector deciding what a blade is has retired."""
+    # NO PREFIX. The ledger entry already opens with its owner, so
+    # prefixing "a families cell" produced "a families cell: families =
+    # 'airframe' of a families cell was renamed to ..." (the interface lens
+    # of 2026-09-10).
     warnings.warn(
-        f"a families cell: {_SELECTORS_THAT_GUESS[word].message()}",
+        _SELECTORS_THAT_GUESS[word].message(),
         PyflightstreamDeprecationWarning,
         stacklevel=3,
     )
@@ -1137,11 +1140,11 @@ def select_families(
         # reference that declares `airframe` keeps working unchanged, which
         # is what every one of hers does (her decision of 2026-09-10).
         if selection == "airframe":
-            _warn_a_selector_that_guesses(selection)
+            warn_a_selector_that_guesses(selection)
             chosen = [name for name in inventory if not is_blade(name)]
             return [chosen] if chosen else []
         if selection == "blades":
-            _warn_a_selector_that_guesses(selection)
+            warn_a_selector_that_guesses(selection)
             return [blades] if blades else []
         if selection == "each":
             return [[name] for name in inventory]
@@ -1157,10 +1160,10 @@ def select_families(
         if aliased is not None:
             names = aliased
         elif item == "blades":
-            _warn_a_selector_that_guesses(item)
+            warn_a_selector_that_guesses(item)
             names = blades
         elif item == "airframe":
-            _warn_a_selector_that_guesses(item)
+            warn_a_selector_that_guesses(item)
             names = [name for name in inventory if not is_blade(name)]
         else:
             # A list member resolves as the bare word does, family
@@ -1336,11 +1339,11 @@ def _resolve_alias_key(
     return names
 
 
-def alias_members_the_geometry_lacks(
+def alias_members_missing(
     token: str,
     inventory: Sequence[str],
     aliases: Mapping[str, Sequence[str]] | None,
-) -> list[str]:
+) -> list[tuple[str, str]]:
     """Return the members of one cited alias that NO boundary answers.
 
     THE OTHER HALF OF THE SENTENCE :func:`resolve_alias` implements. That
@@ -1351,10 +1354,17 @@ def alias_members_the_geometry_lacks(
     (PFS-2035.13), and this function is what it hears: the members, in
     the order the table wrote them, that resolve to nothing at all.
 
+    Each pair is ``(the alias that DECLARES the member, the member)``, and
+    the first half is the point: on a nested alias the declaring one is not
+    the one the entry cited, and it is the table row the user has to edit.
+    A message naming only the cited word sent a reader to the wrong line
+    (the interface lens of 2026-09-10).
+
     A token that names no alias, or an alias every member of which
-    resolves, gives an empty list. A ring is NOT reported here; it is
-    already a refusal of :func:`resolve_alias`, raised whichever way the
-    run chose, and reporting it twice would name it as a missing member.
+    resolves, gives an empty list. A RING RAISES, exactly as
+    :func:`resolve_alias` does and with the same message: a reporter that
+    answered confidently for a file the resolver refuses is a second
+    reading of one file (the QA lens of 2026-09-10, measured).
     """
     if not aliases:
         return []
@@ -1370,30 +1380,34 @@ def _absent_members(
     aliases: Mapping[str, Sequence[str]],
     *,
     seen: tuple[str, ...],
-) -> list[str]:
+) -> list[tuple[str, str]]:
     """Walk one alias the way the resolver does, collecting what answers nothing."""
-    absent: list[str] = []
+    absent: list[tuple[str, str]] = []
     path = (*seen, key)
     for member in aliases[key]:
         token = str(member)
-        # THE SAME THREE READINGS IN THE SAME ORDER as `_resolve_alias_key`,
-        # deliberately: a reporter that resolves a member differently from
-        # the resolver reports members that resolve and misses ones that do
-        # not, which is worse than staying silent.
+        # THE SAME FOUR READINGS IN THE SAME ORDER as `_resolve_alias_key`,
+        # the ring included, deliberately: a reporter that resolves a
+        # member differently from the resolver reports members that resolve
+        # and misses ones that do not, which is worse than staying silent.
         if token in inventory:
             continue
         nested = _alias_key(token, aliases)
         if nested is not None and nested == key:
             nested = None
         if nested is not None and nested in path:
-            # The resolver raises on this one; see the docstring.
-            continue
+            raise AliasCycleError(
+                f"the alias {key!r} resolves through {token!r}, which resolves back to "
+                f"{nested!r}: {' -> '.join(repr(name) for name in (*path, nested))}. An "
+                "alias may name another alias, and the reader follows to the end, so a "
+                "ring has no end; break it in the reference"
+            )
         if nested is not None:
-            for name in _absent_members(nested, inventory, aliases, seen=path):
-                if name not in absent:
-                    absent.append(name)
-        elif not names_of(token, inventory) and token not in absent:
-            absent.append(token)
+            for pair in _absent_members(nested, inventory, aliases, seen=path):
+                if pair not in absent:
+                    absent.append(pair)
+        elif not names_of(token, inventory) and (key, token) not in absent:
+            absent.append((key, token))
     return absent
 
 
@@ -1977,6 +1991,12 @@ class SimCase(BaseModel):
     reference: ReferenceData | None = None
     solver: SolverSettings = Field(default_factory=SolverSettings)
     recipe: str
+    #: The row's own keys, and TWO THINGS THE RESOLVER WRITES beside them:
+    #: a flat `ROTOR_ORIGIN` bound to a named reference point, and the
+    #: invocation's `IGNORE_MISSING_FAMILIES` choice (PFS-2035.13). So this
+    #: is no longer purely what the cell said, which a reader of this model
+    #: alone would otherwise conclude; its neighbour
+    #: `flight_condition_defaults` documents the same kind of provenance.
     variables: dict[str, str | float | int | bool] = Field(default_factory=dict)
     #: The rotor motions a row's ``MOTIONS`` list states (PFS-2029.11),
     #: one record each in cell order; empty for a row stating one rotor

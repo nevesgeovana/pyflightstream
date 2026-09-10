@@ -65,6 +65,7 @@ import warnings
 from collections.abc import Callable, Mapping, MutableMapping, Sequence
 from dataclasses import dataclass
 from pathlib import PurePath
+from types import MappingProxyType
 
 from pyflightstream._deprecations import ROW_MOVING_BOUNDARIES, ROW_ROTATE_FAMILIES
 from pyflightstream._errors import (
@@ -86,11 +87,12 @@ from pyflightstream.cases import (
     EngineBlock,
     ScriptRecipe,
     SimCase,
-    alias_members_the_geometry_lacks,
+    alias_members_missing,
     classify_outputs,
     resolve_alias,
     select_families,
     select_group_members,
+    warn_a_selector_that_guesses,
 )
 from pyflightstream.commands import CommandRegistry, Phase
 from pyflightstream.script import CommandArgumentError, Script, ScriptReferenceError, helpers
@@ -104,6 +106,7 @@ __all__ = [
     "EXPORT_UNSTEADY_AFTER_ITER_VARIABLE",
     "EXPORT_UNSTEADY_AFTER_REV_VARIABLE",
     "GEOMETRY_VARIABLE",
+    "IGNORE_MISSING_FAMILIES_VARIABLE",
     "LOG_OUTPUT_VARIABLE",
     "BASE_REGIONS_VARIABLE",
     "MOTIONS_VARIABLE",
@@ -3913,6 +3916,57 @@ Frames = Mapping[str, int | None | Mapping[str, int]]
 #: (PFS-2035.13, her design of 2026-09-10).
 IGNORE_MISSING_FAMILIES_VARIABLE = "IGNORE_MISSING_FAMILIES"
 
+#: The words that mean yes and the words that mean no, in the ONE place
+#: both readers ask. The command line and the row variable used to carry a
+#: copy each, in two layers, with nothing asserting the two agreed (the
+#: architecture lens of 2026-09-10).
+CHOICE_WORDS: Mapping[str, bool] = MappingProxyType(
+    {"true": True, "yes": True, "1": True, "false": False, "no": False, "0": False}
+)
+
+
+def read_a_choice(word: object, *, context: str) -> bool:
+    """Read a yes-or-no word, REFUSING anything outside the vocabulary.
+
+    A word this does not know is an error and never a default. The
+    permissive reading, where everything but three spellings means yes, has
+    no failure mode: `--ignore-missing-families off` would have given the
+    user the SKIP, which is the silence they passed the flag to escape, on
+    a run that planned green and said nothing. That is the same shape as
+    the incident `pyflightstream.script.toggles` records in its own module
+    docstring, and this reader is built the way that one is.
+
+    Parameters
+    ----------
+    word : object
+        `true`, `yes`, `1`, `false`, `no` or `0`, in any case, with
+        surrounding whitespace ignored. A bool passes through, so a Python
+        caller may write the value it means.
+    context : str
+        What is being read, quoted in the refusal, so the message names the
+        flag or the row key the user actually wrote.
+
+    Raises
+    ------
+    ValueError
+        If the word is outside the vocabulary. The message lists both
+        halves of it, because a user who wrote the wrong word for NO needs
+        to see the right words for NO beside the ones for yes.
+    """
+    if isinstance(word, bool):
+        return word
+    text = str(word).strip().casefold()
+    if text in CHOICE_WORDS:
+        return CHOICE_WORDS[text]
+    yes = ", ".join(name for name, state in CHOICE_WORDS.items() if state)
+    no = ", ".join(name for name, state in CHOICE_WORDS.items() if not state)
+    raise ValueError(
+        f"{context}: {str(word)!r} is not a yes or a no. Write one of {yes} for yes, or "
+        f"one of {no} for no. A word this reader does not know is refused rather than "
+        "read as the default, because reading it as the default would give you the "
+        "behaviour you were trying to turn off and say nothing about it."
+    )
+
 
 def _ignore_missing_families(case: SimCase) -> bool:
     """Whether a family the mesh lacks is skipped (the default) or refuses.
@@ -3929,7 +3983,19 @@ def _ignore_missing_families(case: SimCase) -> bool:
     stated = _variable(case, IGNORE_MISSING_FAMILIES_VARIABLE)
     if stated is None:
         return True
-    return str(stated).strip().lower() not in ("false", "no", "0")
+    try:
+        return read_a_choice(
+            stated, context=f"case {case.sim_id!r}: {IGNORE_MISSING_FAMILIES_VARIABLE}"
+        )
+    except ValueError as error:
+        raise CampaignConfigError(str(error)) from None
+
+
+#: The words a families entry may write that name no set of their own, so
+#: a reader asking "does this name anything the geometry carries" would be
+#: asking the wrong question of them. `all` is the command's own
+#: every-boundary form and the two `each` words are one emission per family.
+_WORDS_THAT_NAME_NO_SET = frozenset({"all", "each", "each_blade"})
 
 
 def _refuse_what_the_geometry_does_not_carry(
@@ -3939,17 +4005,21 @@ def _refuse_what_the_geometry_does_not_carry(
     aliases: Mapping[str, Sequence[str]],
     expanded: Sequence[Sequence[str]],
     what: str,
+    is_blade: Callable[[str], bool],
 ) -> None:
     """Say what the skip left out, for a run that asked to hear it (PFS-2035.13).
 
-    TWO SITES, because there are two silences and the flag is named after
-    both. An ALIAS MEMBER no boundary answers is dropped inside the
-    resolver, so an alias of six members over a mesh that carries five
-    still selects five and nothing says which one went (PFS-2035.01); and
-    an ENTRY that selects nothing at all is left out of the products
-    (PFS-2029.07.04). The first is the one the acceptance sentence names
-    and it is reported FIRST, because it is the one a passing entry can
-    hide.
+    THREE SILENCES, because that is how many there are and the flag is
+    named after all of them. An ALIAS MEMBER no boundary answers is dropped
+    inside the resolver, so an alias of six members over a mesh that
+    carries five still selects five and nothing says which one went
+    (PFS-2035.01). A LIST MEMBER that names nothing is dropped the same
+    way, and worse, because a list aggregates into one set that is
+    non-empty as soon as ONE member resolves: `["WING", "BLADE_1"]` over a
+    mesh with no blade selects the wing and passes. And an ENTRY that
+    selects nothing at all is left out of the products
+    (PFS-2029.07.04). The first two are reported before the third, because
+    they are the ones a PASSING entry hides.
 
     Neither is a defect at the default. The whole point of the silence is
     that one artifact serves a wing-body and an isolated rotor; what this
@@ -3958,20 +4028,40 @@ def _refuse_what_the_geometry_does_not_carry(
     about it when it does not.
     """
     cited = [selection] if isinstance(selection, str) else [str(item) for item in selection]
-    missing: list[tuple[str, list[str]]] = []
+    missing: list[str] = []
     for token in cited:
-        absent = alias_members_the_geometry_lacks(token, inventory, aliases)
+        # AN ALIAS IS ASKED FIRST, and it answers with the alias that
+        # DECLARES each absent member rather than the word the entry wrote,
+        # because on a nested alias those are different and the declaring
+        # one is the table row the user has to edit (the interface lens).
+        absent = alias_members_missing(token, inventory, aliases)
         if absent:
-            missing.append((token, absent))
+            missing.extend(
+                f"{owner!r} names {member!r}"
+                for owner, member in absent
+                if f"{owner!r} names {member!r}" not in missing
+            )
+            continue
+        # NOT AN ALIAS, so it is a boundary or a family, and a MEMBER of a
+        # list has to be judged on its own. A list aggregates into one set
+        # that is non-empty as soon as ONE member resolves, so a misspelled
+        # member beside a good one passed in silence with the refusal asked
+        # for; the QA lens measured it with a mutant that survived every
+        # case in the module (2026-09-10).
+        if token.strip().casefold() in _WORDS_THAT_NAME_NO_SET:
+            continue
+        if not select_families(token, inventory, is_blade, aliases=aliases):
+            entry = f"{token!r} names nothing this geometry carries"
+            if entry not in missing:
+                missing.append(entry)
     declared = ", ".join(repr(name) for name in inventory) or "no boundary"
     if missing:
-        told = "; ".join(
-            f"the alias {token!r} names {', '.join(repr(name) for name in absent)}"
-            for token, absent in missing
-        )
+        told = "; ".join(missing)
+        known = ", ".join(sorted(aliases)) or "none"
         raise CampaignConfigError(
-            f"case {case.sim_id!r}: {what} of {_artifact_of(case)} cites members no "
-            f"boundary of this geometry answers: {told}. The geometry declares "
+            f"case {case.sim_id!r}: {what} of {_artifact_of(case)} cites what no "
+            f"boundary of this geometry answers: {told}. The names this row can cite "
+            f"are {known}; the geometry declares "
             f"{declared}. This run was asked for the refusal rather than the "
             "skip: ignore_missing_families (CLI: --ignore-missing-families) was given "
             "as false, so a member the mesh does not carry is an error here and not "
@@ -3980,11 +4070,11 @@ def _refuse_what_the_geometry_does_not_carry(
         )
     if expanded:
         return
-    known = ", ".join(sorted(case.aliases)) or "none"
+    known = ", ".join(sorted(aliases)) or "none"
     raise CampaignConfigError(
         f"case {case.sim_id!r}: {what} of {_artifact_of(case)} selects "
-        f"{selection!r}, and this geometry carries no family of it. The aliases the "
-        f"row's reference defines are {known}; the geometry declares {declared}. This "
+        f"{selection!r}, and this geometry carries no family of it. The names this row "
+        f"can cite are {known}; the geometry declares {declared}. This "
         "run was asked for the refusal rather than the skip: ignore_missing_families "
         "(CLI: --ignore-missing-families) was given as false, so a family the mesh "
         "does not carry is an error and not a difference between geometries "
@@ -4012,7 +4102,9 @@ def _selected_families(
     names = _the_names_a_rotor_answers_to(case)
     expanded = select_families(selection, inventory, is_blade, aliases=names)
     if not _ignore_missing_families(case):
-        _refuse_what_the_geometry_does_not_carry(case, selection, inventory, names, expanded, what)
+        _refuse_what_the_geometry_does_not_carry(
+            case, selection, inventory, names, expanded, what, is_blade
+        )
     if not expanded:
         known = ", ".join(sorted(case.aliases)) or "none"
         warnings.warn(
@@ -4112,6 +4204,17 @@ def _rotors_the_entry_cites(
     # which diagnoses a misspelling. The selectors were simply not read (the
     # interface lens, 2026-09-10). `airframe` still reaches none, and that
     # refusal is true: an airframe has no rotor.
+    #
+    # `blades` IS READ HERE UNTIL 0.17.0 AND WARNS, which is what its ledger
+    # entry promises. The first version of the retirement dropped the word
+    # from this branch, so an artifact writing `frame = "SMRP", families =
+    # "blades"` met the refusal below, and that refusal diagnoses a
+    # MISSPELLING: a spelling the ledger says has two more releases to live
+    # would have raised today, with nothing anywhere saying it had retired.
+    # Two review lenses found it in the same round.
+    if any(str(token).strip().casefold() == "blades" for token in wanted):
+        warn_a_selector_that_guesses("blades")
+        return [(alias, []) for alias in case.engines]
     if any(str(token).strip().casefold() == "all" for token in wanted):
         return [(alias, []) for alias in case.engines]
     vocabulary = _the_reference_vocabulary(case)
@@ -4153,6 +4256,38 @@ def _the_same_family(family: str, word: str) -> bool:
     return folded == wanted or folded.rstrip("0123456789") == wanted
 
 
+def _and_the_frame_it_turned_from(
+    frame: str,
+    families: list[str],
+    label: str,
+    frames: Frames,
+) -> list[tuple[str, list[str], str]]:
+    """One emission, or TWO when the frame it names was rotated (FR-71).
+
+    Her rule of 2026-09-10: "no posproc, se eu indicar um SMRP que foi
+    rotacionado, ele escreve os outputs tanto no SMRP quanto no original".
+    An entry says which rotor it is about, and the ROW's rotation decides
+    whether there are two readings of it, which is the rule FR-65 already
+    applies to the frame: the run's own state decides how many emissions
+    an entry stands for, never a second entry written by hand.
+
+    THE ORIGINAL IS ASKED OF `frames` AND NEVER ASSUMED. It exists only
+    where this row rotated that alias, because that is the only place
+    :func:`_keep_the_frame_this_alias_turns_from` created it. A rotor the
+    row did not turn doubles nothing, so every artifact written before this
+    release emits exactly what it emitted.
+
+    IT DOUBLES A HUB FRAME ONLY. `<ALIAS>_RMRP` and `<ALIAS>_RMRP<k>` turn
+    WITH the motion every step of an unsteady run, so "the frame it turned
+    from" is not a thing they have; the hub is the one the rotation moved
+    once and left there.
+    """
+    kept = f"{frame}{ORIGINAL_FRAME_SUFFIX}"
+    if frames.get(kept) is None:
+        return [(frame, families, label)]
+    return [(frame, families, label), (kept, families, label)]
+
+
 def _pproc_emissions(
     case: SimCase,
     frame: str,
@@ -4191,8 +4326,11 @@ def _pproc_emissions(
     kind = EXPANDING_FRAMES.get(frame.strip().upper())
     if kind is None:
         return [
-            (frame, selected, selected[0] if selected else "")
+            emission
             for selected in _selected_families(case, families, inventory, is_blade, what)
+            for emission in _and_the_frame_it_turned_from(
+                frame, selected, selected[0] if selected else "", frames
+            )
         ]
     rotors = _rotors_the_entry_cites(case, families)
     if not rotors:
@@ -4226,7 +4364,11 @@ def _pproc_emissions(
                 if family.casefold() in carried and (not asked or family.casefold() in asked)
             ]
             if owned:
-                emissions.append((f"{alias}_{frame.strip().upper()}", owned, alias))
+                emissions.extend(
+                    _and_the_frame_it_turned_from(
+                        f"{alias}_{frame.strip().upper()}", owned, alias, frames
+                    )
+                )
             continue
         for number, family in enumerate(block.families_blades, start=1):
             if family.casefold() in carried and (not asked or family.casefold() in asked):
@@ -4925,6 +5067,13 @@ def _pproc_plots(case: SimCase, script: Script, frames: Frames) -> None:
         ):
             frame = _pproc_frame(case, frames, frame_name, what, families)
             name = group.name.format(family=label) if "{family}" in group.name else group.name
+            # THE TWO READINGS OF ONE ROTATED HUB NEED TWO NAMES, or the
+            # second plot overwrites the first under one file name and the
+            # study loses the half it asked for. The suffix is the frame's
+            # own, so a reader who sees the file knows which frame it is in
+            # without opening it (her rule of 2026-09-10, FR-71).
+            if frame_name.endswith(ORIGINAL_FRAME_SUFFIX):
+                name = f"{name}{ORIGINAL_FRAME_SUFFIX}"
             indices = [script.resolve_boundary(f, context="pproc plot") for f in families]
             for short in pproc.plots.parameters:
                 parameter, units = FORCE_PLOT_PARAMETERS[short]
@@ -6063,14 +6212,16 @@ def _clock_speed(case: SimCase, views: Sequence[SimCase], speeds: Sequence[Rotor
         # it is how her master's case 9001 is written, which arm 4 runs.
         if case.motions:
             owner = _variable(views[speeds.index(fastest)], MOVING_BOUNDARIES_VARIABLE)
-            stated = ", ".join(
-                str(
-                    record.get(MOVING_BC_ALIAS_VARIABLE)
-                    or record.get(MOVING_BOUNDARIES_VARIABLE)
-                    or "?"
-                )
+            # THE NAMES THE ACCEPTER WILL TAKE, and only those. A record
+            # that names neither key contributed the literal `?` to this
+            # list, so a case authored in Python could be asked to name one
+            # of `?` (the interface lens of 2026-09-10).
+            offered = [
+                str(record.get(MOVING_BC_ALIAS_VARIABLE) or record.get(MOVING_BOUNDARIES_VARIABLE))
                 for record in case.motions
-            )
+                if record.get(MOVING_BC_ALIAS_VARIABLE) or record.get(MOVING_BOUNDARIES_VARIABLE)
+            ]
+            stated = ", ".join(offered) if offered else "the motions this row states"
             raise CampaignConfigError(
                 f"case {case.sim_id!r} states {len(case.motions)} motion(s) and no "
                 f"{CLOCK_MOTION_VARIABLE}. Which rotor bounds the time step and counts "
@@ -6078,7 +6229,8 @@ def _clock_speed(case: SimCase, views: Sequence[SimCase], speeds: Sequence[Rotor
                 f"package performs in silence: without the key the clock would follow "
                 f"the fastest, which here is {owner!r} at {fastest.rpm:g} rev/min, and "
                 "nothing in the row would say so. Write "
-                f"'{CLOCK_MOTION_VARIABLE}: <alias>' naming one of {stated}.\n\n"
+                f"'{CLOCK_MOTION_VARIABLE}: <alias>' in the row's VAR_NAMES_VALUES "
+                f"cell, beside {MOTIONS_VARIABLE}, naming one of {stated}.\n\n"
                 "A row written before 0.15.0, which states its rotor in the flat keys "
                 f"rather than in a {MOTIONS_VARIABLE} list, needs no key: it turns one "
                 "rotor and there is nothing to choose between."

@@ -149,10 +149,12 @@ def motion_payloads(text: str) -> list[str]:
 # way; and AUX_FRAMES retires, because every frame the alias OWNS turns
 # with the boundaries and the row no longer has to list them.
 #
-# WHAT IS NOT BUILT HERE and is hers: whether `<ALIAS>_SMRP_ORIGINAL` is
-# created once per alias or once per record (PFS-2035.17's own open
-# question, and named in her goal as hers alone). No case below asserts
-# anything about it.
+# ANSWERED 2026-09-10 AND BUILT: `<ALIAS>_SMRP_ORIGINAL` is created ONCE
+# PER ALIAS, before the first rotation, which was her answer between that
+# and once per record (PFS-2035.17, DEC-010). Three cases below assert it,
+# and the doubling her second rule asks for, that an entry naming a
+# rotated hub is written in both frames, is asserted in
+# tests/tier1_offline/test_pproc_by_frame.py, where the emission layer is.
 
 
 def frame_names(text: str) -> dict[int, str]:

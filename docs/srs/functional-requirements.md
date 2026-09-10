@@ -1827,6 +1827,12 @@ requirement below is one seam of that division.
     `[aliases]` table of 0.14.0 is read with a deprecation warning naming the
     reference to move it to, and is removed at 0.17.0.
 
+    AMENDED BY FR-73, "A run chooses whether a family the mesh does not
+    carry is a skip or a refusal": ignoring a member the opened mesh does
+    not carry is the DEFAULT from 0.15.0 rather than the only reading, and
+    `--ignore-missing-families false` turns it into a refusal on a
+    post-processing `families` selection.
+
     Only `all` and `each` remain the package's own words. `airframe`, `blades`
     and `blade_pattern` leave, because a study declares its own names and a
     built-in word that means one thing to the package and another to the
@@ -2011,19 +2017,12 @@ requirement below is one seam of that division.
     fastest rotor by the package's own arithmetic, which is an inference the
     author never wrote down; a declaration replaces it.
 
-    IMPLEMENTED IN PART at 0.15.0, and the part that is owed is named here
-    rather than left for a reader to discover: the key is read, the named
-    motion owns the clock, and a row of several motions that states none
-    warns. What is NOT done is the rename of `rotor_speed` to
-    `rotor_speed_ref` at the call site, and the key is not yet REQUIRED on
-    a row of one motion. Evidence for the part that shipped:
-    `tests/tier1_offline/test_rotor_by_alias.py` (the clock follows the
-    named motion and not the fastest; a clock naming no motion of the row
-    is refused); commit 91a7302.
-
-    Measured 2026-09-10: `cases/workflows.py:4649` reads
-    `fastest = max(speeds, key=lambda each: abs(each.rpm))`, and nothing in
-    the row says which rotor that is.
+    Measured 2026-09-10, before the refusal was built: `_clock_speed` in
+    `cases/workflows.py` read `fastest = max(speeds, key=lambda each:
+    abs(each.rpm))`, and nothing in the row said which rotor that was. The
+    locator is the SYMBOL and not a line number, because this release moved
+    that statement by about fourteen hundred lines and a bare number in a
+    requirement decays on every edit (the verification lens of 2026-09-10).
 
 !!! requirement "FR-65 The frame decides how a post-processing entry expands <span class='srs-implemented'>implemented</span>"
     *Origin: her design of 2026-09-10 and her spinner decision of the same
@@ -2310,9 +2309,14 @@ requirement below is one seam of that division.
     the frames the alias owns turn with it, by name; an undeclared alias is
     refused naming it; a record stating both spellings is refused naming both;
     a record stating neither is refused; the 0.14.0 spelling warns and turns
-    the same boundaries; and four cases over `SMRP_ORIGINAL`: one copy per
-    alias for a row that turns the same alias twice, nothing turns it, a
-    non-rotor alias gets none, and a pproc entry may cite it). AMENDS the
+    the same boundaries; three cases over `SMRP_ORIGINAL` in that module,
+    one copy per alias for a row that turns the same alias twice, nothing
+    turns it, and a non-rotor alias gets none) and
+    `tests/tier1_offline/test_pproc_by_frame.py` (five cases over the
+    doubling: both frames for a rotated hub, one for a rotor this row did
+    not turn, none at all for a row that turned nothing, the turning frames
+    never doubled, and the same answer when the entry names the hub frame
+    itself). AMENDS the
     `ROTATE` record of FR-35, "Matrix as first-class interface", whose
     `FAMILIES` and `AUX_FRAMES` keys this replaces.*
 
@@ -2327,6 +2331,21 @@ requirement below is one seam of that division.
     nothing turns and which a post-processing entry may cite, so a study of
     an installed propeller keeps the frame it turned FROM. Before this
     release that frame was lost the moment the mesh moved.
+
+    AN ENTRY DOES NOT HAVE TO CITE THE COPY, which is her rule of the same
+    night: "no posproc, se eu indicar um SMRP que foi rotacionado, ele
+    escreve os outputs tanto no SMRP quanto no original". A post-processing
+    entry naming a hub frame this row rotated is emitted TWICE, once in the
+    turned frame and once in the copy, and the two plots differ by the same
+    `_ORIGINAL` suffix so neither overwrites the other. An entry says which
+    ROTOR it is about and the ROW's rotation decides how many readings of
+    it exist, which is the rule FR-65 already applies to the frame; the
+    alternative was a second entry written by hand on every row that
+    rotates, which is a second home for one question. A rotor this row did
+    not turn has no copy and doubles nothing, so every artifact written
+    before this release emits exactly what it emitted. `<ALIAS>_RMRP` and
+    `<ALIAS>_RMRP<k>` never double: they turn WITH the motion at every
+    step, so "the frame it turned from" is not a thing they have.
 
     ONCE PER ALIAS IS HER ANSWER OF 2026-09-10 and the alternative was real:
     once per RECORD would also have kept the frame BETWEEN two rotations of
@@ -2397,27 +2416,51 @@ requirement below is one seam of that division.
     chamada da linha de comando --ignore_missing_families e ali o usuario
     poder passar false, sendo que o default e true". Carried by PFS-2035.13,
     recorded in `GeoversePlan/coordination/decisions/DEC-010`. Evidence:
-    `tests/tier1_offline/test_missing_families_choice.py` (twenty-six cases
-    over the three layers, six mutants scored). AMENDS FR-59, "A reference
+    `tests/tier1_offline/test_missing_families_choice.py` (forty-two cases
+    over the three layers, fifteen mutants scored and every one killed,
+    the two a review lens left surviving among them). AMENDS FR-59, "A reference
     declares the names a study gives to its boundaries", whose rule that a
     member the opened mesh does not carry is ignored becomes the DEFAULT
     rather than the only reading.*
 
+    A post-processing artifact names families, and one artifact is meant to
+    serve a wing-body and an isolated rotor: a family the opened mesh does
+    not carry is left out, which is what lets one file cover several
+    geometries. From the emitted script that skip and a MISSPELLED family
+    are the same event. This requirement lets the run say which of the two
+    it is looking at.
+
     `pyfs-matrix plan` and `pyfs-matrix run` take
     `--ignore-missing-families`, whose default is true and which reads a
-    word, so `--ignore-missing-families false` is what a shell writes; the
-    value reaches each case as the variable `IGNORE_MISSING_FAMILIES`, which
-    the builders read like any other. At the default nothing at all is
-    written onto a case, so every recorded run keeps its identity and every
-    emitted script its bytes.
+    word, so `--ignore-missing-families false` is what a shell writes; a
+    word outside the vocabulary is REFUSED rather than read as the default,
+    because reading it as the default would give the user the behaviour
+    they were turning off and say nothing. The value reaches each case as
+    the variable `IGNORE_MISSING_FAMILIES`, which the builders read like
+    any other and which a matrix CELL may not state. At the default nothing
+    at all is written onto a case, so every recorded run keeps its identity
+    and every emitted script its bytes.
 
-    With false, two silences become refusals, and both name the geometry's
-    own boundaries beside what was cited: an alias member no boundary
-    answers, which the resolver drops so quietly that an alias of six
-    members over a mesh carrying five still expands and writes its plot; and
-    a post-processing entry that selects nothing at all, which is left out
-    of the products. The first is reported first, because it is the one a
-    passing entry hides.
+    With false, three silences become refusals ON A POST-PROCESSING
+    `families` SELECTION, and each names the geometry's own boundaries
+    beside what was cited. An ALIAS MEMBER no boundary answers, which the
+    resolver drops so quietly that an alias of six members over a mesh
+    carrying five still expands and writes its plot; the message names the
+    alias that DECLARES the member, which on a nested alias is not the word
+    the entry cited and is the table row to edit. A LIST MEMBER that names
+    nothing, which is worse, because a list aggregates into one set that is
+    non-empty as soon as one member resolves, so `["WING", "BLADE_1"]` over
+    a mesh with no blade selects the wing and passes. And an ENTRY that
+    selects nothing at all, which is left out of the products. The first
+    two are reported before the third, because they are the ones a PASSING
+    entry hides.
+
+    THE SCOPE IS THAT SELECTION AND NOT EVERY CITED SET, stated because the
+    first draft of this requirement claimed the resolver generally. An
+    alias cited by `MOVING_BC_ALIAS`, by `BASE_REGIONS` or by a `[groups]`
+    member still drops an absent member in silence with the flag false.
+    Widening it is a separate call, and it is registered rather than
+    implied.
 
     `convert` does not take the flag. It writes a campaign file that is read
     later by something that never saw this command line, and a

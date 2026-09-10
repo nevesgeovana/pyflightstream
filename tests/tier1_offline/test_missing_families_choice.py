@@ -20,18 +20,22 @@ variable the resolution writes, and the reader that honours it.
 
 from __future__ import annotations
 
+import argparse
+
 import pytest
 
 from pyflightstream.cases import (
+    AliasCycleError,
     CampaignConfigError,
     SimCase,
     SweepAxis,
-    alias_members_the_geometry_lacks,
+    alias_members_missing,
 )
 from pyflightstream.cases.workflows import (
     IGNORE_MISSING_FAMILIES_VARIABLE,
     _ignore_missing_families,
     _selected_families,
+    read_a_choice,
 )
 from pyflightstream.run.cli import _a_word_that_means_false, _build_parser
 
@@ -71,10 +75,34 @@ def test_the_words_that_mean_false_are_read_as_false(word):
 
 
 @pytest.mark.requirement("FR-73")
-@pytest.mark.parametrize("word", ["true", "yes", "1", "anything"])
-def test_every_other_word_leaves_the_default_standing(word):
-    """Only the four spellings of no turn it off; nothing else is a trap."""
+@pytest.mark.parametrize("word", ["true", "TRUE", " Yes ", "1"])
+def test_the_words_that_mean_true_are_read_as_true(word):
     assert _a_word_that_means_false(word) is True
+
+
+@pytest.mark.requirement("FR-73")
+@pytest.mark.parametrize("word", ["off", "flase", "False.", "anything", "", "disable"])
+def test_a_word_outside_the_vocabulary_is_refused_and_never_read_as_the_default(word):
+    """THE FLAG MUST NOT FAIL SILENT, which is the whole reason it exists.
+
+    The first version read every word but three as TRUE, so
+    `--ignore-missing-families off` gave the user the SKIP: the silence
+    they passed the flag to escape, on a run that planned green with
+    nothing anywhere saying the word was not understood. Two review lenses
+    raised it at severity 1 on 2026-09-10, and the estate had already
+    written the rule down: `pyflightstream.script.toggles` refuses anything
+    outside its two words, and its module docstring carries the incident
+    that taught it. Truthiness has no failure mode; this reader does.
+
+    The refusal names BOTH halves of the vocabulary, because a user who
+    wrote the wrong word for NO needs to see the right words for NO.
+    """
+    with pytest.raises(argparse.ArgumentTypeError) as refused:
+        _a_word_that_means_false(word)
+    message = str(refused.value)
+    assert "--ignore-missing-families" in message
+    assert "true, yes, 1" in message
+    assert "false, no, 0" in message
 
 
 @pytest.mark.requirement("FR-73")
@@ -127,6 +155,29 @@ def test_the_variable_turns_the_skip_into_a_refusal(stated):
     """Ignoring is what the reader answers, so the four spellings turn it OFF."""
     subject = case(variables={IGNORE_MISSING_FAMILIES_VARIABLE: stated})
     assert _ignore_missing_families(subject) is False
+
+
+@pytest.mark.requirement("FR-73")
+def test_the_variable_refuses_a_word_outside_the_vocabulary_too():
+    """ONE VOCABULARY, ONE READER, both ends.
+
+    The tuple of no-words was written twice, in two layers, with nothing
+    asserting the two agreed (the architecture lens of 2026-09-10). They
+    are one function now, so a word the command line refuses is a word the
+    row variable refuses, and this case is what keeps that true.
+    """
+    subject = case(variables={IGNORE_MISSING_FAMILIES_VARIABLE: "off"})
+    with pytest.raises(CampaignConfigError) as refused:
+        _ignore_missing_families(subject)
+    assert "'off' is not a yes or a no" in str(refused.value)
+    assert IGNORE_MISSING_FAMILIES_VARIABLE in str(refused.value)
+
+
+@pytest.mark.requirement("FR-73")
+def test_a_python_caller_may_pass_the_value_it_means():
+    """A bool passes through, so the reader is not a string-only door."""
+    assert read_a_choice(True, context="x") is True
+    assert read_a_choice(False, context="x") is False
 
 
 @pytest.mark.requirement("FR-73")
@@ -264,6 +315,87 @@ def test_a_cell_may_not_state_the_key_because_the_row_is_not_where_it_belongs(tm
     assert "ignore_missing_families (CLI: --ignore-missing-families)" in message
 
 
+@pytest.mark.requirement("FR-73")
+def test_a_list_member_that_names_nothing_is_refused_even_beside_one_that_resolves():
+    """THE ARM A SURVIVING MUTANT FOUND, and the most common spelling.
+
+    `select_families` aggregates a LIST into one set that is non-empty as
+    soon as ONE member resolves, so `["WING", "BLADE_1"]` over a mesh with
+    no blade selected the wing and passed in silence with the refusal asked
+    for. Every case in this module reached the reader with a STRING, so a
+    mutant returning early for a non-string selection left all 28 green.
+    The QA lens measured it on 2026-09-10.
+    """
+    subject = case(variables={IGNORE_MISSING_FAMILIES_VARIABLE: "false"})
+    with pytest.raises(CampaignConfigError) as refused:
+        _selected_families(
+            subject, ["WING", "BLADE_1"], INVENTORY, lambda name: "BLADE" in name, "a plot group"
+        )
+    message = str(refused.value)
+    assert "'BLADE_1' names nothing this geometry carries" in message
+    assert "'WING'" in message, "the geometry's own boundaries are what to compare against"
+
+
+@pytest.mark.requirement("FR-73")
+def test_a_misspelled_alias_beside_a_good_member_is_refused_too():
+    """The misspelling FR-73 says the flag exists to surface."""
+    subject = case(variables={IGNORE_MISSING_FAMILIES_VARIABLE: "false"})
+    with pytest.raises(CampaignConfigError) as refused:
+        _selected_families(
+            subject, ["airfrmae", "WING"], INVENTORY, lambda name: "BLADE" in name, "a plot group"
+        )
+    assert "'airfrmae' names nothing this geometry carries" in str(refused.value)
+
+
+@pytest.mark.requirement("FR-73")
+def test_a_list_every_member_of_which_resolves_is_not_refused():
+    """Without this the refusal above could be a constant on any list."""
+    subject = case(variables={IGNORE_MISSING_FAMILIES_VARIABLE: "false"})
+    assert _selected_families(
+        subject, ["WING", "FUSELAGE"], INVENTORY, lambda name: "BLADE" in name, "a plot group"
+    ) == [["WING", "FUSELAGE"]]
+
+
+@pytest.mark.requirement("FR-73")
+# `each_blade` is deliberately not here: on this bladeless mesh it selects
+# nothing and the refusal is RIGHT, and it is the second kind (an entry
+# that selects nothing) rather than a member reported absent. The two
+# words her retirement keeps are the two this case is about.
+@pytest.mark.parametrize("word", ["all", "each"])
+def test_a_word_that_names_no_set_of_its_own_is_never_reported_absent(word):
+    """`all` and the two `each` words expand; they do not name a set.
+
+    Asking "does this name anything the geometry carries" of `all` is
+    asking the wrong question, and answering it wrongly would refuse every
+    artifact in the estate the moment a user passed false.
+
+    BARE, WHICH IS WHERE THOSE WORDS MEAN WHAT THEY MEAN. Inside a LIST
+    they have never expanded: `select_families` reads a list member as an
+    alias or a family, so `["each"]` selected nothing at 0.14.0 too and
+    still does. That is the pre-0.15.0 reading and this release does not
+    move it; what would have been new is refusing the BARE word, and this
+    case is what stops that.
+    """
+    subject = case(variables={IGNORE_MISSING_FAMILIES_VARIABLE: "false"})
+    assert _selected_families(
+        subject, word, INVENTORY, lambda name: "BLADE" in name, "a plot group"
+    )
+
+
+@pytest.mark.requirement("FR-73")
+def test_the_reporter_refuses_a_ring_the_way_the_resolver_does():
+    """MEASURED DIVERGENCE, closed. Two readings of one file is one too many.
+
+    On a ring the resolver raises and the reporter used to answer
+    confidently, so the two disagreed about a file the package refuses.
+    The QA lens measured it on 2026-09-10.
+    """
+    ring = {"top": ["mid", "TAIL"], "mid": ["top"]}
+    with pytest.raises(AliasCycleError) as refused:
+        alias_members_missing("top", INVENTORY, ring)
+    assert "'top'" in str(refused.value) and "'mid'" in str(refused.value)
+
+
 # --- the reader that honours it --------------------------------------------
 
 
@@ -345,15 +477,18 @@ def test_a_member_that_is_another_alias_is_followed_to_the_end():
             subject, "outside", INVENTORY, lambda name: "BLADE" in name, "a plot group"
         )
     message = str(refused.value)
-    assert "'TAIL'" in message
-    assert "'airframe'" not in message.split("names")[0]
+    # THE DECLARING ALIAS, NOT THE CITED ONE. `outside` does not name TAIL;
+    # `airframe` does, and `airframe` is the table row the user must edit.
+    # The first version of this message sent a reader to the wrong line
+    # (the interface lens of 2026-09-10).
+    assert "'airframe' names 'TAIL'" in message
 
 
 @pytest.mark.requirement("FR-73")
 def test_an_alias_every_member_of_which_resolves_is_not_reported():
     """A refusal that fires on a complete alias is a constant, not a check."""
     subject = case(variables={IGNORE_MISSING_FAMILIES_VARIABLE: "false"})
-    assert alias_members_the_geometry_lacks("airframe", INVENTORY, subject.aliases) == []
+    assert alias_members_missing("airframe", INVENTORY, subject.aliases) == []
     assert _selected_families(
         subject, "airframe", INVENTORY, lambda name: "BLADE" in name, "a plot group"
     ) == [["WING", "FUSELAGE"]]
@@ -368,9 +503,9 @@ def test_a_family_reading_still_answers_so_a_bare_family_name_is_not_absent():
     A reporter that only asked the inventory would refuse that file.
     """
     numbered = ["WING1", "WING2"]
-    assert alias_members_the_geometry_lacks("airframe", numbered, {"airframe": ["WING"]}) == []
-    assert alias_members_the_geometry_lacks("airframe", numbered, {"airframe": ["TAIL"]}) == [
-        "TAIL"
+    assert alias_members_missing("airframe", numbered, {"airframe": ["WING"]}) == []
+    assert alias_members_missing("airframe", numbered, {"airframe": ["TAIL"]}) == [
+        ("airframe", "TAIL")
     ]
 
 

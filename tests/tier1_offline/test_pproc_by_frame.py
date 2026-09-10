@@ -26,12 +26,14 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
+from pyflightstream._errors import PyflightstreamDeprecationWarning
 from pyflightstream.cases import (
     CampaignConfigError,
     EngineBlock,
     ForcePlotGroup,
     SimCase,
     SweepAxis,
+    select_families,
 )
 from pyflightstream.cases.workflows import _pproc_emissions
 
@@ -305,6 +307,157 @@ def test_the_sections_path_warns_for_the_retired_selector_too():
 
     with pytest.warns(PyflightstreamDeprecationWarning, match=r"each_blade.*LOCAL_AXIS"):
         SectionDistribution(families="each_blade", frame="BLADE_AXIS", planes=["XY"])
+
+
+def turned(alias: str = "PUSHER") -> dict[str, int]:
+    """The frames a row that turned one rotor registers, the copy included."""
+    placed = every_rotor_frame_placed()
+    placed[f"{alias}_SMRP_ORIGINAL"] = 99
+    return placed
+
+
+def test_a_rotated_smrp_writes_in_both_frames():
+    """HER RULE OF 2026-09-10: "se eu indicar um SMRP que foi rotacionado,
+    ele escreve os outputs tanto no SMRP quanto no original".
+
+    An entry says which ROTOR it is about, and the row's rotation decides
+    whether there are two readings of it. That is the rule FR-65 already
+    applies to the frame: the run's own state decides how many emissions an
+    entry stands for, never a second entry written by hand. Before this a
+    study that wanted the loads in the frame it turned FROM had to write a
+    second entry naming that frame on every row that rotates, which is a
+    second home for one question.
+    """
+    got = emissions("SMRP", "PUSHER", frames=turned())
+    assert [name for name, _families, _label in got] == [
+        "PUSHER_SMRP",
+        "PUSHER_SMRP_ORIGINAL",
+    ]
+    # THE SAME FAMILIES IN BOTH, because it is one measurement read in two
+    # frames and not two measurements.
+    assert {tuple(families) for _name, families, _label in got} == {("PH", "PB_1", "PB_2", "PB_3")}
+
+
+def test_a_rotor_this_row_did_not_turn_doubles_nothing():
+    """The discriminator: without it the rule could be an unconditional double.
+
+    A row that turns the pusher and leaves the lifters where they are has
+    one original frame, not three, and the two lifters must emit once each
+    exactly as they did before this release.
+    """
+    got = emissions("SMRP", "all", frames=turned())
+    assert [name for name, _families, _label in got] == [
+        "LIFT_L1_SMRP",
+        "LIFT_L2_SMRP",
+        "PUSHER_SMRP",
+        "PUSHER_SMRP_ORIGINAL",
+    ]
+
+
+def test_a_row_that_turned_nothing_emits_exactly_what_it_always_did():
+    """Every artifact written before this release is untouched."""
+    got = emissions("SMRP", "all")
+    assert [name for name, _families, _label in got] == [
+        "LIFT_L1_SMRP",
+        "LIFT_L2_SMRP",
+        "PUSHER_SMRP",
+    ]
+
+
+def test_the_turning_frame_is_not_doubled_because_it_has_no_before():
+    """RMRP turns WITH the motion every step, so it has no frame it turned FROM.
+
+    The hub is the one a ROTATE moved once and left there. A rule that
+    doubled every rotor frame would emit a `PUSHER_RMRP_ORIGINAL` that no
+    builder ever created, and `_pproc_frame` would then refuse the point.
+    """
+    got = emissions("RMRP", "PUSHER", frames=turned())
+    assert [name for name, _families, _label in got] == ["PUSHER_RMRP"]
+
+
+def test_an_entry_naming_the_rotated_hub_by_name_gets_both_too():
+    """The non-expanding path, which is the other way a user writes it.
+
+    An entry may cite `PUSHER_SMRP` directly rather than `SMRP`, and her
+    sentence is about what the user INDICATES, not about which spelling
+    they chose.
+    """
+    got = emissions("PUSHER_SMRP", "PH", frames=turned())
+    assert [name for name, _families, _label in got] == [
+        "PUSHER_SMRP",
+        "PUSHER_SMRP_ORIGINAL",
+    ]
+
+
+def test_the_two_selectors_that_guess_what_a_blade_is_warn_as_a_bare_word():
+    """Her retirement of 2026-09-10, asserted rather than declared.
+
+    `airframe` and `blades` are the two selectors that decide what a BLADE
+    IS, from a regular expression over the family name, so a mesh whose
+    blades are spelled another way gets an airframe with blades in it and
+    nothing says so. `all` and `each` guess nothing and stay.
+    """
+    plain = SimCase(
+        sim_id="9301",
+        aircraft="WORK",
+        recipe="steady",
+        sweep=SweepAxis(type="alpha", values=[0.0]),
+    )
+    for word in ("airframe", "blades"):
+        with pytest.warns(PyflightstreamDeprecationWarning, match="0.17.0"):
+            select_families(word, INVENTORY, lambda name: "B_" in name)
+    assert plain.sim_id == "9301"
+
+
+def test_the_same_two_warn_as_a_list_member_which_is_a_separate_branch():
+    """TWO CODE PATHS, TWO CASES. A mutant that blanks one survives the other."""
+    for word in ("airframe", "blades"):
+        with pytest.warns(PyflightstreamDeprecationWarning, match="0.17.0"):
+            select_families([word], INVENTORY, lambda name: "B_" in name)
+
+
+def test_the_words_that_guess_nothing_stay_and_say_nothing():
+    """Without this the warning could fire on every word and still pass above."""
+    import warnings as _warnings
+
+    for word in ("all", "each"):
+        with _warnings.catch_warnings():
+            _warnings.simplefilter("error", PyflightstreamDeprecationWarning)
+            select_families(word, INVENTORY, lambda name: "B_" in name)
+
+
+def test_an_alias_of_the_same_name_is_read_first_and_warns_about_nothing():
+    """THE CLAIM THE CHANGELOG RESTS ON, and it was asserted nowhere.
+
+    Every reference of hers already DEFINES an `airframe` alias, and that
+    is the measurement the retirement was promised on: an alias is read
+    before a selector, so a file that declares the word is untouched.
+    """
+    import warnings as _warnings
+
+    declared = {"airframe": ["LH_L1", "W"]}
+    with _warnings.catch_warnings():
+        _warnings.simplefilter("error", PyflightstreamDeprecationWarning)
+        chosen = select_families("airframe", INVENTORY, lambda name: "B_" in name, aliases=declared)
+    assert chosen == [["LH_L1", "W"]]
+
+
+def test_blades_still_reaches_every_rotor_on_an_expanding_frame_and_warns():
+    """ITS LEDGER SAYS 0.17.0, so it has to still work at 0.15.0.
+
+    The first version of the retirement dropped `blades` from
+    `_rotors_the_entry_cites`, so an artifact writing `frame = "SMRP",
+    families = "blades"` met a refusal that diagnoses a MISSPELLING, two
+    releases before the word is due to go and with nothing saying it had
+    retired. Two review lenses found it in the same round.
+    """
+    with pytest.warns(PyflightstreamDeprecationWarning, match="0.17.0"):
+        got = emissions("SMRP", "blades")
+    assert [name for name, _families, _label in got] == [
+        "LIFT_L1_SMRP",
+        "LIFT_L2_SMRP",
+        "PUSHER_SMRP",
+    ]
 
 
 def test_the_probe_scale_is_the_rotor_radius():
