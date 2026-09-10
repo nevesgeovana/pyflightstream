@@ -316,6 +316,12 @@ def test_an_incidence_the_row_states_reaches_the_solver(tmp_path):
     THE ANGLE DOES NOT ENTER THE POINT, deliberately: the point's
     coordinates are run IDENTITY, and carrying a held angle there would
     rename runs that already exist to say something they always meant.
+
+    REACHABLE FROM PYTHON AND NOT YET FROM A ROW: the key that puts the
+    angle on the case is the FLIGHT_CONDITION cell, and that half is lane
+    D, which is the column removal and is on its own branch. This test
+    sets the variable directly, so it measures the reader that consumes
+    it rather than the writer that will fill it.
     """
     from pyflightstream.cases.workflows import _angle
 

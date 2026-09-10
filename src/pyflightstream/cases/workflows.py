@@ -4820,13 +4820,28 @@ def _rotor_motions(
     helpers.free_stream(script)
     _fluid(case, script)
     speeds = [rotor_speed(view) for view in views]
-    for number, view in enumerate(views, start=1):
+    for number, (view, radical) in enumerate(zip(views, radicals, strict=True), start=1):
+        # THE BLADE FRAMES TURN WITH THE BLADES, and until this line they
+        # were created and then stood still: the payload carried the
+        # rotor's own moving frame alone, so a per-blade product would
+        # have been read in a frame that never moved. The technical
+        # writing lens named the measurement rather than the outcome, and
+        # the measurement said the docstring overstated (2026-09-10).
+        turning = [moving[number - 1]]
+        if radical:
+            turning += sorted(
+                {
+                    index
+                    for name, index in blade_frames.items()
+                    if name.startswith(f"{radical}_RMRP")
+                }
+            )
         emit_rotor_motion(
             view,
             script,
             frame=f"rotor:{number}",
             speed=speeds[number - 1],
-            moving_frames=[moving[number - 1]],
+            moving_frames=turning,
         )
     stepping = rotor_time_stepping(case, speed=_clock_speed(case, views, speeds))
     helpers.unsteady_solver(
@@ -4892,6 +4907,16 @@ def _motion_view(case: SimCase, record: Mapping[str, str]) -> SimCase:
     variables: dict[str, str | float | int | bool] = {
         key: value for key, value in case.variables.items() if key not in _MOTION_RECORD_KEYS
     }
+    # FR-70: THE ROW'S RATIO REACHES A RECORD THAT STATES NO SPEED, and
+    # nothing else of the row's rotor keys does. `_MOTION_RECORD_KEYS`
+    # strips every key a record may carry, which is right for the four
+    # that describe ONE rotor and wrong for this one, which the row
+    # states for ALL of them: stripped, the condition's ratio reached no
+    # motion at all, which is the behaviour FR-70 exists to give (the
+    # architecture lens of 2026-09-10).
+    row_ratio = case.variables.get(ADVANCE_RATIO_VARIABLE)
+    if row_ratio is not None and not (RPM_VARIABLE in record or ADVANCE_RATIO_VARIABLE in record):
+        variables[ADVANCE_RATIO_VARIABLE] = row_ratio
     variables.update({key: value for key, value in record.items() if key != ROTOR_ORIGIN_POINT_KEY})
     update: dict[str, object] = {"variables": variables, "motions": []}
     engine = _engine_of(case, record)
@@ -4911,6 +4936,13 @@ def _motion_view(case: SimCase, record: Mapping[str, str]) -> SimCase:
         # written once can govern rotors of different sizes: n = V/(J D)
         # is resolved per rotor, and the configuration's single
         # propeller_diameter_m cannot answer for a second size.
+        if case.reference is None:
+            raise CampaignConfigError(
+                f"case {case.sim_id!r} states {MOVING_BC_ALIAS_VARIABLE}: {engine.alias}, "
+                "and the case carries no reference data, so there is nothing to resolve "
+                "the rotor's diameter against. A matrix row always binds one; a case "
+                "authored in Python states reference=ReferenceData(...)."
+            )
         update["reference"] = case.reference.model_copy(
             update={"propeller_diameter": engine.diameter_m}
         )
@@ -5053,6 +5085,14 @@ _STEADY_KEYS: tuple[str, ...] = (
     # reports the sector's loads or the wheel's is a per-row choice
     # wherever a mirrored or periodic mesh is opened, not a rotor matter.
     SYMMETRY_LOADS_VARIABLE,
+    # FR-69: the two angles the FLIGHT_CONDITION cell states and the
+    # matrix reader puts on the case. They are registered because the key
+    # guard refuses ANY variable no run type reads, so a row stating the
+    # incidence it is not sweeping would reach its builder and be refused
+    # as a key of no run type (the architecture lens of 2026-09-10). They
+    # belong to every run type: every point has an attitude.
+    ALPHA_VARIABLE,
+    BETA_VARIABLE,
     PERIODIC_COPIES_VARIABLE,
     BASE_REGIONS_VARIABLE,
     ROTATE_VARIABLE,
