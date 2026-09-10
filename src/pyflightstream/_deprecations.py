@@ -618,6 +618,29 @@ ROW_ROTATE_FAMILIES = DeprecatedParameter(
         "the mesh is renamed, and the alias is what stops that."
     ),
 )
+ROW_EACH_BLADE = DeprecatedParameter(
+    owner="a post-processing entry",
+    old="families = 'each_blade'",
+    new="frame = 'LOCAL_AXIS'",
+    deprecated_since="0.15.0",
+    removal_version="0.17.0",
+    extra=(
+        "The FRAME decides how an entry expands since 0.15.0, and a blade's "
+        "own axes are one per blade, so the selector that said so is a "
+        "second statement of one fact."
+    ),
+)
+ROW_PROBE_SCALE = DeprecatedParameter(
+    owner="a probe table",
+    old="scale = 'propeller_radius'",
+    new="scale = 'rotor_radius'",
+    deprecated_since="0.15.0",
+    removal_version="0.17.0",
+    extra=(
+        "This release says ROTOR everywhere: a lifter is not a propeller, "
+        "and an aircraft may carry eight of them and one pusher."
+    ),
+)
 ROW_CLOCK_MOTION_ABSENT = DeprecatedParameter(
     owner="a rotor row",
     old="no CLOCK_MOTION, the clock following the fastest rotor",
@@ -661,5 +684,7 @@ DEPRECATIONS: tuple[Deprecation, ...] = (
     SETUP_FRAMES_TABLE,
     ROW_MOVING_BOUNDARIES,
     ROW_ROTATE_FAMILIES,
+    ROW_EACH_BLADE,
+    ROW_PROBE_SCALE,
     ROW_CLOCK_MOTION_ABSENT,
 )

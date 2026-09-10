@@ -78,6 +78,7 @@ from pyflightstream._fsm import (
     boundary_names,
 )
 from pyflightstream.cases import (
+    EXPANDING_FRAMES,
     EXPORT_KINDS,
     FORCE_PLOT_PARAMETERS,
     RAW_PHASES,
@@ -223,6 +224,11 @@ MOTIONS_VARIABLE = "MOTIONS"
 #: sweep. Read by :mod:`pyflightstream.cases.matrix` into
 #: :attr:`~pyflightstream.cases.SimCase.rotations`.
 ROTATE_VARIABLE = "ROTATE"
+
+#: The word a value carries instead of a number when its key is the one
+#: the row sweeps (FR-69). SWEEP_VALUES then holds its values, and exactly
+#: one key of the cell may carry it.
+SWEEP_WORD = "sweep"
 
 #: The keys a rotation record carries. ``ANGLE`` and ``AXIS`` are always
 #: stated; WHAT IT TURNS is stated once, as ``ALIAS`` since 0.15.0 or as
@@ -935,6 +941,17 @@ def rotor_speed(case: SimCase) -> RotorSpeed:
     """
     ratio_text = _variable(case, ADVANCE_RATIO_VARIABLE)
     rpm_text = _variable(case, RPM_VARIABLE)
+    for key, text in ((ADVANCE_RATIO_VARIABLE, ratio_text), (RPM_VARIABLE, rpm_text)):
+        if isinstance(text, str) and text.strip().casefold() == SWEEP_WORD.casefold():
+            # SWEEPING IS THE CONDITION'S JOB (FR-70). A record that writes
+            # the word is asking the motion to vary, and a row varies ONE
+            # variable, stated once, where every other reader can see it.
+            raise CampaignConfigError(
+                f"case {case.sim_id!r} states {key}: {text.strip()} on a motion record. "
+                "Sweeping is stated in FLIGHT_CONDITION, once for the row, and it then "
+                "reaches every motion that states no speed of its own; a record states a "
+                "VALUE, which is how one rotor holds while another is swept."
+            )
     if ratio_text is not None and rpm_text is not None:
         raise CampaignConfigError(
             f"case {case.sim_id!r} states its rotor speed twice: "
@@ -1290,6 +1307,39 @@ def rotor_time_stepping(case: SimCase, *, speed: RotorSpeed | None = None) -> Ti
 
 
 # --- PFS-2025.05: the rotor motion, off the row ------------------------------
+
+
+def _the_copies_the_reference_declares(case: SimCase) -> int | None:
+    """Return the copy count a sector row's rotor block implies, or None (FR-59).
+
+    ONE ROTOR ONLY, and deliberately: a sector is a slice of ONE wheel, so
+    a row turning several rotors has no single count and is left to state
+    one. The number is the length of the block's ``families_blades``,
+    which is where this release already reads the blade count for the
+    per-blade reductions, so the two cannot give different answers.
+
+    None when the row names no rotor, names more than one, or names one
+    whose block declares no blades: each of those is a row the refusal
+    below still belongs to.
+    """
+    aliases = [
+        record.get(MOVING_BC_ALIAS_VARIABLE)
+        for record in (case.motions or [])
+        if record.get(MOVING_BC_ALIAS_VARIABLE)
+    ]
+    if not aliases:
+        alias = _variable(case, MOVING_BC_ALIAS_VARIABLE)
+        aliases = [str(alias)] if alias else []
+    named = {str(alias).strip().casefold() for alias in aliases}
+    if len(named) != 1:
+        return None
+    block = next(
+        (engine for name, engine in case.engines.items() if name.casefold() in named),
+        None,
+    )
+    if block is None or not block.families_blades:
+        return None
+    return len(block.families_blades)
 
 
 def emit_rotor_motion(
@@ -3023,14 +3073,23 @@ def _initialize(case: SimCase, script: Script) -> None:
     # rule about where a matrix value is refused. The rule itself is the
     # command's: PERIODIC appends the number of copies (SRC-003 p.337).
     if mode == "PERIODIC" and copies is None:
-        raise CampaignConfigError(
-            f"case {case.sim_id!r} declares {SYMMETRY_VARIABLE} as {symmetry!r} and no "
-            f"{PERIODIC_COPIES_VARIABLE}. A periodic sector is a slice that stands for "
-            "a whole number of copies of itself, and the solver cannot know how many "
-            "the slice you meshed represents: a four-bladed rotor modelled as one 90 "
-            f"degree sector declares '{PERIODIC_COPIES_VARIABLE}: 4'. Add it to the "
-            "row's variables."
-        )
+        # THE REFERENCE MAY ALREADY KNOW (FR-59, FR-65). A rotor block
+        # declares its blades one per entry, so a row naming that rotor has
+        # said how many copies its sector stands for, in the file where the
+        # study's vocabulary lives. It is the same number the reductions
+        # already take from there, and asking the ROW for it again is the
+        # second home this release exists to remove.
+        copies = _the_copies_the_reference_declares(case)
+        if copies is None:
+            raise CampaignConfigError(
+                f"case {case.sim_id!r} declares {SYMMETRY_VARIABLE} as {symmetry!r} and "
+                f"no {PERIODIC_COPIES_VARIABLE}. A periodic sector is a slice that "
+                "stands for a whole number of copies of itself, and the solver cannot "
+                "know how many the slice you meshed represents: a four-bladed rotor "
+                f"modelled as one 90 degree sector declares "
+                f"'{PERIODIC_COPIES_VARIABLE}: 4'. Add it to the row's variables, or "
+                "name the rotor by alias and let its block's blades say it."
+            )
     if mode != "PERIODIC" and copies is not None:
         # A row declaring the count and NO symmetry at all is the likely
         # shape of this mistake, so it is spelled out rather than
@@ -3496,6 +3555,136 @@ def _selected_families(
             stacklevel=2,
         )
     return expanded
+
+
+def _rotors_the_entry_cites(case: SimCase, families: str | Sequence[str]) -> list[str]:
+    """Return the rotors an entry's family selection reaches, in the reference's order.
+
+    A selection reaches a rotor when it names the rotor itself, or an
+    alias whose members the rotor owns. `lifters` naming four lifters
+    reaches four rotors and one line of the artifact becomes four
+    emissions, which is the whole economy of FR-65: her aircraft has nine
+    rotors and her `[plots]` table has six lines.
+    """
+    if not case.engines:
+        return []
+    wanted = [families] if isinstance(families, str) else list(families)
+    reached: list[str] = []
+    for token in wanted:
+        folded = token.strip().casefold()
+        for name, block in case.engines.items():
+            if name in reached:
+                continue
+            owns = {
+                family.casefold() for family in (*block.families_general, *block.families_blades)
+            }
+            members = {
+                member.strip().casefold()
+                for member in case.aliases.get(token.strip(), [])
+                if isinstance(member, str)
+            }
+            if folded == name.casefold() or (members and members <= owns):
+                reached.append(name)
+    return reached
+
+
+def _pproc_emissions(
+    case: SimCase,
+    frame: str,
+    families: str | Sequence[str],
+    inventory: Sequence[str],
+    is_blade,
+    what: str,
+    frames: Frames | None = None,
+) -> list[tuple[str, list[str], str]]:
+    """Return one ``(frame, families, label)`` per emission the entry stands for (FR-65).
+
+    ONE RULE FOR EVERY POST-PROCESSING ENTRY, which is why this takes a
+    frame and a family selection rather than a plot group: a section
+    distribution cites the same frame kinds and means the same thing by
+    them, and a second implementation of one rule is how the two come to
+    disagree.
+
+    THE FRAME DECIDES, which is why there is no `expand` key: a reader who
+    has said which frame a quantity is measured in has already said how
+    many of it there are.
+
+    * a frame the run creates or the reference declares: ONE emission over
+      the whole cited set, and an engine name in that set is its own union;
+    * ``SMRP`` or ``RMRP``: one per ROTOR, in that rotor's own frame,
+      labelled with the rotor's alias;
+    * ``LOCAL_AXIS``: one per BLADE, in that blade's frame, labelled with
+      the blade's family, PLUS one for the rotor's general families, which
+      have no local axis of their own and ride the rotor's;
+    * ``each``: one per family in the common frame the entry names.
+    """
+    # THE FRAME SELECTS THIS PATH, not the entry's arity. `each_blade` is
+    # also one per blade, and it expands through the FAMILY selector as it
+    # did at 0.14.0, over whatever frame the entry names; taking the rotor
+    # path for it would ask a 0.14.0 artifact for engines its reference
+    # never declared.
+    kind = EXPANDING_FRAMES.get(frame.strip().upper())
+    if kind is None:
+        return [
+            (frame, selected, selected[0] if selected else "")
+            for selected in _selected_families(case, families, inventory, is_blade, what)
+        ]
+    rotors = _rotors_the_entry_cites(case, families)
+    if not rotors:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: {what} of {_artifact_of(case)} is measured in "
+            f"{frame}, which is a frame per "
+            f"{'rotor' if kind == 'rotor' else 'blade'}, and its families "
+            f"{families!r} reach no rotor of the reference. The rotors it "
+            f"declares are {', '.join(sorted(case.engines)) or 'none'}. That is a "
+            "writing error rather than a configuration difference: unlike an entry "
+            "whose families this geometry simply lacks, it cannot come right on "
+            "another mesh."
+        )
+    carried = {name.casefold() for name in inventory}
+    emissions: list[tuple[str, list[str], str]] = []
+    placed = {name for name, index in (frames or {}).items() if index is not None}
+    for alias in rotors:
+        block = case.engines[alias]
+        if kind == "rotor":
+            owned = [
+                family
+                for family in (*block.families_general, *block.families_blades)
+                if family.casefold() in carried
+            ]
+            if owned:
+                emissions.append((f"{alias}_{frame.strip().upper()}", owned, alias))
+            continue
+        for number, family in enumerate(block.families_blades, start=1):
+            if family.casefold() in carried:
+                emissions.append((f"{alias}_RMRP{number}", [family], family))
+        general = [family for family in block.families_general if family.casefold() in carried]
+        if general:
+            # THE HUB AND THE SPINNER HAVE NO LOCAL AXIS OF THEIR OWN: their
+            # local frame IS the rotor's, which is what makes the spinner
+            # ride the hub (FR-59). One emission for them, in that frame.
+            emissions.append((f"{alias}_RMRP", general, alias))
+    if frames is None:
+        return emissions
+    # A ROW THAT DOES NOT TURN THE ROTOR PLACES NONE OF ITS FRAMES, and one
+    # artifact serves a steady row and a rotor row: that is the whole point
+    # of the skip rule, and FR-65 draws the line where it draws every other
+    # one. An entry whose families reach no rotor OF THE REFERENCE is a
+    # writing error and is refused above, because it cannot come right on
+    # another row; an entry whose frames this RUN did not create can, and is
+    # left out, exactly as an entry whose families the geometry lacks is.
+    kept = [emission for emission in emissions if emission[0] in placed]
+    if emissions and not kept:
+        warnings.warn(
+            f"case {case.sim_id!r}: {what} of {_artifact_of(case)} is measured in "
+            f"{frame}, one per {kind}, and this run created none of those frames "
+            f"({', '.join(sorted(placed)) or 'none'}), so the entry is left out. A row "
+            "that does not turn its rotors places no rotor frames, which is the same "
+            "rule that lets one artifact serve a wing-body and a rotor row.",
+            PyflightstreamWarning,
+            stacklevel=2,
+        )
+    return kept
 
 
 def _pproc_frame(
@@ -4052,11 +4241,12 @@ def _pproc_plots(case: SimCase, script: Script, frames: Frames) -> None:
         return
     inventory = _inventory(script)
     for group in pproc.plots.groups:
-        for families in _selected_families(
-            case, group.families, inventory, pproc.is_blade, f"plot group {group.name!r}"
+        what = f"plot group {group.name!r}"
+        for frame_name, families, label in _pproc_emissions(
+            case, group.frame, group.families, inventory, pproc.is_blade, what, frames
         ):
-            frame = _pproc_frame(case, frames, group.frame, f"plot group {group.name!r}", families)
-            name = group.name.format(family=families[0]) if "{family}" in group.name else group.name
+            frame = _pproc_frame(case, frames, frame_name, what, families)
+            name = group.name.format(family=label) if "{family}" in group.name else group.name
             indices = [script.resolve_boundary(f, context="pproc plot") for f in families]
             for short in pproc.plots.parameters:
                 parameter, units = FORCE_PLOT_PARAMETERS[short]
@@ -4082,18 +4272,33 @@ def _pproc_plots(case: SimCase, script: Script, frames: Frames) -> None:
     probes = pproc.probes
     if not probes.lines or not probes.parameters:
         return
+    # A PROBE TABLE NAMES ONE ROTOR'S FRAME, and a row that does not turn
+    # that rotor places it nowhere. The same rule the plots and the
+    # sections already keep (FR-65): an entry this RUN cannot place is left
+    # out, because one artifact serves a row that turns the pusher and a
+    # row that turns only the lifters, and only one of them has a
+    # PUSHER_SMRP. An entry naming a frame NO ROW could place is still
+    # refused below, by `_pproc_frame`, because that cannot come right on
+    # another row.
+    if (
+        EXPANDING_FRAMES.get(probes.frame.strip().upper()) is None
+        and _names_a_rotor_frame(case, probes.frame)
+        and frames.get(probes.frame) is None
+    ):
+        warnings.warn(
+            f"case {case.sim_id!r}: the pproc artifact {case.pproc_id!r} lays its probe "
+            f"lines in {probes.frame!r}, a frame of a rotor this row does not turn, so "
+            "they are left out. A row places the frames of the rotors its motions name, "
+            "which is the same rule that lets one artifact serve a wing-body row and a "
+            "rotor row.",
+            PyflightstreamWarning,
+            stacklevel=2,
+        )
+        return
     frame = _pproc_frame(case, frames, probes.frame, "the probe lines")
     scale = 1.0
-    if probes.scale == "propeller_radius":
-        diameter = None if case.reference is None else case.reference.propeller_diameter
-        if diameter is None:
-            raise CampaignConfigError(
-                f"case {case.sim_id!r}: the pproc artifact {case.pproc_id!r} lays its "
-                "probe lines out in propeller radii and the reference artifact names no "
-                "propeller diameter; state one, or write the lines in metres "
-                '(scale = "m").'
-            )
-        scale = diameter / 2.0
+    if probes.scale == "rotor_radius":
+        scale = _the_radius_the_probe_lines_are_in(case, probes.frame) / 2.0
     vertex = 0
     for line in probes.lines:
         for step in range(probes.points):
@@ -4113,6 +4318,49 @@ def _pproc_plots(case: SimCase, script: Script, frames: Frames) -> None:
                 )
 
 
+def _names_a_rotor_frame(case: SimCase, frame: str) -> bool:
+    """Whether ``frame`` is spelled as a frame one of the reference's rotors owns."""
+    radical = frame.strip().rsplit("_", 1)[0]
+    return any(name.casefold() == radical.casefold() for name in case.engines)
+
+
+def _the_radius_the_probe_lines_are_in(case: SimCase, frame: str) -> float:
+    """Return the diameter a probe table's ``rotor_radius`` is measured against (FR-65).
+
+    THE ROTOR THE LINES ARE LAID OUT ON, which is the one whose frame the
+    table names: her nine lines cross the disk of the rotor they are
+    measured in, so `frame = "PUSHER_SMRP"` means pusher radii. That
+    matters at 0.15.0 and did not before it, because the reference now
+    states a diameter PER ROTOR (FR-60): one number for the whole
+    configuration cannot be right for a 1.20 m lifter and a 1.80 m pusher
+    at once, and reading the configuration's would have laid her lifter
+    probes out over the pusher's disk without saying so.
+
+    A frame that is not a rotor's falls back to the reference's own
+    propeller diameter, which is what every artifact written before this
+    release meant and what keeps them reading.
+    """
+    radical = frame.strip().rsplit("_", 1)[0]
+    block = next(
+        (engine for name, engine in case.engines.items() if name.casefold() == radical.casefold()),
+        None,
+    )
+    if block is not None:
+        return block.diameter_m
+    diameter = None if case.reference is None else case.reference.propeller_diameter
+    if diameter is None:
+        declared = ", ".join(sorted(case.engines)) or "none"
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: the pproc artifact {case.pproc_id!r} lays its probe "
+            f"lines out in rotor radii and names the frame {frame!r}, which is not a "
+            f"rotor's, so there is no rotor to take a radius from. The rotors the "
+            f"reference declares are {declared}, and each carries its own diameter_m; "
+            f"name one of their frames (<ALIAS>_SMRP), or state a propeller diameter on "
+            'the reference, or write the lines in metres (scale = "m").'
+        )
+    return diameter
+
+
 def _pproc_sections(case: SimCase, script: Script, frames: Frames) -> None:
     """Emit one NEW_SURFACE_SECTION_DISTRIBUTION per pproc entry and plane.
 
@@ -4128,10 +4376,20 @@ def _pproc_sections(case: SimCase, script: Script, frames: Frames) -> None:
     inventory = _inventory(script)
     sections = pproc.sections
     for position, entry in enumerate(sections.distributions, start=1):
-        for families in _selected_families(
-            case, entry.families, inventory, pproc.is_blade, f"section distribution {position}"
+        # THE SAME RULE AS THE PLOTS (FR-65): a distribution measured in a
+        # blade's own axes is one per blade, and one measured in a rotor's
+        # is one per rotor. Her `p010.toml` writes exactly that, over
+        # `["lifters", "PUSHER"]`, and means nine distributions.
+        for frame_name, families, _label in _pproc_emissions(
+            case,
+            entry.frame,
+            entry.families,
+            inventory,
+            pproc.is_blade,
+            f"section distribution {position}",
+            frames,
         ):
-            frame = _pproc_frame(case, frames, entry.frame, "a section distribution", families)
+            frame = _pproc_frame(case, frames, frame_name, "a section distribution", families)
             indices = [script.resolve_boundary(f, context="pproc section") for f in families]
             if not indices:
                 indices = list(range(1, len(inventory) + 1))
@@ -5132,7 +5390,17 @@ def _motion_view(case: SimCase, record: Mapping[str, str]) -> SimCase:
     # states for ALL of them: stripped, the condition's ratio reached no
     # motion at all, which is the behaviour FR-70 exists to give (the
     # architecture lens of 2026-09-10).
+    # A SWEPT RATIO IS THE POINT'S, NOT THE ROW'S, and that is the half a
+    # variable lookup could not reach. `split_attitude` deliberately keeps
+    # the swept key OUT of the variables, because its value is what varies
+    # and the row states only the word; so a row writing
+    # `ADVANCE_RATIO: sweep` had no ratio in its variables and the
+    # condition's ratio reached no motion at all. Measured on her own
+    # matriz_transicao.fs: 9 of 16 points blocked on "states no rotor
+    # speed", which is the sentence this line removes.
     row_ratio = case.variables.get(ADVANCE_RATIO_VARIABLE)
+    if row_ratio is None:
+        row_ratio = case.point.get("advance_ratio")
     if row_ratio is not None and not (RPM_VARIABLE in record or ADVANCE_RATIO_VARIABLE in record):
         variables[ADVANCE_RATIO_VARIABLE] = row_ratio
     variables.update({key: value for key, value in record.items() if key != ROTOR_ORIGIN_POINT_KEY})

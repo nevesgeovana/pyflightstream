@@ -458,11 +458,24 @@ def test_the_swept_key_is_found_by_the_constant_the_page_names():
     condition = {"MACH": 0.2, "REmi": 5.5, "ALPHA": SWEEP_WORD, "BETA": 0.0}
     assert [key for key, value in condition.items() if value == SWEEP_WORD] == ["ALPHA"]
     # And a row a person typed in any casing parses to that same constant.
-    for typed in ("sweep", "SWEEP", "Sweep", " sweep "):
+    # The three the page names, plus the canonical one.
+    for typed in ("sweep", "SWEEP", "Sweep", "sweep "):
         parsed = matrix_mod._parse_flight_condition(
             f"MACH:0.2, REmi:5.5, ALPHA:{typed}, BETA:0.0", "9001"
         )
         assert parsed["ALPHA"] == SWEEP_WORD, typed
+    # THE COUPLING THE PAGE SELLS RUNS BOTH WAYS. The reader compares a
+    # folded cell against the constant, which recognises the constant's own
+    # spelling only while the constant is itself lower case: respell it and
+    # the reader stops accepting the word it stores, with the page still
+    # promising the two cannot drift (the technical-writing lens).
+    assert SWEEP_WORD == SWEEP_WORD.casefold()
+    # AND WHAT A READER OF A MATRIX GETS, which is the other half of the
+    # page and a different answer: the row says which axis, and the flow
+    # state has the word taken out.
+    row = read_matrix(FIXTURE)[0]
+    assert row.sweep.type == "alpha"
+    assert SWEEP_WORD not in row.flight_condition.values()
 
 
 def test_every_held_key_is_a_key_the_release_can_sweep():

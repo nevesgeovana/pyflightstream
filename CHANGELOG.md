@@ -36,6 +36,38 @@ FlightStream versions.
 - **`SYMMETRY_LOADS` on the row** (FR-66), overriding the preset with a
   warning, because whether the solver reports the sector's loads or the
   wheel's is a per-row choice.
+- **THE FRAME DECIDES HOW A POST-PROCESSING ENTRY EXPANDS** (FR-65), so
+  there is no `expand` key: a reader who has said which frame a quantity is
+  measured in has already said how many of it there are. An entry in `MRP`
+  or a declared frame is ONE over the set it names; one in `SMRP` or `RMRP`
+  is one per ROTOR, in that rotor's own frame; one in `LOCAL_AXIS` is one
+  per BLADE, plus one for the rotor's general families, which have no local
+  axis and ride the rotor's. Six lines of a `[plots]` table become
+  twenty-seven emissions on a nine-rotor aircraft. The same rule governs
+  the `[sections]` distributions and the `[probes]` table.
+- **An entry this run cannot place is left out; one the reference cannot is
+  refused.** A steady row places no rotor frames and a lifters-only row
+  places no pusher frames, and one artifact serves all three, so such an
+  entry is skipped with a warning exactly as an entry whose families the
+  geometry lacks is. An entry whose families reach no rotor the REFERENCE
+  declares is refused instead, naming the entry, the set and the rotors,
+  because that one cannot come right on another row.
+- **A probe table's `rotor_radius` is the radius of the rotor whose frame
+  it names.** The reference states a diameter per rotor since 0.15.0
+  (FR-60), so reading the configuration's would lay a lifter's probes out
+  over a pusher's disk without saying so.
+- **The flight condition's `ADVANCE_RATIO` reaches every motion that states
+  no speed of its own** (FR-70), as a value or as `sweep`. A record stating
+  its own `RPM` or `ADVANCE_RATIO` holds it and the condition's ratio passes
+  it by, which is what lets one row sweep the pusher while the lifters hold.
+  A record may not state the word `sweep`: sweeping is the condition's job,
+  stated once for the row, and a record that writes it is refused.
+- **A sector row takes its copy count from the rotor it names.** A row
+  declaring `SYMMETRY: PERIODIC` and no `PERIODIC_COPIES` reads the count
+  from its rotor's `families_blades`, which is where the per-blade
+  reductions already read it, so a sector mesh carrying one blade of four
+  needs no second statement of the four. One rotor only: a sector is a
+  slice of ONE wheel, so a row turning several still states a count.
 - **A rotation names what it turns by ALIAS** (FR-71), the same word a
   motion uses, so every surface that names a group of boundaries now names
   it the same way and the reference is the one place a study says what its
@@ -51,7 +83,10 @@ FlightStream versions.
 - `SweepAxis.held`, the coordinates a row holds at every point of its
   sweep. A converted `campaign.toml` writes them beside `values`.
 - Public names: `EngineBlock`, `BladeDatum` and `AliasCycleError` in
-  `pyflightstream.cases`, the last also in `pyflightstream.exceptions`.
+  `pyflightstream.cases`, the last also in `pyflightstream.exceptions`; and
+  `SWEEP_WORD` in `pyflightstream.cases.matrix`, the word a swept key
+  carries, for the script that WRITES a matrix rather than the person who
+  types one.
 
 ### Changed
 
@@ -99,6 +134,12 @@ FlightStream versions.
   `RPM_SIGN` and `BLADES`: the reference states each once, in the rotor's
   own block. Removed at 0.17.0.
 - A rotor row with no `CLOCK_MOTION`. Removed at 0.17.0.
+- A post-processing entry's `families = "each_blade"`. The FRAME says it
+  now: write `frame = "LOCAL_AXIS"`, which is one per blade. Removed at
+  0.17.0.
+- A probe table's `scale = "propeller_radius"`. Write `rotor_radius`: this
+  release says ROTOR everywhere, because a lifter is not a propeller and an
+  aircraft may carry eight of them and one pusher. Removed at 0.17.0.
 - A rotation record's `FAMILIES`, which named its boundaries inline. Write
   `ALIAS` and let the reference say what it owns; a row listing families is
   a row that has to be edited when the mesh is renamed. Removed at 0.17.0.

@@ -2,7 +2,7 @@
  "source": "docs/srs",
  "generated_by": "scripts/gen_requirements_index.py",
  "traceability": {
-  "cited_by_a_test": 62,
+  "cited_by_a_test": 64,
   "total": 124,
   "method": "upper bound: an id mentioned anywhere in tests/**/*.py excluding conftest.py, which is not the marked falsifying test NFR-13 asks for"
  },
@@ -683,9 +683,9 @@
    "id": "FR-65",
    "text": "An entry citing MRP or a frame the reference declares emits ONCE over the whole cited set, and an engine name in that set is its own union, so a propulsor's total carries its hub and spinner with its blades. An entry citing SMRP or RMRP emits one per ROTOR, in that rotor's frame. An entry citing LOCAL_AXIS emits one per BLADE, in that blade's frame, plus one for the rotor's general families, which ride the rotor's own frame.",
    "priority": "M",
-   "status": "pending",
-   "evidence": "*Origin: her design of 2026-09-10 and her spinner decision of the same night. Carried by PFS-2035.08, absorbing PFS-2029.20. Evidence owed: the tests those nodes name.*",
-   "verification": "none"
+   "status": "implemented",
+   "evidence": "*Origin: her design of 2026-09-10 and her spinner decision of the same night. Carried by PFS-2035.08, absorbing PFS-2029.20. Evidence: tests/tier1_offline/test_pproc_by_frame.py, which reads the rule off the model (an entry in a rotor frame is one per rotor, one in the local axis is one per blade, one in a common frame is one, the placeholder is present exactly when there is more than one emission, each stays and each_blade warns) and ends by validating HER OWN pfs0150/inputs/pproc/p010.toml, which is the file the requirement was written from. Measured 2026-09-10: with the rule in place her two matrices plan 39 points with none blocked, where the artifact would not validate at all before it.*",
+   "verification": "test"
   },
   {
    "id": "FR-66",
@@ -723,9 +723,9 @@
    "id": "FR-70",
    "text": "ADVANCE_RATIO may be stated in FLIGHT_CONDITION, as a value or as sweep, and it then reaches every motion of the row THAT STATES NO SPEED OF ITS OWN. A motion stating its own RPM or ADVANCE_RATIO holds that value and the condition's ratio passes it by. A motion may not state the word sweep: sweeping is the condition's job, and a record that writes it is refused at plan time naming the cell, the record and the key.",
    "priority": "M",
-   "status": "pending",
-   "evidence": "*Origin: her decision of 2026-09-10 and its widening the same night, \"entao o sweep vale so para o movimento que nao tem advance ratio declarado\". Carried by PFS-2035.15. Evidence owed: the tests it names.*",
-   "verification": "none"
+   "status": "implemented",
+   "evidence": "*Origin: her decision of 2026-09-10 and its widening the same night, \"entao o sweep vale so para o movimento que nao tem advance ratio declarado\". Carried by PFS-2035.15. Evidence: tests/tier1_offline/test_rotor_by_alias.py (a swept ratio reaches the motion that states no speed and halving the ratio doubles that rotor's rev/min, a record stating its own ratio holds it against the sweep, and a record writing the word is refused naming where sweeping is stated).*",
+   "verification": "test"
   },
   {
    "id": "FR-71",

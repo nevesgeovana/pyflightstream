@@ -98,6 +98,7 @@ from pyflightstream.cases.workflows import (
     ROTATION_FAMILIES_KEY,
     ROTATION_OPTIONAL_KEYS,
     ROTATION_RECORD_KEYS,
+    SWEEP_WORD,
     workflow_names,
 )
 
@@ -410,10 +411,6 @@ ATTITUDE_KEYS: dict[str, tuple[str, str]] = {
     "ADVANCE_RATIO": ("dimensionless", "the speed of every motion that states none"),
 }
 
-#: The word a value carries instead of a number when its key is the one
-#: the row sweeps (FR-69). SWEEP_VALUES then holds its values, and exactly
-#: one key of the cell may carry it.
-SWEEP_WORD = "sweep"
 
 #: Canonical spelling by upper-cased key, for the case-insensitive match
 #: below. Built from the tables so the three cannot drift apart.
@@ -506,7 +503,7 @@ def _parse_flight_condition(cell: str, pol: str) -> dict[str, float]:
         # THE SWEPT KEY CARRIES A WORD (FR-69): the one variable this row
         # varies says so where its value would be, and SWEEP_VALUES holds
         # the values. Every other key carries a number.
-        if value.strip().casefold() == SWEEP_WORD:
+        if value.strip().casefold() == SWEEP_WORD.casefold():
             condition[key] = SWEEP_WORD
             continue
         try:

@@ -1995,10 +1995,18 @@ requirement below is one seam of that division.
     `fastest = max(speeds, key=lambda each: abs(each.rpm))`, and nothing in
     the row says which rotor that is.
 
-!!! requirement "FR-65 The frame decides how a post-processing entry expands <span class='srs-pending'>pending</span>"
+!!! requirement "FR-65 The frame decides how a post-processing entry expands <span class='srs-implemented'>implemented</span>"
     *Origin: her design of 2026-09-10 and her spinner decision of the same
-    night. Carried by PFS-2035.08, absorbing PFS-2029.20. Evidence owed: the
-    tests those nodes name.*
+    night. Carried by PFS-2035.08, absorbing PFS-2029.20. Evidence:
+    `tests/tier1_offline/test_pproc_by_frame.py`, which reads the rule off
+    the model (an entry in a rotor frame is one per rotor, one in the local
+    axis is one per blade, one in a common frame is one, the placeholder is
+    present exactly when there is more than one emission, `each` stays and
+    `each_blade` warns) and ends by validating HER OWN
+    `pfs0150/inputs/pproc/p010.toml`, which is the file the requirement was
+    written from. Measured 2026-09-10: with the rule in place her two
+    matrices plan 39 points with none blocked, where the artifact would not
+    validate at all before it.*
 
     An entry citing `MRP` or a frame the reference declares emits ONCE over
     the whole cited set, and an engine name in that set is its own union, so a
@@ -2014,11 +2022,33 @@ requirement below is one seam of that division.
     a per-rotor entry, the blade's label on a per-blade one, the family on an
     `each` one.
 
-    An entry citing `LOCAL_AXIS` over a set holding no rotor is refused at
-    plan time, naming the entry, the set and the engines the reference
-    declares. It is a writing error rather than a configuration difference:
-    unlike an entry that resolves to nothing, it cannot come right on another
-    mesh.
+    An entry citing `LOCAL_AXIS` over a set holding no rotor OF THE
+    REFERENCE is refused at plan time, naming the entry, the set and the
+    engines the reference declares. It is a writing error rather than a
+    configuration difference: unlike an entry that resolves to nothing, it
+    cannot come right on another mesh.
+
+    THE OTHER HALF OF THAT SENTENCE, which the implementation forced and
+    which is the line the two cases fall on: an entry whose rotors the
+    reference DOES declare, but whose frames THIS RUN did not place, is
+    LEFT OUT with a warning, exactly as an entry whose families the
+    geometry lacks is. A steady row places no rotor frames and a row that
+    turns only the lifters places no pusher frames, and one artifact serves
+    all three; that entry comes right on the next row, which is precisely
+    what the refused one cannot do. Measured 2026-09-10 on her own
+    workspace: the distinction is 19 of her 39 points.
+
+    THE SAME RULE REACHES THE SECTIONS AND THE PROBES, through one helper
+    rather than three: a distribution measured in a blade's own axes is one
+    per blade, and a probe table naming one rotor's frame is left out on a
+    row that does not turn that rotor.
+
+    A probe table's `rotor_radius` is the radius OF THE ROTOR WHOSE FRAME
+    IT NAMES. That question had no answer before this release, because the
+    reference carried one diameter for the whole configuration; it carries
+    one per rotor now (FR-60), and reading the configuration's would lay a
+    lifter's probes out over a pusher's disk without saying so. The word
+    was `propeller_radius` and is read with a warning until 0.17.0.
 
 !!! requirement "FR-66 A row may state the symmetry-loads flag, overriding the preset with a warning <span class='srs-implemented'>implemented</span>"
     *Origin: her decision of 2026-09-10, "vale promover ele para flag sim e
@@ -2151,10 +2181,14 @@ requirement below is one seam of that division.
     in a later release, because accepted-and-ignored is how the advance-ratio
     sweep failed before this release.
 
-!!! requirement "FR-70 An advance ratio in the flight condition governs the motions that state no speed <span class='srs-pending'>pending</span>"
+!!! requirement "FR-70 An advance ratio in the flight condition governs the motions that state no speed <span class='srs-implemented'>implemented</span>"
     *Origin: her decision of 2026-09-10 and its widening the same night,
     "entao o sweep vale so para o movimento que nao tem advance ratio
-    declarado". Carried by PFS-2035.15. Evidence owed: the tests it names.*
+    declarado". Carried by PFS-2035.15. Evidence:
+    `tests/tier1_offline/test_rotor_by_alias.py` (a swept ratio reaches the
+    motion that states no speed and halving the ratio doubles that rotor's
+    rev/min, a record stating its own ratio holds it against the sweep, and
+    a record writing the word is refused naming where sweeping is stated).*
 
     `ADVANCE_RATIO` may be stated in `FLIGHT_CONDITION`, as a value or as
     `sweep`, and it then reaches every motion of the row THAT STATES NO SPEED
@@ -2167,6 +2201,15 @@ requirement below is one seam of that division.
     she named: a transition sweeps the pusher while the lifters hold. Eight
     records carrying an RPM and one carrying nothing but its alias is that
     row, and the held motions hold at EVERY point of the sweep.
+
+    A SWEPT RATIO IS THE POINT'S, NOT THE ROW'S, and that is the half a
+    variable lookup could not reach. The swept key is deliberately kept out
+    of the row's variables, because the row states only the word and the
+    value is what varies; so a row writing `ADVANCE_RATIO: sweep` had no
+    ratio among its variables and the condition's ratio reached no motion
+    at all. Measured 2026-09-10 on her own `matriz_transicao.fs`: 9 of 16
+    points blocked on "states no rotor speed", which is the sentence this
+    requirement removes.
 
     The key stays optional precisely so that a row may prescribe the speed per
     motion instead, which is FR-63.

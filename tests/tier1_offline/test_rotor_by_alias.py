@@ -35,6 +35,7 @@ from pyflightstream.cases import BladeDatum, EngineBlock, ReferenceData, SimCase
 from pyflightstream.cases.workflows import (
     ROTATE_VARIABLE,
     WORKFLOW_KEY,
+    _motion_view,
     build_script,
     rotor_speed,
 )
@@ -453,6 +454,82 @@ def test_a_declared_alias_that_is_not_a_rotor_turns_its_boundaries_and_no_frame(
     turned = set(surface_rotation(text).splitlines()[1].split(","))
     assert turned == {str(MESH.index("W") + 1)}, turned
     assert rotated_frames(text) == [], "a non-rotor alias turned a frame it does not own"
+
+
+# --- FR-70: the condition's advance ratio governs the motions that state none ---
+
+
+def swept_ratio_case(tmp_path, point, **overrides) -> SimCase:
+    """A two-rotor row whose CONDITION sweeps the advance ratio.
+
+    The lifter states its own RPM and the pusher states nothing but its
+    alias, which is her transition: the sweep moves the pusher while the
+    lifters hold.
+    """
+    case = two_rotor_case(tmp_path, **overrides)
+    return case.model_copy(
+        update={
+            "sweep": SweepAxis(type="advance_ratio", values=[0.2, 0.3, 0.4], held={"alpha": 0.0}),
+            "point": point,
+            "motions": [
+                {"MOVING_BC_ALIAS": "LIFT_L1", "RPM": "2200"},
+                {"MOVING_BC_ALIAS": "PUSHER"},
+            ],
+        }
+    )
+
+
+def test_a_swept_ratio_reaches_the_motion_that_states_no_speed(tmp_path):
+    """FR-70, and the half a swept key could not reach.
+
+    A row states `ADVANCE_RATIO: sweep` in FLIGHT_CONDITION, so the ratio
+    is NOT among the row's variables: the swept key is deliberately left
+    out of them, because its value is the point's and not the row's. The
+    ratio therefore reached no motion at all and every rotor row of her
+    use case was blocked at plan time with "states no rotor speed".
+
+    Measured on her own `matriz_transicao.fs`, where 9 of 16 points were
+    blocked on exactly this sentence.
+    """
+    speeds = []
+    for value in (0.2, 0.4):
+        case = swept_ratio_case(tmp_path, {"advance_ratio": value, "alpha": 0.0})
+        views = [_motion_view(case, record) for record in case.motions]
+        speeds.append([rotor_speed(view).rpm for view in views])
+    lifter_at_02, pusher_at_02 = speeds[0]
+    lifter_at_04, pusher_at_04 = speeds[1]
+    assert lifter_at_02 == lifter_at_04 == 2200, (
+        "the lifter states its own RPM, so the sweep passes it by"
+    )
+    assert pusher_at_02 != pusher_at_04, "the swept ratio did not reach the pusher"
+    # n = V / (J D), so halving J from 0.4 to 0.2 doubles the speed.
+    assert pusher_at_02 == pytest.approx(pusher_at_04 * 2.0), (pusher_at_02, pusher_at_04)
+
+
+def test_a_record_that_states_its_own_ratio_holds_it_against_the_sweep(tmp_path):
+    """Precedence is record over condition, which is what makes a transition possible."""
+    case = swept_ratio_case(tmp_path, {"advance_ratio": 0.2, "alpha": 0.0})
+    case.motions[1]["ADVANCE_RATIO"] = "0.85"
+    view = _motion_view(case, case.motions[1])
+    held = rotor_speed(view).rpm
+    other = swept_ratio_case(tmp_path, {"advance_ratio": 0.4, "alpha": 0.0})
+    other.motions[1]["ADVANCE_RATIO"] = "0.85"
+    assert rotor_speed(_motion_view(other, other.motions[1])).rpm == held, (
+        "a record stating its own ratio was moved by the condition's sweep"
+    )
+
+
+def test_a_motion_may_not_state_the_word_sweep(tmp_path):
+    """Sweeping is the CONDITION's job, so a record that writes the word is refused."""
+    case = swept_ratio_case(tmp_path, {"advance_ratio": 0.2, "alpha": 0.0})
+    case.motions[1]["ADVANCE_RATIO"] = "sweep"
+    with pytest.raises(PyflightstreamError) as refused:
+        rotor_speed(_motion_view(case, case.motions[1]))
+    message = str(refused.value)
+    assert "sweep" in message and "ADVANCE_RATIO" in message
+    assert "FLIGHT_CONDITION" in message, (
+        "the refusal does not say where sweeping is stated instead"
+    )
 
 
 def test_a_rotor_block_built_without_an_alias_is_refused(tmp_path):

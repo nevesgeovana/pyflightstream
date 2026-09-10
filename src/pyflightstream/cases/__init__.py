@@ -42,7 +42,11 @@ from pydantic import (
 )
 
 from pyflightstream._atmosphere import ISA
-from pyflightstream._deprecations import PPROC_HER_POLAR_FORMAT
+from pyflightstream._deprecations import (
+    PPROC_HER_POLAR_FORMAT,
+    ROW_EACH_BLADE,
+    ROW_PROBE_SCALE,
+)
 from pyflightstream._digest import file_sha256, text_sha256
 from pyflightstream._errors import PyflightstreamDeprecationWarning, PyflightstreamError
 from pyflightstream._fsm import names_of
@@ -428,6 +432,14 @@ def _a_named_frame(value: str) -> str:
     return value
 
 
+def _the_radius_is_a_rotors(value: object) -> object:
+    """Read the 0.14.0 spelling of the probe scale, with the ledger's own words (FR-65)."""
+    if value == "propeller_radius":
+        warnings.warn(ROW_PROBE_SCALE.message(), PyflightstreamDeprecationWarning, stacklevel=2)
+        return "rotor_radius"
+    return value
+
+
 def _check_family_selection(value: object) -> str | list[str]:
     """Accept one word, or a list of words; what a word IS is judged at build time.
 
@@ -480,8 +492,29 @@ class SectionsSpec(BaseModel):
     distributions: list[SectionDistribution] = Field(default_factory=list)
 
 
+#: The FRAME KINDS a post-processing entry may cite instead of a frame's
+#: name, and what each says the entry is ONE OF (FR-65, her design of
+#: 2026-09-10). They are not frames the script creates: they name the
+#: ROLE a frame plays for a rotor, and the expansion resolves each to that
+#: rotor's own `<ALIAS>_SMRP`, `<ALIAS>_RMRP` or `<ALIAS>_RMRP<k>`.
+#:
+#: THERE IS NO `expand` KEY, and that is the whole design: a reader who
+#: has said which frame a quantity is measured in has already said how
+#: many of it there are. `SMRP` and `RMRP` are per ROTOR, because a rotor
+#: has one of each; `LOCAL_AXIS` is per BLADE, because a blade has one.
+EXPANDING_FRAMES = {"SMRP": "rotor", "RMRP": "rotor", "LOCAL_AXIS": "blade"}
+
+
 class ForcePlotGroup(BaseModel):
-    """One group of unsteady force plots: a name, a frame and the families summed."""
+    """One group of unsteady force plots: a name, a frame and the families summed.
+
+    THE FRAME DECIDES HOW MANY GROUPS THIS ENTRY IS (FR-65). One citing
+    `MRP` or a frame the reference declares is ONE group over the whole
+    cited set; one citing `SMRP` or `RMRP` is one per ROTOR, in that
+    rotor's own frame; one citing `LOCAL_AXIS` is one per BLADE. The
+    `each` selector stays beside them, because one group per family in a
+    COMMON frame is a reading no frame implies.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
@@ -491,14 +524,54 @@ class ForcePlotGroup(BaseModel):
 
     _frame_is_named = field_validator("frame")(_a_named_frame)
 
+    @property
+    def emits_per(self) -> str:
+        """What this entry is one of: ``once``, ``rotor``, ``blade`` or ``family``.
+
+        The frame is asked first, because it is the statement that cannot
+        be a second home for the same fact: a quantity measured in a
+        blade's own axes is one per blade whatever the families say.
+        """
+        kind = EXPANDING_FRAMES.get(self.frame.strip().upper())
+        if kind is not None:
+            return kind
+        if self.families == "each_blade":
+            return "blade"
+        if self.families == "each":
+            return "family"
+        return "once"
+
     @model_validator(mode="after")
-    def _expansion_names_the_family(self) -> ForcePlotGroup:
-        expands = isinstance(self.families, str) and self.families in ("each", "each_blade")
-        if expands != ("{family}" in self.name):
+    def _the_placeholder_says_what_the_emission_is_about(self) -> ForcePlotGroup:
+        """`{family}` is present exactly when there is more than one emission.
+
+        It means WHAT THE EMISSION IS ABOUT rather than what it is named
+        after: the rotor's alias on a per-rotor entry, the blade's label
+        on a per-blade one, the family on an `each` one.
+        """
+        if (self.emits_per != "once") != ("{family}" in self.name):
+            expands = (
+                f"an entry in {self.frame} is one per {self.emits_per}"
+                if self.emits_per != "once"
+                else f"an entry in {self.frame} is ONE group over the families it names"
+            )
+            carries = "carries" if self.emits_per != "once" else "carries no"
             raise ValueError(
-                f"plot group {self.name!r}: an entry whose families are 'each' or "
-                "'each_blade' expands into one group per family and its name carries "
-                "{family}; any other entry is one group and its name carries no placeholder"
+                f"plot group {self.name!r}: {expands}, so its name {carries} "
+                "{family}, which names what each emission is about. The frames that "
+                f"expand are {', '.join(sorted(EXPANDING_FRAMES))}, and the selector "
+                "'each' expands in a common frame."
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _the_retired_selector_says_it_in_the_frame(self) -> ForcePlotGroup:
+        """`each_blade` said what `LOCAL_AXIS` says, so it is a second home for one fact."""
+        if self.families == "each_blade":
+            warnings.warn(
+                f"plot group {self.name!r}: {ROW_EACH_BLADE.message()}",
+                PyflightstreamDeprecationWarning,
+                stacklevel=2,
             )
         return self
 
@@ -539,8 +612,11 @@ class ProbesSpec(BaseModel):
     and every vertex gets one UNSTEADY_SOLVER_NEW_FLUID_PLOT per parameter,
     named ``{parameter}{n}`` with n counting vertices across the lines in
     the order written. ``scale`` says what the coordinates are in: metres,
-    or propeller radii, which is how her nine lines were laid out over the
-    disk of whichever propeller the reference named.
+    or ROTOR radii, which is how her nine lines were laid out over the
+    disk of whichever rotor the reference named. The word was
+    ``propeller_radius`` until 0.15.0 and is read with a warning until
+    0.17.0: this release says ROTOR everywhere, because a lifter is not a
+    propeller and her aircraft has eight of them.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -548,7 +624,7 @@ class ProbesSpec(BaseModel):
     frame: str = "PROP_MRP"
     parameters: list[str] = Field(default_factory=list)
     points: int = Field(default=25, ge=2)
-    scale: Literal["m", "propeller_radius"] = "m"
+    scale: Annotated[Literal["m", "rotor_radius"], BeforeValidator(_the_radius_is_a_rotors)] = "m"
     lines: list[ProbeLine] = Field(default_factory=list)
 
     _frame_is_named = field_validator("frame")(_a_named_frame)
