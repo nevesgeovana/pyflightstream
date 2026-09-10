@@ -588,6 +588,17 @@ class RunRecord(BaseModel):
         carries no time history (a steady point) or the record predates
         the field; a products stage reading None writes no reduction and
         records why. Adding it did not move :data:`MANIFEST_SCHEMA`.
+
+        SINCE 0.15.0 a row that names its rotors by alias also carries
+        ``rotors`` (FR-68), alias to one block per rotor holding that
+        rotor's ``blades``, ``rpm``, ``steps_per_revolution``,
+        ``period_steps`` and its own ``phase_locked`` and ``per_blade``;
+        on such a row the flat passage entries carry a skip naming that
+        block, because one blade passage of the ROW has no length when two
+        rotors turn at two speeds. Adding it did not move
+        :data:`MANIFEST_SCHEMA` either: it is an ADDITION, and a record
+        written before it degrades correctly, a products stage finding no
+        ``rotors`` reading the flat keys exactly as it always did.
     flight_condition : dict of str to float
         The flight condition AS WRITTEN in the row, canonical key to
         value, in the units the key names (``MACH`` dimensionless,

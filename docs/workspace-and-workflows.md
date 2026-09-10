@@ -1859,7 +1859,9 @@ its history next to it.
 
 `reduction_plan(case)` is what says WHICH windows those are, off the
 row: one revolution is `60 / (RPM * DELTA_TIME)` solver steps and one
-blade passage is that divided by `BLADES`. The averaging itself is
+blade passage is that divided by the blade count, which a row naming its
+rotors takes from each rotor's own block and a row naming none takes from
+`BLADES`. The averaging itself is
 `pyflightstream.post.unsteady.blade_passage_average`, the one
 implementation of that average in the package, and writing one is
 `pyflightstream.post.reductions`, which refuses to write a reduction
@@ -1909,10 +1911,12 @@ worse than no page at all.
   than by a cell, so coefficients come out against the solver's own
   defaults rather than against the areas and lengths the campaign
   declared, and a case runs `INCOMPRESSIBLE` at sea level whatever the
-  campaign flew. `BLADES` divides the phase-locked averaging window and
-  nothing else, so it does not configure the rotor and does not interact
-  with the symmetry the row now declares, however reasonably a reader
-  pairs the two cells. Both are scoped, and where they should live is an
+  campaign flew. `BLADES` divides the phase-locked averaging window of a
+  row that names NO rotor by alias and nothing else, so it does not
+  configure the rotor and does not interact with the symmetry the row now
+  declares, however reasonably a reader pairs the two cells; since 0.15.0
+  a row that names its rotors takes each blade count from that rotor's own
+  block and needs the cell for nothing (FR-68). Both are scoped, and where they should live is an
   open design question: a row, like everything else a workflow reads, or
   a solver-setup preset, since a fluid and a solver model are
   campaign-wide conditions rather than case identity.

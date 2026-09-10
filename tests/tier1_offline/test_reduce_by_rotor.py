@@ -104,8 +104,110 @@ def test_each_rotor_reduces_over_its_own_blade_passage():
         "both rotors were reduced over one passage, so one of them is averaged over a "
         "window that is not its own"
     )
-    assert lifter["period_steps"] == round(60.0 / (2200 * 0.0001) / 4)
-    assert pusher["period_steps"] == round(60.0 / (900 * 0.0001) / 3)
+    # PINNED AS LITERALS, not by restating the implementation's formula.
+    # Written as `round(60.0 / (2200 * 0.0001) / 4)` this could not tell
+    # rounding from truncation, because that expression is the code's own
+    # (the QA lens, 2026-09-10). 272.727 / 4 = 68.18 truncates to the same
+    # 68, so the lifter cannot discriminate either; the SEVEN-bladed rotor
+    # in `test_a_period_whose_fraction_decides_is_rounded_not_truncated`
+    # is the case that can.
+    assert lifter["period_steps"] == 68
+    assert pusher["period_steps"] == 222
+
+
+def test_a_period_whose_fraction_decides_is_rounded_not_truncated():
+    """A blade passage is the nearest whole number of steps, not the floor.
+
+    272.727 steps per revolution over SEVEN blades is 38.96, which rounds
+    to 39 and truncates to 38. The four-bladed fixture cannot tell the two
+    apart, so the mutant that truncates survived it (the QA lens,
+    2026-09-10).
+    """
+    seven = rotor("LIFT_L1", ["LH_L1"], 7, 1.2)
+    plan = reduction_windows(transition_case(engines={"LIFT_L1": seven, "PUSHER": PUSHER}))
+    assert plan is not None
+    assert plan["rotors"]["LIFT_L1"]["period_steps"] == 39
+
+
+@pytest.mark.parametrize("rpm", ["2200", "-2200"])
+def test_a_rotor_turning_the_other_way_reduces_over_the_same_passage(rpm):
+    """A blade passage is a DURATION, so the sign of the speed does not shorten it.
+
+    Without the absolute value a negative rpm gives a negative revolution,
+    the period rounds below one, and BOTH passage reductions of that rotor
+    are skipped under a sentence saying the passage is under one time
+    step, which is false about the case. `RPM_SIGN` is part of the
+    vocabulary and a counter-rotating pair is an ordinary row (the QA
+    lens, 2026-09-10).
+    """
+    case = transition_case(
+        motions=[
+            {"MOVING_BC_ALIAS": "LIFT_L1", "RPM": rpm},
+            {"MOVING_BC_ALIAS": "PUSHER", "RPM": "900"},
+        ]
+    )
+    plan = reduction_windows(case)
+    assert plan is not None
+    entry = plan["rotors"]["LIFT_L1"]
+    assert entry["period_steps"] == 68, entry
+    assert "skipped" not in entry["per_blade"], entry["per_blade"]
+
+
+def test_a_rotor_that_does_not_turn_is_skipped_naming_it():
+    """QA F3's reachable arm: a rotor at rest has no blade passage.
+
+    Measured by the lens on the clean code: `PUSHER` at `RPM: 0` produces
+    "turns 'PUSHER' at 0.0 rev/min with a solver step of 0.0001, so one
+    blade passage of it has no length in steps", and no case reached it.
+    """
+    case = transition_case(
+        motions=[
+            {"MOVING_BC_ALIAS": "LIFT_L1", "RPM": "2200"},
+            {"MOVING_BC_ALIAS": "PUSHER", "RPM": "0"},
+        ]
+    )
+    plan = reduction_windows(case)
+    assert plan is not None
+    said = plan["rotors"]["PUSHER"]["per_blade"]["skipped"]
+    assert "PUSHER" in said and "no length" in said, said
+    assert "skipped" not in plan["rotors"]["LIFT_L1"]["per_blade"], "the lifter went with it"
+
+
+def test_a_run_holding_no_whole_revolution_of_a_rotor_is_skipped_naming_it():
+    """QA F3's second reachable arm: the run is shorter than that rotor's wheel."""
+    case = transition_case(
+        variables={
+            "WORKFLOW": "unsteady_rotor",
+            "VELOCITY": "30.0",
+            "DELTA_TIME": "0.0001",
+            "TIME_ITERATIONS": "300",
+            "CLOCK_MOTION": "LIFT_L1",
+        }
+    )
+    plan = reduction_windows(case)
+    assert plan is not None
+    said = plan["rotors"]["PUSHER"]["per_blade"]["skipped"]
+    assert "PUSHER" in said and "complete revolution" in said, said
+    assert "skipped" not in plan["rotors"]["LIFT_L1"]["per_blade"], "the lifter went with it"
+
+
+def test_a_window_shorter_than_one_passage_of_a_rotor_is_skipped_naming_it():
+    """QA F3's third arm: the row's window holds no whole passage of that rotor."""
+    case = transition_case(
+        variables={
+            "WORKFLOW": "unsteady_rotor",
+            "VELOCITY": "30.0",
+            "DELTA_TIME": "0.0001",
+            "TIME_ITERATIONS": "720",
+            "WINDOW_STEPS": "100",
+            "CLOCK_MOTION": "LIFT_L1",
+        }
+    )
+    plan = reduction_windows(case)
+    assert plan is not None
+    said = plan["rotors"]["PUSHER"]["phase_locked"]["skipped"]
+    assert "PUSHER" in said, said
+    assert "skipped" not in plan["rotors"]["LIFT_L1"]["phase_locked"], "the lifter went with it"
 
 
 def test_the_windows_of_each_rotor_are_that_rotors_last_revolution():
@@ -120,6 +222,28 @@ def test_the_windows_of_each_rotor_are_that_rotors_last_revolution():
             assert later[0] == earlier[1] + 1, (alias, "the windows are not contiguous")
 
 
+def test_the_phase_locked_passages_of_each_rotor_start_at_the_rows_window():
+    """THE HALF NOTHING ASSERTED, and a mutant lived in it.
+
+    A mutant cutting each rotor's phase-locked passages from STEP ONE
+    instead of from the row's export window survived the whole suite (the
+    QA lens, 2026-09-10). That is the requirement's own defect sentence
+    for the phase-locked half: the file is written, the columns are
+    right, and the average is over the wrong window.
+    """
+    plan = reduction_windows(transition_case())
+    assert plan is not None
+    opens = plan["time_average"]["windows"][0][0]
+    for alias in ("LIFT_L1", "PUSHER"):
+        entry = plan["rotors"][alias]["phase_locked"]
+        windows, period = entry["windows"], entry["period_steps"]
+        assert windows[0][0] == opens, (alias, "the passages do not start at the row's window")
+        for first, last in windows:
+            assert last - first + 1 == period, (alias, "a passage is not one blade passage")
+        for earlier, later in zip(windows, windows[1:], strict=False):
+            assert later[0] == earlier[1] + 1, (alias, "the passages are not contiguous")
+
+
 def test_the_row_says_where_its_reductions_went_rather_than_naming_a_count():
     """A row turning several rotors has no single blade passage, and says so.
 
@@ -132,14 +256,23 @@ def test_the_row_says_where_its_reductions_went_rather_than_naming_a_count():
     said = plan["per_blade"]["skipped"]
     assert "rotors" in said and "LIFT_L1" in said and "PUSHER" in said, said
     assert "BLADES" not in said, "the row is told to state a count it cannot have"
+    assert "<point>_<reduction>_<alias>.csv" in said, (
+        "the skip does not say what the files are called. The PRODUCTS stage "
+        "rewrites this sentence with the real names, because it knows the point "
+        "stem and this layer does not; that is asserted in test_post_products.py."
+    )
 
 
 def test_a_row_turning_one_rotor_takes_the_count_from_that_rotors_block():
     """FR-68's own sentence: the reference already states it.
 
     A row naming ONE rotor by alias has said how many blades it has, so
-    the flat keys resolve exactly as a row stating `BLADES: 4` does, and
-    every file keeps the name it has always had.
+    it needs no `BLADES` of its own. Its reductions are under `rotors`
+    like any other row that names its rotors, which is the uniform rule
+    the interface lens asked for on 2026-09-10: gating the rotor's name on
+    there being SEVERAL made the rotor COUNT a file-naming input, so the
+    day a second rotor is added every script pointing at the flat file
+    stops finding its input.
     """
     case = transition_case(
         motions=[{"MOVING_BC_ALIAS": "LIFT_L1", "RPM": "2200"}],
@@ -153,7 +286,9 @@ def test_a_row_turning_one_rotor_takes_the_count_from_that_rotors_block():
     plan = reduction_windows(case)
     assert plan is not None
     assert plan["blades"] == 4, "the row states no BLADES and its rotor declares four"
-    assert "skipped" not in plan["per_blade"], plan["per_blade"]
+    assert plan["rotors"]["LIFT_L1"]["blades"] == 4
+    assert "skipped" not in plan["rotors"]["LIFT_L1"]["per_blade"]
+    assert "rotors" in plan["per_blade"]["skipped"], plan["per_blade"]
 
 
 def test_a_sector_row_reduces_over_the_whole_wheel():
@@ -179,29 +314,6 @@ def test_a_sector_row_reduces_over_the_whole_wheel():
     assert plan is not None
     assert plan["blades"] == 4
     assert plan["rotors"]["LIFT_L1"]["blades"] == 4
-
-
-def test_a_motion_naming_no_rotor_of_the_reference_leaves_the_others_reducing():
-    """One motion that cannot be resolved is a drop-out, not the loss of the rest.
-
-    WHAT THIS ALSO RECORDS, because it is why a branch is not here: a
-    MOTION record whose alias the reference declares as no rotor is
-    refused before it reaches the reduction, and the model refuses an
-    engine block with no blade families, so a rotor block in this list
-    ALWAYS has a count. A ROTATE record may name a non-rotor alias
-    (FR-71); a motion may not. Both were measured while trying to build a
-    case for the empty branch.
-    """
-    case = transition_case(
-        motions=[
-            {"MOVING_BC_ALIAS": "LIFT_L1", "RPM": "2200"},
-            {"MOVING_BC_ALIAS": "NOT_A_ROTOR", "RPM": "600"},
-        ],
-    )
-    plan = reduction_windows(case)
-    assert plan is not None
-    assert set(plan["rotors"]) == {"LIFT_L1"}, plan["rotors"]
-    assert "skipped" not in plan["rotors"]["LIFT_L1"]["per_blade"]
 
 
 @pytest.mark.parametrize("recipe", ["steady", "unsteady"])

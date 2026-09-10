@@ -682,33 +682,80 @@ def test_a_transition_row_writes_one_passage_reduction_per_rotor(tmp_path):
     manifest = _products_manifest(workspace)
     entry = manifest["products"]["plots/a-02.0_per_blade_PUSHER.csv"]
     assert entry["reduction"] == "per_blade" and entry["period_steps"] == 4
-    assert "PUSHER" in entry["window_from"], "the record does not say whose window it is"
+    # THE ROTOR AS A FIELD. Asserted on `window_from` alone, this was a
+    # substring match against an English sentence, and the file name does
+    # not decompose either: both the reduction and the alias carry
+    # underscores (the interface lens, 2026-09-10).
+    assert entry["rotor"] == "PUSHER", entry
     skipped = manifest["skipped"]
-    assert "rotors" in skipped["plots/a-02.0_per_blade.csv"], (
-        "the flat file's skip does not say where the row's reductions went"
+    said = skipped["plots/a-02.0_per_blade.csv"]
+    assert "plots/a-02.0_per_blade_LIFT_L1.csv" in said, said
+    assert "plots/a-02.0_per_blade_PUSHER.csv" in said, (
+        "the flat file's skip does not name the two files the reader is looking for"
     )
 
 
-def test_a_row_turning_one_rotor_keeps_the_file_names_it_has_always_had(tmp_path):
-    """The rotor's name enters a file name only where there are several to tell apart.
+def test_a_row_turning_one_rotor_names_it_too(tmp_path):
+    """The rotor's name is not gated on there being SEVERAL rotors.
 
-    A one-rotor row's record carries a `rotors` block too, and its files
-    are still `<point>_per_blade.csv`: every workspace written before
-    0.15.0 keeps its names, and so does every golden.
+    Gating it made the rotor COUNT a file-naming input, which the user
+    does not experience as a naming decision: the day a second rotor is
+    added, every script pointing at `<point>_per_blade.csv` stops finding
+    its input, and the stale file from the one-rotor run stays on disk
+    beside a record that calls it skipped (the interface lens,
+    2026-09-10). It is also FR-68's own sentence, unconditional.
+
+    A row stating NO motion carries no `rotors` block and is untouched,
+    which is the other sentence of FR-68 and what keeps every workspace
+    written before 0.15.0, and every golden, in the files it always had:
+    `test_pyfs_matrix_post_writes_every_reduction_beside_the_plots_table`
+    is that case and its names are unchanged.
     """
     from pyflightstream.post.products import write_campaign_products
 
-    plan = {**ROTOR_PLAN, "rotors": {"LIFT_L1": TWO_ROTOR_PLAN["rotors"]["LIFT_L1"]}}
+    plan = {
+        **ROTOR_PLAN,
+        "phase_locked": {"skipped": "case '7001' names its rotors: under 'rotors'"},
+        "per_blade": {"skipped": "case '7001' names its rotors: under 'rotors'"},
+        "rotors": {"LIFT_L1": TWO_ROTOR_PLAN["rotors"]["LIFT_L1"]},
+    }
     workspace = _unsteady_workspace(tmp_path, reductions=plan)
     write_campaign_products(workspace)
     plots = workspace.root / "post" / "products" / "plots"
     names = sorted(p.name for p in plots.iterdir())
     assert names == [
-        "a-02.0_per_blade.csv",
-        "a-02.0_phase_locked.csv",
+        "a-02.0_per_blade_LIFT_L1.csv",
+        "a-02.0_phase_locked_LIFT_L1.csv",
         "a-02.0_plots.csv",
         "a-02.0_time_average.csv",
-    ], f"a one-rotor row's file names moved: {names}"
+    ], f"a one-rotor row's per-rotor files are not named: {names}"
+
+
+def test_an_alias_that_is_not_a_file_name_is_made_into_one(tmp_path):
+    """A rotor's alias is a word the author chose; a file name is parsed by the OS.
+
+    `EngineBlock.alias` carries no pattern, so a slash reaches the path
+    and writes outside the folder the manifest keys the file under (the
+    architecture lens, 2026-09-10). The rotor's OWN spelling survives in
+    the record's `rotor` field, so nothing is lost.
+    """
+    from pyflightstream.post.products import write_campaign_products
+
+    block = TWO_ROTOR_PLAN["rotors"]["LIFT_L1"]
+    plan = {
+        **ROTOR_PLAN,
+        "phase_locked": {"skipped": "names its rotors: under 'rotors'"},
+        "per_blade": {"skipped": "names its rotors: under 'rotors'"},
+        "rotors": {"LIFT/L1 ": block},
+    }
+    workspace = _unsteady_workspace(tmp_path, reductions=plan)
+    write_campaign_products(workspace)
+    plots = workspace.root / "post" / "products" / "plots"
+    assert (plots / "a-02.0_per_blade_LIFT_L1.csv").is_file(), sorted(
+        p.name for p in plots.iterdir()
+    )
+    entry = _products_manifest(workspace)["products"]["plots/a-02.0_per_blade_LIFT_L1.csv"]
+    assert entry["rotor"] == "LIFT/L1 ", "the record lost the alias the author wrote"
 
 
 def test_a_reduction_the_row_cannot_window_is_recorded_as_skipped(tmp_path):

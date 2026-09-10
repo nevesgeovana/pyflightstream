@@ -18,7 +18,11 @@ record, so any spreadsheet or dataframe reads them with nothing else:
   it (PFS-2015.04): ``plots/<point>_time_average.csv``,
   ``plots/<point>_phase_locked.csv`` and ``plots/<point>_per_blade.csv``,
   each a row per window with the window in solver steps and then the
-  plots table's own columns averaged over it. Raw is the plots table
+  plots table's own columns averaged over it. Since 0.15.0 a row that
+  NAMES ITS ROTORS reduces per rotor (FR-68), so the two passage files
+  carry the rotor's alias, ``plots/<point>_per_blade_<ALIAS>.csv``, and
+  their manifest entries carry a ``rotor`` field; the time average is one
+  file whatever turns in the run. Raw is the plots table
   itself and is written once. The windows come off the run record, which
   the run stage resolved from the row
   (:func:`pyflightstream.cases.workflows.reduction_windows`), and a
@@ -77,7 +81,11 @@ from pyflightstream._errors import (
     PyflightstreamWarning,
 )
 from pyflightstream.cases import select_group_members
-from pyflightstream.cases.workflows import REDUCTION_NAMES
+from pyflightstream.cases.workflows import (
+    PER_ROTOR_REDUCTIONS,
+    REDUCTION_NAMES,
+    ROTORS_KEY,
+)
 from pyflightstream.fsi.loads import SectionalLoadsReport, parse_sectional_loads
 from pyflightstream.post._tables import (
     _COEFFICIENT_PLOT_PREFIXES,
@@ -1164,6 +1172,35 @@ def _point_series(
     )
 
 
+#: The characters an alias may carry into a file name. Everything else is
+#: replaced, because a rotor's alias is a word the author chose and a file
+#: name is a thing the operating system parses.
+_SAFE_IN_A_FILE_NAME = frozenset(
+    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_."
+)
+
+
+def _a_name_a_file_may_carry(alias: str) -> str:
+    """Return ``alias`` reduced to characters a file name may hold (FR-68).
+
+    A ROTOR'S ALIAS IS UNCONSTRAINED by the model: `EngineBlock.alias` is a
+    string with no pattern, so a slash, a colon, a star or a trailing dot
+    can reach a path, and a slash writes outside the folder the manifest
+    keys the file under (the architecture lens, 2026-09-10). This package
+    already sanitises an identifier before it becomes a file name, in
+    `provenance_file_name` below, and the precedent is followed rather than
+    argued with.
+
+    The rotor's OWN spelling is still recorded, in the manifest entry's
+    ``rotor`` field, so nothing is lost by the substitution: the file name
+    is for the file system and the field is for the reader.
+    """
+    cleaned = "".join(
+        character if character in _SAFE_IN_A_FILE_NAME else "_" for character in alias
+    )
+    return cleaned.strip("._ ") or "rotor"
+
+
 def _point_reductions(
     plots_table: Path,
     plan: Mapping[str, object] | None,
@@ -1202,21 +1239,41 @@ def _point_reductions(
     # record it as it records any skip. A row turning one rotor, and every
     # row written before 0.15.0, reads the flat keys alone and its files
     # keep the names they have always had.
-    reading: list[tuple[str, object, str]] = [
-        (name, plan.get(name), f"plots/{stem}_{name}.csv") for name in REDUCTION_NAMES
+    reading: list[tuple[str, object, str, str | None]] = [
+        (name, plan.get(name), f"plots/{stem}_{name}.csv", None) for name in REDUCTION_NAMES
     ]
-    rotors = plan.get("rotors")
-    if isinstance(rotors, Mapping) and len(rotors) > 1:
+    rotors = plan.get(ROTORS_KEY)
+    if isinstance(rotors, Mapping):
         for alias, block in rotors.items():
             if not isinstance(block, Mapping):
                 continue
-            for name in ("phase_locked", "per_blade"):
-                reading.append((name, block.get(name), f"plots/{stem}_{name}_{alias}.csv"))
-    for name, entry, relative in reading:
+            safe = _a_name_a_file_may_carry(str(alias))
+            for name in PER_ROTOR_REDUCTIONS:
+                reading.append(
+                    (name, block.get(name), f"plots/{stem}_{name}_{safe}.csv", str(alias))
+                )
+    # THE FLAT SKIP NAMES THE FILES, because this layer knows the stem and
+    # the cases layer does not. Its own sentence can only describe the
+    # SHAPE of the names; read by someone who has just opened the plots
+    # folder and not found their per-blade table, that is one inference
+    # away from the two files sitting in the folder they are looking at
+    # (the interface lens, 2026-09-10).
+    per_rotor: dict[str, list[str]] = {}
+    for name, _entry, relative, rotor in reading:
+        if rotor is not None:
+            per_rotor.setdefault(name, []).append(relative)
+    for name, entry, relative, rotor in reading:
         if not isinstance(entry, Mapping):
             continue  # not applicable to this run type
         if "skipped" in entry:
-            skipped[relative] = str(entry["skipped"])
+            reason = str(entry["skipped"])
+            if rotor is None and per_rotor.get(name):
+                reason = (
+                    f"{reason.rsplit(':', 1)[0]}: this row names its rotors, so each is "
+                    f"reduced over its own blade passage, in "
+                    f"{' and '.join(per_rotor[name])}."
+                )
+            skipped[relative] = reason
             continue
         stated = entry.get("windows", ())
         windows = [tuple(int(v) for v in window) for window in stated]  # type: ignore[union-attr]
@@ -1239,6 +1296,14 @@ def _point_reductions(
         }
         if "period_steps" in entry:
             record["period_steps"] = entry["period_steps"]
+        if rotor is not None:
+            # THE ROTOR AS A FIELD, not only as a piece of a file name. The
+            # name is `{stem}_{reduction}_{alias}` and both the reduction
+            # and the alias carry underscores, so it does not decompose: a
+            # reader holding `a-02.0_per_blade_LIFT_L1.csv` could not say
+            # which rotor it is without already knowing the alias set (the
+            # interface lens, 2026-09-10).
+            record["rotor"] = rotor
         written_names[relative] = record
 
 

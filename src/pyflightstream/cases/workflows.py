@@ -131,7 +131,9 @@ __all__ = [
     "WORKFLOWS",
     "WORKFLOW_KEY",
     "ExportWindow",
+    "PER_ROTOR_REDUCTIONS",
     "REDUCTION_NAMES",
+    "ROTORS_KEY",
     "ReductionPlan",
     "RotorSpeed",
     "TimeStepping",
@@ -1094,13 +1096,20 @@ def _optional_rotor_speed(case: SimCase) -> RotorSpeed | None:
     motion is the right one and not merely an available one: the row's
     step and the row's length are already ITS, which is what FR-64
     settled, so the window they cut is its revolutions.
+
+    THE BLAST RADIUS IS FOUR CALL SITES, not one, and saying so is the
+    point of this paragraph: `rotor_time_stepping`, `ExportWindow.from_case`
+    and the unsteady builder all reach here, so each of them now resolves a
+    clock speed for a MOTIONS-only row where it previously got None. That
+    is FR-64's intent and it is a change a reader of the reduction diff
+    alone would not see (the architecture lens, 2026-09-10).
     """
     if (
         _variable(case, ADVANCE_RATIO_VARIABLE) is not None
         or _variable(case, RPM_VARIABLE) is not None
     ):
         return rotor_speed(case)
-    turning = _the_rotors_the_row_turns(case)
+    turning, _lost = _the_rotors_the_row_turns(case)
     if not turning:
         return None
     views = [view for _, view, _ in turning]
@@ -1108,28 +1117,49 @@ def _optional_rotor_speed(case: SimCase) -> RotorSpeed | None:
     return _clock_speed(case, views, speeds)
 
 
-def _the_rotors_the_row_turns(case: SimCase) -> list[tuple[str, SimCase, RotorSpeed]]:
-    """Return one (alias, motion view, speed) per rotor the row's motions name (FR-68).
+def _the_rotors_the_row_turns(
+    case: SimCase,
+) -> tuple[list[tuple[str, SimCase, RotorSpeed]], dict[str, str]]:
+    """Return the rotors the row's motions turn, and the ones that could not (FR-68).
 
-    Empty for a row that states no motion record, which is every row
-    written before 0.15.0 and every steady row, so a caller that finds
+    The first is one ``(alias, motion view, speed)`` per rotor, where the
+    ALIAS IS THE REFERENCE'S OWN SPELLING and never the record's token.
+    `_engine_of` resolves a token stripped and case folded, so a record
+    writing ``" pusher "`` reaches every rotor path in this module and then
+    failed an exact-match subscript one layer down, raising a `KeyError`
+    out of `reduction_windows`, whose own docstring says it never raises
+    for a row the builder would refuse (the architecture lens, 2026-09-10).
+    One resolution, carried forward.
+
+    THE SECOND IS THE DROP-OUTS, alias to reason, and it exists because
+    the first writing simply lost them. A record this cannot resolve got
+    no entry, so the rotor appeared in neither the products nor the
+    skipped list of the manifest: it vanished. That is exactly what this
+    module refuses to do everywhere else, where "a reduction the row
+    cannot window is recorded as skipped with the reason, never guessed".
+    Among the reasons swallowed is a record stating a retired key beside
+    its alias, which FR-61 goes to the trouble of refusing loudly.
+
+    Both are empty for a row that states no motion record, which is every
+    row written before 0.15.0 and every steady row, so a caller that finds
     nothing here behaves exactly as it did.
-
-    A record whose speed cannot be resolved drops OUT rather than raising:
-    the callers report per rotor, and one rotor that cannot be windowed is
-    a skip beside the rotors that can, not the loss of all of them.
     """
     turning: list[tuple[str, SimCase, RotorSpeed]] = []
-    for record in case.motions or []:
-        alias = record.get(MOVING_BC_ALIAS_VARIABLE)
-        if not alias:
-            continue
+    lost: dict[str, str] = {}
+    for index, record in enumerate(case.motions or [], start=1):
+        token = record.get(MOVING_BC_ALIAS_VARIABLE)
+        named = str(token).strip() if token else f"motion {index}"
         try:
             view = _motion_view(case, record)
-            turning.append((str(alias), view, rotor_speed(view)))
-        except CampaignConfigError:
-            continue
-    return turning
+            engine = _engine_of(case, record)
+            if engine is None:
+                raise CampaignConfigError(
+                    f"case {case.sim_id!r}: motion {index} names no rotor of the reference"
+                )
+            turning.append((engine.alias, view, rotor_speed(view)))
+        except CampaignConfigError as error:
+            lost[named] = str(error)
+    return turning, lost
 
 
 @dataclass(frozen=True)
@@ -2419,7 +2449,7 @@ class ReductionPlan:
 
 
 def _blade_count(case: SimCase) -> int | None:
-    """Return the row's blade count: ``BLADES``, else ``PERIODIC_COPIES``, else None.
+    """Return the blade count: ``BLADES``, ``PERIODIC_COPIES``, the sole rotor, else None.
 
     PFS-2015.04.01, found by her reproduction of 2026-09-09: an isolated
     propeller meshed as one blade and stated as ``PERIODIC_COPIES: 6``
@@ -2440,7 +2470,7 @@ def _blade_count(case: SimCase) -> int | None:
     # second home this release exists to remove. One rotor only here: a
     # row turning several has no single count, and its rotors are reduced
     # one at a time by `_the_passages_of_one_rotor`.
-    turning = _the_rotors_the_row_turns(case)
+    turning, _lost = _the_rotors_the_row_turns(case)
     if len(turning) == 1:
         block = case.engines.get(turning[0][0])
         if block is not None and block.families_blades:
@@ -2449,7 +2479,24 @@ def _blade_count(case: SimCase) -> int | None:
 
 
 def _no_blade_count(case: SimCase) -> str:
-    """Return the sentence a rotor row stating neither count is refused or skipped with."""
+    """Return the sentence a rotor row stating neither count is refused or skipped with.
+
+    FOR A ROW THAT NAMES NO ROTOR BY ALIAS. A row that names its rotors
+    takes each count from that rotor's block and never reaches this
+    sentence through `reduction_windows`; `reduction_plan`, which is a
+    public name no caller in the package uses, still can, so the sentence
+    says which row it is about rather than prescribing a key that on a
+    transition row would be a number that is now two numbers (the
+    interface lens, 2026-09-10).
+    """
+    turning, _lost = _the_rotors_the_row_turns(case)
+    if turning:
+        return (
+            f"the row of case {case.sim_id!r} names its rotors "
+            f"({', '.join(alias for alias, _view, _speed in turning)}), so each reduces "
+            "over ITS OWN blade passage and the ROW has no single one. Read the windows "
+            f"under {ROTORS_KEY!r} of the run record, one block per rotor."
+        )
     return (
         f"the row of case {case.sim_id!r} states no {BLADES_VARIABLE} and no "
         f"{PERIODIC_COPIES_VARIABLE}, so one blade passage has no length in steps and "
@@ -2530,6 +2577,19 @@ def reduction_plan(case: SimCase) -> ReductionPlan:
 #: in the order they are written. Raw is the plots table itself.
 REDUCTION_NAMES: tuple[str, ...] = ("time_average", "phase_locked", "per_blade")
 
+#: The run record key under which a row's PER-ROTOR reduction windows live
+#: (FR-68), alias to that rotor's block. A NAME AND NOT A LITERAL, because
+#: the key spans two layers: this module writes it and
+#: :mod:`pyflightstream.post.products` reads it, and a string typed twice
+#: in two layers is a contract nothing states (the architecture lens,
+#: 2026-09-10).
+ROTORS_KEY = "rotors"
+
+#: The reductions that are PER ROTOR, and therefore the ones a per-rotor
+#: block carries. The time average is not among them: it is one window of
+#: the whole run, whatever turns in it.
+PER_ROTOR_REDUCTIONS: tuple[str, ...] = ("phase_locked", "per_blade")
+
 #: The two run types whose points carry a time history, and therefore the
 #: only ones a reduction applies to.
 _UNSTEADY_RECIPES = ("unsteady", "unsteady_rotor")
@@ -2570,6 +2630,7 @@ def _every_reduction_skipped(rotor: bool, reason: str) -> dict[str, object]:
 def _the_passages_of_one_rotor(
     case: SimCase,
     alias: str,
+    view: SimCase,
     speed: RotorSpeed,
     *,
     delta_time_s: float | None,
@@ -2590,14 +2651,20 @@ def _the_passages_of_one_rotor(
     which is where this release already reads it for the frames and for
     the sector's copies, so the three cannot give different answers.
     """
-    # THE BLOCK IS ALWAYS THERE, and neither guard below is defensive
-    # coding: a MOTION record whose alias the reference declares as no
-    # rotor is refused by `_motion_view` and never reaches this list, and
-    # the model refuses an engine block whose `families_blades` is empty.
-    # Both were measured on 2026-09-10 while writing a case for the empty
-    # branch that could not be built. A ROTATE record MAY name a non-rotor
-    # alias (FR-71) and is a different record.
-    blades = len(case.engines[alias].families_blades)
+    # ONE BLADE COUNT, READ THROUGH THE VIEW. `_motion_view` sets the
+    # view's BLADES from `engine.blade_count`, which is the model's own
+    # declared rule for the number, so `_blade_count` answers here exactly
+    # what it answers for the flat keys and the two cannot give different
+    # numbers for one rotor. Opening `len(block.families_blades)` here
+    # instead was a second home for a rule the model already states, and
+    # it disagreed with the flat path wherever a row wrote `BLADES` or
+    # `PERIODIC_COPIES` of its own (the architecture lens, 2026-09-10).
+    #
+    # THE COUNT IS NEVER NONE HERE and that is not defensive coding: the
+    # view always carries BLADES, and the model refuses an engine block
+    # whose `families_blades` is empty, both measured 2026-09-10 while
+    # writing a case for the empty branch that could not be built.
+    blades = _blade_count(view) or 0
     entry: dict[str, object] = {"blades": blades, "rpm": speed.rpm}
     if delta_time_s is None or not speed.rpm:
         reason = (
@@ -2705,6 +2772,18 @@ def reduction_windows(case: SimCase) -> dict[str, object] | None:
         window was stated>}`` (the two passage reductions add
         ``period_steps``) or ``{"skipped": <reason>}``.
 
+        A row that NAMES ITS ROTORS by alias also carries ``rotors``
+        (:data:`ROTORS_KEY`), alias to that rotor's block: its ``blades``,
+        its ``rpm``, its own ``steps_per_revolution`` and ``period_steps``,
+        and its ``phase_locked`` and ``per_blade`` in the same two shapes
+        (FR-68). On such a row the FLAT passage keys carry a skip naming
+        that block, because one blade passage of the ROW has no length when
+        two rotors turn at two speeds; the time average stays one window of
+        the whole point. A rotor whose motion could not be resolved is a
+        block carrying a skip rather than an absence, so a rotor is never
+        lost from the record. A row stating no motion carries no ``rotors``
+        at all and is exactly what it was.
+
     Examples
     --------
     >>> from pyflightstream.cases import SimCase, SweepAxis
@@ -2785,19 +2864,60 @@ def reduction_windows(case: SimCase) -> dict[str, object] | None:
     # may name it, and the flat keys below stay exactly what they were: a
     # row that states no motion, which is every row written before 0.15.0,
     # reduces as it always did.
-    turning = _the_rotors_the_row_turns(case)
-    if turning:
-        plan["rotors"] = {
+    turning, lost = _the_rotors_the_row_turns(case)
+    if turning or lost:
+        rotors: dict[str, object] = {
             alias: _the_passages_of_one_rotor(
                 case,
                 alias,
+                view,
                 speed,
                 delta_time_s=stepping.delta_time_s,
                 span=span,
                 last_step=last_step,
             )
-            for alias, _view, speed in turning
+            for alias, view, speed in turning
         }
+        # A ROTOR THAT COULD NOT BE RESOLVED IS A SKIP, NOT AN ABSENCE. It
+        # used to be dropped silently, so the rotor appeared in neither the
+        # products nor the skipped list of the manifest and simply vanished
+        # (the architecture lens, 2026-09-10). This shape is the one the
+        # products stage already knows how to record.
+        for named, reason in lost.items():
+            rotors.setdefault(
+                named,
+                {
+                    "blades": None,
+                    "phase_locked": {"skipped": reason},
+                    "per_blade": {"skipped": reason},
+                },
+            )
+        plan[ROTORS_KEY] = rotors
+        # A ROW THAT NAMES ITS ROTORS REDUCES PER ROTOR, AND ONLY PER
+        # ROTOR. The flat passage keys carry the pointer, one rotor or
+        # nine, and that uniformity is the whole of the interface lens's
+        # finding of 2026-09-10: gating the rotor's name on there being
+        # MORE THAN ONE made the rotor count a file-naming input, so the
+        # day a second rotor is added every script pointing at
+        # `<point>_per_blade.csv` stops finding its input and the stale
+        # file from the one-rotor run stays on disk beside a record that
+        # calls it skipped. It is also what FR-68's own sentence says,
+        # unconditionally: "the reduction files name the rotor".
+        #
+        # A ROW STATING NO MOTION IS UNTOUCHED, which is FR-68's other
+        # sentence and what keeps every workspace written before 0.15.0,
+        # and every golden, reducing into exactly the files it always did.
+        named = ", ".join(rotors)
+        plan["blades"] = _blade_count(case)
+        pointer = (
+            f"case {case.sim_id!r} names its rotors, so each reduces over ITS OWN blade "
+            f"passage and there is no single passage of the ROW: the windows are under "
+            f"{ROTORS_KEY!r} ({named}) and the products stage writes one file per rotor, "
+            f"named <point>_<reduction>_<alias>.csv."
+        )
+        plan["phase_locked"] = {"skipped": pointer}
+        plan["per_blade"] = {"skipped": pointer}
+        return plan
 
     # THE PASSAGE REDUCTIONS need a revolution and a blade count.
     try:
@@ -2807,19 +2927,7 @@ def reduction_windows(case: SimCase) -> dict[str, object] | None:
         plan["per_blade"] = {"skipped": str(error)}
         return plan
     if blades is None:
-        # A ROW TURNING SEVERAL ROTORS HAS NO SINGLE BLADE PASSAGE, and
-        # saying so is better than picking one: the flat keys are read by
-        # a products stage that writes ONE file per reduction, and the
-        # rotors block above is where such a row's reductions are. The
-        # older sentence, which tells the author to state BLADES, would be
-        # advice to write a number that is now two different numbers.
-        reason = (
-            f"case {case.sim_id!r} turns {len(turning)} rotors, so one blade passage of "
-            "the ROW has no length: each rotor reduces over its own, and the windows are "
-            f"under 'rotors' ({', '.join(alias for alias, _view, _speed in turning)})."
-            if len(turning) > 1
-            else _no_blade_count(case)
-        )
+        reason = _no_blade_count(case)
         plan["phase_locked"] = {"skipped": reason}
         plan["per_blade"] = {"skipped": reason}
         return plan

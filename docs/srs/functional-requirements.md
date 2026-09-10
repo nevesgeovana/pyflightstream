@@ -2129,18 +2129,18 @@ requirement below is one seam of that division.
     contiguous and end at the run's last step; a several-rotor row says where
     its reductions went instead of naming a count; a one-rotor row takes the
     count from that rotor's block; a sector row reduces over the whole wheel; a
-    motion naming no rotor of the reference leaves the others reducing) and
+    motion naming no rotor of the reference is a skip and not an absence; a row
+    with no rotor carries no per-rotor block, which is the sentence that
+    protects every workspace written before 0.15.0; a rotor at rest, a run
+    holding no whole revolution of a rotor, and a window shorter than one
+    passage of a rotor are each skipped naming that rotor; a rotor turning the
+    other way reduces over the same passage; a period whose fraction decides is
+    rounded and not truncated; the phase-locked passages of each rotor start at
+    the row's window; and a record spelling its alias loosely still names the
+    reference's rotor) and
     `tests/tier1_offline/test_post_products.py` (the files name the rotor, and a
     one-rotor row keeps the names it has always had). AMENDS PFS-2015.04.01,
     which reads the count from `PERIODIC_COPIES` at 0.14.0.*
-
-    A HALF THAT IS NOT IN THE TEXT BELOW, because nothing had measured it until
-    the implementation: a row stating its speeds in MOTIONS carries no `RPM` of
-    its own, so the window reader found no speed and EVERY reduction of the
-    point was skipped, the time average included, with the sentence "states no
-    rotor speed, and a rotary motion turns at one" on a row that states two. The
-    row's window is the CLOCK motion's (FR-64), which is the same rotor whose
-    revolutions already set the row's step and its length.
 
     The per-blade and phase-locked reductions of a point are computed PER
     ROTOR, each from the blade count of its own engine block, so a transition
@@ -2151,6 +2151,30 @@ requirement below is one seam of that division.
     `families_blades` and not a property of the file, so a mesh carrying one
     blade of four still reduces over four, and `PERIODIC_COPIES` is not
     replaced by another key but by a fact the reference already states.
+
+    The reduction files name the rotor on every row that names its rotors,
+    one rotor or nine: `<point>_per_blade_<ALIAS>.csv`. Gating the name on
+    there being SEVERAL rotors made the rotor COUNT a file-naming input, so
+    the day a second rotor joined a row every script pointing at the flat
+    file stopped finding its input and the stale one-rotor file stayed on
+    disk beside a record calling it skipped (the interface lens,
+    2026-09-10). A row stating no motion keeps the flat names, which is the
+    sentence above about reducing as today.
+
+    A HALF THIS TEXT DID NOT STATE, because nothing had measured it until the
+    implementation: a row stating its speeds in MOTIONS carries no `RPM` of
+    its own, so the window reader found no speed and EVERY reduction of the
+    point was skipped, the time average included, with the sentence "states no
+    rotor speed, and a rotary motion turns at one" on a row that states two.
+    The row's window is the CLOCK motion's (FR-64), which is the same rotor
+    whose revolutions already set the row's step and its length.
+
+    ONE ANSWER PER ROTOR, from one rule. The blade count is read through the
+    motion's view, where `_motion_view` has already set it from the block's
+    own `blade_count`, so the per-rotor number and the flat number cannot
+    differ for one rotor. Opening the block's list a second time in the
+    reduction was a second home for a rule the model states (the architecture
+    lens, 2026-09-10).
 
 !!! requirement "FR-69 A sweep is one variable of the flight condition, and the angles are always written <span class='srs-implemented'>implemented</span>"
     *Origin: her rule of 2026-09-10, "um sweep e aplicado a uma variavel que

@@ -13,7 +13,8 @@ line); a row turns the mesh (`ROTATE`, a list of records in the order
 written, families by name, the rotor's axis frame turned with them); the
 products stage tables the stamped per-step exports of a windowed point as
 a series under `post/<matrix>/series/`; the blade count of a sector comes
-from `PERIODIC_COPIES` when `BLADES` is absent; the run record carries the
+from the rotor's own engine block where the row names its rotors by alias,
+and from `PERIODIC_COPIES` when `BLADES` is absent on a row that does not; the run record carries the
 raw lines and the clock of its export window. Two things that used to be
 refused are read now: a zero-probe export (a complete table of no rows),
 and a mesh rotation after the frame it cites was created (the two rotation

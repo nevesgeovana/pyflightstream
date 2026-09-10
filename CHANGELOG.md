@@ -88,10 +88,16 @@ FlightStream versions.
   length: the phase-locked and per-blade reductions are computed per
   rotor, each from its own engine block's blade count and its own
   revolution, and the files name the rotor
-  (`<point>_per_blade_PUSHER.csv`). A row turning ONE rotor keeps the
-  file names it has always had, and takes the count from that rotor's
-  block, so `BLADES` and `PERIODIC_COPIES` are no longer the only places
-  a blade count can be written.
+  (`<point>_per_blade_PUSHER.csv`) on every row that names its rotors,
+  one rotor or nine. A row turning one rotor takes the count from that
+  rotor's block, so `BLADES` and `PERIODIC_COPIES` are no longer the only
+  places a blade count can be written. **A row stating no motion keeps
+  the flat file names it has always had**, which is every row written
+  before 0.15.0. The manifest entry of each per-rotor file carries a
+  `rotor` field, so the rotor is readable without taking a file name
+  apart, and the flat entry's skip names the files that were written
+  instead. A rotor whose motion cannot be resolved is a skip under its
+  own name rather than an absence.
 - **A row that states its speeds in `MOTIONS` reduces at all.** It carried
   no `RPM` of its own, so the window reader found no speed and every
   reduction of the point was skipped, the time average included, with a
