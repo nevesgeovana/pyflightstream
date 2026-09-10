@@ -14,6 +14,7 @@ the row's cell line.
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import pytest
@@ -412,19 +413,50 @@ def test_the_documented_generator_example_writes_a_cell_this_reader_accepts(tmp_
 # --- the round of 2026-09-10: four arms no case reached ----------------------
 
 
+#: The three spellings only a WINDOWS file system resolves: a case
+#: difference on a case-insensitive volume, a backslash as a separator, and
+#: a trailing dot the file system strips. On Linux the package REFUSES a row
+#: naming any of them, which is the right answer there and not a defect;
+#: the release CI of 2026-09-10 read those three refusals as failures.
+FORGIVEN_ONLY_BY_WINDOWS = ["RAW/EXTRA.TXT", "raw\\extra.txt", "raw/extra.txt."]
+
+
 @pytest.mark.parametrize(
     "spelling",
-    ["RAW/EXTRA.TXT", "raw\\extra.txt", "raw/../raw/extra.txt", "raw/extra.txt."],
+    [
+        # PORTABLE, and the arm that carries the claim: `..` is normalised by
+        # `.resolve()` on every platform, so this one runs everywhere.
+        "raw/../raw/extra.txt",
+        *[
+            pytest.param(
+                spelling,
+                marks=pytest.mark.skipif(
+                    os.name != "nt",
+                    reason=(
+                        "this spelling resolves only on a Windows file system; "
+                        "elsewhere the package refuses the row, which is correct"
+                    ),
+                ),
+            )
+            for spelling in FORGIVEN_ONLY_BY_WINDOWS
+        ],
+    ],
 )
 def test_a_spelling_the_file_system_forgives_is_recorded_canonically(tmp_path, spelling):
     """The run record names a path a second machine has, which is why containment exists.
 
-    All four of these resolve INSIDE the inputs on this platform, so the
-    containment check passes them, and all four were written into the
+    Each of these resolves INSIDE the inputs on the platform that forgives
+    it, so the containment check passes them, and each was written into the
     record verbatim: an upper-cased name no Linux machine resolves, a
     Windows separator, a non-canonical path, and a trailing dot the file
     system strips and the record did not. Each satisfies the check and
     defeats the reason for it (the QA lens, 2026-09-10).
+
+    WHAT IS PORTABLE AND WHAT IS NOT is now said rather than assumed. Three
+    of the four are properties of the WINDOWS file system, and on Linux the
+    package refuses a row naming them, which is the answer a reader should
+    want: the record then cannot name a path the second machine lacks,
+    because the first machine would not accept it either.
     """
     row = RAW_ROW.replace("raw/extra.txt", spelling)
     case = resolved_row(tmp_path, FILE_TEXT, row=row)
@@ -486,6 +518,14 @@ def test_a_link_inside_the_inputs_pointing_out_is_refused(tmp_path):
     defeats `..` and lets the junction through, and the QA lens measured
     that such a mutant survived the whole suite because no case reached a
     link (2026-09-10). This is that case.
+
+    ON BOTH PLATFORMS, which is a change of 2026-09-10 rather than the
+    original shape. It spawned `cmd /c mklink /J` unconditionally, so on
+    the Linux runner it died with FileNotFoundError on `cmd` instead of
+    measuring anything, and the release CI failed on it. A POSIX symlink
+    to a directory is the same claim as a Windows junction, so the link is
+    made the way the host makes one and the containment check is now
+    measured everywhere rather than on one platform.
     """
     import os
     import subprocess
@@ -497,18 +537,26 @@ def test_a_link_inside_the_inputs_pointing_out_is_refused(tmp_path):
     outside.mkdir()
     (outside / "extra.txt").write_text("PRINT i_am_outside\n", encoding="utf-8")
     link = workspace.inputs_dir / "raw"
-    done = subprocess.run(
-        ["cmd", "/c", "mklink", "/J", str(link), str(outside)],
-        capture_output=True,
-        text=True,
-        # EXPLICIT, and identical to the inherited default. The estate's
-        # rule is that the call SAYS so rather than letting a
-        # runner-injected variable arrive unnoticed, and a guard under
-        # tests/ counts the spawns that do not.
-        env=os.environ.copy(),
-    )
-    if done.returncode != 0 or not link.exists():
-        pytest.skip(f"this host cannot create a junction: {done.stdout}{done.stderr}")
+    if os.name == "nt":
+        done = subprocess.run(
+            ["cmd", "/c", "mklink", "/J", str(link), str(outside)],
+            capture_output=True,
+            text=True,
+            # EXPLICIT, and identical to the inherited default. The estate's
+            # rule is that the call SAYS so rather than letting a
+            # runner-injected variable arrive unnoticed, and a guard under
+            # tests/ counts the spawns that do not.
+            env=os.environ.copy(),
+        )
+        made, why = done.returncode == 0, f"{done.stdout}{done.stderr}"
+    else:
+        try:
+            os.symlink(outside, link, target_is_directory=True)
+            made, why = True, ""
+        except (OSError, NotImplementedError) as error:
+            made, why = False, str(error)
+    if not made or not link.exists():
+        pytest.skip(f"this host cannot create a link out of a directory: {why}")
 
     from pyflightstream.cases.matrix import read_matrix
     from pyflightstream.workspace.matrix import _the_rows_raw_commands
