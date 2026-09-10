@@ -34,6 +34,32 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from pyflightstream._errors import PyflightstreamError
+
+
+class RetiredNameError(AttributeError, PyflightstreamError):
+    """A retired ATTRIBUTE was reached for, and the message says what to write.
+
+    IT HAS TWO PARENTS BECAUSE TWO READINGS ARE BOTH RIGHT. Reaching for a
+    name this package no longer defines is an attribute mistake, so
+    ``except AttributeError`` must keep catching it; and it is also this
+    package refusing something on purpose, so the one category the
+    documentation tells callers to catch,
+    :class:`~pyflightstream._errors.PyflightstreamError`, must reach it too.
+    A caller who wraps workspace work in that category was getting a
+    traceback rather than the sentence the registry wrote for the moment.
+
+    This is not a new pattern. :class:`~pyflightstream.cases.MatrixError`
+    already inherits both ``PyflightstreamError`` and ``ValueError`` for the
+    same reason, and the public exceptions module documents that pairing as
+    the house shape. Here the second seat is ``AttributeError`` because that
+    is the shape of the mistake being made.
+
+    It carries no attributes of its own: the facts belong to the
+    :class:`RetiredName` entry that produced the message, which is the one
+    home for them.
+    """
+
 
 @dataclass(frozen=True)
 class RetiredName:

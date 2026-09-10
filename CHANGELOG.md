@@ -282,6 +282,21 @@ FlightStream versions.
   block is `[rotor]`, the point kind is `rotor`, the probe scale is
   `rotor_radius` and the workspace accessor is `rotor_point`.
 
+- **A RETIRED NAME REFUSES WITH AN ERROR THE PACKAGE CATEGORY CATCHES**
+  (PFS-2035.21, the author's call of 2026-09-10: "parece detalhe, decide o
+  que for mais razoavel"). `CampaignWorkspace.engine_point` is kept so that
+  it can refuse, and it raised a bare `AttributeError`: correct about what
+  the attribute is, and silent to the one category this package tells
+  callers to catch. A caller wrapping workspace work in
+  `except PyflightstreamError` got a traceback instead of the sentence the
+  retirement registry wrote for that moment. It now raises
+  `pyflightstream.exceptions.RetiredNameError`, which inherits BOTH
+  `AttributeError` and `PyflightstreamError`, so neither reading is
+  privileged and no caller who was catching the first is broken. This is
+  the shape `MatrixError` has carried since it was catalogued, and the
+  exceptions catalog's two base guards both refused the class until it was
+  registered in their tables by name.
+
 - **THE PACKAGE-LEVEL ROTOR FRAME IS GONE, not renamed** (the author, on the
   rename made first: "isso nao deveria nem existir agora que o padrao e por
   <ALIAS>"). At 0.14.0 a reference described one propulsor, so one frame at
