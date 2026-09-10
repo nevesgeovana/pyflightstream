@@ -39,8 +39,11 @@ FlightStream versions.
 - **A rotation names what it turns by ALIAS** (FR-71), the same word a
   motion uses, so every surface that names a group of boundaries now names
   it the same way and the reference is the one place a study says what its
-  groups are. A rotation naming a word the reference does not declare is
-  refused at plan time, naming it.
+  groups are. It names exactly ONE declared word: a rotation carries the
+  frames of what it turns, and those belong to one rotor. A word the
+  reference does not declare is refused at plan time, naming it, and a
+  word naming two declared rotors is refused telling you to write one
+  record per rotor.
 - **Every frame an alias owns turns with it.** Turning a rotor turns
   `<ALIAS>_SMRP`, `<ALIAS>_RMRP` and each `<ALIAS>_RMRP<k>`, so a row no
   longer lists by hand the frames its own rotor placed, and the motion
@@ -99,6 +102,16 @@ FlightStream versions.
 - A rotation record's `FAMILIES`, which named its boundaries inline. Write
   `ALIAS` and let the reference say what it owns; a row listing families is
   a row that has to be edited when the mesh is renamed. Removed at 0.17.0.
+  THE VALUE CHANGES WITH THE KEY, which a rename does not:
+
+      ROTATE: {ANGLE: 3 / AXIS: NAC-Y / FAMILIES: Blade,S / AUX_FRAMES: PROP_MRP}
+      ROTATE: {ANGLE: 3 / AXIS: NAC-Y / ALIAS: PUSHER}
+
+  `ALIAS` names the ROTOR those families belong to, not the list. `ANGLE`
+  and `AXIS` are unaffected, `AUX_FRAMES` is no longer needed because the
+  alias carries that rotor's frames, and a families list spanning two
+  rotors becomes one record per rotor. The warning names the words your
+  own reference declares, so the value to write is in front of you.
 - `SweepAxis(type="alpha_beta")`, the paired sweep. A matrix row cannot ask
   for one since the layout lost `SWEEP_TYPE`, and a hand-written
   `campaign.toml` still can: a sweep is ONE variable, so write

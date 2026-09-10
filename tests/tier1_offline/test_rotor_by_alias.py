@@ -20,11 +20,16 @@ cannot be expressed at all.
 
 from __future__ import annotations
 
+import warnings
 from pathlib import Path
 
 import pytest
 
-from pyflightstream._errors import PyflightstreamDeprecationWarning, PyflightstreamError
+from pyflightstream._errors import (
+    PyflightstreamDeprecationWarning,
+    PyflightstreamError,
+    PyflightstreamWarning,
+)
 from pyflightstream._fsm import MESH_MARKER
 from pyflightstream.cases import BladeDatum, EngineBlock, ReferenceData, SimCase, SweepAxis
 from pyflightstream.cases.workflows import (
@@ -315,6 +320,139 @@ def test_a_rotation_still_naming_families_warns_and_turns_the_same_boundaries(tm
         text = rendered(rotating_case(tmp_path, record))
     turned = set(surface_rotation(text).splitlines()[1].split(","))
     assert turned == {str(MESH.index(name) + 1) for name in ("Spinner", "Blade_1")}, turned
+
+
+def test_no_frame_turns_twice_however_many_names_it_answers_to(tmp_path):
+    """The row says three degrees, so every frame turns three degrees.
+
+    FOUND BY ALL THREE LENSES, and it shipped for an hour. A rotor's hub
+    has two names at one index, `<ALIAS>_SMRP` and `PROP_MRP<k>`, and its
+    moving frame arrived both as a frame the alias owns and as a FOLLOWER
+    of the hub. The emission list was keyed on NAMES, so `PUSHER_RMRP`
+    was rotated twice and the blades then spun about an axis at twice the
+    stated incidence. A silent physics defect on the release's own
+    headline path.
+
+    The case that should have caught it read the turned frames into a
+    SET, which collapses a duplicate. It is a list here, and that is the
+    whole point: the assertion is about MULTIPLICITY.
+    """
+    for record in (
+        "{ANGLE: 3 / AXIS: PUSHER_SMRP-Y / ALIAS: PUSHER}",
+        # And the half-migrated shape the deprecation invites, where the
+        # 0.14.0 key names the same frames the alias already carries.
+        "{ANGLE: 3 / AXIS: PUSHER_SMRP-Y / ALIAS: PUSHER / AUX_FRAMES: PROP_MRP2}",
+    ):
+        text = rendered(rotating_case(tmp_path, record))
+        turned = [frame_names(text)[index] for index in rotated_frames(text)]
+        assert turned == sorted(set(turned), key=turned.index), (
+            f"a frame turns more than once, so the row's angle is applied twice: {turned}"
+        )
+        assert set(turned) == {
+            "PUSHER_SMRP",
+            "PUSHER_RMRP",
+            "PUSHER_RMRP1",
+            "PUSHER_RMRP2",
+            "PUSHER_RMRP3",
+        }, turned
+
+
+def test_the_recommended_row_is_not_advised_to_write_the_key_this_release_retires(tmp_path):
+    """Turning a rotor by its alias warns about nothing.
+
+    The advisory that fires when blades turn and their axis does not was
+    keyed on the frame's NAME, and the alias turns that frame under a
+    different name, so the release's own recommended row was told the axis
+    had stayed where it was and told to fix it by writing AUX_FRAMES,
+    which the same release retires. Obeying it turned the hub twice.
+    """
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", PyflightstreamWarning)
+        warnings.simplefilter("ignore", PyflightstreamDeprecationWarning)
+        rendered(rotating_case(tmp_path, "{ANGLE: 3 / AXIS: PUSHER_SMRP-Y / ALIAS: PUSHER}"))
+
+
+def test_a_mesh_family_is_not_a_coordinate_system(tmp_path):
+    """The blade frames joined the frame table by TWO keys, and one is a family.
+
+    `_rotor_blade_frames` keys its result by the frame's own name and by
+    the blade's mesh family, because a pproc entry may cite either.
+    Merging both into the frames a rotation may cite made `AXIS:
+    Blade_1-Y` legal, so a typo naming a boundary where a frame was meant
+    was accepted, and every refusal listing "the frames this case defines"
+    taught a vocabulary that does not exist.
+    """
+    with pytest.raises(PyflightstreamError) as refused:
+        rendered(rotating_case(tmp_path, "{ANGLE: 3 / AXIS: Blade_1-Y / ALIAS: PUSHER}"))
+    message = str(refused.value)
+    assert "Blade_1" in message and "no frame of that name" in message
+    assert "PUSHER_SMRP" in message, "the refusal does not list the frames that do exist"
+
+
+def test_two_retired_records_warn_twice(tmp_path):
+    """A row migrating record by record is told about every record.
+
+    The warning was built from the case id and the ledger text alone, so
+    two records of one row produced a byte-identical message at one
+    warning-registry key and Python's DEFAULT filter dropped the second.
+    Measured under `default`, not `always`: under `always` the defect is
+    invisible, which is how a case here would pass for the wrong reason.
+    """
+    record = (
+        "{ANGLE: 3 / AXIS: PUSHER_SMRP-Y / FAMILIES: Spinner}, "
+        "{ANGLE: -2 / AXIS: PUSHER_SMRP-Z / FAMILIES: Blade_1}"
+    )
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("default", PyflightstreamDeprecationWarning)
+        rendered(rotating_case(tmp_path, record))
+    retired = [w for w in caught if "FAMILIES" in str(w.message)]
+    assert len(retired) == 2, [str(w.message)[:120] for w in retired]
+
+
+def test_the_retired_warning_says_the_value_changes_and_not_only_the_key(tmp_path):
+    """A rename of the key alone would be `ALIAS: Blade,S`, which is refused.
+
+    The ledger renders "FAMILIES was renamed to ALIAS; use ALIAS", which
+    instructs the literal edit and lands the reader in the refusal one
+    line later. The warning names the words the reference declares, which
+    is the information the warn site has and the user needs.
+    """
+    with pytest.warns(PyflightstreamDeprecationWarning) as caught:
+        rendered(rotating_case(tmp_path, "{ANGLE: 3 / AXIS: PUSHER_SMRP-Y / FAMILIES: Spinner}"))
+    message = next(str(w.message) for w in caught if "FAMILIES" in str(w.message))
+    assert "PUSHER" in message and "LIFT_L1" in message, (
+        "the warning does not name the words the reference declares"
+    )
+    assert "one record per alias" in message, (
+        "the warning does not say what becomes of a families list spanning two rotors"
+    )
+
+
+def test_an_alias_naming_two_declared_rotors_is_told_to_split_the_record(tmp_path):
+    """The shape a FAMILIES migration produces, and the one with no single answer.
+
+    `FAMILIES: Blade_1,LB_L1_1` spans two rotors and has no alias to
+    become. Written as `ALIAS: PUSHER,LIFT_L1` it met a refusal saying the
+    reference declares no such alias and then LISTING BACK the two words
+    the user had just written, which reads as a defect to the person
+    holding it.
+    """
+    both = "{ANGLE: 3 / AXIS: PUSHER_SMRP-Y / ALIAS: PUSHER,LIFT_L1}"
+    with pytest.raises(PyflightstreamError) as refused:
+        rendered(rotating_case(tmp_path, both))
+    message = str(refused.value)
+    assert "2 declared words" in message, message
+    assert "one record per alias" in message, "the refusal does not say what to write instead"
+
+
+def test_a_declared_alias_that_is_not_a_rotor_turns_its_boundaries_and_no_frame(tmp_path):
+    """FR-71's own sentence, which no case measured until the quality lens said so."""
+    case = rotating_case(tmp_path, "{ANGLE: 3 / AXIS: PUSHER_SMRP-Y / ALIAS: WING}")
+    case.aliases["WING"] = ["W"]
+    text = rendered(case)
+    turned = set(surface_rotation(text).splitlines()[1].split(","))
+    assert turned == {str(MESH.index("W") + 1)}, turned
+    assert rotated_frames(text) == [], "a non-rotor alias turned a frame it does not own"
 
 
 def test_a_rotor_block_built_without_an_alias_is_refused(tmp_path):

@@ -2213,12 +2213,29 @@ requirement below is one seam of that division.
     A rotation citing an alias the reference does not declare is refused
     naming the alias, and listing the words the reference does declare.
 
+    `ALIAS` names EXACTLY ONE declared word, and that is not an arbitrary
+    limit: a rotation carries the frames of what it turns, and those belong
+    to one rotor. A word naming two declared rotors is refused telling the
+    author to write one record per rotor, which is the shape a `FAMILIES`
+    list spanning two rotors converts to and the one case the conversion
+    cannot do by substitution.
+
     The `FAMILIES` spelling is read with a deprecation warning until 0.17.0,
-    so every matrix written before this release keeps working; `AUX_FRAMES`
-    beside it still names frames that turn, because what the alias makes
-    unnecessary it does not forbid. A record stating `ALIAS` and `FAMILIES`
+    so every matrix written before this release keeps working, and the
+    warning names the words the reference declares, because the key changes
+    AND SO DOES THE VALUE and the warn site holds that information.
+    `AUX_FRAMES` beside it still names frames that turn, because what the
+    alias makes unnecessary it does not forbid; it is not deprecated and
+    carries no removal promise. A record stating `ALIAS` and `FAMILIES`
     both is refused: one rotation turns ONE set, and picking one of two
     statements silently is how the wrong half of a study gets turned.
+
+    NO FRAME TURNS TWICE, however many names it answers to. A rotor's hub
+    is `<ALIAS>_SMRP` and `PROP_MRP<k>` at one index, and its moving frame
+    is both a frame the alias owns and a follower of the hub, so an
+    emission list keyed on NAMES applied the row's angle twice and the
+    blades then spun about an axis at twice the stated incidence. The
+    emission is keyed on the frame.
 
     After this requirement a row names a set of boundaries one way, whether it
     moves them, turns them or measures them, which is what makes the fourteen

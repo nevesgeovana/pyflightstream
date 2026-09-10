@@ -94,6 +94,10 @@ from pyflightstream.cases.workflows import (
     LOG_OUTPUT_VARIABLE,
     MOTIONS_VARIABLE,
     ROTATE_VARIABLE,
+    ROTATION_ALIAS_KEY,
+    ROTATION_FAMILIES_KEY,
+    ROTATION_OPTIONAL_KEYS,
+    ROTATION_RECORD_KEYS,
     workflow_names,
 )
 
@@ -740,29 +744,6 @@ def _parse_variables(cell: str) -> dict[str, str]:
     return variables
 
 
-#: The keys a rotation record carries. ``ANGLE`` and ``AXIS`` are always
-#: stated; WHAT IT TURNS is stated once, as ``ALIAS`` since 0.15.0 or as
-#: ``FAMILIES`` before it.
-ROTATION_RECORD_KEYS = ("ANGLE", "AXIS")
-
-#: The word a rotation turns (FR-71, her design of 2026-09-10). A rotation
-#: and a motion cite a set THE SAME WAY, which is the whole point of the
-#: rename: after it, every surface of this package that names a group of
-#: boundaries names it by alias, and the reference is the one place a
-#: study says what its groups are.
-ROTATION_ALIAS_KEY = "ALIAS"
-
-#: The 0.14.0 spelling, read with a deprecation warning until 0.17.0. It
-#: named the boundaries INLINE, which is the thing the alias replaces: a
-#: row listing families is a row that has to be edited when the mesh is
-#: renamed, and there are as many of those rows as there are studies.
-ROTATION_FAMILIES_KEY = "FAMILIES"
-
-#: What the alias makes unnecessary rather than what it forbids. Every
-#: frame an alias OWNS turns with its boundaries since 0.15.0, so a record
-#: no longer lists them; a record still listing them is read with a
-#: warning until 0.17.0 and the frames it names turn as they did.
-ROTATION_OPTIONAL_KEYS = ("AUX_FRAMES",)
 _ROTATION_AXIS = re.compile(r"^.+-[XYZ]$")
 
 
@@ -797,8 +778,9 @@ def _parse_rotations(variables: dict[str, str], pol: str) -> list[dict[str, str]
     PFS-2034.02, the same grammar as ``MOTIONS`` (her answer of
     2026-09-09: "the declaration stays as we do with motion; two braces
     are two, in the order of the input"). Each record states ``ANGLE``
-    in degrees, ``AXIS`` as ``<frame>-<X|Y|Z>`` and ``FAMILIES``, and may
-    state ``AUX_FRAMES``; a key outside those four, a missing one, an
+    in degrees, ``AXIS`` as ``<frame>-<X|Y|Z>`` and ``ALIAS`` (or the
+    0.14.0 ``FAMILIES``, read with a warning until 0.17.0), and may
+    state ``AUX_FRAMES``; a key outside those five, a missing one, an
     angle that is not a number and an axis token of another shape are
     refused here, naming the cell, so a row is refused at plan time and
     never at the solver. What the names RESOLVE to (the frame, the

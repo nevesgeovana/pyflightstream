@@ -215,7 +215,7 @@ MOTIONS_VARIABLE = "MOTIONS"
 #: The row's ROTATION of the opened mesh (PFS-2034.02, her design of
 #: 2026-09-09, design/69): a list of records like ``MOTIONS``, each one
 #: rotation, in the order written, ``ROTATE: {ANGLE: 3 / AXIS: NAC-Y /
-#: FAMILIES: Blade,S / AUX_FRAMES: PROP_MRP}, {...}``. ``AXIS`` names a
+#: ALIAS: PUSHER}, {...}``. ``AXIS`` names a
 #: frame the setup defines or the package creates and one of its axes;
 #: ``FAMILIES`` names boundaries or families of the geometry, never
 #: indices; ``AUX_FRAMES`` names the frames that turn with the mesh. One
@@ -223,6 +223,34 @@ MOTIONS_VARIABLE = "MOTIONS"
 #: sweep. Read by :mod:`pyflightstream.cases.matrix` into
 #: :attr:`~pyflightstream.cases.SimCase.rotations`.
 ROTATE_VARIABLE = "ROTATE"
+
+#: The keys a rotation record carries. ``ANGLE`` and ``AXIS`` are always
+#: stated; WHAT IT TURNS is stated once, as ``ALIAS`` since 0.15.0 or as
+#: ``FAMILIES`` before it.
+ROTATION_RECORD_KEYS = ("ANGLE", "AXIS")
+
+#: The word a rotation turns (FR-71, her design of 2026-09-10). A rotation
+#: and a motion cite a set THE SAME WAY, which is the whole point of the
+#: rename: after it, every surface of this package that names a group of
+#: boundaries names it by alias, and the reference is the one place a
+#: study says what its groups are.
+ROTATION_ALIAS_KEY = "ALIAS"
+
+#: The 0.14.0 spelling, read with a deprecation warning until 0.17.0. It
+#: named the boundaries INLINE, which is the thing the alias replaces: a
+#: row listing families is a row that has to be edited when the mesh is
+#: renamed, and there are as many of those rows as there are studies.
+ROTATION_FAMILIES_KEY = "FAMILIES"
+
+#: What the alias makes unnecessary rather than what it forbids. Every
+#: frame an alias OWNS turns with its boundaries since 0.15.0, so a record
+#: no longer lists them; a record still listing them is read SILENTLY and
+#: the frames it names turn as they did, and a frame the alias already
+#: carries is not turned twice for having been named twice. This comment
+#: said "read with a warning until 0.17.0" until a review round asked
+#: where that warning was: there is none, and no ledger entry behind it
+#: either (2026-09-10).
+ROTATION_OPTIONAL_KEYS = ("AUX_FRAMES",)
 #: The direction a rotor case's relaxed trailing edges shed their wake:
 #: AXIAL (0) or AZIMUTH (1), the second being what 26.123 adds and what a
 #: rotor case wants (SRC-751 p.85). Absent means the row asks for nothing
@@ -3637,7 +3665,7 @@ def _rotations(
     for record in case.rotations:
         # The matrix reader refused these already; a case authored in
         # Python meets the same sentence here rather than a KeyError.
-        missing = [key for key in ("ANGLE", "AXIS") if key not in record]
+        missing = [key for key in ROTATION_RECORD_KEYS if key not in record]
         if missing:
             raise CampaignConfigError(
                 f"case {case.sim_id!r} states a {ROTATE_VARIABLE} record without "
@@ -3690,30 +3718,77 @@ def _rotations(
         aux_frames = [
             _rotation_frame(case, aux_name, frames, "AUX_FRAMES") for aux_name in aux_names
         ]
-        for spun_about, spun in (spinning or {}).items():
-            turned_blades = sorted(set(boundaries) & set(spun))
-            if turned_blades and spun_about not in aux_names:
-                warnings.warn(
-                    f"case {case.sim_id!r} states {ROTATE_VARIABLE} turning "
-                    f"{_named_boundaries(turned_blades, labels)} by {angle} degrees about "
-                    f"{token} and does not name {spun_about} among its AUX_FRAMES, so the "
-                    "blades turn and the axis they spin about stays where it was. If the "
-                    f"incidence is meant for the rotor, add AUX_FRAMES: {spun_about} to the "
-                    "record; if the blades alone are meant to turn, this is your call and "
-                    "the script does what the row says.",
-                    PyflightstreamWarning,
-                    stacklevel=3,
-                )
+        # WHAT ACTUALLY TURNS, BY INDEX AND ONCE EACH. One frame has more
+        # than one name -- a rotor's hub is `<ALIAS>_SMRP` and `PROP_MRP<k>`
+        # at the same index, and `<ALIAS>_RMRP` is both a frame the alias
+        # owns and a FOLLOWER of the hub -- so a list keyed on names turned
+        # the same frame twice and a row asking for three degrees got six.
+        # Measured on the release's own recommended spelling (the interface
+        # lens, 2026-09-10).
+        turning: list[int] = []
         for aux_name, aux in zip(aux_names, aux_frames, strict=True):
-            turned = [aux, *((followers or {}).get(aux_name, ()))]
-            for index in turned:
-                script.emit(
-                    "ROTATE_COORDINATE_SYSTEM",
-                    frame=index,
-                    rotation_frame=frame,
-                    rotation_axis=axis,
-                    angle=angle,
-                )
+            for index in (aux, *((followers or {}).get(aux_name, ()))):
+                if index not in turning:
+                    turning.append(index)
+        # ONE ADVISORY PER FRAME, and the question is whether the FRAME
+        # turned rather than whether its name was typed. A rotor's hub has
+        # two names in `spinning`, the alias one and the 0.14.0 one, at one
+        # index, so a name-keyed walk both warned twice about one frame and
+        # warned at all about a frame the alias had just turned: the
+        # release's own recommended row was told the axis stayed where it
+        # was, and told to fix it with a key the same release retires (all
+        # three lenses, 2026-09-10).
+        for axis_index, (spun_about, spun) in _axes_the_blades_spin_about(spinning, frames).items():
+            turned_blades = sorted(set(boundaries) & set(spun))
+            if not turned_blades or axis_index in turning:
+                continue
+            remedy = (
+                f"turn it by its alias, which carries {spun_about} and the rest of that "
+                "rotor's frames"
+                if spun_about.endswith("_SMRP")
+                else f"add AUX_FRAMES: {spun_about} to the record"
+            )
+            warnings.warn(
+                f"case {case.sim_id!r} states {ROTATE_VARIABLE} turning "
+                f"{_named_boundaries(turned_blades, labels)} by {angle} degrees about "
+                f"{token} and does not turn {spun_about}, so the blades turn and the "
+                "axis they spin about stays where it was. If the incidence is meant "
+                f"for the rotor, {remedy}; if the blades alone are meant to turn, this "
+                "is your call and the script does what the row says.",
+                PyflightstreamWarning,
+                stacklevel=3,
+            )
+        for index in turning:
+            script.emit(
+                "ROTATE_COORDINATE_SYSTEM",
+                frame=index,
+                rotation_frame=frame,
+                rotation_axis=axis,
+                angle=angle,
+            )
+
+
+def _axes_the_blades_spin_about(
+    spinning: Mapping[str, Sequence[int]] | None, frames: Mapping[str, int]
+) -> dict[int, tuple[str, Sequence[int]]]:
+    """Collapse the spun-about frames to one entry per FRAME, best-named.
+
+    `spinning` is keyed by every name a frame answers to: a rotor's hub is
+    both ``<ALIAS>_SMRP`` and ``PROP_MRP<k>`` at one index. The advisory
+    that reads it is about a FRAME, so it walks indices, and the name it
+    reports is the alias one where there is one, because that is the name
+    the user can act on: the alias carries the frame, and the 0.14.0
+    spelling is the key this release retires.
+    """
+    best: dict[int, tuple[str, Sequence[int]]] = {}
+    for name, spun in (spinning or {}).items():
+        index = frames.get(name)
+        if index is None:
+            continue
+        held = best.get(index)
+        if held is None or (name.endswith("_SMRP") and not held[0].endswith("_SMRP")):
+            best[index] = (name, spun)
+    return best
 
 
 def _what_the_rotation_turns(case: SimCase, record: Mapping[str, str]) -> str:
@@ -3726,8 +3801,6 @@ def _what_the_rotation_turns(case: SimCase, record: Mapping[str, str]) -> str:
     between the exact label and the family, so one word resolves the same
     way here as it does in a motion.
     """
-    from pyflightstream.cases.matrix import ROTATION_ALIAS_KEY, ROTATION_FAMILIES_KEY
-
     alias = record.get(ROTATION_ALIAS_KEY)
     families = record.get(ROTATION_FAMILIES_KEY)
     if alias is not None and families is not None:
@@ -3739,14 +3812,29 @@ def _what_the_rotation_turns(case: SimCase, record: Mapping[str, str]) -> str:
     if alias is not None:
         token = alias.strip()
         declared = {*case.aliases, *case.engines}
-        if declared and not any(name.casefold() == token.casefold() for name in declared):
+        if not any(name.casefold() == token.casefold() for name in declared):
+            # A LIST OF DECLARED WORDS IS A DIFFERENT MISTAKE, and it is the
+            # one a `FAMILIES` migration produces: the old key took a list
+            # and this one does not, so the refusal that merely lists the
+            # declared words reads as a bug to the person who just wrote two
+            # of them (the interface lens, 2026-09-10).
+            parts = [part.strip() for part in token.split(",") if part.strip()]
+            folded = {name.casefold() for name in declared}
+            if len(parts) > 1 and all(part.casefold() in folded for part in parts):
+                raise CampaignConfigError(
+                    f"case {case.sim_id!r} states {ROTATE_VARIABLE} turning "
+                    f"{ROTATION_ALIAS_KEY}: {token}, which names {len(parts)} declared "
+                    "words. A rotation turns ONE alias, because the frames that turn "
+                    "with it are that one rotor's. Write one record per alias, "
+                    "{...}, {...}, in the order you want them turned."
+                )
             raise CampaignConfigError(
                 f"case {case.sim_id!r} states {ROTATE_VARIABLE} turning "
                 f"{ROTATION_ALIAS_KEY}: {token}, and the reference declares no such "
                 f"alias. The words it declares are "
                 f"{', '.join(repr(name) for name in sorted(declared)) or 'none'}. A "
                 "rotation names a set the way a motion does, so the word is one the "
-                "reference owns."
+                "reference owns, and a rotor among them carries its own frames."
             )
         return token
     if families is None:
@@ -3757,8 +3845,20 @@ def _what_the_rotation_turns(case: SimCase, record: Mapping[str, str]) -> str:
             f"turn. State {ROTATION_ALIAS_KEY}: <the word the reference declares>, which "
             "is how a motion names a set too."
         )
+    # THE RECORD'S OWN TEXT IS IN THE MESSAGE, and that is not decoration.
+    # Built from the case id and the ledger alone, two records of one row
+    # produced a byte-identical message at an identical warning-registry
+    # key, so Python's default filter dropped the second and a row
+    # migrating record by record was told about one of them (measured by
+    # the quality lens, 2026-09-10: 1 warning where 2 were due).
+    written = " / ".join(f"{key}: {value}" for key, value in record.items())
+    words = sorted({*case.aliases, *case.engines})
     warnings.warn(
-        f"case {case.sim_id!r}: {ROW_ROTATE_FAMILIES.message()}",
+        f"case {case.sim_id!r}, {ROTATE_VARIABLE} record {{{written}}}: "
+        f"{ROW_ROTATE_FAMILIES.message()} It is not a rename of the key alone: the "
+        f"VALUE becomes one word the reference declares, of "
+        f"{', '.join(repr(name) for name in words) or 'none'}, and a families list "
+        "spanning two of them becomes one record per alias.",
         PyflightstreamDeprecationWarning,
         stacklevel=3,
     )
@@ -3768,7 +3868,7 @@ def _what_the_rotation_turns(case: SimCase, record: Mapping[str, str]) -> str:
 def _frames_the_alias_owns(
     case: SimCase, record: Mapping[str, str], frames: Mapping[str, int]
 ) -> list[str]:
-    """Return the frames the record's alias owns, in creation order (FR-71).
+    """Return the frames the record's alias owns (FR-71).
 
     A rotor owns ``<ALIAS>_SMRP``, ``<ALIAS>_RMRP`` and one
     ``<ALIAS>_RMRP<k>`` per blade, which is exactly the set
@@ -3780,8 +3880,6 @@ def _frames_the_alias_owns(
     a row whose rotor has no motion (and therefore no frames) turns its
     boundaries and rotates nothing that does not exist.
     """
-    from pyflightstream.cases.matrix import ROTATION_ALIAS_KEY
-
     alias = (record.get(ROTATION_ALIAS_KEY) or "").strip()
     if not alias:
         return []
@@ -4922,7 +5020,14 @@ def _rotor_motions(
     # once the alias carried its own frames (FR-71), could not TURN one
     # either: a row turning a rotor left its per-blade frames behind, which
     # is the same defect the release fixed one layer up for the motion.
-    named.update(blade_frames)
+    # ONLY THE FRAME-NAMED HALF. `_rotor_blade_frames` returns two keys per
+    # blade, the frame's own `<ALIAS>_RMRP<k>` and the blade's mesh FAMILY,
+    # because a pproc entry may cite either. Merging both put family names
+    # into the frame namespace, so `AXIS: Blade_1-Y` resolved as a
+    # coordinate system and the refusal listing "the frames this case
+    # defines" taught a vocabulary that does not exist (the architecture
+    # lens, 2026-09-10; measured: it was accepted).
+    named.update({name: index for name, index in blade_frames.items() if "_RMRP" in name})
     _rotations(case, script, named, followers=followers, spinning=spinning)
     # The pproc entries cite a rotor's frames by the same names (her p001
     # of 2026-09-09: PUSHER_X in PROP_MRP2 while the lifters spin).

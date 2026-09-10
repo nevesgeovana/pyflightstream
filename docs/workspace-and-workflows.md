@@ -1436,11 +1436,14 @@ every run type; `PROP_MRP` on the rotor run types, and a rotor's own
 **`ALIAS` names what turns, and it is the same word a motion uses.** That
 is the whole of the 0.15.0 change here: after it, every surface of this
 package that names a group of boundaries names it by alias, and the
-reference is the one place a study says what its groups are. The word
-resolves as `MOVING_BC_ALIAS` does, a label first, an alias second, a
-family third, and never an index. A rotation naming a word the reference
-does not declare is refused at plan time, naming the word and listing the
-ones it does declare.
+reference is the one place a study says what its groups are.
+
+It names **exactly one** word the reference declares. Unlike
+`MOVING_BC_ALIAS` it does not fall through to a bare label or a family:
+a rotation carries the frames of the thing it turns, and those belong to
+one rotor, so `ALIAS: PUSHER,LIFT_L1` is refused telling you to write one
+record per alias, `{...}, {...}`. A word the reference does not declare
+at all is refused naming it and listing the ones it does.
 
 **EVERY FRAME THE ALIAS OWNS TURNS WITH IT**, which is why `AUX_FRAMES`
 retires. A rotor's frames are placed FROM its hub, so turning the rotor
@@ -1452,9 +1455,21 @@ entry reads in those frames stay in the blade's own axes, with nothing
 else to write. An alias that is not a rotor owns no frame and turns none.
 
 `FAMILIES` is the 0.14.0 spelling of `ALIAS` and is read with a
-deprecation warning until 0.17.0; `AUX_FRAMES` beside it still names
-frames that turn. A record stating `ALIAS` and `FAMILIES` both is
-refused: one rotation turns ONE set.
+deprecation warning until 0.17.0. A record stating `ALIAS` and `FAMILIES`
+both is refused: one rotation turns ONE set.
+
+`AUX_FRAMES` is **not deprecated and not removed**: it is no longer
+NEEDED for a rotor, because the alias carries that rotor's frames, and it
+still names any frame you want turned that the alias does not own. Naming
+a frame the alias already carries costs nothing, since no frame turns
+twice however many names it answers to.
+
+**Migrating a `FAMILIES` record.** The key changes AND SO DOES THE VALUE:
+`FAMILIES: Blade,S` becomes `ALIAS: PUSHER`, the rotor those families
+belong to, not the list itself. The deprecation warning names the words
+your reference declares, so the value is in front of you. A families list
+spanning two rotors becomes one record per rotor. `ANGLE` and `AXIS` are
+unaffected.
 
 The rotation is emitted after every frame exists and before any motion is
 created, on every run type. One row is one geometry, so the angles of a
