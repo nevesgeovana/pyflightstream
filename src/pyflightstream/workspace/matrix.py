@@ -1363,7 +1363,16 @@ def resolve_matrix(
             )
         campaign_version = named[0]
     campaign = to_campaign(
-        path, name=name, fs_version=campaign_version, fs_exe=str(exe), recipes=recipes
+        path,
+        name=name,
+        fs_version=campaign_version,
+        fs_exe=str(exe),
+        recipes=recipes,
+        # THE ONE CALLER THAT WILL RESOLVE THEM. A raw FILE record needs the
+        # workspace's inputs, which this function has and `to_campaign` does
+        # not; the list it builds is replaced below with the preset's lines
+        # and the row's fully resolved ones (FR-67).
+        defer_raw_files=True,
     )
     references: dict[str, ReferenceArtifact] = {}
     setups: dict[str, SetupArtifact] = {}

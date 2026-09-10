@@ -243,6 +243,7 @@ read by the package rather than ignored:
 | v0.15.0 | `MOVING_BC_ALIAS`, the rotor a motion record moves, an alias the reference declares as an engine block. It is the ONLY rotor identity a row carries: the hub, the axis, the sign, the blade count and the diameter come from that block, and a record stating `MOVING_BOUNDARIES`, `ROTOR_AXIS`, `ROTOR_ORIGIN`, `RPM_SIGN` or `BLADES` beside it is refused naming both (FR-61) |
 | v0.15.0 | `CLOCK_MOTION`, which of the row's motions owns the time step and the run length. A row of several motions that states none keeps the arithmetic of 0.14.0, the fastest rotor, and warns naming the motion it assumed; the key becomes required at 0.17.0 (FR-64) |
 | v0.15.0 | `SYMMETRY_LOADS`, whether the solver reports the loads of the meshed sector or of the whole wheel. On every run type, because a mirrored or periodic mesh is opened by a steady row too; a row stating it overrides the preset and warns naming both files (FR-66) |
+| v0.15.0 | `RAW`, a list of records, one raw solver command each or one file of them, in the order written: `RAW: {COMMAND: SOLVER_SET_ITERATIONS 350 / BEFORE: init}, {FILE: raw/extra.txt / BEFORE: init}`; a record states `COMMAND` or `FILE` and never both, and `BEFORE`, the phase it goes before, spelled as the preset's `[[raw]]` table spells it. **ITS PAIRS SPLIT ON A SPACED SLASH**, ` / `, and not on the bare one every other record kind uses, because its values are a path and a command line and both carry slashes of their own. A raw file is a path under `inputs/` whose blank lines and `#` lines are skipped (FR-67), see [What a solver preset may say](#what-a-solver-preset-may-say) |
 
 **A WORKFLOW ROW STATES ONLY WHAT THE SCRIPT WILL CARRY.** Each run type
 registers the keys it reads (`Workflow.keys` in
@@ -653,9 +654,67 @@ plan`; so is an argument of the wrong type, a command whose grammar is a
 block rather than a line (the table carries one-line commands only), and
 a command of a later phase than the one it is declared before, which
 would put the script past that phase. The run record carries the lines
-the script took as `raw_commands` (`command`, `before`, `setup`), and the
-provenance document carries them on the solver run (PFS-2033.02). A
-preset stating none changes nothing.
+the script took as `raw_commands` (`command`, `before`, `setup`,
+`source`), and the provenance document carries them on the solver run
+(PFS-2033.02). A preset stating none changes nothing.
+
+**SINCE 0.15.0 A ROW MAY STATE ITS OWN** (FR-67), which is what the
+`RAW` key of `VAR_NAMES_VALUES` is, and it extends this table rather than
+replacing it. A record writes the line itself or names a text file of
+`inputs/`:
+
+    ... / RAW: {COMMAND: SOLVER_SET_ITERATIONS 350 / BEFORE: init},
+               {FILE: raw/extra.txt / BEFORE: init}
+
+written on ONE line in the real cell. **The pairs of a raw record split on
+a spaced slash**, ` / `, and not on the bare one `MOTIONS` and `ROTATE`
+use, because a path and a command line carry slashes of their own; a
+record written with tight slashes is read as one pair and refused for the
+key it appears to be missing.
+
+A raw FILE is read line by line, in order, with a blank line and a line
+opening with `#` skipped so the file may explain itself. Every line passes
+the same emitter checks a preset's line passes, and a file carrying a
+command this build lacks is refused naming THE FILE AND THE LINE rather
+than the cell, because the cell holds a path and the mistake may be thirty
+lines away. A path that resolves outside `inputs/` is refused: a raw file
+must be one a second machine has.
+
+**AT ONE SEAM THE PRESET'S LINES COME FIRST AND THE ROW'S AFTER**, the
+shared ground and then the specific over it. Within the row the records
+are in cell order, so a file's lines land where its record sits. Each
+line's `source` on the run record says where it came from: the setup's id,
+the word `matrix` for a line written in the row's own cell, or
+`<path>:<line number>` for a line read out of a file.
+
+A script that WRITES a matrix should not repeat these literals, for the
+reason `SWEEP_WORD` exists: a generator building rows in Python spells the
+key by importing the name, so a row it writes is a row this reader
+accepts, and the two cannot drift apart. A person typing a cell into a
+text editor imports nothing and needs none of this.
+
+<!-- skip: next -->
+```python
+from pyflightstream.cases.workflows import (
+    RAW_BEFORE_KEY,
+    RAW_COMMAND_KEY,
+    RAW_FILE_KEY,
+    RAW_VARIABLE,
+)
+
+# The cell tail a generator is about to write out.
+record = {RAW_COMMAND_KEY: "SOLVER_SET_ITERATIONS 350", RAW_BEFORE_KEY: "init"}
+cell = f"{RAW_VARIABLE}: {{" + " / ".join(f"{k}: {v}" for k, v in record.items()) + "}"
+# -> 'RAW: {COMMAND: SOLVER_SET_ITERATIONS 350 / BEFORE: init}'
+
+# And the same for a file, which is the other of the two forms.
+by_file = {RAW_FILE_KEY: "raw/extra.txt", RAW_BEFORE_KEY: "init"}
+# -> 'RAW: {FILE: raw/extra.txt / BEFORE: init}'
+```
+
+Note the `" / "` in the join: the spaced separator is the raw record's
+grammar, not a style choice, so a generator that writes `"/"` produces a
+row this reader refuses.
 
 A preset named **groups of mesh families** at 0.14.0 (her
 decision of 2026-09-09), in an `[aliases]` table, one key per alias:
@@ -1290,8 +1349,10 @@ type's, and the window is the one the row states:
 | file | run type | window |
 |---|---|---|
 | `plots/<point>_time_average.csv` | `unsteady_rotor` and `unsteady` | the export window the row states (`WINDOW_DEGREES`, `WINDOW_STEPS` or `WINDOW_REVOLUTIONS`); without one, a rotor row's last revolution (from `DELTA_THETA` and `REVOLUTIONS`, or `RPM` and `DELTA_TIME`), and a rotorless row's whole run (`DELTA_TIME` and `TIME_ITERATIONS`) |
-| `plots/<point>_phase_locked.csv` | `unsteady_rotor` | the time-average window cut into blade passages, one revolution over `BLADES` steps each, a trailing partial passage dropped; one row per passage |
-| `plots/<point>_per_blade.csv` | `unsteady_rotor` | the last revolution of the run cut into one window per blade, contiguous and ending at the run's last step; one row per blade |
+| `plots/<point>_phase_locked_<ALIAS>.csv` | `unsteady_rotor`, a row naming its rotors | the time-average window cut into blade passages OF THAT ROTOR, one of its revolutions over its own blade count, a trailing partial passage dropped; one row per passage |
+| `plots/<point>_per_blade_<ALIAS>.csv` | `unsteady_rotor`, a row naming its rotors | the last revolution OF THAT ROTOR cut into one window per blade, contiguous and ending at the run's last step; one row per blade |
+| `plots/<point>_phase_locked.csv` | `unsteady_rotor`, a row naming no rotor by alias | the time-average window cut into blade passages, one revolution over `BLADES` steps each, a trailing partial passage dropped; one row per passage |
+| `plots/<point>_per_blade.csv` | `unsteady_rotor`, a row naming no rotor by alias | the last revolution of the run cut into one window per blade, contiguous and ending at the run's last step; one row per blade |
 
 Every window is counted in solver steps, inclusive, 1-based, and row `k` of
 the plots table is step `k`; the table's own time column is averaged like
@@ -1303,11 +1364,42 @@ from the file beside it. The windows travel on the run record: `pyfs-matrix
 run` resolves them off the row when it writes the record (`reductions` in
 `runs.json`), and `pyfs-matrix post` reads the record alone. A reduction the
 row cannot window is listed under `skipped` with the reason, keyed by the
-file it would have been: a rotor row stating no `BLADES` skips the two
-passage reductions; a plots table shorter than the window skips every
-reduction over it; a record written before this field existed skips the
-time average naming the record. Not applicable is not skipped: a rotorless
-point lists no per-blade file anywhere.
+file it would have been: a rotor row that names NO rotor by alias and
+states no `BLADES` skips the two passage reductions; a plots table shorter
+than the window skips every reduction over it; a record written before this
+field existed skips the time average naming the record. Not applicable is
+not skipped: a rotorless point lists no per-blade file anywhere.
+
+**SINCE 0.15.0 A ROW THAT NAMES ITS ROTORS REDUCES PER ROTOR** (FR-68), and
+it needs no `BLADES` of its own: each rotor's blade count is the one its
+engine block declares, and each rotor's blade passage is ITS OWN
+revolution, `60 / (rev per minute * the solver step)`, divided by its
+blades. A transition row turning four lifters at 2200 rev/min and a pusher
+at 900 reduces the two over passages of different lengths in one run, which
+one file per reduction cannot hold, so the files name the rotor and the
+flat `<point>_per_blade.csv` is listed under `skipped` with a reason naming
+the files written instead. The windows live on the run record under
+`rotors` (`pyflightstream.cases.workflows.ROTORS_KEY`), alias to that
+rotor's block, and each written file's manifest entry carries a `rotor`
+field, so the rotor is readable without taking a file name apart. The two
+reductions that are per rotor are named by
+`pyflightstream.cases.workflows.PER_ROTOR_REDUCTIONS`; the time average is
+not among them, because it is one window of the whole point whatever turns
+in it. A rotor whose motion cannot be resolved is a SKIP under its own name
+rather than an absence, so a rotor never simply vanishes from the products.
+
+<!-- skip: next -->
+```python
+from pyflightstream.cases.workflows import PER_ROTOR_REDUCTIONS, ROTORS_KEY
+
+# Reading a run record's reductions without hard-coding either name.
+per_rotor = record.reductions.get(ROTORS_KEY, {})
+for alias, block in per_rotor.items():
+    for reduction in PER_ROTOR_REDUCTIONS:
+        entry = block[reduction]
+        # -> {'windows': [[448, 515], ...], 'period_steps': 68, ...}
+        #    or {'skipped': '<the reason this rotor has none>'}
+```
 
 A worked example, the tier-1 fixture: a rotor row of eight steps, four
 steps per revolution, two blades, an export window of six steps. The

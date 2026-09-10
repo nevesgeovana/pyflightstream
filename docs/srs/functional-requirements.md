@@ -2110,7 +2110,7 @@ requirement below is one seam of that division.
     over them.
 
     The run record names each line's source, the setup's id, the word
-    `matrix`, or the file's path, and a file's lines are recorded AS EMITTED,
+    `matrix`, or the file's path WITH ITS LINE NUMBER, `<path>:<line>`, and a file's lines are recorded AS EMITTED,
     so a record still reproduces the run after the file has changed.
 
     ONE THING THIS TEXT DID NOT ANTICIPATE, and her own row 9209 is where it

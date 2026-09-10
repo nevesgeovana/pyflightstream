@@ -78,6 +78,38 @@ def test_a_file_path_survives_the_record_separator(tmp_path):
     assert row.raw == [{"FILE": "raw/pusher_extra.txt", "BEFORE": "init"}]
 
 
+def test_a_record_written_with_tight_slashes_is_told_about_the_spacing(tmp_path):
+    """A refusal that argues with the evidence it prints sends the author the wrong way.
+
+    `{FILE: raw/x.txt/BEFORE: init}` is read as ONE pair whose value
+    swallowed the rest, so the author used to be told the record states no
+    BEFORE while the message quoted back, in the same sentence, the BEFORE
+    they had written; and it then listed the phases, which is the one part
+    of the cell that was already right (the interface and architecture
+    lenses, independently, 2026-09-10).
+    """
+    with pytest.raises(MatrixError) as refused:
+        only_row(tmp_path, f"{BASE} / RAW: {{FILE: raw/x.txt/BEFORE: init}}")
+    said = str(refused.value)
+    assert "no spaces around it" in said, said
+    assert "BEFORE was swallowed" in said, said
+
+
+def test_a_misspelled_phase_is_refused_where_the_cell_is_read(tmp_path):
+    """The phase list is known here, so a misspelling need not wait for the model.
+
+    It used to pass this reader whole and surface at `resolve_matrix` as a
+    pydantic error with no POL and no matrix vocabulary, while the MISSING
+    phase three lines away got a careful refusal listing the phases (the
+    interface lens, 2026-09-10).
+    """
+    with pytest.raises(MatrixError) as refused:
+        only_row(tmp_path, f"{BASE} / RAW: {{COMMAND: PRINT x / BEFORE: inti}}")
+    said = str(refused.value)
+    assert "'inti'" in said and "not a phase" in said, said
+    assert "9001" in said, "the refusal does not name the POL"
+
+
 def test_a_record_stating_both_forms_is_refused(tmp_path):
     """The line and the file are the same statement made twice, with no order between."""
     with pytest.raises(MatrixError) as refused:
@@ -146,6 +178,17 @@ def resolved_row(tmp_path, file_text=None, row=RAW_ROW):
         raw_dir.mkdir(exist_ok=True)
         (raw_dir / "extra.txt").write_text(file_text, encoding="utf-8")
     path = write_matrix(tmp_path / "raw.fs", [row])
+    # A RUN TYPE, NOT LEGACY. `write_matrix` upgrades a pre-0.8.0 row, whose
+    # WORKFLOW becomes LEGACY, and a LEGACY row is refused the RAW key for
+    # the reason `test_a_legacy_row_may_not_state_raw_commands` states: its
+    # own recipe emits no raw command, so the lines would be recorded as
+    # taken and never emitted. This fixture is about the FILE resolution, so
+    # it names a run type.
+    text = path.read_text(encoding="utf-8")
+    path.write_text(
+        text.replace("| LEGACY ", "| steady ").replace("OUTPUTS: loads_{point}.txt / ", ""),
+        encoding="utf-8",
+    )
     resolved = resolve_matrix(
         path,
         workspace,
@@ -211,3 +254,156 @@ def test_a_file_outside_the_inputs_is_refused(tmp_path):
     with pytest.raises(MatrixError) as refused:
         resolved_row(tmp_path, FILE_TEXT, row=escaping)
     assert "outside the workspace" in str(refused.value)
+
+
+def test_a_legacy_row_may_not_state_raw_commands(tmp_path):
+    """The guard the preset's own table already had, which the row's list walked past.
+
+    A LEGACY row is built by its own recipe, which emits no raw command, so
+    the case would carry the lines and the RUN RECORD would claim them
+    while the script never took them. `_not_on_a_legacy_row` refuses the
+    PRESET's `[[raw]]` table on such a row for exactly that reason, one
+    function away, and the row's own list was appended beside it with no
+    guard (the architecture lens, 2026-09-10).
+    """
+    from tests.tier1_offline.test_matrix_run import write_matrix
+
+    path = write_matrix(tmp_path / "legacy.fs", [RAW_ROW])
+    with pytest.raises(MatrixError) as refused:
+        read_matrix(path)
+    said = str(refused.value)
+    assert "LEGACY" in said and "RAW" in said, said
+    assert "never emitted" in said or "recorded as taken" in said, said
+
+
+def test_a_raw_file_needs_a_workspace_and_says_so_where_there_is_none(tmp_path):
+    """`to_campaign` reads a matrix and has no inputs to resolve a FILE against.
+
+    It used to drop the whole RAW cell in silence, so a matrix read without
+    a workspace, which `to_campaign` and `convert_matrix` both are and both
+    public, lost every raw command a row stated: no error, no warning, and
+    the row had parsed cleanly (the architecture lens, 2026-09-10).
+    """
+    from pyflightstream.cases.matrix import to_campaign
+    from tests.tier1_offline.test_matrix_run import RECIPES, write_matrix
+
+    path = write_matrix(tmp_path / "nows.fs", [RAW_ROW])
+    text = path.read_text(encoding="utf-8")
+    path.write_text(
+        text.replace("| LEGACY ", "| steady ").replace("OUTPUTS: loads_{point}.txt / ", ""),
+        encoding="utf-8",
+    )
+    with pytest.raises(MatrixError) as refused:
+        to_campaign(
+            path, name="x", fs_version="26.120", fs_exe="C:/fs/FlightStream.exe", recipes=RECIPES
+        )
+    said = str(refused.value)
+    assert "raw/extra.txt" in said and "workspace" in said, said
+
+
+def test_a_command_record_converts_without_a_workspace(tmp_path):
+    """A COMMAND record is already resolved: the line and the phase are in the cell."""
+    from pyflightstream.cases.matrix import to_campaign
+    from tests.tier1_offline.test_matrix_run import RECIPES, write_matrix
+
+    row = RAW_ROW.replace("{FILE: raw/extra.txt / BEFORE: init}, ", "")
+    path = write_matrix(tmp_path / "cellonly.fs", [row])
+    text = path.read_text(encoding="utf-8")
+    path.write_text(
+        text.replace("| LEGACY ", "| steady ").replace("OUTPUTS: loads_{point}.txt / ", ""),
+        encoding="utf-8",
+    )
+    campaign = to_campaign(
+        path, name="x", fs_version="26.120", fs_exe="C:/fs/FlightStream.exe", recipes=RECIPES
+    )
+    case = next(sim for sim in campaign.sims if sim.sim_id == "9301")
+    assert [entry.command for entry in case.raw_commands] == ["PRINT after_the_file"]
+    assert case.raw_commands[0].source == "matrix"
+
+
+def test_the_presets_line_comes_before_the_rows_at_a_shared_seam(tmp_path):
+    """THE REQUIREMENT'S HEADLINE, which no test asserted until this round.
+
+    "after the preset's at the same seam" is in FR-67's own title, in the
+    CHANGELOG and in a code comment naming her row 9210, and it was
+    measured NOWHERE: the ordering case resolved a row against a setup
+    that states no raw line at all, so it asserted only the order INSIDE
+    the row (the technical-writing lens and the architecture lens,
+    independently, 2026-09-10).
+
+    This is her row 9210 as a test: a preset line, then the row's file,
+    then the row's own cell line.
+    """
+    from pyflightstream.workspace.matrix import resolve_matrix
+    from tests.tier1_offline.test_matrix_run import RECIPES, make_library, write_matrix
+
+    workspace = make_library(tmp_path)
+    setup = workspace.inputs_dir / "setups" / "s002.toml"
+    setup.write_text(
+        setup.read_text(encoding="utf-8")
+        + '\n[[raw]]\ncommand = "PRINT from_the_preset"\nbefore = "init"\n',
+        encoding="utf-8",
+    )
+    raw_dir = workspace.inputs_dir / "raw"
+    raw_dir.mkdir(exist_ok=True)
+    (raw_dir / "extra.txt").write_text(FILE_TEXT, encoding="utf-8")
+
+    path = write_matrix(tmp_path / "seam.fs", [RAW_ROW])
+    text = path.read_text(encoding="utf-8")
+    path.write_text(
+        text.replace("| LEGACY ", "| steady ").replace("OUTPUTS: loads_{point}.txt / ", ""),
+        encoding="utf-8",
+    )
+    resolved = resolve_matrix(
+        path,
+        workspace,
+        name="seam",
+        fs_version="26.120",
+        recipes=RECIPES,
+        fs_exe="C:/fs/FlightStream.exe",
+    )
+    case = next(sim for sim in resolved.campaign.sims if sim.sim_id == "9301")
+    assert [entry.source for entry in case.raw_commands] == [
+        "s002",
+        "raw/extra.txt:5",
+        "raw/extra.txt:6",
+        "matrix",
+    ], [entry.source for entry in case.raw_commands]
+    assert case.raw_commands[0].command == "PRINT from_the_preset", (
+        "the preset's line is not first: the shared ground comes before the specific"
+    )
+
+
+def test_the_documented_generator_example_writes_a_cell_this_reader_accepts(tmp_path):
+    """The example on `docs/workspace-and-workflows.md`, RUN.
+
+    It is the argument `SWEEP_WORD` already makes on the conditions page: a
+    generator that spells the key by importing the name writes a row this
+    reader accepts, and the two cannot drift apart. Executing it here is
+    what keeps the page from rotting into a lie, and it is what the docs
+    arm of GOAL-014 asks for.
+    """
+    from pyflightstream.cases.workflows import (
+        RAW_BEFORE_KEY,
+        RAW_COMMAND_KEY,
+        RAW_FILE_KEY,
+        RAW_VARIABLE,
+    )
+
+    record = {RAW_COMMAND_KEY: "SOLVER_SET_ITERATIONS 350", RAW_BEFORE_KEY: "init"}
+    cell = f"{RAW_VARIABLE}: {{" + " / ".join(f"{k}: {v}" for k, v in record.items()) + "}"
+    assert cell == "RAW: {COMMAND: SOLVER_SET_ITERATIONS 350 / BEFORE: init}"
+
+    by_file = {RAW_FILE_KEY: "raw/extra.txt", RAW_BEFORE_KEY: "init"}
+    other = f"{RAW_VARIABLE}: {{" + " / ".join(f"{k}: {v}" for k, v in by_file.items()) + "}"
+    assert other == "RAW: {FILE: raw/extra.txt / BEFORE: init}"
+
+    # THE READER ACCEPTS WHAT THE GENERATOR WROTE, which is the whole claim.
+    assert only_row(tmp_path, f"{BASE} / {cell}").raw == [record]
+    assert only_row(tmp_path, f"{BASE} / {other}").raw == [by_file]
+
+    # And the page's closing note: a generator writing the BARE separator
+    # produces a row this reader refuses.
+    tight = f"{RAW_VARIABLE}: {{" + "/".join(f"{k}: {v}" for k, v in by_file.items()) + "}"
+    with pytest.raises(MatrixError):
+        only_row(tmp_path, f"{BASE} / {tight}")

@@ -324,3 +324,26 @@ def test_a_row_with_no_rotor_carries_no_per_rotor_block(recipe):
     if plan is None:
         return  # steady rows carry no history at all
     assert "rotors" not in plan
+
+
+def test_the_documented_record_reader_example_runs():
+    """The example on `docs/workspace-and-workflows.md`, RUN.
+
+    A consumer reading a run record's reductions should not hard-code
+    either `rotors` or the pair of per-rotor reduction names, and the page
+    shows how; executing it is what keeps the page from rotting into a lie,
+    and it is what the docs arm of GOAL-014 asks for.
+    """
+    from pyflightstream.cases.workflows import PER_ROTOR_REDUCTIONS, ROTORS_KEY
+
+    plan = reduction_windows(transition_case())
+    assert plan is not None
+    per_rotor = plan.get(ROTORS_KEY, {})
+    assert set(per_rotor) == {"LIFT_L1", "PUSHER"}
+    for alias, block in per_rotor.items():
+        for reduction in PER_ROTOR_REDUCTIONS:
+            entry = block[reduction]
+            assert "windows" in entry or "skipped" in entry, (alias, reduction, entry)
+    assert "time_average" not in PER_ROTOR_REDUCTIONS, (
+        "the time average is one window of the whole point, whatever turns in it"
+    )

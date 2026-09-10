@@ -78,6 +78,7 @@ from pyflightstream.cases import (
     ROTATION_OFFSET_KEY,
     ROTATION_SWEEP_KEY,
     Campaign,
+    RawCommand,
     SimCase,
     SweepAxis,
     default_outputs,
@@ -827,12 +828,50 @@ def _raw_records(variables: dict[str, str], pol: str) -> list[dict[str, str]]:
                 f"arguments included; {RAW_FILE_KEY} is a path under the workspace's "
                 "inputs, whose lines are emitted in order."
             )
+        # THE SPACING IS THE CAUSE, AND IT IS NAMED. A record written with
+        # tight slashes, `{FILE: raw/x.txt/BEFORE: init}`, is read as ONE
+        # pair whose value swallowed the rest, so the author was told the
+        # record states no BEFORE while the message quoted back, in the
+        # same sentence, the BEFORE they had written. A refusal that argues
+        # with the evidence it prints sends the author to fix the one part
+        # of the cell that was right (the interface and architecture
+        # lenses, independently, 2026-09-10).
+        swallowed = next(
+            (
+                key
+                for key in allowed
+                if len(record) == 1
+                and any(f"/{key}:" in value or f"/ {key}:" in value for value in record.values())
+            ),
+            None,
+        )
+        if swallowed is not None:
+            raise MatrixError(
+                f"POL {pol}: {RAW_VARIABLE} record {{{written}}} was read as ONE pair, "
+                f"because its separator has no spaces around it and {swallowed} was "
+                f"swallowed into the value before it. A raw record separates its pairs "
+                f"with ' / ', a slash WITH SPACES, and only a raw record does: its values "
+                "are a path and a command line and both carry slashes of their own."
+            )
         if not record.get(RAW_BEFORE_KEY):
             raise MatrixError(
                 f"POL {pol}: {RAW_VARIABLE} record {{{written}}} states no {RAW_BEFORE_KEY}; "
                 f"every raw command names the phase it goes before, one of "
                 f"{', '.join(RAW_PHASES[1:])}, or control for a line at the head of the "
                 "script."
+            )
+        # THE PHASE IS CHECKED WHERE THE INFORMATION IS. A misspelled phase
+        # passed this reader whole and was refused at `resolve_matrix` by
+        # the model's own validator, as a pydantic error with no POL and no
+        # matrix vocabulary, while the MISSING phase three lines above got
+        # a careful refusal listing the phases. `RAW_PHASES` is already
+        # imported here (the interface lens, 2026-09-10).
+        before = record[RAW_BEFORE_KEY].strip()
+        if before not in RAW_PHASES:
+            raise MatrixError(
+                f"POL {pol}: {RAW_VARIABLE} record {{{written}}} goes before {before!r}, "
+                f"which is not a phase; write one of {', '.join(RAW_PHASES[1:])}, or "
+                "control for a line at the head of the script."
             )
     return records
 
@@ -1209,6 +1248,22 @@ def read_matrix(path: str | Path, *, active_only: bool = True) -> list[MatrixRow
                 "is built by its own recipe, which reads no rotation, so the list would turn "
                 f"nothing. Name a run type in the WORKFLOW column ({', '.join(workflow_names())}), "
                 "which rotates what the records name, or drop the key."
+            )
+        if raw and record["WORKFLOW"] == LEGACY_WORKFLOW:
+            # THE SAME RULE, FOR THE SAME REASON, and it was missing: a
+            # LEGACY row is built by its own recipe, which emits no raw
+            # command, so the case would carry the lines and the RUN
+            # RECORD would claim them while the script never took them.
+            # The preset's `[[raw]]` table is already refused on such a
+            # row, one function away, and the row's own list walked past
+            # that guard through a door opened beside it (the architecture
+            # lens, 2026-09-10).
+            raise MatrixError(
+                f"POL {record['POL']} writes LEGACY and states {RAW_VARIABLE}; a LEGACY row "
+                "is built by its own recipe, which emits no raw command, so the lines would "
+                "be recorded as taken and never emitted. Name a run type in the WORKFLOW "
+                f"column ({', '.join(workflow_names())}), which emits them at the phase each "
+                "record names, or drop the key."
             )
         # THE CELL CARRIES TWO SUBJECTS SINCE 0.15.0 (FR-69, FR-70): the
         # flow state, which is resolved into density and velocity, and the
@@ -2170,6 +2225,38 @@ def _declared_outputs(row: MatrixRow, *, required: bool = True) -> list[str]:
     return outputs
 
 
+def _raw_without_a_workspace(row: MatrixRow, *, defer_files: bool) -> list[RawCommand]:
+    """Return the row's COMMAND records as commands, refusing a FILE record (FR-67).
+
+    This layer reads a matrix and has no workspace, so it cannot open the
+    text file a FILE record names. A COMMAND record needs nothing it does
+    not have: the line and the phase are both in the cell.
+
+    ``defer_files`` is TRUE for exactly one caller, `resolve_matrix`, which
+    has the inputs and replaces this list with the fully resolved one a
+    moment later. Every other caller is terminal for the matrix it reads,
+    and a FILE record it silently dropped would be a raw command the author
+    wrote and no script ever took.
+    """
+    entries: list[RawCommand] = []
+    for record in row.raw:
+        line = record.get(RAW_COMMAND_KEY)
+        if not line:
+            if defer_files:
+                continue
+            raise MatrixError(
+                f"POL {row.pol}: {RAW_VARIABLE} names the file "
+                f"{record.get(RAW_FILE_KEY, '')!r}, and this conversion has no workspace "
+                f"to resolve it against. A {RAW_FILE_KEY} record is read where the "
+                f"inputs are, which is `resolve_matrix`; a {RAW_COMMAND_KEY} record needs "
+                "no workspace and converts here."
+            )
+        entries.append(
+            RawCommand(command=line, before=record[RAW_BEFORE_KEY].strip(), source="matrix")
+        )
+    return entries
+
+
 def to_campaign(
     path: str | Path,
     *,
@@ -2178,6 +2265,7 @@ def to_campaign(
     fs_exe: str,
     recipes: Mapping[str, str],
     require_outputs: bool = True,
+    defer_raw_files: bool = False,
 ) -> Campaign:
     """Convert a run matrix into a native :class:`Campaign`.
 
@@ -2276,12 +2364,19 @@ def to_campaign(
                 outputs=_declared_outputs(row, required=require_outputs),
                 motions=[dict(record) for record in row.motions],
                 rotations=[dict(record) for record in row.rotations],
-                # THE ROW'S RAW RECORDS DO NOT RIDE ON THE CASE, deliberately.
-                # A record may name a FILE, and resolving one needs the
-                # workspace's inputs, which this layer does not have; the
-                # workspace expands them into `raw_commands`, which is the
-                # RESOLVED form and the one a hand-authored case states
-                # directly (FR-67).
+                # A COMMAND RECORD IS ALREADY RESOLVED and rides on the case
+                # here; a FILE record is not, because reading one needs the
+                # workspace's inputs, which this layer does not have, and the
+                # workspace expands those into `raw_commands`.
+                #
+                # THE FILE RECORD IS REFUSED RATHER THAN DROPPED. The first
+                # writing dropped the whole cell in silence, so a matrix read
+                # WITHOUT a workspace, which `to_campaign` and `convert_matrix`
+                # both are and both public, lost every raw command a row
+                # stated: no error, no warning, and the row had parsed
+                # cleanly, so the author had every reason to think it took
+                # (the architecture lens, 2026-09-10).
+                raw_commands=_raw_without_a_workspace(row, defer_files=defer_raw_files),
                 variables=variables,
             )
         )
