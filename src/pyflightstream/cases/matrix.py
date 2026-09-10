@@ -740,9 +740,28 @@ def _parse_variables(cell: str) -> dict[str, str]:
     return variables
 
 
-#: The keys a rotation record carries (PFS-2034.02): the three every
-#: record states and the one it may.
-ROTATION_RECORD_KEYS = ("ANGLE", "AXIS", "FAMILIES")
+#: The keys a rotation record carries. ``ANGLE`` and ``AXIS`` are always
+#: stated; WHAT IT TURNS is stated once, as ``ALIAS`` since 0.15.0 or as
+#: ``FAMILIES`` before it.
+ROTATION_RECORD_KEYS = ("ANGLE", "AXIS")
+
+#: The word a rotation turns (FR-71, her design of 2026-09-10). A rotation
+#: and a motion cite a set THE SAME WAY, which is the whole point of the
+#: rename: after it, every surface of this package that names a group of
+#: boundaries names it by alias, and the reference is the one place a
+#: study says what its groups are.
+ROTATION_ALIAS_KEY = "ALIAS"
+
+#: The 0.14.0 spelling, read with a deprecation warning until 0.17.0. It
+#: named the boundaries INLINE, which is the thing the alias replaces: a
+#: row listing families is a row that has to be edited when the mesh is
+#: renamed, and there are as many of those rows as there are studies.
+ROTATION_FAMILIES_KEY = "FAMILIES"
+
+#: What the alias makes unnecessary rather than what it forbids. Every
+#: frame an alias OWNS turns with its boundaries since 0.15.0, so a record
+#: no longer lists them; a record still listing them is read with a
+#: warning until 0.17.0 and the frames it names turn as they did.
 ROTATION_OPTIONAL_KEYS = ("AUX_FRAMES",)
 _ROTATION_AXIS = re.compile(r"^.+-[XYZ]$")
 
@@ -789,14 +808,20 @@ def _parse_rotations(variables: dict[str, str], pol: str) -> list[dict[str, str]
     if text is None:
         return []
     records = _parse_records(text, pol, ROTATE_VARIABLE, "rotation")
-    allowed = (*ROTATION_RECORD_KEYS, *ROTATION_OPTIONAL_KEYS)
+    allowed = (
+        *ROTATION_RECORD_KEYS,
+        ROTATION_ALIAS_KEY,
+        ROTATION_FAMILIES_KEY,
+        *ROTATION_OPTIONAL_KEYS,
+    )
     for record in records:
         unknown = sorted(key for key in record if key not in allowed)
         if unknown:
             raise MatrixError(
                 f"POL {pol}: {ROTATE_VARIABLE} record states {', '.join(unknown)}, which a "
-                f"rotation does not read; a record holds {', '.join(ROTATION_RECORD_KEYS)} and "
-                f"optionally {', '.join(ROTATION_OPTIONAL_KEYS)}."
+                f"rotation does not read; a record holds {', '.join(ROTATION_RECORD_KEYS)} "
+                f"and {ROTATION_ALIAS_KEY}, and optionally "
+                f"{', '.join(ROTATION_OPTIONAL_KEYS)}."
             )
         missing = [key for key in ROTATION_RECORD_KEYS if key not in record]
         if missing:
@@ -805,6 +830,7 @@ def _parse_rotations(variables: dict[str, str], pol: str) -> list[dict[str, str]
                 f"POL {pol}: {ROTATE_VARIABLE} record {{{written}}} states no "
                 f"{', '.join(missing)}; every rotation states {', '.join(ROTATION_RECORD_KEYS)}."
             )
+        _refuse_a_rotation_that_names_its_set_twice_or_not_at_all(record, pol)
         try:
             float(record["ANGLE"])
         except ValueError:
@@ -819,6 +845,36 @@ def _parse_rotations(variables: dict[str, str], pol: str) -> list[dict[str, str]
                 "uppercase), as NAC-Y."
             )
     return records
+
+
+def _refuse_a_rotation_that_names_its_set_twice_or_not_at_all(
+    record: Mapping[str, str], pol: str
+) -> None:
+    """Refuse a rotation that names what it turns twice, or not at all (FR-71).
+
+    ``ALIAS`` since 0.15.0, ``FAMILIES`` before it, and never both: two
+    statements of what one rotation turns cannot both be obeyed, and
+    picking one silently is how the wrong half of a study gets turned.
+    Neither is a record that says how far to turn and about what, and
+    nothing to turn.
+    """
+    alias = record.get(ROTATION_ALIAS_KEY)
+    families = record.get(ROTATION_FAMILIES_KEY)
+    if alias is not None and families is not None:
+        raise MatrixError(
+            f"POL {pol}: {ROTATE_VARIABLE} record states {ROTATION_ALIAS_KEY}: {alias} AND "
+            f"{ROTATION_FAMILIES_KEY}: {families}; one rotation turns ONE set, so the two "
+            f"cannot both be what it turns. {ROTATION_FAMILIES_KEY} is the 0.14.0 spelling "
+            f"and {ROTATION_ALIAS_KEY} replaces it: keep the alias, and let the reference "
+            "say what it owns."
+        )
+    if alias is None and families is None:
+        written = " / ".join(f"{k}: {v}" for k, v in record.items())
+        raise MatrixError(
+            f"POL {pol}: {ROTATE_VARIABLE} record {{{written}}} says how far to turn and "
+            f"about what, and nothing to turn. State {ROTATION_ALIAS_KEY}: <the word the "
+            "reference declares>, which is how a motion names a set too."
+        )
 
 
 def _parse_records(text: str, pol: str, key: str, noun: str) -> list[dict[str, str]]:

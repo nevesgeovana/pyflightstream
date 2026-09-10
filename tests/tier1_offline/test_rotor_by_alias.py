@@ -24,10 +24,15 @@ from pathlib import Path
 
 import pytest
 
-from pyflightstream._errors import PyflightstreamError
+from pyflightstream._errors import PyflightstreamDeprecationWarning, PyflightstreamError
 from pyflightstream._fsm import MESH_MARKER
 from pyflightstream.cases import BladeDatum, EngineBlock, ReferenceData, SimCase, SweepAxis
-from pyflightstream.cases.workflows import WORKFLOW_KEY, build_script, rotor_speed
+from pyflightstream.cases.workflows import (
+    ROTATE_VARIABLE,
+    WORKFLOW_KEY,
+    build_script,
+    rotor_speed,
+)
 from pyflightstream.script import Script
 
 #: The two rotors of the use case, cut to what one row needs: a lifter of
@@ -123,6 +128,193 @@ def motion_payloads(text: str) -> list[str]:
     return [
         lines[i + 1] for i, line in enumerate(lines) if line.startswith("SET_MOTION_BOUNDARIES")
     ]
+
+
+# --- FR-71: a rotation cites the alias, and the alias's frames turn with it ---
+#
+# Her design of 2026-09-10, PFS-2035.17. A ROTATE record states ALIAS
+# where it stated FAMILIES, so a rotation and a motion cite a set the same
+# way; and AUX_FRAMES retires, because every frame the alias OWNS turns
+# with the boundaries and the row no longer has to list them.
+#
+# WHAT IS NOT BUILT HERE and is hers: whether `<ALIAS>_SMRP_ORIGINAL` is
+# created once per alias or once per record (PFS-2035.17's own open
+# question, and named in her goal as hers alone). No case below asserts
+# anything about it.
+
+
+def frame_names(text: str) -> dict[int, str]:
+    """Map each frame INDEX to the name the script gave it."""
+    lines = text.splitlines()
+    return {
+        int(lines[i + 1].split()[1]): lines[i + 2].split(" ", 1)[1]
+        for i, line in enumerate(lines)
+        if line == "EDIT_COORDINATE_SYSTEM"
+    }
+
+
+def rotated_frames(text: str, after_the_surface_rotation: bool = True) -> list[int]:
+    """The FRAME indices a ROTATE_COORDINATE_SYSTEM turns, in the order emitted.
+
+    SCOPED TO WHAT THE ROTATE RECORD EMITS, and that scoping is the point.
+    Placing a rotor's blade frames turns each of them by its share of a
+    turn, so the script is full of frame rotations that have nothing to do
+    with the row's incidence, and a case reading them all was green before
+    a line of FR-71 existed. `_rotations` emits the surface rotation first
+    and the frames it carries after it, so the surface rotation is the
+    boundary.
+    """
+    from pyflightstream.script.helpers import ROTATION_COMMANDS
+
+    lines = text.splitlines()
+    start = 0
+    if after_the_surface_rotation:
+        start = next(
+            i
+            for i, line in enumerate(lines)
+            if line.split()[:1] and line.split()[0] in ROTATION_COMMANDS
+        )
+    return [
+        int(lines[i + 1].split()[1])
+        for i, line in enumerate(lines[start:], start=start)
+        if line == "ROTATE_COORDINATE_SYSTEM"
+    ]
+
+
+def surface_rotation(text: str) -> str:
+    """The one surface rotation the script emits: its line and its boundaries.
+
+    The verb is whichever of the two spellings the build carries
+    (`helpers.ROTATION_COMMANDS`), which is why it is found rather than
+    written out here, and it carries its arguments ON ITS OWN LINE with
+    the boundary indices on the next.
+    """
+    from pyflightstream.script.helpers import ROTATION_COMMANDS
+
+    lines = text.splitlines()
+    starts = [
+        i
+        for i, line in enumerate(lines)
+        if line.split()[:1] and line.split()[0] in ROTATION_COMMANDS
+    ]
+    assert starts, f"no surface rotation was emitted:\n{text[:600]}"
+    assert len(starts) == 1, f"{len(starts)} surface rotations emitted, expected one"
+    start = starts[0]
+    return "\n".join(lines[start : start + 2])
+
+
+def rotating_case(tmp_path, records, **overrides) -> SimCase:
+    """A two-rotor row that also turns something, stated as ROTATE records.
+
+    The records go through the MATRIX READER's own parser rather than
+    being handed to the case as a list, so a case built here is refused by
+    the same sentences a row in a file is, and a test cannot accidentally
+    build a record the reader would never produce.
+    """
+    from pyflightstream.cases.matrix import _parse_rotations
+
+    case = two_rotor_case(tmp_path, **overrides)
+    case.rotations = _parse_rotations({ROTATE_VARIABLE: records}, case.sim_id)
+    return case
+
+
+def test_a_rotation_cites_the_alias_and_turns_that_rotors_boundaries(tmp_path):
+    """FR-71: ALIAS where FAMILIES was, so a rotation cites a set as a motion does.
+
+    The pusher owns a spinner and three blades. A record naming the rotor
+    turns all four, in the inventory's own order, and the row states no
+    family list at all.
+    """
+    text = rendered(rotating_case(tmp_path, "{ANGLE: 3 / AXIS: PUSHER_SMRP-Y / ALIAS: PUSHER}"))
+    turned = set(surface_rotation(text).splitlines()[1].split(","))
+    assert turned == {
+        str(MESH.index(name) + 1) for name in (*PUSHER.families_general, *PUSHER.families_blades)
+    }, turned
+    # And ONLY that rotor's: the lifter shares the row and is not named.
+    assert not turned & {
+        str(MESH.index(name) + 1) for name in (*LIFTER.families_general, *LIFTER.families_blades)
+    }, turned
+
+
+def test_the_frames_the_alias_owns_turn_with_it_and_no_row_lists_them(tmp_path):
+    """FR-71: AUX_FRAMES retires, because the alias already owns its frames.
+
+    A rotor's frames are `<ALIAS>_SMRP`, `<ALIAS>_RMRP` and one
+    `<ALIAS>_RMRP<k>` per blade. Turning the rotor turns all of them, so
+    the axis the blades spin about follows the incidence the row states
+    instead of being left behind, which is what AUX_FRAMES had to be
+    written by hand for.
+    """
+    text = rendered(rotating_case(tmp_path, "{ANGLE: 3 / AXIS: PUSHER_SMRP-Y / ALIAS: PUSHER}"))
+    # BY NAME, not by count. Counting `ROTATE_COORDINATE_SYSTEM` passes on
+    # any five frames, and the script rotates frames while PLACING the
+    # blade axes, so a count alone was green before a line of this feature
+    # existed.
+    turned = {frame_names(text)[index] for index in rotated_frames(text)}
+    assert turned == {
+        "PUSHER_SMRP",
+        "PUSHER_RMRP",
+        "PUSHER_RMRP1",
+        "PUSHER_RMRP2",
+        "PUSHER_RMRP3",
+    }, turned
+    assert not any(name.startswith("LIFT_L1") for name in turned), (
+        f"the lifter's frames turned with a rotation of the pusher: {turned}"
+    )
+
+
+def test_a_rotation_naming_an_alias_the_reference_does_not_declare_is_refused(tmp_path):
+    """FR-71: refused naming the alias, at plan time and not at the solver."""
+    with pytest.raises(PyflightstreamError) as refused:
+        rendered(rotating_case(tmp_path, "{ANGLE: 3 / AXIS: PUSHER_SMRP-Y / ALIAS: NACELLE}"))
+    message = str(refused.value)
+    assert "NACELLE" in message, message
+    # THE OPERATIVE SENTENCE, not any refusal that names the word. Without
+    # this the token fell through to the inventory, which refuses an absent
+    # NAME and also says NACELLE, so a mutant deleting the alias refusal
+    # entirely walked past this case (the hostile pass, 2026-09-10).
+    assert "declares no such alias" in message, message
+    assert "PUSHER" in message and "LIFT_L1" in message, (
+        "the refusal does not list the words the reference does declare"
+    )
+
+
+def test_a_rotation_stating_both_alias_and_families_is_refused_naming_both(tmp_path):
+    """One rotation turns ONE set, and two statements of it cannot both be obeyed."""
+    from pyflightstream.cases.matrix import MatrixError, _parse_rotations
+
+    with pytest.raises(MatrixError) as refused:
+        _parse_rotations(
+            {"ROTATE": "{ANGLE: 3 / AXIS: PUSHER_SMRP-Y / ALIAS: PUSHER / FAMILIES: Spinner}"},
+            "9214",
+        )
+    message = str(refused.value)
+    assert "ALIAS" in message and "FAMILIES" in message, message
+    # NOT the unknown-key refusal, which names both words too and would
+    # make this case pass before the feature exists.
+    assert "one rotation turns ONE set" in message, message
+
+
+def test_a_rotation_stating_neither_alias_nor_families_is_refused(tmp_path):
+    """A rotation with nothing to turn is a row that says nothing."""
+    from pyflightstream.cases.matrix import MatrixError, _parse_rotations
+
+    with pytest.raises(MatrixError) as refused:
+        _parse_rotations({"ROTATE": "{ANGLE: 3 / AXIS: PUSHER_SMRP-Y}"}, "9214")
+    assert "ALIAS" in str(refused.value)
+
+
+def test_a_rotation_still_naming_families_warns_and_turns_the_same_boundaries(tmp_path):
+    """The 0.14.0 spelling keeps working, with the ledger's own words.
+
+    Every matrix written before this release states FAMILIES, and the row
+    it is in is the row a user is least likely to have looked at twice.
+    """
+    record = "{ANGLE: 3 / AXIS: PUSHER_SMRP-Y / FAMILIES: Spinner,Blade_1}"
+    with pytest.warns(PyflightstreamDeprecationWarning, match=r"FAMILIES.*ALIAS"):
+        text = rendered(rotating_case(tmp_path, record))
+    turned = set(surface_rotation(text).splitlines()[1].split(","))
+    assert turned == {str(MESH.index(name) + 1) for name in ("Spinner", "Blade_1")}, turned
 
 
 def test_a_rotor_block_built_without_an_alias_is_refused(tmp_path):

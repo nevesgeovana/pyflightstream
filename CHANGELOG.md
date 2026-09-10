@@ -36,6 +36,15 @@ FlightStream versions.
 - **`SYMMETRY_LOADS` on the row** (FR-66), overriding the preset with a
   warning, because whether the solver reports the sector's loads or the
   wheel's is a per-row choice.
+- **A rotation names what it turns by ALIAS** (FR-71), the same word a
+  motion uses, so every surface that names a group of boundaries now names
+  it the same way and the reference is the one place a study says what its
+  groups are. A rotation naming a word the reference does not declare is
+  refused at plan time, naming it.
+- **Every frame an alias owns turns with it.** Turning a rotor turns
+  `<ALIAS>_SMRP`, `<ALIAS>_RMRP` and each `<ALIAS>_RMRP<k>`, so a row no
+  longer lists by hand the frames its own rotor placed, and the motion
+  created after the turn spins about the pitched axis.
 - `SweepAxis.held`, the coordinates a row holds at every point of its
   sweep. A converted `campaign.toml` writes them beside `values`.
 - Public names: `EngineBlock`, `BladeDatum` and `AliasCycleError` in
@@ -87,6 +96,9 @@ FlightStream versions.
   `RPM_SIGN` and `BLADES`: the reference states each once, in the rotor's
   own block. Removed at 0.17.0.
 - A rotor row with no `CLOCK_MOTION`. Removed at 0.17.0.
+- A rotation record's `FAMILIES`, which named its boundaries inline. Write
+  `ALIAS` and let the reference say what it owns; a row listing families is
+  a row that has to be edited when the mesh is renamed. Removed at 0.17.0.
 - `SweepAxis(type="alpha_beta")`, the paired sweep. A matrix row cannot ask
   for one since the layout lost `SWEEP_TYPE`, and a hand-written
   `campaign.toml` still can: a sweep is ONE variable, so write

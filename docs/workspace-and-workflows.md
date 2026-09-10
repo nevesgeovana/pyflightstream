@@ -1420,7 +1420,7 @@ run per angle. Since 0.14.0 a row states that turn in its cell
 it was:
 
 ```text
-ROTATE: {ANGLE: 3 / AXIS: NAC-Y / FAMILIES: Blade,S / AUX_FRAMES: PROP_MRP}
+ROTATE: {ANGLE: 3 / AXIS: PUSHER_SMRP-Y / ALIAS: PUSHER}
 ```
 
 `ROTATE` is a list of records with the `MOTIONS` grammar, braces around
@@ -1428,19 +1428,33 @@ each record, commas between them, `/` between the pairs inside. Each
 record is ONE rotation and two records are two rotations in the order
 written, so a pitch and then a toe is `{...}, {...}`. `ANGLE` is in
 degrees; `AXIS` names a coordinate system and one of its axes, as
-`NAC-Y`, where the system is one the setup preset defines in its
+`PUSHER_SMRP-Y`, where the system is one the setup preset defines in its
 `[[frames]]` table (above) or one the package creates itself (`MRP` on
-every run type; `PROP_MRP` on the rotor run types, and on a `MOTIONS` row
-`PROP_MRP1`, `RotorAxis1`, ...);
-`FAMILIES` names the boundaries or families to turn, resolved against the
-geometry's own inventory exactly as `MOVING_BOUNDARIES` is (a label first,
-a family second, never an index); `AUX_FRAMES`, optional, names the frames
-that turn with the mesh, which for a rotor is its axis frame `PROP_MRP`, so
-the motion created after it turns about the pitched axis with nothing else
-to write. A frame the package derived from an auxiliary turns with it: the
-blade axis frames are placed from `PROP_MRP`, so naming `PROP_MRP` turns
-them too, and the blade loads the pproc entries read in those frames stay
-in the blade's own axes.
+every run type; `PROP_MRP` on the rotor run types, and a rotor's own
+`<ALIAS>_SMRP`, `<ALIAS>_RMRP` and `<ALIAS>_RMRP<k>`).
+
+**`ALIAS` names what turns, and it is the same word a motion uses.** That
+is the whole of the 0.15.0 change here: after it, every surface of this
+package that names a group of boundaries names it by alias, and the
+reference is the one place a study says what its groups are. The word
+resolves as `MOVING_BC_ALIAS` does, a label first, an alias second, a
+family third, and never an index. A rotation naming a word the reference
+does not declare is refused at plan time, naming the word and listing the
+ones it does declare.
+
+**EVERY FRAME THE ALIAS OWNS TURNS WITH IT**, which is why `AUX_FRAMES`
+retires. A rotor's frames are placed FROM its hub, so turning the rotor
+and leaving them behind was stating an incidence the axes never got, and
+a row had to list them by hand to fix it. Turning `PUSHER` turns
+`PUSHER_SMRP`, `PUSHER_RMRP` and every `PUSHER_RMRP<k>`, so the motion
+created after it spins about the pitched axis and the blade loads a pproc
+entry reads in those frames stay in the blade's own axes, with nothing
+else to write. An alias that is not a rotor owns no frame and turns none.
+
+`FAMILIES` is the 0.14.0 spelling of `ALIAS` and is read with a
+deprecation warning until 0.17.0; `AUX_FRAMES` beside it still names
+frames that turn. A record stating `ALIAS` and `FAMILIES` both is
+refused: one rotation turns ONE set.
 
 The rotation is emitted after every frame exists and before any motion is
 created, on every run type. One row is one geometry, so the angles of a

@@ -605,6 +605,19 @@ ROW_MOVING_BOUNDARIES = DeprecatedParameter(
     removal_version="0.17.0",
     extra=_STATED_IN_THE_BLOCK,
 )
+ROW_ROTATE_FAMILIES = DeprecatedParameter(
+    owner="a rotation record",
+    old="FAMILIES",
+    new="ALIAS",
+    deprecated_since="0.15.0",
+    removal_version="0.17.0",
+    extra=(
+        "A rotation and a motion cite a set the same way since 0.15.0, so "
+        "the reference is the one place a study says what its groups are. "
+        "A record listing families is a record that has to be edited when "
+        "the mesh is renamed, and the alias is what stops that."
+    ),
+)
 ROW_CLOCK_MOTION_ABSENT = DeprecatedParameter(
     owner="a rotor row",
     old="no CLOCK_MOTION, the clock following the fastest rotor",
@@ -647,5 +660,6 @@ DEPRECATIONS: tuple[Deprecation, ...] = (
     SETUP_ALIASES_TABLE,
     SETUP_FRAMES_TABLE,
     ROW_MOVING_BOUNDARIES,
+    ROW_ROTATE_FAMILIES,
     ROW_CLOCK_MOTION_ABSENT,
 )

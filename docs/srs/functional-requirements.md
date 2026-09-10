@@ -2174,9 +2174,15 @@ requirement below is one seam of that division.
 !!! requirement "FR-71 A rotation cites an alias, carries its frames, and keeps the frame it turned from <span class='srs-pending'>pending</span>"
     *Origin: her decision of 2026-09-10, "o comando de rotate tambem tem que
     ser atualizado para ficar compativel com o do movimento". Carried by
-    PFS-2035.17. Evidence owed: the test it names. AMENDS the `ROTATE` record of
-    FR-35, "Matrix as first-class interface", whose `FAMILIES` and
-    `AUX_FRAMES` keys this replaces.*
+    PFS-2035.17. Evidence: `tests/tier1_offline/test_rotor_by_alias.py` (the
+    rotation cites the alias and turns that rotor's boundaries and no other's;
+    the frames the alias owns turn with it, by name; an undeclared alias is
+    refused naming it; a record stating both spellings is refused naming both;
+    a record stating neither is refused; the 0.14.0 spelling warns and turns
+    the same boundaries). PENDING ON ONE HALF, and it is the half the author
+    owes rather than the one the code owes: see the SMRP_ORIGINAL paragraph
+    below. AMENDS the `ROTATE` record of FR-35, "Matrix as first-class
+    interface", whose `FAMILIES` and `AUX_FRAMES` keys this replaces.*
 
     A `ROTATE` record states `ALIAS` where it stated `FAMILIES`, so a rotation
     and a motion cite a set of boundaries the same way. `AUX_FRAMES` retires:
@@ -2184,19 +2190,35 @@ requirement below is one seam of that division.
     `<ALIAS>_SMRP`, `<ALIAS>_RMRP` and every `<ALIAS>_RMRP<k>`, and for a
     non-rotor alias is none.
 
-    Before the first rotation of an alias the builder creates
-    `<ALIAS>_SMRP_ORIGINAL`, a copy of that frame as it stood, which nothing
-    turns and which a post-processing entry may cite, so a study of an
-    installed propeller keeps the frame it turned FROM. Today that frame is
-    lost the moment the mesh moves.
+    **NOT BUILT, AND THE REASON IS NOT THAT IT IS HARD.** Before the first
+    rotation of an alias the builder creates `<ALIAS>_SMRP_ORIGINAL`, a copy
+    of that frame as it stood, which nothing turns and which a
+    post-processing entry may cite, so a study of an installed propeller
+    keeps the frame it turned FROM. Today that frame is lost the moment the
+    mesh moves.
 
-    Measured 2026-09-10: the builder emits `ROTATE_COORDINATE_SYSTEM` at
-    `cases/workflows.py:3595` and `:3673` and keeps no copy of a frame
+    PFS-2035.17 records the choice as the author's: once per ALIAS, before
+    the first rotation, or once per RECORD, which would also keep the frame
+    BETWEEN two rotations of the same alias. The two differ in what a study
+    of a pitch and then a toe can read afterwards, which is a question about
+    what a user wants to measure and not one the code can answer. Building
+    one of them and writing it down where it would look decided is the
+    failure this estate names design-first, so this half waits.
+
+    Measured 2026-09-10, before the rest of this requirement was built: the
+    builder emits `ROTATE_COORDINATE_SYSTEM` and keeps no copy of a frame
     anywhere; `grep -c "_ORIGINAL" src/pyflightstream/cases/workflows.py`
-    answers 0.
+    answers 0. It still answers 0.
 
     A rotation citing an alias the reference does not declare is refused
-    naming the alias.
+    naming the alias, and listing the words the reference does declare.
+
+    The `FAMILIES` spelling is read with a deprecation warning until 0.17.0,
+    so every matrix written before this release keeps working; `AUX_FRAMES`
+    beside it still names frames that turn, because what the alias makes
+    unnecessary it does not forbid. A record stating `ALIAS` and `FAMILIES`
+    both is refused: one rotation turns ONE set, and picking one of two
+    statements silently is how the wrong half of a study gets turned.
 
     After this requirement a row names a set of boundaries one way, whether it
     moves them, turns them or measures them, which is what makes the fourteen

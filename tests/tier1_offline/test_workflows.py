@@ -44,7 +44,11 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning
+from pyflightstream._errors import (
+    PyflightstreamDeprecationWarning,
+    PyflightstreamError,
+    PyflightstreamWarning,
+)
 from pyflightstream._fsm import (
     MESH_MARKER,
     MeshReadError,
@@ -4330,7 +4334,9 @@ def test_a_case_without_the_rotation_variable_emits_no_rotation(tmp_path):
         ({"ANGLE": "3", "AXIS": "TAIL-Y", "FAMILIES": "Blade1"}, "TAIL"),
         ({"ANGLE": "3", "AXIS": "NAC-Q", "FAMILIES": "Blade1"}, "NAC-Q"),
         ({"ANGLE": "3", "AXIS": "NAC-Y", "FAMILIES": "Fin"}, "Fin"),
-        ({"ANGLE": "3", "AXIS": "NAC-Y"}, "FAMILIES"),
+        # Since 0.15.0 the missing key is ALIAS, and FAMILIES is the
+        # spelling it replaced (FR-71).
+        ({"ANGLE": "3", "AXIS": "NAC-Y"}, "ALIAS"),
     ],
 )
 def test_a_rotation_citing_what_the_case_does_not_have_is_refused_naming_it(
@@ -4375,6 +4381,10 @@ def test_a_rotation_of_the_blades_without_the_axis_frame_warns_naming_it(tmp_pat
     assert any("AUX_FRAMES" in str(w.message) for w in caught), [str(w.message) for w in caught]
     with warnings.catch_warnings():
         warnings.simplefilter("error", PyflightstreamWarning)
+        # The FAMILIES rename is a DIFFERENT subject and these records
+        # still spell it (FR-71); what this arm measures is that turning a
+        # family which does not spin warns nothing about an axis frame.
+        warnings.simplefilter("ignore", PyflightstreamDeprecationWarning)
         build_script(_pitched_rotor(tmp_path), Script("26.123"))
         nacelle = [{"ANGLE": "3", "AXIS": "NAC-Y", "FAMILIES": "N"}]
         build_script(_pitched_rotor(tmp_path, rotations=nacelle), Script("26.123"))

@@ -2,7 +2,7 @@
  "source": "docs/srs",
  "generated_by": "scripts/gen_requirements_index.py",
  "traceability": {
-  "cited_by_a_test": 61,
+  "cited_by_a_test": 62,
   "total": 124,
   "method": "upper bound: an id mentioned anywhere in tests/**/*.py excluding conftest.py, which is not the marked falsifying test NFR-13 asks for"
  },
@@ -732,7 +732,7 @@
    "text": "A ROTATE record states ALIAS where it stated FAMILIES, so a rotation and a motion cite a set of boundaries the same way. AUX_FRAMES retires: every frame the alias owns turns with its boundaries, which for a rotor is <ALIAS>_SMRP, <ALIAS>_RMRP and every <ALIAS>_RMRP<k>, and for a non-rotor alias is none.",
    "priority": "M",
    "status": "pending",
-   "evidence": "*Origin: her decision of 2026-09-10, \"o comando de rotate tambem tem que ser atualizado para ficar compativel com o do movimento\". Carried by PFS-2035.17. Evidence owed: the test it names. AMENDS the ROTATE record of FR-35, \"Matrix as first-class interface\", whose FAMILIES and AUX_FRAMES keys this replaces.*",
+   "evidence": "*Origin: her decision of 2026-09-10, \"o comando de rotate tambem tem que ser atualizado para ficar compativel com o do movimento\". Carried by PFS-2035.17. Evidence: tests/tier1_offline/test_rotor_by_alias.py (the rotation cites the alias and turns that rotor's boundaries and no other's; the frames the alias owns turn with it, by name; an undeclared alias is refused naming it; a record stating both spellings is refused naming both; a record stating neither is refused; the 0.14.0 spelling warns and turns the same boundaries). PENDING ON ONE HALF, and it is the half the author owes rather than the one the code owes: see the SMRP_ORIGINAL paragraph below. AMENDS the ROTATE record of FR-35, \"Matrix as first-class interface\", whose FAMILIES and AUX_FRAMES keys this replaces.*",
    "verification": "none"
   },
   {
