@@ -661,9 +661,17 @@ the names after it.
     The reference's table can do one thing the preset's could not: **a
     member may be another alias**, resolved to the end, so `lifters` may
     name `lifters_left` and `lifters_right` and each of those may name
-    the rotors. A ring is refused naming both sides. And every rotor the
-    reference declares is an alias over everything it owns, without being
-    written in this table at all.
+    the rotors. And every rotor the reference declares is an alias over
+    everything it owns, without being written in this table at all.
+
+    Following a member to the end is what makes a RING possible, so one is
+    refused rather than recursed into:
+    `pyflightstream.exceptions.AliasCycleError` names the alias that
+    closed the ring and the member that closed it, and prints the whole
+    path (`'a' -> 'b' -> 'c' -> 'a'`), because a reader holding one of the
+    two names would otherwise have to open the file to find the other. A
+    member that names its OWN alias is not a ring: it is the older case of
+    an alias resolving to nothing, and it still resolves to nothing.
 
 A preset may also carry a `[flight_condition]` table, which is not a
 solver setting and is not judged as one: it holds the fluid pins
