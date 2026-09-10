@@ -1,12 +1,26 @@
 {
  "wheel": "pyflightstream-0.15.0.dev0-py3-none-any.whl",
  "build": "26.120",
- "head": "eae10ec6c168a6d3315764e0197bdc969dcb7e03",
+ "head": "b2a7599cecceefa124aea11622a983f2de89827f",
  "recorded_from": "GeoverseResearch/tools/fts_workspace/pfs0110/post/campaign_sweep.csv",
  "previous_from": "GeoverseResearch/tools/fts_workspace/pfs0140/post/matriz_repro/sweep.csv, the 0.14.0 reproduction of the same three rows on the same build",
  "measured_in": "GeoverseResearch/tools/fts_workspace/pfs0150-repro",
  "band_from": "Each coefficient's own recorded delta, abs(0.14.0 - 0.11.0), at full printed precision. pfs0131/README.md records the band per case in prose written to two significant figures (3207 identical; 3224 max 2e-7; 9001 max 5.6e-5 at Cz and CL, residual 7.5929024e-06 against 7.5929667e-06), and reading 5.6e-5 as a literal threshold would fail the 5.640e-5 measurement it was written from. The criterion is therefore that THIS RELEASE MOVES NO COEFFICIENT FURTHER FROM HER RECORD THAN THE LAST RELEASE ALREADY STOOD; a coefficient the two releases agree on carries a band of zero. Not widened: measured.",
  "reproduces_0_14_0_exactly": true,
+ "tables": {
+  "recorded": {
+   "sha256": "fe7556b21f2455c8fa184d2a2f377ae5ac8ebf5129ccd2eaca6e99d00c6d5270",
+   "bytes": 1254
+  },
+  "previous": {
+   "sha256": "1d37fd968d1414f7de4b5146bf9e704de96a02b1f4b1131f7e70ae6c8daa0106",
+   "bytes": 2587
+  },
+  "measured": {
+   "sha256": "c18dfd1e69d20077868b0eb7d4db104bb01e735f62446351f40a916a63a7d0cd",
+   "bytes": 1295
+  }
+ },
  "cases": [
   {
    "sim_id": "3207",
