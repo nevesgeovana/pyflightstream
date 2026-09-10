@@ -123,8 +123,8 @@ them close the gap that made the capability unusable:
   numbers were wrong, silently.
 
     `MIRROR` carries three cautions, and since 0.13.1 the cell enforces
-    one of them: a nonzero sideslip (a `BE` sweep value, or a point under
-    sideslip) under `SYMMETRY: MIRROR` is refused at plan time, naming the
+    one of them: a nonzero sideslip (a swept or held `BETA` in the flight
+    condition) under `SYMMETRY: MIRROR` is refused at plan time, naming the
     cell, because a mirrored half model is a valid model of the full one
     only while the free stream lies in the symmetry plane, and the solver
     was measured (26.120, 2026-09-09) running such a point at zero
@@ -254,7 +254,7 @@ every point, and the run would have spent a seat on a row stating
 something the script does not carry. The row
 
 ```text
-7007 | Wing | REFUSED | MACH:0.1, REmi:2.3 | AL | 0.0 | r001 | s001 | p002 | 26.120 | 0 | 1 | steady | GEOMETRY: 10_WING.fsm / SYMMETRY: NONE / FOO_BAR: 1
+7007 | Wing | REFUSED | MACH:0.1, REmi:2.3, ALPHA:sweep | 0.0 | r001 | s001 | p002 | 26.120 | 0 | 1 | steady | GEOMETRY: 10_WING.fsm / SYMMETRY: NONE / FOO_BAR: 1
 ```
 
 is marked BLOCKED with the reason naming the row (`case '7007'`), the run
@@ -398,6 +398,36 @@ The rule is the same in a hand-written `campaign.toml`: a `[[sim]]`
 declaring a multi-angle `angle_sweep_deg` beside a multi-point `sweep`
 is refused when the file loads, which is the moment the case is
 declared. Neither door lets in what the other refuses.
+
+### What a row's sweep looks like in `campaign.toml`
+
+`pyfs-matrix convert` writes the row's sweep as one inline table, and a
+hand-written file may write the same thing:
+
+```toml
+[[sim]]
+sim_id = "9001"
+sweep = {type = "alpha", values = [-4.0, 0.0, 4.0], held = {beta = 0.0}}
+```
+
+`type` is the ONE variable that varies, `values` are its values in
+degrees, and **`held` is what the row keeps constant at every point of
+the sweep**, in degrees, under the same axis names. `held` is what makes
+`ALPHA:sweep, BETA:0.0` in a matrix row and the paired `AL/BE` cell it
+replaced plan the same three runs under the same three names,
+`a-04.0_b+00.0`, `a+00.0_b+00.0` and `a+04.0_b+00.0`: the point tag ends
+the `run_id`, so a held angle has to reach the point or the upgrade
+would rename every run that has one.
+
+It holds the two ANGLES and nothing else. A key that is not a point axis
+is refused naming the axes, and so is a `held` entry for the variable the
+sweep already varies. An advance ratio the case holds goes in its
+variables, where it went before this release.
+
+`held` is omitted when the row holds nothing, so a file written before
+0.15.0 loads unchanged. The paired `type = "alpha_beta"` still loads and
+is deprecated: write `type = "alpha"` with the sideslip in `held`, which
+plans the identical runs.
 
 Write it one of two ways.
 
@@ -1354,7 +1384,8 @@ comments and all), and gives the cells that named it their `p`.
 also folds `SWEEP_TYPE` into the flight condition: `AL` becomes
 `ALPHA:sweep`, `BE` becomes `BETA:sweep`, and a paired `AL/BE` whose second
 axis held one value becomes `ALPHA:sweep, BETA:<value>` with the same rows.
-The matrix is refused until you run it, by a message that names it.
+Until you run it, `read_matrix` refuses the matrix with a message that
+names this command.
 
 Two things about that conversion are worth knowing before you run it:
 

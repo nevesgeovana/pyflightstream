@@ -84,9 +84,9 @@ where it reads it, and the attitude rides on the row.
 **A ROW STATES THE ANGLE IT IS NOT SWEEPING.** Before this release there
 was nowhere to write one: a row sweeping the advance ratio reached the
 solver at incidence zero, and the only record of the incidence was that
-nobody had written one. The held angle does not enter the POINT, because
-a point's coordinates are run identity and every recorded run carries
-them; it rides on the row and the builder reads it there.
+nobody had written one. An angle the row holds is carried at every point
+of the sweep, so it names the run, which is the subject of
+[its own section below](#one-variable-sweeps-and-it-is-one-that-defines-the-condition).
 
 ### One variable sweeps, and it is one that defines the condition
 
@@ -116,6 +116,11 @@ over `-4,0,4` plans three runs tagged `a-04.0_b+00.0`, `a+00.0_b+00.0` and
 produced. The tag ends the `run_id` in every manifest, so the converter is
 held to more than lossless content: it does not rename a run, and a
 `--resume` after an upgrade finds the records it already has.
+
+**Only the two ANGLES do that.** An `ADVANCE_RATIO` the row holds stays on
+the row and is read there, because a point tag has never carried one, and
+putting it in would rename every run that has one, which is the same cost
+running the other way.
 
 ## Which quantity gets solved for
 

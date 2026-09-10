@@ -125,6 +125,56 @@ def motion_payloads(text: str) -> list[str]:
     ]
 
 
+def test_a_rotor_block_built_without_an_alias_is_refused(tmp_path):
+    """The rotor's identity is required on the MODEL, and the FILE may omit it.
+
+    FOUND BY A SURVIVING MUTANT: reverting `alias` to optional was green
+    across every rotor case in the suite, so the narrowing rested on a
+    type check alone and a type check is not a tier-1 test. The defect it
+    closes is not a typing complaint: everything downstream reads the
+    alias as the rotor's identity, so a block with none built frames
+    named `None_RMRP1` instead of refusing.
+
+    Both halves are measured here, because the distinction is the whole
+    point: what is required is the FIELD, and a reference file that
+    leaves the key out still reads, since the reader fills it in from the
+    block's own name before the block is built.
+    """
+    from pydantic import ValidationError
+
+    from pyflightstream.workspace import CampaignWorkspace
+
+    with pytest.raises(ValidationError, match=r"alias"):
+        EngineBlock(
+            axis="X",
+            diameter_m=1.8,
+            families_blades=["Blade_1", "Blade_2"],
+            blade1=BladeDatum(azimuth_deg=0.0, zero="Y"),
+        )
+
+    workspace = CampaignWorkspace.init(tmp_path / "camp")
+    reference = workspace.inputs_dir / "references" / "r900.toml"
+    reference.write_text(
+        "\n".join(
+            [
+                "area_m2 = 10.0",
+                "chord_m = 1.2",
+                "span_m = 8.0",
+                "",
+                "[PUSHER]",
+                'kind = "engine"',
+                'axis = "Z"',
+                "diameter_m = 1.8",
+                'families_blades = ["Blade_1", "Blade_2"]',
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    block = workspace.resolve_reference("r900").engines["PUSHER"]
+    assert block.alias == "PUSHER", "the reader no longer fills the alias in from the name"
+
+
 def test_a_record_names_its_rotor_by_alias_and_moves_that_rotors_boundaries(tmp_path):
     """The alias is the only rotor identity a row carries, and it resolves to the mesh."""
     text = rendered(two_rotor_case(tmp_path))

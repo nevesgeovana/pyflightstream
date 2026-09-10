@@ -167,18 +167,24 @@ class SweepAxis(BaseModel):
         Axis values; for ``alpha_beta`` each entry is an
         ``[alpha, beta]`` pair in deg.
     held : dict of str to float
-        Coordinates the row HOLDS at every point, keyed like the swept
-        axis. Merged into every point, so a row that sweeps the incidence
-        at a fixed sideslip yields the same coordinates, and therefore
-        the same run identity, as the paired sweep that spelled it before
-        0.15.0. Empty for a row that holds nothing.
+        Coordinates the row HOLDS at every point, in deg, keyed like the
+        swept axis and of the free stream, as ``values`` is. Merged into
+        every point, so a row that sweeps the incidence at a fixed
+        sideslip yields the same coordinates, and therefore the same run
+        identity, as the paired sweep that spelled it before 0.15.0.
+        ONLY THE TWO ANGLES: an ``ADVANCE_RATIO`` the row holds stays on
+        the row, because a point tag has never carried one and putting it
+        there would rename every run that has one. Empty for a row that
+        holds nothing, and omitted from a written ``campaign.toml`` when
+        it is.
     """
 
     model_config = ConfigDict(extra="forbid")
 
     type: Literal["alpha", "beta", "alpha_beta", "advance_ratio"]
     values: list[float] | list[tuple[float, float]]
-    #: WHY A HELD COORDINATE IS PART OF THE POINT AND NOT ONLY OF THE ROW.
+    #: WHY A HELD COORDINATE IS PART OF THE POINT AND NOT ONLY OF THE ROW,
+    #: which the entry above states and does not explain.
     #: THE TAG IS IDENTITY. A row written `AL/BE` over `-4,0,4/0` swept the
     #: incidence and held the sideslip, and its points have been tagged
     #: `a-04.0_b+00.0` in every manifest ever written here. At 0.15.0 the
@@ -193,6 +199,42 @@ class SweepAxis(BaseModel):
     #: capable of appearing in a tag as a held value. An advance ratio the
     #: row holds stays on the row, where it was before this release.
     held: dict[str, float] = {}
+
+    @model_validator(mode="after")
+    def _held_names_point_axes_the_sweep_does_not(self) -> SweepAxis:
+        """Refuse a held coordinate that is not a point axis, or that is the swept one.
+
+        `held` is a channel straight into the point mapping, and the point
+        is read whole by more than the tag: a run record and a result
+        table both iterate it. So a `campaign.toml` writing
+        ``held = {mach = 0.2}`` would put a key nothing declares into
+        every record, where `point_tag` ignores it and the table does
+        not. The matrix reader can only produce the two angles; this is
+        the OTHER door, and it was unguarded (the architecture lens,
+        2026-09-10).
+
+        A key equal to the swept axis is refused rather than shadowed.
+        The merge order in :meth:`points` lets the sweep win, which keeps
+        one behaviour rather than two, but a file stating a variable
+        twice has said something it cannot mean and a silent winner is
+        how the wrong one gets run.
+        """
+        axes = {axis for axis, _ in _TAG_PREFIXES}
+        for key in self.held:
+            if key not in axes:
+                raise CampaignConfigError(
+                    f"a sweep holds {key!r}, which is not a point axis. A held "
+                    f"coordinate joins every point of the sweep and is named in every "
+                    f"run_id, so it is one of {', '.join(sorted(axes))}. A quantity the "
+                    "case holds and does not vary belongs in its variables."
+                )
+        if self.type in self.held:
+            raise CampaignConfigError(
+                f"this sweep varies {self.type} and also HOLDS it at "
+                f"{self.held[self.type]!r}: the same variable cannot both vary and be "
+                "held. Drop it from held, or sweep the other one."
+            )
+        return self
 
     @model_validator(mode="after")
     def _values_match_the_axis_type(self) -> SweepAxis:
@@ -255,10 +297,13 @@ class SweepAxis(BaseModel):
                 point = {"alpha": alpha, "beta": beta}
             else:
                 point = {self.type: value}
-            # The swept axis wins a key it shares with a held one, which
-            # cannot happen through the matrix reader (a key carrying the
-            # word is not also a number) and can be written by hand into a
-            # campaign.toml.
+            # The order is deliberate and it is no longer OBSERVABLE: a
+            # `held` key equal to the swept axis is REFUSED by the
+            # validator above, so nothing can reach this merge and be
+            # shadowed by it. It read "the swept axis wins a key it
+            # shares with a held one" until a QA pass pointed out that a
+            # silent winner was the whole hazard, and that a mutant
+            # reversing the order passed every case (2026-09-10).
             yield {**self.held, **point}
 
 

@@ -59,7 +59,9 @@ FlightStream versions.
 - A row that sweeps BOTH angles is the one case the converter refuses
   rather than guessing: it is one row per sideslip, each needing a POL of
   its own, and a POL is run identity. The refusal names every such row.
-  Exactly one row in this repository was one.
+  A paired `AL/BE` whose second axis holds ONE value is not one of those:
+  it varied one variable all along and it converts with the same rows, so
+  check your matrices for the shape rather than for the code.
 - The keys a row may sweep today are `ALPHA`, `BETA` and `ADVANCE_RATIO`.
   Any other key of the cell is refused NAMING those three, rather than
   accepted and silently run as a single point.
@@ -85,6 +87,12 @@ FlightStream versions.
   `RPM_SIGN` and `BLADES`: the reference states each once, in the rotor's
   own block. Removed at 0.17.0.
 - A rotor row with no `CLOCK_MOTION`. Removed at 0.17.0.
+- `SweepAxis(type="alpha_beta")`, the paired sweep. A matrix row cannot ask
+  for one since the layout lost `SWEEP_TYPE`, and a hand-written
+  `campaign.toml` still can: a sweep is ONE variable, so write
+  `type = "alpha"` with `values` and put the second angle in
+  `held = {beta = ...}`, which plans the same runs under the same names.
+  Removed at 0.17.0.
 
 ### Removed
 

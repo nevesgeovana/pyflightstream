@@ -40,7 +40,8 @@ workdir = Path(tempfile.mkdtemp(prefix="pyfs_campaign_"))
 #
 # Three things in the header are newer than the format itself.
 # `FLIGHT_CONDITION` states the whole flow condition of a row in one
-# cell, as comma-separated `KEY:value` pairs; it REPLACED the `RE` and
+# cell, as comma-separated `KEY:value` pairs from a closed set; it
+# REPLACED the `RE` and
 # `MACH` columns at 0.9.0, and which quantity the resolver solves for
 # follows from which keys are present rather than from which columns are
 # mandatory. The cell also says WHICH VARIABLE THE ROW SWEEPS, by
@@ -68,7 +69,8 @@ _ROW_1 = (
     "|FSM_FILE:wing_clean / OUTPUTS: loads_{point}.txt / RECIPE: 003"
 )
 _ROW_2 = (
-    "9002|TestWing|PARKED|MACH:0.0890, REmi:3.10, ALPHA:sweep|0.0|r003|s002|p001|MANUAL|0|0|LEGACY"
+    "9002|TestWing|PARKED|MACH:0.0890, REmi:3.10, ALPHA:sweep, BETA:0.0|0.0"
+    "|r003|s002|p001|MANUAL|0|0|LEGACY"
     "|FSM_FILE:wing_clean / OUTPUTS: loads_{point}.txt / RECIPE: 003"
 )
 MATRIX = "\n".join([_HEADER, "-" * len(_HEADER), _ROW_1, _ROW_2]) + "\n"

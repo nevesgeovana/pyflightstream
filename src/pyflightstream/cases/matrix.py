@@ -102,6 +102,7 @@ __all__ = [
     "DEFAULT_VERSION_OPTION",
     "LEGACY_WORKFLOW",
     "RECIPE_VARIABLE",
+    "SWEEP_WORD",
     "MatrixError",
     "MatrixRow",
     "convert_matrix",
@@ -113,9 +114,9 @@ __all__ = [
     "workflow_types",
 ]
 
-#: The verified layout, in file order. ``WORKFLOW`` sits at index 13, in
-#: front of ``VAR_NAMES_VALUES`` rather than after it, and the position
-#: is stated rather than appended: ``VAR_NAMES_VALUES`` is the only cell
+#: The verified layout, in file order. ``WORKFLOW`` sits SECOND FROM
+#: LAST, in front of ``VAR_NAMES_VALUES`` rather than after it, and the
+#: position is stated rather than appended: ``VAR_NAMES_VALUES`` is the only cell
 #: whose content is free and whose width is not fixed by the format, so
 #: it stays last and every fixed-width column stays in front of it.
 _COLUMNS = (
@@ -561,7 +562,9 @@ def _require_flight_condition(
     return condition
 
 
-def split_attitude(condition: dict[str, float | str]) -> tuple[dict[str, float], dict[str, object]]:
+def _split_attitude(
+    condition: dict[str, float | str],
+) -> tuple[dict[str, float], dict[str, object]]:
     """Split a parsed cell into the FLOW STATE and the row's attitude (FR-69, FR-70).
 
     The same cell carries both since 0.15.0, and they go to different
@@ -593,8 +596,38 @@ def split_attitude(condition: dict[str, float | str]) -> tuple[dict[str, float],
     return state, attitude
 
 
-def sweep_of_condition(condition: dict[str, float | str], sweep_values: str, pol: str) -> SweepAxis:
+#: The FLIGHT_CONDITION keys a row may sweep TODAY, to the sweep axis each
+#: becomes. Her rule licenses ANY key of the cell; what this release
+#: implements is the two angles and the ratio, which is what her own
+#: matrices vary. A key outside this map is refused NAMING the set rather
+#: than accepted and silently ignored, which is the failure the ratio
+#: sweep had before this release (PFS-2035.06, measured 2026-09-10: the
+#: axis existed, the point carried it and nothing read it).
+_CONDITION_SWEEP_AXES = {
+    "ALPHA": "alpha",
+    "BETA": "beta",
+    "ADVANCE_RATIO": "advance_ratio",
+}
+
+#: The FLIGHT_CONDITION keys whose HELD value joins every point of the
+#: sweep rather than staying on the row. The two angles and no more: they
+#: are the only ones a run tag has ever carried as a held value, through
+#: the paired ``AL/BE`` code, and widening the set would rename runs in
+#: the other direction. See :attr:`pyflightstream.cases.SweepAxis.held`.
+_HELD_POINT_KEYS = ("ALPHA", "BETA")
+
+
+def _sweep_of_condition(
+    condition: dict[str, float | str], sweep_values: str, pol: str
+) -> SweepAxis:
     """Build the row's sweep from the key of its condition that carries the word (FR-69).
+
+    PRIVATE for the same reason as ``_split_attitude`` above, and it is
+    the one that mattered: it took three POSITIONAL parameters of which
+    two were adjacent strings with no unit between them, so swapping them
+    was legal and produced a ValueError from ``float`` rather than a
+    matrix refusal. It is a seam, called once, from the loop that builds
+    a row (the interface and architecture lenses, 2026-09-10).
 
     Her rule of 2026-09-10: a sweep is applied to a variable that DEFINES
     the flight condition, and to exactly ONE variable. The cell says which
@@ -631,7 +664,12 @@ def sweep_of_condition(condition: dict[str, float | str], sweep_values: str, pol
         )
     values = [float(token) for token in sweep_values.split(",") if token.strip()]
     if not values:
-        raise MatrixError(f"POL {pol}: FLIGHT_CONDITION sweeps {key} and SWEEP_VALUES is empty.")
+        raise MatrixError(
+            f"POL {pol}: FLIGHT_CONDITION sweeps {key} and SWEEP_VALUES holds "
+            f"{sweep_values!r}, which is no values at all. Write them there, "
+            "comma-separated, for example '0.0,2.0,4.0'. A cell of only separators or "
+            "only spaces holds none, which is why this can look wrong to the eye."
+        )
     # A HELD ANGLE IS PART OF THE POINT, which is what keeps the upgrade
     # from renaming a run: `AL/BE` over `-4,0,4/0` tagged its points
     # `a-04.0_b+00.0`, and the same row spelled `ALPHA:sweep, BETA:0.0`
@@ -642,28 +680,6 @@ def sweep_of_condition(condition: dict[str, float | str], sweep_values: str, pol
         if name in _HELD_POINT_KEYS and value != SWEEP_WORD
     }
     return SweepAxis(type=axis, values=values, held=held)
-
-
-#: The FLIGHT_CONDITION keys whose HELD value joins every point of the
-#: sweep rather than staying on the row. The two angles and no more: they
-#: are the only ones a run tag has ever carried as a held value, through
-#: the paired ``AL/BE`` code, and widening the set would rename runs in
-#: the other direction. See :attr:`pyflightstream.cases.SweepAxis.held`.
-_HELD_POINT_KEYS = ("ALPHA", "BETA")
-
-
-#: The FLIGHT_CONDITION keys a row may sweep TODAY, to the sweep axis each
-#: becomes. Her rule licenses ANY key of the cell; what this release
-#: implements is the two angles and the ratio, which is what her own
-#: matrices vary. A key outside this map is refused NAMING the set rather
-#: than accepted and silently ignored, which is the failure the ratio
-#: sweep had before this release (PFS-2035.06, measured 2026-09-10: the
-#: axis existed, the point carried it and nothing read it).
-_CONDITION_SWEEP_AXES = {
-    "ALPHA": "alpha",
-    "BETA": "beta",
-    "ADVANCE_RATIO": "advance_ratio",
-}
 
 
 #: ``MOTIONS_VARIABLE``, the one ``VAR_NAMES_VALUES`` key whose value is a
@@ -1097,7 +1113,7 @@ def read_matrix(path: str | Path, *, active_only: bool = True) -> list[MatrixRow
         condition = _require_flight_condition(
             record["FLIGHT_CONDITION"], record["POL"], row_number, path
         )
-        state, attitude = split_attitude(condition)
+        state, attitude = _split_attitude(condition)
         # The swept key is not a value the row states: it is the word that
         # says which variable varies, and the axis it becomes is the row's
         # sweep. The other attitude keys ride on the variables, where the
@@ -1112,7 +1128,7 @@ def read_matrix(path: str | Path, *, active_only: bool = True) -> list[MatrixRow
             aircraft=record["AIRCRAFT"],
             description=record["DESCRIPTION"],
             flight_condition=state,
-            sweep=sweep_of_condition(condition, record["SWEEP_VALUES"], record["POL"]),
+            sweep=_sweep_of_condition(condition, record["SWEEP_VALUES"], record["POL"]),
             ref_code=record["REF"],
             set_code=record["SET"],
             pproc_code=record["PPROC"],
@@ -1455,11 +1471,78 @@ def _paired_sweep_as_one(code: str, values: str) -> tuple[str, str] | None:
     counts = [len([v for v in group.split(",") if v.strip()]) for group in groups]
     if counts[0] > 1 and counts[1] > 1:
         return None
-    swept, held = (0, 1) if counts[1] == 1 else (1, 0)
+    if 0 in counts:
+        # A GROUP OF NO VALUES IS NOT A HELD AXIS. `AL/BE` over `0.0,2.0/`
+        # has counts [2, 0], and choosing by `counts[1] == 1` picked the
+        # EMPTY group as the swept one and wrote the other's whole list
+        # into the held cell, which parses as one pair and one bare
+        # number. Refused by the caller instead, where the row can be
+        # named (the architecture lens, 2026-09-10).
+        return None
+    # WHICH ONE VARIES, not which one has a count of exactly 1. The second
+    # axis is the swept one ONLY when the first holds a single value and
+    # the second varies; in every other case the first is swept, which
+    # keeps the single-point row `AL/BE` over `0.0/0.0` reading as the
+    # alpha sweep it has always been.
+    swept, held = (1, 0) if counts[0] == 1 and counts[1] > 1 else (0, 1)
     return (
         f"{_SWEEP_CODE_KEYS[codes[swept]]}:{SWEEP_WORD}, "
         f"{_SWEEP_CODE_KEYS[codes[held]]}:{groups[held]}",
         groups[swept],
+    )
+
+
+def _refuse_a_key_the_cell_already_names(
+    condition: str, addition: str, row_number: int, source: str, pol: str
+) -> None:
+    """Refuse a fold that would state one key twice (FR-69).
+
+    TWO DEFECTS IN ONE CHECK, both found by the review round of
+    2026-09-10 and both from the same omission: the fold decided what to
+    append from the SWEEP_TYPE cell alone and never read the cell it was
+    appending to.
+
+    THE FIRST is a file this package writes and its own reader refuses.
+    ``_parse_flight_condition`` refuses a duplicated canonical key, so a
+    cell already stating ``ALPHA:2.0`` beside a SWEEP_TYPE of ``AL``
+    converted to ``..., ALPHA:2.0, ALPHA:sweep``, the converter reported
+    success, and the next read refused with a message about a duplicate
+    key that said nothing about the conversion that wrote it.
+
+    THE SECOND is the promise of this release. An angle the cell already
+    states becomes a HELD coordinate of every point, so it joins the
+    point tag; before the fold it rode on the row and did not. Appending
+    over it would therefore RENAME the row's runs, which is the one thing
+    this converter must not do.
+
+    MEASURED before it was fixed, because the blast radius decides
+    whether this is a migration hazard or a robustness hole: the two
+    never coexisted in a RELEASE. ``ATTITUDE_KEYS`` arrived at
+    0.15.0.dev0 (commit 2840078) and ``SWEEP_TYPE`` left in the same
+    unreleased cycle, so at v0.14.0 an angle in the cell was refused as
+    an unknown key, and 0 of the 7 licensed matrices name one. No file a
+    released pyflightstream ever accepted can reach this. What can is a
+    file part-edited by hand mid-migration, which is exactly what the
+    paired refusal invites, so it is refused rather than left to a
+    coincidence of dates.
+    """
+    key = addition.split(":", 1)[0].strip().upper()
+    stated = [
+        pair.strip()
+        for pair in condition.split(",")
+        if pair.split(":", 1)[0].strip().upper() == key
+    ]
+    if not stated:
+        return
+    raise MatrixError(
+        f"data row {row_number} of {source}, POL {pol}: FLIGHT_CONDITION already states "
+        f"{', '.join(stated)}, and folding SWEEP_TYPE here would add {addition!r}, so "
+        f"the cell would name {key} twice and this package's own reader would refuse "
+        "the file it just wrote. It is also not a rename this converter may make: an "
+        "angle the cell states is carried at every point of the sweep, so it ends the "
+        f"run_id, and overwriting it would rename the row's runs. Decide which {key} "
+        "the row means, write that one in FLIGHT_CONDITION, and drop the SWEEP_TYPE "
+        "cell's claim on it."
     )
 
 
@@ -1509,6 +1592,50 @@ def _fold_sweep_type(data: bytes, source: str) -> bytes:
             pol = parts[0].strip().decode("utf-8", "replace")
             values_cell = parts[values_index].strip().decode("utf-8", "replace")
             folded = _paired_sweep_as_one(code, values_cell)
+            if folded is None and "/" in code:
+                # WHY THE CODE IS CHECKED BEFORE THE SHAPE: `AL/XX` folds to
+                # nothing for a reason that has nothing to do with sweeping
+                # two variables, and the paired refusal below would tell its
+                # author to split a row per sideslip, which cannot fix a
+                # typo. Refused here, naming the codes (the architecture
+                # lens, 2026-09-10).
+                axes = [token.strip() for token in code.split("/")]
+                groups = [group.strip() for group in values_cell.split("/")]
+                if len(axes) != 2 or len(groups) != len(axes):
+                    # A PAIR IS TWO. Three axes read as a pair drops the
+                    # third group in silence, which a QA pass scored as a
+                    # surviving mutant: the arity was guarded and the guard
+                    # was reached only through the unknown-code check, so
+                    # three KNOWN codes went past both.
+                    raise MatrixError(
+                        f"data row {row_number} of {source}, POL {pol}, states SWEEP_TYPE "
+                        f"{code!r} and SWEEP_VALUES {values_cell!r}: {len(axes)} axis or "
+                        f"axes against {len(groups)} value group(s). A '/' code names "
+                        "exactly TWO axes and takes one comma-separated group for each. "
+                        "Since 0.15.0 a row sweeps ONE variable, so what a two-axis code "
+                        "may still say is one swept axis and one held value."
+                    )
+                unknown = [
+                    token.strip()
+                    for token in code.split("/")
+                    if token.strip().upper() not in _SWEEP_CODE_KEYS
+                ]
+                if unknown:
+                    raise MatrixError(
+                        f"data row {row_number} of {source}, POL {pol}, states "
+                        f"SWEEP_TYPE {code!r}, whose code(s) {', '.join(unknown)} this "
+                        f"converter does not know. The codes it folds are "
+                        f"{', '.join(sorted(_SWEEP_CODE_KEYS))}."
+                    )
+                if any(not group for group in groups):
+                    raise MatrixError(
+                        f"data row {row_number} of {source}, POL {pol}, states "
+                        f"SWEEP_TYPE {code!r} and SWEEP_VALUES {values_cell!r}, in which "
+                        "one axis has no values at all. Each axis of a paired code takes "
+                        "one comma-separated group, and a group of none is not a held "
+                        "value: write the value the axis holds, or drop the axis from "
+                        "both cells."
+                    )
             if folded is not None:
                 # A PAIRED CODE IS NOT ALWAYS A PAIRED SWEEP. `AL/BE` with
                 # `0.0,2.0/0.0` varies ONE variable and holds the other,
@@ -1518,6 +1645,7 @@ def _fold_sweep_type(data: bytes, source: str) -> bytes:
                 # values is the two-variable sweep this release retires.
                 condition = parts[condition_index].strip().decode("utf-8", "replace")
                 extra, values = folded
+                _refuse_a_key_the_cell_already_names(condition, extra, row_number, source, pol)
                 joined = f"{condition}, {extra}" if condition else extra
                 parts[condition_index] = f" {joined} ".encode()
                 parts[values_index] = f" {values} ".encode()
@@ -1532,6 +1660,9 @@ def _fold_sweep_type(data: bytes, source: str) -> bytes:
                         f"codes it folds are {', '.join(sorted(_SWEEP_CODE_KEYS))}."
                     )
                 condition = parts[condition_index].strip().decode("utf-8", "replace")
+                _refuse_a_key_the_cell_already_names(
+                    condition, f"{key}:{SWEEP_WORD}", row_number, source, pol
+                )
                 joined = f"{condition}, {key}:{SWEEP_WORD}" if condition else f"{key}:{SWEEP_WORD}"
                 parts[condition_index] = f" {joined} ".encode()
         del parts[type_index]
@@ -1543,15 +1674,22 @@ def _fold_sweep_type(data: bytes, source: str) -> bytes:
             "and it is one that defines the flight condition (FR-69), so a paired sweep "
             "becomes ONE ROW PER SIDESLIP. This converter will not do it for you: each "
             "new row needs a POL of its own, a POL is run identity, and an invented "
-            "identity is worse than a refusal. Split them by hand, giving each the POL "
-            "you want, then upgrade the file."
+            "identity is worse than a refusal. EDIT THE FILE AS IT STANDS, keeping the "
+            "SWEEP_TYPE column and the old AL/BE spelling, which is what this converter "
+            "reads: replace each row above with one row per value of its second axis, "
+            "each still AL/BE, each holding ONE value there, and each with the POL you "
+            "want. Then run the upgrade, which writes the new spelling for you."
         )
     return b"".join(rebuilt)
 
 
 #: The SWEEP_TYPE codes the fold above knows, to the FLIGHT_CONDITION key
-#: each becomes. Built from the reader's own code table so the two cannot
-#: drift: a code the reader accepts is a code the converter folds.
+#: each becomes. FROZEN WITH THE LAYOUT IT CONVERTS and it does not grow.
+#: It read "built from the reader's own code table so the two cannot
+#: drift" until 0.15.0, which was true while the reader had a code table;
+#: that table went with the column, so there is nothing left to agree
+#: with and a comment promising the agreement would tell the next
+#: maintainer they may add a code in one place and be safe.
 _SWEEP_CODE_KEYS = {"AL": "ALPHA", "BE": "BETA"}
 
 
@@ -1730,14 +1868,30 @@ def rewrite_codes(
 
 
 def upgrade_matrix(path: str | Path, *, in_place: bool = False) -> bytes:
-    """Bring a matrix of either older layout up to the current one.
+    """Bring a matrix of ANY earlier layout up to the current one.
 
-    TWO STAGES, because the format has broken twice and a file written
-    before v0.8.0 needs both. A fifteen-column file gains the
-    ``WORKFLOW`` cell and then has its ``RE`` and ``MACH`` columns folded
-    into one ``FLIGHT_CONDITION`` cell; a sixteen-column file, written
-    under v0.8.0 or v0.8.1, needs the fold alone. A file already at the
+    FOUR STAGES, because the format has broken four times and a file
+    written before v0.8.0 needs all four. A fifteen-column file gains the
+    ``WORKFLOW`` cell; then ``RE`` and ``MACH`` fold into one
+    ``FLIGHT_CONDITION`` cell; then ``FS_SCRIPT`` goes and ``ENTRY``
+    becomes ``PPROC``; then ``SWEEP_TYPE`` folds into the flight
+    condition too, ``AL`` becoming ``ALPHA:sweep`` and ``BE`` becoming
+    ``BETA:sweep``. A file at any of the four earlier layouts enters the
+    chain where its header says it belongs, and a file already at the
     current layout is returned unchanged, so running this twice is safe.
+
+    THE ONE THING IT WILL NOT DO, since 0.15.0: split a row that sweeps
+    BOTH angles. That is one row per sideslip, each new row needs a POL
+    of its own, a POL is run identity, and an invented identity is worse
+    than a refusal, so such a file is refused with every such row named.
+    A paired ``AL/BE`` whose second axis holds ONE value is not one of
+    those: it varied one variable all along and it folds with the same
+    rows.
+
+    AND IT DOES NOT RENAME A RUN. An angle a row holds is carried at
+    every point of the sweep, so the point tags that end every ``run_id``
+    in an existing manifest are the ones the converted file plans under,
+    and a resume after the upgrade finds its records.
 
     WHAT SURVIVES, stated precisely because the earlier wording said
     "every other byte" and that is not quite true of the fold. Every

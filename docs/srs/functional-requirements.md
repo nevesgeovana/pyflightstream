@@ -270,8 +270,11 @@ Milestones and session records are listed in the
     twice with nothing here saying so. What "forever" means is now
     stated as a mechanism rather than as a promise:
 
-    **No file this reader ever accepted is left unreadable, and no file
-    is silently misread.** A matrix at a superseded width is recognised
+    **No file this reader ever accepted is left unreadable, except
+    where reading it would require inventing a run identity, and no file
+    is silently misread.** The one exception arrived with the fourth
+    break, is refused by name rather than guessed, and is described
+    below. A matrix at a superseded width is recognised
     BY that width, told which release it predates, and refused naming
     `upgrade_matrix`, which converts it losslessly in content. That is
     the guarantee; it is not, and since 2026-07-27 has not claimed to
@@ -284,7 +287,7 @@ Milestones and session records are listed in the
     two fixed columns, and which quantity the resolver solves for
     follows from which keys the row names.
 
-    A third break is planned for 0.11.0 and travels through the same
+    A THIRD BREAK SHIPPED AT 0.11.0 and travelled through the same
     mechanism: PFS-2029.04 drops `FS_SCRIPT` and PFS-2029.07.02 renames
     `ENTRY` to `PPROC` and moves the output cells out of the row, one
     layout and one `upgrade` for both.
@@ -2090,7 +2093,11 @@ requirement below is one seam of that division.
     `SWEEP_VALUES` holds its values. Any key of the flight condition may be
     the one: the five that fix the state (`MACH`, `TASmps`, `REmi`, `ALTFT`,
     `dISA`), the five pins (`RHOkgm3`, `MUPas`, `ASMPS`, `TK`, `PPA`), the two
-    angles, and the advance ratio when the row states it there.
+    angles, and the advance ratio when the row states it there. **Of those,
+    this release implements ALPHA, BETA and ADVANCE_RATIO**; every other key
+    is refused NAMING those three and saying it may carry the word in a
+    later release, because accepted-and-ignored is how the advance-ratio
+    sweep failed before this release.
 
     The `SWEEP_TYPE` column is removed, because the cell already says which
     variable varies. A row with no `sweep`, with two of them, or with a
@@ -2107,10 +2114,25 @@ requirement below is one seam of that division.
     use the paired code and each becomes one row per sideslip. Counting them
     instead: a paired code whose second axis holds ONE value is one swept
     variable written in two columns, which is what the reader always did with
-    it, so it folds automatically. **Exactly one row in the whole repository
-    varies both angles** (POL 9008 of `tests/tier1_offline/fixtures/matrix.fs`,
-    a fixture built for the feature this release retires), and 9 of the 10
-    live matrices convert with no hand edit at all.
+    it, so it folds automatically. **Exactly one row in the whole repository VARIED both
+    angles** before this release, POL 9008 of
+    `tests/tier1_offline/fixtures/pfs202609_matrix14.fs` at 54d8187, a
+    fixture built for the feature this release retires; the 13-column
+    layout cannot express such a row at all, so none exists at the tip.
+    The other 9 of the 10 live matrices converted with no hand edit.
+
+    Counted by reading the `SWEEP_TYPE` and `SWEEP_VALUES` cells of every
+    matrix in the tree at 54d8187 and asking of each paired code whether
+    BOTH its groups hold more than one value.
+
+    THE ONE ROW WAS NOT SPLIT, and saying so is the point of naming it
+    here. Splitting is what this release asks of a USER, because only the
+    author of a study can allocate the new POLs. That fixture was built to
+    exercise the paired reader and its three diagonal points meant nothing
+    physically, so it was rewritten as a swept incidence at a held
+    sideslip, which changes two of its three points' sideslip. That is a
+    decision about a test fixture, taken deliberately and recorded here
+    rather than presented as a conversion.
 
     THE UPGRADE DOES NOT RENAME A RUN, which is a stronger promise than
     lossless content and is the one that costs seats if it is broken. A

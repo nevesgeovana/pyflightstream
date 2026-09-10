@@ -956,7 +956,7 @@ FLIGHT_CONDITION: TASmps:68.08, ALTFT:10000, dISA:5
 
 \begin{frame}[fragile]{Recipe 7 addendum: migrating a run matrix}
   \begin{itemize}
-    \item Coming from spreadsheet-driven run matrices (the pipe-delimited layout with AL and BE sweep codes)? \textbf{First upgrade the file.} v0.9.0 removed the \code{RE} and \code{MACH} columns and replaced them with one mandatory \code{FLIGHT\_CONDITION} cell, so a matrix written under either older layout is recognised and refused rather than misread:
+    \item Coming from spreadsheet-driven run matrices (the pipe-delimited layout with a \code{SWEEP\_TYPE} column of \code{AL} and \code{BE} codes)? \textbf{First upgrade the file.} The layout has broken four times and a matrix written under any earlier one is recognised by its header and refused rather than misread. v0.9.0 replaced the \code{RE} and \code{MACH} columns with one mandatory \code{FLIGHT\_CONDITION} cell; v0.15.0 removed \code{SWEEP\_TYPE} itself, because that cell now says which variable varies by carrying the word \code{sweep} where its value would be, so \code{AL} becomes \code{ALPHA:sweep}. The one row the converter will not do for you is one that varies BOTH angles: that is one row per sideslip, each needing a \code{POL} of its own, and it is refused by name.
   \end{itemize}
 \begin{lstlisting}
 pyfs-matrix upgrade matrix.fs --in-place

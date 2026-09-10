@@ -27,7 +27,7 @@ import pytest
 from pydantic import ValidationError
 
 from pyflightstream import cases as cases_mod
-from pyflightstream.cases import SimCase, load_campaign
+from pyflightstream.cases import SimCase, load_campaign, point_tag
 from pyflightstream.cases import matrix as matrix_mod
 from pyflightstream.cases.matrix import (
     MatrixError,
@@ -155,6 +155,13 @@ def test_a_beta_sweep_holds_its_incidence_the_same_way():
     assert row.sweep.type == "beta"
     assert row.sweep.values == [-6.0, -3.0, 0.0, 3.0, 6.0]
     assert row.variables["ALPHA"] == 2.0
+    # AND THE POINT, which is the half this case did not measure until a
+    # QA pass scored it: dropping ALPHA from the held keys, so a beta
+    # sweep loses its incidence and only a beta sweep, was caught by ONE
+    # test in the whole suite, and it was not the one whose name says it
+    # holds its incidence.
+    assert row.sweep.held == {"alpha": 2.0}
+    assert {point["alpha"] for point in row.sweep.points()} == {2.0}
 
 
 def test_alpha_only_sweep_reads_every_value():
@@ -168,9 +175,12 @@ def test_a_row_sweeps_one_angle_and_holds_the_other():
 
     This row was `AL/BE` over `-4.0,0.0,4.0/-2.0,0.0,2.0`, a DIAGONAL
     through the two angles, and it read as three paired points. A sweep is
-    one variable now, so the row sweeps the incidence and HOLDS the
-    sideslip, which is what the same row means when only one angle varies
-    and what the upgrade writes for it.
+    one variable now, so the fixture was REWRITTEN, by hand and
+    deliberately, as a swept incidence at a held sideslip; two of its three
+    points changed sideslip, which is a decision about a fixture built to
+    exercise a retired feature and not a conversion. The converter does no
+    such thing: it REFUSES a row that varies both angles, and that refusal
+    has its own case below.
 
     The held angle is not lost. It is STATED once, in the cell, and it is
     still carried at every point, so the solver is told -2 degrees at each
@@ -285,8 +295,14 @@ def test_a_swept_row_with_no_values_is_refused(tmp_path):
     assert emptied != line, "the fixture no longer writes the values cell this case empties"
     bad = tmp_path / "matrix.fs"
     bad.write_text(text.replace(line, emptied, 1), encoding="utf-8")
-    with pytest.raises(MatrixError, match=r"9005.*SWEEP_VALUES is empty"):
+    with pytest.raises(MatrixError) as caught:
         read_matrix(bad)
+    message = str(caught.value)
+    assert "9005" in message and "no values at all" in message
+    assert "0.0,2.0,4.0" in message, "the refusal shows nothing the user could type"
+    assert "only separators" in message, (
+        "the refusal does not say why a cell that looks filled holds nothing"
+    )
 
 
 def test_header_deviation_is_refused(tmp_path):
@@ -397,6 +413,49 @@ def test_the_matrix_legacy_shim_is_gone():
 
 
 # --- the sixteenth column (PFS-2025.01, PFS-2025.12.01) ---------------------
+
+
+def test_the_campaign_toml_sweep_on_the_page_is_the_one_the_loader_takes(tmp_path):
+    """The worked example of `held`, executed so the page cannot rot.
+
+    `docs/workspace-and-workflows.md` shows the inline table
+    `pyfs-matrix convert` writes and a hand-written file may write. The
+    same three lines are loaded here, and the run names they produce are
+    asserted, because the names are the reason the field exists.
+    """
+    from pyflightstream.cases import SweepAxis
+
+    sweep = SweepAxis(type="alpha", values=[-4.0, 0.0, 4.0], held={"beta": 0.0})
+    assert [point_tag(point) for point in sweep.points()] == [
+        "a-04.0_b+00.0",
+        "a+00.0_b+00.0",
+        "a+04.0_b+00.0",
+    ]
+    # And the two refusals the page promises beside it.
+    # Pydantic wraps a validator's refusal, so the MESSAGE is asserted and
+    # not the class: what a user reads is the sentence, and the sentence is
+    # what a refactor drops.
+    with pytest.raises(ValidationError, match=r"holds 'mach'.*not a point axis"):
+        SweepAxis(type="alpha", values=[0.0], held={"mach": 0.2})
+    with pytest.raises(ValidationError, match=r"varies alpha and also HOLDS it"):
+        SweepAxis(type="alpha", values=[0.0], held={"alpha": 2.0})
+    # A file written before the field existed loads unchanged.
+    assert SweepAxis(type="alpha", values=[0.0]).held == {}
+
+
+def test_every_held_key_is_a_key_the_release_can_sweep():
+    """The containment `_HELD_POINT_KEYS` relies on, as a rule and not a coincidence.
+
+    `_sweep_of_condition` indexes `_CONDITION_SWEEP_AXES` for every member
+    of `_HELD_POINT_KEYS`, so a key added to the narrower list and not the
+    wider one is a KeyError at read time rather than a refusal. The two
+    lists are deliberately different sizes (the architecture lens,
+    2026-09-10): the wider one can grow when a release learns to vary
+    another key, and the narrower one may not grow at all, because only
+    the two angles have ever named a point.
+    """
+    assert set(matrix_mod._HELD_POINT_KEYS) <= set(matrix_mod._CONDITION_SWEEP_AXES)
+    assert set(matrix_mod._HELD_POINT_KEYS) == {"ALPHA", "BETA"}
 
 
 def test_the_verified_layout_names_thirteen_columns_and_no_sweep_type():
@@ -868,8 +927,22 @@ def test_the_fourth_stage_changes_only_the_two_cells_it_folds(tmp_path):
         for position, (new_cell, old_cell) in enumerate(zip(new_cells, expected, strict=True)):
             if position == condition:
                 # The header keeps its cell; a data row gains the key the
-                # code named, and it is the ONLY thing it gains.
-                assert old_cell.strip() in new_cell.strip(), f"row {row}: the condition was lost"
+                # code named. Containment alone would pass for ANY appended
+                # content, so what it gains is asserted EXACTLY: the old
+                # cell, then the fold's separator, then one KEY:value pair
+                # per axis the code named.
+                gained = new_cell.strip()[len(old_cell.strip()) :].decode()
+                assert new_cell.strip().startswith(old_cell.strip()), (
+                    f"row {row}: the condition was lost"
+                )
+                if row:
+                    pairs = [pair.strip() for pair in gained.lstrip(", ").split(",")]
+                    assert len(pairs) == len(code.decode().split("/")), (
+                        f"row {row}: the fold added {pairs}, which is not one pair per axis"
+                    )
+                    assert all(":" in pair for pair in pairs), f"row {row}: {pairs!r}"
+                else:
+                    assert gained == "", f"row {row}: the header gained {gained!r}"
             elif position == values - 1:
                 # A held second axis leaves the values cell, so its
                 # content may shrink; what it holds must stay a prefix of
@@ -937,6 +1010,299 @@ def test_a_row_that_varies_both_angles_is_refused_naming_it(tmp_path):
     with pytest.raises(MatrixError):
         _upgrade()(diagonal, in_place=True)
     assert diagonal.read_bytes() == before, "the refused conversion wrote to the source"
+
+
+def _one_row_at_the_0_11_0_layout(tmp_path, name, condition, code, values):
+    """Write a one-row matrix at the layout the converter reads, and return it."""
+    layout = matrix_mod._LAYOUT_0_11_0
+    cells = dict.fromkeys(layout, "")
+    cells.update(
+        {
+            "POL": "9100",
+            "AIRCRAFT": "TestWing",
+            "DESCRIPTION": "ROUND",
+            "FLIGHT_CONDITION": condition,
+            "SWEEP_TYPE": code,
+            "SWEEP_VALUES": values,
+            "REF": "r003",
+            "SET": "s003",
+            "PPROC": "p001",
+            "FS_BUILD": "MANUAL",
+            "HIDDEN": "0",
+            "RUN": "1",
+            "WORKFLOW": "LEGACY",
+            "VAR_NAMES_VALUES": "FSM_FILE:wing_clean / RECIPE: 003",
+        }
+    )
+    path = tmp_path / name
+    path.write_text(
+        "\n".join(
+            [
+                " | ".join(layout),
+                "-" * 20,
+                " | ".join(cells[key] for key in layout),
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    return path
+
+
+def test_a_fold_that_would_state_one_key_twice_is_refused(tmp_path):
+    """The converter may not write a file its own reader refuses.
+
+    FOUND BY THE ARCHITECTURE AND INTERFACE LENSES INDEPENDENTLY, and it
+    is two defects behind one omission: the fold chose what to append
+    from SWEEP_TYPE alone and never read the cell it appended to. A cell
+    already stating an incidence, beside a code that names the same
+    angle, produced `ALPHA:2.0, ALPHA:sweep`, the converter reported
+    success, and the next read refused with a message about a duplicate
+    key that said nothing about the conversion that wrote it.
+
+    The second half is the release's own promise. An angle the cell
+    states is HELD at every point and therefore ends the run_id, so
+    appending over it renames the row's runs, which is the one thing this
+    converter must not do.
+
+    MEASURED, because the blast radius decides what kind of defect this
+    is: the two never coexisted in a RELEASE. `ATTITUDE_KEYS` arrived at
+    0.15.0.dev0 and `SWEEP_TYPE` left in the same unreleased cycle, so at
+    v0.14.0 an angle in the cell was refused as an unknown key, and 0 of
+    the 7 licensed matrices name one. This is reachable by a hand edit
+    made mid-migration, not by any released file.
+    """
+    source = _one_row_at_the_0_11_0_layout(
+        tmp_path, "twice.fs", "MACH:0.0890, REmi:3.10, ALPHA:2.0", "AL", "0.0,2.0,4.0"
+    )
+    with pytest.raises(MatrixError) as caught:
+        _upgrade()(source)
+    message = str(caught.value)
+    assert "9100" in message and "ALPHA" in message
+    assert "ALPHA:2.0" in message, "the refusal does not show what the cell already says"
+    assert "run_id" in message, "the refusal does not say why it is not the converter's to do"
+    # THE CONTROL: the same row without the stated angle converts, so this
+    # case measures the duplicate and not the fold.
+    good = _one_row_at_the_0_11_0_layout(
+        tmp_path, "once.fs", "MACH:0.0890, REmi:3.10", "AL", "0.0,2.0,4.0"
+    )
+    rows = read_matrix(_written(tmp_path, good))
+    assert rows[0].sweep.type == "alpha" and rows[0].sweep.values == [0.0, 2.0, 4.0]
+
+
+def _written(tmp_path, source):
+    """Upgrade a file and write the result where the reader can take it."""
+    target = tmp_path / "converted.fs"
+    target.write_bytes(_upgrade()(source))
+    return target
+
+
+def test_a_paired_code_with_an_empty_group_is_refused_rather_than_reversed(tmp_path):
+    """`AL/BE` over `0.0,2.0/` names an axis and gives it nothing.
+
+    The fold chose the swept axis by asking which group held exactly ONE
+    value, so a group of NONE was read as the held one and the axis with
+    two values was written into the held cell: `BETA:sweep, ALPHA:0.0,2.0`,
+    which parses as one pair and one bare number and is refused downstream
+    by a message about the row the converter itself corrupted.
+    """
+    source = _one_row_at_the_0_11_0_layout(
+        tmp_path, "empty.fs", "MACH:0.0890, REmi:3.10", "AL/BE", "0.0,2.0/"
+    )
+    with pytest.raises(MatrixError) as caught:
+        _upgrade()(source)
+    message = str(caught.value)
+    assert "9100" in message
+    assert "no values" in message, "the refusal does not name the empty axis"
+    assert "drop the axis" in message, "the refusal offers no remedy"
+
+
+def test_an_unknown_paired_code_is_refused_as_a_typo_and_not_as_a_diagonal(tmp_path):
+    """`AL/XX` is a mistyped code, and the split remedy cannot fix a typo.
+
+    The fold returned None for an unrecognised token and the caller then
+    classed it with the two-varying sweeps, so the author of a typo was
+    told to split the row one per sideslip: advice that cannot be
+    followed, about a problem they do not have.
+    """
+    source = _one_row_at_the_0_11_0_layout(
+        tmp_path, "typo.fs", "MACH:0.0890, REmi:3.10", "AL/XX", "0.0,2.0/0.0"
+    )
+    with pytest.raises(MatrixError) as caught:
+        _upgrade()(source)
+    message = str(caught.value)
+    assert "XX" in message, "the refusal does not name the code that is wrong"
+    assert "AL, BE" in message, "the refusal does not name the codes it does fold"
+    assert "one row per" not in message.lower(), (
+        "a typo is still being answered with the split remedy, which cannot fix it"
+    )
+
+
+def test_a_single_point_paired_row_sweeps_the_first_axis(tmp_path):
+    """Both groups hold one value, and the first is the swept one.
+
+    The control for the two cases above: choosing by `which one varies`
+    rather than by `which count is 1` has to leave this row where it was,
+    because a single-point row has always meant the first axis swept over
+    its one value with the second held.
+    """
+    source = _one_row_at_the_0_11_0_layout(
+        tmp_path, "single.fs", "MACH:0.0890, REmi:3.10", "AL/BE", "0.0/0.0"
+    )
+    row = read_matrix(_written(tmp_path, source))[0]
+    assert row.sweep.type == "alpha"
+    assert row.sweep.values == [0.0]
+    assert row.sweep.held == {"beta": 0.0}
+    assert point_tag(next(iter(row.sweep.points()))) == "a+00.0_b+00.0", (
+        "the single-point paired row would be planned under a name no manifest holds"
+    )
+
+
+@pytest.mark.parametrize(
+    ("values", "shape"),
+    [("-4.0,0.0,4.0/-2.0,0.0,2.0", "3 by 3"), ("-4.0,4.0/-2.0,2.0", "2 by 2")],
+)
+def test_a_diagonal_is_refused_at_the_boundary_and_above_it(tmp_path, values, shape):
+    """The predicate is `both groups hold more than one`, and 2 is more than one.
+
+    FOUND BY A SURVIVING MUTANT: widening the test to `counts[0] > 2`
+    passed every case in this module, because the only diagonal in the
+    tree was 3 by 3 and the predicate was never exercised at its
+    boundary. A 2 by 2 diagonal folded silently, dropping the second
+    sideslip, which is the different-study-same-POL failure this refusal
+    exists to stop.
+    """
+    source = _one_row_at_the_0_11_0_layout(
+        tmp_path,
+        f"diagonal_{shape.replace(' ', '')}.fs",
+        "MACH:0.0890, REmi:3.10",
+        "AL/BE",
+        values,
+    )
+    with pytest.raises(MatrixError) as caught:
+        _upgrade()(source)
+    assert values in str(caught.value), f"the {shape} diagonal is not named in the refusal"
+
+
+def test_a_diagonal_in_a_fifteen_column_file_is_refused_through_the_whole_chain(tmp_path):
+    """The refusal has to survive three stages before it can fire.
+
+    The four frozen legacy fixtures carried the tree's only diagonal and
+    all four were edited in this lane, so nothing reached the fourth
+    stage's refusal through `_insert_workflow_cell`,
+    `_fold_flight_condition` and `_drop_fs_script_and_name_pproc` first. A
+    file written before v0.8.0 is exactly the one whose author is least
+    likely to remember what the row meant, so the path that serves them
+    is the one that most needs the case.
+    """
+    legacy = LEGACY_FIXTURE.read_text(encoding="utf-8")
+    held = "-4.0,0.0,4.0/-2.0"
+    assert legacy.count(held) == 1, "the fifteen-column fixture no longer holds its sideslip"
+    source = tmp_path / "legacy_diagonal.fs"
+    source.write_text(legacy.replace(held, "-4.0,0.0,4.0/-2.0,0.0,2.0", 1), encoding="utf-8")
+    with pytest.raises(MatrixError) as caught:
+        _upgrade()(source)
+    message = str(caught.value)
+    assert "9008" in message and "one row per" in message.lower()
+
+
+def test_a_row_of_the_wrong_width_is_refused_by_the_fourth_stage(tmp_path):
+    """A short row cannot say which cell carries SWEEP_TYPE.
+
+    FOUND BY A SURVIVING MUTANT: relaxing the width test to `>` let a
+    short row be folded against the wrong cell index instead of refused,
+    and no case in the tree named this message.
+    """
+    source = _one_row_at_the_0_11_0_layout(
+        tmp_path, "short.fs", "MACH:0.0890, REmi:3.10", "AL", "0.0"
+    )
+    lines = source.read_text(encoding="utf-8").splitlines()
+    lines[-1] = lines[-1].rsplit("|", 1)[0].rstrip()
+    source.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    with pytest.raises(MatrixError) as caught:
+        _upgrade()(source)
+    message = str(caught.value)
+    assert "data row 1" in message and "SWEEP_TYPE" in message
+    assert "repair the row first" in message
+
+
+def test_an_unknown_single_code_is_refused_rather_than_read_as_alpha(tmp_path):
+    """The converter's own version of accepted-and-ignored.
+
+    FOUND BY A SURVIVING MUTANT: defaulting the code lookup to ALPHA made
+    every unrecognised code a silent alpha sweep, and nothing measured
+    it. This is the failure mode the whole lane is written against, one
+    layer down.
+    """
+    source = _one_row_at_the_0_11_0_layout(
+        tmp_path, "unknown.fs", "MACH:0.0890, REmi:3.10", "ZZ", "0.0,2.0"
+    )
+    with pytest.raises(MatrixError) as caught:
+        _upgrade()(source)
+    message = str(caught.value)
+    assert "ZZ" in message and "does not know" in message
+    assert "AL, BE" in message, "the refusal does not name the codes it does fold"
+
+
+@pytest.mark.parametrize("code", ["AL/BE/XX", "AL/BE/AL"])
+def test_a_code_that_is_not_a_pair_is_refused_naming_how_many_it_names(tmp_path, code):
+    """A '/' code names exactly two axes, and reading two of three drops a group.
+
+    FOUND BY A SURVIVING MUTANT, and the first case written for it did not
+    kill it. `AL/BE/XX` is refused by the UNKNOWN-CODE check, which fires
+    whatever the arity test says, so a mutant relaxing the arity walked
+    past the case that was supposed to catch it. `AL/BE/AL` is three
+    KNOWN codes, which is the shape that reaches the arity test and
+    nothing else, and it is the one that discriminates. Both are kept:
+    the one that measures, and the one a user is more likely to type.
+    """
+    source = _one_row_at_the_0_11_0_layout(
+        tmp_path,
+        f"{code.replace('/', '_')}.fs",
+        "MACH:0.0890, REmi:3.10",
+        code,
+        "0.0,2.0/0.0/1.0",
+    )
+    with pytest.raises(MatrixError) as caught:
+        _upgrade()(source)
+    message = str(caught.value)
+    assert "9100" in message
+    assert "exactly TWO axes" in message or "XX" in message, message
+    assert "3 axis or axes" in message or "XX" in message, (
+        "the refusal says neither how many axes were named nor which code is wrong"
+    )
+
+
+def test_a_lower_case_paired_code_folds(tmp_path):
+    """The case fold in `_paired_sweep_as_one` is exercised, not assumed.
+
+    FOUND BY A SURVIVING MUTANT: removing `.upper()` changed nothing in
+    the suite, because every fixture writes the codes in capitals. A
+    matrix is a file a person types, and the reader has folded case
+    everywhere else since 0.8.0.
+    """
+    source = _one_row_at_the_0_11_0_layout(
+        tmp_path, "lower.fs", "MACH:0.0890, REmi:3.10", "al/be", "0.0,2.0/0.0"
+    )
+    row = read_matrix(_written(tmp_path, source))[0]
+    assert row.sweep.type == "alpha"
+    assert row.sweep.held == {"beta": 0.0}
+
+
+def test_the_duplicate_refusal_leaves_the_source_untouched(tmp_path):
+    """An in-place run that refuses may not have written first.
+
+    The paired refusal is asserted this way already; this one was not,
+    and it is the same promise: a converter that overwrites and THEN
+    refuses has destroyed the file the author has to repair.
+    """
+    source = _one_row_at_the_0_11_0_layout(
+        tmp_path, "twice_in_place.fs", "MACH:0.0890, REmi:3.10, ALPHA:2.0", "AL", "0.0,2.0"
+    )
+    before = source.read_bytes()
+    with pytest.raises(MatrixError):
+        _upgrade()(source, in_place=True)
+    assert source.read_bytes() == before, "the refused conversion overwrote its source"
 
 
 def _unfolded(data: bytes) -> bytes:
