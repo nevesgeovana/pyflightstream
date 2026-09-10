@@ -71,6 +71,7 @@ from pyflightstream._errors import (
 )
 from pyflightstream._fsm import MeshReadError
 from pyflightstream.cases import (
+    AliasCycleError,
     CampaignConfigError,
 )
 from pyflightstream.cases.matrix import MatrixError
@@ -131,6 +132,7 @@ from pyflightstream.workspace import (
 from pyflightstream.workspace.flight_condition import FlightConditionError
 
 __all__ = [
+    "AliasCycleError",
     "AmbiguousLoadsError",
     "AmbiguousVersionAliasError",
     "AnchorNotFoundError",

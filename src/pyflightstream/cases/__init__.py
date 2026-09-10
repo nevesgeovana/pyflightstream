@@ -72,6 +72,9 @@ __all__ = [
     "RAW_PHASES",
     "RawCommand",
     "PprocSpec",
+    "AliasCycleError",
+    "BladeDatum",
+    "EngineBlock",
     "RESERVED_FRAME_NAMES",
     "SectionsSpec",
     "PlotsSpec",
@@ -635,6 +638,151 @@ class FrameSpec(BaseModel):
         return self
 
 
+class BladeDatum(BaseModel):
+    """Where blade one sits, and the axis its azimuth is measured from (FR-60).
+
+    Her answer of 2026-09-10, on the first reading of the use case: an
+    azimuth ALONE carries a hidden convention, zero at which axis, that
+    two people fill differently and nobody sees. So the datum is written
+    beside it: ``{ azimuth_deg = 45.0, zero = "X" }``, the zero being an
+    axis letter with an optional sign, refused when it is parallel to the
+    axis the rotor turns about, because an angle measured from that axis
+    locates nothing.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    azimuth_deg: float = 0.0
+    zero: str = "X"
+
+    @field_validator("zero", mode="before")
+    @classmethod
+    def _an_axis_letter(cls, value: object) -> object:
+        if not isinstance(value, str):
+            return value
+        token = value.strip().upper()
+        if token.lstrip("+-") not in ("X", "Y", "Z") or len(token.lstrip("+-")) != 1:
+            raise ValueError(
+                f"blade1 states zero = {value!r}, which is not an axis; write X, Y or Z, "
+                "with an optional sign"
+            )
+        return token
+
+
+class EngineBlock(BaseModel):
+    """One rotor, declared as one block of the reference artifact (FR-60).
+
+    Her design of 2026-09-10. The block's NAME is an alias over
+    everything the rotor owns, the union of :attr:`families_general` and
+    :attr:`families_blades` in that order: what a row moves when it cites
+    it, and what a group summing the rotor sums. The name is free and is
+    refused only when it ends in a digit, because a number after a
+    radical reads as a blade.
+
+    Attributes
+    ----------
+    alias : str
+        The word a row moves. Required, and equal to the block's name;
+        the reference refuses a block whose two names disagree.
+    x_m, y_m, z_m : float
+        The hub, in the geometry's own frame.
+    axis : str
+        The axis it turns about.
+    rpm_sign : int
+        ``+1`` is the right-hand rule about ``axis``, which is the one
+        reading that does not depend on where the reader stands.
+    diameter_m : float
+        The length an ADVANCE_RATIO resolves against, PER ROTOR: one
+        ratio written once in the flight condition gives each rotor a
+        speed of its own (FR-63).
+    families_general : list of str
+        What turns with the rotor and is NOT a blade, the spinner and the
+        hub. It has no local axis of its own: its local frame IS the
+        rotor's.
+    families_blades : list of str
+        One entry per blade, in order. THE BLADE COUNT IS THE LENGTH OF
+        THIS LIST, so a row states no blade count and a sector mesh
+        carrying one blade of four still reduces over four.
+    blade1 : BladeDatum
+        Where blade one sits, and the axis its azimuth is measured from.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    alias: str
+    axis: str
+    diameter_m: float = Field(gt=0.0)
+    families_blades: list[str]
+    x_m: float = 0.0
+    y_m: float = 0.0
+    z_m: float = 0.0
+    rpm_sign: int = 1
+    families_general: list[str] = Field(default_factory=list)
+    blade1: BladeDatum = Field(default_factory=BladeDatum)
+    kind: str = "engine"
+
+    @property
+    def blade_count(self) -> int:
+        """The number of blades, which is the length of :attr:`families_blades`."""
+        return len(self.families_blades)
+
+    @property
+    def members(self) -> list[str]:
+        """Everything the rotor owns, general families first, in the order written."""
+        return [*self.families_general, *self.families_blades]
+
+    @property
+    def origin(self) -> tuple[float, float, float]:
+        """The hub, as the three coordinates a motion is built on."""
+        return (self.x_m, self.y_m, self.z_m)
+
+    @field_validator("axis", mode="before")
+    @classmethod
+    def _an_axis(cls, value: object) -> object:
+        if not isinstance(value, str):
+            return value
+        token = value.strip().upper()
+        if token not in ("X", "Y", "Z"):
+            raise ValueError(f"axis = {value!r} is not an axis; write X, Y or Z")
+        return token
+
+    @field_validator("rpm_sign")
+    @classmethod
+    def _a_sign(cls, value: int) -> int:
+        if value not in (1, -1):
+            raise ValueError(
+                f"rpm_sign = {value!r} is not a sign; write 1 or -1, where +1 is the "
+                "right-hand rule about axis"
+            )
+        return value
+
+    @model_validator(mode="after")
+    def _a_rotor_with_blades_and_a_usable_datum(self) -> EngineBlock:
+        if not self.families_blades:
+            raise ValueError(
+                "families_blades is empty, and the blade count is its length, so this "
+                "rotor has no blades; name one mesh family per blade, in order"
+            )
+        if self.blade1.zero.lstrip("+-") == self.axis:
+            raise ValueError(
+                f"blade1 measures its azimuth from {self.blade1.zero}, which is parallel to "
+                f"axis = {self.axis}, the axis the rotor turns about; an angle measured from "
+                "that axis locates nothing. Choose one of the other two axes"
+            )
+        return self
+
+
+class AliasCycleError(PyflightstreamError, ValueError):
+    """An alias resolves through itself, and both sides are named (FR-59).
+
+    Her design of 2026-09-10 lets an alias name another alias, resolved to
+    the end. That is what makes a cycle possible, so the reader refuses one
+    rather than recursing: the message names the alias that closed the ring
+    and the member that closed it, because a reader holding only one of the
+    two names has to open the file to find the other.
+    """
+
+
 class PprocSpec(BaseModel):
     """The post-processing specification a matrix row's PPROC cell names.
 
@@ -835,16 +983,74 @@ def resolve_alias(
     """
     if not aliases:
         return None
-    key = (
-        token
-        if token in aliases
-        else next((name for name in aliases if name.casefold() == token.casefold()), None)
-    )
+    key = _alias_key(token, aliases)
     if key is None:
         return None
+    return _resolve_alias_key(key, inventory, aliases, seen=())
+
+
+def _alias_key(token: str, aliases: Mapping[str, Sequence[str]]) -> str | None:
+    """Return the alias one token names, the exact spelling first and case folded second."""
+    if token in aliases:
+        return token
+    return next((name for name in aliases if name.casefold() == token.casefold()), None)
+
+
+def _resolve_alias_key(
+    key: str,
+    inventory: Sequence[str],
+    aliases: Mapping[str, Sequence[str]],
+    *,
+    seen: tuple[str, ...],
+) -> list[str]:
+    """Resolve one alias to boundary names, following members that are aliases.
+
+    Her design of 2026-09-10 (FR-59): a member may be a mesh family, a
+    boundary name, or ANOTHER ALIAS, resolved to the end. A member that
+    names an alias already on the path closes a ring, and a ring is
+    refused naming BOTH SIDES rather than recursed into, because a reader
+    holding one of the two names has to open the file to find the other.
+    """
     names: list[str] = []
+    path = (*seen, key)
     for member in aliases[key]:
-        for name in names_of(str(member), inventory):
+        token = str(member)
+        # THE INVENTORY IS ASKED FIRST, and it has to be. A member that
+        # names a boundary the mesh carries is that boundary, whatever
+        # else shares its spelling; only a member the mesh does not carry
+        # is looked up as an alias. Without this order an alias `wing`
+        # whose member is the family `Wing` resolves to ITSELF, because
+        # an alias is matched case folded, and the reader reports a cycle
+        # over a file that has none (measured 2026-09-10 against
+        # test_the_refusal_cites_the_word_the_artifact_writes_not_the_alias_members).
+        if token in inventory:
+            if token not in names:
+                names.append(token)
+            continue
+        nested = _alias_key(token, aliases)
+        # A MEMBER THAT NAMES ITS OWN ALIAS IS NOT A RING, it is the
+        # 0.14.0 case of an alias resolving to nothing: `wing = ["Wing"]`
+        # over a mesh whose wing was renamed matches the alias itself when
+        # names are folded, and that file has no ring in it. It falls
+        # through to the family reading, which finds nothing, and the
+        # caller says the alias resolved to nothing exactly as it did
+        # before. A ring needs two distinct aliases, and that is what is
+        # refused below.
+        if nested is not None and nested == key:
+            nested = None
+        if nested is not None and nested in path:
+            raise AliasCycleError(
+                f"the alias {key!r} resolves through {token!r}, which resolves back to "
+                f"{nested!r}: {' -> '.join(repr(name) for name in (*path, nested))}. An "
+                "alias may name another alias, and the reader follows to the end, so a "
+                "ring has no end; break it in the reference"
+            )
+        resolved = (
+            _resolve_alias_key(nested, inventory, aliases, seen=path)
+            if nested is not None
+            else names_of(token, inventory)
+        )
+        for name in resolved:
             if name not in names:
                 names.append(name)
     return names

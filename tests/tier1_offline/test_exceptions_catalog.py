@@ -119,6 +119,9 @@ def test_the_package_base_does_not_widen_what_the_builtin_bases_caught():
     """
     expected_builtin = {
         "AmbiguousLoadsError": ValueError,
+        # FR-59: an alias resolves through itself, and a file that cannot be
+        # read is a ValueError to every caller who caught one before.
+        "AliasCycleError": ValueError,
         "AmbiguousVersionAliasError": ValueError,
         "CampaignConfigError": ValueError,
         "AnchorNotFoundError": ValueError,

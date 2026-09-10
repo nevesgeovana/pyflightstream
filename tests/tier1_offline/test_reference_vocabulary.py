@@ -1,0 +1,309 @@
+"""The reference holds the vocabulary of a study's boundaries (FR-59, FR-60, FR-72).
+
+Her design of 2026-09-10, written out first as a use case workspace and
+read three times before any of this existed. Three tables move into the
+reference artifact, and one of them is new:
+
+* ``[aliases]``, which 0.14.0 put in the setup preset. A member may now be
+  another alias, resolved to the end, and a cycle is refused naming both
+  sides.
+* ``[[frames]]``, which 0.14.0 also put in the setup preset. A coordinate
+  system is geometric data.
+* one block per rotor, ``kind = "engine"``, whose NAME is an alias over
+  everything the rotor owns.
+
+WHY THESE TESTS FAIL ON THE BASE, and it is the same reason for all of
+them: :class:`ReferenceArtifact` is ``extra="forbid"``, so every table
+here is refused as an unknown key. That is the falsifying failure, and it
+is an assertion about the model rather than an import error.
+
+The usage example each test is written from is
+``inputs/references/r011.toml`` of the use case workspace: eight lifters
+of four blades, one pusher of three, and the aliases a transition row
+cites.
+"""
+
+from __future__ import annotations
+
+import pytest
+
+from pyflightstream.workspace import CampaignWorkspace
+from pyflightstream.workspace.inputs import InputArtifactError
+
+#: The reference of the use case, cut to what one test needs: two rotors
+#: of different sizes, the aliases a row cites, and one custom frame.
+#: Every value is chosen for the example and none of it is measured.
+VOCABULARY_TOML = """
+area_m2 = 16.0
+chord_m = 1.6
+span_m = 10.0
+
+[moment_point]
+x_m = 3.5
+y_m = 0.0
+z_m = 0.0
+
+[aliases]
+airframe = ["W", "B", "K"]
+lifters_left = ["LIFT_L1"]
+lifters_right = ["LIFT_R1"]
+lifters = ["lifters_left", "lifters_right"]
+
+[[frames]]
+name = "NAC_PUSH"
+origin = [7.2, 0.0, 0.0]
+
+[LIFT_L1]
+kind = "engine"
+alias = "LIFT_L1"
+x_m = 1.2
+y_m = 2.4
+z_m = 0.3
+axis = "Z"
+rpm_sign = 1
+diameter_m = 1.2
+families_general = ["LH_L1"]
+families_blades = ["LB_L1_1", "LB_L1_2", "LB_L1_3", "LB_L1_4"]
+blade1 = { azimuth_deg = 0.0, zero = "X" }
+
+[LIFT_R1]
+kind = "engine"
+alias = "LIFT_R1"
+x_m = 1.2
+y_m = -2.4
+z_m = 0.3
+axis = "Z"
+rpm_sign = -1
+diameter_m = 1.2
+families_general = ["LH_R1"]
+families_blades = ["LB_R1_1", "LB_R1_2", "LB_R1_3", "LB_R1_4"]
+blade1 = { azimuth_deg = 0.0, zero = "X" }
+
+[PUSHER]
+kind = "engine"
+alias = "PUSHER"
+x_m = 7.2
+y_m = 0.0
+z_m = 0.0
+axis = "X"
+rpm_sign = 1
+diameter_m = 1.8
+families_general = ["Spinner", "Hub"]
+families_blades = ["Blade_1", "Blade_2", "Blade_3"]
+blade1 = { azimuth_deg = 0.0, zero = "Y" }
+"""
+
+
+def _library(tmp_path):
+    return CampaignWorkspace.init(tmp_path / "camp")
+
+
+def _reference(tmp_path, body: str, artifact_id: str = "r011"):
+    workspace = _library(tmp_path)
+    (workspace.inputs_dir / "references" / f"{artifact_id}.toml").write_text(body, encoding="utf-8")
+    return workspace.resolve_reference(artifact_id)
+
+
+def _refused(tmp_path, body: str, artifact_id: str) -> str:
+    workspace = _library(tmp_path)
+    (workspace.inputs_dir / "references" / f"{artifact_id}.toml").write_text(body, encoding="utf-8")
+    with pytest.raises(InputArtifactError) as refused:
+        workspace.resolve_reference(artifact_id)
+    return str(refused.value)
+
+
+def test_a_reference_declares_its_aliases(tmp_path):
+    reference = _reference(tmp_path, VOCABULARY_TOML)
+    assert reference.aliases["airframe"] == ["W", "B", "K"]
+
+
+def test_a_reference_declares_its_custom_frames(tmp_path):
+    reference = _reference(tmp_path, VOCABULARY_TOML)
+    assert [frame.name for frame in reference.frames] == ["NAC_PUSH"]
+    assert reference.frames[0].origin == (7.2, 0.0, 0.0)
+
+
+def test_an_engine_block_is_a_rotor(tmp_path):
+    reference = _reference(tmp_path, VOCABULARY_TOML)
+    pusher = reference.engines["PUSHER"]
+    assert pusher.axis == "X"
+    assert pusher.rpm_sign == 1
+    assert pusher.diameter_m == 1.8
+    assert pusher.blade1.azimuth_deg == 0.0
+    assert pusher.blade1.zero == "Y"
+
+
+def test_the_blade_count_is_the_length_of_the_blade_family_list(tmp_path):
+    reference = _reference(tmp_path, VOCABULARY_TOML)
+    assert reference.engines["PUSHER"].blade_count == 3
+    assert reference.engines["LIFT_L1"].blade_count == 4
+
+
+def test_the_engine_name_is_an_alias_over_everything_the_rotor_owns(tmp_path):
+    """Her words of 2026-09-10: the alias prescribes the motion and the spinner turns with it."""
+    reference = _reference(tmp_path, VOCABULARY_TOML)
+    assert reference.aliases["PUSHER"] == [
+        "Spinner",
+        "Hub",
+        "Blade_1",
+        "Blade_2",
+        "Blade_3",
+    ]
+
+
+def test_two_rotors_may_differ_in_diameter(tmp_path):
+    """FR-63: one ratio resolves against each rotor's own length, so they may differ."""
+    reference = _reference(tmp_path, VOCABULARY_TOML)
+    assert reference.engines["LIFT_L1"].diameter_m != reference.engines["PUSHER"].diameter_m
+
+
+def test_a_block_whose_alias_differs_from_its_name_is_refused(tmp_path):
+    body = VOCABULARY_TOML.replace('alias = "PUSHER"', 'alias = "PUSHR"')
+    message = _refused(tmp_path, body, "r903")
+    assert "PUSHER" in message
+    assert "PUSHR" in message
+
+
+def test_a_rotor_may_be_named_with_a_trailing_digit(tmp_path):
+    """Eight lifters four a side are LIFT_L1 to LIFT_R4, and the design must accept them.
+
+    PFS-2035.02 said a rotor name is refused when it ENDS IN A DIGIT,
+    "because a number after a radical always means a blade". Written
+    against the frame names of 0.14.0 (``PROP_MRP<k>``, ``BladeAxis<k>``)
+    that rule was necessary. Written against the frame names this release
+    introduces it refuses her own use case: every one of the eight lifters
+    in `inputs/references/r011.toml` is named `LIFT_L1` through `LIFT_R4`.
+
+    It is also no longer necessary. A rotor's frames are `<ALIAS>_SMRP`,
+    `<ALIAS>_RMRP` and `<ALIAS>_RMRP<k>`, so the number sits after `RMRP`
+    and never after the alias, and no two distinct aliases can produce the
+    same frame name. What CAN collide is a rotor named after a frame, and
+    that is the rule the next test measures.
+    """
+    reference = _reference(tmp_path, VOCABULARY_TOML)
+    assert "LIFT_L1" in reference.engines
+    assert reference.engines["LIFT_L1"].blade_count == 4
+
+
+def test_a_rotor_named_after_a_frame_is_refused(tmp_path):
+    """The collision the digit rule was standing in for, measured directly."""
+    body = VOCABULARY_TOML.replace("[PUSHER]", "[PUSH_RMRP2]").replace(
+        'alias = "PUSHER"', 'alias = "PUSH_RMRP2"'
+    )
+    # THE ARTIFACT ID CARRIES NONE OF THE WORDS THE ASSERTION LOOKS FOR,
+    # and an earlier version of this test did: it was called "rdigit", the
+    # refusal names the file path, and the test passed on the base with
+    # the word coming from its own file name.
+    message = _refused(tmp_path, body, "r901")
+    assert "PUSH_RMRP2" in message
+    assert "_RMRP" in message
+
+
+def test_a_blade_datum_parallel_to_the_axis_is_refused(tmp_path):
+    """An azimuth measured from the axis it turns about locates nothing."""
+    # The pusher turns about X, so a datum of X is the parallel case, and it
+    # is the only block of the fixture whose zero is Y: one replace reaches
+    # it and no other.
+    body = VOCABULARY_TOML.replace(
+        'blade1 = { azimuth_deg = 0.0, zero = "Y" }',
+        'blade1 = { azimuth_deg = 0.0, zero = "X" }',
+    )
+    message = _refused(tmp_path, body, "r902")
+    assert "parallel" in message
+    assert "blade1" in message
+
+
+def test_an_engine_block_with_no_blade_family_is_refused(tmp_path):
+    body = VOCABULARY_TOML.replace(
+        'families_blades = ["Blade_1", "Blade_2", "Blade_3"]', "families_blades = []"
+    )
+    message = _refused(tmp_path, body, "r904")
+    assert "families_blades" in message
+
+
+def test_an_engine_block_with_no_diameter_is_refused(tmp_path):
+    """FR-63: the ratio resolves against this length, so a rotor without one resolves nothing."""
+    body = VOCABULARY_TOML.replace("diameter_m = 1.8\n", "")
+    message = _refused(tmp_path, body, "r905")
+    assert "diameter_m" in message
+
+
+def test_an_alias_may_name_an_alias(tmp_path):
+    """Resolved to the end, and the end is the MESH.
+
+    `lifters` names two aliases, each naming one rotor, and a rotor's name
+    is itself an alias over its families. So three levels resolve to what a
+    mesh actually carries, which is the point: a row citing `lifters` moves
+    the two hubs and their eight blades, and no file anywhere lists them.
+
+    The first version of this test expected `["LIFT_L1", "LIFT_R1"]` and
+    handed the resolver an inventory carrying those two names. No mesh
+    carries a boundary called `LIFT_L1`; that is the rotor's name, not a
+    boundary's, and the expectation was the design read backwards.
+    """
+    from pyflightstream.cases import resolve_alias
+
+    reference = _reference(tmp_path, VOCABULARY_TOML)
+    inventory = [
+        "LH_L1",
+        "LB_L1_1",
+        "LB_L1_2",
+        "LB_L1_3",
+        "LB_L1_4",
+        "LH_R1",
+        "LB_R1_1",
+        "LB_R1_2",
+        "LB_R1_3",
+        "LB_R1_4",
+        "W",
+        "B",
+    ]
+    assert resolve_alias("lifters", inventory, reference.aliases) == [
+        "LH_L1",
+        "LB_L1_1",
+        "LB_L1_2",
+        "LB_L1_3",
+        "LB_L1_4",
+        "LH_R1",
+        "LB_R1_1",
+        "LB_R1_2",
+        "LB_R1_3",
+        "LB_R1_4",
+    ]
+
+
+def test_a_cycle_of_aliases_is_refused_naming_both_sides(tmp_path):
+    from pyflightstream.cases import AliasCycleError, resolve_alias
+
+    aliases = {"a": ["b"], "b": ["a"]}
+    with pytest.raises(AliasCycleError) as refused:
+        resolve_alias("a", ["W"], aliases)
+    message = str(refused.value)
+    assert "'a'" in message
+    assert "'b'" in message
+
+
+def test_an_alias_naming_itself_is_not_a_ring(tmp_path):
+    """The distinction a real workspace forced, on 2026-09-10.
+
+    `wing = ["Wing"]` over a mesh whose wing boundary was RENAMED matches
+    the alias itself once names are folded, and there is no ring in that
+    file: it is the 0.14.0 case of an alias that resolves to nothing, and
+    the caller has said so by name since that release. A ring needs two
+    DISTINCT aliases, and the test below is what refusal means.
+
+    Without this distinction the reader reported a cycle over a file with
+    none, and named a word the file never writes, which is the exact
+    defect the tier-3 refusal test was written against.
+    """
+    from pyflightstream.cases import resolve_alias
+
+    assert resolve_alias("wing", ["MainWing"], {"wing": ["Wing"]}) == []
+
+
+def test_a_member_the_mesh_lacks_is_still_ignored(tmp_path):
+    """The rule that survives the move: one reference serves the aircraft and a cut of it."""
+    from pyflightstream.cases import resolve_alias
+
+    reference = _reference(tmp_path, VOCABULARY_TOML)
+    assert resolve_alias("airframe", ["W", "B"], reference.aliases) == ["W", "B"]

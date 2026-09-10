@@ -85,7 +85,13 @@ from pydantic import (
 # same public spelling.
 from pyflightstream._errors import InputArtifactError
 from pyflightstream._fsm import MeshReadError, boundary_names
-from pyflightstream.cases import BoundaryAliases, FrameSpec, PprocSpec, RawCommand
+from pyflightstream.cases import (
+    BoundaryAliases,
+    EngineBlock,
+    FrameSpec,
+    PprocSpec,
+    RawCommand,
+)
 
 # DOWNWARD, and the two imports in this module that leave the workspace
 # layer: `cases` sits below `workspace` in the house order, and the
@@ -349,6 +355,27 @@ class ReferenceArtifact(BaseModel):
     propeller_diameter_m: float | None = Field(default=None, gt=0.0)
     moment_point: PointXyz = Field(default_factory=PointXyz)
     propeller: PropellerReference | None = None
+    #: The boundary aliases the ``[aliases]`` table declares (FR-59, her
+    #: design of 2026-09-10). They lived in the setup preset at 0.14.0,
+    #: which is per condition where this artifact is per configuration; a
+    #: boundary name is not a solver setting. A member may be another
+    #: alias, resolved to the end by
+    #: :func:`pyflightstream.cases.resolve_alias`. Every engine block's own
+    #: name is added here by :func:`resolve_reference`, standing for
+    #: everything that rotor owns.
+    aliases: BoundaryAliases = Field(default_factory=dict)
+    #: The custom coordinate systems the ``[[frames]]`` table defines
+    #: (FR-72), in the order written. They lived in the setup preset at
+    #: 0.14.0; a coordinate system is geometric data, and the frames a
+    #: rotor instantiates were always derived from this file.
+    frames: list[FrameSpec] = Field(default_factory=list)
+    #: One entry per rotor, keyed by the block's name, read out of every
+    #: top-level table whose ``kind`` is ``engine`` (FR-60). The key is
+    #: the word a row moves.
+    engines: dict[str, EngineBlock] = Field(default_factory=dict)
+    #: The named points of the configuration that are not rotors, keyed by
+    #: the block's name: today the airframe point a study cites by name.
+    points: dict[str, PointXyz] = Field(default_factory=dict)
 
     @model_validator(mode="after")
     def _one_propeller_length(self) -> ReferenceArtifact:
@@ -851,7 +878,72 @@ def resolve_reference(inputs_dir: Path, artifact_id: str) -> ReferenceArtifact:
     if not path.is_file():
         raise _miss("reference", artifact_id, directory)
     data = _load_toml(path, "reference")
-    return _validate(ReferenceArtifact, data, path, "reference")
+    return _validate(ReferenceArtifact, _split_reference_tables(data, path), path, "reference")
+
+
+def _split_reference_tables(data: dict[str, Any], path: Path) -> dict[str, Any]:
+    """Sort a reference file's top-level tables into the model's fields (FR-59, FR-60, FR-72).
+
+    Three of them are not fixed keys and cannot be, because their names
+    belong to the study: one table per rotor, keyed by the word a row
+    moves. So this function does for the reference what
+    :func:`resolve_setup` does for the preset, and reads the file's shape
+    rather than requiring the author to nest it:
+
+    * a table declaring ``kind = "engine"`` is a rotor and goes to
+      ``engines``; the block's NAME becomes an alias over everything the
+      rotor owns, the general families first, so a row citing it moves the
+      spinner with the blades (her words of 2026-09-10);
+    * a table declaring any other point ``kind`` goes to ``points``;
+    * ``[aliases]`` and ``[[frames]]`` are lifted by name.
+
+    A block whose ``alias`` differs from its name is refused here rather
+    than in the model, because the model never sees the name: the name is
+    the key this function reads.
+    """
+    rest = dict(data)
+    aliases = dict(rest.pop(ALIASES_TABLE, {}) or {})
+    frames = rest.pop(FRAMES_TABLE, []) or []
+    engines: dict[str, Any] = {}
+    points: dict[str, Any] = {}
+    for name, value in list(rest.items()):
+        if not isinstance(value, dict) or "kind" not in value:
+            continue
+        if value.get("kind") != "engine":
+            points[name] = rest.pop(name)
+            continue
+        block = rest.pop(name)
+        stated = block.get("alias")
+        if stated is not None and str(stated) != name:
+            raise InputArtifactError(
+                f"the reference artifact {path} declares the rotor {name!r} and states "
+                f"alias = {stated!r} inside it. The block's name IS the alias, so the two "
+                "can only agree or disagree; make them equal, or drop the field.",
+                kind="reference",
+            )
+        collision = next((part for part in ("_SMRP", "_RMRP") if part in name.upper()), None)
+        if collision is not None:
+            raise InputArtifactError(
+                f"the reference artifact {path} declares the rotor {name!r}, whose name "
+                f"carries {collision}. That is the radical this package gives a rotor's own "
+                f"frames ({name}_SMRP, {name}_RMRP and {name}_RMRP<k> per blade), so a rotor "
+                "named after a frame makes two different things spell the same. Choose "
+                "another name.",
+                kind="reference",
+            )
+        block.setdefault("alias", name)
+        engines[name] = block
+        members = [*block.get("families_general", []), *block.get("families_blades", [])]
+        aliases.setdefault(name, members)
+    if aliases:
+        rest[ALIASES_TABLE] = aliases
+    if frames:
+        rest[FRAMES_TABLE] = frames
+    if engines:
+        rest["engines"] = engines
+    if points:
+        rest["points"] = points
+    return rest
 
 
 def resolve_setup(inputs_dir: Path, artifact_id: str) -> SetupArtifact:

@@ -1837,8 +1837,20 @@ requirement below is one seam of that division.
     The block's NAME IS AN ALIAS over everything the rotor owns, the union of
     `families_general` and `families_blades` in that order: what a row moves
     when it cites it, and what a group summing the rotor sums. The name is
-    free and is refused only when it ends in a digit, because a number after a
-    radical reads as a blade. `rpm_sign` is `+1` by the right-hand rule
+    free, and what it may not be is a name of one of the frames the package
+    builds from it: a rotor carrying `_SMRP` or `_RMRP` in its own name is
+    refused, because then a rotor and a frame spell the same.
+
+    THE RULE PFS-2035.02 STATED WAS NARROWER AND WOULD HAVE REFUSED HER OWN
+    STUDY, and it is corrected here rather than quietly widened. The node
+    said a name is refused when it ENDS IN A DIGIT, "because a number after a
+    radical always means a blade", which was true of the frame names of
+    0.14.0 (`PROP_MRP<k>`, `BladeAxis<k>`) and is not true of these. A
+    rotor's frames are `<ALIAS>_SMRP`, `<ALIAS>_RMRP` and `<ALIAS>_RMRP<k>`,
+    so the number sits after `RMRP` and never after the alias, and no two
+    distinct aliases can produce one frame name. Measured 2026-09-10 against
+    the use case she read three times: eight of its ten blocks are named
+    `LIFT_L1` to `LIFT_R4` and every one of them ends in a digit. `rpm_sign` is `+1` by the right-hand rule
     about `axis`, which is the one reading that does not depend on where the
     reader stands.
 
