@@ -385,7 +385,7 @@ def test_a_refused_polar_is_recorded_as_skipped_and_the_other_products_are_writt
     assert "3208" in manifest["skipped"]
     assert "sideslip" in manifest["skipped"]["3208"]
     assert "3208" in out.err and "sideslip" in out.err, "the skip is said where the user looks"
-    # Her decision of 2026-09-08 on the exit code: 0 by default, and --strict
+    # The author's decision of 2026-09-08 on the exit code: 0 by default, and --strict
     # makes a recorded skip exit 2 for a wrapper that must tell them apart.
     assert main(["post", "--workspace", str(workspace.root), "--overwrite", "--strict"]) == 3
     err = capsys.readouterr().err

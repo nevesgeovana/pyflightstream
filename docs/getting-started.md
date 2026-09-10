@@ -126,6 +126,167 @@ number your solver prints onto the identifier to pass. Read it before
 assuming: some registered builds print a release name that is not even
 the one the vendor sells them under.
 
+## Your first workspace, step by step
+
+This section assumes nothing. If you have never used this package, start
+here and copy the files it names; they are real files in this repository,
+not sketches, and every one of them is rendered by a test on every commit.
+
+### The four kinds of file, and why there are four
+
+A study is a lot of runs that share almost everything. Rather than repeat
+what they share on every row, a workspace splits it into four files by
+**how often it changes**:
+
+| File | Lives in | Answers | Changes |
+|---|---|---|---|
+| **geometry** | `inputs/geometries/` | what shape is in the wind | per configuration |
+| **reference `r###`** | `inputs/references/` | what the numbers are measured AGAINST, and what the parts are CALLED | per configuration |
+| **setup `s###`** | `inputs/setups/` | how the solver is to be run | per study |
+| **pproc `p###`** | `inputs/pproc/` | what to write down afterwards | per study |
+| **the matrix** | anywhere | which combinations to run | it IS the study |
+
+A matrix row names one of each by its code, plus its own flight condition.
+That is the whole model: **the row says what is different, the four files
+say what is shared.**
+
+Read them in this order the first time.
+
+### 1. The geometry: what is in the wind
+
+A `.fsm` file the solver saved, with a boundary for each part. This
+repository ships ten of them under
+`tests/tier3_licensed/inputs/geometries/`, all SYNTHETIC: generated from
+public shape laws by a committed generator, with a `.provenance.toml`
+beside each recording the generator and the specification it was built
+from. `41_TWIN.fsm` is a body with two rotors and carries four boundaries:
+`Body`, `Base`, `Blade1`, `Blade2`. Its inventory is written out beside it
+in `41_TWIN.boundaries.toml`, which is what `pyfs-matrix inventory` prints
+for a geometry of your own.
+
+You will refer to those boundary names in the next file, so open the
+inventory first and keep it in front of you.
+
+### 2. The reference `r###`: the lengths, and the vocabulary
+
+Read `tests/tier3_licensed/inputs/references/r006.toml`. It does two jobs.
+
+**It says what the coefficients are divided by.** `area_m2`, `chord_m` and
+`span_m` are SREF, CREF and BREF, and `[moment_point]` is where moments are
+taken about. Change one of these and every coefficient in your results
+changes, which is why they live in a file a row cites rather than in the
+row.
+
+**It says what the parts are CALLED**, and this is the half that saves you
+the most work:
+
+```toml
+[aliases]
+airframe = ["Body", "Base"]
+rotors = ["PORT", "STARBOARD"]
+```
+
+An alias is a name YOUR study gives to a set of boundaries, and it is read
+everywhere a boundary is cited. Write `airframe` once here and every row,
+every group and every plot can say `airframe` instead of listing the parts
+again. A member may be another alias, followed to the end, and a member the
+opened mesh does not carry is left out, which is what lets one reference
+serve a wing-body and an isolated rotor.
+
+A rotor is a block whose NAME is an alias over everything that rotor owns:
+
+```toml
+[PORT]
+kind = "rotor"
+x_m = 4.5           # the hub
+y_m = 0.9144
+z_m = 0.0
+axis = "X"          # what it turns about
+rpm_sign = 1        # which way
+diameter_m = 3.6576 # what an advance ratio resolves against
+families_general = []             # the hub, spinner, anything not a blade
+families_blades = ["Blade1"]      # the blades; the COUNT is this list's length
+blade1 = { azimuth_deg = 0.0, zero = "Y" }   # where blade 1 sits
+```
+
+After this a row says `PORT` and states nothing else about that rotor.
+
+### 3. The setup `s###`: how the solver runs
+
+Read `tests/tier3_licensed/inputs/setups/s002.toml`. Iteration counts,
+convergence, the wake, the boundary-layer type: the knobs you would set
+once for a study and leave alone. What is NOT here is the clock, because
+a time step is what a point IS rather than how the solver is configured.
+
+### 4. The pproc `p###`: what gets written down
+
+Read `tests/tier3_licensed/inputs/pproc/p005.toml`. Boundary groups, the
+exports, the sectional distributions, the force plots, the probe lines, and
+the product tables the campaign writes.
+
+The one idea to take from it: **the frame decides how an entry expands.**
+You do not say how many plots you want; you say which frame each quantity
+is measured in, and the count follows:
+
+| `frame =` | you get |
+|---|---|
+| `MRP`, or a frame the reference declares | ONE, over the whole cited set |
+| `SMRP` or `RMRP` | one per ROTOR, in that rotor's own frame |
+| `LOCAL_AXIS` | one per BLADE, in that blade's frame |
+
+So the four `[[plots.groups]]` entries in `p005.toml` become nine emissions
+on this two-rotor aircraft, and would become twenty-seven on a nine-rotor
+one without a line changing.
+
+### 5. The matrix: which combinations to run
+
+Read `tests/tier3_licensed/matriz_vocab.fs`. Every row names a geometry,
+an `r`, an `s` and a `p`, its own flight condition, and the values it
+sweeps. Row 8002 is the one to look at first:
+
+```
+8002 | Twin | ... | MACH:0.1, REmi:2.3, ALPHA:0, BETA:0, ADVANCE_RATIO:sweep | 0.6,0.8 | r006 | s002 | p005 | ...
+     | GEOMETRY: 41_TWIN.fsm / DELTA_THETA: 30 / REVOLUTIONS: 0.5 /
+       CLOCK_MOTION: PORT / MOTIONS: {MOVING_BC_ALIAS: PORT}, {MOVING_BC_ALIAS: STARBOARD}
+```
+
+Read it left to right: at Mach 0.1, at zero incidence and sideslip,
+sweeping the advance ratio over 0.6 and 0.8, against reference `r006`,
+setup `s002` and post-processing `p005`. Two rotors turn; neither states a
+speed, so both take the swept ratio; `CLOCK_MOTION` says the time step
+follows `PORT`.
+
+**One number gives two speeds.** The rendered script for the first point is
+`tests/tier3_licensed/goldens/matriz_vocab/POLAR-8002_M10AL+000BE+000J+060.txt`,
+and it emits:
+
+```
+SET_MOTION_ROTOR_RPM 1 930.3642
+SET_MOTION_ROTOR_RPM 2 -1860.7283
+```
+
+Exactly twice the speed on the rotor of half the diameter, and negative
+because `STARBOARD` declares `rpm_sign = -1`. You wrote one ratio; the
+reference did the rest.
+
+### 6. Run it
+
+```
+pyfs-matrix plan  matriz_vocab.fs --workspace . --fs-version 26.123
+pyfs-matrix run   matriz_vocab.fs --workspace . --fs-version 26.123
+```
+
+`plan` spends no solver time: it binds every code, builds every script in
+dry run and tells you READY or BLOCKED with the reason. **Always plan
+before you run.** A blocked point costs you a message; a bad run costs you
+the licence.
+
+### What to copy
+
+The fastest start is to copy `tests/tier3_licensed/inputs/` whole, delete
+the artifacts you do not need, and edit `r006.toml` to your own lengths and
+your own boundary names. Then write one matrix row and plan it.
+
 ## Build a script
 
 Nothing here runs a solver. The point of this package is that the

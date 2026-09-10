@@ -37,6 +37,15 @@ def _pyproject_version() -> str:
         return tomllib.load(handle)["project"]["version"]
 
 
+#: THE ONE HOME OF THE HEADING AN ARCHIVE DEBT LIVES UNDER. Two guards
+#: needed it and each carried its own reading, so a debt written under a
+#: different heading satisfied one and made the other refuse the release
+#: commit (the architecture lens of the 0.15.0 release review).
+#: `tests/tier1_offline/test_metadata_currency.py` imports this rather than
+#: spelling it again.
+OWED_HEADING = "### Owed"
+
+
 def _unreleased_body(text: str | None = None) -> str:
     """Return the text of a changelog's Unreleased section.
 
@@ -75,7 +84,12 @@ def _unreleased_body(text: str | None = None) -> str:
     # NARROW ON PURPOSE. Every other section still counts, so an Added or a
     # Changed entry under Unreleased still refuses a final version, which is
     # the whole point of this file.
-    body = re.sub(r"^### Owed\s*$.*?(?=^### |\Z)", "", body, flags=re.M | re.S)
+    body = re.sub(
+        r"^" + re.escape(OWED_HEADING) + r"\s*$.*?(?=^### |\Z)",
+        "",
+        body,
+        flags=re.M | re.S,
+    )
     # Section headings alone are not content: "### API surface delta" with
     # nothing under it is an empty section, not an unreleased change.
     without_headings = re.sub(r"^#+ .*$", "", body, flags=re.M)

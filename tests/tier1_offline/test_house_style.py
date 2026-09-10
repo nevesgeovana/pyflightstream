@@ -169,7 +169,7 @@ MIGRATED_PATH = re.compile(
 # why THIS guard walks `git ls-files` instead.
 #
 # What is deliberately NOT guarded: the author's NAME. It appears by intention
-# in LICENSE, CITATION.cff, pyproject.toml, the SRS and the guide, because she
+# in LICENSE, CITATION.cff, pyproject.toml, the SRS and the guide, because the author
 # publishes under it. Guarding a string that is meant to be published would need
 # an allow-list long enough to be its own maintenance defect. An email address
 # and a user-profile path have no legitimate home in this tree at all, which is
@@ -401,7 +401,7 @@ def test_no_committed_path_to_a_migrated_session_document():
 #
 # BRF-049, routed from the answered decision BRF019 (2026-07-28). The name in
 # LICENSE, CITATION.cff, README.md, CHANGELOG.md, pyproject.toml, the guide and
-# the docs is AUTHORSHIP of a library published under her own name: intentional,
+# the docs is AUTHORSHIP of a library published under the author's own name: intentional,
 # and it stays. That is why the identifier guard above excludes it by decision.
 #
 # src/ is different for one reason: it is installed. PHY-06.yaml is declared

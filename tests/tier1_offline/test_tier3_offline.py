@@ -419,28 +419,36 @@ def test_moving_boundaries_may_name_a_group_of_the_pproc_artifact(tmp_path):
 
 
 def test_moving_boundaries_may_name_an_alias_of_the_setup(tmp_path):
-    """Her decision of 2026-09-09: an alias defined in the row's setup is read
+    """The author's decision of 2026-09-09: an alias defined in the row's setup is read
     wherever a boundary is cited. `rotor = ["Blade", "Spinner"]` on a copy of the
     unsteady preset resolves to Blade1 of 40_PUSHER, the third boundary, and the
     member the file lacks is ignored; an alias no member of which the file
     carries is refused as a name the inventory lacks, naming the alias."""
     root = _tier3_copy(tmp_path)
-    s002 = (root / "inputs" / "setups" / "s002.toml").read_text(encoding="utf-8")
-    (root / "inputs" / "setups" / "s009.toml").write_text(
-        s002 + '\n[aliases]\nrotor = ["Blade", "Spinner"]\nghost = ["Spinner"]\n',
+    # THE TABLE LIVES IN THE REFERENCE SINCE 0.15.0 (FR-59): a boundary
+    # name is a property of the configuration and a preset is per
+    # condition, so the preset stating one is refused. The row is unchanged
+    # and cites the setup it always did.
+    reference = root / "inputs" / "references" / "r004.toml"
+    reference.write_text(
+        reference.read_text(encoding="utf-8").replace(
+            "[aliases]\n",
+            '[aliases]\nrotor = ["Blade", "Spinner"]\nghost = ["Spinner"]\n',
+            1,
+        ),
         encoding="utf-8",
     )
     aliased = _one_row_matrix(
         root,
         "alias.fs",
-        _rotor_row("7209", "MOVING_BOUNDARIES: rotor").replace("| s002 |", "| s009 |"),
+        _rotor_row("7209", "MOVING_BOUNDARIES: rotor"),
     )
     assert not _plan(root, aliased).blocked
     assert _moving_payload(root, aliased) == "3"
     ghost = _one_row_matrix(
         root,
         "ghost.fs",
-        _rotor_row("7210", "MOVING_BOUNDARIES: ghost").replace("| s002 |", "| s009 |"),
+        _rotor_row("7210", "MOVING_BOUNDARIES: ghost"),
     )
     plan = _plan(root, ghost)
     assert plan.blocked, "an alias resolving to nothing planned READY"
@@ -448,7 +456,7 @@ def test_moving_boundaries_may_name_an_alias_of_the_setup(tmp_path):
 
 
 def test_moving_boundaries_naming_an_empty_group_moves_every_boundary(tmp_path):
-    """Her decision of 2026-09-09 (PFS-2005.02): a group written empty is every
+    """The author's decision of 2026-09-09 (PFS-2005.02): a group written empty is every
     family the geometry carries, so `MOVING_BOUNDARIES: g1` against an artifact
     whose group 1 is `[]` moves every boundary of 40_PUSHER, the three of its
     inventory, and the artifact plans READY although it cites no name."""
@@ -514,7 +522,7 @@ def test_an_empty_group_does_not_disable_the_shares_no_name_refusal(tmp_path):
 
 
 def test_an_artifact_whose_only_group_is_empty_plans_ready_against_any_geometry(tmp_path):
-    """Her decision of 2026-09-09 read at the guard: an empty group is every family
+    """The author's decision of 2026-09-09 read at the guard: an empty group is every family
     and resolves by construction, so an artifact that cites no name at all is not
     the artifact-and-geometry-share-no-name case (RPT-044) and plans READY against
     the renamed file, where a group citing `Wing` is refused. A survived mutant of
@@ -536,15 +544,20 @@ def test_the_refusal_cites_the_word_the_artifact_writes_not_the_alias_members(tm
     in the file, and it looked them up without case folding while every other site
     folds. The artifact writes `wing`; the message says `wing`."""
     root = _tier3_copy(tmp_path)
-    s001 = (root / "inputs" / "setups" / "s001.toml").read_text(encoding="utf-8")
-    (root / "inputs" / "setups" / "s010.toml").write_text(
-        s001 + '\n[aliases]\nwing = ["Wing"]\n', encoding="utf-8"
+    # THE ALIAS LIVES IN THE REFERENCE SINCE 0.15.0 (FR-59), joining the
+    # table the file already declares; the row cites the setup it always did.
+    reference = root / "inputs" / "references" / "r001.toml"
+    reference.write_text(
+        reference.read_text(encoding="utf-8").replace(
+            "[aliases]\n", '[aliases]\nwing = ["Wing"]\n', 1
+        ),
+        encoding="utf-8",
     )
     _pproc(root, "p008", '[groups]\n"1" = ["wing"]\n')
     matrix = _one_row_matrix(
         root,
         "aliased_renamed.fs",
-        f"7212 | Wing | RPT-044 | {WING_ROW.format(pproc='p008').replace('| s001 |', '| s010 |')}"
+        f"7212 | Wing | RPT-044 | {WING_ROW.format(pproc='p008')}"
         "GEOMETRY: 14_WING_RENAMED.fsm / SYMMETRY: NONE",
     )
     plan = _plan(root, matrix)
@@ -763,13 +776,17 @@ def _rendered(root, matrix):
 
 def test_a_setup_with_frames_renders_them_after_the_packages_own_and_before_the_motion(tmp_path):
     """PFS-2034.01: a rotor row citing a setup that defines NAC has the frame created
-    after PROP_MRP and before the motion; a row citing the plain setup renders no
+    after ROTOR_MRP and before the motion; a row citing the plain setup renders no
     extra frame (the goldens are the control). RED on b376b14: the setup is refused
     as stating a key naming no setting."""
     root = _tier3_copy(tmp_path)
-    plain = (root / "inputs" / "setups" / "s002.toml").read_text(encoding="utf-8")
-    (root / "inputs" / "setups" / "s090.toml").write_text(
-        plain.rstrip("\n") + '\n\n[[frames]]\nname = "NAC"\norigin = [0.4, 0.0, 0.1]\n',
+    # A COORDINATE SYSTEM IS GEOMETRIC DATA and lives in the reference
+    # since 0.15.0 (FR-72), so the frame is declared there and the row
+    # cites the setup it always did.
+    reference = root / "inputs" / "references" / "r003.toml"
+    reference.write_text(
+        reference.read_text(encoding="utf-8").rstrip("\n")
+        + '\n\n[[frames]]\nname = "NAC"\norigin = [0.4, 0.0, 0.1]\n',
         encoding="utf-8",
     )
     rotor = next(
@@ -778,7 +795,6 @@ def test_a_setup_with_frames_renders_them_after_the_packages_own_and_before_the_
         if "| unsteady_rotor " in line
     )
     cells = rotor.split("|")
-    cells[_COLUMNS.index("SET")] = " s090 "
     matrix = _one_row_matrix(root, "frames.fs", "|".join(cells))
     plan, rendered = _rendered(root, matrix)
     assert not plan.blocked, plan.summary()
@@ -786,24 +802,27 @@ def test_a_setup_with_frames_renders_them_after_the_packages_own_and_before_the_
     # A frame is a keyword block: EDIT_COORDINATE_SYSTEM, then FRAME n, then NAME.
     edits = [i for i, line in enumerate(lines) if line == "EDIT_COORDINATE_SYSTEM"]
     names = [lines[i + 2].split(" ", 1)[1] for i in edits]
-    assert names[:3] == ["MRP", "PROP_MRP", "NAC"], names
+    assert names[:3] == ["MRP", "NAC", "ROTOR_SMRP"], names
     named = lines.index("NAME NAC")
     motion = next(i for i, line in enumerate(lines) if line.startswith("CREATE_NEW_MOTION"))
     assert named < motion, "the setup's frame must exist before the motion is created"
 
 
 ROTATE_TWO = (
-    " / ROTATE: {ANGLE: 3 / AXIS: NAC-Y / FAMILIES: Blade / AUX_FRAMES: PROP_MRP},"
-    " {ANGLE: -2 / AXIS: NAC-Z / FAMILIES: Blade / AUX_FRAMES: PROP_MRP}"
+    " / ROTATE: {ANGLE: 3 / AXIS: NAC-Y / ALIAS: ROTOR}, {ANGLE: -2 / AXIS: NAC-Z / ALIAS: ROTOR}"
 )
 
 
 def _rotor_row_on_a_setup_with_nac(tmp_path, tail):
     """The tour's first rotor row on setup s090, which defines frame NAC, plus ``tail``."""
     root = _tier3_copy(tmp_path)
-    plain = (root / "inputs" / "setups" / "s002.toml").read_text(encoding="utf-8")
-    (root / "inputs" / "setups" / "s090.toml").write_text(
-        plain.rstrip("\n") + '\n\n[[frames]]\nname = "NAC"\norigin = [0.4, 0.0, 0.1]\n',
+    # A COORDINATE SYSTEM IS GEOMETRIC DATA and lives in the reference
+    # since 0.15.0 (FR-72), so the frame is declared there and the row
+    # cites the setup it always did.
+    reference = root / "inputs" / "references" / "r003.toml"
+    reference.write_text(
+        reference.read_text(encoding="utf-8").rstrip("\n")
+        + '\n\n[[frames]]\nname = "NAC"\norigin = [0.4, 0.0, 0.1]\n',
         encoding="utf-8",
     )
     rotor = next(
@@ -812,16 +831,15 @@ def _rotor_row_on_a_setup_with_nac(tmp_path, tail):
         if "| unsteady_rotor " in line
     )
     cells = rotor.split("|")
-    cells[_COLUMNS.index("SET")] = " s090 "
     return root, _one_row_matrix(root, "rotate.fs", "|".join(cells).rstrip() + tail)
 
 
 def test_a_rotor_row_rotating_its_blades_renders_the_rotations_after_the_frames_before_the_motion(
     tmp_path,
 ):
-    """PFS-2034.02, her design of 2026-09-09: two ROTATE records are two rotations
+    """PFS-2034.02, the author's design of 2026-09-09: two ROTATE records are two rotations
     in the order written, each about the named axis of the setup's frame, emitted
-    after every frame exists and before the motion is created; PROP_MRP, named
+    after every frame exists and before the motion is created; ROTOR_MRP, named
     as an auxiliary, is rotated with the mesh and so are the blade axis frames the
     package derived from it. RED on bf9fe31: BLOCKED as a key of no run type."""
     root, matrix = _rotor_row_on_a_setup_with_nac(tmp_path, ROTATE_TWO)
@@ -829,7 +847,7 @@ def test_a_rotor_row_rotating_its_blades_renders_the_rotations_after_the_frames_
     assert not plan.blocked, plan.summary()
     lines = next(iter(rendered.values())).splitlines()
     nac = int(lines[lines.index("NAME NAC") - 1].split()[1])
-    prop = int(lines[lines.index("NAME PROP_MRP") - 1].split()[1])
+    prop = int(lines[lines.index("NAME ROTOR_SMRP") - 1].split()[1])
     frames = [
         i
         for i, line in enumerate(lines)
@@ -842,7 +860,17 @@ def test_a_rotor_row_rotating_its_blades_renders_the_rotations_after_the_frames_
     assert first == [f"FRAME {nac}", "AXIS Y", "ANGLE 3.0"], first
     assert second == [f"FRAME {nac}", "AXIS Z", "ANGLE -2.0"], second
     motion = next(i for i, line in enumerate(lines) if line.startswith("CREATE_NEW_MOTION"))
-    assert max(frames) < rotations[0] < rotations[1] < motion, (frames[-1], rotations, motion)
+    # THE COPY A ROTATION KEEPS IS CREATED BY THE ROTATION, so it is the
+    # one frame that legitimately follows the first: <ALIAS>_SMRP_ORIGINAL
+    # is the rotor's hub before anything turned it (FR-71).
+    kept = [i for i in frames if any(line.endswith("_ORIGINAL") for line in lines[i : i + 5])]
+    assert kept, "no frame is the rotation's kept copy, so this filter proves nothing"
+
+    assert max(i for i in frames if i not in kept) < rotations[0] < rotations[1] < motion, (
+        frames,
+        rotations,
+        motion,
+    )
     # A frame rotation is a keyword block: FRAME, ROTATION_FRAME, ROTATION_AXIS, ANGLE.
     aux = [
         i for i, line in enumerate(lines) if line == "ROTATE_COORDINATE_SYSTEM" and i > rotations[0]
@@ -854,30 +882,36 @@ def test_a_rotor_row_rotating_its_blades_renders_the_rotations_after_the_frames_
     assert (f"FRAME {prop}", f"ROTATION_FRAME {nac}", "ROTATION_AXIS Z", "ANGLE -2.0") in turned, (
         turned
     )
-    blade_axis = int(lines[lines.index("NAME BladeAxis1") - 1].split()[1])
+    # THE BLADE FRAME CARRIES ITS ROTOR'S ALIAS since 0.15.0: a MOTIONS
+    # record's per-blade frame is <ALIAS>_RMRP<k>, where the flat row's was
+    # BladeAxis<k>. It still has to turn with the hub it was derived from,
+    # which is the property this arm is about.
+    blade_axis = int(lines[lines.index("NAME ROTOR_RMRP1") - 1].split()[1])
     assert (
         f"FRAME {blade_axis}",
         f"ROTATION_FRAME {nac}",
         "ROTATION_AXIS Y",
         "ANGLE 3.0",
-    ) in turned, "the blade axis frame the package derived from PROP_MRP did not turn with it"
+    ) in turned, "the blade frame the package derived from the hub did not turn with it"
     assert all(i < motion for i in aux), "an auxiliary frame turned after the motion was created"
     # The rotations of record one all precede the rotation of record two.
     assert all(i < rotations[1] for i in aux if lines[i + 4] == "ANGLE 3.0"), aux
 
 
-def test_a_rotation_naming_a_family_the_inventory_lacks_is_blocked_naming_the_cell(tmp_path):
-    """PFS-2034.02: the family is resolved by name against the geometry's own inventory
-    (her rule: a user never writes an index), and a name it lacks blocks the row at
-    plan time naming the key, the token and the labels the file declares."""
+def test_a_rotation_naming_a_word_the_reference_lacks_is_blocked_naming_the_cell(tmp_path):
+    """PFS-2034.02, in the 0.15.0 vocabulary: a rotation names a set the
+    REFERENCE owns, the way a motion does, so the thing that can be wrong is
+    the word rather than a family inside a list. A word the reference does
+    not declare blocks the row at plan time naming the key, the token and
+    the words the file does declare."""
     root, matrix = _rotor_row_on_a_setup_with_nac(
-        tmp_path, ROTATE_TWO.replace("FAMILIES: Blade", "FAMILIES: NoSuchFamily")
+        tmp_path, ROTATE_TWO.replace("ALIAS: ROTOR", "ALIAS: NoSuchAlias")
     )
     plan, _ = _rendered(root, matrix)
-    assert plan.blocked, "a rotation naming a family the geometry lacks planned READY"
+    assert plan.blocked, "a rotation naming a word the reference lacks planned READY"
     reason = str(plan.blocked[0].error)
-    assert "ROTATE" in reason and "NoSuchFamily" in reason, reason
-    assert "declares" in reason and "Blade" in reason, reason
+    assert "ROTATE" in reason and "NoSuchAlias" in reason, reason
+    assert "declares" in reason and "ROTOR" in reason, reason
 
 
 def test_a_rotation_naming_an_unknown_frame_is_refused(tmp_path):
@@ -888,7 +922,7 @@ def test_a_rotation_naming_an_unknown_frame_is_refused(tmp_path):
     assert plan.blocked, "a rotation about a frame nothing defined planned READY"
     reason = str(plan.blocked[0].error)
     assert "ROTATE" in reason and "TAIL" in reason, reason
-    assert "NAC" in reason and "PROP_MRP" in reason, reason
+    assert "NAC" in reason and "ROTOR_MRP" in reason, reason
 
 
 def test_a_rotation_axis_not_of_the_form_frame_axis_is_refused(tmp_path):
@@ -1091,5 +1125,12 @@ def test_a_legacy_row_naming_a_setup_with_a_frames_or_raw_table_is_refused(tmp_p
     cells = legacy.split("|")
     cells[_COLUMNS.index("SET")] = " s093 "
     matrix = _one_row_matrix(root, "legacy_setup.fs", "|".join(cells))
-    with pytest.raises(MatrixError, match="LEGACY.*s093.*table"):
+    with pytest.raises(PyflightstreamError) as refused:
         _rendered(root, matrix)
+    message = str(refused.value)
+    # A [[frames]] TABLE ON A PRESET IS REFUSED FOR EVERY ROW since 0.15.0
+    # moved it to the reference, so this row meets that sentence before the
+    # LEGACY one. Both name the preset and the table, which is what a
+    # reader needs; one sentence is better than two.
+    assert "s093" in message, message
+    assert ("LEGACY" in message) or ("reference" in message), message

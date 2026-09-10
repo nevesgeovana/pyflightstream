@@ -26,7 +26,7 @@ a mesh for being called what it is called.
 The library tree, created by ``CampaignWorkspace.init``:
 
 - ``inputs/references/<id>.toml``: reference data for coefficient
-  normalization and propeller description (SI units in the field
+  normalization and rotor description (SI units in the field
   names: m, m^2, deg). The id begins with ``r``.
 - ``inputs/setups/<id>.toml``: a named solver-setup preset, a free
   key-value table for now; the loader keeps the raw table verbatim so
@@ -85,12 +85,17 @@ from pydantic import (
 # same public spelling.
 from pyflightstream._errors import InputArtifactError
 from pyflightstream._fsm import MeshReadError, boundary_names
+from pyflightstream._retired_names import (
+    BLOCK_KIND_ENGINE,
+    POINT_KIND_ENGINE,
+    retired_key,
+)
 from pyflightstream.cases import (
     BoundaryAliases,
-    EngineBlock,
     FrameSpec,
     PprocSpec,
     RawCommand,
+    RotorBlock,
 )
 
 # DOWNWARD, and the two imports in this module that leave the workspace
@@ -161,8 +166,17 @@ _KIND_DIRECTORIES = {"reference": "references", "setup": "setups", "pproc": "ppr
 KIND_COLUMNS = {"reference": "REF", "setup": "SET", "pproc": "PPROC"}
 
 
+#: THE RETIRED POINT KIND, held as a named constant rather than as a
+#: literal inside the guard. A word sweep rewrote the literal into the
+#: word the guard now REQUIRES, so the refusal fired on every correct
+#: file and on no wrong one; nothing failed, because a guard that
+#: refuses everything and a guard that refuses the right thing look
+#: alike from a suite that only writes correct files.
+POINT_KIND_ENGINE_WORD = "engine"
+
 #: What a reference point may declare itself to be (PFS-2029.11.02).
-POINT_KINDS = ("engine", "airframe")
+#: It was ``rotor`` until 0.15.0; see :mod:`pyflightstream._retired_names`.
+POINT_KINDS = ("rotor", "airframe")
 
 
 class PointXyz(BaseModel):
@@ -177,10 +191,10 @@ class PointXyz(BaseModel):
     z_m : float
         Z coordinate in m.
     kind : str or None
-        What the point is, ``engine`` or ``airframe`` (PFS-2029.11.02),
+        What the point is, ``rotor`` or ``airframe`` (PFS-2029.11.02),
         stated so that a motion built on it is a decision the file shows
         and not a side effect of the name's radical; None leaves the
-        convention to say (``ERP`` is an engine, ``ARP`` the airframe).
+        convention to say (``ERP`` is a rotor, ``ARP`` the airframe).
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -189,6 +203,11 @@ class PointXyz(BaseModel):
     @field_validator("kind")
     @classmethod
     def _kind_is_known(cls, value: str | None) -> str | None:
+        # THE RETIRED SPELLING FIRST, because it is the likeliest wrong
+        # value in an existing workspace and the generic refusal below
+        # would send its author looking for a kind that never existed.
+        if value == POINT_KIND_ENGINE_WORD:
+            raise ValueError(POINT_KIND_ENGINE.message())
         if value is not None and value not in POINT_KINDS:
             raise ValueError(
                 f"kind={value!r} names no point kind; a reference point is one of "
@@ -201,13 +220,13 @@ class PointXyz(BaseModel):
     z_m: float = 0.0
 
 
-class PropellerReference(BaseModel):
-    """The recorded propeller of a reference artifact (``[propeller]``).
+class RotorReference(BaseModel):
+    """The recorded rotor of a reference artifact (``[rotor]``).
 
     Attributes
     ----------
     radius_m : float, optional
-        Propeller radius. Optional since 0.11.0 (PFS-2029.05): the diameter
+        Rotor radius. Optional since 0.11.0 (PFS-2029.05): the diameter
         at the artifact's root is the length the package reads, and a
         radius stated beside it must be half of it.
     hub_radius_m : float, optional
@@ -219,8 +238,8 @@ class PropellerReference(BaseModel):
     pitch_deg, toe_deg : float, optional
         Recorded installation angles; read by nothing in the package.
     position : PointXyz
-        The propeller position, the one field of this block a builder
-        reads: the two unsteady run types turn it into the PROP_MRP frame
+        The rotor position, the one field of this block a builder
+        reads: the two unsteady run types turn it into the ROTOR_MRP frame
         (PFS-2030.03), the frame the author's probe lines and rotor plots
         are defined in and the frame a rotor row turns about unless it
         states ``ROTOR_ORIGIN``.
@@ -259,7 +278,7 @@ class PropellerReference(BaseModel):
         if not found:
             return data
         raise ValueError(
-            f"the propeller block states {', '.join(found)}, which the reference artifact "
+            f"the rotor block states {', '.join(found)}, which the reference artifact "
             "carried until 0.11.0 and no builder read. The row states what a script "
             "needs: the sign of the rotor speed is the sign of RPM (or RPM_SIGN beside "
             "ADVANCE_RATIO) and the axis is ROTOR_AXIS (PFS-2029.08). Drop the key(s), or "
@@ -270,7 +289,7 @@ class PropellerReference(BaseModel):
         )
 
 
-#: The four facts a reference artifact's propeller block carried from 0.8.0
+#: The four facts a reference artifact's rotor block carried from 0.8.0
 #: to 0.10.1 and states no more (PFS-2029.08).
 ROTOR_FACT_KEYS: tuple[str, ...] = (
     "rotation",
@@ -321,30 +340,30 @@ class ReferenceArtifact(BaseModel):
         Reference chord c_ref in m; must be positive.
     span_m : float
         Reference span b_ref in m; must be positive.
-    propeller_diameter_m : float, optional
-        Propeller diameter D in m; must be positive.
+    rotor_diameter_m : float, optional
+        Rotor diameter D in m; must be positive.
 
         IT LIVES HERE, BESIDE THE OTHER THREE LENGTHS, and not in
-        :class:`PropellerReference`, which is the natural-looking home
-        and the wrong one. The propeller block is RECORDED metadata of which
-        this package reads one field, the position (0.11.0, the PROP_MRP
+        :class:`RotorReference`, which is the natural-looking home
+        and the wrong one. The rotor block is RECORDED metadata of which
+        this package reads one field, the position (0.11.0, the ROTOR_MRP
         frame); the diameter is a DIVISOR of
         published numbers, exactly like the area and the chord. It sets
         the rotor speed a row asks for by advance ratio
-        (``n = V / (J D)``) and it normalises the propeller coefficients
+        (``n = V / (J D)``) and it normalises the rotor coefficients
         (``C_T = T / (rho n^2 D^4)``). A quantity a run is computed FROM
         belongs with the reference lengths, where a reader looking for
         "what were the coefficients divided by" finds all of them in one
         place.
 
-        Optional because a configuration with no propeller has no
+        Optional because a configuration with no rotor has no
         diameter, and stating a placeholder would be worse than stating
         nothing. A row asking for an advance ratio without it is refused
         naming this field.
     moment_point : PointXyz
         Moment reference point in the simulation geometry frame, m.
-    propeller : PropellerReference, optional
-        Propeller block, present for propulsive configurations.
+    rotor : RotorReference, optional
+        Rotor block, present for propulsive configurations.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -352,15 +371,15 @@ class ReferenceArtifact(BaseModel):
     area_m2: float = Field(gt=0.0)
     chord_m: float = Field(gt=0.0)
     span_m: float = Field(gt=0.0)
-    propeller_diameter_m: float | None = Field(default=None, gt=0.0)
+    rotor_diameter_m: float | None = Field(default=None, gt=0.0)
     moment_point: PointXyz = Field(default_factory=PointXyz)
-    propeller: PropellerReference | None = None
-    #: The boundary aliases the ``[aliases]`` table declares (FR-59, her
+    rotor: RotorReference | None = None
+    #: The boundary aliases the ``[aliases]`` table declares (FR-59, the author's
     #: design of 2026-09-10). They lived in the setup preset at 0.14.0,
     #: which is per condition where this artifact is per configuration; a
     #: boundary name is not a solver setting. A member may be another
     #: alias, resolved to the end by
-    #: :func:`pyflightstream.cases.resolve_alias`. Every engine block's own
+    #: :func:`pyflightstream.cases.resolve_alias`. Every rotor block's own
     #: name is added here by :func:`resolve_reference`, standing for
     #: everything that rotor owns.
     aliases: BoundaryAliases = Field(default_factory=dict)
@@ -370,10 +389,10 @@ class ReferenceArtifact(BaseModel):
     #: rotor instantiates were always derived from this file.
     frames: list[FrameSpec] = Field(default_factory=list)
     #: One entry per rotor, keyed by the block's name, read out of every
-    #: top-level table whose ``kind`` is ``engine`` (FR-60). THE KEY EQUALS
-    #: :attr:`~pyflightstream.cases.EngineBlock.alias`, which is the word a
+    #: top-level table whose ``kind`` is ``rotor`` (FR-60). THE KEY EQUALS
+    #: :attr:`~pyflightstream.cases.RotorBlock.alias`, which is the word a
     #: row moves, so a caller iterating this mapping may use either.
-    engines: dict[str, EngineBlock] = Field(default_factory=dict)
+    rotors: dict[str, RotorBlock] = Field(default_factory=dict)
     #: The named points of the configuration that are NOT rotors, keyed by
     #: the block's name: today the airframe point a configuration writes
     #: beside its rotors.
@@ -385,35 +404,35 @@ class ReferenceArtifact(BaseModel):
     #: refusal names. The field exists so that a reference carrying its
     #: airframe point beside its rotors is READ rather than refused, which
     #: is how the author writes one; which of the two files owns a named
-    #: point is her question of 2026-09-10 and is not answered here.
+    #: point is the author's question of 2026-09-10 and is not answered here.
     points: dict[str, PointXyz] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def _one_propeller_length(self) -> ReferenceArtifact:
+    def _one_rotor_length(self) -> ReferenceArtifact:
         """Refuse a radius that disagrees with the diameter, or stands alone.
 
-        PFS-2029.05. ``propeller_diameter_m`` is the length the package
-        reads; ``propeller.radius_m`` is optional and, when stated, must be
-        half of it, so a file cannot carry two propellers. A radius with no
+        PFS-2029.05. ``rotor_diameter_m`` is the length the package
+        reads; ``rotor.radius_m`` is optional and, when stated, must be
+        half of it, so a file cannot carry two rotors. A radius with no
         diameter is refused naming the key that carries the fact.
         """
-        propeller = self.propeller
-        if propeller is None or propeller.radius_m is None:
+        rotor = self.rotor
+        if rotor is None or rotor.radius_m is None:
             return self
-        diameter = self.propeller_diameter_m
+        diameter = self.rotor_diameter_m
         if diameter is None:
             raise ValueError(
-                f"[propeller] states radius_m = {propeller.radius_m} and the artifact "
-                "states no propeller_diameter_m. The diameter is the length this package "
+                f"[rotor] states radius_m = {rotor.radius_m} and the artifact "
+                "states no rotor_diameter_m. The diameter is the length this package "
                 "reads (the advance ratio, the probe lines), so state "
-                f"propeller_diameter_m = {2 * propeller.radius_m} at the top level; the "
+                f"rotor_diameter_m = {2 * rotor.radius_m} at the top level; the "
                 "radius may then be dropped."
             )
-        if abs(diameter - 2 * propeller.radius_m) > 1e-9 * max(1.0, diameter):
+        if abs(diameter - 2 * rotor.radius_m) > 1e-9 * max(1.0, diameter):
             raise ValueError(
-                f"propeller_diameter_m = {diameter} and [propeller] radius_m = "
-                f"{propeller.radius_m} disagree: twice the radius is "
-                f"{2 * propeller.radius_m}. One propeller has one length; fix one of "
+                f"rotor_diameter_m = {diameter} and [rotor] radius_m = "
+                f"{rotor.radius_m} disagree: twice the radius is "
+                f"{2 * rotor.radius_m}. One rotor has one length; fix one of "
                 "the two, or drop the radius, which the package does not read."
             )
         return self
@@ -450,7 +469,7 @@ class SetupArtifact(BaseModel):
     #: (PFS-2033.01), each before a named phase, in the order written;
     #: consumed out of ``settings`` by :func:`resolve_setup` the same way.
     raw_commands: list[RawCommand] = Field(default_factory=list)
-    #: The boundary aliases the ``[aliases]`` table defines (her decision
+    #: The boundary aliases the ``[aliases]`` table defines (the author's decision
     #: of 2026-09-09): a name to the boundary names or families it stands
     #: for, read wherever a boundary is cited (a matrix cell, a pproc
     #: group, a families entry), a member the mesh lacks ignored; consumed
@@ -485,7 +504,7 @@ FRAMES_TABLE = "frames"
 #: (PFS-2033.01): ``[[raw]]``, one entry per line with ``command`` and
 #: ``before``. Read by the goal checker of 0.14.0 and the documentation.
 RAW_TABLE = "raw"
-#: The table of a setup artifact that names groups of boundaries (her
+#: The table of a setup artifact that names groups of boundaries (the author's
 #: decision of 2026-09-09): ``[aliases]``, one key per alias, a list of
 #: boundary names or families. Read by the documentation.
 ALIASES_TABLE = "aliases"
@@ -494,7 +513,7 @@ ALIASES_TABLE = "aliases"
 class PprocArtifact(PprocSpec):
     """The post-processing artifact (``inputs/pproc/<id>.toml``).
 
-    PFS-2029.07.01, her decision of 2026-09-02: the groups artifact IS the
+    PFS-2029.07.01, the author's decision of 2026-09-02: the groups artifact IS the
     home of post-processing and is renamed. The file carries six tables,
     every one optional: ``[groups]`` exactly as the groups file held it,
     a name to the boundary labels or 1-based indices it aggregates;
@@ -693,7 +712,7 @@ class EntitySelection:
         True where an empty list has a documented meaning and is
         accepted, False where it is refused on the manual's word, and
         None where the domain seat has not yet decided, in which case it
-        is refused until she says.
+        is refused until the author says.
     reason : str
         The sentence the refusal prints beside the verdict: what the
         manual says, or that nothing does yet.
@@ -749,7 +768,7 @@ ENTITY_SELECTIONS: tuple[EntitySelection, ...] = (
         "groups.<name>",
         "the polar table written per group (products.polars)",
         True,
-        "An empty group is every family the geometry carries, her decision of "
+        "An empty group is every family the geometry carries, the author's decision of "
         "2026-09-09: the polar table sums every surface row of the loads table, and a "
         "motion naming the group moves every boundary of the file.",
     ),
@@ -861,7 +880,7 @@ def refuse_empty_selections(kind: str, path: Path, data: Mapping[str, Any]) -> N
         if rule.empty_admitted is None:
             verdict = (
                 "Whether an empty list can mean anything here is the domain seat's call, "
-                "not yet decided, and it is refused until she says"
+                "not yet decided, and it is refused until the author says"
             )
         else:
             verdict = "An empty list is refused"
@@ -914,14 +933,43 @@ _ROTOR_ONLY_KEYS = ("families_blades", "families_general", "diameter_m", "rpm_si
 _ROTOR_FRAME_SUFFIX = re.compile(r"_(SMRP|RMRP\d*)$")
 
 
-def _frame_of_a_rotor(spelling: str, engines: Mapping[str, Any]) -> str | None:
+def _frame_of_a_rotor(spelling: str, rotors: Mapping[str, Any]) -> str | None:
     """Return the rotor whose own frames a declared name would collide with, if any."""
     token = spelling.strip().upper()
     match = _ROTOR_FRAME_SUFFIX.search(token)
     if match is None:
         return None
     radical = token[: match.start()]
-    return next((name for name in engines if name.upper() == radical), None)
+    return next((name for name in rotors if name.upper() == radical), None)
+
+
+def _refuse_a_retired_spelling(data: Mapping[str, Any], path: Path) -> None:
+    """Refuse a reference that uses a word this package retired (the author, 2026-09-10).
+
+    A key this file no longer knows would otherwise reach a strict model
+    and come back as "extra inputs are not permitted", which is true and
+    says nothing about what to write instead. The registry knows what each
+    retired spelling became, so the refusal names the fix.
+
+    Raises
+    ------
+    InputArtifactError
+        A top-level key or table is a retired spelling, or a block states
+        the retired rotor kind.
+    """
+    for key, value in data.items():
+        entry = retired_key(key)
+        if entry is not None:
+            raise InputArtifactError(
+                f"the reference artifact {path}: {entry.message()}",
+                kind="reference",
+            )
+        if isinstance(value, dict) and value.get("kind") == POINT_KIND_ENGINE_WORD:
+            raise InputArtifactError(
+                f"the reference artifact {path} declares [{key}] with "
+                f"{BLOCK_KIND_ENGINE.message()}",
+                kind="reference",
+            )
 
 
 def _split_reference_tables(data: dict[str, Any], path: Path) -> dict[str, Any]:
@@ -933,10 +981,10 @@ def _split_reference_tables(data: dict[str, Any], path: Path) -> dict[str, Any]:
     :func:`resolve_setup` does for the preset, and reads the file's shape
     rather than requiring the author to nest it:
 
-    * a table declaring ``kind = "engine"`` is a rotor and goes to
-      ``engines``; the block's NAME becomes an alias over everything the
+    * a table declaring ``kind = "rotor"`` is a rotor and goes to
+      ``rotors``; the block's NAME becomes an alias over everything the
       rotor owns, the general families first, so a row citing it moves the
-      spinner with the blades (her words of 2026-09-10);
+      spinner with the blades (the author's words of 2026-09-10);
     * a table declaring any other point ``kind`` goes to ``points``;
     * ``[aliases]`` and ``[[frames]]`` are lifted by name.
 
@@ -944,10 +992,11 @@ def _split_reference_tables(data: dict[str, Any], path: Path) -> dict[str, Any]:
     than in the model, because the model never sees the name: the name is
     the key this function reads.
     """
+    _refuse_a_retired_spelling(data, path)
     rest = dict(data)
     aliases = dict(rest.pop(ALIASES_TABLE, {}) or {})
     frames = rest.pop(FRAMES_TABLE, []) or []
-    engines: dict[str, Any] = {}
+    rotors: dict[str, Any] = {}
     points: dict[str, Any] = {}
     for name, value in list(rest.items()):
         if not isinstance(value, dict):
@@ -963,13 +1012,13 @@ def _split_reference_tables(data: dict[str, Any], path: Path) -> dict[str, Any]:
                 raise InputArtifactError(
                     f"the reference artifact {path} declares [{name}] with "
                     f"{', '.join(wanted)} and no kind. A block that states a rotor's "
-                    'own keys is a rotor, and a rotor says so: add kind = "engine" to '
+                    'own keys is a rotor, and a rotor says so: add kind = "rotor" to '
                     "it. Every other top-level table of this file is a reference "
                     "quantity.",
                     kind="reference",
                 )
             continue
-        if value.get("kind") != "engine":
+        if value.get("kind") != "rotor":
             points[name] = rest.pop(name)
             continue
         block = rest.pop(name)
@@ -996,7 +1045,7 @@ def _split_reference_tables(data: dict[str, Any], path: Path) -> dict[str, Any]:
                 kind="reference",
             )
         block.setdefault("alias", name)
-        engines[name] = block
+        rotors[name] = block
         members = [*block.get("families_general", []), *block.get("families_blades", [])]
         # THE ROTOR'S NAME IS AN ALIAS OVER WHAT IT OWNS, and a hand-written
         # [aliases] entry of the same name would SHADOW that silently, which
@@ -1033,7 +1082,7 @@ def _split_reference_tables(data: dict[str, Any], path: Path) -> dict[str, Any]:
     for spelling, what in [(frame.get("name", ""), FRAMES_TABLE) for frame in frames] + [
         (name, ALIASES_TABLE) for name in aliases
     ]:
-        owner = _frame_of_a_rotor(str(spelling), engines)
+        owner = _frame_of_a_rotor(str(spelling), rotors)
         if owner is not None:
             raise InputArtifactError(
                 f"the reference artifact {path} declares [{what}] {spelling!r}, which is "
@@ -1043,11 +1092,33 @@ def _split_reference_tables(data: dict[str, Any], path: Path) -> dict[str, Any]:
                 kind="reference",
             )
     if aliases:
+        # THE RING IS CAUGHT WHERE THE FILE IS NAMED, which is here and not
+        # in the resolver. `resolve_alias` raises AliasCycleError naming both
+        # sides of the ring and nothing else, and nobody catches it, so a
+        # workspace with several references gave a user a chain and no file
+        # to open (the interface lens of the 0.15.0 release review). Every
+        # other refusal on this path names its artifact.
+        #
+        # Resolving each alias against an EMPTY inventory is deliberate and
+        # is what makes this cheap: a ring is a property of the table alone,
+        # so no geometry is needed to find one, and a member that resolves to
+        # nothing here is the ordinary case this package is built around.
+        from pyflightstream.cases import AliasCycleError, resolve_alias
+
+        for name in aliases:
+            try:
+                resolve_alias(name, (), aliases)
+            except AliasCycleError as ring:
+                raise InputArtifactError(
+                    f"the reference artifact {path} carries a ring in its "
+                    f"[{ALIASES_TABLE}] table: {ring}",
+                    kind="reference",
+                ) from None
         rest[ALIASES_TABLE] = aliases
     if frames:
         rest[FRAMES_TABLE] = frames
-    if engines:
-        rest["engines"] = engines
+    if rotors:
+        rest["rotors"] = rotors
     if points:
         rest["points"] = points
     return rest
@@ -1103,7 +1174,7 @@ def resolve_setup(inputs_dir: Path, artifact_id: str) -> SetupArtifact:
             f"table is a list of records: write [[{RAW_TABLE}]] once per command with "
             "command (the line as the solver reads it) and before (the phase it precedes)."
         )
-    # THE ALIASES TABLE IS NOT A SOLVER SETTING (her decision of 2026-09-09):
+    # THE ALIASES TABLE IS NOT A SOLVER SETTING (the author's decision of 2026-09-09):
     # a name to the boundaries it stands for, read wherever a boundary is cited.
     aliases = data.pop(ALIASES_TABLE, {})
     if not isinstance(aliases, dict) or not all(isinstance(v, list) for v in aliases.values()):
@@ -1295,7 +1366,7 @@ def resolve_geometry(inputs_dir: Path, name: str) -> Path:
     simulation with its boundary conditions in it, a mesh is not, and the
     workflow can tell the two apart before any seat is spent.
 
-    TWO LAYOUTS, THE FOLDER READ FIRST (PFS-2032.04, her reading of
+    TWO LAYOUTS, THE FOLDER READ FIRST (PFS-2032.04, the author's reading of
     2026-09-08, design 68 section A3). ``30_WB.fsm`` resolves to
     ``geometries/30_WB/30_WB.fsm`` when that folder exists and to
     ``geometries/30_WB.fsm`` otherwise, so the cell does not change and

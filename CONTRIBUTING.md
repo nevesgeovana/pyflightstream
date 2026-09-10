@@ -351,7 +351,7 @@ says what a test needs before it says what it checks
   tests/tier3_licensed` runs that matrix through the run layer, reduces
   the records the same way and writes the `reports/physics/PHY-*` pair,
   and `pyfs-qa drift` runs it twice under two registries and diffs the
-  two reductions (PFS-2031.17, her decision B of 2026-09-08; the
+  two reductions (PFS-2031.17, the author's decision B of 2026-09-08; the
   hand-built case builders retired with it).
 
 Every module of the two licensed tiers carries `needs_flightstream` and the

@@ -6,20 +6,47 @@
 area_m2 = 10.507   # SREF, m^2: pi x 1.8288^2, one rotor disk
 chord_m = 4.0      # CREF, m: the body length
 span_m = 3.6576    # BREF, m: the rotor diameter
-propeller_diameter_m = 3.6576
+rotor_diameter_m = 3.6576
+
+
+# THE STUDY'S OWN WORDS (FR-59). `airframe` and `blades` were SELECTOR words
+# until 0.15.0: the package decided what was a blade from a pattern over the
+# family name, so a mesh whose blades are spelled another way got an airframe
+# with blades in it and nothing said so. A study that names its surfaces
+# cannot be guessed wrong. A member the opened mesh does not carry is left
+# out, which is what lets one table serve every geometry this reference is
+# cited against.
+[aliases]
+airframe = ["Wing", "MainWing", "Body", "Base"]
+blades = ["Blade1", "Blade2"]
 
 [moment_point]
 x_m = 2.0
 y_m = 0.0
 z_m = 0.0
 
-[propeller]
+[rotor]
 radius_m = 1.8288
 n_blades = 2       # both blades meshed, no periodic copy
 pitch_deg = 0.0
 toe_deg = 0.0
 
-[propeller.position]
+[rotor.position]
 x_m = 4.5          # behind the base, the pusher position
 y_m = 0.0
 z_m = 0.0
+
+# THE PUSHER, at the point the convention called ERP3: on the axis, behind
+# the base. Its hub, axis and sign were three cells of the row until 0.15.0
+# and are one block of the configuration now.
+[PUSHER]
+kind = "rotor"
+x_m = 4.5
+y_m = 0.0
+z_m = 0.0
+axis = "X"
+rpm_sign = -1        # the row stated RPM: -800; the SIGN is the rotor's
+diameter_m = 3.6576
+families_general = []
+families_blades = ["Blade1"]
+blade1 = { azimuth_deg = 0.0, zero = "Y" }

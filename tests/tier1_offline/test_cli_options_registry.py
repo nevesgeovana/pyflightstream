@@ -91,13 +91,17 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     ("pyfs-matrix", "overwrite"): SWITCH,
     ("pyfs-matrix", "resume"): SWITCH,
     ("pyfs-matrix", "strict"): SWITCH,
-    # PFS-2035.13, her design of 2026-09-10. A SWITCH and deliberately not a
+    # PFS-2035.13, the author's design of 2026-09-10. A SWITCH and deliberately not a
     # registry knob: whether a family the opened mesh lacks is a skip or a
     # refusal is a property of THIS invocation's intent, not of the machine.
     # A study planned across a wing and a rotor wants the skip; the same
     # matrix planned against the one geometry that should carry everything
     # wants the refusal, and neither is a setting the estate holds for you.
     ("pyfs-matrix", "ignore_missing_families"): SWITCH,
+    # The same choice spelled as a flag, so the effect-bearing form is the
+    # one you can type bare (the interface lens of the 0.15.0 release
+    # review). Stating both is refused, so it is one switch with two names.
+    ("pyfs-matrix", "refuse_missing_families"): SWITCH,
     ("pyfs-matrix", "output"): OUTPUT,
     ("pyfs-manual", "manual"): MANUAL,
     ("pyfs-manual", "source"): MANUAL,
@@ -168,6 +172,83 @@ def test_every_console_script_builds_its_parser_in_a_callable_function():
         assert isinstance(_build(module_name), argparse.ArgumentParser)
 
 
+#: WHICH SUBCOMMANDS EACH DESTINATION APPEARS ON, generated from the
+#: parsers and pinned. The allowlist is keyed on (script, dest) and the
+#: lookup drops the subcommand, so a row exempts its destination on
+#: every subcommand the script has AND on every subcommand it ever
+#: gains: a new option that IS a machine knob, added on a different
+#: subcommand under an allowlisted dest, passed without choosing (the
+#: architecture lens of the 0.15.0 release review).
+#:
+#: Re-keying was measured and rejected: 26 of the 59 destinations
+#: genuinely appear on several subcommands and mean the same thing
+#: there, so re-keying turns 59 rows into about 100 re-attributed by
+#: hand. The pin closes the hole instead, and it fails in BOTH
+#: directions: a dest that spreads to a new subcommand, and one that
+#: stops appearing on a subcommand it used to cover.
+COVERS: dict[tuple[str, str], frozenset[str]] = {
+    ("pyfs-fsi", "dir"): frozenset({"init-dummy", "step"}),
+    ("pyfs-fsi", "node_count"): frozenset({"init-dummy"}),
+    ("pyfs-manual", "build"): frozenset({"register"}),
+    ("pyfs-manual", "by_section"): frozenset({"sweep"}),
+    ("pyfs-manual", "chapter_pages"): frozenset({"coverage", "draft"}),
+    ("pyfs-manual", "commands_dir"): frozenset({"register"}),
+    ("pyfs-manual", "editions"): frozenset({"citations", "register", "surface", "sweep"}),
+    ("pyfs-manual", "fail_if_absent"): frozenset({"sweep"}),
+    ("pyfs-manual", "index_pages"): frozenset({"coverage", "draft"}),
+    ("pyfs-manual", "manual"): frozenset({"coverage", "draft"}),
+    ("pyfs-manual", "markdown"): frozenset({"surface"}),
+    ("pyfs-manual", "names"): frozenset({"surface"}),
+    ("pyfs-manual", "only"): frozenset({"draft"}),
+    ("pyfs-manual", "out"): frozenset({"draft"}),
+    ("pyfs-manual", "source"): frozenset({"coverage", "draft"}),
+    ("pyfs-manual", "versions"): frozenset({"draft"}),
+    ("pyfs-manual", "write"): frozenset({"draft", "register"}),
+    ("pyfs-matrix", "fs_exe"): frozenset({"convert", "plan", "run"}),
+    ("pyfs-matrix", "fs_version"): frozenset({"convert", "plan", "run"}),
+    ("pyfs-matrix", "geometry"): frozenset({"inventory"}),
+    ("pyfs-matrix", "ignore_missing_families"): frozenset({"plan", "run"}),
+    ("pyfs-matrix", "in_place"): frozenset({"upgrade"}),
+    ("pyfs-matrix", "inputs"): frozenset({"upgrade"}),
+    ("pyfs-matrix", "matrix"): frozenset({"convert", "plan", "post", "run", "upgrade"}),
+    ("pyfs-matrix", "name"): frozenset({"convert", "plan", "run"}),
+    ("pyfs-matrix", "output"): frozenset({"convert"}),
+    ("pyfs-matrix", "overwrite"): frozenset({"inventory", "post"}),
+    ("pyfs-matrix", "point_name"): frozenset({"plan", "run"}),
+    ("pyfs-matrix", "recipe"): frozenset({"convert", "plan", "run"}),
+    ("pyfs-matrix", "refuse_missing_families"): frozenset({"plan", "run"}),
+    ("pyfs-matrix", "resume"): frozenset({"run"}),
+    ("pyfs-matrix", "strict"): frozenset({"post"}),
+    ("pyfs-matrix", "sweep_csv"): frozenset({"run"}),
+    ("pyfs-matrix", "workflow"): frozenset({"plan", "run"}),
+    ("pyfs-matrix", "workspace"): frozenset({"plan", "post", "run"}),
+    ("pyfs-qa", "campaign"): frozenset({"cost"}),
+    ("pyfs-qa", "case"): frozenset({"update-reference"}),
+    ("pyfs-qa", "commands"): frozenset({"probe"}),
+    ("pyfs-qa", "compare"): frozenset({"cost"}),
+    ("pyfs-qa", "from_report"): frozenset({"update-reference"}),
+    ("pyfs-qa", "fs_exe"): frozenset({"drift", "probe"}),
+    ("pyfs-qa", "fs_version"): frozenset({"probe"}),
+    ("pyfs-qa", "fs_versions"): frozenset({"drift"}),
+    ("pyfs-qa", "fsm"): frozenset({"probe"}),
+    ("pyfs-qa", "identity_only"): frozenset({"probe"}),
+    ("pyfs-qa", "include_smi"): frozenset({"cases"}),
+    ("pyfs-qa", "label"): frozenset({"drift", "physics", "probe"}),
+    ("pyfs-qa", "matrix"): frozenset({"drift", "physics"}),
+    ("pyfs-qa", "name"): frozenset({"drift", "physics"}),
+    ("pyfs-qa", "reason"): frozenset({"update-reference"}),
+    ("pyfs-qa", "report"): frozenset({"apply-compat"}),
+    ("pyfs-qa", "report_dir"): frozenset({"drift", "physics", "probe"}),
+    ("pyfs-qa", "resume"): frozenset({"physics"}),
+    ("pyfs-qa", "root"): frozenset({"apply-compat"}),
+    ("pyfs-qa", "timeout"): frozenset({"probe"}),
+    ("pyfs-qa", "workroot"): frozenset({"drift", "probe"}),
+    ("pyfs-qa", "workspace"): frozenset({"drift", "physics"}),
+    ("pyfs-workspace", "root"): frozenset({"archive", "init", "migrate-geometries"}),
+    ("pyfs-workspace", "sim_id"): frozenset({"archive"}),
+}
+
+
 @pytest.mark.requirement("FR-40")
 def test_every_command_line_option_has_chosen():
     """FR-40's quantifier, held to every console script.
@@ -225,4 +306,36 @@ def test_the_registry_requirement_says_command_line_option():
     statement = text[start : text.index("!!! requirement", start + 1)]
     assert "every command-line option" in statement.lower(), (
         "FR-40 no longer says 'every command-line option'; this test enforces that sentence"
+    )
+
+
+def test_every_allowlisted_destination_covers_the_subcommands_it_says():
+    """The allowlist's scope is pinned, because its key cannot express one.
+
+    A row is keyed (script, dest) and the lookup at the guard above drops
+    the subcommand, so nothing in the key says where the exemption applies.
+    This is what says it, and it is generated from the parsers rather than
+    written by hand, so it cannot drift into agreeing with itself.
+    """
+    live: dict[tuple[str, str], set[str]] = {}
+    for script, module_name in _console_scripts().items():
+        for subcommand, dest in _options(_build(module_name)):
+            live.setdefault((script, dest), set()).add(subcommand)
+    moved = []
+    for key, subs in sorted(live.items()):
+        pinned = COVERS.get(key)
+        if pinned is None:
+            moved.append(f"{key[0]} --{key[1]} is on {sorted(subs)} and is pinned nowhere")
+        elif frozenset(subs) != pinned:
+            moved.append(f"{key[0]} --{key[1]} is on {sorted(subs)}, pinned to {sorted(pinned)}")
+    for key in sorted(set(COVERS) - set(live)):
+        moved.append(f"{key[0]} --{key[1]} is pinned and appears on no subcommand")
+    assert not moved, (
+        "the subcommands an option appears on moved:\n  "
+        + "\n  ".join(moved)
+        + "\n\nAn ALLOWLIST row exempts its destination wherever that destination "
+        "appears, so a destination reaching a NEW subcommand widens an exemption "
+        "nobody wrote. Decide there: register the new option through "
+        "pyflightstream.options if it is a machine knob, or update this pin in the "
+        "same commit if the spread is intended."
     )

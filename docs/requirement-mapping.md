@@ -1,7 +1,7 @@
 # Acceptance to requirement mapping
 
 Every item the author accepted at the Phase 4 gate of 2026-07-27, and
-the SRS identifier it became. This page exists because 24 of her 55
+the SRS identifier it became. This page exists because 24 of the author's 55
 acceptances arrived with no requirement id of their own, so without a
 recorded mapping the question "did this land?" has no answer anyone can
 check twice.
@@ -40,20 +40,20 @@ are included so the register is complete.
 
 | Accepted as | Landed as | Why there |
 |---|---|---|
-| C1 Validated option registry | FR-40 | Same subject, and FR-40's draft is the wider statement of it. Her choice also made every registered option name a stable public contract, which FR-40 now carries |
+| C1 Validated option registry | FR-40 | Same subject, and FR-40's draft is the wider statement of it. The author's choice also made every registered option name a stable public contract, which FR-40 now carries |
 | C2 Exception catalog with a completeness guard | FR-39 | The catalog and its guard are the mechanism FR-39 asserts |
 | C3 Three-part actionable errors | NFR-01c | Error content is the didactic error clause, which the NFR-01 split gave its own identifier |
-| C4 Console entry-point contract | FR-44 | New identifier; no accepted id covered the CLI surface. Written in the FULL-contract form she chose, where commands and flags change only under the deprecation policy, rather than the narrower recording-only form the review recommended and she declined |
+| C4 Console entry-point contract | FR-44 | New identifier; no accepted id covered the CLI surface. Written in the FULL-contract form the author chose, where commands and flags change only under the deprecation policy, rather than the narrower recording-only form the review recommended and the author declined |
 | C5 Strict manifest schema | FR-45 | New identifier; FR-19 governs the manifest's authority, not its field discipline |
 | C6 Closed terminal-status set | FR-46 | New identifier. Read with FR-37, restated 2026-08-03 to ask for a status distinct from CONVERGED, which two of this set give |
-| C7 Probe-data export writers | FR-21, folded | NOT given an identifier, because her recorded choice was to fold it under the post-processing line rather than make it a public functional requirement, and the worksheet offered that second option explicitly. The capability ships; FR-21 records it. A first draft of this consolidation minted FR-47 for it, which was the option she declined |
+| C7 Probe-data export writers | FR-21, folded | NOT given an identifier, because the author's recorded choice was to fold it under the post-processing line rather than make it a public functional requirement, and the worksheet offered that second option explicitly. The capability ships; FR-21 records it. A first draft of this consolidation minted FR-47 for it, which was the option the author declined |
 | C8 Public test-support assertions | FR-47 | New identifier; no accepted id covered the testing surface |
-| C9 Optional-dependency error shape | NFR-25 | Her choice was to elevate AD-05 to a tested requirement, which is what NFR-25 is |
+| C9 Optional-dependency error shape | NFR-25 | The author's choice was to elevate AD-05 to a tested requirement, which is what NFR-25 is |
 | C11 Far-field conservation ledger | FR-38 | Same subject; the brief names the two together |
 | M1 Error pattern and typed hierarchy | FR-39 | Same subject as C2, from the sister-library mirror side |
 | M2 Import-policy guard | NFR-23 | Allocated 2026-07-27; accepted as this package's own rather than a mirror |
 | M3b State-hash scope and determinism | NFR-15 | Same subject: what a reproducibility hash excludes |
-| M4 Provenance and the PROV model | NFR-07 (part a) | She accepted the split (a) and DEFERRED the standardized export (b), so only (a) landed |
+| M4 Provenance and the PROV model | NFR-07 (part a) | The author accepted the split (a) and DEFERRED the standardized export (b), so only (a) landed |
 | M5 TDD and a coverage floor | NFR-16 | Same subject |
 | M6 Optional-dependency handling | NFR-25 | Same subject as C9, from the mirror side |
 | T3 Traceability approach | NFR-13 | Same subject |
@@ -79,14 +79,14 @@ does not have to work out whether it was forgotten.
 | SCOPE-fsi-classification | With the author | Product-owner seat, needs no run |
 | SCOPE-audience-tiebreak | With the author | Product-owner seat, needs no run |
 | SCOPE-interp-trim-ownership | Deferred to the product seat, then answered | The export records a deferral; decision record DEC-002 A9 answered it afterwards. Filed here as both, because filing a deferral as answered is the direction that hides open work |
-| SCOPE-farfield-mission | Answered in prose | One of the two items she answered as free text with no option selected; it is half of the single architectural move that produced AD-06 and AD-07, the other half being M3a |
+| SCOPE-farfield-mission | Answered in prose | One of the two items the author answered as free text with no option selected; it is half of the single architectural move that produced AD-06 and AD-07, the other half being M3a |
 | M3a (array immutability) | Answered elsewhere | Decision record DEC-002 A1; it is the prose answer that produced AD-06 |
-| C10 | Closed as a citation | She closed it on FR-31 with no new requirement |
-| M4 (b), the PROV export | Deferred by her | Accepted the split (a) and deferred the standardized export |
+| C10 | Closed as a citation | The author closed it on FR-31 with no new requirement |
+| M4 (b), the PROV export | Deferred by the author's | Accepted the split (a) and deferred the standardized export |
 
 ## One tension this mapping surfaced, resolved 2026-08-03
 
-FR-37 and FR-46 were both her acceptances and they disagreed. FR-46
+FR-37 and FR-46 were both the author's acceptances and they disagreed. FR-46
 closes the terminal-status set at the six values the code carries;
 FR-37 asked for a status distinct from a COMPLETED one, and a run that
 hits the iteration cap without converging lands in `COMPLETED_MAX_ITER`,

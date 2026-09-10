@@ -1,6 +1,6 @@
 """Tier 1: ``pyfs-qa physics`` reads the workspace (PFS-2031.17, GOAL-012).
 
-Her decision B of 2026-09-08 (design study 66): the command runs
+The author's decision B of 2026-09-08 (design study 66): the command runs
 ``matriz_physics.fs`` through the run layer, reduces the records with the
 qa functions and writes the same ``PHY-*`` report the hand-built scripts
 wrote; the hand-built builders retire; ``drift`` is two runs of the matrix

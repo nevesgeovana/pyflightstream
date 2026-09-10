@@ -51,15 +51,15 @@ AGPL-3.0, the command-emitter layer is a clean-room implementation
 ([glossary](index.md#glossary), where this and the other software
 terms of this document are defined): specified only from the official
 manual and from observed solver behavior on licensed machines. The AGPL code is never read at code
-level. The author's own logic in her legacy scripts (run-matrix
-driver, output parsers, writers, axis transforms) is her intellectual
+level. The author's own logic in the author's legacy scripts (run-matrix
+driver, output parsers, writers, axis transforms) is the author's intellectual
 property and migrates freely.
 
 ## Stakeholders
 
 | Stakeholder | Interest |
 |---|---|
-| The author (owner, maintainer) | Runs FlightStream campaigns for her research; needs her existing run-matrix files to keep working |
+| The author (owner, maintainer) | Runs FlightStream campaigns for the author's research; needs the author's existing run-matrix files to keep working |
 | Aerospace engineers without software background | Primary external audience; need a didactic API, readable errors, and worked examples |
 | Future contributors | Need tests, contribution rules, and a command database they can extend with evidence |
 | Research groups and co-authors | Need reproducible run provenance for publications |

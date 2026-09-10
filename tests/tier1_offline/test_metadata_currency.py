@@ -356,8 +356,21 @@ def test_every_released_tag_has_an_archive_row_or_the_changelog_says_it_is_owed(
 
     citation = (REPO_ROOT / "CITATION.cff").read_text(encoding="utf-8")
     changelog = (REPO_ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+    # THE `### Owed` SECTION, not the whole of Unreleased. Reading the whole
+    # section let a debt be written under any heading, and the sibling guard
+    # in test_version_identity.py excludes only this one from its reading of
+    # unreleased BEHAVIOUR, so the two disagreed about where a debt lives and
+    # a line written elsewhere satisfied one while making the other refuse
+    # the release commit (the architecture lens of the 0.15.0 release
+    # review). One heading, one constant, imported from the guard that owns
+    # the rule.
+    from tests.tier1_offline.test_version_identity import OWED_HEADING
+
     unreleased = changelog.split("## [Unreleased]", 1)
-    owed = unreleased[1].split("\n## [", 1)[0] if len(unreleased) > 1 else ""
+    section = unreleased[1].split("\n## [", 1)[0] if len(unreleased) > 1 else ""
+    owed = (
+        section.split(OWED_HEADING, 1)[1].split("\n### ", 1)[0] if OWED_HEADING in section else ""
+    )
 
     by_row, by_changelog, invisible = [], [], []
     for _parts, tag in sorted(released):

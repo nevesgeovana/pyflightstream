@@ -250,7 +250,7 @@ def test_passage_windows_are_the_only_route_to_a_phase_locked_reduction(tmp_path
     assert means == pytest.approx([1.5, 3.5, 5.5])
 
 
-# --- her file rule ----------------------------------------------------------
+# --- the author's file rule ----------------------------------------------------------
 
 
 def test_the_series_writer_refuses_an_existing_destination(tmp_path):
@@ -289,7 +289,7 @@ def test_the_series_writer_replaces_when_asked_deliberately(tmp_path):
 
 
 def test_the_series_writer_refuses_a_destination_it_read_from(tmp_path):
-    """Her rule again, on the series half rather than the reduction half."""
+    """The author's rule again, on the series half rather than the reduction half."""
     frames = write_frames(tmp_path / "anim", [1.0, 2.0])
     series = read_timestep_series(frames, order="given")
 
@@ -299,7 +299,7 @@ def test_the_series_writer_refuses_a_destination_it_read_from(tmp_path):
 
 
 def test_a_reduction_never_overwrites_a_file_it_read(tmp_path):
-    """Her rule of 2026-08-16, enforced at the writing seam.
+    """The author's rule of 2026-08-16, enforced at the writing seam.
 
     The average is pure, so nothing about it could enforce this; the
     writer is the only place a destination and a source are both in
@@ -317,7 +317,7 @@ def test_a_reduction_never_overwrites_a_file_it_read(tmp_path):
 
 
 def test_a_reduction_refuses_to_be_written_with_no_series_beside_it(tmp_path):
-    """The other half of her rule: the history keeps its own file.
+    """The other half of the author's rule: the history keeps its own file.
 
     An average with no series next to it is a number nobody can audit,
     and the rule holds however the reduction is reached, so it lives

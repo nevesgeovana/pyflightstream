@@ -3,7 +3,7 @@
 A row stating ``EXPORT_UNSTEADY_AFTER_REV`` or ``EXPORT_UNSTEADY_AFTER_ITER``
 has the solver export its loads, sectional loads and probe points on every
 step from the threshold on, each file stamped ``_iteration=N`` beside the
-simulation (RPT-041 finding 3). Those files are what her incidence study
+simulation (RPT-041 finding 3). Those files are what the author's incidence study
 reads, one revolution after another, and a folder of forty stamped
 spreadsheets is not a series until something tables them: this module
 writes, per point, one table per export kind under ``post/<matrix

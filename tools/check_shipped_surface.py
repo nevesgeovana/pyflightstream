@@ -147,7 +147,7 @@ USAGE = "usage: check_shipped_surface.py --config <path> [--tree <root>] [--dist
 
 # Assembled from code points so this file carries none of the strings it
 # forbids and needs no exemption of its own. In order: the author's given
-# name, her family name, and the institution, whose pattern accepts the
+# name, the author's family name, and the institution, whose pattern accepts the
 # spaced and hyphenated spellings that appear in prose as well as the
 # run-together form that appears in an address.
 _GIVEN = "".join(map(chr, (103, 101, 111, 118, 97, 110, 97)))

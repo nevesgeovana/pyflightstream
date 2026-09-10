@@ -1,6 +1,6 @@
 """Tier 1: the run chooses whether a missing family skips or refuses (PFS-2035.13).
 
-Her design of 2026-09-10, asked one question at a time and answered in her
+The author's design of 2026-09-10, asked one question at a time and answered in the author's
 own words: "a minha ideia era ter uma flag na chamada da linha de comando
 --ignore_missing_families e ali o usuario poder passar false, sendo que o
 default e true".
@@ -37,7 +37,11 @@ from pyflightstream.cases.workflows import (
     _selected_families,
     read_a_choice,
 )
-from pyflightstream.run.cli import _a_word_that_means_false, _build_parser
+from pyflightstream.run.cli import (
+    _a_word_that_means_false,
+    _build_parser,
+    _the_missing_family_choice,
+)
 
 #: The boundaries the synthetic mesh carries. It has a wing and no rotor,
 #: which is the shape the skip exists for: an artifact naming both serves
@@ -70,7 +74,7 @@ def expand(subject: SimCase):
 @pytest.mark.requirement("FR-73")
 @pytest.mark.parametrize("word", ["false", "FALSE", " False ", "no", "0"])
 def test_the_words_that_mean_false_are_read_as_false(word):
-    """She asked to be able to pass false, and argparse's store_true cannot."""
+    """The author asked to be able to pass false, and argparse's store_true cannot."""
     assert _a_word_that_means_false(word) is False
 
 
@@ -107,22 +111,61 @@ def test_a_word_outside_the_vocabulary_is_refused_and_never_read_as_the_default(
 
 @pytest.mark.requirement("FR-73")
 def test_plan_and_run_take_the_flag_and_default_to_true():
-    """The default is the skip, which is what every row written so far means."""
+    """The default is the skip, which is what every row written so far means.
+
+    Read through `_the_missing_family_choice`, which is the ONE reader of the
+    pair, and never off the namespace. The parser's own default is `None`
+    rather than `True` so that a command stating both spellings can be told
+    from silence and refused; `None` is an intermediate nothing outside that
+    function sees, and asserting on it would tie this test to a spelling
+    instead of to the behaviour.
+    """
     parser = _build_parser()
     for command in ("plan", "run"):
         bare = parser.parse_args([command, "m.fs", "--workspace", "."])
-        assert bare.ignore_missing_families is True, command
+        assert _the_missing_family_choice(bare) is True, command
         stated = parser.parse_args(
             [command, "m.fs", "--workspace", ".", "--ignore-missing-families", "false"]
         )
-        assert stated.ignore_missing_families is False, command
+        assert _the_missing_family_choice(stated) is False, command
         # BARE IS TRUE, which is the ordinary shape of a flag and is what
         # `nargs="?"` with `const=True` buys: writing the flag alone asks
         # for the behaviour the flag is named after.
         alone = parser.parse_args(
             [command, "m.fs", "--workspace", ".", "--ignore-missing-families"]
         )
-        assert alone.ignore_missing_families is True, command
+        assert _the_missing_family_choice(alone) is True, command
+        # THE FLAG SPELLING OF THE SAME CHOICE.
+        negated = parser.parse_args(
+            [command, "m.fs", "--workspace", ".", "--no-ignore-missing-families"]
+        )
+        assert _the_missing_family_choice(negated) is False, command
+
+
+@pytest.mark.requirement("FR-73")
+def test_stating_both_spellings_is_refused_rather_than_resolved():
+    """Two statements of one choice cannot both be the one obeyed.
+
+    This is the case the `None` default exists for: with `True` as the
+    default the reader could not tell a stated `true` from silence, so a
+    command writing the flag AND the word would have been resolved by
+    precedence instead of refused.
+    """
+    parser = _build_parser()
+    for word in ("true", "false"):
+        both = parser.parse_args(
+            [
+                "plan",
+                "m.fs",
+                "--workspace",
+                ".",
+                "--no-ignore-missing-families",
+                "--ignore-missing-families",
+                word,
+            ]
+        )
+        with pytest.raises(SystemExit):
+            _the_missing_family_choice(both)
 
 
 @pytest.mark.requirement("FR-73")
@@ -360,7 +403,7 @@ def test_a_list_every_member_of_which_resolves_is_not_refused():
 # `each_blade` is deliberately not here: on this bladeless mesh it selects
 # nothing and the refusal is RIGHT, and it is the second kind (an entry
 # that selects nothing) rather than a member reported absent. The two
-# words her retirement keeps are the two this case is about.
+# words the author's retirement keeps are the two this case is about.
 @pytest.mark.parametrize("word", ["all", "each"])
 def test_a_word_that_names_no_set_of_its_own_is_never_reported_absent(word):
     """`all` and the two `each` words expand; they do not name a set.

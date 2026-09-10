@@ -56,7 +56,7 @@ from pathlib import Path
 
 from pydantic import ValidationError
 
-from pyflightstream._errors import PyflightstreamDeprecationWarning, PyflightstreamWarning
+from pyflightstream._errors import PyflightstreamWarning
 from pyflightstream._fsm import MeshReadError, boundary_names
 from pyflightstream.cases import (
     Campaign,
@@ -493,7 +493,7 @@ def _resolve_code(workspace: CampaignWorkspace, kind: str, code: str, pol: str):
 def _moved_to_the_reference(row: MatrixRow, table: str) -> None:
     """Warn that a setup preset still carries a table the reference now owns.
 
-    FR-59 and FR-72, her decision of 2026-09-10. The warning names the row,
+    FR-59 and FR-72, the author's decision of 2026-09-10. The warning names the row,
     both artifacts and where the table belongs, because a user meeting it is
     holding a workspace that still plans and has one edit to make. The
     tables are read from the preset until 0.17.0.
@@ -503,14 +503,13 @@ def _moved_to_the_reference(row: MatrixRow, table: str) -> None:
     # the POL, a fifty-row campaign citing one unmigrated preset printed
     # fifty warnings for one file, and pointed at a row rather than at the
     # file to change (the interface lens of 2026-09-10).
-    warnings.warn(
+    raise InputArtifactError(
         f"the setup preset {row.set_code!r} states [{table}], which moved to the "
         f"reference artifact {row.ref_code!r} at 0.15.0: a boundary name and a "
         "coordinate system are properties of the CONFIGURATION, and a preset is per "
-        "condition. The reference's entries are the ones every row citing it uses. Move "
-        "the table and the warning goes; the preset stops being read for it at 0.17.0.",
-        PyflightstreamDeprecationWarning,
-        stacklevel=2,
+        "condition. The reference's entries are the ones every row citing it uses. "
+        f"Move the table into the reference {row.ref_code!r} and delete it here.",
+        kind="setup",
     )
 
 
@@ -718,7 +717,7 @@ def _bind_motion(
 
     PFS-2029.11.02. Three numbers pass through as written; a name is
     resolved against ``inputs/reference_points.toml`` and must be an
-    engine point, and the record keeps the name beside the coordinates
+    rotor point, and the record keeps the name beside the coordinates
     as ``ROTOR_ORIGIN_POINT`` so the run record says which point it was.
     Since 0.13.0 the flat rotor row's own ``ROTOR_ORIGIN`` is bound through
     the same function (PFS-2031.12), ``where`` naming which of the two the
@@ -729,7 +728,7 @@ def _bind_motion(
     if origin is None or _is_three_numbers(origin):
         return bound
     try:
-        point = workspace.engine_point(origin)
+        point = workspace.rotor_point(origin)
     except InputArtifactError as error:
         raise InputArtifactError(
             f"matrix row POL {pol}: {where} states ROTOR_ORIGIN: {origin}, which "
@@ -814,7 +813,7 @@ _PRESET_ALIASES = {
     "additional_wake_relaxation_iteration": "additional_wake_relaxation",
     "reynolds_averaged_drag_forces": "reynolds_averaged_drag",
     "unsteady_N_revolutions_wake": "wake_termination_revolutions",
-    # The settings her own scripts state and 0.10.1 did not emit (FR-54).
+    # The settings the author's own scripts state and 0.10.1 did not emit (FR-54).
     "reference_velocity_mps": "reference_velocity_m_per_s",
     "vorticity_drag_boundaries": "vorticity_drag_families",
     "set_vorticity_drag_boundaries": "vorticity_drag_families",
@@ -843,9 +842,9 @@ _PRESET_RECORDED_ONLY = {
         "is stated in the row's SYMMETRY key; a preset value would silently overrule "
         "the mesh it knows nothing about"
     ),
-    # `symmetry_loads` LEFT THIS TABLE on 2026-09-02, her decision (PFS-2028.05)
-    # with the measurement in hand: the 0.10.1 reproduction of her isolated
-    # rotor reported loads six times hers because her preset stated the
+    # `symmetry_loads` LEFT THIS TABLE on 2026-09-02, the author's decision (PFS-2028.05)
+    # with the measurement in hand: the 0.10.1 reproduction of the author's isolated
+    # rotor reported loads six times the author's because the author's preset stated the
     # symmetry loads off and nothing was emitted. A STATED key now reaches
     # SET_ANALYSIS_SYMMETRY_LOADS as stated; an absent key still emits nothing.
     "unsteady_delta_theta_deg": (
@@ -1090,7 +1089,7 @@ def _solver_from_setup(setup: SetupArtifact, set_code: str) -> SolverSettings:
         )
     post_processing = sorted(set(refused) & set(_POST_PROCESSING_KEYS))
     if post_processing:
-        # PFS-2029.16: a setup artifact carries solver settings only. Her
+        # PFS-2029.16: a setup artifact carries solver settings only. The author's
         # SET files carried a second table of post-processing, and that
         # table's home is the pproc artifact the row's PPROC cell names.
         raise InputArtifactError(
@@ -1174,7 +1173,7 @@ def _refuse_groups_named_by_a_word(pproc: PprocArtifact, code: str, pol: str) ->
     """Refuse a pproc artifact whose polar groups are keyed by a word.
 
     PFS-2032.03. The polar table written per group carries the group
-    NUMBER in its name (``<polar>_M<mach>_g<number>.csv``, her
+    NUMBER in its name (``<polar>_M<mach>_g<number>.csv``, the author's
     convention, :func:`pyflightstream.post.products.polar_file_name`), so
     a group named ``wing`` reached ``int(group)`` in the products stage
     and stopped the whole stage with a bare ValueError, outside the skip
@@ -1450,16 +1449,16 @@ def resolve_matrix(
         reference = references[row.ref_code]
         update: dict[str, object] = {
             # THE DIAMETER TRAVELS WITH THE OTHER TWO LENGTHS. It is a
-            # reference length rather than propeller metadata, and it is
+            # reference length rather than rotor metadata, and it is
             # the one an advance ratio needs: a row stating
             # ADVANCE_RATIO resolves n = V / (J D), so a diameter that
             # stopped at the artifact would leave the ratio naming no
             # rotor speed. None stays None, which is what keeps a
-            # configuration with no propeller resolving exactly as it did.
+            # configuration with no rotor resolving exactly as it did.
             "reference": ReferenceData(
                 area=reference.area_m2,
                 length=reference.chord_m,
-                propeller_diameter=reference.propeller_diameter_m,
+                rotor_diameter=reference.rotor_diameter_m,
                 span_m=reference.span_m,
                 # The moment point rides too, so a builder can put the
                 # analysis loads frame on it (PFS-2030.03.02).
@@ -1468,18 +1467,18 @@ def resolve_matrix(
                     reference.moment_point.y_m,
                     reference.moment_point.z_m,
                 ),
-                propeller_position_m=(
+                rotor_position_m=(
                     None
-                    if reference.propeller is None
+                    if reference.rotor is None
                     else (
-                        reference.propeller.position.x_m,
-                        reference.propeller.position.y_m,
-                        reference.propeller.position.z_m,
+                        reference.rotor.position.x_m,
+                        reference.rotor.position.y_m,
+                        reference.rotor.position.z_m,
                     )
                 ),
             ),
             "solver": solvers[row.set_code],
-            # THE REFERENCE'S FRAMES RIDE ON THE CASE (FR-72, her decision of
+            # THE REFERENCE'S FRAMES RIDE ON THE CASE (FR-72, the author's decision of
             # 2026-09-10), created by the builders after the package's own; a
             # configuration defining none leaves the list empty and the script
             # unchanged. They lived in the SETUP at 0.14.0 (PFS-2034.01), and a
@@ -1495,13 +1494,13 @@ def resolve_matrix(
                     for entry in _not_on_a_legacy_row(row, setups[row.set_code].raw_commands, "raw")
                 ),
                 # THE PRESET'S LINES ARE THE GROUND AND THE ROW'S COME OVER
-                # THEM, which is her answer of 2026-09-10 and the whole of the
-                # ordering question at a shared seam (FR-67). Her row 9210 is
+                # THEM, which is the author's answer of 2026-09-10 and the whole of the
+                # ordering question at a shared seam (FR-67). The author's row 9210 is
                 # the case that fixes it: a preset line, then the row's file,
                 # then the row's own cell line.
                 *_the_rows_raw_commands(row, workspace.inputs_dir),
             ],
-            # THE REFERENCE'S ALIASES RIDE ON THE CASE (FR-59, her decision of
+            # THE REFERENCE'S ALIASES RIDE ON THE CASE (FR-59, the author's decision of
             # 2026-09-10), on a LEGACY row too: the products stage resolves a
             # group by them whatever built the script. They lived in the SETUP
             # at 0.14.0, which is per condition where a reference is per
@@ -1514,7 +1513,7 @@ def resolve_matrix(
             # from it, so a row states nine rotors without repeating nine
             # hubs. A reference declaring none leaves this empty and every
             # row written before 0.15.0 resolves exactly as it did.
-            "engines": dict(reference.engines),
+            "rotors": dict(reference.rotors),
             # THE PPROC ARTIFACT RIDES ON THE CASE (PFS-2029.07.03): the
             # builders emit its sections, plots and probes and export the
             # kinds it selects, and the record names its id. A LEGACY row's
@@ -1556,7 +1555,7 @@ def resolve_matrix(
             update["variables"] = {**case.variables, **bound}
         # THE INVOCATION'S OWN CHOICE, written onto the row's variables so
         # the builders read it like any other variable and never learn that
-        # a command line exists (PFS-2035.13, her design of 2026-09-10).
+        # a command line exists (PFS-2035.13, the author's design of 2026-09-10).
         #
         # ONLY THE FALSE SIDE WRITES. At the default the case is left
         # byte-for-byte the case it was before this argument existed, which

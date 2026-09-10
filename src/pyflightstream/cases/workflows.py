@@ -67,9 +67,12 @@ from dataclasses import dataclass
 from pathlib import PurePath
 from types import MappingProxyType
 
-from pyflightstream._deprecations import ROW_MOVING_BOUNDARIES, ROW_ROTATE_FAMILIES
+from pyflightstream._deprecations import (
+    ROW_MOVING_BOUNDARIES,
+    ROW_ROTATE_FAMILIES,
+    refusal_text,
+)
 from pyflightstream._errors import (
-    PyflightstreamDeprecationWarning,
     PyflightstreamError,
     PyflightstreamWarning,
 )
@@ -84,7 +87,7 @@ from pyflightstream.cases import (
     FORCE_PLOT_PARAMETERS,
     RAW_PHASES,
     CampaignConfigError,
-    EngineBlock,
+    RotorBlock,
     ScriptRecipe,
     SimCase,
     alias_members_missing,
@@ -212,7 +215,7 @@ RPM_VARIABLE = "RPM"
 ROTOR_AXIS_VARIABLE = "ROTOR_AXIS"
 ROTOR_ORIGIN_VARIABLE = "ROTOR_ORIGIN"
 #: The key the WORKSPACE writes beside a bound ``ROTOR_ORIGIN``, carrying
-#: the engine point's name once the coordinates replaced it, so the run
+#: the rotor point's name once the coordinates replaced it, so the run
 #: record says which point the hub was (PFS-2029.11.02). A user never
 #: writes it, which is why the vocabulary check below leaves it alone.
 ROTOR_ORIGIN_POINT_KEY = "ROTOR_ORIGIN_POINT"
@@ -224,7 +227,7 @@ ROTOR_ORIGIN_POINT_KEY = "ROTOR_ORIGIN_POINT"
 #: :mod:`pyflightstream.cases.matrix`, whose reader consumes the list
 #: into :attr:`~pyflightstream.cases.SimCase.motions`, re-exports it.
 MOTIONS_VARIABLE = "MOTIONS"
-#: The row's ROTATION of the opened mesh (PFS-2034.02, her design of
+#: The row's ROTATION of the opened mesh (PFS-2034.02, the author's design of
 #: 2026-09-09, design/69): a list of records like ``MOTIONS``, each one
 #: rotation, in the order written, ``ROTATE: {ANGLE: 3 / AXIS: NAC-Y /
 #: ALIAS: PUSHER}, {...}``. ``AXIS`` names a
@@ -246,7 +249,7 @@ SWEEP_WORD = "sweep"
 #: ``FAMILIES`` before it.
 ROTATION_RECORD_KEYS = ("ANGLE", "AXIS")
 
-#: The word a rotation turns (FR-71, her design of 2026-09-10). A rotation
+#: The word a rotation turns (FR-71, the author's design of 2026-09-10). A rotation
 #: and a motion cite a set THE SAME WAY, which is the whole point of the
 #: rename: after it, every surface of this package that names a group of
 #: boundaries names it by alias, and the reference is the one place a
@@ -276,7 +279,7 @@ ROTOR_SHEDDING_VARIABLE = "ROTOR_SHEDDING"
 BLADES_VARIABLE = "BLADES"
 MOVING_BOUNDARIES_VARIABLE = "MOVING_BOUNDARIES"
 #: The word a motion record uses to name its rotor since 0.15.0 (FR-61,
-#: her design of 2026-09-10): an ALIAS the reference declares as an engine
+#: the author's design of 2026-09-10): an ALIAS the reference declares as a rotor
 #: block, and the only rotor identity a row carries. The hub, the axis,
 #: the sign, the blade count and the diameter come from that block, so a
 #: row states which rotors turn and at what operating point and nothing
@@ -284,7 +287,7 @@ MOVING_BOUNDARIES_VARIABLE = "MOVING_BOUNDARIES"
 #: four keys beside it, which are read with a deprecation warning until
 #: 0.17.0 and refused in the same record as this one.
 MOVING_BC_ALIAS_VARIABLE = "MOVING_BC_ALIAS"
-#: The motion that owns the row's clock (FR-64, her design of 2026-09-10).
+#: The motion that owns the row's clock (FR-64, the author's design of 2026-09-10).
 #: It names a motion the same row states, and the time step and the run
 #: length are that motion's. A row without it keeps the arithmetic of
 #: 0.14.0, the fastest rotor, with a warning naming the motion assumed;
@@ -296,11 +299,11 @@ MOVING_BC_ALIAS_VARIABLE = "MOVING_BC_ALIAS"
 #: does not carry (the technical writing lens of 2026-09-10).
 CLOCK_MOTION_VARIABLE = "CLOCK_MOTION"
 #: Whether the solver reports the loads of the meshed sector or of the
-#: whole wheel (FR-66, her decision of 2026-09-10). A preset key promoted
+#: whole wheel (FR-66, the author's decision of 2026-09-10). A preset key promoted
 #: to a row key, because one preset serves a sector row and a full-wheel
 #: row; a row stating it overrides the preset and warns naming both.
 SYMMETRY_LOADS_VARIABLE = "SYMMETRY_LOADS"
-#: The two angles that fix the attitude of a point (FR-69, her rule of
+#: The two angles that fix the attitude of a point (FR-69, the author's rule of
 #: 2026-09-10). They are keys of the FLIGHT_CONDITION cell, stated on
 #: every row, so that no run reaches the solver at an angle nobody wrote;
 #: the swept one carries the word `sweep` instead of a number and is the
@@ -316,11 +319,11 @@ DELTA_TIME_VARIABLE = "DELTA_TIME"
 TIME_ITERATIONS_VARIABLE = "TIME_ITERATIONS"
 #: The rotor speed stated as a RATIO instead of a number of rev/min:
 #: ``J = V / (n D)``, so ``n = V / (J D)`` and the row needs the
-#: free-stream velocity, which it already resolves, and the propeller
+#: free-stream velocity, which it already resolves, and the rotor
 #: diameter, which travels on the reference artifact beside the other
-#: lengths (:attr:`pyflightstream.cases.ReferenceData.propeller_diameter`).
+#: lengths (:attr:`pyflightstream.cases.ReferenceData.rotor_diameter`).
 #:
-#: IT IS THE FORM A PROPELLER STUDY IS DESIGNED IN. A sweep is laid out
+#: IT IS THE FORM A ROTOR STUDY IS DESIGNED IN. A sweep is laid out
 #: in advance ratio and the rev/min are whatever that ratio works out to
 #: at each condition, so a matrix stating rev/min states a DERIVED
 #: number and silently pins it to one velocity: change the flight
@@ -370,7 +373,7 @@ WINDOW_DEGREES_VARIABLE = "WINDOW_DEGREES"
 WINDOW_STEPS_VARIABLE = "WINDOW_STEPS"
 WINDOW_REVOLUTIONS_VARIABLE = "WINDOW_REVOLUTIONS"
 #: The step the per-step exports BEGIN on, stated in revolutions of the
-#: rotor or in time iterations (PFS-2031.18, her design of 2026-09-08,
+#: rotor or in time iterations (PFS-2031.18, the author's design of 2026-09-08,
 #: GeoversePlan design 67). A row states at most one. From that step to
 #: the end of the run the solver exports every per-step kind of the row's
 #: output set after each time step, each file stamped ``_iteration=N`` by
@@ -426,7 +429,7 @@ SYMMETRY_VARIABLE = "SYMMETRY"
 PERIODIC_COPIES_VARIABLE = "PERIODIC_COPIES"
 
 #: The cell key whose value is a LIST OF RECORDS, each one raw solver
-#: command line the row states, or one file of them (FR-67, her decision of
+#: command line the row states, or one file of them (FR-67, the author's decision of
 #: 2026-09-10, "a linha ganha um jeito de passar comando bruto, mantendo a
 #: feature original preservada").
 RAW_VARIABLE = "RAW"
@@ -548,7 +551,7 @@ class Workflow:
     keys : tuple of str
         Every ``VAR_NAMES_VALUES`` key the run type READS: the row's
         vocabulary, and the list a refusal prints when a row states a
-        key outside it (PFS-2008.02.01, her rule of 2026-09-08: a row
+        key outside it (PFS-2008.02.01, the author's rule of 2026-09-08: a row
         states only what the script will carry). A key here is one the
         builder, the clock, the window or the point name resolves; a key
         another run type reads is refused on this one naming that type,
@@ -938,7 +941,7 @@ def _rpm_sign(case: SimCase) -> int:
 
 
 #: The decimals a rotor speed derived from an advance ratio is emitted at:
-#: the author's tool wrote four, and her recorded runs turned at that value.
+#: the author's tool wrote four, and the author's recorded runs turned at that value.
 _DERIVED_RPM_DECIMALS = 4
 
 
@@ -950,7 +953,7 @@ def rotor_speed(case: SimCase) -> RotorSpeed:
     case : SimCase
         The case. It states ``ADVANCE_RATIO`` or ``RPM``, exactly one.
         The ratio form also reads ``RPM_SIGN`` (default 1), the case's
-        free-stream velocity, and the propeller diameter carried on the
+        free-stream velocity, and the rotor diameter carried on the
         case reference.
 
     Returns
@@ -961,7 +964,7 @@ def rotor_speed(case: SimCase) -> RotorSpeed:
     ------
     CampaignConfigError
         If the row states both forms or neither; if a ratio is stated
-        with no propeller diameter on the reference, naming the artifact
+        with no rotor diameter on the reference, naming the artifact
         field to add; or if the ratio, the velocity or the diameter is
         not a positive number.
     """
@@ -991,7 +994,7 @@ def rotor_speed(case: SimCase) -> RotorSpeed:
         raise CampaignConfigError(
             f"case {case.sim_id!r} states no rotor speed, and a rotary motion turns at "
             f"one. State '{ADVANCE_RATIO_VARIABLE}: <J>', which is resolved as "
-            "n = V / (J D) against this run's velocity and the reference propeller "
+            "n = V / (J D) against this run's velocity and the reference rotor "
             f"diameter, or '{RPM_VARIABLE}: <rev/min>' to state the speed itself."
         )
 
@@ -1026,13 +1029,13 @@ def rotor_speed(case: SimCase) -> RotorSpeed:
             f"{RPM_SIGN_VARIABLE}, which is where a negative sign belongs."
         )
     reference = case.reference
-    diameter = None if reference is None else reference.propeller_diameter
+    diameter = None if reference is None else reference.rotor_diameter
     if diameter is None:
         raise CampaignConfigError(
             f"case {case.sim_id!r} states {ADVANCE_RATIO_VARIABLE} as {ratio} and its "
-            "reference carries no propeller diameter, so the ratio names no rotor "
+            "reference carries no rotor diameter, so the ratio names no rotor "
             "speed: J is a ratio against the diameter and n = V / (J D) cannot be "
-            "evaluated without it. Add 'propeller_diameter_m' to the reference "
+            "evaluated without it. Add 'rotor_diameter_m' to the reference "
             "artifact this row's REF code names, beside the other reference lengths."
         )
     velocity = _velocity(case)
@@ -1044,11 +1047,11 @@ def rotor_speed(case: SimCase) -> RotorSpeed:
             f"{RPM_VARIABLE} directly."
         )
     # n in rev/s is V / (J D); rev/min is sixty times that.
-    # FOUR DECIMALS, her tool's precision for the derived speed: her recorded
+    # FOUR DECIMALS, the author's tool's precision for the derived speed: the author's recorded
     # 9001 script states SET_MOTION_ROTOR_RPM 1 473.1723 0.0 0.0 (quoted in
     # reports/RPT-040, the reproduction report, from the recorded script)
     # where the unrounded derivation gives 473.17227304, and the run that
-    # produced her tables turned at the four-decimal value. The scripts arm
+    # produced the author's tables turned at the four-decimal value. The scripts arm
     # of GOAL-011 found it as the one difference on that point on 2026-09-03.
     # A ten-thousandth of a rev/min is below anything the solver resolves.
     rpm = round(60.0 * velocity / (ratio * diameter), _DERIVED_RPM_DECIMALS)
@@ -1068,7 +1071,7 @@ def _own_speed(case: SimCase, speed: RotorSpeed | None) -> RotorSpeed:
 
     A HANDED SPEED ALSO SKIPS EVERY REFUSAL `rotor_speed` MAKES, which is
     the half that matters more than the mix-up: a row stating both
-    ADVANCE_RATIO and RPM, or a ratio with no propeller diameter, is
+    ADVANCE_RATIO and RPM, or a ratio with no rotor diameter, is
     refused inside `rotor_speed` and builds a clean script when a caller
     supplies a speed instead. Checking the identity is what makes the
     parameter an optimisation rather than a way past the guards.
@@ -1128,7 +1131,7 @@ def _the_rotors_the_row_turns(
 
     The first is one ``(alias, motion view, speed)`` per rotor, where the
     ALIAS IS THE REFERENCE'S OWN SPELLING and never the record's token.
-    `_engine_of` resolves a token stripped and case folded, so a record
+    `_rotor_of` resolves a token stripped and case folded, so a record
     writing ``" pusher "`` reaches every rotor path in this module and then
     failed an exact-match subscript one layer down, raising a `KeyError`
     out of `reduction_windows`, whose own docstring says it never raises
@@ -1155,12 +1158,12 @@ def _the_rotors_the_row_turns(
         named = str(token).strip() if token else f"motion {index}"
         try:
             view = _motion_view(case, record)
-            engine = _engine_of(case, record)
-            if engine is None:
+            rotor = _rotor_of(case, record)
+            if rotor is None:
                 raise CampaignConfigError(
                     f"case {case.sim_id!r}: motion {index} names no rotor of the reference"
                 )
-            turning.append((engine.alias, view, rotor_speed(view)))
+            turning.append((rotor.alias, view, rotor_speed(view)))
         except CampaignConfigError as error:
             lost[named] = str(error)
     return turning, lost
@@ -1201,7 +1204,7 @@ class TimeStepping:
         degrees, so a ten-degree step is thirty-six steps exactly;
         deriving it from the seconds instead reads the rounding of the
         emitted step back as physics: 60 / (473.1723 * 0.00352) is 36.0238
-        for a run that resolves 36, once the step took her tool's five
+        for a run that resolves 36, once the step took the author's tool's five
         decimals.
         """
         if self.delta_theta_deg:
@@ -1368,12 +1371,12 @@ def rotor_time_stepping(case: SimCase, *, speed: RotorSpeed | None = None) -> Ti
     # other way takes the same time to sweep the same angle.
     #
     # DERIVED AND NOT ROUNDED. The author's own scripts state 0.00352 where
-    # this gives 0.0035223250952, and that is her tool's rounding of the
-    # same derivation rather than a different clock: her correction of
+    # this gives 0.0035223250952, and that is the author's tool's rounding of the
+    # same derivation rather than a different clock: the author's correction of
     # 2026-09-04, after a session had read the rounded value as the number
     # to emit. Rounding here would end a run at an azimuth nobody chose,
     # which is what stating the revolutions exists to prevent; a comparison
-    # against a file she rounded belongs in that comparison rather than in
+    # against a file the author rounded belongs in that comparison rather than in
     # the number this package emits.
     delta_time_s = theta / (6.0 * abs(resolved.rpm))
     exact_steps = revolutions * 360.0 / theta
@@ -1417,7 +1420,7 @@ def _the_copies_the_sector_stands_for(case: SimCase, script: Script) -> tuple[in
 
         copies = len(block.families_blades) // (those the geometry carries)
 
-    Her 91_LIFTER_SECTOR carries LH and LB_1 of a rotor declared with four
+    The author's 91_LIFTER_SECTOR carries LH and LB_1 of a rotor declared with four
     blade families, so it stands for four copies; the same rotor meshed as
     a half, carrying two of them, stands for two. The first writing of
     this default returned the wheel's four in BOTH cases, because it read
@@ -1453,7 +1456,7 @@ def _the_copies_the_sector_stands_for(case: SimCase, script: Script) -> tuple[in
             "sector to be a slice of; a sector row states one count of its own."
         )
     block = next(
-        (engine for name, engine in case.engines.items() if name.casefold() in named),
+        (rotor for name, rotor in case.rotors.items() if name.casefold() in named),
         None,
     )
     if block is None:
@@ -1623,7 +1626,7 @@ def _moving_boundaries(case: SimCase, script: Script, cell: str) -> list[int | s
     1. an exact boundary label of the opened geometry, so a row can
        always name one surface;
     2. otherwise an ALIAS the row's setup defines in its ``[aliases]``
-       table (her decision of 2026-09-09), whose members resolve as names
+       table (the author's decision of 2026-09-09), whose members resolve as names
        do, a member the file lacks ignored;
     3. otherwise a FAMILY, which is a label with its trailing index
        removed, so ``Blade`` selects every blade the file carries and one
@@ -1734,7 +1737,7 @@ def _resolve_token(case: SimCase, token: str, labels: Mapping[str, int]) -> tupl
     An ADAPTER over :func:`pyflightstream.cases.select_group_members`,
     which is the one home of that precedence (the architecture lens of
     2026-09-09 measured the order written out twice): one token, the
-    inventory in its own order, and the row's aliases. Her decision of
+    inventory in its own order, and the row's aliases. The author's decision of
     2026-09-09 puts the alias between the exact name and the family, and
     a member the file lacks is ignored. Empty when the token names
     nothing, which the caller refuses for its own key.
@@ -1767,7 +1770,7 @@ def _group_indices(
 
     The names go through :func:`pyflightstream.cases.select_group_members`
     over the inventory's labels: an EMPTY group is every boundary of the
-    file (her decision of 2026-09-09), a member the geometry does not
+    file (the author's decision of 2026-09-09), a member the geometry does not
     carry is left out, which is the artifact's own rule (one artifact
     serves a wing-body and an isolated rotor), and an alias of the
     setup is its members; a position passes through. A group that
@@ -1820,11 +1823,11 @@ def _refuse_a_pproc_the_geometry_shares_no_name_with(case: SimCase, script: Scri
     ``p002`` is ``Wing``, ``Body`` and ``Base`` and serves the wing rows
     and the body rows alike), so a family the file lacks is left out by
     design, per group and per plot entry, and a group summing to zero on
-    the wing rows is what her products carry for the body groups of a
+    the wing rows is what the author's products carry for the body groups of a
     wing polar. An artifact that cites a POSITION resolves by construction.
     With no inventory declared there is nothing to check against, which
     is the permissive state FR-30c licenses. An EMPTY group is every
-    family and resolves by construction (her decision of 2026-09-09) and
+    family and resolves by construction (the author's decision of 2026-09-09) and
     is passed over rather than ending the check. A word is resolved as
     every boundary-citing cell resolves it, exact name then alias then
     family, and the message cites the word THE FILE WRITES, not what an
@@ -2455,8 +2458,8 @@ class ReductionPlan:
 def _blade_count(case: SimCase) -> int | None:
     """Return the blade count: ``BLADES``, ``PERIODIC_COPIES``, the sole rotor, else None.
 
-    PFS-2015.04.01, found by her reproduction of 2026-09-09: an isolated
-    propeller meshed as one blade and stated as ``PERIODIC_COPIES: 6``
+    PFS-2015.04.01, found by the author's reproduction of 2026-09-09: an isolated
+    rotor meshed as one blade and stated as ``PERIODIC_COPIES: 6``
     with no ``BLADES`` is a six-bladed rotor, and its phase-locked and
     per-blade reductions were skipped for want of a key that said the
     same number twice. The copies are the count when the blades are not
@@ -2476,7 +2479,7 @@ def _blade_count(case: SimCase) -> int | None:
     # one at a time by `_the_passages_of_one_rotor`.
     turning, _lost = _the_rotors_the_row_turns(case)
     if len(turning) == 1:
-        block = case.engines.get(turning[0][0])
+        block = case.rotors.get(turning[0][0])
         if block is not None and block.families_blades:
             return len(block.families_blades)
     return None
@@ -2571,7 +2574,7 @@ def reduction_plan(case: SimCase) -> ReductionPlan:
 
 # --- PFS-2015.04: the windows the run record carries for the products stage ---
 #
-# The reductions reach the campaign products through the workflow (her rule
+# The reductions reach the campaign products through the workflow (the author's rule
 # of 2026-09-08): the run stage resolves the windows off the ROW, where the
 # clock and the blade count are stated, writes them on the run record, and
 # the products stage reads the record alone, as it reads everything else.
@@ -2656,7 +2659,7 @@ def _the_passages_of_one_rotor(
     the sector's copies, so the three cannot give different answers.
     """
     # ONE BLADE COUNT, READ THROUGH THE VIEW. `_motion_view` sets the
-    # view's BLADES from `engine.blade_count`, which is the model's own
+    # view's BLADES from `rotor.blade_count`, which is the model's own
     # declared rule for the number, so `_blade_count` answers here exactly
     # what it answers for the flat keys and the two cannot give different
     # numbers for one rotor. Opening `len(block.families_blades)` here
@@ -2665,7 +2668,7 @@ def _the_passages_of_one_rotor(
     # `PERIODIC_COPIES` of its own (the architecture lens, 2026-09-10).
     #
     # THE COUNT IS NEVER NONE HERE and that is not defensive coding: the
-    # view always carries BLADES, and the model refuses an engine block
+    # view always carries BLADES, and the model refuses a rotor block
     # whose `families_blades` is empty, both measured 2026-09-10 while
     # writing a case for the empty branch that could not be built.
     blades = _blade_count(view) or 0
@@ -3011,7 +3014,7 @@ def _angle(case: SimCase, axis: str) -> float:
     release there was nowhere to write one: a row sweeping the advance
     ratio reached the solver at incidence zero, and the only record of the
     incidence was that nobody had written one (measured 2026-09-09 while
-    reading her p001).
+    reading the author's p001).
 
     THE ROW-STATED ANGLE IS USUALLY IN THE POINT ALREADY, and this
     function is what answers when it is not. The point's coordinates are
@@ -3129,7 +3132,7 @@ def _open_geometry(case: SimCase, script: Script) -> None:
         )
     # THE INITIALISATION FLAG IS ALWAYS STATED (PFS-2030.03.01). A saved
     # simulation may carry an initialised solver, and loading it would start
-    # the run from a state the row never declared; her scripts wrote DISABLE
+    # the run from a state the row never declared; the author's scripts wrote DISABLE
     # on every open, and a preset that wants the stored state says so.
     load = case.solver.load_solver_initialization
     script.emit("OPEN", case.geometry, "ENABLE" if load else "DISABLE")
@@ -3155,7 +3158,7 @@ def _base_region_families(case: SimCase) -> list[str]:
 def _detect_base_regions(case: SimCase, script: Script) -> None:
     """Emit one DETECT_BASE_REGIONS_BY_SURFACE per boundary of the named families.
 
-    PFS-2029.10, her third sentence of item #6: base region is an
+    PFS-2029.10, the author's third sentence of item #6: base region is an
     optional input naming mesh families, so the autodetect runs on those
     surfaces only. Naming none emits nothing, which is every golden and
     every recorded script; AUTO_DETECT_BASE_REGIONS, the whole-geometry
@@ -3519,11 +3522,11 @@ def _moment_frame(case: SimCase, script: Script) -> int | None:
     """Create the MRP frame at the reference's moment point, returning its index.
 
     PFS-2030.03.02. The loads table the solver writes names the frame the
-    loads were analysed in, and hers say MRP; a run with no moment point
+    loads were analysed in, and the author's say MRP; a run with no moment point
     creates nothing and the solver's reference frame stands, as before.
-    Emitted right after OPEN so that, with the propeller frame after it,
-    the frame indices come out as her scripts numbered them: MRP 2,
-    PROP_MRP 3.
+    Emitted right after OPEN so that, with the rotor frame after it,
+    the frame indices come out as the author's scripts numbered them: MRP 2,
+    ROTOR_MRP 3.
     """
     reference = case.reference
     if reference is None or reference.moment_point_m is None:
@@ -3538,29 +3541,116 @@ def _moment_frame(case: SimCase, script: Script) -> int | None:
     )
 
 
-def _propeller_frame(case: SimCase, script: Script) -> int | None:
-    """Create the PROP_MRP frame at the reference's propeller position.
+#: THE RADICAL OF A ROTOR THAT HAS NO ALIAS. Only one path produces one:
+#: a matrix converted with no workspace, where `to_campaign` reads the row
+#: and never an artifact, so there is no block to take a name from. It keeps
+#: the shape every other rotor frame name has rather than reviving the
+#: package-level PROP_MRP, which named one propulsor because a reference
+#: described one.
+UNNAMED_ROTOR_RADICAL = "ROTOR"
 
-    Only the two unsteady run types call this, because that is what her
-    own scripts did: the steady one created the MRP alone, the unsteady
-    one always created the propeller frame too, rotor or not, since the
-    probe lines and the rotor plots are defined in it. The rotor run
-    turns about this same frame (``label="rotor"`` is what the motion
-    emitter cites). A row stating ROTOR_ORIGIN overrides the artifact's
-    position, so a matrix written before the artifact carried one keeps
-    turning where it said.
+
+#: THE RADICAL OF A ROTOR THAT HAS NO ALIAS. Only one path produces one: a
+#: matrix converted with no workspace, where `to_campaign` reads the row and
+#: never an artifact, so there is no block to take a name from. It keeps the
+#: shape every other rotor frame name has rather than reviving the
+#: package-level PROP_MRP, which named one propulsor because a reference
+#: described one.
+UNNAMED_ROTOR_RADICAL = "ROTOR"
+
+
+def _the_rotor_a_flat_row_turns(case: SimCase) -> RotorBlock | None:
+    """Return the one rotor a row with no MOTIONS list turns, or None.
+
+    A row that states MOTIONS says which rotor each record moves and never
+    reaches here. A row without one has to be told, and the reference is
+    what tells it: exactly one rotor block means exactly one answer.
+
+    IT ANSWERS None RATHER THAN RAISING when the reference declares
+    several. Every run type asks this, including the ones that turn
+    nothing, so a refusal here fired on a steady row whose reference
+    happened to describe a twin. The refusal belongs to the run that
+    actually needs a hub, and :func:`_refuse_an_unanswered_hub` is where
+    it lives.
     """
-    reference = case.reference
+    # `case.rotors`, NOT `case.reference`. The blocks are lifted onto the
+    # case when the matrix resolves, and a case built directly carries them
+    # with no reference beside them; asking for the reference here made the
+    # helper answer None for every hand-built rotor case, which is a guard
+    # that refuses what it was written to accept.
+    if len(case.rotors) != 1:
+        return None
+    return next(iter(case.rotors.values()))
+
+
+def _refuse_an_unanswered_hub(case: SimCase) -> None:
+    """Refuse a rotor run that states no MOTIONS against a several-rotor reference.
+
+    Raises
+    ------
+    CampaignConfigError
+        Which rotor turns is unanswered. Naming the declared ones is the
+        useful half of the refusal.
+    """
+    if case.motions or len(case.rotors) <= 1:
+        return
+    declared = ", ".join(sorted(case.rotors))
+    raise CampaignConfigError(
+        f"case {case.sim_id!r} runs a rotor and states no {MOTIONS_VARIABLE}, and the "
+        f"reference declares more than one rotor ({declared}). Which of them turns is "
+        f"what a {MOTIONS_VARIABLE} list answers: write one record per rotor that "
+        f"moves, each stating {MOVING_BC_ALIAS_VARIABLE}."
+    )
+
+
+def _the_flat_frame_name(case: SimCase) -> str:
+    """Return the citable name of the frame a row with no MOTIONS turns about.
+
+    ``<ALIAS>_SMRP`` when the rotor is declared, which is every row that
+    reached the builder through a workspace, and ``ROTOR_SMRP`` for the
+    converted row that carries no block.
+    """
+    block = _the_rotor_a_flat_row_turns(case)
+    radical = block.alias if block is not None else UNNAMED_ROTOR_RADICAL
+    return f"{radical}_SMRP"
+
+
+def _flat_rotor_frames(case: SimCase, index: int | None) -> dict[str, int | None]:
+    """Name the flat row's rotor frame the way every other rotor frame is named.
+
+    Returns the one entry ``{"<ALIAS>_SMRP": index}``, or nothing when the
+    row turns no rotor. It replaces the literal ``ROTOR_MRP`` key that
+    every frame table carried at 0.14.0, when one reference meant one
+    propulsor and one name could stand for it.
+    """
+    return {_the_flat_frame_name(case): index}
+
+
+def _rotor_frame(case: SimCase, script: Script) -> int | None:
+    """Create the hub frame of the rotor a flat row turns, named for its alias.
+
+    THERE IS NO GLOBAL ROTOR FRAME since 0.15.0 (the author, 2026-09-10). A
+    reference declares one block per rotor and every frame takes that
+    rotor's alias as its radical, so the frame this creates is
+    ``<ALIAS>_SMRP``, the same name a MOTIONS record's hub carries. One
+    rotor named two ways was the 0.14.0 shape, and it only worked because
+    a reference described one propulsor.
+
+    A row stating ROTOR_ORIGIN still overrides the block's hub.
+    """
+    block = _the_rotor_a_flat_row_turns(case)
     stated = _variable(case, ROTOR_ORIGIN_VARIABLE)
     if stated is not None:
         origin = _origin(case)
-    elif reference is not None and reference.propeller_position_m is not None:
-        origin = reference.propeller_position_m
+    elif block is not None:
+        origin = block.origin
+    elif case.reference is not None and case.reference.rotor_position_m is not None:
+        origin = case.reference.rotor_position_m
     else:
         return None
     return helpers.coordinate_frame(
         script,
-        name="PROP_MRP",
+        name=_the_flat_frame_name(case),
         origin=origin,
         x_axis=(1.0, 0.0, 0.0),
         y_axis=(0.0, 1.0, 0.0),
@@ -3572,8 +3662,8 @@ def _significant_digits(case: SimCase, script: Script) -> None:
     """Emit SET_SIGNIFICANT_DIGITS where the preset states it (PFS-2030.03.04).
 
     A setup-phase command, so it sits with the frames and before the
-    free stream; the solver's own default prints four decimals and her
-    presets ask for seven, which is the difference between her tables
+    free stream; the solver's own default prints four decimals and the author's
+    presets ask for seven, which is the difference between the author's tables
     and a table that cannot be compared with them.
     """
     digits = case.solver.significant_digits
@@ -3585,7 +3675,7 @@ def _vorticity_indices(case: SimCase, script: Script) -> list[int] | None:
     """Resolve the preset's vorticity-drag FAMILIES through the opened inventory.
 
     PFS-2030.03.03. A family the geometry does not carry is left out, as
-    her driver filtered the preset's list to the configuration it opened;
+    the author's driver filtered the preset's list to the configuration it opened;
     a list that resolves to nothing is refused, because an empty selection
     would be read by the solver as the default and the preset asked for
     something else.
@@ -3616,7 +3706,7 @@ def _analysis(case: SimCase, script: Script, frame: int | None) -> None:
 
     The loads frame and the moments model are analysis-phase commands, so
     they follow START_SOLVER in this package's phase order; the solver
-    applies them to the analysis that follows either way, and hers were
+    applies them to the analysis that follows either way, and the author's were
     written before the start with the same effect on the table.
     """
     if frame is None:
@@ -3695,7 +3785,7 @@ def _settings(
     # it (:func:`_wake_termination`) and the steady builder, which
     # has no clock, cannot and does not.
     # SIDESLIP, THE REFERENCE VELOCITY AND THE VORTICITY FAMILIES ARE ALWAYS
-    # STATED where the case can state them (PFS-2030.03.01, .03.03): her
+    # STATED where the case can state them (PFS-2030.03.01, .03.03): the author's
     # scripts set the sideslip even at zero and the reference velocity
     # equal to the free stream, and a setting nobody states is a setting
     # the solver defaults, which is the silence this release removes.
@@ -3730,7 +3820,7 @@ def _settings(
         solver_stabilization=solver.solver_stabilization,
         wake_termination_time_steps=wake_termination_time_steps,
     )
-    # SYMMETRY LOADS AS STATED, her decision of 2026-09-02 (PFS-2028.05): an
+    # SYMMETRY LOADS AS STATED, the author's decision of 2026-09-02 (PFS-2028.05): an
     # init-phase setting, emitted alone here as the helper asks; an absent
     # key emits nothing, so a preset written before this release is silent
     # exactly as it was.
@@ -3742,15 +3832,15 @@ def _settings(
 def _row_symmetry_loads(case: SimCase, from_setup: bool | None) -> bool | None:
     """Resolve the symmetry-loads flag: the ROW's when it states one (FR-66).
 
-    Her decision of 2026-09-10. Whether the solver reports the loads of the
+    The author's decision of 2026-09-10. Whether the solver reports the loads of the
     meshed SECTOR or of the whole wheel is a per-row choice, because one
     preset serves a sector row and a full-wheel row. A row stating it
     OVERRIDES the preset and warns naming both files and the value used;
     a row stating nothing inherits silently, as every row written before
     this release does.
 
-    Her first answer that hour was to refuse both stating it, as the rotor
-    speed is refused; she changed it the same hour, and the warning is what
+    The author's first answer that hour was to refuse both stating it, as the rotor
+    speed is refused; the author changed it the same hour, and the warning is what
     keeps the override from being silent.
     """
     stated = _variable(case, SYMMETRY_LOADS_VARIABLE)
@@ -3907,13 +3997,13 @@ def _inventory(script: Script) -> list[str]:
 
 
 #: The frames a builder created, by the name a pproc entry cites: MRP and
-#: PROP_MRP to an index or None, BLADE_AXIS to one index per blade family.
+#: ROTOR_MRP to an index or None, BLADE_AXIS to one index per blade family.
 Frames = Mapping[str, int | None | Mapping[str, int]]
 
 
 #: The row variable the command line writes its choice into, so the reader
 #: can honour it without the cases layer knowing a command line exists
-#: (PFS-2035.13, her design of 2026-09-10).
+#: (PFS-2035.13, the author's design of 2026-09-10).
 IGNORE_MISSING_FAMILIES_VARIABLE = "IGNORE_MISSING_FAMILIES"
 
 #: The words that mean yes and the words that mean no, in the ONE place
@@ -4124,8 +4214,8 @@ def _the_names_a_rotor_answers_to(case: SimCase) -> dict[str, list[str]]:
     """Return the setup's aliases with each rotor's own name added to them.
 
     A ROTOR'S NAME IS AN ALIAS FOR ITS OWN FAMILIES, which is FR-65's
-    sentence "an engine name in that set is its own union" written where
-    both readers can use it. Her `lifters = ["LIFT_L1", "LIFT_L2"]` lists
+    sentence "a rotor name in that set is its own union" written where
+    both readers can use it. The author's `lifters = ["LIFT_L1", "LIFT_L2"]` lists
     ROTORS rather than families, which is the natural way to write a group
     of rotors and the shape the whole per-rotor economy is for, and its
     members resolved to nothing because a rotor's name was a family name
@@ -4138,13 +4228,13 @@ def _the_names_a_rotor_answers_to(case: SimCase) -> dict[str, list[str]]:
     how the total of the rotors in the moment frame is asked for, then
     selected NOTHING and warned that the geometry carries no family of it.
 
-    Her own table takes precedence, so a study that gives one of these
+    The author's own table takes precedence, so a study that gives one of these
     names a meaning of its own keeps it.
     """
     return {
         **{
             name: [*block.families_general, *block.families_blades]
-            for name, block in case.engines.items()
+            for name, block in case.rotors.items()
         },
         **case.aliases,
     }
@@ -4162,7 +4252,7 @@ def _the_reference_vocabulary(case: SimCase) -> list[str]:
     """
     return [
         family
-        for block in case.engines.values()
+        for block in case.rotors.values()
         for family in (*block.families_general, *block.families_blades)
     ]
 
@@ -4187,14 +4277,14 @@ def _rotors_the_entry_cites(
     silence because one other token in the same entry matched and stopped
     the refusal from firing. `lifters` naming four lifters reaches four
     rotors and one line of the artifact becomes four emissions, which is
-    the whole economy of FR-65: her aircraft has nine rotors and her
+    the whole economy of FR-65: the author's aircraft has nine rotors and the author's
     `[plots]` table has six lines.
 
     A member may be another alias, and the members are resolved through
     :func:`resolve_alias` so that a nested one is followed to the end
     rather than read as a family name that nothing carries.
     """
-    if not case.engines:
+    if not case.rotors:
         return []
     wanted = [families] if isinstance(families, str) else list(families)
     # EVERY ROTOR IS WHAT `all` MEANS HERE, and reading it is
@@ -4205,18 +4295,23 @@ def _rotors_the_entry_cites(
     # interface lens, 2026-09-10). `airframe` still reaches none, and that
     # refusal is true: an airframe has no rotor.
     #
-    # `blades` IS READ HERE UNTIL 0.17.0 AND WARNS, which is what its ledger
-    # entry promises. The first version of the retirement dropped the word
-    # from this branch, so an artifact writing `frame = "SMRP", families =
-    # "blades"` met the refusal below, and that refusal diagnoses a
-    # MISSPELLING: a spelling the ledger says has two more releases to live
-    # would have raised today, with nothing anywhere saying it had retired.
-    # Two review lenses found it in the same round.
-    if any(str(token).strip().casefold() == "blades" for token in wanted):
+    # THE ALIAS IS ASKED FIRST, exactly as `select_families` asks it. The
+    # word `blades` was a SELECTOR that decided what a blade is from a
+    # pattern over the family name, and 0.15.0 refuses it; a reference that
+    # DECLARES `blades` gives the word a meaning of its own and keeps it,
+    # which is the migration the refusal asks a reader to make. Testing the
+    # word before the table refused the very file the message tells them to
+    # write.
+    known_here = _the_names_a_rotor_answers_to(case)
+    if any(
+        str(token).strip().casefold() == "blades"
+        and resolve_alias(str(token).strip(), _the_reference_vocabulary(case), known_here) is None
+        for token in wanted
+    ):
         warn_a_selector_that_guesses("blades")
-        return [(alias, []) for alias in case.engines]
+        return [(alias, []) for alias in case.rotors]
     if any(str(token).strip().casefold() == "all" for token in wanted):
-        return [(alias, []) for alias in case.engines]
+        return [(alias, []) for alias in case.rotors]
     vocabulary = _the_reference_vocabulary(case)
     known = _the_names_a_rotor_answers_to(case)
     whole: set[str] = set()
@@ -4224,7 +4319,7 @@ def _rotors_the_entry_cites(
     for token in wanted:
         word = str(token).strip()
         folded = word.casefold()
-        for name in case.engines:
+        for name in case.rotors:
             if folded == name.casefold():
                 whole.add(name)
         members = resolve_alias(word, vocabulary, known)
@@ -4232,7 +4327,7 @@ def _rotors_the_entry_cites(
             # NOT AN ALIAS, so it is a boundary or a family name, and it
             # is resolved the same way a member of one would be.
             members = [family for family in vocabulary if _the_same_family(family, word)]
-        for name, block in case.engines.items():
+        for name, block in case.rotors.items():
             owns = {
                 family.casefold(): family
                 for family in (*block.families_general, *block.families_blades)
@@ -4242,7 +4337,7 @@ def _rotors_the_entry_cites(
                 kept = cited.setdefault(name, [])
                 kept.extend(family for family in inside if family not in kept)
     reached: list[tuple[str, list[str]]] = []
-    for name in case.engines:
+    for name in case.rotors:
         if name in whole:
             reached.append((name, []))
         elif name in cited:
@@ -4264,7 +4359,7 @@ def _and_the_frame_it_turned_from(
 ) -> list[tuple[str, list[str], str]]:
     """One emission, or TWO when the frame it names was rotated (FR-71).
 
-    Her rule of 2026-09-10: "no posproc, se eu indicar um SMRP que foi
+    The author's rule of 2026-09-10: "no posproc, se eu indicar um SMRP que foi
     rotacionado, ele escreve os outputs tanto no SMRP quanto no original".
     An entry says which rotor it is about, and the ROW's rotation decides
     whether there are two readings of it, which is the rule FR-65 already
@@ -4310,7 +4405,7 @@ def _pproc_emissions(
     many of it there are.
 
     * a frame the run creates or the reference declares: ONE emission over
-      the whole cited set, and an engine name in that set is its own union;
+      the whole cited set, and a rotor name in that set is its own union;
     * ``SMRP`` or ``RMRP``: one per ROTOR, in that rotor's own frame,
       labelled with the rotor's alias;
     * ``LOCAL_AXIS``: one per BLADE, in that blade's frame, labelled with
@@ -4321,7 +4416,7 @@ def _pproc_emissions(
     # THE FRAME SELECTS THIS PATH, not the entry's arity. `each_blade` is
     # also one per blade, and it expands through the FAMILY selector as it
     # did at 0.14.0, over whatever frame the entry names; taking the rotor
-    # path for it would ask a 0.14.0 artifact for engines its reference
+    # path for it would ask a 0.14.0 artifact for rotors its reference
     # never declared.
     kind = EXPANDING_FRAMES.get(frame.strip().upper())
     if kind is None:
@@ -4333,8 +4428,20 @@ def _pproc_emissions(
             )
         ]
     rotors = _rotors_the_entry_cites(case, families)
+    if not rotors and not case.rotors:
+        # A REFERENCE THAT DECLARES NO ROTOR AT ALL is a CONFIGURATION with
+        # no rotor, not a misspelling, and the entry is skipped the way an
+        # entry whose families the mesh lacks is skipped. This is what lets
+        # one post-processing artifact serve a wing, a body and a twin,
+        # which is the artifact's whole economy: p001 carries the rotor
+        # plots and the wing rows citing it simply do not emit them.
+        #
+        # The refusal below still fires where the reference DOES declare
+        # rotors and the entry reaches none of them, which is the case that
+        # cannot come right on another mesh.
+        return []
     if not rotors:
-        declared = ", ".join(sorted(case.engines)) or "none"
+        declared = ", ".join(sorted(case.rotors)) or "none"
         aliases = ", ".join(sorted(case.aliases)) or "none"
         raise CampaignConfigError(
             f"case {case.sim_id!r}: {what} of {_artifact_of(case)} is measured in "
@@ -4352,7 +4459,7 @@ def _pproc_emissions(
     emissions: list[tuple[str, list[str], str]] = []
     placed = {name for name, index in frames.items() if index is not None}
     for alias, inside in rotors:
-        block = case.engines[alias]
+        block = case.rotors[alias]
         # AN EMPTY `inside` IS THE WHOLE ROTOR, which is what naming the
         # rotor itself asks for; anything else is the part of it the entry
         # actually cited, so an entry asking for the hub gets the hub.
@@ -4446,8 +4553,8 @@ def _pproc_frame(
         raise CampaignConfigError(
             f"case {case.sim_id!r}: the pproc artifact {case.pproc_id!r} cites frame "
             f"{name!r} for {what}, and this run created no such frame (created: "
-            f"{', '.join(created) or 'none'}). MRP needs a reference artifact, PROP_MRP "
-            "a propeller position on it, and BLADE_AXIS the multirotor run type with a "
+            f"{', '.join(created) or 'none'}). MRP needs a reference artifact, ROTOR_MRP "
+            "a rotor position on it, and BLADE_AXIS the multirotor run type with a "
             "geometry carrying blade families (PFS-2029.11.03)."
         )
     return found
@@ -4482,7 +4589,7 @@ def _script_tail(
 def _raw_commands(case: SimCase, script: Script, phase: str) -> None:
     """Emit the setup's raw commands declared before ``phase``, in the order written.
 
-    PFS-2033.01, her design of 2026-09-09 (design/69). Each line is split
+    PFS-2033.01, the author's design of 2026-09-09 (design/69). Each line is split
     on whitespace, its arguments coerced to the types the command's
     database entry declares, and emitted through :meth:`Script.emit`, so
     the line passes exactly the checks every curated emission passes: a
@@ -4539,8 +4646,8 @@ def _raw_commands(case: SimCase, script: Script, phase: str) -> None:
 def _setup_frames(case: SimCase, script: Script) -> dict[str, int]:
     """Create the custom frames the row's setup defines, returning name to index.
 
-    PFS-2034.01, her design of 2026-09-09 (design/69). Emitted after the
-    package's own frames (MRP, PROP_MRP) so their indices stay what her
+    PFS-2034.01, the author's design of 2026-09-09 (design/69). Emitted after the
+    package's own frames (MRP, ROTOR_MRP) so their indices stay what the author's
     scripts numbered them, and before any motion, so a rotor whose axis
     frame is one of these turns about a frame that exists. A setup that
     defines none emits nothing, which is every golden.
@@ -4570,7 +4677,7 @@ def _rotations(
 ) -> None:
     """Rotate the mesh families the row's ``ROTATE`` records name, in the order written.
 
-    PFS-2034.02, her design of 2026-09-09 (design/69). Each record is one
+    PFS-2034.02, the author's design of 2026-09-09 (design/69). Each record is one
     rotation of the named families about the named axis of the named
     frame, emitted after every frame exists and before any motion is
     created, so a rotor whose axis frame is among the auxiliaries turns
@@ -4581,13 +4688,13 @@ def _rotations(
     being the frames the builder created so far (the package's own and
     the setup's). An auxiliary frame is turned by the same command the
     blade axes use, ``ROTATE_COORDINATE_SYSTEM``, and a frame the package
-    DERIVED from an auxiliary (the blade axis frames from ``PROP_MRP``,
+    DERIVED from an auxiliary (the blade axis frames from ``ROTOR_MRP``,
     listed in ``followers``) turns with it, because it was placed from
     that frame and would otherwise be left behind by the incidence the
     row states. A row without the variable emits nothing.
 
     ``spinning`` maps a frame's name to the boundaries whose motion turns
-    about it (``PROP_MRP`` to the blades on a flat rotor row, ``PROP_MRP<k>``
+    about it (``ROTOR_MRP`` to the blades on a flat rotor row, ``ROTOR_MRP<k>``
     to record k's on a ``MOTIONS`` row). A record that turns any of those
     boundaries and does not name that frame among its auxiliaries turns
     the blades and leaves the axis they spin about where it was: a
@@ -4599,7 +4706,7 @@ def _rotations(
     frames = {name: index for name, index in named.items() if index is not None}
     labels = script.entities.labels("boundaries")
     #: The aliases whose `<ALIAS>_SMRP_ORIGINAL` this row has already kept.
-    #: ONE PER ALIAS is her answer of 2026-09-10 (DEC-010), so a row that
+    #: ONE PER ALIAS is the author's answer of 2026-09-10 (DEC-010), so a row that
     #: rotates one alias twice keeps the state before the FIRST rotation.
     kept: set[str] = set()
     for record in case.rotations:
@@ -4664,7 +4771,7 @@ def _rotations(
             _rotation_frame(case, aux_name, frames, "AUX_FRAMES") for aux_name in aux_names
         ]
         # WHAT ACTUALLY TURNS, BY INDEX AND ONCE EACH. One frame has more
-        # than one name -- a rotor's hub is `<ALIAS>_SMRP` and `PROP_MRP<k>`
+        # than one name -- a rotor's hub is `<ALIAS>_SMRP` and `ROTOR_MRP<k>`
         # at the same index, and `<ALIAS>_RMRP` is both a frame the alias
         # owns and a FOLLOWER of the hub -- so a list keyed on names turned
         # the same frame twice and a row asking for three degrees got six.
@@ -4719,7 +4826,7 @@ def _axes_the_blades_spin_about(
     """Collapse the spun-about frames to one entry per FRAME, best-named.
 
     `spinning` is keyed by every name a frame answers to: a rotor's hub is
-    both ``<ALIAS>_SMRP`` and ``PROP_MRP<k>`` at one index. The advisory
+    both ``<ALIAS>_SMRP`` and ``ROTOR_MRP<k>`` at one index. The advisory
     that reads it is about a FRAME, so it walks indices, and the name it
     reports is the alias one where there is one, because that is the name
     the user can act on: the alias carries the frame, and the 0.14.0
@@ -4756,7 +4863,7 @@ def _what_the_rotation_turns(case: SimCase, record: Mapping[str, str]) -> str:
         )
     if alias is not None:
         token = alias.strip()
-        declared = {*case.aliases, *case.engines}
+        declared = {*case.aliases, *case.rotors}
         if not any(name.casefold() == token.casefold() for name in declared):
             # A LIST OF DECLARED WORDS IS A DIFFERENT MISTAKE, and it is the
             # one a `FAMILIES` migration produces: the old key took a list
@@ -4797,17 +4904,14 @@ def _what_the_rotation_turns(case: SimCase, record: Mapping[str, str]) -> str:
     # migrating record by record was told about one of them (measured by
     # the quality lens, 2026-09-10: 1 warning where 2 were due).
     written = " / ".join(f"{key}: {value}" for key, value in record.items())
-    words = sorted({*case.aliases, *case.engines})
-    warnings.warn(
+    words = sorted({*case.aliases, *case.rotors})
+    raise CampaignConfigError(
         f"case {case.sim_id!r}, {ROTATE_VARIABLE} record {{{written}}}: "
-        f"{ROW_ROTATE_FAMILIES.message()} It is not a rename of the key alone: the "
+        f"{refusal_text(ROW_ROTATE_FAMILIES)} It is not a rename of the key alone: the "
         f"VALUE becomes one word the reference declares, of "
         f"{', '.join(repr(name) for name in words) or 'none'}, and a families list "
-        "spanning two of them becomes one record per alias.",
-        PyflightstreamDeprecationWarning,
-        stacklevel=3,
+        "spanning two of them becomes one record per alias."
     )
-    return families
 
 
 #: The suffix of the copy a rotor's hub keeps of itself, before anything
@@ -4830,10 +4934,10 @@ def _keep_the_frame_this_alias_turns_from(
 ) -> None:
     """Create ``<ALIAS>_SMRP_ORIGINAL`` once per alias, before its first turn (FR-71).
 
-    ONCE PER ALIAS AND NOT ONCE PER RECORD, which is her answer of
-    2026-09-10 (DEC-010). The discriminator she was given was a row that
+    ONCE PER ALIAS AND NOT ONCE PER RECORD, which is the author's answer of
+    2026-09-10 (DEC-010). The discriminator the author was given was a row that
     rotates one alias TWICE: per record would also keep the state BETWEEN
-    the two rotations, and she does not want that reading, so a second
+    the two rotations, and the author does not want that reading, so a second
     rotation of the same alias adds nothing and the copy still names the
     state before the row touched anything.
 
@@ -4851,7 +4955,7 @@ def _keep_the_frame_this_alias_turns_from(
     if not alias:
         return
     radical = next(
-        (name for name in {*case.engines} if name.casefold() == alias.casefold()),
+        (name for name in {*case.rotors} if name.casefold() == alias.casefold()),
         None,
     )
     if radical is None or radical in kept:
@@ -4862,7 +4966,7 @@ def _keep_the_frame_this_alias_turns_from(
         # placed and there is nothing to keep a copy OF. The rotation
         # still turns the alias's boundaries; it simply turns no frame.
         return
-    block = case.engines[radical]
+    block = case.rotors[radical]
     frames[f"{hub}{ORIGINAL_FRAME_SUFFIX}"] = helpers.coordinate_frame(
         script,
         name=f"{hub}{ORIGINAL_FRAME_SUFFIX}",
@@ -4893,7 +4997,7 @@ def _frames_the_alias_owns(
     if not alias:
         return []
     radical = next(
-        (name for name in {*case.engines} if name.casefold() == alias.casefold()),
+        (name for name in {*case.rotors} if name.casefold() == alias.casefold()),
         None,
     )
     if radical is None:
@@ -4933,9 +5037,31 @@ def _rotation_frame(case: SimCase, name: str, frames: Mapping[str, int], key: st
         f"case {case.sim_id!r} states {ROTATE_VARIABLE} with {key} naming {name!r}, and "
         f"no frame of that name exists when the rotation is emitted; the frames this case "
         f"defines are {_frame_names(frames)}. A setup preset defines one in its [[frames]] "
-        "table; MRP is the package's own on every run type, and PROP_MRP on the rotor run "
+        "table; MRP is the package's own on every run type, and ROTOR_MRP on the rotor run "
         "types."
     )
+
+
+def _the_blade_frames_under_their_rotors_names(
+    case: SimCase, blade_frames: Mapping[str, int]
+) -> dict[str, int]:
+    """Name a flat row's per-blade frames the way a MOTIONS row names them.
+
+    A flat row creates ``BladeAxis<k>``, one per blade family, and that is
+    the name in its script and in every golden. A post-processing entry
+    citing ``LOCAL_AXIS`` expands to ``<ALIAS>_RMRP<k>``, because that is
+    what a rotor's blade frame is called since 0.15.0. Registering the same
+    index under both names is what lets one artifact serve both row shapes;
+    without it the entry resolved on a MOTIONS row and reached nothing
+    here, with no refusal, which is the silence FR-65 exists against.
+    """
+    named: dict[str, int] = {}
+    for alias, block in case.rotors.items():
+        for number, family in enumerate(block.families_blades, start=1):
+            index = blade_frames.get(family)
+            if index is not None:
+                named[f"{alias}_RMRP{number}"] = index
+    return named
 
 
 def _blade_indices(case: SimCase, script: Script) -> list[int]:
@@ -4946,11 +5072,11 @@ def _blade_indices(case: SimCase, script: Script) -> list[int]:
     return sorted(index for name, index in labels.items() if is_blade(name))
 
 
-def _blade_frames(case: SimCase, script: Script, prop_frame: int) -> dict[str, int]:
+def _blade_frames(case: SimCase, script: Script, rotor_frame: int) -> dict[str, int]:
     """Create one axis frame per blade family, turned about the rotor frame.
 
-    PFS-2029.11.03, as her rotor scripts did it: a frame ``BladeAxis<k>``
-    per blade family, at the propeller frame's origin with its axes,
+    PFS-2029.11.03, as the author's rotor scripts did it: a frame ``BladeAxis<k>``
+    per blade family, at the rotor frame's origin with its axes,
     rotated about the rotor axis by the blade's share of a turn, so blade
     k of N sits at (k-1) * 360 / N degrees; a periodic sector meshing one
     blade gets one frame at zero. The frames are the motion's moving
@@ -4966,8 +5092,8 @@ def _blade_frames(case: SimCase, script: Script, prop_frame: int) -> dict[str, i
         return {}
     axis = str(_variable(case, ROTOR_AXIS_VARIABLE) or "X").upper()
     origin = (0.0, 0.0, 0.0)
-    if case.reference is not None and case.reference.propeller_position_m is not None:
-        origin = case.reference.propeller_position_m
+    if case.reference is not None and case.reference.rotor_position_m is not None:
+        origin = case.reference.rotor_position_m
     created: dict[str, int] = {}
     for number, family in enumerate(blades, start=1):
         index = helpers.coordinate_frame(
@@ -4981,7 +5107,7 @@ def _blade_frames(case: SimCase, script: Script, prop_frame: int) -> dict[str, i
         script.emit(
             "ROTATE_COORDINATE_SYSTEM",
             frame=index,
-            rotation_frame=prop_frame,
+            rotation_frame=rotor_frame,
             rotation_axis=axis,
             angle=(number - 1) * 360.0 / len(blades),
         )
@@ -4991,7 +5117,7 @@ def _blade_frames(case: SimCase, script: Script, prop_frame: int) -> dict[str, i
 
 def _rotor_blade_frames(
     script: Script,
-    engine: EngineBlock,
+    rotor: RotorBlock,
     hub: int,
     radical: str,
     view: SimCase,
@@ -5013,15 +5139,15 @@ def _rotor_blade_frames(
     way on either.
     """
     inventory = set(_inventory(script))
-    count = engine.blade_count
+    count = rotor.blade_count
     created: dict[str, int] = {}
-    for number, family in enumerate(engine.families_blades, start=1):
+    for number, family in enumerate(rotor.families_blades, start=1):
         if family not in inventory:
             continue
         index = helpers.coordinate_frame(
             script,
             name=f"{radical}_RMRP{number}",
-            origin=engine.origin,
+            origin=rotor.origin,
             x_axis=(1.0, 0.0, 0.0),
             y_axis=(0.0, 1.0, 0.0),
             label=f"blade_axis:{family}",
@@ -5030,8 +5156,8 @@ def _rotor_blade_frames(
             "ROTATE_COORDINATE_SYSTEM",
             frame=index,
             rotation_frame=hub,
-            rotation_axis=engine.axis,
-            angle=engine.blade1.azimuth_deg + (number - 1) * 360.0 / count,
+            rotation_axis=rotor.axis,
+            angle=rotor.blade1.azimuth_deg + (number - 1) * 360.0 / count,
         )
         created[family] = index
         created[f"{radical}_RMRP{number}"] = index
@@ -5047,14 +5173,14 @@ def _pproc_plots(case: SimCase, script: Script, frames: Frames) -> None:
     """Emit the force plots and the fluid plots the pproc artifact defines.
 
     Force plots come one per group and parameter, in the artifact's
-    order, named ``{parameter}_{group}`` as her plot files were, sampled
+    order, named ``{parameter}_{group}`` as the author's plot files were, sampled
     in COEFFICIENTS for the four coefficients and NEWTONS for the six
     loads; a group whose families the geometry does not carry is left
     out, and ``all`` takes the command's own every-boundary form. Fluid
     plots come one per vertex and parameter along the probe lines, named
     ``{parameter}{n}`` with n counting vertices across the lines.
     Emitted right after the frames, before the solver settings, which is
-    where her scripts placed them and before the solver they record.
+    where the author's scripts placed them and before the solver they record.
     """
     pproc = case.pproc
     if pproc is None:
@@ -5071,7 +5197,7 @@ def _pproc_plots(case: SimCase, script: Script, frames: Frames) -> None:
             # second plot overwrites the first under one file name and the
             # study loses the half it asked for. The suffix is the frame's
             # own, so a reader who sees the file knows which frame it is in
-            # without opening it (her rule of 2026-09-10, FR-71).
+            # without opening it (the author's rule of 2026-09-10, FR-71).
             if frame_name.endswith(ORIGINAL_FRAME_SUFFIX):
                 name = f"{name}{ORIGINAL_FRAME_SUFFIX}"
             indices = [script.resolve_boundary(f, context="pproc plot") for f in families]
@@ -5109,7 +5235,7 @@ def _pproc_plots(case: SimCase, script: Script, frames: Frames) -> None:
     # another row.
     if (
         EXPANDING_FRAMES.get(probes.frame.strip().upper()) is None
-        and _the_rotor_whose_frame_this_is(case, probes.frame) is not None
+        and _ROTOR_FRAME_SPELLING.search(probes.frame.strip().upper()) is not None
         and frames.get(probes.frame) is None
     ):
         warnings.warn(
@@ -5145,6 +5271,15 @@ def _pproc_plots(case: SimCase, script: Script, frames: Frames) -> None:
                 )
 
 
+#: THE SHAPE OF A ROTOR'S FRAME NAME, used only to tell a rotor frame this
+#: RUN did not create from a frame no row could create. It is deliberately
+#: NOT used to say WHOSE frame a name is: `_the_rotor_whose_frame_this_is`
+#: answers that by composing the names forward, because a custom frame the
+#: reference declares may share a rotor's prefix and reading the shape
+#: backward once scaled probe lines to the wrong disk.
+_ROTOR_FRAME_SPELLING = re.compile(r"_(SMRP|RMRP\d*)$")
+
+
 def _the_rotor_whose_frame_this_is(case: SimCase, frame: str) -> str | None:
     """Return the alias of the rotor that OWNS ``frame``, or None (FR-62, FR-65).
 
@@ -5162,7 +5297,7 @@ def _the_rotor_whose_frame_this_is(case: SimCase, frame: str) -> str | None:
     measured: PUSHER_TIP returned the pusher's 1.8 m).
     """
     wanted = frame.strip().casefold()
-    for alias, block in case.engines.items():
+    for alias, block in case.rotors.items():
         owned = {f"{alias}_SMRP".casefold(), f"{alias}_RMRP".casefold()}
         owned |= {
             f"{alias}_RMRP{number}".casefold()
@@ -5177,30 +5312,30 @@ def _the_radius_the_probe_lines_are_in(case: SimCase, frame: str) -> float:
     """Return the diameter a probe table's ``rotor_radius`` is measured against (FR-65).
 
     THE ROTOR THE LINES ARE LAID OUT ON, which is the one whose frame the
-    table names: her nine lines cross the disk of the rotor they are
+    table names: the author's nine lines cross the disk of the rotor they are
     measured in, so `frame = "PUSHER_SMRP"` means pusher radii. That
     matters at 0.15.0 and did not before it, because the reference now
     states a diameter PER ROTOR (FR-60): one number for the whole
     configuration cannot be right for a 1.20 m lifter and a 1.80 m pusher
-    at once, and reading the configuration's would have laid her lifter
+    at once, and reading the configuration's would have laid the author's lifter
     probes out over the pusher's disk without saying so.
 
     A frame that is not a rotor's falls back to the reference's own
-    propeller diameter, which is what every artifact written before this
+    rotor diameter, which is what every artifact written before this
     release meant and what keeps them reading.
     """
     alias = _the_rotor_whose_frame_this_is(case, frame)
     if alias is not None:
-        return case.engines[alias].diameter_m
-    diameter = None if case.reference is None else case.reference.propeller_diameter
+        return case.rotors[alias].diameter_m
+    diameter = None if case.reference is None else case.reference.rotor_diameter
     if diameter is None:
-        declared = ", ".join(sorted(case.engines)) or "none"
+        declared = ", ".join(sorted(case.rotors)) or "none"
         raise CampaignConfigError(
             f"case {case.sim_id!r}: the pproc artifact {case.pproc_id!r} lays its probe "
             f"lines out in rotor radii and names the frame {frame!r}, which is not a "
             f"rotor's, so there is no rotor to take a radius from. The rotors the "
             f"reference declares are {declared}, and each carries its own diameter_m; "
-            f"name one of their frames (<ALIAS>_SMRP), or state a propeller diameter on "
+            f"name one of their frames (<ALIAS>_SMRP), or state a rotor diameter on "
             'the reference, or write the lines in metres (scale = "m").'
         )
     return diameter
@@ -5211,7 +5346,7 @@ def _pproc_sections(case: SimCase, script: Script, frames: Frames) -> None:
 
     An entry's families are resolved through the opened inventory in the
     order the entry lists them, families the geometry does not carry
-    being left out as her driver left them out, and an entry resolving
+    being left out as the author's driver left them out, and an entry resolving
     to none is skipped. Emitted before the solver is initialised, so the
     sections exist when UPDATE_ALL_SURFACE_SECTIONS runs after it.
     """
@@ -5223,7 +5358,7 @@ def _pproc_sections(case: SimCase, script: Script, frames: Frames) -> None:
     for position, entry in enumerate(sections.distributions, start=1):
         # THE SAME RULE AS THE PLOTS (FR-65): a distribution measured in a
         # blade's own axes is one per blade, and one measured in a rotor's
-        # is one per rotor. Her `p010.toml` writes exactly that, over
+        # is one per rotor. The author's `p010.toml` writes exactly that, over
         # `["lifters", "PUSHER"]`, and means nine distributions.
         for frame_name, families, _label in _pproc_emissions(
             case,
@@ -5254,7 +5389,7 @@ def _pproc_sections(case: SimCase, script: Script, frames: Frames) -> None:
 def _export_block(
     conventions: WorkflowConventions, case: SimCase, script: Script, *, unsteady: bool
 ) -> None:
-    """Export what the study needs, in her order, with the updates first.
+    """Export what the study needs, in the author's order, with the updates first.
 
     PFS-2029.14.01 and PFS-2029.18. The names come from the row's outputs
     (rendered by the workspace) and each is paired with its verb by suffix,
@@ -5264,8 +5399,8 @@ def _export_block(
     COMPUTE_SURFACE_SECTIONAL_LOADS and UPDATE_PROBE_POINTS precede the
     exports whenever a section, sectional-loads or probe export is asked
     for, because an export of sections nobody updated is an export of the
-    previous state (her driver, flightstreamHorse.py:522-526). The saved
-    simulation comes first among the exports, as hers did, and a build on
+    previous state (the author's driver, flightstreamHorse.py:522-526). The saved
+    simulation comes first among the exports, as the author's did, and a build on
     which a kind carries no row is refused by the script layer naming the
     command, which is what require_coverage already checks per workflow.
 
@@ -5407,7 +5542,10 @@ def _build_steady(case: SimCase, script: Script, conventions: WorkflowConvention
     _open_geometry(case, script)
     _raw_commands(case, script, "setup")
     frame = _moment_frame(case, script)
-    frames: dict[str, int | None | Mapping[str, int]] = {"MRP": frame, "PROP_MRP": None}
+    frames: dict[str, int | None | Mapping[str, int]] = {
+        "MRP": frame,
+        **_flat_rotor_frames(case, None),
+    }
     setup_frames = _setup_frames(case, script)
     frames.update(setup_frames)
     _rotations(case, script, {"MRP": frame, **setup_frames})
@@ -5426,11 +5564,11 @@ def unsteady_time_stepping(case: SimCase) -> TimeStepping:
     """Resolve the physical clock of a run that turns nothing.
 
     THE SECONDS AND THE COUNT, OR THE ANGULAR PAIR WITH A SPEED BESIDE IT
-    (her decision of 2026-09-04). A degree of rotation has a duration only
+    (the author's decision of 2026-09-04). A degree of rotation has a duration only
     against a rotor speed, and this run type meshes nothing that turns, so
     the pair was refused here outright until a row of the author's own
-    campaign showed the case it exists for: a wing-body in a propeller's
-    slipstream, whose step is an azimuthal step of that propeller and
+    campaign showed the case it exists for: a wing-body in a rotor's
+    slipstream, whose step is an azimuthal step of that rotor and
     whose row states its advance ratio. A row stating the pair and a speed
     is resolved exactly as the rotor type resolves it; a row stating the
     pair and no speed is refused as before, naming the two keys that
@@ -5470,14 +5608,14 @@ def unsteady_time_stepping(case: SimCase) -> TimeStepping:
         if (value := _variable(case, key)) is not None
     }
     if angular:
-        # HER DECISION OF 2026-09-04, and the evidence is her own campaign.
+        # THE AUTHOR'S DECISION OF 2026-09-04, and the evidence is the author's own campaign.
         # This run type meshes nothing that turns, and until now the
         # azimuthal pair was refused here on the ground that there was no
-        # rotor speed to divide by. Her unsteady wing-body row states one:
-        # POLAR-3224 is the wing-body in a propeller's slipstream at an
+        # rotor speed to divide by. The author's unsteady wing-body row states one:
+        # POLAR-3224 is the wing-body in a rotor's slipstream at an
         # advance ratio of 1.3, its description is UNS_WB_DTHETA20deg_REV8p0,
         # and its recorded DELTA_TIME of 0.00388 is twenty degrees at that
-        # propeller's speed. So the row that states a speed takes the
+        # rotor's speed. So the row that states a speed takes the
         # azimuthal clock, and the row that states none is refused as
         # before, naming what would make it resolvable.
         speed = _optional_rotor_speed(case)
@@ -5487,7 +5625,7 @@ def unsteady_time_stepping(case: SimCase) -> TimeStepping:
                 "speed, and this run type meshes nothing that turns: an azimuthal step "
                 "becomes seconds by dividing by a speed, and there is none here to "
                 f"divide by. State '{ADVANCE_RATIO_VARIABLE}: <J>' or "
-                f"'{RPM_VARIABLE}: <rev/min>' for the propeller whose azimuth the step "
+                f"'{RPM_VARIABLE}: <rev/min>' for the rotor whose azimuth the step "
                 f"measures, or state the clock directly as '{DELTA_TIME_VARIABLE}: <s>' "
                 f"and '{TIME_ITERATIONS_VARIABLE}: <steps>'."
             )
@@ -5537,8 +5675,8 @@ def unsteady_time_stepping(case: SimCase) -> TimeStepping:
 #: unread key rather than this item's business, and the reduction plan
 #: reads it for a per-blade split that a rotorless run simply never asks
 #: for.
-#: ADVANCE_RATIO is NOT in this list since 0.11.0 (PFS-2029.19): her
-#: unsteady wing-body runs stated the advance ratio of the propeller they
+#: ADVANCE_RATIO is NOT in this list since 0.11.0 (PFS-2029.19): the author's
+#: unsteady wing-body runs stated the advance ratio of the rotor they
 #: did not mesh, because it set the azimuthal step and named the point
 #: (POLAR-3224_..._J+130), and the name keeps that field. The keys that
 #: would turn something are still refused.
@@ -5594,8 +5732,8 @@ def _refuse_wake_termination_without_a_rotor(case: SimCase) -> None:
 
 # --- PFS-2031.18: exports that begin after a threshold the row states --------
 #
-# HER DESIGN OF 2026-09-08, written down as GeoversePlan design 67 and
-# built here as she drew it. The solver hands an unsteady action nothing
+# THE AUTHOR'S DESIGN OF 2026-09-08, written down as GeoversePlan design 67 and
+# built here as the author drew it. The solver hands an unsteady action nothing
 # about where it is in the run (RPT-041 finding 4), so the run type
 # registers TWO actions, in this order: a COMMAND_LINE running a Python
 # program the run layer writes, which counts its own invocations in a
@@ -5894,14 +6032,12 @@ def _build_unsteady(case: SimCase, script: Script, conventions: WorkflowConventi
     _open_geometry(case, script)
     _raw_commands(case, script, "setup")
     frame = _moment_frame(case, script)
-    prop_frame = _propeller_frame(case, script)
-    frames: dict[str, int | None | Mapping[str, int]] = {
-        "MRP": frame,
-        "PROP_MRP": prop_frame,
-    }
+    rotor_frame = _rotor_frame(case, script)
+    rotor_frames = _flat_rotor_frames(case, rotor_frame)
+    frames: dict[str, int | None | Mapping[str, int]] = {"MRP": frame, **rotor_frames}
     setup_frames = _setup_frames(case, script)
     frames.update(setup_frames)
-    _rotations(case, script, {"MRP": frame, "PROP_MRP": prop_frame, **setup_frames})
+    _rotations(case, script, {"MRP": frame, **rotor_frames, **setup_frames})
     _pproc_plots(case, script, frames)
     _significant_digits(case, script)
     helpers.free_stream(script)
@@ -5938,15 +6074,26 @@ def _build_unsteady_rotor(case: SimCase, script: Script, conventions: WorkflowCo
     _raw_commands(case, script, "geometry")
     _open_geometry(case, script)
     _raw_commands(case, script, "setup")
+    _refuse_an_unanswered_hub(case)
     frame = _moment_frame(case, script)
-    # THE ROTOR FRAME IS THE PROPELLER FRAME, named as her scripts named it
-    # and placed where the reference puts the propeller, unless the row
-    # states ROTOR_ORIGIN; a case with neither turns about the origin.
-    prop_frame = _propeller_frame(case, script)
-    if prop_frame is None:
-        prop_frame = helpers.coordinate_frame(
+    # THE ROTOR'S HUB FRAME, named <ALIAS>_SMRP for the rotor the reference
+    # declares and placed at its hub, unless the row states ROTOR_ORIGIN.
+    #
+    # NOT ON A MOTIONS ROW. Each record creates its own rotor's hub frame,
+    # under the same <ALIAS>_SMRP name, so creating one here too put ONE
+    # NAME AT TWO INDICES and a pproc entry citing it resolved to whichever
+    # the frame table happened to hold. The package-level frame this
+    # replaced had a different name and could not collide, which is why the
+    # duplicate arrived with the rename (measured on the tour's rotor row).
+    rotor_frame = None if case.motions else _rotor_frame(case, script)
+    if rotor_frame is None and not case.motions:
+        # NOTHING SAYS WHERE THE ROTOR IS: no block, no recorded position,
+        # no ROTOR_ORIGIN. The frame goes at the origin, which is what this
+        # builder has always done for a row that states nothing, and the
+        # NAME is the alias-shaped default rather than a package-level one.
+        rotor_frame = helpers.coordinate_frame(
             script,
-            name="PROP_MRP",
+            name=_the_flat_frame_name(case),
             origin=(0.0, 0.0, 0.0),
             x_axis=(1.0, 0.0, 0.0),
             y_axis=(0.0, 1.0, 0.0),
@@ -5954,21 +6101,32 @@ def _build_unsteady_rotor(case: SimCase, script: Script, conventions: WorkflowCo
         )
     setup_frames = _setup_frames(case, script)
     if case.motions:
-        _rotor_motions(conventions, case, script, frame, prop_frame, threshold, setup_frames)
+        _rotor_motions(conventions, case, script, frame, rotor_frame, threshold, setup_frames)
         return
-    blade_frames = _blade_frames(case, script, prop_frame)
+    # NARROWED, not asserted: the branch above raises when this is None and
+    # the row states no MOTIONS, and a row that states them returned there.
+    assert rotor_frame is not None
+    blade_frames = _blade_frames(case, script, rotor_frame)
+    rotor_frames = _flat_rotor_frames(case, rotor_frame)
     frames: dict[str, int | None | Mapping[str, int]] = {
         "MRP": frame,
-        "PROP_MRP": prop_frame,
+        **rotor_frames,
         "BLADE_AXIS": blade_frames or None,
+        # THE SAME FRAMES UNDER THEIR ROTOR'S NAMES. A flat row creates
+        # BladeAxis<k>, which is what its goldens carry; a pproc entry
+        # citing LOCAL_AXIS expands to <ALIAS>_RMRP<k>, and without this
+        # the entry resolved on a MOTIONS row and silently on nothing here.
+        # One frame, two names, which is what `named` already does for a
+        # record's own hub.
+        **_the_blade_frames_under_their_rotors_names(case, blade_frames),
     }
     frames.update(setup_frames)
     _rotations(
         case,
         script,
-        {"MRP": frame, "PROP_MRP": prop_frame, **setup_frames},
-        followers={"PROP_MRP": sorted(blade_frames.values())},
-        spinning={"PROP_MRP": _blade_indices(case, script)},
+        {"MRP": frame, **rotor_frames, **setup_frames},
+        followers={name: sorted(blade_frames.values()) for name in rotor_frames},
+        spinning={name: _blade_indices(case, script) for name in rotor_frames},
     )
     _pproc_plots(case, script, frames)
     _significant_digits(case, script)
@@ -6008,7 +6166,7 @@ def _rotor_motions(
     case: SimCase,
     script: Script,
     frame: int | None,
-    prop_frame: int | None,
+    rotor_frame: int | None,
     threshold: UnsteadyExportThreshold | None,
     setup_frames: Mapping[str, int],
 ) -> None:
@@ -6018,38 +6176,47 @@ def _rotor_motions(
     own moving frame attached to it by ``SET_MOTION_MOVING_FRAMES``
     (documented on every build, SRC-003 p.333, and verified on none).
 
-    THE FRAMES TAKE THE ROTOR'S ALIAS AS THEIR RADICAL (FR-62, her design
+    THE FRAMES TAKE THE ROTOR'S ALIAS AS THEIR RADICAL (FR-62, the author's design
     of 2026-09-10): ``<ALIAS>_SMRP`` at the hub, static; ``<ALIAS>_RMRP``
     turning with the motion; and ``<ALIAS>_RMRP<k>`` per blade of the
     block's ``families_blades``, turning with blade k and numbered from
     the ``blade1`` datum. A family of ``families_general`` gets no frame
     of its own: its local frame IS the rotor's, which is what makes the
     spinner ride the hub. The names a record's frames had at 0.14.0,
-    ``PROP_MRP<k>`` and ``RotorAxis<k>``, still resolve for a pproc entry
+    ``ROTOR_MRP<k>`` and ``RotorAxis<k>``, still resolve for a pproc entry
     that cites them, until 0.17.0.
 
-    The row's ``PROP_MRP``, already created from the reference, stays the
+    The row's ``ROTOR_MRP``, already created from the reference, stays the
     frame an older pproc entry cites. The time step follows the motion
     ``CLOCK_MOTION`` names, and the fastest rotor when a row names none
     (FR-64).
     """
     views = [_motion_view(case, record) for record in case.motions]
-    engines = [_engine_of(case, record) for record in case.motions]
-    # A RECORD THAT NAMES NO ENGINE KEEPS THE 0.14.0 FRAME NAMES, and this
+    rotors = [_rotor_of(case, record) for record in case.motions]
+    # A RECORD THAT NAMES NO ROTOR KEEPS THE 0.14.0 FRAME NAMES, and this
     # is what makes a row written before this release render byte for byte
     # as it did: the alias radical belongs to a record that cites a rotor
     # of the reference, and a record still stating MOVING_BOUNDARIES has no
     # alias to take one from.
-    radicals = [(engine.alias if engine is not None else None) for engine in engines]
+    radicals = [(rotor.alias if rotor is not None else None) for rotor in rotors]
     moving: list[int] = []
     hubs: list[int] = []
     blade_frames: dict[str, int] = {}
-    for number, (view, engine, radical) in enumerate(
-        zip(views, engines, radicals, strict=True), start=1
+    for number, (view, rotor, radical) in enumerate(
+        zip(views, rotors, radicals, strict=True), start=1
     ):
         origin = _origin(view)
-        hub_name = f"{radical}_SMRP" if radical else f"PROP_MRP{number}"
-        moving_name = f"{radical}_RMRP" if radical else f"RotorAxis{number}"
+        # EVERY FRAME CARRIES ITS ROTOR'S ALIAS. A record naming no rotor
+        # used to fall back to ROTOR_MRP<k> and RotorAxis<k>, positional
+        # names that only mean anything beside the row that made them; the
+        # record that produced them is refused before this point.
+        # EVERY FRAME CARRIES A RADICAL, AND IT IS THE ROTOR'S ALIAS. A
+        # record naming no rotor takes the default radical and its position;
+        # the positional PROP_MRP<k> and RotorAxis<k> are gone with the
+        # one-propulsor assumption that made them readable.
+        stem = radical or f"{UNNAMED_ROTOR_RADICAL}{number}"
+        hub_name = f"{stem}_SMRP"
+        moving_name = f"{stem}_RMRP"
         hubs.append(
             helpers.coordinate_frame(
                 script,
@@ -6070,39 +6237,35 @@ def _rotor_motions(
                 label=f"rotor_moving:{number}",
             )
         )
-        if engine is not None:
-            # `engine.alias`, not `radical`: they are the same string here
+        if rotor is not None:
+            # `rotor.alias`, not `radical`: they are the same string here
             # and only this one is visibly non-None, the other having been
             # zipped out of a list that carries a None for every record
             # naming no rotor.
-            blade_frames.update(_rotor_blade_frames(script, engine, hubs[-1], engine.alias, view))
+            blade_frames.update(_rotor_blade_frames(script, rotor, hubs[-1], rotor.alias, view))
     frames: dict[str, int | None | Mapping[str, int]] = {
         "MRP": frame,
-        "PROP_MRP": prop_frame,
         "BLADE_AXIS": None,
     }
     frames.update(setup_frames)
     # A record's own frames are citable by the names the solver shows
-    # (PROP_MRP1, RotorAxis1, ...), and a rotor's moving frame follows
-    # its hub frame the way the blade axes follow PROP_MRP (PFS-2034.02).
-    named: dict[str, int | None] = {"MRP": frame, "PROP_MRP": prop_frame, **setup_frames}
+    # (ROTOR_MRP1, RotorAxis1, ...), and a rotor's moving frame follows
+    # its hub frame the way the blade axes follow ROTOR_MRP (PFS-2034.02).
+    named: dict[str, int | None] = {"MRP": frame, **setup_frames}
     followers: dict[str, list[int]] = {}
     spinning: dict[str, list[int]] = {}
     labels = script.entities.labels("boundaries")
     for number, (hub, axis, view, radical) in enumerate(
         zip(hubs, moving, views, radicals, strict=True), start=1
     ):
-        # THE ALIAS NAMES, and the 0.14.0 names beside them: a pproc entry
-        # written against PROP_MRP2 keeps resolving until 0.17.0, which is
-        # what makes this release readable by a workspace that has not
-        # migrated its post-processing yet.
-        if radical:
-            named[f"{radical}_SMRP"] = hub
-            named[f"{radical}_RMRP"] = axis
-            followers[f"{radical}_SMRP"] = [axis]
-        named[f"PROP_MRP{number}"] = hub
-        named[f"RotorAxis{number}"] = axis
-        followers[f"PROP_MRP{number}"] = [axis]
+        # ONE NAME PER FRAME, and it is the rotor's alias. The positional
+        # PROP_MRP<k> and RotorAxis<k> stood beside it until 0.15.0 and are
+        # gone: they read as a name and were an index, so a pproc entry
+        # citing one silently followed the ORDER of the MOTIONS list.
+        stem = radical or f"{UNNAMED_ROTOR_RADICAL}{number}"
+        named[f"{stem}_SMRP"] = hub
+        named[f"{stem}_RMRP"] = axis
+        followers[f"{stem}_SMRP"] = [axis]
         cell = str(_variable(view, MOVING_BOUNDARIES_VARIABLE) or "")
         # Names only: a token that is not a name is the motion's own to
         # refuse or warn about, when it is emitted below.
@@ -6114,9 +6277,7 @@ def _rotor_motions(
                 for index in _resolve_token(case, token.strip(), labels)
             }
         )
-        if radical:
-            spinning[f"{radical}_SMRP"] = turning
-        spinning[f"PROP_MRP{number}"] = turning
+        spinning[f"{stem}_SMRP"] = turning
     # THE BLADE FRAMES JOIN `named` BEFORE THE ROTATIONS, not after them.
     # They were merged into `frames` on the line below the call, which is
     # after `_rotations` has run, so a rotation could not cite one and,
@@ -6132,8 +6293,8 @@ def _rotor_motions(
     # lens, 2026-09-10; measured: it was accepted).
     named.update({name: index for name, index in blade_frames.items() if "_RMRP" in name})
     _rotations(case, script, named, followers=followers, spinning=spinning)
-    # The pproc entries cite a rotor's frames by the same names (her p001
-    # of 2026-09-09: PUSHER_X in PROP_MRP2 while the lifters spin).
+    # The pproc entries cite a rotor's frames by the same names (the author's p001
+    # of 2026-09-09: PUSHER_X in ROTOR_MRP2 while the lifters spin).
     frames.update({name: index for name, index in named.items() if index is not None})
     frames.update(blade_frames)
     _pproc_plots(case, script, frames)
@@ -6179,7 +6340,7 @@ def _rotor_motions(
 def _clock_speed(case: SimCase, views: Sequence[SimCase], speeds: Sequence[RotorSpeed]):
     """Return the speed that owns the row's clock (FR-64).
 
-    Her design of 2026-09-10: ``CLOCK_MOTION`` names a motion the same row
+    The author's design of 2026-09-10: ``CLOCK_MOTION`` names a motion the same row
     states, and the time step and the run length are that motion's. A row
     without the key keeps the arithmetic of 0.14.0, the FASTEST rotor,
     and says so in a warning naming the motion it assumed, because that
@@ -6191,25 +6352,25 @@ def _clock_speed(case: SimCase, views: Sequence[SimCase], speeds: Sequence[Rotor
     fastest = max(speeds, key=lambda each: abs(each.rpm))
     named = _variable(case, CLOCK_MOTION_VARIABLE)
     if named is None:
-        # REQUIRED ON A ROW THAT STATES A `MOTIONS` LIST, which is her
-        # answer of 2026-09-10 (DEC-010) with the scope she set once the
-        # consequence was measured in front of her. The list is the 0.15.0
+        # REQUIRED ON A ROW THAT STATES A `MOTIONS` LIST, which is the author's
+        # answer of 2026-09-10 (DEC-010) with the scope the author set once the
+        # consequence was measured in front of the author's. The list is the 0.15.0
         # vocabulary and it is where a row has something to choose between;
         # the flat pre-0.15.0 form names one rotor and has nothing to
-        # choose, and it is how her master's case 9001 is written, which
-        # arm 4 of GOAL-014 runs. Refusing that row would have cost her the
+        # choose, and it is how the author's master's case 9001 is written, which
+        # arm 4 of GOAL-014 runs. Refusing that row would have cost the author's the
         # comparison to buy a key that decides nothing.
-        # ANY ROW THAT STATES A `MOTIONS` LIST, in either spelling. Her
-        # answer of 2026-09-10, and then her correction of the same day
+        # ANY ROW THAT STATES A `MOTIONS` LIST, in either spelling. The author's
+        # answer of 2026-09-10, and then the author's correction of the same day
         # when I had scoped it narrower to protect rows written at 0.14.0:
         # "nao precisa manter promessa que toda linha segue rodando, nao
         # temos release estavel ainda". A 0.x release is not bound to the
         # rows of the release before it, and a list of several motions has
         # something to choose between whatever spelling names them.
         #
-        # The FLAT form is still exempt, and that exemption is hers and was
+        # The FLAT form is still exempt, and that exemption is the author's and was
         # measured: it turns ONE rotor, so there is nothing to choose, and
-        # it is how her master's case 9001 is written, which arm 4 runs.
+        # it is how the author's master's case 9001 is written, which arm 4 runs.
         if case.motions:
             owner = _variable(views[speeds.index(fastest)], MOVING_BOUNDARIES_VARIABLE)
             # THE NAMES THE ACCEPTER WILL TAKE, and only those. A record
@@ -6237,17 +6398,17 @@ def _clock_speed(case: SimCase, views: Sequence[SimCase], speeds: Sequence[Rotor
             )
         if len(speeds) > 1:
             owner = _variable(views[speeds.index(fastest)], MOVING_BOUNDARIES_VARIABLE)
-            warnings.warn(
+            raise CampaignConfigError(
                 f"case {case.sim_id!r} states {len(speeds)} motions in the spelling of "
                 f"before 0.15.0 and no {CLOCK_MOTION_VARIABLE}, so the time step and the "
                 f"run length follow the FASTEST rotor, which is {owner!r} at "
                 f"{fastest.rpm:g} rev/min. That is the package's own arithmetic and not a "
                 f"decision the row wrote: name the motion that owns the clock with "
                 f"{CLOCK_MOTION_VARIABLE}. A row that names its rotors by alias is "
-                "refused without it since 0.15.0, and the key becomes required for every "
-                "row at 0.17.0.",
-                PyflightstreamDeprecationWarning,
-                stacklevel=2,
+                "refused without it since 0.15.0, and this release refuses it here "
+                "too: the promise that the flat form was exempt until 0.17.0 was "
+                "written in 0.15.0 and 0.15.0 has not shipped, so no workspace was "
+                "ever told it held."
             )
         return fastest
     token = str(named).strip()
@@ -6286,7 +6447,7 @@ def _motion_view(case: SimCase, record: Mapping[str, str]) -> SimCase:
     # the swept key OUT of the variables, because its value is what varies
     # and the row states only the word; so a row writing
     # `ADVANCE_RATIO: sweep` had no ratio in its variables and the
-    # condition's ratio reached no motion at all. Measured on her own
+    # condition's ratio reached no motion at all. Measured on the author's own
     # matriz_transicao.fs: 9 of 16 points blocked on "states no rotor
     # speed", which is the sentence this line removes.
     row_ratio = case.variables.get(ADVANCE_RATIO_VARIABLE)
@@ -6296,8 +6457,8 @@ def _motion_view(case: SimCase, record: Mapping[str, str]) -> SimCase:
         variables[ADVANCE_RATIO_VARIABLE] = row_ratio
     variables.update({key: value for key, value in record.items() if key != ROTOR_ORIGIN_POINT_KEY})
     update: dict[str, object] = {"variables": variables, "motions": []}
-    engine = _engine_of(case, record)
-    if engine is None:
+    rotor = _rotor_of(case, record)
+    if rotor is None:
         _warn_a_record_still_naming_its_boundaries(case, record)
     else:
         _refuse_two_rotor_identities(case, record)
@@ -6305,33 +6466,31 @@ def _motion_view(case: SimCase, record: Mapping[str, str]) -> SimCase:
         # every reader below (rotor_speed, _origin, emit_rotor_motion) reads
         # the row's variables, so filling them here makes the whole rotor
         # path read the reference without one of those readers changing.
-        variables[MOVING_BOUNDARIES_VARIABLE] = engine.alias
-        variables[ROTOR_AXIS_VARIABLE] = engine.axis
-        variables[ROTOR_ORIGIN_VARIABLE] = "{},{},{}".format(*engine.origin)
-        variables[BLADES_VARIABLE] = str(engine.blade_count)
+        variables[MOVING_BOUNDARIES_VARIABLE] = rotor.alias
+        variables[ROTOR_AXIS_VARIABLE] = rotor.axis
+        variables[ROTOR_ORIGIN_VARIABLE] = "{},{},{}".format(*rotor.origin)
+        variables[BLADES_VARIABLE] = str(rotor.blade_count)
         if RPM_VARIABLE not in record:
-            variables[RPM_SIGN_VARIABLE] = str(engine.rpm_sign)
+            variables[RPM_SIGN_VARIABLE] = str(rotor.rpm_sign)
         # THE DIAMETER IS THIS ROTOR'S (FR-63). It is the reason one ratio
         # written once can govern rotors of different sizes: n = V/(J D)
         # is resolved per rotor, and the configuration's single
-        # propeller_diameter_m cannot answer for a second size.
+        # rotor_diameter_m cannot answer for a second size.
         if case.reference is None:
             raise CampaignConfigError(
-                f"case {case.sim_id!r} states {MOVING_BC_ALIAS_VARIABLE}: {engine.alias}, "
+                f"case {case.sim_id!r} states {MOVING_BC_ALIAS_VARIABLE}: {rotor.alias}, "
                 "and the case carries no reference data, so there is nothing to resolve "
                 "the rotor's diameter against. A matrix row always binds one; a case "
                 "authored in Python states reference=ReferenceData(...)."
             )
-        update["reference"] = case.reference.model_copy(
-            update={"propeller_diameter": engine.diameter_m}
-        )
+        update["reference"] = case.reference.model_copy(update={"rotor_diameter": rotor.diameter_m})
     return case.model_copy(update=update)
 
 
-def _engine_of(case: SimCase, record: Mapping[str, str]) -> EngineBlock | None:
+def _rotor_of(case: SimCase, record: Mapping[str, str]) -> RotorBlock | None:
     """Return the rotor a motion record names by alias, or None when it names none.
 
-    A record citing a word the reference does not declare as an engine is
+    A record citing a word the reference does not declare as a rotor is
     refused here rather than at the boundary resolver, because the
     resolver's message would be about a mesh family and the mistake is
     about a rotor.
@@ -6340,19 +6499,19 @@ def _engine_of(case: SimCase, record: Mapping[str, str]) -> EngineBlock | None:
     if alias is None:
         return None
     token = str(alias).strip()
-    engine = case.engines.get(token) or next(
-        (block for name, block in case.engines.items() if name.casefold() == token.casefold()),
+    rotor = case.rotors.get(token) or next(
+        (block for name, block in case.rotors.items() if name.casefold() == token.casefold()),
         None,
     )
-    if engine is None:
-        declared = ", ".join(sorted(case.engines)) or "none"
+    if rotor is None:
+        declared = ", ".join(sorted(case.rotors)) or "none"
         raise CampaignConfigError(
             f"case {case.sim_id!r} states {MOVING_BC_ALIAS_VARIABLE}: {token}, and the "
             f"reference artifact declares no rotor of that name. The rotors it declares "
-            f"are {declared}. A rotor is a block of the reference whose kind is engine, "
+            f"are {declared}. A rotor is a block of the reference whose kind is rotor, "
             "and the block's name is the word a row moves."
         )
-    return engine
+    return rotor
 
 
 def _warn_a_record_still_naming_its_boundaries(case: SimCase, record: Mapping[str, str]) -> None:
@@ -6370,11 +6529,7 @@ def _warn_a_record_still_naming_its_boundaries(case: SimCase, record: Mapping[st
     """
     if MOVING_BOUNDARIES_VARIABLE not in record:
         return
-    warnings.warn(
-        f"case {case.sim_id!r}: {ROW_MOVING_BOUNDARIES.message()}",
-        PyflightstreamDeprecationWarning,
-        stacklevel=2,
-    )
+    raise CampaignConfigError(f"case {case.sim_id!r}: {refusal_text(ROW_MOVING_BOUNDARIES)}")
 
 
 def _refuse_two_rotor_identities(case: SimCase, record: Mapping[str, str]) -> None:
@@ -6559,7 +6714,7 @@ def _refuse_unregistered_keys(case: SimCase, name: str) -> None:
     A row selected through its RECIPE keeps its keys: a LEGACY row whose
     RECIPE code maps to a run type, or a case authored in Python naming
     the type as its recipe, is the recipe path, and the recipe is the
-    reader of its keys (her rule of 2026-09-08, design 68). The
+    reader of its keys (the author's rule of 2026-09-08, design 68). The
     converter's own ``matrix_`` keys and the workspace's
     ``ROTOR_ORIGIN_POINT`` are not the row's and are left alone.
     """

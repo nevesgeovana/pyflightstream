@@ -150,7 +150,7 @@ _COLUMNS = (
 #: The layout of v0.11.0 to v0.14.0, frozen as a literal for the same
 #: reason the three older ones are: it is RECOGNISED and refused naming
 #: the converter, never read. At 0.15.0 it LOST ``SWEEP_TYPE`` (FR-69,
-#: her rule of 2026-09-10): the swept variable is the key of
+#: the author's rule of 2026-09-10): the swept variable is the key of
 #: ``FLIGHT_CONDITION`` whose value is the word ``sweep``, so the cell
 #: already says which variable varies and a column naming it a second
 #: time is a second home for one fact.
@@ -407,7 +407,7 @@ FLIGHT_CONDITION_KEYS: dict[str, tuple[str, str]] = {
     "PPA": ("pascal", "pressure, stated rather than lapsed"),
 }
 
-#: THE ATTITUDE KEYS (FR-69, her rule of 2026-09-10), which the same cell
+#: THE ATTITUDE KEYS (FR-69, the author's rule of 2026-09-10), which the same cell
 #: carries and which are NOT part of the flow state: they fix where the
 #: aircraft points, not what the air is doing, so they are parsed here and
 #: never handed to the atmosphere resolver. A row states both on every
@@ -609,8 +609,8 @@ def _split_attitude(
 
 
 #: The FLIGHT_CONDITION keys a row may sweep TODAY, to the sweep axis each
-#: becomes. Her rule licenses ANY key of the cell; what this release
-#: implements is the two angles and the ratio, which is what her own
+#: becomes. The author's rule licenses ANY key of the cell; what this release
+#: implements is the two angles and the ratio, which is what the author's own
 #: matrices vary. A key outside this map is refused NAMING the set rather
 #: than accepted and silently ignored, which is the failure the ratio
 #: sweep had before this release (PFS-2035.06, measured 2026-09-10: the
@@ -641,7 +641,7 @@ def _sweep_of_condition(
     matrix refusal. It is a seam, called once, from the loop that builds
     a row (the interface and architecture lenses, 2026-09-10).
 
-    Her rule of 2026-09-10: a sweep is applied to a variable that DEFINES
+    The author's rule of 2026-09-10: a sweep is applied to a variable that DEFINES
     the flight condition, and to exactly ONE variable. The cell says which
     by carrying ``sweep`` where that key's value would be, and
     ``SWEEP_VALUES`` holds the values.
@@ -705,10 +705,15 @@ def _sweep_of_condition(
 #: beside a ``MOTIONS`` list, because two statements of one rotor's speed
 #: or hub cannot both be the one the script obeys.
 MOTION_RECORD_KEYS = (
-    # FR-61, her design of 2026-09-10: the rotor's identity, and since
-    # 0.15.0 the only one a row states. The five below it are what the
-    # reference now says once, read with a deprecation warning until
-    # 0.17.0 and refused in the same record as this one.
+    # FR-61, the author's design of 2026-09-10: the rotor's identity, and since
+    # 0.15.0 the only one a row states. FOUR of the keys below it are what
+    # the reference now says once, read with a deprecation warning until
+    # 0.17.0 and refused in the same record as this one: MOVING_BOUNDARIES,
+    # ROTOR_AXIS, ROTOR_ORIGIN and RPM_SIGN, with BLADES a fifth further
+    # down the tuple. RPM and ADVANCE_RATIO are NOT among them: a speed is
+    # what the row states and the reference does not. The count said five
+    # over six keys and named none of them (the interface lens of the
+    # 0.15.0 release review).
     "MOVING_BC_ALIAS",
     "MOVING_BOUNDARIES",
     "RPM",
@@ -758,7 +763,7 @@ _ROTATION_AXIS = re.compile(r"^.+-[XYZ]$")
 def _parse_motions(variables: dict[str, str], pol: str) -> list[dict[str, str]]:
     """Take the ``MOTIONS`` list out of the flat variables and read its records.
 
-    PFS-2029.11.01. The grammar is hers: ``MOTIONS: {KEY: value / KEY:
+    PFS-2029.11.01. The grammar is the author's: ``MOTIONS: {KEY: value / KEY:
     value}, {...}``, the braces closing one rotor each, the records
     separated by commas, the pairs inside a record by ``/`` exactly as the
     flat cell is. An unclosed brace, a record repeating a key, and a flat
@@ -783,7 +788,7 @@ def _parse_motions(variables: dict[str, str], pol: str) -> list[dict[str, str]]:
 def _raw_records(variables: dict[str, str], pol: str) -> list[dict[str, str]]:
     """Read the cell's ``RAW`` list into one record per raw command (FR-67).
 
-    Her decision of 2026-09-10, EXTENDING the preset's ``[[raw]]`` table to
+    The author's decision of 2026-09-10, EXTENDING the preset's ``[[raw]]`` table to
     the row. A record states the line itself, ``COMMAND``, or a text file
     of the workspace holding lines, ``FILE``, and never both: the two are
     the same statement made twice and there would be no order between
@@ -803,7 +808,7 @@ def _raw_records(variables: dict[str, str], pol: str) -> list[dict[str, str]]:
     # A SPACED SEPARATOR, and only here. A raw record's values are a PATH
     # and a COMMAND LINE, both of which carry slashes of their own, so the
     # bare separator every other record uses would cut `raw/pusher_extra.txt`
-    # in half. Her own row 9209 is the case: it is the shape she wrote the
+    # in half. The author's own row 9209 is the case: it is the shape the author wrote the
     # specification in, and it did not parse.
     records = _parse_records(text, pol, RAW_VARIABLE, "raw command", pair_separator=" / ")
     allowed = (RAW_COMMAND_KEY, RAW_FILE_KEY, RAW_BEFORE_KEY)
@@ -880,7 +885,7 @@ def _raw_records(variables: dict[str, str], pol: str) -> list[dict[str, str]]:
 def _parse_rotations(variables: dict[str, str], pol: str) -> list[dict[str, str]]:
     """Take the ``ROTATE`` list out of the flat variables and read its records.
 
-    PFS-2034.02, the same grammar as ``MOTIONS`` (her answer of
+    PFS-2034.02, the same grammar as ``MOTIONS`` (the author's answer of
     2026-09-09: "the declaration stays as we do with motion; two braces
     are two, in the order of the input"). Each record states ``ANGLE``
     in degrees, ``AXIS`` as ``<frame>-<X|Y|Z>`` and ``ALIAS`` (or the
@@ -1241,7 +1246,7 @@ def read_matrix(path: str | Path, *, active_only: bool = True) -> list[MatrixRow
         raw = _raw_records(variables, record["POL"])
         if rotations and record["WORKFLOW"] == LEGACY_WORKFLOW:
             # A LEGACY row is built by its recipe, which is the reader of
-            # its keys (her rule of 2026-09-08, design 68) and reads no
+            # its keys (the author's rule of 2026-09-08, design 68) and reads no
             # rotation, so the list would be dropped in silence
             # (PFS-2034.03). Refused here, where the cell is read.
             raise MatrixError(
@@ -1740,7 +1745,7 @@ def _refuse_a_key_the_cell_already_names(
 def _fold_sweep_type(data: bytes, source: str) -> bytes:
     """Stage four: the SWEEP_TYPE cell folds into FLIGHT_CONDITION (FR-69).
 
-    Her rule of 2026-09-10: a sweep is one variable, it is one that
+    The author's rule of 2026-09-10: a sweep is one variable, it is one that
     DEFINES the flight condition, and the cell says which by carrying the
     word ``sweep`` where that key's value would be. The column named the
     same fact a second time, so it goes and its content moves into the
@@ -1753,7 +1758,7 @@ def _fold_sweep_type(data: bytes, source: str) -> bytes:
     sideslip. That changes the row COUNT and every new row needs a POL of
     its own, which is run identity and is not a converter's to invent. So
     a file carrying one is refused, naming every such row, and the author
-    splits them with the POLs she wants.
+    splits them with the POLs the author wants.
     """
     type_index = _LAYOUT_0_11_0.index("SWEEP_TYPE")
     condition_index = _LAYOUT_0_11_0.index("FLIGHT_CONDITION")
@@ -2207,7 +2212,7 @@ def _declared_outputs(row: MatrixRow, *, required: bool = True) -> list[str]:
     raw = row.variables.get(OUTPUTS_VARIABLE, "").strip()
     outputs = [part.strip() for part in raw.split(",") if part.strip()]
     # A WORKFLOW ROW THAT DECLARES NONE GETS THE STUDY'S EXPORT SET (FR-51,
-    # PFS-2029.14): the seven or eight kinds her driver wrote, every one
+    # PFS-2029.14): the seven or eight kinds the author's driver wrote, every one
     # hanging off the point placeholder. A row that still declares OUTPUTS
     # keeps exactly what it declares, so a matrix written before this
     # release exports what it always did. A LEGACY row is a recipe's and

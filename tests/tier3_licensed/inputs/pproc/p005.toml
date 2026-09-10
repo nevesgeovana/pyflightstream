@@ -1,0 +1,72 @@
+# p005: the post-processing of the twin configuration in the 0.15.0
+# vocabulary, beside p003 which states the same outputs in the vocabulary of
+# 0.14.0. Both are kept so a reader can diff them.
+#
+# THE FRAME DECIDES HOW AN ENTRY EXPANDS, which is why there is no `expand`
+# key. A reader who has said which frame a quantity is measured in has
+# already said how many of it there are:
+#
+#   MRP or a frame the reference declares  -> ONE emission over the cited set
+#   SMRP or RMRP                           -> one per ROTOR, in that rotor's frame
+#   LOCAL_AXIS                             -> one per BLADE, in that blade's frame
+#
+# So the four lines of [plots] below become nine emissions on this
+# two-rotor aircraft, and would become twenty-seven on a nine-rotor one
+# without a line changing.
+
+# A GROUP IS CITED BY NUMBER and its members are boundary names, families or
+# ALIASES the reference declares. `airframe` and `rotors` are this study's
+# own words, from r006's [aliases] table; nothing here is hardcoded to a
+# mesh.
+[groups]
+"1" = ["airframe", "rotors"]
+"2" = ["airframe"]
+"3" = ["rotors"]
+
+[exports]
+
+[sections]
+count = 20
+plot_direction = 1
+include_symmetry = false
+
+[[sections.distributions]]
+# ONE PER BLADE, in that blade's own frame, because the frame says so.
+families = "rotors"
+frame = "LOCAL_AXIS"
+planes = ["XZ"]
+
+[plots]
+parameters = ["CL", "CD", "FX", "FZ", "MY"]
+
+[[plots.groups]]
+# ONE emission over the whole aircraft, in the moment frame.
+name = "TOTAL"
+frame = "MRP"
+families = "all"
+
+[[plots.groups]]
+# ONE PER ROTOR, each in its own hub frame. The name carries {family},
+# which on a per-rotor entry is the rotor's ALIAS, so the two tables are
+# called HUB_PORT and HUB_STARBOARD without either being written here.
+name = "HUB_{family}"
+frame = "SMRP"
+families = "rotors"
+
+[[plots.groups]]
+# ONE PER ROTOR again, in the frame that TURNS with the motion, which is
+# where a rotor's own loads are read.
+name = "TURNING_{family}"
+frame = "RMRP"
+families = "rotors"
+
+[[plots.groups]]
+# ONE emission, in a frame the REFERENCE declares by name.
+name = "NACELLE_TOTAL"
+frame = "NACELLE"
+families = "airframe"
+
+[products]
+polars = true
+sections = true
+plots = true

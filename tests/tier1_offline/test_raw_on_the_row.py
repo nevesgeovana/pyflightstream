@@ -1,10 +1,10 @@
 """Tier 1: a row states raw solver commands, in the cell or in a file (FR-67).
 
-Her decision of 2026-09-10, PFS-2035.10, "a linha ganha um jeito de passar
+The author's decision of 2026-09-10, PFS-2035.10, "a linha ganha um jeito de passar
 comando bruto, mantendo a feature original preservada". It EXTENDS the
 preset-level `[[raw]]` table of FR-31 to the row and replaces nothing.
 
-THE SPECIFICATION IS THREE ROWS SHE WROTE, 9208, 9209 and 9210 of
+THE SPECIFICATION IS THREE ROWS THE AUTHOR WROTE, 9208, 9209 and 9210 of
 `pfs0150/matriz_work.fs`, hidden and not run, each spelling out one shape:
 the line in the cell, the line in a file, and both together over a preset
 that states one of its own. Row 9210 is the one that fixes the ORDER at a
@@ -47,7 +47,7 @@ BASE = "GEOMETRY: 90_WORK.fsm / SYMMETRY: NONE / DELTA_TIME: 0.0001 / TIME_ITERA
 
 
 def test_a_cell_states_a_raw_command_and_the_phase_it_goes_before(tmp_path):
-    """Her row 9208's first shape, read off the cell."""
+    """The author's row 9208's first shape, read off the cell."""
     row = only_row(
         tmp_path,
         f"{BASE} / RAW: {{COMMAND: SOLVER_SET_ITERATIONS 350 / BEFORE: init}}",
@@ -56,7 +56,7 @@ def test_a_cell_states_a_raw_command_and_the_phase_it_goes_before(tmp_path):
 
 
 def test_a_cell_states_several_raw_commands_in_cell_order(tmp_path):
-    """Her row 9208 whole: two records, and control is a phase like any other."""
+    """The author's row 9208 whole: two records, and control is a phase like any other."""
     row = only_row(
         tmp_path,
         f"{BASE} / RAW: {{COMMAND: SOLVER_SET_ITERATIONS 350 / BEFORE: init}}, "
@@ -67,7 +67,7 @@ def test_a_cell_states_several_raw_commands_in_cell_order(tmp_path):
 
 
 def test_a_file_path_survives_the_record_separator(tmp_path):
-    """HER OWN ROW 9209 DID NOT PARSE, and the reason is the grammar.
+    """THE AUTHOR'S OWN ROW 9209 DID NOT PARSE, and the reason is the grammar.
 
     A record's pairs are separated by a slash and a path carries slashes,
     so `FILE: raw/pusher_extra.txt / BEFORE: init` was cut at the path's
@@ -211,7 +211,7 @@ SET_SIGNIFICANT_DIGITS 7
 
 
 def test_a_raw_file_becomes_one_command_per_line_in_order(tmp_path):
-    """Her row 9209's shape: the file's lines, verbatim, in order."""
+    """The author's row 9209's shape: the file's lines, verbatim, in order."""
     case = resolved_row(tmp_path, FILE_TEXT)
     from_file = [entry for entry in case.raw_commands if entry.source != "matrix"]
     assert [entry.command for entry in from_file] == [
@@ -236,7 +236,7 @@ def test_each_line_carries_the_file_and_its_line_number(tmp_path):
 
 
 def test_the_rows_cell_line_comes_after_the_rows_file(tmp_path):
-    """Her row 9210 fixes the order, and this is the half of it inside the row."""
+    """The author's row 9210 fixes the order, and this is the half of it inside the row."""
     case = resolved_row(tmp_path, FILE_TEXT)
     assert [entry.source for entry in case.raw_commands][-1] == "matrix"
     assert case.raw_commands[-1].command == "PRINT after_the_file"
@@ -326,13 +326,13 @@ def test_the_presets_line_comes_before_the_rows_at_a_shared_seam(tmp_path):
     """THE REQUIREMENT'S HEADLINE, which no test asserted until this round.
 
     "after the preset's at the same seam" is in FR-67's own title, in the
-    CHANGELOG and in a code comment naming her row 9210, and it was
+    CHANGELOG and in a code comment naming the author's row 9210, and it was
     measured NOWHERE: the ordering case resolved a row against a setup
     that states no raw line at all, so it asserted only the order INSIDE
     the row (the technical-writing lens and the architecture lens,
     independently, 2026-09-10).
 
-    This is her row 9210 as a test: a preset line, then the row's file,
+    This is the author's row 9210 as a test: a preset line, then the row's file,
     then the row's own cell line.
     """
     from pyflightstream.workspace.matrix import resolve_matrix

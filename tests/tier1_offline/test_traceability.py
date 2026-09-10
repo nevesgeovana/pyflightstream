@@ -64,7 +64,11 @@ INDEX = REPO / "reports" / "requirements-index.json"
 #: the invocation, and the test measures all three layers it crosses,
 #: the word the shell passes, the variable the resolution writes, and
 #: the reader that honours it.
-MARKED_FLOOR = 19
+#: Raised from 19 to 20 on 2026-09-10 (PFS-2035.21), for FR-59. The
+#: `[aliases]` table stopped being read from the setup preset and the
+#: refusal that says so is measured, so the requirement gained a
+#: falsifying test in the same change that made it refusable.
+MARKED_FLOOR = 20
 
 
 def _marked() -> dict[str, list[str]]:

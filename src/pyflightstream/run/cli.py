@@ -140,7 +140,7 @@ def _one_builder_per_code(recipes: dict[str, str], workflows: dict[str, str]) ->
 def _a_word_that_means_false(word: str) -> bool:
     """Read a flag's word as a choice, so `false` at the shell means False.
 
-    A THREE-STATE FLAG WRITTEN AS ONE, because she asked to be able to
+    A THREE-STATE FLAG WRITTEN AS ONE, because the author asked to be able to
     pass FALSE and argparse's ``store_true`` cannot: bare, the flag is
     true; with a word, the word decides; absent, the default stands.
 
@@ -160,7 +160,7 @@ def _a_word_that_means_false(word: str) -> bool:
 
 
 def _add_the_missing_family_choice(parser: argparse.ArgumentParser) -> None:
-    """Declare --ignore-missing-families, her design of 2026-09-10.
+    """Declare --ignore-missing-families, the author's design of 2026-09-10.
 
     ON `plan` AND `run` ONLY, and deliberately not on `convert`. The
     choice is a property of THIS INVOCATION and not of an artifact:
@@ -173,7 +173,14 @@ def _add_the_missing_family_choice(parser: argparse.ArgumentParser) -> None:
         type=_a_word_that_means_false,
         nargs="?",
         const=True,
-        default=True,
+        # NOT STATED IS `None`, NOT `True`. With `True` as the default, a
+        # command writing `--no-ignore-missing-families --ignore-missing-families
+        # true` states two contradicting choices and the reader could not
+        # tell the second one from silence, so it resolved the contradiction
+        # instead of refusing it. The default the USER sees is still true;
+        # it is applied by `_the_missing_family_choice`, which is the one
+        # reader of the pair.
+        default=None,
         metavar="true|false",
         help="whether a family the opened mesh does not carry is left out "
         "(the default, true) or REFUSES the point (false). One artifact "
@@ -181,6 +188,21 @@ def _add_the_missing_family_choice(parser: argparse.ArgumentParser) -> None:
         "geometry lacks is skipped; pass false when you believe this "
         "geometry carries every family the artifact names and want to hear "
         "about it if it does not (PFS-2035.13)",
+    )
+    # THE SAME CHOICE, SPELLED SO THE EFFECT-BEARING FORM IS THE BARE ONE.
+    # The positive flag's default is already true, so writing it bare does
+    # nothing and only `--ignore-missing-families false` acts: a positive
+    # name carrying a negative word, which a reader unpicks at the shell and
+    # which does not match `post --strict` beside it (the interface lens of
+    # the 0.15.0 release review). Both spellings stay, because the author's
+    # instruction was that a user be able to pass false.
+    parser.add_argument(
+        "--no-ignore-missing-families",
+        dest="refuse_missing_families",
+        action="store_true",
+        help="the same choice as --ignore-missing-families false, written as "
+        "a flag: a family the opened mesh does not carry REFUSES the point "
+        "instead of being left out. Stating both is refused",
     )
 
 
@@ -510,7 +532,10 @@ def _refuse(message: str) -> NoReturn:
 
 
 def _naming(args: argparse.Namespace) -> NamingTemplate:
-    """Build the point-name template the command line was given, her convention by default."""
+    """Build the point-name template the command line was given.
+
+    Absent one, the default is the convention this package ships with.
+    """
     try:
         return NamingTemplate(point_name=args.point_name)
     except NamingTemplateError as error:
@@ -566,7 +591,7 @@ def _cmd_post(args: argparse.Namespace) -> int:
     # manifest records (PFS-2031.16); say it where the user looks.
     skipped = _report_skips(workspace, matrices)
     if skipped and args.strict:
-        # Her decision of 2026-09-08: a skip is a success by default, since
+        # The author's decision of 2026-09-08: a skip is a success by default, since
         # everything producible was produced, and a wrapper that needs to
         # tell a partial rebuild apart asks for it. The code is 3, its own,
         # beside 2 for a refusal that wrote nothing (review round two).
@@ -729,6 +754,29 @@ def _cmd_convert(args: argparse.Namespace, recipes: dict[str, str]) -> int:
     return 0
 
 
+def _the_missing_family_choice(args: argparse.Namespace) -> bool:
+    """Read the one choice its two spellings state, refusing a contradiction.
+
+    `--no-ignore-missing-families` is a flag and `--ignore-missing-families
+    false` is a word, and they say the same thing. A command stating BOTH is
+    refused rather than resolved by precedence: two statements of one intent
+    cannot both be the one obeyed, which is the rule this package applies to
+    a row that states a rotor twice.
+    """
+    word = args.ignore_missing_families
+    if args.refuse_missing_families and word is not None:
+        _refuse(
+            "--no-ignore-missing-families and --ignore-missing-families were both "
+            "stated. They are the same choice, and two statements of one choice "
+            "cannot both be the one obeyed. Write one of them: the flag, or the word."
+        )
+    if args.refuse_missing_families:
+        return False
+    # ABSENT IS TRUE, which is the author's design and what every row written before
+    # this flag means.
+    return True if word is None else word
+
+
 def _cmd_plan(args: argparse.Namespace, recipes: dict[str, str]) -> int:
     workspace = CampaignWorkspace(args.workspace, naming=_naming(args))
     name, name_from = _campaign_name(args)
@@ -747,7 +795,7 @@ def _cmd_plan(args: argparse.Namespace, recipes: dict[str, str]) -> int:
             recipes=recipes,
             fs_exe=args.fs_exe,
             recipe_registry=workflow_registry(),
-            ignore_missing_families=args.ignore_missing_families,
+            ignore_missing_families=_the_missing_family_choice(args),
         )
     except (MatrixError, InputArtifactError, OSError, ValueError) as error:
         print(f"matrix not planned: {error}", file=sys.stderr)
@@ -784,7 +832,7 @@ def _cmd_run(args: argparse.Namespace, recipes: dict[str, str]) -> int:
             fs_exe=args.fs_exe,
             recipe_registry=workflow_registry(),
             resume=args.resume,
-            ignore_missing_families=args.ignore_missing_families,
+            ignore_missing_families=_the_missing_family_choice(args),
         )
     except CampaignErrors as error:
         # SEPARATED FROM THE OTHERS on purpose. Every arm below this one

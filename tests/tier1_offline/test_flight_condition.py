@@ -202,8 +202,8 @@ def test_integers_and_negatives_and_exponents_are_numbers():
 # A row may state the constants the standard atmosphere would otherwise
 # supply, so the emitted fluid block carries the numbers its author pinned.
 # The three states below are the author's own, read off the scripts that
-# produced her recorded campaign on 2026-09-02, asserted to the last digit:
-# the reproduction arm of GOAL-011 compares the emitted line against hers
+# produced the author's recorded campaign on 2026-09-02, asserted to the last digit:
+# the reproduction arm of GOAL-011 compares the emitted line against the author's
 # as a number, and a fourth-digit difference is a different fluid.
 
 CHORD_M = 2.526
@@ -218,7 +218,7 @@ def test_every_pin_is_a_flight_condition_key():
 
 
 def test_pinned_fluid_constants_reach_the_script_verbatim():
-    """Her steady state: density pinned, every constant hers, bit for bit.
+    """The author's steady state: density pinned, every constant the author's, bit for bit.
 
     The emitted FLUID_PROPERTIES block is what the solver reads, so the
     assertion is on the rendered lines and not only on the resolver.
@@ -239,7 +239,8 @@ def test_pinned_fluid_constants_reach_the_script_verbatim():
 
 
 def test_a_reynolds_constraint_solves_against_the_pinned_viscosity():
-    """Her unsteady state: REmi against a pinned viscosity gives her density exactly."""
+    """The author's unsteady state: REmi against a pinned viscosity gives the author's density
+    exactly."""
     state = resolve_flight_condition(
         {"TASmps": 68.058, "REmi": 11.7717, "MUPas": 1.789e-5},
         pol="3224",
@@ -251,7 +252,8 @@ def test_a_reynolds_constraint_solves_against_the_pinned_viscosity():
 
 
 def test_mach_is_taken_against_the_pinned_sonic_velocity():
-    """Her rotor state: MACH times her sonic velocity, then REmi against her viscosity."""
+    """The author's rotor state: MACH times the author's sonic velocity, then REmi against the
+    author's viscosity."""
     state = resolve_flight_condition(
         {"MACH": 0.1441, "REmi": 4.38, "MUPas": 1.789e-5, "ASMPS": 340.29},
         pol="9001",
@@ -267,7 +269,7 @@ def test_no_pin_leaves_the_standard_atmosphere_unchanged():
     assert round(state.velocity_m_per_s, 4) == 68.0588
     assert state.pinned == ()
     assert state.density_source == "solved-from-reynolds"
-    assert state.viscosity_pa_s != 1.789e-5, "the standard viscosity is not her pinned one"
+    assert state.viscosity_pa_s != 1.789e-5, "the standard viscosity is not the author's pinned one"
 
 
 def test_a_pinned_density_beside_a_reynolds_number_is_refused():
@@ -286,7 +288,7 @@ def test_a_non_positive_pin_is_refused_naming_the_key(key):
 
 # --- FR-58, PFS-2030.08: a setup supplies the pins a row leaves out ----------
 #
-# Her instruction of 2026-09-04: the four constants her tool writes on every
+# Instruction of 2026-09-04: the four constants the author's tool writes on every
 # script are constants of the campaign's fluid, so they belong in the SETUP
 # artifact a row names and not repeated down the FLIGHT_CONDITION column. The
 # resolver owns which keys may be defaulted, because it owns the pin table;
@@ -297,7 +299,7 @@ ORIGIN = "setup 's001' (inputs/setups/s001.toml)"
 
 
 def test_a_setup_supplies_the_pins_a_row_leaves_out():
-    """Her steady state, with the four constants moved out of the row.
+    """The author's steady state, with the four constants moved out of the row.
 
     The assertion that carries the change is the LAST one: the same
     resolved state, to the last digit, as the row that stated all five.

@@ -1,9 +1,9 @@
-"""PFS-2029.15.01 and .15.02: the campaign's CSV products round-trip and carry her numbers.
+"""PFS-2029.15.01 and .15.02: the campaign's CSV products round-trip and carry the author's numbers.
 
 The synthetic case here is one loads table with two surfaces at alpha -2,
-the numbers of the author's recorded wing-body point at Mach 0.20 (her
+the numbers of the author's recorded wing-body point at Mach 0.20 (the author's
 loads table of 2026-08-03), so the polar row this module writes is measured
-against a row she wrote, column by column, at her five decimals.
+against a row the author wrote, column by column, at the author's five decimals.
 """
 
 from __future__ import annotations
@@ -75,7 +75,7 @@ LOADS = """\
      Date: 8/3/2026, Time: 2305 hours (local)
 """
 
-#: Her recorded row for the whole configuration at alpha -2 (group 1 of her
+#: The author's recorded row for the whole configuration at alpha -2 (group 1 of the author's
 #: polar 3207 at Mach 0.20), the twenty-four coefficients at five decimals.
 HER_ROW = (
     "-2.00000 0.00000 0.20000 11.77168 0.02744 0.00000 0.18744 0.00000 -0.09694 0.00000 "
@@ -91,7 +91,8 @@ def _loads():
 
 
 def test_a_polar_row_carries_her_numbers():
-    """Body, stability and wind axes from the loads table, at five decimals, equal her row."""
+    """Body, stability and wind axes from the loads table, at five decimals, equal the author's
+    row."""
     loads = _loads()
     coefficients = group_coefficients(loads, ["Blade1", "S", "N", "W", "B"], bref_m=20.0)
     assert coefficients.families_used == ("W", "B"), "families the table lacks are left out"
@@ -113,7 +114,7 @@ def test_a_group_the_table_carries_none_of_sums_to_zero():
 
 
 def test_an_empty_group_sums_every_family_the_table_carries():
-    """Her decision of 2026-09-09 (PFS-2005.02): a group written empty is every
+    """The author's decision of 2026-09-09 (PFS-2005.02): a group written empty is every
     family, so its row is the sum over every surface row of the loads table,
     here W and B, and equals the group that names them; the Total row is not
     a surface and is not summed twice. The reading is the ARTIFACT's, so the
@@ -128,7 +129,7 @@ def test_an_empty_group_sums_every_family_the_table_carries():
 
 
 def test_an_empty_member_list_sums_to_zero_unless_the_caller_asks_for_every_family():
-    """The interface lens of 2026-09-09: her decision that an empty [groups] entry
+    """The interface lens of 2026-09-09: the author's decision that an empty [groups] entry
     is every family is about the ARTIFACT, and it had flipped this public function
     in silence, where an empty list summed to zero and its docstring said so. A
     caller that filtered its families down to none still gets zero; the products
@@ -142,7 +143,7 @@ def test_an_empty_member_list_sums_to_zero_unless_the_caller_asks_for_every_fami
 
 
 def test_a_group_member_may_be_a_family_or_an_alias_of_the_setup():
-    """Her decisions of 2026-09-09: a member is an exact surface name first, then
+    """The author's decisions of 2026-09-09: a member is an exact surface name first, then
     an ALIAS the row's setup defines (its members resolved the same way, a
     member the table lacks ignored), then a family, the label without its
     trailing number. Nothing is hardcoded: ``airframe`` and ``blades`` are
@@ -406,7 +407,7 @@ def test_the_mach_code_rounds_rather_than_truncates():
 # --- PFS-2015.04: the reductions reach the products through the stage --------------
 #
 # The four reductions existed as library functions since 0.8.0 and nothing on
-# the campaign path called them (measured 2026-09-08). Her rule of the same
+# the campaign path called them (measured 2026-09-08). The author's rule of the same
 # day: every capability enters through the workflow. So the products stage
 # writes them, one file per reduction beside the plots table, over the window
 # the row states, which the run record carries as `reductions`.
@@ -734,7 +735,7 @@ def test_a_row_turning_one_rotor_names_it_too(tmp_path):
 def test_an_alias_that_is_not_a_file_name_is_made_into_one(tmp_path):
     """A rotor's alias is a word the author chose; a file name is parsed by the OS.
 
-    `EngineBlock.alias` carries no pattern, so a slash reaches the path
+    `RotorBlock.alias` carries no pattern, so a slash reaches the path
     and writes outside the folder the manifest keys the file under (the
     architecture lens, 2026-09-10). The rotor's OWN spelling survives in
     the record's `rotor` field, so nothing is lost.
@@ -819,7 +820,7 @@ def test_the_reductions_sit_beside_the_plots_table_and_never_replace_it(tmp_path
     assert (table_after.parent / "a-02.0_per_blade.csv").is_file(), "the reductions were written"
     assert table_after.read_bytes() == table_before.read_bytes(), (
         "the plots table changed under the reductions; a reduction ships beside the "
-        "history and never in its place (her rule of 2026-08-16)"
+        "history and never in its place (the author's rule of 2026-08-16)"
     )
 
 
@@ -878,7 +879,7 @@ def test_a_missing_sample_poisons_the_harmonic_in_plane_moment_product():
 # The run record carries every fact a provenance document needs; what it
 # lacked was a shape another tool reads without reading this package's docs.
 # W3C PROV, serialized as PROV-JSON, one document per recorded run, written by
-# the products stage (her decision of 2026-09-08, design 68).
+# the products stage (the author's decision of 2026-09-08, design 68).
 
 
 def _steady_workspace_with_provenance(tmp_path):
@@ -1053,16 +1054,16 @@ def test_pyfs_matrix_post_writes_a_prov_json_document_per_recorded_run(tmp_path)
     assert "PROV-JSON" in page and ".prov.json" in page
 
 
-# --- PFS-2014.01.02 and .01.01: her plot format ------------------------------------
+# --- PFS-2014.01.02 and .01.01: the author's plot format ------------------------------------
 #
-# Her existing tooling opens a fixed-width text polar file. The committed
-# fixture has that file's SHAPE, read off a file of hers; every value in it is
+# The author's existing tooling opens a fixed-width text polar file. The committed
+# fixture has that file's SHAPE, read off a file of the author's; every value in it is
 # synthetic, invented for the tier-3 wing of the tour's row 1001.
 
 HER_FORMAT_SAMPLE = FIXTURES / "custom_polar_format_sample.dat"
 
 #: ``Tue Sep 08 23:41:07  2026``: weekday, month, zero-padded day, clock, two
-#: spaces, year. Her sample carries the two spaces.
+#: spaces, year. The author's sample carries the two spaces.
 DATE_LINE = r"^[A-Z][a-z]{2} [A-Z][a-z]{2} \d{2} \d{2}:\d{2}:\d{2}  \d{4}$"
 
 
@@ -1081,7 +1082,7 @@ def test_her_plot_format_sample_against_the_stage_product(tmp_path):
     """PFS-2014.01.02. The fixture is the specification: its rows fed through the
     writer come back byte for byte, except line 3, the write time, which is
     masked and matched against the date pattern. The fixture's shape was read
-    off a file of hers; every value in it is synthetic."""
+    off a file of the author's; every value in it is synthetic."""
     import re
 
     write_custom_polar_format, read_custom_polar_format = _her_format_functions()
@@ -1466,7 +1467,7 @@ def test_the_former_key_of_the_polar_format_reaches_the_stage_and_warns(tmp_path
 
 
 def test_the_former_her_names_of_the_polar_format_forward_and_warn(tmp_path):
-    """Her decision of 2026-09-09: custom_ names the thing. The old key on a pproc
+    """The author's decision of 2026-09-09: custom_ names the thing. The old key on a pproc
     artifact is read as the new one, and the old Python names forward, each
     warning from the ledger with its removal version; both keys at once are
     refused."""

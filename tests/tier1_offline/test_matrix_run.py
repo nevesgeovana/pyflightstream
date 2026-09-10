@@ -24,7 +24,11 @@ from pathlib import Path
 import pytest
 
 from pyflightstream._digest import file_sha256
-from pyflightstream._errors import PyflightstreamDeprecationWarning, PyflightstreamWarning
+from pyflightstream._errors import (
+    PyflightstreamDeprecationWarning,
+    PyflightstreamError,
+    PyflightstreamWarning,
+)
 from pyflightstream._fsm import MESH_MARKER
 from pyflightstream.cases.matrix import (
     DEFAULT_VERSION_OPTION,
@@ -247,7 +251,7 @@ def _resolve_the_fixture(workspace):
     )
 
 
-def test_a_preset_that_still_states_aliases_warns_and_names_the_release(tmp_path):
+def test_a_preset_that_still_states_aliases_is_refused_and_names_the_reference(tmp_path):
     """A SURVIVING MUTANT FOUND THIS, and it is the only thing telling a user.
 
     The QA lens of the release review replaced the `_moved_to_the_reference`
@@ -260,15 +264,13 @@ def test_a_preset_that_still_states_aliases_warns_and_names_the_release(tmp_path
     TWO BRANCHES, TWO CASES, because a mutant that blanks one survives the
     other. This is the aliases branch; the next case is the frames one.
     """
-    from pyflightstream._errors import PyflightstreamDeprecationWarning
-
     workspace = make_library(tmp_path)
     _preset_gains(workspace, '\n[aliases]\nairframe = ["Wing"]\n')
-    with pytest.warns(PyflightstreamDeprecationWarning, match="0.17.0"):
+    with pytest.raises(PyflightstreamError, match=r"\[aliases\].*reference"):
         _resolve_the_fixture(workspace)
 
 
-def test_a_preset_that_still_states_frames_warns_and_names_the_release(tmp_path):
+def test_a_preset_that_still_states_frames_is_refused_and_names_the_reference(tmp_path):
     """The second branch, which the mutant that blanked it survived.
 
     ON A RUN-TYPE ROW, because a LEGACY row meets a different answer: its
@@ -277,8 +279,6 @@ def test_a_preset_that_still_states_frames_warns_and_names_the_release(tmp_path)
     are right and they are different sentences; this case is the warning and
     the case below is the refusal.
     """
-    from pyflightstream._errors import PyflightstreamDeprecationWarning
-
     workspace = make_library(tmp_path)
     _preset_gains(workspace, '\n[[frames]]\nname = "NAC"\norigin = [0.4, 0.0, 0.1]\n')
     row = (
@@ -291,7 +291,7 @@ def test_a_preset_that_still_states_frames_warns_and_names_the_release(tmp_path)
         text.replace("| LEGACY ", "| steady ").replace("OUTPUTS: loads_{point}.txt / ", ""),
         encoding="utf-8",
     )
-    with pytest.warns(PyflightstreamDeprecationWarning, match="0.17.0"):
+    with pytest.raises(PyflightstreamError, match=r"\[frames\].*reference"):
         resolve_matrix(
             path,
             workspace,
@@ -312,17 +312,18 @@ def test_a_legacy_row_is_refused_the_frames_table_rather_than_warned(tmp_path):
     """
     workspace = make_library(tmp_path)
     _preset_gains(workspace, '\n[[frames]]\nname = "NAC"\norigin = [0.4, 0.0, 0.1]\n')
-    with pytest.raises(MatrixError) as refused:
+    with pytest.raises(PyflightstreamError) as refused:
         _resolve_the_fixture(workspace)
     message = str(refused.value)
-    assert "9001" in message and "s003" in message and "LEGACY" in message
+    # THE MOVED-TABLE REFUSAL REACHES IT FIRST since 0.15.0 stopped reading
+    # the preset for these tables at all, so the sentence a LEGACY row meets
+    # is the same one every row meets, which is one sentence rather than two.
+    assert "s003" in message and "reference" in message, message
 
 
 def test_a_preset_that_states_neither_warns_about_neither(tmp_path):
     """The discriminator. Without it the two above are satisfied by a constant."""
     import warnings as _warnings
-
-    from pyflightstream._errors import PyflightstreamDeprecationWarning
 
     workspace = make_library(tmp_path)
     with _warnings.catch_warnings(record=True) as caught:
@@ -3183,7 +3184,7 @@ def test_a_recorded_only_key_is_kept_and_says_why():
     never appears on the returned SolverSettings at all, by design, so
     the artifact is where "kept" can be seen.
     """
-    # `symmetry_loads` was the instance until 0.11.0, when her decision of
+    # `symmetry_loads` was the instance until 0.11.0, when the author's decision of
     # 2026-09-02 (PFS-2028.05) made a STATED key reach the script; the
     # recorded-only mechanism is unchanged and is exercised on another key.
     setup = _setup("symmetry_type = 'MIRROR'\n")
@@ -3199,11 +3200,11 @@ def test_a_recorded_only_key_is_kept_and_says_why():
 
 
 def test_symmetry_loads_stated_in_the_setup_reaches_the_settings():
-    """PFS-2028.05, her decision of 2026-09-02: emit exactly what the preset declares.
+    """PFS-2028.05, the author's decision of 2026-09-02: emit exactly what the preset declares.
 
-    The measurement behind it: the 0.10.1 reproduction of her isolated
-    rotor reported loads six times hers, the periodic copy count, because
-    her preset stated the symmetry loads off and nothing was emitted.
+    The measurement behind it: the 0.10.1 reproduction of the author's isolated
+    rotor reported loads six times the author's, the periodic copy count, because
+    the author's preset stated the symmetry loads off and nothing was emitted.
     """
     with warnings.catch_warnings():
         warnings.simplefilter("error")
@@ -3786,7 +3787,7 @@ def test_an_empty_entity_selection_in_an_artifact_is_refused_at_plan_time(tmp_pa
     the key and what the empty list would have disabled; which keys admit an
     empty list is the domain seat's call and is written beside each entry of
     the table the reader consults. A pproc group ``"1" = []`` was refused the
-    same way until 0.14.0 as her undecided call; on her word of 2026-09-09 it
+    same way until 0.14.0 as the author's undecided call; on the author's word of 2026-09-09 it
     is every family, and plans READY (the products it writes are
     ``test_an_empty_group_writes_the_polar_of_every_family``).
     """
@@ -3820,7 +3821,7 @@ def test_an_empty_entity_selection_in_an_artifact_is_refused_at_plan_time(tmp_pa
 
 
 def test_an_empty_group_writes_the_polar_of_every_family(tmp_path):
-    """Her decision of 2026-09-09 (PFS-2005.02): ``"1" = []`` is every family.
+    """The author's decision of 2026-09-09 (PFS-2005.02): ``"1" = []`` is every family.
     Through the campaign path the polar table it writes is, byte for byte, the
     table of the group naming every surface the loads fixture carries, W and B,
     which is what ``_two_matrices`` writes; the two workspaces differ in the
@@ -3849,19 +3850,24 @@ def test_an_empty_group_writes_the_polar_of_every_family(tmp_path):
     assert tables['"1" = []'] == tables['"1" = ["W", "B"]']
 
 
-def test_an_alias_of_the_setup_reaches_the_polar_table_through_the_record(tmp_path):
-    """Her decision of 2026-09-09: aliases live in the setup and the record
-    carries them, so the products stage, which reads records and never the
-    setup, resolves a group naming one. ``wing = ["W", "Missing"]`` on s002 and
-    ``"1" = ["wing"]`` on p001 write, byte for byte, the polar of ``"1" = ["W"]``
-    on the plain setup; the member the table lacks is ignored."""
+def test_an_alias_of_the_reference_reaches_the_polar_table_through_the_record(tmp_path):
+    """The author's decision of 2026-09-09, in the home FR-59 moved it to.
+
+    Aliases live in the REFERENCE since 0.15.0 and the record carries
+    them, so the products stage, which reads records and never the
+    artifacts, resolves a group naming one. ``wing = ["W", "Missing"]`` on
+    r003 and ``"1" = ["wing"]`` on p001 write, byte for byte, the polar of
+    ``"1" = ["W"]`` against a reference declaring none; the member the
+    mesh lacks is ignored.
+    """
     tables = {}
-    for folder, setup_text, group in (
-        ("alias", 'iterations = 800\n\n[aliases]\nwing = ["W", "Missing"]\n', '"1" = ["wing"]'),
-        ("plain", "iterations = 800\n", '"1" = ["W"]'),
+    for folder, alias_table, group in (
+        ("alias", '\n[aliases]\nwing = ["W", "Missing"]\n', '"1" = ["wing"]'),
+        ("plain", "", '"1" = ["W"]'),
     ):
         workspace, first, _ = _two_matrices(tmp_path / folder)
-        (workspace.inputs_dir / "setups" / "s002.toml").write_text(setup_text, encoding="utf-8")
+        reference = workspace.inputs_dir / "references" / "r003.toml"
+        reference.write_text(reference.read_text(encoding="utf-8") + alias_table, encoding="utf-8")
         (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
             f"[groups]\n{group}\n", encoding="utf-8"
         )
@@ -3878,7 +3884,7 @@ def test_an_alias_of_the_setup_reaches_the_polar_table_through_the_record(tmp_pa
         records = workspace.read_manifest()
         assert [r.aliases for r in records] == [
             {"wing": ["W", "Missing"]} if folder == "alias" else {}
-        ] * 2, "the record carries the setup's aliases"
+        ] * 2, "the record carries the reference's aliases"
         polars = sorted((workspace.root / "post" / "wing_alpha").glob("*_g01.csv"))
         assert len(polars) == 2, polars
         tables[folder] = [path.read_bytes() for path in polars]
@@ -3893,12 +3899,14 @@ def test_an_alias_of_the_setup_reaches_the_polar_table_through_the_record(tmp_pa
         if folder == "alias":
             assert activity["pyfs:aliases"] == {"wing": ["W", "Missing"]}, activity
         else:
-            assert "pyfs:aliases" not in activity, "a run whose setup defines none carries no key"
+            assert "pyfs:aliases" not in activity, (
+                "a run whose reference defines none carries no key"
+            )
     assert tables["alias"] == tables["plain"]
 
 
 def test_the_reference_aliases_reach_the_record(tmp_path):
-    """FR-59, her decision of 2026-09-10: the aliases move to the REFERENCE.
+    """FR-59, the author's decision of 2026-09-10: the aliases move to the REFERENCE.
 
     The same alias, the same polar and the same record field, declared one
     file over: ``wing = ["W", "Missing"]`` in r003 rather than in s002. A
@@ -3987,11 +3995,13 @@ def test_a_legacy_row_leaves_the_references_frames_out_and_says_so(tmp_path):
     assert resolved.campaign.sims[0].frames == []
 
 
-def test_a_setup_still_stating_frames_warns_and_the_reference_wins(tmp_path):
-    """QA1-6: the frames half of the deprecation, both sides of it.
+def test_a_setup_still_stating_frames_is_refused_even_when_the_reference_agrees(tmp_path):
+    """QA1-6, one release on: the frames half, now a refusal.
 
-    The aliases half had two tests and the frames half none, so removing
-    the warning and emptying the name dedup both survived the suite.
+    It warned and let the reference win until 0.15.0 shipped. Nothing
+    received that promise, and two files stating one coordinate system is
+    exactly the shape the move exists to end, so the preset stating it is
+    refused whether or not the reference agrees.
     """
     matrix = _rotor_matrix(tmp_path)
     workspace = make_library(tmp_path, register_build=("26.120", "C:/fs26120/FlightStream.exe"))
@@ -4007,21 +4017,28 @@ def test_a_setup_still_stating_frames_warns_and_the_reference_wins(tmp_path):
         + '\n[[frames]]\nname = "NAC"\norigin = [9.0, 0.0, 0.0]\n',
         encoding="utf-8",
     )
-    with pytest.warns(PyflightstreamDeprecationWarning, match="frames"):
-        resolved = resolve_matrix(
-            matrix, workspace, name="camp", fs_version="26.120", recipes=RECIPES
-        )
+    with pytest.raises(PyflightstreamError, match=r"\[frames\].*reference"):
+        resolve_matrix(matrix, workspace, name="camp", fs_version="26.120", recipes=RECIPES)
+    # AND THE REFERENCE ALONE STILL WORKS, which is what makes the refusal a
+    # migration rather than a wall: without this the case above is satisfied
+    # by a reader that refuses the frames table wherever it appears.
+    setup = workspace.inputs_dir / "setups" / "s002.toml"
+    setup.write_text(
+        setup.read_text(encoding="utf-8").split("\n[[frames]]")[0] + "\n", encoding="utf-8"
+    )
+    resolved = resolve_matrix(matrix, workspace, name="camp", fs_version="26.120", recipes=RECIPES)
     frames = resolved.campaign.sims[0].frames
     assert [frame.name for frame in frames] == ["NAC"], "one frame of that name, not two"
     assert frames[0].origin == (1.0, 0.0, 0.0), "the reference's"
 
 
-def test_a_setup_still_stating_aliases_warns_and_the_reference_wins(tmp_path):
-    """The deprecation half of FR-59, measured on the warning AND on the value.
+def test_a_setup_still_stating_aliases_is_refused_and_the_reference_alone_works(tmp_path):
+    """The refusal half of FR-59, measured on the refusal AND on the value.
 
-    A workspace that has not migrated keeps planning and is told where the
-    table belongs; where both files state the same name, the reference is
-    what the record carries.
+    A workspace that has not migrated is told where the table belongs and
+    stops, rather than planning with two files stating one name. Once the
+    preset drops it, the reference's own table is what the record carries,
+    which is the second half and the one that makes this a migration.
     """
     workspace, first, _ = _two_matrices(tmp_path)
     reference = workspace.inputs_dir / "references" / "r003.toml"
@@ -4035,7 +4052,7 @@ def test_a_setup_still_stating_aliases_warns_and_the_reference_wins(tmp_path):
     (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
         '[groups]\n"1" = ["wing"]\n', encoding="utf-8"
     )
-    with pytest.warns(PyflightstreamDeprecationWarning, match="aliases"):
+    with pytest.raises(PyflightstreamError, match=r"\[aliases\].*reference"):
         run_matrix(
             first,
             workspace,
@@ -4046,8 +4063,21 @@ def test_a_setup_still_stating_aliases_warns_and_the_reference_wins(tmp_path):
             executor=_writes_her_loads(tmp_path),
             recipe_registry={"steady": matrix_recipe},
         )
+    (workspace.inputs_dir / "setups" / "s002.toml").write_text(
+        "iterations = 800\n", encoding="utf-8"
+    )
+    run_matrix(
+        first,
+        workspace,
+        name="camp",
+        default_fs_version="26.120",
+        recipes=RECIPES,
+        assess=converged,
+        executor=_writes_her_loads(tmp_path),
+        recipe_registry={"steady": matrix_recipe},
+    )
     records = workspace.read_manifest()
-    assert [r.aliases for r in records] == [{"wing": ["W"]}] * 2, "the reference wins"
+    assert [r.aliases for r in records] == [{"wing": ["W"]}] * 2, "the reference's table"
 
 
 # --- PFS-2015.04: the reductions reach the products through the workflow --------

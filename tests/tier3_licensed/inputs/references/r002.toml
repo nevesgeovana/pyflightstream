@@ -6,6 +6,18 @@ area_m2 = 0.7854   # SREF, m^2: pi/4 x 1^2, the frontal area
 chord_m = 4.0      # CREF, m: the body length
 span_m = 1.0       # BREF, m: the diameter
 
+
+# THE STUDY'S OWN WORDS (FR-59). `airframe` and `blades` were SELECTOR words
+# until 0.15.0: the package decided what was a blade from a pattern over the
+# family name, so a mesh whose blades are spelled another way got an airframe
+# with blades in it and nothing said so. A study that names its surfaces
+# cannot be guessed wrong. A member the opened mesh does not carry is left
+# out, which is what lets one table serve every geometry this reference is
+# cited against.
+[aliases]
+airframe = ["Wing", "MainWing", "Body", "Base"]
+blades = ["Blade1", "Blade2"]
+
 [moment_point]
 x_m = 2.0          # mid-length
 y_m = 0.0

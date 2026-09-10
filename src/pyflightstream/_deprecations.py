@@ -81,6 +81,45 @@ def _promise_text(
     return text
 
 
+def refusal_text(entry: Deprecation) -> str:
+    """Render an entry of the refused batch as a REFUSAL rather than a promise.
+
+    The entry's own :meth:`message` says "will be removed in vX; use Y",
+    which is the right sentence for a shim that still works. Every entry
+    of :data:`REFUSED_IN_0_15_0` no longer works, so its message would
+    tell a reader they have until 0.17.0 to make a change the package has
+    already stopped accepting.
+
+    Parameters
+    ----------
+    entry : Deprecation
+        Any ledger entry. The text is built from its own fields, so the
+        old spelling, the new one and the reason stay in one home.
+
+    Returns
+    -------
+    str
+        The refusal, which names the replacement before the reason.
+    """
+    # `new` on four kinds, `replacement` on the module kind; read by name
+    # rather than branching, because a new kind should get the sentence for
+    # free and a missing field should be loud rather than silently empty.
+    replacement = getattr(entry, "new", None) or getattr(entry, "replacement", "")
+    if not replacement:
+        raise AttributeError(
+            f"{type(entry).__name__} carries neither `new` nor `replacement`, so a "
+            "refusal built from it would name no fix"
+        )
+    text = (
+        f"{entry.subject} was renamed to {replacement} in v{entry.deprecated_since} "
+        f"and is no longer accepted. Write {replacement}."
+    )
+    extra = getattr(entry, "extra", "")
+    if extra:
+        text = f"{text} {extra}"
+    return text
+
+
 @dataclass(frozen=True)
 class DeprecatedModule:
     """One deprecated module and its recorded removal promise.
@@ -594,8 +633,7 @@ SETUP_FRAMES_TABLE = DeprecatedParameter(
 #: of them once, in the rotor's own block, so a row states the alias and
 #: nothing else about the rotor.
 _STATED_IN_THE_BLOCK = (
-    "The reference states it once, in the rotor's own engine block, and a "
-    "row names the rotor by alias."
+    "The reference states it once, in the rotor's own block, and a row names the rotor by alias."
 )
 ROW_MOVING_BOUNDARIES = DeprecatedParameter(
     owner="a motion record",
@@ -604,6 +642,63 @@ ROW_MOVING_BOUNDARIES = DeprecatedParameter(
     deprecated_since="0.15.0",
     removal_version="0.17.0",
     extra=_STATED_IN_THE_BLOCK,
+)
+ROW_ROTOR_AXIS = DeprecatedParameter(
+    owner="a motion record",
+    old="ROTOR_AXIS",
+    new="the axis of the rotor the record names",
+    deprecated_since="0.15.0",
+    removal_version="0.17.0",
+    extra=_STATED_IN_THE_BLOCK,
+)
+ROW_ROTOR_ORIGIN = DeprecatedParameter(
+    owner="a motion record",
+    old="ROTOR_ORIGIN",
+    new="the hub of the rotor the record names",
+    deprecated_since="0.15.0",
+    removal_version="0.17.0",
+    extra=_STATED_IN_THE_BLOCK,
+)
+ROW_RPM_SIGN = DeprecatedParameter(
+    owner="a motion record",
+    old="RPM_SIGN",
+    new="the rpm_sign of the rotor the record names",
+    deprecated_since="0.15.0",
+    removal_version="0.17.0",
+    extra=_STATED_IN_THE_BLOCK,
+)
+ROW_BLADES = DeprecatedParameter(
+    owner="a motion record",
+    old="BLADES",
+    new="the length of that rotor's families_blades",
+    deprecated_since="0.15.0",
+    removal_version="0.17.0",
+    extra=(
+        "The reference states the blade FAMILIES and the count is how many "
+        "there are, so a sector mesh carrying one blade of four still "
+        "reduces over four and no row states a number that can disagree "
+        "with the file it opens."
+    ),
+)
+#: A KEY BECOMING REQUIRED IS NOT A RENAME, and this is the first entry of
+#: that shape. `old` is the ABSENCE and `new` is the key, because what a
+#: reader needs is the sentence "you have until 0.17.0 to add this", which
+#: the ledger's own renderer produces from those two fields. Written here
+#: rather than only in the warning string, because a promise the deadline
+#: guard cannot see is a promise nothing keeps (the interface lens of the
+#: 0.15.0 release review).
+ROW_CLOCK_MOTION_ON_A_FLAT_ROW = DeprecatedParameter(
+    owner="a rotor row in the pre-0.15.0 spelling",
+    old="no CLOCK_MOTION, the clock following the fastest rotor",
+    new="CLOCK_MOTION naming the motion that owns the clock",
+    deprecated_since="0.15.0",
+    removal_version="0.17.0",
+    extra=(
+        "A row stating a MOTIONS list is refused without the key since "
+        "0.15.0. The flat form has nothing to choose between and is exempt "
+        "until 0.17.0, when which rotor bounds the time step becomes a "
+        "decision every row states."
+    ),
 )
 ROW_ROTATE_FAMILIES = DeprecatedParameter(
     owner="a rotation record",
@@ -656,16 +751,42 @@ ROW_BLADES_SELECTOR = DeprecatedParameter(
         "blade with no pattern in it."
     ),
 )
-ROW_PROBE_SCALE = DeprecatedParameter(
-    owner="a probe table",
-    old="scale = 'propeller_radius'",
-    new="scale = 'rotor_radius'",
-    deprecated_since="0.15.0",
-    removal_version="0.17.0",
-    extra=(
-        "This release says ROTOR everywhere: a lifter is not a propeller, "
-        "and an aircraft may carry eight of them and one pusher."
-    ),
+#: `ROW_PROBE_SCALE` STOOD HERE AND IS STRUCK. It promised that
+#: `scale = "propeller_radius"` would keep working with a warning until
+#: 0.17.0, and the author's instruction of 2026-09-10 is that this package
+#: accepts no old nomenclature at all: the word is REFUSED now, with the
+#: replacement named. A promise nothing keeps is worse than no promise, so
+#: the entry moves rather than staying here unspoken. Its home is
+#: :data:`pyflightstream._retired_names.PROBE_SCALE_PROPELLER_RADIUS`.
+
+#: THE 0.15.0 BATCH, WHICH IS NOT A SET OF PROMISES. Every entry below was
+#: written in 0.15.0 and 0.15.0 has not shipped, so nobody has a workspace
+#: that was told the old spelling would keep working. The author's
+#: instruction of 2026-09-10 is that this release breaks them rather than
+#: carrying two vocabularies into a package with no stable version:
+#: "quebra a promessa, nao estamos em versao estavel".
+#:
+#: The entries stay as objects because their `message()` is the sentence the
+#: REFUSALS print, and one home for a sentence is what this module is for.
+#: They are out of :data:`DEPRECATIONS` because that tuple is what the Tier 1
+#: deadline guard reads, and there is no shim left for it to watch expire.
+#:
+#: The 0.14.0 batch is deliberately NOT here. Those promises were published,
+#: they expire at 0.16.0 which is the next release anyway, and breaking them
+#: would break a workspace that upgraded on the strength of them.
+REFUSED_IN_0_15_0: tuple[Deprecation, ...] = (
+    SETUP_ALIASES_TABLE,
+    SETUP_FRAMES_TABLE,
+    ROW_MOVING_BOUNDARIES,
+    ROW_ROTOR_AXIS,
+    ROW_ROTOR_ORIGIN,
+    ROW_RPM_SIGN,
+    ROW_BLADES,
+    ROW_CLOCK_MOTION_ON_A_FLAT_ROW,
+    ROW_ROTATE_FAMILIES,
+    ROW_EACH_BLADE,
+    ROW_AIRFRAME_SELECTOR,
+    ROW_BLADES_SELECTOR,
 )
 
 #: Every live promise of every kind, one entry each; the Tier 1 deadline
@@ -695,12 +816,4 @@ DEPRECATIONS: tuple[Deprecation, ...] = (
     POST_WRITE_HER_POLAR_FORMAT,
     POST_READ_HER_POLAR_FORMAT,
     WAIVED_COMMANDS_MANIFEST_KEY,
-    SETUP_ALIASES_TABLE,
-    SETUP_FRAMES_TABLE,
-    ROW_MOVING_BOUNDARIES,
-    ROW_ROTATE_FAMILIES,
-    ROW_EACH_BLADE,
-    ROW_AIRFRAME_SELECTOR,
-    ROW_BLADES_SELECTOR,
-    ROW_PROBE_SCALE,
 )

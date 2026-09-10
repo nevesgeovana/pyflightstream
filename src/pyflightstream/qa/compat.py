@@ -1416,7 +1416,7 @@ def licence_sensitive_candidates(
     seat can afford, and which capabilities a vendor plausibly gates
     behind a tier. Both are the author's domain-expert seat. This returns
     the candidates and the reason each is one; the membership is written
-    where she writes it, and never inferred here.
+    where the author writes it, and never inferred here.
 
     Parameters
     ----------

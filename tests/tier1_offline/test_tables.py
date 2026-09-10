@@ -800,14 +800,14 @@ def test_a_requested_zero_is_a_request_the_export_can_contradict(tmp_path):
 
 # --- PFS-2014.05: every row says what produced its numbers ----------------
 #
-# Her requirement of 2026-08-16, and the sweep is the case she named. One
+# The author's requirement of 2026-08-16, and the sweep is the case the author named. One
 # table, two provenances per row: a steady point's coefficients are a direct
 # integration, an unsteady point's are the solver's own time average, and
 # both are printed under CL and CDi. A reader who cannot tell them apart
 # compares them and reads a method difference as physics.
 #
 # THE VOCABULARY IS THE AUTHOR'S CALL and these tests pin the lane default
-# rather than her ruling, which is still owed: two origin tokens, three
+# rather than the author's ruling, which is still owed: two origin tokens, three
 # reduction tokens, a failed row saying `unknown` rather than `none`, and an
 # unsteady solver export counting as `raw` because the solver did the
 # averaging and the reduction token is what names it.
@@ -1177,7 +1177,7 @@ def test_the_unsteady_plot_export_tabulates_under_its_printed_labels():
     """One row per time step, one column per plot, plus the provenance.
 
     THE COLUMN LABELS ARE THE SOLVER'S and the order is data rather than
-    a contract (her convention of 2026-08-17): the set of plots is
+    a contract (the author's convention of 2026-08-17): the set of plots is
     whatever the run defined, so this pins the label SET and the row
     count, never a position. What this package promises about the frame
     is the two provenance columns and that nothing else is added.

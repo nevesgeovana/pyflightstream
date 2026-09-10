@@ -120,7 +120,7 @@ def test_the_sea_level_state_is_stated_to_the_digit_the_srs_quotes():
     state = isa(0.0)
     assert repr(state.viscosity_pa_s) == "1.7892976260350732e-05"
     assert repr(state.sonic_velocity_m_per_s) == "340.293988026089"
-    # And the claim those digits are FOR: her two pins differ from them.
+    # And the claim those digits are FOR: the author's two pins differ from them.
     assert state.viscosity_pa_s != 1.789e-5
     assert state.sonic_velocity_m_per_s != 340.29
 

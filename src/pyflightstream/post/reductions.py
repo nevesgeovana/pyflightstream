@@ -6,13 +6,13 @@ rule it enforces is a rule about DESTINATIONS, and the average itself
 (:func:`pyflightstream.post.unsteady.blade_passage_average`) is pure and
 has none.
 
-HER FILE RULE, 2026-08-16, absorbed from PFS-2015.03 into PFS-2015.01:
+THE AUTHOR'S FILE RULE, 2026-08-16, absorbed from PFS-2015.03 into PFS-2015.01:
 
 * a reduction NEVER overwrites the file it came from;
 * the time series keeps its own dedicated file.
 
 Both are enforced HERE rather than in a workflow, and that placement is
-the whole point of the rule as she stated it: it holds however the
+the whole point of the rule as the author stated it: it holds however the
 reduction is reached, so a caller who bypasses the workflow and calls
 this layer directly cannot obtain an average with no history beside it.
 A rule that only a workflow keeps is a rule with a documented way round

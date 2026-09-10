@@ -1,7 +1,7 @@
 # A post-processing artifact in the 0.15.0 vocabulary, for the tier that runs
-# everywhere. It is the SHAPE of the artifact her use case writes, with this
-# module's own rotor names in place of hers: the entries she wrote are read
-# from her workspace by one further case, which SKIPS on a machine that does
+# everywhere. It is the SHAPE of the artifact the author's use case writes, with this
+# module's own rotor names in place of the author's: the entries the author wrote are read
+# from the author's workspace by one further case, which SKIPS on a machine that does
 # not carry it, and until this file existed that skip meant the only case
 # reaching the reader proved nothing on any other machine (the QA lens,
 # 2026-09-10).

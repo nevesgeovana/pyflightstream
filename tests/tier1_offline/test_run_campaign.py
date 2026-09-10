@@ -3300,7 +3300,7 @@ def test_the_campaign_writes_its_products_and_names_them(tmp_path):
     assert text[1].startswith(
         "9001,STEADY_WB,1,50.00000,2.52600,20.00000,9.15200,0.00000,0.00000,-2.00000,"
     )
-    assert ",0.02744,0.00000,0.18744," in text[1], "the body axes of her recorded row"
+    assert ",0.02744,0.00000,0.18744," in text[1], "the body axes of the author's recorded row"
     record = workspace.read_manifest()[0]
     assert record.reference == {
         "SREF": 50.0,
@@ -3354,9 +3354,9 @@ def test_a_renamed_workspace_cannot_resume_under_a_new_name(tmp_path):
 
 
 def test_the_default_assessor_judges_the_points_own_table_in_a_two_point_sweep(tmp_path):
-    """Measured on her campaign 2026-09-03: the second point of a sweep found two tables.
+    """Measured on the author's campaign 2026-09-03: the second point of a sweep found two tables.
 
-    Under her naming each point's loads table is `<point>.txt`, so an assessor
+    Under the author's naming each point's loads table is `<point>.txt`, so an assessor
     scanning the whole simulation folder saw the first point's table beside the
     second's and refused as ambiguous. The point's own declared outputs are the
     candidates now.

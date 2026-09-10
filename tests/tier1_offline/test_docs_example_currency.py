@@ -180,10 +180,10 @@ def test_the_input_library_the_page_shows_is_the_one_the_test_builds(tmp_path):
         )
 
 
-def test_the_propeller_artifact_on_the_page_is_the_one_the_suite_validates():
+def test_the_recorded_rotor_block_on_the_page_is_the_one_the_suite_validates():
     """The page's block and the workspace fixture are one artifact.
 
-    ``[propeller]`` block for block, compared as PARSED VALUES rather
+    ``[rotor]`` block for block, compared as PARSED VALUES rather
     than as text, so reordering a key or restyling the TOML does not go
     red while a changed number does.
     """
@@ -194,19 +194,19 @@ def test_the_propeller_artifact_on_the_page_is_the_one_the_suite_validates():
     page = [
         body
         for info, body in _blocks(PAGE.read_text(encoding="utf-8"))
-        if info == "toml" and "[propeller]" in body
+        if info == "toml" and "[rotor]" in body
     ]
     assert len(page) == 1
 
     documented = tomllib.loads(page[0])
     parsed = tomllib.loads(test_workspace.PROPELLER_REFERENCE_TOML)
     # BEFORE the subscript, not after it. Written the other way round, a
-    # fixture that lost its propeller block raised a bare KeyError and the
+    # fixture that lost its recorded rotor block raised a bare KeyError and the
     # sentence explaining what that means never ran.
-    assert "propeller" in parsed, (
-        "the workspace fixture carries no propeller block to compare the page against"
+    assert "rotor" in parsed, (
+        "the workspace fixture carries no recorded rotor block to compare the page against"
     )
-    # THE WHOLE DOCUMENT, not just ["propeller"]. Compared block-only,
+    # THE WHOLE DOCUMENT, not just ["rotor"]. Compared block-only,
     # this guard passed over a top-level length added to the page and not
     # to the fixture, which is the exact drift it exists to catch: the
     # page calls the block "in full" and the subscript made three
@@ -217,7 +217,7 @@ def test_the_propeller_artifact_on_the_page_is_the_one_the_suite_validates():
     )
 
 
-def test_the_propeller_artifact_on_the_page_validates(tmp_path):
+def test_the_recorded_rotor_block_on_the_page_validates(tmp_path):
     """The documented artifact is refused by nothing.
 
     This item exists BECAUSE a real campaign's reference artifact was
@@ -237,21 +237,21 @@ def test_the_propeller_artifact_on_the_page_validates(tmp_path):
     blocks = [
         body
         for info, body in _blocks(PAGE.read_text(encoding="utf-8"))
-        if info == "toml" and "[propeller]" in body
+        if info == "toml" and "[rotor]" in body
     ]
     assert len(blocks) == 1, (
-        f"the page carries {len(blocks)} propeller artifacts; this guard reads exactly "
+        f"the page carries {len(blocks)} recorded rotor blocks; this guard reads exactly "
         "one, and zero would pass every assertion below vacuously"
     )
 
     artifact = ReferenceArtifact.model_validate(tomllib.loads(blocks[0]))
-    assert artifact.propeller is not None, (
-        "the documented artifact parses but carries no propeller block, so the guard "
+    assert artifact.rotor is not None, (
+        "the documented artifact parses but carries no recorded rotor block, so the guard "
         "would go on passing over a page that lost the block entirely"
     )
 
 
-def test_every_key_of_the_documented_propeller_is_a_field_of_the_model():
+def test_every_key_of_the_documented_rotor_block_is_a_field_of_the_model():
     """A renamed field cannot leave the page quietly documenting the old name.
 
     ``extra="forbid"`` means validation already refuses an unknown key,
@@ -262,25 +262,25 @@ def test_every_key_of_the_documented_propeller_is_a_field_of_the_model():
     """
     import tomllib
 
-    from pyflightstream.workspace.inputs import PropellerReference
+    from pyflightstream.workspace.inputs import RotorReference
 
     blocks = [
         body
         for info, body in _blocks(PAGE.read_text(encoding="utf-8"))
-        if info == "toml" and "[propeller]" in body
+        if info == "toml" and "[rotor]" in body
     ]
     assert len(blocks) == 1
-    documented = set(tomllib.loads(blocks[0])["propeller"])
-    assert documented, "the documented propeller block is empty"
+    documented = set(tomllib.loads(blocks[0])["rotor"])
+    assert documented, "the documented recorded rotor block is empty"
 
-    unknown = documented - set(PropellerReference.model_fields)
+    unknown = documented - set(RotorReference.model_fields)
     assert not unknown, (
-        f"the page documents {sorted(unknown)} under [propeller] and the model has no "
-        f"such field. Its fields are {sorted(PropellerReference.model_fields)}"
+        f"the page documents {sorted(unknown)} under [rotor] and the model has no "
+        f"such field. Its fields are {sorted(RotorReference.model_fields)}"
     )
 
 
-def test_every_field_of_the_propeller_model_is_documented_on_the_page():
+def test_every_field_of_the_rotor_block_model_is_documented_on_the_page():
     """The direction that was checked by nothing.
 
     The case above checks page is a subset of model, which catches a
@@ -292,11 +292,11 @@ def test_every_field_of_the_propeller_model_is_documented_on_the_page():
     """
     import tomllib
 
-    from pyflightstream.workspace.inputs import PropellerReference
+    from pyflightstream.workspace.inputs import RotorReference
 
     #: Fields the page deliberately does not show, each with its reason.
     undocumented = {
-        "hub_radius_m": "the root cutout, which the page's example propeller does not "
+        "hub_radius_m": "the root cutout, which the page's example rotor does not "
         "have; it is documented in the model docstring and adding it to the example "
         "would show a value the rest of the example does not use",
     }
@@ -304,19 +304,19 @@ def test_every_field_of_the_propeller_model_is_documented_on_the_page():
     blocks = [
         body
         for info, body in _blocks(PAGE.read_text(encoding="utf-8"))
-        if info == "toml" and "[propeller]" in body
+        if info == "toml" and "[rotor]" in body
     ]
     assert len(blocks) == 1
-    parsed = tomllib.loads(blocks[0])["propeller"]
+    parsed = tomllib.loads(blocks[0])["rotor"]
     documented = set(parsed) | {"position"}
 
-    missing = set(PropellerReference.model_fields) - documented - set(undocumented)
+    missing = set(RotorReference.model_fields) - documented - set(undocumented)
     assert not missing, (
-        f"the propeller model carries {sorted(missing)} and the page shows no such key. "
+        f"the recorded rotor model carries {sorted(missing)} and the page shows no such key. "
         "Either the example gains it, or it joins the allow-list in this test with the "
         "reason it is deliberately not shown"
     )
-    stale = set(undocumented) - set(PropellerReference.model_fields)
+    stale = set(undocumented) - set(RotorReference.model_fields)
     assert not stale, (
         f"the allow-list excuses {sorted(stale)}, which the model no longer has, so the "
         "list is now excusing nothing and would hide the next real omission"
@@ -329,24 +329,24 @@ def test_the_page_states_the_two_things_a_reader_cannot_discover_by_trying():
     A field that validates, persists and changes no emitted script is
     indistinguishable from a field that works, right up until a campaign
     trusts it. And the artifact carrying it never reaches a recipe, so a
-    reader following the obvious route writes `case.reference.propeller`
+    reader following the obvious route writes `case.reference.rotor`
     and meets an AttributeError at script-build time.
 
     THIS CASE IS NOT THE GUARD ON EITHER PROPERTY, and says so rather
     than being read as one: it asserts that the SENTENCES are on the
     page. The property itself is measured by
-    `test_no_module_outside_the_model_reads_the_propeller_block` in
+    `test_no_module_outside_the_model_reads_the_recorded_rotor_block` in
     tests/tier1_offline/test_workspace.py, which fails with the module that started
     reading the block. This case fails when the page stops saying what
     that one measures.
     """
     text = _normalized(PAGE.read_text(encoding="utf-8")).lower()
-    assert "nothing in the package reads the propeller block" in text, (
-        "the page documents the propeller block without saying that no emitter reads "
+    assert "nothing in the package reads the recorded rotor block" in text, (
+        "the page documents the recorded rotor block without saying that no emitter reads "
         "it, which is the only way a reader learns it short of running a campaign on "
         "the assumption that one does"
     )
-    assert "case.reference.propeller` does not exist" in text, (
+    assert "case.reference.rotor` does not exist" in text, (
         "the page does not tell a recipe author that the artifact never reaches them, "
         "so the documented way to use these fields is one they cannot follow"
     )

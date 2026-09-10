@@ -20,7 +20,7 @@ not there. The refusal of a simulation the manifest does not record is
 ``pyfs-workspace migrate-geometries <root>`` moves a flat geometry
 library into one folder per geometry, each with its boundary inventory
 and provenance record, through :func:`migrate_geometry_layout`
-(PFS-2032.05, her reading of design 68 section A3). It says what it
+(PFS-2032.05, the author's reading of design 68 section A3). It says what it
 moved and which folders it left alone, moves nothing on a second run,
 and refuses a root with no ``inputs/geometries`` with exit 2. Nothing
 migrates by itself, and the flat layout is not deprecated.

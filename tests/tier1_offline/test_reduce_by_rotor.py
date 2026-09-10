@@ -1,6 +1,6 @@
 """Tier 1: the reductions read each rotor's blade count from its own declaration (FR-68).
 
-Her design of 2026-09-10, PFS-2035.11, AMENDING PFS-2015.04.01 which reads
+The author's design of 2026-09-10, PFS-2035.11, AMENDING PFS-2015.04.01 which reads
 the count from `PERIODIC_COPIES` at 0.14.0.
 
 TWO HALVES, and the first is not in the requirement's text because nothing
@@ -19,13 +19,13 @@ from __future__ import annotations
 
 import pytest
 
-from pyflightstream.cases import EngineBlock, ReferenceData, SimCase, SweepAxis
+from pyflightstream.cases import ReferenceData, RotorBlock, SimCase, SweepAxis
 from pyflightstream.cases.workflows import reduction_windows
 
 
-def rotor(alias: str, general: list[str], blades: int, diameter: float) -> EngineBlock:
-    """One engine block, its blades named one per entry as the reference declares them."""
-    return EngineBlock(
+def rotor(alias: str, general: list[str], blades: int, diameter: float) -> RotorBlock:
+    """One rotor block, its blades named one per entry as the reference declares them."""
+    return RotorBlock(
         alias=alias,
         x_m=0.0,
         y_m=0.0,
@@ -58,7 +58,7 @@ def transition_case(**overrides) -> SimCase:
         "aircraft": "WORK",
         "recipe": "unsteady_rotor",
         "sweep": SweepAxis(type="alpha", values=[0.0]),
-        "engines": {"LIFT_L1": LIFTER, "PUSHER": PUSHER},
+        "rotors": {"LIFT_L1": LIFTER, "PUSHER": PUSHER},
         "variables": variables,
         "motions": [
             {"MOVING_BC_ALIAS": "LIFT_L1", "RPM": "2200"},
@@ -124,7 +124,7 @@ def test_a_period_whose_fraction_decides_is_rounded_not_truncated():
     2026-09-10).
     """
     seven = rotor("LIFT_L1", ["LH_L1"], 7, 1.2)
-    plan = reduction_windows(transition_case(engines={"LIFT_L1": seven, "PUSHER": PUSHER}))
+    plan = reduction_windows(transition_case(rotors={"LIFT_L1": seven, "PUSHER": PUSHER}))
     assert plan is not None
     assert plan["rotors"]["LIFT_L1"]["period_steps"] == 39
 

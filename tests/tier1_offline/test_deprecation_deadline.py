@@ -232,9 +232,32 @@ def test_every_promise_defined_in_the_ledger_is_in_the_tuple() -> None:
         name: value for name, value in vars(_deprecations).items() if isinstance(value, kinds)
     }
     assert defined, "the ledger defines no entry at module scope, so this proves nothing"
-    listed = {id(entry) for entry in DEPRECATIONS}
+    # TWO HOMES, AND AN ENTRY BELONGS TO EXACTLY ONE. `DEPRECATIONS` holds a
+    # live shim with a deadline; `REFUSED_IN_0_15_0` holds an entry whose old
+    # spelling this release REFUSES, kept only so the refusal and the ledger
+    # print one sentence. What is still forbidden is an entry in neither,
+    # which is a promise nothing keeps.
+    refused = _deprecations.REFUSED_IN_0_15_0
+    listed = {id(entry) for entry in DEPRECATIONS} | {id(entry) for entry in refused}
     missing = sorted(name for name, entry in defined.items() if id(entry) not in listed)
-    assert not missing, f"defined in the ledger and absent from DEPRECATIONS: {missing}"
+    assert not missing, (
+        f"defined in the ledger and in neither DEPRECATIONS nor REFUSED_IN_0_15_0: {missing}"
+    )
+    both = sorted(
+        name
+        for name, entry in defined.items()
+        if id(entry) in {id(one) for one in DEPRECATIONS}
+        and id(entry) in {id(one) for one in refused}
+    )
+    assert not both, (
+        f"{both} are in DEPRECATIONS and in REFUSED_IN_0_15_0 at once, so the same "
+        "spelling is promised and refused; the deadline guard would watch a shim "
+        "that no longer exists"
+    )
+    assert refused, (
+        "REFUSED_IN_0_15_0 is empty. It holds the batch this release breaks rather "
+        "than carries, and an empty tuple makes the disjointness above vacuous."
+    )
 
 
 @pytest.mark.parametrize("entry", DEPRECATIONS, ids=_subject)

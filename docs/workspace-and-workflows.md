@@ -152,9 +152,9 @@ the decisions and the package derives the rest.
 * `ADVANCE_RATIO: <J>` sets the rotor speed as `n = V / (J D)`, against
   the velocity this row already resolves and the diameter `D`. **Since
   0.15.0 that diameter is the ROTOR'S OWN** where the motion names an
-  engine block of the reference, so one ratio written once gives rotors
+  rotor block of the reference, so one ratio written once gives rotors
   of different sizes different speeds (FR-63); where no alias is cited it
-  is the `propeller_diameter_m` the reference artifact carries, which is
+  is the `rotor_diameter_m` the reference artifact carries, which is
   one number for the whole configuration. `RPM: <rev/min>` states the
   speed directly instead. A row states exactly one of the two, and stating
   both is refused: the rev/min are what the ratio works out to, so a
@@ -233,14 +233,14 @@ read by the package rather than ignored:
 | v0.8.1 | `GEOMETRY`, `SYMMETRY`, `PERIODIC_COPIES` |
 | v0.10.0 | `ADVANCE_RATIO`, `RPM_SIGN`, `DELTA_THETA`, `REVOLUTIONS`, `LOG_OUTPUT` |
 | v0.10.1 | none. What changed is what `MOVING_BOUNDARIES` ACCEPTS: see below |
-| v0.11.0 | `MOTIONS`, a list of records, one rotor each: `MOTIONS: {MOVING_BOUNDARIES: Blade1 / RPM: 1200 / RPM_SIGN: 1 / ROTOR_AXIS: X / ROTOR_ORIGIN: ERP1}, {...}`; a record's `ROTOR_ORIGIN` is three coordinates or the name of an engine point of `inputs/reference_points.toml`, and no flat motion key may stand beside the list (PFS-2029.11) |
+| v0.11.0 | `MOTIONS`, a list of records, one rotor each: `MOTIONS: {MOVING_BOUNDARIES: Blade1 / RPM: 1200 / RPM_SIGN: 1 / ROTOR_AXIS: X / ROTOR_ORIGIN: ERP1}, {...}`; a record's `ROTOR_ORIGIN` is three coordinates or the name of a rotor point of `inputs/reference_points.toml`, and no flat motion key may stand beside the list (PFS-2029.11) |
 | v0.11.0 | `BASE_REGIONS`, the mesh families the base-region autodetect may consider, one `DETECT_BASE_REGIONS_BY_SURFACE` per boundary of them after `OPEN`; it overrides the pproc artifact's `base_regions`, and naming none emits nothing (PFS-2029.10) |
 | v0.13.0 | `EXPORT_UNSTEADY_AFTER_REV` and `EXPORT_UNSTEADY_AFTER_ITER`, the step the per-step exports begin on, one per row at most; the first on `unsteady_rotor` only, both refused on `steady` (PFS-2031.18) |
 | v0.13.0 | none. What changed is that the list above is now CLOSED for a workflow row: a key no run type registers is refused at `pyfs-matrix plan` (PFS-2008.02.01), see below |
 | v0.14.0 | none. What changed again is what `MOVING_BOUNDARIES` ACCEPTS: a name the row's setup defines under `[aliases]`, between the exact label and the family, see What a solver preset may say |
-| v0.14.0 | `ROTATE`, a list of records, one rotation of the opened mesh each, in the order written: `ROTATE: {ANGLE: 3 / AXIS: NAC-Y / FAMILIES: Blade,S / AUX_FRAMES: PROP_MRP}, {...}`; on every run type; the frame is one the setup defines or the package creates, the families are names, never indices (PFS-2034.02), see [One row, one geometry, turned](#one-row-one-geometry-turned) |
+| v0.14.0 | `ROTATE`, a list of records, one rotation of the opened mesh each, in the order written: `ROTATE: {ANGLE: 3 / AXIS: NAC-Y / FAMILIES: Blade,S / AUX_FRAMES: ROTOR_MRP}, {...}`; on every run type; the frame is one the setup defines or the package creates, the families are names, never indices (PFS-2034.02), see [One row, one geometry, turned](#one-row-one-geometry-turned) |
 
-| v0.15.0 | `MOVING_BC_ALIAS`, the rotor a motion record moves, an alias the reference declares as an engine block. It is the ONLY rotor identity a row carries: the hub, the axis, the sign, the blade count and the diameter come from that block, and a record stating `MOVING_BOUNDARIES`, `ROTOR_AXIS`, `ROTOR_ORIGIN`, `RPM_SIGN` or `BLADES` beside it is refused naming both (FR-61) |
+| v0.15.0 | `MOVING_BC_ALIAS`, the rotor a motion record moves, an alias the reference declares as a rotor block. It is the ONLY rotor identity a row carries: the hub, the axis, the sign, the blade count and the diameter come from that block, and a record stating `MOVING_BOUNDARIES`, `ROTOR_AXIS`, `ROTOR_ORIGIN`, `RPM_SIGN` or `BLADES` beside it is refused naming both (FR-61) |
 | v0.15.0 | `CLOCK_MOTION`, which of the row's motions owns the time step and the run length. REQUIRED on any row that states a `MOTIONS` list: a row that states the list and no key is refused, naming the motions it could have named. The flat pre-0.15.0 form, which names one rotor in its own keys, is exempt because it has nothing to choose between; that form becomes required at 0.17.0 too (FR-64) |
 | v0.15.0 | `SYMMETRY_LOADS`, whether the solver reports the loads of the meshed sector or of the whole wheel. On every run type, because a mirrored or periodic mesh is opened by a steady row too; a row stating it overrides the preset and warns naming both files (FR-66) |
 | v0.15.0 | `RAW`, a list of records, one raw solver command each or one file of them, in the order written: `RAW: {COMMAND: SOLVER_SET_ITERATIONS 350 / BEFORE: init}, {FILE: raw/extra.txt / BEFORE: init}`; a record states `COMMAND` or `FILE` and never both, and `BEFORE`, the phase it goes before, spelled as the preset's `[[raw]]` table spells it. **ITS PAIRS SPLIT ON A SPACED SLASH**, ` / `, and not on the bare one every other record kind uses, because its values are a path and a command line and both carry slashes of their own. A raw file is a path under `inputs/` whose blank lines and `#` lines are skipped (FR-67), see [What a solver preset may say](#what-a-solver-preset-may-say) |
@@ -332,7 +332,7 @@ artifact and the geometry sharing NO name, not a member missing from one
 group: an artifact is written once for a study and shared by rows
 opening different geometries, so a family a file lacks is left out by
 design, and `p002`'s group 3 (`Body`, `Base`) sums to zero on the wing
-rows exactly as her products carry it.
+rows exactly as the author's products carry it.
 
 `angle_sweep_deg` IS RESERVED TOO, since v0.7.0, and it is the one whose
 match FOLDS CASE rather than being exact: a cell spelling it in any
@@ -481,7 +481,7 @@ kind and what is available.
 ### The geometry library: flat, or one folder per geometry
 
 `inputs/geometries/` is read in two layouts, and the `GEOMETRY` cell is
-the same in both (PFS-2032.04, her reading of 2026-09-08). Flat, the
+the same in both (PFS-2032.04, the author's reading of 2026-09-08). Flat, the
 file sits directly in the folder with its boundary inventory beside it;
 one folder per geometry, the file sits in a folder named by its stem,
 and everything that belongs to that geometry sits with it:
@@ -523,7 +523,7 @@ raw mesh with none and a folder already made, then runs it again
 and runs a matrix row against the folder layout on the campaign path
 (`test_matrix_run.py::test_a_row_naming_a_folded_geometry_runs_on_that_folder_alone`).
 The flat layout is not deprecated: nothing migrates by itself, and the
-cycle that retires it is hers to open once the folders have run a
+cycle that retires it is the author's to open once the folders have run a
 campaign.
 
 ### What a solver preset may say, and what happens to a key that reaches nothing
@@ -602,7 +602,7 @@ converge and publish induced drag against a setup nobody selected. Drop
 the key for the default, or name the families. Which entity-selecting
 keys admit an empty list is the domain seat's call, written beside each
 key in `pyflightstream.workspace.inputs.ENTITY_SELECTIONS`, and the
-refusal prints her verdict; the post-processing artifact's keys are
+refusal prints the author's verdict; the post-processing artifact's keys are
 listed under that artifact below.
 
 A preset defined **custom coordinate systems** at 0.14.0
@@ -616,11 +616,11 @@ A preset defined **custom coordinate systems** at 0.14.0
 
 Every row citing the preset has them created right after the frames the
 package makes itself (`MRP` at the moment point on every run type,
-`PROP_MRP` at the propeller on the rotor run types), in the order
+`<ALIAS>_SMRP` at each rotor's hub on the rotor run types), in the order
 written and before any motion, so a rotor whose
 axis frame is one of these turns about a frame that exists. The table is
 not a solver setting and never reaches the refusal above. A name the
-package creates itself (`MRP`, `PROP_MRP`), a name defined twice, or an
+package creates itself (`MRP`, `ROTOR_MRP`), a name defined twice, or an
 origin that is not three numbers is refused at plan time naming the
 preset. What the frames are FOR is the row's rotation of a boundary
 family about one of their axes, which 0.14.0 adds beside them.
@@ -636,7 +636,7 @@ family about one of their axes, which 0.14.0 adds beside them.
     preset stops being read for it at 0.17.0.
 
 A preset may also state **raw solver commands**, since 0.14.0
-(PFS-2033.01, her design of 2026-09-09), in a `[[raw]]` table, one entry
+(PFS-2033.01, the author's design of 2026-09-09), in a `[[raw]]` table, one entry
 per line, each naming the phase it goes before:
 
     [[raw]]
@@ -716,7 +716,7 @@ Note the `" / "` in the join: the spaced separator is the raw record's
 grammar, not a style choice, so a generator that writes `"/"` produces a
 row this reader refuses.
 
-A preset named **groups of mesh families** at 0.14.0 (her
+A preset named **groups of mesh families** at 0.14.0 (the author's
 decision of 2026-09-09), in an `[aliases]` table, one key per alias:
 
     [aliases]
@@ -834,7 +834,7 @@ it always has.
 
 The two files above carry only the lengths the sweep table needed. A
 reference artifact also carries a FOURTH length for a propelled
-configuration, the moment point, and a `[propeller]` block. This is
+configuration, the moment point, and a `[rotor]` block. This is
 `inputs/references/r003.toml` in full, the same artifact the listing
 above summarises by its first three lengths:
 
@@ -842,38 +842,38 @@ above summarises by its first three lengths:
 area_m2 = 10.0
 chord_m = 1.2
 span_m = 8.0
-propeller_diameter_m = 2.0
+rotor_diameter_m = 2.0
 
 [moment_point]
 x_m = 0.3
 y_m = 0.0
 z_m = 0.0
 
-[propeller]
+[rotor]
 radius_m = 1.0
 n_blades = 3
 pitch_deg = 0.0
 toe_deg = 0.0
 
-[propeller.position]
+[rotor.position]
 x_m = 0.0
 y_m = 0.0
 z_m = 0.0
 ```
 
-`propeller_diameter_m` SITS WITH THE OTHER LENGTHS AND NOT IN THE
-`[propeller]` BLOCK, which is the natural-looking home and the wrong one.
-The propeller block is recorded metadata of which this package reads
+`rotor_diameter_m` SITS WITH THE OTHER LENGTHS AND NOT IN THE
+`[rotor]` BLOCK, which is the natural-looking home and the wrong one.
+The recorded rotor block is recorded metadata of which this package reads
 ONE field, the position, since 0.11.0 (the unsteady run types create the
-PROP_MRP frame there); the diameter is a DIVISOR of published numbers,
+ROTOR_MRP frame there); the diameter is a DIVISOR of published numbers,
 exactly like the area and the chord. It is what an advance ratio is a ratio against, so a
 row stating `ADVANCE_RATIO` and a reference without this field is
-refused naming the field to add, and it is what the propeller
+refused naming the field to add, and it is what the rotor
 coefficients normalise on. It is optional, because a configuration with
-no propeller has no diameter and a placeholder would be worse than
+no rotor has no diameter and a placeholder would be worse than
 nothing.
 
-`[propeller.position]` is the hub position in the simulation geometry
+`[rotor.position]` is the hub position in the simulation geometry
 frame, in m, and it defaults to the origin if you leave the table out,
 which is a default and not a measurement.
 
@@ -889,41 +889,51 @@ artifact still carrying any of the four is refused naming the row keys;
 the signs, and the derivation from a published sense to a sign, are on
 [the mesh inputs page](mesh-inputs.md).
 
-!!! warning "Since 0.15.0 the reference declares the study's vocabulary"
+### The reference declares the study's vocabulary
 
-    Three tables joined this artifact, and the paragraphs above are
-    written for a configuration with ONE propeller (FR-59, FR-60, FR-72).
+Since 0.15.0 this artifact is where a study says what its boundaries are
+CALLED, and it is the first thing to write when you set a workspace up: the
+rows that come later cite these names and nothing else. Three tables carry
+it, and the paragraphs above them are written for a configuration with ONE
+rotor (FR-59, FR-60, FR-72).
 
-        [aliases]                  a name for a set of boundaries; a member
-                                   may be another alias, resolved to the end
-        [[frames]]                 the custom coordinate systems, moved here
-                                   from the setup preset
-        [<ROTOR>] kind = "engine"  one block per rotor, and the block's NAME
-                                   is an alias over everything it owns
+    [aliases]                  a name for a set of boundaries; a member
+                               may be another alias, resolved to the end
+    [[frames]]                 the custom coordinate systems, moved here
+                               from the setup preset
+    [<ROTOR>] kind = "rotor"  one block per rotor, and the block's NAME
+                               is an alias over everything it owns
 
-    A rotor block states `alias` (optional, and equal to its name), the hub
-    as `x_m`, `y_m`, `z_m`, then `axis`, `rpm_sign`, `diameter_m`,
-    `families_general`, `families_blades` and `blade1`. **The blade count
-    is the length of `families_blades`** and nothing else, so a row states
-    no count and a sector mesh carrying one blade of four still reduces
-    over four.
+THE FILE SAYS `rotor` AND THIS PAGE SAYS ROTOR, and the two are the
+same object. The discriminator is `kind = "rotor"` because that is what
+the model has been called since 0.15.0; the prose says rotor because a
+lifter is not a rotor any more than it is a rotor, which is the
+same reason `scale = "rotor_radius"` became `rotor_radius` in this
+release. Which word the vocabulary settles on is the author's call and
+is open; until the author makes it, the page names both rather than teaching
+one and leaving the other to be met in a refusal.
 
-    **`diameter_m` is per rotor, and it is what an advance ratio resolves
-    against for a motion citing that block.** The top-level
-    `propeller_diameter_m` above still answers for a row that names no
-    alias; it is one number for a whole configuration, so it cannot answer
-    for a second rotor of another size, which is why the length moved into
-    the block.
+A rotor block states `alias` (optional, and equal to its name), the hub
+as `x_m`, `y_m`, `z_m`, then `axis`, `rpm_sign`, `diameter_m`,
+`families_general`, `families_blades` and `blade1`. **The blade count
+is the length of `families_blades`** and nothing else, so a row states
+no count and a sector mesh carrying one blade of four still reduces
+over four.
 
-    `RPM_SIGN` on a row likewise answers only where no alias is cited: a
-    record naming a rotor takes the sign from its block, and a record
-    stating both is refused naming both.
+**`diameter_m` is per rotor, and it is what an advance ratio resolves
+against for a motion citing that block.** The top-level
+`rotor_diameter_m` above still answers for a row that names no
+alias; it is one number for a whole configuration, so it cannot answer
+for a second rotor of another size, which is why the length moved into
+the block.
 
-Two warnings, and neither is a detail.
+`RPM_SIGN` on a row likewise answers only where no alias is cited: a
+record naming a rotor takes the sign from its block, and a record
+stating both is refused naming both.
 
-Nothing in the package reads the propeller block except its `position`,
+Nothing in the package reads the recorded rotor block except its `position`,
 since 0.11.0: the two unsteady run types turn it into a coordinate system
-named PROP_MRP, the frame the author's probe lines and rotor plots are
+named ROTOR_MRP, the frame the author's probe lines and rotor plots are
 defined in, and the frame a rotor row turns about unless it states
 `ROTOR_ORIGIN`. The rest of the block, `radius_m` (optional since
 0.11.0, and checked against the diameter when stated) and `n_blades`,
@@ -937,7 +947,7 @@ strips them, and the argument behind them is on
 AND THE ARTIFACT DOES NOT REACH A RECIPE, which is worth knowing before
 you write one. `resolve_matrix` narrows this artifact to the reference
 area and length the case needs, and a recipe is called with the case and
-the script, so `case.reference.propeller` does not exist. The full
+the script, so `case.reference.rotor` does not exist. The full
 artifact survives in the resolved matrix, keyed by the REF code of the
 row, so a recipe that wants a sign reads it from the workspace or the
 resolved matrix it closes over:
@@ -959,18 +969,18 @@ def recipe(case, script):
     # The ROW's code, not a literal: a case carries the codes of the row
     # it came from, so this reads the artifact that row named.
     reference = resolved.references[case.variables["matrix_ref"]]
-    propeller = reference.propeller
-    if propeller is None:
+    rotor = reference.rotor
+    if rotor is None:
         raise ValueError(
             f"{case.sim_id}: this recipe places a probe line per blade and the "
-            "reference artifact describes no propeller"
+            "reference artifact describes no rotor"
         )
-    blades = propeller.n_blades   # the RESOLVED count, one under a periodic sector
+    blades = rotor.n_blades   # the RESOLVED count, one under a periodic sector
 ```
 
 The guard on the way to `blades` is the point rather than ceremony:
-`propeller` is `None` for any reference artifact that describes no
-propeller, and a recipe that assumes one writes a script the solver
+`rotor` is `None` for any reference artifact that describes no
+rotor, and a recipe that assumes one writes a script the solver
 cannot run. The rotor speed and its sign are the ROW's (`RPM`,
 `ADVANCE_RATIO`, `RPM_SIGN`), read through `rotor_speed(case)` rather
 than from the artifact, so a recipe that emits a rotor motion reads the
@@ -1091,8 +1101,8 @@ what those three do to the entry); `<ALIAS>_SMRP`, `<ALIAS>_RMRP` and
 `<ALIAS>_RMRP<k>`, the same frames named for ONE rotor, which is how an
 entry says which rotor it is about on a row that turns nine; a frame the
 row's REFERENCE declares in its `[[frames]]` table, by the name written
-there (`LIFTERS_MRP`, `PUSHER_TIP`); and, from before 0.15.0, `PROP_MRP`,
-`BLADE_AXIS`, `PROP_MRP<k>` and `RotorAxis<k>`, which still resolve.
+there (`LIFTERS_MRP`, `PUSHER_TIP`); and, from before 0.15.0, `ROTOR_MRP`,
+`BLADE_AXIS`, `ROTOR_MRP<k>` and `RotorAxis<k>`, which still resolve.
 
 **THE FRAME DECIDES HOW THE ENTRY EXPANDS**, which is why there is no
 `expand` key and why `each_blade` retired. An entry in `MRP` or a declared
@@ -1116,7 +1126,7 @@ three rows.
 
 !!! warning "Since 0.15.0 a rotor's frames are named from its alias"
 
-    A motion record that names an engine block of the reference
+    A motion record that names a rotor block of the reference
     instantiates `<ALIAS>_SMRP` at the hub, `<ALIAS>_RMRP` turning with
     the motion, and `<ALIAS>_RMRP<k>` per blade of that block's
     `families_blades`, turning with blade k (FR-62). Nine rotors
@@ -1141,7 +1151,7 @@ three rows.
     `<ALIAS>_RMRP<k>` never double: they turn WITH the motion at every step
     of an unsteady run, so there is no single frame they turned from.
 
-    `PROP_MRP<k>` and `RotorAxis<k>` still resolve for an entry written
+    `ROTOR_MRP<k>` and `RotorAxis<k>` still resolve for an entry written
     against 0.14.0, and a record that names no alias still emits them, so
     a workspace may migrate its rows before its post-processing. The
     custom frames come from the REFERENCE now, not the preset, and a
@@ -1155,7 +1165,7 @@ spells it, and what the empty list feeds (PFS-2005.02, "an empty boundary
 list is refused wherever the solver would read it as disable everything"),
 except where the
 domain seat has given the empty list a meaning. A group is one such key
-since 0.14.0, her decision of 2026-09-09:
+since 0.14.0, the author's decision of 2026-09-09:
 
 ```toml
 [groups]
@@ -1171,7 +1181,7 @@ reference calls airframe and nothing is hardcoded; or a FAMILY, the label
 without its trailing number, so `["Blade"]` sums `Blade1` to
 `Blade6`, which is group 4 of the example above. A member the geometry does not carry is left out, and a
 position passes through to the motion. Until 0.14.0 the empty group was
-refused as her undecided call, and a family name in a group summed
+refused as the author's undecided call, and a family name in a group summed
 nothing at products time. `families = []` in a
 `[[plots.groups]]` or a `[[sections.distributions]]` entry is refused,
 naming `UNSTEADY_SOLVER_NEW_FORCE_PLOT` or
@@ -1255,12 +1265,12 @@ re-tabled with its coefficient columns brought from the solver's reference
 velocity to the free stream. And the REDUCTIONS of that table, one file per
 applicable reduction beside it (PFS-2015.04), over the window the row
 states; the next section walks them. The arithmetic behind the polar table is the
-author's own and was checked column by column against the tables she
+author's own and was checked column by column against the tables the author
 recorded: FlightStream's `CL`, `CDi + CDo` and `Cy` are the stability-axis
 coefficients, the body axes follow by turning them through the angle of
 attack, the wind axes by turning the stability axes through the sideslip,
 and the rolling and yawing moments are `CMx` and `CMz` scaled from the chord
-to the span, with her sign.
+to the span, with the author's sign.
 
 The run writes these after collection, under `post/<matrix stem>/`, the
 folder named after the matrix file (`post/matriz/` for `matriz.fs`), and
@@ -1292,7 +1302,7 @@ CSV, and `[products] custom_polar_format = true` on the pproc artifact
 writes that file beside every polar table the stage writes,
 `<polar>_M<code>_g<group>.dat`
 beside the `.csv`, the same rows a second time (PFS-2014.01.01). Off by
-default. The shape, read off a file of hers and pinned by the committed
+default. The shape, read off a file of the author's and pinned by the committed
 fixture `tests/tier1_offline/fixtures/custom_polar_format_sample.dat` (every
 value in it synthetic), is nine header lines and then one line per point:
 
@@ -1317,7 +1327,7 @@ the twenty-four column names of the polar table in its order, and every
 number at `%10.5f`. The docstring of
 `pyflightstream.post.write_custom_polar_format` is the specification, line
 by line, and `read_custom_polar_format` reads the file back (before
-0.14.0 the five names were spelled `her`; the old names and the old key
+0.14.0 the five names were spelled `the author's`; the old names and the old key
 still work and warn, and are removed in 0.16.0); the tier-1 test
 feeds the fixture's rows through the writer and requires the fixture's
 bytes, and writes, reads and writes again what the stage produced,
@@ -1424,7 +1434,7 @@ not skipped: a rotorless point lists no per-blade file anywhere.
 
 **SINCE 0.15.0 A ROW THAT NAMES ITS ROTORS REDUCES PER ROTOR** (FR-68), and
 it needs no `BLADES` of its own: each rotor's blade count is the one its
-engine block declares, and each rotor's blade passage is ITS OWN
+rotor block declares, and each rotor's blade passage is ITS OWN
 revolution, `60 / (rev per minute * the solver step)`, divided by its
 blades. A transition row turning four lifters at 2200 rev/min and a pusher
 at 900 reduces the two over passages of different lengths in one run, which
@@ -1514,13 +1524,13 @@ rotor. Since v0.11.0 a row may state several (PFS-2029.11): `MOTIONS: {...},
 {...}`, each pair of braces one rotor holding those same keys, the pairs
 inside separated by `/` as in the flat cell and the records by commas. The
 builder then creates, per record, a fixed frame at the record's hub
-(`PROP_MRP1`, `PROP_MRP2`, ...), a moving frame turned by the motion
+(`ROTOR_MRP1`, `ROTOR_MRP2`, ...), a moving frame turned by the motion
 (`RotorAxis1`, ...) and one `CREATE_NEW_MOTION` block citing its own frame,
-axis, speed and boundaries; the row's `PROP_MRP` stays the frame the pproc
+axis, speed and boundaries; the row's `ROTOR_MRP` stays the frame the pproc
 entries cite, the time step follows the rotor `CLOCK_MOTION` names, and the run record
 lists every record as bound. A record's `ROTOR_ORIGIN` may name a point of
 `inputs/reference_points.toml` instead of three coordinates; the point must
-be an engine point, `ERP` or `ERP1` through `ERPn` by the naming convention,
+be a rotor point, `ERP` or `ERP1` through `ERPn` by the naming convention,
 and a motion on a point declared `kind = "airframe"` is refused naming the
 point and its kind. A name outside the convention is refused when the file is
 read, whatever kind it declares, because the names are what say how many
@@ -1583,7 +1593,7 @@ Two things about that conversion are worth knowing before you run it:
 An installed propeller's incidence is a parametric study: the same mesh, the
 blade and spinner families turned a few degrees in pitch or in toe, one
 run per angle. Since 0.14.0 a row states that turn in its cell
-(PFS-2034.02, her design of 2026-09-09) and the geometry file stays what
+(PFS-2034.02, the author's design of 2026-09-09) and the geometry file stays what
 it was:
 
 ```text
@@ -1597,7 +1607,7 @@ written, so a pitch and then a toe is `{...}, {...}`. `ANGLE` is in
 degrees; `AXIS` names a coordinate system and one of its axes, as
 `PUSHER_SMRP-Y`, where the system is one the row's REFERENCE declares in
 its `[[frames]]` table (above) or one the package creates itself (`MRP` on
-every run type; `PROP_MRP` on the rotor run types, and a rotor's own
+every run type; `ROTOR_MRP` on the rotor run types, and a rotor's own
 `<ALIAS>_SMRP`, `<ALIAS>_RMRP` and `<ALIAS>_RMRP<k>`).
 
 **`ALIAS` names what turns, and it is the same word a motion uses.** That
@@ -1662,15 +1672,84 @@ the file carries.
 ```
 
 A rotor row that turns its blades and does not name the frame they spin
-about among the auxiliaries (`PROP_MRP` on a flat row, `PROP_MRP1` and so
+about among the auxiliaries (`ROTOR_MRP` on a flat row, `ROTOR_MRP1` and so
 on for the records of a `MOTIONS` row) is accepted and WARNS naming the
 frame: the blades turn and the axis stays, which is a physics call the row
 may mean, so it is not refused.
 
 What the solver does with the rotated mesh is the measurement of the seat
-run her study books (PFS-2034.05): the package emits the rotation the
+run the author's study books (PFS-2034.05): the package emits the rotation the
 manual documents, citing a frame the manual's own sample cites, and the
 run record is where the accepted geometry will be read from.
+
+## Worked rows, and where to get the files
+
+Every row below is a real row of `tests/tier3_licensed/matriz_vocab.fs`,
+rendered to a script on every commit by
+`python -m tests.tier3_licensed.offline` and compared against a committed
+golden by `tests/tier1_offline/test_tier3_offline.py`. They are not
+sketches: copy the workspace at `tests/tier3_licensed/inputs/` and these
+rows plan as they stand. The geometry they open, `41_TWIN.fsm`, is
+synthetic, generated by a committed generator, with its provenance recorded
+beside it.
+
+The artifacts they name are worth reading in this order:
+`inputs/references/r006.toml` (the lengths, the aliases, one block per
+rotor), `inputs/setups/s002.toml` (how the solver runs) and
+`inputs/pproc/p005.toml` (what gets written down). `r004.toml` and
+`p003.toml` state the same aircraft in the vocabulary of 0.14.0, so the
+migration can be diffed rather than described.
+
+**A rotor named by alias.** The row says which rotor turns and how fast;
+the hub, the axis, the sign, the blade families and the diameter are the
+reference's, stated once in that rotor's block.
+
+```
+8001 | ... | r006 | s002 | p005 | ... | unsteady_rotor | GEOMETRY: 41_TWIN.fsm /
+  SYMMETRY: NONE / DELTA_THETA: 30 / REVOLUTIONS: 0.5 / CLOCK_MOTION: PORT /
+  MOTIONS: {MOVING_BC_ALIAS: PORT / RPM: 2400}
+```
+
+**Two rotors, two speeds, from ONE advance ratio.** The ratio is written
+once in the flight condition and reaches every motion that states no speed
+of its own, resolving against each rotor's own `diameter_m`.
+
+```
+8002 | ... | MACH:0.1, REmi:2.3, ALPHA:0, BETA:0, ADVANCE_RATIO:sweep | 0.6,0.8 |
+  r006 | s002 | p005 | ... | CLOCK_MOTION: PORT /
+  MOTIONS: {MOVING_BC_ALIAS: PORT}, {MOVING_BC_ALIAS: STARBOARD}
+```
+
+The rendered script for its first point,
+`goldens/matriz_vocab/POLAR-8002_M10AL+000BE+000J+060.txt`, emits
+`SET_MOTION_ROTOR_RPM 1 930.3642` and `SET_MOTION_ROTOR_RPM 2 -1860.7283`:
+twice the speed on the rotor of half the diameter, negative because that
+block declares `rpm_sign = -1`.
+
+**One rotor held while the other sweeps**, which is how a transition row is
+written: a motion stating its own speed holds it against the condition's
+ratio.
+
+```
+8003 | ... | ADVANCE_RATIO:sweep | 0.6,0.8 | ... |
+  MOTIONS: {MOVING_BC_ALIAS: PORT}, {MOVING_BC_ALIAS: STARBOARD / RPM: 1800}
+```
+
+**Turning the mesh before the run.** A `ROTATE` record cites the ALIAS, and
+every frame that alias owns turns with its boundaries; the frame it turned
+FROM is kept as `<ALIAS>_SMRP_ORIGINAL`, and a post-processing entry naming
+the turned frame is written in both.
+
+```
+8004 | ... | ROTATE: {ANGLE: 3 / AXIS: NACELLE-Y / ALIAS: STARBOARD}
+```
+
+**Raw solver commands the row states itself**, each before a named phase and
+through the same emitter checks every curated line passes.
+
+```
+8005 | ... | RAW: {COMMAND: SOLVER_SET_ITERATIONS 350 / BEFORE: init}
+```
 
 ## From a filled-in matrix to results, in one call
 
@@ -1935,7 +2014,7 @@ form on `unsteady` is refused naming the iterations form that would work,
 because a run that turns nothing has no revolution to count.
 
 This replaces the degrees-backwards window of PFS-2025.08 for the mid-run
-exports: the exports begin AFTER a threshold, in her definition, and the
+exports: the exports begin AFTER a threshold, in the author's definition, and the
 `WINDOW_*` keys keep their one job, the averaging window of the
 reductions.
 

@@ -457,7 +457,7 @@ def test_the_newest_build_inherits_nothing_so_a_command_with_no_row_is_absent():
 
     The two hotfixes before it inherit, and the default is right for
     them: a hotfix that does not touch a command really does carry the
-    base evidence. The author's instruction for this build is the
+    base evidence. Instruction for this build is the
     opposite, and the reason is a number rather than a preference. With
     inheritance on, a build issued the day before would have answered
     for every command 26.120 records without a page of its own manual

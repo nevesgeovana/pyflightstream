@@ -27,7 +27,7 @@ on one. THE FRAME DECIDES how a post-processing entry expands, so there is
 no `expand` key: an entry in `MRP` is one over the set it names, one in
 `SMRP` or `RMRP` is one per rotor in that rotor's own frame, and one in
 `LOCAL_AXIS` is one per blade. Six lines of a `[plots]` table become
-twenty-seven emissions on a nine-rotor aircraft. Her three master's cases
+twenty-seven emissions on a nine-rotor aircraft. The author's three master's cases
 ran against the wheel before the tag and MOVED NO NUMBER: 0.15.0 reproduces
 the 0.14.0 run coefficient for coefficient, and the rotor case's emitted
 script is byte for byte 0.14.0's, the staged geometry path apart.

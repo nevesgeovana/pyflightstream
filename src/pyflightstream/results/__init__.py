@@ -397,7 +397,7 @@ def classify_solver_mode(printed: str) -> str | None:
 
 # --- provenance vocabulary: raw off the run, or out of a reduction ---------
 #
-# PFS-2014.05, her requirement of 2026-08-16. A sweep table carries one row
+# PFS-2014.05, the author's requirement of 2026-08-16. A sweep table carries one row
 # per point, and in a mixed campaign a steady point's row holds a direct
 # integration while an unsteady point's row holds a time average. Same
 # column, two different quantities, and a reader who cannot tell them apart
@@ -410,8 +410,8 @@ def classify_solver_mode(printed: str) -> str | None:
 # only place neither has to copy.
 #
 # THE TOKENS AND THEIR CODES ARE THE AUTHOR'S CALL and are built here under
-# the lane's default, which she has not yet ruled on; the vocabulary is a
-# proposal until she does, and NFR-19 is where its status is tracked. Two
+# the lane's default, which the author has not yet ruled on; the vocabulary is a
+# proposal until the author does, and NFR-19 is where its status is tracked. Two
 # origin tokens, three reduction
 # tokens; a row with no loads report says ``unknown`` rather than ``none``,
 # because ``none`` would assert a direct integration that never happened; and
@@ -621,7 +621,7 @@ def reduction_for_solver_mode(printed: str | None) -> str:
 
 # --- which solver exports this package can read ----------------------------
 #
-# PFS-2014.02, her scoping of 2026-08-16. The census of ``phase: export``
+# PFS-2014.02, the author's scoping of 2026-08-16. The census of ``phase: export``
 # commands CANNOT be the default set: two of the eighteen entries export
 # nothing at all (they set the VTK variable list and delete a profile), so
 # the classification has to be explicit data rather than a filter.
@@ -633,7 +633,7 @@ def reduction_for_solver_mode(printed: str | None) -> str:
 #: The export has a parser and a tabular conversion in this package.
 EXPORT_PARSED = "parsed"
 
-#: A structured format deliberately outside the default set (her scoping of
+#: A structured format deliberately outside the default set (the author's scoping of
 #: 2026-08-16): Tecplot, VTK and Nastran files are read by their own tools,
 #: and flattening one to a table loses the structure that made it worth
 #: exporting. Converted only when the user names it in the optional
@@ -1436,7 +1436,7 @@ def parse_probe_points(text: str, requested_version=None) -> ProbePointsReport:
     # tests/tier1_offline/fixtures/probe_points_zero_26.123.txt, step 4 of
     # the tier-3 actions row 6002 on 26.123, 2026-09-09; every stamped
     # probes file of the author's rows 1226 and 5913 carries the same
-    # shape, read off her workspace and not committed; PFS-2031.18.01):
+    # shape, read off the author's workspace and not committed; PFS-2031.18.01):
     # a complete table of no rows, which the
     # walker below would read as a table with no closing line, since it
     # skips every dashed line after the header until a row appears.

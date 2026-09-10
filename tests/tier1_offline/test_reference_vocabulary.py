@@ -1,6 +1,6 @@
 """The reference holds the vocabulary of a study's boundaries (FR-59, FR-60, FR-72).
 
-Her design of 2026-09-10, written out first as a use case workspace and
+The author's design of 2026-09-10, written out first as a use case workspace and
 read three times before any of this existed. Three tables move into the
 reference artifact, and one of them is new:
 
@@ -9,7 +9,7 @@ reference artifact, and one of them is new:
   sides.
 * ``[[frames]]``, which 0.14.0 also put in the setup preset. A coordinate
   system is geometric data.
-* one block per rotor, ``kind = "engine"``, whose NAME is an alias over
+* one block per rotor, ``kind = "rotor"``, whose NAME is an alias over
   everything the rotor owns.
 
 WHY THESE TESTS FAIL ON THE BASE, and it is the same reason for all of
@@ -54,7 +54,7 @@ name = "NAC_PUSH"
 origin = [7.2, 0.0, 0.0]
 
 [LIFT_L1]
-kind = "engine"
+kind = "rotor"
 alias = "LIFT_L1"
 x_m = 1.2
 y_m = 2.4
@@ -67,7 +67,7 @@ families_blades = ["LB_L1_1", "LB_L1_2", "LB_L1_3", "LB_L1_4"]
 blade1 = { azimuth_deg = 0.0, zero = "X" }
 
 [LIFT_R1]
-kind = "engine"
+kind = "rotor"
 alias = "LIFT_R1"
 x_m = 1.2
 y_m = -2.4
@@ -80,7 +80,7 @@ families_blades = ["LB_R1_1", "LB_R1_2", "LB_R1_3", "LB_R1_4"]
 blade1 = { azimuth_deg = 0.0, zero = "X" }
 
 [PUSHER]
-kind = "engine"
+kind = "rotor"
 alias = "PUSHER"
 x_m = 7.2
 y_m = 0.0
@@ -125,7 +125,7 @@ def test_a_reference_declares_its_custom_frames(tmp_path):
 
 def test_an_engine_block_is_a_rotor(tmp_path):
     reference = _reference(tmp_path, VOCABULARY_TOML)
-    pusher = reference.engines["PUSHER"]
+    pusher = reference.rotors["PUSHER"]
     assert pusher.axis == "X"
     assert pusher.rpm_sign == 1
     assert pusher.diameter_m == 1.8
@@ -135,12 +135,13 @@ def test_an_engine_block_is_a_rotor(tmp_path):
 
 def test_the_blade_count_is_the_length_of_the_blade_family_list(tmp_path):
     reference = _reference(tmp_path, VOCABULARY_TOML)
-    assert reference.engines["PUSHER"].blade_count == 3
-    assert reference.engines["LIFT_L1"].blade_count == 4
+    assert reference.rotors["PUSHER"].blade_count == 3
+    assert reference.rotors["LIFT_L1"].blade_count == 4
 
 
 def test_the_engine_name_is_an_alias_over_everything_the_rotor_owns(tmp_path):
-    """Her words of 2026-09-10: the alias prescribes the motion and the spinner turns with it."""
+    """The author's words of 2026-09-10: the alias prescribes the motion and the spinner turns with
+    it."""
     reference = _reference(tmp_path, VOCABULARY_TOML)
     assert reference.aliases["PUSHER"] == [
         "Spinner",
@@ -154,7 +155,7 @@ def test_the_engine_name_is_an_alias_over_everything_the_rotor_owns(tmp_path):
 def test_two_rotors_may_differ_in_diameter(tmp_path):
     """FR-63: one ratio resolves against each rotor's own length, so they may differ."""
     reference = _reference(tmp_path, VOCABULARY_TOML)
-    assert reference.engines["LIFT_L1"].diameter_m != reference.engines["PUSHER"].diameter_m
+    assert reference.rotors["LIFT_L1"].diameter_m != reference.rotors["PUSHER"].diameter_m
 
 
 def test_a_block_whose_alias_differs_from_its_name_is_refused(tmp_path):
@@ -169,9 +170,9 @@ def test_a_rotor_may_be_named_with_a_trailing_digit(tmp_path):
 
     PFS-2035.02 said a rotor name is refused when it ENDS IN A DIGIT,
     "because a number after a radical always means a blade". Written
-    against the frame names of 0.14.0 (``PROP_MRP<k>``, ``BladeAxis<k>``)
+    against the frame names of 0.14.0 (``ROTOR_MRP<k>``, ``BladeAxis<k>``)
     that rule was necessary. Written against the frame names this release
-    introduces it refuses her own use case: every one of the eight lifters
+    introduces it refuses the author's own use case: every one of the eight lifters
     in `inputs/references/r011.toml` is named `LIFT_L1` through `LIFT_R4`.
 
     It is also no longer necessary. A rotor's frames are `<ALIAS>_SMRP`,
@@ -181,8 +182,8 @@ def test_a_rotor_may_be_named_with_a_trailing_digit(tmp_path):
     that is the rule the next test measures.
     """
     reference = _reference(tmp_path, VOCABULARY_TOML)
-    assert "LIFT_L1" in reference.engines
-    assert reference.engines["LIFT_L1"].blade_count == 4
+    assert "LIFT_L1" in reference.rotors
+    assert reference.rotors["LIFT_L1"].blade_count == 4
 
 
 def test_a_rotor_named_after_a_frame_is_refused(tmp_path):
@@ -292,19 +293,19 @@ def test_the_alias_field_may_be_omitted_and_is_filled_from_the_name(tmp_path):
     """
     body = VOCABULARY_TOML.replace('alias = "PUSHER"\n', "")
     reference = _reference(tmp_path, body, "r906")
-    assert reference.engines["PUSHER"].alias == "PUSHER"
+    assert reference.rotors["PUSHER"].alias == "PUSHER"
 
 
 def test_a_stated_alias_matching_the_name_case_folded_is_accepted(tmp_path):
     """Every other alias comparison in the package folds case; this one did not."""
     body = VOCABULARY_TOML.replace('alias = "PUSHER"', 'alias = "pusher"')
     reference = _reference(tmp_path, body, "r907")
-    assert "PUSHER" in reference.engines
+    assert "PUSHER" in reference.rotors
 
 
 def test_a_rotor_block_that_forgot_its_kind_is_refused_naming_kind(tmp_path):
     """The likeliest hand-editing mistake, and it used to read as an unknown key."""
-    body = VOCABULARY_TOML.replace('[PUSHER]\nkind = "engine"\n', "[PUSHER]\n")
+    body = VOCABULARY_TOML.replace('[PUSHER]\nkind = "rotor"\n', "[PUSHER]\n")
     message = _refused(tmp_path, body, "r908")
     assert "kind" in message
     assert "families_blades" in message, "the refusal names what made it look like a rotor"
@@ -457,8 +458,8 @@ def test_a_lower_case_axis_and_datum_are_normalised(tmp_path):
         'blade1 = { azimuth_deg = 0.0, zero = "Y" }', 'blade1 = { azimuth_deg = 0.0, zero = "y" }'
     )
     reference = _reference(tmp_path, body, "r915")
-    assert reference.engines["PUSHER"].axis == "X"
-    assert reference.engines["PUSHER"].blade1.zero == "Y"
+    assert reference.rotors["PUSHER"].axis == "X"
+    assert reference.rotors["PUSHER"].blade1.zero == "Y"
 
 
 def test_a_reference_may_declare_a_named_point_beside_its_rotors(tmp_path):
@@ -472,7 +473,7 @@ def test_a_reference_may_declare_a_named_point_beside_its_rotors(tmp_path):
 def test_the_members_property_is_the_order_the_alias_takes(tmp_path):
     """QA1-8: two orderings of one rule lived in two places and one was untested."""
     reference = _reference(tmp_path, VOCABULARY_TOML)
-    pusher = reference.engines["PUSHER"]
+    pusher = reference.rotors["PUSHER"]
     assert pusher.members == reference.aliases["PUSHER"]
     assert pusher.members[0] == "Spinner", "the general families come first"
     assert pusher.origin == (7.2, 0.0, 0.0)

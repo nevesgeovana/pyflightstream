@@ -45,7 +45,6 @@ import numpy as np
 import pytest
 
 from pyflightstream._errors import (
-    PyflightstreamDeprecationWarning,
     PyflightstreamError,
     PyflightstreamWarning,
 )
@@ -56,9 +55,11 @@ from pyflightstream._fsm import (
     boundary_names,
 )
 from pyflightstream.cases import (
+    BladeDatum,
     CampaignConfigError,
     FrameSpec,
     ReferenceData,
+    RotorBlock,
     SimCase,
     SolverSettings,
     SweepAxis,
@@ -136,6 +137,29 @@ def fixture_campaign(fs_version: str = "26.120"):
     )
 
 
+#: THE ROTOR THE FIXTURES TURN, declared where 0.15.0 declares one: in the
+#: reference, as a block whose name is the rotor's alias. Before this release
+#: a rotor row carried its own axis, origin and blade count and a run with
+#: none of them turned about the origin, which is a guess the script recorded
+#: as a position; the builder now refuses that, so a fixture that runs a
+#: rotor declares one.
+#:
+#: OFF AXIS IN ALL THREE COMPONENTS, for the reason the row's own docstring
+#: gives: a hub at the origin makes a builder that hardcodes the origin pass.
+FIXTURE_ROTOR = RotorBlock(
+    alias="ROTOR",
+    x_m=0.1,
+    y_m=0.2,
+    z_m=0.3,
+    axis="X",
+    rpm_sign=1,
+    diameter_m=3.6576,
+    families_general=[],
+    families_blades=["Blade1"],
+    blade1=BladeDatum(azimuth_deg=0.0, zero="Y"),
+)
+
+
 def rotor_case(**overrides) -> SimCase:
     """One rotor case built by hand, for the per-variable refusals."""
     variables: dict[str, str | float | int | bool] = {
@@ -161,6 +185,7 @@ def rotor_case(**overrides) -> SimCase:
         outputs=["loads_a+00.0.txt"],
         variables=variables,
         point={"alpha": 0.0},
+        rotors={FIXTURE_ROTOR.alias: FIXTURE_ROTOR},
     )
 
 
@@ -713,7 +738,7 @@ def test_exactly_one_window_form_is_taken(kwargs):
 
 
 def test_the_window_is_counted_backwards_from_the_end_of_the_run():
-    """Her rule: the last blade passage, not the first."""
+    """The author's rule: the last blade passage, not the first."""
     window = export_window(degrees=90.0, rpm=RPM, delta_time_s=DT, time_iterations=720)
     assert window.window_steps() == (596, 720)
 
@@ -763,7 +788,7 @@ def test_the_reduction_plan_names_four_artefacts_with_the_raw_series_first():
     assert isinstance(plan, ReductionPlan)
     assert plan.artefacts[0] == plan.series_file, (
         "the raw series is not first; it ships BESIDE every reduction and is never "
-        "replaced by one, which is her standing qualification on this capability"
+        "replaced by one, which is the author's standing qualification on this capability"
     )
     assert len(plan.artefacts) == 4 and len(set(plan.artefacts)) == 4, (
         f"four distinct artefacts are owed; got {plan.artefacts}"
@@ -967,7 +992,7 @@ def test_the_per_blade_windows_do_not_all_average_the_same_frames(tmp_path):
 
 
 def test_a_reduction_cannot_be_written_over_the_series_it_came_from(tmp_path):
-    """Her file rule, exercised through the plan's own names."""
+    """The author's file rule, exercised through the plan's own names."""
     plan = reduction_plan(rotor_case())
     series = _series(tmp_path)
     series_file = write_series(tmp_path / plan.series_file, series)
@@ -2453,7 +2478,7 @@ def ratio_case(**overrides) -> SimCase:
     case = rotor_case(**variables)
     return case.model_copy(
         update={
-            "reference": ReferenceData(area=50.0, length=2.526, propeller_diameter=3.6576),
+            "reference": ReferenceData(area=50.0, length=2.526, rotor_diameter=3.6576),
             "velocity": 49.036363674559425,
         }
     )
@@ -2508,7 +2533,7 @@ def test_a_ratio_with_no_diameter_on_the_reference_is_refused_naming_the_field()
     with pytest.raises(CampaignConfigError) as raised:
         rotor_speed(case)
     message = str(raised.value)
-    assert "propeller_diameter_m" in message, (
+    assert "rotor_diameter_m" in message, (
         f"the refusal must name the field to add to the reference artifact; got {message!r}"
     )
 
@@ -2547,8 +2572,8 @@ def test_the_azimuthal_step_and_the_revolutions_set_the_whole_clock():
     assert stepping.time_iterations == 54
     assert stepping.steps_per_revolution == pytest.approx(36.0)
     # 10 / (6 * 473.1786) s is 0.0035222840, and the emitted step is that
-    # value at her tool's five decimals: HER DECISION OF 2026-09-04, taken
-    # with her two recorded scripts in hand, which state 0.00352 and 0.00388
+    # value at the author's tool's five decimals: THE AUTHOR'S DECISION OF 2026-09-04, taken
+    # with the author's two recorded scripts in hand, which state 0.00352 and 0.00388
     # for exactly this derivation. The reading this test carried until then
     # was the opposite, and its reason is asserted below rather than
     # deleted, because it is what the decision costs.
@@ -3450,13 +3475,13 @@ def test_the_rotorless_type_emits_no_motion_and_no_frame():
     "key,value",
     [
         ("RPM", "1200"),
-        # ADVANCE_RATIO left this list at 0.11.0 (PFS-2029.19): her wing-body
+        # ADVANCE_RATIO left this list at 0.11.0 (PFS-2029.19): the author's wing-body
         # unsteady rows stated the J of the propeller they did not mesh, and
         # the name carries it; the keys that would turn something stay.
         ("RPM_SIGN", "-1"),
         ("ROTOR_AXIS", "X"),
         ("ROTOR_ORIGIN", "0,0,0"),
-        ("MOVING_BOUNDARIES", "1,2"),
+        ("MOVING_BC_ALIAS", "1,2"),
     ],
 )
 def test_a_rotor_key_on_a_rotorless_row_is_refused_naming_it(key, value):
@@ -3477,11 +3502,11 @@ def test_a_rotor_key_on_a_rotorless_row_is_refused_naming_it(key, value):
 
 
 def test_the_angular_clock_of_a_rotorless_row_needs_a_speed_and_then_resolves():
-    """HER DECISION OF 2026-09-04: a run that meshes nothing turning may still
+    """THE AUTHOR'S DECISION OF 2026-09-04: a run that meshes nothing turning may still
     take an azimuthal clock, when the row states the speed whose azimuth the
     step measures.
 
-    Her POLAR-3224 is the case: a wing-body in a propeller's slipstream at an
+    The author's POLAR-3224 is the case: a wing-body in a propeller's slipstream at an
     advance ratio of 1.3, described as UNS_WB_DTHETA20deg_REV8p0, whose
     recorded DELTA_TIME of 0.00388 is twenty degrees at that propeller's
     speed. Without a speed the pair is still refused, and the refusal now
@@ -3499,7 +3524,7 @@ def test_the_angular_clock_of_a_rotorless_row_needs_a_speed_and_then_resolves():
     stepping = unsteady_time_stepping(with_speed)
     assert stepping.stated_form == "angular"
     assert stepping.time_iterations == 144
-    # 20 / (6 * 858.7977) s; her recorded script states 0.00388, which is her
+    # 20 / (6 * 858.7977) s; the author's recorded script states 0.00388, which is the author's
     # tool's rounding of this number rather than a different clock.
     assert stepping.delta_time_s == pytest.approx(0.0038813952731, abs=5e-13)
     without = unsteady_case(
@@ -3552,16 +3577,16 @@ def test_a_wake_termination_in_revolutions_is_refused_without_the_wrong_reason()
     )
 
 
-# --- FR-54, PFS-2030.03: every setting her scripts state reaches the script --
+# --- FR-54, PFS-2030.03: every setting the author's scripts state reaches the script --
 
 
 def _wb_geometry(tmp_path: Path) -> Path:
-    """A wing-body saved simulation: the two families her steady row carries."""
+    """A wing-body saved simulation: the two families the author's steady row carries."""
     return _saved_simulation(tmp_path / "30_WB.fsm", ["W", "B"])
 
 
 def test_reference_velocity_sideslip_and_initialisation_are_stated(tmp_path):
-    """PFS-2030.03.01: three lines her scripts always wrote and 0.10.1 never did."""
+    """PFS-2030.03.01: three lines the author's scripts always wrote and 0.10.1 never did."""
     from pyflightstream.cases import SolverSettings
 
     lines = rendered(steady_case(geometry=str(_wb_geometry(tmp_path)))).splitlines()
@@ -3598,7 +3623,7 @@ def test_the_moment_point_becomes_the_loads_frame():
     assert "NAME MRP" in lines
     assert "ORIGIN_X 9.152" in lines
     assert "SET_SOLVER_ANALYSIS_LOADS_FRAME 2" in lines, (
-        "the MRP is frame 2, as her scripts numbered it"
+        "the MRP is frame 2, as the author's scripts numbered it"
     )
     assert "SET_ANALYSIS_MOMENTS_MODEL PRESSURE" in lines
     assert lines.index("SET_SOLVER_ANALYSIS_LOADS_FRAME 2") > lines.index("START_SOLVER"), (
@@ -3634,7 +3659,7 @@ def test_vorticity_drag_families_the_geometry_lacks_entirely_are_refused(tmp_pat
 
 
 def test_significant_digits_reach_the_script():
-    """PFS-2030.03.04: seven decimals in every export, as her tables print."""
+    """PFS-2030.03.04: seven decimals in every export, as the author's tables print."""
     from pyflightstream.cases import SolverSettings
 
     seven = steady_case().model_copy(update={"solver": SolverSettings(significant_digits=7)})
@@ -3661,7 +3686,8 @@ def test_wake_termination_in_steps_reaches_the_no_rotor_unsteady_run():
 
 
 def test_symmetry_loads_stated_in_the_setup_reaches_the_script():
-    """PFS-2028.05, her decision of 2026-09-02: emitted exactly as stated, before the start."""
+    """PFS-2028.05, the author's decision of 2026-09-02: emitted exactly as stated, before the
+    start."""
     from pyflightstream.cases import SolverSettings
 
     stated_on = steady_case().model_copy(update={"solver": SolverSettings(symmetry_loads=True)})
@@ -3678,30 +3704,30 @@ def test_symmetry_loads_omitted_still_emits_nothing():
 
 
 def test_the_unsteady_types_create_the_propeller_frame_where_the_reference_places_it():
-    """The frame her probe lines and rotor plots are defined in: PROP_MRP, frame 3."""
+    """The frame the author's probe lines and rotor plots are defined in: ROTOR_SMRP, frame 3."""
     from pyflightstream.cases import ReferenceData
 
     reference = ReferenceData(
         area=50.0,
         length=2.526,
         moment_point_m=(9.152, 0.0, 0.0),
-        propeller_position_m=(14.76344, -3.504, 1.84),
+        rotor_position_m=(14.76344, -3.504, 1.84),
     )
     lines = rendered(unsteady_case().model_copy(update={"reference": reference})).splitlines()
-    assert "NAME PROP_MRP" in lines
-    at = lines.index("NAME PROP_MRP")
+    assert "NAME ROTOR_SMRP" in lines
+    at = lines.index("NAME ROTOR_SMRP")
     assert lines[at - 1] == "FRAME 3", (
-        "MRP is 2 and the propeller frame 3, as her scripts numbered them"
+        "MRP is 2 and the propeller frame 3, as the author's scripts numbered them"
     )
     assert lines[at + 1] == "ORIGIN_X 14.76344"
     assert lines[at + 2] == "ORIGIN_Y -3.504"
     steady = rendered(steady_case().model_copy(update={"reference": reference}))
-    assert "PROP_MRP" not in steady, (
-        "the steady run creates the MRP alone, as her steady script did"
+    assert "ROTOR_SMRP" not in steady, (
+        "the steady run creates the MRP alone, as the author's steady script did"
     )
 
 
-# --- FR-51, PFS-2029.14.01 and PFS-2029.18: the export block, in her order ----
+# --- FR-51, PFS-2029.14.01 and PFS-2029.18: the export block, in the author's order ----
 
 HER_EXPORT_ORDER = (
     "UPDATE_ALL_SURFACE_SECTIONS",
@@ -3733,14 +3759,15 @@ def _with_default_outputs(case: SimCase, unsteady: bool) -> SimCase:
     ids=["steady", "unsteady", "unsteady_rotor"],
 )
 def test_the_export_block_is_her_eight_kinds_in_her_order(make, unsteady):
-    """Her driver's order, flightstreamHorse.py:522-541, updates first and the save first."""
+    """The author's driver's order, flightstreamHorse.py:522-541, updates first and the save
+    first."""
     lines = rendered(_with_default_outputs(make(), unsteady)).splitlines()
     wanted = {v.split()[0] for v in HER_EXPORT_ORDER}
     verbs = [line for line in lines if line.strip() and line.split()[0] in wanted]
     expected = [
         v for v in HER_EXPORT_ORDER if unsteady or not v.startswith("UNSTEADY_SOLVER_EXPORT")
     ]
-    assert verbs == expected, "the export block is not her order"
+    assert verbs == expected, "the export block is not the author's order"
     at = lines.index("SAVEAS")
     assert lines[at + 1] == "POLAR-9_M20AL+000BE+000.fsm", (
         "the saved simulation is named for the point"
@@ -3795,7 +3822,7 @@ def test_default_outputs_and_their_classification():
 
 
 def _her_pproc():
-    """Her post-processing, as the reference workspace's p001 writes it."""
+    """The author's post-processing, as the reference workspace's p001 writes it."""
     from pyflightstream.cases import PprocSpec
 
     return PprocSpec.model_validate(
@@ -3804,7 +3831,7 @@ def _her_pproc():
             "sections": {
                 "count": 50,
                 "distributions": [
-                    {"families": "each_blade", "frame": "BLADE_AXIS", "planes": ["XY"]},
+                    {"families": "all", "frame": "LOCAL_AXIS", "planes": ["XY"]},
                     {"families": ["W"], "frame": "MRP", "planes": ["XZ"]},
                     {"families": ["B"], "frame": "MRP", "planes": ["XZ", "YZ"]},
                     {"families": ["N", "S"], "frame": "MRP", "planes": ["XZ", "YZ"]},
@@ -3815,18 +3842,23 @@ def _her_pproc():
                 "parameters": ["CL", "CDI", "CDO", "CD", "FX", "FY", "FZ", "MX", "MY", "MZ"],
                 "groups": [
                     {"name": "MRP_TOTAL", "frame": "MRP", "families": "all"},
-                    {"name": "MRP_AIRFRAME", "frame": "MRP", "families": "airframe"},
+                    # THE AIRFRAME, LISTED. `airframe` was a selector that
+                    # decided what is NOT a blade from a pattern over the
+                    # name, and 0.15.0 refuses it; a member the opened mesh
+                    # does not carry is left out, so one list serves the
+                    # wing-body (W, B) and the rotor rig (N, S).
+                    {"name": "MRP_AIRFRAME", "frame": "MRP", "families": ["W", "B", "N", "S"]},
                     {"name": "MRP_{family}", "frame": "MRP", "families": "each"},
-                    {"name": "PROP_X", "frame": "PROP_MRP", "families": "blades"},
-                    {"name": "PROP_XS", "frame": "PROP_MRP", "families": ["blades", "S"]},
-                    {"name": "LOCAL_{family}", "frame": "BLADE_AXIS", "families": "each_blade"},
+                    {"name": "PROP_X", "frame": "ROTOR_SMRP", "families": ["Blade1"]},
+                    {"name": "PROP_XS", "frame": "ROTOR_SMRP", "families": ["Blade1", "S"]},
+                    {"name": "LOCAL_{family}", "frame": "LOCAL_AXIS", "families": "all"},
                 ],
             },
             "probes": {
-                "frame": "PROP_MRP",
+                "frame": "ROTOR_SMRP",
                 "parameters": ["MACH", "VELOCITY"],
                 "points": 3,
-                "scale": "propeller_radius",
+                "scale": "rotor_radius",
                 "lines": [{"start": [-2.0, -1.0, 0.0], "end": [-2.0, 1.0, 0.0]}],
             },
         }
@@ -3839,9 +3871,9 @@ def _with_pproc(case: SimCase, geometry: Path, pproc=None) -> SimCase:
     reference = ReferenceData(
         area=50.0,
         length=2.526,
-        propeller_diameter=3.6576,
+        rotor_diameter=3.6576,
         moment_point_m=(9.152, 0.0, 0.0),
-        propeller_position_m=(0.0, -3.504, 0.0),
+        rotor_position_m=(0.0, -3.504, 0.0),
     )
     return case.model_copy(
         update={
@@ -3874,7 +3906,8 @@ def test_pproc_sections_emit_one_distribution_per_family_and_plane(tmp_path):
 
 
 def test_pproc_plots_emit_one_force_plot_per_group_and_frame(tmp_path):
-    """Her 40 force plots on the wing-body: TOTAL, AIRFRAME, W and B, ten parameters each."""
+    """The author's 40 force plots on the wing-body: TOTAL, AIRFRAME, W and B, ten parameters
+    each."""
     case = _with_pproc(unsteady_case(), _wb_geometry(tmp_path))
     lines = rendered(case).splitlines()
     names = [
@@ -3897,7 +3930,7 @@ def test_pproc_plots_emit_one_force_plot_per_group_and_frame(tmp_path):
         "PARAMETER MACH",
         "NAME MACH1",
         "VERTEX -3.6576 -1.8288 0.0",
-    ], "in propeller radii of the reference, in the PROP_MRP frame"
+    ], "in propeller radii of the reference, in the ROTOR_SMRP frame"
     assert lines[fluid[-1] + 3] == "NAME VELOCITY3"
 
 
@@ -3939,7 +3972,7 @@ def test_the_rotor_run_creates_one_axis_frame_per_blade_and_moves_them(tmp_path)
     lines = rendered(case).splitlines()
     assert "NAME BladeAxis1" in lines
     at = lines.index("NAME BladeAxis1")
-    assert lines[at - 1] == "FRAME 4", "MRP is 2, PROP_MRP is 3, the first blade axis is 4"
+    assert lines[at - 1] == "FRAME 4", "MRP is 2, ROTOR_SMRP is 3, the first blade axis is 4"
     rotate = lines.index("ROTATE_COORDINATE_SYSTEM")
     assert lines[rotate + 1 : rotate + 5] == [
         "FRAME 4",
@@ -3969,11 +4002,11 @@ def test_a_pproc_frame_the_run_did_not_create_is_refused_naming_the_created_ones
     from pyflightstream.cases import CampaignConfigError, PprocSpec
 
     # The steady run creates no propeller frame, so a section distribution
-    # citing PROP_MRP is refused there naming the one frame it did create.
+    # citing ROTOR_SMRP is refused there naming the one frame it did create.
     pproc = PprocSpec.model_validate(
         {
             "sections": {
-                "distributions": [{"families": "all", "frame": "PROP_MRP", "planes": ["XZ"]}]
+                "distributions": [{"families": "all", "frame": "ROTOR_SMRP", "planes": ["XZ"]}]
             }
         }
     )
@@ -4064,7 +4097,8 @@ def test_base_region_families_reach_the_script_by_index(tmp_path):
 
 
 def test_naming_no_family_changes_no_golden(tmp_path):
-    """No family named, nothing emitted: the goldens and her recorded scripts carry no such line."""
+    """No family named, nothing emitted: the goldens and the author's recorded scripts carry no such
+    line."""
     sector = _saved_simulation(tmp_path / "sector.fsm", ["Blade1", "S", "N"])
     before = Script("26.123")
     build_script(_rotor_row(sector, "Blade"), before)
@@ -4108,6 +4142,30 @@ def test_an_unknown_base_region_family_is_refused_naming_the_inventory(tmp_path)
     )
 
 
+def _rotors_named(*names: str) -> dict[str, RotorBlock]:
+    """One rotor block per name, each owning the blade family of that name.
+
+    The fixtures below state a MOTIONS list, and a record names a ROTOR the
+    reference declares rather than a family (FR-61). Before 0.15.0 the same
+    records named the boundary directly, so the migration is exactly this:
+    the word the record cites becomes a block, and the boundary it used to
+    name becomes that block's one blade family.
+    """
+    return {
+        name: RotorBlock(
+            alias=name,
+            axis="X",
+            # OFF AXIS AND DIFFERENT PER ROTOR, so a builder that hardcodes
+            # the hub renders both records identically and fails.
+            y_m=1.5 if index == 0 else -1.5,
+            diameter_m=3.6576,
+            families_blades=[name],
+            blade1=BladeDatum(azimuth_deg=0.0, zero="Y"),
+        )
+        for index, name in enumerate(names)
+    }
+
+
 # --- PFS-2029.11.03: N motions in a row become N motions in the script -----------------
 
 
@@ -4115,7 +4173,7 @@ def test_two_motions_emit_two_motion_blocks_with_their_frames(tmp_path):
     sector = _saved_simulation(tmp_path / "twin.fsm", ["Blade1", "S", "N", "Blade2"])
     flat = _rotor_row(sector, "Blade1")
     record_keys = {
-        "MOVING_BOUNDARIES",
+        "MOVING_BC_ALIAS",
         "RPM",
         "ADVANCE_RATIO",
         "RPM_SIGN",
@@ -4123,7 +4181,7 @@ def test_two_motions_emit_two_motion_blocks_with_their_frames(tmp_path):
         "ROTOR_ORIGIN",
     }
     variables = {key: value for key, value in flat.variables.items() if key not in record_keys}
-    # REQUIRED ON A ROW STATING A MOTIONS LIST since 0.15.0 (FR-64, her
+    # REQUIRED ON A ROW STATING A MOTIONS LIST since 0.15.0 (FR-64, the author's
     # decision of 2026-09-10). It names the FASTEST of the two, which is
     # the rotor the package chose in silence before the key existed, so
     # this fixture asserts what it asserted and the key changes no number.
@@ -4131,19 +4189,13 @@ def test_two_motions_emit_two_motion_blocks_with_their_frames(tmp_path):
     twin = flat.model_copy(
         update={
             "variables": variables,
+            "rotors": _rotors_named("Blade1", "Blade2"),
+            # A RECORD NAMING A ROTOR RESOLVES ITS DIAMETER, so the case
+            # carries reference data the way a matrix row always does.
+            "reference": ReferenceData(area=10.0, length=1.2),
             "motions": [
-                {
-                    "MOVING_BOUNDARIES": "Blade1",
-                    "RPM": "1200",
-                    "ROTOR_AXIS": "X",
-                    "ROTOR_ORIGIN": "0,1.5,0",
-                },
-                {
-                    "MOVING_BOUNDARIES": "Blade2",
-                    "RPM": "-2400",
-                    "ROTOR_AXIS": "X",
-                    "ROTOR_ORIGIN": "0,-1.5,0",
-                },
+                {"MOVING_BC_ALIAS": "Blade1", "RPM": "1200"},
+                {"MOVING_BC_ALIAS": "Blade2", "RPM": "-2400"},
             ],
         }
     )
@@ -4185,20 +4237,25 @@ def test_two_motions_emit_two_motion_blocks_with_their_frames(tmp_path):
         for i, line in enumerate(lines)
         if line.startswith("ORIGIN_X")
     ]
-    assert origins.count((0.0, 1.5, 0.0)) == 2 and origins.count((0.0, -1.5, 0.0)) == 2, (
-        f"the fixed and moving frames do not sit at the two hubs: {origins}"
+    # THREE FRAMES PER ROTOR SINCE 0.15.0, all at that rotor's hub: the
+    # static <ALIAS>_SMRP, the moving <ALIAS>_RMRP, and one <ALIAS>_RMRP1
+    # for the rotor's single blade family. The per-blade frame is what the
+    # reference's `families_blades` buys, and it did not exist while a
+    # record named a boundary rather than a rotor.
+    assert origins.count((0.0, 1.5, 0.0)) == 3 and origins.count((0.0, -1.5, 0.0)) == 3, (
+        f"the frames do not sit at the two hubs: {origins}"
     )
-    assert lines.count("CREATE_NEW_COORDINATE_SYSTEM") == 5, (
-        "the row's PROP_MRP, two fixed and two moving frames (no reference, so no MRP)"
+    assert lines.count("CREATE_NEW_COORDINATE_SYSTEM") == 6, (
+        "three frames per rotor and no package-level one (no reference, so no MRP)"
     )
 
 
 def test_a_derived_rotor_speed_is_emitted_at_her_four_decimals():
     """The QA lens of 2026-09-03: the rounding was pinned by nothing.
 
-    The unrounded derivation of this case is 473.17781838...; her tool wrote
-    the derived speed at four decimals and her recorded runs turned at that
-    value (her 9001 point, at a slightly different velocity, is 473.1723 in
+    The unrounded derivation of this case is 473.17781838...; the author's tool wrote
+    the derived speed at four decimals and the author's recorded runs turned at that
+    value (the author's 9001 point, at a slightly different velocity, is 473.1723 in
     RPT-040), so equality is exact here, not approximate.
     """
     assert rotor_speed(ratio_case()).rpm == 473.1778
@@ -4207,7 +4264,7 @@ def test_a_derived_rotor_speed_is_emitted_at_her_four_decimals():
 def test_a_rotorless_row_builds_its_whole_script_from_the_azimuthal_clock(tmp_path):
     """The end-to-end route the QA lens found untested: the builder, not the resolver.
 
-    Her POLAR-3224 is a wing-body in a propeller's slipstream whose row
+    The author's POLAR-3224 is a wing-body in a propeller's slipstream whose row
     states the advance ratio and the azimuthal step; the reference it names
     carries the propeller diameter that turns the ratio into a speed. The
     resolver was covered and the BUILDER was not, so the branch could have
@@ -4225,7 +4282,7 @@ def test_a_rotorless_row_builds_its_whole_script_from_the_azimuthal_clock(tmp_pa
     ).model_copy(
         update={
             "geometry": str(geometry),
-            "reference": ReferenceData(area=50.0, length=2.526, propeller_diameter=3.6576),
+            "reference": ReferenceData(area=50.0, length=2.526, rotor_diameter=3.6576),
         }
     )
     script = Script("26.123")
@@ -4282,9 +4339,13 @@ def _pitched_rotor(tmp_path, **overrides) -> SimCase:
     sector = _saved_simulation(tmp_path / "prop.fsm", ["Blade1", "S", "N"])
     update = {
         "frames": [FrameSpec(name="NAC", origin=(0.4, 0.0, 0.1))],
+        # A ROTATION NAMES A SET THE REFERENCE OWNS since 0.15.0, the way a
+        # motion does, so the two families the record used to list become
+        # one word the study declares.
+        "aliases": {"pitched": ["Blade1", "S"], "Blade1": ["Blade1"], "N": ["N"]},
         "rotations": [
-            {"ANGLE": "3", "AXIS": "NAC-Y", "FAMILIES": "Blade1,S", "AUX_FRAMES": "PROP_MRP"},
-            {"ANGLE": "-2", "AXIS": "NAC-Z", "FAMILIES": "Blade1,S", "AUX_FRAMES": "PROP_MRP"},
+            {"ANGLE": "3", "AXIS": "NAC-Y", "ALIAS": "pitched", "AUX_FRAMES": "ROTOR_SMRP"},
+            {"ANGLE": "-2", "AXIS": "NAC-Z", "ALIAS": "pitched", "AUX_FRAMES": "ROTOR_SMRP"},
         ],
     }
     update.update(overrides)
@@ -4299,7 +4360,7 @@ def test_two_rotation_records_are_two_rotations_in_the_order_written(tmp_path):
     build_script(_pitched_rotor(tmp_path), script)
     lines = script.render().splitlines()
     nac = int(lines[lines.index("NAME NAC") - 1].split()[1])
-    prop = int(lines[lines.index("NAME PROP_MRP") - 1].split()[1])
+    prop = int(lines[lines.index("NAME ROTOR_SMRP") - 1].split()[1])
     rotations = [i for i, line in enumerate(lines) if line.startswith("ROTATE_SURFACE ")]
     assert [lines[i] for i in rotations] == [
         f"ROTATE_SURFACE {nac} Y 3.0 2 DISABLE",
@@ -4335,10 +4396,10 @@ def test_a_case_without_the_rotation_variable_emits_no_rotation(tmp_path):
 @pytest.mark.parametrize(
     ("record", "fragment"),
     [
-        ({"ANGLE": "3", "AXIS": "NAC-Y", "FAMILIES": "Blade1", "AUX_FRAMES": "HUB"}, "HUB"),
-        ({"ANGLE": "3", "AXIS": "TAIL-Y", "FAMILIES": "Blade1"}, "TAIL"),
-        ({"ANGLE": "3", "AXIS": "NAC-Q", "FAMILIES": "Blade1"}, "NAC-Q"),
-        ({"ANGLE": "3", "AXIS": "NAC-Y", "FAMILIES": "Fin"}, "Fin"),
+        ({"ANGLE": "3", "AXIS": "NAC-Y", "ALIAS": "Blade1", "AUX_FRAMES": "HUB"}, "HUB"),
+        ({"ANGLE": "3", "AXIS": "TAIL-Y", "ALIAS": "Blade1"}, "TAIL"),
+        ({"ANGLE": "3", "AXIS": "NAC-Q", "ALIAS": "Blade1"}, "NAC-Q"),
+        ({"ANGLE": "3", "AXIS": "NAC-Y", "ALIAS": "Fin"}, "Fin"),  # no such alias
         # Since 0.15.0 the missing key is ALIAS, and FAMILIES is the
         # spelling it replaced (FR-71).
         ({"ANGLE": "3", "AXIS": "NAC-Y"}, "ALIAS"),
@@ -4358,13 +4419,13 @@ def test_a_rotation_citing_what_the_case_does_not_have_is_refused_naming_it(
 
 
 def test_the_rotor_motion_reads_the_rotated_prop_mrp(tmp_path):
-    """PFS-2034.03: PROP_MRP named among the auxiliaries is turned before the motion is
+    """PFS-2034.03: ROTOR_SMRP named among the auxiliaries is turned before the motion is
     created, and the motion cites that same frame, so it spins about the pitched axis
     with nothing else written."""
     script = Script("26.123")
     build_script(_pitched_rotor(tmp_path), script)
     lines = script.render().splitlines()
-    prop = int(lines[lines.index("NAME PROP_MRP") - 1].split()[1])
+    prop = int(lines[lines.index("NAME ROTOR_SMRP") - 1].split()[1])
     turned = [
         i
         for i, line in enumerate(lines)
@@ -4379,19 +4440,19 @@ def test_the_rotor_motion_reads_the_rotated_prop_mrp(tmp_path):
 def test_a_rotation_of_the_blades_without_the_axis_frame_warns_naming_it(tmp_path):
     """PFS-2034.03: turning the blades and not the frame they spin about is a physics
     call the row may mean, so it warns naming the frame rather than refusing; naming
-    PROP_MRP, or turning a family that does not spin, warns nothing."""
-    blades_only = [{"ANGLE": "3", "AXIS": "NAC-Y", "FAMILIES": "Blade1"}]
-    with pytest.warns(PyflightstreamWarning, match="PROP_MRP") as caught:
+    ROTOR_SMRP, or turning a family that does not spin, warns nothing."""
+    blades_only = [{"ANGLE": "3", "AXIS": "NAC-Y", "ALIAS": "Blade1"}]
+    with pytest.warns(PyflightstreamWarning, match="ROTOR_SMRP") as caught:
         build_script(_pitched_rotor(tmp_path, rotations=blades_only), Script("26.123"))
-    assert any("AUX_FRAMES" in str(w.message) for w in caught), [str(w.message) for w in caught]
+    assert any("that rotor's frames" in str(w.message) for w in caught), [
+        str(w.message) for w in caught
+    ]
     with warnings.catch_warnings():
         warnings.simplefilter("error", PyflightstreamWarning)
-        # The FAMILIES rename is a DIFFERENT subject and these records
-        # still spell it (FR-71); what this arm measures is that turning a
-        # family which does not spin warns nothing about an axis frame.
-        warnings.simplefilter("ignore", PyflightstreamDeprecationWarning)
+        # What this arm measures is that turning a set which does not spin
+        # warns nothing about an axis frame.
         build_script(_pitched_rotor(tmp_path), Script("26.123"))
-        nacelle = [{"ANGLE": "3", "AXIS": "NAC-Y", "FAMILIES": "N"}]
+        nacelle = [{"ANGLE": "3", "AXIS": "NAC-Y", "ALIAS": "N"}]
         build_script(_pitched_rotor(tmp_path, rotations=nacelle), Script("26.123"))
 
 
@@ -4399,7 +4460,7 @@ def test_a_rotation_of_the_blades_without_the_axis_frame_warns_naming_it(tmp_pat
 
 
 def test_a_sector_row_stating_periodic_copies_and_no_blades_gets_its_blade_reductions():
-    """Her isolated propeller on pfs0131 (rows 5901, 5903, 5913, measured 2026-09-09) is
+    """The author's isolated propeller on pfs0131 (rows 5901, 5903, 5913, measured 2026-09-09) is
     one blade meshed and PERIODIC_COPIES: 6, with no BLADES; the per-blade and the
     phase-locked reductions read the count from the copies rather than skipping."""
     plan = _reduction_windows()(rotor_case(BLADES=None, SYMMETRY="PERIODIC", PERIODIC_COPIES="4"))
@@ -4432,12 +4493,12 @@ def test_a_rotor_row_stating_neither_count_skips_naming_both_keys():
 def test_a_rotation_on_a_motions_row_turns_the_records_hub_and_its_moving_frame(tmp_path):
     """QA-1 of REL-0140: three mutants of the MOTIONS tail's rotation wiring
     survived the suite. A two-rotor row rotating Blade2 about NAC-Y with
-    AUX_FRAMES: PROP_MRP2 must turn record two's hub, and its moving frame with it,
+    AUX_FRAMES: Blade2_SMRP must turn record two's hub, and its moving frame with it,
     before the motions are created."""
     sector = _saved_simulation(tmp_path / "twin.fsm", ["Blade1", "S", "N", "Blade2"])
     flat = _rotor_row(sector, "Blade1")
     record_keys = {
-        "MOVING_BOUNDARIES",
+        "MOVING_BC_ALIAS",
         "RPM",
         "ADVANCE_RATIO",
         "RPM_SIGN",
@@ -4445,7 +4506,7 @@ def test_a_rotation_on_a_motions_row_turns_the_records_hub_and_its_moving_frame(
         "ROTOR_ORIGIN",
     }
     variables = {key: value for key, value in flat.variables.items() if key not in record_keys}
-    # REQUIRED ON A ROW STATING A MOTIONS LIST since 0.15.0 (FR-64, her
+    # REQUIRED ON A ROW STATING A MOTIONS LIST since 0.15.0 (FR-64, the author's
     # decision of 2026-09-10). It names the FASTEST of the two, which is
     # the rotor the package chose in silence before the key existed, so
     # this fixture asserts what it asserted and the key changes no number.
@@ -4453,23 +4514,15 @@ def test_a_rotation_on_a_motions_row_turns_the_records_hub_and_its_moving_frame(
     twin = flat.model_copy(
         update={
             "variables": variables,
+            "rotors": _rotors_named("Blade1", "Blade2"),
+            "reference": ReferenceData(area=10.0, length=1.2),
             "frames": [FrameSpec(name="NAC", origin=(0.4, 0.0, 0.1))],
             "motions": [
-                {
-                    "MOVING_BOUNDARIES": "Blade1",
-                    "RPM": "1200",
-                    "ROTOR_AXIS": "X",
-                    "ROTOR_ORIGIN": "0,1.5,0",
-                },
-                {
-                    "MOVING_BOUNDARIES": "Blade2",
-                    "RPM": "-2400",
-                    "ROTOR_AXIS": "X",
-                    "ROTOR_ORIGIN": "0,-1.5,0",
-                },
+                {"MOVING_BC_ALIAS": "Blade1", "RPM": "1200"},
+                {"MOVING_BC_ALIAS": "Blade2", "RPM": "-2400"},
             ],
             "rotations": [
-                {"ANGLE": "3", "AXIS": "NAC-Y", "FAMILIES": "Blade2", "AUX_FRAMES": "PROP_MRP2"}
+                {"ANGLE": "3", "AXIS": "NAC-Y", "ALIAS": "Blade2", "AUX_FRAMES": "Blade2_SMRP"}
             ],
         }
     )
@@ -4477,8 +4530,8 @@ def test_a_rotation_on_a_motions_row_turns_the_records_hub_and_its_moving_frame(
     build_script(twin, script)
     lines = script.render().splitlines()
     nac = int(lines[lines.index("NAME NAC") - 1].split()[1])
-    hub = int(lines[lines.index("NAME PROP_MRP2") - 1].split()[1])
-    moving = int(lines[lines.index("NAME RotorAxis2") - 1].split()[1])
+    hub = int(lines[lines.index("NAME Blade2_SMRP") - 1].split()[1])
+    moving = int(lines[lines.index("NAME Blade2_RMRP") - 1].split()[1])
     rotation = lines.index(f"ROTATE_SURFACE {nac} Y 3.0 1 DISABLE")
     assert lines[rotation + 1] == "4", "Blade2 is boundary 4"
     turned = [
@@ -4493,11 +4546,24 @@ def test_a_rotation_on_a_motions_row_turns_the_records_hub_and_its_moving_frame(
         "the moving frame the package derived from the hub did not follow it"
     )
     assert rotation < lines.index("CREATE_NEW_MOTION ROTARY")
-    # The warning of PFS-2034.03 reaches a MOTIONS row too: Blade2 turned without its hub.
-    with pytest.warns(PyflightstreamWarning, match="PROP_MRP2"):
+    # The warning of PFS-2034.03 reaches a MOTIONS row too, and the case it
+    # is about is now precise: naming the ROTOR carries that rotor's frames,
+    # so the silence is correct there; naming an ALIAS of its blades turns
+    # the blades and leaves the axis behind, which is the physics call the
+    # row may mean and the one worth saying out loud.
+    spinner = twin.model_copy(
+        update={
+            "aliases": {"just_blade2": ["Blade2"]},
+            "rotations": [{"ANGLE": "3", "AXIS": "NAC-Y", "ALIAS": "just_blade2"}],
+        }
+    )
+    with pytest.warns(PyflightstreamWarning, match="Blade2_SMRP"):
+        build_script(spinner, Script("26.123"))
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", PyflightstreamWarning)
         build_script(
             twin.model_copy(
-                update={"rotations": [{"ANGLE": "3", "AXIS": "NAC-Y", "FAMILIES": "Blade2"}]}
+                update={"rotations": [{"ANGLE": "3", "AXIS": "NAC-Y", "ALIAS": "Blade2"}]}
             ),
             Script("26.123"),
         )
@@ -4513,7 +4579,8 @@ def test_a_rotorless_row_stating_a_rotation_renders_it_before_the_settings(tmp_p
         update={
             "geometry": str(wing),
             "frames": [FrameSpec(name="NAC", origin=(0.4, 0.0, 0.1))],
-            "rotations": [{"ANGLE": "-2", "AXIS": "NAC-Z", "FAMILIES": "Wing"}],
+            "aliases": {"Wing": ["Wing"]},
+            "rotations": [{"ANGLE": "-2", "AXIS": "NAC-Z", "ALIAS": "Wing"}],
         }
     )
     script = Script("26.123")
@@ -4527,7 +4594,7 @@ def test_a_rotorless_row_stating_a_rotation_renders_it_before_the_settings(tmp_p
 
 
 def test_a_families_entry_reads_the_setup_aliases_before_the_built_in_words():
-    """Her decision of 2026-09-09: `airframe` and `blades` are whatever the setup
+    """The author's decision of 2026-09-09: `airframe` and `blades` are whatever the setup
     says; a `families` entry resolves an alias before the five built-in
     selectors, as a list member and as the bare string, and a member the
     geometry lacks is ignored."""
@@ -4536,13 +4603,15 @@ def test_a_families_entry_reads_the_setup_aliases_before_the_built_in_words():
     inventory = ["Blade1", "Blade2", "W", "B"]
     is_blade = lambda name: name.startswith("Blade")  # noqa: E731
     aliases = {"airframe": ["W", "Nothing"], "lifters": ["Blade2"]}
-    assert select_families(["airframe"], inventory, is_blade) == [["W", "B"]]
+    with pytest.raises(CampaignConfigError, match="no longer accepted"):
+        select_families(["airframe"], inventory, is_blade)
     assert select_families(["airframe"], inventory, is_blade, aliases=aliases) == [["W"]]
     assert select_families("lifters", inventory, is_blade, aliases=aliases) == [["Blade2"]]
     assert select_families(["lifters", "airframe"], inventory, is_blade, aliases=aliases) == [
         ["Blade2", "W"]
     ]
-    assert select_families("blades", inventory, is_blade, aliases=aliases) == [["Blade1", "Blade2"]]
+    with pytest.raises(CampaignConfigError, match="no longer accepted"):
+        select_families("blades", inventory, is_blade, aliases=aliases)
     assert select_families("LIFTERS", inventory, is_blade, aliases=aliases) == [["Blade2"]], (
         "an alias is read case folded, as a family is"
     )
@@ -4577,7 +4646,7 @@ def _force_plots(lines):
 
 
 def test_a_pproc_entry_cites_a_setup_frame_and_an_alias_word(tmp_path):
-    """Her p001 of 2026-09-09: `frame = "LIFTERS_MRP"` names a frame the setup's
+    """The author's p001 of 2026-09-09: `frame = "LIFTERS_MRP"` names a frame the setup's
     `[[frames]]` table defines, and `families = "Lifters"` is a bare alias word
     (a bare family word reads the same way). The plot takes the setup frame's
     index; an entry whose word resolves to nothing is skipped, not refused; a
@@ -4591,7 +4660,7 @@ def test_a_pproc_entry_cites_a_setup_frame_and_an_alias_word(tmp_path):
                 "parameters": ["CL"],
                 "groups": [
                     {"name": "LIFTERS_X", "frame": "LIFTERS_MRP", "families": "Lifters"},
-                    {"name": "PUSHER_X", "frame": "PROP_MRP", "families": "blade"},
+                    {"name": "PUSHER_X", "frame": "ROTOR_SMRP", "families": "blade"},
                     {"name": "GHOST_X", "frame": "MRP", "families": "Ghost"},
                 ],
             }
@@ -4613,9 +4682,9 @@ def test_a_pproc_entry_cites_a_setup_frame_and_an_alias_word(tmp_path):
     for index, line in enumerate(lines):
         if line == "EDIT_COORDINATE_SYSTEM":
             frames_by_name[lines[index + 2].split(" ", 1)[1]] = lines[index + 1].split(" ", 1)[1]
-    assert {"MRP", "PROP_MRP", "LIFTERS_MRP"} <= set(frames_by_name), frames_by_name
+    assert {"MRP", "ROTOR_SMRP", "LIFTERS_MRP"} <= set(frames_by_name), frames_by_name
     assert plots["CL_LIFTERS_X"]["FRAME"] == frames_by_name["LIFTERS_MRP"], plots["CL_LIFTERS_X"]
-    assert plots["CL_PUSHER_X"]["FRAME"] == frames_by_name["PROP_MRP"], plots["CL_PUSHER_X"]
+    assert plots["CL_PUSHER_X"]["FRAME"] == frames_by_name["ROTOR_SMRP"], plots["CL_PUSHER_X"]
     assert plots["CL_LIFTERS_X"]["INDICES"] == "1,4", (
         "the alias, case folded, is the two lifter blades and not Nothing"
     )
@@ -4648,16 +4717,16 @@ def test_a_families_entry_that_selects_nothing_says_so(tmp_path):
 
 
 def test_a_pproc_entry_cites_a_rotors_own_frame_in_a_motions_row(tmp_path):
-    """Her p001 of 2026-09-09, the eVTOL transition: with several rotors a plot
-    group cites one rotor's hub frame (`PROP_MRP1`) or moving frame
-    (`RotorAxis2`) by the name the solver shows, the same names a rotation's
+    """The author's p001 of 2026-09-09, the eVTOL transition: with several rotors a plot
+    group cites one rotor's hub frame (`ROTOR_SMRP1`) or moving frame
+    (`Blade2_RMRP`) by the name the solver shows, the same names a rotation's
     axis may cite (PFS-2034.02)."""
     from pyflightstream.cases import PprocSpec
 
     sector = _saved_simulation(tmp_path / "twin.fsm", ["Blade1", "S", "N", "Blade2"])
     flat = _rotor_row(sector, "Blade1")
     record_keys = {
-        "MOVING_BOUNDARIES",
+        "MOVING_BC_ALIAS",
         "RPM",
         "ADVANCE_RATIO",
         "RPM_SIGN",
@@ -4665,7 +4734,7 @@ def test_a_pproc_entry_cites_a_rotors_own_frame_in_a_motions_row(tmp_path):
         "ROTOR_ORIGIN",
     }
     variables = {key: value for key, value in flat.variables.items() if key not in record_keys}
-    # REQUIRED ON A ROW STATING A MOTIONS LIST since 0.15.0 (FR-64, her
+    # REQUIRED ON A ROW STATING A MOTIONS LIST since 0.15.0 (FR-64, the author's
     # decision of 2026-09-10). It names the FASTEST of the two, which is
     # the rotor the package chose in silence before the key existed, so
     # this fixture asserts what it asserted and the key changes no number.
@@ -4675,8 +4744,8 @@ def test_a_pproc_entry_cites_a_rotors_own_frame_in_a_motions_row(tmp_path):
             "plots": {
                 "parameters": ["CL"],
                 "groups": [
-                    {"name": "ONE", "frame": "PROP_MRP1", "families": ["Blade1"]},
-                    {"name": "TWO", "frame": "RotorAxis2", "families": ["Blade2"]},
+                    {"name": "ONE", "frame": "Blade1_SMRP", "families": ["Blade1"]},
+                    {"name": "TWO", "frame": "Blade2_RMRP", "families": ["Blade2"]},
                 ],
             }
         }
@@ -4684,19 +4753,13 @@ def test_a_pproc_entry_cites_a_rotors_own_frame_in_a_motions_row(tmp_path):
     twin = _with_pproc(flat, sector, pproc).model_copy(
         update={
             "variables": variables,
+            "rotors": _rotors_named("Blade1", "Blade2"),
+            # A RECORD NAMING A ROTOR RESOLVES ITS DIAMETER, so the case
+            # carries reference data the way a matrix row always does.
+            "reference": ReferenceData(area=10.0, length=1.2),
             "motions": [
-                {
-                    "MOVING_BOUNDARIES": "Blade1",
-                    "RPM": "1200",
-                    "ROTOR_AXIS": "X",
-                    "ROTOR_ORIGIN": "0,1.5,0",
-                },
-                {
-                    "MOVING_BOUNDARIES": "Blade2",
-                    "RPM": "-2400",
-                    "ROTOR_AXIS": "X",
-                    "ROTOR_ORIGIN": "0,-1.5,0",
-                },
+                {"MOVING_BC_ALIAS": "Blade1", "RPM": "1200"},
+                {"MOVING_BC_ALIAS": "Blade2", "RPM": "-2400"},
             ],
         }
     )
@@ -4708,5 +4771,13 @@ def test_a_pproc_entry_cites_a_rotors_own_frame_in_a_motions_row(tmp_path):
         for index, line in enumerate(lines)
         if line.startswith("SET_MOTION_MOVING_FRAMES")
     }
-    assert plots["CL_ONE"]["FRAME"] == systems[0][2], "PROP_MRP1 is the first motion's fixed frame"
-    assert plots["CL_TWO"]["FRAME"] == moving["2"], "RotorAxis2 is the second motion's moving frame"
+    assert plots["CL_ONE"]["FRAME"] == systems[0][2], (
+        "Blade1_SMRP is the first motion's fixed frame"
+    )
+    # THE FIRST OF THE MOVING FRAMES. A record's moving frames are its own
+    # <ALIAS>_RMRP and, since the reference declares the rotor's blade
+    # families, one per blade behind it; the plot names the rotor's, which
+    # is the first.
+    assert plots["CL_TWO"]["FRAME"] == moving["2"].split(",")[0], (
+        "Blade2_RMRP is the second motion's moving frame"
+    )

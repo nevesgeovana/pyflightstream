@@ -477,8 +477,8 @@ DELIBERATELY_UNLISTED = {
     # claim about what an entry carries.
     "scripts/chm_to_pdf.py",
     # CONTRIBUTING.md's invariant 3 states the evidence rule and is the
-    # author's charter. Its wording is hers to change, not this guard's
-    # to force, and it is raised to her rather than edited here.
+    # author's charter. Its wording is the author's to change, not this guard's
+    # to force, and it is raised to the author's rather than edited here.
     "CONTRIBUTING.md",
 }
 

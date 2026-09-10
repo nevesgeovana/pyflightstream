@@ -184,7 +184,7 @@ def test_alpha_only_sweep_reads_every_value():
 
 
 def test_a_row_sweeps_one_angle_and_holds_the_other():
-    """FR-69, and the cost her rule accepts: the paired sweep retires.
+    """FR-69, and the cost the author's rule accepts: the paired sweep retires.
 
     This row was `AL/BE` over `-4.0,0.0,4.0/-2.0,0.0,2.0`, a DIAGONAL
     through the two angles, and it read as three paired points. A sweep is
@@ -266,7 +266,7 @@ def test_a_row_whose_condition_names_no_swept_variable_is_refused(tmp_path):
 
 
 def test_a_row_that_sweeps_two_variables_is_refused_naming_both(tmp_path):
-    """Her rule of 2026-09-10: a sweep is applied to EXACTLY ONE variable.
+    """The author's rule of 2026-09-10: a sweep is applied to EXACTLY ONE variable.
 
     This is the paired AL/BE sweep arriving through the new spelling, and
     it is refused for the reason the column's removal rests on: two swept
@@ -282,9 +282,9 @@ def test_a_row_that_sweeps_two_variables_is_refused_naming_both(tmp_path):
 
 
 def test_a_key_this_release_cannot_vary_is_refused_naming_the_ones_it_can(tmp_path):
-    """The gap between her rule and this release, said out loud.
+    """The gap between the author's rule and this release, said out loud.
 
-    Her rule licenses ANY key that defines the flight condition, and
+    The author's rule licenses ANY key that defines the flight condition, and
     0.15.0 varies the two angles and the advance ratio. A row sweeping
     MACH is therefore legal in the design and unimplemented in the code,
     which is a refusal naming the set rather than a silent single point:
@@ -1057,7 +1057,7 @@ def test_a_row_that_varies_both_angles_is_refused_naming_it(tmp_path):
     assert "one row per" in message.lower(), "the refusal says no and not what to do instead"
     assert "POL" in message, "the refusal does not say why the converter will not do it"
     # AND NOTHING IS WRITTEN: an in-place run that refuses must leave the
-    # file as it was, or the author loses the row she has to split.
+    # file as it was, or the author loses the row the author has to split.
     before = diagonal.read_bytes()
     with pytest.raises(MatrixError):
         _upgrade()(diagonal, in_place=True)
@@ -1482,7 +1482,7 @@ def test_the_inserted_cell_is_written_with_exactly_one_space_on_each_side():
     removes whatever it held, and the reader strips every cell before it
     looks. So a converter writing a lavishly padded cell would satisfy
     both and still hand the author a column that does not line up with
-    the one beside it, in a file she reads by eye.
+    the one beside it, in a file the author reads by eye.
     """
     index = matrix_mod._COLUMNS.index("WORKFLOW")
     last = index == len(matrix_mod._COLUMNS) - 1
@@ -2204,17 +2204,17 @@ def _rotate_cell(text):
 
 
 def test_a_cell_reads_a_rotate_list_in_the_order_written():
-    """PFS-2034.02, her grammar: ROTATE: {...}, {...} is two rotations, in input
+    """PFS-2034.02, the author's grammar: ROTATE: {...}, {...} is two rotations, in input
     order, each with ANGLE, AXIS as frame-axis, FAMILIES and optionally AUX_FRAMES;
     the list leaves the flat keys, and a cell without it reads as before."""
     variables, rotations = _rotate_cell(
         "VELOCITY: 30.0 / ROTATE: "
-        "{ANGLE: 3 / AXIS: NAC-Y / FAMILIES: Blade,S / AUX_FRAMES: PROP_MRP},"
+        "{ANGLE: 3 / AXIS: NAC-Y / FAMILIES: Blade,S / AUX_FRAMES: ROTOR_MRP},"
         " {ANGLE: -2 / AXIS: NAC-Z / FAMILIES: Blade,S} / OUTPUTS: l.txt"
     )
     assert variables == {"VELOCITY": "30.0", "OUTPUTS": "l.txt"}
     assert rotations == [
-        {"ANGLE": "3", "AXIS": "NAC-Y", "FAMILIES": "Blade,S", "AUX_FRAMES": "PROP_MRP"},
+        {"ANGLE": "3", "AXIS": "NAC-Y", "FAMILIES": "Blade,S", "AUX_FRAMES": "ROTOR_MRP"},
         {"ANGLE": "-2", "AXIS": "NAC-Z", "FAMILIES": "Blade,S"},
     ]
     variables, rotations = _rotate_cell("VELOCITY: 30.0")

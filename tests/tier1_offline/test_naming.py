@@ -1,7 +1,7 @@
 """PFS-2029.19: the author's naming convention names every point and its exports.
 
-Her third sentence of 2026-09-02: the output names were bad, look at how
-her master's scripts did it. Measured there: the case name carried the
+The author's third sentence of 2026-09-02: the output names were bad, look at how
+the author's master's scripts did it. Measured there: the case name carried the
 polar, the Mach, the angles and the advance ratio, fixed width, and every
 export hung off it. The matrix command line names points that way unless
 told otherwise; the library default stays ``{point}`` so hand-built
@@ -46,7 +46,7 @@ def test_the_default_template_is_her_convention():
         == "POLAR-9001_M14AL+000BE+000J+170"
     ), "a rotor point at Mach 0.1441 and J 1.7"
     assert polar_name("3224", 0.2, 0.0, 0.0, 1.3) == "POLAR-3224_M20AL+000BE+000J+130"
-    # Her fixed widths sort: alpha 10 and alpha -2 keep their four characters.
+    # The author's fixed widths sort: alpha 10 and alpha -2 keep their four characters.
     assert polar_name("3207", 0.2, 10.0) == "POLAR-3207_M20AL+100BE+000"
     # The convention needs the Mach number, and says so.
     with pytest.raises(NamingTemplateError, match=r"\{polar\}.*Mach"):
@@ -143,7 +143,8 @@ def test_the_record_names_the_template(tmp_path):
 
 
 def test_a_stated_advance_ratio_on_a_rotorless_row_reaches_the_name(tmp_path):
-    """Her 3224 was a wing-body at J 1.3 with no rotor meshed, and its name carried the J."""
+    """The author's 3224 was a wing-body at J 1.3 with no rotor meshed, and its name carried the
+    J."""
     from pyflightstream.run import LocalExecutor
 
     class Stub(LocalExecutor):

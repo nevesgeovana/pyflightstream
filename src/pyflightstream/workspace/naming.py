@@ -31,7 +31,7 @@ Available placeholders:
 The default templates reproduce the historical names exactly
 (``{point}`` for per-point files, ``sim_{sim}`` for archives), so
 existing campaign roots, goldens, and manifests stay valid; the matrix
-command line names points by :data:`MATRIX_POINT_NAME`, her convention,
+command line names points by :data:`MATRIX_POINT_NAME`, the author's convention,
 because a matrix row always resolves a Mach number.
 
 The default templates reproduce the historical names exactly
@@ -79,7 +79,7 @@ def polar_name(
     """Render the author's point convention (PFS-2029.19.01).
 
     ``POLAR-<sim>_M<mach*100:02d>AL<alpha*10:+04d>BE<beta*10:+04d>``, with
-    ``J<J*100:+04d>`` appended when an advance ratio is known: her
+    ``J<J*100:+04d>`` appended when an advance ratio is known: the author's
     ``POLAR-{polar:03d}_M{mach*100:02d}AL{alpha*10:+04d}BE{beta*10:+04d}``
     and, for a rotor case, ``J{advance_ratio*100:+04d}``. Fixed width, so
     a directory of them sorts by polar, Mach, angle and ratio.

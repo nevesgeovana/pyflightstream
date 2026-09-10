@@ -8,7 +8,7 @@ WHAT IS WIRED HERE, and each one is aimed at something this repository did:
 
 * ``tools/check_shipped_surface.py`` against ``tools/shipped_surface.conf``
   over the whole versioned tree. The identifiers that must not travel to a
-  user's machine: the author's given name, her family name and her
+  user's machine: the author's given name, the author's family name and the author's
   institution, in any tracked or newly written file, with the authorship
   exemptions named one per line in the config.
 

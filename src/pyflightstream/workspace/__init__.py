@@ -79,9 +79,9 @@ from pyflightstream.workspace.inputs import (
     InputArtifactError,
     PointXyz,
     PprocArtifact,
-    PropellerReference,
     ReferenceArtifact,
     RegisteredBuild,
+    RotorReference,
     SetupArtifact,
     migrate_geometry_layout,
     migrate_groups_to_pproc,
@@ -121,7 +121,7 @@ __all__ = [
     "NamingTemplate",
     "NamingTemplateError",
     "PointXyz",
-    "PropellerReference",
+    "RotorReference",
     "ReferenceArtifact",
     "ReferencePoints",
     "RegisteredBuild",
@@ -791,7 +791,7 @@ class RunRecord(BaseModel):
     #: the field existed, which the reader takes as the same thing, and
     #: which is why MANIFEST_SCHEMA does not move for it.
     raw_commands: list[RawCommand] = Field(default_factory=list)
-    #: The boundary aliases the row's setup defined (her decision of
+    #: The boundary aliases the row's setup defined (the author's decision of
     #: 2026-09-09), carried so the products stage resolves a group naming
     #: one without opening the setup; empty for a setup defining none and
     #: for every record written before the field existed, which is why
@@ -1046,7 +1046,7 @@ def expand_group(
     ------
     InputArtifactError
         If the group is written EMPTY, which means every family the
-        geometry carries (her decision of 2026-09-09) and leaves this
+        geometry carries (the author's decision of 2026-09-09) and leaves this
         expansion no positions to number; if the descriptor declares no
         group of that name (the message
         lists the ones it does declare), if a member is a boundary label
@@ -1074,7 +1074,7 @@ def expand_group(
     if members == []:
         raise InputArtifactError(
             f"group {name!r} of the group artifact {artifact_id!r} is written empty, which "
-            "means every family the geometry carries (her decision of 2026-09-09); this "
+            "means every family the geometry carries (the author's decision of 2026-09-09); this "
             "expansion numbers members by their position in the list and has none to "
             "number. Write the members, or use the group on the campaign path, where "
             "the polar table and the motion resolve it against the file.",
@@ -1153,7 +1153,7 @@ class ReferencePoints(BaseModel):
     geometry reference frame (m).
 
     The names are a convention, not free text: ``ARP`` is the airframe
-    reference point, and the engine reference point is ``ERP`` with one
+    reference point, and the rotor reference point is ``ERP`` with one
     propulsor or ``ERP1`` through ``ERPn`` with more.
     :func:`check_reference_point_names` is what enforces that.
 
@@ -1172,7 +1172,7 @@ def point_kind(name: str, point: PointXyz) -> str:
     """Say what a reference point is: its stated kind, else what its name says."""
     if point.kind is not None:
         return point.kind
-    return "airframe" if name == _AIRFRAME_POINT else "engine"
+    return "airframe" if name == _AIRFRAME_POINT else "rotor"
 
 
 def check_reference_point_names(names: Sequence[str]) -> None:
@@ -1192,7 +1192,7 @@ def check_reference_point_names(names: Sequence[str]) -> None:
     ------
     InputArtifactError
         If a name is outside the convention, if the singular and the
-        numbered engine names both appear, or if the numbered ones do
+        numbered rotor names both appear, or if the numbered ones do
         not run from 1 without a gap. Each refusal names the offending
         name and the remedy.
     """
@@ -1206,7 +1206,7 @@ def check_reference_point_names(names: Sequence[str]) -> None:
             raise InputArtifactError(
                 f"reference point {name!r} is not one of the standard names; declare "
                 f"{_AIRFRAME_POINT} for the airframe reference point and ERP for the "
-                "engine one, or ERP1 through ERPn with more than one propulsor. The "
+                "rotor one, or ERP1 through ERPn with more than one propulsor. The "
                 "names are the convention that says how many propulsors the campaign "
                 "describes, so a free name would leave that unreadable."
             )
@@ -1220,13 +1220,13 @@ def check_reference_point_names(names: Sequence[str]) -> None:
             f"reference points declare both the singular ERP and the numbered "
             f"{listing}; the singular name means the campaign has exactly one "
             "propulsor, so the two together leave the propulsor count unreadable. "
-            "Number every engine point, or declare only ERP."
+            "Number every rotor point, or declare only ERP."
         )
     if not numbered:
         return
     if 0 in numbered:
         raise InputArtifactError(
-            "reference point 'ERP0' numbers a propulsor from zero; engine points are "
+            "reference point 'ERP0' numbers a propulsor from zero; rotor points are "
             "numbered from 1, as ERP1 through ERPn, because n is the propulsor count."
         )
     expected = set(range(1, max(numbered) + 1))
@@ -1235,7 +1235,7 @@ def check_reference_point_names(names: Sequence[str]) -> None:
         listing = ", ".join(f"ERP{index}" for index in missing)
         raise InputArtifactError(
             f"reference points ERP1 through ERP{max(numbered)} are declared with a gap: "
-            f"{listing} is missing. The numbered engine points run from 1 without a gap, "
+            f"{listing} is missing. The numbered rotor points run from 1 without a gap, "
             "because n is the propulsor count; declare the missing point or renumber."
         )
 
@@ -1454,7 +1454,7 @@ class CampaignWorkspace:
 
         The points live in ``inputs/reference_points.toml``, one TOML
         table per name, and the user writes them once: ``ARP`` for the
-        airframe reference point, ``ERP`` for the engine one with a
+        airframe reference point, ``ERP`` for the rotor one with a
         single propulsor, ``ERP1`` through ``ERPn`` with more. Nothing
         emitted to the solver takes a pivot, so a named point becomes a
         local coordinate system at those coordinates, which is why the
@@ -1549,13 +1549,13 @@ class CampaignWorkspace:
             )
         return points[name]
 
-    def engine_point(self, name: str) -> PointXyz:
+    def rotor_point(self, name: str) -> PointXyz:
         """Resolve a declared reference point that a rotor may turn about.
 
-        PFS-2029.11.02, her decision recorded in the plan: a point's KIND
-        is stated, ``kind = "engine"``, or left to the convention, where
-        ``ERP`` and ``ERPn`` are engines and ``ARP`` is the airframe; a
-        motion on a point that is not an engine is refused naming the
+        PFS-2029.11.02, the author's decision recorded in the plan: a point's KIND
+        is stated, ``kind = "rotor"``, or left to the convention, where
+        ``ERP`` and ``ERPn`` are rotors and ``ARP`` is the airframe; a
+        motion on a point that is not a rotor is refused naming the
         point and its kind, so a rotor turning about the airframe
         reference point is a decision the file shows and never a side
         effect of a name.
@@ -1564,15 +1564,15 @@ class CampaignWorkspace:
         ------
         InputArtifactError
             The point is not declared (as :meth:`reference_point`), or it
-            is declared and is not an engine point.
+            is declared and is not a rotor point.
         """
         point = self.reference_point(name)
         kind = point_kind(name, point)
-        if kind != "engine":
+        if kind != "rotor":
             raise InputArtifactError(
                 f"reference point {name!r} is declared as {kind!r}, and a rotor motion "
-                'turns about an engine point; declare the point with kind = "engine" in '
-                f"{self.inputs_dir / REFERENCE_POINTS_FILE} if it is one, or cite an engine "
+                'turns about a rotor point; declare the point with kind = "rotor" in '
+                f"{self.inputs_dir / REFERENCE_POINTS_FILE} if it is one, or cite a rotor "
                 "point (ERP, or ERP1 through ERPn).",
                 artifact_id=name,
             )
@@ -1700,9 +1700,9 @@ class CampaignWorkspace:
         Staging happens before execution so the manifest can tie the
         run to the exact input content (NFR-07).
 
-        THROUGH A LINK, NOT A COPY (PFS-2029.17, her first sentence of
+        THROUGH A LINK, NOT A COPY (PFS-2029.17, the author's first sentence of
         item #6). Until 0.11.0 every point carried a byte copy of the
-        geometry it opened, and her meshes are the size that sends every
+        geometry it opened, and the author's meshes are the size that sends every
         .fsm to cloud storage rather than to git. When every source sits
         in the workspace's own geometry library, ``sims/<sim>/inputs`` is
         made a directory junction on Windows and a symbolic link

@@ -80,7 +80,10 @@ from pyflightstream.workspace import register_post_stage
 
 
 def __getattr__(name: str) -> object:
-    """Serve the polar format's former ``her`` names here too, warning once from the ledger.
+    """Serve the polar format's former names here too, warning from the ledger.
+
+    Those names were spelled with a possessive prefix before 0.14.0 and are
+    spelled ``custom`` now; the old ones are read until 0.16.0.
 
     The package warns itself rather than routing through the products
     shim: a from-import asks the package twice (``hasattr`` before the

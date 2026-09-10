@@ -10,7 +10,7 @@ live as package data in ``qa/references/`` and change only through
 :func:`update_reference`, which demands a reason string; a reference
 update never shares a commit with code changes (SAD Section 11).
 
-WHERE THE CASES ARE STATED, since 0.13.0 (PFS-2031.17, her decision B of
+WHERE THE CASES ARE STATED, since 0.13.0 (PFS-2031.17, the author's decision B of
 2026-09-08 in design study 66): as rows of a run matrix in a campaign
 workspace, built by the package's own workflows, and nowhere in Python.
 ``tests/tier3_licensed/matriz_physics.fs`` states them: row 5001 is
@@ -24,7 +24,7 @@ in Python (``build_phy01_script`` and its siblings) and ran it itself;
 those builders retired with the decision, because two builders of one
 case drift apart and the diff of their scripts was the only thing that
 said so (RPT-042 is the measurement that the workflow reproduces every
-coefficient inside her bands).
+coefficient inside the author's bands).
 
 What a case measures, kept here because the reductions carry it. PHY-01
 is the wing polar of a synthetic NACA 0012 rectangular wing of aspect

@@ -5,14 +5,26 @@
 area_m2 = 8.0      # SREF, m^2: chord x span
 chord_m = 1.0      # CREF, m
 span_m = 8.0       # BREF, m
-propeller_diameter_m = 3.6576   # the propeller whose slipstream the unsteady wing row sits in (ADVANCE_RATIO needs D)
+rotor_diameter_m = 3.6576   # the propeller whose slipstream the unsteady wing row sits in (ADVANCE_RATIO needs D)
+
+
+# THE STUDY'S OWN WORDS (FR-59). `airframe` and `blades` were SELECTOR words
+# until 0.15.0: the package decided what was a blade from a pattern over the
+# family name, so a mesh whose blades are spelled another way got an airframe
+# with blades in it and nothing said so. A study that names its surfaces
+# cannot be guessed wrong. A member the opened mesh does not carry is left
+# out, which is what lets one table serve every geometry this reference is
+# cited against.
+[aliases]
+airframe = ["Wing", "MainWing", "Body", "Base"]
+blades = ["Blade1", "Blade2"]
 
 [moment_point]
 x_m = 0.25         # quarter chord
 y_m = 0.0
 z_m = 0.0
 
-[propeller]
+[rotor]
 # The slipstream row states an advance ratio, and J needs a diameter and a
 # position; no rotor is meshed in the wing geometry, so this block only
 # gives the derivation its lengths.
@@ -21,7 +33,7 @@ n_blades = 2
 pitch_deg = 0.0
 toe_deg = 0.0
 
-[propeller.position]
+[rotor.position]
 x_m = -3.0
 y_m = 0.0
 z_m = 0.0

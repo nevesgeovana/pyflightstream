@@ -1,7 +1,7 @@
 # p003: p001 without the BLADE_AXIS entries, for a row stating more than one
 # rotor. A multi-rotor row creates no blade-axis frame (PFS-2029.11.03), so a
 # pproc citing one is refused at plan time naming the frames the run creates;
-# this artifact keeps the groups, the wing section, the MRP and PROP_MRP plots
+# this artifact keeps the groups, the wing section, the MRP and per-rotor plots
 # and the probes, and drops the two blade-axis entries.
 [groups]
 "1" = ["Wing", "Body", "Base", "Blade1", "Blade2"]
@@ -41,20 +41,20 @@ frame = "MRP"
 families = "each"
 
 [[plots.groups]]
-name = "PROP_X"
-frame = "PROP_MRP"
-families = "blades"
+name = "ROTOR_{family}"
+frame = "SMRP"
+families = "all"
 
 [[plots.groups]]
 name = "PROP_{family}"
-frame = "PROP_MRP"
-families = "each_blade"
+frame = "LOCAL_AXIS"
+families = "blades"
 
 [probes]
-frame = "PROP_MRP"
+frame = "PUSHER_SMRP"
 parameters = ["MACH", "VELOCITY", "VX", "VY", "VZ", "STATIC_PRESSURE_RATIO"]
 points = 15
-scale = "propeller_radius"
+scale = "rotor_radius"
 
 [[probes.lines]]
 start = [-1.0, -1.2, 0.0]

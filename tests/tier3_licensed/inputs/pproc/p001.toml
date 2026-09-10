@@ -25,8 +25,8 @@ frame = "MRP"
 planes = ["XZ"]
 
 [[sections.distributions]]
-families = "each_blade"
-frame = "BLADE_AXIS"
+families = "blades"
+frame = "LOCAL_AXIS"
 planes = ["XY"]
 
 [plots]
@@ -50,27 +50,27 @@ frame = "MRP"
 families = "each"
 
 [[plots.groups]]
-name = "PROP_X"
-frame = "PROP_MRP"
-families = "blades"
+name = "ROTOR_{family}"
+frame = "SMRP"
+families = "all"
 
 [[plots.groups]]
 name = "PROP_{family}"
-frame = "PROP_MRP"
-families = "each_blade"
+frame = "LOCAL_AXIS"
+families = "blades"
 
 [[plots.groups]]
 name = "LOCAL_{family}"
-frame = "BLADE_AXIS"
-families = "each_blade"
+frame = "LOCAL_AXIS"
+families = "blades"
 
 [probes]
 # Three lines across the rotor disk, in propeller radii of the reference,
 # 15 vertices each.
-frame = "PROP_MRP"
+frame = "ROTOR_SMRP"
 parameters = ["MACH", "VELOCITY", "VX", "VY", "VZ", "STATIC_PRESSURE_RATIO"]
 points = 15
-scale = "propeller_radius"
+scale = "rotor_radius"
 
 [[probes.lines]]
 start = [-1.0, -1.2, 0.0]

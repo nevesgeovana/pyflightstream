@@ -945,7 +945,7 @@ class LoadsAssessor:
         # folder holds every point of its sweep, and under the author's
         # naming (PFS-2029.19) each point's loads table is `<point>.txt`,
         # so the second point of a two-point sweep found two tables that
-        # parse and was refused as ambiguous: measured on her own campaign,
+        # parse and was refused as ambiguous: measured on the author's own campaign,
         # 2026-09-03, row 3207 at alpha 0 after alpha -2. A case that
         # declares no outputs is judged over the whole folder as before.
         declared = {Path(name).name for name in getattr(case, "outputs", None) or ()}
@@ -2264,7 +2264,7 @@ def _advance_ratio_of(case: SimCase) -> float | None:
 
     A row stating ADVANCE_RATIO names it directly; a row stating RPM with
     a velocity and a propeller diameter resolves it the way the rotor
-    speed does (PFS-2029.19.01, the J field of her convention). A case
+    speed does (PFS-2029.19.01, the J field of the author's convention). A case
     that cannot resolve one is a case without a J field, not a refusal:
     the name is presentation, and the run type's own refusals still say
     what a rotor row lacks.
@@ -2935,7 +2935,7 @@ def _execute_point(
         "waived_commands": [],
         # PFS-2033.02: the setup's raw commands, as the script carried them.
         "raw_commands": [entry.model_dump(mode="json") for entry in case.raw_commands],
-        # Her decision of 2026-09-09: the setup's aliases, for the products stage.
+        # The author's decision of 2026-09-09: the setup's aliases, for the products stage.
         "aliases": {name: list(members) for name, members in case.aliases.items()},
         # PFS-2012.04: how the solver was called, read off the executor
         # and its result once the point has run, and None on the four

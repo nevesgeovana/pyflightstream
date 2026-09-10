@@ -348,15 +348,15 @@ area_m2 = 8.0
 chord_m = 1.0
 span_m = 8.0
 
-propeller_diameter_m = 1.6
+rotor_diameter_m = 1.6
 [moment_point]
 x_m = 0.25
 
-[propeller]
+[rotor]
 radius_m = 0.8
 n_blades = 3
 
-[propeller.position]
+[rotor.position]
 x_m = -0.5
 """
 
@@ -374,8 +374,8 @@ def test_reference_artifact_round_trip(tmp_path):
     assert reference.area_m2 == 8.0
     assert reference.moment_point.x_m == 0.25
     assert reference.moment_point.y_m == 0.0
-    assert reference.propeller.n_blades == 3
-    assert reference.propeller.position.x_m == -0.5
+    assert reference.rotor.n_blades == 3
+    assert reference.rotor.position.x_m == -0.5
 
 
 #: A reference artifact in the SHAPE a real campaign writes one, with
@@ -401,20 +401,20 @@ PROPELLER_REFERENCE_TOML = """
 area_m2 = 10.0
 chord_m = 1.2
 span_m = 8.0
-propeller_diameter_m = 2.0
+rotor_diameter_m = 2.0
 
 [moment_point]
 x_m = 0.3
 y_m = 0.0
 z_m = 0.0
 
-[propeller]
+[rotor]
 radius_m = 1.0
 n_blades = 3
 pitch_deg = 0.0
 toe_deg = 0.0
 
-[propeller.position]
+[rotor.position]
 x_m = 0.0
 y_m = 0.0
 z_m = 0.0
@@ -451,7 +451,7 @@ def _reference_with(tmp_path, artifact_id: str, line: str, replacing: str) -> st
     return str(refused.value)
 
 
-def test_an_unknown_key_in_the_propeller_block_is_refused(tmp_path):
+def test_an_unknown_key_in_the_recorded_rotor_block_is_refused(tmp_path):
     """`extra="forbid"` on this model is what the whole item rests on.
 
     It was observed by nothing. Relaxed to the pydantic default, a typo
@@ -474,11 +474,11 @@ def test_an_unknown_key_in_the_propeller_block_is_refused(tmp_path):
     )
 
 
-def test_no_module_outside_the_model_reads_the_propeller_block():
+def test_no_module_outside_the_model_reads_the_recorded_rotor_block():
     """The claim three shipped surfaces make, asserted as a measurement.
 
     The docstring, the CHANGELOG and the docs page all say nothing in
-    the package reads the propeller block. The only guard on that was a
+    the package reads the recorded rotor block. The only guard on that was a
     case asserting the SENTENCE is on the page, so the day an emitter
     starts reading a sign the sentence stays, the guard stays green, and
     three surfaces begin telling a campaign the opposite of what the
@@ -491,7 +491,7 @@ def test_no_module_outside_the_model_reads_the_propeller_block():
     module that broke it.
     """
     package = Path(pyflightstream.__file__).parent
-    watched = {"propeller", "rpm_sign_installed", "rpm_sign_isolated", "blade_travel"}
+    watched = {"rotor", "rpm_sign_installed", "rpm_sign_isolated", "blade_travel"}
     home = package / "workspace" / "inputs.py"
 
     # ATTRIBUTE ACCESS, not text. The first version of this guard searched
@@ -503,11 +503,20 @@ def test_no_module_outside_the_model_reads_the_propeller_block():
     # holds it. Parsing separates the two; grepping cannot.
     # THE ONE READER 0.11.0 ADMITS (PFS-2030.03.02, FR-54): the workspace
     # binding reads the propeller POSITION onto the case so the unsteady
-    # builders can create the PROP_MRP frame there, which is the frame her
+    # builders can create the ROTOR_MRP frame there, which is the frame the author's
     # probe lines and rotor plots are defined in. Only that module, and the
     # signs and the travel stay unread everywhere; the sentences on the
     # three surfaces say so.
-    admitted = {package / "workspace" / "matrix.py": {"propeller"}}
+    # THE WORD `rotor` IS NOW AMBIGUOUS, and that is a consequence of the
+    # 0.15.0 rename rather than a defect: the recorded block is `[rotor]`
+    # since the package stopped saying `propeller`, and `rotor` is also the
+    # ordinary word for the thing a per-rotor product is about. So a second
+    # module is admitted, and the reason is that its subscript is a CSV
+    # COLUMN KEY and not this block at all.
+    admitted = {
+        package / "workspace" / "matrix.py": {"rotor"},
+        package / "post" / "products.py": {"rotor"},
+    }
     scanned = 0
     offenders: list[str] = []
     for module in package.rglob("*.py"):
@@ -521,7 +530,7 @@ def test_no_module_outside_the_model_reads_the_propeller_block():
             # ast.walk yields the Module node too and that one has no line.
             # THREE SHAPES, because the first version watched one. A
             # review pass measured that `getattr(propeller, "rpm_sign_
-            # installed")` and `dumped["propeller"]["rpm_sign_installed"]`
+            # installed")` and `dumped["rotor"]["rpm_sign_installed"]`
             # both walked past a guard whose docstring claimed the absence
             # was asserted across the package.
             if isinstance(node, ast.Attribute) and node.attr in watched:
@@ -532,6 +541,7 @@ def test_no_module_outside_the_model_reads_the_propeller_block():
                 isinstance(node, ast.Subscript)
                 and isinstance(node.slice, ast.Constant)
                 and node.slice.value in watched
+                and node.slice.value not in admitted.get(module, set())
             ):
                 offenders.append(f"{where_module}:{node.lineno} subscripts [{node.slice.value!r}]")
             elif (
@@ -550,7 +560,7 @@ def test_no_module_outside_the_model_reads_the_propeller_block():
         "assertion for the wrong reason"
     )
     assert not offenders, (
-        "the package documents the propeller block as recorded and read by nothing, and "
+        "the package documents the recorded rotor block as recorded and read by nothing, and "
         "these modules read it: " + "; ".join(offenders) + ". Either the reader is the "
         "change, in which case the docstring, the CHANGELOG and "
         "docs/workspace-and-workflows.md all say something false, or the name arrived "
@@ -606,7 +616,7 @@ def test_groups_map_names_to_labels_or_indices(tmp_path):
 
 
 def test_an_empty_group_means_every_family(tmp_path):
-    """Her decision of 2026-09-09 (PFS-2005.02): a group written empty is every
+    """The author's decision of 2026-09-09 (PFS-2005.02): a group written empty is every
     family the geometry carries. Until 0.14.0 the reader refused it as the
     domain seat's undecided call; now the reader and the model both accept it,
     and the recipe tool ``expand_group``, which numbers members by position,
@@ -2180,7 +2190,7 @@ frame = "MRP"
 families = "all"
 
 [probes]
-frame = "PROP_MRP"
+frame = "ROTOR_MRP"
 parameters = ["MACH"]
 points = 3
 scale = "m"
@@ -2223,7 +2233,7 @@ def test_the_pproc_artifact_validates_its_six_tables(tmp_path):
     with pytest.raises(InputArtifactError, match="cannot be deselected"):
         workspace.resolve_pproc("p012")
     # A bare word outside the five selectors is an alias of the setup or a
-    # family, judged at build time against the row (her p001 of 2026-09-09
+    # family, judged at build time against the row (the author's p001 of 2026-09-09
     # writes families = "Lifters"); so is a frame name the package does not
     # create itself, which the build refuses naming the frames it created.
     (workspace.inputs_dir / "pproc" / "p013.toml").write_text(
@@ -2286,35 +2296,35 @@ def test_the_reference_artifact_needs_no_radius(tmp_path):
     """The diameter at the root is the length the package reads; the radius is optional."""
     workspace = library(tmp_path)
     (workspace.inputs_dir / "references" / "r020.toml").write_text(
-        "area_m2 = 50.0\nchord_m = 2.526\nspan_m = 20.0\npropeller_diameter_m = 3.6576\n"
-        "[propeller]\nn_blades = 1\n",
+        "area_m2 = 50.0\nchord_m = 2.526\nspan_m = 20.0\nrotor_diameter_m = 3.6576\n"
+        "[rotor]\nn_blades = 1\n",
         encoding="utf-8",
     )
     reference = workspace.resolve_reference("r020")
-    assert reference.propeller is not None and reference.propeller.radius_m is None
-    assert reference.propeller_diameter_m == 3.6576
+    assert reference.rotor is not None and reference.rotor.radius_m is None
+    assert reference.rotor_diameter_m == 3.6576
     # A radius that agrees is accepted, as the recorded workspace's files carry it.
     (workspace.inputs_dir / "references" / "r021.toml").write_text(
-        "area_m2 = 50.0\nchord_m = 2.526\nspan_m = 20.0\npropeller_diameter_m = 3.6576\n"
-        "[propeller]\nradius_m = 1.8288\nn_blades = 1\n",
+        "area_m2 = 50.0\nchord_m = 2.526\nspan_m = 20.0\nrotor_diameter_m = 3.6576\n"
+        "[rotor]\nradius_m = 1.8288\nn_blades = 1\n",
         encoding="utf-8",
     )
-    assert workspace.resolve_reference("r021").propeller.radius_m == 1.8288
+    assert workspace.resolve_reference("r021").rotor.radius_m == 1.8288
     # The radius alone is refused naming the diameter key it must carry.
     (workspace.inputs_dir / "references" / "r022.toml").write_text(
         "area_m2 = 50.0\nchord_m = 2.526\nspan_m = 20.0\n"
-        "[propeller]\nradius_m = 1.8288\nn_blades = 1\n",
+        "[rotor]\nradius_m = 1.8288\nn_blades = 1\n",
         encoding="utf-8",
     )
-    with pytest.raises(InputArtifactError, match="propeller_diameter_m = 3.6576"):
+    with pytest.raises(InputArtifactError, match="rotor_diameter_m = 3.6576"):
         workspace.resolve_reference("r022")
 
 
 def test_a_diameter_and_a_radius_that_disagree_are_refused_naming_both(tmp_path):
     workspace = library(tmp_path)
     (workspace.inputs_dir / "references" / "r023.toml").write_text(
-        "area_m2 = 50.0\nchord_m = 2.526\nspan_m = 20.0\npropeller_diameter_m = 3.6576\n"
-        "[propeller]\nradius_m = 1.5\nn_blades = 1\n",
+        "area_m2 = 50.0\nchord_m = 2.526\nspan_m = 20.0\nrotor_diameter_m = 3.6576\n"
+        "[rotor]\nradius_m = 1.5\nn_blades = 1\n",
         encoding="utf-8",
     )
     with pytest.raises(InputArtifactError) as caught:
@@ -2331,8 +2341,8 @@ def test_the_four_rotor_facts_are_refused_naming_the_row_keys(tmp_path):
 
     workspace = library(tmp_path)
     text = (
-        "area_m2 = 50.0\nchord_m = 2.526\nspan_m = 20.0\npropeller_diameter_m = 3.6576\n"
-        "[propeller]\nradius_m = 1.8288  # half the diameter\nn_blades = 1\n"
+        "area_m2 = 50.0\nchord_m = 2.526\nspan_m = 20.0\nrotor_diameter_m = 3.6576\n"
+        "[rotor]\nradius_m = 1.8288  # half the diameter\nn_blades = 1\n"
         'blade_travel = "inboard_down"\nrotation = "clockwise"\n'
         "rpm_sign_installed = -1\nrpm_sign_isolated = 1\n"
     )
@@ -2350,10 +2360,10 @@ def test_the_four_rotor_facts_are_refused_naming_the_row_keys(tmp_path):
     }
     after = (workspace.inputs_dir / "references" / "r030.toml").read_text(encoding="utf-8")
     assert after == (
-        "area_m2 = 50.0\nchord_m = 2.526\nspan_m = 20.0\npropeller_diameter_m = 3.6576\n"
-        "[propeller]\nradius_m = 1.8288  # half the diameter\nn_blades = 1\n"
+        "area_m2 = 50.0\nchord_m = 2.526\nspan_m = 20.0\nrotor_diameter_m = 3.6576\n"
+        "[rotor]\nradius_m = 1.8288  # half the diameter\nn_blades = 1\n"
     )
-    assert workspace.resolve_reference("r030").propeller.n_blades == 1
+    assert workspace.resolve_reference("r030").rotor.n_blades == 1
     assert strip_rotor_facts(workspace.inputs_dir) == {}, "a second pass finds nothing"
 
 
@@ -2502,7 +2512,7 @@ def _saved_simulation(path, names):
 
 
 def test_a_geometry_folder_is_read_first_and_staged_alone(tmp_path):
-    """PFS-2032.04, her reading of design 68 section A3: the cell keeps saying
+    """PFS-2032.04, the author's reading of design 68 section A3: the cell keeps saying
     ``30_WB.fsm``, the package looks in ``geometries/30_WB/`` first and at
     ``geometries/30_WB.fsm`` second, the inventory sidecar sits inside the folder,
     and a point's staged inputs show that geometry's files and never the whole
@@ -2626,20 +2636,19 @@ def test_a_point_declares_its_kind(tmp_path):
 
     workspace = CampaignWorkspace.init(tmp_path / "camp")
     (workspace.inputs_dir / "reference_points.toml").write_text(
-        '[ARP]\nx_m = 1.5\nkind = "engine"\n\n[ERP1]\nx_m = -0.5\n\n'
-        "[ERP2]\nx_m = -0.5\ny_m = 2.0\n",
+        '[ARP]\nx_m = 1.5\nkind = "rotor"\n\n[ERP1]\nx_m = -0.5\n\n[ERP2]\nx_m = -0.5\ny_m = 2.0\n',
         encoding="utf-8",
     )
     points = workspace.reference_points()
-    assert points["ARP"].kind == "engine" and points["ERP1"].kind is None
-    assert point_kind("ARP", points["ARP"]) == "engine", "the stated kind did not win over the name"
-    assert point_kind("ERP1", points["ERP1"]) == "engine"
-    assert workspace.engine_point("ERP2").y_m == 2.0
-    assert workspace.engine_point("ARP").x_m == 1.5, "a point stating kind = engine is an engine"
+    assert points["ARP"].kind == "rotor" and points["ERP1"].kind is None
+    assert point_kind("ARP", points["ARP"]) == "rotor", "the stated kind did not win over the name"
+    assert point_kind("ERP1", points["ERP1"]) == "rotor"
+    assert workspace.rotor_point("ERP2").y_m == 2.0
+    assert workspace.rotor_point("ARP").x_m == 1.5, "a point stating kind = rotor is a rotor"
     (workspace.inputs_dir / "reference_points.toml").write_text(
         '[ARP]\nx_m = 1.5\nkind = "nose"\n', encoding="utf-8"
     )
-    with pytest.raises(InputArtifactError, match="nose.*engine, airframe"):
+    with pytest.raises(InputArtifactError, match="nose.*rotor, airframe"):
         workspace.reference_points()
 
 
@@ -2649,10 +2658,10 @@ def test_a_motion_on_a_non_engine_point_is_refused_naming_the_kind(tmp_path):
         "[ARP]\nx_m = 1.5\n\n[ERP1]\nx_m = -0.5\n", encoding="utf-8"
     )
     with pytest.raises(InputArtifactError) as caught:
-        workspace.engine_point("ARP")
+        workspace.rotor_point("ARP")
     message = str(caught.value)
-    assert "'ARP'" in message and "'airframe'" in message and 'kind = "engine"' in message
-    assert workspace.engine_point("ERP1").x_m == -0.5
+    assert "'ARP'" in message and "'airframe'" in message and 'kind = "rotor"' in message
+    assert workspace.rotor_point("ERP1").x_m == -0.5
 
 
 def test_a_junction_is_recognised_without_isjunction(tmp_path, monkeypatch):
@@ -2706,7 +2715,7 @@ def test_an_old_manifest_key_still_reads_and_its_promise_moved_to_0_16_0():
     The removal was made on 2026-09-10 and the suite went red on the
     tier-3 fixture, which led to the reading that moved it: the author's
     own recorded campaign at `pfs0110/runs.json` carries the OLD key,
-    that workspace is the reference her reproduction is measured against,
+    that workspace is the reference the author's reproduction is measured against,
     and it is held. A manifest is the one surface this package cannot
     regenerate.
 
@@ -2786,7 +2795,7 @@ FRAMES = (
 
 
 def test_a_setup_defines_custom_frames_by_name(tmp_path):
-    """PFS-2034.01, her design of 2026-09-09 (design/69): the setup artifact defines
+    """PFS-2034.01, the author's design of 2026-09-09 (design/69): the setup artifact defines
     coordinate systems the row's rotation points at. RED on b376b14: the artifact
     keeps the table verbatim and carries no frames; _solver_from_setup then refuses
     the key as one naming no setting."""
@@ -2808,8 +2817,8 @@ def test_a_setup_defines_custom_frames_by_name(tmp_path):
     ("body", "fragment"),
     [
         ('[[frames]]\nname = "MRP"\norigin = [0.0, 0.0, 0.0]\n', "MRP"),
-        ('[[frames]]\nname = "PROP_MRP"\norigin = [0.0, 0.0, 0.0]\n', "PROP_MRP"),
-        ('[[frames]]\nname = "PROP_MRP1"\norigin = [0.0, 0.0, 0.0]\n', "PROP_MRP<k>"),
+        ('[[frames]]\nname = "ROTOR_MRP"\norigin = [0.0, 0.0, 0.0]\n', "ROTOR_MRP"),
+        ('[[frames]]\nname = "ROTOR_MRP1"\norigin = [0.0, 0.0, 0.0]\n', "ROTOR_MRP<k>"),
         ('[[frames]]\nname = "BladeAxis2"\norigin = [0.0, 0.0, 0.0]\n', "BladeAxis<k>"),
         (
             '[[frames]]\nname = "A"\norigin = [0.0, 0.0, 0.0]\n'
@@ -2839,7 +2848,7 @@ ALIASES = (
 
 
 def test_a_setup_defines_boundary_aliases(tmp_path):
-    """Her decision of 2026-09-09: a setup names groups of mesh families under
+    """The author's decision of 2026-09-09: a setup names groups of mesh families under
     ``[aliases]``, and the name is read wherever a boundary is cited (a matrix
     cell, a pproc group, a families entry); a member the mesh lacks is ignored.
     RED on 46b3850: the reader kept the table in the settings and the solver
@@ -2874,7 +2883,7 @@ def test_a_setup_defines_boundary_aliases(tmp_path):
     ],
 )
 def test_an_alias_taking_a_word_the_package_reserves_is_refused(tmp_path, body, fragment):
-    """The interface lens of 2026-09-09: her decision lets a preset shadow airframe
+    """The interface lens of 2026-09-09: the author's decision lets a preset shadow airframe
     and blades, words that name a SET. `all` is the command's own every-boundary
     form and the two `each` words EXPAND an entry, one per family, so an alias of
     those names would collapse per-family plots with no message; `g<number>` is
@@ -2899,7 +2908,7 @@ RAW = (
 
 
 def test_a_setup_carries_raw_commands_each_before_a_named_phase(tmp_path):
-    """PFS-2033.01, her design of 2026-09-09 (design/69): a setup states a solver
+    """PFS-2033.01, the author's design of 2026-09-09 (design/69): a setup states a solver
     command verbatim and the phase it goes before; the table is not a solver
     setting. RED on aff689e: the artifact refuses the table as a key naming no
     setting."""

@@ -1,6 +1,6 @@
 """Tier 1: exports that begin after a threshold the row states (PFS-2031.18).
 
-Her design of 2026-09-08, drawn in the 0.13.0 scope and written down as
+The author's design of 2026-09-08, drawn in the 0.13.0 scope and written down as
 GeoversePlan design 67: a row of an unsteady run type states
 ``EXPORT_UNSTEADY_AFTER_REV`` or ``EXPORT_UNSTEADY_AFTER_ITER``, the run
 type registers two unsteady solver actions, a ``COMMAND_LINE`` running a

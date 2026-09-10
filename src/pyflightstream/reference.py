@@ -139,7 +139,7 @@ CONVENTIONS: tuple[tuple[str, str], ...] = (
         "mesh a ROW opens. Getting the sign from a published sense needs "
         "the rotor axis, the side of the aircraft and the handedness of "
         "the mesh actually loaded, so it is stated rather than derived. "
-        "Of the propeller block the package reads position (the PROP_MRP "
+        "Of the propeller block the package reads position (the ROTOR_MRP "
         "frame of the unsteady run types) and the diameter behind the "
         "advance ratio; the rest is recorded. Three things are open "
         "rather than settled here and are recorded in RPT-036: where "

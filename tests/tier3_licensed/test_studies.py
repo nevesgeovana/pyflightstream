@@ -5,7 +5,7 @@ over one case, ``matriz_time.fs`` the time step over one rotor and one
 wing, ``matriz_geometry.fs`` the geometry over one condition. Each test
 asserts that the row's cell reached the script the solver received and
 the record the run kept, and the identities that hold without a band of
-hers; the sequences a study produces are read, not judged, until she sets
+the author's; the sequences a study produces are read, not judged, until the author sets
 the band they are judged against.
 """
 
@@ -147,12 +147,12 @@ def test_the_time_study_states_the_wing_clock_in_seconds(runs):
 
 
 def test_the_time_study_sequence_is_recorded_for_her_to_read(runs):
-    """Her decision of 2026-09-08: the rotor's sequence to look at is 15, 10, 7.5, 5
+    """The author's decision of 2026-09-08: the rotor's sequence to look at is 15, 10, 7.5, 5
     and 2.5 deg per step (rows 3002 to 3006; 3001 at 30 deg is the coarse anchor),
     and the rest of the study is recorded, not judged. The thrust at each step size
     and the lift of the wing at two are read from the loads the rows exported and
     must exist as distinct answers; no band is asserted, and the sequence is in
-    post/matriz_time/sweep.csv for her to read."""
+    post/matriz_time/sweep.csv for the author's to read."""
     thrust = [
         runs.total(runs.one("matriz_time", pol, alpha=0.0, beta=0.0))["CDi"]
         for pol in ("3002", "3003", "3004", "3005", "3006")
@@ -174,12 +174,12 @@ def test_the_geometry_study_ran_three_shapes_at_one_condition(runs):
 
 
 def test_the_mirrored_half_wing_reproduces_the_full_wing_lift(runs):
-    """The one identity of the geometry study, judged on the lift with the band she
+    """The one identity of the geometry study, judged on the lift with the band the author
     set for PHY-02 on the same shape at 25 by 40 (delta_CL fail 0.02 abs). The
     induced drag is read and not judged: on this 12 by 16 mesh the mirrored half
     gives 0.0334 against 0.0280 for the full wing (2026-09-08, 26.120), a fifth
     apart, where PHY-02 at 25 by 40 records a delta of 0.0; whether that is the
-    coarse mesh or the mirror plane is hers to band, and PHY-02 as a row of
+    coarse mesh or the mirror plane is the author's to band, and PHY-02 as a row of
     matriz_physics.fs is where the fine-mesh answer is judged."""
     full = runs.total(runs.one("matriz_geometry", "4001", alpha=4.0))
     half = runs.total(runs.one("matriz_geometry", "4002", alpha=4.0))

@@ -60,7 +60,7 @@ HERE = Path(__file__).resolve().parent
 CHECKER = HERE / "check_shipped_surface.py"
 BACKSLASH = chr(92)
 
-# The samples, from code points: the author's given name, her family name, the
+# The samples, from code points: the author's given name, the author's family name, the
 # institution in the run-together form that appears in an address, and in the
 # spaced form that appears in prose.
 _GIVEN = "".join(map(chr, (71, 101, 111, 118, 97, 110, 97)))

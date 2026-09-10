@@ -185,7 +185,7 @@
   },
   {
    "id": "FR-19",
-   "text": "Read with PFS-2033.02 at 0.14.0 (GOAL-013): the record gains raw_commands, the setup's raw lines the script carried, and aliases, the setup's boundary aliases the polar tables resolve by (her decision of 2026-09-09), both absent on older records and read as empty.",
+   "text": "Read with PFS-2033.02 at 0.14.0 (GOAL-013): the record gains raw_commands, the setup's raw lines the script carried, and aliases, the setup's boundary aliases the polar tables resolve by (the author's decision of 2026-09-09), both absent on older records and read as empty.",
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: PP-6. Evidence: milestone M2; manifest tests; extended by FR-31.*",
@@ -257,7 +257,7 @@
   },
   {
    "id": "FR-25",
-   "text": "Read with PFS-2031.08 and PFS-2031.09 at 0.13.0 (GOAL-012): the action re-read probe runs as a row of the tier-3 matrix and writes its verdict into the command database, and the pyfs-qa study decides where the probe harness lives beside the workspace; PFS-2031.17 carries her answer, pyfs-qa physics reading the workspace, and PFS-2031.18 the unsteady actions design the probe confirmed.",
+   "text": "Read with PFS-2031.08 and PFS-2031.09 at 0.13.0 (GOAL-012): the action re-read probe runs as a row of the tier-3 matrix and writes its verdict into the command database, and the pyfs-qa study decides where the probe harness lives beside the workspace; PFS-2031.17 carries the author's answer, pyfs-qa physics reading the workspace, and PFS-2031.18 the unsteady actions design the probe confirmed.",
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: BRF-03. Evidence: milestone M3; the committed compat reports and the promotion mechanism.*",
@@ -441,7 +441,7 @@
   },
   {
    "id": "FR-35",
-   "text": "Read with PFS-2034.01, PFS-2034.02, PFS-2034.03, PFS-2034.04 and PFS-2034.05 at 0.14.0 (GOAL-013): the row turns the mesh (ROTATE, a list of records in the order written, one row per angle), the setup defines the frames the row cites, the refusals name the cell, and her seat run measures the rotated propeller on the solver.",
+   "text": "Read with PFS-2034.01, PFS-2034.02, PFS-2034.03, PFS-2034.04 and PFS-2034.05 at 0.14.0 (GOAL-013): the row turns the mesh (ROTATE, a list of records in the order written, one row per angle), the setup defines the frames the row cites, the refusals name the cell, and the author's seat run measures the rotated propeller on the solver.",
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: usage feedback, amending the posture of FR-10/FR-11. Evidence: the v0.3 line; resolution hit and miss tests.*",
@@ -481,7 +481,7 @@
   },
   {
    "id": "FR-40",
-   "text": "Every command-line option is declared in a single registry recording its type, default, and validation rule, or is recorded with the reason it is not a knob of the machine, and the CLIs and the Python API resolve options through that registry; setting an unknown option, or a value outside its declared domain, raises an error naming the option and its allowed values. Every registered option name is a stable public contract, which is the form she chose against the review's recommended narrowing.",
+   "text": "Every command-line option is declared in a single registry recording its type, default, and validation rule, or is recorded with the reason it is not a knob of the machine, and the CLIs and the Python API resolve options through that registry; setting an unknown option, or a value outside its declared domain, raises an error naming the option and its allowed values. Every registered option name is a stable public contract, which is the form the author chose against the review's recommended narrowing.",
    "priority": "M",
    "status": "pending",
    "evidence": "*Origin: Phase 4 review, accepted 2026-07-27, absorbing the C1 acceptance of the same subject.*",
@@ -497,7 +497,7 @@
   },
   {
    "id": "FR-42",
-   "text": "Read with PFS-2028.09 at 0.14.0 (GOAL-013): the sense of rotation derived into the reference of her record is hers to confirm, and it is asked in writing rather than decided.",
+   "text": "Read with PFS-2028.09 at 0.14.0 (GOAL-013): the sense of rotation derived into the reference of the author's record is the author's to confirm, and it is asked in writing rather than decided.",
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: Phase 4 review, accepted 2026-07-27. Evidence: reference.CONVENTIONS, rendered offline and on the docs site from one source; tests/tier1_offline/test_conventions.py. The implemented status covers the STATING half: the conventions are published from one home and guarded there. That every emitted coefficient conforms to them is asserted by no test, and saying so here is the alternative to a badge that implies one.*",
@@ -516,12 +516,12 @@
    "text": "The package provides one documented console entry point per operational concern, and their commands and flags change only under the deprecation policy of NFR-20.",
    "priority": "M",
    "status": "pending",
-   "evidence": "*Origin: the C4 acceptance, 2026-07-27, in the FULL-contract form she chose against the review's own recommendation of a narrower one.*",
+   "evidence": "*Origin: the C4 acceptance, 2026-07-27, in the FULL-contract form the author chose against the review's own recommendation of a narrower one.*",
    "verification": "none"
   },
   {
    "id": "FR-45",
-   "text": "Read with PFS-2033.02 at 0.14.0 (GOAL-013): the strict record gains two fields, raw_commands and aliases (the setup's boundary aliases, her decision of 2026-09-09), and the manifest schema stays at 3 because an absent key reads as empty.",
+   "text": "Read with PFS-2033.02 at 0.14.0 (GOAL-013): the strict record gains two fields, raw_commands and aliases (the setup's boundary aliases, the author's decision of 2026-09-09), and the manifest schema stays at 3 because an absent key reads as empty.",
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: the C5 acceptance, 2026-07-27. Evidence: both halves pinned in tests/tier1_offline/test_workspace.py, the unknown-field refusal by a test added with this consolidation after review found the clause resting on a model-config line no assertion observed.*",
@@ -569,26 +569,26 @@
   },
   {
    "id": "FR-51",
-   "text": "Read with PFS-2031.18.01 and PFS-2034.05 at 0.14.0 (GOAL-013): the stamped per-step exports of a windowed point are tabled as a series under the matrix's products, and her seat run reads them for the rotated propeller.",
+   "text": "Read with PFS-2031.18.01 and PFS-2034.05 at 0.14.0 (GOAL-013): the stamped per-step exports of a windowed point are tabled as a series under the matrix's products, and the author's seat run reads them for the rotated propeller.",
    "priority": "M",
    "status": "pending",
-   "evidence": "*Origin: the author's run log of 2026-09-02 and her master's driver, which exported eight kinds per point and named every file for the point it came from. Carried by PFS-2029.14 and its children, PFS-2029.18 and PFS-2029.19 and its children. Evidence owed: the export goldens and the script-parity arm of GOAL-011.*",
+   "evidence": "*Origin: the author's run log of 2026-09-02 and the author's master's driver, which exported eight kinds per point and named every file for the point it came from. Carried by PFS-2029.14 and its children, PFS-2029.18 and PFS-2029.19 and its children. Evidence owed: the export goldens and the script-parity arm of GOAL-011.*",
    "verification": "none"
   },
   {
    "id": "FR-52",
-   "text": "Read with PFS-2031.18.01 and PFS-2015.04.01 at 0.14.0 (GOAL-013): the series tables join the products beside the reductions, and the blade count of a sector is read from PERIODIC_COPIES when BLADES is absent, so the per-blade reductions of her isolated propeller are written.",
+   "text": "Read with PFS-2031.18.01 and PFS-2015.04.01 at 0.14.0 (GOAL-013): the series tables join the products beside the reductions, and the blade count of a sector is read from PERIODIC_COPIES when BLADES is absent, so the per-blade reductions of the author's isolated propeller are written.",
    "priority": "M",
    "status": "pending",
-   "evidence": "*Origin: the author's item #3 of 2026-09-02 and her decision of the same day that the groups artifact becomes pproc, and her clarification that post-processing means both the data treatment and the files and data types available. Carried by PFS-2029.07 and its children, PFS-2029.15 and its children, and PFS-2029.16. Evidence owed: the tests each node names and the offline parity arm of GOAL-011.*",
+   "evidence": "*Origin: the author's item #3 of 2026-09-02 and the author's decision of the same day that the groups artifact becomes pproc, and the author's clarification that post-processing means both the data treatment and the files and data types available. Carried by PFS-2029.07 and its children, PFS-2029.15 and its children, and PFS-2029.16. Evidence owed: the tests each node names and the offline parity arm of GOAL-011.*",
    "verification": "none"
   },
   {
    "id": "FR-53",
-   "text": "Read with PFS-2028.08 at 0.14.0 (GOAL-013): the installed full model of her record is one row whose symmetry, rotation sign and moving boundaries are asked in writing and run on her seat.",
+   "text": "Read with PFS-2028.08 at 0.14.0 (GOAL-013): the installed full model of the author's record is one row whose symmetry, rotation sign and moving boundaries are asked in writing and run on the author's seat.",
    "priority": "M",
    "status": "pending",
-   "evidence": "*Origin: the author's instruction of 2026-09-02, \"nao para ate reproduzir EXATAMENTE corridas selecionadas que fiz no meu script do mestrado, com posproc e tudo\", and her clarification that the guarantee she wants is that exactly the same post-processing is produced. Carried by PFS-2030.01 to PFS-2030.07, under PFS-2030. Evidence owed: GeoversePlan/goals/check_goal_011.py, item one of GOAL-011.*",
+   "evidence": "*Origin: the instruction of 2026-09-02, \"nao para ate reproduzir EXATAMENTE corridas selecionadas que fiz no meu script do mestrado, com posproc e tudo\", and the author's clarification that the guarantee the author wants is that exactly the same post-processing is produced. Carried by PFS-2030.01 to PFS-2030.07, under PFS-2030. Evidence owed: GeoversePlan/goals/check_goal_011.py, item one of GOAL-011.*",
    "verification": "none"
   },
   {
@@ -596,7 +596,7 @@
    "text": "A matrix row can state the fluid constants its author pinned (density, viscosity, sonic velocity, temperature, pressure) as flight-condition keys that override the standard atmosphere and are recorded as pinned; every builder states the reference velocity, the sideslip and the initialisation flag on the opened simulation; the reference artifact's moment point becomes the analysis loads frame and the moments model is stated; a setup's vorticity-drag families resolve through the geometry's inventory; significant digits and the wake termination in time steps have emitters; and a setup that states symmetry_loads emits it as stated, an absent key remaining recorded-only and warning as before.",
    "priority": "M",
    "status": "pending",
-   "evidence": "*Origin: the script diff of 2026-09-02 between the 0.10.1 pre-flight of the author's rows and her recorded scripts. Carried by PFS-2030.02, PFS-2030.03 and its four children, and PFS-2028.05 on her decision of 2026-09-02. Evidence owed: the tests each node names.*",
+   "evidence": "*Origin: the script diff of 2026-09-02 between the 0.10.1 pre-flight of the author's rows and the author's recorded scripts. Carried by PFS-2030.02, PFS-2030.03 and its four children, and PFS-2028.05 on the author's decision of 2026-09-02. Evidence owed: the tests each node names.*",
    "verification": "none"
   },
   {
@@ -609,7 +609,7 @@
   },
   {
    "id": "FR-56",
-   "text": "Read with PFS-2028.09 at 0.14.0 (GOAL-013): the sign the reference's derived rotation produced for her rows is hers to confirm.",
+   "text": "Read with PFS-2028.09 at 0.14.0 (GOAL-013): the sign the reference's derived rotation produced for the author's rows is the author's to confirm.",
    "priority": "M",
    "status": "pending",
    "evidence": "*Origin: the author's items #4 and #5 of 2026-09-02. Carried by PFS-2029.05 and PFS-2029.08. Evidence owed: the tests each node names.*",
@@ -617,7 +617,7 @@
   },
   {
    "id": "FR-57",
-   "text": "Read with PFS-2028.08 and PFS-2015.04.01 at 0.14.0 (GOAL-013): the installed model's row is hers to state, and a sector meshed as one blade takes its blade count from its periodic copies.",
+   "text": "Read with PFS-2028.08 and PFS-2015.04.01 at 0.14.0 (GOAL-013): the installed model's row is the author's to state, and a sector meshed as one blade takes its blade count from its periodic copies.",
    "priority": "M",
    "status": "pending",
    "evidence": "*Origin: the author's item #4 of 2026-09-02, the multirotor syntax. Carried by PFS-2029.11 and its children. Evidence owed: the tests each node names.*",
@@ -628,7 +628,7 @@
    "text": "A setup artifact may carry a [flight_condition] table holding the five pins of FR-54 and nothing else, its pin names matching case-insensitively as a FLIGHT_CONDITION cell's do. A row that states a pin overrides the setup's, key by key; a row that states none inherits it; and the resolved state is the same state either way, which tests/tier1_offline/test_matrix_run.py::test_a_workspace_renders_the_same_script_whichever_file_states_the_pins holds to the strongest available form: one workspace built twice from the same numbers, pins on the rows and pins in the setup, and the rendered script text equal BYTE FOR BYTE with nothing allowed to differ. A velocity key or a Reynolds number there is refused, because those are what a point IS and a preset several rows share cannot state them; an altitude or an ISA deviation is refused, because those locate a point in the atmosphere the pins exist to replace. A setup pinning a density under a row stating a Reynolds number has that one default dropped rather than refused. The run record carries the pins the setup supplied beside the condition as written, so it stays recomputable once the constants leave the row.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: the author's instruction of 2026-09-04, 'vamos trabalhar com valores default ... dessa forma nao precisa inputar na matrix, eles podem ficar no s001'. Carried by PFS-2030.08. Evidence: tests/tier1_offline/test_flight_condition.py (the resolver, its refusals and each refusal's own reason), tests/tier1_offline/test_matrix_run.py (the file, the record the run layer writes, and the equal-render arm below), scored against nineteen mutants with an unmutated control.*",
+   "evidence": "*Origin: the instruction of 2026-09-04, 'vamos trabalhar com valores default ... dessa forma nao precisa inputar na matrix, eles podem ficar no s001'. Carried by PFS-2030.08. Evidence: tests/tier1_offline/test_flight_condition.py (the resolver, its refusals and each refusal's own reason), tests/tier1_offline/test_matrix_run.py (the file, the record the run layer writes, and the equal-render arm below), scored against nineteen mutants with an unmutated control.*",
    "verification": "test"
   },
   {
@@ -636,23 +636,23 @@
    "text": "An [aliases] table of the REFERENCE artifact declares every name a study gives to a set of boundaries. A member may be a mesh family, a boundary name or another alias; the reader resolves to the end and refuses a cycle naming both sides. A member the opened mesh does not carry is ignored, so one reference serves the full aircraft and a cut of it. The setup preset's [aliases] table of 0.14.0 is read with a deprecation warning naming the reference to move it to, and is removed at 0.17.0.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: her decisions of 2026-09-09 and 2026-09-10, \"todos os aliases vao para referencia\". Carried by PFS-2035.01 and PFS-2035.13. Evidence owed: the tests those nodes name. SUPERSEDES the [aliases] table of FR-30c, \"Declared inventories are range-checked\", which shipped it in the setup preset one release earlier. Evidence: tests/tier1_offline/test_reference_vocabulary.py (the table, a nested alias, a ring, and the self-reference that is not one) and tests/tier1_offline/test_matrix_run.py::test_the_reference_aliases_reach_the_record; commits f0032d3 and 661dd5d.*",
+   "evidence": "*Origin: the author's decisions of 2026-09-09 and 2026-09-10, \"todos os aliases vao para referencia\". Carried by PFS-2035.01 and PFS-2035.13. Evidence owed: the tests those nodes name. SUPERSEDES the [aliases] table of FR-30c, \"Declared inventories are range-checked\", which shipped it in the setup preset one release earlier. Evidence: tests/tier1_offline/test_reference_vocabulary.py (the table, a nested alias, a ring, and the self-reference that is not one) and tests/tier1_offline/test_matrix_run.py::test_the_reference_aliases_reach_the_record; commits f0032d3 and 661dd5d.*",
    "verification": "test"
   },
   {
    "id": "FR-60",
-   "text": "A block of the reference whose kind is engine declares one rotor: its hub coordinates, axis, rpm_sign, families_general (what turns and is not a blade), families_blades (one entry per blade, in order), blade1 (the azimuth of blade one and the axis its zero is measured from) and diameter_m. The BLADE COUNT is the length of families_blades, so a row states no blade count and a sector mesh carrying one blade of four still reduces over four.",
+   "text": "A block of the reference whose kind is rotor declares one rotor: its hub coordinates, axis, rpm_sign, families_general (what turns and is not a blade), families_blades (one entry per blade, in order), blade1 (the azimuth of blade one and the axis its zero is measured from) and diameter_m. The BLADE COUNT is the length of families_blades, so a row states no blade count and a sector mesh carrying one blade of four still reduces over four.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: her design of 2026-09-10. Carried by PFS-2035.02 and PFS-2035.16. Evidence: tests/tier1_offline/test_reference_vocabulary.py (the block, the blade count, the union the name stands for, and every refusal it carries). Commits f0032d3 and 45b9b6b.*",
+   "evidence": "*Origin: the author's design of 2026-09-10. Carried by PFS-2035.02 and PFS-2035.16. Evidence: tests/tier1_offline/test_reference_vocabulary.py (the block, the blade count, the union the name stands for, and every refusal it carries). Commits f0032d3 and 45b9b6b.*",
    "verification": "test"
   },
   {
    "id": "FR-61",
-   "text": "MOVING_BC_ALIAS names an engine block of the row's reference and is the only rotor identity a motion record carries. MOVING_BOUNDARIES, ROTOR_AXIS, ROTOR_ORIGIN, RPM_SIGN and BLADES are what it replaces, because the reference states each once; a record stating any of them BESIDE the alias is refused naming both, and a record stating them without an alias is read as it always was, which is what keeps every row written before this release working. They are removed at 0.17.0.",
+   "text": "MOVING_BC_ALIAS names a rotor block of the row's reference and is the only rotor identity a motion record carries. MOVING_BOUNDARIES, ROTOR_AXIS, ROTOR_ORIGIN, RPM_SIGN and BLADES are what it replaces, because the reference states each once; a record stating any of them BESIDE the alias is refused naming both, and a record stating them without an alias is read as it always was, which is what keeps every row written before this release working. They are removed at 0.17.0.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: her design of 2026-09-10, \"vamos mudar MOVING_BOUNDARIES para MOVING_BC_ALIAS\". Carried by PFS-2035.03. Evidence: tests/tier1_offline/test_rotor_by_alias.py, where the alias moves that rotor's boundaries, an unknown alias is refused naming the engines the reference does declare, and a record stating both spellings is refused; commit 45b9b6b.*",
+   "evidence": "*Origin: the author's design of 2026-09-10, \"vamos mudar MOVING_BOUNDARIES para MOVING_BC_ALIAS\". Carried by PFS-2035.03. Evidence: tests/tier1_offline/test_rotor_by_alias.py, where the alias moves that rotor's boundaries, an unknown alias is refused naming the rotors the reference does declare, and a record stating both spellings is refused; commit 45b9b6b.*",
    "verification": "test"
   },
   {
@@ -660,7 +660,7 @@
    "text": "A rotor creates <ALIAS>_SMRP at its hub, static; <ALIAS>_RMRP turning with the motion; and <ALIAS>_RMRP<k> per blade of families_blades, turning with blade k and numbered from the blade1 datum. A family of families_general has no local axis of its own: its local frame IS the rotor's, SMRP when static and RMRP when turning.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: her design of 2026-09-10, \"<ALIAS>_SMRP para o eixo local estatico e <ALIAS>_RMRP para o eixo rodando junto com o movimento\". Carried by PFS-2035.04, absorbing PFS-2029.21. Evidence: tests/tier1_offline/test_rotor_by_alias.py, where the frames take the radical, the blade frames TURN with the blades, a record naming no engine keeps the 0.14.0 names, and a blade the mesh lacks gets no frame while the count stays; commits 6288aaf and 927ef8b.*",
+   "evidence": "*Origin: the author's design of 2026-09-10, \"<ALIAS>_SMRP para o eixo local estatico e <ALIAS>_RMRP para o eixo rodando junto com o movimento\". Carried by PFS-2035.04, absorbing PFS-2029.21. Evidence: tests/tier1_offline/test_rotor_by_alias.py, where the frames take the radical, the blade frames TURN with the blades, a record naming no rotor keeps the 0.14.0 names, and a blade the mesh lacks gets no frame while the count stays; commits 6288aaf and 927ef8b.*",
    "verification": "test"
   },
   {
@@ -668,7 +668,7 @@
    "text": "A motion record states RPM or ADVANCE_RATIO, never both and never neither, refused PER ROTOR with the message the row-level refusal carries today.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: her design of 2026-09-10 and her reminder of the same night, \"a razao de avanco vira RPM usando o diametro de cada rotor\". Carried by PFS-2035.05 and PFS-2035.18. Evidence: tests/tier1_offline/test_rotor_by_alias.py::test_one_ratio_gives_two_rotors_two_speeds_when_their_diameters_differ, which asserts the two speeds are in the inverse ratio of the diameters. Commit 45b9b6b. AMENDS FR-56, \"The reference artifact states only what rows share, with one length per quantity\", whose single propeller_diameter_m is the advance-ratio length today.*",
+   "evidence": "*Origin: the author's design of 2026-09-10 and the author's reminder of the same night, \"a razao de avanco vira RPM usando o diametro de cada rotor\". Carried by PFS-2035.05 and PFS-2035.18. Evidence: tests/tier1_offline/test_rotor_by_alias.py::test_one_ratio_gives_two_rotors_two_speeds_when_their_diameters_differ, which asserts the two speeds are in the inverse ratio of the diameters. Commit 45b9b6b. AMENDS FR-56, \"The reference artifact states only what rows share, with one length per quantity\", whose single rotor_diameter_m is the advance-ratio length today.*",
    "verification": "test"
   },
   {
@@ -676,15 +676,15 @@
    "text": "CLOCK_MOTION is a cell key, REQUIRED on every row that states a MOTIONS list, and it names a motion the same row states. The time step and the run length are that motion's.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: her design of 2026-09-10, \"o setup temporal exige qual o movimento de referencia\". Carried by PFS-2035.07. Evidence: tests/tier1_offline/test_rotor_by_alias.py (the clock follows the named motion and not the fastest; a row stating a MOTIONS list without the key is refused naming the motions it could choose; the flat pre-0.15.0 form is exempt) and tests/tier1_offline/test_reduce_by_rotor.py. Commit 91a7302 and the decisions commit that made the key required. TWO OF HER DECISIONS OF 2026-09-10 CHANGED THIS TEXT, and both are recorded in GeoversePlan/coordination/decisions/DEC-010.*",
+   "evidence": "*Origin: the author's design of 2026-09-10, \"o setup temporal exige qual o movimento de referencia\". Carried by PFS-2035.07. Evidence: tests/tier1_offline/test_rotor_by_alias.py (the clock follows the named motion and not the fastest; a row stating a MOTIONS list without the key is refused naming the motions it could choose; the flat pre-0.15.0 form is exempt) and tests/tier1_offline/test_reduce_by_rotor.py. Commit 91a7302 and the decisions commit that made the key required. TWO OF THE AUTHOR'S DECISIONS OF 2026-09-10 CHANGED THIS TEXT, and both are recorded in GeoversePlan/coordination/decisions/DEC-010.*",
    "verification": "test"
   },
   {
    "id": "FR-65",
-   "text": "An entry citing MRP or a frame the reference declares emits ONCE over the whole cited set, and an engine name in that set is its own union, so a propulsor's total carries its hub and spinner with its blades. An entry citing SMRP or RMRP emits one per ROTOR, in that rotor's frame. An entry citing LOCAL_AXIS emits one per BLADE, in that blade's frame, plus one for the rotor's general families, which ride the rotor's own frame.",
+   "text": "An entry citing MRP or a frame the reference declares emits ONCE over the whole cited set, and a rotor name in that set is its own union, so a propulsor's total carries its hub and spinner with its blades. An entry citing SMRP or RMRP emits one per ROTOR, in that rotor's frame. An entry citing LOCAL_AXIS emits one per BLADE, in that blade's frame, plus one for the rotor's general families, which ride the rotor's own frame.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: her design of 2026-09-10 and her spinner decision of the same night. Carried by PFS-2035.08, absorbing PFS-2029.20. Evidence: tests/tier1_offline/test_pproc_by_frame.py, which reads the rule off the model (an entry in a rotor frame is one per rotor, one in the local axis is one per blade, one in a common frame is one, the placeholder is present exactly when there is more than one emission, each stays and each_blade warns) and ends by validating HER OWN pfs0150/inputs/pproc/p010.toml, which is the file the requirement was written from. Measured 2026-09-10: with the rule in place her two matrices plan 39 points with none blocked, where the artifact would not validate at all before it.*",
+   "evidence": "*Origin: the author's design of 2026-09-10 and the author's spinner decision of the same night. Carried by PFS-2035.08, absorbing PFS-2029.20. Evidence: tests/tier1_offline/test_pproc_by_frame.py, which reads the rule off the model (an entry in a rotor frame is one per rotor, one in the local axis is one per blade, one in a common frame is one, the placeholder is present exactly when there is more than one emission, each stays and each_blade warns) and ends by validating, WHERE THE WORKSPACE IS ON THE MACHINE and skipping with that reason where it is not, which is every clone and every CI run, THE AUTHOR'S OWN pfs0150/inputs/pproc/p010.toml, which is the file the requirement was written from. Measured 2026-09-10: with the rule in place the author's two matrices plan 39 points with none blocked, where the artifact would not validate at all before it.*",
    "verification": "test"
   },
   {
@@ -692,7 +692,7 @@
    "text": "SYMMETRY_LOADS is a row key registered on every run type. A row stating it overrides the preset's value and warns, naming both files and the value used; a row stating nothing inherits the preset silently, as today.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: her decision of 2026-09-10, \"vale promover ele para flag sim e vamos manter isso na matriz\". Carried by PFS-2035.09. Evidence: tests/tier1_offline/test_rotor_by_alias.py, where the row overrides the preset and warns, agreeing warns nothing, and a value that is not a yes or a no is refused; commit 91a7302.*",
+   "evidence": "*Origin: the author's decision of 2026-09-10, \"vale promover ele para flag sim e vamos manter isso na matriz\". Carried by PFS-2035.09. Evidence: tests/tier1_offline/test_rotor_by_alias.py, where the row overrides the preset and warns, agreeing warns nothing, and a value that is not a yes or a no is refused; commit 91a7302.*",
    "verification": "test"
   },
   {
@@ -700,15 +700,15 @@
    "text": "A cell's RAW list states solver commands, each before a named phase, in either of two forms: COMMAND, the line written in the cell, and FILE, a text file of the workspace whose lines are emitted in order. Both pass the same emitter checks the preset's [[raw]] table passes, line by line, so a file carrying a command the build lacks is refused naming the FILE and the LINE NUMBER rather than the cell. A blank line and a line opening with # are skipped, so a raw file may explain itself.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: her decision of 2026-09-10, \"a linha ganha um jeito de passar comando bruto, mantendo a feature original preservada\". Carried by PFS-2035.10. Evidence: tests/tier1_offline/test_raw_on_the_row.py (the cell states one record and several; a file path survives the record separator; a record stating both forms, neither form, no phase, or a key a raw command does not read is refused; a row stating none carries none; a file becomes one command per line in order; a blank line and a comment are skipped; each line carries the file and its line number; the row's cell line comes after the row's file; a file the workspace does not carry and a file outside the inputs are refused) and test_the_record_and_the_provenance_carry_the_raw_commands_of_the_setup of tests/tier1_offline/test_matrix_run.py (the record names each line's source). EXTENDS the preset-level [[raw]] table of FR-31, \"Solver-setup provenance\", to the row.*",
+   "evidence": "*Origin: the author's decision of 2026-09-10, \"a linha ganha um jeito de passar comando bruto, mantendo a feature original preservada\". Carried by PFS-2035.10. Evidence: tests/tier1_offline/test_raw_on_the_row.py (the cell states one record and several; a file path survives the record separator; a record stating both forms, neither form, no phase, or a key a raw command does not read is refused; a row stating none carries none; a file becomes one command per line in order; a blank line and a comment are skipped; each line carries the file and its line number; the row's cell line comes after the row's file; a file the workspace does not carry and a file outside the inputs are refused) and test_the_record_and_the_provenance_carry_the_raw_commands_of_the_setup of tests/tier1_offline/test_matrix_run.py (the record names each line's source). EXTENDS the preset-level [[raw]] table of FR-31, \"Solver-setup provenance\", to the row.*",
    "verification": "test"
   },
   {
    "id": "FR-68",
-   "text": "The per-blade and phase-locked reductions of a point are computed PER ROTOR, each from the blade count of its own engine block, so a transition row reduces the lifters and the pusher in one run and the reduction files name the rotor. A row stating no motion reduces as today.",
+   "text": "The per-blade and phase-locked reductions of a point are computed PER ROTOR, each from the blade count of its own rotor block, so a transition row reduces the lifters and the pusher in one run and the reduction files name the rotor. A row stating no motion reduces as today.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: her design of 2026-09-10. Carried by PFS-2035.11. Evidence: tests/tier1_offline/test_reduce_by_rotor.py (a row stating its speeds in motions reduces at all; each rotor's passage is its own and the two are asserted UNEQUAL before either is pinned; the per-blade windows are contiguous and end at the run's last step; a several-rotor row says where its reductions went instead of naming a count; a one-rotor row takes the count from that rotor's block; a sector row reduces over the whole wheel; a motion naming no rotor of the reference is a skip and not an absence; a row with no rotor carries no per-rotor block, which is the sentence that protects every workspace written before 0.15.0; a rotor at rest, a run holding no whole revolution of a rotor, and a window shorter than one passage of a rotor are each skipped naming that rotor; a rotor turning the other way reduces over the same passage; a period whose fraction decides is rounded and not truncated; the phase-locked passages of each rotor start at the row's window; and a record spelling its alias loosely still names the reference's rotor) and tests/tier1_offline/test_post_products.py (the files name the rotor, and a one-rotor row keeps the names it has always had). AMENDS PFS-2015.04.01, which reads the count from PERIODIC_COPIES at 0.14.0.*",
+   "evidence": "*Origin: the author's design of 2026-09-10. Carried by PFS-2035.11. Evidence: tests/tier1_offline/test_reduce_by_rotor.py (a row stating its speeds in motions reduces at all; each rotor's passage is its own and the two are asserted UNEQUAL before either is pinned; the per-blade windows are contiguous and end at the run's last step; a several-rotor row says where its reductions went instead of naming a count; a one-rotor row takes the count from that rotor's block; a sector row reduces over the whole wheel; a motion naming no rotor of the reference is a skip and not an absence; a row with no rotor carries no per-rotor block, which is the sentence that protects every workspace written before 0.15.0; a rotor at rest, a run holding no whole revolution of a rotor, and a window shorter than one passage of a rotor are each skipped naming that rotor; a rotor turning the other way reduces over the same passage; a period whose fraction decides is rounded and not truncated; the phase-locked passages of each rotor start at the row's window; and a record spelling its alias loosely still names the reference's rotor) and tests/tier1_offline/test_post_products.py (the files name the rotor, and a one-rotor row keeps the names it has always had). AMENDS PFS-2015.04.01, which reads the count from PERIODIC_COPIES at 0.14.0.*",
    "verification": "test"
   },
   {
@@ -716,7 +716,7 @@
    "text": "FLIGHT_CONDITION states ALPHA and BETA on every row, so no run reaches the solver at an angle nobody wrote. The swept variable is the one whose value is the word sweep, EXACTLY ONE key carries it, and SWEEP_VALUES holds its values. Any key of the flight condition may be the one: the five that fix the state (MACH, TASmps, REmi, ALTFT, dISA), the five pins (RHOkgm3, MUPas, ASMPS, TK, PPA), the two angles, and the advance ratio when the row states it there. Of those, this release implements ALPHA, BETA and ADVANCE_RATIO; every other key is refused NAMING those three and saying it may carry the word in a later release, because accepted-and-ignored is how the advance-ratio sweep failed before this release.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: her rule of 2026-09-10, \"um sweep e aplicado a uma variavel que DEFINE a condicao de voo e a apenas uma variavel\". Carried by PFS-2035.14, which closes PFS-2035.12 and bounds PFS-2035.06. Evidence: tests/tier1_offline/test_matrix.py (the axis is read off the cell; a row with no swept key, with two, with a key this release cannot vary, or with an empty values cell is refused; the fourth stage folds the column and changes no other cell; the 0.11.0 layout is recognised and refused naming its converter; and the upgrade does not rename a run) and tests/tier1_offline/test_matrix_upgrade.py (both older layouts land on the same bytes). SUPERSEDES the SWEEP_TYPE column of FR-10, \"Run-matrix reader, forever\".*",
+   "evidence": "*Origin: the author's rule of 2026-09-10, \"um sweep e aplicado a uma variavel que DEFINE a condicao de voo e a apenas uma variavel\". Carried by PFS-2035.14, which closes PFS-2035.12 and bounds PFS-2035.06. Evidence: tests/tier1_offline/test_matrix.py (the axis is read off the cell; a row with no swept key, with two, with a key this release cannot vary, or with an empty values cell is refused; the fourth stage folds the column and changes no other cell; the 0.11.0 layout is recognised and refused naming its converter; and the upgrade does not rename a run) and tests/tier1_offline/test_matrix_upgrade.py (both older layouts land on the same bytes). SUPERSEDES the SWEEP_TYPE column of FR-10, \"Run-matrix reader, forever\".*",
    "verification": "test"
   },
   {
@@ -724,7 +724,7 @@
    "text": "ADVANCE_RATIO may be stated in FLIGHT_CONDITION, as a value or as sweep, and it then reaches every motion of the row THAT STATES NO SPEED OF ITS OWN. A motion stating its own RPM or ADVANCE_RATIO holds that value and the condition's ratio passes it by. A motion may not state the word sweep: sweeping is the condition's job, and a record that writes it is refused at plan time naming the cell, the record and the key.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: her decision of 2026-09-10 and its widening the same night, \"entao o sweep vale so para o movimento que nao tem advance ratio declarado\". Carried by PFS-2035.15. Evidence: tests/tier1_offline/test_rotor_by_alias.py (a swept ratio reaches the motion that states no speed and halving the ratio doubles that rotor's rev/min, a record stating its own ratio holds it against the sweep, and a record writing the word is refused naming where sweeping is stated).*",
+   "evidence": "*Origin: the author's decision of 2026-09-10 and its widening the same night, \"entao o sweep vale so para o movimento que nao tem advance ratio declarado\". Carried by PFS-2035.15. Evidence: tests/tier1_offline/test_rotor_by_alias.py (a swept ratio reaches the motion that states no speed and halving the ratio doubles that rotor's rev/min, a record stating its own ratio holds it against the sweep, and a record writing the word is refused naming where sweeping is stated).*",
    "verification": "test"
   },
   {
@@ -732,7 +732,7 @@
    "text": "A ROTATE record states ALIAS where it stated FAMILIES, so a rotation and a motion cite a set of boundaries the same way. AUX_FRAMES retires: every frame the alias owns turns with its boundaries, which for a rotor is <ALIAS>_SMRP, <ALIAS>_RMRP and every <ALIAS>_RMRP<k>, and for a non-rotor alias is none.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: her decision of 2026-09-10, \"o comando de rotate tambem tem que ser atualizado para ficar compativel com o do movimento\". Carried by PFS-2035.17. Evidence: tests/tier1_offline/test_rotor_by_alias.py (the rotation cites the alias and turns that rotor's boundaries and no other's; the frames the alias owns turn with it, by name; an undeclared alias is refused naming it; a record stating both spellings is refused naming both; a record stating neither is refused; the 0.14.0 spelling warns and turns the same boundaries; three cases over SMRP_ORIGINAL in that module, one copy per alias for a row that turns the same alias twice, nothing turns it, and a non-rotor alias gets none) and tests/tier1_offline/test_pproc_by_frame.py (five cases over the doubling: both frames for a rotated hub, one for a rotor this row did not turn, none at all for a row that turned nothing, the turning frames never doubled, and the same answer when the entry names the hub frame itself). AMENDS the ROTATE record of FR-35, \"Matrix as first-class interface\", whose FAMILIES and AUX_FRAMES keys this replaces.*",
+   "evidence": "*Origin: the author's decision of 2026-09-10, \"o comando de rotate tambem tem que ser atualizado para ficar compativel com o do movimento\". Carried by PFS-2035.17. Evidence: tests/tier1_offline/test_rotor_by_alias.py (the rotation cites the alias and turns that rotor's boundaries and no other's; the frames the alias owns turn with it, by name; an undeclared alias is refused naming it; a record stating both spellings is refused naming both; a record stating neither is refused; the 0.14.0 spelling warns and turns the same boundaries; three cases over SMRP_ORIGINAL in that module, one copy per alias for a row that turns the same alias twice, nothing turns it, and a non-rotor alias gets none) and tests/tier1_offline/test_pproc_by_frame.py (five cases over the doubling: both frames for a rotated hub, one for a rotor this row did not turn, none at all for a row that turned nothing, the turning frames never doubled, and the same answer when the entry names the hub frame itself). AMENDS the ROTATE record of FR-35, \"Matrix as first-class interface\", whose FAMILIES and AUX_FRAMES keys this replaces.*",
    "verification": "test"
   },
   {
@@ -740,7 +740,7 @@
    "text": "The [[frames]] table moves from the setup preset to the reference artifact, keeping the shape it has: name, origin, and optionally x_axis and y_axis, the third axis being the right-handed cross product. A row's ROTATE axis token and a post-processing entry's frame resolve against the reference's frames, the package's own names staying reserved. A preset still stating [[frames]] is read with a deprecation warning naming the reference to move it to, and the table is removed at 0.17.0.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: her decision of 2026-09-10, \"definicao de eixo customizado como o NAC_FL vai para o ref, onde fica dados geometricos\". Carried by PFS-2035.19. Evidence: tests/tier1_offline/test_reference_vocabulary.py and tests/tier1_offline/test_matrix_run.py (the frames reach the case, a preset still stating them warns and the reference wins, a LEGACY row leaves them out and says so). Commits f0032d3, 661dd5d and 2840078. SUPERSEDES the [[frames]] table of FR-31, \"Solver-setup provenance\", which places it in the setup preset.*",
+   "evidence": "*Origin: the author's decision of 2026-09-10, \"definicao de eixo customizado como o NAC_FL vai para o ref, onde fica dados geometricos\". Carried by PFS-2035.19. Evidence: tests/tier1_offline/test_reference_vocabulary.py and tests/tier1_offline/test_matrix_run.py (the frames reach the case, a preset still stating them warns and the reference wins, a LEGACY row leaves them out and says so). Commits f0032d3, 661dd5d and 2840078. SUPERSEDES the [[frames]] table of FR-31, \"Solver-setup provenance\", which places it in the setup preset.*",
    "verification": "test"
   },
   {
@@ -748,7 +748,7 @@
    "text": "A post-processing artifact names families, and one artifact is meant to serve a wing-body and an isolated rotor: a family the opened mesh does not carry is left out, which is what lets one file cover several geometries. From the emitted script that skip and a MISSPELLED family are the same event. This requirement lets the run say which of the two it is looking at.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: her decision of 2026-09-10, \"a minha ideia era ter uma flag na chamada da linha de comando --ignore_missing_families e ali o usuario poder passar false, sendo que o default e true\". Carried by PFS-2035.13, recorded in GeoversePlan/coordination/decisions/DEC-010. Evidence: tests/tier1_offline/test_missing_families_choice.py (forty-two cases over the three layers, fifteen mutants scored and every one killed, the two a review lens left surviving among them). AMENDS FR-59, \"A reference declares the names a study gives to its boundaries\", whose rule that a member the opened mesh does not carry is ignored becomes the DEFAULT rather than the only reading.*",
+   "evidence": "*Origin: the author's decision of 2026-09-10, \"a minha ideia era ter uma flag na chamada da linha de comando --ignore_missing_families e ali o usuario poder passar false, sendo que o default e true\". Carried by PFS-2035.13, recorded in GeoversePlan/coordination/decisions/DEC-010. Evidence: tests/tier1_offline/test_missing_families_choice.py (forty-two cases over the three layers, and the lane's mutation scoring recorded in GeoversePlan/coordination/projects/pyflightstream/IMPL-0150-DECISIONS_rounds.ledger and REL-0150_rounds.ledger, which name each mutant, its verdict and the one that survives). AMENDS FR-59, \"A reference declares the names a study gives to its boundaries\", whose rule that a member the opened mesh does not carry is ignored becomes the DEFAULT rather than the only reading.*",
    "verification": "test"
   },
   {

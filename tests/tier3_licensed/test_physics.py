@@ -5,7 +5,7 @@ PHY-01, PHY-02, PHY-05 and PHY-06 are rows of this workspace's matrix,
 built by the workflows, and ``pyflightstream.qa.matrix.reduce_physics`` is
 what turns the rows' loads into the case metrics with the reductions of
 ``pyflightstream.qa.physics`` and judges them against the committed
-references and the bands she set on 26.120. This module asks that driver
+references and the bands the author set on 26.120. This module asks that driver
 for the judged run and asserts it; it reduces nothing of its own, so the
 test and ``pyfs-qa physics`` read a record the same way. A FAIL is a
 finding: either the workflow builds the case differently from what the
@@ -54,7 +54,7 @@ def _judge(result: CaseResult) -> None:
         for name, verdict in result.verdicts.items()
         if verdict is Verdict.FAIL
     }
-    assert not failed, f"{case_id} outside her FAIL band: {failed}"
+    assert not failed, f"{case_id} outside the author's FAIL band: {failed}"
     warned = [name for name, verdict in result.verdicts.items() if verdict is Verdict.WARN]
     if warned:
         warnings.warn(f"{case_id} inside FAIL and outside WARN on {warned}", stacklevel=2)

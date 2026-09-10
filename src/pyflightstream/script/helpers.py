@@ -279,7 +279,7 @@ def free_stream(
     kind : str
         ``CONSTANT`` (uniform free stream, the magnitude comes later
         from the solver settings), ``ROTATION`` (rotating frame free
-        stream for hover and propeller analyses), or ``CUSTOM``
+        stream for hover and rotor analyses), or ``CUSTOM``
         (velocity profile imported from a file).
     frame : int or str, optional
         ROTATION only: local coordinate system carrying the rotation
@@ -507,9 +507,9 @@ def actuator_disc(
     enable: Toggle = True,
     label: str | None = None,
 ) -> int:
-    """Create and configure one propeller actuator disc (SRC-003 pp.323-324).
+    """Create and configure one rotor actuator disc (SRC-003 pp.323-324).
 
-    The disc is the linearized propeller slipstream surrogate
+    The disc is the linearized rotor slipstream surrogate
     (SRC-003 pp.185-187). Exactly one thrust specification is taken:
     a net ``thrust`` (ELLIPTICAL profile) or a radial force
     distribution file ``profile`` (CUSTOM profile, which also needs
@@ -581,6 +581,10 @@ def actuator_disc(
             "fraction of the swirl velocity kept downstream (SRC-003 p.186)"
         )
     subtype = "ELLIPTICAL" if thrust is not None else "CUSTOM"
+    # THE SOLVER'S OWN WORD, not this package's. The rotor-word sweep of
+    # 0.15.0 renamed this to ROTOR and the command database refused it:
+    # PROPELLER is the enum value CREATE_NEW_ACTUATOR accepts, and a
+    # vendor vocabulary is quoted rather than translated.
     script.emit("CREATE_NEW_ACTUATOR", "PROPELLER", subtype=subtype, name=name, label=label)
     index = script.num_actuators
     script.emit("SET_ACTUATOR_AXIS", index, frame, axis, offset)
@@ -640,7 +644,7 @@ def rotary_motion(
         value converges a steady base flow before the motion begins.
     wake_stabilization_blades : int, optional
         Enables slipstream wake stabilization with this blade count,
-        which is PER PROPELLER and not a total across the motion
+        which is PER ROTOR and not a total across the motion
         (SRC-003 p.333). The February 2026 build's grammar for that
         command has two arguments and no blade count at all, so this
         argument is not emittable there. Reaching it on 26.100 does not
@@ -1055,7 +1059,7 @@ def solver_settings(
         wake that decays orders of magnitude too fast or not at all, and
         the number itself does not reveal which. The characteristic
         length is the wing semi-span or largest fin for steady state,
-        the blade radius for a rotor or propeller, and the larger of the
+        the blade radius for a rotor or rotor, and the larger of the
         two where both are present. Documented by the 26.121 edition
         alone (SRC-740 p.346).
     solver_model : str, optional
@@ -2231,21 +2235,21 @@ AZIMUTH_BASIS: dict[str, tuple[tuple[float, float, float], tuple[float, float, f
 #: The four angles a first blade is allowed to sit at, in deg. The
 #: placement of the other blades is arithmetic, 360/N from this one, so
 #: the anchor is the one measured quantity in it, and restricting it to
-#: the quadrants is the author's instruction rather than a numerical
+#: the quadrants is the instruction rather than a numerical
 #: convenience.
 BLADE_ANCHOR_ANGLES_DEG: tuple[float, ...] = (0.0, 90.0, 180.0, 270.0)
 
-#: The sense of rotation a propeller descriptor records, viewed from
+#: The sense of rotation a rotor descriptor records, viewed from
 #: behind the aircraft looking forward. Declared HERE, in the layer that
 #: consumes it, and imported downward by
-#: :class:`pyflightstream.workspace.inputs.PropellerReference` rather
+#: :class:`pyflightstream.workspace.inputs.RotorReference` rather
 #: than restated there: the layer rule permits the higher layer to
 #: import the lower one, so a second declaration held together by a test
 #: would be a second home for one vocabulary. This alias was that second
 #: home for one day.
 RotationSense = Literal["clockwise", "counterclockwise"]
 
-#: How a propeller's recorded sense of rotation signs the azimuth
+#: How a rotor's recorded sense of rotation signs the azimuth
 #: increment. Counterclockwise about the rotor axis is the
 #: mathematically positive sense, so blade k sits at anchor plus k times
 #: 360/N; clockwise numbers the blades the other way round the disc.
@@ -2352,7 +2356,7 @@ def blade_frames(
         One of :data:`BLADE_ANCHOR_ANGLES_DEG`.
     rotation : {"clockwise", "counterclockwise"}
         Sense of rotation, viewed from behind the aircraft looking
-        forward, the vocabulary a propeller descriptor records in its
+        forward, the vocabulary a rotor descriptor records in its
         ``rotation`` field. It signs the azimuth increment, so it decides
         which way round the disc the blades are numbered and nothing
         else.
@@ -2426,18 +2430,18 @@ def blade_frames(
         raise CommandArgumentError(
             f"blade_frames: n_blades is {n_blades!r}, and a rotor with {n_blades} blades "
             "has no blade to anchor the placement on. Pass the blade count of the "
-            "propeller, which is at least 1"
+            "rotor, which is at least 1"
         )
     if rotation not in ROTATION_SENSE_SIGN:
         raise CommandArgumentError(
             f"blade_frames: rotation is {rotation!r}, and the sense of rotation is "
             f"{' or '.join(sorted(ROTATION_SENSE_SIGN))}, the two words the rotation "
-            "field of a propeller descriptor records. It decides which way round the "
+            "field of a rotor descriptor records. It decides which way round the "
             "disc the blades are numbered, so there is no safe default to guess. If "
             "you are holding inboard_up or inboard_down, that is the same fact in the "
             "vocabulary a datasheet prints, it is recorded separately as blade_travel, "
             "and turning it into a sense here needs the side of the aircraft this "
-            "propeller is on, which this function is never told"
+            "rotor is on, which this function is never told"
         )
     if float(blade1_azimuth_deg) not in BLADE_ANCHOR_ANGLES_DEG:
         anchors = ", ".join(str(angle) for angle in BLADE_ANCHOR_ANGLES_DEG)
@@ -2446,7 +2450,7 @@ def blade_frames(
             f"deg, and this placement anchors on one of {anchors} deg. The other blades "
             "are placed arithmetically at 360/N from that one, so an anchor off the "
             "quadrants would put every blade somewhere the convention cannot name. "
-            "Rotate the mesh onto a quadrant, or record the propeller with the blade "
+            "Rotate the mesh onto a quadrant, or record the rotor with the blade "
             "the mesh actually starts at"
         )
     if names is not None and len(names) != n_blades:

@@ -1,20 +1,20 @@
 """A row names its rotor by alias and states nothing else about it (FR-61, FR-63).
 
-Her design of 2026-09-10. A motion record carries `MOVING_BC_ALIAS` and
+The author's design of 2026-09-10. A motion record carries `MOVING_BC_ALIAS` and
 nothing more: the hub, the axis, the sign, the blades and the diameter are
 the reference's, stated once in the rotor's own block. What a row keeps is
 what a row decides, which is WHICH rotors turn and at what operating point.
 
 Two behaviours are measured here and they are one design:
 
-* the record's alias resolves to the engine block, and the boundaries the
+* the record's alias resolves to the rotor block, and the boundaries the
   motion moves are that rotor's own families, general first;
 * an advance ratio resolves against THAT ROTOR's diameter, so one ratio
   written once gives two rotors of different sizes two different speeds.
 
 WHY THESE FAIL BEFORE LANE B: a record's rotor identity is
 ``MOVING_BOUNDARIES`` today and the diameter is one number for the whole
-configuration (``case.reference.propeller_diameter``), so the second case
+configuration (``case.reference.rotor_diameter``), so the second case
 cannot be expressed at all.
 """
 
@@ -31,7 +31,7 @@ from pyflightstream._errors import (
     PyflightstreamWarning,
 )
 from pyflightstream._fsm import MESH_MARKER
-from pyflightstream.cases import BladeDatum, EngineBlock, ReferenceData, SimCase, SweepAxis
+from pyflightstream.cases import BladeDatum, ReferenceData, RotorBlock, SimCase, SweepAxis
 from pyflightstream.cases.workflows import (
     ROTATE_VARIABLE,
     WORKFLOW_KEY,
@@ -44,7 +44,7 @@ from pyflightstream.script import Script
 #: The two rotors of the use case, cut to what one row needs: a lifter of
 #: four blades at 1.20 m and a pusher of three at 1.80 m, which is the pair
 #: whose diameters differ.
-LIFTER = EngineBlock(
+LIFTER = RotorBlock(
     alias="LIFT_L1",
     axis="Z",
     rpm_sign=1,
@@ -56,7 +56,7 @@ LIFTER = EngineBlock(
     families_blades=["LB_L1_1", "LB_L1_2", "LB_L1_3", "LB_L1_4"],
     blade1=BladeDatum(azimuth_deg=0.0, zero="X"),
 )
-PUSHER = EngineBlock(
+PUSHER = RotorBlock(
     alias="PUSHER",
     axis="X",
     rpm_sign=1,
@@ -99,7 +99,7 @@ def two_rotor_case(tmp_path, **overrides) -> SimCase:
         "TIME_ITERATIONS": "720",
         "SYMMETRY": "NONE",
         # REQUIRED SINCE 0.15.0 on a row that states a MOTIONS list, which
-        # is her answer of 2026-09-10 (DEC-010). The fixture carries it so
+        # is the author's answer of 2026-09-10 (DEC-010). The fixture carries it so
         # every case below is about what it says it is about;
         # `test_a_motions_row_without_a_clock_is_refused` is the one that
         # takes it away.
@@ -115,7 +115,7 @@ def two_rotor_case(tmp_path, **overrides) -> SimCase:
         variables=variables,
         point={"alpha": 0.0},
         geometry=str(saved_simulation(tmp_path / "work.fsm", MESH)),
-        engines={"LIFT_L1": LIFTER, "PUSHER": PUSHER},
+        rotors={"LIFT_L1": LIFTER, "PUSHER": PUSHER},
         aliases={
             "LIFT_L1": [*LIFTER.families_general, *LIFTER.families_blades],
             "PUSHER": [*PUSHER.families_general, *PUSHER.families_blades],
@@ -144,15 +144,15 @@ def motion_payloads(text: str) -> list[str]:
 
 # --- FR-71: a rotation cites the alias, and the alias's frames turn with it ---
 #
-# Her design of 2026-09-10, PFS-2035.17. A ROTATE record states ALIAS
+# The author's design of 2026-09-10, PFS-2035.17. A ROTATE record states ALIAS
 # where it stated FAMILIES, so a rotation and a motion cite a set the same
 # way; and AUX_FRAMES retires, because every frame the alias OWNS turns
 # with the boundaries and the row no longer has to list them.
 #
 # ANSWERED 2026-09-10 AND BUILT: `<ALIAS>_SMRP_ORIGINAL` is created ONCE
-# PER ALIAS, before the first rotation, which was her answer between that
+# PER ALIAS, before the first rotation, which was the author's answer between that
 # and once per record (PFS-2035.17, DEC-010). Three cases below assert it,
-# and the doubling her second rule asks for, that an entry naming a
+# and the doubling the author's second rule asks for, that an entry naming a
 # rotated hub is written in both frames, is asserted in
 # tests/tier1_offline/test_pproc_by_frame.py, where the emission layer is.
 
@@ -318,24 +318,25 @@ def test_a_rotation_stating_neither_alias_nor_families_is_refused(tmp_path):
     assert "ALIAS" in str(refused.value)
 
 
-def test_a_rotation_still_naming_families_warns_and_turns_the_same_boundaries(tmp_path):
-    """The 0.14.0 spelling keeps working, with the ledger's own words.
+def test_a_rotation_still_naming_families_is_refused_naming_the_words_to_write(tmp_path):
+    """The 0.14.0 spelling is refused, with the ledger's own words.
 
     Every matrix written before this release states FAMILIES, and the row
-    it is in is the row a user is least likely to have looked at twice.
+    it is in is the row a user is least likely to have looked at twice, so
+    the refusal has to carry the edit rather than only the diagnosis: the
+    words the reference declares, and what becomes of a list spanning two
+    rotors.
     """
     record = "{ANGLE: 3 / AXIS: PUSHER_SMRP-Y / FAMILIES: Spinner,Blade_1}"
-    with pytest.warns(PyflightstreamDeprecationWarning, match=r"FAMILIES.*ALIAS"):
-        text = rendered(rotating_case(tmp_path, record))
-    turned = set(surface_rotation(text).splitlines()[1].split(","))
-    assert turned == {str(MESH.index(name) + 1) for name in ("Spinner", "Blade_1")}, turned
+    with pytest.raises(PyflightstreamError, match=r"FAMILIES.*ALIAS"):
+        rendered(rotating_case(tmp_path, record))
 
 
 def test_no_frame_turns_twice_however_many_names_it_answers_to(tmp_path):
     """The row says three degrees, so every frame turns three degrees.
 
     FOUND BY ALL THREE LENSES, and it shipped for an hour. A rotor's hub
-    has two names at one index, `<ALIAS>_SMRP` and `PROP_MRP<k>`, and its
+    has two names at one index, `<ALIAS>_SMRP` and `ROTOR_MRP<k>`, and its
     moving frame arrived both as a frame the alias owns and as a FOLLOWER
     of the hub. The emission list was keyed on NAMES, so `PUSHER_RMRP`
     was rotated twice and the blades then spun about an axis at twice the
@@ -348,9 +349,11 @@ def test_no_frame_turns_twice_however_many_names_it_answers_to(tmp_path):
     """
     for record in (
         "{ANGLE: 3 / AXIS: PUSHER_SMRP-Y / ALIAS: PUSHER}",
-        # And the half-migrated shape the deprecation invites, where the
-        # 0.14.0 key names the same frames the alias already carries.
-        "{ANGLE: 3 / AXIS: PUSHER_SMRP-Y / ALIAS: PUSHER / AUX_FRAMES: PROP_MRP2}",
+        # The same rotation with the frames named again beside the alias.
+        # AUX_FRAMES named the 0.14.0 positional frames until 0.15.0; the
+        # names a rotor's frames carry now are its own, and naming one
+        # explicitly must still not turn it twice.
+        "{ANGLE: 3 / AXIS: PUSHER_SMRP-Y / ALIAS: PUSHER / AUX_FRAMES: PUSHER_RMRP}",
     ):
         text = rendered(rotating_case(tmp_path, record))
         turned = [frame_names(text)[index] for index in rotated_frames(text)]
@@ -398,42 +401,41 @@ def test_a_mesh_family_is_not_a_coordinate_system(tmp_path):
     assert "PUSHER_SMRP" in message, "the refusal does not list the frames that do exist"
 
 
-def test_two_retired_records_warn_twice(tmp_path):
-    """A row migrating record by record is told about every record.
+def test_a_retired_record_is_refused_with_its_own_record_quoted(tmp_path):
+    """A row migrating record by record is told WHICH record is wrong.
 
-    The warning was built from the case id and the ledger text alone, so
-    two records of one row produced a byte-identical message at one
-    warning-registry key and Python's DEFAULT filter dropped the second.
-    Measured under `default`, not `always`: under `always` the defect is
-    invisible, which is how a case here would pass for the wrong reason.
+    It warned once per record until 0.15.0 shipped, and the warning was
+    built from the case id and the ledger text alone, so two records of
+    one row produced a byte-identical message that Python's default filter
+    collapsed. The refusal cannot collapse, and it carries the record's
+    own text, which is what makes it actionable on a row of several.
     """
     record = (
         "{ANGLE: 3 / AXIS: PUSHER_SMRP-Y / FAMILIES: Spinner}, "
         "{ANGLE: -2 / AXIS: PUSHER_SMRP-Z / FAMILIES: Blade_1}"
     )
-    with warnings.catch_warnings(record=True) as caught:
-        warnings.simplefilter("default", PyflightstreamDeprecationWarning)
+    with pytest.raises(PyflightstreamError) as refused:
         rendered(rotating_case(tmp_path, record))
-    retired = [w for w in caught if "FAMILIES" in str(w.message)]
-    assert len(retired) == 2, [str(w.message)[:120] for w in retired]
+    message = str(refused.value)
+    assert "Spinner" in message, f"the refusal does not quote the record it read: {message}"
 
 
-def test_the_retired_warning_says_the_value_changes_and_not_only_the_key(tmp_path):
+def test_the_refusal_says_the_value_changes_and_not_only_the_key(tmp_path):
     """A rename of the key alone would be `ALIAS: Blade,S`, which is refused.
 
     The ledger renders "FAMILIES was renamed to ALIAS; use ALIAS", which
-    instructs the literal edit and lands the reader in the refusal one
-    line later. The warning names the words the reference declares, which
-    is the information the warn site has and the user needs.
+    instructs the literal edit and lands the reader in a second refusal one
+    line later. The message names the words the reference declares, which
+    is the information the site has and the user needs.
     """
-    with pytest.warns(PyflightstreamDeprecationWarning) as caught:
+    with pytest.raises(PyflightstreamError) as refused:
         rendered(rotating_case(tmp_path, "{ANGLE: 3 / AXIS: PUSHER_SMRP-Y / FAMILIES: Spinner}"))
-    message = next(str(w.message) for w in caught if "FAMILIES" in str(w.message))
+    message = str(refused.value)
     assert "PUSHER" in message and "LIFT_L1" in message, (
-        "the warning does not name the words the reference declares"
+        "the refusal does not name the words the reference declares"
     )
     assert "one record per alias" in message, (
-        "the warning does not say what becomes of a families list spanning two rotors"
+        "the refusal does not say what becomes of a families list spanning two rotors"
     )
 
 
@@ -471,7 +473,7 @@ def swept_ratio_case(tmp_path, point, **overrides) -> SimCase:
     """A two-rotor row whose CONDITION sweeps the advance ratio.
 
     The lifter states its own RPM and the pusher states nothing but its
-    alias, which is her transition: the sweep moves the pusher while the
+    alias, which is the author's transition: the sweep moves the pusher while the
     lifters hold.
     """
     case = two_rotor_case(tmp_path, **overrides)
@@ -493,10 +495,10 @@ def test_a_swept_ratio_reaches_the_motion_that_states_no_speed(tmp_path):
     A row states `ADVANCE_RATIO: sweep` in FLIGHT_CONDITION, so the ratio
     is NOT among the row's variables: the swept key is deliberately left
     out of them, because its value is the point's and not the row's. The
-    ratio therefore reached no motion at all and every rotor row of her
+    ratio therefore reached no motion at all and every rotor row of the author's
     use case was blocked at plan time with "states no rotor speed".
 
-    Measured on her own `matriz_transicao.fs`, where 9 of 16 points were
+    Measured on the author's own `matriz_transicao.fs`, where 9 of 16 points were
     blocked on exactly this sentence.
     """
     speeds = []
@@ -569,7 +571,7 @@ def test_a_rotor_block_built_without_an_alias_is_refused(tmp_path):
     from pyflightstream.workspace import CampaignWorkspace
 
     with pytest.raises(ValidationError, match=r"alias"):
-        EngineBlock(
+        RotorBlock(
             axis="X",
             diameter_m=1.8,
             families_blades=["Blade_1", "Blade_2"],
@@ -586,7 +588,7 @@ def test_a_rotor_block_built_without_an_alias_is_refused(tmp_path):
                 "span_m = 8.0",
                 "",
                 "[PUSHER]",
-                'kind = "engine"',
+                'kind = "rotor"',
                 'axis = "Z"',
                 "diameter_m = 1.8",
                 'families_blades = ["Blade_1", "Blade_2"]',
@@ -595,7 +597,7 @@ def test_a_rotor_block_built_without_an_alias_is_refused(tmp_path):
         + "\n",
         encoding="utf-8",
     )
-    block = workspace.resolve_reference("r900").engines["PUSHER"]
+    block = workspace.resolve_reference("r900").rotors["PUSHER"]
     assert block.alias == "PUSHER", "the reader no longer fills the alias in from the name"
 
 
@@ -612,7 +614,8 @@ def test_a_record_names_its_rotor_by_alias_and_moves_that_rotors_boundaries(tmp_
 
 
 def test_the_spinner_turns_with_its_blades(tmp_path):
-    """Her words of 2026-09-10: the alias prescribes the motion and the spinner turns with it."""
+    """The author's words of 2026-09-10: the alias prescribes the motion and the spinner turns with
+    it."""
     text = rendered(two_rotor_case(tmp_path))
     _, pusher = motion_payloads(text)
     assert "Spinner" in pusher or str(MESH.index("Spinner") + 1) in pusher, pusher
@@ -667,21 +670,23 @@ def test_the_frames_a_rotor_instantiates_take_its_alias_as_their_radical(tmp_pat
     assert "PUSHER_RMRP4" not in text, "the pusher has three blades"
 
 
-def test_the_0140_frame_names_survive_a_record_that_names_no_engine(tmp_path):
-    """A row written before this release renders the frames it always did.
+def test_a_record_naming_no_rotor_is_refused_rather_than_given_a_positional_name(tmp_path):
+    """The 0.14.0 frame names are gone, and so is the record that produced them.
 
-    The alias radical belongs to a record that CITES a rotor of the
-    reference. A record still stating MOVING_BOUNDARIES has no alias to
-    take one from, and renaming its frames would rewrite every golden of
-    every 0.14.0 rotor row.
+    A record still stating MOVING_BOUNDARIES has no alias to take a
+    radical from, and it used to get the positional PROP_MRP<k> and
+    RotorAxis<k>: names that read as names and were an INDEX, so a
+    post-processing entry citing one silently followed the ORDER of the
+    MOTIONS list. Both go together, on the author's instruction of
+    2026-09-10: "quebra a promessa, nao estamos em versao estavel".
     """
     case = two_rotor_case(tmp_path)
     case = case.model_copy(
         update={
-            "engines": {},
+            "rotors": {},
             # THE KEY NAMES ONE OF THIS ROW'S OWN MOTIONS. It states a
             # MOTIONS list in the spelling of before 0.15.0, and the key is
-            # required of any list whatever spelling names it: her
+            # required of any list whatever spelling names it: the author's
             # correction of 2026-09-10, "nao precisa manter promessa que
             # toda linha segue rodando, nao temos release estavel ainda".
             "variables": {**case.variables, "CLOCK_MOTION": "LB_L1_1"},
@@ -691,10 +696,8 @@ def test_the_0140_frame_names_survive_a_record_that_names_no_engine(tmp_path):
             ],
         }
     )
-    text = rendered(case)
-    assert "PROP_MRP1" in text and "RotorAxis1" in text
-    assert "PROP_MRP2" in text and "RotorAxis2" in text
-    assert "_SMRP" not in text
+    with pytest.raises(PyflightstreamError, match="MOVING_BC_ALIAS"):
+        rendered(case)
 
 
 def test_a_blade_the_mesh_lacks_gets_no_frame_and_the_count_stays(tmp_path):
@@ -710,7 +713,7 @@ def test_a_blade_the_mesh_lacks_gets_no_frame_and_the_count_stays(tmp_path):
     text = rendered(case)
     assert "LIFT_L1_RMRP1" in text
     assert "LIFT_L1_RMRP2" not in text, "no frame for a blade the mesh does not carry"
-    assert case.engines["LIFT_L1"].blade_count == 4, "the count is the list, not the file"
+    assert case.rotors["LIFT_L1"].blade_count == 4, "the count is the list, not the file"
 
 
 def sector_case(tmp_path, blades_in_the_mesh: int, name: str):
@@ -726,7 +729,7 @@ def sector_case(tmp_path, blades_in_the_mesh: int, name: str):
 
 
 def test_a_sector_carrying_one_blade_of_four_stands_for_four_copies(tmp_path):
-    """FR-59 and FR-61: the row states no count and her 9207 still initializes."""
+    """FR-59 and FR-61: the row states no count and the author's 9207 still initializes."""
     lines = rendered(sector_case(tmp_path, 1, "quarter")).splitlines()
     assert "SYMMETRY PERIODIC 4" in lines, lines
 
@@ -811,7 +814,7 @@ def test_the_clock_follows_the_named_motion_and_not_the_fastest(tmp_path):
     speeds = [rotor_speed(view) for view in views]
     named = base.model_copy(update={"variables": {**base.variables, "CLOCK_MOTION": "PUSHER"}})
     assert _clock_speed(named, views, speeds).rpm == 900
-    # AND WITHOUT THE KEY IT IS REFUSED, not warned. Her answer of
+    # AND WITHOUT THE KEY IT IS REFUSED, not warned. The author's answer of
     # 2026-09-10 (DEC-010) made the key REQUIRED on a row that states a
     # MOTIONS list; until then this row read with a warning and the clock
     # followed the fastest, which is the inference the key exists to
@@ -824,7 +827,7 @@ def test_the_clock_follows_the_named_motion_and_not_the_fastest(tmp_path):
 
 
 def test_a_motions_row_without_a_clock_is_refused_naming_what_it_could_choose(tmp_path):
-    """Her answer of 2026-09-10: the key is REQUIRED on a row with a MOTIONS list.
+    """The author's answer of 2026-09-10: the key is REQUIRED on a row with a MOTIONS list.
 
     Which rotor bounds the time step and counts the revolutions is a
     decision the ROW states, not arithmetic the package performs in
@@ -849,9 +852,9 @@ def test_a_motions_row_without_a_clock_is_refused_naming_what_it_could_choose(tm
 def test_a_row_stating_its_rotor_in_the_flat_keys_needs_no_clock(tmp_path):
     """The pre-0.15.0 form turns ONE rotor, so there is nothing to choose.
 
-    This is the scope she set once the consequence was measured: her own
+    This is the scope the author set once the consequence was measured: the author's own
     master's case 9001, which arm 4 of GOAL-014 runs, is written this way,
-    and refusing it would have cost her the comparison to buy a key that
+    and refusing it would have cost the author's the comparison to buy a key that
     decides nothing.
     """
     from pyflightstream.cases.workflows import _clock_speed
@@ -888,8 +891,8 @@ def test_a_row_stating_symmetry_loads_overrides_the_preset_and_warns(tmp_path):
     """FR-66: one preset serves a sector row and a full-wheel row.
 
     The value the script carries is the ROW's, and the warning names both
-    so the override is not silent. Her first answer that hour was to
-    refuse both stating it; she changed it the same hour.
+    so the override is not silent. The author's first answer that hour was to
+    refuse both stating it; the author changed it the same hour.
     """
     from pyflightstream.cases.workflows import _row_symmetry_loads
 
@@ -963,31 +966,32 @@ def test_a_record_citing_an_alias_the_reference_does_not_declare_is_refused(tmp_
         rendered(case)
     message = str(refused.value)
     assert "LIFT_L9" in message
-    assert "PUSHER" in message, "the refusal names the engines the reference does declare"
+    assert "PUSHER" in message, "the refusal names the rotors the reference does declare"
 
 
-def test_a_record_still_naming_its_boundaries_warns_from_the_ledger(tmp_path):
-    """TW2-15: the promise was registered and never spoken.
+def test_a_record_still_naming_its_boundaries_is_refused_from_the_ledger(tmp_path):
+    """TW2-15, one release on: the promise was registered, then broken on purpose.
 
-    `ROW_MOVING_BOUNDARIES` sat in the deprecation ledger with a removal
-    version, and nothing called its `message()`. A record stating
-    `MOVING_BOUNDARIES` was accepted in SILENCE, so the deprecation the
-    ledger announces was invisible to the user it is for.
+    `ROW_MOVING_BOUNDARIES` sat in the ledger with a removal version and
+    nothing called its `message()`, so a record stating
+    `MOVING_BOUNDARIES` was accepted in SILENCE. It warned for one round
+    and now refuses: the entry was written in 0.15.0 and 0.15.0 has not
+    shipped, so no workspace was ever told the key would keep working.
 
-    The text is the ledger entry's own, so the release it names is the one
-    the deadline guard enforces rather than a second copy nothing keeps
-    equal.
+    The text is the ledger entry's own, so the words a user reads and the
+    words the ledger records cannot disagree.
     """
-    from pyflightstream._deprecations import ROW_MOVING_BOUNDARIES
+    from pyflightstream._deprecations import ROW_MOVING_BOUNDARIES, refusal_text
     from pyflightstream.cases.workflows import _motion_view
 
     case = two_rotor_case(tmp_path).model_copy(
-        update={"engines": {}, "motions": [{"MOVING_BOUNDARIES": "LB_L1_1", "RPM": "2200"}]}
+        update={"rotors": {}, "motions": [{"MOVING_BOUNDARIES": "LB_L1_1", "RPM": "2200"}]}
     )
-    with pytest.warns(match="MOVING_BOUNDARIES") as caught:
+    with pytest.raises(PyflightstreamError) as refused:
         _motion_view(case, case.motions[0])
-    assert ROW_MOVING_BOUNDARIES.message() in str(caught[0].message)
-    assert f"removed in v{ROW_MOVING_BOUNDARIES.removal_version}" in str(caught[0].message)
+    message = str(refused.value)
+    assert refusal_text(ROW_MOVING_BOUNDARIES) in message, message
+    assert "no longer accepted" in message, message
 
 
 def test_a_record_stating_both_spellings_is_refused(tmp_path):
@@ -1006,13 +1010,13 @@ def test_a_record_stating_both_spellings_is_refused(tmp_path):
     assert "MOVING_BOUNDARIES" in str(refused.value)
 
 
-# --- FR-71's last half: the frame a rotor turned FROM (her answer of 2026-09-10)
+# --- FR-71's last half: the frame a rotor turned FROM (the author's answer of 2026-09-10)
 
 
 def test_a_rotated_rotor_keeps_a_copy_of_the_frame_it_turned_from(tmp_path):
     """`<ALIAS>_SMRP_ORIGINAL`, which nothing turns and the pproc may cite.
 
-    FR-71's own sentence, and the half that waited on her: a run keeps the
+    FR-71's own sentence, and the half that waited on the author's: a run keeps the
     frame it turned FROM, so a product can be read in it.
     """
     case = rotating_case(tmp_path, "{ANGLE: 3 / AXIS: PUSHER_SMRP-Y / ALIAS: PUSHER}")
@@ -1022,11 +1026,11 @@ def test_a_rotated_rotor_keeps_a_copy_of_the_frame_it_turned_from(tmp_path):
 
 
 def test_the_frame_it_turned_from_is_kept_once_per_alias_and_not_once_per_record(tmp_path):
-    """HER ANSWER OF 2026-09-10, asked in her seat and recorded in DEC-010.
+    """THE AUTHOR'S ANSWER OF 2026-09-10, asked in the author's seat and recorded in DEC-010.
 
-    The discriminator she was given was this row: one alias rotated TWICE.
+    The discriminator the author was given was this row: one alias rotated TWICE.
     Once per RECORD would also keep the state BETWEEN the two rotations,
-    which is the reading she did not want, so the second rotation adds no
+    which is the reading the author did not want, so the second rotation adds no
     frame and the copy still names the state before the row touched
     anything.
     """

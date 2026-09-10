@@ -47,11 +47,12 @@ from pyflightstream._deprecations import (
     ROW_AIRFRAME_SELECTOR,
     ROW_BLADES_SELECTOR,
     ROW_EACH_BLADE,
-    ROW_PROBE_SCALE,
+    refusal_text,
 )
 from pyflightstream._digest import file_sha256, text_sha256
 from pyflightstream._errors import PyflightstreamDeprecationWarning, PyflightstreamError
 from pyflightstream._fsm import names_of
+from pyflightstream._retired_names import PROBE_SCALE_PROPELLER_RADIUS
 from pyflightstream.commands import Phase
 from pyflightstream.script import Script
 from pyflightstream.script.toggles import resolve_toggle
@@ -60,7 +61,7 @@ from pyflightstream.versions import resolve
 __all__ = [
     "AliasCycleError",
     "BladeDatum",
-    "EngineBlock",
+    "RotorBlock",
     "ROTATION_OFFSET_KEY",
     "ROTATION_SWEEP_KEY",
     "Campaign",
@@ -168,7 +169,7 @@ class SweepAxis(BaseModel):
     type : str
         ``alpha`` (angle of attack, deg), ``beta`` (side slip, deg),
         ``alpha_beta`` (paired values), or ``advance_ratio``
-        (propeller advance ratio J, dimensionless).
+        (rotor advance ratio J, dimensionless).
     values : list
         Axis values; for ``alpha_beta`` each entry is an
         ``[alpha, beta]`` pair in deg.
@@ -314,7 +315,7 @@ class SweepAxis(BaseModel):
 
 
 #: THE EXPORT KINDS A POINT LEAVES (FR-51, PFS-2029.14), in the order the
-#: author's own driver wrote them and with her suffixes: (kind, suffix, the
+#: author's own driver wrote them and with the author's suffixes: (kind, suffix, the
 #: solver verb, unsteady only). A steady point leaves seven, an unsteady point
 #: eight, the plots file being the one only a time loop produces. The suffix is
 #: what pairs a declared output name with its verb, longest suffix first, so
@@ -340,7 +341,7 @@ def default_outputs(unsteady: bool, exports: Mapping[str, bool] | None = None) -
     the pproc artifact's
     ``[exports]`` table (PFS-2029.14.02): a kind set to false is left
     out, a kind the table does not name is kept, so an empty table is
-    the whole set, as her driver's ``files_to_save`` defaulted.
+    the whole set, as the author's driver's ``files_to_save`` defaulted.
     """
     chosen = exports or {}
     return [
@@ -369,11 +370,11 @@ def classify_outputs(names: Sequence[str]) -> dict[str, str]:
     return claimed
 
 
-#: THE FORCE-PLOT PARAMETERS BY THE SHORT NAME HER PLOT FILES USE, paired
+#: THE FORCE-PLOT PARAMETERS BY THE SHORT NAME THE AUTHOR'S PLOT FILES USE, paired
 #: with the PARAMETER the command takes and the UNITS it is sampled in
 #: (PFS-2029.07.03). The plot's NAME is ``{short}_{group}``, which is how
-#: her ``CL_MRP_TOTAL`` and ``FX_MRP_TOTAL`` were spelled, and the column
-#: her PLOTS product carries.
+#: the author's ``CL_MRP_TOTAL`` and ``FX_MRP_TOTAL`` were spelled, and the column
+#: the author's PLOTS product carries.
 FORCE_PLOT_PARAMETERS: dict[str, tuple[str, str]] = {
     "CL": ("CL", "COEFFICIENTS"),
     "CDI": ("CDI", "COEFFICIENTS"),
@@ -406,19 +407,25 @@ FLUID_PLOT_PARAMETERS = (
 #: expands the entry into one per family the geometry carries, and
 #: ``each_blade`` into one per blade, the entry's name carrying
 #: ``{family}`` for the expansion. They are what let ONE artifact serve
-#: her wing-body and her isolated-rotor configurations: her driver kept
+#: the author's wing-body and the author's isolated-rotor configurations: the author's driver kept
 #: one table of sections and plots and filtered it to the components the
 #: opened file carried, and the selectors are that filter written down.
 FAMILY_SELECTORS = ("all", "airframe", "blades", "each", "each_blade")
 
-#: The frames the package creates itself, which a pproc entry may cite by
-#: NAME beside the setup's own ``[[frames]]`` and a motions row's
-#: ``PROP_MRP<k>`` and ``RotorAxis<k>`` (her p001 of 2026-09-09). MRP is
-#: the moment frame the reference creates (PFS-2030.03.02), PROP_MRP the
-#: propeller frame, and BLADE_AXIS the per-blade frame of the multirotor
+#: The frames the package creates itself under a FIXED name, which a pproc
+#: entry may cite beside the reference's own ``[[frames]]`` and beside a
+#: rotor's frames. MRP is the moment frame the reference creates
+#: (PFS-2030.03.02), and BLADE_AXIS the per-blade frame of the multirotor
 #: work (PFS-2029.11.03); an entry citing a frame the run did not create is
 #: refused at build time naming the frames it did.
-PPROC_FRAMES = ("MRP", "PROP_MRP", "BLADE_AXIS")
+#:
+#: A ROTOR'S FRAMES ARE NOT HERE, because their names are not fixed: they
+#: take the rotor's own alias as their radical (``<ALIAS>_SMRP``,
+#: ``<ALIAS>_RMRP``, ``<ALIAS>_RMRP<k>``), which is what a reference
+#: declaring several rotors requires. The single ``PROP_MRP`` this tuple
+#: carried until 0.15.0 was the last of the one-propulsor assumption:
+#: one reference, one rotor, one name that could stand for it.
+PPROC_FRAMES = ("MRP", "BLADE_AXIS")
 
 Plane = Literal["XY", "XZ", "YZ"]
 
@@ -428,17 +435,22 @@ def _a_named_frame(value: str) -> str:
     if not value.strip():
         raise ValueError(
             f"frame names one the run creates ({', '.join(PPROC_FRAMES)}, a rotor's "
-            "PROP_MRP<k> or RotorAxis<k>) or one the setup's [[frames]] table defines; "
+            "ROTOR_MRP<k> or RotorAxis<k>) or one the setup's [[frames]] table defines; "
             "it is empty"
         )
     return value
 
 
 def _the_radius_is_a_rotors(value: object) -> object:
-    """Read the 0.14.0 spelling of the probe scale, with the ledger's own words (FR-65)."""
+    """Refuse the 0.14.0 spelling of the probe scale, naming the fix (FR-65).
+
+    It warned and rewrote itself until the author's instruction of
+    2026-09-10: this package has no stable release, so an old word is
+    refused with its replacement named rather than carried. See
+    :mod:`pyflightstream._retired_names`.
+    """
     if value == "propeller_radius":
-        warnings.warn(ROW_PROBE_SCALE.message(), PyflightstreamDeprecationWarning, stacklevel=2)
-        return "rotor_radius"
+        raise ValueError(PROBE_SCALE_PROPELLER_RADIUS.message())
     return value
 
 
@@ -446,7 +458,7 @@ def _check_family_selection(value: object) -> str | list[str]:
     """Accept one word, or a list of words; what a word IS is judged at build time.
 
     A bare word is one of the five selectors, an alias of the row's setup
-    or a family name (her p001 of 2026-09-09 writes ``families =
+    or a family name (the author's p001 of 2026-09-09 writes ``families =
     "Lifters"``), and :func:`select_families` reads it against the row's
     inventory and aliases; a word resolving to nothing is an entry the
     builder skips. The shape refused here is an empty word and an empty
@@ -488,16 +500,14 @@ class SectionDistribution(BaseModel):
 
         The ledger promise and the changelog both say `each_blade` is read
         with a warning until 0.17.0, and the sections path gave none: a
-        distribution is the OTHER consumer of the same selector, and her own
+        distribution is the OTHER consumer of the same selector, and the author's own
         `p010.toml` writes one (the interface lens, 2026-09-10). A promise
         kept on one of two paths is a false sentence on the page, not a
         partial one.
         """
         if self.families == "each_blade":
-            warnings.warn(
-                f"section distribution over {self.planes}: {ROW_EACH_BLADE.message()}",
-                PyflightstreamDeprecationWarning,
-                stacklevel=2,
+            raise ValueError(
+                f"section distribution over {self.planes}: {refusal_text(ROW_EACH_BLADE)}"
             )
         return self
 
@@ -514,7 +524,7 @@ class SectionsSpec(BaseModel):
 
 
 #: The FRAME KINDS a post-processing entry may cite instead of a frame's
-#: name, and what each says the entry is ONE OF (FR-65, her design of
+#: name, and what each says the entry is ONE OF (FR-65, the author's design of
 #: 2026-09-10). They are not frames the script creates: they name the
 #: ROLE a frame plays for a rotor, and the expansion resolves each to that
 #: rotor's own `<ALIAS>_SMRP`, `<ALIAS>_RMRP` or `<ALIAS>_RMRP<k>`.
@@ -612,11 +622,7 @@ class ForcePlotGroup(BaseModel):
     def _the_retired_selector_says_it_in_the_frame(self) -> ForcePlotGroup:
         """`each_blade` said what `LOCAL_AXIS` says, so it is a second home for one fact."""
         if self.families == "each_blade":
-            warnings.warn(
-                f"plot group {self.name!r}: {ROW_EACH_BLADE.message()}",
-                PyflightstreamDeprecationWarning,
-                stacklevel=2,
-            )
+            raise ValueError(f"plot group {self.name!r}: {refusal_text(ROW_EACH_BLADE)}")
         return self
 
 
@@ -656,16 +662,16 @@ class ProbesSpec(BaseModel):
     and every vertex gets one UNSTEADY_SOLVER_NEW_FLUID_PLOT per parameter,
     named ``{parameter}{n}`` with n counting vertices across the lines in
     the order written. ``scale`` says what the coordinates are in: metres,
-    or ROTOR radii, which is how her nine lines were laid out over the
+    or ROTOR radii, which is how the author's nine lines were laid out over the
     disk of whichever rotor the reference named. The word was
     ``propeller_radius`` until 0.15.0 and is read with a warning until
     0.17.0: this release says ROTOR everywhere, because a lifter is not a
-    propeller and her aircraft has eight of them.
+    rotor and the author's aircraft has eight of them.
     """
 
     model_config = ConfigDict(extra="forbid")
 
-    frame: str = "PROP_MRP"
+    frame: str = "ROTOR_MRP"
     parameters: list[str] = Field(default_factory=list)
     points: int = Field(default=25, ge=2)
     scale: Annotated[Literal["m", "rotor_radius"], BeforeValidator(_the_radius_is_a_rotors)] = "m"
@@ -728,11 +734,11 @@ class ProductsSpec(BaseModel):
 #: Frame names the package creates itself (PFS-2030.03.02); a setup may
 #: not define one of these, because the row's rotation and the pproc
 #: definitions resolve them to the package's own frames. The rotor run
-#: type also creates ``PROP_MRP<k>``, ``RotorAxis<k>`` and ``BladeAxis<k>``,
+#: type also creates ``ROTOR_MRP<k>``, ``RotorAxis<k>`` and ``BladeAxis<k>``,
 #: one per record or blade family, refused by pattern below (the
-#: interface lens of REL-0140: a setup defining PROP_MRP1 was shadowed).
-RESERVED_FRAME_NAMES: tuple[str, ...] = ("MRP", "PROP_MRP")
-RESERVED_FRAME_PATTERN = re.compile(r"^(PROP_MRP|ROTORAXIS|BLADEAXIS)\d+$")
+#: interface lens of REL-0140: a setup defining ROTOR_MRP1 was shadowed).
+RESERVED_FRAME_NAMES: tuple[str, ...] = ("MRP", "ROTOR_MRP")
+RESERVED_FRAME_PATTERN = re.compile(r"^(ROTOR_MRP|ROTORAXIS|BLADEAXIS)\d+$")
 
 
 #: The phases a raw command may be declared before (PFS-2033.01):
@@ -749,7 +755,7 @@ RAW_PHASES: tuple[str, ...] = (
 class RawCommand(BaseModel):
     """One solver command a setup artifact states verbatim (PFS-2033.01).
 
-    Her design of 2026-09-09 (design/69): the user writes the command
+    The author's design of 2026-09-09 (design/69): the user writes the command
     line as the solver reads it, arguments included, and names the phase
     it goes before; the builders emit it through the same emitter every
     curated helper uses, so the database's grammar, version, argument
@@ -800,9 +806,9 @@ class RawCommand(BaseModel):
 class FrameSpec(BaseModel):
     """One custom coordinate system a setup artifact defines (PFS-2034.01).
 
-    Her design of 2026-09-09 (design/69): the row's rotation names an
+    The author's design of 2026-09-09 (design/69): the row's rotation names an
     axis as ``<frame>-<X|Y|Z>``, and the frame is one the setup defined
-    here or one the package creates (``MRP``; ``PROP_MRP`` on the rotor
+    here or one the package creates (``MRP``; ``ROTOR_MRP`` on the rotor
     run types). The origin is in the geometry's own frame, the solver's
     reference frame, in the simulation's length unit, and the two axes
     are direction vectors in that frame; the third axis is the right-handed cross product,
@@ -832,7 +838,7 @@ class FrameSpec(BaseModel):
         if name.upper() in RESERVED_FRAME_NAMES or RESERVED_FRAME_PATTERN.match(name.upper()):
             raise ValueError(
                 f"the frame name {self.name!r} is one the package creates itself "
-                f"({', '.join(RESERVED_FRAME_NAMES)}, and PROP_MRP<k>, RotorAxis<k> and "
+                f"({', '.join(RESERVED_FRAME_NAMES)}, and ROTOR_MRP<k>, RotorAxis<k> and "
                 "BladeAxis<k> on a rotor row); choose another name"
             )
         return self
@@ -849,7 +855,7 @@ _AXIS_TOKEN = re.compile(r"^[+-]?[XYZ]$")
 class BladeDatum(BaseModel):
     """Where blade one sits, and the axis its azimuth is measured from (FR-60).
 
-    Her answer of 2026-09-10, on the first reading of the use case: an
+    The author's answer of 2026-09-10, on the first reading of the use case: an
     azimuth ALONE carries a hidden convention, zero at which axis, that
     two people fill differently and nobody sees. So the datum is written
     beside it: ``{ azimuth_deg = 45.0, zero = "X" }``, the zero being an
@@ -882,10 +888,10 @@ class BladeDatum(BaseModel):
         return token
 
 
-class EngineBlock(BaseModel):
+class RotorBlock(BaseModel):
     """One rotor, declared as one block of the reference artifact (FR-60).
 
-    Her design of 2026-09-10. The block's NAME is an alias over
+    The author's design of 2026-09-10. The block's NAME is an alias over
     everything the rotor owns, the union of :attr:`families_general` and
     :attr:`families_blades` in that order: what a row moves when it cites
     it, and what a group summing the rotor sums.
@@ -896,7 +902,7 @@ class EngineBlock(BaseModel):
     package builds from it (the static and rotating moment reference
     points of the rotor), because then a rotor and a frame spell the
     same. PFS-2035.02 said a name ending in a digit is refused, which was
-    true of the frame names of 0.14.0 and would refuse her own study
+    true of the frame names of 0.14.0 and would refuse the author's own study
     under these: the number in ``<ALIAS>_RMRP<k>`` follows ``RMRP``, never
     the alias.
 
@@ -951,7 +957,7 @@ class EngineBlock(BaseModel):
     rpm_sign: int = 1
     families_general: list[str] = Field(default_factory=list)
     blade1: BladeDatum = Field(default_factory=BladeDatum)
-    kind: str = "engine"
+    kind: str = "rotor"
 
     @property
     def blade_count(self) -> int:
@@ -989,7 +995,7 @@ class EngineBlock(BaseModel):
         return value
 
     @model_validator(mode="after")
-    def _a_rotor_with_blades_and_a_usable_datum(self) -> EngineBlock:
+    def _a_rotor_with_blades_and_a_usable_datum(self) -> RotorBlock:
         if not self.families_blades:
             raise ValueError(
                 "families_blades is empty, and the blade count is its length, so this "
@@ -1007,7 +1013,7 @@ class EngineBlock(BaseModel):
 class AliasCycleError(PyflightstreamError, ValueError):
     """An alias resolves through itself, and both sides are named (FR-59).
 
-    Her design of 2026-09-10 lets an alias name another alias, resolved to
+    The author's design of 2026-09-10 lets an alias name another alias, resolved to
     the end. That is what makes a cycle possible, so the reader refuses one
     rather than recursing: the message names the alias that closed the ring
     and the member that closed it, because a reader holding only one of the
@@ -1018,12 +1024,12 @@ class AliasCycleError(PyflightstreamError, ValueError):
 class PprocSpec(BaseModel):
     """The post-processing specification a matrix row's PPROC cell names.
 
-    PFS-2029.07.01, her decision of 2026-09-02: the groups artifact IS the
+    PFS-2029.07.01, the author's decision of 2026-09-02: the groups artifact IS the
     home of post-processing and is renamed pproc. Six tables. ``groups``
     is exactly what the groups file held, a number to the families it
     aggregates, and the polar tables are written per group of it; a
     member is resolved by :func:`select_group_members`, and an empty
-    group is every family (her decision of 2026-09-09); ``exports`` says which of
+    group is every family (the author's decision of 2026-09-09); ``exports`` says which of
     the eight export kinds a point writes, all of them unless a kind is
     set to false; ``sections``, ``plots`` and ``probes`` are the solver
     definitions the builders emit before the solver runs; ``products``
@@ -1039,7 +1045,7 @@ class PprocSpec(BaseModel):
     probes: ProbesSpec = Field(default_factory=ProbesSpec)
     products: ProductsSpec = Field(default_factory=ProductsSpec)
     #: How a blade family is told from the airframe: a regular expression
-    #: over the family name. Hers were Blade1 to Blade6.
+    #: over the family name. The author's were Blade1 to Blade6.
     blade_pattern: str = r"^Blade\d+$"
     #: The mesh families the base-region autodetect is allowed to consider
     #: (PFS-2029.10): one DETECT_BASE_REGIONS_BY_SURFACE per boundary of
@@ -1086,7 +1092,7 @@ class PprocSpec(BaseModel):
 
 #: The two selector words this release retires, each to its ledger entry.
 #: They are the two that decide what a BLADE is from a pattern over the
-#: family name; `all` and `each` guess nothing and stay (her decision of
+#: family name; `all` and `each` guess nothing and stay (the author's decision of
 #: 2026-09-10).
 _SELECTORS_THAT_GUESS = {
     "airframe": ROW_AIRFRAME_SELECTOR,
@@ -1100,11 +1106,7 @@ def warn_a_selector_that_guesses(word: str) -> None:
     # prefixing "a families cell" produced "a families cell: families =
     # 'airframe' of a families cell was renamed to ..." (the interface lens
     # of 2026-09-10).
-    warnings.warn(
-        _SELECTORS_THAT_GUESS[word].message(),
-        PyflightstreamDeprecationWarning,
-        stacklevel=3,
-    )
+    raise CampaignConfigError(refusal_text(_SELECTORS_THAT_GUESS[word]))
 
 
 def select_families(
@@ -1118,11 +1120,11 @@ def select_families(
     Returns a list of family lists, one per emitted entry: a single list
     for a selector or a literal list, one list per family for ``each``
     and ``each_blade``. A family the geometry does not carry is left out,
-    as her driver filtered its tables to the components it opened; an
+    as the author's driver filtered its tables to the components it opened; an
     entry that resolves to nothing is an empty result and the caller
     skips it. ``all`` is the empty list standing for the command's own
     every-boundary form, which the caller spells as -1. An ALIAS of the
-    row's setup (her decision of 2026-09-09) is read before the five
+    row's setup (the author's decision of 2026-09-09) is read before the five
     selector words, as the bare string and as a list member, so
     ``airframe`` and ``blades`` are the setup's own where it defines them;
     a bare word that is neither is a family name.
@@ -1136,9 +1138,9 @@ def select_families(
             return [[]]
         # THE ALIAS WAS TRIED FIRST, six lines up, so reaching here means
         # the word was read AS A SELECTOR and no alias of that name
-        # resolved. That is the only case her retirement is about: a
+        # resolved. That is the only case the author's retirement is about: a
         # reference that declares `airframe` keeps working unchanged, which
-        # is what every one of hers does (her decision of 2026-09-10).
+        # is what every one of the author's does (the author's decision of 2026-09-10).
         if selection == "airframe":
             warn_a_selector_that_guesses(selection)
             chosen = [name for name in inventory if not is_blade(name)]
@@ -1150,7 +1152,7 @@ def select_families(
             return [[name] for name in inventory]
         if selection == "each_blade":
             return [[name] for name in blades]
-        # A bare word outside the five and the aliases is a family (her
+        # A bare word outside the five and the aliases is a family (the author's
         # p001 of 2026-09-09); one the inventory lacks is an empty result.
         names = names_of(selection, inventory)
         return [names] if names else []
@@ -1179,7 +1181,7 @@ def select_families(
 #: which an alias may not take (the interface lens of 2026-09-09): ``all``
 #: is the command's own every-boundary form and the two ``each`` words emit
 #: one entry per family. ``airframe`` and ``blades`` name a set and stay
-#: shadowable, which is what her decision asked for.
+#: shadowable, which is what the author's decision asked for.
 EXPANDING_SELECTORS = ("all", "each", "each_blade")
 #: A boundary-citing cell reads ``g<number>`` as a pproc group, so an alias
 #: may not take that spelling.
@@ -1222,7 +1224,7 @@ def _check_aliases(value: dict[str, list[str]]) -> dict[str, list[str]]:
     return value
 
 
-#: The boundary aliases a setup preset defines, her decision of 2026-09-09:
+#: The boundary aliases a setup preset defines, the author's decision of 2026-09-09:
 #: a name to the boundary names or families it stands for. The type carries
 #: the shape, so the setup artifact, the case and the run record hold one
 #: rule between them rather than one validator at the artifact's door.
@@ -1234,7 +1236,7 @@ def resolve_alias(
 ) -> list[str] | None:
     """Resolve one cited name as an alias of the setup, or None when it is not one.
 
-    Her decision of 2026-09-09: an alias is a name the setup's
+    The author's decision of 2026-09-09: an alias is a name the setup's
     ``[aliases]`` table gives to a list of boundary names or families,
     and it is read wherever a boundary is cited, the exact spelling
     first and case folded second, as a family is. Each member resolves as
@@ -1245,7 +1247,7 @@ def resolve_alias(
     alias every member of which is absent resolves to an empty list, and
     the caller says what that means for its key.
 
-    HER DESIGN OF 2026-09-10 ADDED ONE THING and it changes this
+    THE AUTHOR'S DESIGN OF 2026-09-10 ADDED ONE THING and it changes this
     function's contract: a member may be ANOTHER ALIAS, and the reader
     follows it to the end. A member the inventory carries is that
     boundary first, whatever else shares its spelling, so the addition
@@ -1285,7 +1287,7 @@ def _resolve_alias_key(
 ) -> list[str]:
     """Resolve one alias to boundary names, following members that are aliases.
 
-    Her design of 2026-09-10 (FR-59): a member may be a mesh family, a
+    The author's design of 2026-09-10 (FR-59): a member may be a mesh family, a
     boundary name, or ANOTHER ALIAS, resolved to the end. A member that
     names an alias already on the path closes a ring, and a ring is
     refused naming BOTH SIDES rather than recursed into, because a reader
@@ -1418,7 +1420,7 @@ def select_group_members(
 ) -> list[str]:
     """Resolve one ``[groups]`` entry's members against an inventory, in member order.
 
-    Her decisions of 2026-09-09 (PFS-2005.02). An EMPTY group is every
+    The author's decisions of 2026-09-09 (PFS-2005.02). An EMPTY group is every
     name of the inventory. Otherwise each member is, tried in this order,
     an exact name of the inventory; an ALIAS of the row's setup
     (:func:`resolve_alias`), so ``airframe`` and ``blades`` are whatever
@@ -1591,13 +1593,13 @@ class ReferenceData(BaseModel):
         Reference velocity in m/s; None lets the recipe default it to
         the free-stream velocity (steady runs) or a characteristic
         velocity such as the rotor tip speed (SRC-003 p.201).
-    propeller_diameter : float, optional
-        Propeller diameter D in simulation length units, carried from
-        the reference artifact's ``propeller_diameter_m``. It is the
+    rotor_diameter : float, optional
+        Rotor diameter D in simulation length units, carried from
+        the reference artifact's ``rotor_diameter_m``. It is the
         length an advance ratio is a ratio AGAINST: a row stating
         ``ADVANCE_RATIO`` resolves its rotor speed as
         ``n = V / (J D)``, so without this the ratio names no speed.
-        None for a configuration with no propeller.
+        None for a configuration with no rotor.
     """
 
     # PYFS-016. A reference area or length of zero divides every
@@ -1611,7 +1613,7 @@ class ReferenceData(BaseModel):
     area: float = Field(gt=0.0)
     length: float = Field(gt=0.0)
     velocity: float | None = Field(default=None, gt=0.0)
-    propeller_diameter: float | None = Field(default=None, gt=0.0)
+    rotor_diameter: float | None = Field(default=None, gt=0.0)
     #: The reference span, which the polar products scale the rolling and
     #: yawing moments to (PFS-2029.15); None keeps a case built without it.
     span_m: float | None = Field(default=None, gt=0.0)
@@ -1622,13 +1624,13 @@ class ReferenceData(BaseModel):
     #: (PFS-2030.03.02). None for an authored case that states none, which
     #: leaves the solver's reference frame as the loads frame, as before.
     moment_point_m: tuple[float, float, float] | None = None
-    #: The propeller position (x, y, z) in simulation length units, from
-    #: the reference artifact's ``[propeller.position]``. The two unsteady
-    #: run types create a coordinate system named PROP_MRP there, which is
+    #: The rotor position (x, y, z) in simulation length units, from
+    #: the reference artifact's ``[rotor.position]``. The two unsteady
+    #: run types create a coordinate system named ROTOR_MRP there, which is
     #: the frame the author's probe lines and rotor plots are defined in,
     #: and the rotor run turns about it. None when the reference declares
-    #: no propeller.
-    propeller_position_m: tuple[float, float, float] | None = None
+    #: no rotor.
+    rotor_position_m: tuple[float, float, float] | None = None
 
 
 def _resolve_settings_toggle(value: object) -> object:
@@ -1786,11 +1788,11 @@ class SolverSettings(BaseModel):
     #: The four settings the author's own scripts state and 0.10.1 did not
     #: (FR-54, PFS-2030.03.*). Each is None unless a preset states it, so a
     #: preset that says nothing emits nothing and every earlier golden holds.
-    #: symmetry_loads reaches SET_ANALYSIS_SYMMETRY_LOADS AS STATED, her
+    #: symmetry_loads reaches SET_ANALYSIS_SYMMETRY_LOADS AS STATED, the author's
     #: decision of 2026-09-02 (PFS-2028.05); an absent key stays silent.
     symmetry_loads: SolverToggle | None = None
     #: SET_SIGNIFICANT_DIGITS: how many decimals the solver prints in every
-    #: export. Her scripts state 7; the solver's own default prints 4.
+    #: export. The author's scripts state 7; the solver's own default prints 4.
     significant_digits: int | None = Field(default=None, ge=1)
     #: SOLVER_SET_REF_VELOCITY in m/s. None means the builders state the
     #: freestream velocity, which is what the coefficients are normalised
@@ -1798,11 +1800,11 @@ class SolverSettings(BaseModel):
     reference_velocity_m_per_s: float | None = Field(default=None, gt=0.0)
     #: SET_VORTICITY_DRAG_BOUNDARIES written as FAMILY NAMES; the builder
     #: resolves them through the opened geometry's inventory and leaves out
-    #: the families the geometry does not carry, as her driver did
+    #: the families the geometry does not carry, as the author's driver did
     #: (PFS-2030.03.03). An empty result is refused.
     vorticity_drag_families: list[str] | None = None
     #: The LOAD_SOLVER_INITIALIZATION argument of OPEN. None means DISABLE,
-    #: which is what her scripts wrote on every open: a saved simulation
+    #: which is what the author's scripts wrote on every open: a saved simulation
     #: may carry an initialised solver, and loading it would start the run
     #: from a state the row never declared (PFS-2030.03.01).
     load_solver_initialization: SolverToggle | None = None
@@ -2022,7 +2024,7 @@ class SimCase(BaseModel):
     #: each emitted before the phase it names, in the order written; empty
     #: for a setup stating none.
     raw_commands: list[RawCommand] = Field(default_factory=list)
-    #: The boundary aliases the row's REFERENCE declares (FR-59, her
+    #: The boundary aliases the row's REFERENCE declares (FR-59, the author's
     #: design of 2026-09-10; the setup's until 0.14.0), a name to the
     #: boundary names, families or other aliases it stands for; read by
     #: every builder that resolves a cited boundary and carried on the
@@ -2033,9 +2035,9 @@ class SimCase(BaseModel):
     #: a motion record cites. A record naming one takes its hub, axis,
     #: sign, blades and diameter from it and states none of them itself,
     #: which is what lets a row state nine rotors without repeating nine
-    #: hubs. Empty for a configuration with no engine block, which is
+    #: hubs. Empty for a configuration with no rotor block, which is
     #: every one written before 0.15.0.
-    engines: dict[str, EngineBlock] = Field(default_factory=dict)
+    rotors: dict[str, RotorBlock] = Field(default_factory=dict)
     #: The boundary order a sidecar beside the geometry states
     #: (PFS-2029.06.03), bound by the workspace; the builder refuses the
     #: run when the file's own mesh block disagrees with it.
@@ -2294,7 +2296,7 @@ class Campaign(BaseModel):
         carries and which a whole workspace usually shares, and from
         ``DerivedFrom.matrix``, which is the path the conversion read; the
         word ``stem`` is in the name so the two are not one word on the
-        ``campaign.toml`` surface (her decision of 2026-09-08).
+        ``campaign.toml`` surface (the author's decision of 2026-09-08).
 
     Notes
     -----

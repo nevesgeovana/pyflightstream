@@ -95,7 +95,7 @@ def test_1003_the_sideslip_sweep_resolves_an_altitude_and_a_hot_day_with_no_pins
 
 def test_1003_sideslip_antisymmetry_of_the_side_force(runs):
     """The wing is symmetric about its centre plane, so CY(-4) = -CY(+4) and CY(0) = 0
-    up to the solver's own noise. Identity, no band of hers needed."""
+    up to the solver's own noise. Identity, no band of the author's needed."""
     minus = runs.total(runs.one(MATRIX, "1003", beta=-4.0))
     zero = runs.total(runs.one(MATRIX, "1003", beta=0.0))
     plus = runs.total(runs.one(MATRIX, "1003", beta=4.0))
@@ -104,7 +104,7 @@ def test_1003_sideslip_antisymmetry_of_the_side_force(runs):
     # Measured 2026-09-08 on 26.120, 12 by 16 panels: Cy(-4) = +0.000471,
     # Cy(+4) = -0.000486, a 3 percent asymmetry of the side force; the
     # identity is asserted to 5 percent of it, the solver's noise on this
-    # mesh, and the band is hers to tighten.
+    # mesh, and the band is the author's to tighten.
     assert abs(minus["Cy"] + plus["Cy"]) <= 0.05 * side, (minus["Cy"], plus["Cy"])
     assert abs(zero["Cy"]) <= 0.05 * side, zero["Cy"]
     assert abs(minus["CL"] - plus["CL"]) <= 0.05 * max(abs(plus["CL"]), side), "lift is even"
@@ -184,7 +184,7 @@ def test_1020_one_blade_under_periodic_symmetry_with_the_azimuthal_clock(runs):
 
 
 def test_1021_the_installed_pusher_states_a_signed_rpm_and_its_hub_by_a_point(runs):
-    """RPM -800 carries the sign; ROTOR_ORIGIN ERP3 binds to the engine point behind the base."""
+    """RPM -800 carries the sign; ROTOR_ORIGIN ERP3 binds to the rotor point behind the base."""
     record = runs.one(MATRIX, "1021", alpha=0.0)
     script = runs.script(record)
     assert line(script, "SET_MOTION_ROTOR_RPM") == "SET_MOTION_ROTOR_RPM 1 -800.0"
@@ -211,13 +211,14 @@ def test_1022_two_rotors_from_a_motions_list_with_origins_by_reference_point(run
 
 def test_1022_two_counter_rotating_rotors_cancel_in_side_force_and_roll(runs):
     """Mirror pair at +y and -y with opposite RPM: CY and the rolling moment cancel
-    up to the solver's noise. Identity; the thrust is judged nowhere until she sets a band."""
+    up to the solver's noise. Identity; the thrust is judged nowhere until the author sets a
+    band."""
     total = runs.total(runs.one(MATRIX, "1022", alpha=0.0))
     thrust = abs(total["Cx"])
     assert thrust > 0.1, total
     # Measured 2026-09-08 on 26.120 after half a revolution in six steps:
     # Cx = -1.42 (thrust), Cy = -0.0085, six tenths of a percent of it; the
-    # identity is asserted to 2 percent of the thrust and the band is hers.
+    # identity is asserted to 2 percent of the thrust and the band is the author's.
     assert abs(total["Cy"]) <= 0.02 * thrust, total
     assert abs(total["CMx"]) <= 0.02 * thrust, total
 

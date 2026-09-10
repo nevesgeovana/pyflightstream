@@ -1,6 +1,6 @@
 """Tier 1: the frame decides how a post-processing entry expands (FR-65).
 
-Her design of 2026-09-10, PFS-2035.08 absorbing PFS-2029.20. An entry
+The author's design of 2026-09-10, PFS-2035.08 absorbing PFS-2029.20. An entry
 citing `MRP` or a frame the reference declares emits ONCE over the whole
 cited set; one citing `SMRP` or `RMRP` emits one per ROTOR, in that
 rotor's frame; one citing `LOCAL_AXIS` emits one per BLADE, in that
@@ -13,7 +13,7 @@ implies. `{family}` is the only placeholder and means WHAT THE EMISSION IS
 ABOUT: the alias on a per-rotor entry, the blade's label on a per-blade
 one, the family on an `each` one.
 
-Every shape here is one SHE WROTE, in
+Every shape here is one THE AUTHOR WROTE, in
 `GeoverseResearch/tools/fts_workspace/pfs0150/inputs/pproc/p010.toml`,
 read on 2026-09-10. That file is the specification this module tests
 against, which is why the entries below are quoted rather than invented.
@@ -29,8 +29,8 @@ from pydantic import ValidationError
 from pyflightstream._errors import PyflightstreamDeprecationWarning
 from pyflightstream.cases import (
     CampaignConfigError,
-    EngineBlock,
     ForcePlotGroup,
+    RotorBlock,
     SimCase,
     SweepAxis,
     select_families,
@@ -39,8 +39,8 @@ from pyflightstream.cases.workflows import _pproc_emissions
 
 
 def rotor(alias, general, blades, diameter):
-    """One engine block of the reference, as her r011 declares them."""
-    return EngineBlock(
+    """One rotor block of the reference, as the author's r011 declares them."""
+    return RotorBlock(
         alias=alias,
         x_m=0.0,
         y_m=0.0,
@@ -52,10 +52,10 @@ def rotor(alias, general, blades, diameter):
     )
 
 
-#: Two lifters and a pusher, which is her configuration cut down to the
+#: Two lifters and a pusher, which is the author's configuration cut down to the
 #: smallest one that can tell a per-rotor emission from a per-blade one and
 #: an alias over SEVERAL rotors from an alias inside one.
-ENGINES = {
+ROTORS = {
     "LIFT_L1": rotor("LIFT_L1", ["LH_L1"], ["LB_L1_1", "LB_L1_2"], 1.2),
     "LIFT_L2": rotor("LIFT_L2", ["LH_L2"], ["LB_L2_1", "LB_L2_2"], 1.2),
     "PUSHER": rotor("PUSHER", ["PH"], ["PB_1", "PB_2", "PB_3"], 1.8),
@@ -84,9 +84,9 @@ def expanding_case(**overrides) -> SimCase:
         "aircraft": "WORK",
         "recipe": "unsteady_rotor",
         "sweep": SweepAxis(type="alpha", values=[0.0]),
-        "engines": ENGINES,
+        "rotors": ROTORS,
         "aliases": {
-            # HER OWN SHAPE: the members are ROTORS, not families, which is
+            # THE AUTHOR'S OWN SHAPE: the members are ROTORS, not families, which is
             # how a group of rotors is written and the case that reached no
             # rotor at all until the QA round of 2026-09-10.
             "lifters": ["LIFT_L1", "LIFT_L2"],
@@ -100,7 +100,7 @@ def expanding_case(**overrides) -> SimCase:
 def every_rotor_frame_placed() -> dict[str, int]:
     """The frames a row turning all three rotors registers."""
     placed: dict[str, int] = {}
-    for alias, block in ENGINES.items():
+    for alias, block in ROTORS.items():
         placed[f"{alias}_SMRP"] = 1
         placed[f"{alias}_RMRP"] = 1
         for number in range(1, len(block.families_blades) + 1):
@@ -122,7 +122,7 @@ def emissions(frame, families, frames=None, case=None):
 
 
 def test_a_rotor_frame_becomes_one_emission_per_rotor_in_that_rotors_frame():
-    """Her own line, expanded: three rotors, three emissions, three frames.
+    """The author's own line, expanded: three rotors, three emissions, three frames.
 
     THIS IS THE CASE NO TEST MADE until the QA round of 2026-09-10, and
     it is the whole of FR-65: `emits_per` says an entry is one per rotor
@@ -142,7 +142,7 @@ def test_a_rotor_frame_becomes_one_emission_per_rotor_in_that_rotors_frame():
 def test_an_alias_over_several_rotors_reaches_every_one_of_them():
     """`lifters` is two rotors, and a subset test against one block reached none.
 
-    Her `[plots]` line names an alias whose members are ROTORS. Read as a
+    The author's `[plots]` line names an alias whose members are ROTORS. Read as a
     subset of a single block it was a subset of none, so the line emitted
     the pusher alone and did NOT refuse, because the pusher matched: the
     under-emission was silent and no count on the tree discriminated it
@@ -246,8 +246,8 @@ def test_an_entry_in_the_moment_frame_emits_once_and_carries_no_placeholder():
 def test_an_entry_in_a_rotor_frame_emits_one_per_rotor():
     """`SMRP` and `RMRP` are frame KINDS, not frame names: one per rotor, in its own.
 
-    Her `p010.toml` writes `{name = "SMRP_{family}", families = ["lifters",
-    "PUSHER"], frame = "SMRP"}`, which is nine emissions on her aircraft
+    The author's `p010.toml` writes `{name = "SMRP_{family}", families = ["lifters",
+    "PUSHER"], frame = "SMRP"}`, which is nine emissions on the author's aircraft
     and one line in the file. THIS CASE ASSERTS THE ARITY AND NOT THE
     COUNT: what the entry becomes is measured by
     `test_a_rotor_frame_becomes_one_emission_per_rotor_in_that_rotors_frame`
@@ -284,28 +284,35 @@ def test_each_stays_and_expands_in_a_common_frame():
     assert entry.emits_per == "family"
 
 
-def test_each_blade_is_read_with_a_deprecation_warning():
-    """The frame says it now: `LOCAL_AXIS` is one per blade, so the selector that
-    said so is a second statement of one fact."""
-    from pyflightstream._errors import PyflightstreamDeprecationWarning
+def test_each_blade_is_refused_because_the_frame_says_it():
+    """`LOCAL_AXIS` is one per blade, so the selector that said so is a
+    second statement of one fact.
 
-    with pytest.warns(PyflightstreamDeprecationWarning, match=r"each_blade.*LOCAL_AXIS"):
-        entry = group(name="B_{family}", frame="MRP", families="each_blade")
-    assert entry.emits_per == "blade"
+    IT WARNED UNTIL 0.15.0 SHIPPED. The promise was written in 0.15.0 and
+    0.15.0 has not been released, so no workspace was ever told the word
+    would keep working; the author's instruction is that this release
+    refuses it and names the replacement.
+    """
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError, match=r"each_blade.*LOCAL_AXIS"):
+        group(name="B_{family}", frame="MRP", families="each_blade")
 
 
-def test_the_sections_path_warns_for_the_retired_selector_too():
+def test_the_sections_path_refuses_the_retired_selector_too():
     """A promise kept on one of two paths is a false sentence on the page.
 
-    The ledger and the changelog say `each_blade` is read WITH A WARNING
-    until 0.17.0. The plot group warned and the section distribution, the
-    other consumer of the same selector, said nothing, and her own
+    This release REFUSES `each_blade`, and a refusal kept on one of two
+    paths is worse than none: the other path would accept the word in
+    silence. The plot group warned and the section distribution, the
+    other consumer of the same selector, said nothing, and the author's own
     `p010.toml` writes a distribution (the interface lens, 2026-09-10).
     """
-    from pyflightstream._errors import PyflightstreamDeprecationWarning
+    from pydantic import ValidationError
+
     from pyflightstream.cases import SectionDistribution
 
-    with pytest.warns(PyflightstreamDeprecationWarning, match=r"each_blade.*LOCAL_AXIS"):
+    with pytest.raises(ValidationError, match=r"each_blade.*LOCAL_AXIS"):
         SectionDistribution(families="each_blade", frame="BLADE_AXIS", planes=["XY"])
 
 
@@ -317,7 +324,7 @@ def turned(alias: str = "PUSHER") -> dict[str, int]:
 
 
 def test_a_rotated_smrp_writes_in_both_frames():
-    """HER RULE OF 2026-09-10: "se eu indicar um SMRP que foi rotacionado,
+    """THE AUTHOR'S RULE OF 2026-09-10: "se eu indicar um SMRP que foi rotacionado,
     ele escreve os outputs tanto no SMRP quanto no original".
 
     An entry says which ROTOR it is about, and the row's rotation decides
@@ -378,7 +385,7 @@ def test_the_turning_frame_is_not_doubled_because_it_has_no_before():
 def test_an_entry_naming_the_rotated_hub_by_name_gets_both_too():
     """The non-expanding path, which is the other way a user writes it.
 
-    An entry may cite `PUSHER_SMRP` directly rather than `SMRP`, and her
+    An entry may cite `PUSHER_SMRP` directly rather than `SMRP`, and the author's
     sentence is about what the user INDICATES, not about which spelling
     they chose.
     """
@@ -389,13 +396,18 @@ def test_an_entry_naming_the_rotated_hub_by_name_gets_both_too():
     ]
 
 
-def test_the_two_selectors_that_guess_what_a_blade_is_warn_as_a_bare_word():
-    """Her retirement of 2026-09-10, asserted rather than declared.
+def test_the_two_selectors_that_guess_what_a_blade_is_are_refused_as_a_bare_word():
+    """The author's retirement of 2026-09-10, asserted rather than declared.
 
     `airframe` and `blades` are the two selectors that decide what a BLADE
     IS, from a regular expression over the family name, so a mesh whose
     blades are spelled another way gets an airframe with blades in it and
     nothing says so. `all` and `each` guess nothing and stay.
+
+    THEY WARNED UNTIL 0.15.0 SHIPPED, and 0.15.0 has not shipped: the
+    promise was written in this release, so no workspace ever received it.
+    The refusal names the replacement, which is an alias the reference
+    declares.
     """
     plain = SimCase(
         sim_id="9301",
@@ -404,15 +416,15 @@ def test_the_two_selectors_that_guess_what_a_blade_is_warn_as_a_bare_word():
         sweep=SweepAxis(type="alpha", values=[0.0]),
     )
     for word in ("airframe", "blades"):
-        with pytest.warns(PyflightstreamDeprecationWarning, match="0.17.0"):
+        with pytest.raises(CampaignConfigError, match="no longer accepted"):
             select_families(word, INVENTORY, lambda name: "B_" in name)
     assert plain.sim_id == "9301"
 
 
-def test_the_same_two_warn_as_a_list_member_which_is_a_separate_branch():
+def test_the_same_two_are_refused_as_a_list_member_which_is_a_separate_branch():
     """TWO CODE PATHS, TWO CASES. A mutant that blanks one survives the other."""
     for word in ("airframe", "blades"):
-        with pytest.warns(PyflightstreamDeprecationWarning, match="0.17.0"):
+        with pytest.raises(CampaignConfigError, match="no longer accepted"):
             select_families([word], INVENTORY, lambda name: "B_" in name)
 
 
@@ -429,7 +441,7 @@ def test_the_words_that_guess_nothing_stay_and_say_nothing():
 def test_an_alias_of_the_same_name_is_read_first_and_warns_about_nothing():
     """THE CLAIM THE CHANGELOG RESTS ON, and it was asserted nowhere.
 
-    Every reference of hers already DEFINES an `airframe` alias, and that
+    Every reference of the author's already DEFINES an `airframe` alias, and that
     is the measurement the retirement was promised on: an alias is read
     before a selector, so a file that declares the word is untouched.
     """
@@ -442,17 +454,22 @@ def test_an_alias_of_the_same_name_is_read_first_and_warns_about_nothing():
     assert chosen == [["LH_L1", "W"]]
 
 
-def test_blades_still_reaches_every_rotor_on_an_expanding_frame_and_warns():
-    """ITS LEDGER SAYS 0.17.0, so it has to still work at 0.15.0.
+def test_blades_reaches_every_rotor_on_an_expanding_frame_when_it_is_an_alias():
+    """The migration the refusal asks for, measured on the expanding path.
 
-    The first version of the retirement dropped `blades` from
-    `_rotors_the_entry_cites`, so an artifact writing `frame = "SMRP",
-    families = "blades"` met a refusal that diagnoses a MISSPELLING, two
-    releases before the word is due to go and with nothing saying it had
-    retired. Two review lenses found it in the same round.
+    `blades` as a SELECTOR is refused. A reference that DECLARES `blades`
+    gives the word a meaning of its own and keeps it, and that is the edit
+    the refusal tells a reader to make, so it has to work: the alias table
+    is asked BEFORE the retired word on this path as it already was on the
+    families path. Testing the word first refused the very file the
+    message asks for.
     """
-    with pytest.warns(PyflightstreamDeprecationWarning, match="0.17.0"):
-        got = emissions("SMRP", "blades")
+    with pytest.raises(CampaignConfigError, match="no longer accepted"):
+        emissions("SMRP", "blades")
+    declared = expanding_case(
+        aliases={"lifters": ["LIFT_L1", "LIFT_L2"], "blades": ["LIFT_L1", "LIFT_L2", "PUSHER"]}
+    )
+    got = emissions("SMRP", "blades", case=declared)
     assert [name for name, _families, _label in got] == [
         "LIFT_L1_SMRP",
         "LIFT_L2_SMRP",
@@ -461,28 +478,34 @@ def test_blades_still_reaches_every_rotor_on_an_expanding_frame_and_warns():
 
 
 def test_the_probe_scale_is_the_rotor_radius():
-    """Her `p010.toml` writes `scale = "rotor_radius"`, which is the word the rest of
+    """The author's `p010.toml` writes `scale = "rotor_radius"`, which is the word the rest of
     the release uses: a rotor, not a propeller."""
     from pyflightstream.cases import ProbesSpec
 
     assert ProbesSpec(frame="PUSHER_SMRP", scale="rotor_radius").scale == "rotor_radius"
 
 
-def test_the_older_probe_scale_still_reads_and_warns():
-    """`propeller_radius` is what every artifact written before this release says."""
-    from pyflightstream._errors import PyflightstreamDeprecationWarning
+def test_the_older_probe_scale_is_refused_naming_the_word_to_write():
+    """`propeller_radius` is what every artifact written before this release says.
+
+    It resolved itself to `rotor_radius` with a warning until 0.15.0
+    shipped. The author's instruction is that this package accepts no old
+    nomenclature: a lifter is not a propeller, and the refusal names the
+    word to write rather than rewriting the file's meaning underneath it.
+    """
+    from pydantic import ValidationError
+
     from pyflightstream.cases import ProbesSpec
 
-    with pytest.warns(PyflightstreamDeprecationWarning, match=r"propeller_radius.*rotor_radius"):
-        spec = ProbesSpec(frame="PUSHER_SMRP", scale="propeller_radius")
-    assert spec.scale == "rotor_radius", "the older word does not resolve to the current one"
+    with pytest.raises(ValidationError, match=r"propeller_radius.*rotor_radius"):
+        ProbesSpec(frame="PUSHER_SMRP", scale="propeller_radius")
 
 
 def test_the_committed_artifact_of_this_shape_validates_everywhere():
     """The same artifact SHAPE, in the tier that runs on every machine.
 
-    The case below reads the file she wrote and skips where the workspace
-    is not on the machine, which is every machine but hers and this one:
+    The case below reads the file the author wrote and skips where the workspace
+    is not on the machine, which is every machine but the author's and this one:
     it was the only case in this module reaching `resolve_pproc` at all,
     so the reader of the 0.15.0 vocabulary was measured NOWHERE that runs
     (the QA lens, 2026-09-10). This one carries the same tables with this
@@ -504,7 +527,7 @@ def test_the_committed_artifact_of_this_shape_validates_everywhere():
 
 
 def test_her_own_artifact_validates():
-    """THE SPECIFICATION IS A FILE SHE WROTE, so the test reads it.
+    """THE SPECIFICATION IS A FILE THE AUTHOR WROTE, so the test reads it.
 
     `pfs0150/inputs/pproc/p010.toml` is the use case's own post-processing
     artifact and it is what FR-65 was written from. If it does not
@@ -514,7 +537,7 @@ def test_her_own_artifact_validates():
     """
     from pyflightstream.workspace.inputs import resolve_pproc
 
-    # DERIVED, not written out: the estate's own pattern for her
+    # DERIVED, not written out: the estate's own pattern for the author's
     # workspaces (see PFS0101 in test_matrix_upgrade.py), so the case runs
     # where the tree is and skips where it is not.
     inputs = (

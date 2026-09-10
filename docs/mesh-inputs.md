@@ -235,7 +235,7 @@ neither. Two standing decisions bound any widening:
 
 ## The four rotor facts a reference artifact once carried
 
-From 0.8.0 to 0.10.1 the reference artifact's `[propeller]` block recorded
+From 0.8.0 to 0.10.1 the reference artifact's `[rotor]` block recorded
 `rotation`, `blade_travel`, `rpm_sign_installed` and `rpm_sign_isolated`,
 and no builder read them: a script states the rotor speed's sign through
 the sign of `RPM` (or `RPM_SIGN` beside `ADVANCE_RATIO`) and its axis

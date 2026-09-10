@@ -391,7 +391,7 @@ def resolve_flight_condition(
 
     Examples
     --------
-    Her first example: no altitude, so sea-level temperature, and the
+    The author's first example: no altitude, so sea-level temperature, and the
     DENSITY is what moves to meet the Reynolds number.
 
     >>> state = resolve_flight_condition(
@@ -402,7 +402,7 @@ def resolve_flight_condition(
     >>> state.density_source
     'solved-from-reynolds'
 
-    Her second: an atmosphere point, with Reynolds derived.
+    The author's second: an atmosphere point, with Reynolds derived.
 
     >>> point = resolve_flight_condition(
     ...     {"TASmps": 68.08, "ALTFT": 10000, "dISA": 5},
