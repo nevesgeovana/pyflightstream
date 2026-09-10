@@ -115,13 +115,18 @@ PROBE_SCALE_PROPELLER_RADIUS = RetiredName(
     why=_THE_ROTOR_WORD,
 )
 #: THE ONE RETIREMENT THAT CHANGES AN EMITTED SCRIPT, called out rather than
-#: listed. The frame the two unsteady run types create is written ROTOR_MRP
-#: now, so a script rendered by 0.15.0 carries the new name and a
-#: post-processing step reading the old one by hand is the thing to check.
+#: listed. There is no package-level rotor frame since 0.15.0: a reference
+#: declares one block per rotor and each carries its own, so the replacement
+#: is a SHAPE rather than a name, and the message says so. It said
+#: `ROTOR_MRP` for one round, which is a frame this release also removed, so
+#: it would have told a user to write a name a later refusal rejects (the
+#: interface and V&V lenses of the 0.15.0 release review).
 FRAME_PROP_MRP = RetiredName(
     owner="a frame citation",
     old="PROP_MRP",
-    new="ROTOR_MRP",
+    new="the rotor's own frame, <ALIAS>_SMRP for its hub or <ALIAS>_RMRP for "
+    "the frame that turns with it, where <ALIAS> is the name the reference "
+    "gives that rotor",
     retired_in="0.15.0",
     why=_THE_ROTOR_WORD,
 )
@@ -132,6 +137,31 @@ WORKSPACE_ENGINE_POINT = RetiredName(
     retired_in="0.15.0",
     why=_THE_ROTOR_WORD,
 )
+
+
+#: EVERY SPELLING A FRAME CITATION MAY CARRY FROM BEFORE 0.15.0, mapped to the
+#: retirement that explains it. `PROP_MRP` was the package-level rotor frame
+#: and `ROTOR_MRP` the name it briefly took in this release before the frame
+#: itself went; the numbered forms were positional, which is why they went
+#: with it. A citation matching any of these is refused naming the shape to
+#: write, rather than falling through to "this run created no such frame",
+#: which is true and says nothing about the rename.
+RETIRED_FRAME_CITATIONS = ("PROP_MRP", "ROTOR_MRP", "ROTORAXIS")
+
+
+def retired_frame(name: str) -> RetiredName | None:
+    """Return the retirement a cited frame name carries, or None.
+
+    Parameters
+    ----------
+    name : str
+        A frame name as a post-processing artifact or a ROTATE record
+        writes it. Matched case folded, and with any trailing index
+        stripped, because the positional forms carried one.
+    """
+    token = name.strip().upper().rstrip("0123456789")
+    return FRAME_PROP_MRP if token in RETIRED_FRAME_CITATIONS else None
+
 
 #: Every retirement, one entry each. Iterated by the input readers, which
 #: match a file's own text against :attr:`RetiredName.old`, and by the Tier 1
@@ -173,7 +203,9 @@ __all__ = [
     "REFERENCE_PROPELLER_DIAMETER",
     "REFERENCE_PROPELLER_TABLE",
     "RETIRED",
+    "RETIRED_FRAME_CITATIONS",
     "RetiredName",
     "WORKSPACE_ENGINE_POINT",
+    "retired_frame",
     "retired_key",
 ]

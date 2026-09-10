@@ -58,7 +58,10 @@ FlightStream versions.
   at PLAN time with the flag, the preset and the value named, never at the
   machine. A flag reaches the three seams a raw entry reaches; one whose
   command belongs to a later phase is refused naming that phase rather than
-  quietly not appearing. Worked and executed:
+  quietly not appearing. Worked and RENDERED, which is the claim the
+  evidence supports: `SET_BASE_REGION_BENDING_ANGLE` is `documented` on
+  every registered build and probed on none, so this package has never
+  observed the solver accept it and does not say it has.
   `tests/tier3_licensed/inputs/setups/s006.toml` declares it, row 8006 of
   `matriz_vocab.fs` sets it, and the committed golden carries the line.
 
@@ -296,7 +299,10 @@ FlightStream versions.
   INTRODUCED IN AN UNRELEASED VERSION IS NOT A PROMISE ANYONE HAS RECEIVED.
   The twelve entries of the 0.15.0 batch were written in 0.15.0, which had
   not shipped, so no workspace was ever told the old spelling would keep
-  working; they move to `REFUSED_IN_0_15_0` and refuse. THE 0.14.0 BATCH IS
+  working. Seven move to `REFUSED_IN_0_15_0`; `ROW_PROBE_SCALE` moves
+  instead to `_retired_names`, because it renames a WORD rather than a
+  structure; and five were created in this release and were never
+  promises at all. THE 0.14.0 BATCH IS
   UNTOUCHED: those promises were published, they expire at 0.16.0 anyway,
   and breaking them would break a workspace that upgraded on their strength.
   A new module, `_retired_names.py`, holds what each word became and why.
@@ -338,42 +344,6 @@ FlightStream versions.
 
 ### Deprecated
 
-- The setup preset's `[aliases]` and `[[frames]]` tables. Write them in the
-  reference; a preset still stating either is read with a warning and the
-  reference wins. Removed at 0.17.0.
-- A motion record's `MOVING_BOUNDARIES`, `ROTOR_AXIS`, `ROTOR_ORIGIN`,
-  `RPM_SIGN` and `BLADES`: the reference states each once, in the rotor's
-  own block. Removed at 0.17.0.
-- A `families` entry's `airframe` and `blades` SELECTORS, read as
-  selectors. They are the two that decide what a BLADE is, from
-  `blade_pattern`, a regular expression over the family name: a mesh whose
-  blades are spelled another way gets an airframe with blades in it and
-  nothing says so. Declare the set in the reference's `[aliases]` table and
-  cite it by name. `all` and `each` stay, because they guess nothing.
-  Removed at 0.17.0.
-
-  AN ALIAS OF THE SAME NAME IS READ FIRST AND WARNS ABOUT NOTHING, which is
-  what makes this cheap: a reference that already declares `airframe` is
-  untouched, and every one of the author's does.
-- A post-processing entry's `families = "each_blade"`. The FRAME says it
-  now: write `frame = "LOCAL_AXIS"`, which is one per blade. Removed at
-  0.17.0.
-- A probe table's `scale = "propeller_radius"`. Write `rotor_radius`: this
-  release says ROTOR everywhere, because a lifter is not a propeller and an
-  aircraft may carry eight of them and one pusher. Removed at 0.17.0.
-- A rotation record's `FAMILIES`, which named its boundaries inline. Write
-  `ALIAS` and let the reference say what it owns; a row listing families is
-  a row that has to be edited when the mesh is renamed. Removed at 0.17.0.
-  THE VALUE CHANGES WITH THE KEY, which a rename does not:
-
-      ROTATE: {ANGLE: 3 / AXIS: NAC-Y / FAMILIES: Blade,S / AUX_FRAMES: PROP_MRP}
-      ROTATE: {ANGLE: 3 / AXIS: NAC-Y / ALIAS: PUSHER}
-
-  `ALIAS` names the ROTOR those families belong to, not the list. `ANGLE`
-  and `AXIS` are unaffected, `AUX_FRAMES` is no longer needed because the
-  alias carries that rotor's frames, and a families list spanning two
-  rotors becomes one record per rotor. The warning names the words your
-  own reference declares, so the value to write is in front of you.
 - `SweepAxis(type="alpha_beta")`, the paired sweep. A matrix row cannot ask
   for one since the layout lost `SWEEP_TYPE`, and a hand-written
   `campaign.toml` still can: a sweep is ONE variable, so write
@@ -382,6 +352,43 @@ FlightStream versions.
   Removed at 0.17.0.
 
 ### Removed
+
+- **REFUSED, not deprecated, and each names its replacement.** These stood
+  under `Deprecated` for one round, promising a warning and a 0.17.0
+  deadline; the release review measured that every one of them refuses. The
+  promise was written in 0.15.0 and 0.15.0 had not shipped, so no workspace
+  ever received it (`_deprecations.REFUSED_IN_0_15_0`).
+
+  - The setup preset's `[aliases]` and `[[frames]]` tables. Write them in
+    the reference. A boundary name and a coordinate system are properties of
+    the CONFIGURATION and a preset is per condition, so a file stating both
+    is a file with two answers.
+  - A motion record's `MOVING_BOUNDARIES`, `ROTOR_AXIS`, `ROTOR_ORIGIN`,
+    `RPM_SIGN` and `BLADES`: the reference states each once, in the rotor's
+    own block, and the record names that rotor by alias.
+  - A `families` entry's `airframe` and `blades` SELECTORS. They are the two
+    that decided what a BLADE is from a regular expression over the family
+    name, so a mesh whose blades are spelled another way got an airframe
+    with blades in it and nothing said so. Declare the set in the
+    reference's `[aliases]` table and cite it by name; `all` and `each`
+    stay, because they guess nothing. AN ALIAS OF THAT NAME IS READ FIRST,
+    which is what makes the migration cheap: a reference that already
+    declares `airframe` is untouched, and every one of the author's does.
+  - A post-processing entry's `families = "each_blade"`. The FRAME says it
+    now: write `frame = "LOCAL_AXIS"`, which is one per blade.
+  - A probe table's `scale = "propeller_radius"`. Write `rotor_radius`.
+  - A rotation record's `FAMILIES`, which named its boundaries inline.
+    Write `ALIAS` and let the reference say what that rotor owns. THE VALUE
+    CHANGES WITH THE KEY, which a rename does not:
+
+        ROTATE: {ANGLE: 3 / AXIS: NAC-Y / FAMILIES: Blade,S / AUX_FRAMES: PROP_MRP}
+        ROTATE: {ANGLE: 3 / AXIS: NAC-Y / ALIAS: PUSHER}
+
+    `ALIAS` names the ROTOR those families belong to, not the list. `ANGLE`
+    and `AXIS` are unaffected, `AUX_FRAMES` is no longer needed because the
+    alias carries that rotor's frames, and a families list spanning two
+    rotors becomes one record per rotor. The refusal names the words your
+    own reference declares, so the value to write is in front of you.
 
 Five shims whose ledger promise named this release. Each has warned since
 0.13.0:
@@ -3621,7 +3628,7 @@ costs the reader the whole warning window the shim exists to buy.
   is the first build here that INHERITS NOTHING.** Vendor hotfix build 3 of the 26.12 release,
   delivered 2026-08-16 and registered 2026-08-17. The two hotfixes
   before it descend from 26.120, on evidence rather than on the last
-  digit, and the default is right for them. Instruction for
+  digit, and the default is right for them. The author's instruction for
   this one is the opposite, and the reason is a number rather than a
   preference: with descent on, a build issued the day before would have
   answered for the 363 commands 26.120 can EMIT without one page of its

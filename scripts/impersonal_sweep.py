@@ -94,3 +94,14 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
+# WHAT THIS SWEEP MUST NEVER MATCH, learned on 2026-09-10 when the V&V lens of
+# the release review found four sentences it had stripped the AGENT out of:
+# `<possessive> instruction`. "Her instruction is that nowhere in this package
+# should a user work with indices" records a DECISION by a named authority
+# that overrode a default; rewritten to "Instruction is that...", it becomes
+# an unattributed assertion, which is the class this repository refuses
+# everywhere else, and one of the four was not a sentence at all. The
+# legitimate half of the sweep is `she`/`her` -> `the author's`, which keeps
+# the agent and drops the person.
+FORBIDDEN_MATCHES = (r"\b(her|his|their|its)\s+instruction\b",)

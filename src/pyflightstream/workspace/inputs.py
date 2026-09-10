@@ -176,7 +176,10 @@ KIND_COLUMNS = {"reference": "REF", "setup": "SET", "pproc": "PPROC"}
 POINT_KIND_ENGINE_WORD = "engine"
 
 #: What a reference point may declare itself to be (PFS-2029.11.02).
-#: It was ``rotor`` until 0.15.0; see :mod:`pyflightstream._retired_names`.
+#: It was ``engine`` until 0.15.0; see :mod:`pyflightstream._retired_names`.
+#: The word sweep rewrote the OLD spelling here into the new one, which is
+#: the failure the comment above it was written to prevent, committed in
+#: the file that records it (the interface lens of the release review).
 POINT_KINDS = ("rotor", "airframe")
 
 
@@ -1141,6 +1144,38 @@ def _split_reference_tables(data: dict[str, Any], path: Path) -> dict[str, Any]:
     return rest
 
 
+def _the_run_types_that_read(word: str) -> list[str]:
+    """Return the run types whose own vocabulary already holds ``word``.
+
+    A CUSTOM FLAG'S NAME MUST BE THE STUDY'S OWN WORD (FR-74). A row states
+    one cell per key, so a flag taking a word a run type reads makes that
+    cell do two things: the curated handling and the flag's emission. The
+    guard that refuses a key nothing reads is exempt for a declared flag,
+    by design, which is exactly why the collision has to be caught here.
+
+    The converter's own prefixed keys and the workspace's own point key are
+    included, for the same reason: they are read by something, and a flag
+    that takes one is a cell with two readers.
+    """
+    from pyflightstream.cases.workflows import (
+        CONVERTER_PREFIX,
+        ROTOR_ORIGIN_POINT_KEY,
+        WORKFLOWS,
+    )
+
+    wanted = word.strip().casefold()
+    taken = [
+        name
+        for name, workflow in WORKFLOWS.items()
+        if any(key.strip().casefold() == wanted for key in workflow.keys)
+    ]
+    if wanted == ROTOR_ORIGIN_POINT_KEY.strip().casefold():
+        taken.append("the workspace's own point binding")
+    if wanted.startswith(CONVERTER_PREFIX.casefold()):
+        taken.append("the matrix converter")
+    return sorted(taken)
+
+
 def resolve_setup(inputs_dir: Path, artifact_id: str) -> SetupArtifact:
     """Load the solver-setup preset one id names.
 
@@ -1207,6 +1242,17 @@ def resolve_setup(inputs_dir: Path, artifact_id: str) -> SetupArtifact:
     seen: dict[str, str] = {}
     for entry in flags:
         word = str(entry.get("name", "")).strip().casefold()
+        taken = _the_run_types_that_read(word)
+        if taken:
+            raise InputArtifactError(
+                f"setup preset {artifact_id!r} ({path}) declares the flag "
+                f"{entry.get('name')!r}, which is a word {', '.join(taken)} already "
+                f"reads. A row stating it would drive that curated handling AND emit "
+                f"{entry.get('command')}: one cell, two effects, and nothing anywhere "
+                "saying so. Choose a word of your own. It is refused here, where the "
+                "flag is DECLARED, because the vocabulary check that catches a stray "
+                "key is the one a declared flag is deliberately exempt from."
+            )
         if word in seen:
             raise InputArtifactError(
                 f"setup preset {artifact_id!r} ({path}) declares the flag "

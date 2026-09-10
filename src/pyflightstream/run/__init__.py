@@ -2263,7 +2263,7 @@ def _advance_ratio_of(case: SimCase) -> float | None:
     """Return the advance ratio a case states or resolves, for its name; None without one.
 
     A row stating ADVANCE_RATIO names it directly; a row stating RPM with
-    a velocity and a propeller diameter resolves it the way the rotor
+    a velocity and a rotor diameter resolves it the way the rotor
     speed does (PFS-2029.19.01, the J field of the author's convention). A case
     that cannot resolve one is a case without a J field, not a refusal:
     the name is presentation, and the run type's own refusals still say

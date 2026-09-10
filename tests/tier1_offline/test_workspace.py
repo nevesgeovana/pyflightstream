@@ -2817,8 +2817,12 @@ def test_a_setup_defines_custom_frames_by_name(tmp_path):
     ("body", "fragment"),
     [
         ('[[frames]]\nname = "MRP"\norigin = [0.0, 0.0, 0.0]\n', "MRP"),
-        ('[[frames]]\nname = "ROTOR_MRP"\norigin = [0.0, 0.0, 0.0]\n', "ROTOR_MRP"),
-        ('[[frames]]\nname = "ROTOR_MRP1"\norigin = [0.0, 0.0, 0.0]\n', "ROTOR_MRP<k>"),
+        # `PROP_MRP` AND ITS NUMBERED FORM LEFT THIS LIST AT 0.15.0, with the
+        # frames themselves. Reserving a name no builder creates refused a
+        # setup frame for colliding with nothing, which is a refusal a user
+        # cannot act on (the V&V lens of the 0.15.0 release review). A rotor's
+        # own frames are protected instead by the two-sided guard that
+        # composes `<ALIAS>_SMRP` forward from the declared rotors.
         ('[[frames]]\nname = "BladeAxis2"\norigin = [0.0, 0.0, 0.0]\n', "BladeAxis<k>"),
         (
             '[[frames]]\nname = "A"\norigin = [0.0, 0.0, 0.0]\n'

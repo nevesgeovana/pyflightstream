@@ -65,7 +65,7 @@ frame = "LOCAL_AXIS"
 families = "blades"
 
 [probes]
-# Three lines across the rotor disk, in propeller radii of the reference,
+# Three lines across the rotor disk, in rotor radii of the reference,
 # 15 vertices each.
 frame = "ROTOR_SMRP"
 parameters = ["MACH", "VELOCITY", "VX", "VY", "VZ", "STATIC_PRESSURE_RATIO"]

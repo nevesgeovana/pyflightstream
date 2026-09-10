@@ -17,7 +17,7 @@ Available placeholders:
   for example ``a+02.0_b+00.0`` (alpha and beta in deg, signed,
   fixed width).
 - ``{alpha}``, ``{beta}``: sweep angles in deg, compact (``2``, ``-3.5``).
-- ``{advance_ratio}``: propeller advance ratio J, dimensionless, compact.
+- ``{advance_ratio}``: rotor advance ratio J, dimensionless, compact.
 - ``{mach}``: free-stream Mach number of the case, compact.
 - ``{polar}``: the author's own convention (PFS-2029.19),
   ``POLAR-<sim>_M<mach*100:02d>AL<alpha*10:+04d>BE<beta*10:+04d>`` and

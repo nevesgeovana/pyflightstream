@@ -288,7 +288,7 @@ def test_a_non_positive_pin_is_refused_naming_the_key(key):
 
 # --- FR-58, PFS-2030.08: a setup supplies the pins a row leaves out ----------
 #
-# Instruction of 2026-09-04: the four constants the author's tool writes on every
+# The author's instruction of 2026-09-04: the four constants the author's tool writes on every
 # script are constants of the campaign's fluid, so they belong in the SETUP
 # artifact a row names and not repeated down the FLIGHT_CONDITION column. The
 # resolver owns which keys may be defaulted, because it owns the pin table;

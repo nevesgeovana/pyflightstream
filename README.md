@@ -20,9 +20,9 @@ is the reference chapter, and
 [Which build do I have](https://nevesgeovana.github.io/pyflightstream/builds/)
 answers the question a version-aware driver exists for.
 
-Every example on those pages is a file this repository ships under
-`tests/tier3_licensed/`, rendered by a test on every commit, so a page
-cannot describe something the suite does not execute.
+Every example on those pages is compared against an artifact this
+repository ships, most of them under `tests/tier3_licensed/`, by a test on
+every commit, so a page cannot quietly stop being true.
 
 Status: v0.15.0 is the current release. It publishes to
 [PyPI](https://pypi.org/project/pyflightstream/) and archives on Zenodo

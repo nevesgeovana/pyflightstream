@@ -497,7 +497,7 @@ class SectionDistribution(BaseModel):
 
     @model_validator(mode="after")
     def _the_retired_selector_says_it_in_the_frame(self) -> SectionDistribution:
-        """Warn as the plot group does, because it is the same retirement.
+        """Refuse as the plot group does, because it is the same retirement.
 
         The ledger promise and the changelog both say `each_blade` is read
         with a warning until 0.17.0, and the sections path gave none: a
@@ -665,14 +665,24 @@ class ProbesSpec(BaseModel):
     the order written. ``scale`` says what the coordinates are in: metres,
     or ROTOR radii, which is how the author's nine lines were laid out over the
     disk of whichever rotor the reference named. The word was
-    ``propeller_radius`` until 0.15.0 and is read with a warning until
-    0.17.0: this release says ROTOR everywhere, because a lifter is not a
-    rotor and the author's aircraft has eight of them.
+    ``propeller_radius`` until 0.15.0 and is REFUSED, naming
+    ``rotor_radius``: this release says ROTOR everywhere, because a lifter is not a
+    PROPELLER and an aircraft may carry eight of them. The word sweep of
+    2026-09-10 rewrote `propeller` here into `rotor` and left the sentence
+    arguing against the change it explains (the technical writing lens of
+    the 0.15.0 release review).
     """
 
     model_config = ConfigDict(extra="forbid")
 
-    frame: str = "ROTOR_MRP"
+    #: THE FRAME THE LINES ARE LAID OUT IN. Empty means the rotor's own
+    #: hub frame, which is what this defaulted to when there was one
+    #: package-level rotor frame to name; the builder resolves it, because
+    #: the name depends on the row's own rotor. It defaulted to the literal
+    #: `ROTOR_MRP` until 0.15.0 removed that frame, which refused every
+    #: artifact that had taken the default and told it to edit the
+    #: reference (the interface lens of the 0.15.0 release review).
+    frame: str = ""
     parameters: list[str] = Field(default_factory=list)
     points: int = Field(default=25, ge=2)
     scale: Annotated[Literal["m", "rotor_radius"], BeforeValidator(_the_radius_is_a_rotors)] = "m"
@@ -738,8 +748,13 @@ class ProductsSpec(BaseModel):
 #: type also creates ``ROTOR_MRP<k>``, ``RotorAxis<k>`` and ``BladeAxis<k>``,
 #: one per record or blade family, refused by pattern below (the
 #: interface lens of REL-0140: a setup defining ROTOR_MRP1 was shadowed).
-RESERVED_FRAME_NAMES: tuple[str, ...] = ("MRP", "ROTOR_MRP")
-RESERVED_FRAME_PATTERN = re.compile(r"^(ROTOR_MRP|ROTORAXIS|BLADEAXIS)\d+$")
+#: `ROTOR_MRP` LEFT THIS TUPLE AT 0.15.0 with the frame itself. Reserving
+#: a name no builder creates refused a setup frame for colliding with
+#: nothing, which is a refusal a user cannot act on. A rotor's own frames
+#: are protected by the two-sided guard in `workspace.inputs`, which
+#: composes `<ALIAS>_SMRP` forward rather than reading a shape backward.
+RESERVED_FRAME_NAMES: tuple[str, ...] = ("MRP",)
+RESERVED_FRAME_PATTERN = re.compile(r"^BLADEAXIS\d+$")
 
 
 #: The phases a raw command may be declared before (PFS-2033.01):
@@ -751,6 +766,18 @@ RAW_PHASES: tuple[str, ...] = (
     Phase.CONTROL.value,
     *(phase.value for phase in Phase if phase is not Phase.CONTROL),
 )
+
+#: THE SEAMS A CUSTOM FLAG MAY REACH, three of the seven a raw entry reaches:
+#: the ones before the run begins. A command of a later phase is part of the
+#: RUN rather than of its setting up, and this package emits those itself.
+#:
+#: IT LIVES HERE AND NOT IN THE BUILDER. `before` was validated against
+#: `RAW_PHASES` while the builder honoured this shorter list, so a flag
+#: declared `before = "export"` passed the model, passed the reader, and died
+#: later with a sentence about seams: two vocabularies for one field, and the
+#: earlier, cheaper refusal was the wrong one (the architecture lens of the
+#: 0.15.0 release review).
+FLAG_PHASES: tuple[str, ...] = ("control", "geometry", "setup")
 
 
 class CustomFlag(BaseModel):
@@ -810,11 +837,14 @@ class CustomFlag(BaseModel):
                 "line with its arguments already in it is a [[raw]] entry, which is what "
                 "that table is for."
             )
-        if self.before is not None and self.before not in RAW_PHASES:
+        if self.before is not None and self.before not in FLAG_PHASES:
             raise ValueError(
-                f"the flag {self.name!r} is declared before {self.before!r}, which names no "
-                f"phase; the phases are {', '.join(RAW_PHASES)}. Leave it out to take the "
-                "phase the command's own entry declares."
+                f"the flag {self.name!r} is declared before {self.before!r}, which is not a "
+                f"seam a flag reaches; a flag is emitted before one of "
+                f"{', '.join(FLAG_PHASES)}, three of the seven a [[raw]] entry reaches. "
+                "Leave it out to take the phase the command's own entry declares. A "
+                "setting of a later phase is part of the RUN rather than of its setting "
+                "up, and a row that needs one states it in the [[raw]] table."
             )
         return self
 

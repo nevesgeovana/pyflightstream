@@ -3930,7 +3930,7 @@ def test_pproc_plots_emit_one_force_plot_per_group_and_frame(tmp_path):
         "PARAMETER MACH",
         "NAME MACH1",
         "VERTEX -3.6576 -1.8288 0.0",
-    ], "in propeller radii of the reference, in the ROTOR_SMRP frame"
+    ], "in rotor radii of the reference, in the ROTOR_SMRP frame"
     assert lines[fluid[-1] + 3] == "NAME VELOCITY3"
 
 

@@ -144,7 +144,7 @@ them close the gap that made the capability unusable:
 
 ### A rotor row states the decisions, and the arithmetic is derived
 
-A propeller study is designed in an advance ratio and an azimuthal step.
+A rotor study is designed in an advance ratio and an azimuthal step.
 The rev/min, the seconds per step and the number of steps are what those
 work out to at the run's own velocity, so an `unsteady_rotor` row states
 the decisions and the package derives the rest.
@@ -620,7 +620,7 @@ package makes itself (`MRP` at the moment point on every run type,
 written and before any motion, so a rotor whose
 axis frame is one of these turns about a frame that exists. The table is
 not a solver setting and never reaches the refusal above. A name the
-package creates itself (`MRP`, `ROTOR_MRP`), a name defined twice, or an
+package creates itself (`MRP`), a name defined twice, or an
 origin that is not three numbers is refused at plan time naming the
 preset. What the frames are FOR is the row's rotation of a boundary
 family about one of their axes, which 0.14.0 adds beside them.
@@ -631,9 +631,10 @@ family about one of their axes, which 0.14.0 adds beside them.
     the lengths and the rotors rather than in a preset, which is per
     condition where a reference is per configuration (FR-72). **Write the
     same table, unchanged, in `inputs/references/<id>.toml`.** A preset
-    that still states it is read with a deprecation warning naming the
-    reference, the reference's entries are the ones a row uses, and the
-    preset stops being read for it at 0.17.0.
+    that still states it is REFUSED, naming the reference to move it into.
+    A boundary name and a coordinate system are properties of the
+    CONFIGURATION and a preset is per condition, so a file stating both is
+    a file with two answers.
 
 A preset may declare **custom flags**, since 0.15.0 (FR-74), in a
 `[[flags]]` table. A flag names a FlightStream command and the word a matrix
@@ -929,7 +930,7 @@ z_m = 0.0
 `[rotor]` BLOCK, which is the natural-looking home and the wrong one.
 The recorded rotor block is recorded metadata of which this package reads
 ONE field, the position, since 0.11.0 (the unsteady run types create the
-ROTOR_MRP frame there); the diameter is a DIVISOR of published numbers,
+rotor hub frame there); the diameter is a DIVISOR of published numbers,
 exactly like the area and the chord. It is what an advance ratio is a ratio against, so a
 row stating `ADVANCE_RATIO` and a reference without this field is
 refused naming the field to add, and it is what the rotor
@@ -968,14 +969,12 @@ rotor (FR-59, FR-60, FR-72).
     [<ROTOR>] kind = "rotor"  one block per rotor, and the block's NAME
                                is an alias over everything it owns
 
-THE FILE SAYS `rotor` AND THIS PAGE SAYS ROTOR, and the two are the
-same object. The discriminator is `kind = "rotor"` because that is what
-the model has been called since 0.15.0; the prose says rotor because a
-lifter is not a rotor any more than it is a rotor, which is the
-same reason `scale = "rotor_radius"` became `rotor_radius` in this
-release. Which word the vocabulary settles on is the author's call and
-is open; until the author makes it, the page names both rather than teaching
-one and leaving the other to be met in a refusal.
+ONE WORD, AND IT IS ROTOR. The block, the key, the frame, the point and
+the probe scale all say it, because a propeller is a rotor and so is a
+lift fan: the general word is the one that never has to be changed again
+when the aircraft does. Every spelling this replaced is refused naming
+what to write instead, so a file written before 0.15.0 stops rather than
+running under a word that means something else now.
 
 A rotor block states `alias` (optional, and equal to its name), the hub
 as `x_m`, `y_m`, `z_m`, then `axis`, `rpm_sign`, `diameter_m`,
@@ -997,7 +996,7 @@ stating both is refused naming both.
 
 Nothing in the package reads the recorded rotor block except its `position`,
 since 0.11.0: the two unsteady run types turn it into a coordinate system
-named ROTOR_MRP, the frame the author's probe lines and rotor plots are
+named `<ALIAS>_SMRP` for the rotor it belongs to, the frame the author's probe lines and rotor plots are
 defined in, and the frame a rotor row turns about unless it states
 `ROTOR_ORIGIN`. The rest of the block, `radius_m` (optional since
 0.11.0, and checked against the diameter when stated) and `n_blades`,
@@ -1165,8 +1164,10 @@ what those three do to the entry); `<ALIAS>_SMRP`, `<ALIAS>_RMRP` and
 `<ALIAS>_RMRP<k>`, the same frames named for ONE rotor, which is how an
 entry says which rotor it is about on a row that turns nine; a frame the
 row's REFERENCE declares in its `[[frames]]` table, by the name written
-there (`LIFTERS_MRP`, `PUSHER_TIP`); and, from before 0.15.0, `ROTOR_MRP`,
-`BLADE_AXIS`, `ROTOR_MRP<k>` and `RotorAxis<k>`, which still resolve.
+there (`LIFTERS_MRP`, `PUSHER_TIP`); and `BLADE_AXIS` on the flat rotor
+row. The names of before 0.15.0, `PROP_MRP`, `PROP_MRP<k>` and
+`RotorAxis<k>`, do NOT resolve: they went with the package-level rotor
+frame, and an entry citing one is refused naming the shape to write.
 
 **THE FRAME DECIDES HOW THE ENTRY EXPANDS**, which is why there is no
 `expand` key and why `each_blade` retired. An entry in `MRP` or a declared
@@ -1215,7 +1216,7 @@ three rows.
     `<ALIAS>_RMRP<k>` never double: they turn WITH the motion at every step
     of an unsteady run, so there is no single frame they turned from.
 
-    `ROTOR_MRP<k>` and `RotorAxis<k>` still resolve for an entry written
+    `PROP_MRP<k>` and `RotorAxis<k>` are refused for an entry written
     against 0.14.0, and a record that names no alias still emits them, so
     a workspace may migrate its rows before its post-processing. The
     custom frames come from the REFERENCE now, not the preset, and a
@@ -1588,9 +1589,9 @@ rotor. Since v0.11.0 a row may state several (PFS-2029.11): `MOTIONS: {...},
 {...}`, each pair of braces one rotor holding those same keys, the pairs
 inside separated by `/` as in the flat cell and the records by commas. The
 builder then creates, per record, a fixed frame at the record's hub
-(`ROTOR_MRP1`, `ROTOR_MRP2`, ...), a moving frame turned by the motion
+(`<ALIAS>_SMRP`, one per record), a moving frame turned by the motion
 (`RotorAxis1`, ...) and one `CREATE_NEW_MOTION` block citing its own frame,
-axis, speed and boundaries; the row's `ROTOR_MRP` stays the frame the pproc
+axis, speed and boundaries; each rotor's `<ALIAS>_SMRP` is the frame the pproc
 entries cite, the time step follows the rotor `CLOCK_MOTION` names, and the run record
 lists every record as bound. A record's `ROTOR_ORIGIN` may name a point of
 `inputs/reference_points.toml` instead of three coordinates; the point must
@@ -1654,7 +1655,7 @@ Two things about that conversion are worth knowing before you run it:
 
 ### One row, one geometry, turned
 
-An installed propeller's incidence is a parametric study: the same mesh, the
+An installed rotor's incidence is a parametric study: the same mesh, the
 blade and spinner families turned a few degrees in pitch or in toe, one
 run per angle. Since 0.14.0 a row states that turn in its cell
 (PFS-2034.02, the author's design of 2026-09-09) and the geometry file stays what
@@ -1671,7 +1672,7 @@ written, so a pitch and then a toe is `{...}, {...}`. `ANGLE` is in
 degrees; `AXIS` names a coordinate system and one of its axes, as
 `PUSHER_SMRP-Y`, where the system is one the row's REFERENCE declares in
 its `[[frames]]` table (above) or one the package creates itself (`MRP` on
-every run type; `ROTOR_MRP` on the rotor run types, and a rotor's own
+every run type; and a rotor's own
 `<ALIAS>_SMRP`, `<ALIAS>_RMRP` and `<ALIAS>_RMRP<k>`).
 
 **`ALIAS` names what turns, and it is the same word a motion uses.** That
@@ -1736,7 +1737,7 @@ the file carries.
 ```
 
 A rotor row that turns its blades and does not name the frame they spin
-about among the auxiliaries (`ROTOR_MRP` on a flat row, `ROTOR_MRP1` and so
+about among the auxiliaries (`<ALIAS>_SMRP` on a flat row, one per rotor and so
 on for the records of a `MOTIONS` row) is accepted and WARNS naming the
 frame: the blades turn and the axis stays, which is a physics call the row
 may mean, so it is not refused.

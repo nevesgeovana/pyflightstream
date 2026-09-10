@@ -113,6 +113,51 @@ def test_a_cell_written_with_an_empty_value_states_nothing():
     assert not any(line.startswith(SETUP_COMMAND) for line in lines), lines
 
 
+#: A COMMAND OF THE CONTROL PHASE, whose phase the database leaves open. It is
+#: the case a flag reaches at every seam, so it is the one that proves the
+#: line goes out ONCE rather than once per seam.
+CONTROL_COMMAND = "PRINT"
+
+
+def test_a_control_phase_flag_is_emitted_exactly_once():
+    """THE MUTANT THAT SURVIVED TWELVE CASES, written down as a case.
+
+    `_custom_flags` runs at all three seams. The derived phase of a CONTROL
+    command was read from the CURRENT phase, so it equalled whatever seam
+    was asking and the skip never fired: the line went out three times. The
+    QA lens measured three emissions of `PRINT`, and `SAVEAS` and
+    `RUN_SCRIPT` are in the same set and are not idempotent.
+
+    COUNTING IS THE POINT. Every other case here asserts the line is IN the
+    script, and membership is satisfied by one emission or by three.
+    """
+    lines = rendered(case(flags=[flag(command=CONTROL_COMMAND)], variables={"digits": "hello"}))
+    emitted = [line for line in lines if line.startswith(f"{CONTROL_COMMAND} ")]
+    assert len(emitted) == 1, (
+        f"a control-phase flag was emitted {len(emitted)} times, once per seam the "
+        f"builder opens: {emitted}"
+    )
+
+
+def test_a_setup_phase_flag_is_emitted_exactly_once_too():
+    """The control for the case above: the counting is not about CONTROL."""
+    lines = rendered(case(flags=[flag()], variables={"digits": "6"}))
+    emitted = [line for line in lines if line.startswith(f"{SETUP_COMMAND} ")]
+    assert len(emitted) == 1, f"emitted {len(emitted)} times: {emitted}"
+
+
+def test_the_declaration_folds_the_word_it_stores():
+    """The declaration side of the fold, which no case reached.
+
+    A mutant that stopped folding the DECLARED name survived, and it was a
+    no-op: the fixture's flag name is already lower case, so the mutation
+    changed nothing and the survival was evidence of nothing. This states
+    the name in capitals, so the fold has somewhere to happen.
+    """
+    lines = rendered(case(flags=[flag(name="DIGITS")], variables={"digits": "6"}))
+    assert f"{SETUP_COMMAND} 6" in lines, lines
+
+
 # --- the emit check, which is the author's own condition ---------------------
 
 

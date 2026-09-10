@@ -309,6 +309,25 @@ def test_the_header_declares_the_kind_of_tree_it_actually_heads():
 ARCHIVE_ROWS_BEGIN_AT = (0, 3, 0)
 
 
+def _the_owed_section() -> str:
+    """Return the changelog's `### Owed` block of the Unreleased section.
+
+    ONE HEADING, ONE CONSTANT, imported from the guard that owns the rule.
+    Reading the whole Unreleased section let a debt be written under any
+    heading, and the sibling in `test_version_identity.py` excludes only
+    this one from its reading of unreleased BEHAVIOUR, so the two would
+    disagree about where a debt lives.
+    """
+    from tests.tier1_offline.test_version_identity import OWED_HEADING
+
+    changelog = (REPO_ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+    unreleased = changelog.split("## [Unreleased]", 1)
+    section = unreleased[1].split("\n## [", 1)[0] if len(unreleased) > 1 else ""
+    if OWED_HEADING not in section:
+        return ""
+    return section.split(OWED_HEADING, 1)[1].split("\n### ", 1)[0]
+
+
 def test_every_released_tag_has_an_archive_row_or_the_changelog_says_it_is_owed():
     """PFS-2024.09. A released tag with no archive row must be VISIBLE.
 
@@ -355,7 +374,6 @@ def test_every_released_tag_has_an_archive_row_or_the_changelog_says_it_is_owed(
     )
 
     citation = (REPO_ROOT / "CITATION.cff").read_text(encoding="utf-8")
-    changelog = (REPO_ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
     # THE `### Owed` SECTION, not the whole of Unreleased. Reading the whole
     # section let a debt be written under any heading, and the sibling guard
     # in test_version_identity.py excludes only this one from its reading of
@@ -364,13 +382,7 @@ def test_every_released_tag_has_an_archive_row_or_the_changelog_says_it_is_owed(
     # the release commit (the architecture lens of the 0.15.0 release
     # review). One heading, one constant, imported from the guard that owns
     # the rule.
-    from tests.tier1_offline.test_version_identity import OWED_HEADING
-
-    unreleased = changelog.split("## [Unreleased]", 1)
-    section = unreleased[1].split("\n## [", 1)[0] if len(unreleased) > 1 else ""
-    owed = (
-        section.split(OWED_HEADING, 1)[1].split("\n### ", 1)[0] if OWED_HEADING in section else ""
-    )
+    owed = _the_owed_section()
 
     by_row, by_changelog, invisible = [], [], []
     for _parts, tag in sorted(released):
@@ -458,10 +470,28 @@ def test_the_newest_archive_row_names_the_version_this_tree_states():
             "the release commit is the one tree that legitimately lacks its own row: "
             "the DOI is minted from the release the tag creates"
         )
-    assert f"v{_pyproject_version()}" in rows[0].get("description", ""), (
+    if f"v{_pyproject_version()}" in rows[0].get("description", ""):
+        return
+    # THE DEBT IS A LEGITIMATE ANSWER, and its home is the one the sibling
+    # guard reads. Until this, the two disagreed: a release could record its
+    # missing archive honestly in `### Owed`, satisfy the guard that walks
+    # every released tag, and still be refused here for the same fact (the
+    # QA lens of the 0.15.0 release review). The line must NAME the archive
+    # and NAME the version, which is the sibling's own test, so a version
+    # merely mentioned in the section does not satisfy it.
+    owed = _the_owed_section()
+    named = [
+        line
+        for line in owed.splitlines()
+        if f"v{_pyproject_version()}" in line
+        and any(word in line.lower() for word in ("archive", "doi", "identifier"))
+    ]
+    assert named, (
         f"the newest archive row reads {rows[0].get('description')!r} while this tree "
-        f"states version {_pyproject_version()}. A version DOI is recorded one commit "
-        "after the tag it names, so on a release tree past the tag the two agree."
+        f"states version {_pyproject_version()}, and the changelog's Owed section does "
+        f"not say the v{_pyproject_version()} archive is owed either. A version DOI is "
+        "recorded one commit after the tag it names, so on a release tree past the tag "
+        "the two agree, or the debt is written down."
     )
 
 

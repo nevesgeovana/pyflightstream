@@ -81,6 +81,7 @@ from pyflightstream._fsm import (
     boundary_labels,
     boundary_names,
 )
+from pyflightstream._retired_names import retired_frame
 from pyflightstream.cases import (
     EXPANDING_FRAMES,
     EXPORT_KINDS,
@@ -3542,15 +3543,6 @@ def _moment_frame(case: SimCase, script: Script) -> int | None:
     )
 
 
-#: THE RADICAL OF A ROTOR THAT HAS NO ALIAS. Only one path produces one:
-#: a matrix converted with no workspace, where `to_campaign` reads the row
-#: and never an artifact, so there is no block to take a name from. It keeps
-#: the shape every other rotor frame name has rather than reviving the
-#: package-level PROP_MRP, which named one propulsor because a reference
-#: described one.
-UNNAMED_ROTOR_RADICAL = "ROTOR"
-
-
 #: THE RADICAL OF A ROTOR THAT HAS NO ALIAS. Only one path produces one: a
 #: matrix converted with no workspace, where `to_campaign` reads the row and
 #: never an artifact, so there is no block to take a name from. It keeps the
@@ -4527,6 +4519,32 @@ def _pproc_emissions(
     return kept
 
 
+def _refuse_a_retired_frame(case: SimCase, name: str, what: str) -> None:
+    """Refuse a frame citation written in the vocabulary 0.15.0 removed.
+
+    Without this the citation falls through to "this run created no such
+    frame", which is true, names the frames that DO exist, and says nothing
+    about the rename: a user holding a 0.14.0 post-processing artifact is
+    told their frame is missing rather than that it was replaced by a shape
+    (the interface lens of the 0.15.0 release review).
+
+    Raises
+    ------
+    CampaignConfigError
+        The name is a retired frame spelling.
+    """
+    entry = retired_frame(name)
+    if entry is None:
+        return
+    declared = ", ".join(f"{alias}_SMRP" for alias in sorted(case.rotors)) or (
+        "none, because this row's reference declares no rotor"
+    )
+    raise CampaignConfigError(
+        f"case {case.sim_id!r}: {what} cites frame {name!r}. {entry.message()} "
+        f"The frames this row's rotors carry are: {declared}."
+    )
+
+
 def _pproc_frame(
     case: SimCase, frames: Frames, name: str, what: str, families: Sequence[str] = ()
 ) -> int:
@@ -4536,6 +4554,10 @@ def _pproc_frame(
     family at a time (``each_blade``); the family's own axis frame is the
     one returned.
     """
+    # THE RETIREMENT IS ASKED FIRST, before the generic answer. A citation
+    # written in the vocabulary 0.15.0 removed deserves the rename, not a
+    # list of the frames that happen to exist.
+    _refuse_a_retired_frame(case, name, f"{what} of the pproc artifact {case.pproc_id!r}")
     found = frames.get(name)
     if isinstance(found, Mapping):
         if len(families) != 1 or families[0] not in found:
@@ -4544,8 +4566,8 @@ def _pproc_frame(
                 f"{name!r} for {what} over families {list(families)}, and that frame is "
                 "one per blade. Since 0.15.0 the FRAME says how an entry expands, so "
                 'write frame = "LOCAL_AXIS" over the rotor or the alias you want and it '
-                "is one emission per blade, each in that blade's own axes. The retired "
-                'spelling is families = "each_blade", read with a warning until 0.17.0 '
+                "is one emission per blade, each in that blade's own axes. The spelling "
+                'this replaced, families = "each_blade", is refused since 0.15.0 '
                 f"(blades with an axis frame here: {', '.join(found)})."
             )
         return found[families[0]]
@@ -4554,9 +4576,13 @@ def _pproc_frame(
         raise CampaignConfigError(
             f"case {case.sim_id!r}: the pproc artifact {case.pproc_id!r} cites frame "
             f"{name!r} for {what}, and this run created no such frame (created: "
-            f"{', '.join(created) or 'none'}). MRP needs a reference artifact, ROTOR_MRP "
-            "a rotor position on it, and BLADE_AXIS the multirotor run type with a "
-            "geometry carrying blade families (PFS-2029.11.03)."
+            f"{', '.join(created) or 'none'}). MRP needs a reference artifact; a "
+            "rotor's own frames need that rotor declared in the reference AND moved by "
+            "this row, because a row places the frames of the rotors its motions name; "
+            "and BLADE_AXIS needs the multirotor run type with a geometry carrying "
+            "blade families (PFS-2029.11.03). There is no package-level rotor frame "
+            "since 0.15.0: each rotor carries <ALIAS>_SMRP, <ALIAS>_RMRP and "
+            "<ALIAS>_RMRP<k>."
         )
     return found
 
@@ -4640,7 +4666,15 @@ def _custom_flags(case: SimCase, script: Script, phase: str) -> None:
         name = flag.command
         try:
             spec = script.entry(name)
-            wanted = flag.before or (phase if spec.phase is Phase.CONTROL else spec.phase.value)
+            # `Phase.CONTROL.value` AND NOT `phase`. Reading the CURRENT
+            # phase here made the derived answer equal whatever seam was
+            # asking, so the skip below never fired and a control command
+            # went out at all three: 28 shipped commands declare phase
+            # control, so the triple emission was reachable rather than
+            # theoretical (the interface lens of the 0.15.0 release review).
+            wanted = flag.before or (
+                Phase.CONTROL.value if spec.phase is Phase.CONTROL else spec.phase.value
+            )
             if wanted not in FLAG_PHASES:
                 # NOT SILENTLY DROPPED. The builders open three seams,
                 # and a flag whose command belongs to a later phase has
@@ -4729,7 +4763,7 @@ def _setup_frames(case: SimCase, script: Script) -> dict[str, int]:
     """Create the custom frames the row's setup defines, returning name to index.
 
     PFS-2034.01, the author's design of 2026-09-09 (design/69). Emitted after the
-    package's own frames (MRP, ROTOR_MRP) so their indices stay what the author's
+    package's own frame (MRP) so their indices stay what the author's
     scripts numbered them, and before any motion, so a rotor whose axis
     frame is one of these turns about a frame that exists. A setup that
     defines none emits nothing, which is every golden.
@@ -5307,6 +5341,17 @@ def _pproc_plots(case: SimCase, script: Script, frames: Frames) -> None:
     probes = pproc.probes
     if not probes.lines or not probes.parameters:
         return
+    # AN UNSTATED FRAME IS THE ROW'S OWN ROTOR HUB (FR-65). It was the
+    # literal `PROP_MRP` until 0.15.0, when a reference described one
+    # propulsor and one name could stand for it; a name is not enough now,
+    # because which hub it is depends on the row, so the DEFAULT is resolved
+    # here and the artifact states nothing. A row that turns no rotor lays
+    # its lines in the moment frame, which is where an unstated frame put
+    # them on a rotorless run before this release too.
+    wanted_frame = probes.frame.strip() or (
+        _the_flat_frame_name(case) if case.rotors or case.motions else "MRP"
+    )
+    probes = probes.model_copy(update={"frame": wanted_frame})
     # A PROBE TABLE NAMES ONE ROTOR'S FRAME, and a row that does not turn
     # that rotor places it nowhere. The same rule the plots and the
     # sections already keep (FR-65): an entry this RUN cannot place is left
@@ -6252,6 +6297,45 @@ def _build_unsteady_rotor(case: SimCase, script: Script, conventions: WorkflowCo
     _script_tail(conventions, case, script, frame, unsteady=True)
 
 
+def _refuse_one_rotor_moved_twice(case: SimCase, rotors: Sequence[RotorBlock | None]) -> None:
+    """Refuse a row whose MOTIONS list names one rotor more than once.
+
+    ONE ROTOR HAS ONE SET OF FRAMES. Two records naming one alias built
+    ``<ALIAS>_SMRP`` twice, at two indices, and the name table kept the
+    LAST, so the script carried the name twice and the two motions turned
+    about different coordinate systems. It was masked by a label collision
+    that fires only when the rotor's blade families are in the mesh, and
+    that refusal names neither the alias nor the case; on a sector mesh
+    carrying none of them nothing refused at all (the QA lens of the 0.15.0
+    release review, measured on the emitted script).
+
+    A ROW THAT MOVES ONE ROTOR TWICE IS ASKING FOR TWO SPEEDS FOR ONE
+    THING, which is the shape this package refuses wherever a row states a
+    rotor twice. If two speeds are wanted in one run, they are two rotors.
+
+    Raises
+    ------
+    CampaignConfigError
+        A rotor alias appears in more than one record, naming it.
+    """
+    seen: dict[str, int] = {}
+    for block in rotors:
+        if block is None:
+            continue
+        seen[block.alias] = seen.get(block.alias, 0) + 1
+    twice = sorted(alias for alias, count in seen.items() if count > 1)
+    if not twice:
+        return
+    raise CampaignConfigError(
+        f"case {case.sim_id!r} states {MOTIONS_VARIABLE} naming "
+        f"{', '.join(repr(alias) for alias in twice)} more than once. One rotor has one "
+        "hub and one set of frames, so two records naming it ask for two speeds for one "
+        "thing and the script would carry its frame name twice at two indices. Write one "
+        "record per rotor; if two speeds are wanted in one run, they are two rotors and "
+        "the reference declares two blocks."
+    )
+
+
 def _rotor_motions(
     conventions: WorkflowConventions,
     case: SimCase,
@@ -6274,21 +6358,23 @@ def _rotor_motions(
     the ``blade1`` datum. A family of ``families_general`` gets no frame
     of its own: its local frame IS the rotor's, which is what makes the
     spinner ride the hub. The names a record's frames had at 0.14.0,
-    ``ROTOR_MRP<k>`` and ``RotorAxis<k>``, still resolve for a pproc entry
-    that cites them, until 0.17.0.
+    ``PROP_MRP<k>`` and ``RotorAxis<k>``, do NOT resolve: they were
+    positional, so a pproc entry citing one silently followed the ORDER of
+    the MOTIONS list, and an entry citing one now is refused naming the
+    shape to write.
 
-    The row's ``ROTOR_MRP``, already created from the reference, stays the
-    frame an older pproc entry cites. The time step follows the motion
+    There is no package-level rotor frame. The time step follows the motion
     ``CLOCK_MOTION`` names, and the fastest rotor when a row names none
     (FR-64).
     """
     views = [_motion_view(case, record) for record in case.motions]
     rotors = [_rotor_of(case, record) for record in case.motions]
-    # A RECORD THAT NAMES NO ROTOR KEEPS THE 0.14.0 FRAME NAMES, and this
-    # is what makes a row written before this release render byte for byte
-    # as it did: the alias radical belongs to a record that cites a rotor
-    # of the reference, and a record still stating MOVING_BOUNDARIES has no
-    # alias to take one from.
+    _refuse_one_rotor_moved_twice(case, rotors)
+    # A RECORD NAMING NO ROTOR takes the default radical, `ROTOR<k>`, which
+    # is the alias-shaped name of an unnamed rotor. It does NOT keep the
+    # 0.14.0 names: those were positional and went with the package-level
+    # frame. Only a matrix converted with no workspace produces one, because
+    # a record reaching the builder through a workspace names a rotor.
     radicals = [(rotor.alias if rotor is not None else None) for rotor in rotors]
     moving: list[int] = []
     hubs: list[int] = []
@@ -6340,8 +6426,8 @@ def _rotor_motions(
     }
     frames.update(setup_frames)
     # A record's own frames are citable by the names the solver shows
-    # (ROTOR_MRP1, RotorAxis1, ...), and a rotor's moving frame follows
-    # its hub frame the way the blade axes follow ROTOR_MRP (PFS-2034.02).
+    # (<ALIAS>_SMRP, <ALIAS>_RMRP, ...), and a rotor's moving frame follows
+    # its hub frame the way the blade frames follow it (PFS-2034.02).
     named: dict[str, int | None] = {"MRP": frame, **setup_frames}
     followers: dict[str, list[int]] = {}
     spinning: dict[str, list[int]] = {}
@@ -6781,7 +6867,12 @@ _UNSTEADY_ROTOR_KEYS: tuple[str, ...] = (
 #: The converter's namespace in the case variables (``matrix_ref``,
 #: ``matrix_workflow`` and the rest), written over the cell after the
 #: cell is read and never by a user; :data:`WORKFLOW_KEY` is one of them.
-_CONVERTER_PREFIX = "matrix_"
+#: THE PREFIX THE MATRIX CONVERTER PUTS ON ITS OWN KEYS, so a reader can
+#: tell a key the row wrote from one the conversion added. PUBLIC because
+#: `workspace.inputs` asks it whether a custom flag's name would collide
+#: with one, and a private name crossing a public sibling is a layer
+#: boundary crossed for a helper (the layer guard of test_digest.py).
+CONVERTER_PREFIX = "matrix_"
 
 
 def _refuse_unregistered_keys(case: SimCase, name: str) -> None:
@@ -6820,7 +6911,7 @@ def _refuse_unregistered_keys(case: SimCase, name: str) -> None:
     stated = sorted(
         key
         for key in case.variables
-        if not key.startswith(_CONVERTER_PREFIX)
+        if not key.startswith(CONVERTER_PREFIX)
         and key != ROTOR_ORIGIN_POINT_KEY
         and key not in workflow.keys
         and key.strip().casefold() not in declared

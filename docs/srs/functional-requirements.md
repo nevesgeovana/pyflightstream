@@ -1701,7 +1701,7 @@ nodes.
 
     Read with PFS-2028.09 at 0.14.0 (GOAL-013): the sign the reference's derived rotation produced for the author's rows is the author's to confirm.
 
-    The reference artifact carries the propeller diameter and no radius,
+    The reference artifact carries the rotor diameter and no radius,
     refusing a file that states both with values that disagree; and it
     carries no `blade_travel`, `rotation`, `rpm_sign_installed` or
     `rpm_sign_isolated`, because the hand of a rotor is a property of the
@@ -2031,7 +2031,7 @@ requirement below is one seam of that division.
     the model (an entry in a rotor frame is one per rotor, one in the local
     axis is one per blade, one in a common frame is one, the placeholder is
     present exactly when there is more than one emission, `each` stays and
-    `each_blade` warns) and ends by validating, WHERE THE WORKSPACE IS ON
+    `each_blade` is refused) and ends by validating, WHERE THE WORKSPACE IS ON
     THE MACHINE and skipping with that reason where it is not, which is
     every clone and every CI run, THE AUTHOR'S OWN
     `pfs0150/inputs/pproc/p010.toml`, which is the file the requirement was
@@ -2048,7 +2048,7 @@ requirement below is one seam of that division.
 
     There is no `expand` key: the frame already says it. `each` stays, because
     one emission per family in a common frame is a reading no frame implies;
-    `each_blade` is read with a deprecation warning until 0.17.0. `{family}`
+    `each_blade` is REFUSED, naming `frame = "LOCAL_AXIS"`. `{family}`
     is the only placeholder and means WHAT THE EMISSION IS ABOUT: the alias on
     a per-rotor entry, the blade's label on a per-blade one, the family on an
     `each` one.
@@ -2079,7 +2079,7 @@ requirement below is one seam of that division.
     reference carried one diameter for the whole configuration; it carries
     one per rotor now (FR-60), and reading the configuration's would lay a
     lifter's probes out over a pusher's disk without saying so. The word
-    was `propeller_radius` and is read with a warning until 0.17.0.
+    was `propeller_radius` and is REFUSED, naming `rotor_radius`.
 
 !!! requirement "FR-66 A row may state the symmetry-loads flag, overriding the preset with a warning <span class='srs-implemented'>implemented</span>"
     *Origin: the author's decision of 2026-09-10, "vale promover ele para flag sim e
@@ -2481,6 +2481,22 @@ requirement below is one seam of that division.
     geometry that should carry everything wants to hear about it.
 
 !!! requirement "FR-74 A setup declares custom flags, so a row sets a solver command by name <span class='srs-implemented'>implemented</span>"
+
+    *Origin: the author's instruction of 2026-09-10, "no setup, quero adicionar a
+    declaracao de custom flags ... Assim o uso do raw realmente vai ficar para
+    casos particulares". Carried by PFS-2035.20. Evidence:
+    `tests/tier1_offline/test_custom_flags.py`, and the worked example
+    `tests/tier3_licensed/inputs/setups/s006.toml` with row 8006 of
+    `matriz_vocab.fs` and its committed golden.*
+
+    WHAT IT IS FOR, before how it is written. A setting that varies from point
+    to point has no column of its own and does not belong in a preset, and
+    reaching it meant `[[raw]]`, which fixes a whole command line so every row
+    citing that preset emits the same one. A flag names the COMMAND and lets
+    the ROW state the value, so one preset serves a sweep over it. That is what
+    leaves `[[raw]]` to the particular case its name promises rather than
+    making it the ordinary way to reach any setting this package does not
+    curate.
 
     A setup preset declares, once per flag, the FlightStream COMMAND and the
     WORD a matrix row writes for it:

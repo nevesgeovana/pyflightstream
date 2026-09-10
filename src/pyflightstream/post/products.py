@@ -284,7 +284,7 @@ def group_coefficients(
     them) is its members' rows, a family is every row of it. A family
     the table does not carry is left out, as the author's writer left it out; a
     group none of whose families is in the table sums to zero, which is
-    what the author's products carry for the propeller groups of a wing-body
+    what the author's products carry for the rotor groups of a wing-body
     polar. The rolling and yawing moments are the solver's ``CMx`` and
     ``CMz``, scaled from the reference chord to the span and negated,
     the author's convention.

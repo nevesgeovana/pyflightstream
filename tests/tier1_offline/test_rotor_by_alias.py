@@ -700,6 +700,47 @@ def test_a_record_naming_no_rotor_is_refused_rather_than_given_a_positional_name
         rendered(case)
 
 
+def test_one_rotor_moved_twice_is_refused_naming_the_alias(tmp_path):
+    """One rotor has one hub and one set of frames.
+
+    FOUND ON THE EMITTED SCRIPT, not by reading the code (the QA lens of the
+    0.15.0 release review). Two records naming one alias built
+    `<ALIAS>_SMRP` twice at two indices, the name table kept the LAST, and
+    the two motions turned about different coordinate systems: a silent
+    physics defect on the release's own headline path, and the SECOND of
+    that shape in one review.
+
+    IT WAS MASKED, which is why the case is written both ways. With the
+    rotor's blade families in the mesh a label collision fired, naming
+    neither the alias nor the case; on a sector mesh carrying none of them,
+    which this package supports, nothing refused at all.
+    """
+    twice = [
+        {"MOVING_BC_ALIAS": "PUSHER", "RPM": "2200"},
+        {"MOVING_BC_ALIAS": "PUSHER", "RPM": "-900"},
+    ]
+    full = two_rotor_case(tmp_path).model_copy(
+        update={
+            "variables": {**two_rotor_case(tmp_path).variables, "CLOCK_MOTION": "PUSHER"},
+            "motions": twice,
+        }
+    )
+    with pytest.raises(PyflightstreamError) as refused:
+        rendered(full)
+    message = str(refused.value)
+    assert "PUSHER" in message, f"the refusal does not name the rotor: {message}"
+    assert "9201" in message, f"the refusal does not name the case: {message}"
+
+    # AND ON THE SECTOR MESH, where the masking collision cannot fire because
+    # the blade families are not there. Without this arm the case above is
+    # satisfied by the label collision it was written to replace.
+    sector = full.model_copy(
+        update={"geometry": str(saved_simulation(tmp_path / "sector.fsm", ["LH_L1", "W"]))}
+    )
+    with pytest.raises(PyflightstreamError, match="PUSHER"):
+        rendered(sector)
+
+
 def test_a_blade_the_mesh_lacks_gets_no_frame_and_the_count_stays(tmp_path):
     """The sector case: four blades declared, one meshed, one frame, count still four."""
     case = two_rotor_case(tmp_path)

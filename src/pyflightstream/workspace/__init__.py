@@ -68,6 +68,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_valida
 from pyflightstream._deprecations import WAIVED_COMMANDS_MANIFEST_KEY
 from pyflightstream._digest import file_sha256
 from pyflightstream._errors import PyflightstreamDeprecationWarning, PyflightstreamError
+from pyflightstream._retired_names import WORKSPACE_ENGINE_POINT
 from pyflightstream.cases import BoundaryAliases, RawCommand
 from pyflightstream.script.solver_setup import explicit_empty_selections
 from pyflightstream.workspace.inputs import (
@@ -1548,6 +1549,24 @@ class CampaignWorkspace:
                 available=tuple(points),
             )
         return points[name]
+
+    def engine_point(self, name: str) -> PointXyz:
+        """Refuse the 0.14.0 spelling of :meth:`rotor_point`, naming it.
+
+        IT IS KEPT SO THAT IT CAN REFUSE. Deleting the name outright gave a
+        caller `AttributeError: 'CampaignWorkspace' object has no attribute
+        'engine_point'`, which is true and says nothing about the rename;
+        the retirement registry knows what the word became, so the method
+        survives one release as the sentence that says so (the architecture,
+        interface and V&V lenses of the 0.15.0 release review, which all
+        reached this by different routes).
+
+        Raises
+        ------
+        AttributeError
+            Always. The message names :meth:`rotor_point`.
+        """
+        raise AttributeError(WORKSPACE_ENGINE_POINT.message())
 
     def rotor_point(self, name: str) -> PointXyz:
         """Resolve a declared reference point that a rotor may turn about.

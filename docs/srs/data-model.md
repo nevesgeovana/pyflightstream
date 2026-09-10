@@ -226,7 +226,7 @@ The managed folder tree of a campaign:
       30_WB/         the recommended form since 0.13.0 (PFS-2032.04): the geometry file,
                      its boundary inventory and its provenance record in one place;
                      GEOMETRY: 30_WB.fsm reads the folder first and the flat file second
-    references/      reference-data artifacts (areas, lengths, moment points, propeller data)
+    references/      reference-data artifacts (areas, lengths, moment points, rotor data)
     setups/          named solver-setup presets
     pproc/           post-processing artifacts (named boundary groups and the product tables; groups/ until 0.11.0)
     profiles/        input profiles (e.g. actuator loading shapes)

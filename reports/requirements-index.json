@@ -684,7 +684,7 @@
    "text": "An entry citing MRP or a frame the reference declares emits ONCE over the whole cited set, and a rotor name in that set is its own union, so a propulsor's total carries its hub and spinner with its blades. An entry citing SMRP or RMRP emits one per ROTOR, in that rotor's frame. An entry citing LOCAL_AXIS emits one per BLADE, in that blade's frame, plus one for the rotor's general families, which ride the rotor's own frame.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: the author's design of 2026-09-10 and the author's spinner decision of the same night. Carried by PFS-2035.08, absorbing PFS-2029.20. Evidence: tests/tier1_offline/test_pproc_by_frame.py, which reads the rule off the model (an entry in a rotor frame is one per rotor, one in the local axis is one per blade, one in a common frame is one, the placeholder is present exactly when there is more than one emission, each stays and each_blade warns) and ends by validating, WHERE THE WORKSPACE IS ON THE MACHINE and skipping with that reason where it is not, which is every clone and every CI run, THE AUTHOR'S OWN pfs0150/inputs/pproc/p010.toml, which is the file the requirement was written from. Measured 2026-09-10: with the rule in place the author's two matrices plan 39 points with none blocked, where the artifact would not validate at all before it.*",
+   "evidence": "*Origin: the author's design of 2026-09-10 and the author's spinner decision of the same night. Carried by PFS-2035.08, absorbing PFS-2029.20. Evidence: tests/tier1_offline/test_pproc_by_frame.py, which reads the rule off the model (an entry in a rotor frame is one per rotor, one in the local axis is one per blade, one in a common frame is one, the placeholder is present exactly when there is more than one emission, each stays and each_blade is refused) and ends by validating, WHERE THE WORKSPACE IS ON THE MACHINE and skipping with that reason where it is not, which is every clone and every CI run, THE AUTHOR'S OWN pfs0150/inputs/pproc/p010.toml, which is the file the requirement was written from. Measured 2026-09-10: with the rule in place the author's two matrices plan 39 points with none blocked, where the artifact would not validate at all before it.*",
    "verification": "test"
   },
   {
@@ -753,11 +753,11 @@
   },
   {
    "id": "FR-74",
-   "text": "A setup preset declares, once per flag, the FlightStream COMMAND and the WORD a matrix row writes for it:",
+   "text": "WHAT IT IS FOR, before how it is written. A setting that varies from point to point has no column of its own and does not belong in a preset, and reaching it meant [[raw]], which fixes a whole command line so every row citing that preset emits the same one. A flag names the COMMAND and lets the ROW state the value, so one preset serves a sweep over it. That is what leaves [[raw]] to the particular case its name promises rather than making it the ordinary way to reach any setting this package does not curate.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "",
-   "verification": "review"
+   "evidence": "*Origin: the author's instruction of 2026-09-10, \"no setup, quero adicionar a declaracao de custom flags ... Assim o uso do raw realmente vai ficar para casos particulares\". Carried by PFS-2035.20. Evidence: tests/tier1_offline/test_custom_flags.py, and the worked example tests/tier3_licensed/inputs/setups/s006.toml with row 8006 of matriz_vocab.fs and its committed golden.*",
+   "verification": "test"
   },
   {
    "id": "NFR-01",
