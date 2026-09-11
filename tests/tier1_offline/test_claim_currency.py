@@ -73,17 +73,31 @@ def test_the_readme_status_line_names_the_version_being_released() -> None:
     )
     assert released, "the changelog states no released version, so this guard reads nothing"
     version = released[0]
-    status = [
-        line
-        for line in README.read_text(encoding="utf-8").splitlines()
-        if line.startswith("Status:")
-    ]
-    assert len(status) == 1, f"expected one README status line, found {len(status)}"
-    assert version in status[0], (
-        f"the README status line is {status[0]!r} and the newest released version in "
-        f"CHANGELOG.md is {version}. That line is rendered by PyPI as the project "
-        "page, so a stale one ships as the release's own front page."
-    )
+    # BOTH FRONT PAGES, which this guard's own docstring has named since it was
+    # written and which it read only half of. `README.md` is what PyPI renders
+    # and `docs/index.md` is what the site publishes, the README routes new
+    # readers at the site, and a tag cut with the two disagreeing sends a
+    # reader from a page announcing this release to one announcing the last.
+    # Measured at the v0.16.0 release commit, where the README moved and the
+    # site page did not (the technical writing lens, 2026-09-11).
+    pages = {
+        "README.md": README,
+        "docs/index.md": REPO / "docs" / "index.md",
+    }
+    for name, path in pages.items():
+        status = [
+            line
+            for line in path.read_text(encoding="utf-8").splitlines()
+            if line.startswith("Status:")
+        ]
+        assert len(status) == 1, f"expected one {name} status line, found {len(status)}"
+        assert version in status[0], (
+            f"the {name} status line is {status[0]!r} and the newest released version "
+            f"in CHANGELOG.md is {version}. README.md is rendered by PyPI as the "
+            "project page and docs/index.md is the site's front page, so a stale one "
+            "ships as the release's own front page and the two disagreeing sends a "
+            "reader from one release to another."
+        )
 
 
 def _readme_named_examples() -> set[str]:

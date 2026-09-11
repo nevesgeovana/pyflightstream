@@ -9,12 +9,15 @@ FlightStream versions.
 
 ### Owed
 
-- **The Zenodo archive of v0.14.0 still does not exist**, and the row for
-  v0.16.0 is owed too: a version DOI is minted from the GitHub release, so it
-  is always recorded one commit AFTER the tag it names. Until each row lands
-  this section says so, because a shipped release that quietly stops being
-  citable is the gap PFS-2024.09 is about. Cite either by the concept DOI,
-  which resolves to the newest archived version.
+- **The Zenodo archive of v0.14.0 did not exist when it was last measured**,
+  against Zenodo's own API on 2026-09-10, and it has NOT been re-checked
+  since; the date is carried because this is a claim about an external
+  service and a reader needs to know what to re-run. The row for v0.16.0 is
+  owed too, and for a different reason: a version DOI is minted from the
+  GitHub release, so it is always recorded one commit AFTER the tag it names.
+  Until each row lands this section says so, because a shipped release that
+  quietly stops being citable is the gap PFS-2024.09 is about. Cite either
+  release by the concept DOI, which resolves to the newest archived version.
 
 ## [0.16.0] - 2026-09-11
 

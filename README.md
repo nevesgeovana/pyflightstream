@@ -30,8 +30,9 @@ from the tag, so the concept DOI in CITATION.cff resolves to the newest
 archived version and the version DOI is recorded one commit after the
 tag that names it. CHANGELOG.md carries the release history.
 
-**v0.16.0 is the release her own workspace asked for.** Every item came
-from running 0.15.0 at work and reading what came back. A surface-section
+**v0.16.0 is the release her own workspace asked for.** The additions came
+from running 0.15.0 at work and reading what came back, and two of them are
+defects found while measuring for the others. A surface-section
 distribution is created AFTER the solver is initialised, which is where her
 own recorded scripts put it and which is why fifty sections said nothing; a
 steady row now CREATES the probe points it exports, instead of asking the
@@ -49,12 +50,26 @@ everything the workspace knows about that simulation: if you have to open a
 second file to know something about it, that file failed.
 
 Two new answers a study wants before it is run and after. `pyfs-matrix plan
---cost` tables what each polar will cost: mesh size, trailing edges marked,
-farfield layers, viscous coupling, run type, time steps, processors, and an
-expected time that says, under every printing, that it is an extrapolation
-from this workspace's own recorded wall times and not a measurement. And a
-probe table now says WHERE each sample is, with the frame it is measured in,
+--cost` tables what each POINT will cost: mesh size, trailing edges marked,
+farfield layers, viscous coupling, run type, time steps, processors, an
+expected time, and the number of recorded runs that estimate was fitted
+from. The table says under every printing that the time is an extrapolation
+from this workspace's own recorded wall times and not a measurement, and a
+point with no comparable recorded run gets no number at all. And a probe
+table now says WHERE each sample is, with the frame it is measured in,
 which an unsteady export never stated at all.
+
+**What changes for you at v0.16.0.** This is the most breaking release of
+the set, and the break is first: `[probes]` IS NOW `[[probes]]`, a list of
+tables, and the old spelling is REFUSED BY NAME, so every 0.15.0 artifact
+that declares probe lines must be edited. That is her own decision rather
+than an accident. Beside it: the five names the 0.14.0 polar rename
+deprecated are gone; a simulation's collected outputs are under
+`sims/<sim>/outputs/` and a workspace holding the old `raw/` is still read;
+the per-polar tables moved to `post/<matrix>/polars/` and are named by the
+point convention with the swept variable written literally as `sweep`; and
+`sweep.csv` is gone in favour of `campaign_sweep.csv`, which it duplicated
+byte for byte.
 
 **What changes for you at v0.15.0.** The run matrix LOSES A COLUMN:
 `SWEEP_TYPE` is gone, because a sweep is applied to a variable that DEFINES
@@ -93,7 +108,8 @@ read the physics cases as rows of a campaign workspace; an import of a
 removed name says so and names the replacement. Anything you wrote against
 `runs.json` or the campaign products meets three moves: the manifest key
 `broken_commands` is `waived_commands` and the schema stamp is
-`pyfs-manifest/3` (the old key is read until 0.15.0); `plan.json`,
+`pyfs-manifest/3` (the old key is still read, and goes when no recorded
+workspace carries it rather than on a stated release); `plan.json`,
 `campaign_sweep.csv` and the product tables live under
 `post/<matrix stem>/`, one folder per matrix; and a registered post stage is
 called with a third keyword, `matrix_stem`. `sweep_editions` is
@@ -104,8 +120,9 @@ an empty one left by an earlier release is left alone. At v0.14.0 one
 artifact key is renamed: `[products] her_polar_format` is
 `custom_polar_format`, and the four Python names `HerPolarTable`,
 `her_polar_file_name`, `write_her_polar_format` and
-`read_her_polar_format` are spelled `custom`; the old spellings are read,
-warn, and are removed at 0.16.0.
+`read_her_polar_format` are spelled `custom`; the old spellings were read
+and warned until 0.16.0, WHICH REMOVES THEM. The format itself is untouched:
+only the spelling that named a person was ever deprecated.
 
 **What it adds.** An unsteady row may say when its exports begin,
 `EXPORT_UNSTEADY_AFTER_REV` or `EXPORT_UNSTEADY_AFTER_ITER`, and the run

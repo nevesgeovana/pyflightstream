@@ -30,9 +30,13 @@ license: MIT
 # this paragraph saying DEVELOPMENT, and the 0.16.0.dev0 bump the next
 # day found it that way and flipped it to RELEASE and then immediately
 # back. The flip that follows the bump in the same commit is the only
-# one that has ever worked, and this is the fourth time it is being made
-# that way: v0.16.0 on 2026-09-11 sets the version, the date and this
-# sentence in one commit.
+# one that has ever worked. THE TALLY, kept separate because merging the two
+# into one number is what made the first writing of this sentence
+# unreconstructable: THREE failures are recorded above, and this is the
+# SECOND time the version, the date and this sentence have moved in one
+# commit, the first having been the 0.16.0.dev0 bump of 2026-09-11. It is the
+# first time in a RELEASE commit, which is the direction that failed on
+# 2026-08-11, 2026-09-04 and 2026-09-10.
 # The archive DOIs below are one per release from v0.3.0, newest first,
 # with the concept DOI last. v0.1.0 and v0.2.0 are absent: v0.2.0 was the
 # first release to archive, and its version DOI was not recorded here at
