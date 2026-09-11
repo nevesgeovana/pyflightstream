@@ -3209,3 +3209,37 @@ requirement below is one seam of that division.
     stage produces no two files with identical bytes anywhere under
     `post/<matrix>/`, which catches this duplicate and any other, rather than
     asserting the absence of one file name.
+
+!!! requirement "FR-91 A probe table carries where each point IS, beside what the flow did there <span class='srs-pending'>pending</span>"
+
+    *Origin: the author's instruction of 2026-09-11, "eu quero que tenha uma
+    arquivo csv com o resultado das probes e a posicao xyz delas + frame de
+    referencia junto ao resultado do fluido (velocidade, mach, etc) ... pro
+    unsteady, e importante ter o arquivo de posicao porque nao vem escrito no
+    unsteady plots". Evidence owed: the tests that node names.*
+
+    WHAT IT IS FOR. A probe result says what the flow did. It does not say
+    WHERE. For a steady export the position travels with the sample; for an
+    UNSTEADY one it does not, and the author states the consequence directly:
+    the unsteady plots do not write the position, so a reader holding an
+    unsteady probe table cannot place a single one of its points. A survey
+    whose coordinates live in a different file, or in no file, is a table of
+    numbers about nowhere.
+
+    THIS IS THE SAME TRANSPARENCY FR-87 AND FR-89 ARE ABOUT, applied to the
+    probes: a reader of the table must not be able to tell whether the run
+    behind it was steady or unsteady, and today the unsteady one is missing
+    exactly the column that would let them place the data.
+
+    A CSV under `post/<matrix>/probes/` carries, per probe point, its `X`, `Y`
+    and `Z`, the NAME of the frame those coordinates are measured in, and the
+    fluid quantities the export produced beside them: velocity, Mach and the
+    rest of what the probe returns. It is written for a steady row and for an
+    unsteady row alike, from the same writer, so the two cannot drift apart. A
+    test asserts that a steady row and an unsteady row citing the same probe
+    entry produce tables with the SAME columns, which is the assertion a
+    reader's transparency actually rests on.
+
+    THE FRAME IS NAMED AND NOT ASSUMED. A probe entry states the frame its
+    points are given in, and a table that carried coordinates without saying
+    which frame they are in would be as unplaceable as one carrying none.

@@ -2,8 +2,8 @@
  "source": "docs/srs",
  "generated_by": "scripts/gen_requirements_index.py",
  "traceability": {
-  "cited_by_a_test": 89,
-  "total": 142,
+  "cited_by_a_test": 90,
+  "total": 143,
   "method": "upper bound: an id mentioned anywhere in tests/**/*.py excluding conftest.py, which is not the marked falsifying test NFR-13 asks for"
  },
  "requirements": [
@@ -886,6 +886,14 @@
    "status": "implemented",
    "evidence": "*Origin: measured on 2026-09-10 while reading the workspace she sent back; she did not report it. Carried by PFS-2036.08. Evidence: tests/tier1_offline/test_run_cli.py.*",
    "verification": "test"
+  },
+  {
+   "id": "FR-91",
+   "text": "WHAT IT IS FOR. A probe result says what the flow did. It does not say WHERE. For a steady export the position travels with the sample; for an UNSTEADY one it does not, and the author states the consequence directly: the unsteady plots do not write the position, so a reader holding an unsteady probe table cannot place a single one of its points. A survey whose coordinates live in a different file, or in no file, is a table of numbers about nowhere.",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: the author's instruction of 2026-09-11, \"eu quero que tenha uma arquivo csv com o resultado das probes e a posicao xyz delas + frame de referencia junto ao resultado do fluido (velocidade, mach, etc) ... pro unsteady, e importante ter o arquivo de posicao porque nao vem escrito no unsteady plots\". Evidence owed: the tests that node names.*",
+   "verification": "none"
   },
   {
    "id": "NFR-01",

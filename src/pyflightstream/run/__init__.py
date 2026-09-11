@@ -1965,6 +1965,7 @@ def run_campaign(
     preflight: bool = True,
     builds: Mapping[str, SolverBuild] | None = None,
     name_from: str | None = None,
+    quiet: bool = False,
 ) -> list[RunRecord]:
     """Run every point of a campaign, recording each in the manifest.
 
@@ -2168,6 +2169,13 @@ def run_campaign(
             campaign, case, workspace, recipes
         )
         for point, run_id in pending:
+            # FR-78: the point is named as it STARTS, not when it ends. A
+            # forty-point campaign that printed only on completion told a
+            # reader nothing about the point currently burning the licence.
+            _say(
+                f"  -> {run_id}  [{case.recipe}]  building and running",
+                quiet=quiet,
+            )
             record = _execute_point(
                 campaign=campaign,
                 canonical=canonical,
@@ -2186,6 +2194,13 @@ def run_campaign(
                 workspace=workspace,
                 sim_dir=sim_dir,
                 assess=assess,
+            )
+            # And as it ENDS, with the status, so the two lines bracket the
+            # wait and a reader can see which point a warning between them
+            # belonged to.
+            _say(
+                f"     {run_id}  {record.status}" + (f"  ({record.error})" if record.error else ""),
+                quiet=quiet,
             )
             workspace.append_record(record)
             recorded.add(record.run_id)
@@ -2858,6 +2873,29 @@ def _prepare_case(
         # reasoning is there rather than repeated at each boundary.
         staged_geometry = str(staged)
     return recipe, None, inputs_sha256, staged_geometry
+
+
+def _say(message: str, *, quiet: bool = False) -> None:
+    """Print one progress line to stderr, immediately.
+
+    FR-78. STDERR is decided before the first line was written: everything this
+    run prints that a caller CONSUMES is on stdout, so a progress line there
+    would break a pipeline reading records.
+
+    THE STREAM IS RESOLVED AT CALL TIME, not bound at import. Binding it once
+    at module level captured the interpreter's ORIGINAL stderr, so anything
+    that replaces `sys.stderr` afterwards -- a test harness, a caller
+    redirecting output, a notebook -- saw nothing at all while the lines went
+    somewhere else. The first version did that and its own test caught it.
+
+    `flush=True` is the requirement and not a precaution: a stream that is not
+    a terminal is block-buffered, so a campaign redirected to a file would
+    print its first line when the last point was done, which is the silence
+    this requirement exists to end.
+    """
+    if quiet:
+        return
+    print(message, file=sys.stderr, flush=True)
 
 
 def _execute_point(

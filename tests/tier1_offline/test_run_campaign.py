@@ -3655,3 +3655,66 @@ def test_the_old_point_plan_name_is_gone_at_0_15_0(tmp_path):
     )
     assert not hasattr(plan.points[0], "broken_commands")
     assert plan.points[0].waived_commands == ("AIR_ALTITUDE",)
+
+
+def test_a_campaign_says_which_point_it_is_on_while_it_runs(tmp_path, capsys):
+    """FR-78. Her words: "um log do pyflightstream aparecendo no powershell
+    falando qual etapa que ta e qualquer warning enquanto ele roda".
+
+    THE ASSERTION THAT DISTINGUISHES STREAMING FROM A BUFFER FLUSHED AT THE
+    END is the ORDER: the first point's lines must appear before the second
+    point's begin. A run that printed everything at the end would satisfy any
+    test that only asked whether the lines exist, and would leave her watching
+    a silent console for forty points.
+
+    The lines go to STDERR, because everything this run prints that a caller
+    consumes is on stdout and a progress line there would break a pipeline
+    reading records.
+    """
+    campaign = make_campaign(tmp_path, alphas=(0.0, 2.0))
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    records = run_campaign(
+        campaign,
+        StubSolver(WRITES_LOADS),
+        workspace,
+        assess=converged,
+        recipes={"steady": steady_recipe},
+    )
+    err = capsys.readouterr().err
+    assert records, "the fixture ran no point, so this proves nothing"
+
+    ids = [record.run_id for record in records]
+    assert len(ids) >= 2, f"this case needs at least two points; got {ids}"
+
+    positions = []
+    for run_id in ids:
+        at = err.find(run_id)
+        assert at >= 0, f"the console never named {run_id}:\n{err}"
+        positions.append(at)
+    assert positions == sorted(positions), (
+        "the points were not named in the order they ran, which is what a "
+        f"buffer flushed at the end looks like:\n{err}"
+    )
+
+    first_end = err.rfind(ids[0])
+    second_start = err.find(ids[1])
+    assert first_end < second_start, (
+        "the first point's last line comes after the second point's first, so "
+        f"the stream is not per point:\n{err}"
+    )
+
+    # TWO LINES PER POINT, and the requirement asks for both by name: one as
+    # it STARTS naming the stage, one as it ENDS naming the status. Found by
+    # mutation: deleting the start line left this case green, because the end
+    # line alone still names every point in order. A reader would then learn a
+    # point existed only once it was over, which is the silence this
+    # requirement is about.
+    for record in records:
+        mentions = [line for line in err.splitlines() if record.run_id in line]
+        assert len(mentions) >= 2, (
+            f"{record.run_id} is named {len(mentions)} time(s); it is named as "
+            f"it STARTS and again as it ENDS:\n{err}"
+        )
+        assert any(record.status in line for line in mentions), (
+            f"no line for {record.run_id} names its status {record.status!r}:\n{err}"
+        )
