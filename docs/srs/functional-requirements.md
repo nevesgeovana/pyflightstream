@@ -2720,12 +2720,13 @@ requirement below is one seam of that division.
     stderr, so stderr is the shape that does not break a pipeline reading
     records.
 
-!!! requirement "FR-79 A probe entry prescribes a rectangular or a circular plane, not only a line <span class='srs-pending'>pending</span>"
+!!! requirement "FR-79 A probe entry prescribes a rectangular or a circular plane, not only a line <span class='srs-implemented'>implemented</span>"
 
     *Origin: the author's request of 2026-09-10, "eu quero ser capaz de
     prescrever planos retangulares passando os vertices e a descretizacao,
     tambem quero planos circulares com descretizacao em coordenadas polares".
-    Carried by PFS-2035.26. Evidence owed: the tests that node names.*
+    Carried by PFS-2035.26. Evidence:
+    tests/tier1_offline/test_workflows.py.*
 
     WHAT IT IS FOR. A probe entry declares a start and an end, and the
     package emits one `NEW_PROBE_LINE` for it. A survey of a rotor disk, or

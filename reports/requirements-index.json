@@ -2,7 +2,7 @@
  "source": "docs/srs",
  "generated_by": "scripts/gen_requirements_index.py",
  "traceability": {
-  "cited_by_a_test": 93,
+  "cited_by_a_test": 94,
   "total": 143,
   "method": "upper bound: an id mentioned anywhere in tests/**/*.py excluding conftest.py, which is not the marked falsifying test NFR-13 asks for"
  },
@@ -795,9 +795,9 @@
    "id": "FR-79",
    "text": "WHAT IT IS FOR. A probe entry declares a start and an end, and the package emits one NEW_PROBE_LINE for it. A survey of a rotor disk, or of a rectangular window in the flow, is then a list of lines whose coordinates were computed by hand outside the file, and the file records the result rather than the intent.",
    "priority": "M",
-   "status": "pending",
-   "evidence": "*Origin: the author's request of 2026-09-10, \"eu quero ser capaz de prescrever planos retangulares passando os vertices e a descretizacao, tambem quero planos circulares com descretizacao em coordenadas polares\". Carried by PFS-2035.26. Evidence owed: the tests that node names.*",
-   "verification": "none"
+   "status": "implemented",
+   "evidence": "*Origin: the author's request of 2026-09-10, \"eu quero ser capaz de prescrever planos retangulares passando os vertices e a descretizacao, tambem quero planos circulares com descretizacao em coordenadas polares\". Carried by PFS-2035.26. Evidence: tests/tier1_offline/test_workflows.py.*",
+   "verification": "test"
   },
   {
    "id": "FR-80",

@@ -5489,6 +5489,93 @@ def _pproc_probes(
 PROBE_PROFILE_DIR = "profiles"
 
 
+def _rectangle_points(rectangle, scale: float) -> list[list[float]]:
+    """Lay out the grid of a rectangular probe plane, row by row (FR-79).
+
+    Three corners give two edge vectors from `origin`, and the grid runs along
+    both with BOTH ENDS INCLUDED, so a declaration of 3 by 4 is twelve points
+    and three of its corners are the three declared vertices. The order is v
+    fastest within u, which is the reading order of a row of stations.
+    """
+    origin = list(rectangle.origin)
+    edge_u = [b - a for a, b in zip(rectangle.origin, rectangle.along_u, strict=True)]
+    edge_v = [b - a for a, b in zip(rectangle.origin, rectangle.along_v, strict=True)]
+    out: list[list[float]] = []
+    for index_u in range(rectangle.points_u):
+        fraction_u = index_u / (rectangle.points_u - 1)
+        for index_v in range(rectangle.points_v):
+            fraction_v = index_v / (rectangle.points_v - 1)
+            out.append(
+                [
+                    round(
+                        (origin[axis] + edge_u[axis] * fraction_u + edge_v[axis] * fraction_v)
+                        * scale,
+                        5,
+                    )
+                    for axis in range(3)
+                ]
+            )
+    return out
+
+
+def _circle_points(circle, scale: float) -> list[list[float]]:
+    """Lay out the polar grid of a circular probe plane (FR-79).
+
+    `points_radial` stations from the centre to the rim INCLUDING both, and
+    `points_azimuth` around. THE CENTRE APPEARS ONCE rather than once per
+    azimuth: a survey that sampled its own centre eight times would weight it
+    eight times in anything that averages the file.
+
+    The two in-plane axes are built from the normal by taking the world axis
+    least aligned with it, which is the standard way to get a stable basis and
+    avoids the degenerate cross product a fixed choice hits when the normal
+    happens to be that axis.
+    """
+    import math
+
+    normal = list(circle.normal)
+    length = math.sqrt(sum(value * value for value in normal))
+    normal = [value / length for value in normal]
+    least = min(range(3), key=lambda axis: abs(normal[axis]))
+    seed = [1.0 if axis == least else 0.0 for axis in range(3)]
+    first = [
+        seed[1] * normal[2] - seed[2] * normal[1],
+        seed[2] * normal[0] - seed[0] * normal[2],
+        seed[0] * normal[1] - seed[1] * normal[0],
+    ]
+    span = math.sqrt(sum(value * value for value in first))
+    first = [value / span for value in first]
+    second = [
+        normal[1] * first[2] - normal[2] * first[1],
+        normal[2] * first[0] - normal[0] * first[2],
+        normal[0] * first[1] - normal[1] * first[0],
+    ]
+
+    out: list[list[float]] = []
+    for index_r in range(circle.points_radial):
+        radius = circle.radius * index_r / (circle.points_radial - 1)
+        if radius == 0.0:
+            out.append([round(value * scale, 5) for value in circle.center])
+            continue
+        for index_a in range(circle.points_azimuth):
+            angle = 2.0 * math.pi * index_a / circle.points_azimuth
+            out.append(
+                [
+                    round(
+                        (
+                            circle.center[axis]
+                            + radius
+                            * (math.cos(angle) * first[axis] + math.sin(angle) * second[axis])
+                        )
+                        * scale,
+                        5,
+                    )
+                    for axis in range(3)
+                ]
+            )
+    return out
+
+
 def _emit_one_probe_table(case, script, frames, probes, vertex: int, *, unsteady: bool) -> int:
     """Emit one `[[probes]]` entry, returning the vertex count after it."""
     if not probes.parameters:
@@ -5509,7 +5596,7 @@ def _emit_one_probe_table(case, script, frames, probes, vertex: int, *, unsteady
         staged = f"{PROBE_PROFILE_DIR}/{probes.points_file}"
         emit_probe_import(script, staged)
         return vertex
-    if not probes.lines:
+    if not (probes.lines or probes.rectangles or probes.circles):
         return vertex
     probes = probes.model_copy(update={"frame": _the_probe_frame(case, probes.frame)})
     # A PROBE TABLE NAMES ONE ROTOR'S FRAME, and a row that does not turn
@@ -5556,6 +5643,7 @@ def _emit_one_probe_table(case, script, frames, probes, vertex: int, *, unsteady
                         name=f"{parameter}{vertex}",
                         vertex=" ".join(str(value) for value in point),
                     )
+
         if not unsteady:
             # FR-81. A STEADY ROW CREATES THE POINTS IT EXPORTS. It has no
             # fluid plots, which is what places a vertex on an unsteady row, so
@@ -5588,6 +5676,37 @@ def _emit_one_probe_table(case, script, frames, probes, vertex: int, *, unsteady
                     y2=last_y,
                     z2=last_z,
                 )
+
+    # FR-79: A RECTANGLE AND A CIRCLE ARE EMITTED POINT BY POINT, on her
+    # decision of 2026-09-10: "sempre que pedir um plano retangular ou
+    # circular, ele e definido ponto a ponto". The reason is TRANSPARENCY
+    # rather than geometry. On the unsteady path the points reach the solver
+    # one at a time whatever the shape was, so emitting a line per grid row on
+    # one path and points on the other would make one declaration produce two
+    # different exports, which is the thing every requirement of this release
+    # is against.
+    #
+    # BOTH RUN TYPES REACH THIS. An unsteady row places each vertex with its
+    # fluid plots; a steady row places it with `NEW_PROBE_POINT`, which is the
+    # per-vertex verb beside the survey line.
+    lattice: list[list[float]] = []
+    for rectangle in probes.rectangles:
+        lattice += _rectangle_points(rectangle, scale)
+    for circle in probes.circles:
+        lattice += _circle_points(circle, scale)
+    for point in lattice:
+        vertex += 1
+        if unsteady:
+            for parameter in probes.parameters:
+                script.emit(
+                    "UNSTEADY_SOLVER_NEW_FLUID_PLOT",
+                    frame=frame,
+                    parameter=parameter,
+                    name=f"{parameter}{vertex}",
+                    vertex=" ".join(str(value) for value in point),
+                )
+        else:
+            script.emit("NEW_PROBE_POINT", x=point[0], y=point[1], z=point[2])
     return vertex
 
 

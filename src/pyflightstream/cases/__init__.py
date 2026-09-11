@@ -683,6 +683,76 @@ class ProbeLine(BaseModel):
     end: tuple[float, float, float]
 
 
+class ProbeRectangle(BaseModel):
+    """A rectangular probe plane, given by three of its vertices (FR-79).
+
+    THREE CORNERS AND NOT FOUR. The fourth is determined by the other three,
+    and a declaration carrying it lets a reader write one that does not lie in
+    their plane, which is a figure nobody can draw and the package would have
+    to silently correct or silently accept.
+
+    The grid runs from `origin` toward `along_u` in `points_u` stations and
+    toward `along_v` in `points_v`, both ends included, so a 3 by 4 rectangle
+    is twelve points and its corners are three of the declared vertices.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    origin: tuple[float, float, float]
+    along_u: tuple[float, float, float]
+    along_v: tuple[float, float, float]
+    points_u: int = Field(ge=2)
+    points_v: int = Field(ge=2)
+
+    @model_validator(mode="after")
+    def _the_three_corners_span_a_plane(self) -> ProbeRectangle:
+        """Refuse a rectangle whose corners are collinear or coincident."""
+        first = [b - a for a, b in zip(self.origin, self.along_u, strict=True)]
+        second = [b - a for a, b in zip(self.origin, self.along_v, strict=True)]
+        cross = (
+            first[1] * second[2] - first[2] * second[1],
+            first[2] * second[0] - first[0] * second[2],
+            first[0] * second[1] - first[1] * second[0],
+        )
+        if sum(value * value for value in cross) <= 0.0:
+            raise ValueError(
+                f"a probe rectangle at {self.origin} spans no plane: its three "
+                "corners are collinear or two of them coincide, so there is no "
+                "rectangle to grid. `origin`, `along_u` and `along_v` are three "
+                "DIFFERENT corners and the fourth follows from them."
+            )
+        return self
+
+
+class ProbeCircle(BaseModel):
+    """A circular probe plane, discretised in polar coordinates (FR-79).
+
+    `points_radial` stations from the centre to the rim INCLUDING both, and
+    `points_azimuth` around, so the centre appears once rather than once per
+    azimuth: a survey that sampled its own centre eight times would weight it
+    eight times in anything that averages the file.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    center: tuple[float, float, float]
+    normal: tuple[float, float, float]
+    radius: float = Field(gt=0.0)
+    points_radial: int = Field(ge=2)
+    points_azimuth: int = Field(ge=3)
+
+    @model_validator(mode="after")
+    def _the_normal_is_a_direction(self) -> ProbeCircle:
+        """Refuse a zero normal, which names no plane."""
+        if sum(value * value for value in self.normal) <= 0.0:
+            raise ValueError(
+                f"a probe circle at {self.center} states `normal = {self.normal}`, "
+                "which is no direction and so names no plane. The normal is the "
+                "axis the disk is perpendicular to."
+            )
+        return self
+
+
 class ProbesSpec(BaseModel):
     """The ``[probes]`` table: fluid plots along lines, in a frame, per parameter.
 
@@ -714,6 +784,11 @@ class ProbesSpec(BaseModel):
     points: int = Field(default=25, ge=2)
     scale: Annotated[Literal["m", "rotor_radius"], BeforeValidator(_the_radius_is_a_rotors)] = "m"
     lines: list[ProbeLine] = Field(default_factory=list)
+    #: FR-79: a plane is a third and fourth kind of entry beside the line, and
+    #: all three emit POINT BY POINT so that one declaration produces one export
+    #: whatever the run type.
+    rectangles: list[ProbeRectangle] = Field(default_factory=list)
+    circles: list[ProbeCircle] = Field(default_factory=list)
     #: FR-80: the name of a points file the USER wrote, under
     #: `inputs/profiles/probes/`, cited instead of `lines`. The entry still
     #: states its `frame` and its `scale`, because a file of numbers says
@@ -729,13 +804,13 @@ class ProbesSpec(BaseModel):
         two in agreement. Which one would win is the kind of question a reader
         should never have to ask of a file they wrote.
         """
-        if self.points_file and self.lines:
+        drawn = len(self.lines) + len(self.rectangles) + len(self.circles)
+        if self.points_file and drawn:
             raise ValueError(
                 f"a probe entry in {self.frame or 'the rotor hub frame'} states both "
-                f"`points_file = {self.points_file!r}` and {len(self.lines)} "
-                "`[[probes.lines]]`, which is the survey written twice with nothing "
-                "keeping the two in agreement. State the lines, or cite the file and "
-                "delete them."
+                f"`points_file = {self.points_file!r}` and {drawn} shape(s) of its "
+                "own, which is the survey written twice with nothing keeping the two "
+                "in agreement. State the shapes, or cite the file and delete them."
             )
         if self.points_file and "/" in self.points_file.replace("\\", "/"):
             raise ValueError(

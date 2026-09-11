@@ -5367,3 +5367,93 @@ def test_a_probe_entry_states_its_points_once(tmp_path):
             {"frame": "MRP", "parameters": ["VELOCITY"], "points_file": "sub/disk.txt"}
         )
     assert "names a path" in str(path.value)
+
+
+def test_a_probe_entry_prescribes_a_rectangle_and_a_circle_point_by_point(tmp_path):
+    """FR-79. One artifact holding a line, a rectangle and a circle.
+
+    THE EXPECTATIONS ARE COMPUTED HERE AND NOT READ FROM THE EMISSION, because a
+    geometry test that reads its expectation from the thing it tests asserts
+    nothing. The counts and the corner coordinates below are arithmetic a
+    reader can redo on paper.
+
+    POINT BY POINT is her decision of 2026-09-10, and the reason is
+    transparency rather than geometry: on the unsteady path the points reach
+    the solver one at a time whatever the shape was, so a line per grid row on
+    one path and points on the other would make one declaration produce two
+    different exports.
+    """
+    from pyflightstream.cases import PprocSpec
+
+    spec = PprocSpec.model_validate(
+        {
+            "groups": {"1": ["W", "B"]},
+            "probes": [
+                {
+                    "frame": "MRP",
+                    "parameters": ["VELOCITY"],
+                    "points": 3,
+                    "lines": [{"start": [0.0, 0.0, 0.0], "end": [2.0, 0.0, 0.0]}],
+                    "rectangles": [
+                        {
+                            "origin": [0.0, 0.0, 1.0],
+                            "along_u": [1.0, 0.0, 1.0],
+                            "along_v": [0.0, 2.0, 1.0],
+                            "points_u": 2,
+                            "points_v": 3,
+                        }
+                    ],
+                    "circles": [
+                        {
+                            "center": [5.0, 0.0, 0.0],
+                            "normal": [1.0, 0.0, 0.0],
+                            "radius": 2.0,
+                            "points_radial": 2,
+                            "points_azimuth": 4,
+                        }
+                    ],
+                }
+            ],
+        }
+    )
+    case = _with_pproc(unsteady_case(), _wb_geometry(tmp_path), pproc=spec)
+    lines = rendered(case).splitlines()
+    vertices = [
+        lines[i + 4].split(" ", 1)[1]
+        for i, line in enumerate(lines)
+        if line.strip() == "UNSTEADY_SOLVER_NEW_FLUID_PLOT" and lines[i + 4].startswith("VERTEX ")
+    ]
+
+    # COUNTED HERE: the line is 3 points; the rectangle is 2 by 3 = 6; the
+    # circle is one CENTRE plus 4 azimuths on the rim = 5. Fourteen in all.
+    assert len(vertices) == 3 + 6 + 5, (
+        f"3 line points, 6 rectangle points and 5 circle points is 14; got {len(vertices)}"
+    )
+
+    rectangle = vertices[3:9]
+    # The three declared corners must be among the emitted points, and the
+    # fourth, which the declaration does NOT carry, must be there too.
+    assert "0.0 0.0 1.0" in rectangle, f"the origin corner is missing: {rectangle}"
+    assert "1.0 0.0 1.0" in rectangle, f"the along_u corner is missing: {rectangle}"
+    assert "0.0 2.0 1.0" in rectangle, f"the along_v corner is missing: {rectangle}"
+    assert "1.0 2.0 1.0" in rectangle, (
+        f"the fourth corner, which the declaration does not state and the grid "
+        f"must reach, is missing: {rectangle}"
+    )
+
+    circle = vertices[9:]
+    # THE CENTRE APPEARS ONCE, not once per azimuth: a survey that sampled its
+    # own centre four times would weight it four times in anything averaging it.
+    assert circle.count("5.0 0.0 0.0") == 1, (
+        f"the centre of a polar grid is one point, not one per azimuth: {circle}"
+    )
+    # Every rim point sits at the declared radius from the centre, in the plane
+    # the normal names, which for normal = X means x is constant.
+    rim = [v for v in circle if v != "5.0 0.0 0.0"]
+    assert len(rim) == 4, f"four azimuths on the rim; got {rim}"
+    for value in rim:
+        x, y, z = (float(part) for part in value.split())
+        assert x == 5.0, f"the disk is perpendicular to X, so x is constant: {value}"
+        assert abs((y * y + z * z) ** 0.5 - 2.0) < 1e-4, (
+            f"the rim sits at radius 2.0 from the centre: {value}"
+        )

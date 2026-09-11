@@ -101,6 +101,18 @@ _UNIT_SUFFIX = re.compile(
 _DIMENSIONLESS_OR_DEBT = {
     # (a) dimensionless by physics or by construction
     "end",  # ProbeLine.end (start is below): in the unit ProbesSpec.scale names (PFS-2029.07)
+    # FR-79, and the same reason as ProbeLine.end above: a probe shape is
+    # stated in the unit its entry's `scale` names, metres OR rotor radii, so
+    # a `_m` suffix would be a LIE on the rotor-radius path. The unit rides
+    # the entry rather than the field, which is what makes one table serve
+    # rotors of unlike size.
+    "center",  # ProbeCircle.center
+    "radius",  # ProbeCircle.radius
+    "along_u",  # ProbeRectangle.along_u, a corner like origin below
+    "along_v",  # ProbeRectangle.along_v
+    # A DIRECTION AND NOT A LENGTH: the axis the disk is perpendicular to,
+    # normalised on use, so its magnitude carries no meaning at all.
+    "normal",  # ProbeCircle.normal
     "reference",  # RunRecord: the block by column name, SREF m2 and CREF/BREF/XMOM..ZMOM m
     "stiffness_scale_factor",  # multiplier on EI/GJ
     "node_offset_chord_fraction",  # fraction of local chord
