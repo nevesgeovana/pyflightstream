@@ -4652,6 +4652,7 @@ def _script_tail(
     frame: int | None,
     *,
     unsteady: bool,
+    frames: Frames | None = None,
 ) -> None:
     """Emit the four phases every run type ends with, each preceded by its raw commands.
 
@@ -4662,6 +4663,25 @@ def _script_tail(
     """
     _raw_commands(case, script, "init")
     _initialize(case, script)
+    # THE SECTION DISTRIBUTIONS SIT HERE, between the solver being initialised
+    # and being started, which is where the author's own working scripts put
+    # them: `SCRIPT-POLAR-3267` reads INITIALIZE_SOLVER at 12779, twelve
+    # distributions at 12880, START_SOLVER at 13022, and those twelve produce
+    # real cuts on a real rotor run. This package emitted them BEFORE
+    # `INITIALIZE_SOLVER`, against a solver that had not initialised.
+    #
+    # Both positions are the `init` phase, so this is a move WITHIN a phase and
+    # the script's phase guard neither permitted nor prevented it.
+    if frames is not None:
+        _pproc_sections(case, script, frames)
+    elif case.pproc is not None and case.pproc.sections.distributions:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: the pproc artifact {case.pproc_id!r} declares "
+            f"{len(case.pproc.sections.distributions)} section distribution(s) and "
+            "this run was built without the frames they are measured in, so not one "
+            "of them would be emitted. That is a defect in the builder rather than "
+            "in the artifact."
+        )
     _raw_commands(case, script, "exec")
     helpers.start_solver(script)
     _raw_commands(case, script, "analysis")
@@ -5792,8 +5812,7 @@ def _build_steady(case: SimCase, script: Script, conventions: WorkflowConvention
     helpers.free_stream(script)
     _fluid(case, script)
     _settings(case, script)
-    _pproc_sections(case, script, frames)
-    _script_tail(conventions, case, script, frame, unsteady=False)
+    _script_tail(conventions, case, script, frame, unsteady=False, frames=frames)
 
 
 # --- PFS-2028.01: the third run type, unsteady with nothing turning ----------
@@ -6293,9 +6312,8 @@ def _build_unsteady(case: SimCase, script: Script, conventions: WorkflowConventi
     # The wake termination in STEPS is the one this run type can state
     # (PFS-2030.03.04); the revolutions form was refused above.
     _settings(case, script, wake_termination_time_steps=case.solver.wake_termination_steps)
-    _pproc_sections(case, script, frames)
     _unsteady_actions(script, threshold)
-    _script_tail(conventions, case, script, frame, unsteady=True)
+    _script_tail(conventions, case, script, frame, unsteady=True, frames=frames)
 
 
 def _build_unsteady_rotor(case: SimCase, script: Script, conventions: WorkflowConventions) -> None:
@@ -6401,9 +6419,8 @@ def _build_unsteady_rotor(case: SimCase, script: Script, conventions: WorkflowCo
         delta_time=stepping.delta_time_s,
     )
     _settings(case, script, wake_termination_time_steps=_wake_termination(case, stepping))
-    _pproc_sections(case, script, frames)
     _unsteady_actions(script, threshold)
-    _script_tail(conventions, case, script, frame, unsteady=True)
+    _script_tail(conventions, case, script, frame, unsteady=True, frames=frames)
 
 
 def _refuse_one_rotor_moved_twice(case: SimCase, rotors: Sequence[RotorBlock | None]) -> None:
@@ -6618,9 +6635,8 @@ def _rotor_motions(
         delta_time=stepping.delta_time_s,
     )
     _settings(case, script, wake_termination_time_steps=_wake_termination(case, stepping))
-    _pproc_sections(case, script, frames)
     _unsteady_actions(script, threshold)
-    _script_tail(conventions, case, script, frame, unsteady=True)
+    _script_tail(conventions, case, script, frame, unsteady=True, frames=frames)
 
 
 def _clock_speed(case: SimCase, views: Sequence[SimCase], speeds: Sequence[RotorSpeed]):

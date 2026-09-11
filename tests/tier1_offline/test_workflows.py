@@ -3902,7 +3902,19 @@ def test_pproc_sections_emit_one_distribution_per_family_and_plane(tmp_path):
         "1",
     ]
     assert blocks[2][2] == "PLANE YZ" and blocks[2][-1] == "2"
-    assert lines.index("INITIALIZE_SOLVER") > starts[-1], "sections exist before the solver"
+    # THE ORDER CHANGED ON 2026-09-11 and this line asserted the OLD one.
+    # The author's own working scripts create the sections AFTER the solver
+    # is initialised and before it starts (SCRIPT-POLAR-3267: INITIALIZE_SOLVER
+    # at 12779, twelve distributions at 12880, START_SOLVER at 13022), and
+    # those twelve produce real cuts. This package created them before
+    # INITIALIZE_SOLVER, against a solver that had not initialised, which is
+    # the one difference left between her script and this one.
+    assert lines.index("INITIALIZE_SOLVER") < starts[0], (
+        "the sections are created before the solver is initialised"
+    )
+    assert starts[-1] < lines.index("START_SOLVER"), (
+        "the sections are created after the solver has started"
+    )
 
 
 def test_pproc_plots_emit_one_force_plot_per_group_and_frame(tmp_path):
@@ -4893,4 +4905,90 @@ def test_a_point_ratio_never_overrides_a_stated_rpm():
     plan = _reduction_windows()(case)
     assert plan["time_average"]["windows"], (
         "a row stating RPM with a swept ratio on its point must still reduce"
+    )
+
+
+def _distribution_blocks(lines: list[str]) -> list[list[str]]:
+    """Every emitted NEW_SURFACE_SECTION_DISTRIBUTION block, keyword lines only.
+
+    The command is `keyword_block`: the name alone on its line, then KEY VALUE
+    lines, ended by a blank line. The surface indices follow `SURFACES` and are
+    kept, because the whole point of the grammar question is whether they land
+    in the right place.
+    """
+    out = []
+    for index, line in enumerate(lines):
+        if line.strip() != "NEW_SURFACE_SECTION_DISTRIBUTION":
+            continue
+        block = []
+        for follow in lines[index + 1 :]:
+            if not follow.strip():
+                break
+            block.append(follow.strip())
+        out.append(block)
+    return out
+
+
+def test_a_section_distribution_is_emitted_the_way_her_working_script_emits_it(tmp_path):
+    """The block and its position match `SCRIPT-POLAR-3267`, which produces real cuts.
+
+    Her first feedback item was fifty dummy sections. Her own driver's scripts
+    run the same command and get real ones, so the question is not what the
+    command does but what this package emits around it. Two differences,
+    measured against her script on 2026-09-11, and both are asserted here.
+    """
+    case = _with_pproc(unsteady_case(), _wb_geometry(tmp_path))
+    lines = rendered(case).splitlines()
+    blocks = _distribution_blocks(lines)
+    assert blocks, "no section distribution was emitted at all"
+
+    # GRAMMAR: the opening keywords are hers. INCLUDE_SYMMETRY is NOT asserted
+    # absent: her POLAR-3267 scripts predate it and carry six keywords, and she
+    # settled it on 2026-09-11, "INCLUDE_SYMMETRY precisa entrar, e evolucao do
+    # comando". The first edition to document it is 26.121. So the keyword
+    # stays and the only difference left between her script and this one is
+    # WHERE the block sits.
+    for position, block in enumerate(blocks, start=1):
+        keys = [entry.split(" ", 1)[0] for entry in block]
+        assert keys[:4] == ["FRAME", "PLANE", "NUM_SECTIONS", "PLOT_DIRECTION"], (
+            f"block {position} does not open the way hers do: {keys[:4]}"
+        )
+        assert "SURFACES" in keys, f"block {position} states no SURFACES: {block}"
+
+    # POSITION: after INITIALIZE_SOLVER, before START_SOLVER, as hers are.
+    initialize = lines.index("INITIALIZE_SOLVER")
+    start = lines.index("START_SOLVER")
+    first = next(
+        i for i, line in enumerate(lines) if line.strip() == "NEW_SURFACE_SECTION_DISTRIBUTION"
+    )
+    last = max(
+        i for i, line in enumerate(lines) if line.strip() == "NEW_SURFACE_SECTION_DISTRIBUTION"
+    )
+    assert first > initialize, (
+        "the sections are created BEFORE the solver is initialised; her working "
+        f"script creates them after it (INITIALIZE_SOLVER at {initialize}, first "
+        f"distribution at {first})"
+    )
+    assert last < start, (
+        "the sections are created after the solver has started; hers are created "
+        f"between INITIALIZE_SOLVER and START_SOLVER (START_SOLVER at {start}, "
+        f"last distribution at {last})"
+    )
+
+
+def test_include_symmetry_is_emitted_because_it_is_the_command_s_evolution(tmp_path):
+    """Her decision of 2026-09-11: the keyword stays.
+
+    Her own working scripts carry six keywords and no INCLUDE_SYMMETRY, which
+    made it a candidate for the fifty dummy sections. It is not one: those
+    scripts predate the keyword, the first edition to document it is 26.121,
+    and she settled it in one line, "INCLUDE_SYMMETRY precisa entrar, e
+    evolucao do comando". This case exists so that the candidate cannot be
+    quietly reintroduced by a later reader of her scripts.
+    """
+    case = _with_pproc(unsteady_case(), _wb_geometry(tmp_path))
+    blocks = _distribution_blocks(rendered(case).splitlines())
+    assert blocks, "no section distribution was emitted at all"
+    assert any(entry.startswith("INCLUDE_SYMMETRY") for entry in blocks[0]), (
+        f"the keyword is the command's evolution and belongs in the block: {blocks[0]}"
     )
