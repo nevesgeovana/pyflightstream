@@ -1,12 +1,19 @@
 """Tier 1: how the post stage names and files what it writes.
 
-FR-85, FR-86, FR-87, FR-88 and FR-90, which are five readings of the
-same workspace the author sent back after running 0.15.0 on a real
-geometry: the per-polar tables loose at the top level beside the
-directories, under a second naming convention, with no column telling
-their rows apart, the flow-field samples under the name of the solver
-verb that produced them, the provenance documents under a third
-convention, and one table written twice.
+FR-85, FR-86, FR-87 and FR-88, which are four readings of the same
+workspace the author sent back after running 0.15.0 on a real geometry:
+the per-polar tables loose at the top level beside the directories,
+under a second naming convention, with no column telling their rows
+apart, the flow-field samples under the name of the solver verb that
+produced them, and the provenance documents under a third convention.
+
+FR-90, THE FIFTH READING OF THAT WORKSPACE, IS NOT HERE. Its guard is
+`test_the_post_stage_writes_no_file_twice` in `test_run_cli.py`, because
+the duplicate it fixes was written by the CLI's own default and a case
+calling `write_campaign_products` directly would never see it. This
+module claimed FR-90 in this docstring while carrying no case for it,
+which is the currency defect that reads as current: a maintainer looking
+for FR-90's guard opened this file on its own word and found nothing.
 
 The campaign here sweeps the ADVANCE RATIO at a fixed incidence, which
 is the shape the author ran and the shape that exposes all of it: every

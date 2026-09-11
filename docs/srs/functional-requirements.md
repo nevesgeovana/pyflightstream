@@ -2978,34 +2978,68 @@ requirement below is one seam of that division.
     written silently, because a table of empty cuts that nothing complains
     about is how this reached the author rather than a maintainer.
 
-    WHICH MECHANISM REPLACES IT WAS NOT SETTLED WHEN THIS WAS WRITTEN, and it
-    is settled now. The licensed probe this paragraph asked for ran on
-    2026-09-11 against the author's own sector geometry, one script carrying
-    its own control: phase A emitted the distribution exactly as this package
-    emits it, five sections over the wing in `PLANE XZ`; phase B deleted those
-    and emitted five `CREATE_NEW_SURFACE_SECTION` at five span stations
-    measured from the mesh. Both exported. The solver converged at iteration
-    206, the same as the recorded run beside it.
+    WHICH MECHANISM REPLACES IT WAS NOT SETTLED WHEN THIS WAS WRITTEN. The
+    licensed probe this paragraph asked for ran on 2026-09-11 against the
+    author's own sector geometry, which was read and never written, and it ran
+    TWICE: the first run's comparison changed two things at once and could not
+    support what it was read as saying, which the technical-writing review
+    caught, and the second moved one thing and settled it.
 
-        PHASE A   5 blocks, EVERY ONE Edges=0
-        PHASE B   5 blocks, Edges=84 each, 5 DISTINCT payloads, at
-                  Y = -1.5, -3.5, -5.5, -7.5, -9.0 to seven digits
+    ALL FOUR PHASES ARE REPORTED, the refuted comparison included, because a
+    conclusion is worth what its control is worth. Every phase cuts the same
+    wing of the same geometry in `PLANE XZ` on the same solve.
 
-    The distribution found NOTHING AT ALL on a geometry where five explicit
-    cuts at the same kind of station each found eighty-four edges, and the
-    offset is honoured exactly.
+        A  the distribution, 5 sections, FRAME 1, origin (0,0,0)
+           -> 5 blocks, EVERY ONE Edges=0
+        B  5 x CREATE_NEW_SURFACE_SECTION at Y = -1.5 -3.5 -5.5 -7.5 -9.0
+           -> 5 blocks, Edges=84 each, 5 DISTINCT payloads, each block's
+              rows reporting the offset it was asked for
+        C  the distribution, 5 sections, FRAME 2, origin at Y = -5.0
+           -> 5 blocks, Edges=84 each, ALL FIVE AT Y = -5.0, 4 of 5
+              byte-identical and the fifth differing only by the footer
+        D  ONE create at offset 0.0 in that same FRAME 2
+           -> 1 block, Edges=84, at Y = -5.0, byte-identical to C's fifth
 
-    So the grammar is not incomplete in a way more keywords would fix: it was
-    emitted with every parameter it has and produced five empty cuts. THE
-    MECHANISM IS N `CREATE_NEW_SURFACE_SECTION` WITH COMPUTED OFFSETS.
+    A AND B TOGETHER PROVE NOTHING, and that is stated rather than quietly
+    dropped. The measured mesh is `Y -10.0000 .. 0.0000`, so FRAME 1's origin
+    sits exactly on the symmetry plane at the wing ROOT, at the edge of the
+    geometry. This requirement's own paragraph above predicts that outcome from
+    a cause that is not the grammar: "where it does not [cross the surface], N
+    sections come back empty". A's five empty blocks are fully explained by the
+    station, and the first write-up bridged the gap with "five explicit cuts at
+    the same KIND of station", where only the same station would have carried
+    it.
 
-    WHERE THE OFFSETS COME FROM is the one part left, and it is a decision
-    rather than a measurement: the extent along the cut normal is a property
-    of the selected surfaces, which this package does not read from a mesh
-    today. Until it does, or until an entry states its own extent, the
-    emission cannot be built. The probe, its script, its two exports and the
+    C AND D ARE THE CONTROL, and they move the station alone. With the frame
+    origin ON the wing the distribution finds the surface perfectly well,
+    eighty-four edges, and puts ALL FIVE SECTIONS ON ONE PLANE, the frame
+    origin, which is exactly what this requirement says it does. D then shows
+    that one explicit create at that same plane returns that same single cut,
+    byte for byte. So a distribution of N is N copies of one create.
+
+    THE GRAMMAR IS THEREFORE NOT INCOMPLETE IN A WAY MORE KEYWORDS WOULD FIX.
+    It was emitted with every parameter its documented grammar has, it found
+    the surface, and it still produced one cut repeated. THE MECHANISM IS N
+    `CREATE_NEW_SURFACE_SECTION`, whose offset is honoured to seven digits.
+
+    WHERE THE OFFSETS COME FROM IS NOT SETTLED and is the reason FR-83 REMAINS
+    PENDING. It is a decision rather than a measurement: the extent along the
+    cut normal is a property of the selected surfaces, which this package does
+    not read from a mesh today. Either the mesh reader learns to bound the
+    selected boundaries, or a `[[sections.distributions]]` entry states its own
+    extent the way FR-76 gives it its own `count`. What this requirement now
+    waits on is that choice, and no longer a licensed probe.
+
+    HOW PHASE A WAS PRODUCED, because the argument rests on its fidelity: its
+    block was written from this package's own `Layout.KEYWORD_BLOCK` rendering
+    and checked against a script the package had generated for another
+    workspace, not transcribed from the manual. The create in phase B was
+    written from the package's `Layout.PAYLOAD_LINES` rendering, after a first
+    attempt in the distribution's shape was refused by the solver and cost a
+    run. The probe, both scripts, all four exports, the solver logs and the
     reader that measured them are kept under
-    `GeoverseResearch/tools/fts_workspace/pfs0160-probe-fr83/`.
+    `GeoverseResearch/tools/fts_workspace/pfs0160-probe-fr83/`, a private
+    research workspace held outside this repository.
 
 !!! requirement "FR-84 A simulation's collected outputs live under outputs, not raw <span class='srs-implemented'>implemented</span>"
 
@@ -3107,6 +3141,20 @@ requirement below is one seam of that division.
     under which a steady row creates the probe points it exports, so both run
     types produce the same directory with the same kind of content; the two
     are one capability seen from the writer's side and the reader's side.
+
+    WHICH OF THE TWO SIDES THIS REQUIREMENT COVERS IS THE READER'S, and the
+    distinction is written here rather than left to the badge. What is
+    implemented is the POST STAGE: a point that HAS a flow-field export gets it
+    tabled under `post/<matrix>/probes/` with its fluid columns, whatever run
+    type produced it, and the test asserts that a steady row and an unsteady
+    row citing the same artifact produce the same path. THE STEADY PRODUCER IS
+    FR-81'S AND IS NOT BUILT: FR-81 is `pending`, and its own measurement is
+    that a steady row emits no probe creation verb, so a steady study that
+    declares probes today gets an export of nothing. The test's steady side is
+    a committed fixture written into the outputs folder by hand, which is the
+    honest way to test a reader whose writer does not exist yet, and it is not
+    evidence that the writer does. A steady run will not fill this directory
+    until FR-81 lands.
 
     The flow-field samples of a point are written under
     `post/<matrix>/probes/` whatever the run type was, and the file carries

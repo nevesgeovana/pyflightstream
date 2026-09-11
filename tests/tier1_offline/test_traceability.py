@@ -531,3 +531,106 @@ def test_the_two_modules_called_unlisted_are_listed_in_both_homes():
         "modules without saying so leaves the next reader hunting for a "
         "discrepancy that does not exist"
     )
+
+
+#: An evidence line that names a test module is machine-shaped by convention:
+#: `Evidence: tests/tier1_offline/test_x.py.` The guard below reads that shape
+#: and nothing else, so an evidence line in prose form is not a failure here.
+_EVIDENCE_MODULE = re.compile(r"tests/[\w./-]+\.py")
+
+#: MEASURED 2026-09-11, the day the guard above was written: every evidence
+#: line whose named test module never mentions the requirement it is cited for.
+#: Twenty-six pairs, all of them predating the guard. It is a RATCHET and not a
+#: waiver: nothing may be added, and a pair leaves the moment its module names
+#: its requirement.
+#:
+#: These are WEAK CITATIONS rather than absent ones. The module is on disk and
+#: very likely asserts the behaviour; what is missing is the thread between the
+#: two, so a reader cannot follow the citation and a later edit to the module
+#: cannot be told which requirement it just changed.
+SILENT_CITATIONS = {
+    ("FR-02b", "tests/tier1_offline/test_versions.py"),
+    ("FR-02c", "tests/tier1_offline/test_versions.py"),
+    ("FR-30a", "tests/tier1_offline/test_script_entities.py"),
+    ("FR-30b", "tests/tier1_offline/test_script_entities.py"),
+    ("FR-30b", "tests/tier1_offline/test_workspace.py"),
+    ("FR-30c", "tests/tier1_offline/test_script_entities.py"),
+    ("FR-31a", "tests/tier1_offline/test_solver_setup.py"),
+    ("FR-31b", "tests/tier1_offline/test_solver_setup.py"),
+    ("FR-33a", "tests/tier1_offline/test_workspace.py"),
+    ("FR-33b", "tests/tier1_offline/test_workspace.py"),
+    ("FR-33c", "tests/tier1_offline/test_run_campaign.py"),
+    ("FR-33d", "tests/tier1_offline/test_workspace.py"),
+    ("FR-33e", "tests/tier1_offline/test_workspace.py"),
+    ("FR-33f", "tests/tier1_offline/test_workspace.py"),
+    ("FR-37", "tests/tier1_offline/test_run_campaign.py"),
+    ("FR-38", "tests/tier1_offline/test_farfield.py"),
+    ("FR-47", "tests/tier1_offline/test_testing.py"),
+    ("FR-58", "tests/tier1_offline/test_matrix_run.py"),
+    ("FR-64", "tests/tier1_offline/test_reduce_by_rotor.py"),
+    ("FR-69", "tests/tier1_offline/test_matrix_upgrade.py"),
+    ("FR-71", "tests/tier1_offline/test_pproc_by_frame.py"),
+    ("NFR-01a", "tests/tier1_offline/test_conventions.py"),
+    ("NFR-01b", "tests/tier1_offline/test_package_imports.py"),
+    ("NFR-01c", "tests/tier1_offline/test_error_messages.py"),
+    ("NFR-01c", "tests/tier1_offline/test_exceptions_catalog.py"),
+    ("NFR-25", "tests/tier1_offline/test_extras_isolation.py"),
+}
+
+
+def test_an_evidence_line_that_names_a_test_module_names_one_that_exists():
+    """A promotion cites a module that is ON DISK and that mentions the id.
+
+    Asked for by the technical-writing review of 2026-09-11, which had just
+    verified four such paths BY HAND and observed that the fifth promotion has
+    nothing behind it but the same manual check.
+
+    BOTH HALVES MATTER AND THE SECOND IS THE ONE THAT CATCHES DRIFT. A path
+    that resolves says a file is there; a file that never names the requirement
+    says nothing about it, and that is the state
+    `test_products_layout.py` was in for FR-90, which it claimed in its
+    docstring while FR-90's only guard lived in `test_run_cli.py`.
+    """
+    payload = json.loads(INDEX.read_text(encoding="utf-8"))
+    missing: list[str] = []
+    silent: list[tuple[str, str]] = []
+    checked = 0
+    for entry in payload["requirements"]:
+        for name in _EVIDENCE_MODULE.findall(str(entry.get("evidence") or "")):
+            checked += 1
+            module = REPO / name
+            if not module.is_file():
+                missing.append(f"{entry['id']} cites {name}, which is not on disk")
+                continue
+            if entry["id"] not in module.read_text(encoding="utf-8", errors="replace"):
+                silent.append((entry["id"], name))
+    assert checked, (
+        "no evidence line in the published index names a test module, so this "
+        "guard checked nothing; the convention is `Evidence: tests/...py.`"
+    )
+    # A PATH THAT DOES NOT RESOLVE IS NEVER TOLERATED. There are none today and
+    # this half has no exemption list, because a cited file that is not on disk
+    # is a citation to nothing and costs one command to fix.
+    assert not missing, "\n  ".join(["", *missing])
+    # THE NAMING HALF IS A RATCHET, because it found 26 pre-existing pairs on
+    # the day it was written and a release range is not where that is cleared.
+    # A requirement whose module never names it is weakly cited: the module may
+    # well assert the behaviour, and nothing ties the two together, so a reader
+    # cannot follow the citation and a later edit cannot be told it broke one.
+    # The list only SHRINKS. Removing a pair means the module now names the
+    # requirement; nothing may be added to it.
+    new = sorted(f"{rid} cites {path}" for rid, path in set(silent) - SILENT_CITATIONS)
+    assert not new, (
+        f"{len(new)} evidence line(s) cite a module that never names the "
+        "requirement, and they are not in the recorded list:\n  "
+        + "\n  ".join(new)
+        + "\nName the requirement in the module it cites, in a docstring or a "
+        "comment on the case that asserts it, so the citation can be followed "
+        "in both directions."
+    )
+    gone = sorted(f"{rid} cites {path}" for rid, path in SILENT_CITATIONS - set(silent))
+    assert not gone, (
+        f"{len(gone)} recorded pair(s) are fixed and still listed, which makes "
+        "the ratchet read as looser than it is. Remove them from "
+        "SILENT_CITATIONS in this commit:\n  " + "\n  ".join(gone)
+    )
