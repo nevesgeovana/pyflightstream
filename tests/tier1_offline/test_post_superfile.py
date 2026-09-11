@@ -620,8 +620,12 @@ def test_the_flight_condition_variables_are_all_there(tmp_path):
     _post(workspace)
     columns = set(_superfiles(workspace)["SUPER-6002_M14AL+000BE+000J+sweep_g01.csv"][0])
     stated = {"MACH", "REmi", "ALPHA", "BETA", "ADVANCE_RATIO"}
-    resolved = {"density_kg_m3", "temperature_k", "viscosity_pa_s", "reference_length_m"}
-    assert stated <= columns and resolved <= columns
+    # DERIVED, not a second literal: four of the seven names were written
+    # out here, which is a partial snapshot of a tuple that can grow.
+    # Round two, finding 3.
+    from pyflightstream.post.superfile import RECORD_SCALARS
+
+    assert stated <= columns and set(RECORD_SCALARS) <= columns
 
 
 def test_the_post_stage_writes_its_own_measurement(tmp_path):
@@ -662,3 +666,93 @@ def test_a_workspace_without_its_matrix_still_gets_a_superfile(tmp_path):
 
 if __name__ == "__main__":  # pragma: no cover
     raise SystemExit(pytest.main([__file__]))
+
+
+def test_every_record_scalar_reaches_the_file_with_its_value(tmp_path):
+    """Round two, finding 1: the completeness claim was about column NAMES only.
+
+    Measured by mutation in an isolated tree at 67f7a8b: replacing the writer's
+    `_take(row, field, getattr(record, field, None))` with `_take(row, field,
+    "")` left every superfile in every test with an empty cell under all seven
+    record scalars, and the suite reported 104 passed, exit 0. The column
+    survives, so the superset check, the union, the report arm and the
+    flight-condition case were all satisfied by a file whose values were gone.
+
+    So this reads the VALUES back. It is not one asserted cell: every scalar
+    the record actually carries must appear under its own name in the row for
+    that point, which is the claim her acceptance sentence makes and the one no
+    case was making.
+    """
+    from pyflightstream.post.superfile import RECORD_SCALARS
+
+    workspace = _workspace(tmp_path)
+    _post(workspace)
+
+    records = {
+        str(record.get("run_id")): record
+        for record in json.loads((workspace.root / "runs.json").read_text(encoding="utf-8"))
+    }
+    assert records, "the fixture recorded nothing, so this proves nothing"
+
+    checked = 0
+    for name, (_columns, rows) in _superfiles(workspace).items():
+        for row in rows:
+            record = records.get(str(row.get("run_id", "")))
+            if record is None:
+                continue
+            for field in RECORD_SCALARS:
+                want = record.get(field)
+                if want is None:
+                    continue
+                got = str(row.get(field, "")).strip()
+                assert got, (
+                    f"{name}: the row for {record['run_id']} carries a {field} column "
+                    f"and nothing under it; the record says {want!r}"
+                )
+                if isinstance(want, float):
+                    assert float(got) == want, (
+                        f"{name}: {field} reads {got!r}, the record says {want!r}"
+                    )
+                else:
+                    assert got == str(want), (
+                        f"{name}: {field} reads {got!r}, the record says {want!r}"
+                    )
+                checked += 1
+    assert checked >= len(RECORD_SCALARS), (
+        f"only {checked} scalar cell(s) were compared against a record; a case that "
+        "matches no row asserts nothing"
+    )
+
+
+def test_the_union_sees_every_record_scalar(tmp_path):
+    """Round two, finding 2: the UNION half was undefended per field.
+
+    The mirror of the defect round one fixed. Narrowing the package's union
+    comprehension to `RECORD_SCALARS[:-1]` re-blinded the superset check to
+    `reference_length_m` and left the suite green, because the superset check
+    reads that union: a name the union cannot see is a name no file is required
+    to carry.
+
+    Asserted against the PACKAGE's union and not against the test module's own,
+    because it is the package's that the report arm and the superset check
+    consume. It cannot be written as a superset over the superfile's own
+    columns, which would be the check-that-accepts-everything this module's
+    docstring already rules out.
+    """
+    from pyflightstream.post.products import POLARS_DIR, PROBES_DIR
+    from pyflightstream.post.superfile import RECORD_SCALARS, union_the_workspace_knows
+
+    workspace = _workspace(tmp_path)
+    _post(workspace)
+    known = union_the_workspace_knows(
+        workspace.root,
+        workspace.products_dir("matriz"),
+        "matriz",
+        polars_dir=POLARS_DIR,
+        probes_dir=PROBES_DIR,
+    )
+    assert known, "an empty union proves nothing"
+    missing = sorted(set(RECORD_SCALARS) - known)
+    assert not missing, (
+        f"the union cannot see {missing}, so nothing requires a superfile to carry them"
+    )
