@@ -2895,3 +2895,240 @@ requirement below is one seam of that division.
     The estimate prints the size of the calibration set beside it, and a test
     scores the fit against HELD-OUT recorded points, because a model measured
     on its own training set measures nothing.
+
+!!! requirement "FR-83 A section distribution produces distinct cuts, and says so when it produces none <span class='srs-pending'>pending</span>"
+
+    *Origin: the author's first feedback item of 2026-09-10 after running
+    0.15.0 at work, "surface sections 50 dummies criadas, entender porque".
+    Carried by PFS-2036.01. Evidence owed: the tests that node names.*
+
+    WHAT IT IS FOR. `NEW_SURFACE_SECTION_DISTRIBUTION` as this package emits
+    it does not distribute. It creates `NUM_SECTIONS` sections all at the same
+    plane, the frame origin. Where that plane crosses the selected surface the
+    result is N identical duplicate cuts; where it does not, N sections come
+    back empty. Both are useless and neither is reported.
+
+    MEASURED OVER THE NINETEEN COMMITTED LICENSED RUNS under
+    `tests/tier3_licensed/sims/`, which is real solver output this repository
+    already holds:
+
+        19 of 19 runs declare 20 sections and write 20 blocks
+        19 of the 20 blocks are BYTE-IDENTICAL in every run, the twentieth
+          differing only by the file's trailing footer, its first data row
+          equal to the first block's
+        11 of 19 runs came back with all 20 sections EMPTY
+
+    So every sectional result this package has produced is one cut repeated,
+    and more than half are one EMPTY cut repeated.
+
+    THE VERIFICATION EVIDENCE IS SATISFIED BY THE DEFECT, which is why this
+    shipped. `commands/surface_sections.yaml` marks the command verified on
+    26.120 and 26.123 on the grounds that the all-sections export afterwards
+    carries the distribution. It does carry it, as N copies of one plane. That
+    is a check satisfied by the thing it was meant to exclude, and the
+    verification note is restated to name a property the defect fails.
+
+    A distribution of N sections produces N DISTINCT cut planes. A test
+    asserts that no two section blocks of one distribution are identical,
+    which is the assertion that fails on every committed run today. A
+    distribution that produces only empty sections is REPORTED rather than
+    written silently, because a table of empty cuts that nothing complains
+    about is how this reached the author rather than a maintainer.
+
+    WHICH MECHANISM REPLACES IT IS NOT SETTLED HERE and needs a licensed
+    probe: either the emitted grammar is incomplete, the package emitting
+    seven keywords and no extent, or the run path emits N
+    `CREATE_NEW_SURFACE_SECTION`, which takes an offset and is documented on
+    every build.
+
+!!! requirement "FR-84 A simulation's collected outputs live under outputs, not raw <span class='srs-pending'>pending</span>"
+
+    *Origin: the author's second feedback item of 2026-09-10, "trocar
+    sims\sim_<>\raw por sims\sim_<>\outputs". Carried by PFS-2036.02.
+    Evidence owed: the tests that node names.*
+
+    WHAT IT IS FOR. `raw` names how the data arrived; `outputs` names what it
+    is. A reader opening a simulation folder wants the second.
+
+    THE WORD MEANS THREE DIFFERENT THINGS IN THIS PACKAGE and only one is
+    renamed, which is the whole risk of this requirement and the reason it is
+    stated before the edit: the SUBDIRECTORY of a simulation is renamed; the
+    `data_origin` value `raw`, whose companion is `reduced`, is UNCHANGED; and
+    the setup key for the verbatim solver commands a row states is UNCHANGED.
+    A sweep that renamed all three would change the meaning of every recorded
+    result and of every setup, and neither was asked for.
+
+    A run writes its collected outputs to `sims/<sim>/outputs/` and creates no
+    `sims/<sim>/raw/`. A workspace that already holds `sims/<sim>/raw/` is
+    still READ, so no recorded point is orphaned, and a test asserts a collect
+    over such a workspace returns the points it returned before. A test also
+    asserts a result row still carries `data_origin = raw` after the rename,
+    because that reading is what this change is most likely to break by
+    accident.
+
+!!! requirement "FR-85 A polar table is named by the standard convention and says what was swept <span class='srs-pending'>pending</span>"
+
+    *Origin: the author's third feedback item of 2026-09-10, "nome de
+    <>_M<>_g<>.csv e <>_M<>_g<>.dat precisa ser na verdade o nome padrao com
+    sweep na variavel de sweep". Carried by PFS-2036.03. Evidence owed: the
+    tests that node names.*
+
+    WHAT IT IS FOR. The package writes one point under two conventions.
+    Measured in the workspace she sent back, for one point of one run:
+
+        scripts      POLAR-0001_M15AL+000BE+000J+100.txt
+        polar table  0001_M15_g01.csv
+
+    The second is built by `post/products.py` and carries neither the alpha
+    and beta the standard convention carries nor the advance ratio the run
+    actually swept.
+
+    WORSE THAN THE NAME, THE CONTENTS CANNOT TELL THE ROWS APART. Measured on
+    her `0001_M15_g01.csv`: the three rows of a three-value sweep carry
+    identical `ALPHA`, `BETA`, `MACH` and `RE` and NO column naming the swept
+    value, so the only thing distinguishing the first row from the third is
+    its position in the file. A table whose rows are told apart by order is
+    not a table.
+
+    A polar table is named by the standard convention with the swept
+    variable's field written as the literal word `sweep`, and the `.dat`
+    beside it takes the same stem:
+
+        POLAR-0001_M15AL+000BE+000J+sweep_g01.csv
+
+    The table carries a COLUMN for the swept variable, and a test asserts that
+    two rows of one sweep differ in it. A workspace holding tables under the
+    old name is still read.
+
+!!! requirement "FR-86 A provenance file is named by the same convention as everything beside it <span class='srs-pending'>pending</span>"
+
+    *Origin: the author's fourth feedback item of 2026-09-10, "nomes arquivos
+    em post\matriz\provenance fora do padrao". Carried by PFS-2036.04.
+    Evidence owed: the tests that node names.*
+
+    WHAT IT IS FOR. Two conventions sit in one run for one point:
+
+        sims/sim_0001/scripts/    POLAR-0001_M15AL+000BE+000J+100.txt
+        post/matriz/provenance/   pfs0150-eve_sim_0001_a+00.0_b+00.0_j+01.0.prov.json
+
+    The second is the run id, which is a good identifier and is simply not the
+    name every other generated file in the workspace carries. A reader sorting
+    the two directories side by side cannot line them up, which is the job a
+    naming convention exists to do.
+
+    A provenance file is named by the same convention as the script and the
+    export of the same point, with its own suffix. NOTHING RENAMES A RUN: the
+    run id the file records is unchanged and stays a field of the document,
+    and a test asserts the id read back from a renamed file is the string it
+    was before.
+
+!!! requirement "FR-87 Flow-field samples go to probes and carry the fluid quantities, steady or unsteady <span class='srs-pending'>pending</span>"
+
+    *Origin: the author's fifth feedback item of 2026-09-10, "arquivo plot
+    faltando os fluidos. Para deixar generico seja steady ou unsteady, vamos
+    deixar os plots unsteady de fluidos em uma pasta probes". Carried by
+    PFS-2036.05. Evidence owed: the tests that node names.*
+
+    TWO CLAIMS AND THEY ARE SEPARABLE. First, the file is missing the fluid
+    quantities: the unsteady plots emit forces AND fluid properties, and the
+    file she got back carried only the forces. That is a content defect and it
+    is the expensive one, because the quantities are gone until the point is
+    run again. Second, the directory is named `plots`, after the solver verb
+    that produced the file, rather than after what the file holds.
+
+    THE GENERICITY IS THE REQUIREMENT and not a side effect. A reader of a
+    finished campaign should not have to know whether a row was steady or
+    unsteady to know where the flow-field samples are. This lands with FR-81,
+    under which a steady row creates the probe points it exports, so both run
+    types produce the same directory with the same kind of content; the two
+    are one capability seen from the writer's side and the reader's side.
+
+    The flow-field samples of a point are written under
+    `post/<matrix>/probes/` whatever the run type was, and the file carries
+    every quantity the unsteady plots produce, forces and fluid properties
+    alike. A test asserts the fluid columns are present on a row that
+    requested fluid parameters, and asserts that a steady row and an unsteady
+    row citing the same artifact produce the same path.
+
+!!! requirement "FR-88 The polar tables live in a polars subfolder <span class='srs-pending'>pending</span>"
+
+    *Origin: the author's sixth feedback item of 2026-09-10, "crie uma
+    subpasta polars para os arquivos <>_M<>_g<>.csv e <>_M<>_g<>.dat atuais".
+    Carried by PFS-2036.06. Evidence owed: the tests that node names.*
+
+    WHAT IT IS FOR. Measured in the workspace she sent back, `post/matriz/`
+    holds the polar tables loose at its top level beside `sections/`,
+    `plots/`, `provenance/` and the campaign manifests. Every other family of
+    file has a directory and the polar tables do not, so the top level reads
+    as a directory and a drawer at once.
+
+    The per-polar tables and their `.dat` companions are written under
+    `post/<matrix>/polars/` and nothing per-polar is left loose at
+    `post/<matrix>/`. THE CAMPAIGN-LEVEL FILES STAY WHERE THEY ARE: they are
+    about the campaign rather than about one polar, and a move that swept them
+    into a per-polar directory would satisfy a check that only looked for an
+    empty top level. A test asserts both halves.
+
+!!! requirement "FR-89 One derived file per polar and group carries everything the workspace knows <span class='srs-pending'>pending</span>"
+
+    *Origin: the author's seventh feedback item of 2026-09-10, "crie um super
+    arquivo derivado ... de forma que apenas com o arquivo se sabe tudo sobre
+    aquela simulacao", and, asked again the same evening, "todas as variaveis
+    que definem a condicao de voo precisam obrigatoriamente estar nesse super
+    arquivo". Carried by PFS-2036.07. Evidence owed: the tests that node
+    names.*
+
+    WHAT IT IS FOR. Knowing what one simulation was and what it produced
+    currently takes the polar table, the campaign sweep table, the matrix row,
+    the setup, the reference and the unsteady plots. Six files, five of them
+    in different shapes.
+
+    IT IS WRITTEN AFTER THE UNSTEADY POST-PROCESS, which settles its shape:
+    every row is one CONVERGED point and there is no time series in it, so a
+    reader cannot tell whether the run behind a row was steady or unsteady.
+    That transparency is the point of it.
+
+    THE NAME carries the prefix `SUPER-` instead of `POLAR-` so it is told
+    apart from the other files at a glance, the swept variable written
+    literally as `sweep`, and the group suffix at the end:
+
+        post/matriz/polars/SUPER-0001_M15AL+000BE+000J+sweep_g01.csv
+
+    IT IS COMPLETE BY CONSTRUCTION. Its column set is a SUPERSET of the union
+    of what the workspace knows about that simulation: every column the polar
+    table has, every parameter the unsteady plots produce with forces and
+    fluids alike, RPM, the advance ratio, every variable that defines the
+    flight condition, every input of the matrix row including `DESCRIPTION`,
+    the flags, and everything the campaign sweep table holds.
+
+    NO FIELD IS LEFT OUT BY JUDGEMENT, and the test is what enforces that: it
+    BUILDS the union from the workspace rather than listing it, so a field
+    added anywhere upstream fails the test until it reaches the file. The
+    author's own statement of the acceptance is one sentence: if she has to
+    open a second file to know something about that simulation, it failed.
+
+!!! requirement "FR-90 The post stage writes no file twice <span class='srs-pending'>pending</span>"
+
+    *Origin: measured on 2026-09-10 while reading the workspace she sent back;
+    she did not report it. Carried by PFS-2036.08. Evidence owed: the tests
+    that node names.*
+
+    WHAT IT IS FOR. Measured in her `post/matriz/`:
+
+        sweep.csv           1012 bytes  sha256 d121faf0de4c9b7b...
+        campaign_sweep.csv  1012 bytes  sha256 d121faf0de4c9b7b...
+
+    Same length, same digest, same 27 columns. A reader who finds two files
+    cannot know they are the same without hashing them, and a reader who edits
+    one has silently disagreed with the other.
+
+    `campaign_sweep.csv` is the name that survives: it says the table is about
+    the campaign rather than about one polar's sweep, it is what FR-89 cites
+    as one of its sources, and `sweep` is about to appear inside the name of
+    every per-polar file. Both files are derived output that the post stage
+    rebuilds, so removing one orphans nothing.
+
+    The campaign sweep table is written once. A test asserts that the post
+    stage produces no two files with identical bytes anywhere under
+    `post/<matrix>/`, which catches this duplicate and any other, rather than
+    asserting the absence of one file name.
