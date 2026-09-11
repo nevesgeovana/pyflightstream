@@ -70,7 +70,7 @@ import sys
 import tempfile
 import time
 import warnings
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from functools import lru_cache
@@ -2377,6 +2377,438 @@ class PointPlan:
 
 
 @dataclass(frozen=True)
+class PointCost:
+    """What one point is expected to cost, and what that expectation rests on.
+
+    FR-82. Every field but `seconds` and `samples` is READ from the row, the
+    mesh and the setup: they are measurements of the thing about to be run. The
+    two that are not are marked as such, because the difference between a
+    figure a reader can check and a figure fitted from history is the whole
+    question when someone is deciding whether to spend a seat.
+
+    Attributes
+    ----------
+    run_id : str
+        The point this row is about.
+    panels : int or None
+        Mesh size, the boundary count the geometry declares. None when the
+        geometry could not be read.
+    trailing_edges : int
+        How many trailing edges the row marks.
+    farfield_layers : int or None
+        The farfield layer setting, None when the setup states none.
+    viscous_coupling : bool
+        Whether viscous coupling is on.
+    unsteady : bool
+        Steady or unsteady, which is the single largest term in the cost.
+    time_iterations : int or None
+        Time steps for an unsteady row; None for a steady one.
+    processors : int or None
+        `SET_MAX_PARALLEL_THREADS`, the number of processors set.
+    seconds : float or None
+        EXPECTED wall time. None where no comparable run has been recorded.
+    samples : int
+        How many recorded runs the estimate was fitted from. ZERO means the
+        estimate is absent rather than uncertain, and the table prints
+        `unknown` rather than a number.
+    basis : str
+        One sentence naming what the estimate rests on, carried into the
+        report so the figure is never read without it.
+    """
+
+    run_id: str
+    panels: int | None
+    trailing_edges: int
+    farfield_layers: int | None
+    viscous_coupling: bool
+    unsteady: bool
+    time_iterations: int | None
+    processors: int | None
+    seconds: float | None
+    samples: int
+    basis: str
+
+
+def _mesh_size(geometry) -> int | None:
+    """Return the element count the geometry's mesh block states, or None.
+
+    FR-82's "tamanho da malha", and it is the FILE'S OWN STATEMENT rather
+    than a count of anything. The block opens with it on the line right
+    after the marker; a file with no mesh block, or one this reader does
+    not recognise, answers None rather than a number, because a wrong mesh
+    size is compared against other rows and a blank is not.
+
+    THIS IS THE LINE `_fsm` SKIPS ON PURPOSE, and saying so is the point of
+    this paragraph. `_fsm._LINES_BEFORE_COUNT` steps over two lines to
+    reach the boundary count, and its comment gives the reason for the
+    first of them: an element count "that is not trustworthy (one campaign
+    geometry states 7848 where every array holds 7784)". So this column can
+    be off by about a percent, and the alternative is counting the arrays
+    of a 9 MB file once per row, which is four orders of magnitude of work
+    for a column nobody does arithmetic on.
+
+    AND NOTHING DOES ARITHMETIC ON IT. The fit in `estimate_point_cost` is
+    linear in the time steps and in nothing else, so this number reaches a
+    reader's judgement and never an estimate. A figure off by a percent and
+    read as a reading is fine; one off by a percent and multiplied is the
+    defect this note exists to prevent someone introducing.
+    """
+    from pyflightstream._fsm import MESH_MARKER
+
+    try:
+        with open(geometry, encoding="utf-8", errors="replace") as handle:
+            for line in handle:
+                if line.strip() == MESH_MARKER:
+                    stated = handle.readline().strip()
+                    return int(stated) if stated.isdigit() else None
+    except OSError:
+        return None
+    return None
+
+
+def _marked_trailing_edges(case) -> int:
+    """How many boundaries the row marks for vorticity drag (FR-82).
+
+    Read from the row's own statement and the geometry's inventory rather
+    than from a rendered script, because the plan must not build a script
+    twice to fill a column of a table; the two agree because they read the
+    same two things the builder does.
+
+    THE SELECTION IS `solver.vorticity_drag_families`, family NAMES, and
+    the builder leaves out the families the opened geometry does not carry
+    (PFS-2030.03.03). The first two writings of this column read
+    `VORTICITY_DRAG_BOUNDARIES` off the row's variables and then
+    `solver.vorticity_drag_boundaries`; neither exists, so the column
+    reported 0 for every row in the table and a reader had no way to tell
+    that from a campaign marking none.
+
+    A row marking none answers 0, which is then a measurement.
+    """
+    families = getattr(getattr(case, "solver", None), "vorticity_drag_families", None)
+    if not families:
+        return 0
+    inventory = None
+    if case.geometry is not None:
+        try:
+            from pyflightstream._fsm import boundary_names
+
+            inventory = boundary_names(case.geometry)
+        except Exception:
+            inventory = None
+    if not inventory:
+        # The geometry states no inventory this reader recognises, so the
+        # row's own statement is the only measurement available and it is
+        # reported as it stands rather than filtered against nothing.
+        return len(families)
+    carried = {name.casefold() for name in inventory}
+    return len([name for name in families if str(name).casefold() in carried])
+
+
+def _recorded_is_unsteady(record: dict) -> bool:
+    """Whether a recorded run was unsteady, by the fact it states (FR-82).
+
+    The record's own `recipe` answers, and it is the same key the planned
+    point is classified by. A record from an older manifest schema states
+    none, and only then does this fall back to the proxy that used to be
+    the rule: a run carrying a reduction block reduced, and only an
+    unsteady run reduces. The fallback is named here rather than left
+    looking like the rule, because it is wrong for exactly the case that
+    broke it -- an unsteady run nobody planned a reduction for.
+    """
+    recipe = record.get("recipe")
+    if isinstance(recipe, str) and recipe:
+        return recipe != "steady"
+    return bool(record.get("reductions"))
+
+
+def _write_probe_points(
+    sim_dir: Path, sim_id: str, points: Sequence[tuple[int, float, float, float, str]]
+) -> str | None:
+    """Write one simulation's probe positions, and name the file (FR-91).
+
+    Parameters
+    ----------
+    sim_dir : Path
+        The simulation folder.
+    sim_id : str
+        The simulation, which names the file.
+    points : sequence
+        ``(vertex, x, y, z, frame)`` in creation order, as the builder
+        recorded them while emitting each point.
+
+    Returns
+    -------
+    str or None
+        The path relative to ``sim_dir``, or None when the row placed no
+        probe point, which is every row that declares none and every row
+        whose entry cites a points file the user wrote.
+
+    Notes
+    -----
+    IDEMPOTENT BY CONSTRUCTION AND NOT BY A GUARD. Every point of a sweep
+    writes this same path, and a probe layout is the artifact's and the
+    row's rather than the point's, so the bytes are the same each time.
+    The alternative -- one file per point -- would put a hundred identical
+    files in the folder and say the layout depends on the angle of attack.
+    """
+    from pyflightstream.cases.workflows import PROBE_PROFILE_DIR
+
+    if not points:
+        return None
+    relative = f"{PROBE_PROFILE_DIR}/{sim_id}_probe_points.csv"
+    target = sim_dir / relative
+    target.parent.mkdir(parents=True, exist_ok=True)
+    lines = ["PROBE,X,Y,Z,FRAME"]
+    lines += [f"{vertex},{x},{y},{z},{frame}" for vertex, x, y, z, frame in points]
+    target.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return relative
+
+
+def _recorded_costs(workspace) -> list[dict]:
+    """Every recorded point that carries a wall time, as plain mappings.
+
+    The model's whole training set. A workspace that has run nothing produces
+    an empty list, and every estimate below then reports `samples = 0`, which
+    the table prints as `unknown` rather than as a number.
+    """
+    # READ THE MANIFEST BY ITS OWN READER, and let a missing FILE be the only
+    # empty answer. The first version called `workspace.records()`, which does
+    # not exist, inside a bare `except Exception` -- so an AttributeError read
+    # as "this workspace has run nothing" and every estimate came back
+    # `unknown` against a workspace holding three recorded points. An
+    # instrument that reports nothing when it cannot run is the failure this
+    # estate keeps paying for, so the narrow catch is the file's absence and
+    # nothing else.
+    if not workspace.manifest_path.is_file():
+        return []
+    records = workspace.read_manifest()
+    out = []
+    for record in records:
+        data = record if isinstance(record, dict) else record.model_dump(mode="json")
+        seconds = data.get("wall_time_s")
+        if isinstance(seconds, (int, float)) and seconds > 0:
+            out.append(data)
+    return out
+
+
+def estimate_point_cost(
+    case,
+    run_id: str,
+    recorded: list[dict],
+    steps_by_run: dict[str, int | None] | None = None,
+) -> PointCost:
+    """Table one point's cost, and fit its time from comparable recorded runs.
+
+    FR-82. EVERY FIGURE BUT THE TIME IS A MEASUREMENT of the row, the mesh and
+    the setup. The time is an extrapolation and the row says so, carrying the
+    number of samples it was fitted from and one sentence naming the basis.
+
+    COMPARABLE MEANS THE SAME RUN TYPE, because steady and unsteady differ by
+    more than any other term: an unsteady point runs its solve once per time
+    step. Within a run type the fit is linear in the work the point asks for,
+    which is the time steps for an unsteady row and one solve for a steady one,
+    and inversely proportional to the processors where both the sample and the
+    point state them.
+
+    IT IS DELIBERATELY A CRUDE MODEL and the docstring says so rather than the
+    code implying otherwise. The author has a scalability study coming, in her
+    words "eu vou depois fazer um estudo de escalabilidade mais completo e te
+    passar os dados para calibrar melhor o modelo, por enquanto use o que voce
+    tem". Until then a reader gets a number with its sample size attached, or
+    no number at all.
+    """
+    solver = getattr(case, "solver", None)
+    unsteady = case.recipe != "steady"
+    from pyflightstream.cases.workflows import time_steps_of
+
+    iterations = time_steps_of(case)
+
+    # PROCESSORS: `max_threads` on the solver settings, which is what
+    # `SET_MAX_PARALLEL_THREADS` is emitted from. The first version read a
+    # variable key no row writes and reported a dash for every point.
+    processors = getattr(solver, "max_threads", None)
+    if not isinstance(processors, int):
+        processors = None
+
+    # MESH SIZE, and this column read the BOUNDARY COUNT until it was checked
+    # against a real geometry: `boundary_names` returns names, so a wing-body
+    # read 2 and a rotor sector 3. The mesh block states its size on the line
+    # right after `$MESH_START$`, which is 14266 for that same wing-body.
+    panels = _mesh_size(case.geometry) if case.geometry else None
+
+    # TRAILING EDGES: counted from the script the plan already builds, because
+    # the marked edges are the boundaries of `SET_VORTICITY_DRAG_BOUNDARIES`
+    # and no row carries them as a variable. Counting a key nobody writes
+    # reported zero for every point, which reads as a measurement of none.
+    trailing = _marked_trailing_edges(case)
+
+    # THE FIT. Comparable runs are those of the same run type; the work a point
+    # asks for is its time steps, or one solve for a steady row.
+    #
+    # THE RUN TYPE IS READ FROM THE RECORD'S OWN `recipe`, which is the same
+    # fact the point is classified by three lines above, so both ends of the
+    # comparison ask one question. The first writing asked a PROXY -- does the
+    # record carry a reduction block -- which is true of an unsteady run until
+    # it is not: a run whose reductions were never planned carries a null
+    # there, read as STEADY, and a 180 second unsteady run then moved every
+    # steady estimate in the table.
+    same = [r for r in recorded if _recorded_is_unsteady(r) == unsteady]
+    seconds = None
+    basis = (
+        "no recorded run of this run type in this workspace, so no estimate is "
+        "offered rather than one with no basis"
+    )
+    rates = []
+    unknown = 0
+    for record in same:
+        if unsteady:
+            # THE SAMPLE'S OWN WORK, and it is NOT read off the manifest's
+            # reductions: a recorded run whose reductions were skipped
+            # carries a null step count there, and reading that as ONE
+            # SOLVE made the rate 36 times too large on her rotor point.
+            # The plan resolved the step count of every point it holds, and
+            # a recorded run of a point still in the matrix is that point,
+            # so the map answers; a record of a point that has left the
+            # matrix stays unknown.
+            steps = (steps_by_run or {}).get(record.get("run_id"))
+            if not isinstance(steps, int) or steps <= 0:
+                unknown += 1
+                continue
+            work = float(steps)
+        else:
+            work = 1.0
+        rates.append(float(record["wall_time_s"]) / work)
+    samples = len(rates)
+    if rates:
+        rate = sum(rates) / len(rates)
+        work = float(iterations) if unsteady and iterations else 1.0
+        seconds = round(rate * work, 1)
+        dropped = (
+            ""
+            if not unknown
+            else (
+                f" {unknown} further recorded run(s) state no step count and were "
+                "left out rather than counted as one step."
+            )
+        )
+        basis = (
+            f"fitted from {samples} recorded "
+            f"{'unsteady' if unsteady else 'steady'} run(s) of this workspace, "
+            "linear in the time steps the point asks for. It is a crude model "
+            "pending her scalability study and is not a measurement of "
+            f"this point.{dropped}"
+        )
+    elif same:
+        basis = (
+            f"the {len(same)} recorded "
+            f"{'unsteady' if unsteady else 'steady'} run(s) of this workspace state "
+            "no step count, so none of them calibrates a per-step rate and no "
+            "estimate is offered rather than one fitted to a guess"
+        )
+    return PointCost(
+        run_id=run_id,
+        panels=panels,
+        trailing_edges=trailing,
+        farfield_layers=getattr(solver, "farfield_layers", None),
+        viscous_coupling=bool(getattr(solver, "viscous_coupling", False)),
+        unsteady=unsteady,
+        time_iterations=iterations,
+        processors=processors,
+        seconds=seconds,
+        # THE SAMPLES THAT ACTUALLY ENTERED THE FIT, never the comparable
+        # runs found: a row reporting `unknown` beside a sample count is a
+        # row whose reader cannot tell which of the two numbers to believe.
+        samples=samples,
+        basis=basis,
+    )
+
+
+def point_costs(plan: CampaignPlan, cases: dict, workspace) -> list[PointCost]:
+    """One cost row per planned point (FR-82).
+
+    Parameters
+    ----------
+    plan : CampaignPlan
+        The plan whose points are to be tabled.
+    cases : dict
+        The resolved case per simulation id. A point whose simulation is
+        absent gets no row rather than a row of blanks.
+    workspace : CampaignWorkspace
+        Where the recorded wall times are read from.
+
+    Returns
+    -------
+    list of PointCost
+        In plan order.
+
+    Notes
+    -----
+    THE POINT IS FILLED IN, exactly as the campaign loop fills it before it
+    builds a script. A swept row states ``ADVANCE_RATIO: sweep`` and the
+    VALUE is the point's, so the un-filled row names no rotor speed and its
+    clock reported a blank; the column that was asked for is the per-POINT
+    cost, and a row is not a point.
+
+    THE STEP COUNT OF EVERY POINT IS RESOLVED ONCE and handed to the fit, so
+    a RECORDED run of one of these points can be weighed by the work it did.
+    Read off the manifest instead, it is null for every run whose reductions
+    were skipped, and the rate comes out by the factor of the steps: her
+    rotor point was tabled at 7013.5s against a recorded run of 194.8s of
+    that same point.
+    """
+    from pyflightstream.cases.workflows import time_steps_of
+
+    recorded = _recorded_costs(workspace)
+    filled = {
+        entry.run_id: cases[entry.sim_id].model_copy(update={"point": dict(entry.point)})
+        for entry in plan.points
+        if entry.sim_id in cases
+    }
+    steps_by_run = {run_id: time_steps_of(case) for run_id, case in filled.items()}
+    return [
+        estimate_point_cost(case, run_id, recorded, steps_by_run) for run_id, case in filled.items()
+    ]
+
+
+def format_cost_table(costs: list[PointCost]) -> str:
+    """Render the cost table FR-82 asks for, with its basis under it."""
+    header = (
+        f"{'point':38} {'mesh':>8} {'TEs':>5} {'layers':>7} {'visc':>5} "
+        f"{'type':>9} {'steps':>7} {'procs':>6} {'expected':>10} {'samples':>8}"
+    )
+    rows = [header, "-" * len(header)]
+    for cost in costs:
+        expected = "unknown" if cost.seconds is None else f"{cost.seconds:.1f}s"
+        rows.append(
+            f"{cost.run_id[:38]:38} "
+            f"{'-' if cost.panels is None else cost.panels:>8} "
+            f"{cost.trailing_edges:>5} "
+            f"{'-' if cost.farfield_layers is None else cost.farfield_layers:>7} "
+            f"{'yes' if cost.viscous_coupling else 'no':>5} "
+            f"{'unsteady' if cost.unsteady else 'steady':>9} "
+            f"{'-' if cost.time_iterations is None else cost.time_iterations:>7} "
+            f"{'-' if cost.processors is None else cost.processors:>6} "
+            f"{expected:>10} {cost.samples:>8}"
+        )
+    if costs:
+        rows.append("")
+        rows.append("EXPECTED TIME IS AN EXTRAPOLATION AND NOT A MEASUREMENT:")
+        # ONE LINE PER DISTINCT BASIS, in the order the rows appear. The
+        # first writing printed `costs[0].basis` under the whole table, so
+        # a table holding a steady row and an unsteady one said "fitted
+        # from 2 recorded steady run(s)" under both: a false sentence
+        # about the unsteady row, and one that reads as a measurement.
+        seen: list[tuple[bool, str]] = []
+        for cost in costs:
+            key = (cost.unsteady, cost.basis)
+            if key not in seen:
+                seen.append(key)
+        for unsteady, basis in seen:
+            rows.append(f"  {'unsteady' if unsteady else 'steady'} rows: {basis}")
+    return "\n".join(rows)
+
+
+@dataclass(frozen=True)
 class CampaignPlan:
     """The pre-flight plan of one campaign: statuses per point, no execution.
 
@@ -2405,7 +2837,12 @@ class CampaignPlan:
 
     campaign: str
     fs_version: str
-    points: list[PointPlan] = field(default_factory=list)
+    points: list[PointPlan]
+    #: FR-82. One row per point when the caller asked for the cost
+    #: table, empty otherwise. Computed here because this is where the
+    #: resolved cases are; a caller re-resolving the matrix to find them
+    #: would be re-deriving state this object already holds.
+    costs: list[PointCost] = field(default_factory=list)
     #: Where the campaign name came from, ``directory`` or ``option`` (PFS-2029.03.01).
     campaign_name_from: str | None = None
     plan_file: Path | None = None
@@ -3050,6 +3487,13 @@ def _execute_point(
     if setup is not None:
         base["solver_setup"] = setup.model_dump(mode="json")
     script_path, script_sha = workspace.write_script(case.sim_id, f"{stem}.txt", script.render())
+    # FR-91. WHERE THIS SCRIPT PUT ITS PROBE POINTS, written next to the
+    # script that placed them. An unsteady plots export numbers its columns
+    # `MACH7`, `VELOCITY7` and never says where vertex 7 is, so this file is
+    # the only thing that can place a point of that table.
+    probe_points_file = _write_probe_points(sim_dir, case.sim_id, script.probe_points)
+    if probe_points_file is not None:
+        base["probe_points_file"] = probe_points_file
     # PFS-2031.13. The child script of a SCRIPT action is parked on the
     # script by helpers.unsteady_action and written HERE, before the
     # solver starts, where the registration line names it: a relative

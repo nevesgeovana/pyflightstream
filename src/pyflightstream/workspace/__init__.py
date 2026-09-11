@@ -826,6 +826,18 @@ class RunRecord(BaseModel):
     residual: float | None = None
     wall_time_s: float | None = None
     outputs: list[str] = Field(default_factory=list)
+    #: FR-91. Where this run's probe positions were written, relative to
+    #: the simulation folder, or None for a row that declares no probes
+    #: and for one whose entry cites a points file the user wrote (the
+    #: package does not parse a survey she authored to re-state it).
+    #:
+    #: The file is per SIM and every point of the simulation writes the
+    #: same bytes to it, because a probe layout is the artifact's and the
+    #: row's rather than the sweep point's. Adding it did not move
+    #: MANIFEST_SCHEMA: a record written before 0.16.0 reads None here,
+    #: and a post stage meeting one writes the probe table without the
+    #: position columns rather than refusing a run that already happened.
+    probe_points_file: str | None = None
     error: str | None = None
     #: The two files of a row stating an export threshold (PFS-2031.18),
     #: relative to the simulation folder, and the count the program

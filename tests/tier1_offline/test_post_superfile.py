@@ -525,6 +525,14 @@ def test_every_record_scalar_is_carried_or_excluded_on_purpose(tmp_path):
         "fs_version_source",
         "export_window",
         "waived_commands",
+        # FR-91. The path of the file this run's probe positions were
+        # written to. It is an INDEX into another file and not a fact about
+        # the simulation, and the positions themselves reach a reader
+        # through `probes/<point>_probes.csv`, where they sit beside the
+        # sample they place. A column holding a path would tell a reader to
+        # go and open something, which is the one thing the superfile
+        # exists so that they never have to do.
+        "probe_points_file",
     }
     carried_by_the_campaign_sweep_table = {
         "run_id",

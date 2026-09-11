@@ -2,7 +2,7 @@
  "source": "docs/srs",
  "generated_by": "scripts/gen_requirements_index.py",
  "traceability": {
-  "cited_by_a_test": 94,
+  "cited_by_a_test": 96,
   "total": 143,
   "method": "upper bound: an id mentioned anywhere in tests/**/*.py excluding conftest.py, which is not the marked falsifying test NFR-13 asks for"
  },
@@ -819,9 +819,9 @@
    "id": "FR-82",
    "text": "WHAT IT IS FOR. plan answers whether a row will run. It does not answer what running it will cost, and the cost is a licence seat and an afternoon. A study is budgeted before it is spent or it is budgeted by watching it.",
    "priority": "M",
-   "status": "pending",
-   "evidence": "*Origin: the author's request of 2026-09-10, \"no plan, eu quero uma flag que ao ser ativada, volta tambem um resumo de tempo de execucao esperado para cada polar\", with the columns she listed and \"inclua tambem o numero de processadores setados\". Carried by PFS-2035.29. Evidence owed: the tests that node names.*",
-   "verification": "none"
+   "status": "implemented",
+   "evidence": "*Origin: the author's request of 2026-09-10, \"no plan, eu quero uma flag que ao ser ativada, volta tambem um resumo de tempo de execucao esperado para cada polar\", with the columns she listed and \"inclua tambem o numero de processadores setados\". Carried by PFS-2035.29. Her instruction of 2026-09-11 on what the estimate may rest on: \"eu quero uma estimativa do tempo da rodada. Eu vou depois fazer um estudo de escalabilidade mais completo e te passar os dados para calibrar melhhor o modelo, por enquanto use o que voce tem.\" Evidence: tests/tier1_offline/test_plan_cost.py, 18 cases, and tests/tier1_offline/test_cli_options_registry.py for the flag.*",
+   "verification": "test"
   },
   {
    "id": "FR-83",
@@ -891,9 +891,9 @@
    "id": "FR-91",
    "text": "WHAT IT IS FOR. A probe result says what the flow did. It does not say WHERE. For a steady export the position travels with the sample; for an UNSTEADY one it does not, and the author states the consequence directly: the unsteady plots do not write the position, so a reader holding an unsteady probe table cannot place a single one of its points. A survey whose coordinates live in a different file, or in no file, is a table of numbers about nowhere.",
    "priority": "M",
-   "status": "pending",
-   "evidence": "*Origin: the author's instruction of 2026-09-11, \"eu quero que tenha uma arquivo csv com o resultado das probes e a posicao xyz delas + frame de referencia junto ao resultado do fluido (velocidade, mach, etc) ... pro unsteady, e importante ter o arquivo de posicao porque nao vem escrito no unsteady plots\". Evidence owed: the tests that node names.*",
-   "verification": "none"
+   "status": "implemented",
+   "evidence": "*Origin: the author's instruction of 2026-09-11, \"eu quero que tenha uma arquivo csv com o resultado das probes e a posicao xyz delas + frame de referencia junto ao resultado do fluido (velocidade, mach, etc) ... pro unsteady, e importante ter o arquivo de posicao porque nao vem escrito no unsteady plots\", and her answer on which quantities: \"leva todas as fluid properties e tudo o que steady probes devolve, isso inclui ate informacao de boundary layer\". Evidence: tests/tier1_offline/test_probe_positions.py, 17 cases, mutation score 7 of 7.*",
+   "verification": "test"
   },
   {
    "id": "NFR-01",

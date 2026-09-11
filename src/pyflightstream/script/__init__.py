@@ -696,6 +696,22 @@ class Script:
         # resolved 1-based boundary indices, never labels.
         self._pending_vorticity: list[int] | Literal["all"] | None = None
         self._vorticity_selection: list[int] | Literal["all"] | None = None
+        #: WHERE THIS SCRIPT PUT EACH PROBE POINT (FR-91), one entry per
+        #: point in creation order: the vertex number, its x, y and z as
+        #: emitted, and the NAME of the frame they are measured in.
+        #:
+        #: The vertex number is the suffix an unsteady fluid plot carries
+        #: in its own name, so `MACH7` in a plots export is entry 7 here.
+        #: That is the join a reader of an unsteady probe table has no
+        #: other way to make: the export writes the numbers and never the
+        #: positions.
+        #:
+        #: Filled by the loop that EMITS the point, so the coordinates
+        #: recorded cannot drift from the coordinates emitted. Empty for a
+        #: script whose row declares no probes, and empty for one whose
+        #: entry cites a user's points file, since the package does not
+        #: parse a survey she wrote.
+        self.probe_points: list[tuple[int, float, float, float, str]] = []
         # WHAT THIS SCRIPT HAS ALREADY ASKED THE SOLVER TO EXPORT, keyed
         # by the path as it was rendered, valued by the helper that asked
         # (PFS-2011.02). A script is a sequence of instructions and kept

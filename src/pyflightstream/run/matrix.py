@@ -268,6 +268,7 @@ def plan_matrix(
     fs_version: str | None = None,
     name_from: str | None = None,
     ignore_missing_families: bool = True,
+    cost: bool = False,
 ) -> CampaignPlan:
     """Pre-flight a run matrix without executing anything.
 
@@ -363,7 +364,7 @@ def plan_matrix(
         fs_exe=fs_exe,
         ignore_missing_families=ignore_missing_families,
     )
-    return plan_campaign(
+    plan = plan_campaign(
         resolved.campaign,
         workspace,
         recipes=recipe_registry,
@@ -371,6 +372,16 @@ def plan_matrix(
         name_from=name_from,
         versions=_row_versions(resolved),
     )
+    if cost:
+        # FR-82. Computed HERE, where the resolved cases are; a caller
+        # re-resolving the matrix to find them would be re-deriving state
+        # this object already holds.
+        from pyflightstream.run import point_costs
+
+        plan.costs.extend(
+            point_costs(plan, {case.sim_id: case for case in resolved.campaign.sims}, workspace)
+        )
+    return plan
 
 
 def _row_versions(resolved: ResolvedMatrix) -> dict[str, str]:

@@ -1400,11 +1400,26 @@ distribution leaves an export declaring zero sections and gets no table. The
 FLOW-FIELD SAMPLES of a point under `probes/`, whatever the run type was
 (FR-87): `probes/<point>_plots.csv`, the unsteady plots export re-tabled
 with its coefficient columns brought from the solver's reference
-velocity to the free stream, and `probes/<point>_probes.csv`, the
-probe-points export of a row of any kind re-tabled in its own units, which
-carry the fluid quantities beside the boundary-layer columns; a probe
-export this release cannot read is a recorded skip naming the file and
-costs the simulation none of its other products. And the REDUCTIONS of the
+velocity to the free stream, and `probes/<point>_probes.csv`, the probe
+table of a row of any kind. That table opens with the same six columns
+whichever run type filled it (FR-91), `PROBE, X, Y, Z, FRAME, STEP`, and
+then carries its own export's fluid quantities in their own names and
+units: a steady row brings Mach, Cp, the velocity components and the
+boundary-layer columns; an unsteady row brings the parameters its probe
+entry asked for, one row per point and solver step. `STEP` is empty on a
+steady row, which has one.
+
+The `X`, `Y`, `Z` and `FRAME` columns are why this table exists. An
+unsteady plots export numbers its probe columns `MACH7, VELOCITY7, VX7`
+and never says where point 7 is, so its samples could not be placed at
+all; a steady export states its coordinates and still never names the
+frame they are measured in. The package records both while it emits each
+point, writes them to `sims/<sim>/profiles/<sim>_probe_points.csv`, and
+joins them here. A run recorded before 0.16.0 named no such file, so its
+`FRAME` cells are empty and its steady coordinates still come from the
+export; the table is written either way. A probe export this release
+cannot read is a recorded skip naming the file and costs the simulation
+none of its other products. And the REDUCTIONS of the
 plots table, one file per
 applicable reduction beside it (PFS-2015.04), over the window the row
 states; the next section walks them. The arithmetic behind the polar table is the
@@ -2090,6 +2105,53 @@ exactly as it stands, which is what the suite does: it keeps a helper
 that rewrites `0.0,2.0` to a single value for the acceptance cases, and
 the case that runs the committed fixture unmodified is marked as an
 expected failure until this is fixed.
+
+### Before you spend the seat: what the study will cost
+
+`plan` answers whether a row will run. It does not, on its own, answer what
+running it will cost, and the cost is a licence seat and an afternoon. Add
+`--cost` and it tables one row per point beside the READY and BLOCKED report:
+
+```text
+pyfs-matrix plan matriz.fs --workspace . --fs-version 26.123 --cost
+```
+
+```text
+point                                      mesh   TEs  layers  visc      type   steps  procs   expected  samples
+----------------------------------------------------------------------------------------------------------------
+pfs0160/sim_6001/a-02.0_b+00.0            14266     2       -    no    steady       -      8      11.9s        2
+pfs0160/sim_6002/a+00.0_b+00.0_j+01.7     13502     0       5    no  unsteady      36      8     194.8s        1
+
+EXPECTED TIME IS AN EXTRAPOLATION AND NOT A MEASUREMENT:
+  steady rows: fitted from 2 recorded steady run(s) of this workspace, ...
+  unsteady rows: fitted from 1 recorded unsteady run(s) of this workspace, ...
+```
+
+The flag spends no solver time: every figure comes from the workspace, the
+mesh and the runs already recorded.
+
+**EVERY COLUMN BUT `expected` IS A READING**, and each is read from the thing
+that owns it. `mesh` is the element count the geometry's mesh block states.
+`TEs` is the families the row marks for vorticity drag, intersected with the
+inventory the geometry declares, which is what the builder does with them.
+`layers`, `visc` and `procs` are the solver preset's `farfield_layers`,
+`viscous_coupling` and `max_parallel_threads`. `steps` is what the row's clock
+works out to: a rotor row stating `DELTA_THETA: 15` and `REVOLUTIONS: 1.5`
+reads 36. A cell the package cannot derive prints `-`, never a zero, because a
+zero is a measurement.
+
+**`expected` IS NOT A READING AND THE TABLE SAYS SO UNDER EVERY PRINTING.** It
+is fitted from the wall times THIS workspace has recorded, comparably by run
+type, linear in the time steps the point asks for, and the row carries the
+number of samples behind it. A point with no comparable recorded run prints
+`unknown` rather than a figure with no basis. It is a crude model on purpose,
+and it will be recalibrated when a scalability study exists to calibrate it
+against.
+
+One consequence worth knowing: `samples` counts the runs that actually entered
+the fit, not the comparable runs found. An unsteady run whose step count cannot
+be resolved is left out rather than counted as a single solve, and the basis
+line says how many were dropped.
 
 ### The window, said once
 

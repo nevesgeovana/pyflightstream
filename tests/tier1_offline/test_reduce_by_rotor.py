@@ -350,3 +350,74 @@ def test_the_documented_record_reader_example_runs():
     assert "time_average" not in PER_ROTOR_REDUCTIONS, (
         "the time average is one window of the whole point, whatever turns in it"
     )
+
+
+def swept_ratio_case(**overrides) -> SimCase:
+    """A row that turns ONE rotor through MOTIONS and sweeps the advance ratio.
+
+    The author's pfs0160 row 6002, reduced to its parts: the speed is not on
+    the row and not on the record either, it is what J and THIS ROTOR'S
+    diameter work out to, and J arrives on the POINT because the column
+    says `ADVANCE_RATIO: sweep`.
+    """
+    variables: dict[str, str | float | int | bool] = {
+        "WORKFLOW": "unsteady_rotor",
+        "VELOCITY": "49.0",
+        "DELTA_THETA": "15",
+        "REVOLUTIONS": "1.5",
+        "CLOCK_MOTION": "PUSHER",
+    }
+    fields: dict[str, object] = {
+        "sim_id": "6002",
+        "aircraft": "NXROTOR",
+        "recipe": "unsteady_rotor",
+        "sweep": SweepAxis(type="advance_ratio", values=[1.7]),
+        "rotors": {"PUSHER": PUSHER},
+        "variables": variables,
+        "motions": [{"MOVING_BC_ALIAS": "PUSHER"}],
+        # NO `rotor_diameter`, because at 0.16.0 the diameter is the ROTOR
+        # BLOCK'S (FR-63) and a configuration of several rotors has no one
+        # length to put here.
+        "reference": ReferenceData(area=16.0, length=1.6, span_m=10.0),
+        "point": {"alpha": 0.0, "beta": 0.0, "advance_ratio": 1.7},
+    }
+    fields.update(overrides)
+    return SimCase(**fields)
+
+
+def test_a_motions_row_that_sweeps_the_advance_ratio_reduces_at_all():
+    """HALF THREE, and it is half one surviving one branch over.
+
+    The speed reader asked TWO questions in the wrong order: does the row
+    state a ratio or an rpm, and only then, does the row turn rotors. A row
+    that does BOTH took the first branch, which resolves J against the
+    configuration's single `rotor_diameter` -- the length a multi-rotor
+    reference cannot carry and 0.16.0 therefore moved into each rotor
+    block. So the branch that could answer was never reached, and all
+    three reductions of the author's rotor sweep were skipped with a reason
+    telling her to add a key her reference is right not to have.
+
+    Measured on the author's own workspace before the change: `time_average`,
+    `phase_locked` and `per_blade` all carried "its reference carries no
+    rotor diameter", while the SCRIPT for the same point built correctly at
+    36 steps -- the builder goes through the motion views and the reader
+    did not.
+    """
+    plan = reduction_windows(swept_ratio_case())
+    assert plan is not None
+    assert "skipped" not in plan["time_average"], plan["time_average"]
+    # 1.5 revolutions at 15 degrees a step is 36 whole steps, which is the
+    # number the built script states for this row.
+    assert plan["time_iterations"] == 36
+    # The phase-locked and per-blade windows of a row that NAMES its rotors
+    # live in that rotor's own block, which is FR-68 and not this defect;
+    # the top level says so and is asserted here so that a later reading of
+    # this test does not take their absence for the skip it was about.
+    pusher = plan["rotors"]["PUSHER"]
+    assert "skipped" not in pusher, pusher
+    assert pusher["blades"] == 3
+    # 15 degrees a step is 24 steps to the revolution, and a three bladed
+    # rotor passes every 120 degrees, which is 8 of them. Computed from the
+    # ANGLES rather than by restating the code's 60 / (rpm * dt) / blades,
+    # so the two agree only if the speed this test is about was resolved.
+    assert pusher["period_steps"] == 8

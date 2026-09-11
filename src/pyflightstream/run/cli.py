@@ -338,6 +338,16 @@ def _build_parser() -> argparse.ArgumentParser:
         help="explicit executable override; mandatory for MANUAL rows, otherwise the "
         "FS_BUILD column resolves through inputs/executables.toml",
     )
+    plan.add_argument(
+        "--cost",
+        action="store_true",
+        help="also table what each polar is expected to cost: mesh size, marked "
+        "trailing edges, farfield layers, viscous coupling, steady or unsteady, "
+        "time iterations, processors set, and an EXPECTED wall time fitted from "
+        "this workspace's own recorded runs. The time is an extrapolation and the "
+        "table says so, carrying the number of samples behind it; a point with no "
+        "comparable recorded run reads 'unknown' rather than a number with no basis",
+    )
 
     run = subparsers.add_parser(
         "run",
@@ -798,11 +808,20 @@ def _cmd_plan(args: argparse.Namespace, recipes: dict[str, str]) -> int:
             fs_exe=args.fs_exe,
             recipe_registry=workflow_registry(),
             ignore_missing_families=_the_missing_family_choice(args),
+            cost=getattr(args, "cost", False),  # FR-82
         )
     except (MatrixError, InputArtifactError, OSError, ValueError) as error:
         print(f"matrix not planned: {error}", file=sys.stderr)
         return 2
     print(plan.summary())
+    if plan.costs:
+        # FR-82. The table goes to STDOUT beside the summary, because an
+        # operator asked for it explicitly with a flag; the progress lines of
+        # FR-78 go to stderr because nobody asked for those.
+        from pyflightstream.run import format_cost_table
+
+        print()
+        print(format_cost_table(plan.costs))
     if plan.plan_file is not None:
         print(f"plan: {plan.plan_file}")
     return 1 if plan.blocked else 0

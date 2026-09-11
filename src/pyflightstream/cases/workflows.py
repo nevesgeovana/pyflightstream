@@ -118,6 +118,7 @@ __all__ = [
     "MOVING_BOUNDARIES_VARIABLE",
     "ROTATE_VARIABLE",
     "PERIODIC_COPIES_VARIABLE",
+    "PROBE_PROFILE_DIR",
     "RAW_BEFORE_KEY",
     "RAW_COMMAND_KEY",
     "RAW_FILE_KEY",
@@ -168,6 +169,7 @@ __all__ = [
     "rotor_relaxed_trailing_edges",
     "rotor_shedding_direction",
     "rotor_speed",
+    "time_steps_of",
     "rotor_time_stepping",
     "unsteady_action_command_line",
     "unsteady_export_threshold",
@@ -1173,15 +1175,30 @@ def _optional_rotor_speed(case: SimCase) -> RotorSpeed | None:
     clock speed for a MOTIONS-only row where it previously got None. That
     is FR-64's intent and it is a change a reader of the reduction diff
     alone would not see (the architecture lens, 2026-09-10).
+    THE MOTIONS ARE ASKED FIRST, and the order is the whole fix of
+    2026-09-11. The two questions were asked the other way round -- does the
+    row state a ratio or an rpm, and only then, does the row turn rotors --
+    so a row that does BOTH took the flat branch, which resolves J against
+    the configuration's single `rotor_diameter`. That length is exactly what
+    FR-63 moved into each rotor block, because one configuration turning two
+    sizes of rotor has no one diameter to put there, so the flat branch
+    could not answer and the branch that could was never reached. Measured
+    on the author's pfs0160 row 6002: `time_average`, `phase_locked` and
+    `per_blade` all skipped, each naming a key the reference is right not to
+    carry, while the SCRIPT for the same point built correctly at 36 steps.
+    A motion view carries the row's own variables plus its record's, so it
+    answers everything the row could answer and one thing more, the rotor's
+    own diameter; asking it first is therefore strictly wider and never
+    narrower.
     """
+    turning, _lost = _the_rotors_the_row_turns(case)
+    if turning:
+        views = [view for _, view, _ in turning]
+        speeds = [speed for _, _, speed in turning]
+        return _clock_speed(case, views, speeds)
     if _stated_advance_ratio(case) is not None or _variable(case, RPM_VARIABLE) is not None:
         return rotor_speed(case)
-    turning, _lost = _the_rotors_the_row_turns(case)
-    if not turning:
-        return None
-    views = [view for _, view, _ in turning]
-    speeds = [speed for _, _, speed in turning]
-    return _clock_speed(case, views, speeds)
+    return None
 
 
 def _the_rotors_the_row_turns(
@@ -1300,6 +1317,56 @@ class TimeStepping:
             "rpm": self.rpm,
             "steps_per_revolution": self.steps_per_revolution,
         }
+
+
+def time_steps_of(case: SimCase) -> int | None:
+    """Return the physical time steps one case asks for, or None for a steady row.
+
+    The cost table of FR-82 needs this for a point it is about to plan, and
+    the fit behind it needs the same number for a point already RECORDED, so
+    it is one function rather than two readings of one fact.
+
+    BOTH UNSTEADY RUN TYPES RESOLVE ONE. The first writing asked
+    :func:`unsteady_time_stepping` for the ``unsteady`` recipe alone, so a
+    ROTOR row -- the row whose cost anyone actually wants to know -- reported
+    nothing. A rotor row states its azimuthal step and its revolutions rather
+    than a count: ``DELTA_THETA`` 15 over ``REVOLUTIONS`` 1.5 is 36 steps, and
+    :func:`rotor_time_stepping` is what turns the one into the other.
+
+    Parameters
+    ----------
+    case : SimCase
+        The case, with its sweep point already filled: a row sweeping
+        ``ADVANCE_RATIO`` states no rotor speed until the point supplies the
+        value, and the clock of a rotor row is resolved against that speed.
+
+    Returns
+    -------
+    int or None
+        The step count, or None for a steady row and for a row this reader
+        cannot step. The second answers None rather than raising because the
+        caller is a REPORT: a row the builder will refuse gets its refusal
+        from the builder, with the builder's message, and a table meanwhile
+        prints a blank instead of a number nobody can check.
+    """
+    if case.recipe == "steady":
+        return None
+    try:
+        if case.recipe == "unsteady_rotor":
+            stepping = rotor_time_stepping(case, speed=_optional_rotor_speed(case))
+        else:
+            stepping = unsteady_time_stepping(case)
+        iterations = getattr(stepping, "time_iterations", None)
+    except CampaignConfigError:
+        iterations = None
+    if iterations is None:
+        # THROUGH THE TEXT, and not through `int(raw)` directly: a variable
+        # cell is a str, a float or an int, and only the digits check below
+        # tells the three apart safely. `int(3.7)` would silently truncate a
+        # clock nobody stated that way.
+        raw = str(case.variables.get(TIME_ITERATIONS_VARIABLE) or "").strip()
+        iterations = int(raw) if raw.isdigit() else None
+    return iterations
 
 
 def rotor_time_stepping(case: SimCase, *, speed: RotorSpeed | None = None) -> TimeStepping:
@@ -5634,6 +5701,15 @@ def _emit_one_probe_table(case, script, frames, probes, vertex: int, *, unsteady
                 for a, b in zip(line.start, line.end, strict=True)
             ]
             vertex += 1
+            # FR-91. RECORDED BY THE LOOP THAT PLACES IT, so the position a
+            # reader is given is the position the solver was given. It is
+            # recorded for BOTH run types: a steady export carries its own
+            # X, Y and Z and still never names the frame they are in, and a
+            # table of coordinates that does not say which frame is as
+            # unplaceable as one carrying none.
+            script.probe_points.append(
+                (vertex, float(point[0]), float(point[1]), float(point[2]), probes.frame)
+            )
             if unsteady:
                 for parameter in probes.parameters:
                     script.emit(
@@ -5696,6 +5772,11 @@ def _emit_one_probe_table(case, script, frames, probes, vertex: int, *, unsteady
         lattice += _circle_points(circle, scale)
     for point in lattice:
         vertex += 1
+        # FR-91, and the lattice reaches here for BOTH run types, so one
+        # append covers a rectangle and a circle on either path.
+        script.probe_points.append(
+            (vertex, float(point[0]), float(point[1]), float(point[2]), probes.frame)
+        )
         if unsteady:
             for parameter in probes.parameters:
                 script.emit(

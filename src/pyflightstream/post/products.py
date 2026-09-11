@@ -930,8 +930,99 @@ def write_plots_table(path: str | Path, export_text: str) -> Path | None:
     )
 
 
-def write_probes_table(path: str | Path, export_text: str) -> Path | None:
-    """Write one probe-points table from an EXPORT_PROBE_POINTS export (FR-87).
+#: FR-91. The columns every probe table opens with, whatever run type filled
+#: it, and the whole of what her transparency rests on: which point this is,
+#: where it is, the frame those coordinates are measured in, and which solver
+#: step the sample is from. `STEP` is empty on a steady row, which has one.
+PROBE_SPINE: tuple[str, ...] = ("PROBE", "X", "Y", "Z", "FRAME", "STEP")
+
+
+def _probe_parameters(pproc) -> tuple[str, ...]:
+    """Return the fluid parameters this artifact's probe entries ask for (FR-91).
+
+    In declaration order, de-duplicated, across every `[[probes]]` entry,
+    because the numbered groups of an unsteady plots export are composed
+    from these names and the vertex counter runs across the entries.
+    """
+    out: list[str] = []
+    for entry in getattr(pproc, "probes", None) or []:
+        for parameter in getattr(entry, "parameters", None) or []:
+            if parameter not in out:
+                out.append(parameter)
+    return tuple(out)
+
+
+def read_probe_positions(path: str | Path) -> dict[int, tuple[float, float, float, str]]:
+    """Read a run's probe positions, keyed by the vertex number (FR-91).
+
+    The file the run stage wrote beside the script that placed the points,
+    `sims/<sim>/profiles/<sim>_probe_points.csv`. The key is the vertex
+    number, which is the suffix an unsteady fluid plot carries in its own
+    name, so `MACH7` is vertex 7 here.
+
+    A file that is not there, or that this reader does not recognise,
+    answers an EMPTY MAPPING rather than raising: every run recorded
+    before 0.16.0 has none, and a probe table without its positions is
+    what those runs have always produced. Refusing them would take a
+    product away from a campaign that already happened.
+    """
+    target = Path(path)
+    if not target.is_file():
+        return {}
+    out: dict[int, tuple[float, float, float, str]] = {}
+    try:
+        columns, rows = read_csv_table(target)
+    except Exception:
+        return {}
+    # NO SHAPE CHECK ON THE HEADER, and its absence is deliberate. One stood
+    # here and a mutant that deleted it changed no answer this module can
+    # produce: the per-row guard below already yields nothing for a table
+    # whose cells are not there, and the strict check additionally REFUSED a
+    # correctly named table whose columns are in another order, which is a
+    # worse answer than reading it. A check nothing can tell from its
+    # absence is an opinion wearing a guard's clothes.
+    for row in rows:
+        try:
+            vertex = int(float(row["PROBE"]))
+            out[vertex] = (float(row["X"]), float(row["Y"]), float(row["Z"]), str(row["FRAME"]))
+        except (KeyError, TypeError, ValueError):
+            continue
+    return out
+
+
+def _probe_spine(
+    vertex: int,
+    positions: Mapping[int, tuple[float, float, float, str]],
+    step: object = "",
+    *,
+    stated: tuple[float, float, float] | None = None,
+) -> tuple[object, ...]:
+    """One row's spine: the point, where it is, its frame, and the step.
+
+    ``stated`` is the position the EXPORT ITSELF carries, which a steady
+    probe export does and an unsteady plots export does not. Where the
+    export states one it wins, because it is the solver's own answer about
+    the point it sampled; the recorded position then supplies only the
+    frame NAME, which no export carries at all.
+    """
+    recorded = positions.get(vertex)
+    if stated is not None:
+        x, y, z = stated
+    elif recorded is not None:
+        x, y, z = recorded[0], recorded[1], recorded[2]
+    else:
+        return (vertex, "", "", "", "", step)
+    frame = "" if recorded is None else recorded[3]
+    return (vertex, x, y, z, frame, step)
+
+
+def write_probes_table(
+    path: str | Path,
+    export_text: str,
+    *,
+    positions: Mapping[int, tuple[float, float, float, str]] | None = None,
+) -> Path | None:
+    """Write one probe-points table from an EXPORT_PROBE_POINTS export (FR-87, FR-91).
 
     The flow-field samples of a point that is not an unsteady history:
     one row per probe point, the export's own columns in its own order
@@ -948,6 +1039,21 @@ def write_probes_table(path: str | Path, export_text: str) -> Path | None:
     naming the file, never a silent skip; an export with no probe point
     returns None, as an unsteady export with no step does, since a table
     of nothing is a promise of content that is not there.
+
+    FR-91 PUTS THE SPINE IN FRONT OF THOSE COLUMNS. A steady export
+    already states `X`, `Y` and `Z` and it never states WHICH FRAME they
+    are measured in, so a reader could place the numbers only by knowing
+    the artifact. The export's own coordinates are kept, because they are
+    the solver's answer about the point it sampled; the recorded
+    positions supply the frame name and nothing else here.
+
+    Parameters
+    ----------
+    positions : mapping, optional
+        Vertex number to ``(x, y, z, frame)``, from
+        :func:`read_probe_positions`. Absent for every run recorded
+        before 0.16.0, and the spine's position and frame cells are then
+        empty rather than the table being refused.
     """
     try:
         report = parse_probe_points(export_text)
@@ -956,9 +1062,85 @@ def write_probes_table(path: str | Path, export_text: str) -> Path | None:
     values = np.asarray(report.values, dtype=float)
     if values.size == 0:
         return None
-    return write_csv_table(
-        path, tuple(report.columns), [tuple(float(v) for v in row) for row in values]
-    )
+    known = dict(positions or {})
+    columns = tuple(report.columns)
+    # THE EXPORT'S OWN X, Y AND Z MOVE INTO THE SPINE rather than being
+    # repeated after it. A table carrying two pairs of coordinate columns
+    # invites the question of which pair to trust, and the answer would
+    # have to be "they are the same", which is a thing to assert and not a
+    # thing to ship twice.
+    axes = {name: index for index, name in enumerate(columns) if name in ("X", "Y", "Z")}
+    rest = tuple(name for name in columns if name not in axes)
+    rows: list[tuple[object, ...]] = []
+    for order, row in enumerate(values.tolist(), start=1):
+        stated = None
+        if len(axes) == 3:
+            stated = (float(row[axes["X"]]), float(row[axes["Y"]]), float(row[axes["Z"]]))
+        rows.append(
+            (
+                *_probe_spine(order, known, stated=stated),
+                *(float(row[columns.index(name)]) for name in rest),
+            )
+        )
+    return write_csv_table(path, (*PROBE_SPINE, *rest), rows)
+
+
+def write_unsteady_probes_table(
+    path: str | Path,
+    plots_table: str | Path,
+    *,
+    positions: Mapping[int, tuple[float, float, float, str]],
+    parameters: Sequence[str],
+) -> Path | None:
+    """Write the probe table of an UNSTEADY row, from its plots table (FR-91).
+
+    The export that an unsteady row produces for its probes is the plots
+    table, and it carries one NUMBERED GROUP per probe point:
+    ``MACH7, VELOCITY7, VX7, VY7, VZ7, STATIC_PRESSURE_RATIO7``. It never
+    says where vertex 7 is, which is her whole complaint: "pro unsteady, e
+    importante ter o arquivo de posicao porque nao vem escrito no unsteady
+    plots". This un-pivots those groups into one row per point and step and
+    puts the recorded position in front of them.
+
+    THE COLUMNS ARE COMPOSED FORWARD, from the parameters the artifact
+    declares and the vertices the script recorded, exactly as the builder
+    composed the names it emitted. A pattern read backward off the header
+    would collect a force column of a family named ``Blade1`` as parameter
+    ``Blade`` of vertex 1.
+
+    Read from the WRITTEN plots table rather than from the export in
+    memory, which is this module's rule: a derived table is derived from
+    the file a user holds and can be recomputed from it.
+
+    Returns
+    -------
+    Path or None
+        None when the row recorded no probe position, when the artifact
+        declares no probe parameter, or when no group of the two is
+        actually in the table: a file of a spine and nothing else is a
+        promise of content that is not there.
+    """
+    if not positions or not parameters:
+        return None
+    columns, rows = read_csv_table(plots_table)
+    present = set(columns)
+    groups = [
+        (vertex, [f"{parameter}{vertex}" for parameter in parameters])
+        for vertex in sorted(positions)
+    ]
+    groups = [(vertex, names) for vertex, names in groups if all(n in present for n in names)]
+    if not groups:
+        return None
+    out: list[tuple[object, ...]] = []
+    for step, row in enumerate(rows, start=1):
+        for vertex, names in groups:
+            out.append(
+                (
+                    *_probe_spine(vertex, positions, step),
+                    *(float(row[name]) for name in names),
+                )
+            )
+    return write_csv_table(path, (*PROBE_SPINE, *tuple(parameters)), out)
 
 
 # --- PFS-2015.04: the reductions of a plots table, beside it -----------------------
@@ -1300,6 +1482,7 @@ def _sim_products(
     points: list[PolarPoint] = []
     exports: dict[str, tuple[Path | None, Path | None, Path | None]] = {}
     plans: dict[str, dict[str, object] | None] = {}
+    probe_positions: dict[int, tuple[float, float, float, str]] = {}
     sim_dir = workspace.sim_dir(sim_id)
     for record in records:
         if not record.outputs:
@@ -1329,6 +1512,13 @@ def _sim_products(
         exports[stem] = (sloads_path, plots_path, probes_path)
         plans.setdefault(stem, record.reductions)
         sources.setdefault(stem, []).append(record.run_id)
+        # FR-91. Where this run put its probe points. Per SIM and identical
+        # across the sweep, so the first record that names one answers for
+        # every point; a record written before 0.16.0 names none and the
+        # probe table is then written without the position columns, as it
+        # always was.
+        if record.probe_points_file and not probe_positions:
+            probe_positions.update(read_probe_positions(sim_dir / record.probe_points_file))
     if not points:
         return [], {}, {}
     points.sort(key=lambda point: point.alpha_deg)
@@ -1471,7 +1661,9 @@ def _sim_products(
             # away.
             try:
                 done = write_probes_table(
-                    target, probes_path.read_text(encoding="utf-8", errors="replace")
+                    target,
+                    probes_path.read_text(encoding="utf-8", errors="replace"),
+                    positions=probe_positions,
                 )
             except ProductError as error:
                 skipped[relative] = str(error)
@@ -1488,6 +1680,24 @@ def _sim_products(
                 written.append(done)
                 written_names[done.relative_to(out).as_posix()] = {"runs": sources[point.name]}
                 plots_tables[point.name] = done
+                # FR-91. The unsteady half, and only where the steady
+                # export did not already write this point's table: a row
+                # that produced both has the fuller of the two, and two
+                # writers racing for one name is the duplicate FR-90 is
+                # about.
+                probe_target = _target(out / PROBES_DIR / f"{point.name}_probes.csv")
+                if not probe_target.exists():
+                    field = write_unsteady_probes_table(
+                        probe_target,
+                        done,
+                        positions=probe_positions,
+                        parameters=_probe_parameters(pproc),
+                    )
+                    if field is not None:
+                        written.append(field)
+                        written_names[field.relative_to(out).as_posix()] = {
+                            "runs": sources[point.name]
+                        }
                 _point_reductions(
                     done,
                     plans[point.name],

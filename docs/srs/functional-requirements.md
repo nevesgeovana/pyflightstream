@@ -2867,13 +2867,18 @@ requirement below is one seam of that division.
     point, and a test asserts that pairing over every workflow the package
     builds, because the defect is the PAIRING and not the run type.
 
-!!! requirement "FR-82 A plan flag tables what each polar will cost, and what it is expected to take <span class='srs-pending'>pending</span>"
+!!! requirement "FR-82 A plan flag tables what each polar will cost, and what it is expected to take <span class='srs-implemented'>implemented</span>"
 
     *Origin: the author's request of 2026-09-10, "no plan, eu quero uma flag
     que ao ser ativada, volta tambem um resumo de tempo de execucao esperado
     para cada polar", with the columns she listed and "inclua tambem o numero
-    de processadores setados". Carried by PFS-2035.29.
-    Evidence owed: the tests that node names.*
+    de processadores setados". Carried by PFS-2035.29. Her instruction of
+    2026-09-11 on what the estimate may rest on: "eu quero uma estimativa do
+    tempo da rodada. Eu vou depois fazer um estudo de escalabilidade mais
+    completo e te passar os dados para calibrar melhhor o modelo, por enquanto
+    use o que voce tem." Evidence: tests/tier1_offline/test_plan_cost.py,
+    18 cases, and tests/tier1_offline/test_cli_options_registry.py for the
+    flag.*
 
     WHAT IT IS FOR. `plan` answers whether a row will run. It does not answer
     what running it will cost, and the cost is a licence seat and an
@@ -2886,15 +2891,34 @@ requirement below is one seam of that division.
     iterations, processors, and an expected time. The flag spends NO solver
     time: everything in the table comes from the workspace and the mesh.
 
-    FIVE OF THE EIGHT COLUMNS ARE READABLE TODAY and three are not, which is
-    the shape of the work rather than a caveat. The run type is the row's
-    WORKFLOW; `viscous_coupling`, the farfield layers and
-    `max_parallel_threads` are setup settings; the temporal iterations follow
-    from `DELTA_THETA` and `REVOLUTIONS`. The mesh reader exposes boundary
-    names and labels and NO panel or vertex count, so the size column needs
-    it extended to count what it already walks. Trailing edges are a solver
-    OUTCOME of `AUTO_DETECT_TRAILING_EDGES`, so the column carries what the
-    package can derive from the mesh or what a row states, never a guess.
+    EVERY COLUMN BUT THE TIME IS A READING, and each is read from the thing
+    that owns it. The run type is the row's WORKFLOW; `viscous_coupling`, the
+    farfield layers and `max_parallel_threads` are setup settings; the
+    temporal iterations follow from `DELTA_THETA` and `REVOLUTIONS` through
+    the same resolver the builder uses, so a rotor row answers 36 where 1.5
+    turns are taken 15 degrees at a time. Trailing edges are the families the
+    row marks for vorticity drag INTERSECTED with the inventory the opened
+    geometry declares, which is what the builder does with them.
+
+    THE MESH SIZE IS THE FILE'S OWN STATEMENT and the caveat travels with it.
+    An earlier draft of this paragraph said the mesh reader exposes no panel
+    or vertex count and the column would need it extended; that was true of
+    the NAME reader and not of the file. The mesh block states an element
+    count two lines above the boundary count, and `_fsm` steps over that line
+    on purpose, because one campaign geometry states 7848 where every array
+    holds 7784. So the column can be off by about a percent, the alternative
+    is walking a 9 MB file once per row, and the number is barred from
+    arithmetic: the fit is linear in the time steps and in nothing else.
+
+    THREE OF THESE COLUMNS WERE READINGS OF THE WRONG THING before they were
+    held against a real workspace, and each rendered perfectly. `panels` was
+    the BOUNDARY count, so a wing-body read 2 where its mesh states 14266;
+    `procs` and `TEs` each read a variable key no row writes, so each printed
+    one value for every row in the table and neither could have printed
+    another. A column that cannot be wrong is a column nobody is measuring,
+    which is why each of them is now guarded by a case that DISCRIMINATES:
+    the fixture geometry's element count differs from its boundary count, and
+    the marked families include one the geometry does not carry.
 
     EVERY CELL THE PACKAGE CANNOT DERIVE PRINTS AS UNKNOWN, and a test
     asserts that a mesh with no countable panels prints unknown in that
@@ -2935,13 +2959,43 @@ requirement below is one seam of that division.
 
     So the rule is not a universal but a condition: AN ITERATION COUNT
     RECORDED BEFORE 0.16.0 IS UNTRUSTWORTHY WHERE THE RUN OUTLASTED ITS FIRST
-    PAGE, which is 89 of the 95 recorded points. The model this requirement
-    asks for re-derives them from the logs, which are on disk, or excludes
-    them and says so beside its calibration-set size.
+    PAGE, which is 89 of the 95 recorded points. This requirement asked the
+    model to re-derive them from the logs or exclude them and say so.
+
+    IT DOES NEITHER, BECAUSE IT NEVER READS THEM, and that is a better answer
+    than the one this paragraph asked for rather than a way around it. The
+    work a recorded run did is the step count ITS OWN ROW asks for, resolved
+    by the same function that resolves it for a point about to be planned, so
+    a record carrying the first page's last row moves no estimate. A test
+    hands the fit a record whose `iterations` is the classic wrong 100 and
+    asserts the estimate does not move.
+
+    A SAMPLE WHOSE WORK CANNOT BE RESOLVED IS LEFT OUT, never counted as one
+    solve, and the basis says how many were dropped. That sentence is here
+    because the first writing did count them as one solve: her recorded rotor
+    run carries a null step count, since every reduction of that point was
+    skipped, and the point was tabled at 7013.5s against its own recorded
+    194.8s.
+
+    THE COMPARABLE RUNS ARE THOSE OF THE SAME RUN TYPE, read from the
+    record's own `recipe` and not inferred from whether it carries a
+    reduction block. The proxy survives only for a manifest schema that
+    states no recipe, and it is wrong for exactly the case that broke it: an
+    unsteady run nobody planned a reduction for reads as steady and moves
+    every steady estimate in the table.
 
     The estimate prints the size of the calibration set beside it, and a test
-    scores the fit against HELD-OUT recorded points, because a model measured
-    on its own training set measures nothing.
+    scores the fit against a HELD-OUT point, because a model measured on its
+    own training set measures nothing. The hold-out discriminates: the two
+    training runs are of different lengths, so a model that answered the mean
+    of their wall times would be wrong by a factor of two.
+
+    AND THE WHOLE THING IS PROVISIONAL BY HER INSTRUCTION, not by hedging.
+    The table says so where it cannot be missed, under every printing:
+    "EXPECTED TIME IS AN EXTRAPOLATION AND NOT A MEASUREMENT", with one line
+    per run type naming the sample size behind that run type's number. A
+    point with no comparable recorded run prints `unknown` rather than a
+    figure with no basis.
 
 !!! requirement "FR-83 A section distribution is created after the solver is initialised <span class='srs-implemented'>implemented</span>"
 
@@ -3107,24 +3161,30 @@ requirement below is one seam of that division.
 
     THE GENERICITY IS THE REQUIREMENT and not a side effect. A reader of a
     finished campaign should not have to know whether a row was steady or
-    unsteady to know where the flow-field samples are. This lands with FR-81,
+    unsteady to know where the flow-field samples are. It lands with FR-81,
     under which a steady row creates the probe points it exports, so both run
     types produce the same directory with the same kind of content; the two
     are one capability seen from the writer's side and the reader's side.
 
     WHICH OF THE TWO SIDES THIS REQUIREMENT COVERS IS THE READER'S, and the
-    distinction is written here rather than left to the badge. What is
-    implemented is the POST STAGE: a point that HAS a flow-field export gets it
-    tabled under `post/<matrix>/probes/` with its fluid columns, whatever run
-    type produced it, and the test asserts that a steady row and an unsteady
-    row citing the same artifact produce the same path. THE STEADY PRODUCER IS
-    FR-81'S AND IS NOT BUILT: FR-81 is `pending`, and its own measurement is
-    that a steady row emits no probe creation verb, so a steady study that
-    declares probes today gets an export of nothing. The test's steady side is
-    a committed fixture written into the outputs folder by hand, which is the
-    honest way to test a reader whose writer does not exist yet, and it is not
-    evidence that the writer does. A steady run will not fill this directory
-    until FR-81 lands.
+    distinction is written here rather than left to the badge. What this
+    requirement implements is the POST STAGE: a point that HAS a flow-field
+    export gets it tabled under `post/<matrix>/probes/` with its fluid columns,
+    whatever run type produced it, and the test asserts that a steady row and
+    an unsteady row citing the same artifact produce the same path.
+
+    THE STEADY PRODUCER IS FR-81'S AND IT IS NOW BUILT (2026-09-11), which is
+    what closes the other half: a steady row emits the probe creation verbs and
+    then exports them, so a steady study that declares probes fills this
+    directory from its own run. Until that landed, this paragraph said the
+    opposite and said so deliberately.
+
+    THE TEST'S STEADY SIDE IS STILL A COMMITTED FIXTURE, and that is stated
+    rather than quietly upgraded now that the writer exists. It was written
+    into the outputs folder by hand because a reader's test must not wait on a
+    writer, and it stays a fixture because this requirement is about the
+    reader; the evidence that the writer produces the same thing is FR-81's
+    own, measured on the emitted script and not on this table.
 
     The flow-field samples of a point are written under
     `post/<matrix>/probes/` whatever the run type was, and the file carries
@@ -3214,13 +3274,16 @@ requirement below is one seam of that division.
     `post/<matrix>/`, which catches this duplicate and any other, rather than
     asserting the absence of one file name.
 
-!!! requirement "FR-91 A probe table carries where each point IS, beside what the flow did there <span class='srs-pending'>pending</span>"
+!!! requirement "FR-91 A probe table carries where each point IS, beside what the flow did there <span class='srs-implemented'>implemented</span>"
 
     *Origin: the author's instruction of 2026-09-11, "eu quero que tenha uma
     arquivo csv com o resultado das probes e a posicao xyz delas + frame de
     referencia junto ao resultado do fluido (velocidade, mach, etc) ... pro
     unsteady, e importante ter o arquivo de posicao porque nao vem escrito no
-    unsteady plots". Evidence owed: the tests that node names.*
+    unsteady plots", and her answer on which quantities: "leva todas as fluid
+    properties e tudo o que steady probes devolve, isso inclui ate informacao de
+    boundary layer". Evidence: tests/tier1_offline/test_probe_positions.py,
+    17 cases, mutation score 7 of 7.*
 
     WHAT IT IS FOR. A probe result says what the flow did. It does not say
     WHERE. For a steady export the position travels with the sample; for an
@@ -3236,14 +3299,47 @@ requirement below is one seam of that division.
     exactly the column that would let them place the data.
 
     A CSV under `post/<matrix>/probes/` carries, per probe point, its `X`, `Y`
-    and `Z`, the NAME of the frame those coordinates are measured in, and the
-    fluid quantities the export produced beside them: velocity, Mach and the
-    rest of what the probe returns. It is written for a steady row and for an
-    unsteady row alike, from the same writer, so the two cannot drift apart. A
-    test asserts that a steady row and an unsteady row citing the same probe
-    entry produce tables with the SAME columns, which is the assertion a
-    reader's transparency actually rests on.
+    and `Z`, the NAME of the frame those coordinates are measured in, the
+    solver step the sample came from, and the fluid quantities the export
+    produced beside them. It is written for a steady row and for an unsteady
+    row alike, under one name, `<point>_probes.csv`.
+
+    THE SPINE IS WHAT IS IDENTICAL, and this paragraph replaces one that asked
+    for identical COLUMNS. Measured on real exports of this estate: a steady
+    probe export carries `X, Y, Z, Mach, Cp_ref, vx, vy, vz, vtot, Cp` and the
+    boundary-layer columns `s_len, momentum_thickness, disp_thick, thickness,
+    CF, Transition`; an unsteady plots export carries, per probe point, the
+    numbered group `MACH<k>, VELOCITY<k>, VX<k>, VY<k>, VZ<k>,
+    STATIC_PRESSURE_RATIO<k>` and no boundary layer at all. The two sets are
+    not the same set, and her answer settles which way that resolves: take
+    everything the steady probe returns, the boundary layer included. A writer
+    that forced one column set would have to drop what she asked to keep or
+    invent what the solver did not measure. So `PROBE, X, Y, Z, FRAME, STEP` is
+    identical on both paths and a test asserts it, and each table's fluid
+    columns are its own export's, in its own names and units.
+
+    WHERE EACH POINT IS COMES FROM THE LOOP THAT PLACED IT. The builder records
+    the vertex number, the coordinates and the frame while it emits the point,
+    the run stage writes them to `sims/<sim>/profiles/<sim>_probe_points.csv`,
+    and the record names that file. The alternative was to re-derive the
+    coordinates in the post stage through the same line, rectangle and circle
+    layouts, which is a second author of one fact and disagrees with the first
+    the week either is touched.
+
+    THE NUMBERED GROUPS ARE COMPOSED FORWARD, from the parameters the artifact
+    declares and the vertices the script recorded, never matched by a pattern
+    against the header. Read backward, a force column of a mesh family named
+    `Blade1` matches parameter `Blade` of vertex 1 and joins the survey; a test
+    puts exactly that column in the table and asserts it stays out.
 
     THE FRAME IS NAMED AND NOT ASSUMED. A probe entry states the frame its
     points are given in, and a table that carried coordinates without saying
-    which frame they are in would be as unplaceable as one carrying none.
+    which frame they are in would be as unplaceable as one carrying none. A
+    steady export states `X`, `Y` and `Z` and names no frame at all, so even
+    the run type that always carried its positions could not place them
+    without this.
+
+    A RUN RECORDED BEFORE 0.16.0 STILL PRODUCES ITS TABLE. It names no
+    positions file, the frame cell is empty, and the steady coordinates still
+    come from the export as they always did. Refusing those runs would take a
+    product away from a campaign that already happened.

@@ -91,6 +91,13 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     ("pyfs-matrix", "overwrite"): SWITCH,
     ("pyfs-matrix", "resume"): SWITCH,
     ("pyfs-matrix", "strict"): SWITCH,
+    # FR-82, her design of 2026-09-11. A SWITCH: whether THIS plan also
+    # prints what the campaign is expected to cost is a property of the
+    # invocation, not of the machine. Nothing about the estate decides
+    # whether a reader wants the table, and a plan that always printed it
+    # would put an extrapolation in front of someone who asked for a
+    # pre-flight.
+    ("pyfs-matrix", "cost"): SWITCH,
     # PFS-2035.13, the author's design of 2026-09-10. A SWITCH and deliberately not a
     # registry knob: whether a family the opened mesh lacks is a skip or a
     # refusal is a property of THIS invocation's intent, not of the machine.
@@ -218,6 +225,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-matrix", "recipe"): frozenset({"convert", "plan", "run"}),
     ("pyfs-matrix", "refuse_missing_families"): frozenset({"plan", "run"}),
     ("pyfs-matrix", "resume"): frozenset({"run"}),
+    ("pyfs-matrix", "cost"): frozenset({"plan"}),
     ("pyfs-matrix", "strict"): frozenset({"post"}),
     ("pyfs-matrix", "sweep_csv"): frozenset({"run"}),
     ("pyfs-matrix", "workflow"): frozenset({"plan", "run"}),

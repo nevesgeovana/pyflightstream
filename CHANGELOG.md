@@ -20,6 +20,82 @@ FlightStream versions.
   so nothing was left unable to parse in between. A file still stating the old
   key is now refused by name.
 
+### Fixed
+
+- **Every reduction of a rotor row that sweeps its advance ratio was being
+  skipped.** Measured on a workspace built for 0.16.0: `time_average`,
+  `phase_locked` and `per_blade` all came back skipped for the rotor point,
+  each naming the same reason, "its reference carries no rotor diameter ...
+  Add `rotor_diameter_m`" -- a key the reference is right not to carry, since
+  the diameter belongs to the rotor block (FR-63) and a configuration turning
+  two sizes of rotor has no one length to put at the top level. The speed
+  reader asked two questions in the wrong order: does the row state an advance
+  ratio or an rpm, and only then, does the row turn rotors. A row that does
+  BOTH, which is what `ADVANCE_RATIO: sweep` beside a `MOTIONS` list is, took
+  the flat branch, and the branch that could answer was never reached. THE RUN
+  ITSELF WAS NEVER WRONG: the script for such a point builds with the right
+  clock, because the builder goes through the motion views. Only the
+  reductions were lost, silently, behind a message pointing at the wrong fix.
+  This is the defect FR-64 fixed for a row carrying no speed at all,
+  surviving one branch over.
+
+- **A changelog entry claimed a feature for a version that does not have it.**
+  The FR-89 entry below sat under `## [0.15.0]`, and the commit that built it
+  is not an ancestor of the v0.15.0 tag. It is moved rather than reworded.
+
+### Added
+
+- **`pyfs-matrix plan --cost` tables what each polar will cost (FR-82).** One
+  row per point beside the READY and BLOCKED report: mesh size, trailing edges
+  marked, farfield layers, viscous coupling, steady or unsteady, time steps,
+  processors, an expected time and the number of samples behind it. The flag
+  spends no solver time. EVERY COLUMN BUT THE TIME IS A READING, each from the
+  thing that owns it; a cell the package cannot derive prints `-` and never a
+  zero. THE TIME IS AN EXTRAPOLATION AND THE TABLE SAYS SO UNDER EVERY
+  PRINTING, fitted from the wall times this workspace recorded, comparably by
+  run type and linear in the time steps the point asks for, with one basis
+  line per run type. A point with no comparable recorded run prints `unknown`
+  rather than a figure with no basis, and a recorded run whose step count
+  cannot be resolved is left out of the fit rather than counted as one solve.
+  It is a crude model on purpose, pending a scalability study to calibrate it
+  against.
+
+- **A probe table says WHERE each point is, beside what the flow did there
+  (FR-91).** `post/<matrix>/probes/<point>_probes.csv` now opens with the same
+  six columns whichever run type filled it, `PROBE, X, Y, Z, FRAME, STEP`, and
+  then carries its own export's fluid quantities in their own names and units.
+  An unsteady plots export numbers its probe columns `MACH7, VELOCITY7, VX7`
+  and never says where point 7 is, so its samples could not be placed at all;
+  a steady export states coordinates and still never names the frame they are
+  measured in. The package now records the vertex, the coordinates and the
+  frame IN THE LOOP THAT EMITS THE POINT, writes them to
+  `sims/<sim>/profiles/<sim>_probe_points.csv`, and joins them here. THE FLUID
+  COLUMNS ARE NOT FORCED TO MATCH between run types: a steady export returns
+  the boundary layer and an unsteady one returns a static pressure ratio, and
+  keeping both beats intersecting them. A run recorded before 0.16.0 names no
+  positions file, so its `FRAME` cells are empty and its steady coordinates
+  still come from the export; the table is written either way.
+
+- **One derived file per polar and group carries everything the workspace
+  knows about that simulation (FR-89).** Written by the post stage beside the
+  polar table, `post/<matrix>/polars/SUPER-0001_M15AL+000BE+000J+sweep_g01.csv`:
+  the standard point convention with `SUPER-` in place of `POLAR-`, the swept
+  variable written literally as `sweep`, and the group suffix at the end. One
+  row per CONVERGED point and no time series, because it is written AFTER the
+  unsteady post-process. ITS COLUMN SET IS A SUPERSET of the union of what the
+  workspace knows: every column the polar table has, everything
+  `campaign_sweep.csv` holds, every parameter the unsteady plots produce with
+  forces and fluids alike, RPM and the advance ratio, every variable that
+  defines the flight condition as stated, pinned and resolved, every input of
+  the matrix row including `DESCRIPTION`, and the solver flags by their own
+  command names. The column set is the CAMPAIGN'S and not the polar's, so a
+  steady polar's file carries the same header as the rotor's beside it and a
+  reader cannot tell from the file which kind of run is behind a row. NO FIELD
+  IS LEFT OUT BY JUDGEMENT: the test BUILDS the union by reading the
+  workspace's own files rather than listing the names, so a field added
+  anywhere upstream fails it until it reaches the superfile, and the stage
+  leaves the same measurement under `reports/superfile-<release>.json`.
+
 ### Changed
 
 - **A simulation's collected outputs live under `sims/<sim>/outputs/`, not
@@ -101,14 +177,19 @@ FlightStream versions.
 
 ### Specified, not built
 
-- **FR-75 to FR-82 are written and PENDING**, the eight requirements the
-  author's questions and requests of 2026-09-10 produced, carried by
-  PFS-2035.22 to .29 at milestone 0.16.0. Seven came from her; FR-81 is a
-  defect found while measuring for the others, where a steady row citing a
-  valid `[probes]` table emits no probe creation verb and still emits
-  `EXPORT_PROBE_POINTS`. They change no public surface yet and are logged
-  here because the next release's scope is the thing a reader of this file
-  most often wants to know and has had to read the SRS to find.
+- **NOTHING OF 0.16.0'S SCOPE IS IN THIS SECTION ANY MORE, and the sentence
+  that stood here is kept below rather than deleted.** FR-75 to FR-82 were
+  logged as written and PENDING when this section was first filled; all eight
+  are now implemented, and so are FR-83 to FR-91, so the section that told a
+  reader what was specified but not built would be telling them about work
+  that is done. The entries above are where each of them now is.
+
+  What it said: "FR-75 to FR-82 are written and PENDING, the eight
+  requirements the author's questions and requests of 2026-09-10 produced,
+  carried by PFS-2035.22 to .29 at milestone 0.16.0. Seven came from her;
+  FR-81 is a defect found while measuring for the others, where a steady row
+  citing a valid `[probes]` table emits no probe creation verb and still emits
+  `EXPORT_PROBE_POINTS`."
 
 ### Owed
 
@@ -148,26 +229,6 @@ FlightStream versions.
 ## [0.15.0] - 2026-09-10
 
 ### Added
-
-- **One derived file per polar and group carries everything the workspace
-  knows about that simulation (FR-89).** Written by the post stage beside the
-  polar table, `post/<matrix>/polars/SUPER-0001_M15AL+000BE+000J+sweep_g01.csv`:
-  the standard point convention with `SUPER-` in place of `POLAR-`, the swept
-  variable written literally as `sweep`, and the group suffix at the end. One
-  row per CONVERGED point and no time series, because it is written AFTER the
-  unsteady post-process. ITS COLUMN SET IS A SUPERSET of the union of what the
-  workspace knows: every column the polar table has, everything
-  `campaign_sweep.csv` holds, every parameter the unsteady plots produce with
-  forces and fluids alike, RPM and the advance ratio, every variable that
-  defines the flight condition as stated, pinned and resolved, every input of
-  the matrix row including `DESCRIPTION`, and the solver flags by their own
-  command names. The column set is the CAMPAIGN'S and not the polar's, so a
-  steady polar's file carries the same header as the rotor's beside it and a
-  reader cannot tell from the file which kind of run is behind a row. NO FIELD
-  IS LEFT OUT BY JUDGEMENT: the test BUILDS the union by reading the
-  workspace's own files rather than listing the names, so a field added
-  anywhere upstream fails it until it reaches the superfile, and the stage
-  leaves the same measurement under `reports/superfile-<release>.json`.
 
 - **A setup declares CUSTOM FLAGS, and a row sets a solver command by
   name** (FR-74, PFS-2035.20, the author's instruction of 2026-09-10). A preset
