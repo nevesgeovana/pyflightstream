@@ -2563,10 +2563,18 @@ def _write_probe_points(
     if target.is_file():
         existing = target.read_text(encoding="utf-8", errors="replace").splitlines()
         header = existing[0].strip() if existing else ""
-        if header and header != ",".join(PROBE_POSITION_COLUMNS):
+        # AN EMPTY FILE IS NOT THIS WRITER'S EITHER. The guard read
+        # `if header and ...`, so a file with no first line, or a blank one,
+        # fell through and was overwritten in silence while the message above
+        # and the page both said it would not be (the technical writing lens,
+        # round two, 2026-09-11). The absolute is made TRUE rather than the
+        # sentence softened: the one file this writer may replace is one
+        # carrying its own header.
+        if header != ",".join(PROBE_POSITION_COLUMNS):
             raise PyflightstreamError(
                 f"{target} already exists and is not a probe positions file "
-                f"(its first line reads {header!r}, and this writer's is "
+                f"(its first line reads {header!r}, empty if the file is, and "
+                f"this writer's is "
                 f"{','.join(PROBE_POSITION_COLUMNS)!r}). This is where the package "
                 "records where it put this simulation's probe points, and it will "
                 "not overwrite a file it did not write. Rename the points file "
@@ -2776,7 +2784,7 @@ def point_costs(
 
     Returns
     -------
-    list of PointCost
+    list of PlannedPointCost
         In plan order.
 
     Notes
@@ -2809,6 +2817,10 @@ def point_costs(
     ]
 
 
+#: What `_elide` puts in place of the characters it drops.
+MARKER = "..."
+
+
 def _elide(text: str, width: int) -> str:
     """Shorten a run id to `width`, keeping its END and marking the cut.
 
@@ -2821,7 +2833,15 @@ def _elide(text: str, width: int) -> str:
     """
     if len(text) <= width:
         return text
-    return "..." + text[-(width - 3) :]
+    # THE RESULT IS NEVER LONGER THAN THE WIDTH IT WAS GIVEN. Without this,
+    # a width of three or less made `text[-(width - 3):]` a slice from zero or
+    # from the right of the string, and the marker was prepended to the WHOLE
+    # id: measured at 47 characters for a width of 3. Unreachable from the
+    # table today, which fixes the width at 38, and unbounded is the half that
+    # gets reached later (the QA lens, round two, 2026-09-11).
+    if width <= len(MARKER):
+        return text[-width:] if width > 0 else ""
+    return MARKER + text[-(width - len(MARKER)) :]
 
 
 def format_cost_table(costs: list[PlannedPointCost]) -> str:

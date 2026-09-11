@@ -149,6 +149,39 @@ def test_plan_preflights_through_the_input_library(tmp_path, monkeypatch, capsys
     assert workspace.read_manifest() == []
 
 
+def test_plan_with_cost_tables_every_point_it_planned(tmp_path, monkeypatch, capsys):
+    """FR-82 through the command line, which no case reached until round two.
+
+    The flag was asserted to EXIST, in the options registry, and never
+    asserted to print anything. This runs the whole path: `plan_matrix` with
+    `cost=True`, `point_costs` over the resolved cases, and the table on
+    STDOUT beside the summary.
+    """
+    (tmp_path / "matrix_cli_recipes.py").write_text(RECIPE_MODULE, encoding="utf-8")
+    monkeypatch.syspath_prepend(str(tmp_path))
+    workspace = make_planned_workspace(tmp_path)
+    assert main([*plan_args(workspace, "matrix_cli_recipes:build"), "--cost"]) == 0
+    out = capsys.readouterr().out
+    for column in ("mesh", "TEs", "layers", "visc", "type", "steps", "procs", "expected"):
+        assert column in out, column
+    # AND THE SENTENCE THAT KEEPS THE NUMBER HONEST, which is the half of
+    # FR-82 her instruction is most specific about.
+    assert "EXPECTED TIME IS AN EXTRAPOLATION AND NOT A MEASUREMENT" in out
+    # One row per planned point, and this matrix plans four.
+    assert out.count("/a") >= 4 or out.count("ready") >= 1
+
+
+def test_plan_without_cost_prints_no_table(tmp_path, monkeypatch, capsys):
+    """The flag is what asks for it; a plan that did not ask gets the summary."""
+    (tmp_path / "matrix_cli_recipes.py").write_text(RECIPE_MODULE, encoding="utf-8")
+    monkeypatch.syspath_prepend(str(tmp_path))
+    workspace = make_planned_workspace(tmp_path)
+    assert main(plan_args(workspace, "matrix_cli_recipes:build")) == 0
+    out = capsys.readouterr().out
+    assert "EXPECTED TIME IS AN EXTRAPOLATION" not in out
+    assert "no cost row" not in out
+
+
 def test_plan_reports_a_blocked_preflight_with_exit_1(tmp_path, capsys):
     workspace = make_planned_workspace(tmp_path)
     assert main(plan_args(workspace, "no.such.module:build")) == 1

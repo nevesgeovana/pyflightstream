@@ -1595,3 +1595,111 @@ def test_the_probe_positions_the_record_names_reach_the_delivered_table(tmp_path
     assert placed[1] == (-3.25, 7.5, 11.75)
     assert placed[2] == (-3.25, 7.5, 12.75)
     assert {row["FRAME"] for row in rows} == {"PUSHER_SMRP"}
+
+
+def test_an_unreadable_positions_file_costs_the_probe_table_and_nothing_else(tmp_path):
+    """F1 of round two, and the worst finding of the two rounds.
+
+    Round one asked that a positions file which is THERE and cannot be read
+    stop reading like a run recorded before the feature. I made it raise, and
+    the QA lens then measured what the raise costs: `write_campaign_products`
+    catches `ProductError` per SIMULATION, so one truncated file took that
+    simulation's polar table, its plots tables and every reduction with it.
+    Strictly worse than the silence it replaced, and against this module's own
+    stated rule that a file it cannot read costs the simulation none of its
+    other products.
+
+    So the refusal is caught at its call site and recorded. This asserts BOTH
+    halves: the skip is recorded naming the file, and the polar table is still
+    written.
+    """
+    from pyflightstream.post.products import write_campaign_products
+    from pyflightstream.workspace import RunRecord
+
+    workspace = _unsteady_workspace(tmp_path, reductions=None)
+    sim_dir = workspace.sim_dir("7001")
+    (sim_dir / "profiles").mkdir(parents=True, exist_ok=True)
+    broken = sim_dir / "profiles" / "7001_probe_points.csv"
+    # A file that is THERE and that `read_csv_table` refuses. Measured on
+    # three shapes: binary bytes and a one-column table both PARSE, and an
+    # EMPTY file raises. Empty is also the shape a crash between the open and
+    # the first write actually leaves behind.
+    broken.write_bytes(b"")
+    records = workspace.read_manifest()
+    updated = records[0].model_copy(update={"probe_points_file": "profiles/7001_probe_points.csv"})
+    (workspace.root / "runs.json").unlink()
+    workspace.append_record(RunRecord(**updated.model_dump()))
+
+    write_campaign_products(workspace)
+    manifest = _products_manifest(workspace)
+    skipped = manifest.get("skipped", {})
+    assert any("7001_probe_points.csv" in key for key in skipped), skipped
+    # AND THE PRODUCTS THAT HAVE NOTHING TO DO WITH IT ARE STILL THERE.
+    polars = sorted(p.name for p in (workspace.root / "post" / "products" / "polars").iterdir())
+    assert polars, "the simulation lost its polar table to an unreadable probe positions file"
+
+
+def test_a_point_with_a_steady_probe_export_does_not_get_the_unsteady_table(tmp_path):
+    """F2 of round two: the filesystem-to-data change was untested BOTH ways.
+
+    Reverting it to `if not probe_target.exists()` was green, and so was
+    `if True:`, which deletes the rule entirely. The rule is FR-90's: two
+    writers racing for one name is the duplicate that requirement is about,
+    and the steady export is the fuller of the two.
+
+    THE FIXTURE GIVES THE POINT BOTH, which is the only shape that can tell
+    the two apart: a steady probe export AND an unsteady plots export with
+    numbered groups. The steady one must win, and the way to tell is the
+    boundary-layer column, which only the steady export carries.
+    """
+    from pyflightstream.post.products import read_csv_table, write_campaign_products
+    from pyflightstream.run import _write_probe_points
+    from pyflightstream.workspace import RunRecord
+
+    workspace = _unsteady_workspace(tmp_path, reductions=None)
+    (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
+        '[groups]\n"1" = ["W", "B"]\n'
+        "\n[[probes]]\n"
+        'frame = "PUSHER_SMRP"\n'
+        'parameters = ["MACH", "VELOCITY"]\n',
+        encoding="utf-8",
+    )
+    probe_export = "Time-step,CL_MRP_TOTAL,MACH1,VELOCITY1\n" + "".join(
+        f"{i}.0000,{0.1 * i:.5f},{0.2 + i:.5f},{70.0 + i:.5f},\n" for i in range(1, 5)
+    )
+    outputs = workspace.sim_dir("7001") / "outputs"
+    (outputs / "a-02.0_plots.txt").write_text(
+        PLOTS_HEADER + probe_export + "-" * 60 + "\n     Force Units: Coefficients\n",
+        encoding="utf-8",
+    )
+    # AND a steady probe-points export for the same point.
+    steady = (Path(__file__).parent / "fixtures" / "probe_points_26.120.txt").read_text(
+        encoding="utf-8"
+    )
+    (outputs / "a-02.0_probes.txt").write_text(steady, encoding="utf-8")
+
+    relative = _write_probe_points(
+        workspace.sim_dir("7001"), "7001", [(1, 0.0, 1.0, 2.0, "PUSHER_SMRP")]
+    )
+    records = workspace.read_manifest()
+    updated = records[0].model_copy(
+        update={
+            "probe_points_file": relative,
+            "outputs": [
+                "outputs/a-02.0.txt",
+                "outputs/a-02.0_plots.txt",
+                "outputs/a-02.0_probes.txt",
+            ],
+        }
+    )
+    (workspace.root / "runs.json").unlink()
+    workspace.append_record(RunRecord(**updated.model_dump()))
+
+    write_campaign_products(workspace)
+    table = workspace.root / "post" / "products" / "probes" / "a-02.0_probes.csv"
+    assert table.is_file()
+    columns, _ = read_csv_table(table)
+    # The boundary layer is the steady export's and the unsteady one has none,
+    # so this tells which writer won without asserting on either's name.
+    assert "momentum_thickness" in columns, columns
+    assert "STATIC_PRESSURE_RATIO" not in columns

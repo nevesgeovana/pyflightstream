@@ -1406,8 +1406,8 @@ whichever run type filled it (FR-91), `PROBE, X, Y, Z, FRAME, STEP`, and
 then carries its own export's fluid quantities in their own names and
 units: a steady row brings Mach, Cp, the velocity components and the
 boundary-layer columns; an unsteady row brings the parameters its probe
-entry asked for, one row per point and solver step. `STEP` is empty on a
-steady row, which has one.
+entry asked for, one row per point and solver step. `STEP` carries `-` on a
+steady row, which has one step.
 
 The `X`, `Y`, `Z` and `FRAME` columns are why this table exists. An
 unsteady plots export numbers its probe columns, one per parameter the
@@ -1421,9 +1421,9 @@ in, so it could not be placed either without knowing the artifact.
 The package records the vertex, the coordinates and the entry's frame
 while it emits each point, writes them to
 `sims/<sim>/profiles/<sim>_probe_points.csv`, and joins them here. That
-file is the package's own record: it refuses to overwrite a file it did
-not write, so a points file of your own that happened to carry the same
-name is named in a refusal rather than replaced. A run recorded before
+file is the package's own record: it replaces only a file carrying its own
+header, so a points file of your own that happened to carry the same name is
+named in a refusal rather than replaced. A run recorded before
 0.16.0 named no such file, so its `FRAME` cells are empty and its steady
 coordinates still come from the export; the table is written either way.
 `STEP` carries `-` on a steady row, which has one step, and empty means a

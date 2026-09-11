@@ -68,15 +68,19 @@ FlightStream versions.
   counter running ACROSS the entries so the numbered plot names stay unique.
   THIS BREAKS EVERY 0.15.0 ARTIFACT and does so by her decision: "beleza, sem
   problema quebrar, vou ajustar". The old spelling is refused by name rather
-  than silently accepted, and the nineteen committed artifacts were migrated in
-  the same change.
+  than silently accepted. Nineteen artifacts were migrated in the same change,
+  and the noun matters: measured 2026-09-11, THREE of them are committed pproc
+  artifacts of this repository (the tree holds six, and none carries the old
+  spelling) and the other SIXTEEN are in her campaign workspaces.
 
 - **The console says which point a campaign is on while it runs (FR-78).** Her
   request: "eu gostaria de ter um log do pyflightstream aparecendo no powershell
   falando qual etapa que ta e qualquer warning enquanto ele roda". Two lines per
-  point on STDERR, flushed per line, silenced by `--quiet`. STDERR because
-  nobody asked for them; the cost table of FR-82 goes to STDOUT because an
-  operator asked for it with a flag.
+  point on STDERR, flushed per line. STDERR because nobody asked for them; the
+  cost table of FR-82 goes to STDOUT because an operator asked for it with a
+  flag. THE SWITCH IS A PYTHON PARAMETER AND NOT YET A COMMAND-LINE FLAG:
+  `run_campaign(..., quiet=True)` silences the lines, and no `--quiet` is
+  offered by any console program. Whether one should be is hers to say.
 
 - **A probe entry prescribes a rectangular or a circular PLANE, not only a line
   (FR-79).** A rectangle by three corners with a discretisation along each
@@ -116,10 +120,12 @@ FlightStream versions.
   thing that owns it; a cell the package cannot derive prints `-` and never a
   zero. THE TIME IS AN EXTRAPOLATION AND THE TABLE SAYS SO UNDER EVERY
   PRINTING, fitted from the wall times this workspace recorded, comparably by
-  run type and linear in the time steps the point asks for, with one basis
-  line per run type. A point with no comparable recorded run prints `unknown`
-  rather than a figure with no basis, and a recorded run whose step count
-  cannot be resolved is left out of the fit rather than counted as one solve.
+  run type, with one basis line per run type. An UNSTEADY row's estimate is
+  linear in the time steps the point asks for; a STEADY row asks for none, so
+  its work is one solve and its basis line says that instead. A point with no
+  comparable recorded run prints `unknown` rather than a figure with no basis,
+  and a recorded unsteady run whose step count cannot be resolved is left out
+  of the fit rather than counted as one step.
   It is a crude model on purpose, pending a scalability study to calibrate it
   against.
 
@@ -127,17 +133,22 @@ FlightStream versions.
   (FR-91).** `post/<matrix>/probes/<point>_probes.csv` now opens with the same
   six columns whichever run type filled it, `PROBE, X, Y, Z, FRAME, STEP`, and
   then carries its own export's fluid quantities in their own names and units.
-  An unsteady plots export numbers its probe columns `MACH7, VELOCITY7, VX7`
-  and never says where point 7 is, so its samples could not be placed at all;
-  a steady export states coordinates and still never names the frame they are
-  measured in. The package now records the vertex, the coordinates and the
+  An unsteady plots export numbers its probe columns, one per parameter the
+  row's own probe entry declares, `MACH7, VELOCITY7, STATIC_PRESSURE_RATIO7`
+  on the recorded rotor point of `pfs0160`, and it never says where point 7
+  is, so its samples could not be placed at all. A steady export does state
+  its coordinates, and the frame it names is the ANALYSIS frame rather than
+  the one the probe entry laid its points out in, so it could not be placed
+  either without knowing the artifact. The package now records the vertex, the coordinates and the
   frame IN THE LOOP THAT EMITS THE POINT, writes them to
   `sims/<sim>/profiles/<sim>_probe_points.csv`, and joins them here. THE FLUID
   COLUMNS ARE NOT FORCED TO MATCH between run types: a steady export returns
   the boundary layer and an unsteady one returns a static pressure ratio, and
   keeping both beats intersecting them. A run recorded before 0.16.0 names no
   positions file, so its `FRAME` cells are empty and its steady coordinates
-  still come from the export; the table is written either way.
+  still come from the export; the table is written either way. `STEP` carries
+  `-` on a steady row, which has one step, and an EMPTY cell means a value the
+  package could not derive.
 
 - **One derived file per polar and group carries everything the workspace
   knows about that simulation (FR-89).** Written by the post stage beside the

@@ -2712,8 +2712,12 @@ requirement below is one seam of that division.
     at that moment. A test captures the stream of a two-point run and asserts
     that the first point's lines appear before the second point's begin, which
     is what distinguishes streaming from a buffer flushed at the end. The
-    verbosity is switchable and its default is what a person at a console
-    wants, because a flag nobody turns on is not a feature.
+    verbosity is switchable through the run layer's `quiet` parameter, and
+    its default is what a person at a console wants, because a switch nobody
+    turns on is not a feature. NO COMMAND-LINE FLAG IS OFFERED, and this
+    sentence read as promising one until the technical writing lens measured
+    that `--quiet` appears nowhere in the package (2026-09-11); whether a
+    console program should carry one is hers.
 
     WHERE THE LINES GO is decided before any is written: everything the run
     prints today that a caller consumes is on stdout and its errors are on
@@ -3325,7 +3329,10 @@ requirement below is one seam of that division.
     that forced one column set would have to drop what she asked to keep or
     invent what the solver did not measure. So `PROBE, X, Y, Z, FRAME, STEP` is
     identical on both paths and a test asserts it, and each table's fluid
-    columns are its own export's, in its own names and units.
+    columns are its own export's, in its own names and units. `STEP` carries
+    `-` on a steady row, which has one step; an EMPTY cell anywhere in the
+    spine means a value the package could not derive, which is what a run
+    recorded before 0.16.0 leaves in the position and frame columns.
 
     THE UNSTEADY GROUP IS THE ROW'S AND NOT THE FORMAT'S, and this paragraph
     once said otherwise under the word "measured". It named a six-column group

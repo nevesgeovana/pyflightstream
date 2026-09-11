@@ -991,11 +991,31 @@ def read_probe_positions(path: str | Path) -> dict[int, tuple[float, float, floa
     number, which is the suffix an unsteady fluid plot carries in its own
     name, so `MACH7` is vertex 7 here.
 
-    A file that is not there, or that this reader does not recognise,
-    answers an EMPTY MAPPING rather than raising: every run recorded
-    before 0.16.0 has none, and a probe table without its positions is
+    A file THAT IS NOT THERE answers an empty mapping: every run recorded
+    before 0.16.0 names none, and a probe table without its positions is
     what those runs have always produced. Refusing them would take a
     product away from a campaign that already happened.
+
+    A FILE THAT IS THERE AND CANNOT BE READ IS A REFUSAL, which is the
+    other half and the one this docstring promised wrongly until
+    2026-09-11: it said an unrecognised file answers an empty mapping too,
+    twelve lines above the `raise` in this same function. The two states
+    are different and must not read alike, or a positions file this
+    release wrote and a crash truncated produces a table of empty
+    coordinates with nothing anywhere saying so.
+
+    Returns
+    -------
+    dict
+        Vertex number to ``(x, y, z, frame)``, empty when the file is
+        absent.
+
+    Raises
+    ------
+    ProductError
+        The file is there and this reader cannot read it. The caller
+        records it as a skip naming the file, as it does for a probe
+        export it cannot parse.
     """
     target = Path(path)
     if not target.is_file():
@@ -1011,7 +1031,14 @@ def read_probe_positions(path: str | Path) -> dict[int, tuple[float, float, floa
         # table of empty coordinates in silence (the architecture and
         # interface lenses, 2026-09-11). The ABSENT file above stays silent,
         # as designed.
-        raise ProductError(f"the probe positions file {target} cannot be read: {error}") from error
+        raise ProductError(
+            f"the probe positions file {target} cannot be read: {error}. It is "
+            "where the run stage recorded which probe point is where, so the "
+            "probe table of this point cannot say where its samples are. Delete "
+            "it and re-run the point to have it written again, or, to get the "
+            "rest of the products now, move it aside: a point whose positions "
+            "file is ABSENT still gets its table, without the position columns."
+        ) from error
     # NO SHAPE CHECK ON THE HEADER, and its absence is deliberate. One stood
     # here and a mutant that deleted it changed no answer this module can
     # produce: the per-row guard below already yields nothing for a table
@@ -1545,6 +1572,10 @@ def _sim_products(
     exports: dict[str, tuple[Path | None, Path | None, Path | None]] = {}
     plans: dict[str, dict[str, object] | None] = {}
     probe_positions: dict[int, tuple[float, float, float, str]] = {}
+    # DECLARED HERE rather than with its siblings below, because the
+    # positions are read in the record loop and an unreadable file is
+    # recorded there, before the products loop that fills the rest.
+    skipped: dict[str, str] = {}
     sim_dir = workspace.sim_dir(sim_id)
     for record in records:
         if not record.outputs:
@@ -1580,7 +1611,18 @@ def _sim_products(
         # probe table is then written without the position columns, as it
         # always was.
         if record.probe_points_file and not probe_positions:
-            probe_positions.update(read_probe_positions(sim_dir / record.probe_points_file))
+            # CAUGHT HERE, AND THE BLAST RADIUS IS WHY. `read_probe_positions`
+            # refuses a file that is there and cannot be read, which is the
+            # distinction round one asked for; but this function's caller
+            # catches `ProductError` per SIMULATION, so letting it out would
+            # cost this simulation its polar table, its plots tables and every
+            # reduction over one unreadable positions file. That is the rename
+            # taking a product away that the probe-export reader twenty lines
+            # below is written against (the QA lens, round two, 2026-09-11).
+            try:
+                probe_positions.update(read_probe_positions(sim_dir / record.probe_points_file))
+            except ProductError as error:
+                skipped[f"{PROBES_DIR}/{record.probe_points_file}"] = str(error)
     if not points:
         return [], {}, {}
     points.sort(key=lambda point: point.alpha_deg)
@@ -1597,7 +1639,6 @@ def _sim_products(
     reference = ReferenceValues.from_mapping(reference_block)
     run_ids = [rid for stem in sources for rid in sources[stem]]
     written_names: dict[str, dict[str, object]] = {}
-    skipped: dict[str, str] = {}
     #: One entry per group: where its superfile goes and the polar rows it
     #: carries, in the point order of `points` (FR-89).
     super_rows: dict[str, tuple[Path, list[tuple[object, ...]]]] = {}
@@ -1747,7 +1788,6 @@ def _sim_products(
                 # that produced both has the fuller of the two, and two
                 # writers racing for one name is the duplicate FR-90 is
                 # about.
-                probe_target = _target(out / PROBES_DIR / f"{point.name}_probes.csv")
                 # FROM THE DATA AND NOT FROM THE FILESYSTEM. This asked
                 # whether the destination existed, so a stale table left by an
                 # earlier post run suppressed the fresh one and the product
@@ -1756,6 +1796,13 @@ def _sim_products(
                 # steady probe export, which is the thing the rule is about.
                 steady_probes = exports[point.name][2]
                 if steady_probes is None or not steady_probes.is_file():
+                    # `_target` IS CALLED INSIDE THE GATE, not before it. It
+                    # refuses a product that already exists, and on a point
+                    # that produced BOTH exports the steady writer has just
+                    # written this very path, so calling it first turned the
+                    # steady-wins rule into a refusal of the whole simulation
+                    # (found by the case written for this rule, 2026-09-11).
+                    probe_target = _target(out / PROBES_DIR / f"{point.name}_probes.csv")
                     field = write_unsteady_probes_table(
                         probe_target,
                         done,

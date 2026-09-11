@@ -603,3 +603,98 @@ def test_a_steady_row_records_its_points_too(tmp_path):
     build_script(case, script)
     assert [entry[1] for entry in script.probe_points] == [0.0, 0.5, 1.0]
     assert "NEW_PROBE_LINE" in script.render()
+
+
+def test_an_empty_file_in_the_way_is_refused_like_any_other(tmp_path):
+    """The absolute the guard states is true of the EMPTY file too.
+
+    The guard read `if header and header != ...`, so a file with no first
+    line, or a blank one, fell through and was overwritten in silence while
+    the message and the page both said it would not be. The absolute was made
+    true rather than the sentence softened: the one file this writer replaces
+    is one carrying its own header.
+    """
+    from pyflightstream._errors import PyflightstreamError
+
+    sim_dir = tmp_path / "sim_1"
+    (sim_dir / "profiles").mkdir(parents=True)
+    (sim_dir / "profiles" / "1_probe_points.csv").write_text("", encoding="utf-8")
+    with pytest.raises(PyflightstreamError, match="will not overwrite"):
+        _write_probe_points(sim_dir, "1", [(1, 0.0, 1.0, 2.0, "MRP")])
+
+
+def test_the_writer_replaces_its_own_file(tmp_path):
+    """And the case the refusal must not catch: re-running a point.
+
+    Every point of a sweep writes this same path with the same bytes, so a
+    guard that refused its own header would refuse the second point of every
+    swept row.
+    """
+    sim_dir = tmp_path / "sim_1"
+    first = _write_probe_points(sim_dir, "1", [(1, 0.0, 1.0, 2.0, "MRP")])
+    again = _write_probe_points(sim_dir, "1", [(1, 0.0, 1.0, 2.0, "MRP")])
+    assert first == again
+    assert read_probe_positions(sim_dir / again) == {1: (0.0, 1.0, 2.0, "MRP")}
+
+
+def test_a_step_the_table_states_oddly_is_carried_and_never_invented(tmp_path):
+    """The `Time-step` reader's three awkward inputs, pinned.
+
+    Measured sane and asserted by nothing until round two: a fractional step
+    is CARRIED rather than truncated, because a truncated 7.5 reads as the
+    step 7 that also exists; a cell that is not a number at all falls back to
+    the row's position rather than reaching the table as a NaN, which every
+    reader downstream would have to guess about.
+    """
+    recorded = read_probe_positions(positions_file(tmp_path, [(1, 0.0, 1.0, 2.0, "MRP")]))
+    plots = tmp_path / "p_plots.csv"
+    plots.write_text(
+        "Time-step,MACH1,VX1\n7.50000,0.10000,70.00000\nnot-a-number,0.20000,80.00000\n",
+        encoding="utf-8",
+    )
+    written = write_unsteady_probes_table(
+        tmp_path / "p_probes.csv", plots, positions=recorded, parameters=["MACH", "VX"]
+    )
+    assert written is not None
+    _, rows = read_csv_table(written)
+    steps = [row["STEP"] for row in rows]
+    assert float(steps[0]) == pytest.approx(7.5), "a fractional step was truncated"
+    # The second row states no number, so the ordinal stands: row two.
+    assert int(float(steps[1])) == 2
+    assert "nan" not in " ".join(steps).lower()
+
+
+def test_a_frame_name_carrying_a_comma_survives_the_positions_file(tmp_path):
+    """Why the writer goes through `csv`, asserted rather than argued.
+
+    The rationale was written into the code and no fixture ever carried a
+    comma, so a naive join would have passed every case while producing rows
+    the reader silently drops.
+    """
+    path = positions_file(tmp_path, [(1, 0.0, 1.0, 2.0, 'PUSHER,"odd" name')])
+    assert read_probe_positions(path) == {1: (0.0, 1.0, 2.0, 'PUSHER,"odd" name')}
+
+
+def test_a_mesh_block_whose_count_is_not_a_number_answers_nothing(tmp_path):
+    """`element_count`'s digit guard, which survived deletion.
+
+    Without it the reader raises `ValueError` out of a mesh reader whose
+    contract is to answer None for a file it does not recognise, and the cost
+    table's mesh column would take a simulation's whole stage with it.
+    """
+    from pyflightstream._fsm import MESH_MARKER, element_count
+
+    odd = tmp_path / "odd.fsm"
+    odd.write_text(
+        "\r\n".join([MESH_MARKER, "not-a-count", "99", "1"]) + "\r\n",
+        encoding="utf-8",
+        newline="",
+    )
+    assert element_count(odd) is None
+    good = tmp_path / "good.fsm"
+    good.write_text(
+        "\r\n".join([MESH_MARKER, "4321", "99", "1"]) + "\r\n",
+        encoding="utf-8",
+        newline="",
+    )
+    assert element_count(good) == 4321

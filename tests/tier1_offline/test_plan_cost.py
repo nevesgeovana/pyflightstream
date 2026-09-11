@@ -611,3 +611,43 @@ def test_point_costs_gives_no_row_to_a_point_whose_simulation_it_was_not_given(t
         manifest_path = tmp_path / "runs.json"
 
     assert point_costs(plan, cases_by_sim_id={}, workspace=_NoRuns()) == []
+
+
+# --------------------------------------------------------------------------
+# The arms round two proved had no case
+# --------------------------------------------------------------------------
+
+
+def test_a_run_id_is_never_rendered_wider_than_the_column(tmp_path):
+    """`_elide` returned a string LONGER than its width for a width of three.
+
+    `text[-(width - 3):]` slices from zero or from the right when the width is
+    at or below the marker, so the marker was prepended to the whole id:
+    measured at 47 characters for a width of 3. The table fixes the width at
+    38 so nothing reaches it today, and a bound nothing enforces is the half
+    that gets reached later.
+    """
+    from pyflightstream.run import _elide
+
+    long_id = "pfs0160/sim_6002/a+00.0_b+00.0_j+01.7"
+    for width in range(0, 45):
+        assert len(_elide(long_id, width)) <= width, (width, _elide(long_id, width))
+    # And the half the elision is FOR: the end survives, which is the point.
+    assert _elide(long_id, 20).endswith("j+01.7")
+    assert _elide(long_id, 60) == long_id
+
+
+def test_a_plan_with_no_points_still_constructs(tmp_path):
+    """The break the field reorder exists to keep from happening.
+
+    `CampaignPlan(campaign=..., fs_version=...)` is a public constructor call
+    that worked in every release, and it raised TypeError for one commit
+    because `costs` was put above `points` and forced `points` to lose its
+    default. No test constructed it that way, which is why only a review
+    caught it.
+    """
+    from pyflightstream.run import CampaignPlan
+
+    plan = CampaignPlan(campaign="camp", fs_version="26.123")
+    assert plan.points == []
+    assert plan.costs == []
