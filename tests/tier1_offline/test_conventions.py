@@ -918,3 +918,51 @@ def test_the_results_tables_module_imports_the_workspace_layer_nowhere_at_runtim
         "constructed CampaignWorkspace, so the coercion helper has no reason "
         "to exist."
     )
+
+
+def test_every_collect_outputs_call_names_its_datapoint():
+    """FR-92: the one caller outside tests was missed, and green said nothing.
+
+    `collect_outputs` gained a required keyword at 0.16.0 and twenty-one call
+    sites in `tests/` were swept. `examples/steady_polar.py` was not, and the
+    suite stayed green: the example IS executed as a subprocess and its exit
+    code IS asserted, but the call sits inside the branch that needs a solver
+    executable and the test passes none, so the whole half of the example that
+    uses the workspace API is never entered. Three lenses found it by reading
+    and no test could.
+
+    THIS IS THE STATIC CHECK THE QUALITY LENS ASKED FOR, and it is about the
+    CLASS rather than about that one line: any call to this method that does
+    not name a datapoint would land the files in a folder the assessor never
+    reads, or raise after the solver has run and cost a licensed seat per
+    point.
+
+    Scoped to the surfaces a USER copies from -- the package and the examples.
+    Tests are excluded deliberately: a test may construct the refusal itself.
+    """
+    import re
+
+    # Anchored on the INSTALLED package, as the layering checks above are, and
+    # then up two to the repository, so the example tree is found beside it.
+    repo = _SRC.parent.parent
+    roots = [p for p in (_SRC, repo / "examples") if p.is_dir()]
+    assert len(roots) == 2, (
+        f"the example tree was not found beside the package at {repo}; this check "
+        "would then pass by looking at nothing"
+    )
+    call = re.compile(r"\.collect_outputs\s*\((.*?)\)", re.S)
+    offenders = []
+    for root in roots:
+        for path in sorted(root.rglob("*.py")):
+            text = path.read_text(encoding="utf-8")
+            for match in call.finditer(text):
+                if "datapoint" not in match.group(1):
+                    line = text[: match.start()].count("\n") + 1
+                    offenders.append(f"{path.parent.name}/{path.name}:{line}")
+    assert not offenders, (
+        "collect_outputs is called without naming its datapoint at "
+        f"{', '.join(offenders)}. The keyword is required since 0.16.0 (FR-92): "
+        "without it the call raises after the solver has run, which costs a "
+        "licensed seat per point, and that is how the shipped example broke "
+        "while the suite stayed green"
+    )

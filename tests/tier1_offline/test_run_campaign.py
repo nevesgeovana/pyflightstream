@@ -501,11 +501,11 @@ def test_plan_marks_ready_and_already_recorded_points(tmp_path):
     [
         # ACROSS POINTS the refusal names the product tree, because that is
         # where two points sharing a name now collide.
-        (("loads.txt",), "collide in the product tree"),
+        (("loads.txt",), "told apart anywhere downstream"),
         (("loads_{point}.txt",), None),
         (("loads_{alpha}.txt",), None),  # any template that distinguishes them
-        (("loads_{mach}.txt",), "collide in the product tree"),  # per case, not per point
-        (("loads_{point}.txt", "log.txt"), "collide in the product tree"),
+        (("loads_{mach}.txt",), "told apart anywhere downstream"),  # per case, not per point
+        (("loads_{point}.txt", "log.txt"), "told apart anywhere downstream"),
         # WITHIN ONE POINT the refusal names the overwrite, because the two
         # outputs land in one folder under one base name. Keeping both
         # phrases apart is what stops this test passing on the wrong
@@ -670,7 +670,7 @@ def test_the_run_path_refuses_the_collision_without_starting_the_solver(tmp_path
         # it names the product tree. What this asserts is that the record
         # carries THE COLLISION's reason rather than some later failure.
         assert "overwrite the first" in (record.error or "") or (
-            "collide in the product tree" in (record.error or "")
+            "told apart anywhere downstream" in (record.error or "")
         ), record.error
 
 

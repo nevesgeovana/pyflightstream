@@ -82,6 +82,7 @@ from pyflightstream._digest import file_sha256, optional_file_sha256, text_sha25
 from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning
 from pyflightstream.cases import (
     Campaign,
+    CampaignConfigError,
     ScriptRecipe,
     SimCase,
     check_recipe,
@@ -948,20 +949,29 @@ class LoadsAssessor:
 
     def __call__(self, case: SimCase, execution: ExecutionResult, sim_dir: Path) -> Assessment:
         """Judge one executed point from its collected outputs."""
-        # THE POINT'S OWN FOLDER FIRST, then the two folders a campaign
-        # wrote into before 0.16.0 (FR-92). A point collects into
+        # THE POINT'S OWN FOLDER, OR THE TWO A CAMPAIGN WROTE INTO BEFORE
+        # 0.16.0, AND NEVER BOTH (FR-92). A point collects into
         # `datapoints/DP-<point>/` since this release, so what is there is
         # that point's evidence and nothing else; `outputs/` held every
         # point of the simulation at once, and `raw/` was its name before
-        # 0.16.0. All three are READ because a workspace recorded under an
-        # older layout must keep every one of its points, and the first
-        # one that holds anything is the one judged: mixing them would put
-        # a sweep's shared folder back beside the point's own.
+        # 0.16.0. A workspace recorded under an older layout must keep
+        # every one of its points, so both are still read -- but ONLY
+        # where the point has no folder of its own. Mixing them would put
+        # a sweep's shared folder back beside the point's own, which is
+        # what this layout exists to prevent.
+        #
+        # The `break` below therefore ranks nothing on the first branch,
+        # which holds one folder; it ranks `outputs/` before `raw/` on the
+        # legacy branch, where a workspace can hold both.
         # `case` is None where a caller judges a folder directly rather
         # than a point, which the unit tests do and which is why this
         # reads through getattr like the declared-outputs narrowing below.
         point = getattr(case, "point", None)
-        own = Path(sim_dir) / SIM_DATAPOINTS_DIR / datapoint_dir_name(point) if point else None
+        # `if point` and not `is not None`: an EMPTY mapping has no folder to
+        # be judged from, and it cannot reach here carrying evidence anyway,
+        # because `collect_outputs` refuses it before anything is moved.
+        own_name = datapoint_dir_name(point) if point else None
+        own = None if own_name is None else Path(sim_dir) / SIM_DATAPOINTS_DIR / own_name
         # THE PREDICATE IS EXISTENCE AND NOT EMPTINESS, and the difference
         # is a wrong answer (the architecture and verification lenses,
         # 2026-09-11). A point whose folder EXISTS is judged from that
@@ -977,7 +987,7 @@ class LoadsAssessor:
         # recorded CONVERGED on the export of J=1.3 in silence. That is
         # the defect REV010-001 exists against, re-entered by a new door.
         folders = (
-            [f"{SIM_DATAPOINTS_DIR}/{datapoint_dir_name(point)}"]
+            [f"{SIM_DATAPOINTS_DIR}/{own_name}"]
             if own is not None and own.is_dir()
             else [SIM_OUTPUTS_DIR, LEGACY_SIM_OUTPUTS_DIR]
         )
@@ -1113,9 +1123,12 @@ class LoadsAssessor:
                     f"point than this run requested: {binding.describe()}. A loads "
                     "export prints the conditions the solver actually ran, so this "
                     "file is a valid result of another case rather than a bad "
-                    "result of this one. Within one simulation folder a later "
-                    "sweep point overwrites a same named export, so give each "
-                    "point a uniquely named output"
+                    "result of this one. Each point collects into its own "
+                    "folder, so a later sweep point no longer overwrites a same "
+                    "named export there; give each point a uniquely named output "
+                    "anyway, because the post-processing products of a point are "
+                    "named after it and two points sharing it collide in the "
+                    "product tree"
                 ),
                 **stamp,
             )
@@ -2040,7 +2053,8 @@ def run_campaign(
     Per point, in order: specialize the case (sweep point and staged
     geometry), build the script through the recipe (failure:
     FAILED_SCRIPT), execute it (failure or timeout:
-    FAILED_EXECUTION), collect the declared outputs into ``outputs/``
+    FAILED_EXECUTION), collect the declared outputs into that point's
+    own ``datapoints/DP-<point>/``
     (missing output: FAILED_INCOMPLETE_OUTPUT), and judge the solver
     quality through ``assess`` (CONVERGED, COMPLETED_MAX_ITER, or
     FAILED_DIVERGED). Exactly one record per point is appended to the
@@ -3361,13 +3375,20 @@ def _output_collision(
                 return (
                     f"sim {case.sim_id!r} would write {declared!r} for point {tag} and "
                     f"the same collected name {collected} for point {seen[collected]}: "
-                    "each point collects into its own folder, so nothing is overwritten "
-                    "there, but the post-processing products of a point are named after "
-                    "this file's stem and the two points would collide in the product "
-                    "tree instead: one table naming both runs while holding one point's "
-                    "data, and a superfile recording one point twice. Name the outputs "
-                    "per point, for example 'loads_{point}.txt', and export "
-                    "case.outputs[i] from the recipe"
+                    "each point collects into its own folder, so nothing is "
+                    "overwritten there, and what two points sharing one collected "
+                    "name lose is the ability to be told apart anywhere downstream. "
+                    "MEASURED FOR THE LOADS TABLE, which is the case that costs "
+                    "data: a point's post-processing products are named after its "
+                    "loads file's stem, so two points produce ONE table naming both "
+                    "runs while holding one point's, and a superfile recording one "
+                    "point twice. The check is applied to EVERY declared name rather "
+                    "than only the loads one, deliberately and knowing that some "
+                    "kinds produce no product: which kind a name turns out to be "
+                    "depends on the recipe that exports it, and refusing a name that "
+                    "would have been safe costs a rename while allowing one that is "
+                    "not costs a run. Name the outputs per point, for example "
+                    "'loads_{point}.txt', and export case.outputs[i] from the recipe"
                 )
             seen[collected] = tag
     return None
@@ -3805,7 +3826,15 @@ def _execute_point(
             # so a caller cannot name a folder the assessor will not read.
             datapoint=point,
         )
-    except WorkspaceError as error:
+    except (WorkspaceError, CampaignConfigError) as error:
+        # BOTH, because collection can refuse for two reasons and only one of
+        # them used to be caught. `collect_outputs` renders the point's folder
+        # name, so a point naming no known axis raises CampaignConfigError from
+        # `point_tag`, and that is not a WorkspaceError: uncaught it would abort
+        # the campaign HERE, after the solver has run, instead of costing this
+        # point (the architecture lens, 2026-09-11). Unreachable through
+        # `sweep.points()`, which yields only points keyed by a known axis, and
+        # caught anyway: the thing this costs is a licensed seat.
         return RunRecord(
             **base,
             status=RunStatus.FAILED_INCOMPLETE_OUTPUT,

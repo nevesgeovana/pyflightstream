@@ -2169,7 +2169,8 @@ class SimCase(BaseModel):
         booleans), for example a symmetry declaration.
     outputs : list of str
         Output files the recipe's script exports, relative to the
-        execution directory; the loop collects them into ``outputs/`` and
+        execution directory; the loop collects them into that point's own
+        ``datapoints/DP-<point>/`` and
         a missing one marks the point FAILED_INCOMPLETE_OUTPUT. Names
         may carry the naming placeholders, and the loop renders them
         for the point being built before the recipe runs, so a recipe
@@ -2614,7 +2615,7 @@ class Campaign(BaseModel):
         PYFS-003, second half. ``sim_id`` selects the simulation folder AND
         sits in the middle of every ``run_id``, so two cases sharing one
         would stage into the same ``inputs/``, write into the same
-        ``scripts/``, collect into the same ``outputs/``, and produce colliding
+        ``scripts/``, collect into the same ``datapoints/``, and produce colliding
         identities for any points whose tags agree. The model accepted it
         without complaint and the pre-flight reported both as READY.
 

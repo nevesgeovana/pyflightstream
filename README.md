@@ -211,7 +211,7 @@ surfaces they actually selected, so nothing you have written stops
 running.
 
 **And this patch carries a third run type, `unsteady`,** an unsteady run
-with nothing turning. It is a new capability under a patch number, by the
+with nothing turning. It is a new capability under a patch number, by
 an explicit exception, and it is named here because a patch number
 will not carry that news on its own. It asks nothing of you: no existing
 row changes. `docs/workspace-and-workflows.md` describes it.

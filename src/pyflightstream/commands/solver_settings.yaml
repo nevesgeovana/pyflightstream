@@ -421,7 +421,7 @@ DELETE_VALAREZO_CRITERION_BOUNDARIES:
   notes: >
     The manual's own name for clearing the Valarezo list, which the
     solver does not answer to. The name it answers to is the entry
-    directly below, recorded on a probe citation since the reference
+    directly below, recorded on a probe citation since the design
     decision of 2026-08-06 (PLN-20260805-1540). Both are kept: this one
     because SRC-741 p.339 documents it and a reader of that page needs
     to find out here that it does not work, and the other because it is

@@ -206,10 +206,10 @@ SOURCE_VERSION_REQUIRED_SINCE = "pyfs-manifest/2"
 def collection_name(declared: str | Path) -> str:
     r"""Return the name a declared output takes once collected.
 
-    Collection MOVES each declared output into ``outputs/`` under its
-    base name, so any directory part of the declared name is dropped:
-    both ``loads.txt`` and ``out/loads.txt`` become
-    ``outputs/loads.txt``.
+    Collection MOVES each declared output into that point's own
+    ``datapoints/DP-<point>/`` under its base name, so any directory part
+    of the declared name is dropped: both ``loads.txt`` and
+    ``out/loads.txt`` become ``datapoints/DP-<point>/loads.txt``.
 
     This is a module-level function rather than an inline expression
     because two layers have to agree on it, and when they did not, the
@@ -2180,7 +2180,7 @@ class CampaignWorkspace:
             # different remedy: the name is unique within THIS call, and what
             # is in the way is a record an earlier point or run collected.
             # Asked per destination rather than as a pre-scan, so a refusal
-            # here leaves the outputs already handled in outputs/. Nothing is
+            # here leaves the outputs already handled in the folder. Nothing is
             # destroyed either way, which is the guarantee; making it a
             # pre-scan would change behaviour rather than tighten it.
             if destination.exists():

@@ -146,12 +146,17 @@ def test_a_mixed_layout_judges_the_point_from_its_own_folder_and_not_the_legacy_
 
     THIS IS THE CASE THE THREE-LAYOUT TEST CANNOT SEE, because that one
     gives each layout its own directory so the two never sit in one
-    simulation. Two mutants survived the whole suite for want of it, and
-    each refuses a correctly run point here (the quality lens,
-    2026-09-11):
+    simulation. A mutant that puts the LEGACY folders first survived the
+    whole suite for want of it, and refuses a correctly run point here:
 
         folders = [outputs, raw] + own   ->  "several of them parse"
-        every folder merged, no break    ->  "several of them parse"
+
+    IT DOES NOT KILL THE MERGE MUTANT, and this docstring claimed it did
+    until the quality lens scored it (2026-09-11): a merge of ONE folder
+    is that folder, and this simulation holds one legacy folder beside
+    the point's own. The case below,
+    `test_the_older_of_the_two_legacy_folders_does_not_join_the_newer`,
+    is the layout that discriminates a merge, and it holds BOTH.
 
     The property is PRECEDENCE, stated by the code and by FR-92 and
     measured by nothing until now: a point that has a folder is judged
@@ -255,3 +260,49 @@ def test_a_point_with_no_axis_is_refused_before_anything_is_moved(tmp_path):
     with pytest.raises(CampaignConfigError, match="no known axis"):
         workspace.collect_outputs("9001", [produced], datapoint={})
     assert produced.is_file(), "a refusal must leave the source exactly where it was"
+
+
+def test_the_older_of_the_two_legacy_folders_does_not_join_the_newer(tmp_path):
+    """`outputs/` is read and `raw/` is not, on a workspace holding both.
+
+    THE `break` IN THE FOLDER LOOP CARRIES THIS and nothing measured it: a
+    mutant that drops it and MERGES every folder's files survived the whole
+    suite (the quality lens, 2026-09-11). Restored against this case it dies,
+    with the refusal the merge earns:
+
+        collected: outputs_loads.txt, raw_loads.txt
+        several of them parse The mixed-layout test above kills the
+    mutant that REORDERS the folders and not the one that merges them, because
+    a merge of one folder is that folder.
+
+    THE LAYOUT THAT DISCRIMINATES is a simulation holding BOTH pre-0.16.0
+    folders and no datapoint folder, which is what a workspace that lived
+    through the 0.16.0 rename looks like. FR-84 promises `outputs/` is the one
+    read there; merged, the two parse as two loads tables and the point is
+    refused.
+
+    WRITTEN ON AN ADVANCE-RATIO SWEEP, deliberately, as the empty-folder case
+    is: a loads export never prints the ratio, so REV010-001's binding cannot
+    tell the two files apart and cannot rescue a merge. An alpha-sweep version
+    of this test is inert and reports the mutant as equivalent.
+    """
+    from pyflightstream.cases import SimCase, SweepAxis
+
+    sim = tmp_path / "sim_9001"
+    for folder in ("outputs", "raw"):
+        (sim / folder).mkdir(parents=True)
+        (sim / folder / f"{folder}_loads.txt").write_text(_loads_text(), encoding="utf-8")
+
+    case = SimCase(
+        sim_id="9001",
+        aircraft="WB",
+        velocity=30.0,
+        recipe="steady",
+        sweep=SweepAxis(type="advance_ratio", values=[1.3, 1.7]),
+    )
+    case.point = {"alpha": 2.0, "advance_ratio": 1.7}
+    verdict = LoadsAssessor()(case, None, sim)
+    assert verdict.status is RunStatus.CONVERGED, (
+        "the two legacy folders were read together, so two files parsed as loads "
+        f"tables and the point was refused: {verdict.error}"
+    )

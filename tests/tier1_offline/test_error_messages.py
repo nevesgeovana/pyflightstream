@@ -328,7 +328,7 @@ def test_an_absolute_output_name_is_refused_with_the_same_reason():
 
     message = str(refused.value)
     assert "absolute path" in message
-    assert "collection moves them into outputs/" in message, (
+    assert "collection moves them into the point's own datapoints/ folder" in message, (
         "the absolute-name refusal names no consequence, while the '..' refusal does"
     )
     assert "named relative to the simulation folder" in message, "the refusal offers no remedy"

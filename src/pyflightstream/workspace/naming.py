@@ -74,9 +74,11 @@ _ARCHIVE_PLACEHOLDERS = ("campaign", "sim")
 SIM_DATAPOINTS_DIR = "datapoints"
 
 #: What every datapoint folder name begins with, so a reader scanning
-#: `datapoints/` sees at once that the entries are points and not files,
-#: and so a name that did NOT come from :func:`datapoint_dir_name` can be
-#: refused rather than silently collected into.
+#: `datapoints/` sees at once that the entries are points and not files.
+#: IT GUARDS NOTHING and nothing checks it: a collector is handed the
+#: POINT and renders the name here, so no caller-supplied name is left to
+#: refuse (the verification lens, 2026-09-11, on a docstring that claimed
+#: a refusal the code does not perform).
 DATAPOINT_PREFIX = "DP-"
 
 
@@ -450,13 +452,15 @@ def _check_output_containment(name: str) -> None:
         raise NamingTemplateError(
             f"the output name {name!r} is an absolute path. Declared outputs are "
             "named relative to the simulation folder, because collection moves "
-            "them into outputs/ and an absolute name would move a file from outside "
+            "them into the point's own datapoints/ folder and an absolute name would "
+            "move a file from outside "
             "the run into the run's own evidence."
         )
     if any(part == ".." for part in candidate.parts):
         raise NamingTemplateError(
             f"the output name {name!r} climbs out of the simulation folder with "
-            "'..'. Collection MOVES a declared output into outputs/, so this would "
+            "'..'. Collection MOVES a declared output into the point's own datapoints/ "
+            "folder, so this would "
             "not copy a file from outside the run, it would take it: the source "
             "would be gone and the run would record it as evidence it produced. "
             "Name outputs relative to the simulation folder."

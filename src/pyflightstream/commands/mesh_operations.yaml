@@ -61,8 +61,8 @@
 # CREATE_NEW_COORDINATE_SYSTEM (phase setup) created it; under the
 # package's ordering a geometry-phase rotation could therefore never
 # cite the frame the manual shows it citing, and a row rotating a blade
-# family about a frame its setup defines (the reference incidence study, design
-# 69) was refused at the frame it named. The phase is this package's
+# family about a frame its setup defines (the recorded incidence study,
+# design 69) was refused at the frame it named. The phase is this package's
 # reading of the sample, as the header of cad_create.yaml records for
 # the CAD family, whose FRAME arguments keep the reference frame;
 # whether the solver accepts the rotation after the frame is the seat

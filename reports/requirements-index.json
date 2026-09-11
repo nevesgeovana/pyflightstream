@@ -417,7 +417,7 @@
   },
   {
    "id": "FR-33e",
-   "text": "AMENDED AT 0.16.0 BY FR-92, which moves the folder and keeps both refusals. The destination is that point's own sims/<sim>/datapoints/DP-<point>/, not the raw/ this sentence was written against nor the outputs/ FR-84 renamed it to, so the second refusal below reads \"already held from an earlier run OF THIS POINT\". Two POINTS sharing a collected name are still refused, at plan time, and the reason moved with the folder: they no longer collide where they are collected, and they would collide in the product tree, which names a point's products after the loads file's stem.",
+   "text": "Two declared outputs of one collection whose base names agree are refused, and so is a declared output whose base name is already held in the destination folder from an earlier run. Neither refusal has an overwrite argument, deliberately, because the record either would replace is a run's evidence rather than a product a caller can choose to regenerate; the remedies are a per-point output name and an archived simulation, and both refusals name them.",
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: OPS-2005.10.03, accepted 2026-08-20, giving the collection half of review finding PYFS-005 the identifier it had never had. Evidence: CampaignWorkspace.collect_outputs in pyflightstream.workspace, raising WorkspaceError; tests/tier1_offline/test_error_messages.py::test_two_outputs_collecting_to_one_name_offer_the_placeholder_remedy; the behavioural cases in tests/tier1_offline/test_workspace.py.*",

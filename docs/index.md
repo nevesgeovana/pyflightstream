@@ -180,7 +180,7 @@ them. Positions still work and now warn, naming what they actually
 selected.
 
 **It also carries a third run type, `unsteady`,** an unsteady run with
-nothing turning, which is a new capability under a patch number by the
+nothing turning, which is a new capability under a patch number, by
 an explicit exception. It is named here because a patch number
 will not carry that news on its own, and it asks nothing of you: no
 existing row changes. See the workspace and workflows page.

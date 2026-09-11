@@ -52,7 +52,7 @@
 # of those candidates a licensed seat is actually spent re-measuring is a
 # domain judgment about which capabilities a vendor plausibly gates, and
 # it belongs to the owning seat. Nothing in this file records a membership,
-# and a subset written by anything other than her decision would be a
+# and a subset written by anything other than that seat's decision would be a
 # guess wearing the costume of evidence. Where a command's evidence rests
 # on a licence tier, that belongs in its own entry's notes with the
 # reason, in the same shape as any other evidence qualification.
@@ -73,8 +73,8 @@ versions:
   # February 2026 build arrived after the May one and took the earlier
   # index.
   #
-  # Why they are here at all: two of the three are builds the reference
-  # PUBLISHED work was run on. 25.000 and 25.100 carried two AIAA
+  # Why they are here at all: two of the three are builds the published
+  # work was run on. 25.000 and 25.100 carried two AIAA
   # Aviation 2025 papers, so a reader reproducing either needs the
   # identifier to exist and to resolve to a build number they can check
   # against their own install. That is a reproducibility requirement
@@ -107,8 +107,8 @@ versions:
     # reports/compat/CMP-25000_2026-08-09_identity.yaml
     #
     # The banner names release 25.0 at build 12162024, agreeing with the
-    # the recorded log of the build two AIAA Aviation 2025 papers were
-    # written on. This install ships its manual only as .chm; it was
+    # recorded log of the build two AIAA Aviation 2025 papers were written
+    # on. This install ships its manual only as .chm; it was
     # converted to a pdf with a reproducible pagination on 2026-08-10
     # and registered as SRC-749, so this build is read by the same tools
     # as every other (see the manual_editions entry below).
@@ -165,8 +165,8 @@ versions:
     # reports/compat/CMP-26100_2026-08-09_identity.yaml
     #
     # The banner names release 26.1 at build 2122026, agreeing with
-    # RPT-018 and with the recorded reference log of the build it was written from
-    # the AIAA AVIATION 2026 paper on.
+    # RPT-018 and with the recorded log of the build the AIAA AVIATION 2026
+    # paper was written on.
     build: "2122026"
     prints: "26.1"
   - canonical: "26.101"
@@ -280,7 +280,7 @@ versions:
     # INHERITS NOTHING, and this is the first build in the family for
     # which that is written. 26.121 and 26.122 both descend from 26.120,
     # on evidence rather than on the last digit, and the default is
-    # right for them. Here the reference instruction is the opposite and
+    # right for them. Here the recorded instruction is the opposite and
     # the reason is a number: with descent on, a build issued the day
     # before would answer for every command 26.120 records without one
     # page of its own manual being read or one line being run, and the

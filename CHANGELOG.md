@@ -221,10 +221,9 @@ FlightStream versions.
 
 ### Changed
 
-- **SUPERSEDED WITHIN THIS RELEASE BY FR-92 below, which gives each point its
-  own folder. Kept because it is the history of the word.** A simulation's
-  collected outputs live under `sims/<sim>/outputs/`, not
-  `raw/` (FR-84).** `raw` named how the data arrived; `outputs` names what it
+- **A simulation's collected outputs live under `sims/<sim>/outputs/`, not
+  `raw/` (FR-84).** SUPERSEDED WITHIN THIS RELEASE BY FR-92 below, which gives
+  each point its own folder; kept because it is the history of the word. `raw` named how the data arrived; `outputs` names what it
   is, and the second is what a reader opening a simulation folder wants. A
   workspace that already holds `sims/<sim>/raw/` IS STILL READ, so no
   recorded point is orphaned: the assessor judges a point over both folders,

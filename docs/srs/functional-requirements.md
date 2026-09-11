@@ -982,6 +982,14 @@ the base could not offer while it bundled several.
     `tests/tier1_offline/test_error_messages.py::test_two_outputs_collecting_to_one_name_offer_the_placeholder_remedy`;
     the behavioural cases in `tests/tier1_offline/test_workspace.py`.*
 
+    Two declared outputs of one collection whose base names agree are
+    refused, and so is a declared output whose base name is already held
+    in the destination folder from an earlier run. Neither refusal has an
+    overwrite argument, deliberately, because the record either would
+    replace is a run's evidence rather than a product a caller can choose
+    to regenerate; the remedies are a per-point output name and an
+    archived simulation, and both refusals name them.
+
     AMENDED AT 0.16.0 BY FR-92, which moves the folder and keeps both
     refusals. The destination is that point's own
     `sims/<sim>/datapoints/DP-<point>/`, not the `raw/` this sentence was
@@ -991,14 +999,6 @@ the base could not offer while it bundled several.
     and the reason moved with the folder: they no longer collide where
     they are collected, and they would collide in the product tree, which
     names a point's products after the loads file's stem.
-
-    Two declared outputs of one collection whose base names agree are
-    refused, and so is a declared output whose base name is already held
-    in the destination folder from an earlier run. Neither refusal has an
-    overwrite argument, deliberately, because the record either would
-    replace is a run's evidence rather than a product a caller can choose
-    to regenerate; the remedies are a per-point output name and an
-    archived simulation, and both refusals name them.
 
     One rule in two shapes, because collection MOVES each output into
     `raw/` under its base name and both shapes end in one file where the
@@ -3460,6 +3460,26 @@ requirement below is one seam of that division.
     judging (REV010-001), and refuses unchanged where that does not settle
     the matter. A test asserts each of the three layouts yields the same
     verdict for the same evidence.
+
+    THE POINT'S OWN FOLDER IS THE SOLE CANDIDATE SET WHEN IT EXISTS, EMPTY
+    INCLUDED, and the older folders are read ONLY where the point has none.
+    That is the precedence rule and it is stated here because a test can
+    otherwise only cite a code comment for it. The predicate is EXISTENCE and
+    not contents, which is the difference between a refusal and a wrong
+    answer: a collection that failed leaves an empty folder behind, and
+    falling back from it lands on a shared folder that may hold another
+    point's export. On an alpha sweep the operating-point binding above
+    catches that; on an ADVANCE-RATIO sweep it cannot, because a loads export
+    prints the alpha, the sideslip and the velocity it ran and never prints
+    the ratio, so two points of a J sweep are indistinguishable to it.
+    Measured: the point at J=1.7 was recorded CONVERGED on the export of
+    J=1.3, in silence.
+
+    A MIXED-LAYOUT SIMULATION IS THE CASE THAT DISCRIMINATES THIS, and it is
+    the upgrade path rather than a curiosity: a `outputs/` left by 0.15.0
+    with a point re-run under 0.16.0. Two mutants of the precedence survived
+    the whole suite until a test covered it, and each refuses a correctly run
+    point there.
 
     ONE SCRIPT PER POINT IS THE RUN MODEL THIS RESTS ON. Every point is
     emitted and executed as its own script from a cold start, which is what

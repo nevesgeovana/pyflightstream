@@ -204,7 +204,11 @@ else:
         if result.failed:
             evidence = result.log_text or result.stderr or f"return code {result.return_code}"
             raise RuntimeError(f"solver failed at alpha {alpha:+.1f} deg: {evidence}")
-        outputs = workspace.collect_outputs("polar", [sim_dir / f"loads_a{i}.txt"])
+        # FR-92: collection takes the POINT, so each point's outputs land in
+        # `sims/sim_polar/datapoints/DP-<point>/` rather than in one shared folder.
+        outputs = workspace.collect_outputs(
+            "polar", [sim_dir / f"loads_a{i}.txt"], datapoint={"alpha": alpha}
+        )
         loads_text = (sim_dir / outputs[0]).read_text(encoding="utf-8", errors="replace")
         report = parse_loads(loads_text, requested_version=FS_VERSION)
         converged = report.current_iteration < report.requested_iterations
