@@ -2567,3 +2567,221 @@ requirement below is one seam of that division.
     A LEGACY row takes no flags table, for the reason it takes no raw table:
     its own recipe is the reader of its keys and reads neither, so the
     entries would reach no script while the record claimed them.
+
+!!! requirement "FR-75 A section distribution over a rotor cuts its blades and not the rotor <span class='srs-pending'>pending</span>"
+
+    *Origin: the author's decision of 2026-09-10, "para o
+    sections.distributions, nao faz sentido ter cortes com o rotor inteiro,
+    entao para ele vale ser 3 (diferente do plots)". Carried by PFS-2035.22.*
+
+    WHAT IT IS FOR, before how it is written. `LOCAL_AXIS` means one emission
+    per blade, and on a `[[plots.groups]]` entry it also emits the rotor's own
+    total in the frame that turns with it, which is a real quantity. A
+    sectional CUT of the whole rotor is not: the blades lie at different
+    azimuths, so one plane through the set crosses each of them somewhere
+    different, and the station it reports is a station of nothing.
+
+    Measured on the template's row 1003, which turns three rotors:
+    `families = ["PUSHER"]` with `frame = "LOCAL_AXIS"` emits FOUR
+    distributions, three in `PUSHER_RMRP1` to `RMRP3` and a fourth in
+    `PUSHER_RMRP`; `families = "all"` emits ten, seven blades and three
+    rotors.
+
+    A `[[sections.distributions]]` entry citing a rotor alias in `LOCAL_AXIS`
+    emits one distribution per BLADE of that rotor and none over the rotor as
+    a whole. A `[[plots.groups]]` entry citing the same alias and frame is
+    UNCHANGED and still emits the rotor total beside the blades: the two
+    paths differ because the quantities differ, and one test pins both counts
+    so they cannot drift apart unnoticed. An entry citing a NAMED rotor frame
+    is unchanged and still groups, emitting one distribution over every
+    surface the alias owns.
+
+!!! requirement "FR-76 A section distribution may state its own cut count <span class='srs-pending'>pending</span>"
+
+    *Origin: the author's instruction of 2026-09-10, "sobre o surface section,
+    registra no backlog para deixarmos a opcao de especificar por distribuicao
+    mantendo preservando a opcao geral que tem hoje". Carried by PFS-2035.23.*
+
+    WHAT IT IS FOR. `count` is a field of `[sections]` and governs every
+    distribution in the artifact: measured, `count = 25` emitted
+    `NUM_SECTIONS 25` on both entries of a two-entry artifact and
+    `count = 120` emitted 120 on both, and absent, both took the default 50.
+    So a study wanting a hundred stations along a blade and thirty along a
+    wing needs two pproc artifacts and a second PPROC code on the rows that
+    want the other density. That splits a file for a number rather than for a
+    question.
+
+    A `[[sections.distributions]]` entry may carry its own `count`, and the
+    emitted `NUM_SECTIONS` for that entry is its value. THE ARTIFACT-LEVEL
+    SETTING IS KEPT: `[sections] count` remains, and remains the default for
+    every entry stating none, and an artifact stating neither keeps 50. A
+    test emits one artifact holding two distributions with different counts
+    and reads both numbers out of one script, because a per-entry setting
+    that is only ever tested alone is a global setting with extra syntax.
+
+    Whether `plot_direction` and `include_symmetry` gain the same shape is
+    not settled here and is the author's call.
+
+!!! requirement "FR-77 Probe lines are a list of tables, so one artifact probes several frames <span class='srs-pending'>pending</span>"
+
+    *Origin: the author's decision of 2026-09-10, "quero que [probes] vire
+    [[probes]], pode colocar como item do proximo release". Carried by
+    PFS-2035.24.*
+
+    WHAT IT IS FOR. A pproc artifact declares ONE `[probes]` table, so every
+    probe line it carries is measured in one frame. Measured, all three ways
+    a reader would ask for a second are refused: a second `[probes]` table,
+    `[[probes]]` written as an array, and a `frame` on an individual
+    `[[probes.lines]]` entry. `ProbeLine` carries `start` and `end` and
+    nothing else.
+
+    This is the only emission family of the artifact that is not a list.
+    `[[plots.groups]]` is a list, each group with its own name, frame and
+    families; `[[sections.distributions]]` is a list with its own frame and
+    planes. Probes alone keep the frame that belongs to an entry on the
+    artifact instead.
+
+    A pproc artifact declares `[[probes]]` as a LIST, each entry carrying its
+    own `frame`, `scale`, `parameters`, `points` and `lines`, and one artifact
+    emits probe lines in two different frames on one row.
+
+    THIS IS A FORMAT CHANGE AND NOT A PRECEDENCE ONE, which is why it is
+    separate from FR-76: every existing artifact that declares probes stops
+    parsing. This package has no stable release, so the 0.15.0 `[probes]`
+    spelling is REFUSED with the new one named, on the rule FR-71 established,
+    and the refusal names the edit because whoever meets it is holding a
+    workspace that planned yesterday. The shipped template and the
+    reproduction workspace are migrated in the same change: a published
+    example that no longer parses is a defect this project has already paid
+    for once.
+
+!!! requirement "FR-78 A run says on the console which stage it is in, and its warnings arrive while it runs <span class='srs-pending'>pending</span>"
+
+    *Origin: the author's request of 2026-09-10, "eu gostaria de ter um log do
+    pyflightstream aparecendo no powershell falando qual etapa que ta e
+    qualquer warning enquanto ele roda". Carried by PFS-2035.25.*
+
+    WHAT IT IS FOR. A run of an unsteady rotor row is long and it is the
+    scarce resource, and silence is indistinguishable from a hang. Measured:
+    `run_campaign` takes no progress callback, `logging` is imported in the
+    fsi subpackage alone and nowhere on the run path, `pyfs-matrix run --help`
+    offers no verbose, quiet or log switch, and the run path reports through
+    bare `print()`, none of it per point. A campaign of forty points prints
+    its first line when the last one is done.
+
+    THE WARNINGS ARE THE SHARPER HALF. A pproc entry left out because the row
+    created none of its frames, a `symmetry_loads` a row overrode, a family
+    the mesh lacks: these are findings, and they reach the reader after the
+    seat is spent rather than while it is still worth stopping.
+
+    Running a campaign of more than one point prints a line as each point
+    STARTS, naming the point and the stage, and a line as it ends naming its
+    status; a warning raised while a point is built or run reaches the console
+    at that moment. A test captures the stream of a two-point run and asserts
+    that the first point's lines appear before the second point's begin, which
+    is what distinguishes streaming from a buffer flushed at the end. The
+    verbosity is switchable and its default is what a person at a console
+    wants, because a flag nobody turns on is not a feature.
+
+    WHERE THE LINES GO is decided before any is written: everything the run
+    prints today that a caller consumes is on stdout and its errors are on
+    stderr, so stderr is the shape that does not break a pipeline reading
+    records.
+
+!!! requirement "FR-79 A probe entry prescribes a rectangular or a circular plane, not only a line <span class='srs-pending'>pending</span>"
+
+    *Origin: the author's request of 2026-09-10, "eu quero ser capaz de
+    prescrever planos retangulares passando os vertices e a descretizacao,
+    tambem quero planos circulares com descretizacao em coordenadas polares".
+    Carried by PFS-2035.26.*
+
+    WHAT IT IS FOR. A probe entry declares a start and an end, and the
+    package emits one `NEW_PROBE_LINE` for it. A survey of a rotor disk, or
+    of a rectangular window in the flow, is then a list of lines whose
+    coordinates were computed by hand outside the file, and the file records
+    the result rather than the intent.
+
+    A PLANE IS NOT A SOLVER COMMAND THIS PACKAGE IS FAILING TO REACH, and
+    that decides the shape of the work. The solver's probe vocabulary is
+    `NEW_PROBE_POINT` and `NEW_PROBE_LINE` and nothing else: the other four
+    verbs of `probe_points.yaml` are UPDATE, IMPORT, EXPORT and DELETE. A
+    plane is a shape the PACKAGE lays out and emits as a set of lines.
+
+    A probe entry may declare a RECTANGLE by three vertices and two division
+    counts, the third corner removing the ambiguity four coplanar-or-not
+    corners would carry; or a CIRCLE by a centre, a radius, a count of radial
+    stations and a count of azimuthal ones, which is the shape a disk survey
+    actually has. Both honour the entry's `frame` and `scale`, so a plane
+    declared in rotor radii follows the size of the rotor it belongs to,
+    which is the property that lets one table serve rotors of unlike size.
+
+    It lands on top of FR-77: a plane is a third kind of entry beside the
+    line, so the list and the shapes are designed together rather than
+    shipping a format change twice.
+
+    A test builds one artifact holding a line, a rectangle and a circle and
+    asserts the emitted vertex count and the first and last coordinate of
+    each against values computed in the test, because a geometry test that
+    reads its expectation from the thing it tests asserts nothing.
+
+!!! requirement "FR-80 A probe entry may cite a points file the user wrote, under inputs/profiles <span class='srs-pending'>pending</span>"
+
+    *Origin: the author's request of 2026-09-10, "eu tambem quero ter a opcao
+    do usuario criar um arquivo txt com os pontos que ele deseja e no pproc,
+    poder apontar esse txt. Ele deve ficar em profiles". Carried by
+    PFS-2035.27.*
+
+    WHAT IT IS FOR. A lattice the package computes from a rectangle or a
+    circle covers the regular cases. A survey whose points come from somewhere
+    else, a rig, a previous study, a colleague's table, has no shape to
+    declare, and rewriting it as lines loses both the points and the reason
+    they are where they are.
+
+    `inputs/profiles/` ALREADY EXISTS as a workspace kind and is reached by
+    nothing. It registers by file-name stem, the way `inputs/geometries/`
+    does, and the workspace documents it as input profile files. No workspace
+    in this estate has one, so this is the first use of a directory the layout
+    already reserved rather than a new one.
+
+    A probe entry may cite a points file by STEM, resolved under
+    `inputs/profiles/`, and its points reach the solver through
+    `PROBE_POINTS_IMPORT` in the entry's frame. A stem the directory does not
+    hold is refused when the ROW is planned, naming the stems it does hold,
+    the way an unknown geometry already is.
+
+    A CITED PROFILE IS INPUT AND A GENERATED LATTICE IS OUTPUT, and the
+    difference is where each lives: the profile under `inputs/profiles/`,
+    which a run must never write over, and the generated file inside the
+    simulation's own folder. A test asserts the cited file's bytes are
+    unchanged after a run.
+
+!!! requirement "FR-81 A script never exports probe points nothing in it created <span class='srs-pending'>pending</span>"
+
+    *Origin: measured on 2026-09-10 while building the probe-plane design.
+    Carried by PFS-2035.28.*
+
+    WHAT IS WRONG TODAY. A STEADY row citing a pproc artifact whose
+    `[probes]` table is valid, and whose frame is one the row DOES create,
+    emits no creation command at all: not `NEW_PROBE_POINT`, not
+    `NEW_PROBE_LINE`, not `PROBE_POINTS_IMPORT`. It nevertheless emits
+    `UPDATE_PROBE_POINTS` and `EXPORT_PROBE_POINTS`. Measured on the
+    template's rows 1001 and 1004 with one artifact whose probes are in `MRP`:
+
+        steady   row 1001 -> creation verbs NONE, exports probes TRUE
+        unsteady row 1004 -> 45 fluid plots,      exports probes TRUE
+
+    The only consumer of a probe entry's lines on the campaign path is the
+    unsteady fluid-plot emitter. So the `[probes]` table is unsteady-only in
+    practice while reading as though it serves both, and a steady study that
+    declares probes gets an export of nothing, with no warning and no
+    refusal.
+
+    A steady row citing a `[probes]` table either CREATES those points and
+    exports them, or is REFUSED at plan naming the run types that read the
+    table. Which of the two is the author's call; what is not defensible is
+    the third state, where the script asks the solver to export a thing
+    nobody made.
+
+    No script emits `EXPORT_PROBE_POINTS` when nothing in it created a probe
+    point, and a test asserts that pairing over every workflow the package
+    builds, because the defect is the PAIRING and not the run type.
