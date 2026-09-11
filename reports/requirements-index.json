@@ -2,7 +2,7 @@
  "source": "docs/srs",
  "generated_by": "scripts/gen_requirements_index.py",
  "traceability": {
-  "cited_by_a_test": 91,
+  "cited_by_a_test": 92,
   "total": 143,
   "method": "upper bound: an id mentioned anywhere in tests/**/*.py excluding conftest.py, which is not the marked falsifying test NFR-13 asks for"
  },
@@ -811,9 +811,9 @@
    "id": "FR-81",
    "text": "WHAT IS WRONG TODAY. A STEADY row citing a pproc artifact whose [probes] table is valid, and whose frame is one the row DOES create, emits no creation command at all: not NEW_PROBE_POINT, not NEW_PROBE_LINE, not PROBE_POINTS_IMPORT. It nevertheless emits UPDATE_PROBE_POINTS and EXPORT_PROBE_POINTS. Measured on the template's rows 1001 and 1004 with one artifact whose probes are in MRP:",
    "priority": "M",
-   "status": "pending",
-   "evidence": "*Origin: measured on 2026-09-10 while building the probe-plane design. Carried by PFS-2035.28. Evidence owed: the tests that node names.*",
-   "verification": "none"
+   "status": "implemented",
+   "evidence": "*Origin: measured on 2026-09-10 while building the probe-plane design. Carried by PFS-2035.28. Evidence: tests/tier1_offline/test_workflows.py.*",
+   "verification": "test"
   },
   {
    "id": "FR-82",

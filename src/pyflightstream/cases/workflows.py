@@ -4703,6 +4703,13 @@ def _script_tail(
     _raw_commands(case, script, "exec")
     helpers.start_solver(script)
     _raw_commands(case, script, "analysis")
+    # FR-81: a STEADY row creates the probe points it exports. `NEW_PROBE_LINE`
+    # is an ANALYSIS command, so this is the only position the phase order
+    # allows, and it is where her own scripts already carry `UPDATE_PROBE_POINTS`
+    # and `EXPORT_PROBE_POINTS`. An unsteady row placed its vertices through the
+    # fluid plots long before this point and needs nothing here.
+    if not unsteady and frames is not None:
+        _pproc_probes(case, script, frames, unsteady=False)
     _analysis(case, script, frame)
     _raw_commands(case, script, "export")
     _export_block(conventions, case, script, unsteady=unsteady)
@@ -5434,16 +5441,32 @@ def _pproc_plots(case: SimCase, script: Script, frames: Frames) -> None:
                         name=f"{short}_{name}",
                         boundaries=-1,
                     )
-    # FR-77: one artifact may carry several probe tables, each in its own
-    # frame. THE VERTEX COUNTER RUNS ACROSS ALL OF THEM, because the plot name
-    # is `{parameter}{n}` and two entries restarting at 1 would write two plots
-    # to one name, which the solver takes as the same plot.
+
+
+def _pproc_probes(case: SimCase, script: Script, frames: Frames, *, unsteady: bool) -> None:
+    """Emit every `[[probes]]` entry the artifact declares (FR-77, FR-81).
+
+    CALLED BY ALL FOUR BUILDERS, which is the fix. This lived inside
+    `_pproc_plots` until 0.16.0, and `_pproc_plots` is called by the three
+    UNSTEADY builders alone, so a steady row never reached the probes code at
+    all. Meanwhile the export block emitted `EXPORT_PROBE_POINTS` off the row's
+    OUTPUT NAMES, which know nothing about run type. Two halves that never
+    agreed to be in the same place, and the reader got an export of points
+    nobody made.
+
+    THE VERTEX COUNTER RUNS ACROSS THE ENTRIES (FR-77), because the plot name
+    is `{parameter}{n}` and two entries restarting at 1 would write two plots to
+    one name, which the solver takes as the same plot.
+    """
+    pproc = case.pproc
+    if pproc is None:
+        return
     vertex = 0
     for probes in pproc.probes:
-        vertex = _emit_one_probe_table(case, script, frames, probes, vertex)
+        vertex = _emit_one_probe_table(case, script, frames, probes, vertex, unsteady=unsteady)
 
 
-def _emit_one_probe_table(case, script, frames, probes, vertex: int) -> int:
+def _emit_one_probe_table(case, script, frames, probes, vertex: int, *, unsteady: bool) -> int:
     """Emit one `[[probes]]` entry, returning the vertex count after it."""
     if not probes.lines or not probes.parameters:
         return vertex
@@ -5483,13 +5506,46 @@ def _emit_one_probe_table(case, script, frames, probes, vertex: int) -> int:
                 for a, b in zip(line.start, line.end, strict=True)
             ]
             vertex += 1
-            for parameter in probes.parameters:
+            if unsteady:
+                for parameter in probes.parameters:
+                    script.emit(
+                        "UNSTEADY_SOLVER_NEW_FLUID_PLOT",
+                        frame=frame,
+                        parameter=parameter,
+                        name=f"{parameter}{vertex}",
+                        vertex=" ".join(str(value) for value in point),
+                    )
+        if not unsteady:
+            # FR-81. A STEADY ROW CREATES THE POINTS IT EXPORTS. It has no
+            # fluid plots, which is what places a vertex on an unsteady row, so
+            # until 0.16.0 it emitted `EXPORT_PROBE_POINTS` and no creation verb
+            # at all: the script asked the solver to export a thing nobody made,
+            # and the export returned whatever the geometry arrived carrying.
+            # That is the same defect as the fifty dummy surface sections, one
+            # family over.
+            #
+            # ONE `NEW_PROBE_LINE` PER DECLARED LINE, with the point count the
+            # entry states, rather than one command per vertex: the survey line
+            # is what the solver's own vocabulary offers for exactly this, it
+            # takes the count and the two ends, and it is verified on four
+            # builds. The coordinates are scaled the same way the vertices
+            # above are, so a `rotor_radius` entry lands on the same disk in
+            # both run types.
+            ends = [
+                [round(value * scale, 5) for value in line.start]
+                + [round(value * scale, 5) for value in line.end]
+                for line in probes.lines
+            ]
+            for first_x, first_y, first_z, last_x, last_y, last_z in ends:
                 script.emit(
-                    "UNSTEADY_SOLVER_NEW_FLUID_PLOT",
-                    frame=frame,
-                    parameter=parameter,
-                    name=f"{parameter}{vertex}",
-                    vertex=" ".join(str(value) for value in point),
+                    "NEW_PROBE_LINE",
+                    numpts=probes.points,
+                    x1=first_x,
+                    y1=first_y,
+                    z1=first_z,
+                    x2=last_x,
+                    y2=last_y,
+                    z2=last_z,
                 )
     return vertex
 
@@ -6335,6 +6391,7 @@ def _build_unsteady(case: SimCase, script: Script, conventions: WorkflowConventi
     frames.update(setup_frames)
     _rotations(case, script, {"MRP": frame, **rotor_frames, **setup_frames})
     _pproc_plots(case, script, frames)
+    _pproc_probes(case, script, frames, unsteady=True)
     _significant_digits(case, script)
     helpers.free_stream(script)
     _fluid(case, script)
@@ -6427,6 +6484,7 @@ def _build_unsteady_rotor(case: SimCase, script: Script, conventions: WorkflowCo
         spinning={name: _blade_indices(case, script) for name in rotor_frames},
     )
     _pproc_plots(case, script, frames)
+    _pproc_probes(case, script, frames, unsteady=True)
     _significant_digits(case, script)
     helpers.free_stream(script)
     _fluid(case, script)
@@ -6636,6 +6694,7 @@ def _rotor_motions(
     frames.update({name: index for name, index in named.items() if index is not None})
     frames.update(blade_frames)
     _pproc_plots(case, script, frames)
+    _pproc_probes(case, script, frames, unsteady=True)
     _significant_digits(case, script)
     helpers.free_stream(script)
     _fluid(case, script)

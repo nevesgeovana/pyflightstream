@@ -2820,10 +2820,11 @@ requirement below is one seam of that division.
     simulation's own folder. A test asserts the cited file's bytes are
     unchanged after a run.
 
-!!! requirement "FR-81 A script never exports probe points nothing in it created <span class='srs-pending'>pending</span>"
+!!! requirement "FR-81 A script never exports probe points nothing in it created <span class='srs-implemented'>implemented</span>"
 
     *Origin: measured on 2026-09-10 while building the probe-plane design.
-    Carried by PFS-2035.28. Evidence owed: the tests that node names.*
+    Carried by PFS-2035.28. Evidence:
+    tests/tier1_offline/test_workflows.py.*
 
     WHAT IS WRONG TODAY. A STEADY row citing a pproc artifact whose
     `[probes]` table is valid, and whose frame is one the row DOES create,

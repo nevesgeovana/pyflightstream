@@ -5222,3 +5222,67 @@ def test_the_0_15_0_probes_table_is_refused_naming_the_edit():
     assert "once per frame you are sampling in" in message, (
         "the refusal says WHY the shape changed, not only that it did"
     )
+
+
+def test_no_workflow_exports_probe_points_it_never_created(tmp_path):
+    """FR-81, and it is the GENERAL form of the fifty dummy sections.
+
+    A script that asks the solver to export a thing nobody made exports
+    whatever state the geometry arrived with. That is exactly how fifty
+    surface sections nobody declared reached her table, and the probes path
+    has the same shape: a steady row emits `EXPORT_PROBE_POINTS` and no
+    creation verb at all, so a steady study that declares probes gets an
+    export of nothing, or of somebody else's points.
+
+    THE PAIRING IS THE DEFECT AND NOT THE RUN TYPE, so this asserts it over
+    EVERY workflow the package builds rather than over the steady one that
+    happened to show it. An unsteady row creates its points through the fluid
+    plots; a steady row had no verb at all until this requirement.
+    """
+    from pyflightstream.cases import PprocSpec, ReferenceData, default_outputs
+
+    pproc = PprocSpec.model_validate(
+        {
+            "groups": {"1": ["W", "B"]},
+            "probes": [
+                {
+                    "frame": "MRP",
+                    "parameters": ["VELOCITY"],
+                    "points": 4,
+                    "lines": [{"start": [0.0, 0.0, 0.0], "end": [1.0, 0.0, 0.0]}],
+                }
+            ],
+        }
+    )
+    CREATES = ("NEW_PROBE_POINT", "NEW_PROBE_LINE", "PROBE_POINTS_IMPORT")
+
+    unpaired = []
+    for name in WORKFLOWS:
+        unsteady = name != "steady"
+        names = [n.replace("{name}", "a+00.0_b+00.0") for n in default_outputs(unsteady)]
+        base = _case_for(name)
+        reference = base.reference or ReferenceData(area=1.0, length=1.0)
+        reference = reference.model_copy(update={"moment_point_m": (0.0, 0.0, 0.0)})
+        case = base.model_copy(
+            update={"outputs": names, "pproc": pproc, "pproc_id": "p001", "reference": reference}
+        )
+        script = Script("26.123")
+        build_script(case, script)
+        lines = script.render().splitlines()
+
+        exports = [i for i, line in enumerate(lines) if line.startswith("EXPORT_PROBE_POINTS")]
+        if not exports:
+            continue
+        created = [
+            i
+            for i, line in enumerate(lines)
+            if line.startswith(CREATES) or line.strip() == "UNSTEADY_SOLVER_NEW_FLUID_PLOT"
+        ]
+        if not created:
+            unpaired.append(f"{name}: emits EXPORT_PROBE_POINTS and creates no probe point at all")
+        elif min(created) > min(exports):
+            unpaired.append(
+                f"{name}: exports probe points at line {min(exports)} and creates the "
+                f"first at {min(created)}"
+            )
+    assert not unpaired, "\n  ".join(["", *unpaired])
