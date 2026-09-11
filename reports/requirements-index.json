@@ -732,7 +732,7 @@
    "text": "A ROTATE record states ALIAS where it stated FAMILIES, so a rotation and a motion cite a set of boundaries the same way. AUX_FRAMES retires: every frame the alias owns turns with its boundaries, which for a rotor is <ALIAS>_SMRP, <ALIAS>_RMRP and every <ALIAS>_RMRP<k>, and for a non-rotor alias is none.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: the author's decision of 2026-09-10, \"o comando de rotate tambem tem que ser atualizado para ficar compativel com o do movimento\". Carried by PFS-2035.17. Evidence: tests/tier1_offline/test_rotor_by_alias.py (the rotation cites the alias and turns that rotor's boundaries and no other's; the frames the alias owns turn with it, by name; an undeclared alias is refused naming it; a record stating both spellings is refused naming both; a record stating neither is refused; the 0.14.0 spelling warns and turns the same boundaries; three cases over SMRP_ORIGINAL in that module, one copy per alias for a row that turns the same alias twice, nothing turns it, and a non-rotor alias gets none) and tests/tier1_offline/test_pproc_by_frame.py (five cases over the doubling: both frames for a rotated hub, one for a rotor this row did not turn, none at all for a row that turned nothing, the turning frames never doubled, and the same answer when the entry names the hub frame itself). AMENDS the ROTATE record of FR-35, \"Matrix as first-class interface\", whose FAMILIES and AUX_FRAMES keys this replaces.*",
+   "evidence": "*Origin: the author's decision of 2026-09-10, \"o comando de rotate tambem tem que ser atualizado para ficar compativel com o do movimento\". Carried by PFS-2035.17. Evidence: tests/tier1_offline/test_rotor_by_alias.py (the rotation cites the alias and turns that rotor's boundaries and no other's; the frames the alias owns turn with it, by name; an undeclared alias is refused naming it; a record stating both spellings is refused naming both; a record stating neither is refused; the 0.14.0 spelling is REFUSED with the replacement named, which is what this requirement's own body settles and what the evidence line said the opposite of until 2026-09-10; three cases over SMRP_ORIGINAL in that module, one copy per alias for a row that turns the same alias twice, nothing turns it, and a non-rotor alias gets none) and tests/tier1_offline/test_pproc_by_frame.py (five cases over the doubling: both frames for a rotated hub, one for a rotor this row did not turn, none at all for a row that turned nothing, the turning frames never doubled, and the same answer when the entry names the hub frame itself). AMENDS the ROTATE record of FR-35, \"Matrix as first-class interface\", whose FAMILIES and AUX_FRAMES keys this replaces.*",
    "verification": "test"
   },
   {
@@ -764,7 +764,7 @@
    "text": "WHAT IT IS FOR, before how it is written. LOCAL_AXIS means one emission per blade, and on a [[plots.groups]] entry it also emits the rotor's own total in the frame that turns with it, which is a real quantity. A sectional CUT of the whole rotor is not: the blades lie at different azimuths, so one plane through the set crosses each of them somewhere different, and the station it reports is a station of nothing.",
    "priority": "M",
    "status": "pending",
-   "evidence": "*Origin: the author's decision of 2026-09-10, \"para o sections.distributions, nao faz sentido ter cortes com o rotor inteiro, entao para ele vale ser 3 (diferente do plots)\". Carried by PFS-2035.22.*",
+   "evidence": "*Origin: the author's decision of 2026-09-10, \"para o sections.distributions, nao faz sentido ter cortes com o rotor inteiro, entao para ele vale ser 3 (diferente do plots)\". Carried by PFS-2035.22. Evidence owed: the tests that node names.*",
    "verification": "none"
   },
   {
@@ -772,7 +772,7 @@
    "text": "WHAT IT IS FOR. count is a field of [sections] and governs every distribution in the artifact: measured, count = 25 emitted NUM_SECTIONS 25 on both entries of a two-entry artifact and count = 120 emitted 120 on both, and absent, both took the default 50. So a study wanting a hundred stations along a blade and thirty along a wing needs two pproc artifacts and a second PPROC code on the rows that want the other density. That splits a file for a number rather than for a question.",
    "priority": "M",
    "status": "pending",
-   "evidence": "*Origin: the author's instruction of 2026-09-10, \"sobre o surface section, registra no backlog para deixarmos a opcao de especificar por distribuicao mantendo preservando a opcao geral que tem hoje\". Carried by PFS-2035.23.*",
+   "evidence": "*Origin: the author's instruction of 2026-09-10, \"sobre o surface section, registra no backlog para deixarmos a opcao de especificar por distribuicao mantendo preservando a opcao geral que tem hoje\". Carried by PFS-2035.23. Evidence owed: the tests that node names.*",
    "verification": "none"
   },
   {
@@ -780,7 +780,7 @@
    "text": "WHAT IT IS FOR. A pproc artifact declares ONE [probes] table, so every probe line it carries is measured in one frame. Measured, all three ways a reader would ask for a second are refused: a second [probes] table, [[probes]] written as an array, and a frame on an individual [[probes.lines]] entry. ProbeLine carries start and end and nothing else.",
    "priority": "M",
    "status": "pending",
-   "evidence": "*Origin: the author's decision of 2026-09-10, \"quero que [probes] vire [[probes]], pode colocar como item do proximo release\". Carried by PFS-2035.24.*",
+   "evidence": "*Origin: the author's decision of 2026-09-10, \"quero que [probes] vire [[probes]], pode colocar como item do proximo release\". Carried by PFS-2035.24. Evidence owed: the tests that node names.*",
    "verification": "none"
   },
   {
@@ -788,7 +788,7 @@
    "text": "WHAT IT IS FOR. A run of an unsteady rotor row is long and it is the scarce resource, and silence is indistinguishable from a hang. Measured: run_campaign takes no progress callback, logging is imported in the fsi subpackage alone and nowhere on the run path, pyfs-matrix run --help offers no verbose, quiet or log switch, and the run path reports through bare print(), none of it per point. A campaign of forty points prints its first line when the last one is done.",
    "priority": "M",
    "status": "pending",
-   "evidence": "*Origin: the author's request of 2026-09-10, \"eu gostaria de ter um log do pyflightstream aparecendo no powershell falando qual etapa que ta e qualquer warning enquanto ele roda\". Carried by PFS-2035.25.*",
+   "evidence": "*Origin: the author's request of 2026-09-10, \"eu gostaria de ter um log do pyflightstream aparecendo no powershell falando qual etapa que ta e qualquer warning enquanto ele roda\". Carried by PFS-2035.25. Evidence owed: the tests that node names.*",
    "verification": "none"
   },
   {
@@ -796,7 +796,7 @@
    "text": "WHAT IT IS FOR. A probe entry declares a start and an end, and the package emits one NEW_PROBE_LINE for it. A survey of a rotor disk, or of a rectangular window in the flow, is then a list of lines whose coordinates were computed by hand outside the file, and the file records the result rather than the intent.",
    "priority": "M",
    "status": "pending",
-   "evidence": "*Origin: the author's request of 2026-09-10, \"eu quero ser capaz de prescrever planos retangulares passando os vertices e a descretizacao, tambem quero planos circulares com descretizacao em coordenadas polares\". Carried by PFS-2035.26.*",
+   "evidence": "*Origin: the author's request of 2026-09-10, \"eu quero ser capaz de prescrever planos retangulares passando os vertices e a descretizacao, tambem quero planos circulares com descretizacao em coordenadas polares\". Carried by PFS-2035.26. Evidence owed: the tests that node names.*",
    "verification": "none"
   },
   {
@@ -804,7 +804,7 @@
    "text": "WHAT IT IS FOR. A lattice the package computes from a rectangle or a circle covers the regular cases. A survey whose points come from somewhere else, a rig, a previous study, a colleague's table, has no shape to declare, and rewriting it as lines loses both the points and the reason they are where they are.",
    "priority": "M",
    "status": "pending",
-   "evidence": "*Origin: the author's request of 2026-09-10, \"eu tambem quero ter a opcao do usuario criar um arquivo txt com os pontos que ele deseja e no pproc, poder apontar esse txt. Ele deve ficar em profiles\". Carried by PFS-2035.27.*",
+   "evidence": "*Origin: the author's request of 2026-09-10, \"eu tambem quero ter a opcao do usuario criar um arquivo txt com os pontos que ele deseja e no pproc, poder apontar esse txt. Ele deve ficar em profiles\". Carried by PFS-2035.27. Evidence owed: the tests that node names.*",
    "verification": "none"
   },
   {
@@ -812,7 +812,7 @@
    "text": "WHAT IS WRONG TODAY. A STEADY row citing a pproc artifact whose [probes] table is valid, and whose frame is one the row DOES create, emits no creation command at all: not NEW_PROBE_POINT, not NEW_PROBE_LINE, not PROBE_POINTS_IMPORT. It nevertheless emits UPDATE_PROBE_POINTS and EXPORT_PROBE_POINTS. Measured on the template's rows 1001 and 1004 with one artifact whose probes are in MRP:",
    "priority": "M",
    "status": "pending",
-   "evidence": "*Origin: measured on 2026-09-10 while building the probe-plane design. Carried by PFS-2035.28.*",
+   "evidence": "*Origin: measured on 2026-09-10 while building the probe-plane design. Carried by PFS-2035.28. Evidence owed: the tests that node names.*",
    "verification": "none"
   },
   {
@@ -820,7 +820,7 @@
    "text": "WHAT IT IS FOR. plan answers whether a row will run. It does not answer what running it will cost, and the cost is a licence seat and an afternoon. A study is budgeted before it is spent or it is budgeted by watching it.",
    "priority": "M",
    "status": "pending",
-   "evidence": "*Origin: the author's request of 2026-09-10, \"no plan, eu quero uma flag que ao ser ativada, volta tambem um resumo de tempo de execucao esperado para cada polar\", with the columns she listed and \"inclua tambem o numero de processadores setados\". Carried by PFS-2035.29.*",
+   "evidence": "*Origin: the author's request of 2026-09-10, \"no plan, eu quero uma flag que ao ser ativada, volta tambem um resumo de tempo de execucao esperado para cada polar\", with the columns she listed and \"inclua tambem o numero de processadores setados\". Carried by PFS-2035.29. Evidence owed: the tests that node names.*",
    "verification": "none"
   },
   {

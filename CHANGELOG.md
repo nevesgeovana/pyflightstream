@@ -7,6 +7,17 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Specified, not built
+
+- **FR-75 to FR-82 are written and PENDING**, the eight requirements the
+  author's questions and requests of 2026-09-10 produced, carried by
+  PFS-2035.22 to .29 at milestone 0.16.0. Seven came from her; FR-81 is a
+  defect found while measuring for the others, where a steady row citing a
+  valid `[probes]` table emits no probe creation verb and still emits
+  `EXPORT_PROBE_POINTS`. They change no public surface yet and are logged
+  here because the next release's scope is the thing a reader of this file
+  most often wants to know and has had to read the SRS to find.
+
 ### Owed
 
 - **The Zenodo archive of v0.14.0 DOES NOT EXIST**, and that is stronger
@@ -22,9 +33,12 @@ FlightStream versions.
   nothing to do with Zenodo's health: `gh release list` showed no GitHub
   release for v0.15.0 at all, because `release.yml` has four jobs, build,
   test-artifact, gates and publish, and none of them creates one; it
-  declares `contents: read` and could not. A GitHub release here has always
-  been made BY HAND. Creating it minted v0.15.0's archive within minutes,
-  which is the control: the connection works. So v0.14.0's absence has two
+  declares `contents: read` and could not. What is measured is the workflow's
+  permission, not fifteen past releases: `release.yml` has never been able to
+  create one, and how each earlier release got its GitHub release was not
+  checked. Creating v0.15.0's by hand minted its archive within minutes,
+  which shows the link worked on 2026-09-10; it is one observation and not a
+  control, and it says nothing about 2026-09-09. So v0.14.0's absence has two
   candidate causes and the outage is only one of them. It will not appear
   on its own either way. What it takes is a new release event on that tag
   or a manual deposit, and that is an action on a published artifact rather

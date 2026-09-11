@@ -2318,8 +2318,9 @@ requirement below is one seam of that division.
     rotation cites the alias and turns that rotor's boundaries and no other's;
     the frames the alias owns turn with it, by name; an undeclared alias is
     refused naming it; a record stating both spellings is refused naming both;
-    a record stating neither is refused; the 0.14.0 spelling warns and turns
-    the same boundaries; three cases over `SMRP_ORIGINAL` in that module,
+    a record stating neither is refused; the 0.14.0 spelling is REFUSED with
+    the replacement named, which is what this requirement's own body settles
+    and what the evidence line said the opposite of until 2026-09-10; three cases over `SMRP_ORIGINAL` in that module,
     one copy per alias for a row that turns the same alias twice, nothing
     turns it, and a non-rotor alias gets none) and
     `tests/tier1_offline/test_pproc_by_frame.py` (five cases over the
@@ -2572,7 +2573,8 @@ requirement below is one seam of that division.
 
     *Origin: the author's decision of 2026-09-10, "para o
     sections.distributions, nao faz sentido ter cortes com o rotor inteiro,
-    entao para ele vale ser 3 (diferente do plots)". Carried by PFS-2035.22.*
+    entao para ele vale ser 3 (diferente do plots)". Carried by PFS-2035.22.
+    Evidence owed: the tests that node names.*
 
     WHAT IT IS FOR, before how it is written. `LOCAL_AXIS` means one emission
     per blade, and on a `[[plots.groups]]` entry it also emits the rotor's own
@@ -2600,7 +2602,8 @@ requirement below is one seam of that division.
 
     *Origin: the author's instruction of 2026-09-10, "sobre o surface section,
     registra no backlog para deixarmos a opcao de especificar por distribuicao
-    mantendo preservando a opcao geral que tem hoje". Carried by PFS-2035.23.*
+    mantendo preservando a opcao geral que tem hoje". Carried by PFS-2035.23.
+    Evidence owed: the tests that node names.*
 
     WHAT IT IS FOR. `count` is a field of `[sections]` and governs every
     distribution in the artifact: measured, `count = 25` emitted
@@ -2619,14 +2622,19 @@ requirement below is one seam of that division.
     and reads both numbers out of one script, because a per-entry setting
     that is only ever tested alone is a global setting with extra syntax.
 
-    Whether `plot_direction` and `include_symmetry` gain the same shape is
-    not settled here and is the author's call.
+    `plot_direction` GAINS THE SAME SHAPE and `include_symmetry` does not, on
+    the author's decision of 2026-09-10. Both keep their artifact-level value
+    as the default. The asymmetry is hers and it has a reason a reader can
+    check: a plot direction is a property of the CUT, so two distributions
+    can honestly want different ones, while symmetry is a property of the
+    CASE, and one artifact whose entries disagreed about it would be
+    describing two cases.
 
 !!! requirement "FR-77 Probe lines are a list of tables, so one artifact probes several frames <span class='srs-pending'>pending</span>"
 
     *Origin: the author's decision of 2026-09-10, "quero que [probes] vire
     [[probes]], pode colocar como item do proximo release". Carried by
-    PFS-2035.24.*
+    PFS-2035.24. Evidence owed: the tests that node names.*
 
     WHAT IT IS FOR. A pproc artifact declares ONE `[probes]` table, so every
     probe line it carries is measured in one frame. Measured, all three ways
@@ -2635,11 +2643,13 @@ requirement below is one seam of that division.
     `[[probes.lines]]` entry. `ProbeLine` carries `start` and `end` and
     nothing else.
 
-    This is the only emission family of the artifact that is not a list.
+    OF THE FAMILIES THAT EXPAND PER ENTRY, probes alone is not a list.
     `[[plots.groups]]` is a list, each group with its own name, frame and
     families; `[[sections.distributions]]` is a list with its own frame and
     planes. Probes alone keep the frame that belongs to an entry on the
-    artifact instead.
+    artifact instead. `[groups]` is a table and is not a counter-example to
+    that: it maps a group name to the surfaces it holds, and carries no
+    frame or scale of its own for a second one to differ from.
 
     A pproc artifact declares `[[probes]]` as a LIST, each entry carrying its
     own `frame`, `scale`, `parameters`, `points` and `lines`, and one artifact
@@ -2659,7 +2669,8 @@ requirement below is one seam of that division.
 
     *Origin: the author's request of 2026-09-10, "eu gostaria de ter um log do
     pyflightstream aparecendo no powershell falando qual etapa que ta e
-    qualquer warning enquanto ele roda". Carried by PFS-2035.25.*
+    qualquer warning enquanto ele roda". Carried by PFS-2035.25.
+    Evidence owed: the tests that node names.*
 
     WHAT IT IS FOR. A run of an unsteady rotor row is long and it is the
     scarce resource, and silence is indistinguishable from a hang. Measured:
@@ -2693,7 +2704,7 @@ requirement below is one seam of that division.
     *Origin: the author's request of 2026-09-10, "eu quero ser capaz de
     prescrever planos retangulares passando os vertices e a descretizacao,
     tambem quero planos circulares com descretizacao em coordenadas polares".
-    Carried by PFS-2035.26.*
+    Carried by PFS-2035.26. Evidence owed: the tests that node names.*
 
     WHAT IT IS FOR. A probe entry declares a start and an end, and the
     package emits one `NEW_PROBE_LINE` for it. A survey of a rotor disk, or
@@ -2705,7 +2716,23 @@ requirement below is one seam of that division.
     that decides the shape of the work. The solver's probe vocabulary is
     `NEW_PROBE_POINT` and `NEW_PROBE_LINE` and nothing else: the other four
     verbs of `probe_points.yaml` are UPDATE, IMPORT, EXPORT and DELETE. A
-    plane is a shape the PACKAGE lays out and emits as a set of lines.
+    plane is a shape the PACKAGE lays out and emits as solver commands.
+
+    AND THE PACKAGE ALREADY LAYS ONE OUT, in a subpackage this seam cannot
+    reach. `pyflightstream.probes.planar.PlanarProbeGrid` is a frame plus two
+    in-plane `AxisSpec` distributions with `local_points()`, which is this
+    requirement's rectangle under another name;
+    `pyflightstream.probes.ProbeLattice` carries ring edges and `n_psi`
+    uniform azimuths, which is the ring-and-azimuth parameterization the
+    circle needs, inside a cylindrical far-field survey rather than a flat
+    disk. Measured 2026-09-10: NOTHING under `cases/` imports anything from
+    `probes/`, so the pproc artifact genuinely cannot reach either today.
+
+    THAT MAKES THE OPEN QUESTION A STRUCTURAL ONE and not a geometry one:
+    whether the pproc plane reuses those types or whether a second layout is
+    written beside them. It is not settled here, and it is settled before any
+    coordinate is computed, because two homes for one geometry is the defect
+    this project is cheapest at preventing right now.
 
     A probe entry may declare a RECTANGLE by three vertices and two division
     counts, the third corner removing the ambiguity four coplanar-or-not
@@ -2719,6 +2746,13 @@ requirement below is one seam of that division.
     line, so the list and the shapes are designed together rather than
     shipping a format change twice.
 
+    THE EMISSION IS POINT BY POINT, on the author's decision of 2026-09-10.
+    A rectangle and a circle both emit `NEW_PROBE_POINT` per vertex rather
+    than a line per grid row, and the reason is transparency rather than
+    geometry: on the unsteady path the points reach the solver one at a time
+    whatever the shape was, so emitting lines on one path and points on the
+    other would make one declaration produce two different exports.
+
     A test builds one artifact holding a line, a rectangle and a circle and
     asserts the emitted vertex count and the first and last coordinate of
     each against values computed in the test, because a geometry test that
@@ -2729,7 +2763,7 @@ requirement below is one seam of that division.
     *Origin: the author's request of 2026-09-10, "eu tambem quero ter a opcao
     do usuario criar um arquivo txt com os pontos que ele deseja e no pproc,
     poder apontar esse txt. Ele deve ficar em profiles". Carried by
-    PFS-2035.27.*
+    PFS-2035.27. Evidence owed: the tests that node names.*
 
     WHAT IT IS FOR. A lattice the package computes from a rectangle or a
     circle covers the regular cases. A survey whose points come from somewhere
@@ -2749,6 +2783,16 @@ requirement below is one seam of that division.
     hold is refused when the ROW is planned, naming the stems it does hold,
     the way an unknown geometry already is.
 
+    THE IMPORT PATH IS BUILT AND UNREACHED, which is a different statement
+    from the one this entry would otherwise make. `pyflightstream.probes`
+    declares its role as emitting the version-validated lines that create and
+    export probes, and exports `emit_probe_points`, `emit_probe_import` and
+    `emit_probe_export`; `write_probe_csv` writes the file those read.
+    Measured 2026-09-10: nothing under `cases/` imports anything from
+    `probes/`, so the pproc seam reaches none of it. What this requirement
+    adds is therefore the CITATION and the resolution, not the emission, and
+    a second emitter written beside the existing one would be the finding.
+
     A CITED PROFILE IS INPUT AND A GENERATED LATTICE IS OUTPUT, and the
     difference is where each lives: the profile under `inputs/profiles/`,
     which a run must never write over, and the generated file inside the
@@ -2758,7 +2802,7 @@ requirement below is one seam of that division.
 !!! requirement "FR-81 A script never exports probe points nothing in it created <span class='srs-pending'>pending</span>"
 
     *Origin: measured on 2026-09-10 while building the probe-plane design.
-    Carried by PFS-2035.28.*
+    Carried by PFS-2035.28. Evidence owed: the tests that node names.*
 
     WHAT IS WRONG TODAY. A STEADY row citing a pproc artifact whose
     `[probes]` table is valid, and whose frame is one the row DOES create,
@@ -2767,8 +2811,15 @@ requirement below is one seam of that division.
     `UPDATE_PROBE_POINTS` and `EXPORT_PROBE_POINTS`. Measured on the
     template's rows 1001 and 1004 with one artifact whose probes are in `MRP`:
 
-        steady   row 1001 -> creation verbs NONE, exports probes TRUE
-        unsteady row 1004 -> 45 fluid plots,      exports probes TRUE
+        steady   row 1001 -> probe creation verbs NONE, exports probes TRUE
+        unsteady row 1004 -> probe creation verbs NONE, exports probes TRUE
+
+    NEITHER ROW CREATES A PROBE POINT, and saying so is the correction of a
+    first reading of this measurement. The unsteady row emits 45
+    `UNSTEADY_SOLVER_NEW_FLUID_PLOT`, which is a fluid plot per vertex per
+    parameter and not a probe point, so it is not the creation the steady row
+    is missing. What the unsteady row has is a CONSUMER of the table, not a
+    creator, and the export is unpaired on both.
 
     The only consumer of a probe entry's lines on the campaign path is the
     unsteady fluid-plot emitter. So the `[probes]` table is unsteady-only in
@@ -2776,11 +2827,17 @@ requirement below is one seam of that division.
     declares probes gets an export of nothing, with no warning and no
     refusal.
 
-    A steady row citing a `[probes]` table either CREATES those points and
-    exports them, or is REFUSED at plan naming the run types that read the
-    table. Which of the two is the author's call; what is not defensible is
-    the third state, where the script asks the solver to export a thing
+    A STEADY ROW CREATES THE POINTS IT EXPORTS, on the author's decision of
+    2026-09-10: "steady passa a criar os pontos, e tem comando de
+    distribuicao de linha para probes no steady, entao fica transparente".
+    The alternative she considered and did not take was refusing a probes
+    table on a steady row; what neither of them is, is the third state the
+    package is in now, where the script asks the solver to export a thing
     nobody made.
+
+    The consequence she named is the one that matters to a reader: a steady
+    row and an unsteady row citing the same artifact produce the same probe
+    export, so nothing downstream has to know which of the two ran.
 
     No script emits `EXPORT_PROBE_POINTS` when nothing in it created a probe
     point, and a test asserts that pairing over every workflow the package
@@ -2791,7 +2848,8 @@ requirement below is one seam of that division.
     *Origin: the author's request of 2026-09-10, "no plan, eu quero uma flag
     que ao ser ativada, volta tambem um resumo de tempo de execucao esperado
     para cada polar", with the columns she listed and "inclua tambem o numero
-    de processadores setados". Carried by PFS-2035.29.*
+    de processadores setados". Carried by PFS-2035.29.
+    Evidence owed: the tests that node names.*
 
     WHAT IT IS FOR. `plan` answers whether a row will run. It does not answer
     what running it will cost, and the cost is a licence seat and an
@@ -2819,11 +2877,21 @@ requirement below is one seam of that division.
     column rather than a zero. A zero is a measurement and an absence is not.
 
     THE EXPECTED TIME IS FITTED ON RECORDED RUNS AND SAYS SO. The data
-    exists: 83 recorded points across ten workspaces, every one carrying a
-    `wall_time_s`, from 4.7 to 1292.2 seconds. Four of them show why a rule
-    of thumb will not do: all four record 100 iterations and took 6.8, 7.1,
-    289.9 and 412.3 seconds, so the iteration count alone predicts nothing
-    and the run type and mesh dominate. The estimate prints the size of the
-    calibration set beside it, and a test scores the fit against HELD-OUT
-    recorded points, because a model measured on its own training set
-    measures nothing.
+    exists and it has a home: `runs.json` has carried `wall_time_s` per point
+    since the v0.3 line, and `pyflightstream.qa.cost` already reads it, with
+    `docs/solver-cost.md` as its page. This requirement adds a consumer, not
+    a second reader, and it inherits that module's rule that an absent time
+    is `None` and never zero rather than restating it.
+
+    Counted over `GeoverseResearch/tools/fts_workspace/*/runs.json` on
+    2026-09-10: 83 points carrying a `wall_time_s`, across ten workspaces,
+    pfs0100 2, pfs0101 2, pfs0110 4, pfs0120 4, pfs0130 11, pfs0131 25,
+    pfs0140 25, pfs0150-repro 4, pfs040 4 and pfs090 2, spanning 4.7 to
+    1292.2 seconds. The four of pfs0150-repro show why a rule of thumb will
+    not do: all four record 100 iterations and took 6.8, 7.1, 289.9 and 412.3
+    seconds, so the iteration count alone predicts nothing and the run type
+    and the mesh dominate.
+
+    The estimate prints the size of the calibration set beside it, and a test
+    scores the fit against HELD-OUT recorded points, because a model measured
+    on its own training set measures nothing.
