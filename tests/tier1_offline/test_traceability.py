@@ -567,7 +567,6 @@ SILENT_CITATIONS = {
     ("FR-38", "tests/tier1_offline/test_farfield.py"),
     ("FR-47", "tests/tier1_offline/test_testing.py"),
     ("FR-58", "tests/tier1_offline/test_matrix_run.py"),
-    ("FR-64", "tests/tier1_offline/test_reduce_by_rotor.py"),
     ("FR-69", "tests/tier1_offline/test_matrix_upgrade.py"),
     ("FR-71", "tests/tier1_offline/test_pproc_by_frame.py"),
     ("NFR-01a", "tests/tier1_offline/test_conventions.py"),

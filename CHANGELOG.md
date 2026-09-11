@@ -40,10 +40,73 @@ FlightStream versions.
   surviving one branch over.
 
 - **A changelog entry claimed a feature for a version that does not have it.**
-  The FR-89 entry below sat under `## [0.15.0]`, and the commit that built it
-  is not an ancestor of the v0.15.0 tag. It is moved rather than reworded.
+  The FR-89 entry below sat under `## [0.15.0]`. Measured 2026-09-11:
+
+      git merge-base --is-ancestor a21df03 v0.15.0   ->  exit 1
+
+  so the commit that built it is not in that release, and a user who installed
+  0.15.0 was told it writes a SUPER file per polar. It is moved rather than
+  reworded, and the entry is byte-identical either side of the move.
 
 ### Added
+
+- **A section distribution over a rotor cuts its blades and not the whole
+  rotor (FR-75).** A cut through the whole disk crosses the air between the
+  blades and reports a section of nothing, so a distribution laid out in a
+  rotor's own frame emits one cut per BLADE. The PLOTS keep the total, which is
+  her answer of 2026-09-11: "para o sections.distributions, nao faz sentido ter
+  cortes com o rotor inteiro, entao para ele vale ser 3 (diferente do plots)".
+  One test pins both counts, so a change to either is visible.
+
+- **A section distribution states its own cut count and plot direction
+  (FR-76).** `count` and `plot_direction` per entry, each defaulting to the
+  artifact's own value. `include_symmetry` deliberately gains no per-entry
+  form: it is a property of the configuration and not of one cut.
+
+- **`[probes]` becomes `[[probes]]`, a LIST of tables (FR-77).** One artifact
+  can now probe several frames, each entry carrying its own, with the vertex
+  counter running ACROSS the entries so the numbered plot names stay unique.
+  THIS BREAKS EVERY 0.15.0 ARTIFACT and does so by her decision: "beleza, sem
+  problema quebrar, vou ajustar". The old spelling is refused by name rather
+  than silently accepted, and the nineteen committed artifacts were migrated in
+  the same change.
+
+- **The console says which point a campaign is on while it runs (FR-78).** Her
+  request: "eu gostaria de ter um log do pyflightstream aparecendo no powershell
+  falando qual etapa que ta e qualquer warning enquanto ele roda". Two lines per
+  point on STDERR, flushed per line, silenced by `--quiet`. STDERR because
+  nobody asked for them; the cost table of FR-82 goes to STDOUT because an
+  operator asked for it with a flag.
+
+- **A probe entry prescribes a rectangular or a circular PLANE, not only a line
+  (FR-79).** A rectangle by three corners with a discretisation along each
+  edge, a circle by centre, normal, radius and a polar discretisation. Both are
+  emitted POINT BY POINT on her decision, so one declaration produces the same
+  export on either run path. The circle's centre appears ONCE rather than once
+  per azimuth, which would weight it in anything that averages the file.
+
+- **A probe entry may cite a points file the user wrote (FR-80).** Under
+  `inputs/profiles/probes/`, staged into `sims/<sim>/profiles/` and imported by
+  the SOLVER. The package does not parse the file to re-emit it point by point,
+  which would make it the second author of a survey she wrote; the entry still
+  states its frame and its normalisation.
+
+- **A steady row creates the probe points it exports (FR-81).** Until now a
+  steady row emitted `EXPORT_PROBE_POINTS` and no creation verb at all, so the
+  script asked the solver to export a thing nobody made and the export returned
+  whatever the geometry arrived carrying. That is the fifty-dummy-sections
+  defect one family over. A steady row now emits one `NEW_PROBE_LINE` per
+  declared line with the entry's own point count, and `NEW_PROBE_POINT` per
+  vertex of a plane.
+
+- **A section distribution is created AFTER the solver is initialised
+  (FR-83).** Her first feedback item from running 0.15.0 at work, "surface
+  sections 50 dummies criadas, entender porque". THE COMMAND WAS NEVER THE
+  PROBLEM, and the first diagnosis of this said it was: she refused that
+  reading, her own recorded scripts settled it, and the key the wrong diagnosis
+  had introduced was reverted in full before the real fix landed. The cause is
+  POSITION. The distributions are now emitted between `INITIALIZE_SOLVER` and
+  `START_SOLVER`, which is where her scripts put them.
 
 - **`pyfs-matrix plan --cost` tables what each polar will cost (FR-82).** One
   row per point beside the READY and BLOCKED report: mesh size, trailing edges
@@ -182,7 +245,9 @@ FlightStream versions.
   logged as written and PENDING when this section was first filled; all eight
   are now implemented, and so are FR-83 to FR-91, so the section that told a
   reader what was specified but not built would be telling them about work
-  that is done. The entries above are where each of them now is.
+  that is done. The entries above are where each of them now is, and eight of
+  those entries were written only after the technical writing lens measured
+  that this sentence routed a reader to entries that did not exist.
 
   What it said: "FR-75 to FR-82 are written and PENDING, the eight
   requirements the author's questions and requests of 2026-09-10 produced,

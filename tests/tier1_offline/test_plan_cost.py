@@ -159,7 +159,7 @@ def test_the_mesh_column_is_the_size_the_file_states_and_not_its_boundary_count(
     states 4321 elements, so the two readings cannot be confused.
     """
     geometry = saved_simulation(tmp_path / "wb.fsm", ["W", "B", "N"])
-    cost = estimate_point_cost(steady_case(geometry), "run/a", [])
+    cost = estimate_point_cost(steady_case(geometry), run_id="run/a", recorded=[])
     assert cost.panels == ELEMENTS
     assert cost.panels != 3, "the column is reading the boundary count again"
 
@@ -168,9 +168,15 @@ def test_a_geometry_with_no_mesh_block_leaves_the_column_blank(tmp_path):
     """A wrong mesh size is compared against other rows; a blank is not."""
     empty = tmp_path / "not-a-simulation.fsm"
     empty.write_text("nothing here\n", encoding="utf-8")
-    cost = estimate_point_cost(steady_case(empty), "run/a", [])
+    cost = estimate_point_cost(steady_case(empty), run_id="run/a", recorded=[])
     assert cost.panels is None
-    assert "-" in format_cost_table([cost]).splitlines()[2]
+    # THE MESH FIELD, not "a dash somewhere in the row". The row already
+    # carries dashes in `layers`, `steps` and `procs`, so `"-" in line` held
+    # whatever the mesh cell printed, and a mutant rendering `0` there
+    # survived (the QA lens scoring M26, 2026-09-11).
+    table = format_cost_table([cost]).splitlines()
+    header, row = table[0].split(), table[2].split()
+    assert row[header.index("mesh")] == "-"
 
 
 def test_the_marked_trailing_edges_are_the_families_the_geometry_actually_carries(tmp_path):
@@ -188,13 +194,13 @@ def test_the_marked_trailing_edges_are_the_families_the_geometry_actually_carrie
     """
     geometry = saved_simulation(tmp_path / "wb.fsm", ["W", "B", "N"])
     case = steady_case(geometry, vorticity_drag_families=["W", "B", "GHOST"])
-    cost = estimate_point_cost(case, "run/a", [])
+    cost = estimate_point_cost(case, run_id="run/a", recorded=[])
     assert cost.trailing_edges == 2
 
 
 def test_a_row_marking_no_trailing_edges_reports_a_measured_zero(tmp_path):
     geometry = saved_simulation(tmp_path / "rotor.fsm", ["Blade1", "S", "N"])
-    cost = estimate_point_cost(rotor_case(geometry), "run/b", [])
+    cost = estimate_point_cost(rotor_case(geometry), run_id="run/b", recorded=[])
     assert cost.trailing_edges == 0
 
 
@@ -206,7 +212,7 @@ def test_the_setup_columns_are_read_from_the_settings_the_script_is_built_from(t
     """
     geometry = saved_simulation(tmp_path / "wb.fsm", ["W", "B", "N"])
     case = steady_case(geometry, max_threads=8, farfield_layers=5, viscous_coupling=True)
-    cost = estimate_point_cost(case, "run/a", [])
+    cost = estimate_point_cost(case, run_id="run/a", recorded=[])
     assert cost.processors == 8
     assert cost.farfield_layers == 5
     assert cost.viscous_coupling is True
@@ -224,14 +230,14 @@ def test_a_rotor_row_states_its_steps_as_an_angle_and_a_number_of_turns(tmp_path
     resolver the implementation calls.
     """
     geometry = saved_simulation(tmp_path / "rotor.fsm", ["Blade1", "S", "N"])
-    cost = estimate_point_cost(rotor_case(geometry), "run/b", [])
+    cost = estimate_point_cost(rotor_case(geometry), run_id="run/b", recorded=[])
     assert cost.unsteady is True
     assert cost.time_iterations == 36
 
 
 def test_a_steady_row_states_no_step_count_at_all(tmp_path):
     geometry = saved_simulation(tmp_path / "wb.fsm", ["W", "B", "N"])
-    cost = estimate_point_cost(steady_case(geometry), "run/a", [])
+    cost = estimate_point_cost(steady_case(geometry), run_id="run/a", recorded=[])
     assert cost.unsteady is False
     assert cost.time_iterations is None
 
@@ -258,11 +264,21 @@ def test_the_expected_time_is_fitted_from_the_recorded_runs_of_the_same_run_type
     ]
     steps = {"run/u1": 36}
 
-    steady = estimate_point_cost(steady_case(wb), "run/a", history, steps)
+    steady = estimate_point_cost(
+        steady_case(wb),
+        run_id="run/a",
+        recorded=history,
+        steps_by_run=steps,
+    )
     assert steady.samples == 2
     assert steady.seconds == pytest.approx(15.0)
 
-    unsteady = estimate_point_cost(rotor_case(rotor), "run/b", history, steps)
+    unsteady = estimate_point_cost(
+        rotor_case(rotor),
+        run_id="run/b",
+        recorded=history,
+        steps_by_run=steps,
+    )
     assert unsteady.samples == 1
     assert unsteady.seconds == pytest.approx(180.0)
 
@@ -277,7 +293,12 @@ def test_the_fit_is_linear_in_the_steps_the_point_asks_for(tmp_path):
     rotor = saved_simulation(tmp_path / "rotor.fsm", ["Blade1", "S", "N"])
     history = [recorded("run/u1", 180.0, "unsteady_rotor")]
     steps = {"run/u1": 36}
-    short = estimate_point_cost(rotor_case(rotor, revolutions="0.5"), "run/b", history, steps)
+    short = estimate_point_cost(
+        rotor_case(rotor, revolutions="0.5"),
+        run_id="run/b",
+        recorded=history,
+        steps_by_run=steps,
+    )
     assert short.time_iterations == 12
     assert short.seconds == pytest.approx(60.0)
 
@@ -300,7 +321,12 @@ def test_a_recorded_run_whose_step_count_is_unknown_is_left_out_of_the_fit(tmp_p
         recorded("run/u1", 180.0, "unsteady_rotor"),
         recorded("run/u2", 180.0, "unsteady_rotor", reductions={"time_iterations": None}),
     ]
-    cost = estimate_point_cost(rotor_case(rotor), "run/b", history, {"run/u1": 36})
+    cost = estimate_point_cost(
+        rotor_case(rotor),
+        run_id="run/b",
+        recorded=history,
+        steps_by_run={"run/u1": 36},
+    )
     assert cost.samples == 1, "the sample with no step count entered the fit"
     assert cost.seconds == pytest.approx(180.0)
     assert "1 further recorded run(s) state no step count" in cost.basis
@@ -309,7 +335,16 @@ def test_a_recorded_run_whose_step_count_is_unknown_is_left_out_of_the_fit(tmp_p
 def test_a_point_with_no_comparable_recorded_run_gets_no_number_at_all(tmp_path):
     """A figure that looks like a measurement and is not is worse than a blank."""
     rotor = saved_simulation(tmp_path / "rotor.fsm", ["Blade1", "S", "N"])
-    cost = estimate_point_cost(rotor_case(rotor), "run/b", [recorded("run/s1", 10.0)])
+    cost = estimate_point_cost(
+        rotor_case(rotor),
+        run_id="run/b",
+        recorded=[
+            recorded(
+                "run/s1",
+                10.0,
+            )
+        ],
+    )
     assert cost.seconds is None
     assert cost.samples == 0
     assert "no recorded run of this run type" in cost.basis
@@ -323,7 +358,7 @@ def test_every_comparable_run_lacking_a_step_count_offers_no_estimate(tmp_path):
         recorded("run/u1", 180.0, "unsteady_rotor"),
         recorded("run/u2", 200.0, "unsteady_rotor"),
     ]
-    cost = estimate_point_cost(rotor_case(rotor), "run/b", history, {})
+    cost = estimate_point_cost(rotor_case(rotor), run_id="run/b", recorded=history, steps_by_run={})
     assert cost.seconds is None
     assert cost.samples == 0
     assert "state no step count" in cost.basis
@@ -351,8 +386,12 @@ def test_the_basis_under_the_table_is_each_run_types_own(tmp_path):
     steps = {"run/u1": 36}
     table = format_cost_table(
         [
-            estimate_point_cost(steady_case(wb), "run/a", history, steps),
-            estimate_point_cost(rotor_case(rotor), "run/b", history, steps),
+            estimate_point_cost(
+                steady_case(wb), run_id="run/a", recorded=history, steps_by_run=steps
+            ),
+            estimate_point_cost(
+                rotor_case(rotor), run_id="run/b", recorded=history, steps_by_run=steps
+            ),
         ]
     )
     lines = [line for line in table.splitlines() if line.startswith("  ")]
@@ -371,7 +410,7 @@ def test_the_table_says_the_time_is_an_extrapolation_before_it_says_anything_els
     this number for a measurement of the point in front of them.
     """
     wb = saved_simulation(tmp_path / "wb.fsm", ["W", "B", "N"])
-    cost = estimate_point_cost(steady_case(wb), "run/a", [recorded("run/s1", 10.0)])
+    cost = estimate_point_cost(steady_case(wb), run_id="run/a", recorded=[recorded("run/s1", 10.0)])
     table = format_cost_table([cost])
     assert "EXPECTED TIME IS AN EXTRAPOLATION AND NOT A MEASUREMENT" in table
     assert "crude model" in cost.basis
@@ -381,7 +420,15 @@ def test_the_table_says_the_time_is_an_extrapolation_before_it_says_anything_els
 def test_every_column_her_design_named_has_a_heading(tmp_path):
     """Her list, read back off the rendered header rather than off the model."""
     wb = saved_simulation(tmp_path / "wb.fsm", ["W", "B", "N"])
-    header = format_cost_table([estimate_point_cost(steady_case(wb), "run/a", [])]).splitlines()[0]
+    header = format_cost_table(
+        [
+            estimate_point_cost(
+                steady_case(wb),
+                run_id="run/a",
+                recorded=[],
+            )
+        ]
+    ).splitlines()[0]
     for column in ("mesh", "TEs", "layers", "visc", "type", "steps", "procs", "expected"):
         assert column in header, column
 
@@ -450,7 +497,12 @@ def test_the_fit_is_scored_against_a_point_it_was_not_fitted_on(tmp_path):
 
     # HELD OUT: 36 steps, and it really took 180s at the same rate.
     held_out_actual = 180.0
-    predicted = estimate_point_cost(rotor_case(rotor), "run/held-out", training, steps).seconds
+    predicted = estimate_point_cost(
+        rotor_case(rotor),
+        run_id="run/held-out",
+        recorded=training,
+        steps_by_run=steps,
+    ).seconds
 
     assert predicted == pytest.approx(held_out_actual, rel=0.1)
     mean_of_training = (60.0 + 120.0) / 2
@@ -478,7 +530,84 @@ def test_the_fit_never_reads_a_recorded_iteration_count(tmp_path):
     rotor = saved_simulation(tmp_path / "rotor.fsm", ["Blade1", "S", "N"])
     poisoned = recorded("run/u1", 180.0, "unsteady_rotor")
     poisoned["iterations"] = 100  # the first page's last row, not the run's length
-    cost = estimate_point_cost(rotor_case(rotor), "run/b", [poisoned], {"run/u1": 36})
+    cost = estimate_point_cost(
+        rotor_case(rotor),
+        run_id="run/b",
+        recorded=[poisoned],
+        steps_by_run={"run/u1": 36},
+    )
     # 180s over the 36 steps the ROW states, not over the 100 the record claims.
     assert cost.seconds == pytest.approx(180.0)
     assert cost.seconds != pytest.approx(180.0 / 100 * 36)
+
+
+# --------------------------------------------------------------------------
+# The assembler, which nothing reached
+# --------------------------------------------------------------------------
+
+
+def test_point_costs_fills_the_sweep_point_before_it_costs_it(tmp_path):
+    """The defect `point_costs`' own docstring records, with no case until now.
+
+    A swept row states `ADVANCE_RATIO: sweep` and the VALUE is the POINT's, so
+    a rotor row costed from the un-filled row names no rotor speed and reports
+    no step count at all. A mutant that stopped filling the point survived
+    every case in the two new modules, because both of them call
+    `estimate_point_cost` directly and nothing called the assembler above it
+    (the QA lens scoring M27, 2026-09-11).
+
+    36 steps is what 1.5 revolutions at 15 degrees works out to, and it is
+    reachable ONLY through the filled point: the row alone cannot resolve the
+    rotor speed its clock is measured against.
+    """
+    from pyflightstream.run import CampaignPlan, PlanStatus, PointPlan, point_costs
+
+    rotor = saved_simulation(tmp_path / "rotor.fsm", ["Blade1", "S", "N"])
+    case = rotor_case(rotor).model_copy(update={"point": {}})
+    plan = CampaignPlan(
+        campaign="camp",
+        fs_version="26.123",
+        points=[
+            PointPlan(
+                run_id="camp/sim_6002/a+00.0_b+00.0_j+01.7",
+                sim_id="6002",
+                point={"alpha": 0.0, "beta": 0.0, "advance_ratio": 1.7},
+                script_name=None,
+                status=PlanStatus.READY,
+            )
+        ],
+    )
+
+    class _NoRuns:
+        """A workspace that has recorded nothing, so only the columns are read."""
+
+        manifest_path = tmp_path / "runs.json"
+
+    rows = point_costs(plan, cases_by_sim_id={"6002": case}, workspace=_NoRuns())
+    assert len(rows) == 1
+    assert rows[0].run_id == "camp/sim_6002/a+00.0_b+00.0_j+01.7"
+    assert rows[0].time_iterations == 36
+
+
+def test_point_costs_gives_no_row_to_a_point_whose_simulation_it_was_not_given(tmp_path):
+    """A row of blanks would read as a measurement of a point nobody planned."""
+    from pyflightstream.run import CampaignPlan, PlanStatus, PointPlan, point_costs
+
+    plan = CampaignPlan(
+        campaign="camp",
+        fs_version="26.123",
+        points=[
+            PointPlan(
+                run_id="camp/sim_9999/a+00.0",
+                sim_id="9999",
+                point={"alpha": 0.0},
+                script_name=None,
+                status=PlanStatus.READY,
+            )
+        ],
+    )
+
+    class _NoRuns:
+        manifest_path = tmp_path / "runs.json"
+
+    assert point_costs(plan, cases_by_sim_id={}, workspace=_NoRuns()) == []

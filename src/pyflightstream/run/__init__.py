@@ -133,6 +133,7 @@ __all__ = [
     "Assessment",
     "CampaignErrors",
     "CampaignPlan",
+    "PlannedPointCost",
     "ExecutionResult",
     "Executor",
     "ExecutorConfigurationError",
@@ -142,6 +143,9 @@ __all__ = [
     "OutcomeAssessor",
     "PlanStatus",
     "PointPlan",
+    "estimate_point_cost",
+    "format_cost_table",
+    "point_costs",
     "Reconstruction",
     "SolverBuild",
     "SurfaceMeshExportError",
@@ -2377,8 +2381,15 @@ class PointPlan:
 
 
 @dataclass(frozen=True)
-class PointCost:
+class PlannedPointCost:
     """What one point is expected to cost, and what that expectation rests on.
+
+    NAMED FOR THE POINT THAT HAS NOT RUN, because `PointCost` was already
+    taken: :class:`pyflightstream.qa.cost.PointCost` has meant one point
+    MEASURED on two solver builds since PFS-2018.02 and is exported from
+    `pyflightstream.qa`. Two public classes of one name in one package is a
+    traceback nobody can read, and this is the one that arrived second
+    (the interface lens, 2026-09-11).
 
     FR-82. Every field but `seconds` and `samples` is READ from the row, the
     mesh and the setup: they are measurements of the thing about to be run. The
@@ -2391,10 +2402,16 @@ class PointCost:
     run_id : str
         The point this row is about.
     panels : int or None
-        Mesh size, the boundary count the geometry declares. None when the
-        geometry could not be read.
-    trailing_edges : int
-        How many trailing edges the row marks.
+        Mesh size: the ELEMENT COUNT the geometry's mesh block states, which
+        one campaign geometry overstates by about a percent (`_mesh_size`
+        carries the measurement). None where the geometry states none or
+        could not be read. THIS FIELD ONCE HELD THE BOUNDARY COUNT and this
+        line once said so; a wing-body read 2 where its mesh states 14266.
+    trailing_edges : int or None
+        How many of the families the row marks for vorticity drag the
+        opened geometry actually carries. ZERO is a measured none; None
+        means the geometry could not be read, so the intersection this
+        column promises could not be performed at all.
     farfield_layers : int or None
         The farfield layer setting, None when the setup states none.
     viscous_coupling : bool
@@ -2418,7 +2435,7 @@ class PointCost:
 
     run_id: str
     panels: int | None
-    trailing_edges: int
+    trailing_edges: int | None
     farfield_layers: int | None
     viscous_coupling: bool
     unsteady: bool
@@ -2430,43 +2447,19 @@ class PointCost:
 
 
 def _mesh_size(geometry) -> int | None:
-    """Return the element count the geometry's mesh block states, or None.
+    """Return the element count the geometry's mesh block states, or None (FR-82).
 
-    FR-82's "tamanho da malha", and it is the FILE'S OWN STATEMENT rather
-    than a count of anything. The block opens with it on the line right
-    after the marker; a file with no mesh block, or one this reader does
-    not recognise, answers None rather than a number, because a wrong mesh
-    size is compared against other rows and a blank is not.
-
-    THIS IS THE LINE `_fsm` SKIPS ON PURPOSE, and saying so is the point of
-    this paragraph. `_fsm._LINES_BEFORE_COUNT` steps over two lines to
-    reach the boundary count, and its comment gives the reason for the
-    first of them: an element count "that is not trustworthy (one campaign
-    geometry states 7848 where every array holds 7784)". So this column can
-    be off by about a percent, and the alternative is counting the arrays
-    of a 9 MB file once per row, which is four orders of magnitude of work
-    for a column nobody does arithmetic on.
-
-    AND NOTHING DOES ARITHMETIC ON IT. The fit in `estimate_point_cost` is
-    linear in the time steps and in nothing else, so this number reaches a
-    reader's judgement and never an estimate. A figure off by a percent and
-    read as a reading is fine; one off by a percent and multiplied is the
-    defect this note exists to prevent someone introducing.
+    FR-82's "tamanho da malha", read by the layer that owns the `.fsm`
+    format rather than parsed a second time here. What the number is, and
+    the percent it can be off by, is documented at
+    :func:`pyflightstream._fsm.element_count`; nothing does arithmetic on it.
     """
-    from pyflightstream._fsm import MESH_MARKER
+    from pyflightstream._fsm import element_count
 
-    try:
-        with open(geometry, encoding="utf-8", errors="replace") as handle:
-            for line in handle:
-                if line.strip() == MESH_MARKER:
-                    stated = handle.readline().strip()
-                    return int(stated) if stated.isdigit() else None
-    except OSError:
-        return None
-    return None
+    return element_count(geometry)
 
 
-def _marked_trailing_edges(case) -> int:
+def _marked_trailing_edges(case) -> int | None:
     """How many boundaries the row marks for vorticity drag (FR-82).
 
     Read from the row's own statement and the geometry's inventory rather
@@ -2486,7 +2479,7 @@ def _marked_trailing_edges(case) -> int:
     """
     families = getattr(getattr(case, "solver", None), "vorticity_drag_families", None)
     if not families:
-        return 0
+        return 0  # a measured none: the row marks no family
     inventory = None
     if case.geometry is not None:
         try:
@@ -2496,10 +2489,12 @@ def _marked_trailing_edges(case) -> int:
         except Exception:
             inventory = None
     if not inventory:
-        # The geometry states no inventory this reader recognises, so the
-        # row's own statement is the only measurement available and it is
-        # reported as it stands rather than filtered against nothing.
-        return len(families)
+        # NONE, AND NOT THE ROW'S OWN COUNT. This returned `len(families)`
+        # unintersected, which is a different quantity printed in the same
+        # cell with nothing to tell the two apart -- while `mesh` printed
+        # `-` for that same unreadable geometry, so one failure had two
+        # answers in one row (the technical writing lens, 2026-09-11).
+        return None
     carried = {name.casefold() for name in inventory}
     return len([name for name in families if str(name).casefold() in carried])
 
@@ -2551,16 +2546,40 @@ def _write_probe_points(
     The alternative -- one file per point -- would put a hundred identical
     files in the folder and say the layout depends on the angle of attack.
     """
-    from pyflightstream.cases.workflows import PROBE_PROFILE_DIR
+    import csv
+
+    from pyflightstream.cases.workflows import PROBE_POSITION_COLUMNS, PROBE_PROFILE_DIR
 
     if not points:
         return None
     relative = f"{PROBE_PROFILE_DIR}/{sim_id}_probe_points.csv"
     target = sim_dir / relative
+    # A USER'S OWN SURVEY LIVES IN THIS FOLDER TOO. FR-80 stages the points
+    # file a user cited into `profiles/`, on her instruction, so a user whose
+    # file carries this exact name would have had it overwritten here without
+    # a word. Destroying user input is not a thing to do quietly, and a
+    # refusal naming both the file and the fix costs one rename (the
+    # interface, architecture and verification lenses, 2026-09-11).
+    if target.is_file():
+        existing = target.read_text(encoding="utf-8", errors="replace").splitlines()
+        header = existing[0].strip() if existing else ""
+        if header and header != ",".join(PROBE_POSITION_COLUMNS):
+            raise PyflightstreamError(
+                f"{target} already exists and is not a probe positions file "
+                f"(its first line reads {header!r}, and this writer's is "
+                f"{','.join(PROBE_POSITION_COLUMNS)!r}). This is where the package "
+                "records where it put this simulation's probe points, and it will "
+                "not overwrite a file it did not write. Rename the points file "
+                f"your artifact cites, or rename simulation {sim_id!r}."
+            )
     target.parent.mkdir(parents=True, exist_ok=True)
-    lines = ["PROBE,X,Y,Z,FRAME"]
-    lines += [f"{vertex},{x},{y},{z},{frame}" for vertex, x, y, z, frame in points]
-    target.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    # THROUGH `csv`, not through an f-string. A frame name carrying a comma,
+    # a quote or a newline produced a row the reader silently dropped, and
+    # the probe table then showed empty coordinates with nothing recorded.
+    with target.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.writer(handle, lineterminator="\n")
+        writer.writerow(PROBE_POSITION_COLUMNS)
+        writer.writerows(points)
     return relative
 
 
@@ -2593,10 +2612,11 @@ def _recorded_costs(workspace) -> list[dict]:
 
 def estimate_point_cost(
     case,
+    *,
     run_id: str,
     recorded: list[dict],
     steps_by_run: dict[str, int | None] | None = None,
-) -> PointCost:
+) -> PlannedPointCost:
     """Table one point's cost, and fit its time from comparable recorded runs.
 
     FR-82. EVERY FIGURE BUT THE TIME IS A MEASUREMENT of the row, the mesh and
@@ -2606,9 +2626,13 @@ def estimate_point_cost(
     COMPARABLE MEANS THE SAME RUN TYPE, because steady and unsteady differ by
     more than any other term: an unsteady point runs its solve once per time
     step. Within a run type the fit is linear in the work the point asks for,
-    which is the time steps for an unsteady row and one solve for a steady one,
-    and inversely proportional to the processors where both the sample and the
-    point state them.
+    which is the time steps for an unsteady row and one solve for a steady one.
+
+    THERE IS NO PROCESSOR TERM, and this sentence once said there was. The
+    processor count is READ and PRINTED so a reader can see it differ between
+    rows, and it is not multiplied into anything: the fit is linear in the
+    time steps and in nothing else, which is what the requirement says one
+    page away (the technical writing lens, 2026-09-11).
 
     IT IS DELIBERATELY A CRUDE MODEL and the docstring says so rather than the
     code implying otherwise. The author has a scalability study coming, in her
@@ -2691,10 +2715,20 @@ def estimate_point_cost(
                 "left out rather than counted as one step."
             )
         )
+        # THE MECHANISM NAMED IS THE ONE THAT ACTED. Both run types were
+        # told "linear in the time steps the point asks for", and a steady
+        # row asks for none: its work is one solve, fixed. An operator
+        # message that names a mechanism which did not act is the defect
+        # this estate treats as worst, because it reads as current.
+        how = (
+            "linear in the time steps the point asks for"
+            if unsteady
+            else "one solve per recorded run, which is what a steady row asks for"
+        )
         basis = (
             f"fitted from {samples} recorded "
             f"{'unsteady' if unsteady else 'steady'} run(s) of this workspace, "
-            "linear in the time steps the point asks for. It is a crude model "
+            f"{how}. It is a crude model "
             "pending her scalability study and is not a measurement of "
             f"this point.{dropped}"
         )
@@ -2705,7 +2739,7 @@ def estimate_point_cost(
             "no step count, so none of them calibrates a per-step rate and no "
             "estimate is offered rather than one fitted to a guess"
         )
-    return PointCost(
+    return PlannedPointCost(
         run_id=run_id,
         panels=panels,
         trailing_edges=trailing,
@@ -2723,16 +2757,20 @@ def estimate_point_cost(
     )
 
 
-def point_costs(plan: CampaignPlan, cases: dict, workspace) -> list[PointCost]:
+def point_costs(
+    plan: CampaignPlan, cases_by_sim_id: Mapping[str, object], workspace
+) -> list[PlannedPointCost]:
     """One cost row per planned point (FR-82).
 
     Parameters
     ----------
     plan : CampaignPlan
         The plan whose points are to be tabled.
-    cases : dict
-        The resolved case per simulation id. A point whose simulation is
-        absent gets no row rather than a row of blanks.
+    cases_by_sim_id : mapping
+        The resolved case, KEYED ON THE SIMULATION ID and not on the run id.
+        The name carries the key because choosing the other one produces an
+        empty result and no refusal. A point whose simulation is absent gets
+        no row rather than a row of blanks.
     workspace : CampaignWorkspace
         Where the recorded wall times are read from.
 
@@ -2760,17 +2798,33 @@ def point_costs(plan: CampaignPlan, cases: dict, workspace) -> list[PointCost]:
 
     recorded = _recorded_costs(workspace)
     filled = {
-        entry.run_id: cases[entry.sim_id].model_copy(update={"point": dict(entry.point)})
+        entry.run_id: cases_by_sim_id[entry.sim_id].model_copy(update={"point": dict(entry.point)})
         for entry in plan.points
-        if entry.sim_id in cases
+        if entry.sim_id in cases_by_sim_id
     }
     steps_by_run = {run_id: time_steps_of(case) for run_id, case in filled.items()}
     return [
-        estimate_point_cost(case, run_id, recorded, steps_by_run) for run_id, case in filled.items()
+        estimate_point_cost(case, run_id=run_id, recorded=recorded, steps_by_run=steps_by_run)
+        for run_id, case in filled.items()
     ]
 
 
-def format_cost_table(costs: list[PointCost]) -> str:
+def _elide(text: str, width: int) -> str:
+    """Shorten a run id to `width`, keeping its END and marking the cut.
+
+    FROM THE LEFT, because the left of a run id is the campaign and the
+    simulation, which every row of one table shares, and the right is the
+    point, which is the only thing that tells two rows apart. Truncated from
+    the right with no marker, as this did until 2026-09-11, a J sweep whose
+    campaign name is one character longer than the example renders every row
+    with the same label and says nothing about it (the interface lens).
+    """
+    if len(text) <= width:
+        return text
+    return "..." + text[-(width - 3) :]
+
+
+def format_cost_table(costs: list[PlannedPointCost]) -> str:
     """Render the cost table FR-82 asks for, with its basis under it."""
     header = (
         f"{'point':38} {'mesh':>8} {'TEs':>5} {'layers':>7} {'visc':>5} "
@@ -2780,9 +2834,9 @@ def format_cost_table(costs: list[PointCost]) -> str:
     for cost in costs:
         expected = "unknown" if cost.seconds is None else f"{cost.seconds:.1f}s"
         rows.append(
-            f"{cost.run_id[:38]:38} "
+            f"{_elide(cost.run_id, 38):38} "
             f"{'-' if cost.panels is None else cost.panels:>8} "
-            f"{cost.trailing_edges:>5} "
+            f"{'-' if cost.trailing_edges is None else cost.trailing_edges:>5} "
             f"{'-' if cost.farfield_layers is None else cost.farfield_layers:>7} "
             f"{'yes' if cost.viscous_coupling else 'no':>5} "
             f"{'unsteady' if cost.unsteady else 'steady':>9} "
@@ -2837,16 +2891,22 @@ class CampaignPlan:
 
     campaign: str
     fs_version: str
-    points: list[PointPlan]
-    #: FR-82. One row per point when the caller asked for the cost
-    #: table, empty otherwise. Computed here because this is where the
-    #: resolved cases are; a caller re-resolving the matrix to find them
-    #: would be re-deriving state this object already holds.
-    costs: list[PointCost] = field(default_factory=list)
+    points: list[PointPlan] = field(default_factory=list)
     #: Where the campaign name came from, ``directory`` or ``option`` (PFS-2029.03.01).
     campaign_name_from: str | None = None
     plan_file: Path | None = None
     build_groups: dict[str, list[str]] = field(default_factory=dict)
+    #: FR-82. One row per point when the caller asked for the cost table,
+    #: empty otherwise. Filled by :func:`point_costs` where the resolved
+    #: cases are; a caller re-resolving the matrix to find them would be
+    #: re-deriving state this object already holds.
+    #:
+    #: LAST, and that position is the fix for a break this field caused.
+    #: Put above `campaign_name_from` it forced `points` to lose its own
+    #: default, so `CampaignPlan(campaign=..., fs_version=...)` -- a public
+    #: constructor call that worked in every release -- raised TypeError.
+    #: The architecture and interface lenses both caught it (2026-09-11).
+    costs: list[PlannedPointCost] = field(default_factory=list)
 
     @property
     def blocked(self) -> list[PointPlan]:

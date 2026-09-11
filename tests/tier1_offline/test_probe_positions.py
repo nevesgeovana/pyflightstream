@@ -6,14 +6,21 @@ resultado do fluido (velocidade, mach, etc). Isso vai ficar transparente se foi
 gerado com steady ou unsteady, e pro unsteady, e importante ter o arquivo de
 posicao porque nao vem escrito no unsteady plots."
 
-THE DEFECT IS VISIBLE IN A REAL EXPORT'S HEADER. A recorded unsteady plots
-table of this estate opens::
+THE DEFECT IS VISIBLE IN A REAL EXPORT'S HEADER. The recorded unsteady plots
+table of her pfs0160 rotor point opens::
 
-    Time-step,CL_MRP_TOTAL,...,MACH1,VELOCITY1,VX1,VY1,VZ1,STATIC_PRESSURE_RATIO1,MACH2,...
+    Time-step,CL_MRP_TOTAL,...,MACH1,VELOCITY1,STATIC_PRESSURE_RATIO1,MACH2,...
 
-One numbered group per probe point, and nothing anywhere in the file says where
-point 7 is. A reader holding that table cannot place a single sample, which is
-what makes it a table of numbers about nowhere.
+One numbered column per parameter THAT ROW'S probe entry declares, and nothing
+anywhere in the file says where point 7 is. A reader holding that table cannot
+place a single sample, which is what makes it a table of numbers about nowhere.
+
+THE GROUP IS THE ROW'S AND NOT THE FORMAT'S. This docstring once quoted a
+six-name group here as if it were the shape an unsteady export has; that list
+is what one artifact of the licensed suite DECLARES, and the export above
+carries three because that row asked for three. The writer composes the names
+forward from the declaration, so it is right either way, and the prose was the
+only thing claiming otherwise (the verification lens, 2026-09-11).
 
 WHAT IS ASSERTED HERE is that the position recorded is the position EMITTED --
 the same loop writes both, so they cannot drift -- and that the SPINE of the
@@ -129,7 +136,12 @@ def test_the_steady_table_keeps_the_export_coordinates_and_gains_the_frame(tmp_p
     assert float(first["Y"]) == pytest.approx(2.0)
     assert float(first["Z"]) == pytest.approx(-0.6)
     assert first["FRAME"] == "PUSHER_SMRP"
-    assert first["STEP"] == ""
+    # `-` AND NOT EMPTY. A steady row has one step, so the cell is NOT
+    # APPLICABLE rather than unknown, and this release already chose `-`
+    # for that in the cost table shipped beside it. Empty is reserved for
+    # a value the package could not derive, which is what the position and
+    # frame cells of a pre-0.16.0 run carry (the interface lens).
+    assert first["STEP"] == "-"
     assert int(float(first["PROBE"])) == 1
 
 
@@ -420,3 +432,174 @@ def test_a_positions_table_whose_columns_are_in_another_order_still_reads(tmp_pa
     path = tmp_path / "reordered.csv"
     path.write_text("FRAME,Z,Y,X,PROBE\nMRP,2.0,1.0,0.0,1\n", encoding="utf-8")
     assert read_probe_positions(path) == {1: (0.0, 1.0, 2.0, "MRP")}
+
+
+# --------------------------------------------------------------------------
+# The cases the QA lens proved were missing
+# --------------------------------------------------------------------------
+
+
+def test_the_step_is_the_one_the_table_states_and_not_the_row_number(tmp_path):
+    """F1. Both readings agree on every fixture in the tree, which is the trap.
+
+    The plots table carries `Time-step` and this writer synthesised the step
+    from the row's position instead. On an export numbered 1, 2, 3 the two are
+    the same number, so a mutant swapping them survived 35 tests. The rule
+    `post.superfile` already states is that the step a sample came from is not
+    a guess, and THIS TABLE NUMBERS ITS ROWS 7 AND 9: not starting at one, not
+    stepping by one, so the ordinal and the stated step cannot agree.
+    """
+    recorded = read_probe_positions(positions_file(tmp_path, [(1, 0.0, 1.0, 2.0, "MRP")]))
+    plots = tmp_path / "p_plots.csv"
+    plots.write_text(
+        "Time-step,MACH1,VX1\n7.00000,0.10000,70.00000\n9.00000,0.20000,80.00000\n",
+        encoding="utf-8",
+    )
+    written = write_unsteady_probes_table(
+        tmp_path / "p_probes.csv", plots, positions=recorded, parameters=["MACH", "VX"]
+    )
+    assert written is not None
+    _, rows = read_csv_table(written)
+    assert [int(float(row["STEP"])) for row in rows] == [7, 9]
+
+
+def test_a_plots_table_with_no_step_column_falls_back_to_the_row_number(tmp_path):
+    """The fallback, asserted so it is a decision rather than an accident.
+
+    A product is better than a refusal here, and the two readings agree on
+    every export that begins at one and steps by one.
+    """
+    recorded = read_probe_positions(positions_file(tmp_path, [(1, 0.0, 1.0, 2.0, "MRP")]))
+    plots = tmp_path / "p_plots.csv"
+    plots.write_text("MACH1,VX1\n0.10000,70.00000\n0.20000,80.00000\n", encoding="utf-8")
+    written = write_unsteady_probes_table(
+        tmp_path / "p_probes.csv", plots, positions=recorded, parameters=["MACH", "VX"]
+    )
+    assert written is not None
+    _, rows = read_csv_table(written)
+    assert [int(float(row["STEP"])) for row in rows] == [1, 2]
+
+
+def test_a_rectangle_and_a_circle_record_every_point_they_place(tmp_path):
+    """F6. The lattice half of the register was asserted by nothing.
+
+    A mutant that made the rectangle and circle loop record NOTHING left 35
+    tests passing, because every case that reads `script.probe_points` used a
+    LINE. The diff's own comment claims one append covers both shapes on both
+    run paths; this is that claim's case.
+
+    The counts are computed from the declarations rather than restated from
+    the code: a 2 by 3 rectangle is six points with both ends included, and a
+    circle of 2 radial by 4 azimuthal stations is the centre ONCE plus the rim
+    four times, which is five.
+    """
+    from pyflightstream.cases import (
+        PprocSpec,
+        ProbeCircle,
+        ProbeRectangle,
+        ProbesSpec,
+        ReferenceData,
+        SimCase,
+        SweepAxis,
+    )
+    from pyflightstream.cases.workflows import build_script
+    from pyflightstream.script import Script
+
+    geometry = tmp_path / "g.fsm"
+    geometry.write_text("nothing\n", encoding="utf-8")
+    case = SimCase(
+        sim_id="7002",
+        aircraft="WB",
+        recipe="unsteady",
+        sweep=SweepAxis(type="alpha", values=[0.0]),
+        variables={
+            "WORKFLOW": "unsteady",
+            "VELOCITY": "30.0",
+            "DELTA_TIME": "0.001",
+            "TIME_ITERATIONS": "3",
+        },
+        geometry=str(geometry),
+        outputs=["loads_a+00.0.txt"],
+        reference=ReferenceData(area=8.0, length=1.0, span_m=4.0, moment_point_m=(0.0, 0.0, 0.0)),
+        pproc=PprocSpec(
+            probes=[
+                ProbesSpec(
+                    frame="MRP",
+                    parameters=["MACH"],
+                    rectangles=[
+                        ProbeRectangle(
+                            origin=[0.0, 0.0, 0.0],
+                            along_u=[1.0, 0.0, 0.0],
+                            along_v=[0.0, 1.0, 0.0],
+                            points_u=2,
+                            points_v=3,
+                        )
+                    ],
+                    circles=[
+                        ProbeCircle(
+                            center=[0.0, 0.0, 5.0],
+                            normal=[0.0, 0.0, 1.0],
+                            radius=1.0,
+                            points_radial=2,
+                            points_azimuth=4,
+                        )
+                    ],
+                )
+            ]
+        ),
+        point={"alpha": 0.0},
+    )
+    script = Script("26.123")
+    build_script(case, script)
+    assert len(script.probe_points) == 6 + 5
+    # And each recorded point is the one that was emitted, read back out of
+    # the rendered script by the plot name the vertex number appears in.
+    lines = script.render().splitlines()
+    emitted = {
+        lines[index][len("NAME MACH") :]: lines[index + 1]
+        for index, line in enumerate(lines)
+        if line.startswith("NAME MACH")
+    }
+    for vertex, x, y, z, _frame in script.probe_points:
+        assert emitted[str(vertex)] == f"VERTEX {x} {y} {z}"
+
+
+def test_a_steady_row_records_its_points_too(tmp_path):
+    """The steady path's recording was unasserted, and it is the FR-81 path.
+
+    A steady row places its points with `NEW_PROBE_LINE` rather than with one
+    fluid plot each, so nothing in the rendered script carries a vertex
+    number; the register is the only place the numbering exists at all, which
+    is exactly why it must be asserted here.
+    """
+    from pyflightstream.cases import PprocSpec, ReferenceData, SimCase, SweepAxis
+    from pyflightstream.cases.workflows import build_script
+    from pyflightstream.script import Script
+
+    geometry = tmp_path / "g.fsm"
+    geometry.write_text("nothing\n", encoding="utf-8")
+    case = SimCase(
+        sim_id="7003",
+        aircraft="WB",
+        recipe="steady",
+        sweep=SweepAxis(type="alpha", values=[0.0]),
+        variables={"WORKFLOW": "steady", "VELOCITY": "30.0"},
+        geometry=str(geometry),
+        outputs=["loads_a+00.0.txt"],
+        reference=ReferenceData(area=8.0, length=1.0, span_m=4.0, moment_point_m=(0.0, 0.0, 0.0)),
+        pproc=PprocSpec(
+            probes=[
+                ProbesSpec(
+                    frame="MRP",
+                    parameters=["MACH"],
+                    points=3,
+                    lines=[ProbeLine(start=[0.0, 0.0, 0.0], end=[1.0, 0.0, 0.0])],
+                )
+            ]
+        ),
+        point={"alpha": 0.0},
+    )
+    script = Script("26.123")
+    build_script(case, script)
+    assert [entry[1] for entry in script.probe_points] == [0.0, 0.5, 1.0]
+    assert "NEW_PROBE_LINE" in script.render()

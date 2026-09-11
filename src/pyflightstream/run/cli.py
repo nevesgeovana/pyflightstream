@@ -814,6 +814,16 @@ def _cmd_plan(args: argparse.Namespace, recipes: dict[str, str]) -> int:
         print(f"matrix not planned: {error}", file=sys.stderr)
         return 2
     print(plan.summary())
+    if getattr(args, "cost", False) and not plan.costs:
+        # A FLAG THE USER PASSED MUST ANSWER. `point_costs` returns nothing
+        # when no planned point resolves to a case, and printing nothing is
+        # indistinguishable from not having passed the flag at all (the
+        # interface lens, 2026-09-11).
+        print()
+        print(
+            "no cost row: none of the planned points resolved to a case of this "
+            "matrix, so there is nothing to table. The plan above still stands."
+        )
     if plan.costs:
         # FR-82. The table goes to STDOUT beside the summary, because an
         # operator asked for it explicitly with a flag; the progress lines of

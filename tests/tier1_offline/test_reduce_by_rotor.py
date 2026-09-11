@@ -421,3 +421,55 @@ def test_a_motions_row_that_sweeps_the_advance_ratio_reduces_at_all():
     # ANGLES rather than by restating the code's 60 / (rpm * dt) / blades,
     # so the two agree only if the speed this test is about was resolved.
     assert pusher["period_steps"] == 8
+
+
+def test_a_row_turning_several_rotors_still_has_to_name_its_clock(tmp_path):
+    """The one shape the speed reader's reordering ANSWERS DIFFERENTLY.
+
+    The architecture lens read the new branch order and said it was not
+    strictly wider, which the docstring at the time claimed. It is right, and
+    the measurement that settles WHICH shape is wider than the lens's reading
+    and than my first correction: it is not about how many rotors turn. A row
+    whose motion records RESOLVE to a speed and which names no `CLOCK_MOTION`
+    now refuses, one rotor or several, where a flat `RPM` used to answer it.
+
+    THE REFUSAL IS FR-64'S AND THE FLAT `RPM` WAS A BACK DOOR PAST IT. A row
+    turning two rotors has two speeds, and `DELTA_THETA` bounds a blade's
+    travel per step, so which rotor owns the clock is a question with no
+    default; the row was getting whichever number it happened to carry. This
+    pins the refusal so the change is a decision rather than a side effect,
+    and so it cannot be undone by accident.
+    """
+    from pyflightstream.cases import CampaignConfigError
+    from pyflightstream.cases.workflows import _optional_rotor_speed
+
+    flat = {
+        "WORKFLOW": "unsteady_rotor",
+        "VELOCITY": "30.0",
+        "DELTA_TIME": "0.0001",
+        "TIME_ITERATIONS": "720",
+        # A flat speed on the row, and no CLOCK_MOTION anywhere.
+        "RPM": "2200",
+    }
+    # REFUSED: the records resolve to a speed, so the row has a choice to make
+    # and has not made it. The count of rotors is not what decides this.
+    for motions in (
+        None,
+        [{"MOVING_BC_ALIAS": "LIFT_L1", "RPM": "2200"}],
+    ):
+        case = (
+            transition_case(variables=dict(flat))
+            if motions is None
+            else transition_case(variables=dict(flat), motions=motions)
+        )
+        with pytest.raises(CampaignConfigError, match="CLOCK_MOTION"):
+            _optional_rotor_speed(case)
+
+    # ANSWERED, and asserted beside the refusals so the pin cannot be read as
+    # a blanket one. A record that resolves to no speed lands in the lost list,
+    # leaves `turning` empty, and reaches the flat branch exactly as before.
+    resolves_to_nothing = transition_case(
+        variables=dict(flat), motions=[{"MOVING_BC_ALIAS": "LIFT_L1"}]
+    )
+    assert _optional_rotor_speed(resolves_to_nothing).rpm == 2200.0
+    assert _optional_rotor_speed(transition_case(variables=dict(flat), motions=[])).rpm == 2200.0

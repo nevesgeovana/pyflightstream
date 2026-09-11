@@ -1520,3 +1520,78 @@ def test_the_former_her_names_of_the_polar_format_are_gone(tmp_path):
     assert products_module.custom_polar_file_name is not None
     with pytest.raises(AttributeError):
         _ = post.no_such_name
+
+
+def test_the_probe_positions_the_record_names_reach_the_delivered_table(tmp_path):
+    """FR-91 end to end: the run writes them, the record names them, post joins.
+
+    THE JOIN, and it is the only line that performs it. Blanked to an empty
+    mapping, every post-stage module stayed green, because both ends were
+    tested in isolation and nothing asserted that the field's VALUE flows (the
+    QA lens scoring M33, 2026-09-11).
+
+    The coordinates here are deliberately unlike anything else in the fixture,
+    so a table that carried zeros, or blanks, or the vertex number again,
+    fails. The frame likewise: `PUSHER_SMRP` appears nowhere else.
+    """
+    from pyflightstream.post.products import read_csv_table, write_campaign_products
+    from pyflightstream.run import _write_probe_points
+    from pyflightstream.workspace import RunRecord
+
+    workspace = _unsteady_workspace(tmp_path, reductions=None)
+    # The artifact DECLARES a probe entry, which is where the column names of
+    # the numbered groups come from: the writer composes them forward from
+    # these parameters rather than matching a pattern against the header.
+    (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
+        '[groups]\n"1" = ["W", "B"]\n'
+        "\n[[probes]]\n"
+        'frame = "PUSHER_SMRP"\n'
+        'parameters = ["MACH", "VELOCITY"]\n',
+        encoding="utf-8",
+    )
+    # A plots export carrying the NUMBERED GROUPS a probe entry produces, one
+    # column per declared parameter per point, which is the shape the writer
+    # composes its names against.
+    probe_export = "Time-step,CL_MRP_TOTAL,MACH1,VELOCITY1,MACH2,VELOCITY2\n" + "".join(
+        f"{i}.0000,{0.1 * i:.5f},{0.2 + i:.5f},{70.0 + i:.5f},{0.3 + i:.5f},{80.0 + i:.5f},\n"
+        for i in range(1, 5)
+    )
+    (workspace.sim_dir("7001") / "outputs" / "a-02.0_plots.txt").write_text(
+        PLOTS_HEADER + probe_export + "-" * 60 + "\n     Force Units: Coefficients\n",
+        encoding="utf-8",
+    )
+
+    # THE RUN'S OWN WRITER, so this case exercises the file the run stage
+    # actually produces rather than one the test hand-shaped.
+    sim_dir = workspace.sim_dir("7001")
+    relative = _write_probe_points(
+        sim_dir,
+        "7001",
+        [
+            (1, -3.25, 7.5, 11.75, "PUSHER_SMRP"),
+            (2, -3.25, 7.5, 12.75, "PUSHER_SMRP"),
+        ],
+    )
+    assert relative is not None
+
+    # The record NAMES that file, which is the half the post stage reads.
+    records = workspace.read_manifest()
+    assert len(records) == 1
+    updated = records[0].model_copy(update={"probe_points_file": relative})
+    (workspace.root / "runs.json").unlink()
+    workspace.append_record(RunRecord(**updated.model_dump()))
+
+    write_campaign_products(workspace)
+    table = workspace.root / "post" / "products" / "probes" / "a-02.0_probes.csv"
+    assert table.is_file(), sorted(
+        p.name for p in (workspace.root / "post" / "products" / "probes").iterdir()
+    )
+    columns, rows = read_csv_table(table)
+    assert tuple(columns[:6]) == ("PROBE", "X", "Y", "Z", "FRAME", "STEP")
+    placed = {
+        int(float(row["PROBE"])): (float(row["X"]), float(row["Y"]), float(row["Z"]))
+        for row in rows
+    }
+    assert placed[1] == (-3.25, 7.5, 11.75)
+    assert placed[2] == (-3.25, 7.5, 12.75)
+    assert {row["FRAME"] for row in rows} == {"PUSHER_SMRP"}

@@ -2920,8 +2920,12 @@ requirement below is one seam of that division.
     the fixture geometry's element count differs from its boundary count, and
     the marked families include one the geometry does not carry.
 
-    EVERY CELL THE PACKAGE CANNOT DERIVE PRINTS AS UNKNOWN, and a test
-    asserts that a mesh with no countable panels prints unknown in that
+    EVERY CELL THE PACKAGE CANNOT DERIVE PRINTS AS `-`, and `unknown` is
+    reserved for the one column that is an extrapolation: a time with no
+    comparable recorded run. This paragraph said `unknown` everywhere while
+    the paragraphs above and below it were being corrected, which is how a
+    surviving sentence outlives its own requirement. A test
+    asserts that a mesh with no countable panels prints `-` in that
     column rather than a zero. A zero is a measurement and an absence is not.
 
     THE EXPECTED TIME IS FITTED ON RECORDED RUNS AND SAYS SO. The data
@@ -2986,7 +2990,12 @@ requirement below is one seam of that division.
 
     The estimate prints the size of the calibration set beside it, and a test
     scores the fit against a HELD-OUT point, because a model measured on its
-    own training set measures nothing. The hold-out discriminates: the two
+    own training set measures nothing. THE PLURAL THIS PARAGRAPH ASKED FOR IS
+    ONE POINT, and that narrowing is marked here rather than made silently in
+    a requirement whose every other correction is announced: one hold-out over
+    two training runs of different lengths is what discriminates a model that
+    reads the steps from one that averages, and a second would add samples
+    rather than evidence. The hold-out discriminates: the two
     training runs are of different lengths, so a model that answered the mean
     of their wall times would be wrong by a factor of two.
 
@@ -3305,18 +3314,29 @@ requirement below is one seam of that division.
     row alike, under one name, `<point>_probes.csv`.
 
     THE SPINE IS WHAT IS IDENTICAL, and this paragraph replaces one that asked
-    for identical COLUMNS. Measured on real exports of this estate: a steady
-    probe export carries `X, Y, Z, Mach, Cp_ref, vx, vy, vz, vtot, Cp` and the
-    boundary-layer columns `s_len, momentum_thickness, disp_thick, thickness,
-    CF, Transition`; an unsteady plots export carries, per probe point, the
-    numbered group `MACH<k>, VELOCITY<k>, VX<k>, VY<k>, VZ<k>,
-    STATIC_PRESSURE_RATIO<k>` and no boundary layer at all. The two sets are
+    for identical COLUMNS. A steady probe export carries `X, Y, Z, Mach,
+    Cp_ref, vx, vy, vz, vtot, Cp` and the boundary-layer columns `s_len,
+    momentum_thickness, disp_thick, thickness, CF, Transition`, measured on
+    `tests/tier1_offline/fixtures/probe_points_26.120.txt` line 30. An
+    unsteady plots export carries ONE NUMBERED COLUMN PER PARAMETER THE ROW'S
+    OWN PROBE ENTRY DECLARES, and no boundary layer at all. The two sets are
     not the same set, and her answer settles which way that resolves: take
     everything the steady probe returns, the boundary layer included. A writer
     that forced one column set would have to drop what she asked to keep or
     invent what the solver did not measure. So `PROBE, X, Y, Z, FRAME, STEP` is
     identical on both paths and a test asserts it, and each table's fluid
     columns are its own export's, in its own names and units.
+
+    THE UNSTEADY GROUP IS THE ROW'S AND NOT THE FORMAT'S, and this paragraph
+    once said otherwise under the word "measured". It named a six-column group
+    `MACH<k>, VELOCITY<k>, VX<k>, VY<k>, VZ<k>, STATIC_PRESSURE_RATIO<k>`,
+    which is what one artifact of the licensed suite DECLARES and not what any
+    export in reach carries. The recorded rotor point of `pfs0160` reads
+    `MACH<k>, VELOCITY<k>, STATIC_PRESSURE_RATIO<k>`, three names, because
+    that row's entry asks for three. A declaration is not a measurement of an
+    export, and the difference matters here because the writer composes the
+    column names FORWARD from the declaration: a reader who took six for the
+    format would think a three-parameter row had lost columns.
 
     WHERE EACH POINT IS COMES FROM THE LOOP THAT PLACED IT. The builder records
     the vertex number, the coordinates and the frame while it emits the point,
@@ -3334,10 +3354,18 @@ requirement below is one seam of that division.
 
     THE FRAME IS NAMED AND NOT ASSUMED. A probe entry states the frame its
     points are given in, and a table that carried coordinates without saying
-    which frame they are in would be as unplaceable as one carrying none. A
-    steady export states `X`, `Y` and `Z` and names no frame at all, so even
-    the run type that always carried its positions could not place them
-    without this.
+    which frame they are in would be as unplaceable as one carrying none.
+
+    A STEADY EXPORT DOES NAME A FRAME, AND IT IS NOT THIS ONE. This paragraph
+    said it "names no frame at all", and line 25 of the fixture it rests on
+    reads `Coordinate frame for analysis: Reference`. That is the frame the
+    ANALYSIS is reported in; the frame a probe entry laid its points out in is
+    the entry's own, `PUSHER_SMRP` on her rotor row, and no export states it.
+    So the column is needed for the reason given and the old sentence was
+    still false. WHETHER THE EXPORT'S `X, Y, Z` ARE EXPRESSED IN THE ANALYSIS
+    FRAME OR IN THE ENTRY'S is a solver-semantics question this requirement
+    does not settle and must not assert: it is registered for her domain seat
+    (the verification lens, 2026-09-11).
 
     A RUN RECORDED BEFORE 0.16.0 STILL PRODUCES ITS TABLE. It names no
     positions file, the frame cell is empty, and the steady coordinates still

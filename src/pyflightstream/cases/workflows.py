@@ -118,6 +118,7 @@ __all__ = [
     "MOVING_BOUNDARIES_VARIABLE",
     "ROTATE_VARIABLE",
     "PERIODIC_COPIES_VARIABLE",
+    "PROBE_POSITION_COLUMNS",
     "PROBE_PROFILE_DIR",
     "RAW_BEFORE_KEY",
     "RAW_COMMAND_KEY",
@@ -169,8 +170,8 @@ __all__ = [
     "rotor_relaxed_trailing_edges",
     "rotor_shedding_direction",
     "rotor_speed",
-    "time_steps_of",
     "rotor_time_stepping",
+    "time_steps_of",
     "unsteady_action_command_line",
     "unsteady_export_threshold",
     "unsteady_time_stepping",
@@ -1187,9 +1188,38 @@ def _optional_rotor_speed(case: SimCase) -> RotorSpeed | None:
     `per_blade` all skipped, each naming a key the reference is right not to
     carry, while the SCRIPT for the same point built correctly at 36 steps.
     A motion view carries the row's own variables plus its record's, so it
-    answers everything the row could answer and one thing more, the rotor's
-    own diameter; asking it first is therefore strictly wider and never
-    narrower.
+    answers everything the row could answer and one thing more: the rotor's
+    own diameter.
+
+    IT IS NOT STRICTLY WIDER, AND THIS PARAGRAPH ONCE SAID IT WAS. Measured
+    on 2026-09-11 over four row shapes:
+
+        two motions each stating RPM, no CLOCK_MOTION  ->  REFUSED
+        one motion stating RPM, no CLOCK_MOTION        ->  REFUSED
+        one motion stating none, no CLOCK_MOTION       ->  the flat branch
+        no motions at all                              ->  the flat branch
+
+    So the shape that changed is not about HOW MANY rotors turn. A row whose
+    motion records RESOLVE to a speed, and which names no `CLOCK_MOTION`, is
+    now REFUSED by `_clock_speed` naming the key it wants, where a flat `RPM`
+    used to answer it. A record that resolves to nothing still reaches the
+    flat branch, because `_the_rotors_the_row_turns` puts it in its lost list
+    and leaves `turning` empty.
+
+    THAT REFUSAL IS THE POINT RATHER THAN A COST, and it is `_clock_speed`'s
+    own rule reaching a row that had been getting past it. FR-64 settled that
+    ANY row stating a `MOTIONS` list must say which motion owns the clock, in
+    those words, because `DELTA_THETA` bounds a blade's travel per step and a
+    list is where a row has something to choose between. A flat `RPM` beside
+    that list was a back door past the question, and the clock such a row got
+    was whichever number it happened to carry, with nothing saying so.
+
+    TWO CALLERS DO NOT CATCH THE REFUSAL (`ExportWindow.from_case` and
+    `rotor_time_stepping`) and two do (`time_steps_of`, `reduction_windows`),
+    so on that shape the first two now refuse where they used to answer and
+    the last two report a blank. The architecture lens named the shape and the
+    measurement above sharpened it; the claim of strict widening was mine and
+    it was wrong.
     """
     turning, _lost = _the_rotors_the_row_turns(case)
     if turning:
@@ -5554,6 +5584,14 @@ def _pproc_probes(
 #: e criado automaticamente pelo pyflightstream por sim + qualquer outro que o
 #: usuario passou vai para dentro da pasta sim/profiles".
 PROBE_PROFILE_DIR = "profiles"
+
+#: FR-91. The columns of the probe positions file, in order, and the ONE home
+#: of that vocabulary. The run layer writes the file and the post layer reads
+#: it, and until this existed each end spelled the five names for itself: a
+#: literal header string on one side and a tuple on the other, with nothing
+#: to make them disagree loudly (the architecture lens, 2026-09-11). It lives
+#: here because `cases` is the deepest layer both of them already import.
+PROBE_POSITION_COLUMNS: tuple[str, ...] = ("PROBE", "X", "Y", "Z", "FRAME")
 
 
 def _rectangle_points(rectangle, scale: float) -> list[list[float]]:

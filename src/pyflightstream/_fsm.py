@@ -57,6 +57,7 @@ from pyflightstream._errors import PyflightstreamError
 #: later tidy-up of unexported names break the caller.
 __all__ = [
     "MESH_MARKER",
+    "element_count",
     "MeshReadError",
     "boundary_labels",
     "boundary_names",
@@ -116,6 +117,39 @@ def family_of(label: str) -> str:
     to ``s`` and matches only itself.
     """
     return _FAMILY_INDEX.sub("", label).casefold()
+
+
+def element_count(path: str | Path) -> int | None:
+    """Return the element count the mesh block STATES, or None.
+
+    The first line after :data:`MESH_MARKER`, which is the line
+    :func:`boundary_names` steps over. It is here, beside that skip, because
+    the `.fsm` format has one reader: this one was written in the run layer
+    for FR-82's cost table and a second parser of one format is two sites for
+    the next format change (the architecture lens, 2026-09-11).
+
+    THE NUMBER IS NOT TRUSTWORTHY TO THE UNIT, which is why
+    :data:`_LINES_BEFORE_COUNT` skips it: one campaign geometry states 7848
+    where every array holds 7784. It is the right order of magnitude for a
+    reader comparing one row against another, and it must not be multiplied
+    into anything.
+
+    Returns
+    -------
+    int or None
+        None for a file with no mesh block, one whose stated count is not a
+        number, and one that cannot be opened. A wrong size is compared
+        against other rows and a blank is not.
+    """
+    try:
+        with open(path, encoding="utf-8", errors="replace") as handle:
+            for line in handle:
+                if line.strip() == MESH_MARKER:
+                    stated = handle.readline().strip()
+                    return int(stated) if stated.isdigit() else None
+    except OSError:
+        return None
+    return None
 
 
 def boundary_names(path: str | Path) -> tuple[str, ...] | None:

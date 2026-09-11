@@ -94,6 +94,7 @@ from pyflightstream._errors import (
 from pyflightstream.cases import select_group_members
 from pyflightstream.cases.workflows import (
     PER_ROTOR_REDUCTIONS,
+    PROBE_POSITION_COLUMNS,
     REDUCTION_NAMES,
     ROTORS_KEY,
 )
@@ -933,8 +934,27 @@ def write_plots_table(path: str | Path, export_text: str) -> Path | None:
 #: FR-91. The columns every probe table opens with, whatever run type filled
 #: it, and the whole of what her transparency rests on: which point this is,
 #: where it is, the frame those coordinates are measured in, and which solver
-#: step the sample is from. `STEP` is empty on a steady row, which has one.
-PROBE_SPINE: tuple[str, ...] = ("PROBE", "X", "Y", "Z", "FRAME", "STEP")
+#: step the sample is from.
+#:
+#: `PROBE` IS THE PROBE POINT'S NUMBER and not the `[[probes]]` entry's. It is
+#: the vertex counter that runs ACROSS the entries of one artifact, which is
+#: the number an unsteady fluid plot carries in its own name, so `MACH7` is
+#: row `PROBE` 7. The interface lens asked whether `VERTEX` or `POINT` would
+#: be clearer: `POINT` is taken, by the sweep point that names the run, and
+#: `PROBE` is her own word for these ("a posicao xyz delas"), so the column
+#: keeps it and this note says which of the two things it counts.
+#:
+#: `STEP` carries `-` on a steady row, which has one step: NOT APPLICABLE,
+#: the same glyph the cost table uses for it. An EMPTY cell means a value the
+#: package could not derive, which is what a run recorded before 0.16.0
+#: leaves in the position and frame columns.
+#:
+#: THE COORDINATES ARE IN THE UNITS THE ARTIFACT WROTE THEM IN. A probe entry
+#: states its points either in the reference's length unit or, where it says
+#: `scale = "rotor_radius"`, in rotor radii, which the builder resolves before
+#: it emits; no export and no artifact states a unit name, so no column here
+#: invents one (the technical writing lens asked, 2026-09-11).
+PROBE_SPINE: tuple[str, ...] = (*PROBE_POSITION_COLUMNS, "STEP")
 
 
 def _probe_parameters(pproc) -> tuple[str, ...]:
@@ -943,6 +963,17 @@ def _probe_parameters(pproc) -> tuple[str, ...]:
     In declaration order, de-duplicated, across every `[[probes]]` entry,
     because the numbered groups of an unsteady plots export are composed
     from these names and the vertex counter runs across the entries.
+
+    THIS IS A UNION AND IT ASSUMES THE ENTRIES AGREE. Where two entries of
+    one artifact declare DIFFERENT parameters, the union composes a name for
+    each vertex that only one of them has, and `write_unsteady_probes_table`
+    then drops every point whose group is incomplete rather than writing a
+    half row. So such an artifact loses its probe table instead of getting a
+    wrong one, which is the right way round, and it is stated here because
+    the drop is otherwise indistinguishable from a row that declared none
+    (the architecture lens, 2026-09-11). The vertex-to-entry association is
+    known in the builder loop that already records the vertex and the frame;
+    recording the parameters beside them is what would close it.
     """
     out: list[str] = []
     for entry in getattr(pproc, "probes", None) or []:
@@ -972,8 +1003,15 @@ def read_probe_positions(path: str | Path) -> dict[int, tuple[float, float, floa
     out: dict[int, tuple[float, float, float, str]] = {}
     try:
         columns, rows = read_csv_table(target)
-    except Exception:
-        return {}
+    except Exception as error:
+        # THE FILE IS THERE AND SAYS NOTHING, which is not the same state as
+        # a run recorded before 0.16.0 and must not read as one. Both
+        # answered an empty mapping and nothing anywhere recorded it, so a
+        # positions file this release wrote and a crash truncated produced a
+        # table of empty coordinates in silence (the architecture and
+        # interface lenses, 2026-09-11). The ABSENT file above stays silent,
+        # as designed.
+        raise ProductError(f"the probe positions file {target} cannot be read: {error}") from error
     # NO SHAPE CHECK ON THE HEADER, and its absence is deliberate. One stood
     # here and a mutant that deleted it changed no answer this module can
     # produce: the per-row guard below already yields nothing for a table
@@ -993,7 +1031,7 @@ def read_probe_positions(path: str | Path) -> dict[int, tuple[float, float, floa
 def _probe_spine(
     vertex: int,
     positions: Mapping[int, tuple[float, float, float, str]],
-    step: object = "",
+    step: object = "-",
     *,
     stated: tuple[float, float, float] | None = None,
 ) -> tuple[object, ...]:
@@ -1112,6 +1150,12 @@ def write_unsteady_probes_table(
     memory, which is this module's rule: a derived table is derived from
     the file a user holds and can be recomputed from it.
 
+    THE `STEP` COLUMN IS THE TABLE'S OWN `Time-step`, not the row's position,
+    which is the rule `post.superfile` already states: the step a sample came
+    from is not a guess. A plots table carrying no such column falls back to
+    the ordinal, because a product is better than a refusal there and the two
+    agree on every export that begins at one and steps by one.
+
     Returns
     -------
     Path or None
@@ -1131,8 +1175,26 @@ def write_unsteady_probes_table(
     groups = [(vertex, names) for vertex, names in groups if all(n in present for n in names)]
     if not groups:
         return None
+    # THE STEP THE TABLE STATES, never the row's position in it. The plots
+    # table carries `Time-step` and the superfile already reads it, with the
+    # rule written down there: "The step it came from is not a guess". This
+    # read `enumerate(rows, start=1)`, which agrees with the column on every
+    # fixture in the tree and disagrees the first time an export does not
+    # begin at one or does not step by one (the QA lens scoring M22,
+    # 2026-09-11). A table with no such column falls back to the ordinal,
+    # which is the only thing left, rather than refusing a product.
+    stated = "Time-step" if "Time-step" in present else None
     out: list[tuple[object, ...]] = []
-    for step, row in enumerate(rows, start=1):
+    for ordinal, row in enumerate(rows, start=1):
+        step: object = ordinal
+        if stated is not None:
+            text = str(row.get(stated) or "").strip()
+            try:
+                value = float(text)
+            except ValueError:
+                value = float("nan")
+            if value == value:  # not NaN
+                step = int(value) if value.is_integer() else value
         for vertex, names in groups:
             out.append(
                 (
@@ -1686,7 +1748,14 @@ def _sim_products(
                 # writers racing for one name is the duplicate FR-90 is
                 # about.
                 probe_target = _target(out / PROBES_DIR / f"{point.name}_probes.csv")
-                if not probe_target.exists():
+                # FROM THE DATA AND NOT FROM THE FILESYSTEM. This asked
+                # whether the destination existed, so a stale table left by an
+                # earlier post run suppressed the fresh one and the product
+                # depended on state outside this invocation (the architecture
+                # lens, 2026-09-11). The question is whether THIS point had a
+                # steady probe export, which is the thing the rule is about.
+                steady_probes = exports[point.name][2]
+                if steady_probes is None or not steady_probes.is_file():
                     field = write_unsteady_probes_table(
                         probe_target,
                         done,

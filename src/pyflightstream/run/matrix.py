@@ -379,7 +379,11 @@ def plan_matrix(
         from pyflightstream.run import point_costs
 
         plan.costs.extend(
-            point_costs(plan, {case.sim_id: case for case in resolved.campaign.sims}, workspace)
+            point_costs(
+                plan,
+                cases_by_sim_id={case.sim_id: case for case in resolved.campaign.sims},
+                workspace=workspace,
+            )
         )
     return plan
 

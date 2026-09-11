@@ -1410,19 +1410,30 @@ entry asked for, one row per point and solver step. `STEP` is empty on a
 steady row, which has one.
 
 The `X`, `Y`, `Z` and `FRAME` columns are why this table exists. An
-unsteady plots export numbers its probe columns `MACH7, VELOCITY7, VX7`
-and never says where point 7 is, so its samples could not be placed at
-all; a steady export states its coordinates and still never names the
-frame they are measured in. The package records both while it emits each
-point, writes them to `sims/<sim>/profiles/<sim>_probe_points.csv`, and
-joins them here. A run recorded before 0.16.0 named no such file, so its
-`FRAME` cells are empty and its steady coordinates still come from the
-export; the table is written either way. A probe export this release
-cannot read is a recorded skip naming the file and costs the simulation
-none of its other products. And the REDUCTIONS of the
-plots table, one file per
-applicable reduction beside it (PFS-2015.04), over the window the row
-states; the next section walks them. The arithmetic behind the polar table is the
+unsteady plots export numbers its probe columns, one per parameter the
+row's own probe entry declares, `MACH7, VELOCITY7,
+STATIC_PRESSURE_RATIO7` on a row asking for three, and it never says
+where point 7 is, so its samples could not be placed at all. A steady
+export does state its coordinates, and the frame it names is the
+ANALYSIS frame rather than the one the probe entry laid its points out
+in, so it could not be placed either without knowing the artifact.
+
+The package records the vertex, the coordinates and the entry's frame
+while it emits each point, writes them to
+`sims/<sim>/profiles/<sim>_probe_points.csv`, and joins them here. That
+file is the package's own record: it refuses to overwrite a file it did
+not write, so a points file of your own that happened to carry the same
+name is named in a refusal rather than replaced. A run recorded before
+0.16.0 named no such file, so its `FRAME` cells are empty and its steady
+coordinates still come from the export; the table is written either way.
+`STEP` carries `-` on a steady row, which has one step, and empty means a
+value the package could not derive. A probe export this release cannot
+read is a recorded skip naming the file and costs the simulation none of
+its other products.
+
+And the REDUCTIONS of the plots table, one file per applicable reduction
+beside it (PFS-2015.04), over the window the row states; the next section
+walks them. The arithmetic behind the polar table is the
 author's own and was checked column by column against the tables the author
 recorded: FlightStream's `CL`, `CDi + CDo` and `Cy` are the stability-axis
 coefficients, the body axes follow by turning them through the angle of
@@ -2131,9 +2142,16 @@ The flag spends no solver time: every figure comes from the workspace, the
 mesh and the runs already recorded.
 
 **EVERY COLUMN BUT `expected` IS A READING**, and each is read from the thing
-that owns it. `mesh` is the element count the geometry's mesh block states.
+that owns it. `mesh` is the element count the geometry's mesh block states, AS THE FILE
+STATES IT: one campaign geometry of this estate says 7848 where every array
+holds 7784, so read it as the size to about a percent and not as a count of
+anything. Nothing does arithmetic on it; the fit is linear in the time steps
+and in nothing else.
 `TEs` is the families the row marks for vorticity drag, intersected with the
-inventory the geometry declares, which is what the builder does with them.
+inventory the geometry declares, which is what the builder does with them; a
+geometry this reader cannot open prints `-` there rather than the row's own
+count, because the two are different quantities and a reader could not tell
+them apart in one cell.
 `layers`, `visc` and `procs` are the solver preset's `farfield_layers`,
 `viscous_coupling` and `max_parallel_threads`. `steps` is what the row's clock
 works out to: a rotor row stating `DELTA_THETA: 15` and `REVOLUTIONS: 1.5`
