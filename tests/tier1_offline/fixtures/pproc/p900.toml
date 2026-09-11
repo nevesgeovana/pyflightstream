@@ -27,11 +27,18 @@ include_symmetry = false
 families = ["lifters", "PUSHER"]
 frame = "LOCAL_AXIS"
 planes = ["XY"]
+# Along the blade, in the blade's own axes: root to tip of this fixture's
+# rotor. A fixture states the same kind of number a real artifact does.
+extent_m = [0.0, 1.8288]
 
 [[sections.distributions]]
 families = "wing"
 frame = "MRP"
 planes = ["XZ"]
+# Along the span in the MRP frame, and DIFFERENT from the entry above,
+# because a fixture whose entries share an extent cannot tell a stated
+# one from a constant.
+extent_m = [0.0, -10.0]
 
 [plots]
 parameters = ["CL", "CDI", "CDO", "CD", "FX", "FY", "FZ", "MX", "MY", "MZ"]

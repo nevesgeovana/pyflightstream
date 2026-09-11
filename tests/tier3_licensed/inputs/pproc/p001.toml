@@ -23,11 +23,15 @@ include_symmetry = false
 families = ["Wing"]
 frame = "MRP"
 planes = ["XZ"]
+# Along the span in the MRP frame, root to tip of the wing this row runs.
+extent_m = [0.0, -10.0]
 
 [[sections.distributions]]
 families = "blades"
 frame = "LOCAL_AXIS"
 planes = ["XY"]
+# Along the blade in its own axes, root to tip.
+extent_m = [0.0, 1.8288]
 
 [plots]
 # One force plot per group and parameter, named {parameter}_{group}; the

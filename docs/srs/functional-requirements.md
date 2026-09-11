@@ -2618,12 +2618,12 @@ requirement below is one seam of that division.
     is unchanged and still groups, emitting one distribution over every
     surface the alias owns.
 
-!!! requirement "FR-76 A section distribution may state its own cut count <span class='srs-pending'>pending</span>"
+!!! requirement "FR-76 A section distribution may state its own cut count <span class='srs-implemented'>implemented</span>"
 
     *Origin: the author's instruction of 2026-09-10, "sobre o surface section,
     registra no backlog para deixarmos a opcao de especificar por distribuicao
     mantendo preservando a opcao geral que tem hoje". Carried by PFS-2035.23.
-    Evidence owed: the tests that node names.*
+    Evidence: tests/tier1_offline/test_workflows.py.*
 
     WHAT IT IS FOR. `count` is a field of `[sections]` and governs every
     distribution in the artifact: measured, `count = 25` emitted
@@ -2939,11 +2939,12 @@ requirement below is one seam of that division.
     scores the fit against HELD-OUT recorded points, because a model measured
     on its own training set measures nothing.
 
-!!! requirement "FR-83 A section distribution produces distinct cuts, and says so when it produces none <span class='srs-pending'>pending</span>"
+!!! requirement "FR-83 A section distribution produces distinct cuts, and says so when it produces none <span class='srs-implemented'>implemented</span>"
 
     *Origin: the author's first feedback item of 2026-09-10 after running
     0.15.0 at work, "surface sections 50 dummies criadas, entender porque".
-    Carried by PFS-2036.01. Evidence owed: the tests that node names.*
+    Carried by PFS-2036.01. Evidence:
+    tests/tier1_offline/test_workflows.py.*
 
     WHAT IT IS FOR. `NEW_SURFACE_SECTION_DISTRIBUTION` as this package emits
     it does not distribute. It creates `NUM_SECTIONS` sections all at the same
@@ -3022,13 +3023,34 @@ requirement below is one seam of that division.
     the surface, and it still produced one cut repeated. THE MECHANISM IS N
     `CREATE_NEW_SURFACE_SECTION`, whose offset is honoured to seven digits.
 
-    WHERE THE OFFSETS COME FROM IS NOT SETTLED and is the reason FR-83 REMAINS
-    PENDING. It is a decision rather than a measurement: the extent along the
-    cut normal is a property of the selected surfaces, which this package does
-    not read from a mesh today. Either the mesh reader learns to bound the
-    selected boundaries, or a `[[sections.distributions]]` entry states its own
-    extent the way FR-76 gives it its own `count`. What this requirement now
-    waits on is that choice, and no longer a licensed probe.
+    WHERE THE OFFSETS COME FROM IS DECIDED: THE ENTRY STATES THEM. A
+    `[[sections.distributions]]` entry carries `extent_m = [<first>, <last>]`,
+    measured along the plane's normal in the entry's own frame, and the package
+    lays `count` stations between the two, both ends included.
+
+    THE ALTERNATIVE WAS FOR THE PACKAGE TO BOUND THE SELECTED SURFACES ITSELF,
+    and the cost of it decided the fork. `_fsm.py` reads boundary NAMES out of
+    the mesh block and stops; the three floats after each boundary head are the
+    boundary's COLOUR; and the 14266 vertices of the author's own geometry are in
+    no form that reader could take safely. A reverse-engineered extent that is
+    WRONG is worse than the defect it replaces, because one cut repeated is
+    visibly useless and cuts in the wrong places look right. A stated extent is
+    checkable by the one person who knows the geometry, and it is the same KIND
+    of fact as the frame, the plane and the surfaces already beside it.
+
+    AN ENTRY STATING NO EXTENT IS REFUSED, not defaulted, which is this
+    requirement's other half: a distribution that would produce nothing says so,
+    and the cheapest place to say it is before a licensed seat is spent. The
+    refusal names the key to add, because whoever meets it is holding an artifact
+    that parsed yesterday. The four artifacts this repository ships are migrated
+    in the same change, because a published example that no longer parses is a
+    defect this project has already paid for once.
+
+    THE PHASE MOVED WITH THE COMMAND. `NEW_SURFACE_SECTION_DISTRIBUTION` is an
+    init command and `CREATE_NEW_SURFACE_SECTION` is an analysis one, so the
+    sections are created AFTER the solve, which is the order the probe ran. The
+    script's own phase guard refused the old position the moment the emission
+    changed, which is how the move was found rather than remembered.
 
     HOW PHASE A WAS PRODUCED, because the argument rests on its fidelity: its
     block was written from this package's own `Layout.KEYWORD_BLOCK` rendering
