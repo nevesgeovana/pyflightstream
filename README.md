@@ -5,7 +5,7 @@
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21482924.svg)](https://doi.org/10.5281/zenodo.21482924)
 
 Version-aware, didactic Python driver for the FlightStream panel-method
-solver. Successor of the reference legacy research scripts. MIT licensed.
+solver. Successor of the project's own legacy research scripts. MIT licensed.
 
 ## Documentation
 
@@ -34,7 +34,8 @@ tag that names it. CHANGELOG.md carries the release history.
 from running 0.15.0 at work and reading what came back, and two of them are
 defects found while measuring for the others. A surface-section
 distribution is created AFTER the solver is initialised, which is where the
-reference recorded working scripts put it; a
+recorded reference scripts put it and which is why fifty sections said
+nothing; a
 steady row now CREATES the probe points it exports, instead of asking the
 solver to export something nobody made; a probe entry prescribes a rectangular
 or a circular plane, point by point, or cites a points file the user wrote; and
@@ -42,7 +43,7 @@ or a circular plane, point by point, or cites a points file the user wrote; and
 several frames.
 
 What a campaign WRITES moved with it. A simulation's collected outputs live
-under `sims/<sim>/outputs/`, the per-polar tables under
+under `sims/<sim>/datapoints/DP-<point>/`, the per-polar tables under
 `post/<matrix>/polars/`, and the flow-field samples under
 `post/<matrix>/probes/` whatever the run type was. Each polar and group also
 gets one derived file, `SUPER-...csv`, whose columns are a superset of
@@ -64,10 +65,11 @@ outputs into its own folder, `sims/<sim>/datapoints/DP-<point>/`, named by the
 same point tag that ends the run id and names the generated script. Until this
 release every point of a row wrote into one shared folder, so from the second
 point onward the standard assessor found two files that both read as loads
-tables and refused rather than guess between them. Two points of one row may
-now export the same file name, which is what a recipe with no per-point
-placeholder does; a per-point name still works and nothing using one has to
-change. A workspace recorded under the older layout is read exactly as before.
+tables and refused rather than guess between them. Name your outputs per
+point, as before: two points of one row still may not share a file name,
+because the per-point products are named after it and would collide there
+even though the folders no longer do. A workspace recorded under the older
+layout is read exactly as before.
 
 **What changes for you at v0.16.0.** This is the most breaking release of
 the set, and the break is first: `[probes]` IS NOW `[[probes]]`, a list of
@@ -210,7 +212,7 @@ running.
 
 **And this patch carries a third run type, `unsteady`,** an unsteady run
 with nothing turning. It is a new capability under a patch number, by the
-reference explicit exception, and it is named here because a patch number
+an explicit exception, and it is named here because a patch number
 will not carry that news on its own. It asks nothing of you: no existing
 row changes. `docs/workspace-and-workflows.md` describes it.
 

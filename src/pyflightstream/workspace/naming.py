@@ -42,7 +42,7 @@ existing campaign roots, goldens, and manifests stay valid.
 from __future__ import annotations
 
 import re
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from pathlib import PurePosixPath, PureWindowsPath
 from string import Formatter
 
@@ -63,6 +63,53 @@ _POINT_PLACEHOLDERS = (
 )
 _OUTPUT_PLACEHOLDERS = (*_POINT_PLACEHOLDERS, "name")
 _ARCHIVE_PLACEHOLDERS = ("campaign", "sim")
+
+#: The simulation subfolder holding ONE FOLDER PER DATAPOINT, which is
+#: where a campaign collects since 0.16.0 (FR-92). Every point of one case
+#: used to collect into a single `outputs/`, so from the second point of a
+#: swept row onward that folder held two files that both read as loads
+#: tables and nothing in the filesystem said which point either belonged
+#: to. The layout answers it now: a point's evidence is what is in its own
+#: folder, and the question "which of these is mine" cannot be asked.
+SIM_DATAPOINTS_DIR = "datapoints"
+
+#: What every datapoint folder name begins with, so a reader scanning
+#: `datapoints/` sees at once that the entries are points and not files,
+#: and so a name that did NOT come from :func:`datapoint_dir_name` can be
+#: refused rather than silently collected into.
+DATAPOINT_PREFIX = "DP-"
+
+
+def datapoint_dir_name(point: Mapping[str, float]) -> str:
+    """Return the folder name one datapoint collects its outputs into (FR-92).
+
+    :data:`DATAPOINT_PREFIX` and the point tag that already ends the
+    ``run_id`` and names the generated script, so the folder, the script
+    and the run record carry ONE identity and a reader can map between
+    them by hand (``DP-a+02.0_b+00.0``).
+
+    Parameters
+    ----------
+    point : mapping of str to float
+        Point coordinates, as :meth:`pyflightstream.cases.SweepAxis.points`
+        produces them.
+
+    Returns
+    -------
+    str
+        Folder name, relative to :data:`SIM_DATAPOINTS_DIR`.
+
+    Raises
+    ------
+    pyflightstream.cases.CampaignConfigError
+        If the point names no known axis, from
+        :func:`pyflightstream.cases.point_tag`. A datapoint with no
+        coordinates has no stable folder, and a fallback name would give
+        two different points one folder, which is the collision this
+        layout exists to remove.
+    """
+    return f"{DATAPOINT_PREFIX}{point_tag(dict(point))}"
+
 
 #: The point name the matrix command line uses unless told otherwise
 #: (PFS-2029.19.01): the reference convention, whose every field a

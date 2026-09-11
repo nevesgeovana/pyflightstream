@@ -145,7 +145,7 @@ structural side of the aeroelastic loop), `probes` and `farfield`
 
     The direction is not a change of direction. The sister already
     recorded that this driver's pandas and xarray usage migrates to it;
-    what what changed is the pace and the granularity, from per
+    what changed is the pace and the granularity, from per
     structure to one move.
 
 ## Command-line surface

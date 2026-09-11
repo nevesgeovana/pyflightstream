@@ -497,42 +497,52 @@ def test_plan_marks_ready_and_already_recorded_points(tmp_path):
 
 
 @pytest.mark.parametrize(
-    ("outputs", "blocked"),
+    ("outputs", "reason"),
     [
-        # THE FOUR ROWS THAT FLIPPED AT 0.16.0 (FR-92). Every one of them
-        # was blocked while the points of a case shared one `outputs/`,
-        # and every one is correct now that each point collects into
-        # `datapoints/DP-<point>/`. The first is the one that matters: a
-        # recipe exporting a plain `loads.txt` per point is the most
-        # natural thing to declare and was refused for a reason that was
-        # about the layout rather than about the declaration.
-        (("loads.txt",), False),  # constant: each point writes it in its own folder
-        (("loads_{point}.txt",), False),
-        (("loads_{alpha}.txt",), False),
-        (("loads_{mach}.txt",), False),  # renders per case, and no longer needs to
-        (("loads_{point}.txt", "log.txt"), False),
-        # THE DISCRIMINATOR, so this is not a test that accepts anything:
-        # two outputs of ONE point still land in one folder under one
-        # base name, and the second would still destroy the first.
-        (("loads.txt", "loads.txt"), True),
-        (("a/loads.txt", "b/loads.txt"), True),
+        # ACROSS POINTS the refusal names the product tree, because that is
+        # where two points sharing a name now collide.
+        (("loads.txt",), "collide in the product tree"),
+        (("loads_{point}.txt",), None),
+        (("loads_{alpha}.txt",), None),  # any template that distinguishes them
+        (("loads_{mach}.txt",), "collide in the product tree"),  # per case, not per point
+        (("loads_{point}.txt", "log.txt"), "collide in the product tree"),
+        # WITHIN ONE POINT the refusal names the overwrite, because the two
+        # outputs land in one folder under one base name. Keeping both
+        # phrases apart is what stops this test passing on the wrong
+        # refusal.
+        (("loads.txt", "loads.txt"), "overwrite the first"),
+        (("a/loads.txt", "b/loads.txt"), "overwrite the first"),
     ],
 )
-def test_two_points_may_share_an_output_name_but_one_point_may_not(tmp_path, outputs, blocked):
-    """Each point owns a folder, so the collision is within a point or nowhere."""
+def test_output_names_that_two_points_would_share_block_the_case(tmp_path, outputs, reason):
+    """Two points may not share a collected name, and the REASON moved at 0.16.0.
+
+    IT USED TO BE THE COLLECTION FOLDER. Every point of a case collected
+    into one `outputs/`, so two points exporting `loads.txt` overwrote
+    each other on disk. That half is gone: each point collects into
+    `datapoints/DP-<point>/` (FR-92) and nothing there is overwritten.
+
+    THEY STILL MEET IN THE PRODUCT TREE, which is why this test did not
+    flip. `post/products.py` names every per-point product after the stem
+    of the loads file, so two points sharing a name produce ONE
+    `probes/<stem>.csv` naming both runs while holding the last point's
+    data, and a superfile recording one point twice. Measured on the
+    shipped tree by the quality lens at the release boundary, after a
+    round-one change had relaxed this check on the argument that the
+    points no longer meet. They meet one layer down.
+    """
     campaign = make_campaign(tmp_path, alphas=(0.0, 2.0), outputs=outputs)
     campaign.sims[0].mach = 0.2
     workspace = CampaignWorkspace(tmp_path / "camp")
     plan = plan_campaign(campaign, workspace, recipes={"steady": steady_recipe})
     statuses = {point.status for point in plan.points}
-    if blocked:
+    if reason is not None:
         assert statuses == {PlanStatus.BLOCKED}
-        assert "overwrite the first" in plan.points[0].error
-    else:
-        assert PlanStatus.BLOCKED not in statuses, (
-            f"{outputs} was blocked; each point collects into its own folder, so two "
-            f"points sharing a name is not a collision. Error: {plan.points[0].error}"
+        assert reason in plan.points[0].error, (
+            f"{outputs} was refused for the wrong reason: {plan.points[0].error}"
         )
+    else:
+        assert PlanStatus.BLOCKED not in statuses
 
 
 def test_a_single_point_case_may_name_its_output_constantly(tmp_path):
@@ -556,8 +566,6 @@ def test_a_single_point_case_may_name_its_output_constantly(tmp_path):
         # differ, because collection drops it.
         ((0.0,), ("out/loads.txt", "log.txt"), False),
         ((0.0, 2.0), ("out/loads_{point}.txt", "log_{point}.txt"), False),
-        # And the control the layout change added: two points, one name.
-        ((0.0, 2.0), ("out/loads.txt", "log.txt"), False),
     ],
 )
 def test_a_collision_knowable_at_plan_time_is_refused_there(tmp_path, alphas, outputs, blocked):
@@ -572,9 +580,10 @@ def test_a_collision_knowable_at_plan_time_is_refused_there(tmp_path, alphas, ou
     before it runs, and the changelog says every collision is refused
     before anything moves.
 
-    EVERY BLOCKED ROW HERE IS A COLLISION WITHIN ONE POINT. Since 0.16.0
-    the destination folder is that point's own (FR-92), so two points
-    are no longer capable of colliding and the last control row says so.
+    SINCE 0.16.0 THE DESTINATION FOLDER IS THAT POINT'S OWN (FR-92), so
+    a within-point collision is a collision in one folder and an
+    across-point one is a collision in the product tree. Both are still
+    refused here, before anything runs.
     """
     campaign = make_campaign(tmp_path, alphas=alphas, outputs=outputs)
     workspace = CampaignWorkspace(tmp_path / "camp")
@@ -592,9 +601,7 @@ def test_a_collision_knowable_at_plan_time_is_refused_there(tmp_path, alphas, ou
     [
         ((0.0,), ("loads.txt", "loads.txt")),
         ((0.0,), ("a/loads.txt", "b/loads.txt")),
-        # Two points AND a within-point duplicate: the run path must still
-        # refuse on the duplicate, now that the two points alone do not.
-        ((0.0, 2.0), ("loads.txt", "loads.txt")),
+        ((0.0, 2.0), ("loads.txt",)),
     ],
 )
 def test_the_run_path_refuses_the_collision_without_starting_the_solver(tmp_path, alphas, outputs):
@@ -658,7 +665,13 @@ def test_the_run_path_refuses_the_collision_without_starting_the_solver(tmp_path
     assert records, "the refusal recorded no point at all, so the manifest hides the failure"
     for record in records:
         assert record.status.startswith("FAILED")
-        assert "overwrite the first" in (record.error or "")
+        # Either half of FR-33c may be the one that fired, depending on the
+        # row: within one point the refusal names the overwrite, across two
+        # it names the product tree. What this asserts is that the record
+        # carries THE COLLISION's reason rather than some later failure.
+        assert "overwrite the first" in (record.error or "") or (
+            "collide in the product tree" in (record.error or "")
+        ), record.error
 
 
 def test_the_plan_and_the_collection_agree_on_the_collected_name():

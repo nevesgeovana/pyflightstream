@@ -136,7 +136,7 @@ EXPORT_PROBE_POINTS:
     reports/RPT-004_probe-roundtrip-order_2026-07-21.md). The
     boundary-layer columns are populated for near-surface probes
     regardless of the viscous toggles (REYNOLDS_AVERAGED_DRAG_FORCES,
-    SET_SOLVER_VISCOUS_COUPLING, SET_INVISCID_LOADS; author's
+    SET_SOLVER_VISCOUS_COUPLING, SET_INVISCID_LOADS; design
     correction and control experiment, same report): their inertness
     is geometric, probes away from the wall export zeros. Parsed by
     results.parse_probe_points.

@@ -417,7 +417,7 @@
   },
   {
    "id": "FR-33e",
-   "text": "Two declared outputs of one collection whose base names agree are refused, and so is a declared output whose base name is already held in raw/ from an earlier point or run. Neither refusal has an overwrite argument, deliberately, because the record either would replace is a run's evidence rather than a product a caller can choose to regenerate; the remedies are a per-point output name and an archived simulation, and both refusals name them.",
+   "text": "AMENDED AT 0.16.0 BY FR-92, which moves the folder and keeps both refusals. The destination is that point's own sims/<sim>/datapoints/DP-<point>/, not the raw/ this sentence was written against nor the outputs/ FR-84 renamed it to, so the second refusal below reads \"already held from an earlier run OF THIS POINT\". Two POINTS sharing a collected name are still refused, at plan time, and the reason moved with the folder: they no longer collide where they are collected, and they would collide in the product tree, which names a point's products after the loads file's stem.",
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: OPS-2005.10.03, accepted 2026-08-20, giving the collection half of review finding PYFS-005 the identifier it had never had. Evidence: CampaignWorkspace.collect_outputs in pyflightstream.workspace, raising WorkspaceError; tests/tier1_offline/test_error_messages.py::test_two_outputs_collecting_to_one_name_offer_the_placeholder_remedy; the behavioural cases in tests/tier1_offline/test_workspace.py.*",
@@ -516,7 +516,7 @@
    "text": "The package provides one documented console entry point per operational concern, and their commands and flags change only under the deprecation policy of NFR-20.",
    "priority": "M",
    "status": "pending",
-   "evidence": "*Origin: the C4 acceptance, 2026-07-27, in the FULL-contract form the decision went against the review's own recommendation of a narrower one.*",
+   "evidence": "*Origin: the C4 acceptance, 2026-07-27, taken in the FULL-contract form against the review's own recommendation of a narrower one.*",
    "verification": "none"
   },
   {
@@ -764,7 +764,7 @@
    "text": "WHAT IT IS FOR, before how it is written. LOCAL_AXIS means one emission per blade, and on a [[plots.groups]] entry it also emits the rotor's own total in the frame that turns with it, which is a real quantity. A sectional CUT of the whole rotor is not: the blades lie at different azimuths, so one plane through the set crosses each of them somewhere different, and the station it reports is a station of nothing.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: the design decision of 2026-09-10: a section distribution over a whole rotor makes no sense, so a rotor's distribution count is per blade, unlike the plots' . Carried by PFS-2035.22. Evidence: tests/tier1_offline/test_workflows.py.*",
+   "evidence": "*Origin: the design decision of 2026-09-10: a section distribution over a whole rotor makes no sense, so a rotor declaring three blades takes three cuts and not one, unlike the plots, which keep the total. Carried by PFS-2035.22. Evidence: tests/tier1_offline/test_workflows.py.*",
    "verification": "test"
   },
   {
@@ -788,7 +788,7 @@
    "text": "WHAT IT IS FOR. A run of an unsteady rotor row is long and it is the scarce resource, and silence is indistinguishable from a hang. Measured: run_campaign takes no progress callback, logging is imported in the fsi subpackage alone and nowhere on the run path, pyfs-matrix run --help offers no verbose, quiet or log switch, and the run path reports through bare print(), none of it per point. A campaign of forty points prints its first line when the last one is done.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: the request of 2026-09-10, \"eu gostaria de ter um log do pyflightstream aparecendo no powershell falando qual etapa que ta e qualquer warning enquanto ele roda\". Carried by PFS-2035.25. Evidence: tests/tier1_offline/test_run_campaign.py.*",
+   "evidence": "*Origin: the request of 2026-09-10 for a log in the terminal while a campaign runs, saying which stage it is on and carrying any warning it raises on the way. Carried by PFS-2035.25. Evidence: tests/tier1_offline/test_run_campaign.py.*",
    "verification": "test"
   },
   {
@@ -828,7 +828,7 @@
    "text": "WHAT IT IS FOR. A run came back with fifty surface sections that say nothing. Measured over the nineteen committed licensed runs of tests/tier3_licensed/, which is the locator this sentence carried nowhere while every other measured claim of this range names its artifact (the verification lens at the release boundary, 2026-09-11): 19 of 19 declare twenty sections and write twenty blocks, 19 of the 20 identical, and 11 of the 19 came back with all twenty EMPTY. So every sectional result this package produced before 0.16.0 is one cut repeated, and more than half are one EMPTY cut repeated.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: the first feedback item of 2026-09-10 after running 0.15.0 at work, \"surface sections 50 dummies criadas, entender porque\". Carried by PFS-2036.01. Evidence: tests/tier1_offline/test_workflows.py.*",
+   "evidence": "*Origin: the first feedback item of 2026-09-10 after running 0.15.0 in production: fifty dummy surface sections were created, and why had to be understood. Carried by PFS-2036.01. Evidence: tests/tier1_offline/test_workflows.py.*",
    "verification": "test"
   },
   {
@@ -900,7 +900,7 @@
    "text": "WHAT IT IS FOR. Every point of one case collected into a single sims/<sim>/outputs/, so from the SECOND point of a swept row onward that folder held two files that both read as loads tables. The standard assessor finds the loads spreadsheet BY CONTENT, deliberately, because a swept case names its outputs per point and no single literal could name them all; with two candidates it refused rather than guess which point ran. The remedy its refusal offered, naming the file, was the one its own documentation ruled out. A swept row therefore ran and then could not be judged, and this release's headline is sweeps.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: a swept row could not be judged past its first point, reported 2026-09-11 and fixed in the layout rather than in the selection. Evidence: tests/tier1_offline/test_run_cli.py::test_a_swept_row_runs_end_to_end and tests/tier1_offline/test_sim_outputs_dir.py.*",
+   "evidence": "*Origin: a swept row could not be judged past its first point, held in the tree as a strict expected failure since 0.16.0's sweep work and reported to the owning seat on 2026-09-11, whose instruction that day moved the fix from the assessor's SELECTION into the folder ARCHITECTURE. Carried by PFS-2036.10, which records the one fork taken without asking: which of the two point-name conventions the folder takes. Evidence: tests/tier1_offline/test_run_cli.py::test_a_swept_row_runs_end_to_end and tests/tier1_offline/test_sim_outputs_dir.py.*",
    "verification": "test"
   },
   {
@@ -1132,7 +1132,7 @@
    "text": "A missing optional dependency raises a typed error carrying the exact pip install pyflightstream[<extra>] remedy, never a bare ImportError.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: the C9 acceptance and the M6 mirror of the same subject, 2026-07-27, which acceptance as elevating AD-05 to a tested requirement. Evidence: pyflightstream.extras.MissingExtraError and missing_extra; tests/tier1_offline/test_extras.py, parametrized over every extra; tests/tier1_offline/test_extras_isolation.py and the test-all-extras job in ci.yml, added 2026-08-10 for the residual below.*",
+   "evidence": "*Origin: the C9 acceptance and the M6 mirror of the same subject, 2026-07-27, which the owning seat accepted as elevating AD-05 to a tested requirement. Evidence: pyflightstream.extras.MissingExtraError and missing_extra; tests/tier1_offline/test_extras.py, parametrized over every extra; tests/tier1_offline/test_extras_isolation.py and the test-all-extras job in ci.yml, added 2026-08-10 for the residual below.*",
    "verification": "test"
   },
   {

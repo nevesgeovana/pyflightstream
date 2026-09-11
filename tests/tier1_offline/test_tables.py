@@ -458,7 +458,7 @@ def collect_text(workspace, sim_id, tmp_path, name, text):
     """Collect one output through the public files API and return it."""
     produced = tmp_path / name
     produced.write_text(text, encoding="utf-8")
-    return workspace.collect_outputs(sim_id, [produced])
+    return workspace.collect_outputs(sim_id, [produced], datapoint={"alpha": 0.0})
 
 
 def build_sweep_workspace(tmp_path):

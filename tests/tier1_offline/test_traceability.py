@@ -559,7 +559,6 @@ SILENT_CITATIONS = {
     ("FR-31b", "tests/tier1_offline/test_solver_setup.py"),
     ("FR-33a", "tests/tier1_offline/test_workspace.py"),
     ("FR-33b", "tests/tier1_offline/test_workspace.py"),
-    ("FR-33c", "tests/tier1_offline/test_run_campaign.py"),
     ("FR-33d", "tests/tier1_offline/test_workspace.py"),
     ("FR-33e", "tests/tier1_offline/test_workspace.py"),
     ("FR-33f", "tests/tier1_offline/test_workspace.py"),

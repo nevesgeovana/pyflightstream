@@ -722,7 +722,7 @@
 
 !!! requirement "NFR-25 Optional-dependency error shape <span class='srs-implemented'>implemented</span>"
     *Origin: the C9 acceptance and the M6 mirror of the same subject,
-    2026-07-27, which acceptance as elevating AD-05 to a
+    2026-07-27, which the owning seat accepted as elevating AD-05 to a
     tested requirement. Evidence:
     `pyflightstream.extras.MissingExtraError` and `missing_extra`;
     `tests/tier1_offline/test_extras.py`, parametrized over every extra;

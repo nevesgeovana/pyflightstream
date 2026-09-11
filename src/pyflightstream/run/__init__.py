@@ -961,8 +961,26 @@ class LoadsAssessor:
         # than a point, which the unit tests do and which is why this
         # reads through getattr like the declared-outputs narrowing below.
         point = getattr(case, "point", None)
-        folders = [f"{SIM_DATAPOINTS_DIR}/{datapoint_dir_name(point)}"] if point else []
-        folders += [SIM_OUTPUTS_DIR, LEGACY_SIM_OUTPUTS_DIR]
+        own = Path(sim_dir) / SIM_DATAPOINTS_DIR / datapoint_dir_name(point) if point else None
+        # THE PREDICATE IS EXISTENCE AND NOT EMPTINESS, and the difference
+        # is a wrong answer (the architecture and verification lenses,
+        # 2026-09-11). A point whose folder EXISTS is judged from that
+        # folder whatever is in it: an empty one earns this point's own
+        # refusal. Falling through to the shared folder because the
+        # point's own was empty is how a point whose collection failed
+        # got judged on ANOTHER point's export.
+        #
+        # MEASURED, because on an alpha sweep the operating-point binding
+        # below hides it: a loads export prints alpha, beta and velocity
+        # and NEVER prints the advance ratio, so on a J sweep the binding
+        # cannot tell two points apart, and the point at J=1.7 was
+        # recorded CONVERGED on the export of J=1.3 in silence. That is
+        # the defect REV010-001 exists against, re-entered by a new door.
+        folders = (
+            [f"{SIM_DATAPOINTS_DIR}/{datapoint_dir_name(point)}"]
+            if own is not None and own.is_dir()
+            else [SIM_OUTPUTS_DIR, LEGACY_SIM_OUTPUTS_DIR]
+        )
         collected: list[Path] = []
         for folder in folders:
             found = sorted(
@@ -2688,12 +2706,11 @@ def estimate_point_cost(
     time steps and in nothing else, which is what the requirement says one
     page away (the technical writing lens, 2026-09-11).
 
-    IT IS DELIBERATELY A CRUDE MODEL and the docstring says so rather than the
-    code implying otherwise. A scalability study is planned, in the
-    words "eu vou depois fazer um estudo de escalabilidade mais completo e te
-    passar os dados para calibrar melhor o modelo, por enquanto use o que voce
-    tem". Until then a reader gets a number with its sample size attached, or
-    no number at all.
+    IT IS DELIBERATELY A CRUDE MODEL and the docstring says so rather than
+    the code implying otherwise. A fuller scalability study is planned and
+    will calibrate it; until then the instruction is to estimate from
+    whatever the workspace already holds, so a reader gets a number with
+    its sample size attached, or no number at all.
     """
     solver = getattr(case, "solver", None)
     unsteady = case.recipe != "steady"
@@ -3280,20 +3297,30 @@ def _output_collision(
     names the way the loop will, so it judges the actual collision
     rather than the presence of a particular placeholder.
 
-    ACROSS POINTS THERE IS NO LONGER A COLLISION TO CHECK (FR-92), and
-    that is the behaviour change this release makes, not an omission.
-    Until 0.16.0 every point of a case collected into one ``outputs/``,
-    so two points exporting ``loads.txt`` destroyed each other and this
-    function refused the case before a seat was spent on it. Each point
-    now collects into ``datapoints/DP-<point>/``, so a recipe carrying
-    no per-point placeholder is correct: the points do not meet. A
-    per-point output name is still perfectly good and nothing that uses
-    one has to change.
+    ACROSS POINTS THE COLLISION MOVED DOWN A LAYER AND IS STILL
+    CHECKED HERE (FR-92). Until 0.16.0 two points exporting
+    ``loads.txt`` destroyed each other IN THE SHARED COLLECTION FOLDER,
+    and that half is genuinely gone: each point collects into
+    ``datapoints/DP-<point>/`` and nothing on disk overwrites anything.
+    THEY STILL MEET IN ``post/products.py``, which keys every per-point
+    product by the STEM of the loads file name. Measured on two points
+    each in their own folder both declaring ``loads.txt`` and
+    ``loads_plots.txt``: one ``probes/loads_plots.csv`` naming BOTH runs
+    while holding the last point's data, and a superfile whose runs list
+    records one point twice, so the other is gone from the product
+    record (the quality lens, 2026-09-11).
 
-    What survives is the within-one-point half, and it survives because
-    it was the half that kept being got wrong (PLN-20260802-1904). Two
-    inputs planned as READY and died at collection, each after the
-    solver had run and each costing a licensed seat:
+    So the check stays, and its REASON is what changed: it is about the
+    products a name will collide in, not about the folder it lands in.
+    Making those product names carry the point tag the folder already
+    carries would let it be lifted, and that is registered rather than
+    taken on release eve, because it moves file names a user's
+    downstream scripts read.
+
+    The within-one-point half is the half that kept being got wrong
+    (PLN-20260802-1904). Two inputs planned as READY and died at
+    collection, each after the solver had run and each costing a
+    licensed seat:
 
     * ``["loads.txt", "loads.txt"]`` on a single point, because the
       old check skipped a repeat carrying the same point tag as itself;
@@ -3304,6 +3331,7 @@ def _output_collision(
     The keying is the shared function, so the plan-time answer and the
     collect-time answer cannot disagree again.
     """
+    seen: dict[str, str] = {}
     for point in case.sweep.points():
         try:
             _, names = _point_names(campaign, case, point, workspace)
@@ -3328,6 +3356,20 @@ def _output_collision(
                     "make them differ, because collection drops it"
                 )
             within[collected] = declared
+        for collected, declared in within.items():
+            if collected in seen:
+                return (
+                    f"sim {case.sim_id!r} would write {declared!r} for point {tag} and "
+                    f"the same collected name {collected} for point {seen[collected]}: "
+                    "each point collects into its own folder, so nothing is overwritten "
+                    "there, but the post-processing products of a point are named after "
+                    "this file's stem and the two points would collide in the product "
+                    "tree instead: one table naming both runs while holding one point's "
+                    "data, and a superfile recording one point twice. Name the outputs "
+                    "per point, for example 'loads_{point}.txt', and export "
+                    "case.outputs[i] from the recipe"
+                )
+            seen[collected] = tag
     return None
 
 
@@ -3759,7 +3801,9 @@ def _execute_point(
             # 0.16.0, so from the second point of a swept row onward that
             # folder held two files that both read as loads tables and
             # nothing in the layout said which point either belonged to.
-            datapoint=datapoint_dir_name(point),
+            # The POINT is passed and the folder name is rendered there,
+            # so a caller cannot name a folder the assessor will not read.
+            datapoint=point,
         )
     except WorkspaceError as error:
         return RunRecord(

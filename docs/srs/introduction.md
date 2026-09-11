@@ -51,9 +51,9 @@ AGPL-3.0, the command-emitter layer is a clean-room implementation
 ([glossary](index.md#glossary), where this and the other software
 terms of this document are defined): specified only from the official
 manual and from observed solver behavior on licensed machines. The AGPL code is never read at code
-level. The reference logic in the reference legacy scripts (run-matrix
-driver, output parsers, writers, axis transforms) is a seat decision intellectual
-property and migrates freely.
+level. The engineering logic in the project's own legacy scripts (run-matrix
+driver, output parsers, writers, axis transforms) is this project's own
+intellectual property and migrates freely.
 
 ## Stakeholders
 

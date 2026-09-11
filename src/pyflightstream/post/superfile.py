@@ -7,7 +7,8 @@ seventh feedback item of 2026-09-10 asked for one:
 
     post/<matrix>/polars/SUPER-0001_M15AL+000BE+000J+sweep_g01.csv
 
-THE NAME IS HERS: the standard point convention with ``SUPER-`` in place of
+THE NAME FOLLOWS THE CONVENTION: the standard point convention with
+``SUPER-`` in place of
 ``POLAR-``, so it is told apart at a glance, the swept variable written
 literally as ``sweep``, and the group suffix at the end.
 

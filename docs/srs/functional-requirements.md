@@ -982,9 +982,19 @@ the base could not offer while it bundled several.
     `tests/tier1_offline/test_error_messages.py::test_two_outputs_collecting_to_one_name_offer_the_placeholder_remedy`;
     the behavioural cases in `tests/tier1_offline/test_workspace.py`.*
 
+    AMENDED AT 0.16.0 BY FR-92, which moves the folder and keeps both
+    refusals. The destination is that point's own
+    `sims/<sim>/datapoints/DP-<point>/`, not the `raw/` this sentence was
+    written against nor the `outputs/` FR-84 renamed it to, so the second
+    refusal below reads "already held from an earlier run OF THIS POINT".
+    Two POINTS sharing a collected name are still refused, at plan time,
+    and the reason moved with the folder: they no longer collide where
+    they are collected, and they would collide in the product tree, which
+    names a point's products after the loads file's stem.
+
     Two declared outputs of one collection whose base names agree are
     refused, and so is a declared output whose base name is already held
-    in `raw/` from an earlier point or run. Neither refusal has an
+    in the destination folder from an earlier run. Neither refusal has an
     overwrite argument, deliberately, because the record either would
     replace is a run's evidence rather than a product a caller can choose
     to regenerate; the remedies are a per-point output name and an
@@ -1367,9 +1377,8 @@ The allocation is recorded in the
     Read with FR-38, which delivers the ledgers this band would judge.
 
 !!! requirement "FR-44 Console entry-point contract <span class='srs-pending'>pending</span>"
-    *Origin: the C4 acceptance, 2026-07-27, in the FULL-contract form
-    the decision went against the review's own recommendation of a narrower
-    one.*
+    *Origin: the C4 acceptance, 2026-07-27, taken in the FULL-contract
+    form against the review's own recommendation of a narrower one.*
 
     The package provides one documented console entry point per
     operational concern, and their commands and flags change only
@@ -1518,7 +1527,7 @@ point and wrote the reference plot-format products afterwards; and the 0.10.1
 tree, pre-flighted on the reference rows with zero solver time and diffed against
 the scripts that produced the recorded results. Each requirement names
 the planning nodes that carry it, so the plan points here and this page
-points back. The wording are preserved verbatim in the coordination
+points back. The wordings are preserved verbatim in the coordination
 record `RSH-HND-040` and its appendix; the measurements are on the
 nodes.
 
@@ -1974,9 +1983,9 @@ requirement below is one seam of that division.
     `ROTOR_MRP<k>`, `RotorAxis<k>` and `BladeAxis<k>` are the names these
     replace, and a post-processing entry citing them is REFUSED, naming the
     replacement. This paragraph said "read with a deprecation warning until
-    0.17.0" until the instruction of 2026-09-10, "nomenclatura
-    antiga e para dar erro com mensagem que aquela nomenclatura foi
-    depreciada e como corrigir": this package has no stable release, so it
+    0.17.0" until the instruction of 2026-09-10: an old spelling is to
+    RAISE, with a message saying which name it became and how to correct
+    it. This package has no stable release, so it
     owes no compatibility window for a word it chose badly. The refusal
     arrives when the ROW is built, at `plan`, because which frames exist is
     a question about the row.
@@ -2589,8 +2598,8 @@ requirement below is one seam of that division.
 !!! requirement "FR-75 A section distribution over a rotor cuts its blades and not the rotor <span class='srs-implemented'>implemented</span>"
 
     *Origin: the design decision of 2026-09-10: a section distribution over a
-    whole rotor makes no sense, so a rotor's distribution count is per blade,
-    unlike the plots' . Carried by PFS-2035.22.
+    whole rotor makes no sense, so a rotor declaring three blades takes three
+    cuts and not one, unlike the plots, which keep the total. Carried by PFS-2035.22.
     Evidence: tests/tier1_offline/test_workflows.py.*
 
     WHAT IT IS FOR, before how it is written. `LOCAL_AXIS` means one emission
@@ -2641,7 +2650,7 @@ requirement below is one seam of that division.
 
     `plot_direction` GAINS THE SAME SHAPE and `include_symmetry` does not, on
     the design decision of 2026-09-10. Both keep their artifact-level value
-    as the default. The asymmetry is hers and it has a reason a reader can
+    as the default. The asymmetry is deliberate and it has a reason a reader can
     check: a plot direction is a property of the CUT, so two distributions
     can honestly want different ones, while symmetry is a property of the
     CASE, and one artifact whose entries disagreed about it would be
@@ -2685,9 +2694,9 @@ requirement below is one seam of that division.
 
 !!! requirement "FR-78 A run says on the console which stage it is in, and its warnings arrive while it runs <span class='srs-implemented'>implemented</span>"
 
-    *Origin: the request of 2026-09-10, "eu gostaria de ter um log do
-    pyflightstream aparecendo no powershell falando qual etapa que ta e
-    qualquer warning enquanto ele roda". Carried by PFS-2035.25.
+    *Origin: the request of 2026-09-10 for a log in the terminal while a
+    campaign runs, saying which stage it is on and carrying any warning it
+    raises on the way. Carried by PFS-2035.25.
     Evidence: tests/tier1_offline/test_run_campaign.py.*
 
     WHAT IT IS FOR. A run of an unsteady rotor row is long and it is the
@@ -2714,7 +2723,7 @@ requirement below is one seam of that division.
     turns on is not a feature. NO COMMAND-LINE FLAG IS OFFERED, and this
     sentence read as promising one until the technical writing lens measured
     that `--quiet` appears nowhere in the package (2026-09-11); whether a
-    console program should carry one is hers.
+    console program should carry one is a seat decision.
 
     WHERE THE LINES GO is decided before any is written: everything the run
     prints today that a caller consumes is on stdout and its errors are on
@@ -3000,7 +3009,7 @@ requirement below is one seam of that division.
     training runs are of different lengths, so a model that answered the mean
     of their wall times would be wrong by a factor of two.
 
-    AND THE WHOLE THING IS PROVISIONAL BY HER INSTRUCTION, not by hedging.
+    AND THE WHOLE THING IS PROVISIONAL BY INSTRUCTION, not by hedging.
     The table says so where it cannot be missed, under every printing:
     "EXPECTED TIME IS AN EXTRAPOLATION AND NOT A MEASUREMENT", with one line
     per run type naming the sample size behind that run type's number. A
@@ -3009,9 +3018,9 @@ requirement below is one seam of that division.
 
 !!! requirement "FR-83 A section distribution is created after the solver is initialised <span class='srs-implemented'>implemented</span>"
 
-    *Origin: the first feedback item of 2026-09-10 after running
-    0.15.0 at work, "surface sections 50 dummies criadas, entender porque".
-    Carried by PFS-2036.01. Evidence:
+    *Origin: the first feedback item of 2026-09-10 after running 0.15.0 in
+    production: fifty dummy surface sections were created, and why had to
+    be understood. Carried by PFS-2036.01. Evidence:
     tests/tier1_offline/test_workflows.py.*
 
     WHAT IT IS FOR. A run came back with fifty surface sections that say
@@ -3096,8 +3105,17 @@ requirement below is one seam of that division.
     A sweep that renamed all three would change the meaning of every recorded
     result and of every setup, and neither was asked for.
 
-    A run writes its collected outputs to `sims/<sim>/outputs/` and creates no
-    `sims/<sim>/raw/`. A workspace that already holds `sims/<sim>/raw/` is
+    SUPERSEDED AT 0.16.0 BY FR-92, WITHIN THIS SAME RELEASE, and the
+    sentence below is kept as the history it is rather than rewritten: a
+    run now writes each point's collected outputs to
+    `sims/<sim>/datapoints/DP-<point>/`, one folder per point, and
+    creates neither older folder. `outputs/` never reached a tag. What
+    survives of this requirement is its reasoning about the WORD, which
+    FR-92 inherits: `outputs` named what the files are where `raw` named
+    how they arrived, and `datapoints` names whose they are.
+
+    As stated at 0.16.0: a run writes its collected outputs to
+    `sims/<sim>/outputs/` and creates no `sims/<sim>/raw/`. A workspace that already holds `sims/<sim>/raw/` is
     still READ, so no recorded point is orphaned, and a test asserts a collect
     over such a workspace returns the points it returned before. A test also
     asserts a result row still carries `data_origin = raw` after the rename,
@@ -3382,8 +3400,13 @@ requirement below is one seam of that division.
 
 !!! requirement "FR-92 Each datapoint collects its outputs into its own folder <span class='srs-implemented'>implemented</span>"
 
-    *Origin: a swept row could not be judged past its first point, reported
-    2026-09-11 and fixed in the layout rather than in the selection. Evidence:
+    *Origin: a swept row could not be judged past its first point, held in
+    the tree as a strict expected failure since 0.16.0's sweep work and
+    reported to the owning seat on 2026-09-11, whose instruction that day
+    moved the fix from the assessor's SELECTION into the folder
+    ARCHITECTURE. Carried by PFS-2036.10, which records the one fork taken
+    without asking: which of the two point-name conventions the folder
+    takes. Evidence:
     tests/tier1_offline/test_run_cli.py::test_a_swept_row_runs_end_to_end and
     tests/tier1_offline/test_sim_outputs_dir.py.*
 
@@ -3409,13 +3432,26 @@ requirement below is one seam of that division.
     the script and the run record carry one identity. This holds for every
     point of every row, steady or unsteady.
 
-    TWO REFUSALS CHANGE SCOPE WITH THE FOLDER AND NEITHER IS RELAXED. Two
-    outputs of ONE point that collect to one name are still refused, at plan
-    time and at collection, because they still land in one folder. Two POINTS
-    declaring the same output name are no longer refused at all: they no
-    longer meet, and a recipe exporting a plain `loads.txt` per point is
-    correct. A per-point output name remains valid and nothing using one has
-    to change.
+    ONE REFUSAL CHANGES ITS REASON AND NEITHER IS RELAXED. Two outputs of ONE
+    point that collect to one name are still refused, at plan time and at
+    collection, because they still land in one folder under one base name.
+
+    TWO POINTS DECLARING THE SAME NAME ARE STILL REFUSED TOO, at plan time,
+    AND THE REASON MOVED. They no longer collide where they are COLLECTED,
+    which is each point's own folder now; they would collide where they are
+    PUBLISHED, because `post/products.py` names every per-point product after
+    the loads file's stem. Measured at this release's boundary, after a first
+    version of this requirement had dropped that refusal on the argument that
+    the points no longer meet: two points each in their own folder, both
+    declaring `loads.txt` and `loads_plots.txt`, produced ONE
+    `probes/loads_plots.csv` naming both runs while holding the last point's
+    data, and a superfile whose runs list recorded one point twice, so the
+    other was gone from the product record. They meet one layer down.
+
+    A per-point output name remains the way to run a sweep, and nothing using
+    one has to change. Making the per-point product names carry the point tag
+    the folder now carries would let the refusal be lifted, and is deliberately
+    NOT taken here: it moves file names a user's downstream scripts read.
 
     A WORKSPACE RECORDED BEFORE 0.16.0 IS STILL READ WHOLE. `outputs/` and
     `raw/` are read where a workspace holds them and neither is created. In

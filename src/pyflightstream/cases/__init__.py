@@ -493,7 +493,7 @@ class SectionDistribution(BaseModel):
     planes: list[Plane] = Field(min_length=1)
     #: FR-76, the decision of 2026-09-10. `count` and `plot_direction` may be
     #: stated per entry and fall back to the artifact's; `include_symmetry` may
-    #: NOT, and the asymmetry is hers with a reason a reader can check: a plot
+    #: NOT, and the asymmetry is deliberate, with a reason a reader can check: a plot
     #: direction is a property of the CUT, so two distributions can honestly
     #: want different ones, while symmetry is a property of the CASE and one
     #: artifact whose entries disagreed about it would be describing two cases.

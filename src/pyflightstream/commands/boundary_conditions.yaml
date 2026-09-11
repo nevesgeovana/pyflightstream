@@ -391,7 +391,7 @@ TRAILING_EDGES_IMPORT:
     tests/tier1_offline/goldens/absent_on_26123.txt already records, and the reading
     lives here.
 
-    THAT ENCODING IS NOW DECIDED rather than pending (the author,
+    THAT ENCODING IS NOW DECIDED rather than pending (decision of
     2026-08-19, PFS-2026.04): no version row, plus this note and the
     committed enumeration, and NO fifth member of the status set. A
     fifth member would be more expressive and would touch every consumer
@@ -588,7 +588,7 @@ IMPORT_WAKE_EDGES_FROM_FILE:
     command's input is exactly what neither edition states. Adding a
     file argument would be this database inventing a grammar, so the
     silence is recorded instead and the acceptance clause that asked
-    for the argument goes back to the author.
+    for the argument goes back to the owning seat.
 
     THE TOLERANCE UNIT IS DERIVED AND PRINTED NOWHERE. The page
     describes a distance between a mesh edge mid-point and an imported

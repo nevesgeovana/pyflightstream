@@ -1496,7 +1496,7 @@ the twenty-four column names of the polar table in its order, and every
 number at `%10.5f`. The docstring of
 `pyflightstream.post.write_custom_polar_format` is the specification, line
 by line, and `read_custom_polar_format` reads the file back (before
-0.14.0 the five names were spelled `the reference`; the old names and the old key
+0.14.0 the five names were spelled `her`; the old names and the old key
 still work and warn, and are removed in 0.16.0); the tier-1 test
 feeds the fixture's rows through the writer and requires the fixture's
 bytes, and writes, reads and writes again what the stage produced,
@@ -2112,10 +2112,13 @@ matrix printed above runs as printed, row 7002's two alphas included,
 and that is what the acceptance case in the suite does with the
 committed fixture unmodified.
 
-Two points of one row may export the SAME file name, which is what a
-recipe with no per-point placeholder writes. Two outputs of ONE point
-still may not: they land in one folder under one base name, and the
-collision is refused before anything runs.
+**Name your outputs per point.** The folders no longer collide, but the
+PRODUCTS do: a point's polar, plots and probe tables are named after the
+stem of its loads file, so two points sharing a name produce one table
+claiming both runs. That is refused at plan time, before anything runs,
+as it was before this release; what changed is the reason, not the rule.
+Two outputs of ONE point may not share a name either, and there the old
+reason still holds: they land in one folder under one base name.
 
 ### Before you spend the seat: what the study will cost
 

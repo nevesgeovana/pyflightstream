@@ -348,10 +348,16 @@ def test_two_outputs_collecting_to_one_name_offer_the_placeholder_remedy(tmp_pat
         (tmp_path / folder / "loads.txt").write_text(folder, encoding="utf-8")
 
     with pytest.raises(WorkspaceError) as refused:
-        workspace.collect_outputs("1", [tmp_path / "a" / "loads.txt", tmp_path / "b" / "loads.txt"])
+        workspace.collect_outputs(
+            "1",
+            [tmp_path / "a" / "loads.txt", tmp_path / "b" / "loads.txt"],
+            datapoint={"alpha": 0.0},
+        )
 
     message = str(refused.value)
-    assert "outputs/loads.txt" in message, "the refusal does not name the destination they share"
+    assert "datapoints/DP-a+00.0/loads.txt" in message, (
+        "the refusal does not name the destination they share"
+    )
     assert str(tmp_path / "a" / "loads.txt") in message, "the refusal does not name both sources"
     assert str(tmp_path / "b" / "loads.txt") in message, "the refusal does not name both sources"
     assert "record one name twice" in message, (
@@ -374,21 +380,41 @@ def test_collecting_onto_a_held_name_offers_the_archive_remedy(tmp_path):
     """
     workspace = CampaignWorkspace(tmp_path / "camp")
     (tmp_path / "loads.txt").write_text("first", encoding="utf-8")
-    workspace.collect_outputs("1", [tmp_path / "loads.txt"], datapoint="DP-a+00.0")
+    workspace.collect_outputs("1", [tmp_path / "loads.txt"], datapoint={"alpha": 0.0})
     (tmp_path / "loads.txt").write_text("second", encoding="utf-8")
 
     with pytest.raises(WorkspaceError) as refused:
-        workspace.collect_outputs("1", [tmp_path / "loads.txt"], datapoint="DP-a+00.0")
+        workspace.collect_outputs("1", [tmp_path / "loads.txt"], datapoint={"alpha": 0.0})
 
     message = str(refused.value)
-    assert "already in datapoints/DP-a+00.0/ from an earlier run of this point" in message, (
+    assert "already in datapoints/DP-a+00.0/" in message, (
+        "the refusal does not name the folder the held file is in"
+    )
+    assert "this point's own evidence from an earlier run of it" in message, (
         "the refusal does not say WHOSE record is in the way, so a user re-running one "
         "point reads it as a defect in the call they just made"
     )
-    assert "destroy the collected evidence" in message
-    assert "archive the simulation before" in message, (
-        "the refusal offers only the per-point remedy, which does not help a caller "
-        "re-running a whole simulation"
+    assert "destroy that evidence" in message
+    # THE REMEDY THAT WORKS IS THE ONE OFFERED, which is the whole of what
+    # this case is for. A per-point output name CANNOT resolve a collision
+    # inside one point's own folder, because the same point renders the
+    # same name; offering it is the defect FR-92 was written against, and
+    # the first fix for FR-92 committed it again (the interface lens,
+    # 2026-09-11).
+    assert "Remove or rename" in message, (
+        "the refusal does not offer the remedy that resolves it: the folder in the way "
+        "is this point's own, so removing or renaming it is what re-runs the point"
+    )
+    assert "A PER-POINT OUTPUT NAME CANNOT RESOLVE THIS" in message, (
+        "the refusal still leaves a reader to try a per-point name, which renders the "
+        "same string for the same point and cannot help"
+    )
+    assert "archive the whole simulation" in message, (
+        "the refusal does not offer the larger remedy, or does not say it is larger"
+    )
+    assert "every other point of the sweep with it" in message, (
+        "archiving is offered without saying it takes the rest of the sweep, which is a "
+        "far larger action than the situation needs"
     )
 
 

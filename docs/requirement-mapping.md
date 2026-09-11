@@ -1,7 +1,7 @@
 # Acceptance to requirement mapping
 
-Every item acceptance at the Phase 4 gate of 2026-07-27, and
-the SRS identifier it became. This page exists because 24 of the reference 55
+Every item accepted at the Phase 4 gate of 2026-07-27, and
+the SRS identifier it became. This page exists because 24 of the 55
 acceptances arrived with no requirement id of their own, so without a
 recorded mapping the question "did this land?" has no answer anyone can
 check twice.
@@ -28,7 +28,7 @@ only that they exist, since the id is its own mapping.
 |---|---|---|
 | NFR-19, NFR-20, NFR-22 | same | Written 2026-07-27 with the batch's own decisions folded in |
 | NFR-13 to NFR-18, NFR-21 | same | Written by this consolidation; the reserved-identifier convention they were held under is retired with it |
-| FR-37 to FR-42 | same | Two restated, both disclosed in their own text. FR-41: its draft placed the adapter behind an optional extra, which AD-07 removed in the same batch. FR-37: its draft named the status value NOT_CONVERGED, and the value is left unnamed here because naming it decides the FR-46 collision below, which it was resolved on 2026-08-03 in FR-46's favour; the disclosed restatement is recorded below |
+| FR-37 to FR-42 | same | Two restated, both disclosed in their own text. FR-41: its draft placed the adapter behind an optional extra, which AD-07 removed in the same batch. FR-37: its draft named the status value NOT_CONVERGED, and the value is left unnamed here because naming it decides the FR-46 collision below, which was resolved on 2026-08-03 in FR-46's favour; the disclosed restatement is recorded below |
 | FR-02b, FR-22a/b/c, FR-30a/b/c, FR-31a/b, FR-33a/b/c, NFR-01a/b/c/d | same | The SIX accepted splits, one per base. The routing brief counted five because it grouped FR-02b with the rewords; it is a split, and every base keeps its identifier and gains an umbrella role |
 | FR-06, FR-08, FR-10, FR-11, FR-20, FR-26, FR-31, NFR-07, NFR-08 | same | The NINE rewords, all performed 2026-07-27, each requirement stating what changed and why. The brief listed ten by including FR-02b, which is the split above |
 
@@ -43,7 +43,7 @@ are included so the register is complete.
 | C1 Validated option registry | FR-40 | Same subject, and FR-40's draft is the wider statement of it. The reference choice also made every registered option name a stable public contract, which FR-40 now carries |
 | C2 Exception catalog with a completeness guard | FR-39 | The catalog and its guard are the mechanism FR-39 asserts |
 | C3 Three-part actionable errors | NFR-01c | Error content is the didactic error clause, which the NFR-01 split gave its own identifier |
-| C4 Console entry-point contract | FR-44 | New identifier; no accepted id covered the CLI surface. Written in the FULL-contract form the decision took, where commands and flags change only under the deprecation policy, rather than the narrower recording-only form the review recommended and was declined |
+| C4 Console entry-point contract | FR-44 | New identifier; no accepted id covered the CLI surface. Written in the FULL-contract form that was chosen, where commands and flags change only under the deprecation policy, rather than the narrower recording-only form the review recommended, which was declined |
 | C5 Strict manifest schema | FR-45 | New identifier; FR-19 governs the manifest's authority, not its field discipline |
 | C6 Closed terminal-status set | FR-46 | New identifier. Read with FR-37, restated 2026-08-03 to ask for a status distinct from CONVERGED, which two of this set give |
 | C7 Probe-data export writers | FR-21, folded | NOT given an identifier, because the recorded choice was to fold it under the post-processing line rather than make it a public functional requirement, and the worksheet offered that second option explicitly. The capability ships; FR-21 records it. A first draft of this consolidation minted FR-47 for it, and that option was declined |
@@ -82,7 +82,7 @@ does not have to work out whether it was forgotten.
 | SCOPE-farfield-mission | Answered in prose | One of the two items the owning seat answered as free text with no option selected; it is half of the single architectural move that produced AD-06 and AD-07, the other half being M3a |
 | M3a (array immutability) | Answered elsewhere | Decision record DEC-002 A1; it is the prose answer that produced AD-06 |
 | C10 | Closed as a citation | The owning seat closed it on FR-31 with no new requirement |
-| M4 (b), the PROV export | Deferred by the reference | Accepted the split (a) and deferred the standardized export |
+| M4 (b), the PROV export | Deferred at the gate | Accepted the split (a) and deferred the standardized export |
 
 ## One tension this mapping surfaced, resolved 2026-08-03
 

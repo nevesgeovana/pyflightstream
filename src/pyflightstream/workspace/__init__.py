@@ -71,7 +71,7 @@ from pyflightstream._deprecations import WAIVED_COMMANDS_MANIFEST_KEY
 from pyflightstream._digest import file_sha256
 from pyflightstream._errors import PyflightstreamDeprecationWarning, PyflightstreamError
 from pyflightstream._retired_names import WORKSPACE_ENGINE_POINT, RetiredAttributeError
-from pyflightstream.cases import BoundaryAliases, RawCommand, point_tag
+from pyflightstream.cases import BoundaryAliases, RawCommand
 from pyflightstream.script.solver_setup import explicit_empty_selections
 from pyflightstream.workspace.inputs import (
     EXECUTABLES_FILE,
@@ -99,9 +99,10 @@ from pyflightstream.workspace.inputs import (
     strip_rotor_facts,
 )
 from pyflightstream.workspace.naming import (
+    SIM_DATAPOINTS_DIR,
     NamingTemplate,
     NamingTemplateError,
-    is_portable_name,
+    datapoint_dir_name,
 )
 from pyflightstream.workspace.trailing_edges import (
     TrailingEdge,
@@ -253,44 +254,9 @@ SIM_OUTPUTS_DIR = "outputs"
 #: evidence a past run collected there is no less owned for being old.
 LEGACY_SIM_OUTPUTS_DIR = "raw"
 
-#: The simulation subfolder holding ONE FOLDER PER DATAPOINT, which is
-#: where a campaign collects since 0.16.0 (FR-92). Every point of one case
-#: used to collect into a single `outputs/`, so from the second point of a
-#: swept row onward that folder held two files that both read as loads
-#: tables and nothing in the filesystem said which point either belonged
-#: to. The layout answers it now: a point's evidence is what is in its own
-#: folder, and the question "which of these is mine" cannot be asked.
-SIM_DATAPOINTS_DIR = "datapoints"
-
-
-def datapoint_dir_name(point: Mapping[str, float]) -> str:
-    """Return the folder name one datapoint collects its outputs into.
-
-    ``DP-`` and the point tag that already ends the ``run_id`` and names
-    the generated script, so the folder, the script and the run record
-    carry ONE identity and a reader can map between them by hand
-    (``DP-a+02.0_b+00.0``).
-
-    Parameters
-    ----------
-    point : mapping of str to float
-        Point coordinates, as :meth:`pyflightstream.cases.SweepAxis.points`
-        produces them.
-
-    Returns
-    -------
-    str
-        Folder name, relative to :data:`SIM_DATAPOINTS_DIR`.
-
-    Raises
-    ------
-    pyflightstream.cases.CampaignConfigError
-        If the point names no known axis, from :func:`point_tag`. A
-        datapoint with no coordinates has no stable folder, and a
-        fallback name would give two different points one folder, which
-        is the collision this layout exists to remove.
-    """
-    return f"DP-{point_tag(dict(point))}"
+#: The datapoint layout's two names are RE-EXPORTED here and defined in
+#: `naming.py`, which is where a name rendered from a point belongs and
+#: which already imports `point_tag` (the architecture lens, 2026-09-11).
 
 
 #: The managed folders of one simulation. Three since 0.13.0: ``parsed/``
@@ -2057,7 +2023,7 @@ class CampaignWorkspace:
         sim_id: str,
         produced: Sequence[str | Path],
         *,
-        datapoint: str | None = None,
+        datapoint: Mapping[str, float],
     ) -> list[str]:
         """Move declared solver outputs into the datapoint's folder (FR-92).
 
@@ -2065,18 +2031,25 @@ class CampaignWorkspace:
         ----------
         sim_id : str
             Target simulation.
-        datapoint : str, optional
-            Folder this point's outputs are collected into, under
-            ``datapoints/``, as :func:`datapoint_dir_name` renders it.
-            This is what a campaign passes, and it is what makes a
-            swept row judgeable: each point's evidence is alone in its
-            own folder, so nothing downstream has to work out which of
-            several files belongs to which point.
+        datapoint : mapping of str to float
+            THE POINT these outputs belong to, whose folder under
+            ``datapoints/`` this renders with
+            :func:`datapoint_dir_name`. Required, with no default,
+            because every collection this package makes is a
+            datapoint's: each point's evidence alone in its own folder
+            is what makes a swept row judgeable, and nothing downstream
+            then has to work out which of several files belongs to which
+            point.
 
-            None collects into ``outputs/`` instead, which is the shape
-            a campaign wrote until 0.16.0. It is kept for a caller
-            collecting something that is not a datapoint at all, and a
-            campaign never passes it.
+            THE POINT AND NOT THE RENDERED NAME, deliberately. A string
+            argument accepted ``point_tag(point)`` with the ``DP-``
+            prefix forgotten, which is the likeliest mistake because the
+            tag is what a caller already holds from the ``run_id`` and
+            the script name; the files then landed in a folder the
+            assessor never looks in, were recorded in the manifest, and
+            were invisible to the judgement. That is a wrong answer
+            rather than a refusal, so the argument no longer admits it
+            (the interface lens, 2026-09-11).
         produced : sequence of str or Path
             Output files the run declared it would produce. Anywhere
             OUTSIDE this campaign root, which is where a solver working
@@ -2088,7 +2061,7 @@ class CampaignWorkspace:
         -------
         list of str
             Collected names relative to the simulation folder
-            (``"datapoints/<datapoint>/<name>"``), ready for
+            (``"datapoints/DP-<point>/<name>"``), ready for
             :attr:`RunRecord.outputs`. A record written before 0.16.0
             names ``"outputs/<name>"`` or ``"raw/<name>"`` and is read
             through unchanged, which is what keeps its point from being
@@ -2114,9 +2087,9 @@ class CampaignWorkspace:
             ordinary case, since the solver's working directory is not
             managed by this class.
 
-            If ``datapoint`` is not a plain file-name-safe token.
-            It composes into a path, so a separator in it would collect
-            outside the folder the caller named.
+            If ``datapoint`` names no known axis, from
+            :func:`datapoint_dir_name`: a point with no coordinates has
+            no stable folder.
 
             If two declared outputs of one call would collect to the
             same name, or if a declared output's base name is already
@@ -2143,14 +2116,13 @@ class CampaignWorkspace:
         collision message until now.
         """
         sim = self.create_sim(sim_id)
-        if datapoint is not None and not is_portable_name(datapoint):
-            raise WorkspaceError(
-                f"datapoint folder name {datapoint!r} is not a plain name: it must carry "
-                "no path separator and no whitespace. It composes into "
-                f"{SIM_DATAPOINTS_DIR}/<datapoint>/, so a separator would collect "
-                "somewhere other than the folder named."
-            )
-        folder = SIM_OUTPUTS_DIR if datapoint is None else f"{SIM_DATAPOINTS_DIR}/{datapoint}"
+        # Rendered HERE rather than accepted as a string: see `datapoint`
+        # above. The renderer refuses a point with no axis, and the name
+        # it returns is a plain token by construction, so the portability
+        # check that guarded a caller-supplied string has nothing left to
+        # guard against.
+        name = datapoint_dir_name(datapoint)
+        folder = f"{SIM_DATAPOINTS_DIR}/{name}"
         missing = [str(path) for path in produced if not Path(path).is_file()]
         if missing:
             raise WorkspaceError(
@@ -2214,11 +2186,15 @@ class CampaignWorkspace:
             if destination.exists():
                 raise WorkspaceError(
                     f"cannot collect {origin} into {folder}/{origin.name}: that "
-                    f"name is already in {folder}/ from an earlier run of this point. "
-                    "Collection moves the file, so continuing would destroy the collected evidence "
-                    "and leave two manifest records pointing at one file. Use a "
-                    "per-point output name, or archive the simulation before "
-                    "re-running it (pyfs-workspace archive <root> <sim_id>)."
+                    f"name is already in {folder}/, which holds this point's own "
+                    "evidence from an earlier run of it. Collection moves the file, so "
+                    "continuing would destroy that evidence and leave two manifest "
+                    "records pointing at one file. A PER-POINT OUTPUT NAME CANNOT "
+                    "RESOLVE THIS and is not offered: the same point renders the same "
+                    "name, so the collision is with itself. Remove or rename "
+                    f"{folder}/ to re-run this point, or archive the whole simulation "
+                    "if you mean to start it over (pyfs-workspace archive <root> "
+                    "<sim_id>), which takes every other point of the sweep with it."
                 )
             shutil.move(str(origin), destination)
             collected.append(f"{folder}/{origin.name}")

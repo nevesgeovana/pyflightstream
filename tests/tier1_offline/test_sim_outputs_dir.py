@@ -91,7 +91,7 @@ def test_a_simulation_collects_into_its_datapoint_and_creates_neither_older_fold
     assert not (sim / "raw").exists()
     produced = tmp_path / "loads.txt"
     produced.write_text("data", encoding="utf-8")
-    assert workspace.collect_outputs("9001", [produced], datapoint="DP-a+02.0") == [
+    assert workspace.collect_outputs("9001", [produced], datapoint={"alpha": 2.0}) == [
         "datapoints/DP-a+02.0/loads.txt"
     ]
     assert (sim / "datapoints" / "DP-a+02.0" / "loads.txt").is_file()
@@ -139,3 +139,119 @@ def test_a_result_row_still_carries_the_raw_data_origin():
     """
     frame = to_table(parse_loads(_loads_text()))
     assert set(frame["data_origin"]) == {"raw"}
+
+
+def test_a_mixed_layout_judges_the_point_from_its_own_folder_and_not_the_legacy_one(tmp_path):
+    """The upgrade path: a 0.15.0 `outputs/` still on disk, a point re-run at 0.16.0.
+
+    THIS IS THE CASE THE THREE-LAYOUT TEST CANNOT SEE, because that one
+    gives each layout its own directory so the two never sit in one
+    simulation. Two mutants survived the whole suite for want of it, and
+    each refuses a correctly run point here (the quality lens,
+    2026-09-11):
+
+        folders = [outputs, raw] + own   ->  "several of them parse"
+        every folder merged, no break    ->  "several of them parse"
+
+    The property is PRECEDENCE, stated by the code and by FR-92 and
+    measured by nothing until now: a point that has a folder is judged
+    from that folder, and the legacy files are not among its candidates.
+    """
+    sim = tmp_path / "sim_9001"
+    # The legacy shared folder, holding two OTHER points of the same row.
+    (sim / "outputs").mkdir(parents=True)
+    for name, alpha in (("a+00.0.txt", "0.000"), ("a+02.0.txt", "2.000")):
+        (sim / "outputs" / name).write_text(
+            _loads_text().replace(
+                "Angle of attack (Deg)                       2.000",
+                f"Angle of attack (Deg)                       {alpha}",
+            ),
+            encoding="utf-8",
+        )
+    # This point, re-run under 0.16.0 into its own folder.
+    own = sim / "datapoints" / "DP-a+04.0"
+    own.mkdir(parents=True)
+    (own / "loads.txt").write_text(
+        _loads_text().replace(
+            "Angle of attack (Deg)                       2.000",
+            "Angle of attack (Deg)                       4.000",
+        ),
+        encoding="utf-8",
+    )
+
+    from pyflightstream.cases import SimCase, SweepAxis
+
+    case = SimCase(
+        sim_id="9001",
+        aircraft="WB",
+        velocity=30.0,
+        recipe="steady",
+        sweep=SweepAxis(type="alpha", values=[0.0, 2.0, 4.0]),
+    )
+    case.point = {"alpha": 4.0}
+    verdict = LoadsAssessor()(case, None, sim)
+    assert verdict.status is RunStatus.CONVERGED, verdict.error
+    printed = {entry.get("axis"): entry.get("reported") for entry in (verdict.conditions or [])}
+    assert printed.get("alpha") == 4.0, (
+        f"the point was judged on an export printing {printed.get('alpha')}, so the "
+        "legacy shared folder reached the candidates"
+    )
+
+
+def test_an_empty_datapoint_folder_is_this_points_refusal_and_not_a_fall_through(tmp_path):
+    """A point that HAS a folder is judged from it, empty or not (FR-92).
+
+    The fallback took "the first folder that holds anything", so a
+    datapoint folder that EXISTS and is EMPTY -- which is what a refused
+    collection leaves behind -- fell through to the shared pre-0.16.0
+    folder and judged the point on somebody else's export.
+
+    MEASURED ON AN ADVANCE-RATIO SWEEP, DELIBERATELY. A loads export
+    prints the alpha, the sideslip and the velocity it ran and NEVER
+    prints the advance ratio, so REV010-001's binding cannot tell two
+    points of a J sweep apart: on an alpha sweep the binding rescues the
+    verdict and hides the defect, and here the point at J=1.7 was
+    recorded CONVERGED on the export of J=1.3, in silence.
+    """
+    from pyflightstream.cases import SimCase, SweepAxis
+    from pyflightstream.workspace import datapoint_dir_name
+
+    sim = tmp_path / "sim_9001"
+    point = {"alpha": 2.0, "advance_ratio": 1.7}
+    (sim / "datapoints" / datapoint_dir_name(point)).mkdir(parents=True)
+    (sim / "outputs").mkdir(parents=True)
+    (sim / "outputs" / "J+01.3.txt").write_text(_loads_text(), encoding="utf-8")
+
+    case = SimCase(
+        sim_id="9001",
+        aircraft="WB",
+        velocity=30.0,
+        recipe="steady",
+        sweep=SweepAxis(type="advance_ratio", values=[1.3, 1.7]),
+    )
+    case.point = point
+    verdict = LoadsAssessor()(case, None, sim)
+    assert verdict.status is RunStatus.FAILED_INCOMPLETE_OUTPUT, (
+        "the point was judged on another point's export: its own folder is empty, and "
+        "the loads export prints no advance ratio, so nothing downstream could tell"
+    )
+
+
+def test_a_point_with_no_axis_is_refused_before_anything_is_moved(tmp_path):
+    """The collector takes the POINT, so this is the refusal it can earn.
+
+    A datapoint with no coordinates has no stable folder, and a fallback
+    name would give two different points one folder, which is the
+    collision this layout exists to remove. The refusal is asserted on
+    the operative content of its message rather than on its type alone.
+    """
+    import pytest
+
+    from pyflightstream.cases import CampaignConfigError
+
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    produced = tmp_path / "loads.txt"
+    produced.write_text("data", encoding="utf-8")
+    with pytest.raises(CampaignConfigError, match="no known axis"):
+        workspace.collect_outputs("9001", [produced], datapoint={})
+    assert produced.is_file(), "a refusal must leave the source exactly where it was"

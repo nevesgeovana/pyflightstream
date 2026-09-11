@@ -10,7 +10,8 @@ each release adds and what each one asks you to do.
 from running 0.15.0 at work and reading what came back, and two of them are
 defects found while measuring for the others. A surface-section
 distribution is created AFTER the solver is initialised, which is where the
-reference recorded working scripts put it; a
+recorded reference scripts put it and which is why fifty sections said
+nothing; a
 steady row now CREATES the probe points it exports, instead of asking the
 solver to export something nobody made; a probe entry prescribes a rectangular
 or a circular plane, point by point, or cites a points file the user wrote; and
@@ -18,7 +19,7 @@ or a circular plane, point by point, or cites a points file the user wrote; and
 several frames.
 
 What a campaign WRITES moved with it. A simulation's collected outputs live
-under `sims/<sim>/outputs/`, the per-polar tables under
+under `sims/<sim>/datapoints/DP-<point>/`, the per-polar tables under
 `post/<matrix>/polars/`, and the flow-field samples under
 `post/<matrix>/probes/` whatever the run type was. Each polar and group also
 gets one derived file, `SUPER-...csv`, whose columns are a superset of
@@ -40,10 +41,11 @@ outputs into its own folder, `sims/<sim>/datapoints/DP-<point>/`, named by the
 same point tag that ends the run id and names the generated script. Until this
 release every point of a row wrote into one shared folder, so from the second
 point onward the standard assessor found two files that both read as loads
-tables and refused rather than guess between them. Two points of one row may
-now export the same file name, which is what a recipe with no per-point
-placeholder does; a per-point name still works and nothing using one has to
-change. A workspace recorded under the older layout is read exactly as before.
+tables and refused rather than guess between them. Name your outputs per
+point, as before: two points of one row still may not share a file name,
+because the per-point products are named after it and would collide there
+even though the folders no longer do. A workspace recorded under the older
+layout is read exactly as before.
 
 **What changes for you at v0.16.0.** This is the most breaking release of
 the set, and the break is first: `[probes]` IS NOW `[[probes]]`, a list of
@@ -51,7 +53,8 @@ tables, and the old spelling is REFUSED BY NAME, so every 0.15.0 artifact
 that declares probe lines must be edited. That is a recorded decision rather
 than an accident. Beside it: the five names the 0.14.0 polar rename
 deprecated are gone; a simulation's collected outputs are under
-`sims/<sim>/outputs/` and a workspace holding the old `raw/` is still read;
+`sims/<sim>/datapoints/DP-<point>/`, one folder per point, and a workspace
+holding either older folder is still read;
 the per-polar tables moved to `post/<matrix>/polars/` and are named by the
 point convention with the swept variable written literally as `sweep`; and
 `sweep.csv` is gone in favour of `campaign_sweep.csv`, which it duplicated
@@ -178,7 +181,7 @@ selected.
 
 **It also carries a third run type, `unsteady`,** an unsteady run with
 nothing turning, which is a new capability under a patch number by the
-reference explicit exception. It is named here because a patch number
+an explicit exception. It is named here because a patch number
 will not carry that news on its own, and it asks nothing of you: no
 existing row changes. See the workspace and workflows page.
 

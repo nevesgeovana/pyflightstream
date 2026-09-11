@@ -78,11 +78,19 @@ FlightStream versions.
   downstream then has to re-derive it. This release's headline is sweeps, so
   the case that could not be judged was the case the release is for.
 
-  TWO REFUSALS CHANGE SCOPE AND NEITHER IS RELAXED. Two outputs of ONE point
-  that collect to one name are still refused before anything runs. Two POINTS
-  declaring the same output name are no longer refused at all, because they no
-  longer meet: a recipe exporting a plain `loads.txt` per point is now correct,
-  and a per-point output name still works unchanged.
+  ONE REFUSAL CHANGES ITS REASON AND NEITHER IS RELAXED. Two outputs of ONE
+  point that collect to one name are still refused, at plan time AND at
+  collection: they still land in one folder under one base name. Two POINTS
+  declaring the same name are still refused too, and the reason moved: they no
+  longer collide in the collection folder, which is each point's own now, but
+  `post/products.py` names every per-point product after the loads file's stem,
+  so they would collide in the PRODUCT tree instead. Measured at the release
+  boundary after a first version of this change had relaxed that check: two
+  points, one declared name, produced ONE probes table naming both runs while
+  holding the last point's data and a superfile recording one point twice.
+  Making those product names carry the point tag the folder already carries is
+  what would let the check be lifted, and it is registered rather than taken on
+  release eve, because it moves file names a user's downstream scripts read.
 
   A WORKSPACE RECORDED BEFORE THIS RELEASE IS READ WHOLE. `outputs/` and
   `raw/` are read where a workspace holds them and neither is created. Their
@@ -114,8 +122,8 @@ FlightStream versions.
   spelling) and the other SIXTEEN are in the reference campaign workspaces.
 
 - **The console says which point a campaign is on while it runs (FR-78).** The
-  request: "eu gostaria de ter um log do pyflightstream aparecendo no powershell
-  falando qual etapa que ta e qualquer warning enquanto ele roda". Two lines per
+  request: a log in the terminal while a campaign runs, saying which stage it is
+  on and carrying any warning it raises on the way. Two lines per
   point on STDERR, flushed per line. STDERR because nobody asked for them; the
   cost table of FR-82 goes to STDOUT because an operator asked for it with a
   flag. THE SWITCH IS A PYTHON PARAMETER AND NOT YET A COMMAND-LINE FLAG:
@@ -144,10 +152,11 @@ FlightStream versions.
   vertex of a plane.
 
 - **A section distribution is created AFTER the solver is initialised
-  (FR-83).** The first feedback item from running 0.15.0 in production, "surface
-  sections 50 dummies criadas, entender porque". THE COMMAND WAS NEVER THE
-  PROBLEM, and the first diagnosis of this said it was: that reading was refused
-  reading, the reference recorded scripts settled it, and the key the wrong diagnosis
+  (FR-83).** The first feedback item from running 0.15.0 in production: fifty
+  dummy surface sections created, and why had to be understood. THE COMMAND WAS
+  NEVER THE
+  PROBLEM, and the first diagnosis of this said it was: that reading was
+  refused, and the recorded reference scripts settled it, and the key the wrong diagnosis
   had introduced was reverted in full before the real fix landed. The cause is
   POSITION. The distributions are now emitted between `INITIALIZE_SOLVER` and
   `START_SOLVER`, which is where the reference scripts put them.
@@ -212,7 +221,9 @@ FlightStream versions.
 
 ### Changed
 
-- **A simulation's collected outputs live under `sims/<sim>/outputs/`, not
+- **SUPERSEDED WITHIN THIS RELEASE BY FR-92 below, which gives each point its
+  own folder. Kept because it is the history of the word.** A simulation's
+  collected outputs live under `sims/<sim>/outputs/`, not
   `raw/` (FR-84).** `raw` named how the data arrived; `outputs` names what it
   is, and the second is what a reader opening a simulation folder wants. A
   workspace that already holds `sims/<sim>/raw/` IS STILL READ, so no
@@ -302,7 +313,7 @@ FlightStream versions.
 
   What it said: "FR-75 to FR-82 are written and PENDING, the eight
   requirements the open questions and requests of 2026-09-10 produced,
-  carried by PFS-2035.22 to .29 at milestone 0.16.0. Seven came from use;
+  carried by PFS-2035.22 to .29 at milestone 0.16.0. Seven came from running 0.15.0 in production;
   FR-81 is a defect found while measuring for the others, where a steady row
   citing a valid `[probes]` table emits no probe creation verb and still emits
   `EXPORT_PROBE_POINTS`."
@@ -576,8 +587,9 @@ FlightStream versions.
 ### Changed
 
 - **ONE WORD FOR THE ROTATING THING: ROTOR, everywhere** (PFS-2035.21, the
-  design decisions of 2026-09-10: between `engine` and `rotor`, the word is `rotor` and
-  "normaliza tudo para rotor que e o mais generico"). Engine, propeller and
+  design decisions of 2026-09-10: between `engine` and `rotor` the word is
+  `rotor`, everything normalising to it as the most general term). Engine,
+  propeller and
   PROP named one object across three artifacts, and each was a guess about
   the configuration; a propeller is a rotor and so is a lift fan, so the
   general word is the one that never has to change again. The reference
@@ -586,8 +598,8 @@ FlightStream versions.
   `rotor_radius` and the workspace accessor is `rotor_point`.
 
 - **A RETIRED ATTRIBUTE REFUSES WITH AN ERROR THE PACKAGE CATEGORY CATCHES**
-  (PFS-2035.21, a seat decision of 2026-09-10: "parece detalhe, decide o
-  que for mais razoavel"). `CampaignWorkspace.engine_point` is kept so that
+  (PFS-2035.21, delegated on 2026-09-10 as a detail to be settled whichever way
+  is most reasonable). `CampaignWorkspace.engine_point` is kept so that
   it can refuse, and it raised a bare `AttributeError`: correct about what
   the attribute is, and silent to the one category this package tells
   callers to catch. A caller wrapping workspace work in
@@ -621,8 +633,8 @@ FlightStream versions.
   citing one silently followed the ORDER of the MOTIONS list.
 
 - **NO OLD SPELLING IS ACCEPTED, and each refuses naming its replacement**
-  (the owning seat: "nomenclatura antiga e para dar erro com mensagem que aquela
-  nomenclatura foi depreciada e como corrigir"). The principle that decides
+  (the owning seat: an old spelling is to raise, with a message saying which
+  name it became and how to correct it). The principle that decides
   which promises break is recorded in `_deprecations.py`: A DEPRECATION
   INTRODUCED IN AN UNRELEASED VERSION IS NOT A PROMISE ANYONE HAS RECEIVED.
   The twelve entries of the 0.15.0 batch were written in 0.15.0, which had
@@ -701,7 +713,7 @@ FlightStream versions.
     reference's `[aliases]` table and cite it by name; `all` and `each`
     stay, because they guess nothing. AN ALIAS OF THAT NAME IS READ FIRST,
     which is what makes the migration cheap: a reference that already
-    declares `airframe` is untouched, and every one of the reference rows does.
+    declares `airframe` is untouched, and every one of the reference artifacts does.
   - A post-processing entry's `families = "each_blade"`. The FRAME says it
     now: write `frame = "LOCAL_AXIS"`, which is one per blade.
   - A probe table's `scale = "propeller_radius"`. Write `rotor_radius`.
@@ -733,7 +745,7 @@ Five shims whose ledger promise named this release. Each has warned since
 ### Changed
 
 - **The polar format's five names are spelled `custom` where they were
-  spelled `the reference`** (the design decision of 2026-09-09, closing the 0.13.0 review's
+  spelled `her`** (the design decision of 2026-09-09, closing the 0.13.0 review's
   finding API-4, "her_* on five public names has no antecedent"):
   `[products] custom_polar_format` on the pproc artifact,
   `CustomPolarTable`, `custom_polar_file_name`, `write_custom_polar_format`
@@ -1379,8 +1391,8 @@ Five shims whose ledger promise named this release. Each has warned since
   (`pyflightstream._deprecations`) with `removal_version` 1.0.0, the warning
   text is built from the row, and the tier-1 deadline guard judges them with
   every other promise. The decision to keep them until 1.0.0 rather than
-  pick an earlier minor was taken in the session's seat under the reference
-  night authorization of 2026-09-08 and is recorded beside the entries: each
+  pick an earlier minor was taken in the session's seat under the
+  delegation recorded for 2026-09-08 and is recorded beside the entries: each
   shim is a keyword that forwards to its replacement, so removing it earlier
   saves nothing and costs an outside caller a release they were never told
   about. Nothing changes for a caller except the sentence they read.
@@ -1751,7 +1763,7 @@ Five shims whose ledger promise named this release. Each has warned since
 - FR-54, PFS-2030.02: a flight condition may PIN the fluid constants the
   standard atmosphere would otherwise supply, with five new keys
   (`RHOkgm3`, `MUPas`, `ASMPS`, `TK`, `PPA`), so a row can state the fluid its
-  the reference scripts pinned and the emitted `FLUID_PROPERTIES` block carries
+  the reference scripts pinned, and the emitted `FLUID_PROPERTIES` block carries
   those numbers; the resolved condition records which fields were pinned.
 - FR-54, PFS-2030.03: every builder now states the reference velocity
   (`SOLVER_SET_REF_VELOCITY`, the free stream unless the setup states

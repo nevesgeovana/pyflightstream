@@ -319,7 +319,7 @@ case over half a revolution; full evidence in
 * File formats: structural node import and `FSIDisp.txt` are both
   comma separated three-column files, displacement order equal to
   node import order (SRC-003 pp.273-274).
-* Blade attribution, by the author's standing convention: every
+* Blade attribution, by the standing convention: every
   blade is meshed as its own geometry family, and each blade gets
   its own section distribution targeting that boundary in the
   blade's rotating frame. The export concatenates the families as

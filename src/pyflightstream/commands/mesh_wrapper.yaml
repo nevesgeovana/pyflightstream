@@ -6,7 +6,7 @@
 # none, which changes nothing about the grammar.
 #
 # THIS CHAPTER WAS OUT OF SCOPE UNTIL TODAY. NREQ-05 excluded the
-# mesh-wrapper family, and the author's decision of 2026-08-08 brings it
+# mesh-wrapper family, and the design decision of 2026-08-08 brings it
 # in and narrows the non-requirement again. It is the last family the
 # scope excluded, so with this chapter the exclusion has no members left.
 #
