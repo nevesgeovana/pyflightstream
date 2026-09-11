@@ -206,7 +206,7 @@ def test_the_marker_is_registered_so_a_typo_is_not_silent():
 #: Re-counted at 0.8.0.dev0, and the SET DID move: one name left it, which
 #: the comment inside this frozenset records and this line denied until
 #: 2026-08-20. What did not move is the count of DIRTY modules:
-#: mypy recount 2026-09-10: 370 errors in 18 of 82 modules (reports/RPT-029).
+#: mypy recount 2026-09-11: 370 errors in 18 of 83 modules (reports/RPT-029).
 #: Removing one means deleting its override AND its line here, in the same
 #: commit.
 MYPY_EXEMPTIONS = frozenset(

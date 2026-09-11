@@ -1046,6 +1046,26 @@ the base could not offer while it bundled several.
     CONVERGED status, even when the output footer is structurally
     complete.
 
+    **THE RECORDED RESIDUAL WAS THE WRONG ROW UNTIL 0.16.0, so this
+    requirement does not hold over manifests written before it.** The log's
+    residual table is paged and the reader stopped at the first page, so a
+    run that outlasted its first page was judged on the residual it held at
+    that page's end. The consequence is not a wrong number but a wrong
+    STATUS, which is what this requirement guarantees, and there is a
+    measured instance: the point at `pfs0160/runs.json` recorded
+    `COMPLETED_MAX_ITER` with `iterations: 100` and residual `1.256467e-05`,
+    which is line 295 of its own log, while that log's last row is iteration
+    206 at `1.3470951E-6`. The run converged at 206 and the manifest says it
+    hit its cap. `COMPLETED_MAX_ITER` asserts the solver reached the
+    iteration limit, and this one did not.
+
+    The reader is fixed and the manifests are not rewritten, so the claim is
+    scoped rather than withdrawn: it holds for a run whose status was
+    recorded by 0.16.0 or later, and for an earlier one only where the run
+    did not outlast its first page. Every affected log is on disk and a
+    status can be re-derived from it; whether the affected manifests are
+    re-derived or annotated is the author's call and is not taken here.
+
     **Restated 2026-08-03, and the restatement is the requirement.** It
     read "distinct from a completed one" until the review pass measured
     that the delivered value is `COMPLETED_MAX_ITER`, whose name says
@@ -2895,12 +2915,25 @@ requirement below is one seam of that division.
     ONE HALF OF THAT SENTENCE WAS AN ARTIFACT AND IS WITHDRAWN. It also said
     all four record 100 iterations, and they do, but 100 was not a
     measurement: the residual reader stopped at the first page of the solver
-    log, so every recorded point in this estate reports the page boundary as
-    its iteration count. The defect is fixed and the recorded manifests still
-    carry the old number, so THE ITERATION COUNTS OF EVERY CAMPAIGN RECORDED
-    BEFORE 0.16.0 ARE NOT USABLE AS CALIBRATION INPUT, and the model this
-    requirement asks for must either re-derive them from the logs, which are
-    on disk, or exclude them and say so beside its calibration-set size.
+    log, so a run longer than its first page reported that page's last row as
+    its iteration count.
+
+    AND THE FIRST WRITING OF THIS CORRECTION OVERREACHED IN ITS TURN, which
+    the verification lens caught and which is recorded here rather than
+    quietly narrowed. It said EVERY recorded point in this estate carries a
+    page boundary. Measured over every `runs.json` in
+    `GeoverseResearch/tools/fts_workspace`: 95 points carry an iteration
+    count, 89 of them read 100 or 81, and SIX DO NOT. Four are `pfs040` at
+    1575 and two are an archived `pfs090` run at 1363 and 1368. The
+    counter-example was inside this very paragraph: `pfs040` is named in the
+    workspace list four sentences above, and 1575 is the last row of a
+    one-page log, where there is no page boundary to mistake.
+
+    So the rule is not a universal but a condition: AN ITERATION COUNT
+    RECORDED BEFORE 0.16.0 IS UNTRUSTWORTHY WHERE THE RUN OUTLASTED ITS FIRST
+    PAGE, which is 89 of the 95 recorded points. The model this requirement
+    asks for re-derives them from the logs, which are on disk, or excludes
+    them and says so beside its calibration-set size.
 
     The estimate prints the size of the calibration set beside it, and a test
     scores the fit against HELD-OUT recorded points, because a model measured

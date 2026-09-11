@@ -68,9 +68,14 @@ from pyflightstream.versions import FsVersion, known_versions, resolve
 
 _DASHED_LINE = re.compile(r"^-{4,}$")
 #: Where one page of the log's residual table ends and the next begins. The
-#: export repeats the header every hundred rows, so the table is read page by
-#: page and the pages joined; see `parse_residual_history` for the
-#: measurement that made this necessary.
+#: export repeats the header periodically, so the table is read page by page
+#: and the pages joined.
+#:
+#: THE PAGES ARE NOT A FIXED LENGTH, which the first writing of this comment
+#: said they were. Measured on 26.123: a steady log pages at a hundred rows,
+#: and an unsteady one pages PER TIME STEP, giving 36 pages of 81, 40, 23,
+#: 33, 36, 39 and so on in one file. The anchor is the repeated header and
+#: never a row count, which is why the split is on the header alone.
 _RESIDUAL_PAGE = re.compile(r"^Iteration", re.MULTILINE)
 _SOFTWARE_LINE = re.compile(
     r"Software\s*:\s*Flightstream version\s+(?P<version>\S+),\s*build\s*#(?P<build>\d+)",
@@ -1305,11 +1310,11 @@ def parse_residual_history(text: str) -> list[ResidualSample]:
     # (observed on 26.120 build 7012026); scrub them before parsing.
     clean = text.replace("\x00", "")
     # EVERY PAGE, AND NOT ONLY THE FIRST. `EXPORT_LOG` prints this table in
-    # pages of one hundred rows, each repeating the `Iteration` header and
-    # closing with a dashed line, and `delimited_table` returns the FIRST
-    # table it finds, by construction and by its own docstring. So a run of
-    # more than a hundred iterations was judged on the residual it held at
-    # iteration 100, and published that number as its iteration count.
+    # pages, each repeating the `Iteration` header and closing with a dashed
+    # line, and `delimited_table` returns the FIRST table it finds, by
+    # construction and by its own docstring. So a run longer than its first
+    # page was judged on the residual it held at that page's end, and
+    # published that row's number as its iteration count.
     #
     # MEASURED on the runs of 2026-09-11, which is where this was found:
     # a 206-row log parsed 100 rows and reported a last velocity residual of
@@ -1318,9 +1323,13 @@ def parse_residual_history(text: str) -> list[ResidualSample]:
     # iteration count equal to a page boundary rather than a real stop, and
     # the convergence verdict of every long run was read from the wrong row.
     #
-    # The counter carries ACROSS pages, so joining them leaves the monotonic
-    # guard below exactly as strict as it was: a page that restarted the
-    # count is still refused by it, which is what PYFS-009 is for.
+    # The counter carries ACROSS pages, measured across an unsteady log's
+    # time-step boundary at 1144 to 1145, so joining them leaves the
+    # monotonic guard below NO WEAKER. Not "exactly as strict", which is what
+    # the first writing claimed and which the verification lens refuted:
+    # before this, a page after the first was never read at all, so the
+    # guard could not have refused anything in it. It is now STRICTER, and
+    # it applies to rows it never saw.
     pages = _RESIDUAL_PAGE.split(clean)
     rows: list[list[str]] = []
     for index, page in enumerate(pages):

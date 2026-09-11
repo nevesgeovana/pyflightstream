@@ -375,6 +375,195 @@ def test_one_superfile_per_polar_and_group_named_with_sweep_and_the_group(tmp_pa
     ], "one file per polar and per group, the swept variable written literally as sweep"
 
 
+def test_a_point_whose_record_is_missing_borrows_no_other_points_values(tmp_path):
+    """A row states what is known about ITS point, and is EMPTY about the rest.
+
+    The campaign writer resolved a point's manifest record as
+    `by_run.get(run_id, records[0])`, so a run id that did not resolve would
+    silently take an ARBITRARY other point of the same simulation, and
+    blocks 3 and 4 would write that record's flight condition, velocity,
+    density and rotor speeds into this point's row.
+
+    THIS CASE DOES NOT GUARD THAT PATH AND DOES NOT CLAIM TO. It pins the
+    contract the removal relies on: handed no record, this function borrows
+    nothing. A case that drove the campaign writer was written and then
+    DELETED, because restoring the fallback left it green: `sources` and
+    `by_run` are built from the same records in the same loop, so a run id
+    the first names is one the second holds, and the fallback is not
+    reachable today. It was removed anyway, as a branch that would do the
+    wrong thing silently if it ever became reachable, and this case is what
+    says what the right thing is.
+
+    That is the worst failure this file can have and the one its own
+    acceptance forbids: not a missing cell, which a reader sees, but a cell
+    that is WRONG and indistinguishable from a right one, in the file whose
+    whole claim is that it says everything about THAT simulation.
+
+    Empty and not absent, which is what `_rotor_speeds` already chooses for
+    a row that turns none or several.
+    """
+    from pyflightstream.post.superfile import superfile_row
+
+    class _Record:
+        flight_condition = {"MACH": "0.15", "REmi": "5.0"}
+        flight_condition_defaults = {"ALTITUDE": "0"}
+        flight_condition_defaults_from = "the setup"
+        velocity_requested_m_s = 51.0
+        density_kg_m3 = 1.225
+        temperature_k = 288.15
+        viscosity_pa_s = 1.81e-5
+        density_source = "the resolver"
+        reference_length_m = 1.322
+        reductions = {"rpm": -837.3278}
+
+    theirs = superfile_row(
+        polar_columns=("POLAR",),
+        polar_values=("0001",),
+        matrix_row=None,
+        record=_Record(),
+        sweep_row=None,
+        plots_row=None,
+    )
+    mine = superfile_row(
+        polar_columns=("POLAR",),
+        polar_values=("0001",),
+        matrix_row=None,
+        record=None,
+        sweep_row=None,
+        plots_row=None,
+    )
+    # NOT ONE VALUE THE RECORD WOULD HAVE SUPPLIED APPEARS IN THE ROW THAT
+    # HAS NO RECORD. Asserted over the keys the OTHER row gained rather than
+    # over a list typed here, so a field added to block 3 is covered the day
+    # it lands and nothing is left out by judgement.
+    from_record = set(theirs) - set(mine)
+    assert from_record, "the fixture record supplied nothing, so this proves nothing"
+    borrowed = {
+        k: mine[k]
+        for k in set(mine) & set(theirs)
+        if k != "POLAR" and mine[k] and mine[k] == theirs[k]
+    }
+    assert not borrowed, f"a point with no record carried {borrowed}"
+    # AND THE FILE'S HEADER IS STILL WHOLE, because `write_superfiles` unions
+    # the keys of every row and writes an empty cell for a row that lacks
+    # one. That is where the column set is decided, not here.
+    from pyflightstream.post.superfile import SuperfileDraft, write_superfiles
+
+    _files, _entries, columns = write_superfiles(
+        [SuperfileDraft(path=tmp_path / "SUPER-x_sweep_g01.csv", rows=[theirs, mine], entry={})],
+        target=lambda p: p,
+    )
+    assert from_record <= set(columns)
+
+
+def test_every_record_scalar_is_carried_or_excluded_on_purpose(tmp_path):
+    """A field added to a manifest record forces a decision rather than slipping past.
+
+    The union could not see a single one of the record's own scalars until
+    2026-09-11, so dropping one from the file passed the completeness check.
+    They now live in ONE tuple the writer loops and the union requires.
+
+    THIS CASE IS THE OTHER HALF: it takes a real record's top-level keys and
+    demands each one be either CARRIED or EXCLUDED BY NAME below. A field
+    added to `RunRecord` lands in neither and fails here, which is the
+    decision the completeness claim needs someone to make, rather than a
+    silent absence.
+    """
+    from pyflightstream.post.superfile import RECORD_SCALARS
+
+    #: Read as: these are NOT in the superfile, and here is why. Grouped, and
+    #: every group is a reason rather than a list.
+    carried_by_their_contents = {
+        # containers whose KEYS become columns of their own
+        "flight_condition",
+        "flight_condition_defaults",
+        "reductions",
+        "solver_setup",
+        "point",
+    }
+    carried_under_the_matrix_or_polar_name = {
+        "description",
+        "mach",
+        "pproc",
+        "recipe",
+        "reference",
+        "aliases",
+        "motions",
+        "conditions",
+        "raw_commands",
+        "raw_flag",
+        "matrix_stem",
+    }
+    about_the_INVOCATION_and_not_the_simulation = {
+        "argv",
+        "cwd",
+        "executor",
+        "fs_exe",
+        "fs_exe_sha256",
+        "script_path",
+        "script_sha256",
+        "recipe_sha256",
+        "inputs_sha256",
+        "outputs_sha256",
+        "staged_as",
+        "staged_as_reason",
+        "log_file_used",
+        "manifest_schema",
+        "package_commit",
+        "package_dirty",
+        "timeout_s",
+        "started_at",
+        "finished_at",
+        "error",
+        "outputs",
+        "action_count",
+        "action_program",
+        "action_script",
+        "campaign_name_from",
+        "point_name_template",
+        "inventory_source",
+        "fs_version_source",
+        "export_window",
+        "waived_commands",
+    }
+    carried_by_the_campaign_sweep_table = {
+        "run_id",
+        "sim_id",
+        "status",
+        "iterations",
+        "residual",
+        "wall_time_s",
+        "fs_build",
+        "fs_version_reported",
+        "fs_version_requested",
+        "package_version",
+    }
+    excluded = (
+        carried_by_their_contents
+        | carried_under_the_matrix_or_polar_name
+        | about_the_INVOCATION_and_not_the_simulation
+        | carried_by_the_campaign_sweep_table
+    )
+
+    workspace = _workspace(tmp_path)
+    payload = json.loads((workspace.root / "runs.json").read_text(encoding="utf-8"))
+    runs = payload["runs"] if isinstance(payload, dict) else payload
+    keys = {key for record in runs for key in record}
+    assert keys, "the fixture wrote no record, so this proves nothing"
+
+    undecided = sorted(keys - set(RECORD_SCALARS) - excluded)
+    assert not undecided, (
+        f"the manifest record carries {undecided}, which the superfile neither "
+        "carries nor excludes by name. Add each to RECORD_SCALARS if the "
+        "superfile should state it, or to one of the groups above with the "
+        "reason it should not."
+    )
+    # AND THE TUPLE IS NOT A DEAD LETTER: every name in it is a field the
+    # record actually has, so a typo there cannot sit unnoticed.
+    typos = sorted(set(RECORD_SCALARS) - keys)
+    assert not typos, f"RECORD_SCALARS names {typos}, which no record carries"
+
+
 def test_the_column_set_is_a_superset_of_what_the_workspace_knows(tmp_path):
     """The acceptance: no field is left out, and the union is BUILT rather than listed."""
     workspace = _workspace(tmp_path)

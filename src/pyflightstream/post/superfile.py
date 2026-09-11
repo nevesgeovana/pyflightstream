@@ -256,20 +256,58 @@ def _take(row: dict[str, str], key: str, value: object, *, fixed: bool = False) 
     row[key] = _fixed_cell(value) if fixed else _free(value)
 
 
+#: The record's own scalar fields the superfile carries, in ONE home.
+#:
+#: THE WRITER LOOPS THIS AND THE UNION REQUIRES IT, which is the whole point
+#: of the constant. They were two lists until 2026-09-11: the writer named
+#: these seven and `union_the_workspace_knows` read only a record's
+#: `flight_condition`, `flight_condition_defaults`, `solver_setup.flags` and
+#: `reductions.rotors`, so NONE of these was visible to the superset check.
+#: The QA lens of the push review proved it with a surviving mutant: deleting
+#: `flight_condition_defaults_from` from the writer left all fifty post tests
+#: green, including the one whose name is the completeness claim.
+#:
+#: With one home there is no writer line to delete on its own. Removing a
+#: field is one visible edit to this tuple, and
+#: `test_every_record_scalar_is_carried_or_excluded_on_purpose` then refuses
+#: it unless the exclusion is written down beside it.
+RECORD_SCALARS = (
+    "flight_condition_defaults_from",
+    "velocity_requested_m_s",
+    "density_kg_m3",
+    "temperature_k",
+    "viscosity_pa_s",
+    "density_source",
+    "reference_length_m",
+)
+
+
 def superfile_row(
     *,
     polar_columns: Sequence[str],
     polar_values: Sequence[object],
     matrix_row: MatrixRow | None,
-    record: object,
+    record: object | None,
     sweep_row: Mapping[str, object] | None,
     plots_row: Mapping[str, str] | None,
 ) -> dict[str, str]:
     """Assemble one row of a superfile: one CONVERGED point, everything known about it.
 
-    ``record`` is the manifest record of the point, duck-typed rather than
+    ``record`` is the manifest record of THIS point, duck-typed rather than
     imported: this module sits under the workspace layer the way every
     other product writer does.
+
+    NONE WHERE THE POINT HAS NO RECORD, and then this row simply carries no
+    key the record would have supplied. It does not need to: the header is
+    the campaign's, and :func:`write_superfiles` unions the keys of every
+    row and writes an empty cell for a row that lacks one, so the file's
+    columns are the same whatever any single row knows.
+
+    Borrowing another point's record was the alternative and it is the
+    worse one: a missing cell is visible and a wrong one is not, in the one
+    file whose claim is that it says everything about that simulation. The
+    first writing of the campaign path did borrow, as
+    ``by_run.get(run_id, records[0])``.
     """
     row: dict[str, str] = {}
     # 1. THE POLAR TABLE'S OWN ROW, verbatim and at its own precision, so
@@ -323,19 +361,7 @@ def superfile_row(
         _take(row, key, value)
     for key, value in (getattr(record, "flight_condition_defaults", None) or {}).items():
         _take(row, key, value)
-    _take(
-        row,
-        "flight_condition_defaults_from",
-        getattr(record, "flight_condition_defaults_from", ""),
-    )
-    for field in (
-        "velocity_requested_m_s",
-        "density_kg_m3",
-        "temperature_k",
-        "viscosity_pa_s",
-        "density_source",
-        "reference_length_m",
-    ):
+    for field in RECORD_SCALARS:
         _take(row, field, getattr(record, field, None))
     # 4. RPM, by name, and one column per rotor where the row turns several.
     for key, value in _rotor_speeds(getattr(record, "reductions", None)).items():
@@ -571,6 +597,11 @@ def union_the_workspace_knows(
             pols.add(str(record.get("sim_id")))
             known |= set(record.get("flight_condition") or {})
             known |= set(record.get("flight_condition_defaults") or {})
+            # THE RECORD'S OWN SCALARS, from the same tuple the writer loops.
+            # Without this the union could not see a single one of them, and
+            # a mutant that dropped one from the file passed the superset
+            # check; measured by the push review of 2026-09-11.
+            known |= {field for field in RECORD_SCALARS if record.get(field) is not None}
             setup = record.get("solver_setup") or {}
             known |= set((setup.get("flags") if isinstance(setup, Mapping) else None) or {})
             reductions = record.get("reductions") or {}

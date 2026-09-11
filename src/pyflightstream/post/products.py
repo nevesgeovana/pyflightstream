@@ -1517,7 +1517,29 @@ def _sim_products(
                         polar_columns=POLAR_COLUMNS,
                         polar_values=polar_values,
                         matrix_row=matrix_row,
-                        record=by_run.get(run_id, records[0]),
+                        # NO FALLBACK TO ANOTHER POINT'S RECORD. This read
+                        # `by_run.get(run_id, records[0])` until 2026-09-11,
+                        # so a run id that did not resolve silently took an
+                        # ARBITRARY other point of the same simulation and
+                        # wrote ITS flight condition, velocity, density and
+                        # rotor speeds into this row. In the one file whose
+                        # claim is that it says everything about THAT
+                        # simulation, a borrowed value is worse than a
+                        # missing one: a reader sees a missing cell and
+                        # cannot see a wrong one.
+                        #
+                        # NOT SHOWN TO BE REACHABLE, and that is stated
+                        # rather than left implied. `sources` and `by_run`
+                        # are built from the same records in the same loop,
+                        # so a run id the first names is one the second
+                        # holds. A test that drove this path was written and
+                        # DELETED: restoring the fallback left it green, so
+                        # it guarded nothing while its name said it did.
+                        # The branch is removed as one that would do the
+                        # wrong thing silently if it ever became reachable;
+                        # what the right thing is, is pinned by
+                        # `test_a_point_whose_record_is_missing_borrows_no_other_points_values`.
+                        record=by_run.get(run_id),
                         sweep_row=(sweep_rows or {}).get(run_id),
                         plots_row=last_step.get(point.name),
                     )
