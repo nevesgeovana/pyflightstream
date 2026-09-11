@@ -2,7 +2,7 @@
  "source": "docs/srs",
  "generated_by": "scripts/gen_requirements_index.py",
  "traceability": {
-  "cited_by_a_test": 86,
+  "cited_by_a_test": 89,
   "total": 142,
   "method": "upper bound: an id mentioned anywhere in tests/**/*.py excluding conftest.py, which is not the marked falsifying test NFR-13 asks for"
  },
@@ -763,17 +763,17 @@
    "id": "FR-75",
    "text": "WHAT IT IS FOR, before how it is written. LOCAL_AXIS means one emission per blade, and on a [[plots.groups]] entry it also emits the rotor's own total in the frame that turns with it, which is a real quantity. A sectional CUT of the whole rotor is not: the blades lie at different azimuths, so one plane through the set crosses each of them somewhere different, and the station it reports is a station of nothing.",
    "priority": "M",
-   "status": "pending",
-   "evidence": "*Origin: the author's decision of 2026-09-10, \"para o sections.distributions, nao faz sentido ter cortes com o rotor inteiro, entao para ele vale ser 3 (diferente do plots)\". Carried by PFS-2035.22. Evidence owed: the tests that node names.*",
-   "verification": "none"
+   "status": "implemented",
+   "evidence": "*Origin: the author's decision of 2026-09-10, \"para o sections.distributions, nao faz sentido ter cortes com o rotor inteiro, entao para ele vale ser 3 (diferente do plots)\". Carried by PFS-2035.22. Evidence: tests/tier1_offline/test_workflows.py.*",
+   "verification": "test"
   },
   {
    "id": "FR-76",
    "text": "WHAT IT IS FOR. count is a field of [sections] and governs every distribution in the artifact: measured, count = 25 emitted NUM_SECTIONS 25 on both entries of a two-entry artifact and count = 120 emitted 120 on both, and absent, both took the default 50. So a study wanting a hundred stations along a blade and thirty along a wing needs two pproc artifacts and a second PPROC code on the rows that want the other density. That splits a file for a number rather than for a question.",
    "priority": "M",
-   "status": "pending",
-   "evidence": "*Origin: the author's instruction of 2026-09-10, \"sobre o surface section, registra no backlog para deixarmos a opcao de especificar por distribuicao mantendo preservando a opcao geral que tem hoje\". Carried by PFS-2035.23. Evidence owed: the tests that node names.*",
-   "verification": "none"
+   "status": "implemented",
+   "evidence": "*Origin: the author's instruction of 2026-09-10, \"sobre o surface section, registra no backlog para deixarmos a opcao de especificar por distribuicao mantendo preservando a opcao geral que tem hoje\". Carried by PFS-2035.23. Evidence: tests/tier1_offline/test_workflows.py.*",
+   "verification": "test"
   },
   {
    "id": "FR-77",
@@ -825,11 +825,11 @@
   },
   {
    "id": "FR-83",
-   "text": "WHAT IT IS FOR. NEW_SURFACE_SECTION_DISTRIBUTION as this package emits it does not distribute. It creates NUM_SECTIONS sections all at the same plane, the frame origin. Where that plane crosses the selected surface the result is N identical duplicate cuts; where it does not, N sections come back empty. Both are useless and neither is reported.",
+   "text": "WHAT IT IS FOR. A run came back with fifty surface sections that say nothing. Measured over the nineteen committed licensed runs: 19 of 19 declare twenty sections and write twenty blocks, 19 of the 20 identical, and 11 of the 19 came back with all twenty EMPTY. So every sectional result this package produced before 0.16.0 is one cut repeated, and more than half are one EMPTY cut repeated.",
    "priority": "M",
-   "status": "pending",
-   "evidence": "*Origin: the author's first feedback item of 2026-09-10 after running 0.15.0 at work, \"surface sections 50 dummies criadas, entender porque\". Carried by PFS-2036.01. Evidence owed: the tests that node names.*",
-   "verification": "none"
+   "status": "implemented",
+   "evidence": "*Origin: the author's first feedback item of 2026-09-10 after running 0.15.0 at work, \"surface sections 50 dummies criadas, entender porque\". Carried by PFS-2036.01. Evidence: tests/tier1_offline/test_workflows.py.*",
+   "verification": "test"
   },
   {
    "id": "FR-84",

@@ -490,6 +490,14 @@ class SectionDistribution(BaseModel):
     families: Annotated[str | list[str], BeforeValidator(_check_family_selection)]
     frame: str = "MRP"
     planes: list[Plane] = Field(min_length=1)
+    #: FR-76, her decision of 2026-09-10. `count` and `plot_direction` may be
+    #: stated per entry and fall back to the artifact's; `include_symmetry` may
+    #: NOT, and the asymmetry is hers with a reason a reader can check: a plot
+    #: direction is a property of the CUT, so two distributions can honestly
+    #: want different ones, while symmetry is a property of the CASE and one
+    #: artifact whose entries disagreed about it would be describing two cases.
+    count: int | None = Field(default=None, ge=1)
+    plot_direction: Literal[1, 2] | None = None
 
     _frame_is_named = field_validator("frame")(_a_named_frame)
 

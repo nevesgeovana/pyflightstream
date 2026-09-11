@@ -4442,8 +4442,17 @@ def _pproc_emissions(
     is_blade,
     what: str,
     frames: Frames,
+    *,
+    blades_only: bool = False,
 ) -> list[tuple[str, list[str], str]]:
     """Return one ``(frame, families, label)`` per emission the entry stands for (FR-65).
+
+    ``blades_only`` is FR-75 and it is set by the SECTIONS path alone. A
+    sectional CUT of a whole rotor is not a quantity: the blades lie at
+    different azimuths, so one plane through the set crosses each of them
+    somewhere different and the station it reports is a station of nothing. A
+    rotor's total FORCE is a real quantity, so the plots path leaves it False
+    and still emits the rotor beside its blades.
 
     ONE RULE FOR EVERY POST-PROCESSING ENTRY, which is why this takes a
     frame and a family selection rather than a plot group: a section
@@ -4536,10 +4545,19 @@ def _pproc_emissions(
             for family in block.families_general
             if family.casefold() in carried and (not asked or family.casefold() in asked)
         ]
-        if general:
+        if general and not blades_only:
             # THE HUB AND THE SPINNER HAVE NO LOCAL AXIS OF THEIR OWN: their
             # local frame IS the rotor's, which is what makes the spinner
             # ride the hub (FR-59). One emission for them, in that frame.
+            #
+            # FR-75 LEAVES IT OUT OF A SECTION DISTRIBUTION, and only of that.
+            # This emission is the one that cuts "the rotor as a whole", and a
+            # cut of a rotor crosses its blades at different azimuths, so the
+            # station it reports is a station of nothing. The author measured
+            # the counts on the template's row 1003: a `LOCAL_AXIS` entry over
+            # PUSHER emitted FOUR distributions, three in the blade frames and
+            # a fourth in the rotor's own. The force plot keeps all four,
+            # because a rotor's total force IS a quantity.
             emissions.append((f"{alias}_RMRP", general, alias))
     # A ROW THAT DOES NOT TURN THE ROTOR PLACES NONE OF ITS FRAMES, and one
     # artifact serves a steady row and a rotor row: that is the whole point
@@ -5624,6 +5642,7 @@ def _pproc_sections(case: SimCase, script: Script, frames: Frames) -> None:
             pproc.is_blade,
             f"section distribution {position}",
             frames,
+            blades_only=True,  # FR-75
         ):
             frame = _pproc_frame(case, frames, frame_name, "a section distribution", families)
             indices = [script.resolve_boundary(f, context="pproc section") for f in families]
@@ -5634,8 +5653,14 @@ def _pproc_sections(case: SimCase, script: Script, frames: Frames) -> None:
                     "NEW_SURFACE_SECTION_DISTRIBUTION",
                     frame=frame,
                     plane=plane,
-                    num_sections=sections.count,
-                    plot_direction=str(sections.plot_direction),
+                    # FR-76: the entry's own where it states one, the
+                    # artifact's where it does not.
+                    num_sections=(entry.count if entry.count is not None else sections.count),
+                    plot_direction=str(
+                        entry.plot_direction
+                        if entry.plot_direction is not None
+                        else sections.plot_direction
+                    ),
                     include_symmetry="ENABLE" if sections.include_symmetry else "DISABLE",
                     surfaces=len(indices),
                     surface_indices=indices,

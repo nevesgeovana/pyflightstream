@@ -4930,7 +4930,7 @@ def _distribution_blocks(lines: list[str]) -> list[list[str]]:
 
 
 def test_a_section_distribution_is_emitted_the_way_her_working_script_emits_it(tmp_path):
-    """The block and its position match `SCRIPT-POLAR-3267`, which produces real cuts.
+    """FR-83. The block and its position match `SCRIPT-POLAR-3267`, which cuts.
 
     Her first feedback item was fifty dummy sections. Her own driver's scripts
     run the same command and get real ones, so the question is not what the
@@ -4991,4 +4991,140 @@ def test_include_symmetry_is_emitted_because_it_is_the_command_s_evolution(tmp_p
     assert blocks, "no section distribution was emitted at all"
     assert any(entry.startswith("INCLUDE_SYMMETRY") for entry in blocks[0]), (
         f"the keyword is the command's evolution and belongs in the block: {blocks[0]}"
+    )
+
+
+def test_an_entry_states_its_own_count_and_plot_direction(tmp_path):
+    """FR-76, her decision of 2026-09-10.
+
+    TWO ENTRIES WITH DIFFERENT COUNTS ARE READ OUT OF ONE SCRIPT, because a
+    per-entry setting only ever tested alone is a global setting with extra
+    syntax. The artifact-level values remain and remain the default.
+    """
+    from pyflightstream.cases import PprocSpec
+
+    spec = PprocSpec.model_validate(
+        {
+            "groups": {"1": ["W", "B"]},
+            "sections": {
+                "count": 7,
+                "plot_direction": 1,
+                "distributions": [
+                    {"families": ["W"], "planes": ["XZ"], "count": 4},
+                    {"families": ["B"], "planes": ["XZ"], "plot_direction": 2},
+                ],
+            },
+        }
+    )
+    case = _with_pproc(unsteady_case(), _wb_geometry(tmp_path), pproc=spec)
+    blocks = _distribution_blocks(rendered(case).splitlines())
+    assert len(blocks) == 2, f"one block per entry; got {len(blocks)}"
+
+    counts = [
+        int(entry.split()[1])
+        for block in blocks
+        for entry in block
+        if entry.startswith("NUM_SECTIONS")
+    ]
+    assert counts == [4, 7], (
+        f"the first entry states count 4 and the second states none, so it takes "
+        f"the artifact's 7; got {counts}"
+    )
+    directions = [
+        entry.split()[1]
+        for block in blocks
+        for entry in block
+        if entry.startswith("PLOT_DIRECTION")
+    ]
+    assert directions == ["1", "2"], (
+        f"the first takes the artifact's 1 and the second states 2; got {directions}"
+    )
+
+
+def test_include_symmetry_has_no_per_entry_form(tmp_path):
+    """The asymmetry is hers and it is deliberate.
+
+    A plot direction is a property of the CUT and two distributions can
+    honestly want different ones; symmetry is a property of the CASE, and one
+    artifact whose entries disagreed about it would be describing two cases.
+    """
+    from pydantic import ValidationError
+
+    from pyflightstream.cases import PprocSpec
+
+    with pytest.raises(ValidationError) as caught:
+        PprocSpec.model_validate(
+            {
+                "groups": {"1": ["W"]},
+                "sections": {
+                    "distributions": [
+                        {"families": ["W"], "planes": ["XZ"], "include_symmetry": True}
+                    ]
+                },
+            }
+        )
+    assert "include_symmetry" in str(caught.value)
+
+
+def test_a_rotor_section_distribution_cuts_the_blades_and_not_the_rotor():
+    """FR-75, her words: "nao faz sentido ter cortes com o rotor inteiro".
+
+    A sectional CUT of a whole rotor is not a quantity: the blades lie at
+    different azimuths, so one plane through the set crosses each of them
+    somewhere different and the station it reports is a station of nothing. A
+    rotor's total FORCE is a real quantity, so `[[plots.groups]]` is unchanged
+    and still emits the rotor beside its blades.
+
+    ONE TEST PINS BOTH COUNTS, because the two paths differ on purpose and a
+    test of only one of them would let them drift together again.
+
+    Tested at the EXPANSION rather than on the rendered script: by the time a
+    block is emitted its frame is a numeric index, so the script cannot say
+    whether `FRAME 4` is a blade's axis or the rotor's own. The expansion still
+    carries the symbolic name, which is the thing the requirement is about.
+    """
+    from pyflightstream.cases.workflows import _pproc_emissions
+
+    rotor = FIXTURE_ROTOR.model_copy(
+        update={"families_general": ["S"], "families_blades": ["Blade1", "Blade2", "Blade3"]}
+    )
+    case = rotor_case().model_copy(update={"rotors": {rotor.alias: rotor}})
+    inventory = ["Blade1", "Blade2", "Blade3", "S", "N"]
+    frames = {
+        "ROTOR_RMRP": 3,
+        "ROTOR_RMRP1": 4,
+        "ROTOR_RMRP2": 5,
+        "ROTOR_RMRP3": 6,
+    }
+
+    plots = _pproc_emissions(
+        case,
+        "LOCAL_AXIS",
+        "all",
+        inventory,
+        lambda name: name.startswith("Blade"),
+        "plot group 1",
+        frames,
+    )
+    sections = _pproc_emissions(
+        case,
+        "LOCAL_AXIS",
+        "all",
+        inventory,
+        lambda name: name.startswith("Blade"),
+        "section distribution 1",
+        frames,
+        blades_only=True,
+    )
+
+    plot_frames = sorted(frame for frame, _families, _label in plots)
+    section_frames = sorted(frame for frame, _families, _label in sections)
+
+    assert plot_frames == ["ROTOR_RMRP", "ROTOR_RMRP1", "ROTOR_RMRP2", "ROTOR_RMRP3"], (
+        f"a plot group over a three-blade rotor is FOUR: the three blades and the "
+        f"rotor's own total; got {plot_frames}"
+    )
+    assert section_frames == ["ROTOR_RMRP1", "ROTOR_RMRP2", "ROTOR_RMRP3"], (
+        f"a section distribution over a three-blade rotor is THREE, one per blade "
+        f"and none over the rotor as a whole; got {section_frames}"
     )

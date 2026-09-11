@@ -2589,12 +2589,12 @@ requirement below is one seam of that division.
     its own recipe is the reader of its keys and reads neither, so the
     entries would reach no script while the record claimed them.
 
-!!! requirement "FR-75 A section distribution over a rotor cuts its blades and not the rotor <span class='srs-pending'>pending</span>"
+!!! requirement "FR-75 A section distribution over a rotor cuts its blades and not the rotor <span class='srs-implemented'>implemented</span>"
 
     *Origin: the author's decision of 2026-09-10, "para o
     sections.distributions, nao faz sentido ter cortes com o rotor inteiro,
     entao para ele vale ser 3 (diferente do plots)". Carried by PFS-2035.22.
-    Evidence owed: the tests that node names.*
+    Evidence: tests/tier1_offline/test_workflows.py.*
 
     WHAT IT IS FOR, before how it is written. `LOCAL_AXIS` means one emission
     per blade, and on a `[[plots.groups]]` entry it also emits the rotor's own
@@ -2618,12 +2618,12 @@ requirement below is one seam of that division.
     is unchanged and still groups, emitting one distribution over every
     surface the alias owns.
 
-!!! requirement "FR-76 A section distribution may state its own cut count <span class='srs-pending'>pending</span>"
+!!! requirement "FR-76 A section distribution may state its own cut count <span class='srs-implemented'>implemented</span>"
 
     *Origin: the author's instruction of 2026-09-10, "sobre o surface section,
     registra no backlog para deixarmos a opcao de especificar por distribuicao
     mantendo preservando a opcao geral que tem hoje". Carried by PFS-2035.23.
-    Evidence owed: the tests that node names.*
+    Evidence: tests/tier1_offline/test_workflows.py.*
 
     WHAT IT IS FOR. `count` is a field of `[sections]` and governs every
     distribution in the artifact: measured, `count = 25` emitted
@@ -2939,107 +2939,73 @@ requirement below is one seam of that division.
     scores the fit against HELD-OUT recorded points, because a model measured
     on its own training set measures nothing.
 
-!!! requirement "FR-83 A section distribution produces distinct cuts, and says so when it produces none <span class='srs-pending'>pending</span>"
+!!! requirement "FR-83 A section distribution is created after the solver is initialised <span class='srs-implemented'>implemented</span>"
 
     *Origin: the author's first feedback item of 2026-09-10 after running
     0.15.0 at work, "surface sections 50 dummies criadas, entender porque".
-    Carried by PFS-2036.01. Evidence owed: the tests that node names.*
+    Carried by PFS-2036.01. Evidence:
+    tests/tier1_offline/test_workflows.py.*
 
-    WHAT IT IS FOR. `NEW_SURFACE_SECTION_DISTRIBUTION` as this package emits
-    it does not distribute. It creates `NUM_SECTIONS` sections all at the same
-    plane, the frame origin. Where that plane crosses the selected surface the
-    result is N identical duplicate cuts; where it does not, N sections come
-    back empty. Both are useless and neither is reported.
+    WHAT IT IS FOR. A run came back with fifty surface sections that say
+    nothing. Measured over the nineteen committed licensed runs: 19 of 19
+    declare twenty sections and write twenty blocks, 19 of the 20 identical,
+    and 11 of the 19 came back with all twenty EMPTY. So every sectional
+    result this package produced before 0.16.0 is one cut repeated, and more
+    than half are one EMPTY cut repeated.
 
-    MEASURED OVER THE NINETEEN COMMITTED LICENSED RUNS under
-    `tests/tier3_licensed/sims/`, which is real solver output this repository
-    already holds:
+    THE COMMAND IS NOT THE PROBLEM, and the first diagnosis of this defect
+    said it was. `NEW_SURFACE_SECTION_DISTRIBUTION` works, takes the count the
+    artifact already declares, and needs no extent: the author's own driver
+    runs it and gets real cuts, and she said so plainly, "sempre funcionou".
 
-        19 of 19 runs declare 20 sections and write 20 blocks
-        19 of the 20 blocks are BYTE-IDENTICAL in every run, the twentieth
-          differing only by the file's trailing footer, its first data row
-          equal to the first block's
-        11 of 19 runs came back with all 20 sections EMPTY
+    THE POSITION IS THE PROBLEM. Her working script,
+    `SCRIPT-POLAR-3267_M20AL+000BE+000.txt`, creates its twelve distributions
+    AFTER the solver is initialised:
 
-    So every sectional result this package has produced is one cut repeated,
-    and more than half are one EMPTY cut repeated.
+        12779  INITIALIZE_SOLVER
+        12880  NEW_SURFACE_SECTION_DISTRIBUTION   x 12, NUM_SECTIONS 50
+        13022  START_SOLVER
+        13027  UPDATE_ALL_SURFACE_SECTIONS
+        13060  EXPORT_ALL_SURFACE_SECTIONS
 
-    THE VERIFICATION EVIDENCE IS SATISFIED BY THE DEFECT, which is why this
-    shipped. `commands/surface_sections.yaml` marks the command verified on
-    26.120 and 26.123 on the grounds that the all-sections export afterwards
-    carries the distribution. It does carry it, as N copies of one plane. That
-    is a check satisfied by the thing it was meant to exclude, and the
-    verification note is restated to name a property the defect fails.
+    This package created them BEFORE `INITIALIZE_SOLVER`, against a solver
+    that had not initialised. Both positions are the same script PHASE, so
+    nothing in the phase ordering could have caught it, and both produce a
+    script the solver accepts. One returns cuts and the other returns fifty of
+    nothing.
 
-    A distribution of N sections produces N DISTINCT cut planes. A test
-    asserts that no two section blocks of one distribution are identical,
-    which is the assertion that fails on every committed run today. A
-    distribution that produces only empty sections is REPORTED rather than
-    written silently, because a table of empty cuts that nothing complains
-    about is how this reached the author rather than a maintainer.
+    A section distribution is emitted between `INITIALIZE_SOLVER` and
+    `START_SOLVER`, where the author's own scripts put it. A test asserts the
+    position against both boundaries, and the shipped goldens carry it.
 
-    WHICH MECHANISM REPLACES IT WAS NOT SETTLED WHEN THIS WAS WRITTEN. The
-    licensed probe this paragraph asked for ran on 2026-09-11 against the
-    author's own sector geometry, which was read and never written, and it ran
-    TWICE: the first run's comparison changed two things at once and could not
-    support what it was read as saying, which the technical-writing review
-    caught, and the second moved one thing and settled it.
+    `INCLUDE_SYMMETRY` IS KEPT AND IS NOT THE CAUSE. Her twelve blocks carry
+    six keywords and no `INCLUDE_SYMMETRY`, which made it the other candidate:
+    a keyword a build does not expect would shift the rest of the block and
+    put `SURFACES` in the wrong field. It is not the cause, because those
+    scripts predate the keyword and the first edition to document it is
+    26.121. The author settled it: "INCLUDE_SYMMETRY precisa entrar, e
+    evolucao do comando". A test pins it as emitted, so a later reader of her
+    scripts cannot reintroduce the candidate.
 
-    ALL FOUR PHASES ARE REPORTED, the refuted comparison included, because a
-    conclusion is worth what its control is worth. Every phase cuts the same
-    wing of the same geometry in `PLANE XZ` on the same solve.
-
-        A  the distribution, 5 sections, FRAME 1, origin (0,0,0)
-           -> 5 blocks, EVERY ONE Edges=0
-        B  5 x CREATE_NEW_SURFACE_SECTION at Y = -1.5 -3.5 -5.5 -7.5 -9.0
-           -> 5 blocks, Edges=84 each, 5 DISTINCT payloads, each block's
-              rows reporting the offset it was asked for
-        C  the distribution, 5 sections, FRAME 2, origin at Y = -5.0
-           -> 5 blocks, Edges=84 each, ALL FIVE AT Y = -5.0, 4 of 5
-              byte-identical and the fifth differing only by the footer
-        D  ONE create at offset 0.0 in that same FRAME 2
-           -> 1 block, Edges=84, at Y = -5.0, byte-identical to C's fifth
-
-    A AND B TOGETHER PROVE NOTHING, and that is stated rather than quietly
-    dropped. The measured mesh is `Y -10.0000 .. 0.0000`, so FRAME 1's origin
-    sits exactly on the symmetry plane at the wing ROOT, at the edge of the
-    geometry. This requirement's own paragraph above predicts that outcome from
-    a cause that is not the grammar: "where it does not [cross the surface], N
-    sections come back empty". A's five empty blocks are fully explained by the
-    station, and the first write-up bridged the gap with "five explicit cuts at
-    the same KIND of station", where only the same station would have carried
-    it.
-
-    C AND D ARE THE CONTROL, and they move the station alone. With the frame
-    origin ON the wing the distribution finds the surface perfectly well,
-    eighty-four edges, and puts ALL FIVE SECTIONS ON ONE PLANE, the frame
-    origin, which is exactly what this requirement says it does. D then shows
-    that one explicit create at that same plane returns that same single cut,
-    byte for byte. So a distribution of N is N copies of one create.
-
-    THE GRAMMAR IS THEREFORE NOT INCOMPLETE IN A WAY MORE KEYWORDS WOULD FIX.
-    It was emitted with every parameter its documented grammar has, it found
-    the surface, and it still produced one cut repeated. THE MECHANISM IS N
-    `CREATE_NEW_SURFACE_SECTION`, whose offset is honoured to seven digits.
-
-    WHERE THE OFFSETS COME FROM IS NOT SETTLED and is the reason FR-83 REMAINS
-    PENDING. It is a decision rather than a measurement: the extent along the
-    cut normal is a property of the selected surfaces, which this package does
-    not read from a mesh today. Either the mesh reader learns to bound the
-    selected boundaries, or a `[[sections.distributions]]` entry states its own
-    extent the way FR-76 gives it its own `count`. What this requirement now
-    waits on is that choice, and no longer a licensed probe.
-
-    HOW PHASE A WAS PRODUCED, because the argument rests on its fidelity: its
-    block was written from this package's own `Layout.KEYWORD_BLOCK` rendering
-    and checked against a script the package had generated for another
-    workspace, not transcribed from the manual. The create in phase B was
-    written from the package's `Layout.PAYLOAD_LINES` rendering, after a first
-    attempt in the distribution's shape was refused by the solver and cost a
-    run. The probe, both scripts, all four exports, the solver logs and the
-    reader that measured them are kept under
+    HOW THE FIRST DIAGNOSIS WENT WRONG IS RECORDED HERE, because the same
+    mistake was made twice in one investigation and the record is the only
+    thing that makes it visible. A licensed probe compared the distribution
+    emitted PRE-SOLVE against explicit creates emitted POST-SOLVE, concluded
+    from the difference that the command did not distribute, and the
+    conclusion was attributed to the command. Two variables moved and one was
+    named. The technical-writing review caught it once, on the station; the
+    author caught it the second time, on the phase. The probe's own artifacts
+    are kept under
     `GeoverseResearch/tools/fts_workspace/pfs0160-probe-fr83/`, a private
     research workspace held outside this repository.
+
+    WHAT IS STILL OWED AND IS NOT THIS REQUIREMENT. Sections cut against a
+    MOVING boundary freeze at the pose they were created in. The author's
+    answer is to create them in the rotating auxiliary frames, so they turn
+    with the geometry and need only an UPDATE per step rather than a
+    re-creation, and that is what the export-after-N-revolutions actions are
+    for. That is a separate requirement at 0.17.0.
+
 
 !!! requirement "FR-84 A simulation's collected outputs live under outputs, not raw <span class='srs-implemented'>implemented</span>"
 
