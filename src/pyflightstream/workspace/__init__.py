@@ -22,7 +22,9 @@ The managed layout under a user-chosen campaign root, created by
   are declarative TOML resolved by stable id.
 - ``sims/sim_<sim_id>/``: per-simulation folder with ``inputs/``
   (staged copies with recorded sha256), ``scripts/`` (generated script
-  text per point), and ``raw/`` (solver outputs as produced). Until
+  text per point), and ``outputs/`` (solver outputs as produced; the
+  folder was called ``raw/`` until 0.16.0, FR-84, and a workspace that
+  holds one is still read). Until
   0.13.0 a fourth folder, ``parsed/``, was created here and written by
   nothing (PFS-2032.01): the typed extracts it was named for are built
   at campaign level under ``post/``, so a workspace made by an earlier
@@ -197,9 +199,10 @@ SOURCE_VERSION_REQUIRED_SINCE = "pyfs-manifest/2"
 def collection_name(declared: str | Path) -> str:
     r"""Return the name a declared output takes once collected.
 
-    Collection MOVES each declared output into ``raw/`` under its base
-    name, so any directory part of the declared name is dropped: both
-    ``loads.txt`` and ``out/loads.txt`` become ``raw/loads.txt``.
+    Collection MOVES each declared output into ``outputs/`` under its
+    base name, so any directory part of the declared name is dropped:
+    both ``loads.txt`` and ``out/loads.txt`` become
+    ``outputs/loads.txt``.
 
     This is a module-level function rather than an inline expression
     because two layers have to agree on it, and when they did not, the
@@ -230,10 +233,24 @@ def collection_name(declared: str | Path) -> str:
 
 
 _SIM_ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]*$")
+
+#: The simulation subfolder a run collects its declared outputs into
+#: (FR-84). ``raw`` named HOW the data arrived; ``outputs`` names WHAT it
+#: is, and the second is what a reader opening a simulation folder wants.
+SIM_OUTPUTS_DIR = "outputs"
+
+#: The name that folder carried until 0.16.0. NOTHING WRITES HERE any
+#: more and everything that reads a simulation folder still reads it, so
+#: a workspace recorded before the rename keeps every one of its points
+#: (FR-84). It is also still MANAGED: a declared output resolving into it
+#: is refused exactly as one resolving into `outputs/` is, because the
+#: evidence a past run collected there is no less owned for being old.
+LEGACY_SIM_OUTPUTS_DIR = "raw"
+
 #: The managed folders of one simulation. Three since 0.13.0: ``parsed/``
 #: was the fourth from the first release and nothing ever wrote there
 #: (PFS-2032.01), so it promised typed extracts that ``post/`` holds.
-_SIM_SUBDIRS = ("inputs", "scripts", "raw")
+_SIM_SUBDIRS = ("inputs", "scripts", SIM_OUTPUTS_DIR)
 
 # Comment-only template written by init when no registry exists yet;
 # didactic: shows the entry shape without registering a fake build.
@@ -547,7 +564,8 @@ class RunRecord(BaseModel):
         When the process ended, or was killed on timeout, the same way.
     outputs : list of str
         Collected output files, relative to the simulation folder
-        (for example ``"raw/loads.txt"``).
+        (for example ``"outputs/loads.txt"``; a record written before
+        0.16.0 names ``"raw/loads.txt"`` and is read unchanged, FR-84).
     error : str, optional
         Error text for failed points.
     flight_condition_defaults : dict of str to float
@@ -1708,9 +1726,12 @@ class CampaignWorkspace:
     def create_sim(self, sim_id: str) -> Path:
         """Create the managed subfolders of one simulation and return its path.
 
-        Creates ``inputs/``, ``scripts/`` and ``raw/``; existing folders
-        are kept, so the call is idempotent, and a ``parsed/`` left by a
-        release before 0.13.0 is kept with them (PFS-2032.01).
+        Creates ``inputs/``, ``scripts/`` and ``outputs/``; existing
+        folders are kept, so the call is idempotent, and a ``parsed/``
+        left by a release before 0.13.0 is kept with them
+        (PFS-2032.01), as is a ``raw/`` left by one before 0.16.0
+        (FR-84). NO ``raw/`` IS CREATED: a folder this release does not
+        write to would be an empty promise in every new simulation.
         """
         sim = self.sim_dir(sim_id)
         for name in _SIM_SUBDIRS:
@@ -1880,12 +1901,22 @@ class CampaignWorkspace:
 
     #: What each managed subdirectory of a simulation folder IS, so a
     #: refusal can name the role rather than only the folder. A reader
-    #: who is told "raw/" has to know what raw/ holds; a reader who is
+    #: who is told "outputs/" has to know what it holds; a reader who is
     #: told "this simulation's own collected outputs" does not.
+    #:
+    #: ``raw`` IS STILL HERE AND IS NOT WRITTEN (FR-84). It is the name
+    #: this folder carried until 0.16.0, and a workspace that holds one
+    #: holds collected evidence in it; dropping it from this table would
+    #: have made that evidence collectable OUT of the layout that owns
+    #: it, which is the one thing these roles exist to refuse.
     _SUBDIR_ROLES = {
         "inputs": "this simulation's staged input artifacts",
         "scripts": "this simulation's generated solver scripts",
-        "raw": "this simulation's own collected outputs",
+        SIM_OUTPUTS_DIR: "this simulation's own collected outputs",
+        LEGACY_SIM_OUTPUTS_DIR: (
+            "this simulation's own collected outputs, under the name that folder "
+            "carried before 0.16.0"
+        ),
     }
 
     def _output_trespass(self, sim: Path, origin: Path) -> str | None:
@@ -1893,8 +1924,8 @@ class CampaignWorkspace:
 
         The question is asked of the RESOLVED path, because the harm is
         about where a file physically is and not about how it was
-        spelled. ``sims/sim_A/../sim_B/raw/loads.txt`` is another run's
-        evidence however it is written.
+        spelled. ``sims/sim_A/../sim_B/outputs/loads.txt`` is another
+        run's evidence however it is written.
 
         Three answers, in the order a reader meets them:
 
@@ -1903,9 +1934,10 @@ class CampaignWorkspace:
           working directory is not managed here.
         * inside the root but outside this simulation's folder: refuse,
           naming the simulation it actually belongs to when it is one.
-        * inside this simulation's folder but under one of the three
-          managed subdirectories: refuse, naming the role of that
-          subdirectory.
+        * inside this simulation's folder but under one of its managed
+          subdirectories: refuse, naming the role of that subdirectory.
+          ``raw/`` is one of them wherever a workspace still holds one,
+          for the reason :attr:`_SUBDIR_ROLES` states.
 
         An unmanaged subfolder of the simulation, ``sim/out/x.txt``, is
         accepted: nothing in this class owns it, so moving a file out of
@@ -1955,7 +1987,7 @@ class CampaignWorkspace:
         return None
 
     def collect_outputs(self, sim_id: str, produced: Sequence[str | Path]) -> list[str]:
-        """Move declared solver outputs into ``raw/``.
+        """Move declared solver outputs into ``outputs/`` (FR-84).
 
         Parameters
         ----------
@@ -1965,14 +1997,17 @@ class CampaignWorkspace:
             Output files the run declared it would produce. Anywhere
             OUTSIDE this campaign root, which is where a solver working
             directory normally sits; inside the root, only in this
-            simulation's own folder and not in one of its three managed
+            simulation's own folder and not in one of its managed
             subdirectories. See Raises.
 
         Returns
         -------
         list of str
             Collected names relative to the simulation folder
-            (``"raw/<name>"``), ready for :attr:`RunRecord.outputs`.
+            (``"outputs/<name>"``), ready for :attr:`RunRecord.outputs`.
+            A record written before 0.16.0 names ``"raw/<name>"`` and is
+            read through unchanged, which is what keeps its point from
+            being orphaned by the rename.
 
         Raises
         ------
@@ -1983,10 +2018,10 @@ class CampaignWorkspace:
 
             If a declared output RESOLVES INSIDE this campaign root but
             outside this simulation's own folder, or inside one of that
-            folder's three managed subdirectories. Collection MOVES, so
+            folder's managed subdirectories. Collection MOVES, so
             without this a run could take another run's collected
-            evidence: naming ``sims/sim_OTHER/raw/loads.txt`` as an
-            output moved it into this simulation's ``raw/``, and both
+            evidence: naming ``sims/sim_OTHER/outputs/loads.txt`` as an
+            output moved it into this simulation's ``outputs/``, and both
             manifests then named a file only one of them had.
 
             A source resolving OUTSIDE the root is still accepted, and
@@ -1996,7 +2031,7 @@ class CampaignWorkspace:
 
             If two declared outputs of one call would collect to the
             same name, or if a declared output's base name is already
-            held in ``raw/`` from an earlier point or run. Both are
+            held in ``outputs/`` from an earlier point or run. Both are
             FR-33e and neither takes an overwrite argument: the remedies
             are a per-point output name and an archived simulation. They
             differ in WHEN they are decided, which a caller can see: the
@@ -2035,7 +2070,7 @@ class CampaignWorkspace:
                 raise WorkspaceError(trespass)
         # FR-33e, first shape, and PYFS-005 is the incident behind it.
         # Collection MOVES, so two declared outputs whose base names agree used
-        # to land on one file in raw/: both moves ran, only the second content
+        # to land on one file in outputs/: both moves ran, only the second content
         # survived, and the manifest recorded the same name twice as though two
         # artifacts existed. A campaign then carried a record naming evidence
         # that had been overwritten by other evidence, with nothing anywhere
@@ -2049,11 +2084,12 @@ class CampaignWorkspace:
         clashing = {name: sources for name, sources in destinations.items() if len(sources) > 1}
         if clashing:
             detail = "; ".join(
-                f"raw/{name} from {' and '.join(sources)}" for name, sources in clashing.items()
+                f"{SIM_OUTPUTS_DIR}/{name} from {' and '.join(sources)}"
+                for name, sources in clashing.items()
             )
             raise WorkspaceError(
                 f"two or more declared outputs collect to the same name: {detail}. "
-                "Collection moves each output into raw/, so the later one would "
+                f"Collection moves each output into {SIM_OUTPUTS_DIR}/, so the later one would "
                 "overwrite the earlier and the manifest would record one name "
                 "twice while only the last content survived. Declare outputs whose "
                 "base names differ, or use a per-point placeholder such as "
@@ -2062,25 +2098,25 @@ class CampaignWorkspace:
         collected: list[str] = []
         for path in produced:
             origin = Path(path)
-            destination = sim / "raw" / origin.name
+            destination = sim / SIM_OUTPUTS_DIR / origin.name
             # FR-33e, second shape. Same rule as the pre-scan above and a
             # different remedy: the name is unique within THIS call, and what
             # is in the way is a record an earlier point or run collected.
             # Asked per destination rather than as a pre-scan, so a refusal
-            # here leaves the outputs already handled in raw/. Nothing is
+            # here leaves the outputs already handled in outputs/. Nothing is
             # destroyed either way, which is the guarantee; making it a
             # pre-scan would change behaviour rather than tighten it.
             if destination.exists():
                 raise WorkspaceError(
-                    f"cannot collect {origin} into raw/{origin.name}: that name is "
-                    "already in raw/ from an earlier point or run. Collection moves "
-                    "the file, so continuing would destroy the collected evidence "
+                    f"cannot collect {origin} into {SIM_OUTPUTS_DIR}/{origin.name}: that "
+                    f"name is already in {SIM_OUTPUTS_DIR}/ from an earlier point or run. "
+                    "Collection moves the file, so continuing would destroy the collected evidence "
                     "and leave two manifest records pointing at one file. Use a "
                     "per-point output name, or archive the simulation before "
                     "re-running it (pyfs-workspace archive <root> <sim_id>)."
                 )
             shutil.move(str(origin), destination)
-            collected.append(f"raw/{origin.name}")
+            collected.append(f"{SIM_OUTPUTS_DIR}/{origin.name}")
         return collected
 
     def output_digests(self, sim_id: str, collected: Sequence[str]) -> dict[str, str]:
@@ -2098,7 +2134,8 @@ class CampaignWorkspace:
             Simulation the outputs were collected into.
         collected : sequence of str
             Names as :meth:`collect_outputs` returned them, relative to
-            the simulation folder (``"raw/<name>"``).
+            the simulation folder (``"outputs/<name>"``, or ``"raw/<name>"``
+            on a record written before 0.16.0).
 
         Returns
         -------

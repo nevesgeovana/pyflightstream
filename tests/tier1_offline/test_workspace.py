@@ -50,14 +50,16 @@ def test_create_sim_builds_the_managed_subfolders(tmp_path):
     ``parsed/`` was created from the first version and written by nothing:
     typed extracts go to ``post/<matrix stem>/`` at campaign level, so
     every simulation carried an empty folder promising a content that
-    never arrived.
+    never arrived. ``raw/`` joined it at 0.16.0 (FR-84): the folder is
+    read where an older workspace holds one and is never created.
     """
     workspace = CampaignWorkspace(tmp_path)
     sim = workspace.create_sim("9001")
     assert sim == tmp_path / "sims" / "sim_9001"
-    for name in ("inputs", "scripts", "raw"):
+    for name in ("inputs", "scripts", "outputs"):
         assert (sim / name).is_dir()
     assert not (sim / "parsed").exists()
+    assert not (sim / "raw").exists()
 
 
 def test_a_workspace_that_still_carries_an_empty_parsed_folder_is_untouched(tmp_path):
@@ -74,7 +76,7 @@ def test_a_workspace_that_still_carries_an_empty_parsed_folder_is_untouched(tmp_
     assert (sim / "parsed").is_dir()
     produced = tmp_path / "loads.txt"
     produced.write_text("x", encoding="utf-8")
-    assert workspace.collect_outputs("9001", [produced]) == ["raw/loads.txt"]
+    assert workspace.collect_outputs("9001", [produced]) == ["outputs/loads.txt"]
     workspace.append_record(make_record())
     assert workspace.archive_sim("9001").is_file()
 
@@ -108,14 +110,14 @@ def test_write_script_returns_path_and_hash(tmp_path):
     assert digest == hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def test_collect_outputs_moves_declared_files_into_raw(tmp_path):
+def test_collect_outputs_moves_declared_files_into_outputs(tmp_path):
     produced = tmp_path / "loads.txt"
     produced.write_text("data", encoding="utf-8")
     workspace = CampaignWorkspace(tmp_path / "camp")
     collected = workspace.collect_outputs("9001", [produced])
-    assert collected == ["raw/loads.txt"]
+    assert collected == ["outputs/loads.txt"]
     assert not produced.exists()
-    assert (tmp_path / "camp" / "sims" / "sim_9001" / "raw" / "loads.txt").is_file()
+    assert (tmp_path / "camp" / "sims" / "sim_9001" / "outputs" / "loads.txt").is_file()
 
 
 def test_collect_refuses_missing_declared_outputs(tmp_path):
@@ -214,7 +216,7 @@ def test_builder_to_manifest_flow_records_the_raw_flag(tmp_path):
     workspace = CampaignWorkspace(tmp_path)
     _, digest = workspace.write_script("9001", "point.txt", script.render())
     workspace.append_record(
-        make_record(script_sha256=digest, raw_flag=script.raw_flag, outputs=["raw/loads.txt"])
+        make_record(script_sha256=digest, raw_flag=script.raw_flag, outputs=["outputs/loads.txt"])
     )
     record = workspace.read_manifest()[0]
     assert record.raw_flag is True
@@ -823,7 +825,7 @@ def test_two_outputs_colliding_on_one_name_are_refused_before_any_move(tmp_path)
 
     Measured before the fix: outputs ["a/loads.txt", "b/loads.txt"] passed
     the pre-flight, BOTH were moved to raw/loads.txt, the manifest recorded
-    ['raw/loads.txt', 'raw/loads.txt'], and only B's content survived.
+    ['outputs/loads.txt', 'outputs/loads.txt'], and only B's content survived.
     """
     workspace = CampaignWorkspace(tmp_path / "camp")
     for folder, content in (("a", "A"), ("b", "B")):
@@ -837,16 +839,16 @@ def test_two_outputs_colliding_on_one_name_are_refused_before_any_move(tmp_path)
     assert (tmp_path / "b" / "loads.txt").read_text(encoding="utf-8") == "B"
 
 
-def test_collecting_onto_an_existing_raw_name_is_refused(tmp_path):
+def test_collecting_onto_an_existing_collected_name_is_refused(tmp_path):
     """A second run must not silently destroy the first run's evidence."""
     workspace = CampaignWorkspace(tmp_path / "camp")
     (tmp_path / "loads.txt").write_text("first", encoding="utf-8")
     workspace.collect_outputs("1", [tmp_path / "loads.txt"])
 
     (tmp_path / "loads.txt").write_text("second", encoding="utf-8")
-    with pytest.raises(WorkspaceError, match="already in raw/"):
+    with pytest.raises(WorkspaceError, match="already in outputs/"):
         workspace.collect_outputs("1", [tmp_path / "loads.txt"])
-    assert (workspace.sim_dir("1") / "raw" / "loads.txt").read_text(encoding="utf-8") == "first"
+    assert (workspace.sim_dir("1") / "outputs" / "loads.txt").read_text(encoding="utf-8") == "first"
 
 
 def test_two_inputs_sharing_a_base_name_are_refused(tmp_path):
@@ -924,7 +926,7 @@ def test_output_digests_refuse_a_name_that_is_not_there(tmp_path):
     workspace = CampaignWorkspace(tmp_path)
     workspace.create_sim("9001")
     with pytest.raises(WorkspaceError, match="cannot be hashed"):
-        workspace.output_digests("9001", ["raw/gone.txt"])
+        workspace.output_digests("9001", ["outputs/gone.txt"])
 
 
 def test_output_digests_hash_what_collection_produced(tmp_path):
@@ -936,7 +938,7 @@ def test_output_digests_hash_what_collection_produced(tmp_path):
     collected = workspace.collect_outputs("9001", [produced])
     digests = workspace.output_digests("9001", collected)
     assert sorted(digests) == collected
-    assert digests["raw/loads.txt"] == hashlib.sha256(b"LOADS").hexdigest()
+    assert digests["outputs/loads.txt"] == hashlib.sha256(b"LOADS").hexdigest()
 
 
 # --- collect_outputs containment (PFS-2011.01 and PFS-2011.03) ---------------
@@ -955,9 +957,9 @@ def _prepared(tmp_path, sim_id="A"):
 
 
 def test_collect_refuses_a_source_inside_a_managed_subdirectory(tmp_path):
-    """Moving out of `raw/` takes a record out of the layout that owns it."""
+    """Moving out of `outputs/` takes a record out of the layout that owns it."""
     workspace, sim = _prepared(tmp_path)
-    source = sim / "raw" / "already_collected.txt"
+    source = sim / "outputs" / "already_collected.txt"
     source.write_text("evidence", encoding="utf-8")
 
     with pytest.raises(WorkspaceError, match="own collected outputs"):
@@ -981,14 +983,14 @@ def test_collect_refuses_another_simulations_collected_evidence(tmp_path):
     """The case this item exists for, and the one to measure first.
 
     Today this MOVED another simulation's collected output into this
-    simulation's `raw/`, and both manifests then named a file only one of
+    simulation's `outputs/`, and both manifests then named a file only one of
     them had. The refusal names the simulation the file belongs to,
     because a reader who is told only "outside sim_A" still has to go
     looking.
     """
     workspace, _ = _prepared(tmp_path)
     other = workspace.create_sim("OTHER")
-    source = other / "raw" / "loads.txt"
+    source = other / "outputs" / "loads.txt"
     source.write_text("another run's numbers", encoding="utf-8")
 
     with pytest.raises(WorkspaceError, match="belongs to sim_OTHER"):
@@ -1005,12 +1007,12 @@ def test_collect_refuses_a_path_that_climbs_back_in(tmp_path):
     """
     workspace, sim = _prepared(tmp_path)
     other = workspace.create_sim("OTHER")
-    (other / "raw" / "loads.txt").write_text("another run's numbers", encoding="utf-8")
-    climbing = sim / ".." / "sim_OTHER" / "raw" / "loads.txt"
+    (other / "outputs" / "loads.txt").write_text("another run's numbers", encoding="utf-8")
+    climbing = sim / ".." / "sim_OTHER" / "outputs" / "loads.txt"
 
     with pytest.raises(WorkspaceError, match="belongs to sim_OTHER"):
         workspace.collect_outputs("A", [climbing])
-    assert (other / "raw" / "loads.txt").is_file()
+    assert (other / "outputs" / "loads.txt").is_file()
 
 
 def test_collect_still_takes_an_unmanaged_subfolder_of_the_simulation(tmp_path):
@@ -1025,8 +1027,8 @@ def test_collect_still_takes_an_unmanaged_subfolder_of_the_simulation(tmp_path):
     source = unmanaged / "loads.txt"
     source.write_text("numbers", encoding="utf-8")
 
-    assert workspace.collect_outputs("A", [source]) == ["raw/loads.txt"]
-    assert (sim / "raw" / "loads.txt").is_file()
+    assert workspace.collect_outputs("A", [source]) == ["outputs/loads.txt"]
+    assert (sim / "outputs" / "loads.txt").is_file()
     assert not source.exists(), "collection MOVES, so the source is gone"
 
 
@@ -1038,8 +1040,8 @@ def test_collect_still_takes_a_source_outside_the_campaign_root(tmp_path):
     source = outside / "loads.txt"
     source.write_text("numbers", encoding="utf-8")
 
-    assert workspace.collect_outputs("A", [source]) == ["raw/loads.txt"]
-    assert (sim / "raw" / "loads.txt").is_file()
+    assert workspace.collect_outputs("A", [source]) == ["outputs/loads.txt"]
+    assert (sim / "outputs" / "loads.txt").is_file()
 
 
 # --- OPS-2009.02.03: broken_commands says what shape its entries are --------
@@ -2477,12 +2479,12 @@ def test_archive_does_not_cross_a_staged_link(tmp_path):
     other = _library_geometry(workspace, "other.fsm", b"y" * 4096)
     for sim_id in ("9001", "9002"):
         workspace.stage_inputs(sim_id, [library])
-        (workspace.sim_dir(sim_id) / "raw" / "loads.txt").write_text("loads", encoding="utf-8")
+        (workspace.sim_dir(sim_id) / "outputs" / "loads.txt").write_text("loads", encoding="utf-8")
         workspace.append_record(make_record(sim_id=sim_id, run_id=f"camp/sim_{sim_id}/a"))
     bundle = workspace.archive_sim("9001")
     with zipfile.ZipFile(bundle) as archive:
         names = archive.namelist()
-        assert "raw/loads.txt" in names
+        assert "outputs/loads.txt" in names
         assert not any(name.endswith(".fsm") for name in names), "the archive crossed the link"
         assert archive.read("inputs/STAGED_AS_LINK.txt").decode().strip() == os.path.realpath(
             workspace.inputs_dir / "geometries"

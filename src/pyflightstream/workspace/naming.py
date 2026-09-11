@@ -42,6 +42,7 @@ existing campaign roots, goldens, and manifests stay valid.
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
 from pathlib import PurePosixPath, PureWindowsPath
 from string import Formatter
 
@@ -69,12 +70,30 @@ _ARCHIVE_PLACEHOLDERS = ("campaign", "sim")
 MATRIX_POINT_NAME = "{polar}"
 
 
+#: What a SWEPT field of the point convention carries in place of its
+#: value (FR-85): the literal word, in the position the signed number
+#: would have held, so ``J+100`` becomes ``J+sweep`` and the field stays
+#: as legible as the fixed ones beside it. A file named this way is about
+#: the whole sweep rather than about one of its points, which is exactly
+#: what a polar table is.
+SWEEP_FIELD = "+sweep"
+
+#: The axes :func:`polar_name` writes a field for, in the order it writes
+#: them, keyed by the name a sweep point uses for each.
+_POLAR_FIELDS: tuple[tuple[str, str, float], ...] = (
+    ("alpha", "AL", 10.0),
+    ("beta", "BE", 10.0),
+    ("advance_ratio", "J", 100.0),
+)
+
+
 def polar_name(
     sim: str,
     mach: float,
     alpha_deg: float = 0.0,
     beta_deg: float = 0.0,
     advance_ratio: float | None = None,
+    swept: Sequence[str] = (),
 ) -> str:
     """Render the author's point convention (PFS-2029.19.01).
 
@@ -83,13 +102,22 @@ def polar_name(
     ``POLAR-{polar:03d}_M{mach*100:02d}AL{alpha*10:+04d}BE{beta*10:+04d}``
     and, for a rotor case, ``J{advance_ratio*100:+04d}``. Fixed width, so
     a directory of them sorts by polar, Mach, angle and ratio.
+
+    ``swept`` names the axes this name is about a SWEEP of rather than
+    about one value of (FR-85): each of them is written
+    :data:`SWEEP_FIELD` in place of its number, so a polar table over
+    three advance ratios is ``POLAR-0001_M15AL+000BE+000J+sweep`` and
+    carries the angles it held fixed. The axes are spelled as a sweep
+    point spells them: ``alpha``, ``beta``, ``advance_ratio``.
     """
-    name = (
-        f"POLAR-{sim}_M{round(mach * 100):02d}"
-        f"AL{round(alpha_deg * 10):+04d}BE{round(beta_deg * 10):+04d}"
-    )
-    if advance_ratio is not None:
-        name += f"J{round(advance_ratio * 100):+04d}"
+    values = {"alpha": alpha_deg, "beta": beta_deg, "advance_ratio": advance_ratio}
+    name = f"POLAR-{sim}_M{round(mach * 100):02d}"
+    for axis, code, scale in _POLAR_FIELDS:
+        value = values[axis]
+        if axis in swept:
+            name += f"{code}{SWEEP_FIELD}"
+        elif value is not None:
+            name += f"{code}{round(value * scale):+04d}"
     return name
 
 
@@ -375,13 +403,13 @@ def _check_output_containment(name: str) -> None:
         raise NamingTemplateError(
             f"the output name {name!r} is an absolute path. Declared outputs are "
             "named relative to the simulation folder, because collection moves "
-            "them into raw/ and an absolute name would move a file from outside "
+            "them into outputs/ and an absolute name would move a file from outside "
             "the run into the run's own evidence."
         )
     if any(part == ".." for part in candidate.parts):
         raise NamingTemplateError(
             f"the output name {name!r} climbs out of the simulation folder with "
-            "'..'. Collection MOVES a declared output into raw/, so this would "
+            "'..'. Collection MOVES a declared output into outputs/, so this would "
             "not copy a file from outside the run, it would take it: the source "
             "would be gone and the run would record it as evidence it produced. "
             "Name outputs relative to the simulation folder."

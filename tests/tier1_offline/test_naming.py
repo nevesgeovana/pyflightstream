@@ -132,14 +132,14 @@ def test_the_record_names_the_template(tmp_path):
     )
     record = workspace.read_manifest()[0]
     assert record.point_name_template == "{polar}"
-    assert record.outputs == ["raw/POLAR-3207_M20AL-020BE+000.txt"]
+    assert record.outputs == ["outputs/POLAR-3207_M20AL-020BE+000.txt"]
     assert record.script_path is not None and "POLAR-3207_M20AL-020BE+000" in record.script_path
 
     other = CampaignWorkspace(tmp_path / "other", naming=NamingTemplate(point_name="{sim}_{point}"))
     run_campaign(_campaign(tmp_path), Stub(), other, assess=_converged, recipes={"steady": _recipe})
     record = other.read_manifest()[0]
     assert record.point_name_template == "{sim}_{point}"
-    assert record.outputs == ["raw/3207_a-02.0.txt"]
+    assert record.outputs == ["outputs/3207_a-02.0.txt"]
 
 
 def test_a_stated_advance_ratio_on_a_rotorless_row_reaches_the_name(tmp_path):
@@ -165,7 +165,7 @@ def test_a_stated_advance_ratio_on_a_rotorless_row_reaches_the_name(tmp_path):
     )
     campaign = _campaign(tmp_path, variables={"ADVANCE_RATIO": "1.3"})
     run_campaign(campaign, Stub(), workspace, assess=_converged, recipes={"steady": _recipe})
-    assert workspace.read_manifest()[0].outputs == ["raw/POLAR-3207_M20AL-020BE+000J+130.txt"]
+    assert workspace.read_manifest()[0].outputs == ["outputs/POLAR-3207_M20AL-020BE+000J+130.txt"]
 
 
 # --- the QA lens of 2026-09-03: three properties no test discriminated --------------

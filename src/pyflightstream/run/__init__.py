@@ -112,7 +112,9 @@ from pyflightstream.script import Script
 from pyflightstream.versions import FsVersion, resolve
 from pyflightstream.workspace import (
     KNOWN_MANIFEST_SCHEMAS,
+    LEGACY_SIM_OUTPUTS_DIR,
     MANIFEST_SCHEMA,
+    SIM_OUTPUTS_DIR,
     CampaignWorkspace,
     ExecutorRecord,
     NamingTemplateError,
@@ -772,9 +774,10 @@ class OutcomeAssessor(Protocol):
 
     The campaign loop already handled execution failure and missing
     declared outputs; the assessor inspects the collected outputs (in
-    ``sim_dir / "raw"``) and decides between converged, iteration
-    limited, and diverged. The standard implementation lands with the
-    results parsers.
+    ``sim_dir / "outputs"``, and in ``sim_dir / "raw"`` where a workspace
+    written before 0.16.0 holds one, FR-84) and decides between
+    converged, iteration limited, and diverged. The standard
+    implementation lands with the results parsers.
     """
 
     def __call__(self, case: SimCase, execution: ExecutionResult, sim_dir: Path) -> Assessment:
@@ -939,8 +942,22 @@ class LoadsAssessor:
 
     def __call__(self, case: SimCase, execution: ExecutionResult, sim_dir: Path) -> Assessment:
         """Judge one executed point from its collected outputs."""
-        raw = Path(sim_dir) / "raw"
-        collected = sorted(path for path in raw.glob("*") if path.is_file())
+        # BOTH FOLDERS ARE READ AND ONLY ONE IS WRITTEN (FR-84). The
+        # collected outputs of a simulation live under `outputs/` since
+        # 0.16.0 and lived under `raw/` before it, and an assessor that
+        # read only the new name would have judged every point of every
+        # workspace recorded before the rename as having exported
+        # nothing. Sorted across both, so the judgement does not depend
+        # on which folder a file sits in.
+        collected = sorted(
+            (
+                path
+                for folder in (SIM_OUTPUTS_DIR, LEGACY_SIM_OUTPUTS_DIR)
+                for path in (Path(sim_dir) / folder).glob("*")
+                if path.is_file()
+            ),
+            key=lambda path: path.name,
+        )
         # THE POINT'S OWN OUTPUTS, when the case declares them. A simulation
         # folder holds every point of its sweep, and under the author's
         # naming (PFS-2029.19) each point's loads table is `<point>.txt`,
@@ -1954,7 +1971,7 @@ def run_campaign(
     Per point, in order: specialize the case (sweep point and staged
     geometry), build the script through the recipe (failure:
     FAILED_SCRIPT), execute it (failure or timeout:
-    FAILED_EXECUTION), collect the declared outputs into ``raw/``
+    FAILED_EXECUTION), collect the declared outputs into ``outputs/``
     (missing output: FAILED_INCOMPLETE_OUTPUT), and judge the solver
     quality through ``assess`` (CONVERGED, COMPLETED_MAX_ITER, or
     FAILED_DIVERGED). Exactly one record per point is appended to the
@@ -2677,7 +2694,7 @@ def _output_collision(
     """Return why this case's output names collide, or None.
 
     Every point of a case executes in the same simulation folder and its
-    declared outputs are collected into ``raw/`` under the name
+    declared outputs are collected into ``outputs/`` under the name
     :func:`pyflightstream.workspace.collection_name` gives them, so two
     outputs that collect to one name overwrite each other's evidence
     while the manifest lists the survivor for both (incident
@@ -2688,7 +2705,7 @@ def _output_collision(
 
     Two collisions exist and this checks both, which it did not
     (PLN-20260802-1904). Collection refuses duplicates WITHIN one
-    point's declared set and refuses a name already sitting in ``raw/``
+    point's declared set and refuses a name already sitting in ``outputs/``
     from an EARLIER point, and only the second was anticipated here.
     Three inputs therefore planned as READY and died at collection,
     each after the solver had run and each costing a licensed seat:
@@ -2720,7 +2737,8 @@ def _output_collision(
                 )
                 return (
                     f"sim {case.sim_id!r} declares {detail} for point {tag}, and both "
-                    f"collect to raw/{collected}: collection moves each output under its "
+                    f"collect to {SIM_OUTPUTS_DIR}/{collected}: collection moves each output "
+                    "under its "
                     "base name, so the second would overwrite the first and the manifest "
                     "would record one name twice while only the last content survived. "
                     "Declare outputs whose base names differ; a directory part does not "
@@ -2731,7 +2749,8 @@ def _output_collision(
             if collected in seen:
                 return (
                     f"sim {case.sim_id!r} would write {declared!r} for point {tag} and "
-                    f"the same collected name raw/{collected} for point {seen[collected]}: "
+                    f"the same collected name {SIM_OUTPUTS_DIR}/{collected} for point "
+                    f"{seen[collected]}: "
                     "every point of a case runs in the same folder and its outputs are "
                     "collected under their base names, so the second would overwrite the "
                     "first and the manifest would list one file for both. Name the "

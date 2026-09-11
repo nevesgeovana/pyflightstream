@@ -5,22 +5,26 @@ set per point; the products are the tables a study reads and plots, and
 this module writes them as plain CSV, one header line and one row per
 record, so any spreadsheet or dataframe reads them with nothing else:
 
-* a POLAR table per boundary GROUP of the pproc artifact,
-  ``<polar>_M<mach code>_g<group>.csv``: one row per point of the polar,
-  the reference block and the coefficients of the group in body, stability
+* a POLAR table per boundary GROUP of the pproc artifact, under
+  ``polars/`` since 0.16.0 (FR-88): one row per point of the polar, the
+  reference block and the coefficients of the group in body, stability
   and wind axes with the two drag parts;
 * a SECTIONS table per point, ``sections/<point>_sections.csv``: the
   sectional loads export re-tabled, when the run defined sections at all;
-* a PLOTS table per unsteady point, ``plots/<point>_plots.csv``: the
-  unsteady plots export re-tabled, its coefficient columns brought from
-  the solver's reference velocity to the free stream;
+* the FLOW-FIELD SAMPLES of a point under ``probes/`` since 0.16.0
+  (FR-87), whatever the run type was: ``probes/<point>_plots.csv``, the
+  unsteady plots export re-tabled with its coefficient columns brought
+  from the solver's reference velocity to the free stream, and
+  ``probes/<point>_probes.csv``, the probe-points export of a row of any
+  kind re-tabled in its own units;
 * the REDUCTIONS of that table, one file per applicable reduction beside
-  it (PFS-2015.04): ``plots/<point>_time_average.csv``,
-  ``plots/<point>_phase_locked.csv`` and ``plots/<point>_per_blade.csv``,
+  it (PFS-2015.04): ``probes/<point>_time_average.csv``,
+  ``probes/<point>_phase_locked.csv`` and
+  ``probes/<point>_per_blade.csv``,
   each a row per window with the window in solver steps and then the
   plots table's own columns averaged over it. Since 0.15.0 a row that
   NAMES ITS ROTORS reduces per rotor (FR-68), so the two passage files
-  carry the rotor's alias, ``plots/<point>_per_blade_<ALIAS>.csv``, and
+  carry the rotor's alias, ``probes/<point>_per_blade_<ALIAS>.csv``, and
   their manifest entries carry a ``rotor`` field; the time average is one
   file whatever turns in the run. Raw is the plots table
   itself and is written once. The windows come off the run record, which
@@ -34,7 +38,8 @@ record, so any spreadsheet or dataframe reads them with nothing else:
   text file the author's existing tooling opens, specified line by line in
   :func:`write_custom_polar_format` and read back by
   :func:`read_custom_polar_format`;
-* a PROVENANCE document per recorded run, ``provenance/<run id>.prov.json``
+* a PROVENANCE document per recorded run, under ``provenance/`` and
+  named by the point's own convention since 0.16.0 (FR-86)
   (PFS-2012.08.01): W3C PROV in its PROV-JSON serialization, the staged
   inputs, the script and the outputs as entities with their sha256, the
   solver run as the activity with its start, end and argv, the package
@@ -65,6 +70,7 @@ import csv
 import json
 import math
 import warnings
+from collections import Counter
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
@@ -101,16 +107,22 @@ from pyflightstream.results import (
     UnsteadyPlotsReport,
     labeled_value,
     parse_loads,
+    parse_probe_points,
     parse_unsteady_plots,
 )
 from pyflightstream.workspace import RunStatus
+from pyflightstream.workspace.naming import polar_name
 
 if TYPE_CHECKING:
     from pyflightstream.workspace import CampaignWorkspace, RunRecord
 
 __all__ = [
+    "ADVANCE_RATIO_COLUMN",
     "COEFFICIENT_COLUMNS",
     "POLAR_COLUMNS",
+    "SWEEP_AXES",
+    "POLARS_DIR",
+    "PROBES_DIR",
     "PROVENANCE_DIR",
     "PROVENANCE_SUFFIX",
     "SECTION_COLUMNS",
@@ -125,14 +137,18 @@ __all__ = [
     "group_coefficients",
     "custom_polar_file_name",
     "plots_table_series",
+    "point_name_of",
     "polar_file_name",
     "polar_row",
+    "swept_axes",
+    "swept_polar_file_name",
     "provenance_file_name",
     "read_csv_table",
     "read_custom_polar_format",
     "write_csv_table",
     "write_custom_polar_format",
     "write_plots_table",
+    "write_probes_table",
     "write_reduction_table",
     "write_polar_table",
     "write_campaign_products",
@@ -174,13 +190,29 @@ COEFFICIENT_COLUMNS: tuple[str, ...] = (
 #: so a row is self-describing: which polar, which group, which reference.
 _REFERENCE_COLUMNS: tuple[str, ...] = ("SREF", "CREF", "BREF", "XMOM", "YMOM", "ZMOM")
 
+#: The column naming the ADVANCE RATIO of a polar row (FR-85).
+#:
+#: WHY IT EXISTS. Measured on the author's ``0001_M15_g01.csv``, written by
+#: 0.15.0 for a three-value sweep of the advance ratio: the three rows
+#: carried identical ``ALPHA``, ``BETA``, ``MACH`` and ``RE`` and no
+#: column naming what was swept, so the only thing distinguishing the
+#: first row from the third was its position in the file. A table whose
+#: rows are told apart by order is not a table.
+#:
+#: IT IS OUTSIDE :data:`COEFFICIENT_COLUMNS` on purpose: those
+#: twenty-four are the custom format's own line 9 and its fixture pins
+#: them, so a flight-condition column added there would change a file
+#: format that was specified line by line.
+ADVANCE_RATIO_COLUMN = "J"
+
 #: A polar table's columns: the polar, its description, the group, the
-#: reference block, the twenty-four coefficients.
+#: reference block, the advance ratio, the twenty-four coefficients.
 POLAR_COLUMNS: tuple[str, ...] = (
     "POLAR",
     "DESCRIPTION",
     "GROUP",
     *_REFERENCE_COLUMNS,
+    ADVANCE_RATIO_COLUMN,
     *COEFFICIENT_COLUMNS,
 )
 
@@ -249,11 +281,19 @@ class GroupCoefficients:
 
 @dataclass(frozen=True)
 class PolarPoint:
-    """One point of a polar: its loads report and where it came from."""
+    """One point of a polar: its loads report and where it came from.
+
+    ``point`` is the sweep point the RECORD states, which is what the
+    point was ASKED for; the angles below are what the solver REPORTED
+    and are read off the table. The two are separate on purpose: the file
+    name and the swept column are about the request (FR-85), and the
+    coefficients are about the answer.
+    """
 
     name: str
     loads: LoadsReport
     loads_path: Path
+    point: Mapping[str, float] | None = None
 
     @property
     def alpha_deg(self) -> float:
@@ -366,8 +406,65 @@ def _mach_code(mach: float) -> int:
 
 
 def polar_file_name(polar: str | int, mach: float, group: str | int) -> str:
-    """``<polar>_M<mach code:02d>_g<group:02d>.csv``: one polar table per group."""
+    """``<polar>_M<mach code:02d>_g<group:02d>.csv``: one polar table per group.
+
+    THE RECORDED CONVENTION, and the one the author's own tooling wrote
+    before this package existed. :func:`write_recorded_polar` regenerates
+    her recorded tables under it and is compared with her files name for
+    name, which is why it stays. A polar table of a WORKSPACE is named by
+    :func:`swept_polar_file_name`, the standard point convention (FR-85).
+    """
     return f"{polar}_M{_mach_code(mach):02d}_g{int(group):02d}.csv"
+
+
+#: The axes a polar can be swept over, spelled as a sweep point spells
+#: them, in the order the point convention writes their fields.
+SWEEP_AXES: tuple[str, ...] = ("alpha", "beta", "advance_ratio")
+
+
+def swept_axes(points: Sequence[Mapping[str, float]]) -> tuple[str, ...]:
+    """Return the axes that VARY across ``points``, in the convention's order (FR-85).
+
+    Measured over the points rather than declared, so a one-point case
+    sweeps nothing and a row whose matrix declared a sweep that resolved
+    to a single value is named for the value it actually has. Compared at
+    the precision the name itself writes, because two advance ratios that
+    round to one field are one field.
+    """
+    varying = []
+    for axis in SWEEP_AXES:
+        seen = {round(float(point[axis]), 6) for point in points if point.get(axis) is not None}
+        if len(seen) > 1:
+            varying.append(axis)
+    return tuple(varying)
+
+
+def swept_polar_file_name(
+    sim: str,
+    *,
+    mach: float,
+    group: str | int,
+    point: Mapping[str, float],
+    swept: Sequence[str] = (),
+    suffix: str = ".csv",
+) -> str:
+    """``<point convention with 'sweep' in the swept field>_g<group:02d>.csv`` (FR-85).
+
+    The name the script and every export of the same point already carry,
+    with the swept variable's field written as the literal word instead of
+    one of its values: ``POLAR-0001_M15AL+000BE+000J+sweep_g01.csv``. The
+    ``.dat`` of the custom format takes the same stem, which is what
+    ``suffix`` is for.
+    """
+    stem = polar_name(
+        sim,
+        mach,
+        float(point.get("alpha", 0.0) or 0.0),
+        float(point.get("beta", 0.0) or 0.0),
+        None if point.get("advance_ratio") is None else float(point["advance_ratio"]),
+        swept=swept,
+    )
+    return f"{stem}_g{int(group):02d}{suffix}"
 
 
 def read_csv_table(path: str | Path) -> tuple[tuple[str, ...], list[dict[str, str]]]:
@@ -402,14 +499,28 @@ def write_polar_table(
     group: str | int,
     reference: ReferenceValues,
     rows: Sequence[Sequence[float]],
+    advance_ratios: Sequence[float | None] | None = None,
 ) -> Path:
-    """Write one polar table: the reference block and the coefficients per point."""
+    """Write one polar table: the reference block and the coefficients per point.
+
+    ``advance_ratios`` is the advance ratio of each row in the row order,
+    for :data:`ADVANCE_RATIO_COLUMN` (FR-85); a row whose ratio is not
+    known writes an EMPTY cell rather than a zero, because zero is a
+    value a rotor row can have and "not recorded" is not it. Omitted
+    entirely, every row's cell is empty, which is what a caller with no
+    sweep point to offer should write.
+    """
     lead = (str(polar), description, str(group), *reference.as_row())
+    ratios = list(advance_ratios) if advance_ratios is not None else [None] * len(rows)
+    if len(ratios) != len(rows):
+        raise ProductError(
+            f"the polar table was given {len(ratios)} advance ratios for {len(rows)} rows"
+        )
     full = []
-    for row in rows:
+    for row, ratio in zip(rows, ratios, strict=True):
         if len(row) != len(COEFFICIENT_COLUMNS):
             raise ProductError(f"a polar row has {len(row)} values, not {len(COEFFICIENT_COLUMNS)}")
-        full.append((*lead, *row))
+        full.append((*lead, "" if ratio is None else float(ratio), *row))
     return write_csv_table(path, POLAR_COLUMNS, full)
 
 
@@ -768,6 +879,37 @@ def write_plots_table(path: str | Path, export_text: str) -> Path | None:
     )
 
 
+def write_probes_table(path: str | Path, export_text: str) -> Path | None:
+    """Write one probe-points table from an EXPORT_PROBE_POINTS export (FR-87).
+
+    The flow-field samples of a point that is not an unsteady history:
+    one row per probe point, the export's own columns in its own order
+    and units, which carry the fluid quantities (``Mach``, ``Cp``,
+    ``vx``, ``vy``, ``vz``, ``vtot``) beside the boundary-layer columns.
+    Nothing is scaled: the plots table brings its COEFFICIENT columns
+    from the solver's reference velocity to the free stream because those
+    columns are coefficients, and a sampled velocity is not.
+
+    It lands beside the unsteady plots table, under
+    :data:`PROBES_DIR`, which is the whole point of FR-87: a steady row
+    and an unsteady row citing the same artifact put their flow-field
+    samples in one place. An export the reader cannot parse is a refusal
+    naming the file, never a silent skip; an export with no probe point
+    returns None, as an unsteady export with no step does, since a table
+    of nothing is a promise of content that is not there.
+    """
+    try:
+        report = parse_probe_points(export_text)
+    except PyflightstreamError as error:
+        raise ProductError(f"the probe points export {path} cannot be read: {error}") from error
+    values = np.asarray(report.values, dtype=float)
+    if values.size == 0:
+        return None
+    return write_csv_table(
+        path, tuple(report.columns), [tuple(float(v) for v in row) for row in values]
+    )
+
+
 # --- PFS-2015.04: the reductions of a plots table, beside it -----------------------
 
 #: The window block every reduction row carries before the plots table's own
@@ -988,7 +1130,7 @@ def write_recorded_polar(
         plots_export = folder / f"{point.name}_plots.txt"
         if plots and plots_export.is_file():
             target = write_plots_table(
-                out / "plots" / f"{point.name}_plots.csv",
+                out / PROBES_DIR / f"{point.name}_plots.csv",
                 plots_export.read_text(encoding="utf-8", errors="replace"),
             )
             if target is not None:
@@ -1000,6 +1142,34 @@ def write_recorded_polar(
 
 #: The manifest of the products: which file came from which runs and pproc.
 PRODUCTS_MANIFEST = "products.json"
+
+#: The folder under a matrix's products where the per-polar tables and
+#: their ``.dat`` companions land (FR-88).
+#:
+#: WHY THEY MOVED. Measured in the workspace the author sent back after
+#: running 0.15.0: `post/matriz/` held the polar tables LOOSE at its top
+#: level beside `sections/`, `plots/` and `provenance/`, so the same
+#: folder read as a directory and as a drawer at once. Every other family
+#: of file already had a directory and this one did not.
+#:
+#: THE CAMPAIGN-LEVEL FILES DO NOT MOVE HERE, and that is the half a
+#: check for an empty top level would not see: `products.json` and
+#: `campaign_sweep.csv` are about the CAMPAIGN rather than about one
+#: polar's sweep, so sweeping them in would be wrong in exactly the way
+#: that passes a shallower test.
+POLARS_DIR = "polars"
+
+#: The folder under a matrix's products where the FLOW-FIELD SAMPLES of a
+#: point land, whatever the run type was (FR-87).
+#:
+#: IT WAS ``plots`` UNTIL 0.16.0, after the solver verb that produced the
+#: file rather than after what the file holds. THE GENERICITY IS THE
+#: REQUIREMENT and not a side effect of the rename: a reader of a
+#: finished campaign should not have to know whether a row was steady or
+#: unsteady to know where the flow-field samples are, so the unsteady
+#: plots table, its reductions and the probe-points table of any row all
+#: land here.
+PROBES_DIR = "probes"
 
 
 def _sim_products(
@@ -1030,7 +1200,7 @@ def _sim_products(
     written: list[Path] = []
     sources: dict[str, list[str]] = {}
     points: list[PolarPoint] = []
-    exports: dict[str, tuple[Path | None, Path | None]] = {}
+    exports: dict[str, tuple[Path | None, Path | None, Path | None]] = {}
     plans: dict[str, dict[str, object] | None] = {}
     sim_dir = workspace.sim_dir(sim_id)
     for record in records:
@@ -1047,10 +1217,18 @@ def _sim_products(
         except PyflightstreamError as error:
             raise ProductError(f"{by_name[loads_name]} is not a loads table: {error}") from error
         stem = loads_name[: -len(".txt")]
-        points.append(PolarPoint(name=stem, loads=report, loads_path=by_name[loads_name]))
+        points.append(
+            PolarPoint(
+                name=stem,
+                loads=report,
+                loads_path=by_name[loads_name],
+                point=dict(record.point),
+            )
+        )
         sloads_path = by_name.get(kinds["sectional_loads"]) if "sectional_loads" in kinds else None
         plots_path = by_name.get(kinds["plots"]) if "plots" in kinds else None
-        exports[stem] = (sloads_path, plots_path)
+        probes_path = by_name.get(kinds["probes"]) if "probes" in kinds else None
+        exports[stem] = (sloads_path, plots_path, probes_path)
         plans.setdefault(stem, record.reductions)
         sources.setdefault(stem, []).append(record.run_id)
     if not points:
@@ -1080,11 +1258,30 @@ def _sim_products(
         return path
 
     if products.polars:
+        # FR-85: ONE CONVENTION FOR THE WHOLE POINT. The table's rows are
+        # the sweep, so the name is the point convention the scripts and
+        # the exports already carry with the swept field written `sweep`,
+        # and the fields the sweep held FIXED are carried as values. The
+        # sweep is measured over the records rather than declared, so a
+        # case whose sweep resolved to one point is named for the point
+        # it has.
+        stated = [point.point or {} for point in points]
+        swept = swept_axes(stated)
+        fixed: dict[str, float] = {}
+        for axis in SWEEP_AXES:
+            values = [point[axis] for point in stated if point.get(axis) is not None]
+            if values and axis not in swept:
+                fixed[axis] = float(values[0])
+        ratios = [(point.point or {}).get("advance_ratio") for point in points]
         for group, families in pproc.groups.items():
             rows = _polar_rows(
                 points, list(families), mach=mach, reference=reference, aliases=first.aliases
             )
-            target = _target(out / polar_file_name(sim_id, mach, group))
+            target = _target(
+                out
+                / POLARS_DIR
+                / swept_polar_file_name(sim_id, mach=mach, group=group, point=fixed, swept=swept)
+            )
             write_polar_table(
                 target,
                 polar=sim_id,
@@ -1092,13 +1289,20 @@ def _sim_products(
                 group=str(group),
                 reference=reference,
                 rows=rows,
+                advance_ratios=ratios,
             )
             written.append(target)
             written_names[target.relative_to(out).as_posix()] = {"runs": run_ids}
             if products.custom_polar_format:
                 # PFS-2014.01.01: the same rows, a second time, in the
                 # format the author's existing tooling opens, beside the table.
-                target = _target(out / custom_polar_file_name(sim_id, mach=mach, group=group))
+                target = _target(
+                    out
+                    / POLARS_DIR
+                    / swept_polar_file_name(
+                        sim_id, mach=mach, group=group, point=fixed, swept=swept, suffix=".dat"
+                    )
+                )
                 write_custom_polar_format(
                     target,
                     polar=sim_id,
@@ -1111,7 +1315,7 @@ def _sim_products(
                 written.append(target)
                 written_names[target.relative_to(out).as_posix()] = {"runs": run_ids}
     for point in points:
-        sloads_path, plots_path = exports[point.name]
+        sloads_path, plots_path, probes_path = exports[point.name]
         if products.sections and sloads_path is not None and sloads_path.is_file():
             target = _target(out / "sections" / f"{point.name}_sections.csv")
             done = write_sections_table(
@@ -1123,8 +1327,38 @@ def _sim_products(
             if done is not None:
                 written.append(done)
                 written_names[done.relative_to(out).as_posix()] = {"runs": sources[point.name]}
+        # FR-87, the steady half. The probe-points export is the
+        # flow-field sample of a point that is not an unsteady history,
+        # and it is the ONE export both run types produce, so it is what
+        # makes `probes/` mean the same thing on a steady row and an
+        # unsteady one. It is gated by no `[products]` key of its own,
+        # deliberately: the artifact's `[exports]` table already decides
+        # whether a row exports probe points at all, and a second switch
+        # over the same fact is a way for the two to disagree.
+        if probes_path is not None and probes_path.is_file():
+            relative = f"{PROBES_DIR}/{point.name}_probes.csv"
+            target = _target(out / relative)
+            # A SKIP AND NOT THE SIMULATION'S WHOLE STAGE, which is where
+            # this reader differs from the sections and plots readers
+            # beside it (PFS-2031.16). Those have read their export since
+            # the stage existed, so a file they cannot parse is news; the
+            # probe export was collected and never read until 0.16.0, so
+            # every workspace already recorded holds files this reader
+            # meets for the first time, and letting one of them cost a
+            # simulation its polar would be a rename taking a product
+            # away.
+            try:
+                done = write_probes_table(
+                    target, probes_path.read_text(encoding="utf-8", errors="replace")
+                )
+            except ProductError as error:
+                skipped[relative] = str(error)
+                done = None
+            if done is not None:
+                written.append(done)
+                written_names[done.relative_to(out).as_posix()] = {"runs": sources[point.name]}
         if products.plots and plots_path is not None and plots_path.is_file():
-            target = _target(out / "plots" / f"{point.name}_plots.csv")
+            target = _target(out / PROBES_DIR / f"{point.name}_plots.csv")
             done = write_plots_table(
                 target, plots_path.read_text(encoding="utf-8", errors="replace")
             )
@@ -1221,7 +1455,7 @@ def _point_reductions(
     """
     stem = plots_table.name[: -len("_plots.csv")]
     if plan is None:
-        skipped[f"plots/{stem}_time_average.csv"] = (
+        skipped[f"{PROBES_DIR}/{stem}_time_average.csv"] = (
             "the run record carries no reduction windows, so no reduction of the plots "
             "table can say which steps it averaged; the record was written before the "
             "field existed or by hand. Rerun the row, and the record will carry the "
@@ -1238,7 +1472,7 @@ def _point_reductions(
     # row written before 0.15.0, reads the flat keys alone and its files
     # keep the names they have always had.
     reading: list[tuple[str, object, str, str | None]] = [
-        (name, plan.get(name), f"plots/{stem}_{name}.csv", None) for name in REDUCTION_NAMES
+        (name, plan.get(name), f"{PROBES_DIR}/{stem}_{name}.csv", None) for name in REDUCTION_NAMES
     ]
     rotors = plan.get(ROTORS_KEY)
     if isinstance(rotors, Mapping):
@@ -1248,7 +1482,12 @@ def _point_reductions(
             safe = _a_name_a_file_may_carry(str(alias))
             for name in PER_ROTOR_REDUCTIONS:
                 reading.append(
-                    (name, block.get(name), f"plots/{stem}_{name}_{safe}.csv", str(alias))
+                    (
+                        name,
+                        block.get(name),
+                        f"{PROBES_DIR}/{stem}_{name}_{safe}.csv",
+                        str(alias),
+                    )
                 )
     # THE FLAT SKIP NAMES THE FILES, because this layer knows the stem and
     # the cases layer does not. Its own sentence can only describe the
@@ -1310,8 +1549,9 @@ def _point_reductions(
 #: The folder under the matrix's products where the documents land.
 PROVENANCE_DIR = "provenance"
 
-#: The suffix of one document, appended to the run id with its separators
-#: replaced: ``camp/sim_3207/a-02.0`` is ``camp_sim_3207_a-02.0.prov.json``.
+#: The suffix of one document, appended to the point's own name, or to
+#: the run id with its separators replaced where the point's name is not
+#: known or is not unique (FR-86).
 PROVENANCE_SUFFIX = ".prov.json"
 
 #: The namespaces a document declares. ``prov`` and ``xsd`` are the W3C's;
@@ -1324,9 +1564,52 @@ _PROV_PREFIX = {
 }
 
 
-def provenance_file_name(run_id: str) -> str:
-    """``<run id with '/' replaced by '_'>.prov.json``: one document per recorded run."""
-    return run_id.replace("/", "_") + PROVENANCE_SUFFIX
+#: The extension every generated point script is written under
+#: (``run._run_point``: ``write_script(sim_id, f"{stem}.txt", ...)``), and
+#: therefore the one this module strips to recover a point's own name
+#: from the script the record already names. Stripped by this exact
+#: literal rather than by `Path.stem`, because a point stem carries dots
+#: of its own: `Path("a+02.0").stem` is `a+02`, and a name shortened that
+#: way would collide two points of one sweep.
+_SCRIPT_SUFFIX = ".txt"
+
+
+def point_name_of(record: RunRecord) -> str | None:
+    """Return the point name a record's script carries, or None (FR-86).
+
+    THE SCRIPT IS THE SOURCE and not the naming template. The template a
+    workspace is configured with today is not the one a record from last
+    month was written under; the record names the file the run actually
+    wrote, and that file's stem IS the convention every other generated
+    file of the point carries. A record whose script is not named the way
+    this package writes one answers None, and the caller keeps the run
+    id, which is what every document was named before 0.16.0.
+    """
+    declared = record.script_path
+    if not declared:
+        return None
+    name = str(declared).replace("\\", "/").rsplit("/", 1)[-1]
+    if not name.endswith(_SCRIPT_SUFFIX):
+        return None
+    return name[: -len(_SCRIPT_SUFFIX)] or None
+
+
+def provenance_file_name(run_id: str, *, point_name: str | None = None) -> str:
+    """Return the name of one run's provenance document (FR-86).
+
+    ``<point name>.prov.json`` when the point's own name is known, which
+    is the convention the script and every export of the same point carry
+    and what lets a reader sort ``scripts/`` and ``provenance/`` side by
+    side. ``<run id with '/' replaced by '_'>.prov.json`` otherwise, which
+    is what every document was named before 0.16.0.
+
+    NOTHING RENAMES A RUN. The run id is unchanged: it keys the products
+    manifest and it is a field inside the document, under
+    ``pyfs:run_id``, and it is the identifier of the activity. What moves
+    is a file name, which this package never parses for meaning.
+    """
+    stem = run_id if point_name is None else point_name
+    return stem.replace("/", "_") + PROVENANCE_SUFFIX
 
 
 def _attributes(**pairs: object) -> dict[str, object]:
@@ -1479,9 +1762,25 @@ def _run_provenance(
     run id to the document's path relative to ``out``. An existing document
     is refused as an existing table is, unless ``overwrite`` is set.
     """
+    # A POINT NAME NEED NOT BE UNIQUE AND A RUN ID IS (FR-86). The
+    # default naming template is `{point}`, which carries no sim id, so
+    # two simulations of one matrix swept over the same angles render the
+    # same stem; so do two records of one point. Naming the document
+    # after the point alone would then have had the second run's
+    # provenance OVERWRITE the first's and the manifest name one file for
+    # two runs, which is the class of defect this whole stage exists to
+    # make impossible. Measured over the whole set first and then
+    # applied, so the fallback does not depend on manifest order: a stem
+    # claimed more than once sends EVERY record that claims it back to
+    # the run id, which is unique by construction.
+    stems = {record.run_id: point_name_of(record) for record in records}
+    claims = Counter(stem for stem in stems.values() if stem is not None)
     index: dict[str, str] = {}
     for record in records:
-        relative = f"{PROVENANCE_DIR}/{provenance_file_name(record.run_id)}"
+        stem = stems[record.run_id]
+        if stem is not None and claims[stem] > 1:
+            stem = None
+        relative = f"{PROVENANCE_DIR}/{provenance_file_name(record.run_id, point_name=stem)}"
         target = out / relative
         if target.exists() and not overwrite:
             raise ProductExistsError(

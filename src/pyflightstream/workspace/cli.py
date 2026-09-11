@@ -11,7 +11,7 @@ the manifest, never in names (SAD Section 6).
 simulation under ``archive/`` and removes its folder, through
 :meth:`CampaignWorkspace.archive_sim`. It exists because two refusals
 already told the user to run it (OPS-2009.01.10): the collection
-refusal of a name already in ``raw/`` and the pre-run refusal of a
+refusal of a name already in ``outputs/`` and the pre-run refusal of a
 declared output already in the simulation folder both say to archive
 the simulation and re-run, and until 0.13.0 the command they named was
 not there. The refusal of a simulation the manifest does not record is

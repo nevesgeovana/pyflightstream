@@ -1383,19 +1383,29 @@ no template touches. A campaign built in Python keeps the library default,
 
 The `[products]` table names three kinds of CSV table, every one a header
 line and one row per record, so a spreadsheet or a dataframe opens it with
-nothing else. A POLAR table per group of `[groups]`,
-`<polar>_M<mach code>_g<group>.csv`: one row per point of the polar with the
-reference block (`SREF`, `CREF`, `BREF`, the moment point) and twenty-four
+nothing else. A POLAR table per group of `[groups]`, under `polars/` and
+named by the same convention as the point's script with the swept
+variable's field written as the literal word `sweep`
+(`polars/POLAR-0001_M15AL+000BE+000J+sweep_g01.csv`, FR-85 and FR-88): one
+row per point of the polar with the
+reference block (`SREF`, `CREF`, `BREF`, the moment point), the advance
+ratio of the row in `J` (empty where the run recorded none) and twenty-four
 coefficients, `ALPHA`, `BETA`, `MACH`, `RE` (Reynolds in millions), the body
 axes (`CDB`, `CYB`, `CLB`, `CRB25`, `CMB25`, `CNB25`), the stability axes
 (`CDS` to `CNS25`), the wind axes (`CDW` to `CNW25`), and `CD0` and `CDI`,
 every value at five decimals. A SECTIONS table per point,
 `sections/<point>_sections.csv`, the point's condition and the seven columns
 of its sectional loads export, in the export's units; a run that defined no
-distribution leaves an export declaring zero sections and gets no table. A
-PLOTS table per unsteady point, `plots/<point>_plots.csv`, the plots export
-re-tabled with its coefficient columns brought from the solver's reference
-velocity to the free stream. And the REDUCTIONS of that table, one file per
+distribution leaves an export declaring zero sections and gets no table. The
+FLOW-FIELD SAMPLES of a point under `probes/`, whatever the run type was
+(FR-87): `probes/<point>_plots.csv`, the unsteady plots export re-tabled
+with its coefficient columns brought from the solver's reference
+velocity to the free stream, and `probes/<point>_probes.csv`, the
+probe-points export of a row of any kind re-tabled in its own units, which
+carry the fluid quantities beside the boundary-layer columns; a probe
+export this release cannot read is a recorded skip naming the file and
+costs the simulation none of its other products. And the REDUCTIONS of the
+plots table, one file per
 applicable reduction beside it (PFS-2015.04), over the window the row
 states; the next section walks them. The arithmetic behind the polar table is the
 author's own and was checked column by column against the tables the author
@@ -1505,7 +1515,7 @@ node the document declares; a PROV tool reads it as any PROV-JSON.
 ### Archiving a completed simulation
 
 Every point of a row runs into the same simulation folder, and a run
-refuses to collect onto a name that is already in `raw/`, or to start a
+refuses to collect onto a name that is already in `outputs/`, or to start a
 point whose declared output is already in the folder, rather than
 attribute somebody else's file to the new point. Both refusals say to
 archive the simulation, and this is the command they mean:
@@ -1543,11 +1553,11 @@ type's, and the window is the one the row states:
 
 | file | run type | window |
 |---|---|---|
-| `plots/<point>_time_average.csv` | `unsteady_rotor` and `unsteady` | the export window the row states (`WINDOW_DEGREES`, `WINDOW_STEPS` or `WINDOW_REVOLUTIONS`); without one, a rotor row's last revolution (from `DELTA_THETA` and `REVOLUTIONS`, or `RPM` and `DELTA_TIME`), and a rotorless row's whole run (`DELTA_TIME` and `TIME_ITERATIONS`) |
-| `plots/<point>_phase_locked_<ALIAS>.csv` | `unsteady_rotor`, a row naming its rotors | the time-average window cut into blade passages OF THAT ROTOR, one of its revolutions over its own blade count, a trailing partial passage dropped; one row per passage |
-| `plots/<point>_per_blade_<ALIAS>.csv` | `unsteady_rotor`, a row naming its rotors | the last revolution OF THAT ROTOR cut into one window per blade, contiguous and ending at the run's last step; one row per blade |
-| `plots/<point>_phase_locked.csv` | `unsteady_rotor`, a row naming no rotor by alias | the time-average window cut into blade passages, one revolution over `BLADES` steps each, a trailing partial passage dropped; one row per passage |
-| `plots/<point>_per_blade.csv` | `unsteady_rotor`, a row naming no rotor by alias | the last revolution of the run cut into one window per blade, contiguous and ending at the run's last step; one row per blade |
+| `probes/<point>_time_average.csv` | `unsteady_rotor` and `unsteady` | the export window the row states (`WINDOW_DEGREES`, `WINDOW_STEPS` or `WINDOW_REVOLUTIONS`); without one, a rotor row's last revolution (from `DELTA_THETA` and `REVOLUTIONS`, or `RPM` and `DELTA_TIME`), and a rotorless row's whole run (`DELTA_TIME` and `TIME_ITERATIONS`) |
+| `probes/<point>_phase_locked_<ALIAS>.csv` | `unsteady_rotor`, a row naming its rotors | the time-average window cut into blade passages OF THAT ROTOR, one of its revolutions over its own blade count, a trailing partial passage dropped; one row per passage |
+| `probes/<point>_per_blade_<ALIAS>.csv` | `unsteady_rotor`, a row naming its rotors | the last revolution OF THAT ROTOR cut into one window per blade, contiguous and ending at the run's last step; one row per blade |
+| `probes/<point>_phase_locked.csv` | `unsteady_rotor`, a row naming no rotor by alias | the time-average window cut into blade passages, one revolution over `BLADES` steps each, a trailing partial passage dropped; one row per passage |
+| `probes/<point>_per_blade.csv` | `unsteady_rotor`, a row naming no rotor by alias | the last revolution of the run cut into one window per blade, contiguous and ending at the run's last step; one row per blade |
 
 Every window is counted in solver steps, inclusive, 1-based, and row `k` of
 the plots table is step `k`; the table's own time column is averaged like
@@ -1601,17 +1611,17 @@ steps per revolution, two blades, an export window of six steps. The
 reductions of `a-02.0_plots.csv` land as
 
 ```text
-plots/a-02.0_plots.csv           raw, one row per step
-plots/a-02.0_time_average.csv    one row, steps 3 to 8
-plots/a-02.0_phase_locked.csv    three rows, steps 3 to 4, 5 to 6, 7 to 8
-plots/a-02.0_per_blade.csv       two rows, steps 5 to 6 and 7 to 8
+probes/a-02.0_plots.csv           raw, one row per step
+probes/a-02.0_time_average.csv    one row, steps 3 to 8
+probes/a-02.0_phase_locked.csv    three rows, steps 3 to 4, 5 to 6, 7 to 8
+probes/a-02.0_per_blade.csv       two rows, steps 5 to 6 and 7 to 8
 ```
 
 each reduction file carrying `REDUCTION,WINDOW,FIRST_STEP,LAST_STEP,STEPS`
 and then the plots table's own columns, and `products.json` naming each:
 
 ```text
-"plots/a-02.0_per_blade.csv": {
+"probes/a-02.0_per_blade.csv": {
  "sim_id": "7001", "pproc": "p001", "runs": ["camp/sim_7001/a-02.0"],
  "reduction": "per_blade", "windows": [[5, 6], [7, 8]], "period_steps": 2,
  "window_from": "the last revolution, one window per blade"
@@ -1623,8 +1633,9 @@ and then the plots table's own columns, and `products.json` naming each:
 One workspace may hold several matrices, each a study of its own over the
 same input library: a tour, a setup study, a time-convergence study. The
 rule that keeps them apart is one folder per matrix (PFS-2031.04): `plan`
-writes `post/<stem>/plan.json`, `run` writes `post/<stem>/sweep.csv` and
-`post/<stem>/campaign_sweep.csv`, and the products of that matrix's points
+writes `post/<stem>/plan.json`, `run` writes
+`post/<stem>/campaign_sweep.csv` ONCE (FR-90: the two names were the same
+bytes twice), and the products of that matrix's points
 land beside them. `runs.json` stays the one manifest of the workspace, and
 every record in it names the matrix its point came from, so the sweep table
 and the products of one matrix are rebuilt from its own records alone. From
@@ -2058,8 +2069,8 @@ pyfs-matrix run workflow_rotor_matrix.fs \
 ```
 
 No Python is written, no notebook is opened, and nothing sits between
-the file and the result. The sweep table lands as `sweep.csv` under
-`post/<matrix stem>/` in the workspace when you do not say where, so a
+the file and the result. The sweep table lands as `campaign_sweep.csv`
+under `post/<matrix stem>/` in the workspace when you do not say where, so a
 second matrix of the same workspace keeps its own.
 
 One limitation applies to that command TODAY and it is worth knowing

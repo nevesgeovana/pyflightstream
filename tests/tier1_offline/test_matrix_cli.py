@@ -246,7 +246,7 @@ def test_post_reruns_from_the_manifest_without_a_solver(tmp_path, capsys):
     (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
         '[groups]\n"1" = ["W", "B"]\n', encoding="utf-8"
     )
-    raw = workspace.sim_dir("3207") / "raw"
+    raw = workspace.sim_dir("3207") / "outputs"
     raw.mkdir(parents=True)
     (raw / "POLAR-3207_M20AL-020BE+000.txt").write_text(LOADS, encoding="utf-8")
     workspace.append_record(
@@ -259,7 +259,7 @@ def test_post_reruns_from_the_manifest_without_a_solver(tmp_path, capsys):
             script_sha256="",
             raw_flag=False,
             status=RunStatus.CONVERGED,
-            outputs=["raw/POLAR-3207_M20AL-020BE+000.txt"],
+            outputs=["outputs/POLAR-3207_M20AL-020BE+000.txt"],
             pproc="p001",
             description="STEADY_WB",
             mach=0.2,
@@ -277,11 +277,12 @@ def test_post_reruns_from_the_manifest_without_a_solver(tmp_path, capsys):
     assert main(["post", "--workspace", str(workspace.root)]) == 0
     out = capsys.readouterr().out
     assert "1 product(s) written" in out
-    table = workspace.root / "post" / "products" / "3207_M20_g01.csv"
+    stem = "POLAR-3207_M20AL-020BE+000"
+    table = workspace.root / "post" / "products" / "polars" / f"{stem}_g01.csv"
     assert table.is_file()
     assert ",0.02744,0.00000,0.18744," in table.read_text(encoding="utf-8")
-    manifest = json.loads((table.parent / "products.json").read_text(encoding="utf-8"))
-    assert manifest["products"]["3207_M20_g01.csv"]["runs"] == ["camp/sim_3207/a-02.0"]
+    manifest = json.loads((table.parent.parent / "products.json").read_text(encoding="utf-8"))
+    assert manifest["products"][f"polars/{stem}_g01.csv"]["runs"] == ["camp/sim_3207/a-02.0"]
     # A second run refuses the existing product, and --overwrite rewrites it.
     assert main(["post", "--workspace", str(workspace.root)]) == 2
     assert "--overwrite" in capsys.readouterr().err
@@ -292,10 +293,10 @@ def test_post_reruns_from_the_manifest_without_a_solver(tmp_path, capsys):
 
 
 def _record_a_converged_polar(workspace, sim_id, point, text):
-    """One converged steady record with a POLAR.txt under raw/, as the run leaves it."""
+    """One converged steady record with a POLAR.txt under outputs/, as the run leaves it."""
     from pyflightstream.workspace import RunRecord, RunStatus
 
-    raw = workspace.sim_dir(sim_id) / "raw"
+    raw = workspace.sim_dir(sim_id) / "outputs"
     raw.mkdir(parents=True)
     (raw / "POLAR.txt").write_text(text, encoding="utf-8")
     suffix = "a-02.0" if "beta" not in point else "a-02.0_b-04.0"
@@ -309,7 +310,7 @@ def _record_a_converged_polar(workspace, sim_id, point, text):
             script_sha256="",
             raw_flag=False,
             status=RunStatus.CONVERGED,
-            outputs=["raw/POLAR.txt"],
+            outputs=["outputs/POLAR.txt"],
             pproc="p001",
             description="STEADY_WB",
             mach=0.2,
@@ -378,10 +379,17 @@ def test_a_refused_polar_is_recorded_as_skipped_and_the_other_products_are_writt
     assert main(["post", "--workspace", str(workspace.root)]) == 0
     out = capsys.readouterr()
     products = workspace.root / "post" / "products"
-    assert (products / "3207_M20_g01.csv").is_file(), "the zero-sideslip simulation's polar"
-    assert not (products / "3208_M20_g01.csv").exists(), "the refused polar is not written"
+    polars = products / "polars"
+    assert (polars / "POLAR-3207_M20AL-020BE+000_g01.csv").is_file(), (
+        "the zero-sideslip simulation's polar"
+    )
+    assert not (polars / "POLAR-3208_M20AL-020BE-040_g01.csv").exists(), (
+        "the refused polar is not written"
+    )
     manifest = json.loads((products / "products.json").read_text(encoding="utf-8"))
-    assert manifest["products"]["3207_M20_g01.csv"]["runs"] == ["camp/sim_3207/a-02.0"]
+    assert manifest["products"]["polars/POLAR-3207_M20AL-020BE+000_g01.csv"]["runs"] == [
+        "camp/sim_3207/a-02.0"
+    ]
     assert "3208" in manifest["skipped"]
     assert "sideslip" in manifest["skipped"]["3208"]
     assert "3208" in out.err and "sideslip" in out.err, "the skip is said where the user looks"
@@ -390,7 +398,9 @@ def test_a_refused_polar_is_recorded_as_skipped_and_the_other_products_are_writt
     assert main(["post", "--workspace", str(workspace.root), "--overwrite", "--strict"]) == 3
     err = capsys.readouterr().err
     assert "--strict" in err and "exit 3" in err, err
-    assert (products / "3207_M20_g01.csv").is_file(), "the products are still written in full"
+    assert (polars / "POLAR-3207_M20AL-020BE+000_g01.csv").is_file(), (
+        "the products are still written in full"
+    )
 
 
 def test_a_manifest_written_under_the_fields_one_day_name_still_reads():

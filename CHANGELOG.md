@@ -22,6 +22,72 @@ FlightStream versions.
 
 ### Changed
 
+- **A simulation's collected outputs live under `sims/<sim>/outputs/`, not
+  `raw/` (FR-84).** `raw` named how the data arrived; `outputs` names what it
+  is, and the second is what a reader opening a simulation folder wants. A
+  workspace that already holds `sims/<sim>/raw/` IS STILL READ, so no
+  recorded point is orphaned: the assessor judges a point over both folders,
+  a record naming `raw/loads.txt` resolves unchanged, and `raw/` stays a
+  MANAGED folder that a declared output may not be collected out of. Nothing
+  creates one. THE WORD MEANS THREE THINGS IN THIS PACKAGE AND ONLY THIS ONE
+  MOVED: the result column `data_origin`, whose values are `raw` and
+  `reduced`, and the `RAW` table of verbatim solver commands a setup states
+  are both untouched, and a test asserts the first after the rename.
+
+- **The per-polar tables live under `post/<matrix>/polars/` (FR-88), named by
+  the point convention with the swept variable written `sweep` (FR-85).**
+  Measured in the workspace the author sent back after running 0.15.0: the
+  polar tables sat loose at the top of `post/matriz/` beside `sections/`,
+  `plots/` and `provenance/`, so the folder read as a directory and a drawer
+  at once; and one point was written under two conventions, the script
+  `POLAR-0001_M15AL+000BE+000J+100.txt` and the table `0001_M15_g01.csv`. The
+  table is now
+  `polars/POLAR-0001_M15AL+000BE+000J+sweep_g01.csv` with the `.dat` of the
+  custom format on the same stem. The campaign-level files stay where they
+  are: they are about the campaign rather than about one polar's sweep.
+  `write_recorded_polar` keeps the recorded convention, because it
+  regenerates the author's own historical tables and is compared with them
+  name for name.
+
+- **A polar table carries `J`, the advance ratio of each row (FR-85).**
+  Measured on the author's `0001_M15_g01.csv`: the three rows of a
+  three-value sweep carried identical `ALPHA`, `BETA`, `MACH` and `RE` and no
+  column naming the swept value, so the only thing distinguishing the first
+  row from the third was its position in the file. The column sits outside
+  the twenty-four `COEFFICIENT_COLUMNS`, so the custom `.dat` format is
+  unchanged; a row whose ratio was not recorded writes an EMPTY cell, because
+  zero is a value a rotor row can hold and "not recorded" is not it.
+
+- **Flow-field samples go to `post/<matrix>/probes/`, whatever the run type
+  was (FR-87).** The folder was named after the solver verb that produced the
+  file rather than after what the file holds. The unsteady plots table and
+  its reductions moved there, and the PROBE-POINTS export of a row of any
+  kind is tabled there beside them as `probes/<point>_probes.csv`, which is
+  new: that export was collected and never read until now. A probe export
+  this release cannot parse is a recorded SKIP naming the file and costs the
+  simulation none of its other products, unlike the sections and plots
+  readers beside it, because every already-recorded workspace holds files
+  this reader meets for the first time.
+
+- **A provenance document is named by the point convention its script carries
+  (FR-86).** `provenance/pfs0150-eve_sim_0001_a+00.0_b+00.0_j+01.0.prov.json`
+  was the run id, which is a good identifier and is simply not the name every
+  other generated file of that point carries, so a reader sorting
+  `scripts/` and `provenance/` side by side could not line them up. NOTHING
+  RENAMES A RUN: the id still keys `products.json` and is still a field
+  inside the document. A POINT NAME NEED NOT BE UNIQUE AND A RUN ID IS, so a
+  stem two records claim sends both back to the run id rather than letting
+  one document overwrite the other.
+
+- **`pyfs-matrix run` writes the campaign sweep table ONCE (FR-90).**
+  Measured in the author's `post/matriz/`: `sweep.csv` and
+  `campaign_sweep.csv`, both 1012 bytes, one sha256 between them, the same 27
+  columns. A reader who found both could not know they were the same without
+  hashing them, and a reader who edited one had silently disagreed with the
+  other. `campaign_sweep.csv` is the name that survives, and it is what the
+  default of `--sweep-csv` now writes; an operator who names a target still
+  gets the file where they asked for it.
+
 - **`broken_commands` moves once more, and this time it carries the condition
   that ends it.** A manifest is the one surface a run cannot regenerate, and
   measured on 2026-09-11 over

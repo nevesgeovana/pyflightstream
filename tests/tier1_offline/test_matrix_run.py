@@ -3844,7 +3844,7 @@ def test_an_empty_group_writes_the_polar_of_every_family(tmp_path):
             executor=_writes_her_loads(tmp_path),
             recipe_registry={"steady": matrix_recipe},
         )
-        polars = sorted((workspace.root / "post" / "wing_alpha").glob("*_g01.csv"))
+        polars = sorted((workspace.root / "post" / "wing_alpha" / "polars").glob("*_g01.csv"))
         assert len(polars) == 2, f"one polar table per point of group 1: {polars}"
         tables[spelling] = [path.read_bytes() for path in polars]
     assert tables['"1" = []'] == tables['"1" = ["W", "B"]']
@@ -3885,7 +3885,7 @@ def test_an_alias_of_the_reference_reaches_the_polar_table_through_the_record(tm
         assert [r.aliases for r in records] == [
             {"wing": ["W", "Missing"]} if folder == "alias" else {}
         ] * 2, "the record carries the reference's aliases"
-        polars = sorted((workspace.root / "post" / "wing_alpha").glob("*_g01.csv"))
+        polars = sorted((workspace.root / "post" / "wing_alpha" / "polars").glob("*_g01.csv"))
         assert len(polars) == 2, polars
         tables[folder] = [path.read_bytes() for path in polars]
         # The provenance document carries them too, as it carries the raw
@@ -3940,7 +3940,7 @@ def test_the_reference_aliases_reach_the_record(tmp_path):
     assert [r.aliases for r in records] == [{"wing": ["W", "Missing"]}] * 2, (
         "the record carries the REFERENCE's aliases"
     )
-    polars = sorted((workspace.root / "post" / "wing_alpha").glob("*_g01.csv"))
+    polars = sorted((workspace.root / "post" / "wing_alpha" / "polars").glob("*_g01.csv"))
     assert len(polars) == 2, polars
 
 
@@ -4147,7 +4147,7 @@ def test_a_rotor_row_run_through_the_workflow_leaves_its_reductions_beside_the_p
     reread = workspace.read_manifest()[0]
     assert reread.reductions == plan, "the windows round-trip through the manifest"
 
-    plots = workspace.root / "post" / "rotor_products" / "plots"
+    plots = workspace.root / "post" / "rotor_products" / "probes"
     assert sorted(p.name for p in plots.iterdir()) == [
         "a-02.0_per_blade.csv",
         "a-02.0_phase_locked.csv",
@@ -4155,8 +4155,13 @@ def test_a_rotor_row_run_through_the_workflow_leaves_its_reductions_beside_the_p
         "a-02.0_time_average.csv",
     ]
     manifest = json.loads((plots.parent / "products.json").read_text(encoding="utf-8"))
-    assert manifest["products"]["plots/a-02.0_time_average.csv"]["windows"] == [[596, 720]]
-    assert manifest["skipped"] == {}
+    assert manifest["products"]["probes/a-02.0_time_average.csv"]["windows"] == [[596, 720]]
+    # The stub above writes the literal 'x' for every export it has no
+    # fixture for, the probe points among them, so the probe table of
+    # this point is a recorded SKIP naming the file (FR-87). It is a skip
+    # and not the stage's refusal on purpose: the reductions beside it
+    # are written, which is what the four files above say.
+    assert sorted(manifest["skipped"]) == ["probes/a-02.0_probes.csv"]
 
 
 # --- PFS-2033.02: the run record carries the raw commands, and so does the provenance ---

@@ -86,7 +86,7 @@ line but the matrix and the workspace.
 | `matriz_actions.fs` | the unsteady solver actions | 6001 on 26.123, RPT-041 the script-action re-read probe; 6002 the `unsteady` type exporting after iteration 4 of 8 through the two actions of PFS-2031.18, RPT-045 |
 | `matriz_builds.fs` | one rotor row per build this machine holds | 7001 on 26.120 and 7002 on 26.123, RPT-043 the thirteen solver-setting emitters of the rotor path |
 
-Each matrix keeps its own `plan.json`, `sweep.csv` and products under
+Each matrix keeps its own `plan.json`, `campaign_sweep.csv` and products under
 `post/<matrix stem>/` (PFS-2031.04); `runs.json` holds every point of
 all seven.
 

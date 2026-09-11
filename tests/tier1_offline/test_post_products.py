@@ -508,14 +508,14 @@ TWO_ROTOR_PLAN = {
 
 
 def _unsteady_workspace(tmp_path, *, reductions, recipe="unsteady_rotor", rows=8):
-    """One converged unsteady record with a loads table and a plots export under raw/."""
+    """One converged unsteady record with a loads table and a plots export under outputs/."""
     from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
 
     workspace = CampaignWorkspace.init(tmp_path / "camp")
     (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
         '[groups]\n"1" = ["W", "B"]\n', encoding="utf-8"
     )
-    raw = workspace.sim_dir("7001") / "raw"
+    raw = workspace.sim_dir("7001") / "outputs"
     raw.mkdir(parents=True)
     (raw / "a-02.0.txt").write_text(LOADS, encoding="utf-8")
     (raw / "a-02.0_plots.txt").write_text(_plots_export(rows), encoding="utf-8")
@@ -528,7 +528,7 @@ def _unsteady_workspace(tmp_path, *, reductions, recipe="unsteady_rotor", rows=8
         script_sha256="",
         raw_flag=False,
         status=RunStatus.CONVERGED,
-        outputs=["raw/a-02.0.txt", "raw/a-02.0_plots.txt"],
+        outputs=["outputs/a-02.0.txt", "outputs/a-02.0_plots.txt"],
         pproc="p001",
         recipe=recipe,
         description="ROTOR_UNSTEADY",
@@ -559,7 +559,7 @@ def test_pyfs_matrix_post_writes_every_reduction_beside_the_plots_table(tmp_path
 
     workspace = _unsteady_workspace(tmp_path, reductions=ROTOR_PLAN)
     written = write_campaign_products(workspace)
-    plots = workspace.root / "post" / "products" / "plots"
+    plots = workspace.root / "post" / "products" / "probes"
     names = sorted(p.name for p in plots.iterdir())
     assert names == [
         "a-02.0_per_blade.csv",
@@ -601,14 +601,14 @@ def test_pyfs_matrix_post_writes_every_reduction_beside_the_plots_table(tmp_path
     assert passages[0]["CL_MRP_TOTAL"] == "1.40000"
 
     manifest = _products_manifest(workspace)
-    entry = manifest["products"]["plots/a-02.0_per_blade.csv"]
+    entry = manifest["products"]["probes/a-02.0_per_blade.csv"]
     assert entry["runs"] == ["camp/sim_7001/a-02.0"] and entry["sim_id"] == "7001"
     assert entry["reduction"] == "per_blade"
     assert entry["windows"] == [[5, 6], [7, 8]] and entry["period_steps"] == 2
     assert "last revolution" in entry["window_from"]
-    average = manifest["products"]["plots/a-02.0_time_average.csv"]
+    average = manifest["products"]["probes/a-02.0_time_average.csv"]
     assert average["reduction"] == "time_average" and average["windows"] == [[3, 8]]
-    assert "reduction" not in manifest["products"]["plots/a-02.0_plots.csv"], (
+    assert "reduction" not in manifest["products"]["probes/a-02.0_plots.csv"], (
         "raw is the plots table itself, not a reduction"
     )
     assert manifest["skipped"] == {}
@@ -638,7 +638,7 @@ def test_a_rotorless_unsteady_point_gets_the_time_average_alone(tmp_path):
     }
     workspace = _unsteady_workspace(tmp_path, reductions=plan, recipe="unsteady")
     write_campaign_products(workspace)
-    plots = workspace.root / "post" / "products" / "plots"
+    plots = workspace.root / "post" / "products" / "probes"
     assert sorted(p.name for p in plots.iterdir()) == [
         "a-02.0_plots.csv",
         "a-02.0_time_average.csv",
@@ -661,7 +661,7 @@ def test_a_transition_row_writes_one_passage_reduction_per_rotor(tmp_path):
 
     workspace = _unsteady_workspace(tmp_path, reductions=TWO_ROTOR_PLAN)
     write_campaign_products(workspace)
-    plots = workspace.root / "post" / "products" / "plots"
+    plots = workspace.root / "post" / "products" / "probes"
     names = sorted(p.name for p in plots.iterdir())
     assert names == [
         "a-02.0_per_blade_LIFT_L1.csv",
@@ -681,7 +681,7 @@ def test_a_transition_row_writes_one_passage_reduction_per_rotor(tmp_path):
     )
 
     manifest = _products_manifest(workspace)
-    entry = manifest["products"]["plots/a-02.0_per_blade_PUSHER.csv"]
+    entry = manifest["products"]["probes/a-02.0_per_blade_PUSHER.csv"]
     assert entry["reduction"] == "per_blade" and entry["period_steps"] == 4
     # THE ROTOR AS A FIELD. Asserted on `window_from` alone, this was a
     # substring match against an English sentence, and the file name does
@@ -689,9 +689,9 @@ def test_a_transition_row_writes_one_passage_reduction_per_rotor(tmp_path):
     # underscores (the interface lens, 2026-09-10).
     assert entry["rotor"] == "PUSHER", entry
     skipped = manifest["skipped"]
-    said = skipped["plots/a-02.0_per_blade.csv"]
-    assert "plots/a-02.0_per_blade_LIFT_L1.csv" in said, said
-    assert "plots/a-02.0_per_blade_PUSHER.csv" in said, (
+    said = skipped["probes/a-02.0_per_blade.csv"]
+    assert "probes/a-02.0_per_blade_LIFT_L1.csv" in said, said
+    assert "probes/a-02.0_per_blade_PUSHER.csv" in said, (
         "the flat file's skip does not name the two files the reader is looking for"
     )
 
@@ -722,7 +722,7 @@ def test_a_row_turning_one_rotor_names_it_too(tmp_path):
     }
     workspace = _unsteady_workspace(tmp_path, reductions=plan)
     write_campaign_products(workspace)
-    plots = workspace.root / "post" / "products" / "plots"
+    plots = workspace.root / "post" / "products" / "probes"
     names = sorted(p.name for p in plots.iterdir())
     assert names == [
         "a-02.0_per_blade_LIFT_L1.csv",
@@ -751,11 +751,11 @@ def test_an_alias_that_is_not_a_file_name_is_made_into_one(tmp_path):
     }
     workspace = _unsteady_workspace(tmp_path, reductions=plan)
     write_campaign_products(workspace)
-    plots = workspace.root / "post" / "products" / "plots"
+    plots = workspace.root / "post" / "products" / "probes"
     assert (plots / "a-02.0_per_blade_LIFT_L1.csv").is_file(), sorted(
         p.name for p in plots.iterdir()
     )
-    entry = _products_manifest(workspace)["products"]["plots/a-02.0_per_blade_LIFT_L1.csv"]
+    entry = _products_manifest(workspace)["products"]["probes/a-02.0_per_blade_LIFT_L1.csv"]
     assert entry["rotor"] == "LIFT/L1 ", "the record lost the alias the author wrote"
 
 
@@ -773,30 +773,30 @@ def test_a_reduction_the_row_cannot_window_is_recorded_as_skipped(tmp_path):
     workspace = _unsteady_workspace(tmp_path / "blades", reductions=plan)
     write_campaign_products(workspace)
     manifest = _products_manifest(workspace)
-    assert "plots/a-02.0_per_blade.csv" in manifest["skipped"], manifest["skipped"]
-    assert "BLADES" in manifest["skipped"]["plots/a-02.0_per_blade.csv"]
-    assert "BLADES" in manifest["skipped"]["plots/a-02.0_phase_locked.csv"]
-    assert "plots/a-02.0_time_average.csv" in manifest["products"]
-    assert not (workspace.root / "post" / "products" / "plots" / "a-02.0_per_blade.csv").exists()
+    assert "probes/a-02.0_per_blade.csv" in manifest["skipped"], manifest["skipped"]
+    assert "BLADES" in manifest["skipped"]["probes/a-02.0_per_blade.csv"]
+    assert "BLADES" in manifest["skipped"]["probes/a-02.0_phase_locked.csv"]
+    assert "probes/a-02.0_time_average.csv" in manifest["products"]
+    assert not (workspace.root / "post" / "products" / "probes" / "a-02.0_per_blade.csv").exists()
 
     # A plots table shorter than the window: a shorter history averaged as a
     # whole one is the shape every reader here refuses.
     workspace = _unsteady_workspace(tmp_path / "short", reductions=ROTOR_PLAN, rows=6)
     write_campaign_products(workspace)
     manifest = _products_manifest(workspace)
-    reason = manifest["skipped"]["plots/a-02.0_per_blade.csv"]
+    reason = manifest["skipped"]["probes/a-02.0_per_blade.csv"]
     assert "6" in reason and "8" in reason, reason
-    assert "plots/a-02.0_phase_locked.csv" in manifest["skipped"]
-    assert "plots/a-02.0_time_average.csv" in manifest["skipped"]
-    assert (workspace.root / "post" / "products" / "plots" / "a-02.0_plots.csv").is_file()
+    assert "probes/a-02.0_phase_locked.csv" in manifest["skipped"]
+    assert "probes/a-02.0_time_average.csv" in manifest["skipped"]
+    assert (workspace.root / "post" / "products" / "probes" / "a-02.0_plots.csv").is_file()
 
     # A record carrying no windows at all, written before this release or by
     # hand: the time average is skipped naming the record, and nothing guesses.
     workspace = _unsteady_workspace(tmp_path / "none", reductions=None)
     write_campaign_products(workspace)
     manifest = _products_manifest(workspace)
-    assert "record" in manifest["skipped"]["plots/a-02.0_time_average.csv"]
-    assert "plots/a-02.0_plots.csv" in manifest["products"]
+    assert "record" in manifest["skipped"]["probes/a-02.0_time_average.csv"]
+    assert "probes/a-02.0_plots.csv" in manifest["products"]
 
 
 def test_the_reductions_sit_beside_the_plots_table_and_never_replace_it(tmp_path):
@@ -807,7 +807,7 @@ def test_the_reductions_sit_beside_the_plots_table_and_never_replace_it(tmp_path
 
     before = _unsteady_workspace(tmp_path / "before", reductions=None)
     write_campaign_products(before)
-    table_before = before.root / "post" / "products" / "plots" / "a-02.0_plots.csv"
+    table_before = before.root / "post" / "products" / "probes" / "a-02.0_plots.csv"
     assert table_before.is_file()
     assert not (table_before.parent / "a-02.0_time_average.csv").exists(), (
         "the control wrote no reduction; it is the plots table alone"
@@ -815,7 +815,7 @@ def test_the_reductions_sit_beside_the_plots_table_and_never_replace_it(tmp_path
 
     after = _unsteady_workspace(tmp_path / "after", reductions=ROTOR_PLAN)
     write_campaign_products(after)
-    table_after = after.root / "post" / "products" / "plots" / "a-02.0_plots.csv"
+    table_after = after.root / "post" / "products" / "probes" / "a-02.0_plots.csv"
     assert table_after.is_file(), "the plots table is present after the reductions"
     assert (table_after.parent / "a-02.0_per_blade.csv").is_file(), "the reductions were written"
     assert table_after.read_bytes() == table_before.read_bytes(), (
@@ -890,7 +890,7 @@ def _steady_workspace_with_provenance(tmp_path):
     (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
         '[groups]\n"1" = ["W", "B"]\n', encoding="utf-8"
     )
-    raw = workspace.sim_dir("3207") / "raw"
+    raw = workspace.sim_dir("3207") / "outputs"
     raw.mkdir(parents=True)
     (raw / "POLAR-3207_M20AL-020BE+000.txt").write_text(LOADS, encoding="utf-8")
     common: dict[str, object] = dict(
@@ -927,7 +927,7 @@ def _steady_workspace_with_provenance(tmp_path):
             run_id="camp/sim_3207/a-02.0",
             point={"alpha": -2.0},
             status=RunStatus.CONVERGED,
-            outputs=["raw/POLAR-3207_M20AL-020BE+000.txt"],
+            outputs=["outputs/POLAR-3207_M20AL-020BE+000.txt"],
             **common,
         )
     )
@@ -1004,7 +1004,7 @@ def test_pyfs_matrix_post_writes_a_prov_json_document_per_recorded_run(tmp_path)
     assert "c" * 64 in by_sha, "the script is an entity carrying its sha256"
     # Of the file's BYTES, which on Windows carry the line endings write_text
     # gave them, not of the text the test holds.
-    loads_file = workspace.sim_dir("3207") / "raw" / "POLAR-3207_M20AL-020BE+000.txt"
+    loads_file = workspace.sim_dir("3207") / "outputs" / "POLAR-3207_M20AL-020BE+000.txt"
     loads_sha = hashlib.sha256(loads_file.read_bytes()).hexdigest()
     assert loads_sha in by_sha, "the collected output carries the sha256 of the file itself"
     assert entities[by_sha[loads_sha]]["pyfs:sha256_from"] == "file"
@@ -1133,7 +1133,7 @@ def test_pyfs_matrix_post_writes_her_format_beside_the_polar_tables_when_asked(t
     def _workspace(root, pproc_text):
         workspace = CampaignWorkspace.init(root)
         (workspace.inputs_dir / "pproc" / "p001.toml").write_text(pproc_text, encoding="utf-8")
-        raw = workspace.sim_dir("3207") / "raw"
+        raw = workspace.sim_dir("3207") / "outputs"
         raw.mkdir(parents=True)
         (raw / "POLAR-3207_M20AL-020BE+000.txt").write_text(LOADS, encoding="utf-8")
         workspace.append_record(
@@ -1146,7 +1146,7 @@ def test_pyfs_matrix_post_writes_her_format_beside_the_polar_tables_when_asked(t
                 script_sha256="",
                 raw_flag=False,
                 status=RunStatus.CONVERGED,
-                outputs=["raw/POLAR-3207_M20AL-020BE+000.txt"],
+                outputs=["outputs/POLAR-3207_M20AL-020BE+000.txt"],
                 pproc="p001",
                 description="STEADY_WB",
                 mach=0.2,
@@ -1164,35 +1164,37 @@ def test_pyfs_matrix_post_writes_her_format_beside_the_polar_tables_when_asked(t
         assert asked.resolve_pproc("p001").products.custom_polar_format is True
     written = write_campaign_products(asked)
     out = asked.root / "post" / "products"
-    names = sorted(p.name for p in out.iterdir())
+    # FR-88 and FR-85: under polars/, and named by the point convention.
+    # This point sweeps nothing, so every field carries its value.
+    stem = "POLAR-3207_M20AL-020BE+000"
+    assert sorted(p.name for p in out.iterdir()) == ["polars", "products.json", "provenance"]
+    names = sorted(p.name for p in (out / "polars").iterdir())
     assert names == [
-        "3207_M20_g01.csv",
-        "3207_M20_g01.dat",
-        "3207_M20_g03.csv",
-        "3207_M20_g03.dat",
-        "products.json",
-        "provenance",
+        f"{stem}_g01.csv",
+        f"{stem}_g01.dat",
+        f"{stem}_g03.csv",
+        f"{stem}_g03.dat",
     ], names
-    assert {p.name for p in written} >= {"3207_M20_g01.dat", "3207_M20_g03.dat"}
+    assert {p.name for p in written} >= {f"{stem}_g01.dat", f"{stem}_g03.dat"}
     manifest = json.loads((out / "products.json").read_text(encoding="utf-8"))
-    assert manifest["products"]["3207_M20_g01.dat"]["runs"] == ["camp/sim_3207/a-02.0"]
+    assert manifest["products"][f"polars/{stem}_g01.dat"]["runs"] == ["camp/sim_3207/a-02.0"]
 
     # The two serializations carry the same rows: the custom format at %10.5f, the
     # CSV at five decimals.
-    table = read_custom_polar_format(out / "3207_M20_g01.dat")
+    table = read_custom_polar_format(out / "polars" / f"{stem}_g01.dat")
     assert table.polar == "3207" and table.group == 1 and table.mach == 0.2
     assert table.description == "STEADY_WB"
-    _, csv_rows = read_csv_table(out / "3207_M20_g01.csv")
+    _, csv_rows = read_csv_table(out / "polars" / f"{stem}_g01.csv")
     assert [f"{table.rows[0][c]:.5f}" for c in COEFFICIENT_COLUMNS] == [
         csv_rows[0][c] for c in COEFFICIENT_COLUMNS
     ]
     assert [f"{table.rows[0][c]:.5f}" for c in COEFFICIENT_COLUMNS] == HER_ROW
-    text = (out / "3207_M20_g01.dat").read_text(encoding="ascii")
+    text = (out / "polars" / f"{stem}_g01.dat").read_text(encoding="ascii")
     assert text.splitlines()[:2] == ["FlightStream - STEADY_WB", "320720"]
     assert text.splitlines()[6:8] == ["001", "024"]
 
     # Write, read, write again: byte equal, the date carried through.
-    first = (out / "3207_M20_g01.dat").read_bytes()
+    first = (out / "polars" / f"{stem}_g01.dat").read_bytes()
     again = write_custom_polar_format(
         tmp_path / "again.dat",
         polar=table.polar,
@@ -1207,10 +1209,8 @@ def test_pyfs_matrix_post_writes_her_format_beside_the_polar_tables_when_asked(t
 
     silent = _workspace(tmp_path / "silent", '[groups]\n"1" = ["W", "B"]\n')
     write_campaign_products(silent)
-    assert sorted(p.name for p in (silent.root / "post" / "products").iterdir()) == [
-        "3207_M20_g01.csv",
-        "products.json",
-        "provenance",
+    assert sorted(p.name for p in (silent.root / "post" / "products" / "polars").iterdir()) == [
+        f"{stem}_g01.csv"
     ], "without the key the custom format is not written"
 
     # The docs name the key and what the format is for.
@@ -1232,7 +1232,7 @@ def _windowed_workspace(tmp_path, *, window, reductions=None, kinds=("", "_sload
 
     The loads, sectional loads and probe fixtures of this module stand in
     for what the solver stamps on every step of the window, ``_cp`` and
-    ``.dat`` files beside them; the whole-run exports sit under ``raw/``.
+    ``.dat`` files beside them; the whole-run exports sit under ``outputs/``.
     """
     from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
 
@@ -1241,7 +1241,7 @@ def _windowed_workspace(tmp_path, *, window, reductions=None, kinds=("", "_sload
         '[groups]\n"1" = ["W", "B"]\n', encoding="utf-8"
     )
     sim = workspace.sim_dir("7001")
-    raw = sim / "raw"
+    raw = sim / "outputs"
     raw.mkdir(parents=True)
     (raw / "a-02.0.txt").write_text(LOADS, encoding="utf-8")
     texts = {"": LOADS, "_sloads": SLOADS, "_probes": PROBES}
@@ -1259,7 +1259,7 @@ def _windowed_workspace(tmp_path, *, window, reductions=None, kinds=("", "_sload
         script_sha256="",
         raw_flag=False,
         status=RunStatus.CONVERGED,
-        outputs=["raw/a-02.0.txt"],
+        outputs=["outputs/a-02.0.txt"],
         pproc="p001",
         recipe="unsteady_rotor",
         description="ROTOR_UNSTEADY",
@@ -1447,7 +1447,7 @@ def test_the_former_key_of_the_polar_format_is_refused_on_a_real_artifact(tmp_pa
     (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
         '[groups]\n"1" = ["W", "B"]\n[products]\nher_polar_format = true\n', encoding="utf-8"
     )
-    raw = workspace.sim_dir("3207") / "raw"
+    raw = workspace.sim_dir("3207") / "outputs"
     raw.mkdir(parents=True)
     (raw / "POLAR-3207_M20AL-020BE+000.txt").write_text(LOADS, encoding="utf-8")
     workspace.append_record(
@@ -1460,7 +1460,7 @@ def test_the_former_key_of_the_polar_format_is_refused_on_a_real_artifact(tmp_pa
             script_sha256="",
             raw_flag=False,
             status=RunStatus.CONVERGED,
-            outputs=["raw/POLAR-3207_M20AL-020BE+000.txt"],
+            outputs=["outputs/POLAR-3207_M20AL-020BE+000.txt"],
             pproc="p001",
             description="STEADY_WB",
             mach=0.2,

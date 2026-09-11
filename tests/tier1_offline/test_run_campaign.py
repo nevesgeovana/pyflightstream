@@ -141,8 +141,8 @@ def test_dry_run_records_every_point_end_to_end(tmp_path):
     assert all(record.status is RunStatus.CONVERGED for record in records)
     assert all(record.fs_version_requested == "26.120" for record in records)
     assert records[0].iterations == 120
-    assert records[0].outputs == ["raw/loads_a+00.0.txt"]
-    assert records[1].outputs == ["raw/loads_a+02.0.txt"]  # both points survive
+    assert records[0].outputs == ["outputs/loads_a+00.0.txt"]
+    assert records[1].outputs == ["outputs/loads_a+02.0.txt"]  # both points survive
     assert "wing.fsm" in records[0].inputs_sha256
     assert not records[0].raw_flag
     # The solver-setup snapshot of the built script rode into the manifest.
@@ -266,11 +266,11 @@ def test_loads_assessor_closes_the_convergence_judgment_end_to_end(tmp_path):
     assert all(entry["within"] for entry in record.conditions)
 
 
-def make_raw(tmp_path, fixture: str, name: str = "loads.txt", text: str | None = None):
-    raw = tmp_path / "raw"
-    raw.mkdir(parents=True, exist_ok=True)
+def make_collected(tmp_path, fixture: str, name: str = "loads.txt", text: str | None = None):
+    collected = tmp_path / "outputs"
+    collected.mkdir(parents=True, exist_ok=True)
     content = text if text is not None else (FIXTURES / fixture).read_text(encoding="utf-8")
-    (raw / name).write_text(content, encoding="utf-8")
+    (collected / name).write_text(content, encoding="utf-8")
     return tmp_path
 
 
@@ -278,34 +278,36 @@ def test_loads_assessor_judgments_per_evidence(tmp_path):
     steady = (FIXTURES / "loads_steady_26.120.txt").read_text(encoding="utf-8")
     assessor = LoadsAssessor("loads.txt")
 
-    converged = assessor(None, None, make_raw(tmp_path / "a", "loads_steady_26.120.txt"))
+    converged = assessor(None, None, make_collected(tmp_path / "a", "loads_steady_26.120.txt"))
     assert converged.status is RunStatus.CONVERGED
 
     limited = assessor(
         None,
         None,
-        make_raw(tmp_path / "b", "", text=steady.replace("312", "500")),
+        make_collected(tmp_path / "b", "", text=steady.replace("312", "500")),
     )
     assert limited.status is RunStatus.COMPLETED_MAX_ITER
 
     diverged = assessor(
         None,
         None,
-        make_raw(tmp_path / "c", "", text=steady.replace("+0.0089000,", "NaN,")),
+        make_collected(tmp_path / "c", "", text=steady.replace("+0.0089000,", "NaN,")),
     )
     assert diverged.status is RunStatus.FAILED_DIVERGED
     assert "CDi" in diverged.error
 
-    truncated = assessor(None, None, make_raw(tmp_path / "d", "loads_truncated_26.120.txt"))
+    truncated = assessor(None, None, make_collected(tmp_path / "d", "loads_truncated_26.120.txt"))
     assert truncated.status is RunStatus.FAILED_INCOMPLETE_OUTPUT
 
-    unsteady_no_log = assessor(None, None, make_raw(tmp_path / "e", "loads_unsteady_26.120.txt"))
+    unsteady_no_log = assessor(
+        None, None, make_collected(tmp_path / "e", "loads_unsteady_26.120.txt")
+    )
     assert unsteady_no_log.status is RunStatus.COMPLETED_MAX_ITER
 
 
 def test_loads_assessor_uses_the_log_residuals_when_declared(tmp_path):
-    sim_dir = make_raw(tmp_path, "loads_unsteady_26.120.txt")
-    make_raw(tmp_path, "log_residuals_26.120.txt", name="log.txt")
+    sim_dir = make_collected(tmp_path, "loads_unsteady_26.120.txt")
+    make_collected(tmp_path, "log_residuals_26.120.txt", name="log.txt")
     assessment = LoadsAssessor("loads.txt", log_file="log.txt")(None, None, sim_dir)
     assert assessment.status is RunStatus.CONVERGED
     assert assessment.iterations == 1575
@@ -434,11 +436,11 @@ def test_naming_template_names_scripts_and_rendered_outputs(tmp_path):
     record = records[0]
     # Identity is untouched by the template: same run_id scheme as ever.
     assert record.run_id == "camp/sim_9001/a+02.0"
-    assert record.outputs == ["raw/loads_a+02.0.txt"]
+    assert record.outputs == ["outputs/loads_a+02.0.txt"]
     sim = tmp_path / "camp" / "sims" / "sim_9001"
     script_text = (sim / "scripts" / "camp_9001_a2.txt").read_text(encoding="utf-8")
     assert "loads_a+02.0.txt" in script_text  # the recipe saw the rendered name
-    assert (sim / "raw" / "loads_a+02.0.txt").is_file()
+    assert (sim / "outputs" / "loads_a+02.0.txt").is_file()
 
 
 # --- plan_campaign: pre-flight without execution ----------------------------
@@ -542,7 +544,7 @@ def test_a_collision_knowable_at_plan_time_is_refused_there(tmp_path, alphas, ou
     """PLN-20260802-1904: the plan and the collection now key the same way.
 
     ``collect_outputs`` refuses duplicates within one produced set AND a
-    name already in ``raw/``, both on the BASE name. The plan-time check
+    name already in ``outputs/``, both on the BASE name. The plan-time check
     anticipated only the second, and on the DECLARED string. So a
     collision fully knowable before anything ran was reported only after
     the solver had run, which contradicts two published promises: the
@@ -896,8 +898,8 @@ def _log_with(replacement: str, column: str) -> str:
 
 
 def _assess_log(tmp_path, text):
-    make_raw(tmp_path, "loads_unsteady_26.120.txt")
-    make_raw(tmp_path, "", name="log.txt", text=text)
+    make_collected(tmp_path, "loads_unsteady_26.120.txt")
+    make_collected(tmp_path, "", name="log.txt", text=text)
     return LoadsAssessor("loads.txt", log_file="log.txt")(None, None, tmp_path)
 
 
@@ -1091,7 +1093,7 @@ def test_an_early_stop_under_forced_iterations_is_not_converged(tmp_path):
     """
     forced = _steady_text().replace(_FORCED_OFF, _FORCED_ON)
     assessment = LoadsAssessor("loads.txt")(
-        None, None, make_raw(tmp_path / "forced", "", text=forced)
+        None, None, make_collected(tmp_path / "forced", "", text=forced)
     )
     assert assessment.status is not RunStatus.CONVERGED
     assert assessment.status is RunStatus.FAILED_INCOMPLETE_OUTPUT
@@ -1108,7 +1110,7 @@ def test_the_count_judgment_still_stands_when_iterations_are_not_forced(tmp_path
     every converged run in every campaign turned into a failure.
     """
     assessment = LoadsAssessor("loads.txt")(
-        None, None, make_raw(tmp_path / "unforced", "", text=_steady_text())
+        None, None, make_collected(tmp_path / "unforced", "", text=_steady_text())
     )
     assert assessment.status is RunStatus.CONVERGED
     assert assessment.iterations == 312
@@ -1122,7 +1124,9 @@ def test_a_completed_forced_run_is_still_completed_max_iter(tmp_path):
     refusal is about the loop ending EARLY, not about forcing.
     """
     text = _steady_text().replace(_FORCED_OFF, _FORCED_ON).replace("312", "500")
-    assessment = LoadsAssessor("loads.txt")(None, None, make_raw(tmp_path / "full", "", text=text))
+    assessment = LoadsAssessor("loads.txt")(
+        None, None, make_collected(tmp_path / "full", "", text=text)
+    )
     assert assessment.status is RunStatus.COMPLETED_MAX_ITER
     assert assessment.iterations == 500
 
@@ -1138,7 +1142,7 @@ def test_an_unprinted_forced_flag_leaves_the_count_judgment_alone(tmp_path):
         line for line in _steady_text().splitlines() if "Force solver to run all" not in line
     )
     assessment = LoadsAssessor("loads.txt")(
-        None, None, make_raw(tmp_path / "silent", "", text=text + "\n")
+        None, None, make_collected(tmp_path / "silent", "", text=text + "\n")
     )
     assert assessment.status is RunStatus.CONVERGED
 
@@ -1151,8 +1155,10 @@ def test_a_declared_log_decides_on_residuals_whatever_the_forced_flag_says(tmp_p
     no-log branch is deliberate rather than an oversight.
     """
     unsteady = (FIXTURES / "loads_unsteady_26.120.txt").read_text(encoding="utf-8")
-    sim_dir = make_raw(tmp_path / "logged", "", text=unsteady.replace(_FORCED_OFF, _FORCED_ON))
-    make_raw(tmp_path / "logged", "log_residuals_26.120.txt", name="log.txt")
+    sim_dir = make_collected(
+        tmp_path / "logged", "", text=unsteady.replace(_FORCED_OFF, _FORCED_ON)
+    )
+    make_collected(tmp_path / "logged", "log_residuals_26.120.txt", name="log.txt")
     assessment = LoadsAssessor("loads.txt", log_file="log.txt")(None, None, sim_dir)
     assert assessment.status is RunStatus.CONVERGED
     assert assessment.residual == pytest.approx(9.6e-8)
@@ -1215,7 +1221,7 @@ def test_an_ordinary_point_is_unaffected_by_the_stale_output_check(tmp_path):
         recipes={"steady": steady_recipe},
     )
     assert all(record.status is RunStatus.CONVERGED for record in records)
-    assert records[0].outputs == ["raw/loads_a+00.0.txt"]
+    assert records[0].outputs == ["outputs/loads_a+00.0.txt"]
 
 
 def test_the_manifest_records_a_hash_per_collected_output(tmp_path):
@@ -1390,7 +1396,7 @@ def test_a_recorded_run_reconstructs_from_the_manifest_alone(tmp_path):
     # Everything the record hashed is checked, not just the script.
     assert "scripts/a+00.0.txt" in rebuilt.verified
     assert "inputs/wing.fsm" in rebuilt.verified
-    assert "raw/loads_a+00.0.txt" in rebuilt.verified
+    assert "outputs/loads_a+00.0.txt" in rebuilt.verified
 
 
 def test_reconstruction_says_so_when_an_artifact_changed(tmp_path):
@@ -1570,7 +1576,7 @@ def test_an_unknown_solver_mode_is_not_a_successful_terminal_state(tmp_path, mod
     assessment = LoadsAssessor("loads.txt")(
         None,
         None,
-        make_raw(tmp_path / mode, "", text=_with_solver_mode(steady, mode)),
+        make_collected(tmp_path / mode, "", text=_with_solver_mode(steady, mode)),
     )
     assert assessment.status is RunStatus.FAILED_INCOMPLETE_OUTPUT
     assert mode in assessment.error
@@ -1588,7 +1594,7 @@ def test_both_known_modes_are_still_judged(tmp_path):
         assessment = LoadsAssessor("loads.txt")(
             None,
             None,
-            make_raw(tmp_path / f"ok_{mode}", "", text=_with_solver_mode(steady, mode)),
+            make_collected(tmp_path / f"ok_{mode}", "", text=_with_solver_mode(steady, mode)),
         )
         assert assessment.status is expected, mode
         assert assessment.error is None, mode
@@ -1615,7 +1621,7 @@ def test_an_export_from_another_operating_point_is_not_converged(tmp_path):
     )
     case.point = {"alpha": 0.0}
     assessment = LoadsAssessor("loads.txt")(
-        case, None, make_raw(tmp_path / "wrong", "", text=steady)
+        case, None, make_collected(tmp_path / "wrong", "", text=steady)
     )
     assert assessment.status is RunStatus.FAILED_INCOMPLETE_OUTPUT
     assert "different operating point" in assessment.error
@@ -1640,7 +1646,7 @@ def test_the_same_export_is_converged_for_the_point_it_belongs_to(tmp_path):
     )
     case.point = {"alpha": 2.0}
     assessment = LoadsAssessor("loads.txt")(
-        case, None, make_raw(tmp_path / "right", "", text=steady)
+        case, None, make_collected(tmp_path / "right", "", text=steady)
     )
     assert assessment.status is RunStatus.CONVERGED
     assert assessment.error is None
@@ -3099,8 +3105,8 @@ def test_the_identity_preflight_exports_its_log_to_an_absolute_path(tmp_path, mo
 
 def test_the_assessment_records_which_log_decided_the_verdict(tmp_path):
     """The residual half: the file is named, so the claim is checkable."""
-    sim_dir = make_raw(tmp_path, "loads_unsteady_26.120.txt")
-    make_raw(tmp_path, "log_residuals_26.120.txt", name="log.txt")
+    sim_dir = make_collected(tmp_path, "loads_unsteady_26.120.txt")
+    make_collected(tmp_path, "log_residuals_26.120.txt", name="log.txt")
     assessment = LoadsAssessor("loads.txt", log_file="log.txt")(None, None, sim_dir)
     assert assessment.status is RunStatus.CONVERGED
     assert assessment.log_file_used == "log.txt"
@@ -3113,7 +3119,7 @@ def test_an_assessment_with_no_log_records_none_rather_than_a_name(tmp_path):
     solver did. Without this assertion the field could be populated
     unconditionally and still read as evidence.
     """
-    sim_dir = make_raw(tmp_path, "loads_unsteady_26.120.txt")
+    sim_dir = make_collected(tmp_path, "loads_unsteady_26.120.txt")
     assessment = LoadsAssessor("loads.txt")(None, None, sim_dir)
     assert assessment.status is RunStatus.COMPLETED_MAX_ITER
     assert assessment.log_file_used is None
@@ -3168,7 +3174,7 @@ def test_the_forced_iteration_refusal_does_not_tell_users_to_name_the_log(tmp_pa
         "Force solver to run all iterations           F",
         "Force solver to run all iterations           T",
     )
-    sim_dir = make_raw(tmp_path, "loads_steady_26.120.txt", text=text)
+    sim_dir = make_collected(tmp_path, "loads_steady_26.120.txt", text=text)
     assessment = LoadsAssessor("loads.txt")(None, None, sim_dir)
     assert assessment.status is RunStatus.FAILED_INCOMPLETE_OUTPUT
     message = assessment.error or ""
@@ -3190,8 +3196,8 @@ def test_the_auto_detected_log_is_recorded_under_the_name_it_was_found_by(tmp_pa
     here; with a fixture named `log.txt` and `log_file="log.txt"` the two
     are indistinguishable.
     """
-    sim_dir = make_raw(tmp_path, "loads_unsteady_26.120.txt")
-    make_raw(tmp_path, "log_residuals_26.120.txt", name="whatever_the_solver_wrote.txt")
+    sim_dir = make_collected(tmp_path, "loads_unsteady_26.120.txt")
+    make_collected(tmp_path, "log_residuals_26.120.txt", name="whatever_the_solver_wrote.txt")
     assessment = LoadsAssessor()(None, None, sim_dir)
     assert assessment.status is RunStatus.CONVERGED
     assert assessment.log_file_used == "whatever_the_solver_wrote.txt"
@@ -3287,18 +3293,29 @@ def test_the_campaign_writes_its_products_and_names_them(tmp_path):
     )
     products = workspace.root / "post" / "products"
     assert sorted(p.name for p in products.iterdir()) == [
-        "9001_M20_g01.csv",
-        "9001_M20_g03.csv",
+        "polars",  # FR-88: the per-polar tables have a directory of their own
         "products.json",
         "provenance",  # one PROV-JSON document per recorded run (PFS-2012.08.01)
     ]
+    # FR-85: the point convention, with its swept field written `sweep`;
+    # this campaign runs one alpha, so nothing is swept and every field
+    # carries its value.
+    stem = "POLAR-9001_M20AL-020BE+000"
+    assert sorted(p.name for p in (products / "polars").iterdir()) == [
+        f"{stem}_g01.csv",
+        f"{stem}_g03.csv",
+    ]
     manifest = json.loads((products / "products.json").read_text(encoding="utf-8"))
-    assert manifest["products"]["9001_M20_g01.csv"]["runs"] == ["camp/sim_9001/a-02.0"]
-    assert manifest["products"]["9001_M20_g01.csv"]["pproc"] == "p001"
-    text = (products / "9001_M20_g01.csv").read_text(encoding="utf-8").splitlines()
+    assert manifest["products"][f"polars/{stem}_g01.csv"]["runs"] == ["camp/sim_9001/a-02.0"]
+    assert manifest["products"][f"polars/{stem}_g01.csv"]["pproc"] == "p001"
+    text = (products / "polars" / f"{stem}_g01.csv").read_text(encoding="utf-8").splitlines()
     assert text[0].startswith("POLAR,DESCRIPTION,GROUP,SREF,CREF,BREF,XMOM")
+    assert text[0].split(",")[9] == "J", f"the swept-value column is missing: {text[0]}"
+    # The EMPTY cell after ZMOM is the advance ratio this row does not
+    # have: zero is a value a rotor row can hold and "not recorded" is
+    # not it (FR-85).
     assert text[1].startswith(
-        "9001,STEADY_WB,1,50.00000,2.52600,20.00000,9.15200,0.00000,0.00000,-2.00000,"
+        "9001,STEADY_WB,1,50.00000,2.52600,20.00000,9.15200,0.00000,0.00000,,-2.00000,"
     )
     assert ",0.02744,0.00000,0.18744," in text[1], "the body axes of the author's recorded row"
     record = workspace.read_manifest()[0]
@@ -3387,13 +3404,16 @@ def test_the_default_assessor_judges_the_points_own_table_in_a_two_point_sweep(t
     assert [record.status for record in records] == [RunStatus.CONVERGED, RunStatus.CONVERGED], [
         record.error for record in records
     ]
-    assert [record.outputs for record in records] == [["raw/a+02.0.txt"], ["raw/a+04.0.txt"]]
+    assert [record.outputs for record in records] == [
+        ["outputs/a+02.0.txt"],
+        ["outputs/a+04.0.txt"],
+    ]
 
 
 def test_a_case_whose_declared_outputs_are_absent_is_judged_over_the_folder(tmp_path):
     """The fallback half of the assessor's restriction, asked for by the QA lens.
 
-    A case declares outputs that never appeared under raw/ (a failed export, an
+    A case declares outputs that never appeared under outputs/ (a failed export, an
     unrendered template): the whole folder is judged as before this release,
     so the one table that IS there still decides the point.
     """
@@ -3409,11 +3429,13 @@ def test_a_case_whose_declared_outputs_are_absent_is_judged_over_the_folder(tmp_
         outputs=["never_exported.txt"],
     )
     case.point = {"alpha": 2.0}
-    assessment = LoadsAssessor()(case, None, make_raw(tmp_path, "", name="loads.txt", text=steady))
+    assessment = LoadsAssessor()(
+        case, None, make_collected(tmp_path, "", name="loads.txt", text=steady)
+    )
     assert assessment.status is RunStatus.CONVERGED, assessment.error
     # And a case whose declared table IS there is judged on that table alone,
     # with a second table beside it ignored.
-    make_raw(tmp_path, "", name="other.txt", text=steady)
+    make_collected(tmp_path, "", name="other.txt", text=steady)
     own = case.model_copy(update={"outputs": ["loads.txt"]})
     own.point = {"alpha": 2.0}
     assert LoadsAssessor()(own, None, tmp_path).status is RunStatus.CONVERGED

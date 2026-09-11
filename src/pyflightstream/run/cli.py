@@ -66,7 +66,7 @@ from pyflightstream.cases.workflows import (
 )
 from pyflightstream.results import MalformedOutputError
 from pyflightstream.results.tables import LoadsNotFoundError, sweep_table, write_table
-from pyflightstream.run import CampaignErrors, LoadsAssessor
+from pyflightstream.run import SWEEP_TABLE_NAME, CampaignErrors, LoadsAssessor
 from pyflightstream.run.matrix import plan_matrix, run_matrix
 from pyflightstream.workspace import CampaignWorkspace, InputArtifactError
 from pyflightstream.workspace.naming import (
@@ -379,8 +379,10 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     run.add_argument(
         "--sweep-csv",
-        help="write the campaign sweep table here (default: post/<matrix stem>/sweep.csv "
-        "in the workspace, so each matrix of a workspace keeps its own)",
+        help="write the campaign sweep table here (default: "
+        "post/<matrix stem>/campaign_sweep.csv in the workspace, so each matrix of a "
+        "workspace keeps its own; the run writes that one file and never a second copy "
+        "of it under another name)",
     )
 
     post = subparsers.add_parser(
@@ -860,7 +862,24 @@ def _cmd_run(args: argparse.Namespace, recipes: dict[str, str]) -> int:
     # The matrix's own folder, so several matrices of one workspace keep
     # their own table (PFS-2031.04); the table holds this matrix's records.
     stem = Path(args.matrix).stem
-    target = args.sweep_csv or str(workspace.sweep_dir(stem) / "sweep.csv")
+    # FR-90: ONE NAME, AND IT IS THE ONE THE LIBRARY ALREADY WRITES.
+    # `run_campaign` leaves `campaign_sweep.csv` under the same folder
+    # (`run.SWEEP_TABLE_NAME`), so a default of `sweep.csv` here wrote the
+    # same table a second time under a second name: measured in the
+    # workspace the author sent back, `post/matriz/sweep.csv` and
+    # `post/matriz/campaign_sweep.csv` were 1012 bytes with one sha256
+    # between them. A reader who found both could not know they were the
+    # same without hashing them, and a reader who edited one had silently
+    # disagreed with the other. `campaign_sweep.csv` is the name that
+    # survives: it says the table is about the CAMPAIGN rather than about
+    # one polar's sweep, and it is what FR-89 cites as one of its sources.
+    #
+    # WRITING IT AGAIN AT THE SAME PATH IS DELIBERATE and is not the
+    # duplicate this fixes: the content is derived from the append-only
+    # manifest, so the second write is the first one's own content, and
+    # keeping it here means a campaign whose library-side write failed
+    # still gets its table with this arm's own refusal.
+    target = args.sweep_csv or str(workspace.sweep_dir(stem) / SWEEP_TABLE_NAME)
     # A record written before 0.13.0 names no matrix and is left out of
     # this table by design (PFS-2031.04); say so at the moment it happens
     # rather than leave a shorter table to be discovered.

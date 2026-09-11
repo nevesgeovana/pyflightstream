@@ -392,7 +392,7 @@ def test_run_table_exposes_the_documented_column_schema():
     """
     loads = parse_loads(read_fixture("loads_steady_26.120.txt"))
     record = make_record(
-        iterations=312, residual=3.2e-6, wall_time_s=41.5, outputs=["raw/loads.txt"]
+        iterations=312, residual=3.2e-6, wall_time_s=41.5, outputs=["outputs/loads.txt"]
     )
     columns = list(run_table(record, loads=loads).columns)
     assert set(columns) == set(RUN_ROW_SCHEMA), (
@@ -409,7 +409,7 @@ def test_run_table_exposes_the_documented_column_schema():
 def test_run_table_joins_identity_conditions_and_total_coefficients():
     loads = parse_loads(read_fixture("loads_steady_26.120.txt"))
     record = make_record(
-        iterations=312, residual=3.2e-6, wall_time_s=41.5, outputs=["raw/loads.txt"]
+        iterations=312, residual=3.2e-6, wall_time_s=41.5, outputs=["outputs/loads.txt"]
     )
     frame = run_table(record, loads=loads)
     assert frame.shape[0] == 1
@@ -635,7 +635,7 @@ def test_parse_run_loads_refuses_an_overwritten_export(tmp_path):
 def test_parse_run_loads_names_a_missing_file_on_disk(tmp_path):
     workspace = CampaignWorkspace(tmp_path / "camp")
     workspace.create_sim("9001")
-    record = make_record(outputs=["raw/gone.txt"])
+    record = make_record(outputs=["outputs/gone.txt"])
     with pytest.raises(FileNotFoundError, match="archived or"):
         parse_run_loads(workspace, record)
 

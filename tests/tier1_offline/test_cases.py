@@ -238,7 +238,7 @@ def test_two_cases_sharing_a_sim_id_are_refused():
 
     Measured before the fix: Campaign accepted two SimCases with
     sim_id="1" without complaint, so both staged into one inputs/, wrote
-    into one scripts/, and collected into one raw/.
+    into one scripts/, and collected into one outputs/.
     """
 
     def case(sim_id):

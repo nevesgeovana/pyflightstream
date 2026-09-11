@@ -295,7 +295,7 @@ def test_an_escaping_output_name_says_that_collection_moves():
 
     "Not a portable path" would be a true refusal and a useless one: it
     reads as a portability nicety. The consequence is that the file is
-    TAKEN, not read, because collection moves it into ``raw/`` and the
+    TAKEN, not read, because collection moves it into ``outputs/`` and the
     manifest then records it as evidence the run produced.
     """
     template = NamingTemplate()
@@ -328,7 +328,7 @@ def test_an_absolute_output_name_is_refused_with_the_same_reason():
 
     message = str(refused.value)
     assert "absolute path" in message
-    assert "collection moves them into raw/" in message, (
+    assert "collection moves them into outputs/" in message, (
         "the absolute-name refusal names no consequence, while the '..' refusal does"
     )
     assert "named relative to the simulation folder" in message, "the refusal offers no remedy"
@@ -351,7 +351,7 @@ def test_two_outputs_collecting_to_one_name_offer_the_placeholder_remedy(tmp_pat
         workspace.collect_outputs("1", [tmp_path / "a" / "loads.txt", tmp_path / "b" / "loads.txt"])
 
     message = str(refused.value)
-    assert "raw/loads.txt" in message, "the refusal does not name the destination they share"
+    assert "outputs/loads.txt" in message, "the refusal does not name the destination they share"
     assert str(tmp_path / "a" / "loads.txt") in message, "the refusal does not name both sources"
     assert str(tmp_path / "b" / "loads.txt") in message, "the refusal does not name both sources"
     assert "record one name twice" in message, (
@@ -381,7 +381,7 @@ def test_collecting_onto_a_held_name_offers_the_archive_remedy(tmp_path):
         workspace.collect_outputs("1", [tmp_path / "loads.txt"])
 
     message = str(refused.value)
-    assert "already in raw/ from an earlier point or run" in message, (
+    assert "already in outputs/ from an earlier point or run" in message, (
         "the refusal does not say WHOSE record is in the way, so a user re-running one "
         "point reads it as a defect in the call they just made"
     )

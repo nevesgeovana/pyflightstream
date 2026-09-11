@@ -63,7 +63,7 @@ removed name says so and names the replacement. Anything you wrote against
 `runs.json` or the campaign products meets three moves: the manifest key
 `broken_commands` is `waived_commands` and the schema stamp is
 `pyfs-manifest/3` (the old key is read until 0.15.0); `plan.json`,
-`sweep.csv`, `campaign_sweep.csv` and the product tables live under
+`campaign_sweep.csv` and the product tables live under
 `post/<matrix stem>/`, one folder per matrix; and a registered post stage is
 called with a third keyword, `matrix_stem`. `sweep_editions` is
 `manual_editions` and `propose_type` takes its two strings by keyword; the

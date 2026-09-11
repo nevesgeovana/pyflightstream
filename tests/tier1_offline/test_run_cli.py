@@ -31,6 +31,7 @@ an export.
 
 from __future__ import annotations
 
+import hashlib
 import sys
 from pathlib import Path
 
@@ -38,7 +39,7 @@ import pytest
 
 from pyflightstream.cases import matrix as matrix_module
 from pyflightstream.cases.workflows import workflow_names
-from pyflightstream.run import CampaignErrors, LocalExecutor
+from pyflightstream.run import SWEEP_TABLE_NAME, CampaignErrors, LocalExecutor
 from pyflightstream.run import cli as cli_module
 from pyflightstream.run.cli import main
 from pyflightstream.workspace import CampaignWorkspace
@@ -189,6 +190,42 @@ def test_run_executes_the_matrix_and_writes_the_sweep_table(tmp_path, capsys):
     }
 
 
+def test_the_post_stage_writes_no_file_twice(tmp_path):
+    """FR-90. Two names, one content, and nothing anywhere saying so.
+
+    Measured in the workspace the author sent back after running 0.15.0:
+    ``post/matriz/sweep.csv`` and ``post/matriz/campaign_sweep.csv``, both
+    1012 bytes, both sha256 d121faf0de4c9b7b..., the same 27 columns. A
+    reader who finds two files cannot know they are the same without
+    hashing them, and a reader who edits one has silently disagreed with
+    the other.
+
+    The assertion is on BYTE EQUALITY ANYWHERE under the matrix's folder
+    rather than on the absence of one file name, so it catches this
+    duplicate and any other the stage grows later. Run WITHOUT
+    ``--sweep-csv``, because the duplicate is what the defaults produce:
+    an operator who names a target has said where they want it.
+    """
+    workspace = make_workspace(tmp_path)
+    matrix = single_point_matrix(tmp_path)
+    assert main(run_args(workspace, matrix)) == 0
+
+    post = workspace.root / "post" / matrix.stem
+    by_digest: dict[str, list[str]] = {}
+    for path in sorted(post.rglob("*")):
+        if path.is_file():
+            digest = hashlib.sha256(path.read_bytes()).hexdigest()
+            by_digest.setdefault(digest, []).append(path.relative_to(post).as_posix())
+    duplicates = {digest: names for digest, names in by_digest.items() if len(names) > 1}
+    assert not duplicates, (
+        f"the post stage wrote the same bytes under more than one name: {duplicates}"
+    )
+    assert (post / "campaign_sweep.csv").is_file(), (
+        "campaign_sweep.csv is the name that survives: it says the table is about the "
+        "campaign rather than about one polar's sweep, and FR-89 cites it as a source"
+    )
+
+
 def test_a_campaign_with_a_failing_point_still_leaves_its_table(tmp_path, monkeypatch):
     """The half of PFS-2014.03 the first pass inverted.
 
@@ -250,23 +287,28 @@ def test_a_campaign_with_a_failing_point_still_leaves_its_table(tmp_path, monkey
 def test_the_default_sweep_table_lands_under_post_and_the_matrix_stem(tmp_path, capsys):
     """ "One command" has to include the table, so it has a default name, and the
     place is the matrix's own folder so several matrices of one workspace keep
-    their own (PFS-2031.04)."""
+    their own (PFS-2031.04).
+
+    THE DEFAULT NAME CHANGED AT 0.16.0 (FR-90): it is the one name the
+    library already writes under that folder, because the two spellings
+    were the same bytes twice.
+    """
     workspace = make_workspace(tmp_path)
     matrix = single_point_matrix(tmp_path)
     assert main(run_args(workspace, matrix)) == 0
-    assert (workspace.root / "post" / matrix.stem / "sweep.csv").is_file(), (
+    assert (workspace.root / "post" / matrix.stem / SWEEP_TABLE_NAME).is_file(), (
         "no --sweep-csv was given and no table was written under post/<matrix>/, so the "
         "one command did not produce the study's table where the matrix keeps it"
     )
-    assert not (workspace.root / "sweep.csv").exists(), "the table landed in the root"
-    assert "sweep.csv" in capsys.readouterr().out
+    assert not (workspace.root / SWEEP_TABLE_NAME).exists(), "the table landed in the root"
+    assert SWEEP_TABLE_NAME in capsys.readouterr().out
 
 
 @pytest.mark.xfail(
     strict=True,
     reason=(
         "DEFECT below this item, in pyflightstream.run.LoadsAssessor, reproduced here "
-        "rather than described. `raw/` is shared by every point of one case, so from "
+        "rather than described. `outputs/` is shared by every point of one case, so from "
         "the SECOND point onward the assessor sees two files that both parse as loads "
         "tables and refuses with 'several of them parse'. Its own docstring promises "
         "exactly this case ('a swept case names its outputs per point, so no single "
