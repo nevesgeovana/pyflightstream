@@ -138,7 +138,7 @@ DENSITY_KEY = "REmi"
 
 #: The five pins of FR-54: a row may state the constants the standard
 #: atmosphere would otherwise supply, so the emitted fluid block carries the
-#: numbers its author pinned. Each key names the resolved field it replaces.
+#: numbers its writer pinned. Each key names the resolved field it replaces.
 PINNED_KEYS = {
     "RHOkgm3": "density_kg_m3",
     "MUPas": "viscosity_pa_s",
@@ -217,7 +217,7 @@ def canonical_condition_defaults(
     Parameters
     ----------
     defaults : mapping or None
-        The table as written, keys in whatever case its author typed.
+        The table as written, keys in whatever case its writer typed.
     origin : str
         Where it came from, named in every refusal, for example
         ``"setup 's001' (inputs/setups/s001.toml)"``.
@@ -391,7 +391,7 @@ def resolve_flight_condition(
 
     Examples
     --------
-    The author's first example: no altitude, so sea-level temperature, and the
+    The first documented example: no altitude, so sea-level temperature, and the
     DENSITY is what moves to meet the Reynolds number.
 
     >>> state = resolve_flight_condition(
@@ -402,7 +402,7 @@ def resolve_flight_condition(
     >>> state.density_source
     'solved-from-reynolds'
 
-    The author's second: an atmosphere point, with Reynolds derived.
+    The second: an atmosphere point, with Reynolds derived.
 
     >>> point = resolve_flight_condition(
     ...     {"TASmps": 68.08, "ALTFT": 10000, "dISA": 5},

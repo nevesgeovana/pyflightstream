@@ -39,7 +39,7 @@ SECTION_COLUMNS: tuple[str, ...] = (
 #: normalises by its reference velocity and the product by the free stream.
 _COEFFICIENT_PLOT_PREFIXES = ("CL_", "CDI_", "CDO_", "CD_")
 
-#: Decimals written for every coefficient and section value, the author's precision.
+#: Decimals written for every coefficient and section value, the reference precision.
 _DECIMALS = 5
 
 

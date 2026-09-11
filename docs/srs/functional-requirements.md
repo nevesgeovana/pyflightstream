@@ -85,7 +85,7 @@ Milestones and session records are listed in the
     so a build is never shadowed by an earlier entry whose alias equals
     its canonical.
 
-    THE ENUMERATION WAS REMOVED on 2026-08-18, the author's decision,
+    THE ENUMERATION WAS REMOVED on 2026-08-18, by design decision,
     and it is a correction rather than a simplification. This requirement
     used to list the members and the list went stale twice by
     construction, once per registration; the same enumeration was removed
@@ -194,7 +194,7 @@ Milestones and session records are listed in the
     made. Measured 2026-07-28 (review finding PYFS-021): 200 commits, 0
     `Signed-off-by` trailers, no per-change attestation of any kind, so
     the evidence line named an artifact that had never been in this
-    repository. The author chose on 2026-08-03 to make it exist rather
+    repository. The owning seat chose on 2026-08-03 to make it exist rather
     than to reword the requirement to promise less.
 
     What it proves, and the limit is the point rather than a caveat.
@@ -259,7 +259,7 @@ Milestones and session records are listed in the
     recognize is preserved and reported rather than silently dropped.
 
     Reworded 2026-07-27. "Forever" is scoped to the EXTERNAL format,
-    which is the promise that matters to the author's existing files,
+    which is the promise that matters to the existing files,
     rather than reading as a promise never to change the reader. The
     unknown-column clause is new and closes a silent-loss path the
     original left unstated.
@@ -405,7 +405,7 @@ Milestones and session records are listed in the
     *Origin: PP-6. Evidence: milestone M2; manifest tests; extended
     by FR-31.*
 
-    Read with PFS-2033.02 at 0.14.0 (GOAL-013): the record gains `raw_commands`, the setup's raw lines the script carried, and `aliases`, the setup's boundary aliases the polar tables resolve by (the author's decision of 2026-09-09), both absent on older records and read as empty.
+    Read with PFS-2033.02 at 0.14.0 (GOAL-013): the record gains `raw_commands`, the setup's raw lines the script carried, and `aliases`, the setup's boundary aliases the polar tables resolve by (the design decision of 2026-09-09), both absent on older records and read as empty.
 
     Every campaign writes `runs.json` recording per run: identity,
     case point, versions and build, package version, input and script
@@ -431,13 +431,13 @@ Milestones and session records are listed in the
 !!! requirement "FR-21 Established plot-file writers <span class='srs-pending'>pending</span>"
     *Origin: BRF-01.*
 
-    Plot files byte-compatible with the author's established plot
+    Plot files byte-compatible with the established plot
     format, with a reader making the pair round-trip testable. Not
     yet started; VTK and Tecplot probe-data writers exist in `post/`
     but that plot format is not among them.
 
     THE FORMAT NOW HAS A REFERENCE, named 2026-09-02: the products the
-    author's master's driver wrote from the author's recorded campaign, one polar
+    reference driver wrote from the reference campaign, one polar
     file per boundary group carrying a parameter block, a point count, a
     column count and one row per point in body, stability and wind axes,
     plus per-point sectional-loads and unsteady-plots files of the same
@@ -451,8 +451,8 @@ Milestones and session records are listed in the
     legacy and Tecplot point writers of `post/writers.py` export it
     with a documented field-to-column mapping
     (`tests/tier1_offline/test_post_writers.py`). Recorded here rather than under an
-    identifier of its own because that is where the author folded it
-    when the author accepted it, against the option of making it a public
+    identifier of its own because that is where it was folded
+    when it was accepted, against the option of making it a public
     functional requirement.
 
 !!! requirement "FR-22 Per-boundary drag honesty <span class='srs-implemented'>implemented</span>"
@@ -509,7 +509,7 @@ Milestones and session records are listed in the
     *Origin: BRF-03. Evidence: milestone M3; the committed compat
     reports and the promotion mechanism.*
 
-    Read with PFS-2031.08 and PFS-2031.09 at 0.13.0 (GOAL-012): the action re-read probe runs as a row of the tier-3 matrix and writes its verdict into the command database, and the pyfs-qa study decides where the probe harness lives beside the workspace; PFS-2031.17 carries the author's answer, pyfs-qa physics reading the workspace, and PFS-2031.18 the unsteady actions design the probe confirmed.
+    Read with PFS-2031.08 and PFS-2031.09 at 0.13.0 (GOAL-012): the action re-read probe runs as a row of the tier-3 matrix and writes its verdict into the command database, and the pyfs-qa study decides where the probe harness lives beside the workspace; PFS-2031.17 carries the decision, pyfs-qa physics reading the workspace, and PFS-2031.18 the unsteady actions design the probe confirmed.
 
     A probe harness runs per-command probe scripts on a licensed
     machine, asserts real effects, and promotes results into database
@@ -520,7 +520,7 @@ Milestones and session records are listed in the
     banded-reference reports. Expansion (mesh refinement, solver-flag
     cases) queued for licensed sessions.*
 
-    Read with PFS-2031.05, PFS-2031.07 and PFS-2031.09 at 0.13.0 (GOAL-012): the four physics cases become rows of the tier-3 matrices judged against the same references from the campaign products, every synthetic row carries a physical verification, and the pyfs-qa study puts the command's future to the author.
+    Read with PFS-2031.05, PFS-2031.07 and PFS-2031.09 at 0.13.0 (GOAL-012): the four physics cases become rows of the tier-3 matrices judged against the same references from the campaign products, every synthetic row carries a physical verification, and the pyfs-qa study puts the command's future to the owning seat.
 
     A physics regression matrix on synthetic geometry guards physical
     sanity per release. Each guarded coefficient is compared against a
@@ -537,7 +537,7 @@ Milestones and session records are listed in the
     one moved.
 
     Read with PFS-2030.07 at 0.11.0: the comparison report of the
-    author's recorded campaign uses the same per-coefficient shape, with
+    reference campaign uses the same per-coefficient shape, with
     the solver's measured repeatability as its band.
 
 !!! requirement "FR-27 Two geometry classes for drift <span class='srs-implemented'>implemented</span>"
@@ -569,7 +569,7 @@ Milestones and session records are listed in the
     folders whose manifest is missing or inconsistent.
 
 !!! requirement "FR-29a A staged geometry is a link, not a copy <span class='srs-pending'>pending</span>"
-    *Origin: the author's run log of 2026-09-02, on finding a byte copy of
+    *Origin: the recorded run log of 2026-09-02, on finding a byte copy of
     every geometry under every point. Carried by PFS-2029.17. Evidence
     owed: the staging tests that node names.*
 
@@ -581,16 +581,16 @@ Milestones and session records are listed in the
     archive and cleanup treat the link as a link and never cross it.
 
     Measured 2026-09-02: `workspace/__init__.py:1272` stages with
-    `shutil.copy2`, and the author's meshes are large enough that the
+    `shutil.copy2`, and production meshes are large enough that the
     workspace readme sends every saved simulation to cloud storage rather
-    than to version control, so a copy per point is the cost the author met. The
+    than to version control, so a copy per point is the cost the project met. The
     estate's own incident stands behind the last clause: a scan that
     crossed sixteen junctions reported more duplicate bytes than the tree
     held.
 
 ## Usage-feedback requirements (2026-07-22)
 
-Requirements added from the author's first outside-the-repo use of
+Requirements added from the first outside-the-repo use of
 the public 0.2.0, through the five-stage triage process recorded in
 the session records.
 
@@ -673,7 +673,7 @@ the session records.
     *Origin: usage feedback, amending the posture of FR-10/FR-11.
     Evidence: the v0.3 line; resolution hit and miss tests.*
 
-    Read with PFS-2034.01, PFS-2034.02, PFS-2034.03, PFS-2034.04 and PFS-2034.05 at 0.14.0 (GOAL-013): the row turns the mesh (`ROTATE`, a list of records in the order written, one row per angle), the setup defines the frames the row cites, the refusals name the cell, and the author's seat run measures the rotated propeller on the solver.
+    Read with PFS-2034.01, PFS-2034.02, PFS-2034.03, PFS-2034.04 and PFS-2034.05 at 0.14.0 (GOAL-013): the row turns the mesh (`ROTATE`, a list of records in the order written, one row per angle), the setup defines the frames the row cites, the refusals name the cell, and the licensed seat run measures the rotated propeller on the solver.
 
     Read with PFS-2031.03, PFS-2031.04, PFS-2031.05, PFS-2031.06, PFS-2031.07, PFS-2031.12, PFS-2031.14 and PFS-2031.20 at 0.13.0 (GOAL-012): the tier-3 folder is a workspace, several matrices share it with their own plan, sweep and products under post/<matrix>/, every token the package defines is a row that plans offline and runs on the licensed machine, an executable override with no default version is refused naming the option, and the matrix identity of a campaign and a record is matrix_stem.
 
@@ -695,7 +695,7 @@ the session records.
 
 ## Phase 5 consolidation (2026-07-27)
 
-The requirements below complete the author's Phase 4 acceptance batch.
+The requirements below complete the Phase 4 acceptance batch.
 Three groups: the singular claims split out of an existing requirement,
 which keep their base's identifier plus a letter; the identifiers the
 batch created; and the identifiers this session allocated for
@@ -745,7 +745,7 @@ the base could not offer while it bundled several.
 
     Read with PFS-2030.03.03 at 0.11.0, which lets the selection be
     written as family names in a setup and resolved through the
-    geometry's inventory, as the author's own scripts did.
+    geometry's inventory, as the reference scripts did.
 
 !!! requirement "FR-22c Unknown rather than assumed default <span class='srs-implemented'>implemented</span>"
     *Origin: Phase 4 split of FR-22, accepted 2026-07-27. Evidence: the
@@ -791,7 +791,7 @@ the base could not offer while it bundled several.
     file rather than in the script.
 
     Read with PFS-2005.04.01, "boundary aliases live in the setup and
-    are read wherever a boundary is cited", at 0.14.0 (GOAL-013), the author's
+    are read wherever a boundary is cited", at 0.14.0 (GOAL-013), the reference
     decision of 2026-09-09: a boundary cited by a row may be a name the
     row's setup defines under `[aliases]`, standing for the boundary
     names or families listed after it and resolved against the same
@@ -808,7 +808,7 @@ the base could not offer while it bundled several.
     unchanged. THE RULE THAT DOES NOT SURVIVE UNSTATED is the one in the
     sentence before this paragraph: whether an alias none of whose members
     the inventory carries is still refused as an absent name is what
-    PFS-2035.13 asks, and it is the author's, so FR-59 is deliberately
+    PFS-2035.13 asks, and it is a seat decision, so FR-59 is deliberately
     silent on it rather than quietly reversing it.
 
     Amended 2026-09-02, carried by PFS-2029.12, pending until it ships:
@@ -877,14 +877,14 @@ the base could not offer while it bundled several.
     sole identity authority and no parse-back API exists.
 
     Read with PFS-2029.19.01 at 0.11.0: the default template becomes the
-    author's own convention, carrying the polar, the Mach, the angles
+    standard  convention, carrying the polar, the Mach, the angles
     and the advance ratio, and the record names the template that
     rendered each name.
 
 !!! requirement "FR-33c Colliding output names are blocked before the run <span class='srs-implemented'>implemented</span>"
     *Origin: Phase 4 split of FR-33, accepted 2026-07-27, giving the
     incident guard its own identifier. Widened 2026-08-19
-    (OPS-2005.10.03, PFS-2011.02), the author's decision. Evidence:
+    (OPS-2005.10.03, PFS-2011.02), by design decision. Evidence:
     incident INC-20260723-2113; `tests/tier1_offline/test_run_campaign.py`;
     `tests/tier1_offline/test_silent_overwrites.py`.*
 
@@ -1035,7 +1035,7 @@ the base could not offer while it bundled several.
 ### New identifiers from the batch
 
 !!! requirement "FR-37 Convergence status <span class='srs-implemented'>implemented</span>"
-    *Origin: Phase 4 review, accepted 2026-07-27. Resolved by the author
+    *Origin: Phase 4 review, accepted 2026-07-27. Resolved
     2026-08-03. Evidence: `RunStatus.COMPLETED_MAX_ITER` and
     `RunStatus.FAILED_INCOMPLETE_OUTPUT` in `pyflightstream.workspace`, the
     judgment rules of `run.LoadsAssessor`, and the status tests in
@@ -1064,13 +1064,13 @@ the base could not offer while it bundled several.
     recorded by 0.16.0 or later, and for an earlier one only where the run
     did not outlast its first page. Every affected log is on disk and a
     status can be re-derived from it; whether the affected manifests are
-    re-derived or annotated is the author's call and is not taken here.
+    re-derived or annotated is a seat decision and is not taken here.
 
     **Restated 2026-08-03, and the restatement is the requirement.** It
     read "distinct from a completed one" until the review pass measured
     that the delivered value is `COMPLETED_MAX_ITER`, whose name says
     completed, so the requirement was being closed under a reading
-    rather than as written. The author's decision was to keep the six
+    rather than as written. The design decision was to keep the six
     statuses; the honest consequence is that the requirement says what
     the library guarantees, which is that a run failing its threshold
     never wears the status that means it met it. The disclosed
@@ -1078,7 +1078,7 @@ the base could not offer while it bundled several.
     [requirement mapping](../requirement-mapping.md), which is this
     project's own convention for exactly this.
 
-    **Resolved by the author on 2026-08-03: the six values stand and
+    **Resolved on 2026-08-03: the six values stand and
     this requirement closes as covered.** It was pending because it
     collided with FR-46, which closes the terminal-status set at the six
     values `RunStatus` carries: a run reaching the iteration cap without
@@ -1189,7 +1189,7 @@ the base could not offer while it bundled several.
     three raise `TypeError` for an argument of an unaccepted type, which
     needs a base class this catalogue does not have
     (`PLN-20260803-2340`), and 15 are the reachability tranche, deferred
-    to v0.5 by the author on 2026-08-04 with the measurement taken first
+    to v0.5 on 2026-08-04 with the measurement taken first
     rather than the promise trimmed to fit (`PLN-20260804-0130`).
 
     The arithmetic, since this paragraph published a number that had
@@ -1270,8 +1270,8 @@ the base could not offer while it bundled several.
     the Python API resolve options through that registry; setting an
     unknown option, or a value outside its declared domain, raises an
     error naming the option and its allowed values. Every registered
-    option name is a stable public contract, which is the form the author
-    chose against the review's recommended narrowing.
+    option name is a stable public contract, which is the form the decision
+    took against the review's recommended narrowing.
 
     The quantifier was "every user-facing option or parameter" until
     2026-09-09 and nothing could hold a console script to it; it is
@@ -1315,7 +1315,7 @@ the base could not offer while it bundled several.
     them is asserted by no test, and saying so here is the alternative
     to a badge that implies one.*
 
-    Read with PFS-2028.09 at 0.14.0 (GOAL-013): the sense of rotation derived into the reference of the author's record is the author's to confirm, and it is asked in writing rather than decided.
+    Read with PFS-2028.09 at 0.14.0 (GOAL-013): the sense of rotation derived into the reference of the recorded campaign is for the domain seat to confirm, and it is asked in writing rather than decided.
 
     *Amended 2026-08-19. The rotor half of this requirement was badged
     implemented while `CONVENTIONS` carried no rotor entry at all: the
@@ -1368,7 +1368,7 @@ The allocation is recorded in the
 
 !!! requirement "FR-44 Console entry-point contract <span class='srs-pending'>pending</span>"
     *Origin: the C4 acceptance, 2026-07-27, in the FULL-contract form
-    the author chose against the review's own recommendation of a narrower
+    the decision went against the review's own recommendation of a narrower
     one.*
 
     The package provides one documented console entry point per
@@ -1376,11 +1376,11 @@ The allocation is recorded in the
     under the deprecation policy of NFR-20.
 
     Pending, and precisely: every entry point exists and is
-    exercised, so the first half ships. The second half is the one the author
+    exercised, so the first half ships. The second half is the one the owning seat
     strengthened, and nothing enforces it. NFR-20 is itself pending and
     does not bind before 1.0, so today a CLI flag can change with only
     a changelog line behind it. An earlier draft of this box wrote that
-    weaker form, which was the option the author declined.
+    weaker form, and that option was declined.
 
 !!! requirement "FR-45 Strict manifest record <span class='srs-implemented'>implemented</span>"
     *Origin: the C5 acceptance, 2026-07-27. Evidence: both halves
@@ -1388,7 +1388,7 @@ The allocation is recorded in the
     test added with this consolidation after review found the clause
     resting on a model-config line no assertion observed.*
 
-    Read with PFS-2033.02 at 0.14.0 (GOAL-013): the strict record gains two fields, `raw_commands` and `aliases` (the setup's boundary aliases, the author's decision of 2026-09-09), and the manifest schema stays at 3 because an absent key reads as empty.
+    Read with PFS-2033.02 at 0.14.0 (GOAL-013): the strict record gains two fields, `raw_commands` and `aliases` (the setup's boundary aliases, the design decision of 2026-09-09), and the manifest schema stays at 3 because an absent key reads as empty.
 
     The manifest record rejects unknown fields and duplicate run
     identifiers; its field set is fixed and validated at construction.
@@ -1403,7 +1403,7 @@ The allocation is recorded in the
     set of six status values, and a seventh cannot be introduced
     silently.
 
-    Read with FR-37, which the author closed as covered by this set on 2026-08-03: this set stays closed at six and FR-37 was restated to ask for a status distinct from CONVERGED, which two of these six give.
+    Read with FR-37, which was closed as covered by this set on 2026-08-03: this set stays closed at six and FR-37 was restated to ask for a status distinct from CONVERGED, which two of these six give.
 
 
 !!! requirement "FR-47 Public test-support assertions <span class='srs-implemented'>implemented</span>"
@@ -1509,22 +1509,21 @@ The allocation is recorded in the
     would be wrong. Anything presenting the level to a user states what
     it rests on where the two differ.
 
-## The workspace interface the author specified (2026-09-02)
+## The workspace interface specified (2026-09-02)
 
 The requirements below were derived on 2026-09-02 from two sources read
-side by side: the author's own driver for the author's master's campaign, which
+side by side: the reference driver for the reference campaign, which
 ran a matrix with no mandatory input, exported eight kinds of file per
-point and wrote the author's plot-format products afterwards; and the 0.10.1
-tree, pre-flighted on the author's rows with zero solver time and diffed against
-the scripts that produced the author's recorded results. Each requirement names
+point and wrote the reference plot-format products afterwards; and the 0.10.1
+tree, pre-flighted on the reference rows with zero solver time and diffed against
+the scripts that produced the recorded results. Each requirement names
 the planning nodes that carry it, so the plan points here and this page
-points back. The author's words are preserved verbatim in the coordination
+points back. The wording are preserved verbatim in the coordination
 record `RSH-HND-040` and its appendix; the measurements are on the
 nodes.
 
 !!! requirement "FR-50 A matrix runs with no mandatory command-line input <span class='srs-pending'>pending</span>"
-    *Origin: the author's item #1 of 2026-09-02, "nao quero nenhum input
-    obrigatorio aqui". Carried by PFS-2029.01, PFS-2029.02, PFS-2029.03
+    *Origin: feedback item #1 of 2026-09-02, no input is to be mandatory here. Carried by PFS-2029.01, PFS-2029.02, PFS-2029.03
     and its two children, and PFS-2029.04. Evidence owed: the tests each
     node names.*
 
@@ -1551,13 +1550,13 @@ nodes.
     and the library stop disagreeing.
 
 !!! requirement "FR-51 A run leaves the study's export set, named for the point <span class='srs-pending'>pending</span>"
-    *Origin: the author's run log of 2026-09-02 and the author's master's driver,
+    *Origin: the recorded run log of 2026-09-02 and the reference driver,
     which exported eight kinds per point and named every file for the
     point it came from. Carried by PFS-2029.14 and its children,
     PFS-2029.18 and PFS-2029.19 and its children. Evidence owed: the
     export goldens and the script-parity arm of GOAL-011.*
 
-    Read with PFS-2031.18.01 and PFS-2034.05 at 0.14.0 (GOAL-013): the stamped per-step exports of a windowed point are tabled as a series under the matrix's products, and the author's seat run reads them for the rotated propeller.
+    Read with PFS-2031.18.01 and PFS-2034.05 at 0.14.0 (GOAL-013): the stamped per-step exports of a windowed point are tabled as a series under the matrix's products, and the licensed seat run reads them for the rotated propeller.
 
     Every point of a workflow campaign leaves, beside the loads table and
     the log it leaves today, the saved simulation, the tecplot export, the
@@ -1565,10 +1564,10 @@ nodes.
     and an unsteady point additionally its unsteady plots; the sections,
     sectional loads and probe points are updated and computed before they
     are exported, so no export is of a previous state; the saved
-    simulation is written first, as the author's driver did; a
+    simulation is written first, as the reference driver did; a
     post-processing artifact may deselect a kind; a kind whose command
     carries no row on the row's build is refused at pre-flight naming the
-    build; and every export is named after the point in the author's
+    build; and every export is named after the point in the reference
     convention, `POLAR-{pol}_M{mach}AL{alpha}BE{beta}` with a `J{ratio}`
     suffix for a rotor point, so two rows differing only in Mach or in
     advance ratio never render one name.
@@ -1577,21 +1576,21 @@ nodes.
     `EXPORT_SOLVER_ANALYSIS_SPREADSHEET` at six sites and nothing else
     (`grep -c EXPORT_ src/pyflightstream/cases/workflows.py`); the
     default point name `a+00.0_b+00.0` carries the angles alone. Every
-    export command the author's driver emits carries a row on 26.120 and
+    export command the reference driver emits carries a row on 26.120 and
     on 26.123 in the command database, six of them verified.
 
 !!! requirement "FR-52 Post-processing is declared in the pproc artifact and runs as part of the campaign <span class='srs-pending'>pending</span>"
-    *Origin: the author's item #3 of 2026-09-02 and the author's decision of the
-    same day that the groups artifact becomes `pproc`, and the author's
+    *Origin: feedback item #3 of 2026-09-02 and the design decision of the
+    same day that the groups artifact becomes `pproc`, and the reference
     clarification that post-processing means both the data treatment and
     the files and data types available. Carried by PFS-2029.07 and its
     children, PFS-2029.15 and its children, and PFS-2029.16. Evidence
     owed: the tests each node names and the offline parity arm of
     GOAL-011.*
 
-    Read with PFS-2031.18.01 and PFS-2015.04.01 at 0.14.0 (GOAL-013): the series tables join the products beside the reductions, and the blade count of a sector is read from `PERIODIC_COPIES` when `BLADES` is absent, so the per-blade reductions of the author's isolated propeller are written.
+    Read with PFS-2031.18.01 and PFS-2015.04.01 at 0.14.0 (GOAL-013): the series tables join the products beside the reductions, and the blade count of a sector is read from `PERIODIC_COPIES` when `BLADES` is absent, so the per-blade reductions of the reference isolated propeller are written.
 
-    Read with PFS-2005.10, "an empty pproc group is every family, the author's verdict on the question PFS-2005.02 left to the domain seat", PFS-2005.04.01, "boundary aliases live in the setup and are read wherever a boundary is cited", and PFS-2029.07.04, "a pproc families entry may be a bare word", at 0.14.0 (GOAL-013), the author's decisions of 2026-09-09: an empty `[groups]` entry is every family the geometry carries; a `[groups]` member or a `families` entry may name an alias the row's setup defines, read as FR-30c states it; and a `families` entry may be a bare word, read as a selector, then as an alias, then as a family name, while an entry's `frame` may name a frame the setup defines or, on a row with several rotors, that rotor's own.
+    Read with PFS-2005.10, "an empty pproc group is every family, the verdict on the question PFS-2005.02 left to the domain seat", PFS-2005.04.01, "boundary aliases live in the setup and are read wherever a boundary is cited", and PFS-2029.07.04, "a pproc families entry may be a bare word", at 0.14.0 (GOAL-013), the design decisions of 2026-09-09: an empty `[groups]` entry is every family the geometry carries; a `[groups]` member or a `families` entry may name an alias the row's setup defines, read as FR-30c states it; and a `families` entry may be a bare word, read as a selector, then as an alias, then as a family name, while an entry's `frame` may name a frame the setup defines or, on a row with several rotors, that rotor's own.
 
     Amended 2026-09-10, carried by PFS-2035.08 and PFS-2035.19, pending
     until it ships: the frames an entry may cite are the REFERENCE's
@@ -1622,28 +1621,28 @@ nodes.
     Measured 2026-09-02: the `ENTRY` column resolves a group artifact at
     `workspace/matrix.py:1030`, the result reaches the caller at `:1117`
     and no builder consumes it; `src/pyflightstream/post` holds four
-    modules and nothing on the run path reaches them. The author's driver
+    modules and nothing on the run path reaches them. The reference driver
     read a post-processing table off the same module as the solver setup
-    and wrote the author's products after every polar.
+    and wrote the reference products after every polar.
 
-!!! requirement "FR-53 The author's recorded campaign reproduces through the workflow scheme <span class='srs-pending'>pending</span>"
-    *Origin: the instruction of 2026-09-02, "nao para ate
-    reproduzir EXATAMENTE corridas selecionadas que fiz no meu script do
-    mestrado, com posproc e tudo", and the author's clarification that the
-    guarantee the author wants is that exactly the same post-processing is
+!!! requirement "FR-53 The reference campaign reproduces through the workflow scheme <span class='srs-pending'>pending</span>"
+    *Origin: the instruction of 2026-09-02: the work does not stop until selected recorded runs
+    are reproduced EXACTLY, end to end and post-processing included, and the
+    clarification that the
+    guarantee the requirement asks is that exactly the same post-processing is
     produced. Carried by PFS-2030.01 to PFS-2030.07, under PFS-2030. Evidence owed:
     `GeoversePlan/goals/check_goal_011.py`, item one of GOAL-011.*
 
-    Read with PFS-2028.08 at 0.14.0 (GOAL-013): the installed full model of the author's record is one row whose symmetry, rotation sign and moving boundaries are asked in writing and run on the author's seat.
+    Read with PFS-2028.08 at 0.14.0 (GOAL-013): the installed full model of the reference record is one row whose symmetry, rotation sign and moving boundaries are asked in writing and run on the licensed seat.
 
-    One recorded point per registered run type of the author's master's
+    One recorded point per registered run type of the reference
     campaign, run on the solver build that produced the record, is
     reproduced by a workspace the package plans with nothing on the
     command line: the emitted script differs from the recorded script only
     on an enumerated allow-list of paths, comments, scene verbs and
     edition grammar; the run leaves the same export set under the same
-    names; the package's post-processing, fed the author's recorded
-    exports, writes the author's plot-format products equal to the author's except the
+    names; the package's post-processing, fed the recorded
+    exports, writes the reference plot-format products equal to the recorded ones except the
     timestamp line; and the reproduced loads are compared coefficient by
     coefficient against the recorded ones with the solver's own measured
     repeatability as the arbiter of any difference.
@@ -1654,16 +1653,16 @@ nodes.
     and prints NOT YET naming that file when it is absent. The build is
     26.120, FlightStream 26.1 build #7012026, read off the recorded loads
     tables and matched to `commands/_meta.yaml` on 2026-09-02. The seat
-    cost is five solver executions, authorised by the author on
+    cost is five solver executions, authorised by the owning seat on
     2026-09-02: three selected points and two controls.
 
 !!! requirement "FR-54 Every solver setting a reference script states has a home and reaches the script <span class='srs-pending'>pending</span>"
     *Origin: the script diff of 2026-09-02 between the 0.10.1 pre-flight
-    of the author's rows and the author's recorded scripts. Carried by PFS-2030.02,
-    PFS-2030.03 and its four children, and PFS-2028.05 on the author's decision of
+    of the reference rows and the recorded scripts. Carried by PFS-2030.02,
+    PFS-2030.03 and its four children, and PFS-2028.05 on the design decision of
     2026-09-02. Evidence owed: the tests each node names.*
 
-    A matrix row can state the fluid constants its author pinned
+    A matrix row can state the fluid constants its writer pinned
     (density, viscosity, sonic velocity, temperature, pressure) as
     flight-condition keys that override the standard atmosphere and are
     recorded as pinned; every builder states the reference velocity, the
@@ -1675,22 +1674,22 @@ nodes.
     `symmetry_loads` emits it as stated, an absent key remaining
     recorded-only and warning as before.
 
-    Measured 2026-09-02: the verbs only the author's scripts emit, beyond
+    Measured 2026-09-02: the verbs only the reference scripts emit, beyond
     the export block, are `SET_ANALYSIS_SYMMETRY_LOADS`,
     `SET_SOLVER_ANALYSIS_LOADS_FRAME`, `SET_ANALYSIS_MOMENTS_MODEL`,
     `SET_SIGNIFICANT_DIGITS`, `SOLVER_SET_REF_VELOCITY`,
     `SET_VORTICITY_DRAG_BOUNDARIES`, `SOLVER_SET_SIDESLIP`,
     `LOAD_SOLVER_INITIALIZATION DISABLE` and, on the no-rotor unsteady
     run, `SET_WAKE_TERMINATION_TIME_STEPS`; the fluid state differs in the
-    fourth digit because the author's scripts pin viscosity 1.789e-5 and sonic
+    fourth digit because the reference scripts pin viscosity 1.789e-5 and sonic
     velocity 340.29 where the package derives both from the standard
     atmosphere. The consequence of the first verb is already measured: the
     isolated-rotor row of the 0.10.1 reproduction workspace reported loads
-    six times the author's, the periodic copy count, because the author's setup
+    six times the recorded value, the periodic copy count, because the reference setup
     stated the symmetry loads off and the package emitted nothing.
 
 !!! requirement "FR-55 A row states its geometry as a file, and the geometry carries its own boundary inventory <span class='srs-pending'>pending</span>"
-    *Origin: the author's items #2 and #6 of 2026-09-02. Carried by
+    *Origin: feedback items #2 and #6 of 2026-09-02. Carried by
     PFS-2029.06 and its children, PFS-2029.09 and its children, and
     PFS-2029.10. Evidence owed: the tests each node names. AMENDS FR-33a's
     resolution of a geometry by stable id, and the acceptance sentence of
@@ -1716,10 +1715,10 @@ nodes.
     why the migration of every shipped matrix travels with it.
 
 !!! requirement "FR-56 The reference artifact states only what rows share, with one length per quantity <span class='srs-pending'>pending</span>"
-    *Origin: the author's items #4 and #5 of 2026-09-02. Carried by
+    *Origin: feedback items #4 and #5 of 2026-09-02. Carried by
     PFS-2029.05 and PFS-2029.08. Evidence owed: the tests each node names.*
 
-    Read with PFS-2028.09 at 0.14.0 (GOAL-013): the sign the reference's derived rotation produced for the author's rows is the author's to confirm.
+    Read with PFS-2028.09 at 0.14.0 (GOAL-013): the sign the reference's derived rotation produced for the reference rows is for the domain seat to confirm.
 
     The reference artifact carries the rotor diameter and no radius,
     refusing a file that states both with values that disagree; and it
@@ -1734,11 +1733,11 @@ nodes.
     fields at `:306-308` appear in no emitter.
 
 !!! requirement "FR-57 A row states as many rotors as the study has <span class='srs-pending'>pending</span>"
-    *Origin: the author's item #4 of 2026-09-02, the multirotor syntax.
+    *Origin: feedback item #4 of 2026-09-02, the multirotor syntax.
     Carried by PFS-2029.11 and its children. Evidence owed: the tests each
     node names.*
 
-    Read with PFS-2028.08 and PFS-2015.04.01 at 0.14.0 (GOAL-013): the installed model's row is the author's to state, and a sector meshed as one blade takes its blade count from its periodic copies.
+    Read with PFS-2028.08 and PFS-2015.04.01 at 0.14.0 (GOAL-013): the installed model's row is for the owning seat to state, and a sector meshed as one blade takes its blade count from its periodic copies.
 
     A matrix row states its motions as a list of records in one cell, each
     record carrying its moving boundaries, its rotor speed sign, its axis
@@ -1759,7 +1758,7 @@ nodes.
     list of records in one cell, which 0.11.0 built (CHANGELOG.md, the
     PFS-2029.11 entry under `## [0.11.0] - 2026-09-03`). The other half said each
     record carries its own moving boundaries, speed sign, axis and origin
-    point, and the author's design of 2026-09-10 moves all four OUT of the record and
+    point, and the design of 2026-09-10 moves all four OUT of the record and
     into the reference's rotor block, so the row states an alias and nothing
     else about the rotor. What this requirement asked for is therefore
     delivered by a different division of the same subject: FR-60 states the
@@ -1773,14 +1772,14 @@ nodes.
     superseded. Introducing a fifth costs a generator and a stylesheet;
     marking this one implemented would claim its second half shipped;
     leaving it pending counts work that will never be done under this
-    identifier. The three cost different things and choosing is the
-    author's, asked in writing on 2026-09-10. Until the author answers the marker
+    identifier. The three cost different things and choosing is a
+    seat decision, asked in writing on 2026-09-10. Until the owning seat answers the marker
     stays, and this paragraph is what a reader meets beside it.
 
 !!! requirement "FR-58 The fluid constants of a campaign have one home <span class='srs-implemented'>implemented</span>"
-    *Origin: the instruction of 2026-09-04, 'vamos trabalhar com
-    valores default ... dessa forma nao precisa inputar na matrix, eles podem
-    ficar no s001'. Carried by PFS-2030.08. Evidence:
+    *Origin: the instruction of 2026-09-04: work from default values, so
+    that they need not be entered in the matrix and can live in the setup
+    artifact instead. Carried by PFS-2030.08. Evidence:
     `tests/tier1_offline/test_flight_condition.py` (the resolver, its refusals and each
     refusal's own reason), `tests/tier1_offline/test_matrix_run.py` (the file, the record
     the run layer writes, and the equal-render arm below), scored against
@@ -1803,10 +1802,10 @@ nodes.
     the setup supplied beside the condition as written, so it stays
     recomputable once the constants leave the row.
 
-    Measured 2026-09-04: the author's three reproduction rows each repeat the
-    same four constants, and the author's thirteen-point polar would repeat them
+    Measured 2026-09-04: the reference three reproduction rows each repeat the
+    same four constants, and the reference thirteen-point polar would repeat them
     thirteen times; the package's own sea-level atmosphere gives viscosity
-    1.7892976260350732e-05 and sonic velocity 340.293988026089 where the author's tool
+    1.7892976260350732e-05 and sonic velocity 340.293988026089 where the reference tool
     states 1.789e-5 and 340.29, so the pins cannot be dropped in favour of the
     standard atmosphere. Those two figures are
     RE-MEASURED by
@@ -1814,13 +1813,13 @@ nodes.
     rather than left as prose: a full-precision literal that nothing pins goes
     silently false the moment a floor constant moves.
 
-## The rotor vocabulary the author designed (2026-09-10)
+## The rotor vocabulary the design of (2026-09-10)
 
 Fourteen requirements from one design, written out as a use case
-workspace before a line of it was built, which the author read three times
+workspace before a line of it was built, which the reviewed use case
 and changed at every reading. The nineteen leaves
 of PFS-2035 are that design one decision per node, and the requirements below
-are those decisions stated as behaviour. The author's sentence of that night defines
+are those decisions stated as behaviour. The reference sentence of that night defines
 the release around them: the use case is what defines the scope of 0.15.0.
 
 The shape they share, and the reason the set is worth reading as one: **a
@@ -1829,7 +1828,7 @@ at what operating point, and the mesh says what was actually meshed.** Every
 requirement below is one seam of that division.
 
 !!! requirement "FR-59 The reference holds the vocabulary of a study's boundaries <span class='srs-implemented'>implemented</span>"
-    *Origin: the author's decisions of 2026-09-09 and 2026-09-10, "todos os aliases vao
+    *Origin: the design decisions of 2026-09-09 and 2026-09-10, "todos os aliases vao
     para referencia". Carried by PFS-2035.01 and PFS-2035.13. Evidence owed:
     the tests those nodes name. SUPERSEDES the `[aliases]` table of
     FR-30c, "Declared inventories are range-checked", which shipped it in the
@@ -1846,7 +1845,7 @@ requirement below is one seam of that division.
     one reference serves the full aircraft and a cut of it. The setup preset's
     `[aliases]` table of 0.14.0 is REFUSED when a row binds it, naming the
     reference to move it to. This paragraph promised a warning and a 0.17.0
-    removal until the author's instruction of 2026-09-10; the refusal is
+    removal until the instruction of 2026-09-10; the refusal is
     what the package does.
 
     AMENDED BY FR-73, "A run chooses whether a family the mesh does not
@@ -1858,7 +1857,7 @@ requirement below is one seam of that division.
     Only `all` and `each` remain the package's own words. `airframe`, `blades`
     and `blade_pattern` leave, because a study declares its own names and a
     built-in word that means one thing to the package and another to the
-    author is the defect this requirement removes.
+    owning seat is the defect this requirement removes.
 
     Why the reference and not the preset: a boundary name is not a solver
     setting. A preset is per condition and a reference is per configuration,
@@ -1866,7 +1865,7 @@ requirement below is one seam of that division.
     configuration.
 
 !!! requirement "FR-60 A rotor is one rotor block of the reference, and the block is its alias <span class='srs-implemented'>implemented</span>"
-    *Origin: the author's design of 2026-09-10. Carried by PFS-2035.02 and PFS-2035.16.
+    *Origin: the design of 2026-09-10. Carried by PFS-2035.02 and PFS-2035.16.
     Evidence: `tests/tier1_offline/test_reference_vocabulary.py` (the block, the blade count, the union the name stands for, and every refusal it carries). Commits f0032d3 and 45b9b6b.*
 
     A block of the reference whose `kind` is `rotor` declares one rotor: its
@@ -1884,7 +1883,7 @@ requirement below is one seam of that division.
     builds from it: a rotor carrying `_SMRP` or `_RMRP` in its own name is
     refused, because then a rotor and a frame spell the same.
 
-    THE RULE PFS-2035.02 STATED WAS NARROWER AND WOULD HAVE REFUSED THE AUTHOR'S OWN
+    THE RULE PFS-2035.02 STATED WAS NARROWER AND WOULD HAVE REFUSED THE REFERENCE OWN
     STUDY, and it is corrected here rather than quietly widened. The node
     said a name is refused when it ENDS IN A DIGIT, "because a number after a
     radical always means a blade", which was true of the frame names of
@@ -1892,7 +1891,7 @@ requirement below is one seam of that division.
     rotor's frames are `<ALIAS>_SMRP`, `<ALIAS>_RMRP` and `<ALIAS>_RMRP<k>`,
     so the number sits after `RMRP` and never after the alias, and no two
     distinct aliases can produce one frame name. Measured 2026-09-10 against
-    the use case the author read three times: eight of its ten blocks are named
+    the use case the reviewed use case: eight of its ten blocks are named
     `LIFT_L1` to `LIFT_R4` and every one of them ends in a digit. `rpm_sign` is `+1` by the right-hand rule
     about `axis`, which is the one reading that does not depend on where the
     reader stands.
@@ -1910,15 +1909,14 @@ requirement below is one seam of that division.
     so a block built in Python without one built frames named
     `None_RMRP1` rather than refusing. The reader fills the name in before
     the block is built, so the file's freedom is unchanged. Whether the
-    field is worth keeping at all is the author's open question.
+    field is worth keeping at all is a seat decision open question.
 
     The campaign's propulsor count is therefore the number of rotor blocks,
     rather than the point kind and its `ERP`/`ARP` fallback that answer it
     today (0.11.0, PFS-2029.11.02).
 
 !!! requirement "FR-61 A row names a rotor by its alias and states nothing else about it <span class='srs-implemented'>implemented</span>"
-    *Origin: the author's design of 2026-09-10, "vamos mudar MOVING_BOUNDARIES para
-    MOVING_BC_ALIAS". Carried by PFS-2035.03. Evidence:
+    *Origin: the design of 2026-09-10: `MOVING_BOUNDARIES` becomes `MOVING_BC_ALIAS`. Carried by PFS-2035.03. Evidence:
     `tests/tier1_offline/test_rotor_by_alias.py`, where the alias moves that rotor's
     boundaries, an unknown alias is refused naming the rotors the reference
     does declare, and a record stating both spellings is refused; commit
@@ -1959,7 +1957,7 @@ requirement below is one seam of that division.
     declare.
 
 !!! requirement "FR-62 The frames a rotor instantiates take its alias as their radical <span class='srs-implemented'>implemented</span>"
-    *Origin: the author's design of 2026-09-10, "<ALIAS>_SMRP para o eixo local
+    *Origin: the design of 2026-09-10, "<ALIAS>_SMRP para o eixo local
     estatico e <ALIAS>_RMRP para o eixo rodando junto com o movimento".
     Carried by PFS-2035.04, absorbing PFS-2029.21. Evidence:
     `tests/tier1_offline/test_rotor_by_alias.py`, where the frames take the radical, the blade
@@ -1976,7 +1974,7 @@ requirement below is one seam of that division.
     `ROTOR_MRP<k>`, `RotorAxis<k>` and `BladeAxis<k>` are the names these
     replace, and a post-processing entry citing them is REFUSED, naming the
     replacement. This paragraph said "read with a deprecation warning until
-    0.17.0" until the author's instruction of 2026-09-10, "nomenclatura
+    0.17.0" until the instruction of 2026-09-10, "nomenclatura
     antiga e para dar erro com mensagem que aquela nomenclatura foi
     depreciada e como corrigir": this package has no stable release, so it
     owes no compatibility window for a word it chose badly. The refusal
@@ -1988,7 +1986,7 @@ requirement below is one seam of that division.
     colliding on one radical.
 
 !!! requirement "FR-63 The rotor speed lives in the motion record, resolved against that rotor's own diameter <span class='srs-implemented'>implemented</span>"
-    *Origin: the author's design of 2026-09-10 and the author's reminder of the same night, "a
+    *Origin: the design of 2026-09-10 and the reference reminder of the same night, "a
     razao de avanco vira RPM usando o diametro de cada rotor". Carried by
     PFS-2035.05 and PFS-2035.18. Evidence: `tests/tier1_offline/test_rotor_by_alias.py::test_one_ratio_gives_two_rotors_two_speeds_when_their_diameters_differ`, which asserts the two speeds are in the inverse ratio of the diameters. Commit 45b9b6b.
     AMENDS FR-56, "The reference artifact states only what rows share, with
@@ -2014,13 +2012,13 @@ requirement below is one seam of that division.
     it.
 
 !!! requirement "FR-64 Every rotor row names the motion that owns the clock <span class='srs-implemented'>implemented</span>"
-    *Origin: the author's design of 2026-09-10, "o setup temporal exige qual o
+    *Origin: the design of 2026-09-10, "o setup temporal exige qual o
     movimento de referencia". Carried by PFS-2035.07. Evidence:
     `tests/tier1_offline/test_rotor_by_alias.py` (the clock follows the named
     motion and not the fastest; a row stating a `MOTIONS` list without the key
     is refused naming the motions it could choose; the flat pre-0.15.0 form is
     exempt) and `tests/tier1_offline/test_reduce_by_rotor.py`. Commit 91a7302
-    and the decisions commit that made the key required. TWO OF THE AUTHOR'S
+    and the decisions commit that made the key required. TWO OF THE REFERENCE
     DECISIONS OF 2026-09-10 CHANGED THIS TEXT, and both are recorded in
     `GeoversePlan/coordination/decisions/DEC-010`.*
 
@@ -2029,21 +2027,21 @@ requirement below is one seam of that division.
     and the run length are that motion's.
 
     `rotor_speed` KEEPS ITS NAME. The draft of this requirement renamed it
-    `rotor_speed_ref`; asked, the author chose to leave it, and the rename is
+    `rotor_speed_ref`; asked, the decision was to leave it, and the rename is
     struck rather than deferred.
 
     THE SCOPE IS THE `MOTIONS` LIST AND NOT EVERY ROW WITH A MOTION, which
     is the second decision and it was taken with the consequence measured in
-    front of the author's. The list is the 0.15.0 vocabulary and it is where a row
+    front of the reference. The list is the 0.15.0 vocabulary and it is where a row
     has something to choose between; the flat pre-0.15.0 form names one
-    rotor in its own keys, has nothing to choose, and is how the author's master's
+    rotor in its own keys, has nothing to choose, and is how the reference
     case 9001 is written. Refusing that row would have cost the comparison
     that release rests on to buy a key that decides nothing.
 
     A row that states a `MOTIONS` list and no key is REFUSED, naming the
     motions it could have named. Before this release the clock followed the
-    fastest rotor by the package's own arithmetic, which is an inference the
-    author never wrote down; a declaration replaces it.
+    fastest rotor by the package's own arithmetic, which is an inference nobody
+    wrote   down; a declaration replaces it.
 
     Measured 2026-09-10, before the refusal was built: `_clock_speed` in
     `cases/workflows.py` read `fastest = max(speeds, key=lambda each:
@@ -2053,7 +2051,7 @@ requirement below is one seam of that division.
     requirement decays on every edit (the verification lens of 2026-09-10).
 
 !!! requirement "FR-65 The frame decides how a post-processing entry expands <span class='srs-implemented'>implemented</span>"
-    *Origin: the author's design of 2026-09-10 and the author's spinner decision of the same
+    *Origin: the design of 2026-09-10 and the reference spinner decision of the same
     night. Carried by PFS-2035.08, absorbing PFS-2029.20. Evidence:
     `tests/tier1_offline/test_pproc_by_frame.py`, which reads the rule off
     the model (an entry in a rotor frame is one per rotor, one in the local
@@ -2061,9 +2059,9 @@ requirement below is one seam of that division.
     present exactly when there is more than one emission, `each` stays and
     `each_blade` is refused) and ends by validating, WHERE THE WORKSPACE IS ON
     THE MACHINE and skipping with that reason where it is not, which is
-    every clone and every CI run, THE AUTHOR'S OWN
+    every clone and every CI run, THE REFERENCE OWN
     `pfs0150/inputs/pproc/p010.toml`, which is the file the requirement was
-    written from. Measured 2026-09-10: with the rule in place the author's two
+    written from. Measured 2026-09-10: with the rule in place the reference two
     matrices plan 39 points with none blocked, where the artifact would not
     validate at all before it.*
 
@@ -2094,8 +2092,8 @@ requirement below is one seam of that division.
     geometry lacks is. A steady row places no rotor frames and a row that
     turns only the lifters places no pusher frames, and one artifact serves
     all three; that entry comes right on the next row, which is precisely
-    what the refused one cannot do. Measured 2026-09-10 on the author's own
-    workspace: the distinction is 19 of the author's 39 points.
+    what the refused one cannot do. Measured 2026-09-10 on the reference
+    workspace: the distinction is 19 of the reference 39 points.
 
     THE SAME RULE REACHES THE SECTIONS AND THE PROBES, through one helper
     rather than three: a distribution measured in a blade's own axes is one
@@ -2110,8 +2108,8 @@ requirement below is one seam of that division.
     was `propeller_radius` and is REFUSED, naming `rotor_radius`.
 
 !!! requirement "FR-66 A row may state the symmetry-loads flag, overriding the preset with a warning <span class='srs-implemented'>implemented</span>"
-    *Origin: the author's decision of 2026-09-10, "vale promover ele para flag sim e
-    vamos manter isso na matriz". Carried by PFS-2035.09. Evidence:
+    *Origin: the design decision of 2026-09-10: it is worth promoting to a flag, and the matrix
+    keeps carrying it. Carried by PFS-2035.09. Evidence:
     `tests/tier1_offline/test_rotor_by_alias.py`, where the row overrides the preset and warns,
     agreeing warns nothing, and a value that is not a yes or a no is refused;
     commit 91a7302.*
@@ -2122,12 +2120,12 @@ requirement below is one seam of that division.
 
     Whether the solver reports the loads of the meshed sector or of the whole
     wheel is a per-row choice, because the same preset serves a sector row and
-    a full-wheel row. The override warns rather than refusing, which is the author's
+    a full-wheel row. The override warns rather than refusing, which is a seat decision
     second answer of that hour: the first was to refuse both stating it, as
     the rotor speed is refused.
 
 !!! requirement "FR-67 A row may state raw solver commands, after the preset's at the same seam <span class='srs-implemented'>implemented</span>"
-    *Origin: the author's decision of 2026-09-10, "a linha ganha um jeito de passar
+    *Origin: the design decision of 2026-09-10, "a linha ganha um jeito de passar
     comando bruto, mantendo a feature original preservada". Carried by
     PFS-2035.10. Evidence: `tests/tier1_offline/test_raw_on_the_row.py` (the cell
     states one record and several; a file path survives the record separator; a
@@ -2150,7 +2148,7 @@ requirement below is one seam of that division.
     and the LINE NUMBER rather than the cell. A blank line and a line opening
     with `#` are skipped, so a raw file may explain itself.
 
-    At one seam the preset's lines come first and the row's after, on the author's
+    At one seam the preset's lines come first and the row's after, on the reference
     answer that the shared lines are the ground and the specific ones come
     over them.
 
@@ -2158,7 +2156,7 @@ requirement below is one seam of that division.
     `matrix`, or the file's path WITH ITS LINE NUMBER, `<path>:<line>`, and a file's lines are recorded AS EMITTED,
     so a record still reproduces the run after the file has changed.
 
-    ONE THING THIS TEXT DID NOT ANTICIPATE, and the author's own row 9209 is where it
+    ONE THING THIS TEXT DID NOT ANTICIPATE, and the reference row 9209 is where it
     showed: a record's key and value pairs are separated by a slash, and a PATH
     carries slashes, so `FILE: raw/pusher_extra.txt / BEFORE: init` was cut at
     the path's own separator and refused as not a pair. A raw record splits on
@@ -2167,7 +2165,7 @@ requirement below is one seam of that division.
     unchanged.
 
 !!! requirement "FR-68 The reductions read each rotor's blade count from its own declaration <span class='srs-implemented'>implemented</span>"
-    *Origin: the author's design of 2026-09-10. Carried by PFS-2035.11. Evidence:
+    *Origin: the design of 2026-09-10. Carried by PFS-2035.11. Evidence:
     `tests/tier1_offline/test_reduce_by_rotor.py` (a row stating its speeds in
     motions reduces at all; each rotor's passage is its own and the two are
     asserted UNEQUAL before either is pinned; the per-blade windows are
@@ -2222,7 +2220,7 @@ requirement below is one seam of that division.
     lens, 2026-09-10).
 
 !!! requirement "FR-69 A sweep is one variable of the flight condition, and the angles are always written <span class='srs-implemented'>implemented</span>"
-    *Origin: the author's rule of 2026-09-10, "um sweep e aplicado a uma variavel que
+    *Origin: the rule of 2026-09-10, "um sweep e aplicado a uma variavel que
     DEFINE a condicao de voo e a apenas uma variavel". Carried by PFS-2035.14,
     which closes PFS-2035.12 and bounds PFS-2035.06. Evidence:
     `tests/tier1_offline/test_matrix.py` (the axis is read off the cell; a row
@@ -2274,7 +2272,7 @@ requirement below is one seam of that division.
 
     THE ONE ROW WAS NOT SPLIT, and saying so is the point of naming it
     here. Splitting is what this release asks of a USER, because only the
-    author of a study can allocate the new POLs. That fixture was built to
+    owning seat of a study can allocate the new POLs. That fixture was built to
     exercise the paired reader and its three diagonal points meant nothing
     physically, so it was rewritten as a swept incidence at a held
     sideslip, which changes two of its three points' sideslip. That is a
@@ -2299,9 +2297,9 @@ requirement below is one seam of that division.
     sweep failed before this release.
 
 !!! requirement "FR-70 An advance ratio in the flight condition governs the motions that state no speed <span class='srs-implemented'>implemented</span>"
-    *Origin: the author's decision of 2026-09-10 and its widening the same night,
-    "entao o sweep vale so para o movimento que nao tem advance ratio
-    declarado". Carried by PFS-2035.15. Evidence:
+    *Origin: the design decision of 2026-09-10 and its widening the same
+    night: the sweep governs only the motion that declares no advance ratio
+    of its own. Carried by PFS-2035.15. Evidence:
     `tests/tier1_offline/test_rotor_by_alias.py` (a swept ratio reaches the
     motion that states no speed and halving the ratio doubles that rotor's
     rev/min, a record stating its own ratio holds it against the sweep, and
@@ -2315,7 +2313,7 @@ requirement below is one seam of that division.
     is refused at plan time naming the cell, the record and the key.
 
     The rule is precedence, record over condition, and it exists for one case
-    the author named: a transition sweeps the pusher while the lifters hold. Eight
+    the requirement named: a transition sweeps the pusher while the lifters hold. Eight
     records carrying an RPM and one carrying nothing but its alias is that
     row, and the held motions hold at EVERY point of the sweep.
 
@@ -2324,7 +2322,7 @@ requirement below is one seam of that division.
     of the row's variables, because the row states only the word and the
     value is what varies; so a row writing `ADVANCE_RATIO: sweep` had no
     ratio among its variables and the condition's ratio reached no motion
-    at all. Measured 2026-09-10 on the author's own `matriz_transicao.fs`: 9 of 16
+    at all. Measured 2026-09-10 on the reference `matriz_transicao.fs`: 9 of 16
     points blocked on "states no rotor speed", which is the sentence this
     requirement removes.
 
@@ -2332,7 +2330,7 @@ requirement below is one seam of that division.
     motion instead, which is FR-63.
 
 !!! requirement "FR-71 A rotation cites an alias, carries its frames, and keeps the frame it turned from <span class='srs-implemented'>implemented</span>"
-    *Origin: the author's decision of 2026-09-10, "o comando de rotate tambem tem que
+    *Origin: the design decision of 2026-09-10, "o comando de rotate tambem tem que
     ser atualizado para ficar compativel com o do movimento". Carried by
     PFS-2035.17. Evidence: `tests/tier1_offline/test_rotor_by_alias.py` (the
     rotation cites the alias and turns that rotor's boundaries and no other's;
@@ -2363,7 +2361,7 @@ requirement below is one seam of that division.
     an installed propeller keeps the frame it turned FROM. Before this
     release that frame was lost the moment the mesh moved.
 
-    AN ENTRY DOES NOT HAVE TO CITE THE COPY, which is the author's rule of the same
+    AN ENTRY DOES NOT HAVE TO CITE THE COPY, which is the rule of the same
     night: "no posproc, se eu indicar um SMRP que foi rotacionado, ele
     escreve os outputs tanto no SMRP quanto no original". A post-processing
     entry naming a hub frame this row rotated is emitted TWICE, once in the
@@ -2378,12 +2376,12 @@ requirement below is one seam of that division.
     `<ALIAS>_RMRP<k>` never double: they turn WITH the motion at every
     step, so "the frame it turned from" is not a thing they have.
 
-    ONCE PER ALIAS IS THE AUTHOR'S ANSWER OF 2026-09-10 and the alternative was real:
+    ONCE PER ALIAS IS THE REFERENCE ANSWER OF 2026-09-10 and the alternative was real:
     once per RECORD would also have kept the frame BETWEEN two rotations of
     the same alias, so a row stating a pitch and then a toe could read each
     stage in the frame it started from. The two differ in what such a study
     can measure afterwards, which is a question about what a user wants and
-    not one the code can answer, so it waited for the author's rather than being
+    not one the code can answer, so it waited for the reference rather than being
     built and written down where it would look decided.
 
     Measured 2026-09-10, before this half was built: the builder emitted
@@ -2395,13 +2393,13 @@ requirement below is one seam of that division.
 
     `ALIAS` names EXACTLY ONE declared word, and that is not an arbitrary
     limit: a rotation carries the frames of what it turns, and those belong
-    to one rotor. A word naming two declared rotors is refused telling the
-    author to write one record per rotor, which is the shape a `FAMILIES`
+    to one rotor. A word naming two declared rotors is refused telling a
+    user to write one record per rotor, which is the shape a `FAMILIES`
     list spanning two rotors converts to and the one case the conversion
     cannot do by substitution.
 
     The `FAMILIES` spelling is REFUSED since 0.15.0, naming `ALIAS` as the
-    word to write, on the author's instruction of 2026-09-10. This paragraph
+    word to write, on the instruction of 2026-09-10. This paragraph
     promised a warning and that every matrix written before this release
     keeps working; neither is true, and a matrix stating `FAMILIES` is
     refused with the replacement named, because the key changes AND SO DOES
@@ -2424,8 +2422,8 @@ requirement below is one seam of that division.
     requirements of this section one vocabulary rather than fourteen features.
 
 !!! requirement "FR-72 A custom frame is declared in the reference, where the geometry is <span class='srs-implemented'>implemented</span>"
-    *Origin: the author's decision of 2026-09-10, "definicao de eixo customizado como o
-    NAC_FL vai para o ref, onde fica dados geometricos". Carried by
+    *Origin: the design decision of 2026-09-10: a custom axis definition such as
+    `NAC_FL` belongs in the reference, which is where geometric data lives. Carried by
     PFS-2035.19. Evidence: `tests/tier1_offline/test_reference_vocabulary.py` and `tests/tier1_offline/test_matrix_run.py` (the frames reach the case, a preset still stating them warns and the reference wins, a LEGACY row leaves them out and says so). Commits f0032d3, 661dd5d and 2840078. SUPERSEDES the
     `[[frames]]` table of FR-31, "Solver-setup provenance", which places it in
     the setup preset.*
@@ -2437,7 +2435,7 @@ requirement below is one seam of that division.
     resolve against the reference's frames, the package's own names staying
     reserved. A preset still stating `[[frames]]` is REFUSED when a row binds
     it, naming the reference to move it to. This paragraph promised a warning
-    and a 0.17.0 removal until the author's instruction of 2026-09-10; the
+    and a 0.17.0 removal until the instruction of 2026-09-10; the
     refusal is what the package does.
 
     A coordinate system is geometric data, so it belongs beside the lengths
@@ -2446,9 +2444,9 @@ requirement below is one seam of that division.
     rotor block, while the hand-written ones sat in the preset.
 
 !!! requirement "FR-73 A run chooses whether a family the mesh does not carry is a skip or a refusal <span class='srs-implemented'>implemented</span>"
-    *Origin: the author's decision of 2026-09-10, "a minha ideia era ter uma flag na
-    chamada da linha de comando --ignore_missing_families e ali o usuario
-    poder passar false, sendo que o default e true". Carried by PFS-2035.13,
+    *Origin: the design decision of 2026-09-10: a command-line flag
+    `--ignore-missing-families` the user may pass as false, defaulting to
+    true. Carried by PFS-2035.13,
     recorded in `GeoversePlan/coordination/decisions/DEC-010`. Evidence:
     `tests/tier1_offline/test_missing_families_choice.py` (forty-two cases
     over the three layers, and the lane's mutation scoring recorded in
@@ -2514,9 +2512,8 @@ requirement below is one seam of that division.
 
 !!! requirement "FR-74 A setup declares custom flags, so a row sets a solver command by name <span class='srs-implemented'>implemented</span>"
 
-    *Origin: the author's instruction of 2026-09-10, "no setup, quero adicionar a
-    declaracao de custom flags ... Assim o uso do raw realmente vai ficar para
-    casos particulares". Carried by PFS-2035.20. Evidence:
+    *Origin: the instruction of 2026-09-10: the setup gains a declaration of custom
+    flags, so that raw commands are left for genuinely particular cases. Carried by PFS-2035.20. Evidence:
     `tests/tier1_offline/test_custom_flags.py`, and the worked example
     `tests/tier3_licensed/inputs/setups/s006.toml` with row 8006 of
     `matriz_vocab.fs` and its committed golden.*
@@ -2591,9 +2588,9 @@ requirement below is one seam of that division.
 
 !!! requirement "FR-75 A section distribution over a rotor cuts its blades and not the rotor <span class='srs-implemented'>implemented</span>"
 
-    *Origin: the author's decision of 2026-09-10, "para o
-    sections.distributions, nao faz sentido ter cortes com o rotor inteiro,
-    entao para ele vale ser 3 (diferente do plots)". Carried by PFS-2035.22.
+    *Origin: the design decision of 2026-09-10: a section distribution over a
+    whole rotor makes no sense, so a rotor's distribution count is per blade,
+    unlike the plots' . Carried by PFS-2035.22.
     Evidence: tests/tier1_offline/test_workflows.py.*
 
     WHAT IT IS FOR, before how it is written. `LOCAL_AXIS` means one emission
@@ -2620,7 +2617,7 @@ requirement below is one seam of that division.
 
 !!! requirement "FR-76 A section distribution may state its own cut count <span class='srs-implemented'>implemented</span>"
 
-    *Origin: the author's instruction of 2026-09-10, "sobre o surface section,
+    *Origin: the instruction of 2026-09-10, "sobre o surface section,
     registra no backlog para deixarmos a opcao de especificar por distribuicao
     mantendo preservando a opcao geral que tem hoje". Carried by PFS-2035.23.
     Evidence: tests/tier1_offline/test_workflows.py.*
@@ -2643,7 +2640,7 @@ requirement below is one seam of that division.
     that is only ever tested alone is a global setting with extra syntax.
 
     `plot_direction` GAINS THE SAME SHAPE and `include_symmetry` does not, on
-    the author's decision of 2026-09-10. Both keep their artifact-level value
+    the design decision of 2026-09-10. Both keep their artifact-level value
     as the default. The asymmetry is hers and it has a reason a reader can
     check: a plot direction is a property of the CUT, so two distributions
     can honestly want different ones, while symmetry is a property of the
@@ -2652,8 +2649,8 @@ requirement below is one seam of that division.
 
 !!! requirement "FR-77 Probe lines are a list of tables, so one artifact probes several frames <span class='srs-implemented'>implemented</span>"
 
-    *Origin: the author's decision of 2026-09-10, "quero que [probes] vire
-    [[probes]], pode colocar como item do proximo release". Carried by
+    *Origin: the design decision of 2026-09-10: `[probes]` becomes `[[probes]]`, as an
+    item of the next release. Carried by
     PFS-2035.24. Evidence:
     tests/tier1_offline/test_workflows.py.*
 
@@ -2688,7 +2685,7 @@ requirement below is one seam of that division.
 
 !!! requirement "FR-78 A run says on the console which stage it is in, and its warnings arrive while it runs <span class='srs-implemented'>implemented</span>"
 
-    *Origin: the author's request of 2026-09-10, "eu gostaria de ter um log do
+    *Origin: the request of 2026-09-10, "eu gostaria de ter um log do
     pyflightstream aparecendo no powershell falando qual etapa que ta e
     qualquer warning enquanto ele roda". Carried by PFS-2035.25.
     Evidence: tests/tier1_offline/test_run_campaign.py.*
@@ -2726,9 +2723,9 @@ requirement below is one seam of that division.
 
 !!! requirement "FR-79 A probe entry prescribes a rectangular or a circular plane, not only a line <span class='srs-implemented'>implemented</span>"
 
-    *Origin: the author's request of 2026-09-10, "eu quero ser capaz de
-    prescrever planos retangulares passando os vertices e a descretizacao,
-    tambem quero planos circulares com descretizacao em coordenadas polares".
+    *Origin: the request of 2026-09-10: a rectangular plane can be prescribed by
+    its vertices and its discretisation, and a circular one by a
+    discretisation in polar coordinates.
     Carried by PFS-2035.26. Evidence:
     tests/tier1_offline/test_workflows.py.*
 
@@ -2772,7 +2769,7 @@ requirement below is one seam of that division.
     line, so the list and the shapes are designed together rather than
     shipping a format change twice.
 
-    THE EMISSION IS POINT BY POINT, on the author's decision of 2026-09-10.
+    THE EMISSION IS POINT BY POINT, on the design decision of 2026-09-10.
     A rectangle and a circle both emit `NEW_PROBE_POINT` per vertex rather
     than a line per grid row, and the reason is transparency rather than
     geometry: on the unsteady path the points reach the solver one at a time
@@ -2786,9 +2783,9 @@ requirement below is one seam of that division.
 
 !!! requirement "FR-80 A probe entry may cite a points file the user wrote, under inputs/profiles <span class='srs-implemented'>implemented</span>"
 
-    *Origin: the author's request of 2026-09-10, "eu tambem quero ter a opcao
-    do usuario criar um arquivo txt com os pontos que ele deseja e no pproc,
-    poder apontar esse txt. Ele deve ficar em profiles". Carried by
+    *Origin: the request of 2026-09-10: a user may write a text file of the
+    points they want and cite it from the pproc artifact; the file belongs
+    in `profiles`. Carried by
     PFS-2035.27. Evidence:
     tests/tier1_offline/test_workflows.py.*
 
@@ -2855,15 +2852,16 @@ requirement below is one seam of that division.
     declares probes gets an export of nothing, with no warning and no
     refusal.
 
-    A STEADY ROW CREATES THE POINTS IT EXPORTS, on the author's decision of
-    2026-09-10: "steady passa a criar os pontos, e tem comando de
-    distribuicao de linha para probes no steady, entao fica transparente".
-    The alternative she considered and did not take was refusing a probes
+    A STEADY ROW CREATES THE POINTS IT EXPORTS, on the design decision of
+    2026-09-10: a steady row creates the points, since a line
+    distribution command for probes exists on the steady path, so the two
+    paths become transparent to each other.
+    The alternative considered and not taken was refusing a probes
     table on a steady row; what neither of them is, is the third state the
     package is in now, where the script asks the solver to export a thing
     nobody made.
 
-    The consequence she named is the one that matters to a reader: a steady
+    The consequence named is the one that matters to a reader: a steady
     row and an unsteady row citing the same artifact produce the same probe
     export, so nothing downstream has to know which of the two ran.
 
@@ -2873,14 +2871,13 @@ requirement below is one seam of that division.
 
 !!! requirement "FR-82 A plan flag tables what each polar will cost, and what it is expected to take <span class='srs-implemented'>implemented</span>"
 
-    *Origin: the author's request of 2026-09-10, "no plan, eu quero uma flag
-    que ao ser ativada, volta tambem um resumo de tempo de execucao esperado
-    para cada polar", with the columns she listed and "inclua tambem o numero
-    de processadores setados". Carried by PFS-2035.29. Her instruction of
-    2026-09-11 on what the estimate may rest on: "eu quero uma estimativa do
-    tempo da rodada. Eu vou depois fazer um estudo de escalabilidade mais
-    completo e te passar os dados para calibrar melhhor o modelo, por enquanto
-    use o que voce tem." Evidence: tests/tier1_offline/test_plan_cost.py,
+    *Origin: the request of 2026-09-10 for a plan flag that also returns a
+    summary of the expected execution time per polar, with a stated column
+    set that includes the number of processors configured. Carried by
+    PFS-2035.29. The decision of 2026-09-11 on what the estimate may rest
+    on: an estimate of the run time is wanted now, from whatever the
+    workspace already holds; a fuller scalability study will follow and can
+    calibrate the model later. Evidence: tests/tier1_offline/test_plan_cost.py,
     18 cases, and tests/tier1_offline/test_cli_options_registry.py for the
     flag.*
 
@@ -2980,7 +2977,7 @@ requirement below is one seam of that division.
 
     A SAMPLE WHOSE WORK CANNOT BE RESOLVED IS LEFT OUT, never counted as one
     solve, and the basis says how many were dropped. That sentence is here
-    because the first writing did count them as one solve: her recorded rotor
+    because the first writing did count them as one solve: the recorded rotor
     run carries a null step count, since every reduction of that point was
     skipped, and the point was tabled at 7013.5s against its own recorded
     194.8s.
@@ -3012,7 +3009,7 @@ requirement below is one seam of that division.
 
 !!! requirement "FR-83 A section distribution is created after the solver is initialised <span class='srs-implemented'>implemented</span>"
 
-    *Origin: the author's first feedback item of 2026-09-10 after running
+    *Origin: the first feedback item of 2026-09-10 after running
     0.15.0 at work, "surface sections 50 dummies criadas, entender porque".
     Carried by PFS-2036.01. Evidence:
     tests/tier1_offline/test_workflows.py.*
@@ -3029,10 +3026,10 @@ requirement below is one seam of that division.
 
     THE COMMAND IS NOT THE PROBLEM, and the first diagnosis of this defect
     said it was. `NEW_SURFACE_SECTION_DISTRIBUTION` works, takes the count the
-    artifact already declares, and needs no extent: the author's own driver
-    runs it and gets real cuts, and she said so plainly, "sempre funcionou".
+    artifact already declares, and needs no extent: the reference driver
+    runs it and gets real cuts, and the report is that it always has.
 
-    THE POSITION IS THE PROBLEM. Her working script,
+    THE POSITION IS THE PROBLEM. The working script,
     `SCRIPT-POLAR-3267_M20AL+000BE+000.txt`, creates its twelve distributions
     AFTER the solver is initialised:
 
@@ -3049,17 +3046,18 @@ requirement below is one seam of that division.
     nothing.
 
     A section distribution is emitted between `INITIALIZE_SOLVER` and
-    `START_SOLVER`, where the author's own scripts put it. A test asserts the
+    `START_SOLVER`, where the reference scripts put it. A test asserts the
     position against both boundaries, and the shipped goldens carry it.
 
-    `INCLUDE_SYMMETRY` IS KEPT AND IS NOT THE CAUSE. Her twelve blocks carry
+    `INCLUDE_SYMMETRY` IS KEPT AND IS NOT THE CAUSE. The twelve reference blocks carry
     six keywords and no `INCLUDE_SYMMETRY`, which made it the other candidate:
     a keyword a build does not expect would shift the rest of the block and
     put `SURFACES` in the wrong field. It is not the cause, because those
     scripts predate the keyword and the first edition to document it is
-    26.121. The author settled it: "INCLUDE_SYMMETRY precisa entrar, e
-    evolucao do comando". A test pins it as emitted, so a later reader of her
-    scripts cannot reintroduce the candidate.
+    26.121. The owning seat settled it: the keyword is emitted, being an
+    evolution of the command rather than a change of meaning. A test pins it
+    as emitted, so a later reader of those scripts cannot reintroduce the
+    candidate.
 
     HOW THE FIRST DIAGNOSIS WENT WRONG IS RECORDED HERE, because the same
     mistake was made twice in one investigation and the record is the only
@@ -3068,13 +3066,13 @@ requirement below is one seam of that division.
     from the difference that the command did not distribute, and the
     conclusion was attributed to the command. Two variables moved and one was
     named. The technical-writing review caught it once, on the station; the
-    author caught it the second time, on the phase. The probe's own artifacts
+    owning seat caught it the second time, on the phase. The probe's own artifacts
     are kept under
     `GeoverseResearch/tools/fts_workspace/pfs0160-probe-fr83/`, a private
     research workspace held outside this repository.
 
     WHAT IS STILL OWED AND IS NOT THIS REQUIREMENT. Sections cut against a
-    MOVING boundary freeze at the pose they were created in. The author's
+    MOVING boundary freeze at the pose they were created in. The reference
     answer is to create them in the rotating auxiliary frames, so they turn
     with the geometry and need only an UPDATE per step rather than a
     re-creation, and that is what the export-after-N-revolutions actions are
@@ -3083,7 +3081,7 @@ requirement below is one seam of that division.
 
 !!! requirement "FR-84 A simulation's collected outputs live under outputs, not raw <span class='srs-implemented'>implemented</span>"
 
-    *Origin: the author's second feedback item of 2026-09-10, "trocar
+    *Origin: the second feedback item of 2026-09-10, "trocar
     sims\sim_<>\raw por sims\sim_<>\outputs". Carried by PFS-2036.02.
     Evidence: tests/tier1_offline/test_sim_outputs_dir.py.*
 
@@ -3108,12 +3106,12 @@ requirement below is one seam of that division.
 
 !!! requirement "FR-85 A polar table is named by the standard convention and says what was swept <span class='srs-implemented'>implemented</span>"
 
-    *Origin: the author's third feedback item of 2026-09-10, "nome de
-    <>_M<>_g<>.csv e <>_M<>_g<>.dat precisa ser na verdade o nome padrao com
-    sweep na variavel de sweep". Carried by PFS-2036.03. Evidence: tests/tier1_offline/test_products_layout.py.*
+    *Origin: the third feedback item of 2026-09-10, the names
+    `<>_M<>_g<>.csv` and `<>_M<>_g<>.dat` must be the standard convention,
+    with the word `sweep` in the swept variable's field. Carried by PFS-2036.03. Evidence: tests/tier1_offline/test_products_layout.py.*
 
     WHAT IT IS FOR. The package writes one point under two conventions.
-    Measured in the workspace she sent back, for one point of one run:
+    Measured in the reference workspace, for one point of one run:
 
         scripts      POLAR-0001_M15AL+000BE+000J+100.txt
         polar table  0001_M15_g01.csv
@@ -3123,7 +3121,7 @@ requirement below is one seam of that division.
     actually swept.
 
     WORSE THAN THE NAME, THE CONTENTS CANNOT TELL THE ROWS APART. Measured on
-    her `0001_M15_g01.csv`: the three rows of a three-value sweep carry
+    the reference `0001_M15_g01.csv`: the three rows of a three-value sweep carry
     identical `ALPHA`, `BETA`, `MACH` and `RE` and NO column naming the swept
     value, so the only thing distinguishing the first row from the third is
     its position in the file. A table whose rows are told apart by order is
@@ -3141,7 +3139,7 @@ requirement below is one seam of that division.
 
 !!! requirement "FR-86 A provenance file is named by the same convention as everything beside it <span class='srs-implemented'>implemented</span>"
 
-    *Origin: the author's fourth feedback item of 2026-09-10, "nomes arquivos
+    *Origin: the fourth feedback item of 2026-09-10, "nomes arquivos
     em post\matriz\provenance fora do padrao". Carried by PFS-2036.04.
     Evidence: tests/tier1_offline/test_products_layout.py.*
 
@@ -3163,14 +3161,14 @@ requirement below is one seam of that division.
 
 !!! requirement "FR-87 Flow-field samples go to probes and carry the fluid quantities, steady or unsteady <span class='srs-implemented'>implemented</span>"
 
-    *Origin: the author's fifth feedback item of 2026-09-10, "arquivo plot
-    faltando os fluidos. Para deixar generico seja steady ou unsteady, vamos
-    deixar os plots unsteady de fluidos em uma pasta probes". Carried by
+    *Origin: the fifth feedback item of 2026-09-10, the plot file is missing the fluid
+    quantities; to keep it uniform between steady and unsteady, the unsteady
+    fluid plots go in a `probes` folder. Carried by
     PFS-2036.05. Evidence: tests/tier1_offline/test_products_layout.py.*
 
     TWO CLAIMS AND THEY ARE SEPARABLE. First, the file is missing the fluid
     quantities: the unsteady plots emit forces AND fluid properties, and the
-    file she got back carried only the forces. That is a content defect and it
+    file returned carried only the forces. That is a content defect and it
     is the expensive one, because the quantities are gone until the point is
     run again. Second, the directory is named `plots`, after the solver verb
     that produced the file, rather than after what the file holds.
@@ -3211,11 +3209,11 @@ requirement below is one seam of that division.
 
 !!! requirement "FR-88 The polar tables live in a polars subfolder <span class='srs-implemented'>implemented</span>"
 
-    *Origin: the author's sixth feedback item of 2026-09-10, "crie uma
+    *Origin: the reference sixth feedback item of 2026-09-10, "crie uma
     subpasta polars para os arquivos <>_M<>_g<>.csv e <>_M<>_g<>.dat atuais".
     Carried by PFS-2036.06. Evidence: tests/tier1_offline/test_products_layout.py.*
 
-    WHAT IT IS FOR. Measured in the workspace she sent back, `post/matriz/`
+    WHAT IT IS FOR. Measured in the reference workspace, `post/matriz/`
     holds the polar tables loose at its top level beside `sections/`,
     `plots/`, `provenance/` and the campaign manifests. Every other family of
     file has a directory and the polar tables do not, so the top level reads
@@ -3230,7 +3228,7 @@ requirement below is one seam of that division.
 
 !!! requirement "FR-89 One derived file per polar and group carries everything the workspace knows <span class='srs-implemented'>implemented</span>"
 
-    *Origin: the author's seventh feedback item of 2026-09-10, "crie um super
+    *Origin: the seventh feedback item of 2026-09-10, "crie um super
     arquivo derivado ... de forma que apenas com o arquivo se sabe tudo sobre
     aquela simulacao", and, asked again the same evening, "todas as variaveis
     que definem a condicao de voo precisam obrigatoriamente estar nesse super
@@ -3262,15 +3260,15 @@ requirement below is one seam of that division.
     NO FIELD IS LEFT OUT BY JUDGEMENT, and the test is what enforces that: it
     BUILDS the union from the workspace rather than listing it, so a field
     added anywhere upstream fails the test until it reaches the file. The
-    author's own statement of the acceptance is one sentence: if she has to
+    The acceptance is one sentence: if a reader has to
     open a second file to know something about that simulation, it failed.
 
 !!! requirement "FR-90 The post stage writes no file twice <span class='srs-implemented'>implemented</span>"
 
-    *Origin: measured on 2026-09-10 while reading the workspace she sent back;
-    she did not report it. Carried by PFS-2036.08. Evidence: tests/tier1_offline/test_run_cli.py.*
+    *Origin: measured on 2026-09-10 while reading the reference workspace;
+    it was not reported. Carried by PFS-2036.08. Evidence: tests/tier1_offline/test_run_cli.py.*
 
-    WHAT IT IS FOR. Measured in her `post/matriz/`:
+    WHAT IT IS FOR. Measured in the reference `post/matriz/`:
 
         sweep.csv           1012 bytes  sha256 d121faf0de4c9b7b...
         campaign_sweep.csv  1012 bytes  sha256 d121faf0de4c9b7b...
@@ -3292,18 +3290,17 @@ requirement below is one seam of that division.
 
 !!! requirement "FR-91 A probe table carries where each point IS, beside what the flow did there <span class='srs-implemented'>implemented</span>"
 
-    *Origin: the author's instruction of 2026-09-11, "eu quero que tenha uma
-    arquivo csv com o resultado das probes e a posicao xyz delas + frame de
-    referencia junto ao resultado do fluido (velocidade, mach, etc) ... pro
-    unsteady, e importante ter o arquivo de posicao porque nao vem escrito no
-    unsteady plots", and her answer on which quantities: "leva todas as fluid
-    properties e tudo o que steady probes devolve, isso inclui ate informacao de
-    boundary layer". Evidence: tests/tier1_offline/test_probe_positions.py,
+    *Origin: the instruction of 2026-09-11: a csv carrying the probe results, the
+    xyz position of each probe and the reference frame, beside the fluid
+    result (velocity, Mach and the rest); on the unsteady path the positions
+    file matters particularly, because the unsteady plots never state where
+    the probes are, and the decision on which quantities: every fluid property and everything a
+    steady probe returns, boundary-layer information included. Evidence: tests/tier1_offline/test_probe_positions.py,
     17 cases, mutation score 7 of 7.*
 
     WHAT IT IS FOR. A probe result says what the flow did. It does not say
     WHERE. For a steady export the position travels with the sample; for an
-    UNSTEADY one it does not, and the author states the consequence directly:
+    UNSTEADY one it does not, and the owning seat states the consequence directly:
     the unsteady plots do not write the position, so a reader holding an
     unsteady probe table cannot place a single one of its points. A survey
     whose coordinates live in a different file, or in no file, is a table of
@@ -3327,9 +3324,9 @@ requirement below is one seam of that division.
     `tests/tier1_offline/fixtures/probe_points_26.120.txt` line 30. An
     unsteady plots export carries ONE NUMBERED COLUMN PER PARAMETER THE ROW'S
     OWN PROBE ENTRY DECLARES, and no boundary layer at all. The two sets are
-    not the same set, and her answer settles which way that resolves: take
+    not the same set, and the decision settles which way that resolves: take
     everything the steady probe returns, the boundary layer included. A writer
-    that forced one column set would have to drop what she asked to keep or
+    that forced one column set would have to drop what was asked to be kept or
     invent what the solver did not measure. So `PROBE, X, Y, Z, FRAME, STEP` is
     identical on both paths and a test asserts it, and each table's fluid
     columns are its own export's, in its own names and units. `STEP` carries
@@ -3370,11 +3367,11 @@ requirement below is one seam of that division.
     said it "names no frame at all", and line 25 of the fixture it rests on
     reads `Coordinate frame for analysis: Reference`. That is the frame the
     ANALYSIS is reported in; the frame a probe entry laid its points out in is
-    the entry's own, `PUSHER_SMRP` on her rotor row, and no export states it.
+    the entry's own, `PUSHER_SMRP` on the reference rotor row, and no export states it.
     So the column is needed for the reason given and the old sentence was
     still false. WHETHER THE EXPORT'S `X, Y, Z` ARE EXPRESSED IN THE ANALYSIS
     FRAME OR IN THE ENTRY'S is a solver-semantics question this requirement
-    does not settle and must not assert: it is registered for her domain seat
+    does not settle and must not assert: it is registered for the domain seat
     (the verification lens, 2026-09-11).
 
     A RUN RECORDED BEFORE 0.16.0 STILL PRODUCES ITS TABLE. It names no

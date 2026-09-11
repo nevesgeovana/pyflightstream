@@ -878,7 +878,7 @@ class LoadsAssessor:
     -----
     Every refusal carries ``FAILED_INCOMPLETE_OUTPUT``, and that is a
     constrained choice rather than the right name for each of them. The
-    terminal set is closed at six values, and the author resolved on
+    terminal set is closed at six values, and it was resolved on
     2026-08-03 that it stays closed: FR-46 holds and FR-37 closes as
     covered, so there is no seventh value meaning "the solver ran and
     this package cannot judge the result".
@@ -1546,7 +1546,7 @@ def package_vcs_state() -> tuple[str | None, bool | None]:
     Two of the three clauses that finding asks for are a versioning
     scheme change (a dev version carrying the sha, and a guard refusing
     a final version string off a tag), which is a release-mechanics
-    decision for the author and is registered rather than taken. This
+    decision for the owning seat and is registered rather than taken. This
     is the third: the manifest says which commit ran and whether the
     tree was clean, which is the part that needs no decision because it
     adds evidence without changing what anything claims.
@@ -2346,7 +2346,7 @@ def _advance_ratio_of(case: SimCase) -> float | None:
 
     A row stating ADVANCE_RATIO names it directly; a row stating RPM with
     a velocity and a rotor diameter resolves it the way the rotor
-    speed does (PFS-2029.19.01, the J field of the author's convention). A case
+    speed does (PFS-2029.19.01, the J field of the standard convention). A case
     that cannot resolve one is a case without a J field, not a refusal:
     the name is presentation, and the run type's own refusals still say
     what a rotor row lacks.
@@ -2601,7 +2601,7 @@ def _write_probe_points(
     relative = f"{PROBE_PROFILE_DIR}/{sim_id}_probe_points.csv"
     target = sim_dir / relative
     # A USER'S OWN SURVEY LIVES IN THIS FOLDER TOO. FR-80 stages the points
-    # file a user cited into `profiles/`, on her instruction, so a user whose
+    # file a user cited into `profiles/`, by requirement, so a user whose
     # file carries this exact name would have had it overwritten here without
     # a word. Destroying user input is not a thing to do quietly, and a
     # refusal naming both the file and the fix costs one rename (the
@@ -2689,7 +2689,7 @@ def estimate_point_cost(
     page away (the technical writing lens, 2026-09-11).
 
     IT IS DELIBERATELY A CRUDE MODEL and the docstring says so rather than the
-    code implying otherwise. The author has a scalability study coming, in her
+    code implying otherwise. A scalability study is planned, in the
     words "eu vou depois fazer um estudo de escalabilidade mais completo e te
     passar os dados para calibrar melhor o modelo, por enquanto use o que voce
     tem". Until then a reader gets a number with its sample size attached, or
@@ -2743,7 +2743,7 @@ def estimate_point_cost(
             # THE SAMPLE'S OWN WORK, and it is NOT read off the manifest's
             # reductions: a recorded run whose reductions were skipped
             # carries a null step count there, and reading that as ONE
-            # SOLVE made the rate 36 times too large on her rotor point.
+            # SOLVE made the rate 36 times too large on the reference rotor point.
             # The plan resolved the step count of every point it holds, and
             # a recorded run of a point still in the matrix is that point,
             # so the map answers; a record of a point that has left the
@@ -2783,7 +2783,7 @@ def estimate_point_cost(
             f"fitted from {samples} recorded "
             f"{'unsteady' if unsteady else 'steady'} run(s) of this workspace, "
             f"{how}. It is a crude model "
-            "pending her scalability study and is not a measurement of "
+            "pending a scalability study and is not a measurement of "
             f"this point.{dropped}"
         )
     elif same:
@@ -2844,9 +2844,9 @@ def point_costs(
     THE STEP COUNT OF EVERY POINT IS RESOLVED ONCE and handed to the fit, so
     a RECORDED run of one of these points can be weighed by the work it did.
     Read off the manifest instead, it is null for every run whose reductions
-    were skipped, and the rate comes out by the factor of the steps: her
-    rotor point was tabled at 7013.5s against a recorded run of 194.8s of
-    that same point.
+    were skipped, and the rate comes out by the factor of the steps: the
+    reference rotor point was tabled at 7013.5s against a recorded run of
+    194.8s of that same point.
     """
     from pyflightstream.cases.workflows import time_steps_of
 
@@ -3558,7 +3558,7 @@ def _execute_point(
         "waived_commands": [],
         # PFS-2033.02: the setup's raw commands, as the script carried them.
         "raw_commands": [entry.model_dump(mode="json") for entry in case.raw_commands],
-        # The author's decision of 2026-09-09: the setup's aliases, for the products stage.
+        # The design decision of 2026-09-09: the setup's aliases, for the products stage.
         "aliases": {name: list(members) for name, members in case.aliases.items()},
         # PFS-2012.04: how the solver was called, read off the executor
         # and its result once the point has run, and None on the four

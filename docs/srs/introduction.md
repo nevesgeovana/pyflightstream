@@ -6,7 +6,7 @@ pyflightstream is a Python package that drives the FlightStream
 panel-method solver programmatically: it builds native ASCII scripts,
 executes them headlessly, parses the outputs, and post-processes them
 into engineering results. It is the open-source successor of the
-author's legacy research scripts, which worked but were built under
+reference legacy research scripts, which worked but were built under
 research time pressure and accumulated structural debt.
 
 The product vision in one sentence: a version-aware, didactic,
@@ -51,15 +51,15 @@ AGPL-3.0, the command-emitter layer is a clean-room implementation
 ([glossary](index.md#glossary), where this and the other software
 terms of this document are defined): specified only from the official
 manual and from observed solver behavior on licensed machines. The AGPL code is never read at code
-level. The author's own logic in the author's legacy scripts (run-matrix
-driver, output parsers, writers, axis transforms) is the author's intellectual
+level. The reference logic in the reference legacy scripts (run-matrix
+driver, output parsers, writers, axis transforms) is a seat decision intellectual
 property and migrates freely.
 
 ## Stakeholders
 
 | Stakeholder | Interest |
 |---|---|
-| The author (owner, maintainer) | Runs FlightStream campaigns for the author's research; needs the author's existing run-matrix files to keep working |
+| The owning seat (owner, maintainer) | Runs FlightStream campaigns for the research; needs the existing run-matrix files to keep working |
 | Aerospace engineers without software background | Primary external audience; need a didactic API, readable errors, and worked examples |
 | Future contributors | Need tests, contribution rules, and a command database they can extend with evidence |
 | Research groups and co-authors | Need reproducible run provenance for publications |
@@ -76,7 +76,7 @@ the items it answers.
 | BRF-02 | Open source under MIT, publishable on PyPI |
 | BRF-03 | Version-aware by design: FlightStream command drift is a first-class concern, not a patch |
 | BRF-04 | Didactic: usable and readable by engineers without software background |
-| BRF-05 | Developed in a dedicated repository, separate from the author's research workspace |
+| BRF-05 | Developed in a dedicated repository, separate from the research workspace |
 | BRF-06 | Private GitHub first; public at a presentable release |
 | BRF-07 | FlightStream versions supported at launch: 26.0, 26.1, 26.12 |
 | BRF-08 | The existing run-matrix workflow keeps working unchanged |
@@ -89,9 +89,9 @@ the items it answers.
 | BRF-15 | The package is also responsible for file management: run folder layout, input staging, output collection, archiving |
 | BRF-16 | Simulation-centric naming: SIM replaces POLAR/POL in the native vocabulary |
 | BRF-17 | Version-comparison test cases use simple synthetic geometries plus local-only research cases whose geometry never enters the repository |
-| BRF-18 | The author's prior analysis pipelines are the design reference for the post-processing layer |
+| BRF-18 | The reference prior analysis pipelines are the design reference for the post-processing layer |
 | BRF-19 | FlightStream versions are identified as YY.XXX, the vendor major with a three-digit fractional part; the last digit indexes intermediate hotfix builds (written 26.XXX until 2026-08-09, when registering the 25 series made the major a variable) |
-| BRF-20 | The workspace organizes inputs as well as outputs: a support library of reusable artifacts selected by id, per the author's research workflow (usage-feedback review, 2026-07-22) |
+| BRF-20 | The workspace organizes inputs as well as outputs: a support library of reusable artifacts selected by id, per the research workflow (usage-feedback review, 2026-07-22) |
 
 ## Pain-point catalog
 
@@ -129,5 +129,5 @@ tree (2026-07-21). The requirements exist to eliminate them.
 - pyFlightscript repositories (AGPL-3.0, deprecated): prior art for
   scope only, never read at code level.
 - The committed evidence trail: `reports/` (probe compat reports,
-  physics regression reports, research cards). The author's session
+  physics regression reports, research cards). The reference session
   records are private and cited by HND id where relevant.

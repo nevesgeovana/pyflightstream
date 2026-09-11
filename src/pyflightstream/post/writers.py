@@ -12,7 +12,7 @@ Scalars are ``(n,)`` arrays; a ``(n, 3)`` array is written as a
 vector field. Field units are whatever the caller sampled; the
 writers never rescale.
 
-EVERY FILE CARRIES WHAT PRODUCED IT (PFS-2012.11, the author's requirement of
+EVERY FILE CARRIES WHAT PRODUCED IT (PFS-2012.11, the requirement of
 2026-08-16). A flow-visualization file used to hold coordinates, field
 blocks and a title string, so the settings that produced the numbers had
 to be recovered by joining the file back to the campaign's ``runs.json``

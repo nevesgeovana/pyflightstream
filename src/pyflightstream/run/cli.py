@@ -22,7 +22,7 @@ either of them to be supplied: ``--workflow CODE=NAME`` names a run
 type from this package's OWN table
 (:mod:`pyflightstream.cases.workflows`), which is code, and a study
 built out of those types needs no Python at all (PFS-2025.09). The
-reversal is the author's decision; the reasoning it replaces is kept
+reversal is the design decision; the reasoning it replaces is kept
 above so the change reads as a decision rather than as drift.
 
 ``--recipe CODE=REFERENCE`` still points at a function of your own on
@@ -140,7 +140,7 @@ def _one_builder_per_code(recipes: dict[str, str], workflows: dict[str, str]) ->
 def _a_word_that_means_false(word: str) -> bool:
     """Read a flag's word as a choice, so `false` at the shell means False.
 
-    A THREE-STATE FLAG WRITTEN AS ONE, because the author asked to be able to
+    A THREE-STATE FLAG WRITTEN AS ONE, because the requirement asks to be able to
     pass FALSE and argparse's ``store_true`` cannot: bare, the flag is
     true; with a word, the word decides; absent, the default stands.
 
@@ -160,7 +160,7 @@ def _a_word_that_means_false(word: str) -> bool:
 
 
 def _add_the_missing_family_choice(parser: argparse.ArgumentParser) -> None:
-    """Declare --ignore-missing-families, the author's design of 2026-09-10.
+    """Declare --ignore-missing-families, the design of 2026-09-10.
 
     ON `plan` AND `run` ONLY, and deliberately not on `convert`. The
     choice is a property of THIS INVOCATION and not of an artifact:
@@ -194,7 +194,7 @@ def _add_the_missing_family_choice(parser: argparse.ArgumentParser) -> None:
     # nothing and only `--ignore-missing-families false` acts: a positive
     # name carrying a negative word, which a reader unpicks at the shell and
     # which does not match `post --strict` beside it (the interface lens of
-    # the 0.15.0 release review). Both spellings stay, because the author's
+    # the 0.15.0 release review). Both spellings stay, because the reference
     # instruction was that a user be able to pass false.
     parser.add_argument(
         "--no-ignore-missing-families",
@@ -329,7 +329,7 @@ def _build_parser() -> argparse.ArgumentParser:
         "--point-name",
         default=MATRIX_POINT_NAME,
         help="the template that names each point's script and exports; the default "
-        "is the author's convention, POLAR-<sim>_M<mach*100>AL<alpha*10>BE<beta*10>"
+        "is the standard convention, POLAR-<sim>_M<mach*100>AL<alpha*10>BE<beta*10>"
         "[J<J*100>], fixed width; {point}, {alpha}, {beta}, {mach}, {advance_ratio}, "
         "{sim} and {campaign} are the other placeholders (PFS-2029.19)",
     )
@@ -372,7 +372,7 @@ def _build_parser() -> argparse.ArgumentParser:
         "--point-name",
         default=MATRIX_POINT_NAME,
         help="the template that names each point's script and exports; the default "
-        "is the author's convention, POLAR-<sim>_M<mach*100>AL<alpha*10>BE<beta*10>"
+        "is the standard convention, POLAR-<sim>_M<mach*100>AL<alpha*10>BE<beta*10>"
         "[J<J*100>], fixed width; {point}, {alpha}, {beta}, {mach}, {advance_ratio}, "
         "{sim} and {campaign} are the other placeholders (PFS-2029.19)",
     )
@@ -603,7 +603,7 @@ def _cmd_post(args: argparse.Namespace) -> int:
     # manifest records (PFS-2031.16); say it where the user looks.
     skipped = _report_skips(workspace, matrices)
     if skipped and args.strict:
-        # The author's decision of 2026-09-08: a skip is a success by default, since
+        # The design decision of 2026-09-08: a skip is a success by default, since
         # everything producible was produced, and a wrapper that needs to
         # tell a partial rebuild apart asks for it. The code is 3, its own,
         # beside 2 for a refusal that wrote nothing (review round two).
@@ -784,7 +784,7 @@ def _the_missing_family_choice(args: argparse.Namespace) -> bool:
         )
     if args.refuse_missing_families:
         return False
-    # ABSENT IS TRUE, which is the author's design and what every row written before
+    # ABSENT IS TRUE, which is the design and what every row written before
     # this flag means.
     return True if word is None else word
 
@@ -842,7 +842,7 @@ def _cmd_run(args: argparse.Namespace, recipes: dict[str, str]) -> int:
 
     The assessor is hard-wired and the recipe registry is this
     package's own workflow table; neither reaches this function from
-    the command line, which is what keeps the author's recorded
+    the command line, which is what keeps the recorded
     reasoning intact while the subcommand exists (see the module
     docstring).
     """
@@ -895,7 +895,7 @@ def _cmd_run(args: argparse.Namespace, recipes: dict[str, str]) -> int:
     # `run_campaign` leaves `campaign_sweep.csv` under the same folder
     # (`run.SWEEP_TABLE_NAME`), so a default of `sweep.csv` here wrote the
     # same table a second time under a second name: measured in the
-    # workspace the author sent back, `post/matriz/sweep.csv` and
+    # reference workspace, `post/matriz/sweep.csv` and
     # `post/matriz/campaign_sweep.csv` were 1012 bytes with one sha256
     # between them. A reader who found both could not know they were the
     # same without hashing them, and a reader who edited one had silently

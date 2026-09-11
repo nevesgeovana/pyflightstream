@@ -75,7 +75,7 @@ that is wrong, because that one loads.
 **That last measurement was not independent, and on 2026-08-06 the
 property it certified turned out to be false.** Read what it compared:
 proposals against types a person had authored FROM THE SAME PARAMETER
-TABLE. Where the table is wrong, the tool and the author read one source
+TABLE. Where the table is wrong, the tool and the reader read one source
 and agree with each other about it, and the agreement measures their
 common source rather than either of them. Checking the proposals against
 the manual's own printed SAMPLE instead found 19 positions across seven

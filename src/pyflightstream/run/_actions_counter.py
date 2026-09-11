@@ -1,6 +1,6 @@
 """The counter program a point's COMMAND_LINE action runs (PFS-2031.18).
 
-The author's design of 2026-09-08, GeoversePlan design 67. The solver runs the
+The design of 2026-09-08, GeoversePlan design 67. The solver runs the
 program after every unsteady time step and hands it nothing: no argument,
 no step index, no environment (RPT-041 finding 4). So the program keeps
 the count itself, in a file beside itself, derives the physical time, the

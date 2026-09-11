@@ -5,7 +5,7 @@ way the workspace organizes its outputs. A support library under
 ``inputs/`` holds one declarative artifact per file, referenced by a
 stable id (the file name stem), so a campaign line can select its
 reference data, solver preset, boundary groups, geometry, and profile
-by id instead of by path; the pattern is translated from the author's
+by id instead of by path; the pattern is translated from the reference
 research workflow. Artifacts are TOML, never executable code:
 they are validated by pydantic models at load time and fail with a
 didactic message naming the file and the available ids.
@@ -145,7 +145,7 @@ _ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 #:
 #: Only the three CODED kinds are here, and their absence from the other
 #: two is the rule rather than an omission. A reference, a setup and a
-#: pproc artifact are addressed by ids the author writes in the REF, SET
+#: pproc artifact are addressed by ids the user writes in the REF, SET
 #: and PPROC cells of a run matrix, so a bare ``003`` names three
 #: different files in three folders and a typo between them is silent. A
 #: geometry is addressed by the NAME OF A FILE THE USER STAGED and a
@@ -209,7 +209,7 @@ class PointXyz(BaseModel):
     def _kind_is_known(cls, value: str | None) -> str | None:
         # THE RETIRED SPELLING FIRST, because it is the likeliest wrong
         # value in an existing workspace and the generic refusal below
-        # would send its author looking for a kind that never existed.
+        # would send its writer looking for a kind that never existed.
         if value == _POINT_KIND_ENGINE_WORD:
             raise ValueError(POINT_KIND_ENGINE.message())
         if value is not None and value not in POINT_KINDS:
@@ -244,7 +244,7 @@ class RotorReference(BaseModel):
     position : PointXyz
         The rotor position, the one field of this block a builder
         reads: the two unsteady run types turn it into the rotor's hub frame
-        (PFS-2030.03), the frame the author's probe lines and rotor plots
+        (PFS-2030.03), the frame the reference probe lines and rotor plots
         are defined in and the frame a rotor row turns about unless it
         states ``ROTOR_ORIGIN``.
 
@@ -378,7 +378,7 @@ class ReferenceArtifact(BaseModel):
     rotor_diameter_m: float | None = Field(default=None, gt=0.0)
     moment_point: PointXyz = Field(default_factory=PointXyz)
     rotor: RotorReference | None = None
-    #: The boundary aliases the ``[aliases]`` table declares (FR-59, the author's
+    #: The boundary aliases the ``[aliases]`` table declares (FR-59, the reference
     #: design of 2026-09-10). They lived in the setup preset at 0.14.0,
     #: which is per condition where this artifact is per configuration; a
     #: boundary name is not a solver setting. A member may be another
@@ -407,8 +407,8 @@ class ReferenceArtifact(BaseModel):
     #: (:meth:`CampaignWorkspace.reference_point`), which is the file every
     #: refusal names. The field exists so that a reference carrying its
     #: airframe point beside its rotors is READ rather than refused, which
-    #: is how the author writes one; which of the two files owns a named
-    #: point is the author's question of 2026-09-10 and is not answered here.
+    #: is how a user writes one; which of the two files owns a named
+    #: point is the open question of 2026-09-10 and is not answered here.
     points: dict[str, PointXyz] = Field(default_factory=dict)
 
     @model_validator(mode="after")
@@ -485,7 +485,7 @@ class SetupArtifact(BaseModel):
     #: so one preset serves a sweep over it. That is what leaves RAW to
     #: the particular case it is named for.
     flags: list[CustomFlag] = Field(default_factory=list)
-    #: The boundary aliases the ``[aliases]`` table defines (the author's decision
+    #: The boundary aliases the ``[aliases]`` table defines (the design decision
     #: of 2026-09-09): a name to the boundary names or families it stands
     #: for, read wherever a boundary is cited (a matrix cell, a pproc
     #: group, a families entry), a member the mesh lacks ignored; consumed
@@ -526,7 +526,7 @@ RAW_TABLE = "raw"
 #: One record per flag: the word a matrix row writes, and the
 #: FlightStream command it becomes.
 FLAGS_TABLE = "flags"
-#: The table of a setup artifact that names groups of boundaries (the author's
+#: The table of a setup artifact that names groups of boundaries (the reference
 #: decision of 2026-09-09): ``[aliases]``, one key per alias, a list of
 #: boundary names or families. Read by the documentation.
 ALIASES_TABLE = "aliases"
@@ -535,7 +535,7 @@ ALIASES_TABLE = "aliases"
 class PprocArtifact(PprocSpec):
     """The post-processing artifact (``inputs/pproc/<id>.toml``).
 
-    PFS-2029.07.01, the author's decision of 2026-09-02: the groups artifact IS the
+    PFS-2029.07.01, the design decision of 2026-09-02: the groups artifact IS the
     home of post-processing and is renamed. The file carries six tables,
     every one optional: ``[groups]`` exactly as the groups file held it,
     a name to the boundary labels or 1-based indices it aggregates;
@@ -588,7 +588,7 @@ def is_valid_artifact_id(artifact_id: str) -> bool:
     hyphen, beginning with a letter or a digit. It is never a path, and
     the leading-character half is the part a caller cannot infer from the
     permitted set, which is why a refusal that merely lists the permitted
-    characters sends an author back to make the same mistake.
+    characters sends a user back to make the same mistake.
 
     Parameters
     ----------
@@ -734,7 +734,7 @@ class EntitySelection:
         True where an empty list has a documented meaning and is
         accepted, False where it is refused on the manual's word, and
         None where the domain seat has not yet decided, in which case it
-        is refused until the author says.
+        is refused until the owning seat rules.
     reason : str
         The sentence the refusal prints beside the verdict: what the
         manual says, or that nothing does yet.
@@ -790,7 +790,7 @@ ENTITY_SELECTIONS: tuple[EntitySelection, ...] = (
         "groups.<name>",
         "the polar table written per group (products.polars)",
         True,
-        "An empty group is every family the geometry carries, the author's decision of "
+        "An empty group is every family the geometry carries, the design decision of "
         "2026-09-09: the polar table sums every surface row of the loads table, and a "
         "motion naming the group moves every boundary of the file.",
     ),
@@ -902,7 +902,7 @@ def refuse_empty_selections(kind: str, path: Path, data: Mapping[str, Any]) -> N
         if rule.empty_admitted is None:
             verdict = (
                 "Whether an empty list can mean anything here is the domain seat's call, "
-                "not yet decided, and it is refused until the author says"
+                "not yet decided, and it is refused until that is settled"
             )
         else:
             verdict = "An empty list is refused"
@@ -966,7 +966,7 @@ def _frame_of_a_rotor(spelling: str, rotors: Mapping[str, Any]) -> str | None:
 
 
 def _refuse_a_retired_spelling(data: Mapping[str, Any], path: Path) -> None:
-    """Refuse a reference that uses a word this package retired (the author, 2026-09-10).
+    """Refuse a reference that uses a word this package retired (decision of 2026-09-10).
 
     A key this file no longer knows would otherwise reach a strict model
     and come back as "extra inputs are not permitted", which is true and
@@ -1001,12 +1001,12 @@ def _split_reference_tables(data: dict[str, Any], path: Path) -> dict[str, Any]:
     belong to the study: one table per rotor, keyed by the word a row
     moves. So this function does for the reference what
     :func:`resolve_setup` does for the preset, and reads the file's shape
-    rather than requiring the author to nest it:
+    rather than requiring the user to nest it:
 
     * a table declaring ``kind = "rotor"`` is a rotor and goes to
       ``rotors``; the block's NAME becomes an alias over everything the
       rotor owns, the general families first, so a row citing it moves the
-      spinner with the blades (the author's words of 2026-09-10);
+      spinner with the blades (the wording of 2026-09-10);
     * a table declaring any other point ``kind`` goes to ``points``;
     * ``[aliases]`` and ``[[frames]]`` are lifted by name.
 
@@ -1263,7 +1263,7 @@ def resolve_setup(inputs_dir: Path, artifact_id: str) -> SetupArtifact:
                 "means whichever record was read last."
             )
         seen[word] = str(entry.get("command"))
-    # THE ALIASES TABLE IS NOT A SOLVER SETTING (the author's decision of 2026-09-09):
+    # THE ALIASES TABLE IS NOT A SOLVER SETTING (the design decision of 2026-09-09):
     # a name to the boundaries it stands for, read wherever a boundary is cited.
     aliases = data.pop(ALIASES_TABLE, {})
     if not isinstance(aliases, dict) or not all(isinstance(v, list) for v in aliases.values()):
@@ -1461,14 +1461,14 @@ def resolve_geometry(inputs_dir: Path, name: str) -> Path:
     """Resolve the staged geometry file one ``GEOMETRY`` cell names.
 
     SINCE 0.11.0 THE CELL CARRIES THE FILE NAME WITH ITS EXTENSION
-    (PFS-2029.09, the author's decision of 2026-09-02, amending
+    (PFS-2029.09, the design decision of 2026-09-02, amending
     PFS-2009.01): ``30_WB.fsm`` resolves to ``inputs/geometries/30_WB.fsm``
     and ``blade.v2.fsm`` to that one file, one reading and no other. What
     it buys is that the cell says what the file IS: a ``.fsm`` is a saved
     simulation with its boundary conditions in it, a mesh is not, and the
     workflow can tell the two apart before any seat is spent.
 
-    TWO LAYOUTS, THE FOLDER READ FIRST (PFS-2032.04, the author's reading of
+    TWO LAYOUTS, THE FOLDER READ FIRST (PFS-2032.04, the reading of
     2026-09-08, design 68 section A3). ``30_WB.fsm`` resolves to
     ``geometries/30_WB/30_WB.fsm`` when that folder exists and to
     ``geometries/30_WB.fsm`` otherwise, so the cell does not change and
@@ -1709,7 +1709,7 @@ def resolve_build(
     Deriving the version from the build id instead would be the
     inference :class:`pyflightstream.run.SolverBuild` refuses, and the
     two are not the same thing: a registry key is a name the campaign
-    author chose, and nothing stops it naming an installation whose
+    user chose, and nothing stops it naming an installation whose
     command database is anything at all.
 
     Parameters

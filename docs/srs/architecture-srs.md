@@ -95,7 +95,7 @@ structural side of the aeroelastic loop), `probes` and `farfield`
 
     This decision previously read "tables are pandas; multidimensional
     labeled fields are xarray, and the two never substitute". The
-    author's decision of 2026-07-27 does not adapt that reading, it
+    reference decision of 2026-07-27 does not adapt that reading, it
     invalidates it: the package stops carrying its own table and
     labeled-field stack. The old text is recorded here rather than
     deleted, because a decision that changes content is only readable
@@ -145,7 +145,7 @@ structural side of the aeroelastic loop), `probes` and `farfield`
 
     The direction is not a change of direction. The sister already
     recorded that this driver's pandas and xarray usage migrates to it;
-    what the author changed is the pace and the granularity, from per
+    what what changed is the pace and the granularity, from per
     structure to one move.
 
 ## Command-line surface

@@ -127,7 +127,7 @@ __all__ = [
 #: RE-EXPORTED, not defined here. Its home is
 #: :data:`pyflightstream.cases.workflows.GEOMETRY_VARIABLE`, beside its
 #: sibling cell keys, so the builders that refuse a bad value can
-#: name the key the author typed; this module keeps the published import
+#: name the key the user typed; this module keeps the published import
 #: path and reads the cell.
 #:
 #: The value is an input-library ID, which is the STEM of a file staged
@@ -388,7 +388,7 @@ def _resolve_build(
         # It used to win SILENTLY over a row that named a real build,
         # which is how a row saying FS_BUILD 26.121 ran on the 26.120
         # executable and was recorded as having requested 26.120, with
-        # nothing said (measured on the author's campaign, 2026-08-03).
+        # nothing said (measured on the reference campaign, 2026-08-03).
         # Overruling an explicit request is a decision the caller is
         # entitled to hear about, whatever it then does with it.
         #
@@ -610,7 +610,7 @@ def _the_rows_raw_commands(row: MatrixRow, inputs_dir: Path) -> list[RawCommand]
             # neither. A UTF-16 file saved from a Windows editor is an
             # ordinary artifact. `utf-8-sig` above also eats a byte-order
             # mark, which would otherwise ride into the first command name
-            # and produce an emitter refusal about a command the author can
+            # and produce an emitter refusal about a command the user can
             # see is spelled correctly.
             raise MatrixError(
                 f"POL {row.pol}: {RAW_VARIABLE} names the file {stated!r}, and {path} is "
@@ -642,7 +642,7 @@ def _frames_for_row(reference, setup, row: MatrixRow) -> list:
     naming it, so the record cannot claim what the script never took; the
     setup's are refused exactly as before.
 
-    Whether that is the right division is the author's question of
+    Whether that is the right division is the open question of
     2026-09-10 (the interface lens, API1-20): refusing is the other
     defensible answer and costs a study one edit per legacy row.
     """
@@ -808,7 +808,7 @@ _PRESET_ALIASES = {
     "additional_wake_relaxation_iteration": "additional_wake_relaxation",
     "reynolds_averaged_drag_forces": "reynolds_averaged_drag",
     "unsteady_N_revolutions_wake": "wake_termination_revolutions",
-    # The settings the author's own scripts state and 0.10.1 did not emit (FR-54).
+    # The settings the reference scripts state and 0.10.1 did not emit (FR-54).
     "reference_velocity_mps": "reference_velocity_m_per_s",
     "vorticity_drag_boundaries": "vorticity_drag_families",
     "set_vorticity_drag_boundaries": "vorticity_drag_families",
@@ -837,9 +837,9 @@ _PRESET_RECORDED_ONLY = {
         "is stated in the row's SYMMETRY key; a preset value would silently overrule "
         "the mesh it knows nothing about"
     ),
-    # `symmetry_loads` LEFT THIS TABLE on 2026-09-02, the author's decision (PFS-2028.05)
-    # with the measurement in hand: the 0.10.1 reproduction of the author's isolated
-    # rotor reported loads six times the author's because the author's preset stated the
+    # `symmetry_loads` LEFT THIS TABLE on 2026-09-02, the design decision (PFS-2028.05)
+    # with the measurement in hand: the 0.10.1 reproduction of the reference isolated
+    # rotor reported loads six times the reference because the reference preset stated the
     # symmetry loads off and nothing was emitted. A STATED key now reaches
     # SET_ANALYSIS_SYMMETRY_LOADS as stated; an absent key still emits nothing.
     "unsteady_delta_theta_deg": (
@@ -865,7 +865,7 @@ _PRESET_RECORDED_ONLY = {
 #: person who wrote the file: name the key here and it is kept, emits
 #: nothing, and says so. What it is NOT is a way to be quiet about it:
 #: a declared key still warns on every resolve, because the whole point
-#: is that the author knows their setting is not reaching the solver.
+#: is that the user knows their setting is not reaching the solver.
 _PRESET_RECORDED_ONLY_KEY = "recorded_only"
 
 #: The table a setup carries for the FLIGHT CONDITION rather than for the
@@ -1014,7 +1014,7 @@ def _solver_from_setup(setup: SetupArtifact, set_code: str) -> SolverSettings:
         )
     # THE PAIR IS CONSUMED BEFORE THE LOOP, so neither half reaches the
     # recorded-only report. An earlier version left them in it, and the
-    # warning then told an author that a stabilization they had switched
+    # warning then told a user that a stabilization they had switched
     # ON emitted nothing, while the strength was in fact reaching the
     # script. A message that names the wrong outcome is worse than none.
     # THE FLIGHT-CONDITION TABLE IS CONSUMED HERE, for the same reason
@@ -1084,7 +1084,7 @@ def _solver_from_setup(setup: SetupArtifact, set_code: str) -> SolverSettings:
         )
     post_processing = sorted(set(refused) & set(_POST_PROCESSING_KEYS))
     if post_processing:
-        # PFS-2029.16: a setup artifact carries solver settings only. The author's
+        # PFS-2029.16: a setup artifact carries solver settings only. The reference
         # SET files carried a second table of post-processing, and that
         # table's home is the pproc artifact the row's PPROC cell names.
         raise InputArtifactError(
@@ -1100,7 +1100,7 @@ def _solver_from_setup(setup: SetupArtifact, set_code: str) -> SolverSettings:
         # all accepted and are all taken out of `settings` before this
         # loop, so the first version of this message refused
         # `stabilisation` with a list of "keys that apply" that did not
-        # contain the word its author meant, which is the one case where
+        # contain the word its writer meant, which is the one case where
         # the list is the whole value of the refusal.
         available = sorted(
             known
@@ -1126,7 +1126,7 @@ def _solver_from_setup(setup: SetupArtifact, set_code: str) -> SolverSettings:
     if recorded:
         # THE WARNING SURVIVES, and it is the useful half now that the
         # silent drop is gone: the keys it lists are exactly the ones an
-        # author might still believe reached the solver.
+        # user might still believe reached the solver.
         reasons = ", ".join(
             f"{key} ({_PRESET_RECORDED_ONLY.get(key, 'declared recorded-only by this preset')})"
             for key in sorted(recorded)
@@ -1168,7 +1168,7 @@ def _refuse_groups_named_by_a_word(pproc: PprocArtifact, code: str, pol: str) ->
     """Refuse a pproc artifact whose polar groups are keyed by a word.
 
     PFS-2032.03. The polar table written per group carries the group
-    NUMBER in its name (``<polar>_M<mach>_g<number>.csv``, the author's
+    NUMBER in its name (``<polar>_M<mach>_g<number>.csv``, the reference
     convention, :func:`pyflightstream.post.products.polar_file_name`), so
     a group named ``wing`` reached ``int(group)`` in the products stage
     and stopped the whole stage with a bare ValueError, outside the skip
@@ -1473,7 +1473,7 @@ def resolve_matrix(
                 ),
             ),
             "solver": solvers[row.set_code],
-            # THE REFERENCE'S FRAMES RIDE ON THE CASE (FR-72, the author's decision of
+            # THE REFERENCE'S FRAMES RIDE ON THE CASE (FR-72, the design decision of
             # 2026-09-10), created by the builders after the package's own; a
             # configuration defining none leaves the list empty and the script
             # unchanged. They lived in the SETUP at 0.14.0 (PFS-2034.01), and a
@@ -1489,8 +1489,8 @@ def resolve_matrix(
                     for entry in _not_on_a_legacy_row(row, setups[row.set_code].raw_commands, "raw")
                 ),
                 # THE PRESET'S LINES ARE THE GROUND AND THE ROW'S COME OVER
-                # THEM, which is the author's answer of 2026-09-10 and the whole of the
-                # ordering question at a shared seam (FR-67). The author's row 9210 is
+                # THEM, which is the decision of 2026-09-10 and the whole of the
+                # ordering question at a shared seam (FR-67). The reference row 9210 is
                 # the case that fixes it: a preset line, then the row's file,
                 # then the row's own cell line.
                 *_the_rows_raw_commands(row, workspace.inputs_dir),
@@ -1504,7 +1504,7 @@ def resolve_matrix(
                 entry.model_copy(update={"setup": row.set_code})
                 for entry in _not_on_a_legacy_row(row, setups[row.set_code].flags, "flags")
             ],
-            # THE REFERENCE'S ALIASES RIDE ON THE CASE (FR-59, the author's decision of
+            # THE REFERENCE'S ALIASES RIDE ON THE CASE (FR-59, the design decision of
             # 2026-09-10), on a LEGACY row too: the products stage resolves a
             # group by them whatever built the script. They lived in the SETUP
             # at 0.14.0, which is per condition where a reference is per
@@ -1559,7 +1559,7 @@ def resolve_matrix(
             update["variables"] = {**case.variables, **bound}
         # THE INVOCATION'S OWN CHOICE, written onto the row's variables so
         # the builders read it like any other variable and never learn that
-        # a command line exists (PFS-2035.13, the author's design of 2026-09-10).
+        # a command line exists (PFS-2035.13, the design of 2026-09-10).
         #
         # ONLY THE FALSE SIDE WRITES. At the default the case is left
         # byte-for-byte the case it was before this argument existed, which

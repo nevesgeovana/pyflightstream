@@ -8,12 +8,12 @@ keeps working, warns, and disappears at a stated release. A retirement is a
 REFUSAL: the old name stops working now, and the only thing owed to whoever
 typed it is a message that says what it became and why.
 
-The author's instruction of 2026-09-10, in her own words: "nao é para aceitar
-nomenclatura antiga, TUDO rotor, lembra que eu disse que nao é versao estavel
-ainda", and then "nomenclatura antiga é para dar erro com mensagem que aquela
-nomenclatura foi depreciada e como corrigir". This package has no stable
-release, so it owes no compatibility window for a word it chose badly; what it
-owes is a refusal a reader can act on without opening the changelog.
+The decision of 2026-09-10 settles both halves. The old vocabulary is not
+accepted: every rotor word is spelled one way. And a retired word does not
+fail quietly, it raises with a message saying which name it became and how to
+correct it. This package has no stable release, so it owes no compatibility
+window for a word it chose badly; what it owes is a refusal a reader can act
+on without opening the changelog.
 
 WHAT MAKES A RETIREMENT LEGITIMATE, so that this module does not become the
 place a breaking change goes to look tidy. Every entry here renames a WORD and

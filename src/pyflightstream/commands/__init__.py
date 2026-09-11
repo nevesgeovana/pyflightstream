@@ -766,7 +766,7 @@ class CommandEntry(BaseModel):
         because every entry needed a page. That refused a fact the
         repository holds evidence for, and pushed the user to
         ``Script.raw()``, which is the one path with no validation. The
-        author's decision of 2026-08-06: a committed report may stand in
+        design decision of 2026-08-06: a committed report may stand in
         for the page, and the entry says which report.
 
         It does NOT relax the status rules. ``verified`` and ``broken``

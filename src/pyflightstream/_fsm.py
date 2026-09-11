@@ -11,7 +11,7 @@ by its POSITION in one geometry's boundary order. Those positions are
 right for the file they were written against and mean different surfaces
 in any file whose order differs, and nothing said so: the run completed,
 exported, and reported loads for a rotor whose moving set was wrong.
-The author's instruction is that nowhere in this package should a user
+The instruction is that nowhere in this package should a user
 work with indices; a row names the mesh family and the package makes the
 link. The names are already in the geometry file, so this module is the
 package looking, instead of the user counting.
@@ -26,7 +26,7 @@ from that shape is refused rather than guessed at.
 
 THE POSITION IS THE INDEX, AND THE NUMBER ON THE LINE IS NOT. Each
 boundary's first line begins with an integer, and that integer is NOT
-the boundary index: measured over the eight geometries of the author's
+the boundary index: measured over the eight geometries of the reference
 campaign, seven start theirs at 2 and one starts at 1, so a map built
 from it would be off by one in seven files out of eight.
 

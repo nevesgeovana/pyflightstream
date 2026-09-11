@@ -42,7 +42,7 @@ record, so any spreadsheet or dataframe reads them with nothing else:
 * THE CUSTOM POLAR FORMAT beside each polar table when the pproc artifact asks
   (``[products] custom_polar_format = true``, PFS-2014.01.01):
   ``<polar>_M<mach code>_g<group>.dat``, the same rows in the fixed-width
-  text file the author's existing tooling opens, specified line by line in
+  text file the existing tooling opens, specified line by line in
   :func:`write_custom_polar_format` and read back by
   :func:`read_custom_polar_format`;
 * a PROVENANCE document per recorded run, under ``provenance/`` and
@@ -52,22 +52,22 @@ record, so any spreadsheet or dataframe reads them with nothing else:
   solver run as the activity with its start, end and argv, the package
   and the solver build as agents.
 
-THE ARITHMETIC IS THE AUTHOR'S, re-derived here from the author's recorded files and
+THE ARITHMETIC IS THE REFERENCE ONE, re-derived here from the recorded files and
 never imported. FlightStream's ``CL``, ``CDi + CDo`` and ``Cy`` are the
 STABILITY-axis force coefficients and the body-axis forces follow by
 turning them through the angle of attack; the solver's ``CMx`` and ``CMz``
 are the BODY-axis rolling and yawing moments, scaled from the chord to the
-span and, by the author's sign convention, negated, and the stability-axis moments
-follow by turning them through the angle of attack. The author's polars carried
+span and, by the reference sign convention, negated, and the stability-axis moments
+follow by turning them through the angle of attack. The reference polars carried
 ``BETA 0.0`` on every row, so the wind axes coincide with the stability
 axes in every table this writer has been checked against; a point with a
 non-zero sideslip is REFUSED naming the point, because the wind-axis turn
 through sideslip has been checked against nothing. Values are written at
-five decimals, the author's precision, so a table regenerated from the same exports
+five decimals, the reference precision, so a table regenerated from the same exports
 is equal text. The evidence is the products arm of GOAL-011,
 ``python GeoversePlan/goals/check_goal_011.py --products``, which
-regenerates the author's 27 recorded polars and 5 section tables through
-:func:`write_recorded_polar` and compares them with the author's own tables
+regenerates the 27 recorded polars and 5 section tables through
+:func:`write_recorded_polar` and compares them with the reference tables
 converted to this shape outside the package: 32 of 32 equal on 2026-09-03.
 """
 
@@ -178,7 +178,7 @@ __all__ = [
     "write_sections_table",
 ]
 
-#: The twenty-four coefficient columns of a polar row, in the author's order: the
+#: The twenty-four coefficient columns of a polar row, in the order: the
 #: point, the body axes, the stability axes, the wind axes, the two drag
 #: parts. ``RE`` is the Reynolds number in millions.
 COEFFICIENT_COLUMNS: tuple[str, ...] = (
@@ -214,7 +214,7 @@ _REFERENCE_COLUMNS: tuple[str, ...] = ("SREF", "CREF", "BREF", "XMOM", "YMOM", "
 
 #: The column naming the ADVANCE RATIO of a polar row (FR-85).
 #:
-#: WHY IT EXISTS. Measured on the author's ``0001_M15_g01.csv``, written by
+#: WHY IT EXISTS. Measured on the reference ``0001_M15_g01.csv``, written by
 #: 0.15.0 for a three-value sweep of the advance ratio: the three rows
 #: carried identical ``ALPHA``, ``BETA``, ``MACH`` and ``RE`` and no
 #: column naming what was swept, so the only thing distinguishing the
@@ -246,7 +246,7 @@ class ReferenceValues:
     """The reference block of a product: SREF, CREF, BREF and the moment point.
 
     The moment point is in the geometry's own coordinate system, the one the
-    solver holds the mesh in and reports loads about (the MRP frame the author's
+    solver holds the mesh in and reports loads about (the MRP frame the reference
     scripts created sits at this point); the units ride on the field names.
     """
 
@@ -285,7 +285,7 @@ class GroupCoefficients:
 
     ``lift``, ``drag`` and ``side`` are the STABILITY-axis forces; ``roll``,
     ``pitch`` and ``yaw`` are the BODY-axis moments, ``roll`` and ``yaw``
-    already scaled from the chord to the span and carrying the author's sign. That
+    already scaled from the chord to the span and carrying the reference sign. That
     is the mixed convention the solver's loads table reports in, and
     :func:`polar_row` turns each half into the other axes from there.
     """
@@ -342,15 +342,15 @@ def group_coefficients(
     :func:`pyflightstream.cases.select_group_members`: a name is its row,
     an alias of the row's setup (``aliases``, as the run record carries
     them) is its members' rows, a family is every row of it. A family
-    the table does not carry is left out, as the author's writer left it out; a
+    the table does not carry is left out, as the reference writer left it out; a
     group none of whose families is in the table sums to zero, which is
-    what the author's products carry for the rotor groups of a wing-body
+    what the reference products carry for the rotor groups of a wing-body
     polar. The rolling and yawing moments are the solver's ``CMx`` and
     ``CMz``, scaled from the reference chord to the span and negated,
-    the author's convention.
+    the standard convention.
 
     ``empty_is_every`` is what an EMPTY member list means, and it is
-    False here on purpose (the interface lens of 2026-09-09). The author's
+    False here on purpose (the interface lens of 2026-09-09). The reference
     decision of that day is about the ARTIFACT: a ``[groups]`` entry
     written empty is every family, and the products stage passes True
     for it. A Python caller that built ``families`` by filtering and got
@@ -390,7 +390,7 @@ def polar_row(
 ) -> tuple[float, ...]:
     """Return the twenty-four coefficient values of one polar row.
 
-    The author's polars carried ``BETA 0.0`` on every row, so the wind axes coincide
+    The reference polars carried ``BETA 0.0`` on every row, so the wind axes coincide
     with the stability axes in every table this row has been checked
     against; :func:`_polar_rows` refuses a point stating a sideslip, and the
     wind-axis turn below is written for the day one is checked.
@@ -423,16 +423,16 @@ def polar_row(
 
 
 def _mach_code(mach: float) -> int:
-    """Return the two-digit Mach code of the author's file names: ``round(mach * 100)``."""
+    """Return the two-digit Mach code of the reference file names: ``round(mach * 100)``."""
     return round(mach * 100)
 
 
 def polar_file_name(polar: str | int, mach: float, group: str | int) -> str:
     """``<polar>_M<mach code:02d>_g<group:02d>.csv``: one polar table per group.
 
-    THE RECORDED CONVENTION, and the one the author's own tooling wrote
+    THE RECORDED CONVENTION, and the one the reference tooling wrote
     before this package existed. :func:`write_recorded_polar` regenerates
-    her recorded tables under it and is compared with her files name for
+    the recorded tables under it and is compared with what those files name for
     name, which is why it stays. A polar table of a WORKSPACE is named by
     :func:`swept_polar_file_name`, the standard point convention (FR-85).
     """
@@ -576,7 +576,7 @@ def write_polar_table(
     return write_csv_table(path, POLAR_COLUMNS, full)
 
 
-# --- PFS-2014.01: the custom polar format, the polar table as the author's tooling reads it --
+# --- PFS-2014.01: the custom polar format, the polar table as the reference tooling reads it --
 
 #: The columns of the custom format's reference line: the nominal Mach and then the
 #: reference block in the polar table's own order.
@@ -585,7 +585,7 @@ _CUSTOM_REFERENCE_COLUMNS: tuple[str, ...] = ("MNOM", *_REFERENCE_COLUMNS)
 #: Every field of the custom format is right-aligned to this width.
 _CUSTOM_WIDTH = 10
 
-#: The author's date line, ``Tue Sep 08 23:41:07  2026``: two spaces before the year.
+#: The reference date line, ``Tue Sep 08 23:41:07  2026``: two spaces before the year.
 _CUSTOM_DATE_FORMAT = "%a %b %d %H:%M:%S  %Y"
 
 _CUSTOM_TITLE_PREFIX = "FlightStream - "
@@ -664,10 +664,10 @@ def write_custom_polar_format(
     rows: Sequence[Sequence[float]],
     date: str | None = None,
 ) -> Path:
-    """Write one polar of one group in the fixed-width text format the author's tooling opens.
+    """Write one polar of one group in the fixed-width text format the reference tooling opens.
 
     THIS DOCSTRING IS THE SPECIFICATION OF THE FORMAT (PFS-2014.01.02). The
-    shape was read off a file of the author's and is pinned by the committed fixture
+    shape was read off a recorded file and is pinned by the committed fixture
     ``tests/tier1_offline/fixtures/custom_polar_format_sample.dat``, whose
     every value is synthetic; the tier-1 test feeds the fixture's rows
     through this writer and requires byte equality with the fixture,
@@ -697,7 +697,7 @@ def write_custom_polar_format(
       :data:`COEFFICIENT_COLUMNS` in that order, each right-aligned to
       width 10;
     * then one line per data row, every number formatted ``%10.5f``
-      (width 10, five decimals, the author's precision), in the column order of
+      (width 10, five decimals, the reference precision), in the column order of
       line 9, the rows in the order given (the stage gives them alpha
       ascending, as the polar table).
 
@@ -941,7 +941,7 @@ def write_plots_table(path: str | Path, export_text: str) -> Path | None:
 
 
 #: FR-91. The columns every probe table opens with, whatever run type filled
-#: it, and the whole of what her transparency rests on: which point this is,
+#: it, and the whole of what its transparency rests on: which point this is,
 #: where it is, the frame those coordinates are measured in, and which solver
 #: step the sample is from.
 #:
@@ -950,7 +950,7 @@ def write_plots_table(path: str | Path, export_text: str) -> Path | None:
 #: the number an unsteady fluid plot carries in its own name, so `MACH7` is
 #: row `PROBE` 7. The interface lens asked whether `VERTEX` or `POINT` would
 #: be clearer: `POINT` is taken, by the sweep point that names the run, and
-#: `PROBE` is her own word for these ("a posicao xyz delas"), so the column
+#: `PROBE` is the word the requirement uses for these, so the column
 #: keeps it and this note says which of the two things it counts.
 #:
 #: `STEP` carries `-` on a steady row, which has one step: NOT APPLICABLE,
@@ -1171,10 +1171,11 @@ def write_unsteady_probes_table(
     The export that an unsteady row produces for its probes is the plots
     table, and it carries one NUMBERED GROUP per probe point:
     ``MACH7, VELOCITY7, VX7, VY7, VZ7, STATIC_PRESSURE_RATIO7``. It never
-    says where vertex 7 is, which is her whole complaint: "pro unsteady, e
-    importante ter o arquivo de posicao porque nao vem escrito no unsteady
-    plots". This un-pivots those groups into one row per point and step and
-    puts the recorded position in front of them.
+    says where vertex 7 is, which is the whole of the requirement: an
+    unsteady export never states where its probes are, so the positions
+    file is what makes a sample placeable. This un-pivots those groups
+    into one row per point and step and puts the recorded position in front
+    of them.
 
     THE COLUMNS ARE COMPOSED FORWARD, from the parameters the artifact
     declares and the vertices the script recorded, exactly as the builder
@@ -1369,7 +1370,7 @@ def _polar_rows(
     """Return the coefficient rows of one group over the points of a polar, alpha ascending.
 
     This is the ARTIFACT's path, so an empty member list is every family
-    (the author's decision of 2026-09-09) and the summer is asked for that reading.
+    (the design decision of 2026-09-09) and the summer is asked for that reading.
     """
     rows = []
     for point in points:
@@ -1477,7 +1478,7 @@ PRODUCTS_MANIFEST = "products.json"
 #: The folder under a matrix's products where the per-polar tables and
 #: their ``.dat`` companions land (FR-88).
 #:
-#: WHY THEY MOVED. Measured in the workspace the author sent back after
+#: WHY THEY MOVED. Measured in the reference workspace recorded after
 #: running 0.15.0: `post/matriz/` held the polar tables LOOSE at its top
 #: level beside `sections/`, `plots/` and `provenance/`, so the same
 #: folder read as a directory and as a drawer at once. Every other family
@@ -1719,7 +1720,7 @@ def _sim_products(
             written_names[target.relative_to(out).as_posix()] = {"runs": run_ids}
             if products.custom_polar_format:
                 # PFS-2014.01.01: the same rows, a second time, in the
-                # format the author's existing tooling opens, beside the table.
+                # format the existing tooling opens, beside the table.
                 target = _target(
                     out
                     / POLARS_DIR
@@ -1927,7 +1928,7 @@ def _point_series(
 
 
 #: The characters an alias may carry into a file name. Everything else is
-#: replaced, because a rotor's alias is a word the author chose and a file
+#: replaced, because a rotor's alias is a word the user chose and a file
 #: name is a thing the operating system parses.
 _SAFE_IN_A_FILE_NAME = frozenset(
     "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_."
@@ -1970,7 +1971,7 @@ def _point_reductions(
 
     The plots table is written FIRST and is never touched here: the
     reductions are read off it and land under their own names beside it,
-    which is the author's rule of 2026-08-16 (a reduction ships beside the history
+    which is the rule of 2026-08-16 (a reduction ships beside the history
     and never in its place) kept by construction. A reduction the record
     cannot window, or whose window reaches past the table, is a skip
     recorded under the file it would have been, with the reason.
@@ -2142,7 +2143,7 @@ def _attributes(**pairs: object) -> dict[str, object]:
 def _prov_document(record: RunRecord, sim_dir: Path) -> dict[str, object]:
     """Build one run's PROV-JSON document from its record and the files it left.
 
-    W3C PROV, in the PROV-JSON serialization (the author's decision of 2026-09-08,
+    W3C PROV, in the PROV-JSON serialization (the design decision of 2026-09-08,
     design 68): the run record carried every fact a provenance document
     needs and lacked a shape another tool reads without reading this
     package's docs. ENTITIES are each staged input (``inputs_sha256``), the
@@ -2229,7 +2230,7 @@ def _prov_document(record: RunRecord, sim_dir: Path) -> dict[str, object]:
             # PFS-2033.02: the setup's raw commands the script carried, or nothing.
             "pyfs:raw_commands": [entry.model_dump(mode="json") for entry in record.raw_commands]
             or None,
-            # The author's decision of 2026-09-09: the setup's aliases the polar tables resolved by.
+            # The design decision of 2026-09-09: the setup's aliases the polar tables resolved by.
             "pyfs:aliases": dict(record.aliases) or None,
         }
     )

@@ -58,7 +58,7 @@ is monomorphic, so `f15_value` always holds an enumeration code and
 column would hold both.
 
 Column ORDER is documented and not guaranteed. A reader resolves a
-column by its label (the author's convention of 2026-08-17, NFR-19).
+column by its label (the standard convention of 2026-08-17, NFR-19).
 
 ## Provenance codes
 

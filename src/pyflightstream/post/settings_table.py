@@ -184,7 +184,7 @@ ENUMERATIONS: dict[str, tuple[str, ...]] = {
 }
 
 #: The tidy layout, one row per run and flag. Order is documented but
-#: NOT guaranteed: a reader resolves a column by its LABEL (the author's
+#: NOT guaranteed: a reader resolves a column by its LABEL (the reference
 #: convention of 2026-08-17, NFR-19).
 TIDY_COLUMNS: tuple[str, ...] = (
     "codebook_version",

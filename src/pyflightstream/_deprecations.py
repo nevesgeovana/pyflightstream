@@ -446,8 +446,8 @@ DEPRECATED_MODULES: tuple[DeprecatedModule, ...] = ()
 #: on 2026-09-09 (PFS-2021.02). Each warned "in a future release" and
 #: carried no removal version, which NFR-20's policy forbids from 1.0
 #: and which no test could hold to a date before it. THE DECISION,
-#: taken in the session's seat under the author's night authorization
-#: of 2026-09-08: BOTH STAY UNTIL 1.0.0. Removing either earlier buys
+#: taken in the session's seat under the delegation recorded for
+#: 2026-09-08: BOTH STAY UNTIL 1.0.0. Removing either earlier buys
 #: nothing (each shim is a keyword that forwards to its replacement)
 #: and would cost a caller outside this package a release they were
 #: never told about; 1.0.0 is the first release at which the policy
@@ -527,7 +527,7 @@ MATRIX_FS_VERSION: dict[str, DeprecatedParameter] = {
 #:   ``pyflightstream.commands``, which is where a reader of the key
 #:   meets them.
 #: The polar format's five public names were spelled ``her`` from 0.13.0,
-#: naming the author rather than the thing; on her decision of 2026-09-09
+#: naming a person rather than the thing; on the decision of 2026-09-09
 #: they are spelled ``custom`` (the CHANGELOG entry of 0.14.0 names the
 #: finding). The old names warned and forwarded until 0.16.0 and are now
 #: gone; a module asked for one raises AttributeError.
@@ -580,10 +580,10 @@ def removed_name_refusal(module: str, name: str) -> str:
 #: cannot regenerate: every other name it renamed lives in code a user
 #: re-types, and a record is data a run produced once. On 2026-09-10 the
 #: removal was made and the suite went red on the tier-3 fixture, which
-#: led to the reading that matters: the author's own recorded campaign at
+#: led to the reading that matters: the reference recorded campaign at
 #: `pfs0110/runs.json` carries the OLD key, and that workspace is the
-#: reference her reproduction is compared against and is HELD, so nothing
-#: rewrites it. Keeping the promise on time would have made her recorded
+#: reference the reproduction is compared against and is HELD, so nothing
+#: rewrites it. Keeping the promise on time would have made that recorded
 #: campaign unreadable by the release that reproduces it.
 #:
 #: So it moves to 0.16.0, deliberately and on the record, which is what
@@ -602,14 +602,14 @@ WAIVED_COMMANDS_MANIFEST_KEY = DeprecatedManifestKey(
         "it, because a promise moved twice with no condition is a promise that never "
         "expires. Measured 2026-09-11 over GeoverseResearch/tools/fts_workspace/*/"
         "runs.json: 18 recorded rows in 6 manifests still carry the old key, among them "
-        "the author's recorded campaign. A manifest is the one surface a run cannot "
+        "the reference campaign. A manifest is the one surface a run cannot "
         "regenerate, so the reader stays while any recorded row needs it. THE EXIT IS A "
         "MEASUREMENT AND NOT A DATE: when that count reaches zero the reader goes, "
         "whatever release it is."
     ),
 )
 
-#: THE VOCABULARY THAT MOVED TO THE REFERENCE (FR-59 and FR-72, her design
+#: THE VOCABULARY THAT MOVED TO THE REFERENCE (FR-59 and FR-72, the design
 #: of 2026-09-10). Both tables were the setup preset's at 0.14.0, are read
 #: from it with a warning at 0.15.0, and stop being read at 0.17.0. Two
 #: releases rather than one because a workspace migrates its inputs by
@@ -758,7 +758,7 @@ ROW_BLADES_SELECTOR = DeprecatedParameter(
 )
 #: `ROW_PROBE_SCALE` STOOD HERE AND IS STRUCK. It promised that
 #: `scale = "propeller_radius"` would keep working with a warning until
-#: 0.17.0, and the author's instruction of 2026-09-10 is that this package
+#: 0.17.0, and the instruction of 2026-09-10 is that this package
 #: accepts no old nomenclature at all: the word is REFUSED now, with the
 #: replacement named. A promise nothing keeps is worse than no promise, so
 #: the entry moves rather than staying here unspoken. Its home is
@@ -766,10 +766,10 @@ ROW_BLADES_SELECTOR = DeprecatedParameter(
 
 #: THE 0.15.0 BATCH, WHICH IS NOT A SET OF PROMISES. Every entry below was
 #: written in 0.15.0 and 0.15.0 has not shipped, so nobody has a workspace
-#: that was told the old spelling would keep working. The author's
-#: instruction of 2026-09-10 is that this release breaks them rather than
-#: carrying two vocabularies into a package with no stable version:
-#: "quebra a promessa, nao estamos em versao estavel".
+#: that was told the old spelling would keep working. The decision of
+#: 2026-09-10 is that this release breaks them rather than carrying two
+#: vocabularies into a package with no stable version: a promise made
+#: inside an unreleased version was never a promise to anyone.
 #:
 #: The entries stay as objects because their `message()` is the sentence the
 #: REFUSALS print, and one home for a sentence is what this module is for.

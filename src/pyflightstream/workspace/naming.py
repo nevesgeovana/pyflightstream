@@ -19,7 +19,7 @@ Available placeholders:
 - ``{alpha}``, ``{beta}``: sweep angles in deg, compact (``2``, ``-3.5``).
 - ``{advance_ratio}``: rotor advance ratio J, dimensionless, compact.
 - ``{mach}``: free-stream Mach number of the case, compact.
-- ``{polar}``: the author's own convention (PFS-2029.19),
+- ``{polar}``: the reference convention (PFS-2029.19),
   ``POLAR-<sim>_M<mach*100:02d>AL<alpha*10:+04d>BE<beta*10:+04d>`` and
   ``J<J*100:+04d>`` appended when the case has an advance ratio, so
   ``POLAR-3207_M20AL-020BE+000`` and ``POLAR-9001_M14AL+000BE+000J+170``;
@@ -31,7 +31,7 @@ Available placeholders:
 The default templates reproduce the historical names exactly
 (``{point}`` for per-point files, ``sim_{sim}`` for archives), so
 existing campaign roots, goldens, and manifests stay valid; the matrix
-command line names points by :data:`MATRIX_POINT_NAME`, the author's convention,
+command line names points by :data:`MATRIX_POINT_NAME`, the standard convention,
 because a matrix row always resolves a Mach number.
 
 The default templates reproduce the historical names exactly
@@ -65,7 +65,7 @@ _OUTPUT_PLACEHOLDERS = (*_POINT_PLACEHOLDERS, "name")
 _ARCHIVE_PLACEHOLDERS = ("campaign", "sim")
 
 #: The point name the matrix command line uses unless told otherwise
-#: (PFS-2029.19.01): the author's own convention, whose every field a
+#: (PFS-2029.19.01): the reference convention, whose every field a
 #: matrix row resolves.
 MATRIX_POINT_NAME = "{polar}"
 
@@ -95,10 +95,10 @@ def polar_name(
     advance_ratio: float | None = None,
     swept: Sequence[str] = (),
 ) -> str:
-    """Render the author's point convention (PFS-2029.19.01).
+    """Render the reference point convention (PFS-2029.19.01).
 
     ``POLAR-<sim>_M<mach*100:02d>AL<alpha*10:+04d>BE<beta*10:+04d>``, with
-    ``J<J*100:+04d>`` appended when an advance ratio is known: the author's
+    ``J<J*100:+04d>`` appended when an advance ratio is known: the standard
     ``POLAR-{polar:03d}_M{mach*100:02d}AL{alpha*10:+04d}BE{beta*10:+04d}``
     and, for a rotor case, ``J{advance_ratio*100:+04d}``. Fixed width, so
     a directory of them sorts by polar, Mach, angle and ratio.

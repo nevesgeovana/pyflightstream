@@ -26,7 +26,7 @@ Three steps of one ladder:
    tidy sweep table, one row per run; :func:`write_table` then writes
    the final csv.
 
-EVERY TABLE SAYS WHAT PRODUCED ITS NUMBERS (PFS-2014.05, the author's
+EVERY TABLE SAYS WHAT PRODUCED ITS NUMBERS (PFS-2014.05, the
 requirement of 2026-08-16). Each frame these functions build carries
 ``data_origin`` and ``reduction``, and :func:`write_table` refuses to
 write one that does not. They are constant columns for a single parsed

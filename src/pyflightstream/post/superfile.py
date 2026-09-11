@@ -3,7 +3,7 @@
 Knowing what one simulation WAS and what it PRODUCED took six files until
 0.16.0: the polar table, the campaign sweep table, the matrix row, the setup,
 the reference and the unsteady plots, five of them in different shapes. The
-author's seventh feedback item of 2026-09-10 asked for one:
+seventh feedback item of 2026-09-10 asked for one:
 
     post/<matrix>/polars/SUPER-0001_M15AL+000BE+000J+sweep_g01.csv
 
@@ -21,8 +21,8 @@ empty cells where that run produced nothing.
 
 ITS COLUMN SET IS A SUPERSET of the union of what the workspace knows about
 that simulation, and the rule is a superset rather than a list because a list
-is a judgement about what matters and she asked for completeness. Her own
-statement of the acceptance is one sentence: if she has to open a second file
+is a judgement about what matters and the requirement asks for
+completeness. The acceptance is one sentence: if a reader has to open a second file
 to know something about that simulation, it failed.
 
 WHERE EVERY VALUE COMES FROM, and NONE of them is assembled a second time
@@ -111,7 +111,7 @@ _KEYED_CELLS = {"FLIGHT_CONDITION": ",", "VAR_NAMES_VALUES": "/"}
 #: key named here takes the point's value; every other key takes the row's.
 _AXIS_COLUMNS = {"ALPHA": "ALPHA", "BETA": "BETA", "ADVANCE_RATIO": "J"}
 
-#: The column naming the rotor speed her sentence asks for by name. A row
+#: The column naming the rotor speed the requirement asks for by name. A row
 #: that turns several rotors also gets ``RPM_<alias>`` per rotor, because
 #: one number cannot be two speeds; ``RPM`` then carries the speed only
 #: where the row turns exactly one.
@@ -213,7 +213,7 @@ def declared_sweep(row: MatrixRow | None, measured: Sequence[str]) -> tuple[str,
     which is FR-85's own rule and right for a table of one row.
 
     A superfile named that way would carry no `sweep` field at all, which
-    the requirement's own example and her decision exclude: the superfile
+    the requirement's own example and the decision behind it exclude: the superfile
     is about the SWEEP, whatever the sweep resolved to. So the axis comes
     from the cell that declares it, and falls back to what varied only
     where no matrix row is in reach.
@@ -231,7 +231,7 @@ def declared_sweep(row: MatrixRow | None, measured: Sequence[str]) -> tuple[str,
 def _free(value: object) -> str:
     """One cell whose precision is the SOURCE's, not the polar table's.
 
-    The polar table writes at five decimals, the author's precision, and every
+    The polar table writes at five decimals, the reference precision, and every
     value that comes from it keeps that. A value that comes from anywhere
     else must not be rounded to it: measured on `pfs0160`, the residual of
     the rotor point is 5.381595e-06, and five decimals would write it
@@ -353,7 +353,7 @@ def superfile_row(
             _take(row, key, matrix_row.flight_condition[key])
         for key, column in _AXIS_COLUMNS.items():
             _take(row, key, row.get(column, ""))
-    # 3. EVERY VARIABLE THAT DEFINES THE FLIGHT CONDITION, which is her
+    # 3. EVERY VARIABLE THAT DEFINES THE FLIGHT CONDITION, which is the
     #    second instruction of the same evening: what the row STATED, what
     #    the setup PINNED, and what the resolver SOLVED, under the keys
     #    each of the three is recorded by.

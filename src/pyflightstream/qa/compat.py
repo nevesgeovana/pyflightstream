@@ -1349,7 +1349,7 @@ class LicenceCandidate:
     """One command whose evidence a licence change could falsify.
 
     A CANDIDATE and not a member. Which commands belong in the subset a
-    licensed seat is actually spent on is a domain judgment the author
+    licensed seat is actually spent on is a domain judgment the owner
     holds; this type is the derived input to that judgment, carrying the
     fact that put each command on the list.
 
@@ -1414,9 +1414,9 @@ def licence_sensitive_candidates(
     WHAT THIS FUNCTION DELIBERATELY DOES NOT DO is choose the subset. Two
     things decide that and neither is mechanical: how many commands a
     seat can afford, and which capabilities a vendor plausibly gates
-    behind a tier. Both are the author's domain-expert seat. This returns
+    behind a tier. Both are the domain-expert seat's. This returns
     the candidates and the reason each is one; the membership is written
-    where the author writes it, and never inferred here.
+    where that seat records it, and never inferred here.
 
     Parameters
     ----------

@@ -136,7 +136,7 @@ _COUNT_ARG_NAMES = {
     # spelling for a count of surfaces in the database, after
     # 'surface_count', 'surfaces' and 'boundaries', and all four are the
     # manual's own on their own pages; the entries mirror them rather
-    # than harmonising, which is the author's decision of 2026-08-08.
+    # than harmonising, which is the design decision of 2026-08-08.
     # The cost of that decision is exactly this set, which is why the
     # set is guarded rather than trusted.
     "num_surfaces",
@@ -710,7 +710,7 @@ class Script:
         #: recorded cannot drift from the coordinates emitted. Empty for a
         #: script whose row declares no probes, and empty for one whose
         #: entry cites a user's points file, since the package does not
-        #: parse a survey she wrote.
+        #: parse a survey the user wrote.
         self.probe_points: list[tuple[int, float, float, float, str]] = []
         # WHAT THIS SCRIPT HAS ALREADY ASKED THE SOLVER TO EXPORT, keyed
         # by the path as it was rendered, valued by the helper that asked

@@ -824,7 +824,7 @@ class RunRecord(BaseModel):
         ledger entry carries the measurement that moved it. The three
         PROPERTY shims of this same rename were removed on time, because
         an attribute is code and code is re-typed; a RECORD is data a run
-        produced once, and the author's recorded campaign still carries
+        produced once, and the reference campaign still carries
         this key.
         """
         if isinstance(data, dict) and "broken_commands" in data and "waived_commands" not in data:
@@ -859,7 +859,7 @@ class RunRecord(BaseModel):
     #: the field existed, which the reader takes as the same thing, and
     #: which is why MANIFEST_SCHEMA does not move for it.
     raw_commands: list[RawCommand] = Field(default_factory=list)
-    #: The boundary aliases the row's setup defined (the author's decision of
+    #: The boundary aliases the row's setup defined (the design decision of
     #: 2026-09-09), carried so the products stage resolves a group naming
     #: one without opening the setup; empty for a setup defining none and
     #: for every record written before the field existed, which is why
@@ -878,7 +878,7 @@ class RunRecord(BaseModel):
     #: FR-91. Where this run's probe positions were written, relative to
     #: the simulation folder, or None for a row that declares no probes
     #: and for one whose entry cites a points file the user wrote (the
-    #: package does not parse a survey she authored to re-state it).
+    #: package does not parse a survey the user authored to re-state it).
     #:
     #: The file is per SIM and every point of the simulation writes the
     #: same bytes to it, because a probe layout is the artifact's and the
@@ -1126,7 +1126,7 @@ def expand_group(
     ------
     InputArtifactError
         If the group is written EMPTY, which means every family the
-        geometry carries (the author's decision of 2026-09-09) and leaves this
+        geometry carries (the design decision of 2026-09-09) and leaves this
         expansion no positions to number; if the descriptor declares no
         group of that name (the message
         lists the ones it does declare), if a member is a boundary label
@@ -1154,7 +1154,7 @@ def expand_group(
     if members == []:
         raise InputArtifactError(
             f"group {name!r} of the group artifact {artifact_id!r} is written empty, which "
-            "means every family the geometry carries (the author's decision of 2026-09-09); this "
+            "means every family the geometry carries (the design decision of 2026-09-09); this "
             "expansion numbers members by their position in the list and has none to "
             "number. Write the members, or use the group on the campaign path, where "
             "the polar table and the motion resolve it against the file.",
@@ -1654,7 +1654,7 @@ class CampaignWorkspace:
     def rotor_point(self, name: str) -> PointXyz:
         """Resolve a declared reference point that a rotor may turn about.
 
-        PFS-2029.11.02, the author's decision recorded in the plan: a point's KIND
+        PFS-2029.11.02, the design decision recorded in the plan: a point's KIND
         is stated, ``kind = "rotor"``, or left to the convention, where
         ``ERP`` and ``ERPn`` are rotors and ``ARP`` is the airframe; a
         motion on a point that is not a rotor is refused naming the
@@ -1806,9 +1806,9 @@ class CampaignWorkspace:
         Staging happens before execution so the manifest can tie the
         run to the exact input content (NFR-07).
 
-        THROUGH A LINK, NOT A COPY (PFS-2029.17, the author's first sentence of
+        THROUGH A LINK, NOT A COPY (PFS-2029.17, the first sentence of
         item #6). Until 0.11.0 every point carried a byte copy of the
-        geometry it opened, and the author's meshes are the size that sends every
+        geometry it opened, and production meshes are the size that sends every
         .fsm to cloud storage rather than to git. When every source sits
         in the workspace's own geometry library, ``sims/<sim>/inputs`` is
         made a directory junction on Windows and a symbolic link

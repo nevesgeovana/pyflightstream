@@ -94,8 +94,8 @@ FlightStream versions.
   rotor (FR-75).** A cut through the whole disk crosses the air between the
   blades and reports a section of nothing, so a distribution laid out in a
   rotor's own frame emits one cut per BLADE. The PLOTS keep the total, which is
-  her answer of 2026-09-11: "para o sections.distributions, nao faz sentido ter
-  cortes com o rotor inteiro, entao para ele vale ser 3 (diferente do plots)".
+  the decision of 2026-09-11: a section distribution over a whole rotor makes
+  no sense, so a rotor's distribution count is per blade, unlike the plots'.
   One test pins both counts, so a change to either is visible.
 
 - **A section distribution states its own cut count and plot direction
@@ -106,14 +106,14 @@ FlightStream versions.
 - **`[probes]` becomes `[[probes]]`, a LIST of tables (FR-77).** One artifact
   can now probe several frames, each entry carrying its own, with the vertex
   counter running ACROSS the entries so the numbered plot names stay unique.
-  THIS BREAKS EVERY 0.15.0 ARTIFACT and does so by her decision: "beleza, sem
-  problema quebrar, vou ajustar". The old spelling is refused by name rather
+  THIS BREAKS EVERY 0.15.0 ARTIFACT and does so deliberately: breaking them is accepted, and the artifacts
+  will be adjusted. The old spelling is refused by name rather
   than silently accepted. Nineteen artifacts were migrated in the same change,
   and the noun matters: measured 2026-09-11, THREE of them are committed pproc
   artifacts of this repository (the tree holds six, and none carries the old
-  spelling) and the other SIXTEEN are in her campaign workspaces.
+  spelling) and the other SIXTEEN are in the reference campaign workspaces.
 
-- **The console says which point a campaign is on while it runs (FR-78).** Her
+- **The console says which point a campaign is on while it runs (FR-78).** The
   request: "eu gostaria de ter um log do pyflightstream aparecendo no powershell
   falando qual etapa que ta e qualquer warning enquanto ele roda". Two lines per
   point on STDERR, flushed per line. STDERR because nobody asked for them; the
@@ -125,14 +125,14 @@ FlightStream versions.
 - **A probe entry prescribes a rectangular or a circular PLANE, not only a line
   (FR-79).** A rectangle by three corners with a discretisation along each
   edge, a circle by centre, normal, radius and a polar discretisation. Both are
-  emitted POINT BY POINT on her decision, so one declaration produces the same
+  emitted POINT BY POINT by decision, so one declaration produces the same
   export on either run path. The circle's centre appears ONCE rather than once
   per azimuth, which would weight it in anything that averages the file.
 
 - **A probe entry may cite a points file the user wrote (FR-80).** Under
   `inputs/profiles/probes/`, staged into `sims/<sim>/profiles/` and imported by
   the SOLVER. The package does not parse the file to re-emit it point by point,
-  which would make it the second author of a survey she wrote; the entry still
+  which would make it the second author of a survey the user wrote; the entry still
   states its frame and its normalisation.
 
 - **A steady row creates the probe points it exports (FR-81).** Until now a
@@ -144,13 +144,13 @@ FlightStream versions.
   vertex of a plane.
 
 - **A section distribution is created AFTER the solver is initialised
-  (FR-83).** Her first feedback item from running 0.15.0 at work, "surface
+  (FR-83).** The first feedback item from running 0.15.0 in production, "surface
   sections 50 dummies criadas, entender porque". THE COMMAND WAS NEVER THE
-  PROBLEM, and the first diagnosis of this said it was: she refused that
-  reading, her own recorded scripts settled it, and the key the wrong diagnosis
+  PROBLEM, and the first diagnosis of this said it was: that reading was refused
+  reading, the reference recorded scripts settled it, and the key the wrong diagnosis
   had introduced was reverted in full before the real fix landed. The cause is
   POSITION. The distributions are now emitted between `INITIALIZE_SOLVER` and
-  `START_SOLVER`, which is where her scripts put them.
+  `START_SOLVER`, which is where the reference scripts put them.
 
 - **`pyfs-matrix plan --cost` tables what each polar will cost (FR-82).** One
   row per point beside the READY and BLOCKED report: mesh size, trailing edges
@@ -226,7 +226,7 @@ FlightStream versions.
 
 - **The per-polar tables live under `post/<matrix>/polars/` (FR-88), named by
   the point convention with the swept variable written `sweep` (FR-85).**
-  Measured in the workspace the author sent back after running 0.15.0: the
+  Measured in the workspace the owning seat sent back after running 0.15.0: the
   polar tables sat loose at the top of `post/matriz/` beside `sections/`,
   `plots/` and `provenance/`, so the folder read as a directory and a drawer
   at once; and one point was written under two conventions, the script
@@ -236,11 +236,11 @@ FlightStream versions.
   custom format on the same stem. The campaign-level files stay where they
   are: they are about the campaign rather than about one polar's sweep.
   `write_recorded_polar` keeps the recorded convention, because it
-  regenerates the author's own historical tables and is compared with them
+  regenerates the reference historical tables and is compared with them
   name for name.
 
 - **A polar table carries `J`, the advance ratio of each row (FR-85).**
-  Measured on the author's `0001_M15_g01.csv`: the three rows of a
+  Measured on the reference `0001_M15_g01.csv`: the three rows of a
   three-value sweep carried identical `ALPHA`, `BETA`, `MACH` and `RE` and no
   column naming the swept value, so the only thing distinguishing the first
   row from the third was its position in the file. The column sits outside
@@ -270,7 +270,7 @@ FlightStream versions.
   one document overwrite the other.
 
 - **`pyfs-matrix run` writes the campaign sweep table ONCE (FR-90).**
-  Measured in the author's `post/matriz/`: `sweep.csv` and
+  Measured in the reference `post/matriz/`: `sweep.csv` and
   `campaign_sweep.csv`, both 1012 bytes, one sha256 between them, the same 27
   columns. A reader who found both could not know they were the same without
   hashing them, and a reader who edited one had silently disagreed with the
@@ -282,7 +282,7 @@ FlightStream versions.
   that ends it.** A manifest is the one surface a run cannot regenerate, and
   measured on 2026-09-11 over
   `GeoverseResearch/tools/fts_workspace/*/runs.json`, 18 recorded rows in 6
-  manifests still carry the old key, among them the author's recorded
+  manifests still carry the old key, among them the recorded
   campaign. The promise had already moved once, from 0.15.0 to 0.16.0, and a
   promise moved twice with no condition is a promise that never expires. THE
   EXIT IS NOW A MEASUREMENT AND NOT A DATE: when that count reaches zero the
@@ -301,8 +301,8 @@ FlightStream versions.
   that this sentence routed a reader to entries that did not exist.
 
   What it said: "FR-75 to FR-82 are written and PENDING, the eight
-  requirements the author's questions and requests of 2026-09-10 produced,
-  carried by PFS-2035.22 to .29 at milestone 0.16.0. Seven came from her;
+  requirements the open questions and requests of 2026-09-10 produced,
+  carried by PFS-2035.22 to .29 at milestone 0.16.0. Seven came from use;
   FR-81 is a defect found while measuring for the others, where a steady row
   citing a valid `[probes]` table emits no probe creation verb and still emits
   `EXPORT_PROBE_POINTS`."
@@ -347,7 +347,7 @@ FlightStream versions.
 ### Added
 
 - **A setup declares CUSTOM FLAGS, and a row sets a solver command by
-  name** (FR-74, PFS-2035.20, the author's instruction of 2026-09-10). A preset
+  name** (FR-74, PFS-2035.20, the instruction of 2026-09-10). A preset
   states `[[flags]]` once per flag with `name`, the word a row writes, and
   `command`, the FlightStream command it becomes, bare; a row citing that
   preset then writes `base_bending: 12.5` and the script carries
@@ -369,7 +369,7 @@ FlightStream versions.
   `matriz_vocab.fs` sets it, and the committed golden carries the line.
 
 - **A study's vocabulary lives in the reference artifact** (FR-59, FR-60,
-  FR-72, the author's design of 2026-09-10). `inputs/references/<id>.toml` now reads
+  FR-72, the design of 2026-09-10). `inputs/references/<id>.toml` now reads
   three tables: `[aliases]`, where a member may be another alias and the
   reader follows to the end, refusing a ring by naming both sides;
   `[[frames]]`, unchanged in shape; and ONE BLOCK PER ROTOR, `kind =
@@ -398,19 +398,19 @@ FlightStream versions.
 
   The flat pre-0.15.0 form is EXEMPT: it names one rotor in its own keys and
   has nothing to choose between. `rotor_speed` keeps its name; the draft of
-  FR-64 renamed it `rotor_speed_ref` and the author struck the rename.
+  FR-64 renamed it `rotor_speed_ref` and the owning seat struck the rename.
 - **`<ALIAS>_SMRP_ORIGINAL`, the frame a rotation turned FROM** (FR-71).
   Once per alias, before its FIRST rotation, the builder copies that rotor's
   hub frame; nothing turns the copy, so a study of an installed propeller can
   still be read in the frame it started in. Before this release that frame was
   lost the moment the mesh moved. ONCE PER ALIAS AND NOT ONCE PER RECORD is
-  the author's answer of 2026-09-10: a row that turns one alias twice keeps the state
+  the decision of 2026-09-10: a row that turns one alias twice keeps the state
   before the first rotation and adds nothing at the second.
 - **AND YOU DO NOT HAVE TO CITE IT.** A post-processing entry naming a hub
   frame this row ROTATED is written in BOTH: once in `<ALIAS>_SMRP`, where
   the rotation left it, and once in `<ALIAS>_SMRP_ORIGINAL`, where it
   started, the two plot names differing by the same suffix so neither
-  overwrites the other. The author's rule of 2026-09-10: an entry says which ROTOR it
+  overwrites the other. The rule of 2026-09-10: an entry says which ROTOR it
   is about, and the row's rotation decides how many readings of it there
   are, exactly as the frame decides how many emissions an entry stands for.
   The alternative was a second entry written by hand on every row that
@@ -455,18 +455,18 @@ FlightStream versions.
   it by, which is what lets one row sweep the pusher while the lifters hold.
   A record may not state the word `sweep`: sweeping is the condition's job,
   stated once for the row, and a record that writes it is refused.
-- **THE AUTHOR'S THREE MASTER'S CASES RAN AGAINST THIS RELEASE'S WHEEL BEFORE THE
+- **THE THREE REFERENCE CASES RAN AGAINST THIS RELEASE'S WHEEL BEFORE THE
   TAG, AND IT MOVED NO NUMBER.** Rows 3207, 3224 and 9001, rewritten in the
   new vocabulary, reproduce the 0.14.0 run coefficient for coefficient and
   residual for residual, and the rotor case's emitted script is byte for
   byte 0.14.0's. The comparison is `reports/master-cases-0150.json`, whose
-  band is read from the author's own recorded deltas rather than chosen, and the
+  band is read from the reference recorded deltas rather than chosen, and the
   report is `reports/RPT-046_her-master-cases-against-the-0-15-0-wheel_2026-09-10.md`,
   which also lists what it could NOT check. Both are committed, and this
   entry exists because a V&V lens found the release's headline evidence
   cited by no shipped artifact.
 - **`--ignore-missing-families`, on `pyfs-matrix plan` and `run`** (FR-73,
-  the author's design of 2026-09-10). The default is true and it reads a word, so
+  the design of 2026-09-10). The default is true and it reads a word, so
   `--ignore-missing-families false` is what a shell writes. With false, three silences become refusals ON A
   POST-PROCESSING `families` SELECTION, each naming the geometry's own boundaries beside what was
   cited: an alias member no boundary answers, which the resolver drops so
@@ -576,7 +576,7 @@ FlightStream versions.
 ### Changed
 
 - **ONE WORD FOR THE ROTATING THING: ROTOR, everywhere** (PFS-2035.21, the
-  author's decisions of 2026-09-10: "engine vs rotor: vamos de rotor" and
+  design decisions of 2026-09-10: between `engine` and `rotor`, the word is `rotor` and
   "normaliza tudo para rotor que e o mais generico"). Engine, propeller and
   PROP named one object across three artifacts, and each was a guess about
   the configuration; a propeller is a rotor and so is a lift fan, so the
@@ -586,7 +586,7 @@ FlightStream versions.
   `rotor_radius` and the workspace accessor is `rotor_point`.
 
 - **A RETIRED ATTRIBUTE REFUSES WITH AN ERROR THE PACKAGE CATEGORY CATCHES**
-  (PFS-2035.21, the author's call of 2026-09-10: "parece detalhe, decide o
+  (PFS-2035.21, a seat decision of 2026-09-10: "parece detalhe, decide o
   que for mais razoavel"). `CampaignWorkspace.engine_point` is kept so that
   it can refuse, and it raised a bare `AttributeError`: correct about what
   the attribute is, and silent to the one category this package tells
@@ -611,9 +611,8 @@ FlightStream versions.
   technical-writing lenses of the release review reached that finding
   independently and the architecture lens measured the pydantic reason.
 
-- **THE PACKAGE-LEVEL ROTOR FRAME IS GONE, not renamed** (the author, on the
-  rename made first: "isso nao deveria nem existir agora que o padrao e por
-  <ALIAS>"). At 0.14.0 a reference described one propulsor, so one frame at
+- **THE PACKAGE-LEVEL ROTOR FRAME IS GONE, not renamed** (the owning seat, on the
+  rename made first: it should not exist at all now that the convention is per `<ALIAS>`). At 0.14.0 a reference described one propulsor, so one frame at
   one position was the whole story; a reference declares one block per rotor
   now and each carries `<ALIAS>_SMRP` at its hub, `<ALIAS>_RMRP` turning
   with it and `<ALIAS>_RMRP<k>` per blade. `PROP_MRP` was the one-propulsor
@@ -622,7 +621,7 @@ FlightStream versions.
   citing one silently followed the ORDER of the MOTIONS list.
 
 - **NO OLD SPELLING IS ACCEPTED, and each refuses naming its replacement**
-  (the author: "nomenclatura antiga e para dar erro com mensagem que aquela
+  (the owning seat: "nomenclatura antiga e para dar erro com mensagem que aquela
   nomenclatura foi depreciada e como corrigir"). The principle that decides
   which promises break is recorded in `_deprecations.py`: A DEPRECATION
   INTRODUCED IN AN UNRELEASED VERSION IS NOT A PROMISE ANYONE HAS RECEIVED.
@@ -636,7 +635,7 @@ FlightStream versions.
   and breaking them would break a workspace that upgraded on their strength.
   A new module, `_retired_names.py`, holds what each word became and why.
 
-- **THE RUN MATRIX LOST A COLUMN: `SWEEP_TYPE` is gone** (FR-69, the author's rule of
+- **THE RUN MATRIX LOST A COLUMN: `SWEEP_TYPE` is gone** (FR-69, the rule of
   2026-09-10). A sweep is applied to a variable that DEFINES the flight
   condition, and to exactly one, so the `FLIGHT_CONDITION` cell says which
   by carrying the word `sweep` where that key's value would be, and
@@ -702,7 +701,7 @@ FlightStream versions.
     reference's `[aliases]` table and cite it by name; `all` and `each`
     stay, because they guess nothing. AN ALIAS OF THAT NAME IS READ FIRST,
     which is what makes the migration cheap: a reference that already
-    declares `airframe` is untouched, and every one of the author's does.
+    declares `airframe` is untouched, and every one of the reference rows does.
   - A post-processing entry's `families = "each_blade"`. The FRAME says it
     now: write `frame = "LOCAL_AXIS"`, which is one per blade.
   - A probe table's `scale = "propeller_radius"`. Write `rotor_radius`.
@@ -734,7 +733,7 @@ Five shims whose ledger promise named this release. Each has warned since
 ### Changed
 
 - **The polar format's five names are spelled `custom` where they were
-  spelled `the author's`** (the author's decision of 2026-09-09, closing the 0.13.0 review's
+  spelled `the reference`** (the design decision of 2026-09-09, closing the 0.13.0 review's
   finding API-4, "her_* on five public names has no antecedent"):
   `[products] custom_polar_format` on the pproc artifact,
   `CustomPolarTable`, `custom_polar_file_name`, `write_custom_polar_format`
@@ -748,7 +747,7 @@ Five shims whose ledger promise named this release. Each has warned since
 
 - **An empty `[groups]` entry of the pproc artifact is every family the
   geometry carries, and a group member may be a family name or an alias
-  of the setup** (the author's decisions of 2026-09-09, settling the verdict
+  of the setup** (the design decisions of 2026-09-09, settling the verdict
   PFS-2005.02, "an empty boundary list is refused wherever the solver
   would read it as disable everything", left to the domain seat). `"1" = []` was refused at plan
   time as "domain seat, not yet decided"; it now plans READY, its polar
@@ -764,9 +763,9 @@ Five shims whose ledger promise named this release. Each has warned since
   boundary-citing cell and a group member take the exact name first, so
   a preset's word cannot shadow a label the file carries. `expand_group`, the recipe tool that numbers members by
   position, refuses an empty group naming the meaning.
-  `ENTITY_SELECTIONS` carries the author's verdict beside the key.
+  `ENTITY_SELECTIONS` carries the verdict beside the key.
 
-- **Two readings of the pproc artifact widen with them** (the author's own p001 of
+- **Two readings of the pproc artifact widen with them** (the reference p001 of
   the same day): a `families` entry may be a bare word, an alias or a
   family name, judged at build time and skipped when it resolves to
   nothing, where the reader refused any word outside the five selectors;
@@ -779,7 +778,7 @@ Five shims whose ledger promise named this release. Each has warned since
 ### Added
 
 - **A setup preset names groups of mesh families under `[aliases]`, read
-  wherever a boundary is cited** (the author's decision of 2026-09-09). One key per
+  wherever a boundary is cited** (the design decision of 2026-09-09). One key per
   alias, a list of boundary names or families in any mix; a member the
   file does not carry is ignored, so one preset serves every geometry of
   a study. The alias resolves in `MOVING_BOUNDARIES`, `ROTATE`'s
@@ -797,7 +796,7 @@ Five shims whose ledger promise named this release. Each has warned since
   alias.
 
 - **A setup artifact defines custom coordinate systems, created after the
-  package's own** (PFS-2034.01, the author's design of 2026-09-09, design/69, the
+  package's own** (PFS-2034.01, the design of 2026-09-09, design/69, the
   first node of the incidence study). A `[[frames]]` table, one entry per
   frame with `name`, `origin` and optionally `x_axis` and `y_axis` in the
   geometry's own frame, read out of the raw settings by `resolve_setup`
@@ -811,7 +810,7 @@ Five shims whose ledger promise named this release. Each has warned since
   byte-identical (`python -m tests.tier3_licensed.offline`, 0 differing).
   RED on b376b14: the table was refused as a key naming no solver setting.
 - **A row turns the mesh: `ROTATE`, a list of records like `MOTIONS`,
-  one rotation each in the order written** (PFS-2034.02, the author's design of
+  one rotation each in the order written** (PFS-2034.02, the design of
   2026-09-09, design/69: the incidence study's pitch and toe from a row,
   the geometry file untouched). `ROTATE: {ANGLE: 3 / AXIS: NAC-Y /
   FAMILIES: Blade,S / AUX_FRAMES: PROP_MRP}, {...}`: `AXIS` names a
@@ -855,7 +854,7 @@ Five shims whose ledger promise named this release. Each has warned since
   on d665201: the LEGACY row read fine, the blades-only row warned
   nothing.
 - **The per-step exports of a windowed point as a series**
-  (PFS-2031.18.01, the author's incidence study's unsteady plots and surface
+  (PFS-2031.18.01, the reference incidence study's unsteady plots and surface
   sections after N revolutions). The products stage tables the stamped
   files of the export window, one table per kind under
   `post/<matrix stem>/series/` (the new public module
@@ -873,16 +872,16 @@ Five shims whose ledger promise named this release. Each has warned since
   polar is refused keeps them. RED on d908092: no series folder, the
   record's window without a clock.
 - **A probe export declaring no point reads as an empty table**
-  (PFS-2031.18.01, found on the author's workspace on 2026-09-09; the fixture is
+  (PFS-2031.18.01, found on the reference workspace on 2026-09-09; the fixture is
   the solver's own file from the tier-3 actions row 6002, committed). Every stamped
-  probes file of the author's rows 1226 and 5913 declares `Number of Probe
+  probes file of the reference rows 1226 and 5913 declares `Number of Probe
   Points: 0` with the header and the opening and closing dashed lines
   and nothing between them, and the parser refused it as a file cut
   mid-table, because its walker skips every dashed line after the header
   until a row appears. A declared count of zero is now a complete table
   of no rows. RED on d908092 with the fixture's rows removed.
 - **The blade count of a sector mesh comes from `PERIODIC_COPIES` when
-  `BLADES` is absent** (PFS-2015.04.01, found by the author's reproduction on
+  `BLADES` is absent** (PFS-2015.04.01, found by the reproduction on
   2026-09-09: rows 5901, 5903 and 5913 of pfs0131, one blade meshed and
   `PERIODIC_COPIES: 6`, had their phase-locked and per-blade reductions
   skipped for want of a key saying the same number twice). A row stating
@@ -891,7 +890,7 @@ Five shims whose ledger promise named this release. Each has warned since
   alone.
 - **A setup artifact states raw solver commands, each before a named
   phase, through the same emitter as every curated line** (PFS-2033.01
-  and .02, the author's design of 2026-09-09, design/69). A `[[raw]]` table, one
+  and .02, the design of 2026-09-09, design/69). A `[[raw]]` table, one
   entry per line with `command` (the line as the solver reads it) and
   `before` (geometry, setup, init, exec, analysis, export, or control
   for the head of the script), read out of the raw settings by
@@ -912,7 +911,7 @@ Five shims whose ledger promise named this release. Each has warned since
   byte-identical. RED on aff689e: the table refused as a key naming no
   solver setting, and no `RAW_TABLE`.
 - **The tier-3 setup study gains a row carrying one raw line, for the
-  author's seat** (PFS-2033.03). Setup `s008` is the tour preset plus
+  licensed seat** (PFS-2033.03). Setup `s008` is the tour preset plus
   `SOLVER_SET_ITERATIONS 350` before init, over the preset's 300; row
   2004 of `matriz_setup.fs` states it, its golden is rendered offline,
   and the tier-3 test that reads the record, the script order, the loads
@@ -930,7 +929,7 @@ Five shims whose ledger promise named this release. Each has warned since
   reached `plan_matrix` alone: `pyfs-matrix plan` said READY and
   `pyfs-matrix run` refused the same matrix, whole, with
   `CommandNotInVersionError` for 26.120 on the row that named 26.123, so
-  the matrix of the author's master's cases that states the unsteady actions on a
+  the matrix of the reference cases that states the unsteady actions on a
   second build could not run from the released package. One function,
   `_row_versions`, now feeds both pre-flights. RED on 7b20deb: MatrixError,
   pre-flight blocked 1 matrix point(s); the tier-1 test runs the two-build
@@ -956,7 +955,7 @@ Five shims whose ledger promise named this release. Each has warned since
 
 - **The geometry library reads one subfolder per geometry beside the flat
   layout, and a point's staged inputs show one geometry's files**
-  (PFS-2032.04, the author's reading of 2026-09-08, design 68 section A3). The cell
+  (PFS-2032.04, the reading of 2026-09-08, design 68 section A3). The cell
   keeps saying `GEOMETRY: 30_WB.fsm`; the resolver looks for
   `inputs/geometries/30_WB/30_WB.fsm` first and `inputs/geometries/30_WB.fsm`
   second, so no matrix written since 0.11.0 changes and a library can hold
@@ -971,7 +970,7 @@ Five shims whose ledger promise named this release. Each has warned since
   as geometries a cell could name. The flat layout is not deprecated: the
   tier-3 library stays flat and is the control that nothing broke (every
   matrix READY, every golden equal), and the cycle that retires the flat
-  form is the author's to open once the folders have run a campaign.
+  form is for the owning seat to open once the folders have run a campaign.
 
 - **`pyfs-workspace migrate-geometries <root>` moves a flat geometry library
   into one folder per geometry, idempotently** (PFS-2032.05). Every
@@ -991,7 +990,7 @@ Five shims whose ledger promise named this release. Each has warned since
 - **The products stage writes a PROV-JSON provenance document per recorded
   run** (PFS-2012.08, PFS-2012.08.01). The run record carried every fact a
   provenance document needs and lacked a shape another tool reads without
-  reading this package's docs; the author's decision of 2026-09-08 (design 68) is
+  reading this package's docs; the design decision of 2026-09-08 (design 68) is
   W3C PROV, serialized as PROV-JSON, one document per recorded run, a
   product and never a function a user calls on a record. `pyfs-matrix
   post` and the run's own products stage write
@@ -1009,14 +1008,14 @@ Five shims whose ledger promise named this release. Each has warned since
   library only; the tier-1 test reads the document back with a reader of
   a few lines and requires every relation to name a declared node.
 
-- **The campaign stage writes the author's plot format beside the polar tables, and
+- **The campaign stage writes the reference plot format beside the polar tables, and
   the format is specified against a committed sample** (PFS-2014.01.01,
-  PFS-2014.01.02). The author's existing tooling opens a fixed-width text polar
+  PFS-2014.01.02). The existing tooling opens a fixed-width text polar
   file; `[products] her_polar_format = true` on the pproc artifact writes
   `<polar>_M<code>_g<group>.dat` beside every `.csv` the stage writes, the
   same twenty-four columns a second time at `%10.5f`, and
   `pyflightstream.post.read_her_polar_format` reads it back. The shape was
-  read off a file of the author's and is pinned by
+  read off a recorded file and is pinned by
   `tests/tier1_offline/fixtures/her_polar_format_sample.dat`, every value
   of which is synthetic (the tour's wing at Mach 0.1); the writer's
   docstring names every line of the format and the tier-1 test feeds the
@@ -1064,7 +1063,7 @@ Five shims whose ledger promise named this release. Each has warned since
   both moving the third boundary.
 
 - **A key no run type registers is refused at plan time, naming the row, the
-  key and the keys the run type does register** (PFS-2008.02.01, the author's rule of
+  key and the keys the run type does register** (PFS-2008.02.01, the rule of
   2026-09-08 recorded in design 68: a row states only what the script will
   carry). Each run type carries its vocabulary on the `Workflow` object
   (`keys`, beside `commands`), the wider types extending the narrower, and
@@ -1184,7 +1183,7 @@ Five shims whose ledger promise named this release. Each has warned since
   point beside its plots table, over the window the row states**
   (PFS-2015.04, PFS-2015.03, OPS-2008.01). The four reductions existed as
   library functions since 0.8.0 and nothing on the campaign path called
-  them; under the author's rule of 2026-09-08 that every capability enters through
+  them; under the rule of 2026-09-08 that every capability enters through
   the workflow, `pyfs-matrix run` now resolves the windows off the row when
   it writes the run record (`reductions` in `runs.json`, from
   `pyflightstream.cases.workflows.reduction_windows`), and the products
@@ -1213,7 +1212,7 @@ Five shims whose ledger promise named this release. Each has warned since
   products stage carries no far-field product yet, and the test says so.
 
 - **Exports that begin after a threshold the row states** (PFS-2031.18,
-  the author's design of 2026-09-08, GeoversePlan design 67). Two row keys enter the
+  the design of 2026-09-08, GeoversePlan design 67). Two row keys enter the
   vocabulary of the two unsteady run types, `EXPORT_UNSTEADY_AFTER_REV` on
   `unsteady_rotor` and `EXPORT_UNSTEADY_AFTER_ITER` on both, one per row at
   most and refused on a steady row. A row stating one registers two unsteady
@@ -1277,7 +1276,7 @@ Five shims whose ledger promise named this release. Each has warned since
   `--strict` flag makes a product skipped by design exit 3, a code of its
   own beside 2 for a refusal, after every product is written; without it a
   recorded skip is printed and the exit is 0, since everything producible was
-  produced (the author's decision of 2026-09-08, PFS-2031.19). `pyfs-matrix run`
+  produced (the design decision of 2026-09-08, PFS-2031.19). `pyfs-matrix run`
   prints the same skip lines at the end of the run, so the surface that spent
   the seat is not silent about them.
 
@@ -1349,7 +1348,7 @@ Five shims whose ledger promise named this release. Each has warned since
   `tests/tier1_offline/test_support_window.py` re-derives every floor from
   the release dates and the stated date so the schedule overtaking the
   declaration fails the suite. Decision to adopt SPEC 0 taken in the
-  session's seat under the author's night authorization of 2026-09-08.
+  session's seat under the delegation recorded for 2026-09-08.
   ANNOUNCEMENT, for NFR-21: 3.11 is dropped in this release without a
   release before it saying so; NFR-21 is pending and this entry is the
   announcement it asks for. No leg runs 3.13 or 3.14 yet, so no classifier
@@ -1380,7 +1379,7 @@ Five shims whose ledger promise named this release. Each has warned since
   (`pyflightstream._deprecations`) with `removal_version` 1.0.0, the warning
   text is built from the row, and the tier-1 deadline guard judges them with
   every other promise. The decision to keep them until 1.0.0 rather than
-  pick an earlier minor was taken in the session's seat under the author's
+  pick an earlier minor was taken in the session's seat under the reference
   night authorization of 2026-09-08 and is recorded beside the entries: each
   shim is a keyword that forwards to its replacement, so removing it earlier
   saves nothing and costs an outside caller a release they were never told
@@ -1417,7 +1416,7 @@ Five shims whose ledger promise named this release. Each has warned since
   the layout in which `source_version` was optional.
 
 - **`pyfs-qa physics` reads the workspace, and the hand-built physics
-  builders retire** (PFS-2031.17, the author's decision B of 2026-09-08 in
+  builders retire** (PFS-2031.17, the design decision B of 2026-09-08 in
   design study 66). `pyfs-qa physics --workspace <root>` runs the
   workspace's `matriz_physics.fs` through the run layer exactly as
   `pyfs-matrix run` does, reduces the records with the reductions of
@@ -1451,7 +1450,7 @@ Five shims whose ledger promise named this release. Each has warned since
   at module level before this release; so the driver's imports point down,
   and `tests/tier1_offline/test_qa_matrix.py` measures that no module of a
   lower row imports qa back. RPT-042 is the measurement that the workflow
-  rows reproduce every coefficient of the hand-built scripts inside the author's
+  rows reproduce every coefficient of the hand-built scripts inside the reference
   bands, which is what made the second builder redundant. The first report written this way from the tier-3 workspace, with no seat spent, is
   `reports/physics/PHY-26120_2026-09-09`: 30 pass, 0 warn, 0 fail on 26.120,
   the same four cases the hand-built scripts judged.
@@ -1463,7 +1462,7 @@ Five shims whose ledger promise named this release. Each has warned since
   `campaign_sweep.csv` from `post/` to `post/<stem>/`, and the product tables
   with `products.json` from `post/products/` to `post/<stem>/`. `runs.json`
   stays the one manifest, and every record now names the matrix its point
-  came from (`matrix_stem`, named so on the author's decision of 2026-09-08 to stay
+  came from (`matrix_stem`, named so on the design decision of 2026-09-08 to stay
   apart from `DerivedFrom.matrix`, the path a conversion read; the field had
   been `matrix` for one day of the 0.13.0 development line and no release
   carried it, PFS-2031.20), which is what `sweep_table(..., matrix_stem=)` and
@@ -1496,7 +1495,7 @@ Five shims whose ledger promise named this release. Each has warned since
 
 - **The release review of 0.13.0, round one: five lenses over
   237a47a..83d856a, thirty-three findings, twenty-six fixed here, two
-  registered for 0.14.0, five questions to the author** (the round ledger
+  registered for 0.14.0, five questions to the owning seat** (the round ledger
   REL-0130 in the coordination tree). What moved in the package:
   `apply-compat` never replaces the citation of a row already `verified`
   elsewhere, the new report corroborates it (outcome `corroborated`, counted
@@ -1631,7 +1630,7 @@ Five shims whose ledger promise named this release. Each has warned since
   empty list: refused on the manual's word for the induced-drag selection
   and for the families of a plot group or a section distribution, admitted
   for `base_regions` (its documented off switch), and "domain seat, not yet
-  decided: refused until the author says" for a group, which is this package's own
+  decided: refused until the owning seat says" for a group, which is this package's own
   concept and one the manual has no sentence about. The refusal prints the
   verdict beside the key.
 
@@ -1703,16 +1702,16 @@ Five shims whose ledger promise named this release. Each has warned since
 
 - **A time step derived from `DELTA_THETA` and `REVOLUTIONS` is emitted as
   derived, never rounded.** That was always so and is stated here because a
-  session briefly made it otherwise: the author's own scripts write
+  session briefly made it otherwise: the reference scripts write
   `DELTA_TIME 0.00352` where the same derivation gives 0.0035223250952, and
-  the author's correction is that the rounding belongs to that file rather than to
+  the correction is that the rounding belongs to that file rather than to
   what a run emits. Rounding would end a run at an azimuth nobody chose,
   which is what stating the revolutions exists to prevent. The steps per
   revolution come from the azimuthal step itself rather than from a
   quotient of the seconds and the speed.
 - **An unsteady run that meshes nothing turning may state its clock
   azimuthally**, when the row states the speed whose azimuth the step
-  measures. The author's `POLAR-3224` is the case: a wing-body in a propeller's
+  measures. The reference `POLAR-3224` is the case: a wing-body in a propeller's
   slipstream at an advance ratio of 1.3, described as
   `UNS_WB_DTHETA20deg_REV8p0`, whose recorded step is twenty degrees at that
   propeller's speed. A row stating the pair and no speed is still refused,
@@ -1722,19 +1721,19 @@ Five shims whose ledger promise named this release. Each has warned since
 ### Fixed
 
 - The default loads assessor judges the point's OWN declared outputs, not
-  every file in the simulation folder. Under the author's naming each
+  every file in the simulation folder. Under the standard naming each
   point's loads table is `<point>.txt`, so the second point of a two-point
   sweep found the first point's table beside its own and was refused as
-  ambiguous ("several of them parse"); measured on the author's campaign on
+  ambiguous ("several of them parse"); measured on the reference campaign on
   2026-09-03, row 3207 at alpha 0 after alpha -2. A case declaring no
   outputs is judged over the whole folder as before.
 - A rotor speed derived from `ADVANCE_RATIO` is emitted at four decimals,
-  the precision the author's tool wrote it with: the author's recorded 9001 script
+  the precision the reference tooling wrote it with: the recorded 9001 script
   states 473.1723 rev/min (quoted in `reports/RPT-040`, the reproduction
   report) where the unrounded derivation gives 473.17227304,
-  and the run that produced the author's tables turned at the four-decimal value.
+  and the run that produced the reference tables turned at the four-decimal value.
   Found by the scripts arm of GOAL-011 on 2026-09-03 as the one difference
-  on that point once the row stated the advance ratio the author's name carries.
+  on that point once the row stated the advance ratio the reference name carries.
 
 ## [0.11.0] - 2026-09-03
 
@@ -1752,7 +1751,7 @@ Five shims whose ledger promise named this release. Each has warned since
 - FR-54, PFS-2030.02: a flight condition may PIN the fluid constants the
   standard atmosphere would otherwise supply, with five new keys
   (`RHOkgm3`, `MUPas`, `ASMPS`, `TK`, `PPA`), so a row can state the fluid its
-  author's own scripts pinned and the emitted `FLUID_PROPERTIES` block carries
+  the reference scripts pinned and the emitted `FLUID_PROPERTIES` block carries
   those numbers; the resolved condition records which fields were pinned.
 - FR-54, PFS-2030.03: every builder now states the reference velocity
   (`SOLVER_SET_REF_VELOCITY`, the free stream unless the setup states
@@ -1766,18 +1765,18 @@ Five shims whose ledger promise named this release. Each has warned since
   the second on the run type that turns nothing. The two unsteady run types
   create a `PROP_MRP` frame at the reference's propeller position, which is the
   one field of the propeller block the package now reads.
-- PFS-2028.05, the author's decision of 2026-09-02: a setup that states
+- PFS-2028.05, the design decision of 2026-09-02: a setup that states
   `symmetry_loads` emits `SET_ANALYSIS_SYMMETRY_LOADS` as stated; an absent key
-  still emits nothing. The measurement behind it: the 0.10.1 reproduction of the author's
-  isolated rotor reported loads six times the author's because the author's preset stated the
+  still emits nothing. The measurement behind it: the 0.10.1 reproduction of the reference
+  isolated rotor reported loads six times the reference because the reference preset stated the
   symmetry loads off and nothing was emitted.
 
 - FR-51, PFS-2029.14.01 and PFS-2029.18: a workflow row that declares no
   `OUTPUTS` gets the study's export set by default, seven kinds for a steady
   point and eight for an unsteady one, every one named for the point with the
-  author's suffixes (`.fsm`, `.txt`, `.dat`, `_cp.txt`, `_sloads.txt`,
+  reference suffixes (`.fsm`, `.txt`, `.dat`, `_cp.txt`, `_sloads.txt`,
   `_probes.txt`, `_plots.txt`, `_log.txt`); the three builders export them in
-  the author's order, the saved simulation first, with `UPDATE_ALL_SURFACE_SECTIONS`,
+  the order, the saved simulation first, with `UPDATE_ALL_SURFACE_SECTIONS`,
   `COMPUTE_SURFACE_SECTIONAL_LOADS NEWTONS` and `UPDATE_PROBE_POINTS` before
   them whenever a section, sectional-loads or probe export is asked for. A row
   that still declares `OUTPUTS` exports exactly what it declares, paired with
@@ -1799,7 +1798,7 @@ Five shims whose ledger promise named this release. Each has warned since
   CSV tables the campaign writes (`polars`, `sections`, `plots`). An entry names families, or a selector (`all`,
   `airframe`, `blades`, `each`, `each_blade`), and cites a frame by name
   (`MRP`, `PROP_MRP`, `BLADE_AXIS`); a family the geometry does not carry is
-  left out, as the author's driver filtered its tables, and an entry that
+  left out, as the reference driver filtered its tables, and an entry that
   resolves to nothing is skipped. The three builders emit the definitions
   before the solver runs; the run record names the pproc id
   (PFS-2029.16), and a setup artifact naming a post-processing table is
@@ -1833,10 +1832,10 @@ Five shims whose ledger promise named this release. Each has warned since
   reference velocity to the free stream); a reader round-trips each, a
   plots export the reader cannot parse is refused naming the file, and
   `write_recorded_polar` drives the three over a recorded polar's point
-  folders. The numbers are the author's: the author's recorded tables, converted to
+  folders. The numbers are the reference: the recorded tables, converted to
   the same CSV shape outside the package, are equal text (the products arm
-  of GOAL-011, 32 of 32). The products are CSV by the author's decision of
-  2026-09-02; the layout the author recorded in is a third party's and the package
+  of GOAL-011, 32 of 32). The products are CSV by the design decision of
+  2026-09-02; the layout the owning seat recorded in is a third party's and the package
   neither names nor writes it.
 - PFS-2029.03: the workspace directory names the campaign. `pyfs-matrix
   plan` and `run` need no `--name`: the campaign is named after the
@@ -1847,7 +1846,7 @@ Five shims whose ledger promise named this release. Each has warned since
   from a workspace renamed since its first run is refused naming the
   recorded name, the derived name and `--name`, since every run id begins
   with the campaign's name and nothing would be recognised as recorded.
-- PFS-2029.09, the author's decision of 2026-09-02 amending PFS-2009.01:
+- PFS-2029.09, the design decision of 2026-09-02 amending PFS-2009.01:
   the `GEOMETRY` cell carries the FILE NAME with its extension.
   `30_WB.fsm` resolves to `inputs/geometries/30_WB.fsm` and `blade.v2.fsm`
   reads one way; a bare stem is refused naming the files that carry it, a
@@ -1940,7 +1939,7 @@ Five shims whose ledger promise named this release. Each has warned since
   needs (`description`, `mach`, `reference`), and `ReferenceData` carries
   the reference span (`span_m`), which the polar tables scale the rolling
   and yawing moments to.
-- FR-33a and FR-33b, PFS-2029.19: the author's own naming convention names
+- FR-33a and FR-33b, PFS-2029.19: the reference naming convention names
   every point and its exports. A new placeholder `{polar}` renders
   `POLAR-<sim>_M<mach*100:02d>AL<alpha*10:+04d>BE<beta*10:+04d>`, with
   `J<J*100:+04d>` appended when the case has an advance ratio, fixed width so
@@ -1952,7 +1951,7 @@ Five shims whose ledger promise named this release. Each has warned since
   default stays `{point}`, so hand-built campaigns, goldens and manifests are
   what they were. The run record carries the template that rendered its names
   (`point_name_template`). A rotorless unsteady row may state `ADVANCE_RATIO`,
-  the J of the propeller it did not mesh, as the author's wing-body rows did; it names
+  the J of the propeller it did not mesh, as the reference wing-body rows did; it names
   the point and turns nothing, and the keys that would turn something are
   still refused.
 - PFS-2029.01 and PFS-2029.02: `pyfs-matrix run` and `plan` need no
@@ -1987,7 +1986,7 @@ Five shims whose ledger promise named this release. Each has warned since
   every blade the opened geometry carries: on a three-boundary sector
   holding `Blade1, S, N` that cell moves boundaries 1 and 2, and on the
   eight-boundary wheel holding `Blade1, S, N, Blade2 ... Blade6` the
-  same cell moves 1, 2, 4, 5, 6, 7 and 8. Measured against the author's
+  same cell moves 1, 2, 4, 5, 6, 7 and 8. Measured against the reference
   own campaign: **one cell reproduces all ten of its positional cells
   exactly, across five geometries**, and every emitted script is byte
   for byte what it was. Those two tables, and the evidence that a
@@ -2004,7 +2003,7 @@ Five shims whose ledger promise named this release. Each has warned since
   opens.** They were always there, in the file's own mesh block, and
   nothing looked. The reader takes the 1-based POSITION of each record
   as the boundary index and discards the number printed on the record's
-  first line, which is not the index: across the author's eight
+  first line, which is not the index: across the reference set of eight
   geometries, seven start that number at 2 and one starts at 1, so a map
   built from it would be off by one almost everywhere.
 
@@ -2027,22 +2026,22 @@ Five shims whose ledger promise named this release. Each has warned since
   a boundary inventory. Its evidence line now names a test at the surface
   the requirement claims, and that test fails on 0.10.0.
 
-### Added -- a third run type, by the author's exception on a patch
+### Added -- a third run type, by an agreed exception on a patch
 
 - **`unsteady`: an unsteady run with nothing turning.** The package built
   two of the three shapes a study needs, and the third had no name a
-  matrix row could write, so two cases of the author's own exercise were
-  left out of the author's campaign rather than forced into a run type that is not
+  matrix row could write, so two cases of the reference exercise were
+  left out of the reference campaign rather than forced into a run type that is not
   theirs. One of them is a wing-body in the time domain; the other is a
   power-off configuration on the powered run's discretisation, which
   exists precisely so the two are comparable.
 
   **THIS IS A NEW CAPABILITY IN A PATCH RELEASE, and it is stated here
   rather than left for a reader to infer from the version number.** The
-  author widened 0.10.1 by explicit exception so these items would not
-  block the author's work. A reader of the version history should know that 0.10.1
+  owning seat widened 0.10.1 by explicit exception so these items would not
+  block downstream work. A reader of the version history should know that 0.10.1
   is a patch by its numbering and by its priority-zero defect fix, and
-  that it also carries this addition because the author asked for it that way.
+  that it also carries this addition because the owning seat asked for it that way.
 
   Its clock is `DELTA_TIME` and `TIME_ITERATIONS`, and the azimuthal pair
   is REFUSED on it. `DELTA_THETA` and `REVOLUTIONS` are not a clock; they
@@ -2102,7 +2101,7 @@ Five shims whose ledger promise named this release. Each has warned since
   build.** The seat-free half of the compatibility item. It is a
   statement about this repository's own evidence and never a claim that
   a command works on a build; the sweep that would earn the second claim
-  needs a licensed solver and is the author's to authorise.
+  needs a licensed solver and is for the owning seat to authorise.
 
   Nineteen commands, nine of them not emitted by the steady path, over
   nine builds: 63 cells verified, 93 documented, and **15 carrying no
@@ -2129,7 +2128,7 @@ Five shims whose ledger promise named this release. Each has warned since
 
 - One refusal does arm, and it is correct: a position ABOVE the opened
   geometry's boundary count now stops the run instead of reaching the
-  solver. No row of the author's campaign does that, and a row that did
+  solver. No row of the reference campaign does that, and a row that did
   was always wrong.
 
 
@@ -2164,7 +2163,7 @@ Five shims whose ledger promise named this release. Each has warned since
   refused naming both numbers, because such a run ends part way through
   a step at an azimuth nobody chose.
 
-  Measured on the author's own campaign: rows carrying a hand-typed
+  Measured on the reference campaign: rows carrying a hand-typed
   `DELTA_TIME` of `0.00352` were carrying `0.0035222840` rounded to
   three figures, so 54 steps covered 1.4990 revolutions and not the 1.5
   the campaign documented.
@@ -2218,7 +2217,7 @@ DEFAULT path. Most of those entries carry `documented` rather than
 `verified` status on most registered builds, which means the manual says
 the solver takes them and no committed probe report shows that it does.
 
-WHAT IS MEASURED: the author ran the new rotor path end to end on a
+WHAT IS MEASURED: the owning seat ran the new rotor path end to end on a
 licensed 26.123, two points, both CONVERGED at residuals of 7.59e-06 and
 4.73e-06 against their own 1e-05 limit. WHAT IS NOT: a compatibility
 sweep re-examining the verified and documented split for those thirteen
@@ -2244,7 +2243,7 @@ the preset file; the third bullet says which.
   applies, so a typo finds the field it meant.
 
   **What was measured, stated to the precision it was measured at.** On
-  the author's own campaign, honouring the preset moved the axial force
+  the reference campaign, honouring the preset moved the axial force
   coefficient `Cx` from -0.0535 to -0.0541 on one rotor point and from
   -0.0542 to -0.0548 on another, which is about one percent in the
   direction expected. Those operands are printed to four decimals, so
@@ -2287,13 +2286,13 @@ the preset file; the third bullet says which.
   not something this repository asserts anywhere, and a changelog entry
   is not the place to start.
 
-  **The runs are not in this repository.** They live in the author's
+  **The runs are not in this repository.** They live in the reference
   campaign workspace at `tools/fts_workspace/pfs090`, measured
   2026-09-01: the after-state under `sims/`, the before-state under
   `archive/run_26123_preset_nao_mapeado`, and that tree is not tracked
   here. Both arms ran the same executable and recorded solver build
   `8112026`, read from each arm's own `runs.json` rather than from the
-  scripts, which record no build at all. The numbers above are reported as the author's
+  scripts, which record no build at all. The numbers above are reported as the reference
   measurement and are not a repository guarantee.
 
 - **Twelve settings joined `SolverSettings`,** every one of which has an
@@ -3355,7 +3354,7 @@ the version that rows naming NO build fall back to. The `pyfs-matrix
 --fs-version` command-line flag is unaffected and keeps its spelling.
 
 The removal release is not named, because NFR-20 does not bind before 1.0
-and the number is the author's call. That this line is the one a
+and the number is a seat decision. That this line is the one a
 downstream reader greps to decide whether an upgrade breaks them is why
 it is corrected here rather than at the next release: publishing it false
 costs the reader the whole warning window the shim exists to buy.
@@ -3489,14 +3488,14 @@ costs the reader the whole warning window the shim exists to buy.
   the ENVIRONMENT rather than about an argument, which is why its
   standard-library base is `RuntimeError`; that choice is the lane's
   default and is a public contract callers catch on, so it is a marked
-  proposal until the author rules.
+  proposal until the owning seat rules.
 
 - **`pyfs-matrix run` takes a matrix from trigger to reductions**
   (PFS-2025.09). **IT REVERSES A DECISION RECORDED IN THE TOOL ITSELF**,
   whose docstring said there was deliberately no run subcommand, because
   the solver-quality judgment and the recipe registry are code and not
   command-line strings. The lane built it under that reading and does not
-  own it: the reversal is the author's to confirm.
+  own it: the reversal is for the domain seat to confirm.
 
 - **The window the expensive exports and the unsteady reductions apply
   over, counted BACKWARDS from the end of the run** (PFS-2025.08). State
@@ -3520,7 +3519,7 @@ costs the reader the whole warning window the shim exists to buy.
   convention on this release whose wrong value produces plausible numbers
   rather than a failure: a wrong datum rotates every blade frame and
   every phase-locked reduction keyed to blade index. The table is the
-  lane's proposal and the author's to rule on; changing it is one edit
+  lane's proposal and the owning seat's to rule on; changing it is one edit
   and not a search.
 
 - **`rotate_surfaces` rotates existing mesh surfaces about an axis of a
@@ -3588,7 +3587,7 @@ costs the reader the whole warning window the shim exists to buy.
   `window_for_reduction` as public names, and `PROVENANCE_COLUMNS` widens
   from two labels to three: a consumer that UNPACKED the pair breaks on
   the widening, which is why it is announced here rather than noticed
-  later. THE VOCABULARY IS THE AUTHOR'S CALL and this is the lane's
+  later. THE VOCABULARY IS A SEAT DECISION and this is the lane's
   default: a failed row with no loads report says `unknown` rather than
   `none`, because `none` would assert a direct integration that never
   happened. The published integer codes are APPEND ONLY: a published
@@ -3691,7 +3690,7 @@ costs the reader the whole warning window the shim exists to buy.
 
 - **`pyflightstream.post.reductions`, the writing seam** that holds the
   rule a reduction never overwrites the file it came from and the time
-  series keeps its own dedicated file (author's rule of 2026-08-16).
+  series keeps its own dedicated file (file rule of 2026-08-16).
   `write_series` writes the history; `write_reduction` refuses a
   destination equal to any file the reduction read, refuses an average
   whose series file is missing or is not beside it, and refuses an
@@ -3784,7 +3783,7 @@ costs the reader the whole warning window the shim exists to buy.
   RUNNING the solver; a `documented` row rests on a manual page and is
   not a candidate. The function proposes candidates grouped by the
   chapter split and deliberately writes no membership: which of them a
-  licensed seat is spent re-measuring is the author's judgement.
+  licensed seat is spent re-measuring is a seat judgement.
 
 - **`tests/test_release_readiness.py`, a tier-1 guard that refuses a
   0.8.x release while 26.123 is unevidenced** (PFS-2026.14), naming that
@@ -3831,7 +3830,7 @@ costs the reader the whole warning window the shim exists to buy.
   the solver's eleven import file types is recorded per candidate and is
   deliberately not a limit. The card does not decide whether a reader
   becomes a required dependency: NFR-06's table governs that, and it is
-  the author's.
+  the reference.
 
 - **`reports/RPT-035_mesh-reader-licence_2026-08-19.md`**, the NFR-02
   card a mesh reader would need to become a REQUIRED runtime dependency
@@ -3883,10 +3882,10 @@ costs the reader the whole warning window the shim exists to buy.
   no public API, so this is an internal guarantee behind a public claim
   rather than a new public surface.
 
-  THE AUTHOR'S SEAT RULED INSIDE THIS CYCLE and this bullet published the
+  THE OWNING SEAT RULED INSIDE THIS CYCLE and this bullet published the
   pre-ruling state until 2026-08-20. It said the NFR-15 sentence was a
-  marked proposal awaiting the author's, and that NFR-15 therefore carried a
-  `pending` badge. The author rewrote the statement on 2026-08-19 and the
+  marked proposal awaiting a seat decision, and that NFR-15 therefore carried a
+  `pending` badge. The owning seat rewrote the statement on 2026-08-19 and the
   requirement is `implemented`, citing `_digest` and
   `tests/test_digest.py`, on the ground that the rule is DATA in that
   module rather than prose about it. A reader following this bullet to
@@ -3957,7 +3956,7 @@ costs the reader the whole warning window the shim exists to buy.
   is the first build here that INHERITS NOTHING.** Vendor hotfix build 3 of the 26.12 release,
   delivered 2026-08-16 and registered 2026-08-17. The two hotfixes
   before it descend from 26.120, on evidence rather than on the last
-  digit, and the default is right for them. The author's instruction for
+  digit, and the default is right for them. The instruction for
   this one is the opposite, and the reason is a number rather than a
   preference: with descent on, a build issued the day before would have
   answered for the 363 commands 26.120 can EMIT without one page of its
@@ -3987,7 +3986,7 @@ costs the reader the whole warning window the shim exists to buy.
   than the installer's name which four builds share.
 - `scripts/gen_absent_commands.py`, which writes the same enumeration for
   any registered build. General rather than named for this one, because
-  the question arrives again with the next build the author decides
+  the question arrives again with the next build the owning seat decides
   should inherit nothing.
 - **`pyfs-manual register`, which carries a build's documentation forward
   from a reading rather than a copy.** It compares a new edition against
@@ -4042,7 +4041,7 @@ costs the reader the whole warning window the shim exists to buy.
   Two copies of one wing at two gap widths expressed as a ratio of the
   measured local face length, with `SOLVER_PROXIMAL_BOUNDARIES` on and
   off, steady and unsteady, on both builds: sixteen cases. The question
-  came from the vendor describing the change to the author directly, so
+  came from the vendor describing the change to the owning seat directly, so
   this is a measurement of something volunteered rather than a gap found
   by audit.
 
@@ -4209,7 +4208,7 @@ costs the reader the whole warning window the shim exists to buy.
   the incident-ledger environment variable are READ out of the gate body
   instead of mirrored: a rename in the kit used to leave the suite
   stripping a variable nothing reads, which silently pointed every hook
-  subprocess at the author's real ledger with nothing going red. A new
+  subprocess at the reference real ledger with nothing going red. A new
   partition guard fails when a sub-kind arrives in a re-vendored body that
   no case pins and no declaration excuses. Test-only: no public name, CLI,
   extra or behavior moves.
@@ -4361,7 +4360,7 @@ costs the reader the whole warning window the shim exists to buy.
   vendored body budgets 50 seconds of CI work and a hook the harness
   kills emits no decision at all.
 - **Every skill now declares `side-effects:`, and none carries
-  `disable-model-invocation`.** The author retired the human-only flag at
+  `disable-model-invocation`.** The owning seat retired the human-only flag at
   kit 0.2.19 on 2026-08-11, across all skills with no exception,
   including `release` and the three that spend a licensed solver seat.
   Six skills that had declared nothing (`add-command`, `audit`,
@@ -4595,7 +4594,7 @@ costs the reader the whole warning window the shim exists to buy.
   required to default the same way, because the mirror-image mutation
   corrupts the pre-flight rather than the file; and every committed compat
   report is walked and its body date required to equal the date in its
-  stem. The report itself stays as it is, on the author's decision of
+  stem. The report itself stays as it is, on the design decision of
   2026-08-18, with an erratum beside it and a single named exemption in
   the walk; `reports/compat/README.md` gained the report-level erratum
   contract that shape needs.
@@ -4804,7 +4803,7 @@ costs the reader the whole warning window the shim exists to buy.
   the dry-run rename that the v0.5.0 notes recorded as announced and not
   landed, and that is still unlanded. The comment now names both with the
   line and the quoted text of each, says the tuple models module shims
-  only, and records no removal version, that being the author's call while
+  only, and records no removal version, that being a seat decision while
   NFR-20 does not bind before 1.0.
 
 - **The FSI package no longer cites a private tracking identifier** for
@@ -4849,7 +4848,7 @@ costs the reader the whole warning window the shim exists to buy.
   a committed triage (`reports/physics/TRI-26123-CDo_2026-08-18.md`).
   Eleven of the thirty-eight metrics moved, `CDo` is the only one that
   moved OUT of band, every `CDo` METRIC moved and all three moved down,
-  and both exceedances sit below their fail bands. On the author's
+  and both exceedances sit below their fail bands. On the reference
   decision the references stay untouched and the warns stand. The 26.123
   side turns out to be REPRODUCED already, by two independent executions
   of 2026-08-17 that agree on all thirty-eight metrics, because
@@ -4873,7 +4872,7 @@ costs the reader the whole warning window the shim exists to buy.
   a second paragraph above the shadowing rule. The statement is one
   paragraph again and the requirement text says why the break matters.
 
-- Two requirement texts move, both on the author's ruling of 2026-08-18.
+- Two requirement texts move, both on the ruling of 2026-08-18.
   FR-02c stops enumerating the builds that share a vendor name, an
   enumeration that had gone stale twice by construction and was removed
   from six other homes on 2026-08-17 for that reason. NREQ-05 stops
@@ -5140,7 +5139,7 @@ originally pointed at.
 **Seven builds, every one of them identified.** Three more FlightStream
 builds are registered and every registered build now carries the vendor
 build number its solver prints, read from a committed report. The three
-that joined are the ones the author's published work was run on, so a
+that joined are the ones the published work was run on, so a
 reader reproducing any of it has an identifier that resolves to a number
 they can check against their own install.
 
@@ -5512,7 +5511,7 @@ a licensed machine and the answer is a committed report.
   it. A tier-1 guard does now, proven by removing the separator.
 
 * **The emitter has ONE way to know what an index cites, where it had
-  two** (`PLN-20260807-1410`, the author's decision of 2026-08-08). An
+  two** (`PLN-20260807-1410`, the design decision of 2026-08-08). An
   argument declares `cites` on its own entry, and the two global maps
   from argument NAME to entity kind are gone.
 
@@ -5788,7 +5787,7 @@ The stanzas below give the reasoning per chapter.
   schemes as words.
 
 * **The Mesh Wrapper chapter entered: 11 commands, and NREQ-05 now
-  excludes nothing.** The author's decision of 2026-08-08. This was the
+  excludes nothing.** The design decision of 2026-08-08. This was the
   last family the scope excluded, so the non-requirement is narrowed to
   an empty set rather than retired, the two narrowings together being
   the record of a scope decision reversing itself. Database 297 to 308;
@@ -5926,7 +5925,7 @@ The stanzas below give the reasoning per chapter.
   tracks neither and there is no inventory for a sentinel to be read
   against.
 
-* **The author's decisions of 2026-08-08 on what this sweep owes the
+* **The design decisions of 2026-08-08 on what this sweep owes the
   older builds, and what it does not.** A chapter now enters for every
   registered version in one pass, which is written into the
   chapter-entry guidance in `docs/srs/data-model.md`. The entries still
@@ -6112,7 +6111,7 @@ The stanzas below give the reasoning per chapter.
   introduced, and it is not the whole of it: **117 entries are still
   documented in an edition they carry no row for**, all of them 26.100
   and 26.101. Registered as `PLN-20260807-1400`; whether early-build
-  parity is a v0.5.0 goal is the author's call.
+  parity is a v0.5.0 goal is a seat decision.
 
   Database 248 entries, unchanged by this pass; per version 26.100 106,
   26.101 145, 26.120 227, 26.121 231. The figures previously recorded
@@ -6726,7 +6725,7 @@ The stanzas below give the reasoning per chapter.
   six** (SRS 1.13.0). The requirement collided with FR-46, which closes
   the set at the six values `RunStatus` carries: FR-37 asked for a status
   distinct from a COMPLETED one, and a run reaching its iteration cap
-  lands in `COMPLETED_MAX_ITER`. The author resolved it in FR-46's favour
+  lands in `COMPLETED_MAX_ITER`. It was resolved in FR-46's favour
   and the requirement is RESTATED rather than merely declared satisfied:
   it now asks for a status distinct from the CONVERGED one, which is what
   this library guarantees. Two of the six give it, `COMPLETED_MAX_ITER`
@@ -6805,7 +6804,7 @@ The stanzas below give the reasoning per chapter.
 * **The run matrix collects its outputs, honours its HIDDEN column, and
   says when an override overrules a row.** **Breaking**: a matrix row
   that declares no outputs is now refused. Found by running the
-  author's own research campaign, not by a review.
+  reference research campaign, not by a review.
 
   Three defects, one theme: *the matrix states a fact, a function
   parameter states the same fact, and the parameter wins silently.*
@@ -6941,7 +6940,7 @@ The stanzas below give the reasoning per chapter.
   FR-39 carries the residual and the two measured limits of the walk's
   own reach.
 * **The FSI and probe paths are declared experimental, behind an
-  explicit boundary** (author's decision, 2026-08-03; REV010-017).
+  explicit boundary** (design decision, 2026-08-03; REV010-017).
   Documentation only.
 
   The README gains a **Capability status** table saying, per
@@ -7078,7 +7077,7 @@ The stanzas below give the reasoning per chapter.
 
   Choosing the versioning **scheme**, a static development version as
   now or a VCS-derived one such as `setuptools_scm`, remains the
-  author's release-time decision and is not made here.
+  reference release-time decision and is not made here.
 * **A historical manifest row is no longer rewritten as current**
   (REV010-014). **Breaking**: `RunRecord.manifest_schema` is
   `str | None` with default `None`, and `reconstruct` refuses a row
@@ -7511,7 +7510,7 @@ The stanzas below give the reasoning per chapter.
 
   The status is a constrained choice rather than the right name for it,
   and the assessor's docstring says so: the terminal set is closed at
-  six (SRS FR-46), and the author resolved on 2026-08-03 that it stays
+  six (SRS FR-46), and it was resolved on 2026-08-03 that it stays
   closed. FR-37 is restated
   to ask for a status distinct from the CONVERGED one, which is what the
   library guarantees, and closes as covered (SRS 1.13.0).
@@ -7848,7 +7847,7 @@ The stanzas below give the reasoning per chapter.
   high with no error, and the hotfix digit in the version identifier is
   what lets the database say the two builds disagree.
 
-  The counts are gone rather than corrected (author's decision,
+  The counts are gone rather than corrected (design decision,
   2026-08-03). "144 commands" was wrong by three, and the plan item
   recording that it was wrong was itself wrong by two the day after it
   was written. The compatibility matrix generates the current numbers on
@@ -8046,13 +8045,13 @@ The stanzas below give the reasoning per chapter.
   fallback and locates the shared tree through a new
   `COORD_SHARED_LEDGER_TREE`; three occurrences of a personal first name
   in the gate's deny messages and one in the analyst charter now read
-  "the author", as do one line each in the `handoff` and `plan` skills.
+  "the owning seat", as do one line each in the `handoff` and `plan` skills.
   No allow or deny decision changed, which was verified per replacement
   rather than assumed: each sits inside a deny message string, none in a
   condition, a return value, a constant set or a comparison. Removing
   the identifiers from HEAD stops them spreading and does not unpublish
   them; they remain in this repository's published history, and the
-  address is in the author metadata of every commit already on the
+  address is in the project metadata of every commit already on the
   remote. Two things arrived with the promotion and are recorded rather
   than smoothed. The new variable is documented in `CLAUDE.md`, which is
   the only place it CAN be documented because the body that introduced
@@ -8076,7 +8075,7 @@ The stanzas below give the reasoning per chapter.
   stops being prose. A tier-1 guard now fails on an email address or a
   user-profile path in any TRACKED file, scanning `git ls-files` rather
   than Markdown and Python only, which is how the file that leaked sat
-  outside every house-style guard by file type. The author's name is
+  outside every house-style guard by file type. The name is
   deliberately NOT guarded: it is published on purpose in `LICENSE`,
   `CITATION.cff`, `pyproject.toml`, the SRS and the guide, and guarding
   a string that is meant to be published would need an allow-list long
@@ -8091,12 +8090,12 @@ The stanzas below give the reasoning per chapter.
   guard built for exactly that (`tests/test_house_style.py`,
   `tests/test_env_contract.py`; internal tooling, not a package
   surface).
-* SRS 1.2.0 to 1.3.0: the author's Phase 4 acceptance batch, landed in full.
+* SRS 1.2.0 to 1.3.0: the Phase 4 acceptance batch, landed in full.
   NFR-19 (result column-schema stability), NFR-20 (deprecation policy),
   NFR-22 (dependency version envelope, with the pre-1.0 pin form and
   the Python-ceiling propagation), NFR-23 (layering guard) and NFR-24
   (software jargon glossed) are added; two of them were sharpened by
-  seat answers the same day, so NFR-20 now states as the author's own
+  seat answers the same day, so NFR-20 now states as the reference
   decision that within 0.x a break lands only in a MINOR release and a
   patch never changes the public surface, which is what lets a user
   write a version specifier against a 0.x package, and NFR-19 states
@@ -8131,7 +8130,7 @@ The stanzas below give the reasoning per chapter.
     the solver determinism boundary it does not control, and NFR-08
     defines "aggregated" as a line rather than a judgment.
 
-    Two of the author's acceptances contradict each other and the SRS says so
+    Two of the acceptances contradict each other and the SRS says so
     rather than silently picking one: FR-46 closes the terminal-status
     set at six values and FR-37 asks for a status the set does not
     contain as written. Resolved on 2026-08-03: the set stays closed at
@@ -8163,7 +8162,7 @@ will be.
 
 * **pandas and xarray leave the runtime dependencies at v0.5.0, and
   ITACA becomes a core dependency in their place** (SRS AD-06 and
-  AD-07, the author's decision of 2026-07-27). Nothing changes in this
+  AD-07, the design decision of 2026-07-27). Nothing changes in this
   release: both are still declared, still imported, and everything
   works exactly as it does today.
 
@@ -8297,7 +8296,7 @@ will be.
   wrong answer is now refused. If a campaign, blade configuration or
   recipe starts failing to load, the refusal names the value and what
   it would have produced.
-* The author's given name no longer ships inside the wheel. It sat in
+* A personal given name no longer ships inside the wheel. It sat in
   the `reason:` field of `qa/references/PHY-06.yaml`, which is declared
   package data, so it travelled to every machine that installed the
   library. The field itself is kept, including the probe reports it
@@ -8446,7 +8445,7 @@ will be.
 ## [0.3.0] - 2026-07-23
 
 The v0.3.0 line: the usage-feedback workstreams (PLN-022) triaged from
-the author's first outside-the-repo use of 0.2.0, delivered 2026-07-22,
+the first outside-the-repo use of 0.2.0, delivered 2026-07-22,
 plus the protocol and library-review adoptions of the ultraplan week.
 
 ### API surface delta
@@ -8706,7 +8705,7 @@ PHY-05/06 across versions.
   carries its Unreleased section, SRS requirement ids never repeat.
 * CONTRIBUTING discloses the AI-assisted development model and the
   process safeguards around it (evidence discipline, role-based
-  review, the author's non-delegable seats, the clean-room rule
+  review, the non-delegable seats, the clean-room rule
   extended to the AI), per the pyOpenSci disclosure item.
 * README opens with status badges and a runnable quickstart snippet
   (validated build plus the didactic version refusal), and its
@@ -8725,14 +8724,14 @@ PHY-05/06 across versions.
   dev dependency was dropped (it was never wired into the build; the
   offline `help()` and `overview()` remain the docstring surface).
 * Repository top level reduced to the public essentials: the
-  author's session records left Git versioning (history preserved),
+  reference session records left Git versioning (history preserved),
   and a `deprecated/` folder now groups discontinued public items.
 * Role-based review process: five reviewer charters in
   `.claude/agents/` (architect, QA engineer, V&V engineer, technical
   writer, API designer) and the `role-review` skill that runs the
   applicable passes on a work item's diff before it closes, per the
   team-role model adopted 2026-07-23; the definition of done cites
-  the passes, the author keeps the non-delegable seats (product
+  the passes, the owning seat keeps the non-delegable seats (product
   owner, domain expert, numerical analyst), and the standards
   alignment chapter records the model's public anchors.
 * Co-development with the sister library ITACA (AD-07): the two

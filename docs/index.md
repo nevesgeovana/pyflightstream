@@ -6,14 +6,14 @@ solver. MIT licensed.
 Status: v0.16.0 is the current release; the changelog records what
 each release adds and what each one asks you to do.
 
-**v0.16.0 is the release her own workspace asked for.** The additions came
+**v0.16.0 is the release the reference workspace asked for.** The additions came
 from running 0.15.0 at work and reading what came back, and two of them are
 defects found while measuring for the others. A surface-section
-distribution is created AFTER the solver is initialised, which is where her
-own recorded working scripts put it; a
+distribution is created AFTER the solver is initialised, which is where the
+reference recorded working scripts put it; a
 steady row now CREATES the probe points it exports, instead of asking the
 solver to export something nobody made; a probe entry prescribes a rectangular
-or a circular plane, point by point, or cites a points file she wrote; and
+or a circular plane, point by point, or cites a points file the user wrote; and
 `[probes]` became `[[probes]]`, a list of tables, so one artifact can probe
 several frames.
 
@@ -48,7 +48,7 @@ change. A workspace recorded under the older layout is read exactly as before.
 **What changes for you at v0.16.0.** This is the most breaking release of
 the set, and the break is first: `[probes]` IS NOW `[[probes]]`, a list of
 tables, and the old spelling is REFUSED BY NAME, so every 0.15.0 artifact
-that declares probe lines must be edited. That is her own decision rather
+that declares probe lines must be edited. That is a recorded decision rather
 than an accident. Beside it: the five names the 0.14.0 polar rename
 deprecated are gone; a simulation's collected outputs are under
 `sims/<sim>/outputs/` and a workspace holding the old `raw/` is still read;
@@ -138,12 +138,12 @@ which a test holds to the rendered script BYTE FOR BYTE. And an unsteady run
 that meshes nothing turning may state its clock as `DELTA_THETA` and
 `REVOLUTIONS`, resolved against the rotor speed whose azimuth the step
 measures, where before only the seconds and the step count were accepted.
-The reproduction workspace of the author's recorded campaign needs both,
+The reproduction workspace of the reference campaign needs both,
 which is why that release existed.
 
 **Two derived numbers moved with it, and a row already written felt
 them.** A rotor speed derived from `ADVANCE_RATIO` is emitted at four
-decimals, the author's own precision: 473.1723 rev/min where the unrounded
+decimals, the reference precision: 473.1723 rev/min where the unrounded
 derivation gives 473.17227304. And the default loads assessor judged a
 point's OWN declared outputs, so a two-point sweep whose points name their
 own tables is judged where it used to be refused as ambiguous. Re-baseline
@@ -162,7 +162,7 @@ probes and products every point leaves, the products are CSV tables the run
 writes itself (`pyfs-matrix post` rewrites them with no solver), the boundary
 order of a geometry is read from the file (`pyfs-matrix inventory`), a row may
 state several rotors, and every point opens its geometry through a link
-rather than a copy. The reproduction of the author's recorded campaign, script
+rather than a copy. The reproduction of the reference campaign, script
 by script and product by product, is the exit condition of GOAL-011 and is
 what that release was built against.
 
@@ -178,7 +178,7 @@ selected.
 
 **It also carries a third run type, `unsteady`,** an unsteady run with
 nothing turning, which is a new capability under a patch number by the
-author's explicit exception. It is named here because a patch number
+reference explicit exception. It is named here because a patch number
 will not carry that news on its own, and it asks nothing of you: no
 existing row changes. See the workspace and workflows page.
 

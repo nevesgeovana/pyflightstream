@@ -243,7 +243,7 @@ through `ROTOR_AXIS`, on the row. Since 0.11.0 a file carrying the four is
 refused naming those row keys, and `pyfs-matrix upgrade --in-place
 --inputs <inputs dir>` strips them (PFS-2029.08). The argument that
 related them is kept here, because it is what a reader setting up a new
-rotor has to work out once, and it was measured on the author's own
+rotor has to work out once, and it was measured on the reference
 isolated-rotor reference (2026-09-01):
 
 * The frame is x aft, y starboard, z up. On a port propeller, +y is

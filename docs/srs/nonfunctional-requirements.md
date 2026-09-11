@@ -193,7 +193,7 @@
     of record means this table is what they are checked against, not
     that no other copy exists.
 
-    The removal release NUMBER is deliberately unset here as of 2026-08-09: v0.5.0 shipped without the migration, so naming it would repeat the error this table exists to prevent. The author sets the number when ITACA's `pproc/` and `aerospace/` halves are ready (PLN-20260809-0210). Other
+    The removal release NUMBER is deliberately unset here as of 2026-08-09: v0.5.0 shipped without the migration, so naming it would repeat the error this table exists to prevent. The owning seat sets the number when ITACA's `pproc/` and `aerospace/` halves are ready (PLN-20260809-0210). Other
     pages print the number rather than sending a reader two documents
     deep for it, and cite this requirement as the home the number is
     checked against.
@@ -232,7 +232,7 @@
     The provenance model behind it is the static-origin and
     operation-log split the manifest already implements. A standardized
     interoperability export of that provenance was proposed with it and
-    the author deferred that half, so it is a candidate rather than a
+    the owning seat deferred that half, so it is a candidate rather than a
     promise.
 
 !!! requirement "NFR-08 Confidentiality <span class='srs-implemented'>implemented</span>"
@@ -400,7 +400,7 @@
 !!! requirement "NFR-15 Manifest hash canonicalization <span class='srs-implemented'>implemented</span>"
     *Origin: Phase 4 review, accepted 2026-07-27, absorbing the M3b
     state-hash mirror. Statement rewritten 2026-08-19 (PFS-2012.10),
-    the author's decision. Evidence: `pyflightstream._digest`, which
+    the design decision. Evidence: `pyflightstream._digest`, which
     carries `ALGORITHM`, `EXCLUDED_FROM_EVERY_DIGEST` and
     `CANONICAL_FORMS` as data; `tests/tier1_offline/test_digest.py`, including the
     walk that fails a module hashing without declaring its canonical
@@ -555,7 +555,7 @@
     result tables.
 
 !!! requirement "NFR-20 API deprecation and removal policy <span class='srs-pending'>pending</span>"
-    *Origin: Phase 4 review theme 5; the window decided by the author
+    *Origin: Phase 4 review theme 5; the window decided by the owning seat
     2026-07-27 and recorded in the [revision history](index.md).
     Pending because the policy it states begins at 1.0 and the package
     is at 0.x; the recorded-promise mechanism it relies on is already
@@ -585,11 +585,11 @@
     Two bounds on that, so a 0.x user can still write a version
     specifier: a break lands only in a MINOR release (0.N.0), and a
     patch release never changes the public surface. Both bounds are the
-    author's decision of 2026-07-27, taken on the API-design review's
+    design decision of 2026-07-27, taken on the API-design review's
     proposal and knowing that the package has never shipped a patch
     release, so they state intent rather than describe history.
 
-    Consequences the author accepted knowingly, among them: v0.5.0
+    Consequences acceptance knowingly, among them: v0.5.0
     removes the tidy table with no exit path; v0.4.0 renames
     `to_dataframe`, `run_frame` and `sweep_frame` directly (the
     2026-07-23 answer that had put a deprecation cycle on the last two
@@ -722,7 +722,7 @@
 
 !!! requirement "NFR-25 Optional-dependency error shape <span class='srs-implemented'>implemented</span>"
     *Origin: the C9 acceptance and the M6 mirror of the same subject,
-    2026-07-27, which the author accepted as elevating AD-05 to a
+    2026-07-27, which acceptance as elevating AD-05 to a
     tested requirement. Evidence:
     `pyflightstream.extras.MissingExtraError` and `missing_extra`;
     `tests/tier1_offline/test_extras.py`, parametrized over every extra;
@@ -824,7 +824,7 @@
     then rather than now.
 
 !!! requirement "NFR-28 A shipped workspace reads as a set-up, not as a diary <span class='srs-pending'>pending</span>"
-    *Origin: the author's item #0 of 2026-09-02, "tratar como um teste
+    *Origin: feedback item #0 of 2026-09-02, "tratar como um teste
     simples sem comentarios de historico". Carried by PFS-2029.13.
     Evidence owed: the checker that node names.*
 
@@ -842,4 +842,4 @@
     is seventy eight percent comment, most of it the dated history of the
     migration that produced the file. Whether the cleaned workspace stays
     a reproduction record, whose receipt is then retaken, or becomes a
-    plain example is the author's decision and is asked in GOAL-011.
+    plain example is the design decision and is asked in GOAL-011.

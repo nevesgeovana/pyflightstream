@@ -30,7 +30,7 @@ with their provenance already attached.
 
 The relationship changed on 2026-07-27 and the change is larger than a
 packaging detail. ITACA was going to be an optional extra a user could
-decline; the author's decision makes it a core runtime dependency,
+decline; the design decision makes it a core runtime dependency,
 because [AD-06](srs/architecture-srs.md) drops pandas and xarray and
 puts the result structures on ITACA over NumPy instead. Two practical
 notes for anyone reading this page against the code:
@@ -70,5 +70,5 @@ Each library may generate requirements for the other:
 Both repositories follow the same role-based review process (five
 reviewer charters and the `role-review` skill; see the
 [standards alignment](srs/standards.md) chapter) and the same
-documentation-currency discipline, with the author holding the
+documentation-currency discipline, with the owning seat holding the
 non-delegable seats in both.

@@ -5,7 +5,7 @@
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21482924.svg)](https://doi.org/10.5281/zenodo.21482924)
 
 Version-aware, didactic Python driver for the FlightStream panel-method
-solver. Successor of the author's legacy research scripts. MIT licensed.
+solver. Successor of the reference legacy research scripts. MIT licensed.
 
 ## Documentation
 
@@ -30,14 +30,14 @@ from the tag, so the concept DOI in CITATION.cff resolves to the newest
 archived version and the version DOI is recorded one commit after the
 tag that names it. CHANGELOG.md carries the release history.
 
-**v0.16.0 is the release her own workspace asked for.** The additions came
+**v0.16.0 is the release the reference workspace asked for.** The additions came
 from running 0.15.0 at work and reading what came back, and two of them are
 defects found while measuring for the others. A surface-section
-distribution is created AFTER the solver is initialised, which is where her
-own recorded working scripts put it; a
+distribution is created AFTER the solver is initialised, which is where the
+reference recorded working scripts put it; a
 steady row now CREATES the probe points it exports, instead of asking the
 solver to export something nobody made; a probe entry prescribes a rectangular
-or a circular plane, point by point, or cites a points file she wrote; and
+or a circular plane, point by point, or cites a points file the user wrote; and
 `[probes]` became `[[probes]]`, a list of tables, so one artifact can probe
 several frames.
 
@@ -72,7 +72,7 @@ change. A workspace recorded under the older layout is read exactly as before.
 **What changes for you at v0.16.0.** This is the most breaking release of
 the set, and the break is first: `[probes]` IS NOW `[[probes]]`, a list of
 tables, and the old spelling is REFUSED BY NAME, so every 0.15.0 artifact
-that declares probe lines must be edited. That is her own decision rather
+that declares probe lines must be edited. That is a recorded decision rather
 than an accident. Beside it: the five names the 0.14.0 polar rename
 deprecated are gone; a simulation's collected outputs are under
 `sims/<sim>/datapoints/DP-<point>/`, one folder per point, and a workspace
@@ -163,12 +163,12 @@ which a test holds to the rendered script BYTE FOR BYTE. And an unsteady run
 that meshes nothing turning may state its clock as `DELTA_THETA` and
 `REVOLUTIONS`, resolved against the rotor speed whose azimuth the step
 measures, where before only the seconds and the step count were accepted.
-The reproduction workspace of the author's recorded campaign needs both,
+The reproduction workspace of the reference campaign needs both,
 which is why that release existed.
 
 **Two derived numbers moved with it, and a row already written felt
 them.** A rotor speed derived from `ADVANCE_RATIO` is emitted at four
-decimals, the author's own precision: 473.1723 rev/min where the unrounded
+decimals, the reference precision: 473.1723 rev/min where the unrounded
 derivation gives 473.17227304. And the default loads assessor judged a
 point's OWN declared outputs, so a two-point sweep whose points name their
 own tables is judged where it used to be refused as ambiguous. Re-baseline
@@ -187,7 +187,7 @@ probes and products every point leaves, the products are CSV tables the run
 writes itself (`pyfs-matrix post` rewrites them with no solver), the boundary
 order of a geometry is read from the file (`pyfs-matrix inventory`), a row may
 state several rotors, and every point opens its geometry through a link
-rather than a copy. The reproduction of the author's recorded campaign, script
+rather than a copy. The reproduction of the reference campaign, script
 by script and product by product, is the exit condition of GOAL-011 and is
 what that release was built against.
 
@@ -210,7 +210,7 @@ running.
 
 **And this patch carries a third run type, `unsteady`,** an unsteady run
 with nothing turning. It is a new capability under a patch number, by the
-author's explicit exception, and it is named here because a patch number
+reference explicit exception, and it is named here because a patch number
 will not carry that news on its own. It asks nothing of you: no existing
 row changes. `docs/workspace-and-workflows.md` describes it.
 
@@ -225,7 +225,7 @@ where the model already defaulted to it: a preset asking for
 `SUBSONIC_PRANDTL_GLAUERT` ran `INCOMPRESSIBLE` and said nothing. Twelve
 settings and eleven of the solver's own key spellings now reach the
 emitted script. Nothing refuses and nothing warns; the NUMBERS move. On
-the author's own campaign the axial force coefficient moved about one
+the reference campaign the axial force coefficient moved about one
 percent. If your preset states anything the solver was not already
 defaulting to, re-baseline before you compare against an older run.
 
@@ -409,7 +409,7 @@ Nothing is guessed; the honest gaps are reported as such.
 Not every subpackage carries the same weight of evidence, and until
 2026-08-03 nothing said so: an independent review found the feature
 list above reading as one uniform claim, with the aeroelastic
-boundary stated only inside the code. The author's decision of
+boundary stated only inside the code. The design decision of
 2026-08-03 is that the FSI and probe-survey paths are **experimental**
 behind an explicit boundary rather than release-supported, and this
 table is that boundary.
@@ -455,7 +455,7 @@ the evidence rather than declared:
 | 26.120 | 26.12 | `operational` | Probe evidence from a licensed machine, and the minimal end-to-end workflow builds |
 | 26.121 | 26.12 | `operational` | Hotfix build 1. It inherits the 26.120 records except where a probe on this build overrode them; the compatibility matrix marks every inherited cell and counts them |
 | 26.122 | 26.12 | `operational` | Hotfix build 2, vendor build 8092026, registered 2026-08-10 the day after it was issued. Its manual documents the largest command surface of the nine editions, 372 against 364 for the one before it and 371 for the one after, which deletes a command from its chapter body. Measured on 2026-08-11: 84 commands probed on this build (83 verified, 1 broken) and the Tier 3 matrix passing 30 of 30 metrics (`reports/physics/PHY-26122_2026-08-11_rotor.yaml`). The rest of its record is still inherited from 26.120 and the matrix marks every inherited cell. The run refuted the inheritance once, on `AIR_ALTITUDE`, which is broken on the base releases and works here |
-| 26.123 | 26.12 | `operational` | Hotfix build 3, delivered 2026-08-16 and registered 2026-08-17, the day after. It is the first build in this project that INHERITS NOTHING, by the author's decision, so it claims support only for what has been measured or read on IT rather than on 26.120. Read the level as a statement about evidence and not about the build: it reached `operational` the same day, in two steps. First 369 of the 371 commands its own edition documents were compared word for word against the edition before it and given a row. Then a probe run measured 85 of them on this build, 84 accepted and one refused (`reports/compat/CMP-26123_2026-08-17_full-sim.yaml`), which is one more verified than 26.122 has and the same single broken command, `NEW_OFF_BODY_STREAMLINE`, that three builds now carry on their own evidence. The emitter still refuses the commands that carry no row at all, and the enumeration of exactly which, with their count in its own header, is committed as `tests/tier1_offline/goldens/absent_on_26123.txt`. The number is NOT repeated here: this sentence said 45 against a golden that says 43, in the paragraph whose whole purpose is that the gap is a number a reader can check. Its manual is 417 pages like 26.122's and every page outside seventeen is text-identical, so a page citation transfers where the seventeen do not touch it |
+| 26.123 | 26.12 | `operational` | Hotfix build 3, delivered 2026-08-16 and registered 2026-08-17, the day after. It is the first build in this project that INHERITS NOTHING, by the design decision, so it claims support only for what has been measured or read on IT rather than on 26.120. Read the level as a statement about evidence and not about the build: it reached `operational` the same day, in two steps. First 369 of the 371 commands its own edition documents were compared word for word against the edition before it and given a row. Then a probe run measured 85 of them on this build, 84 accepted and one refused (`reports/compat/CMP-26123_2026-08-17_full-sim.yaml`), which is one more verified than 26.122 has and the same single broken command, `NEW_OFF_BODY_STREAMLINE`, that three builds now carry on their own evidence. The emitter still refuses the commands that carry no row at all, and the enumeration of exactly which, with their count in its own header, is committed as `tests/tier1_offline/goldens/absent_on_26123.txt`. The number is NOT repeated here: this sentence said 45 against a golden that says 43, in the paragraph whose whole purpose is that the gap is a number a reader can check. Its manual is 417 pages like 26.122's and every page outside seventeen is text-identical, so a page citation transfers where the seventeen do not touch it |
 
 ```python
 import pyflightstream

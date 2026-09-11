@@ -64,7 +64,7 @@ VORTICITY_COMMAND = "SET_VORTICITY_DRAG_BOUNDARIES"
 #: Minimum pressure coefficient (dimensionless Cp) the library emits
 #: whenever the caller does not pass ``minimum_cp``. The solver's own
 #: default is -20 (SRC-003 p.221), which clips the suction peaks of
-#: rotor blades; -100 is the author's library default of 2026-07-22,
+#: rotor blades; -100 is the library default of 2026-07-22,
 #: retiring the earlier reference-velocity workaround. The physics
 #: references were re-validated under this default on a licensed
 #: 26.120 machine: 30 of 30 metrics bit-identical, report
@@ -667,7 +667,7 @@ def _normalize(value: object) -> JsonValue:
 def _minimum_cp_evidence(entry: CommandEntry) -> str:
     """Compose the citation trail of the emitted library minimum-Cp."""
     return (
-        f"library default {LIBRARY_MINIMUM_CP} (author decision of 2026-07-22; physics "
+        f"library default {LIBRARY_MINIMUM_CP} (design decision of 2026-07-22; physics "
         "references re-validated under it, 30 of 30 metrics bit-identical, report "
         f"PHY-26120_2026-07-23_reseed-cp100-2026-07-23); solver default {entry.default} "
         f"({entry.default_ref})"

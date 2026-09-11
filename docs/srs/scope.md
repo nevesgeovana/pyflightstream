@@ -55,7 +55,7 @@ and are never silently dropped.
     are never reused, and because the two narrowings are the record of a
     scope decision reversing itself.
 
-    NARROWED TO NOTHING on 2026-08-08, the author's decision, when the
+    NARROWED TO NOTHING on 2026-08-08, by design decision, when the
     mesh-wrapper chapter entered: eleven commands read from all four
     registered editions in one pass. That was the last family the
     exclusion still named, so what remains here is a heading over an
@@ -71,7 +71,7 @@ and are never silently dropped.
     parameter-table-versus-sample disagreement and the copied sample,
     neither of which reading one command at a time would have shown.
 
-    WHY THE WORDING MOVED ON 2026-08-18, the author's decision. The
+    WHY THE WORDING MOVED ON 2026-08-18, by design decision. The
     heading and the first sentence used to say this excludes NOTHING, and
     that stopped being true on 2026-08-17 when FlightStream 26.123 was
     registered with its edition SRC-751. That edition documents
@@ -111,7 +111,7 @@ and are never silently dropped.
     The reason for the change is worth recording, since a non-requirement
     is a scope decision and not an oversight. The database's own coverage
     measurement showed the manuals describing 386 commands against 162
-    recorded, and the author's decision of 2026-08-06 was that everything
+    recorded, and the design decision of 2026-08-06 was that everything
     the manual documents enters, chapter by chapter, rather than on
     demand. Entering a family whole is also what surfaced the
     parameter-table-versus-sample defect class, which reading one command

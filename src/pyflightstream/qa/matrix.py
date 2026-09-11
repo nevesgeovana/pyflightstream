@@ -198,7 +198,7 @@ def _campaign_name(root: Path, name: str | None) -> tuple[str, str]:
 
 
 def _workspace(root: str | Path) -> CampaignWorkspace:
-    """Open the workspace under the author's point-naming convention, as ``pyfs-matrix`` does."""
+    """Open the workspace under the reference point-naming convention, as ``pyfs-matrix`` does."""
     return CampaignWorkspace(root, naming=NamingTemplate(point_name=MATRIX_POINT_NAME))
 
 

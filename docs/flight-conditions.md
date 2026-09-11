@@ -90,7 +90,7 @@ of the sweep, so it names the run, which is the subject of
 
 ### One variable sweeps, and it is one that defines the condition
 
-The author's rule of 2026-09-10, and it is the whole shape of a row: **a sweep is
+The rule of 2026-09-10, and it is the whole shape of a row: **a sweep is
 applied to a variable that DEFINES the flight condition, and to exactly
 one variable.** The swept key carries the word `sweep` where its value
 would be, and `SWEEP_VALUES` holds its values:

@@ -332,7 +332,7 @@ artifact and the geometry sharing NO name, not a member missing from one
 group: an artifact is written once for a study and shared by rows
 opening different geometries, so a family a file lacks is left out by
 design, and `p002`'s group 3 (`Body`, `Base`) sums to zero on the wing
-rows exactly as the author's products carry it.
+rows exactly as the reference products carry it.
 
 `angle_sweep_deg` IS RESERVED TOO, since v0.7.0, and it is the one whose
 match FOLDS CASE rather than being exact: a cell spelling it in any
@@ -481,7 +481,7 @@ kind and what is available.
 ### The geometry library: flat, or one folder per geometry
 
 `inputs/geometries/` is read in two layouts, and the `GEOMETRY` cell is
-the same in both (PFS-2032.04, the author's reading of 2026-09-08). Flat, the
+the same in both (PFS-2032.04, the reading of 2026-09-08). Flat, the
 file sits directly in the folder with its boundary inventory beside it;
 one folder per geometry, the file sits in a folder named by its stem,
 and everything that belongs to that geometry sits with it:
@@ -523,7 +523,7 @@ raw mesh with none and a folder already made, then runs it again
 and runs a matrix row against the folder layout on the campaign path
 (`test_matrix_run.py::test_a_row_naming_a_folded_geometry_runs_on_that_folder_alone`).
 The flat layout is not deprecated: nothing migrates by itself, and the
-cycle that retires it is the author's to open once the folders have run a
+cycle that retires it is for the owning seat to open once the folders have run a
 campaign.
 
 ### What a solver preset may say, and what happens to a key that reaches nothing
@@ -555,7 +555,7 @@ knowing.
    separation model that selects boundaries, and a preset carries no
    selection, so it is a recipe's job; and the last two have no
    emitter in this package at all. Two keys LEFT this list at v0.11.0:
-   `symmetry_loads`, on the author's decision of 2026-09-02 with the
+   `symmetry_loads`, on the design decision of 2026-09-02 with the
    measurement in hand (a stated key reaches
    `SET_ANALYSIS_SYMMETRY_LOADS`; an absent one still emits nothing), and
    `significant_digits`, which gained its emitter; `mesh_order_list` is
@@ -602,7 +602,7 @@ converge and publish induced drag against a setup nobody selected. Drop
 the key for the default, or name the families. Which entity-selecting
 keys admit an empty list is the domain seat's call, written beside each
 key in `pyflightstream.workspace.inputs.ENTITY_SELECTIONS`, and the
-refusal prints the author's verdict; the post-processing artifact's keys are
+refusal prints the verdict; the post-processing artifact's keys are
 listed under that artifact below.
 
 A preset defined **custom coordinate systems** at 0.14.0
@@ -720,7 +720,7 @@ golden on every commit, so the example cannot rot into a description of
 something the package no longer does.
 
 A preset may also state **raw solver commands**, since 0.14.0
-(PFS-2033.01, the author's design of 2026-09-09), in a `[[raw]]` table, one entry
+(PFS-2033.01, the design of 2026-09-09), in a `[[raw]]` table, one entry
 per line, each naming the phase it goes before:
 
     [[raw]]
@@ -800,7 +800,7 @@ Note the `" / "` in the join: the spaced separator is the raw record's
 grammar, not a style choice, so a generator that writes `"/"` produces a
 row this reader refuses.
 
-A preset named **groups of mesh families** at 0.14.0 (the author's
+A preset named **groups of mesh families** at 0.14.0 (the reference
 decision of 2026-09-09), in an `[aliases]` table, one key per alias:
 
     [aliases]
@@ -1061,7 +1061,7 @@ stating both is refused naming both.
 
 Nothing in the package reads the recorded rotor block except its `position`,
 since 0.11.0: the two unsteady run types turn it into a coordinate system
-named `<ALIAS>_SMRP` for the rotor it belongs to, the frame the author's probe lines and rotor plots are
+named `<ALIAS>_SMRP` for the rotor it belongs to, the frame the reference probe lines and rotor plots are
 defined in, and the frame a rotor row turns about unless it states
 `ROTOR_ORIGIN`. The rest of the block, `radius_m` (optional since
 0.11.0, and checked against the diameter when stated) and `n_blades`,
@@ -1119,7 +1119,7 @@ row exactly as the built-in `unsteady_rotor` workflow does.
 `PPROC` names `inputs/pproc/p<id>.toml`, the post-processing artifact. Until
 v0.11.0 this was the groups artifact, `inputs/groups/e<id>.toml`, a flat
 table of group name to members that nothing on the run path read; the
-author decided on 2026-09-02 that it is the home of post-processing and it
+owning seat decided on 2026-09-02 that it is the home of post-processing and it
 was renamed (PFS-2029.07). It carries six tables, every one optional, and a
 file holding `[groups]` alone is what the old file was:
 
@@ -1172,7 +1172,7 @@ end = [-2.0, 1.0, 0.0]
 polars = true                  # one polar table per group, per point
 sections = true                # one table per point from its sectional loads export
 plots = true                   # one table per unsteady point from its plots export
-custom_polar_format = false    # beside each polar table, the text file the author's tooling opens
+custom_polar_format = false    # beside each polar table, the text file the reference tooling opens
 ```
 
 Three things carry the artifact across configurations. A `families` entry
@@ -1276,7 +1276,7 @@ three rows.
     this row rotated is written in BOTH: once in `<ALIAS>_SMRP`, where the
     rotation left it, and once in `<ALIAS>_SMRP_ORIGINAL`, where it
     started. The plot names differ by the same suffix, so the two tables
-    sit beside each other. That is the author's rule of 2026-09-10: an
+    sit beside each other. That is the rule of 2026-09-10: an
     entry says which ROTOR it is about, and the row's rotation decides how
     many readings of it there are, exactly as the frame decides how many
     emissions an entry stands for. A rotor this row did not turn has no
@@ -1298,7 +1298,7 @@ spells it, and what the empty list feeds (PFS-2005.02, "an empty boundary
 list is refused wherever the solver would read it as disable everything"),
 except where the
 domain seat has given the empty list a meaning. A group is one such key
-since 0.14.0, the author's decision of 2026-09-09:
+since 0.14.0, the design decision of 2026-09-09:
 
 ```toml
 [groups]
@@ -1314,7 +1314,7 @@ reference calls airframe and nothing is hardcoded; or a FAMILY, the label
 without its trailing number, so `["Blade"]` sums `Blade1` to
 `Blade6`, which is group 4 of the example above. A member the geometry does not carry is left out, and a
 position passes through to the motion. Until 0.14.0 the empty group was
-refused as the author's undecided call, and a family name in a group summed
+refused as the reference undecided call, and a family name in a group summed
 nothing at products time. `families = []` in a
 `[[plots.groups]]` or a `[[sections.distributions]]` entry is refused,
 naming `UNSTEADY_SOLVER_NEW_FORCE_PLOT` or
@@ -1362,7 +1362,7 @@ point was run for.
 
 ### How a point is named
 
-Every export hangs off the point's NAME, and the name is the author's own
+Every export hangs off the point's NAME, and the name is the reference
 convention (PFS-2029.19): `POLAR-<sim>_M<mach*100>AL<alpha*10>BE<beta*10>`,
 with `J<J*100>` appended when the row has an advance ratio, every field
 fixed width so a folder of them sorts. Row 3207 at Mach 0.20 and alpha
@@ -1434,12 +1434,12 @@ its other products.
 And the REDUCTIONS of the plots table, one file per applicable reduction
 beside it (PFS-2015.04), over the window the row states; the next section
 walks them. The arithmetic behind the polar table is the
-author's own and was checked column by column against the tables the author
+reference and was checked column by column against the tables the owning seat
 recorded: FlightStream's `CL`, `CDi + CDo` and `Cy` are the stability-axis
 coefficients, the body axes follow by turning them through the angle of
 attack, the wind axes by turning the stability axes through the sideslip,
 and the rolling and yawing moments are `CMx` and `CMz` scaled from the chord
-to the span, with the author's sign.
+to the span, with the reference sign.
 
 The run writes these after collection, under `post/<matrix stem>/`, the
 folder named after the matrix file (`post/matriz/` for `matriz.fs`), and
@@ -1466,12 +1466,12 @@ one, and it changes the exit code alone, after every product is written.
 
 #### Custom polar format
 
-The author's existing tooling opens a fixed-width text polar file, not a
+The existing tooling opens a fixed-width text polar file, not a
 CSV, and `[products] custom_polar_format = true` on the pproc artifact
 writes that file beside every polar table the stage writes,
 `<polar>_M<code>_g<group>.dat`
 beside the `.csv`, the same rows a second time (PFS-2014.01.01). Off by
-default. The shape, read off a file of the author's and pinned by the committed
+default. The shape, read off a recorded file and pinned by the committed
 fixture `tests/tier1_offline/fixtures/custom_polar_format_sample.dat` (every
 value in it synthetic), is nine header lines and then one line per point:
 
@@ -1496,7 +1496,7 @@ the twenty-four column names of the polar table in its order, and every
 number at `%10.5f`. The docstring of
 `pyflightstream.post.write_custom_polar_format` is the specification, line
 by line, and `read_custom_polar_format` reads the file back (before
-0.14.0 the five names were spelled `the author's`; the old names and the old key
+0.14.0 the five names were spelled `the reference`; the old names and the old key
 still work and warn, and are removed in 0.16.0); the tier-1 test
 feeds the fixture's rows through the writer and requires the fixture's
 bytes, and writes, reads and writes again what the stage produced,
@@ -1765,7 +1765,7 @@ Two things about that conversion are worth knowing before you run it:
 An installed rotor's incidence is a parametric study: the same mesh, the
 blade and spinner families turned a few degrees in pitch or in toe, one
 run per angle. Since 0.14.0 a row states that turn in its cell
-(PFS-2034.02, the author's design of 2026-09-09) and the geometry file stays what
+(PFS-2034.02, the design of 2026-09-09) and the geometry file stays what
 it was:
 
 ```text
@@ -1851,7 +1851,7 @@ frame: the blades turn and the axis stays, which is a physics call the row
 may mean, so it is not refused.
 
 What the solver does with the rotated mesh is the measurement of the seat
-run the author's study books (PFS-2034.05): the package emits the rotation the
+run the reference study books (PFS-2034.05): the package emits the rotation the
 manual documents, citing a frame the manual's own sample cites, and the
 run record is where the accepted geometry will be read from.
 
@@ -2239,7 +2239,7 @@ form on `unsteady` is refused naming the iterations form that would work,
 because a run that turns nothing has no revolution to count.
 
 This replaces the degrees-backwards window of PFS-2025.08 for the mid-run
-exports: the exports begin AFTER a threshold, in the author's definition, and the
+exports: the exports begin AFTER a threshold, in the reference definition, and the
 `WINDOW_*` keys keep their one job, the averaging window of the
 reductions.
 

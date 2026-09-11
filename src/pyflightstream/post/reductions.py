@@ -6,13 +6,13 @@ rule it enforces is a rule about DESTINATIONS, and the average itself
 (:func:`pyflightstream.post.unsteady.blade_passage_average`) is pure and
 has none.
 
-THE AUTHOR'S FILE RULE, 2026-08-16, absorbed from PFS-2015.03 into PFS-2015.01:
+THE FILE RULE OF 2026-08-16, absorbed from PFS-2015.03 into PFS-2015.01:
 
 * a reduction NEVER overwrites the file it came from;
 * the time series keeps its own dedicated file.
 
 Both are enforced HERE rather than in a workflow, and that placement is
-the whole point of the rule as the author stated it: it holds however the
+the whole point of the rule as stated: it holds however the
 reduction is reached, so a caller who bypasses the workflow and calls
 this layer directly cannot obtain an average with no history beside it.
 A rule that only a workflow keeps is a rule with a documented way round
@@ -62,7 +62,7 @@ def _refuse_a_source(destination: Path, sources: tuple[Path, ...]) -> None:
         raise WorkspaceError(
             f"{destination} is a file this reduction was READ from, so writing it would "
             "replace the history with its own summary. A reduction never overwrites the "
-            "file it came from (author's rule of 2026-08-16): write the average under a "
+            "file it came from (file rule of 2026-08-16): write the average under a "
             "name of its own, beside the series."
         )
 
@@ -188,7 +188,7 @@ def write_reduction(
     if not series_path.is_file():
         raise WorkspaceError(
             f"{series_path} does not exist, so this average would be written with no "
-            "history beside it. The time series keeps its own dedicated file (author's "
+            "history beside it. The time series keeps its own dedicated file (file "
             "rule of 2026-08-16): write it with write_series first, then the reduction."
         )
     if series_path.resolve().parent != destination.resolve().parent:

@@ -38,7 +38,7 @@ imports the STL parts with their length units declared, detects the
 trailing edges and the wake termination nodes, and saves the file; each
 file is committed beside its boundary sidecar and a provenance record
 carrying the generator, the specs, the build and the sha256. Nothing
-of the author's enters, and a guard refuses a saved simulation in that
+of the reference enters, and a guard refuses a saved simulation in that
 folder without its provenance record.
 
 ```text
@@ -51,7 +51,7 @@ the body, `r003` the isolated rotor, `r004` the installed rotor, `r005`
 the qa cases' block with the moment point at the origin), eight setups
 (`s001` the tour preset through `s008`, each a comment on what it
 changes; `s008` is `s001` plus one raw solver line before init
-(PFS-2033.01), whose row 2004 is booked to run on the author's seat
+(PFS-2033.01), whose row 2004 is booked to run on the licensed seat
 (PFS-2033.03)), three
 post-processing profiles, and a reference-point file
 with the airframe point `ARP` and the rotor points `ERP1` to `ERP3`.
@@ -78,7 +78,7 @@ line but the matrix and the workspace.
 | Matrix | What it is | Rows |
 |---|---|---|
 | `matriz.fs` | the tour: every column, every key, every run type, every input kind | 1001 a steady polar with the fluid pins from the setup; 1002 the half wing mirrored with velocity and density on the row; 1003 a sideslip sweep at altitude on a hot day; 1004 a combined sweep with every pin on the row; 1005 the body detecting its base on the second build; 1006 an inactive row; 1010 and 1011 the rotorless unsteady clock in seconds and in azimuth; 1020 one blade under periodic symmetry; 1021 the installed pusher with a signed RPM and its hub by a point; 1022 two rotors from a MOTIONS list; 1090 a LEGACY row naming its recipe in the cell |
-| `matriz_setup.fs` | one point, four presets | 2001 the tour preset, 2002 tighter and longer, 2003 incompressible without stabilization, 2004 the tour preset plus one raw line (booked for the author's seat, not yet run) |
+| `matriz_setup.fs` | one point, four presets | 2001 the tour preset, 2002 tighter and longer, 2003 incompressible without stabilization, 2004 the tour preset plus one raw line (booked for the licensed seat, not yet run) |
 | `matriz_vocab.fs` | the 0.15.0 vocabulary, on the twin geometry | 8001 a rotor named by alias, 8002 two rotors at two speeds from ONE advance ratio, 8003 one rotor held while the other sweeps, 8004 a rotation citing an alias and keeping the frame it turned from, 8005 a raw solver command the row states itself. It is the workspace the getting-started walkthrough sends a reader to copy, so its files are written to be read: `r006.toml` and `p005.toml` state the same aircraft as `r004.toml` and `p003.toml` in the newer vocabulary, and the two pairs are kept side by side so the difference can be diffed rather than described |
 | `matriz_time.fs` | one rotor at six step sizes, 30 down to 2.5 deg, one wing at two | 3001 to 3006, 3010 and 3011 |
 | `matriz_geometry.fs` | one condition, four shapes | 4001 the wing, 4002 its mirrored half, 4003 the body, 4004 the wing with its boundary renamed before the save (RPT-044) |
@@ -109,15 +109,15 @@ against the committed references under `qa/references/`, so a FAIL there
 says either that the workflow builds the case differently from what the
 reference was recorded on or that the solver moved, and the diff of the
 row's script against its golden says which. An identity that holds
-without a band of the author's, the antisymmetry of the side force under
+without a band of a seat decision, the antisymmetry of the side force under
 sideslip for one, is asserted to the solver's measured noise and says so;
-a number that needs a band the author has not set is read and reported, not
+a number that needs a band the owning seat has not set is read and reported, not
 judged.
 
 ### The physics report is read out of the workspace
 
 `pyfs-qa physics` is a reader of this workspace since 0.13.0
-(PFS-2031.17, the author's decision B of 2026-09-08): it runs
+(PFS-2031.17, the design decision B of 2026-09-08): it runs
 `matriz_physics.fs` through the run layer exactly as `pyfs-matrix run`
 does, reduces the records with the qa functions and writes the same
 `reports/physics/PHY-*` pair the hand-built scripts wrote. The hand-built

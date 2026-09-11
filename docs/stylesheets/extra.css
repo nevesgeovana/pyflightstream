@@ -10,7 +10,7 @@
 [data-md-color-scheme="slate"] .status-verified { color: #7ab3e0; }
 [data-md-color-scheme="slate"] .status-broken { color: #e08a8a; font-weight: bold; }
 
-/* SRS requirement boxes: custom admonition types mirroring the author's
+/* SRS requirement boxes: custom admonition types mirroring the
    SRS template (requirement, non-requirement, decision). Usage:
    !!! requirement "FR-01 (implemented)" */
 .md-typeset .admonition.requirement,

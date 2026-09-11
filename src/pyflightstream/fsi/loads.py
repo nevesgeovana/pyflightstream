@@ -33,7 +33,7 @@ Everything here is anchored on the WP1 dry-run evidence
   chordwise/normal axes of :mod:`pyflightstream.fsi.config` therefore
   involves the local blade angle; the deliberate elastic-axis offset
   check of the soft-blade pilot is the planned sign confirmation.
-* Blade attribution follows the author's family-per-blade convention
+* Blade attribution follows the family-per-blade convention
   (RPT-005 finding 6): one geometry family per blade, one section
   distribution per blade boundary, and the flat export concatenates
   the families in creation order. Attribution is therefore bookkeeping

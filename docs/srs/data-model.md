@@ -243,7 +243,7 @@ by stable id with didactic misses (the error lists what exists and
 where to put what is missing). The executables registry maps build ids
 to paths; an unregistered build runs only through an explicit override
 path. Campaign definitions (native TOML or the run matrix) compose
-cases by referencing artifacts by id, translating the author's
+cases by referencing artifacts by id, translating the reference
 research workflow into validated form.
 
 ## Provenance chain
