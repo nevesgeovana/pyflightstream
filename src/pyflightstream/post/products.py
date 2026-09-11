@@ -111,10 +111,12 @@ from pyflightstream.post.superfile import (
     SuperfileDraft,
     declared_sweep,
     matrix_rows,
+    measure_sections,
     plots_last_row,
     super_file_name,
     superfile_row,
     union_the_workspace_knows,
+    write_sections_report,
     write_superfile_report,
     write_superfiles,
 )
@@ -2144,6 +2146,25 @@ def write_campaign_products(
             known=known,
         )
         manifest["superfile_report"] = report.relative_to(workspace.root).as_posix()
+
+        # THE SECTIONS MEASUREMENT, beside the superfile one and written the
+        # same way: from the workspace rather than from this stage's own
+        # arithmetic. It counts what each point's ARTIFACT declared against
+        # what its SCRIPT emitted, two different files, neither derived from
+        # the other (FR-83).
+        # The records are pydantic models here and the measurement takes
+        # plain mappings, because it reads the same JSON a manifest on disk
+        # holds and must not depend on this package's model to do it.
+        section_cases = measure_sections(
+            workspace.root, [record.model_dump(mode="json") for record in records]
+        )
+        if section_cases:
+            sections_report = write_sections_report(
+                workspace.root,
+                version=pyflightstream.__version__,
+                cases=section_cases,
+            )
+            manifest["sections_report"] = sections_report.relative_to(workspace.root).as_posix()
     # Always present, empty when nothing was refused, so a wrapper reads one
     # key rather than testing for it (review round two of 2026-09-08).
     manifest["skipped"] = skipped

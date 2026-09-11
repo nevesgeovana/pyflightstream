@@ -2921,7 +2921,18 @@ def _execute_point(
         # this point (PFS-2015.04), resolved off the row HERE, where the
         # clock and the blade count are stated, so the stage reads the
         # record alone as it reads everything else. None for a steady row.
-        "reductions": reduction_windows(case),
+        # THE POINT-BEARING CASE, and this line read `reduction_windows(case)`
+        # until 2026-09-11. `case` here is the SIM-level case and its `point` is
+        # empty: `point_case` is built two hundred lines below, after the names
+        # are rendered. So a row sweeping its advance ratio asked the planner a
+        # question about a case that did not know which point it was, and the
+        # planner correctly answered that no rotor speed was stated. Every
+        # unsteady reduction of every swept-ratio point was skipped, four of
+        # four on the licensed runs of 2026-09-11.
+        #
+        # The unit case for that fix passed while this path still failed,
+        # because the case it builds carries its point and this one did not.
+        "reductions": reduction_windows(case.model_copy(update={"point": dict(point)})),
         # How the geometry was staged (PFS-2029.17), read off the workspace
         # that staged it, so the record says link or copy and why.
         **dict(

@@ -638,3 +638,99 @@ def write_superfile_report(
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(json.dumps(payload, indent=1) + "\n", encoding="utf-8")
     return target
+
+
+#: The sections measurement sits beside the superfile one, same release tag, so
+#: `reports/sections-0160.json`.
+SECTIONS_REPORT_PREFIX = "sections-"
+
+#: The command one section station is emitted as. Counted by PREFIX because the
+#: command is `payload_lines`: every scalar is inline on its own line, so the
+#: name is followed by a space and never alone.
+_SECTION_COMMAND = "CREATE_NEW_SURFACE_SECTION "
+
+
+def measure_sections(root: Path, records: Sequence[Mapping[str, object]]) -> list[dict]:
+    """Count what each recorded point DECLARED against what its script emitted.
+
+    ONE CASE PER RECORDED POINT WHOSE ARTIFACT DECLARES DISTRIBUTIONS. The
+    declaration is read from the pproc artifact the row named, and the emission
+    from the script that was handed to the solver, so the two sides come from
+    two different files and neither is derived from the other.
+
+    `expected` is the sum over the artifact's entries of that entry's own count
+    times its planes, which is FR-76's per-entry form; an entry stating no count
+    takes the artifact's. It is computed here from the artifact rather than
+    taken from the emitter, so an emitter that silently changed its arithmetic
+    would show up as a disagreement rather than as agreement with itself.
+
+    A point whose script is not on disk is left OUT rather than counted as zero:
+    the arm refuses an empty set, and a missing script is a gap in the evidence
+    rather than a measurement of nothing.
+    """
+    import tomllib
+
+    cases: list[dict] = []
+    for record in records:
+        sim_id = str(record.get("sim_id") or "")
+        pproc_id = str(record.get("pproc") or "")
+        run_id = str(record.get("run_id") or "")
+        if not sim_id or not pproc_id or not run_id:
+            continue
+        artifact = root / "inputs" / "pproc" / f"{pproc_id}.toml"
+        if not artifact.is_file():
+            continue
+        try:
+            spec = tomllib.loads(artifact.read_text(encoding="utf-8"))
+        except (OSError, tomllib.TOMLDecodeError):
+            continue
+        sections = spec.get("sections") or {}
+        entries = sections.get("distributions") or []
+        if not entries:
+            continue
+        default_count = int(sections.get("count", 50))
+        expected = 0
+        for entry in entries:
+            count = int(entry.get("count", default_count))
+            expected += count * max(1, len(entry.get("planes") or []))
+
+        # THE RECORD SAYS WHICH SCRIPT IT RAN, and it is taken from there rather
+        # than matched by name. The first version of this looked for the point
+        # tag inside the file name and found nothing: a script is named by the
+        # POLAR convention, `POLAR-6002_M14AL+000BE+000J+170.txt`, and the point
+        # tag is `a+00.0_b+00.0_j+01.7`, so the two never share a substring. A
+        # measurement that silently matches nothing reports a clean zero, which
+        # is the shape this estate keeps paying for.
+        stated = str(record.get("script_path") or "")
+        if not stated:
+            continue
+        script = root / "sims" / f"sim_{sim_id}" / stated
+        if not script.is_file():
+            continue
+        emitted = sum(
+            1
+            for line in script.read_text(encoding="utf-8", errors="replace").splitlines()
+            if line.startswith(_SECTION_COMMAND)
+        )
+        named = [script]
+        cases.append(
+            {
+                "label": run_id,
+                "artifact": pproc_id,
+                "script": named[0].name,
+                "declared": len(entries),
+                "expected": expected,
+                "emitted": emitted,
+            }
+        )
+    return cases
+
+
+def write_sections_report(
+    root: Path, *, version: str, cases: Sequence[Mapping[str, object]]
+) -> Path:
+    """Write the sections measurement the goal's sections arm reads."""
+    target = root / REPORTS_DIR / f"{SECTIONS_REPORT_PREFIX}{release_tag(version)}.json"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(json.dumps({"cases": list(cases)}, indent=1) + "\n", encoding="utf-8")
+    return target
