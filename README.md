@@ -24,30 +24,37 @@ Every example on those pages is compared against an artifact this
 repository ships, most of them under `tests/tier3_licensed/`, by a test on
 every commit, so a page cannot quietly stop being true.
 
-Status: v0.15.0 is the current release. It publishes to
+Status: v0.16.0 is the current release. It publishes to
 [PyPI](https://pypi.org/project/pyflightstream/) and archives on Zenodo
 from the tag, so the concept DOI in CITATION.cff resolves to the newest
 archived version and the version DOI is recorded one commit after the
 tag that names it. CHANGELOG.md carries the release history.
 
-**v0.15.0 is the use case become the release.** A study's vocabulary
-lives in the REFERENCE artifact now: an `[aliases]` table whose members may
-be other aliases, resolved to the end; the `[[frames]]` table moved out of
-the setup preset; and ONE BLOCK PER ROTOR whose name is an alias over
-everything that rotor owns, carrying its hub, axis, rotation sign, diameter
-and blade families. A row names its rotor by alias and states nothing else
-about it, so nine rotors are nine words rather than nine hubs; one advance
-ratio written once in the flight condition gives a 1.20 m lifter and a
-1.80 m pusher two different speeds; and each rotor's frames take its alias
-as their radical, so nine rotors instantiate nine sets rather than colliding
-on one. THE FRAME DECIDES how a post-processing entry expands, so there is
-no `expand` key: an entry in `MRP` is one over the set it names, one in
-`SMRP` or `RMRP` is one per rotor in that rotor's own frame, and one in
-`LOCAL_AXIS` is one per blade. Six lines of a `[plots]` table become
-twenty-seven emissions on a nine-rotor aircraft. The author's three master's cases
-ran against the wheel before the tag and MOVED NO NUMBER: 0.15.0 reproduces
-the 0.14.0 run coefficient for coefficient, and the rotor case's emitted
-script is byte for byte 0.14.0's, the staged geometry path apart.
+**v0.16.0 is the release her own workspace asked for.** Every item came
+from running 0.15.0 at work and reading what came back. A surface-section
+distribution is created AFTER the solver is initialised, which is where her
+own recorded scripts put it and which is why fifty sections said nothing; a
+steady row now CREATES the probe points it exports, instead of asking the
+solver to export something nobody made; a probe entry prescribes a rectangular
+or a circular plane, point by point, or cites a points file she wrote; and
+`[probes]` became `[[probes]]`, a list of tables, so one artifact can probe
+several frames.
+
+What a campaign WRITES moved with it. A simulation's collected outputs live
+under `sims/<sim>/outputs/`, the per-polar tables under
+`post/<matrix>/polars/`, and the flow-field samples under
+`post/<matrix>/probes/` whatever the run type was. Each polar and group also
+gets one derived file, `SUPER-...csv`, whose columns are a superset of
+everything the workspace knows about that simulation: if you have to open a
+second file to know something about it, that file failed.
+
+Two new answers a study wants before it is run and after. `pyfs-matrix plan
+--cost` tables what each polar will cost: mesh size, trailing edges marked,
+farfield layers, viscous coupling, run type, time steps, processors, and an
+expected time that says, under every printing, that it is an extrapolation
+from this workspace's own recorded wall times and not a measurement. And a
+probe table now says WHERE each sample is, with the frame it is measured in,
+which an unsteady export never stated at all.
 
 **What changes for you at v0.15.0.** The run matrix LOSES A COLUMN:
 `SWEEP_TYPE` is gone, because a sweep is applied to a variable that DEFINES

@@ -7,6 +7,17 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Owed
+
+- **The Zenodo archive of v0.14.0 still does not exist**, and the row for
+  v0.16.0 is owed too: a version DOI is minted from the GitHub release, so it
+  is always recorded one commit AFTER the tag it names. Until each row lands
+  this section says so, because a shipped release that quietly stops being
+  citable is the gap PFS-2024.09 is about. Cite either by the concept DOI,
+  which resolves to the newest archived version.
+
+## [0.16.0] - 2026-09-11
+
 ### Removed
 
 - **The five names the 0.14.0 polar rename deprecated are gone, on time at
@@ -8851,7 +8862,8 @@ the repository seeding and this tag (milestones M0 through M5).
 * 26.000: registered, no recorded evidence yet (honest empty column;
   backfill planned for v0.2+).
 
-[Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.15.0...HEAD
+[Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.16.0...HEAD
+[0.16.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.16.0
 [0.15.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.15.0
 [0.14.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.14.0
 [0.13.1]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.13.1
