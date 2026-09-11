@@ -2709,20 +2709,28 @@ def test_a_run_record_names_waived_commands():
     assert "broken_commands" not in row
 
 
-def test_an_old_manifest_key_still_reads_and_its_promise_moved_to_0_16_0():
-    """The one promise of 0.15.0 that moved rather than being kept.
+def test_an_old_manifest_key_still_reads_and_its_promise_carries_an_exit_condition():
+    """The promise that has now moved TWICE, and what ends it.
 
-    The removal was made on 2026-09-10 and the suite went red on the
-    tier-3 fixture, which led to the reading that moved it: the author's
-    own recorded campaign at `pfs0110/runs.json` carries the OLD key,
-    that workspace is the reference the author's reproduction is measured against,
-    and it is held. A manifest is the one surface this package cannot
-    regenerate.
+    A manifest is the one surface this package cannot regenerate. Every
+    other name the 0.13.0 rename touched lives in code a user re-types;
+    a record is data a run produced once. The first move, on 2026-09-10,
+    came from the suite going red on the tier-3 fixture and the reading
+    that followed: the author's own recorded campaign at
+    `pfs0110/runs.json` carries the OLD key, and that workspace is the
+    reference her reproduction is measured against and is held.
 
-    The three PROPERTY shims of the same rename were removed on time,
-    because an attribute is code and code is re-typed. The warning text
-    is the ledger entry's own, so the release it names is the one the
-    deadline guard enforces (PFS-2021.07.01, NFR-11).
+    THE SECOND MOVE, on 2026-09-11, carries the condition that ends it,
+    because a promise moved twice with no condition is a promise that
+    never expires. Measured that day over
+    `GeoverseResearch/tools/fts_workspace/*/runs.json`: 18 recorded rows
+    in 6 manifests still carry the old key. The exit is that count
+    reaching zero, not a release number, and this case asserts the
+    entry says so rather than asserting a version that will move again.
+
+    The five names of the 0.14.0 polar rename were kept ON TIME at
+    0.16.0 in the same change, which is what makes the asymmetry a
+    judgement about records rather than a habit.
     """
     from pyflightstream._deprecations import WAIVED_COMMANDS_MANIFEST_KEY
 
@@ -2734,7 +2742,11 @@ def test_an_old_manifest_key_still_reads_and_its_promise_moved_to_0_16_0():
     assert record.waived_commands == [WAIVER_ROW]
     (message,) = {str(w.message) for w in caught}
     assert message == WAIVED_COMMANDS_MANIFEST_KEY.message()
-    assert "removed in v0.16.0" in message
+    # THE CONDITION, not the version. A case pinned to "v0.17.0" would go
+    # red on the next move and be edited to the new number, which is how
+    # a deadline test becomes a record of the deadline moving.
+    assert "EXIT IS A MEASUREMENT AND NOT A DATE" in WAIVED_COMMANDS_MANIFEST_KEY.extra
+    assert "18 recorded rows" in WAIVED_COMMANDS_MANIFEST_KEY.extra
 
 
 def test_a_row_carrying_both_spellings_is_refused():

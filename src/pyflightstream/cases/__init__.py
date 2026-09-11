@@ -22,7 +22,6 @@ from __future__ import annotations
 
 import re
 import tomllib
-import warnings
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from datetime import UTC, datetime
 from importlib import import_module
@@ -43,14 +42,13 @@ from pydantic import (
 
 from pyflightstream._atmosphere import ISA
 from pyflightstream._deprecations import (
-    PPROC_HER_POLAR_FORMAT,
     ROW_AIRFRAME_SELECTOR,
     ROW_BLADES_SELECTOR,
     ROW_EACH_BLADE,
     refusal_text,
 )
 from pyflightstream._digest import file_sha256, text_sha256
-from pyflightstream._errors import PyflightstreamDeprecationWarning, PyflightstreamError
+from pyflightstream._errors import PyflightstreamError
 from pyflightstream._fsm import names_of
 from pyflightstream._retired_names import PROBE_SCALE_PROPELLER_RADIUS, retired_frame
 from pyflightstream.commands import Phase
@@ -723,23 +721,6 @@ class ProductsSpec(BaseModel):
     sections: bool = True
     plots: bool = True
     custom_polar_format: bool = False
-
-    @model_validator(mode="before")
-    @classmethod
-    def _the_former_name_of_the_custom_format(cls, data: object) -> object:
-        """Read ``her_polar_format``, the key's name until 0.14.0, warning from the ledger."""
-        if isinstance(data, dict) and "her_polar_format" in data:
-            if "custom_polar_format" in data:
-                raise ValueError(
-                    "the [products] table states her_polar_format and custom_polar_format "
-                    "both; they are one key, and custom_polar_format is its name"
-                )
-            warnings.warn(
-                PPROC_HER_POLAR_FORMAT.message(), PyflightstreamDeprecationWarning, stacklevel=2
-            )
-            data = {**data, "custom_polar_format": data["her_polar_format"]}
-            del data["her_polar_format"]
-        return data
 
 
 #: Frame names the package creates itself (PFS-2030.03.02); a setup may

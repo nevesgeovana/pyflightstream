@@ -73,10 +73,8 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from pyflightstream._deprecations import FORMER_POLAR_NAMES
 from pyflightstream._digest import file_sha256
 from pyflightstream._errors import (
-    PyflightstreamDeprecationWarning,
     PyflightstreamError,
     PyflightstreamWarning,
 )
@@ -471,10 +469,6 @@ def __getattr__(name: str) -> object:
     Those names carried a possessive prefix before 0.14.0 and are spelled
     ``custom`` now; the old ones are read until 0.16.0.
     """
-    if name in FORMER_POLAR_NAMES:
-        entry = FORMER_POLAR_NAMES[name]
-        warnings.warn(entry.message(), PyflightstreamDeprecationWarning, stacklevel=2)
-        return globals()[entry.new]
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 

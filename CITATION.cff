@@ -11,8 +11,8 @@ license: MIT
 # because a development tree has no release date; it once stated the
 # v0.3.0 date beside version 0.4.0.dev0, so a citation generated from
 # that tree asserted a release date for an artifact that was never
-# released (REV010-015). This is a RELEASE tree: the version carries no
-# .dev0 and a date-released stands beside it, which is the pair the
+# released (REV010-015). This is a DEVELOPMENT tree: the version carries
+# .dev0 and NO date-released stands beside it, which is the pair the
 # guard in tests/tier1_offline/test_metadata_currency.py enforces in both directions.
 # The next development commit sets the two together the other way and
 # this sentence flips with them; it is written as a statement about the
@@ -25,7 +25,12 @@ license: MIT
 # the residual the wording was chosen to make VISIBLE rather than
 # remove: the guard reads the two fields and cannot read a sentence.
 # Twice is a pattern, and the honest reading of it is that a paragraph
-# a human must remember to flip will keep not flipping.
+# a human must remember to flip will keep not flipping. THREE TIMES now:
+# on 2026-09-10 the v0.15.0 release set the version and the date and left
+# this paragraph saying DEVELOPMENT, and the 0.16.0.dev0 bump the next
+# day found it that way and flipped it to RELEASE and then immediately
+# back. The flip that follows the bump in the same commit is the only
+# one that has ever worked.
 # The archive DOIs below are one per release from v0.3.0, newest first,
 # with the concept DOI last. v0.1.0 and v0.2.0 are absent: v0.2.0 was the
 # first release to archive, and its version DOI was not recorded here at
@@ -36,8 +41,7 @@ license: MIT
 # recorded one commit AFTER the tag it names. Older ones
 # stay, because those releases did happen and are still what a citation
 # of them should resolve to.
-version: 0.15.0
-date-released: 2026-09-10
+version: 0.16.0.dev0
 repository-code: "https://github.com/nevesgeovana/pyflightstream"
 identifiers:
   - type: doi

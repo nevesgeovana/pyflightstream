@@ -41,10 +41,6 @@ Sweep assembly is not here either, it is
 :mod:`pyflightstream.results.tables`.
 """
 
-import warnings
-
-from pyflightstream._deprecations import FORMER_POLAR_NAMES
-from pyflightstream._errors import PyflightstreamDeprecationWarning
 from pyflightstream.post.products import (
     CustomPolarTable,
     ProductError,
@@ -89,12 +85,6 @@ def __getattr__(name: str) -> object:
     shim: a from-import asks the package twice (``hasattr`` before the
     import opcode's own lookup), and routing warned twice for it.
     """
-    if name in ("HerPolarTable", "write_her_polar_format", "read_her_polar_format"):
-        from pyflightstream.post import products as _products
-
-        entry = FORMER_POLAR_NAMES[name]
-        warnings.warn(entry.message(), PyflightstreamDeprecationWarning, stacklevel=2)
-        return getattr(_products, entry.new)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 

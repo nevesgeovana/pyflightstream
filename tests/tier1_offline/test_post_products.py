@@ -1429,11 +1429,17 @@ def test_a_step_whose_surfaces_differ_from_the_first_refuses_the_loads_series_na
     )
 
 
-def test_the_former_key_of_the_polar_format_reaches_the_stage_and_warns(tmp_path):
-    """The old key ``her_polar_format = true`` on a real artifact file warns from
-    the ledger and writes the same files the new key writes (the QA lens of the
-    rename round: the supported spelling carries the stage test above, and the
-    deprecated one has this case, deleted whole at 0.16.0)."""
+def test_the_former_key_of_the_polar_format_is_refused_on_a_real_artifact(tmp_path):
+    """The promise was KEPT at 0.16.0, so the old key no longer reads.
+
+    This case replaces the one that asserted the shim forwarded. It is the
+    same artifact, and the assertion runs the other way: a pproc file still
+    stating `her_polar_format` is REFUSED when the workspace reads it, and
+    the refusal names the key. The nine committed artifacts that stated it
+    were migrated in the same change, so nothing in this estate meets this
+    refusal; a user's own file might, which is why the message matters.
+    """
+    from pyflightstream._errors import InputArtifactError
     from pyflightstream.post.products import write_campaign_products
     from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
 
@@ -1461,16 +1467,19 @@ def test_the_former_key_of_the_polar_format_reaches_the_stage_and_warns(tmp_path
             reference={"SREF": 50.0, "CREF": 2.526, "BREF": 20.0, "XMOM": 9.152},
         )
     )
-    with pytest.warns(PyflightstreamDeprecationWarning, match="her_polar_format.*0.16.0"):
-        written = write_campaign_products(workspace)
-    assert {p.name for p in written} >= {"3207_M20_g01.csv", "3207_M20_g01.dat"}
+    with pytest.raises(InputArtifactError, match="her_polar_format"):
+        write_campaign_products(workspace)
 
 
-def test_the_former_her_names_of_the_polar_format_forward_and_warn(tmp_path):
-    """The author's decision of 2026-09-09: custom_ names the thing. The old key on a pproc
-    artifact is read as the new one, and the old Python names forward, each
-    warning from the ledger with its removal version; both keys at once are
-    refused."""
+def test_the_former_her_names_of_the_polar_format_are_gone(tmp_path):
+    """The five names the 0.14.0 rename deprecated are removed at 0.16.0.
+
+    The author's decision of 2026-09-09 was that `custom_` names the thing
+    rather than a person. The forwarding shims carried the old spellings for
+    two releases and this case is what the deadline guard asked for: each one
+    now raises, and the NEW spelling still works, which is the half a
+    deletion can silently take with it.
+    """
     import warnings
 
     import pyflightstream.post as post
@@ -1478,24 +1487,29 @@ def test_the_former_her_names_of_the_polar_format_forward_and_warn(tmp_path):
     from pyflightstream.cases import ProductsSpec
     from pyflightstream.post import products as products_module
 
-    with pytest.warns(PyflightstreamDeprecationWarning, match="her_polar_format.*0.16.0"):
-        spec = ProductsSpec.model_validate({"her_polar_format": True})
-    assert spec.custom_polar_format is True
-    with pytest.raises(ValueError, match="one key"):
-        ProductsSpec.model_validate({"her_polar_format": True, "custom_polar_format": True})
+    # THE KEY. `extra="forbid"` is what refuses it now, so the old spelling
+    # is an unknown field rather than a deprecated one.
+    with pytest.raises(ValueError, match="her_polar_format"):
+        ProductsSpec.model_validate({"her_polar_format": True})
     with warnings.catch_warnings():
         warnings.simplefilter("error", PyflightstreamDeprecationWarning)
         assert ProductsSpec.model_validate({"custom_polar_format": True}).custom_polar_format
+
+    # THE FOUR MODULE NAMES, each asserted gone AND its replacement asserted
+    # present, because a module that lost both would pass the first half.
     for old, new in (
-        ("HerPolarTable", post.CustomPolarTable),
-        ("write_her_polar_format", post.write_custom_polar_format),
-        ("read_her_polar_format", post.read_custom_polar_format),
+        ("HerPolarTable", "CustomPolarTable"),
+        ("write_her_polar_format", "write_custom_polar_format"),
+        ("read_her_polar_format", "read_custom_polar_format"),
     ):
-        with pytest.warns(PyflightstreamDeprecationWarning, match=f"{old}.*0.16.0") as caught:
-            assert getattr(post, old) is new
-        assert len(caught) == 1, "the package warns once, not once per lookup (QA-5)"
-    with pytest.warns(PyflightstreamDeprecationWarning, match="her_polar_file_name.*0.16.0"):
-        assert products_module.her_polar_file_name is products_module.custom_polar_file_name
-    missing = "no_such_name"
+        with pytest.raises(AttributeError, match=old):
+            getattr(post, old)
+        assert getattr(post, new) is not None
+    # BOUND TO A NAME so the lookup is not a bare expression statement, which
+    # ruff reads as useless and which would be deleted by the next sweep,
+    # taking the assertion with it.
+    with pytest.raises(AttributeError, match="her_polar_file_name"):
+        _ = products_module.her_polar_file_name
+    assert products_module.custom_polar_file_name is not None
     with pytest.raises(AttributeError):
-        getattr(post, missing)
+        _ = post.no_such_name

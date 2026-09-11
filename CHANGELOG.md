@@ -7,6 +7,32 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Removed
+
+- **The five names the 0.14.0 polar rename deprecated are gone, on time at
+  0.16.0.** The pproc `[products]` key `her_polar_format` and the four module
+  names `HerPolarTable`, `write_her_polar_format`, `read_her_polar_format` and
+  `her_polar_file_name`. THE FORMAT IS UNTOUCHED: only the spelling that named
+  a person rather than the thing was ever deprecated, and
+  `custom_polar_format` writes exactly what `her_polar_format` wrote. The nine
+  committed artifacts that still stated the key were migrated in the same
+  change, in this order deliberately: the artifacts first, the reader second,
+  so nothing was left unable to parse in between. A file still stating the old
+  key is now refused by name.
+
+### Changed
+
+- **`broken_commands` moves once more, and this time it carries the condition
+  that ends it.** A manifest is the one surface a run cannot regenerate, and
+  measured on 2026-09-11 over
+  `GeoverseResearch/tools/fts_workspace/*/runs.json`, 18 recorded rows in 6
+  manifests still carry the old key, among them the author's recorded
+  campaign. The promise had already moved once, from 0.15.0 to 0.16.0, and a
+  promise moved twice with no condition is a promise that never expires. THE
+  EXIT IS NOW A MEASUREMENT AND NOT A DATE: when that count reaches zero the
+  reader goes, whatever release it is. The test asserts the condition rather
+  than a version number, so it cannot become a record of the deadline moving.
+
 ### Specified, not built
 
 - **FR-75 to FR-82 are written and PENDING**, the eight requirements the

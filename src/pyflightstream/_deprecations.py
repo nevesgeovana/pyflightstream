@@ -529,53 +529,14 @@ MATRIX_FS_VERSION: dict[str, DeprecatedParameter] = {
 #: The polar format's five public names were spelled ``her`` from 0.13.0,
 #: naming the author rather than the thing; on her decision of 2026-09-09
 #: they are spelled ``custom`` (the CHANGELOG entry of 0.14.0 names the
-#: finding). The old names
-#: warn and forward; the pproc key ``her_polar_format`` is read as
-#: ``custom_polar_format`` with the same warning.
-_CUSTOM_POLAR_EXTRA = (
-    "The format is the fixed-width polar table the author's existing tooling reads; "
-    "the new name names the format rather than a person."
-)
-PPROC_HER_POLAR_FORMAT = DeprecatedParameter(
-    owner="the pproc artifact's [products] table",
-    old="her_polar_format",
-    new="custom_polar_format",
-    deprecated_since="0.14.0",
-    removal_version="0.16.0",
-    extra=_CUSTOM_POLAR_EXTRA,
-)
-POST_HER_POLAR_TABLE = DeprecatedParameter(
-    owner="pyflightstream.post",
-    old="HerPolarTable",
-    new="CustomPolarTable",
-    deprecated_since="0.14.0",
-    removal_version="0.16.0",
-    extra=_CUSTOM_POLAR_EXTRA,
-)
-POST_HER_POLAR_FILE_NAME = DeprecatedParameter(
-    owner="pyflightstream.post.products",
-    old="her_polar_file_name",
-    new="custom_polar_file_name",
-    deprecated_since="0.14.0",
-    removal_version="0.16.0",
-    extra=_CUSTOM_POLAR_EXTRA,
-)
-POST_WRITE_HER_POLAR_FORMAT = DeprecatedParameter(
-    owner="pyflightstream.post",
-    old="write_her_polar_format",
-    new="write_custom_polar_format",
-    deprecated_since="0.14.0",
-    removal_version="0.16.0",
-    extra=_CUSTOM_POLAR_EXTRA,
-)
-POST_READ_HER_POLAR_FORMAT = DeprecatedParameter(
-    owner="pyflightstream.post",
-    old="read_her_polar_format",
-    new="read_custom_polar_format",
-    deprecated_since="0.14.0",
-    removal_version="0.16.0",
-    extra=_CUSTOM_POLAR_EXTRA,
-)
+#: finding). The old names warned and forwarded until 0.16.0 and are now
+#: gone; a module asked for one raises AttributeError.
+#: KEPT ON TIME AT 0.16.0, all five of them, on 2026-09-11. The pproc key
+#: `her_polar_format` and the four module names are gone, and the nine
+#: committed artifacts that still stated the key were migrated in the same
+#: change. The FORMAT is untouched: only the spelling that named a person
+#: rather than the thing was ever deprecated, and `custom_polar_format`
+#: writes exactly what `her_polar_format` wrote.
 
 #: THE ONE PROMISE OF 0.15.0 THAT MOVED RATHER THAN BEING KEPT, and the
 #: measurement that moved it. A manifest is the ONE surface this package
@@ -596,11 +557,18 @@ WAIVED_COMMANDS_MANIFEST_KEY = DeprecatedManifestKey(
     old="broken_commands",
     new="waived_commands",
     deprecated_since="0.13.0",
-    removal_version="0.16.0",
+    removal_version="0.17.0",
     extra=(
         "The entries are WAIVERS the recipe registered, not commands that broke in the "
-        "run, which is the opposite claim. Extended from 0.15.0 on 2026-09-10: a "
-        "manifest cannot be regenerated and recorded campaigns still carry the old key."
+        "run, which is the opposite claim. Extended from 0.15.0 on 2026-09-10 and from "
+        "0.16.0 on 2026-09-11, and the SECOND extension carries the condition that ends "
+        "it, because a promise moved twice with no condition is a promise that never "
+        "expires. Measured 2026-09-11 over GeoverseResearch/tools/fts_workspace/*/"
+        "runs.json: 18 recorded rows in 6 manifests still carry the old key, among them "
+        "the author's recorded campaign. A manifest is the one surface a run cannot "
+        "regenerate, so the reader stays while any recorded row needs it. THE EXIT IS A "
+        "MEASUREMENT AND NOT A DATE: when that count reaches zero the reader goes, "
+        "whatever release it is."
     ),
 )
 
@@ -795,25 +763,11 @@ REFUSED_IN_0_15_0: tuple[Deprecation, ...] = (
 #: that promises its removal; read by the two shims that serve them (the
 #: architecture lens of 2026-09-09: the mapping was private to one module
 #: and its sibling reached into it).
-FORMER_POLAR_NAMES: dict[str, DeprecatedParameter] = {
-    entry.old: entry
-    for entry in (
-        POST_HER_POLAR_TABLE,
-        POST_HER_POLAR_FILE_NAME,
-        POST_WRITE_HER_POLAR_FORMAT,
-        POST_READ_HER_POLAR_FORMAT,
-    )
-}
 
 DEPRECATIONS: tuple[Deprecation, ...] = (
     *DEPRECATED_MODULES,
     ANALYSIS_SETUP_VORTICITY_DRAG_BOUNDARIES,
     PLAN_MATRIX_FS_VERSION,
     RUN_MATRIX_FS_VERSION,
-    PPROC_HER_POLAR_FORMAT,
-    POST_HER_POLAR_TABLE,
-    POST_HER_POLAR_FILE_NAME,
-    POST_WRITE_HER_POLAR_FORMAT,
-    POST_READ_HER_POLAR_FORMAT,
     WAIVED_COMMANDS_MANIFEST_KEY,
 )
