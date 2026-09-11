@@ -804,9 +804,20 @@ def _variable(case: SimCase, key: str) -> str | None:
     return text or None
 
 
-def _required_float(case: SimCase, key: str, *, quantity: str, unit: str) -> float:
-    """One numeric case variable, refused by CASE and KEY rather than by command."""
-    text = _variable(case, key)
+def _required_float(
+    case: SimCase, key: str, *, quantity: str, unit: str, text: str | None = None
+) -> float:
+    """One numeric case variable, refused by CASE and KEY rather than by command.
+
+    ``text`` is for a caller that has ALREADY resolved the value from somewhere
+    other than ``variables``, which today means the advance ratio a swept row
+    puts on its POINT. It exists so that the conversion,
+    the not-a-number refusal and the non-finite refusal keep ONE home: the first
+    fix for that incident hand-rolled a second conversion beside the fallback
+    and silently dropped the non-finite half, which two existing cases caught.
+    """
+    if text is None:
+        text = _variable(case, key)
     if text is None:
         raise CampaignConfigError(
             f"case {case.sim_id!r} declares no {key}, and the run type it names needs "
@@ -947,6 +958,42 @@ def _rpm_sign(case: SimCase) -> int:
 _DERIVED_RPM_DECIMALS = 4
 
 
+#: The swept axis's own key on a point, which is where a row that writes
+#: `ADVANCE_RATIO:sweep` in its flight condition puts the VALUE.
+_POINT_ADVANCE_RATIO = "advance_ratio"
+
+
+def _stated_advance_ratio(case: SimCase) -> str | None:
+    """Resolve the advance ratio this row states, from `variables` or its POINT.
+
+    ONE FACT WITH TWO HOMES, and until 2026-09-11 only one of them was read.
+    A row stating `ADVANCE_RATIO:sweep` in its flight condition puts the VALUE
+    on the point: the HELD coordinates of a sweep are merged into `variables`
+    and the SWEPT one is not, so `variables` carries `ALPHA` and `BETA` and no
+    `ADVANCE_RATIO` at all. The script emitter resolves the point correctly and
+    writes the speed into the script; the reduction planner asked `variables`
+    and concluded the row stated no speed, so every unsteady reduction of every
+    such point was recorded as SKIPPED with a message prescribing the thing the
+    row had already done. Four of four points, three of three reductions each,
+    on the licensed runs of 2026-09-11. Measured on four of four
+    points of two licensed runs on 2026-09-11, three of three reductions each.
+
+    THE POINT IS CONSULTED ONLY WHEN `variables` STATE NEITHER FORM. A row that
+    states `RPM` keeps `RPM`; a motion record carrying its own speed keeps it;
+    the two-forms refusal and the sweep-word refusal read `variables` alone and
+    fire exactly where they fired before. The narrowness is the point: this
+    adds a reading where there was none, and changes none that existed.
+    """
+    stated = _variable(case, ADVANCE_RATIO_VARIABLE)
+    if stated is not None or _variable(case, RPM_VARIABLE) is not None:
+        return stated
+    value = (getattr(case, "point", None) or {}).get(_POINT_ADVANCE_RATIO)
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
+
+
 def rotor_speed(case: SimCase) -> RotorSpeed:
     """Resolve the rotor speed a row states, in either form.
 
@@ -970,9 +1017,19 @@ def rotor_speed(case: SimCase) -> RotorSpeed:
         field to add; or if the ratio, the velocity or the diameter is
         not a positive number.
     """
-    ratio_text = _variable(case, ADVANCE_RATIO_VARIABLE)
+    # THE POINT IS A HOME FOR THIS VALUE TOO, and a swept row's only one.
+    # `_stated_advance_ratio` falls back to it when the variables state neither
+    # form, so a row writing `ADVANCE_RATIO:sweep` resolves here as it already
+    # resolved in the script emitter, which reads the point and writes
+    # `SET_MOTION_ROTOR_RPM` from it.
+    ratio_text = _stated_advance_ratio(case)
     rpm_text = _variable(case, RPM_VARIABLE)
-    for key, text in ((ADVANCE_RATIO_VARIABLE, ratio_text), (RPM_VARIABLE, rpm_text)):
+    # READ FROM `variables`, NOT from the fallback: this refusal is about a
+    # MOTION RECORD writing the word `sweep`, and a point carries a number.
+    for key, text in (
+        (ADVANCE_RATIO_VARIABLE, _variable(case, ADVANCE_RATIO_VARIABLE)),
+        (RPM_VARIABLE, rpm_text),
+    ):
         if isinstance(text, str) and text.strip().casefold() == SWEEP_WORD.casefold():
             # SWEEPING IS THE CONDITION'S JOB (FR-70). A record that writes
             # the word is asking the motion to vary, and a row varies ONE
@@ -1021,7 +1078,11 @@ def rotor_speed(case: SimCase) -> RotorSpeed:
         )
 
     ratio = _required_float(
-        case, ADVANCE_RATIO_VARIABLE, quantity="advance ratio", unit="dimensionless"
+        case,
+        ADVANCE_RATIO_VARIABLE,
+        quantity="advance ratio",
+        unit="dimensionless",
+        text=ratio_text,
     )
     if ratio <= 0.0:
         raise CampaignConfigError(
@@ -1113,10 +1174,7 @@ def _optional_rotor_speed(case: SimCase) -> RotorSpeed | None:
     is FR-64's intent and it is a change a reader of the reduction diff
     alone would not see (the architecture lens, 2026-09-10).
     """
-    if (
-        _variable(case, ADVANCE_RATIO_VARIABLE) is not None
-        or _variable(case, RPM_VARIABLE) is not None
-    ):
+    if _stated_advance_ratio(case) is not None or _variable(case, RPM_VARIABLE) is not None:
         return rotor_speed(case)
     turning, _lost = _the_rotors_the_row_turns(case)
     if not turning:

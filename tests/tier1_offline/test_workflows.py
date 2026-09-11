@@ -4781,3 +4781,116 @@ def test_a_pproc_entry_cites_a_rotors_own_frame_in_a_motions_row(tmp_path):
     assert plots["CL_TWO"]["FRAME"] == moving["2"].split(",")[0], (
         "Blade2_RMRP is the second motion's moving frame"
     )
+
+
+def swept_ratio_case(**overrides) -> SimCase:
+    """A rotor row whose speed is a SWEPT advance ratio, as her work rows state it.
+
+    The difference from :func:`rotor_case` is the whole point of the case: no
+    `RPM` and no `ADVANCE_RATIO` among the variables, because the row writes
+    `ADVANCE_RATIO:sweep` in its flight condition and the VALUE lands on the
+    point. Measured on the row that ran on 2026-09-11:
+
+        FLIGHT_CONDITION  ... ADVANCE_RATIO:sweep
+        SWEEP_VALUES      1.7
+        -> variables  {GEOMETRY, SYMMETRY, DELTA_THETA, REVOLUTIONS,
+                       CLOCK_MOTION, ALPHA, BETA}
+        -> sweep      SweepAxis(type='advance_ratio', values=[1.7],
+                                held={'alpha': 0.0, 'beta': 0.0})
+
+    The HELD coordinates reach `variables` and the SWEPT one does not, and that
+    asymmetry is the defect.
+    """
+    variables: dict[str, str | float | int | bool] = {
+        WORKFLOW_KEY: "unsteady_rotor",
+        "VELOCITY": "30.0",
+        "ROTOR_AXIS": "X",
+        "BLADES": "4",
+        "DELTA_TIME": "0.0001",
+        # LONG ENOUGH TO HOLD A REVOLUTION, and the number is measured rather
+        # than chosen: at J = 1.7 against this reference the revolution is 518
+        # steps, so four blades need 2072 and a 720-step run legitimately has
+        # no complete revolution to split. The first version of this case used
+        # 720 and `per_blade` skipped for that real reason, which would have
+        # left the case asserting two thirds of what it claims.
+        "TIME_ITERATIONS": "2100",
+        "WINDOW_DEGREES": "90",
+    }
+    for key, value in overrides.items():
+        if value is None:
+            variables.pop(key, None)
+        else:
+            variables[key] = value
+    return SimCase(
+        sim_id="6002",
+        aircraft="NXROTOR",
+        sweep=SweepAxis(type="advance_ratio", values=[1.7], held={"alpha": 0.0, "beta": 0.0}),
+        recipe="unsteady_rotor",
+        outputs=["loads_j+01.7.txt"],
+        variables=variables,
+        point={"alpha": 0.0, "beta": 0.0, "advance_ratio": 1.7},
+        reference=ReferenceData(area=50.0, length=2.526, rotor_diameter=3.6576),
+        rotors={FIXTURE_ROTOR.alias: FIXTURE_ROTOR},
+    )
+
+
+def test_a_swept_advance_ratio_is_a_stated_rotor_speed():
+    """The row states its speed and every reduction was skipped anyway.
+
+    The skip message prescribed the thing the row had already done: "states no
+    rotor speed ... State 'ADVANCE_RATIO: <J>'". Four of four points on the
+    licensed runs of 2026-09-11, three of three reductions each, and it is not
+    limited to a SWEEP: a single stated ratio on one row skips too, because the
+    condition is stating the speed as a ratio at all rather than as RPM.
+
+    The assertion is that the reductions are RESOLVED, not that the message
+    improves.
+    """
+    plan = _reduction_windows()(swept_ratio_case())
+    assert plan is not None, "a rotor row has a time history"
+    skipped = {
+        name: plan[name]["skipped"]
+        for name in ("time_average", "phase_locked", "per_blade")
+        if isinstance(plan.get(name), dict) and "skipped" in plan[name]
+    }
+    # THE DEFECT HAD ONE MESSAGE and it is named here, so a future skip for a
+    # real reason cannot be mistaken for this incident coming back.
+    unstated = {name: why for name, why in skipped.items() if "states no rotor speed" in why}
+    assert not unstated, (
+        f"the row states ADVANCE_RATIO 1.7 on its point and these were skipped "
+        f"as if it stated nothing: {unstated}"
+    )
+    assert not skipped, (
+        f"the row states ADVANCE_RATIO 1.7 on its point and these were skipped: {skipped}"
+    )
+    assert plan["steps_per_revolution"] is not None, (
+        "the rotor speed was not resolved, so no window could be counted in revolutions"
+    )
+    assert plan["time_average"]["windows"], "the time average has no window"
+
+
+def test_a_point_ratio_never_overrides_a_stated_rpm():
+    """The fallback's NARROWNESS, which its docstring claims and nothing guarded.
+
+    Found by mutation: widening `_stated_advance_ratio` to return the point's
+    ratio whenever `variables` state no ADVANCE_RATIO left the whole suite
+    green, and it is not a harmless widening. Such a row states `RPM`
+    explicitly AND carries a swept `advance_ratio` on its point, so the
+    widened reader hands `rotor_speed` both forms at once and the row is
+    REFUSED with "states its rotor speed twice" instead of resolving from the
+    speed it stated.
+
+    The rule the fallback is written to: it adds a reading where there was
+    none, and changes none that existed.
+    """
+    case = swept_ratio_case(RPM="1200")
+    speed = workflows_module.rotor_speed(case)
+    assert speed.stated_form == "rpm", (
+        f"the row states RPM 1200 and resolved as {speed.stated_form!r}; the point's "
+        "advance ratio must not displace a speed the row stated"
+    )
+    assert speed.rpm == 1200.0
+    plan = _reduction_windows()(case)
+    assert plan["time_average"]["windows"], (
+        "a row stating RPM with a swept ratio on its point must still reduce"
+    )
