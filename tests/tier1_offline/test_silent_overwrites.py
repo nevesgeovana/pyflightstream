@@ -265,13 +265,22 @@ def test_mach_and_advance_ratio_separate_two_rows(tmp_path):
         "POLAR-3224_M20AL+000BE+000J+130.txt",
         "POLAR-3225_M20AL+000BE+000J+170.txt",
     ], "the advance ratio is in the name"
-    # The control: two points whose every rendered field is the same still
-    # collide before anything runs (FR-33c), here a constant output name
-    # over a two-point sweep.
-    constant = case("3207", 0.2).model_copy(
+    # The control, so this test can still fail: a declaration that DOES
+    # collide is blocked before anything runs (FR-33c).
+    #
+    # IT USED TO BE A CONSTANT OUTPUT NAME OVER A TWO-POINT SWEEP, and
+    # that is exactly what 0.16.0 stopped refusing: each point collects
+    # into `datapoints/DP-<point>/`, so two points writing `loads.txt` no
+    # longer meet (FR-92). The collision that remains is within ONE point,
+    # whose two outputs do still land in one folder under one base name.
+    collides = case("3207", 0.2).model_copy(update={"outputs": ["loads.txt", "loads.txt"]})
+    assert {status for status, _ in names(collides)} == {PlanStatus.BLOCKED}, (
+        "one point declaring one name twice still collides (FR-33c)"
+    )
+    # And the case that flipped, asserted rather than left implied.
+    spread = case("3207", 0.2).model_copy(
         update={"sweep": SweepAxis(type="alpha", values=[0.0, 2.0]), "outputs": ["loads.txt"]}
     )
-    same = names(constant)
-    assert {status for status, _ in same} == {PlanStatus.BLOCKED}, (
-        "two rows identical in every rendered field still collide (FR-33c)"
+    assert {status for status, _ in names(spread)} == {PlanStatus.READY}, (
+        "two points sharing an output name are refused; each has its own folder now"
     )

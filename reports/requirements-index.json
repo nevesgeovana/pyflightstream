@@ -2,8 +2,8 @@
  "source": "docs/srs",
  "generated_by": "scripts/gen_requirements_index.py",
  "traceability": {
-  "cited_by_a_test": 96,
-  "total": 143,
+  "cited_by_a_test": 97,
+  "total": 144,
   "method": "upper bound: an id mentioned anywhere in tests/**/*.py excluding conftest.py, which is not the marked falsifying test NFR-13 asks for"
  },
  "requirements": [
@@ -893,6 +893,14 @@
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: the author's instruction of 2026-09-11, \"eu quero que tenha uma arquivo csv com o resultado das probes e a posicao xyz delas + frame de referencia junto ao resultado do fluido (velocidade, mach, etc) ... pro unsteady, e importante ter o arquivo de posicao porque nao vem escrito no unsteady plots\", and her answer on which quantities: \"leva todas as fluid properties e tudo o que steady probes devolve, isso inclui ate informacao de boundary layer\". Evidence: tests/tier1_offline/test_probe_positions.py, 17 cases, mutation score 7 of 7.*",
+   "verification": "test"
+  },
+  {
+   "id": "FR-92",
+   "text": "WHAT IT IS FOR. Every point of one case collected into a single sims/<sim>/outputs/, so from the SECOND point of a swept row onward that folder held two files that both read as loads tables. The standard assessor finds the loads spreadsheet BY CONTENT, deliberately, because a swept case names its outputs per point and no single literal could name them all; with two candidates it refused rather than guess which point ran. The remedy its refusal offered, naming the file, was the one its own documentation ruled out. A swept row therefore ran and then could not be judged, and this release's headline is sweeps.",
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: a swept row could not be judged past its first point, reported 2026-09-11 and fixed in the layout rather than in the selection. Evidence: tests/tier1_offline/test_run_cli.py::test_a_swept_row_runs_end_to_end and tests/tier1_offline/test_sim_outputs_dir.py.*",
    "verification": "test"
   },
   {

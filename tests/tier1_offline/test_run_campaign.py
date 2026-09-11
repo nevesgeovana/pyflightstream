@@ -141,8 +141,10 @@ def test_dry_run_records_every_point_end_to_end(tmp_path):
     assert all(record.status is RunStatus.CONVERGED for record in records)
     assert all(record.fs_version_requested == "26.120" for record in records)
     assert records[0].iterations == 120
-    assert records[0].outputs == ["outputs/loads_a+00.0.txt"]
-    assert records[1].outputs == ["outputs/loads_a+02.0.txt"]  # both points survive
+    # FR-92: each point's evidence sits in that point's own folder, and the
+    # folder name is the point tag that also ends the run_id above.
+    assert records[0].outputs == ["datapoints/DP-a+00.0/loads_a+00.0.txt"]
+    assert records[1].outputs == ["datapoints/DP-a+02.0/loads_a+02.0.txt"]
     assert "wing.fsm" in records[0].inputs_sha256
     assert not records[0].raw_flag
     # The solver-setup snapshot of the built script rode into the manifest.
@@ -436,11 +438,11 @@ def test_naming_template_names_scripts_and_rendered_outputs(tmp_path):
     record = records[0]
     # Identity is untouched by the template: same run_id scheme as ever.
     assert record.run_id == "camp/sim_9001/a+02.0"
-    assert record.outputs == ["outputs/loads_a+02.0.txt"]
+    assert record.outputs == ["datapoints/DP-a+02.0/loads_a+02.0.txt"]
     sim = tmp_path / "camp" / "sims" / "sim_9001"
     script_text = (sim / "scripts" / "camp_9001_a2.txt").read_text(encoding="utf-8")
     assert "loads_a+02.0.txt" in script_text  # the recipe saw the rendered name
-    assert (sim / "outputs" / "loads_a+02.0.txt").is_file()
+    assert (sim / "datapoints" / "DP-a+02.0" / "loads_a+02.0.txt").is_file()
 
 
 # --- plan_campaign: pre-flight without execution ----------------------------
@@ -491,20 +493,33 @@ def test_plan_marks_ready_and_already_recorded_points(tmp_path):
     assert {point["status"] for point in payload["points"]} == {"READY", "ALREADY_RECORDED"}
 
 
-# --- per-point output names: no point may overwrite another's evidence ------
+# --- output names: one point may not overwrite ITS OWN evidence -------------
 
 
 @pytest.mark.parametrize(
     ("outputs", "blocked"),
     [
-        (("loads.txt",), True),  # constant: both points write the same file
+        # THE FOUR ROWS THAT FLIPPED AT 0.16.0 (FR-92). Every one of them
+        # was blocked while the points of a case shared one `outputs/`,
+        # and every one is correct now that each point collects into
+        # `datapoints/DP-<point>/`. The first is the one that matters: a
+        # recipe exporting a plain `loads.txt` per point is the most
+        # natural thing to declare and was refused for a reason that was
+        # about the layout rather than about the declaration.
+        (("loads.txt",), False),  # constant: each point writes it in its own folder
         (("loads_{point}.txt",), False),
-        (("loads_{alpha}.txt",), False),  # any template that distinguishes them
-        (("loads_{mach}.txt",), True),  # renders per case, not per point
-        (("loads_{point}.txt", "log.txt"), True),  # one colliding name is enough
+        (("loads_{alpha}.txt",), False),
+        (("loads_{mach}.txt",), False),  # renders per case, and no longer needs to
+        (("loads_{point}.txt", "log.txt"), False),
+        # THE DISCRIMINATOR, so this is not a test that accepts anything:
+        # two outputs of ONE point still land in one folder under one
+        # base name, and the second would still destroy the first.
+        (("loads.txt", "loads.txt"), True),
+        (("a/loads.txt", "b/loads.txt"), True),
     ],
 )
-def test_output_names_that_two_points_would_share_block_the_case(tmp_path, outputs, blocked):
+def test_two_points_may_share_an_output_name_but_one_point_may_not(tmp_path, outputs, blocked):
+    """Each point owns a folder, so the collision is within a point or nowhere."""
     campaign = make_campaign(tmp_path, alphas=(0.0, 2.0), outputs=outputs)
     campaign.sims[0].mach = 0.2
     workspace = CampaignWorkspace(tmp_path / "camp")
@@ -514,7 +529,10 @@ def test_output_names_that_two_points_would_share_block_the_case(tmp_path, outpu
         assert statuses == {PlanStatus.BLOCKED}
         assert "overwrite the first" in plan.points[0].error
     else:
-        assert PlanStatus.BLOCKED not in statuses
+        assert PlanStatus.BLOCKED not in statuses, (
+            f"{outputs} was blocked; each point collects into its own folder, so two "
+            f"points sharing a name is not a collision. Error: {plan.points[0].error}"
+        )
 
 
 def test_a_single_point_case_may_name_its_output_constantly(tmp_path):
@@ -538,18 +556,25 @@ def test_a_single_point_case_may_name_its_output_constantly(tmp_path):
         # differ, because collection drops it.
         ((0.0,), ("out/loads.txt", "log.txt"), False),
         ((0.0, 2.0), ("out/loads_{point}.txt", "log_{point}.txt"), False),
+        # And the control the layout change added: two points, one name.
+        ((0.0, 2.0), ("out/loads.txt", "log.txt"), False),
     ],
 )
 def test_a_collision_knowable_at_plan_time_is_refused_there(tmp_path, alphas, outputs, blocked):
-    """PLN-20260802-1904: the plan and the collection now key the same way.
+    """PLN-20260802-1904: the plan and the collection key the same way.
 
     ``collect_outputs`` refuses duplicates within one produced set AND a
-    name already in ``outputs/``, both on the BASE name. The plan-time check
-    anticipated only the second, and on the DECLARED string. So a
-    collision fully knowable before anything ran was reported only after
-    the solver had run, which contradicts two published promises: the
-    case model says such a case is blocked before it runs, and the
-    changelog says every collision is refused before anything moves.
+    name already in the destination folder, both on the BASE name. The
+    plan-time check anticipated only the second, and on the DECLARED
+    string. So a collision fully knowable before anything ran was
+    reported only after the solver had run, which contradicted two
+    published promises: the case model says such a case is blocked
+    before it runs, and the changelog says every collision is refused
+    before anything moves.
+
+    EVERY BLOCKED ROW HERE IS A COLLISION WITHIN ONE POINT. Since 0.16.0
+    the destination folder is that point's own (FR-92), so two points
+    are no longer capable of colliding and the last control row says so.
     """
     campaign = make_campaign(tmp_path, alphas=alphas, outputs=outputs)
     workspace = CampaignWorkspace(tmp_path / "camp")
@@ -567,7 +592,9 @@ def test_a_collision_knowable_at_plan_time_is_refused_there(tmp_path, alphas, ou
     [
         ((0.0,), ("loads.txt", "loads.txt")),
         ((0.0,), ("a/loads.txt", "b/loads.txt")),
-        ((0.0, 2.0), ("loads.txt",)),
+        # Two points AND a within-point duplicate: the run path must still
+        # refuse on the duplicate, now that the two points alone do not.
+        ((0.0, 2.0), ("loads.txt", "loads.txt")),
     ],
 )
 def test_the_run_path_refuses_the_collision_without_starting_the_solver(tmp_path, alphas, outputs):
@@ -1221,7 +1248,7 @@ def test_an_ordinary_point_is_unaffected_by_the_stale_output_check(tmp_path):
         recipes={"steady": steady_recipe},
     )
     assert all(record.status is RunStatus.CONVERGED for record in records)
-    assert records[0].outputs == ["outputs/loads_a+00.0.txt"]
+    assert records[0].outputs == ["datapoints/DP-a+00.0/loads_a+00.0.txt"]
 
 
 def test_the_manifest_records_a_hash_per_collected_output(tmp_path):
@@ -1396,7 +1423,7 @@ def test_a_recorded_run_reconstructs_from_the_manifest_alone(tmp_path):
     # Everything the record hashed is checked, not just the script.
     assert "scripts/a+00.0.txt" in rebuilt.verified
     assert "inputs/wing.fsm" in rebuilt.verified
-    assert "outputs/loads_a+00.0.txt" in rebuilt.verified
+    assert "datapoints/DP-a+00.0/loads_a+00.0.txt" in rebuilt.verified
 
 
 def test_reconstruction_says_so_when_an_artifact_changed(tmp_path):
@@ -3409,8 +3436,8 @@ def test_the_default_assessor_judges_the_points_own_table_in_a_two_point_sweep(t
         record.error for record in records
     ]
     assert [record.outputs for record in records] == [
-        ["outputs/a+02.0.txt"],
-        ["outputs/a+04.0.txt"],
+        ["datapoints/DP-a+02.0/a+02.0.txt"],
+        ["datapoints/DP-a+04.0/a+04.0.txt"],
     ]
 
 
@@ -3717,4 +3744,71 @@ def test_a_campaign_says_which_point_it_is_on_while_it_runs(tmp_path, capsys):
         )
         assert any(record.status in line for line in mentions), (
             f"no line for {record.run_id} names its status {record.status!r}:\n{err}"
+        )
+
+
+def test_a_shared_outputs_folder_still_judges_each_point_by_its_own_export(tmp_path):
+    """A workspace recorded before 0.16.0 keeps its points (FR-92).
+
+    Until this release every point of one case collected into a single
+    ``outputs/``, so from the second point onward the assessor found TWO
+    files that both parsed as loads tables and refused, and the remedy it
+    offered -- name the file -- was ruled out by its own docstring. One
+    folder per datapoint removes that for anything run from here on.
+
+    IT DOES NOT REMOVE IT FROM WORKSPACES ALREADY ON DISK. Their
+    ``outputs/`` still holds every point of the sweep, this release still
+    reads it, and a reader re-judging those points meets exactly the old
+    situation. REV010-001's binding answers it: a loads export prints the
+    conditions the solver RAN, so the file that belongs to this point
+    identifies itself, and the refusal stands unchanged where that does
+    not settle the matter.
+
+    The two exports differ ONLY in the angle of attack, which is the whole
+    discrimination: an assessor picking by name, by order, or by taking
+    the first would pass one of these two calls and fail the other.
+    """
+    from pyflightstream.cases import SimCase, SweepAxis
+
+    steady = (FIXTURES / "loads_steady_26.120.txt").read_text(encoding="utf-8")
+    assert "Angle of attack" in steady, "the fixture does not print the angle"
+
+    # The folder a pre-0.16.0 swept row left behind: two points' exports,
+    # both valid, both parsing, in one place.
+    collected = tmp_path / "outputs"
+    collected.mkdir()
+    # The committed fixture prints alpha = 2.000, so the OTHER export is the
+    # derived one. Asserted as different rather than assumed: a substitution
+    # that silently matched nothing would give two identical files and a test
+    # that cannot discriminate.
+    at_two = steady
+    at_zero = steady.replace(
+        "Angle of attack (Deg)                       2.000",
+        "Angle of attack (Deg)                       0.000",
+    )
+    assert at_zero != at_two, "the derived export is identical to the fixture"
+    (collected / "a+00.0.txt").write_text(at_zero, encoding="utf-8")
+    (collected / "a+02.0.txt").write_text(at_two, encoding="utf-8")
+
+    def case_at(alpha: float) -> SimCase:
+        case = SimCase(
+            sim_id="9401",
+            aircraft="WB",
+            recipe="steady",
+            velocity=30.0,
+            sweep=SweepAxis(type="alpha", values=[0.0, 2.0]),
+        )
+        case.point = {"alpha": alpha}
+        return case
+
+    assessor = LoadsAssessor()
+    for alpha in (0.0, 2.0):
+        verdict = assessor(case_at(alpha), None, tmp_path)
+        assert verdict.status is not RunStatus.FAILED_INCOMPLETE_OUTPUT, (
+            f"the point at alpha={alpha} was refused among two valid exports: {verdict.error}"
+        )
+        # AND IT PICKED ITS OWN, which the recorded conditions say outright.
+        printed = {entry.get("axis"): entry.get("reported") for entry in (verdict.conditions or [])}
+        assert printed.get("alpha") == alpha, (
+            f"the point at alpha={alpha} was judged on an export printing {printed.get('alpha')}"
         )

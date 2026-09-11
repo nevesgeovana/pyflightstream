@@ -63,20 +63,32 @@ FlightStream versions.
   0.15.0 was told it writes a SUPER file per polar. It is moved rather than
   reworded, and the entry is byte-identical either side of the move.
 
-### Known limitations
-
-- **`pyfs-matrix run` cannot judge the second point of a swept row.** Every
-  point of one row writes into the same simulation folder, so from the second
-  point onward the standard assessor finds two files that both read as loads
-  tables and refuses rather than guessing between them. A row with one sweep
-  value runs; a row with several does not yet. Running it from Python with an
-  assessor of your own is unaffected. THIS RELEASE IS ABOUT SWEEPS -- the polar
-  name carries the swept variable, the cost table is per swept point -- so the
-  limitation is stated here rather than left in the guide alone. It is held by
-  a strict expected failure in `tests/tier1_offline/test_run_cli.py` that
-  REPRODUCES it, so the suite turns red the day it is fixed.
-
 ### Added
+
+- **Each datapoint collects its outputs into its own folder, and a swept row
+  runs end to end (FR-92).** `sims/<sim>/outputs/` becomes
+  `sims/<sim>/datapoints/DP-<point>/`, one folder per point, named by the point
+  tag that already ends the run id and names the generated script. Until this
+  release every point of one row wrote into one folder, so from the SECOND
+  point onward the standard assessor found two files that both read as loads
+  tables and refused rather than guess which point ran; the remedy that refusal
+  offered, naming the file, was the one its own documentation ruled out for a
+  swept case. The selection was not the defect: a folder holding several
+  points' evidence cannot say which file is whose, and every consumer
+  downstream then has to re-derive it. This release's headline is sweeps, so
+  the case that could not be judged was the case the release is for.
+
+  TWO REFUSALS CHANGE SCOPE AND NEITHER IS RELAXED. Two outputs of ONE point
+  that collect to one name are still refused before anything runs. Two POINTS
+  declaring the same output name are no longer refused at all, because they no
+  longer meet: a recipe exporting a plain `loads.txt` per point is now correct,
+  and a per-point output name still works unchanged.
+
+  A WORKSPACE RECORDED BEFORE THIS RELEASE IS READ WHOLE. `outputs/` and
+  `raw/` are read where a workspace holds them and neither is created. Their
+  points share a folder, so there the assessor keeps the export whose printed
+  operating conditions match the point it is judging, and refuses unchanged
+  where that does not settle it.
 
 - **A section distribution over a rotor cuts its blades and not the whole
   rotor (FR-75).** A cut through the whole disk crosses the air between the

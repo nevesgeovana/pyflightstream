@@ -59,15 +59,15 @@ point with no comparable recorded run gets no number at all. And a probe
 table now says WHERE each sample is, with the frame it is measured in,
 which an unsteady export never stated at all.
 
-**One limitation to know before you run a sweep.** `pyfs-matrix run` judges
-each finished point with the standard assessor, which reads the loads
-spreadsheet that point exported. Every point of one row writes into the same
-simulation folder, so from the SECOND point of a swept row onward the assessor
-finds two files that both read as loads tables and refuses rather than guessing
-between them. A row with one sweep value runs end to end; a row with several
-does not yet. Running such a row from Python with an assessor of your own is
-unaffected, and the defect is reproduced by a strict expected failure in the
-suite rather than only described, so the day it is fixed the suite says so.
+**A swept row now runs and is judged end to end.** Each point collects its
+outputs into its own folder, `sims/<sim>/datapoints/DP-<point>/`, named by the
+same point tag that ends the run id and names the generated script. Until this
+release every point of a row wrote into one shared folder, so from the second
+point onward the standard assessor found two files that both read as loads
+tables and refused rather than guess between them. Two points of one row may
+now export the same file name, which is what a recipe with no per-point
+placeholder does; a per-point name still works and nothing using one has to
+change. A workspace recorded under the older layout is read exactly as before.
 
 **What changes for you at v0.16.0.** This is the most breaking release of
 the set, and the break is first: `[probes]` IS NOW `[[probes]]`, a list of
@@ -75,7 +75,8 @@ tables, and the old spelling is REFUSED BY NAME, so every 0.15.0 artifact
 that declares probe lines must be edited. That is her own decision rather
 than an accident. Beside it: the five names the 0.14.0 polar rename
 deprecated are gone; a simulation's collected outputs are under
-`sims/<sim>/outputs/` and a workspace holding the old `raw/` is still read;
+`sims/<sim>/datapoints/DP-<point>/`, one folder per point, and a workspace
+holding either older folder is still read;
 the per-polar tables moved to `post/<matrix>/polars/` and are named by the
 point convention with the swept variable written literally as `sweep`; and
 `sweep.csv` is gone in favour of `campaign_sweep.csv`, which it duplicated

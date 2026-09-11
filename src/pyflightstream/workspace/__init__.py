@@ -71,7 +71,7 @@ from pyflightstream._deprecations import WAIVED_COMMANDS_MANIFEST_KEY
 from pyflightstream._digest import file_sha256
 from pyflightstream._errors import PyflightstreamDeprecationWarning, PyflightstreamError
 from pyflightstream._retired_names import WORKSPACE_ENGINE_POINT, RetiredAttributeError
-from pyflightstream.cases import BoundaryAliases, RawCommand
+from pyflightstream.cases import BoundaryAliases, RawCommand, point_tag
 from pyflightstream.script.solver_setup import explicit_empty_selections
 from pyflightstream.workspace.inputs import (
     EXECUTABLES_FILE,
@@ -98,7 +98,11 @@ from pyflightstream.workspace.inputs import (
     resolve_setup,
     strip_rotor_facts,
 )
-from pyflightstream.workspace.naming import NamingTemplate, NamingTemplateError
+from pyflightstream.workspace.naming import (
+    NamingTemplate,
+    NamingTemplateError,
+    is_portable_name,
+)
 from pyflightstream.workspace.trailing_edges import (
     TrailingEdge,
     extract_trailing_edge,
@@ -133,6 +137,8 @@ __all__ = [
     "SetupArtifact",
     "TrailingEdge",
     "WorkspaceError",
+    "SIM_DATAPOINTS_DIR",
+    "datapoint_dir_name",
     "check_reference_point_names",
     "check_unique_stems",
     "collection_name",
@@ -247,10 +253,53 @@ SIM_OUTPUTS_DIR = "outputs"
 #: evidence a past run collected there is no less owned for being old.
 LEGACY_SIM_OUTPUTS_DIR = "raw"
 
+#: The simulation subfolder holding ONE FOLDER PER DATAPOINT, which is
+#: where a campaign collects since 0.16.0 (FR-92). Every point of one case
+#: used to collect into a single `outputs/`, so from the second point of a
+#: swept row onward that folder held two files that both read as loads
+#: tables and nothing in the filesystem said which point either belonged
+#: to. The layout answers it now: a point's evidence is what is in its own
+#: folder, and the question "which of these is mine" cannot be asked.
+SIM_DATAPOINTS_DIR = "datapoints"
+
+
+def datapoint_dir_name(point: Mapping[str, float]) -> str:
+    """Return the folder name one datapoint collects its outputs into.
+
+    ``DP-`` and the point tag that already ends the ``run_id`` and names
+    the generated script, so the folder, the script and the run record
+    carry ONE identity and a reader can map between them by hand
+    (``DP-a+02.0_b+00.0``).
+
+    Parameters
+    ----------
+    point : mapping of str to float
+        Point coordinates, as :meth:`pyflightstream.cases.SweepAxis.points`
+        produces them.
+
+    Returns
+    -------
+    str
+        Folder name, relative to :data:`SIM_DATAPOINTS_DIR`.
+
+    Raises
+    ------
+    pyflightstream.cases.CampaignConfigError
+        If the point names no known axis, from :func:`point_tag`. A
+        datapoint with no coordinates has no stable folder, and a
+        fallback name would give two different points one folder, which
+        is the collision this layout exists to remove.
+    """
+    return f"DP-{point_tag(dict(point))}"
+
+
 #: The managed folders of one simulation. Three since 0.13.0: ``parsed/``
 #: was the fourth from the first release and nothing ever wrote there
-#: (PFS-2032.01), so it promised typed extracts that ``post/`` holds.
-_SIM_SUBDIRS = ("inputs", "scripts", SIM_OUTPUTS_DIR)
+#: (PFS-2032.01), so it promised typed extracts that ``post/`` holds. The
+#: third of them is ``datapoints/`` since 0.16.0 and was ``outputs/``
+#: before it (FR-92); both older names are still READ and neither is
+#: created, for the reason ``parsed/`` was dropped.
+_SIM_SUBDIRS = ("inputs", "scripts", SIM_DATAPOINTS_DIR)
 
 # Comment-only template written by init when no registry exists yet;
 # didactic: shows the entry shape without registering a fake build.
@@ -1738,12 +1787,13 @@ class CampaignWorkspace:
     def create_sim(self, sim_id: str) -> Path:
         """Create the managed subfolders of one simulation and return its path.
 
-        Creates ``inputs/``, ``scripts/`` and ``outputs/``; existing
+        Creates ``inputs/``, ``scripts/`` and ``datapoints/``; existing
         folders are kept, so the call is idempotent, and a ``parsed/``
         left by a release before 0.13.0 is kept with them
-        (PFS-2032.01), as is a ``raw/`` left by one before 0.16.0
-        (FR-84). NO ``raw/`` IS CREATED: a folder this release does not
-        write to would be an empty promise in every new simulation.
+        (PFS-2032.01), as are an ``outputs/`` and a ``raw/`` left by one
+        before 0.16.0 (FR-92). NEITHER OF THOSE TWO IS CREATED: a folder
+        this release does not write to would be an empty promise in
+        every new simulation.
         """
         sim = self.sim_dir(sim_id)
         for name in _SIM_SUBDIRS:
@@ -1924,7 +1974,11 @@ class CampaignWorkspace:
     _SUBDIR_ROLES = {
         "inputs": "this simulation's staged input artifacts",
         "scripts": "this simulation's generated solver scripts",
-        SIM_OUTPUTS_DIR: "this simulation's own collected outputs",
+        SIM_DATAPOINTS_DIR: "this simulation's datapoints, one folder each",
+        SIM_OUTPUTS_DIR: (
+            "this simulation's own collected outputs, under the single folder they "
+            "shared before 0.16.0"
+        ),
         LEGACY_SIM_OUTPUTS_DIR: (
             "this simulation's own collected outputs, under the name that folder "
             "carried before 0.16.0"
@@ -1998,13 +2052,31 @@ class CampaignWorkspace:
             )
         return None
 
-    def collect_outputs(self, sim_id: str, produced: Sequence[str | Path]) -> list[str]:
-        """Move declared solver outputs into ``outputs/`` (FR-84).
+    def collect_outputs(
+        self,
+        sim_id: str,
+        produced: Sequence[str | Path],
+        *,
+        datapoint: str | None = None,
+    ) -> list[str]:
+        """Move declared solver outputs into the datapoint's folder (FR-92).
 
         Parameters
         ----------
         sim_id : str
             Target simulation.
+        datapoint : str, optional
+            Folder this point's outputs are collected into, under
+            ``datapoints/``, as :func:`datapoint_dir_name` renders it.
+            This is what a campaign passes, and it is what makes a
+            swept row judgeable: each point's evidence is alone in its
+            own folder, so nothing downstream has to work out which of
+            several files belongs to which point.
+
+            None collects into ``outputs/`` instead, which is the shape
+            a campaign wrote until 0.16.0. It is kept for a caller
+            collecting something that is not a datapoint at all, and a
+            campaign never passes it.
         produced : sequence of str or Path
             Output files the run declared it would produce. Anywhere
             OUTSIDE this campaign root, which is where a solver working
@@ -2016,10 +2088,11 @@ class CampaignWorkspace:
         -------
         list of str
             Collected names relative to the simulation folder
-            (``"outputs/<name>"``), ready for :attr:`RunRecord.outputs`.
-            A record written before 0.16.0 names ``"raw/<name>"`` and is
-            read through unchanged, which is what keeps its point from
-            being orphaned by the rename.
+            (``"datapoints/<datapoint>/<name>"``), ready for
+            :attr:`RunRecord.outputs`. A record written before 0.16.0
+            names ``"outputs/<name>"`` or ``"raw/<name>"`` and is read
+            through unchanged, which is what keeps its point from being
+            orphaned by a layout it predates.
 
         Raises
         ------
@@ -2041,11 +2114,22 @@ class CampaignWorkspace:
             ordinary case, since the solver's working directory is not
             managed by this class.
 
+            If ``datapoint`` is not a plain file-name-safe token.
+            It composes into a path, so a separator in it would collect
+            outside the folder the caller named.
+
             If two declared outputs of one call would collect to the
             same name, or if a declared output's base name is already
-            held in ``outputs/`` from an earlier point or run. Both are
+            held in the destination folder from an earlier run. Both are
             FR-33e and neither takes an overwrite argument: the remedies
-            are a per-point output name and an archived simulation. They
+            are a per-point output name and an archived simulation.
+
+            THE SECOND ONE NARROWED AT 0.16.0 and that is the fix for
+            the swept row, not a relaxation: the destination is now one
+            datapoint rather than the whole simulation, so re-running a
+            point still refuses to overwrite its own evidence, while the
+            NEXT point of the same sweep never meets the previous
+            point's files at all. They
             differ in WHEN they are decided, which a caller can see: the
             first is a pre-scan over the whole call, so a refusal moves
             nothing at all, while the second is asked immediately before
@@ -2059,6 +2143,14 @@ class CampaignWorkspace:
         collision message until now.
         """
         sim = self.create_sim(sim_id)
+        if datapoint is not None and not is_portable_name(datapoint):
+            raise WorkspaceError(
+                f"datapoint folder name {datapoint!r} is not a plain name: it must carry "
+                "no path separator and no whitespace. It composes into "
+                f"{SIM_DATAPOINTS_DIR}/<datapoint>/, so a separator would collect "
+                "somewhere other than the folder named."
+            )
+        folder = SIM_OUTPUTS_DIR if datapoint is None else f"{SIM_DATAPOINTS_DIR}/{datapoint}"
         missing = [str(path) for path in produced if not Path(path).is_file()]
         if missing:
             raise WorkspaceError(
@@ -2096,21 +2188,22 @@ class CampaignWorkspace:
         clashing = {name: sources for name, sources in destinations.items() if len(sources) > 1}
         if clashing:
             detail = "; ".join(
-                f"{SIM_OUTPUTS_DIR}/{name} from {' and '.join(sources)}"
+                f"{folder}/{name} from {' and '.join(sources)}"
                 for name, sources in clashing.items()
             )
             raise WorkspaceError(
                 f"two or more declared outputs collect to the same name: {detail}. "
-                f"Collection moves each output into {SIM_OUTPUTS_DIR}/, so the later one would "
+                f"Collection moves each output into {folder}/, so the later one would "
                 "overwrite the earlier and the manifest would record one name "
                 "twice while only the last content survived. Declare outputs whose "
                 "base names differ, or use a per-point placeholder such as "
                 "loads_{point}.txt so each point exports under its own name."
             )
         collected: list[str] = []
+        (sim / folder).mkdir(parents=True, exist_ok=True)
         for path in produced:
             origin = Path(path)
-            destination = sim / SIM_OUTPUTS_DIR / origin.name
+            destination = sim / folder / origin.name
             # FR-33e, second shape. Same rule as the pre-scan above and a
             # different remedy: the name is unique within THIS call, and what
             # is in the way is a record an earlier point or run collected.
@@ -2120,15 +2213,15 @@ class CampaignWorkspace:
             # pre-scan would change behaviour rather than tighten it.
             if destination.exists():
                 raise WorkspaceError(
-                    f"cannot collect {origin} into {SIM_OUTPUTS_DIR}/{origin.name}: that "
-                    f"name is already in {SIM_OUTPUTS_DIR}/ from an earlier point or run. "
+                    f"cannot collect {origin} into {folder}/{origin.name}: that "
+                    f"name is already in {folder}/ from an earlier run of this point. "
                     "Collection moves the file, so continuing would destroy the collected evidence "
                     "and leave two manifest records pointing at one file. Use a "
                     "per-point output name, or archive the simulation before "
                     "re-running it (pyfs-workspace archive <root> <sim_id>)."
                 )
             shutil.move(str(origin), destination)
-            collected.append(f"{SIM_OUTPUTS_DIR}/{origin.name}")
+            collected.append(f"{folder}/{origin.name}")
         return collected
 
     def output_digests(self, sim_id: str, collected: Sequence[str]) -> dict[str, str]:

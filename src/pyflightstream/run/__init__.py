@@ -114,6 +114,7 @@ from pyflightstream.workspace import (
     KNOWN_MANIFEST_SCHEMAS,
     LEGACY_SIM_OUTPUTS_DIR,
     MANIFEST_SCHEMA,
+    SIM_DATAPOINTS_DIR,
     SIM_OUTPUTS_DIR,
     CampaignWorkspace,
     ExecutorRecord,
@@ -122,6 +123,7 @@ from pyflightstream.workspace import (
     RunStatus,
     WorkspaceError,
     collection_name,
+    datapoint_dir_name,
     post_stages,
 )
 
@@ -946,29 +948,36 @@ class LoadsAssessor:
 
     def __call__(self, case: SimCase, execution: ExecutionResult, sim_dir: Path) -> Assessment:
         """Judge one executed point from its collected outputs."""
-        # BOTH FOLDERS ARE READ AND ONLY ONE IS WRITTEN (FR-84). The
-        # collected outputs of a simulation live under `outputs/` since
-        # 0.16.0 and lived under `raw/` before it, and an assessor that
-        # read only the new name would have judged every point of every
-        # workspace recorded before the rename as having exported
-        # nothing. Sorted across both, so the judgement does not depend
-        # on which folder a file sits in.
-        collected = sorted(
-            (
-                path
-                for folder in (SIM_OUTPUTS_DIR, LEGACY_SIM_OUTPUTS_DIR)
-                for path in (Path(sim_dir) / folder).glob("*")
-                if path.is_file()
-            ),
-            key=lambda path: path.name,
-        )
-        # THE POINT'S OWN OUTPUTS, when the case declares them. A simulation
-        # folder holds every point of its sweep, and under the author's
-        # naming (PFS-2029.19) each point's loads table is `<point>.txt`,
-        # so the second point of a two-point sweep found two tables that
-        # parse and was refused as ambiguous: measured on the author's own campaign,
-        # 2026-09-03, row 3207 at alpha 0 after alpha -2. A case that
-        # declares no outputs is judged over the whole folder as before.
+        # THE POINT'S OWN FOLDER FIRST, then the two folders a campaign
+        # wrote into before 0.16.0 (FR-92). A point collects into
+        # `datapoints/DP-<point>/` since this release, so what is there is
+        # that point's evidence and nothing else; `outputs/` held every
+        # point of the simulation at once, and `raw/` was its name before
+        # 0.16.0. All three are READ because a workspace recorded under an
+        # older layout must keep every one of its points, and the first
+        # one that holds anything is the one judged: mixing them would put
+        # a sweep's shared folder back beside the point's own.
+        # `case` is None where a caller judges a folder directly rather
+        # than a point, which the unit tests do and which is why this
+        # reads through getattr like the declared-outputs narrowing below.
+        point = getattr(case, "point", None)
+        folders = [f"{SIM_DATAPOINTS_DIR}/{datapoint_dir_name(point)}"] if point else []
+        folders += [SIM_OUTPUTS_DIR, LEGACY_SIM_OUTPUTS_DIR]
+        collected: list[Path] = []
+        for folder in folders:
+            found = sorted(
+                (path for path in (Path(sim_dir) / folder).glob("*") if path.is_file()),
+                key=lambda path: path.name,
+            )
+            if found:
+                collected = found
+                break
+        # THE POINT'S OWN OUTPUTS, when the case declares them. This
+        # narrowed a SHARED folder to the files this point declared, and
+        # it is kept for the older layouts above, where the folder is
+        # still shared. In a datapoint folder it selects everything and
+        # changes nothing. A case that declares no outputs is judged over
+        # the whole folder.
         declared = {Path(name).name for name in getattr(case, "outputs", None) or ()}
         if declared:
             own = [path for path in collected if path.name in declared]
@@ -1003,6 +1012,33 @@ class LoadsAssessor:
                 )
                 if report
             ]
+            if len(usable) > 1:
+                # A WORKSPACE RECORDED BEFORE 0.16.0 SHARES ONE FOLDER
+                # between the points of a case, so from the second point
+                # onward every earlier point's export is still sitting
+                # there and parses just as well. Points collected under
+                # this release each have their own folder (FR-92) and
+                # never reach here. Ask REV010-001's binding,
+                # thirty lines below, which of them the solver actually ran at
+                # THIS point's conditions: a loads export prints the alpha,
+                # the sideslip and the velocity it ran, so the file that
+                # belongs to this point identifies itself.
+                #
+                # THIS IS NOT A RELAXATION. Where the binding does not settle
+                # it -- none match, or several do -- the refusal below stands
+                # exactly as it was, because attributing another point's
+                # result to this one is the defect REV010-001 exists against
+                # and it is worse than refusing. Naming the file cannot fix
+                # this and never could: the message used to offer that, forty
+                # lines under the sentence saying no literal names them all on
+                # a swept case.
+                mine = [
+                    (path, report)
+                    for path, report in usable
+                    if not _bind_case_conditions(case, report).mismatches
+                ]
+                if len(mine) == 1:
+                    usable = mine
             if len(usable) != 1:
                 names = ", ".join(path.name for path in collected) or "nothing"
                 reason = "none of them parses" if not usable else "several of them parse"
@@ -1010,8 +1046,18 @@ class LoadsAssessor:
                     status=RunStatus.FAILED_INCOMPLETE_OUTPUT,
                     error=(
                         f"no single collected output reads as a loads table ({reason}); "
-                        f"collected: {names}. Name the file with "
-                        "LoadsAssessor('<name>')"
+                        f"collected: {names}. Each point collects into its own "
+                        f"{SIM_DATAPOINTS_DIR}/ folder since 0.16.0, so this folder "
+                        "should hold one point's exports: either the point exported "
+                        "no loads spreadsheet, or it exported several. A workspace "
+                        "recorded before 0.16.0 shares one folder between the points "
+                        "of a case, and there this assessor keeps the export whose "
+                        "printed conditions match the point it is judging; reaching "
+                        "here means none of them did, or more than one did. Naming a "
+                        "file is not offered as a remedy: a swept case names its "
+                        "outputs per point, so no single literal names them all. "
+                        "Check what this point exported, or judge the row from Python "
+                        "with an assessor that knows which file is which"
                     ),
                 )
             report_path = usable[0][0]
@@ -3223,36 +3269,41 @@ def _plan_point(
 def _output_collision(
     campaign: Campaign, case: SimCase, workspace: CampaignWorkspace
 ) -> str | None:
-    """Return why this case's output names collide, or None.
+    """Return why ONE point's output names collide, or None.
 
-    Every point of a case executes in the same simulation folder and its
-    declared outputs are collected into ``outputs/`` under the name
+    A point's declared outputs are collected into that point's own
+    folder under the name
     :func:`pyflightstream.workspace.collection_name` gives them, so two
-    outputs that collect to one name overwrite each other's evidence
-    while the manifest lists the survivor for both (incident
-    INC-20260723-2113-pyflightstream). The check renders the names the
-    way the loop will, so it judges the actual collision rather than the
-    presence of a particular placeholder: any naming template that
-    distinguishes the points passes.
+    outputs of one point that collect to a single name overwrite each
+    other's evidence while the manifest lists the survivor for both
+    (incident INC-20260723-2113-pyflightstream). The check renders the
+    names the way the loop will, so it judges the actual collision
+    rather than the presence of a particular placeholder.
 
-    Two collisions exist and this checks both, which it did not
-    (PLN-20260802-1904). Collection refuses duplicates WITHIN one
-    point's declared set and refuses a name already sitting in ``outputs/``
-    from an EARLIER point, and only the second was anticipated here.
-    Three inputs therefore planned as READY and died at collection,
-    each after the solver had run and each costing a licensed seat:
+    ACROSS POINTS THERE IS NO LONGER A COLLISION TO CHECK (FR-92), and
+    that is the behaviour change this release makes, not an omission.
+    Until 0.16.0 every point of a case collected into one ``outputs/``,
+    so two points exporting ``loads.txt`` destroyed each other and this
+    function refused the case before a seat was spent on it. Each point
+    now collects into ``datapoints/DP-<point>/``, so a recipe carrying
+    no per-point placeholder is correct: the points do not meet. A
+    per-point output name is still perfectly good and nothing that uses
+    one has to change.
+
+    What survives is the within-one-point half, and it survives because
+    it was the half that kept being got wrong (PLN-20260802-1904). Two
+    inputs planned as READY and died at collection, each after the
+    solver had run and each costing a licensed seat:
 
     * ``["loads.txt", "loads.txt"]`` on a single point, because the
       old check skipped a repeat carrying the same point tag as itself;
     * ``["a/loads.txt", "b/loads.txt"]`` on one point, because it keyed
       on the DECLARED string, where those differ, while collection keys
-      on the base name, where they do not;
-    * the same two names across two points of one case.
+      on the base name, where they do not.
 
-    The keying is now the shared function, so the plan-time answer and
-    the collect-time answer cannot disagree again.
+    The keying is the shared function, so the plan-time answer and the
+    collect-time answer cannot disagree again.
     """
-    seen: dict[str, str] = {}
     for point in case.sweep.points():
         try:
             _, names = _point_names(campaign, case, point, workspace)
@@ -3269,27 +3320,14 @@ def _output_collision(
                 )
                 return (
                     f"sim {case.sim_id!r} declares {detail} for point {tag}, and both "
-                    f"collect to {SIM_OUTPUTS_DIR}/{collected}: collection moves each output "
-                    "under its "
+                    f"collect to {SIM_DATAPOINTS_DIR}/{datapoint_dir_name(point)}/"
+                    f"{collected}: collection moves each output under its "
                     "base name, so the second would overwrite the first and the manifest "
                     "would record one name twice while only the last content survived. "
                     "Declare outputs whose base names differ; a directory part does not "
                     "make them differ, because collection drops it"
                 )
             within[collected] = declared
-        for collected, declared in within.items():
-            if collected in seen:
-                return (
-                    f"sim {case.sim_id!r} would write {declared!r} for point {tag} and "
-                    f"the same collected name {SIM_OUTPUTS_DIR}/{collected} for point "
-                    f"{seen[collected]}: "
-                    "every point of a case runs in the same folder and its outputs are "
-                    "collected under their base names, so the second would overwrite the "
-                    "first and the manifest would list one file for both. Name the "
-                    "outputs per point, for example 'loads_{point}.txt', and export "
-                    "case.outputs[i] from the recipe"
-                )
-            seen[collected] = tag
     return None
 
 
@@ -3714,7 +3752,14 @@ def _execute_point(
 
     try:
         collected = workspace.collect_outputs(
-            case.sim_id, [sim_dir / name for name in point_case.outputs]
+            case.sim_id,
+            [sim_dir / name for name in point_case.outputs],
+            # FR-92. THE POINT'S OWN FOLDER, always, steady or unsteady.
+            # Every point of one case collected into one `outputs/` until
+            # 0.16.0, so from the second point of a swept row onward that
+            # folder held two files that both read as loads tables and
+            # nothing in the layout said which point either belonged to.
+            datapoint=datapoint_dir_name(point),
         )
     except WorkspaceError as error:
         return RunRecord(

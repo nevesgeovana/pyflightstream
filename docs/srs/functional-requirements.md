@@ -3381,3 +3381,56 @@ requirement below is one seam of that division.
     positions file, the frame cell is empty, and the steady coordinates still
     come from the export as they always did. Refusing those runs would take a
     product away from a campaign that already happened.
+
+
+!!! requirement "FR-92 Each datapoint collects its outputs into its own folder <span class='srs-implemented'>implemented</span>"
+
+    *Origin: a swept row could not be judged past its first point, reported
+    2026-09-11 and fixed in the layout rather than in the selection. Evidence:
+    tests/tier1_offline/test_run_cli.py::test_a_swept_row_runs_end_to_end and
+    tests/tier1_offline/test_sim_outputs_dir.py.*
+
+    WHAT IT IS FOR. Every point of one case collected into a single
+    `sims/<sim>/outputs/`, so from the SECOND point of a swept row onward that
+    folder held two files that both read as loads tables. The standard
+    assessor finds the loads spreadsheet BY CONTENT, deliberately, because a
+    swept case names its outputs per point and no single literal could name
+    them all; with two candidates it refused rather than guess which point ran.
+    The remedy its refusal offered, naming the file, was the one its own
+    documentation ruled out. A swept row therefore ran and then could not be
+    judged, and this release's headline is sweeps.
+
+    THE SELECTION WAS NOT THE DEFECT, THE LAYOUT WAS. A folder holding the
+    evidence of several points cannot answer "which of these is this point's"
+    from the filesystem alone, so every consumer downstream has to re-derive
+    the answer from content, and each of them can get it wrong differently.
+    One folder per datapoint makes the question unaskable.
+
+    A run collects each point's declared outputs into
+    `sims/<sim>/datapoints/DP-<point>/`, where `<point>` is the point tag that
+    already ends the `run_id` and names the generated script, so the folder,
+    the script and the run record carry one identity. This holds for every
+    point of every row, steady or unsteady.
+
+    TWO REFUSALS CHANGE SCOPE WITH THE FOLDER AND NEITHER IS RELAXED. Two
+    outputs of ONE point that collect to one name are still refused, at plan
+    time and at collection, because they still land in one folder. Two POINTS
+    declaring the same output name are no longer refused at all: they no
+    longer meet, and a recipe exporting a plain `loads.txt` per point is
+    correct. A per-point output name remains valid and nothing using one has
+    to change.
+
+    A WORKSPACE RECORDED BEFORE 0.16.0 IS STILL READ WHOLE. `outputs/` and
+    `raw/` are read where a workspace holds them and neither is created. In
+    those workspaces the points of a case do share a folder, so the assessor
+    keeps the export whose printed operating conditions match the point it is
+    judging (REV010-001), and refuses unchanged where that does not settle
+    the matter. A test asserts each of the three layouts yields the same
+    verdict for the same evidence.
+
+    ONE SCRIPT PER POINT IS THE RUN MODEL THIS RESTS ON. Every point is
+    emitted and executed as its own script from a cold start, which is what
+    makes a point's outputs separable in the first place. Reusing a converged
+    solution across the points of a steady sweep is a different run model and
+    is deferred; it is not implied by this requirement and must not be assumed
+    by anything reading it.

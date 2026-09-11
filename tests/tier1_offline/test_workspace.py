@@ -56,10 +56,14 @@ def test_create_sim_builds_the_managed_subfolders(tmp_path):
     workspace = CampaignWorkspace(tmp_path)
     sim = workspace.create_sim("9001")
     assert sim == tmp_path / "sims" / "sim_9001"
-    for name in ("inputs", "scripts", "outputs"):
+    for name in ("inputs", "scripts", "datapoints"):
         assert (sim / name).is_dir()
     assert not (sim / "parsed").exists()
     assert not (sim / "raw").exists()
+    # `outputs/` joined them at 0.16.0 (FR-92), for the same reason: a
+    # simulation holds one folder per datapoint now, so the single shared
+    # folder is read where an older workspace has one and never created.
+    assert not (sim / "outputs").exists()
 
 
 def test_a_workspace_that_still_carries_an_empty_parsed_folder_is_untouched(tmp_path):
@@ -957,12 +961,13 @@ def _prepared(tmp_path, sim_id="A"):
 
 
 def test_collect_refuses_a_source_inside_a_managed_subdirectory(tmp_path):
-    """Moving out of `outputs/` takes a record out of the layout that owns it."""
+    """Moving out of a datapoint takes a record out of the layout that owns it."""
     workspace, sim = _prepared(tmp_path)
-    source = sim / "outputs" / "already_collected.txt"
+    source = sim / "datapoints" / "DP-a+00.0" / "already_collected.txt"
+    source.parent.mkdir(parents=True)
     source.write_text("evidence", encoding="utf-8")
 
-    with pytest.raises(WorkspaceError, match="own collected outputs"):
+    with pytest.raises(WorkspaceError, match="datapoints"):
         workspace.collect_outputs("A", [source])
     assert source.is_file(), "a refusal must leave every source exactly where it was"
 
@@ -983,14 +988,15 @@ def test_collect_refuses_another_simulations_collected_evidence(tmp_path):
     """The case this item exists for, and the one to measure first.
 
     Today this MOVED another simulation's collected output into this
-    simulation's `outputs/`, and both manifests then named a file only one of
-    them had. The refusal names the simulation the file belongs to,
+    simulation's own folder, and both manifests then named a file only one
+    of them had. The refusal names the simulation the file belongs to,
     because a reader who is told only "outside sim_A" still has to go
     looking.
     """
     workspace, _ = _prepared(tmp_path)
     other = workspace.create_sim("OTHER")
-    source = other / "outputs" / "loads.txt"
+    source = other / "datapoints" / "DP-a+00.0" / "loads.txt"
+    source.parent.mkdir(parents=True)
     source.write_text("another run's numbers", encoding="utf-8")
 
     with pytest.raises(WorkspaceError, match="belongs to sim_OTHER"):
@@ -1007,12 +1013,14 @@ def test_collect_refuses_a_path_that_climbs_back_in(tmp_path):
     """
     workspace, sim = _prepared(tmp_path)
     other = workspace.create_sim("OTHER")
-    (other / "outputs" / "loads.txt").write_text("another run's numbers", encoding="utf-8")
-    climbing = sim / ".." / "sim_OTHER" / "outputs" / "loads.txt"
+    held = other / "datapoints" / "DP-a+00.0" / "loads.txt"
+    held.parent.mkdir(parents=True)
+    held.write_text("another run's numbers", encoding="utf-8")
+    climbing = sim / ".." / "sim_OTHER" / "datapoints" / "DP-a+00.0" / "loads.txt"
 
     with pytest.raises(WorkspaceError, match="belongs to sim_OTHER"):
         workspace.collect_outputs("A", [climbing])
-    assert (other / "outputs" / "loads.txt").is_file()
+    assert held.is_file()
 
 
 def test_collect_still_takes_an_unmanaged_subfolder_of_the_simulation(tmp_path):
@@ -2482,12 +2490,14 @@ def test_archive_does_not_cross_a_staged_link(tmp_path):
     other = _library_geometry(workspace, "other.fsm", b"y" * 4096)
     for sim_id in ("9001", "9002"):
         workspace.stage_inputs(sim_id, [library])
-        (workspace.sim_dir(sim_id) / "outputs" / "loads.txt").write_text("loads", encoding="utf-8")
+        collected = workspace.sim_dir(sim_id) / "datapoints" / "DP-a+00.0"
+        collected.mkdir(parents=True)
+        (collected / "loads.txt").write_text("loads", encoding="utf-8")
         workspace.append_record(make_record(sim_id=sim_id, run_id=f"camp/sim_{sim_id}/a"))
     bundle = workspace.archive_sim("9001")
     with zipfile.ZipFile(bundle) as archive:
         names = archive.namelist()
-        assert "outputs/loads.txt" in names
+        assert "datapoints/DP-a+00.0/loads.txt" in names
         assert not any(name.endswith(".fsm") for name in names), "the archive crossed the link"
         assert archive.read("inputs/STAGED_AS_LINK.txt").decode().strip() == os.path.realpath(
             workspace.inputs_dir / "geometries"

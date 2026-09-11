@@ -374,14 +374,14 @@ def test_collecting_onto_a_held_name_offers_the_archive_remedy(tmp_path):
     """
     workspace = CampaignWorkspace(tmp_path / "camp")
     (tmp_path / "loads.txt").write_text("first", encoding="utf-8")
-    workspace.collect_outputs("1", [tmp_path / "loads.txt"])
+    workspace.collect_outputs("1", [tmp_path / "loads.txt"], datapoint="DP-a+00.0")
     (tmp_path / "loads.txt").write_text("second", encoding="utf-8")
 
     with pytest.raises(WorkspaceError) as refused:
-        workspace.collect_outputs("1", [tmp_path / "loads.txt"])
+        workspace.collect_outputs("1", [tmp_path / "loads.txt"], datapoint="DP-a+00.0")
 
     message = str(refused.value)
-    assert "already in outputs/ from an earlier point or run" in message, (
+    assert "already in datapoints/DP-a+00.0/ from an earlier run of this point" in message, (
         "the refusal does not say WHOSE record is in the way, so a user re-running one "
         "point reads it as a defect in the call they just made"
     )

@@ -1540,9 +1540,11 @@ node the document declares; a PROV tool reads it as any PROV-JSON.
 
 ### Archiving a completed simulation
 
-Every point of a row runs into the same simulation folder, and a run
-refuses to collect onto a name that is already in `outputs/`, or to start a
-point whose declared output is already in the folder, rather than
+Every point of a row runs in the same simulation folder and collects
+into its OWN folder beneath it. A run refuses to collect onto a name
+already in that point's folder, which is what a re-run of the same point
+meets, or to start a point whose declared output is already sitting in
+the simulation folder before the solver has written it, rather than
 attribute somebody else's file to the new point. Both refusals say to
 archive the simulation, and this is the command they mean:
 
@@ -2099,23 +2101,21 @@ the file and the result. The sweep table lands as `campaign_sweep.csv`
 under `post/<matrix stem>/` in the workspace when you do not say where, so a
 second matrix of the same workspace keeps its own.
 
-One limitation applies to that command TODAY and it is worth knowing
-before you meet it. `run` judges each finished point with the standard
-assessor, which reads the loads spreadsheet the point exported. Every
-point of one row writes into the same simulation folder, so from the
-SECOND point of a swept row onward the assessor finds two files that
-both read as loads tables and refuses rather than guessing between
-them. A row with one sweep value runs; a row with several does not yet.
-Running such a row from Python, with an assessor of your own, is
-unaffected.
+**Each point keeps its outputs in its own folder**, and that is what lets
+a swept row be judged point by point. `run` judges each finished point
+with the standard assessor, which reads the loads spreadsheet that point
+exported, and finds it by CONTENT rather than by name, because a swept
+case names its outputs per point and no single literal could name them
+all. Each point collects into `sims/<sim>/datapoints/DP-<point>/`, so
+what the assessor reads is that point's evidence and nothing else. The
+matrix printed above runs as printed, row 7002's two alphas included,
+and that is what the acceptance case in the suite does with the
+committed fixture unmodified.
 
-**That limit applies to the matrix printed above, as printed.** Row 7002
-sweeps two alphas, so the command shown runs 7001 and 7003 and cannot
-judge 7002's second point. Cut 7002 to one sweep value to run the block
-exactly as it stands, which is what the suite does: it keeps a helper
-that rewrites `0.0,2.0` to a single value for the acceptance cases, and
-the case that runs the committed fixture unmodified is marked as an
-expected failure until this is fixed.
+Two points of one row may export the SAME file name, which is what a
+recipe with no per-point placeholder writes. Two outputs of ONE point
+still may not: they land in one folder under one base name, and the
+collision is refused before anything runs.
 
 ### Before you spend the seat: what the study will cost
 
@@ -2405,11 +2405,6 @@ worse than no page at all.
   unsteady propeller case (PHY-05) HAS run on a licensed machine and
   sits inside its bands, and it is a different script, hand-built rather
   than emitted by this workflow.
-- **`pyfs-matrix run` cannot judge a swept row yet.** Stated above where
-  the command is, and repeated here because this is the list people
-  read: the standard assessor sees every point of a row in one folder
-  and refuses from the second point onward. One sweep value per row
-  runs today.
 - **Naming a second build is no longer a limit.** See the executable
   registry above, which is this fact's one home.
 - **There is no result-array facade.** No interpolation along a named

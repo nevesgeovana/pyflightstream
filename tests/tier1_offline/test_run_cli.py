@@ -42,7 +42,7 @@ from pyflightstream.cases.workflows import workflow_names
 from pyflightstream.run import SWEEP_TABLE_NAME, CampaignErrors, LocalExecutor
 from pyflightstream.run import cli as cli_module
 from pyflightstream.run.cli import main
-from pyflightstream.workspace import CampaignWorkspace
+from pyflightstream.workspace import CampaignWorkspace, RunStatus
 
 FIXTURES = Path(__file__).parent / "fixtures"
 FIXTURE = FIXTURES / "workflow_rotor_matrix.fs"
@@ -304,26 +304,46 @@ def test_the_default_sweep_table_lands_under_post_and_the_matrix_stem(tmp_path, 
     assert SWEEP_TABLE_NAME in capsys.readouterr().out
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "DEFECT below this item, in pyflightstream.run.LoadsAssessor, reproduced here "
-        "rather than described. `outputs/` is shared by every point of one case, so from "
-        "the SECOND point onward the assessor sees two files that both parse as loads "
-        "tables and refuses with 'several of them parse'. Its own docstring promises "
-        "exactly this case ('a swept case names its outputs per point, so no single "
-        "literal could name them all'), and naming one is therefore no remedy. The "
-        "material for the fix is already beside it: the REV010-001 operating-point "
-        "binding a few lines below can say WHICH of the parsing files belongs to this "
-        "point. Owned by run/__init__.py; strict, so this turns red the day it is "
-        "fixed and the limitation note on docs/workspace-and-workflows.md has to go."
-    ),
-)
 def test_a_swept_row_runs_end_to_end(tmp_path):
-    """The committed fixture, unmodified, with its two-point steady row."""
+    """The committed fixture, unmodified, with its two-point steady row (FR-92).
+
+    THIS WAS A STRICT EXPECTED FAILURE UNTIL 0.16.0 and it is the item's
+    whole acceptance. Every point of one case collected into a single
+    ``outputs/``, so from the SECOND point onward the assessor found two
+    files that both parsed as loads tables and refused, and the remedy the
+    refusal offered -- name the file -- was ruled out by its own docstring:
+    a swept case names its outputs per point, so no literal names them all.
+    One folder per datapoint removes the collision rather than resolving
+    it.
+
+    ASSERTED ON THE STATUS, not on the record count, which is what the
+    expected failure asserted and was the wrong measurement: a REFUSED
+    point also produces a record, so a count cannot tell the defect from
+    the fix. It reads every point of the swept row, so a regression that
+    refuses only the second one cannot hide behind the first.
+    """
     workspace = make_workspace(tmp_path)
     assert main(run_args(workspace, FIXTURE)) == 0
-    assert len(workspace.read_manifest()) == 3
+    records = workspace.read_manifest()
+    swept = [record for record in records if record.sim_id == "7002"]
+    assert len(swept) == 2, (
+        f"the swept row did not record two points; got {[record.run_id for record in swept]}"
+    )
+    for record in swept:
+        assert record.status is not RunStatus.FAILED_INCOMPLETE_OUTPUT, (
+            f"{record.run_id} was refused: {record.error}"
+        )
+    # AND EACH POINT'S EVIDENCE IS ITS OWN. The statuses above would also
+    # be green if both points were judged on the same file.
+    folders = {
+        record.run_id: {Path(name).parent.name for name in record.outputs} for record in swept
+    }
+    assert all(len(folder) == 1 for folder in folders.values()), (
+        f"a point's outputs are spread across folders: {folders}"
+    )
+    assert len({next(iter(folder)) for folder in folders.values()}) == 2, (
+        f"the two points of the swept row collected into one folder: {folders}"
+    )
 
 
 def test_the_run_needs_no_python_function_anywhere_in_the_call(tmp_path):
