@@ -18,6 +18,13 @@ rather than left to be discovered:
   custom polar format beside the polar table when asked (PFS-2014.01.01), its
   writer and reader re-exported here; and a PROV-JSON provenance document
   per recorded run (PFS-2012.08.01).
+* :mod:`pyflightstream.post.superfile` writes the SUPERFILE of each polar
+  and group beside the polar table (FR-89), one row per converged point
+  whose column set is a superset of everything the workspace knows about
+  that simulation, and the measurement of what it wrote under
+  ``reports/``. Reached through its own module rather than re-exported
+  here: everything it offers is called by the products stage, and a
+  reader wanting it wants its page;
 * :mod:`pyflightstream.post.series` tables the stamped per-step exports
   of a windowed unsteady point, one table per export kind under the
   matrix's ``series/`` (PFS-2031.18.01); its ``write_point_series`` is

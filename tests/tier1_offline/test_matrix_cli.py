@@ -276,7 +276,9 @@ def test_post_reruns_from_the_manifest_without_a_solver(tmp_path, capsys):
     # No executables.toml entry is consulted, and no build: the manifest is the input.
     assert main(["post", "--workspace", str(workspace.root)]) == 0
     out = capsys.readouterr().out
-    assert "1 product(s) written" in out
+    # The polar table and the SUPERFILE beside it (FR-89), which is written
+    # for every polar the stage writes.
+    assert "2 product(s) written" in out
     stem = "POLAR-3207_M20AL-020BE+000"
     table = workspace.root / "post" / "products" / "polars" / f"{stem}_g01.csv"
     assert table.is_file()

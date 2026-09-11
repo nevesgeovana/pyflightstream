@@ -9,6 +9,13 @@ record, so any spreadsheet or dataframe reads them with nothing else:
   ``polars/`` since 0.16.0 (FR-88): one row per point of the polar, the
   reference block and the coefficients of the group in body, stability
   and wind axes with the two drag parts;
+* the SUPERFILE of each polar and group beside it since 0.16.0 (FR-89),
+  ``polars/SUPER-<point with the swept variable as sweep>_g<NN>.csv``:
+  one row per CONVERGED point, written after the unsteady post-process so
+  it holds no time series, and its column set is a SUPERSET of the union
+  of everything the workspace knows about that simulation. The assembly
+  is :mod:`pyflightstream.post.superfile`, which says where each of its
+  blocks comes from;
 * a SECTIONS table per point, ``sections/<point>_sections.csv``: the
   sectional loads export re-tabled, when the run defined sections at all;
 * the FLOW-FIELD SAMPLES of a point under ``probes/`` since 0.16.0
@@ -100,6 +107,17 @@ from pyflightstream.post._tables import (
     write_csv_table,
 )
 from pyflightstream.post.series import write_point_series
+from pyflightstream.post.superfile import (
+    SuperfileDraft,
+    declared_sweep,
+    matrix_rows,
+    plots_last_row,
+    super_file_name,
+    superfile_row,
+    union_the_workspace_knows,
+    write_superfile_report,
+    write_superfiles,
+)
 from pyflightstream.post.unsteady import TimestepSeries, blade_passage_average
 from pyflightstream.results import (
     LoadsReport,
@@ -114,6 +132,7 @@ from pyflightstream.workspace import RunStatus
 from pyflightstream.workspace.naming import polar_name
 
 if TYPE_CHECKING:
+    from pyflightstream.cases.matrix import MatrixRow
     from pyflightstream.workspace import CampaignWorkspace, RunRecord
 
 __all__ = [
@@ -491,6 +510,39 @@ def read_csv_table(path: str | Path) -> tuple[tuple[str, ...], list[dict[str, st
     return columns, rows
 
 
+def polar_table_rows(
+    *,
+    polar: str | int,
+    description: str,
+    group: str | int,
+    reference: ReferenceValues,
+    rows: Sequence[Sequence[float]],
+    advance_ratios: Sequence[float | None] | None = None,
+) -> list[tuple[object, ...]]:
+    """Assemble the rows of one polar table, each under :data:`POLAR_COLUMNS`.
+
+    ONE ASSEMBLY, TWO CONSUMERS, and that is why it is a function of its
+    own rather than three lines inside the writer below. The superfile of
+    FR-89 carries every column the polar table has, so it needs the same
+    values the table is written from; building them a second time beside
+    this one is exactly the shape that broke `legacy_products.py` on
+    2026-09-10, where a column inserted in one assembly reached the other
+    as a value under its neighbour's name.
+    """
+    lead = (str(polar), description, str(group), *reference.as_row())
+    ratios = list(advance_ratios) if advance_ratios is not None else [None] * len(rows)
+    if len(ratios) != len(rows):
+        raise ProductError(
+            f"the polar table was given {len(ratios)} advance ratios for {len(rows)} rows"
+        )
+    full: list[tuple[object, ...]] = []
+    for row, ratio in zip(rows, ratios, strict=True):
+        if len(row) != len(COEFFICIENT_COLUMNS):
+            raise ProductError(f"a polar row has {len(row)} values, not {len(COEFFICIENT_COLUMNS)}")
+        full.append((*lead, "" if ratio is None else float(ratio), *row))
+    return full
+
+
 def write_polar_table(
     path: str | Path,
     *,
@@ -510,17 +562,14 @@ def write_polar_table(
     entirely, every row's cell is empty, which is what a caller with no
     sweep point to offer should write.
     """
-    lead = (str(polar), description, str(group), *reference.as_row())
-    ratios = list(advance_ratios) if advance_ratios is not None else [None] * len(rows)
-    if len(ratios) != len(rows):
-        raise ProductError(
-            f"the polar table was given {len(ratios)} advance ratios for {len(rows)} rows"
-        )
-    full = []
-    for row, ratio in zip(rows, ratios, strict=True):
-        if len(row) != len(COEFFICIENT_COLUMNS):
-            raise ProductError(f"a polar row has {len(row)} values, not {len(COEFFICIENT_COLUMNS)}")
-        full.append((*lead, "" if ratio is None else float(ratio), *row))
+    full = polar_table_rows(
+        polar=polar,
+        description=description,
+        group=group,
+        reference=reference,
+        rows=rows,
+        advance_ratios=advance_ratios,
+    )
     return write_csv_table(path, POLAR_COLUMNS, full)
 
 
@@ -1172,6 +1221,46 @@ POLARS_DIR = "polars"
 PROBES_DIR = "probes"
 
 
+def _refuse_an_existing_product(path: Path, *, overwrite: bool) -> Path:
+    """Return ``path``, refusing it when it exists and the caller did not ask to rewrite."""
+    if path.exists() and not overwrite:
+        raise ProductExistsError(
+            f"the product {path} exists; pass overwrite (CLI: --overwrite) to rewrite "
+            "it from the manifest"
+        )
+    return path
+
+
+def _sweep_rows(
+    workspace: CampaignWorkspace, matrix_stem: str | None
+) -> dict[str, dict[str, object]]:
+    """Return the campaign sweep table's own rows, keyed by run id (FR-89).
+
+    The frame `campaign_sweep.csv` is written from, read here so the
+    superfile carries what that file holds by carrying the SAME row. A
+    campaign whose records yield no table at all leaves this empty and the
+    superfile is short of those columns rather than of the whole file:
+    every other block of the row is independent of this one.
+    """
+    from pyflightstream.results.tables import sweep_table
+
+    try:
+        with warnings.catch_warnings():
+            # The "no run yielded coefficients" warning belongs to the caller
+            # who asked for a sweep table, not to a products stage reading it
+            # as one source among seven.
+            warnings.simplefilter("ignore", PyflightstreamWarning)
+            frame = sweep_table(workspace, require_loads=False, matrix_stem=matrix_stem)
+    except (PyflightstreamError, OSError, ValueError):
+        return {}
+    rows: dict[str, dict[str, object]] = {}
+    for row in frame.to_dict("records"):
+        run_id = row.get("run_id")
+        if run_id is not None:
+            rows[str(run_id)] = row
+    return rows
+
+
 def _sim_products(
     workspace: CampaignWorkspace,
     sim_id: str,
@@ -1179,12 +1268,19 @@ def _sim_products(
     out: Path,
     *,
     overwrite: bool,
+    matrix_row: MatrixRow | None = None,
+    sweep_rows: Mapping[str, Mapping[str, object]] | None = None,
+    drafts: list[SuperfileDraft] | None = None,
 ) -> tuple[list[Path], dict[str, dict[str, object]], dict[str, str]]:
     """Write one simulation's products from its successful records.
 
     Returns the files written, the manifest entry of each (its run ids and,
     for a reduction, the reduction and the windows it used), and the
     reductions skipped by name with the reason.
+
+    ``drafts`` collects this simulation's SUPERFILES (FR-89), one per group,
+    which are written by the caller and not here: their header is the union
+    over the whole campaign, so no simulation can know it on its own.
     """
     from pyflightstream.cases import classify_outputs
 
@@ -1248,14 +1344,14 @@ def _sim_products(
     run_ids = [rid for stem in sources for rid in sources[stem]]
     written_names: dict[str, dict[str, object]] = {}
     skipped: dict[str, str] = {}
+    #: One entry per group: where its superfile goes and the polar rows it
+    #: carries, in the point order of `points` (FR-89).
+    super_rows: dict[str, tuple[Path, list[tuple[object, ...]]]] = {}
+    #: The plots table written for each point, read back for the superfile.
+    plots_tables: dict[str, Path] = {}
 
     def _target(path: Path) -> Path:
-        if path.exists() and not overwrite:
-            raise ProductExistsError(
-                f"the product {path} exists; pass overwrite (CLI: --overwrite) to rewrite "
-                "it from the manifest"
-            )
-        return path
+        return _refuse_an_existing_product(path, overwrite=overwrite)
 
     if products.polars:
         # FR-85: ONE CONVENTION FOR THE WHOLE POINT. The table's rows are
@@ -1273,6 +1369,18 @@ def _sim_products(
             if values and axis not in swept:
                 fixed[axis] = float(values[0])
         ratios = [(point.point or {}).get("advance_ratio") for point in points]
+        # FR-89: the SUPERFILE is named for the axis the ROW DECLARES it
+        # sweeps, which is the one place its name differs from the polar
+        # table's beside it; `declared_sweep` carries the measurement that
+        # decided it. The fields it holds fixed follow from that axis and
+        # not from the measured one, or a one-point sweep would be named
+        # for both at once.
+        super_swept = declared_sweep(matrix_row, swept)
+        super_fixed: dict[str, float] = {}
+        for axis in SWEEP_AXES:
+            values = [point[axis] for point in stated if point.get(axis) is not None]
+            if values and axis not in super_swept:
+                super_fixed[axis] = float(values[0])
         for group, families in pproc.groups.items():
             rows = _polar_rows(
                 points, list(families), mach=mach, reference=reference, aliases=first.aliases
@@ -1282,8 +1390,10 @@ def _sim_products(
                 / POLARS_DIR
                 / swept_polar_file_name(sim_id, mach=mach, group=group, point=fixed, swept=swept)
             )
-            write_polar_table(
-                target,
+            # ONE ASSEMBLY. The rows the polar table is written from are the
+            # rows the superfile carries, so they are built once here and
+            # handed to both writers (FR-89).
+            full = polar_table_rows(
                 polar=sim_id,
                 description=description,
                 group=str(group),
@@ -1291,6 +1401,16 @@ def _sim_products(
                 rows=rows,
                 advance_ratios=ratios,
             )
+            write_csv_table(target, POLAR_COLUMNS, full)
+            if drafts is not None:
+                super_rows[str(group)] = (
+                    out
+                    / POLARS_DIR
+                    / super_file_name(
+                        sim_id, mach=mach, group=group, point=super_fixed, swept=super_swept
+                    ),
+                    full,
+                )
             written.append(target)
             written_names[target.relative_to(out).as_posix()] = {"runs": run_ids}
             if products.custom_polar_format:
@@ -1365,6 +1485,7 @@ def _sim_products(
             if done is not None:
                 written.append(done)
                 written_names[done.relative_to(out).as_posix()] = {"runs": sources[point.name]}
+                plots_tables[point.name] = done
                 _point_reductions(
                     done,
                     plans[point.name],
@@ -1375,6 +1496,48 @@ def _sim_products(
                     written_names=written_names,
                     skipped=skipped,
                 )
+    if drafts is not None and super_rows:
+        # FR-89, and it happens HERE, after the plots tables of every point
+        # of this simulation are on disk: the superfile is written after the
+        # unsteady post-process, which is what makes one row per converged
+        # point possible at all.
+        by_run = {record.run_id: record for record in records}
+        last_step: dict[str, Mapping[str, str]] = {}
+        for name, table in plots_tables.items():
+            _columns, table_rows = read_csv_table(table)
+            step = plots_last_row(table_rows)
+            if step is not None:
+                last_step[name] = step
+        for group, (path, full) in super_rows.items():
+            wide: list[dict[str, str]] = []
+            for point, polar_values in zip(points, full, strict=True):
+                run_id = (sources.get(point.name) or [""])[0]
+                wide.append(
+                    superfile_row(
+                        polar_columns=POLAR_COLUMNS,
+                        polar_values=polar_values,
+                        matrix_row=matrix_row,
+                        record=by_run.get(run_id, records[0]),
+                        sweep_row=(sweep_rows or {}).get(run_id),
+                        plots_row=last_step.get(point.name),
+                    )
+                )
+            drafts.append(
+                SuperfileDraft(
+                    path=path,
+                    rows=tuple(wide),
+                    entry={
+                        # The same keys `write_campaign_products` stamps on
+                        # every other product's entry, written here because
+                        # the superfiles are added to the index after that
+                        # loop has run (PFS-2031.04 reads `sim_id`).
+                        "sim_id": sim_id,
+                        "pproc": pproc_id,
+                        "runs": [(sources.get(p.name) or [""])[0] for p in points],
+                        "group": group,
+                    },
+                )
+            )
     return written, written_names, skipped
 
 
@@ -1819,6 +1982,13 @@ def write_campaign_products(
     own; with it None, every record that names no matrix is written under
     ``post/products``, the historical place of a campaign authored in
     Python.
+
+    Since 0.16.0 it also writes the SUPERFILE of every polar and group
+    (FR-89), under ``polars/`` beside the polar table, and the measurement
+    of what it wrote under ``reports/`` beside ``post/``. Both come last,
+    after the plots tables of every point are on disk, because a superfile
+    carries the unsteady post-process's own parameters and one row per
+    converged point.
     """
     everything = workspace.read_manifest()
     records = [record for record in everything if record.matrix_stem == matrix_stem]
@@ -1848,6 +2018,15 @@ def write_campaign_products(
     # existing product without overwrite is still the whole stage's
     # refusal, since it is about the caller's flag and not about a row.
     skipped: dict[str, str] = {}
+    # FR-89, gathered ONCE for the whole campaign and never per simulation:
+    # the rows of the matrix this campaign came from, keyed by POL, and the
+    # campaign sweep table's own rows keyed by run id. The sweep table is
+    # the frame `campaign_sweep.csv` is written from, so the superfile
+    # carries what that file holds by carrying the same row rather than by
+    # assembling one that looks like it.
+    rows_of_the_matrix = matrix_rows(workspace.root, matrix_stem)
+    sweep_rows = _sweep_rows(workspace, matrix_stem)
+    drafts: list[SuperfileDraft] = []
     for sim_id, sim_records in by_sim.items():
         # PFS-2031.18.01: the per-step exports of a windowed point as a
         # series, written before the polar so a simulation the polar
@@ -1879,7 +2058,14 @@ def write_campaign_products(
                 products_index[name] = {"sim_id": sim_id, "pproc": record.pproc, **entry}
         try:
             files, names, reductions_skipped = _sim_products(
-                workspace, sim_id, sim_records, out, overwrite=overwrite
+                workspace,
+                sim_id,
+                sim_records,
+                out,
+                overwrite=overwrite,
+                matrix_row=rows_of_the_matrix.get(sim_id),
+                sweep_rows=sweep_rows,
+                drafts=drafts,
             )
         except ProductExistsError:
             raise
@@ -1901,6 +2087,41 @@ def write_campaign_products(
         # A reduction the row could not window is a skip under the file it
         # would have been (PFS-2015.04), beside the simulations refused whole.
         skipped.update(reductions_skipped)
+    # FR-89: the superfiles LAST, and all of them together. Their header is
+    # the union over every draft of this campaign, so a steady polar's file
+    # and a rotor's carry the same columns and a reader cannot tell from the
+    # file which kind of run is behind a row.
+    if drafts:
+        super_files, super_entries, super_columns = write_superfiles(
+            drafts,
+            target=lambda path: _refuse_an_existing_product(path, overwrite=overwrite),
+        )
+        written.extend(super_files)
+        for path, entry in super_entries.items():
+            products_index[path.relative_to(out).as_posix()] = entry
+        # THE MEASUREMENT, and the union in it is built from the WORKSPACE
+        # and not from the columns just written: a report whose `known` were
+        # the file's own columns would pass a superset test by construction,
+        # which is a check that accepts everything.
+        known = union_the_workspace_knows(
+            workspace.root,
+            out,
+            matrix_stem,
+            polars_dir=POLARS_DIR,
+            probes_dir=PROBES_DIR,
+        )
+        import pyflightstream
+
+        report = write_superfile_report(
+            workspace.root,
+            version=pyflightstream.__version__,
+            files=[
+                (path, super_columns, len(draft.rows))
+                for path, draft in zip(super_files, drafts, strict=True)
+            ],
+            known=known,
+        )
+        manifest["superfile_report"] = report.relative_to(workspace.root).as_posix()
     # Always present, empty when nothing was refused, so a wrapper reads one
     # key rather than testing for it (review round two of 2026-09-08).
     manifest["skipped"] = skipped

@@ -3844,7 +3844,7 @@ def test_an_empty_group_writes_the_polar_of_every_family(tmp_path):
             executor=_writes_her_loads(tmp_path),
             recipe_registry={"steady": matrix_recipe},
         )
-        polars = sorted((workspace.root / "post" / "wing_alpha" / "polars").glob("*_g01.csv"))
+        polars = sorted((workspace.root / "post" / "wing_alpha" / "polars").glob("POLAR-*_g01.csv"))
         assert len(polars) == 2, f"one polar table per point of group 1: {polars}"
         tables[spelling] = [path.read_bytes() for path in polars]
     assert tables['"1" = []'] == tables['"1" = ["W", "B"]']
@@ -3885,7 +3885,7 @@ def test_an_alias_of_the_reference_reaches_the_polar_table_through_the_record(tm
         assert [r.aliases for r in records] == [
             {"wing": ["W", "Missing"]} if folder == "alias" else {}
         ] * 2, "the record carries the reference's aliases"
-        polars = sorted((workspace.root / "post" / "wing_alpha" / "polars").glob("*_g01.csv"))
+        polars = sorted((workspace.root / "post" / "wing_alpha" / "polars").glob("POLAR-*_g01.csv"))
         assert len(polars) == 2, polars
         tables[folder] = [path.read_bytes() for path in polars]
         # The provenance document carries them too, as it carries the raw
@@ -3940,7 +3940,7 @@ def test_the_reference_aliases_reach_the_record(tmp_path):
     assert [r.aliases for r in records] == [{"wing": ["W", "Missing"]}] * 2, (
         "the record carries the REFERENCE's aliases"
     )
-    polars = sorted((workspace.root / "post" / "wing_alpha" / "polars").glob("*_g01.csv"))
+    polars = sorted((workspace.root / "post" / "wing_alpha" / "polars").glob("POLAR-*_g01.csv"))
     assert len(polars) == 2, polars
 
 

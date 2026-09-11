@@ -149,6 +149,26 @@ FlightStream versions.
 
 ### Added
 
+- **One derived file per polar and group carries everything the workspace
+  knows about that simulation (FR-89).** Written by the post stage beside the
+  polar table, `post/<matrix>/polars/SUPER-0001_M15AL+000BE+000J+sweep_g01.csv`:
+  the standard point convention with `SUPER-` in place of `POLAR-`, the swept
+  variable written literally as `sweep`, and the group suffix at the end. One
+  row per CONVERGED point and no time series, because it is written AFTER the
+  unsteady post-process. ITS COLUMN SET IS A SUPERSET of the union of what the
+  workspace knows: every column the polar table has, everything
+  `campaign_sweep.csv` holds, every parameter the unsteady plots produce with
+  forces and fluids alike, RPM and the advance ratio, every variable that
+  defines the flight condition as stated, pinned and resolved, every input of
+  the matrix row including `DESCRIPTION`, and the solver flags by their own
+  command names. The column set is the CAMPAIGN'S and not the polar's, so a
+  steady polar's file carries the same header as the rotor's beside it and a
+  reader cannot tell from the file which kind of run is behind a row. NO FIELD
+  IS LEFT OUT BY JUDGEMENT: the test BUILDS the union by reading the
+  workspace's own files rather than listing the names, so a field added
+  anywhere upstream fails it until it reaches the superfile, and the stage
+  leaves the same measurement under `reports/superfile-<release>.json`.
+
 - **A setup declares CUSTOM FLAGS, and a row sets a solver command by
   name** (FR-74, PFS-2035.20, the author's instruction of 2026-09-10). A preset
   states `[[flags]]` once per flag with `name`, the word a row writes, and

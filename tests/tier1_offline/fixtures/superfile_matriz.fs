@@ -1,0 +1,5 @@
+POL  | AIRCRAFT | DESCRIPTION | FLIGHT_CONDITION | SWEEP_VALUES | REF | SET | PPROC | FS_BUILD | HIDDEN | RUN | WORKFLOW | VAR_NAMES_VALUES
+-------------------------------------------------------------------------------------------------------------------------------------------
+6001 | WB | CRUISE_wing_body_alpha_sweep | MACH:0.2, REmi:11.7716754, ALPHA:sweep, BETA:0 | -2,0 | r001 | s001 | p001 | 26.123 | 0 | 1 | steady | GEOMETRY: 30_WB.fsm / SYMMETRY: MIRROR
+6002 | NXROTOR | ROTOR_sector_periodic_J_sweep | MACH:0.1441, REmi:4.38, ALPHA:0, BETA:0, ADVANCE_RATIO:sweep | 1.7 | r002 | s002 | p002 | 26.123 | 0 | 1 | unsteady_rotor | GEOMETRY: 05_NX.fsm / SYMMETRY: PERIODIC / DELTA_THETA: 15 / REVOLUTIONS: 1.5 / CLOCK_MOTION: PUSHER / MOTIONS: {MOVING_BC_ALIAS: PUSHER}
+6003 | NXROTOR | ROTOR_sector_a_row_that_never_ran | MACH:0.1441, REmi:4.38, ALPHA:0, BETA:0, ADVANCE_RATIO:sweep | 1.7,2.0 | r002 | s002 | p002 | 26.123 | 1 | 0 | unsteady_rotor | GEOMETRY: 05_NX.fsm / SYMMETRY: PERIODIC / digits: 7

@@ -1169,11 +1169,17 @@ def test_pyfs_matrix_post_writes_her_format_beside_the_polar_tables_when_asked(t
     stem = "POLAR-3207_M20AL-020BE+000"
     assert sorted(p.name for p in out.iterdir()) == ["polars", "products.json", "provenance"]
     names = sorted(p.name for p in (out / "polars").iterdir())
+    # FR-89 puts the superfile of each group here too; this point sweeps
+    # nothing and its workspace holds no matrix, so its name carries the
+    # values it has.
+    super_stem = stem.replace("POLAR-", "SUPER-")
     assert names == [
         f"{stem}_g01.csv",
         f"{stem}_g01.dat",
         f"{stem}_g03.csv",
         f"{stem}_g03.dat",
+        f"{super_stem}_g01.csv",
+        f"{super_stem}_g03.csv",
     ], names
     assert {p.name for p in written} >= {f"{stem}_g01.dat", f"{stem}_g03.dat"}
     manifest = json.loads((out / "products.json").read_text(encoding="utf-8"))
@@ -1210,7 +1216,8 @@ def test_pyfs_matrix_post_writes_her_format_beside_the_polar_tables_when_asked(t
     silent = _workspace(tmp_path / "silent", '[groups]\n"1" = ["W", "B"]\n')
     write_campaign_products(silent)
     assert sorted(p.name for p in (silent.root / "post" / "products" / "polars").iterdir()) == [
-        f"{stem}_g01.csv"
+        f"{stem}_g01.csv",
+        f"{stem.replace('POLAR-', 'SUPER-')}_g01.csv",
     ], "without the key the custom format is not written"
 
     # The docs name the key and what the format is for.

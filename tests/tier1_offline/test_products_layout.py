@@ -126,8 +126,17 @@ def _out(workspace: CampaignWorkspace) -> Path:
 
 
 def _the_polar_table(out: Path) -> Path:
-    """The one polar table the stage wrote, found by shape and not by name."""
-    tables = sorted(path for path in out.rglob("*.csv") if path.name != "campaign_sweep.csv")
+    """The one polar table the stage wrote, found by shape and not by name.
+
+    The SUPERFILE of FR-89 is written beside it and is not a polar table: it
+    is told apart by the one word of its name that differs, which is the
+    whole reason that word is in the name.
+    """
+    tables = sorted(
+        path
+        for path in out.rglob("*.csv")
+        if path.name != "campaign_sweep.csv" and not path.name.startswith("SUPER-")
+    )
     assert len(tables) == 1, f"expected one polar table, found {[p.name for p in tables]}"
     return tables[0]
 
@@ -316,6 +325,9 @@ def test_the_polar_table_takes_the_standard_name_with_sweep_in_the_swept_field(t
     assert written == [
         "POLAR-0001_M15AL+020BE+000J+sweep_g01.csv",
         "POLAR-0001_M15AL+020BE+000J+sweep_g01.dat",
+        # FR-89: the superfile of the same polar and group, told apart by
+        # the one word of the name that differs.
+        "SUPER-0001_M15AL+020BE+000J+sweep_g01.csv",
     ], f"the polar tables are named {written}"
 
 

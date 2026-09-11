@@ -3301,9 +3301,13 @@ def test_the_campaign_writes_its_products_and_names_them(tmp_path):
     # this campaign runs one alpha, so nothing is swept and every field
     # carries its value.
     stem = "POLAR-9001_M20AL-020BE+000"
+    # FR-89 puts the superfile of each group here too.
+    super_stem = stem.replace("POLAR-", "SUPER-")
     assert sorted(p.name for p in (products / "polars").iterdir()) == [
         f"{stem}_g01.csv",
         f"{stem}_g03.csv",
+        f"{super_stem}_g01.csv",
+        f"{super_stem}_g03.csv",
     ]
     manifest = json.loads((products / "products.json").read_text(encoding="utf-8"))
     assert manifest["products"][f"polars/{stem}_g01.csv"]["runs"] == ["camp/sim_9001/a-02.0"]
