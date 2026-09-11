@@ -2,7 +2,7 @@
  "source": "docs/srs",
  "generated_by": "scripts/gen_requirements_index.py",
  "traceability": {
-  "cited_by_a_test": 90,
+  "cited_by_a_test": 91,
   "total": 143,
   "method": "upper bound: an id mentioned anywhere in tests/**/*.py excluding conftest.py, which is not the marked falsifying test NFR-13 asks for"
  },
@@ -779,17 +779,17 @@
    "id": "FR-77",
    "text": "WHAT IT IS FOR. A pproc artifact declares ONE [probes] table, so every probe line it carries is measured in one frame. Measured, all three ways a reader would ask for a second are refused: a second [probes] table, [[probes]] written as an array, and a frame on an individual [[probes.lines]] entry. ProbeLine carries start and end and nothing else.",
    "priority": "M",
-   "status": "pending",
-   "evidence": "*Origin: the author's decision of 2026-09-10, \"quero que [probes] vire [[probes]], pode colocar como item do proximo release\". Carried by PFS-2035.24. Evidence owed: the tests that node names.*",
-   "verification": "none"
+   "status": "implemented",
+   "evidence": "*Origin: the author's decision of 2026-09-10, \"quero que [probes] vire [[probes]], pode colocar como item do proximo release\". Carried by PFS-2035.24. Evidence: tests/tier1_offline/test_workflows.py.*",
+   "verification": "test"
   },
   {
    "id": "FR-78",
    "text": "WHAT IT IS FOR. A run of an unsteady rotor row is long and it is the scarce resource, and silence is indistinguishable from a hang. Measured: run_campaign takes no progress callback, logging is imported in the fsi subpackage alone and nowhere on the run path, pyfs-matrix run --help offers no verbose, quiet or log switch, and the run path reports through bare print(), none of it per point. A campaign of forty points prints its first line when the last one is done.",
    "priority": "M",
-   "status": "pending",
-   "evidence": "*Origin: the author's request of 2026-09-10, \"eu gostaria de ter um log do pyflightstream aparecendo no powershell falando qual etapa que ta e qualquer warning enquanto ele roda\". Carried by PFS-2035.25. Evidence owed: the tests that node names.*",
-   "verification": "none"
+   "status": "implemented",
+   "evidence": "*Origin: the author's request of 2026-09-10, \"eu gostaria de ter um log do pyflightstream aparecendo no powershell falando qual etapa que ta e qualquer warning enquanto ele roda\". Carried by PFS-2035.25. Evidence: tests/tier1_offline/test_run_campaign.py.*",
+   "verification": "test"
   },
   {
    "id": "FR-79",

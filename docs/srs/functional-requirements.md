@@ -2650,11 +2650,12 @@ requirement below is one seam of that division.
     CASE, and one artifact whose entries disagreed about it would be
     describing two cases.
 
-!!! requirement "FR-77 Probe lines are a list of tables, so one artifact probes several frames <span class='srs-pending'>pending</span>"
+!!! requirement "FR-77 Probe lines are a list of tables, so one artifact probes several frames <span class='srs-implemented'>implemented</span>"
 
     *Origin: the author's decision of 2026-09-10, "quero que [probes] vire
     [[probes]], pode colocar como item do proximo release". Carried by
-    PFS-2035.24. Evidence owed: the tests that node names.*
+    PFS-2035.24. Evidence:
+    tests/tier1_offline/test_workflows.py.*
 
     WHAT IT IS FOR. A pproc artifact declares ONE `[probes]` table, so every
     probe line it carries is measured in one frame. Measured, all three ways
@@ -2685,12 +2686,12 @@ requirement below is one seam of that division.
     example that no longer parses is a defect this project has already paid
     for once.
 
-!!! requirement "FR-78 A run says on the console which stage it is in, and its warnings arrive while it runs <span class='srs-pending'>pending</span>"
+!!! requirement "FR-78 A run says on the console which stage it is in, and its warnings arrive while it runs <span class='srs-implemented'>implemented</span>"
 
     *Origin: the author's request of 2026-09-10, "eu gostaria de ter um log do
     pyflightstream aparecendo no powershell falando qual etapa que ta e
     qualquer warning enquanto ele roda". Carried by PFS-2035.25.
-    Evidence owed: the tests that node names.*
+    Evidence: tests/tier1_offline/test_run_campaign.py.*
 
     WHAT IT IS FOR. A run of an unsteady rotor row is long and it is the
     scarce resource, and silence is indistinguishable from a hang. Measured:

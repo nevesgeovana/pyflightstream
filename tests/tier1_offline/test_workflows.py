@@ -550,12 +550,14 @@ def test_every_command_a_workflow_declares_is_one_it_really_emits():
         {
             "sections": {"distributions": [{"families": "all", "planes": ["XZ"]}]},
             "plots": {"groups": [{"name": "MRP_TOTAL", "families": "all"}]},
-            "probes": {
-                "frame": "MRP",
-                "parameters": ["MACH"],
-                "points": 2,
-                "lines": [{"start": [0.0, 0.0, 0.0], "end": [1.0, 0.0, 0.0]}],
-            },
+            "probes": [
+                {
+                    "frame": "MRP",
+                    "parameters": ["MACH"],
+                    "points": 2,
+                    "lines": [{"start": [0.0, 0.0, 0.0], "end": [1.0, 0.0, 0.0]}],
+                }
+            ],
         }
     )
     for name in WORKFLOWS:
@@ -3854,13 +3856,15 @@ def _her_pproc():
                     {"name": "LOCAL_{family}", "frame": "LOCAL_AXIS", "families": "all"},
                 ],
             },
-            "probes": {
-                "frame": "ROTOR_SMRP",
-                "parameters": ["MACH", "VELOCITY"],
-                "points": 3,
-                "scale": "rotor_radius",
-                "lines": [{"start": [-2.0, -1.0, 0.0], "end": [-2.0, 1.0, 0.0]}],
-            },
+            "probes": [
+                {
+                    "frame": "ROTOR_SMRP",
+                    "parameters": ["MACH", "VELOCITY"],
+                    "points": 3,
+                    "scale": "rotor_radius",
+                    "lines": [{"start": [-2.0, -1.0, 0.0], "end": [-2.0, 1.0, 0.0]}],
+                }
+            ],
         }
     )
 
@@ -5127,4 +5131,94 @@ def test_a_rotor_section_distribution_cuts_the_blades_and_not_the_rotor():
     assert section_frames == ["ROTOR_RMRP1", "ROTOR_RMRP2", "ROTOR_RMRP3"], (
         f"a section distribution over a three-blade rotor is THREE, one per blade "
         f"and none over the rotor as a whole; got {section_frames}"
+    )
+
+
+def test_one_artifact_probes_two_frames_on_one_row(tmp_path):
+    """FR-77, her words: "quero que [probes] vire [[probes]]".
+
+    THE CAPABILITY IS THE POINT AND THE MIGRATION IS NOT. Every existing test
+    went green the moment the artifacts were rewritten with two brackets, and
+    not one of them asks the thing the requirement is for: that ONE artifact
+    samples TWO frames on one row. Of the families that expand per entry,
+    probes alone was not a list, so a second frame needed a second artifact
+    and a second PPROC code on the row.
+
+    THE VERTEX COUNTER RUNS ACROSS THE ENTRIES, and that is the half a naive
+    implementation gets wrong: the plot name is `{parameter}{n}`, so two
+    entries each restarting at 1 would write two plots to one name and the
+    solver would take them as the same plot.
+    """
+    from pyflightstream.cases import PprocSpec
+
+    spec = PprocSpec.model_validate(
+        {
+            "groups": {"1": ["W", "B"]},
+            "probes": [
+                {
+                    "frame": "MRP",
+                    "parameters": ["VELOCITY"],
+                    "points": 2,
+                    "lines": [{"start": [0.0, 0.0, 0.0], "end": [1.0, 0.0, 0.0]}],
+                },
+                {
+                    "frame": "MRP",
+                    "parameters": ["MACH"],
+                    "points": 3,
+                    "lines": [{"start": [0.0, 1.0, 0.0], "end": [0.0, 2.0, 0.0]}],
+                },
+            ],
+        }
+    )
+    case = _with_pproc(unsteady_case(), _wb_geometry(tmp_path), pproc=spec)
+    lines = rendered(case).splitlines()
+    names = [
+        lines[i + 3].split(" ", 1)[1]
+        for i, line in enumerate(lines)
+        if line.strip() == "UNSTEADY_SOLVER_NEW_FLUID_PLOT" and lines[i + 3].startswith("NAME ")
+    ]
+    assert names, f"no fluid plot was emitted at all:\n{chr(10).join(lines[:40])}"
+
+    velocity = [n for n in names if n.startswith("VELOCITY")]
+    mach = [n for n in names if n.startswith("MACH")]
+    assert len(velocity) == 2, f"the first entry samples 2 points; got {velocity}"
+    assert len(mach) == 3, f"the second entry samples 3 points; got {mach}"
+
+    # THE NUMBERS DO NOT RESTART. The second entry's vertices continue from
+    # the first's, so no two plots share a name.
+    assert velocity == ["VELOCITY1", "VELOCITY2"], velocity
+    assert mach == ["MACH3", "MACH4", "MACH5"], (
+        f"the second entry restarted its vertex count, so its plots collide with "
+        f"the first entry's: {mach}"
+    )
+    assert len(set(names)) == len(names), f"two plots share a name: {names}"
+
+
+def test_the_0_15_0_probes_table_is_refused_naming_the_edit():
+    """FR-77. A table and an array of tables are one bracket apart in TOML.
+
+    The difference is invisible until something reads it, so the refusal spells
+    out what to type. Whoever meets it is holding a workspace that planned
+    yesterday, and a message saying only "expected a list" would leave them
+    guessing which bracket.
+    """
+    from pydantic import ValidationError
+
+    from pyflightstream.cases import PprocSpec
+
+    with pytest.raises(ValidationError) as caught:
+        PprocSpec.model_validate(
+            {
+                "groups": {"1": ["W"]},
+                "probes": {
+                    "frame": "MRP",
+                    "parameters": ["VELOCITY"],
+                    "lines": [{"start": [0.0, 0.0, 0.0], "end": [1.0, 0.0, 0.0]}],
+                },
+            }
+        )
+    message = str(caught.value)
+    assert "[[probes]]" in message and "[probes]" in message, message
+    assert "once per frame you are sampling in" in message, (
+        "the refusal says WHY the shape changed, not only that it did"
     )

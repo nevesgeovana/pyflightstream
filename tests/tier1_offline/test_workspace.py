@@ -2191,7 +2191,7 @@ name = "MRP_TOTAL"
 frame = "MRP"
 families = "all"
 
-[probes]
+[[probes]]
 frame = "ROTOR_MRP"
 parameters = ["MACH"]
 points = 3
@@ -2220,7 +2220,10 @@ def test_the_pproc_artifact_validates_its_six_tables(tmp_path):
     ], "tecplot is deselected, the plots file is unsteady-only"
     assert pproc.sections.count == 40 and pproc.sections.distributions[0].families == ["W"]
     assert pproc.plots.parameters == ["CL", "FX"] and pproc.plots.groups[0].name == "MRP_TOTAL"
-    assert pproc.probes.points == 3 and pproc.probes.lines[0].end == (0.0, 1.0, 0.0)
+    # FR-77: `probes` is a LIST of tables since 0.16.0.
+    assert len(pproc.probes) == 1, f"one probe table; got {len(pproc.probes)}"
+    assert pproc.probes[0].points == 3
+    assert pproc.probes[0].lines[0].end == (0.0, 1.0, 0.0)
     assert pproc.products.plots is False and pproc.products.polars is True
     # An export kind outside the eight is refused naming the eight, and the
     # loads table cannot be deselected.

@@ -635,7 +635,12 @@ def test_the_committed_artifact_of_this_shape_validates_everywhere():
         "RMRP",
         "LOCAL_AXIS",
     ], "the committed artifact stopped carrying the three frame kinds this release adds"
-    assert artifact.probes is not None and artifact.probes.scale == "rotor_radius"
+    # FR-77: `probes` is a LIST of tables since 0.16.0, so one artifact can
+    # sample several frames on one row. The committed artifact carries one.
+    assert len(artifact.probes) == 1, (
+        f"this artifact declares one probe table; got {len(artifact.probes)}"
+    )
+    assert artifact.probes[0].scale == "rotor_radius"
 
 
 def test_her_own_artifact_validates():

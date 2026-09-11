@@ -64,7 +64,7 @@ name = "LOCAL_{family}"
 frame = "LOCAL_AXIS"
 families = "blades"
 
-[probes]
+[[probes]]
 # Three lines across the rotor disk, in rotor radii of the reference,
 # 15 vertices each.
 frame = "ROTOR_SMRP"

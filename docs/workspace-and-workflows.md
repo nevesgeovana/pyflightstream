@@ -1159,7 +1159,7 @@ name = "MRP_{family}"          # one group per family the geometry carries
 frame = "MRP"
 families = "each"
 
-[probes]                       # UNSTEADY_SOLVER_NEW_FLUID_PLOT per vertex and parameter
+[[probes]]                     # UNSTEADY_SOLVER_NEW_FLUID_PLOT per vertex and parameter
 frame = "LIFT_SMRP"            # a rotor frame: one probe set per rotor it reaches
 parameters = ["MACH", "VELOCITY", "VX", "VY", "VZ", "STATIC_PRESSURE_RATIO"]
 points = 25

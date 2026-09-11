@@ -653,6 +653,27 @@ class PlotsSpec(BaseModel):
         return value
 
 
+def _probes_are_a_list(value):
+    """Refuse the 0.15.0 `[probes]` table, naming the edit (FR-77).
+
+    A table and an array of tables are one bracket apart in TOML and the
+    difference is invisible until something reads it, so the refusal spells out
+    what to type. Whoever meets this is holding a workspace that planned
+    yesterday, and a message saying only "expected a list" would leave them
+    guessing which bracket.
+    """
+    if isinstance(value, Mapping):
+        raise ValueError(
+            "`[probes]` is a LIST of tables since 0.16.0, so that one artifact can "
+            "probe several frames on one row, as `[[plots.groups]]` and "
+            "`[[sections.distributions]]` already do. Write `[[probes]]` instead of "
+            "`[probes]`, once per frame you are sampling in; everything inside the "
+            "table is unchanged, `frame`, `scale`, `parameters`, `points` and the "
+            "`[[probes.lines]]` beneath it."
+        )
+    return value
+
+
 class ProbeLine(BaseModel):
     """One line of fluid probes, from one vertex to another, sampled at ``points``."""
 
@@ -1139,7 +1160,12 @@ class PprocSpec(BaseModel):
     exports: dict[str, bool] = Field(default_factory=dict)
     sections: SectionsSpec = Field(default_factory=SectionsSpec)
     plots: PlotsSpec = Field(default_factory=PlotsSpec)
-    probes: ProbesSpec = Field(default_factory=ProbesSpec)
+    #: FR-77: a LIST, so one artifact probes several frames on one row. It was
+    #: a single table until 0.16.0 and a `[probes]` written that way is refused
+    #: by `_probes_are_a_list` below, naming the edit.
+    probes: Annotated[list[ProbesSpec], BeforeValidator(_probes_are_a_list)] = Field(
+        default_factory=list
+    )
     products: ProductsSpec = Field(default_factory=ProductsSpec)
     #: How a blade family is told from the airframe: a regular expression
     #: over the family name. The author's were Blade1 to Blade6.

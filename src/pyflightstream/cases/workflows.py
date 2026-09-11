@@ -5434,9 +5434,19 @@ def _pproc_plots(case: SimCase, script: Script, frames: Frames) -> None:
                         name=f"{short}_{name}",
                         boundaries=-1,
                     )
-    probes = pproc.probes
+    # FR-77: one artifact may carry several probe tables, each in its own
+    # frame. THE VERTEX COUNTER RUNS ACROSS ALL OF THEM, because the plot name
+    # is `{parameter}{n}` and two entries restarting at 1 would write two plots
+    # to one name, which the solver takes as the same plot.
+    vertex = 0
+    for probes in pproc.probes:
+        vertex = _emit_one_probe_table(case, script, frames, probes, vertex)
+
+
+def _emit_one_probe_table(case, script, frames, probes, vertex: int) -> int:
+    """Emit one `[[probes]]` entry, returning the vertex count after it."""
     if not probes.lines or not probes.parameters:
-        return
+        return vertex
     probes = probes.model_copy(update={"frame": _the_probe_frame(case, probes.frame)})
     # A PROBE TABLE NAMES ONE ROTOR'S FRAME, and a row that does not turn
     # that rotor places it nowhere. The same rule the plots and the
@@ -5460,12 +5470,11 @@ def _pproc_plots(case: SimCase, script: Script, frames: Frames) -> None:
             PyflightstreamWarning,
             stacklevel=2,
         )
-        return
+        return vertex
     frame = _pproc_frame(case, frames, probes.frame, "the probe lines")
     scale = 1.0
     if probes.scale == "rotor_radius":
         scale = _the_radius_the_probe_lines_are_in(case, probes.frame) / 2.0
-    vertex = 0
     for line in probes.lines:
         for step in range(probes.points):
             fraction = step / (probes.points - 1)
@@ -5482,6 +5491,7 @@ def _pproc_plots(case: SimCase, script: Script, frames: Frames) -> None:
                     name=f"{parameter}{vertex}",
                     vertex=" ".join(str(value) for value in point),
                 )
+    return vertex
 
 
 #: THE SHAPE OF A ROTOR'S FRAME NAME, used only to tell a rotor frame this

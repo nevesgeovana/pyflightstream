@@ -1331,8 +1331,15 @@ def resolve_pproc(inputs_dir: Path, artifact_id: str) -> PprocArtifact:
     if not path.is_file():
         raise _miss("pproc", artifact_id, directory)
     data = _load_toml(path, "pproc")
+    # THE TOP-LEVEL LISTS THE PPROC SHAPE ITSELF DEFINES, and every other
+    # top-level list is a group of the pre-0.11.0 artifact. `probes` joined
+    # this set at 0.16.0 (FR-77), when `[probes]` became `[[probes]]` so that
+    # one artifact can sample several frames on one row: an array of tables IS
+    # a top-level list, so without this line every migrated artifact is refused
+    # as an old-shape groups file, naming a migration that would not help.
+    _OWN_LISTS = ("base_regions", "probes")
     bare = sorted(
-        key for key, value in data.items() if isinstance(value, list) and key != "base_regions"
+        key for key, value in data.items() if isinstance(value, list) and key not in _OWN_LISTS
     )
     if bare:
         raise InputArtifactError(
