@@ -942,13 +942,21 @@ def test_every_collect_outputs_call_names_its_datapoint():
     """
     import re
 
-    # Anchored on the INSTALLED package, as the layering checks above are, and
-    # then up two to the repository, so the example tree is found beside it.
-    repo = _SRC.parent.parent
-    roots = [p for p in (_SRC, repo / "examples") if p.is_dir()]
-    assert len(roots) == 2, (
-        f"the example tree was not found beside the package at {repo}; this check "
-        "would then pass by looking at nothing"
+    # ANCHORED ON THIS TEST FILE AND NOT ON THE INSTALLED PACKAGE, which is
+    # what the first version did and what the release job caught: against the
+    # WHEEL, `pyflightstream.__file__` is in site-packages and there is no
+    # `examples/` beside it, so the guard refused a tree it was never looking
+    # at. It asks a question about the REPOSITORY -- are the call sites a user
+    # copies from correct -- and the repository is this file's own ancestor in
+    # both runs, because CI checks the repo out and runs its tests against the
+    # installed distribution.
+    repo = Path(__file__).resolve().parents[2]
+    roots = [repo / "src", repo / "examples"]
+    missing = [str(p) for p in roots if not p.is_dir()]
+    assert not missing, (
+        f"{', '.join(missing)} is not there, so this check would pass by looking at "
+        "nothing. It reads the repository the tests were checked out from, whatever "
+        "distribution they are exercising."
     )
     call = re.compile(r"\.collect_outputs\s*\((.*?)\)", re.S)
     offenders = []
