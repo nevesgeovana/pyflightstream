@@ -2984,11 +2984,11 @@ requirement below is one seam of that division.
     `CREATE_NEW_SURFACE_SECTION`, which takes an offset and is documented on
     every build.
 
-!!! requirement "FR-84 A simulation's collected outputs live under outputs, not raw <span class='srs-pending'>pending</span>"
+!!! requirement "FR-84 A simulation's collected outputs live under outputs, not raw <span class='srs-implemented'>implemented</span>"
 
     *Origin: the author's second feedback item of 2026-09-10, "trocar
     sims\sim_<>\raw por sims\sim_<>\outputs". Carried by PFS-2036.02.
-    Evidence owed: the tests that node names.*
+    Evidence: tests/tier1_offline/test_sim_outputs_dir.py.*
 
     WHAT IT IS FOR. `raw` names how the data arrived; `outputs` names what it
     is. A reader opening a simulation folder wants the second.
@@ -3009,12 +3009,11 @@ requirement below is one seam of that division.
     because that reading is what this change is most likely to break by
     accident.
 
-!!! requirement "FR-85 A polar table is named by the standard convention and says what was swept <span class='srs-pending'>pending</span>"
+!!! requirement "FR-85 A polar table is named by the standard convention and says what was swept <span class='srs-implemented'>implemented</span>"
 
     *Origin: the author's third feedback item of 2026-09-10, "nome de
     <>_M<>_g<>.csv e <>_M<>_g<>.dat precisa ser na verdade o nome padrao com
-    sweep na variavel de sweep". Carried by PFS-2036.03. Evidence owed: the
-    tests that node names.*
+    sweep na variavel de sweep". Carried by PFS-2036.03. Evidence: tests/tier1_offline/test_products_layout.py.*
 
     WHAT IT IS FOR. The package writes one point under two conventions.
     Measured in the workspace she sent back, for one point of one run:
@@ -3043,11 +3042,11 @@ requirement below is one seam of that division.
     two rows of one sweep differ in it. A workspace holding tables under the
     old name is still read.
 
-!!! requirement "FR-86 A provenance file is named by the same convention as everything beside it <span class='srs-pending'>pending</span>"
+!!! requirement "FR-86 A provenance file is named by the same convention as everything beside it <span class='srs-implemented'>implemented</span>"
 
     *Origin: the author's fourth feedback item of 2026-09-10, "nomes arquivos
     em post\matriz\provenance fora do padrao". Carried by PFS-2036.04.
-    Evidence owed: the tests that node names.*
+    Evidence: tests/tier1_offline/test_products_layout.py.*
 
     WHAT IT IS FOR. Two conventions sit in one run for one point:
 
@@ -3065,12 +3064,12 @@ requirement below is one seam of that division.
     and a test asserts the id read back from a renamed file is the string it
     was before.
 
-!!! requirement "FR-87 Flow-field samples go to probes and carry the fluid quantities, steady or unsteady <span class='srs-pending'>pending</span>"
+!!! requirement "FR-87 Flow-field samples go to probes and carry the fluid quantities, steady or unsteady <span class='srs-implemented'>implemented</span>"
 
     *Origin: the author's fifth feedback item of 2026-09-10, "arquivo plot
     faltando os fluidos. Para deixar generico seja steady ou unsteady, vamos
     deixar os plots unsteady de fluidos em uma pasta probes". Carried by
-    PFS-2036.05. Evidence owed: the tests that node names.*
+    PFS-2036.05. Evidence: tests/tier1_offline/test_products_layout.py.*
 
     TWO CLAIMS AND THEY ARE SEPARABLE. First, the file is missing the fluid
     quantities: the unsteady plots emit forces AND fluid properties, and the
@@ -3093,11 +3092,11 @@ requirement below is one seam of that division.
     requested fluid parameters, and asserts that a steady row and an unsteady
     row citing the same artifact produce the same path.
 
-!!! requirement "FR-88 The polar tables live in a polars subfolder <span class='srs-pending'>pending</span>"
+!!! requirement "FR-88 The polar tables live in a polars subfolder <span class='srs-implemented'>implemented</span>"
 
     *Origin: the author's sixth feedback item of 2026-09-10, "crie uma
     subpasta polars para os arquivos <>_M<>_g<>.csv e <>_M<>_g<>.dat atuais".
-    Carried by PFS-2036.06. Evidence owed: the tests that node names.*
+    Carried by PFS-2036.06. Evidence: tests/tier1_offline/test_products_layout.py.*
 
     WHAT IT IS FOR. Measured in the workspace she sent back, `post/matriz/`
     holds the polar tables loose at its top level beside `sections/`,
@@ -3112,14 +3111,13 @@ requirement below is one seam of that division.
     into a per-polar directory would satisfy a check that only looked for an
     empty top level. A test asserts both halves.
 
-!!! requirement "FR-89 One derived file per polar and group carries everything the workspace knows <span class='srs-pending'>pending</span>"
+!!! requirement "FR-89 One derived file per polar and group carries everything the workspace knows <span class='srs-implemented'>implemented</span>"
 
     *Origin: the author's seventh feedback item of 2026-09-10, "crie um super
     arquivo derivado ... de forma que apenas com o arquivo se sabe tudo sobre
     aquela simulacao", and, asked again the same evening, "todas as variaveis
     que definem a condicao de voo precisam obrigatoriamente estar nesse super
-    arquivo". Carried by PFS-2036.07. Evidence owed: the tests that node
-    names.*
+    arquivo". Carried by PFS-2036.07. Evidence: tests/tier1_offline/test_post_superfile.py.*
 
     WHAT IT IS FOR. Knowing what one simulation was and what it produced
     currently takes the polar table, the campaign sweep table, the matrix row,
@@ -3150,11 +3148,10 @@ requirement below is one seam of that division.
     author's own statement of the acceptance is one sentence: if she has to
     open a second file to know something about that simulation, it failed.
 
-!!! requirement "FR-90 The post stage writes no file twice <span class='srs-pending'>pending</span>"
+!!! requirement "FR-90 The post stage writes no file twice <span class='srs-implemented'>implemented</span>"
 
     *Origin: measured on 2026-09-10 while reading the workspace she sent back;
-    she did not report it. Carried by PFS-2036.08. Evidence owed: the tests
-    that node names.*
+    she did not report it. Carried by PFS-2036.08. Evidence: tests/tier1_offline/test_run_cli.py.*
 
     WHAT IT IS FOR. Measured in her `post/matriz/`:
 

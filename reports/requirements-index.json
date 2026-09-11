@@ -835,57 +835,57 @@
    "id": "FR-84",
    "text": "WHAT IT IS FOR. raw names how the data arrived; outputs names what it is. A reader opening a simulation folder wants the second.",
    "priority": "M",
-   "status": "pending",
-   "evidence": "*Origin: the author's second feedback item of 2026-09-10, \"trocar sims\\sim_<>\\raw por sims\\sim_<>\\outputs\". Carried by PFS-2036.02. Evidence owed: the tests that node names.*",
-   "verification": "none"
+   "status": "implemented",
+   "evidence": "*Origin: the author's second feedback item of 2026-09-10, \"trocar sims\\sim_<>\\raw por sims\\sim_<>\\outputs\". Carried by PFS-2036.02. Evidence: tests/tier1_offline/test_sim_outputs_dir.py.*",
+   "verification": "test"
   },
   {
    "id": "FR-85",
    "text": "WHAT IT IS FOR. The package writes one point under two conventions. Measured in the workspace she sent back, for one point of one run:",
    "priority": "M",
-   "status": "pending",
-   "evidence": "*Origin: the author's third feedback item of 2026-09-10, \"nome de <>_M<>_g<>.csv e <>_M<>_g<>.dat precisa ser na verdade o nome padrao com sweep na variavel de sweep\". Carried by PFS-2036.03. Evidence owed: the tests that node names.*",
-   "verification": "none"
+   "status": "implemented",
+   "evidence": "*Origin: the author's third feedback item of 2026-09-10, \"nome de <>_M<>_g<>.csv e <>_M<>_g<>.dat precisa ser na verdade o nome padrao com sweep na variavel de sweep\". Carried by PFS-2036.03. Evidence: tests/tier1_offline/test_products_layout.py.*",
+   "verification": "test"
   },
   {
    "id": "FR-86",
    "text": "WHAT IT IS FOR. Two conventions sit in one run for one point:",
    "priority": "M",
-   "status": "pending",
-   "evidence": "*Origin: the author's fourth feedback item of 2026-09-10, \"nomes arquivos em post\\matriz\\provenance fora do padrao\". Carried by PFS-2036.04. Evidence owed: the tests that node names.*",
-   "verification": "none"
+   "status": "implemented",
+   "evidence": "*Origin: the author's fourth feedback item of 2026-09-10, \"nomes arquivos em post\\matriz\\provenance fora do padrao\". Carried by PFS-2036.04. Evidence: tests/tier1_offline/test_products_layout.py.*",
+   "verification": "test"
   },
   {
    "id": "FR-87",
    "text": "TWO CLAIMS AND THEY ARE SEPARABLE. First, the file is missing the fluid quantities: the unsteady plots emit forces AND fluid properties, and the file she got back carried only the forces. That is a content defect and it is the expensive one, because the quantities are gone until the point is run again. Second, the directory is named plots, after the solver verb that produced the file, rather than after what the file holds.",
    "priority": "M",
-   "status": "pending",
-   "evidence": "*Origin: the author's fifth feedback item of 2026-09-10, \"arquivo plot faltando os fluidos. Para deixar generico seja steady ou unsteady, vamos deixar os plots unsteady de fluidos em uma pasta probes\". Carried by PFS-2036.05. Evidence owed: the tests that node names.*",
-   "verification": "none"
+   "status": "implemented",
+   "evidence": "*Origin: the author's fifth feedback item of 2026-09-10, \"arquivo plot faltando os fluidos. Para deixar generico seja steady ou unsteady, vamos deixar os plots unsteady de fluidos em uma pasta probes\". Carried by PFS-2036.05. Evidence: tests/tier1_offline/test_products_layout.py.*",
+   "verification": "test"
   },
   {
    "id": "FR-88",
    "text": "WHAT IT IS FOR. Measured in the workspace she sent back, post/matriz/ holds the polar tables loose at its top level beside sections/, plots/, provenance/ and the campaign manifests. Every other family of file has a directory and the polar tables do not, so the top level reads as a directory and a drawer at once.",
    "priority": "M",
-   "status": "pending",
-   "evidence": "*Origin: the author's sixth feedback item of 2026-09-10, \"crie uma subpasta polars para os arquivos <>_M<>_g<>.csv e <>_M<>_g<>.dat atuais\". Carried by PFS-2036.06. Evidence owed: the tests that node names.*",
-   "verification": "none"
+   "status": "implemented",
+   "evidence": "*Origin: the author's sixth feedback item of 2026-09-10, \"crie uma subpasta polars para os arquivos <>_M<>_g<>.csv e <>_M<>_g<>.dat atuais\". Carried by PFS-2036.06. Evidence: tests/tier1_offline/test_products_layout.py.*",
+   "verification": "test"
   },
   {
    "id": "FR-89",
    "text": "WHAT IT IS FOR. Knowing what one simulation was and what it produced currently takes the polar table, the campaign sweep table, the matrix row, the setup, the reference and the unsteady plots. Six files, five of them in different shapes.",
    "priority": "M",
-   "status": "pending",
-   "evidence": "*Origin: the author's seventh feedback item of 2026-09-10, \"crie um super arquivo derivado ... de forma que apenas com o arquivo se sabe tudo sobre aquela simulacao\", and, asked again the same evening, \"todas as variaveis que definem a condicao de voo precisam obrigatoriamente estar nesse super arquivo\". Carried by PFS-2036.07. Evidence owed: the tests that node names.*",
-   "verification": "none"
+   "status": "implemented",
+   "evidence": "*Origin: the author's seventh feedback item of 2026-09-10, \"crie um super arquivo derivado ... de forma que apenas com o arquivo se sabe tudo sobre aquela simulacao\", and, asked again the same evening, \"todas as variaveis que definem a condicao de voo precisam obrigatoriamente estar nesse super arquivo\". Carried by PFS-2036.07. Evidence: tests/tier1_offline/test_post_superfile.py.*",
+   "verification": "test"
   },
   {
    "id": "FR-90",
    "text": "WHAT IT IS FOR. Measured in her post/matriz/:",
    "priority": "M",
-   "status": "pending",
-   "evidence": "*Origin: measured on 2026-09-10 while reading the workspace she sent back; she did not report it. Carried by PFS-2036.08. Evidence owed: the tests that node names.*",
-   "verification": "none"
+   "status": "implemented",
+   "evidence": "*Origin: measured on 2026-09-10 while reading the workspace she sent back; she did not report it. Carried by PFS-2036.08. Evidence: tests/tier1_offline/test_run_cli.py.*",
+   "verification": "test"
   },
   {
    "id": "NFR-01",
