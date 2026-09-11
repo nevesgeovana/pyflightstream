@@ -67,6 +67,11 @@ from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning
 from pyflightstream.versions import FsVersion, known_versions, resolve
 
 _DASHED_LINE = re.compile(r"^-{4,}$")
+#: Where one page of the log's residual table ends and the next begins. The
+#: export repeats the header every hundred rows, so the table is read page by
+#: page and the pages joined; see `parse_residual_history` for the
+#: measurement that made this necessary.
+_RESIDUAL_PAGE = re.compile(r"^Iteration", re.MULTILINE)
 _SOFTWARE_LINE = re.compile(
     r"Software\s*:\s*Flightstream version\s+(?P<version>\S+),\s*build\s*#(?P<build>\d+)",
     re.IGNORECASE,
@@ -1246,6 +1251,37 @@ class ResidualSample:
     pressure_residual: float
 
 
+#: A printed field the solver could not fit its value into. Fortran writes a
+#: run of asterisks when a number is wider than its format, and the log's
+#: residual columns are narrow.
+_OVERFLOWED_FIELD = re.compile(r"^\*+$")
+
+
+def _residual_cell(token: str) -> float:
+    """One residual cell, or NaN where the solver could not print it.
+
+    NOT A REFUSAL, and not infinity either. Measured on 26.123, iteration
+    146 of a 198-iteration run, with its two neighbours beside it:
+
+        145    +2.1752754E-6    +9.1412955E-9
+        146    +2.1313669E-6    *************
+        147    +2.0894156E-6    +7.5856726E-9
+
+    The neighbours are tiny, so the asterisks are a field too NARROW rather
+    than a magnitude too large, and reading them as infinity would be a
+    claim the file does not make. Raising would be worse: the convergence
+    verdict is the LAST row, and one unprintable cell in the middle would
+    throw a whole run's history away.
+
+    NaN is also the conservative direction. Every comparison against it is
+    False, so a threshold test can never read an unknown residual as
+    converged, which is the error that matters.
+    """
+    if _OVERFLOWED_FIELD.match(token.strip()):
+        return float("nan")
+    return parse_number(token)
+
+
 def parse_residual_history(text: str) -> list[ResidualSample]:
     """Parse the residual table of an exported solver log.
 
@@ -1267,7 +1303,34 @@ def parse_residual_history(text: str) -> list[ResidualSample]:
     """
     # Real hidden-mode log exports carry stray NUL bytes between lines
     # (observed on 26.120 build 7012026); scrub them before parsing.
-    rows = delimited_table(text.replace("\x00", ""), "Iteration", delimiter=None)
+    clean = text.replace("\x00", "")
+    # EVERY PAGE, AND NOT ONLY THE FIRST. `EXPORT_LOG` prints this table in
+    # pages of one hundred rows, each repeating the `Iteration` header and
+    # closing with a dashed line, and `delimited_table` returns the FIRST
+    # table it finds, by construction and by its own docstring. So a run of
+    # more than a hundred iterations was judged on the residual it held at
+    # iteration 100, and published that number as its iteration count.
+    #
+    # MEASURED on the runs of 2026-09-11, which is where this was found:
+    # a 206-row log parsed 100 rows and reported a last velocity residual of
+    # 1.26e-5 where the file's last row reads 1.35e-6; a 1294-row log parsed
+    # 81. Every point of every recorded campaign in this estate reports an
+    # iteration count equal to a page boundary rather than a real stop, and
+    # the convergence verdict of every long run was read from the wrong row.
+    #
+    # The counter carries ACROSS pages, so joining them leaves the monotonic
+    # guard below exactly as strict as it was: a page that restarted the
+    # count is still refused by it, which is what PYFS-009 is for.
+    pages = _RESIDUAL_PAGE.split(clean)
+    rows: list[list[str]] = []
+    for index, page in enumerate(pages):
+        if index == 0:
+            continue
+        rows.extend(delimited_table("Iteration" + page, "Iteration", delimiter=None))
+    if not rows:
+        # No page at all is the same error the single-table read raised, and
+        # it is raised from the same place so the message does not change.
+        rows = delimited_table(clean, "Iteration", delimiter=None)
     history: list[ResidualSample] = []
     for row in rows:
         if len(row) < 3:
@@ -1293,8 +1356,8 @@ def parse_residual_history(text: str) -> list[ResidualSample]:
         history.append(
             ResidualSample(
                 iteration=iteration,
-                velocity_residual=parse_number(row[1]),
-                pressure_residual=parse_number(row[2]),
+                velocity_residual=_residual_cell(row[1]),
+                pressure_residual=_residual_cell(row[2]),
             )
         )
     if not history:

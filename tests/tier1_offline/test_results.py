@@ -118,6 +118,86 @@ def test_parse_residual_history_reads_the_log_table():
     assert history[-1].pressure_residual == pytest.approx(2.62e-8)
 
 
+def test_parse_residual_history_reads_every_page_of_a_paged_log():
+    """The log pages its residual table, and the convergence verdict is the LAST row.
+
+    `EXPORT_LOG` prints the table in pages of one hundred rows, each
+    repeating the `Iteration` header and closing with a dashed line.
+    `delimited_table` returns the FIRST such table by construction, so a
+    run of more than a hundred iterations was judged on the residual it
+    had at iteration 100 and reported that number as its iteration count.
+
+    MEASURED on the runs of 2026-09-11, which is where this came from:
+
+        a 206-row log parsed 100 rows, last residual 1.26e-5 where the
+          file's last row reads 1.35e-6
+        a 1294-row log parsed 81
+        every point of every recorded campaign reported `iterations`
+          equal to the page boundary, never a real stop
+
+    The fixture is a real 26.123 log, three pages, trimmed to a few rows
+    per page and otherwise byte-for-byte what the solver wrote.
+    """
+    history = parse_residual_history(read_fixture("log_residuals_paged_26.123.txt"))
+    # THE PAGES ARE JOINED, and the counter carries across them, which is
+    # what lets the monotonic guard stay exactly as strict as it was.
+    assert [sample.iteration for sample in history] == [
+        1,
+        2,
+        99,
+        100,
+        101,
+        102,
+        199,
+        200,
+        201,
+        202,
+        205,
+        206,
+    ]
+    assert history[-1].iteration == 206
+    assert history[-1].velocity_residual == pytest.approx(1.3470951e-6)
+    assert history[-1].pressure_residual == pytest.approx(2.5544698e-7)
+    # AND THE FIRST PAGE'S LAST ROW IS NOT THE VERDICT: reading one page
+    # would stop here, and this is the value the package published.
+    assert history[3].iteration == 100
+    assert history[3].velocity_residual == pytest.approx(1.2564670e-5)
+
+
+def test_parse_residual_history_keeps_a_row_whose_field_overflowed():
+    """A residual too wide for its printed field is UNKNOWN, not a failure.
+
+    Real 26.123 output, iteration 146 of a 198-iteration run:
+
+        145    +2.1752754E-6    +9.1412955E-9
+        146    +2.1313669E-6    *************
+        147    +2.0894156E-6    +7.5856726E-9
+
+    The neighbours are tiny, so the asterisks are a field too NARROW and
+    not a magnitude too large; reading them as infinity would be a claim
+    the file does not make. This shape was unreachable until the paged
+    read above landed, because it sits past the first hundred rows.
+
+    It is NaN rather than a refusal because the convergence verdict is the
+    LAST row, and raising here would throw away a whole run's history over
+    one unprintable cell in the middle of it. NaN is also the conservative
+    direction: every comparison against it is False, so a threshold test
+    can never read an unknown residual as converged.
+    """
+    import math
+
+    history = parse_residual_history(read_fixture("log_residuals_overflow_26.123.txt"))
+    assert [sample.iteration for sample in history] == [1, 100, 101, 146, 198]
+    overflowed = history[3]
+    assert overflowed.iteration == 146
+    assert overflowed.velocity_residual == pytest.approx(2.1313669e-6)
+    assert math.isnan(overflowed.pressure_residual)
+    # THE VERDICT ROW IS UNHARMED, which is the whole reason for not raising.
+    assert history[-1].iteration == 198
+    assert history[-1].velocity_residual == pytest.approx(1.2401315e-6)
+    assert history[-1].pressure_residual == pytest.approx(1.5759482e-7)
+
+
 def test_parse_residual_history_scrubs_the_nul_bytes_of_real_exports():
     text = read_fixture("log_residuals_26.120.txt").replace("\n\n", "\n\x00\n")
     history = parse_residual_history(text)

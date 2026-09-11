@@ -2888,9 +2888,19 @@ requirement below is one seam of that division.
     pfs0100 2, pfs0101 2, pfs0110 4, pfs0120 4, pfs0130 11, pfs0131 25,
     pfs0140 25, pfs0150-repro 4, pfs040 4 and pfs090 2, spanning 4.7 to
     1292.2 seconds. The four of pfs0150-repro show why a rule of thumb will
-    not do: all four record 100 iterations and took 6.8, 7.1, 289.9 and 412.3
-    seconds, so the iteration count alone predicts nothing and the run type
-    and the mesh dominate.
+    not do: they took 6.8, 7.1, 289.9 and 412.3 seconds, two orders of
+    magnitude apart, so the run type and the mesh dominate whatever else is
+    true.
+
+    ONE HALF OF THAT SENTENCE WAS AN ARTIFACT AND IS WITHDRAWN. It also said
+    all four record 100 iterations, and they do, but 100 was not a
+    measurement: the residual reader stopped at the first page of the solver
+    log, so every recorded point in this estate reports the page boundary as
+    its iteration count. The defect is fixed and the recorded manifests still
+    carry the old number, so THE ITERATION COUNTS OF EVERY CAMPAIGN RECORDED
+    BEFORE 0.16.0 ARE NOT USABLE AS CALIBRATION INPUT, and the model this
+    requirement asks for must either re-derive them from the logs, which are
+    on disk, or exclude them and say so beside its calibration-set size.
 
     The estimate prints the size of the calibration set beside it, and a test
     scores the fit against HELD-OUT recorded points, because a model measured
