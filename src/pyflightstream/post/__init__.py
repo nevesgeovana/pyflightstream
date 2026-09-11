@@ -83,15 +83,20 @@ from pyflightstream.workspace import register_post_stage
 
 
 def __getattr__(name: str) -> object:
-    """Serve the polar format's former names here too, warning from the ledger.
+    """Refuse the polar format's REMOVED names here too, naming the replacement.
 
-    Those names were spelled with a possessive prefix before 0.14.0 and are
-    spelled ``custom`` now; the old ones are read until 0.16.0.
+    Those names were spelled with a possessive prefix before 0.14.0, are
+    spelled ``custom`` since, and were removed at 0.16.0 on their promise.
 
-    The package warns itself rather than routing through the products
-    shim: a from-import asks the package twice (``hasattr`` before the
-    import opcode's own lookup), and routing warned twice for it.
+    The package answers for itself rather than routing through the
+    products shim: a from-import asks the package twice (``hasattr``
+    before the import opcode's own lookup), and routing warned twice for
+    it.
     """
+    from pyflightstream._deprecations import REMOVED_AT_0_16_0, removed_name_refusal
+
+    if name in REMOVED_AT_0_16_0:
+        raise AttributeError(removed_name_refusal(__name__, name))
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 

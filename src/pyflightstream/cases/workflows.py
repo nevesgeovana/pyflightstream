@@ -5762,8 +5762,13 @@ def _emit_one_probe_table(case, script, frames, probes, vertex: int, *, unsteady
             # FR-81. A STEADY ROW CREATES THE POINTS IT EXPORTS. It has no
             # fluid plots, which is what places a vertex on an unsteady row, so
             # until 0.16.0 it emitted `EXPORT_PROBE_POINTS` and no creation verb
-            # at all: the script asked the solver to export a thing nobody made,
-            # and the export returned whatever the geometry arrived carrying.
+            # at all: the script asked the solver to export a thing nobody
+            # made. WHAT THE SOLVER THEN RETURNED IS INFERRED AND NOT MEASURED,
+            # and this comment used to assert it. FR-81's measurement is of the
+            # EMITTED SCRIPT -- creation verbs none, export present -- which is
+            # a fact about this package; what an unpaired export produces at
+            # the machine is a solver behaviour no dated probe in this tree
+            # covers.
             # That is the same defect as the fifty dummy surface sections, one
             # family over.
             #
@@ -5966,8 +5971,15 @@ def _pproc_sections(case: SimCase, script: Script, frames: Frames) -> None:
     An entry's families are resolved through the opened inventory in the
     order the entry lists them, families the geometry does not carry
     being left out as the author's driver left them out, and an entry resolving
-    to none is skipped. Emitted before the solver is initialised, so the
-    sections exist when UPDATE_ALL_SURFACE_SECTIONS runs after it.
+    to none is skipped.
+
+    WHERE THIS IS EMITTED IS NOT THIS DOCSTRING'S TO STATE, and the sentence
+    that used to state it here said the OPPOSITE of what the caller does: it
+    read "emitted before the solver is initialised", which is the pre-FR-83
+    station, and gave the reasoning FR-83 refutes. The station is the caller's
+    fact and the call site owns it, with its measurement: `_script_tail` emits
+    this between `INITIALIZE_SOLVER` and `START_SOLVER`, which is where her own
+    recorded scripts put it.
     """
     pproc = case.pproc
     if pproc is None or not pproc.sections.distributions:

@@ -3571,7 +3571,22 @@ def _execute_point(
     # script that placed them. An unsteady plots export numbers its columns
     # `MACH7`, `VELOCITY7` and never says where vertex 7 is, so this file is
     # the only thing that can place a point of that table.
-    probe_points_file = _write_probe_points(sim_dir, case.sim_id, script.probe_points)
+    #
+    # A COLLISION HERE IS THIS POINT'S FAILURE AND NOT THE CAMPAIGN'S. The
+    # refusal was the one statement in this function that escaped the loop,
+    # so a single row whose name collides with a points file the user wrote
+    # aborted a campaign whose earlier points had already spent the licence
+    # (the interface lens at the release boundary, 2026-09-11). Every other
+    # build failure around it records the point and carries on, and a seat
+    # is the scarce thing here.
+    try:
+        probe_points_file = _write_probe_points(sim_dir, case.sim_id, script.probe_points)
+    except PyflightstreamError as error:
+        return RunRecord(
+            **base,
+            status=RunStatus.FAILED_SCRIPT,
+            error=f"{type(error).__name__}: {error}",
+        )
     if probe_points_file is not None:
         base["probe_points_file"] = probe_points_file
     # PFS-2031.13. The child script of a SCRIPT action is parked on the

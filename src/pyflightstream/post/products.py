@@ -627,11 +627,20 @@ class CustomPolarTable:
 
 
 def __getattr__(name: str) -> object:
-    """Serve the polar format's former names, warning from the ledger.
+    """Refuse the polar format's REMOVED names, naming the replacement.
 
-    Those names carried a possessive prefix before 0.14.0 and are spelled
-    ``custom`` now; the old ones are read until 0.16.0.
+    Those names carried a possessive prefix before 0.14.0, are spelled
+    ``custom`` since, and were removed at 0.16.0 on their promise. This
+    hook used to carry a docstring saying it SERVED them and warned, over
+    a body that raised the bare AttributeError Python raises with no hook
+    at all: the user this most fails is the one upgrading from a
+    published 0.14.0, where the old name still worked (the interface lens
+    at the release boundary, 2026-09-11).
     """
+    from pyflightstream._deprecations import REMOVED_AT_0_16_0, removed_name_refusal
+
+    if name in REMOVED_AT_0_16_0:
+        raise AttributeError(removed_name_refusal(__name__, name))
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 

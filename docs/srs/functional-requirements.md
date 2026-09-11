@@ -3018,7 +3018,10 @@ requirement below is one seam of that division.
     tests/tier1_offline/test_workflows.py.*
 
     WHAT IT IS FOR. A run came back with fifty surface sections that say
-    nothing. Measured over the nineteen committed licensed runs: 19 of 19
+    nothing. Measured over the nineteen committed licensed runs of
+    `tests/tier3_licensed/`, which is the locator this sentence carried
+    nowhere while every other measured claim of this range names its
+    artifact (the verification lens at the release boundary, 2026-09-11): 19 of 19
     declare twenty sections and write twenty blocks, 19 of the 20 identical,
     and 11 of the 19 came back with all twenty EMPTY. So every sectional
     result this package produced before 0.16.0 is one cut repeated, and more

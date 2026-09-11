@@ -34,7 +34,7 @@ tag that names it. CHANGELOG.md carries the release history.
 from running 0.15.0 at work and reading what came back, and two of them are
 defects found while measuring for the others. A surface-section
 distribution is created AFTER the solver is initialised, which is where her
-own recorded scripts put it and which is why fifty sections said nothing; a
+own recorded working scripts put it; a
 steady row now CREATES the probe points it exports, instead of asking the
 solver to export something nobody made; a probe entry prescribes a rectangular
 or a circular plane, point by point, or cites a points file she wrote; and
@@ -58,6 +58,16 @@ from this workspace's own recorded wall times and not a measurement, and a
 point with no comparable recorded run gets no number at all. And a probe
 table now says WHERE each sample is, with the frame it is measured in,
 which an unsteady export never stated at all.
+
+**One limitation to know before you run a sweep.** `pyfs-matrix run` judges
+each finished point with the standard assessor, which reads the loads
+spreadsheet that point exported. Every point of one row writes into the same
+simulation folder, so from the SECOND point of a swept row onward the assessor
+finds two files that both read as loads tables and refuses rather than guessing
+between them. A row with one sweep value runs end to end; a row with several
+does not yet. Running such a row from Python with an assessor of your own is
+unaffected, and the defect is reproduced by a strict expected failure in the
+suite rather than only described, so the day it is fixed the suite says so.
 
 **What changes for you at v0.16.0.** This is the most breaking release of
 the set, and the break is first: `[probes]` IS NOW `[[probes]]`, a list of

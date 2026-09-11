@@ -12,9 +12,10 @@ FlightStream versions.
 - **The Zenodo archive of v0.14.0 did not exist when it was last measured**,
   against Zenodo's own API on 2026-09-10, and it has NOT been re-checked
   since; the date is carried because this is a claim about an external
-  service and a reader needs to know what to re-run. The row for v0.16.0 is
-  owed too, and for a different reason: a version DOI is minted from the
-  GitHub release, so it is always recorded one commit AFTER the tag it names.
+  service and a reader needs to know what to re-run.
+- **The Zenodo archive row of v0.16.0 and its DOI are owed**, for a different
+  reason: a version DOI is minted from the GitHub release, so it is always
+  recorded one commit AFTER the tag it names.
   Until each row lands this section says so, because a shipped release that
   quietly stops being citable is the gap PFS-2024.09 is about. Cite either
   release by the concept DOI, which resolves to the newest archived version.
@@ -61,6 +62,19 @@ FlightStream versions.
   so the commit that built it is not in that release, and a user who installed
   0.15.0 was told it writes a SUPER file per polar. It is moved rather than
   reworded, and the entry is byte-identical either side of the move.
+
+### Known limitations
+
+- **`pyfs-matrix run` cannot judge the second point of a swept row.** Every
+  point of one row writes into the same simulation folder, so from the second
+  point onward the standard assessor finds two files that both read as loads
+  tables and refuses rather than guessing between them. A row with one sweep
+  value runs; a row with several does not yet. Running it from Python with an
+  assessor of your own is unaffected. THIS RELEASE IS ABOUT SWEEPS -- the polar
+  name carries the swept variable, the cost table is per swept point -- so the
+  limitation is stated here rather than left in the guide alone. It is held by
+  a strict expected failure in `tests/tier1_offline/test_run_cli.py` that
+  REPRODUCES it, so the suite turns red the day it is fixed.
 
 ### Added
 

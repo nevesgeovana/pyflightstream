@@ -35,7 +35,7 @@ The library tree, created by ``CampaignWorkspace.init``:
 - ``inputs/pproc/<id>.toml``: the post-processing artifact (PFS-2029.07),
   six optional tables: ``[groups]`` maps a group name to the families it
   aggregates, ``[exports]`` selects the export kinds, ``[sections]``,
-  ``[plots]`` and ``[probes]`` are the solver definitions, ``[products]``
+  ``[plots]`` and ``[[probes]]`` are the solver definitions, ``[products]``
   says which files are written after the run. The id begins with ``p``,
   after the PPROC column that carries it; ``pyfs-matrix upgrade --inputs``
   moves a groups library (``inputs/groups/e<id>.toml``) here.
@@ -540,7 +540,7 @@ class PprocArtifact(PprocSpec):
     every one optional: ``[groups]`` exactly as the groups file held it,
     a name to the boundary labels or 1-based indices it aggregates;
     ``[exports]`` which of the eight export kinds a point writes;
-    ``[sections]``, ``[plots]`` and ``[probes]`` the solver definitions
+    ``[sections]``, ``[plots]`` and ``[[probes]]`` the solver definitions
     the builders emit; ``[products]`` the post-processed files written
     after the run. Group members are stored verbatim and resolved by the
     script layer at emission time, as before. The shape is
@@ -1346,7 +1346,7 @@ def resolve_pproc(inputs_dir: Path, artifact_id: str) -> PprocArtifact:
             f"the pproc artifact {path} carries group(s) {', '.join(bare)} at the top "
             "level, which is the shape the groups artifact had before 0.11.0. A pproc "
             "file holds its groups under a [groups] table, beside [exports], "
-            "[sections], [plots], [probes] and [products]; "
+            "[sections], [plots], [[probes]] and [products]; "
             "pyflightstream.workspace.migrate_groups_to_pproc moves a groups file into "
             "that shape, given the workspace inputs directory (the command line "
             "spells it inputs (CLI: --inputs) on `pyfs-matrix upgrade`)."

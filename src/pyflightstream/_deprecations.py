@@ -538,6 +538,43 @@ MATRIX_FS_VERSION: dict[str, DeprecatedParameter] = {
 #: rather than the thing was ever deprecated, and `custom_polar_format`
 #: writes exactly what `her_polar_format` wrote.
 
+#: FR-08. The five names of the polar format that 0.14.0 deprecated and
+#: 0.16.0 removed, old spelling to new. A module asked for one of these
+#: raised a BARE AttributeError until the release panel read it on
+#: 2026-09-11: the hooks that were meant to answer carried a docstring
+#: promising a warning over a body that did what no hook does. The users
+#: this most fails are the ones upgrading from a PUBLISHED 0.14.0, where
+#: the promise was real and where the old name still worked.
+REMOVED_AT_0_16_0: dict[str, str] = {
+    "HerPolarTable": "CustomPolarTable",
+    "her_polar_file_name": "custom_polar_file_name",
+    "write_her_polar_format": "write_custom_polar_format",
+    "read_her_polar_format": "read_custom_polar_format",
+    "her_polar_format": "custom_polar_format",
+}
+
+
+def removed_name_refusal(module: str, name: str) -> str:
+    """Say that a removed name is gone AND what to write instead.
+
+    The replacement comes first, because that is the only part of the
+    sentence a reader has to act on. The format is named as untouched
+    because the fear a rename raises is that the OUTPUT changed, and it
+    did not: only the spelling that named a person rather than the thing
+    was ever deprecated.
+    """
+    replacement = REMOVED_AT_0_16_0[name]
+    return (
+        f"{name} was removed in v0.16.0; write {replacement} instead. It was "
+        f"renamed in v0.14.0, warned through v0.15.0, and the removal is that "
+        f"promise kept on time. THE FORMAT IS UNCHANGED: {replacement} writes "
+        f"exactly what {name} wrote, and only the spelling that named a person "
+        f"rather than the thing was ever deprecated. In a pproc artifact the "
+        f"same rename applies to the [products] key her_polar_format, which is "
+        f"custom_polar_format. (asked of module {module!r})"
+    )
+
+
 #: THE ONE PROMISE OF 0.15.0 THAT MOVED RATHER THAN BEING KEPT, and the
 #: measurement that moved it. A manifest is the ONE surface this package
 #: cannot regenerate: every other name it renamed lives in code a user

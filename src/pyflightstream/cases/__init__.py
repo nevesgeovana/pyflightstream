@@ -754,7 +754,7 @@ class ProbeCircle(BaseModel):
 
 
 class ProbesSpec(BaseModel):
-    """The ``[probes]`` table: fluid plots along lines, in a frame, per parameter.
+    """One ``[[probes]]`` entry: fluid plots along lines, in a frame, per parameter.
 
     Each line is sampled at ``points`` vertices from ``start`` to ``end``,
     and every vertex gets one UNSTEADY_SOLVER_NEW_FLUID_PLOT per parameter,

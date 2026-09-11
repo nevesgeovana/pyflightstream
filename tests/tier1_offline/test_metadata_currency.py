@@ -309,6 +309,31 @@ def test_the_header_declares_the_kind_of_tree_it_actually_heads():
 ARCHIVE_ROWS_BEGIN_AT = (0, 3, 0)
 
 
+def _owed_claims(owed: str) -> list[str]:
+    """Split the Owed section into CLAIMS, one per bullet, however each wraps.
+
+    A markdown bullet is one statement whatever the line width is, and this
+    guard asks whether a statement names both a release and its archive. Asked
+    of physical lines instead, the answer depends on where the paragraph broke.
+
+    Returns
+    -------
+    list of str
+        One entry per `- ` bullet, its continuation lines joined with spaces.
+        Text before the first bullet is dropped: a section that states its debt
+        in a preamble rather than as a bullet has not written a claim this
+        guard can read, and saying so by failing is the honest answer.
+    """
+    claims: list[str] = []
+    for raw in owed.splitlines():
+        stripped = raw.strip()
+        if stripped.startswith(("- ", "* ")):
+            claims.append(stripped[2:])
+        elif stripped and claims:
+            claims[-1] += " " + stripped
+    return claims
+
+
 def _the_owed_section() -> str:
     """Return the changelog's `### Owed` block of the Unreleased section.
 
@@ -398,17 +423,35 @@ def test_every_released_tag_has_an_archive_row_or_the_changelog_says_it_is_owed(
         if rows:
             by_row.append(tag)
         elif any(
-            f"v{version}" in line
-            and any(word in line.lower() for word in ("archive", "doi", "identifier"))
-            for line in owed.splitlines()
+            f"v{version}" in claim
+            and any(word in claim.lower() for word in ("archive", "doi", "identifier"))
+            # AND IT SAYS THE THING IS OWED. Reading the claim rather than the
+            # line closed the false NEGATIVE and left the false POSITIVE open:
+            # a bullet that merely MENTIONS a version and an archive declared
+            # the debt, so prose owing nothing satisfied the guard. Measured by
+            # restoring exactly that on 2026-09-11, under this heading, and
+            # watching it pass. A debt is a claim that something is owed.
+            and any(word in claim.lower() for word in ("owed", "owe", "not exist", "missing"))
+            for claim in _owed_claims(owed)
         ):
-            # THE LINE MUST NAME THE ARCHIVE, not merely the version. The
+            # THE CLAIM MUST NAME THE ARCHIVE, not merely the version. The
             # first writing asked whether the version appeared ANYWHERE in
             # the Unreleased section, and the section mentions v0.14.0 in
             # three sentences about other things entirely, one of them
             # about frame names still resolving. Sabotaging the real Owed
             # line left the guard green (measured 2026-09-10), which is the
             # check-that-accepts-everything defect this estate records.
+            #
+            # A CLAIM IS A BULLET AND NOT A PHYSICAL LINE, which is the
+            # second half and was open until 2026-09-11. Reading
+            # `owed.splitlines()` made the verdict depend on where a
+            # hard-wrapped paragraph happened to break: v0.14.0 and v0.16.0
+            # were both declared, in one sentence each, and only the one
+            # whose version landed on the same line as the word `archive`
+            # passed. The inverse is what makes it a defect rather than an
+            # inconvenience -- a reflow could DECLARE a release nobody owes
+            # anything about, by putting a version and the word on one line
+            # of unrelated prose (the QA lens at the release boundary).
             by_changelog.append(tag)
         else:
             invisible.append(tag)
