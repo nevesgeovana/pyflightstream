@@ -2,7 +2,7 @@
  "source": "docs/srs",
  "generated_by": "scripts/gen_requirements_index.py",
  "traceability": {
-  "cited_by_a_test": 88,
+  "cited_by_a_test": 86,
   "total": 142,
   "method": "upper bound: an id mentioned anywhere in tests/**/*.py excluding conftest.py, which is not the marked falsifying test NFR-13 asks for"
  },
@@ -771,9 +771,9 @@
    "id": "FR-76",
    "text": "WHAT IT IS FOR. count is a field of [sections] and governs every distribution in the artifact: measured, count = 25 emitted NUM_SECTIONS 25 on both entries of a two-entry artifact and count = 120 emitted 120 on both, and absent, both took the default 50. So a study wanting a hundred stations along a blade and thirty along a wing needs two pproc artifacts and a second PPROC code on the rows that want the other density. That splits a file for a number rather than for a question.",
    "priority": "M",
-   "status": "implemented",
-   "evidence": "*Origin: the author's instruction of 2026-09-10, \"sobre o surface section, registra no backlog para deixarmos a opcao de especificar por distribuicao mantendo preservando a opcao geral que tem hoje\". Carried by PFS-2035.23. Evidence: tests/tier1_offline/test_workflows.py.*",
-   "verification": "test"
+   "status": "pending",
+   "evidence": "*Origin: the author's instruction of 2026-09-10, \"sobre o surface section, registra no backlog para deixarmos a opcao de especificar por distribuicao mantendo preservando a opcao geral que tem hoje\". Carried by PFS-2035.23. Evidence owed: the tests that node names.*",
+   "verification": "none"
   },
   {
    "id": "FR-77",
@@ -827,9 +827,9 @@
    "id": "FR-83",
    "text": "WHAT IT IS FOR. NEW_SURFACE_SECTION_DISTRIBUTION as this package emits it does not distribute. It creates NUM_SECTIONS sections all at the same plane, the frame origin. Where that plane crosses the selected surface the result is N identical duplicate cuts; where it does not, N sections come back empty. Both are useless and neither is reported.",
    "priority": "M",
-   "status": "implemented",
-   "evidence": "*Origin: the author's first feedback item of 2026-09-10 after running 0.15.0 at work, \"surface sections 50 dummies criadas, entender porque\". Carried by PFS-2036.01. Evidence: tests/tier1_offline/test_workflows.py.*",
-   "verification": "test"
+   "status": "pending",
+   "evidence": "*Origin: the author's first feedback item of 2026-09-10 after running 0.15.0 at work, \"surface sections 50 dummies criadas, entender porque\". Carried by PFS-2036.01. Evidence owed: the tests that node names.*",
+   "verification": "none"
   },
   {
    "id": "FR-84",

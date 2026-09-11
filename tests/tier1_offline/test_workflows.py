@@ -548,12 +548,7 @@ def test_every_command_a_workflow_declares_is_one_it_really_emits():
     # which a reference with a moment point creates on every run type.
     pproc = PprocSpec.model_validate(
         {
-            "sections": {
-                "distributions": [
-                    # FR-83: an entry states where its cuts go.
-                    {"families": "all", "planes": ["XZ"], "extent_m": [0.0, 4.0]}
-                ]
-            },
+            "sections": {"distributions": [{"families": "all", "planes": ["XZ"]}]},
             "plots": {"groups": [{"name": "MRP_TOTAL", "families": "all"}]},
             "probes": {
                 "frame": "MRP",
@@ -3835,30 +3830,12 @@ def _her_pproc():
             "groups": {"1": ["Blade1", "S", "N", "W", "B"], "2": ["W", "B"]},
             "sections": {
                 "count": 50,
-                # FR-83: every entry states the extent its cuts are laid
-                # between, and they differ, because a fixture whose entries all
-                # state the same extent cannot tell a stated one from a constant.
                 "distributions": [
-                    {
-                        "families": "all",
-                        "frame": "LOCAL_AXIS",
-                        "planes": ["XY"],
-                        "extent_m": [0.0, 1.5],
-                    },
-                    {"families": ["W"], "frame": "MRP", "planes": ["XZ"], "extent_m": [0.0, -10.0]},
-                    {
-                        "families": ["B"],
-                        "frame": "MRP",
-                        "planes": ["XZ", "YZ"],
-                        "extent_m": [0.0, 20.0],
-                    },
-                    {
-                        "families": ["N", "S"],
-                        "frame": "MRP",
-                        "planes": ["XZ", "YZ"],
-                        "extent_m": [-2.0, 2.0],
-                    },
-                    {"families": ["P"], "frame": "MRP", "planes": ["XZ"], "extent_m": [0.0, 3.0]},
+                    {"families": "all", "frame": "LOCAL_AXIS", "planes": ["XY"]},
+                    {"families": ["W"], "frame": "MRP", "planes": ["XZ"]},
+                    {"families": ["B"], "frame": "MRP", "planes": ["XZ", "YZ"]},
+                    {"families": ["N", "S"], "frame": "MRP", "planes": ["XZ", "YZ"]},
+                    {"families": ["P"], "frame": "MRP", "planes": ["XZ"]},
                 ],
             },
             "plots": {
@@ -3908,185 +3885,24 @@ def _with_pproc(case: SimCase, geometry: Path, pproc=None) -> SimCase:
     )
 
 
-def _section_creates(lines: list[str]) -> list[list[str]]:
-    """Every emitted CREATE_NEW_SURFACE_SECTION as its scalars PLUS its indices.
-
-    The command is `payload_lines`: every scalar is INLINE on the command's own
-    line and the surface indices follow on the NEXT line. The sixth scalar is
-    the surface COUNT and not a boundary index, which is a distinction this
-    helper's first version got wrong and asserted on for one run.
-
-    Returned as [frame, plane, offset, plot_direction, symmetry, surfaces,
-    *indices], so an assertion can reach either half by position.
-    """
-    out = []
-    for i, line in enumerate(lines):
-        if line.startswith("CREATE_NEW_SURFACE_SECTION "):
-            scalars = line.split()[1:]
-            indices = lines[i + 1].split(",") if i + 1 < len(lines) else []
-            out.append(scalars + [cell.strip() for cell in indices if cell.strip()])
-    return out
-
-
-def test_pproc_sections_emit_one_create_per_station_family_and_plane(tmp_path):
-    """W in XZ, B in XZ and YZ; N, S, P and the blades are left out of a wing-body.
-
-    FR-83. It was three `NEW_SURFACE_SECTION_DISTRIBUTION`, one per family and
-    plane, each asking for fifty sections and getting fifty copies of one cut.
-    It is three GROUPS of fifty creates now, and the assertion below is that
-    the offsets inside a group are DISTINCT, which is the assertion that fails
-    on every committed licensed run this repository holds.
-    """
+def test_pproc_sections_emit_one_distribution_per_family_and_plane(tmp_path):
+    """W in XZ, B in XZ and YZ; N, S, P and the blades are not in a wing-body and are left out."""
     case = _with_pproc(unsteady_case(), _wb_geometry(tmp_path))
     lines = rendered(case).splitlines()
-    creates = _section_creates(lines)
-    assert len(creates) == 150, (
-        f"three family-and-plane groups of fifty stations each; got {len(creates)}"
-    )
-
-    # The first group: W in XZ, in frame 2, over surface 1.
-    first = creates[0]
-    assert first[0] == "2" and first[1] == "XZ", first
-    # [5] is the surface COUNT and [6] the first boundary index.
-    assert first[3] == "1" and first[4] == "DISABLE", first
-    assert first[5] == "1" and first[6] == "1", first
-
-    # THE PROPERTY THE REQUIREMENT IS ABOUT. Fifty stations, fifty different
-    # planes, the two stated ends included.
-    w_offsets = [float(entry[2]) for entry in creates[:50]]
-    assert len(set(w_offsets)) == 50, (
-        "the fifty cuts of one distribution are at fifty DIFFERENT offsets; "
-        f"{50 - len(set(w_offsets))} of them coincide"
-    )
-    assert w_offsets[0] == 0.0 and w_offsets[-1] == -10.0, (
-        f"the extent [0.0, -10.0] names two planes to cut at, and they are the "
-        f"first and last stations; got {w_offsets[0]} and {w_offsets[-1]}"
-    )
-    # `strict=True` refuses these two slices, which differ in length by one
-    # BY CONSTRUCTION; the pairing is deliberate and not a mismatch.
-    steps = [b - a for a, b in zip(w_offsets, w_offsets[1:], strict=False)]
-    # EVENLY SPACED TO WITHIN ONE ROUNDING UNIT, and not exactly equal: the
-    # stations are rounded to six decimals, so consecutive gaps legitimately
-    # differ in the last place. Demanding one exact gap was my own assertion
-    # being stricter than the thing it measures, which fails on a correct
-    # emission and is the shape of a guard nobody can satisfy.
-    assert max(steps) - min(steps) <= 2e-6, (
-        f"the stations are not evenly spaced; the gaps run {min(steps)} to {max(steps)}"
-    )
-    assert all(step < 0 for step in steps), (
-        "an extent running from 0.0 to -10.0 lays its stations in that direction"
-    )
-
-    # The third group is B in YZ over surface 2, and it is laid over its OWN
-    # extent, which is what makes this a per-entry key rather than a global one.
-    third = creates[100]
-    assert third[1] == "YZ" and third[6] == "2", third
-    b_offsets = [float(entry[2]) for entry in creates[100:150]]
-    assert b_offsets[0] == 0.0 and b_offsets[-1] == 20.0, (
-        f"the B entry states extent [0.0, 20.0]; got {b_offsets[0]} and {b_offsets[-1]}"
-    )
-    assert b_offsets != w_offsets, (
-        "two entries stating different extents produced the same stations, so the "
-        "extent is being read from somewhere that is not the entry"
-    )
-
-    # THE PHASE MOVED WITH THE COMMAND: an analysis command comes after the
-    # solve, where the init command it replaces came before it.
-    start = lines.index("START_SOLVER")
-    first_create = next(
-        i for i, line in enumerate(lines) if line.startswith("CREATE_NEW_SURFACE_SECTION ")
-    )
-    assert first_create > start, "the sections are created after the solver has run"
-    # The update is emitted only where the row exports sections, so the claim
-    # is made where the command exists rather than asserted into being.
-    if "UPDATE_ALL_SURFACE_SECTIONS" in lines:
-        assert lines.index("UPDATE_ALL_SURFACE_SECTIONS") > first_create, (
-            "an update of sections nobody has created yet updates nothing"
-        )
-
-
-def test_a_section_distribution_stating_no_extent_is_refused(tmp_path):
-    """FR-83's other half: a distribution that would produce nothing SAYS SO.
-
-    The cheapest place to say it is before a licensed seat is spent, not in a
-    table of identical cuts afterwards. The refusal names the key to add,
-    because whoever meets it is holding an artifact that parsed yesterday.
-    """
-    from pyflightstream.cases import PprocSpec
-
-    spec = PprocSpec.model_validate(
-        {
-            "groups": {"1": ["W", "B"]},
-            "sections": {"distributions": [{"families": ["W"], "planes": ["XZ"]}]},
-        }
-    )
-    case = _with_pproc(unsteady_case(), _wb_geometry(tmp_path), pproc=spec)
-    with pytest.raises(CampaignConfigError) as caught:
-        rendered(case)
-    message = str(caught.value)
-    assert "states no `extent_m`" in message, message
-    assert "extent_m = [<first>, <last>]" in message, (
-        "the refusal names the key to add, in the spelling the artifact uses"
-    )
-
-
-def test_a_degenerate_extent_is_refused_at_the_artifact():
-    """Two equal offsets are N cuts at one plane, which IS the defect."""
-    from pydantic import ValidationError
-
-    from pyflightstream.cases import PprocSpec
-
-    with pytest.raises(ValidationError) as caught:
-        PprocSpec.model_validate(
-            {
-                "groups": {"1": ["W"]},
-                "sections": {
-                    "distributions": [{"families": ["W"], "planes": ["XZ"], "extent_m": [2.5, 2.5]}]
-                },
-            }
-        )
-    assert "puts every cut at one plane" in str(caught.value)
-
-
-def test_an_entry_states_its_own_count_and_plot_direction(tmp_path):
-    """FR-76, her decision of 2026-09-10: count and plot_direction per entry.
-
-    The artifact-level values remain and remain the default. TWO ENTRIES WITH
-    DIFFERENT COUNTS ARE READ OUT OF ONE SCRIPT, because a per-entry setting
-    that is only ever tested alone is a global setting with extra syntax.
-    """
-    from pyflightstream.cases import PprocSpec
-
-    spec = PprocSpec.model_validate(
-        {
-            "groups": {"1": ["W", "B"]},
-            "sections": {
-                "count": 7,
-                "plot_direction": 1,
-                "distributions": [
-                    {"families": ["W"], "planes": ["XZ"], "extent_m": [0.0, -3.0], "count": 4},
-                    {
-                        "families": ["B"],
-                        "planes": ["XZ"],
-                        "extent_m": [0.0, 6.0],
-                        "plot_direction": 2,
-                    },
-                ],
-            },
-        }
-    )
-    case = _with_pproc(unsteady_case(), _wb_geometry(tmp_path), pproc=spec)
-    creates = _section_creates(rendered(case).splitlines())
-    assert len(creates) == 4 + 7, (
-        "the first entry states count 4 and the second states none, so it takes "
-        f"the artifact's 7; got {len(creates)} stations in total"
-    )
-    assert [entry[3] for entry in creates[:4]] == ["1"] * 4, (
-        "the first entry states no plot_direction and takes the artifact's 1"
-    )
-    assert [entry[3] for entry in creates[4:]] == ["2"] * 7, (
-        "the second entry states plot_direction 2 and must not take the artifact's 1"
-    )
+    starts = [i for i, line in enumerate(lines) if line == "NEW_SURFACE_SECTION_DISTRIBUTION"]
+    assert len(starts) == 3, "three distributions: W XZ, B XZ, B YZ"
+    blocks = [lines[i : i + 8] for i in starts]
+    assert blocks[0][1:] == [
+        "FRAME 2",
+        "PLANE XZ",
+        "NUM_SECTIONS 50",
+        "PLOT_DIRECTION 1",
+        "INCLUDE_SYMMETRY DISABLE",
+        "SURFACES 1",
+        "1",
+    ]
+    assert blocks[2][2] == "PLANE YZ" and blocks[2][-1] == "2"
+    assert lines.index("INITIALIZE_SOLVER") > starts[-1], "sections exist before the solver"
 
 
 def test_pproc_plots_emit_one_force_plot_per_group_and_frame(tmp_path):
@@ -4168,15 +3984,8 @@ def test_the_rotor_run_creates_one_axis_frame_per_blade_and_moves_them(tmp_path)
     assert lines[moving + 1] == "4", "the blade axis frame turns with the blades"
     # The pproc entries citing BLADE_AXIS take the blade's own frame: the
     # section in XY and the LOCAL plots, one per blade.
-    # FR-83: one create per station now, and its scalars are INLINE, so the
-    # frame and the plane are the first two words after the command name.
-    section = [
-        line.split()[1:3] for line in lines if line.startswith("CREATE_NEW_SURFACE_SECTION ")
-    ]
-    assert section, "the blade-axis distribution emitted no section at all"
-    assert section[0] == ["4", "XY"], (
-        f"the first station of the BLADE_AXIS entry is cut in frame 4 in XY; got {section[0]}"
-    )
+    section = [i for i, line in enumerate(lines) if line == "NEW_SURFACE_SECTION_DISTRIBUTION"]
+    assert lines[section[0] + 1 : section[0] + 3] == ["FRAME 4", "PLANE XY"]
     assert "NAME CL_LOCAL_Blade1" in lines
     at = lines.index("NAME CL_LOCAL_Blade1")
     assert lines[at - 3] == "FRAME 4"
@@ -4197,14 +4006,7 @@ def test_a_pproc_frame_the_run_did_not_create_is_refused_naming_the_created_ones
     pproc = PprocSpec.model_validate(
         {
             "sections": {
-                "distributions": [
-                    {
-                        "families": "all",
-                        "frame": "ROTOR_SMRP",
-                        "planes": ["XZ"],
-                        "extent_m": [0.0, 4.0],
-                    }
-                ]
+                "distributions": [{"families": "all", "frame": "ROTOR_SMRP", "planes": ["XZ"]}]
             }
         }
     )

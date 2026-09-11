@@ -21,8 +21,6 @@ include_symmetry = false
 families = ["Wing"]
 frame = "MRP"
 planes = ["XZ"]
-# Along the span in the MRP frame.
-extent_m = [0.0, -10.0]
 
 [plots]
 parameters = ["CL", "CDI", "CDO", "CD", "FX", "FY", "FZ", "MX", "MY", "MZ"]

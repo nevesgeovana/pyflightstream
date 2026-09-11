@@ -35,8 +35,6 @@ include_symmetry = false
 families = "rotors"
 frame = "LOCAL_AXIS"
 planes = ["XZ"]
-# Along the blade in its own axes, root to tip.
-extent_m = [0.0, 1.8288]
 
 [plots]
 parameters = ["CL", "CD", "FX", "FZ", "MY"]

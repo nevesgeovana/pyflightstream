@@ -483,67 +483,13 @@ def _check_family_selection(value: object) -> str | list[str]:
 
 
 class SectionDistribution(BaseModel):
-    """One surface-section distribution: families, frame, planes and extent.
-
-    THE EXTENT IS WHERE THE CUTS GO, and before 0.16.0 there was nowhere to say
-    it. The solver's `NEW_SURFACE_SECTION_DISTRIBUTION` does not distribute: a
-    licensed probe on 2026-09-11 emitted it with every parameter its documented
-    grammar has, over a frame whose origin sits on the wing, and it returned
-    five sections of eighty-four edges each ALL AT THE FRAME ORIGIN, four of the
-    five byte-identical. One explicit `CREATE_NEW_SURFACE_SECTION` at that same
-    plane returned the same cut byte for byte, so a distribution of N is N
-    copies of one create. Every sectional result this package produced before
-    0.16.0 is one cut repeated, and more than half are one EMPTY cut repeated.
-
-    So the package lays the stations out itself and emits one create per
-    station, and `extent_m` is the pair it lays them between, measured along the
-    plane's normal in the entry's own frame.
-
-    WHY THE ENTRY STATES IT RATHER THAN THE PACKAGE DERIVING IT. The extent is a
-    property of the selected surfaces, and this package cannot read one: the
-    mesh reader takes boundary NAMES out of the mesh block and stops, and the
-    three floats after each boundary head are its colour. A reverse-engineered
-    extent that is wrong is WORSE than the defect it replaces, because one cut
-    repeated is visibly useless and cuts in the wrong places look right. A
-    stated extent is checkable by the person who knows the geometry, and it is
-    the same kind of fact as the frame, the plane and the surfaces already
-    beside it.
-
-    AN ENTRY STATING NO EXTENT IS REFUSED. FR-83 asks that a distribution
-    producing nothing says so, and the cheapest place to say it is before a
-    licensed seat is spent rather than in a table of empty cuts afterwards.
-
-    `count` and `plot_direction` may be stated per entry and fall back to the
-    artifact's (FR-76); `include_symmetry` may not, because a plot direction is
-    a property of the CUT and two distributions can honestly want different
-    ones, while symmetry is a property of the CASE and one artifact whose
-    entries disagreed about it would be describing two cases.
-    """
+    """One surface-section distribution: families, frame and planes."""
 
     model_config = ConfigDict(extra="forbid")
 
     families: Annotated[str | list[str], BeforeValidator(_check_family_selection)]
     frame: str = "MRP"
     planes: list[Plane] = Field(min_length=1)
-    extent_m: tuple[float, float] | None = None
-    count: int | None = Field(default=None, ge=1)
-    plot_direction: Literal[1, 2] | None = None
-
-    @model_validator(mode="after")
-    def _an_extent_is_two_different_offsets(self) -> SectionDistribution:
-        """Refuse a degenerate extent: N cuts at one plane, which IS the defect."""
-        if self.extent_m is None:
-            return self
-        first, last = self.extent_m
-        if first == last:
-            raise ValueError(
-                f"section distribution over {self.planes}: extent_m = "
-                f"[{first}, {last}] puts every cut at one plane, which is exactly "
-                "what NEW_SURFACE_SECTION_DISTRIBUTION did and what this key "
-                "exists to replace. State two different offsets, or state one "
-                "plane and a count of 1."
-            )
-        return self
 
     _frame_is_named = field_validator("frame")(_a_named_frame)
 

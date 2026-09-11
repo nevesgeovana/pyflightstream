@@ -644,10 +644,12 @@ def write_superfile_report(
 #: `reports/sections-0160.json`.
 SECTIONS_REPORT_PREFIX = "sections-"
 
-#: The command one section station is emitted as. Counted by PREFIX because the
-#: command is `payload_lines`: every scalar is inline on its own line, so the
-#: name is followed by a space and never alone.
-_SECTION_COMMAND = "CREATE_NEW_SURFACE_SECTION "
+#: The command a section distribution is emitted as. It is `keyword_block`, so
+#: the name sits ALONE on its line and its arguments follow as KEY VALUE lines.
+_SECTION_COMMAND = "NEW_SURFACE_SECTION_DISTRIBUTION"
+
+#: The keyword inside that block carrying how many sections it asks for.
+_SECTION_COUNT_KEY = "NUM_SECTIONS"
 
 
 def measure_sections(root: Path, records: Sequence[Mapping[str, object]]) -> list[dict]:
@@ -688,11 +690,10 @@ def measure_sections(root: Path, records: Sequence[Mapping[str, object]]) -> lis
         entries = sections.get("distributions") or []
         if not entries:
             continue
-        default_count = int(sections.get("count", 50))
-        expected = 0
-        for entry in entries:
-            count = int(entry.get("count", default_count))
-            expected += count * max(1, len(entry.get("planes") or []))
+        # WHAT THE ARTIFACT DECLARED: the number of sections each distribution
+        # asks for. It is one number for the artifact, because `count` is a
+        # field of `[sections]` and governs every entry in it.
+        expected = int(sections.get("count", 50))
 
         # THE RECORD SAYS WHICH SCRIPT IT RAN, and it is taken from there rather
         # than matched by name. The first version of this looked for the point
@@ -707,20 +708,42 @@ def measure_sections(root: Path, records: Sequence[Mapping[str, object]]) -> lis
         script = root / "sims" / f"sim_{sim_id}" / stated
         if not script.is_file():
             continue
-        emitted = sum(
-            1
-            for line in script.read_text(encoding="utf-8", errors="replace").splitlines()
-            if line.startswith(_SECTION_COMMAND)
-        )
-        named = [script]
+        # WHAT THE SCRIPT ASKED FOR: the `NUM_SECTIONS` of every emitted block.
+        # Blocks that disagree with each other report -1 rather than one of
+        # them, so a disagreement can never be read as a match.
+        lines = script.read_text(encoding="utf-8", errors="replace").splitlines()
+        asked: list[int] = []
+        for index, line in enumerate(lines):
+            if line.strip() != _SECTION_COMMAND:
+                continue
+            for follow in lines[index + 1 : index + 9]:
+                head, _, value = follow.strip().partition(" ")
+                if head == _SECTION_COUNT_KEY:
+                    try:
+                        asked.append(int(value))
+                    except ValueError:
+                        asked.append(-1)
+                    break
+        if not asked:
+            # The artifact declares distributions and the script emitted none,
+            # which is a real disagreement and is reported as one rather than
+            # dropped: this case is what a run that exports sections it never
+            # created looks like from here.
+            emitted = 0
+        elif len(set(asked)) == 1:
+            emitted = asked[0]
+        else:
+            emitted = -1
+        blocks = len(asked)
         cases.append(
             {
                 "label": run_id,
                 "artifact": pproc_id,
-                "script": named[0].name,
+                "script": script.name,
                 "declared": len(entries),
                 "expected": expected,
                 "emitted": emitted,
+                "blocks": blocks,
             }
         )
     return cases

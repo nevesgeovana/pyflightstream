@@ -4652,7 +4652,6 @@ def _script_tail(
     frame: int | None,
     *,
     unsteady: bool,
-    frames: Frames | None = None,
 ) -> None:
     """Emit the four phases every run type ends with, each preceded by its raw commands.
 
@@ -4660,36 +4659,12 @@ def _script_tail(
     always emitted them; written once so the raw commands of a setup
     (PFS-2033.01) meet each phase at one seam rather than at four copies
     of it.
-
-    THE SURFACE SECTIONS ARE EMITTED HERE NOW, at the analysis seam, and they
-    used to be emitted by each builder BEFORE this was called. They moved
-    because the command moved: `NEW_SURFACE_SECTION_DISTRIBUTION` is an init
-    command and `CREATE_NEW_SURFACE_SECTION` is an analysis one, and the
-    script's own phase guard refused the old position the moment the emission
-    changed. The sections therefore exist only after the solve, which is what
-    the licensed probe of 2026-09-11 ran, and `UPDATE_ALL_SURFACE_SECTIONS`
-    still follows them in the export block.
-
-    `frames` is optional only so a caller with no post-processing need not
-    build one; a case whose artifact declares distributions and whose caller
-    passes none is a caller that forgot, and it is refused rather than silently
-    emitting nothing.
     """
     _raw_commands(case, script, "init")
     _initialize(case, script)
     _raw_commands(case, script, "exec")
     helpers.start_solver(script)
     _raw_commands(case, script, "analysis")
-    if frames is not None:
-        _pproc_sections(case, script, frames)
-    elif case.pproc is not None and case.pproc.sections.distributions:
-        raise CampaignConfigError(
-            f"case {case.sim_id!r}: the pproc artifact {case.pproc_id!r} declares "
-            f"{len(case.pproc.sections.distributions)} section distribution(s) and "
-            "this run was built without the frames they are measured in, so not one "
-            "of them would be emitted. That is a defect in the builder rather than "
-            "in the artifact."
-        )
     _analysis(case, script, frame)
     _raw_commands(case, script, "export")
     _export_block(conventions, case, script, unsteady=unsteady)
@@ -5602,55 +5577,14 @@ def _the_radius_the_probe_lines_are_in(case: SimCase, frame: str) -> float:
     return diameter
 
 
-#: Decimals a laid-out section station is rounded to. See `_section_stations`.
-_STATION_DECIMALS = 6
-
-
-def _section_stations(first: float, last: float, count: int) -> list[float]:
-    """Lay out the `count` offsets a distribution cuts at, `first` to `last`.
-
-    BOTH ENDS INCLUDED, because an extent names the two planes a reader asked
-    to cut at and dropping either would make the stated numbers a lie. A count
-    of one cuts at `first` alone, which is the only reading that does not
-    silently prefer one end.
-    """
-    if count <= 1:
-        return [first]
-    step = (last - first) / (count - 1)
-    # ROUNDED, at the precision the script already declares. A station of
-    # -0.5263157894736842 is sixteen digits where `SET_SIGNIFICANT_DIGITS 7`
-    # says the run carries seven, so the extra digits are noise that differs
-    # between platforms and makes a golden compare on nothing. Six decimals is
-    # below anything the solver resolves for a geometry measured in metres, and
-    # it is the same reasoning that rounds the derived rotor speed.
-    return [round(first + step * index, _STATION_DECIMALS) for index in range(count)]
-
-
 def _pproc_sections(case: SimCase, script: Script, frames: Frames) -> None:
-    """Emit `count` CREATE_NEW_SURFACE_SECTION per pproc entry and plane.
-
-    IT WAS ONE `NEW_SURFACE_SECTION_DISTRIBUTION` AND THAT COMMAND DOES NOT
-    DISTRIBUTE. A licensed probe on 2026-09-11 emitted it with every parameter
-    its documented grammar has, in a frame whose origin sits on the wing, and
-    got five sections of eighty-four edges each ALL AT THE FRAME ORIGIN, four
-    of the five byte-identical; one explicit create at that same plane returned
-    the same cut byte for byte. Measured over the nineteen committed licensed
-    runs, 19 of 19 declare twenty sections and write twenty blocks, 19 of the
-    20 byte-identical, and 11 of the 19 came back with all twenty EMPTY.
-
-    So the package lays the stations out and emits one create per station,
-    between the entry's two stated offsets and including both.
-
-    THE PHASE MOVED WITH THE COMMAND. `NEW_SURFACE_SECTION_DISTRIBUTION` is an
-    init command and `CREATE_NEW_SURFACE_SECTION` is an analysis one, so these
-    are emitted AFTER the solver has run rather than before it is initialised.
-    The probe confirmed the order works; the export block's
-    UPDATE_ALL_SURFACE_SECTIONS still follows.
+    """Emit one NEW_SURFACE_SECTION_DISTRIBUTION per pproc entry and plane.
 
     An entry's families are resolved through the opened inventory in the
     order the entry lists them, families the geometry does not carry
     being left out as the author's driver left them out, and an entry resolving
-    to none is skipped.
+    to none is skipped. Emitted before the solver is initialised, so the
+    sections exist when UPDATE_ALL_SURFACE_SECTIONS runs after it.
     """
     pproc = case.pproc
     if pproc is None or not pproc.sections.distributions:
@@ -5675,40 +5609,17 @@ def _pproc_sections(case: SimCase, script: Script, frames: Frames) -> None:
             indices = [script.resolve_boundary(f, context="pproc section") for f in families]
             if not indices:
                 indices = list(range(1, len(inventory) + 1))
-            # FR-76: the entry's own count and plot direction where it states
-            # them, the artifact's where it does not. `include_symmetry` has no
-            # per-entry form, on her decision of 2026-09-10.
-            count = entry.count if entry.count is not None else sections.count
-            direction = (
-                entry.plot_direction
-                if entry.plot_direction is not None
-                else sections.plot_direction
-            )
-            if entry.extent_m is None:
-                raise CampaignConfigError(
-                    f"case {case.sim_id!r}: section distribution {position} of the "
-                    f"pproc artifact {case.pproc_id!r} states no `extent_m`, so there "
-                    "is nowhere to put its cuts. A distribution lays `count` cuts "
-                    "between two offsets measured along the plane's normal in its "
-                    "own frame, and this package cannot derive them from the mesh. "
-                    "Add 'extent_m = [<first>, <last>]' to the entry. This is refused "
-                    "here rather than at the solver because the alternative is a "
-                    "table of identical cuts nobody can tell apart, which is what "
-                    "0.15.0 produced."
-                )
-            first, last = entry.extent_m
             for plane in entry.planes:
-                for offset in _section_stations(first, last, count):
-                    script.emit(
-                        "CREATE_NEW_SURFACE_SECTION",
-                        frame=frame,
-                        plane=plane,
-                        offset=offset,
-                        plot_direction=str(direction),
-                        symmetry="ENABLE" if sections.include_symmetry else "DISABLE",
-                        surfaces=len(indices),
-                        surface_indices=indices,
-                    )
+                script.emit(
+                    "NEW_SURFACE_SECTION_DISTRIBUTION",
+                    frame=frame,
+                    plane=plane,
+                    num_sections=sections.count,
+                    plot_direction=str(sections.plot_direction),
+                    include_symmetry="ENABLE" if sections.include_symmetry else "DISABLE",
+                    surfaces=len(indices),
+                    surface_indices=indices,
+                )
 
 
 def _export_block(
@@ -5881,7 +5792,8 @@ def _build_steady(case: SimCase, script: Script, conventions: WorkflowConvention
     helpers.free_stream(script)
     _fluid(case, script)
     _settings(case, script)
-    _script_tail(conventions, case, script, frame, unsteady=False, frames=frames)
+    _pproc_sections(case, script, frames)
+    _script_tail(conventions, case, script, frame, unsteady=False)
 
 
 # --- PFS-2028.01: the third run type, unsteady with nothing turning ----------
@@ -6381,8 +6293,9 @@ def _build_unsteady(case: SimCase, script: Script, conventions: WorkflowConventi
     # The wake termination in STEPS is the one this run type can state
     # (PFS-2030.03.04); the revolutions form was refused above.
     _settings(case, script, wake_termination_time_steps=case.solver.wake_termination_steps)
+    _pproc_sections(case, script, frames)
     _unsteady_actions(script, threshold)
-    _script_tail(conventions, case, script, frame, unsteady=True, frames=frames)
+    _script_tail(conventions, case, script, frame, unsteady=True)
 
 
 def _build_unsteady_rotor(case: SimCase, script: Script, conventions: WorkflowConventions) -> None:
@@ -6488,8 +6401,9 @@ def _build_unsteady_rotor(case: SimCase, script: Script, conventions: WorkflowCo
         delta_time=stepping.delta_time_s,
     )
     _settings(case, script, wake_termination_time_steps=_wake_termination(case, stepping))
+    _pproc_sections(case, script, frames)
     _unsteady_actions(script, threshold)
-    _script_tail(conventions, case, script, frame, unsteady=True, frames=frames)
+    _script_tail(conventions, case, script, frame, unsteady=True)
 
 
 def _refuse_one_rotor_moved_twice(case: SimCase, rotors: Sequence[RotorBlock | None]) -> None:
@@ -6704,8 +6618,9 @@ def _rotor_motions(
         delta_time=stepping.delta_time_s,
     )
     _settings(case, script, wake_termination_time_steps=_wake_termination(case, stepping))
+    _pproc_sections(case, script, frames)
     _unsteady_actions(script, threshold)
-    _script_tail(conventions, case, script, frame, unsteady=True, frames=frames)
+    _script_tail(conventions, case, script, frame, unsteady=True)
 
 
 def _clock_speed(case: SimCase, views: Sequence[SimCase], speeds: Sequence[RotorSpeed]):
@@ -7141,12 +7056,9 @@ WORKFLOWS: Mapping[str, Workflow] = {
             "SOLVER_SET_VELOCITY",
             "SOLVER_SET_ITERATIONS",
             "SOLVER_SET_CONVERGENCE",
+            "NEW_SURFACE_SECTION_DISTRIBUTION",
             "INITIALIZE_SOLVER",
             "START_SOLVER",
-            # FR-83: the sections are created AFTER the solve now, because
-            # CREATE_NEW_SURFACE_SECTION is an analysis command where the
-            # distribution it replaces was an init one.
-            "CREATE_NEW_SURFACE_SECTION",
             "UPDATE_ALL_SURFACE_SECTIONS",
             "COMPUTE_SURFACE_SECTIONAL_LOADS",
             "UPDATE_PROBE_POINTS",
@@ -7177,10 +7089,9 @@ WORKFLOWS: Mapping[str, Workflow] = {
             "SOLVER_SET_CONVERGENCE",
             "UNSTEADY_SOLVER_NEW_FORCE_PLOT",
             "UNSTEADY_SOLVER_NEW_FLUID_PLOT",
+            "NEW_SURFACE_SECTION_DISTRIBUTION",
             "INITIALIZE_SOLVER",
             "START_SOLVER",
-            # FR-83, as in the steady workflow: created after the solve.
-            "CREATE_NEW_SURFACE_SECTION",
             "UPDATE_ALL_SURFACE_SECTIONS",
             "COMPUTE_SURFACE_SECTIONAL_LOADS",
             "UPDATE_PROBE_POINTS",
@@ -7220,10 +7131,9 @@ WORKFLOWS: Mapping[str, Workflow] = {
             "SOLVER_SET_CONVERGENCE",
             "UNSTEADY_SOLVER_NEW_FORCE_PLOT",
             "UNSTEADY_SOLVER_NEW_FLUID_PLOT",
+            "NEW_SURFACE_SECTION_DISTRIBUTION",
             "INITIALIZE_SOLVER",
             "START_SOLVER",
-            # FR-83, as in the steady workflow: created after the solve.
-            "CREATE_NEW_SURFACE_SECTION",
             "UPDATE_ALL_SURFACE_SECTIONS",
             "COMPUTE_SURFACE_SECTIONAL_LOADS",
             "UPDATE_PROBE_POINTS",
