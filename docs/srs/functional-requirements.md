@@ -2779,12 +2779,13 @@ requirement below is one seam of that division.
     each against values computed in the test, because a geometry test that
     reads its expectation from the thing it tests asserts nothing.
 
-!!! requirement "FR-80 A probe entry may cite a points file the user wrote, under inputs/profiles <span class='srs-pending'>pending</span>"
+!!! requirement "FR-80 A probe entry may cite a points file the user wrote, under inputs/profiles <span class='srs-implemented'>implemented</span>"
 
     *Origin: the author's request of 2026-09-10, "eu tambem quero ter a opcao
     do usuario criar um arquivo txt com os pontos que ele deseja e no pproc,
     poder apontar esse txt. Ele deve ficar em profiles". Carried by
-    PFS-2035.27. Evidence owed: the tests that node names.*
+    PFS-2035.27. Evidence:
+    tests/tier1_offline/test_workflows.py.*
 
     WHAT IT IS FOR. A lattice the package computes from a rectangle or a
     circle covers the regular cases. A survey whose points come from somewhere

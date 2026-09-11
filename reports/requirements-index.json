@@ -2,7 +2,7 @@
  "source": "docs/srs",
  "generated_by": "scripts/gen_requirements_index.py",
  "traceability": {
-  "cited_by_a_test": 92,
+  "cited_by_a_test": 93,
   "total": 143,
   "method": "upper bound: an id mentioned anywhere in tests/**/*.py excluding conftest.py, which is not the marked falsifying test NFR-13 asks for"
  },
@@ -803,9 +803,9 @@
    "id": "FR-80",
    "text": "WHAT IT IS FOR. A lattice the package computes from a rectangle or a circle covers the regular cases. A survey whose points come from somewhere else, a rig, a previous study, a colleague's table, has no shape to declare, and rewriting it as lines loses both the points and the reason they are where they are.",
    "priority": "M",
-   "status": "pending",
-   "evidence": "*Origin: the author's request of 2026-09-10, \"eu tambem quero ter a opcao do usuario criar um arquivo txt com os pontos que ele deseja e no pproc, poder apontar esse txt. Ele deve ficar em profiles\". Carried by PFS-2035.27. Evidence owed: the tests that node names.*",
-   "verification": "none"
+   "status": "implemented",
+   "evidence": "*Origin: the author's request of 2026-09-10, \"eu tambem quero ter a opcao do usuario criar um arquivo txt com os pontos que ele deseja e no pproc, poder apontar esse txt. Ele deve ficar em profiles\". Carried by PFS-2035.27. Evidence: tests/tier1_offline/test_workflows.py.*",
+   "verification": "test"
   },
   {
    "id": "FR-81",

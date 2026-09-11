@@ -4708,8 +4708,8 @@ def _script_tail(
     # allows, and it is where her own scripts already carry `UPDATE_PROBE_POINTS`
     # and `EXPORT_PROBE_POINTS`. An unsteady row placed its vertices through the
     # fluid plots long before this point and needs nothing here.
-    if not unsteady and frames is not None:
-        _pproc_probes(case, script, frames, unsteady=False)
+    if frames is not None:
+        _pproc_probes(case, script, frames, unsteady=unsteady, analysis=True)
     _analysis(case, script, frame)
     _raw_commands(case, script, "export")
     _export_block(conventions, case, script, unsteady=unsteady)
@@ -5443,7 +5443,9 @@ def _pproc_plots(case: SimCase, script: Script, frames: Frames) -> None:
                     )
 
 
-def _pproc_probes(case: SimCase, script: Script, frames: Frames, *, unsteady: bool) -> None:
+def _pproc_probes(
+    case: SimCase, script: Script, frames: Frames, *, unsteady: bool, analysis: bool
+) -> None:
     """Emit every `[[probes]]` entry the artifact declares (FR-77, FR-81).
 
     CALLED BY ALL FOUR BUILDERS, which is the fix. This lived inside
@@ -5463,12 +5465,51 @@ def _pproc_probes(case: SimCase, script: Script, frames: Frames, *, unsteady: bo
         return
     vertex = 0
     for probes in pproc.probes:
+        # THE PHASE DECIDES WHICH ENTRIES THIS PASS EMITS, because the three
+        # verbs do not share one. An entry citing a profile imports it, and
+        # `PROBE_POINTS_IMPORT` is an ANALYSIS command, so it waits for the
+        # analysis pass whatever the run type is. An entry drawing its own
+        # lines places vertices through the fluid plots on an unsteady row,
+        # which is INIT, and through the survey line on a steady one, which is
+        # analysis again.
+        cited = bool(probes.points_file)
+        wanted = cited or not unsteady if analysis else not cited and unsteady
+        if not wanted:
+            # The vertex counter still advances for an entry this pass skips,
+            # or the numbering would depend on which pass is running.
+            vertex += 0 if cited else len(probes.lines) * probes.points
+            continue
         vertex = _emit_one_probe_table(case, script, frames, probes, vertex, unsteady=unsteady)
+
+
+#: FR-80. Where a cited probe profile is staged for the run to import. It is
+#: per SIM and not per point, on her instruction of 2026-09-11: "o probe txt que
+#: e criado automaticamente pelo pyflightstream por sim + qualquer outro que o
+#: usuario passou vai para dentro da pasta sim/profiles".
+PROBE_PROFILE_DIR = "profiles"
 
 
 def _emit_one_probe_table(case, script, frames, probes, vertex: int, *, unsteady: bool) -> int:
     """Emit one `[[probes]]` entry, returning the vertex count after it."""
-    if not probes.lines or not probes.parameters:
+    if not probes.parameters:
+        return vertex
+    if probes.points_file:
+        # FR-80: the entry cites a file the USER wrote rather than drawing its
+        # own lines. The points are read by the SOLVER from the staged copy, so
+        # this emits the import and nothing else: the package does not parse
+        # her file to re-emit it point by point, which would make this package
+        # the second author of a survey she wrote.
+        #
+        # THE EMISSION IS THE ONE THAT ALREADY EXISTED. `probes.emit_probe_import`
+        # has emitted `PROBE_POINTS_IMPORT` since the subpackage was written and
+        # nothing under `cases/` had ever called it; a second emitter beside it
+        # would be the defect rather than the feature.
+        from pyflightstream.probes import emit_probe_import
+
+        staged = f"{PROBE_PROFILE_DIR}/{probes.points_file}"
+        emit_probe_import(script, staged)
+        return vertex
+    if not probes.lines:
         return vertex
     probes = probes.model_copy(update={"frame": _the_probe_frame(case, probes.frame)})
     # A PROBE TABLE NAMES ONE ROTOR'S FRAME, and a row that does not turn
@@ -6391,7 +6432,7 @@ def _build_unsteady(case: SimCase, script: Script, conventions: WorkflowConventi
     frames.update(setup_frames)
     _rotations(case, script, {"MRP": frame, **rotor_frames, **setup_frames})
     _pproc_plots(case, script, frames)
-    _pproc_probes(case, script, frames, unsteady=True)
+    _pproc_probes(case, script, frames, unsteady=True, analysis=False)
     _significant_digits(case, script)
     helpers.free_stream(script)
     _fluid(case, script)
@@ -6484,7 +6525,7 @@ def _build_unsteady_rotor(case: SimCase, script: Script, conventions: WorkflowCo
         spinning={name: _blade_indices(case, script) for name in rotor_frames},
     )
     _pproc_plots(case, script, frames)
-    _pproc_probes(case, script, frames, unsteady=True)
+    _pproc_probes(case, script, frames, unsteady=True, analysis=False)
     _significant_digits(case, script)
     helpers.free_stream(script)
     _fluid(case, script)
@@ -6694,7 +6735,7 @@ def _rotor_motions(
     frames.update({name: index for name, index in named.items() if index is not None})
     frames.update(blade_frames)
     _pproc_plots(case, script, frames)
-    _pproc_probes(case, script, frames, unsteady=True)
+    _pproc_probes(case, script, frames, unsteady=True, analysis=False)
     _significant_digits(case, script)
     helpers.free_stream(script)
     _fluid(case, script)

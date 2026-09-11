@@ -714,6 +714,37 @@ class ProbesSpec(BaseModel):
     points: int = Field(default=25, ge=2)
     scale: Annotated[Literal["m", "rotor_radius"], BeforeValidator(_the_radius_is_a_rotors)] = "m"
     lines: list[ProbeLine] = Field(default_factory=list)
+    #: FR-80: the name of a points file the USER wrote, under
+    #: `inputs/profiles/probes/`, cited instead of `lines`. The entry still
+    #: states its `frame` and its `scale`, because a file of numbers says
+    #: nothing about where those numbers are measured, and its `parameters`,
+    #: because the file says where to sample and not what to sample.
+    points_file: str | None = None
+
+    @model_validator(mode="after")
+    def _points_come_from_one_place(self) -> ProbesSpec:
+        """Either the entry draws its own lines, or it cites a file, not both.
+
+        An entry carrying both states the survey twice, and nothing keeps the
+        two in agreement. Which one would win is the kind of question a reader
+        should never have to ask of a file they wrote.
+        """
+        if self.points_file and self.lines:
+            raise ValueError(
+                f"a probe entry in {self.frame or 'the rotor hub frame'} states both "
+                f"`points_file = {self.points_file!r}` and {len(self.lines)} "
+                "`[[probes.lines]]`, which is the survey written twice with nothing "
+                "keeping the two in agreement. State the lines, or cite the file and "
+                "delete them."
+            )
+        if self.points_file and "/" in self.points_file.replace("\\", "/"):
+            raise ValueError(
+                f"`points_file = {self.points_file!r}` names a path. It is the NAME of "
+                "a file under the workspace's `inputs/profiles/probes/`, which is "
+                "where a profile lives so that a run never writes over it; a path "
+                "would let one artifact reach outside the workspace it belongs to."
+            )
+        return self
 
     _frame_is_named = field_validator("frame")(_a_named_frame)
 

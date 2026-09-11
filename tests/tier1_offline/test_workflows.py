@@ -5286,3 +5286,84 @@ def test_no_workflow_exports_probe_points_it_never_created(tmp_path):
                 f"first at {min(created)}"
             )
     assert not unpaired, "\n  ".join(["", *unpaired])
+
+
+def test_a_probe_entry_may_cite_a_points_file_the_user_wrote(tmp_path):
+    """FR-80. Her words: "o usario criar um arquivo txt com os pontos que ele
+    deseja e no pproc, poder apontar esse txt. Ele deve ficar em profiles".
+
+    WHAT THIS ADDS IS THE CITATION AND THE RESOLUTION, NOT AN EMITTER. The
+    `probes` subpackage has emitted `PROBE_POINTS_IMPORT` since it was written
+    and, measured 2026-09-10, nothing under `cases/` had ever called it. A
+    second emitter written beside it would be the finding rather than the
+    feature, so this asserts the EXISTING verb reaches the script.
+    """
+    from pyflightstream.cases import PprocSpec
+
+    spec = PprocSpec.model_validate(
+        {
+            "groups": {"1": ["W", "B"]},
+            "probes": [
+                {
+                    "frame": "MRP",
+                    "parameters": ["VELOCITY"],
+                    "points_file": "disk_survey.txt",
+                }
+            ],
+        }
+    )
+    case = _with_pproc(unsteady_case(), _wb_geometry(tmp_path), pproc=spec)
+    lines = rendered(case).splitlines()
+
+    # `PROBE_POINTS_IMPORT` is `param_lines`: the name alone, then UNITS, FRAME
+    # and the PATH, each on its own line. The path is read from the block
+    # rather than from the command line, which is where the first version of
+    # this assertion looked.
+    at = [i for i, line in enumerate(lines) if line.startswith("PROBE_POINTS_IMPORT")]
+    assert len(at) == 1, f"one import for one cited file; got {len(at)}"
+    block = lines[at[0] : at[0] + 4]
+    assert block[1].startswith("UNITS") and block[2].startswith("FRAME"), block
+    assert block[3] == "profiles/disk_survey.txt", (
+        f"the import must name the STAGED copy under the sim's own profiles/ "
+        f"folder, not the workspace input: {block}"
+    )
+
+    # THE PACKAGE DOES NOT RE-EMIT HER POINTS. Parsing her file to write one
+    # command per vertex would make this package the second author of a survey
+    # she wrote, and the two would drift.
+    assert not [line for line in lines if line.startswith("NEW_PROBE_POINT")], (
+        "a cited profile is imported, not re-emitted point by point"
+    )
+    assert not [line for line in lines if line.startswith("NEW_PROBE_LINE")], (
+        "a cited profile replaces the survey lines, so none is drawn"
+    )
+
+
+def test_a_probe_entry_states_its_points_once(tmp_path):
+    """FR-80: lines OR a cited file, never both, and never a path.
+
+    An entry carrying both states the survey twice with nothing keeping the two
+    in agreement, and which one wins is a question a reader should never have
+    to ask of a file they wrote. A path would let one artifact reach outside
+    the workspace it belongs to.
+    """
+    from pydantic import ValidationError
+
+    from pyflightstream.cases import ProbesSpec
+
+    with pytest.raises(ValidationError) as both:
+        ProbesSpec.model_validate(
+            {
+                "frame": "MRP",
+                "parameters": ["VELOCITY"],
+                "points_file": "disk.txt",
+                "lines": [{"start": [0.0, 0.0, 0.0], "end": [1.0, 0.0, 0.0]}],
+            }
+        )
+    assert "the survey written twice" in str(both.value)
+
+    with pytest.raises(ValidationError) as path:
+        ProbesSpec.model_validate(
+            {"frame": "MRP", "parameters": ["VELOCITY"], "points_file": "sub/disk.txt"}
+        )
+    assert "names a path" in str(path.value)
