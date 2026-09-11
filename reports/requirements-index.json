@@ -3,7 +3,7 @@
  "generated_by": "scripts/gen_requirements_index.py",
  "traceability": {
   "cited_by_a_test": 68,
-  "total": 133,
+  "total": 134,
   "method": "upper bound: an id mentioned anywhere in tests/**/*.py excluding conftest.py, which is not the marked falsifying test NFR-13 asks for"
  },
  "requirements": [
@@ -813,6 +813,14 @@
    "priority": "M",
    "status": "pending",
    "evidence": "*Origin: measured on 2026-09-10 while building the probe-plane design. Carried by PFS-2035.28.*",
+   "verification": "none"
+  },
+  {
+   "id": "FR-82",
+   "text": "WHAT IT IS FOR. plan answers whether a row will run. It does not answer what running it will cost, and the cost is a licence seat and an afternoon. A study is budgeted before it is spent or it is budgeted by watching it.",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: the author's request of 2026-09-10, \"no plan, eu quero uma flag que ao ser ativada, volta tambem um resumo de tempo de execucao esperado para cada polar\", with the columns she listed and \"inclua tambem o numero de processadores setados\". Carried by PFS-2035.29.*",
    "verification": "none"
   },
   {

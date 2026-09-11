@@ -2785,3 +2785,45 @@ requirement below is one seam of that division.
     No script emits `EXPORT_PROBE_POINTS` when nothing in it created a probe
     point, and a test asserts that pairing over every workflow the package
     builds, because the defect is the PAIRING and not the run type.
+
+!!! requirement "FR-82 A plan flag tables what each polar will cost, and what it is expected to take <span class='srs-pending'>pending</span>"
+
+    *Origin: the author's request of 2026-09-10, "no plan, eu quero uma flag
+    que ao ser ativada, volta tambem um resumo de tempo de execucao esperado
+    para cada polar", with the columns she listed and "inclua tambem o numero
+    de processadores setados". Carried by PFS-2035.29.*
+
+    WHAT IT IS FOR. `plan` answers whether a row will run. It does not answer
+    what running it will cost, and the cost is a licence seat and an
+    afternoon. A study is budgeted before it is spent or it is budgeted by
+    watching it.
+
+    `pyfs-matrix plan` gains a flag that prints, beside the READY and BLOCKED
+    report, one row per polar carrying: mesh size, trailing edges marked,
+    farfield layers, viscous coupling, steady or unsteady, temporal
+    iterations, processors, and an expected time. The flag spends NO solver
+    time: everything in the table comes from the workspace and the mesh.
+
+    FIVE OF THE EIGHT COLUMNS ARE READABLE TODAY and three are not, which is
+    the shape of the work rather than a caveat. The run type is the row's
+    WORKFLOW; `viscous_coupling`, the farfield layers and
+    `max_parallel_threads` are setup settings; the temporal iterations follow
+    from `DELTA_THETA` and `REVOLUTIONS`. The mesh reader exposes boundary
+    names and labels and NO panel or vertex count, so the size column needs
+    it extended to count what it already walks. Trailing edges are a solver
+    OUTCOME of `AUTO_DETECT_TRAILING_EDGES`, so the column carries what the
+    package can derive from the mesh or what a row states, never a guess.
+
+    EVERY CELL THE PACKAGE CANNOT DERIVE PRINTS AS UNKNOWN, and a test
+    asserts that a mesh with no countable panels prints unknown in that
+    column rather than a zero. A zero is a measurement and an absence is not.
+
+    THE EXPECTED TIME IS FITTED ON RECORDED RUNS AND SAYS SO. The data
+    exists: 83 recorded points across ten workspaces, every one carrying a
+    `wall_time_s`, from 4.7 to 1292.2 seconds. Four of them show why a rule
+    of thumb will not do: all four record 100 iterations and took 6.8, 7.1,
+    289.9 and 412.3 seconds, so the iteration count alone predicts nothing
+    and the run type and mesh dominate. The estimate prints the size of the
+    calibration set beside it, and a test scores the fit against HELD-OUT
+    recorded points, because a model measured on its own training set
+    measures nothing.
