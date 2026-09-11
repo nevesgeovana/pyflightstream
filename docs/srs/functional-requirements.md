@@ -2978,11 +2978,34 @@ requirement below is one seam of that division.
     written silently, because a table of empty cuts that nothing complains
     about is how this reached the author rather than a maintainer.
 
-    WHICH MECHANISM REPLACES IT IS NOT SETTLED HERE and needs a licensed
-    probe: either the emitted grammar is incomplete, the package emitting
-    seven keywords and no extent, or the run path emits N
-    `CREATE_NEW_SURFACE_SECTION`, which takes an offset and is documented on
-    every build.
+    WHICH MECHANISM REPLACES IT WAS NOT SETTLED WHEN THIS WAS WRITTEN, and it
+    is settled now. The licensed probe this paragraph asked for ran on
+    2026-09-11 against the author's own sector geometry, one script carrying
+    its own control: phase A emitted the distribution exactly as this package
+    emits it, five sections over the wing in `PLANE XZ`; phase B deleted those
+    and emitted five `CREATE_NEW_SURFACE_SECTION` at five span stations
+    measured from the mesh. Both exported. The solver converged at iteration
+    206, the same as the recorded run beside it.
+
+        PHASE A   5 blocks, EVERY ONE Edges=0
+        PHASE B   5 blocks, Edges=84 each, 5 DISTINCT payloads, at
+                  Y = -1.5, -3.5, -5.5, -7.5, -9.0 to seven digits
+
+    The distribution found NOTHING AT ALL on a geometry where five explicit
+    cuts at the same kind of station each found eighty-four edges, and the
+    offset is honoured exactly.
+
+    So the grammar is not incomplete in a way more keywords would fix: it was
+    emitted with every parameter it has and produced five empty cuts. THE
+    MECHANISM IS N `CREATE_NEW_SURFACE_SECTION` WITH COMPUTED OFFSETS.
+
+    WHERE THE OFFSETS COME FROM is the one part left, and it is a decision
+    rather than a measurement: the extent along the cut normal is a property
+    of the selected surfaces, which this package does not read from a mesh
+    today. Until it does, or until an entry states its own extent, the
+    emission cannot be built. The probe, its script, its two exports and the
+    reader that measured them are kept under
+    `GeoverseResearch/tools/fts_workspace/pfs0160-probe-fr83/`.
 
 !!! requirement "FR-84 A simulation's collected outputs live under outputs, not raw <span class='srs-implemented'>implemented</span>"
 
