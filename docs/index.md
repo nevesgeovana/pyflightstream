@@ -6,14 +6,11 @@ solver. MIT licensed.
 Status: v0.16.0 is the current release; the changelog records what
 each release adds and what each one asks you to do.
 
-**v0.16.0 is the release the reference workspace asked for.** The additions came
-from running 0.15.0 at work and reading what came back, and two of them are
-defects found while measuring for the others. A surface-section
-distribution is created AFTER the solver is initialised, which is where the
-recorded reference scripts put it and which is why fifty sections said
-nothing; a
-steady row now CREATES the probe points it exports, instead of asking the
-solver to export something nobody made; a probe entry prescribes a rectangular
+**v0.16.0 is the sweep release.** A surface-section distribution is created
+AFTER the solver is initialised; created before, the distribution returns the
+declared number of sections and every one of them is empty. A steady row now
+CREATES the probe points it exports, instead of asking the solver to export
+something nobody made; a probe entry prescribes a rectangular
 or a circular plane, point by point, or cites a points file the user wrote; and
 `[probes]` became `[[probes]]`, a list of tables, so one artifact can probe
 several frames.

@@ -128,7 +128,7 @@ FlightStream versions.
   cost table of FR-82 goes to STDOUT because an operator asked for it with a
   flag. THE SWITCH IS A PYTHON PARAMETER AND NOT YET A COMMAND-LINE FLAG:
   `run_campaign(..., quiet=True)` silences the lines, and no `--quiet` is
-  offered by any console program. Whether one should be is hers to say.
+  offered by any console program. Whether one should be is not yet settled.
 
 - **A probe entry prescribes a rectangular or a circular PLANE, not only a line
   (FR-79).** A rectangle by three corners with a discretisation along each
@@ -152,9 +152,9 @@ FlightStream versions.
   vertex of a plane.
 
 - **A section distribution is created AFTER the solver is initialised
-  (FR-83).** The first feedback item from running 0.15.0 in production: fifty
-  dummy surface sections created, and why had to be understood. THE COMMAND WAS
-  NEVER THE
+  (FR-83).** A distribution created before the solver is initialised returns
+  the declared number of surface sections and every one of them is empty. THE
+  COMMAND WAS NEVER THE
   PROBLEM, and the first diagnosis of this said it was: that reading was
   refused, and the recorded reference scripts settled it, and the key the wrong diagnosis
   had introduced was reverted in full before the real fix landed. The cause is
@@ -312,7 +312,7 @@ FlightStream versions.
 
   What it said: "FR-75 to FR-82 are written and PENDING, the eight
   requirements the open questions and requests of 2026-09-10 produced,
-  carried by PFS-2035.22 to .29 at milestone 0.16.0. Seven came from running 0.15.0 in production;
+  carried by PFS-2035.22 to .29 at milestone 0.16.0. Seven are capability additions;
   FR-81 is a defect found while measuring for the others, where a steady row
   citing a valid `[probes]` table emits no probe creation verb and still emits
   `EXPORT_PROBE_POINTS`."
@@ -743,9 +743,9 @@ Five shims whose ledger promise named this release. Each has warned since
 
 ### Changed
 
-- **The polar format's five names are spelled `custom` where they were
-  spelled `her`** (the design decision of 2026-09-09, closing the 0.13.0 review's
-  finding API-4, "her_* on five public names has no antecedent"):
+- **The polar format's five names are spelled `custom`** (closing the 0.13.0
+  review's finding API-4, that the previous prefix on five public names had no
+  antecedent a reader could resolve):
   `[products] custom_polar_format` on the pproc artifact,
   `CustomPolarTable`, `custom_polar_file_name`, `write_custom_polar_format`
   and `read_custom_polar_format`, and the fixture

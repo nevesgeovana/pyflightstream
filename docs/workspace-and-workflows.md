@@ -1496,8 +1496,8 @@ the twenty-four column names of the polar table in its order, and every
 number at `%10.5f`. The docstring of
 `pyflightstream.post.write_custom_polar_format` is the specification, line
 by line, and `read_custom_polar_format` reads the file back (before
-0.14.0 the five names were spelled `her`; the old names and the old key
-still work and warn, and are removed in 0.16.0); the tier-1 test
+0.14.0 the five names carried a different prefix; those names and the old
+key were removed in 0.16.0); the tier-1 test
 feeds the fixture's rows through the writer and requires the fixture's
 bytes, and writes, reads and writes again what the stage produced,
 requiring equal bytes (PFS-2014.01.02).

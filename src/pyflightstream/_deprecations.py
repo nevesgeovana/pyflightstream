@@ -526,10 +526,10 @@ MATRIX_FS_VERSION: dict[str, DeprecatedParameter] = {
 #:   evidence on a version row) are stated in the field docstrings of
 #:   ``pyflightstream.commands``, which is where a reader of the key
 #:   meets them.
-#: The polar format's five public names were spelled ``her`` from 0.13.0,
-#: naming a person rather than the thing; on the decision of 2026-09-09
-#: they are spelled ``custom`` (the CHANGELOG entry of 0.14.0 names the
-#: finding). The old names warned and forwarded until 0.16.0 and are now
+#: The polar format's five public names carried a prefix from 0.13.0 that
+#: named no resolvable antecedent; since 0.14.0 they are spelled ``custom``
+#: (the CHANGELOG entry of 0.14.0 names the finding). The old names warned
+#: and forwarded until 0.16.0 and are now
 #: gone; a module asked for one raises AttributeError.
 #: KEPT ON TIME AT 0.16.0, all five of them, on 2026-09-11. The pproc key
 #: `her_polar_format` and the four module names are gone, and the nine
