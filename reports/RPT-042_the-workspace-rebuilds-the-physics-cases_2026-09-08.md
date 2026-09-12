@@ -1,4 +1,4 @@
-# RPT-042: the workspace rebuilds the physics cases inside every band she set (2026-09-08)
+# RPT-042: the workspace rebuilds the physics cases inside every band the accepting seat set (2026-09-08)
 
 The four shareable physics cases of `pyflightstream.qa.physics`, PHY-01,
 PHY-02, PHY-05 and PHY-06, ran as rows of the tier-3 workspace's

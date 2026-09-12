@@ -69,7 +69,7 @@ Stated because the honest alternative was on the table and was NOT
 taken here. `OPS-2009.02.01` offers two branches: amend NFR-02 with a
 development-only exemption, or write the cards. The first edits a
 requirement, which is the author's product-owner seat and not a
-session's, so this card takes the second. If she later decides the rule
+session's, so this card takes the second. If the accepting seat later decides the rule
 should reach only what ships to a user, this card becomes redundant
 rather than wrong, and the guard beside it
 (`tests/test_extras.py::test_every_development_tool_has_a_license_card`)

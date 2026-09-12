@@ -63,4 +63,4 @@ The run type registered, before `INITIALIZE_SOLVER`:
 The per-step files stay in the simulation folder, uncollected. How they
 reach the products is the remaining question of scope section E2 and is
 not this node's; it is registered as the next child of PFS-2031 for
-0.14.0 unless she asks for it sooner.
+0.14.0 unless the accepting seat asks for it sooner.

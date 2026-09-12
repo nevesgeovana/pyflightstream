@@ -68,7 +68,7 @@ with the aeroelastic coupling attached. Four runs, evidence-driven:
    pp.273-274). The dummy now writes commas.
 6. Blade identification: closed by the author's standing modeling
    convention (2026-07-21, confirmed on a legacy multi-boundary SMI
-   propeller run in her research archive): every blade is meshed as
+   propeller run in the reference archive): every blade is meshed as
    its own geometry family (boundary), and each blade gets its own
    section distribution targeting that boundary's surface index in
    the blade's rotating frame. The export is one flat table with the

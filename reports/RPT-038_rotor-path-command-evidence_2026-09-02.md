@@ -11,7 +11,7 @@ from.
 
 **It is not the sweep.** A sweep runs those commands on a licensed solver and
 turns `documented` into `verified` or into a refusal. That needs a seat, the
-seat is the author's to spend, and it is parked with her as the other half of
+seat is the author's to spend, and it is parked with the accepting seat as the other half of
 this item. Nothing below claims a command works on a build; every cell is a
 statement about this repository's own evidence, which is a different thing and
 is the distinction the whole item exists on.
@@ -96,7 +96,7 @@ recorded**, every one of the nineteen carrying a row. **26.122 is the one with
 a hole**, and it is a hole of six. A sweep of the flagship alone would add
 nothing this table does not have.
 
-That is the author's decision and it is put to her in the channel file as a
+That is the author's decision and it is put to the accepting seat in the channel file as a
 numbered line, not taken here.
 
 ## Reproduction

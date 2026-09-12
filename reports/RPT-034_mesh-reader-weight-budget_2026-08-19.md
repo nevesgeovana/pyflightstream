@@ -241,9 +241,9 @@ session's to move:
 
 So what this card returns to the author is a measured pair of
 statements: the reader that fits the budget is already installed by an
-extra she has already approved, and the only open question is whether it
+extra the accepting seat has already approved, and the only open question is whether it
 moves from the extra to the required set. `PFS-2025.20.02` is that
-question and it is answered in NFR-06's table, by her, not here.
+question and it is answered in NFR-06's table, by the accepting seat, not here.
 
 ## What this card does NOT establish
 

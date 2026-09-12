@@ -487,7 +487,7 @@ Five records carried the 2026-08-03 measurement.
 5. `docs/srs/nonfunctional-requirements.md`, the NFR-27 paragraph, which
    states "223 errors in 21 of 53 modules" twice. **NOT corrected here.** That
    file is a requirement sentence and this session does not hold the seat that
-   moves one; the correction is proposed to the author instead. Until she
+   moves one; the correction is proposed to the author instead. Until the accepting seat
    takes it, NFR-27 is the one record still reading 223 of 53, and a reader
    who lands there first should come back to this report.
 

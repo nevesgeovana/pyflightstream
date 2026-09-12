@@ -3018,9 +3018,7 @@ requirement below is one seam of that division.
 
 !!! requirement "FR-83 A section distribution is created after the solver is initialised <span class='srs-implemented'>implemented</span>"
 
-    *Origin: the first feedback item of 2026-09-10 after running 0.15.0 in
-    production: fifty dummy surface sections were created, and why had to
-    be understood. Carried by PFS-2036.01. Evidence:
+    *Origin: usage feedback of 2026-09-10. Carried by PFS-2036.01. Evidence:
     tests/tier1_offline/test_workflows.py.*
 
     WHAT IT IS FOR. A run came back with fifty surface sections that say

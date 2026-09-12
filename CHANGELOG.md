@@ -236,7 +236,7 @@ FlightStream versions.
 
 - **The per-polar tables live under `post/<matrix>/polars/` (FR-88), named by
   the point convention with the swept variable written `sweep` (FR-85).**
-  Measured in the workspace the owning seat sent back after running 0.15.0: the
+  Measured in the reference workspace recorded after running 0.15.0: the
   polar tables sat loose at the top of `post/matriz/` beside `sections/`,
   `plots/` and `provenance/`, so the folder read as a directory and a drawer
   at once; and one point was written under two conventions, the script
@@ -2228,7 +2228,7 @@ DEFAULT path. Most of those entries carry `documented` rather than
 `verified` status on most registered builds, which means the manual says
 the solver takes them and no committed probe report shows that it does.
 
-WHAT IS MEASURED: the owning seat ran the new rotor path end to end on a
+WHAT IS MEASURED: the new rotor path ran end to end on a
 licensed 26.123, two points, both CONVERGED at residuals of 7.59e-06 and
 4.73e-06 against their own 1e-05 limit. WHAT IS NOT: a compatibility
 sweep re-examining the verified and documented split for those thirteen
