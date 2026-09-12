@@ -594,11 +594,13 @@ WAIVED_COMMANDS_MANIFEST_KEY = DeprecatedManifestKey(
     old="broken_commands",
     new="waived_commands",
     deprecated_since="0.13.0",
-    removal_version="0.17.0",
+    removal_version="0.18.0",
     extra=(
         "The entries are WAIVERS the recipe registered, not commands that broke in the "
-        "run, which is the opposite claim. Extended from 0.15.0 on 2026-09-10 and from "
-        "0.16.0 on 2026-09-11, and the SECOND extension carries the condition that ends "
+        "run, which is the opposite claim. Extended from 0.15.0 on 2026-09-10, from "
+        "0.16.0 on 2026-09-11 and from 0.17.0 the same day when the 0.17.0 cycle opened "
+        "and the count was re-measured UNCHANGED at 18 rows in 6 manifests. The "
+        "extension carries the condition that ends "
         "it, because a promise moved twice with no condition is a promise that never "
         "expires. Measured 2026-09-11 over GeoverseResearch/tools/fts_workspace/*/"
         "runs.json: 18 recorded rows in 6 manifests still carry the old key, among them "
