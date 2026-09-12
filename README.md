@@ -118,8 +118,9 @@ read the physics cases as rows of a campaign workspace; an import of a
 removed name says so and names the replacement. Anything you wrote against
 `runs.json` or the campaign products meets three moves: the manifest key
 `broken_commands` is `waived_commands` and the schema stamp is
-`pyfs-manifest/3` (the old key is still read, and goes when no recorded
-workspace carries it rather than on a stated release); `plan.json`,
+`pyfs-manifest/3` (the old key is still read; its removal is promised for
+0.18.0 and has moved three times, each move on a re-count of the recorded
+manifests that still carry it); `plan.json`,
 `campaign_sweep.csv` and the product tables live under
 `post/<matrix stem>/`, one folder per matrix; and a registered post stage is
 called with a third keyword, `matrix_stem`. `sweep_editions` is

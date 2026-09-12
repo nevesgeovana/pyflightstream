@@ -2750,7 +2750,7 @@ def test_an_old_manifest_key_still_reads_and_its_promise_carries_an_exit_conditi
     `pfs0110/runs.json` carries the OLD key, and that workspace is the
     reference her reproduction is measured against and is held.
 
-    THE SECOND MOVE, on 2026-09-11, carries the condition that ends it,
+    THE MOVES OF 2026-09-11 carry the condition that ends it,
     because a promise moved twice with no condition is a promise that
     never expires. Measured that day over
     `GeoverseResearch/tools/fts_workspace/*/runs.json`: 18 recorded rows

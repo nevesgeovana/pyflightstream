@@ -33,14 +33,21 @@ license: MIT
 # one that has ever worked. THE TALLY, kept separate because merging the two
 # into one number is what made the first writing of this sentence
 # unreconstructable: THREE failures are recorded above, and this is the
-# SECOND time the version, the date and this sentence have moved in one
-# commit, the first having been the 0.16.0.dev0 bump of 2026-09-11. It is the
-# first time in a RELEASE commit, which is the direction that failed on
-# 2026-08-11, 2026-09-04 and 2026-09-10.
+# THIRD time the version, the date and this sentence have moved in one
+# commit: the 0.16.0.dev0 bump of 2026-09-11, the v0.16.0 RELEASE commit of
+# the same day, and this 0.17.0.dev0 bump. A FOURTH failure was caught here by
+# the verification lens rather than by the guard: the release commit advanced
+# the pair and left this sentence claiming it was the second move and the
+# first in a release, which is the exact staleness the tally exists to count
+# and which no guard can see, because the guard reads the two FIELDS and this
+# is prose about a commit.
 # The archive DOIs below are one per release from v0.3.0, newest first,
-# with the concept DOI last. v0.1.0 and v0.2.0 are absent: v0.2.0 was the
-# first release to archive, and its version DOI was not recorded here at
-# the time. The concept DOI resolves to the newest archived version
+# with the concept DOI last. THREE are absent, not two. v0.1.0 and v0.2.0:
+# v0.2.0 was the first release to archive and its version DOI was not
+# recorded here at the time. And v0.14.0, whose archive did not exist when
+# it was last measured against the service's own API; the Owed section of
+# CHANGELOG.md carries that and says what to re-run. This sentence listed
+# two and the list skipped three, which the verification lens caught. The concept DOI resolves to the newest archived version
 # either way, so nothing points at a release that cannot be cited; the
 # two missing rows are a gap in this list rather than in the archive.
 # A version DOI is minted from the GitHub release, so it is always

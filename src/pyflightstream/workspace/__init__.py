@@ -786,8 +786,10 @@ class RunRecord(BaseModel):
         package never wrote such a row and two lists for one fact is not
         a row to guess at.
 
-        THE PROMISE MOVED FROM 0.15.0 TO 0.16.0 on 2026-09-10, and the
-        ledger entry carries the measurement that moved it. The three
+        THE PROMISE HAS MOVED THREE TIMES, 0.15.0 to 0.16.0 to 0.17.0 to
+        0.18.0, and the ledger entry carries the count that moved it each
+        time rather than a preference. Read the deadline THERE and not
+        here: this sentence has been one move behind twice. The three
         PROPERTY shims of this same rename were removed on time, because
         an attribute is code and code is re-typed; a RECORD is data a run
         produced once, and the reference campaign still carries

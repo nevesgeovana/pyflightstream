@@ -13,12 +13,29 @@ FlightStream versions.
   against Zenodo's own API on 2026-09-10, and it has NOT been re-checked
   since; the date is carried because this is a claim about an external
   service and a reader needs to know what to re-run.
-- **The Zenodo archive row of v0.16.0 and its DOI are owed**, for a different
-  reason: a version DOI is minted from the GitHub release, so it is always
-  recorded one commit AFTER the tag it names.
   Until each row lands this section says so, because a shipped release that
-  quietly stops being citable is the gap PFS-2024.09 is about. Cite either
+  quietly stops being citable is the gap PFS-2024.09 is about. Cite that
   release by the concept DOI, which resolves to the newest archived version.
+
+### Changed
+
+- **The `broken_commands` manifest key is promised for removal at 0.18.0, and
+  that is its THIRD deadline.** It was 0.15.0, then 0.16.0, then 0.17.0. Each
+  move was made on a re-count rather than on a preference, and the count is
+  the same one every time: how many recorded rows still carry the old key.
+  Re-measured the moment the 0.17.0 cycle opened and UNCHANGED at 18 rows
+  across 6 manifests. A manifest is the one surface a run cannot regenerate,
+  so removing the reader orphans every one of those rows.
+  WHAT A READER SHOULD TAKE FROM A DEADLINE THAT HAS MOVED THREE TIMES: write
+  `waived_commands` now. The reader is kept for records already on disk and
+  not as a second supported spelling, and nothing this package writes has used
+  the old key since 0.13.0.
+  THE HONEST RESIDUAL, because a promise this often extended deserves it: the
+  ledger entry says the exit is a measurement and not a date, and no mechanism
+  measures it. What is mechanised is the DATE: the deadline test compares the
+  entry against the project version and goes red at 0.18.0 whatever the count
+  is, and the warning a user is shown names that release. So the count is
+  re-run when a human remembers, and the guard is what forces the question.
 
 ## [0.16.0] - 2026-09-11
 
