@@ -752,6 +752,20 @@ class RunRecord(BaseModel):
     #: it writes the number down before the solver goes away; without it
     #: `RESTART: {FINISH_PENDING}` has nothing to subtract from.
     stopped_at: dict | None = None
+    #: FR-98: the wall clock the ROW stated, in seconds, and the margin the
+    #: SETUP stated, on a run that registered the watchdog. Both are written
+    #: because neither can be recovered afterwards: the row may have been
+    #: edited and the margin has a default, so a record that says only
+    #: WALLTIME_REACHED cannot say what it reached. None on every run that
+    #: states no wall clock, which is every steady row and every unsteady
+    #: row written before 0.17.0.
+    #:
+    #: FOUND BY THE FIRST REAL RUN OF pfs0170, not by a test: the run stage
+    #: had written these two keys into the record since the watchdog landed
+    #: and this model forbids extras, so the first rotor point that stated a
+    #: WALLTIME died at the manifest with the solver's work already done.
+    walltime_s: float | None = None
+    walltime_margin_s: float | None = None
     #: FR-95, GOAL-019 item 4: the JOB this record is. One steady row is one
     #: job for all its points since 0.17.0, so a record is a job and not a
     #: point, and this is what a submitted job is asked after by. None on a

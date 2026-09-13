@@ -761,3 +761,65 @@ def test_goal019_watchdog_finish_pending_subtracts_what_the_run_reached():
             pending,
             {"stopped_at": {"step": 720}, "export_window": {"time_iterations": 720}},
         )
+
+
+def test_goal019_watchdog_the_record_of_a_watched_run_carries_its_clock(tmp_path):
+    """A row that states WALLTIME leaves a record that says what it was.
+
+    FOUND BY THE FIRST REAL RUN OF pfs0170, not by a test. The run stage
+    had written `walltime_s` and `walltime_margin_s` into the record since
+    the watchdog landed, and `RunRecord` forbids extra keys, so the first
+    rotor point that stated a WALLTIME died at the manifest with the
+    solver's work already done. Every case here went through the builders
+    and none went through the record.
+
+    BOTH NUMBERS ARE WRITTEN because neither can be recovered afterwards:
+    the row may have been edited since, and the margin has a default, so a
+    record that says only WALLTIME_REACHED cannot say what it reached.
+    """
+    from tests.tier1_offline.test_post_products import LOADS
+
+    fixture = tmp_path / "loads_fixture.txt"
+    fixture.write_text(LOADS, encoding="utf-8")
+    campaign = _threshold_campaign(tmp_path, **{ITER: "2", "WALLTIME": "3600"})
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    records = run_campaign(
+        campaign,
+        StubSolver(runs_the_counter_and_stamps_the_exports(fixture)),
+        workspace,
+        assess=converged,
+        recipes={"unsteady": workflow_registry()["unsteady"]},
+    )
+    record = records[0]
+    assert record.status is RunStatus.CONVERGED, record.error
+    assert record.walltime_s == 3600.0, f"the record says its wall clock was {record.walltime_s!r}"
+    assert record.walltime_margin_s == 1200.0, (
+        "the margin the setup left for the exports is not in the record, so a "
+        "WALLTIME_REACHED run cannot say how much time it was given to write them"
+    )
+    # And the record READS BACK, which is the half that was broken: the
+    # manifest is written and validated on the way in.
+    assert workspace.read_manifest()[0].walltime_s == 3600.0
+
+
+def test_goal019_watchdog_a_row_with_no_wall_clock_records_none(tmp_path):
+    """The control. Every steady row and every unsteady row before 0.17.0.
+
+    A field that is always filled would be a field that says nothing, and
+    a default of zero would read as a clock that had already run out.
+    """
+    from tests.tier1_offline.test_post_products import LOADS
+
+    fixture = tmp_path / "loads_fixture.txt"
+    fixture.write_text(LOADS, encoding="utf-8")
+    campaign = _threshold_campaign(tmp_path, **{ITER: "2"})
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    records = run_campaign(
+        campaign,
+        StubSolver(runs_the_counter_and_stamps_the_exports(fixture)),
+        workspace,
+        assess=converged,
+        recipes={"unsteady": workflow_registry()["unsteady"]},
+    )
+    assert records[0].walltime_s is None
+    assert records[0].walltime_margin_s is None
