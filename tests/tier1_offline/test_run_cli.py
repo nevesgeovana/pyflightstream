@@ -157,6 +157,45 @@ def run_args(workspace: CampaignWorkspace, matrix: Path = FIXTURE, *extra: str) 
     ]
 
 
+def plan_args(workspace: CampaignWorkspace, matrix: Path = FIXTURE, *extra: str) -> list[str]:
+    """The same invocation as `run_args`, for the plan the run now needs.
+
+    FR-97, GOAL-019 item 6: `pyfs-matrix run` does not release without a
+    plan that measured THIS matrix, so every test that runs one plans it
+    first. The plan spends no solver time, which is why the gate costs a
+    test nothing but a line.
+    """
+    #: The flags `run` has and `plan` does not. A plan that was handed one
+    #: exits 2 on an unrecognised argument, which reads as the gate refusing
+    #: when it is argparse.
+    run_only_with_value = {"--sweep-csv"}
+    run_only_switches = {"--resume"}
+    argv = run_args(workspace, matrix, *extra)[1:]
+    kept: list[str] = []
+    skip = False
+    for token in argv:
+        if skip:
+            skip = False
+            continue
+        if token in run_only_with_value:
+            skip = True
+            continue
+        if token in run_only_switches:
+            continue
+        kept.append(token)
+    return ["plan", *kept]
+
+
+def planned(workspace: CampaignWorkspace, matrix: Path = FIXTURE, *extra: str) -> list[str]:
+    """Plan the matrix and return the run invocation for it."""
+    # THE EXIT CODE IS NOT ASSERTED, deliberately. Several of these tests
+    # run a matrix whose pre-flight BLOCKS, to prove the refusal they are
+    # about; the plan writes its receipt either way, and demanding a green
+    # plan here would replace each of those refusals with this one.
+    main(plan_args(workspace, matrix, *extra))
+    return run_args(workspace, matrix, *extra)
+
+
 # --- the acceptance, first half ----------------------------------------------
 
 
@@ -180,7 +219,7 @@ def test_run_executes_the_matrix_and_writes_the_sweep_table(tmp_path, capsys):
     workspace = make_workspace(tmp_path)
     target = tmp_path / "sweep.csv"
     matrix = single_point_matrix(tmp_path)
-    assert main(run_args(workspace, matrix, "--sweep-csv", str(target))) == 0
+    assert main(planned(workspace, matrix, "--sweep-csv", str(target))) == 0
     out = capsys.readouterr().out
     assert str(target) in out, f"the command never said where the table went; got {out!r}"
     assert target.is_file()
@@ -218,7 +257,7 @@ def test_the_post_stage_writes_no_file_twice(tmp_path):
     """
     workspace = make_workspace(tmp_path)
     matrix = single_point_matrix(tmp_path)
-    assert main(run_args(workspace, matrix)) == 0
+    assert main(planned(workspace, matrix)) == 0
 
     post = workspace.root / "post" / matrix.stem
     by_digest: dict[str, list[str]] = {}
@@ -272,7 +311,7 @@ def test_a_campaign_with_a_failing_point_still_leaves_its_table(tmp_path, monkey
         raise CampaignErrors(workspace.read_manifest()[:1])
 
     monkeypatch.setattr(cli_module, "run_matrix", run_then_fail)
-    status = main(run_args(workspace, matrix, "--sweep-csv", str(target)))
+    status = main(planned(workspace, matrix, "--sweep-csv", str(target)))
 
     records = workspace.read_manifest()
     assert records, (
@@ -305,7 +344,7 @@ def test_the_default_sweep_table_lands_under_post_and_the_matrix_stem(tmp_path, 
     """
     workspace = make_workspace(tmp_path)
     matrix = single_point_matrix(tmp_path)
-    assert main(run_args(workspace, matrix)) == 0
+    assert main(planned(workspace, matrix)) == 0
     assert (workspace.root / "post" / matrix.stem / SWEEP_TABLE_NAME).is_file(), (
         "no --sweep-csv was given and no table was written under post/<matrix>/, so the "
         "one command did not produce the study's table where the matrix keeps it"
@@ -333,7 +372,7 @@ def test_a_swept_row_runs_end_to_end(tmp_path):
     refuses only the second one cannot hide behind the first.
     """
     workspace = make_workspace(tmp_path)
-    assert main(run_args(workspace, FIXTURE)) == 0
+    assert main(planned(workspace, FIXTURE)) == 0
     records = workspace.read_manifest()
     # ONE JOB SINCE 0.17.0, still two points. The row is steady, and a
     # steady matrix row runs as one process for all of its points, so the
@@ -400,7 +439,7 @@ def test_a_bad_reference_code_exits_two_naming_the_row_and_the_column(tmp_path, 
     """The refusal reaches the terminal unswallowed."""
     workspace = make_workspace(tmp_path)
     (workspace.inputs_dir / "references" / "r003.toml").unlink()
-    assert main(run_args(workspace)) == 2
+    assert main(planned(workspace)) == 2
     error = capsys.readouterr().err
     assert "POL 7001" in error, f"the refusal does not name the row; got {error!r}"
     assert "REF" in error, f"the refusal does not name the column; got {error!r}"
@@ -426,7 +465,7 @@ def test_a_workflow_row_declaring_no_outputs_gets_the_study_export_set(tmp_path,
     )
     matrix = tmp_path / "no_outputs.fs"
     matrix.write_text(FIXTURE.read_text(encoding="utf-8"), encoding="utf-8")
-    main(run_args(workspace, matrix))
+    main(planned(workspace, matrix))
     records = workspace.read_manifest()
     assert records, "the rows were not run at all"
     for record in records:
@@ -455,7 +494,7 @@ def test_a_code_given_both_a_recipe_and_a_workflow_is_refused_naming_both(tmp_pa
     options and not about the file.
     """
     workspace = make_workspace(tmp_path)
-    code = main(run_args(workspace, FIXTURE, "--recipe", "003=my_study.recipes:build"))
+    code = main(planned(workspace, FIXTURE, "--recipe", "003=my_study.recipes:build"))
     assert code == 2
     error = capsys.readouterr().err
     assert "003" in error
@@ -466,7 +505,7 @@ def test_a_code_given_both_a_recipe_and_a_workflow_is_refused_naming_both(tmp_pa
 
 def test_an_unknown_workflow_name_is_refused_naming_the_registered_types(tmp_path, capsys):
     workspace = make_workspace(tmp_path)
-    assert main(run_args(workspace, FIXTURE, "--workflow", "003=steafy")) == 2
+    assert main(planned(workspace, FIXTURE, "--workflow", "003=steafy")) == 2
     error = capsys.readouterr().err
     assert "steafy" in error and "unsteady_rotor" in error
 
@@ -485,7 +524,7 @@ def test_a_build_the_workflow_does_not_cover_is_refused_before_the_solver(tmp_pa
     matrix.write_text(
         FIXTURE.read_text(encoding="utf-8").replace("26.120", "26.100"), encoding="utf-8"
     )
-    args = run_args(workspace, matrix)
+    args = planned(workspace, matrix)
     args[args.index("26.120")] = "26.100"
     assert main(args) == 2
     error = capsys.readouterr().err
@@ -661,3 +700,73 @@ def test_upgrade_warns_that_the_results_move_on_both_routes(capsysbinary, tmp_pa
     # And the diffable bytes are clean: the warning is not in them.
     assert b"RESULTS are not preserved" not in captured.out
     assert captured.out.splitlines()[0].startswith(b"POL")
+
+
+# --- FR-97, GOAL-019 item 6: plan is mandatory and pinned ---------------------
+
+
+def test_goal019_plan_a_run_without_a_plan_is_refused_naming_the_command(tmp_path, capsys):
+    """Her instruction of 2026-09-12: the command does not release without one."""
+    workspace = make_workspace(tmp_path)
+    assert main(run_args(workspace, FIXTURE)) == 2
+    message = capsys.readouterr().err
+    assert "needs one" in message and "pyfs-matrix plan" in message, message
+    assert not workspace.read_manifest(), "a run with no plan reached the solver"
+
+
+def test_goal019_plan_a_stale_plan_is_refused_naming_both_digests(tmp_path, capsys):
+    """THE PIN, and it is what separates a gate from a ritual.
+
+    A mandatory plan that does not check freshness is satisfied by a stale
+    one, and then "plan, edit the matrix, run" passes a check that measured
+    a different study.
+    """
+    workspace = make_workspace(tmp_path)
+    matrix = tmp_path / "edited.fs"
+    matrix.write_text(FIXTURE.read_text(encoding="utf-8"), encoding="utf-8")
+    assert main(plan_args(workspace, matrix)) == 0
+
+    # One cell edited after the plan was made. Nothing else moves.
+    text = matrix.read_text(encoding="utf-8")
+    matrix.write_text(text.replace("| 0.0,2.0 ", "| 0.0,4.0 ", 1), encoding="utf-8")
+
+    assert main(run_args(workspace, matrix)) == 2
+    message = capsys.readouterr().err
+    assert "changed since it was planned" in message, message
+    assert not workspace.read_manifest(), "a run on a stale plan reached the solver"
+
+
+def test_goal019_plan_writes_the_digest_of_the_matrix_it_read(tmp_path):
+    """The receipt says WHICH matrix, because a plan that cannot say is refused."""
+    import json
+
+    from pyflightstream._digest import file_sha256
+
+    workspace = make_workspace(tmp_path)
+    assert main(plan_args(workspace, FIXTURE)) == 0
+    payload = json.loads(
+        (workspace.plan_dir(FIXTURE.stem) / "plan.json").read_text(encoding="utf-8")
+    )
+    assert payload["matrix_sha256"] == file_sha256(FIXTURE), (
+        "the plan does not carry the digest of the matrix it measured"
+    )
+
+
+def test_goal019_plan_a_plan_from_before_the_pin_is_refused(tmp_path, capsys):
+    """A plan carrying no digest cannot be shown to be about this matrix.
+
+    Refusing it is right rather than harsh: the alternative is to accept
+    a receipt that says nothing, which is the same as having no gate while
+    printing that there is one.
+    """
+    import json
+
+    workspace = make_workspace(tmp_path)
+    assert main(plan_args(workspace, FIXTURE)) == 0
+    plan_file = workspace.plan_dir(FIXTURE.stem) / "plan.json"
+    payload = json.loads(plan_file.read_text(encoding="utf-8"))
+    del payload["matrix_sha256"]
+    plan_file.write_text(json.dumps(payload), encoding="utf-8")
+
+    assert main(run_args(workspace, FIXTURE)) == 2
+    assert "does not say which matrix" in capsys.readouterr().err

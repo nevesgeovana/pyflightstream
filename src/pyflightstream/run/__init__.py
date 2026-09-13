@@ -132,6 +132,8 @@ from pyflightstream.workspace import (
 from pyflightstream.workspace.naming import polar_name
 
 __all__ = [
+    "PLAN_REQUIRED_MESSAGE",
+    "plan_receipt_error",
     "FS_VERSION_FROM_DEFAULT",
     "FS_VERSION_FROM_ROW",
     "SCRIPT_ARGUMENT",
@@ -3108,6 +3110,57 @@ class CampaignPlan:
         return "\n".join(lines)
 
 
+#: FR-97, her instruction of 2026-09-12: `plan` is mandatory and `run` does
+#: not release without one. The plan is the receipt AND the confirmation.
+PLAN_REQUIRED_MESSAGE = (
+    "no plan for this matrix, and since v0.17.0 a run needs one. Run "
+    "`pyfs-matrix plan <matrix>` first: it tells you what the run will cost, "
+    "which products it will archive and which points are already recorded, "
+    "and it writes the receipt this refusal is asking for."
+)
+
+
+def plan_receipt_error(
+    workspace: CampaignWorkspace, matrix_path: str | Path | None, matrix_stem: str | None
+) -> str | None:
+    """Return why this run may not proceed on the plan it has, or None.
+
+    THREE ANSWERS, and the third is the one the pin exists for:
+
+    * no matrix: a campaign authored in Python is not planned through a
+      file and this gate does not apply to it.
+    * no plan file: refused, naming the command that writes one.
+    * a plan whose ``matrix_sha256`` is not the matrix on disk: refused,
+      because the plan measured a different study. A plan that predates
+      the pin carries None and is refused the same way, which is right:
+      it cannot say what it read.
+    """
+    if matrix_path is None:
+        return None
+    plan_file = workspace.plan_dir(matrix_stem) / "plan.json"
+    if not plan_file.is_file():
+        return f"{PLAN_REQUIRED_MESSAGE} Expected it at {plan_file}."
+    try:
+        payload = json.loads(plan_file.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as error:
+        return f"the plan at {plan_file} cannot be read: {error}. {PLAN_REQUIRED_MESSAGE}"
+    planned = payload.get("matrix_sha256")
+    current = _file_digest(matrix_path)
+    if planned is None:
+        return (
+            f"the plan at {plan_file} does not say which matrix it measured, so it "
+            f"cannot be shown to be about this one. {PLAN_REQUIRED_MESSAGE}"
+        )
+    if planned != current:
+        return (
+            f"the matrix changed since it was planned: the plan at {plan_file} measured "
+            f"{planned[:12]} and {Path(matrix_path).name} is {str(current)[:12]} now. "
+            "Plan it again; a plan that measured another study is not a plan for this "
+            "one."
+        )
+    return None
+
+
 def plan_campaign(
     campaign: Campaign,
     workspace: CampaignWorkspace,
@@ -3117,6 +3170,7 @@ def plan_campaign(
     name_from: str | None = None,
     builds: Mapping[str, SolverBuild] | None = None,
     versions: Mapping[str, str] | None = None,
+    matrix_path: str | Path | None = None,
 ) -> CampaignPlan:
     """Pre-flight a campaign: validate every point without executing any.
 
@@ -3232,6 +3286,13 @@ def plan_campaign(
             "package_version": pyflightstream.__version__,
             "build_groups": groups,
             "points": [{**asdict(entry), "status": str(entry.status)} for entry in points],
+            # FR-97, GOAL-019 item 6: WHICH MATRIX THIS PLAN MEASURED. A
+            # mandatory plan that does not say is satisfied by a stale one,
+            # and then "plan, edit the matrix, run" passes a gate that read
+            # a different study. None when the campaign was authored in
+            # Python and has no matrix to pin to; `run` asks for a plan
+            # only where a matrix exists.
+            "matrix_sha256": _file_digest(matrix_path) if matrix_path else None,
         }
         plan_file.parent.mkdir(parents=True, exist_ok=True)
         plan_file.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")

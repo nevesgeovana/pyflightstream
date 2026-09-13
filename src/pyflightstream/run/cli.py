@@ -66,7 +66,12 @@ from pyflightstream.cases.workflows import (
 )
 from pyflightstream.results import MalformedOutputError
 from pyflightstream.results.tables import LoadsNotFoundError, sweep_table, write_table
-from pyflightstream.run import SWEEP_TABLE_NAME, CampaignErrors, LoadsAssessor
+from pyflightstream.run import (
+    SWEEP_TABLE_NAME,
+    CampaignErrors,
+    LoadsAssessor,
+    plan_receipt_error,
+)
 from pyflightstream.run.matrix import plan_matrix, run_matrix
 from pyflightstream.workspace import CampaignWorkspace, InputArtifactError
 from pyflightstream.workspace.naming import (
@@ -352,6 +357,15 @@ def _build_parser() -> argparse.ArgumentParser:
     run = subparsers.add_parser(
         "run",
         help="run every active point of the matrix and write the sweep table",
+        description=(
+            "Runs every active point of the matrix and writes the sweep table. "
+            "SINCE v0.17.0 THIS NEEDS A PLAN: run `pyfs-matrix plan <matrix>` "
+            "first and this command will not release without it. The plan is "
+            "where the warning is, and it is pinned to the matrix it read, so a "
+            "matrix edited after it was planned is planned again rather than run "
+            "against a receipt about a different study. The plan spends no "
+            "solver time."
+        ),
     )
     _add_common_arguments(run)
     _add_the_missing_family_choice(run)
@@ -896,6 +910,14 @@ def _cmd_run(args: argparse.Namespace, recipes: dict[str, str]) -> int:
     """
     workspace = CampaignWorkspace(args.workspace, naming=_naming(args))
     name, name_from = _campaign_name(args)
+    # FR-97, GOAL-019 item 6, her instruction of 2026-09-12: `plan` carries
+    # the warning and the confirmation, and this command does not release
+    # without one. The stem is the matrix's own, which is how the plan
+    # folder is named.
+    stale = plan_receipt_error(workspace, args.matrix, Path(args.matrix).stem)
+    if stale is not None:
+        print(stale, file=sys.stderr)
+        return 2
     try:
         run_matrix(
             args.matrix,

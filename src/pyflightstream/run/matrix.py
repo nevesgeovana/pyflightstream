@@ -371,6 +371,7 @@ def plan_matrix(
         write_plan=write_plan,
         name_from=name_from,
         versions=_row_versions(resolved),
+        matrix_path=path,
     )
     if cost:
         # FR-82. Computed HERE, where the resolved cases are; a caller
@@ -561,8 +562,19 @@ def run_matrix(
         fs_exe=fs_exe,
         ignore_missing_families=ignore_missing_families,
     )
+    # FR-97, GOAL-019 item 6. THE GATE IS ON THE COMMAND, not here. Her
+    # words are "o comando run", and that is the right layer: this
+    # function is the library entry a caller composes, and a caller that
+    # composed plan and run into one call would be made to write a file
+    # between them for no reason. `pyfs-matrix run` asks
+    # `_plan_receipt_error` before it reaches this.
     plan = plan_campaign(
-        resolved.campaign, workspace, recipes=recipe_registry, versions=_row_versions(resolved)
+        resolved.campaign,
+        workspace,
+        recipes=recipe_registry,
+        versions=_row_versions(resolved),
+        matrix_path=path,
+        write_plan=False,
     )
     if plan.blocked:
         raise MatrixError(
