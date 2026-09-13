@@ -535,6 +535,13 @@ def test_every_record_scalar_is_carried_or_excluded_on_purpose(tmp_path):
         "probe_points_file",
     }
     carried_by_the_campaign_sweep_table = {
+        # FR-95, 0.17.0, and both for the same reason: a job's identity is
+        # its record's `run_id`, which this table already carries, and its
+        # points are already one row each of this table. Carrying `job_id`
+        # would restate the run_id and carrying `points_ran` would put the
+        # whole job inside each of its own points.
+        "points_ran",
+        "job_id",
         "run_id",
         "sim_id",
         "status",

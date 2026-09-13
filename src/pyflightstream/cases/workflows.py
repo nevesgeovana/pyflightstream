@@ -6304,7 +6304,6 @@ def _build_steady(case: SimCase, script: Script, conventions: WorkflowConvention
 def build_steady_sweep(
     point_cases: Sequence[SimCase],
     script: Script,
-    conventions: WorkflowConventions,
     *,
     cold: bool = False,
 ) -> None:
@@ -6335,8 +6334,6 @@ def build_steady_sweep(
         preamble reads is taken from the FIRST.
     script : Script
         The script every point is emitted into.
-    conventions : WorkflowConventions
-        The naming conventions the export block reads.
     cold : bool
         Emit a solver clear between points. False is warm, which is the
         default and the behaviour every steady polar of this study has
@@ -6348,6 +6345,7 @@ def build_steady_sweep(
             "with nothing to run and the campaign refuses it before this."
         )
     first = point_cases[0]
+    conventions = WorkflowConventions.for_case(first)
     _refuse_wake_termination_without_a_clock(first)
     unsteady_export_threshold(first, conventions)
     _refuse_unregistered_keys(first, "steady")
@@ -6372,6 +6370,28 @@ def build_steady_sweep(
     _settings(first, script)
     _script_init(first, script, frames=frames)
     for index, point_case in enumerate(point_cases):
+        if index:
+            # A NEW POINT REOPENS THE CYCLE. The phase guard is monotonic
+            # across a script and a sweep is several points in one, so the
+            # rewind is stated here rather than left for the guard to
+            # refuse. It stops at init: the geometry stays open and the
+            # setup stays behind it.
+            script.begin_point()
+        if index:
+            # The angles of THIS point. Only the two: the rest of the
+            # settings block was emitted once and does not vary over a
+            # sweep of the incidence. The predecessor sets exactly these
+            # two per point.
+            _refuse_sideslip_under_mirror(point_case)
+            helpers.solver_settings(
+                script,
+                aoa=_angle(point_case, "alpha"),
+                sideslip=_angle(point_case, "beta"),
+            )
+        # EACH POINT EXPORTS ITS OWN NAMES, so each gets its own
+        # conventions. One set for the whole sweep would have every point
+        # writing the first point's file names, which is the collision the
+        # per-point naming exists to prevent.
         if index and cold:
             # The clear the predecessor left commented out, and it is the
             # only line by which a cold sweep differs from a warm one.
@@ -6386,19 +6406,13 @@ def build_steady_sweep(
             # which is exactly what a cold point inside an initialised
             # sweep needs.
             script.emit("CLEAR_SOLUTION")
-        if index:
-            # The angles of THIS point. Only the two: the rest of the
-            # settings block was emitted once and does not vary over a
-            # sweep of the incidence. The predecessor sets exactly these
-            # two per point.
-            _refuse_sideslip_under_mirror(point_case)
-            helpers.solver_settings(
-                script,
-                aoa=_angle(point_case, "alpha"),
-                sideslip=_angle(point_case, "beta"),
-            )
         _script_solve_and_export(
-            conventions, point_case, script, frame, unsteady=False, frames=frames
+            WorkflowConventions.for_case(point_case),
+            point_case,
+            script,
+            frame,
+            unsteady=False,
+            frames=frames,
         )
     script.emit("CLOSE_FLIGHTSTREAM")
 

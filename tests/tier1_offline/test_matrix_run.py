@@ -30,6 +30,7 @@ from pyflightstream._errors import (
     PyflightstreamWarning,
 )
 from pyflightstream._fsm import MESH_MARKER
+from pyflightstream.cases import matrix as matrix_mod
 from pyflightstream.cases.matrix import (
     DEFAULT_VERSION_OPTION,
     MatrixError,
@@ -826,6 +827,219 @@ def test_plan_matrix_preflights_every_point_without_executing(tmp_path):
     assert plan.plan_file.is_file()
 
 
+# --- FR-95, GOAL-019 item 3: a steady row is ONE job -------------------------
+
+
+#: A stub that writes the file named on the line after ANY export verb, not
+#: just the spreadsheet one. A registered run type exports several kinds and
+#: the point is only collected when every declared one exists, so the narrower
+#: stub above cannot carry a `steady` row.
+WRITES_EVERY_EXPORT = (
+    "import pathlib, sys; "
+    "from pyflightstream.cases import EXPORT_KINDS; "
+    "verbs = {kind[2] for kind in EXPORT_KINDS}; "
+    "lines = pathlib.Path(sys.argv[1]).read_text().splitlines(); "
+    "[pathlib.Path(lines[i + 1]).write_text('DATA') "
+    "for i, line in enumerate(lines) "
+    "if line.split(' ')[0] in verbs and i + 1 < len(lines)]"
+)
+
+
+class CountingStub(StubSolver):
+    """A stub that records every invocation, so a test can count processes.
+
+    Counting the SCRIPTS on disk is not the same measurement: a builder
+    could write one script and still be called once per point, or write
+    several and run one. The number that matters to a cluster, to a wall
+    clock and to a run record is how many times the solver was started.
+    """
+
+    def __init__(self, code):
+        super().__init__(code)
+        self.invocations = []
+
+    def run_script(self, script_path, working_dir, timeout_s=None):
+        # THE PRE-FLIGHT IS NOT A POINT. It asks each installation which
+        # build it is, once per campaign, from a temporary directory of its
+        # own; counting it would make every job look like one more.
+        if Path(script_path).name != "preflight.txt":
+            self.invocations.append(Path(script_path))
+        return super().run_script(script_path, working_dir, timeout_s=timeout_s)
+
+
+def _steady_sweep_matrix(tmp_path, cell=""):
+    """A workspace and a matrix holding ONE steady row of three points."""
+    workspace = make_library(tmp_path, register_build=("26.120", "C:/fs/FS.exe"))
+    stage_geometry(workspace, "wing_clean.fsm")
+    header = " | ".join(matrix_mod._COLUMNS)
+    row = " | ".join(
+        {
+            "POL": "5001",
+            "HIDDEN": "0",
+            "RUN": "1",
+            "AIRCRAFT": "Wing",
+            "DESCRIPTION": "WARM",
+            "FLIGHT_CONDITION": "MACH:0.1, REmi:2.3, ALPHA:sweep, BETA:0.0",
+            "SWEEP_VALUES": "-2.0,0.0,2.0",
+            "GEOMETRY": "wing_clean.fsm",
+            "REF": "r003",
+            "SET": "s002",
+            "PPROC": "p001",
+            "SYMMETRY": "NONE",
+            "FS_BUILD": "26.120",
+            "WORKFLOW": "steady",
+            # A registered run type declares no OUTPUTS: the pproc artifact
+            # says what a point exports, which is the whole reason the cell is
+            # refused here.
+            "VAR_NAMES_VALUES": cell.lstrip(" /"),
+        }.get(name, "-")
+        for name in matrix_mod._COLUMNS
+    )
+    path = tmp_path / "warm.fs"
+    path.write_text(header + "\n" + "-" * 40 + "\n" + row + "\n", encoding="utf-8")
+    return workspace, path
+
+
+def test_goal019_warm_a_steady_row_is_one_job_for_all_its_points(tmp_path):
+    """Her convention of 2026-09-12, and the shape the predecessor already had.
+
+    THREE POINTS, ONE PROCESS. The predecessor's steady recipe opens the
+    geometry once, sets the solver once and then loops the alphas without
+    clearing anything (GEO-043, finding 1), which is what makes a warm
+    steady row ONE cluster job rather than three.
+    """
+    workspace, matrix = _steady_sweep_matrix(tmp_path)
+    stub = CountingStub(WRITES_EVERY_EXPORT)
+    records = run_matrix(
+        matrix,
+        workspace,
+        name="warm",
+        default_fs_version="26.120",
+        recipes=RECIPES,
+        recipe_registry=workflow_registry(),
+        assess=converged,
+        executor=stub,
+    )
+    assert len(stub.invocations) == 1, (
+        "a warm steady row of three points started the solver "
+        f"{len(stub.invocations)} times; it is ONE job"
+    )
+    assert len(records) == 1, f"three points produced {len(records)} records; a job is one record"
+    assert len(set(stub.invocations)) == 1, "one job runs one script"
+
+
+def test_goal019_warm_the_one_record_names_every_point_it_ran(tmp_path):
+    """One record per job does not mean losing the points.
+
+    The record has to say WHICH points the job ran and IN WHAT ORDER,
+    because a warm sweep's result depends on the order and nothing
+    recorded it before this release.
+    """
+    workspace, matrix = _steady_sweep_matrix(tmp_path)
+    records = run_matrix(
+        matrix,
+        workspace,
+        name="warm",
+        default_fs_version="26.120",
+        recipes=RECIPES,
+        recipe_registry=workflow_registry(),
+        assess=converged,
+        executor=CountingStub(WRITES_EVERY_EXPORT),
+    )
+    record = records[0]
+    tags = [entry["tag"] for entry in record.points_ran]
+    assert tags == ["a-02.0_b+00.0", "a+00.0_b+00.0", "a+02.0_b+00.0"], (
+        f"the record names {tags}, which is not the three points in sweep order"
+    )
+    assert record.job_id, "a job record carries a job id"
+
+
+def test_goal019_record_a_job_run_id_cannot_end_with_a_point_tag(tmp_path):
+    """Item 4, and the constraint that decided its shape.
+
+    The point tag is run IDENTITY and it ENDS every ``run_id`` in every
+    existing manifest; the rule is enforced at the sweep and carries its
+    own incident history. A record covering three points cannot borrow one
+    of their tags, so a job's id ends with the `sweep` token instead.
+
+    THE TOKEN IS REUSED RATHER THAN INVENTED: 0.16.0 already names the
+    per-polar product tables by the point convention with the swept
+    variable written literally as `sweep`, so a reader has met it, and it
+    reads correctly because it names a sweep and not a point.
+    """
+    from pyflightstream.cases import point_tag
+    from pyflightstream.run import JOB_TAG
+
+    workspace, matrix = _steady_sweep_matrix(tmp_path)
+    records = run_matrix(
+        matrix,
+        workspace,
+        name="warm",
+        default_fs_version="26.120",
+        recipes=RECIPES,
+        recipe_registry=workflow_registry(),
+        assess=converged,
+        executor=CountingStub(WRITES_EVERY_EXPORT),
+    )
+    record = records[0]
+    assert record.run_id.endswith(f"/{JOB_TAG}"), (
+        f"the job's run id is {record.run_id!r}, which does not end with the sweep token"
+    )
+    tags = {point_tag(entry["point"]) for entry in record.points_ran}
+    assert not any(record.run_id.endswith(tag) for tag in tags), (
+        "the job's run id ends with one of its points' tags, so a manifest cannot "
+        "tell the job from that point"
+    )
+    assert record.job_id == record.run_id, "a job record is its own job"
+    assert len(workspace.read_manifest()) == 1, "three points wrote one record"
+
+
+def test_goal019_warm_cold_start_clears_the_solution_between_points(tmp_path):
+    """COLD_START is the opt-out, and it is ONE emitted command.
+
+    Warm is the default because the predecessor never cleared and had no
+    switch to; a default of cold would be a change of behaviour wearing a
+    safe default's clothes. The clear is CLEAR_SOLUTION, which is verified
+    on every build from 26.120 on; SOLVER_CLEAR is documented by the 25.000
+    edition alone and does not exist on the build this study runs.
+    """
+    workspace, matrix = _steady_sweep_matrix(tmp_path, cell=" / COLD_START: True")
+    run_matrix(
+        matrix,
+        workspace,
+        name="cold",
+        default_fs_version="26.120",
+        recipes=RECIPES,
+        recipe_registry=workflow_registry(),
+        assess=converged,
+        executor=CountingStub(WRITES_EVERY_EXPORT),
+    )
+    scripts = sorted((workspace.root / "sims" / "sim_5001" / "scripts").glob("*.txt"))
+    assert len(scripts) == 1, "cold is still ONE job; only the clear differs"
+    text = scripts[0].read_text(encoding="utf-8")
+    assert text.count("CLEAR_SOLUTION") == 2, (
+        "three points cold means two clears, one before each point after the "
+        f"first; the script carries {text.count('CLEAR_SOLUTION')}"
+    )
+
+    warm_workspace, warm_matrix = _steady_sweep_matrix(tmp_path / "warm")
+    run_matrix(
+        warm_matrix,
+        warm_workspace,
+        name="warm",
+        default_fs_version="26.120",
+        recipes=RECIPES,
+        recipe_registry=workflow_registry(),
+        assess=converged,
+        executor=CountingStub(WRITES_EVERY_EXPORT),
+    )
+    warm_scripts = sorted((warm_workspace.root / "sims" / "sim_5001" / "scripts").glob("*.txt"))
+    warm_text = warm_scripts[0].read_text(encoding="utf-8")
+    assert "CLEAR_SOLUTION" not in warm_text, (
+        "the default cleared the solution between points, which is not warm"
+    )
+
+
 # --- run_matrix: the one-call entry -----------------------------------------
 
 
@@ -848,14 +1062,20 @@ def test_run_matrix_executes_and_records_every_point(tmp_path):
         executor=StubSolver(WRITES_LOADS),
         recipe_registry={"steady": spying_recipe},
     )
+    # ONE RECORD PER ROW since 0.17.0: both rows are steady and a steady
+    # MATRIX row is one job, so the ids end with the sweep token rather
+    # than with a point tag. The four points are still there and still
+    # named, in the order the job ran them.
     assert [record.run_id for record in records] == [
-        "matrix/sim_8001/a+00.0",
-        "matrix/sim_8001/a+02.0",
-        "matrix/sim_8002/b-03.0",
-        "matrix/sim_8002/b+03.0",
+        "matrix/sim_8001/sweep",
+        "matrix/sim_8002/sweep",
+    ]
+    assert [[entry["tag"] for entry in record.points_ran] for record in records] == [
+        ["a+00.0", "a+02.0"],
+        ["b-03.0", "b+03.0"],
     ]
     assert all(record.status is RunStatus.CONVERGED for record in records)
-    assert len(workspace.read_manifest()) == 4
+    assert len(workspace.read_manifest()) == 2
     # The recipes saw the resolved artifacts applied to their cases.
     assert seen[0].reference.area == 10.0
     assert seen[0].solver.iterations == 800
@@ -875,7 +1095,10 @@ def test_run_matrix_honors_resume_and_refuses_a_silent_rerun(tmp_path):
         REGISTRY_FIXTURE, workspace, executor=StubSolver(WRITES_LOADS), resume=True, **keywords
     )
     assert resumed == []
-    assert len(workspace.read_manifest()) == 4
+    # TWO RECORDS, NOT FOUR, since 0.17.0: both rows of this fixture are
+    # steady and a steady MATRIX row of two points is ONE job. The resume
+    # still finds them, which is the half that matters here.
+    assert len(workspace.read_manifest()) == 2
     with pytest.raises(WorkspaceError, match="resume=True"):
         run_matrix(REGISTRY_FIXTURE, workspace, executor=StubSolver(WRITES_LOADS), **keywords)
 

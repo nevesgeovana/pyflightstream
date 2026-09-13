@@ -1980,19 +1980,36 @@ overwrite each other.
 
 ## What comes back
 
-`run_matrix` returns one record per executed point, and the same rows
-are on disk in the workspace's manifest:
+`run_matrix` returns one record per JOB, and the same rows are on disk
+in the workspace's manifest:
 
 ```text
-matrix/sim_8001/a+00.0
-matrix/sim_8001/a+02.0
-matrix/sim_8002/b-03.0
-matrix/sim_8002/b+03.0
+matrix/sim_8001/sweep
+matrix/sim_8002/sweep
 ```
 
-Two rows of a matrix, four runs, four records. Each carries its
-terminal status, and there is no fifth state: a point that did not
-finish says so rather than being missing.
+Two rows of a matrix, four points, TWO records, because since v0.17.0 a
+steady row is one job: its points run in one process, one after another,
+each starting from the one before unless the row says `COLD_START: True`.
+A run id that ends `sweep` names a job, and a run id that ends with a
+point tag names a point; the token is the one the per-polar product
+tables already use for a swept variable.
+
+Every point is still there and still named. The record lists them in the
+order the job ran them, with the status each ended in, and the sweep
+table and the products are one row per point exactly as before:
+
+<!-- skip: next -->
+```python
+for entry in record.points_ran:
+    print(entry["tag"], entry["status"])
+```
+
+An unsteady row is unchanged: a point that marches in time starts from
+its own initial state, so it is its own job and its own record.
+
+Each record carries its terminal status, and there is no missing state: a
+point that did not finish says so rather than being absent.
 
 ## Writing no Python at all: the workflow
 

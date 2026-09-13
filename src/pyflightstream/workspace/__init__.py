@@ -732,6 +732,21 @@ class RunRecord(BaseModel):
     cwd: str | None = None
     timeout_s: float | None = None
     recipe: str | None = None
+    #: FR-95, GOAL-019 item 4: the JOB this record is. One steady row is one
+    #: job for all its points since 0.17.0, so a record is a job and not a
+    #: point, and this is what a submitted job is asked after by. None on a
+    #: record written before 0.17.0 and on any record whose job is one point,
+    #: which is every unsteady point and every LEGACY row.
+    job_id: str | None = None
+    #: The points that job ran, IN THE ORDER IT RAN THEM, each with the tag
+    #: that names its folder and the status it ended in.
+    #:
+    #: THE ORDER IS RECORDED BECAUSE IT IS PART OF THE RESULT. A warm sweep
+    #: begins each point from the previous point's converged solution, so
+    #: the same three alphas run in another order are not the same three
+    #: numbers, and nothing recorded the order before this release. Empty on
+    #: a record that is one point.
+    points_ran: list[dict] = Field(default_factory=list)
     #: The pproc artifact id the row named (PFS-2029.16); None on a
     #: record written before 0.11.0 or by a campaign built without one.
     pproc: str | None = None
@@ -863,6 +878,41 @@ class RunRecord(BaseModel):
     action_program: str | None = None
     action_script: str | None = None
     action_count: int | None = None
+
+    def as_points(self) -> list[RunRecord]:
+        """Return this record as one record per POINT.
+
+        THE MANIFEST STORES JOBS SINCE 0.17.0 and a steady matrix row is
+        one job over several points, so a consumer that reasons per point
+        (the physics reduction, a per-point table, an assessor comparing
+        angles) would see one point where three ran. Rather than have each
+        of them learn the job shape, they ask here.
+
+        A record that is one point returns itself, unchanged and not
+        copied, so every caller can use this unconditionally and the
+        common path costs nothing.
+        """
+        if not self.points_ran:
+            return [self]
+        out: list[RunRecord] = []
+        for entry in self.points_ran:
+            tag = str(entry.get("tag") or "")
+            out.append(
+                self.model_copy(
+                    update={
+                        "run_id": f"{self.run_id.rsplit('/', 1)[0]}/{tag}",
+                        "point": dict(entry.get("point") or {}),
+                        "status": RunStatus(entry["status"])
+                        if entry.get("status")
+                        else self.status,
+                        "outputs": list(entry.get("outputs") or []),
+                        "iterations": entry.get("iterations"),
+                        "residual": entry.get("residual"),
+                        "points_ran": [],
+                    }
+                )
+            )
+        return out
 
 
 def _is_link(path: Path) -> bool:

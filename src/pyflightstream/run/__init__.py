@@ -90,10 +90,12 @@ from pyflightstream.cases import (
     resolve_recipe,
 )
 from pyflightstream.cases.workflows import (
+    COLD_START_VARIABLE,
     UNSTEADY_ACTION_COUNT,
     UNSTEADY_ACTION_PROGRAM,
     UNSTEADY_ACTION_SCRIPT,
     UNSTEADY_COUNTER_ACTION,
+    build_steady_sweep,
     reduction_windows,
     unsteady_export_threshold,
 )
@@ -127,6 +129,7 @@ from pyflightstream.workspace import (
     datapoint_dir_name,
     post_stages,
 )
+from pyflightstream.workspace.naming import polar_name
 
 __all__ = [
     "FS_VERSION_FROM_DEFAULT",
@@ -2203,6 +2206,18 @@ def run_campaign(
         case_points = list(case.sweep.points())
         run_ids = [_run_id(campaign, case, point) for point in case_points]
         already = [run_id for run_id in run_ids if run_id in recorded]
+        # A JOB IS RECORDED UNDER ONE ID, not under its points'. The skip
+        # above reads point ids, so without this a recorded job looked
+        # entirely unrun and a resume re-ran every point of it, which is
+        # the opposite of what resume is for and would spend the seat twice.
+        if (
+            _is_one_job(campaign, case)
+            and len(case_points) > 1
+            and _job_run_id(campaign, case) in recorded
+        ):
+            already = [_job_run_id(campaign, case)]
+            case_points = []
+            run_ids = []
         if already and not resume:
             raise WorkspaceError(
                 f"run_id {already[0]!r} is already in the manifest of "
@@ -2250,6 +2265,47 @@ def run_campaign(
         recipe, preparation_error, inputs_sha256, staged_geometry = _prepare_case(
             campaign, case, workspace, recipes
         )
+        # FR-95, GOAL-019 item 3: A STEADY ROW IS ONE JOB. Every point of it
+        # goes through one script and one process, because that is what warm
+        # start IS: point two begins from point one's converged solution
+        # because nothing cleared it. The unsteady run types keep the point
+        # path below unchanged, and correctly: a point that marches in time
+        # starts from its own initial state and is its own job.
+        if _is_one_job(campaign, case) and len(pending) > 1:
+            _say(
+                f"  -> {_job_run_id(campaign, case)}  [{case.recipe}]  "
+                f"{len(pending)} point(s) in one job",
+                quiet=quiet,
+            )
+            record = _execute_sweep(
+                campaign=campaign,
+                canonical=canonical,
+                fs_exe=case_exe,
+                fs_version=case_version,
+                fs_version_source=case_version_source,
+                case=case,
+                pending=pending,
+                preparation_error=preparation_error,
+                inputs_sha256=inputs_sha256,
+                staged_geometry=staged_geometry,
+                name_from=name_from,
+                executor=case_executor,
+                workspace=workspace,
+                sim_dir=sim_dir,
+                assess=assess,
+                cold=_is_cold_start(case),
+            )
+            _say(
+                f"     {record.run_id}  {record.status}"
+                + (f"  ({record.error})" if record.error else ""),
+                quiet=quiet,
+            )
+            workspace.append_record(record)
+            recorded.add(record.run_id)
+            records.append(record)
+            if record.status.startswith("FAILED"):
+                failures.append(record)
+            continue
         for point, run_id in pending:
             # FR-78: the point is named as it STARTS, not when it ends. A
             # forty-point campaign that printed only on completion told a
@@ -3514,6 +3570,304 @@ def _say(message: str, *, quiet: bool = False) -> None:
     if quiet:
         return
     print(message, file=sys.stderr, flush=True)
+
+
+#: The tag a JOB's run id ends with, where a point's run id ends with its
+#: point tag. Reused rather than invented: 0.16.0 already names the
+#: per-polar product tables by the point convention with the swept
+#: variable written literally as ``sweep``, so a reader has met this token
+#: and it reads correctly, naming a sweep rather than a point.
+JOB_TAG = "sweep"
+
+
+def _job_run_id(campaign: Campaign, case: SimCase) -> str:
+    """Return the run id of a JOB, which no one point's tag may end.
+
+    The point tag is run IDENTITY and it ends every ``run_id`` in every
+    existing manifest; the rule is enforced at the sweep and carries its
+    own incident history. A record covering three points cannot borrow one
+    of their tags, so it ends with :data:`JOB_TAG` instead.
+    """
+    return f"{campaign.name}/sim_{case.sim_id}/{JOB_TAG}"
+
+
+#: The run type whose points are ONE job since 0.17.0.
+ONE_JOB_RECIPE = "steady"
+
+
+def _is_one_job(campaign: Campaign, case: SimCase) -> bool:
+    """Whether this case's points run as one job rather than one each.
+
+    A STEADY ROW OF A MATRIX, and only that. Three conditions, each for
+    its own reason:
+
+    * the recipe is the steady run type. A LEGACY row is built by its own
+      recipe, which builds one point and knows nothing of a sweep; an
+      unsteady point marches in time from its own initial state, so two of
+      them in one process would make the second continue the first's clock.
+    * the campaign came from a MATRIX. Her decision of 2026-09-12 is about
+      the row she writes, and a campaign authored in Python is a different
+      surface with a contract of its own: thirty-one tier-1 tests state
+      that a Python campaign records one point at a time, and widening her
+      convention onto them would be a change she did not ask for, made
+      silently, to an interface she does not use.
+    * there is more than one point. One point is one job either way, and
+      routing it here would give it a job's run id for no gain and break
+      every resume that expects its point tag.
+
+    THE INCONSISTENCY THIS LEAVES IS REAL AND IS RECORDED RATHER THAN
+    HIDDEN: the same steady sweep is one job through a matrix and one job
+    per point through the Python API. Whether the Python surface should
+    follow is a question for the author, and answering it by myself while
+    she slept is what the second condition exists to prevent.
+    """
+    return case.recipe == ONE_JOB_RECIPE and bool(getattr(campaign, "matrix_stem", None))
+
+
+def _is_cold_start(case: SimCase) -> bool:
+    """Whether the row asked for a cold start (FR-95).
+
+    WARM IS THE DEFAULT and this is the opt-out, which follows the
+    evidence rather than the safer-looking choice: the predecessor's
+    steady recipe never cleared the solver between points and had no
+    switch to.
+    """
+    stated = case.variables.get(COLD_START_VARIABLE)
+    if stated is None:
+        return False
+    return str(stated).strip().upper() in {"TRUE", "ENABLE", "YES", "1"}
+
+
+def _execute_sweep(
+    *,
+    campaign: Campaign,
+    canonical: str,
+    fs_exe: str | Path,
+    fs_version: str,
+    fs_version_source: str,
+    case: SimCase,
+    pending: list[tuple[dict[str, float], str]],
+    preparation_error: str | None,
+    inputs_sha256: dict[str, str],
+    staged_geometry: str | None,
+    name_from: str | None = None,
+    executor: Executor,
+    workspace: CampaignWorkspace,
+    sim_dir: Path,
+    assess: OutcomeAssessor,
+    cold: bool,
+) -> RunRecord:
+    """Take every point of a steady row through ONE process to ONE record.
+
+    FR-95, her convention of 2026-09-12. The shape is the predecessor's own
+    steady recipe (GEO-043, finding 1) and the reason it is one record is
+    that it is one process: the wall time in this record is a measurement
+    rather than a share of one, and a job is what a cluster queues.
+
+    WHAT THE JOB RECORD CARRIES that a point record does not:
+    :attr:`RunRecord.job_id` and :attr:`RunRecord.points_ran`, the points in
+    the order they ran with the status each ended in. The record's own
+    status is the WORST of them, because a job with one diverged point is
+    not a converged job.
+
+    WHAT THE PER-POINT FOLDERS DO NOT LOSE: each point still collects into
+    its own ``datapoints/DP-<tag>/``. The predecessor already wrote one
+    folder per point from inside a single script, so what changed is the
+    number of processes and not the number of folders.
+    """
+    package_commit, package_dirty = package_vcs_state()
+    run_id = _job_run_id(campaign, case)
+    points = [point for point, _ in pending]
+    base: dict[str, object] = {
+        "run_id": run_id,
+        "sim_id": case.sim_id,
+        "point": dict(points[0]),
+        "job_id": run_id,
+        "matrix_stem": campaign.matrix_stem,
+        "fs_version_requested": canonical,
+        "package_version": pyflightstream.__version__,
+        "package_commit": package_commit,
+        "package_dirty": package_dirty,
+        "recipe": case.recipe,
+        # A JOB'S RECIPE IS THE RUN TYPE, which has no user function behind
+        # it and therefore no source to digest. The field is carried empty
+        # rather than left out, so a reader of the manifest sees the same
+        # shape on every record.
+        "recipe_sha256": None,
+        "fs_exe": str(fs_exe),
+        "fs_exe_sha256": _file_digest(fs_exe),
+        "fs_version_source": fs_version_source,
+        "manifest_schema": MANIFEST_SCHEMA,
+        "inputs_sha256": dict(inputs_sha256),
+        "campaign_name_from": name_from,
+        "pproc": case.pproc_id,
+        "velocity_requested_m_s": case.velocity,
+        "inventory_source": case.inventory_source,
+        "motions": [dict(record) for record in case.motions],
+        "point_name_template": workspace.naming.point_name,
+        "description": case.description or None,
+        "mach": case.mach,
+        "reference": _reference_block(case),
+        # THE SAME PROVENANCE A POINT RECORD CARRIES. A job is one process
+        # over several points of ONE row, so every one of these is a
+        # property of the row and is the same for all of them; leaving
+        # them out made a job record unable to say whether its state was a
+        # wind tunnel's or an altitude's, which its own guard reported.
+        "flight_condition": dict(case.flight_condition),
+        "flight_condition_defaults": dict(case.flight_condition_defaults),
+        "flight_condition_defaults_from": case.flight_condition_defaults_from,
+        "density_kg_m3": None if case.fluid is None else case.fluid.density_kg_m3,
+        "temperature_k": None if case.fluid is None else case.fluid.temperature_k,
+        "viscosity_pa_s": None if case.fluid is None else case.fluid.viscosity_pa_s,
+        "density_source": None if case.fluid is None else case.fluid.source,
+        "reference_length_m": None if case.fluid is None else case.fluid.reference_length_m,
+        "waived_commands": [],
+        "raw_commands": [entry.model_dump(mode="json") for entry in case.raw_commands],
+        "aliases": {name: list(members) for name, members in case.aliases.items()},
+        # Both are REQUIRED on a record and both are only known once the
+        # script is built, so they carry the empty answer until then: a
+        # record that never got as far as a script is a record whose script
+        # has no digest and whose raw flag is false, and saying so is not
+        # the same as leaving the field out.
+        "script_sha256": "",
+        "raw_flag": False,
+    }
+    if preparation_error is not None:
+        return RunRecord(**base, status=RunStatus.FAILED_SCRIPT, error=preparation_error)
+
+    # One case per point, differing only in the point and the names it
+    # exports; everything the shared preamble reads is the same on all of
+    # them, which is what makes them one script.
+    point_cases = []
+    for point in points:
+        try:
+            stem, outputs = _point_names(campaign, case, point, workspace)
+        except NamingTemplateError as error:
+            return RunRecord(**base, status=RunStatus.FAILED_SCRIPT, error=str(error))
+        update: dict[str, object] = {"point": dict(point), "outputs": outputs}
+        if staged_geometry is not None:
+            update["geometry"] = staged_geometry
+        point_cases.append((point, stem, case.model_copy(update=update)))
+
+    script = Script(version=fs_version)
+    try:
+        build_steady_sweep([pc for _, _, pc in point_cases], script, cold=cold)
+    except Exception as error:  # a build failure is the job's failure
+        return RunRecord(
+            **base,
+            status=RunStatus.FAILED_SCRIPT,
+            error=f"{type(error).__name__}: {error}",
+        )
+    setup = script.solver_setup
+    if setup is not None:
+        base["solver_setup"] = setup.model_dump(mode="json")
+    # THE HOUSE CONVENTION FOR A SWEEP, not a name of this function's own.
+    # 0.16.0 already names a per-polar product table by the point
+    # convention with the swept variable written literally as `sweep`, and
+    # a job's script is about exactly the same thing, so it is named the
+    # same way: POLAR-5001_M09AL+sweepBE+000. A reader has met it and a
+    # folder of them still sorts.
+    job_stem = polar_name(
+        case.sim_id,
+        case.mach or 0.0,
+        advance_ratio=points[0].get("advance_ratio"),
+        swept=(case.sweep.type,),
+    )
+    script_path, script_sha = workspace.write_script(
+        case.sim_id, f"{job_stem}.txt", script.render()
+    )
+    base["script_path"] = str(Path(script_path).relative_to(sim_dir).as_posix())
+    base["script_sha256"] = script_sha
+    base["raw_flag"] = script.raw_flag
+
+    result = executor.run_script(script_path, working_dir=sim_dir, timeout_s=case.solver.timeout_s)
+    base["argv"] = list(result.argv)
+    base["cwd"] = result.cwd
+    base["timeout_s"] = result.timeout_s
+    base["executor"] = invocation_record(executor, result)
+    base["started_at"] = result.started_at
+    base["finished_at"] = result.finished_at
+    if result.failed:
+        return RunRecord(
+            **base,
+            status=RunStatus.FAILED_EXECUTION,
+            wall_time_s=result.wall_time_s,
+            error=result.diagnosis(),
+        )
+    base["wall_time_s"] = result.wall_time_s
+
+    # EVERY POINT IS COLLECTED AND ASSESSED, and a point that fails does not
+    # stop the ones after it: they have already run, their files are on
+    # disk, and throwing them away because a sibling failed would spend the
+    # seat twice.
+    # TWO PASSES, AND THE ORDER IS THE WHOLE OF IT. Every point of a case
+    # writes into the SAME simulation folder, and collection is what moves
+    # each point's files into its own datapoint folder. Assessing point one
+    # while points two and three are still lying in that folder made the
+    # assessor read a file from another operating point and report the run
+    # against the wrong incidence: "alpha requested +2.0000, exported ...".
+    #
+    # So EVERY point is collected first, which empties the shared folder,
+    # and only then is any point assessed. The point path never met this
+    # because one process wrote one point.
+    ran: list[dict] = []
+    worst = RunStatus.CONVERGED
+    collected_all: list[str] = []
+    error_lines: list[str] = []
+    collected_by_tag: dict[str, list[str]] = {}
+    failed_tags: dict[str, str] = {}
+    for point, _stem, point_case in point_cases:
+        tag = point_tag(point)
+        try:
+            collected_by_tag[tag] = workspace.collect_outputs(
+                case.sim_id,
+                # ABSOLUTE, as the point path passes them: the names on the
+                # case are relative to the execution directory and the
+                # collector is handed paths, not names.
+                [sim_dir / name for name in point_case.outputs],
+                datapoint=point,
+            )
+        except (WorkspaceError, CampaignConfigError) as error:
+            failed_tags[tag] = str(error)
+    for point, _stem, point_case in point_cases:
+        tag = point_tag(point)
+        if tag in failed_tags:
+            ran.append(
+                {
+                    "tag": tag,
+                    "point": dict(point),
+                    "status": str(RunStatus.FAILED_INCOMPLETE_OUTPUT),
+                }
+            )
+            worst = RunStatus.FAILED_INCOMPLETE_OUTPUT
+            error_lines.append(f"{tag}: {failed_tags[tag]}")
+            continue
+        collected = collected_by_tag[tag]
+        assessment = assess(point_case, result, sim_dir)
+        collected_all.extend(collected)
+        ran.append(
+            {
+                "tag": tag,
+                "point": dict(point),
+                "status": str(assessment.status),
+                "outputs": list(collected),
+                "iterations": assessment.iterations,
+                "residual": assessment.residual,
+            }
+        )
+        if str(assessment.status).startswith("FAILED"):
+            worst = assessment.status
+            error_lines.append(f"{tag}: {assessment.error or assessment.status}")
+        elif worst is RunStatus.CONVERGED and assessment.status is not RunStatus.CONVERGED:
+            worst = assessment.status
+    base["points_ran"] = ran
+    return RunRecord(
+        **base,
+        status=worst,
+        outputs=collected_all,
+        outputs_sha256=workspace.output_digests(case.sim_id, collected_all),
+        error="; ".join(error_lines) or None,
+    )
 
 
 def _execute_point(

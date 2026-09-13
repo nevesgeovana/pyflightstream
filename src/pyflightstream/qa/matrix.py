@@ -277,8 +277,15 @@ def _records_by_row(workspace: CampaignWorkspace, stem: str) -> dict[str, list[R
     """Return the manifest's records of one matrix by POL, the latest per point winning."""
     latest: dict[str, dict[str, RunRecord]] = {}
     for record in workspace.read_manifest():
-        if record.matrix_stem == stem:
-            latest.setdefault(record.sim_id, {})[record.run_id] = record
+        if record.matrix_stem != stem:
+            continue
+        # THE MANIFEST STORES JOBS SINCE 0.17.0 and this reduction reasons
+        # per POINT: it sorts by angle of attack and reports one row per
+        # incidence. A steady matrix row is one job over several points, so
+        # asking the record to expand itself is what keeps three points
+        # three here. A record that is one point returns itself.
+        for point_record in record.as_points():
+            latest.setdefault(point_record.sim_id, {})[point_record.run_id] = point_record
     return {pol: list(points.values()) for pol, points in latest.items()}
 
 

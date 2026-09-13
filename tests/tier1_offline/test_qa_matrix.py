@@ -43,7 +43,7 @@ SRC = Path(pyflightstream.__file__).resolve().parent
 #: the rotor and writes the PHY-05 reference values. Every other export
 #: the script names is left unwritten, which is why the workspace below
 #: narrows the export set to the loads table.
-STUB_SOLVER = """
+STUB_SOLVER = r"""
 import pathlib
 import re
 import sys
@@ -52,55 +52,57 @@ script = pathlib.Path(sys.argv[1])
 fixture = pathlib.Path(sys.argv[2])
 lines = script.read_text(encoding="utf-8").splitlines()
 
-
-def value(command, default):
-    for line in lines:
-        if line.startswith(command + " "):
-            return float(line.split()[1])
-    return default
-
-
-alpha = value("SOLVER_SET_AOA", 0.0)
-beta = value("SOLVER_SET_SIDESLIP", 0.0)
-velocity = value("SOLVER_SET_VELOCITY", 30.0)
 unsteady = "SET_SOLVER_UNSTEADY" in lines
 rotor = any(line.startswith("CREATE_NEW_MOTION") for line in lines)
 mirror = "SYMMETRY MIRROR" in lines
-
-if rotor:
-    surface = "Blade1"
-    total = {"Cx": 0.0451749, "Cy": 0.0, "Cz": -0.0001012, "CL": -0.0001012,
-             "CDi": -0.0451749, "CDo": 0.0007011, "CMx": 0.0, "CMy": 0.0286429, "CMz": 0.0}
-else:
-    surface = "Wing"
-    slope = 0.0846 if mirror else 0.08425
-    lift = slope * alpha
-    total = {"Cx": 0.0, "Cy": 0.0, "Cz": lift, "CL": lift,
-             "CDi": 0.0049 * (alpha / 4.0) ** 2, "CDo": 0.0007,
-             "CMx": 0.0, "CMy": -0.0212 * alpha, "CMz": 0.0}
-
-row = ",".join("%+.7f" % total[key]
-               for key in ("Cx", "Cy", "Cz", "CL", "CDi", "CDo", "CMx", "CMy", "CMz"))
-body = fixture.read_text(encoding="utf-8")
+template = fixture.read_text(encoding="utf-8")
 
 
-def stamp(label, text):
-    global body
-    body = re.sub(r"(" + re.escape(label) + r"\\s+)\\S.*", lambda m: m.group(1) + text, body)
+def stamp(body, label, text):
+    return re.sub(r"(" + re.escape(label) + r"\s+)\S.*", lambda m: m.group(1) + text, body)
 
 
-stamp("Angle of attack (Deg)", "%.3f" % alpha)
-stamp("Side-slip angle (Deg)", "%.3f" % beta)
-stamp("Freestream velocity (m/s)", "%.3f" % velocity)
-stamp("Reference velocity (m/s)", "%.3f" % velocity)
-stamp("Solver mode:", "Unsteady" if unsteady else "Steady")
-stamp("Current solver iteration number:", "500" if unsteady else "312")
-body = re.sub(r"^\\s*Wing,.*$", "     " + surface + "," + row, body, flags=re.M)
-body = re.sub(r"^\\s*Total,.*$", "     Total," + row, body, flags=re.M)
+def export(alpha, beta, velocity, target):
+    if rotor:
+        surface = "Blade1"
+        total = {"Cx": 0.0451749, "Cy": 0.0, "Cz": -0.0001012, "CL": -0.0001012,
+                 "CDi": -0.0451749, "CDo": 0.0007011, "CMx": 0.0, "CMy": 0.0286429,
+                 "CMz": 0.0}
+    else:
+        surface = "Wing"
+        slope = 0.0846 if mirror else 0.08425
+        lift = slope * alpha
+        total = {"Cx": 0.0, "Cy": 0.0, "Cz": lift, "CL": lift,
+                 "CDi": 0.0049 * (alpha / 4.0) ** 2, "CDo": 0.0007,
+                 "CMx": 0.0, "CMy": -0.0212 * alpha, "CMz": 0.0}
+    row = ",".join("%+.7f" % total[key]
+                   for key in ("Cx", "Cy", "Cz", "CL", "CDi", "CDo", "CMx", "CMy", "CMz"))
+    body = template
+    body = stamp(body, "Angle of attack (Deg)", "%.3f" % alpha)
+    body = stamp(body, "Side-slip angle (Deg)", "%.3f" % beta)
+    body = stamp(body, "Freestream velocity (m/s)", "%.3f" % velocity)
+    body = stamp(body, "Reference velocity (m/s)", "%.3f" % velocity)
+    body = stamp(body, "Solver mode:", "Unsteady" if unsteady else "Steady")
+    body = stamp(body, "Current solver iteration number:", "500" if unsteady else "312")
+    body = re.sub(r"^\s*Wing,.*$", "     " + surface + "," + row, body, flags=re.M)
+    body = re.sub(r"^\s*Total,.*$", "     Total," + row, body, flags=re.M)
+    pathlib.Path(target).write_text(body, encoding="utf-8")
 
+
+# THE STATE IS WHATEVER THE LAST SETTING LINE SAID, which is what a solver
+# does and what a script holding several points needs. Reading the first
+# SOLVER_SET_AOA in the file and stamping it everywhere was right only
+# while a script held one point.
+alpha, beta, velocity = 0.0, 0.0, 30.0
 for index, line in enumerate(lines):
-    if line == "EXPORT_SOLVER_ANALYSIS_SPREADSHEET":
-        pathlib.Path(lines[index + 1]).write_text(body, encoding="utf-8")
+    if line.startswith("SOLVER_SET_AOA "):
+        alpha = float(line.split()[1])
+    elif line.startswith("SOLVER_SET_SIDESLIP "):
+        beta = float(line.split()[1])
+    elif line.startswith("SOLVER_SET_VELOCITY "):
+        velocity = float(line.split()[1])
+    elif line == "EXPORT_SOLVER_ANALYSIS_SPREADSHEET":
+        export(alpha, beta, velocity, lines[index + 1])
 """
 
 #: The post-processing artifact of the stub workspace: the groups the
@@ -238,8 +240,16 @@ def test_resume_reduces_the_recorded_run_without_spending_a_second_seat(stub_wor
 
     reports = tmp_path / "reports"
     assert _cli(["physics", "--workspace", str(stub_workspace), "--report-dir", str(reports)]) == 0
-    recorded = len(CampaignWorkspace(stub_workspace).read_manifest())
-    assert recorded == 11
+    manifest = CampaignWorkspace(stub_workspace).read_manifest()
+    # ELEVEN POINTS, in fewer records since 0.17.0: a steady MATRIX row is
+    # one job for all its points, so the manifest holds jobs and the points
+    # are inside them. The number that means "the whole matrix ran" is the
+    # POINT count, and it is unchanged.
+    points = [point for record in manifest for point in record.as_points()]
+    assert len(points) == 11, (
+        f"the matrix ran {len(points)} point(s) across {len(manifest)} record(s)"
+    )
+    recorded = len(manifest)
     # Without --resume the run layer refuses the recorded points, before
     # any solver process, and the report is not written.
     code = _cli(

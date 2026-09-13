@@ -58,15 +58,25 @@ LOADS = FIXTURES / "loads_steady_26.120.txt"
 #: not a stub of this solver: the standard assessor cross-checks the
 #: printed operating point against the requested one, and would refuse
 #: every point of a sweep for the right reason.
+#: THE ANGLE IS WHATEVER THE LAST SETTING LINE SAID, which is what a solver
+#: does. Reading the FIRST `SOLVER_SET_AOA` in the file and stamping it into
+#: every export was indistinguishable from correct while a script held one
+#: point; on a warm sweep it reported every point at the first point's
+#: incidence, and the assessor then refused each of them for the right
+#: reason, naming an operating point the run had not requested.
 WRITES_LOADS = (
-    "import pathlib, re, sys; "
-    f"body = pathlib.Path({str(LOADS.as_posix())!r}).read_text(encoding='utf-8'); "
-    "lines = pathlib.Path(sys.argv[1]).read_text().splitlines(); "
-    "aoa = [line.split()[1] for line in lines if line.startswith('SOLVER_SET_AOA')]; "
-    "body = re.sub(r'(Angle of attack \\(Deg\\)\\s+)[-+0-9.]+', "
-    "lambda found: found.group(1) + ('%.3f' % float(aoa[0])), body) if aoa else body; "
-    "[pathlib.Path(lines[i + 1]).write_text(body, encoding='utf-8') "
-    "for i, line in enumerate(lines) if line == 'EXPORT_SOLVER_ANALYSIS_SPREADSHEET']"
+    "import pathlib, re, sys\n"
+    f"template = pathlib.Path({str(LOADS.as_posix())!r}).read_text(encoding='utf-8')\n"
+    "lines = pathlib.Path(sys.argv[1]).read_text().splitlines()\n"
+    "alpha = None\n"
+    "pattern = r'(Angle of attack .Deg.\\s+)[-+0-9.]+'\n"
+    "for i, line in enumerate(lines):\n"
+    "    if line.startswith('SOLVER_SET_AOA'):\n"
+    "        alpha = float(line.split()[1])\n"
+    "    elif line == 'EXPORT_SOLVER_ANALYSIS_SPREADSHEET':\n"
+    "        body = template if alpha is None else re.sub("
+    "pattern, lambda f: f.group(1) + ('%.3f' % alpha), template)\n"
+    "        pathlib.Path(lines[i + 1]).write_text(body, encoding='utf-8')\n"
 )
 
 
@@ -325,7 +335,13 @@ def test_a_swept_row_runs_end_to_end(tmp_path):
     workspace = make_workspace(tmp_path)
     assert main(run_args(workspace, FIXTURE)) == 0
     records = workspace.read_manifest()
-    swept = [record for record in records if record.sim_id == "7002"]
+    # ONE JOB SINCE 0.17.0, still two points. The row is steady, and a
+    # steady matrix row runs as one process for all of its points, so the
+    # manifest holds one record and the points are inside it. What this
+    # test is about is unchanged and is asserted below: BOTH points reach a
+    # status of their own, so a regression that refuses only the second
+    # cannot hide behind the first.
+    swept = [point for record in records if record.sim_id == "7002" for point in record.as_points()]
     assert len(swept) == 2, (
         f"the swept row did not record two points; got {[record.run_id for record in swept]}"
     )

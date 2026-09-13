@@ -1306,6 +1306,29 @@ class Script:
                         f"({entry.citation})"
                     )
 
+    def begin_point(self) -> None:
+        """Open a new POINT inside one script, rewinding the phase to init.
+
+        FR-95. A warm steady sweep is one script holding several points,
+        and each point runs the same cycle: set its condition, initialise
+        if it must, start the solver, analyse, export. The phase guard is
+        monotonic across a script, so the second point's
+        ``SOLVER_SET_AOA``, an init command, was refused as arriving after
+        the export phase the first point had already reached.
+
+        THE REWIND STOPS AT INIT AND THAT IS THE POINT. Geometry and setup
+        stay behind it, so a sweep still cannot open a second geometry or
+        redefine a coordinate system halfway through, which is the half of
+        the phase rule that catches real mistakes. What it allows is the
+        cycle a sweep is made of, and nothing wider.
+
+        A single-point script never calls this, so its guard is unchanged.
+        """
+        init = _ORDERED_PHASES.index(Phase.INIT)
+        if self._phase_index is not None and self._phase_index > init:
+            self._phase_index = init
+            self._phase_setter = ("begin_point", len(self._lines) + 1)
+
     def _check_phase(self, entry: CommandEntry) -> None:
         if entry.phase is Phase.CONTROL:
             return

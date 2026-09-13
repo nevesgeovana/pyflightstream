@@ -698,7 +698,12 @@ def sweep_table(
     >>> table[["run_id", "alpha", "CL"]]                     # doctest: +SKIP
     """
     _refuse_a_bare_root(workspace, "sweep_table")
-    records = workspace.read_manifest()
+    # ONE ROW PER POINT, and the manifest stores JOBS since 0.17.0. A
+    # steady matrix row is one job over several points, so a table built
+    # straight off the records would report one row where three points ran
+    # and would carry the job's aggregate status for all of them. The
+    # record expands itself; one that is a single point returns itself.
+    records = [point for record in workspace.read_manifest() for point in record.as_points()]
     if not records:
         raise MalformedOutputError(
             f"the campaign root {workspace.root} has no manifest records; "
