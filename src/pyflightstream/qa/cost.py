@@ -143,7 +143,25 @@ COST_VIEW_IDENTITY_COLUMNS = ("sim_id", "point")
 #: :class:`pyflightstream.workspace.RunStatus` under the FAILED_ prefix
 #: is counted the day it arrives; one added under any other name is not,
 #: which is why ``tests/tier1_offline/test_qa_cost.py`` pins the complement.
-_FAILED_STATUSES = frozenset(status for status in RunStatus if status.name.startswith("FAILED"))
+#: The statuses whose wall time is NOT time to an answer.
+#:
+#: The FAILED_ prefix is the right default and it has the hole its own
+#: guard predicted: a terminal status named otherwise lands in "not
+#: failed" by silence. 0.17.0 added two such, and neither is a failure:
+#:
+#: * WALLTIME_REACHED spent its whole wall clock and stopped short of the
+#:   answer, so fitting an estimate on it would teach the estimator that a
+#:   point costs exactly the clock it was given.
+#: * SUBMITTED has no wall time at all: the point is in a queue.
+#:
+#: They are counted here for the ESTIMATOR's purpose, which is "did this
+#: run reach an answer", and not as failures anywhere a user reads.
+_FAILED_STATUSES = frozenset(
+    status
+    for status in RunStatus
+    if status.name.startswith("FAILED")
+    or status in {RunStatus.WALLTIME_REACHED, RunStatus.SUBMITTED}
+)
 
 #: Rendered when a point carries no sweep axes at all (a single-point
 #: simulation). An empty string would render as a blank column and read

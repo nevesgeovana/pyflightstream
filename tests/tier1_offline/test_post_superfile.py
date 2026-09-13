@@ -542,6 +542,13 @@ def test_every_record_scalar_is_carried_or_excluded_on_purpose(tmp_path):
         # whole job inside each of its own points.
         "points_ran",
         "job_id",
+        # FR-98. WHERE a run the wall clock stopped got to. It is about the
+        # INVOCATION rather than the simulation: the step the watchdog
+        # counted is a fact about how far that process ran before it was
+        # told to stop, and the status column already says that it was.
+        # What a reader of this table wants from it is the status, and a
+        # continuation reads the step off the record itself.
+        "stopped_at",
         "run_id",
         "sim_id",
         "status",

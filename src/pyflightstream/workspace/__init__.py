@@ -315,6 +315,21 @@ class RunStatus(enum.StrEnum):
     FAILED_SCRIPT = "FAILED_SCRIPT"
     FAILED_INCOMPLETE_OUTPUT = "FAILED_INCOMPLETE_OUTPUT"
     FAILED_DIVERGED = "FAILED_DIVERGED"
+    #: FR-98, GOAL-019 item 7: the run reached its WALLTIME and the watchdog
+    #: stopped it with its outputs written. NOT A FAILURE, and the whole
+    #: point of the value: the numbers up to that step are real and the user
+    #: judges whether to continue. Its sibling is COMPLETED_MAX_ITER, which
+    #: is the same shape for the iteration cap; this one is the clock cap.
+    #:
+    #: A record in this state carries `stopped_at`, without which
+    #: `RESTART: {FINISH_PENDING}` has nothing to subtract from.
+    WALLTIME_REACHED = "WALLTIME_REACHED"
+    #: FR-99, GOAL-019 item 8: the point was handed to a scheduler and has
+    #: not come back. NOT A FAILURE EITHER, and it cannot be folded into an
+    #: existing value: a submitted point is not converged, not failed and
+    #: not blocked, and calling it any of those makes a sweep report a
+    #: verdict for a run that has not happened.
+    SUBMITTED = "SUBMITTED"
 
 
 class ExecutorRecord(TypedDict):
@@ -732,6 +747,11 @@ class RunRecord(BaseModel):
     cwd: str | None = None
     timeout_s: float | None = None
     recipe: str | None = None
+    #: FR-98: where a WALLTIME_REACHED run stopped, as the watchdog counted
+    #: it. The program that stops the run is the only thing that knows, so
+    #: it writes the number down before the solver goes away; without it
+    #: `RESTART: {FINISH_PENDING}` has nothing to subtract from.
+    stopped_at: dict | None = None
     #: FR-95, GOAL-019 item 4: the JOB this record is. One steady row is one
     #: job for all its points since 0.17.0, so a record is a job and not a
     #: point, and this is what a submitted job is asked after by. None on a

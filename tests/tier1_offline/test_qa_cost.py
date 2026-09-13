@@ -302,6 +302,12 @@ def test_every_run_status_is_deliberately_classified_as_failed_or_not():
     """
     from pyflightstream.qa.cost import _FAILED_STATUSES
 
+    # THE HOLE THIS GUARD PREDICTED OPENED, and this is the decision it
+    # asked for. 0.17.0 added two statuses that are NOT failures and whose
+    # wall time is still not time to an answer: WALLTIME_REACHED spent its
+    # whole clock and stopped short, so fitting on it would teach the
+    # estimator that a point costs exactly the clock it was given, and
+    # SUBMITTED has no wall time because the point is in a queue.
     assert set(RunStatus) - _FAILED_STATUSES == {
         RunStatus.CONVERGED,
         RunStatus.COMPLETED_MAX_ITER,

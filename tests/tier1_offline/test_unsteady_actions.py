@@ -505,3 +505,259 @@ def test_the_series_of_a_stub_run_agrees_with_the_counter_step_for_step(tmp_path
     # The counter's last state is step 4 at 4 * DELTA_TIME; the table's last row says the same.
     assert float(body[-1][1]) == pytest.approx(state["time_s"])
     assert all(cells[2] == "" for cells in body), "no rotor, no azimuth"
+
+
+# --- FR-98, GOAL-019 item 7: the wall-clock watchdog --------------------------
+
+
+def test_goal019_watchdog_the_eighth_status_is_not_a_failure():
+    """WALLTIME_REACHED joins the set, and its sibling already existed.
+
+    COMPLETED_MAX_ITER is "ran to the iteration cap without converging".
+    This is the same shape for the clock cap, which is why it is not a
+    failure: the numbers up to that step are real and the user judges
+    whether to continue.
+    """
+    from pyflightstream.workspace import RunStatus
+
+    names = [status.value for status in RunStatus]
+    assert "WALLTIME_REACHED" in names and "SUBMITTED" in names, names
+    assert not RunStatus.WALLTIME_REACHED.value.startswith("FAILED")
+    assert not RunStatus.SUBMITTED.value.startswith("FAILED")
+    # The six of 0.16.0 are all still there: nothing already recorded
+    # changes meaning.
+    for older in (
+        "CONVERGED",
+        "COMPLETED_MAX_ITER",
+        "FAILED_EXECUTION",
+        "FAILED_SCRIPT",
+        "FAILED_INCOMPLETE_OUTPUT",
+        "FAILED_DIVERGED",
+    ):
+        assert older in names, older
+
+
+def test_goal019_watchdog_the_clock_pair_registers_after_the_counter_pair():
+    """Her numbering of 2026-09-12: the clock is (3) and its script is (4).
+
+    THE ORDER IS THE DESIGN. The solver runs actions in creation order and
+    cannot be told otherwise, so in each pair the python that WRITES is
+    registered before the script that READS.
+    """
+    from pyflightstream.cases.workflows import (
+        UNSTEADY_COUNTER_ACTION,
+        UNSTEADY_EXPORTS_ACTION,
+        WALLTIME_CLOCK_ACTION,
+        WALLTIME_STOP_ACTION,
+        _unsteady_actions,
+    )
+    from pyflightstream.script import Script
+
+    script = Script(version="26.123")
+    _unsteady_actions(script, _a_threshold(), walltime=True)
+    names = [use.name for use in script.unsteady_actions]
+    assert names == [
+        UNSTEADY_COUNTER_ACTION,
+        UNSTEADY_EXPORTS_ACTION,
+        WALLTIME_CLOCK_ACTION,
+        WALLTIME_STOP_ACTION,
+    ], names
+
+
+def test_goal019_watchdog_the_clock_pair_takes_one_and_two_when_alone():
+    """ "When the other two exist", in her words, and when they do not.
+
+    A row that states no export threshold registers no counter pair at
+    all, so the clock pair is (1) and (2). The positions are what the row
+    asks for rather than fixed numbers.
+    """
+    from pyflightstream.cases.workflows import (
+        WALLTIME_CLOCK_ACTION,
+        WALLTIME_STOP_ACTION,
+        _unsteady_actions,
+    )
+    from pyflightstream.script import Script
+
+    script = Script(version="26.123")
+    _unsteady_actions(script, None, walltime=True)
+    assert [use.name for use in script.unsteady_actions] == [
+        WALLTIME_CLOCK_ACTION,
+        WALLTIME_STOP_ACTION,
+    ]
+
+
+def test_goal019_watchdog_the_clock_fires_once_and_says_where_it_stopped(tmp_path):
+    """The program itself, run the way the solver runs it: once per step.
+
+    IT KEEPS ITS OWN STATE because the solver hands an action nothing. And
+    it fires ONCE: a second firing would append a second copy of every
+    export line into the file the solver is about to read.
+    """
+    import json
+    import os
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    from pyflightstream.cases.workflows import (
+        WALLTIME_CLOCK_STATE,
+        WALLTIME_CLOCK_TEMPLATE,
+        WALLTIME_STOP_SCRIPT,
+        WALLTIME_STOP_VERB,
+    )
+
+    actions = tmp_path / "actions"
+    actions.mkdir()
+    program = actions / "clock.py"
+    program.write_text(
+        WALLTIME_CLOCK_TEMPLATE.format(
+            sim="9001",
+            state_name=Path(WALLTIME_CLOCK_STATE).name,
+            stop_name=Path(WALLTIME_STOP_SCRIPT).name,
+            deadline=0.0,
+            stop_text=f"EXPORT_LOG\nrun.log\n{WALLTIME_STOP_VERB}\n",
+        ),
+        encoding="utf-8",
+    )
+    stop = actions / Path(WALLTIME_STOP_SCRIPT).name
+    stop.write_text("", encoding="utf-8")
+
+    # env= ON PURPOSE, which the repository's spawn ratchet asks for: a
+    # child that inherits the whole environment is the defect it counts.
+    # This program reads nothing from it, so an empty one is the honest
+    # answer rather than a filtered copy.
+    for _ in range(3):
+        done = subprocess.run(
+            [sys.executable, str(program)],
+            check=False,
+            env={"SYSTEMROOT": os.environ.get("SYSTEMROOT", "")},
+        )
+        assert done.returncode == 0, done
+
+    state = json.loads((actions / Path(WALLTIME_CLOCK_STATE).name).read_text(encoding="utf-8"))
+    assert state["fired"] is True
+    assert state["steps"] == 3, state
+    assert state["stopped_at"]["step"] == 1, (
+        "the clock fired more than once, so the stop file holds a repeated export block"
+    )
+    assert stop.read_text(encoding="utf-8").count(WALLTIME_STOP_VERB) == 1
+
+
+def test_goal019_watchdog_the_margin_lives_in_the_setup(tmp_path):
+    """Her decision: the wall clock is the ROW's and the margin is the SETUP's.
+
+    A margin is how much time to leave for the exports, which is the same
+    question on every platform and does not vary with the row; a wall
+    clock does.
+    """
+    from pyflightstream.cases import SimCase, SweepAxis
+    from pyflightstream.cases.workflows import WALLTIME_MARGIN_DEFAULT_S, walltime_margin_s
+
+    bare = SimCase(
+        sim_id="9001",
+        aircraft="Rig",
+        recipe="unsteady",
+        sweep=SweepAxis(type="alpha", values=[0.0]),
+    )
+    assert walltime_margin_s(bare) == float(WALLTIME_MARGIN_DEFAULT_S)
+    assert WALLTIME_MARGIN_DEFAULT_S == 1200, "her number of 2026-09-12 is twenty minutes"
+
+
+def _a_threshold():
+    """One export threshold, built the way a row states it."""
+    from pyflightstream.cases.workflows import UnsteadyExportThreshold
+
+    return UnsteadyExportThreshold(
+        stated_form="EXPORT_UNSTEADY_AFTER_ITER",
+        stated_value=4.0,
+        first_step=4,
+        time_iterations=10,
+        step_deg=None,
+        delta_time_s=0.001,
+        rpm=None,
+        exports=(("log", "_log.txt", "EXPORT_LOG"),),
+    )
+
+
+def test_goal019_watchdog_restart_reads_the_three_forms_and_refuses_a_fourth():
+    """FR-96: RESTART says how to continue a run the clock stopped.
+
+    ONE SEPARATOR, and her message spelled two. The equals is taken for
+    both, because the colon is already the key/value separator of the free
+    cell and nesting it inside braces reads as a second pair.
+    """
+    import pytest
+
+    from pyflightstream.cases import SimCase, SweepAxis
+    from pyflightstream.cases.workflows import (
+        RESTART_ADDITIONAL_REVS,
+        RESTART_FINISH_PENDING,
+        parse_restart,
+    )
+    from pyflightstream.exceptions import CampaignConfigError
+
+    def row(cell):
+        return SimCase(
+            sim_id="9001",
+            aircraft="Rig",
+            recipe="unsteady_rotor",
+            sweep=SweepAxis(type="alpha", values=[0.0]),
+            variables={"RESTART": cell},
+        )
+
+    assert parse_restart(row("{FINISH_PENDING}")).form == RESTART_FINISH_PENDING
+    assert parse_restart(row("{ADDITIONAL_ITERS=120}")).value == 120
+    assert parse_restart(row("{ADDITIONAL_REVS=2}")).form == RESTART_ADDITIONAL_REVS
+    assert parse_restart(row("{ADDITIONAL_REVS=2}")).value == 2
+
+    empty = SimCase(
+        sim_id="9001",
+        aircraft="Rig",
+        recipe="unsteady_rotor",
+        sweep=SweepAxis(type="alpha", values=[0.0]),
+    )
+    assert parse_restart(empty) is None, "a row stating none asks for nothing"
+
+    with pytest.raises(CampaignConfigError, match="not one of"):
+        parse_restart(row("{CARRY_ON}"))
+    with pytest.raises(CampaignConfigError, match="takes no number"):
+        parse_restart(row("{FINISH_PENDING=3}"))
+    with pytest.raises(CampaignConfigError, match="states no number"):
+        parse_restart(row("{ADDITIONAL_ITERS}"))
+    with pytest.raises(CampaignConfigError, match="adds nothing"):
+        parse_restart(row("{ADDITIONAL_ITERS=0}"))
+
+
+def test_goal019_watchdog_finish_pending_subtracts_what_the_run_reached():
+    """The clause that makes stopped_at load-bearing.
+
+    FINISH_PENDING has nothing to subtract from unless the record says
+    where the run stopped, which is why the program that stops it writes
+    that number down before the solver goes away.
+    """
+    import pytest
+
+    from pyflightstream.cases.workflows import (
+        RESTART_ADDITIONAL_REVS,
+        RestartRequest,
+        restart_iterations,
+    )
+    from pyflightstream.exceptions import CampaignConfigError
+
+    record = {
+        "stopped_at": {"step": 430, "elapsed_s": 7200.0},
+        "export_window": {"time_iterations": 720, "step_deg": 15.0},
+    }
+    pending = RestartRequest(form="FINISH_PENDING", value=None)
+    assert restart_iterations(pending, record) == 290, "720 asked, 430 reached"
+
+    revs = RestartRequest(form=RESTART_ADDITIONAL_REVS, value=2)
+    assert restart_iterations(revs, record) == 48, "two turns at fifteen degrees a step"
+
+    with pytest.raises(CampaignConfigError, match="does not say how many time steps"):
+        restart_iterations(pending, {"stopped_at": {"step": 430}})
+    with pytest.raises(CampaignConfigError, match="nothing to finish"):
+        restart_iterations(
+            pending,
+            {"stopped_at": {"step": 720}, "export_window": {"time_iterations": 720}},
+        )

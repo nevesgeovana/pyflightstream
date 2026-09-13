@@ -6631,6 +6631,39 @@ UNSTEADY_EXPORTS_ACTION = "pfs_unsteady_exports"
 UNSTEADY_ACTION_PROGRAM = "actions/pfs_unsteady_actions.py"
 UNSTEADY_ACTION_SCRIPT = "actions/pfs_unsteady_exports.txt"
 UNSTEADY_ACTION_COUNT = "actions/pfs_unsteady_actions.count"
+
+#: FR-98, GOAL-019 item 7. THE CLOCK PAIR, and it is the SAME SHAPE as the
+#: counter pair above because it has the same problem: a python that can
+#: compute cannot also be the command list the solver runs, so one writes
+#: and one is read.
+#:
+#: Her numbering of 2026-09-12: the counter is (1), the exports script is
+#: (2), the clock is (3) and the stop script is (4). When a row states no
+#: export threshold the first pair is not registered at all and the clock
+#: pair takes (1) and (2), which is why the positions are conditional and
+#: not fixed.
+WALLTIME_CLOCK_ACTION = "pfs_walltime_clock"
+WALLTIME_STOP_ACTION = "pfs_walltime_stop"
+
+#: The program, the file it rewrites, and the state it keeps, relative to
+#: the simulation folder. Under ``actions/`` for the reason the counter's
+#: files are: ``inputs/`` may be a junction into the geometry library.
+WALLTIME_CLOCK_PROGRAM = "actions/pfs_walltime_clock.py"
+WALLTIME_STOP_SCRIPT = "actions/pfs_walltime_stop.txt"
+WALLTIME_CLOCK_STATE = "actions/pfs_walltime_clock.json"
+
+#: What the clock writes into (4) when it fires: the exports this row
+#: declares, then the stop. THE STOP VERB IS ONE SUBSTITUTABLE LINE, on
+#: purpose: whether ``STOP`` inside an action's script ends the RUN or only
+#: that script is NOT MEASURED, and it needs a licensed probe that moves
+#: one thing. Keeping it to one line is what makes that probe cheap.
+WALLTIME_STOP_VERB = "STOP"
+
+#: How long before the wall clock the watchdog fires, when the setup states
+#: nothing. Twenty minutes, her number of 2026-09-12. It is a property of
+#: how you are willing to solve rather than of the row, which is why it
+#: lives in the SETUP and the clock itself lives in the matrix.
+WALLTIME_MARGIN_DEFAULT_S = 1200
 #: The export kinds that describe the WHOLE RUN and are therefore not
 #: exported per step: a saved simulation is the full state and is the
 #: size that sends every .fsm to cloud storage, the plots file already
@@ -6850,30 +6883,366 @@ def unsteady_action_command_line(interpreter: str = sys.executable) -> str:
     return f'"{interpreter}" "{UNSTEADY_ACTION_PROGRAM}"'
 
 
-def _unsteady_actions(script: Script, threshold: UnsteadyExportThreshold | None) -> None:
-    """Register the counter and the exports file, in that order, or nothing.
+#: FR-96, GOAL-019 item 7. The three things a RESTART may ask for.
+#:
+#: ONE SEPARATOR, and her message spelled two: `ADDITIONAL_ITERS=<n>` with
+#: an equals and `ADDITIONAL_REVS:<n>` with a colon. The equals is taken
+#: for both, because the colon is already the key/value separator of the
+#: free cell itself and nesting it inside braces reads as a second pair.
+RESTART_FINISH_PENDING = "FINISH_PENDING"
+RESTART_ADDITIONAL_ITERS = "ADDITIONAL_ITERS"
+RESTART_ADDITIONAL_REVS = "ADDITIONAL_REVS"
+RESTART_FORMS = (
+    RESTART_FINISH_PENDING,
+    RESTART_ADDITIONAL_ITERS,
+    RESTART_ADDITIONAL_REVS,
+)
 
-    The SCRIPT file is parked EMPTY: until the count reaches the threshold
-    the solver must find a file with no command in it, and the run layer
-    writes what is parked before the solver starts (PFS-2031.13). A build
-    that does not document the action command is refused by the emitter,
-    naming the command and the builds that do.
+#: Where a restart puts the outputs the earlier run left. THE SAME RULE AS
+#: `post`, and worth naming as the same rule rather than a second one: a
+#: product about to be superseded is archived, not overwritten.
+RESTART_ARCHIVE_DIR = "archive"
+
+
+@dataclass(frozen=True)
+class RestartRequest:
+    """What a row asks for when it continues a run the clock stopped.
+
+    Attributes
+    ----------
+    form : str
+        One of :data:`RESTART_FORMS`.
+    value : float or None
+        The number of steps or revolutions to add. None for
+        ``FINISH_PENDING``, which asks for what the row originally stated
+        and therefore carries no number of its own.
     """
-    if threshold is None:
-        return
-    helpers.unsteady_action(
-        script,
-        name=UNSTEADY_COUNTER_ACTION,
-        kind="COMMAND_LINE",
-        filename=unsteady_action_command_line(),
+
+    form: str
+    value: float | None
+
+
+def parse_restart(case: SimCase) -> RestartRequest | None:
+    """Read the row's RESTART cell, or None where it states none (FR-96).
+
+    ``RESTART: {FINISH_PENDING}``, ``RESTART: {ADDITIONAL_ITERS=120}`` or
+    ``RESTART: {ADDITIONAL_REVS=2}``. The braces are the row's own record
+    syntax and the form inside is one of three words; anything else is
+    refused NAMING THE THREE, because a misspelt continuation that planned
+    READY would spend a seat re-running a point that was nearly done.
+    """
+    stated = case.variables.get(RESTART_VARIABLE)
+    if stated is None:
+        return None
+    text = str(stated).strip()
+    if not (text.startswith("{") and text.endswith("}")):
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} states {RESTART_VARIABLE}: {stated!r}, which is not a "
+            f"brace-closed record. Write one of "
+            f"{{{RESTART_FINISH_PENDING}}}, {{{RESTART_ADDITIONAL_ITERS}=<n>}} or "
+            f"{{{RESTART_ADDITIONAL_REVS}=<n>}}."
+        )
+    body = text[1:-1].strip()
+    name, sep, raw = body.partition("=")
+    form = name.strip().upper()
+    if form not in RESTART_FORMS:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} asks {RESTART_VARIABLE} to do {form!r}, which is not "
+            f"one of {', '.join(RESTART_FORMS)}."
+        )
+    if form == RESTART_FINISH_PENDING:
+        if sep:
+            raise CampaignConfigError(
+                f"case {case.sim_id!r} gives {RESTART_FINISH_PENDING} a value of "
+                f"{raw.strip()!r}. It asks for what the row already stated and takes no "
+                "number; the two that do are "
+                f"{RESTART_ADDITIONAL_ITERS} and {RESTART_ADDITIONAL_REVS}."
+            )
+        return RestartRequest(form=form, value=None)
+    if not sep:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} asks for {form} and states no number. Write "
+            f"{{{form}=<n>}}: how many more to run is the whole of what it says."
+        )
+    try:
+        value = float(raw.strip())
+    except ValueError:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} asks for {form}={raw.strip()!r}, which is not a number."
+        ) from None
+    if value <= 0:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} asks for {form}={value:g}, and a continuation that "
+            "adds nothing is a run that need not happen."
+        )
+    return RestartRequest(form=form, value=value)
+
+
+def restart_iterations(request: RestartRequest, record: Mapping[str, object]) -> int:
+    """How many time steps the continuation runs, from the record it continues.
+
+    FINISH_PENDING SUBTRACTS, which is why a WALLTIME_REACHED record must
+    say where it stopped: what remains is what the row asked for minus what
+    the earlier run reached. A record that cannot say is refused here
+    rather than silently re-running the whole thing.
+    """
+    reached = 0
+    stopped = record.get("stopped_at")
+    if isinstance(stopped, Mapping):
+        reached = int(stopped.get("step") or 0)
+    if request.form == RESTART_FINISH_PENDING:
+        window = record.get("export_window")
+        asked = 0
+        if isinstance(window, Mapping):
+            asked = int(window.get("time_iterations") or 0)
+        if not asked:
+            raise CampaignConfigError(
+                f"{RESTART_FINISH_PENDING} needs to know what the row originally asked "
+                "for, and the record it continues does not say how many time steps that "
+                f"was. State {RESTART_ADDITIONAL_ITERS} or {RESTART_ADDITIONAL_REVS} "
+                "instead, which say it outright."
+            )
+        remaining = asked - reached
+        if remaining <= 0:
+            raise CampaignConfigError(
+                f"{RESTART_FINISH_PENDING} has nothing to finish: the run reached step "
+                f"{reached} of the {asked} it asked for."
+            )
+        return remaining
+    if request.form == RESTART_ADDITIONAL_ITERS:
+        return int(request.value or 0)
+    # ADDITIONAL_REVS, turned into steps by the clock the row already states.
+    window = record.get("export_window")
+    step_deg = None
+    if isinstance(window, Mapping):
+        step_deg = window.get("step_deg")
+    if not step_deg:
+        raise CampaignConfigError(
+            f"{RESTART_ADDITIONAL_REVS} counts revolutions and the record it continues "
+            "states no azimuthal step, so there is no arithmetic from one to the other. "
+            f"State {RESTART_ADDITIONAL_ITERS} instead."
+        )
+    return int(math.ceil(float(request.value or 0) * 360.0 / float(step_deg)))
+
+
+def walltime_margin_s(case: SimCase) -> float:
+    """Return the margin the setup states, or the default of twenty minutes.
+
+    In the SETUP because it is a property of how you are willing to solve:
+    how much time to leave for the exports is the same question on every
+    platform and does not vary with the row, where the wall clock does.
+    """
+    solver = getattr(case, "solver", None)
+    stated = getattr(solver, "walltime_margin_s", None) if solver is not None else None
+    if stated is None:
+        stated = case.variables.get("WALLTIME_MARGIN_S")
+    if stated is None:
+        return float(WALLTIME_MARGIN_DEFAULT_S)
+    try:
+        value = float(stated)
+    except (TypeError, ValueError):
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: the walltime margin is {stated!r}, which is not a "
+            "number of seconds. It is how long before the wall clock the run stops to "
+            "write its exports."
+        ) from None
+    if value < 0:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: the walltime margin is {value}, and a margin is a "
+            "length of time before the clock rather than after it."
+        )
+    return value
+
+
+def row_walltime_s(case: SimCase) -> float | None:
+    """Return the wall clock the ROW states, in seconds, or None (FR-93).
+
+    TWO CONSUMERS, which is what earned it a column rather than a place in
+    an HPC profile: on a cluster it is what the job asks the scheduler for,
+    and anywhere at all it is what this watchdog counts down to.
+    """
+    stated = case.variables.get(WALLTIME_VARIABLE)
+    if stated is None or str(stated).strip() in ("", "-"):
+        return None
+    try:
+        value = float(str(stated).strip())
+    except ValueError:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} states {WALLTIME_VARIABLE}: {stated!r}, which is not "
+            "a number of seconds."
+        ) from None
+    if value <= 0:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} states {WALLTIME_VARIABLE}: {value}, and a run needs "
+            "a positive wall clock or none at all."
+        )
+    return value
+
+
+#: The program the clock action runs, rendered with this row's deadline.
+#:
+#: IT KEEPS ITS OWN STATE because the solver hands an action nothing: not
+#: the step, not the time, not how far the run has come. The first
+#: invocation writes the start; every one after it reads that back and
+#: asks one question.
+#:
+#: WHEN IT FIRES it writes the row's exports and the stop into the script
+#: file the solver re-reads on the next step, and records WHERE it stopped
+#: so a RESTART has something to subtract from. It fires ONCE: the state
+#: carries a flag, because a second firing would append a second copy of
+#: every export line.
+WALLTIME_CLOCK_TEMPLATE = """\
+# Written by pyflightstream for {sim}. The wall clock of this row, watched
+# from inside the run, because the solver cannot be asked how long it has
+# been going.
+import json
+import pathlib
+import time
+
+HERE = pathlib.Path(__file__).resolve().parent
+STATE = HERE / "{state_name}"
+TARGET = HERE / "{stop_name}"
+DEADLINE_S = {deadline:.3f}
+STOP_TEXT = {stop_text!r}
+
+state = {{"started_at": None, "steps": 0, "fired": False}}
+if STATE.is_file():
+    try:
+        state.update(json.loads(STATE.read_text(encoding="utf-8")))
+    except ValueError:
+        pass
+
+now = time.time()
+if state["started_at"] is None:
+    state["started_at"] = now
+state["steps"] = int(state["steps"]) + 1
+elapsed = now - float(state["started_at"])
+state["elapsed_s"] = elapsed
+
+if not state["fired"] and elapsed >= DEADLINE_S:
+    TARGET.write_text(STOP_TEXT, encoding="utf-8")
+    state["fired"] = True
+    state["stopped_at"] = {{"step": state["steps"], "elapsed_s": elapsed}}
+
+STATE.write_text(json.dumps(state, indent=2), encoding="utf-8")
+"""
+
+
+def walltime_clock_program(case: SimCase, conventions: WorkflowConventions) -> str:
+    """Render the clock program for one row, with its deadline baked in.
+
+    THE DEADLINE IS THE ROW'S WALL CLOCK MINUS THE SETUP'S MARGIN, computed
+    here rather than in the program, so a reader of the emitted file sees
+    the number the run will actually use rather than an expression they
+    have to evaluate against two artifacts.
+    """
+    walltime = row_walltime_s(case)
+    if walltime is None:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: the wall clock program was asked for on a row that "
+            f"states no {WALLTIME_VARIABLE}."
+        )
+    margin = walltime_margin_s(case)
+    deadline = walltime - margin
+    if deadline <= 0:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} states {WALLTIME_VARIABLE}: {walltime:g} s and a "
+            f"margin of {margin:g} s, which leaves {deadline:g} s to run in. The margin "
+            "is how long before the clock the run stops to write its exports, so it has "
+            "to be shorter than the clock."
+        )
+    return WALLTIME_CLOCK_TEMPLATE.format(
+        sim=case.sim_id,
+        state_name=PurePath(WALLTIME_CLOCK_STATE).name,
+        stop_name=PurePath(WALLTIME_STOP_SCRIPT).name,
+        deadline=deadline,
+        stop_text=walltime_stop_text(case, conventions),
     )
-    helpers.unsteady_action(
-        script,
-        name=UNSTEADY_EXPORTS_ACTION,
-        kind="SCRIPT",
-        filename=UNSTEADY_ACTION_SCRIPT,
-        action_script="",
-    )
+
+
+def walltime_stop_text(case: SimCase, conventions: WorkflowConventions) -> str:
+    """Render what the clock writes into the stop script when it fires.
+
+    The row's own exports, then the stop. The exports are the names the
+    conventions already rendered for this point, so nothing here retypes a
+    verb or a suffix; the stop is ONE LINE, which is what keeps the probe
+    that measures it cheap.
+    """
+    lines: list[str] = [
+        "# Written by the wall-clock action. The run reached its clock and",
+        "# these are its outputs as they stand.",
+    ]
+    for kind, suffix, verb, only_unsteady in EXPORT_KINDS:
+        del kind, only_unsteady
+        for name in conventions.outputs:
+            if name.endswith(suffix):
+                lines.append(verb)
+                lines.append(name)
+                break
+    lines.append(WALLTIME_STOP_VERB)
+    return "\n".join(lines) + "\n"
+
+
+def walltime_clock_command_line() -> str:
+    """Return the COMMAND_LINE the clock action registers: interpreter, then program."""
+    interpreter = PurePath(sys.executable).as_posix()
+    return f'"{interpreter}" "{WALLTIME_CLOCK_PROGRAM}"'
+
+
+def _unsteady_actions(
+    script: Script,
+    threshold: UnsteadyExportThreshold | None,
+    *,
+    walltime: bool = False,
+) -> None:
+    """Register the action pairs this row needs, in creation order.
+
+    TWO PAIRS AND HER NUMBERING OF 2026-09-12. The counter is (1) and the
+    exports script is (2); the wall clock is (3) and the stop script is
+    (4). A row that states no export threshold registers no first pair, so
+    the clock pair takes (1) and (2): the positions are what the row asks
+    for rather than fixed numbers.
+
+    EACH PAIR IS A WRITER AND A READER, and the writer is registered first
+    because the solver runs actions in creation order and cannot be told
+    otherwise: the python rewrites the script file before the SCRIPT action
+    of the same step reads it.
+
+    Both SCRIPT files are parked EMPTY. Until the count reaches its
+    threshold, and until the clock reaches its margin, the solver must find
+    a file with no command in it; the run layer writes what is parked
+    before the solver starts (PFS-2031.13). A build that does not document
+    the action command is refused by the emitter, naming the command and
+    the builds that do.
+    """
+    if threshold is not None:
+        helpers.unsteady_action(
+            script,
+            name=UNSTEADY_COUNTER_ACTION,
+            kind="COMMAND_LINE",
+            filename=unsteady_action_command_line(),
+        )
+        helpers.unsteady_action(
+            script,
+            name=UNSTEADY_EXPORTS_ACTION,
+            kind="SCRIPT",
+            filename=UNSTEADY_ACTION_SCRIPT,
+            action_script="",
+        )
+    if walltime:
+        helpers.unsteady_action(
+            script,
+            name=WALLTIME_CLOCK_ACTION,
+            kind="COMMAND_LINE",
+            filename=walltime_clock_command_line(),
+        )
+        helpers.unsteady_action(
+            script,
+            name=WALLTIME_STOP_ACTION,
+            kind="SCRIPT",
+            filename=WALLTIME_STOP_SCRIPT,
+            action_script="",
+        )
 
 
 def _build_unsteady(case: SimCase, script: Script, conventions: WorkflowConventions) -> None:
@@ -6915,7 +7284,7 @@ def _build_unsteady(case: SimCase, script: Script, conventions: WorkflowConventi
     # The wake termination in STEPS is the one this run type can state
     # (PFS-2030.03.04); the revolutions form was refused above.
     _settings(case, script, wake_termination_time_steps=case.solver.wake_termination_steps)
-    _unsteady_actions(script, threshold)
+    _unsteady_actions(script, threshold, walltime=row_walltime_s(case) is not None)
     _script_tail(conventions, case, script, frame, unsteady=True, frames=frames)
 
 
@@ -7023,7 +7392,7 @@ def _build_unsteady_rotor(case: SimCase, script: Script, conventions: WorkflowCo
         delta_time=stepping.delta_time_s,
     )
     _settings(case, script, wake_termination_time_steps=_wake_termination(case, stepping))
-    _unsteady_actions(script, threshold)
+    _unsteady_actions(script, threshold, walltime=row_walltime_s(case) is not None)
     _script_tail(conventions, case, script, frame, unsteady=True, frames=frames)
 
 
@@ -7240,7 +7609,7 @@ def _rotor_motions(
         delta_time=stepping.delta_time_s,
     )
     _settings(case, script, wake_termination_time_steps=_wake_termination(case, stepping))
-    _unsteady_actions(script, threshold)
+    _unsteady_actions(script, threshold, walltime=row_walltime_s(case) is not None)
     _script_tail(conventions, case, script, frame, unsteady=True, frames=frames)
 
 

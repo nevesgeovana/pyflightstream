@@ -95,9 +95,17 @@ from pyflightstream.cases.workflows import (
     UNSTEADY_ACTION_PROGRAM,
     UNSTEADY_ACTION_SCRIPT,
     UNSTEADY_COUNTER_ACTION,
+    WALLTIME_CLOCK_ACTION,
+    WALLTIME_CLOCK_PROGRAM,
+    WALLTIME_CLOCK_STATE,
+    WALLTIME_STOP_SCRIPT,
+    WorkflowConventions,
     build_steady_sweep,
     reduction_windows,
+    row_walltime_s,
     unsteady_export_threshold,
+    walltime_clock_program,
+    walltime_margin_s,
 )
 from pyflightstream.results import (
     SOLVER_MODES,
@@ -3931,6 +3939,36 @@ def _execute_sweep(
     )
 
 
+def _walltime_stop(state_path: Path) -> dict | None:
+    """Where the wall-clock watchdog stopped this run, or None if it did not.
+
+    None covers three cases that are all the same answer to the caller: no
+    clock on the row, a clock that never fired, and a state file the
+    program never got to write. A run that ended for its own reasons is
+    not a run the clock stopped, and saying so is the whole value.
+    """
+    if not state_path.is_file():
+        return None
+    try:
+        state = json.loads(state_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    if not state.get("fired"):
+        return None
+    stopped = state.get("stopped_at")
+    return dict(stopped) if isinstance(stopped, dict) else None
+
+
+def workflow_conventions_for(case: SimCase) -> WorkflowConventions:
+    """Return the conventions a builder would have been given for this case.
+
+    The run layer owns these and the clock program needs the same ones the
+    export block used, so it asks the same constructor rather than
+    rebuilding the names.
+    """
+    return WorkflowConventions.for_case(case)
+
+
 def _execute_point(
     *,
     campaign: Campaign,
@@ -4157,6 +4195,28 @@ def _execute_point(
         }
         if threshold.step_deg is not None:
             base["export_window"]["step_deg"] = threshold.step_deg
+    # FR-98, GOAL-019 item 7. THE CLOCK PAIR, written the same way and for
+    # the same reason: the program is rendered with this row's deadline so
+    # the emitted file states the number the run will use, and the script
+    # is parked EMPTY so the solver finds a file with no command in it
+    # until the clock fires. The state of an EARLIER point of this case is
+    # removed, because a clock carried over would fire the second point
+    # before its first step.
+    if any(use.name == WALLTIME_CLOCK_ACTION for use in script.unsteady_actions):
+        clock = sim_dir / WALLTIME_CLOCK_PROGRAM
+        clock.parent.mkdir(parents=True, exist_ok=True)
+        clock.write_text(
+            walltime_clock_program(point_case, workflow_conventions_for(point_case)),
+            encoding="utf-8",
+        )
+        (sim_dir / WALLTIME_CLOCK_STATE).unlink(missing_ok=True)
+        base["inputs_sha256"] = {
+            **base.get("inputs_sha256", inputs_sha256),
+            WALLTIME_CLOCK_PROGRAM: file_sha256(clock),
+            WALLTIME_STOP_SCRIPT: file_sha256(sim_dir / WALLTIME_STOP_SCRIPT),
+        }
+        base["walltime_s"] = row_walltime_s(point_case)
+        base["walltime_margin_s"] = walltime_margin_s(point_case)
     base["script_sha256"] = script_sha
     base["script_path"] = str(Path(script_path).relative_to(sim_dir).as_posix())
     base["raw_flag"] = script.raw_flag
@@ -4216,6 +4276,13 @@ def _execute_point(
     # time step.
     if threshold is not None:
         base["action_count"] = _action_count(sim_dir / UNSTEADY_ACTION_COUNT)
+    # FR-98. WHETHER THE CLOCK FIRED, read from the state the program left.
+    # This is the only thing that knows: the solver reports a run that
+    # ended, and the difference between ending because it finished and
+    # ending because the watchdog stopped it is here or nowhere.
+    stopped = _walltime_stop(sim_dir / WALLTIME_CLOCK_STATE)
+    if stopped is not None:
+        base["stopped_at"] = stopped
     if result.failed:
         # One composer, never a chain here: the timeout branch used to
         # discard every captured channel, and the timeout branch is the
@@ -4260,7 +4327,16 @@ def _execute_point(
     assessment = assess(point_case, result, sim_dir)
     return RunRecord(
         **base,
-        status=assessment.status,
+        # FR-98. THE CLOCK'S VERDICT WINS, and only over a converged one.
+        # A run the watchdog stopped did not converge and did not fail: it
+        # ran out of clock with its outputs written, which is a state of
+        # its own and the reason the value exists. A run that DIVERGED and
+        # then hit the clock is still diverged, so a failure is left alone.
+        status=(
+            RunStatus.WALLTIME_REACHED
+            if base.get("stopped_at") and not str(assessment.status).startswith("FAILED")
+            else assessment.status
+        ),
         iterations=assessment.iterations,
         residual=assessment.residual,
         fs_version_reported=assessment.fs_version_reported,

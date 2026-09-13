@@ -149,14 +149,22 @@ def test_the_manifest_record_refuses_an_unknown_field():
         make_record(provenance_note="not a field of this model")
 
 
-def test_the_terminal_status_set_is_exactly_the_six_it_declares():
-    """FR-46: a seventh status cannot be introduced silently.
+def test_the_terminal_status_set_is_exactly_the_eight_it_declares():
+    """FR-46: a ninth status cannot be introduced silently.
 
     Pinned as a set rather than by using the members, because using them
     is what every other test does and none of it notices an addition.
-    A seventh value is precisely what FR-37 asks for, so this assertion
-    is the one that will fail when that question is answered, which is
-    the point: it makes the answer deliberate.
+
+    THIS GUARD DID ITS JOB. It said six, and 0.17.0 asked for two more; it
+    is the assertion that made both answers deliberate rather than
+    accidental, which is exactly what its own docstring predicted when it
+    was written for the seventh.
+
+    Neither of the two is a failure. WALLTIME_REACHED is the clock cap and
+    its sibling COMPLETED_MAX_ITER is the iteration cap; SUBMITTED is a
+    point handed to a scheduler that has not come back, and folding it
+    into any existing value would make a sweep report a verdict for a run
+    that has not happened.
     """
     assert {status.value for status in RunStatus} == {
         "CONVERGED",
@@ -165,6 +173,8 @@ def test_the_terminal_status_set_is_exactly_the_six_it_declares():
         "FAILED_SCRIPT",
         "FAILED_INCOMPLETE_OUTPUT",
         "FAILED_DIVERGED",
+        "WALLTIME_REACHED",
+        "SUBMITTED",
     }
 
 
