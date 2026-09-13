@@ -1703,3 +1703,95 @@ def test_a_point_with_a_steady_probe_export_does_not_get_the_unsteady_table(tmp_
     # so this tells which writer won without asserting on either's name.
     assert "momentum_thickness" in columns, columns
     assert "STATIC_PRESSURE_RATIO" not in columns
+
+
+# --- GOAL-019 item 5: post ARCHIVES rather than overwrites -------------------
+
+
+def test_goal019_post_an_existing_product_is_archived_before_it_is_rewritten(tmp_path):
+    """Her instruction of 2026-09-12, and the defect it answers.
+
+    PFS-2038.02 makes a regenerated SUPER file report DIFFERENT numbers,
+    to the correct ones. Without an archive the table that said something
+    else is gone and nothing records that it ever did, which is the half
+    of that fix a user would have felt.
+    """
+    from pyflightstream.post.products import (
+        PRODUCT_ARCHIVE_DIR,
+        _refuse_an_existing_product,
+    )
+
+    product = tmp_path / "post" / "matriz" / "polars" / "POLAR-1.csv"
+    product.parent.mkdir(parents=True)
+    product.write_text("the numbers as they were", encoding="utf-8")
+
+    returned = _refuse_an_existing_product(product, overwrite=False)
+
+    assert returned == product, "the writer is still handed the path it asked for"
+    assert not product.exists(), "the old product was left in place, so it will be lost"
+    archived = sorted((product.parent / PRODUCT_ARCHIVE_DIR).rglob("POLAR-1.csv"))
+    assert len(archived) == 1, (
+        f"the old product is not under {PRODUCT_ARCHIVE_DIR}/: "
+        f"{sorted((product.parent / PRODUCT_ARCHIVE_DIR).rglob('*'))}"
+    )
+    assert archived[0].read_text(encoding="utf-8") == "the numbers as they were"
+    assert archived[0].parent.parent.name == PRODUCT_ARCHIVE_DIR, (
+        "the archive is not one folder per rebuild, so two rebuilds would collide"
+    )
+
+
+def test_goal019_post_force_overwrite_keeps_no_copy(tmp_path):
+    """The escape, and it is the only way to lose a product.
+
+    Named so it cannot be reached by habit, and the command line asks for
+    a confirmation before it fires.
+    """
+    from pyflightstream.post.products import PRODUCT_ARCHIVE_DIR, _refuse_an_existing_product
+
+    product = tmp_path / "post" / "matriz" / "polars" / "POLAR-1.csv"
+    product.parent.mkdir(parents=True)
+    product.write_text("about to be lost", encoding="utf-8")
+
+    _refuse_an_existing_product(product, overwrite=True, archive=False)
+
+    assert product.exists(), "the writer must still find the path it is about to write"
+    assert not (product.parent / PRODUCT_ARCHIVE_DIR).exists(), (
+        "--force-overwrite kept a copy, which is the thing it exists not to do"
+    )
+
+
+def test_goal019_post_two_rebuilds_in_one_second_do_not_collide(tmp_path):
+    """The stamp is to the second, and two rebuilds inside one are two rebuilds."""
+    import datetime as dt
+
+    from pyflightstream.post.products import PRODUCT_ARCHIVE_DIR, _refuse_an_existing_product
+
+    frozen = dt.datetime(2026, 9, 13, 4, 20, 30)
+    product = tmp_path / "post" / "matriz" / "polars" / "POLAR-1.csv"
+    product.parent.mkdir(parents=True)
+    for body in ("first", "second"):
+        product.write_text(body, encoding="utf-8")
+        _refuse_an_existing_product(product, overwrite=False, stamp=frozen)
+
+    kept = sorted(
+        path.read_text(encoding="utf-8")
+        for path in (product.parent / PRODUCT_ARCHIVE_DIR).rglob("*.csv")
+    )
+    assert kept == ["first", "second"], (
+        f"a second rebuild inside the same second lost one of them: {kept}"
+    )
+
+
+def test_goal019_post_the_command_line_asks_before_it_destroys(tmp_path):
+    """--force-overwrite is refused when nobody answered it.
+
+    A NON-INTERACTIVE SESSION IS A NO. If there is nobody to ask, the
+    answer is not "assume yes": that is how a flag in a saved command line
+    quietly destroys a rebuild's evidence on a machine with no terminal.
+    """
+    from pyflightstream.run.cli import _confirmed_destruction
+
+    assert _confirmed_destruction(True) is True, "--yes answers it"
+    assert _confirmed_destruction(False) is False, (
+        "a session with no terminal answered yes to a question nobody was asked"
+    )

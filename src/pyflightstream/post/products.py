@@ -1504,13 +1504,75 @@ POLARS_DIR = "polars"
 PROBES_DIR = "probes"
 
 
-def _refuse_an_existing_product(path: Path, *, overwrite: bool) -> Path:
-    """Return ``path``, refusing it when it exists and the caller did not ask to rewrite."""
-    if path.exists() and not overwrite:
-        raise ProductExistsError(
-            f"the product {path} exists; pass overwrite (CLI: --overwrite) to rewrite "
-            "it from the manifest"
-        )
+#: The folder an existing product is moved into before a new one is
+#: written, under the matrix's own post folder: ``archive/<day and hour>/``.
+#: One folder per rebuild, so a rebuild is one thing a reader can look at.
+PRODUCT_ARCHIVE_DIR = "archive"
+
+#: How the stamp is spelled. Sortable, no separator a file system objects
+#: to, and to the SECOND: two rebuilds in one minute are two rebuilds.
+PRODUCT_ARCHIVE_STAMP = "%Y%m%d-%H%M%S"
+
+
+def product_archive_dir(path: Path, *, now: object = None) -> Path:
+    """Where the product at ``path`` is archived to before it is rewritten.
+
+    ``post/<matrix>/archive/<day and hour>/``, keeping whatever folders the
+    product sat in below the matrix, so a rebuild's archive is the same
+    shape as the tree it came from and a reader can put the two side by
+    side.
+    """
+    import datetime as _dt
+
+    stamp = (now or _dt.datetime.now()).strftime(PRODUCT_ARCHIVE_STAMP)
+    for parent in path.parents:
+        if parent.name == PRODUCT_ARCHIVE_DIR:
+            # Already inside an archive: never archive an archive.
+            return path.parent
+    return path.parent / PRODUCT_ARCHIVE_DIR / stamp
+
+
+def _refuse_an_existing_product(
+    path: Path, *, overwrite: bool, archive: bool = True, stamp: object = None
+) -> Path:
+    """Return ``path``, ARCHIVING an existing product rather than losing it.
+
+    HER INSTRUCTION OF 2026-09-12, and it arrived as feedback on the fix
+    that makes a regenerated SUPER file report different numbers: without
+    an archive the previous table is gone and nothing says it ever said
+    something else.
+
+    Three behaviours, and the default is the first:
+
+    * the product exists and ``archive`` holds: it is MOVED into
+      ``post/<matrix>/archive/<day and hour>/`` and the new one is written
+      in its place. Nothing is lost and nothing is refused.
+    * the product exists and ``overwrite`` is set with ``archive`` false:
+      it is overwritten and no copy is kept. That is the explicit escape,
+      and the command line spells it ``--force-overwrite`` and asks for a
+      confirmation, so it cannot be reached by habit.
+    * the product does not exist: nothing happens.
+
+    THE OLD REFUSAL IS GONE, which is the part worth saying plainly. It
+    existed to stop a rebuild destroying a product silently, and archiving
+    answers that better: a refusal makes the user delete the file, which
+    destroys it just as thoroughly and puts the work on them.
+    """
+    if not path.exists():
+        return path
+    if not archive and overwrite:
+        return path
+    target = product_archive_dir(path, now=stamp)
+    target.mkdir(parents=True, exist_ok=True)
+    moved = target / path.name
+    if moved.exists():
+        # Two rebuilds inside one second, which the stamp cannot separate.
+        # Numbering is better than either losing one or refusing the write.
+        index = 2
+        while (target / f"{path.stem}.{index}{path.suffix}").exists():
+            index += 1
+        moved = target / f"{path.stem}.{index}{path.suffix}"
+    path.replace(moved)
     return path
 
 
@@ -1551,6 +1613,7 @@ def _sim_products(
     out: Path,
     *,
     overwrite: bool,
+    archive: bool = True,
     matrix_row: MatrixRow | None = None,
     sweep_rows: Mapping[str, Mapping[str, object]] | None = None,
     drafts: list[SuperfileDraft] | None = None,
@@ -1656,7 +1719,7 @@ def _sim_products(
     plots_tables: dict[str, Path] = {}
 
     def _target(path: Path) -> Path:
-        return _refuse_an_existing_product(path, overwrite=overwrite)
+        return _refuse_an_existing_product(path, overwrite=overwrite, archive=archive)
 
     if products.polars:
         # FR-85: ONE CONVENTION FOR THE WHOLE POINT. The table's rows are
@@ -1908,6 +1971,7 @@ def _point_series(
     out: Path,
     *,
     overwrite: bool,
+    archive: bool = True,
 ) -> tuple[list[Path], dict[str, dict[str, object]]]:
     """Write the series tables of one windowed record (PFS-2031.18.01)."""
     from pyflightstream.cases import classify_outputs
@@ -2276,7 +2340,12 @@ def _prov_document(record: RunRecord, sim_dir: Path) -> dict[str, object]:
 
 
 def _run_provenance(
-    workspace: CampaignWorkspace, records: Sequence[RunRecord], out: Path, *, overwrite: bool
+    workspace: CampaignWorkspace,
+    records: Sequence[RunRecord],
+    out: Path,
+    *,
+    overwrite: bool,
+    archive: bool = True,
 ) -> dict[str, str]:
     """Write one PROV-JSON document per record under ``out/provenance``.
 
@@ -2305,7 +2374,12 @@ def _run_provenance(
             stem = None
         relative = f"{PROVENANCE_DIR}/{provenance_file_name(record.run_id, point_name=stem)}"
         target = out / relative
-        if target.exists() and not overwrite:
+        if target.exists() and archive:
+            # THE SAME RULE AS A PRODUCT. A provenance document about to
+            # be rewritten is evidence about the run that produced the
+            # file it describes, so it is archived rather than replaced.
+            _refuse_an_existing_product(target, overwrite=True, archive=True)
+        elif target.exists() and not overwrite:
             raise ProductExistsError(
                 f"the provenance document {target} exists; pass overwrite (CLI: --overwrite) "
                 "to rewrite it from the manifest"
@@ -2318,7 +2392,11 @@ def _run_provenance(
 
 
 def write_campaign_products(
-    workspace: CampaignWorkspace, *, overwrite: bool = False, matrix_stem: str | None = None
+    workspace: CampaignWorkspace,
+    *,
+    overwrite: bool = False,
+    archive: bool = True,
+    matrix_stem: str | None = None,
 ) -> list[Path]:
     """Write the products of the simulations in a workspace's manifest.
 
@@ -2401,7 +2479,7 @@ def write_campaign_products(
                 continue
             try:
                 series_files, series_names = _point_series(
-                    workspace, sim_id, record, out, overwrite=overwrite
+                    workspace, sim_id, record, out, overwrite=overwrite, archive=archive
                 )
             except ProductExistsError:
                 raise
@@ -2423,6 +2501,7 @@ def write_campaign_products(
                 sim_records,
                 out,
                 overwrite=overwrite,
+                archive=archive,
                 matrix_row=rows_of_the_matrix.get(sim_id),
                 sweep_rows=sweep_rows,
                 drafts=drafts,
@@ -2454,7 +2533,9 @@ def write_campaign_products(
     if drafts:
         super_files, super_entries, super_columns = write_superfiles(
             drafts,
-            target=lambda path: _refuse_an_existing_product(path, overwrite=overwrite),
+            target=lambda path: _refuse_an_existing_product(
+                path, overwrite=overwrite, archive=archive
+            ),
         )
         written.extend(super_files)
         for path, entry in super_entries.items():
@@ -2505,7 +2586,9 @@ def write_campaign_products(
     # key rather than testing for it (review round two of 2026-09-08).
     manifest["skipped"] = skipped
     # PFS-2012.08.01: one document per recorded run, whatever its status.
-    manifest["provenance"] = _run_provenance(workspace, records, out, overwrite=overwrite)
+    manifest["provenance"] = _run_provenance(
+        workspace, records, out, overwrite=overwrite, archive=archive
+    )
     if written or skipped or records:
         out.mkdir(parents=True, exist_ok=True)
         (out / PRODUCTS_MANIFEST).write_text(

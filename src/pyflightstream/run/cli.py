@@ -419,9 +419,21 @@ def _build_parser() -> argparse.ArgumentParser:
         "the current directory)",
     )
     post.add_argument(
-        "--overwrite",
+        "--force-overwrite",
+        dest="force_overwrite",
         action="store_true",
-        help="rewrite products that already exist; without it an existing product is refused",
+        help="DESTROY an existing product instead of archiving it. Since v0.17.0 a "
+        "rebuild MOVES what is there into post/<matrix>/archive/<day and hour>/ and "
+        "then writes, so nothing is lost and nothing is refused; this is the escape "
+        "from that, it keeps no copy, and it asks for a confirmation first. Pass "
+        "--yes to answer that confirmation in a script",
+    )
+    post.add_argument(
+        "--yes",
+        action="store_true",
+        help="answer the --force-overwrite confirmation. Only meaningful with it, and "
+        "refused without it: a flag that answers a question nobody asked is a flag "
+        "somebody will carry into the run that did ask",
     )
     post.add_argument(
         "--strict",
@@ -432,6 +444,28 @@ def _build_parser() -> argparse.ArgumentParser:
         "produced. 2 stays the code of a refusal that wrote nothing",
     )
     return parser
+
+
+def _confirmed_destruction(yes: bool) -> bool:
+    """Ask before a product is destroyed rather than archived.
+
+    HER INSTRUCTION OF 2026-09-12: `--force-overwrite` is named so it
+    cannot be reached by habit, and it asks. `--yes` answers it, for the
+    script that means it.
+
+    A NON-INTERACTIVE SESSION IS A NO. If there is nobody to ask, the
+    answer is not "assume yes": that is how a flag in a saved command line
+    quietly destroys a rebuild's evidence on a machine with no terminal.
+    """
+    if yes:
+        return True
+    if not sys.stdin or not sys.stdin.isatty():
+        return False
+    answer = input(
+        "--force-overwrite DESTROYS the products that are there and keeps no copy. "
+        "The default archives them instead. Type 'destroy' to go on: "
+    )
+    return answer.strip().lower() == "destroy"
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -588,10 +622,24 @@ def _cmd_post(args: argparse.Namespace) -> int:
             # Every matrix the manifest names, in first-seen order, and the
             # records naming none as their own group (PFS-2031.04).
             matrices = named
+        if args.force_overwrite and not _confirmed_destruction(args.yes):
+            print(
+                "--force-overwrite was not confirmed; nothing was written. Run without "
+                "it to archive what is there and rebuild, which loses nothing.",
+                file=sys.stderr,
+            )
+            return 2
         written: list[Path] = []
         for matrix in matrices:
             for stage in post_stages():
-                written.extend(stage(workspace, overwrite=args.overwrite, matrix_stem=matrix))
+                written.extend(
+                    stage(
+                        workspace,
+                        overwrite=True,
+                        archive=not args.force_overwrite,
+                        matrix_stem=matrix,
+                    )
+                )
     except (OSError, PyflightstreamError) as error:
         print(str(error), file=sys.stderr)
         return 2

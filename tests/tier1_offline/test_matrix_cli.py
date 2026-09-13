@@ -269,7 +269,7 @@ def test_an_unknown_run_type_is_refused_naming_the_registered_ones(tmp_path, cap
 
 
 def test_post_reruns_from_the_manifest_without_a_solver(tmp_path, capsys):
-    """The manifest and the collected exports are enough; an existing product needs --overwrite."""
+    """The manifest and the collected exports are enough, and a rebuild archives."""
     import json
 
     from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
@@ -318,10 +318,19 @@ def test_post_reruns_from_the_manifest_without_a_solver(tmp_path, capsys):
     assert ",0.02744,0.00000,0.18744," in table.read_text(encoding="utf-8")
     manifest = json.loads((table.parent.parent / "products.json").read_text(encoding="utf-8"))
     assert manifest["products"][f"polars/{stem}_g01.csv"]["runs"] == ["camp/sim_3207/a-02.0"]
-    # A second run refuses the existing product, and --overwrite rewrites it.
-    assert main(["post", "--workspace", str(workspace.root)]) == 2
-    assert "--overwrite" in capsys.readouterr().err
-    assert main(["post", "--workspace", str(workspace.root), "--overwrite"]) == 0
+    # A SECOND RUN ARCHIVES AND REWRITES since 0.17.0, her instruction of
+    # 2026-09-12: nothing is refused and nothing is lost. The refusal this
+    # line used to assert made the user delete the file, which destroys it
+    # just as thoroughly and puts the work on them.
+    from pyflightstream.post.products import PRODUCT_ARCHIVE_DIR
+
+    assert main(["post", "--workspace", str(workspace.root)]) == 0
+    archived = sorted((table.parent / PRODUCT_ARCHIVE_DIR).rglob(table.name))
+    assert len(archived) == 1, (
+        f"the rebuild did not archive the table it replaced: "
+        f"{sorted((table.parent / PRODUCT_ARCHIVE_DIR).rglob('*'))}"
+    )
+    assert table.is_file(), "the rebuild archived the old table and wrote no new one"
 
 
 # --- PFS-2031.16: one simulation's refusal does not cost the others their products --
@@ -430,7 +439,9 @@ def test_a_refused_polar_is_recorded_as_skipped_and_the_other_products_are_writt
     assert "3208" in out.err and "sideslip" in out.err, "the skip is said where the user looks"
     # The author's decision of 2026-09-08 on the exit code: 0 by default, and --strict
     # makes a recorded skip exit 2 for a wrapper that must tell them apart.
-    assert main(["post", "--workspace", str(workspace.root), "--overwrite", "--strict"]) == 3
+    # No --overwrite since 0.17.0: a rebuild archives what is there, so
+    # there is nothing to ask permission for.
+    assert main(["post", "--workspace", str(workspace.root), "--strict"]) == 3
     err = capsys.readouterr().err
     assert "--strict" in err and "exit 3" in err, err
     assert (polars / "POLAR-3207_M20AL-020BE+000_g01.csv").is_file(), (

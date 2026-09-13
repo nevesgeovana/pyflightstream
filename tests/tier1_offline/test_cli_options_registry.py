@@ -89,6 +89,14 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     ("pyfs-matrix", "fs_exe"): SOLVER,
     ("pyfs-matrix", "in_place"): SWITCH,
     ("pyfs-matrix", "overwrite"): SWITCH,
+    # GOAL-019 item 5, her instruction of 2026-09-12. Both SWITCHES, and
+    # both on `post` alone: a rebuild archives what is there, this is the
+    # escape that destroys it instead, and `--yes` answers the question it
+    # asks. `inventory` keeps the plain `--overwrite` it always had, which
+    # refuses rather than destroys because a boundary sidecar is derived
+    # from a mesh and can be rebuilt from it.
+    ("pyfs-matrix", "force_overwrite"): SWITCH,
+    ("pyfs-matrix", "yes"): SWITCH,
     ("pyfs-matrix", "resume"): SWITCH,
     ("pyfs-matrix", "strict"): SWITCH,
     # FR-82, her design of 2026-09-11. A SWITCH: whether THIS plan also
@@ -220,7 +228,9 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-matrix", "matrix"): frozenset({"convert", "plan", "post", "run", "upgrade"}),
     ("pyfs-matrix", "name"): frozenset({"convert", "plan", "run"}),
     ("pyfs-matrix", "output"): frozenset({"convert"}),
-    ("pyfs-matrix", "overwrite"): frozenset({"inventory", "post"}),
+    ("pyfs-matrix", "overwrite"): frozenset({"inventory"}),
+    ("pyfs-matrix", "force_overwrite"): frozenset({"post"}),
+    ("pyfs-matrix", "yes"): frozenset({"post"}),
     ("pyfs-matrix", "point_name"): frozenset({"plan", "run"}),
     ("pyfs-matrix", "recipe"): frozenset({"convert", "plan", "run"}),
     ("pyfs-matrix", "refuse_missing_families"): frozenset({"plan", "run"}),
