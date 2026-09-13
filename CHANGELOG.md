@@ -163,6 +163,68 @@ FlightStream versions.
 
 ### Fixed
 
+- **A steady sweep no longer changes the physics after its first point.** The
+  per-point angle update went through the settings emitter, which writes its own
+  default for every argument it is not given, so a sweep whose setup states any
+  `SOLVER_MINIMUM_CP` other than the library default solved point one at the
+  stated value and every point after it at `-100`. The whole sweep is ONE script
+  and the solver keeps the last value it was given, so points two and three ran
+  under different physics from point one with nothing in the record saying so.
+  Reproduced on a three-point sweep stating `-3.0`: `-3.0`, then `-100`, then
+  `-100`. The update now emits the two angles and nothing else, so the settings
+  block written once at the top is the one the whole sweep runs under, and the
+  recorded setup snapshot is no longer replaced per point either.
+
+- **A one-job sweep now writes one polar row per point.** The job record reached
+  the product stage whole, so every point's outputs were classified together and
+  ONE loads file selected: a three-point sweep produced a polar table and a
+  SUPER file with a single row, named for its first point. The aggregate status
+  was also the filter, so one failed point excluded every successful point of
+  the same job from products. `RunRecord.as_points()` exists for exactly this
+  and was called by the sweep table and by the QA matrix and not here.
+  Measured on the release's own example workspace: the three-angle row's polar
+  went from one row to three.
+
+- **A steady sweep refuses a folder that already holds its outputs.** The
+  single-point path has refused declared outputs that already exist since
+  0.16.0, because collection asks only whether a declared output EXISTS and
+  cannot tell a file this solver wrote from one that was already there. The
+  sweep path started the solver without that check, so a leftover from an
+  interrupted run was collected and assessed as fresh evidence and its digest
+  recorded as the new run's. Every point of the job is checked before the shared
+  script runs.
+
+- **`resume` runs the points a job did not.** Once a steady row had a job
+  record, resume discarded every requested point on the strength of the job id
+  alone, so extending a sweep from two angles to three and re-running returned
+  successfully having executed nothing at all. It now reads the points the job
+  recorded and schedules the difference.
+
+- **The wall clock's rescue writes the whole-run exports again.** Sharing one
+  emitter between the per-step action and the rescue was the right fix for a
+  real divergence, and the shared emitter drops the simulation file, the plots
+  table and the log because a per-step action must: a simulation file written
+  every time step is not a per-step export. The rescue is the opposite case, the
+  LAST thing a stopped run does, and it needs them most.
+
+- **A setup can state the watchdog margin it is documented to state.** The
+  settings model forbids unknown keys and had no field for it, so a setup
+  stating a margin was refused by name and every run was locked to the
+  twenty-minute default: a documented override nobody could exercise.
+
+- **A second point of one row is not submitted over a queued one.** Every point
+  of a case shares one simulation folder, including the action program the wall
+  clock runs and the state file it keeps its clock in, and a submission does not
+  wait. The second point is refused, naming the queued one, until 0.18.0 gives a
+  submitted point its own working directory. And a submission whose scheduler is
+  not installed is now this point's failure with the profile and the descriptor
+  named, rather than an uncaught error that ends the campaign.
+
+- **A submitted row that inherits the campaign's build no longer asks for an
+  empty version**, and a row that resolves neither a processor count nor a wall
+  clock no longer inherits the previous row's and reserves resources it never
+  asked for.
+
 - **A regenerated product no longer claims the run that did not write it.**
   The provenance document preferred a fresh file digest whenever the file
   existed and then bound that entity to the original run through

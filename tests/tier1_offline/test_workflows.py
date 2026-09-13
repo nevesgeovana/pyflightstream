@@ -5491,3 +5491,84 @@ def test_goal019_a_row_with_no_configuration_writes_no_comment():
     script = Script(version="26.123")
     workflow_registry()["unsteady_rotor"](rotor_case(), script)
     assert "CONFIGURATION" not in script.render()
+
+
+def test_goal019_warm_a_sweep_does_not_reset_the_physics_after_its_first_point():
+    """GEO-047-C01: a wrong number reaching a user silently, inside one script.
+
+    The per-point call went through `solver_settings`, which emits its own
+    default for every argument omitted, so a sweep whose setup states any
+    SOLVER_MINIMUM_CP other than the library default solved point one at
+    the stated value and every point after it at -100. The whole sweep is
+    ONE script and the solver keeps the last value, so points two and
+    three ran under different physics with nothing in the record saying
+    so. Found by the independent review of main and by nothing in-house.
+    """
+    from pyflightstream.cases import SimCase, SweepAxis
+    from pyflightstream.cases.workflows import build_steady_sweep
+    from pyflightstream.script import Script
+
+    points = [
+        SimCase(
+            sim_id="5001",
+            aircraft="WB",
+            recipe="steady",
+            sweep=SweepAxis(type="alpha", values=[alpha]),
+            point={"alpha": alpha, "beta": 0.0},
+            outputs=[f"loads_a{alpha:+05.1f}.txt"],
+            variables={"VELOCITY": "68.058", "NCPUS": "8"},
+            solver={"minimum_cp": -3.0, "iterations": 250},
+        )
+        for alpha in (-2.0, 0.0, 2.0)
+    ]
+    script = Script(version="26.123")
+    build_steady_sweep(points, script)
+    lines = script.render().splitlines()
+
+    stated = [line for line in lines if line.startswith("SOLVER_MINIMUM_CP")]
+    assert stated == ["SOLVER_MINIMUM_CP -3.0"], (
+        f"the sweep emits {stated}, so the solver is left at the last of them and every "
+        "point after the first ran under different physics from the first"
+    )
+    # The rest of the settings block is emitted ONCE and not replaced.
+    assert [line for line in lines if line.startswith("SET_MAX_PARALLEL_THREADS")] == [
+        "SET_MAX_PARALLEL_THREADS 8"
+    ]
+    assert [line for line in lines if line.startswith("SOLVER_SET_ITERATIONS")] == [
+        "SOLVER_SET_ITERATIONS 250"
+    ]
+    # And the angles ARE per point, which is the whole of what a point changes.
+    assert [line for line in lines if line.startswith("SOLVER_SET_AOA")] == [
+        "SOLVER_SET_AOA -2.0",
+        "SOLVER_SET_AOA 0.0",
+        "SOLVER_SET_AOA 2.0",
+    ]
+
+
+def test_goal019_watchdog_the_setup_can_state_the_margin_it_is_documented_to_state():
+    """GEO-047-C09: a documented override nobody could exercise.
+
+    The settings model forbids extras and had no such field, so a setup
+    stating the margin was REFUSED by name and every run was locked to
+    twenty minutes.
+    """
+    from pyflightstream.cases import SimCase, SolverSettings, SweepAxis
+    from pyflightstream.cases.workflows import WALLTIME_MARGIN_DEFAULT_S, walltime_margin_s
+
+    assert "walltime_margin_s" in SolverSettings.model_fields, (
+        "the settings model has no margin field, so a setup stating one is refused and "
+        "the documented override cannot be exercised"
+    )
+    case = SimCase(
+        sim_id="9001",
+        aircraft="TestWing",
+        recipe="unsteady",
+        sweep=SweepAxis(type="alpha", values=[0.0]),
+        point={"alpha": 0.0},
+        outputs=["loads_a+00.0.txt"],
+        variables={"VELOCITY": "30.0", "DELTA_TIME": "0.01", "TIME_ITERATIONS": "4"},
+        solver={"walltime_margin_s": 300.0},
+    )
+    assert walltime_margin_s(case) == 300.0
+    bare = case.model_copy(update={"solver": SolverSettings()})
+    assert walltime_margin_s(bare) == float(WALLTIME_MARGIN_DEFAULT_S)

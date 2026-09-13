@@ -4972,3 +4972,180 @@ def test_goal019_hpc_a_rejected_submission_keeps_its_descriptor(tmp_path):
     )
     assert record.submission["submitted"] is True
     assert Path(record.submission["descriptor"]).name == "submit.yaml"
+
+
+def test_goal019_warm_a_sweep_refuses_a_folder_that_already_holds_its_outputs(tmp_path):
+    """GEO-047-C03: the sweep path lost a guard the point path has.
+
+    Collection asks only whether a declared output EXISTS and cannot tell
+    a file this solver wrote from one that was already there, so a
+    leftover from an interrupted run is collected and assessed as fresh
+    evidence and its digest recorded as this run's. PYFS-006, reopened on
+    the new path.
+    """
+    import pytest
+
+    from pyflightstream.run import CampaignErrors
+    from pyflightstream.workspace import RunStatus
+
+    workspace, matrix = _steady_sweep_matrix(tmp_path)
+    # A leftover under the THIRD point's name, so this also proves the
+    # check is over every point of the job and not just the first.
+    sim_dir = workspace.sim_dir("5001")
+    sim_dir.mkdir(parents=True, exist_ok=True)
+    (sim_dir / "a+02.0_b+00.0.txt").write_text("somebody else's export", encoding="utf-8")
+
+    with pytest.raises(CampaignErrors):
+        run_matrix(
+            matrix,
+            workspace,
+            name="warm",
+            default_fs_version="26.120",
+            recipes=RECIPES,
+            recipe_registry=workflow_registry(),
+            assess=converged,
+            executor=CountingStub(WRITES_EVERY_EXPORT),
+        )
+    record = workspace.read_manifest()[0]
+    assert record.status is RunStatus.FAILED_INCOMPLETE_OUTPUT, record.status
+    assert "a+02.0_b+00.0.txt" in (record.error or ""), record.error
+    assert "already exist" in (record.error or "")
+
+
+def test_goal019_warm_resume_runs_the_points_the_job_did_not(tmp_path):
+    """GEO-047-C05: a silent no-op, which is the shape refused everywhere else.
+
+    Once a steady row had a job record, resume discarded every requested
+    point on the strength of the job id alone, so extending a sweep from
+    two angles to three and re-running returned successfully having
+    executed nothing. A user reads that as done.
+    """
+    from pyflightstream.workspace import RunStatus
+
+    workspace, matrix = _steady_sweep_matrix(tmp_path)
+    run_matrix(
+        matrix,
+        workspace,
+        name="warm",
+        default_fs_version="26.120",
+        recipes=RECIPES,
+        recipe_registry=workflow_registry(),
+        assess=converged,
+        executor=CountingStub(WRITES_EVERY_EXPORT),
+    )
+    first = workspace.read_manifest()
+    assert len(first) == 1 and len(first[0].points_ran) == 3
+
+    # Nothing new to run: resume is a no-op and SAYS nothing ran.
+    again = run_matrix(
+        matrix,
+        workspace,
+        name="warm",
+        default_fs_version="26.120",
+        recipes=RECIPES,
+        recipe_registry=workflow_registry(),
+        assess=converged,
+        executor=CountingStub(WRITES_EVERY_EXPORT),
+        resume=True,
+    )
+    assert again == [], "a sweep with nothing left to run executed something"
+    assert len(workspace.read_manifest()) == 1
+
+    # AND THE POINT OF THE FINDING: a sweep EXTENDED by one angle runs the
+    # new angle rather than reporting done.
+    text = matrix.read_text(encoding="utf-8")
+    assert "-2.0,0.0,2.0" in text, text
+    matrix.write_text(text.replace("-2.0,0.0,2.0", "-2.0,0.0,2.0,4.0"), encoding="utf-8")
+    extended = run_matrix(
+        matrix,
+        workspace,
+        name="warm",
+        default_fs_version="26.120",
+        recipes=RECIPES,
+        recipe_registry=workflow_registry(),
+        assess=converged,
+        executor=CountingStub(WRITES_EVERY_EXPORT),
+        resume=True,
+    )
+    assert extended, (
+        "extending a sweep from three angles to four and resuming executed nothing, and "
+        "returned successfully, which a user reads as done"
+    )
+    # ONE REMAINING POINT IS NOT A SWEEP, so it runs as its own point
+    # record and its run_id ends with its own tag. That is the same rule
+    # the job path follows in the other direction: a job is a job because
+    # it has several points to warm-start through.
+    assert [record.run_id for record in extended] == ["warm/sim_5001/a+04.0_b+00.0"], [
+        record.run_id for record in extended
+    ]
+    assert extended[0].status is RunStatus.CONVERGED
+    assert not extended[0].points_ran, "a one-point run is not a job"
+
+
+def test_goal019_hpc_a_second_point_is_not_submitted_over_a_queued_one(tmp_path):
+    """GEO-047-C04, taken NARROWED: refused rather than given its own folder.
+
+    Every point of a case shares one simulation folder, including the
+    action program the wall clock runs and the state file it keeps its
+    clock in. A submission does not wait, so the second point would
+    rewrite all three while the first is still queued, and the queued job
+    would then export under this point's names.
+    """
+    from pyflightstream.cases import SimCase, SweepAxis
+    from pyflightstream.run import SubmittingExecutor, _a_point_is_already_queued
+    from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
+    from pyflightstream.workspace.inputs import read_hpc_profile
+
+    profile_path = tmp_path / "h001.toml"
+    profile_path.write_text(
+        'application_id = "flightstream"\n'
+        "[descriptor]\n"
+        'format = "yaml"\n'
+        "[descriptor.fields]\n"
+        'ApplicationId = "{application_id}"\n'
+        "[submit]\n"
+        'command = ["esub", "{descriptor_path}"]\n',
+        encoding="utf-8",
+    )
+    executor = SubmittingExecutor(read_hpc_profile(profile_path), values={})
+    workspace = CampaignWorkspace.init(tmp_path / "camp")
+    case = SimCase(
+        sim_id="9001",
+        aircraft="TestWing",
+        recipe="unsteady",
+        sweep=SweepAxis(type="alpha", values=[0.0, 2.0]),
+        point={"alpha": 0.0},
+        outputs=["loads_a+00.0.txt"],
+        variables={"VELOCITY": "30.0", "DELTA_TIME": "0.01", "TIME_ITERATIONS": "4"},
+    )
+    assert _a_point_is_already_queued(executor, workspace, case) is None, (
+        "nothing is queued, so nothing is refused"
+    )
+
+    workspace.append_record(
+        RunRecord(
+            run_id="camp/sim_9001/a+00.0",
+            sim_id="9001",
+            point={"alpha": 0.0},
+            fs_version_requested="26.123",
+            package_version="0.17.0.dev0",
+            script_sha256="",
+            raw_flag=False,
+            status=RunStatus.SUBMITTED,
+            outputs=[],
+        )
+    )
+    refusal = _a_point_is_already_queued(executor, workspace, case)
+    assert refusal is not None, (
+        "a second point was submitted into a folder whose action program a queued job is "
+        "still reading"
+    )
+    assert "camp/sim_9001/a+00.0" in refusal
+    assert "0.18.0" in refusal
+
+    # A LOCAL RUN IS NEVER REFUSED: the points run one after another, so
+    # they never share the folder at the same moment.
+    from pyflightstream.run import LocalExecutor
+
+    local = LocalExecutor.__new__(LocalExecutor)
+    assert _a_point_is_already_queued(local, workspace, case) is None

@@ -2140,3 +2140,64 @@ def test_goal019_post_the_archiver_takes_one_flag_and_not_two(tmp_path):
         "the docstring's behaviour table owes it a row, or it is dead"
     )
     assert set(parameters) == {"path", "archive", "stamp"}, sorted(parameters)
+
+
+def test_goal019_record_a_job_writes_one_polar_row_per_point(tmp_path):
+    """GEO-047-C02: the headline feature produced a ONE-POINT polar.
+
+    The job record reached the product stage whole, so `_sim_products`
+    classified every point's outputs together and selected one loads file.
+    `as_points()` existed for exactly this and was called by the sweep
+    table and the QA matrix and not here: a method built and not wired, in
+    the one place nobody looked. Found by the independent review of main.
+    """
+    import csv
+
+    from pyflightstream.post.products import write_campaign_products
+    from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
+
+    workspace = CampaignWorkspace.init(tmp_path / "camp")
+    (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
+        '[groups]\n"1" = ["W", "B"]\n', encoding="utf-8"
+    )
+    raw = workspace.sim_dir("3207") / "outputs"
+    raw.mkdir(parents=True)
+    tags = ["a-02.0", "a+00.0", "a+02.0"]
+    for tag in tags:
+        (raw / f"POLAR-{tag}.txt").write_text(LOADS, encoding="utf-8")
+
+    workspace.append_record(
+        RunRecord(
+            run_id="camp/sim_3207/sweep",
+            sim_id="3207",
+            point={"alpha": -2.0},
+            fs_version_requested="26.123",
+            package_version="0.17.0.dev0",
+            script_sha256="",
+            raw_flag=False,
+            status=RunStatus.CONVERGED,
+            outputs=[f"outputs/POLAR-{tag}.txt" for tag in tags],
+            pproc="p001",
+            description="CRUISE",
+            mach=0.2,
+            reference={"SREF": 50.0, "CREF": 2.526, "BREF": 20.0, "XMOM": 9.152},
+            job_id="camp/sim_3207/sweep",
+            points_ran=[
+                {
+                    "tag": tag,
+                    "point": {"alpha": alpha},
+                    "status": "CONVERGED",
+                    "outputs": [f"outputs/POLAR-{tag}.txt"],
+                }
+                for tag, alpha in zip(tags, (-2.0, 0.0, 2.0), strict=True)
+            ],
+        )
+    )
+    write_campaign_products(workspace)
+    polars = sorted((workspace.root / "post" / "products" / "polars").glob("POLAR-*.csv"))
+    assert polars, "no polar table was written"
+    rows = list(csv.DictReader(polars[0].open(encoding="utf-8")))
+    assert len(rows) == 3, (
+        f"{polars[0].name} carries {len(rows)} row(s) for a job that ran 3 points, so the "
+        "release's own one-job sweep produces a one-point polar"
+    )

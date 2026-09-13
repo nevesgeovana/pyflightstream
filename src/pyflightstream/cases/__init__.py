@@ -1975,6 +1975,22 @@ class SolverSettings(BaseModel):
     viscous_coupling: SolverToggle | None = None
     max_threads: int | None = Field(default=None, ge=1)
     timeout_s: float | None = Field(default=None, gt=0.0)
+    #: FR-98: how much of a row's WALLTIME to leave for the exports, in
+    #: seconds. Twenty minutes when a setup states none.
+    #:
+    #: IT IS THE SETUP'S AND NOT THE ROW'S, because how long the exports
+    #: take is the same question on every platform and does not vary with
+    #: the row, while a wall clock does. This model FORBIDS EXTRAS, so
+    #: until the field existed a setup stating it was REFUSED by name and
+    #: every run was locked to the default: a documented override nobody
+    #: could exercise, which is a claim the tree did not do. Found by the
+    #: independent Codex review of `main`, 2026-09-13 (GEO-047-C09).
+    #:
+    #: IT EMITS NOTHING, which is the one field of this block that does
+    #: not, and the reason is stated rather than left as an exception: it
+    #: is read by the wall-clock program the run stage writes beside the
+    #: script, not by a solver command.
+    walltime_margin_s: float | None = Field(default=None, gt=0.0)
 
     # --- the settings a preset carries and nothing used to read ------
     #

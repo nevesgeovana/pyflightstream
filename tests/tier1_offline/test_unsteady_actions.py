@@ -933,3 +933,42 @@ def test_goal019_watchdog_the_rescue_and_the_counter_export_the_same_lines(tmp_p
         "the rescue and the per-step action no longer write the same exports, which is "
         "the divergence one function exists to make impossible"
     )
+
+
+def test_goal019_watchdog_the_rescue_writes_the_whole_run_exports_too(tmp_path):
+    """GEO-047-C08: the rescue lost the exports it exists for, on the same day.
+
+    Sharing one function with the per-step action was the right fix for a
+    real divergence, and the shared function drops the simulation file,
+    the plots table and the log because a PER-STEP action must: a
+    simulation file written every time step is not a per-step export. The
+    rescue is the opposite case, the LAST thing a stopped run does, and it
+    needs them most. A row declaring a plots export and a log got neither.
+    """
+    from pyflightstream.cases.workflows import (
+        WALLTIME_STOP_VERB,
+        _per_step_exports,
+        walltime_stop_text,
+    )
+
+    case, conventions = _conventions_for(
+        [
+            "loads_{point}.txt",
+            "loads_{point}_cp.txt",
+            "loads_{point}_plots.txt",
+            "loads_{point}_log.txt",
+        ]
+    )
+    rescue = walltime_stop_text(case, conventions)
+    assert "EXPORT_LOG" in rescue, rescue
+    assert any("PLOTS" in line for line in rescue.splitlines()), rescue
+    assert rescue.rstrip().endswith(WALLTIME_STOP_VERB)
+
+    # AND THE PER-STEP ACTION STILL DROPS THEM, which is the other half:
+    # one function, two answers, and the switch is what says which.
+    per_step = _per_step_exports(conventions, case)
+    assert "EXPORT_LOG" not in per_step, (
+        "the per-step action exports the log every time step, which is not a per-step "
+        "export and is the reason the whole-run kinds are dropped there"
+    )
+    assert not any("PLOTS" in line for line in per_step.splitlines())

@@ -6409,16 +6409,25 @@ def build_steady_sweep(
             # setup stays behind it.
             script.begin_point()
         if index:
-            # The angles of THIS point. Only the two: the rest of the
-            # settings block was emitted once and does not vary over a
-            # sweep of the incidence. The predecessor sets exactly these
-            # two per point.
+            # The angles of THIS point, EMITTED DIRECTLY. Only the two:
+            # the rest of the settings block was emitted once and does not
+            # vary over a sweep of the incidence, and the predecessor
+            # toolchain sets exactly these two per point.
+            #
+            # NOT THROUGH `solver_settings`, and that was a silent physics
+            # change. That helper emits its own default for an argument
+            # the caller omits, so a sweep whose setup states any
+            # SOLVER_MINIMUM_CP other than the library default had point
+            # one solved at the stated value and every point after it at
+            # -100, inside ONE script where the solver keeps the last one.
+            # Reproduced on a three-point sweep stating -3.0: -3.0, then
+            # -100, then -100. It also replaced the setup snapshot, losing
+            # the thread count and the iteration cap the first point was
+            # given. Found by the independent Codex review of `main`,
+            # 2026-09-13 (GEO-047-C01), and by nothing in-house.
             _refuse_sideslip_under_mirror(point_case)
-            helpers.solver_settings(
-                script,
-                aoa=_angle(point_case, "alpha"),
-                sideslip=_angle(point_case, "beta"),
-            )
+            script.emit("SOLVER_SET_AOA", _angle(point_case, "alpha"))
+            script.emit("SOLVER_SET_SIDESLIP", _angle(point_case, "beta"))
         # EACH POINT EXPORTS ITS OWN NAMES, so each gets its own
         # conventions. One set for the whole sweep would have every point
         # writing the first point's file names, which is the collision the
@@ -6755,7 +6764,9 @@ class UnsteadyExportThreshold:
         }
 
 
-def action_export_lines(conventions: WorkflowConventions, case: SimCase) -> list[str]:
+def action_export_lines(
+    conventions: WorkflowConventions, case: SimCase, *, whole_run: bool = False
+) -> list[str]:
     """Return the export lines an ACTION writes: the update prelude, then the verbs.
 
     ONE IMPLEMENTATION FOR EVERY ACTION THAT EXPORTS, which is why this is
@@ -6777,12 +6788,23 @@ def action_export_lines(conventions: WorkflowConventions, case: SimCase) -> list
     sectional-loads or probe export is among them, which is the rule
     :func:`_export_block` follows for the same reason: an export of
     sections nobody updated is an export of the previous state.
+
+    ``whole_run`` KEEPS THE KINDS A PER-STEP ACTION MUST DROP: the
+    simulation file, the plots table and the log. A per-step action must
+    drop them, because a simulation file written every time step is not a
+    per-step export; the wall clock's rescue is the opposite case, the
+    LAST thing a stopped run does, and it needs them MOST. Sharing this
+    function without the switch cost the rescue every one of them, on a
+    row that declares a plots export and a log, which is the rotor row of
+    the release's own example workspace. Found by the independent Codex
+    review of `main`, 2026-09-13 (GEO-047-C08); the sharing itself was the
+    right fix for a real divergence and the switch is what it was missing.
     """
     names = list(conventions.outputs or case.outputs)
     kinds = {
         kind: name
         for kind, name in classify_outputs(names).items()
-        if kind not in WHOLE_RUN_EXPORT_KINDS
+        if whole_run or kind not in WHOLE_RUN_EXPORT_KINDS
     }
     lines: list[str] = []
     if any(kind in kinds for kind in ("sections", "sectional_loads", "probes")):
@@ -7277,7 +7299,7 @@ def walltime_stop_text(case: SimCase, conventions: WorkflowConventions) -> str:
     # before a `.txt` got its sections file exported as the loads
     # spreadsheet. These are the ONLY outputs a stopped run leaves, which
     # is what makes a divergence here cost the whole run's evidence.
-    lines += action_export_lines(conventions, case)
+    lines += action_export_lines(conventions, case, whole_run=True)
     lines.append(WALLTIME_STOP_VERB)
     return "\n".join(lines) + "\n"
 

@@ -2723,8 +2723,23 @@ def write_campaign_products(
     out = workspace.products_dir(matrix_stem)
     by_sim: dict[str, list[RunRecord]] = {}
     for record in records:
-        if record.status in (RunStatus.CONVERGED, RunStatus.COMPLETED_MAX_ITER):
-            by_sim.setdefault(record.sim_id, []).append(record)
+        # FR-95. ONE JOB IS SEVERAL POINTS, so the record is expanded
+        # before its status is read. A steady row is one job since 0.17.0
+        # and its record carries every point of the sweep; unexpanded, the
+        # product stage classified all of their outputs together, selected
+        # ONE loads file, and wrote a three-point polar with one row. And
+        # the aggregate status was the filter, so one failed point
+        # excluded every successful point of the same job.
+        #
+        # `as_points()` exists for exactly this and was called by the
+        # sweep table and the QA matrix and not here: a method built and
+        # not wired, in the one place nobody looked. Found by the
+        # independent Codex review of `main`, 2026-09-13 (GEO-047-C02).
+        # A record that is one point returns itself, so nothing written
+        # before 0.17.0 changes.
+        for point_record in record.as_points():
+            if point_record.status in (RunStatus.CONVERGED, RunStatus.COMPLETED_MAX_ITER):
+                by_sim.setdefault(point_record.sim_id, []).append(point_record)
     written: list[Path] = []
     products_index: dict[str, dict[str, object]] = {}
     manifest: dict[str, object] = {"products": products_index}

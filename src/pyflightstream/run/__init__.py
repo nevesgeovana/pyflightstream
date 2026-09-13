@@ -629,11 +629,45 @@ class Submitting(Protocol):
     that, declared rather than inferred.
     """
 
-    def bind_point(self, values: Mapping[str, object]) -> None:
-        """Merge one point's values into the ones every point shares."""
+    def bind_point(self, values: Mapping[str, object], *, replace: bool = False) -> None:
+        """Give this executor one point's values."""
 
     def submission_record(self) -> dict | None:
         """Return what was handed to the scheduler, or None before anything was."""
+
+
+def _a_point_is_already_queued(executor, workspace, case) -> str | None:
+    """Why this point may not be submitted while another of its row is out.
+
+    ONE SIMULATION FOLDER, and a submission does not wait. Every point of
+    a case shares `sims/sim_<id>/`, including the action program the wall
+    clock runs, the script it rewrites and the state file it keeps its
+    clock in. Locally that is safe because the points run one after
+    another; submitted, the second point rewrites all three while the
+    first is still in a queue, and the queued job then exports under
+    another point's names or counts another point's clock.
+
+    Returns the refusal, or None for a point that may go.
+    """
+    if not isinstance(executor, Submitting):
+        return None
+    queued = [
+        record
+        for record in workspace.read_manifest()
+        if record.sim_id == case.sim_id and record.status is RunStatus.SUBMITTED
+    ]
+    if not queued:
+        return None
+    return (
+        f"simulation {case.sim_id} already has {len(queued)} submitted point(s) "
+        f"({', '.join(record.run_id for record in queued)}) and a submission does not "
+        "wait. Every point of this row shares one simulation folder, including the "
+        "action program the wall clock runs and the state file it keeps its clock in, "
+        "so submitting this point now would rewrite them under a job that is still "
+        "queued and that job would export under this point's names. Submit one point "
+        "of a row at a time until 0.18.0 gives a submitted point its own working "
+        "directory, or collect the queued point first."
+    )
 
 
 def _bind_submission_values(executor, case, point_case) -> None:
@@ -660,15 +694,28 @@ def _bind_submission_values(executor, case, point_case) -> None:
     values: dict[str, object] = {
         "sim": case.sim_id,
         "point": point_tag(point_case.point) if point_case.point else case.sim_id,
-        "fs_build": case.fs_build or "",
     }
+    # C06. THE BUILD THIS POINT ACTUALLY RUNS, and a row that inherits the
+    # campaign's has none of its own: writing `case.fs_build or ""` put an
+    # empty version in the descriptor while the script was built for the
+    # campaign's build. The executor was constructed with the campaign's
+    # value, so the row overrides it only when the row HAS one.
+    if case.fs_build:
+        values["fs_build"] = case.fs_build
     ncpus = row_ncpus(point_case, case.solver.max_threads)
     if ncpus is not None:
         values["ncpus"] = ncpus
     walltime = row_walltime_s(point_case)
     if walltime is not None:
         values["walltime"] = int(walltime)
-    executor.bind_point(values)
+    # C07. THE POINT'S MAPPING IS REBUILT, never merged into the last
+    # point's. One executor serves the whole campaign, so updating meant a
+    # row that resolves neither a processor count nor a wall clock kept the
+    # PREVIOUS row's and submitted resources it never asked for, which also
+    # bypassed the refusal the omission above exists to produce. Both of
+    # these were written by this session earlier today and found by the
+    # independent Codex review of `main`, 2026-09-13.
+    executor.bind_point(values, replace=True)
 
 
 def _submission_record(executor) -> dict | None:
@@ -700,6 +747,10 @@ class SubmittingExecutor:
 
     def __init__(self, profile, *, values: Mapping[str, object], submit: bool = True):
         self.profile = profile
+        #: What every point of this campaign shares, held apart so a
+        #: per-point binding can REBUILD on it rather than merge into the
+        #: point before (GEO-047-C07).
+        self._campaign_values = dict(values)
         self.values = dict(values)
         self.submit = submit
         #: The path of the descriptor this executor last wrote, which is
@@ -707,14 +758,23 @@ class SubmittingExecutor:
         #: no handle of its own.
         self.descriptor_path: Path | None = None
 
-    def bind_point(self, values: Mapping[str, object]) -> None:
-        """Merge THIS point's values into the ones every point shares.
+    def bind_point(self, values: Mapping[str, object], *, replace: bool = False) -> None:
+        """Give THIS point's values to the executor.
 
         One executor serves a whole campaign and a descriptor names one
         point, so the campaign's values are set once at construction and
         the row's arrive per point. The run stage calls this; a caller
         driving the executor directly may call it too.
+
+        ``replace`` REBUILDS on the campaign's values rather than merging
+        into the last point's, which is what the run stage asks for: a row
+        that resolves neither a processor count nor a wall clock must not
+        inherit the previous row's and submit resources it never asked for
+        (GEO-047-C07).
         """
+        if replace:
+            self.values = {**self._campaign_values, **values}
+            return
         self.values.update(values)
 
     def submission_record(self) -> dict | None:
@@ -2541,8 +2601,19 @@ def run_campaign(
             and _job_run_id(campaign, case) in recorded
         ):
             already = [_job_run_id(campaign, case)]
-            case_points = []
-            run_ids = []
+            # WHICH POINTS THE JOB ACTUALLY RAN, read off its record, and
+            # not "all of them because the job id is there". A sweep
+            # extended from two angles to three and re-run with resume
+            # returned successfully having executed NOTHING: the branch
+            # discarded every requested point on the strength of the job
+            # id alone, and a user reads that as done. Found by the
+            # independent Codex review of `main`, 2026-09-13
+            # (GEO-047-C05); `points_ran` is what it is for.
+            job = manifest.get(_job_run_id(campaign, case))
+            ran = {str(entry.get("tag") or "") for entry in (job.points_ran if job else []) or []}
+            remaining = [point for point in case_points if point_tag(point) not in ran]
+            case_points = remaining
+            run_ids = [_run_id(campaign, case, point) for point in remaining]
         if already and not resume:
             raise WorkspaceError(
                 f"run_id {already[0]!r} is already in the manifest of "
@@ -4204,6 +4275,41 @@ def _execute_sweep(
     base["script_sha256"] = script_sha
     base["raw_flag"] = script.raw_flag
 
+    # PYFS-006 ON THE SWEEP PATH, which lost it. `_execute_point` refuses
+    # declared outputs that already exist in the simulation folder before
+    # the solver runs, because collection asks only whether a declared
+    # output EXISTS and cannot tell a file this solver wrote from one that
+    # was already there. The sweep path started the solver without it, so
+    # after an interrupted run a leftover export was collected and
+    # assessed as fresh evidence, and its digest recorded as this run's.
+    # Found by the independent Codex review of `main`, 2026-09-13
+    # (GEO-047-C03).
+    #
+    # EVERY POINT'S OUTPUTS, checked before the shared script runs,
+    # because one script writes all of them and a refusal after it has
+    # started is a refusal that spent the seat.
+    stale = sorted(
+        {
+            name
+            for _, _, point_case in point_cases
+            for name in point_case.outputs
+            if (sim_dir / name).exists()
+        }
+    )
+    if stale:
+        return RunRecord(
+            **base,
+            status=RunStatus.FAILED_INCOMPLETE_OUTPUT,
+            error=(
+                f"declared output(s) {', '.join(stale)} already exist in the simulation "
+                "folder before this job ran, so collecting them would attribute somebody "
+                "else's file to this run. Every point of this sweep shares the folder and "
+                "one script writes all of them, so this is checked for the whole job "
+                "before the solver starts. Archive the simulation (pyfs-workspace archive "
+                "<root> <sim_id>) or remove the leftovers, then re-run."
+            ),
+        )
+
     # FR-99. THE JOB'S values, not a point's: a steady row is ONE job, so
     # the descriptor names the sweep and carries the row's clock and
     # processor count. `_bind_submission_values` reads them off the case
@@ -4641,6 +4747,21 @@ def _execute_point(
             ),
         )
 
+    # FR-99, GEO-047-C04. A SUBMITTED POINT LEAVES ITS ACTIONS BEHIND and
+    # the submission returns immediately, so a second point of the same
+    # simulation would rewrite the action program, the export script and
+    # the clock state while the first is still queued. The queued job then
+    # exports under another point's names or shares a watchdog clock.
+    #
+    # REFUSED rather than given a working directory of its own, which is
+    # the narrowing the triage recorded: a second layout for a submitted
+    # run is what every consumer of this workspace reads, and inventing
+    # one for a path nobody has run on a real cluster freezes a shape
+    # before anyone has used it. Found by the independent Codex review of
+    # `main`, 2026-09-13.
+    outstanding = _a_point_is_already_queued(executor, workspace, case)
+    if outstanding is not None:
+        return RunRecord(**base, status=RunStatus.FAILED_SCRIPT, error=outstanding)
     # FR-99. WHAT THIS POINT IS, for the scheduler's descriptor, and it is
     # bound per point because a descriptor names the simulation, its wall
     # clock and its processor count, and those are the row's. A local
