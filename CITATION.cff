@@ -51,8 +51,17 @@ license: MIT
 # concept DOI resolves to the newest archived version either way, so
 # nothing points at a release that cannot be cited; the three missing rows
 # are a gap in this list rather than in the archive.
-# A version DOI is minted from the GitHub release, so it is always
-# recorded one commit AFTER the tag it names. Older ones
+# THE COUNT EXCLUDES A ROW STILL INSIDE THE WINDOW between a tag and the
+# commit after it, and that is why it is reconstructible rather than
+# true-on-the-day-it-was-written: at the v0.17.0 release commit FOUR rows
+# were absent and this sentence said three, because a row in that window
+# is not a category the sentence had a word for. It has one now, and the
+# Owed section of CHANGELOG.md is where such a row lives while it waits.
+# A version DOI is minted from the GitHub RELEASE and not from the tag,
+# and creating that release is a MANUAL step, so the identifier is always
+# recorded one commit AFTER the tag it names -- and a tag whose release
+# nobody created is archived nowhere at all, which is what happened to
+# v0.17.0 for a day. Older ones
 # stay, because those releases did happen and are still what a citation
 # of them should resolve to.
 version: 0.17.0

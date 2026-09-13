@@ -24,11 +24,12 @@ Every example on those pages is compared against an artifact this
 repository ships, most of them under `tests/tier3_licensed/`, by a test on
 every commit, so a page cannot quietly stop being true.
 
-Status: v0.17.0 is the current release. It publishes to
-[PyPI](https://pypi.org/project/pyflightstream/) and archives on Zenodo
-from the tag, so the concept DOI in CITATION.cff resolves to the newest
-archived version and the version DOI is recorded one commit after the
-tag that names it. CHANGELOG.md carries the release history.
+Status: v0.17.0 is the current release. The tag publishes to
+[PyPI](https://pypi.org/project/pyflightstream/), and the Zenodo archive is
+minted from the GitHub RELEASE, which is a manual step owed after every tag:
+the version DOI is then recorded in CITATION.cff one commit after the tag that
+names it, and until it lands the concept DOI resolves to the newest archived
+version. CHANGELOG.md carries the release history.
 
 **v0.17.0 is the release that makes a sweep ONE RUN.** A steady matrix row
 is one job: every point of it runs in one script and one solver process, and
