@@ -4624,3 +4624,42 @@ def test_goal019_hpc_a_field_the_run_cannot_supply_is_refused_naming_it(tmp_path
                 "ncpus": 8,
             },
         )
+
+
+def test_goal019_warm_the_builder_itself_defaults_to_warm(tmp_path):
+    """The DEFAULT of the public builder, which the matrix path never reads.
+
+    FOUND BY A MUTANT. Every caller inside this package passes `cold=`
+    explicitly, from the row's own COLD_START cell, so flipping the
+    signature's default to True changed nothing any test could see and the
+    warm arm survived it. `build_steady_sweep` is public: a caller
+    authoring a sweep in Python takes that default, and her decision is
+    that warm is what a steady sweep IS.
+    """
+    from pyflightstream.cases import SimCase, SweepAxis
+    from pyflightstream.cases.workflows import build_steady_sweep
+    from pyflightstream.script import Script
+
+    points = [
+        SimCase(
+            sim_id="5001",
+            aircraft="WB",
+            recipe="steady",
+            sweep=SweepAxis(type="alpha", values=[alpha]),
+            point={"alpha": alpha, "beta": 0.0},
+            outputs=[f"loads_a{alpha:+05.1f}.txt"],
+            variables={"VELOCITY": "68.058"},
+        )
+        for alpha in (-2.0, 0.0, 2.0)
+    ]
+    script = Script(version="26.123")
+    build_steady_sweep(points, script)
+    text = script.render()
+    assert "CLEAR_SOLUTION" not in text, (
+        "the builder's own default cleared the solution between points, so a caller who "
+        "writes no COLD_START gets a cold sweep"
+    )
+    # And the control beside it, so this is not a test that only ever says no.
+    cold = Script(version="26.123")
+    build_steady_sweep(points, cold, cold=True)
+    assert cold.render().count("CLEAR_SOLUTION") == 2

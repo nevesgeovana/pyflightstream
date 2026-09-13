@@ -2023,3 +2023,30 @@ def test_goal019_bandd_the_ordinal_remains_the_fallback(tmp_path, body):
     table.write_text(body, encoding="utf-8")
     _, series = plots_table_series(table)
     assert list(series.steps) == [1, 2, 3]
+
+
+def test_goal019_post_an_ordinary_rebuild_archives_even_when_it_overwrites(tmp_path):
+    """overwrite=True with archive left alone, which is the ORDINARY rebuild.
+
+    FOUND BY A MUTANT. The two cases above are `overwrite=False` and the
+    explicit escape `overwrite=True, archive=False`, and between them they
+    left the commonest combination uncovered: `pyfs-matrix post --overwrite`
+    reaches this with archive still true. A mutant that returned early on
+    any overwrite therefore survived, and it would have thrown away a
+    product on every rebuild.
+    """
+    from pyflightstream.post.products import PRODUCT_ARCHIVE_DIR, _refuse_an_existing_product
+
+    product = tmp_path / "post" / "matriz" / "polars" / "POLAR-1.csv"
+    product.parent.mkdir(parents=True)
+    product.write_text("the numbers as they were", encoding="utf-8")
+
+    returned = _refuse_an_existing_product(product, overwrite=True)
+
+    assert returned == product
+    archived = sorted((product.parent / PRODUCT_ARCHIVE_DIR).rglob("POLAR-1.csv"))
+    assert len(archived) == 1, (
+        "an ordinary rebuild lost the product it replaced; only --force-overwrite, which "
+        "passes archive=False and asks for a confirmation, may do that"
+    )
+    assert archived[0].read_text(encoding="utf-8") == "the numbers as they were"
