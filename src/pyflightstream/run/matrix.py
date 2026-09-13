@@ -640,9 +640,8 @@ def run_matrix(
         # ran it locally on the login node -- the exact failure
         # `on_a_cluster`'s own comment says it exists to prevent. All five
         # lenses found it independently (2026-09-13).
-        executor = _cluster_executor(workspace, resolved) or LocalExecutor(
-            resolved.fs_exe, hidden=hidden
-        )
+        submitting = _cluster_executor(workspace, resolved)
+        executor = submitting or LocalExecutor(resolved.fs_exe, hidden=hidden)
     windowless = bool(hidden)
 
     def executor_for(exe: Path) -> Executor:
@@ -650,8 +649,25 @@ def run_matrix(
 
         The window setting is the one the campaign's own executor was
         built with, so a second build runs the same way the first does.
+
+        ON A CLUSTER EVERY BUILD SUBMITS, and this returned a LocalExecutor
+        for a row naming its own installation until 2026-09-13: a
+        multi-build matrix submitted its default-build rows and ran the
+        rest on the login node, or died at LocalExecutor's own refusal
+        about an executable path that does not exist on that machine, with
+        nothing in the message mentioning a cluster. Half-wired is harder
+        to see than not wired (the architect lens, round two).
+
+        ONE PROFILE SERVES EVERY BUILD, which is why the campaign's own
+        submitting executor is reused rather than one built per build: the
+        descriptor names the SCRIPT and the build is a field inside it,
+        which `_bind_submission_values` sets from the row.
         """
-        return supplied if supplied is not None else LocalExecutor(exe, hidden=windowless)
+        if supplied is not None:
+            return supplied
+        if isinstance(executor, SubmittingExecutor):
+            return executor
+        return LocalExecutor(exe, hidden=windowless)
 
     # AFTER the executor exists, because a `SolverBuild` names one, and
     # after the pre-flight above, which is planned from the resolved

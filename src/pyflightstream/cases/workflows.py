@@ -3251,6 +3251,33 @@ def _output(conventions: WorkflowConventions, case: SimCase, index: int) -> str:
 # --- PFS-2025.02.02: the case geometry, opened first --------------------------
 
 
+def _configuration_comment(case: SimCase, script: Script) -> None:
+    """Write the row's CONFIGURATION at the top of the script, as a comment.
+
+    FR-94. The column LABELS and configures nothing, so the one thing it
+    owes is to be VISIBLE: a label that reaches nothing a reader opens is
+    a cell nobody would fill in, which is what the requirement's own last
+    sentence warns against. This is one of the two places it reaches; the
+    other is the custom polar file's title line.
+
+    IT WENT NOWHERE UNTIL 2026-09-13. The requirement said it reached both
+    and the constant had two occurrences in the package, its definition
+    and a key list, so the release shipped a column that configured
+    nothing and labelled nothing either (the V&V lens, round two).
+
+    Emitted FIRST, before the OPEN, because a comment is not a command and
+    the phase guard does not see it; a reader opening the script meets the
+    configuration before anything else.
+    """
+    stated = str(case.variables.get(CONFIGURATION_VARIABLE) or "").strip()
+    # A dash never reaches here: `_fold_columns_into_variables` drops a
+    # column that says nothing rather than folding the dash in. Checked
+    # anyway, because a caller building a case in Python is not the fold.
+    if not stated or stated == "-":
+        return
+    script.comment(f"CONFIGURATION: {stated}")
+
+
 def _open_geometry(case: SimCase, script: Script) -> None:
     """Open the case's geometry, before anything else is emitted.
 
@@ -3296,6 +3323,7 @@ def _open_geometry(case: SimCase, script: Script) -> None:
         message names the suffix written and the documented route,
         because there IS one and it is not this function.
     """
+    _configuration_comment(case, script)
     if case.geometry is None:
         return
     suffix = PurePath(case.geometry).suffix
@@ -4019,7 +4047,7 @@ def _settings(
 
 
 def row_ncpus(case: SimCase, from_setup: int | None) -> int | None:
-    """Resolve the processor count: the ROW's, since v0.17.0 (FR-92).
+    """Resolve the processor count: the ROW's, since v0.17.0 (FR-93).
 
     ONE NUMBER FOR EVERY PLATFORM. It reaches
     ``SET_MAX_PARALLEL_THREADS`` as the solver's thread count and, on a

@@ -138,12 +138,11 @@ COST_ROW_COLUMNS = (
 #: neither of these does, so a build column can never shadow one.
 COST_VIEW_IDENTITY_COLUMNS = ("sim_id", "point")
 
-#: Statuses whose wall time is time to a FAILURE. Derived from the enum
-#: rather than listed, so a status added to
-#: :class:`pyflightstream.workspace.RunStatus` under the FAILED_ prefix
-#: is counted the day it arrives; one added under any other name is not,
+#: The statuses whose wall time is NOT TIME TO AN ANSWER. Derived from the
+#: enum rather than listed, so a status added to
+#: :class:`pyflightstream.workspace.RunStatus` under the FAILED_ prefix is
+#: counted the day it arrives; one added under any other name is not,
 #: which is why ``tests/tier1_offline/test_qa_cost.py`` pins the complement.
-#: The statuses whose wall time is NOT time to an answer.
 #:
 #: The FAILED_ prefix is the right default and it has the hole its own
 #: guard predicted: a terminal status named otherwise lands in "not
@@ -156,7 +155,7 @@ COST_VIEW_IDENTITY_COLUMNS = ("sim_id", "point")
 #:
 #: THE SET IS NAMED FOR THE ESTIMATOR'S QUESTION, "did this run reach an
 #: answer", and the field it fills is `excluded_count` rather than
-#: `excluded_count`. It was the second name until 2026-09-13, and the only
+#: `failed_count`. It was the second name until 2026-09-13, and the only
 #: consumer of it is a line a user reads, which then told someone whose
 #: points were sitting in a queue that they had ended in a FAILED status.
 #: A comment saying the reclassification is "not as failures anywhere a

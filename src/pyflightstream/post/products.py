@@ -93,6 +93,7 @@ from pyflightstream._errors import (
 )
 from pyflightstream.cases import select_group_members
 from pyflightstream.cases.workflows import (
+    CONFIGURATION_VARIABLE,
     PER_ROTOR_REDUCTIONS,
     PROBE_POSITION_COLUMNS,
     REDUCTION_NAMES,
@@ -663,6 +664,7 @@ def write_custom_polar_format(
     reference: ReferenceValues,
     rows: Sequence[Sequence[float]],
     date: str | None = None,
+    configuration: str | None = None,
 ) -> Path:
     """Write one polar of one group in the fixed-width text format the reference tooling opens.
 
@@ -675,7 +677,10 @@ def write_custom_polar_format(
     after the last line, and no line carries a trailing space beyond the
     width of its fields:
 
-    * line 1: the title, ``FlightStream - <description>``;
+    * line 1: the title, ``FlightStream - <description>``, with
+      `` - <configuration>`` appended where the row states one (FR-94).
+      THE HEADER IS EXACTLY NINE LINES AND THE READER COUNTS THEM, so the
+      label joins a line rather than taking one of its own;
     * line 2: the polar identifier followed by the two-digit Mach code,
       ``<polar><round(mach * 100):02d>``, the same code the polar table's
       file name carries (``3207`` at Mach 0.20 is ``320720``);
@@ -723,6 +728,10 @@ def write_custom_polar_format(
         The coefficient rows, each of :data:`COEFFICIENT_COLUMNS` width.
     date : str, optional
         Line 3 as it should be written; the local clock when None.
+    configuration : str, optional
+        The row's `CONFIGURATION` label (FR-94), appended to the title of
+        line 1 after ` - `. Absent from the title when the row states
+        none, so a file written by a row without one is unchanged.
 
     Returns
     -------
@@ -734,8 +743,16 @@ def write_custom_polar_format(
     ProductError
         If a row is not twenty-four values wide.
     """
+    # FR-94. THE CONFIGURATION GOES ON LINE 1 AND NOWHERE ELSE, because
+    # the format has exactly nine header lines and the reader counts them:
+    # a tenth would make every file this writes unreadable by the
+    # reference tooling. The title is the one line with room for a word,
+    # and ` - ` is the separator the prefix itself already uses.
+    title = f"{_CUSTOM_TITLE_PREFIX}{description}"
+    if configuration and configuration.strip() and configuration.strip() != "-":
+        title = f"{title} - {configuration.strip()}"
     lines = [
-        f"{_CUSTOM_TITLE_PREFIX}{description}",
+        title,
         f"{polar}{_mach_code(mach):02d}",
         date if date is not None else datetime.now().strftime(_CUSTOM_DATE_FORMAT),
         f"{len(_CUSTOM_REFERENCE_COLUMNS):03d} {int(group):02d}",
@@ -1636,7 +1653,7 @@ def product_archive_dir(path: Path, *, now: datetime | None = None) -> Path:
 
 
 def _refuse_an_existing_product(
-    path: Path, *, overwrite: bool, archive: bool = True, stamp: datetime | None = None
+    path: Path, *, archive: bool = True, stamp: datetime | None = None
 ) -> Path:
     """Return ``path``, ARCHIVING an existing product rather than losing it.
 
@@ -1645,16 +1662,26 @@ def _refuse_an_existing_product(
     an archive the previous table is gone and nothing says it ever said
     something else.
 
-    Three behaviours, and the default is the first:
+    THREE BEHAVIOURS AND ONE FLAG, and the default is the first:
 
     * the product exists and ``archive`` holds: it is MOVED into
-      ``post/<matrix>/archive/<day and hour>/`` and the new one is written
-      in its place. Nothing is lost and nothing is refused.
-    * the product exists and ``overwrite`` is set with ``archive`` false:
-      it is overwritten and no copy is kept. That is the explicit escape,
-      and the command line spells it ``--force-overwrite`` and asks for a
-      confirmation, so it cannot be reached by habit.
+      ``<its own folder>/archive/<day and hour>/`` and the new one is
+      written in its place. Nothing is lost and nothing is refused.
+    * the product exists and ``archive`` is false: it is overwritten and
+      no copy is kept. That is the explicit escape, and the command line
+      spells it ``--force-overwrite`` and asks for a confirmation, so it
+      cannot be reached by habit.
     * the product does not exist: nothing happens.
+
+    IT TOOK AN ``overwrite`` FLAG TOO, AND THAT WAS THE DEFECT. The guard
+    read ``not archive and overwrite``, so a caller asking for no archive
+    with no overwrite, which is the documented do-not-archive request,
+    fell through and archived anyway: one cell of a two-boolean truth
+    table that no test named and no shipped path reached. Making them
+    independent left ``overwrite`` deciding nothing at all, and a
+    parameter that decides nothing is one the next caller will set and be
+    surprised by, so it is gone rather than left dead (the QA lens, rounds
+    one and two).
 
     THE OLD REFUSAL IS GONE, which is the part worth saying plainly. It
     existed to stop a rebuild destroying a product silently, and archiving
@@ -1829,9 +1856,7 @@ def _sim_products(
     plots_tables: dict[str, Path] = {}
 
     def _target(path: Path) -> Path:
-        return _refuse_an_existing_product(
-            path, overwrite=overwrite, archive=archive, stamp=archive_stamp
-        )
+        return _refuse_an_existing_product(path, archive=archive, stamp=archive_stamp)
 
     # PFS-2038.03, GEO-039-F03. HERE, before the first product of this
     # simulation is written, and not in the reduction loop where the first
@@ -1918,6 +1943,15 @@ def _sim_products(
                     mach=mach,
                     reference=reference,
                     rows=rows,
+                    # FR-94. The row's own label, off the matrix row this
+                    # polar belongs to. None where the workspace has no
+                    # matrix to read, which is every campaign authored in
+                    # Python, and the title is then what it always was.
+                    configuration=(
+                        matrix_row.variables.get(CONFIGURATION_VARIABLE)
+                        if matrix_row is not None
+                        else None
+                    ),
                 )
                 written.append(target)
                 written_names[target.relative_to(out).as_posix()] = {"runs": run_ids}
@@ -2608,7 +2642,7 @@ def _run_provenance(
             # THE SAME RULE AS A PRODUCT. A provenance document about to
             # be rewritten is evidence about the run that produced the
             # file it describes, so it is archived rather than replaced.
-            _refuse_an_existing_product(target, overwrite=True, archive=True, stamp=archive_stamp)
+            _refuse_an_existing_product(target, archive=True, stamp=archive_stamp)
         elif target.exists() and not overwrite:
             raise ProductExistsError(
                 f"the provenance document {target} exists; pass overwrite=True to rewrite "
@@ -2781,7 +2815,7 @@ def write_campaign_products(
         super_files, super_entries, super_columns = write_superfiles(
             drafts,
             target=lambda path: _refuse_an_existing_product(
-                path, overwrite=overwrite, archive=archive, stamp=archive_stamp
+                path, archive=archive, stamp=archive_stamp
             ),
         )
         written.extend(super_files)

@@ -3573,8 +3573,15 @@ requirement below is one seam of that division.
     on it.
 
     IT REACHES TWO PLACES A READER OPENS: a comment at the top of the emitted
-    script, and the header of the custom polar file. A label that reaches
-    nothing a reader sees is a cell nobody would fill in.
+    script, written before the geometry is opened so it is the file's first
+    line; and the TITLE LINE of the custom polar file, after ` - `. A label
+    that reaches nothing a reader sees is a cell nobody would fill in.
+
+    THE POLAR HEADER IS EXACTLY NINE LINES AND ITS READER COUNTS THEM, so the
+    label joins line 1 rather than taking a line of its own: a tenth header
+    line would make every file this release writes unreadable by the
+    reference tooling. A row that states no configuration writes the title it
+    always wrote, so no recorded file changes shape.
 
 !!! requirement "FR-95 A steady row is ONE warm job and leaves ONE record <span class='srs-implemented'>implemented</span>"
 

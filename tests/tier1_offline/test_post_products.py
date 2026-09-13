@@ -1725,7 +1725,7 @@ def test_goal019_post_an_existing_product_is_archived_before_it_is_rewritten(tmp
     product.parent.mkdir(parents=True)
     product.write_text("the numbers as they were", encoding="utf-8")
 
-    returned = _refuse_an_existing_product(product, overwrite=False)
+    returned = _refuse_an_existing_product(product)
 
     assert returned == product, "the writer is still handed the path it asked for"
     assert not product.exists(), "the old product was left in place, so it will be lost"
@@ -1752,7 +1752,7 @@ def test_goal019_post_force_overwrite_keeps_no_copy(tmp_path):
     product.parent.mkdir(parents=True)
     product.write_text("about to be lost", encoding="utf-8")
 
-    _refuse_an_existing_product(product, overwrite=True, archive=False)
+    _refuse_an_existing_product(product, archive=False)
 
     assert product.exists(), "the writer must still find the path it is about to write"
     assert not (product.parent / PRODUCT_ARCHIVE_DIR).exists(), (
@@ -1771,7 +1771,7 @@ def test_goal019_post_two_rebuilds_in_one_second_do_not_collide(tmp_path):
     product.parent.mkdir(parents=True)
     for body in ("first", "second"):
         product.write_text(body, encoding="utf-8")
-        _refuse_an_existing_product(product, overwrite=False, stamp=frozen)
+        _refuse_an_existing_product(product, stamp=frozen)
 
     kept = sorted(
         path.read_text(encoding="utf-8")
@@ -2041,7 +2041,7 @@ def test_goal019_post_an_ordinary_rebuild_archives_even_when_it_overwrites(tmp_p
     product.parent.mkdir(parents=True)
     product.write_text("the numbers as they were", encoding="utf-8")
 
-    returned = _refuse_an_existing_product(product, overwrite=True)
+    returned = _refuse_an_existing_product(product)
 
     assert returned == product
     archived = sorted((product.parent / PRODUCT_ARCHIVE_DIR).rglob("POLAR-1.csv"))
@@ -2050,3 +2050,93 @@ def test_goal019_post_an_ordinary_rebuild_archives_even_when_it_overwrites(tmp_p
         "passes archive=False and asks for a confirmation, may do that"
     )
     assert archived[0].read_text(encoding="utf-8") == "the numbers as they were"
+
+
+def test_goal019_the_configuration_reaches_the_polar_title_and_takes_no_line(tmp_path):
+    """FR-94, and the header is exactly nine lines so it cannot take a tenth.
+
+    The reader counts the header lines; a tenth would make every file this
+    writes unreadable by the reference tooling. The label joins line 1
+    after ` - `, which is the separator the title prefix already uses.
+    """
+    from pyflightstream.post.products import ReferenceValues, write_custom_polar_format
+
+    reference = ReferenceValues.from_mapping(
+        {"SREF": 50.0, "CREF": 2.526, "BREF": 20.0, "XMOM": 9.152}
+    )
+    rows = [[0.0] * 24]
+    labelled = write_custom_polar_format(
+        tmp_path / "with.dat",
+        polar="3207",
+        description="CRUISE_wing_body",
+        group=1,
+        mach=0.2,
+        reference=reference,
+        rows=rows,
+        date="Tue Sep 08 23:41:07  2026",
+        configuration="WB_CRUISE",
+    )
+    plain = write_custom_polar_format(
+        tmp_path / "without.dat",
+        polar="3207",
+        description="CRUISE_wing_body",
+        group=1,
+        mach=0.2,
+        reference=reference,
+        rows=rows,
+        date="Tue Sep 08 23:41:07  2026",
+    )
+    with_lines = labelled.read_text(encoding="ascii").splitlines()
+    plain_lines = plain.read_text(encoding="ascii").splitlines()
+    assert with_lines[0].endswith(" - WB_CRUISE"), with_lines[0]
+    assert plain_lines[0] == "FlightStream - CRUISE_wing_body"
+    assert len(with_lines) == len(plain_lines), (
+        "the label took a line of its own; the header is exactly nine lines and the "
+        "reader counts them"
+    )
+    assert with_lines[1:] == plain_lines[1:], "the label reached a line that is not the title"
+
+
+def test_goal019_post_archive_false_keeps_no_copy_whatever_else_is_asked(tmp_path):
+    """The cell of the truth table no test named, which is why the fix survived.
+
+    FOUND BY A MUTANT, in QA round two: reverting the guard to
+    `not archive and overwrite` left every test green, because the pair
+    (archive=False, overwrite=False) was the documented do-not-archive
+    request and nothing exercised it. It fell through and archived anyway.
+    The flag is alone now, so the mutant has nothing to revert to, and
+    this is the case that says what it does.
+    """
+    from pyflightstream.post.products import PRODUCT_ARCHIVE_DIR, _refuse_an_existing_product
+
+    product = tmp_path / "post" / "matriz" / "polars" / "POLAR-1.csv"
+    product.parent.mkdir(parents=True)
+    product.write_text("about to be lost", encoding="utf-8")
+
+    returned = _refuse_an_existing_product(product, archive=False)
+
+    assert returned == product, "the writer must still find the path it is about to write"
+    assert product.exists(), "the escape must not move the file it is about to overwrite"
+    assert not (product.parent / PRODUCT_ARCHIVE_DIR).exists(), (
+        "archive=False kept a copy, which is the one thing it exists not to do"
+    )
+
+
+def test_goal019_post_the_archiver_takes_one_flag_and_not_two(tmp_path):
+    """A parameter that decides nothing is one the next caller will be surprised by.
+
+    The two flags were not independent: only the exact pair
+    (archive=False, overwrite=True) reached the escape. Making them
+    independent made `overwrite` decide nothing at all, so it is gone
+    rather than left dead.
+    """
+    import inspect
+
+    from pyflightstream.post.products import _refuse_an_existing_product
+
+    parameters = inspect.signature(_refuse_an_existing_product).parameters
+    assert "overwrite" not in parameters, (
+        "the archiver still takes an overwrite flag; either it decides something, and "
+        "the docstring's behaviour table owes it a row, or it is dead"
+    )
+    assert set(parameters) == {"path", "archive", "stamp"}, sorted(parameters)

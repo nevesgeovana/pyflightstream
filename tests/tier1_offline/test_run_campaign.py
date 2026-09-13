@@ -3825,3 +3825,55 @@ def test_a_shared_outputs_folder_still_judges_each_point_by_its_own_export(tmp_p
         assert printed.get("alpha") == alpha, (
             f"the point at alpha={alpha} was judged on an export printing {printed.get('alpha')}"
         )
+
+
+def test_goal019_record_a_job_reports_the_worst_of_its_points_not_the_last(tmp_path):
+    """FR-95: a job's status is the WORST of its points, by a stated order.
+
+    FOUND BY A MUTANT, in QA round two: replacing the fold with
+    last-failing-point-wins left every test green, because nothing
+    measured a sweep with TWO different failures in it. The docstring said
+    WORST and the code took the most recent, so a reader triaging by
+    status was pointed at the wrong point.
+
+    This drives the fold directly rather than through a solver, because
+    what is under test is the ORDER and not the run.
+    """
+    from pyflightstream.run import _STATUS_SEVERITY, _worse_of
+    from pyflightstream.workspace import RunStatus
+
+    # The order itself, which is the contract: every status is placed, and
+    # the four failures are worse than the four that are not failures.
+    assert set(_STATUS_SEVERITY) == set(RunStatus), (
+        "a status is missing from the severity order, so it would sort as worse than "
+        "everything and a job could report a state nobody classified"
+    )
+    failures = [s for s in RunStatus if s.name.startswith("FAILED")]
+    worst_not_a_failure = max(
+        (s for s in RunStatus if not s.name.startswith("FAILED")),
+        key=_STATUS_SEVERITY.index,
+    )
+    for failure in failures:
+        assert _STATUS_SEVERITY.index(failure) > _STATUS_SEVERITY.index(worst_not_a_failure)
+
+    # The defect, stated as the reviewer stated it: a sweep whose FIRST
+    # point diverged and whose THIRD left an incomplete output.
+    folded = RunStatus.CONVERGED
+    for status in (
+        RunStatus.FAILED_DIVERGED,
+        RunStatus.CONVERGED,
+        RunStatus.FAILED_INCOMPLETE_OUTPUT,
+    ):
+        folded = _worse_of(folded, status)
+    assert folded is RunStatus.FAILED_DIVERGED, (
+        f"the job reports {folded}, which is the LAST failing point rather than the "
+        "worst one that happened"
+    )
+
+    # And the other direction, so this is not a test satisfied by always
+    # answering DIVERGED.
+    assert _worse_of(RunStatus.CONVERGED, RunStatus.WALLTIME_REACHED) is (
+        RunStatus.WALLTIME_REACHED
+    )
+    assert _worse_of(RunStatus.CONVERGED, RunStatus.CONVERGED) is RunStatus.CONVERGED
+    assert _worse_of(RunStatus.FAILED_DIVERGED, RunStatus.CONVERGED) is (RunStatus.FAILED_DIVERGED)

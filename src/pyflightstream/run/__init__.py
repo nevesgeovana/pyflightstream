@@ -76,7 +76,7 @@ from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from functools import lru_cache
 from pathlib import Path
-from typing import Protocol
+from typing import Protocol, runtime_checkable
 
 import pyflightstream
 from pyflightstream._digest import file_sha256, optional_file_sha256, text_sha256
@@ -610,6 +610,32 @@ def render_descriptor(profile, values: Mapping[str, object]) -> str:
     return "\n".join(lines) + "\n"
 
 
+@runtime_checkable
+class Submitting(Protocol):
+    """An executor that hands a job to a SCHEDULER instead of running it.
+
+    ONE DECLARED SEAM, because "is this a submitting executor" was asked
+    three different ways in one commit and two of them read the same
+    attribute under different predicates: a method probe, an
+    ``is None`` on :attr:`descriptor_path`, and a presence test against a
+    string sentinel. They could disagree, and the one that decides whether
+    outputs are collected was the value probe, so an executor whose submit
+    path raised before it wrote anything would have had its outputs
+    collected and a log assessed that does not exist (the architect lens,
+    round two).
+
+    The :class:`Executor` protocol beside this one already said in its own
+    docstring that an HPC submission executor would come later. This is
+    that, declared rather than inferred.
+    """
+
+    def bind_point(self, values: Mapping[str, object]) -> None:
+        """Merge one point's values into the ones every point shares."""
+
+    def submission_record(self) -> dict | None:
+        """Return what was handed to the scheduler, or None before anything was."""
+
+
 def _bind_submission_values(executor, case, point_case) -> None:
     """Give a submitting executor the values THIS point's descriptor needs.
 
@@ -617,36 +643,39 @@ def _bind_submission_values(executor, case, point_case) -> None:
     processor count, and every one of those is the ROW's. The executor is
     built once for the campaign, so the per-point half arrives here.
 
-    A LOCAL EXECUTOR IS HANDED NOTHING. The test is for the method rather
-    than for the class, so an executor a caller supplied is served if it
-    can be and left alone if it cannot.
+    THE PROCESSOR COUNT FALLS BACK TO THE SETUP, exactly as the script's
+    own count does. Passing None there was the whole of FR-93 reopened and
+    inverted: a row that states no NCPUS column, which is EVERY upgraded
+    row, would have reserved an empty field from the scheduler and solved
+    on the setup's eight. The requirement's own evidence sentence is a job
+    reserving forty-eight processors and solving on eight, and this made
+    it true again in the other direction (the architect lens, round two).
+
+    A VALUE THAT CANNOT BE RESOLVED IS OMITTED, never written empty. An
+    absent key makes `render_descriptor` refuse by name, which is a
+    message; an empty string is a scheduler field with nothing in it.
     """
-    bind = getattr(executor, "bind_point", None)
-    if bind is None:
+    if not isinstance(executor, Submitting):
         return
+    values: dict[str, object] = {
+        "sim": case.sim_id,
+        "point": point_tag(point_case.point) if point_case.point else case.sim_id,
+        "fs_build": case.fs_build or "",
+    }
+    ncpus = row_ncpus(point_case, case.solver.max_threads)
+    if ncpus is not None:
+        values["ncpus"] = ncpus
     walltime = row_walltime_s(point_case)
-    bind(
-        {
-            "sim": case.sim_id,
-            "point": point_tag(point_case.point) if point_case.point else case.sim_id,
-            "fs_build": case.fs_build or "",
-            "ncpus": row_ncpus(point_case, None) or "",
-            "walltime": int(walltime) if walltime is not None else "",
-        }
-    )
+    if walltime is not None:
+        values["walltime"] = int(walltime)
+    executor.bind_point(values)
 
 
 def _submission_record(executor) -> dict | None:
-    """Return what a submitting executor left behind, or None for a local run."""
-    descriptor = getattr(executor, "descriptor_path", None)
-    if descriptor is None:
+    """Return what a submitting executor handed to the scheduler, or None."""
+    if not isinstance(executor, Submitting):
         return None
-    return {
-        "descriptor": Path(descriptor).as_posix(),
-        "profile": Path(getattr(executor.profile, "path", "")).as_posix(),
-        "application_id": getattr(executor.profile, "application_id", None),
-        "submitted": bool(getattr(executor, "submit", False)),
-    }
+    return executor.submission_record()
 
 
 class SubmittingExecutor:
@@ -655,9 +684,14 @@ class SubmittingExecutor:
     THE DESIGN OF 2026-09-08, built as it was drawn. A blocking executor
     that polls the cluster holds a laptop for the night the cluster was
     bought to save; a tool outside the workflow is a run nothing records.
-    So this returns as soon as the scheduler has taken the job, the record
-    is written SUBMITTED, and `collect` completes it when the outputs
-    appear.
+    So this returns as soon as the scheduler has taken the job and the
+    record is written SUBMITTED.
+
+    THIS RELEASE HAS NO COLLECT STAGE. A SUBMITTED record names where the
+    job went and is completed BY HAND until 0.18.0 (FR-99). This sentence
+    said `collect` completes it, in the present tense, in the one
+    capability whose failure mode is an unattended job nobody collects
+    (the V&V lens, round two).
 
     THE DESCRIPTOR IS WRITTEN WHETHER OR NOT IT IS SUBMITTED, which is the
     predecessor's shape and worth keeping: a descriptor you can read
@@ -682,6 +716,33 @@ class SubmittingExecutor:
         driving the executor directly may call it too.
         """
         self.values.update(values)
+
+    def submission_record(self) -> dict | None:
+        """Return what this executor handed to the scheduler, or None.
+
+        THE EXECUTOR ANSWERS FOR ITSELF, so the run stage does not reach
+        through it into the profile's field names. It did, guarding those
+        fields with `getattr` defaults that could only ever fire for
+        something that is not a profile, where they would turn a loud
+        AttributeError into a record claiming an empty path (the architect
+        lens, round two).
+
+        None before `run_script` has written a descriptor, which is what
+        tells a submitting executor that has submitted from one that has
+        not yet.
+        """
+        if self.descriptor_path is None:
+            return None
+        return {
+            "descriptor": self.descriptor_path.as_posix(),
+            "profile": self.profile.path.as_posix(),
+            "application_id": self.profile.application_id,
+            # WHETHER SUBMISSION WAS REQUESTED, which is what this can
+            # honestly say from here; the scheduler's own verdict is in
+            # the ExecutionResult beside this record, and FR-99 is worded
+            # to match rather than the other way round.
+            "submitted": bool(self.submit),
+        }
 
     def run_script(
         self, script_path: Path, working_dir: Path, timeout_s: float | None = None
@@ -723,20 +784,45 @@ class SubmittingExecutor:
                 timed_out=False,
                 log_text=None,
             )
-        completed = subprocess.run(  # noqa: S603
-            argv,
-            cwd=str(working_dir),
-            capture_output=True,
-            text=True,
-            timeout=timeout_s,
-            check=False,
-            # EXPLICIT, and for the same reason the solver's is: a submit
-            # command reads the cluster's own environment, where the module
-            # paths and the queue credentials live, so the inheritance is
-            # correct and the point is that it is a DECISION at this call
-            # rather than a default nobody chose.
-            env=os.environ.copy(),
-        )
+        try:
+            completed = subprocess.run(  # noqa: S603
+                argv,
+                cwd=str(working_dir),
+                capture_output=True,
+                text=True,
+                timeout=timeout_s,
+                check=False,
+                # EXPLICIT, and for the same reason the solver's is: a
+                # submit command reads the cluster's own environment,
+                # where the module paths and the queue credentials live,
+                # so the inheritance is correct and the point is that it
+                # is a DECISION at this call rather than a default nobody
+                # chose.
+                env=os.environ.copy(),
+            )
+        except OSError as error:
+            # THE SCHEDULER IS NOT ON THIS MACHINE, which is what a
+            # mistyped submit command or a login node without the client
+            # looks like from here. It is this point's failure and not the
+            # campaign's: uncaught, one wrong profile aborted every
+            # remaining row after the descriptors were already written.
+            return ExecutionResult(
+                return_code=127,
+                stdout="",
+                stderr=(
+                    f"the submit command {argv[0]!r} could not be run: {error}. It is "
+                    f"named by the submit table of {self.profile.path}; the descriptor "
+                    f"was written to {descriptor} and nothing was submitted."
+                ),
+                argv=argv,
+                cwd=str(working_dir),
+                timeout_s=timeout_s,
+                started_at=started,
+                finished_at=_utc_now(),
+                wall_time_s=0.0,
+                timed_out=False,
+                log_text=None,
+            )
         return ExecutionResult(
             return_code=completed.returncode,
             stdout=completed.stdout,
@@ -4130,18 +4216,21 @@ def _execute_sweep(
     base["executor"] = invocation_record(executor, result)
     base["started_at"] = result.started_at
     base["finished_at"] = result.finished_at
+    # FR-99, and the same reason as the point path: the descriptor exists
+    # before the scheduler is called, so a rejected submission must keep it.
+    submitted = _submission_record(executor)
     if result.failed:
         return RunRecord(
             **base,
             status=RunStatus.FAILED_EXECUTION,
             wall_time_s=result.wall_time_s,
             error=result.diagnosis(),
+            submission=submitted,
         )
     # FR-99. A SUBMITTED JOB HAS NO OUTPUTS YET. The scheduler has taken
     # the whole sweep and no point of it has run, so every point is
     # pending: the record says SUBMITTED, names where the job went, and
     # carries the points it will run rather than points it ran.
-    submitted = _submission_record(executor)
     if submitted is not None:
         return RunRecord(
             **base,
@@ -4584,6 +4673,15 @@ def _execute_point(
     stopped = _walltime_stop(sim_dir / WALLTIME_CLOCK_STATE)
     if stopped is not None:
         base["stopped_at"] = stopped
+    # FR-99. READ BEFORE THE FAILURE BRANCH, because the likeliest cluster
+    # failure is a REJECTED SUBMISSION and the descriptor is written before
+    # the scheduler is called. Read after it, a rejected job produced a
+    # FAILED_EXECUTION record with no descriptor, no profile and no
+    # submitted flag: the one thing FR-99 says names where the job went,
+    # missing from the record of the case that most needs it (the
+    # architect lens, round two). `submitted` distinguishes not-sent from
+    # sent-and-refused, so the failure record needs no new vocabulary.
+    submitted = _submission_record(executor)
     if result.failed:
         # One composer, never a chain here: the timeout branch used to
         # discard every captured channel, and the timeout branch is the
@@ -4594,6 +4692,7 @@ def _execute_point(
             status=RunStatus.FAILED_EXECUTION,
             wall_time_s=result.wall_time_s,
             error=error,
+            submission=submitted,
         )
 
     # FR-99. A SUBMITTED POINT HAS NO OUTPUTS YET, so nothing below runs.
@@ -4603,7 +4702,6 @@ def _execute_point(
     # says SUBMITTED, which is the eighth status and is not a failure, and
     # it carries the descriptor the scheduler was handed so the job can be
     # found again.
-    submitted = _submission_record(executor)
     if submitted is not None:
         return RunRecord(
             **base,

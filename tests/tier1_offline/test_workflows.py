@@ -5460,3 +5460,34 @@ def test_a_probe_entry_prescribes_a_rectangle_and_a_circle_point_by_point(tmp_pa
         assert abs((y * y + z * z) ** 0.5 - 2.0) < 1e-4, (
             f"the rim sits at radius 2.0 from the centre: {value}"
         )
+
+
+def test_goal019_the_configuration_reaches_the_script_as_a_comment():
+    """FR-94: the label configures nothing, so it owes being VISIBLE.
+
+    FOUND BY THE V&V LENS, round two. The requirement said the label
+    reaches a script comment and the polar header; the constant had two
+    occurrences in the package, its own definition and a key list, so the
+    release shipped a column that configured nothing and labelled nothing
+    either.
+    """
+    from pyflightstream.cases.workflows import workflow_registry
+    from pyflightstream.script import Script
+
+    case = rotor_case(CONFIGURATION="NX_B30_SECTOR")
+    script = Script(version="26.123")
+    workflow_registry()["unsteady_rotor"](case, script)
+    text = script.render()
+    assert "# CONFIGURATION: NX_B30_SECTOR" in text, text.splitlines()[:6]
+    # FIRST, so a reader meets it before anything else.
+    assert text.splitlines()[0] == "# CONFIGURATION: NX_B30_SECTOR"
+
+
+def test_goal019_a_row_with_no_configuration_writes_no_comment():
+    """The control. A label nobody stated is not a blank label."""
+    from pyflightstream.cases.workflows import workflow_registry
+    from pyflightstream.script import Script
+
+    script = Script(version="26.123")
+    workflow_registry()["unsteady_rotor"](rotor_case(), script)
+    assert "CONFIGURATION" not in script.render()

@@ -16,7 +16,10 @@ FlightStream versions.
   `MOVING_BOUNDARIES`, `ROTOR_AXIS`, `ROTOR_ORIGIN`, `RPM_SIGN`, `BLADES`,
   the flat-row `CLOCK_MOTION`, `ROTATE`'s families selector, and the
   `airframe`, `blades` and `each_blade` selectors of a families cell.
-  THE COUNT IS WHY, measured on 2026-09-13 over every committed matrix,
+  THE COUNT IS WHY, and it is committed as `reports/RPT-046_the-deprecation-recount_2026-09-13.md`
+  with the script that takes it, so the person deciding at 0.18.0 whether the
+  deadline may move again can re-run it rather than trust this paragraph.
+  Measured on 2026-09-13 over every committed matrix,
   reference, setup and post-processing artifact in this repository and in the
   recorded workspaces beside it: **39 files still state one of them**, 54
   occurrences of `MOVING_BOUNDARIES`, 53 of `ROTOR_AXIS`, 52 of `RPM_SIGN`,

@@ -4823,3 +4823,152 @@ def test_goal019_watchdog_a_restart_this_release_cannot_run_is_refused_by_name(t
         registry()["unsteady"](case, Script(version="26.123"))
     assert "0.18.0" in str(raised.value), str(raised.value)
     assert "ADDITIONAL_ITERS" in str(raised.value)
+
+
+def test_goal019_hpc_the_descriptor_asks_for_the_processors_the_solver_uses(tmp_path):
+    """FR-93 is one number, and the descriptor reopened the gap it closes.
+
+    FOUND BY THE ARCHITECT LENS, round two. The descriptor's processor
+    count was resolved with no setup fallback while the SCRIPT's count
+    falls back, so a row that states no NCPUS column, which is EVERY
+    upgraded row, would have asked the scheduler for an empty field and
+    solved on the setup's eight. FR-93's own evidence sentence is a job
+    reserving forty-eight processors and solving on eight; this made it
+    true in the other direction.
+    """
+    from pyflightstream.cases import SimCase, SweepAxis
+    from pyflightstream.run import SubmittingExecutor, _bind_submission_values
+    from pyflightstream.workspace.inputs import read_hpc_profile
+
+    profile_path = tmp_path / "h001.toml"
+    profile_path.write_text(
+        'application_id = "flightstream"\n'
+        "[descriptor]\n"
+        'format = "yaml"\n'
+        "[descriptor.fields]\n"
+        'ApplicationId = "{application_id}"\n'
+        'ncpus = "{ncpus}"\n'
+        "[submit]\n"
+        'command = ["esub", "{descriptor_path}"]\n',
+        encoding="utf-8",
+    )
+    executor = SubmittingExecutor(read_hpc_profile(profile_path), values={})
+    case = SimCase(
+        sim_id="5001",
+        aircraft="WB",
+        recipe="steady",
+        sweep=SweepAxis(type="alpha", values=[0.0]),
+        point={"alpha": 0.0},
+        outputs=["loads_a+00.0.txt"],
+        variables={"VELOCITY": "68.058"},
+        solver={"max_threads": 8},
+    )
+    _bind_submission_values(executor, case, case)
+    assert executor.values["ncpus"] == 8, (
+        f"the descriptor would ask for {executor.values.get('ncpus')!r} while the script "
+        "sets the solver to 8"
+    )
+
+    # And the row's own column still wins over the setup, which is the
+    # direction the column exists for.
+    stated = case.model_copy(update={"variables": {"VELOCITY": "68.058", "NCPUS": "48"}})
+    _bind_submission_values(executor, stated, stated)
+    assert executor.values["ncpus"] == 48
+
+
+def test_goal019_hpc_a_value_nothing_can_resolve_is_omitted_not_emptied(tmp_path):
+    """An absent key is a message; an empty scheduler field is not.
+
+    `render_descriptor` refuses a field it cannot fill and names it. A
+    written empty string passes that refusal and reaches the scheduler.
+    """
+    from pyflightstream.cases import SimCase, SweepAxis
+    from pyflightstream.run import SubmittingExecutor, _bind_submission_values
+    from pyflightstream.workspace.inputs import read_hpc_profile
+
+    profile_path = tmp_path / "h001.toml"
+    profile_path.write_text(
+        'application_id = "flightstream"\n'
+        "[descriptor]\n"
+        'format = "yaml"\n'
+        "[descriptor.fields]\n"
+        'ApplicationId = "{application_id}"\n'
+        "[submit]\n"
+        'command = ["esub", "{descriptor_path}"]\n',
+        encoding="utf-8",
+    )
+    executor = SubmittingExecutor(read_hpc_profile(profile_path), values={})
+    case = SimCase(
+        sim_id="5001",
+        aircraft="WB",
+        recipe="steady",
+        sweep=SweepAxis(type="alpha", values=[0.0]),
+        point={"alpha": 0.0},
+        outputs=["loads_a+00.0.txt"],
+        variables={"VELOCITY": "68.058"},
+    )
+    _bind_submission_values(executor, case, case)
+    assert "walltime" not in executor.values, (
+        "a row that states no wall clock put an empty string in the descriptor's "
+        "walltime field instead of leaving the field unfillable and audible"
+    )
+    assert "ncpus" not in executor.values
+
+
+def test_goal019_hpc_a_rejected_submission_keeps_its_descriptor(tmp_path):
+    """The likeliest cluster failure is a rejected submission.
+
+    FOUND BY THE ARCHITECT LENS, round two. The descriptor is written
+    before the scheduler is called, so reading the submission record after
+    the failure branch left a FAILED_EXECUTION record with nothing in it
+    that says where the job went.
+    """
+    from pyflightstream.run import SubmittingExecutor
+    from pyflightstream.workspace import RunStatus
+    from pyflightstream.workspace.inputs import read_hpc_profile
+
+    workspace, matrix = _steady_sweep_matrix(tmp_path)
+    directory = workspace.inputs_dir / "hpc"
+    directory.mkdir(parents=True, exist_ok=True)
+    profile_path = directory / "h001.toml"
+    profile_path.write_text(
+        'application_id = "flightstream"\n'
+        "[descriptor]\n"
+        'format = "yaml"\n'
+        'name = "submit.yaml"\n'
+        "[descriptor.fields]\n"
+        'ApplicationId = "{application_id}"\n'
+        'master_file = "{script_path}"\n'
+        "[submit]\n"
+        # A command that does not exist, which is what a rejected
+        # submission looks like from here.
+        'command = ["a-scheduler-that-is-not-installed", "{descriptor_path}"]\n',
+        encoding="utf-8",
+    )
+    import pytest
+
+    from pyflightstream.run import CampaignErrors
+
+    # The point fails, so the campaign raises after recording it. What is
+    # under test is the RECORD, which is written either way.
+    with pytest.raises(CampaignErrors):
+        run_matrix(
+            matrix,
+            workspace,
+            name="cluster",
+            default_fs_version="26.120",
+            recipes=RECIPES,
+            recipe_registry=workflow_registry(),
+            assess=converged,
+            executor=SubmittingExecutor(
+                read_hpc_profile(profile_path), values={"fs_build": "26.120"}
+            ),
+        )
+    record = workspace.read_manifest()[0]
+    assert record.status is RunStatus.FAILED_EXECUTION, record.status
+    assert record.submission, (
+        "a rejected submission left a record with no descriptor, no profile and no "
+        "submitted flag, which is the one thing that says where the job went"
+    )
+    assert record.submission["submitted"] is True
+    assert Path(record.submission["descriptor"]).name == "submit.yaml"
