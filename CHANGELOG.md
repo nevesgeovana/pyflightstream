@@ -7,6 +7,19 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Owed
+
+- **The Zenodo archive of v0.14.0 did not exist when it was last measured**,
+  against Zenodo's own API on 2026-09-10, and it has NOT been re-checked
+  since; the date is carried because this is a claim about an external
+  service and a reader needs to know what to re-run.
+  Until that row lands this section says so, because a shipped release that
+  quietly stops being citable is the gap PFS-2024.09 is about. Cite that
+  release by the concept DOI, which resolves to the newest archived version.
+
+
+## [0.17.0] - 2026-09-13
+
 ### Changed
 
 - **Twelve deprecations fell due at 0.17.0 and every one of them moves to
@@ -33,16 +46,6 @@ FlightStream versions.
   THE HONEST RESIDUAL, the same one the `broken_commands` row carries: the
   exit is a measurement and no mechanism takes it. What is mechanised is the
   DATE, and the deadline test goes red at 0.18.0 whatever the count is.
-
-### Owed
-
-- **The Zenodo archive of v0.14.0 did not exist when it was last measured**,
-  against Zenodo's own API on 2026-09-10, and it has NOT been re-checked
-  since; the date is carried because this is a claim about an external
-  service and a reader needs to know what to re-run.
-  Until that row lands this section says so, because a shipped release that
-  quietly stops being citable is the gap PFS-2024.09 is about. Cite that
-  release by the concept DOI, which resolves to the newest archived version.
 
 ### Added
 
@@ -9151,7 +9154,8 @@ the repository seeding and this tag (milestones M0 through M5).
 * 26.000: registered, no recorded evidence yet (honest empty column;
   backfill planned for v0.2+).
 
-[Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.16.0...HEAD
+[Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.17.0...HEAD
+[0.17.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.17.0
 [0.16.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.16.0
 [0.15.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.15.0
 [0.14.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.14.0

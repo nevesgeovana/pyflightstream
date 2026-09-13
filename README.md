@@ -24,13 +24,76 @@ Every example on those pages is compared against an artifact this
 repository ships, most of them under `tests/tier3_licensed/`, by a test on
 every commit, so a page cannot quietly stop being true.
 
-Status: v0.16.0 is the current release. It publishes to
+Status: v0.17.0 is the current release. It publishes to
 [PyPI](https://pypi.org/project/pyflightstream/) and archives on Zenodo
 from the tag, so the concept DOI in CITATION.cff resolves to the newest
 archived version and the version DOI is recorded one commit after the
 tag that names it. CHANGELOG.md carries the release history.
 
-**v0.16.0 is the sweep release.** A surface-section distribution is created
+**v0.17.0 is the release that makes a sweep ONE RUN.** A steady matrix row
+is one job: every point of it runs in one script and one solver process, and
+the solver is never cleared between them, so each angle begins from the
+previous one's converged solution and the sweep costs one setup instead of one
+per point. That is the warm start, and it is what a polar sweep IS rather than
+a switch on top of it; a row that wants the other behaviour writes
+`COLD_START: True`. One job leaves ONE record, which names every point it ran
+IN THE ORDER IT RAN THEM, because a warm sweep's order is part of its result.
+
+**The run matrix carries nineteen columns.** `CONFIGURATION`, `GEOMETRY`,
+`SYMMETRY`, `SYMMETRY_LOADS`, `NCPUS` and `WALLTIME` become columns of their
+own, and `HIDDEN | RUN` moves to sit directly after `POL`. Every one of the six
+was expressible before, four inside the free variables cell and two inside the
+setup artifact, so the release moves WHERE a fact lives and makes no fact
+required: a row that states none of them reads exactly as it did. A file in any
+older layout is upgraded on read, and the upgrade RENAMES NO RUN, because the
+point tag is run identity and ends every run id in every existing manifest.
+
+**A run needs a plan, and the plan is pinned to the matrix it read.**
+`pyfs-matrix plan` spends no solver time, pre-flights every point, and writes
+the receipt `run` now refuses to start without. The receipt carries the matrix
+digest, so a matrix edited between planning and running is visible rather than
+silent.
+
+**A product is archived before it is rewritten, never lost.** A rebuild moves
+the old product into `archive/<day and hour>/` beside it and writes the new one
+in its place; nothing is refused and nothing is destroyed. The old `--overwrite`
+flag is now `--force-overwrite`, keeps no copy, and asks for a confirmation, so
+it cannot be reached by habit.
+
+**An unsteady row can state a wall clock, and the run watches it from inside.**
+`WALLTIME` arms a pair of solver-side actions: a program that keeps its own
+clock and fires once, and a script it rewrites that does nothing until the clock
+and the margin meet, and then writes the run's exports. The margin is the
+setup's, twenty minutes by default. A run the clock stopped is recorded
+`WALLTIME_REACHED`, which is NOT a failure: the numbers up to that step are real
+and the record says where it stopped. What is NOT measured, and is said here
+rather than only in a source comment: whether the stop verb inside an action's
+script ends the RUN or only that script. Settling it needs a licensed probe that
+moves one thing.
+
+**Linux is the cluster, and no cell says so.** The run path reads the platform:
+on Linux with a profile in `inputs/hpc/h<>.toml` it renders that cluster's
+descriptor, hands the job to the scheduler and returns without waiting, and the
+record is `SUBMITTED`. The setup artifact stays multiplatform and states nothing
+about a cluster, so the same matrix, unchanged in every cell, runs locally on
+Windows and submits on Linux. `NCPUS` is ONE number for both: what the solver is
+told and what the scheduler is asked for. **This release has no collect stage**,
+so a submitted job's outputs are collected by hand until 0.18.0, and that is
+said here because a reader planning a cluster run owes the whole picture.
+
+**What changes for you at v0.17.0.** The matrix layout breaks for the fifth
+time and `pyfs-matrix upgrade` converts it, carrying every cell it does not move
+as its own bytes. Two setup keys move to the row: `max_parallel_threads` becomes
+the `NCPUS` column and `symmetry_loads` becomes `SYMMETRY_LOADS`; a setup
+stating either is still READ, so nothing breaks, and the column is where a new
+row should state it. `pyfs-matrix run` refuses without a plan. `post --overwrite`
+is `post --force-overwrite` and asks before it destroys. A row may state
+`RESTART` to continue a run the clock stopped, and this release PARSES it and
+refuses to run it, naming 0.18.0. Twelve deprecations that fell due here move to
+0.18.0 on a re-count: 39 committed artifacts still state one of them, and
+`reports/RPT-046` carries the measurement and the script that takes it.
+
+**v0.16.0 was the sweep release.** A surface-section distribution is created
 AFTER the solver is initialised; created before, the distribution returns the
 declared number of sections and every one of them is empty. A steady row now
 CREATES the probe points it exports, instead of asking the solver to export
