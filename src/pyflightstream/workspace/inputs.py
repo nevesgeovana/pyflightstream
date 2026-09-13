@@ -121,7 +121,7 @@ from pyflightstream.versions import (
     resolve,
 )
 
-INPUT_KINDS = ("geometries", "references", "setups", "pproc", "profiles")
+INPUT_KINDS = ("geometries", "references", "setups", "pproc", "profiles", "hpc")
 EXECUTABLES_FILE = "executables.toml"
 #: This machine's overlay of the build registry (PFS-2031.15). A workspace
 #: kept in version control carries placeholder paths in the registry,
@@ -2238,3 +2238,134 @@ def migrate_geometry_layout(inputs_dir: str | Path) -> GeometryMigration:
             source.rename(target)
             moved.append((source, target))
     return GeometryMigration(moved=tuple(moved), kept=kept)
+
+
+# --- FR-99, GOAL-019 item 8: the HPC profile ---------------------------------
+
+#: Where a workspace keeps the profile of the cluster it may be opened on.
+HPC_DIR = "hpc"
+
+#: The one field a profile MUST carry: the scheduler's own name for the
+#: application. It is the only field nothing else in the workspace can
+#: supply, which is what makes it mandatory and the rest not.
+HPC_REQUIRED = ("application_id",)
+
+#: The descriptor formats the package can write. `text` writes the fields
+#: as `key: value` lines with no quoting, for a scheduler that reads a
+#: plain list.
+HPC_FORMATS = ("yaml", "json", "toml", "text")
+
+
+@dataclass(frozen=True)
+class HpcProfile:
+    """How ONE cluster is asked to run a job (FR-99).
+
+    NO ROW CITES THIS. Her decision of 2026-09-12: the code sees Linux and
+    that is the cluster, so a study moves between machines by being opened
+    on the other one and changing no cell.
+
+    Attributes
+    ----------
+    application_id : str
+        The scheduler's own name for the application.
+    descriptor_format : str
+        One of :data:`HPC_FORMATS`. What the descriptor file IS, so the
+        package writes it rather than the study pasting a template.
+    descriptor_name : str
+        What it is called inside the simulation folder.
+    fields : dict of str to str
+        The keys THIS cluster expects, in the order they are written, and
+        what pyflightstream puts in each. A value in braces is substituted.
+        A cluster that spells `cpus` or `queue` is served by editing this
+        table and nothing else.
+    submit : tuple of str
+        The command, argument by argument, never one string through a
+        shell: a path with a space in it is then not a second argument.
+    defaults : dict of str to object
+        The floor for a resource a row may state. `ncpus` is deliberately
+        not among them: there is one processor count and it lives in the
+        matrix row.
+    path : Path
+        Where this was read from, for a refusal that has to name it.
+    """
+
+    application_id: str
+    descriptor_format: str
+    descriptor_name: str
+    fields: dict
+    submit: tuple
+    defaults: dict
+    path: Path
+
+
+def hpc_profiles(inputs_dir: str | Path) -> list[Path]:
+    """Every HPC profile a workspace carries, sorted."""
+    directory = Path(inputs_dir) / HPC_DIR
+    if not directory.is_dir():
+        return []
+    return sorted(directory.glob("*.toml"))
+
+
+def resolve_hpc_profile(inputs_dir: str | Path) -> HpcProfile | None:
+    """Return the profile of the cluster this workspace is on, or None.
+
+    ONE PROFILE NEEDS NO SELECTOR. A workspace carrying several and no way
+    to say which is REFUSED rather than guessed, because guessing spends a
+    queue. If a study ever needs two clusters the selector is a question to
+    answer then, with the case in hand, rather than a mechanism invented
+    for a problem nobody has.
+    """
+    found = hpc_profiles(inputs_dir)
+    if not found:
+        return None
+    if len(found) > 1:
+        raise InputArtifactError(
+            f"{Path(inputs_dir) / HPC_DIR} holds {len(found)} profiles "
+            f"({', '.join(path.name for path in found)}) and nothing says which cluster "
+            "this machine is. One profile needs no selector; several need one, and "
+            "guessing spends a queue."
+        )
+    return read_hpc_profile(found[0])
+
+
+def read_hpc_profile(path: str | Path) -> HpcProfile:
+    """Read one HPC profile, refusing what it cannot act on."""
+    target = Path(path)
+    table = _load_toml(target, "hpc profile")
+    for key in HPC_REQUIRED:
+        if not str(table.get(key) or "").strip():
+            raise InputArtifactError(
+                f"the HPC profile {target} states no {key!r}. It is the scheduler's own "
+                "name for the application and the one field nothing else in the "
+                "workspace can supply, which is why it is the only mandatory one."
+            )
+    descriptor = table.get("descriptor") or {}
+    fmt = str(descriptor.get("format") or "yaml").strip().lower()
+    if fmt not in HPC_FORMATS:
+        raise InputArtifactError(
+            f"the HPC profile {target} asks for a {fmt!r} descriptor; this package "
+            f"writes {', '.join(HPC_FORMATS)}."
+        )
+    fields = descriptor.get("fields") or {}
+    if not isinstance(fields, dict) or not fields:
+        raise InputArtifactError(
+            f"the HPC profile {target} lists no descriptor fields, so the file it "
+            "writes would be empty. The fields table is what this cluster expects and "
+            "what makes the profile portable."
+        )
+    submit = (table.get("submit") or {}).get("command") or []
+    if not isinstance(submit, list) or not submit:
+        raise InputArtifactError(
+            f"the HPC profile {target} states no submit command. Write it argument by "
+            'argument, for example command = ["esub", "{descriptor_path}"]: one string '
+            "through a shell splits a path that has a space in it."
+        )
+    return HpcProfile(
+        application_id=str(table["application_id"]),
+        descriptor_format=fmt,
+        descriptor_name=str(descriptor.get("name") or "submit.yaml"),
+        fields={str(k): str(v) for k, v in fields.items()},
+        submit=tuple(str(part) for part in submit),
+        defaults=dict(table.get("defaults") or {}),
+        path=target,
+    )

@@ -63,6 +63,7 @@ import inspect
 import json
 import math
 import os
+import platform
 import re
 import shutil
 import subprocess
@@ -530,6 +531,172 @@ def describe_invocation(
     if markdown:
         flags = f"`{flags}`"
     return f"{record['class_name']}, {flags} (as run; {citation})"
+
+
+#: FR-99, GOAL-019 item 8. Whether THIS machine is the cluster.
+#:
+#: The predecessor asks exactly this and nothing else, and no cell of any
+#: matrix has ever selected the cluster. Reading the platform rather than a
+#: cell also removes a whole failure: a cell that must be remembered is a
+#: cell that gets forgotten, and a forgotten one on a cluster means a
+#: laptop-shaped run holding a login node for the night.
+def on_a_cluster() -> bool:
+    """Whether this machine submits rather than executes (FR-99)."""
+    return platform.system().lower() == "linux"
+
+
+def _numeric_field(template: object, values: Mapping[str, object]) -> bool:
+    """Whether a descriptor field is a bare number rather than a quoted string.
+
+    True only when the template is exactly one substitution and the value
+    behind it is an int or a float. `26.123` is a build identifier that
+    reads as a float, and quoting it is the difference between a scheduler
+    receiving that build and receiving 26.12.
+    """
+    text = str(template).strip()
+    if not (text.startswith("{") and text.endswith("}") and text.count("{") == 1):
+        return False
+    return isinstance(values.get(text[1:-1]), (int, float)) and not isinstance(
+        values.get(text[1:-1]), bool
+    )
+
+
+def render_descriptor(profile, values: Mapping[str, object]) -> str:
+    """Render one submission descriptor from a profile and this point's values.
+
+    THE PROFILE OWNS THE KEYS and this owns none: every line comes from
+    the profile's own field table, so a cluster that spells ``cpus`` or
+    ``queue`` or ``account`` is served by editing that table and nothing
+    else. A substitution the values cannot supply is refused rather than
+    written empty, because a descriptor with a blank where a job name goes
+    is a job the scheduler names for you.
+    """
+    lines: list[str] = []
+    rendered: dict[str, str] = {}
+    for key, template in profile.fields.items():
+        try:
+            text = str(template).format(**values)
+        except KeyError as missing:
+            raise CampaignConfigError(
+                f"the HPC profile {profile.path} asks for {missing.args[0]!r} in its "
+                f"{key!r} "
+                f"field, and this run cannot supply it. What it can: "
+                f"{', '.join(sorted(values))}."
+            ) from None
+        rendered[key] = text
+    if profile.descriptor_format == "json":
+        return json.dumps(rendered, indent=2) + "\n"
+    for key, text in rendered.items():
+        template = profile.fields[key]
+        if profile.descriptor_format == "text":
+            lines.append(f"{key}: {text}")
+        elif profile.descriptor_format == "toml":
+            lines.append(f'{key} = "{text}"')
+        else:
+            # yaml. A number stays bare and everything else is quoted, which
+            # is what the predecessor's own descriptor does.
+            #
+            # THE SOURCE TYPE DECIDES, NOT THE TEXT. A build identifier is
+            # `26.123`, which reads as a float and is not one: unquoted, a
+            # scheduler is handed 26.123 and may hand back 26.12. So a field
+            # is bare only when it is exactly one substitution AND the value
+            # behind it was a number.
+            bare = _numeric_field(template, values)
+            lines.append(f"{key}: {text}" if bare else f'{key}: "{text}"')
+    return "\n".join(lines) + "\n"
+
+
+class SubmittingExecutor:
+    """Hands a script to a scheduler and does NOT wait for it (FR-15, FR-99).
+
+    THE DESIGN OF 2026-09-08, built as it was drawn. A blocking executor
+    that polls the cluster holds a laptop for the night the cluster was
+    bought to save; a tool outside the workflow is a run nothing records.
+    So this returns as soon as the scheduler has taken the job, the record
+    is written SUBMITTED, and `collect` completes it when the outputs
+    appear.
+
+    THE DESCRIPTOR IS WRITTEN WHETHER OR NOT IT IS SUBMITTED, which is the
+    predecessor's shape and worth keeping: a descriptor you can read
+    without spending anything is how the profile gets checked.
+    """
+
+    def __init__(self, profile, *, values: Mapping[str, object], submit: bool = True):
+        self.profile = profile
+        self.values = dict(values)
+        self.submit = submit
+        #: The path of the descriptor this executor last wrote, which is
+        #: how a submitted point is found again when the scheduler returns
+        #: no handle of its own.
+        self.descriptor_path: Path | None = None
+
+    def run_script(
+        self, script_path: Path, working_dir: Path, timeout_s: float | None = None
+    ) -> ExecutionResult:
+        """Write the descriptor, submit it, and return without waiting."""
+        started = _utc_now()
+        values = {
+            **self.values,
+            "application_id": self.profile.application_id,
+            "script_path": Path(script_path).as_posix(),
+            "work_dir": Path(working_dir).as_posix(),
+        }
+        descriptor = Path(working_dir) / self.profile.descriptor_name
+        descriptor.parent.mkdir(parents=True, exist_ok=True)
+        descriptor.write_text(render_descriptor(self.profile, values), encoding="utf-8")
+        self.descriptor_path = descriptor
+        argv = [
+            part.format(descriptor_path=descriptor.as_posix(), **values)
+            for part in self.profile.submit
+        ]
+        if not self.submit:
+            # The switch the predecessor spells `esub`, and it gates the
+            # CALL alone: the descriptor above is written either way.
+            return ExecutionResult(
+                return_code=0,
+                stdout="",
+                stderr="",
+                argv=argv,
+                cwd=str(working_dir),
+                timeout_s=timeout_s,
+                started_at=started,
+                finished_at=_utc_now(),
+                # A SUBMISSION HAS NO WALL TIME OF ITS OWN. The number that
+                # matters is the job's, and the job has not run; reporting
+                # the handful of milliseconds this took would put a
+                # measurement of the submission where a reader expects a
+                # measurement of the solver.
+                wall_time_s=0.0,
+                timed_out=False,
+                log_text=None,
+            )
+        completed = subprocess.run(  # noqa: S603
+            argv,
+            cwd=str(working_dir),
+            capture_output=True,
+            text=True,
+            timeout=timeout_s,
+            check=False,
+            # EXPLICIT, and for the same reason the solver's is: a submit
+            # command reads the cluster's own environment, where the module
+            # paths and the queue credentials live, so the inheritance is
+            # correct and the point is that it is a DECISION at this call
+            # rather than a default nobody chose.
+            env=os.environ.copy(),
+        )
+        return ExecutionResult(
+            return_code=completed.returncode,
+            stdout=completed.stdout,
+            stderr=completed.stderr,
+            argv=argv,
+            cwd=str(working_dir),
+            timeout_s=timeout_s,
+            started_at=started,
+            finished_at=_utc_now(),
+            wall_time_s=0.0,
+            timed_out=False,
+            log_text=None,
+        )
 
 
 class LocalExecutor:

@@ -4465,3 +4465,162 @@ def test_the_record_and_the_provenance_carry_the_raw_commands_of_the_setup(tmp_p
     other = json.loads(next(provenance.glob("*2001*.prov.json")).read_text(encoding="utf-8"))
     (_, activity), *_ = other["activity"].items()
     assert "pyfs:raw_commands" not in activity, "a run that carried no raw line carries no key"
+
+
+# --- FR-99, GOAL-019 item 8: submission by platform detection -----------------
+
+
+HPC_PROFILE = """\
+application_id = "flightstream"
+
+[descriptor]
+format = "yaml"
+name = "submit.yaml"
+
+[descriptor.fields]
+ApplicationId = "{application_id}"
+job_name      = "FTS{sim}"
+master_file   = "{script_path}"
+walltime      = "{walltime}"
+workdir       = "{work_dir}"
+ncpus         = "{ncpus}"
+version       = "{fs_build}"
+
+[submit]
+command = ["esub", "{descriptor_path}"]
+
+[defaults]
+walltime = 28800
+"""
+
+
+def _with_hpc_profile(tmp_path, text=HPC_PROFILE):
+    directory = tmp_path / "inputs" / "hpc"
+    directory.mkdir(parents=True, exist_ok=True)
+    (directory / "h001.toml").write_text(text, encoding="utf-8")
+    return tmp_path / "inputs"
+
+
+def test_goal019_hpc_the_profile_is_resolved_by_platform_and_not_by_a_cell(tmp_path):
+    """Her decision of 2026-09-12: the code sees Linux and that is the cluster.
+
+    NO ROW CITES THE PROFILE. The same matrix, unchanged in every cell,
+    runs locally on Windows and submits on Linux, which is the
+    predecessor's own shape: its run branch asks `is_linux()` and nothing
+    else, and no cell of her matrix has ever selected the cluster.
+    """
+    from pyflightstream.run import on_a_cluster
+    from pyflightstream.workspace.inputs import resolve_hpc_profile
+
+    inputs = _with_hpc_profile(tmp_path)
+    profile = resolve_hpc_profile(inputs)
+    assert profile is not None and profile.application_id == "flightstream"
+    assert isinstance(on_a_cluster(), bool), "the platform answers yes or no, never maybe"
+
+
+def test_goal019_hpc_two_profiles_and_no_selector_are_refused(tmp_path):
+    """Guessing spends a queue, so a workspace that cannot say is refused."""
+    import pytest
+
+    from pyflightstream.exceptions import InputArtifactError
+    from pyflightstream.workspace.inputs import resolve_hpc_profile
+
+    inputs = _with_hpc_profile(tmp_path)
+    (inputs / "hpc" / "h002.toml").write_text(HPC_PROFILE, encoding="utf-8")
+    with pytest.raises(InputArtifactError, match="nothing says which cluster"):
+        resolve_hpc_profile(inputs)
+
+
+def test_goal019_hpc_no_profile_at_all_is_not_an_error(tmp_path):
+    """A workspace that never goes to a cluster carries no profile and is fine."""
+    from pyflightstream.workspace.inputs import resolve_hpc_profile
+
+    (tmp_path / "inputs").mkdir()
+    assert resolve_hpc_profile(tmp_path / "inputs") is None
+
+
+def test_goal019_hpc_the_descriptor_is_what_the_draft_asserts(tmp_path):
+    """`pfs0170-unix-draft/expected/submit.yaml`, rendered rather than pasted.
+
+    THE SOURCE TYPE DECIDES THE QUOTING, not the text. A build identifier
+    is `26.123`, which reads as a float and is not one: unquoted, the
+    scheduler is handed 26.123 and may hand back 26.12.
+    """
+    from pyflightstream.run import render_descriptor
+    from pyflightstream.workspace.inputs import resolve_hpc_profile
+
+    profile = resolve_hpc_profile(_with_hpc_profile(tmp_path))
+    rendered = render_descriptor(
+        profile,
+        {
+            "application_id": profile.application_id,
+            "sim": "0001",
+            "script_path": "/scratch/u/sims/sim_0001/POLAR-0001.txt",
+            "work_dir": "/scratch/u/sims/sim_0001",
+            "fs_build": "26.123",
+            "walltime": 7200,
+            "ncpus": 48,
+        },
+    )
+    assert rendered.splitlines() == [
+        'ApplicationId: "flightstream"',
+        'job_name: "FTS0001"',
+        'master_file: "/scratch/u/sims/sim_0001/POLAR-0001.txt"',
+        "walltime: 7200",
+        'workdir: "/scratch/u/sims/sim_0001"',
+        "ncpus: 48",
+        'version: "26.123"',
+    ], rendered
+
+
+def test_goal019_hpc_the_descriptor_is_written_even_when_it_is_not_submitted(tmp_path):
+    """The predecessor's shape, and it is worth keeping.
+
+    A descriptor you can read without spending anything is how the profile
+    gets checked. The switch gates the CALL alone.
+    """
+    from pyflightstream.run import SubmittingExecutor
+    from pyflightstream.workspace.inputs import resolve_hpc_profile
+
+    profile = resolve_hpc_profile(_with_hpc_profile(tmp_path))
+    workdir = tmp_path / "sim"
+    workdir.mkdir()
+    executor = SubmittingExecutor(
+        profile,
+        values={"sim": "0001", "fs_build": "26.123", "walltime": 7200, "ncpus": 8},
+        submit=False,
+    )
+    result = executor.run_script(workdir / "POLAR-0001.txt", workdir)
+    written = workdir / "submit.yaml"
+    assert written.is_file(), "no descriptor was written, so nothing can be checked"
+    assert 'ApplicationId: "flightstream"' in written.read_text(encoding="utf-8")
+    assert result.argv[0] == "esub", result.argv
+    assert executor.descriptor_path == written
+
+
+def test_goal019_hpc_a_field_the_run_cannot_supply_is_refused_naming_it(tmp_path):
+    """A blank where a job name goes is a job the scheduler names for you."""
+    import pytest
+
+    from pyflightstream.exceptions import CampaignConfigError
+    from pyflightstream.run import render_descriptor
+    from pyflightstream.workspace.inputs import resolve_hpc_profile
+
+    text = HPC_PROFILE.replace('version       = "{fs_build}"', 'account       = "{billing_code}"')
+    profile = resolve_hpc_profile(_with_hpc_profile(tmp_path, text))
+    # EVERY OTHER FIELD SUPPLIED, so the one the profile invented is the one
+    # the refusal names. The first missing field is what fires, which is
+    # right, and a test that leaves three missing proves only that one of
+    # them did.
+    with pytest.raises(CampaignConfigError, match="billing_code"):
+        render_descriptor(
+            profile,
+            {
+                "application_id": "flightstream",
+                "sim": "1",
+                "script_path": "/s/x.txt",
+                "work_dir": "/s",
+                "walltime": 7200,
+                "ncpus": 8,
+            },
+        )
