@@ -32,11 +32,11 @@ under its own column names:
 
     the polar table's own row     `products.polar_table_rows`, the one
                                   assembly the polar table is written from
-    the matrix row                `cases.matrix.read_matrix`, the row whose
-                                  POL is this polar
     the flight condition          the manifest record: what the row stated,
                                   what the setup pinned, and what the
                                   resolver solved
+    the matrix row                `cases.matrix.read_matrix`, the row whose
+                                  POL is this polar
     the rotor speed               the record's reduction windows, per rotor
     the campaign sweep table      `results.tables.sweep_table`, the frame
                                   `campaign_sweep.csv` is written from
@@ -50,6 +50,14 @@ one: the blocks overlap on purpose (``MACH`` is a polar column and a flight
 condition key; ``DESCRIPTION`` is a polar column and a matrix cell), and the
 first writer of a name is the one whose precision and units the column
 documents.
+
+THE ORDER IS THEREFORE THE PRECEDENCE, and the recorded flight condition
+comes before the matrix row for that reason (PFS-2038.02). A superfile row
+is a RECORDED point. Its conditions are what the run actually used; the
+matrix cell is what the workspace intends next, read from the current file
+and bound to nothing, so editing it after a run would otherwise relabel a
+result that had already happened. The matrix still supplies every key the
+record does not.
 """
 
 from __future__ import annotations
@@ -320,7 +328,31 @@ def superfile_row(
     #    the two files agree digit for digit on every column they share.
     for column, value in zip(polar_columns, polar_values, strict=True):
         _take(row, column, value, fixed=True)
-    # 2. EVERY INPUT OF THE MATRIX ROW, under the cell names the matrix
+    # 2. EVERY VARIABLE THAT DEFINES THE FLIGHT CONDITION AS THE RUN
+    #    RECORDED IT: what the row STATED, what the setup PINNED, and what
+    #    the resolver SOLVED, under the keys each of the three is recorded
+    #    by.
+    #
+    #    BEFORE THE MATRIX, AND THAT IS PFS-2038.02 (GEO-039-F02). It came
+    #    after, and `_take` never replaces a field an earlier block wrote,
+    #    so the CURRENT matrix, read from the workspace as it is today and
+    #    bound to nothing, overwrote the conditions of a point that had
+    #    already run. The reviewer moved a recorded REmi of 11.7716754 to
+    #    99.0 by editing the matrix alone: the regenerated historical row
+    #    then said 99.0 while the run record still said 11.7716754.
+    #
+    #    A recorded point's conditions are what it RAN AT. The matrix cell
+    #    is what the workspace intends NEXT, and it still reaches the row
+    #    wherever the record says nothing, which is every key of every row
+    #    that has not run. This adds no gate and takes nothing away; it
+    #    removes a wrong number.
+    for key, value in (getattr(record, "flight_condition", None) or {}).items():
+        _take(row, key, value)
+    for key, value in (getattr(record, "flight_condition_defaults", None) or {}).items():
+        _take(row, key, value)
+    for field in RECORD_SCALARS:
+        _take(row, field, getattr(record, field, None))
+    # 3. EVERY INPUT OF THE MATRIX ROW, under the cell names the matrix
     #    itself carries, including DESCRIPTION and the two activity flags.
     if matrix_row is not None:
         _take(row, "POL", matrix_row.pol)
@@ -372,16 +404,6 @@ def superfile_row(
             _take(row, key, matrix_row.flight_condition[key])
         for key, column in _AXIS_COLUMNS.items():
             _take(row, key, row.get(column, ""))
-    # 3. EVERY VARIABLE THAT DEFINES THE FLIGHT CONDITION, which is the
-    #    second instruction of the same evening: what the row STATED, what
-    #    the setup PINNED, and what the resolver SOLVED, under the keys
-    #    each of the three is recorded by.
-    for key, value in (getattr(record, "flight_condition", None) or {}).items():
-        _take(row, key, value)
-    for key, value in (getattr(record, "flight_condition_defaults", None) or {}).items():
-        _take(row, key, value)
-    for field in RECORD_SCALARS:
-        _take(row, field, getattr(record, field, None))
     # 4. RPM, by name, and one column per rotor where the row turns several.
     for key, value in _rotor_speeds(getattr(record, "reductions", None)).items():
         _take(row, key, value)

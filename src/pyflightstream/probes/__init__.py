@@ -426,6 +426,16 @@ def write_points_csv(points: np.ndarray, path: str | Path) -> int:
         Number of probe rows written.
     """
     points = np.asarray(points, dtype=float)
+    # PFS-2038.07. The last boundary before a solver-facing file, and it
+    # is checked here as well as at the frame because a point array
+    # reaches this function from callers that never built a frame.
+    if points.size and not bool(np.all(np.isfinite(points))):
+        bad = int(np.count_nonzero(~np.isfinite(points).all(axis=-1)))
+        raise ProbeGeometryError(
+            f"{bad} of {len(points)} probe positions are not finite, so the csv would "
+            "carry nan or inf where a coordinate goes. A written count of rows is not a "
+            "written set of positions; nothing is written."
+        )
     lines = [str(len(points))]
     lines += [f"{x},{y},{z},1" for x, y, z in points]
     Path(path).write_text("\n".join(lines) + "\n", encoding="utf-8")

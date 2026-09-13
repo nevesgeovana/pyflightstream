@@ -3039,3 +3039,55 @@ def test_the_two_setup_models_store_the_name_and_the_line_they_validated():
     assert (
         RawCommand.model_validate({"command": "  PRINT x  ", "before": "init"}).command == "PRINT x"
     )
+
+
+# --- PFS-2038.06, GEO-039-F07: a collection that will refuse moves nothing ----
+
+
+def test_goal019_bandd_a_collision_on_the_second_file_moves_neither(tmp_path):
+    """The review's own reproduction, and the whole of what it measured.
+
+    The destination-exists check sat inside the move loop, so a collision
+    on the second file left the first already moved and the second still
+    at its source: split across two locations, with no manifest record
+    written and a recovery to do by hand.
+    """
+    from pyflightstream.exceptions import WorkspaceError
+    from pyflightstream.workspace import CampaignWorkspace
+
+    workspace = CampaignWorkspace.init(tmp_path / "camp")
+    first = tmp_path / "first.txt"
+    second = tmp_path / "second.txt"
+    first.write_text("FIRST", encoding="utf-8")
+    second.write_text("SECOND", encoding="utf-8")
+    point = {"alpha": 0.0}
+    # An earlier run of this point already left a second.txt behind.
+    held = workspace.sim_dir("9001") / "datapoints" / "DP-a+00.0"
+    held.mkdir(parents=True)
+    (held / "second.txt").write_text("OLD SECOND", encoding="utf-8")
+
+    with pytest.raises(WorkspaceError, match="second.txt"):
+        workspace.collect_outputs("9001", [first, second], datapoint=point)
+
+    assert first.is_file() and first.read_text(encoding="utf-8") == "FIRST", (
+        "the first output was moved before the refusal, which is the defect"
+    )
+    assert second.is_file() and second.read_text(encoding="utf-8") == "SECOND"
+    assert not (held / "first.txt").exists(), "a destination was written by a refused call"
+    assert (held / "second.txt").read_text(encoding="utf-8") == "OLD SECOND"
+
+
+def test_goal019_bandd_a_collection_that_would_have_worked_still_does(tmp_path):
+    """The control. The pre-scan tightens WHEN, never WHAT."""
+    from pyflightstream.workspace import CampaignWorkspace
+
+    workspace = CampaignWorkspace.init(tmp_path / "camp")
+    produced = []
+    for name in ("first.txt", "second.txt"):
+        path = tmp_path / name
+        path.write_text(name, encoding="utf-8")
+        produced.append(path)
+    assert workspace.collect_outputs("9001", produced, datapoint={"alpha": 0.0}) == [
+        "datapoints/DP-a+00.0/first.txt",
+        "datapoints/DP-a+00.0/second.txt",
+    ]

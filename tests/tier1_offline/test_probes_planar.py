@@ -147,3 +147,64 @@ def test_coordinate_frame_helper_mirrors_the_frame_definition():
     assert "ORIGIN_X 1.0" in text
     # z axis computed right-handed from the plane axes: y cross z = x.
     assert "VECTOR_Z_X 1.0" in text
+
+
+# --- PFS-2038.07, GEO-039-F08: a non-finite coordinate reaches no file --------
+
+
+def test_goal019_bandd_a_nan_axis_is_refused_and_not_normalized():
+    """The review's own reproduction: `FrameDefinition(x_axis=(nan, 0, 0))`.
+
+    A NAN NEVER FAILS A COMPARISON. Every guard in the frame asks whether
+    something is smaller than a tolerance and `nan < 1e-10` is False, so
+    the NaN walked past the degeneracy check and past the parallelism
+    check and came out the other side as a frame.
+    """
+    with pytest.raises(ValidationError, match="not finite"):
+        FrameDefinition(x_axis=(float("nan"), 0.0, 0.0), y_axis=(0.0, 1.0, 0.0))
+
+
+@pytest.mark.parametrize("bad", [float("nan"), float("inf"), float("-inf")])
+@pytest.mark.parametrize("where", ["x_axis", "y_axis", "origin"])
+def test_goal019_bandd_no_non_finite_component_makes_a_frame(where, bad):
+    """Both infinities as well as NaN, in either axis and in the origin."""
+    kwargs = {
+        "origin": (0.0, 0.0, 0.0),
+        "x_axis": (1.0, 0.0, 0.0),
+        "y_axis": (0.0, 1.0, 0.0),
+    }
+    kwargs[where] = (bad, 0.0, 0.0) if where != "y_axis" else (0.0, bad, 0.0)
+    with pytest.raises(ValidationError, match="not finite"):
+        FrameDefinition(**kwargs)
+
+
+def test_goal019_bandd_a_finite_frame_is_untouched():
+    """The control. The refusal is of input that is already invalid.
+
+    A check that refuses everything measures nothing, so the same
+    construction with finite numbers must still produce the frame it
+    always did.
+    """
+    frame = FrameDefinition(origin=(1.0, 0.0, 0.0), x_axis=(0.0, 2.0, 0.0), y_axis=(0.0, 0.0, 3.0))
+    assert frame.x_axis == (0.0, 1.0, 0.0)
+    assert frame.y_axis == (0.0, 0.0, 1.0)
+
+
+def test_goal019_bandd_write_points_csv_refuses_nan_and_writes_nothing(tmp_path):
+    """The writer boundary, checked as well as the frame.
+
+    `write_points_csv` reported two points written and emitted two
+    `nan,nan,nan,1` rows into a file the solver opens. A point array
+    reaches this function from callers that never built a frame, which is
+    why the check is here too and not only there.
+    """
+    from pyflightstream.probes.errors import ProbeGeometryError
+
+    target = tmp_path / "points.csv"
+    points = np.asarray([[0.0, 0.0, 0.0], [float("nan"), 1.0, 2.0]])
+    with pytest.raises(ProbeGeometryError, match="not finite"):
+        write_points_csv(points, target)
+    assert not target.exists(), "a refusal wrote the file anyway"
+    # The control, in the same place: finite positions still write.
+    assert write_points_csv(np.asarray([[0.0, 1.0, 2.0]]), target) == 1
+    assert target.read_text(encoding="utf-8").splitlines() == ["1", "0.0,1.0,2.0,1"]

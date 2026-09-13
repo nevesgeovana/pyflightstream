@@ -17,7 +17,81 @@ FlightStream versions.
   quietly stops being citable is the gap PFS-2024.09 is about. Cite that
   release by the concept DOI, which resolves to the newest archived version.
 
+### Added
+
+- **The run matrix carries nineteen columns.** `GEOMETRY`, `CONFIGURATION`,
+  `NCPUS`, `WALLTIME`, `SYMMETRY` and `SYMMETRY_LOADS` are columns of their
+  own, and `HIDDEN | RUN` moved to sit directly after `POL`. Every one of the
+  six was already stated in the free variables cell of the rows that used
+  them; the release moves WHERE a fact lives and makes no fact required, which
+  is measured rather than promised: a row that states none of the six reads
+  exactly as it did.
+  A file in any older layout is upgraded on read, and the upgrade carries
+  every cell it does not move as its own bytes: a cell it promises not to
+  touch comes out byte-identical, spacing included. A key with an EMPTY value
+  stays in the free cell, because `GEOMETRY:` with nothing after it means
+  "opens no geometry" and a column cannot say that.
+
+- **A steady matrix row is ONE job and leaves ONE record.** The whole sweep is
+  one script the solver never clears between points, which is the warm start:
+  the panelling and the wake survive from one angle to the next, so a sweep
+  costs one setup instead of one per point. A row that wants the other
+  behaviour states `COLD_START: True` and gets a `CLEAR_SOLUTION` between
+  points; warm is the default because it is what a polar sweep is.
+  The record names the job, carries `points_ran`, and `as_points()` reads it
+  back one point at a time, so nothing downstream had to learn a new shape.
+
+- **`WALLTIME` is watched from inside the run.** The row states the wall clock,
+  the setup states the margin (twenty minutes by default), and an unsteady run
+  registers a solver-side clock that writes the exports and stops the solver
+  when the two meet. It is a pair of actions: a python that keeps its own
+  state and fires ONCE, and a FlightStream script it rewrites, which does
+  nothing until it does. Where a row also exports on a counter the clock pair
+  takes positions (3) and (4) behind it, because the solver runs actions in
+  creation order.
+  A run the clock stopped is recorded `WALLTIME_REACHED`, which is not a
+  failure: the numbers up to that step are real. `RESTART` continues it,
+  spelled `{FINISH_PENDING}`, `{ADDITIONAL_ITERS=<n>}` or
+  `{ADDITIONAL_REVS=<n>}`.
+
+- **Linux is the cluster, and no cell says so.** The package reads the
+  platform, resolves the profile in `inputs/hpc/h<>.toml`, writes the
+  scheduler's descriptor and submits without waiting; the record is
+  `SUBMITTED` and a collect stage completes it. The setup artifact stays
+  multiplatform and states nothing about a cluster, and the same matrix,
+  unchanged in every cell, runs locally on Windows and submits on Linux.
+  A workspace carrying several profiles and nothing to choose between them is
+  REFUSED rather than guessed, because guessing spends a queue.
+
 ### Changed
+
+- **`plan` is mandatory, and `run` will not start without its receipt.** The
+  plan carries the warning and asks for the confirmation, and it pins the
+  digest of the matrix it read, so a matrix edited between planning and
+  running is visible rather than silent.
+
+- **A product is ARCHIVED before it is rewritten, never lost.** A rebuild moves
+  the old product into `archive/<day and hour>/` and writes the new one in its
+  place: nothing is refused and nothing is destroyed. The old `--overwrite`
+  flag is now `--force-overwrite`, it keeps no copy, and it asks for a
+  confirmation, so it cannot be reached by habit; a non-interactive session
+  answers no.
+
+- **A recorded point's conditions come from its run record, not from the
+  current matrix.** The superfile assembled the matrix row before the record
+  and never replaced a field an earlier block wrote, so editing the matrix
+  after a run relabelled a result that had already happened: a recorded REmi
+  of 11.7716754 read back as 99.0 with the manifest untouched. The recorded
+  flight condition is now taken first. The matrix still supplies every key the
+  record does not, which is every key of every row that has not run. This adds
+  no gate; it removes a wrong number. (GEO-039-F02.)
+
+- **A collection that is going to refuse refuses before it moves anything.**
+  The destination-exists check was asked immediately before each move, so a
+  collision on the second file left the first already moved and the second
+  still at its source, with no manifest record and a recovery to do by hand.
+  The whole destination set is resolved first and the refusal names every held
+  file. Nothing that succeeded before refuses now. (GEO-039-F07.)
 
 - **The `broken_commands` manifest key is promised for removal at 0.18.0, and
   that is its THIRD deadline.** It was 0.15.0, then 0.16.0, then 0.17.0. Each
@@ -36,6 +110,53 @@ FlightStream versions.
   entry against the project version and goes red at 0.18.0 whatever the count
   is, and the warning a user is shown names that release. So the count is
   re-run when a human remembers, and the guard is what forces the question.
+
+### Fixed
+
+- **A regenerated product no longer claims the run that did not write it.**
+  The provenance document preferred a fresh file digest whenever the file
+  existed and then bound that entity to the original run through
+  `wasGeneratedBy`, so bytes changed after recording were attributed to a run
+  that never produced them. Where the two digests disagree the output entity
+  now keeps the RECORDED digest and the generation claim, which is true, and
+  what the file holds now becomes a separate `pyfs:ChangedOutput` entity under
+  `wasDerivedFrom` that no activity claims. A record that states no digest
+  reads as it always did: unknown is not changed. It does not refuse, because
+  a refusal would stop the post stage on any workspace whose outputs were ever
+  touched, a legitimate re-export included. (GEO-039-F01.)
+
+- **Two rotor names a file name cannot tell apart are refused before any
+  write.** `A/B` and `A:B` both sanitize to `A_B`, and the product path writes
+  with overwrite, so one rotor's reduction silently replaced another's and the
+  file left carried the wrong rotor's identity. The complete target set is
+  resolved before the first product of that simulation is written. The
+  readable file name is unchanged: a name that survives sanitizing untouched,
+  which is every alias in every reference here, is not affected.
+  (GEO-039-F03.)
+
+- **A reduction reads the clock the export states.** The plots reader built
+  steps 1..N even where the table carried an explicit `Time-step` column, so a
+  window was labelled with row ordinals and an export whose clock does not
+  begin at one could not be reduced by its own step numbers: the real window
+  (101, 102) was rejected as reaching past a three-row table. The column is
+  read where it is there and strictly increasing, and the ordinal remains the
+  fallback for a table that states no clock. Every export this solver has
+  produced here begins at 1 and steps by 1, so nothing already recorded
+  changes. (GEO-039-F05.)
+
+- **A probe shape the writer cannot serve says so instead of producing
+  nothing.** Two probe entries asking for different parameters produced four
+  valid samples and NO table, with no message, which was indistinguishable
+  from a row that declared no probes at all. That case is now refused by name.
+  A single incomplete point among whole ones is still left out, as before.
+  (GEO-039-F06.)
+
+- **A non-finite coordinate does not reach a file the solver opens.** A NaN
+  never fails a comparison, so `nan < 1e-10` is False and a NaN frame axis
+  walked past the degeneracy check, past the parallelism check, and out as
+  `nan,nan,nan,1` rows in a probe csv that reported two points written. Frame
+  axes, frame origins and serialized coordinates are checked finite.
+  (GEO-039-F08.)
 
 ## [0.16.0] - 2026-09-11
 

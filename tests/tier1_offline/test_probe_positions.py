@@ -698,3 +698,71 @@ def test_a_mesh_block_whose_count_is_not_a_number_answers_nothing(tmp_path):
         newline="",
     )
     assert element_count(good) == 4321
+
+
+# --- PFS-2038.05, GEO-039-F06: a probe shape the writer cannot serve ----------
+
+
+def test_goal019_bandd_two_entries_asking_for_different_parameters_say_so(tmp_path):
+    """The review's own reproduction: one entry wants MACH, one wants VELOCITY.
+
+    `_probe_parameters` unions the two and the writer then requires the
+    union at every vertex, so four valid samples exist and NO table is
+    written. The drop was indistinguishable from a row that declared no
+    probes at all.
+
+    WHAT IS TAKEN is the message. WHAT IS LEFT OUT is the
+    vertex-to-entry-to-parameter mapping, which would SERVE the shape and
+    is a refactor of the probe product nobody has asked for.
+    """
+    from pyflightstream.post.products import ProductError
+
+    recorded = read_probe_positions(
+        positions_file(
+            tmp_path,
+            [
+                (1, 0.0, 1.0, 2.0, "MRP"),
+                (2, 0.5, 1.0, 2.0, "MRP"),
+                (3, 1.0, 1.0, 2.0, "MRP"),
+                (4, 1.5, 1.0, 2.0, "MRP"),
+            ],
+        )
+    )
+    plots = tmp_path / "p_plots.csv"
+    plots.write_text(
+        "Time-step,MACH1,MACH2,VELOCITY3,VELOCITY4\n1.00000,0.10000,0.20000,70.00000,71.00000\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(ProductError, match="no probe table can be written") as raised:
+        write_unsteady_probes_table(
+            tmp_path / "p_probes.csv",
+            plots,
+            positions=recorded,
+            parameters=["MACH", "VELOCITY"],
+        )
+    assert "MACH" in str(raised.value) and "VELOCITY" in str(raised.value)
+    assert not (tmp_path / "p_probes.csv").exists()
+
+
+def test_goal019_bandd_a_row_that_declared_no_probes_still_answers_none(tmp_path):
+    """The control, and the distinction the fix exists to make.
+
+    An absence of probe data is not the heterogeneous shape and must
+    still be None: a table of a spine and nothing else is a promise of
+    content that is not there, and that has never been an error.
+    """
+    recorded = read_probe_positions(positions_file(tmp_path, [(1, 0.0, 1.0, 2.0, "MRP")]))
+    plots = tmp_path / "p_plots.csv"
+    plots.write_text("Time-step,CL\n1.00000,0.10000\n", encoding="utf-8")
+    assert (
+        write_unsteady_probes_table(
+            tmp_path / "p_probes.csv", plots, positions=recorded, parameters=["MACH"]
+        )
+        is None
+    )
+    assert (
+        write_unsteady_probes_table(
+            tmp_path / "p_probes.csv", plots, positions={}, parameters=["MACH"]
+        )
+        is None
+    )

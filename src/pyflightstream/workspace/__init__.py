@@ -2174,12 +2174,15 @@ class CampaignWorkspace:
             datapoint rather than the whole simulation, so re-running a
             point still refuses to overwrite its own evidence, while the
             NEXT point of the same sweep never meets the previous
-            point's files at all. They
-            differ in WHEN they are decided, which a caller can see: the
-            first is a pre-scan over the whole call, so a refusal moves
-            nothing at all, while the second is asked immediately before
-            each move, so a call whose third output lands on a held name
-            refuses with the first two already collected.
+            point's files at all.
+
+            BOTH ARE PRE-SCANS SINCE 0.17.0 (PFS-2038.06, GEO-039-F07).
+            The second used to be asked immediately before each move, so
+            a call whose third output landed on a held name refused with
+            the first two already moved: sources gone, destinations
+            written, no manifest record, and a recovery to do by hand.
+            Nothing that succeeded before refuses now; what changed is
+            that a refusal leaves every byte on both sides where it was.
 
         Notes
         -----
@@ -2243,31 +2246,37 @@ class CampaignWorkspace:
                 "base names differ, or use a per-point placeholder such as "
                 "loads_{point}.txt so each point exports under its own name."
             )
+        # FR-33e, second shape, and PFS-2038.06 is why it is a PRE-SCAN.
+        # Same rule as the one above and a different remedy: the name is
+        # unique within THIS call, and what is in the way is a record an
+        # earlier run of this point collected.
+        #
+        # Asked over the whole destination set before the first move,
+        # because asking it per move is what GEO-039-F07 measured: a
+        # collision on the second file left the first already moved and
+        # the second still at its source, split across two locations with
+        # nothing written down. No collection that would have succeeded
+        # refuses now; the refusal simply costs nothing to recover from.
+        held = [Path(path).name for path in produced if (sim / folder / Path(path).name).exists()]
+        if held:
+            raise WorkspaceError(
+                f"cannot collect {', '.join(held)} into {folder}/: "
+                f"{'that name is' if len(held) == 1 else 'those names are'} already in "
+                f"{folder}/, which holds this point's own evidence from an earlier run of "
+                "it. Collection moves the file, so continuing would destroy that evidence "
+                "and leave two manifest records pointing at one file. A PER-POINT OUTPUT "
+                "NAME CANNOT RESOLVE THIS and is not offered: the same point renders the "
+                "same name, so the collision is with itself. Remove or rename "
+                f"{folder}/ to re-run this point, or archive the whole simulation "
+                "if you mean to start it over (pyfs-workspace archive <root> "
+                "<sim_id>), which takes every other point of the sweep with it. "
+                "NOTHING HAS BEEN MOVED: every declared output is still where it was."
+            )
         collected: list[str] = []
         (sim / folder).mkdir(parents=True, exist_ok=True)
         for path in produced:
             origin = Path(path)
             destination = sim / folder / origin.name
-            # FR-33e, second shape. Same rule as the pre-scan above and a
-            # different remedy: the name is unique within THIS call, and what
-            # is in the way is a record an earlier point or run collected.
-            # Asked per destination rather than as a pre-scan, so a refusal
-            # here leaves the outputs already handled in the folder. Nothing is
-            # destroyed either way, which is the guarantee; making it a
-            # pre-scan would change behaviour rather than tighten it.
-            if destination.exists():
-                raise WorkspaceError(
-                    f"cannot collect {origin} into {folder}/{origin.name}: that "
-                    f"name is already in {folder}/, which holds this point's own "
-                    "evidence from an earlier run of it. Collection moves the file, so "
-                    "continuing would destroy that evidence and leave two manifest "
-                    "records pointing at one file. A PER-POINT OUTPUT NAME CANNOT "
-                    "RESOLVE THIS and is not offered: the same point renders the same "
-                    "name, so the collision is with itself. Remove or rename "
-                    f"{folder}/ to re-run this point, or archive the whole simulation "
-                    "if you mean to start it over (pyfs-workspace archive <root> "
-                    "<sim_id>), which takes every other point of the sweep with it."
-                )
             shutil.move(str(origin), destination)
             collected.append(f"{folder}/{origin.name}")
         return collected

@@ -976,13 +976,15 @@ def _probe_parameters(pproc) -> tuple[str, ...]:
     THIS IS A UNION AND IT ASSUMES THE ENTRIES AGREE. Where two entries of
     one artifact declare DIFFERENT parameters, the union composes a name for
     each vertex that only one of them has, and `write_unsteady_probes_table`
-    then drops every point whose group is incomplete rather than writing a
-    half row. So such an artifact loses its probe table instead of getting a
-    wrong one, which is the right way round, and it is stated here because
-    the drop is otherwise indistinguishable from a row that declared none
-    (the architecture lens, 2026-09-11). The vertex-to-entry association is
-    known in the builder loop that already records the vertex and the frame;
-    recording the parameters beside them is what would close it.
+    cannot write a half row. So such an artifact loses its probe table
+    instead of getting a wrong one, which is the right way round.
+
+    SINCE 0.17.0 IT SAYS SO (PFS-2038.05, GEO-039-F06). The drop used to be
+    indistinguishable from a row that declared no probes at all; the writer
+    now refuses the shape by name. The vertex-to-entry association is known
+    in the builder loop that already records the vertex and the frame, and
+    recording the parameters beside them is what would SERVE the shape
+    rather than name it; that is deliberately not done here.
     """
     out: list[str] = []
     for entry in getattr(pproc, "probes", None) or []:
@@ -1200,6 +1202,15 @@ def write_unsteady_probes_table(
         declares no probe parameter, or when no group of the two is
         actually in the table: a file of a spine and nothing else is a
         promise of content that is not there.
+
+    Raises
+    ------
+    ProductError
+        If EVERY probe point carries part of its composed group and not
+        all of it, which is what an artifact whose entries ask for
+        different parameters produces (PFS-2038.05): no table can be
+        written, and None there would be a lost product with no message.
+        A single incomplete point among whole ones is still left out.
     """
     if not positions or not parameters:
         return None
@@ -1209,8 +1220,39 @@ def write_unsteady_probes_table(
         (vertex, [f"{parameter}{vertex}" for parameter in parameters])
         for vertex in sorted(positions)
     ]
+    # PFS-2038.05, GEO-039-F06. A vertex holding SOME of its composed names
+    # and not all of them is what an artifact whose entries ask for
+    # DIFFERENT parameters produces: `_probe_parameters` unions them and
+    # this writer then requires the union at every vertex.
+    #
+    # THE REFUSAL IS FOR THE LOST PRODUCT ALONE, which is the narrowing.
+    # A single point dropped from a table that still gets written is the
+    # rule this writer has always had and it stays: a row carrying MACH2
+    # with a blank where VX2 belongs reads as a measured absence. What
+    # changes is the case where EVERY point is partial, so no table is
+    # written and nothing says why: silence there is indistinguishable
+    # from a row that declared no probes at all. The review's own fix, the
+    # vertex-to-entry-to-parameter mapping, would SERVE the shape; that is
+    # a refactor of the probe product nobody has asked for and is not taken.
+    partial = [
+        (vertex, [n for n in names if n in present])
+        for vertex, names in groups
+        if not all(n in present for n in names) and any(n in present for n in names)
+    ]
     groups = [(vertex, names) for vertex, names in groups if all(n in present for n in names)]
     if not groups:
+        if partial:
+            vertex, have = partial[0]
+            raise ProductError(
+                f"no probe table can be written from {Path(plots_table).name}: it carries "
+                f"{', '.join(have)} for probe point {vertex}, and every one of its "
+                f"{len(partial)} probe points holds part of {', '.join(parameters)} and not "
+                "all of it. Those are the parameters the artifact's [[probes]] entries ask "
+                "for BETWEEN them, and this writer composes one group per point from their "
+                "union, so a point that belongs to only one entry can never be whole. "
+                "Declare the SAME parameters on every [[probes]] entry of this artifact. "
+                "The samples are in the plots table and are not lost."
+            )
         return None
     # THE STEP THE TABLE STATES, never the row's position in it. The plots
     # table carries `Time-step` and the superfile already reads it, with the
@@ -1250,17 +1292,62 @@ def write_unsteady_probes_table(
 REDUCTION_COLUMNS: tuple[str, ...] = ("REDUCTION", "WINDOW", "FIRST_STEP", "LAST_STEP", "STEPS")
 
 
+#: PFS-2038.04. The column an unsteady plots export states its clock in.
+#: The same name `post.superfile` and the probe table already read, and the
+#: same rule those two write down: the step a sample came from is not a guess.
+PLOTS_STEP_COLUMN = "Time-step"
+
+
+def _stated_steps(columns: Sequence[str], values: np.ndarray, n_rows: int) -> np.ndarray:
+    """Return the exported clock where the table states one, the ordinal otherwise."""
+    ordinal = np.arange(1, n_rows + 1, dtype=int)
+    if PLOTS_STEP_COLUMN not in columns or not n_rows:
+        return ordinal
+    stated = values[:, list(columns).index(PLOTS_STEP_COLUMN)]
+    if not bool(np.all(np.isfinite(stated))):
+        return ordinal
+    whole = np.rint(stated)
+    if not bool(np.all(np.abs(stated - whole) < 1e-9)):
+        # A fractional clock is a time and not a step; the windows a
+        # reduction states are whole steps, so the ordinal is what is left.
+        return ordinal
+    steps = whole.astype(int)
+    if n_rows > 1 and not bool(np.all(np.diff(steps) > 0)):
+        # Duplicated or out of order. Selecting a window by value would
+        # then pick rows the window did not name, which is worse than the
+        # ordinal it has always used.
+        return ordinal
+    return steps
+
+
 def plots_table_series(path: str | Path) -> tuple[tuple[str, ...], TimestepSeries]:
     """Read a written plots table back as the series its reductions are taken over.
 
-    Row ``k`` of the table is solver step ``k``: the export writes one row
-    per time step (the manual's paraphrase in the database entry for
-    ``UNSTEADY_SOLVER_EXPORT_PLOTS``), so the step axis is the row number,
-    1-based, and the table's own time column is carried as a field like
-    any other rather than read as the clock. Every column is one field of
-    one sample, since the plots table samples no position; the sample
-    position is the origin, which stands for the configuration the plot
-    was defined over.
+    THE TABLE'S OWN CLOCK WHEN IT STATES ONE (PFS-2038.04, GEO-039-F05).
+    The export writes one row per time step (the manual's paraphrase in the
+    database entry for ``UNSTEADY_SOLVER_EXPORT_PLOTS``) and states the step
+    it wrote in a ``Time-step`` column; the step axis is that column, so a
+    window's ``FIRST_STEP`` and ``LAST_STEP`` mean what the file means. This
+    used to be the row number regardless, so an export whose clock does not
+    begin at one was labelled with ordinals and could not be reduced by its
+    own step numbers.
+
+    MEASURED 2026-09-11 over every recorded plots export in these
+    workspaces: 49 of 49 begin at 1 and step by 1, so the column and the
+    ordinal agree on every export this solver has produced and nothing
+    already recorded changes. What this closes is the silent mislabel if an
+    offset or sparse clock ever arrives.
+
+    THE ORDINAL REMAINS THE FALLBACK, for a table that states no such
+    column and for one whose column is not a strictly increasing whole
+    number: a product is better than a refusal there, and the review's
+    coverage validation, which would refuse windows that work today, is
+    deliberately not taken. The column is still carried as a FIELD as well,
+    so no existing product loses a value.
+
+    Every column is one field of one sample, since the plots table samples
+    no position; the sample position is the origin, which stands for the
+    configuration the plot was defined over.
 
     Read from the WRITTEN table rather than from the export in memory, so a
     reduction is of the file a user holds and can be recomputed from it.
@@ -1273,7 +1360,7 @@ def plots_table_series(path: str | Path) -> tuple[tuple[str, ...], TimestepSerie
     columns, rows = read_csv_table(path)
     values = np.asarray([[float(row[name]) for name in columns] for row in rows], dtype=float)
     return columns, TimestepSeries(
-        steps=np.arange(1, len(rows) + 1, dtype=int),
+        steps=_stated_steps(columns, values, len(rows)),
         times_s=None,
         points=np.zeros((1, 3)),
         fields={name: values[:, index][:, None] for index, name in enumerate(columns)},
@@ -1318,14 +1405,22 @@ def write_reduction_table(
         refuses, and the caller records the refusal as a skip.
     """
     rows: list[tuple[object, ...]] = []
-    last_row = series.n_frames
+    # PFS-2038.04. Against the STEPS the table states, not against its row
+    # count. The two are the same number on every export recorded here, and
+    # they part company the moment a clock does not begin at one: a window
+    # of steps 101 to 102 over a three-row table is inside the history and
+    # was refused as though it reached past the end of it. This is the
+    # bound alone; the review's step-coverage validation, which would
+    # refuse windows that work today, is not taken.
+    first_step = int(series.steps[0]) if len(series.steps) else 1
+    last_step = int(series.steps[-1]) if len(series.steps) else 0
     for index, (first, last) in enumerate(windows, start=1):
-        if int(last) > last_row or int(first) < 1:
+        if int(last) > last_step or int(first) < first_step:
             raise ProductError(
-                f"the plots table holds {last_row} rows and the {reduction} window {index} "
-                f"spans steps {first} to {last}, so the history is shorter than the window "
-                "the row states; a shorter history averaged as a whole one would be an "
-                "average of a run that did not finish writing"
+                f"the plots table runs from step {first_step} to step {last_step} and the "
+                f"{reduction} window {index} spans steps {first} to {last}, so the history "
+                "does not cover the window the row states; a shorter history averaged as a "
+                "whole one would be an average of a run that did not finish writing"
             )
         average = blade_passage_average(series, window=(int(first), int(last)))
         rows.append(
@@ -1514,7 +1609,7 @@ PRODUCT_ARCHIVE_DIR = "archive"
 PRODUCT_ARCHIVE_STAMP = "%Y%m%d-%H%M%S"
 
 
-def product_archive_dir(path: Path, *, now: object = None) -> Path:
+def product_archive_dir(path: Path, *, now: datetime | None = None) -> Path:
     """Where the product at ``path`` is archived to before it is rewritten.
 
     ``post/<matrix>/archive/<day and hour>/``, keeping whatever folders the
@@ -1533,7 +1628,7 @@ def product_archive_dir(path: Path, *, now: object = None) -> Path:
 
 
 def _refuse_an_existing_product(
-    path: Path, *, overwrite: bool, archive: bool = True, stamp: object = None
+    path: Path, *, overwrite: bool, archive: bool = True, stamp: datetime | None = None
 ) -> Path:
     """Return ``path``, ARCHIVING an existing product rather than losing it.
 
@@ -1720,6 +1815,13 @@ def _sim_products(
 
     def _target(path: Path) -> Path:
         return _refuse_an_existing_product(path, overwrite=overwrite, archive=archive)
+
+    # PFS-2038.03, GEO-039-F03. HERE, before the first product of this
+    # simulation is written, and not in the reduction loop where the first
+    # colliding file has already been written over the second. Two aliases
+    # that a file name cannot tell apart are refused for the whole
+    # simulation, so the refusal costs nothing to recover from.
+    _refuse_aliases_a_file_name_cannot_tell_apart(plans, sim_id)
 
     if products.polars:
         # FR-85: ONE CONVENTION FOR THE WHOLE POINT. The table's rows are
@@ -2020,6 +2122,52 @@ def _a_name_a_file_may_carry(alias: str) -> str:
     return cleaned.strip("._ ") or "rotor"
 
 
+def _refuse_aliases_a_file_name_cannot_tell_apart(
+    plans: Mapping[str, Mapping[str, object] | None], sim_id: str
+) -> None:
+    """Refuse two rotor aliases that sanitize to one file name (PFS-2038.03).
+
+    THE COMPLETE TARGET SET, RESOLVED BEFORE ANY WRITE. `A/B` and `A:B`
+    are both valid aliases and both become `A_B`, and the product path
+    writes with overwrite: the reviewer measured two writes reported and
+    one file left, carrying the second rotor's identity. Silent
+    replacement of a derived result is the worst failure class here.
+
+    WHAT IS NOT TAKEN is the review's other option, a collision-resistant
+    filename encoding. The readable point name is a deliberate convention
+    of this release and hashing it, to close a case that has never
+    occurred, would cost every file a reader opens. MEASURED 2026-09-11:
+    all 14 rotor aliases declared in every reference here are letters and
+    underscores only, so nothing in these workspaces is refused by this;
+    it is for the users the package now has.
+    """
+    by_safe: dict[str, list[str]] = {}
+    for plan in plans.values():
+        rotors = plan.get(ROTORS_KEY) if isinstance(plan, Mapping) else None
+        if not isinstance(rotors, Mapping):
+            continue
+        for alias in rotors:
+            spelling = str(alias)
+            held = by_safe.setdefault(_a_name_a_file_may_carry(spelling), [])
+            if spelling not in held:
+                held.append(spelling)
+    collisions = {safe: names for safe, names in by_safe.items() if len(names) > 1}
+    if not collisions:
+        return
+    detail = "; ".join(
+        f"{' and '.join(repr(name) for name in names)} both become {safe!r}"
+        for safe, names in sorted(collisions.items())
+    )
+    raise ProductError(
+        f"simulation {sim_id!r} names rotors a file name cannot tell apart: {detail}. Each "
+        "rotor's passage reductions land in a file named for its alias, so one rotor's "
+        "result would be written over another's and the file left would carry the wrong "
+        "rotor's identity. Nothing has been written. Rename these rotors so they differ in "
+        "letters, digits, hyphens, underscores or dots, which are the characters a file "
+        "name keeps; the alias you choose is recorded verbatim in the manifest either way."
+    )
+
+
 def _point_reductions(
     plots_table: Path,
     plan: Mapping[str, object] | None,
@@ -2214,7 +2362,18 @@ def _prov_document(record: RunRecord, sim_dir: Path) -> dict[str, object]:
     script (``script_sha256``) and each collected output, every one with
     its sha256 under ``pyfs:sha256``; an output's hash is computed from
     the file when it is still there and taken from the record otherwise,
-    and ``pyfs:sha256_from`` says which. The ACTIVITY is the solver run,
+    and ``pyfs:sha256_from`` says which.
+
+    WHERE THE FILE'S BYTES ARE NOT THE RECORDED ONES the output entity
+    keeps the RECORDED digest and the generation claim, because that
+    claim is true, and what the file holds now becomes a second entity,
+    ``pyfs:file/<name>``, of type ``pyfs:ChangedOutput``, listed under
+    ``wasDerivedFrom`` and generated by no activity (PFS-2038.01). The
+    document therefore never asserts that a run produced bytes it did
+    not. It does not refuse: an edited or re-exported output is a
+    workspace's business, and saying so correctly is the fix.
+
+    The ACTIVITY is the solver run,
     with ``prov:startTime`` and ``prov:endTime`` where the record carries
     them, the wall time, the status and the executor's argv. The AGENTS
     are the package at its version and commit and the solver build at its
@@ -2231,6 +2390,10 @@ def _prov_document(record: RunRecord, sim_dir: Path) -> dict[str, object]:
     used: dict[str, dict[str, str]] = {}
     generated: dict[str, dict[str, str]] = {}
     attributed: dict[str, dict[str, str]] = {}
+    #: PFS-2038.01. One entry per output whose bytes on disk are not the
+    #: bytes the run recorded: what the file holds now, derived from what
+    #: the run produced and generated by nothing.
+    derived: dict[str, dict[str, str]] = {}
     for name, input_sha256 in sorted(record.inputs_sha256.items()):
         entity_id = f"pyfs:input/{name}"
         entities[entity_id] = _attributes(
@@ -2253,12 +2416,30 @@ def _prov_document(record: RunRecord, sim_dir: Path) -> dict[str, object]:
     for name in record.outputs:
         entity_id = f"pyfs:output/{name}"
         path = sim_dir / name
-        if path.is_file():
-            output_sha256: str | None = file_sha256(path)
-            sha256_from: str | None = "file"
+        recorded = record.outputs_sha256.get(name)
+        current = file_sha256(path) if path.is_file() else None
+        # PFS-2038.01, GEO-039-F01. THE BYTES ON DISK MAY NOT BE THE BYTES
+        # THE RUN WROTE, and this document used to say they were: it
+        # preferred the current digest whenever the file existed and then
+        # bound that entity to the run through `wasGeneratedBy`. A file
+        # edited, repaired or re-exported after the run was therefore
+        # attributed to a run that never produced it. That is a false
+        # statement rather than a wrong number.
+        changed = current is not None and recorded is not None and current != recorded
+        if changed:
+            # The ORIGINAL entity keeps the recorded digest and keeps the
+            # generation claim, which is true: the run did produce those
+            # bytes. What is on disk becomes a SEPARATE, DERIVED entity
+            # that says so, generated by nothing here and attributed to
+            # nobody.
+            output_sha256: str | None = recorded
+            sha256_from: str | None = "record"
+        elif current is not None:
+            output_sha256 = current
+            sha256_from = "file"
         else:
-            output_sha256 = record.outputs_sha256.get(name)
-            sha256_from = "record" if output_sha256 is not None else None
+            output_sha256 = recorded
+            sha256_from = "record" if recorded is not None else None
         entities[entity_id] = _attributes(
             **{
                 "prov:type": "pyfs:Output",
@@ -2275,6 +2456,32 @@ def _prov_document(record: RunRecord, sim_dir: Path) -> dict[str, object]:
             "prov:entity": entity_id,
             "prov:agent": solver_id,
         }
+        if changed:
+            derived_id = f"pyfs:file/{name}"
+            entities[derived_id] = _attributes(
+                **{
+                    "prov:type": "pyfs:ChangedOutput",
+                    "pyfs:name": name,
+                    "pyfs:sha256": current,
+                    "pyfs:sha256_from": "file",
+                    "pyfs:recorded_sha256": recorded,
+                    "pyfs:note": (
+                        "the bytes at this path differ from the ones the run recorded; "
+                        "this entity is what the file holds now and no activity here "
+                        "claims to have produced it"
+                    ),
+                }
+            )
+            derived[f"_:derived{len(derived) + 1}"] = {
+                "prov:generatedEntity": derived_id,
+                "prov:usedEntity": entity_id,
+            }
+            # NO REFUSAL, and that is the narrowing. The review recommends
+            # refusing or marking mismatches before deriving trusted
+            # products; a refusal would stop the post stage on any
+            # workspace whose outputs were ever touched by hand, including
+            # a legitimate re-export or a file repaired after a partial
+            # write. Correcting the assertion is the whole defect.
     executor = record.executor
     activity = _attributes(
         **{
@@ -2336,6 +2543,11 @@ def _prov_document(record: RunRecord, sim_dir: Path) -> dict[str, object]:
     # key is absent rather than empty.
     if generated:
         document["wasGeneratedBy"] = generated
+    # PFS-2038.01. Absent on every document whose outputs still hold the
+    # bytes they were recorded with, which is every document this package
+    # has written until one of them does not.
+    if derived:
+        document["wasDerivedFrom"] = derived
     return document
 
 

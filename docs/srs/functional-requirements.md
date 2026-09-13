@@ -1006,18 +1006,20 @@ the base could not offer while it bundled several.
     and the manifest would carry one name twice, the second would destroy
     evidence a previous point or run already collected.
 
-    THE TWO SHAPES DIFFER IN WHEN THEY ARE DECIDED, and the requirement
-    says so because the difference is visible to a caller. The first is a
-    pre-scan over the whole call, so a refusal leaves every source exactly
-    where it was. The second is asked of each destination immediately
-    before that file is moved, so a call whose third output lands on a
-    held name refuses with the first two already collected. That is
-    measured rather than assumed (three outputs, the third colliding: two
-    arrive in `raw/` and the refusal names the third). It is stated as a
-    property rather than a defect because no record is destroyed either
-    way, which is what this requirement guarantees; making the second
-    shape a pre-scan too would be a behaviour change and is an acceptance
-    decision, not a consequence of publishing the sentence.
+    BOTH SHAPES ARE PRE-SCANS FROM 0.17.0, and this paragraph used to say
+    they were not. The second was asked of each destination immediately
+    before that file was moved, so a call whose third output landed on a
+    held name refused with the first two already collected: sources gone,
+    destinations written, no manifest record, and a recovery to do by
+    hand. The sentence stated it as a property rather than a defect,
+    because no record is destroyed either way, and said outright that
+    making it a pre-scan too was an acceptance decision. That decision was
+    taken on the GEO-039 triage. The whole destination set is now resolved
+    before the first move, and the refusal names every held file rather
+    than the first one it meets.
+
+    NOTHING THAT SUCCEEDED BEFORE REFUSES NOW. What changed is only that a
+    refusal leaves every byte on both sides where it was.
 
 !!! requirement "FR-33f Two staged inputs may not share a base name <span class='srs-implemented'>implemented</span>"
     *Origin: OPS-2005.10.03, accepted 2026-08-20, giving the staging half
@@ -3278,6 +3280,15 @@ requirement below is one seam of that division.
     added anywhere upstream fails the test until it reaches the file. The
     The acceptance is one sentence: if a reader has to
     open a second file to know something about that simulation, it failed.
+
+    A ROW IS A RECORDED POINT, SO THE RECORD DECIDES WHERE THE TWO SPEAK.
+    Several blocks name the same column, and from 0.17.0 the recorded flight
+    condition is taken before the matrix row rather than after it. A matrix
+    cell says what the workspace intends NEXT and is read from the file as it
+    is today; a recorded point's conditions are what it actually ran at.
+    Editing the matrix after a run therefore no longer relabels a result that
+    has already happened. The matrix still supplies every key the record does
+    not, which is every key of every row that has not run.
 
 !!! requirement "FR-90 The post stage writes no file twice <span class='srs-implemented'>implemented</span>"
 

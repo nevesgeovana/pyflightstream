@@ -43,8 +43,29 @@ __all__ = [
 _DEGENERATE = 1e-10
 
 
-def _unit(vector: tuple[float, float, float], name: str) -> np.ndarray:
+def _finite(vector, name: str) -> np.ndarray:
+    """Reject a non-finite component before anything compares it (PFS-2038.07).
+
+    A NAN NEVER FAILS A COMPARISON. Every guard in this module asks
+    whether something is smaller than a tolerance, and `nan < 1e-10` is
+    False, so a NaN axis walks past the degeneracy check, past the
+    parallelism check, and out the other side as `nan,nan,nan,1` rows in
+    a file the solver opens. The check is here, before the norms, because
+    this is the one place all of them pass through.
+    """
     array = np.asarray(vector, dtype=float)
+    if not bool(np.all(np.isfinite(array))):
+        raise ProbeGeometryError(
+            f"{name} is {tuple(float(c) for c in array.ravel()[:3])}, which is not finite. "
+            "A frame is arithmetic on its components and every one of them would be "
+            "non-finite from here on; the numbers the solver would be handed are not "
+            "positions."
+        )
+    return array
+
+
+def _unit(vector: tuple[float, float, float], name: str) -> np.ndarray:
+    array = _finite(vector, name)
     norm = float(np.linalg.norm(array))
     if norm < _DEGENERATE:
         raise ValueError(
@@ -88,8 +109,10 @@ class FrameDefinition(BaseModel):
     def _orthonormalize(cls, data: dict) -> dict:
         if not isinstance(data, dict) or "x_axis" not in data or "y_axis" not in data:
             return data
+        if "origin" in data and data["origin"] is not None:
+            _finite(tuple(data["origin"]), "origin")
         x = _unit(tuple(data["x_axis"]), "x_axis")
-        y_raw = np.asarray(data["y_axis"], dtype=float)
+        y_raw = _finite(tuple(data["y_axis"]), "y_axis")
         y_perp = y_raw - np.dot(y_raw, x) * x
         if float(np.linalg.norm(y_perp)) < _DEGENERATE:
             raise ProbeGeometryError(

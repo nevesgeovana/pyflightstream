@@ -778,3 +778,69 @@ def test_the_union_sees_every_record_scalar(tmp_path):
     assert not missing, (
         f"the union cannot see {missing}, so nothing requires a superfile to carry them"
     )
+
+
+# --- PFS-2038.02, GEO-039-F02: a recorded point's conditions are its own ------
+
+
+def test_goal019_bandd_editing_the_matrix_does_not_relabel_a_recorded_point(tmp_path):
+    """The worst of the eight, because it rewrites history with UNCHANGED data.
+
+    The SUPER row took matrix values before recorded conditions and
+    `_take` does not replace a populated field, and the matrix is read
+    from the CURRENT workspace rather than from anything bound to the
+    run. The reviewer moved a recorded REmi of 11.7716754 to 99.0 in a
+    regenerated historical row while the run record still said
+    11.7716754.
+
+    Taken WHOLE. This adds no gate: it removes a wrong number.
+    """
+    workspace = _workspace(tmp_path)
+    _post(workspace)
+    files = _superfiles(workspace)
+    before = {
+        name: [row["REmi"] for row in rows]
+        for name, (_columns, rows) in files.items()
+        if "6001" in name
+    }
+    assert before, f"no superfile of simulation 6001 among {sorted(files)}"
+    assert all(value == "11.7716754" for values in before.values() for value in values), before
+
+    # ONLY THE MATRIX CHANGES. Nothing else in the workspace is touched:
+    # the manifest, the outputs and their bytes are exactly as the run
+    # left them.
+    matrix = workspace.root / "matriz.fs"
+    text = matrix.read_text(encoding="utf-8")
+    assert "11.7716754" in text, "the fixture's matrix does not state the value under test"
+    matrix.write_text(text.replace("11.7716754", "99.0"), encoding="utf-8")
+
+    _post(workspace)
+    after = {
+        name: [row["REmi"] for row in rows]
+        for name, (_columns, rows) in _superfiles(workspace).items()
+        if "6001" in name
+    }
+    assert after == before, (
+        "the current matrix relabelled a point that had already run: the record still says "
+        "11.7716754"
+    )
+
+
+def test_goal019_bandd_the_matrix_still_supplies_what_the_record_does_not(tmp_path):
+    """The control. The record wins where the two speak; the matrix speaks elsewhere.
+
+    A precedence change that simply dropped the matrix would empty
+    columns this file is supposed to carry, so what must be shown is that
+    every matrix cell the record says nothing about is still there.
+    """
+    workspace = _workspace(tmp_path)
+    _post(workspace)
+    for name, (_columns, rows) in _superfiles(workspace).items():
+        if "6001" not in name:
+            continue
+        for row in rows:
+            assert row["DESCRIPTION"], f"{name} lost the matrix DESCRIPTION"
+            assert row["SET"], f"{name} lost the matrix SET cell"
+            assert row["WORKFLOW"], f"{name} lost the matrix WORKFLOW cell"
+            assert row["AIRCRAFT"], f"{name} lost the matrix AIRCRAFT cell"
+            assert row["FLIGHT_CONDITION"], f"{name} lost the matrix FLIGHT_CONDITION cell"

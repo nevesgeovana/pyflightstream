@@ -1795,3 +1795,231 @@ def test_goal019_post_the_command_line_asks_before_it_destroys(tmp_path):
     assert _confirmed_destruction(False) is False, (
         "a session with no terminal answered yes to a question nobody was asked"
     )
+
+
+# --- GOAL-019 item 9: the Band D fixes of the GEO-039 triage ------------------
+
+
+def test_goal019_bandd_changed_bytes_stop_claiming_the_run_that_did_not_write_them(tmp_path):
+    """PFS-2038.01, GEO-039-F01, and it is a false statement, not a wrong number.
+
+    `_prov_document` preferred a fresh file digest whenever the file
+    existed and then bound that entity to the original run through
+    `wasGeneratedBy`. So bytes that changed after recording were
+    attributed to a run that never produced them.
+
+    WHAT IS TAKEN is the claim: the output entity keeps the RECORDED
+    digest and the generation claim, which is true, and what the file
+    holds now becomes a distinct derived entity that no activity claims.
+    WHAT IS LEFT OUT is the review's refusal, which would stop the post
+    stage on any workspace whose outputs were ever touched by hand.
+    """
+    import json
+
+    from pyflightstream.post.products import write_campaign_products
+
+    workspace = _steady_workspace_with_provenance(tmp_path)
+    # The record has to SAY what it wrote, or there is nothing to compare
+    # against; a record written before `outputs_sha256` existed carries no
+    # digest and is the legacy case two tests below.
+    loads = workspace.sim_dir("3207") / "outputs" / "POLAR-3207_M20AL-020BE+000.txt"
+    recorded = workspace.output_digests("3207", ["outputs/POLAR-3207_M20AL-020BE+000.txt"])
+    _restate_records(workspace, {"camp/sim_3207/a-02.0": recorded})
+
+    write_campaign_products(workspace)
+    out = workspace.root / "post" / "products"
+    before = _read_prov_json(out / "provenance" / "camp_sim_3207_a-02.0.prov.json")
+    output_id = "pyfs:output/outputs/POLAR-3207_M20AL-020BE+000.txt"
+    assert "wasDerivedFrom" not in before, (
+        "the bytes are the recorded ones and nothing was derived from them"
+    )
+    assert before["entity"][output_id]["pyfs:sha256_from"] == "file"
+
+    # One coefficient changed by hand, which is the reviewer's own move.
+    loads.write_text(
+        loads.read_text(encoding="utf-8").replace("+0.1631176", "+0.9631176"), encoding="utf-8"
+    )
+    write_campaign_products(workspace, overwrite=True)
+    after = json.loads(
+        (out / "provenance" / "camp_sim_3207_a-02.0.prov.json").read_text(encoding="utf-8")
+    )
+    entity = after["entity"][output_id]
+    assert entity["pyfs:sha256"] == recorded["outputs/POLAR-3207_M20AL-020BE+000.txt"], (
+        "the entity the run generated carries the digest of bytes it never wrote"
+    )
+    assert entity["pyfs:sha256_from"] == "record"
+    changed = after["entity"]["pyfs:file/outputs/POLAR-3207_M20AL-020BE+000.txt"]
+    assert changed["prov:type"] == "pyfs:ChangedOutput"
+    assert changed["pyfs:sha256"] != recorded["outputs/POLAR-3207_M20AL-020BE+000.txt"]
+    assert changed["pyfs:recorded_sha256"] == recorded["outputs/POLAR-3207_M20AL-020BE+000.txt"]
+    derivation = list(after["wasDerivedFrom"].values())
+    assert derivation == [
+        {
+            "prov:generatedEntity": "pyfs:file/outputs/POLAR-3207_M20AL-020BE+000.txt",
+            "prov:usedEntity": output_id,
+        }
+    ]
+    # And nothing claims to have produced the changed bytes.
+    generated = {entry["prov:entity"] for entry in after["wasGeneratedBy"].values()}
+    assert "pyfs:file/outputs/POLAR-3207_M20AL-020BE+000.txt" not in generated
+
+
+def test_goal019_bandd_a_record_that_states_no_digest_reads_as_it_always_did(tmp_path):
+    """The legacy half of PFS-2038.01. Unknown is not changed.
+
+    A run recorded before `outputs_sha256` existed states nothing to
+    compare against, and taking its file digest is still the only thing
+    this document can do. What must not happen is a derived entity that
+    says the bytes changed when nothing knows whether they did.
+    """
+    from pyflightstream.post.products import write_campaign_products
+
+    workspace = _steady_workspace_with_provenance(tmp_path)
+    write_campaign_products(workspace)
+    out = workspace.root / "post" / "products"
+    document = _read_prov_json(out / "provenance" / "camp_sim_3207_a-02.0.prov.json")
+    output_id = "pyfs:output/outputs/POLAR-3207_M20AL-020BE+000.txt"
+    assert document["entity"][output_id]["pyfs:sha256_from"] == "file"
+    assert "wasDerivedFrom" not in document
+
+
+def _restate_records(workspace, digests_by_run):
+    """Rewrite the manifest with `outputs_sha256` filled for the named runs.
+
+    The manifest is append-only through the public interface and this
+    needs a record that STATES its digests, which is what the run stage
+    writes and what this fixture's shorthand left out.
+    """
+    import json
+
+    entries = json.loads(workspace.manifest_path.read_text(encoding="utf-8"))
+    for entry in entries:
+        if entry["run_id"] in digests_by_run:
+            entry["outputs_sha256"] = digests_by_run[entry["run_id"]]
+    workspace.manifest_path.write_text(json.dumps(entries, indent=2), encoding="utf-8")
+
+
+def test_goal019_bandd_two_rotor_names_one_file_name_refuses_before_any_write(tmp_path):
+    """PFS-2038.03, GEO-039-F03. `A/B` and `A:B` both become `A_B`.
+
+    The reviewer measured two writes reported and one file left, carrying
+    the second rotor's identity. Silent replacement of a derived result
+    is the worst failure class in this package.
+
+    WHAT IS TAKEN is the preflight: the complete target set is resolved
+    and an ambiguity refuses before any write. WHAT IS LEFT OUT is the
+    collision-resistant filename encoding, because the readable name is a
+    deliberate convention of this release.
+    """
+    from pyflightstream.post.products import ProductError
+    from pyflightstream.post.products import (
+        _refuse_aliases_a_file_name_cannot_tell_apart as preflight,
+    )
+
+    plan = {
+        "rotors": {
+            "A/B": {"per_blade": {"windows": [[1, 2]]}},
+            "A:B": {"per_blade": {"windows": [[1, 2]]}},
+        }
+    }
+    with pytest.raises(ProductError, match="cannot tell apart") as raised:
+        preflight({"a+00.0": plan}, "6002")
+    assert "'A/B'" in str(raised.value) and "'A:B'" in str(raised.value), str(raised.value)
+    assert "A_B" in str(raised.value), "the refusal does not say what they both become"
+    assert "Nothing has been written" in str(raised.value)
+
+
+def test_goal019_bandd_rotor_names_that_differ_after_sanitizing_are_left_alone(tmp_path):
+    """The control, and it is the measurement of 2026-09-11 as a test.
+
+    All 14 rotor aliases declared in every reference in these workspaces
+    are letters and underscores only. A preflight that refused those
+    would have taken a product away from every rotor row here.
+    """
+    from pyflightstream.post.products import (
+        _refuse_aliases_a_file_name_cannot_tell_apart as preflight,
+    )
+
+    plan = {"rotors": {alias: {} for alias in ("PUSHER", "PROP_L", "PROP_R", "R1-2", "x.y")}}
+    preflight({"a+00.0": plan, "a+02.0": None}, "6002")
+
+
+def test_goal019_bandd_a_reduction_reads_the_clock_the_export_states(tmp_path):
+    """PFS-2038.04, GEO-039-F05. Steps 101, 102, 103 are not 1, 2, 3.
+
+    `plots_table_series` built steps 1..N even where the table carried an
+    explicit `Time-step` column, so a window was labelled with row
+    ordinals rather than with the solver's own clock and the actual
+    exported window (101, 102) was rejected against a three-row bound.
+
+    WHAT IS LEFT OUT is the review's step-coverage validation, which
+    would refuse windows that are accepted today.
+    """
+    from pyflightstream.post.products import (
+        plots_table_series,
+        write_reduction_table,
+    )
+
+    table = tmp_path / "p_plots.csv"
+    table.write_text(
+        "Time-step,CL\n101.00000,10.00000\n102.00000,20.00000\n103.00000,30.00000\n",
+        encoding="utf-8",
+    )
+    columns, series = plots_table_series(table)
+    assert list(series.steps) == [101, 102, 103], list(series.steps)
+
+    written = write_reduction_table(
+        tmp_path / "p_time_average.csv",
+        series,
+        columns,
+        reduction="time_average",
+        windows=[(101, 102)],
+    )
+    _, rows = read_csv_table(written)
+    assert len(rows) == 1
+    assert int(float(rows[0]["FIRST_STEP"])) == 101
+    assert int(float(rows[0]["LAST_STEP"])) == 102
+    assert int(float(rows[0]["STEPS"])) == 2
+    assert float(rows[0]["CL"]) == 15.0, "the window selected rows it did not name"
+
+
+def test_goal019_bandd_a_clock_that_starts_at_one_reads_exactly_as_before(tmp_path):
+    """The control, and the measurement of 2026-09-11 as a test.
+
+    49 of 49 recorded plots exports in these workspaces begin at 1 and
+    step by 1, so the column and the ordinal agree on every export this
+    solver has produced and nothing already recorded changes.
+    """
+    from pyflightstream.post.products import plots_table_series
+
+    table = tmp_path / "p_plots.csv"
+    table.write_text(
+        "Time-step,CL\n1.00000,10.00000\n2.00000,20.00000\n3.00000,30.00000\n",
+        encoding="utf-8",
+    )
+    _, series = plots_table_series(table)
+    assert list(series.steps) == [1, 2, 3]
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "CL\n10.00000\n20.00000\n30.00000\n",
+        "Time-step,CL\n1.50000,10.00000\n2.50000,20.00000\n3.50000,30.00000\n",
+        "Time-step,CL\n3.00000,10.00000\n1.00000,20.00000\n3.00000,30.00000\n",
+    ],
+    ids=["no clock at all", "a fractional clock", "a clock out of order"],
+)
+def test_goal019_bandd_the_ordinal_remains_the_fallback(tmp_path, body):
+    """A table this reader cannot take a clock from still gets its product.
+
+    A product is better than a refusal here: the review's own
+    recommendation would refuse windows that work today, and that is the
+    part the triage left out.
+    """
+    from pyflightstream.post.products import plots_table_series
+
+    table = tmp_path / "p_plots.csv"
+    table.write_text(body, encoding="utf-8")
+    _, series = plots_table_series(table)
+    assert list(series.steps) == [1, 2, 3]
