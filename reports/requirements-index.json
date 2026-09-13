@@ -2,8 +2,8 @@
  "source": "docs/srs",
  "generated_by": "scripts/gen_requirements_index.py",
  "traceability": {
-  "cited_by_a_test": 97,
-  "total": 144,
+  "cited_by_a_test": 102,
+  "total": 151,
   "method": "upper bound: an id mentioned anywhere in tests/**/*.py excluding conftest.py, which is not the marked falsifying test NFR-13 asks for"
  },
  "requirements": [
@@ -901,6 +901,62 @@
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: a swept row could not be judged past its first point, held in the tree as a strict expected failure since 0.16.0's sweep work and reported to the owning seat on 2026-09-11, whose instruction that day moved the fix from the assessor's SELECTION into the folder ARCHITECTURE. Carried by PFS-2036.10, which records the one fork taken without asking: which of the two point-name conventions the folder takes. Evidence: tests/tier1_offline/test_run_cli.py::test_a_swept_row_runs_end_to_end and tests/tier1_offline/test_sim_outputs_dir.py.*",
+   "verification": "test"
+  },
+  {
+   "id": "FR-93",
+   "text": "SIX COLUMNS ARRIVE AND TWO MOVE. CONFIGURATION, GEOMETRY, SYMMETRY, SYMMETRY_LOADS, NCPUS and WALLTIME become columns of their own, and HIDDEN | RUN moves to sit directly after POL. Every one of the six was already expressible: four as keys inside the free VAR_NAMES_VALUES cell and two inside the setup artifact.",
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: the owning seat's format decision of 2026-09-12, taken after measuring what the free variables cell was being asked to carry. Evidence: tests/tier1_offline/test_matrix.py, test_matrix_upgrade.py and tests/tier1_offline/test_matrix_run.py.*",
+   "verification": "test"
+  },
+  {
+   "id": "FR-94",
+   "text": "CONFIGURATION is the user's own name for what is in the wind, beside AIRCRAFT. It LABELS and it configures nothing, which is the whole of the requirement: no emitted solver command reads it, and no behaviour depends on it.",
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: the owning seat's format decision of 2026-09-12. Evidence: tests/tier1_offline/test_matrix.py and test_workflows.py.*",
+   "verification": "test"
+  },
+  {
+   "id": "FR-95",
+   "text": "EVERY POINT OF A STEADY MATRIX ROW RUNS IN ONE SCRIPT AND ONE PROCESS, and the solver is never cleared between them, so each point begins from the previous point's converged solution. The panelling and the wake survive from one angle to the next and the sweep costs one setup rather than one per point. That is the warm start, and it is what a polar sweep IS rather than a switch on top of it.",
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: the owning seat's convention of 2026-09-12, taken with the predecessor toolchain's steady recipe in hand. Evidence: tests/tier1_offline/test_matrix_run.py and test_run_campaign.py.*",
+   "verification": "test"
+  },
+  {
+   "id": "FR-96",
+   "text": "RESTART states how to continue: {FINISH_PENDING}, which asks for what the row originally stated minus what the stopped run reached; {ADDITIONAL_ITERS=<n>}; or {ADDITIONAL_REVS=<n>}, which the row's own azimuthal step turns into time steps.",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: the owning seat's decision of 2026-09-12, that the word RESTART is reused for continuity. Evidence: tests/tier1_offline/test_workflows.py for the parser and tests/tier1_offline/test_matrix_run.py for the refusal.*",
+   "verification": "none"
+  },
+  {
+   "id": "FR-97",
+   "text": "pyfs-matrix run reads the plan receipt and refuses without one. The gate is on the COMMAND and not on the library entry: a caller who composes plan and run into one call would otherwise be made to write a file between them for no reason.",
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: the owning seat's instruction of 2026-09-12, that the warning and the confirmation belong to plan and that without one run does not go. Evidence: tests/tier1_offline/test_run_cli.py and test_matrix_run.py.*",
+   "verification": "test"
+  },
+  {
+   "id": "FR-98",
+   "text": "AN UNSTEADY ROW THAT STATES WALLTIME REGISTERS A PAIR OF SOLVER-SIDE ACTIONS: a COMMAND_LINE python that keeps its own clock and fires once, and a SCRIPT action it rewrites, which does nothing until the clock and the margin meet. Where the row also exports on a counter, the clock pair takes positions (3) and (4) behind that pair, because the solver runs actions in creation order and cannot be told otherwise.",
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: the owning seat's decision of 2026-09-12, that WALLTIME is no longer HPC-only and drives a watchdog on the actions hook with the margin in the setup. Evidence: tests/tier1_offline/test_unsteady_actions.py.*",
+   "verification": "test"
+  },
+  {
+   "id": "FR-99",
+   "text": "THE PACKAGE READS THE PLATFORM. No matrix cell selects a cluster, so the same matrix, unchanged in every cell, runs locally on Windows and submits on Linux. A cell that must be remembered is a cell that gets forgotten, and a forgotten one on a cluster means a laptop-shaped run holding a login node for the night.",
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: the owning seat's decision of 2026-09-12, that the code sees the environment and that a Linux run submits rather than calling the solver directly. Evidence: tests/tier1_offline/test_matrix_run.py.*",
    "verification": "test"
   },
   {

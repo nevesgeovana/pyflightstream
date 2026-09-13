@@ -190,7 +190,10 @@ def rotor_case(**overrides) -> SimCase:
 
 
 def test_the_reader_and_the_registry_agree_on_the_types():
-    """Every registered workflow is a WORKFLOW cell the reader accepts.
+    """FR-96, a row may ask to continue a run the wall clock stopped, is among
+    the keys a run type registers.
+
+    Every registered workflow is a WORKFLOW cell the reader accepts.
 
     The reader READS this registry rather than keeping a list of its
     own (`cases.matrix.workflow_types`), so this can only go red if the

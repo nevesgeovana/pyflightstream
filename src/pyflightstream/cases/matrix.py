@@ -110,6 +110,9 @@ from pyflightstream.cases.workflows import (
 )
 
 __all__ = [
+    "COLUMNS_NEW_AT_0_17_0",
+    "COLUMNS_THAT_MAY_BE_UNSTATED",
+    "UNSTATED_CELL",
     "CODE_COLUMNS",
     "DEFAULT_VERSION_OPTION",
     "LEGACY_WORKFLOW",
@@ -201,14 +204,20 @@ _LAYOUT_0_15_0 = (
     "VAR_NAMES_VALUES",
 )
 
-#: The six that arrived at 0.17.0, and where the upgrade finds each one.
-#: Read as: column -> what fills it for a row written before 0.17.0.
+#: The six that arrived at 0.17.0, and WHAT THE UPGRADE WRITES IN EACH.
+#:
+#: Read as: column -> what the converter puts there for a row written
+#: before 0.17.0. Two of them used to be described by where the FACT used
+#: to live, which read as a promise that the converter goes and fetches it;
+#: it does not, it has no workspace, and it writes a dash (the interface
+#: lens, 2026-09-13). Where the older home still answers, this says so,
+#: because that is what makes the dash safe rather than lossy.
 COLUMNS_NEW_AT_0_17_0 = {
-    "CONFIGURATION": "nothing implies it; the upgrade leaves it empty",
+    "CONFIGURATION": "nothing implies it; the upgrade writes '-'",
     "GEOMETRY": "the row's own GEOMETRY key, out of the free cell",
     "SYMMETRY": "the row's own SYMMETRY key, out of the free cell",
-    "SYMMETRY_LOADS": "the symmetry_loads of the setup the row cites",
-    "NCPUS": "the max_parallel_threads of the setup the row cites",
+    "SYMMETRY_LOADS": ("'-'; the cited setup's symmetry_loads is still read, so nothing is lost"),
+    "NCPUS": ("'-'; the cited setup's max_parallel_threads is still read, so nothing is lost"),
     "WALLTIME": "no earlier row could state one, so it is written '-'",
 }
 
@@ -2125,13 +2134,34 @@ def _expand_to_nineteen(data: bytes, source: str) -> bytes:
     records. That property is the whole reason this is a column move and
     not a re-derivation.
 
-    THE FOUR THAT READ `-` ARE NOT LOSSES OF THE SAME KIND. `WALLTIME` and
-    `CONFIGURATION` never existed, so a dash is the truth. `NCPUS` and
-    `SYMMETRY_LOADS` DID exist, in the setup artifact, and a dash here
-    would silently drop a value the study stated. So this converter
-    REFUSES a file whose rows cite a setup that declares either key,
-    naming the setups and the remedy, rather than writing a dash over a
-    number somebody chose. Pass ``inputs`` to fold them in.
+    THE FOUR THAT READ `-` ARE NOT LOSSES OF THE SAME KIND, AND NONE OF
+    THEM IS A LOSS. `WALLTIME` and `CONFIGURATION` never existed, so a
+    dash is the truth. `NCPUS` and `SYMMETRY_LOADS` DID exist, in the
+    setup artifact, and this converter does NOT read the setup: it has no
+    workspace and takes none, so it writes a dash in both.
+
+    A DASH IS NOT A ZERO AND NOT A DEFAULT. It says the ROW states
+    nothing, and the setup is then still read exactly as it was before
+    this release: `_row_ncpus` falls back to the cited setup's
+    `max_parallel_threads` and the symmetry-loads emitter to its
+    `symmetry_loads`. So an upgraded file behaves identically to the file
+    it came from, and the setup key is still the one to edit until the row
+    states the column.
+
+    That is also why the upgrade CANNOT fold them in. Folding would need
+    the workspace, which would make a format conversion depend on a
+    library it has never needed, and it would write one row's answer into
+    every row that cites that setup, which is a different file from the
+    one the user had. A study that wants the fact in the new home moves it
+    by hand, one row at a time, and deletes the setup key when every row
+    that cites it states the column.
+
+    THIS PARAGRAPH ONCE SAID THE OPPOSITE. It said the converter refuses a
+    file whose rows cite a setup declaring either key, and told the reader
+    to pass an ``inputs`` argument this function has never had. Both the
+    refusal and the parameter were absent from the body, which is a
+    comment asserting a guard that is not there (the architect, V&V and
+    interface lenses, independently, 2026-09-13).
     """
     lines = data.splitlines(keepends=True)
     out: list[bytes] = []

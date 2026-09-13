@@ -1612,14 +1612,22 @@ PRODUCT_ARCHIVE_STAMP = "%Y%m%d-%H%M%S"
 def product_archive_dir(path: Path, *, now: datetime | None = None) -> Path:
     """Where the product at ``path`` is archived to before it is rewritten.
 
-    ``post/<matrix>/archive/<day and hour>/``, keeping whatever folders the
-    product sat in below the matrix, so a rebuild's archive is the same
-    shape as the tree it came from and a reader can put the two side by
-    side.
-    """
-    import datetime as _dt
+    ``<the product's own folder>/archive/<day and hour>/``: the archive
+    sits BESIDE the product it replaces, so a reader who has opened
+    ``polars/`` to compare two polar tables finds the old one in that same
+    folder rather than in a tree somewhere above it.
 
-    stamp = (now or _dt.datetime.now()).strftime(PRODUCT_ARCHIVE_STAMP)
+    THE STAMP IS THE REBUILD'S, passed in by the post stage, so every
+    product a rebuild archives lands under one folder name even though the
+    folders themselves are per-product.
+
+    THIS DOCSTRING SAID ``post/<matrix>/archive/`` UNTIL 2026-09-13, which
+    is one archive for the whole rebuild "keeping whatever folders the
+    product sat in below the matrix". That is a different layout from the
+    one the body returns and from the one the tier-1 case asserts, and the
+    sentence read as a design nobody had built (the QA lens).
+    """
+    stamp = (now or datetime.now()).strftime(PRODUCT_ARCHIVE_STAMP)
     for parent in path.parents:
         if parent.name == PRODUCT_ARCHIVE_DIR:
             # Already inside an archive: never archive an archive.
@@ -1655,7 +1663,13 @@ def _refuse_an_existing_product(
     """
     if not path.exists():
         return path
-    if not archive and overwrite:
+    # THE TWO FLAGS ARE INDEPENDENT, and they were not: the guard read
+    # `not archive and overwrite`, so a caller asking for no archive with
+    # no overwrite, which is the documented do-not-archive request, fell
+    # through and archived anyway. One cell of a two-boolean truth table
+    # that no test named and no shipped path reached, which is exactly how
+    # it survived (the QA lens, 2026-09-13).
+    if not archive:
         return path
     target = product_archive_dir(path, now=stamp)
     target.mkdir(parents=True, exist_ok=True)
@@ -1709,6 +1723,7 @@ def _sim_products(
     *,
     overwrite: bool,
     archive: bool = True,
+    archive_stamp: datetime | None = None,
     matrix_row: MatrixRow | None = None,
     sweep_rows: Mapping[str, Mapping[str, object]] | None = None,
     drafts: list[SuperfileDraft] | None = None,
@@ -1814,7 +1829,9 @@ def _sim_products(
     plots_tables: dict[str, Path] = {}
 
     def _target(path: Path) -> Path:
-        return _refuse_an_existing_product(path, overwrite=overwrite, archive=archive)
+        return _refuse_an_existing_product(
+            path, overwrite=overwrite, archive=archive, stamp=archive_stamp
+        )
 
     # PFS-2038.03, GEO-039-F03. HERE, before the first product of this
     # simulation is written, and not in the reduction loop where the first
@@ -2558,6 +2575,7 @@ def _run_provenance(
     *,
     overwrite: bool,
     archive: bool = True,
+    archive_stamp: datetime | None = None,
 ) -> dict[str, str]:
     """Write one PROV-JSON document per record under ``out/provenance``.
 
@@ -2590,11 +2608,14 @@ def _run_provenance(
             # THE SAME RULE AS A PRODUCT. A provenance document about to
             # be rewritten is evidence about the run that produced the
             # file it describes, so it is archived rather than replaced.
-            _refuse_an_existing_product(target, overwrite=True, archive=True)
+            _refuse_an_existing_product(target, overwrite=True, archive=True, stamp=archive_stamp)
         elif target.exists() and not overwrite:
             raise ProductExistsError(
-                f"the provenance document {target} exists; pass overwrite (CLI: --overwrite) "
-                "to rewrite it from the manifest"
+                f"the provenance document {target} exists; pass overwrite=True to rewrite "
+                "it from the manifest, and the old one is archived rather than lost. "
+                "`pyfs-matrix post` passes it already, so this reaches a library caller "
+                "alone: the command-line flag this named until 2026-09-13, --overwrite, "
+                "is gone and argparse now refuses it (the interface lens)"
             )
         document = _prov_document(record, workspace.sim_dir(record.sim_id))
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -2608,6 +2629,7 @@ def write_campaign_products(
     *,
     overwrite: bool = False,
     archive: bool = True,
+    archive_stamp: datetime | None = None,
     matrix_stem: str | None = None,
 ) -> list[Path]:
     """Write the products of the simulations in a workspace's manifest.
@@ -2640,6 +2662,18 @@ def write_campaign_products(
     carries the unsteady post-process's own parameters and one row per
     converged point.
     """
+    # ONE STAMP PER REBUILD, taken here and threaded to every archiver.
+    #
+    # The archive folder's whole claim is that a rebuild is ONE thing a
+    # reader can look at. It was not: each archiver called `datetime.now()`
+    # for itself at one-second resolution, so a rebuild that archived more
+    # products than fit in one second scattered them across two folders or
+    # more, and the reader comparing before and after had to union N
+    # siblings and could not tell a second boundary from a second rebuild
+    # (the interface lens, 2026-09-13). The collision branch below the
+    # stamp guards two rebuilds INSIDE one second, which is the rare case;
+    # this was the common one.
+    archive_stamp = archive_stamp or datetime.now()
     everything = workspace.read_manifest()
     records = [record for record in everything if record.matrix_stem == matrix_stem]
     if matrix_stem is not None and not records:
@@ -2714,6 +2748,7 @@ def write_campaign_products(
                 out,
                 overwrite=overwrite,
                 archive=archive,
+                archive_stamp=archive_stamp,
                 matrix_row=rows_of_the_matrix.get(sim_id),
                 sweep_rows=sweep_rows,
                 drafts=drafts,
@@ -2746,7 +2781,7 @@ def write_campaign_products(
         super_files, super_entries, super_columns = write_superfiles(
             drafts,
             target=lambda path: _refuse_an_existing_product(
-                path, overwrite=overwrite, archive=archive
+                path, overwrite=overwrite, archive=archive, stamp=archive_stamp
             ),
         )
         written.extend(super_files)
@@ -2799,7 +2834,12 @@ def write_campaign_products(
     manifest["skipped"] = skipped
     # PFS-2012.08.01: one document per recorded run, whatever its status.
     manifest["provenance"] = _run_provenance(
-        workspace, records, out, overwrite=overwrite, archive=archive
+        workspace,
+        records,
+        out,
+        overwrite=overwrite,
+        archive=archive,
+        archive_stamp=archive_stamp,
     )
     if written or skipped or records:
         out.mkdir(parents=True, exist_ok=True)

@@ -286,6 +286,15 @@ def _take(row: dict[str, str], key: str, value: object, *, fixed: bool = False) 
 #: `test_every_record_scalar_is_carried_or_excluded_on_purpose` then refuses
 #: it unless the exclusion is written down beside it.
 RECORD_SCALARS = (
+    # FR-98, 0.17.0. The wall clock the ROW stated and the margin the SETUP
+    # left for the exports, as THIS RUN used them. Both are facts about the
+    # simulation and both are carried, even though the matrix block beside
+    # them also writes a WALLTIME cell: the cell is what the workspace
+    # intends next and these are what the run was given, and PFS-2038.02 is
+    # the whole lesson about telling those two apart. Empty on every run
+    # that states no clock.
+    "walltime_s",
+    "walltime_margin_s",
     "flight_condition_defaults_from",
     "velocity_requested_m_s",
     "density_kg_m3",

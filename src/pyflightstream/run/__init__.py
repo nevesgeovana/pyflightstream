@@ -103,6 +103,7 @@ from pyflightstream.cases.workflows import (
     WorkflowConventions,
     build_steady_sweep,
     reduction_windows,
+    row_ncpus,
     row_walltime_s,
     unsteady_export_threshold,
     walltime_clock_program,
@@ -157,6 +158,9 @@ __all__ = [
     "ExecutorRecord",
     "LoadsAssessor",
     "LocalExecutor",
+    "SubmittingExecutor",
+    "on_a_cluster",
+    "render_descriptor",
     "OutcomeAssessor",
     "PlanStatus",
     "PointPlan",
@@ -533,7 +537,7 @@ def describe_invocation(
     return f"{record['class_name']}, {flags} (as run; {citation})"
 
 
-#: FR-99, GOAL-019 item 8. Whether THIS machine is the cluster.
+#: FR-99. Whether THIS machine is the cluster.
 #:
 #: The predecessor asks exactly this and nothing else, and no cell of any
 #: matrix has ever selected the cluster. Reading the platform rather than a
@@ -606,6 +610,45 @@ def render_descriptor(profile, values: Mapping[str, object]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _bind_submission_values(executor, case, point_case) -> None:
+    """Give a submitting executor the values THIS point's descriptor needs.
+
+    A descriptor names the simulation, the build, the wall clock and the
+    processor count, and every one of those is the ROW's. The executor is
+    built once for the campaign, so the per-point half arrives here.
+
+    A LOCAL EXECUTOR IS HANDED NOTHING. The test is for the method rather
+    than for the class, so an executor a caller supplied is served if it
+    can be and left alone if it cannot.
+    """
+    bind = getattr(executor, "bind_point", None)
+    if bind is None:
+        return
+    walltime = row_walltime_s(point_case)
+    bind(
+        {
+            "sim": case.sim_id,
+            "point": point_tag(point_case.point) if point_case.point else case.sim_id,
+            "fs_build": case.fs_build or "",
+            "ncpus": row_ncpus(point_case, None) or "",
+            "walltime": int(walltime) if walltime is not None else "",
+        }
+    )
+
+
+def _submission_record(executor) -> dict | None:
+    """Return what a submitting executor left behind, or None for a local run."""
+    descriptor = getattr(executor, "descriptor_path", None)
+    if descriptor is None:
+        return None
+    return {
+        "descriptor": Path(descriptor).as_posix(),
+        "profile": Path(getattr(executor.profile, "path", "")).as_posix(),
+        "application_id": getattr(executor.profile, "application_id", None),
+        "submitted": bool(getattr(executor, "submit", False)),
+    }
+
+
 class SubmittingExecutor:
     """Hands a script to a scheduler and does NOT wait for it (FR-15, FR-99).
 
@@ -629,6 +672,16 @@ class SubmittingExecutor:
         #: how a submitted point is found again when the scheduler returns
         #: no handle of its own.
         self.descriptor_path: Path | None = None
+
+    def bind_point(self, values: Mapping[str, object]) -> None:
+        """Merge THIS point's values into the ones every point shares.
+
+        One executor serves a whole campaign and a descriptor names one
+        point, so the campaign's values are set once at construction and
+        the row's arrive per point. The run stage calls this; a caller
+        driving the executor directly may call it too.
+        """
+        self.values.update(values)
 
     def run_script(
         self, script_path: Path, working_dir: Path, timeout_s: float | None = None
@@ -2068,6 +2121,15 @@ def _check_scheduled_builds(
         groups[key][2].append(case.sim_id)
     failures: list[str] = []
     for key, (case_executor, case_version, sims) in groups.items():
+        # FR-99. A SUBMITTING EXECUTOR HAS NO SOLVER TO ASK. The identity
+        # check runs a small script and reads the build back, which is a
+        # question about the executable ON THIS MACHINE; a cluster's solver
+        # is on the cluster, and asking would submit a probe job to a queue
+        # to answer a question the descriptor already states. The build a
+        # submitted job runs on is the one the descriptor names, and that
+        # is checked when the outputs come back.
+        if getattr(case_executor, "descriptor_path", "missing") != "missing":
+            continue
         workdir = Path(tempfile.mkdtemp(prefix="pyfs-preflight-"))
         try:
             check_solver_identity(case_executor, resolve(case_version), workdir)
@@ -2442,7 +2504,7 @@ def run_campaign(
         recipe, preparation_error, inputs_sha256, staged_geometry = _prepare_case(
             campaign, case, workspace, recipes
         )
-        # FR-95, GOAL-019 item 3: A STEADY ROW IS ONE JOB. Every point of it
+        # FR-95: A STEADY ROW IS ONE JOB. Every point of it
         # goes through one script and one process, because that is what warm
         # start IS: point two begins from point one's converged solution
         # because nothing cleared it. The unsteady run types keep the point
@@ -3285,13 +3347,19 @@ class CampaignPlan:
         return "\n".join(lines)
 
 
-#: FR-97, her instruction of 2026-09-12: `plan` is mandatory and `run` does
+#: FR-97: `plan` is mandatory and `run` does
 #: not release without one. The plan is the receipt AND the confirmation.
+#: WHAT PLAN ACTUALLY DOES, and it named two things it does not until
+#: 2026-09-13: an archive preview and a confirmation. This is the one piece
+#: of prose that has to be exactly right, because the user is stopped and
+#: reading it, and a refusal that describes a tool by something other than
+#: what it does teaches them not to trust the next one (the interface lens).
 PLAN_REQUIRED_MESSAGE = (
     "no plan for this matrix, and since v0.17.0 a run needs one. Run "
-    "`pyfs-matrix plan <matrix>` first: it tells you what the run will cost, "
-    "which products it will archive and which points are already recorded, "
-    "and it writes the receipt this refusal is asking for."
+    "`pyfs-matrix plan <matrix>` first: it pre-flights every point without "
+    "spending any solver time, reports which are blocked and which are already "
+    "recorded, and writes the receipt this refusal is asking for. Add --cost for "
+    "what the run is expected to cost."
 )
 
 
@@ -3461,7 +3529,7 @@ def plan_campaign(
             "package_version": pyflightstream.__version__,
             "build_groups": groups,
             "points": [{**asdict(entry), "status": str(entry.status)} for entry in points],
-            # FR-97, GOAL-019 item 6: WHICH MATRIX THIS PLAN MEASURED. A
+            # FR-97: WHICH MATRIX THIS PLAN MEASURED. A
             # mandatory plan that does not say is satisfied by a stale one,
             # and then "plan, edit the matrix, run" passes a gate that read
             # a different study. None when the campaign was authored in
@@ -3815,6 +3883,40 @@ def _say(message: str, *, quiet: bool = False) -> None:
 #: and it reads correctly, naming a sweep rather than a point.
 JOB_TAG = "sweep"
 
+#: FR-95. How bad a point's outcome is, worst LAST, for folding the points
+#: of one job into the job's own status.
+#:
+#: IT IS A STATED ORDER AND NOT A PREFERENCE ABOUT WORDS. A job's headline
+#: is what a reader triages by, so it has to name the most serious thing
+#: that happened rather than the most recent. The order is: converged, then
+#: the two that produced numbers and did not reach the answer, then the
+#: four failures with the ones that produced nothing usable last. A status
+#: missing from this tuple sorts as worse than everything in it, which is
+#: the safe direction: a state nobody has classified is not quietly the
+#: best one.
+_STATUS_SEVERITY: tuple[RunStatus, ...] = (
+    RunStatus.CONVERGED,
+    RunStatus.SUBMITTED,
+    RunStatus.COMPLETED_MAX_ITER,
+    RunStatus.WALLTIME_REACHED,
+    RunStatus.FAILED_SCRIPT,
+    RunStatus.FAILED_EXECUTION,
+    RunStatus.FAILED_INCOMPLETE_OUTPUT,
+    RunStatus.FAILED_DIVERGED,
+)
+
+
+def _worse_of(left: RunStatus, right: RunStatus) -> RunStatus:
+    """Return the more serious of two point outcomes, by :data:`_STATUS_SEVERITY`."""
+
+    def rank(status: RunStatus) -> int:
+        try:
+            return _STATUS_SEVERITY.index(status)
+        except ValueError:
+            return len(_STATUS_SEVERITY)
+
+    return right if rank(right) > rank(left) else left
+
 
 def _job_run_id(campaign: Campaign, case: SimCase) -> str:
     """Return the run id of a JOB, which no one point's tag may end.
@@ -3895,8 +3997,8 @@ def _execute_sweep(
 ) -> RunRecord:
     """Take every point of a steady row through ONE process to ONE record.
 
-    FR-95, her convention of 2026-09-12. The shape is the predecessor's own
-    steady recipe (GEO-043, finding 1) and the reason it is one record is
+    FR-95. The shape is the predecessor's own
+    steady recipe and the reason it is one record is
     that it is one process: the wall time in this record is a measurement
     rather than a share of one, and a job is what a cluster queues.
 
@@ -4016,6 +4118,11 @@ def _execute_sweep(
     base["script_sha256"] = script_sha
     base["raw_flag"] = script.raw_flag
 
+    # FR-99. THE JOB'S values, not a point's: a steady row is ONE job, so
+    # the descriptor names the sweep and carries the row's clock and
+    # processor count. `_bind_submission_values` reads them off the case
+    # and a local executor has no such method and is handed nothing.
+    _bind_submission_values(executor, case, point_cases[0][2])
     result = executor.run_script(script_path, working_dir=sim_dir, timeout_s=case.solver.timeout_s)
     base["argv"] = list(result.argv)
     base["cwd"] = result.cwd
@@ -4029,6 +4136,23 @@ def _execute_sweep(
             status=RunStatus.FAILED_EXECUTION,
             wall_time_s=result.wall_time_s,
             error=result.diagnosis(),
+        )
+    # FR-99. A SUBMITTED JOB HAS NO OUTPUTS YET. The scheduler has taken
+    # the whole sweep and no point of it has run, so every point is
+    # pending: the record says SUBMITTED, names where the job went, and
+    # carries the points it will run rather than points it ran.
+    submitted = _submission_record(executor)
+    if submitted is not None:
+        return RunRecord(
+            **base,
+            status=RunStatus.SUBMITTED,
+            wall_time_s=None,
+            outputs=[],
+            submission=submitted,
+            points_ran=[
+                {"tag": tag, "point": dict(point), "status": str(RunStatus.SUBMITTED)}
+                for point, tag, _ in point_cases
+            ],
         )
     base["wall_time_s"] = result.wall_time_s
 
@@ -4092,10 +4216,15 @@ def _execute_sweep(
             }
         )
         if str(assessment.status).startswith("FAILED"):
-            worst = assessment.status
             error_lines.append(f"{tag}: {assessment.error or assessment.status}")
-        elif worst is RunStatus.CONVERGED and assessment.status is not RunStatus.CONVERGED:
-            worst = assessment.status
+        # THE WORST, BY A STATED ORDER, and it was the LAST failing point
+        # until 2026-09-13: each failure simply overwrote the variable, so
+        # a sweep whose first point DIVERGED and whose third left an
+        # incomplete output recorded the third, and a reader triaging by
+        # status was pointed at the wrong point (the QA lens). `points_ran`
+        # carried each point's own status either way, so nothing was lost;
+        # what was wrong was the job's headline.
+        worst = _worse_of(worst, assessment.status)
     base["points_ran"] = ran
     return RunRecord(
         **base,
@@ -4362,7 +4491,7 @@ def _execute_point(
         }
         if threshold.step_deg is not None:
             base["export_window"]["step_deg"] = threshold.step_deg
-    # FR-98, GOAL-019 item 7. THE CLOCK PAIR, written the same way and for
+    # FR-98. THE CLOCK PAIR, written the same way and for
     # the same reason: the program is rendered with this row's deadline so
     # the emitted file states the number the run will use, and the script
     # is parked EMPTY so the solver finds a file with no command in it
@@ -4423,6 +4552,11 @@ def _execute_point(
             ),
         )
 
+    # FR-99. WHAT THIS POINT IS, for the scheduler's descriptor, and it is
+    # bound per point because a descriptor names the simulation, its wall
+    # clock and its processor count, and those are the row's. A local
+    # executor has no such method and is handed nothing.
+    _bind_submission_values(executor, case, point_case)
     result = executor.run_script(script_path, working_dir=sim_dir, timeout_s=case.solver.timeout_s)
     # PYFS-015. The invocation is the half of a run that lived only in the
     # executor's code: which flags, which directory, which effective
@@ -4460,6 +4594,23 @@ def _execute_point(
             status=RunStatus.FAILED_EXECUTION,
             wall_time_s=result.wall_time_s,
             error=error,
+        )
+
+    # FR-99. A SUBMITTED POINT HAS NO OUTPUTS YET, so nothing below runs.
+    # The scheduler has taken the job and the solver has not started; a
+    # collection here would find nothing and call it an incomplete output,
+    # and an assessment would read a log that does not exist. The record
+    # says SUBMITTED, which is the eighth status and is not a failure, and
+    # it carries the descriptor the scheduler was handed so the job can be
+    # found again.
+    submitted = _submission_record(executor)
+    if submitted is not None:
+        return RunRecord(
+            **base,
+            status=RunStatus.SUBMITTED,
+            wall_time_s=None,
+            outputs=[],
+            submission=submitted,
         )
 
     try:

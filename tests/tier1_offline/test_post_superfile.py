@@ -257,6 +257,13 @@ def _workspace(tmp_path: Path):
             mach=0.1441,
             reference={"SREF": 50.0, "CREF": 2.526, "BREF": 20.0},
             motions=[{"MOVING_BC_ALIAS": "PUSHER"}],
+            # FR-98, 0.17.0: the rotor row is the one that states a wall
+            # clock, as the row of pfs0170 it is modelled on does. Without
+            # it the record's two clock fields are None and the union
+            # cannot see them, so nothing would require the superfile to
+            # carry a number it is supposed to carry.
+            walltime_s=3600.0,
+            walltime_margin_s=1200.0,
             reductions=_ROTOR_PLAN,
             solver_setup=_SOLVER_SETUP,
         )
@@ -533,6 +540,12 @@ def test_every_record_scalar_is_carried_or_excluded_on_purpose(tmp_path):
         # go and open something, which is the one thing the superfile
         # exists so that they never have to do.
         "probe_points_file",
+        # FR-99, 0.17.0. WHERE a submitted job went: the descriptor the
+        # scheduler was handed, the profile that rendered it, and whether
+        # the submit command ran. Every one of those is about HOW this
+        # point was launched and not about the simulation, which is the
+        # same reason `executor` and `argv` are here.
+        "submission",
     }
     carried_by_the_campaign_sweep_table = {
         # FR-95, 0.17.0, and both for the same reason: a job's identity is

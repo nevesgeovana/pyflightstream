@@ -7,13 +7,37 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Changed
+
+- **Twelve deprecations fell due at 0.17.0 and every one of them moves to
+  0.18.0, on a re-count.** They are the two setup preset tables, `[aliases]`
+  and `[[frames]]`, and the ten flat row spellings the rotor work of 0.15.0
+  replaced with `MOTIONS` records and a reference's rotor block:
+  `MOVING_BOUNDARIES`, `ROTOR_AXIS`, `ROTOR_ORIGIN`, `RPM_SIGN`, `BLADES`,
+  the flat-row `CLOCK_MOTION`, `ROTATE`'s families selector, and the
+  `airframe`, `blades` and `each_blade` selectors of a families cell.
+  THE COUNT IS WHY, measured on 2026-09-13 over every committed matrix,
+  reference, setup and post-processing artifact in this repository and in the
+  recorded workspaces beside it: **39 files still state one of them**, 54
+  occurrences of `MOVING_BOUNDARIES`, 53 of `ROTOR_AXIS`, 52 of `RPM_SIGN`,
+  22 `[aliases]` tables and 8 `[[frames]]`. Eight of those files are recorded
+  campaigns, which a run cannot regenerate, and the rest are the tier-3
+  fixtures that reproduce them. Removing the readers would orphan all of it.
+  WHAT A READER SHOULD DO NOW: write the `MOTIONS` record form and put the
+  aliases and frames on the reference artifact. Nothing this package writes
+  has emitted any of the twelve since 0.15.0, and the deprecation warning
+  names the remedy for each.
+  THE HONEST RESIDUAL, the same one the `broken_commands` row carries: the
+  exit is a measurement and no mechanism takes it. What is mechanised is the
+  DATE, and the deadline test goes red at 0.18.0 whatever the count is.
+
 ### Owed
 
 - **The Zenodo archive of v0.14.0 did not exist when it was last measured**,
   against Zenodo's own API on 2026-09-10, and it has NOT been re-checked
   since; the date is carried because this is a claim about an external
   service and a reader needs to know what to re-run.
-  Until each row lands this section says so, because a shipped release that
+  Until that row lands this section says so, because a shipped release that
   quietly stops being citable is the gap PFS-2024.09 is about. Cite that
   release by the concept DOI, which resolves to the newest archived version.
 
@@ -50,18 +74,41 @@ FlightStream versions.
   takes positions (3) and (4) behind it, because the solver runs actions in
   creation order.
   A run the clock stopped is recorded `WALLTIME_REACHED`, which is not a
-  failure: the numbers up to that step are real. `RESTART` continues it,
-  spelled `{FINISH_PENDING}`, `{ADDITIONAL_ITERS=<n>}` or
-  `{ADDITIONAL_REVS=<n>}`.
+  failure: the numbers up to that step are real, and the record says where it
+  stopped and what clock and margin it was given.
+  WHAT IS NOT MEASURED, and it is named here rather than left in one source
+  comment: whether the stop verb inside an action's script ends the RUN or only
+  that script. The command database records it verified on 26.120 to 26.123
+  with the manual's own note that it halts SCRIPT PROCESSING at that location,
+  which is the ambiguity and not its resolution. Settling it needs a licensed
+  probe that moves one thing, and the verb is kept to one substitutable line to
+  make that probe cheap. The exports are written either way; what is unproved
+  is whether the solver then stops or runs on to its own end.
+  `RESTART` is the continuation, spelled `{FINISH_PENDING}`,
+  `{ADDITIONAL_ITERS=<n>}` or `{ADDITIONAL_REVS=<n>}`. THIS RELEASE PARSES IT
+  AND REFUSES TO RUN IT, naming 0.18.0: the arithmetic exists, no builder
+  shortens a march, and a row stating it is refused at plan rather than
+  accepted and silently re-run from step one.
 
-- **Linux is the cluster, and no cell says so.** The package reads the
-  platform, resolves the profile in `inputs/hpc/h<>.toml`, writes the
-  scheduler's descriptor and submits without waiting; the record is
-  `SUBMITTED` and a collect stage completes it. The setup artifact stays
+- **Linux is the cluster, and no cell says so.** The run path reads the
+  platform: on Linux with a profile in `inputs/hpc/h<>.toml` it renders that
+  cluster's descriptor, hands the job to the scheduler and returns without
+  waiting, and the record is `SUBMITTED`. The setup artifact stays
   multiplatform and states nothing about a cluster, and the same matrix,
   unchanged in every cell, runs locally on Windows and submits on Linux.
   A workspace carrying several profiles and nothing to choose between them is
-  REFUSED rather than guessed, because guessing spends a queue.
+  REFUSED rather than guessed, because guessing spends a queue. A Linux
+  machine with NO profile runs locally, deliberately: not every Linux box is a
+  cluster, and a study that wrote no profile is saying it does not submit.
+  A submitted point is not assessed and carries no outputs, because it has
+  none yet; the record names the descriptor, the profile and whether the
+  submit command ran, which is the only thing that says where the job went.
+  The local solver-identity pre-flight is skipped on a cluster: asking would
+  submit a probe job to a queue to answer a question the descriptor states.
+  **WHAT THIS RELEASE DOES NOT DO: collect a submitted job's outputs when they
+  land.** There is no collect stage, so a `SUBMITTED` record is completed by
+  hand until 0.18.0. It is said here and in FR-99 rather than only in a
+  release note, because a reader of the requirement owes the same warning.
 
 ### Changed
 

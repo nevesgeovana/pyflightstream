@@ -356,13 +356,18 @@ def _cmd_cost(args: argparse.Namespace) -> int:
         f"recorded and carries no wall time, {NOT_RUN} = that point never ran on that "
         "build. Both are read as absent, never as zero."
     )
-    failed = sum(
-        view.cell(point, build).failed_count for point in view.points for build in view.builds
+    excluded = sum(
+        view.cell(point, build).excluded_count for point in view.points for build in view.builds
     )
-    if failed:
+    if excluded:
+        # NOT "ended in a FAILED status", which is what this said until
+        # 2026-09-13 while the set behind it had just gained two states
+        # that are not failures. A user whose points are in a queue was
+        # told they had failed.
         print(
-            f"{failed} of the recorded runs ended in a FAILED status; their time is "
-            "time to a failure, not time to an answer"
+            f"{excluded} of the recorded runs did not reach an answer: they failed, the "
+            "wall clock stopped them, or they are still queued. Their time is time to "
+            "that, not time to an answer"
         )
 
     if args.compare:

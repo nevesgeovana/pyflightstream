@@ -426,7 +426,8 @@ EXPORT_UNSTEADY_AFTER_ITER_VARIABLE = "EXPORT_UNSTEADY_AFTER_ITER"
 #: until this key existed no matrix cell could say so (PFS-2025.02.03).
 SYMMETRY_VARIABLE = "SYMMETRY"
 
-#: FR-92: the processor count, ONE number for every platform since
+#: FR-93, one of the six columns of 0.17.0: the processor count, ONE
+#: number for every platform since
 #: v0.17.0. It reaches ``SET_MAX_PARALLEL_THREADS`` as the solver's
 #: thread count AND, on a submitting run, the scheduler's ``ncpus``. It
 #: is one key because it is one number: while it lived in the setup as
@@ -435,7 +436,8 @@ SYMMETRY_VARIABLE = "SYMMETRY"
 #: eight with nothing noticing.
 NCPUS_VARIABLE = "NCPUS"
 
-#: FR-93: the wall clock a row asks for, in seconds. TWO consumers, which
+#: FR-93 as a column and FR-98 as a behaviour: the wall clock a row asks
+#: for, in seconds. TWO consumers, which
 #: is what earns it a column rather than a place in an HPC profile: on a
 #: cluster it is what the job asks the scheduler for, and anywhere at all
 #: it is what the watchdog counts down to on an unsteady row.
@@ -450,9 +452,9 @@ CONFIGURATION_VARIABLE = "CONFIGURATION"
 #: FR-95: a steady row starts each point from the previous point's
 #: converged solution unless it says otherwise. WARM IS THE DEFAULT and
 #: this key is the opt-out, which follows the evidence rather than the
-#: safer-looking choice: the predecessor's steady recipe never cleared
-#: the solver between points and had no switch to, so warm is what every
-#: steady polar of this study has always done. A default of cold would
+#: safer-looking choice: the predecessor toolchain's steady recipe never cleared
+#: the solver between points and had no switch to, so warm is what a steady
+#: polar has always done. A default of cold would
 #: have been a change of behaviour wearing the clothes of a safe default.
 COLD_START_VARIABLE = "COLD_START"
 
@@ -3990,7 +3992,7 @@ def _settings(
         vorticity_drag_boundaries=_vorticity_indices(case, script),
         iterations=solver.iterations,
         convergence=solver.convergence,
-        max_threads=_row_ncpus(case, solver.max_threads),
+        max_threads=row_ncpus(case, solver.max_threads),
         ref_area=None if reference is None else reference.area,
         ref_length=None if reference is None else reference.length,
         forced_iterations=solver.forced_iterations,
@@ -4016,10 +4018,10 @@ def _settings(
         helpers.analysis_setup(script, symmetry_loads=symmetry_loads)
 
 
-def _row_ncpus(case: SimCase, from_setup: int | None) -> int | None:
+def row_ncpus(case: SimCase, from_setup: int | None) -> int | None:
     """Resolve the processor count: the ROW's, since v0.17.0 (FR-92).
 
-    ONE NUMBER FOR EVERY PLATFORM, her decision of 2026-09-12. It reaches
+    ONE NUMBER FOR EVERY PLATFORM. It reaches
     ``SET_MAX_PARALLEL_THREADS`` as the solver's thread count and, on a
     submitting run, the scheduler's ``ncpus``. They cannot disagree
     because there is only one of them.
@@ -6309,8 +6311,8 @@ def build_steady_sweep(
 ) -> None:
     """Build ONE script for every point of a steady sweep.
 
-    FR-95, her convention of 2026-09-12: a steady row is one job. The
-    shape is the predecessor's own steady recipe (GEO-043, finding 1):
+    FR-95: a steady row is one job. The
+    shape is the predecessor toolchain's steady recipe:
     the geometry is opened once, the fluid and the solver are set once,
     the solver is initialised once, and then for each point the two
     angles are set, the solver is started and the outputs are exported.
@@ -6336,8 +6338,9 @@ def build_steady_sweep(
         The script every point is emitted into.
     cold : bool
         Emit a solver clear between points. False is warm, which is the
-        default and the behaviour every steady polar of this study has
-        always had.
+        default: a steady sweep begins each point from the previous one's
+        converged solution, so the panelling and the wake survive and the
+        sweep costs one setup rather than one per point.
     """
     if not point_cases:
         raise CampaignConfigError(
@@ -6632,7 +6635,7 @@ UNSTEADY_ACTION_PROGRAM = "actions/pfs_unsteady_actions.py"
 UNSTEADY_ACTION_SCRIPT = "actions/pfs_unsteady_exports.txt"
 UNSTEADY_ACTION_COUNT = "actions/pfs_unsteady_actions.count"
 
-#: FR-98, GOAL-019 item 7. THE CLOCK PAIR, and it is the SAME SHAPE as the
+#: FR-98. THE CLOCK PAIR, and it is the SAME SHAPE as the
 #: counter pair above because it has the same problem: a python that can
 #: compute cannot also be the command list the solver runs, so one writes
 #: and one is read.
@@ -6660,7 +6663,7 @@ WALLTIME_CLOCK_STATE = "actions/pfs_walltime_clock.json"
 WALLTIME_STOP_VERB = "STOP"
 
 #: How long before the wall clock the watchdog fires, when the setup states
-#: nothing. Twenty minutes, her number of 2026-09-12. It is a property of
+#: nothing. Twenty minutes, the release's number. It is a property of
 #: how you are willing to solve rather than of the row, which is why it
 #: lives in the SETUP and the clock itself lives in the matrix.
 WALLTIME_MARGIN_DEFAULT_S = 1200
@@ -6724,16 +6727,27 @@ class UnsteadyExportThreshold:
         }
 
 
-def _per_step_exports(conventions: WorkflowConventions, case: SimCase) -> str:
-    """Return the child script text: the per-step kinds of the row's outputs.
+def action_export_lines(conventions: WorkflowConventions, case: SimCase) -> list[str]:
+    """Return the export lines an ACTION writes: the update prelude, then the verbs.
 
-    The names are the row's rendered outputs, the same names the
-    end-of-run block exports, and the solver tells the two apart by the
-    ``_iteration=N`` it stamps on an action's export (RPT-041 finding 3).
-    The verbs are read off :data:`~pyflightstream.cases.EXPORT_KINDS` in
-    its order, and the three update commands precede the exports whenever
-    a section, sectional-loads or probe export is among them, which is the
-    rule :func:`_export_block` follows for the same reason: an export of
+    ONE IMPLEMENTATION FOR EVERY ACTION THAT EXPORTS, which is why this is
+    a function and not a loop inside one of them. Two actions export from
+    inside a run, the per-step counter and the wall clock's rescue, and
+    they have to write the same thing or the one that fires rarely is the
+    one that is wrong. It was: the rescue block was written as its own loop
+    and diverged on both halves at once (the V&V lens, 2026-09-13).
+
+    THE NAMES ARE CLAIMED BY `classify_outputs` and never by a bare
+    ``endswith``. That function exists for this: longest suffix first, so
+    ``_cp.txt`` is claimed by the sections kind before the loads kind can
+    see a ``.txt``. A loop that walks :data:`EXPORT_KINDS` in declaration
+    order and takes the first name ending with the suffix hands the
+    sections file to ``EXPORT_SOLVER_ANALYSIS_SPREADSHEET``: the wrong
+    content under the wrong name.
+
+    THE THREE UPDATE COMMANDS COME FIRST whenever a sections,
+    sectional-loads or probe export is among them, which is the rule
+    :func:`_export_block` follows for the same reason: an export of
     sections nobody updated is an export of the previous state.
     """
     names = list(conventions.outputs or case.outputs)
@@ -6749,7 +6763,17 @@ def _per_step_exports(conventions: WorkflowConventions, case: SimCase) -> str:
     for kind, _, verb, _ in EXPORT_KINDS:
         if kind in kinds:
             lines += [verb, kinds[kind]]
-    return "".join(f"{line}\n" for line in lines)
+    return lines
+
+
+def _per_step_exports(conventions: WorkflowConventions, case: SimCase) -> str:
+    """Return the child script text: the per-step kinds of the row's outputs.
+
+    The names are the row's rendered outputs, the same names the
+    end-of-run block exports, and the solver tells the two apart by the
+    ``_iteration=N`` it stamps on an action's export (RPT-041 finding 3).
+    """
+    return "".join(f"{line}\n" for line in action_export_lines(conventions, case))
 
 
 def _rotor_clock(case: SimCase) -> TimeStepping:
@@ -6883,7 +6907,7 @@ def unsteady_action_command_line(interpreter: str = sys.executable) -> str:
     return f'"{interpreter}" "{UNSTEADY_ACTION_PROGRAM}"'
 
 
-#: FR-96, GOAL-019 item 7. The three things a RESTART may ask for.
+#: FR-96. The three things a RESTART may ask for.
 #:
 #: ONE SEPARATOR, and her message spelled two: `ADDITIONAL_ITERS=<n>` with
 #: an equals and `ADDITIONAL_REVS:<n>` with a colon. The equals is taken
@@ -7160,6 +7184,49 @@ def walltime_clock_program(case: SimCase, conventions: WorkflowConventions) -> s
     )
 
 
+def _refuse_a_restart_that_nothing_runs(case: SimCase) -> None:
+    """Refuse a row that states RESTART, because 0.17.0 does not run one yet.
+
+    THE PARSER IS BUILT AND THE CONTINUATION IS NOT. `parse_restart` and
+    `restart_iterations` read the three forms and do the arithmetic, and
+    nothing on the run path calls them: no builder shortens a march and
+    nothing archives the outputs a continuation would replace.
+
+    SO THE ROW IS REFUSED BY NAME rather than accepted and ignored, which
+    is what it was until 2026-09-13. The key was registered, so a user who
+    reached a WALLTIME_REACHED record and wrote the continuation the
+    release told them to write had it validated, planned READY, and then
+    re-marched the whole time history from step one: a licensed seat spent
+    on a run that was supposed to add a hundred steps. All five review
+    lenses found it, and a refusal at PLAN spends nothing.
+
+    THE SPELLING IS STILL CHECKED FIRST, so a user who writes it wrongly
+    learns that too and does not have to discover the two refusals one
+    after the other.
+
+    A LEGACY ROW IS NOT TOUCHED, and two of the committed fixtures are:
+    they carry ``RESTART: DISABLE`` in their free cell, which is the
+    predecessor's own spelling passed through by the LEGACY recipe and not
+    a continuation at all. This is called from the three unsteady builders
+    alone, so those rows never reach it. The collision of one word over two
+    meanings is real and is left standing rather than renamed, because
+    renaming a key a recorded row already carries is the thing the upgrade
+    ladder exists to avoid.
+    """
+    request = parse_restart(case)
+    if request is None:
+        return
+    raise CampaignConfigError(
+        f"case {case.sim_id!r} states {RESTART_VARIABLE}: {{{request.form}"
+        + (f"={request.value:g}" if request.value is not None else "")
+        + "}, which this release reads and cannot yet run. 0.17.0 records a run the "
+        "wall clock stopped as WALLTIME_REACHED and states where it stopped; "
+        "CONTINUING one lands at 0.18.0, with the archive of the outputs it "
+        f"replaces. Remove the {RESTART_VARIABLE} key to run the row from the start, "
+        "which is what this release does with it."
+    )
+
+
 def walltime_stop_text(case: SimCase, conventions: WorkflowConventions) -> str:
     """Render what the clock writes into the stop script when it fires.
 
@@ -7172,13 +7239,17 @@ def walltime_stop_text(case: SimCase, conventions: WorkflowConventions) -> str:
         "# Written by the wall-clock action. The run reached its clock and",
         "# these are its outputs as they stand.",
     ]
-    for kind, suffix, verb, only_unsteady in EXPORT_KINDS:
-        del kind, only_unsteady
-        for name in conventions.outputs:
-            if name.endswith(suffix):
-                lines.append(verb)
-                lines.append(name)
-                break
+    # THE SAME LINES THE PER-STEP ACTION WRITES, from the same function.
+    # This was its own loop until 2026-09-13 and it had diverged twice
+    # over: it omitted the three update commands, so a rescued run's
+    # sections, sectional-loads and probe files carried the state BEFORE
+    # the stop rather than at it, silently, under a record saying the
+    # numbers up to that step are real; and it claimed names by a bare
+    # `endswith` in declaration order, so a row declaring a `_cp.txt`
+    # before a `.txt` got its sections file exported as the loads
+    # spreadsheet. These are the ONLY outputs a stopped run leaves, which
+    # is what makes a divergence here cost the whole run's evidence.
+    lines += action_export_lines(conventions, case)
     lines.append(WALLTIME_STOP_VERB)
     return "\n".join(lines) + "\n"
 
@@ -7284,6 +7355,7 @@ def _build_unsteady(case: SimCase, script: Script, conventions: WorkflowConventi
     # The wake termination in STEPS is the one this run type can state
     # (PFS-2030.03.04); the revolutions form was refused above.
     _settings(case, script, wake_termination_time_steps=case.solver.wake_termination_steps)
+    _refuse_a_restart_that_nothing_runs(case)
     _unsteady_actions(script, threshold, walltime=row_walltime_s(case) is not None)
     _script_tail(conventions, case, script, frame, unsteady=True, frames=frames)
 
@@ -7392,6 +7464,7 @@ def _build_unsteady_rotor(case: SimCase, script: Script, conventions: WorkflowCo
         delta_time=stepping.delta_time_s,
     )
     _settings(case, script, wake_termination_time_steps=_wake_termination(case, stepping))
+    _refuse_a_restart_that_nothing_runs(case)
     _unsteady_actions(script, threshold, walltime=row_walltime_s(case) is not None)
     _script_tail(conventions, case, script, frame, unsteady=True, frames=frames)
 
@@ -7609,6 +7682,7 @@ def _rotor_motions(
         delta_time=stepping.delta_time_s,
     )
     _settings(case, script, wake_termination_time_steps=_wake_termination(case, stepping))
+    _refuse_a_restart_that_nothing_runs(case)
     _unsteady_actions(script, threshold, walltime=row_walltime_s(case) is not None)
     _script_tail(conventions, case, script, frame, unsteady=True, frames=frames)
 

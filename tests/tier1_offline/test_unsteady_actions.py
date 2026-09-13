@@ -823,3 +823,113 @@ def test_goal019_watchdog_a_row_with_no_wall_clock_records_none(tmp_path):
     )
     assert records[0].walltime_s is None
     assert records[0].walltime_margin_s is None
+
+
+def _conventions_for(outputs):
+    """The rendered conventions of one unsteady point, with these output names."""
+    from pyflightstream.cases import SimCase, SweepAxis
+    from pyflightstream.run import workflow_conventions_for
+
+    case = SimCase(
+        sim_id="9001",
+        aircraft="TestWing",
+        velocity=30.0,
+        sweep=SweepAxis(type="alpha", values=[0.0]),
+        recipe="unsteady",
+        outputs=list(outputs),
+        point={"alpha": 0.0},
+        variables={
+            WORKFLOW_KEY: "unsteady",
+            "VELOCITY": "30.0",
+            "DELTA_TIME": "0.01",
+            "TIME_ITERATIONS": "4",
+        },
+    )
+    return case, workflow_conventions_for(case)
+
+
+def test_goal019_watchdog_the_rescue_exports_update_before_it_exports(tmp_path):
+    """The outputs a stopped run leaves are the ONLY outputs it leaves.
+
+    FOUND BY THE V&V LENS, 2026-09-13. This block was written as its own
+    loop and omitted the three update commands its two sibling emitters
+    both emit, so a rescued run's sections, sectional-loads and probe
+    files carried the state BEFORE the stop rather than at it, silently,
+    under a record saying the numbers up to that step are real. The
+    codebase states the reason two functions away: an export of sections
+    nobody updated is an export of the previous state.
+    """
+    from pyflightstream.cases.workflows import WALLTIME_STOP_VERB, walltime_stop_text
+
+    case, conventions = _conventions_for(
+        ["loads_{point}.txt", "loads_{point}_cp.txt", "loads_{point}_probes.txt"]
+    )
+    text = walltime_stop_text(case, conventions)
+    lines = [line for line in text.splitlines() if line and not line.startswith("#")]
+
+    for command in (
+        "UPDATE_ALL_SURFACE_SECTIONS",
+        "COMPUTE_SURFACE_SECTIONAL_LOADS NEWTONS",
+        "UPDATE_PROBE_POINTS",
+    ):
+        assert command in lines, f"the rescue exports without {command}: {lines}"
+        assert lines.index(command) < min(
+            index for index, line in enumerate(lines) if line.startswith("EXPORT_")
+        ), f"{command} comes after an export, so the export is of the previous state"
+    assert lines[-1] == WALLTIME_STOP_VERB, lines
+    assert lines.count(WALLTIME_STOP_VERB) == 1, lines
+
+
+def test_goal019_watchdog_the_rescue_claims_its_names_the_way_the_reader_does(tmp_path):
+    """A _cp.txt declared before a .txt is the sections file, not the loads file.
+
+    FOUND BY THE V&V LENS. The loop claimed names by a bare endswith in
+    EXPORT_KINDS declaration order, and loads carries `.txt` while
+    sections carries `_cp.txt`, so the longer suffix never got a chance:
+    the rescue emitted EXPORT_SOLVER_ANALYSIS_SPREADSHEET with the
+    sections file name. `classify_outputs` exists for exactly this and
+    says so in its own docstring.
+    """
+    from pyflightstream.cases.workflows import walltime_stop_text
+
+    case, conventions = _conventions_for(["loads_{point}_cp.txt", "loads_{point}.txt"])
+    lines = walltime_stop_text(case, conventions).splitlines()
+    pairs = {
+        lines[index]: lines[index + 1]
+        for index, line in enumerate(lines)
+        if line.startswith("EXPORT_") and index + 1 < len(lines)
+    }
+    spreadsheet = next((name for verb, name in pairs.items() if "SPREADSHEET" in verb), None)
+    assert spreadsheet is not None, pairs
+    assert not spreadsheet.endswith("_cp.txt"), (
+        f"the loads spreadsheet is being exported under {spreadsheet}, which is the "
+        "sections file: the wrong content under the wrong name, in the one export set "
+        "a stopped run gets"
+    )
+
+
+def test_goal019_watchdog_the_rescue_and_the_counter_export_the_same_lines(tmp_path):
+    """One implementation, measured rather than promised.
+
+    The two actions that export from inside a run must write the same
+    thing, or the one that fires rarely is the one that is wrong.
+    """
+    from pyflightstream.cases.workflows import (
+        WALLTIME_STOP_VERB,
+        _per_step_exports,
+        walltime_stop_text,
+    )
+
+    case, conventions = _conventions_for(
+        ["loads_{point}.txt", "loads_{point}_cp.txt", "loads_{point}_probes.txt"]
+    )
+    counter = [line for line in _per_step_exports(conventions, case).splitlines() if line]
+    rescue = [
+        line
+        for line in walltime_stop_text(case, conventions).splitlines()
+        if line and not line.startswith("#") and line != WALLTIME_STOP_VERB
+    ]
+    assert rescue == counter, (
+        "the rescue and the per-step action no longer write the same exports, which is "
+        "the divergence one function exists to make impossible"
+    )

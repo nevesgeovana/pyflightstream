@@ -2240,7 +2240,7 @@ def migrate_geometry_layout(inputs_dir: str | Path) -> GeometryMigration:
     return GeometryMigration(moved=tuple(moved), kept=kept)
 
 
-# --- FR-99, GOAL-019 item 8: the HPC profile ---------------------------------
+# --- FR-99: the HPC profile ---------------------------------
 
 #: Where a workspace keeps the profile of the cluster it may be opened on.
 HPC_DIR = "hpc"
@@ -2363,7 +2363,14 @@ def read_hpc_profile(path: str | Path) -> HpcProfile:
     return HpcProfile(
         application_id=str(table["application_id"]),
         descriptor_format=fmt,
-        descriptor_name=str(descriptor.get("name") or "submit.yaml"),
+        # THE DEFAULT FOLLOWS THE FORMAT, not the word yaml. A profile
+        # stating format = "json" and no name used to write JSON into a
+        # file called submit.yaml: two fields of one artifact, one
+        # silently overriding the other's meaning, and the person
+        # debugging a rejected submission opens the file and cannot tell
+        # which of the two is authoritative (the interface lens,
+        # 2026-09-13). An explicit `name` still wins.
+        descriptor_name=str(descriptor.get("name") or f"submit.{'txt' if fmt == 'text' else fmt}"),
         fields={str(k): str(v) for k, v in fields.items()},
         submit=tuple(str(part) for part in submit),
         defaults=dict(table.get("defaults") or {}),

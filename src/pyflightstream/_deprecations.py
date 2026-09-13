@@ -625,7 +625,7 @@ SETUP_ALIASES_TABLE = DeprecatedParameter(
     old="[aliases]",
     new="the same table in the reference artifact",
     deprecated_since="0.15.0",
-    removal_version="0.17.0",
+    removal_version="0.18.0",
     extra=_MOVED_TO_THE_REFERENCE,
 )
 SETUP_FRAMES_TABLE = DeprecatedParameter(
@@ -633,7 +633,7 @@ SETUP_FRAMES_TABLE = DeprecatedParameter(
     old="[[frames]]",
     new="the same table in the reference artifact",
     deprecated_since="0.15.0",
-    removal_version="0.17.0",
+    removal_version="0.18.0",
     extra=_MOVED_TO_THE_REFERENCE,
 )
 #: THE FIVE ROW KEYS AN ALIAS REPLACES (FR-61). The reference states each
@@ -647,7 +647,7 @@ ROW_MOVING_BOUNDARIES = DeprecatedParameter(
     old="MOVING_BOUNDARIES",
     new="MOVING_BC_ALIAS",
     deprecated_since="0.15.0",
-    removal_version="0.17.0",
+    removal_version="0.18.0",
     extra=_STATED_IN_THE_BLOCK,
 )
 ROW_ROTOR_AXIS = DeprecatedParameter(
@@ -655,7 +655,7 @@ ROW_ROTOR_AXIS = DeprecatedParameter(
     old="ROTOR_AXIS",
     new="the axis of the rotor the record names",
     deprecated_since="0.15.0",
-    removal_version="0.17.0",
+    removal_version="0.18.0",
     extra=_STATED_IN_THE_BLOCK,
 )
 ROW_ROTOR_ORIGIN = DeprecatedParameter(
@@ -663,7 +663,7 @@ ROW_ROTOR_ORIGIN = DeprecatedParameter(
     old="ROTOR_ORIGIN",
     new="the hub of the rotor the record names",
     deprecated_since="0.15.0",
-    removal_version="0.17.0",
+    removal_version="0.18.0",
     extra=_STATED_IN_THE_BLOCK,
 )
 ROW_RPM_SIGN = DeprecatedParameter(
@@ -671,7 +671,7 @@ ROW_RPM_SIGN = DeprecatedParameter(
     old="RPM_SIGN",
     new="the rpm_sign of the rotor the record names",
     deprecated_since="0.15.0",
-    removal_version="0.17.0",
+    removal_version="0.18.0",
     extra=_STATED_IN_THE_BLOCK,
 )
 ROW_BLADES = DeprecatedParameter(
@@ -679,7 +679,7 @@ ROW_BLADES = DeprecatedParameter(
     old="BLADES",
     new="the length of that rotor's families_blades",
     deprecated_since="0.15.0",
-    removal_version="0.17.0",
+    removal_version="0.18.0",
     extra=(
         "The reference states the blade FAMILIES and the count is how many "
         "there are, so a sector mesh carrying one blade of four still "
@@ -699,7 +699,7 @@ ROW_CLOCK_MOTION_ON_A_FLAT_ROW = DeprecatedParameter(
     old="no CLOCK_MOTION, the clock following the fastest rotor",
     new="CLOCK_MOTION naming the motion that owns the clock",
     deprecated_since="0.15.0",
-    removal_version="0.17.0",
+    removal_version="0.18.0",
     extra=(
         "A row stating a MOTIONS list is refused without the key since "
         "0.15.0. The flat form has nothing to choose between and is exempt "
@@ -712,7 +712,7 @@ ROW_ROTATE_FAMILIES = DeprecatedParameter(
     old="FAMILIES",
     new="ALIAS",
     deprecated_since="0.15.0",
-    removal_version="0.17.0",
+    removal_version="0.18.0",
     extra=(
         "A rotation and a motion cite a set the same way since 0.15.0, so "
         "the reference is the one place a study says what its groups are. "
@@ -725,7 +725,7 @@ ROW_EACH_BLADE = DeprecatedParameter(
     old="families = 'each_blade'",
     new="frame = 'LOCAL_AXIS'",
     deprecated_since="0.15.0",
-    removal_version="0.17.0",
+    removal_version="0.18.0",
     extra=(
         "The FRAME decides how an entry expands since 0.15.0, and a blade's "
         "own axes are one per blade, so the selector that said so is a "
@@ -737,7 +737,7 @@ ROW_AIRFRAME_SELECTOR = DeprecatedParameter(
     old="families = 'airframe'",
     new="an alias the reference declares, for example airframe = [...]",
     deprecated_since="0.15.0",
-    removal_version="0.17.0",
+    removal_version="0.18.0",
     extra=(
         "The selector decides what is NOT a blade from a pattern over the "
         "family name, so a mesh whose blades are spelled another way gets "
@@ -750,7 +750,7 @@ ROW_BLADES_SELECTOR = DeprecatedParameter(
     old="families = 'blades'",
     new="the rotor's own alias, or an alias the reference declares",
     deprecated_since="0.15.0",
-    removal_version="0.17.0",
+    removal_version="0.18.0",
     extra=(
         "Same pattern, same guess, and since 0.15.0 there is a better "
         "answer for a rotor: its block lists families_blades, so naming the "

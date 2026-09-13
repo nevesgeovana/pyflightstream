@@ -40,11 +40,42 @@ from pyflightstream.run import (
     LocalExecutor,
     OutcomeAssessor,
     SolverBuild,
+    SubmittingExecutor,
+    on_a_cluster,
     plan_campaign,
     run_campaign,
 )
 from pyflightstream.workspace import CampaignWorkspace, RunRecord
+from pyflightstream.workspace.inputs import resolve_hpc_profile
 from pyflightstream.workspace.matrix import ResolvedMatrix, resolve_matrix
+
+
+def _cluster_executor(
+    workspace: CampaignWorkspace, resolved: ResolvedMatrix
+) -> SubmittingExecutor | None:
+    """Return this machine's submitting executor, or None to run locally (FR-99).
+
+    THREE THINGS HAVE TO HOLD and each is measured rather than assumed:
+    this machine is a cluster, the workspace carries a profile, and the
+    profile resolves to exactly one. A workspace carrying several and
+    nothing to choose between them is REFUSED by `resolve_hpc_profile`
+    rather than guessed, because guessing spends a queue.
+
+    A LINUX MACHINE WITH NO PROFILE RUNS LOCALLY, deliberately. Not every
+    Linux box is a cluster, and a study that never wrote a profile is
+    saying it does not submit; refusing there would break every developer
+    running the tier-1 suite on Linux.
+    """
+    if not on_a_cluster():
+        return None
+    profile = resolve_hpc_profile(workspace.inputs_dir)
+    if profile is None:
+        return None
+    return SubmittingExecutor(
+        profile,
+        values={"fs_build": resolved.campaign.fs_version or ""},
+    )
+
 
 __all__ = [
     "plan_matrix",
@@ -562,7 +593,7 @@ def run_matrix(
         fs_exe=fs_exe,
         ignore_missing_families=ignore_missing_families,
     )
-    # FR-97, GOAL-019 item 6. THE GATE IS ON THE COMMAND, not here. Her
+    # FR-97. THE GATE IS ON THE COMMAND, not here. Her
     # words are "o comando run", and that is the right layer: this
     # function is the library entry a caller composes, and a caller that
     # composed plan and run into one call would be made to write a file
@@ -597,7 +628,21 @@ def run_matrix(
         if hidden is None:
             rows = read_matrix(path)
             hidden = all(row.hidden for row in rows) if rows else True
-        executor = LocalExecutor(resolved.fs_exe, hidden=hidden)
+        # FR-99: THE CODE SEES LINUX AND THAT
+        # IS THE CLUSTER. No cell selects it, so the same matrix, unchanged
+        # in every cell, runs locally on Windows and submits on Linux.
+        #
+        # THIS BRANCH IS THE WHOLE WIRING, and without it every name the
+        # release added was dead code: `on_a_cluster`, the profile reader
+        # and the submitting executor existed, the CHANGELOG announced
+        # them in the present tense, and `run_campaign` built a
+        # LocalExecutor unconditionally, so opening the study on a cluster
+        # ran it locally on the login node -- the exact failure
+        # `on_a_cluster`'s own comment says it exists to prevent. All five
+        # lenses found it independently (2026-09-13).
+        executor = _cluster_executor(workspace, resolved) or LocalExecutor(
+            resolved.fs_exe, hidden=hidden
+        )
     windowless = bool(hidden)
 
     def executor_for(exe: Path) -> Executor:

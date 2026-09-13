@@ -315,7 +315,7 @@ class RunStatus(enum.StrEnum):
     FAILED_SCRIPT = "FAILED_SCRIPT"
     FAILED_INCOMPLETE_OUTPUT = "FAILED_INCOMPLETE_OUTPUT"
     FAILED_DIVERGED = "FAILED_DIVERGED"
-    #: FR-98, GOAL-019 item 7: the run reached its WALLTIME and the watchdog
+    #: FR-98: the run reached its WALLTIME and the watchdog
     #: stopped it with its outputs written. NOT A FAILURE, and the whole
     #: point of the value: the numbers up to that step are real and the user
     #: judges whether to continue. Its sibling is COMPLETED_MAX_ITER, which
@@ -324,7 +324,7 @@ class RunStatus(enum.StrEnum):
     #: A record in this state carries `stopped_at`, without which
     #: `RESTART: {FINISH_PENDING}` has nothing to subtract from.
     WALLTIME_REACHED = "WALLTIME_REACHED"
-    #: FR-99, GOAL-019 item 8: the point was handed to a scheduler and has
+    #: FR-99: the point was handed to a scheduler and has
     #: not come back. NOT A FAILURE EITHER, and it cannot be folded into an
     #: existing value: a submitted point is not converged, not failed and
     #: not blocked, and calling it any of those makes a sweep report a
@@ -766,7 +766,16 @@ class RunRecord(BaseModel):
     #: WALLTIME died at the manifest with the solver's work already done.
     walltime_s: float | None = None
     walltime_margin_s: float | None = None
-    #: FR-95, GOAL-019 item 4: the JOB this record is. One steady row is one
+    #: FR-99: what a SUBMITTED point was handed to, and where. The
+    #: descriptor the scheduler was given, the profile that rendered it,
+    #: the application id inside it, and whether the submit command was
+    #: actually run. None on every run this machine executed itself.
+    #:
+    #: A SUBMITTED record has no outputs and no wall time of its own, so
+    #: this is the only thing that says where the job went; without it a
+    #: queued point is a record that says nothing a user can act on.
+    submission: dict | None = None
+    #: FR-95: the JOB this record is. One steady row is one
     #: job for all its points since 0.17.0, so a record is a job and not a
     #: point, and this is what a submitted job is asked after by. None on a
     #: record written before 0.17.0 and on any record whose job is one point,

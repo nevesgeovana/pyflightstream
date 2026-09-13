@@ -47,9 +47,10 @@ license: MIT
 # recorded here at the time. And v0.14.0, whose archive did not exist when
 # it was last measured against the service's own API; the Owed section of
 # CHANGELOG.md carries that and says what to re-run. This sentence listed
-# two and the list skipped three, which the verification lens caught. The concept DOI resolves to the newest archived version
-# either way, so nothing points at a release that cannot be cited; the
-# two missing rows are a gap in this list rather than in the archive.
+# two and the list skipped three, which the verification lens caught. The
+# concept DOI resolves to the newest archived version either way, so
+# nothing points at a release that cannot be cited; the three missing rows
+# are a gap in this list rather than in the archive.
 # A version DOI is minted from the GitHub release, so it is always
 # recorded one commit AFTER the tag it names. Older ones
 # stay, because those releases did happen and are still what a citation

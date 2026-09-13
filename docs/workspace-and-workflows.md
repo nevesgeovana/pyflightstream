@@ -78,8 +78,39 @@ key of its variables (until v0.11.0 that code sat in a column of its own,
 `FS_SCRIPT`, which `pyfs-matrix upgrade` moves). Since 0.13.0 that cell may
 carry the reference itself, `package.module:function`, and a row written so
 plans and runs with no `--recipe` option at all; a bare code such as `003`
-is still mapped by that option (PFS-2031.11). `RUN` is the switch that
-says whether the row takes part at all.
+is still mapped by that option (PFS-2031.11). `HIDDEN` and `RUN` sit
+directly after `POL` since v0.17.0; `RUN` is the switch that says whether
+the row takes part at all, and `HIDDEN` whether the solver shows a window.
+
+**SIX COLUMNS ARRIVED AT v0.17.0** and each of them was expressible before,
+four as keys inside `VAR_NAMES_VALUES` and two inside the setup artifact.
+`CONFIGURATION` is your own name for what is in the wind, beside
+`AIRCRAFT`; it labels and configures nothing, and it reaches a comment at
+the top of the emitted script and the header of the custom polar file.
+`GEOMETRY` names the mesh file. `SYMMETRY` says what was MESHED, a mirrored
+half or a periodic sector. `SYMMETRY_LOADS` says whether the loads that
+come back are the whole aircraft's or the modelled slice's. `NCPUS` is the
+processor count, ONE number that reaches the solver's thread count and, on
+a cluster, the scheduler's request. `WALLTIME` is the wall clock in
+seconds, which on an unsteady row also arms the watchdog.
+
+**A COLUMN SAYS NOTHING WITH `-`.** One character rather than an empty
+cell, so a reader can tell "states nothing" from "the line is truncated".
+Where one of the six says nothing, the older home still answers: `NCPUS`
+falls back to the cited setup's `max_parallel_threads` and
+`SYMMETRY_LOADS` to its `symmetry_loads`, so a matrix upgraded from an
+older layout behaves exactly as it did.
+
+**`-` IS NOT THE SAME AS SAYING "NONE".** There is one case where the two
+part company and it is worth knowing before you meet it: a row that opens
+NO geometry cannot say so in the `GEOMETRY` column, because `-` there means
+"states nothing, take the default". It says it with an empty-valued
+`GEOMETRY:` key in `VAR_NAMES_VALUES`, and the upgrade leaves such a key
+where it found it for exactly that reason.
+
+**A FACT MAY NOT BE STATED IN BOTH HOMES.** A row that puts one of the six
+in its column AND as a key of the free cell is refused naming both, because
+two homes for one fact is how the two come to disagree.
 
 `VAR_NAMES_VALUES` is the last cell and the one that carries everything
 else, as `KEY: value` pairs separated by ` / `. The rows above use
@@ -244,6 +275,9 @@ read by the package rather than ignored:
 | v0.15.0 | `CLOCK_MOTION`, which of the row's motions owns the time step and the run length. REQUIRED on any row that states a `MOTIONS` list: a row that states the list and no key is refused, naming the motions it could have named. The flat pre-0.15.0 form, which names one rotor in its own keys, is exempt because it has nothing to choose between; that form becomes required at 0.17.0 too (FR-64) |
 | v0.15.0 | `SYMMETRY_LOADS`, whether the solver reports the loads of the meshed sector or of the whole wheel. On every run type, because a mirrored or periodic mesh is opened by a steady row too; a row stating it overrides the preset and warns naming both files (FR-66) |
 | v0.15.0 | `RAW`, a list of records, one raw solver command each or one file of them, in the order written: `RAW: {COMMAND: SOLVER_SET_ITERATIONS 350 / BEFORE: init}, {FILE: raw/extra.txt / BEFORE: init}`; a record states `COMMAND` or `FILE` and never both, and `BEFORE`, the phase it goes before, spelled as the preset's `[[raw]]` table spells it. **ITS PAIRS SPLIT ON A SPACED SLASH**, ` / `, and not on the bare one every other record kind uses, because its values are a path and a command line and both carry slashes of their own. A raw file is a path under `inputs/` whose blank lines and `#` lines are skipped (FR-67), see [What a solver preset may say](#what-a-solver-preset-may-say) |
+
+| v0.17.0 | `COLD_START`, whether a steady row clears the solver between the points of its sweep. Warm is the default and this is the opt-out (FR-95); and `RESTART`, how to continue a run the wall clock stopped, which this release PARSES and refuses to run, naming 0.18.0 (FR-96) |
+| v0.17.0 | **FOUR NAMES LEFT THIS CELL AND BECAME COLUMNS**: `GEOMETRY`, `SYMMETRY`, `SYMMETRY_LOADS` and `NCPUS`, which lived here or in the setup and now have a column each, beside the two that are new in both homes, `CONFIGURATION` and `WALLTIME` (FR-93). A row that states one of the six in BOTH homes is refused naming both. The rows above still show the cell spelling because that is what a file written before 0.17.0 carries, and `pyfs-matrix upgrade` moves them |
 
 **A WORKFLOW ROW STATES ONLY WHAT THE SCRIPT WILL CARRY.** Each run type
 registers the keys it reads (`Workflow.keys` in

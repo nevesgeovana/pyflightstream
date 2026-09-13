@@ -313,7 +313,9 @@ def _build_parser() -> argparse.ArgumentParser:
     plan = subparsers.add_parser(
         "plan",
         help="bind the matrix to the workspace input library and pre-flight every "
-        "point, executing nothing",
+        "point, executing nothing. REQUIRED BEFORE `run` since v0.17.0: it writes "
+        "the receipt that command asks for, pinned to the digest of the matrix it "
+        "read",
     )
     _add_common_arguments(plan)
     _add_the_missing_family_choice(plan)
@@ -636,6 +638,20 @@ def _cmd_post(args: argparse.Namespace) -> int:
             # Every matrix the manifest names, in first-seen order, and the
             # records naming none as their own group (PFS-2031.04).
             matrices = named
+        # THE REFUSAL THE HELP TEXT PROMISES, and it was prose alone until
+        # 2026-09-13 (the interface lens). `--yes` answers one question and
+        # nothing else asks one, so alone it parses, runs, archives and
+        # exits 0: a pre-authorisation sitting in a saved command line,
+        # waiting for the day someone adds --force-overwrite beside it.
+        if args.yes and not args.force_overwrite:
+            print(
+                "--yes answers the --force-overwrite confirmation and nothing else asks "
+                "one, so on its own it would sit in a saved command line pre-authorising "
+                "a destruction nobody has asked for yet. Drop it, or pass "
+                "--force-overwrite if you mean to destroy what is there.",
+                file=sys.stderr,
+            )
+            return 2
         if args.force_overwrite and not _confirmed_destruction(args.yes):
             print(
                 "--force-overwrite was not confirmed; nothing was written. Run without "
@@ -910,7 +926,7 @@ def _cmd_run(args: argparse.Namespace, recipes: dict[str, str]) -> int:
     """
     workspace = CampaignWorkspace(args.workspace, naming=_naming(args))
     name, name_from = _campaign_name(args)
-    # FR-97, GOAL-019 item 6, her instruction of 2026-09-12: `plan` carries
+    # FR-97: `plan` carries
     # the warning and the confirmation, and this command does not release
     # without one. The stem is the matrix's own, which is how the plan
     # folder is named.

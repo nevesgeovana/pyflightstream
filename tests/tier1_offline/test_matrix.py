@@ -511,7 +511,10 @@ def test_every_held_key_is_a_key_the_release_can_sweep():
 
 
 def test_the_verified_layout_names_nineteen_columns_and_no_sweep_type():
-    """The current layout, and both predecessors kept beside it.
+    """FR-93, the run matrix carries nineteen columns, and FR-94, a row may name
+    its configuration.
+
+    The current layout, and both predecessors kept beside it.
 
     THE PREDECESSORS ARE ASSERTED AS LITERALS, which is a deliberate
     reversal. They used to be derived here as today's names minus the

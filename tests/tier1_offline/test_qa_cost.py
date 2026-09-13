@@ -278,7 +278,7 @@ def test_a_failed_run_is_counted_so_its_time_is_not_read_as_a_solution():
     )
     cell = view.cell(view.points[0], view.builds[0])
     assert cell.run_count == 2
-    assert cell.failed_count == 1, (
+    assert cell.excluded_count == 1, (
         "a failed run is kept, because dropping evidence silently is worse "
         "than reporting it with a count beside it"
     )
@@ -294,13 +294,13 @@ def test_an_unrecorded_build_field_is_labelled_rather_than_guessed():
 def test_every_run_status_is_deliberately_classified_as_failed_or_not():
     """A status added to the enum must not land in "not failed" by silence.
 
-    ``_FAILED_STATUSES`` is derived from the ``FAILED_`` prefix. That is
+    ``_EXCLUDED_STATUSES`` is derived from the ``FAILED_`` prefix. That is
     the right default and it has one hole: a future terminal status
     named otherwise, ``ABORTED_BY_TIMEOUT`` say, would be counted as a
     solution. This pins the complement, so the hole fails a test rather
     than a report.
     """
-    from pyflightstream.qa.cost import _FAILED_STATUSES
+    from pyflightstream.qa.cost import _EXCLUDED_STATUSES
 
     # THE HOLE THIS GUARD PREDICTED OPENED, and this is the decision it
     # asked for. 0.17.0 added two statuses that are NOT failures and whose
@@ -308,7 +308,7 @@ def test_every_run_status_is_deliberately_classified_as_failed_or_not():
     # whole clock and stopped short, so fitting on it would teach the
     # estimator that a point costs exactly the clock it was given, and
     # SUBMITTED has no wall time because the point is in a queue.
-    assert set(RunStatus) - _FAILED_STATUSES == {
+    assert set(RunStatus) - _EXCLUDED_STATUSES == {
         RunStatus.CONVERGED,
         RunStatus.COMPLETED_MAX_ITER,
     }, "a new RunStatus arrived; decide whether its wall time is time to an answer"

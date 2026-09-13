@@ -154,9 +154,15 @@ COST_VIEW_IDENTITY_COLUMNS = ("sim_id", "point")
 #:   point costs exactly the clock it was given.
 #: * SUBMITTED has no wall time at all: the point is in a queue.
 #:
-#: They are counted here for the ESTIMATOR's purpose, which is "did this
-#: run reach an answer", and not as failures anywhere a user reads.
-_FAILED_STATUSES = frozenset(
+#: THE SET IS NAMED FOR THE ESTIMATOR'S QUESTION, "did this run reach an
+#: answer", and the field it fills is `excluded_count` rather than
+#: `excluded_count`. It was the second name until 2026-09-13, and the only
+#: consumer of it is a line a user reads, which then told someone whose
+#: points were sitting in a queue that they had ended in a FAILED status.
+#: A comment saying the reclassification is "not as failures anywhere a
+#: user reads" stood two lines above the one place it was (the technical
+#: writing lens).
+_EXCLUDED_STATUSES = frozenset(
     status
     for status in RunStatus
     if status.name.startswith("FAILED")
@@ -270,16 +276,18 @@ class CostCell:
         delete the first.
     run_count : int
         Runs recorded for this (point, build), timed or not.
-    failed_count : int
-        How many of them ended in a FAILED status. Time to a failure is
-        time, and it is not the time to an answer; the runs are kept
-        and counted rather than dropped, because a silent drop is a
-        quieter lie than a reported one.
+    excluded_count : int
+        How many of them did NOT REACH AN ANSWER, which is a wider set
+        than failure: every FAILED status, a run the wall clock stopped,
+        and a point still in a queue. Time to a failure is time, and it
+        is not the time to an answer; the runs are kept and counted
+        rather than dropped, because a silent drop is a quieter lie than
+        a reported one.
     """
 
     samples: tuple[float, ...] = ()
     run_count: int = 0
-    failed_count: int = 0
+    excluded_count: int = 0
 
     @property
     def wall_time_s(self) -> float | None:
@@ -587,7 +595,7 @@ def cost_view(source: CostSource) -> CostView:
         gathered[(point, build)] = CostCell(
             samples=samples,
             run_count=cell.run_count + 1,
-            failed_count=cell.failed_count + (1 if record.status in _FAILED_STATUSES else 0),
+            excluded_count=cell.excluded_count + (1 if record.status in _EXCLUDED_STATUSES else 0),
         )
     return CostView(
         builds=tuple(sorted(builds, key=lambda item: item.label)),

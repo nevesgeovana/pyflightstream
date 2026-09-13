@@ -955,7 +955,10 @@ def test_goal019_warm_the_one_record_names_every_point_it_ran(tmp_path):
 
 
 def test_goal019_record_a_job_run_id_cannot_end_with_a_point_tag(tmp_path):
-    """Item 4, and the constraint that decided its shape.
+    """FR-93, the run matrix carries nineteen columns, in the shape a run reads
+    it.
+
+    Item 4, and the constraint that decided its shape.
 
     The point tag is run IDENTITY and it ENDS every ``run_id`` in every
     existing manifest; the rule is enforced at the sweep and carries its
@@ -4663,3 +4666,160 @@ def test_goal019_warm_the_builder_itself_defaults_to_warm(tmp_path):
     cold = Script(version="26.123")
     build_steady_sweep(points, cold, cold=True)
     assert cold.render().count("CLEAR_SOLUTION") == 2
+
+
+def test_goal019_hpc_the_run_path_reaches_the_cluster_branch(monkeypatch, tmp_path):
+    """FR-99, and it was dead code until 2026-09-13.
+
+    `on_a_cluster`, the profile reader and the submitting executor all
+    existed, the release note announced them in the present tense, and
+    `run_matrix` built a LocalExecutor unconditionally: opening the study
+    on a cluster ran it locally on the login node, which is the exact
+    failure `on_a_cluster`'s own comment says it exists to prevent. All
+    five review lenses found it independently.
+
+    This asserts the BRANCH, not the scheduler: what a cluster run must
+    not do is build a local executor.
+    """
+    from pyflightstream.run import LocalExecutor, SubmittingExecutor
+    from pyflightstream.run import matrix as matrix_module
+
+    workspace, matrix = _steady_sweep_matrix(tmp_path)
+    directory = workspace.inputs_dir / "hpc"
+    directory.mkdir(parents=True, exist_ok=True)
+    (directory / "h001.toml").write_text(
+        'application_id = "flightstream"\n'
+        "[descriptor]\n"
+        'format = "yaml"\n'
+        "[descriptor.fields]\n"
+        'ApplicationId = "{application_id}"\n'
+        'job_name = "FTS{sim}"\n'
+        'master_file = "{script_path}"\n'
+        "[submit]\n"
+        'command = ["esub", "{descriptor_path}"]\n',
+        encoding="utf-8",
+    )
+    resolved = matrix_module.resolve_matrix(
+        matrix, workspace, name="cluster", fs_version="26.120", recipes=RECIPES
+    )
+
+    monkeypatch.setattr(matrix_module, "on_a_cluster", lambda: False)
+    assert matrix_module._cluster_executor(workspace, resolved) is None, (
+        "a machine that is not a cluster must run locally"
+    )
+
+    monkeypatch.setattr(matrix_module, "on_a_cluster", lambda: True)
+    chosen = matrix_module._cluster_executor(workspace, resolved)
+    assert isinstance(chosen, SubmittingExecutor), (
+        "on a cluster with a profile the run path still builds a local executor, so "
+        "the whole submission capability is unreachable"
+    )
+    assert not isinstance(chosen, LocalExecutor)
+
+
+def test_goal019_hpc_a_linux_box_with_no_profile_still_runs_locally(monkeypatch, tmp_path):
+    """The control, and it is deliberate rather than an oversight.
+
+    Not every Linux machine is a cluster. A study that never wrote a
+    profile is saying it does not submit, and refusing there would break
+    every developer running this suite on Linux.
+    """
+    from pyflightstream.run import matrix as matrix_module
+
+    workspace, matrix = _steady_sweep_matrix(tmp_path)
+    resolved = matrix_module.resolve_matrix(
+        matrix, workspace, name="cluster", fs_version="26.120", recipes=RECIPES
+    )
+    monkeypatch.setattr(matrix_module, "on_a_cluster", lambda: True)
+    assert matrix_module._cluster_executor(workspace, resolved) is None
+
+
+def test_goal019_hpc_a_submitted_point_is_recorded_and_not_assessed(tmp_path):
+    """A SUBMITTED point has no outputs yet, so nothing may read them.
+
+    The eighth status was unproducible until this landed: nothing in the
+    package assigned it, so a persisted enum carried a value no run could
+    write. A collection here would find nothing and call it an incomplete
+    output; an assessment would read a log that does not exist.
+    """
+    from pyflightstream.run import SubmittingExecutor
+    from pyflightstream.workspace import RunStatus
+    from pyflightstream.workspace.inputs import read_hpc_profile
+
+    workspace, matrix = _steady_sweep_matrix(tmp_path)
+    directory = workspace.inputs_dir / "hpc"
+    directory.mkdir(parents=True, exist_ok=True)
+    profile_path = directory / "h001.toml"
+    profile_path.write_text(
+        'application_id = "flightstream"\n'
+        "[descriptor]\n"
+        'format = "yaml"\n'
+        'name = "submit.yaml"\n'
+        "[descriptor.fields]\n"
+        'ApplicationId = "{application_id}"\n'
+        'job_name = "FTS{sim}"\n'
+        'master_file = "{script_path}"\n'
+        "[submit]\n"
+        'command = ["esub", "{descriptor_path}"]\n',
+        encoding="utf-8",
+    )
+    records = run_matrix(
+        matrix,
+        workspace,
+        name="cluster",
+        default_fs_version="26.120",
+        recipes=RECIPES,
+        recipe_registry=workflow_registry(),
+        assess=converged,
+        # `submit=False` writes the descriptor and does not call the
+        # scheduler, which is the switch the predecessor spells `esub`.
+        # The RECORD is the same either way, and the record is the subject.
+        executor=SubmittingExecutor(
+            read_hpc_profile(profile_path), values={"fs_build": "26.120"}, submit=False
+        ),
+    )
+    record = records[0]
+    assert record.status is RunStatus.SUBMITTED, record.status
+    assert record.outputs == [], "a queued point has no outputs to name"
+    assert record.wall_time_s is None, "a queued point has no wall time of its own"
+    assert record.submission, "nothing says where the job went"
+    assert record.submission["application_id"] == "flightstream"
+    assert record.submission["submitted"] is False
+    assert Path(record.submission["descriptor"]).name == "submit.yaml"
+
+
+def test_goal019_watchdog_a_restart_this_release_cannot_run_is_refused_by_name(tmp_path):
+    """FR-96, a row may ask to continue a run the wall clock stopped.
+
+    The parser is built and the continuation is not, so the row says so.
+
+    The key was registered and nothing read it, so a user who reached a
+    WALLTIME_REACHED record and wrote the continuation the release told
+    them to write had it validated, planned READY, and re-marched the whole
+    time history from step one. A refusal at PLAN spends nothing.
+    """
+    import pytest
+
+    from pyflightstream.cases import CampaignConfigError, SimCase, SweepAxis
+    from pyflightstream.cases.workflows import workflow_registry as registry
+    from pyflightstream.script import Script
+
+    case = SimCase(
+        sim_id="9001",
+        aircraft="TestWing",
+        recipe="unsteady",
+        sweep=SweepAxis(type="alpha", values=[0.0]),
+        point={"alpha": 0.0},
+        outputs=["loads_a+00.0.txt"],
+        variables={
+            "WORKFLOW": "unsteady",
+            "VELOCITY": "30.0",
+            "DELTA_TIME": "0.01",
+            "TIME_ITERATIONS": "4",
+            "RESTART": "{ADDITIONAL_ITERS=120}",
+        },
+    )
+    with pytest.raises(CampaignConfigError, match="cannot yet run") as raised:
+        registry()["unsteady"](case, Script(version="26.123"))
+    assert "0.18.0" in str(raised.value), str(raised.value)
+    assert "ADDITIONAL_ITERS" in str(raised.value)

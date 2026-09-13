@@ -297,8 +297,24 @@ Milestones and session records are listed in the
     variable of the flight condition, and the angles are always written":
     `SWEEP_TYPE` left the layout, because the flight-condition cell says
     which variable varies by carrying the word `sweep` on it. The verified
-    layout is 13 columns and the 14-column one is frozen beside the three
+    layout was 13 columns and the 14-column one is frozen beside the three
     older ones, recognised by its header and refused naming the converter.
+
+    A FIFTH BREAK SHIPPED AT 0.17.0 and travelled through the same
+    mechanism, stated by FR-93, "The run matrix carries nineteen columns":
+    six columns arrive (`CONFIGURATION`, `GEOMETRY`, `SYMMETRY`,
+    `SYMMETRY_LOADS`, `NCPUS` and `WALLTIME`) and two move (`HIDDEN` and
+    `RUN`, to sit directly after `POL`). THE VERIFIED LAYOUT IS NOW 19
+    COLUMNS, and the 13-column one is frozen beside the older ones with its
+    own rung on the ladder. Each of the six was already expressible, four
+    inside the free variables cell and two inside the setup artifact, so
+    the break moves WHERE a fact lives and makes no fact required.
+
+    This is the break that most tested the promise this requirement is
+    named for. A conversion may not rename a run, because the point tag is
+    run identity and ends every `run_id` in every existing manifest, so the
+    upgrade carries POL, the flight condition and the sweep values across
+    verbatim and a resume still finds its records.
 
     One thing about this break is unlike the three before it, and it is
     NARROWER than this paragraph first said. It said the conversion of a
@@ -3490,9 +3506,231 @@ requirement below is one seam of that division.
     the whole suite until a test covered it, and each refuses a correctly run
     point there.
 
-    ONE SCRIPT PER POINT IS THE RUN MODEL THIS RESTS ON. Every point is
-    emitted and executed as its own script from a cold start, which is what
-    makes a point's outputs separable in the first place. Reusing a converged
-    solution across the points of a steady sweep is a different run model and
-    is deferred; it is not implied by this requirement and must not be assumed
-    by anything reading it.
+    ONE SCRIPT PER POINT WAS THE RUN MODEL THIS RESTED ON, AND AT 0.17.0 IT
+    IS NOT. This paragraph said that reusing a converged solution across the
+    points of a steady sweep was a different run model and was deferred. It is
+    deferred no longer: FR-95, "A steady row is ONE warm job and leaves ONE
+    record", makes the sweep one script whose solver is never cleared between
+    points.
+
+    WHAT THIS REQUIREMENT GUARANTEES IS UNTOUCHED, and the distinction is the
+    reason the change is safe here. It is the FOLDER that separates a point's
+    outputs, not the script: every point still collects into its own
+    `datapoints/DP-<point>/`, still exports under its own names, and is still
+    judged on its own evidence. What is shared is the process; what is never
+    shared is the folder.
+
+
+!!! requirement "FR-93 The run matrix carries nineteen columns <span class='srs-implemented'>implemented</span>"
+
+    *Origin: the owning seat's format decision of 2026-09-12, taken after
+    measuring what the free variables cell was being asked to carry. Evidence:
+    tests/tier1_offline/test_matrix.py, test_matrix_upgrade.py and
+    tests/tier1_offline/test_matrix_run.py.*
+
+    SIX COLUMNS ARRIVE AND TWO MOVE. `CONFIGURATION`, `GEOMETRY`, `SYMMETRY`,
+    `SYMMETRY_LOADS`, `NCPUS` and `WALLTIME` become columns of their own, and
+    `HIDDEN | RUN` moves to sit directly after `POL`. Every one of the six was
+    already expressible: four as keys inside the free `VAR_NAMES_VALUES` cell
+    and two inside the setup artifact.
+
+    THE RELEASE MOVES WHERE A FACT LIVES AND MAKES NO FACT REQUIRED. That is
+    measured rather than promised: a row that states none of the six reads
+    exactly as it did, because the committed fixtures include rows that state
+    none, and one of them has never named a geometry at all.
+
+    A COLUMN SAYS NOTHING WITH `-`, which is a single character rather than an
+    empty cell so that a reader can tell "stated nothing" from "the line is
+    truncated". Where a column says nothing, the older home still answers:
+    `NCPUS` falls back to the cited setup's `max_parallel_threads` and
+    `SYMMETRY_LOADS` to its `symmetry_loads`.
+
+    A FACT MAY NOT BE STATED IN BOTH HOMES. A row that states one of the six
+    as a column AND as a key in the free cell is refused naming both, because
+    two homes for one fact is how the two come to disagree.
+
+    `NCPUS` IS ONE NUMBER FOR EVERY PLATFORM and lives in the matrix alone. It
+    reaches `SET_MAX_PARALLEL_THREADS` as the solver's thread count and, on a
+    submitting run, the scheduler's processor request. While it lived in the
+    setup and a cluster descriptor carried its own count, a job could reserve
+    forty-eight processors and solve on eight with nothing noticing.
+
+    THE UPGRADE IS A LADDER AND IT RENAMES NO RUN. A file in any older layout
+    is converted on read, and not one cell that reaches a point tag is
+    touched, so the tags that end every `run_id` in an existing manifest are
+    the ones the converted file plans under and a resume still finds its
+    records. A cell the conversion does not move is carried as its own bytes,
+    spacing included.
+
+!!! requirement "FR-94 A row may name its configuration, and the name configures nothing <span class='srs-implemented'>implemented</span>"
+
+    *Origin: the owning seat's format decision of 2026-09-12. Evidence:
+    tests/tier1_offline/test_matrix.py and test_workflows.py.*
+
+    `CONFIGURATION` is the user's own name for what is in the wind, beside
+    `AIRCRAFT`. It LABELS and it configures nothing, which is the whole of the
+    requirement: no emitted solver command reads it, and no behaviour depends
+    on it.
+
+    IT REACHES TWO PLACES A READER OPENS: a comment at the top of the emitted
+    script, and the header of the custom polar file. A label that reaches
+    nothing a reader sees is a cell nobody would fill in.
+
+!!! requirement "FR-95 A steady row is ONE warm job and leaves ONE record <span class='srs-implemented'>implemented</span>"
+
+    *Origin: the owning seat's convention of 2026-09-12, taken with the
+    predecessor toolchain's steady recipe in hand. Evidence:
+    tests/tier1_offline/test_matrix_run.py and test_run_campaign.py.*
+
+    EVERY POINT OF A STEADY MATRIX ROW RUNS IN ONE SCRIPT AND ONE PROCESS, and
+    the solver is never cleared between them, so each point begins from the
+    previous point's converged solution. The panelling and the wake survive
+    from one angle to the next and the sweep costs one setup rather than one
+    per point. That is the warm start, and it is what a polar sweep IS rather
+    than a switch on top of it.
+
+    WARM IS THE DEFAULT AND `COLD_START: True` IS THE OPT-OUT. This follows
+    the evidence rather than the safer-looking choice: the predecessor
+    toolchain's steady recipe never cleared the solver between points and had
+    no switch to, so a default of cold would be a change of behaviour wearing
+    the clothes of a safe default. A cold row is still ONE job; only the clear
+    differs, and the clear is `CLEAR_SOLUTION`.
+
+    ONE JOB IS ONE RECORD. The record's `run_id` ends with the `sweep` token
+    and never with a point tag, because the point tag is run IDENTITY and ends
+    every `run_id` in every existing manifest; a record covering three points
+    cannot borrow one of their tags. The record carries `job_id` and
+    `points_ran`, which names every point IN THE ORDER IT RAN THEM, because a
+    warm sweep's order is part of its result: the same three angles run in
+    another order are not the same three numbers.
+
+    THE JOB'S STATUS IS THE WORST OF ITS POINTS, by a stated severity order,
+    so a reader triaging by status is pointed at the most serious thing that
+    happened rather than the most recent.
+
+    `RunRecord.as_points()` reads a job back one point at a time, so nothing
+    downstream had to learn a new shape.
+
+    SUPERSEDES the last paragraph of FR-92, which said that one script per
+    point was the run model and that reusing a converged solution across a
+    steady sweep was deferred. It is deferred no longer. FR-92's separability
+    guarantee is untouched: each point still collects into its own datapoint
+    folder, and it is the SCRIPT that is shared, never the folder.
+
+!!! requirement "FR-96 A row may ask to continue a run the wall clock stopped <span class='srs-pending'>pending</span>"
+
+    *Origin: the owning seat's decision of 2026-09-12, that the word RESTART
+    is reused for continuity. Evidence: tests/tier1_offline/test_workflows.py
+    for the parser and tests/tier1_offline/test_matrix_run.py for the
+    refusal.*
+
+    `RESTART` states how to continue: `{FINISH_PENDING}`, which asks for what
+    the row originally stated minus what the stopped run reached;
+    `{ADDITIONAL_ITERS=<n>}`; or `{ADDITIONAL_REVS=<n>}`, which the row's own
+    azimuthal step turns into time steps.
+
+    THE WORD IS REUSED DELIBERATELY FOR A DIFFERENT THING. In the predecessor
+    toolchain it named a phase-resolved march through one blade passage, which
+    is an unsteady capability and not this one.
+
+    THIS RELEASE PARSES IT AND REFUSES TO RUN IT. The three forms are read and
+    the arithmetic exists; no builder shortens a march and nothing archives
+    the outputs a continuation would replace, so a row stating `RESTART` is
+    refused BY NAME at plan, naming 0.18.0. A refusal at plan spends nothing;
+    accepting the key and ignoring it spends a licensed seat re-running a
+    point that was nearly done, which is what it did until 2026-09-13.
+
+!!! requirement "FR-97 A run needs a plan, and the plan is pinned to the matrix it read <span class='srs-implemented'>implemented</span>"
+
+    *Origin: the owning seat's instruction of 2026-09-12, that the warning and
+    the confirmation belong to `plan` and that without one `run` does not go.
+    Evidence: tests/tier1_offline/test_run_cli.py and test_matrix_run.py.*
+
+    `pyfs-matrix run` reads the plan receipt and refuses without one. The gate
+    is on the COMMAND and not on the library entry: a caller who composes plan
+    and run into one call would otherwise be made to write a file between them
+    for no reason.
+
+    THE RECEIPT CARRIES THE DIGEST OF THE MATRIX IT READ, so a matrix edited
+    between planning and running is visible rather than silent. A mandatory
+    plan that does not check freshness is satisfied by a stale plan, which is
+    a receipt about a different study.
+
+    `plan` SPENDS NO SOLVER TIME. It pre-flights every point, reports which
+    are blocked and which are already recorded, and writes the receipt; the
+    expected cost is behind `--cost`.
+
+!!! requirement "FR-98 A row may state a wall clock, and the run watches it from inside <span class='srs-implemented'>implemented</span>"
+
+    *Origin: the owning seat's decision of 2026-09-12, that WALLTIME is no
+    longer HPC-only and drives a watchdog on the actions hook with the margin
+    in the setup. Evidence: tests/tier1_offline/test_unsteady_actions.py.*
+
+    AN UNSTEADY ROW THAT STATES `WALLTIME` REGISTERS A PAIR OF SOLVER-SIDE
+    ACTIONS: a `COMMAND_LINE` python that keeps its own clock and fires once,
+    and a `SCRIPT` action it rewrites, which does nothing until the clock and
+    the margin meet. Where the row also exports on a counter, the clock pair
+    takes positions (3) and (4) behind that pair, because the solver runs
+    actions in creation order and cannot be told otherwise.
+
+    THE MARGIN IS THE SETUP'S, twenty minutes by default: how much time to
+    leave for the exports is the same question on every platform and does not
+    vary with the row, while a wall clock does.
+
+    WHAT THE RESCUE WRITES IS WHAT THE PER-STEP ACTION WRITES, from one
+    implementation: the three update commands first wherever a sections,
+    sectional-loads or probe export is among the outputs, then the export
+    verbs, with the names claimed by the package's own output classifier. The
+    outputs a stopped run leaves are the ONLY outputs it leaves, so an export
+    of sections nobody updated is the whole evidence of that run being wrong.
+
+    A RUN THE CLOCK STOPPED IS RECORDED `WALLTIME_REACHED`, WHICH IS NOT A
+    FAILURE. It is the same shape as `COMPLETED_MAX_ITER`: the numbers up to
+    that step are real and the user judges whether to continue. The record
+    states where it stopped, without which FR-96's `{FINISH_PENDING}` has
+    nothing to subtract from, and it carries the clock and the margin it was
+    given, because neither can be recovered afterwards.
+
+    WHAT IS NOT MEASURED, and it is stated here rather than left in one
+    comment: whether `STOP` inside an action's script ends the RUN or only
+    that script. The command database records `STOP` verified on 26.120 to
+    26.123 with the manual's own note that it halts SCRIPT PROCESSING at that
+    location, which is the ambiguity and not its resolution. Settling it needs
+    a licensed probe that moves ONE thing, and the stop verb is kept to one
+    substitutable line to make that probe cheap.
+
+!!! requirement "FR-99 Linux is the cluster, and no cell says so <span class='srs-implemented'>implemented</span>"
+
+    *Origin: the owning seat's decision of 2026-09-12, that the code sees the
+    environment and that a Linux run submits rather than calling the solver
+    directly. Evidence: tests/tier1_offline/test_matrix_run.py.*
+
+    THE PACKAGE READS THE PLATFORM. No matrix cell selects a cluster, so the
+    same matrix, unchanged in every cell, runs locally on Windows and submits
+    on Linux. A cell that must be remembered is a cell that gets forgotten,
+    and a forgotten one on a cluster means a laptop-shaped run holding a login
+    node for the night.
+
+    THE SUBMISSION PROFILE LIVES IN `inputs/hpc/h<>.toml` AND THE SETUP STAYS
+    MULTIPLATFORM. The profile states the scheduler's own name for the
+    application, what the descriptor IS, the fields that cluster expects and
+    what fills each, and the submit command argument by argument. A workspace
+    carrying several profiles and nothing to say which is REFUSED rather than
+    guessed, because guessing spends a queue.
+
+    A LINUX MACHINE WITH NO PROFILE RUNS LOCALLY. Not every Linux box is a
+    cluster, and a study that never wrote a profile is saying it does not
+    submit.
+
+    A SUBMITTED POINT IS RECORDED `SUBMITTED` AND IS NOT ASSESSED. It has no
+    outputs yet and no wall time of its own; the record names the descriptor
+    the scheduler was handed, the profile that rendered it and whether the
+    submit command ran, which is the only thing that says where the job went.
+    The local solver-identity pre-flight is skipped, because a cluster's
+    solver is on the cluster and asking would submit a probe job to answer a
+    question the descriptor already states.
+
+    WHAT THIS RELEASE DOES NOT DO: collect a submitted job's outputs when they
+    land. There is no collect stage, so a `SUBMITTED` record is completed by
+    hand until 0.18.0, and this paragraph is here rather than in a release
+    note so that a reader of the requirement learns it too.
