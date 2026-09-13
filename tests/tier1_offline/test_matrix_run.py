@@ -2478,10 +2478,13 @@ def test_a_bare_stem_two_staged_files_share_is_refused_naming_both(tmp_path):
     stage_geometry(workspace, "wing_clean.fsm")
     stage_geometry(workspace, "wing_clean.stl")
     matrix = geometry_matrix(tmp_path, " / GEOMETRY: wing_clean.fsm")
+    # THE VALUE, NOT THE KEY AND THE VALUE. Since 0.17.0 the geometry is a
+    # COLUMN, so the text `GEOMETRY: wing_clean.fsm` is not in the file at
+    # all and a replace aimed at it changed nothing: the row kept its
+    # extension, the stem was never bare, and the refusal this test exists
+    # for could not fire.
     matrix.write_text(
-        matrix.read_text(encoding="utf-8").replace(
-            "GEOMETRY: wing_clean.fsm", "GEOMETRY: wing_clean"
-        ),
+        matrix.read_text(encoding="utf-8").replace("wing_clean.fsm", "wing_clean"),
         encoding="utf-8",
     )
     with pytest.raises(InputArtifactError) as caught:
@@ -3482,15 +3485,18 @@ def test_a_motion_record_binds_its_engine_point_and_reaches_the_record(tmp_path)
 # --- a flat rotor row names its origin by a reference point (PFS-2031.12) ---
 
 _FLAT_ORIGIN_HEADER = (
-    "POL | AIRCRAFT | DESCRIPTION | FLIGHT_CONDITION | SWEEP_VALUES | REF | SET "
-    "| PPROC | FS_BUILD | HIDDEN | RUN | WORKFLOW | VAR_NAMES_VALUES"
+    "POL | HIDDEN | RUN | AIRCRAFT | CONFIGURATION | DESCRIPTION "
+    "| FLIGHT_CONDITION | SWEEP_VALUES | GEOMETRY | REF | SET | PPROC "
+    "| SYMMETRY | SYMMETRY_LOADS | NCPUS | WALLTIME | FS_BUILD | WORKFLOW "
+    "| VAR_NAMES_VALUES"
 )
 
 
 def _flat_rotor_matrix(tmp_path, origin):
     row = (
-        "7201 | Rotor | FLAT_ORIGIN | MACH:0.1, REmi:1.0, ALPHA:sweep | 0.0 | r003 | s002 | p001 "
-        "| 26.120 | 0 | 1 | unsteady_rotor | GEOMETRY: rotor.fsm / SYMMETRY: NONE / RPM: 800 "
+        "7201 | 0 | 1 | Rotor | - | FLAT_ORIGIN | MACH:0.1, REmi:1.0, ALPHA:sweep | 0.0 "
+        "| rotor.fsm | r003 | s002 | p001 | NONE | - | - | - | 26.120 | unsteady_rotor "
+        "| RPM: 800 "
         f"/ RPM_SIGN: 1 / ROTOR_AXIS: X / ROTOR_ORIGIN: {origin} / MOVING_BOUNDARIES: Blade "
         "/ DELTA_THETA: 30 / REVOLUTIONS: 0.5"
     )
@@ -3661,9 +3667,10 @@ def _two_matrices(tmp_path):
 
     def row(pol, description):
         return (
-            f"{pol} | TestWing  | {description:22} | TASmps:68.058, ALPHA:sweep "
-            "| -2.0 | r003 | s002 | "
-            "p001 | 26.120 | 0 | 1 | LEGACY | FSM_FILE:wing_clean / OUTPUTS: loads_{point}.txt "
+            f"{pol} | 0 | 1 | TestWing  | - | {description:22} | TASmps:68.058, ALPHA:sweep "
+            "| -2.0 | - | r003 | s002 | "
+            "p001 | - | - | - | - | 26.120 | LEGACY "
+            "| FSM_FILE:wing_clean / OUTPUTS: loads_{point}.txt "
             "/ RECIPE: 003"
         )
 

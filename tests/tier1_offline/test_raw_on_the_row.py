@@ -23,16 +23,19 @@ from pyflightstream.cases import RawCommand
 from pyflightstream.cases.matrix import MatrixError, read_matrix
 
 HEADER = (
-    "POL  | AIRCRAFT | DESCRIPTION | FLIGHT_CONDITION | SWEEP_VALUES | REF  | SET  | "
-    "PPROC | FS_BUILD | HIDDEN | RUN | WORKFLOW | VAR_NAMES_VALUES\n" + "-" * 200 + "\n"
+    "POL | HIDDEN | RUN | AIRCRAFT | CONFIGURATION | DESCRIPTION "
+    "| FLIGHT_CONDITION | SWEEP_VALUES | GEOMETRY | REF | SET | PPROC "
+    "| SYMMETRY | SYMMETRY_LOADS | NCPUS | WALLTIME | FS_BUILD | WORKFLOW "
+    "| VAR_NAMES_VALUES\n" + "-" * 220 + "\n"
 )
 
 
 def matrix_with(tmp_path: Path, cell: str, pol: str = "9001") -> Path:
     """One active row whose VAR_NAMES_VALUES cell is ``cell``."""
     row = (
-        f"{pol} | WORK | RAW_case | MACH:0.14, REmi:5.6, ALPHA:sweep, BETA:0 | 0,2 | "
-        f"r011 | s010 | p011 | 26.123 | 0 | 1 | unsteady_rotor | {cell}"
+        f"{pol} | 0 | 1 | WORK | - | RAW_case | MACH:0.14, REmi:5.6, ALPHA:sweep, BETA:0 "
+        f"| 0,2 | - | r011 | s010 | p011 | - | - | - | - | 26.123 | unsteady_rotor "
+        f"| {cell}"
     )
     path = tmp_path / "m.fs"
     path.write_text(HEADER + row + "\n", encoding="utf-8")
@@ -564,8 +567,8 @@ def test_a_link_inside_the_inputs_pointing_out_is_refused(tmp_path):
     path = tmp_path / "linked.fs"
     path.write_text(
         HEADER
-        + "9001 | WORK | LINK | MACH:0.14, REmi:5.6, ALPHA:sweep, BETA:0 | 0,2 | r011 | s010 "
-        + "| p011 | 26.123 | 0 | 1 | unsteady_rotor | "
+        + "9001 | 0 | 1 | WORK | - | LINK | MACH:0.14, REmi:5.6, ALPHA:sweep, BETA:0 "
+        + "| 0,2 | - | r011 | s010 | p011 | - | - | - | - | 26.123 | unsteady_rotor | "
         + f"{BASE} / RAW: {{FILE: raw/extra.txt / BEFORE: init}}\n",
         encoding="utf-8",
     )

@@ -482,7 +482,7 @@ def test_foreign_header_names_the_verified_layout(tmp_path):
     bad.write_text("POL | ANGLE\n9001 | 4.0\n", encoding="utf-8")
     with pytest.raises(
         MatrixError,
-        match=r"header does not match the verified 13-column layout; expected ",
+        match=r"header does not match the verified 19-column layout; expected ",
     ):
         read_matrix(bad)
 

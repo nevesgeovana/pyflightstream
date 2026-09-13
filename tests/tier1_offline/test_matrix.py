@@ -321,7 +321,7 @@ def test_a_swept_row_with_no_values_is_refused(tmp_path):
 def test_header_deviation_is_refused(tmp_path):
     bad = tmp_path / "matrix.fs"
     bad.write_text("A | B | C\n1 | 2 | 3\n", encoding="utf-8")
-    with pytest.raises(MatrixError, match="verified 13-column layout"):
+    with pytest.raises(MatrixError, match="verified 19-column layout"):
         read_matrix(bad)
 
 
@@ -339,7 +339,7 @@ def test_truncated_row_is_refused_naming_the_row(tmp_path):
     bad = tmp_path / "matrix.fs"
     bad.write_text("\n".join(lines) + "\n", encoding="utf-8")
     with pytest.raises(
-        MatrixError, match=r"data row 1 of .* holds 12 cells against the 13 verified"
+        MatrixError, match=r"data row 1 of .* holds 18 cells against the 19 verified"
     ):
         read_matrix(bad)
 
@@ -510,7 +510,7 @@ def test_every_held_key_is_a_key_the_release_can_sweep():
     assert set(matrix_mod._HELD_POINT_KEYS) == {"ALPHA", "BETA"}
 
 
-def test_the_verified_layout_names_thirteen_columns_and_no_sweep_type():
+def test_the_verified_layout_names_nineteen_columns_and_no_sweep_type():
     """The current layout, and both predecessors kept beside it.
 
     THE PREDECESSORS ARE ASSERTED AS LITERALS, which is a deliberate
@@ -526,7 +526,7 @@ def test_the_verified_layout_names_thirteen_columns_and_no_sweep_type():
     assert "WORKFLOW" in matrix_mod._COLUMNS
     assert "FLIGHT_CONDITION" in matrix_mod._COLUMNS
     assert "PPROC" in matrix_mod._COLUMNS
-    assert len(matrix_mod._COLUMNS) == 13
+    assert len(matrix_mod._COLUMNS) == 19
     # SWEEP_TYPE is gone at 0.15.0 (FR-69): the flight-condition cell says
     # which variable varies by carrying the word `sweep` on it, and a
     # column naming the same fact is a second home for one fact. The
@@ -560,8 +560,8 @@ def test_the_verified_layout_names_thirteen_columns_and_no_sweep_type():
     # the only cell whose width is not fixed by the format. The flight
     # condition takes the slot the two numeric columns had.
     assert matrix_mod._COLUMNS[-1] == "VAR_NAMES_VALUES"
-    assert matrix_mod._COLUMNS.index("WORKFLOW") == 11
-    assert matrix_mod._COLUMNS.index("FLIGHT_CONDITION") == 3
+    assert matrix_mod._COLUMNS.index("WORKFLOW") == 17
+    assert matrix_mod._COLUMNS.index("FLIGHT_CONDITION") == 6
 
 
 def test_the_workflow_column_parses_and_reaches_every_row():
@@ -649,7 +649,7 @@ def test_the_legacy_refusal_is_a_different_message_from_the_foreign_one(tmp_path
     with pytest.raises(MatrixError) as caught:
         read_matrix(foreign)
     message = str(caught.value)
-    assert "does not match the verified 13-column layout" in message
+    assert "does not match the verified 19-column layout" in message
     assert "upgrade_matrix" not in message
 
 
@@ -963,9 +963,14 @@ def test_the_fourth_stage_changes_only_the_two_cells_it_folds(tmp_path):
     """
     before = (Path(__file__).parent / "fixtures" / "pfs202609_matrix14.fs").read_bytes()
     after = matrix_mod._fold_sweep_type(before, "layout14")
-    assert matrix_mod._name_geometry_files(after) == FIXTURE.read_bytes(), (
-        "the committed fixture is not what the fourth stage writes"
-    )
+    # FIVE STAGES SINCE 0.17.0: the fourth folds SWEEP_TYPE and the fifth
+    # expands the thirteen columns to nineteen, so the committed fixture is
+    # what the fifth writes. Naming the fourth alone would compare the
+    # fixture against a file no release has ever produced.
+    assert (
+        matrix_mod._expand_to_nineteen(matrix_mod._name_geometry_files(after), "layout14")
+        == FIXTURE.read_bytes()
+    ), "the committed fixture is not what the fifth stage writes"
     type_index = matrix_mod._LAYOUT_0_11_0.index("SWEEP_TYPE")
     condition = matrix_mod._LAYOUT_0_11_0.index("FLIGHT_CONDITION")
     values = matrix_mod._LAYOUT_0_11_0.index("SWEEP_VALUES")
@@ -1366,7 +1371,15 @@ def _unfolded(data: bytes) -> bytes:
     the two key names rather than parsing it, because a helper that used
     the parser would pass on any cell the parser accepts.
     """
-    index = matrix_mod._COLUMNS.index("FLIGHT_CONDITION")
+    # THE INDEX COMES FROM THE LAYOUT THE DATA IS AT, not from the current
+    # one. This helper is handed the TWO-STAGE result, which sits at the
+    # sixteen-column layout with FLIGHT_CONDITION standing where RE was, so
+    # the current layout's index is the wrong number the moment the two
+    # stop agreeing. They agreed until 0.17.0 moved FLIGHT_CONDITION from
+    # position 3 to position 6, and then this helper unfolded the wrong
+    # cell: exactly the positional mistake the padding test below carries a
+    # comment about.
+    index = matrix_mod._LEGACY_COLUMNS_16.index("RE")
     rebuilt = []
     header_seen = False
     for line in data.splitlines(keepends=True):
@@ -1407,10 +1420,13 @@ def test_the_upgrade_changes_only_the_cells_the_conversion_touches(tmp_path):
         two_stage = matrix_mod._fold_flight_condition(
             matrix_mod._insert_workflow_cell(original, label), label
         )
-        assert upgrade_matrix(path) == matrix_mod._name_geometry_files(
-            matrix_mod._fold_sweep_type(
-                matrix_mod._drop_fs_script_and_name_pproc(two_stage, label), label
-            )
+        assert upgrade_matrix(path) == matrix_mod._expand_to_nineteen(
+            matrix_mod._name_geometry_files(
+                matrix_mod._fold_sweep_type(
+                    matrix_mod._drop_fs_script_and_name_pproc(two_stage, label), label
+                )
+            ),
+            label,
         ), label
         upgraded = two_stage
         restored = _unfolded(_without_the_new_cell(upgraded, index))
@@ -1736,26 +1752,39 @@ def test_the_number_counts_content_rows_and_not_physical_lines():
     )
 
 
+def _row_by_name(**cells) -> str:
+    """One matrix row, its cells placed BY COLUMN NAME.
+
+    A row written as a positional list is a row that moves to the wrong
+    columns the next time the layout changes, silently, because the cell
+    count can still be right. These fixtures learned that once already:
+    the padding test carries a comment about an index that read the SET
+    cell after RE and MACH folded at 0.9.0. Six columns arrived at 0.17.0
+    and the positional lists broke again, so they are placed by name now.
+
+    A column not named reads the dash that means the row states nothing.
+    """
+    return " | ".join(str(cells.get(name, "-")) for name in matrix_mod._COLUMNS)
+
+
 def _silent_matrix(tmp_path, builds):
     """Write a matrix whose FS_BUILD cells are exactly ``builds``."""
     header = " | ".join(matrix_mod._COLUMNS)
     rows = [
-        " | ".join(
-            [
-                f"900{index}",
-                "TestWing",
-                "ROW",
-                "MACH:0.0890, REmi:3.10, ALPHA:sweep",
-                "0.0",
-                "r003",
-                "s002",
-                "p001",
-                build,
-                "0",
-                "1",
-                "LEGACY",
-                "OUTPUTS: loads_{point}.txt / RECIPE: 003",
-            ]
+        _row_by_name(
+            POL=f"900{index}",
+            HIDDEN="0",
+            RUN="1",
+            AIRCRAFT="TestWing",
+            DESCRIPTION="ROW",
+            FLIGHT_CONDITION="MACH:0.0890, REmi:3.10, ALPHA:sweep",
+            SWEEP_VALUES="0.0",
+            REF="r003",
+            SET="s002",
+            PPROC="p001",
+            FS_BUILD=build,
+            WORKFLOW="LEGACY",
+            VAR_NAMES_VALUES="OUTPUTS: loads_{point}.txt / RECIPE: 003",
         )
         for index, build in enumerate(builds, start=1)
     ]
@@ -1915,23 +1944,25 @@ def test_a_cell_with_no_padding_to_spare_grows_rather_than_losing_a_character(tm
 
     target = tmp_path / "pfs200903_tight.fs"
     header = "|".join(_COLUMNS)
-    row = "|".join(
-        [
-            "9001",
-            "TestWing",
-            "ROW",
-            "MACH:0.0890, REmi:3.10, ALPHA:sweep",
-            "0.0",
-            "003",
-            "s002",
-            "p001",
-            "MANUAL",
-            "0",
-            "1",
-            "LEGACY",
-            "OUTPUTS: loads.txt / RECIPE: 003",
-        ]
-    )
+    by_name = {
+        "POL": "9001",
+        "HIDDEN": "0",
+        "RUN": "1",
+        "AIRCRAFT": "TestWing",
+        "DESCRIPTION": "ROW",
+        "FLIGHT_CONDITION": "MACH:0.0890, REmi:3.10, ALPHA:sweep",
+        "SWEEP_VALUES": "0.0",
+        "REF": "003",
+        "SET": "s002",
+        "PPROC": "p001",
+        "FS_BUILD": "MANUAL",
+        "WORKFLOW": "LEGACY",
+        "VAR_NAMES_VALUES": "OUTPUTS: loads.txt / RECIPE: 003",
+    }
+    # NO PADDING ANYWHERE, which is the whole point of this fixture: the
+    # REF cell has not one space to give up, so the rewrite must widen the
+    # column rather than truncate the id.
+    row = "|".join(by_name.get(name, "-") for name in _COLUMNS)
     target.write_text(header + "\n" + row + "\n", encoding="utf-8")
     text, counts = rewrite_codes(target, {"REF": {"003": "r003"}})
     assert counts == {"REF": 1}
@@ -2060,7 +2091,7 @@ def test_a_partly_edited_layout_is_refused_naming_upgrade(tmp_path):
         read_matrix(half)
     message = str(caught.value)
     assert "upgrade" in message, message
-    assert "15" in message and "13" in message
+    assert "15" in message and "19" in message
 
 
 # --- PFS-2029.11.01: the variables cell reads a list of records ------------------------
@@ -2111,8 +2142,10 @@ def test_every_fixture_cell_parses_unchanged():
 # --- a LEGACY row names its recipe in the cell (PFS-2031.11, GOAL-012) -----
 
 _NAMED_RECIPE_HEADER = (
-    "POL | AIRCRAFT | DESCRIPTION | FLIGHT_CONDITION | SWEEP_VALUES | REF | SET "
-    "| PPROC | FS_BUILD | HIDDEN | RUN | WORKFLOW | VAR_NAMES_VALUES"
+    "POL | HIDDEN | RUN | AIRCRAFT | CONFIGURATION | DESCRIPTION "
+    "| FLIGHT_CONDITION | SWEEP_VALUES | GEOMETRY | REF | SET | PPROC "
+    "| SYMMETRY | SYMMETRY_LOADS | NCPUS | WALLTIME | FS_BUILD | WORKFLOW "
+    "| VAR_NAMES_VALUES"
 )
 
 
@@ -2124,8 +2157,9 @@ def a_recipe_named_in_the_cell(case, script):
 
 def _one_legacy_row(path, pol, recipe_cell):
     row = (
-        f"{pol} | Wing | NAMED | MACH:0.2, REmi:3.1, ALPHA:sweep | 0.0 | r003 | s002 | p001 "
-        f"| 26.120 | 0 | 1 | LEGACY | RECIPE: {recipe_cell} / OUTPUTS: out.txt"
+        f"{pol} | 0 | 1 | Wing | - | NAMED | MACH:0.2, REmi:3.1, ALPHA:sweep | 0.0 "
+        f"| - | r003 | s002 | p001 | - | - | - | - | 26.120 | LEGACY "
+        f"| RECIPE: {recipe_cell} / OUTPUTS: out.txt"
     )
     path.write_text(_NAMED_RECIPE_HEADER + "\n" + "-" * 20 + "\n" + row + "\n", encoding="utf-8")
     return path

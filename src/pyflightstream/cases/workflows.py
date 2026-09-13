@@ -426,6 +426,45 @@ EXPORT_UNSTEADY_AFTER_ITER_VARIABLE = "EXPORT_UNSTEADY_AFTER_ITER"
 #: until this key existed no matrix cell could say so (PFS-2025.02.03).
 SYMMETRY_VARIABLE = "SYMMETRY"
 
+#: FR-92: the processor count, ONE number for every platform since
+#: v0.17.0. It reaches ``SET_MAX_PARALLEL_THREADS`` as the solver's
+#: thread count AND, on a submitting run, the scheduler's ``ncpus``. It
+#: is one key because it is one number: while it lived in the setup as
+#: ``max_parallel_threads`` and a cluster descriptor carried its own
+#: ``ncpus``, a job could reserve forty-eight processors and solve on
+#: eight with nothing noticing.
+NCPUS_VARIABLE = "NCPUS"
+
+#: FR-93: the wall clock a row asks for, in seconds. TWO consumers, which
+#: is what earns it a column rather than a place in an HPC profile: on a
+#: cluster it is what the job asks the scheduler for, and anywhere at all
+#: it is what the watchdog counts down to on an unsteady row.
+WALLTIME_VARIABLE = "WALLTIME"
+
+#: FR-94: the user's own name for the configuration, beside AIRCRAFT. It
+#: configures NOTHING and that is the point: it labels. It reaches a
+#: comment at the top of the emitted script and the header of the custom
+#: polar file, and no emitted command reads it.
+CONFIGURATION_VARIABLE = "CONFIGURATION"
+
+#: FR-95: a steady row starts each point from the previous point's
+#: converged solution unless it says otherwise. WARM IS THE DEFAULT and
+#: this key is the opt-out, which follows the evidence rather than the
+#: safer-looking choice: the predecessor's steady recipe never cleared
+#: the solver between points and had no switch to, so warm is what every
+#: steady polar of this study has always done. A default of cold would
+#: have been a change of behaviour wearing the clothes of a safe default.
+COLD_START_VARIABLE = "COLD_START"
+
+#: FR-96: how to continue a run that stopped on the wall clock.
+#: ``{FINISH_PENDING}``, ``{ADDITIONAL_ITERS=<n>}`` or
+#: ``{ADDITIONAL_REVS=<n>}``. NOT warm start, and the word is reused
+#: deliberately for a different thing: in the predecessor it named a
+#: phase-resolved march through one blade passage, which is an unsteady
+#: capability and not a steady one.
+RESTART_VARIABLE = "RESTART"
+
+
 #: How many periodic copies the sector stands for, dimensionless count.
 #: Required with ``SYMMETRY: PERIODIC`` and forbidden otherwise, which is
 #: the command's own rule (SRC-003 p.337) and is enforced by
@@ -3951,7 +3990,7 @@ def _settings(
         vorticity_drag_boundaries=_vorticity_indices(case, script),
         iterations=solver.iterations,
         convergence=solver.convergence,
-        max_threads=solver.max_threads,
+        max_threads=_row_ncpus(case, solver.max_threads),
         ref_area=None if reference is None else reference.area,
         ref_length=None if reference is None else reference.length,
         forced_iterations=solver.forced_iterations,
@@ -3975,6 +4014,41 @@ def _settings(
     symmetry_loads = _row_symmetry_loads(case, solver.symmetry_loads)
     if symmetry_loads is not None:
         helpers.analysis_setup(script, symmetry_loads=symmetry_loads)
+
+
+def _row_ncpus(case: SimCase, from_setup: int | None) -> int | None:
+    """Resolve the processor count: the ROW's, since v0.17.0 (FR-92).
+
+    ONE NUMBER FOR EVERY PLATFORM, her decision of 2026-09-12. It reaches
+    ``SET_MAX_PARALLEL_THREADS`` as the solver's thread count and, on a
+    submitting run, the scheduler's ``ncpus``. They cannot disagree
+    because there is only one of them.
+
+    ``from_setup`` is what a preset written before this release still
+    carries. A row that states nothing inherits it, so nothing already
+    written stops emitting the command; a row that states a count
+    overrides it. The preset key is on its way out and the upgrade moves
+    it into the column, which is why this reads the row FIRST and the
+    preset second rather than the other way round.
+    """
+    stated = _variable(case, NCPUS_VARIABLE)
+    if stated is None:
+        return from_setup
+    text = str(stated).strip()
+    try:
+        value = int(text)
+    except ValueError:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} states {NCPUS_VARIABLE}: {stated!r}, which is not a "
+            "whole number of processors. It is the count the solver is given and, on a "
+            "cluster, the count the job asks the scheduler for."
+        ) from None
+    if value < 1:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} states {NCPUS_VARIABLE}: {value}, and a run needs at "
+            "least one processor."
+        )
+    return value
 
 
 def _row_symmetry_loads(case: SimCase, from_setup: bool | None) -> bool | None:
@@ -4776,6 +4850,19 @@ def _script_tail(
     (PFS-2033.01) meet each phase at one seam rather than at four copies
     of it.
     """
+    _script_init(case, script, frames=frames)
+    _script_solve_and_export(conventions, case, script, frame, unsteady=unsteady, frames=frames)
+    script.emit("CLOSE_FLIGHTSTREAM")
+
+
+def _script_init(case: SimCase, script: Script, *, frames: Frames | None) -> None:
+    """Emit the init phase, which happens ONCE however many points follow.
+
+    Split out of :func:`_script_tail` at 0.17.0 so a warm steady sweep can
+    emit it once and then loop the solve. Nothing moved: a single-point
+    build calls this and :func:`_script_solve_and_export` in the order the
+    one function used, and renders the same bytes.
+    """
     _raw_commands(case, script, "init")
     _initialize(case, script)
     # THE SECTION DISTRIBUTIONS SIT HERE, between the solver being initialised
@@ -4797,6 +4884,24 @@ def _script_tail(
             "of them would be emitted. That is a defect in the builder rather than "
             "in the artifact."
         )
+
+
+def _script_solve_and_export(
+    conventions: WorkflowConventions,
+    case: SimCase,
+    script: Script,
+    frame: int | None,
+    *,
+    unsteady: bool,
+    frames: Frames | None = None,
+) -> None:
+    """Emit the exec, analysis and export phases, which happen PER POINT.
+
+    A warm steady sweep calls this once per point of the sweep, against a
+    solver that was initialised once and is never cleared between them.
+    That is the predecessor's steady recipe exactly, and it is why warm
+    start is a sweep model rather than a flag.
+    """
     _raw_commands(case, script, "exec")
     helpers.start_solver(script)
     _raw_commands(case, script, "analysis")
@@ -4810,7 +4915,6 @@ def _script_tail(
     _analysis(case, script, frame)
     _raw_commands(case, script, "export")
     _export_block(conventions, case, script, unsteady=unsteady)
-    script.emit("CLOSE_FLIGHTSTREAM")
 
 
 #: THE SEAMS A FLAG MAY REACH, which are the three the builders open for a
@@ -6197,6 +6301,108 @@ def _build_steady(case: SimCase, script: Script, conventions: WorkflowConvention
     _script_tail(conventions, case, script, frame, unsteady=False, frames=frames)
 
 
+def build_steady_sweep(
+    point_cases: Sequence[SimCase],
+    script: Script,
+    conventions: WorkflowConventions,
+    *,
+    cold: bool = False,
+) -> None:
+    """Build ONE script for every point of a steady sweep.
+
+    FR-95, her convention of 2026-09-12: a steady row is one job. The
+    shape is the predecessor's own steady recipe (GEO-043, finding 1):
+    the geometry is opened once, the fluid and the solver are set once,
+    the solver is initialised once, and then for each point the two
+    angles are set, the solver is started and the outputs are exported.
+
+    WARM IS WHAT HAPPENS WHEN NOTHING CLEARS THE SOLVER, and that is why
+    it is the default rather than a feature: point two begins from point
+    one's converged solution because nothing threw it away. ``cold``
+    emits a solver clear between points, which is the only difference
+    between the two and the whole of ``COLD_START``.
+
+    THE ORDER MATTERS AND IT IS RECORDED: a warm sweep's result depends
+    on the order its points ran in, which nothing recorded before this
+    release. The points are emitted in the order given, and the run
+    layer records that order with the job.
+
+    Parameters
+    ----------
+    point_cases : sequence of SimCase
+        One case per point, each already carrying its ``point`` and its
+        ``outputs``. They differ only in those two fields; everything the
+        preamble reads is taken from the FIRST.
+    script : Script
+        The script every point is emitted into.
+    conventions : WorkflowConventions
+        The naming conventions the export block reads.
+    cold : bool
+        Emit a solver clear between points. False is warm, which is the
+        default and the behaviour every steady polar of this study has
+        always had.
+    """
+    if not point_cases:
+        raise CampaignConfigError(
+            "a steady sweep needs at least one point; a row with none is a row "
+            "with nothing to run and the campaign refuses it before this."
+        )
+    first = point_cases[0]
+    _refuse_wake_termination_without_a_clock(first)
+    unsteady_export_threshold(first, conventions)
+    _refuse_unregistered_keys(first, "steady")
+    _raw_commands(first, script, "control")
+    _custom_flags(first, script, "control")
+    _raw_commands(first, script, "geometry")
+    _custom_flags(first, script, "geometry")
+    _open_geometry(first, script)
+    _raw_commands(first, script, "setup")
+    _custom_flags(first, script, "setup")
+    frame = _moment_frame(first, script)
+    frames: dict[str, int | None | Mapping[str, int]] = {
+        "MRP": frame,
+        **_flat_rotor_frames(first, None),
+    }
+    setup_frames = _setup_frames(first, script)
+    frames.update(setup_frames)
+    _rotations(first, script, {"MRP": frame, **setup_frames})
+    _significant_digits(first, script)
+    helpers.free_stream(script)
+    _fluid(first, script)
+    _settings(first, script)
+    _script_init(first, script, frames=frames)
+    for index, point_case in enumerate(point_cases):
+        if index and cold:
+            # The clear the predecessor left commented out, and it is the
+            # only line by which a cold sweep differs from a warm one.
+            #
+            # CLEAR_SOLUTION AND NOT SOLVER_CLEAR, measured rather than
+            # chosen by the name: SOLVER_CLEAR is documented by the 25.000
+            # edition alone and no later one prints it, so it does not
+            # exist on the build this study runs. CLEAR_SOLUTION is
+            # verified on 26.120 through 26.123, takes no argument, and
+            # sits in the exec phase, which is where a point begins. It
+            # clears the SOLUTION and leaves the initialisation standing,
+            # which is exactly what a cold point inside an initialised
+            # sweep needs.
+            script.emit("CLEAR_SOLUTION")
+        if index:
+            # The angles of THIS point. Only the two: the rest of the
+            # settings block was emitted once and does not vary over a
+            # sweep of the incidence. The predecessor sets exactly these
+            # two per point.
+            _refuse_sideslip_under_mirror(point_case)
+            helpers.solver_settings(
+                script,
+                aoa=_angle(point_case, "alpha"),
+                sideslip=_angle(point_case, "beta"),
+            )
+        _script_solve_and_export(
+            conventions, point_case, script, frame, unsteady=False, frames=frames
+        )
+    script.emit("CLOSE_FLIGHTSTREAM")
+
+
 # --- PFS-2028.01: the third run type, unsteady with nothing turning ----------
 
 
@@ -7341,6 +7547,17 @@ _STEADY_KEYS: tuple[str, ...] = (
     VELOCITY_VARIABLE,
     ADVANCE_RATIO_VARIABLE,
     LOG_OUTPUT_VARIABLE,
+    # The three columns of 0.17.0 that EVERY row answers, registered on
+    # every run type for that reason. NCPUS and WALLTIME are resources
+    # and CONFIGURATION is a label; none of them is conditional on the
+    # run type, which is exactly the rule that made them columns.
+    NCPUS_VARIABLE,
+    WALLTIME_VARIABLE,
+    CONFIGURATION_VARIABLE,
+    # Steady's alone, and it stays in the free cell because it is
+    # conditional: warm start is a property of a SWEEP over a condition,
+    # and an unsteady point marches in time from its own initial state.
+    COLD_START_VARIABLE,
 )
 _UNSTEADY_KEYS: tuple[str, ...] = (
     *_STEADY_KEYS,
@@ -7353,6 +7570,9 @@ _UNSTEADY_KEYS: tuple[str, ...] = (
     WINDOW_REVOLUTIONS_VARIABLE,
     BLADES_VARIABLE,
     EXPORT_UNSTEADY_AFTER_ITER_VARIABLE,
+    # Unsteady's alone: only a run that marches in time can be continued
+    # from where the clock stopped it.
+    RESTART_VARIABLE,
 )
 _UNSTEADY_ROTOR_KEYS: tuple[str, ...] = (
     *_UNSTEADY_KEYS,

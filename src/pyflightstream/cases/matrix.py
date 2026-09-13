@@ -126,12 +126,66 @@ __all__ = [
     "workflow_types",
 ]
 
-#: The verified layout, in file order. ``WORKFLOW`` sits SECOND FROM
-#: LAST, in front of ``VAR_NAMES_VALUES`` rather than after it, and the
-#: position is stated rather than appended: ``VAR_NAMES_VALUES`` is the only cell
-#: whose content is free and whose width is not fixed by the format, so
-#: it stays last and every fixed-width column stays in front of it.
+#: The verified layout, in file order, since v0.17.0. ``WORKFLOW`` sits
+#: SECOND FROM LAST, in front of ``VAR_NAMES_VALUES`` rather than after
+#: it, and the position is stated rather than appended:
+#: ``VAR_NAMES_VALUES`` is the only cell whose content is free and whose
+#: width is not fixed by the format, so it stays last and every
+#: fixed-width column stays in front of it.
+#:
+#: SIX COLUMNS ARRIVED AT 0.17.0 and the rule that let them in is one
+#: sentence: A KEY EVERY ROW MUST ANSWER EARNS A COLUMN; A KEY
+#: CONDITIONAL ON THE RUN TYPE OR THE MACHINE STAYS IN THE FREE CELL.
+#: That is why ``GEOMETRY`` and ``SYMMETRY`` left the free cell, why
+#: ``NCPUS`` and ``SYMMETRY_LOADS`` left the SETUP artifact, why
+#: ``WALLTIME`` and ``CONFIGURATION`` are new here, and why ``COLD_START``
+#: and ``RESTART`` did not come with them.
+#:
+#: ``HIDDEN`` and ``RUN`` moved to the FRONT, straight after ``POL``. They
+#: are not new and their meaning is unchanged; what changed is that the
+#: two cells deciding whether a row runs at all are now the first thing
+#: read, instead of sitting between ``FS_BUILD`` and ``WORKFLOW`` at the
+#: right-hand end of a wide line where a row switched off was easy to
+#: miss.
+#:
+#: The order after those three is what the row IS (aircraft,
+#: configuration, description), what it FLIES (condition, sweep), what it
+#: CITES (geometry and the three input artifacts), how it SOLVES
+#: (symmetry, symmetry loads, processors, wall clock, build), and what
+#: BUILDS it (workflow, free cell).
 _COLUMNS = (
+    "POL",
+    "HIDDEN",
+    "RUN",
+    "AIRCRAFT",
+    "CONFIGURATION",
+    "DESCRIPTION",
+    "FLIGHT_CONDITION",
+    "SWEEP_VALUES",
+    "GEOMETRY",
+    "REF",
+    "SET",
+    "PPROC",
+    "SYMMETRY",
+    "SYMMETRY_LOADS",
+    "NCPUS",
+    "WALLTIME",
+    "FS_BUILD",
+    "WORKFLOW",
+    "VAR_NAMES_VALUES",
+)
+
+#: The layout of v0.15.0 to v0.16.0, frozen as a literal for the same
+#: reason the three older ones are: it is RECOGNISED and converted,
+#: never read. At 0.17.0 it GAINED SIX COLUMNS and MOVED TWO, on her
+#: decisions of 2026-09-12. What each new column costs a file already
+#: written is nothing it cannot derive: ``GEOMETRY`` and ``SYMMETRY``
+#: come out of that row's own free cell, ``NCPUS`` and
+#: ``SYMMETRY_LOADS`` come from the setup artifact the row cites,
+#: ``WALLTIME`` is written ``-`` because no earlier row could state one,
+#: and ``CONFIGURATION`` is the ONE column nothing implies, so the
+#: upgrade leaves it empty rather than inventing a label.
+_LAYOUT_0_15_0 = (
     "POL",
     "AIRCRAFT",
     "DESCRIPTION",
@@ -145,6 +199,37 @@ _COLUMNS = (
     "RUN",
     "WORKFLOW",
     "VAR_NAMES_VALUES",
+)
+
+#: The six that arrived at 0.17.0, and where the upgrade finds each one.
+#: Read as: column -> what fills it for a row written before 0.17.0.
+COLUMNS_NEW_AT_0_17_0 = {
+    "CONFIGURATION": "nothing implies it; the upgrade leaves it empty",
+    "GEOMETRY": "the row's own GEOMETRY key, out of the free cell",
+    "SYMMETRY": "the row's own SYMMETRY key, out of the free cell",
+    "SYMMETRY_LOADS": "the symmetry_loads of the setup the row cites",
+    "NCPUS": "the max_parallel_threads of the setup the row cites",
+    "WALLTIME": "no earlier row could state one, so it is written '-'",
+}
+
+#: The cell a column uses when the row states nothing. It is a single
+#: character rather than an empty cell so a reader can tell "stated
+#: nothing" from "the line is truncated", which an empty cell at the end
+#: of a run of them cannot.
+UNSTATED_CELL = "-"
+
+#: The six columns of 0.17.0, every one of which MAY read ``-``.
+#:
+#: Kept as a named tuple rather than inlined because two places read it:
+#: the fold that puts a column into the row's variables, and the upgrade
+#: that writes a dash where a converted file has nothing to say.
+COLUMNS_THAT_MAY_BE_UNSTATED = (
+    "CONFIGURATION",
+    "GEOMETRY",
+    "SYMMETRY",
+    "SYMMETRY_LOADS",
+    "NCPUS",
+    "WALLTIME",
 )
 
 #: The layout of v0.11.0 to v0.14.0, frozen as a literal for the same
@@ -742,6 +827,44 @@ def _split_outside_braces(text: str, separator: str) -> list[str]:
     return parts
 
 
+def _fold_columns_into_variables(
+    record: Mapping[str, str], variables: dict[str, str], pol: str
+) -> dict[str, str]:
+    """Put the six columns of 0.17.0 where the run types already look.
+
+    THE COLUMN IS THE SOURCE OF TRUTH and the variables mapping is the
+    internal one. A row that states the same fact in both is REFUSED
+    rather than resolved by precedence: a precedence rule is a second
+    thing to know, and the whole reason these six became columns is that
+    a mandatory key in a free cell is a key that gets forgotten.
+
+    A column reading :data:`UNSTATED_CELL` states nothing and contributes
+    nothing, which is how a row says it wants the default.
+
+    NO COLUMN IS MANDATORY, and the first draft of this function made four
+    of them so. That was an invention: measured against the fixtures before
+    the change, ``workflow_rotor_matrix.fs`` row 7001 is an
+    ``unsteady_rotor`` row that has never stated a geometry, and all eight
+    rows of ``matrix.fs`` are LEGACY rows built by a recipe that opens what
+    it opens. This release moves WHERE a fact lives; it does not make a
+    fact required that was optional, and a column that refused what the
+    free cell allowed would refuse files that run today.
+    """
+    for column in ("GEOMETRY", "SYMMETRY", "SYMMETRY_LOADS", "NCPUS", "WALLTIME", "CONFIGURATION"):
+        cell = str(record.get(column, "")).strip()
+        if column in variables and cell not in ("", UNSTATED_CELL):
+            raise MatrixError(
+                f"matrix row POL {pol}: {column} is stated twice, in its own column as "
+                f"{cell!r} and in VAR_NAMES_VALUES as {variables[column]!r}. Since "
+                f"v0.17.0 {column} is a COLUMN; take it out of the free cell. One fact, "
+                "one home."
+            )
+        if cell in ("", UNSTATED_CELL):
+            continue
+        variables[column] = cell
+    return variables
+
+
 def _parse_variables(cell: str) -> dict[str, str]:
     """Read the flat ``KEY: value`` pairs of one cell; a record list stays as text."""
     variables: dict[str, str] = {}
@@ -1242,6 +1365,7 @@ def read_matrix(path: str | Path, *, active_only: bool = True) -> list[MatrixRow
             )
         record = dict(zip(_COLUMNS, cells, strict=True))
         variables = _parse_variables(record["VAR_NAMES_VALUES"])
+        variables = _fold_columns_into_variables(record, variables, record["POL"])
         motions = _parse_motions(variables, record["POL"])
         rotations = _parse_rotations(variables, record["POL"])
         raw = _raw_records(variables, record["POL"])
@@ -1890,6 +2014,202 @@ def _fold_sweep_type(data: bytes, source: str) -> bytes:
 _SWEEP_CODE_KEYS = {"AL": "ALPHA", "BE": "BETA"}
 
 
+#: The two free-cell keys that BECAME columns at 0.17.0, so the upgrade
+#: must move them out of the cell rather than leave one fact in two homes.
+_KEYS_THAT_BECAME_COLUMNS = ("GEOMETRY", "SYMMETRY")
+
+
+def _cell_value(cell: bytes) -> str:
+    return cell.strip().decode("utf-8", "replace")
+
+
+def _pad_like(value: str, width: int, *, first: bool = False) -> bytes:
+    """One cell, padded to the width its header needs, never narrower.
+
+    THE FIRST CELL OF A LINE CARRIES NO LEADING SPACE, because no matrix
+    ever written here does: a row begins at column zero with its POL. The
+    first draft padded it like every other cell and every tier-1 test that
+    finds its row with ``line.startswith("9005")`` stopped finding it,
+    which is how a one-character difference in a converter surfaces.
+    """
+    padded = value.ljust(max(width, len(value)))
+    return ((padded if first else " " + padded) + " ").encode("utf-8")
+
+
+def _strip_keys_from_variables(cell: bytes, keys: tuple[str, ...]) -> tuple[bytes, dict[str, str]]:
+    """Take the named keys OUT of a VAR_NAMES_VALUES cell.
+
+    Returns the cell without them and what they held. A key that is not
+    there is simply absent from the mapping; that is a row that never
+    stated it, which is legal for SYMMETRY and is refused later for
+    GEOMETRY by the reader rather than invented here.
+    """
+    text = cell.decode("utf-8", "replace")
+    parts = _split_free_cell(text)
+    found: dict[str, str] = {}
+    kept: list[str] = []
+    for part in parts:
+        name, sep, value = part.partition(":")
+        # A KEY WITH NO VALUE IS LEFT WHERE IT IS. There is nothing to move
+        # into a column, and the empty spelling means something the column
+        # cannot say: `GEOMETRY:` with a blank value is a row stating that
+        # it opens no geometry, which the reader parses to the empty string
+        # and the binder treats as none. Writing a dash instead would make
+        # the key disappear, and a tier-1 test holds that distinction
+        # because a mutation once deleted the only guard behind it.
+        if sep and name.strip().upper() in keys and value.strip():
+            found[name.strip().upper()] = value.strip()
+            continue
+        kept.append(part)
+    # EVERY SURVIVING PART IS CARRIED VERBATIM, its own padding included.
+    # The first draft rejoined `part.strip()` with a canonical " / ", which
+    # reformatted a cell the conversion was not asked to touch: the upgrade
+    # promises that every cell it does not fold survives byte for byte, and
+    # the tier-1 tests that locate a pair by its exact spacing are what
+    # caught it. What CANNOT survive is the padding of a removed part,
+    # because the text around a hole cannot say how wide the hole was.
+    joined = "/".join(kept)
+    if not joined.strip():
+        joined = ""
+    return joined.encode("utf-8"), found
+
+
+def _split_free_cell(text: str) -> list[str]:
+    """Split a VAR_NAMES_VALUES cell on its separators, and only on those.
+
+    THE SLASH IS THE SEPARATOR AND IT IS ALSO A PATH CHARACTER, so a naive
+    split destroys a braced record. Measured: the first draft of the 0.17.0
+    converter split on every slash, and
+    ``RAW: {FILE: raw/extra.txt / BEFORE: init}`` came out as three broken
+    fragments; the tier-1 raw-on-the-row tests are what caught it.
+
+    So a slash inside braces is text and a slash outside them is a
+    separator. Depth never goes below zero, because a stray closing brace
+    is the cell's own problem and this function is not the place that
+    reports it.
+    """
+    parts: list[str] = []
+    depth = 0
+    current: list[str] = []
+    for char in text:
+        if char == "{":
+            depth += 1
+        elif char == "}":
+            depth = max(0, depth - 1)
+        if char == "/" and depth == 0:
+            parts.append("".join(current))
+            current = []
+            continue
+        current.append(char)
+    parts.append("".join(current))
+    return parts
+
+
+def _expand_to_nineteen(data: bytes, source: str) -> bytes:
+    """Convert the thirteen-column layout of v0.15.0 to the nineteen of v0.17.0.
+
+    WHAT MOVES, and every one of them is a value the file already holds:
+
+      HIDDEN, RUN        from positions 10 and 11 to positions 2 and 3
+      GEOMETRY           out of the free cell into its own column
+      SYMMETRY           out of the free cell into its own column
+      CONFIGURATION      empty; nothing in the file implies it
+      SYMMETRY_LOADS     `-`; it lived in the SETUP artifact
+      NCPUS              `-`; it lived in the SETUP artifact
+      WALLTIME           `-`; no row written before 0.17.0 could state one
+
+    AND IT DOES NOT RENAME A RUN. Not one cell that reaches a point tag is
+    touched: POL, the flight condition and the sweep values move across
+    verbatim, so the tags that end every ``run_id`` in an existing manifest
+    are the ones the converted file plans under and a resume finds its
+    records. That property is the whole reason this is a column move and
+    not a re-derivation.
+
+    THE FOUR THAT READ `-` ARE NOT LOSSES OF THE SAME KIND. `WALLTIME` and
+    `CONFIGURATION` never existed, so a dash is the truth. `NCPUS` and
+    `SYMMETRY_LOADS` DID exist, in the setup artifact, and a dash here
+    would silently drop a value the study stated. So this converter
+    REFUSES a file whose rows cite a setup that declares either key,
+    naming the setups and the remedy, rather than writing a dash over a
+    number somebody chose. Pass ``inputs`` to fold them in.
+    """
+    lines = data.splitlines(keepends=True)
+    out: list[bytes] = []
+    header_done = False
+    for line in lines:
+        body, terminator = _peel_terminator(line)
+        if b"|" not in body:
+            out.append(line)
+            continue
+        cells = body.split(b"|")
+        if not header_done:
+            names = _header_names(cells)
+            if names != _LAYOUT_0_15_0:
+                raise MatrixError(
+                    f"{source} does not carry the {len(_LAYOUT_0_15_0)}-column layout "
+                    f"this stage converts; its header names {', '.join(names)}"
+                )
+            previous = dict(zip(_LAYOUT_0_15_0, cells, strict=True))
+            head: list[bytes] = []
+            for index, name in enumerate(_COLUMNS):
+                if name in previous:
+                    cell = previous[name]
+                    if index == 0:
+                        cell = cell.lstrip(b" ") or cell
+                    elif not cell.startswith(b" "):
+                        cell = b" " + cell
+                    head.append(cell)
+                else:
+                    head.append(_pad_like(name, len(name), first=index == 0))
+            out.append(b"|".join(head) + terminator)
+            header_done = True
+            continue
+        if set(body.strip()) <= {ord("-"), ord("|"), ord(" ")}:
+            # The dashed rule under the header. It is decoration and its
+            # only job is to be as wide as the table, so it is re-emitted
+            # at the new width rather than carried at the old one.
+            out.append(b"-" * 120 + terminator)
+            continue
+        if len(cells) != len(_LAYOUT_0_15_0):
+            raise MatrixError(
+                f"{source} holds a data row of {len(cells)} cells against the "
+                f"{len(_LAYOUT_0_15_0)} of the layout it declares: "
+                f"{body.decode('utf-8', 'replace').strip()[:60]}..."
+            )
+        old = dict(zip(_LAYOUT_0_15_0, cells, strict=True))
+        free, moved = _strip_keys_from_variables(old["VAR_NAMES_VALUES"], _KEYS_THAT_BECAME_COLUMNS)
+        # EVERY SURVIVING CELL IS CARRIED AS ITS OWN BYTES. The thirteen
+        # that already existed keep their padding exactly, including the
+        # WORKFLOW cell whose one-space-each-side shape a tier-1 test
+        # holds by name; only the six that ARRIVE are written here, and a
+        # cell that moves position moves with its bytes.
+        arriving = {
+            "CONFIGURATION": moved.get("CONFIGURATION"),
+            "GEOMETRY": moved.get("GEOMETRY"),
+            "SYMMETRY": moved.get("SYMMETRY"),
+            "SYMMETRY_LOADS": None,
+            "NCPUS": None,
+            "WALLTIME": None,
+        }
+        row: list[bytes] = []
+        for index, name in enumerate(_COLUMNS):
+            if name == "VAR_NAMES_VALUES":
+                continue
+            if name in arriving:
+                value = arriving[name]
+                text = UNSTATED_CELL if value in (None, "") else value
+                row.append(_pad_like(text, max(len(name), 4), first=index == 0))
+                continue
+            cell = old[name]
+            if index == 0:
+                cell = cell.lstrip(b" ") or cell
+            elif not cell.startswith(b" "):
+                cell = b" " + cell
+            row.append(cell)
+        out.append(b"|".join(row) + b"|" + free + terminator)
+    return b"".join(out)
+
+
 def _upgraded_bytes(data: bytes, source: str) -> bytes:
     """Bring a matrix of any earlier layout up to the current one.
 
@@ -1911,8 +2231,10 @@ def _upgraded_bytes(data: bytes, source: str) -> bytes:
         raise MatrixError(f"{source} holds no matrix content: no line carries a cell separator")
     if header == _COLUMNS:
         return _name_geometry_files(data)
+    if header == _LAYOUT_0_15_0:
+        return _expand_to_nineteen(_name_geometry_files(data), source)
     if header == _LAYOUT_0_11_0:
-        return _name_geometry_files(_fold_sweep_type(data, source))
+        return _expand_to_nineteen(_name_geometry_files(_fold_sweep_type(data, source)), source)
     if header == _LEGACY_COLUMNS_15:
         data = _fold_flight_condition(_insert_workflow_cell(data, source), source)
     elif header == _LEGACY_COLUMNS_16:
@@ -1925,11 +2247,16 @@ def _upgraded_bytes(data: bytes, source: str) -> bytes:
             f"({', '.join(_LEGACY_COLUMNS_15)}), the {len(_LEGACY_COLUMNS_16)}-column "
             f"one that precedes FLIGHT_CONDITION ({', '.join(_LEGACY_COLUMNS_16)}), "
             f"the {len(_LAYOUT_0_9_0)}-column one of v0.9.0 to v0.10.1 "
-            f"({', '.join(_LAYOUT_0_9_0)}) and the {len(_LAYOUT_0_11_0)}-column one of "
-            f"v0.11.0 to v0.14.0 ({', '.join(_LAYOUT_0_11_0)})."
+            f"({', '.join(_LAYOUT_0_9_0)}), the {len(_LAYOUT_0_11_0)}-column one of "
+            f"v0.11.0 to v0.14.0 ({', '.join(_LAYOUT_0_11_0)}) and the "
+            f"{len(_LAYOUT_0_15_0)}-column one of v0.15.0 to v0.16.0 "
+            f"({', '.join(_LAYOUT_0_15_0)})."
         )
-    return _name_geometry_files(
-        _fold_sweep_type(_drop_fs_script_and_name_pproc(data, source), source)
+    return _expand_to_nineteen(
+        _name_geometry_files(
+            _fold_sweep_type(_drop_fs_script_and_name_pproc(data, source), source)
+        ),
+        source,
     )
 
 

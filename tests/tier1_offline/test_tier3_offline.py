@@ -167,43 +167,50 @@ def _plan(root, matrix):
     )
 
 
-STEADY = "MACH:0.1, REmi:2.3, ALPHA:sweep | 0.0 | r001 | s001 | p002 | 26.120 | 0 | 1 | steady | "
+STEADY = (
+    "MACH:0.1, REmi:2.3, ALPHA:sweep | 0.0 | - | r001 | s001 | p002 "
+    "| - | - | - | - | 26.120 | steady | "
+)
 ROTOR = (
-    "MACH:0.1, REmi:2.3, ALPHA:sweep | 0.0 | r004 | s002 | p001 | 26.120 | 0 | 1 "
-    "| unsteady_rotor | "
-    "GEOMETRY: 40_PUSHER.fsm / SYMMETRY: NONE / ROTOR_AXIS: X / MOVING_BOUNDARIES: Blade / "
+    "MACH:0.1, REmi:2.3, ALPHA:sweep | 0.0 | 40_PUSHER.fsm | r004 | s002 | p001 "
+    "| NONE | - | - | - | 26.120 | unsteady_rotor | "
+    "ROTOR_AXIS: X / MOVING_BOUNDARIES: Blade / "
     "DELTA_THETA: 30 / REVOLUTIONS: 0.5 / "
 )
 
 REFUSALS = {
     "a geometry the library does not hold": (
-        f"7001 | Wing | REFUSED | {STEADY}GEOMETRY: 99_MISSING.fsm / SYMMETRY: NONE",
+        f"7001 | 0 | 1 | Wing | - | REFUSED | {STEADY}GEOMETRY: 99_MISSING.fsm / SYMMETRY: NONE",
         ("99_MISSING", "geometries"),
     ),
     "a reference code the library does not hold": (
-        "7002 | Wing | REFUSED | MACH:0.1, REmi:2.3, ALPHA:sweep | 0.0 | r999 | s001 "
-        "| p002 | 26.120 | 0 "
-        "| 1 | steady | GEOMETRY: 10_WING.fsm / SYMMETRY: NONE",
+        "7002 | 0 | 1 | Wing | - | REFUSED "
+        "| MACH:0.1, REmi:2.3, ALPHA:sweep | 0.0 | - | r999 | s001 "
+        "| p002 | - | - | - | - | 26.120 "
+        "| steady | GEOMETRY: 10_WING.fsm / SYMMETRY: NONE",
         ("r999", "references"),
     ),
     "a rotor hub named by a free point name": (
-        f"7003 | Pusher | REFUSED | {ROTOR}RPM: -800 / ROTOR_ORIGIN: HUB",
+        f"7003 | 0 | 1 | Pusher | - | REFUSED | {ROTOR}RPM: -800 / ROTOR_ORIGIN: HUB",
         ("HUB", "ERP"),
     ),
     "a rotor stating RPM and RPM_SIGN both": (
-        f"7004 | Pusher | REFUSED | {ROTOR}RPM: -800 / RPM_SIGN: 1 / ROTOR_ORIGIN: ERP3",
+        f"7004 | 0 | 1 | Pusher | - | REFUSED "
+        f"| {ROTOR}RPM: -800 / RPM_SIGN: 1 / ROTOR_ORIGIN: ERP3",
         ("RPM_SIGN",),
     ),
     "a LEGACY row with a bare recipe code and no mapping": (
-        "7005 | Wing | REFUSED | MACH:0.1, REmi:2.3, ALPHA:sweep | 0.0 | r001 | s001 "
-        "| p002 | 26.120 | 0 "
-        "| 1 | LEGACY | RECIPE: 003 / GEOMETRY: 10_WING.fsm / OUTPUTS: loads_{point}.txt",
+        "7005 | 0 | 1 | Wing | - | REFUSED "
+        "| MACH:0.1, REmi:2.3, ALPHA:sweep | 0.0 | - | r001 | s001 "
+        "| p002 | - | - | - | - | 26.120 "
+        "| LEGACY | RECIPE: 003 / GEOMETRY: 10_WING.fsm / OUTPUTS: loads_{point}.txt",
         ("recipe mapping",),
     ),
     "a build the registry does not hold": (
-        "7006 | Wing | REFUSED | MACH:0.1, REmi:2.3, ALPHA:sweep | 0.0 | r001 | s001 "
-        "| p002 | 27.000 | 0 "
-        "| 1 | steady | GEOMETRY: 10_WING.fsm / SYMMETRY: NONE",
+        "7006 | 0 | 1 | Wing | - | REFUSED "
+        "| MACH:0.1, REmi:2.3, ALPHA:sweep | 0.0 | - | r001 | s001 "
+        "| p002 | - | - | - | - | 27.000 "
+        "| steady | GEOMETRY: 10_WING.fsm / SYMMETRY: NONE",
         ("27.000", "executables.toml"),
     ),
     # PFS-2008.02.01: a key no run type registers planned READY on 2026-09-08,
@@ -212,15 +219,16 @@ REFUSALS = {
     # the run type registers; a key ANOTHER run type registers is named with
     # the run type that reads it.
     "a key no run type registers, on a steady row": (
-        f"7007 | Wing | REFUSED | {STEADY}GEOMETRY: 10_WING.fsm / SYMMETRY: NONE / FOO_BAR: 1",
+        f"7007 | 0 | 1 | Wing | - | REFUSED "
+        f"| {STEADY}GEOMETRY: 10_WING.fsm / SYMMETRY: NONE / FOO_BAR: 1",
         ("7007", "FOO_BAR", "'steady'", "GEOMETRY", "SYMMETRY"),
     ),
     "a key no run type registers, on a rotor row": (
-        f"7008 | Pusher | REFUSED | {ROTOR}RPM: -800 / ROTOR_ORIGIN: ERP3 / FOO_BAR: 1",
+        f"7008 | 0 | 1 | Pusher | - | REFUSED | {ROTOR}RPM: -800 / ROTOR_ORIGIN: ERP3 / FOO_BAR: 1",
         ("7008", "FOO_BAR", "'unsteady_rotor'", "MOVING_BOUNDARIES"),
     ),
     "a key another run type registers, on a steady row": (
-        f"7009 | Wing | REFUSED | {STEADY}GEOMETRY: 10_WING.fsm / SYMMETRY: NONE / "
+        f"7009 | 0 | 1 | Wing | - | REFUSED | {STEADY}GEOMETRY: 10_WING.fsm / SYMMETRY: NONE / "
         "WINDOW_DEGREES: 90",
         ("7009", "WINDOW_DEGREES", "'steady'", "unsteady_rotor"),
     ),
@@ -255,7 +263,7 @@ def test_a_row_on_a_second_build_is_pre_flighted_under_that_builds_grammar(tmp_p
     registry, no executable bound, and validates the row against it."""
     root = _tier3_copy(tmp_path)
     header, rule = TOUR.read_text(encoding="utf-8").splitlines()[:2]
-    steady = f"1001 | Wing | STEADY | {STEADY}GEOMETRY: 10_WING.fsm / SYMMETRY: NONE"
+    steady = f"1001 | 0 | 1 | Wing | - | STEADY | {STEADY}GEOMETRY: 10_WING.fsm / SYMMETRY: NONE"
     actions = next(
         line
         for line in (TIER3 / "matriz_actions.fs").read_text(encoding="utf-8").splitlines()
@@ -296,7 +304,8 @@ def _pproc(root, name, text):
 
 
 WING_ROW = (
-    "MACH:0.1, REmi:2.3, ALPHA:sweep | 0.0 | r001 | s001 | {pproc} | 26.120 | 0 | 1 | steady | "
+    "MACH:0.1, REmi:2.3, ALPHA:sweep | 0.0 | - | r001 | s001 | {pproc} "
+    "| - | - | - | - | 26.120 | steady | "
 )
 
 
@@ -310,7 +319,8 @@ def test_a_pproc_group_named_by_a_word_is_refused_at_plan_time(tmp_path):
     matrix = _one_row_matrix(
         root,
         "word.fs",
-        f"7106 | Wing | REFUSED | {WING_ROW.format(pproc='p006')}GEOMETRY: 10_WING.fsm / "
+        f"7106 | 0 | 1 | Wing | - | REFUSED "
+        f"| {WING_ROW.format(pproc='p006')}GEOMETRY: 10_WING.fsm / "
         "SYMMETRY: NONE",
     )
     with pytest.raises(PyflightstreamError) as caught:
@@ -334,7 +344,7 @@ def test_a_top_level_base_regions_list_is_the_documented_off_switch(tmp_path):
     matrix = _one_row_matrix(
         root,
         "off.fs",
-        f"7107 | Wing | READY | {WING_ROW.format(pproc='p007')}GEOMETRY: 10_WING.fsm / "
+        f"7107 | 0 | 1 | Wing | - | READY | {WING_ROW.format(pproc='p007')}GEOMETRY: 10_WING.fsm / "
         "SYMMETRY: NONE",
     )
     plan = _plan(root, matrix)
@@ -343,7 +353,7 @@ def test_a_top_level_base_regions_list_is_the_documented_off_switch(tmp_path):
     body = _one_row_matrix(
         root,
         "on.fs",
-        f"7108 | Body | READY | {WING_ROW.format(pproc='p008')}GEOMETRY: 20_BODY.fsm / "
+        f"7108 | 0 | 1 | Body | - | READY | {WING_ROW.format(pproc='p008')}GEOMETRY: 20_BODY.fsm / "
         "SYMMETRY: NONE",
     )
     resolved = resolve_matrix(
@@ -360,7 +370,8 @@ def test_a_top_level_base_regions_list_is_the_documented_off_switch(tmp_path):
 
 
 def _rotor_row(pol, cell):
-    return f"{pol} | Pusher | PFS-2028 | {ROTOR.replace('MOVING_BOUNDARIES: Blade', cell)}RPM: -800"
+    middle = ROTOR.replace("MOVING_BOUNDARIES: Blade", cell)
+    return f"{pol} | 0 | 1 | Pusher | - | PFS-2028 | {middle}RPM: -800"
 
 
 def _moving_payload(root, matrix):
@@ -482,7 +493,7 @@ def test_a_pproc_artifact_naming_nothing_the_geometry_carries_is_refused_at_plan
     matrix = _one_row_matrix(
         root,
         "renamed.fs",
-        f"7206 | Wing | RPT-044 | {WING_ROW.format(pproc='p005')}"
+        f"7206 | 0 | 1 | Wing | - | RPT-044 | {WING_ROW.format(pproc='p005')}"
         "GEOMETRY: 14_WING_RENAMED.fsm / SYMMETRY: NONE",
     )
     plan = _plan(root, matrix)
@@ -494,7 +505,7 @@ def test_a_pproc_artifact_naming_nothing_the_geometry_carries_is_refused_at_plan
     plain = _one_row_matrix(
         root,
         "plain.fs",
-        f"7207 | Wing | RPT-044 | {WING_ROW.format(pproc='p005')}"
+        f"7207 | 0 | 1 | Wing | - | RPT-044 | {WING_ROW.format(pproc='p005')}"
         "GEOMETRY: 10_WING.fsm / SYMMETRY: NONE",
     )
     assert not _plan(root, plain).blocked
@@ -511,7 +522,7 @@ def test_an_empty_group_does_not_disable_the_shares_no_name_refusal(tmp_path):
     matrix = _one_row_matrix(
         root,
         "empty_and_named.fs",
-        f"7211 | Wing | RPT-044 | {WING_ROW.format(pproc='p007')}"
+        f"7211 | 0 | 1 | Wing | - | RPT-044 | {WING_ROW.format(pproc='p007')}"
         "GEOMETRY: 14_WING_RENAMED.fsm / SYMMETRY: NONE",
     )
     plan = _plan(root, matrix)
@@ -532,7 +543,7 @@ def test_an_artifact_whose_only_group_is_empty_plans_ready_against_any_geometry(
     matrix = _one_row_matrix(
         root,
         "only_empty.fs",
-        f"7213 | Wing | RPT-044 | {WING_ROW.format(pproc='p009')}"
+        f"7213 | 0 | 1 | Wing | - | RPT-044 | {WING_ROW.format(pproc='p009')}"
         "GEOMETRY: 14_WING_RENAMED.fsm / SYMMETRY: NONE",
     )
     assert not _plan(root, matrix).blocked, "an artifact citing no name was refused"
@@ -557,7 +568,7 @@ def test_the_refusal_cites_the_word_the_artifact_writes_not_the_alias_members(tm
     matrix = _one_row_matrix(
         root,
         "aliased_renamed.fs",
-        f"7212 | Wing | RPT-044 | {WING_ROW.format(pproc='p008')}"
+        f"7212 | 0 | 1 | Wing | - | RPT-044 | {WING_ROW.format(pproc='p008')}"
         "GEOMETRY: 14_WING_RENAMED.fsm / SYMMETRY: NONE",
     )
     plan = _plan(root, matrix)
@@ -571,7 +582,9 @@ def test_the_refusal_cites_the_word_the_artifact_writes_not_the_alias_members(tm
 def test_the_workspace_refuses_a_pol_the_tour_already_states(tmp_path):
     root = _tier3_copy(tmp_path, with_tour=True)
     matrix = _one_row_matrix(
-        root, "second.fs", f"1001 | Wing | REFUSED | {STEADY}GEOMETRY: 10_WING.fsm / SYMMETRY: NONE"
+        root,
+        "second.fs",
+        f"1001 | 0 | 1 | Wing | - | REFUSED | {STEADY}GEOMETRY: 10_WING.fsm / SYMMETRY: NONE",
     )
     with pytest.raises(PyflightstreamError) as caught:
         _plan(root, matrix)
@@ -661,7 +674,7 @@ def test_a_nonzero_sideslip_under_mirror_symmetry_is_refused_at_plan_time(tmp_pa
     mirrored = _one_row_matrix(
         root,
         "yawed_mirror.fs",
-        f"4207 | Wing | YAWED | {sweep}GEOMETRY: 10_WING.fsm / SYMMETRY: MIRROR",
+        f"4207 | 0 | 1 | Wing | - | YAWED | {sweep}GEOMETRY: 10_WING.fsm / SYMMETRY: MIRROR",
     )
     plan = _plan(root, mirrored)
     blocked = {p.run_id: p.error for p in plan.blocked}
@@ -678,14 +691,14 @@ def test_a_nonzero_sideslip_under_mirror_symmetry_is_refused_at_plan_time(tmp_pa
     lower = _one_row_matrix(
         root,
         "yawed_mirror_lower.fs",
-        f"4209 | Wing | YAWED | {sweep}GEOMETRY: 10_WING.fsm / SYMMETRY: mirror",
+        f"4209 | 0 | 1 | Wing | - | YAWED | {sweep}GEOMETRY: 10_WING.fsm / SYMMETRY: mirror",
     )
     plan = _plan(root, lower)
     assert len(plan.blocked) == 2, plan.summary()
     full = _one_row_matrix(
         root,
         "yawed_full.fs",
-        f"4208 | Wing | YAWED | {sweep}GEOMETRY: 10_WING.fsm / SYMMETRY: NONE",
+        f"4208 | 0 | 1 | Wing | - | YAWED | {sweep}GEOMETRY: 10_WING.fsm / SYMMETRY: NONE",
     )
     plan = _plan(root, full)
     assert not plan.blocked, plan.summary()
@@ -703,7 +716,7 @@ def test_a_row_on_a_second_build_is_run_under_that_builds_grammar(tmp_path, monk
 
     root = _tier3_copy(tmp_path)
     header, rule = TOUR.read_text(encoding="utf-8").splitlines()[:2]
-    steady = f"1001 | Wing | STEADY | {STEADY}GEOMETRY: 10_WING.fsm / SYMMETRY: NONE"
+    steady = f"1001 | 0 | 1 | Wing | - | STEADY | {STEADY}GEOMETRY: 10_WING.fsm / SYMMETRY: NONE"
     actions = next(
         line
         for line in (TIER3 / "matriz_actions.fs").read_text(encoding="utf-8").splitlines()

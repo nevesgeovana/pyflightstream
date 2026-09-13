@@ -7,13 +7,13 @@
 boundary_layer_type = "TURBULENT"
 viscous_coupling = false
 convergence = 1e-5
-max_parallel_threads = 8
+# max_parallel_threads moved to the NCPUS matrix column at v0.17.0
 NITER = 300
 set_solver_model = "SUBSONIC_PRANDTL_GLAUERT"
 proximity_avoidance = "DISABLE"
 stabilization = "ENABLE"
 stabilization_strength = 1.0
-symmetry_loads = false
+# symmetry_loads moved to the SYMMETRY_LOADS matrix column at v0.17.0
 induced_wake_velocity = true
 farfield_layers = 3
 significant_digits = 7

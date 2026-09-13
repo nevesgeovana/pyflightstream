@@ -7,7 +7,7 @@ NITER = 500
 set_solver_model = "INCOMPRESSIBLE"
 proximity_avoidance = "DISABLE"
 vorticity_drag_boundaries = ["Wing"]
-symmetry_loads = true                      # SET_ANALYSIS_SYMMETRY_LOADS ENABLE
+# symmetry_loads moved to the SYMMETRY_LOADS matrix column at v0.17.0
 
 [flight_condition]
 MUPas = 1.7894e-5

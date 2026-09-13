@@ -60,17 +60,21 @@ workdir = Path(tempfile.mkdtemp(prefix="pyfs_campaign_"))
 
 # %%
 _HEADER = (
-    "POL|AIRCRAFT|DESCRIPTION|FLIGHT_CONDITION|SWEEP_VALUES|REF|SET"
-    "|PPROC|FS_BUILD|HIDDEN|RUN|WORKFLOW|VAR_NAMES_VALUES"
+    "POL|HIDDEN|RUN|AIRCRAFT|CONFIGURATION|DESCRIPTION|FLIGHT_CONDITION|SWEEP_VALUES"
+    "|GEOMETRY|REF|SET|PPROC|SYMMETRY|SYMMETRY_LOADS|NCPUS|WALLTIME|FS_BUILD"
+    "|WORKFLOW|VAR_NAMES_VALUES"
 )
+# HIDDEN and RUN come first, straight after POL, so the two cells deciding
+# whether a row runs are the first thing read. A column a row does not use
+# reads `-`; nothing here is mandatory that was optional before.
 _ROW_1 = (
-    "9001|TestWing|POLAR|MACH:0.1441, REmi:4.38, ALPHA:sweep, BETA:0.0|0.0,2.0,4.0"
-    "|r003|s003|p001|MANUAL|0|1|LEGACY"
+    "9001|0|1|TestWing|-|POLAR|MACH:0.1441, REmi:4.38, ALPHA:sweep, BETA:0.0|0.0,2.0,4.0"
+    "|-|r003|s003|p001|-|-|-|-|MANUAL|LEGACY"
     "|FSM_FILE:wing_clean / OUTPUTS: loads_{point}.txt / RECIPE: 003"
 )
 _ROW_2 = (
-    "9002|TestWing|PARKED|MACH:0.0890, REmi:3.10, ALPHA:sweep, BETA:0.0|0.0"
-    "|r003|s002|p001|MANUAL|0|0|LEGACY"
+    "9002|0|0|TestWing|-|PARKED|MACH:0.0890, REmi:3.10, ALPHA:sweep, BETA:0.0|0.0"
+    "|-|r003|s002|p001|-|-|-|-|MANUAL|LEGACY"
     "|FSM_FILE:wing_clean / OUTPUTS: loads_{point}.txt / RECIPE: 003"
 )
 MATRIX = "\n".join([_HEADER, "-" * len(_HEADER), _ROW_1, _ROW_2]) + "\n"

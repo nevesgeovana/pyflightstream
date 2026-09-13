@@ -1818,8 +1818,9 @@ def test_a_record_waiving_nothing_may_still_be_appended_unstamped(tmp_path):
 # reason the two halves are one call and refuse together.
 
 PFS200903_MATRIX_ROW = (
-    "9001 | TestWing | STEADY | MACH:0.0890, REmi:3.10, ALPHA:sweep | 0.0 | 003  | 002  | 001    "
-    "| MANUAL   |    0   |  1  | LEGACY   | OUTPUTS: loads_{point}.txt / RECIPE: 003"
+    "9001 |    0   |  1  | TestWing | - | STEADY | MACH:0.0890, REmi:3.10, ALPHA:sweep "
+    "| 0.0 | - | 003  | 002  | 001    | - | - | - | - "
+    "| MANUAL   | LEGACY   | OUTPUTS: loads_{point}.txt / RECIPE: 003"
 )
 
 

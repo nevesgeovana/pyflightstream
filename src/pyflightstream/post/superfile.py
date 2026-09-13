@@ -63,7 +63,12 @@ from pathlib import Path
 
 import numpy as np
 
-from pyflightstream.cases.matrix import MatrixError, MatrixRow, read_matrix
+from pyflightstream.cases.matrix import (
+    COLUMNS_THAT_MAY_BE_UNSTATED,
+    MatrixError,
+    MatrixRow,
+    read_matrix,
+)
 from pyflightstream.post._tables import ProductError, write_csv_table
 from pyflightstream.post._tables import _cell as _fixed_cell
 from pyflightstream.workspace.naming import polar_name
@@ -344,6 +349,19 @@ def superfile_row(
         )
         for key, value in matrix_row.variables.items():
             _take(row, key, value)
+        # THE SIX COLUMNS OF 0.17.0, written always and empty where the row
+        # states none, for the same reason the three record cells below are:
+        # the column set of this file may not depend on what one row
+        # happened to fill in. They reach it through the variables loop
+        # above whenever the row states them, and this is what puts them
+        # there when it does not.
+        #
+        # The SUPER file's whole contract is that it is a superset of
+        # everything the workspace knows about a simulation, so a column
+        # the format defines is something the workspace knows whether or
+        # not this row used it. Its own guard is what caught the omission.
+        for column in COLUMNS_THAT_MAY_BE_UNSTATED:
+            _take(row, column, row.get(column, ""))
         # The three cell keys the matrix reader parses OUT of the variables
         # into lists of their own; written always, empty where the row
         # states none, so the column set does not depend on the row.
