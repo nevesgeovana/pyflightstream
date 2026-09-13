@@ -1488,11 +1488,18 @@ described with the export threshold below (the stamped files as a series). To re
 configured:
 
 ```text
-pyfs-matrix post matriz.fs --workspace .            # refuses a product that exists
-pyfs-matrix post matriz.fs --workspace . --overwrite
+pyfs-matrix post matriz.fs --workspace .            # archives what is there, then writes
 pyfs-matrix post --workspace .                      # every matrix the manifest names
 pyfs-matrix post --workspace . --strict             # exit 3 if any product was skipped
+pyfs-matrix post --workspace . --force-overwrite    # destroys instead, and asks first
 ```
+
+**SINCE v0.17.0 A REBUILD REFUSES NOTHING.** The first form MOVES whatever is
+there into `archive/<day and hour>/` beside it and writes the new product in
+its place, so nothing is lost and nothing is in your way. `--overwrite` is
+gone: the flag that keeps no copy is `--force-overwrite`, it asks for a
+confirmation, and a non-interactive session answers no. One stamp per rebuild,
+so everything one rebuild replaced sits in one folder.
 
 A skip is a success by default, since everything producible was produced;
 `--strict` is for a wrapper that must tell a partial rebuild from a whole

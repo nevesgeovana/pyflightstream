@@ -6,7 +6,55 @@ solver. MIT licensed.
 Status: v0.17.0 is the current release; the changelog records what
 each release adds and what each one asks you to do.
 
-**v0.16.0 is the sweep release.** A surface-section distribution is created
+**v0.17.0 is the release that makes a sweep ONE RUN.** A steady matrix row
+is one job: every point of it runs in one script and one solver process, and
+the solver is never cleared between them, so each angle begins from the
+previous one's converged solution and the sweep costs one setup instead of one
+per point. That is the warm start, and it is what a polar sweep IS rather than
+a switch on top of it; a row that wants the other behaviour writes
+`COLD_START: True`. One job leaves ONE record, naming every point it ran IN
+THE ORDER IT RAN THEM, because a warm sweep's order is part of its result.
+
+**The run matrix carries nineteen columns.** `CONFIGURATION`, `GEOMETRY`,
+`SYMMETRY`, `SYMMETRY_LOADS`, `NCPUS` and `WALLTIME` become columns of their
+own, and `HIDDEN | RUN` moves to sit directly after `POL`. Each of the six was
+expressible before, four inside the free variables cell and two inside the
+setup artifact, so the release moves WHERE a fact lives and makes no fact
+required: a row that states none of them reads exactly as it did. A file in
+any older layout is upgraded on read, and the upgrade RENAMES NO RUN, because
+the point tag is run identity and ends every run id in every existing
+manifest. A column says nothing with `-`, and where one of the six says
+nothing the older home still answers.
+
+**A run needs a plan, pinned to the matrix it read.** `pyfs-matrix plan`
+spends no solver time, pre-flights every point, and writes the receipt `run`
+now refuses to start without; the receipt carries the matrix digest, so a
+matrix edited between planning and running is visible rather than silent.
+
+**A product is archived before it is rewritten, never lost.** A rebuild moves
+the old product into `archive/<day and hour>/` beside it and writes the new one
+in its place. `--overwrite` is gone: `--force-overwrite` keeps no copy and asks
+for a confirmation, so it cannot be reached by habit.
+
+**An unsteady row can state a wall clock.** `WALLTIME` arms a pair of
+solver-side actions: a program that keeps its own clock and fires once, and a
+script it rewrites that does nothing until the clock and the margin meet, and
+then writes the run's exports. The margin is the setup's, twenty minutes by
+default. A run the clock stopped is recorded `WALLTIME_REACHED`, which is NOT
+a failure: the numbers up to that step are real and the record says where it
+stopped. What is NOT measured, and is said here rather than only in a source
+comment: whether the stop verb inside an action's script ends the RUN or only
+that script. Settling it needs a licensed probe that moves one thing.
+
+**Linux is the cluster, and no cell says so.** On Linux with a profile in
+`inputs/hpc/h<>.toml` the run path renders that cluster's descriptor, hands the
+job to the scheduler and returns without waiting, and the record is
+`SUBMITTED`. The setup artifact stays multiplatform, so the same matrix,
+unchanged in every cell, runs locally on Windows and submits on Linux, and
+`NCPUS` is one number for both. **This release has no collect stage**, so a
+submitted job's outputs are collected by hand until 0.18.0.
+
+**v0.16.0 was the sweep release.** A surface-section distribution is created
 AFTER the solver is initialised; created before, the distribution returns the
 declared number of sections and every one of them is empty. A steady row now
 CREATES the probe points it exports, instead of asking the solver to export
