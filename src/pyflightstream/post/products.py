@@ -133,7 +133,7 @@ from pyflightstream.results import (
     parse_unsteady_plots,
 )
 from pyflightstream.workspace import RunStatus
-from pyflightstream.workspace.naming import polar_name
+from pyflightstream.workspace.naming import ARCHIVE_DIR, ARCHIVE_STAMP, polar_name
 
 if TYPE_CHECKING:
     from pyflightstream.cases.matrix import MatrixRow
@@ -1619,11 +1619,19 @@ PROBES_DIR = "probes"
 #: The folder an existing product is moved into before a new one is
 #: written, under the matrix's own post folder: ``archive/<day and hour>/``.
 #: One folder per rebuild, so a rebuild is one thing a reader can look at.
-PRODUCT_ARCHIVE_DIR = "archive"
+#:
+#: BOTH NAMES MOVED DOWN TO THE NAMING MODULE AT 0.18.0 and are re-exported
+#: here under the spellings this layer has always used. A continuation
+#: archives a DATAPOINT under the same stamp, and the workspace layer cannot
+#: import from post: dependencies flow downward. A second copy of the format
+#: in the lower layer would be a second home for one fact, which is the
+#: failure this estate keeps paying for, so the fact moved rather than being
+#: duplicated.
+PRODUCT_ARCHIVE_DIR = ARCHIVE_DIR
 
 #: How the stamp is spelled. Sortable, no separator a file system objects
 #: to, and to the SECOND: two rebuilds in one minute are two rebuilds.
-PRODUCT_ARCHIVE_STAMP = "%Y%m%d-%H%M%S"
+PRODUCT_ARCHIVE_STAMP = ARCHIVE_STAMP
 
 
 def product_archive_dir(path: Path, *, now: datetime | None = None) -> Path:

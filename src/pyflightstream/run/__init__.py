@@ -92,6 +92,10 @@ from pyflightstream.cases import (
 )
 from pyflightstream.cases.workflows import (
     COLD_START_VARIABLE,
+    RESTART_FROM_VARIABLE,
+    RESTART_ITERATIONS_VARIABLE,
+    RESTART_VARIABLE,
+    SIMULATION_SUFFIX,
     UNSTEADY_ACTION_COUNT,
     UNSTEADY_ACTION_PROGRAM,
     UNSTEADY_ACTION_SCRIPT,
@@ -102,7 +106,9 @@ from pyflightstream.cases.workflows import (
     WALLTIME_STOP_SCRIPT,
     WorkflowConventions,
     build_steady_sweep,
+    parse_restart,
     reduction_windows,
+    restart_iterations,
     row_ncpus,
     row_walltime_s,
     unsteady_export_threshold,
@@ -139,7 +145,7 @@ from pyflightstream.workspace import (
     datapoint_dir_name,
     post_stages,
 )
-from pyflightstream.workspace.naming import polar_name
+from pyflightstream.workspace.naming import ARCHIVE_STAMP, polar_name
 
 __all__ = [
     "PLAN_REQUIRED_MESSAGE",
@@ -2706,6 +2712,51 @@ def run_campaign(
                 failures.append(record)
             continue
         for point, run_id in pending:
+            # FR-96, 0.18.0. A CONTINUATION IS RESOLVED BEFORE ANYTHING IS
+            # BUILT, because it changes three things at once: which script
+            # the builder writes, which run id the record carries, and what
+            # is in the datapoint folder when the solver starts. Resolving
+            # it later would mean a run id already printed and a folder
+            # already read.
+            point_extra: dict[str, object] = {}
+            try:
+                continuation = resolve_continuation(workspace, case, point, run_id=run_id)
+            except (CampaignConfigError, WorkspaceError) as error:
+                records.append(
+                    RunRecord(
+                        run_id=run_id,
+                        sim_id=case.sim_id,
+                        point=dict(point),
+                        fs_version_requested=case_version,
+                        package_version=pyflightstream.__version__,
+                        script_sha256="",
+                        raw_flag=False,
+                        # FAILED_SCRIPT, because that is what happened: the
+                        # script could not be built. No new status, and no
+                        # guessing at one that may not exist.
+                        status=RunStatus.FAILED_SCRIPT,
+                        error=str(error),
+                    )
+                )
+                continue
+            if continuation is not None:
+                stamp = datetime.now()
+                # HER DECISION: archive what the continuation replaces, per
+                # datapoint, under a day-and-hour stamp, BECAUSE THERE CAN BE
+                # MORE THAN ONE RESTART. It happens before the solver starts,
+                # so a continuation never writes into the folder holding the
+                # evidence of the run it continues.
+                workspace.archive_datapoint(case.sim_id, point, stamp=stamp)
+                point_extra = {
+                    RESTART_FROM_VARIABLE: continuation["saved"],
+                    RESTART_ITERATIONS_VARIABLE: str(continuation["iterations"]),
+                }
+                run_id = continuation_run_id(run_id, stamp)
+                _say(
+                    f"  -> continuing {continuation['continues']} for "
+                    f"{continuation['iterations']} more step(s)",
+                    quiet=quiet,
+                )
             # FR-78: the point is named as it STARTS, not when it ends. A
             # forty-point campaign that printed only on completion told a
             # reader nothing about the point currently burning the licence.
@@ -2719,7 +2770,9 @@ def run_campaign(
                 fs_exe=case_exe,
                 fs_version=case_version,
                 fs_version_source=case_version_source,
-                case=case,
+                case=case.model_copy(update={"variables": {**case.variables, **point_extra}})
+                if point_extra
+                else case,
                 point=point,
                 run_id=run_id,
                 recipe=recipe,
@@ -4467,6 +4520,97 @@ def workflow_conventions_for(case: SimCase) -> WorkflowConventions:
     rebuilding the names.
     """
     return WorkflowConventions.for_case(case)
+
+
+#: The statuses a continuation may continue FROM. A run that converged has
+#: nothing left to march and a run that failed has no state worth resuming;
+#: these two stopped with their outputs written and their step recorded,
+#: which is exactly what `restart_iterations` subtracts from.
+CONTINUABLE = (RunStatus.WALLTIME_REACHED, RunStatus.COMPLETED_MAX_ITER)
+
+
+def continuation_run_id(run_id: str, stamp: datetime) -> str:
+    """Return the run id of a continuation of ``run_id``.
+
+    THE STAMP GOES BEFORE THE POINT TAG AND NOT AFTER IT, and that is the
+    whole of the decision the owner left to this session. FR-95 states that
+    the point tag is run IDENTITY and ENDS every ``run_id`` in every
+    manifest; a stamp appended after it would break that for every reader
+    and every resume that walks a manifest by its tags.
+
+    So a continuation is ``<campaign>/sim_<id>/r<stamp>/<tag>``: a row of
+    its own in the manifest, discriminated by the SAME stamp that names the
+    folder its predecessor's outputs were archived into, and the tag still
+    ends it.
+
+    ONE RECORD PER CONTINUATION, which is the shape her archive decision
+    pointed at without stating: if the evidence of each continuation lives
+    in its own stamped folder, the stamp is already the thing that tells one
+    from the next, and a record per continuation costs no new vocabulary.
+    The alternative, one record growing segments, would have meant rewriting
+    a finished row, which is the thing `append_record` exists to prevent.
+    """
+    head, _, tag = run_id.rpartition("/")
+    return f"{head}/r{stamp.strftime(ARCHIVE_STAMP)}/{tag}"
+
+
+def resolve_continuation(
+    workspace: CampaignWorkspace,
+    case: SimCase,
+    point: Mapping[str, float],
+    *,
+    run_id: str,
+) -> dict[str, object] | None:
+    """Resolve the two facts a continuation needs, from the record it continues.
+
+    None where the row states no ``RESTART``, which is every ordinary row.
+
+    THE ROW SAYS HOW MUCH MORE AND THE MANIFEST SAYS FROM WHAT. Which run
+    stopped, where it stopped, and which saved simulation it left are all
+    answers the record holds; the builder is a pure function of its case and
+    must not go looking for them, so they are resolved here and set on the
+    point case as two reserved variables.
+    """
+    request = parse_restart(case)
+    if request is None:
+        return None
+    tag = point_tag(dict(point))
+    stopped = [
+        record
+        for record in workspace.read_manifest()
+        if record.sim_id == case.sim_id
+        and record.run_id.endswith(f"/{tag}")
+        and record.status in CONTINUABLE
+    ]
+    if not stopped:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} point {tag} states {RESTART_VARIABLE} and this workspace "
+            "records no run of it that STOPPED with more to do. A continuation continues a "
+            f"recorded run whose status is one of "
+            f"{', '.join(str(s) for s in CONTINUABLE)}; run the row once, or remove the "
+            f"{RESTART_VARIABLE} key to march it from the start."
+        )
+    # THE MOST RECENT ONE, which is the last in file order: the manifest is
+    # append-only and a continuation of a continuation continues the latest.
+    previous = stopped[-1]
+    iterations = restart_iterations(request, previous.model_dump(mode="json"))
+    saved = next(
+        (name for name in previous.outputs if str(name).lower().endswith(SIMULATION_SUFFIX)),
+        None,
+    )
+    if saved is None:
+        raise CampaignConfigError(
+            f"run {previous.run_id!r} stopped at {previous.status} and collected no saved "
+            f"simulation ({SIMULATION_SUFFIX}), so there is no state to reopen. A row whose "
+            "post-processing artifact turns the simulation export off cannot be continued; "
+            "turn it on and run the row again."
+        )
+    return {
+        "continues": previous.run_id,
+        "iterations": iterations,
+        "saved": str(saved),
+        "form": request.form,
+    }
 
 
 def _execute_point(

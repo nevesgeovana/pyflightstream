@@ -7234,47 +7234,95 @@ def walltime_clock_program(case: SimCase, conventions: WorkflowConventions) -> s
     )
 
 
-def _refuse_a_restart_that_nothing_runs(case: SimCase) -> None:
-    """Refuse a row that states RESTART, because 0.17.0 does not run one yet.
+#: WHERE A CONTINUATION READS ITS TWO FACTS. The row states RESTART and
+#: nothing else about the run it continues; which run that is, and how many
+#: steps are left, are answers the MANIFEST holds and a builder does not.
+#: The run path resolves both against the stopped record and sets them on
+#: the point case, so the builder stays a pure function of its case.
+RESTART_FROM_VARIABLE = "RESTART_FROM"
+RESTART_ITERATIONS_VARIABLE = "RESTART_ITERATIONS"
 
-    THE PARSER IS BUILT AND THE CONTINUATION IS NOT. `parse_restart` and
-    `restart_iterations` read the three forms and do the arithmetic, and
-    nothing on the run path calls them: no builder shortens a march and
-    nothing archives the outputs a continuation would replace.
 
-    SO THE ROW IS REFUSED BY NAME rather than accepted and ignored, which
-    is what it was until 2026-09-13. The key was registered, so a user who
-    reached a WALLTIME_REACHED record and wrote the continuation the
-    release told them to write had it validated, planned READY, and then
-    re-marched the whole time history from step one: a licensed seat spent
-    on a run that was supposed to add a hundred steps. All five review
-    lenses found it, and a refusal at PLAN spends nothing.
+def continuation_of(case: SimCase) -> tuple[str, int] | None:
+    """Return the saved simulation and the step count a continuation runs, or None.
 
-    THE SPELLING IS STILL CHECKED FIRST, so a user who writes it wrongly
-    learns that too and does not have to discover the two refusals one
-    after the other.
-
-    A LEGACY ROW IS NOT TOUCHED, and two of the committed fixtures are:
-    they carry ``RESTART: DISABLE`` in their free cell, which is the
-    predecessor's own spelling passed through by the LEGACY recipe and not
-    a continuation at all. This is called from the three unsteady builders
-    alone, so those rows never reach it. The collision of one word over two
-    meanings is real and is left standing rather than renamed, because
-    renaming a key a recorded row already carries is the thing the upgrade
-    ladder exists to avoid.
+    None where the row states no RESTART, which is every ordinary row.
     """
     request = parse_restart(case)
     if request is None:
-        return
-    raise CampaignConfigError(
-        f"case {case.sim_id!r} states {RESTART_VARIABLE}: {{{request.form}"
-        + (f"={request.value:g}" if request.value is not None else "")
-        + "}, which this release reads and cannot yet run. 0.17.0 records a run the "
-        "wall clock stopped as WALLTIME_REACHED and states where it stopped; "
-        "CONTINUING one lands at 0.18.0, with the archive of the outputs it "
-        f"replaces. Remove the {RESTART_VARIABLE} key to run the row from the start, "
-        "which is what this release does with it."
-    )
+        return None
+    saved = case.variables.get(RESTART_FROM_VARIABLE)
+    iterations = case.variables.get(RESTART_ITERATIONS_VARIABLE)
+    if not saved or iterations is None or iterations == "":
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} states {RESTART_VARIABLE}: {{{request.form}"
+            + (f"={request.value:g}" if request.value is not None else "")
+            + "}, and nothing resolved the run it continues. A continuation needs a "
+            "recorded run that STOPPED, because the saved simulation it reopens and "
+            "the steps it still owes both come from that record and not from the row. "
+            "Run the row once and let the wall clock stop it, or remove the "
+            f"{RESTART_VARIABLE} key to march it from the start."
+        )
+    return str(saved), int(float(str(iterations)))
+
+
+def _build_continuation(
+    case: SimCase,
+    script: Script,
+    conventions: WorkflowConventions,
+    saved: str,
+    iterations: int,
+    *,
+    threshold: UnsteadyExportThreshold | None = None,
+) -> None:
+    """Continue a march the wall clock stopped, from the simulation it saved.
+
+    HER MEASUREMENT OF 2026-09-13, and the whole shape rests on it: the
+    solver DOES resume an unsteady march from a saved file, picking up
+    where it stopped and running the new iteration count it is given. That
+    is what makes this a CONTINUATION rather than a re-march with a better
+    initial condition, and the difference is the one thing a user cannot
+    see in the numbers afterwards.
+
+    SO THE SCRIPT IS SHORT, and every line it does not emit is a line the
+    saved file already carries. It opens that file with the solver
+    initialization LOADED, which is the opposite of every other open this
+    package writes and is the entire mechanism: `OPEN <file> ENABLE`
+    restores the state, and a `DISABLE` here would silently start the run
+    over from a mesh.
+
+    NO GEOMETRY IMPORT, NO FRAMES, NO MOTIONS, NO BOUNDARY DECLARATION.
+    They are in the file. Re-emitting them would either be redundant or,
+    worse, replace what the stopped run actually had with what the row says
+    today, which is the shape that made a recorded flight condition read
+    back as a different number in a regenerated product.
+
+    THE STEP COUNT IS THE REMAINDER AND NOT THE ROW'S ORIGINAL, computed by
+    :func:`restart_iterations` against the record being continued. A
+    builder that passed the row's own count through would re-march the
+    whole history, which is exactly what the release before this one
+    refused the key to prevent.
+    """
+    _configuration_comment(case, script)
+    # ENABLE, ALWAYS, and this is the one place in this package where the
+    # initialisation flag is not the row's to choose: a continuation that
+    # did not load the stored state would not be one.
+    script.emit("OPEN", saved, "ENABLE")
+    # THE TIME STEP IS THE ROW'S OWN AND IS UNCHANGED. It is the SAME row:
+    # only the count of steps still owed differs, and a continuation that
+    # marched the remainder at a different step would change the character
+    # of the march halfway through and record nothing saying so. Derived
+    # here exactly as the full builder derives it, so the two cannot drift.
+    if case.recipe == "unsteady_rotor":
+        clock = _optional_rotor_speed(case)
+        stepping = rotor_time_stepping(
+            case, speed=clock if clock is not None else rotor_speed(case)
+        )
+    else:
+        stepping = unsteady_time_stepping(case)
+    helpers.unsteady_solver(script, time_iterations=iterations, delta_time=stepping.delta_time_s)
+    _unsteady_actions(script, threshold, walltime=row_walltime_s(case) is not None)
+    _script_tail(conventions, case, script, None, unsteady=True)
 
 
 def walltime_stop_text(case: SimCase, conventions: WorkflowConventions) -> str:
@@ -7373,6 +7421,20 @@ def _build_unsteady(case: SimCase, script: Script, conventions: WorkflowConventi
     motion, and a clock stated directly rather than derived from a
     speed. Both refusals run before the first emission.
     """
+    # A CONTINUATION IS A DIFFERENT SCRIPT, not this one with a shorter
+    # march, so the branch is HERE and not further down: every line below
+    # describes a run that starts from a mesh, and a continuation starts
+    # from the state a stopped run saved.
+    continuation = continuation_of(case)
+    if continuation is not None:
+        _build_continuation(
+            case,
+            script,
+            conventions,
+            *continuation,
+            threshold=unsteady_export_threshold(case, conventions),
+        )
+        return
     _refuse_rotor_keys_on_a_rotorless_run(case)
     _refuse_wake_termination_without_a_rotor(case)
     threshold = unsteady_export_threshold(case, conventions)
@@ -7405,7 +7467,6 @@ def _build_unsteady(case: SimCase, script: Script, conventions: WorkflowConventi
     # The wake termination in STEPS is the one this run type can state
     # (PFS-2030.03.04); the revolutions form was refused above.
     _settings(case, script, wake_termination_time_steps=case.solver.wake_termination_steps)
-    _refuse_a_restart_that_nothing_runs(case)
     _unsteady_actions(script, threshold, walltime=row_walltime_s(case) is not None)
     _script_tail(conventions, case, script, frame, unsteady=True, frames=frames)
 
@@ -7420,6 +7481,19 @@ def _build_unsteady_rotor(case: SimCase, script: Script, conventions: WorkflowCo
     with nothing said, and the rotary motion would then turn about a
     frame that no longer exists.
     """
+    # A CONTINUATION IS A DIFFERENT SCRIPT, not this one with a shorter
+    # march: the branch is here because every line below starts from a
+    # mesh, and a continuation starts from the state a stopped run saved.
+    continuation = continuation_of(case)
+    if continuation is not None:
+        _build_continuation(
+            case,
+            script,
+            conventions,
+            *continuation,
+            threshold=unsteady_export_threshold(case, conventions),
+        )
+        return
     # Resolved before the first emission, as every refusal of a row key
     # is; a row stating no threshold pays nothing here.
     threshold = unsteady_export_threshold(case, conventions)
@@ -7514,7 +7588,6 @@ def _build_unsteady_rotor(case: SimCase, script: Script, conventions: WorkflowCo
         delta_time=stepping.delta_time_s,
     )
     _settings(case, script, wake_termination_time_steps=_wake_termination(case, stepping))
-    _refuse_a_restart_that_nothing_runs(case)
     _unsteady_actions(script, threshold, walltime=row_walltime_s(case) is not None)
     _script_tail(conventions, case, script, frame, unsteady=True, frames=frames)
 
@@ -7732,7 +7805,6 @@ def _rotor_motions(
         delta_time=stepping.delta_time_s,
     )
     _settings(case, script, wake_termination_time_steps=_wake_termination(case, stepping))
-    _refuse_a_restart_that_nothing_runs(case)
     _unsteady_actions(script, threshold, walltime=row_walltime_s(case) is not None)
     _script_tail(conventions, case, script, frame, unsteady=True, frames=frames)
 

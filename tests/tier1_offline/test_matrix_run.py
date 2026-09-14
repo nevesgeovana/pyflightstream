@@ -4789,14 +4789,22 @@ def test_goal019_hpc_a_submitted_point_is_recorded_and_not_assessed(tmp_path):
 
 
 def test_goal019_watchdog_a_restart_this_release_cannot_run_is_refused_by_name(tmp_path):
-    """FR-96, a row may ask to continue a run the wall clock stopped.
+    """FR-96, and the refusal it asserted is GONE at 0.18.0: the premise expired.
 
-    The parser is built and the continuation is not, so the row says so.
+    THIS TEST ASSERTED A RELEASE THAT HAS PASSED. At 0.17.0 the parser was
+    built and the continuation was not, so a row stating RESTART was refused
+    by name; the key had been registered and read by nothing, so a user who
+    reached a WALLTIME_REACHED record and wrote the continuation the release
+    told them to write had it validated, planned READY, and re-marched the
+    whole time history from step one.
 
-    The key was registered and nothing read it, so a user who reached a
-    WALLTIME_REACHED record and wrote the continuation the release told
-    them to write had it validated, planned READY, and re-marched the whole
-    time history from step one. A refusal at PLAN spends nothing.
+    0.18.0 BUILDS THE CONTINUATION, on the owner's measurement that the
+    solver resumes an unsteady march from a saved file. So the assertion is
+    rewritten rather than deleted, and it now holds the refusal that
+    REPLACED it: a row that states RESTART with no recorded run to continue
+    is still refused, and the message still names what to do, because the
+    thing the old refusal protected against, spending a seat re-marching a
+    finished history, is still worth protecting against.
     """
     import pytest
 
@@ -4819,10 +4827,13 @@ def test_goal019_watchdog_a_restart_this_release_cannot_run_is_refused_by_name(t
             "RESTART": "{ADDITIONAL_ITERS=120}",
         },
     )
-    with pytest.raises(CampaignConfigError, match="cannot yet run") as raised:
+    with pytest.raises(
+        CampaignConfigError, match="nothing resolved the run it continues"
+    ) as raised:
         registry()["unsteady"](case, Script(version="26.123"))
-    assert "0.18.0" in str(raised.value), str(raised.value)
-    assert "ADDITIONAL_ITERS" in str(raised.value)
+    message = str(raised.value)
+    assert "recorded run that STOPPED" in message, message
+    assert "ADDITIONAL_ITERS" in message
 
 
 def test_goal019_hpc_the_descriptor_asks_for_the_processors_the_solver_uses(tmp_path):

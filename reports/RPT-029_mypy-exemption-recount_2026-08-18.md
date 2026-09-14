@@ -44,21 +44,43 @@
 > 2026-09-11 run, on the tree that carries the 0.16.0 workspace layout
 > and the superfile:
 >
->     Found 370 errors in 18 files (checked 83 source files)
->     Success: no issues found in 83 source files
+>     Found 585 errors in 18 files (checked 84 source files)
+>     Success: no issues found in 84 source files
 >
 > Every figure below is that re-measurement.
 
 The result, in the sentence every record of it carries:
 
-**mypy recount 2026-09-11: 370 errors in 18 of 83 modules.**
+**mypy recount 2026-09-14: 585 errors in 18 of 84 modules.**
 
-The eighty-third is `post/superfile.py`, added at 0.16.0, and it arrives
-CLEAN: the error count and the file count are unchanged at 370 in 18, so the
-new module carries no exemption and adds no debt. The TRACEABILITY GUARD
-asked for this re-measurement rather than a reader did: the records said 82
-while the package held 83, and the guard went red at the tip of the range
-that added the module.
+The eighty-fourth is `run/collect.py`, added at 0.18.0 for the collect stage,
+and it arrives CLEAN: it appears nowhere in the per-file breakdown, and the
+FILE count is unchanged at 18, so the new module carries no exemption and adds
+no debt of its own.
+
+THE ERROR COUNT MOVED AND THE MODULE DID NOT MOVE IT, which is the part worth
+stating rather than leaving for a reader to infer from two numbers. It went
+from 370 to 585 between the 2026-09-11 run and this one. Measured per file on
+this run: `run/__init__.py` alone carries 451 of the 585, and it is the module
+0.17.0's submission and warm-start work and 0.18.0's continuation all landed
+in. The remaining seventeen files carry 134 between them.
+
+WHAT THIS DOES NOT ESTABLISH, said because two numbers a fortnight apart
+invite a causal reading they do not support: this run measured the tree as it
+is now, not the difference between two trees. That one file holds 451 errors
+is measured; that the growth of that file is the whole of the 215 is not, and
+nothing here re-ran the older tree to find out.
+
+THE TRACEABILITY GUARD ASKED FOR THIS RE-MEASUREMENT rather than a reader did,
+for the second time and in the same way: the records said 83 while the package
+held 84, and the guard went red at the tip of the range that added the module.
+
+The eighty-third was `post/superfile.py`, added at 0.16.0, and it arrived
+CLEAN by the same test: neither the error count nor the file count moved when
+it landed. Its own figures are not repeated here, because this report carries
+ONE live measurement and a second set of numbers in the prose is how it came
+to hold three contradictory ones at once; the earlier run keeps its own
+section below.
 
 ## Re-measured 2026-09-09, second run: two modules arrived with the 0.14.0 series, and the debt moved inside the exempted set
 
@@ -249,11 +271,11 @@ configuration to be in a state the repository does not ship:
 
 The final line of that run is the measurement:
 
-    Found 370 errors in 18 files (checked 83 source files)
+    Found 585 errors in 18 files (checked 84 source files)
 
 The same run with the shipped configuration, overrides and all, is green:
 
-    Success: no issues found in 83 source files
+    Success: no issues found in 84 source files
 
 mypy walks the FILESYSTEM rather than the git index, so the state of the
 working tree is part of the measurement, and this report has already been

@@ -81,6 +81,22 @@ SIM_DATAPOINTS_DIR = "datapoints"
 #: a refusal the code does not perform).
 DATAPOINT_PREFIX = "DP-"
 
+#: What an archive folder is called, wherever something is archived rather
+#: than lost: beside the thing it replaces, never above it.
+ARCHIVE_DIR = "archive"
+
+#: How an archive stamp is spelled. Sortable, no separator a file system
+#: objects to, and to the SECOND: two rebuilds in one minute are two
+#: rebuilds.
+#:
+#: IT LIVES HERE AND NOT IN THE POST LAYER, since 0.18.0, because a
+#: continuation archives a DATAPOINT under the same stamp and the workspace
+#: cannot import from post: dependencies flow downward and the layering
+#: guard carries no allowlist. A stamp format is a NAME, and names are this
+#: module's subject, so the constant moved down rather than being copied
+#: into a second home that would drift from the first.
+ARCHIVE_STAMP = "%Y%m%d-%H%M%S"
+
 
 def datapoint_dir_name(point: Mapping[str, float]) -> str:
     """Return the folder name one datapoint collects its outputs into (FR-92).

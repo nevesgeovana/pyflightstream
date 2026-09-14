@@ -57,6 +57,7 @@ import tomllib
 import warnings
 import zipfile
 from collections.abc import Callable, Mapping, Sequence
+from datetime import datetime
 from pathlib import Path
 
 # `typing.TypedDict` directly: pydantic cannot build a schema from it
@@ -99,6 +100,8 @@ from pyflightstream.workspace.inputs import (
     strip_rotor_facts,
 )
 from pyflightstream.workspace.naming import (
+    ARCHIVE_DIR,
+    ARCHIVE_STAMP,
     SIM_DATAPOINTS_DIR,
     NamingTemplate,
     NamingTemplateError,
@@ -2622,6 +2625,57 @@ class CampaignWorkspace:
         temporary = self.manifest_path.with_suffix(".json.tmp")
         temporary.write_text(payload + "\n", encoding="utf-8")
         temporary.replace(self.manifest_path)
+
+    def archive_datapoint(
+        self, sim_id: str, datapoint: Mapping[str, float], *, stamp: datetime | None = None
+    ) -> Path | None:
+        """Move a datapoint's collected outputs aside, under a day-and-hour stamp.
+
+        HER DECISION OF 2026-09-13, and the clause that decided the shape is
+        the reason: a continuation archives what it replaces into folders
+        stamped with the day and the hour, the same structure ``post``
+        already uses, **because there can be more than one restart**. Two
+        continuations of one point would collide in a flat folder, and the
+        stamp orders them for free.
+
+        IT APPLIES PER DATAPOINT FOLDER, which every point has even under
+        warm start: FR-95 shares the SCRIPT across a steady sweep and never
+        the folder, so ``datapoints/DP-<tag>/`` is a stable address whatever
+        the run model is.
+
+        The datapoint folder stays where it is and its CONTENTS move into
+        ``archive/<stamp>/`` inside it. That keeps the address a reader
+        already knows and makes the history a subfolder of it rather than a
+        sibling nobody finds.
+
+        Returns
+        -------
+        Path or None
+            Where the outputs were moved, or None where the datapoint
+            folder does not exist or holds nothing to move. NOTHING IS NOT
+            AN ERROR: a first run of a point has no previous outputs, and a
+            continuation of one that was never collected is the ordinary
+            case rather than a mistake.
+        """
+        folder = self.sim_dir(sim_id) / SIM_DATAPOINTS_DIR / datapoint_dir_name(datapoint)
+        if not folder.is_dir():
+            return None
+        movable = [child for child in folder.iterdir() if child.name != ARCHIVE_DIR]
+        if not movable:
+            return None
+        target = folder / ARCHIVE_DIR / (stamp or datetime.now()).strftime(ARCHIVE_STAMP)
+        target.mkdir(parents=True, exist_ok=True)
+        for child in movable:
+            destination = target / child.name
+            if destination.exists():
+                # Two archivings inside one second, which the stamp cannot
+                # separate. Numbering beats losing one or refusing the move.
+                index = 2
+                while (target / f"{child.stem}.{index}{child.suffix}").exists():
+                    index += 1
+                destination = target / f"{child.stem}.{index}{child.suffix}"
+            child.replace(destination)
+        return target
 
     def complete_submitted_record(self, record: RunRecord) -> None:
         """Replace a SUBMITTED row with the completed run it became (FR-99).
