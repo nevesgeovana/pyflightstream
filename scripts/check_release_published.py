@@ -43,6 +43,7 @@ import json
 import os
 import re
 import subprocess
+import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
@@ -143,8 +144,18 @@ def main(argv: list[str] | None = None) -> int:
 
     tags = args.tag or version_tags()
     if not tags:
-        print("no version tag in this checkout, so there is nothing to judge")
-        return 0
+        # FOUND-NOTHING IS NOT A PASS, which is the rule this whole script is
+        # an instance of. A checkout fetched without tags reached this branch,
+        # printed a reasonable sentence and exited 0, so step 7 of the release
+        # sequence confirmed a release nobody had looked at. Could-not-measure
+        # takes a non-zero status and says what to do about it.
+        print(
+            "no version tag in this checkout, so NOTHING WAS JUDGED. That is not a pass: a "
+            "shallow clone or a fetch without --tags reaches here. Run `git fetch --tags` and "
+            "try again, or name the tag to judge.",
+            file=sys.stderr,
+        )
+        return 2
     judged = [t for t in tags if _sortable(t) >= _sortable(FIRST_RECORDED)]
     skipped = [t for t in tags if t not in judged]
 
@@ -162,8 +173,29 @@ def main(argv: list[str] | None = None) -> int:
         doi = dois.get(tag)
         if doi:
             row = f"DOI {doi}"
-        elif tag in owed:
+        elif tag in owed and tag == judged[-1]:
+            # THE WINDOW IS ONE RELEASE WIDE, and it was unbounded. The
+            # docstring defines it as the one commit between a tag and the
+            # row that pays it, and nothing enforced that: a sentence in the
+            # change log kept any tag reading RELEASED for as long as the
+            # sentence stood. v0.14.0, three releases old and archived
+            # nowhere, read RELEASED from the very check written to catch
+            # exactly that. Found by the quality and verification lenses of
+            # the 0.18.0 round, independently, 2026-09-14.
+            #
+            # `judged[-1]` is the NEWEST judged tag, which is the only one
+            # that can legitimately be inside its window: once a further
+            # release has shipped, the debt is not a window any more, it is a
+            # release that stopped being citable.
             row = "no DOI row yet, and the change log names it OWED, which is the window"
+        elif tag in owed:
+            row = (
+                "NO DOI ROW. The change log names it owed, but a newer tag has shipped since, "
+                "so this is no longer the one-commit window between a tag and the row that "
+                "pays it: it is a released version that is not citable"
+            )
+            problems.append(f"{tag}: {row}")
+            failed.add(tag)
         else:
             row = "NO DOI ROW and the change log does not name it owed"
             problems.append(f"{tag}: {row}")

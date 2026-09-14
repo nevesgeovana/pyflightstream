@@ -115,6 +115,17 @@ from pyflightstream.workspace.trailing_edges import (
 )
 
 __all__ = [
+    # DECLARED, not merely importable. All three were imported into this
+    # module for internal use and left out of this list, so a reader could
+    # not tell whether `pyflightstream.workspace.ARCHIVE_STAMP` was a
+    # re-export or an incidental import, and it resolved either way.
+    # `SIM_DATAPOINTS_DIR` below is the precedent: also internal, also
+    # declared. Two of these are plainly meant to be reachable, since
+    # `post/products.py` re-exports them under its own spellings, and being
+    # undecided in the release that MOVED them is the part that is wrong.
+    "ARCHIVE_DIR",
+    "ARCHIVE_STAMP",
+    "GEOMETRIES_README",
     "EXECUTABLES_FILE",
     "INPUT_KINDS",
     "KIND_LETTERS",

@@ -154,7 +154,10 @@ Five console entry points, one per operational concern: `pyfs-qa`
 (evidence tiers 2 and 3), `pyfs-workspace` (workspace initialization,
 archiving of a recorded simulation, and migration of a flat geometry
 library into one folder per geometry),
-`pyfs-matrix` (run-matrix upgrade, conversion, pre-flight and run),
+`pyfs-matrix` (run-matrix upgrade, conversion, pre-flight, run, boundary
+inventory, collection of a submitted job's outputs, and post-processing;
+submission is not a command of its own, it is what `run` does on Linux with a
+cluster profile),
 `pyfs-fsi` (the coupling-loop executable), and `pyfs-manual`
 (reading a vendor manual against the command database, and WRITING
 documented version rows back into it from that reading; maintainer

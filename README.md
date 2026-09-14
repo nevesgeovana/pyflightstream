@@ -24,7 +24,7 @@ Every example on those pages is compared against an artifact this
 repository ships, most of them under `tests/tier3_licensed/`, by a test on
 every commit, so a page cannot quietly stop being true.
 
-Status: v0.17.0 is the current release. The tag publishes to
+Status: v0.18.0 is the current release. The tag publishes to
 [PyPI](https://pypi.org/project/pyflightstream/), and the Zenodo archive is
 minted from the GitHub RELEASE, which is a manual step owed after every tag:
 the version DOI is then recorded in CITATION.cff one commit after the tag that
@@ -90,10 +90,13 @@ the `NCPUS` column and `symmetry_loads` becomes `SYMMETRY_LOADS`; a setup
 stating either is still READ, so nothing breaks, and the column is where a new
 row should state it. `pyfs-matrix run` refuses without a plan. `post --overwrite`
 is `post --force-overwrite` and asks before it destroys. A row may state
-`RESTART` to continue a run the clock stopped, and this release PARSES it and
-refuses to run it, naming 0.18.0. Twelve deprecations that fell due here move to
-0.18.0 on a re-count: 39 committed artifacts still state one of them, and
-`reports/RPT-046` carries the measurement and the script that takes it.
+`RESTART` to continue a run the clock stopped; v0.17.0 PARSED it and refused to
+run it, and 0.18.0 runs it. **The twelve deprecations v0.17.0 said had fallen
+due had not, and there was no deadline for them at all**; the change log's
+`[0.18.0]` Corrected section carries the measurement and the correction, and
+the spellings have been REFUSED outright since 0.15.0. The remedy for a row
+that states one is unchanged: write the `MOTIONS` record form and put the
+aliases and frames on the reference artifact.
 
 **v0.16.0 was the sweep release.** A surface-section distribution is created
 AFTER the solver is initialised; created before, the distribution returns the
@@ -214,7 +217,7 @@ migrate-geometries` moves a library into it, and `pyfs-workspace archive
 states what it reads, the run record says how the solver was called
 (`executor`, `export_window`, the waived commands by their name), and the
 whole test suite is organized by tier, with the licensed tier a campaign
-workspace of seven run matrices whose goldens are rendered offline on every
+workspace of nine run matrices whose goldens are rendered offline on every
 commit.
 
 **v0.12.0 changed no column of the run-matrix file and no cell already in

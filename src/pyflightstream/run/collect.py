@@ -1,18 +1,16 @@
 """Collect a submitted job's outputs when they land, then post (FR-99).
 
-THE OWNER'S ARCHITECTURE, in her own words on 2026-09-13: not
-submit-and-collect but COLLECT-AND-POST. A watcher stands by, sees that the
-file is not there yet, waits until it is, and only then generates the
+THIS IS COLLECT-AND-POST, not submit-and-collect. A watcher stands by, sees
+that the file is not there yet, waits until it is, and only then generates the
 post-processing.
 
-WHY THAT IS BETTER THAN WATCHING THE SCHEDULER, which is what an earlier
-design proposed and she replaced: it DECOUPLES THE STAGE FROM THE QUEUE. A
-watcher that watches FILES needs no status command in the submission profile,
-no job-script template and no second scheduler vocabulary, and the same stage
-then serves a cluster job, a local run somebody interrupted, and outputs a
-colleague dropped in by hand. The proposed design made the collector a client
-of the queue; hers makes it a client of the WORKSPACE, which is the thing this
-package actually owns.
+WHY IT WATCHES FILES AND NOT THE SCHEDULER: it DECOUPLES THE STAGE FROM THE
+QUEUE. A watcher that watches FILES needs no status command in the submission
+profile, no job-script template and no second scheduler vocabulary, and the
+same stage then serves a cluster job, a local run somebody interrupted, and
+outputs a colleague dropped in by hand. The collector is a client of the
+WORKSPACE, which is the thing this package actually owns, rather than of a
+queue, which it does not.
 
 THE HAZARD THAT DESIGN INHERITS, and it is not hypothetical: A FILE EXISTS
 BEFORE IT IS FINISHED. The solver opens each export and writes into it, so
@@ -57,13 +55,24 @@ from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from ..exceptions import CampaignConfigError, WorkspaceError
-from ..workspace import CampaignWorkspace, RunRecord, RunStatus
+# THE EXCEPTIONS COME FROM THE MODULES THAT DEFINE THEM, not from the
+# package's exception CATALOG. The catalog re-exports every public error of
+# the package, which means it imports `pyflightstream.post.products` and
+# `pyflightstream.post.writers`; `post` sits ABOVE `run` in the layer order,
+# so importing the catalog from here made this module depend upward at import
+# time. The layering guard did not see it, and the reason is worth recording:
+# the guard assigns rows from the core layer list, `exceptions` has no row, and
+# an unrowed module is not examined. So the guard's no-allowlist property is
+# weaker than it reads, because an unrowed module can be a conduit. Found by
+# the architect lens of the 0.18.0 release round, 2026-09-14.
+from ..cases import CampaignConfigError
+from ..workspace import CampaignWorkspace, RunRecord, RunStatus, WorkspaceError
 
 __all__ = [
     "CollectOutcome",
     "CollectReport",
     "Stamp",
+    "assess_collected",
     "collect_once",
     "collect_and_post",
     "observe",
@@ -148,16 +157,31 @@ class CollectReport:
     collected: list[CollectOutcome] = field(default_factory=list)
     waiting: list[CollectOutcome] = field(default_factory=list)
     failed: list[CollectOutcome] = field(default_factory=list)
+    #: Points this stage cannot wait for, because their record names no
+    #: declared set. SEPARATE FROM `waiting`, and the separation is the whole
+    #: of it: UNKNOWN is a TERMINAL answer for that point, not a state a later
+    #: sweep changes. While it counted as outstanding, `--watch` in a workspace
+    #: holding one point submitted by 0.17.0 could never reach its own stop
+    #: condition and swept forever, which is precisely the user 0.17.0's
+    #: release note told to expect this stage. Found by the interface lens of
+    #: the 0.18.0 release round, 2026-09-14.
+    unknown: list[CollectOutcome] = field(default_factory=list)
 
     @property
     def outstanding(self) -> int:
-        """How many submitted points this sweep left waiting."""
+        """How many submitted points this sweep left waiting FOR SOMETHING.
+
+        A point whose record declares no outputs is not counted: nothing here
+        knows what to wait for it, so waiting longer cannot change the answer,
+        and a stop condition that includes it is a stop condition that cannot
+        be reached.
+        """
         return len(self.waiting)
 
     def lines(self) -> list[str]:
         """One human line per point, in the order a reader wants them."""
         out: list[str] = []
-        for outcome in [*self.collected, *self.failed, *self.waiting]:
+        for outcome in [*self.collected, *self.failed, *self.waiting, *self.unknown]:
             out.append(f"  {outcome.state:9} {outcome.run_id}: {outcome.detail}")
         return out
 
@@ -177,6 +201,69 @@ def _declared_outputs(record: RunRecord) -> list[str]:
     if isinstance(declared, (list, tuple)):
         return [str(name) for name in declared]
     return []
+
+
+class _RecordAsCase:
+    """The two fields the standard assessor reads, taken off the run record.
+
+    NOT A SimCase AND NOT PRETENDING TO BE ONE. :class:`LoadsAssessor` reads
+    exactly three things from its first argument: ``point``, ``outputs``, and
+    the flight condition it binds the export against, and both of the first
+    two are recorded on the row at submission from the case that produced it.
+    So the values here are the RUN'S OWN, carried across, and nothing is
+    invented.
+
+    The assessor accepts ``None`` in this position and documents what happens
+    then: the condition binding is recorded as EMPTY rather than as agreement.
+    Passing the record's real point instead is what makes the binding a
+    comparison rather than a blank, which is the whole reason this exists
+    rather than a bare ``None``.
+    """
+
+    __slots__ = ("point", "outputs", "velocity")
+
+    def __init__(self, record: RunRecord) -> None:
+        self.point = dict(record.point or {})
+        self.outputs = list(record.outputs or _declared_outputs(record))
+        # THE CASE DEFAULT THAT FILLS IN WHERE THE POINT SUPPLIES NO SPEED.
+        # A record carries no case-level velocity, so this is None and the
+        # binding falls to rule 3 of `_bind_case_conditions`: nothing is
+        # requested, recorded as unasked rather than as agreed. That is the
+        # honest answer and it is why the attribute is present rather than
+        # absent, since `getattr` would otherwise silently produce the same
+        # None and hide that the rule was reached deliberately.
+        self.velocity = None
+
+
+def assess_collected(record: RunRecord, sim_dir: Path) -> tuple[RunStatus, str | None]:
+    """Judge a collected point from the files on disk, as a local run is judged.
+
+    THIS EXISTS BECAUSE THE DEFAULT WAS A LIE. Until it did, `collect_once`
+    with no assessor recorded every settled point ``CONVERGED``, whatever the
+    solver had done, while four separate documents said the stage "assesses
+    the run": the subcommand's own help, FR-99, the change log, and the
+    submitting executor's docstring. A diverged cluster job, a job the
+    scheduler killed after it had written its exports, and a clean run were
+    recorded identically and their products built from that. Two independent
+    review lenses found it in the same round, 2026-09-14.
+
+    IT IS THE SAME JUDGEMENT THE LOCAL PATH MAKES, through the same class, so
+    a point that ran here and a point that ran on a cluster are judged by one
+    rule rather than by two that can drift. :class:`LoadsAssessor` reads only
+    the collected files and the requested point; it never touches the
+    execution result, which is why the two paths CAN share it even though only
+    one of them has a process to report on.
+
+    WHAT IT STILL CANNOT SAY, and the caller is not told otherwise: whether
+    the job was killed before it finished writing is the settle predicate's
+    question, answered before this runs, and a scheduler's own exit status is
+    not visible to a stage that deliberately watches the workspace instead of
+    the queue.
+    """
+    from pyflightstream.run import LoadsAssessor
+
+    assessment = LoadsAssessor()(_RecordAsCase(record), None, sim_dir)  # type: ignore[arg-type]
+    return assessment.status, assessment.error
 
 
 def _sim_dir(workspace: CampaignWorkspace, record: RunRecord) -> Path:
@@ -222,7 +309,7 @@ def collect_once(
     for record in submitted:
         names = _declared_outputs(record)
         if not names:
-            report.waiting.append(
+            report.unknown.append(
                 CollectOutcome(
                     run_id=record.run_id,
                     state="UNKNOWN",
@@ -264,13 +351,20 @@ def _complete(
     sim_dir: Path,
     assessor: Callable[[RunRecord, Path], tuple[RunStatus, str | None]] | None,
 ) -> CollectOutcome:
-    """Collect one settled point's outputs and write its completed record."""
+    """Collect one settled job's outputs and write its completed record.
+
+    ONE CALL PER POINT WHERE THE RECORD SAYS WHICH POINT OWNS WHAT, and one
+    call for the whole set where it does not. A swept row is submitted as ONE
+    job whose record carries the first point in `point`, so filing the whole
+    job under `record.point` put every point's exports in the first point's
+    datapoint folder. `collect_outputs` states the rule that breaks: each
+    point's evidence alone in its own folder is what makes a swept row
+    judgeable, and nothing downstream then has to work out which of several
+    files belongs to which point. The local sweep pays two passes to honour
+    it and carries a comment about the defect that taught it.
+    """
     try:
-        collected = workspace.collect_outputs(
-            record.sim_id,
-            [sim_dir / name for name in names],
-            datapoint=record.point,
-        )
+        collected = _collect_by_point(workspace, record, names, sim_dir)
     except (WorkspaceError, CampaignConfigError) as error:
         # THE SAME TWO EXCEPTIONS THE LOCAL PATH CATCHES, for the same
         # reason: collection refuses for two kinds of reason and only one of
@@ -293,16 +387,23 @@ def _complete(
     # NAMED APART FROM THE EXCEPTION ABOVE. `error` is bound by the `except`
     # clause a few lines up, and rebinding it here is a name that means two
     # things in one function; the type checker refused it and was right.
-    status, verdict = (RunStatus.CONVERGED, None)
-    if assessor is not None:
-        status, verdict = assessor(record, sim_dir)
-    completed = record.model_copy(
-        update={
-            "status": status,
-            "outputs": list(collected),
-            "error": verdict,
-        }
-    )
+    # THE DEFAULT JUDGES. It used to be the literal CONVERGED with the
+    # assessor an option no caller passed, which meant the shipped command
+    # recorded every settled point as converged whatever the solver did. A
+    # status field asserting a property nothing evaluated is the defect this
+    # package exists to make structurally impossible, so the fallback is now
+    # the same assessor the local path uses and `None` is not a way to reach
+    # the old behaviour.
+    status, verdict = (assessor or assess_collected)(record, sim_dir)
+    update: dict[str, object] = {
+        "status": status,
+        "outputs": list(collected),
+        "error": verdict,
+    }
+    after = _points_ran_after(record, status)
+    if after is not None:
+        update["points_ran"] = after
+    completed = record.model_copy(update=update)
     _write(workspace, completed)
     return CollectOutcome(
         run_id=record.run_id,
@@ -310,6 +411,56 @@ def _complete(
         detail=f"{len(collected)} output(s) collected, recorded {status}",
         record=completed,
     )
+
+
+def _collect_by_point(
+    workspace: CampaignWorkspace,
+    record: RunRecord,
+    names: Sequence[str],
+    sim_dir: Path,
+) -> list[str]:
+    """File each declared output under the point that declared it.
+
+    A record written before the per-point mapping existed, and a record for a
+    single point, both fall to the whole-set call under `record.point`, which
+    is correct for them: one point's job has one owner.
+    """
+    submission = record.submission or {}
+    by_point = submission.get("declared_by_point")
+    points = submission.get("points_by_tag") or {}
+    if not isinstance(by_point, Mapping) or len(by_point) <= 1:
+        return list(
+            workspace.collect_outputs(
+                record.sim_id,
+                [sim_dir / name for name in names],
+                datapoint=record.point,
+            )
+        )
+    collected: list[str] = []
+    for tag, owned in by_point.items():
+        point = points.get(tag) or record.point
+        collected.extend(
+            workspace.collect_outputs(
+                record.sim_id,
+                [sim_dir / str(name) for name in owned],
+                datapoint=point,
+            )
+        )
+    return collected
+
+
+def _points_ran_after(record: RunRecord, status: RunStatus) -> list[dict] | None:
+    """Rewrite the per-point list with what the collection found.
+
+    A completed sweep whose `points_ran` still read SUBMITTED under a
+    top-level CONVERGED was two fields of one row disagreeing about whether
+    the run came back, and a consumer written against the local path's shape
+    read the collected shape wrongly.
+    """
+    rows = record.points_ran
+    if not rows:
+        return None
+    return [{**dict(row), "status": str(status)} for row in rows]
 
 
 def _write(workspace: CampaignWorkspace, record: RunRecord) -> None:
@@ -325,7 +476,15 @@ def collect_and_post(
     rounds: int | None = None,
     sleep: Callable[[float], None] = time.sleep,
     post: Callable[[CampaignWorkspace], None] | None = None,
-    **kwargs: object,
+    # NAMED, NOT PASSED THROUGH `**kwargs`. These are the two injection points
+    # of the primitive and they used to reach it as `object`, with a
+    # `type: ignore` recording that the checker had refused: on a module this
+    # package declares public BECAUSE A CRON IMPORTS IT, a caller had to read
+    # the source to learn that `assessor` was even a name. That is the case
+    # the interface charter names outright, and `assessor` is the parameter a
+    # serious caller most needs.
+    observer: Callable[[Iterable[Path]], dict[str, Stamp | None]] = observe,
+    assessor: Callable[[RunRecord, Path], tuple[RunStatus, str | None]] | None = None,
 ) -> CollectReport:
     """Collect, and post-process once something was collected.
 
@@ -342,10 +501,17 @@ def collect_and_post(
     total = CollectReport()
     swept = 0
     while True:
-        report = collect_once(workspace, interval=interval, sleep=sleep, **kwargs)  # type: ignore[arg-type]
+        report = collect_once(
+            workspace,
+            interval=interval,
+            sleep=sleep,
+            observer=observer,
+            assessor=assessor,
+        )
         total.collected.extend(report.collected)
         total.failed.extend(report.failed)
         total.waiting = list(report.waiting)
+        total.unknown = list(report.unknown)
         swept += 1
         if report.collected and post is not None:
             post(workspace)

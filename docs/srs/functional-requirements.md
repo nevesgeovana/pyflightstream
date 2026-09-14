@@ -3624,12 +3624,14 @@ requirement below is one seam of that division.
     guarantee is untouched: each point still collects into its own datapoint
     folder, and it is the SCRIPT that is shared, never the folder.
 
-!!! requirement "FR-96 A row may ask to continue a run the wall clock stopped <span class='srs-pending'>pending</span>"
+!!! requirement "FR-96 A row may ask to continue a run the wall clock stopped <span class='srs-implemented'>implemented</span>"
 
     *Origin: the owning seat's decision of 2026-09-12, that the word RESTART
-    is reused for continuity. Evidence: tests/tier1_offline/test_workflows.py
-    for the parser and tests/tier1_offline/test_matrix_run.py for the
-    refusal.*
+    is reused for continuity, and its measurement of 2026-09-13 that the
+    solver resumes an unsteady march from a saved file. Evidence:
+    tests/tier1_offline/test_workflows.py for the parser and
+    tests/tier1_offline/test_restart_continuation.py for the continuation, the
+    remainder arithmetic and the stamped archive.*
 
     `RESTART` states how to continue: `{FINISH_PENDING}`, which asks for what
     the row originally stated minus what the stopped run reached;
@@ -3640,10 +3642,28 @@ requirement below is one seam of that division.
     toolchain it named a phase-resolved march through one blade passage, which
     is an unsteady capability and not this one.
 
-    THIS RELEASE PARSES IT AND REFUSES TO RUN IT. The three forms are read and
-    the arithmetic exists; no builder shortens a march and nothing archives
-    the outputs a continuation would replace, so a row stating `RESTART` is
-    refused BY NAME at plan, naming 0.18.0. A refusal at plan spends nothing;
+    SINCE 0.18.0 IT RUNS. A row stating `RESTART` resolves against the recorded
+    run it continues, and the continuation opens that run's saved simulation
+    with `OPEN <saved.fsm> ENABLE` rather than importing the mesh and building
+    the case again. **The step count is a REMAINDER and not a total**, because
+    the solver has already marched what it marched: a continuation that asked
+    for the whole history would re-run the part already on disk and call the
+    result a continuation. The time step is the row's own.
+
+    THE OUTPUTS A CONTINUATION REPLACES ARE ARCHIVED, not overwritten, into
+    `archive/<day and hour>/` under that datapoint's own folder. The stamp is
+    what makes a second continuation possible: a point may be continued more
+    than once, and an unstamped archive would have the second continuation
+    destroy the first one's evidence. A continuation's run id is
+    `<campaign>/sim_<id>/r<stamp>/<tag>`, so the point tag still ENDS the run
+    id, which is the invariant every existing manifest rests on.
+
+    UNTIL 0.18.0 THE KEY WAS PARSED AND REFUSED, kept here in the past tense
+    because a reader on an older release meets that behaviour and should find
+    it described rather than absent: the three forms were read and the
+    arithmetic existed, no builder shortened a march and nothing archived what
+    a continuation would replace, so a row stating `RESTART` was refused BY
+    NAME at plan, naming this release. A refusal at plan spends nothing;
     accepting the key and ignoring it spends a licensed seat re-running a
     point that was nearly done, which is what it did until 2026-09-13.
 

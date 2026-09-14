@@ -8,19 +8,21 @@ the round would COMPARE against: a rotated propeller has no reference to be
 right or wrong against, so any number it produced would have been read rather
 than judged.
 
-The owner supplied the design on 2026-09-13, and it is quoted rather than
-paraphrased because the whole value of this report is in it:
+The design this round rests on is a NULL TEST, and it is what makes the round
+judgeable: take a full wheel, turn the whole isolated propeller, and give the
+flow the opposite angle of attack so that it is still uniform on the propeller.
+Turning the model by an angle and turning the freestream by the same angle does
+not change the physical problem; it changes the frame it is written in. So the
+answer is known exactly, in advance, with no band to agree on first.
 
-> voce pode testar isso pegar um full wheel, rotacionado a helice isolada
-> inteira, de o angulo de ataque oposto para ainda garantir escoamento
-> uniforme, e ve se todos os outputs fazem sentido
-
-That turns an unjudgeable comparison into a NULL TEST. Turning the model by
-an angle and turning the freestream by the same angle does not change the
-physical problem; it changes the frame it is written in. So the answer is
-known exactly, in advance, with no band of anybody's to agree on first.
-
-**THE VERDICT: it holds, on 209 comparisons, with the sign the owner named.**
+**THE VERDICT: it holds, across 209 comparisons of four kinds.** The worst
+disagreement is stated PER POPULATION rather than as one number, because the
+four are measured against different bands and in different units, and a single
+worst gap quoted over all 209 would attribute one population's figure to the
+rest: 3.3e-06 over the 3 wind-axis coefficients, 5.6e-06 over the 6 body-axis
+force and moment components, 2.03e-05 over the 140 per-step series
+comparisons, and one unit in the last printed digit over the 60 sectional
+comparisons.
 
 ## The command, and it is in the tree
 
@@ -105,18 +107,45 @@ unturned `HUB`, and is committed as the plan-time golden.
 
 ## What it found
 
+The whole of what the measurement prints, unabridged:
+
 ```
+The rotation null test of PFS-2034.05. The mesh of rows 9002 and 9003 is turned +6.0 degrees about the hub frame's Y axis; row 9001 turns nothing.
+Bands: 5e-04 absolute on the coefficients, set from the control's own lateral residual; on the sectional loads, one unit in the 4 significant digits that export actually prints.
+
 --- row 9002, angle of attack +6.0 degrees ---
-  DIFFERS  time-averaged loads at MRP: 9 comparison(s), worst gap 1.718e-01
+POLAR-9002_M10AL+060BE+000 against POLAR-9001_M10AL+000BE+000
+  DIFFERS  wind-axis coefficients at MRP, invariant: 3 comparison(s), worst gap 1.718e-01
+           CL (wind axes, invariant): expected -0.000008, got +0.171842, gap 1.718e-01
+           CDi (wind axes, invariant): expected -0.755404, got -0.741440, gap 1.396e-02
+           CDo (wind axes, invariant): expected +0.012809, got +0.013457, gap 6.482e-04
+  DIFFERS  body-axis force and moment at MRP, rotated: 6 comparison(s), worst gap 2.547e-02
+           Cx (body axes, rotated): expected -0.738528, got -0.741852, gap 3.324e-03
+           Cz (body axes, rotated): expected +0.077613, got +0.093799, gap 1.619e-02
+           Cy (body axes, on the axis of rotation): expected +0.000197, got -0.009232, gap 9.430e-03
+           CMx (body axes, rotated): expected -0.213896, got -0.214489, gap 5.930e-04
+           ... and 1 more
   DIFFERS  per-step loads series: 140 comparison(s), worst gap 3.037e-01
+           step 6 Blade1 CL: expected +0.000010, got +0.164130, gap 1.641e-01
+           step 6 Blade1 CDi: expected -0.788120, got -0.773150, gap 1.497e-02
+           step 6 Blade1 Cx: expected -0.773876, got -0.776200, gap 2.324e-03
+           step 6 Blade1 Cz: expected +0.081348, got +0.082360, gap 1.012e-03
+           ... and 87 more
   DIFFERS  sectional loads, in the blade's own frame: 60 comparison(s), worst gap 1.680e+02
+           station 1 Fx: expected -526.500000, got -520.400000, gap 6.100e+00
+           station 1 Fz: expected +48.180000, got +50.730000, gap 2.550e+00
+           station 1 Moment: expected +630.300000, got +623.200000, gap 7.100e+00
+           station 2 Fx: expected -1153.000000, got -1147.000000, gap 6.000e+00
+           ... and 53 more
 
 --- row 9003, angle of attack -6.0 degrees ---
-  AGREES   time-averaged loads at MRP: 9 comparison(s), worst gap 5.600e-06
+POLAR-9003_M10AL-060BE+000 against POLAR-9001_M10AL+000BE+000
+  AGREES   wind-axis coefficients at MRP, invariant: 3 comparison(s), worst gap 3.300e-06
+  AGREES   body-axis force and moment at MRP, rotated: 6 comparison(s), worst gap 5.600e-06
   AGREES   per-step loads series: 140 comparison(s), worst gap 2.032e-05
   AGREES   sectional loads, in the blade's own frame: 60 comparison(s), worst gap 1.000e+00
 
-THE NULL TEST HOLDS, on exactly one of the two rows: 9003 (alpha -6.0).
+THE NULL TEST HOLDS, on exactly one of the two rows: 9003 (alpha -6.0). The other turned the flow the same way as the mesh and met it at twice the angle, and it DIFFERS on every one of the four checks, which is what makes this a measurement rather than a check that accepts whatever it is given.
 ```
 
 The individual numbers behind the first line, from

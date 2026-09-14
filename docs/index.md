@@ -3,7 +3,7 @@
 Version-aware, didactic Python driver for the FlightStream panel-method
 solver. MIT licensed.
 
-Status: v0.17.0 is the current release; the changelog records what
+Status: v0.18.0 is the current release; the changelog records what
 each release adds and what each one asks you to do.
 
 **v0.17.0 is the release that makes a sweep ONE RUN.** A steady matrix row
@@ -173,7 +173,7 @@ migrate-geometries` moves a library into it, and `pyfs-workspace archive
 states what it reads, the run record says how the solver was called
 (`executor`, `export_window`, the waived commands by their name), and the
 whole test suite is organized by tier, with the licensed tier a campaign
-workspace of seven run matrices whose goldens are rendered offline on every
+workspace of nine run matrices whose goldens are rendered offline on every
 commit.
 
 **v0.12.0 changed no column of the run-matrix file and no cell already in
@@ -264,7 +264,10 @@ and what each of them registered or broke, are in the changelog rather
 than re-threaded here. Five command-line
 tools ship with the package: `pyfs-qa`
 (probes, physics regression, drift), `pyfs-workspace` (campaign
-workspace init, archive and migrate-geometries), `pyfs-matrix` (run-matrix upgrade, convert, pre-flight and run),
+workspace init, archive and migrate-geometries), `pyfs-matrix` (run-matrix upgrade, convert, pre-flight, run, read a mesh's boundary
+inventory, collect a submitted job's outputs when they land, and post-process;
+there is no separate submit command, because `run` on Linux with a cluster
+profile submits rather than running here),
 `pyfs-fsi` (the aeroelastic coupling executable), and `pyfs-manual`
 (maintainer tool: compares a vendor manual against the command
 database, reports what each build documents and what changed between

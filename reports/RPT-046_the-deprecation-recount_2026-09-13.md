@@ -84,3 +84,75 @@ here and is.
 Write the `MOTIONS` record form, and put the aliases and the frames on the
 reference artifact. Nothing this package writes has emitted any of the twelve
 since 0.15.0, and each deprecation warning names its own remedy.
+
+---
+
+## AMENDMENT, 2026-09-14: the count above is wrong, and so was its premise
+
+**THE RESULT ABOVE IS LEFT AS IT WAS WRITTEN.** It is what the script printed
+on 2026-09-13 and editing it would destroy the record this amendment exists to
+correct. Everything below supersedes it.
+
+### The premise was wrong: the twelve never fell due
+
+This report was taken to justify moving twelve deprecation deadlines from
+0.17.0 to 0.18.0. There was no deadline to move. The twelve live in
+`REFUSED_IN_0_15_0`, which is deliberately OUTSIDE the `DEPRECATIONS` tuple
+the tier-1 deadline guard walks, and the module says why in its own words:
+they were written in 0.15.0 before 0.15.0 shipped, so nobody ever had a
+workspace that was told the old spelling would keep working, and there is no
+shim left for a guard to watch expire. **The spellings are REFUSED today and
+have been since 0.15.0.**
+
+So the sentence in the report above about the deadline test going red at
+0.18.0 "whatever the count is then" describes a mechanism that does not watch
+these entries. The change log's `[0.18.0] Corrected` section carries the full
+correction beside the entry that got it wrong.
+
+### The count was wrong: 17 distinct files, not 39
+
+Two counting defects inflated it. The script has been corrected and the
+correction is committed; `scripts/count_deprecated_spellings.py` carries both
+defects in its own docstring.
+
+Re-measured at the moment of this amendment, with the command beside it:
+
+```
+python scripts/count_deprecated_spellings.py --root ../GeoverseResearch/tools/fts_workspace
+
+  walking C:\GeoverseGoddess\pyflightstream
+  walking ..\GeoverseResearch\tools\fts_workspace
+MOVING_BOUNDARIES      52 occurrence(s) in  16 file(s)
+ROTOR_AXIS             53 occurrence(s) in  17 file(s)
+ROTOR_ORIGIN            0 occurrence(s) in   0 file(s)
+RPM_SIGN               52 occurrence(s) in  16 file(s)
+BLADES                 15 occurrence(s) in   8 file(s)
+[aliases]               0 occurrence(s) in   0 file(s)
+[[frames]]              0 occurrence(s) in   0 file(s)
+TOTAL                                      17 distinct file(s)
+```
+
+**THE UNIT IS DISTINCT FILES**, stated because 17 is also this report's own
+per-spelling file count for two of the names above and the tree now carries
+the number with two meanings. The 17 here is the union across every spelling,
+not a count for any one of them.
+
+**A THIRD NUMBER WAS IN THE TREE AND IS GONE.** The corrected script's
+docstring said the two defects "together made 40 out of 17" where the change
+log and the recount test said 39. 39 is what the uncorrected script printed,
+above, and is the number this amendment supersedes; the 40 was a slip and is
+corrected in the script.
+
+**IT CANNOT BE RECONSTRUCTED FROM THIS REPORT.** The figures above and the
+figures here do not differ by a subtraction a reader can perform, because two
+of the defects changed which files were examined rather than how many hits
+each held. The corrected walk is the authority and the command is above.
+
+### What this amendment does NOT change
+
+The remedy for a reader is unchanged: write the `MOTIONS` record form and put
+the aliases and the frames on the reference artifact.
+
+And `broken_commands`, which IS a promise and IS watched by the deadline
+guard, is unaffected by any of this. It is extended on its own measurement
+rather than removed on its date, as its entry has always said.

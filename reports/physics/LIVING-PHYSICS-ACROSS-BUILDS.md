@@ -5,7 +5,7 @@
 
 PFS-2018.06. This page is GENERATED from the per-build physics reports in this folder; the generator is `scripts/build_living_physics.py` and a tier-1 test refuses a stale copy of this file, so a build that arrives shows up here without anyone remembering to add it.
 
-**It begins at 26.123 and grows forward, and it does not back-fill.** That is the owner's decision of 2026-09-13. The earlier per-build reports and the drift reports beside them stay as the historical record and are not folded in: they already say what they say, and re-deriving a verdict for every build ever registered is work the decision exists to avoid.
+**It begins at 26.123 and grows forward, and it does not back-fill.** The earlier per-build reports and the drift reports beside them stay as the historical record and are not folded in: they already say what they say, and re-deriving a verdict for every build ever registered is work the decision exists to avoid.
 
 **It does not judge.** Every verdict below is the one the per-build report already recorded. A case that never ran on a build reads `not run`, which is not a pass.
 

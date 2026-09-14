@@ -3822,6 +3822,37 @@ def _plan_point(
         return PointPlan(**base, script_name=None, status=PlanStatus.BLOCKED, error=str(error))
     script_name = f"{stem}.txt"
     point_case = case.model_copy(update={"point": dict(point), "outputs": outputs})
+    # THE PRE-FLIGHT RESOLVES A CONTINUATION, exactly as the run does, and the
+    # reason is that a rehearsal which refuses what the run accepts is not a
+    # rehearsal. A row stating RESTART carries no saved file and no step count
+    # of its own: both come from the record it continues, and the builder is a
+    # pure function of its case, so without this the builder was handed a
+    # RESTART row with nothing resolved, raised, and the point was reported
+    # BLOCKED. Since 0.17.0 a run REQUIRES a plan, so the release's headline
+    # feature was unreachable through its own documented sequence: plan, then
+    # run. Found by the architect lens of the 0.18.0 release round on
+    # 2026-09-14, which named the command that settles it and could not run it.
+    #
+    # IT RESOLVES AND DOES NOT ARCHIVE. The archive belongs to the run, which
+    # is about to replace the outputs; a pre-flight that moved them would
+    # spend a destructive act on a rehearsal, and `plan` promises to spend
+    # nothing.
+    try:
+        rehearsed = resolve_continuation(workspace, case, point, run_id=run_id)
+    except (WorkspaceError, CampaignConfigError) as error:
+        return PointPlan(
+            **base, script_name=script_name, status=PlanStatus.BLOCKED, error=str(error)
+        )
+    if rehearsed is not None:
+        point_case = point_case.model_copy(
+            update={
+                "variables": {
+                    **point_case.variables,
+                    RESTART_FROM_VARIABLE: rehearsed["saved"],
+                    RESTART_ITERATIONS_VARIABLE: str(rehearsed["iterations"]),
+                }
+            }
+        )
     script = Script(version=fs_version)
     try:
         recipe(point_case, script)
@@ -4405,6 +4436,24 @@ def _execute_sweep(
             submission={
                 **submitted,
                 "declared_outputs": [name for _, _, pc in point_cases for name in pc.outputs],
+                # AND THE SAME SET SPLIT BY POINT, because the two questions
+                # are different. The flat list above is what the COLLECTOR
+                # WAITS FOR: the whole sweep is one job and one script, so the
+                # job is finished when all of it has landed. This mapping is
+                # what the collector FILES BY: each point's evidence belongs
+                # alone in its own datapoint folder, which is the rule
+                # `collect_outputs` states and the rule the local sweep pays
+                # two passes to honour. Without it the collector had only the
+                # first point's tag to hand and filed every point's exports
+                # under it, reintroducing on the cluster path the defect the
+                # local path carries a comment about: an assessor reading a
+                # sibling point's file and reporting the run against the wrong
+                # incidence. Found by the interface lens of the 0.18.0 release
+                # round, 2026-09-14.
+                "declared_by_point": {
+                    tag: [str(name) for name in pc.outputs] for _, tag, pc in point_cases
+                },
+                "points_by_tag": {tag: dict(point) for point, tag, _ in point_cases},
             },
             points_ran=[
                 {"tag": tag, "point": dict(point), "status": str(RunStatus.SUBMITTED)}

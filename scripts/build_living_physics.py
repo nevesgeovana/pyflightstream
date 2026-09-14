@@ -10,11 +10,11 @@ has to remember to update when a build arrives, and this repository already
 carries the measurement of what happens then: a fact restated in five places
 drifted to four different numbers, and two pages said six where seven existed.
 
-IT BEGINS AT 26.123 AND GROWS FORWARD, on the owner's decision of 2026-09-13,
-and it does NOT back-fill. The four per-build physics reports and the two
-drift reports already committed stay as the historical record and are not
-folded in. Back-filling would mean re-deriving a verdict for every build ever
-registered, and the older evidence already says what it says.
+IT BEGINS AT 26.123 AND GROWS FORWARD, and it does NOT back-fill. The four
+per-build physics reports and the two drift reports already committed stay as
+the historical record and are not folded in. Back-filling would mean
+re-deriving a verdict for every build ever registered, and the older evidence
+already says what it says.
 
 WHAT IT COMPARES: one row per case, one column per build at or after the
 floor, carrying that case's verdict tally on that build. A case whose tally
@@ -117,8 +117,8 @@ def build_report() -> str:
     )
     lines.append("")
     lines.append(
-        f"**It begins at {OLDEST_BUILD} and grows forward, and it does not back-fill.** That is "
-        "the owner's decision of 2026-09-13. The earlier per-build reports and the drift "
+        f"**It begins at {OLDEST_BUILD} and grows forward, and it does not back-fill.** "
+        "The earlier per-build reports and the drift "
         "reports beside them stay as the historical record and are not folded in: they "
         "already say what they say, and re-deriving a verdict for every build ever "
         "registered is work the decision exists to avoid."

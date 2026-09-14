@@ -663,6 +663,25 @@ def _naming(args: argparse.Namespace) -> NamingTemplate:
 
 def _cmd_collect(args: argparse.Namespace) -> int:
     """Sweep the submitted points and collect the ones whose outputs settled."""
+    # A FLAG THAT BOUNDS A WATCH IS REFUSED WITHOUT THE WATCH, at parse time,
+    # rather than accepted and ignored. Both facts are known here and the
+    # information to refuse exists, so silence is the wrong answer: `--rounds
+    # 5` alone reads as "sweep five times" to anybody who has not read the
+    # source, and it ran once. Found by the interface lens of the 0.18.0
+    # release round, 2026-09-14.
+    idle = [
+        name
+        for name, value in (("--rounds", args.rounds), ("--watch-interval", args.watch_interval))
+        if value is not None and not args.watch
+    ]
+    if idle:
+        print(
+            f"{', '.join(idle)} only mean something to a watch, and this is a single sweep. "
+            "Add --watch to loop, or drop "
+            f"{'them' if len(idle) > 1 else 'it'} to sweep once.",
+            file=sys.stderr,
+        )
+        return 2
     # THE POST STAGE IS REACHED THROUGH THE WORKSPACE REGISTRY, exactly as
     # `_cmd_post` reaches it, and not by importing the products writer here.
     # Dependencies flow downward and a function-body import does not make an
@@ -709,9 +728,18 @@ def _cmd_collect(args: argparse.Namespace) -> int:
         print(line)
     print(
         f"collected {len(report.collected)}, failed {len(report.failed)}, "
-        f"outstanding {report.outstanding}"
+        f"outstanding {report.outstanding}, unknown {len(report.unknown)}"
     )
-    return 1 if report.failed else 0
+    # THREE OUTCOMES AND THREE STATUSES, because a cron job reads the status
+    # and nothing else. 0 is everything settled and collected; 1 is a point
+    # this stage tried to complete and could not; 3 is "still outstanding",
+    # which a `--rounds` watch that ran out of rounds reaches and which a
+    # single status shared with success would hide. A point whose record
+    # declares nothing is neither: it is reported and does not decide the
+    # status, because it is not a failure of this run.
+    if report.failed:
+        return 1
+    return 3 if report.outstanding else 0
 
 
 def _cmd_post(args: argparse.Namespace) -> int:

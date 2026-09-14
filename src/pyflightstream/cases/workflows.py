@@ -6972,10 +6972,16 @@ RESTART_FORMS = (
     RESTART_ADDITIONAL_REVS,
 )
 
-#: Where a restart puts the outputs the earlier run left. THE SAME RULE AS
-#: `post`, and worth naming as the same rule rather than a second one: a
-#: product about to be superseded is archived, not overwritten.
-RESTART_ARCHIVE_DIR = "archive"
+#: DELETED 2026-09-14: `RESTART_ARCHIVE_DIR = "archive"` stood here, unused.
+#: It was a THIRD literal spelling of the archive folder name, added in the
+#: same release whose `workspace/naming.py` says the constants were moved down
+#: "rather than being copied into a second home that would drift from the
+#: first" and whose `post/products.py` repeats the claim. The claim was false
+#: while this line existed, and the name was public surface acquired by
+#: accident. It is deleted rather than deduplicated because `cases` sits below
+#: `workspace` and cannot import `ARCHIVE_DIR`: if a future continuation
+#: feature here needs the folder name, it is a run-layer argument and not a
+#: cases-layer constant. Found by the architect lens of the 0.18.0 round.
 
 
 @dataclass(frozen=True)
@@ -7059,11 +7065,37 @@ def restart_iterations(request: RestartRequest, record: Mapping[str, object]) ->
     say where it stopped: what remains is what the row asked for minus what
     the earlier run reached. A record that cannot say is refused here
     rather than silently re-running the whole thing.
+
+    AN ABSENT ``stopped_at`` IS NOT ZERO, and reading it as zero was a defect
+    that spent a licensed seat in silence. ``stopped_at`` is written by the
+    WALL CLOCK, and :data:`~pyflightstream.run.CONTINUABLE` also admits
+    ``COMPLETED_MAX_ITER``, which never carries it: a row that asked for 400
+    steps, reached all 400 and was recorded at its iteration limit came back
+    from this function with 400 MORE steps owed, and the run path printed
+    "continuing for 400 more step(s)" while re-marching the entire history
+    from a saved state that already held it. It is reachable from one cell,
+    because a row whose post-processing artifact turns the log off has no
+    residual history and is therefore recorded COMPLETED_MAX_ITER rather than
+    CONVERGED. Found by the independent lens of the 0.18.0 release round,
+    2026-09-14, which measured it rather than reading it.
     """
-    reached = 0
     stopped = record.get("stopped_at")
+    reached: int | None = None
     if isinstance(stopped, Mapping):
-        reached = int(stopped.get("step") or 0)
+        step = stopped.get("step")
+        if step is not None:
+            reached = int(step)
+    if request.form == RESTART_FINISH_PENDING and reached is None:
+        raise CampaignConfigError(
+            f"{RESTART_FINISH_PENDING} subtracts what the earlier run reached from what the row "
+            "asked for, and the record it continues does not say where it stopped. Only a run "
+            "the WALL CLOCK stopped records that; a run recorded at its iteration limit reached "
+            "everything it was asked for, so there is nothing pending to finish. Treating the "
+            "absence as zero would re-march the whole history and spend a seat doing it. State "
+            f"{RESTART_ADDITIONAL_ITERS} or {RESTART_ADDITIONAL_REVS}, which say outright how "
+            "much further to go."
+        )
+    reached = reached or 0
     if request.form == RESTART_FINISH_PENDING:
         window = record.get("export_window")
         asked = 0
@@ -7241,6 +7273,27 @@ def walltime_clock_program(case: SimCase, conventions: WorkflowConventions) -> s
 #: the point case, so the builder stays a pure function of its case.
 RESTART_FROM_VARIABLE = "RESTART_FROM"
 RESTART_ITERATIONS_VARIABLE = "RESTART_ITERATIONS"
+
+#: The two names above are the PACKAGE'S to set and never a row's, and this
+#: is the tuple the refusal walks.
+#:
+#: WHY A ROW MUST NOT STATE THEM, found by the architect lens of the 0.18.0
+#: release round on 2026-09-14. They travel in the same free-variable
+#: namespace a user's `VAR_NAMES_VALUES` cell writes into, so a row stating
+#: `RESTART` together with both of these reached `continuation_of` with the
+#: facts already present and built a continuation DIRECTLY, skipping
+#: `resolve_continuation` entirely: no check that a recorded run exists, no
+#: check that its status is continuable, no archive of the outputs about to
+#: be replaced, and no stamped run id. The continuation then overwrote the
+#: stopped run's outputs in place, under the predecessor's own run id, which
+#: is exactly the collision the stamp was introduced to prevent.
+#:
+#: THE REFUSAL IS HERE rather than a rename into the reserved `matrix_`
+#: namespace because the rename would be silent: a user who had written the
+#: key would find it ignored rather than refused, and the shape of this
+#: mistake is somebody copying a name out of a manifest or a generated script
+#: and reasonably expecting it to work.
+RESERVED_CONTINUATION_VARIABLES = (RESTART_FROM_VARIABLE, RESTART_ITERATIONS_VARIABLE)
 
 
 def continuation_of(case: SimCase) -> tuple[str, int] | None:

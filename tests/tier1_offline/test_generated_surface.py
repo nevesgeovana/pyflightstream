@@ -67,7 +67,12 @@ def _tier3_matrix_count() -> int:
 #: A line that is TALKING ABOUT the tier-3 matrix set at all. Without this the
 #: rule fires on every sentence that says "one matrix" about a user's own
 #: workspace, which is not a claim about this repository.
-_ABOUT_TIER3 = re.compile(r"tier-3|tier 3|tier3_licensed", re.I)
+#: "the licensed tier" is the fourth spelling and it was missed: the README
+#: and the documentation index both say "the licensed tier a campaign
+#: workspace of seven run matrices", and neither carries any of the first
+#: three spellings within the window, so the guard read both as sentences
+#: about somebody else's workspace and let a wrong count stand.
+_ABOUT_TIER3 = re.compile(r"tier-3|tier 3|tier3_licensed|licensed tier", re.I)
 
 #: How many lines count as "close together" for a page to be ENUMERATING a
 #: console script's surface rather than using it. Forty is a table, a bullet
@@ -83,10 +88,29 @@ _ENUMERATION_WINDOW = 40
 #: and is written here rather than fixed silently: "write one matrix ROW" is a
 #: sentence about one ROW of a matrix, not a claim that the repository holds
 #: one matrix, and the guard reported a correct tutorial as wrong.
+#: The words a count may be separated from its noun by, and the list is
+#: SHORT and explicit rather than a wildcard. The first writing required the
+#: count to sit directly on the noun, and "seven RUN matrices" slipped past it
+#: on four live pages including one that then contradicted itself within the
+#: same file. A wildcard would have caught those and also "seven of the nine
+#: matrices", which is not a claim about the total; naming the adjectives is
+#: what keeps the rule about counts of the set.
+_QUALIFIERS = r"(?:run|tier-3|tier\s3|licensed|committed|synthetic)\s+"
+
 _COUNT_OF_MATRICES = re.compile(
     r"(?<!tier )(?<!tier-)\b(?:("
     + "|".join(NUMBER_WORDS)
-    + r")|(\d+))\s+matri(?:ces|x)\b(?!\s+(?:row|cell|column|file|stem))",
+    + r")|(\d+))\s+(?:"
+    + _QUALIFIERS
+    + r")?matri(?:ces|x)\b(?!\s+(?:row|cell|column|file|stem))"
+    # AND NOT A PARTITIVE, which the widened window turned up immediately.
+    # "What two matrices OF ONE workspace may not share is a POL" and "POL
+    # 1001 is stated by two matrices OF THIS workspace" are rules about a
+    # PAIR, not claims that the repository holds two. The determiner is what
+    # marks them: a real total reads "the nine matrices of THE tier-3
+    # workspace", and `the` is deliberately absent from this list so that
+    # such a sentence is still checked.
+    + r"(?!\s+of\s+(?:one|a|any|this|that|the same)\b)",
     re.I,
 )
 
@@ -101,12 +125,19 @@ def _matrix_claims(text: str) -> list[tuple[str, int]]:
     found: list[tuple[str, int]] = []
     lines = text.splitlines()
     for index, line in enumerate(lines):
-        # A THREE-LINE WINDOW, because the anchor and the count are often one
-        # sentence broken over two lines: the documentation index says "the
-        # tier-3 workspace, which IS a campaign workspace: seven matrices over
-        # one synthetic library", and a line-only rule read the second half
-        # alone and let it pass.
-        window = "\n".join(lines[max(0, index - 2) : index + 3])
+        # A PARAGRAPH-SIZED WINDOW, and it was three lines until it let one
+        # through. The anchor and the count are often one sentence broken over
+        # two lines, which is why the window exists at all: the documentation
+        # index says "the tier-3 workspace, which IS a campaign workspace:
+        # seven matrices over one synthetic library", and a line-only rule read
+        # the second half alone and let it pass. But the tiers page names
+        # `tests/tier3_licensed` and then states the count FOUR lines later,
+        # across the intervening clause about what the folder holds, and three
+        # lines read that count as a claim about nothing. Seven lines is a
+        # paragraph here. It stays BOUNDED rather than whole-file because the
+        # anchor is the only thing distinguishing a claim about this
+        # repository from a count in a sentence about a user's own workspace.
+        window = "\n".join(lines[max(0, index - 6) : index + 7])
         if not _ABOUT_TIER3.search(window):
             continue
         for match in _COUNT_OF_MATRICES.finditer(line):
@@ -188,7 +219,22 @@ def test_goal020_board_items_a_page_listing_the_surface_lists_all_of_it(script, 
         # it, and the first writing of this rule refused it for that. An
         # enumeration is a BLOCK: five of them close together.
         for start in range(0, max(1, len(lines) - _ENUMERATION_WINDOW + 1)):
-            window = "\n".join(lines[start : start + _ENUMERATION_WINDOW])
+            stop = start + _ENUMERATION_WINDOW
+            window = "\n".join(lines[start:stop])
+            # A CLIPPED WINDOW DOES NOT JUDGE. The guide's cheat sheet lists
+            # all seven subcommands on seven consecutive lines, and a window
+            # whose edge falls inside that run sees exactly five of them and
+            # reported the two beyond the edge as missing from a page that
+            # carries them. The test is whether the block CONTINUES past the
+            # window: if the next line still names this script, this window is
+            # a fragment and a later one covers the whole run.
+            clipped_after = stop < len(lines) and re.search(rf"{script}\s+\w", lines[stop])
+            # AND AT THE OTHER EDGE, for the same reason. A window opening one
+            # line INTO the run sees six of the seven and reports the first as
+            # missing, which is the same fragment read from the other end.
+            clipped_before = start > 0 and re.search(rf"{script}\s+\w", lines[start - 1])
+            if clipped_after or clipped_before:
+                continue
             named = {name for name in declared if re.search(rf"{script}\s+{name}\b", window)}
             if len(named) >= 5 and named != declared:
                 missing = ", ".join(sorted(declared - named))

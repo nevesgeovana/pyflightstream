@@ -100,6 +100,7 @@ from pyflightstream.cases.workflows import (
     RAW_FILE_KEY,
     RAW_PHASES,
     RAW_VARIABLE,
+    RESERVED_CONTINUATION_VARIABLES,
     ROTATE_VARIABLE,
     ROTATION_ALIAS_KEY,
     ROTATION_FAMILIES_KEY,
@@ -1015,6 +1016,46 @@ def _raw_records(variables: dict[str, str], pol: str) -> list[dict[str, str]]:
     return records
 
 
+def _refuse_the_packages_continuation_keys(variables: Mapping[str, str], pol: str) -> None:
+    """Refuse a row that writes the two names the run path resolves for it.
+
+    FOUND BY THE ARCHITECT LENS of the 0.18.0 release round, 2026-09-14.
+    ``RESTART_FROM`` and ``RESTART_ITERATIONS`` are how the run path hands a
+    resolved continuation to the builder, and they travel in the same free
+    variable namespace a user's ``VAR_NAMES_VALUES`` cell writes into. So a
+    row stating ``RESTART`` together with both of them reached
+    :func:`~pyflightstream.cases.workflows.continuation_of` with the facts
+    already present and built a continuation DIRECTLY, skipping
+    ``resolve_continuation`` entirely: no check that a recorded run exists,
+    no check that it stopped in a state a continuation may resume, no archive
+    of the outputs about to be replaced, and no stamped run id. The
+    continuation then overwrote the stopped run's outputs in place under the
+    predecessor's own run id, which is the collision the stamp exists to
+    prevent.
+
+    REFUSED RATHER THAN RENAMED into the reserved ``matrix_`` namespace,
+    which was the other way to close it. A rename is SILENT: the user who
+    wrote the key would find it ignored rather than refused, and the shape of
+    this mistake is somebody copying a name out of a generated script or a
+    manifest and reasonably expecting it to mean what it says.
+
+    It is called from the row reader, so the refusal lands at plan time and
+    spends nothing.
+    """
+    stated = [name for name in RESERVED_CONTINUATION_VARIABLES if name in variables]
+    if not stated:
+        return
+    raise MatrixError(
+        f"POL {pol}: {', '.join(stated)} is set by the package and not by a row. A continuation "
+        "states RESTART and nothing else about the run it continues: WHICH run that is, and how "
+        "many steps are left, are answers the manifest holds, and the run path reads them off "
+        "the recorded run being continued. Stating them here skips that resolution, which is "
+        "what checks the recorded run exists, that it stopped in a state a continuation may "
+        "resume, and that its outputs are archived before they are replaced. Write "
+        "RESTART: {FINISH_PENDING} and run the row once."
+    )
+
+
 def _parse_rotations(variables: dict[str, str], pol: str) -> list[dict[str, str]]:
     """Take the ``ROTATE`` list out of the flat variables and read its records.
 
@@ -1375,6 +1416,7 @@ def read_matrix(path: str | Path, *, active_only: bool = True) -> list[MatrixRow
         record = dict(zip(_COLUMNS, cells, strict=True))
         variables = _parse_variables(record["VAR_NAMES_VALUES"])
         variables = _fold_columns_into_variables(record, variables, record["POL"])
+        _refuse_the_packages_continuation_keys(variables, record["POL"])
         motions = _parse_motions(variables, record["POL"])
         rotations = _parse_rotations(variables, record["POL"])
         raw = _raw_records(variables, record["POL"])

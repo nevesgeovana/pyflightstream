@@ -931,9 +931,9 @@
    "id": "FR-96",
    "text": "RESTART states how to continue: {FINISH_PENDING}, which asks for what the row originally stated minus what the stopped run reached; {ADDITIONAL_ITERS=<n>}; or {ADDITIONAL_REVS=<n>}, which the row's own azimuthal step turns into time steps.",
    "priority": "M",
-   "status": "pending",
-   "evidence": "*Origin: the owning seat's decision of 2026-09-12, that the word RESTART is reused for continuity. Evidence: tests/tier1_offline/test_workflows.py for the parser and tests/tier1_offline/test_matrix_run.py for the refusal.*",
-   "verification": "none"
+   "status": "implemented",
+   "evidence": "*Origin: the owning seat's decision of 2026-09-12, that the word RESTART is reused for continuity, and its measurement of 2026-09-13 that the solver resumes an unsteady march from a saved file. Evidence: tests/tier1_offline/test_workflows.py for the parser and tests/tier1_offline/test_restart_continuation.py for the continuation, the remainder arithmetic and the stamped archive.*",
+   "verification": "test"
   },
   {
    "id": "FR-97",

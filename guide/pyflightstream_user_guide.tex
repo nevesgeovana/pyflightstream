@@ -286,7 +286,7 @@ resolve("26.12")           # Ambiguous: 26.120, 26.121, 26.122 or 26.123?
   \vspace{3mm}
   \begin{itemize}
     \item Tier 2 asks: does this command do what the manual says, on this build? How many passed and how many were found broken is published per version by the compatibility matrix, which regenerates on every docs build.
-    \item Tier 3 asks: does the whole workspace run, and does the physics still hold? \code{tests/tier3\_licensed} is a campaign workspace of seven run matrices over a synthetic library, one test per row; the physics cases are rows of it, judged against their committed references, and a cross-version drift suite compares solver builds on identical inputs.
+    \item Tier 3 asks: does the whole workspace run, and does the physics still hold? \code{tests/tier3\_licensed} is a campaign workspace of nine run matrices over a synthetic library, one test per row; the physics cases are rows of it, judged against their committed references, and a cross-version drift suite compares solver builds on identical inputs.
   \end{itemize}
 \end{frame}
 
@@ -1225,6 +1225,9 @@ pyfs-matrix upgrade      matrix.fs --in-place         # older layout to current
 pyfs-matrix convert      matrix.fs -o campaign.toml   # run matrix to campaign
 pyfs-matrix plan         matrix.fs                    # pre-flight, no solver
 pyfs-matrix run          matrix.fs --fs-exe ...       # RUNS the solver
+pyfs-matrix inventory    30_WB.fsm                    # boundary order, read from the mesh
+pyfs-matrix collect      --workspace DIR [--watch]    # waits for a submitted job's outputs
+pyfs-matrix post         matrix.fs --workspace DIR    # rebuilds the products, no solver
 pyfs-fsi init-dummy      --node-count N [--dir DIR]   # dummy config for a dry run
 pyfs-fsi step            [--dir DIR]                  # one coupling step
 pyfs-manual sweep        --editions MANIFEST [--by-section]  # every registered edition
@@ -1236,7 +1239,7 @@ pyfs-manual draft     --editions MANIFEST --fs-version 26.123  # propose rows fo
 \end{lstlisting}
   \begin{itemize}
     \item The \code{pyfs-qa} tools (and \code{pyfs-fsi}) require a licensed machine and write dated report pairs (markdown plus YAML) under \code{reports/}; \code{pyfs-qa cases} runs nothing.
-    \item \code{pyfs-workspace}, and \code{pyfs-matrix convert} and \code{plan}, run anywhere: they scaffold the workspace tree, turn a run matrix into a campaign, and pre-flight one without a solver. \code{pyfs-matrix run} STARTS THE SOLVER and needs a licensed machine like the \code{pyfs-qa} tools.
+    \item \code{pyfs-workspace}, and \code{pyfs-matrix convert}, \code{plan}, \code{collect} and \code{post}, run anywhere: they scaffold the workspace tree, turn a run matrix into a campaign, pre-flight one without a solver, wait for a submitted job's outputs and rebuild the products. \code{collect} starts no solver and is not a pre-flight: it watches the WORKSPACE rather than the queue, which is why it needs neither a licence nor a scheduler. \code{pyfs-matrix run} STARTS THE SOLVER and needs a licensed machine like the \code{pyfs-qa} tools. There is no separate submit command: on Linux with a cluster profile in \code{inputs/hpc/}, \code{run} hands the job to the scheduler and returns, and the record reads SUBMITTED until \code{collect} completes it.
     \item As a user you consume the licensed results through the matrix; you only run the licensed tools when contributing evidence.
   \end{itemize}
 \end{frame}

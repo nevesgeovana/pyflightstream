@@ -2,16 +2,17 @@
 
     python -m tests.tier3_licensed.rotation_null
 
-THE EXPERIMENT, in the owner's own words of 2026-09-13: take a full wheel,
-rotate the whole isolated propeller, give the opposite angle of attack so the
-flow over it is still uniform, and see whether every output makes sense.
+THE EXPERIMENT: take a full wheel, turn the whole isolated propeller, and give
+the flow the opposite angle of attack so that it is still uniform on the
+propeller. Then see whether every output makes sense.
 
 WHY IT IS A NULL TEST AND NOT A COMPARISON. Turning the model by an angle and
 turning the freestream by the same angle does not change the physical problem;
 it changes only the frame it is written in. So the answer is known BEFORE the
-solver runs, exactly, with no band of anybody's to argue about, and that is
-rare enough here to be worth spending a seat on. Three things follow from it
-and this module checks all three, because each fails differently:
+solver runs, exactly, with no band to argue about, and that is rare enough here
+to be worth spending a seat on. FOUR things follow from it and this module
+checks all four, as four separate verdicts, because each fails differently and
+a merged verdict cannot show which kind failed:
 
   1. WIND AXES ARE INVARIANT. CL, CDi and CDo are defined against the
      freestream, and the freestream turned with the model, so they come back
@@ -26,10 +27,13 @@ and this module checks all three, because each fails differently:
      the wrong point. It is asserted as a rotation and not as a magnitude,
      because a magnitude is invariant under the wrong rotation too.
 
-  3. THE SERIES AND THE SECTIONS AGREE STEP BY STEP AND STATION BY STATION,
-     under the same two rules. A row's time average can agree while its
-     individual steps do not, which is what an azimuthal phase error looks
-     like, and the sections are the finest grid this workspace exports.
+  3. THE SERIES AGREES STEP BY STEP, under the same two rules. A row's time
+     average can agree while its individual steps do not, which is what an
+     azimuthal phase error looks like.
+
+  4. THE SECTIONS AGREE STATION BY STATION, in the blade's own frame, which
+     turned with the alias that owns it, so they are invariant outright. This
+     is the finest grid this workspace exports.
 
 AND THE DERANGEMENT, which is the point of running THREE rows for a test that
 compares TWO. Row 9002 turns the model by +6 and the flow by +6, so the flow
@@ -39,10 +43,11 @@ this estate has shipped one guard whose every pairing passed and one whose
 only evidence was that it could refuse. So 9002 is asserted to FAIL, by name,
 and its failure is printed beside 9003's pass.
 
-IT ALSO SETTLES THE SIGN, which was not known when the rows were written. The
-owner said "the opposite angle of attack" and the solver's own convention
-decides what opposite means; rather than guess it and report a pass that was
-half luck, both signs were run and the rows say which one restored the flow.
+IT ALSO SETTLES THE SIGN, which was not known when the rows were written.
+"The opposite angle of attack" is unambiguous physics, and the solver's own
+convention decides which arithmetic sign that is; rather than guess it and
+report a pass that was half luck, both signs were run and the rows say which
+one restored the flow.
 """
 
 from __future__ import annotations
@@ -80,6 +85,14 @@ WIND = ("CL", "CDi", "CDo")
 #: MEASURED wobble of the control's own lateral force and stated here rather
 #: than tuned until the answer came out right.
 ABS_TOL = 5e-4
+
+#: How many comparisons one turned row is scored on: 3 wind-axis, 6 body-axis,
+#: 140 per-step and 60 sectional. ASSERTED RATHER THAN REPORTED, because the
+#: number appears in a committed report and nothing measured it: a run over
+#: products holding one shared step would have scored twenty comparisons and
+#: still printed that the null test holds. The count is a property of the
+#: products, so a thinner export changes it and must be seen to.
+EXPECTED_COMPARISONS = 209
 
 
 def read_csv(path: Path) -> list[dict[str, str]]:
@@ -158,11 +171,28 @@ def sweep_rows() -> dict[str, dict[str, str]]:
     return by_sim
 
 
-def compare_totals(control: dict[str, str], turned: dict[str, str]) -> Verdict:
-    """The time-averaged loads of one row against the control's, both rules at once."""
-    verdict = Verdict("time-averaged loads at MRP")
+def compare_wind_axes(control: dict[str, str], turned: dict[str, str]) -> Verdict:
+    """The freestream-referred coefficients, which are INVARIANT outright.
+
+    SEPARATE FROM THE BODY AXES, and the separation is the finding that made
+    it. The first writing put both rules in one verdict, so a reader of the
+    output saw three verdicts while this report's own table describes FOUR
+    kinds of check, and the changelog said four. Worse, the merged verdict
+    could not show what the table claims about this kind: that it passes even
+    when the model turned the WRONG WAY, because a propeller at zero incidence
+    is symmetric about its axis. A check whose weakness is described in prose
+    and cannot be demonstrated by the instrument is a check the reader has to
+    take on trust.
+    """
+    verdict = Verdict("wind-axis coefficients at MRP, invariant")
     for key in WIND:
         verdict.check(f"{key} (wind axes, invariant)", float(control[key]), float(turned[key]))
+    return verdict
+
+
+def compare_totals(control: dict[str, str], turned: dict[str, str]) -> Verdict:
+    """The time-averaged force and moment VECTORS, which rotate by the stated angle."""
+    verdict = Verdict("body-axis force and moment at MRP, rotated")
     fx, fz = rotate_y(float(control["Cx"]), float(control["Cz"]), MESH_ANGLE_DEG)
     verdict.check("Cx (body axes, rotated)", fx, float(turned["Cx"]))
     verdict.check("Cz (body axes, rotated)", fz, float(turned["Cz"]))
@@ -216,7 +246,7 @@ def compare_sections(control_point: str, turned_point: str) -> Verdict:
 
     The distribution is measured in LOCAL_AXIS, which turned with the alias
     that owns it, so these are invariant OUTRIGHT: no rotation is applied to
-    the expectation. That is what makes this the sharpest of the three checks.
+    the expectation. That is what makes this the sharpest of the four checks.
     A rotation that moved the blades and left their axes behind agrees on the
     wind axes, very nearly agrees on the body axes, and fails here.
     """
@@ -282,26 +312,68 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     agreeing: list[str] = []
+    scored: dict[str, tuple[float, list[Verdict]]] = {}
     for point in TURNED:
         sim = point.split("-")[1].split("_")[0]
         verdicts = [
+            compare_wind_axes(control, by_sim[sim]),
             compare_totals(control, by_sim[sim]),
             compare_series(CONTROL, point),
             compare_sections(CONTROL, point),
         ]
         alpha = float(by_sim[sim]["alpha"])
+        scored[sim] = (alpha, verdicts)
         print(f"\n--- row {sim}, angle of attack {alpha:+.1f} degrees ---", end="")
         if report(point, verdicts):
             agreeing.append(f"{sim} (alpha {alpha:+.1f})")
 
+    # THE COMPARISON COUNT IS ASSERTED, not narrated. The report quotes 209
+    # and nothing checked it: a run over one shared step would have produced
+    # twenty comparisons and still printed THE NULL TEST HOLDS. A count that
+    # appears only in prose is a count nobody measured.
+    total = sum(len(v.rows) for _, verdicts in scored.values() for v in verdicts) // len(scored)
+    if total != EXPECTED_COMPARISONS:
+        print(
+            f"\nREFUSED: each row was scored on {total} comparisons and this test is "
+            f"{EXPECTED_COMPARISONS}. Fewer means the products are thinner than the round that "
+            "was reported -- a partial export, or a series sharing fewer steps -- and a verdict "
+            "over a smaller set is not the verdict this report cites."
+        )
+        return 1
+
     print()
     if len(agreeing) == 1:
         which = agreeing[0]
+        # THE DERANGEMENT'S FAILURE IS COUNTED, not asserted in prose. This
+        # sentence used to read "it DIFFERS on every one of the four checks"
+        # whatever the derangement had actually done, so a derangement that
+        # agreed on three of four printed the same success line. The
+        # independent lens of the 0.18.0 round built exactly that case and the
+        # module reported a clean discriminating test over it. A success
+        # message must name only properties this run evaluated.
+        other = next(sim for sim in scored if f"{sim} (" not in which)
+        other_alpha, other_verdicts = scored[other]
+        differed = [v for v in other_verdicts if not v.agrees]
         print(
-            f"THE NULL TEST HOLDS, on exactly one of the two rows: {which}. The other turned "
-            "the flow the same way as the mesh and met it at twice the angle, and it DIFFERS "
-            "on every one of the three checks, which is what makes this a measurement rather "
-            "than a check that accepts whatever it is given."
+            f"THE NULL TEST HOLDS, on exactly one of the two rows: {which}. The other, row "
+            f"{other} at alpha {other_alpha:+.1f}, DIFFERS on {len(differed)} of "
+            f"{len(other_verdicts)} checks."
+        )
+        if len(differed) != len(other_verdicts):
+            agreed = ", ".join(v.name for v in other_verdicts if v.agrees)
+            print(
+                f"REFUSED: the derangement AGREED on {agreed}. Those checks did not "
+                "discriminate between a propeller in uniform flow and one meeting it at twice "
+                "the angle, so a pass on the other row is not evidence that they measure the "
+                "rotation. This is the check-that-accepts-everything shape, caught here rather "
+                "than reported as a clean round."
+            )
+            return 1
+        print(
+            "That is what makes this a measurement rather than a check that accepts whatever "
+            f"it is given, and it is why three rows were run for a test that compares two: "
+            f"{EXPECTED_COMPARISONS} comparisons of four kinds, each kind shown to separate "
+            "the two cases."
         )
         return 0
     if not agreeing:

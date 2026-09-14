@@ -20,7 +20,7 @@ their matrices are sound.
 workspace. It IS a campaign workspace, laid out exactly as
 [the workspace page](workspace-and-workflows.md) describes: `inputs/`
 with the library, `sims/` and `post/` written by the runs, `runs.json`
-as the one manifest, and seven run matrices at the root. The tests sit
+as the one manifest, and nine run matrices at the root. The tests sit
 beside the matrices and read what the runs recorded. That makes it the
 largest usage example this repository carries: every feature of the
 matrix, set through the workspace, with the row that sets it and the

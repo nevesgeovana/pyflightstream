@@ -940,8 +940,6 @@ def test_every_collect_outputs_call_names_its_datapoint():
     Scoped to the surfaces a USER copies from -- the package and the examples.
     Tests are excluded deliberately: a test may construct the refusal itself.
     """
-    import re
-
     # ANCHORED ON THIS TEST FILE AND NOT ON THE INSTALLED PACKAGE, which is
     # what the first version did and what the release job caught: against the
     # WHEEL, `pyflightstream.__file__` is in site-packages and there is no
@@ -958,15 +956,40 @@ def test_every_collect_outputs_call_names_its_datapoint():
         "nothing. It reads the repository the tests were checked out from, whatever "
         "distribution they are exercising."
     )
-    call = re.compile(r"\.collect_outputs\s*\((.*?)\)", re.S)
+    # THE ARGUMENT LIST IS READ BY BALANCING PARENTHESES, not by a non-greedy
+    # match to the first `)`. The first writing used `\((.*?)\)`, which stops
+    # at the first closing bracket in the text: a call whose argument list
+    # contains a nested call, `[sim_dir / str(name) for name in owned]`, was
+    # truncated at `str(name)` and its `datapoint=` two lines later was
+    # invisible. That produced a false finding against a correct call, and it
+    # is the WORSE half that matters: the same truncation would have hidden a
+    # genuine offender written with any nested call, so the guard had a hole
+    # exactly where a real call site is most likely to be complicated.
+    # Measured 2026-09-14 on `run/collect.py`.
     offenders = []
+    marker = ".collect_outputs"
     for root in roots:
         for path in sorted(root.rglob("*.py")):
             text = path.read_text(encoding="utf-8")
-            for match in call.finditer(text):
-                if "datapoint" not in match.group(1):
-                    line = text[: match.start()].count("\n") + 1
+            start = text.find(marker)
+            while start != -1:
+                open_at = text.find("(", start)
+                if open_at == -1:
+                    break
+                depth, index = 0, open_at
+                while index < len(text):
+                    if text[index] == "(":
+                        depth += 1
+                    elif text[index] == ")":
+                        depth -= 1
+                        if depth == 0:
+                            break
+                    index += 1
+                arguments = text[open_at + 1 : index]
+                if "datapoint" not in arguments:
+                    line = text[:start].count("\n") + 1
                     offenders.append(f"{path.parent.name}/{path.name}:{line}")
+                start = text.find(marker, index)
     assert not offenders, (
         "collect_outputs is called without naming its datapoint at "
         f"{', '.join(offenders)}. The keyword is required since 0.16.0 (FR-92): "

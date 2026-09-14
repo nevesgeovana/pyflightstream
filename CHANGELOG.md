@@ -54,19 +54,19 @@ FlightStream versions.
 
 - **A row may state `RESTART` and the solver continues the march it stopped.**
   v0.17.0 parsed the cell and refused to run it, naming this release. It runs
-  now, in all three forms, on HER OWN MEASUREMENT of the solver, quoted because
-  the whole design rests on it: the solver resumes an unsteady march from a
-  saved file, picks up where it stopped, and runs the new number of iterations
-  it is given.
+  now, in all three forms, and the whole design rests on one measured fact
+  about the solver: it resumes an unsteady march from a saved file, picks up
+  where it stopped, and runs the new number of iterations it is given.
   SO THE STEP COUNT IS A REMAINDER AND NOT A TOTAL. The continuation asks for
   what is LEFT, because the solver has already marched what it marched; a row
   asking for the whole history again would re-run the part that is already on
   disk and call the result a continuation. The time step is the row's own.
   AND IT ARCHIVES WHAT IT REPLACES, into `archive/<day and hour>/` under the
-  datapoint's own folder, which is her decision of 2026-09-13: a point can be
-  continued more than once, so the archive is stamped rather than overwritten,
-  and it is per datapoint because every point has its own folder even under a
-  warm sweep. A continuation's run id is `<campaign>/sim_<id>/r<stamp>/<tag>`,
+  datapoint's own folder. The stamp is what makes a second continuation
+  possible: a point can be continued more than once, so an unstamped archive
+  would have the second continuation destroy the first one's evidence. It is
+  per datapoint because every point has its own folder even under a warm
+  sweep. A continuation's run id is `<campaign>/sim_<id>/r<stamp>/<tag>`,
   so the point tag still ENDS the run id, which is the invariant every existing
   manifest rests on.
 
@@ -79,7 +79,7 @@ FlightStream versions.
   workflow publishes to the package index on a tag; the release object is a
   manual step, the archive webhook fires on that object and not on the tag, and
   no gate saw the gap because every gate this repository had asks its question
-  BEFORE the push. The owner found it by looking at the site.
+  BEFORE the push. It was found by looking at the archive record.
 
 - **The physics cases are compared across builds by a page that generates itself.**
   `reports/physics/LIVING-PHYSICS-ACROSS-BUILDS.md`, written by
@@ -88,7 +88,7 @@ FlightStream versions.
   test refuses a stale copy through the generator's own `--check`, so a build
   that arrives shows up without anyone remembering to add it, which is the
   whole of what living means here.
-  IT BEGINS AT 26.123 AND DOES NOT BACK-FILL, on her decision of 2026-09-13.
+  IT BEGINS AT 26.123 AND DOES NOT BACK-FILL.
   The four per-build physics reports and the two drift reports already
   committed stay as the historical record. It does not JUDGE: every verdict is
   the one the per-build report recorded, and a case that never ran on a build
@@ -134,6 +134,74 @@ FlightStream versions.
   becoming the general-purpose rewrite `append_record` exists to prevent.
 
 ### Fixed
+
+- **`pyfs-matrix collect` JUDGES a collected point instead of declaring it converged.**
+  The stage recorded every settled point `CONVERGED` whatever the solver had
+  done, while its own `--help`, FR-99, this change log and the submitting
+  executor's docstring all said it assesses the run. A diverged cluster job, a
+  job the scheduler killed after writing its exports, and a clean run were
+  recorded identically, and the products were built from that.
+  IT NOW USES THE SAME ASSESSOR THE LOCAL PATH USES, so a point run here and a
+  point run on a cluster are judged by one rule rather than by two that can
+  drift, and `None` is no longer a way to reach the old behaviour.
+
+- **A collected SWEEP files each point's outputs under that point.** The record
+  of a swept job carries the first point, so the collector filed every point's
+  exports into the first point's datapoint folder. That is the defect the local
+  path pays two passes to avoid: an assessor reading a sibling point's file and
+  reporting the run against the wrong incidence. The submission now records the
+  declared set per point, and the flat union stays as what the collector WAITS
+  for, because the job is one job and one script. A completed sweep's per-point
+  list is rewritten too, so no point of a converged row still reads SUBMITTED.
+
+- **`collect --watch` over a point submitted before 0.18.0 terminates.** Such a
+  record names no declared outputs, so nothing knows what to wait for it; it
+  counted as outstanding, and the loop stops only when nothing is outstanding,
+  so the watch swept forever. That state is now reported and excluded from the
+  stop condition, because it is a terminal answer rather than one a later sweep
+  changes. `--rounds` and `--watch-interval` are refused without `--watch`
+  instead of being accepted and ignored, and the exit status now distinguishes
+  everything-collected from gave-up-still-waiting.
+
+- **A row may not state `RESTART_FROM` or `RESTART_ITERATIONS`.** They are how
+  the run path hands a RESOLVED continuation to the builder, and they travelled
+  in the same free-variable namespace a user's cell writes into: a row stating
+  them built a continuation directly, skipping the resolution that checks a
+  recorded run exists, that it stopped in a state a continuation may resume,
+  and that its outputs are archived before they are replaced. Refused at plan
+  time, naming what to write instead.
+
+- **`RESTART: {FINISH_PENDING}` refuses a record that never said where it
+  stopped, instead of re-marching the whole history.** `stopped_at` is written
+  by the wall clock, and a run recorded at its ITERATION LIMIT never carries
+  it, so a row that asked for 400 steps and reached all 400 came back owing 400
+  MORE and spent a licensed seat re-marching a saved state that already held
+  them. Reachable from one cell: a row whose post-processing turns the log off
+  has no residual history and is recorded at its limit rather than as
+  converged. An absent value is not zero, and a recorded zero still owes the
+  whole march.
+
+- **`pyfs-matrix plan` rehearses a continuation instead of blocking it.** The
+  pre-flight built the script with nothing resolved, so a legitimate `RESTART`
+  row raised in the builder and was reported BLOCKED; since v0.17.0 a run needs
+  a plan, so this release's own headline feature was unreachable through its
+  documented sequence. It resolves and does not archive, because a pre-flight
+  spends nothing.
+
+- **A tag whose archive row is still owed after a NEWER tag has shipped now
+  fails the release check.** The window is the one commit between a tag and the
+  row that pays it, and nothing bounded it: a sentence in this change log kept
+  any tag reading RELEASED for as long as the sentence stood. v0.14.0, three
+  releases old and archived nowhere, read RELEASED from the check written to
+  catch exactly that. A checkout carrying no tags now exits non-zero as well,
+  because found-nothing is not a pass.
+
+- **`run/collect.py` no longer reaches the layer above it.** It imported the
+  package exception CATALOG, which imports `post`, so a `run` module depended
+  upward at import time. The layering guard did not see it because the catalog
+  carries no layer row, and an unrowed module can be a conduit; the exceptions
+  now come from the modules that define them.
+
 
 - **The geometry library's own instruction page is not a geometry.**
   `pyfs-workspace init` now writes `inputs/geometries/README.md`, saying where
