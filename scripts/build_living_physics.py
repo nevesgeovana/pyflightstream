@@ -136,7 +136,7 @@ def build_report() -> str:
             "page has nothing to compare. It is not empty because a case failed; it is empty "
             "because the evidence it reads does not exist yet."
         )
-        return "\n".join(lines) + "\n"
+        return _joined(lines)
 
     header = "| case | title | " + " | ".join(reports) + " |"
     rule = "|---|---|" + "---|" * len(reports)
@@ -166,7 +166,21 @@ def build_report() -> str:
             f"{summary.get('fail', 0)} | {summary.get('no_reference', 0)} | "
             f"{data.get('date', 'unstated')} |"
         )
-    lines.append("")
+    return _joined(lines)
+
+
+def _joined(lines: list[str]) -> str:
+    """Join the lines into the exact bytes the repository's own hooks leave behind.
+
+    ONE trailing newline and no blank line before it. The first writing ended
+    with a blank line, the ``fix end of files`` pre-commit hook trimmed it the
+    moment the report was committed, and ``--check`` then reported the page
+    STALE against a generator that had just written it. The check was right
+    and the generator was wrong: a page whose committed form is produced by a
+    second tool is a page the generator does not actually generate.
+    """
+    while lines and not lines[-1]:
+        lines.pop()
     return "\n".join(lines) + "\n"
 
 
