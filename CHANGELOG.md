@@ -7,6 +7,47 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Added
+
+- **A submitted job's outputs are collected when they land, and then posted.**
+  `pyfs-matrix collect` sweeps every `SUBMITTED` record and, for each, waits
+  until the outputs that point declared are PRESENT AND SETTLED, then collects
+  them, assesses the run and rewrites the record with what it did. One sweep by
+  default; `--watch` loops until nothing is outstanding. Until this release a
+  `SUBMITTED` record was completed by hand, which is what 0.17.0 said it would
+  be (FR-99).
+  IT WATCHES THE WORKSPACE AND NOT THE SCHEDULER, which is what keeps it free
+  of a second scheduler vocabulary: no status command in the submission
+  profile, no job-script template, and the same stage therefore serves a
+  cluster job, a local run somebody interrupted, and outputs a colleague
+  dropped in by hand.
+  SETTLED IS TWO SIGNALS THAT FAIL DIFFERENTLY, because **a file exists before
+  it is finished**: size and modification time stable across two observations
+  catches a file still being written, and the last declared output present is
+  the stronger statement, since every emitted script ends with the log export
+  and the close. A stage that fired on appearance alone would post-process a
+  half-written loads table and report numbers for it.
+  THE DECLARED SET IS RECORDED AT SUBMISSION, in the run record, and is not
+  re-read from the matrix at collection: a matrix edited in between is exactly
+  the shape that made a recorded flight condition read back as a different
+  number in a regenerated product (GEO-039-F02).
+  NO NINTH STATUS. The closed set stays at eight; a collection that refuses is
+  `FAILED_INCOMPLETE_OUTPUT` with the reason.
+  THE PRODUCTS ARE REBUILT ONLY WHERE SOMETHING WAS COLLECTED, because a
+  rebuild archives what it replaces and a watch that posted on every sweep
+  would fill the archive with copies of an unchanged answer.
+
+- **One method completes a submitted record, and it refuses every other row.**
+  `CampaignWorkspace.complete_submitted_record` is the only thing in this
+  package that rewrites a manifest row. `append_record` carries existing rows
+  across as they were written because historical evidence is not this class's
+  to edit; a `SUBMITTED` row is the one deliberate exception, and in a precise
+  sense: it is not a finished record a later reading disagrees with, it is a
+  record that says in its own status that the run has not come back. Completing
+  it is not editing evidence, it is the evidence arriving. The refusal is on
+  the EXISTING row rather than on the new one, which is what stops this
+  becoming the general-purpose rewrite `append_record` exists to prevent.
+
 ### Owed
 
 - **The Zenodo archive of v0.14.0 did not exist when it was last measured**,

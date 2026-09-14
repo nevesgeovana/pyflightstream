@@ -97,6 +97,18 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     # from a mesh and can be rebuilt from it.
     ("pyfs-matrix", "force_overwrite"): SWITCH,
     ("pyfs-matrix", "yes"): SWITCH,
+    # FR-99 at 0.18.0, the collect stage. `watch` is the loop around the
+    # one-shot primitive and `post` is whether the products are rebuilt
+    # after something was collected: both are switches about WHAT THIS RUN
+    # DOES rather than knobs a workspace could hold a default for. The two
+    # intervals and `rounds` are TIMINGS of this invocation, and the right
+    # value on a shared filesystem is not the right value on a local disk,
+    # which is exactly why no registry default can know which this is.
+    ("pyfs-matrix", "watch"): SWITCH,
+    ("pyfs-matrix", "post"): SWITCH,
+    ("pyfs-matrix", "interval"): SWITCH,
+    ("pyfs-matrix", "watch_interval"): SWITCH,
+    ("pyfs-matrix", "rounds"): SWITCH,
     ("pyfs-matrix", "resume"): SWITCH,
     ("pyfs-matrix", "strict"): SWITCH,
     # FR-82, her design of 2026-09-11. A SWITCH: whether THIS plan also
@@ -231,6 +243,11 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-matrix", "overwrite"): frozenset({"inventory"}),
     ("pyfs-matrix", "force_overwrite"): frozenset({"post"}),
     ("pyfs-matrix", "yes"): frozenset({"post"}),
+    ("pyfs-matrix", "watch"): frozenset({"collect"}),
+    ("pyfs-matrix", "post"): frozenset({"collect"}),
+    ("pyfs-matrix", "interval"): frozenset({"collect"}),
+    ("pyfs-matrix", "watch_interval"): frozenset({"collect"}),
+    ("pyfs-matrix", "rounds"): frozenset({"collect"}),
     ("pyfs-matrix", "point_name"): frozenset({"plan", "run"}),
     ("pyfs-matrix", "recipe"): frozenset({"convert", "plan", "run"}),
     ("pyfs-matrix", "refuse_missing_families"): frozenset({"plan", "run"}),
@@ -239,7 +256,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-matrix", "strict"): frozenset({"post"}),
     ("pyfs-matrix", "sweep_csv"): frozenset({"run"}),
     ("pyfs-matrix", "workflow"): frozenset({"plan", "run"}),
-    ("pyfs-matrix", "workspace"): frozenset({"plan", "post", "run"}),
+    ("pyfs-matrix", "workspace"): frozenset({"collect", "plan", "post", "run"}),
     ("pyfs-qa", "campaign"): frozenset({"cost"}),
     ("pyfs-qa", "case"): frozenset({"update-reference"}),
     ("pyfs-qa", "commands"): frozenset({"probe"}),

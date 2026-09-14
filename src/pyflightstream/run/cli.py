@@ -73,7 +73,7 @@ from pyflightstream.run import (
     plan_receipt_error,
 )
 from pyflightstream.run.matrix import plan_matrix, run_matrix
-from pyflightstream.workspace import CampaignWorkspace, InputArtifactError
+from pyflightstream.workspace import CampaignWorkspace, InputArtifactError, WorkspaceError
 from pyflightstream.workspace.naming import (
     MATRIX_POINT_NAME,
     NamingTemplate,
@@ -411,6 +411,58 @@ def _build_parser() -> argparse.ArgumentParser:
         "of it under another name)",
     )
 
+    collect = subparsers.add_parser(
+        "collect",
+        help="collect a submitted job's outputs when they land, then post (FR-99)",
+        description=(
+            "Sweeps every SUBMITTED record of runs.json and, for each, waits until the "
+            "outputs that point declared are PRESENT AND SETTLED, then collects them, "
+            "assesses the run and rewrites the record with what it did. It watches the "
+            "WORKSPACE and not the scheduler, so it needs no status command in the "
+            "submission profile and serves a cluster job, a local run somebody "
+            "interrupted, and outputs dropped in by hand alike. A file EXISTS BEFORE IT "
+            "IS FINISHED, so settled means size and modification time stable across two "
+            "observations AND every declared output present, the last of which is the "
+            "log. One sweep by default; --watch loops until nothing is outstanding."
+        ),
+    )
+    collect.add_argument(
+        "--workspace",
+        default=".",
+        help="managed campaign root carrying runs.json (default: the current directory)",
+    )
+    collect.add_argument(
+        "--watch",
+        action="store_true",
+        help="keep sweeping until no submitted point is outstanding, instead of once",
+    )
+    collect.add_argument(
+        "--interval",
+        type=float,
+        default=None,
+        help="seconds between the two observations that decide settled (default: 2)",
+    )
+    collect.add_argument(
+        "--watch-interval",
+        dest="watch_interval",
+        type=float,
+        default=None,
+        help="seconds between sweeps under --watch (default: 60)",
+    )
+    collect.add_argument(
+        "--rounds",
+        type=int,
+        default=None,
+        help="stop a watch after this many sweeps, whatever is still outstanding",
+    )
+    collect.add_argument(
+        "--no-post",
+        dest="post",
+        action="store_false",
+        help="collect and do NOT rebuild the products, which is the half a reader wants "
+        "when the products are built somewhere else",
+    )
+
     post = subparsers.add_parser(
         "post",
         help="rebuild the post-processed CSV products from the manifest, with no solver",
@@ -492,6 +544,8 @@ def main(argv: list[str] | None = None) -> int:
     # would refuse the one user this subcommand exists for.
     if args.subcommand == "post":
         return _cmd_post(args)
+    if args.subcommand == "collect":
+        return _cmd_collect(args)
     if args.subcommand == "inventory":
         return _cmd_inventory(args)
     if args.subcommand == "upgrade":
@@ -605,6 +659,59 @@ def _naming(args: argparse.Namespace) -> NamingTemplate:
             f"point_name (CLI: --point-name): {error} The placeholders a template may "
             f"use are listed under `pyfs-matrix run --help`; the default is {MATRIX_POINT_NAME!r}."
         )
+
+
+def _cmd_collect(args: argparse.Namespace) -> int:
+    """Sweep the submitted points and collect the ones whose outputs settled."""
+    # THE POST STAGE IS REACHED THROUGH THE WORKSPACE REGISTRY, exactly as
+    # `_cmd_post` reaches it, and not by importing the products writer here.
+    # Dependencies flow downward and a function-body import does not make an
+    # upward one legal: deferring it to call time hides the direction from
+    # every module-level reader without changing it. The layering guard
+    # carries no allowlist, deliberately, and it refused the first writing
+    # of this command.
+    from pyflightstream.workspace import post_stages
+
+    from .collect import (
+        DEFAULT_SETTLE_INTERVAL_S,
+        DEFAULT_WATCH_INTERVAL_S,
+        collect_and_post,
+    )
+
+    workspace = CampaignWorkspace(Path(args.workspace))
+    interval = DEFAULT_SETTLE_INTERVAL_S if args.interval is None else args.interval
+    watch_interval = (
+        DEFAULT_WATCH_INTERVAL_S if args.watch_interval is None else args.watch_interval
+    )
+
+    def _post(ws: CampaignWorkspace) -> None:
+        # THE PRODUCTS ARE REBUILT ONLY WHERE SOMETHING WAS COLLECTED, which
+        # `collect_and_post` decides: a rebuild ARCHIVES what it replaces, so
+        # a watch that posted on every sweep would fill the archive with
+        # copies of an unchanged answer.
+        for stage in post_stages():
+            stage(ws)
+
+    try:
+        report = collect_and_post(
+            workspace,
+            watch=args.watch,
+            interval=interval,
+            watch_interval=watch_interval,
+            rounds=args.rounds,
+            post=_post if args.post else None,
+        )
+    except (WorkspaceError, CampaignConfigError) as error:
+        print(str(error), file=sys.stderr)
+        return 2
+
+    for line in report.lines():
+        print(line)
+    print(
+        f"collected {len(report.collected)}, failed {len(report.failed)}, "
+        f"outstanding {report.outstanding}"
+    )
+    return 1 if report.failed else 0
 
 
 def _cmd_post(args: argparse.Namespace) -> int:

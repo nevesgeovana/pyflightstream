@@ -2623,6 +2623,59 @@ class CampaignWorkspace:
         temporary.write_text(payload + "\n", encoding="utf-8")
         temporary.replace(self.manifest_path)
 
+    def complete_submitted_record(self, record: RunRecord) -> None:
+        """Replace a SUBMITTED row with the completed run it became (FR-99).
+
+        THE ONE METHOD THAT REWRITES A ROW, and the narrowness is the
+        whole design. :meth:`append_record` carries existing rows across
+        AS THEY WERE WRITTEN because historical evidence is not this
+        class's to edit; a manifest that any code may rewrite is a
+        manifest whose rows are opinions.
+
+        A ``SUBMITTED`` row is the ONE deliberate exception, and it is an
+        exception in a precise sense: it is not a finished record that a
+        later reading disagrees with, it is a record that says in its own
+        status that the run has not come back yet. Completing it is not
+        editing evidence. It is the evidence ARRIVING.
+
+        So the refusal is on the existing row rather than on the new one:
+        a row in any other status is a run that finished, and this
+        refuses to touch it whatever the caller passes. That is what
+        stops this method becoming the general-purpose rewrite that
+        `append_record`'s docstring exists to prevent.
+
+        Raises
+        ------
+        WorkspaceError
+            When the manifest holds no row with that ``run_id``, or when
+            the row it holds is not ``SUBMITTED``. Both name the run and
+            the status found, because a collector pointed at the wrong
+            workspace and a collector pointed at a finished run are
+            different mistakes and the message has to tell them apart.
+        """
+        raw = self.read_raw_manifest()
+        for index, entry in enumerate(raw):
+            if entry.get("run_id") != record.run_id:
+                continue
+            was = str(entry.get("status"))
+            if was != str(RunStatus.SUBMITTED):
+                raise WorkspaceError(
+                    f"refusing to complete run {record.run_id!r}: the manifest records it "
+                    f"{was}, not {RunStatus.SUBMITTED}. Only a submitted run is completed "
+                    "later; every other row is a run that finished, and this is not the "
+                    "method that edits one."
+                )
+            raw[index] = record.model_dump(mode="json")
+            payload = json.dumps(raw, indent=2)
+            temporary = self.manifest_path.with_suffix(".json.tmp")
+            temporary.write_text(payload + "\n", encoding="utf-8")
+            temporary.replace(self.manifest_path)
+            return
+        raise WorkspaceError(
+            f"refusing to complete run {record.run_id!r}: the manifest at "
+            f"{self.manifest_path} holds no row with that run_id."
+        )
+
     def archive_sim(self, sim_id: str, campaign: str | None = None) -> Path:
         """Zip one recorded simulation into ``archive/`` and remove its folder.
 

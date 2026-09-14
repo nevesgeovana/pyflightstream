@@ -77,6 +77,11 @@ PUBLIC_MODULES = [
     "pyflightstream.results.tables",
     "pyflightstream.run",
     "pyflightstream.run.cli",
+    # FR-99 at 0.18.0. PUBLIC deliberately: the collect stage is a thing a
+    # user drives, from `pyfs-matrix collect` or from a cron that imports
+    # `collect_once` and schedules its own polling, which is half the point
+    # of one-shot being the primitive.
+    "pyflightstream.run.collect",
     "pyflightstream.run.matrix",
     "pyflightstream.script",
     "pyflightstream.script.entities",

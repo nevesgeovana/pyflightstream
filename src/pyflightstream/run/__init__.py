@@ -734,11 +734,14 @@ class SubmittingExecutor:
     So this returns as soon as the scheduler has taken the job and the
     record is written SUBMITTED.
 
-    THIS RELEASE HAS NO COLLECT STAGE. A SUBMITTED record names where the
-    job went and is completed BY HAND until 0.18.0 (FR-99). This sentence
-    said `collect` completes it, in the present tense, in the one
-    capability whose failure mode is an unattended job nobody collects
-    (the V&V lens, round two).
+    SINCE 0.18.0 A COLLECT STAGE COMPLETES IT. `pyfs-matrix collect`
+    watches the workspace for the outputs this point declared, waits until
+    every one of them is present AND settled, then collects, assesses and
+    rewrites this record with what the run actually did (FR-99,
+    `run/collect.py`). Until 0.18.0 a SUBMITTED record was completed BY
+    HAND, and this docstring said `collect` completes it in the present
+    tense a release before it did, in the one capability whose failure
+    mode is an unattended job nobody collects (the V&V lens, round two).
 
     THE DESCRIPTOR IS WRITTEN WHETHER OR NOT IT IS SUBMITTED, which is the
     predecessor's shape and worth keeping: a descriptor you can read
@@ -4343,7 +4346,13 @@ def _execute_sweep(
             status=RunStatus.SUBMITTED,
             wall_time_s=None,
             outputs=[],
-            submission=submitted,
+            # The whole sweep is ONE job and one script, so the declared
+            # set is every point's outputs together: the collector waits
+            # for the job, not for a point of it.
+            submission={
+                **submitted,
+                "declared_outputs": [name for _, _, pc in point_cases for name in pc.outputs],
+            },
             points_ran=[
                 {"tag": tag, "point": dict(point), "status": str(RunStatus.SUBMITTED)}
                 for point, tag, _ in point_cases
@@ -4829,7 +4838,15 @@ def _execute_point(
             status=RunStatus.SUBMITTED,
             wall_time_s=None,
             outputs=[],
-            submission=submitted,
+            # FR-99, 0.18.0. WHAT THE COLLECTOR WILL WAIT FOR, recorded at
+            # the moment of submission. It is on the RECORD and not re-read
+            # off the matrix later, because a matrix edited between the
+            # submission and the collection is exactly the shape that made
+            # a recorded flight condition read back as a different number
+            # in a regenerated product (GEO-039-F02). `outputs` stays empty
+            # because a submitted point has collected nothing; these are
+            # what it was BUILT to write.
+            submission={**submitted, "declared_outputs": list(point_case.outputs)},
         )
 
     try:

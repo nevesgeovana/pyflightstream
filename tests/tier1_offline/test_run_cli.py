@@ -600,7 +600,18 @@ def test_convert_and_plan_still_take_recipe_references(tmp_path):
     # `post` joined at 0.11.0 (PFS-2029.15.03), and like `upgrade` it takes
     # no recipe, no version and no executable: it reads the manifest.
     # `inventory` joined with it (PFS-2029.06.02) and reads one file.
-    assert set(choices) == {"convert", "inventory", "plan", "post", "run", "upgrade"}
+    # `collect` joined at 0.18.0 (FR-99): it reads the manifest and the
+    # workspace and takes no recipe, no version and no executable either,
+    # because the run it completes has already happened somewhere else.
+    assert set(choices) == {
+        "collect",
+        "convert",
+        "inventory",
+        "plan",
+        "post",
+        "run",
+        "upgrade",
+    }
     for name in ("convert", "plan"):
         flags = {option for action in choices[name]._actions for option in action.option_strings}
         assert "--recipe" in flags, f"{name} lost its --recipe option"

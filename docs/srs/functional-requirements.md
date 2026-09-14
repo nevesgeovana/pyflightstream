@@ -3737,7 +3737,30 @@ requirement below is one seam of that division.
     solver is on the cluster and asking would submit a probe job to answer a
     question the descriptor already states.
 
-    WHAT THIS RELEASE DOES NOT DO: collect a submitted job's outputs when they
-    land. There is no collect stage, so a `SUBMITTED` record is completed by
-    hand until 0.18.0, and this paragraph is here rather than in a release
-    note so that a reader of the requirement learns it too.
+    SINCE 0.18.0 A COLLECT STAGE COMPLETES IT, and it watches the WORKSPACE
+    rather than the scheduler. `pyfs-matrix collect` sweeps every `SUBMITTED`
+    record, waits until each point's declared outputs are PRESENT AND
+    SETTLED, then collects, assesses and rewrites that record with what the
+    run did; `--watch` loops the sweep. Watching files rather than the queue
+    is what keeps this free of a second scheduler vocabulary: no status
+    command in the profile and no job-script template, so the same stage
+    serves a cluster job, a local run somebody interrupted, and outputs a
+    colleague dropped in by hand.
+
+    SETTLED IS ASSERTED BY TWO SIGNALS THAT FAIL DIFFERENTLY, because a file
+    EXISTS BEFORE IT IS FINISHED and a stage that fired on appearance alone
+    would post-process a half-written table. Size and modification time
+    stable across two observations catches a file still being written; the
+    LAST declared output present is the stronger statement, since every
+    emitted script ends with the log export and the close.
+
+    THE DECLARED SET IS RECORDED AT SUBMISSION and is not re-read from the
+    matrix at collection, so a matrix edited in between cannot change what
+    the collector waits for. NO NINTH STATUS: a point whose collection
+    refuses is `FAILED_INCOMPLETE_OUTPUT` with the reason, and the closed set
+    stays eight.
+
+    UNTIL 0.18.0 there was no collect stage and a `SUBMITTED` record was
+    completed by hand. That sentence stood in this requirement rather than in
+    a release note so a reader of the requirement learned it too, and it is
+    kept here, in the past tense, for the same reason.
