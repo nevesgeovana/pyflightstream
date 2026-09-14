@@ -279,6 +279,7 @@ read by the package rather than ignored:
 | v0.17.0 | `COLD_START`, whether a steady row clears the solver between the points of its sweep. Warm is the default and this is the opt-out (FR-95); and `RESTART`, how to continue a run the wall clock stopped, which v0.17.0 PARSED and refused to run (FR-96) |
 | v0.17.0 | **FOUR NAMES LEFT THIS CELL AND BECAME COLUMNS**: `GEOMETRY`, `SYMMETRY`, `SYMMETRY_LOADS` and `NCPUS`, which lived here or in the setup and now have a column each, beside the two that are new in both homes, `CONFIGURATION` and `WALLTIME` (FR-93). A row that states one of the six in BOTH homes is refused naming both. The rows above still show the cell spelling because that is what a file written before 0.17.0 carries, and `pyfs-matrix upgrade` moves them |
 | v0.18.0 | `RESTART` now RUNS (FR-96). Two further names are reserved and they are the PACKAGE'S to set, never a row's: `RESTART_FROM`, the saved simulation a continuation opens, and `RESTART_ITERATIONS`, the remaining step count. The run path resolves both from the recorded run being continued and writes them onto the case; a row that states either is refused, because stating them by hand would skip the resolution that checks a recorded run exists, that its status is continuable, and that its outputs are archived before they are replaced |
+| v0.19.0 | `TRANSLATE`, a list of records, one translation of the opened mesh each, in the order written and before every rotation: `TRANSLATE: {DISTANCE: 0.05 / AXIS: PUSHER_SMRP-X / ALIAS: PUSHER}, {...}`; on every run type that reads `ROTATE`, the distance in metres along one axis of the named frame (FR-100), see [One row, one geometry, moved](#one-row-one-geometry-moved) |
 
 **A WORKFLOW ROW STATES ONLY WHAT THE SCRIPT WILL CARRY.** Each run type
 registers the keys it reads (`Workflow.keys` in
@@ -1943,6 +1944,56 @@ What the solver does with the rotated mesh is the measurement of the seat
 run the reference study books (PFS-2034.05): the package emits the rotation the
 manual documents, citing a frame the manual's own sample cites, and the
 run record is where the accepted geometry will be read from.
+
+### One row, one geometry, moved
+
+A study that moves a part of the aircraft, a rotor aft along its hub or a wing
+down the body, states the move in its row, with the grammar a turn uses:
+
+```text
+TRANSLATE: {DISTANCE: 0.05 / AXIS: PUSHER_SMRP-X / ALIAS: PUSHER}, {DISTANCE: -0.02 / AXIS: PUSHER_SMRP-Z / ALIAS: PUSHER}
+```
+
+Each record is ONE translation, and two records are two, in the order written.
+`DISTANCE` is in **metres**, as `ANGLE` is in degrees, and it moves the alias
+along ONE axis of the named frame, so a diagonal is two records. `AXIS` names a
+coordinate system and one of its axes exactly as a rotation's does, and `ALIAS`
+names exactly one word the reference declares. `AUX_FRAMES` names frames the
+alias does not own that move with it: `MRP`, to keep the moments about the same
+point of the moved part.
+
+**EVERY TRANSLATION COMES BEFORE EVERY ROTATION**, so a row that states both
+places the part and then turns it about its frame where the frame now is:
+
+```text
+TRANSLATE: {DISTANCE: 0.5 / AXIS: MRP-X / ALIAS: airframe / AUX_FRAMES: MRP} / ROTATE: {ANGLE: 2 / AXIS: MRP-Y / ALIAS: airframe / AUX_FRAMES: MRP}
+```
+
+**THE FRAMES THE ALIAS OWNS MOVE WITH IT**, as they turn with it: moving
+`PUSHER` moves `PUSHER_SMRP`, `PUSHER_RMRP` and every `PUSHER_RMRP<k>`, each
+once, so the motion created after it spins about the moved hub.
+`PUSHER_SMRP_ORIGINAL` keeps the hub as it stood before the row moved or turned
+anything, one copy for both, and a post-processing entry naming the moved hub
+is written in both frames.
+
+**A MOVED SET COMES AWAY FROM WHAT IT TOUCHES.** Each surface is moved with its
+vertices split from its neighbours, so every vertex of the set moves exactly
+once and every other surface stays where it was: moving the wing alone leaves
+the body whole and the wing root clear of it, which is what moving a part
+means. Moving the whole aircraft leaves it whole.
+
+A frame moves to an ABSOLUTE origin, which the package computes from where its
+script placed the frame. A frame it cannot place is refused by name rather than
+moved to a guess, and the axis of a frame it cannot orient is refused the same
+way: a blade frame is turned into place, so move along its hub frame instead.
+
+One row is one position, so a translation is not swept; the positions of a
+study are one row each, beside an aerodynamic sweep if the row has one. The
+refusals are a rotation's, at `pyfs-matrix plan` and naming the row: a key a
+translation does not read (`UNITS` and `FAMILIES` included), a missing
+`DISTANCE` or `AXIS`, no alias, a distance that is not a number, an axis token
+of another shape, an alias the reference does not declare or a list of them, a
+frame nothing defines, and the key on a `LEGACY` row.
 
 ## Worked rows, and where to get the files
 

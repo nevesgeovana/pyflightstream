@@ -1634,14 +1634,14 @@ def test_the_mesh_operations_chapter_emits_on_every_registered_build(version):
 
     The frame is declared because the samples cite frame 3 and a
     coordinate system is created in the setup phase, which cannot
-    precede a geometry command (PLN-20260806-0900); the rotation, the
-    one sample that is a setup command since 0.14.0 (PFS-2034.02), could
-    follow a created frame, and is emitted LAST here so the geometry
-    samples before it keep their phase; the golden moved with it.
+    precede a geometry command (PLN-20260806-0900); the rotation, a
+    setup command since 0.14.0 (PFS-2034.02), and the translation in a
+    frame, one since 0.19.0 (FR-100), could follow a created frame, and
+    are emitted LAST here so the geometry samples before them keep their
+    phase; the golden moved with them.
     """
     script = Script(version=version)
     script.declare_existing(frames=3)
-    script.emit("TRANSLATE_SURFACE_IN_FRAME", 1, 0.0, 1.0, 1.4, "INCH", 3, "ENABLE")
     script.emit("TRANSLATE_SURFACE_BY_FRAME", 1, 3, 2)
     script.emit("SURFACE_SCALE", 1, 1.0, 0.5, 0.5, 2)
     script.emit("SURFACE_MIRROR", 1, 2, 2, "TRUE", "FALSE")
@@ -1653,6 +1653,7 @@ def test_the_mesh_operations_chapter_emits_on_every_registered_build(version):
     script.emit("SURFACE_RENAME", 2, "Fuselage")
     script.emit("SELECT_MESH_NODE", 3)
     script.emit("TRANSFORM_SELECTED_NODES", 1, "TRANSLATION", -1.0, 0.0, 0.0)
+    script.emit("TRANSLATE_SURFACE_IN_FRAME", 1, 0.0, 1.0, 1.4, "INCH", 3, "ENABLE")
     script.emit(
         "SURFACE_ROTATE",
         frame=3,

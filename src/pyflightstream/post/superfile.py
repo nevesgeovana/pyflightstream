@@ -408,6 +408,7 @@ def superfile_row(
         # states none, so the column set does not depend on the row.
         _take(row, "MOTIONS", _records_cell(matrix_row.motions))
         _take(row, "ROTATE", _records_cell(matrix_row.rotations))
+        _take(row, "TRANSLATE", _records_cell(matrix_row.translations))
         _take(row, "RAW", _records_cell(matrix_row.raw))
         for key in matrix_row.flight_condition:
             _take(row, key, matrix_row.flight_condition[key])

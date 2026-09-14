@@ -2,8 +2,8 @@
  "source": "docs/srs",
  "generated_by": "scripts/gen_requirements_index.py",
  "traceability": {
-  "cited_by_a_test": 104,
-  "total": 151,
+  "cited_by_a_test": 105,
+  "total": 152,
   "method": "upper bound: an id mentioned anywhere in tests/**/*.py excluding conftest.py, which is not the marked falsifying test NFR-13 asks for"
  },
  "requirements": [
@@ -958,6 +958,14 @@
    "status": "implemented",
    "evidence": "*Origin: the owning seat's decision of 2026-09-12, that the code sees the environment and that a Linux run submits rather than calling the solver directly. Evidence: tests/tier1_offline/test_matrix_run.py.*",
    "verification": "test"
+  },
+  {
+   "id": "FR-100",
+   "text": "A row states TRANSLATE in its variables cell as a list of records with the grammar of ROTATE, applied in the order written:",
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "",
+   "verification": "review"
   },
   {
    "id": "NFR-01",

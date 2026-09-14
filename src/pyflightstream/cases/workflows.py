@@ -276,6 +276,24 @@ ROTATION_FAMILIES_KEY = "FAMILIES"
 #: where that warning was: there is none, and no ledger entry behind it
 #: either (2026-09-10).
 ROTATION_OPTIONAL_KEYS = ("AUX_FRAMES",)
+
+#: The row's mesh translation variable (FR-100, PFS-2034.06), the owner's
+#: request of 2026-09-14 for the architecture of ``ROTATE``: a list of
+#: records with the same grammar, ``{DISTANCE: 0.05 / AXIS: PUSHER_SMRP-X /
+#: ALIAS: PUSHER}, {...}``, applied in the order written, every one of them
+#: before any rotation. ``DISTANCE`` is in METRES, as ``ANGLE`` is in
+#: degrees, and moves the alias along ONE axis of the named frame; a
+#: diagonal is two records. One row is one position, so it is not swept.
+#: Read by :mod:`pyflightstream.cases.matrix` into
+#: :attr:`~pyflightstream.cases.SimCase.translations`.
+TRANSLATE_VARIABLE = "TRANSLATE"
+
+#: The keys a translation record always states. What it moves is
+#: ``ALIAS``, the key a rotation and a motion use, and ``AUX_FRAMES`` names
+#: frames the alias does not own that move with it.
+TRANSLATION_RECORD_KEYS = ("DISTANCE", "AXIS")
+TRANSLATION_ALIAS_KEY = ROTATION_ALIAS_KEY
+TRANSLATION_OPTIONAL_KEYS = ROTATION_OPTIONAL_KEYS
 #: The direction a rotor case's relaxed trailing edges shed their wake:
 #: AXIAL (0) or AZIMUTH (1), the second being what 26.123 adds and what a
 #: rotor case wants (SRC-751 p.85). Absent means the row asks for nothing
@@ -5124,7 +5142,7 @@ def _rotations(
     named: Mapping[str, int | None],
     followers: Mapping[str, Sequence[int]] | None = None,
     spinning: Mapping[str, Sequence[int]] | None = None,
-) -> None:
+) -> dict[str, int]:
     """Rotate the mesh families the row's ``ROTATE`` records name, in the order written.
 
     PFS-2034.02, the design of 2026-09-09 (design/69). Each record is one
@@ -5152,7 +5170,7 @@ def _rotations(
     than refusing (PFS-2034.03).
     """
     if not case.rotations:
-        return
+        return {}
     frames = {name: index for name, index in named.items() if index is not None}
     labels = script.entities.labels("boundaries")
     #: The aliases whose `<ALIAS>_SMRP_ORIGINAL` this row has already kept.
@@ -5268,6 +5286,216 @@ def _rotations(
                 rotation_axis=axis,
                 angle=angle,
             )
+    return _the_copies_kept(frames)
+
+
+def _the_copies_kept(frames: Mapping[str, int]) -> dict[str, int]:
+    """Return the ``<ALIAS>_SMRP_ORIGINAL`` copies a transform kept, by name (FR-71, FR-100).
+
+    RETURNED TO THE BUILDER, which is the half that was missing. The copy
+    was written into the transform's OWN mapping, a copy of the builder's,
+    so the post-processing that asks whether a hub was moved never saw it
+    and an entry naming a rotated hub was emitted once: the doubling FR-71
+    states was reached by its unit tests, which hand the copy in, and by no
+    rendered script (measured 2026-09-14, GOAL-022).
+    """
+    return {name: index for name, index in frames.items() if name.endswith(ORIGINAL_FRAME_SUFFIX)}
+
+
+#: The unit direction each axis letter names, by position in a placement.
+_AXIS_POSITION = {"X": 0, "Y": 1, "Z": 2}
+
+
+def _translations(
+    case: SimCase,
+    script: Script,
+    named: Mapping[str, int | None],
+    followers: Mapping[str, Sequence[int]] | None = None,
+) -> dict[str, int]:
+    """Move the alias each ``TRANSLATE`` record names, in the order written (FR-100).
+
+    PFS-2034.06 and .07, the owner's request of 2026-09-14 for the
+    architecture of ``ROTATE``, and her answers in DEC-0190. Each record
+    moves the boundaries of ONE declared alias by ``DISTANCE`` metres along
+    one axis of the named frame, and every frame that alias owns, every
+    ``AUX_FRAMES`` entry and every frame placed FROM one of those
+    (``followers``, as a rotation carries them) moves with them. It is
+    emitted after every frame exists and before every rotation, so a row
+    that moves a rotor and then pitches it pitches it about the hub where
+    the hub now is.
+
+    THE SURFACE MOVES BY THE MANUAL'S OWN COMMAND, in the frame it names
+    (SRC-751 p.313), one line per boundary of the alias. A FRAME MOVES TO AN
+    ABSOLUTE ORIGIN: the manual leaves the axes of
+    ``TRANSLATE_COORDINATE_SYSTEM``'s vector unstated and states
+    ``SET_COORDINATE_SYSTEM_ORIGIN``'s origin in the reference (p.334), so
+    the new origin is computed from where the script placed the frame
+    (:attr:`Script.frame_placements`) plus the distance along the AXIS
+    frame's axis in reference axes. A frame whose placement the script
+    cannot state is refused by name rather than moved to a guess.
+
+    Returns the ``_ORIGINAL`` copies it kept, for the builder's frames.
+    """
+    if not case.translations:
+        return {}
+    frames = {name: index for name, index in named.items() if index is not None}
+    labels = script.entities.labels("boundaries")
+    kept: set[str] = set()
+    for record in case.translations:
+        missing = [key for key in TRANSLATION_RECORD_KEYS if key not in record]
+        if missing:
+            raise CampaignConfigError(
+                f"case {case.sim_id!r} states a {TRANSLATE_VARIABLE} record without "
+                f"{', '.join(missing)}; every translation states DISTANCE and AXIS, and names "
+                "what it moves."
+            )
+        distance = float(record["DISTANCE"])
+        token = record["AXIS"]
+        matched = _AXIS_TOKEN.match(token)
+        if matched is None:
+            raise CampaignConfigError(
+                f"case {case.sim_id!r} states {TRANSLATE_VARIABLE} with AXIS {token!r}, which "
+                "is not of the form frame-axis; write the frame's name, a hyphen and X, Y or Z "
+                "(the axis letter uppercase), "
+                f"as PUSHER_SMRP-X. The frames this case defines are {_frame_names(frames)}."
+            )
+        frame_name, axis = matched.group("frame"), matched.group("axis")
+        frame = _rotation_frame(case, frame_name, frames, "AXIS", TRANSLATE_VARIABLE)
+        cited = _what_the_translation_moves(case, record)
+        if not labels:
+            _refuse_name_without_inventory(case, TRANSLATE_VARIABLE, cited)
+        boundaries = _resolve_token(case, cited, labels)
+        if not boundaries:
+            _refuse_name_absent_from_inventory(case, TRANSLATE_VARIABLE, cited, labels)
+        direction = _the_axis_in_reference_axes(case, script, frame, frame_name, axis)
+        vector = [0.0, 0.0, 0.0]
+        vector[_AXIS_POSITION[axis]] = distance
+        # ONE LINE PER BOUNDARY, EACH SPLITTING ITS VERTICES FROM ITS NEIGHBOURS.
+        # The command moves one surface (or all of them), and two surfaces of
+        # one set share the vertices where they meet: without the split those
+        # vertices were moved once per surface, so a wing-body junction went
+        # twice as far as the row said, and a set moved alone dragged the
+        # vertices of the surface it touched. Measured on the solver
+        # (2026-09-14, 30_WB.fsm, saved meshes compared vertex by vertex):
+        # DISABLE moved 84 junction vertices by 2 x DISTANCE and pulled 253
+        # face vertices of an unmoved body; ENABLE moved every vertex of the
+        # set exactly once and left every other surface where it was.
+        for boundary in sorted(set(boundaries)):
+            script.emit(
+                "TRANSLATE_SURFACE_IN_FRAME",
+                frame=frame,
+                x=vector[0],
+                y=vector[1],
+                z=vector[2],
+                units="METER",
+                surface=boundary,
+                split_vertices="ENABLE",
+            )
+        _keep_the_frame_this_alias_turns_from(case, record, script, frames, kept)
+        owned = _frames_the_alias_owns(case, record, frames)
+        aux_names = [part.strip() for part in record.get("AUX_FRAMES", "").split(",")]
+        moving_names = [*owned, *(name for name in aux_names if name and name not in owned)]
+        moving_frames = [
+            _rotation_frame(case, name, frames, "AUX_FRAMES", TRANSLATE_VARIABLE)
+            for name in moving_names
+        ]
+        # BY INDEX AND ONCE EACH, for the reason a rotation learned it: one
+        # frame answers to several names, and a list keyed on names moved a
+        # rotor's hub twice (FR-71, NO FRAME TURNS TWICE).
+        moving: list[tuple[int, str]] = []
+        for name, index in zip(moving_names, moving_frames, strict=True):
+            for each in (index, *((followers or {}).get(name, ()))):
+                if each not in (held for held, _ in moving):
+                    moving.append((each, name))
+        for index, name in moving:
+            placement = script.frame_placements.get(index)
+            if placement is None or placement.origin is None:
+                raise CampaignConfigError(
+                    f"case {case.sim_id!r} states {TRANSLATE_VARIABLE} moving {name!r} (frame "
+                    f"{index}), and this script cannot state where that frame stands, so it "
+                    "cannot move it to a new origin. A frame the script placed with "
+                    "EDIT_COORDINATE_SYSTEM or SET_COORDINATE_SYSTEM_ORIGIN can be moved; one "
+                    "an opened project carries, or one a command turned away from its pivot, "
+                    "cannot."
+                )
+            origin = placement.origin
+            script.emit(
+                "SET_COORDINATE_SYSTEM_ORIGIN",
+                frame=index,
+                x=origin[0] + distance * direction[0],
+                y=origin[1] + distance * direction[1],
+                z=origin[2] + distance * direction[2],
+                units="METER",
+            )
+    return _the_copies_kept(frames)
+
+
+def _the_axis_in_reference_axes(
+    case: SimCase, script: Script, frame: int, frame_name: str, axis: str
+) -> tuple[float, float, float]:
+    """Return the unit direction of one axis of a frame, in reference axes (FR-100).
+
+    Read off where THIS SCRIPT placed the frame. A frame a command turned by
+    a sign the manual does not state has no axes in the ledger, and is
+    refused as the axis of a translation, naming a frame whose axes are
+    stated: a blade frame is placed by such a turn, and its rotor's hub
+    carries the same origin with the axes the reference declares.
+    """
+    placement = script.frame_placements.get(frame)
+    if placement is None or placement.axes is None:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} states {TRANSLATE_VARIABLE} along {frame_name}-{axis}, and "
+            f"this script cannot state which way {frame_name}'s axes point: it was turned "
+            "into place, or carried by an opened project. Move along a frame whose axes the "
+            "reference or the setup states, such as the rotor's hub frame <ALIAS>_SMRP, MRP, "
+            "or a [[frames]] entry."
+        )
+    x, y, z = placement.axes[_AXIS_POSITION[axis]]
+    length = math.sqrt(x * x + y * y + z * z)
+    if length == 0.0:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} states {TRANSLATE_VARIABLE} along {frame_name}-{axis}, whose "
+            "axis has zero length as the script placed it, so it points nowhere."
+        )
+    return (x / length, y / length, z / length)
+
+
+def _what_the_translation_moves(case: SimCase, record: Mapping[str, str]) -> str:
+    """Return the ONE declared alias a translation record moves (FR-100).
+
+    The rules of a rotation's ``ALIAS`` (FR-71): exactly one word the
+    reference declares, never a list, because the frames that move with it
+    are that one rotor's. There is no ``FAMILIES`` spelling to migrate from;
+    the matrix reader refuses it as a key a translation does not read, and a
+    case authored in Python meets the sentences below.
+    """
+    alias = record.get(TRANSLATION_ALIAS_KEY)
+    if alias is None or not alias.strip():
+        written = " / ".join(f"{key}: {value}" for key, value in record.items())
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} states the {TRANSLATE_VARIABLE} record {{{written}}}, which "
+            f"says how far to move and along what, and nothing to move. State "
+            f"{TRANSLATION_ALIAS_KEY}: <the word the reference declares>, which is how a "
+            "rotation and a motion name a set too."
+        )
+    token = alias.strip()
+    declared = {*case.aliases, *case.rotors}
+    if any(name.casefold() == token.casefold() for name in declared):
+        return token
+    parts = [part.strip() for part in token.split(",") if part.strip()]
+    folded = {name.casefold() for name in declared}
+    if len(parts) > 1 and all(part.casefold() in folded for part in parts):
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} states {TRANSLATE_VARIABLE} moving {TRANSLATION_ALIAS_KEY}: "
+            f"{token}, which names {len(parts)} declared words. A translation moves ONE alias, "
+            "because the frames that move with it are that one rotor's. Write one record per "
+            "alias, {...}, {...}."
+        )
+    raise CampaignConfigError(
+        f"case {case.sim_id!r} states {TRANSLATE_VARIABLE} moving {TRANSLATION_ALIAS_KEY}: "
+        f"{token}, and the reference declares no such alias. The words it declares are "
+        f"{', '.join(repr(name) for name in sorted(declared)) or 'none'}."
+    )
 
 
 def _axes_the_blades_spin_about(
@@ -5416,6 +5644,16 @@ def _keep_the_frame_this_alias_turns_from(
         # placed and there is nothing to keep a copy OF. The rotation
         # still turns the alias's boundaries; it simply turns no frame.
         return
+    label = f"rotor_original:{radical}"
+    # ONE COPY PER ALIAS ACROSS BOTH TRANSFORMS (FR-100, DEC-0190 item 3).
+    # A row that translates a rotor and then rotates it keeps the hub as it
+    # stood before EITHER, so the rotation finds the copy the translation
+    # made, by its label, and adds none. `kept` alone is local to one call.
+    existing = script.entities.labels("frames").get(label)
+    if existing is not None:
+        frames[f"{hub}{ORIGINAL_FRAME_SUFFIX}"] = existing
+        kept.add(radical)
+        return
     block = case.rotors[radical]
     frames[f"{hub}{ORIGINAL_FRAME_SUFFIX}"] = helpers.coordinate_frame(
         script,
@@ -5423,7 +5661,7 @@ def _keep_the_frame_this_alias_turns_from(
         origin=block.origin,
         x_axis=(1.0, 0.0, 0.0),
         y_axis=(0.0, 1.0, 0.0),
-        label=f"rotor_original:{radical}",
+        label=label,
     )
     kept.add(radical)
 
@@ -5474,8 +5712,14 @@ def _frame_names(frames: Mapping[str, int]) -> str:
     return ", ".join(repr(name) for name in frames) or "none"
 
 
-def _rotation_frame(case: SimCase, name: str, frames: Mapping[str, int], key: str) -> int:
-    """Resolve a frame name a rotation record cites, refusing one nothing defined.
+def _rotation_frame(
+    case: SimCase,
+    name: str,
+    frames: Mapping[str, int],
+    key: str,
+    variable: str = ROTATE_VARIABLE,
+) -> int:
+    """Resolve a frame name a rotation or translation record cites, refusing one nothing defined.
 
     Matched case folded, the one rule the setup already teaches by refusing
     two names that differ by case alone (the interface lens of REL-0140).
@@ -5483,9 +5727,10 @@ def _rotation_frame(case: SimCase, name: str, frames: Mapping[str, int], key: st
     by_upper = {known.upper(): index for known, index in frames.items()}
     if name.upper() in by_upper:
         return by_upper[name.upper()]
+    noun = "rotation" if variable == ROTATE_VARIABLE else "translation"
     raise CampaignConfigError(
-        f"case {case.sim_id!r} states {ROTATE_VARIABLE} with {key} naming {name!r}, and "
-        f"no frame of that name exists when the rotation is emitted; the frames this case "
+        f"case {case.sim_id!r} states {variable} with {key} naming {name!r}, and "
+        f"no frame of that name exists when the {noun} is emitted; the frames this case "
         f"defines are {_frame_names(frames)}. A setup preset defines one in its [[frames]] "
         "table; MRP is the package's own on every run type, and ROTOR_MRP on the rotor run "
         "types."
@@ -6336,7 +6581,9 @@ def _build_steady(case: SimCase, script: Script, conventions: WorkflowConvention
     }
     setup_frames = _setup_frames(case, script)
     frames.update(setup_frames)
-    _rotations(case, script, {"MRP": frame, **setup_frames})
+    moved = {"MRP": frame, **setup_frames}
+    frames.update(_translations(case, script, moved))
+    frames.update(_rotations(case, script, moved))
     _significant_digits(case, script)
     helpers.free_stream(script)
     _fluid(case, script)
@@ -6407,7 +6654,9 @@ def build_steady_sweep(
     }
     setup_frames = _setup_frames(first, script)
     frames.update(setup_frames)
-    _rotations(first, script, {"MRP": frame, **setup_frames})
+    moved = {"MRP": frame, **setup_frames}
+    frames.update(_translations(first, script, moved))
+    frames.update(_rotations(first, script, moved))
     _significant_digits(first, script)
     helpers.free_stream(script)
     _fluid(first, script)
@@ -7518,7 +7767,9 @@ def _build_unsteady(case: SimCase, script: Script, conventions: WorkflowConventi
     frames: dict[str, int | None | Mapping[str, int]] = {"MRP": frame, **rotor_frames}
     setup_frames = _setup_frames(case, script)
     frames.update(setup_frames)
-    _rotations(case, script, {"MRP": frame, **rotor_frames, **setup_frames})
+    moved = {"MRP": frame, **rotor_frames, **setup_frames}
+    frames.update(_translations(case, script, moved))
+    frames.update(_rotations(case, script, moved))
     _pproc_plots(case, script, frames)
     _pproc_probes(case, script, frames, unsteady=True, analysis=False)
     _significant_digits(case, script)
@@ -7618,12 +7869,17 @@ def _build_unsteady_rotor(case: SimCase, script: Script, conventions: WorkflowCo
         **_the_blade_frames_under_their_rotors_names(case, blade_frames),
     }
     frames.update(setup_frames)
-    _rotations(
-        case,
-        script,
-        {"MRP": frame, **rotor_frames, **setup_frames},
-        followers={name: sorted(blade_frames.values()) for name in rotor_frames},
-        spinning={name: _blade_indices(case, script) for name in rotor_frames},
+    moved = {"MRP": frame, **rotor_frames, **setup_frames}
+    followers = {name: sorted(blade_frames.values()) for name in rotor_frames}
+    frames.update(_translations(case, script, moved, followers=followers))
+    frames.update(
+        _rotations(
+            case,
+            script,
+            moved,
+            followers=followers,
+            spinning={name: _blade_indices(case, script) for name in rotor_frames},
+        )
     )
     _pproc_plots(case, script, frames)
     _pproc_probes(case, script, frames, unsteady=True, analysis=False)
@@ -7830,7 +8086,8 @@ def _rotor_motions(
     # defines" taught a vocabulary that does not exist (the architecture
     # lens, 2026-09-10; measured: it was accepted).
     named.update({name: index for name, index in blade_frames.items() if "_RMRP" in name})
-    _rotations(case, script, named, followers=followers, spinning=spinning)
+    frames.update(_translations(case, script, named, followers=followers))
+    frames.update(_rotations(case, script, named, followers=followers, spinning=spinning))
     # The pproc entries cite a rotor's frames by the same names (the reference p001
     # of 2026-09-09: PUSHER_X in ROTOR_MRP2 while the lifters spin).
     frames.update({name: index for name, index in named.items() if index is not None})
@@ -8187,6 +8444,7 @@ _STEADY_KEYS: tuple[str, ...] = (
     PERIODIC_COPIES_VARIABLE,
     BASE_REGIONS_VARIABLE,
     ROTATE_VARIABLE,
+    TRANSLATE_VARIABLE,
     VELOCITY_VARIABLE,
     ADVANCE_RATIO_VARIABLE,
     LOG_OUTPUT_VARIABLE,

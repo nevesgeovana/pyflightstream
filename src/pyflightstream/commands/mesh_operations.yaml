@@ -176,9 +176,14 @@ SURFACE_ROTATE:
     this page shows a single index and a one-element list looks the same
     under either rule.
 
+# PHASE SETUP SINCE 0.19.0, for the reason the two rotations are (FR-100): a
+# row moves a rotor along its own hub frame, which exists only once the
+# setup created it, so a geometry-phase translation could never cite the
+# frame the row names. The owner's statement of 2026-09-14 that the solver
+# accepts it there is recorded in DEC-0190; no seat run has measured it.
 TRANSLATE_SURFACE_IN_FRAME:
   layout: inline
-  phase: geometry
+  phase: setup
   args:
     - name: frame
       type: int

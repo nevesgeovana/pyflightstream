@@ -7,6 +7,44 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Added
+
+- **A matrix row translates an alias the way it rotates one.** `TRANSLATE:
+  {DISTANCE: 0.05 / AXIS: PUSHER_SMRP-X / ALIAS: PUSHER}, {...}` in the variables
+  cell moves the boundaries of one declared alias by `DISTANCE` metres along one
+  axis of the named frame, record by record in the order written, on every run
+  type that reads `ROTATE`. Every frame the alias owns, every `AUX_FRAMES` entry
+  and every frame the package placed from them moves too, once each, to its new
+  origin; `<ALIAS>_SMRP_ORIGINAL` is kept once per alias and shared with a
+  rotation; every translation is emitted before every rotation. One row is one
+  position, so it is not swept. The super file carries a `TRANSLATE` column.
+  Each surface moves with `SPLIT_VERTICES ENABLE`, because surfaces of one set
+  share the vertices where they meet and a translation without the split moved
+  those vertices once per surface. A frame moves by `SET_COORDINATE_SYSTEM_ORIGIN`
+  to an absolute origin, computed from where the script placed it, because the
+  manual does not state the axes of `TRANSLATE_COORDINATE_SYSTEM`'s vector; a
+  frame whose placement the script cannot state is refused by name. From
+  Python: `SimCase.translations`, `Script.frame_placements`.
+  `TRANSLATE_SURFACE_IN_FRAME` is phase setup, as the rotations are, so it may
+  cite a frame the setup created. FR-100.
+
+### Changed
+
+- **The `broken_commands` manifest key is promised for removal at 0.20.0**, its
+  fifth deadline, on the same re-count as the four before it: re-measured the
+  moment the 0.19.0 cycle opened and UNCHANGED at 18 recorded rows across 6
+  manifests. The reader stays while a recorded row needs it; write
+  `waived_commands`.
+
+### Fixed
+
+- **A plot on a rotated hub is written in both frames.** A post-processing entry
+  naming a hub frame a row rotated was to be emitted in the turned frame and in
+  `<ALIAS>_SMRP_ORIGINAL`, and a rendered script emitted it once: the copy was
+  kept in the rotation's own mapping and never reached the post-processing. The
+  rotation now returns it to the builder. BEHAVIOUR CHANGE: a row that rotates a
+  rotor and plots on its hub gains the second plot, `<name>_ORIGINAL`. FR-71.
+
 ### Owed
 
 - **The Zenodo archive of v0.14.0 DOES NOT EXIST**, re-measured against

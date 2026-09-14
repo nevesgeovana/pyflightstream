@@ -107,6 +107,10 @@ from pyflightstream.cases.workflows import (
     ROTATION_OPTIONAL_KEYS,
     ROTATION_RECORD_KEYS,
     SWEEP_WORD,
+    TRANSLATE_VARIABLE,
+    TRANSLATION_ALIAS_KEY,
+    TRANSLATION_OPTIONAL_KEYS,
+    TRANSLATION_RECORD_KEYS,
     workflow_names,
 )
 
@@ -450,6 +454,9 @@ class MatrixRow:
     #: The mesh rotations the cell's ``ROTATE`` list states, one record
     #: each, in cell order (PFS-2034.02); empty for a row stating none.
     rotations: list[dict[str, str]] = field(default_factory=list)
+    #: The mesh translations the cell's ``TRANSLATE`` list states, one
+    #: record each, in cell order (FR-100); empty for a row stating none.
+    translations: list[dict[str, str]] = field(default_factory=list)
     #: The raw solver commands the cell's ``RAW`` list states, one record
     #: each, in cell order (FR-67); empty for a row stating none. A record
     #: holds ``COMMAND`` or ``FILE``, never both, and ``BEFORE``.
@@ -1114,6 +1121,61 @@ def _parse_rotations(variables: dict[str, str], pol: str) -> list[dict[str, str]
     return records
 
 
+def _parse_translations(variables: dict[str, str], pol: str) -> list[dict[str, str]]:
+    """Take the ``TRANSLATE`` list out of the flat variables and read its records.
+
+    FR-100, PFS-2034.06: the grammar of ``ROTATE`` (the owner's request of
+    2026-09-14 and DEC-0190). Each record states ``DISTANCE`` in metres,
+    ``AXIS`` as ``<frame>-<X|Y|Z>`` and ``ALIAS``, and may state
+    ``AUX_FRAMES``; a key outside those four, a missing one, no alias, a
+    distance that is not a number and an axis token of another shape are
+    refused here, naming the row, so a row is refused at plan time and never
+    at the solver. What the names RESOLVE to is the builder's.
+    """
+    text = variables.pop(TRANSLATE_VARIABLE, None)
+    if text is None:
+        return []
+    records = _parse_records(text, pol, TRANSLATE_VARIABLE, "translation")
+    allowed = (*TRANSLATION_RECORD_KEYS, TRANSLATION_ALIAS_KEY, *TRANSLATION_OPTIONAL_KEYS)
+    for record in records:
+        unknown = sorted(key for key in record if key not in allowed)
+        if unknown:
+            raise MatrixError(
+                f"POL {pol}: {TRANSLATE_VARIABLE} record states {', '.join(unknown)}, which a "
+                f"translation does not read; a record holds {', '.join(TRANSLATION_RECORD_KEYS)} "
+                f"and {TRANSLATION_ALIAS_KEY}, and optionally "
+                f"{', '.join(TRANSLATION_OPTIONAL_KEYS)}."
+            )
+        written = " / ".join(f"{k}: {v}" for k, v in record.items())
+        missing = [key for key in TRANSLATION_RECORD_KEYS if key not in record]
+        if missing:
+            raise MatrixError(
+                f"POL {pol}: {TRANSLATE_VARIABLE} record {{{written}}} states no "
+                f"{', '.join(missing)}; every translation states "
+                f"{', '.join(TRANSLATION_RECORD_KEYS)}."
+            )
+        if not record.get(TRANSLATION_ALIAS_KEY, "").strip():
+            raise MatrixError(
+                f"POL {pol}: {TRANSLATE_VARIABLE} record {{{written}}} says how far to move and "
+                f"along what, and nothing to move. State {TRANSLATION_ALIAS_KEY}: <the word the "
+                "reference declares>, which is how a rotation and a motion name a set too."
+            )
+        try:
+            float(record["DISTANCE"])
+        except ValueError:
+            raise MatrixError(
+                f"POL {pol}: {TRANSLATE_VARIABLE} DISTANCE is {record['DISTANCE']!r}, which is not "
+                "a number; write the distance in metres, as 0.05 or -0.02."
+            ) from None
+        if not _ROTATION_AXIS.match(record["AXIS"]):
+            raise MatrixError(
+                f"POL {pol}: {TRANSLATE_VARIABLE} AXIS is {record['AXIS']!r}, which is not of the "
+                "form frame-axis; write the frame's name, a hyphen and X, Y or Z (the axis letter "
+                "uppercase), as PUSHER_SMRP-X."
+            )
+    return records
+
+
 def _refuse_a_rotation_that_names_its_set_twice_or_not_at_all(
     record: Mapping[str, str], pol: str
 ) -> None:
@@ -1420,6 +1482,7 @@ def read_matrix(path: str | Path, *, active_only: bool = True) -> list[MatrixRow
         _refuse_the_packages_continuation_keys(variables, record["POL"])
         motions = _parse_motions(variables, record["POL"])
         rotations = _parse_rotations(variables, record["POL"])
+        translations = _parse_translations(variables, record["POL"])
         raw = _raw_records(variables, record["POL"])
         if rotations and record["WORKFLOW"] == LEGACY_WORKFLOW:
             # A LEGACY row is built by its recipe, which is the reader of
@@ -1431,6 +1494,16 @@ def read_matrix(path: str | Path, *, active_only: bool = True) -> list[MatrixRow
                 "is built by its own recipe, which reads no rotation, so the list would turn "
                 f"nothing. Name a run type in the WORKFLOW column ({', '.join(workflow_names())}), "
                 "which rotates what the records name, or drop the key."
+            )
+        if translations and record["WORKFLOW"] == LEGACY_WORKFLOW:
+            # THE ROTATION'S RULE, FOR THE ROTATION'S REASON (FR-100): a LEGACY
+            # row's recipe reads no translation, so the list would move nothing.
+            raise MatrixError(
+                f"POL {record['POL']} writes LEGACY and states {TRANSLATE_VARIABLE}; a LEGACY "
+                "row is built by its own recipe, which reads no translation, so the list would "
+                f"move nothing. Name a run type in the WORKFLOW column "
+                f"({', '.join(workflow_names())}), which moves what the records name, or drop "
+                "the key."
             )
         if raw and record["WORKFLOW"] == LEGACY_WORKFLOW:
             # THE SAME RULE, FOR THE SAME REASON, and it was missing: a
@@ -1484,6 +1557,7 @@ def read_matrix(path: str | Path, *, active_only: bool = True) -> list[MatrixRow
             variables=variables,
             motions=motions,
             rotations=rotations,
+            translations=translations,
             raw=raw,
         )
         # Every row is checked, active or not: the sweep codes and the
@@ -2879,6 +2953,7 @@ def to_campaign(
                 outputs=_declared_outputs(row, required=require_outputs),
                 motions=[dict(record) for record in row.motions],
                 rotations=[dict(record) for record in row.rotations],
+                translations=[dict(record) for record in row.translations],
                 # A COMMAND RECORD IS ALREADY RESOLVED and rides on the case
                 # here; a FILE record is not, because reading one needs the
                 # workspace's inputs, which this layer does not have, and the

@@ -3833,3 +3833,53 @@ requirement below is one seam of that division.
     completed by hand. That sentence stood in this requirement rather than in
     a release note so a reader of the requirement learned it too, and it is
     kept here, in the past tense, for the same reason.
+
+!!! requirement "FR-100 A row translates an alias the way it rotates one <span class='srs-implemented'>implemented</span>"
+
+    *Evidence: `tests/tier1_offline/test_goal022_translate.py` (the cell grammar
+    and its refusals, one surface line per boundary in the named frame, every
+    owned and auxiliary frame at its new origin once, a frame whose axes are not
+    the reference's, the kept hub shared with a rotation, a plot on a moved hub
+    written in both frames, and the order on every run type that rotates).
+    AMENDS FR-35, whose variables cell gains the `TRANSLATE` list, and FR-71,
+    whose kept frame a translation shares.*
+
+    A row states `TRANSLATE` in its variables cell as a list of records with the
+    grammar of `ROTATE`, applied in the order written:
+
+        TRANSLATE: {DISTANCE: 0.05 / AXIS: PUSHER_SMRP-X / ALIAS: PUSHER}, {...}
+
+    `DISTANCE` is in METRES, as `ANGLE` is in degrees, and a record moves along
+    ONE axis of the named frame, so a diagonal is two records. `AXIS` is
+    `<frame>-<X|Y|Z>`, the frame being one the reference declares or one the
+    package creates. `ALIAS` names exactly one word the reference declares, as a
+    rotation's does, and `AUX_FRAMES` names frames the alias does not own that
+    move with it. One row is one position: the translation is not swept.
+
+    THE SURFACES MOVE IN THE NAMED FRAME, one `TRANSLATE_SURFACE_IN_FRAME` per
+    boundary of the alias with `SPLIT_VERTICES ENABLE`, emitted after every frame
+    exists and before every rotation, motion and post-processing command. The
+    split is measured rather than chosen: two surfaces of one set share the
+    vertices where they meet, and without it those vertices were moved once per
+    surface and a set moved alone dragged the vertices of the surface it
+    touched; with it every vertex of the set moves exactly once and every other
+    surface stays where it was.
+
+    EVERY FRAME THE ALIAS OWNS MOVES WITH IT, plus each `AUX_FRAMES` entry and
+    every frame the package placed from one of those, each once however many
+    names it answers to, TO AN ABSOLUTE ORIGIN through
+    `SET_COORDINATE_SYSTEM_ORIGIN`: its origin as the script placed it plus the
+    distance along the named axis in reference axes. The script records where it
+    placed each frame, and a frame whose placement it cannot state (one an opened
+    project carries, or one turned into place about a pivot elsewhere) is
+    refused by name rather than moved to a guess; so is an axis of a frame whose
+    axes it cannot state.
+
+    `<ALIAS>_SMRP_ORIGINAL` is kept ONCE PER ALIAS before the first translation
+    or rotation of it, one copy for both, and a post-processing entry naming a
+    moved hub is emitted in both frames, as FR-71 states for a rotated one.
+
+    A key a translation does not read, a missing `DISTANCE` or `AXIS`, no alias,
+    a distance that is not a number, an axis token of another shape, an alias the
+    reference does not declare or a list of them, a frame nothing defines, and
+    the key on a `LEGACY` row are each refused at plan time naming the row.

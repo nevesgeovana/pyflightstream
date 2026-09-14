@@ -113,6 +113,8 @@ _DIMENSIONLESS_OR_DEBT = {
     # A DIRECTION AND NOT A LENGTH: the axis the disk is perpendicular to,
     # normalised on use, so its magnitude carries no meaning at all.
     "normal",  # ProbeCircle.normal
+    # Unit DIRECTIONS in the reference frame, not lengths (FR-100).
+    "axes",  # FramePlacement.axes
     "reference",  # RunRecord: the block by column name, SREF m2 and CREF/BREF/XMOM..ZMOM m
     "stiffness_scale_factor",  # multiplier on EI/GJ
     "node_offset_chord_fraction",  # fraction of local chord
