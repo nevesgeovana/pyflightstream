@@ -25,6 +25,22 @@ FlightStream versions.
 
 ### Added
 
+- **A swept row submits every point.** On a cluster each submitted point now
+  runs in its own datapoint folder, `sims/sim_<id>/datapoints/DP-<tag>/`, which
+  is where its outputs are filed. The files a point used to share with every
+  other point of its row move with it: the unsteady action program and its
+  export script, the wall clock and its state, and the scheduler's descriptor.
+  So a second point of a row is no longer refused while the first is queued,
+  and `pyfs-matrix collect` waits for each point's outputs in that folder and
+  files them in place. The record's submission block names the folder as
+  `working_dir`. A local run is unchanged and still runs in the simulation
+  folder, and a steady row, which is one job over all its points, still
+  submits one job from the simulation folder.
+  `CampaignWorkspace.collect_outputs` gains `in_place=True`, which accepts a
+  declared output already in its own datapoint folder and records it without
+  moving it; without it such a file is still refused, as is a file in any
+  other managed folder.
+
 - **The HPC profile names a build the way its scheduler does.** A row's
   `FS_BUILD` names one build, `26.123`; a scheduler may accept only an
   application family such as `26.1`, which this package refuses because it
@@ -41,21 +57,44 @@ FlightStream versions.
   From Python the table is `HpcProfile.builds`, and the substitution's name is
   `pyflightstream.workspace.inputs.HPC_BUILD_ALIAS`.
 
-- **`pyfs-matrix plan --updateIDs` renumbers the repeated POLs of the matrix
-  being planned** (also spelled `--update-ids`). A row keeps its POL unless
+- **`pyfs-matrix plan --update-ids` renumbers the repeated POLs of the matrix
+  being planned** (also accepted as `--updateIDs`). A row keeps its POL unless
   another matrix of the workspace or an earlier row of the same file already
   states it; each row that must move takes the next free number above every
   POL, run record and `sims/sim_<id>` folder of the workspace. Only that
   matrix's POL cells change, each change is printed, and the plan then runs on
   the rewritten file; the renumbering is written first and stays written if the
-  plan then refuses, and the command says so. A row that must move and whose
-  POL already has runs of that matrix is refused rather than moved, because a
-  run record names the POL and not the row. From Python:
+  plan then refuses, and the command says so. Inside one matrix the first row
+  stating a POL keeps it and later rows move; a row whose POL another matrix
+  also states, and which already has runs of the planned matrix, is refused
+  rather than moved, because moving it would orphan those runs. From Python:
   `renumber_repeated_pols`, returning a list of `PolChange`, in
   `pyflightstream.workspace.matrix`, over `renumber_pols` in
   `pyflightstream.cases.matrix`.
 
 ### Fixed
+
+- **A probe survey cited from a pproc artifact reaches the solver.** The
+  script imported `profiles/<file>` from the simulation folder, where nothing
+  had put the file, so the import read nothing. The survey is now read where
+  it lives, `inputs/profiles/<file>`, by absolute path resolved when the row
+  binds, and a name that folder does not hold is refused when the row is
+  planned, naming the files it does hold.
+  BEHAVIOUR CHANGE: a script built outside a workspace from a case whose
+  pproc cites a survey is refused rather than emitting the import, and a pproc
+  file may not state `resolved_points_file`, which the package sets.
+
+- **A continuation opens the saved simulation it continues.** It archived the
+  stopped run's outputs and then opened the saved simulation at the path it
+  had just been moved from. It now opens the archived copy by absolute path.
+
+- **A `RESTART` row runs under the campaign that recorded the stopped run.** It
+  was refused as a re-run of a recorded point, and with `resume` it was skipped
+  as done, so it ran only under another campaign name. A point of a `RESTART`
+  row is now run when its most recent record stopped with more to do, and is
+  skipped when its most recent run finished; the continuation reads that most
+  recent record, and no longer an earlier stopped one when a later
+  continuation has already completed.
 
 - **A repeated POL is found in every matrix of the workspace, on every row.**
   Since 0.13.0 `plan` and `run` refused a POL two matrices shared, and three
@@ -64,7 +103,7 @@ FlightStream versions.
   was planned from outside the workspace root. A POL repeated inside one matrix
   was refused only by a validation error that named no row. One message now
   names every repeated POL and every row stating it, and gives a repeat that
-  `--updateIDs` cannot move a remedy of its own.
+  `--update-ids` cannot move a remedy of its own.
 
 - **A point still in a scheduler's queue is no longer counted as a run that
   owed coefficients.** The sweep table decided success by whether the status

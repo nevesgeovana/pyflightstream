@@ -2190,6 +2190,7 @@ class CampaignWorkspace:
         produced: Sequence[str | Path],
         *,
         datapoint: Mapping[str, float],
+        in_place: bool = False,
     ) -> list[str]:
         """Move declared solver outputs into the datapoint's folder (FR-92).
 
@@ -2197,6 +2198,15 @@ class CampaignWorkspace:
         ----------
         sim_id : str
             Target simulation.
+        in_place : bool
+            Accept a declared output that is ALREADY in this point's own
+            folder and record it without moving it. For a job that RAN in
+            that folder, which is a submitted point since 0.18.1, whose
+            solver wrote its outputs where they are filed. Keyword-only and
+            False by default, and the default is the guard: a caller who
+            has not said the job ran there is refused a file sitting in a
+            datapoint folder, because that file is otherwise a record an
+            earlier run already collected.
         datapoint : mapping of str to float
             THE POINT these outputs belong to, whose folder under
             ``datapoints/`` this renders with
@@ -2309,7 +2319,24 @@ class CampaignWorkspace:
         #
         # Detected before the collision pre-scan and therefore before any
         # move, so a refusal leaves every source exactly where it was.
+        #
+        # AN OUTPUT ALREADY IN ITS OWN DATAPOINT FOLDER IS COLLECTED IN PLACE,
+        # WHEN THE CALLER SAYS THE JOB RAN THERE (GOAL-021 item 3). A submitted
+        # point runs IN that folder, so its solver writes where the outputs are
+        # filed, and moving a file onto itself is not collection. OPT-IN, and
+        # the first writing was not: accepted for any caller, it let a direct
+        # call claim a file an EARLIER run had already collected there, which
+        # `test_collect_refuses_a_source_inside_a_managed_subdirectory` exists
+        # to refuse. Any other managed folder is refused either way.
+        own = (sim / folder).resolve()
+        kept = (
+            {str(path) for path in produced if Path(path).resolve().parent == own}
+            if in_place
+            else set()
+        )
         for path in produced:
+            if str(path) in kept:
+                continue
             trespass = self._output_trespass(sim, Path(path))
             if trespass is not None:
                 raise WorkspaceError(trespass)
@@ -2351,7 +2378,11 @@ class CampaignWorkspace:
         # the second still at its source, split across two locations with
         # nothing written down. No collection that would have succeeded
         # refuses now; the refusal simply costs nothing to recover from.
-        held = [Path(path).name for path in produced if (sim / folder / Path(path).name).exists()]
+        held = [
+            Path(path).name
+            for path in produced
+            if str(path) not in kept and (sim / folder / Path(path).name).exists()
+        ]
         if held:
             raise WorkspaceError(
                 f"cannot collect {', '.join(held)} into {folder}/: "
@@ -2370,8 +2401,8 @@ class CampaignWorkspace:
         (sim / folder).mkdir(parents=True, exist_ok=True)
         for path in produced:
             origin = Path(path)
-            destination = sim / folder / origin.name
-            shutil.move(str(origin), destination)
+            if str(path) not in kept:
+                shutil.move(str(origin), sim / folder / origin.name)
             collected.append(f"{folder}/{origin.name}")
         return collected
 

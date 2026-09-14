@@ -5104,76 +5104,26 @@ def test_goal019_warm_resume_runs_the_points_the_job_did_not(tmp_path):
     assert not extended[0].points_ran, "a one-point run is not a job"
 
 
-def test_goal019_hpc_a_second_point_is_not_submitted_over_a_queued_one(tmp_path):
-    """GEO-047-C04, taken NARROWED: refused rather than given its own folder.
+def test_goal019_hpc_the_queued_point_refusal_is_gone_because_its_cause_is():
+    """GEO-047-C04 was taken NARROWED at 0.17.0: refused rather than given its own folder.
 
-    Every point of a case shares one simulation folder, including the
-    action program the wall clock runs and the state file it keeps its
-    clock in. A submission does not wait, so the second point would
-    rewrite all three while the first is still queued, and the queued job
-    would then export under this point's names.
+    THE HOLD IS LIFTED ON THE PER-POINT PATH, by the owner's decision recorded
+    in GOAL-021. The refusal existed because every point of a case shared one
+    simulation folder, including the action program, the script it rewrites
+    and the clock state, and a submission does not wait. Since 0.18.1 each
+    submitted point runs in its own datapoint folder, so the reason is removed
+    rather than overruled, and the refusal is deleted rather than left beside a
+    path that can no longer reach it.
+
+    This test asserted the refusal fired. It now asserts it is gone, and what
+    replaced it is proved where the behaviour is:
+    `tests/tier1_offline/test_goal021_swept_row.py`, which submits three points
+    of one row, each into its own folder, and keeps the swept-steady job, which
+    never had the refusal, running in the simulation folder.
     """
-    from pyflightstream.cases import SimCase, SweepAxis
-    from pyflightstream.run import SubmittingExecutor, _a_point_is_already_queued
-    from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
-    from pyflightstream.workspace.inputs import read_hpc_profile
+    import pyflightstream.run as run_module
 
-    profile_path = tmp_path / "h001.toml"
-    profile_path.write_text(
-        'application_id = "flightstream"\n'
-        "[descriptor]\n"
-        'format = "yaml"\n'
-        "[descriptor.fields]\n"
-        'ApplicationId = "{application_id}"\n'
-        "[submit]\n"
-        'command = ["esub", "{descriptor_path}"]\n',
-        encoding="utf-8",
+    assert not hasattr(run_module, "_a_point_is_already_queued"), (
+        "the queued-point refusal is back; its cause was removed at 0.18.1, and a refusal "
+        "of a second submitted point would refuse the swept row the release exists to submit"
     )
-    executor = SubmittingExecutor(read_hpc_profile(profile_path), values={})
-    workspace = CampaignWorkspace.init(tmp_path / "camp")
-    case = SimCase(
-        sim_id="9001",
-        aircraft="TestWing",
-        recipe="unsteady",
-        sweep=SweepAxis(type="alpha", values=[0.0, 2.0]),
-        point={"alpha": 0.0},
-        outputs=["loads_a+00.0.txt"],
-        variables={"VELOCITY": "30.0", "DELTA_TIME": "0.01", "TIME_ITERATIONS": "4"},
-    )
-    assert _a_point_is_already_queued(executor, workspace, case) is None, (
-        "nothing is queued, so nothing is refused"
-    )
-
-    workspace.append_record(
-        RunRecord(
-            run_id="camp/sim_9001/a+00.0",
-            sim_id="9001",
-            point={"alpha": 0.0},
-            fs_version_requested="26.123",
-            package_version="0.17.0.dev0",
-            script_sha256="",
-            raw_flag=False,
-            status=RunStatus.SUBMITTED,
-            outputs=[],
-        )
-    )
-    refusal = _a_point_is_already_queued(executor, workspace, case)
-    assert refusal is not None, (
-        "a second point was submitted into a folder whose action program a queued job is "
-        "still reading"
-    )
-    assert "camp/sim_9001/a+00.0" in refusal
-    # PFS-2010.01.05. This asserted "0.18.0" was IN the refusal, which pinned
-    # a message telling a user of 0.18.0 to wait for 0.18.0. The instruction
-    # is counted instead, and no release is named as the fix.
-    assert refusal.count("Submit one point of a row at a time") == 1, refusal
-    import re
-
-    assert not re.search(r"\b\d+\.\d+\.\d+\b", refusal), refusal
-
-    # A LOCAL RUN IS NEVER REFUSED: the points run one after another, so
-    # they never share the folder at the same moment.
-    from pyflightstream.run import LocalExecutor
-
-    local = LocalExecutor.__new__(LocalExecutor)
-    assert _a_point_is_already_queued(local, workspace, case) is None

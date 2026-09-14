@@ -1738,16 +1738,16 @@ this workspace, RUN = 0 rows included: POL 1001 in matriz.fs row 1,
 matriz_setup.fs row 3; POL 1004 in matriz.fs row 4, matriz.fs row 6. A POL names
 the simulation folder sims/sim_<POL> and the run ids of the one manifest,
 runs.json, so each POL is stated once in the whole workspace. POL(s) 1001, 1004:
-renumber by hand, or run `pyfs-matrix plan matriz.fs --updateIDs`, which gives
+renumber by hand, or run `pyfs-matrix plan matriz.fs --update-ids`, which gives
 each repeated row of matriz.fs the next free POL and leaves every other matrix as
 it is.
 ```
 
 A repeat that sits only between two OTHER matrices is named with its own
-remedy in the same message, because `--updateIDs` on the matrix being planned
+remedy in the same message, because `--update-ids` on the matrix being planned
 cannot move it.
 
-`pyfs-matrix plan <matrix> --updateIDs` (also spelled `--update-ids`) rewrites
+`pyfs-matrix plan <matrix> --update-ids` (also accepted as `--updateIDs`) rewrites
 THAT MATRIX before planning it. A row keeps its POL unless another matrix
 already states it or an earlier row of the same file does; each row that must
 move takes the next free number above every POL of every matrix, every run in
@@ -1756,15 +1756,16 @@ evidence of a study whose matrix has been removed. Only the POL cells change,
 each change is printed, and the plan then runs on the rewritten file:
 
 ```text
-pyfs-matrix plan matriz.fs --updateIDs ...
---updateIDs: matriz.fs row 6: POL 1004 -> 2013
+pyfs-matrix plan matriz.fs --update-ids ...
+--update-ids: matriz.fs row 6: POL 1004 -> 2013
 ```
 
-A row that must move and whose POL already has runs of THAT matrix in
-`runs.json` is refused rather than moved, and nothing is written. A run record
-names the POL and not the row, so when such a POL is stated on two rows nothing
-says which one produced the runs; renumber by hand, choosing the row that did
-not run, or archive the simulation first.
+Inside one matrix the FIRST row stating a POL keeps it and every later row
+moves, including when that POL already has runs in `runs.json`: a run record
+names the POL and not the row, and the first row is taken as the one that ran.
+A row whose POL another matrix also states, and which already has runs of
+THIS matrix, is refused rather than moved, and nothing is written; renumber the
+other matrix instead, or archive the simulation first.
 
 THE RENUMBERING IS WRITTEN BEFORE THE PLAN RUNS, so the receipt the plan writes
 is pinned to the file as renumbered. If the plan then refuses for another

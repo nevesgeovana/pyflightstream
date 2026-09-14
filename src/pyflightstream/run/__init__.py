@@ -71,7 +71,7 @@ import sys
 import tempfile
 import time
 import warnings
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from functools import lru_cache
@@ -683,39 +683,6 @@ class Submitting(Protocol):
 
     def submission_record(self) -> dict | None:
         """Return what was handed to the scheduler, or None before anything was."""
-
-
-def _a_point_is_already_queued(executor, workspace, case) -> str | None:
-    """Why this point may not be submitted while another of its row is out.
-
-    ONE SIMULATION FOLDER, and a submission does not wait. Every point of
-    a case shares `sims/sim_<id>/`, including the action program the wall
-    clock runs, the script it rewrites and the state file it keeps its
-    clock in. Locally that is safe because the points run one after
-    another; submitted, the second point rewrites all three while the
-    first is still in a queue, and the queued job then exports under
-    another point's names or counts another point's clock.
-
-    Returns the refusal, or None for a point that may go.
-    """
-    if not isinstance(executor, Submitting):
-        return None
-    queued = [
-        record
-        for record in workspace.read_manifest()
-        if record.sim_id == case.sim_id and record.status is RunStatus.SUBMITTED
-    ]
-    if not queued:
-        return None
-    return (
-        f"simulation {case.sim_id} already has {len(queued)} submitted point(s) "
-        f"({', '.join(record.run_id for record in queued)}) and a submission does not "
-        "wait. Every point of this row shares one simulation folder, including the "
-        "action program the wall clock runs and the state file it keeps its clock in, "
-        "so submitting this point now would rewrite them under a job that is still "
-        "queued and that job would export under this point's names. Submit one point "
-        "of a row at a time, or collect the queued point first."
-    )
 
 
 def _bind_submission_values(executor, case, point_case) -> None:
@@ -2688,7 +2655,18 @@ def run_campaign(
             remaining = [point for point in case_points if point_tag(point) not in ran]
             case_points = remaining
             run_ids = [_run_id(campaign, case, point) for point in remaining]
-        if already and not resume:
+        # A ROW STATING RESTART CONTINUES WHAT IS RECORDED, so its recorded
+        # points are its subject and not a fork (GOAL-021, the owner's call of
+        # 2026-09-14). Until 0.18.1 such a row, under the campaign that recorded
+        # the stopped run, was refused as a fork without `resume` and skipped
+        # as done with it, and ran only under another campaign name. A point
+        # of it is pending when the most recent record of that point stopped
+        # continuably, or when nothing records it at all, so the continuation
+        # resolver refuses it by name; a point whose latest run FINISHED is
+        # done, so running the matrix again does not continue a continuation
+        # that already completed.
+        continuing = _states_restart(case)
+        if already and not resume and not continuing:
             raise WorkspaceError(
                 f"run_id {already[0]!r} is already in the manifest of "
                 f"{workspace.root}; re-running a recorded point would fork the "
@@ -2696,11 +2674,18 @@ def run_campaign(
                 "run only the new ones), or archive the simulation / choose a "
                 "new campaign root to redo it."
             )
-        pending = [
-            (point, run_id)
-            for point, run_id in zip(case_points, run_ids, strict=True)
-            if run_id not in recorded
-        ]
+        if continuing:
+            pending = []
+            for point, run_id in zip(case_points, run_ids, strict=True):
+                latest = _latest_record_of_point(manifest.values(), case.sim_id, point)
+                if latest is None or latest.status in CONTINUABLE:
+                    pending.append((point, run_id))
+        else:
+            pending = [
+                (point, run_id)
+                for point, run_id in zip(case_points, run_ids, strict=True)
+                if run_id not in recorded
+            ]
         if not pending:
             # Nothing to run, so nothing may be touched. This is the case the
             # review reproduced, and the fix is the whole of it: return without
@@ -2811,9 +2796,21 @@ def run_campaign(
                 # MORE THAN ONE RESTART. It happens before the solver starts,
                 # so a continuation never writes into the folder holding the
                 # evidence of the run it continues.
-                workspace.archive_datapoint(case.sim_id, point, stamp=stamp)
+                archived = workspace.archive_datapoint(case.sim_id, point, stamp=stamp)
+                # THE ARCHIVED COPY, BY ABSOLUTE PATH (GOAL-021, the owner's
+                # call of 2026-09-14). The archive above has just MOVED the
+                # saved simulation out of the datapoint folder, and this handed
+                # the solver the path it had been moved from, relative to a
+                # working directory a submitted point does not have: on the
+                # seat the continuation opened nothing.
+                saved = str(continuation["saved"])
+                source = (
+                    archived / Path(saved).name
+                    if archived is not None
+                    else workspace.sim_dir(case.sim_id) / saved
+                )
                 point_extra = {
-                    RESTART_FROM_VARIABLE: continuation["saved"],
+                    RESTART_FROM_VARIABLE: str(source.resolve()),
                     RESTART_ITERATIONS_VARIABLE: str(continuation["iterations"]),
                 }
                 run_id = continuation_run_id(run_id, stamp)
@@ -3902,6 +3899,16 @@ def _plan_point(
     # is about to replace the outputs; a pre-flight that moved them would
     # spend a destructive act on a rehearsal, and `plan` promises to spend
     # nothing.
+    #
+    # A POINT WHOSE LATEST RUN FINISHED IS RECORDED, not blocked (GOAL-021, the
+    # owner's call of 2026-09-14): a RESTART row names the points it continues,
+    # and once a continuation has completed there is nothing left to continue,
+    # which the run skips and the plan reports as such rather than as a refusal.
+    restarting = _states_restart(case)
+    if restarting:
+        latest = _latest_record_of_point(workspace.read_manifest(), case.sim_id, point)
+        if latest is not None and latest.status not in CONTINUABLE:
+            return PointPlan(**base, script_name=script_name, status=PlanStatus.ALREADY_RECORDED)
     try:
         rehearsed = resolve_continuation(workspace, case, point, run_id=run_id)
     except (WorkspaceError, CampaignConfigError) as error:
@@ -3913,7 +3920,11 @@ def _plan_point(
             update={
                 "variables": {
                     **point_case.variables,
-                    RESTART_FROM_VARIABLE: rehearsed["saved"],
+                    # Where the file is NOW, absolutely: the rehearsal archives
+                    # nothing, so the run's archived path does not exist yet.
+                    RESTART_FROM_VARIABLE: str(
+                        (workspace.sim_dir(case.sim_id) / str(rehearsed["saved"])).resolve()
+                    ),
                     RESTART_ITERATIONS_VARIABLE: str(rehearsed["iterations"]),
                 }
             }
@@ -3949,7 +3960,7 @@ def _plan_point(
     # manifest that a point leaned on a broken command has already spent
     # the solver time (PYFS-002, and the pre-flight promise of FR-14).
     waived = tuple(use.command for use in script.waived_commands)
-    if run_id in recorded:
+    if run_id in recorded and not restarting:
         return PointPlan(
             **base,
             script_name=script_name,
@@ -4689,24 +4700,25 @@ def resolve_continuation(
     if request is None:
         return None
     tag = point_tag(dict(point))
-    stopped = [
-        record
-        for record in workspace.read_manifest()
-        if record.sim_id == case.sim_id
-        and record.run_id.endswith(f"/{tag}")
-        and record.status in CONTINUABLE
-    ]
-    if not stopped:
+    # THE MOST RECENT RECORD OF THE POINT, WHATEVER IT SAYS, and only then is
+    # it asked whether it stopped. This read the latest STOPPED record until
+    # 0.18.1, so a point whose continuation had since FINISHED was continued
+    # again from the run before it, re-marching steps the finished run had
+    # already done (GOAL-021, found beside the owner's item 2 measurement).
+    previous = _latest_record_of_point(workspace.read_manifest(), case.sim_id, point)
+    if previous is None or previous.status not in CONTINUABLE:
+        latest = (
+            "records no run of it"
+            if previous is None
+            else f"records its latest run, {previous.run_id!r}, as {previous.status}"
+        )
         raise CampaignConfigError(
             f"case {case.sim_id!r} point {tag} states {RESTART_VARIABLE} and this workspace "
-            "records no run of it that STOPPED with more to do. A continuation continues a "
-            f"recorded run whose status is one of "
+            f"{latest}, which is not a run that STOPPED with more to do. A continuation "
+            "continues a recorded run whose latest status is one of "
             f"{', '.join(str(s) for s in CONTINUABLE)}; run the row once, or remove the "
             f"{RESTART_VARIABLE} key to march it from the start."
         )
-    # THE MOST RECENT ONE, which is the last in file order: the manifest is
-    # append-only and a continuation of a continuation continues the latest.
-    previous = stopped[-1]
     iterations = restart_iterations(request, previous.model_dump(mode="json"))
     saved = next(
         (name for name in previous.outputs if str(name).lower().endswith(SIMULATION_SUFFIX)),
@@ -4719,12 +4731,47 @@ def resolve_continuation(
             "post-processing artifact turns the simulation export off cannot be continued; "
             "turn it on and run the row again."
         )
+    if not (workspace.sim_dir(case.sim_id) / str(saved)).is_file():
+        raise CampaignConfigError(
+            f"run {previous.run_id!r} stopped at {previous.status} and recorded its saved "
+            f"simulation as {saved}, which is not in {workspace.sim_dir(case.sim_id)}. A "
+            "continuation reopens that file, so it cannot start without it; restore it, or "
+            f"remove the {RESTART_VARIABLE} key to march the point from the start."
+        )
     return {
         "continues": previous.run_id,
         "iterations": iterations,
         "saved": str(saved),
         "form": request.form,
     }
+
+
+def _states_restart(case: SimCase) -> bool:
+    """Whether a case's row states RESTART, without raising on a malformed cell.
+
+    A malformed cell is the continuation resolver's to refuse, per point and by
+    name; campaign scheduling only needs to know whether the row is one.
+    """
+    try:
+        return parse_restart(case) is not None
+    except CampaignConfigError:
+        return False
+
+
+def _latest_record_of_point(
+    records: Iterable[RunRecord], sim_id: str, point: Mapping[str, float]
+) -> RunRecord | None:
+    """Return the most recent record of one point, in file order, whatever its status.
+
+    A continuation's run id is ``<campaign>/sim_<id>/r<stamp>/<tag>``, so the
+    point tag still ENDS every run id of the point, which is what this reads.
+    """
+    tag = point_tag(dict(point))
+    latest = None
+    for record in records:
+        if record.sim_id == sim_id and record.run_id.endswith(f"/{tag}"):
+            latest = record
+    return latest
 
 
 def _execute_point(
@@ -4908,10 +4955,29 @@ def _execute_point(
     # directory, an absolute one where it says. Until this existed the
     # helper promised a writer that did not exist, and a SCRIPT action
     # registered through it named a file that was never there.
+    #
+    # GOAL-021 ITEM 3, PFS-2010.01.02: A SUBMITTED POINT RUNS IN ITS OWN
+    # DATAPOINT FOLDER, `sims/sim_<id>/datapoints/DP-<tag>/`, the folder its
+    # outputs are filed under since 0.16.0 (FR-92). Every file below that
+    # was written to the working directory follows it: the action programs,
+    # the clock and its state, and the scheduler's descriptor. That removes
+    # the reason a second submitted point of a row was refused, which was
+    # that all of them rewrote those files under a job still in a queue.
+    #
+    # A LOCAL POINT STILL RUNS IN THE SIMULATION FOLDER. Local points run one
+    # after another and never shared a folder at the same moment, and moving
+    # them would change every local workspace for no defect. Every input the
+    # script reads is named by absolute path since 0.18.1, which is what
+    # makes the working directory free to move at all (GOAL-021 item 2).
+    work_dir = (
+        sim_dir / SIM_DATAPOINTS_DIR / datapoint_dir_name(point)
+        if isinstance(executor, Submitting)
+        else sim_dir
+    )
     for action_file, action_text in script.pending_action_scripts.items():
         target = Path(action_file)
         if not target.is_absolute():
-            target = sim_dir / target
+            target = work_dir / target
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(action_text, encoding="utf-8")
     # PFS-2031.18. A script that registered the counter action names a
@@ -4927,14 +4993,14 @@ def _execute_point(
     if any(use.name == UNSTEADY_COUNTER_ACTION for use in script.unsteady_actions):
         threshold = unsteady_export_threshold(point_case)
     if threshold is not None:
-        program = sim_dir / UNSTEADY_ACTION_PROGRAM
+        program = work_dir / UNSTEADY_ACTION_PROGRAM
         program.parent.mkdir(parents=True, exist_ok=True)
         program.write_text(render_program(threshold, interpreter=sys.executable), encoding="utf-8")
-        (sim_dir / UNSTEADY_ACTION_COUNT).unlink(missing_ok=True)
+        (work_dir / UNSTEADY_ACTION_COUNT).unlink(missing_ok=True)
         base["inputs_sha256"] = {
             **inputs_sha256,
             UNSTEADY_ACTION_PROGRAM: file_sha256(program),
-            UNSTEADY_ACTION_SCRIPT: file_sha256(sim_dir / UNSTEADY_ACTION_SCRIPT),
+            UNSTEADY_ACTION_SCRIPT: file_sha256(work_dir / UNSTEADY_ACTION_SCRIPT),
         }
         base["action_program"] = UNSTEADY_ACTION_PROGRAM
         base["action_script"] = UNSTEADY_ACTION_SCRIPT
@@ -4961,17 +5027,17 @@ def _execute_point(
     # removed, because a clock carried over would fire the second point
     # before its first step.
     if any(use.name == WALLTIME_CLOCK_ACTION for use in script.unsteady_actions):
-        clock = sim_dir / WALLTIME_CLOCK_PROGRAM
+        clock = work_dir / WALLTIME_CLOCK_PROGRAM
         clock.parent.mkdir(parents=True, exist_ok=True)
         clock.write_text(
             walltime_clock_program(point_case, workflow_conventions_for(point_case)),
             encoding="utf-8",
         )
-        (sim_dir / WALLTIME_CLOCK_STATE).unlink(missing_ok=True)
+        (work_dir / WALLTIME_CLOCK_STATE).unlink(missing_ok=True)
         base["inputs_sha256"] = {
             **base.get("inputs_sha256", inputs_sha256),
             WALLTIME_CLOCK_PROGRAM: file_sha256(clock),
-            WALLTIME_STOP_SCRIPT: file_sha256(sim_dir / WALLTIME_STOP_SCRIPT),
+            WALLTIME_STOP_SCRIPT: file_sha256(work_dir / WALLTIME_STOP_SCRIPT),
         }
         base["walltime_s"] = row_walltime_s(point_case)
         base["walltime_margin_s"] = walltime_margin_s(point_case)
@@ -4999,7 +5065,10 @@ def _execute_point(
     # cannot tell a rewritten identical file from an untouched one, and it
     # spends solver time before saying so. The script is already written,
     # so the refused point still records the script it would have run.
-    stale = [name for name in point_case.outputs if (sim_dir / name).exists()]
+    # IN THE WORKING DIRECTORY, which for a submitted point is its datapoint
+    # folder: a file an earlier run of the point left there is exactly what
+    # this refuses to collect as the new run's evidence.
+    stale = [name for name in point_case.outputs if (work_dir / name).exists()]
     if stale:
         return RunRecord(
             **base,
@@ -5014,27 +5083,19 @@ def _execute_point(
             ),
         )
 
-    # FR-99, GEO-047-C04. A SUBMITTED POINT LEAVES ITS ACTIONS BEHIND and
-    # the submission returns immediately, so a second point of the same
-    # simulation would rewrite the action program, the export script and
-    # the clock state while the first is still queued. The queued job then
-    # exports under another point's names or shares a watchdog clock.
-    #
-    # REFUSED rather than given a working directory of its own, which is
-    # the narrowing the triage recorded: a second layout for a submitted
-    # run is what every consumer of this workspace reads, and inventing
-    # one for a path nobody has run on a real cluster freezes a shape
-    # before anyone has used it. Found by the independent Codex review of
-    # `main`, 2026-09-13.
-    outstanding = _a_point_is_already_queued(executor, workspace, case)
-    if outstanding is not None:
-        return RunRecord(**base, status=RunStatus.FAILED_SCRIPT, error=outstanding)
+    # FR-99, GEO-047-C04. THE REFUSAL OF A SECOND SUBMITTED POINT OF A ROW IS
+    # GONE FROM THIS PATH, and deliberately from this path only (the owner's
+    # lifting of GOAL-020's hold, GOAL-021 item 3). It refused because every
+    # point shared the simulation folder's action program, script and clock
+    # state; each submitted point now runs in its own datapoint folder, so the
+    # reason is removed rather than overruled. The swept-steady path is ONE job
+    # over every point of its row and never had the refusal to lift.
     # FR-99. WHAT THIS POINT IS, for the scheduler's descriptor, and it is
     # bound per point because a descriptor names the simulation, its wall
     # clock and its processor count, and those are the row's. A local
     # executor has no such method and is handed nothing.
     _bind_submission_values(executor, case, point_case)
-    result = executor.run_script(script_path, working_dir=sim_dir, timeout_s=case.solver.timeout_s)
+    result = executor.run_script(script_path, working_dir=work_dir, timeout_s=case.solver.timeout_s)
     # PYFS-015. The invocation is the half of a run that lived only in the
     # executor's code: which flags, which directory, which effective
     # timeout. Reproducing a run from its record used to mean re-deriving
@@ -5053,12 +5114,12 @@ def _execute_point(
     # which is a run with no threshold or a solver that never reached a
     # time step.
     if threshold is not None:
-        base["action_count"] = _action_count(sim_dir / UNSTEADY_ACTION_COUNT)
+        base["action_count"] = _action_count(work_dir / UNSTEADY_ACTION_COUNT)
     # FR-98. WHETHER THE CLOCK FIRED, read from the state the program left.
     # This is the only thing that knows: the solver reports a run that
     # ended, and the difference between ending because it finished and
     # ending because the watchdog stopped it is here or nowhere.
-    stopped = _walltime_stop(sim_dir / WALLTIME_CLOCK_STATE)
+    stopped = _walltime_stop(work_dir / WALLTIME_CLOCK_STATE)
     if stopped is not None:
         base["stopped_at"] = stopped
     # FR-99. READ BEFORE THE FAILURE BRANCH, because the likeliest cluster
@@ -5104,7 +5165,14 @@ def _execute_point(
             # in a regenerated product (GEO-039-F02). `outputs` stays empty
             # because a submitted point has collected nothing; these are
             # what it was BUILT to write.
-            submission={**submitted, "declared_outputs": list(point_case.outputs)},
+            submission={
+                **submitted,
+                "declared_outputs": list(point_case.outputs),
+                # GOAL-021 item 3: WHERE the job runs and writes, relative to
+                # the simulation folder so a moved workspace still resolves;
+                # the collector waits on the declared outputs here.
+                "working_dir": work_dir.relative_to(sim_dir).as_posix(),
+            },
         )
 
     try:

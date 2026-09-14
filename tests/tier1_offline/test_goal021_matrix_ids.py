@@ -1,4 +1,4 @@
-"""PFS-2031.21: `plan` finds every repeated POL in the workspace, and `--updateIDs` renumbers.
+"""PFS-2031.21: `plan` finds every repeated POL in the workspace, and `--update-ids` renumbers.
 
 A POL names the simulation folder `sims/sim_<POL>` and begins every run id of
 the one manifest. 0.13.0 refused a POL two matrices shared on active rows, and
@@ -87,7 +87,7 @@ def test_goal021_matrix_ids_every_cross_matrix_shape_is_refused(
     message = _refusal(workspace, matrix)
     assert message.count("POL 8001 in ") == 1, (shape, message)
     assert message.count("other.fs row 1") == 1, (shape, message)
-    assert message.count("--updateIDs") == 1, (shape, message)
+    assert message.count("--update-ids") == 1, (shape, message)
 
 
 def test_goal021_matrix_ids_a_pol_repeated_inside_one_matrix_is_refused_by_row(tmp_path):
@@ -129,7 +129,7 @@ def test_goal021_matrix_ids_each_kind_of_repeat_gets_its_own_remedy_in_one_messa
     _matrix(workspace.root, "b.fs", [row(9001)])
     message = _refusal(workspace, matrix)
     assert message.count("POL(s) 8001: renumber by hand, or run `pyfs-matrix plan") == 1, message
-    assert message.count("POL(s) 9001: not in planned.fs, so --updateIDs") == 1, message
+    assert message.count("POL(s) 9001: not in planned.fs, so --update-ids") == 1, message
 
 
 def test_goal021_matrix_ids_disjoint_matrices_plan(tmp_path):
@@ -140,7 +140,7 @@ def test_goal021_matrix_ids_disjoint_matrices_plan(tmp_path):
     _plan(workspace, matrix)
 
 
-# --- --updateIDs -------------------------------------------------------------
+# --- --update-ids ------------------------------------------------------------
 
 
 def test_goal021_matrix_ids_only_colliding_rows_move_and_count_up_from_the_workspace(tmp_path):
@@ -212,13 +212,13 @@ def test_goal021_matrix_ids_a_row_with_runs_of_this_matrix_is_refused_not_moved(
     with pytest.raises(MatrixError) as raised:
         renumber_repeated_pols(matrix, workspace)
     message = str(raised.value)
-    assert message.count("may orphan those runs") == 1, message
-    assert message.count("another matrix of this workspace also states it") == 1, message
+    assert message.count("would orphan those runs") == 1, message
+    assert message.count("Renumber the other matrix instead") == 1, message
     assert matrix.read_bytes() == before, "the file was written before the refusal"
 
 
-def test_goal021_matrix_ids_a_repeat_inside_the_file_whose_pol_has_runs_is_refused(tmp_path):
-    """The V&V lens: a record names no row, so neither copy of a run POL may move."""
+def test_goal021_matrix_ids_inside_one_file_the_first_row_keeps_a_pol_with_runs(tmp_path):
+    """The owner's call of 2026-09-14: the first row stating the POL is taken as the run one."""
     workspace = _workspace(tmp_path)
     matrix = _matrix(workspace.root, "planned.fs", [row(8001, desc="A"), row(8001, desc="B")])
     workspace.append_record(
@@ -234,13 +234,9 @@ def test_goal021_matrix_ids_a_repeat_inside_the_file_whose_pol_has_runs_is_refus
             status=RunStatus.CONVERGED,
         )
     )
-    before = matrix.read_bytes()
-    with pytest.raises(MatrixError) as raised:
-        renumber_repeated_pols(matrix, workspace)
-    message = str(raised.value)
-    assert message.count("planned.fs row 2 states POL 8001") == 1, message
-    assert message.count("an earlier row of this file states it too") == 1, message
-    assert matrix.read_bytes() == before
+    changes = renumber_repeated_pols(matrix, workspace)
+    assert changes == [PolChange(row_number=2, old="8001", new="8002")], changes
+    assert [r.pol for r in read_matrix(matrix, active_only=False)] == ["8001", "8002"]
 
 
 def test_goal021_matrix_ids_renumber_pols_refuses_a_row_the_file_does_not_hold(tmp_path):

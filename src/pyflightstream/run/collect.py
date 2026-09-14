@@ -270,6 +270,19 @@ def _sim_dir(workspace: CampaignWorkspace, record: RunRecord) -> Path:
     return workspace.sim_dir(record.sim_id)
 
 
+def _working_dir(workspace: CampaignWorkspace, record: RunRecord) -> Path:
+    """Return where the submitted job runs and writes its declared outputs.
+
+    Since 0.18.1 a submitted point runs in its own datapoint folder and its
+    submission block says so, relative to the simulation folder (GOAL-021
+    item 3). A record written before that names none, and its job ran in the
+    simulation folder, which is where the collector waits for it.
+    """
+    relative = str((record.submission or {}).get("working_dir") or "")
+    base = _sim_dir(workspace, record)
+    return base / relative if relative else base
+
+
 def collect_once(
     workspace: CampaignWorkspace,
     *,
@@ -322,7 +335,8 @@ def collect_once(
             )
             continue
         sim_dir = _sim_dir(workspace, record)
-        paths = [sim_dir / name for name in names]
+        work_dir = _working_dir(workspace, record)
+        paths = [work_dir / name for name in names]
         first = observer(paths)
         sleep(interval)
         second = observer(paths)
@@ -364,7 +378,7 @@ def _complete(
     it and carries a comment about the defect that taught it.
     """
     try:
-        collected = _collect_by_point(workspace, record, names, sim_dir)
+        collected = _collect_by_point(workspace, record, names, _working_dir(workspace, record))
     except (WorkspaceError, CampaignConfigError) as error:
         # THE SAME TWO EXCEPTIONS THE LOCAL PATH CATCHES, for the same
         # reason: collection refuses for two kinds of reason and only one of
@@ -417,9 +431,13 @@ def _collect_by_point(
     workspace: CampaignWorkspace,
     record: RunRecord,
     names: Sequence[str],
-    sim_dir: Path,
+    work_dir: Path,
 ) -> list[str]:
     """File each declared output under the point that declared it.
+
+    ``work_dir`` is where the job wrote: the simulation folder for a job over
+    a whole row, and the point's own datapoint folder for a submitted point
+    since 0.18.1, whose outputs are then collected in place.
 
     A record written before the per-point mapping existed, and a record for a
     single point, both fall to the whole-set call under `record.point`, which
@@ -432,8 +450,9 @@ def _collect_by_point(
         return list(
             workspace.collect_outputs(
                 record.sim_id,
-                [sim_dir / name for name in names],
+                [work_dir / name for name in names],
                 datapoint=record.point,
+                in_place=True,
             )
         )
     collected: list[str] = []
@@ -442,8 +461,9 @@ def _collect_by_point(
         collected.extend(
             workspace.collect_outputs(
                 record.sim_id,
-                [sim_dir / str(name) for name in owned],
+                [work_dir / str(name) for name in owned],
                 datapoint=point,
+                in_place=True,
             )
         )
     return collected

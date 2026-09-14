@@ -5315,7 +5315,14 @@ def test_a_probe_entry_may_cite_a_points_file_the_user_wrote(tmp_path):
             ],
         }
     )
-    case = _with_pproc(unsteady_case(), _wb_geometry(tmp_path), pproc=spec)
+    # THE ROW'S BINDING resolves the citation to the workspace file, and this
+    # stands in for it: a builder meeting an unresolved citation refuses, which
+    # the test below this one holds.
+    survey = tmp_path / "inputs" / "profiles" / "disk_survey.txt"
+    resolved = spec.model_copy(
+        update={"probes": [spec.probes[0].model_copy(update={"resolved_points_file": str(survey)})]}
+    )
+    case = _with_pproc(unsteady_case(), _wb_geometry(tmp_path), pproc=resolved)
     lines = rendered(case).splitlines()
 
     # `PROBE_POINTS_IMPORT` is `param_lines`: the name alone, then UNITS, FRAME
@@ -5326,9 +5333,12 @@ def test_a_probe_entry_may_cite_a_points_file_the_user_wrote(tmp_path):
     assert len(at) == 1, f"one import for one cited file; got {len(at)}"
     block = lines[at[0] : at[0] + 4]
     assert block[1].startswith("UNITS") and block[2].startswith("FRAME"), block
-    assert block[3] == "profiles/disk_survey.txt", (
-        f"the import must name the STAGED copy under the sim's own profiles/ "
-        f"folder, not the workspace input: {block}"
+    # THIS ASSERTED "profiles/disk_survey.txt" until 0.18.1, and called it the
+    # staged copy. Nothing ever staged the file there, so the import named a
+    # file that did not exist, relative to a working directory a submitted
+    # point does not have (GOAL-021 item 2). It names the input, absolutely.
+    assert block[3] == str(survey), (
+        f"the import must name the workspace's own survey by absolute path: {block}"
     )
 
     # THE PACKAGE DOES NOT RE-EMIT HER POINTS. Parsing her file to write one
@@ -5340,6 +5350,48 @@ def test_a_probe_entry_may_cite_a_points_file_the_user_wrote(tmp_path):
     assert not [line for line in lines if line.startswith("NEW_PROBE_LINE")], (
         "a cited profile replaces the survey lines, so none is drawn"
     )
+
+
+def test_an_unresolved_survey_citation_is_refused_rather_than_emitted(tmp_path):
+    """GOAL-021 item 2: a builder never emits an import of a file nothing resolved."""
+    import pytest
+
+    from pyflightstream.cases import CampaignConfigError, PprocSpec
+
+    spec = PprocSpec.model_validate(
+        {
+            "groups": {"1": ["W", "B"]},
+            "probes": [
+                {"frame": "MRP", "parameters": ["VELOCITY"], "points_file": "disk_survey.txt"}
+            ],
+        }
+    )
+    case = _with_pproc(unsteady_case(), _wb_geometry(tmp_path), pproc=spec)
+    with pytest.raises(CampaignConfigError) as raised:
+        rendered(case)
+    message = str(raised.value)
+    assert message.count("'disk_survey.txt' and nothing resolved it") == 1, message
+
+
+def test_a_pproc_file_may_not_state_the_resolved_survey_path():
+    import pytest
+
+    from pyflightstream.cases import PprocSpec
+
+    with pytest.raises(ValueError, match="set by the package when a row binds"):
+        PprocSpec.model_validate(
+            {
+                "groups": {"1": ["W"]},
+                "probes": [
+                    {
+                        "frame": "MRP",
+                        "parameters": ["VELOCITY"],
+                        "points_file": "s.txt",
+                        "resolved_points_file": "C:/anywhere/s.txt",
+                    }
+                ],
+            }
+        )
 
 
 def test_a_probe_entry_states_its_points_once(tmp_path):

@@ -1201,6 +1201,50 @@ def _refuse_groups_named_by_a_word(pproc: PprocArtifact, code: str, pol: str) ->
     )
 
 
+def _resolve_cited_profiles(workspace: CampaignWorkspace, pproc, code: str, pol: str):
+    """Give each probe entry that cites a survey the survey's absolute path (FR-80).
+
+    THE GEOMETRY IS THE PRECEDENT. A GEOMETRY stem becomes an absolute path on
+    the case here, when the row binds, and the script opens that path; a
+    survey is an input the same way and reaches the solver the same way. The
+    relative line it replaced named `profiles/<file>` inside the simulation
+    folder, where nothing had ever staged the file, and which a submitted
+    point's working directory is not (GOAL-021 item 2, measured 2026-09-14).
+
+    IMPORTED IN PLACE, NOT COPIED: FR-80 says a cited profile is input a run
+    must never write over, and the import reads it where it lives.
+
+    A NAME THE FOLDER DOES NOT HOLD IS REFUSED HERE, when the row is planned,
+    naming what the folder does hold. FR-80 promised that refusal and nothing
+    performed it, so a missing survey reached the solver as a silent import of
+    nothing.
+    """
+    if not any(entry.points_file for entry in pproc.probes):
+        return pproc
+    folder = Path(workspace.inputs_dir) / "profiles"
+    probes = []
+    for entry in pproc.probes:
+        if not entry.points_file:
+            probes.append(entry)
+            continue
+        path = folder / entry.points_file
+        if not path.is_file():
+            held = (
+                sorted(p.name for p in folder.iterdir() if p.is_file()) if folder.is_dir() else []
+            )
+            raise InputArtifactError(
+                f"matrix row POL {pol}: the pproc artifact {code!r} cites the probe survey "
+                f"{entry.points_file!r}, and {folder} holds no such file"
+                + (f"; it holds {', '.join(held)}" if held else ", or holds nothing")
+                + ". A cited survey lives in the workspace's inputs/profiles/ folder, where "
+                "no run writes over it.",
+                kind="pproc",
+                artifact_id=code,
+            )
+        probes.append(entry.model_copy(update={"resolved_points_file": str(path.resolve())}))
+    return pproc.model_copy(update={"probes": probes})
+
+
 @dataclass(frozen=True)
 class PolChange:
     """One row of a matrix that :func:`renumber_repeated_pols` moved to a new POL.
@@ -1281,7 +1325,7 @@ def _refuse_a_repeated_pol(path: str | Path, workspace: CampaignWorkspace) -> No
     listing = "; ".join(f"POL {pol} in {', '.join(places)}" for pol, places in repeated.items())
     # SPLIT BY WHAT THE FLAG CAN REACH, per POL (the interface lens,
     # 2026-09-14). A single remedy chosen by "any repeat touches this matrix"
-    # sent a workspace holding both kinds to --updateIDs, which moved one kind
+    # sent a workspace holding both kinds to --update-ids, which moved one kind
     # and left a second refusal the first message never announced.
     here = f"{matrix.name} row "
     movable = [p for p, places in repeated.items() if any(x.startswith(here) for x in places)]
@@ -1290,12 +1334,12 @@ def _refuse_a_repeated_pol(path: str | Path, workspace: CampaignWorkspace) -> No
     if movable:
         remedy += (
             f" POL(s) {', '.join(movable)}: renumber by hand, or run `pyfs-matrix plan "
-            f"{matrix.name} --updateIDs`, which gives each repeated row of {matrix.name} the next "
+            f"{matrix.name} --update-ids`, which gives each repeated row of {matrix.name} the next "
             "free POL and leaves every other matrix as it is."
         )
     if elsewhere:
         remedy += (
-            f" POL(s) {', '.join(elsewhere)}: not in {matrix.name}, so --updateIDs on it cannot "
+            f" POL(s) {', '.join(elsewhere)}: not in {matrix.name}, so --update-ids on it cannot "
             "move them; plan one of the matrices that states them with the flag, or renumber by "
             "hand."
         )
@@ -1367,24 +1411,26 @@ def renumber_repeated_pols(
         if row.pol not in claimed_elsewhere and row.pol not in seen:
             seen.add(row.pol)
             continue
-        # EVERY MOVING ROW, not only the first to state the POL (the V&V and
-        # technical-writing lenses, 2026-09-14). A run record names a POL and
-        # a matrix and never a row, so when a POL this matrix has run is
-        # stated on two rows of it, nothing says which row produced the runs,
-        # and moving either one may be the orphaning this refuses.
-        if any(record.sim_id == row.pol and record.matrix_stem == stem for record in records):
-            where = (
-                "another matrix of this workspace also states it"
-                if row.pol in claimed_elsewhere
-                else "an earlier row of this file states it too"
-            )
+        # THE FIRST ROW OF THIS FILE KEEPS THE POL, the owner's call of
+        # 2026-09-14 (DEC-0181). A run record names a POL and never a row, so
+        # when a POL this matrix has run is repeated inside it, the first row
+        # stating it is taken as the one that ran and every later row moves.
+        # The round-one fix at 9691369 refused every such row instead; that is
+        # reversed here on her decision. What is still refused is the FIRST
+        # occurrence when another matrix also states the POL and this matrix
+        # has runs of it: there is no other row of this file to keep it, so
+        # moving it is the orphaning itself.
+        first = row.pol not in seen
+        if first and any(
+            record.sim_id == row.pol and record.matrix_stem == stem for record in records
+        ):
             raise MatrixError(
-                f"{matrix.name} row {row.row_number} states POL {row.pol}, which must move because "
-                f"{where}, and {workspace.manifest_path.name} already holds runs of POL {row.pol} "
-                f"from {matrix.name}. A run record names the POL and not the row, so moving this "
-                "row may orphan those runs from the row that produced them, and nothing was "
-                "renumbered. Renumber by hand, choosing the row that did not run, or archive the "
-                f"simulation (pyfs-workspace archive <root> {row.pol}) and then renumber."
+                f"{matrix.name} row {row.row_number} states POL {row.pol}, which another matrix "
+                f"of this workspace also states, and {workspace.manifest_path.name} already holds "
+                f"runs of POL {row.pol} from {matrix.name}. Moving this row would orphan those "
+                "runs from the row that produced them, and nothing was renumbered. Renumber the "
+                "other matrix instead, or archive the simulation "
+                f"(pyfs-workspace archive <root> {row.pol}) and then renumber this one."
             )
         ceiling += 1
         changes.append(PolChange(row_number=row.row_number, old=row.pol, new=str(ceiling)))
@@ -1588,6 +1634,9 @@ def resolve_matrix(
         if row.pproc_code not in pprocs:
             pprocs[row.pproc_code] = _resolve_code(workspace, "pproc", row.pproc_code, row.pol)
             _refuse_groups_named_by_a_word(pprocs[row.pproc_code], row.pproc_code, row.pol)
+            pprocs[row.pproc_code] = _resolve_cited_profiles(
+                workspace, pprocs[row.pproc_code], row.pproc_code, row.pol
+            )
     sims: list[SimCase] = []
     conditions: dict[str, ResolvedCondition] = {}
     for case, row in zip(campaign.sims, rows, strict=True):

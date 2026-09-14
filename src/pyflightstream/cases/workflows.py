@@ -5713,10 +5713,12 @@ def _pproc_probes(
         vertex = _emit_one_probe_table(case, script, frames, probes, vertex, unsteady=unsteady)
 
 
-#: FR-80. Where a cited probe profile is staged for the run to import. It is
-#: per SIM and not per point, by the requirement of 2026-09-11: the probe
-#: file this package writes for a simulation, and any file a user cites
-#: alongside it, both belong in that simulation's `profiles/` folder.
+#: FR-91. The simulation subfolder the package writes a simulation's probe
+#: positions file into. Per SIM and not per point, by the requirement of
+#: 2026-09-11. A survey a USER cites (FR-80) is NOT here: it is imported where
+#: it lives, under the workspace's `inputs/profiles/`, by the absolute path the
+#: row's binding resolved. This comment said the cited file was staged here too,
+#: and nothing ever staged it (GOAL-021 item 2, measured 2026-09-14).
 PROBE_PROFILE_DIR = "profiles"
 
 #: FR-91. The columns of the probe positions file, in order, and the ONE home
@@ -5832,8 +5834,19 @@ def _emit_one_probe_table(case, script, frames, probes, vertex: int, *, unsteady
         # would be the defect rather than the feature.
         from pyflightstream.probes import emit_probe_import
 
-        staged = f"{PROBE_PROFILE_DIR}/{probes.points_file}"
-        emit_probe_import(script, staged)
+        # BY ABSOLUTE PATH, resolved when the row bound (GOAL-021 item 2). The
+        # relative `profiles/<file>` this emitted until 0.18.1 named a file
+        # nothing staged, in a folder that is not a submitted point's working
+        # directory, so a builder that meets an unresolved citation refuses
+        # rather than emitting a line that imports nothing.
+        if not probes.resolved_points_file:
+            raise CampaignConfigError(
+                f"case {case.sim_id!r}: a probe entry cites the survey "
+                f"{probes.points_file!r} and nothing resolved it to a file. A cited survey "
+                "is resolved against the workspace's inputs/profiles/ when the row binds, so "
+                "build this case through the workspace (plan_matrix or run_matrix)."
+            )
+        emit_probe_import(script, probes.resolved_points_file)
         return vertex
     if not (probes.lines or probes.rectangles or probes.circles):
         return vertex

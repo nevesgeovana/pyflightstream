@@ -358,8 +358,8 @@ def _build_parser() -> argparse.ArgumentParser:
         "comparable recorded run reads 'unknown' rather than a number with no basis",
     )
     plan.add_argument(
-        "--updateIDs",
         "--update-ids",
+        "--updateIDs",
         dest="update_ids",
         action="store_true",
         help="before planning, REWRITE THIS MATRIX so that none of its POLs repeats one "
@@ -1031,11 +1031,11 @@ def _cmd_plan(args: argparse.Namespace, recipes: dict[str, str]) -> int:
             return 2
         matrix_name = Path(args.matrix).name
         if not changes:
-            print(f"--updateIDs: no POL of {matrix_name} is repeated; nothing was renumbered")
+            print(f"--update-ids: no POL of {matrix_name} is repeated; nothing was renumbered")
         renumbered = len(changes)
         for change in changes:
             print(
-                f"--updateIDs: {matrix_name} row {change.row_number}: "
+                f"--update-ids: {matrix_name} row {change.row_number}: "
                 f"POL {change.old} -> {change.new}"
             )
     try:
@@ -1062,7 +1062,7 @@ def _cmd_plan(args: argparse.Namespace, recipes: dict[str, str]) -> int:
             # SAID AT THE MOMENT IT MATTERS (the interface and V&V lenses,
             # 2026-09-14): the file on disk is not the one the user handed in.
             print(
-                f"--updateIDs: the {renumbered} renumbering(s) printed above are written to "
+                f"--update-ids: the {renumbered} renumbering(s) printed above are written to "
                 f"{Path(args.matrix).name} and stay written; the plan refused for the reason "
                 "above, not because of them.",
                 file=sys.stderr,

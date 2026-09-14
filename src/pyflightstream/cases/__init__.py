@@ -791,11 +791,20 @@ class ProbesSpec(BaseModel):
     rectangles: list[ProbeRectangle] = Field(default_factory=list)
     circles: list[ProbeCircle] = Field(default_factory=list)
     #: FR-80: the name of a points file the USER wrote, under
-    #: `inputs/profiles/probes/`, cited instead of `lines`. The entry still
+    #: `inputs/profiles/`, cited instead of `lines`. The entry still
     #: states its `frame` and its `scale`, because a file of numbers says
     #: nothing about where those numbers are measured, and its `parameters`,
     #: because the file says where to sample and not what to sample.
     points_file: str | None = None
+    #: THE PACKAGE SETS THIS, A FILE NEVER DOES: the absolute path of
+    #: `points_file` under the workspace's `inputs/profiles/`, filled when a
+    #: row binds, the way a GEOMETRY stem becomes an absolute path on the case.
+    #: The script imports the survey by this path, because a relative one
+    #: resolves against the solver's working directory, which is not the
+    #: simulation folder for a submitted point; and until 0.18.1 the relative
+    #: line named a file nothing had ever staged there (GOAL-021 item 2).
+    #: Excluded from every dump, so no machine path reaches a record or a plan.
+    resolved_points_file: str | None = Field(default=None, exclude=True)
 
     @model_validator(mode="after")
     def _points_come_from_one_place(self) -> ProbesSpec:
@@ -816,9 +825,14 @@ class ProbesSpec(BaseModel):
         if self.points_file and "/" in self.points_file.replace("\\", "/"):
             raise ValueError(
                 f"`points_file = {self.points_file!r}` names a path. It is the NAME of "
-                "a file under the workspace's `inputs/profiles/probes/`, which is "
+                "a file under the workspace's `inputs/profiles/`, which is "
                 "where a profile lives so that a run never writes over it; a path "
                 "would let one artifact reach outside the workspace it belongs to."
+            )
+        if self.resolved_points_file is not None:
+            raise ValueError(
+                "`resolved_points_file` is set by the package when a row binds and is "
+                "never written in a pproc file; cite the survey with `points_file`."
             )
         return self
 

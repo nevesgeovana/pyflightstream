@@ -24,8 +24,6 @@ from __future__ import annotations
 import warnings
 from pathlib import Path
 
-import pytest
-
 from pyflightstream.cases.workflows import workflow_registry
 from pyflightstream.exceptions import PyflightstreamWarning
 from pyflightstream.run import SubmittingExecutor
@@ -97,11 +95,12 @@ def _run(workspace, matrix, *, name="rotor"):
 class NothingMeasuredError(Exception):
     """The fixture did not reach the path it claims to measure.
 
-    DELIBERATELY NOT AN AssertionError. The two relative-input tests are
-    expected to fail on ONE assertion, the relative path, and their xfail
-    names AssertionError as the only failure it accepts; a script never
-    written or a verb never emitted raises this instead and fails the test
-    outright, so an inert probe cannot pass for the known defect.
+    DELIBERATELY NOT AN AssertionError. While the two inputs were measured
+    relative, their tests were xfails accepting AssertionError alone, and this
+    kept a probe that measured nothing from passing for the known defect. The
+    inputs are absolute since 0.18.1 and the xfails are gone; the distinction
+    stays, because a failure that means "nothing was measured" should never
+    read as the path assertion failing.
     """
 
 
@@ -151,19 +150,6 @@ def test_goal021_inputs_absolute_the_geometry_a_point_opens(tmp_path):
     assert _relative(workspace) == [], _relative(workspace)
 
 
-#: MEASURED RELATIVE on 2026-09-14, and the per-point working directory of
-#: PFS-2010.01.02 does not move until the owning seat rules on it. STRICT, so
-#: the day the emission is absolute this reports XPASS and fails, and the
-#: marker has to be removed rather than forgotten.
-RELATIVE_TODAY = pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason="emitted relative to the simulation folder; the design decision on "
-    "PFS-2010.01.02 is the owning seat's (item 2 of GOAL-021)",
-)
-
-
-@RELATIVE_TODAY
 def test_goal021_inputs_absolute_a_probe_survey_the_user_cited(tmp_path):
     """FR-80: a `[[probes]]` entry citing her points file is imported by an absolute path."""
     workspace = _workspace(tmp_path)
@@ -192,7 +178,6 @@ def test_goal021_inputs_absolute_a_probe_survey_the_user_cited(tmp_path):
     assert _relative(workspace) == [], _relative(workspace)
 
 
-@RELATIVE_TODAY
 def test_goal021_inputs_absolute_the_saved_simulation_a_continuation_reopens(tmp_path):
     """FR-96: RESTART reopens the stopped run's saved simulation by an absolute path."""
     workspace = _workspace(tmp_path)
@@ -215,15 +200,12 @@ def test_goal021_inputs_absolute_the_saved_simulation_a_continuation_reopens(tmp
             stopped_at={"step": 250},
         )
     )
-    # UNDER ANOTHER CAMPAIGN NAME, because that is the one route by which a
-    # continuation runs today: under the name that recorded the stopped point
-    # the run id is already in the manifest, so the point is refused as a fork
-    # without resume and skipped as done with it. Measured 2026-09-14 and
-    # reported separately; this test is about the path the script opens.
+    # UNDER THE CAMPAIGN THAT RECORDED THE STOPPED POINT, which is the case
+    # 0.18.0 could not run: the row was refused as a fork (GOAL-021, the
+    # owner's call of 2026-09-14).
     _run(
         workspace,
         _rotor_row(tmp_path, sweep="0.0", extra=" / RESTART: {FINISH_PENDING}"),
-        name="continued",
     )
     opened = [
         path
@@ -237,3 +219,30 @@ def test_goal021_inputs_absolute_the_saved_simulation_a_continuation_reopens(tmp
             + ", ".join(s.name for s in _point_scripts(workspace))
         )
     assert _relative(workspace) == [], _relative(workspace)
+
+
+def test_goal021_inputs_absolute_a_survey_the_profiles_folder_does_not_hold_is_refused(tmp_path):
+    """FR-80 promised this refusal at plan time, and nothing performed it until 0.18.1."""
+    import pytest
+
+    from pyflightstream.exceptions import InputArtifactError
+
+    workspace = _workspace(tmp_path)
+    (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
+        '[groups]\n"1" = ["W", "B"]\n\n'
+        "[[probes]]\n"
+        'frame = "MRP"\n'
+        'parameters = ["VELOCITY"]\n'
+        'points_file = "missing_survey.txt"\n',
+        encoding="utf-8",
+    )
+    profiles = workspace.inputs_dir / "profiles"
+    profiles.mkdir(parents=True, exist_ok=True)
+    (profiles / "disk_survey.txt").write_text("0.0 0.0 0.0\n", encoding="utf-8")
+    from pyflightstream.workspace.matrix import resolve_matrix
+
+    with pytest.raises(InputArtifactError) as raised:
+        resolve_matrix(_rotor_row(tmp_path), workspace, name="rotor", fs_version=BUILD, recipes={})
+    message = str(raised.value)
+    assert message.count("'missing_survey.txt'") == 1, message
+    assert message.count("it holds disk_survey.txt") == 1, message

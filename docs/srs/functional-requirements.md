@@ -698,10 +698,12 @@ the session records.
     the matrix being planned wherever it is, every row of each including rows
     with RUN = 0, and refuse with one message naming every repeated POL and
     every row stating it, because a POL names the simulation folder and the
-    run ids of the one manifest. `pyfs-matrix plan --updateIDs` rewrites the
+    run ids of the one manifest. `pyfs-matrix plan --update-ids` rewrites the
     planned matrix alone, moving each repeated row to the next free POL above
-    every POL, run record and simulation folder of the workspace, and refuses
-    to move a row whose POL already has runs of that matrix.
+    every POL, run record and simulation folder of the workspace; inside one
+    matrix the first row stating a POL keeps it, and a row whose POL another
+    matrix also states and which already has runs of the planned matrix is
+    refused rather than moved.
 
     The run matrix is a first-class interface of the file-managed
     modality: its reference columns resolve against the workspace
@@ -2854,6 +2856,12 @@ requirement below is one seam of that division.
     adds is therefore the CITATION and the resolution, not the emission, and
     a second emitter written beside the existing one would be the finding.
 
+    THE SURVEY IS IMPORTED BY ABSOLUTE PATH (0.18.1). The path is resolved when
+    the row binds, the way a geometry is, and a name `inputs/profiles/` does
+    not hold is refused then, naming what it does hold. A builder handed a
+    citation nothing resolved refuses rather than emitting an import of
+    nothing.
+
     A CITED PROFILE IS INPUT AND A GENERATED LATTICE IS OUTPUT, and the
     difference is where each lives: the profile under `inputs/profiles/`,
     which a run must never write over, and the generated file inside the
@@ -3660,6 +3668,12 @@ requirement below is one seam of that division.
     for the whole history would re-run the part already on disk and call the
     result a continuation. The time step is the row's own.
 
+    SINCE 0.18.1 THE CONTINUATION OPENS THE ARCHIVED COPY BY ABSOLUTE PATH, and a
+    `RESTART` row runs under the campaign that recorded the stopped run: a point
+    of it is run when its MOST RECENT record stopped with more to do and is
+    skipped when its most recent run finished, so running the matrix again
+    does not continue a continuation that already completed.
+
     THE OUTPUTS A CONTINUATION REPLACES ARE ARCHIVED, not overwritten, into
     `archive/<day and hour>/` under that datapoint's own folder. The stamp is
     what makes a second continuation possible: a point may be continued more
@@ -3766,6 +3780,16 @@ requirement below is one seam of that division.
     DECLARATION: it does not establish which build the scheduler starts, which
     only the build number in a collected log does, so a submitted point is not
     identity-checked before it runs.
+
+    EACH SUBMITTED POINT RUNS IN ITS OWN DATAPOINT FOLDER (0.18.1,
+    PFS-2010.01.02). The unsteady action program, its export script, the wall
+    clock and its state and the descriptor are written there, so the points of
+    one swept row are submitted together and none rewrites a file another's
+    queued job reads; the record names the folder as `working_dir`, and the
+    collect stage waits there and files the outputs in place. It holds because
+    every input a point's script reads is named by absolute path. A steady row,
+    one job over all its points, submits from the simulation folder, and a
+    local point still runs there.
 
     A LINUX MACHINE WITH NO PROFILE RUNS LOCALLY. Not every Linux box is a
     cluster, and a study that never wrote a profile is saying it does not
