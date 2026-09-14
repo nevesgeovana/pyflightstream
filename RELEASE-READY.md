@@ -20,6 +20,20 @@ belongs to the owning seat.
 #    the tag is cut on another day, correct that date here, because it is the
 #    one line of the section that stops being true by waiting.
 #    (pyproject.toml: version = "0.18.0")
+#
+#    AND CITATION.cff MOVES IN THE SAME COMMIT, all three fields together:
+#    version, date-released, and the header paragraph that says whether this
+#    is a DEVELOPMENT or a RELEASE tree. That file's own tally records three
+#    occasions when the fields moved and the paragraph did not.
+#
+#    AND THE CHANGE LOG'S Owed SECTION NAMES THE NEW TAG. This step was
+#    MISSING from this file and its absence cost the v0.18.0 publish. The
+#    moment the tag exists, the tag's own tree holds a released version with
+#    no archive row, and `test_every_released_tag_has_an_archive_row_or_the_
+#    changelog_says_it_is_owed` fails on it. The gates run against the TAGGED
+#    tree, so the owed line cannot be added afterwards: it must be in the
+#    commit the tag names. v0.17.0's release commit carried it and that is why
+#    v0.17.0 published.
 git commit -m "chore: v0.18.0"
 
 # 2. the tag, annotated, on that commit
