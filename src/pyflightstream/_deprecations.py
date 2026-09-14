@@ -708,9 +708,9 @@ ROW_CLOCK_MOTION_ON_A_FLAT_ROW = DeprecatedParameter(
     removal_version="0.18.0",
     extra=(
         "A row stating a MOTIONS list is refused without the key since "
-        "0.15.0, and so is a row in the flat form that turns more than one "
-        "rotor. A flat-form row turning ONE rotor needs no key, because "
-        "there is nothing to choose between."
+        "0.15.0. A flat-form row that turns more than one rotor is refused "
+        "without it as well, and a flat-form row turning ONE rotor needs no "
+        "key, because there is nothing to choose between."
     ),
 )
 ROW_ROTATE_FAMILIES = DeprecatedParameter(

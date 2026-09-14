@@ -38,6 +38,8 @@ FlightStream versions.
   DECLARATION: nothing checks that the scheduler starts that build, which only
   the build number in a collected log shows. A profile that does not write the
   substitution is unaffected. This adds a section to a published file format.
+  From Python the table is `HpcProfile.builds`, and the substitution's name is
+  `pyflightstream.workspace.inputs.HPC_BUILD_ALIAS`.
 
 - **`pyfs-matrix plan --updateIDs` renumbers the repeated POLs of the matrix
   being planned** (also spelled `--update-ids`). A row keeps its POL unless
@@ -45,8 +47,11 @@ FlightStream versions.
   states it; each row that must move takes the next free number above every
   POL, run record and `sims/sim_<id>` folder of the workspace. Only that
   matrix's POL cells change, each change is printed, and the plan then runs on
-  the rewritten file. A row whose POL already has runs of that matrix is
-  refused rather than moved. From Python: `renumber_repeated_pols` in
+  the rewritten file; the renumbering is written first and stays written if the
+  plan then refuses, and the command says so. A row that must move and whose
+  POL already has runs of that matrix is refused rather than moved, because a
+  run record names the POL and not the row. From Python:
+  `renumber_repeated_pols`, returning a list of `PolChange`, in
   `pyflightstream.workspace.matrix`, over `renumber_pols` in
   `pyflightstream.cases.matrix`.
 
@@ -58,7 +63,8 @@ FlightStream versions.
   row of the matrix being planned, and any collision at all when the matrix
   was planned from outside the workspace root. A POL repeated inside one matrix
   was refused only by a validation error that named no row. One message now
-  names every repeated POL and every row stating it.
+  names every repeated POL and every row stating it, and gives a repeat that
+  `--updateIDs` cannot move a remedy of its own.
 
 - **A point still in a scheduler's queue is no longer counted as a run that
   owed coefficients.** The sweep table decided success by whether the status

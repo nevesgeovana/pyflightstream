@@ -83,22 +83,90 @@ def test_goal021_build_alias_an_unmapped_build_is_refused_by_name(tmp_path):
     )
 
 
+def _two_build_cluster(tmp_path, monkeypatch, profile_text):
+    """A two-row matrix on a patched cluster: row one names 26.123, row two 26.120.
+
+    THE MAPPED ROW COMES FIRST, so a refusal that arrived at the second row's
+    descriptor, after the first row had been submitted, would leave the first
+    row's descriptor and record behind. That is the ordering the refusal
+    exists to prevent, and a one-row matrix cannot show it.
+    """
+    from pyflightstream.run import matrix as matrix_module
+    from tests.tier1_offline.test_matrix_run import _steady_sweep_matrix, register
+
+    workspace, matrix = _steady_sweep_matrix(tmp_path)
+    register(workspace, "26.123", "C:/fs26123/FlightStream.exe")
+    header, rule, row = matrix.read_text(encoding="utf-8").splitlines()
+    first = row.replace("5001 ", "5002 ", 1).replace("26.120", "26.123")
+    assert first.count("26.123") == 1 and first.startswith("5002"), first
+    matrix.write_text("\n".join((header, rule, first, row)) + "\n", encoding="utf-8")
+    (workspace.inputs_dir / "hpc").mkdir(parents=True, exist_ok=True)
+    (workspace.inputs_dir / "hpc" / "h001.toml").write_text(profile_text, encoding="utf-8")
+    monkeypatch.setattr(matrix_module, "on_a_cluster", lambda: True)
+    return workspace, matrix
+
+
+def _run_on_the_cluster(workspace, matrix):
+    import warnings
+
+    from pyflightstream.cases.workflows import workflow_registry
+    from pyflightstream.run.matrix import run_matrix
+    from tests.tier1_offline.test_matrix_run import RECIPES, converged
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        return run_matrix(
+            matrix,
+            workspace,
+            name="cluster",
+            default_fs_version="26.120",
+            recipes=RECIPES,
+            recipe_registry=workflow_registry(),
+            assess=converged,
+        )
+
+
+def _descriptors(workspace):
+    sims = workspace.root / "sims"
+    return sorted(sims.rglob("submit.yaml")) if sims.is_dir() else []
+
+
 def test_goal021_build_alias_the_matrix_path_refuses_before_any_point_is_submitted(
     tmp_path, monkeypatch
 ):
-    from pyflightstream.run import matrix as matrix_module
-    from tests.tier1_offline.test_matrix_run import RECIPES, _steady_sweep_matrix
-
-    workspace, matrix = _steady_sweep_matrix(tmp_path)
-    (workspace.inputs_dir / "hpc").mkdir(parents=True, exist_ok=True)
-    (workspace.inputs_dir / "hpc" / "h001.toml").write_text(documented_profile(), encoding="utf-8")
-    resolved = matrix_module.resolve_matrix(
-        matrix, workspace, name="cluster", fs_version="26.120", recipes=RECIPES
-    )
-    monkeypatch.setattr(matrix_module, "on_a_cluster", lambda: True)
+    workspace, matrix = _two_build_cluster(tmp_path, monkeypatch, documented_profile())
     with pytest.raises(InputArtifactError, match=r"maps no alias for build\(s\) 26\.120"):
-        matrix_module._cluster_executor(workspace, resolved)
+        _run_on_the_cluster(workspace, matrix)
+    assert _descriptors(workspace) == [], "a descriptor was written before the refusal"
     assert workspace.read_manifest() == [], "a point was recorded before the refusal"
+
+
+def test_goal021_build_alias_the_same_matrix_submits_both_rows_when_both_are_mapped(
+    tmp_path, monkeypatch
+):
+    """The control: with 26.120 mapped too, run_matrix reaches both descriptors.
+
+    Without it the refusal test above would pass on a run_matrix that never
+    reached the cluster branch at all, because an unreached branch also
+    writes no descriptor.
+    """
+    profile = documented_profile().replace(
+        '"26.123" = "26.1"', '"26.123" = "26.1"\n"26.120" = "26.1"'
+    )
+    from pyflightstream.run import CampaignErrors
+
+    workspace, matrix = _two_build_cluster(tmp_path, monkeypatch, profile)
+    # THE SCHEDULER IS NOT INSTALLED HERE, so each submission is rejected and
+    # the campaign raises after recording both. The descriptor is written
+    # BEFORE the scheduler is called, which is what this control measures.
+    with pytest.raises(CampaignErrors):
+        _run_on_the_cluster(workspace, matrix)
+    assert len(workspace.read_manifest()) == 2, workspace.read_manifest()
+    descriptors = _descriptors(workspace)
+    assert len(descriptors) == 2, descriptors
+    for descriptor in descriptors:
+        text = descriptor.read_text(encoding="utf-8")
+        assert text.count('version: "26.1"') == 1, text
 
 
 @pytest.mark.parametrize(

@@ -1737,10 +1737,15 @@ matrix not planned: 2 POL(s) are stated more than once across the matrices of
 this workspace, RUN = 0 rows included: POL 1001 in matriz.fs row 1,
 matriz_setup.fs row 3; POL 1004 in matriz.fs row 4, matriz.fs row 6. A POL names
 the simulation folder sims/sim_<POL> and the run ids of the one manifest,
-runs.json, so each POL is stated once in the whole workspace. Renumber by hand,
-or run `pyfs-matrix plan matriz.fs --updateIDs`, which gives each repeated row
-of matriz.fs the next free POL and leaves every other matrix as it is.
+runs.json, so each POL is stated once in the whole workspace. POL(s) 1001, 1004:
+renumber by hand, or run `pyfs-matrix plan matriz.fs --updateIDs`, which gives
+each repeated row of matriz.fs the next free POL and leaves every other matrix as
+it is.
 ```
+
+A repeat that sits only between two OTHER matrices is named with its own
+remedy in the same message, because `--updateIDs` on the matrix being planned
+cannot move it.
 
 `pyfs-matrix plan <matrix> --updateIDs` (also spelled `--update-ids`) rewrites
 THAT MATRIX before planning it. A row keeps its POL unless another matrix
@@ -1755,10 +1760,16 @@ pyfs-matrix plan matriz.fs --updateIDs ...
 --updateIDs: matriz.fs row 6: POL 1004 -> 2013
 ```
 
-A row whose POL already has runs of THAT matrix in `runs.json` is refused
-rather than moved, because moving it would orphan those runs from the row that
-produced them; renumber the other matrix instead, or archive the simulation
-first. From Python the same step is
+A row that must move and whose POL already has runs of THAT matrix in
+`runs.json` is refused rather than moved, and nothing is written. A run record
+names the POL and not the row, so when such a POL is stated on two rows nothing
+says which one produced the runs; renumber by hand, choosing the row that did
+not run, or archive the simulation first.
+
+THE RENUMBERING IS WRITTEN BEFORE THE PLAN RUNS, so the receipt the plan writes
+is pinned to the file as renumbered. If the plan then refuses for another
+reason, the renumbering stays written, and the command says so beside the
+refusal. From Python the same step is
 `pyflightstream.workspace.matrix.renumber_repeated_pols(path, workspace)`.
 
 The tier-3 workspace of this repository, `tests/tier3_licensed`, is the

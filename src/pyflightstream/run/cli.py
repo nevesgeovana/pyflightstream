@@ -366,7 +366,8 @@ def _build_parser() -> argparse.ArgumentParser:
         "stated elsewhere in the workspace or earlier in this file: each repeated row takes "
         "the next free POL above every POL, run record and sims/ folder of the workspace, "
         "and every other matrix is left as it is. Each change is printed. A row whose POL "
-        "already has runs of this matrix is refused rather than moved",
+        "already has runs of this matrix is refused rather than moved. THE RENUMBERING IS "
+        "WRITTEN BEFORE THE PLAN RUNS and stays written if the plan then refuses",
     )
 
     run = subparsers.add_parser(
@@ -1018,6 +1019,7 @@ def _the_missing_family_choice(args: argparse.Namespace) -> bool:
 def _cmd_plan(args: argparse.Namespace, recipes: dict[str, str]) -> int:
     workspace = CampaignWorkspace(args.workspace, naming=_naming(args))
     name, name_from = _campaign_name(args)
+    renumbered = 0
     if getattr(args, "update_ids", False):
         # PFS-2031.21. BEFORE the plan, so the receipt the plan writes is
         # pinned to the digest of the file as renumbered, and `run` does not
@@ -1030,6 +1032,7 @@ def _cmd_plan(args: argparse.Namespace, recipes: dict[str, str]) -> int:
         matrix_name = Path(args.matrix).name
         if not changes:
             print(f"--updateIDs: no POL of {matrix_name} is repeated; nothing was renumbered")
+        renumbered = len(changes)
         for change in changes:
             print(
                 f"--updateIDs: {matrix_name} row {change.row_number}: "
@@ -1055,6 +1058,15 @@ def _cmd_plan(args: argparse.Namespace, recipes: dict[str, str]) -> int:
         )
     except (MatrixError, InputArtifactError, OSError, ValueError) as error:
         print(f"matrix not planned: {error}", file=sys.stderr)
+        if renumbered:
+            # SAID AT THE MOMENT IT MATTERS (the interface and V&V lenses,
+            # 2026-09-14): the file on disk is not the one the user handed in.
+            print(
+                f"--updateIDs: the {renumbered} renumbering(s) printed above are written to "
+                f"{Path(args.matrix).name} and stay written; the plan refused for the reason "
+                "above, not because of them.",
+                file=sys.stderr,
+            )
         return 2
     print(plan.summary())
     if getattr(args, "cost", False) and not plan.costs:

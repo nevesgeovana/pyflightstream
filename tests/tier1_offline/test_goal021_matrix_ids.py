@@ -117,7 +117,19 @@ def test_goal021_matrix_ids_a_repeat_between_two_other_matrices_says_the_flag_ca
     _matrix(workspace.root, "a.fs", [row(9001)])
     _matrix(workspace.root, "b.fs", [row(9001)])
     message = _refusal(workspace, matrix)
-    assert message.count("None of them is in the matrix being planned") == 1, message
+    assert message.count("POL(s) 9001: not in planned.fs") == 1, message
+    assert "run `pyfs-matrix plan" not in message, "the flag was offered for a POL it cannot move"
+
+
+def test_goal021_matrix_ids_each_kind_of_repeat_gets_its_own_remedy_in_one_message(tmp_path):
+    """The interface lens: one remedy for both kinds sent the user round twice."""
+    workspace = _workspace(tmp_path)
+    matrix = _matrix(workspace.root, "planned.fs", [row(8001)])
+    _matrix(workspace.root, "a.fs", [row(8001), row(9001)])
+    _matrix(workspace.root, "b.fs", [row(9001)])
+    message = _refusal(workspace, matrix)
+    assert message.count("POL(s) 8001: renumber by hand, or run `pyfs-matrix plan") == 1, message
+    assert message.count("POL(s) 9001: not in planned.fs, so --updateIDs") == 1, message
 
 
 def test_goal021_matrix_ids_disjoint_matrices_plan(tmp_path):
@@ -200,9 +212,35 @@ def test_goal021_matrix_ids_a_row_with_runs_of_this_matrix_is_refused_not_moved(
     with pytest.raises(MatrixError) as raised:
         renumber_repeated_pols(matrix, workspace)
     message = str(raised.value)
-    assert message.count("would orphan those runs") == 1, message
-    assert message.count("Renumber the other matrix instead") == 1, message
+    assert message.count("may orphan those runs") == 1, message
+    assert message.count("another matrix of this workspace also states it") == 1, message
     assert matrix.read_bytes() == before, "the file was written before the refusal"
+
+
+def test_goal021_matrix_ids_a_repeat_inside_the_file_whose_pol_has_runs_is_refused(tmp_path):
+    """The V&V lens: a record names no row, so neither copy of a run POL may move."""
+    workspace = _workspace(tmp_path)
+    matrix = _matrix(workspace.root, "planned.fs", [row(8001, desc="A"), row(8001, desc="B")])
+    workspace.append_record(
+        RunRecord(
+            run_id="p/sim_8001/a-02.0",
+            sim_id="8001",
+            point={"alpha": -2.0},
+            matrix_stem="planned",
+            fs_version_requested="26.120",
+            package_version="0.18.0",
+            script_sha256="0" * 64,
+            raw_flag=False,
+            status=RunStatus.CONVERGED,
+        )
+    )
+    before = matrix.read_bytes()
+    with pytest.raises(MatrixError) as raised:
+        renumber_repeated_pols(matrix, workspace)
+    message = str(raised.value)
+    assert message.count("planned.fs row 2 states POL 8001") == 1, message
+    assert message.count("an earlier row of this file states it too") == 1, message
+    assert matrix.read_bytes() == before
 
 
 def test_goal021_matrix_ids_renumber_pols_refuses_a_row_the_file_does_not_hold(tmp_path):
@@ -240,3 +278,34 @@ def test_goal021_matrix_ids_the_command_line_flag_renumbers_then_plans(tmp_path,
         assert (workspace.root / "post" / "planned" / "plan.json").is_file(), (
             f"{flag}: the plan did not run on the renumbered matrix"
         )
+
+
+def test_goal021_matrix_ids_a_plan_refused_after_renumbering_says_the_renumbering_stays(
+    tmp_path, capsys
+):
+    """The interface and V&V lenses: the file on disk is no longer the one handed in."""
+    workspace = _workspace(tmp_path)
+    broken = row(8001).replace("| r003 |", "| r999 |")
+    assert "r999" in broken
+    matrix = _matrix(workspace.root, "planned.fs", [row(8001), broken])
+    status = main(
+        [
+            "plan",
+            str(matrix),
+            "--name",
+            "p",
+            "--fs-version",
+            "26.120",
+            "--workspace",
+            str(workspace.root),
+            "--workflow",
+            "003=steady",
+            "--updateIDs",
+        ]
+    )
+    captured = capsys.readouterr()
+    assert status == 2, (status, captured.err)
+    assert captured.out.count("planned.fs row 2: POL 8001 -> 8002") == 1, captured.out
+    assert captured.err.count("matrix not planned") == 1, captured.err
+    assert captured.err.count("renumbering(s) printed above are written") == 1, captured.err
+    assert [r.pol for r in read_matrix(matrix, active_only=False)] == ["8001", "8002"]

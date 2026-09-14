@@ -94,6 +94,17 @@ def _run(workspace, matrix, *, name="rotor"):
             pass
 
 
+class NothingMeasuredError(Exception):
+    """The fixture did not reach the path it claims to measure.
+
+    DELIBERATELY NOT AN AssertionError. The two relative-input tests are
+    expected to fail on ONE assertion, the relative path, and their xfail
+    names AssertionError as the only failure it accepts; a script never
+    written or a verb never emitted raises this instead and fails the test
+    outright, so an inert probe cannot pass for the known defect.
+    """
+
+
 def _read_paths(script: Path) -> list[tuple[str, str]]:
     lines = script.read_text(encoding="utf-8").splitlines()
     found = []
@@ -106,7 +117,8 @@ def _read_paths(script: Path) -> list[tuple[str, str]]:
 
 def _point_scripts(workspace) -> list[Path]:
     scripts = sorted((workspace.sim_dir("7001") / "scripts").glob("*.txt"))
-    assert scripts, "no point script was written, so nothing was measured"
+    if not scripts:
+        raise NothingMeasuredError("no point script was written, so nothing was measured")
     return scripts
 
 
@@ -114,7 +126,10 @@ def _relative(workspace) -> list[str]:
     offenders = []
     for script in _point_scripts(workspace):
         read = _read_paths(script)
-        assert read, f"{script.name} names no file it reads, so nothing was measured"
+        if not read:
+            raise NothingMeasuredError(
+                f"{script.name} names no file it reads, so nothing was measured"
+            )
         offenders += [
             f"{script.name}: {verb} {path}" for verb, path in read if not Path(path).is_absolute()
         ]
@@ -131,7 +146,8 @@ def test_goal021_inputs_absolute_the_geometry_a_point_opens(tmp_path):
         for verb, path in _read_paths(script)
         if verb == "OPEN"
     ]
-    assert opened, "no OPEN was emitted, so nothing was measured"
+    if not opened:
+        raise NothingMeasuredError("no OPEN was emitted, so nothing was measured")
     assert _relative(workspace) == [], _relative(workspace)
 
 
@@ -141,6 +157,7 @@ def test_goal021_inputs_absolute_the_geometry_a_point_opens(tmp_path):
 #: marker has to be removed rather than forgotten.
 RELATIVE_TODAY = pytest.mark.xfail(
     strict=True,
+    raises=AssertionError,
     reason="emitted relative to the simulation folder; the design decision on "
     "PFS-2010.01.02 is the owning seat's (item 2 of GOAL-021)",
 )
@@ -168,7 +185,10 @@ def test_goal021_inputs_absolute_a_probe_survey_the_user_cited(tmp_path):
         for verb, path in _read_paths(script)
         if verb == "PROBE_POINTS_IMPORT"
     ]
-    assert imported, "no PROBE_POINTS_IMPORT was emitted, so the cited survey was not measured"
+    if not imported:
+        raise NothingMeasuredError(
+            "no PROBE_POINTS_IMPORT was emitted, so the cited survey was not measured"
+        )
     assert _relative(workspace) == [], _relative(workspace)
 
 
@@ -212,7 +232,7 @@ def test_goal021_inputs_absolute_the_saved_simulation_a_continuation_reopens(tmp
         if verb == "OPEN" and path.endswith(".fsm") and "a+00.0" in path
     ]
     if not opened:
-        pytest.fail(
+        raise NothingMeasuredError(
             "no script reopened the saved simulation, so the continuation was not measured: "
             + ", ".join(s.name for s in _point_scripts(workspace))
         )

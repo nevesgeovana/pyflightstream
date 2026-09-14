@@ -121,7 +121,7 @@ if TYPE_CHECKING:  # typing only: no runtime import of the execution layers
 #: FAILED, so a point still in a scheduler's queue was counted as a run that
 #: should have produced coefficients and then complained about for not
 #: having them, on every successful cluster submission (PFS-2010.01.03).
-RAN_TO_OUTPUTS = ("CONVERGED", "COMPLETED_MAX_ITER", "WALLTIME_REACHED")
+_RAN_TO_OUTPUTS = ("CONVERGED", "COMPLETED_MAX_ITER", "WALLTIME_REACHED")
 
 # Fixed identity and outcome columns of one run row, in output order;
 # sweep point axes are inserted after sim_id and must not collide.
@@ -740,7 +740,7 @@ def sweep_table(
             loads = None  # the row keeps identity and status, coefficients stay NaN
         rows.append(_run_row(record, loads))
     if runs_with_loads == 0:
-        successful = [r for r in records if str(r.status) in RAN_TO_OUTPUTS]
+        successful = [r for r in records if str(r.status) in _RAN_TO_OUTPUTS]
         if successful:
             hint = (
                 f"no collected output is named {loads_file!r}"

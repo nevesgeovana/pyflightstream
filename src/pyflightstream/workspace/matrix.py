@@ -1279,18 +1279,26 @@ def _refuse_a_repeated_pol(path: str | Path, workspace: CampaignWorkspace) -> No
     if not repeated:
         return
     listing = "; ".join(f"POL {pol} in {', '.join(places)}" for pol, places in repeated.items())
-    fixable = any(
-        any(place.startswith(f"{matrix.name} row ") for place in places)
-        for places in repeated.values()
-    )
-    remedy = (
-        f" Renumber by hand, or run `pyfs-matrix plan {matrix.name} --updateIDs`, which gives "
-        f"each repeated row of {matrix.name} the next free POL and leaves every other matrix "
-        "as it is."
-        if fixable
-        else " None of them is in the matrix being planned, so --updateIDs cannot move them: "
-        "plan one of the matrices named above with it, or renumber by hand."
-    )
+    # SPLIT BY WHAT THE FLAG CAN REACH, per POL (the interface lens,
+    # 2026-09-14). A single remedy chosen by "any repeat touches this matrix"
+    # sent a workspace holding both kinds to --updateIDs, which moved one kind
+    # and left a second refusal the first message never announced.
+    here = f"{matrix.name} row "
+    movable = [p for p, places in repeated.items() if any(x.startswith(here) for x in places)]
+    elsewhere = [p for p in repeated if p not in movable]
+    remedy = ""
+    if movable:
+        remedy += (
+            f" POL(s) {', '.join(movable)}: renumber by hand, or run `pyfs-matrix plan "
+            f"{matrix.name} --updateIDs`, which gives each repeated row of {matrix.name} the next "
+            "free POL and leaves every other matrix as it is."
+        )
+    if elsewhere:
+        remedy += (
+            f" POL(s) {', '.join(elsewhere)}: not in {matrix.name}, so --updateIDs on it cannot "
+            "move them; plan one of the matrices that states them with the flag, or renumber by "
+            "hand."
+        )
     raise MatrixError(
         f"{len(repeated)} POL(s) are stated more than once across the matrices of this "
         f"workspace, RUN = 0 rows included: {listing}. A POL names the simulation folder "
@@ -1359,16 +1367,24 @@ def renumber_repeated_pols(
         if row.pol not in claimed_elsewhere and row.pol not in seen:
             seen.add(row.pol)
             continue
-        if row.pol not in seen and any(
-            record.sim_id == row.pol and record.matrix_stem == stem for record in records
-        ):
+        # EVERY MOVING ROW, not only the first to state the POL (the V&V and
+        # technical-writing lenses, 2026-09-14). A run record names a POL and
+        # a matrix and never a row, so when a POL this matrix has run is
+        # stated on two rows of it, nothing says which row produced the runs,
+        # and moving either one may be the orphaning this refuses.
+        if any(record.sim_id == row.pol and record.matrix_stem == stem for record in records):
+            where = (
+                "another matrix of this workspace also states it"
+                if row.pol in claimed_elsewhere
+                else "an earlier row of this file states it too"
+            )
             raise MatrixError(
-                f"{matrix.name} row {row.row_number} states POL {row.pol}, which another matrix "
-                f"of this workspace also states, and {workspace.manifest_path.name} already holds "
-                f"runs of POL {row.pol} from {matrix.name}. Moving this row would orphan those "
-                "runs from the row that produced them, so nothing was renumbered. Renumber the "
-                "other matrix instead, or archive the simulation "
-                f"(pyfs-workspace archive <root> {row.pol}) and then renumber this one."
+                f"{matrix.name} row {row.row_number} states POL {row.pol}, which must move because "
+                f"{where}, and {workspace.manifest_path.name} already holds runs of POL {row.pol} "
+                f"from {matrix.name}. A run record names the POL and not the row, so moving this "
+                "row may orphan those runs from the row that produced them, and nothing was "
+                "renumbered. Renumber by hand, choosing the row that did not run, or archive the "
+                f"simulation (pyfs-workspace archive <root> {row.pol}) and then renumber."
             )
         ceiling += 1
         changes.append(PolChange(row_number=row.row_number, old=row.pol, new=str(ceiling)))

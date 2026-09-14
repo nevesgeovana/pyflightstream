@@ -31,11 +31,11 @@ def test_goal021_loads_message_the_allow_list_is_every_status_that_ran_without_f
         for status in RunStatus
         if not status.value.startswith("FAILED") and status is not RunStatus.SUBMITTED
     }
-    assert set(tables_module.RAN_TO_OUTPUTS) == ran, (
-        f"RAN_TO_OUTPUTS is {tables_module.RAN_TO_OUTPUTS} and the statuses that finish "
+    assert set(tables_module._RAN_TO_OUTPUTS) == ran, (
+        f"_RAN_TO_OUTPUTS is {tables_module._RAN_TO_OUTPUTS} and the statuses that finish "
         f"without failing are {sorted(ran)}"
     )
-    assert RunStatus.SUBMITTED.value not in tables_module.RAN_TO_OUTPUTS
+    assert RunStatus.SUBMITTED.value not in tables_module._RAN_TO_OUTPUTS
 
 
 def test_goal021_loads_message_a_submitted_only_manifest_raises_nothing_and_warns_nothing(

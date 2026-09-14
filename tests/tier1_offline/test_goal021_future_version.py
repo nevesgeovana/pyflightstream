@@ -185,6 +185,50 @@ def test_goal021_future_version_no_string_in_the_package_promises_a_released_ver
     )
 
 
+def rendered_ledger_texts() -> list[tuple[str, str]]:
+    """Every sentence the deprecation ledger actually shows a user, as rendered.
+
+    THE LITERAL SCAN CANNOT SEE THESE, which the architecture lens found on
+    2026-09-14: a ledger message is assembled at runtime from an entry's
+    fields, so "will be removed in v0.18.0" is in no string literal anywhere.
+    What a user meets is `refusal_text` for an entry of the refused batch and
+    `message()` for a live promise and for a retired name the lookups return,
+    so exactly those are rendered here. `message()` of a REFUSED entry is not,
+    because no call site renders it: measured the same day, every one of the
+    twelve goes through `refusal_text`.
+    """
+    from pyflightstream import _deprecations as ledger
+    from pyflightstream import _retired_names as retired
+
+    texts = [(f"refusal of {e.subject}", ledger.refusal_text(e)) for e in ledger.REFUSED_IN_0_15_0]
+    texts += [(f"promise of {getattr(e, 'subject', e)}", e.message()) for e in ledger.DEPRECATIONS]
+    texts += [(f"retired {e.old}", e.message()) for e in retired.RETIRED]
+    texts += [
+        (f"retired frame {e.old}", e.message()) for e in retired.RETIRED_FRAME_CITATIONS.values()
+    ]
+    return texts
+
+
+def test_goal021_future_version_no_rendered_ledger_text_promises_a_released_version():
+    released = last_released()
+    texts = rendered_ledger_texts()
+    assert len(texts) >= 12 + 4, f"the ledger rendered only {len(texts)} text(s)"
+    offenders = [
+        f"{where}: ...{claim}..."
+        for where, text in texts
+        for claim in future_claims(text, released)
+    ]
+    assert offenders == [], "\n  ".join(offenders)
+
+
+def test_goal021_future_version_the_rendered_scan_can_fail():
+    """The control: a refused entry's own message() DOES promise 0.18.0, and is flagged."""
+    from pyflightstream import _deprecations as ledger
+
+    stale = ledger.REFUSED_IN_0_15_0[0].message()
+    assert future_claims(stale, (0, 18, 0)), stale
+
+
 def test_goal021_future_version_the_scan_reads_the_package():
     """The scan over the tree is not vacuous: it reads files and strings."""
     count = sum(
