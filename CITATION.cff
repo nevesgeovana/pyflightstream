@@ -11,8 +11,8 @@ license: MIT
 # because a development tree has no release date; it once stated the
 # v0.3.0 date beside version 0.4.0.dev0, so a citation generated from
 # that tree asserted a release date for an artifact that was never
-# released (REV010-015). This is a RELEASE tree: the version carries no
-# .dev0 and a date-released stands beside it, which is the pair the
+# released (REV010-015). This is a DEVELOPMENT tree: the version carries
+# .dev0 and NO date-released stands beside it, which is the pair the
 # guard in tests/tier1_offline/test_metadata_currency.py enforces in both directions.
 # The next development commit sets the two together the other way and
 # this sentence flips with them; it is written as a statement about the
@@ -33,14 +33,22 @@ license: MIT
 # one that has ever worked. THE TALLY, kept separate because merging the two
 # into one number is what made the first writing of this sentence
 # unreconstructable: THREE failures are recorded above, and this is the
-# THIRD time the version, the date and this sentence have moved in one
+# FIFTH time the version, the date and this sentence have moved in one
 # commit: the 0.16.0.dev0 bump of 2026-09-11, the v0.16.0 RELEASE commit of
-# the same day, and this 0.17.0.dev0 bump. A FOURTH failure was caught here by
+# the same day, the 0.17.0.dev0 bump, the v0.17.0 RELEASE commit of
+# 2026-09-13, and this 0.18.0.dev0 bump. A FOURTH failure was caught by
 # the verification lens rather than by the guard: the release commit advanced
 # the pair and left this sentence claiming it was the second move and the
 # first in a release, which is the exact staleness the tally exists to count
 # and which no guard can see, because the guard reads the two FIELDS and this
 # is prose about a commit.
+# A FIFTH failure, recorded because it is the same shape from a third angle:
+# on 2026-09-13 the technical-writing lens read this block on the commit that
+# paid the v0.17.0 archive row and found the tally still naming a
+# 0.17.0.dev0 bump as "this" one on a RELEASE tree. It was registered to the
+# owner rather than repaired, because how much of this history to keep is a
+# judgement and not a wording correction, and it is repaired here only
+# because the bump that repairs it is the commit that also moves the pair.
 # The archive DOIs below are one per release from v0.3.0, newest first,
 # with the concept DOI last. THREE are absent, not two. v0.1.0 and v0.2.0:
 # v0.2.0 was the first release to archive and its version DOI was not
@@ -64,8 +72,7 @@ license: MIT
 # v0.17.0 for a day. Older ones
 # stay, because those releases did happen and are still what a citation
 # of them should resolve to.
-version: 0.17.0
-date-released: 2026-09-13
+version: 0.18.0.dev0
 repository-code: "https://github.com/nevesgeovana/pyflightstream"
 identifiers:
   - type: doi

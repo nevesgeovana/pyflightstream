@@ -594,10 +594,16 @@ WAIVED_COMMANDS_MANIFEST_KEY = DeprecatedManifestKey(
     old="broken_commands",
     new="waived_commands",
     deprecated_since="0.13.0",
-    removal_version="0.18.0",
+    removal_version="0.19.0",
     extra=(
         "The entries are WAIVERS the recipe registered, not commands that broke in the "
-        "run, which is the opposite claim. Extended from 0.15.0 on 2026-09-10, from "
+        "run, which is the opposite claim. EXTENDED A FOURTH TIME, from 0.18.0 on "
+        "2026-09-14, when the 0.18.0 cycle opened and the deadline guard fired on the "
+        "bump, which is what it is for. RE-MEASURED THE SAME MINUTE and UNCHANGED at 18 "
+        "rows across 6 live manifests, archives excluded; the reference recorded campaign "
+        "is still among them. The owner's instruction of 2026-09-13 is the authority for "
+        "this move and it is quoted rather than paraphrased: this key is extended ON THE "
+        "MEASUREMENT, not removed on the date. Extended from 0.15.0 on 2026-09-10, from "
         "0.16.0 on 2026-09-11 and from 0.17.0 the same day when the 0.17.0 cycle opened "
         "and the count was re-measured UNCHANGED at 18 rows in 6 manifests. The "
         "extension carries the condition that ends "
