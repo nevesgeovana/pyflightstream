@@ -7,6 +7,31 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Owed
+
+- **The v0.19.0 archive row is OWED in CITATION.cff.** A version DOI is minted
+  from the GitHub RELEASE OBJECT, so the identifier is recorded ONE COMMIT
+  AFTER the tag that names it; this is that window, and the section says the
+  row is owed rather than leaving a shipped release quietly uncitable. Cite
+  v0.19.0 by the concept DOI until it lands: it resolves to the newest
+  archived version.
+
+- **The Zenodo archive of v0.14.0 DOES NOT EXIST**, re-measured against
+  Zenodo's own API on 2026-09-14, when the v0.18.0 archive row was paid: the
+  concept record lists NINETEEN archived versions and v0.14.0 is not among
+  them. The earlier reading of 2026-09-10 said the same and could not be
+  confirmed for four days because the service was answering 504; it is
+  confirmed now, so this is a fact about the archive rather than about its
+  availability.
+  THE RELEASE OBJECT FOR v0.14.0 EXISTS, published 2026-09-09, so the webhook
+  had what it needs and the archive still has no version for it. Whatever
+  failed, it failed silently, and re-triggering it is the repair.
+  Until that row lands this section says so, because a shipped release that
+  quietly stops being citable is the gap PFS-2024.09 is about. Cite that
+  release by the concept DOI, which resolves to the newest archived version.
+
+## [0.19.0] - 2026-09-14
+
 ### Added
 
 - **A matrix row translates an alias the way it rotates one.** `TRANSLATE:
@@ -51,22 +76,6 @@ FlightStream versions.
   kept in the rotation's own mapping and never reached the post-processing. The
   rotation now returns it to the builder. BEHAVIOUR CHANGE: a row that rotates a
   rotor and plots on its hub gains the second plot, `<name>_ORIGINAL`. FR-71.
-
-### Owed
-
-- **The Zenodo archive of v0.14.0 DOES NOT EXIST**, re-measured against
-  Zenodo's own API on 2026-09-14, when the v0.18.0 archive row was paid: the
-  concept record lists NINETEEN archived versions and v0.14.0 is not among
-  them. The earlier reading of 2026-09-10 said the same and could not be
-  confirmed for four days because the service was answering 504; it is
-  confirmed now, so this is a fact about the archive rather than about its
-  availability.
-  THE RELEASE OBJECT FOR v0.14.0 EXISTS, published 2026-09-09, so the webhook
-  had what it needs and the archive still has no version for it. Whatever
-  failed, it failed silently, and re-triggering it is the repair.
-  Until that row lands this section says so, because a shipped release that
-  quietly stops being citable is the gap PFS-2024.09 is about. Cite that
-  release by the concept DOI, which resolves to the newest archived version.
 
 ## [0.18.1] - 2026-09-14
 
@@ -9551,7 +9560,8 @@ the repository seeding and this tag (milestones M0 through M5).
 * 26.000: registered, no recorded evidence yet (honest empty column;
   backfill planned for v0.2+).
 
-[Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.18.1...HEAD
+[Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.19.0...HEAD
+[0.19.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.19.0
 [0.18.1]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.18.1
 [0.18.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.18.0
 [0.17.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.17.0
