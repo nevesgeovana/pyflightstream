@@ -5410,21 +5410,27 @@ def _translations(
             for each, why_name, why in placed:
                 if each not in (held for held, _, _ in moving):
                     moving.append((each, why_name, why))
+        # THE FRAME BY THE NAME THE SOLVER SHOWS, where this case gave it one;
+        # a follower the builder placed from a named frame is named by that.
+        called = {index: frame_name for frame_name, index in frames.items()}
         for index, name, source in moving:
             placement = script.frame_placements.get(index)
             if placement is None or placement.origin is None:
-                remedy = (
-                    f"drop {name} from AUX_FRAMES"
-                    if source.startswith("AUX_FRAMES")
-                    else "the row cannot move this alias's frames; move a set that owns none, "
-                    "or place the part in the mesh"
-                )
+                label = repr(called[index]) if index in called else f"the frame placed from {name}"
+                if source.startswith("AUX_FRAMES"):
+                    remedy = f"Drop {name} from AUX_FRAMES to move the rest of the record."
+                else:
+                    remedy = (
+                        "An alias's own frames cannot be left behind when its boundaries move: "
+                        "move a set that owns no frame, or translate the part in the mesh before "
+                        "the simulation is opened."
+                    )
                 raise CampaignConfigError(
-                    f"case {case.sim_id!r} states {TRANSLATE_VARIABLE} moving a frame that comes "
-                    f"in through {source}, and this script cannot state where that frame "
-                    "stands, so it cannot move it to a new origin: it was carried by an opened "
-                    "project, or turned into place about a pivot elsewhere. To move the rest, "
-                    f"{remedy}."
+                    f"case {case.sim_id!r} states {TRANSLATE_VARIABLE} moving {label}, which "
+                    f"comes in through {source}, and this script cannot state where that frame "
+                    "stands, so it cannot move it to a new origin: a command the script does "
+                    "not follow moved it, an opened project carries it, or it was turned into "
+                    f"place about a pivot elsewhere. {remedy}"
                 )
             origin = placement.origin
             script.emit(
@@ -5452,7 +5458,7 @@ def _finite_distance(case: SimCase, text: str) -> float:
     if not math.isfinite(value):
         raise CampaignConfigError(
             f"case {case.sim_id!r} states {TRANSLATE_VARIABLE} DISTANCE {text!r}, which is not a "
-            "number; write the distance in metres, as 0.05 or -0.02."
+            "finite number; write the distance in metres, as 0.05 or -0.02."
         )
     return value
 

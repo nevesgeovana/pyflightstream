@@ -3837,8 +3837,9 @@ requirement below is one seam of that division.
 !!! requirement "FR-100 A row translates an alias the way it rotates one <span class='srs-implemented'>implemented</span>"
 
     *Origin: the 0.19.0 scope, a translation stated by the row with the
-    architecture of the rotation. Evidence: `tests/tier1_offline/test_goal022_translate.py` (the cell grammar
-    and its refusals, one surface line per boundary in the named frame, every
+    architecture of the rotation. Evidence:
+    `tests/tier1_offline/test_goal022_translate.py` (the cell grammar and its
+    refusals, one surface line per boundary in the named frame, every
     owned and auxiliary frame at its new origin once, a frame whose axes are not
     the reference's, the kept hub shared with a rotation, a plot on a moved hub
     written in both frames, and the order on every run type that rotates).
@@ -3877,9 +3878,10 @@ requirement below is one seam of that division.
     placed each frame, and a frame whose placement it cannot state (one an opened
     project carries, or one turned into place about a pivot elsewhere) is
     refused by name rather than moved to a guess; so is an axis of a frame whose
-    axes it cannot state. THE LEDGER READS A FRAME'S ORIGIN AS METRES, because
-    every frame the package creates is placed from a length the reference
-    states in metres and `EDIT_COORDINATE_SYSTEM` carries no unit to check.
+    axes it cannot state. THE LEDGER READS A FRAME'S ORIGIN AS METRES, and
+    `EDIT_COORDINATE_SYSTEM` carries no unit to check: a frame is placed in the
+    simulation's length unit, so a translation is right only on a simulation
+    whose length unit is metres.
     That a motion then spins about the moved hub follows from the frames the
     script moves and has not been run on the solver.
 

@@ -27,8 +27,8 @@ with the vertex it came from.
 
 ## Four probes: open, translate by 0.5 m along X in the reference frame, save
 
-Each probe is a script of five lines (open, the translation lines, save as,
-close), under a second of seat.
+Each probe is a script of four or five lines (open, one or two translation
+lines, save as, close), under a second of solver time.
 
 | probe | lines | what moved | shared vertices after |
 |---|---|---|---|
@@ -39,11 +39,13 @@ close), under a second of seat.
 
 ## The first build, which emitted `DISABLE`
 
-A steady row moving both boundaries by 0.5 m, one line per boundary without the
-split: the saved mesh had 7168 vertices moved 0.5 m and the 84 shared vertices
-moved 1.0 m. The solver log reported three faces remediated, the solve did not
-converge (non-finite coefficients), and a second row moving the same set and then
-turning it ran to its iteration limit.
+Four steady rows moved both boundaries, one line per boundary without the split.
+The two that only translated (by 0.5 m along X, one with the moment frame
+carried and one without) diverged with non-finite coefficients; their saved
+meshes had 7168 vertices moved 0.5 m and the 84 shared vertices moved 1.0 m, and
+the solver log reported three faces remediated, its initial face count 14263
+against the control's 14266. The two that translated and then turned the set
+ran to their iteration limit.
 
 ## The rerun with `ENABLE`, as a null test
 
@@ -57,7 +59,7 @@ sign measured by RPT-047).
 |---|---|---|
 | moved 0.5 m along X, the moment frame carried | all nine coefficients | 0, to every printed digit; same iterations and residual |
 | moved 0.5 m along X and -0.2 m along Z, then turned 2 degrees, flow turned back | CL, CDi, CDo | 3.3e-06 |
-| the same geometry with the flow 2 degrees the other way | CL, CDi, CDo | differs, by 0.35 in CL (the derangement) |
+| the same geometry with the flow 2 degrees the other way | CL, CDi, CDo | differs, by 0.35 in CL (the control that must differ) |
 | moved 0.5 m along X, the moment frame LEFT behind | the six force coefficients | 0 |
 | the same row | the change in CMy against -(dx/c) Cz | 1.6e-05 (the wrong direction would be off by 0.22, a double move by 0.11) |
 
@@ -74,5 +76,5 @@ direction too.
   has come away from what it touched is an acceptable model is the study's call.
 - Only build 26.123 was run. The command has the same grammar on every
   registered build and the split has not been measured on the others.
-- The scripts and the comparison ran in a private workspace and are not in this
-  tree; the procedure above is complete enough to repeat on any two-boundary mesh.
+- The scripts and the comparison are not in this tree; the procedure above is
+  complete enough to repeat on any two-boundary mesh.

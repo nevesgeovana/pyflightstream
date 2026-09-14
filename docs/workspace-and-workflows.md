@@ -1985,8 +1985,9 @@ and the wing root no longer joined to it: that was observed on the saved mesh
 and not solved, and whether such a model is acceptable is the study's call.
 
 A frame moves to an ABSOLUTE origin, which the package computes from where its
-script placed the frame, reading that origin in metres, the unit of every
-length the reference states. A frame it cannot place is refused by name rather than
+script placed the frame, reading that origin in metres: a frame is placed in the
+simulation's length unit, so a translation is right only on a simulation whose
+length unit is metres. A frame it cannot place is refused by name rather than
 moved to a guess, and the axis of a frame it cannot orient is refused the same
 way: a blade frame is turned into place, so move along its hub frame instead.
 

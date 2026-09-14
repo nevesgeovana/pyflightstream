@@ -1171,7 +1171,7 @@ def _parse_translations(variables: dict[str, str], pol: str) -> list[dict[str, s
         if not finite:
             raise MatrixError(
                 f"POL {pol}: {TRANSLATE_VARIABLE} DISTANCE is {record['DISTANCE']!r}, which is not "
-                "a number; write the distance in metres, as 0.05 or -0.02."
+                "a finite number; write the distance in metres, as 0.05 or -0.02."
             )
         if not _ROTATION_AXIS.match(record["AXIS"]):
             raise MatrixError(

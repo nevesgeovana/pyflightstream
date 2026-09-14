@@ -190,15 +190,15 @@ def test_goal022_cell_grammar_the_list_reaches_the_row_the_case_and_the_super_fi
         ),
         (
             "{DISTANCE: half / AXIS: MRP-X / ALIAS: airframe}",
-            ("POL 9101", "DISTANCE is 'half'", "not a number", "metres"),
+            ("POL 9101", "DISTANCE is 'half'", "not a finite number", "metres"),
         ),
         (
             "{DISTANCE: nan / AXIS: MRP-X / ALIAS: airframe}",
-            ("POL 9101", "DISTANCE is 'nan'", "not a number", "metres"),
+            ("POL 9101", "DISTANCE is 'nan'", "not a finite number", "metres"),
         ),
         (
             "{DISTANCE: -inf / AXIS: MRP-X / ALIAS: airframe}",
-            ("POL 9101", "DISTANCE is '-inf'", "not a number", "metres"),
+            ("POL 9101", "DISTANCE is '-inf'", "not a finite number", "metres"),
         ),
         (
             "{DISTANCE: 0.5 / AXIS: MRPX / ALIAS: airframe}",
@@ -497,9 +497,9 @@ def test_goal022_frames_move_a_frame_turned_away_from_its_pivot_is_refused_not_g
         lines_of(case)
     message = str(refused.value)
     for clause in (
-        "TRANSLATE moving a frame that comes in through AUX_FRAMES",
+        "which comes in through AUX_FRAMES, placed from ROTOR_SMRP",
         "cannot state where that frame stands",
-        "drop ROTOR_SMRP from AUX_FRAMES",
+        "Drop ROTOR_SMRP from AUX_FRAMES",
     ):
         assert message.count(clause) == 1, (clause, message)
     assert "(frame " not in message, "a row never names a frame by its index"
@@ -550,7 +550,7 @@ def test_goal022_refusals_a_case_authored_in_python_meets_the_finite_distance_re
     with pytest.raises(PyflightstreamError) as refused:
         lines_of(wing_case(tmp_path, translations=[record]))
     message = str(refused.value)
-    for clause in ("TRANSLATE DISTANCE 'inf'", "not a number", "metres"):
+    for clause in ("TRANSLATE DISTANCE 'inf'", "not a finite number", "metres"):
         assert message.count(clause) == 1, (clause, message)
 
 
@@ -622,13 +622,20 @@ def test_goal022_frames_move_a_frame_moved_behind_the_ledger_is_refused_not_move
     with pytest.raises(PyflightstreamError) as refused:
         _translations(case, script, {"NAC": nac, "MRP": mrp})
     message = str(refused.value)
-    for clause in ("cannot state where that frame stands", "drop MRP from AUX_FRAMES"):
+    for clause in (
+        "moving 'MRP', which comes in through AUX_FRAMES",
+        "cannot state where that frame stands",
+        "a command the script does not follow moved it",
+        "Drop MRP from AUX_FRAMES",
+    ):
         assert message.count(clause) == 1, (clause, message)
 
 
 def test_goal022_frames_move_the_ledger_is_read_only_to_a_caller():
+    import pyflightstream.script as script_module
     from pyflightstream.script import FramePlacement
 
+    assert "FramePlacement" in script_module.__all__, "the value type of a public mapping"
     script = Script("26.123")
     with pytest.raises(TypeError):
         script.frame_placements[7] = FramePlacement(origin=(0.0, 0.0, 0.0), axes=None)  # type: ignore[index]
@@ -636,34 +643,65 @@ def test_goal022_frames_move_the_ledger_is_read_only_to_a_caller():
 
 def test_goal022_frames_move_every_frame_command_is_followed_forgotten_or_neutral():
     """A coordinate-system command added to the database later must say what it does to
-    where a frame stands, or the ledger keeps a stale placement in silence."""
+    where a frame stands, or the ledger keeps a stale placement in silence. Walked over
+    every command whose name says it is about a coordinate system, in any chapter, and
+    every command the ledger updates must name its frame the way the ledger reads it."""
     import pyflightstream.script as script_module
-    from pyflightstream.commands import CommandRegistry, EntityKind
+    from pyflightstream.commands import CommandRegistry
 
-    known = (
-        script_module._FOLLOWED_FRAME_COMMANDS
-        | script_module._UNFOLLOWED_FRAME_COMMANDS
-        | script_module._FRAME_NEUTRAL_COMMANDS
-    )
+    followed = set(script_module._FRAME_FOLLOWERS)
+    assert script_module._FOLLOWED_FRAME_COMMANDS == followed
+    unfollowed = set(script_module._UNFOLLOWED_FRAME_COMMANDS)
+    neutral = set(script_module._FRAME_NEUTRAL_COMMANDS)
+    assert not (followed & unfollowed or followed & neutral or unfollowed & neutral)
     registry = CommandRegistry.load()
-    chapter = [
-        name
-        for name, entry in registry.commands.items()
-        if entry.chapter == "coordinate_systems"
-        and (
-            name == "CREATE_NEW_COORDINATE_SYSTEM"
-            or any(a.cites is EntityKind.FRAMES for a in entry.args)
-        )
-    ]
-    assert len(chapter) >= 10, chapter
-    unaccounted = sorted(set(chapter) - known)
-    assert unaccounted == [], unaccounted
+    about_frames = sorted(name for name in registry.commands if "COORDINATE_SYSTEM" in name)
+    assert len(about_frames) >= 12, about_frames
+    assert sorted(set(about_frames) - followed - unfollowed - neutral) == []
+    for name in sorted(followed | unfollowed):
+        assert [arg.name for arg in registry.commands[name].args][:1] == ["frame"], name
 
 
-def test_goal022_emission_a_boundary_an_alias_names_twice_moves_once(tmp_path):
+def test_goal022_frames_move_an_alias_frame_it_cannot_place_says_it_cannot_be_left_behind(
+    tmp_path,
+):
+    from pyflightstream.cases.workflows import _translations
+    from pyflightstream.script import helpers
+
+    case = moving_rotor(tmp_path, "{DISTANCE: 0.05 / AXIS: MRP-X / ALIAS: PUSHER}")
+    script = Script("26.123")
+    script.declare_existing(
+        boundaries={name: i for i, name in enumerate(case.aliases["PUSHER"], 1)}
+    )
+    mrp = helpers.coordinate_frame(
+        script, name="MRP", origin=(0.0, 0.0, 0.0), x_axis=(1, 0, 0), y_axis=(0, 1, 0)
+    )
+    hub = helpers.coordinate_frame(
+        script, name="PUSHER_SMRP", origin=(7.2, 0.0, 0.0), x_axis=(1, 0, 0), y_axis=(0, 1, 0)
+    )
+    script.emit("NORMALIZE_COORDINATE_SYSTEM", hub)
+    with pytest.raises(PyflightstreamError) as refused:
+        _translations(case, script, {"MRP": mrp, "PUSHER_SMRP": hub})
+    message = str(refused.value)
+    for clause in (
+        "moving 'PUSHER_SMRP', which comes in through ALIAS: PUSHER",
+        "An alias's own frames cannot be left behind when its boundaries move",
+    ):
+        assert message.count(clause) == 1, (clause, message)
+    assert "AUX_FRAMES" not in message, "no AUX_FRAMES remedy for a frame the alias owns"
+
+
+def test_goal022_emission_a_boundary_resolved_twice_moves_once(tmp_path, monkeypatch):
+    """The emission loop's own guard, pinned at the loop: the alias resolution already
+    drops a repeated member, so the resolver is made to repeat one here, which is the
+    route by which a boundary moved twice would split its vertices twice."""
+    import pyflightstream.cases.workflows as workflows
+
+    real = workflows._resolve_token
+    monkeypatch.setattr(
+        workflows, "_resolve_token", lambda *args, **kwargs: [*real(*args, **kwargs)] * 2
+    )
     case = wing_case(
-        tmp_path,
-        aliases={"twice": ["Wing", "Wing"], "airframe": ["Wing", "Body"]},
-        translations=translations("{DISTANCE: 0.5 / AXIS: NAC-X / ALIAS: twice}"),
+        tmp_path, translations=translations("{DISTANCE: 0.5 / AXIS: NAC-X / ALIAS: Wing}")
     )
     assert len(surface_moves(lines_of(case))) == 1, surface_moves(lines_of(case))

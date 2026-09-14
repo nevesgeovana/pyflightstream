@@ -180,8 +180,8 @@ SURFACE_ROTATE:
 # row moves a rotor along its own hub frame, which exists only once the
 # setup created it, so a geometry-phase translation could never cite the
 # frame the row names. EXERCISED ON 26.123 ONLY: RPT-048 emitted it after
-# the frames, and the solver moved the mesh where the script said and the
-# rows converged. The other registered builds have not been run this way.
+# the frames, the rows converged, and the pitching-moment change placed the
+# move once, along +X. The other registered builds have not been run this way.
 TRANSLATE_SURFACE_IN_FRAME:
   layout: inline
   phase: setup

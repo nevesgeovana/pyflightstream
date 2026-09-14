@@ -20,11 +20,13 @@ FlightStream versions.
   position, so it is not swept. The super file carries a `TRANSLATE` column.
   Each surface moves with `SPLIT_VERTICES ENABLE`, because surfaces of one set
   share the vertices where they meet and a translation without the split moved
-  those vertices once per surface (RPT-048, measured on 26.123). A frame moves by `SET_COORDINATE_SYSTEM_ORIGIN`
-  to an absolute origin, computed from where the script placed it, because the
-  manual does not state the axes of `TRANSLATE_COORDINATE_SYSTEM`'s vector; a
+  those vertices once per surface (RPT-048, measured on 26.123). A frame moves
+  by `SET_COORDINATE_SYSTEM_ORIGIN` to an absolute origin, computed from where the script placed it, because the
+  manual does not state the axes of `TRANSLATE_COORDINATE_SYSTEM`'s vector
+  (SRC-751 pp.335-336); a
   frame whose placement the script cannot state is refused by name, and a
-  frame's origin is read in metres. From Python: `SimCase.translations`, the
+  frame's origin is read in metres, so a translation is right only on a
+  simulation whose length unit is metres. From Python: `SimCase.translations`, the
   read-only `Script.frame_placements` and `FramePlacement`. FR-100.
 
 ### Changed

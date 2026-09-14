@@ -392,10 +392,11 @@ class FramePlacement(BaseModel):
 
     METRES IS AN ASSUMPTION THE LEDGER CANNOT CHECK, and it is stated here
     rather than left to be inferred. ``EDIT_COORDINATE_SYSTEM`` carries no unit:
-    it places a frame in the simulation's length unit. Every frame the package
-    creates is placed from a length the reference states in metres, so the
-    ledger reads that origin as metres; a script that placed a frame in another
-    unit would be read wrong, and nothing in the command can say so.
+    it places a frame in the simulation's length unit, which is also the unit a
+    reference ``[[frames]]`` origin is written in. The ledger reads that origin
+    as metres and a translation writes the moved origin back as ``METER``, so a
+    translation is right only on a simulation whose length unit is metres, which
+    nothing in the command can say.
     ``SET_COORDINATE_SYSTEM_ORIGIN`` states its unit, and one set in any unit
     but ``METER`` is forgotten rather than converted.
     """
@@ -418,30 +419,93 @@ _UNFOLLOWED_FRAME_COMMANDS = frozenset(
     }
 )
 
-#: The coordinate-system commands that cite a frame and leave where it stands
-#: as it was: a rename, and a copy (whose new frame the ledger does not place,
-#: so it has no entry). Every command of the chapter that cites a frame is in
-#: this set, in ``_UNFOLLOWED_FRAME_COMMANDS``, or followed by name in
-#: :meth:`Script._follow_frame_placement`, and a tier-1 guard walks the
-#: database for one that is in none, which is how a command added later is
-#: kept from leaving a stale placement behind in silence.
+#: The commands that name a frame, or make one, and leave where every frame
+#: stands as it was: a creation (placed by the EDIT that follows it), a rename,
+#: a copy (whose new frame the ledger does not place, so it has no entry), and
+#: the commands of other chapters that cite a frame without moving it. Every
+#: command whose name says it is about a coordinate system is in this set, in
+#: ``_UNFOLLOWED_FRAME_COMMANDS``, or in ``_FRAME_FOLLOWERS``, and a tier-1 guard
+#: walks the database for one that is in none, which is how a command added
+#: later is kept from leaving a stale placement behind in silence.
 _FRAME_NEUTRAL_COMMANDS = frozenset(
     {
+        "CREATE_NEW_COORDINATE_SYSTEM",
         "SET_COORDINATE_SYSTEM_NAME",
         "DUPLICATE_COORDINATE_SYSTEM",
+        "SET_MOTION_COORDINATE_SYSTEM",
+        "ASSIGN_AEROELASTIC_COORDINATE_SYSTEMS",
     }
 )
 
-#: The coordinate-system commands the ledger follows by name.
-_FOLLOWED_FRAME_COMMANDS = frozenset(
-    {
-        "CREATE_NEW_COORDINATE_SYSTEM",
-        "EDIT_COORDINATE_SYSTEM",
-        "SET_COORDINATE_SYSTEM_ORIGIN",
-        "ROTATE_COORDINATE_SYSTEM",
-        "DELETE_COORDINATE_SYSTEM",
-    }
-)
+
+def _placed_by_edit(
+    placements: dict[int, FramePlacement], frame: int, bound: Mapping[str, object]
+) -> None:
+    """``EDIT_COORDINATE_SYSTEM`` states origin and axes in the reference (SRC-751 p.334)."""
+    placements[frame] = FramePlacement(
+        origin=_vector(bound, "origin_x", "origin_y", "origin_z"),
+        axes=(
+            _vector(bound, "vector_x_x", "vector_x_y", "vector_x_z"),
+            _vector(bound, "vector_y_x", "vector_y_y", "vector_y_z"),
+            _vector(bound, "vector_z_x", "vector_z_y", "vector_z_z"),
+        ),
+    )
+
+
+def _placed_by_origin(
+    placements: dict[int, FramePlacement], frame: int, bound: Mapping[str, object]
+) -> None:
+    """``SET_COORDINATE_SYSTEM_ORIGIN`` states the origin in the reference (SRC-751 p.334).
+
+    IN METRES OR FORGOTTEN: an origin set in any other unit is not comparable
+    with the frames the package places, and is forgotten rather than converted.
+    """
+    held = placements.get(frame)
+    origin = _vector(bound, "x", "y", "z") if str(bound.get("units")) == "METER" else None
+    placements[frame] = FramePlacement(origin=origin, axes=held.axes if held is not None else None)
+
+
+def _placed_by_turn(
+    placements: dict[int, FramePlacement], frame: int, bound: Mapping[str, object]
+) -> None:
+    """``ROTATE_COORDINATE_SYSTEM`` turns by a sign the manual does not state.
+
+    The axes are forgotten; the origin survives only when the frame sits at the
+    origin of the frame it turns about, which a turn about that point cannot
+    move whatever its sign.
+    """
+    held = placements.get(frame)
+    pivot = placements.get(bound.get("rotation_frame"))  # type: ignore[arg-type]
+    stays = (
+        held is not None
+        and pivot is not None
+        and held.origin is not None
+        and held.origin == pivot.origin
+    )
+    placements[frame] = FramePlacement(
+        origin=held.origin if stays and held is not None else None, axes=None
+    )
+
+
+def _placed_by_delete(
+    placements: dict[int, FramePlacement], frame: int, bound: Mapping[str, object]
+) -> None:
+    """Forget every placement but the reference's: a delete shifts every index above it."""
+    reference = placements[_REFERENCE_PLACEMENT_INDEX]
+    placements.clear()
+    placements[_REFERENCE_PLACEMENT_INDEX] = reference
+
+
+#: THE COMMANDS THE LEDGER FOLLOWS, AND HOW, as one table. The set of followed
+#: names is this table's keys and nothing else, so a name cannot be declared
+#: followed without the code that follows it (the architecture lens, 2026-09-14).
+_FRAME_FOLLOWERS = {
+    "EDIT_COORDINATE_SYSTEM": _placed_by_edit,
+    "SET_COORDINATE_SYSTEM_ORIGIN": _placed_by_origin,
+    "ROTATE_COORDINATE_SYSTEM": _placed_by_turn,
+    "DELETE_COORDINATE_SYSTEM": _placed_by_delete,
+}
+_FOLLOWED_FRAME_COMMANDS = frozenset(_FRAME_FOLLOWERS)
 
 
 class UnsteadyActionUse(BaseModel):
@@ -1109,52 +1173,17 @@ class Script:
     def _follow_frame_placement(self, name: str, bound: Mapping[str, object]) -> None:
         """Keep :attr:`frame_placements` in step with a command just emitted (FR-100).
 
-        THREE COMMANDS ARE FOLLOWED AND THE REST FORGET. ``EDIT_COORDINATE_SYSTEM``
-        states a frame's origin and axes in the reference frame, and
-        ``SET_COORDINATE_SYSTEM_ORIGIN`` its origin, both in the manual's own
-        words (SRC-751 p.334). ``ROTATE_COORDINATE_SYSTEM`` turns the axes by
-        a sign convention the manual does not state, so the axes are
-        forgotten; the origin survives only when the frame sits at the origin
-        of the frame it turns about, which a turn about that point cannot
-        move whatever its sign. A command in ``_UNFOLLOWED_FRAME_COMMANDS``
-        forgets the frame it names, and a delete forgets every frame.
+        A command in ``_FRAME_FOLLOWERS`` updates the placement the way its entry
+        there says; a command in ``_UNFOLLOWED_FRAME_COMMANDS`` forgets the frame it
+        names; anything else leaves every placement as it was. The reference frame
+        is never placed by a command.
         """
-        if name == "DELETE_COORDINATE_SYSTEM":
-            reference = self._frame_placements[_REFERENCE_PLACEMENT_INDEX]
-            self._frame_placements = {_REFERENCE_PLACEMENT_INDEX: reference}
-            return
         frame = bound.get("frame")
         if not isinstance(frame, int) or frame == _REFERENCE_PLACEMENT_INDEX:
             return
-        held = self._frame_placements.get(frame)
-        if name == "EDIT_COORDINATE_SYSTEM":
-            self._frame_placements[frame] = FramePlacement(
-                origin=_vector(bound, "origin_x", "origin_y", "origin_z"),
-                axes=(
-                    _vector(bound, "vector_x_x", "vector_x_y", "vector_x_z"),
-                    _vector(bound, "vector_y_x", "vector_y_y", "vector_y_z"),
-                    _vector(bound, "vector_z_x", "vector_z_y", "vector_z_z"),
-                ),
-            )
-        elif name == "SET_COORDINATE_SYSTEM_ORIGIN":
-            # IN THE LENGTH THE FRAMES WERE PLACED IN, which the package
-            # writes in metres; an origin set in any other unit is not
-            # comparable with them and is forgotten rather than converted.
-            origin = _vector(bound, "x", "y", "z") if str(bound.get("units")) == "METER" else None
-            self._frame_placements[frame] = FramePlacement(
-                origin=origin, axes=held.axes if held is not None else None
-            )
-        elif name == "ROTATE_COORDINATE_SYSTEM":
-            pivot = self._frame_placements.get(bound.get("rotation_frame"))  # type: ignore[arg-type]
-            stays = (
-                held is not None
-                and pivot is not None
-                and held.origin is not None
-                and held.origin == pivot.origin
-            )
-            self._frame_placements[frame] = FramePlacement(
-                origin=held.origin if stays and held is not None else None, axes=None
-            )
+        follower = _FRAME_FOLLOWERS.get(name)
+        if follower is not None:
+            follower(self._frame_placements, frame, bound)
         elif name in _UNFOLLOWED_FRAME_COMMANDS:
             self._frame_placements[frame] = FramePlacement(origin=None, axes=None)
 
