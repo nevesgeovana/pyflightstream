@@ -20,6 +20,10 @@ the reason the sequence is cheap, not a reason to shorten it.
 #    waiting.
 #    (pyproject.toml: version = "0.18.1")
 #
+#    AND BOTH FRONT PAGES NAME THE NEW VERSION: the status line of README.md,
+#    which is the PyPI project page, and of docs/index.md. Missed at the v0.18.1
+#    release commit and caught by CI before the tag, by test_claim_currency.
+#
 #    AND CITATION.cff MOVES IN THE SAME COMMIT, all three fields together:
 #    version, date-released, and the header paragraph that says whether this
 #    is a DEVELOPMENT or a RELEASE tree, with its tally.

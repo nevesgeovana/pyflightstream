@@ -24,7 +24,7 @@ Every example on those pages is compared against an artifact this
 repository ships, most of them under `tests/tier3_licensed/`, by a test on
 every commit, so a page cannot quietly stop being true.
 
-Status: v0.18.0 is the current release. The tag publishes to
+Status: v0.18.1 is the current release. The tag publishes to
 [PyPI](https://pypi.org/project/pyflightstream/), and the Zenodo archive is
 minted from the GitHub RELEASE, which is a manual step owed after every tag:
 the version DOI is then recorded in CITATION.cff one commit after the tag that
