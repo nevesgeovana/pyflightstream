@@ -1,8 +1,6 @@
 """A row translates an alias the way it rotates one (FR-100).
 
-The owner's request of 2026-09-14 for 0.19.0: "preciso que o comando translate
-tenha a mesma arquitetura que fizemos para o rotate via matriz". Her answers
-fix the shape and every case below is one of them:
+The row's grammar and its consequences, each case below one of them:
 
 * ``TRANSLATE: {DISTANCE: <m> / AXIS: <frame>-<X|Y|Z> / ALIAS: <word>}, {...}``,
   the mirror of ROTATE's ANGLE and AXIS, one axis per record, in metres;
@@ -195,6 +193,14 @@ def test_goal022_cell_grammar_the_list_reaches_the_row_the_case_and_the_super_fi
             ("POL 9101", "DISTANCE is 'half'", "not a number", "metres"),
         ),
         (
+            "{DISTANCE: nan / AXIS: MRP-X / ALIAS: airframe}",
+            ("POL 9101", "DISTANCE is 'nan'", "not a number", "metres"),
+        ),
+        (
+            "{DISTANCE: -inf / AXIS: MRP-X / ALIAS: airframe}",
+            ("POL 9101", "DISTANCE is '-inf'", "not a number", "metres"),
+        ),
+        (
             "{DISTANCE: 0.5 / AXIS: MRPX / ALIAS: airframe}",
             ("POL 9101", "AXIS is 'MRPX'", "frame-axis"),
         ),
@@ -265,7 +271,7 @@ def test_goal022_refusals_a_frame_turned_into_place_is_not_an_axis_to_move_along
     with pytest.raises(PyflightstreamError) as refused:
         lines_of(case)
     message = str(refused.value)
-    for clause in ("along PUSHER_RMRP1-X", "cannot state which way", "<ALIAS>_SMRP"):
+    for clause in ("along PUSHER_RMRP1-X", "cannot state which way", "'PUSHER_SMRP'"):
         assert message.count(clause) == 1, (clause, message)
 
 
@@ -490,8 +496,13 @@ def test_goal022_frames_move_a_frame_turned_away_from_its_pivot_is_refused_not_g
     with pytest.raises(PyflightstreamError) as refused:
         lines_of(case)
     message = str(refused.value)
-    for clause in ("TRANSLATE moving", "cannot state where that frame stands"):
+    for clause in (
+        "TRANSLATE moving a frame that comes in through AUX_FRAMES",
+        "cannot state where that frame stands",
+        "drop ROTOR_SMRP from AUX_FRAMES",
+    ):
         assert message.count(clause) == 1, (clause, message)
+    assert "(frame " not in message, "a row never names a frame by its index"
 
 
 @pytest.mark.parametrize("factory", [steady_case, unsteady_case])
@@ -529,3 +540,130 @@ def test_goal022_order_a_steady_sweep_translates_once_then_rotates(tmp_path):
     lines = script.render().splitlines()
     assert len(surface_moves(lines)) == 1, "one geometry for every point of the sweep"
     assert _first(lines, "TRANSLATE_SURFACE_IN_FRAME") < _first(lines, "ROTATE_SURFACE")
+
+
+# ------------------------------------------------- round one of the review
+
+
+def test_goal022_refusals_a_case_authored_in_python_meets_the_finite_distance_refusal(tmp_path):
+    record = {"DISTANCE": "inf", "AXIS": "NAC-X", "ALIAS": "Wing"}
+    with pytest.raises(PyflightstreamError) as refused:
+        lines_of(wing_case(tmp_path, translations=[record]))
+    message = str(refused.value)
+    for clause in ("TRANSLATE DISTANCE 'inf'", "not a number", "metres"):
+        assert message.count(clause) == 1, (clause, message)
+
+
+def test_goal022_refusals_an_axis_it_cannot_orient_lists_only_frames_it_can(tmp_path):
+    """A blade frame is turned into place; the remedy names the frames whose axes are stated."""
+    case = moving_rotor(tmp_path, "{DISTANCE: 0.1 / AXIS: PUSHER_RMRP1-X / ALIAS: PUSHER}")
+    with pytest.raises(PyflightstreamError) as refused:
+        lines_of(case)
+    message = str(refused.value)
+    listing = message.split("on this case those are ", 1)[1]
+    assert "'PUSHER_SMRP'" in listing and "'LIFT_L1_SMRP'" in listing, listing
+    assert "RMRP1" not in listing and "<ALIAS>" not in message, listing
+
+
+def test_goal022_frames_move_the_ledger_forgets_what_it_does_not_follow():
+    """Each branch that FORGETS a placement, pinned, because a stale placement moves a
+    frame to the wrong origin with no refusal at all."""
+    from pyflightstream.script import helpers
+
+    def placed() -> tuple[Script, int]:
+        script = Script("26.123")
+        index = helpers.coordinate_frame(
+            script, name="NAC", origin=(1.0, 2.0, 3.0), x_axis=(1, 0, 0), y_axis=(0, 1, 0)
+        )
+        assert script.frame_placements[index].origin == (1.0, 2.0, 3.0)
+        return script, index
+
+    for command, extra in (
+        ("TRANSLATE_COORDINATE_SYSTEM", (0.1, 0.0, 0.0, "METER")),
+        ("SET_COORDINATE_SYSTEM_AXIS", ("X", 0.0, 1.0, 0.0, "TRUE")),
+        ("NORMALIZE_COORDINATE_SYSTEM", ()),
+        ("MIRROR_COORDINATE_SYSTEM", ("XZ",)),
+    ):
+        script, index = placed()
+        script.emit(command, index, *extra)
+        held = script.frame_placements[index]
+        assert held.origin is None and held.axes is None, (command, held)
+
+    script, index = placed()
+    script.emit("SET_COORDINATE_SYSTEM_ORIGIN", index, 5.0, 0.0, 0.0, "INCH")
+    assert script.frame_placements[index].origin is None, "an origin in inches is not metres"
+    script.emit("SET_COORDINATE_SYSTEM_ORIGIN", index, 5.0, 0.0, 0.0, "METER")
+    assert script.frame_placements[index].origin == (5.0, 0.0, 0.0)
+
+    script, index = placed()
+    script.emit("DELETE_COORDINATE_SYSTEM", index)
+    assert list(script.frame_placements) == [1], "a delete shifts every index above it"
+
+
+def test_goal022_frames_move_a_frame_moved_behind_the_ledger_is_refused_not_moved(tmp_path):
+    """End to end through the builder: a frame a command moved in a way the ledger does
+    not follow is refused by the translation that would place it."""
+    from pyflightstream.cases.workflows import _translations
+    from pyflightstream.script import helpers
+
+    script = Script("26.123")
+    script.declare_existing(boundaries={"Wing": 1, "Body": 2})
+    nac = helpers.coordinate_frame(
+        script, name="NAC", origin=(0.4, 0.0, 0.1), x_axis=(1, 0, 0), y_axis=(0, 1, 0)
+    )
+    mrp = helpers.coordinate_frame(
+        script, name="MRP", origin=(2.0, 0.0, 0.5), x_axis=(1, 0, 0), y_axis=(0, 1, 0)
+    )
+    script.emit("TRANSLATE_COORDINATE_SYSTEM", mrp, 0.1, 0.0, 0.0, "METER")
+    case = wing_case(
+        tmp_path,
+        translations=translations("{DISTANCE: 0.5 / AXIS: NAC-X / ALIAS: Wing / AUX_FRAMES: MRP}"),
+    )
+    with pytest.raises(PyflightstreamError) as refused:
+        _translations(case, script, {"NAC": nac, "MRP": mrp})
+    message = str(refused.value)
+    for clause in ("cannot state where that frame stands", "drop MRP from AUX_FRAMES"):
+        assert message.count(clause) == 1, (clause, message)
+
+
+def test_goal022_frames_move_the_ledger_is_read_only_to_a_caller():
+    from pyflightstream.script import FramePlacement
+
+    script = Script("26.123")
+    with pytest.raises(TypeError):
+        script.frame_placements[7] = FramePlacement(origin=(0.0, 0.0, 0.0), axes=None)  # type: ignore[index]
+
+
+def test_goal022_frames_move_every_frame_command_is_followed_forgotten_or_neutral():
+    """A coordinate-system command added to the database later must say what it does to
+    where a frame stands, or the ledger keeps a stale placement in silence."""
+    import pyflightstream.script as script_module
+    from pyflightstream.commands import CommandRegistry, EntityKind
+
+    known = (
+        script_module._FOLLOWED_FRAME_COMMANDS
+        | script_module._UNFOLLOWED_FRAME_COMMANDS
+        | script_module._FRAME_NEUTRAL_COMMANDS
+    )
+    registry = CommandRegistry.load()
+    chapter = [
+        name
+        for name, entry in registry.commands.items()
+        if entry.chapter == "coordinate_systems"
+        and (
+            name == "CREATE_NEW_COORDINATE_SYSTEM"
+            or any(a.cites is EntityKind.FRAMES for a in entry.args)
+        )
+    ]
+    assert len(chapter) >= 10, chapter
+    unaccounted = sorted(set(chapter) - known)
+    assert unaccounted == [], unaccounted
+
+
+def test_goal022_emission_a_boundary_an_alias_names_twice_moves_once(tmp_path):
+    case = wing_case(
+        tmp_path,
+        aliases={"twice": ["Wing", "Wing"], "airframe": ["Wing", "Body"]},
+        translations=translations("{DISTANCE: 0.5 / AXIS: NAC-X / ALIAS: twice}"),
+    )
+    assert len(surface_moves(lines_of(case))) == 1, surface_moves(lines_of(case))

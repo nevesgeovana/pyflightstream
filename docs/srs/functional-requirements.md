@@ -3836,11 +3836,14 @@ requirement below is one seam of that division.
 
 !!! requirement "FR-100 A row translates an alias the way it rotates one <span class='srs-implemented'>implemented</span>"
 
-    *Evidence: `tests/tier1_offline/test_goal022_translate.py` (the cell grammar
+    *Origin: the 0.19.0 scope, a translation stated by the row with the
+    architecture of the rotation. Evidence: `tests/tier1_offline/test_goal022_translate.py` (the cell grammar
     and its refusals, one surface line per boundary in the named frame, every
     owned and auxiliary frame at its new origin once, a frame whose axes are not
     the reference's, the kept hub shared with a rotation, a plot on a moved hub
     written in both frames, and the order on every run type that rotates).
+    And `reports/RPT-048_what-a-per-surface-translation-does-to-shared-vertices_2026-09-14.md`
+    (the split and the setup phase measured on 26.123, and a null test).
     AMENDS FR-35, whose variables cell gains the `TRANSLATE` list, and FR-71,
     whose kept frame a translation shares.*
 
@@ -3863,7 +3866,8 @@ requirement below is one seam of that division.
     vertices where they meet, and without it those vertices were moved once per
     surface and a set moved alone dragged the vertices of the surface it
     touched; with it every vertex of the set moves exactly once and every other
-    surface stays where it was.
+    surface stays where it was (RPT-048, on 26.123; the other registered
+    builds have not been run this way).
 
     EVERY FRAME THE ALIAS OWNS MOVES WITH IT, plus each `AUX_FRAMES` entry and
     every frame the package placed from one of those, each once however many
@@ -3873,13 +3877,18 @@ requirement below is one seam of that division.
     placed each frame, and a frame whose placement it cannot state (one an opened
     project carries, or one turned into place about a pivot elsewhere) is
     refused by name rather than moved to a guess; so is an axis of a frame whose
-    axes it cannot state.
+    axes it cannot state. THE LEDGER READS A FRAME'S ORIGIN AS METRES, because
+    every frame the package creates is placed from a length the reference
+    states in metres and `EDIT_COORDINATE_SYSTEM` carries no unit to check.
+    That a motion then spins about the moved hub follows from the frames the
+    script moves and has not been run on the solver.
 
     `<ALIAS>_SMRP_ORIGINAL` is kept ONCE PER ALIAS before the first translation
     or rotation of it, one copy for both, and a post-processing entry naming a
     moved hub is emitted in both frames, as FR-71 states for a rotated one.
 
     A key a translation does not read, a missing `DISTANCE` or `AXIS`, no alias,
-    a distance that is not a number, an axis token of another shape, an alias the
-    reference does not declare or a list of them, a frame nothing defines, and
-    the key on a `LEGACY` row are each refused at plan time naming the row.
+    a distance that is not a finite number, an axis token of another shape, an
+    alias the reference does not declare or a list of them, a frame nothing
+    defines, an axis of zero length, and the key on a `LEGACY` row are each
+    refused at plan time naming the row.

@@ -67,6 +67,7 @@ which is what :mod:`tests.test_conventions` now holds it to.
 
 from __future__ import annotations
 
+import math
 import re
 import warnings
 from collections.abc import Mapping
@@ -455,7 +456,8 @@ class MatrixRow:
     #: each, in cell order (PFS-2034.02); empty for a row stating none.
     rotations: list[dict[str, str]] = field(default_factory=list)
     #: The mesh translations the cell's ``TRANSLATE`` list states, one
-    #: record each, in cell order (FR-100); empty for a row stating none.
+    #: record each, in cell order (FR-100), DISTANCE in metres along one
+    #: axis of the named frame; empty for a row stating none.
     translations: list[dict[str, str]] = field(default_factory=list)
     #: The raw solver commands the cell's ``RAW`` list states, one record
     #: each, in cell order (FR-67); empty for a row stating none. A record
@@ -1124,11 +1126,11 @@ def _parse_rotations(variables: dict[str, str], pol: str) -> list[dict[str, str]
 def _parse_translations(variables: dict[str, str], pol: str) -> list[dict[str, str]]:
     """Take the ``TRANSLATE`` list out of the flat variables and read its records.
 
-    FR-100, PFS-2034.06: the grammar of ``ROTATE`` (the owner's request of
-    2026-09-14 and DEC-0190). Each record states ``DISTANCE`` in metres,
+    FR-100, PFS-2034.06: the grammar of ``ROTATE``. Each record states
+    ``DISTANCE`` in metres,
     ``AXIS`` as ``<frame>-<X|Y|Z>`` and ``ALIAS``, and may state
     ``AUX_FRAMES``; a key outside those four, a missing one, no alias, a
-    distance that is not a number and an axis token of another shape are
+    distance that is not a finite number and an axis token of another shape are
     refused here, naming the row, so a row is refused at plan time and never
     at the solver. What the names RESOLVE to is the builder's.
     """
@@ -1160,13 +1162,17 @@ def _parse_translations(variables: dict[str, str], pol: str) -> list[dict[str, s
                 f"along what, and nothing to move. State {TRANSLATION_ALIAS_KEY}: <the word the "
                 "reference declares>, which is how a rotation and a motion name a set too."
             )
+        # FINITE, NOT MERELY PARSEABLE: float() reads nan and inf, and either
+        # would reach the solver inside a coordinate.
         try:
-            float(record["DISTANCE"])
+            finite = math.isfinite(float(record["DISTANCE"]))
         except ValueError:
+            finite = False
+        if not finite:
             raise MatrixError(
                 f"POL {pol}: {TRANSLATE_VARIABLE} DISTANCE is {record['DISTANCE']!r}, which is not "
                 "a number; write the distance in metres, as 0.05 or -0.02."
-            ) from None
+            )
         if not _ROTATION_AXIS.match(record["AXIS"]):
             raise MatrixError(
                 f"POL {pol}: {TRANSLATE_VARIABLE} AXIS is {record['AXIS']!r}, which is not of the "

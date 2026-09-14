@@ -54,6 +54,7 @@ from __future__ import annotations
 import math
 import os
 from collections.abc import Mapping, Sequence
+from types import MappingProxyType
 from typing import TYPE_CHECKING, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -86,6 +87,7 @@ __all__ = [
     "BrokenCommandUse",
     "CommandArgumentError",
     "EntityRegistry",
+    "FramePlacement",
     "Script",
     "ScriptLabelError",
     "ScriptLineBreakError",
@@ -173,7 +175,7 @@ _DELETION_COMMANDS = {
 }
 
 
-def _vector(bound: Mapping[str, object], *names: str) -> Vector:
+def _vector(bound: Mapping[str, object], *names: str) -> _Vector:
     """Read three bound arguments as one vector, for the frame ledger."""
     x, y, z = (float(bound[name]) for name in names)  # type: ignore[arg-type]
     return (x, y, z)
@@ -373,27 +375,35 @@ class BrokenCommandUse(BaseModel):
 
 
 #: A point or a direction in the reference frame's axes.
-Vector = tuple[float, float, float]
+_Vector = tuple[float, float, float]
 
 #: The reference frame, index 1, which every script has and no command
 #: places: at the origin, with the reference axes.
-REFERENCE_PLACEMENT_INDEX = 1
+_REFERENCE_PLACEMENT_INDEX = 1
 
 
 class FramePlacement(BaseModel):
     """Where one coordinate system stands, as far as THIS SCRIPT placed it (FR-100).
 
-    ``origin`` is in the reference frame and in the length the script wrote
-    it in; ``axes`` are the X, Y and Z unit directions in the reference
-    frame. Either is ``None`` when a command moved the frame in a way this
-    ledger does not follow, so a reader that needs it refuses rather than
-    placing something from a stale value.
+    ``origin`` is in METRES in the reference frame; ``axes`` are the X, Y and Z
+    unit directions in the reference frame. Either is ``None`` when a command
+    moved the frame in a way this ledger does not follow, so a reader that
+    needs it refuses rather than placing something from a stale value.
+
+    METRES IS AN ASSUMPTION THE LEDGER CANNOT CHECK, and it is stated here
+    rather than left to be inferred. ``EDIT_COORDINATE_SYSTEM`` carries no unit:
+    it places a frame in the simulation's length unit. Every frame the package
+    creates is placed from a length the reference states in metres, so the
+    ledger reads that origin as metres; a script that placed a frame in another
+    unit would be read wrong, and nothing in the command can say so.
+    ``SET_COORDINATE_SYSTEM_ORIGIN`` states its unit, and one set in any unit
+    but ``METER`` is forgotten rather than converted.
     """
 
     model_config = ConfigDict(frozen=True)
 
-    origin: Vector | None
-    axes: tuple[Vector, Vector, Vector] | None
+    origin: _Vector | None
+    axes: tuple[_Vector, _Vector, _Vector] | None
 
 
 #: The coordinate-system commands that move or re-index a frame in a way
@@ -405,6 +415,31 @@ _UNFOLLOWED_FRAME_COMMANDS = frozenset(
         "NORMALIZE_COORDINATE_SYSTEM",
         "TRANSLATE_COORDINATE_SYSTEM",
         "MIRROR_COORDINATE_SYSTEM",
+    }
+)
+
+#: The coordinate-system commands that cite a frame and leave where it stands
+#: as it was: a rename, and a copy (whose new frame the ledger does not place,
+#: so it has no entry). Every command of the chapter that cites a frame is in
+#: this set, in ``_UNFOLLOWED_FRAME_COMMANDS``, or followed by name in
+#: :meth:`Script._follow_frame_placement`, and a tier-1 guard walks the
+#: database for one that is in none, which is how a command added later is
+#: kept from leaving a stale placement behind in silence.
+_FRAME_NEUTRAL_COMMANDS = frozenset(
+    {
+        "SET_COORDINATE_SYSTEM_NAME",
+        "DUPLICATE_COORDINATE_SYSTEM",
+    }
+)
+
+#: The coordinate-system commands the ledger follows by name.
+_FOLLOWED_FRAME_COMMANDS = frozenset(
+    {
+        "CREATE_NEW_COORDINATE_SYSTEM",
+        "EDIT_COORDINATE_SYSTEM",
+        "SET_COORDINATE_SYSTEM_ORIGIN",
+        "ROTATE_COORDINATE_SYSTEM",
+        "DELETE_COORDINATE_SYSTEM",
     }
 )
 
@@ -762,8 +797,8 @@ class Script:
         #: emitted. A translation reads it to move a frame to an ABSOLUTE
         #: origin; a frame the script did not place (one an opened project
         #: carries) has no entry, and a reader refuses it by name.
-        self.frame_placements: dict[int, FramePlacement] = {
-            REFERENCE_PLACEMENT_INDEX: FramePlacement(
+        self._frame_placements: dict[int, FramePlacement] = {
+            _REFERENCE_PLACEMENT_INDEX: FramePlacement(
                 origin=(0.0, 0.0, 0.0),
                 axes=((1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0)),
             )
@@ -1061,6 +1096,16 @@ class Script:
         elif entry.name in _DELETION_COMMANDS:
             self.entities.delete(_DELETION_COMMANDS[entry.name])
 
+    @property
+    def frame_placements(self) -> Mapping[int, FramePlacement]:
+        """Where this script placed each coordinate system, by frame index (FR-100).
+
+        READ ONLY. A translation moves a frame to an absolute origin computed
+        from this, so a caller writing into it would place a frame from a value
+        no command emitted; it is filled by :meth:`emit` and nowhere else.
+        """
+        return MappingProxyType(self._frame_placements)
+
     def _follow_frame_placement(self, name: str, bound: Mapping[str, object]) -> None:
         """Keep :attr:`frame_placements` in step with a command just emitted (FR-100).
 
@@ -1075,15 +1120,15 @@ class Script:
         forgets the frame it names, and a delete forgets every frame.
         """
         if name == "DELETE_COORDINATE_SYSTEM":
-            reference = self.frame_placements[REFERENCE_PLACEMENT_INDEX]
-            self.frame_placements = {REFERENCE_PLACEMENT_INDEX: reference}
+            reference = self._frame_placements[_REFERENCE_PLACEMENT_INDEX]
+            self._frame_placements = {_REFERENCE_PLACEMENT_INDEX: reference}
             return
         frame = bound.get("frame")
-        if not isinstance(frame, int) or frame == REFERENCE_PLACEMENT_INDEX:
+        if not isinstance(frame, int) or frame == _REFERENCE_PLACEMENT_INDEX:
             return
-        held = self.frame_placements.get(frame)
+        held = self._frame_placements.get(frame)
         if name == "EDIT_COORDINATE_SYSTEM":
-            self.frame_placements[frame] = FramePlacement(
+            self._frame_placements[frame] = FramePlacement(
                 origin=_vector(bound, "origin_x", "origin_y", "origin_z"),
                 axes=(
                     _vector(bound, "vector_x_x", "vector_x_y", "vector_x_z"),
@@ -1096,22 +1141,22 @@ class Script:
             # writes in metres; an origin set in any other unit is not
             # comparable with them and is forgotten rather than converted.
             origin = _vector(bound, "x", "y", "z") if str(bound.get("units")) == "METER" else None
-            self.frame_placements[frame] = FramePlacement(
+            self._frame_placements[frame] = FramePlacement(
                 origin=origin, axes=held.axes if held is not None else None
             )
         elif name == "ROTATE_COORDINATE_SYSTEM":
-            pivot = self.frame_placements.get(bound.get("rotation_frame"))  # type: ignore[arg-type]
+            pivot = self._frame_placements.get(bound.get("rotation_frame"))  # type: ignore[arg-type]
             stays = (
                 held is not None
                 and pivot is not None
                 and held.origin is not None
                 and held.origin == pivot.origin
             )
-            self.frame_placements[frame] = FramePlacement(
+            self._frame_placements[frame] = FramePlacement(
                 origin=held.origin if stays and held is not None else None, axes=None
             )
         elif name in _UNFOLLOWED_FRAME_COMMANDS:
-            self.frame_placements[frame] = FramePlacement(origin=None, axes=None)
+            self._frame_placements[frame] = FramePlacement(origin=None, axes=None)
 
     def entry(self, name: str, /) -> CommandEntry:
         """Return the database entry of ``name`` on this script's build.

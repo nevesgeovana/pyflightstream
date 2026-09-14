@@ -1971,19 +1971,22 @@ TRANSLATE: {DISTANCE: 0.5 / AXIS: MRP-X / ALIAS: airframe / AUX_FRAMES: MRP} / R
 
 **THE FRAMES THE ALIAS OWNS MOVE WITH IT**, as they turn with it: moving
 `PUSHER` moves `PUSHER_SMRP`, `PUSHER_RMRP` and every `PUSHER_RMRP<k>`, each
-once, so the motion created after it spins about the moved hub.
+once, so the motion created after it is placed about the moved hub; that it
+spins there has not been run on the solver.
 `PUSHER_SMRP_ORIGINAL` keeps the hub as it stood before the row moved or turned
 anything, one copy for both, and a post-processing entry naming the moved hub
 is written in both frames.
 
 **A MOVED SET COMES AWAY FROM WHAT IT TOUCHES.** Each surface is moved with its
 vertices split from its neighbours, so every vertex of the set moves exactly
-once and every other surface stays where it was: moving the wing alone leaves
-the body whole and the wing root clear of it, which is what moving a part
-means. Moving the whole aircraft leaves it whole.
+once and every other surface stays where it was (RPT-048, on 26.123). Moving
+the whole aircraft leaves it whole. Moving a wing alone leaves the body whole
+and the wing root no longer joined to it: that was observed on the saved mesh
+and not solved, and whether such a model is acceptable is the study's call.
 
 A frame moves to an ABSOLUTE origin, which the package computes from where its
-script placed the frame. A frame it cannot place is refused by name rather than
+script placed the frame, reading that origin in metres, the unit of every
+length the reference states. A frame it cannot place is refused by name rather than
 moved to a guess, and the axis of a frame it cannot orient is refused the same
 way: a blade frame is turned into place, so move along its hub frame instead.
 
@@ -1991,9 +1994,10 @@ One row is one position, so a translation is not swept; the positions of a
 study are one row each, beside an aerodynamic sweep if the row has one. The
 refusals are a rotation's, at `pyfs-matrix plan` and naming the row: a key a
 translation does not read (`UNITS` and `FAMILIES` included), a missing
-`DISTANCE` or `AXIS`, no alias, a distance that is not a number, an axis token
-of another shape, an alias the reference does not declare or a list of them, a
-frame nothing defines, and the key on a `LEGACY` row.
+`DISTANCE` or `AXIS`, no alias, a distance that is not a finite number, an axis
+token of another shape, an alias the reference does not declare or a list of
+them, a frame nothing defines, an axis of zero length, and the key on a
+`LEGACY` row.
 
 ## Worked rows, and where to get the files
 

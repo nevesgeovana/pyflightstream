@@ -20,15 +20,20 @@ FlightStream versions.
   position, so it is not swept. The super file carries a `TRANSLATE` column.
   Each surface moves with `SPLIT_VERTICES ENABLE`, because surfaces of one set
   share the vertices where they meet and a translation without the split moved
-  those vertices once per surface. A frame moves by `SET_COORDINATE_SYSTEM_ORIGIN`
+  those vertices once per surface (RPT-048, measured on 26.123). A frame moves by `SET_COORDINATE_SYSTEM_ORIGIN`
   to an absolute origin, computed from where the script placed it, because the
   manual does not state the axes of `TRANSLATE_COORDINATE_SYSTEM`'s vector; a
-  frame whose placement the script cannot state is refused by name. From
-  Python: `SimCase.translations`, `Script.frame_placements`.
-  `TRANSLATE_SURFACE_IN_FRAME` is phase setup, as the rotations are, so it may
-  cite a frame the setup created. FR-100.
+  frame whose placement the script cannot state is refused by name, and a
+  frame's origin is read in metres. From Python: `SimCase.translations`, the
+  read-only `Script.frame_placements` and `FramePlacement`. FR-100.
 
 ### Changed
+
+- **`TRANSLATE_SURFACE_IN_FRAME` is phase setup**, as the two rotations are, so
+  it may cite a frame the setup created. Exercised on 26.123 only (RPT-048).
+  BEHAVIOUR CHANGE for a script built by hand: the command now follows the
+  frames rather than leading the script, and a geometry-phase command emitted
+  after it is refused as out of order.
 
 - **The `broken_commands` manifest key is promised for removal at 0.20.0**, its
   fifth deadline, on the same re-count as the four before it: re-measured the

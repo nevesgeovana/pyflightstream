@@ -179,8 +179,9 @@ SURFACE_ROTATE:
 # PHASE SETUP SINCE 0.19.0, for the reason the two rotations are (FR-100): a
 # row moves a rotor along its own hub frame, which exists only once the
 # setup created it, so a geometry-phase translation could never cite the
-# frame the row names. The owner's statement of 2026-09-14 that the solver
-# accepts it there is recorded in DEC-0190; no seat run has measured it.
+# frame the row names. EXERCISED ON 26.123 ONLY: RPT-048 emitted it after
+# the frames, and the solver moved the mesh where the script said and the
+# rows converged. The other registered builds have not been run this way.
 TRANSLATE_SURFACE_IN_FRAME:
   layout: inline
   phase: setup

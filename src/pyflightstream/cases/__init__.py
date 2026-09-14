@@ -2271,8 +2271,9 @@ class SimCase(BaseModel):
     rotations: list[dict[str, str]] = Field(default_factory=list)
     #: The translations of the opened mesh a row's ``TRANSLATE`` list states
     #: (FR-100, PFS-2034.06), one record each in cell order, applied in that
-    #: order after every frame exists and before every rotation; empty for a
-    #: row stating none, which is every row written before 0.19.0.
+    #: order after every frame exists and before every rotation: DISTANCE in
+    #: metres along one axis of the named frame. Empty for a row stating none,
+    #: which is every row written before 0.19.0.
     translations: list[dict[str, str]] = Field(default_factory=list)
     outputs: list[str] = Field(default_factory=list)
     #: The post-processing specification the row's PPROC cell named, bound
