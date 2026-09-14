@@ -11,8 +11,8 @@ license: MIT
 # because a development tree has no release date; it once stated the
 # v0.3.0 date beside version 0.4.0.dev0, so a citation generated from
 # that tree asserted a release date for an artifact that was never
-# released (REV010-015). This is a DEVELOPMENT tree: the version carries
-# .dev0 and NO date-released stands beside it, which is the pair the
+# released (REV010-015). This is a RELEASE tree: the version is final and
+# date-released stands beside it, which is the pair the
 # guard in tests/tier1_offline/test_metadata_currency.py enforces in both directions.
 # The next development commit sets the two together the other way and
 # this sentence flips with them; it is written as a statement about the
@@ -33,12 +33,13 @@ license: MIT
 # one that has ever worked. THE TALLY, kept separate because merging the two
 # into one number is what made the first writing of this sentence
 # unreconstructable: THREE failures are recorded above, and the version,
-# the date and this sentence have moved together in one commit SEVEN
+# the date and this sentence have moved together in one commit EIGHT
 # times: the 0.16.0.dev0 bump of 2026-09-11, the v0.16.0 RELEASE commit of
 # the same day, the 0.17.0.dev0 bump, the v0.17.0 RELEASE commit of
 # 2026-09-13, the 0.18.0.dev0 bump, the v0.18.0 RELEASE commit of
-# 2026-09-14, which was the SIXTH, and this 0.18.1.dev0 bump, which is the
-# SEVENTH. A FOURTH failure was caught by
+# 2026-09-14, which was the SIXTH, the 0.18.1.dev0 bump of the same day, the
+# SEVENTH, and this v0.18.1 RELEASE commit, which is the EIGHTH. A FOURTH
+# failure was caught by
 # the verification lens rather than by the guard: the release commit advanced
 # the pair and left this sentence claiming it was the second move and the
 # first in a release, which is the exact staleness the tally exists to count
@@ -74,7 +75,8 @@ license: MIT
 # v0.17.0 for a day. Older ones
 # stay, because those releases did happen and are still what a citation
 # of them should resolve to.
-version: 0.18.1.dev0
+version: 0.18.1
+date-released: 2026-09-14
 repository-code: "https://github.com/nevesgeovana/pyflightstream"
 identifiers:
   - type: doi

@@ -1,133 +1,105 @@
-# v0.18.0 is ready, and the tag is not mine to cut
+# v0.18.1 is released by this sequence, followed as written
 
-**THE TREE IS GREEN AND PUSHED AND THE TAG IS NOT CUT.** That is deliberate.
-The owning seat's stopping condition is that the work goes to the push and
-stops there, with the tag one command away.
+**THE OWNING SEAT SET THIS RELEASE AS A GOAL** (GOAL-021, item 6: release it,
+following this file as written). So unlike v0.18.0, whose tag waited on her
+word, the tag is cut when the sequence below reaches step 2 with the gate green.
 
-The reason is that feedback from using the previous release can still enter
-this one as SCOPE while the tag is uncut, and can only arrive as a patch once
-it is cut. So the work stops here, ready, and the word that fires the tag
-belongs to the owning seat.
+A patch is only for a bug found after the release ships, and every item of
+0.18.1 was found on 2026-09-14, the day v0.18.0 shipped. The diff being small is
+the reason the sequence is cheap, not a reason to shorten it.
 
-## The sequence, in order, and the step that was missed last time
+## The sequence, in order, and the two steps that were missed before
 
 ```
 # 1. the release commit: set the version and CONFIRM the change log's date.
-#    pyproject.toml still says 0.18.0.dev0, deliberately: the tree is not the
-#    release until this step, and a tree that already said 0.18.0 would have
-#    every run made from it reporting the released version while being a
-#    different tree. The [0.18.0] section is written and dated 2026-09-14; if
-#    the tag is cut on another day, correct that date here, because it is the
-#    one line of the section that stops being true by waiting.
-#    (pyproject.toml: version = "0.18.0")
+#    pyproject.toml says 0.18.1.dev0 until this step, deliberately: a tree that
+#    already said 0.18.1 would have every run made from it reporting the
+#    released version while being a different tree. The [0.18.1] section is
+#    dated 2026-09-14; if the tag is cut on another day, correct that date
+#    here, because it is the one line of the section that stops being true by
+#    waiting.
+#    (pyproject.toml: version = "0.18.1")
 #
 #    AND CITATION.cff MOVES IN THE SAME COMMIT, all three fields together:
 #    version, date-released, and the header paragraph that says whether this
-#    is a DEVELOPMENT or a RELEASE tree. That file's own tally records three
-#    occasions when the fields moved and the paragraph did not.
+#    is a DEVELOPMENT or a RELEASE tree, with its tally.
 #
-#    AND THE CHANGE LOG'S Owed SECTION NAMES THE NEW TAG. This step was
-#    MISSING from this file and its absence cost the v0.18.0 publish. The
-#    moment the tag exists, the tag's own tree holds a released version with
-#    no archive row, and `test_every_released_tag_has_an_archive_row_or_the_
-#    changelog_says_it_is_owed` fails on it. The gates run against the TAGGED
-#    tree, so the owed line cannot be added afterwards: it must be in the
-#    commit the tag names. v0.17.0's release commit carried it and that is why
-#    v0.17.0 published.
-git commit -m "chore: v0.18.0"
+#    AND THE CHANGE LOG'S Owed SECTION NAMES THE NEW TAG. Its absence cost the
+#    v0.18.0 publish: the gates run against the TAGGED tree, where the version
+#    has no archive row yet, and only an Owed line naming the tag lets
+#    `test_every_released_tag_has_an_archive_row_or_the_changelog_says_it_is_owed`
+#    pass there. It cannot be added afterwards; it must be in the commit the tag
+#    names.
+git commit -m "chore: v0.18.1"
 
-# 2. the tag, annotated, on that commit
-git tag -a v0.18.0 -m "v0.18.0"
+# 2. the tag, annotated, on that commit, once CI is green on it
+git tag -a v0.18.1 -m "v0.18.1"
 
 # 3. push the tag. THIS PUBLISHES TO PyPI and nothing else.
-git push origin v0.18.0
+git push origin v0.18.1
 
 # 4. THE RELEASE OBJECT. This is the step that was missed at v0.17.0.
-gh release create v0.18.0 --title "v0.18.0" --notes-file <the section body>
+gh release create v0.18.1 --title "v0.18.1" --notes-file <the section body and its limitations>
 
 # 5. the archive DOI. Zenodo's webhook fires on the RELEASE OBJECT of step 4,
-#    not on the tag of step 3, and it minted in about four seconds last time.
-#    Read the new version DOI off the Zenodo record.
+#    not on the tag of step 3. Read the new version DOI off the Zenodo record.
 
 # 6. the citation row, one commit after the tag
-#    CITATION.cff gains the version DOI from step 5.
-git commit -m "chore: the v0.18.0 archive row"
+#    CITATION.cff gains the version DOI from step 5, and the Owed line for
+#    v0.18.1 leaves the change log in the same commit.
+git commit -m "chore: the v0.18.1 archive row"
 
 # 7. confirm, rather than assume
 python scripts/check_release_published.py    # online is the default; --offline skips the network
 ```
 
-**STEP 4 IS THE ONE THAT WAS MISSED.** At v0.17.0 the tag was pushed, the
-package index served the wheel within minutes, and the release object was never
-created; the archive webhook fires on the release object rather than on the
-tag, so the release was archived NOWHERE for a day and the concept DOI went on
-resolving to the previous version. It was found by looking at the archive
-record rather than by any gate, because every gate this repository had asks
-its question BEFORE the push, and this failure happens after it.
+**STEP 4 WAS MISSED AT v0.17.0** and the release was archived nowhere for a day;
+**THE OWED LINE OF STEP 1 WAS MISSING AT v0.18.0** and its publish was skipped
+until a follow-up commit and a second tag run. Both are written into the
+sequence rather than remembered, because a fast release is exactly when a step
+gets skipped.
 
-That is why `scripts/check_release_published.py` now exists and why step 7 is
-part of the sequence rather than a thing someone remembers: a tag is RELEASED
-when the release object exists at that tag AND the archive has minted a version
-DOI that `CITATION.cff` records, and anything less is a tag.
+A tag is RELEASED when the release object exists at that tag AND the archive
+has minted a version DOI that `CITATION.cff` records; anything less is a tag.
+`scripts/check_release_published.py` asks both halves.
 
-## What is true of the tree right now
+## What is true of the tree at the release commit
 
 Every number below comes from a command run at the moment this file was
 written, and the command is beside it.
 
 | what | command | reading |
 |---|---|---|
-| the tier-1 suite | `python -m pytest tests/tier1_offline` (four slices) | 3992 passed, 7 skipped |
+| the tier-1 suite | `python -m pytest tests/tier1_offline` (eight slices) | 4082 passed, 6 skipped |
 | the type checker | `python -m mypy src/pyflightstream tests/tier3_licensed/rotation_null.py` | Success, no issues in 85 source files |
 | the linter | `python -m ruff check src tests scripts tools` | All checks passed |
-| the tier-3 suite | `python -m pytest -m needs_flightstream tests/tier3_licensed` | run on the seat on 26.123 |
-| the goal | `python GeoversePlan/goals/check_goal_020.py` | see the file; the exit condition is 10 of 10 |
+| the tier-3 suite | `python -m pytest -m needs_flightstream tests/tier3_licensed` | not run for this patch: nothing in it spends a seat, and a seat is the owning seat's to spend |
+| the goal | `python GeoversePlan/goals/check_goal_021.py` | the exit condition is 10 of 10 |
 
 ## What this release carries
 
-The change log's `[0.18.0]` section is the record and is not restated here.
+The change log's `[0.18.1]` section is the record and is not restated here.
 In one line each:
 
-- **collect-and-post**, a stage that watches the WORKSPACE rather than the
-  scheduler and fires on presence AND settled.
-- **RESTART**, in all three forms, with the replaced outputs archived into
-  day-and-hour stamped folders.
-- **the twelve deprecations**, which never fell due, corrected BESIDE the
-  entry that got it wrong rather than by editing it.
-- **the four board rows the owning seat ruled on**, two of them run on the
-  licensed seat.
-- **the living physics report**, generated, beginning at 26.123.
-- **the release-published check**, which is the subject of this file.
-
-## One thing to know before the tag
-
-**v0.14.0 IS NOT CITABLE AND HAS NOT BEEN SINCE IT SHIPPED.** `CITATION.cff`
-carries no archive row for it; the change log's Owed section has declared this
-since 2026-09-10 and it was last measured against the archive's own API that
-day. This release's new `scripts/check_release_published.py` is what turned a
-declared debt into a reported one: its window is one release wide, so a tag
-whose row is still owed after a newer tag has shipped now FAILS rather than
-sitting inside an open-ended exemption.
-
-It could not be resolved while this work was done, and the reason is stated
-rather than left as a gap: the archive service answered `504 Gateway Time-out`
-to every request, including for a record known to exist. So the DOI could not
-be read back. **It does not block this tag** and nothing here depends on it;
-it is a separate repair, and it is one command once the service answers:
-
-```
-python scripts/check_release_published.py            # names the tag and the claim
-# then read the v0.14.0 version DOI off the Zenodo record and add its row
-```
+- **a swept row submits every point**, each running in its own datapoint
+  folder, collected there;
+- **the HPC profile's `[builds]` table**, naming a build the way its scheduler
+  does;
+- **a repeated POL is found in every matrix of a workspace**, and
+  `plan --update-ids` renumbers the planned matrix;
+- **a cited probe survey reaches the solver**, and a continuation opens the
+  saved simulation it continues and runs under the campaign that stopped;
+- **four message fixes** and a guard against messages that promise a release
+  already out.
 
 ## What is NOT done, and is not being hidden
 
-- **The tag.** The owning seat's.
-- **Whether the ninety-four rows extracted to GEO-049 matter to Geoverse.**
-  The owning seat's, and the report ends without answering it.
+- **The swept row on a real cluster.** Proved against a submitting executor
+  that calls no scheduler; the first real submission is the owning seat's.
+- **Which build a cluster starts under a family name.** The `[builds]` table
+  declares it; only a collected log shows it.
+- **Retrying a failed continuation.** A failed one is refused by name, and its
+  stop's saved simulation is kept under the point's `archive/`.
+- **v0.14.0 is still not archived**, carried in the change log's Owed section.
 - **Whether the solver's stop verb inside an action's script ends the RUN or
-  only that script.** Still unmeasured; it needs a licensed probe that moves
-  one thing, and no probe in this release moved one thing.
-- **Whether a continuation's numbers are physically continuous** rather than
-  merely recorded as such. The run record says a continuation happened; no
-  measurement in this release says the march is smooth across the seam.
+  only that script** is still unmeasured, carried from 0.18.0.
