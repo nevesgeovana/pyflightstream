@@ -7,6 +7,37 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Corrected
+
+- **The v0.17.0 entry above says twelve deprecations fell due and moved to
+  0.18.0. They did not fall due, because they were never promises, and the
+  correction is written here rather than by editing that entry.**
+  WHAT IT SAID: "Twelve deprecations fell due at 0.17.0 and every one of them
+  moves to 0.18.0, on a re-count", with a measurement of 39 files still
+  stating one of them and the residual that "the deadline test goes red at
+  0.18.0 whatever the count is".
+  WHAT IS TRUE, measured on the tree at 0.18.0.dev0: the twelve live in
+  `REFUSED_IN_0_15_0`, which is deliberately OUTSIDE the `DEPRECATIONS` tuple
+  the tier-1 deadline guard reads, and the module says why in its own words:
+  they were written in 0.15.0 before 0.15.0 shipped, so nobody ever had a
+  workspace that was told the old spelling would keep working, and there is no
+  shim left for the guard to watch expire. **The spellings are REFUSED today
+  and have been since 0.15.0.** Exercised on this tree: a row stating
+  `RPM_SIGN` beside `RPM` is refused by name with the replacement given. So
+  there was never a deadline for the guard to enforce, nothing to remove at
+  0.18.0, and the sentence promising the test would go red was describing a
+  mechanism that does not watch these entries.
+  WHAT THE 39 COUNTED: files whose spellings already do not run. Two counting
+  defects inflated it to 39 where the corrected walk reads 17, and the
+  corrected script is committed; but the deeper point is that the count was
+  never the deadline's input, because the deadline does not exist for these
+  entries.
+  WHAT REMAINS TRUE OF THAT PARAGRAPH: the remedy it gives a reader is right.
+  Write the `MOTIONS` record form and put the aliases and frames on the
+  reference artifact. And `broken_commands`, which IS a promise and IS
+  watched, is extended on its measurement rather than removed on its date, as
+  that entry has always said.
+
 ### Added
 
 - **A submitted job's outputs are collected when they land, and then posted.**
