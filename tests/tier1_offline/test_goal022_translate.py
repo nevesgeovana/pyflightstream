@@ -450,9 +450,19 @@ def test_goal022_order_a_motions_row_translates_then_rotates_then_moves(tmp_path
         "{DISTANCE: 0.05 / AXIS: PUSHER_SMRP-X / ALIAS: PUSHER}",
         "{ANGLE: 3 / AXIS: PUSHER_SMRP-Y / ALIAS: PUSHER}",
     )
+    case.pproc = PprocSpec(
+        plots=PlotsSpec(
+            groups=[ForcePlotGroup(name="HUB_{family}", frame="SMRP", families="PUSHER")],
+            parameters=["CL"],
+        )
+    )
     lines = lines_of(case)
     assert lines.index("NAME PUSHER_RMRP3") < _first(lines, "TRANSLATE_SURFACE_IN_FRAME")
     assert _last(lines, "SET_COORDINATE_SYSTEM_ORIGIN") < _first(lines, "ROTATE_SURFACE")
+    # The post-processing reads the frames where the transforms left them.
+    assert _last(lines, "ROTATE_COORDINATE_SYSTEM") < _first(
+        lines, "UNSTEADY_SOLVER_NEW_FORCE_PLOT"
+    )
     assert _last(lines, "ROTATE_SURFACE") < _first(lines, "CREATE_NEW_MOTION")
 
 
