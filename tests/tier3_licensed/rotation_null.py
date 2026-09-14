@@ -126,7 +126,16 @@ class Verdict:
     def check(self, what: str, expected: float, got: float, band: float | None = None) -> None:
         gap = abs(got - expected)
         limit = self.band if band is None else band
-        self.rows.append((what, expected, got, gap, gap <= limit))
+        # THE BAND IS INCLUSIVE AND IS GIVEN A HAIR OF SLACK, which the
+        # adversarial pass over this file found and which the run did not
+        # happen to hit. The sectional band is one unit in the last printed
+        # digit, and at a value of 108.1 that unit is 0.1: `108.2 - 108.1` is
+        # 0.10000000000000853 in binary floating point, so a difference of
+        # EXACTLY one quantum was refused as larger than one quantum. The run
+        # this file scored was unaffected because its only one-quantum case sat
+        # at 2093, where the quantum is 1.0 and exactly representable, which is
+        # precisely why a green run is not evidence that a band is right.
+        self.rows.append((what, expected, got, gap, gap <= limit * (1 + 1e-9)))
 
     @property
     def agrees(self) -> bool:
