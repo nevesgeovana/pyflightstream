@@ -118,3 +118,9 @@ tests/tier3_licensed/archive/
 tests/tier3_licensed/runs.json
 tests/tier3_licensed/plan.json
 tests/tier3_licensed/sweep.csv
+# The workspace's own measurement reports, written by `post` beside post/ and
+# sims/ (post/superfile.py REPORTS_DIR). Ignored for the same reason as those:
+# it is what a run on this machine left. It appeared untracked for the first
+# time on 2026-09-13 because no earlier tier-3 run had written one, which is
+# why the rule is added rather than having been here all along.
+tests/tier3_licensed/reports/

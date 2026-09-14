@@ -1,0 +1,75 @@
+# p006: what the rotation null test of PFS-2034.05 has to read.
+#
+# THE TEST IS AN INVARIANCE, so this artifact is chosen for what stays the
+# same rather than for what is interesting. Turn the whole model by an angle
+# and turn the freestream by the same angle, and the physical problem has not
+# changed; every output below is then predictable in advance, and each one is
+# predictable in a DIFFERENT way, which is why there are three blocks and not
+# one:
+#
+#   TOTAL at MRP     CL and CD are defined against the FREESTREAM, so they
+#                    come back IDENTICAL. FX, FY, FZ are in the global frame
+#                    and the global frame did not turn, so they come back
+#                    ROTATED by the angle, exactly. A run where CL matched
+#                    and the force vector did not rotate would mean the mesh
+#                    never turned at all.
+#
+#   HUB_PUSHER at    The rotor's own frame TURNED WITH THE ALIAS that owns
+#   SMRP             it, so in that frame every component comes back
+#                    IDENTICAL, force and moment alike. This is the block
+#                    that fails if the rotation moved the blades and left
+#                    their axes behind.
+#
+#   sections at      The blade's own pressure distribution, per blade, in the
+#   LOCAL_AXIS       blade's frame: IDENTICAL. It is the finest of the three
+#                    and the last to agree if the rotation is nearly right.
+#
+# THE MOMENT PARAMETERS ARE ALL THREE, deliberately. The reference puts the
+# moment point ON the rotation centre so the moments are invariant too, and a
+# moment that is not invariant when the forces are is the way that mistake
+# would show.
+
+[groups]
+"1" = ["airframe", "rotors"]
+"2" = ["airframe"]
+"3" = ["rotors"]
+
+[exports]
+
+[sections]
+count = 20
+plot_direction = 1
+include_symmetry = false
+
+[[sections.distributions]]
+# ONE PER BLADE, in that blade's own frame.
+families = "rotors"
+frame = "LOCAL_AXIS"
+planes = ["XZ"]
+
+[plots]
+parameters = ["CL", "CD", "FX", "FY", "FZ", "MX", "MY", "MZ"]
+
+[[plots.groups]]
+# ONE emission over the whole model, in the moment frame, which this
+# reference puts at the hub.
+name = "TOTAL"
+frame = "MRP"
+families = "all"
+
+[[plots.groups]]
+# ONE PER ROTOR, in the hub frame that turned with the alias.
+name = "HUB_{family}"
+frame = "SMRP"
+families = "rotors"
+
+[[plots.groups]]
+# ONE PER ROTOR, in the frame that turns with the MOTION.
+name = "TURNING_{family}"
+frame = "RMRP"
+families = "rotors"
+
+[products]
+polars = true
+sections = true
+plots = true

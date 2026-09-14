@@ -76,6 +76,7 @@ from pyflightstream.cases import BoundaryAliases, RawCommand
 from pyflightstream.script.solver_setup import explicit_empty_selections
 from pyflightstream.workspace.inputs import (
     EXECUTABLES_FILE,
+    GEOMETRIES_README,
     INPUT_KINDS,
     KIND_LETTERS,
     GeometryMigration,
@@ -272,6 +273,51 @@ _SIM_SUBDIRS = ("inputs", "scripts", SIM_DATAPOINTS_DIR)
 
 # Comment-only template written by init when no registry exists yet;
 # didactic: shows the entry shape without registering a fake build.
+#: PFS-2032.07. Written into `inputs/geometries/` by `init`, because that is
+#: where a user looking for somewhere to put a mesh is already standing.
+_GEOMETRIES_README = """\
+# Where a mesh goes
+
+**One folder per mesh, named for the mesh:**
+
+    inputs/geometries/30_WB/30_WB.fsm
+    inputs/geometries/30_WB/30_WB.boundaries.toml
+
+A matrix row still writes the FILE name in its `GEOMETRY` cell, `30_WB.fsm`,
+and the workspace looks in the folder of that name. The cell does not change
+when a library is laid out this way.
+
+## Why the folder, and not the file on its own
+
+A mesh brings a sidecar with it: `pyfs-matrix inventory` reads the boundary
+order out of the saved simulation and writes `<stem>.boundaries.toml` beside
+it, and a run whose sidecar disagrees with its mesh is refused before the
+solver starts. One folder keeps the pair together.
+
+**And it is how a restricted mesh enters a workspace without being copied.**
+A hard link or a junction into `inputs/geometries/<stem>/` puts the file
+where the row expects it while the bytes stay wherever they are allowed to
+live. A copy of a large mesh per workspace is the cost this layout removes.
+
+## A flat library still works
+
+`inputs/geometries/30_WB.fsm` resolves exactly as it always did; nothing here
+breaks a workspace written before this layout existed. To move one over:
+
+    pyfs-workspace migrate-geometries .
+
+It moves each `inputs/geometries/<stem>.<ext>` into `inputs/geometries/<stem>/`
+and leaves a folder that is already one alone. The `GEOMETRY` cells of every
+matrix keep working, because they name the file and not the path.
+
+## What is not kept here
+
+The mesh itself, usually. A `.fsm` is large and this repository's own
+workspaces keep theirs outside version control; what a shared workspace keeps
+is the boundary sidecar, which is small, readable, and the thing a reviewer
+needs in order to check a row's family names without the mesh.
+"""
+
 _EXECUTABLES_TEMPLATE = """\
 # FlightStream build registry of this workspace (one entry per build).
 #
@@ -1479,6 +1525,17 @@ class CampaignWorkspace:
         registry = workspace.inputs_dir / EXECUTABLES_FILE
         if not registry.exists():
             registry.write_text(_EXECUTABLES_TEMPLATE, encoding="utf-8")
+        # PFS-2032.07, and it is the owner's own instruction of 2026-09-13:
+        # the per-mesh folder is the layout, AND THE USER HAS TO BE TOLD. A
+        # layout nobody is told about is a layout nobody uses, which is why
+        # `migrate-geometries` existed for two releases and her own newest
+        # workspaces adopted the layout only after she asked for it by hand.
+        # The page is written where a user looking for somewhere to put a
+        # mesh will already be standing.
+        geometries = workspace.inputs_dir / "geometries"
+        readme = geometries / GEOMETRIES_README
+        if not readme.exists():
+            readme.write_text(_GEOMETRIES_README, encoding="utf-8")
         check_unique_stems(workspace.inputs_dir)
         return workspace
 

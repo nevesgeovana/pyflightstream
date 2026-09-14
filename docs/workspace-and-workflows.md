@@ -522,6 +522,8 @@ and everything that belongs to that geometry sits with it:
 
 ```text
 inputs/geometries/
+  README.md                    written by `init`: the page below, in the
+                               folder a user looking for one is standing in
   30_WB.fsm                    flat: the cell reads GEOMETRY: 30_WB.fsm
   30_WB.boundaries.toml
   31_TAIL/                     one folder per geometry: the same cell,
@@ -529,6 +531,15 @@ inputs/geometries/
     31_TAIL.boundaries.toml
     31_TAIL.provenance.toml
 ```
+
+**`pyfs-workspace init` writes `inputs/geometries/README.md`** and says there what this
+section says here: the per-mesh folder, that a flat library still resolves,
+that the sidecar travels with the mesh, and the one command that moves a
+library over. It is written where somebody about to drop a mesh in is already
+looking, because `migrate-geometries` existed for two releases and the layout
+it exists for was adopted only after a user asked for it by hand. A second
+`init` does NOT overwrite it, so a workspace that has edited the page keeps
+what it wrote.
 
 The package looks in `geometries/<stem>/` first and at
 `geometries/<file>` second, so no matrix written since v0.11.0 changes
@@ -1726,7 +1737,7 @@ matrix of a workspace states its own POLs; renumber the rows of one of the two.
 ```
 
 The tier-3 workspace of this repository, `tests/tier3_licensed`, is the
-worked example: seven matrices, one library, one manifest, and a thousands
+worked example: nine matrices, one library, one manifest, and a thousands
 digit per matrix in their POLs.
 
 ### One row, several rotors

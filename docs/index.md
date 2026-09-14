@@ -51,8 +51,8 @@ that script. Settling it needs a licensed probe that moves one thing.
 job to the scheduler and returns without waiting, and the record is
 `SUBMITTED`. The setup artifact stays multiplatform, so the same matrix,
 unchanged in every cell, runs locally on Windows and submits on Linux, and
-`NCPUS` is one number for both. **This release has no collect stage**, so a
-submitted job's outputs are collected by hand until 0.18.0.
+`NCPUS` is one number for both. **v0.17.0 had no collect stage**, so a submitted
+job's outputs were collected by hand; 0.18.0 added `pyfs-matrix collect`.
 
 **v0.16.0 was the sweep release.** A surface-section distribution is created
 AFTER the solver is initialised; created before, the distribution returns the
@@ -309,7 +309,7 @@ added, never dropped.
   executed test, and it states what is NOT built as plainly as what is.
 * [The test tiers and the licensed workspace](tiers.md): the three
   folders of the suite and what each proves, and `tests/tier3_licensed`,
-  which IS a campaign workspace: seven matrices over one synthetic library,
+  which IS a campaign workspace: nine matrices over one synthetic library,
   every capability of the matrix as a row, one test per row, and the qa
   physics cases judged against their references through the workflow.
 * [The numeric settings codebook](settings-codebook.md): the frozen
@@ -357,7 +357,7 @@ The three QA tiers behind the statuses:
   validity on a licensed machine; reports live under `reports/compat/`
   and statuses are promoted only from them.
 * Tier 3 (`tests/tier3_licensed`) is a campaign workspace run on the
-  licensed machine: seven matrices over a synthetic library, the qa
+  licensed machine: nine matrices over a synthetic library, the qa
   physics cases among them judged against `qa/references/`; the
   cross-version drift suite (`pyfs-qa`) writes under `reports/physics/`.
   [The tiers page](tiers.md) walks it.

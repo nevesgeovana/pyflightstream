@@ -79,6 +79,44 @@ FlightStream versions.
   the EXISTING row rather than on the new one, which is what stops this
   becoming the general-purpose rewrite `append_record` exists to prevent.
 
+### Fixed
+
+- **The geometry library's own instruction page is not a geometry.**
+  `pyfs-workspace init` now writes `inputs/geometries/README.md`, saying where
+  a mesh goes (one folder per mesh, named for the mesh), that the `GEOMETRY`
+  cell does not change, that the boundary sidecar travels with the file, and
+  the one command that moves a flat library over. It is written into the
+  folder somebody about to drop a mesh in is already looking at, because
+  `migrate-geometries` existed for two releases and the layout it exists for
+  was adopted only after a user asked for it by hand. A second `init` leaves
+  an edited page alone.
+  TWO DEFECTS CAME WITH IT AND BOTH ARE FIXED HERE, found by existing tests in
+  the same session and worth naming because they are one mistake made twice: a
+  file in that folder was assumed to be a mesh. The resolver offered
+  `README.md` in the list of what the library holds, so a user who mistyped a
+  mesh name was shown the instruction page as a file they might have meant;
+  and `migrate-geometries` filed the page under `geometries/README/`, which
+  both hid it from its reader and left a folder the resolver reads as a
+  geometry's home.
+
+- **The mesh rotation of `ROTATE` is measured on the solver, as a null test.**
+  `tests/tier3_licensed/matriz_rotate.fs` turns a full two-blade wheel and its
+  spinner by six degrees about a fixed hub frame and gives the flow the
+  opposite angle, so the physical problem is unchanged and the answer is known
+  exactly before the solver runs. `reports/RPT-047` is the committed evidence
+  and `python -m tests.tier3_licensed.rotation_null` is the measurement.
+  IT HOLDS ACROSS 209 COMPARISONS OF FOUR KINDS, worst gap 5.6e-06 against a
+  band of 5e-04: the wind-axis coefficients are invariant, the global force
+  and moment vectors come back rotated by exactly the stated angle, the
+  per-step series agrees step by step, and the sectional loads in the blade's
+  own frame agree to the last digit that export prints.
+  AND A THIRD ROW EXISTS TO FAIL. It turns the flow the SAME way as the mesh,
+  meets the propeller at twelve degrees, and differs on every one of the four
+  checks, so the test is shown to discriminate rather than merely to accept.
+  The pair also settled a convention nobody had measured: with the mesh turned
+  +6 degrees about the hub frame's Y axis, `SOLVER_SET_AOA -6.0` is what
+  restores the uniform flow.
+
 ### Owed
 
 - **The Zenodo archive of v0.14.0 did not exist when it was last measured**,

@@ -73,22 +73,23 @@ The package reads that overlay over the registry, so every row runs on
 the build its `FS_BUILD` cell names and nothing is passed on the command
 line but the matrix and the workspace.
 
-### The seven matrices
+### The nine matrices
 
 | Matrix | What it is | Rows |
 |---|---|---|
 | `matriz.fs` | the tour: every column, every key, every run type, every input kind | 1001 a steady polar with the fluid pins from the setup; 1002 the half wing mirrored with velocity and density on the row; 1003 a sideslip sweep at altitude on a hot day; 1004 a combined sweep with every pin on the row; 1005 the body detecting its base on the second build; 1006 an inactive row; 1010 and 1011 the rotorless unsteady clock in seconds and in azimuth; 1020 one blade under periodic symmetry; 1021 the installed pusher with a signed RPM and its hub by a point; 1022 two rotors from a MOTIONS list; 1090 a LEGACY row naming its recipe in the cell |
-| `matriz_setup.fs` | one point, four presets | 2001 the tour preset, 2002 tighter and longer, 2003 incompressible without stabilization, 2004 the tour preset plus one raw line (booked for the licensed seat, not yet run) |
+| `matriz_setup.fs` | one point, four presets | 2001 the tour preset, 2002 tighter and longer, 2003 incompressible without stabilization, 2004 the tour preset plus one raw line, RUN on the seat on 2026-09-13: the solver took the raw `SOLVER_SET_ITERATIONS 350` over the preset's own 300, and the record and the provenance both carry the line with `s008` as its source |
 | `matriz_vocab.fs` | the 0.15.0 vocabulary, on the twin geometry | 8001 a rotor named by alias, 8002 two rotors at two speeds from ONE advance ratio, 8003 one rotor held while the other sweeps, 8004 a rotation citing an alias and keeping the frame it turned from, 8005 a raw solver command the row states itself. It is the workspace the getting-started walkthrough sends a reader to copy, so its files are written to be read: `r006.toml` and `p005.toml` state the same aircraft as `r004.toml` and `p003.toml` in the newer vocabulary, and the two pairs are kept side by side so the difference can be diffed rather than described |
 | `matriz_time.fs` | one rotor at six step sizes, 30 down to 2.5 deg, one wing at two | 3001 to 3006, 3010 and 3011 |
 | `matriz_geometry.fs` | one condition, four shapes | 4001 the wing, 4002 its mirrored half, 4003 the body, 4004 the wing with its boundary renamed before the save (RPT-044) |
 | `matriz_physics.fs` | the qa physics cases as rows | 5001 PHY-01, 5002 and 5003 PHY-02, 5005 PHY-05, 5006 PHY-06 |
 | `matriz_actions.fs` | the unsteady solver actions | 6001 on 26.123, RPT-041 the script-action re-read probe; 6002 the `unsteady` type exporting after iteration 4 of 8 through the two actions of PFS-2031.18, RPT-045 |
 | `matriz_builds.fs` | one rotor row per build this machine holds | 7001 on 26.120 and 7002 on 26.123, RPT-043 the thirteen solver-setting emitters of the rotor path |
+| `matriz_rotate.fs` | the rotation null test of the whole wheel (RPT-047) | 9001 the isolated two-blade propeller square to a uniform axial flow; 9002 the same model turned 6 deg about the hub and the flow turned 6 deg THE SAME WAY, which is the derangement and must disagree; 9003 turned 6 deg with the flow turned back, which is the null pair and agrees with 9001 across 209 comparisons |
 
 Each matrix keeps its own `plan.json`, `campaign_sweep.csv` and products under
 `post/<matrix stem>/` (PFS-2031.04); `runs.json` holds every point of
-all seven.
+all nine.
 
 ### Running it
 

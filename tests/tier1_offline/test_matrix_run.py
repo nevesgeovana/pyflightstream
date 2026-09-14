@@ -2651,6 +2651,14 @@ def test_the_geometry_refusal_carries_its_structured_attributes(tmp_path):
     ``InputArtifactError`` carries ``kind``, ``artifact_id`` and
     ``available`` for exactly that, and re-raising with the row is where
     those get dropped.
+
+    AND ``available`` IS ASSERTED AS THE WHOLE TUPLE, not by membership,
+    which is the half that earned its keep on 2026-09-13. `init` began
+    writing an instruction page into the geometry library that day
+    (PFS-2032.07) and the resolver offered it as a mesh a GEOMETRY cell
+    could name: the list a user reads after mistyping a mesh name would
+    have suggested the readme as the file they meant. A membership
+    assertion would have stayed green through that; this one did not.
     """
     workspace = make_library(tmp_path, register_build=("26.120", "C:/fs/FS.exe"))
     stage_geometry(workspace, "wing_clean.fsm")

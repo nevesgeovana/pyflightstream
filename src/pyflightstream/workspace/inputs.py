@@ -1569,13 +1569,22 @@ def _staged_geometries(directory: Path) -> dict[str, Path]:
     a flat sidecar is left out by its suffix for the same reason. The
     folder is read first: a file in it stands in front of a flat file of
     the same name, which is the order the reading states.
+
+    AND THE FOLDER'S OWN README IS NOT A GEOMETRY. ``init`` writes one
+    there (PFS-2032.07), and without this the refusal that lists what the
+    library holds offered it as a file a GEOMETRY cell could name. That is
+    not cosmetic: the list exists to be read by somebody who has just
+    mistyped a mesh name, and a refusal that suggests the instruction page
+    as the thing they meant is worse than one that lists nothing. Caught
+    by an existing test asserting the whole tuple, which is why it is
+    asserted as the whole tuple.
     """
     if not directory.is_dir():
         return {}
     found: dict[str, Path] = {}
     for entry in sorted(directory.iterdir()):
         if entry.is_file():
-            if not _is_sidecar(entry.name):
+            if not _is_sidecar(entry.name) and entry.name != GEOMETRIES_README:
                 found.setdefault(entry.name, entry)
         elif entry.is_dir():
             for path in sorted(entry.iterdir()):
@@ -2054,6 +2063,12 @@ PROVENANCE_SUFFIX = ".provenance.toml"
 #: themselves: the resolver leaves them out of what a cell could name and
 #: the layout migration moves them with their geometry (PFS-2032.05).
 SIDECAR_SUFFIXES = (INVENTORY_SUFFIX, PROVENANCE_SUFFIX)
+#: The page ``init`` leaves in the geometry library saying where a mesh goes
+#: (PFS-2032.07). It lives HERE, beside the suffixes, rather than beside the
+#: text it names, because the resolver and the writer are the two ends of one
+#: spelling: the resolver must leave this file out of what a GEOMETRY cell
+#: could name, and a second spelling of it is how that stops being true.
+GEOMETRIES_README = "README.md"
 
 
 def inventory_sidecar(geometry: str | Path) -> Path:
@@ -2224,7 +2239,12 @@ def migrate_geometry_layout(inputs_dir: str | Path) -> GeometryMigration:
     created: set[Path] = set()
     moved: list[tuple[Path, Path]] = []
     for entry in entries:
-        if not entry.is_file() or _is_sidecar(entry.name):
+        # THE LIBRARY'S OWN README IS NOT A GEOMETRY and is left where it is.
+        # `init` writes one here (PFS-2032.07), and without this line the
+        # migration filed the instruction page under `geometries/README/`,
+        # which both hides the page from the person it was written for and
+        # creates a folder the resolver then reads as a geometry's home.
+        if not entry.is_file() or _is_sidecar(entry.name) or entry.name == GEOMETRIES_README:
             continue
         folder = directory / entry.stem
         if folder.exists() and folder not in created:

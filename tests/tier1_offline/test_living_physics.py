@@ -14,6 +14,7 @@ both sides: a build below it is left out even when its evidence is present.
 
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -64,6 +65,10 @@ def test_goal020_physics_report_is_current():
         capture_output=True,
         text=True,
         timeout=300,
+        # EXPLICIT, and a copy rather than the object: an inherited
+        # environment carries whatever the runner injected, and the
+        # repository's spawn ratchet counts a call without this keyword.
+        env=os.environ.copy(),
     )
     assert result.returncode == 0, result.stdout + result.stderr
 

@@ -36,7 +36,15 @@ def test_a_row_carrying_a_raw_command_records_it(runs):
     plus one raw line before init, SOLVER_SET_ITERATIONS 350 over the preset's 300.
     The solver's own loads spreadsheet says which it took, the record carries the
     line, and the provenance carries it on the solver run. Skips with its reason
-    until the row has run."""
+    until the row has run.
+
+    RAN ON 2026-09-13, on the owner's seat, on build 26.123. The expectation
+    below carries ``source`` because the model gained that field in FR-67 after
+    this test was written, and the run is what said so: the assertion held every
+    other key and failed on a key that did not exist when it was spelled out.
+    ``s008`` is the right value for a line the SETUP states; a line written in
+    the row's own cell reads ``matrix`` and a line read out of a file reads
+    ``<path>:<line number>``, which is the whole reason the field was added."""
     records = runs.of("matriz_setup", "2004")
     if not records:
         pytest.skip(
@@ -46,7 +54,12 @@ def test_a_row_carrying_a_raw_command_records_it(runs):
     assert record.status in TERMINAL_OK, (record.status, record.error)
     carried = [entry.model_dump(mode="json") for entry in record.raw_commands]
     assert carried == [
-        {"command": "SOLVER_SET_ITERATIONS 350", "before": "init", "setup": "s008"}
+        {
+            "command": "SOLVER_SET_ITERATIONS 350",
+            "before": "init",
+            "setup": "s008",
+            "source": "s008",
+        }
     ], carried
     script = runs.script(record)
     texts = script.splitlines()

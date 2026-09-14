@@ -1,0 +1,75 @@
+# THE ISOLATED PROPELLER, for the rotation null test of PFS-2034.05.
+#
+# It opens 40_PUSHER.fsm, whose `Blade1` is a FULL WHEEL: the recipe's
+# `two_blade_rotor` meshes two blades 180 degrees apart, so the whole azimuth
+# is there and nothing is a periodic copy. `Body` and `Base` are the spinner
+# it turns on. That is the owner's own words for this round, on 2026-09-13:
+# take a full wheel, rotate the whole isolated propeller, give the opposite
+# angle of attack so the flow stays uniform on it, and see whether every
+# output still makes sense.
+#
+# WHY THIS FILE EXISTS BESIDE r004, which already serves 40_PUSHER. r004 is
+# kept deliberately as what a 0.14.0 workspace looks like, and it is diffed
+# against r006 by a reader learning the newer vocabulary; editing it would
+# destroy that. This one is the 0.15.0-and-after vocabulary for the same
+# mesh, and it differs from r004 in exactly two ways a reader should see.
+#
+# THE MOMENT POINT IS THE HUB, and that is the first difference. r004 puts it
+# at the body's midpoint, which is the right choice when the body is the
+# aircraft. Here the rotation of the null test turns the mesh ABOUT the hub,
+# and a moment reference that does not sit on the rotation centre moves
+# relative to the model when the model turns: the forces would still be
+# invariant and the moments would not, and the test would report a defect in
+# the rotation machinery that was really an artefact of where the moments
+# were taken. The invariance being measured is a property of the physics, so
+# nothing in the setup may break it for an unrelated reason.
+#
+# THE FRAME `HUB` IS THE SECOND, and it is declared rather than derived. A
+# rotation's AXIS token resolves against the frames this reference declares,
+# and it must NOT be one of the frames the PUSHER rotor owns: those turn with
+# the alias that owns them, and an axis that turns between the first rotation
+# and the second is not the same axis twice. `HUB` is nobody's, so both
+# records of the null row turn about one fixed line and the model turns
+# rigidly.
+
+area_m2 = 10.507   # SREF, m^2: pi x 1.8288^2, the rotor disk
+chord_m = 4.0      # CREF, m: the body length
+span_m = 3.6576    # BREF, m: the rotor diameter
+rotor_diameter_m = 3.6576
+
+# THE STUDY'S OWN WORDS. `airframe` is the spinner the propeller turns on and
+# is what the second rotation record of the null row turns; the blades are
+# the PUSHER block's own and are turned by naming the rotor. Together they
+# are every boundary the mesh carries, which is the point: the null test
+# turns the WHOLE model or it proves nothing.
+[aliases]
+airframe = ["Body", "Base"]
+# A GROUP OF ROTORS is a list of ROTOR NAMES, not of families. There is one
+# here, and it is written as a group anyway so the post-processing artifact
+# beside this file cites a rotor the way every other study does.
+rotors = ["PUSHER"]
+
+[moment_point]
+x_m = 4.5
+y_m = 0.0
+z_m = 0.0
+
+# A FIXED FRAME AT THE HUB, owned by no rotor. See the header: this is the
+# line both rotations of the null row turn about.
+[[frames]]
+name = "HUB"
+origin = [4.5, 0.0, 0.0]
+
+# THE PROPELLER. Same hub, axis and sign as r004 states for the same mesh,
+# in the block form the reference has carried since 0.15.0.
+[PUSHER]
+kind = "rotor"
+x_m = 4.5
+y_m = 0.0
+z_m = 0.0
+axis = "X"
+rpm_sign = -1
+diameter_m = 3.6576
+families_general = []
+families_blades = ["Blade1"]
+blade1 = { azimuth_deg = 0.0, zero = "Y" }

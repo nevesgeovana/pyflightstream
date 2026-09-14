@@ -2640,10 +2640,21 @@ def test_migrate_geometries_moves_a_flat_library_into_folders_once(tmp_path, cap
         "30_WB.provenance.toml",
     ]
     assert (geometries / "31_TAIL" / "31_TAIL.stl").is_file()
-    assert sorted(path.name for path in geometries.iterdir()) == ["30_WB", "31_TAIL", "40_DONE"], (
-        "a flat file survived the migration"
-    )
+    assert sorted(path.name for path in geometries.iterdir()) == [
+        "30_WB",
+        "31_TAIL",
+        "40_DONE",
+        # THE PAGE `init` WROTE STAYS A FILE, and stays here. It is asserted
+        # in position rather than merely allowed, because the first run of
+        # this test after `init` began writing it (PFS-2032.07) filed it
+        # under `geometries/README/`: the instruction page was hidden from
+        # the person it is written for, and the folder it left behind read
+        # to the resolver as a geometry's home.
+        "README.md",
+    ], "a flat file survived the migration, or the library's own page was moved"
+    assert (geometries / "README.md").is_file()
     assert "30_WB.fsm" in out and "30_WB.boundaries.toml" in out and "31_TAIL.stl" in out
+    assert "README" not in out, "the migration reports the library's own page as something it moved"
     assert "40_DONE" in out, "the folder left alone is not named"
     # The library reads as before, and the recorded hash still names the file.
     moved = workspace.resolve_geometry("30_WB.fsm")
@@ -2657,7 +2668,12 @@ def test_migrate_geometries_moves_a_flat_library_into_folders_once(tmp_path, cap
     assert workspace_cli(["migrate-geometries", str(root)]) == 0
     out = capsys.readouterr().out
     assert "nothing to move" in out
-    assert sorted(path.name for path in geometries.iterdir()) == ["30_WB", "31_TAIL", "40_DONE"]
+    assert sorted(path.name for path in geometries.iterdir()) == [
+        "30_WB",
+        "31_TAIL",
+        "40_DONE",
+        "README.md",
+    ]
 
 
 def test_migrate_geometries_refuses_a_root_without_a_library(tmp_path, capsys):

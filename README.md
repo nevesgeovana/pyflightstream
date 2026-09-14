@@ -78,9 +78,10 @@ descriptor, hands the job to the scheduler and returns without waiting, and the
 record is `SUBMITTED`. The setup artifact stays multiplatform and states nothing
 about a cluster, so the same matrix, unchanged in every cell, runs locally on
 Windows and submits on Linux. `NCPUS` is ONE number for both: what the solver is
-told and what the scheduler is asked for. **This release has no collect stage**,
-so a submitted job's outputs are collected by hand until 0.18.0, and that is
-said here because a reader planning a cluster run owes the whole picture.
+told and what the scheduler is asked for. **v0.17.0 had no collect stage**, so a
+submitted job's outputs were collected by hand; 0.18.0 added `pyfs-matrix
+collect`, and that is said here because a reader planning a cluster run owes the
+whole picture.
 
 **What changes for you at v0.17.0.** The matrix layout breaks for the fifth
 time and `pyfs-matrix upgrade` converts it, carrying every cell it does not move
@@ -482,7 +483,7 @@ table is that boundary.
 |---|---|---|
 | Command database, script builder, version refusals | supported | tier 1 over every registered version; probe reports under `reports/` |
 | Parsers, tables, run manifest, reconstruction | supported | tier 1 on committed solver fixtures |
-| Campaigns, run matrices, workspace, pre-flight | supported | tier 1 end-to-end with a stub solver; tier 3 on the licensed machine, `tests/tier3_licensed`, a workspace of seven matrices with one test per row |
+| Campaigns, run matrices, workspace, pre-flight | supported | tier 1 end-to-end with a stub solver; tier 3 on the licensed machine, `tests/tier3_licensed`, a workspace of nine matrices with one test per row |
 | Far-field ledgers and probe surveys | **experimental** | tier 1 on synthetic fields; the licensed far-field acceptance work is deferred, not done |
 | FSI structural beam and modal analysis | **experimental** | tier 1 against analytic beam solutions; `examples/wing_static_deflection.py`, `examples/fsi_campbell_diagram.py` |
 | FSI coupled driver (the four-phase loop) | **experimental** | tier 1 offline replay on archived WP1 fixtures only; never run against a live solver in CI |
