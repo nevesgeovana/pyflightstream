@@ -9,17 +9,16 @@ FlightStream versions.
 
 ### Owed
 
-- **The v0.18.0 archive row is OWED in CITATION.cff.** A version DOI is minted
-  from the GitHub RELEASE OBJECT, so the identifier is recorded ONE COMMIT
-  AFTER the tag that names it; this is that window, and the section says the
-  row is owed rather than leaving a shipped release quietly uncitable. Cite
-  v0.18.0 by the concept DOI until it lands: it resolves to the newest
-  archived version.
-
-- **The Zenodo archive of v0.14.0 did not exist when it was last measured**,
-  against Zenodo's own API on 2026-09-10, and it has NOT been re-checked
-  since; the date is carried because this is a claim about an external
-  service and a reader needs to know what to re-run.
+- **The Zenodo archive of v0.14.0 DOES NOT EXIST**, re-measured against
+  Zenodo's own API on 2026-09-14, when the v0.18.0 archive row was paid: the
+  concept record lists NINETEEN archived versions and v0.14.0 is not among
+  them. The earlier reading of 2026-09-10 said the same and could not be
+  confirmed for four days because the service was answering 504; it is
+  confirmed now, so this is a fact about the archive rather than about its
+  availability.
+  THE RELEASE OBJECT FOR v0.14.0 EXISTS, published 2026-09-09, so the webhook
+  had what it needs and the archive still has no version for it. Whatever
+  failed, it failed silently, and re-triggering it is the repair.
   Until that row lands this section says so, because a shipped release that
   quietly stops being citable is the gap PFS-2024.09 is about. Cite that
   release by the concept DOI, which resolves to the newest archived version.
