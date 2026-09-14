@@ -2328,14 +2328,27 @@ class CampaignWorkspace:
         # call claim a file an EARLIER run had already collected there, which
         # `test_collect_refuses_a_source_inside_a_managed_subdirectory` exists
         # to refuse. Any other managed folder is refused either way.
+        #
+        # AND BENEATH IT (the independent review of the 0.18.1 release): a job
+        # that runs in its datapoint folder writes a declared `out/loads.txt`
+        # into `DP-<tag>/out/`, which is still this point's own and is moved
+        # up into the folder like any output. Its `archive/` is not: that is
+        # evidence of an earlier run, and is refused like any managed folder.
         own = (sim / folder).resolve()
-        kept = (
-            {str(path) for path in produced if Path(path).resolve().parent == own}
-            if ran_in_datapoint
-            else set()
-        )
+        kept: set[str] = set()
+        beneath: set[str] = set()
+        if ran_in_datapoint:
+            for path in produced:
+                resolved = Path(path).resolve()
+                if resolved.parent == own:
+                    kept.add(str(path))
+                elif (
+                    resolved.is_relative_to(own)
+                    and ARCHIVE_DIR not in (resolved.relative_to(own).parts[:-1])
+                ):
+                    beneath.add(str(path))
         for path in produced:
-            if str(path) in kept:
+            if str(path) in kept or str(path) in beneath:
                 continue
             trespass = self._output_trespass(sim, Path(path))
             if trespass is not None:

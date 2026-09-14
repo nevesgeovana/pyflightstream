@@ -195,3 +195,38 @@ def test_goal021_build_alias_a_profile_that_never_writes_it_is_untouched(tmp_pat
     assert profile.builds == {}
     assert _unmapped_build_refusal(profile, ["26.120", "26.123"]) is None
     assert 'version: "26.123"' in _render(tmp_path, profile)
+
+
+def test_goal021_build_alias_a_callers_own_submitting_executor_is_refused_up_front(
+    tmp_path, monkeypatch
+):
+    """The independent review: a passed executor skipped the campaign-wide refusal."""
+    from pyflightstream.workspace.inputs import read_hpc_profile
+
+    workspace, matrix = _two_build_cluster(tmp_path, monkeypatch, documented_profile())
+    executor = SubmittingExecutor(
+        read_hpc_profile(workspace.inputs_dir / "hpc" / "h001.toml"),
+        values={"fs_build": "26.120"},
+        submit=False,
+    )
+    import warnings
+
+    from pyflightstream.cases.workflows import workflow_registry
+    from pyflightstream.run.matrix import run_matrix
+    from tests.tier1_offline.test_matrix_run import RECIPES, converged
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        with pytest.raises(InputArtifactError, match=r"maps no alias for build\(s\) 26\.120"):
+            run_matrix(
+                matrix,
+                workspace,
+                name="cluster",
+                default_fs_version="26.120",
+                recipes=RECIPES,
+                recipe_registry=workflow_registry(),
+                assess=converged,
+                executor=executor,
+            )
+    assert _descriptors(workspace) == [], "a descriptor was written before the refusal"
+    assert workspace.read_manifest() == [], "a point was recorded before the refusal"

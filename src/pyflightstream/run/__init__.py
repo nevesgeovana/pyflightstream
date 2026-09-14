@@ -4763,6 +4763,27 @@ def resolve_continuation(
 _FAILED_STATUSES = tuple(status for status in RunStatus if status.name.startswith("FAILED_"))
 
 
+def _queued_record_of_point(
+    executor, workspace: CampaignWorkspace, sim_id: str, point: Mapping[str, float]
+) -> RunRecord | None:
+    """Return a SUBMITTED record of this simulation and point, or None.
+
+    Only a submitting executor is asked: a local point runs to its end before
+    the next one starts, so it never meets a job of its own still in a queue.
+    """
+    if not isinstance(executor, Submitting):
+        return None
+    tag = point_tag(dict(point))
+    for record in workspace.read_manifest():
+        if (
+            record.sim_id == sim_id
+            and record.run_id.endswith(f"/{tag}")
+            and record.status is RunStatus.SUBMITTED
+        ):
+            return record
+    return None
+
+
 def _restart_point_is_pending(latest: RunRecord | None) -> bool:
     """Whether a point of a RESTART row goes on to the continuation resolver.
 
@@ -4929,6 +4950,28 @@ def _execute_point(
         error = preparation_error or "recipe resolution failed"
         return RunRecord(**base, status=RunStatus.FAILED_SCRIPT, error=error)
 
+    # A POINT ALREADY IN A QUEUE IS NOT SUBMITTED AGAIN, and it is refused
+    # BEFORE ANY OF ITS FILES IS WRITTEN (the independent review of the
+    # 0.18.1 release). A submitted point runs in its datapoint folder, which
+    # carries no campaign name, so the same point submitted under another
+    # campaign landed in the queued job's folder and rewrote its script,
+    # descriptor, action files and clock while the stale-output check
+    # passed, because the queued job had written nothing yet. The guard is
+    # per simulation AND point: different points of one row still submit
+    # together, which is the refusal that was lifted and stays lifted.
+    queued = _queued_record_of_point(executor, workspace, case.sim_id, point)
+    if queued is not None:
+        return RunRecord(
+            **base,
+            status=RunStatus.FAILED_SCRIPT,
+            error=(
+                f"point {point_tag(dict(point))} of simulation {case.sim_id} is already in a "
+                f"scheduler's queue as {queued.run_id!r}, and a submitted point runs in its "
+                "own datapoint folder, which that job has not finished writing. Collect it "
+                "(pyfs-matrix collect) before submitting this point again; nothing of it was "
+                "written."
+            ),
+        )
     try:
         stem, outputs = _point_names(campaign, case, point, workspace)
     except NamingTemplateError as error:

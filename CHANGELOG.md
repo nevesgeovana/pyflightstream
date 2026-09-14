@@ -32,7 +32,9 @@ FlightStream versions.
   export script, the wall clock and its state, and the scheduler's descriptor.
   So a second point of a row is no longer refused while the first is queued,
   and `pyfs-matrix collect` waits for each point's outputs in that folder and
-  files them in place. The record's submission block names the folder as
+  files them in place, including an output declared in a subfolder of it. The
+  SAME point is still not submitted again while a job of it is queued, under
+  any campaign name, and is refused before any of its files is written. The record's submission block names the folder as
   `working_dir`. A local run is unchanged and still runs in the simulation
   folder, and a steady row, which is one job over all its points, still
   submits one job from the simulation folder. Proved against a submitting
@@ -53,7 +55,8 @@ FlightStream versions.
   it with `{fs_build_alias}`, so the matrix cell stays the same on every
   machine. It is keyed by build because several builds can share one scheduler
   name. A profile that writes the substitution and maps no alias for a build a
-  row names is refused before any point is submitted; a key that is not one
+  row names is refused before any point is submitted, whether the platform chose
+  the submitting executor or a caller passed one; a key that is not one
   registered build is refused when the profile is read. THE TABLE IS A
   DECLARATION: nothing checks that the scheduler starts that build, which only
   the build number in a collected log shows. A profile that does not write the

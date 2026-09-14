@@ -71,21 +71,31 @@ def _cluster_executor(
     profile = resolve_hpc_profile(workspace.inputs_dir)
     if profile is None:
         return None
-    # PFS-2010.01.06, BEFORE ANY POINT IS SUBMITTED. A build the profile
-    # cannot name to its scheduler fails every point of its rows the same
-    # way, so it is refused for the whole campaign here rather than at the
-    # first descriptor, after earlier rows have already spent the queue.
-    campaign = resolved.campaign
-    executor = SubmittingExecutor(
+    return SubmittingExecutor(
         profile,
         values={"fs_build": resolved.campaign.fs_version or ""},
     )
+
+
+def _refuse_an_unmapped_build(executor: Executor, resolved: ResolvedMatrix) -> None:
+    """Refuse, before any point is submitted, a build the profile cannot name.
+
+    PFS-2010.01.06. A build the profile's [builds] table does not map fails every
+    point of its rows the same way, so it is refused for the whole campaign
+    rather than at the first descriptor after earlier rows spent the queue.
+    ASKED OF WHATEVER EXECUTOR THE CAMPAIGN RUNS ON, the one the platform chose
+    or one a caller passed, and it lived inside the platform's branch only
+    until the independent review of the 0.18.1 release measured a caller's own
+    submitting executor submitting a first row before the refusal.
+    """
+    if not isinstance(executor, SubmittingExecutor):
+        return
+    campaign = resolved.campaign
     refusal = executor.build_alias_refusal(
         [case.fs_build or campaign.fs_version for case in campaign.sims]
     )
     if refusal is not None:
         raise InputArtifactError(refusal)
-    return executor
 
 
 __all__ = [
@@ -653,6 +663,7 @@ def run_matrix(
         # lenses found it independently (2026-09-13).
         submitting = _cluster_executor(workspace, resolved)
         executor = submitting or LocalExecutor(resolved.fs_exe, hidden=hidden)
+    _refuse_an_unmapped_build(executor, resolved)
     windowless = bool(hidden)
 
     def executor_for(exe: Path) -> Executor:
