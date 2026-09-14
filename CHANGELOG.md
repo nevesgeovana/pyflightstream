@@ -7,6 +7,18 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Owed
+
+- **The Zenodo archive of v0.14.0 did not exist when it was last measured**,
+  against Zenodo's own API on 2026-09-10, and it has NOT been re-checked
+  since; the date is carried because this is a claim about an external
+  service and a reader needs to know what to re-run.
+  Until that row lands this section says so, because a shipped release that
+  quietly stops being citable is the gap PFS-2024.09 is about. Cite that
+  release by the concept DOI, which resolves to the newest archived version.
+
+## [0.18.0] - 2026-09-14
+
 ### Corrected
 
 - **The v0.17.0 entry above says twelve deprecations fell due and moved to
@@ -39,6 +51,48 @@ FlightStream versions.
   that entry has always said.
 
 ### Added
+
+- **A row may state `RESTART` and the solver continues the march it stopped.**
+  v0.17.0 parsed the cell and refused to run it, naming this release. It runs
+  now, in all three forms, on HER OWN MEASUREMENT of the solver, quoted because
+  the whole design rests on it: the solver resumes an unsteady march from a
+  saved file, picks up where it stopped, and runs the new number of iterations
+  it is given.
+  SO THE STEP COUNT IS A REMAINDER AND NOT A TOTAL. The continuation asks for
+  what is LEFT, because the solver has already marched what it marched; a row
+  asking for the whole history again would re-run the part that is already on
+  disk and call the result a continuation. The time step is the row's own.
+  AND IT ARCHIVES WHAT IT REPLACES, into `archive/<day and hour>/` under the
+  datapoint's own folder, which is her decision of 2026-09-13: a point can be
+  continued more than once, so the archive is stamped rather than overwritten,
+  and it is per datapoint because every point has its own folder even under a
+  warm sweep. A continuation's run id is `<campaign>/sim_<id>/r<stamp>/<tag>`,
+  so the point tag still ENDS the run id, which is the invariant every existing
+  manifest rests on.
+
+- **A tag is not released until somebody releases it, and a script asks.**
+  `scripts/check_release_published.py` reads a tag as RELEASED only when the
+  release object exists at that tag AND the archive has minted a version DOI
+  that `CITATION.cff` records. It has an offline half a clone can run and an
+  online half that asks the two services.
+  IT EXISTS BECAUSE v0.17.0 WAS ARCHIVED NOWHERE FOR A DAY. The `Release`
+  workflow publishes to the package index on a tag; the release object is a
+  manual step, the archive webhook fires on that object and not on the tag, and
+  no gate saw the gap because every gate this repository had asks its question
+  BEFORE the push. The owner found it by looking at the site.
+
+- **The physics cases are compared across builds by a page that generates itself.**
+  `reports/physics/LIVING-PHYSICS-ACROSS-BUILDS.md`, written by
+  `scripts/build_living_physics.py`, one row per case and one column per build,
+  carrying the verdict tally each per-build report already recorded. A tier-1
+  test refuses a stale copy through the generator's own `--check`, so a build
+  that arrives shows up without anyone remembering to add it, which is the
+  whole of what living means here.
+  IT BEGINS AT 26.123 AND DOES NOT BACK-FILL, on her decision of 2026-09-13.
+  The four per-build physics reports and the two drift reports already
+  committed stay as the historical record. It does not JUDGE: every verdict is
+  the one the per-build report recorded, and a case that never ran on a build
+  reads `not run`, which is not a pass.
 
 - **A submitted job's outputs are collected when they land, and then posted.**
   `pyfs-matrix collect` sweeps every `SUBMITTED` record and, for each, waits
@@ -116,17 +170,6 @@ FlightStream versions.
   The pair also settled a convention nobody had measured: with the mesh turned
   +6 degrees about the hub frame's Y axis, `SOLVER_SET_AOA -6.0` is what
   restores the uniform flow.
-
-### Owed
-
-- **The Zenodo archive of v0.14.0 did not exist when it was last measured**,
-  against Zenodo's own API on 2026-09-10, and it has NOT been re-checked
-  since; the date is carried because this is a claim about an external
-  service and a reader needs to know what to re-run.
-  Until that row lands this section says so, because a shipped release that
-  quietly stops being citable is the gap PFS-2024.09 is about. Cite that
-  release by the concept DOI, which resolves to the newest archived version.
-
 
 ## [0.17.0] - 2026-09-13
 
@@ -9264,7 +9307,8 @@ the repository seeding and this tag (milestones M0 through M5).
 * 26.000: registered, no recorded evidence yet (honest empty column;
   backfill planned for v0.2+).
 
-[Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.17.0...HEAD
+[Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.18.0...HEAD
+[0.18.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.18.0
 [0.17.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.17.0
 [0.16.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.16.0
 [0.15.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.15.0
