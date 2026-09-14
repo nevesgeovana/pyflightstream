@@ -1,5 +1,10 @@
 # RPT-048: what a per-surface translation does to shared vertices, on 26.123 (2026-09-14)
 
+**CORRECTED 2026-09-14, before any tag carried this report.** Its first text
+said each probe script had five lines (three have four), described one of the
+first build's four rows as diverged and one as reaching its iteration limit
+(two did each), and said where the scripts ran. The numbers did not change.
+
 **WHAT THIS SETTLES.** FR-100 moves the boundaries of an alias with one
 `TRANSLATE_SURFACE_IN_FRAME` per boundary, because the command moves one
 surface or all of them and nothing in between. Two surfaces of one set share

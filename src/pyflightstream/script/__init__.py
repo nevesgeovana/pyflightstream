@@ -422,7 +422,8 @@ _UNFOLLOWED_FRAME_COMMANDS = frozenset(
 #: The commands that name a frame, or make one, and leave where every frame
 #: stands as it was: a creation (placed by the EDIT that follows it), a rename,
 #: a copy (whose new frame the ledger does not place, so it has no entry), and
-#: the commands of other chapters that cite a frame without moving it. Every
+#: the two of other chapters that ASSIGN a frame, to a motion and to the
+#: aeroelastic bodies, and state no origin or axis for it. Every
 #: command whose name says it is about a coordinate system is in this set, in
 #: ``_UNFOLLOWED_FRAME_COMMANDS``, or in ``_FRAME_FOLLOWERS``, and a tier-1 guard
 #: walks the database for one that is in none, which is how a command added
@@ -1178,10 +1179,15 @@ class Script:
         names; anything else leaves every placement as it was. The reference frame
         is never placed by a command.
         """
+        follower = _FRAME_FOLLOWERS.get(name)
+        if name == "DELETE_COORDINATE_SYSTEM" and follower is not None:
+            # BEFORE THE FRAME CHECK: a delete shifts the indices above whatever
+            # it names, so it forgets every placement however its frame is bound.
+            follower(self._frame_placements, _REFERENCE_PLACEMENT_INDEX, bound)
+            return
         frame = bound.get("frame")
         if not isinstance(frame, int) or frame == _REFERENCE_PLACEMENT_INDEX:
             return
-        follower = _FRAME_FOLLOWERS.get(name)
         if follower is not None:
             follower(self._frame_placements, frame, bound)
         elif name in _UNFOLLOWED_FRAME_COMMANDS:

@@ -61,8 +61,8 @@ license: MIT
 # CHANGELOG.md carries that and says what to re-run. This sentence listed
 # two and the list skipped three, which the verification lens caught. The
 # concept DOI resolves to the newest archived version either way, so
-# nothing points at a release that cannot be cited; the three missing rows
-# are a gap in this list rather than in the archive.
+# nothing points at a release that cannot be cited. v0.1.0 and v0.2.0 are a
+# gap in this list; v0.14.0 is a gap in the archive itself.
 # THE COUNT EXCLUDES A ROW STILL INSIDE THE WINDOW between a tag and the
 # commit after it, and that is why it is reconstructible rather than
 # true-on-the-day-it-was-written: at the v0.17.0 release commit FOUR rows

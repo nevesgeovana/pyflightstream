@@ -80,7 +80,7 @@ written, and the command is beside it.
 | the tier-1 suite | `python -m pytest tests/tier1_offline` (eight slices) | 4126 passed, 6 skipped |
 | the type checker | `python -m mypy src/pyflightstream tests/tier3_licensed/rotation_null.py` | Success, no issues in 85 source files |
 | the linter | `python -m ruff check src tests scripts tools` | All checks passed |
-| the tier-3 suite | `python -m pytest -m needs_flightstream tests/tier3_licensed` | not run for this release; the translation was measured on 26.123 by RPT-048 on a seat the owning seat authorized |
+| the tier-3 suite | `python -m pytest -m needs_flightstream tests/tier3_licensed` | not run for this release; the translation was measured on 26.123 by RPT-048 |
 | the goal | `python GeoversePlan/goals/check_goal_022.py` | the exit condition is 10 of 10 |
 
 ## What this release carries
@@ -108,4 +108,11 @@ In one line each:
   where they stand after a move cannot be stated, and the move is refused.
 - **`ROTATE`'s `ANGLE` still accepts `nan` and `inf`**, the gap `TRANSLATE` closes
   for its `DISTANCE`.
+- **Moving part of a set that touches the rest leaves that part no longer
+  joined to it**, observed on a saved mesh and not solved; whether such a model
+  is acceptable is the study's call.
+- **A `[[frames]]` entry with zero or parallel axes is accepted when the
+  reference loads** and refused only when a translation moves along it.
+- **Whether the solver's stop verb inside an action's script ends the RUN or
+  only that script** is still unmeasured, carried from 0.18.0.
 - **v0.14.0 is still not archived**, carried in the change log's Owed section.

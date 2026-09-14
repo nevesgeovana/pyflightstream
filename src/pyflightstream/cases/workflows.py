@@ -5416,7 +5416,12 @@ def _translations(
         for index, name, source in moving:
             placement = script.frame_placements.get(index)
             if placement is None or placement.origin is None:
-                label = repr(called[index]) if index in called else f"the frame placed from {name}"
+                if frames.get(name) == index:
+                    label = repr(name)
+                elif index in called:
+                    label = repr(called[index])
+                else:
+                    label = "a frame"
                 if source.startswith("AUX_FRAMES"):
                     remedy = f"Drop {name} from AUX_FRAMES to move the rest of the record."
                 else:

@@ -497,9 +497,10 @@ def test_goal022_frames_move_a_frame_turned_away_from_its_pivot_is_refused_not_g
         lines_of(case)
     message = str(refused.value)
     for clause in (
-        "which comes in through AUX_FRAMES, placed from ROTOR_SMRP",
+        "moving a frame, which comes in through AUX_FRAMES, placed from ROTOR_SMRP, and",
         "cannot state where that frame stands",
         "Drop ROTOR_SMRP from AUX_FRAMES",
+        "placed from",
     ):
         assert message.count(clause) == 1, (clause, message)
     assert "(frame " not in message, "a row never names a frame by its index"
@@ -596,8 +597,12 @@ def test_goal022_frames_move_the_ledger_forgets_what_it_does_not_follow():
     assert script.frame_placements[index].origin == (5.0, 0.0, 0.0)
 
     script, index = placed()
+    later = helpers.coordinate_frame(
+        script, name="TAIL", origin=(9.0, 0.0, 0.0), x_axis=(1, 0, 0), y_axis=(0, 1, 0)
+    )
     script.emit("DELETE_COORDINATE_SYSTEM", index)
-    assert list(script.frame_placements) == [1], "a delete shifts every index above it"
+    assert later not in script.frame_placements, "a delete shifts every index above it"
+    assert list(script.frame_placements) == [1]
 
 
 def test_goal022_frames_move_a_frame_moved_behind_the_ledger_is_refused_not_moved(tmp_path):
