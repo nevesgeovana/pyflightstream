@@ -91,8 +91,19 @@ def _refuse_an_unmapped_build(executor: Executor, resolved: ResolvedMatrix) -> N
     if not isinstance(executor, SubmittingExecutor):
         return
     campaign = resolved.campaign
+    # THE ROW'S OWN BUILD, READ OFF THE BINDING, and not `case.fs_build`: that
+    # field is filled by `_bind_row_builds` AFTER this runs, so reading it here
+    # saw only the campaign default for every case, and a later row naming an
+    # unmapped build was submitted-around (the independent review of the
+    # 0.18.1 release, second pass, reproduced in memory).
+    row_builds = resolved.row_builds
+    if len(row_builds) != len(campaign.sims):
+        row_builds = tuple(None for _ in campaign.sims)
     refusal = executor.build_alias_refusal(
-        [case.fs_build or campaign.fs_version for case in campaign.sims]
+        [
+            row_build or case.fs_build or campaign.fs_version
+            for case, row_build in zip(campaign.sims, row_builds, strict=True)
+        ]
     )
     if refusal is not None:
         raise InputArtifactError(refusal)

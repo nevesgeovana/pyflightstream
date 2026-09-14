@@ -230,3 +230,36 @@ def test_goal021_build_alias_a_callers_own_submitting_executor_is_refused_up_fro
             )
     assert _descriptors(workspace) == [], "a descriptor was written before the refusal"
     assert workspace.read_manifest() == [], "a point was recorded before the refusal"
+
+
+def test_goal021_build_alias_a_later_row_naming_an_unmapped_build_is_refused_up_front(
+    tmp_path, monkeypatch
+):
+    """The independent review, second pass: the preflight read only the campaign default.
+
+    THE DEFAULT HERE IS THE MAPPED BUILD. The refusal tests above use a default
+    that is itself unmapped, so they passed on a preflight that never read a
+    row's own FS_BUILD; this one maps the default, names the unmapped build only
+    in the second row's cell, and still expects nothing submitted.
+    """
+    import warnings
+
+    from pyflightstream.cases.workflows import workflow_registry
+    from pyflightstream.run.matrix import run_matrix
+    from tests.tier1_offline.test_matrix_run import RECIPES, converged
+
+    workspace, matrix = _two_build_cluster(tmp_path, monkeypatch, documented_profile())
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        with pytest.raises(InputArtifactError, match=r"maps no alias for build\(s\) 26\.120"):
+            run_matrix(
+                matrix,
+                workspace,
+                name="cluster",
+                default_fs_version="26.123",
+                recipes=RECIPES,
+                recipe_registry=workflow_registry(),
+                assess=converged,
+            )
+    assert _descriptors(workspace) == [], "a descriptor was written before the refusal"
+    assert workspace.read_manifest() == [], "a point was recorded before the refusal"
