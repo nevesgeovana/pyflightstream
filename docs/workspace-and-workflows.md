@@ -2405,6 +2405,20 @@ that decided it.
 Because the range is derived, a build registered tomorrow joins it the
 moment its evidence lands, and nobody has to remember to widen a list.
 
+### Where a submitted point runs
+
+On a cluster each point of a row is submitted as its own job and runs in its
+own datapoint folder, `sims/sim_<id>/datapoints/DP-<tag>/`, which is where
+its outputs are filed. The scheduler's descriptor (`submit.yaml` or the name
+the profile gives it), the unsteady action program with its export script,
+and the wall clock with its state are written there, so every point of a
+swept row is submitted in one invocation and no queued job shares a file with
+another. The run record names the folder as `working_dir`, and
+`pyfs-matrix collect` waits for the declared outputs there and records them
+where they were written. A steady row, which is ONE job over all its points,
+submits from the simulation folder, and a run on a workstation still runs in
+the simulation folder. FR-99 states the requirement.
+
 ### Naming the build to a cluster's scheduler
 
 A row's `FS_BUILD` names ONE build, `26.123`. A scheduler often knows only an

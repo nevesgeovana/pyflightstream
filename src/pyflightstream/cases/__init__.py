@@ -801,8 +801,7 @@ class ProbesSpec(BaseModel):
     #: row binds, the way a GEOMETRY stem becomes an absolute path on the case.
     #: The script imports the survey by this path, because a relative one
     #: resolves against the solver's working directory, which is not the
-    #: simulation folder for a submitted point; and until 0.18.1 the relative
-    #: line named a file nothing had ever staged there (GOAL-021 item 2).
+    #: simulation folder for a submitted point.
     #: Excluded from every dump, so no machine path reaches a record or a plan.
     resolved_points_file: str | None = Field(default=None, exclude=True)
 

@@ -2661,10 +2661,12 @@ def run_campaign(
         # the stopped run, was refused as a fork without `resume` and skipped
         # as done with it, and ran only under another campaign name. A point
         # of it is pending when the most recent record of that point stopped
-        # continuably, or when nothing records it at all, so the continuation
-        # resolver refuses it by name; a point whose latest run FINISHED is
-        # done, so running the matrix again does not continue a continuation
-        # that already completed.
+        # continuably, when nothing records it at all, or when its most recent
+        # run FAILED, and in the last two the continuation resolver refuses it
+        # by name rather than skipping it in silence (the quality and V&V
+        # lenses, closing round). A point whose most recent run finished, or is
+        # still in a queue, is done for now, so running the matrix again does
+        # not continue a continuation that already completed.
         continuing = _states_restart(case)
         if already and not resume and not continuing:
             raise WorkspaceError(
@@ -2678,7 +2680,7 @@ def run_campaign(
             pending = []
             for point, run_id in zip(case_points, run_ids, strict=True):
                 latest = _latest_record_of_point(manifest.values(), case.sim_id, point)
-                if latest is None or latest.status in CONTINUABLE:
+                if _restart_point_is_pending(latest):
                     pending.append((point, run_id))
         else:
             pending = [
@@ -2797,12 +2799,11 @@ def run_campaign(
                 # so a continuation never writes into the folder holding the
                 # evidence of the run it continues.
                 archived = workspace.archive_datapoint(case.sim_id, point, stamp=stamp)
-                # THE ARCHIVED COPY, BY ABSOLUTE PATH (GOAL-021, the owner's
-                # call of 2026-09-14). The archive above has just MOVED the
-                # saved simulation out of the datapoint folder, and this handed
-                # the solver the path it had been moved from, relative to a
-                # working directory a submitted point does not have: on the
-                # seat the continuation opened nothing.
+                # THE ARCHIVED COPY, BY ABSOLUTE PATH. The archive above has just
+                # MOVED the saved simulation out of the datapoint folder, and
+                # this used to hand the solver the path it had been moved from,
+                # relative to a working directory a submitted point does not
+                # have, so the script named a file that was no longer there.
                 saved = str(continuation["saved"])
                 source = (
                     archived / Path(saved).name
@@ -3202,9 +3203,10 @@ def _write_probe_points(
         return None
     relative = f"{PROBE_PROFILE_DIR}/{sim_id}_probe_points.csv"
     target = sim_dir / relative
-    # A USER'S OWN SURVEY LIVES IN THIS FOLDER TOO. FR-80 stages the points
-    # file a user cited into `profiles/`, by requirement, so a user whose
-    # file carries this exact name would have had it overwritten here without
+    # A USER'S FILE MAY BE IN THIS FOLDER TOO. A cited survey (FR-80) is read
+    # where it lives, under the workspace's `inputs/profiles/`, and is not
+    # staged here; but a user may still have put a file of this exact name in
+    # the simulation's `profiles/`, and it would have been overwritten without
     # a word. Destroying user input is not a thing to do quietly, and a
     # refusal naming both the file and the fix costs one rename (the
     # interface, architecture and verification lenses, 2026-09-11).
@@ -3900,14 +3902,15 @@ def _plan_point(
     # spend a destructive act on a rehearsal, and `plan` promises to spend
     # nothing.
     #
-    # A POINT WHOSE LATEST RUN FINISHED IS RECORDED, not blocked (GOAL-021, the
-    # owner's call of 2026-09-14): a RESTART row names the points it continues,
-    # and once a continuation has completed there is nothing left to continue,
-    # which the run skips and the plan reports as such rather than as a refusal.
+    # A POINT WHOSE LATEST RUN FINISHED, OR IS STILL QUEUED, IS RECORDED, not
+    # blocked: a RESTART row names the points it continues, and once a
+    # continuation has completed there is nothing left to continue. A point
+    # whose latest run FAILED goes on to the resolver, which refuses it by
+    # name, so the plan reports it BLOCKED with the reason instead of recorded.
     restarting = _states_restart(case)
     if restarting:
         latest = _latest_record_of_point(workspace.read_manifest(), case.sim_id, point)
-        if latest is not None and latest.status not in CONTINUABLE:
+        if not _restart_point_is_pending(latest):
             return PointPlan(**base, script_name=script_name, status=PlanStatus.ALREADY_RECORDED)
     try:
         rehearsed = resolve_continuation(workspace, case, point, run_id=run_id)
@@ -4712,9 +4715,18 @@ def resolve_continuation(
             if previous is None
             else f"records its latest run, {previous.run_id!r}, as {previous.status}"
         )
+        failed = previous is not None and previous.status in _FAILED_STATUSES
+        remedy = (
+            " A failed continuation is not retried: the saved simulation of the stop it "
+            "continued is kept under this point's archive/ folder. Find why it failed, "
+            "then restore that file and its record by hand, or remove the "
+            f"{RESTART_VARIABLE} key to march the point from the start."
+            if failed
+            else ""
+        )
         raise CampaignConfigError(
             f"case {case.sim_id!r} point {tag} states {RESTART_VARIABLE} and this workspace "
-            f"{latest}, which is not a run that STOPPED with more to do. A continuation "
+            f"{latest}, which is not a run that STOPPED with more to do.{remedy} A continuation "
             "continues a recorded run whose latest status is one of "
             f"{', '.join(str(s) for s in CONTINUABLE)}; run the row once, or remove the "
             f"{RESTART_VARIABLE} key to march it from the start."
@@ -4744,6 +4756,23 @@ def resolve_continuation(
         "saved": str(saved),
         "form": request.form,
     }
+
+
+#: Every status a run ends in when it FAILED, read off the enum by name so a
+#: failure status added there is covered here without an edit.
+_FAILED_STATUSES = tuple(status for status in RunStatus if status.name.startswith("FAILED_"))
+
+
+def _restart_point_is_pending(latest: RunRecord | None) -> bool:
+    """Whether a point of a RESTART row goes on to the continuation resolver.
+
+    It does when nothing records it, when its most recent run stopped with
+    more to do, and when its most recent run FAILED: the first and the last
+    are refused there BY NAME, so no point of a RESTART row is ever skipped
+    in silence. It does not when the most recent run finished or is still in
+    a queue, because there is nothing to continue yet or any more.
+    """
+    return latest is None or latest.status in CONTINUABLE or latest.status in _FAILED_STATUSES
 
 
 def _states_restart(case: SimCase) -> bool:

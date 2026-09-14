@@ -252,3 +252,75 @@ def test_goal021_swept_row_a_finished_continuation_is_not_continued_again(tmp_pa
     )
     again = _run(workspace, _restart_row(tmp_path), _submitting(workspace))
     assert again == [], [(r.run_id, r.status) for r in again]
+
+
+def _failed_continuation(tmp_path):
+    workspace = _workspace(tmp_path)
+    _stopped(workspace)
+    _run(workspace, _restart_row(tmp_path), _submitting(workspace))
+    submitted = workspace.read_manifest()[-1]
+    workspace.complete_submitted_record(
+        submitted.model_copy(update={"status": RunStatus.FAILED_EXECUTION})
+    )
+    return workspace
+
+
+def test_goal021_swept_row_a_failed_continuation_is_refused_by_name_not_skipped(tmp_path):
+    """The quality and V&V lenses, closing round: it returned [] and said nothing."""
+    from pyflightstream.cases.matrix import MatrixError
+
+    workspace = _failed_continuation(tmp_path)
+    before = len(workspace.read_manifest())
+    # THE PRE-FLIGHT REFUSES IT, naming the failed run, before anything runs.
+    with pytest.raises(MatrixError) as raised:
+        _run(workspace, _restart_row(tmp_path), _submitting(workspace))
+    message = str(raised.value)
+    assert message.count("as FAILED_EXECUTION") == 1, message
+    assert message.count("A failed continuation is not retried") == 1, message
+    assert len(workspace.read_manifest()) == before, "a refused point still recorded a run"
+
+
+def test_goal021_swept_row_plan_reports_a_failed_continuation_as_blocked(tmp_path):
+    from pyflightstream.run import PlanStatus
+    from pyflightstream.run.matrix import plan_matrix
+
+    workspace = _failed_continuation(tmp_path)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", PyflightstreamWarning)
+        plan = plan_matrix(
+            _restart_row(tmp_path),
+            workspace,
+            name="rotor",
+            recipes={},
+            recipe_registry=workflow_registry(),
+            write_plan=False,
+        )
+    statuses = [point.status for point in plan.points]
+    assert statuses == [PlanStatus.BLOCKED], statuses
+    assert plan.points[0].error.count("A failed continuation is not retried") == 1
+
+
+def test_goal021_swept_row_a_point_is_not_submitted_over_its_own_leftover_output(tmp_path):
+    """The interface lens: in-place collection is safe only if no leftover can be claimed."""
+    workspace = _workspace(tmp_path)
+    folder = workspace.sim_dir("7001") / "datapoints" / "DP-a+00.0"
+    folder.mkdir(parents=True, exist_ok=True)
+    (folder / "a+00.0.txt").write_text("an earlier run's evidence", encoding="utf-8")
+    with pytest.raises(CampaignErrors):
+        _run(workspace, _rotor_row(tmp_path, sweep="0.0"), _submitting(workspace))
+    record = workspace.read_manifest()[-1]
+    assert record.status is RunStatus.FAILED_INCOMPLETE_OUTPUT, record.status
+    assert record.error.count("a+00.0.txt") == 1, record.error
+    assert not (folder / "submit.yaml").exists(), "the point was handed to the scheduler anyway"
+
+
+def test_goal021_swept_row_a_working_dir_outside_the_datapoints_is_refused(tmp_path):
+    """The architecture and interface lenses: the field comes from a file someone can edit."""
+    workspace, records = _submitted_row(tmp_path)
+    first = records[0]
+    submission = {**first.submission, "working_dir": "../../../elsewhere"}
+    workspace.complete_submitted_record(first.model_copy(update={"submission": submission}))
+    report = collect_once(workspace, interval=0.0, sleep=lambda _s: None)
+    failed = [o for o in report.failed if o.run_id == first.run_id]
+    assert len(failed) == 1, report.lines()
+    assert failed[0].detail.count("does not resolve to a datapoint folder") == 1, failed[0].detail

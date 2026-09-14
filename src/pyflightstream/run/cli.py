@@ -1025,7 +1025,7 @@ def _cmd_plan(args: argparse.Namespace, recipes: dict[str, str]) -> int:
         # pinned to the digest of the file as renumbered, and `run` does not
         # then refuse it as a matrix edited after it was planned.
         try:
-            changes = renumber_repeated_pols(args.matrix, workspace)
+            changes = renumber_repeated_pols(args.matrix, workspace, in_place=True)
         except (MatrixError, OSError) as error:
             print(f"matrix not planned: {error}", file=sys.stderr)
             return 2

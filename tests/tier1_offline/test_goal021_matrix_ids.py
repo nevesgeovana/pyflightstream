@@ -151,7 +151,7 @@ def test_goal021_matrix_ids_only_colliding_rows_move_and_count_up_from_the_works
     _matrix(workspace.root, "other.fs", [row(8002), row(9700, run=0)])
     # A simulation folder whose matrix is gone still claims its POL.
     (workspace.root / "sims" / "sim_9800").mkdir(parents=True)
-    changes = renumber_repeated_pols(matrix, workspace)
+    changes = renumber_repeated_pols(matrix, workspace, in_place=True)
     assert changes == [
         PolChange(row_number=2, old="8002", new="9801"),
         PolChange(row_number=3, old="8001", new="9802"),
@@ -173,7 +173,7 @@ def test_goal021_matrix_ids_the_rewrite_changes_the_pol_cells_and_nothing_else(t
     workspace = _workspace(tmp_path)
     matrix = _matrix(workspace.root, "planned.fs", [row(8001), row(8001)], crlf=True)
     before = matrix.read_bytes()
-    renumber_repeated_pols(matrix, workspace)
+    renumber_repeated_pols(matrix, workspace, in_place=True)
     after = matrix.read_bytes()
     assert after.count(b"\r\n") == before.count(b"\r\n"), "a line ending changed"
     old_lines, new_lines = before.split(b"\r\n"), after.split(b"\r\n")
@@ -187,7 +187,7 @@ def test_goal021_matrix_ids_nothing_repeated_writes_nothing(tmp_path):
     workspace = _workspace(tmp_path)
     matrix = _matrix(workspace.root, "planned.fs", [row(8001)])
     stamp = matrix.stat().st_mtime_ns
-    assert renumber_repeated_pols(matrix, workspace) == []
+    assert renumber_repeated_pols(matrix, workspace, in_place=True) == []
     assert matrix.stat().st_mtime_ns == stamp
 
 
@@ -210,7 +210,7 @@ def test_goal021_matrix_ids_a_row_with_runs_of_this_matrix_is_refused_not_moved(
     )
     before = matrix.read_bytes()
     with pytest.raises(MatrixError) as raised:
-        renumber_repeated_pols(matrix, workspace)
+        renumber_repeated_pols(matrix, workspace, in_place=True)
     message = str(raised.value)
     assert message.count("would orphan those runs") == 1, message
     assert message.count("Renumber the other matrix instead") == 1, message
@@ -234,7 +234,7 @@ def test_goal021_matrix_ids_inside_one_file_the_first_row_keeps_a_pol_with_runs(
             status=RunStatus.CONVERGED,
         )
     )
-    changes = renumber_repeated_pols(matrix, workspace)
+    changes = renumber_repeated_pols(matrix, workspace, in_place=True)
     assert changes == [PolChange(row_number=2, old="8001", new="8002")], changes
     assert [r.pol for r in read_matrix(matrix, active_only=False)] == ["8001", "8002"]
 
@@ -305,3 +305,13 @@ def test_goal021_matrix_ids_a_plan_refused_after_renumbering_says_the_renumberin
     assert captured.err.count("matrix not planned") == 1, captured.err
     assert captured.err.count("renumbering(s) printed above are written") == 1, captured.err
     assert [r.pol for r in read_matrix(matrix, active_only=False)] == ["8001", "8002"]
+
+
+def test_goal021_matrix_ids_the_python_call_writes_nothing_unless_asked(tmp_path):
+    """Every rewriter in the package defaults to a dry run; this one did not (closing round)."""
+    workspace = _workspace(tmp_path)
+    matrix = _matrix(workspace.root, "planned.fs", [row(8001), row(8001)])
+    before = matrix.read_bytes()
+    changes = renumber_repeated_pols(matrix, workspace)
+    assert changes == [PolChange(row_number=2, old="8001", new="8002")], changes
+    assert matrix.read_bytes() == before, "the default call rewrote the matrix"

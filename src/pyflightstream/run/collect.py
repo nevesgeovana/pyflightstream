@@ -66,7 +66,7 @@ from pathlib import Path
 # weaker than it reads, because an unrowed module can be a conduit. Found by
 # the architect lens of the 0.18.0 release round, 2026-09-14.
 from ..cases import CampaignConfigError
-from ..workspace import CampaignWorkspace, RunRecord, RunStatus, WorkspaceError
+from ..workspace import SIM_DATAPOINTS_DIR, CampaignWorkspace, RunRecord, RunStatus, WorkspaceError
 
 __all__ = [
     "CollectOutcome",
@@ -280,7 +280,23 @@ def _working_dir(workspace: CampaignWorkspace, record: RunRecord) -> Path:
     """
     relative = str((record.submission or {}).get("working_dir") or "")
     base = _sim_dir(workspace, record)
-    return base / relative if relative else base
+    if not relative:
+        return base
+    # CONTAINED, OR REFUSED BY NAME (the architecture and interface lenses,
+    # closing round). The field is read off an untyped block of a JSON file
+    # someone can edit, and the collector would otherwise wait on whatever
+    # folder it names; a working directory is a datapoint folder of this
+    # record's own simulation, and nothing else.
+    candidate = (base / relative).resolve()
+    datapoints = (base / SIM_DATAPOINTS_DIR).resolve()
+    if candidate.parent != datapoints:
+        raise WorkspaceError(
+            f"record {record.run_id!r} names its working_dir as {relative!r}, which does "
+            f"not resolve to a datapoint folder of {base}. A submitted point runs in "
+            f"{SIM_DATAPOINTS_DIR}/DP-<tag>/ of its own simulation; restore the field, "
+            "or complete the record by hand."
+        )
+    return candidate
 
 
 def collect_once(
@@ -335,7 +351,13 @@ def collect_once(
             )
             continue
         sim_dir = _sim_dir(workspace, record)
-        work_dir = _working_dir(workspace, record)
+        try:
+            work_dir = _working_dir(workspace, record)
+        except WorkspaceError as error:
+            report.failed.append(
+                CollectOutcome(run_id=record.run_id, state="FAILED", detail=str(error))
+            )
+            continue
         paths = [work_dir / name for name in names]
         first = observer(paths)
         sleep(interval)
@@ -444,6 +466,10 @@ def _collect_by_point(
     is correct for them: one point's job has one owner.
     """
     submission = record.submission or {}
+    # IN PLACE ONLY WHERE THE RECORD SAYS THE JOB RAN IN ITS DATAPOINT FOLDER
+    # (the V&V lens, closing round): a record written before 0.18.1 names no
+    # working_dir, ran in the simulation folder, and asserts nothing.
+    ran_here = bool(submission.get("working_dir"))
     by_point = submission.get("declared_by_point")
     points = submission.get("points_by_tag") or {}
     if not isinstance(by_point, Mapping) or len(by_point) <= 1:
@@ -452,7 +478,7 @@ def _collect_by_point(
                 record.sim_id,
                 [work_dir / name for name in names],
                 datapoint=record.point,
-                in_place=True,
+                ran_in_datapoint=ran_here,
             )
         )
     collected: list[str] = []
@@ -463,7 +489,7 @@ def _collect_by_point(
                 record.sim_id,
                 [work_dir / str(name) for name in owned],
                 datapoint=point,
-                in_place=True,
+                ran_in_datapoint=ran_here,
             )
         )
     return collected

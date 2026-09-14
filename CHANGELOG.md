@@ -35,11 +35,15 @@ FlightStream versions.
   files them in place. The record's submission block names the folder as
   `working_dir`. A local run is unchanged and still runs in the simulation
   folder, and a steady row, which is one job over all its points, still
-  submits one job from the simulation folder.
-  `CampaignWorkspace.collect_outputs` gains `in_place=True`, which accepts a
-  declared output already in its own datapoint folder and records it without
-  moving it; without it such a file is still refused, as is a file in any
-  other managed folder.
+  submits one job from the simulation folder. Proved against a submitting
+  executor that calls no scheduler and a solver stand-in; not yet run on a
+  cluster.
+  `CampaignWorkspace.collect_outputs` gains `ran_in_datapoint=True`, which
+  accepts a declared output already in its own datapoint folder and records it
+  without moving it; without it such a file is still refused, as is a file in
+  any other managed folder. The collect stage passes it only for a record whose
+  submission names a `working_dir`, and refuses a `working_dir` that is not a
+  datapoint folder of the record's own simulation.
 
 - **The HPC profile names a build the way its scheduler does.** A row's
   `FS_BUILD` names one build, `26.123`; a scheduler may accept only an
@@ -64,7 +68,8 @@ FlightStream versions.
   POL, run record and `sims/sim_<id>` folder of the workspace. Only that
   matrix's POL cells change, each change is printed, and the plan then runs on
   the rewritten file; the renumbering is written first and stays written if the
-  plan then refuses, and the command says so. Inside one matrix the first row
+  plan then refuses, and the command says so. From Python,
+  `renumber_repeated_pols` writes only when called with `in_place=True`. Inside one matrix the first row
   stating a POL keeps it and later rows move; a row whose POL another matrix
   also states, and which already has runs of the planned matrix, is refused
   rather than moved, because moving it would orphan those runs. From Python:
@@ -76,7 +81,8 @@ FlightStream versions.
 
 - **A probe survey cited from a pproc artifact reaches the solver.** The
   script imported `profiles/<file>` from the simulation folder, where nothing
-  had put the file, so the import read nothing. The survey is now read where
+  had put the file, so the script named a file that was not there. The survey
+  is now read where
   it lives, `inputs/profiles/<file>`, by absolute path resolved when the row
   binds, and a name that folder does not hold is refused when the row is
   planned, naming the files it does hold.
@@ -92,7 +98,9 @@ FlightStream versions.
   was refused as a re-run of a recorded point, and with `resume` it was skipped
   as done, so it ran only under another campaign name. A point of a `RESTART`
   row is now run when its most recent record stopped with more to do, and is
-  skipped when its most recent run finished; the continuation reads that most
+  skipped when its most recent run finished or is still queued; a point whose
+  most recent run FAILED is refused by name at plan and at the run's
+  pre-flight, never skipped in silence. The continuation reads that most
   recent record, and no longer an earlier stopped one when a later
   continuation has already completed.
 

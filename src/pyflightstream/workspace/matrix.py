@@ -1352,7 +1352,7 @@ def _refuse_a_repeated_pol(path: str | Path, workspace: CampaignWorkspace) -> No
 
 
 def renumber_repeated_pols(
-    path: str | Path, workspace: CampaignWorkspace, *, in_place: bool = True
+    path: str | Path, workspace: CampaignWorkspace, *, in_place: bool = False
 ) -> list[PolChange]:
     """Give every repeated row of ONE matrix the next free POL (PFS-2031.21).
 
@@ -1371,8 +1371,8 @@ def renumber_repeated_pols(
     workspace : CampaignWorkspace
         The workspace whose matrices, manifest and simulation folders claim POLs.
     in_place : bool
-        Rewrite the file. Keyword-only; False computes the changes and writes
-        nothing.
+        Rewrite the file. Keyword-only and False by default, which computes the
+        changes and writes nothing, as every rewriter in this package does.
 
     Returns
     -------

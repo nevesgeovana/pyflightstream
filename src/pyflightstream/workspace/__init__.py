@@ -2190,7 +2190,7 @@ class CampaignWorkspace:
         produced: Sequence[str | Path],
         *,
         datapoint: Mapping[str, float],
-        in_place: bool = False,
+        ran_in_datapoint: bool = False,
     ) -> list[str]:
         """Move declared solver outputs into the datapoint's folder (FR-92).
 
@@ -2198,7 +2198,7 @@ class CampaignWorkspace:
         ----------
         sim_id : str
             Target simulation.
-        in_place : bool
+        ran_in_datapoint : bool
             Accept a declared output that is ALREADY in this point's own
             folder and record it without moving it. For a job that RAN in
             that folder, which is a submitted point since 0.18.1, whose
@@ -2331,7 +2331,7 @@ class CampaignWorkspace:
         own = (sim / folder).resolve()
         kept = (
             {str(path) for path in produced if Path(path).resolve().parent == own}
-            if in_place
+            if ran_in_datapoint
             else set()
         )
         for path in produced:

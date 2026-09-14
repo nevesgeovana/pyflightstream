@@ -3670,9 +3670,12 @@ requirement below is one seam of that division.
 
     SINCE 0.18.1 THE CONTINUATION OPENS THE ARCHIVED COPY BY ABSOLUTE PATH, and a
     `RESTART` row runs under the campaign that recorded the stopped run: a point
-    of it is run when its MOST RECENT record stopped with more to do and is
-    skipped when its most recent run finished, so running the matrix again
-    does not continue a continuation that already completed.
+    of it is run when its MOST RECENT record stopped with more to do, is
+    skipped when its most recent run finished or is still queued, so running
+    the matrix again does not continue a continuation that already completed,
+    and is REFUSED BY NAME when its most recent run failed, at plan and at the
+    run's pre-flight, because a failed continuation is not retried and must
+    never be passed over in silence.
 
     THE OUTPUTS A CONTINUATION REPLACES ARE ARCHIVED, not overwritten, into
     `archive/<day and hour>/` under that datapoint's own folder. The stamp is
