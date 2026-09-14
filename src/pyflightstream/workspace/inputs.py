@@ -62,7 +62,7 @@ from __future__ import annotations
 import re
 import tomllib
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path, PurePath, PurePosixPath
 from typing import Any
 
@@ -2275,6 +2275,10 @@ HPC_REQUIRED = ("application_id",)
 #: plain list.
 HPC_FORMATS = ("yaml", "json", "toml", "text")
 
+#: The substitution a descriptor field writes to name the build the way THIS
+#: scheduler names it, read from the profile's ``[builds]`` table.
+HPC_BUILD_ALIAS = "fs_build_alias"
+
 
 @dataclass(frozen=True)
 class HpcProfile:
@@ -2307,6 +2311,17 @@ class HpcProfile:
         matrix row.
     path : Path
         Where this was read from, for a refusal that has to name it.
+    builds : dict of str to str
+        What this scheduler calls each canonical build, read from the
+        ``[builds]`` table and written into a descriptor by the
+        ``{fs_build_alias}`` substitution. KEYED BY BUILD, because the
+        relation is many-to-one: a family name such as ``26.1`` covers two
+        registered builds, so a table keyed by the scheduler's name could not
+        say which build a row meant. The matrix cell names the build and
+        stays the same on every machine; this table translates it for one
+        cluster. It is a DECLARATION and verifies nothing: which build the
+        scheduler actually starts is known only from the build number in a
+        collected log.
     """
 
     application_id: str
@@ -2316,6 +2331,7 @@ class HpcProfile:
     submit: tuple
     defaults: dict
     path: Path
+    builds: dict = field(default_factory=dict)
 
 
 def hpc_profiles(inputs_dir: str | Path) -> list[Path]:
@@ -2380,7 +2396,9 @@ def read_hpc_profile(path: str | Path) -> HpcProfile:
             'argument, for example command = ["esub", "{descriptor_path}"]: one string '
             "through a shell splits a path that has a space in it."
         )
+    builds = _read_build_aliases(target, table.get("builds"))
     return HpcProfile(
+        builds=builds,
         application_id=str(table["application_id"]),
         descriptor_format=fmt,
         # THE DEFAULT FOLLOWS THE FORMAT, not the word yaml. A profile
@@ -2396,3 +2414,45 @@ def read_hpc_profile(path: str | Path) -> HpcProfile:
         defaults=dict(table.get("defaults") or {}),
         path=target,
     )
+
+
+def _read_build_aliases(target: Path, table: object) -> dict[str, str]:
+    """Read a profile's ``[builds]`` table, refusing a key that is not one build.
+
+    A KEY MUST BE A CANONICAL BUILD, and that is the whole reason the table
+    is keyed this way round. ``26.1`` is a family: it resolves to more than
+    one registered build and is refused by :func:`resolve` for exactly that
+    reason, so a table keyed by it could not say which build a row meant.
+    The scheduler's name is the VALUE, where several builds may share one.
+    """
+    if table is None:
+        return {}
+    if not isinstance(table, Mapping):
+        raise InputArtifactError(
+            f"the HPC profile {target} has a builds entry that is not a table. Write it as "
+            '[builds] with one line per canonical build, for example "26.123" = "26.1".'
+        )
+    aliases: dict[str, str] = {}
+    for key, value in table.items():
+        build = str(key).strip()
+        try:
+            canonical = resolve(build).canonical
+        except (AmbiguousVersionAliasError, UnknownVersionError) as error:
+            raise InputArtifactError(
+                f"the HPC profile {target} maps {build!r} in its [builds] table, and a key "
+                "there must name ONE registered build, because several builds can share one "
+                f"scheduler name and only the build says which: {error}"
+            ) from None
+        if canonical != build:
+            raise InputArtifactError(
+                f"the HPC profile {target} maps {build!r} in its [builds] table; write the "
+                f"canonical build {canonical!r}, which is how a matrix row names it."
+            )
+        alias = str(value).strip() if isinstance(value, str) else ""
+        if not alias:
+            raise InputArtifactError(
+                f"the HPC profile {target} maps build {build!r} to {value!r}; the value is "
+                "the name this scheduler gives that build, as text, and it cannot be empty."
+            )
+        aliases[canonical] = alias
+    return aliases

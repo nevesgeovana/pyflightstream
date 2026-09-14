@@ -23,6 +23,73 @@ FlightStream versions.
   quietly stops being citable is the gap PFS-2024.09 is about. Cite that
   release by the concept DOI, which resolves to the newest archived version.
 
+### Added
+
+- **The HPC profile names a build the way its scheduler does.** A row's
+  `FS_BUILD` names one build, `26.123`; a scheduler may accept only an
+  application family such as `26.1`, which this package refuses because it
+  covers more than one build. A `[builds]` table in `inputs/hpc/h<>.toml` maps
+  each canonical build to the scheduler's name, and a descriptor field writes
+  it with `{fs_build_alias}`, so the matrix cell stays the same on every
+  machine. It is keyed by build because several builds can share one scheduler
+  name. A profile that writes the substitution and maps no alias for a build a
+  row names is refused before any point is submitted; a key that is not one
+  registered build is refused when the profile is read. THE TABLE IS A
+  DECLARATION: nothing checks that the scheduler starts that build, which only
+  the build number in a collected log shows. A profile that does not write the
+  substitution is unaffected. This adds a section to a published file format.
+
+- **`pyfs-matrix plan --updateIDs` renumbers the repeated POLs of the matrix
+  being planned** (also spelled `--update-ids`). A row keeps its POL unless
+  another matrix of the workspace or an earlier row of the same file already
+  states it; each row that must move takes the next free number above every
+  POL, run record and `sims/sim_<id>` folder of the workspace. Only that
+  matrix's POL cells change, each change is printed, and the plan then runs on
+  the rewritten file. A row whose POL already has runs of that matrix is
+  refused rather than moved. From Python: `renumber_repeated_pols` in
+  `pyflightstream.workspace.matrix`, over `renumber_pols` in
+  `pyflightstream.cases.matrix`.
+
+### Fixed
+
+- **A repeated POL is found in every matrix of the workspace, on every row.**
+  Since 0.13.0 `plan` and `run` refused a POL two matrices shared, and three
+  shapes went through: a POL on another matrix's RUN = 0 row, a POL on a RUN = 0
+  row of the matrix being planned, and any collision at all when the matrix
+  was planned from outside the workspace root. A POL repeated inside one matrix
+  was refused only by a validation error that named no row. One message now
+  names every repeated POL and every row stating it.
+
+- **A point still in a scheduler's queue is no longer counted as a run that
+  owed coefficients.** The sweep table decided success by whether the status
+  began with `FAILED`, and `SUBMITTED` does not, so every successful cluster
+  submission warned that none of its "successful runs" yielded a coefficient
+  table. BEHAVIOUR CHANGE: with `require_loads=True`, a workspace whose only
+  non-failed records are `SUBMITTED` used to raise `LoadsNotFoundError` and no
+  longer does.
+
+- **That complaint's example never renders an empty list.** It took its
+  example from the first record, which on a cluster row is often a point with
+  no outputs, and read `for example [] for run ...`. It now names a record that
+  collected something, or says in words that none did.
+
+- **`pyfs-matrix run` prints that complaint once.** The library leaves the
+  sweep table and the command line wrote it again from the same manifest, so
+  one invocation emitted every warning of that derivation twice.
+
+- **The per-rotor skip line states its reason once.** For a row that names its
+  rotors, the skipped `phase_locked` and `per_blade` entries repeated the
+  reason and buried the file names at the end; the clause after the reason now
+  names the per-rotor files and nothing else.
+
+- **No message names a released version as a future fix.** A refusal shipped in
+  0.18.0 told its reader to wait "until 0.18.0 gives a submitted point its own
+  working directory"; a deprecation said a form was exempt "until 0.17.0, when"
+  the key became required; another refusal said "0.15.0 has not shipped". Each
+  is reworded to state the limitation without dating it, and a tier-1 guard
+  reads every user-facing string of the package for a version at or below the
+  current release described as still to come.
+
 ## [0.18.0] - 2026-09-14
 
 ### Corrected

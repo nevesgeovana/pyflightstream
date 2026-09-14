@@ -77,6 +77,7 @@ from pyflightstream.cases.matrix import (
     MatrixRow,
     read_matrix,
     refuse_silent_rows_without_default,
+    renumber_pols,
     to_campaign,
 )
 from pyflightstream.cases.workflows import (
@@ -118,7 +119,9 @@ from pyflightstream.workspace.inputs import (
 
 __all__ = [
     "GEOMETRY_VARIABLE",
+    "PolChange",
     "ResolvedMatrix",
+    "renumber_repeated_pols",
     "resolve_matrix",
 ]
 
@@ -1198,50 +1201,181 @@ def _refuse_groups_named_by_a_word(pproc: PprocArtifact, code: str, pol: str) ->
     )
 
 
-def _refuse_a_pol_stated_by_a_sibling(
-    path: str | Path, workspace: CampaignWorkspace, rows: list[MatrixRow]
-) -> None:
-    """Refuse a POL that another matrix of the same workspace root also states.
+@dataclass(frozen=True)
+class PolChange:
+    """One row of a matrix that :func:`renumber_repeated_pols` moved to a new POL.
 
-    PFS-2031.04. Several matrices may share one workspace, each keeping
-    its own plan, sweep table and products under ``post/<stem>/``, and
-    ``runs.json`` stays the one manifest of all of them. A POL names the
-    simulation folder ``sims/sim_<POL>`` and the run ids of that
-    manifest, so two matrices stating one POL would write into one
-    folder and a resume of either would find the other's points already
-    recorded. The siblings are every ``*.fs`` beside the matrix in the
-    workspace root, read the way the matrix itself is; a sibling that
-    cannot be read is named as the problem rather than skipped, because
-    a check that skips what it cannot read accepts the collision it
+    Attributes
+    ----------
+    row_number : int
+        The data row, counted as :func:`~pyflightstream.cases.matrix.read_matrix`
+        counts it.
+    old : str
+        The POL the row stated.
+    new : str
+        The POL it states now.
+    """
+
+    row_number: int
+    old: str
+    new: str
+
+
+def _pol_claims(
+    path: str | Path, workspace: CampaignWorkspace
+) -> tuple[list[MatrixRow], dict[Path, list[MatrixRow]]]:
+    """Every row of the matrix and of every other matrix in the workspace root.
+
+    EVERY ROW, ACTIVE OR NOT (PFS-2031.21). A row with RUN = 0 today is
+    flipped to 1 tomorrow, and its POL already names a simulation folder; the
+    census of 0.13.0 read active rows only and let a sibling's RUN = 0 row
+    share a POL in silence. And WHEREVER THE MATRIX LIVES: the simulation
+    folders are the workspace's, so a matrix planned from outside the root is
+    held to the matrices inside it, where 0.13.0 returned without looking.
+
+    A sibling that cannot be read is named as the problem rather than skipped,
+    because a check that skips what it cannot read accepts the collision it
     exists to refuse.
     """
     matrix = Path(path).resolve()
     root = Path(workspace.root).resolve()
-    if matrix.parent != root:
-        return
-    mine = {row.pol: row.row_number for row in rows}
+    mine = read_matrix(matrix, active_only=False)
+    siblings: dict[Path, list[MatrixRow]] = {}
     for sibling in sorted(root.glob("*.fs")):
         if sibling.resolve() == matrix:
             continue
         try:
-            theirs = read_matrix(sibling)
+            siblings[sibling] = read_matrix(sibling, active_only=False)
         except MatrixError as error:
             raise MatrixError(
                 f"{sibling.name} shares this workspace with {matrix.name} and could not be "
                 f"read: {error}. Every matrix of one workspace is read at plan time, because "
                 f"a POL stated by two of them would share one simulation folder."
             ) from error
-        shared = [row for row in theirs if row.pol in mine]
-        if shared:
-            first = shared[0]
+    return mine, siblings
+
+
+def _refuse_a_repeated_pol(path: str | Path, workspace: CampaignWorkspace) -> None:
+    """Refuse EVERY POL stated more than once across the matrices of one workspace.
+
+    PFS-2031.04 and PFS-2031.21. Several matrices may share one workspace,
+    each keeping its own plan, sweep table and products under
+    ``post/<stem>/``, and ``runs.json`` stays the one manifest of all of them.
+    A POL names the simulation folder ``sims/sim_<POL>`` and the run ids of
+    that manifest, so two rows stating one POL, in one matrix or in two, would
+    write into one folder and a resume of either would find the other's points
+    already recorded.
+
+    ONE MESSAGE NAMES THEM ALL. 0.13.0 named the first collision and counted
+    the rest, so a workspace with four repeats took four plans to clear.
+    """
+    matrix = Path(path)
+    mine, siblings = _pol_claims(path, workspace)
+    where: dict[str, list[str]] = {}
+    for name, rows in ((matrix.name, mine), *((s.name, r) for s, r in siblings.items())):
+        for row in rows:
+            where.setdefault(row.pol, []).append(f"{name} row {row.row_number}")
+    repeated = {pol: places for pol, places in where.items() if len(places) > 1}
+    if not repeated:
+        return
+    listing = "; ".join(f"POL {pol} in {', '.join(places)}" for pol, places in repeated.items())
+    fixable = any(
+        any(place.startswith(f"{matrix.name} row ") for place in places)
+        for places in repeated.values()
+    )
+    remedy = (
+        f" Renumber by hand, or run `pyfs-matrix plan {matrix.name} --updateIDs`, which gives "
+        f"each repeated row of {matrix.name} the next free POL and leaves every other matrix "
+        "as it is."
+        if fixable
+        else " None of them is in the matrix being planned, so --updateIDs cannot move them: "
+        "plan one of the matrices named above with it, or renumber by hand."
+    )
+    raise MatrixError(
+        f"{len(repeated)} POL(s) are stated more than once across the matrices of this "
+        f"workspace, RUN = 0 rows included: {listing}. A POL names the simulation folder "
+        f"sims/sim_<POL> and the run ids of the one manifest, {workspace.manifest_path.name}, "
+        "so each POL is stated once in the whole workspace." + remedy
+    )
+
+
+def renumber_repeated_pols(
+    path: str | Path, workspace: CampaignWorkspace, *, in_place: bool = True
+) -> list[PolChange]:
+    """Give every repeated row of ONE matrix the next free POL (PFS-2031.21).
+
+    A row keeps its POL unless another matrix of the workspace already states
+    it, or an earlier row of this matrix does. Each row that must move takes
+    the next free number, counted up from the highest POL claimed ANYWHERE in
+    the workspace: every row of every matrix, every ``sim_id`` in the manifest
+    and every ``sims/sim_<id>`` folder, so a new POL never lands on the
+    evidence of a study whose matrix has since been removed. Only this matrix
+    is rewritten, and only its POL cells.
+
+    Parameters
+    ----------
+    path : str or Path
+        The matrix to renumber.
+    workspace : CampaignWorkspace
+        The workspace whose matrices, manifest and simulation folders claim POLs.
+    in_place : bool
+        Rewrite the file. Keyword-only; False computes the changes and writes
+        nothing.
+
+    Returns
+    -------
+    list of PolChange
+        One entry per moved row, in row order; empty when nothing repeats,
+        in which case the file is not touched.
+
+    Raises
+    ------
+    MatrixError
+        A row that must move already has records of THIS matrix in the
+        manifest. Moving it would orphan them from the row that produced them,
+        so it is refused by name and nothing is written.
+    """
+    matrix = Path(path)
+    mine, siblings = _pol_claims(path, workspace)
+    claimed_elsewhere = {row.pol for rows in siblings.values() for row in rows}
+    records = workspace.read_manifest() if workspace.manifest_path.is_file() else []
+    sims = Path(workspace.root) / "sims"
+    folders = (
+        [entry.name[len("sim_") :] for entry in sims.iterdir() if entry.name.startswith("sim_")]
+        if sims.is_dir()
+        else []
+    )
+    every = [
+        *claimed_elsewhere,
+        *(row.pol for row in mine),
+        *(record.sim_id for record in records),
+        *folders,
+    ]
+    ceiling = max((int(pol) for pol in every if str(pol).isdigit()), default=0)
+    stem = matrix.stem
+    seen: set[str] = set()
+    changes: list[PolChange] = []
+    for row in mine:
+        if row.pol not in claimed_elsewhere and row.pol not in seen:
+            seen.add(row.pol)
+            continue
+        if row.pol not in seen and any(
+            record.sim_id == row.pol and record.matrix_stem == stem for record in records
+        ):
             raise MatrixError(
-                f"POL {first.pol} is stated by two matrices of this workspace, {matrix.name} "
-                f"(row {mine[first.pol]}) and {sibling.name} (row {first.row_number})"
-                + (f", and {len(shared) - 1} more POL(s) likewise" if len(shared) > 1 else "")
-                + f". A POL names the simulation folder sims/sim_{first.pol} and the run ids "
-                f"of the one manifest, {workspace.manifest_path.name}, so each matrix of a "
-                f"workspace states its own POLs; renumber the rows of one of the two."
+                f"{matrix.name} row {row.row_number} states POL {row.pol}, which another matrix "
+                f"of this workspace also states, and {workspace.manifest_path.name} already holds "
+                f"runs of POL {row.pol} from {matrix.name}. Moving this row would orphan those "
+                "runs from the row that produced them, so nothing was renumbered. Renumber the "
+                "other matrix instead, or archive the simulation "
+                f"(pyfs-workspace archive <root> {row.pol}) and then renumber this one."
             )
+        ceiling += 1
+        changes.append(PolChange(row_number=row.row_number, old=row.pol, new=str(ceiling)))
+        seen.add(str(ceiling))
+    if changes and in_place:
+        renumber_pols(matrix, {change.row_number: change.new for change in changes}, in_place=True)
+    return changes
 
 
 def resolve_matrix(
@@ -1372,7 +1506,7 @@ def resolve_matrix(
     rows = read_matrix(path)
     if not rows:
         raise MatrixError(f"{path} has no active rows (RUN = 1); nothing to resolve or run")
-    _refuse_a_pol_stated_by_a_sibling(path, workspace, rows)
+    _refuse_a_repeated_pol(path, workspace)
     # BEFORE the build is selected, not after: a silent row falls back to
     # this default, so a blank one leaves nothing naming a build for that
     # row, and the refusal has to arrive before an executable is looked up

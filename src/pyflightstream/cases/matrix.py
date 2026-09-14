@@ -124,6 +124,7 @@ __all__ = [
     "convert_matrix",
     "read_matrix",
     "refuse_silent_rows_without_default",
+    "renumber_pols",
     "rewrite_codes",
     "to_campaign",
     "upgrade_matrix",
@@ -2461,6 +2462,86 @@ def rewrite_codes(
     if in_place:
         Path(path).write_bytes(rewritten)
     return rewritten, counts
+
+
+def renumber_pols(
+    path: str | Path,
+    changes: Mapping[int, str],
+    *,
+    in_place: bool = False,
+) -> bytes:
+    """Rewrite the POL cell of the named data rows, byte for byte (PFS-2031.21).
+
+    BY ROW, NOT BY VALUE, which is the difference from :func:`rewrite_codes`:
+    a POL stated twice in one matrix is two rows with one value, and only the
+    second of them moves. Every other cell, the padding of the POL cell where
+    it can be kept, the dashed rule and every line ending survive unchanged.
+
+    Parameters
+    ----------
+    path : str or Path
+        The matrix to rewrite, at the verified layout.
+    changes : mapping of int to str
+        Data row number, counted as :func:`read_matrix` counts it, to the new
+        POL. A row number the file does not hold is refused, because a
+        renumbering that silently touched nothing reads as done.
+    in_place : bool
+        Write the rewritten bytes back over ``path``.
+
+    Returns
+    -------
+    bytes
+        The rewritten file.
+
+    Raises
+    ------
+    MatrixError
+        The header does not name the verified layout, a data row holds the
+        wrong number of cells, or a row number in ``changes`` is not in the file.
+    """
+    source = str(path)
+    data = Path(path).read_bytes()
+    index = _COLUMNS.index("POL")
+    rebuilt: list[bytes] = []
+    header_seen = False
+    row_number = 0
+    done: set[int] = set()
+    for line in data.splitlines(keepends=True):
+        body, terminator = _peel_terminator(line)
+        if b"|" not in body:
+            rebuilt.append(line)
+            continue
+        parts = body.split(b"|")
+        if not header_seen:
+            header_seen = True
+            if _header_names(parts) != _COLUMNS:
+                raise MatrixError(
+                    f"{source} is not a run matrix at the verified layout, so its POL "
+                    "cells cannot be found; upgrade it first."
+                )
+            rebuilt.append(line)
+            continue
+        row_number += 1
+        if row_number in changes:
+            if len(parts) != len(_COLUMNS):
+                raise MatrixError(
+                    f"data row {row_number} of {source} holds {len(parts)} cells against "
+                    f"the {len(_COLUMNS)} verified columns; repair the row first."
+                )
+            old = parts[index].strip().decode("utf-8", "replace")
+            parts[index], _ = _retag_cell(parts[index], {old: str(changes[row_number])})
+            done.add(row_number)
+        rebuilt.append(b"|".join(parts) + terminator)
+    missing = sorted(set(changes) - done)
+    if missing:
+        raise MatrixError(
+            f"{source} holds no data row {', '.join(map(str, missing))}, so nothing was "
+            "renumbered there; the file is left as it was."
+        )
+    rewritten = b"".join(rebuilt)
+    if in_place:
+        Path(path).write_bytes(rewritten)
+    return rewritten
 
 
 def upgrade_matrix(path: str | Path, *, in_place: bool = False) -> bytes:

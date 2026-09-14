@@ -7925,9 +7925,9 @@ def _clock_speed(case: SimCase, views: Sequence[SimCase], speeds: Sequence[Rotor
                 f"decision the row wrote: name the motion that owns the clock with "
                 f"{CLOCK_MOTION_VARIABLE}. A row that names its rotors by alias is "
                 "refused without it since 0.15.0, and this release refuses it here "
-                "too: the promise that the flat form was exempt until 0.17.0 was "
-                "written in 0.15.0 and 0.15.0 has not shipped, so no workspace was "
-                "ever told it held."
+                "too: the flat form was once going to be exempt for longer, and that "
+                "promise was withdrawn before 0.15.0 shipped, so no workspace was ever "
+                "told it held."
             )
         return fastest
     token = str(named).strip()

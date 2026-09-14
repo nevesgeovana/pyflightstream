@@ -2464,7 +2464,10 @@ def test_the_refusal_names_the_build_the_file_names_first(tmp_path):
     workspace = make_library(tmp_path)
     register(workspace, "26.120", "C:/fs26120/FlightStream.exe")
     first = NAMED_ROW.replace("26.120", "26.123")
-    second = NAMED_ROW.replace("26.120", "26.121")
+    # ITS OWN POL. The two rows shared 9102 by accident, and since 0.18.1 a
+    # POL stated twice in one matrix is refused before any build is looked up
+    # (PFS-2031.21), which would replace the refusal this case pins.
+    second = NAMED_ROW.replace("26.120", "26.121").replace("9102 |", "9103 |", 1)
     path = write_matrix(tmp_path / "reverse_order.fs", [first, second])
 
     with pytest.raises(InputArtifactError) as caught:
@@ -5160,7 +5163,13 @@ def test_goal019_hpc_a_second_point_is_not_submitted_over_a_queued_one(tmp_path)
         "still reading"
     )
     assert "camp/sim_9001/a+00.0" in refusal
-    assert "0.18.0" in refusal
+    # PFS-2010.01.05. This asserted "0.18.0" was IN the refusal, which pinned
+    # a message telling a user of 0.18.0 to wait for 0.18.0. The instruction
+    # is counted instead, and no release is named as the fix.
+    assert refusal.count("Submit one point of a row at a time") == 1, refusal
+    import re
+
+    assert not re.search(r"\b\d+\.\d+\.\d+\b", refusal), refusal
 
     # A LOCAL RUN IS NEVER REFUSED: the points run one after another, so
     # they never share the folder at the same moment.

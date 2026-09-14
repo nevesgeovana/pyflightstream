@@ -111,6 +111,18 @@ from pyflightstream.results.conditions import bind_conditions
 if TYPE_CHECKING:  # typing only: no runtime import of the execution layers
     from pyflightstream.workspace import CampaignWorkspace, RunRecord
 
+#: The statuses of a run that FINISHED WITHOUT FAILING, and so owed a
+#: coefficient table. Named by value, because this layer imports the
+#: workspace layer nowhere at runtime; a tier-1 test holds the tuple to the
+#: enum, so a status added there cannot be silently left out here.
+#:
+#: IT IS AN ALLOW-LIST, AND IT USED TO BE A PREFIX TEST. Success was decided
+#: by `not status.startswith("FAILED")`, and `SUBMITTED` does not begin with
+#: FAILED, so a point still in a scheduler's queue was counted as a run that
+#: should have produced coefficients and then complained about for not
+#: having them, on every successful cluster submission (PFS-2010.01.03).
+RAN_TO_OUTPUTS = ("CONVERGED", "COMPLETED_MAX_ITER", "WALLTIME_REACHED")
+
 # Fixed identity and outcome columns of one run row, in output order;
 # sweep point axes are inserted after sim_id and must not collide.
 _RUN_IDENTITY_COLUMNS = ("run_id", "sim_id")
@@ -728,18 +740,28 @@ def sweep_table(
             loads = None  # the row keeps identity and status, coefficients stay NaN
         rows.append(_run_row(record, loads))
     if runs_with_loads == 0:
-        successful = [r.run_id for r in records if not r.status.startswith("FAILED")]
+        successful = [r for r in records if str(r.status) in RAN_TO_OUTPUTS]
         if successful:
             hint = (
                 f"no collected output is named {loads_file!r}"
                 if loads_file is not None
                 else "no collected output parses as a loads spreadsheet"
             )
+            # THE EXAMPLE IS A RECORD THAT COLLECTED SOMETHING, never simply
+            # the first: on a cluster row the first record is often a point
+            # whose outputs list is empty, and the hint then read "for
+            # example [] for run ..." (PFS-2010.01.04).
+            example = next((r for r in successful if r.outputs), None)
+            pointer = (
+                "Check the exported file name against the recorded outputs, for example "
+                f"{list(example.outputs)!r} for run {example.run_id!r}."
+                if example is not None
+                else "None of them recorded a collected output at all, so check that the "
+                "run exported a loads spreadsheet before checking its name."
+            )
             complaint = (
                 f"none of the {len(successful)} successful runs yielded a coefficient "
-                f"table: {hint}. Check the exported file name against the recorded "
-                f"outputs, for example {records[0].outputs!r} for run "
-                f"{records[0].run_id!r}."
+                f"table: {hint}. {pointer}"
             )
             if require_loads:
                 raise LoadsNotFoundError(complaint)

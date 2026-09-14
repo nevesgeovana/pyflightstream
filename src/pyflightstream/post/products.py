@@ -2299,9 +2299,13 @@ def _point_reductions(
         if "skipped" in entry:
             reason = str(entry["skipped"])
             if rotor is None and per_rotor.get(name):
+                # THE POINTER REPLACES THE GENERIC TAIL AND ADDS NOTHING ELSE.
+                # The head up to the last colon already says the row names its
+                # rotors; appending that again made one fact print twice and
+                # buried the file names at the end of the repetition, on six
+                # lines of every rotor sweep (PFS-2015.05).
                 reason = (
-                    f"{reason.rsplit(':', 1)[0]}: this row names its rotors, so each is "
-                    f"reduced over its own blade passage, in "
+                    f"{reason.rsplit(':', 1)[0]}: the per-rotor files are "
                     f"{' and '.join(per_rotor[name])}."
                 )
             skipped[relative] = reason

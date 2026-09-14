@@ -693,6 +693,16 @@ the session records.
 
     Read with PFS-2031.03, PFS-2031.04, PFS-2031.05, PFS-2031.06, PFS-2031.07, PFS-2031.12, PFS-2031.14 and PFS-2031.20 at 0.13.0 (GOAL-012): the tier-3 folder is a workspace, several matrices share it with their own plan, sweep and products under post/<matrix>/, every token the package defines is a row that plans offline and runs on the licensed machine, an executable override with no default version is refused naming the option, and the matrix identity of a campaign and a record is matrix_stem.
 
+    Read with PFS-2031.21 at 0.18.1: A POL IS STATED ONCE IN THE WHOLE
+    WORKSPACE. `plan` and `run` read every `*.fs` in the workspace root and
+    the matrix being planned wherever it is, every row of each including rows
+    with RUN = 0, and refuse with one message naming every repeated POL and
+    every row stating it, because a POL names the simulation folder and the
+    run ids of the one manifest. `pyfs-matrix plan --updateIDs` rewrites the
+    planned matrix alone, moving each repeated row to the next free POL above
+    every POL, run record and simulation folder of the workspace, and refuses
+    to move a row whose POL already has runs of that matrix.
+
     The run matrix is a first-class interface of the file-managed
     modality: its reference columns resolve against the workspace
     input library, and one call takes a matrix through conversion,
@@ -3745,6 +3755,18 @@ requirement below is one seam of that division.
     carrying several profiles and nothing to say which is REFUSED rather than
     guessed, because guessing spends a queue.
 
+    THE PROFILE TRANSLATES THE BUILD, AND THE CELL DOES NOT MOVE (0.18.1,
+    PFS-2010.01.06). A row names one build, and a scheduler may know only an
+    application family that covers several. The profile's `[builds]` table,
+    keyed by canonical build, states what that scheduler calls each build,
+    and a descriptor field writes it through `{fs_build_alias}`. A profile
+    that writes the substitution and maps no alias for a build a row names is
+    refused before any point is submitted, and a key that is not one
+    registered build is refused when the profile is read. The table is a
+    DECLARATION: it does not establish which build the scheduler starts, which
+    only the build number in a collected log does, so a submitted point is not
+    identity-checked before it runs.
+
     A LINUX MACHINE WITH NO PROFILE RUNS LOCALLY. Not every Linux box is a
     cluster, and a study that never wrote a profile is saying it does not
     submit.
@@ -3754,8 +3776,8 @@ requirement below is one seam of that division.
     the scheduler was handed, the profile that rendered it and whether the
     submit command ran, which is the only thing that says where the job went.
     The local solver-identity pre-flight is skipped, because a cluster's
-    solver is on the cluster and asking would submit a probe job to answer a
-    question the descriptor already states.
+    solver is on the cluster and asking would submit a probe job; the
+    descriptor names the build the profile declares, which is not a check.
 
     SINCE 0.18.0 A COLLECT STAGE COMPLETES IT, and it watches the WORKSPACE
     rather than the scheduler. `pyfs-matrix collect` sweeps every `SUBMITTED`

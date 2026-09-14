@@ -1723,19 +1723,43 @@ and the products of one matrix are rebuilt from its own records alone. From
 Python the same identity is the `matrix_stem` keyword of `sweep_table` and
 `write_campaign_products`, and the `matrix_stem` field of a run record.
 
-What two matrices of one workspace may not share is a POL. A POL names the
-simulation folder `sims/sim_<POL>` and the run ids of the manifest, so two
-rows stating one POL would write into one folder and a resume of either
-would find the other's points already recorded. `plan` and `run` read every
-`*.fs` beside the matrix in the workspace root before anything binds, and a
-shared POL is refused naming both files and both rows:
+What no two rows of one workspace may share is a POL, in one matrix or in two.
+A POL names the simulation folder `sims/sim_<POL>` and the run ids of the
+manifest, so two rows stating one POL would write into one folder and a resume
+of either would find the other's points already recorded. Before anything
+binds, `plan` and `run` read every `*.fs` in the workspace root and the matrix
+being planned, wherever it is, EVERY ROW OF EACH, including rows with RUN = 0,
+because a row switched off today is switched on tomorrow and its POL already
+names a folder. One message names every repeated POL and every row stating it:
 
 ```text
-matrix not planned: POL 1001 is stated by two matrices of this workspace,
-matriz.fs (row 1) and matriz_setup.fs (row 3). A POL names the simulation
-folder sims/sim_1001 and the run ids of the one manifest, runs.json, so each
-matrix of a workspace states its own POLs; renumber the rows of one of the two.
+matrix not planned: 2 POL(s) are stated more than once across the matrices of
+this workspace, RUN = 0 rows included: POL 1001 in matriz.fs row 1,
+matriz_setup.fs row 3; POL 1004 in matriz.fs row 4, matriz.fs row 6. A POL names
+the simulation folder sims/sim_<POL> and the run ids of the one manifest,
+runs.json, so each POL is stated once in the whole workspace. Renumber by hand,
+or run `pyfs-matrix plan matriz.fs --updateIDs`, which gives each repeated row
+of matriz.fs the next free POL and leaves every other matrix as it is.
 ```
+
+`pyfs-matrix plan <matrix> --updateIDs` (also spelled `--update-ids`) rewrites
+THAT MATRIX before planning it. A row keeps its POL unless another matrix
+already states it or an earlier row of the same file does; each row that must
+move takes the next free number above every POL of every matrix, every run in
+`runs.json` and every `sims/sim_<id>` folder, so a new POL never lands on the
+evidence of a study whose matrix has been removed. Only the POL cells change,
+each change is printed, and the plan then runs on the rewritten file:
+
+```text
+pyfs-matrix plan matriz.fs --updateIDs ...
+--updateIDs: matriz.fs row 6: POL 1004 -> 2013
+```
+
+A row whose POL already has runs of THAT matrix in `runs.json` is refused
+rather than moved, because moving it would orphan those runs from the row that
+produced them; renumber the other matrix instead, or archive the simulation
+first. From Python the same step is
+`pyflightstream.workspace.matrix.renumber_repeated_pols(path, workspace)`.
 
 The tier-3 workspace of this repository, `tests/tier3_licensed`, is the
 worked example: nine matrices, one library, one manifest, and a thousands
@@ -2368,6 +2392,46 @@ that decided it.
 
 Because the range is derived, a build registered tomorrow joins it the
 moment its evidence lands, and nobody has to remember to widen a list.
+
+### Naming the build to a cluster's scheduler
+
+A row's `FS_BUILD` names ONE build, `26.123`. A scheduler often knows only an
+application family, such as `26.1`, which covers more than one registered
+build. The two vocabularies refuse each other: the scheduler does not know
+`26.123`, and this package refuses `26.1` because it cannot tell which build
+it means. So the cell keeps the build, and the cluster's profile translates it:
+
+```toml
+# inputs/hpc/h001.toml
+application_id = "flightstream"
+
+[descriptor]
+format = "yaml"
+name = "submit.yaml"
+
+[descriptor.fields]
+ApplicationId = "{application_id}"
+version       = "{fs_build_alias}"
+master_file   = "{script_path}"
+
+[submit]
+command = ["esub", "{descriptor_path}"]
+
+# What this scheduler calls each build a row may name. Keyed by the BUILD,
+# because several builds can share one scheduler name. This is a DECLARATION,
+# not a verification: nothing checks that the scheduler starts this build.
+# Which build a point ran on is known only from the build number in its
+# collected log.
+[builds]
+"26.123" = "26.1"
+```
+
+The matrix cell stays the same on every machine, so one study opens on a
+workstation or on the cluster with no cell changed. A profile that writes
+`{fs_build_alias}` and has no line for a build a row names is refused before
+any point is submitted, naming the build and the table. A key that is not one
+registered build, `26.1` for instance, is refused when the profile is read. A
+profile that does not write the substitution is unaffected by the table.
 
 ### The four reductions of an unsteady case
 

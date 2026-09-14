@@ -118,6 +118,11 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     # would put an extrapolation in front of someone who asked for a
     # pre-flight.
     ("pyfs-matrix", "cost"): SWITCH,
+    # PFS-2031.21, the author's instruction of 2026-09-14. A SWITCH: whether
+    # THIS plan rewrites the matrix it was handed is the invocation's intent,
+    # and a machine that renumbered every matrix it planned would edit a
+    # study nobody asked it to touch.
+    ("pyfs-matrix", "update_ids"): SWITCH,
     # PFS-2035.13, the author's design of 2026-09-10. A SWITCH and deliberately not a
     # registry knob: whether a family the opened mesh lacks is a skip or a
     # refusal is a property of THIS invocation's intent, not of the machine.
@@ -253,6 +258,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-matrix", "refuse_missing_families"): frozenset({"plan", "run"}),
     ("pyfs-matrix", "resume"): frozenset({"run"}),
     ("pyfs-matrix", "cost"): frozenset({"plan"}),
+    ("pyfs-matrix", "update_ids"): frozenset({"plan"}),
     ("pyfs-matrix", "strict"): frozenset({"post"}),
     ("pyfs-matrix", "sweep_csv"): frozenset({"run"}),
     ("pyfs-matrix", "workflow"): frozenset({"plan", "run"}),

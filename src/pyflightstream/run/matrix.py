@@ -27,7 +27,7 @@ from collections.abc import Callable, Mapping
 from pathlib import Path
 
 from pyflightstream._deprecations import MATRIX_FS_VERSION
-from pyflightstream._errors import PyflightstreamDeprecationWarning
+from pyflightstream._errors import InputArtifactError, PyflightstreamDeprecationWarning
 from pyflightstream.cases import Campaign, ScriptRecipe
 from pyflightstream.cases.matrix import (
     MatrixError,
@@ -71,10 +71,21 @@ def _cluster_executor(
     profile = resolve_hpc_profile(workspace.inputs_dir)
     if profile is None:
         return None
-    return SubmittingExecutor(
+    # PFS-2010.01.06, BEFORE ANY POINT IS SUBMITTED. A build the profile
+    # cannot name to its scheduler fails every point of its rows the same
+    # way, so it is refused for the whole campaign here rather than at the
+    # first descriptor, after earlier rows have already spent the queue.
+    campaign = resolved.campaign
+    executor = SubmittingExecutor(
         profile,
         values={"fs_build": resolved.campaign.fs_version or ""},
     )
+    refusal = executor.build_alias_refusal(
+        [case.fs_build or campaign.fs_version for case in campaign.sims]
+    )
+    if refusal is not None:
+        raise InputArtifactError(refusal)
+    return executor
 
 
 __all__ = [

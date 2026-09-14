@@ -51,10 +51,11 @@ from __future__ import annotations
 
 import argparse
 import sys
+import warnings
 from pathlib import Path
 from typing import NoReturn
 
-from pyflightstream._errors import PyflightstreamError
+from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning
 from pyflightstream.cases import CampaignConfigError
 from pyflightstream.cases.matrix import MatrixError, convert_matrix, upgrade_matrix
 from pyflightstream.cases.workflows import (
@@ -74,6 +75,7 @@ from pyflightstream.run import (
 )
 from pyflightstream.run.matrix import plan_matrix, run_matrix
 from pyflightstream.workspace import CampaignWorkspace, InputArtifactError, WorkspaceError
+from pyflightstream.workspace.matrix import renumber_repeated_pols
 from pyflightstream.workspace.naming import (
     MATRIX_POINT_NAME,
     NamingTemplate,
@@ -354,6 +356,17 @@ def _build_parser() -> argparse.ArgumentParser:
         "this workspace's own recorded runs. The time is an extrapolation and the "
         "table says so, carrying the number of samples behind it; a point with no "
         "comparable recorded run reads 'unknown' rather than a number with no basis",
+    )
+    plan.add_argument(
+        "--updateIDs",
+        "--update-ids",
+        dest="update_ids",
+        action="store_true",
+        help="before planning, REWRITE THIS MATRIX so that none of its POLs repeats one "
+        "stated elsewhere in the workspace or earlier in this file: each repeated row takes "
+        "the next free POL above every POL, run record and sims/ folder of the workspace, "
+        "and every other matrix is left as it is. Each change is printed. A row whose POL "
+        "already has runs of this matrix is refused rather than moved",
     )
 
     run = subparsers.add_parser(
@@ -1005,6 +1018,23 @@ def _the_missing_family_choice(args: argparse.Namespace) -> bool:
 def _cmd_plan(args: argparse.Namespace, recipes: dict[str, str]) -> int:
     workspace = CampaignWorkspace(args.workspace, naming=_naming(args))
     name, name_from = _campaign_name(args)
+    if getattr(args, "update_ids", False):
+        # PFS-2031.21. BEFORE the plan, so the receipt the plan writes is
+        # pinned to the digest of the file as renumbered, and `run` does not
+        # then refuse it as a matrix edited after it was planned.
+        try:
+            changes = renumber_repeated_pols(args.matrix, workspace)
+        except (MatrixError, OSError) as error:
+            print(f"matrix not planned: {error}", file=sys.stderr)
+            return 2
+        matrix_name = Path(args.matrix).name
+        if not changes:
+            print(f"--updateIDs: no POL of {matrix_name} is repeated; nothing was renumbered")
+        for change in changes:
+            print(
+                f"--updateIDs: {matrix_name} row {change.row_number}: "
+                f"POL {change.old} -> {change.new}"
+            )
     try:
         plan = plan_matrix(
             args.matrix,
@@ -1149,7 +1179,17 @@ def _cmd_run(args: argparse.Namespace, recipes: dict[str, str]) -> int:
         # that cannot say what produced its numbers; `to_csv` bypassed
         # that and was correct only by coincidence.
         Path(target).parent.mkdir(parents=True, exist_ok=True)
-        write_table(sweep_table(workspace, require_loads=False, matrix_stem=stem), target)
+        # THE LIBRARY HAS ALREADY SAID IT. Every path that reaches this line
+        # went through `run_matrix`, which left the same table from the same
+        # manifest a moment ago and emitted whatever warning deriving it
+        # raises; deriving it again here emitted each of those a second time
+        # from a second location, so one invocation printed the same
+        # complaint twice. The refusals below still speak, because they are
+        # exceptions and not warnings.
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", PyflightstreamWarning)
+            table = sweep_table(workspace, require_loads=False, matrix_stem=stem)
+        write_table(table, target)
     except (LoadsNotFoundError, MalformedOutputError, OSError, ValueError) as error:
         print(f"runs completed, sweep table not written: {error}", file=sys.stderr)
         return 2

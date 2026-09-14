@@ -145,6 +145,7 @@ from pyflightstream.workspace import (
     datapoint_dir_name,
     post_stages,
 )
+from pyflightstream.workspace.inputs import HPC_BUILD_ALIAS
 from pyflightstream.workspace.naming import ARCHIVE_STAMP, polar_name
 
 __all__ = [
@@ -616,6 +617,48 @@ def render_descriptor(profile, values: Mapping[str, object]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _names_the_build_alias(profile) -> bool:
+    """Whether any field or submit argument of a profile writes ``{fs_build_alias}``."""
+    token = "{" + HPC_BUILD_ALIAS + "}"
+    return any(token in str(part) for part in (*profile.fields.values(), *profile.submit))
+
+
+def _canonical_build(build: object) -> str:
+    try:
+        return resolve(str(build)).canonical
+    except PyflightstreamError:
+        return str(build)
+
+
+def _unmapped_build_refusal(profile, builds) -> str | None:
+    """Why a profile cannot name these builds to its scheduler, or None when it can.
+
+    PFS-2010.01.06. The matrix names a BUILD (``26.123``) and a scheduler
+    may know only a family (``26.1``); the profile's ``[builds]`` table
+    translates one into the other, so the cell stays the same on every
+    machine. A profile that writes ``{fs_build_alias}`` and has no entry for
+    a build a row names is refused here, BY NAME, rather than rendering a
+    descriptor with the build in a field that expects the scheduler's word.
+
+    A profile that never writes the substitution is never refused, which is
+    every profile written before this table existed.
+    """
+    if not _names_the_build_alias(profile):
+        return None
+    table = getattr(profile, "builds", None) or {}
+    missing = sorted({_canonical_build(b) for b in builds if b} - set(table))
+    if not missing:
+        return None
+    mapped = ", ".join(f"{k} -> {v}" for k, v in sorted(table.items())) or "nothing"
+    return (
+        f"the HPC profile {profile.path} writes {{{HPC_BUILD_ALIAS}}} and its [builds] "
+        f"table maps no alias for build(s) {', '.join(missing)} (it maps {mapped}). Add a "
+        f'line per build under [builds], for example "{missing[0]}" = "<what this '
+        'scheduler calls it>". The table is a declaration: it does not check that the '
+        "scheduler starts that build, which only the build number in a collected log shows."
+    )
+
+
 @runtime_checkable
 class Submitting(Protocol):
     """An executor that hands a job to a SCHEDULER instead of running it.
@@ -671,8 +714,7 @@ def _a_point_is_already_queued(executor, workspace, case) -> str | None:
         "action program the wall clock runs and the state file it keeps its clock in, "
         "so submitting this point now would rewrite them under a job that is still "
         "queued and that job would export under this point's names. Submit one point "
-        "of a row at a time until 0.18.0 gives a submitted point its own working "
-        "directory, or collect the queued point first."
+        "of a row at a time, or collect the queued point first."
     )
 
 
@@ -786,6 +828,16 @@ class SubmittingExecutor:
             return
         self.values.update(values)
 
+    def build_alias_refusal(self, builds) -> str | None:
+        """Why this executor's profile cannot name ``builds`` to its scheduler, or None.
+
+        PFS-2010.01.06. Asked once for every build a campaign names, before
+        any point is submitted, so a build the profile's ``[builds]`` table
+        does not map is refused for the whole campaign rather than at the
+        first descriptor after earlier rows have spent the queue.
+        """
+        return _unmapped_build_refusal(self.profile, builds)
+
     def submission_record(self) -> dict | None:
         """Return what this executor handed to the scheduler, or None.
 
@@ -824,6 +876,15 @@ class SubmittingExecutor:
             "script_path": Path(script_path).as_posix(),
             "work_dir": Path(working_dir).as_posix(),
         }
+        # PFS-2010.01.06. The scheduler's word for this point's build, when
+        # the profile maps it; refused by name when the profile writes the
+        # substitution and maps nothing for the build.
+        refusal = _unmapped_build_refusal(self.profile, [values.get("fs_build")])
+        if refusal is not None:
+            raise CampaignConfigError(refusal)
+        build = values.get("fs_build")
+        if build and _canonical_build(build) in (getattr(self.profile, "builds", None) or {}):
+            values[HPC_BUILD_ALIAS] = self.profile.builds[_canonical_build(build)]
         descriptor = Path(working_dir) / self.profile.descriptor_name
         descriptor.parent.mkdir(parents=True, exist_ok=True)
         descriptor.write_text(render_descriptor(self.profile, values), encoding="utf-8")
@@ -2280,9 +2341,13 @@ def _check_scheduled_builds(
         # check runs a small script and reads the build back, which is a
         # question about the executable ON THIS MACHINE; a cluster's solver
         # is on the cluster, and asking would submit a probe job to a queue
-        # to answer a question the descriptor already states. The build a
-        # submitted job runs on is the one the descriptor names, and that
-        # is checked when the outputs come back.
+        # to answer a question the descriptor states. WHAT IT STATES IS A
+        # NAME, NOT A GUARANTEE: on a real cluster the descriptor carries the
+        # scheduler's family name (`26.1`), which covers more than one build,
+        # and the profile's [builds] table only DECLARES which build that
+        # name means (PFS-2010.01.06). So a submitted point is NOT guarded
+        # here; which build it ran on is known only from the build number in
+        # its collected log.
         if getattr(case_executor, "descriptor_path", "missing") != "missing":
             continue
         workdir = Path(tempfile.mkdtemp(prefix="pyfs-preflight-"))
