@@ -27,6 +27,8 @@ FlightStream versions.
     them, and `point_tag` still returns the 0.20 tag.
   - `CampaignWorkspace.collect_outputs` and `archive_datapoint` take a
     `workspace.PointName` and no longer take a point mapping.
+  - [Migrating to 0.21.0](docs/migrating-to-0.21.0.md) is the step-by-step
+    for a workspace, a matrix and a profile written under 0.20.x.
 
 ### Added
 

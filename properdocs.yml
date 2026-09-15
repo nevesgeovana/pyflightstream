@@ -49,6 +49,7 @@ nav:
   - The workspace and the workflow: workspace-and-workflows.md
   - The test tiers and the licensed workspace: tiers.md
   - Flight conditions: flight-conditions.md
+  - Migrating to 0.21.0: migrating-to-0.21.0.md
   - Numeric settings codebook: settings-codebook.md
   - Architecture: architecture.md
   - SRS:

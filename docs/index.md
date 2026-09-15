@@ -306,6 +306,10 @@ added, never dropped.
 * [Flight conditions](flight-conditions.md): what a row states about the
   flow it runs at, which quantity gets solved for, the units that ride
   the key names, and what to run on a matrix written before v0.9.0.
+* [Migrating to 0.21.0](migrating-to-0.21.0.md): the one command that
+  renames a workspace written under 0.20.x, and what the `WALLTIME` unit,
+  the HPC profile's `[log]` table and the build flag ask of a file you
+  already have.
 * [The workspace and the workflow](workspace-and-workflows.md): what a
   workspace is and what it is for, in plain language, then the path from a
   filled-in run matrix to results. Every artefact on it is lifted from an
