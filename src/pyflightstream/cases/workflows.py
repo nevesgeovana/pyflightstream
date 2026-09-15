@@ -100,7 +100,16 @@ from pyflightstream.cases import (
     warn_a_selector_that_guesses,
 )
 from pyflightstream.commands import CommandRegistry, Phase, VersionView
-from pyflightstream.script import CommandArgumentError, Script, ScriptReferenceError, helpers
+from pyflightstream.script import (
+    MARCH_ACTIONS,
+    MARCH_SINGLE,
+    CommandArgumentError,
+    MarchStrategy,
+    Script,
+    ScriptReferenceError,
+    helpers,
+    vocabulary,
+)
 from pyflightstream.versions import FsVersion, known_versions, resolve
 
 __all__ = [
@@ -794,8 +803,7 @@ def covered_builds(
 
 
 def _carried(view: VersionView, name: str) -> bool:
-    substitute = _SUBSTITUTES.get(name, ())
-    return name in view or bool(substitute) and all(other in view for other in substitute)
+    return name in view or (name in _SUBSTITUTES and vocabulary.euclidean_rotor(view))
 
 
 def _missing_commands(
@@ -867,32 +875,26 @@ def require_coverage(
 #: that predate its vocabulary, and are WRITTEN there: the rotor axis and
 #: speed of a ROTARY motion are, on a build whose motion type is EUCLIDEAN,
 #: its angular velocity and its rotor mark (helpers.rotary_motion, GOAL-023).
-#: A build carrying every command of the substitute covers the command.
-_SUBSTITUTES: dict[str, tuple[str, ...]] = {
-    "SET_MOTION_ROTOR_AXIS": helpers.EUCLIDEAN_ROTOR_COMMANDS,
-    "SET_MOTION_ROTOR_RPM": helpers.EUCLIDEAN_ROTOR_COMMANDS,
-}
+#: A build where ``vocabulary.euclidean_rotor`` holds covers the command; the
+#: decision is made there and only there.
+_SUBSTITUTES: dict[str, tuple[str, ...]] = dict.fromkeys(
+    vocabulary.ROTARY_ROTOR_COMMANDS, vocabulary.EUCLIDEAN_ROTOR_COMMANDS
+)
 
 
 # --- how a build is marched (ARCH-0200, GOAL-023) ---------------------------
 
-#: The unsteady march that registers the solver's per-step actions: the
-#: counter and exports pair for a per-step threshold, the clock and stop pair
-#: for a wall clock. Only a row asking for one of those is marched this way.
-MARCH_ACTIONS = "actions"
-#: The unsteady march that registers no action: the plots declared before ONE
-#: solver start over every time step, and every export after it. Every build
-#: can run it, and on every build it is what a row asking for no per-step
-#: feature has always rendered.
-MARCH_SINGLE = "single_march"
+#: :data:`pyflightstream.script.MARCH_ACTIONS` and ``MARCH_SINGLE`` are the
+#: two marches, defined in the script layer that carries them; re-exported
+#: here beside the seam that chooses between them.
 
 #: The one command whose presence in a build's database is the per-step
-#: action capability.
-_ACTION_COMMAND = "SET_NEW_UNSTEADY_SOLVER_ACTION"
+#: action capability, the name the emitter itself uses.
+_ACTION_COMMAND = helpers.UNSTEADY_ACTION_COMMAND
 
 
 class BuildCapabilityError(WorkflowCoverageError):
-    """A row asks, on a build that lacks it, for what only that build capability gives.
+    """A row asks a build for a feature that only a capability the build lacks provides.
 
     Raised by :func:`march_strategy` before the first emission, so a plan
     reports the point BLOCKED with this sentence and nothing is spent. The
@@ -928,6 +930,19 @@ class BuildCapabilities:
         """Derive the capabilities of the build ``view`` answers for."""
         return cls(build=view.version.canonical, unsteady_actions=_ACTION_COMMAND in view)
 
+    @classmethod
+    def for_build(cls, build: str, *, registry: CommandRegistry | None = None) -> BuildCapabilities:
+        """Derive the capabilities of a build named as a matrix ``FS_BUILD`` cell names it.
+
+        Examples
+        --------
+        >>> BuildCapabilities.for_build("26.120").unsteady_actions
+        False
+        >>> BuildCapabilities.for_build("26.123").unsteady_actions
+        True
+        """
+        return cls.of((registry or CommandRegistry.load()).for_version(build))
+
 
 def _builds_with_actions(registry: CommandRegistry | None = None) -> tuple[str, ...]:
     """Return the registered builds that document the per-step action, in release order."""
@@ -941,10 +956,10 @@ def _builds_with_actions(registry: CommandRegistry | None = None) -> tuple[str, 
 
 def march_strategy(
     case: SimCase,
-    capabilities: BuildCapabilities,
     *,
+    capabilities: BuildCapabilities,
     registry: CommandRegistry | None = None,
-) -> str | None:
+) -> MarchStrategy | None:
     """Decide how an unsteady case is marched on a build, or refuse it by name.
 
     THE ONE SEAM. :func:`build_script` calls it once, after the coverage
@@ -963,9 +978,11 @@ def march_strategy(
     Returns
     -------
     str or None
-        None for a case that is not unsteady; :data:`MARCH_ACTIONS` when the
-        row states a per-step threshold or a wall clock and the build has the
-        actions they need; :data:`MARCH_SINGLE` otherwise.
+        None for a case that is not unsteady; ``MARCH_ACTIONS`` when the row
+        states a per-step threshold or a wall clock and the build has the
+        actions they need; ``MARCH_SINGLE`` otherwise. A continuation marks no
+        action of its own: it is ``MARCH_SINGLE`` unless it also states one
+        of those.
 
     Raises
     ------
@@ -973,6 +990,19 @@ def march_strategy(
         If the build documents no per-step action and the row asks for a
         per-step threshold, a wall clock, or a continuation that reads their
         records (``RESTART: {FINISH_PENDING}`` or ``{ADDITIONAL_REVS=n}``).
+
+    Examples
+    --------
+    >>> from pyflightstream.cases import SimCase, SweepAxis
+    >>> case = SimCase(
+    ...     sim_id="7003",
+    ...     aircraft="Wing",
+    ...     sweep=SweepAxis(type="alpha", values=[0.0]),
+    ...     recipe="unsteady",
+    ...     variables={"VELOCITY": "30.0", "DELTA_TIME": "0.01", "TIME_ITERATIONS": "4"},
+    ... )
+    >>> march_strategy(case, capabilities=BuildCapabilities.for_build("26.120"))
+    'single_march'
     """
     if select_workflow(case) not in ("unsteady", "unsteady_rotor"):
         return None
@@ -981,14 +1011,16 @@ def march_strategy(
         wanted.append(
             (
                 f"per-step snapshot exports ({EXPORT_UNSTEADY_AFTER_ITER_VARIABLE})",
-                "remove the threshold: the plots table still records every time step",
+                f"remove {EXPORT_UNSTEADY_AFTER_ITER_VARIABLE}: the plots table still records "
+                "every time step",
             )
         )
     if case.variables.get(EXPORT_UNSTEADY_AFTER_REV_VARIABLE) not in (None, ""):
         wanted.append(
             (
                 f"per-step snapshot exports ({EXPORT_UNSTEADY_AFTER_REV_VARIABLE})",
-                "remove the threshold: the plots table still records every time step",
+                f"remove {EXPORT_UNSTEADY_AFTER_REV_VARIABLE}: the plots table still records "
+                "every time step",
             )
         )
     if row_walltime_s(case) is not None:
@@ -1019,13 +1051,14 @@ def march_strategy(
         return MARCH_ACTIONS if uses_actions else MARCH_SINGLE
     with_actions = ", ".join(_builds_with_actions(registry)) or "no registered build"
     asked = "; ".join(feature for feature, _ in wanted)
-    remedies = " ".join(f"For {feature.split(' (')[0]}: {remedy}." for feature, remedy in wanted)
+    remedies = " ".join(f"For {feature}: {remedy}." for feature, remedy in wanted)
     raise BuildCapabilityError(
         f"FlightStream build {capabilities.build} documents no unsteady solver action "
         f"({_ACTION_COMMAND}), and case {case.sim_id!r} asks for {asked}, which only those "
-        f"actions provide. The builds that document them are {with_actions}. {remedies} "
-        f"Without them the row runs on {capabilities.build} as a single march: the plots "
-        "declared before one solver start over every time step, and the exports after it."
+        f"actions provide. Set FS_BUILD to a build that documents them ({with_actions}), "
+        f"or change the row. {remedies} Once they are removed, the row runs on "
+        f"{capabilities.build} as a single march: the plots declared before one solver "
+        "start over every time step, and the exports after it."
     )
 
 
@@ -1907,19 +1940,18 @@ def emit_rotor_motion(
 ) -> int:
     """Emit one rotary motion entirely from what the row declares.
 
-    Motion, its ``ROTARY`` type, its coordinate system, its rotor axis,
-    its rotor speed and its moving boundaries, with nothing hand-written
-    between the matrix cell and the command.
+    Motion, its type, its coordinate system, its rotor axis, its rotor
+    speed and its moving boundaries, with nothing hand-written between the
+    matrix cell and the command.
 
-    THE ROTOR FLAG, and why there is no version branch here. Measured
-    over every registered build: ``SET_MOTION_IS_ROTOR`` is available on
-    the four earliest and on none of the later ones, while
-    ``SET_MOTION_ROTOR_AXIS`` and ``SET_MOTION_ROTOR_RPM`` are available
-    on exactly the complementary set. The two vocabularies are DISJOINT,
-    so on every build this step can target the rotor flag IS the
-    ``ROTARY`` token of ``CREATE_NEW_MOTION``. The earlier flag command
-    is named in :func:`require_coverage`'s refusal, where it is a truth
-    a test can exercise, and nowhere else.
+    THE VOCABULARY FOLLOWS THE BUILD, and it is decided in one place:
+    :func:`pyflightstream.script.helpers.rotary_motion` writes a ``ROTARY``
+    motion with its axis and speed where the build documents them, and a
+    ``EUCLIDEAN`` motion with the speed as an angular velocity plus the rotor
+    mark where ``script.vocabulary.euclidean_rotor`` holds (25.100 and 26.000; measured
+    on 26.000 by RPT-049). Coverage counts that substitute through
+    ``_SUBSTITUTES``; a build with neither vocabulary whole, 25.000 and
+    26.100, is refused by :func:`require_coverage` before this runs.
 
     Parameters
     ----------
@@ -8950,9 +8982,21 @@ def build_script(
     # THE SEAM (ARCH-0200): how this case is marched on this build, decided
     # once and before the first emission, so a refusal leaves nothing written.
     script.march_strategy = march_strategy(
-        case, BuildCapabilities.of(script._view), registry=registry
+        case, capabilities=BuildCapabilities.of(script._view), registry=registry
     )
     workflow.builder(case, script, conventions or WorkflowConventions.for_case(case))
+    # THE LABEL IS THE SCRIPT: a point recorded as marched by actions registers
+    # at least one, and one recorded as a single march registers none. The
+    # builders emit the actions from the row, so this is where the two are
+    # held together (architect lens, GOAL-023 opening round).
+    emitted = bool(script.unsteady_actions)
+    if script.march_strategy is not None and emitted != (script.march_strategy == MARCH_ACTIONS):
+        raise WorkflowCoverageError(
+            f"internal defect: case {case.sim_id!r} on FlightStream {script.version.canonical} "
+            f"was labelled {script.march_strategy!r} and its script registers "
+            f"{len(script.unsteady_actions)} unsteady solver action(s). Report it; the "
+            "label and the script must agree before either is recorded."
+        )
 
 
 def workflow_registry(*, conventions: WorkflowConventions | None = None) -> dict[str, ScriptRecipe]:

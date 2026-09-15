@@ -112,6 +112,7 @@ from pyflightstream.script import (
     Script,
     ScriptReferenceError,
     helpers,
+    vocabulary,
 )
 from pyflightstream.versions import known_versions
 from pyflightstream.workspace import WorkspaceError
@@ -433,7 +434,7 @@ def test_the_rotor_coverage_is_derived_from_the_database_and_not_declared():
     range the moment its evidence lands, and a command whose status
     moves narrows it in the same commit. The rotor axis and speed are
     carried by a build that documents the whole Euclidean rotor instead
-    (helpers.EUCLIDEAN_ROTOR_COMMANDS, RPT-049).
+    (script.vocabulary.EUCLIDEAN_ROTOR_COMMANDS, RPT-049).
     """
     registry = CommandRegistry.load()
     rotor = resolve_workflow("unsteady_rotor")
@@ -443,7 +444,7 @@ def test_the_rotor_coverage_is_derived_from_the_database_and_not_declared():
     order = [build.canonical for build in known_versions()]
     for canonical in order:
         view = registry.for_version(canonical)
-        euclidean = all(name in view for name in helpers.EUCLIDEAN_ROTOR_COMMANDS)
+        euclidean = vocabulary.euclidean_rotor(view)
         complete = all(
             name in view
             or (name in ("SET_MOTION_ROTOR_AXIS", "SET_MOTION_ROTOR_RPM") and euclidean)

@@ -69,7 +69,7 @@ NEW_STREAMLINE_DISTRIBUTION:
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
     "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.374, unchanged from SRC-750 p.374"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.374, the SRC-751 file, carried from 26.123; not run on 26.124"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.374, the SRC-751 file, carried from 26.123"}
   notes: >
     SUBDIVISIONS is N+1 for N streamlines between the start and end
     vertices.
@@ -89,7 +89,7 @@ GENERATE_ALL_OFF_BODY_STREAMLINES:
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
     "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.374, unchanged from SRC-750 p.374"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.374, the SRC-751 file, carried from 26.123; not run on 26.124"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.374, the SRC-751 file, carried from 26.123"}
 
 EXPORT_ALL_OFF_BODY_STREAMLINES:
   layout: param_lines
@@ -108,7 +108,7 @@ EXPORT_ALL_OFF_BODY_STREAMLINES:
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
     "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.375, unchanged from SRC-750 p.375"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.375, the SRC-751 file, carried from 26.123; not run on 26.124"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.375, the SRC-751 file, carried from 26.123"}
 
 NEW_OFF_BODY_STREAMTUBE:
   layout: inline

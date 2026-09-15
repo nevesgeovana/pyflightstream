@@ -33,7 +33,7 @@ UNSTEADY_SOLVER_NEW_FORCE_PLOT:
     "26.100": {status: documented, note: "SRC-741 p.343, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.123": {status: documented, note: "SRC-751 p.352, unchanged from SRC-750 p.352"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.352, the SRC-751 file, carried from 26.123; not run on 26.124"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.352, the SRC-751 file, carried from 26.123"}
   notes: >
     Samples one force or moment parameter per solver time step, in
     FRAME and UNITS, over the listed boundaries. BOUNDARIES -1 selects
@@ -83,7 +83,7 @@ UNSTEADY_SOLVER_NEW_FLUID_PLOT:
         - name: vertex
           type: str
     "26.123": {status: documented, note: "SRC-751 p.352, unchanged from SRC-750 p.352"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.352, the SRC-751 file, carried from 26.123; not run on 26.124"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.352, the SRC-751 file, carried from 26.123"}
   notes: >
     Samples one fluid property per solver time step at a fixed vertex.
     VERTEX takes the three coordinates preformatted on one line
@@ -133,7 +133,7 @@ UNSTEADY_SOLVER_EXPORT_PLOTS:
     "26.100": {status: documented, note: "SRC-741 p.343, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.123": {status: documented, note: "SRC-751 p.352, unchanged from SRC-750 p.352"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.352, the SRC-751 file, carried from 26.123; not run on 26.124"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.352, the SRC-751 file, carried from 26.123"}
   notes: >
     Exports every unsteady solver plot (force and fluid) with one
     column per plot and one row per time step.

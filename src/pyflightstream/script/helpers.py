@@ -70,7 +70,7 @@ from pyflightstream._errors import (
     PyflightstreamDeprecationWarning,
     PyflightstreamWarning,
 )
-from pyflightstream.commands import CommandNotInVersionError
+from pyflightstream.commands import CommandNotInVersionError, CommandRegistry
 from pyflightstream.script import (
     CommandArgumentError,
     Script,
@@ -90,6 +90,8 @@ from pyflightstream.script.solver_setup import (
     with_vorticity_selection,
 )
 from pyflightstream.script.toggles import Toggle, resolve_toggle
+from pyflightstream.script.vocabulary import euclidean_rotor
+from pyflightstream.versions import known_versions
 
 
 def _read(helper: str, argument: str, value: Toggle) -> bool:
@@ -619,16 +621,18 @@ def rotary_motion(
     disc surrogate (SRC-003 p.234); it requires the unsteady solver
     (see :func:`unsteady_solver`).
 
-    ON A BUILD WITHOUT THE ROTARY TYPE (25.100, 26.000 and 26.100, whose
-    manuals name the motion type EUCLIDEAN) the same rotor is written in
-    that build's own vocabulary: a Euclidean motion whose angular velocity
-    is the speed converted to rad/s along the axis, marked as a rotor
-    whose slipstream convects along that axis. The manual's rotor
-    tutorial gives the unit, "The RPM of the rotor will need to be
-    converted into rad/s and input under Angular velocity (rad/s)"
-    (SRC-741 p.394); :data:`EUCLIDEAN_ROTOR_UNIT` names the measurement
-    that confirmed it for the script command. The caller writes the same
-    arguments on every build.
+    ON A BUILD WITHOUT THE ROTARY TYPE THAT DOCUMENTS THE EUCLIDEAN ROTOR
+    (25.100 and 26.000, whose manuals name the motion type EUCLIDEAN) the
+    same rotor is written in that build's own vocabulary: a Euclidean
+    motion whose angular velocity is the speed converted to rad/s along
+    the axis, marked as a rotor whose slipstream convects along that axis.
+    The manual's rotor tutorial has the reader convert the rotor speed to
+    radians per second for that field (SRC-741 p.394), and RPT-049
+    measured the same unit for the script command
+    (:data:`pyflightstream.script.vocabulary.EUCLIDEAN_ROTOR_UNIT`). The caller writes the same
+    arguments on every build. 26.100 also names the type EUCLIDEAN and has
+    no rotor mark (RPT-049), so no rotor can be written there and the
+    workflow refuses it before this helper is reached.
 
     Parameters
     ----------
@@ -680,9 +684,7 @@ def rotary_motion(
     """
     _reject_bare_label("rotary_motion", "boundaries", boundaries, allows_all=True)
     _reject_bare_label("rotary_motion", "moving_frames", moving_frames, allows_all=True)
-    euclidean = "SET_MOTION_ROTOR_RPM" not in script._view and all(
-        name in script._view for name in EUCLIDEAN_ROTOR_COMMANDS
-    )
+    euclidean = euclidean_rotor(script._view)
     if euclidean:
         _refuse_what_a_euclidean_rotor_cannot_state(script, axis, wake_stabilization_blades)
     script.emit("CREATE_NEW_MOTION", "EUCLIDEAN" if euclidean else "ROTARY", label=label)
@@ -719,18 +721,6 @@ def rotary_motion(
     return motion_id
 
 
-#: The commands a rotor is written with on a build whose motion type is
-#: EUCLIDEAN: the angular velocity vector and the rotor mark (SRC-741 p.329,
-#: SRC-747 p.306, SRC-748 p.307). No registered build documents both these
-#: and SET_MOTION_ROTOR_RPM.
-EUCLIDEAN_ROTOR_COMMANDS = ("SET_MOTION_ANGULAR_VELOCITY", "SET_MOTION_IS_ROTOR")
-
-#: The unit SET_MOTION_ANGULAR_VELOCITY takes. Its scripting page states
-#: none; the rotor tutorial of the same manual states rad/s for the
-#: dialog field the command sets (SRC-741 p.394).
-EUCLIDEAN_ROTOR_UNIT = "rad/s"
-
-
 def _refuse_what_a_euclidean_rotor_cannot_state(
     script: Script, axis: str, wake_stabilization_blades: int | None
 ) -> None:
@@ -742,12 +732,23 @@ def _refuse_what_a_euclidean_rotor_cannot_state(
             "is not one of that frame's axes by letter. Write the axis as X, Y or Z."
         )
     if wake_stabilization_blades is not None:
+        registry = CommandRegistry.load()
+        counted = [
+            version.canonical
+            for version in known_versions()
+            if _STABILIZATION in (view := registry.for_version(version.canonical))
+            and "num_blades" in {arg.name for arg in view[_STABILIZATION].args}
+        ]
         raise CommandArgumentError(
             f"rotary_motion: FlightStream {build} documents no slipstream wake "
             "stabilization that takes a blade count, and this motion asks for it with "
             f"{wake_stabilization_blades} blades. Leave wake_stabilization_blades unset "
-            "on this build, or run the rotor on 26.101 or later."
+            f"on this build, or set FS_BUILD to one that takes the count: "
+            f"{', '.join(counted) or 'no registered build'}."
         )
+
+
+_STABILIZATION = "SET_MOTION_SLIPSTREAM_WAKE_STABILIZATION"
 
 
 def unsteady_solver(script: Script, *, time_iterations: int, delta_time: float) -> None:

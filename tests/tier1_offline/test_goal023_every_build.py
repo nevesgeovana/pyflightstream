@@ -26,6 +26,7 @@ from pyflightstream.cases.workflows import (
     WORKFLOWS,
     BuildCapabilities,
     BuildCapabilityError,
+    WorkflowCoverageError,
     build_script,
     march_strategy,
     reduction_windows,
@@ -33,7 +34,7 @@ from pyflightstream.cases.workflows import (
 )
 from pyflightstream.commands import CommandRegistry
 from pyflightstream.run import plan_campaign, run_campaign
-from pyflightstream.script import Script
+from pyflightstream.script import CommandArgumentError, Script
 from pyflightstream.versions import known_versions
 from pyflightstream.workspace import CampaignWorkspace, RunStatus
 from tests.tier1_offline.test_run_campaign import StubSolver, converged
@@ -187,11 +188,78 @@ def test_goal023_told_not_hidden_march_strategy_refuses_without_building():
     registry = CommandRegistry.load()
     with pytest.raises(BuildCapabilityError):
         march_strategy(
-            unsteady_case(WALLTIME="600"), BuildCapabilities.of(registry.for_version("25.100"))
+            unsteady_case(WALLTIME="600"),
+            capabilities=BuildCapabilities.of(registry.for_version("25.100")),
         )
     assert (
-        march_strategy(unsteady_case(), BuildCapabilities.of(registry.for_version("25.100")))
+        march_strategy(unsteady_case(), capabilities=BuildCapabilities.for_build("25.100"))
         == MARCH_SINGLE
+    )
+    assert BuildCapabilities.for_build("26.124") == BuildCapabilities.of(
+        registry.for_version("26.124")
+    )
+
+
+def test_goal023_told_not_hidden_the_refusal_names_the_cell_to_change_and_each_threshold():
+    """Api lens L2 and L3: FS_BUILD is named, and each threshold's remedy names its own key."""
+    case = unsteady_case(EXPORT_UNSTEADY_AFTER_ITER="2", EXPORT_UNSTEADY_AFTER_REV="1")
+    with pytest.raises(BuildCapabilityError) as refused:
+        build_script(case, Script("26.120"))
+    message = str(refused.value)
+    assert "Set FS_BUILD to a build that documents them" in message, message
+    assert (
+        "remove EXPORT_UNSTEADY_AFTER_ITER" in message
+        and "remove EXPORT_UNSTEADY_AFTER_REV" in message
+    )
+    assert "Once they are removed, the row runs on 26.120 as a single march" in message
+
+
+BUILD_ROWS = [
+    ("plain", {}),
+    ("threshold", {"EXPORT_UNSTEADY_AFTER_ITER": "2"}),
+    ("clock", {"WALLTIME": "3600"}),
+]
+
+
+@pytest.mark.parametrize("build", WITH_ACTIONS)
+@pytest.mark.parametrize(("label", "cells"), BUILD_ROWS)
+def test_goal023_told_not_hidden_the_label_is_what_the_script_registers(build, label, cells):
+    """Qa lens 3: the recorded strategy and the emitted actions agree on every row shape."""
+    script = Script(build)
+    build_script(unsteady_case(**cells), script)
+    emitted = "SET_NEW_UNSTEADY_SOLVER_ACTION" in _commands(script.render())
+    assert (script.march_strategy == MARCH_ACTIONS) is emitted, (label, script.march_strategy)
+
+
+def test_goal023_told_not_hidden_a_label_that_disagrees_with_the_script_is_refused(monkeypatch):
+    """Architect lens F1: build_script holds the label and the script together."""
+    from pyflightstream.cases import workflows
+
+    monkeypatch.setattr(workflows, "march_strategy", lambda case, **_: MARCH_ACTIONS)
+    with pytest.raises(workflows.WorkflowCoverageError, match="internal defect"):
+        build_script(unsteady_case(), Script("26.123"))
+
+
+def test_goal023_told_not_hidden_the_record_refuses_a_strategy_outside_the_closed_set():
+    """Api lens M2: the run record takes the two marches and None, nothing else."""
+    from pydantic import ValidationError
+
+    from pyflightstream.workspace import RunRecord
+
+    minimal = {
+        "run_id": "camp/sim_1/a+00.0",
+        "sim_id": "1",
+        "fs_version_requested": "26.120",
+        "package_version": "0.20.0",
+        "script_sha256": "0" * 64,
+        "raw_flag": False,
+        "status": "CONVERGED",
+    }
+    assert RunRecord.model_fields["march_strategy"].default is None
+    with pytest.raises(ValidationError):
+        RunRecord.model_validate({**minimal, "march_strategy": "single-march"})
+    assert RunRecord.model_validate({**minimal, "march_strategy": MARCH_SINGLE}).march_strategy == (
+        MARCH_SINGLE
     )
 
 
@@ -289,6 +357,15 @@ NOT_YET_RENDERED = {
     ("unsteady_rotor", "26.100"): "OWNER",
 }
 
+#: How each declared cell refuses, and the words that say why (qa lens 5): a
+#: refusal of another kind that merely names the build does not pass.
+REFUSED_BY = {
+    ("steady", "25.000"): (CommandArgumentError, "INITIALIZE_SOLVER grammar"),
+    ("unsteady", "25.000"): (CommandArgumentError, "INITIALIZE_SOLVER grammar"),
+    ("unsteady_rotor", "25.000"): (WorkflowCoverageError, "no CREATE_NEW_MOTION"),
+    ("unsteady_rotor", "26.100"): (WorkflowCoverageError, "not SET_MOTION_IS_ROTOR"),
+}
+
 
 @pytest.mark.parametrize("build", BUILDS)
 @pytest.mark.parametrize("name", sorted(WORKFLOWS))
@@ -302,13 +379,59 @@ def test_goal023_support_matrix_every_run_type_renders_on_every_build(name, buil
     """
     for label, make in sorted(GOLDEN_CASES[name].items()):
         if (name, build) in NOT_YET_RENDERED:
+            kind, cause = REFUSED_BY[(name, build)]
             script = Script(build)
-            with pytest.raises(Exception) as refused:
+            with pytest.raises(kind) as refused:
                 build_script(make(), script)
             assert build in str(refused.value), f"{name} {label} on {build}: {refused.value}"
+            assert cause in str(refused.value), f"{name} {label} on {build}: {refused.value}"
             continue
         text = rendered(make(), build)
         assert text.strip(), f"{name} {label} rendered nothing on {build}"
+
+
+def test_goal023_support_matrix_the_euclidean_rotor_is_decided_once():
+    """Architect lens F2: coverage and the helper read one predicate, over every build."""
+    from pyflightstream.cases.workflows import _carried
+    from pyflightstream.script import vocabulary
+
+    registry = CommandRegistry.load()
+    for build in BUILDS:
+        view = registry.for_version(build)
+        euclidean = vocabulary.euclidean_rotor(view)
+        for name in vocabulary.ROTARY_ROTOR_COMMANDS:
+            assert _carried(view, name) is (name in view or euclidean), (build, name)
+    # 25.000 carries the whole Euclidean rotor and not CREATE_NEW_MOTION, so the
+    # predicate holds there and coverage still refuses the build on the motion.
+    assert [b for b in BUILDS if vocabulary.euclidean_rotor(registry.for_version(b))] == [
+        "25.000",
+        "25.100",
+        "26.000",
+    ]
+
+
+def test_goal023_support_matrix_a_blade_count_refusal_names_the_builds_that_take_one():
+    """Api lens M1: the remedy is derived from the database, not written as a range."""
+    from pyflightstream.script import CommandArgumentError, helpers
+
+    registry = CommandRegistry.load()
+    takes_count = [
+        b
+        for b in BUILDS
+        if "SET_MOTION_SLIPSTREAM_WAKE_STABILIZATION" in registry.for_version(b)
+        and "num_blades"
+        in {
+            a.name for a in registry.for_version(b)["SET_MOTION_SLIPSTREAM_WAKE_STABILIZATION"].args
+        }
+    ]
+    assert takes_count and "26.100" not in takes_count
+    script = Script("26.000")
+    script.declare_existing(frames=2)
+    with pytest.raises(CommandArgumentError) as refused:
+        helpers.rotary_motion(script, frame=2, axis="X", rpm=1200.0, wake_stabilization_blades=4)
+    assert f"set FS_BUILD to one that takes the count: {', '.join(takes_count)}." in str(
+        refused.value
+    )
 
 
 def test_goal023_support_matrix_the_rotor_mark_is_removed_on_26100_and_carried_before_it():

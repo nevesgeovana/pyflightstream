@@ -2252,3 +2252,31 @@ def test_the_outlet_chapter_records_the_exhaust_outflow_feature_and_its_defect()
         "record. The entry is where the note belongs: it is the command that makes "
         "the outlet the paragraph then tells you to mark"
     )
+
+
+def test_a_row_backed_by_a_run_on_its_build_never_says_it_was_not_run():
+    """A promoted row's note agrees with its report.
+
+    The 26.124 intake carried every 26.123 row forward with the note "not run
+    on 26.124", and the probe sweep then promoted 86 of them to verified or
+    broken with a report of a run on 26.124 while the note still denied the run
+    (V&V lens, GOAL-023 opening round). The status and the note must not
+    contradict each other, whichever build a later intake carries.
+    """
+    offenders = []
+    walked = 0
+    for path in sorted(COMMANDS_DIR.glob("*.yaml")):
+        if path.name == "_meta.yaml":
+            continue
+        for name, entry in (yaml.safe_load(path.read_text(encoding="utf-8")) or {}).items():
+            for build, row in (entry.get("versions") or {}).items():
+                if not isinstance(row, dict) or not (row.get("report") or row.get("probe_ref")):
+                    continue
+                walked += 1
+                if f"not run on {build}" in " ".join(str(row.get("note", "")).split()):
+                    offenders.append(f"{path.name}:{name} {build}")
+    assert walked > 100, f"only {walked} run-backed rows walked; the walk is broken"
+    assert not offenders, (
+        "these rows cite a run on their build and their note says the build was not run: "
+        + "; ".join(offenders)
+    )

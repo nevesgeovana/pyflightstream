@@ -88,6 +88,9 @@ __all__ = [
     "CommandArgumentError",
     "EntityRegistry",
     "FramePlacement",
+    "MARCH_ACTIONS",
+    "MARCH_SINGLE",
+    "MarchStrategy",
     "Script",
     "ScriptLabelError",
     "ScriptLineBreakError",
@@ -95,6 +98,16 @@ __all__ = [
     "ScriptReferenceError",
     "UnsteadyActionUse",
 ]
+
+#: How an unsteady script is marched on its build (GOAL-023). A closed set,
+#: carried by the plan, the run record and the superfile column.
+MarchStrategy = Literal["actions", "single_march"]
+#: The march that registers the solver's per-step actions, for a row asking
+#: for a per-step threshold or a wall clock on a build that documents them.
+MARCH_ACTIONS: MarchStrategy = "actions"
+#: The march that registers no action: the plots declared before ONE solver
+#: start over every time step, and every export after it.
+MARCH_SINGLE: MarchStrategy = "single_march"
 
 _ORDERED_PHASES = (
     Phase.GEOMETRY,
@@ -826,10 +839,11 @@ class Script:
         self._broken_uses: dict[str, BrokenCommandUse] = {}
         self._lines: list[str] = []
         #: How a workflow build marched this script (GOAL-023, ARCH-0200):
-        #: ``"actions"``, ``"single_march"``, or None for a steady workflow
-        #: or a script no workflow built. Set by ``cases.workflows.build_script``
-        #: and read by the plan and the run record.
-        self.march_strategy: str | None = None
+        #: :data:`MARCH_ACTIONS`, :data:`MARCH_SINGLE`, or None for a steady
+        #: workflow or a script no workflow built. Set by
+        #: ``cases.workflows.build_script`` and read by the plan and the run
+        #: record.
+        self.march_strategy: MarchStrategy | None = None
         self._phase_index: int | None = None
         self._phase_setter: tuple[str, int] | None = None
         self.entities = EntityRegistry()

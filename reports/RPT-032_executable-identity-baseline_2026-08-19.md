@@ -46,7 +46,10 @@ and names both files.
 
 The 26.124 row was ADDED ON 2026-09-14, when that build was registered, from
 the digest its identity run recorded (`reports/compat/CMP-26124_2026-09-14.yaml`);
-every other row is this report's own measurement of 2026-08-19.
+its size is not in that file and is read in
+`reports/RPT-050_the-26124-package-against-26123_2026-09-15.md`, which measures
+the whole package. Every other row is this report's own measurement of
+2026-08-19.
 
 The Build column is the registry's number for that canonical version, not
 a second measurement: it is reproduced here so the two sides of a future

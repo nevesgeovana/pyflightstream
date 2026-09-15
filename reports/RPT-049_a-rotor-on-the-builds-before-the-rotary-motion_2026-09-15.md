@@ -10,18 +10,28 @@ package can write the same rotor in that vocabulary rests on three facts no page
 settles: the unit, the sense of rotation, and whether each build accepts the
 commands its manual prints. This round measured them.
 
+**EVIDENCE.** `reports/probes/RPT-049_2026-09-15_evidence.yaml` carries the
+matrix and setup of the rotor rows, each rendered script's digest and its
+motion lines, the digest of every output file, the run records, the measured
+centroids and angles, the scripts of every rotor-mark variant with whether its
+log was written, and the executable name scan. The surface exports and saved
+simulations are mesh data and stay on the measuring machine; they are named
+there by digest.
+
 **THE VERDICT.**
 
 1. On 26.000 a Euclidean motion with `SET_MOTION_ANGULAR_VELOCITY` equal to the
    rotor speed in RAD/S along the axis, marked with `SET_MOTION_IS_ROTOR 1
    ENABLE X`, turns the blade exactly as the `ROTARY` motion at the same speed in
    rev/min turns it on 26.120: same angle, same sense, every exported node within
-   1.7e-12 m. The unit is the one the manual's rotor tutorial gives for the
-   dialog field ("converted into rad/s and input under Angular velocity (rad/s)",
-   SRC-741 p.394).
-2. On 26.100 `SET_MOTION_IS_ROTOR` ends the script in every form tried, and the
-   26.100 executable carries no command of that name. It is recorded as removed
-   on 26.100. The executables of 25.100 and 26.000 carry it, and 26.000 runs it.
+   1.7e-12 m. The unit is the one the manual's rotor tutorial has the reader
+   convert the rotor speed into for the dialog field, radians per second
+   (SRC-741 p.394).
+2. On 26.100 the solver answers `SET_MOTION_IS_ROTOR` as an unrecognized
+   command in every form tried and stops the script, exactly as it answers a
+   name no build has; the 26.100 executable carries no command of that name. It
+   is recorded as removed on 26.100. The executables of 25.100 and 26.000 carry
+   it, and 26.000 runs it.
 3. So the package writes the Euclidean rotor on 25.100 and 26.000, and 26.100
    has no scripted way to mark a motion as a rotor. That build's rotor cell is
    an owner decision rather than a substitution.
@@ -92,12 +102,23 @@ forms with two arguments wrote their logs, and the form with one argument did
 not. The full rotor script was bisected on 26.100 to the line
 `SET_MOTION_IS_ROTOR 1 ENABLE X`, the first after which the log is not written.
 
+A second round the same morning put the command beside a name no build has,
+`SET_MOTION_NOT_A_COMMAND_PROBE 1 ENABLE X`, in the same script, with the solver's
+standard output kept. On 26.100 both lines drew the same two messages, an
+unrecognized command in the script at that line and an error at that line, and
+neither script wrote its log; the script without the extra line wrote it. On
+26.000 the rotor mark ran and the log was written, and the unknown name drew
+the same two messages. So 26.100 does not reject the rotor mark's arguments: it
+does not know the name. That is the outcome this database records as a removal
+(as RPT-021 did for a name 26.121 answered the same way), and the seven-script
+table was rerun on both builds that morning with the outcome above.
+
 The executables' own command-name strings agree: `SET_MOTION_IS_ROTOR` occurs
 in the 25.100 and 26.000 executables and not in the 26.100 one, which also
 lacks `SET_MOTION_VELOCITY` and `SET_MOTION_ACCELERATION` while carrying
 `SET_MOTION_ANGULAR_VELOCITY` and `SET_MOTION_SLIPSTREAM_WAKE_STABILIZATION`.
-The SRC-741 manual prints all of them. This is recorded as a measured removal
-on 26.100 and nothing else is changed on the strength of the strings.
+The SRC-741 manual prints all of them. The removal rests on the solver's own
+answer above; nothing is changed on the strength of the strings alone.
 
 ## What this does NOT say
 

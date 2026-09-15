@@ -73,6 +73,7 @@ from pyflightstream._digest import file_sha256
 from pyflightstream._errors import PyflightstreamDeprecationWarning, PyflightstreamError
 from pyflightstream._retired_names import WORKSPACE_ENGINE_POINT, RetiredAttributeError
 from pyflightstream.cases import BoundaryAliases, RawCommand
+from pyflightstream.script import MarchStrategy
 from pyflightstream.script.solver_setup import explicit_empty_selections
 from pyflightstream.workspace.inputs import (
     EXECUTABLES_FILE,
@@ -829,7 +830,7 @@ class RunRecord(BaseModel):
     #: GOAL-023: how an unsteady point was marched on its build, "actions" or
     #: "single_march"; None for a steady point and on every record written
     #: before 0.20.0.
-    march_strategy: str | None = None
+    march_strategy: MarchStrategy | None = None
     #: FR-99: what a SUBMITTED point was handed to, and where. The
     #: descriptor the scheduler was given, the profile that rendered it,
     #: the application id inside it, and whether the submit command was

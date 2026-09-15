@@ -88,6 +88,7 @@ PUBLIC_MODULES = [
     "pyflightstream.script.helpers",
     "pyflightstream.script.solver_setup",
     "pyflightstream.script.toggles",
+    "pyflightstream.script.vocabulary",
     "pyflightstream.support",
     "pyflightstream.testing",
     "pyflightstream.utils",

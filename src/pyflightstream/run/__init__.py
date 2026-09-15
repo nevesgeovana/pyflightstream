@@ -127,7 +127,7 @@ from pyflightstream.results import (
 from pyflightstream.results.conditions import ConditionBinding, bind_conditions
 from pyflightstream.results.tables import sweep_table, write_table
 from pyflightstream.run._actions_counter import render_program
-from pyflightstream.script import Script
+from pyflightstream.script import MarchStrategy, Script
 from pyflightstream.versions import FsVersion, resolve
 from pyflightstream.workspace import (
     KNOWN_MANIFEST_SCHEMAS,
@@ -3035,7 +3035,7 @@ class PointPlan:
     error: str | None = None
     waived_commands: tuple[str, ...] = ()
     raw: bool = False
-    march_strategy: str | None = None
+    march_strategy: MarchStrategy | None = None
 
 
 @dataclass(frozen=True)

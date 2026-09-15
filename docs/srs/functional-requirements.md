@@ -3920,8 +3920,8 @@ requirement below is one seam of that division.
     - AN UNSTEADY ROW ON A BUILD THAT DOCUMENTS NO UNSTEADY SOLVER ACTION
       (`SET_NEW_UNSTEADY_SOLVER_ACTION`) RUNS AS A SINGLE MARCH: its plots
       declared before one solver start over every time step the row states,
-      and every export after it. A row asking for no per-step feature renders
-      the same script on every build as it did before 0.20.0.
+      and every export after it. An unsteady row asking for no per-step
+      feature renders the same script on 26.123 as it did before 0.20.0.
     - A ROW ASKING SUCH A BUILD FOR WHAT ONLY ACTIONS GIVE is refused with
       `BuildCapabilityError` at plan time: a snapshot threshold
       (`EXPORT_UNSTEADY_AFTER_ITER`, `EXPORT_UNSTEADY_AFTER_REV`), the in-run
@@ -3937,12 +3937,13 @@ requirement below is one seam of that division.
       EUCLIDEAN ROTOR (25.100 and 26.000) is written as a `EUCLIDEAN` motion
       whose `SET_MOTION_ANGULAR_VELOCITY` is the row's speed in rad/s along its
       axis, with `SET_MOTION_IS_ROTOR` along the same axis. The unit and the
-      sense are measured (RPT-049). A build carrying one half of that
+      sense are measured on 26.000 (RPT-049); 25.100 was not run and rests on
+      its manual's identical grammar and that measurement. A build carrying one half of that
       vocabulary and not the other is refused naming both halves; 26.100 is
       that build, its rotor mark recorded as removed.
 
-    The cells that still do not render are named by the evidence test with
-    their reasons and are the owner's: every run type on 25.000, whose
+    The cells that still do not render remain unsupported and are named by the
+    evidence test with their reasons: every run type on 25.000, whose
     `INITIALIZE_SOLVER` takes five settings no later edition exposes and none
     gives a default for, and `unsteady_rotor` on 26.100. A solver preset or a
     post-processing artifact may still name a command a build lacks; that point

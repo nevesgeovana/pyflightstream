@@ -13,10 +13,10 @@ FlightStream versions.
   the fourth hotfix of the 26.12 release, alias `26.12`, read from its own
   banner (`reports/compat/CMP-26124_2026-09-14.yaml`). Its package carries the
   26.123 user guide byte for byte, and the same release notes and libraries;
-  only the executable differs. So the 371 commands 26.123 documents were
-  carried to 26.124 as documented rows citing that manual, nothing was
-  inherited from 26.120, and a probe run on the build then measured 86
-  verified and the same single broken command, `NEW_OFF_BODY_STREAMLINE`
+  only the executable differs (every file's digest, RPT-050). So all 372
+  rows 26.123 records (371 documented commands and one removal) were
+  carried to 26.124 citing that manual, nothing was inherited from 26.120,
+  and a probe run on the build then measured 86 verified and the same single broken command, `NEW_OFF_BODY_STREAMLINE`
   (`reports/compat/CMP-26124_2026-09-14_full-sim.yaml`). Every workflow
   renders on 26.124 exactly what it renders on 26.123; the workflow goldens
   for 26.124 are byte-identical to 26.123's. `"26.12"` now names five builds
@@ -27,9 +27,15 @@ FlightStream versions.
   single march: its plots declared before one solver start over every time
   step it states, and its exports after it. That was already what a row with
   no threshold and no wall clock rendered on every build; it is now decided in
-  one place, `march_strategy`, and reported. `PointPlan.march_strategy` and
-  the run record's `march_strategy` carry `"actions"` or `"single_march"`
-  (None for a steady point), and the superfile carries it as a column.
+  one place, `march_strategy(case, *, capabilities)`, and reported.
+  `PointPlan.march_strategy` and the run record's `march_strategy` carry
+  `"actions"` or `"single_march"` (None for a steady point), a closed set
+  named by `pyflightstream.script.MarchStrategy` with `MARCH_ACTIONS` and
+  `MARCH_SINGLE`, so a record carrying any other string is refused; the
+  superfile carries it as a column. `BuildCapabilities.for_build("26.120")`
+  answers for a build named as a matrix cell names it. `build_script` refuses,
+  as an internal defect, a script whose registered actions disagree with its
+  label.
 - **`BuildCapabilityError`**, a `WorkflowCoverageError`, refuses an unsteady row
   that asks a build without actions for what only actions provide: the
   `EXPORT_UNSTEADY_AFTER_ITER` or `EXPORT_UNSTEADY_AFTER_REV` threshold, the
@@ -39,25 +45,31 @@ FlightStream versions.
   named. Nothing is emulated: a row the build cannot run as written is
   refused at plan time, before any seat is used, and never rendered with the
   feature silently dropped.
-- **A rotor row runs on 25.100 and 26.000.** Those editions name the motion
-  type `EUCLIDEAN` and have no rotor axis or speed command, so
+- **A rotor row renders on 25.100 and 26.000.** Those editions name the
+  motion type `EUCLIDEAN` and have no rotor axis or speed command, so
   `unsteady_rotor` writes the rotor in their vocabulary: a Euclidean motion
   whose `SET_MOTION_ANGULAR_VELOCITY` is the row's speed in rad/s along its
   axis, and `SET_MOTION_IS_ROTOR` along the same axis. The row is unchanged.
-  The unit and the sense were measured: on 26.000 a blade driven this way
+  The unit and the sense were measured on 26.000: a blade driven this way
   turned exactly as the rotary motion at the same speed turns it on 26.120
-  (RPT-049). `helpers.rotary_motion` takes the same arguments on every build
-  and refuses, on a Euclidean build, an axis given by index and a wake
-  stabilization blade count, neither of which that vocabulary can state.
+  (RPT-049, with its evidence under `reports/probes/`). 25.100 was not run;
+  there the substitution rests on its manual (SRC-748 pp.306-307), which
+  prints the same grammar, and on the 26.000 measurement.
+  `helpers.rotary_motion` takes the same arguments on every build and
+  refuses, on a Euclidean build, an axis given by index and a wake
+  stabilization blade count, neither of which that vocabulary can state,
+  naming the builds that take the count. `pyflightstream.script.vocabulary.euclidean_rotor(view)`, in a new public
+  module beside the rotor command tuples, is the one decision both the helper
+  and the workflow coverage read.
 
 ### Changed
 
 - **`unsteady_rotor` on 26.100 is still refused, now for a measured reason.**
-  Its manual prints `SET_MOTION_IS_ROTOR` and its solver ends the script at it
-  in every form tried, writing no log; the command is recorded as removed on
-  26.100 (RPT-049), and the refusal names the half of the Euclidean rotor the
-  build carries and the half it does not.
-
+  Its manual prints `SET_MOTION_IS_ROTOR` and its solver answers the name as
+  an unrecognized command, the answer it gives a name no build has, in every
+  form tried; the command is recorded as removed on 26.100 (RPT-049), and the
+  refusal names the half of the Euclidean rotor the build carries and the half
+  it does not.
 - **The `broken_commands` manifest key is promised for removal at 0.21.0**, its
   sixth deadline, on the same re-count as the five before it: re-measured the
   moment the 0.20.0 cycle opened and UNCHANGED at 18 recorded rows across 6

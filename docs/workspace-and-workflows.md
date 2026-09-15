@@ -2464,7 +2464,7 @@ What each run type does on each registered build:
 |---|---|---|---|---|---|
 | `steady` | refused | runs | runs | runs | runs |
 | `unsteady` | refused | single march | single march | single march | actions where the row asks for them |
-| `unsteady_rotor` | refused | single march, Euclidean rotor | refused | single march | actions where the row asks for them |
+| `unsteady_rotor` | refused | single march, Euclidean rotor (run on 26.000; 25.100 from its manual) | refused | single march | actions where the row asks for them |
 
 **A single march** is how an unsteady row runs on a build whose manual
 documents no unsteady solver action (`SET_NEW_UNSTEADY_SOLVER_ACTION`,
@@ -2500,9 +2500,10 @@ command. The package writes a Euclidean motion whose angular velocity is
 the row's speed converted to rad/s along its axis, marked as a rotor
 with `SET_MOTION_IS_ROTOR`. On 26.000 a blade driven this way turned
 exactly as the rotary motion at the same speed turns it on 26.120, in
-the same sense (RPT-049). 26.100 is refused: its manual prints the rotor
-mark and its solver ends the script at it, so it has no scripted way to
-say a motion is a rotor.
+the same sense (RPT-049); 25.100 prints the same grammar and was not
+run. 26.100 is refused: its manual prints the rotor mark and its solver
+answers it as an unrecognized command, so it has no scripted way to say
+a motion is a rotor.
 
 **25.000 is refused for every run type.** Its `INITIALIZE_SOLVER` takes
 five settings no later edition exposes and no edition gives a default
@@ -2513,9 +2514,9 @@ build for more.** A solver preset or a post-processing artifact names
 settings too. For example, a preset's stabilization is a command from
 26.101, its wake-on-wake induction and additional wake relaxation from
 26.100, and its Reynolds-averaged drag from 25.100; and on the builds
-before 26.120 a section distribution takes no `INCLUDE_SYMMETRY`. Such a point is BLOCKED at plan time naming
-the command, and the plan lists every blocked point before any solver
-time is spent. Run `pyfs-matrix plan` with the `FS_BUILD` you mean first.
+before 26.120 a section distribution takes no `INCLUDE_SYMMETRY`. Such a
+point is BLOCKED at plan time naming the command, and the plan lists
+every blocked point before any solver time is spent. Run `pyfs-matrix plan` with the `FS_BUILD` you mean first.
 
 ### Where a submitted point runs
 

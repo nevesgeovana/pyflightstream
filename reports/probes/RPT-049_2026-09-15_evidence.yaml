@@ -1,0 +1,631 @@
+# RPT-049 evidence, collected by the session from the probe folder.
+report: reports/RPT-049_a-rotor-on-the-builds-before-the-rotary-motion_2026-09-15.md
+date: '2026-09-15'
+where_the_raw_files_are: 'The solver outputs stayed on the measuring machine and are not committed: surface
+  exports and saved simulations are mesh data, which never enter Git (invariant 5). Each is named here
+  by its SHA-256, so a rerun is compared file for file.'
+package_commit: 0e3e13073c3715183354c35714e51fffef8cfcb6 (the probe rows were planned and run on the uncommitted
+  tree that became it)
+executables_sha256:
+  '26.000': a0a131ee9c89c315ac5004b864bf26f5e7a689320ef4768f74cac9a16a0a2d70
+  '26.100': 4dc55b6b2d3a3ca20592bf0b5747cf665401fc2a703544183b5d7551e47a33ed
+  '26.120': ec89fe59712e49242a22e64b949acc293616182ca656de79be95d462021dae7b
+blade:
+  generator: tests.tier3_licensed.recipes.SHAPES['blade'], imported from its STL and saved by each build
+  saved_simulations_sha256:
+    30_BLADE_26000.fsm: 9cd077ad0d29f87b14fb73a77ceaaec7cb669ad8842b05408373f97e8ed0f80f
+    30_BLADE_26100.fsm: ef621e83c3a4c0c56b8840f04e73661b4f550ed9db9c40ac510e889a6956c15d
+    30_BLADE_26120.fsm: 9ec2ae7578685a6d38d053df60c6c97ab1f1e7bbdaf756c33e579368944faf19
+rotor_rows:
+  matrix: 'POL  | HIDDEN | RUN | AIRCRAFT | CONFIGURATION | DESCRIPTION                                                         |
+    FLIGHT_CONDITION                                                     | SWEEP_VALUES   | GEOMETRY |
+    REF  | SET  | PPROC | SYMMETRY | SYMMETRY_LOADS | NCPUS | WALLTIME | FS_BUILD | WORKFLOW       | VAR_NAMES_VALUES
+
+    ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+    7101 |    0   |  1  | Rotor    | -             | EUCLID_probe_control_ROTARY_on_26_120                      |
+    MACH:0.1441, REmi:4.38, ALPHA:sweep, BETA:0.0 | 0.0 | 30_BLADE_26120.fsm | r003 | s102 | p101  | PERIODIC
+    | false          | 8     | -        | 26.120   | unsteady_rotor | PERIODIC_COPIES: 6 / ADVANCE_RATIO:
+    1.7 / RPM_SIGN: 1 / ROTOR_AXIS: X / MOVING_BOUNDARIES: Blade / BLADES: 6 / ROTOR_SHEDDING: AZIMUTH
+    / DELTA_THETA: 30 / REVOLUTIONS: 0.25 / WINDOW_DEGREES: 60
+
+    7102 |    0   |  1  | Rotor    | -             | EUCLID_probe_EUCLIDEAN_on_26_000_______                      |
+    MACH:0.1441, REmi:4.38, ALPHA:sweep, BETA:0.0 | 0.0 | 30_BLADE_26000.fsm | r003 | s102 | p101  | PERIODIC
+    | false          | 8     | -        | 26.000   | unsteady_rotor | PERIODIC_COPIES: 6 / ADVANCE_RATIO:
+    1.7 / RPM_SIGN: 1 / ROTOR_AXIS: X / MOVING_BOUNDARIES: Blade / BLADES: 6 / ROTOR_SHEDDING: AZIMUTH
+    / DELTA_THETA: 30 / REVOLUTIONS: 0.25 / WINDOW_DEGREES: 60
+
+    '
+  setup_s102: '# s102: s002 without the stabilization pair, which 26.100 does not document as a solver
+    setting (Euclidean probe).
+
+    # clock is not here: a row states it, as DELTA_TIME with TIME_ITERATIONS or
+
+    # as DELTA_THETA with REVOLUTIONS, because the clock is what a point IS.
+
+    boundary_layer_type = "TURBULENT"
+
+    viscous_coupling = false
+
+    convergence = 1e-5
+
+    # max_parallel_threads moved to the NCPUS matrix column at v0.17.0
+
+    NITER = 300
+
+    set_solver_model = "SUBSONIC_PRANDTL_GLAUERT"
+
+    proximity_avoidance = "DISABLE"
+
+    # symmetry_loads moved to the SYMMETRY_LOADS matrix column at v0.17.0
+
+    induced_wake_velocity = true
+
+    farfield_layers = 3
+
+    significant_digits = 7
+
+    convergence_iterations = 10
+
+    solver_minimum_cp = -100
+
+    unsteady_pressure_kutta = "DISABLE"
+
+    reynolds_averaged_drag_forces = "DISABLE"
+
+    # No induced-drag selection: this preset serves the wing and the rotor rows alike,
+
+    # and a family list a geometry lacks is refused as an empty selection. s003 states one.
+
+
+    [flight_condition]
+
+    MUPas = 1.789e-5
+
+    ASMPS = 340.29
+
+    TK = 288.15
+
+    PPA = 101325
+
+    '
+  pproc_p101_sha256: 5013c941253d559d450229062cf5460da8139245aa94088a162bb0fa705517d2
+  reference_r003_sha256: abbeac65a4de0a377ff7504440bf940c30b10febe957fdf977ff534278a7b6c2
+rotor_runs:
+  '7101':
+    rendered_script_sha256: 5112bbab5c234ad4d93baa5b1b10b2cb9435ccf6f923fb1f9fc75285c715c1d9
+    motion_and_clock_lines:
+    - CREATE_NEW_MOTION ROTARY
+    - SET_MOTION_BOUNDARIES 1 1
+    - SET_MOTION_MOVING_FRAMES 1 1
+    - SET_MOTION_COORDINATE_SYSTEM 1 3
+    - SET_MOTION_ROTOR_AXIS 1 X
+    - SET_MOTION_ROTOR_RPM 1 473.1723
+    - TIME_ITERATIONS 3
+    - DELTA_TIME 0.010566975285746861
+    outputs_sha256:
+      POLAR-7101_M14AL+000BE+000J+170.dat: 6fa638f4c1384c3562422e851894efe602f14e50d2e3e9c332502fb5a805551a
+      POLAR-7101_M14AL+000BE+000J+170.fsm: 38a0dddebe03db9ab09e84630de093f099d4f5f12f2a9c736d53b37df6177209
+      POLAR-7101_M14AL+000BE+000J+170.txt: d5ebf93e3f92e36888f96b5216d3820b3886187c27300575805481bb93800248
+      POLAR-7101_M14AL+000BE+000J+170_cp.txt: 1bab0ec6180f11dc724ccef361634816336de2f9d52e464405460ac8106186b4
+      POLAR-7101_M14AL+000BE+000J+170_log.txt: 935f7f79b14248cd083560c5560f18a97e4479f35df0a06aafc45915574e0914
+      POLAR-7101_M14AL+000BE+000J+170_plots.txt: 597498e9eff45d9997d6e96939b086301ebc868b87cdb17e1e6d20ffd8467bbc
+      POLAR-7101_M14AL+000BE+000J+170_probes.txt: 12cc4378d23e72399859e5b8570df1d9a92f5cacffc419d9e3a87bd0145bad1c
+      POLAR-7101_M14AL+000BE+000J+170_sloads.txt: fb6b4d9f4727c679ede721f8f9a0ed6cf380bed7ff59211d62d0401905f61020
+    surface_export_nodes: 262
+    centroid_m:
+    - 0.036199
+    - -1.05156
+    - 0.025679
+    angle_about_x_deg: 178.601
+    turned_deg: 90.0
+  '7102':
+    rendered_script_sha256: 440595c39a5de3c2de14603d96f8994d79cbcff603eeecb1633107dba52119b3
+    motion_and_clock_lines:
+    - CREATE_NEW_MOTION EUCLIDEAN
+    - SET_MOTION_BOUNDARIES 1 1
+    - SET_MOTION_MOVING_FRAMES 1 1
+    - SET_MOTION_COORDINATE_SYSTEM 1 3
+    - SET_MOTION_ANGULAR_VELOCITY 1 49.55048738540619 0.0 0.0
+    - SET_MOTION_IS_ROTOR 1 ENABLE X
+    - TIME_ITERATIONS 3
+    - DELTA_TIME 0.010566975285746861
+    outputs_sha256:
+      POLAR-7102_M14AL+000BE+000J+170.dat: cb104d740910eb72fb076547f998d5f019c9eddba224979cf0fa1362f3c66ae0
+      POLAR-7102_M14AL+000BE+000J+170.fsm: 7f8a3b2c5022b6934f961e72f6c11227d8b61d6907eea886bfcc820564ab6390
+      POLAR-7102_M14AL+000BE+000J+170.txt: 02ded6b08808d38a184b54491a50ae26782b95e38f9ca435fbdf81c0f112a71f
+      POLAR-7102_M14AL+000BE+000J+170_cp.txt: eaf745f7b816c7bc55d69e31b831b82d7deb1627637d65b675c9cf515cf56b38
+      POLAR-7102_M14AL+000BE+000J+170_log.txt: ff8e55fba44966cfc85ad355a04aaf78610160dd27238597ff1c1f6ec858af44
+      POLAR-7102_M14AL+000BE+000J+170_plots.txt: 8ce318c31713a5a7e22e8889aae312cf83227039078e26b49135e90892f0ddec
+      POLAR-7102_M14AL+000BE+000J+170_probes.txt: 39beb8d69e803ed3d87fe59f384e0aaab42f9ab5a6591ef84e94185c0c64e267
+      POLAR-7102_M14AL+000BE+000J+170_sloads.txt: 2ac523cc29c7b887639b130b6d9c80924f8ac051f17dbd6ca255def00fe95a7f
+    surface_export_nodes: 262
+    centroid_m:
+    - 0.036199
+    - -1.05156
+    - 0.025679
+    angle_about_x_deg: 178.601
+    turned_deg: 90.0
+recipe_stl_centroid_m:
+- 0.036198
+- 0.025683
+- 1.05156
+recipe_stl_angle_about_x_deg: 88.601
+largest_node_distance_7101_vs_7102_m: 1.703089058668894e-12
+run_records:
+- run_id: euclid/sim_7101/a+00.0_b+00.0
+  status: CONVERGED
+  fs_version_requested: '26.120'
+  fs_build: '7012026'
+  fs_exe_sha256: ec89fe59712e49242a22e64b949acc293616182ca656de79be95d462021dae7b
+  started_at: '2026-09-15T05:03:44+00:00'
+  finished_at: '2026-09-15T05:03:49+00:00'
+  iterations: 116
+  residual: 8.2755794e-06
+  march_strategy: single_march
+- run_id: euclid/sim_7102/a+00.0_b+00.0
+  status: CONVERGED
+  fs_version_requested: '26.000'
+  fs_build: '10202025'
+  fs_exe_sha256: a0a131ee9c89c315ac5004b864bf26f5e7a689320ef4768f74cac9a16a0a2d70
+  started_at: '2026-09-15T05:03:49+00:00'
+  finished_at: '2026-09-15T05:03:54+00:00'
+  iterations: 138
+  residual: 7.1682742e-06
+  march_strategy: single_march
+rotor_mark_scripts:
+  isrotor_26000_control_no_isrotor:
+    script: 'OPEN
+
+      <probe>/inputs/geometries/30_BLADE_26000.fsm
+
+
+      CREATE_NEW_MOTION EUCLIDEAN
+
+      SET_MOTION_BOUNDARIES 1 -1
+
+
+      EXPORT_LOG
+
+      <probe>/isrotor_26000_control_no_isrotor/log.txt
+
+
+      CLOSE_FLIGHTSTREAM
+
+      '
+    log_written: true
+  isrotor_26000_disable_x:
+    script: 'OPEN
+
+      <probe>/inputs/geometries/30_BLADE_26000.fsm
+
+
+      CREATE_NEW_MOTION EUCLIDEAN
+
+      SET_MOTION_BOUNDARIES 1 -1
+
+      SET_MOTION_IS_ROTOR 1 DISABLE X
+
+
+      EXPORT_LOG
+
+      <probe>/isrotor_26000_disable_x/log.txt
+
+
+      CLOSE_FLIGHTSTREAM
+
+      '
+    log_written: true
+  isrotor_26000_enable_1:
+    script: 'OPEN
+
+      <probe>/inputs/geometries/30_BLADE_26000.fsm
+
+
+      CREATE_NEW_MOTION EUCLIDEAN
+
+      SET_MOTION_BOUNDARIES 1 -1
+
+      SET_MOTION_IS_ROTOR 1 ENABLE 1
+
+
+      EXPORT_LOG
+
+      <probe>/isrotor_26000_enable_1/log.txt
+
+
+      CLOSE_FLIGHTSTREAM
+
+      '
+    log_written: true
+  isrotor_26000_enable_only:
+    script: 'OPEN
+
+      <probe>/inputs/geometries/30_BLADE_26000.fsm
+
+
+      CREATE_NEW_MOTION EUCLIDEAN
+
+      SET_MOTION_BOUNDARIES 1 -1
+
+      SET_MOTION_IS_ROTOR 1 ENABLE
+
+
+      EXPORT_LOG
+
+      <probe>/isrotor_26000_enable_only/log.txt
+
+
+      CLOSE_FLIGHTSTREAM
+
+      '
+    log_written: false
+  isrotor_26000_enable_x:
+    script: 'OPEN
+
+      <probe>/inputs/geometries/30_BLADE_26000.fsm
+
+
+      CREATE_NEW_MOTION EUCLIDEAN
+
+      SET_MOTION_BOUNDARIES 1 -1
+
+      SET_MOTION_IS_ROTOR 1 ENABLE X
+
+
+      EXPORT_LOG
+
+      <probe>/isrotor_26000_enable_x/log.txt
+
+
+      CLOSE_FLIGHTSTREAM
+
+      '
+    log_written: true
+  isrotor_26000_enable_x_after_w:
+    script: 'OPEN
+
+      <probe>/inputs/geometries/30_BLADE_26000.fsm
+
+
+      CREATE_NEW_MOTION EUCLIDEAN
+
+      SET_MOTION_BOUNDARIES 1 -1
+
+      SET_MOTION_ANGULAR_VELOCITY 1 49.55 0.0 0.0
+
+      SET_MOTION_IS_ROTOR 1 ENABLE X
+
+
+      EXPORT_LOG
+
+      <probe>/isrotor_26000_enable_x_after_w/log.txt
+
+
+      CLOSE_FLIGHTSTREAM
+
+      '
+    log_written: true
+  isrotor_26000_enable_y:
+    script: 'OPEN
+
+      <probe>/inputs/geometries/30_BLADE_26000.fsm
+
+
+      CREATE_NEW_MOTION EUCLIDEAN
+
+      SET_MOTION_BOUNDARIES 1 -1
+
+      SET_MOTION_IS_ROTOR 1 ENABLE Y
+
+
+      EXPORT_LOG
+
+      <probe>/isrotor_26000_enable_y/log.txt
+
+
+      CLOSE_FLIGHTSTREAM
+
+      '
+    log_written: true
+  isrotor_26100_control_no_isrotor:
+    script: 'OPEN
+
+      <probe>/inputs/geometries/30_BLADE_26100.fsm
+
+
+      CREATE_NEW_MOTION EUCLIDEAN
+
+      SET_MOTION_BOUNDARIES 1 -1
+
+
+      EXPORT_LOG
+
+      <probe>/isrotor_26100_control_no_isrotor/log.txt
+
+
+      CLOSE_FLIGHTSTREAM
+
+      '
+    log_written: true
+  isrotor_26100_disable_x:
+    script: 'OPEN
+
+      <probe>/inputs/geometries/30_BLADE_26100.fsm
+
+
+      CREATE_NEW_MOTION EUCLIDEAN
+
+      SET_MOTION_BOUNDARIES 1 -1
+
+      SET_MOTION_IS_ROTOR 1 DISABLE X
+
+
+      EXPORT_LOG
+
+      <probe>/isrotor_26100_disable_x/log.txt
+
+
+      CLOSE_FLIGHTSTREAM
+
+      '
+    log_written: false
+  isrotor_26100_enable_1:
+    script: 'OPEN
+
+      <probe>/inputs/geometries/30_BLADE_26100.fsm
+
+
+      CREATE_NEW_MOTION EUCLIDEAN
+
+      SET_MOTION_BOUNDARIES 1 -1
+
+      SET_MOTION_IS_ROTOR 1 ENABLE 1
+
+
+      EXPORT_LOG
+
+      <probe>/isrotor_26100_enable_1/log.txt
+
+
+      CLOSE_FLIGHTSTREAM
+
+      '
+    log_written: false
+  isrotor_26100_enable_only:
+    script: 'OPEN
+
+      <probe>/inputs/geometries/30_BLADE_26100.fsm
+
+
+      CREATE_NEW_MOTION EUCLIDEAN
+
+      SET_MOTION_BOUNDARIES 1 -1
+
+      SET_MOTION_IS_ROTOR 1 ENABLE
+
+
+      EXPORT_LOG
+
+      <probe>/isrotor_26100_enable_only/log.txt
+
+
+      CLOSE_FLIGHTSTREAM
+
+      '
+    log_written: false
+  isrotor_26100_enable_x:
+    script: 'OPEN
+
+      <probe>/inputs/geometries/30_BLADE_26100.fsm
+
+
+      CREATE_NEW_MOTION EUCLIDEAN
+
+      SET_MOTION_BOUNDARIES 1 -1
+
+      SET_MOTION_IS_ROTOR 1 ENABLE X
+
+
+      EXPORT_LOG
+
+      <probe>/isrotor_26100_enable_x/log.txt
+
+
+      CLOSE_FLIGHTSTREAM
+
+      '
+    log_written: false
+  isrotor_26100_enable_x_after_w:
+    script: 'OPEN
+
+      <probe>/inputs/geometries/30_BLADE_26100.fsm
+
+
+      CREATE_NEW_MOTION EUCLIDEAN
+
+      SET_MOTION_BOUNDARIES 1 -1
+
+      SET_MOTION_ANGULAR_VELOCITY 1 49.55 0.0 0.0
+
+      SET_MOTION_IS_ROTOR 1 ENABLE X
+
+
+      EXPORT_LOG
+
+      <probe>/isrotor_26100_enable_x_after_w/log.txt
+
+
+      CLOSE_FLIGHTSTREAM
+
+      '
+    log_written: false
+  isrotor_26100_enable_y:
+    script: 'OPEN
+
+      <probe>/inputs/geometries/30_BLADE_26100.fsm
+
+
+      CREATE_NEW_MOTION EUCLIDEAN
+
+      SET_MOTION_BOUNDARIES 1 -1
+
+      SET_MOTION_IS_ROTOR 1 ENABLE Y
+
+
+      EXPORT_LOG
+
+      <probe>/isrotor_26100_enable_y/log.txt
+
+
+      CLOSE_FLIGHTSTREAM
+
+      '
+    log_written: false
+  names_26000_is_rotor:
+    script: 'OPEN
+
+      <probe>/inputs/geometries/30_BLADE_26000.fsm
+
+
+      CREATE_NEW_MOTION EUCLIDEAN
+
+      SET_MOTION_BOUNDARIES 1 -1
+
+      SET_MOTION_IS_ROTOR 1 ENABLE X
+
+
+      EXPORT_LOG
+
+      <probe>/names_26000_is_rotor/log.txt
+
+
+      CLOSE_FLIGHTSTREAM
+
+      '
+    log_written: true
+  names_26000_no_extra_line:
+    script: 'OPEN
+
+      <probe>/inputs/geometries/30_BLADE_26000.fsm
+
+
+      CREATE_NEW_MOTION EUCLIDEAN
+
+      SET_MOTION_BOUNDARIES 1 -1
+
+
+      EXPORT_LOG
+
+      <probe>/names_26000_no_extra_line/log.txt
+
+
+      CLOSE_FLIGHTSTREAM
+
+      '
+    log_written: true
+  names_26000_unknown_name:
+    script: 'OPEN
+
+      <probe>/inputs/geometries/30_BLADE_26000.fsm
+
+
+      CREATE_NEW_MOTION EUCLIDEAN
+
+      SET_MOTION_BOUNDARIES 1 -1
+
+      SET_MOTION_NOT_A_COMMAND_PROBE 1 ENABLE X
+
+
+      EXPORT_LOG
+
+      <probe>/names_26000_unknown_name/log.txt
+
+
+      CLOSE_FLIGHTSTREAM
+
+      '
+    log_written: false
+  names_26100_is_rotor:
+    script: 'OPEN
+
+      <probe>/inputs/geometries/30_BLADE_26100.fsm
+
+
+      CREATE_NEW_MOTION EUCLIDEAN
+
+      SET_MOTION_BOUNDARIES 1 -1
+
+      SET_MOTION_IS_ROTOR 1 ENABLE X
+
+
+      EXPORT_LOG
+
+      <probe>/names_26100_is_rotor/log.txt
+
+
+      CLOSE_FLIGHTSTREAM
+
+      '
+    log_written: false
+  names_26100_no_extra_line:
+    script: 'OPEN
+
+      <probe>/inputs/geometries/30_BLADE_26100.fsm
+
+
+      CREATE_NEW_MOTION EUCLIDEAN
+
+      SET_MOTION_BOUNDARIES 1 -1
+
+
+      EXPORT_LOG
+
+      <probe>/names_26100_no_extra_line/log.txt
+
+
+      CLOSE_FLIGHTSTREAM
+
+      '
+    log_written: true
+  names_26100_unknown_name:
+    script: 'OPEN
+
+      <probe>/inputs/geometries/30_BLADE_26100.fsm
+
+
+      CREATE_NEW_MOTION EUCLIDEAN
+
+      SET_MOTION_BOUNDARIES 1 -1
+
+      SET_MOTION_NOT_A_COMMAND_PROBE 1 ENABLE X
+
+
+      EXPORT_LOG
+
+      <probe>/names_26100_unknown_name/log.txt
+
+
+      CLOSE_FLIGHTSTREAM
+
+      '
+    log_written: false
+rotor_mark_scripts_note: isrotor_<build>_* are the seven-script table of RPT-049, rerun on 26.100 and
+  26.000 the same morning with the outcome the report states; names_<build>_* compare SET_MOTION_IS_ROTOR
+  with a name no build has, and 26.100 printed 'Unrecognized command in script' for both, as it does for
+  any unknown name, while 26.000 ran the first and refused the second the same way.
+executable_name_scan:
+  method: regex SET_MOTION_(IS_ROTOR|ANGULAR_VELOCITY|ROTOR_RPM|ROTOR_AXIS) over each executable's bytes
+  found:
+    '25100':
+    - SET_MOTION_ANGULAR_VELOCITY
+    - SET_MOTION_IS_ROTOR
+    '26000':
+    - SET_MOTION_ANGULAR_VELOCITY
+    - SET_MOTION_IS_ROTOR
+    '26100':
+    - SET_MOTION_ANGULAR_VELOCITY
+    '26101':
+    - SET_MOTION_ANGULAR_VELOCITY
+    - SET_MOTION_ROTOR_AXIS
+    - SET_MOTION_ROTOR_RPM
