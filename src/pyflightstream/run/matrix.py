@@ -332,6 +332,7 @@ def plan_matrix(
     name_from: str | None = None,
     ignore_missing_families: bool = True,
     cost: bool = False,
+    accept_unregistered_build: bool = False,
 ) -> CampaignPlan:
     """Pre-flight a run matrix without executing anything.
 
@@ -435,6 +436,7 @@ def plan_matrix(
         name_from=name_from,
         versions=_row_versions(resolved),
         matrix_path=path,
+        accept_unregistered_build=accept_unregistered_build,
     )
     if cost:
         # FR-82. Computed HERE, where the resolved cases are; a caller
@@ -488,6 +490,7 @@ def run_matrix(
     fs_version: str | None = None,
     name_from: str | None = None,
     ignore_missing_families: bool = True,
+    accept_unregistered_build: bool = False,
 ) -> list[RunRecord]:
     """Read a run matrix and run it: the one-call first-class entry.
 
@@ -724,4 +727,5 @@ def run_matrix(
         resume=resume,
         builds=builds,
         name_from=name_from,
+        accept_unregistered_build=accept_unregistered_build,
     )

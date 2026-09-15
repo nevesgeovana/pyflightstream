@@ -122,6 +122,7 @@ from pyflightstream.results import (
     VersionMismatchWarning,
     classify_solver_mode,
     parse_loads,
+    parse_log_times,
     parse_residual_history,
 )
 from pyflightstream.results.conditions import ConditionBinding, bind_conditions
@@ -149,6 +150,7 @@ from pyflightstream.workspace.inputs import HPC_BUILD_ALIAS
 from pyflightstream.workspace.naming import ARCHIVE_STAMP, polar_name
 
 __all__ = [
+    "ACCEPT_UNREGISTERED_BUILD_FLAG",
     "PLAN_REQUIRED_MESSAGE",
     "plan_receipt_error",
     "FS_VERSION_FROM_DEFAULT",
@@ -1125,6 +1127,10 @@ class Assessment:
         Where a final residual did not fit its printed field and was read
         from an earlier iteration instead, which column, which iteration
         and what value; None where every final residual was printed.
+    solver_run_time_s, solver_initialization_s, time_steps : optional
+        The solver's own run time and initialization time in seconds and the
+        time steps of an unsteady run, read from the log the verdict read;
+        None where no log was read or it prints no such line.
     """
 
     status: RunStatus
@@ -1136,6 +1142,9 @@ class Assessment:
     conditions: list[dict] | None = None
     log_file_used: str | None = None
     residual_note: str | None = None
+    solver_run_time_s: float | None = None
+    solver_initialization_s: float | None = None
+    time_steps: int | None = None
 
 
 def _bind_case_conditions(case: SimCase | None, report: LoadsReport) -> ConditionBinding:
@@ -1656,6 +1665,11 @@ class LoadsAssessor:
         if log_path is not None:
             stamp["log_file_used"] = log_path.name
             log_text = log_path.read_text(encoding="utf-8", errors="replace")
+            # 0.21.0: the times the log prints ride on every verdict read from it.
+            times = parse_log_times(log_text)
+            stamp["solver_run_time_s"] = times.solver_run_time_s
+            stamp["solver_initialization_s"] = times.solver_initialization_s
+            stamp["time_steps"] = times.time_steps
             try:
                 history = parse_residual_history(log_text)
                 final = history[-1]
@@ -2089,12 +2103,18 @@ _IDENTITY_MARKER = "PYFS_PREFLIGHT"
 _BUILD_LINE = re.compile(r"build\s*#?\s*(?P<build>\d+)", re.IGNORECASE)
 
 
+#: The command-line flag that accepts an installed build other than the registered
+#: one (0.21.0), named once so the refusal, the warning and the parser agree.
+ACCEPT_UNREGISTERED_BUILD_FLAG = "--accept-unregistered-build"
+
+
 def check_solver_identity(
     executor: Executor,
     version: FsVersion,
     workdir: Path,
     *,
     timeout_s: float = 60.0,
+    accept_unregistered_build: bool = False,
 ) -> None:
     """Refuse before the campaign runs if the wrong solver build is configured.
 
@@ -2206,12 +2226,30 @@ def check_solver_identity(
         return
     installed = found.group("build")
     if installed != version.build:
+        # 0.21.0, the owner's decision of 2026-09-15: a build that EXISTS and is
+        # not the registered one may be accepted on request, and then its
+        # compatibility is the user's responsibility. It is warned, and every
+        # record of the run says the acceptance was made.
+        if accept_unregistered_build:
+            warnings.warn(
+                f"the executable is FlightStream build #{installed} and the campaign "
+                f"declares {version.canonical}, registered as build #{version.build}. "
+                f"Running anyway, because {ACCEPT_UNREGISTERED_BUILD_FLAG} was given: "
+                "whether this build computes what the registered one does is yours to "
+                "know, and every record of this run says the flag was used.",
+                VersionMismatchWarning,
+                stacklevel=2,
+            )
+            return
         raise ExecutorConfigurationError(
             f"the executable is FlightStream build #{installed}, but the campaign "
             f"declares {version.canonical}, which is build #{version.build}. Nothing "
             "ran. The printed version string cannot show this, because both builds of "
             "a minor release print the same one, and their records differ; check "
-            "fs_exe against the installation folder of the version the campaign names."
+            "fs_exe against the installation folder of the version the campaign names. "
+            f"If this build is one you know to be compatible, run with "
+            f"{ACCEPT_UNREGISTERED_BUILD_FLAG} (accept_unregistered_build=True): its "
+            "compatibility is then your responsibility, and the records say so."
         )
 
 
@@ -2296,6 +2334,8 @@ def _check_scheduled_builds(
     campaign: Campaign,
     executor: Executor,
     scheduled: list[tuple[SimCase, SolverBuild | None]],
+    *,
+    accept_unregistered_build: bool = False,
 ) -> None:
     """Confirm every installation that still has work, before any of it runs.
 
@@ -2360,7 +2400,12 @@ def _check_scheduled_builds(
             continue
         workdir = Path(tempfile.mkdtemp(prefix="pyfs-preflight-"))
         try:
-            check_solver_identity(case_executor, resolve(case_version), workdir)
+            check_solver_identity(
+                case_executor,
+                resolve(case_version),
+                workdir,
+                accept_unregistered_build=accept_unregistered_build,
+            )
         except ExecutorConfigurationError as error:
             failures.append(
                 f"  {_build_label(key)}, asked for by case(s) {', '.join(sims)}: {error}"
@@ -2521,6 +2566,7 @@ def run_campaign(
     builds: Mapping[str, SolverBuild] | None = None,
     name_from: str | None = None,
     quiet: bool = False,
+    accept_unregistered_build: bool = False,
 ) -> list[RunRecord]:
     """Run every point of a campaign, recording each in the manifest.
 
@@ -2752,7 +2798,12 @@ def run_campaign(
     # wrongly. It is still LAZY: a schedule with nothing in it asks
     # nothing, so a resume with no pending point launches no process.
     if preflight and scheduled:
-        _check_scheduled_builds(campaign, executor, [(case, build) for case, build, _ in scheduled])
+        _check_scheduled_builds(
+            campaign,
+            executor,
+            [(case, build) for case, build, _ in scheduled],
+            accept_unregistered_build=accept_unregistered_build,
+        )
     # PASS THREE is the only one that stages, executes or records.
     for case, build, pending in scheduled:
         case_executor = build.executor if build is not None else executor
@@ -2802,6 +2853,8 @@ def run_campaign(
                 + (f"  ({record.error})" if record.error else ""),
                 quiet=quiet,
             )
+            if accept_unregistered_build:
+                record = record.model_copy(update={"accept_unregistered_build": True})
             workspace.append_record(record)
             recorded.add(record.run_id)
             records.append(record)
@@ -2900,6 +2953,8 @@ def run_campaign(
                 f"     {run_id}  {record.status}" + (f"  ({record.error})" if record.error else ""),
                 quiet=quiet,
             )
+            if accept_unregistered_build:
+                record = record.model_copy(update={"accept_unregistered_build": True})
             workspace.append_record(record)
             recorded.add(record.run_id)
             records.append(record)
@@ -3741,6 +3796,7 @@ def plan_campaign(
     builds: Mapping[str, SolverBuild] | None = None,
     versions: Mapping[str, str] | None = None,
     matrix_path: str | Path | None = None,
+    accept_unregistered_build: bool = False,
 ) -> CampaignPlan:
     """Pre-flight a campaign: validate every point without executing any.
 
@@ -3863,6 +3919,9 @@ def plan_campaign(
             # Python and has no matrix to pin to; `run` asks for a plan
             # only where a matrix exists.
             "matrix_sha256": _file_digest(matrix_path) if matrix_path else None,
+            # 0.21.0: plan launches no solver, so the flag changes no check here;
+            # it is recorded so the plan rehearses the command line run executes.
+            "accept_unregistered_build": accept_unregistered_build,
         }
         plan_file.parent.mkdir(parents=True, exist_ok=True)
         plan_file.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
@@ -5363,6 +5422,9 @@ def _execute_point(
         conditions=assessment.conditions,
         log_file_used=assessment.log_file_used,
         residual_note=assessment.residual_note,
+        solver_run_time_s=assessment.solver_run_time_s,
+        solver_initialization_s=assessment.solver_initialization_s,
+        time_steps=assessment.time_steps,
         error=assessment.error,
     )
 

@@ -369,6 +369,16 @@ def _build_parser() -> argparse.ArgumentParser:
         "already has runs of this matrix is refused rather than moved. THE RENUMBERING IS "
         "WRITTEN BEFORE THE PLAN RUNS and stays written if the plan then refuses",
     )
+    plan.add_argument(
+        "--accept-unregistered-build",
+        dest="accept_unregistered_build",
+        action="store_true",
+        help="run on an installed FlightStream build other than the one registered for the "
+        "version a row names, instead of refusing it: its compatibility is then YOUR "
+        "responsibility, the run warns, and every record says the flag was used and carries "
+        "the build the solver printed. `plan` launches no solver and records the flag in "
+        "plan.json, so it rehearses the same command line `run` executes",
+    )
 
     run = subparsers.add_parser(
         "run",
@@ -423,6 +433,16 @@ def _build_parser() -> argparse.ArgumentParser:
         "post/<matrix stem>/campaign_sweep.csv in the workspace, so each matrix of a "
         "workspace keeps its own; the run writes that one file and never a second copy "
         "of it under another name)",
+    )
+    run.add_argument(
+        "--accept-unregistered-build",
+        dest="accept_unregistered_build",
+        action="store_true",
+        help="run on an installed FlightStream build other than the one registered for the "
+        "version a row names, instead of refusing it: its compatibility is then YOUR "
+        "responsibility, the run warns, and every record says the flag was used and carries "
+        "the build the solver printed. `plan` launches no solver and records the flag in "
+        "plan.json, so it rehearses the same command line `run` executes",
     )
 
     collect = subparsers.add_parser(
@@ -1055,6 +1075,7 @@ def _cmd_plan(args: argparse.Namespace, recipes: dict[str, str]) -> int:
             recipe_registry=workflow_registry(),
             ignore_missing_families=_the_missing_family_choice(args),
             cost=getattr(args, "cost", False),  # FR-82
+            accept_unregistered_build=args.accept_unregistered_build,
         )
     except (MatrixError, InputArtifactError, OSError, ValueError) as error:
         print(f"matrix not planned: {error}", file=sys.stderr)
@@ -1127,6 +1148,7 @@ def _cmd_run(args: argparse.Namespace, recipes: dict[str, str]) -> int:
             recipe_registry=workflow_registry(),
             resume=args.resume,
             ignore_missing_families=_the_missing_family_choice(args),
+            accept_unregistered_build=args.accept_unregistered_build,
         )
     except CampaignErrors as error:
         # SEPARATED FROM THE OTHERS on purpose. Every arm below this one

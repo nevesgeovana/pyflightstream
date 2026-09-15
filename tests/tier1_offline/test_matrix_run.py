@@ -2059,7 +2059,7 @@ def count_identity_probes(monkeypatch):
 
     calls = []
 
-    def counting(executor, version, workdir):
+    def counting(executor, version, workdir, **_accept):
         calls.append(version)
 
     monkeypatch.setattr(run_module, "check_solver_identity", counting)

@@ -304,6 +304,10 @@ RECORD_SCALARS = (
     # and was read from an earlier iteration: a converged verdict that rests
     # on that reading says so on its row.
     "residual_note",
+    # GOAL-024, 0.21.0. The solver's own times and step count, from its log.
+    "solver_run_time_s",
+    "solver_initialization_s",
+    "time_steps",
     "flight_condition_defaults_from",
     "velocity_requested_m_s",
     "density_kg_m3",

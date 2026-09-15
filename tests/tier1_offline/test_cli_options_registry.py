@@ -106,6 +106,10 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     # which is exactly why no registry default can know which this is.
     ("pyfs-matrix", "watch"): SWITCH,
     ("pyfs-matrix", "post"): SWITCH,
+    # GOAL-024, 0.21.0, the owner's decision of 2026-09-15: accepting an installed
+    # build other than the registered one is a decision about THIS invocation,
+    # recorded in every record, never a default a registry could hold.
+    ("pyfs-matrix", "accept_unregistered_build"): SWITCH,
     ("pyfs-matrix", "interval"): SWITCH,
     ("pyfs-matrix", "watch_interval"): SWITCH,
     ("pyfs-matrix", "rounds"): SWITCH,
@@ -258,6 +262,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-matrix", "refuse_missing_families"): frozenset({"plan", "run"}),
     ("pyfs-matrix", "resume"): frozenset({"run"}),
     ("pyfs-matrix", "cost"): frozenset({"plan"}),
+    ("pyfs-matrix", "accept_unregistered_build"): frozenset({"plan", "run"}),
     ("pyfs-matrix", "update_ids"): frozenset({"plan"}),
     ("pyfs-matrix", "strict"): frozenset({"post"}),
     ("pyfs-matrix", "sweep_csv"): frozenset({"run"}),

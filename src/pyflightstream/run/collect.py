@@ -365,7 +365,13 @@ def collect_once(
         if not settled(first, second):
             missing = [n for n, stamp in second.items() if stamp is None]
             if missing:
-                detail = f"{len(missing)} of {len(names)} declared output(s) not there yet"
+                # 0.21.0: THE FILES ARE NAMED, not only counted. "1 of 8 not there
+                # yet" sent a user looking through eight names to find the one
+                # that never comes, which on a cluster was the solver log.
+                detail = (
+                    f"{len(missing)} of {len(names)} declared output(s) not there yet: "
+                    + ", ".join(Path(n).name for n in missing)
+                )
             else:
                 detail = "every declared output is present and at least one is still changing"
             report.waiting.append(

@@ -893,6 +893,10 @@ class RunRecord(BaseModel):
     script_sha256: str
     inputs_sha256: dict[str, str] = Field(default_factory=dict)
     raw_flag: bool
+    #: 0.21.0: the run was told to accept an installed build other than the
+    #: registered one (--accept-unregistered-build), so its compatibility was the
+    #: user's responsibility; the build the solver printed is `fs_build`.
+    accept_unregistered_build: bool = False
     outputs_sha256: dict[str, str] = Field(default_factory=dict)
     waived_commands: list[BrokenCommandRecord] = Field(default_factory=list)
 
@@ -963,6 +967,12 @@ class RunRecord(BaseModel):
     #: 0.21.0: where a final residual overflowed its printed field and was read
     #: from an earlier iteration, which column, iteration and value.
     residual_note: str | None = None
+    #: 0.21.0: what the solver log prints about the run, beside the Python clock
+    #: (wall_time_s): its run time and initialization time in seconds, and the
+    #: time steps of an unsteady run. None where no log was read.
+    solver_run_time_s: float | None = None
+    solver_initialization_s: float | None = None
+    time_steps: int | None = None
     solver_setup: dict | None = None
     status: RunStatus
     iterations: int | None = None

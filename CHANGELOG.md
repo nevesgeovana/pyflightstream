@@ -7,7 +7,27 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Added
+
+- **`plan` and `run` take `--accept-unregistered-build`.** On a workstation,
+  the pre-flight refuses an installed build other than the one registered for
+  the version a row names. With the flag the run proceeds and warns, its
+  compatibility is your responsibility, and every run record carries
+  `accept_unregistered_build` beside the build the solver printed (`fs_build`).
+  `plan` launches no solver and records the flag in `plan.json`. Without the
+  flag the refusal stands and now names it. The library takes the same keyword
+  (`run_campaign`, `run_matrix`, `plan_campaign`, `plan_matrix`,
+  `check_solver_identity`).
+- **The run record carries the times the solver log prints**:
+  `solver_run_time_s` (the last `Solver run time` or `Unsteady solver run time`
+  line), `solver_initialization_s` and, on an unsteady run, `time_steps`. The
+  superfile carries them as columns. `results.parse_log_times` reads them, and a
+  field the log does not print is None, never zero.
+
 ### Fixed
+
+- **`collect` names each declared output that has not arrived**, not only how
+  many: "1 of 8 declared output(s) not there yet: <point>_log.txt".
 
 - **A final residual the solver printed as a field of asterisks no longer reads
   as a divergence.** The solver prints a run of asterisks when a number does not
