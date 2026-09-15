@@ -7,6 +7,34 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Fixed
+
+- **A final residual the solver printed as a field of asterisks no longer reads
+  as a divergence.** The solver prints a run of asterisks when a number does not
+  fit its column. On the last iteration that turned a converged run into
+  `FAILED_DIVERGED` ("pressure=nan"). The column is now read from its last
+  printed value when that value is already within the convergence limit, and
+  the run record's new `residual_note` says which column, which iteration and
+  what value. A column that overflowed from above the limit, and a NaN the
+  solver printed, are still divergences.
+  - `ResidualSample` gains `overflowed`, the columns printed as asterisks on
+    that row.
+- **A section distribution plans on the builds before 26.120.** Those builds'
+  `NEW_SURFACE_SECTION_DISTRIBUTION` takes no `INCLUDE_SYMMETRY`, and the
+  package wrote `INCLUDE_SYMMETRY DISABLE` anyway, so every pproc with sections
+  was refused there. The switch is now written only on a build that takes it;
+  on the others a pproc with `include_symmetry = false` writes none, and one
+  with `include_symmetry = true` is refused by name. What 26.120 and later
+  render is unchanged.
+
+### Changed
+
+- **The `broken_commands` manifest key is promised for removal at 0.22.0**, its
+  seventh deadline, on the same re-count as the six before it: re-measured the
+  moment the 0.21.0 cycle opened and UNCHANGED at 18 recorded rows across 6
+  manifests. The reader stays while a recorded row needs it; write
+  `waived_commands`.
+
 ### Owed
 
 - **The Zenodo archive of v0.14.0 DOES NOT EXIST**, re-measured against

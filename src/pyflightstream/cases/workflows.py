@@ -6665,9 +6665,32 @@ def _pproc_sections(case: SimCase, script: Script, frames: Frames) -> None:
             indices = [script.resolve_boundary(f, context="pproc section") for f in families]
             if not indices:
                 indices = list(range(1, len(inventory) + 1))
+            # THE SYMMETRY SWITCH IS WRITTEN ONLY WHERE THE BUILD HAS IT (0.21.0).
+            # The builds before 26.120 take no INCLUDE_SYMMETRY, and writing
+            # `DISABLE` there refused every section distribution on them even
+            # though a distribution that excludes the symmetry copy is exactly
+            # what such a build computes. So a build without the argument gets
+            # none when the pproc asks for none, and is refused by name when it
+            # asks to include the copy; a build with the argument is unchanged.
+            takes_symmetry = _SECTION_SYMMETRY_ARG in {
+                arg.name for arg in script._view[_SECTION_COMMAND].args
+            }
+            if sections.include_symmetry and not takes_symmetry:
+                raise CampaignConfigError(
+                    f"case {case.sim_id!r}: the pproc artifact asks section distributions to "
+                    f"include the symmetry copy (include_symmetry = true), and FlightStream "
+                    f"{script.version.canonical} has no INCLUDE_SYMMETRY in "
+                    f"{_SECTION_COMMAND}. Set include_symmetry = false for this build, or run "
+                    "the row on a build whose distributions take the switch."
+                )
+            symmetry = (
+                {"include_symmetry": "ENABLE" if sections.include_symmetry else "DISABLE"}
+                if takes_symmetry
+                else {}
+            )
             for plane in entry.planes:
                 script.emit(
-                    "NEW_SURFACE_SECTION_DISTRIBUTION",
+                    _SECTION_COMMAND,
                     frame=frame,
                     plane=plane,
                     # FR-76: the entry's own where it states one, the
@@ -6678,10 +6701,15 @@ def _pproc_sections(case: SimCase, script: Script, frames: Frames) -> None:
                         if entry.plot_direction is not None
                         else sections.plot_direction
                     ),
-                    include_symmetry="ENABLE" if sections.include_symmetry else "DISABLE",
+                    **symmetry,
                     surfaces=len(indices),
                     surface_indices=indices,
                 )
+
+
+#: The section command, and the argument only the builds from 26.120 take.
+_SECTION_COMMAND = "NEW_SURFACE_SECTION_DISTRIBUTION"
+_SECTION_SYMMETRY_ARG = "include_symmetry"
 
 
 def _export_block(

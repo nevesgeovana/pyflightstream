@@ -960,6 +960,9 @@ class RunRecord(BaseModel):
     conditions: list[dict] | None = None
 
     log_file_used: str | None = None
+    #: 0.21.0: where a final residual overflowed its printed field and was read
+    #: from an earlier iteration, which column, iteration and value.
+    residual_note: str | None = None
     solver_setup: dict | None = None
     status: RunStatus
     iterations: int | None = None

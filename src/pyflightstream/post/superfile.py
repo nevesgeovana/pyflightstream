@@ -300,6 +300,10 @@ RECORD_SCALARS = (
     # differ in exactly this, so a reader comparing them sees it on the row.
     # Empty on a steady point and on every record written before 0.20.0.
     "march_strategy",
+    # GOAL-024, 0.21.0. Where a final residual overflowed its printed field
+    # and was read from an earlier iteration: a converged verdict that rests
+    # on that reading says so on its row.
+    "residual_note",
     "flight_condition_defaults_from",
     "velocity_requested_m_s",
     "density_kg_m3",

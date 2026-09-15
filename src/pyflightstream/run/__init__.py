@@ -1121,6 +1121,10 @@ class Assessment:
         not true of the first version: the field was populated on the
         assessment and dropped at the RunRecord boundary, so the reader
         it names still could not tell the two apart.
+    residual_note : str, optional
+        Where a final residual did not fit its printed field and was read
+        from an earlier iteration instead, which column, which iteration
+        and what value; None where every final residual was printed.
     """
 
     status: RunStatus
@@ -1131,6 +1135,7 @@ class Assessment:
     fs_build: str | None = None
     conditions: list[dict] | None = None
     log_file_used: str | None = None
+    residual_note: str | None = None
 
 
 def _bind_case_conditions(case: SimCase | None, report: LoadsReport) -> ConditionBinding:
@@ -1652,7 +1657,8 @@ class LoadsAssessor:
             stamp["log_file_used"] = log_path.name
             log_text = log_path.read_text(encoding="utf-8", errors="replace")
             try:
-                final = parse_residual_history(log_text)[-1]
+                history = parse_residual_history(log_text)
+                final = history[-1]
             except (IncompleteOutputError, ValueError) as error:
                 return Assessment(
                     status=RunStatus.FAILED_INCOMPLETE_OUTPUT,
@@ -1681,12 +1687,47 @@ class LoadsAssessor:
                 "velocity": final.velocity_residual,
                 "pressure": final.pressure_residual,
             }
+            # A FIELD TOO NARROW IS NOT A DIVERGENCE. The solver prints a run
+            # of asterisks when a number does not fit its column, and on the
+            # LAST row that turned a converged run into FAILED_DIVERGED: a
+            # 26.100 rotor printed `*************` in the pressure column at
+            # its final iteration, 1.15e-9 on the row before. The overflowed
+            # column is read from its last printed value, and ONLY when that
+            # value is already within the limit: a column that overflowed from
+            # above the limit may have overflowed because it grew, so it stays
+            # unjudged. What was read, and from which iteration, is recorded.
+            notes: list[str] = []
+            for name in sorted(final.overflowed):
+                earlier = next(
+                    (
+                        (sample.iteration, getattr(sample, f"{name}_residual"))
+                        for sample in reversed(history[:-1])
+                        if name not in sample.overflowed
+                        and math.isfinite(getattr(sample, f"{name}_residual"))
+                    ),
+                    None,
+                )
+                if earlier is not None and earlier[1] <= report.convergence_limit:
+                    components[name] = earlier[1]
+                    notes.append(
+                        f"the {name} residual of iteration {final.iteration} did not fit its "
+                        f"printed field; read from iteration {earlier[0]}, {earlier[1]:.4g}"
+                    )
+            if notes:
+                stamp["residual_note"] = "; ".join(notes)
             nonfinite = [
                 f"{name}={value!r}"
                 for name, value in components.items()
                 if value is None or not math.isfinite(value)
             ]
             if nonfinite:
+                overflow = (
+                    f" The solver printed {', '.join(sorted(final.overflowed))} as a field "
+                    "of asterisks, and the last printed value of that column is not within "
+                    "the limit, so it may have overflowed because it grew."
+                    if final.overflowed
+                    else ""
+                )
                 return Assessment(
                     status=RunStatus.FAILED_DIVERGED,
                     iterations=final.iteration,
@@ -1695,7 +1736,7 @@ class LoadsAssessor:
                         f"{', '.join(nonfinite)}. A residual that is NaN or "
                         "infinite is not a small number, so no convergence "
                         "judgment can be made from it; the solver diverged or "
-                        "the log is corrupt at that iteration"
+                        "the log is corrupt at that iteration." + overflow
                     ),
                     **stamp,
                 )
@@ -5321,6 +5362,7 @@ def _execute_point(
         # point it claims", and that question is the whole finding.
         conditions=assessment.conditions,
         log_file_used=assessment.log_file_used,
+        residual_note=assessment.residual_note,
         error=assessment.error,
     )
 

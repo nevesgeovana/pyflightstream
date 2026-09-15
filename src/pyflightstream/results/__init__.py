@@ -1249,11 +1249,17 @@ class ResidualSample:
         Surface velocity residual, dimensionless.
     pressure_residual : float
         Surface pressure residual, dimensionless.
+    overflowed : frozenset of str
+        The columns (``"velocity"``, ``"pressure"``) the solver printed as a
+        field of asterisks on this row, read as NaN. Kept apart from a NaN the
+        solver PRINTED, because a field too narrow for a tiny number is not a
+        diverged solve.
     """
 
     iteration: int
     velocity_residual: float
     pressure_residual: float
+    overflowed: frozenset[str] = frozenset()
 
 
 #: A printed field the solver could not fit its value into. Fortran writes a
@@ -1367,6 +1373,11 @@ def parse_residual_history(text: str) -> list[ResidualSample]:
                 iteration=iteration,
                 velocity_residual=_residual_cell(row[1]),
                 pressure_residual=_residual_cell(row[2]),
+                overflowed=frozenset(
+                    name
+                    for name, token in (("velocity", row[1]), ("pressure", row[2]))
+                    if _OVERFLOWED_FIELD.match(token.strip())
+                ),
             )
         )
     if not history:

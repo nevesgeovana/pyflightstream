@@ -265,6 +265,8 @@ def _workspace(tmp_path: Path):
             walltime_s=3600.0,
             walltime_margin_s=1200.0,
             march_strategy="actions",
+            # GOAL-024: a verdict read past an overflowed residual field says so.
+            residual_note="the pressure residual of iteration 1535 did not fit its printed field",
             reductions=_ROTOR_PLAN,
             solver_setup=_SOLVER_SETUP,
         )
