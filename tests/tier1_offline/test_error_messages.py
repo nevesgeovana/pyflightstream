@@ -866,3 +866,40 @@ def test_a_label_absent_from_a_declared_inventory_names_the_inventory(tmp_path):
     with pytest.raises(ScriptReferenceError) as sidecar:
         build_script(with_sidecar, Script("26.123"))
     assert "the sidecar sector.boundaries.toml" in str(sidecar.value)
+
+
+def test_the_rebuild_command_a_failed_products_write_offers_is_one_post_accepts(
+    tmp_path, monkeypatch
+):
+    """The remedy is a command, so it is pinned by running it through the real parser.
+
+    Until 0.19.1 the warning told the user to rebuild with
+    `pyfs-matrix post --workspace <root> --overwrite`, and `post` has had no
+    `--overwrite` since the archive replaced the refusal: the one command the
+    warning offered was refused by argparse. A wording pin on the text would
+    have kept the flag, so this parses what the message prints.
+    """
+    import re
+
+    import pyflightstream.run as run_module
+    from pyflightstream.run.cli import _build_parser
+
+    def failing_stage(workspace, **_kwargs):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(run_module, "post_stages", lambda: (failing_stage,))
+    workspace = CampaignWorkspace.init(tmp_path / "camp")
+
+    message = run_module._leave_products(workspace, None)
+
+    assert message is not None and "disk full" in message, message
+    offered = re.search(r"rebuild them with `([^`]+)`", message)
+    assert offered is not None, f"the message offers no command to rebuild with: {message}"
+    words = offered.group(1).split()
+    assert words[0] == "pyfs-matrix", words
+    try:
+        parsed = _build_parser().parse_args(words[1:])
+    except SystemExit:
+        pytest.fail(f"`{offered.group(1)}` is refused by pyfs-matrix's own parser")
+    assert parsed.subcommand == "post", parsed
+    assert not parsed.force_overwrite, "the remedy must archive, not destroy"

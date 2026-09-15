@@ -228,6 +228,7 @@ def write_point_series(
     stem: str,
     out: Path,
     overwrite: bool = False,
+    prepare: Callable[[Path], object] | None = None,
 ) -> tuple[list[Path], dict[str, dict[str, object]]]:
     """Write the series tables of one point from its stamped exports.
 
@@ -248,6 +249,11 @@ def write_point_series(
         Whether an existing table may be rewritten; refused otherwise
         with :class:`~pyflightstream.post.products.ProductExistsError`,
         the products stage's own rule.
+    prepare : callable, optional
+        Called with each table's path before that table is written. The
+        products stage passes its archiver here, so an existing table is
+        moved into ``series/archive/<day and hour>/`` rather than rewritten
+        in place, as every other product is. None leaves the path alone.
 
     Returns
     -------
@@ -272,10 +278,18 @@ def write_point_series(
         columns, rows = _ROWS[kind](files, steps, delta, step_deg)
         relative = f"{SERIES_DIR}/{stem}_{kind}_series.csv"
         path = out / relative
+        # THE ARCHIVER RUNS FIRST. Until 0.19.1 the products stage accepted
+        # `archive` and never passed it here, so a rebuild archived every
+        # product but these, which it rewrote in place: measured on a rotor
+        # campaign rebuilt twice, four folders gained archive/ and series/
+        # did not.
+        if prepare is not None:
+            prepare(path)
         if path.exists() and not overwrite:
             raise ProductExistsError(
-                f"the product {path} exists; pass overwrite (CLI: --overwrite) to rewrite "
-                "it from the manifest"
+                f"the product {path} exists; pass overwrite=True to rewrite it from the "
+                "manifest. `pyfs-matrix post` passes it already and archives the old table "
+                "first, so this reaches a library caller alone"
             )
         done = write_csv_table(path, columns, rows)
         written.append(done)

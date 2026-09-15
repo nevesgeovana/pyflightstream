@@ -2373,8 +2373,9 @@ def _leave_products(workspace: CampaignWorkspace, matrix_stem: str | None) -> st
     same rule: the products are derived from the manifest and the collected
     exports, so rewriting them after a resume adds the new points and can
     destroy nothing, and a write error must not replace the campaign's own
-    outcome. ``pyfs-matrix post`` is the same writer run by hand, which is
-    where an existing product is refused without ``--overwrite``.
+    outcome. ``pyfs-matrix post`` is the same writer run by hand; it archives
+    each existing product before rewriting it, and only ``--force-overwrite``
+    keeps no copy.
     """
     where = workspace.products_dir(matrix_stem)
     try:
@@ -2386,7 +2387,10 @@ def _leave_products(workspace: CampaignWorkspace, matrix_stem: str | None) -> st
             f"{where}: {type(error).__name__}: {error}. "
             f"No run outcome is affected and nothing is lost: every point is recorded in "
             f"{workspace.manifest_path}. Fix the cause and rebuild them with "
-            "`pyfs-matrix post --workspace <root> --overwrite`."
+            # NO --overwrite. This named that flag until 0.19.1, when `post`
+            # had not accepted it since the archive replaced the refusal, so
+            # the one command the warning offered was refused by argparse.
+            "`pyfs-matrix post --workspace <root>`, which archives what is there first."
         )
     return None
 

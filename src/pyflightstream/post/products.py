@@ -2133,8 +2133,14 @@ def _point_series(
     *,
     overwrite: bool,
     archive: bool = True,
+    archive_stamp: datetime | None = None,
 ) -> tuple[list[Path], dict[str, dict[str, object]]]:
-    """Write the series tables of one windowed record (PFS-2031.18.01)."""
+    """Write the series tables of one windowed record (PFS-2031.18.01).
+
+    Each existing table is archived under the rebuild's stamp before it is
+    rewritten, by the same archiver as every other product; ``archive``
+    false keeps no copy.
+    """
     from pyflightstream.cases import classify_outputs
 
     kinds = classify_outputs([Path(o).name for o in record.outputs])
@@ -2149,6 +2155,11 @@ def _point_series(
         stem=stem,
         out=out,
         overwrite=overwrite,
+        # `archive` WAS ACCEPTED HERE AND NEVER USED until 0.19.1, so the
+        # series were the one product a rebuild rewrote in place.
+        prepare=lambda path: _refuse_an_existing_product(
+            path, archive=archive, stamp=archive_stamp
+        ),
     )
 
 
@@ -2786,7 +2797,13 @@ def write_campaign_products(
                 continue
             try:
                 series_files, series_names = _point_series(
-                    workspace, sim_id, record, out, overwrite=overwrite, archive=archive
+                    workspace,
+                    sim_id,
+                    record,
+                    out,
+                    overwrite=overwrite,
+                    archive=archive,
+                    archive_stamp=archive_stamp,
                 )
             except ProductExistsError:
                 raise

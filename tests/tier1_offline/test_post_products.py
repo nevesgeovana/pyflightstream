@@ -1331,6 +1331,74 @@ def test_a_windowed_point_gets_one_series_table_per_export_kind(tmp_path):
     assert "series/a-02.0_probes_series.csv" in index
 
 
+def test_a_rebuild_archives_the_series_tables_it_rewrites_as_it_does_every_product(tmp_path):
+    """The series were the one product a rebuild rewrote in place.
+
+    `_point_series` accepted `archive` and never used it, so a second
+    `pyfs-matrix post` archived polars, probes, sections and provenance and
+    overwrote series/. Measured 2026-09-14 on a rotor campaign rebuilt twice,
+    before any test named it. Each table of the first build must be under
+    series/archive/<the rebuild's stamp>/ with its own bytes.
+    """
+    from datetime import datetime
+
+    from pyflightstream.post.products import PRODUCT_ARCHIVE_DIR, PRODUCT_ARCHIVE_STAMP
+
+    window = {
+        "stated_form": "iterations",
+        "stated_value": 3.0,
+        "first_step": 3,
+        "time_iterations": 5,
+        "delta_time_s": 0.01,
+        "step_deg": 30.0,
+    }
+    workspace = _windowed_workspace(tmp_path, window=window)
+    series = workspace.root / "post" / "products" / "series"
+    write_campaign_products(workspace)
+    names = ("a-02.0_loads_series.csv", "a-02.0_sections_series.csv", "a-02.0_probes_series.csv")
+    for name in names:
+        (series / name).write_text(f"the first build of {name}", encoding="utf-8")
+    stamp = datetime(2026, 9, 14, 21, 14, 12)
+
+    write_campaign_products(workspace, overwrite=True, archive_stamp=stamp)
+
+    folder = series / PRODUCT_ARCHIVE_DIR / stamp.strftime(PRODUCT_ARCHIVE_STAMP)
+    for name in names:
+        archived = folder / name
+        assert archived.is_file(), (
+            f"the rebuild rewrote series/{name} in place and kept no copy; "
+            f"{PRODUCT_ARCHIVE_DIR}/ holds "
+            f"{sorted(p.name for p in folder.parent.rglob('*')) if folder.parent.exists() else []}"
+        )
+        assert archived.read_text(encoding="utf-8") == f"the first build of {name}"
+        assert (series / name).read_text(encoding="utf-8").startswith("step,"), (
+            "the rebuild archived the table and did not write the new one"
+        )
+
+
+def test_force_overwrite_keeps_no_copy_of_the_series_either(tmp_path):
+    """The escape is the only way to lose a series table, as for every product."""
+    from pyflightstream.post.products import PRODUCT_ARCHIVE_DIR
+
+    window = {
+        "stated_form": "iterations",
+        "stated_value": 3.0,
+        "first_step": 3,
+        "time_iterations": 4,
+        "delta_time_s": 0.01,
+    }
+    workspace = _windowed_workspace(tmp_path, window=window)
+    series = workspace.root / "post" / "products" / "series"
+    write_campaign_products(workspace)
+
+    write_campaign_products(workspace, overwrite=True, archive=False)
+
+    assert (series / "a-02.0_loads_series.csv").is_file()
+    assert not (series / PRODUCT_ARCHIVE_DIR).exists(), (
+        "archive=False kept a copy of the series, which is the one thing it exists not to do"
+    )
+
+
 def test_a_record_without_the_clock_leaves_the_time_blank_and_reads_the_azimuth_off_the_reductions(
     tmp_path,
 ):

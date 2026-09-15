@@ -7,6 +7,21 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Fixed
+
+- **A rebuild archives the series tables it rewrites.** `pyfs-matrix post`
+  archived every existing product into `<its folder>/archive/<day and hour>/`
+  before writing, except the tables under `series/`, which it rewrote in place:
+  the products stage accepted the archive flag and never passed it to the
+  series writer. They now go through the same archiver, under the same stamp,
+  and `--force-overwrite` still keeps no copy. `write_point_series` gains an
+  optional `prepare` callable, called with each table's path before it is
+  written.
+- **The warning a failed products write prints offers a command that runs.**
+  It told the user to rebuild with `pyfs-matrix post --workspace <root>
+  --overwrite`, a flag `post` has not accepted since rebuilds began archiving.
+  It now offers `pyfs-matrix post --workspace <root>`.
+
 ### Owed
 
 - **The Zenodo archive of v0.14.0 DOES NOT EXIST**, re-measured against
