@@ -220,6 +220,7 @@ def test_the_package_base_does_not_widen_what_the_builtin_bases_caught():
         # about the ENVIRONMENT, the build the workflow is asked for,
         # rather than about an argument the caller got wrong.
         "WorkflowCoverageError": RuntimeError,
+        "BuildCapabilityError": RuntimeError,
         "UnknownExtraError": ValueError,
         # The two categories OPS-2006.02.02 added, and they carry the
         # same promise as every error above: UserWarning stays in the MRO

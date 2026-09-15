@@ -76,7 +76,7 @@ from pyflightstream.cases import (
     CampaignConfigError,
 )
 from pyflightstream.cases.matrix import MatrixError
-from pyflightstream.cases.workflows import WorkflowCoverageError
+from pyflightstream.cases.workflows import BuildCapabilityError, WorkflowCoverageError
 from pyflightstream.commands import CommandDatabaseError, CommandNotInVersionError
 from pyflightstream.extras import (
     MissingExtraError,
@@ -139,6 +139,7 @@ __all__ = [
     "AnchorNotFoundError",
     "AtmosphereError",
     "BrokenCommandError",
+    "BuildCapabilityError",
     "CampaignConfigError",
     "CampaignErrors",
     "CommandArgumentError",

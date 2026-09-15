@@ -264,6 +264,7 @@ def _workspace(tmp_path: Path):
             # carry a number it is supposed to carry.
             walltime_s=3600.0,
             walltime_margin_s=1200.0,
+            march_strategy="actions",
             reductions=_ROTOR_PLAN,
             solver_setup=_SOLVER_SETUP,
         )

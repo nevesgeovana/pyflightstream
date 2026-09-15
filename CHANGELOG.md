@@ -21,6 +21,24 @@ FlightStream versions.
   renders on 26.124 exactly what it renders on 26.123; the workflow goldens
   for 26.124 are byte-identical to 26.123's. `"26.12"` now names five builds
   and is still refused as ambiguous.
+- **Every unsteady row says how it is marched on its build.** The builds
+  before 26.122 document no unsteady solver action
+  (`SET_NEW_UNSTEADY_SOLVER_ACTION`), so on them an unsteady row runs as a
+  single march: its plots declared before one solver start over every time
+  step it states, and its exports after it. That was already what a row with
+  no threshold and no wall clock rendered on every build; it is now decided in
+  one place, `march_strategy`, and reported. `PointPlan.march_strategy` and
+  the run record's `march_strategy` carry `"actions"` or `"single_march"`
+  (None for a steady point), and the superfile carries it as a column.
+- **`BuildCapabilityError`**, a `WorkflowCoverageError`, refuses an unsteady row
+  that asks a build without actions for what only actions provide: the
+  `EXPORT_UNSTEADY_AFTER_ITER` or `EXPORT_UNSTEADY_AFTER_REV` threshold, the
+  `WALLTIME` clock, or `RESTART: {FINISH_PENDING}` and `{ADDITIONAL_REVS=n}`.
+  The message names the build, each feature asked for, the builds that
+  document the actions, and the change to the row that runs on the build
+  named. Nothing is emulated: a row the build cannot run as written is
+  refused at plan time, before any seat is used, and never rendered with the
+  feature silently dropped.
 
 ### Changed
 

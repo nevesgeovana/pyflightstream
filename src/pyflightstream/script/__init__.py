@@ -825,6 +825,11 @@ class Script:
         self._broken_waivers: dict[str, str] = {}
         self._broken_uses: dict[str, BrokenCommandUse] = {}
         self._lines: list[str] = []
+        #: How a workflow build marched this script (GOAL-023, ARCH-0200):
+        #: ``"actions"``, ``"single_march"``, or None for a steady workflow
+        #: or a script no workflow built. Set by ``cases.workflows.build_script``
+        #: and read by the plan and the run record.
+        self.march_strategy: str | None = None
         self._phase_index: int | None = None
         self._phase_setter: tuple[str, int] | None = None
         self.entities = EntityRegistry()

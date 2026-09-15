@@ -99,7 +99,7 @@ from pyflightstream.cases import (
     select_group_members,
     warn_a_selector_that_guesses,
 )
-from pyflightstream.commands import CommandRegistry, Phase
+from pyflightstream.commands import CommandRegistry, Phase, VersionView
 from pyflightstream.script import CommandArgumentError, Script, ScriptReferenceError, helpers
 from pyflightstream.versions import FsVersion, known_versions, resolve
 
@@ -158,6 +158,11 @@ __all__ = [
     "Workflow",
     "WorkflowConventions",
     "WorkflowCoverageError",
+    "BuildCapabilities",
+    "BuildCapabilityError",
+    "MARCH_ACTIONS",
+    "MARCH_SINGLE",
+    "march_strategy",
     "accepted_symmetry",
     "build_script",
     "covered_builds",
@@ -853,6 +858,161 @@ def require_coverage(
 #: registered build documents both this and SET_MOTION_ROTOR_RPM, so a
 #: version branch that chose between them would be unreachable code.
 _EARLIER_VOCABULARY = ("SET_MOTION_IS_ROTOR",)
+
+
+# --- how a build is marched (ARCH-0200, GOAL-023) ---------------------------
+
+#: The unsteady march that registers the solver's per-step actions: the
+#: counter and exports pair for a per-step threshold, the clock and stop pair
+#: for a wall clock. Only a row asking for one of those is marched this way.
+MARCH_ACTIONS = "actions"
+#: The unsteady march that registers no action: the plots declared before ONE
+#: solver start over every time step, and every export after it. Every build
+#: can run it, and on every build it is what a row asking for no per-step
+#: feature has always rendered.
+MARCH_SINGLE = "single_march"
+
+#: The one command whose presence in a build's database is the per-step
+#: action capability.
+_ACTION_COMMAND = "SET_NEW_UNSTEADY_SOLVER_ACTION"
+
+
+class BuildCapabilityError(WorkflowCoverageError):
+    """A row asks, on a build that lacks it, for what only that build capability gives.
+
+    Raised by :func:`march_strategy` before the first emission, so a plan
+    reports the point BLOCKED with this sentence and nothing is spent. The
+    message names the build, each feature the row asked for, the builds that
+    do document the capability, and what to write instead. A subclass of
+    :class:`WorkflowCoverageError`, because it is the same kind of answer: the
+    row is well formed and this build cannot run it as written.
+    """
+
+
+@dataclass(frozen=True)
+class BuildCapabilities:
+    """What one build can do, derived from its command database and nothing else.
+
+    Never kept as a list: a command row landing for a build changes that
+    build's capabilities the moment it lands, and the goal's support-matrix
+    test re-derives them on every run.
+
+    Attributes
+    ----------
+    build : str
+        The canonical build identifier.
+    unsteady_actions : bool
+        Whether the build documents ``SET_NEW_UNSTEADY_SOLVER_ACTION``, the
+        per-step action every actions-only feature rests on.
+    """
+
+    build: str
+    unsteady_actions: bool
+
+    @classmethod
+    def of(cls, view: VersionView) -> BuildCapabilities:
+        """Derive the capabilities of the build ``view`` answers for."""
+        return cls(build=view.version.canonical, unsteady_actions=_ACTION_COMMAND in view)
+
+
+def _builds_with_actions(registry: CommandRegistry | None = None) -> tuple[str, ...]:
+    """Return the registered builds that document the per-step action, in release order."""
+    database = registry or CommandRegistry.load()
+    return tuple(
+        version.canonical
+        for version in known_versions()
+        if _ACTION_COMMAND in database.for_version(version.canonical)
+    )
+
+
+def march_strategy(
+    case: SimCase,
+    capabilities: BuildCapabilities,
+    *,
+    registry: CommandRegistry | None = None,
+) -> str | None:
+    """Decide how an unsteady case is marched on a build, or refuse it by name.
+
+    THE ONE SEAM. :func:`build_script` calls it once, after the coverage
+    check and before the first emission; the plan and the run record carry
+    what it returns.
+
+    Parameters
+    ----------
+    case : SimCase
+        The case about to build.
+    capabilities : BuildCapabilities
+        The target build's capabilities.
+    registry : CommandRegistry, optional
+        Alternative database, used by tests to name the builds with actions.
+
+    Returns
+    -------
+    str or None
+        None for a case that is not unsteady; :data:`MARCH_ACTIONS` when the
+        row states a per-step threshold or a wall clock and the build has the
+        actions they need; :data:`MARCH_SINGLE` otherwise.
+
+    Raises
+    ------
+    BuildCapabilityError
+        If the build documents no per-step action and the row asks for a
+        per-step threshold, a wall clock, or a continuation that reads their
+        records (``RESTART: {FINISH_PENDING}`` or ``{ADDITIONAL_REVS=n}``).
+    """
+    if select_workflow(case) not in ("unsteady", "unsteady_rotor"):
+        return None
+    wanted: list[tuple[str, str]] = []
+    if case.variables.get(EXPORT_UNSTEADY_AFTER_ITER_VARIABLE) not in (None, ""):
+        wanted.append(
+            (
+                f"per-step snapshot exports ({EXPORT_UNSTEADY_AFTER_ITER_VARIABLE})",
+                "remove the threshold: the plots table still records every time step",
+            )
+        )
+    if case.variables.get(EXPORT_UNSTEADY_AFTER_REV_VARIABLE) not in (None, ""):
+        wanted.append(
+            (
+                f"per-step snapshot exports ({EXPORT_UNSTEADY_AFTER_REV_VARIABLE})",
+                "remove the threshold: the plots table still records every time step",
+            )
+        )
+    if row_walltime_s(case) is not None:
+        wanted.append(
+            (
+                f"the in-run wall clock ({WALLTIME_VARIABLE})",
+                f"remove {WALLTIME_VARIABLE} and size {TIME_ITERATIONS_VARIABLE} to the queue; "
+                f"continue a capped run with {RESTART_VARIABLE}: "
+                f"{{{RESTART_ADDITIONAL_ITERS}=n}}",
+            )
+        )
+    uses_actions = bool(wanted)
+    restart = parse_restart(case)
+    if restart is not None and restart.form in (RESTART_FINISH_PENDING, RESTART_ADDITIONAL_REVS):
+        needs = (
+            "the stop the wall clock records"
+            if restart.form == RESTART_FINISH_PENDING
+            else "the export window its step counter records"
+        )
+        wanted.append(
+            (
+                f"{RESTART_VARIABLE}: {{{restart.form}}}, which continues from {needs}",
+                f"write {RESTART_VARIABLE}: {{{RESTART_ADDITIONAL_ITERS}=n}}, which reopens the "
+                "saved simulation and marches n more steps",
+            )
+        )
+    if not wanted or capabilities.unsteady_actions:
+        return MARCH_ACTIONS if uses_actions else MARCH_SINGLE
+    with_actions = ", ".join(_builds_with_actions(registry)) or "no registered build"
+    asked = "; ".join(feature for feature, _ in wanted)
+    remedies = " ".join(f"For {feature.split(' (')[0]}: {remedy}." for feature, remedy in wanted)
+    raise BuildCapabilityError(
+        f"FlightStream build {capabilities.build} documents no unsteady solver action "
+        f"({_ACTION_COMMAND}), and case {case.sim_id!r} asks for {asked}, which only those "
+        f"actions provide. The builds that document them are {with_actions}. {remedies} "
+        f"Without them the row runs on {capabilities.build} as a single march: the plots "
+        "declared before one solver start over every time step, and the exports after it."
+    )
 
 
 # --- reading the row ----------------------------------------------------------
@@ -8773,6 +8933,11 @@ def build_script(
     """
     workflow = resolve_workflow(select_workflow(case))
     require_coverage(workflow, script.version, registry=registry)
+    # THE SEAM (ARCH-0200): how this case is marched on this build, decided
+    # once and before the first emission, so a refusal leaves nothing written.
+    script.march_strategy = march_strategy(
+        case, BuildCapabilities.of(script._view), registry=registry
+    )
     workflow.builder(case, script, conventions or WorkflowConventions.for_case(case))
 
 

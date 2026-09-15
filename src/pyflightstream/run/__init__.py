@@ -3021,6 +3021,10 @@ class PointPlan:
     raw : bool
         Whether the point's script used the ``raw()`` escape hatch.
         Same reason.
+    march_strategy : str or None
+        How the point's unsteady run is marched on its build, ``"actions"``
+        or ``"single_march"`` (GOAL-023); None for a steady point or one
+        that is BLOCKED.
     """
 
     run_id: str
@@ -3031,6 +3035,7 @@ class PointPlan:
     error: str | None = None
     waived_commands: tuple[str, ...] = ()
     raw: bool = False
+    march_strategy: str | None = None
 
 
 @dataclass(frozen=True)
@@ -3974,6 +3979,7 @@ def _plan_point(
             status=PlanStatus.ALREADY_RECORDED,
             waived_commands=waived,
             raw=script.raw_flag,
+            march_strategy=script.march_strategy,
         )
     return PointPlan(
         **base,
@@ -3981,6 +3987,7 @@ def _plan_point(
         status=PlanStatus.READY,
         waived_commands=waived,
         raw=script.raw_flag,
+        march_strategy=script.march_strategy,
     )
 
 
@@ -4444,6 +4451,7 @@ def _execute_sweep(
     base["script_path"] = str(Path(script_path).relative_to(sim_dir).as_posix())
     base["script_sha256"] = script_sha
     base["raw_flag"] = script.raw_flag
+    base["march_strategy"] = script.march_strategy
 
     # PYFS-006 ON THE SWEEP PATH, which lost it. `_execute_point` refuses
     # declared outputs that already exist in the simulation folder before
@@ -5120,6 +5128,7 @@ def _execute_point(
     base["script_sha256"] = script_sha
     base["script_path"] = str(Path(script_path).relative_to(sim_dir).as_posix())
     base["raw_flag"] = script.raw_flag
+    base["march_strategy"] = script.march_strategy
     # FR-48: a recipe may waive a command the database records broken.
     # The waiver is the recipe's, so the record of it belongs with the
     # run, not with the recipe: this is the only place a reader of the

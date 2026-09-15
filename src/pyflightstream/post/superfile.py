@@ -295,6 +295,11 @@ RECORD_SCALARS = (
     # that states no clock.
     "walltime_s",
     "walltime_margin_s",
+    # GOAL-023, 0.20.0. How an unsteady point was marched on its build,
+    # "actions" or "single_march": two runs of one row on two builds can
+    # differ in exactly this, so a reader comparing them sees it on the row.
+    # Empty on a steady point and on every record written before 0.20.0.
+    "march_strategy",
     "flight_condition_defaults_from",
     "velocity_requested_m_s",
     "density_kg_m3",

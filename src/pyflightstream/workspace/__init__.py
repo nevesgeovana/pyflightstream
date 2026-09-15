@@ -826,6 +826,10 @@ class RunRecord(BaseModel):
     #: WALLTIME died at the manifest with the solver's work already done.
     walltime_s: float | None = None
     walltime_margin_s: float | None = None
+    #: GOAL-023: how an unsteady point was marched on its build, "actions" or
+    #: "single_march"; None for a steady point and on every record written
+    #: before 0.20.0.
+    march_strategy: str | None = None
     #: FR-99: what a SUBMITTED point was handed to, and where. The
     #: descriptor the scheduler was given, the profile that rendered it,
     #: the application id inside it, and whether the submit command was
