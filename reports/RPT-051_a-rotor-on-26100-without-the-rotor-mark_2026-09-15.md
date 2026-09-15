@@ -21,8 +21,8 @@ The committed render `tests/tier1_offline/goldens/workflows/unsteady_rotor__bare
 (a rotor at 1200 rev/min about X) carries, in this order:
 
 ```
-# The command database of FlightStream 26.100 carries no SET_MOTION_IS_ROTOR,
-# so this Euclidean motion is not marked as a rotor. Its angular velocity is
+# FlightStream 26.100 has no SET_MOTION_IS_ROTOR in the command database: the 26.100 solver
+# does not recognize it (RPT-049), so this Euclidean motion is not marked as a rotor. Its angular velocity is
 # written in rev/min, a maintainer decision, and neither the unit nor the sense is
 # measured on this build. The 26.100 manual's rotor tutorial gives rad/s; if the solver reads
 # rad/s, the rotor turns 60/(2 pi), about 9.55, times the speed stated (pyflightstream RPT-051).
@@ -52,9 +52,8 @@ On 25.100 and 26.000 nothing changes: rad/s with the rotor mark (RPT-049).
 ## The basis
 
 The maintainer decided on 2026-09-15 that the 26.100 rotor is written this way,
-with the speed in rev/min. The decision is recorded outside this repository, in
-the maintainer's coordination record QUESTION-0200 (the owner cells of the
-support matrix), which is not published.
+with the speed in rev/min. The record of that decision is kept outside this
+repository and is not published.
 
 ## What argues against the unit, recorded so it is not lost
 
@@ -90,7 +89,7 @@ three readings are distinct:
 
 | the solver reads | 49.55 turns the blade | 473.1723 turns the blade |
 |---|---|---|
-| rad/s | +90 | 859.5, which reads as 139.5 |
+| rad/s | +90 | 859.4, which reads as 139.4 |
 | rev/min | 9.4 | +90 |
 
 A blade that does not move in either row means the unmarked motion does not

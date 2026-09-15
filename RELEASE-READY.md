@@ -83,7 +83,7 @@ reading taken on the code of a5ef1ae is a reading of the code this tag carries.
 | the type checker | `python -m mypy src/pyflightstream tests/tier3_licensed/rotation_null.py` | Success, no issues in 86 source files, on the code of a5ef1ae |
 | the linter | `python -m ruff check src tests scripts tools` | All checks passed, on the code of a5ef1ae |
 | the tier-3 suite | `python -m pytest -m needs_flightstream tests/tier3_licensed` | not run for this release; no solver run has used the 26.100 rotor motion (RPT-051) |
-| the review | five lenses over 5cad0ba..91a597f | one round, 22 findings, no behaviour defect; fixed in a5ef1ae, TW-1 by this file |
+| the review | five lenses over 5cad0ba..91a597f, then qa, tech-writer and vv over 91a597f..d5dbcc0 | two rounds, 29 findings, no behaviour defect; fixed in a5ef1ae, d5dbcc0 and the closing fix after it |
 
 ## What this release carries
 

@@ -42,9 +42,11 @@ FlightStream versions.
 - **The 26.100 rotor carries no rotor mark**, so the solver is never told the
   motion is a rotor. The effect of that on the solution is not measured.
 - **No solver run in this repository has used the 26.100 rotor motion.** Its
-  sense of rotation is not measured either.
-- **Every run type on 25.000 is still refused, and every other limit of
-  [0.20.0] still holds.**
+  sense of rotation is not measured, and neither is whether the unmarked
+  motion turns the blade at all.
+- **Three cells of the support matrix are refused**, every run type on 25.000.
+  Every other limit of [0.20.0] still holds; its fourth refused cell, the
+  26.100 rotor, is the one this release fills.
 
 ### Fixed
 

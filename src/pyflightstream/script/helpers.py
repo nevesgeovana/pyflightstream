@@ -711,9 +711,10 @@ def rotary_motion(
         script.comment(
             "\n".join(
                 (
-                    f"The command database of FlightStream {script.version.canonical} carries "
-                    "no SET_MOTION_IS_ROTOR,",
-                    "so this Euclidean motion is not marked as a rotor. Its angular velocity is",
+                    f"FlightStream {script.version.canonical} has no SET_MOTION_IS_ROTOR in the "
+                    "command database: the 26.100 solver",
+                    "does not recognize it (RPT-049), so this Euclidean motion is not marked as "
+                    "a rotor. Its angular velocity is",
                     f"written in {UNMARKED_EUCLIDEAN_ROTOR_UNIT}, a maintainer decision, and "
                     "neither the unit nor the sense is",
                     "measured on this build. The 26.100 manual's rotor tutorial gives rad/s; if "

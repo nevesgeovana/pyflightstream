@@ -2506,8 +2506,8 @@ run.
 **On 26.100 the Euclidean rotor carries no rotor mark.** Its manual prints
 the mark and its solver answers it as an unrecognized command (RPT-049).
 The package writes the Euclidean motion without it, with the angular
-velocity in REV/MIN along the axis, and a comment line in the script says
-so. Neither choice is measured (RPT-051):
+velocity in REV/MIN along the axis, and a comment in the script says so.
+None of this is measured (RPT-051):
 
 - the unit is a maintainer decision, while that build's manual tutorial
   gives rad/s for the field and 26.000 measured rad/s;
