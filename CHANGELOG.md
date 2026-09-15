@@ -7,6 +7,35 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Limits
+
+- **The 26.100 rotor's unit is a maintainer decision, not a measurement.**
+  `SET_MOTION_ANGULAR_VELOCITY` is written in rev/min there. That build's
+  manual tutorial gives rad/s for the same field, and 26.000 measured rad/s
+  (RPT-049). If 26.100 also reads rad/s, the rotor turns about 9.55 times
+  faster than the row states (RPT-051).
+- **The 26.100 rotor carries no rotor mark**, so the solver is never told the
+  motion is a rotor. The effect of that on the solution is not measured.
+- **No solver run in this repository has used the 26.100 rotor motion.** Its
+  sense of rotation is not measured either.
+- **Every run type on 25.000 is still refused**, as in 0.20.0.
+
+### Fixed
+
+- **`unsteady_rotor` runs on 26.100 instead of being refused.** 26.100
+  documents the Euclidean angular velocity and does not recognize the rotor mark
+  (RPT-049). The rotor is now written there as a `EUCLIDEAN` motion whose
+  `SET_MOTION_ANGULAR_VELOCITY` is the row's speed in rev/min along its axis,
+  with no `SET_MOTION_IS_ROTOR`.
+  - A comment line above the motion says, in the script itself, that the rotor
+    is unmarked and the unit is not measured.
+  - `script.rotor_vocabulary` gains `unmarked_euclidean_rotor`,
+    `UNMARKED_EUCLIDEAN_ROTOR_COMMANDS` and `UNMARKED_EUCLIDEAN_ROTOR_UNIT`.
+    Coverage and `helpers.rotary_motion` read them, so the choice is made in
+    one place.
+  - A stabilization blade count and an axis given by index are refused on
+    26.100 by name, as on 25.100 and 26.000 (RPT-051).
+
 ### Owed
 
 - **The Zenodo archive of v0.14.0 DOES NOT EXIST**, re-measured against

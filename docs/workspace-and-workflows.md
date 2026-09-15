@@ -2464,7 +2464,7 @@ What each run type does on each registered build:
 |---|---|---|---|---|---|
 | `steady` | refused | runs | runs | runs | runs |
 | `unsteady` | refused | single march | single march | single march | actions where the row asks for them |
-| `unsteady_rotor` | refused | single march, Euclidean rotor (run on 26.000; 25.100 from its manual) | refused | single march | actions where the row asks for them |
+| `unsteady_rotor` | refused | single march, Euclidean rotor (run on 26.000; 25.100 from its manual) | single march, Euclidean rotor without the rotor mark, speed in rev/min (not run) | single march | actions where the row asks for them |
 
 **A single march** is how an unsteady row runs on a build whose manual
 documents no unsteady solver action (`SET_NEW_UNSTEADY_SOLVER_ACTION`,
@@ -2501,9 +2501,20 @@ the row's speed converted to rad/s along its axis, marked as a rotor
 with `SET_MOTION_IS_ROTOR`. On 26.000 a blade driven this way turned
 exactly as the rotary motion at the same speed turns it on 26.120, in
 the same sense (RPT-049); 25.100 prints the same grammar and was not
-run. 26.100 is refused: its manual prints the rotor mark and its solver
-answers it as an unrecognized command, so it has no scripted way to say
-a motion is a rotor.
+run.
+
+**On 26.100 the Euclidean rotor carries no rotor mark.** Its manual prints
+the mark and its solver answers it as an unrecognized command (RPT-049).
+The package writes the Euclidean motion without it, with the angular
+velocity in REV/MIN along the axis, and a comment line in the script says
+so. Neither choice is measured (RPT-051):
+
+- the unit is a maintainer decision, while that build's manual tutorial
+  gives rad/s for the field and 26.000 measured rad/s;
+- the solver is never told the motion is a rotor.
+
+If your study depends on either, check the blade rotation of one short run
+on 26.100 before trusting its loads.
 
 **25.000 is refused for every run type.** Its `INITIALIZE_SOLVER` takes
 five settings no later edition exposes and no edition gives a default

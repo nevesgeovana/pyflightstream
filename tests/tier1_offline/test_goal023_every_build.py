@@ -351,15 +351,13 @@ def test_goal023_transparent_one_row_plans_on_every_build_with_only_the_build_ch
 #: edition exposes and no edition gives a default for (load frame, proximity
 #: avoidance, stabilization, its strength, fast multipole; SRC-749 p.303), so
 #: choosing them is a numerical decision that is the owner's (GOAL-023 arm 4).
-#: OWNER: 26.100 has no scripted rotor mark. Its manual prints
-#: SET_MOTION_IS_ROTOR and its solver ends the script at it in every form
-#: (RPT-049), so a rotor there would be a Euclidean motion the solver is never
-#: told is a rotor; whether that is acceptable is a physics decision.
+#: 26.100 LEFT THIS TABLE at 0.20.1: it has no scripted rotor mark (RPT-049),
+#: and the owner decided its rotor is written as a Euclidean motion without
+#: the mark, the speed in rev/min (RPT-051).
 NOT_YET_RENDERED = {
     ("steady", "25.000"): "OWNER",
     ("unsteady", "25.000"): "OWNER",
     ("unsteady_rotor", "25.000"): "OWNER",
-    ("unsteady_rotor", "26.100"): "OWNER",
 }
 
 #: How each declared cell refuses, and the words that say why (qa lens 5): a
@@ -368,7 +366,6 @@ REFUSED_BY = {
     ("steady", "25.000"): (CommandArgumentError, "INITIALIZE_SOLVER grammar"),
     ("unsteady", "25.000"): (CommandArgumentError, "INITIALIZE_SOLVER grammar"),
     ("unsteady_rotor", "25.000"): (WorkflowCoverageError, "no CREATE_NEW_MOTION"),
-    ("unsteady_rotor", "26.100"): (WorkflowCoverageError, "not SET_MOTION_IS_ROTOR"),
 }
 
 
@@ -404,8 +401,10 @@ def test_goal023_support_matrix_the_euclidean_rotor_is_decided_once():
     for build in BUILDS:
         view = registry.for_version(build)
         euclidean = vocabulary.euclidean_rotor(view)
+        unmarked = vocabulary.unmarked_euclidean_rotor(view)
+        assert not (euclidean and unmarked), build
         for name in vocabulary.ROTARY_ROTOR_COMMANDS:
-            assert _carried(view, name) is (name in view or euclidean), (build, name)
+            assert _carried(view, name) is (name in view or euclidean or unmarked), (build, name)
     # A build carrying the rotary speed AND the whole Euclidean rotor is not
     # Euclidean, and coverage follows the predicate rather than deciding by
     # itself; no registered build is that shape, so it is built here (qa lens,
@@ -415,13 +414,30 @@ def test_goal023_support_matrix_the_euclidean_rotor_is_decided_once():
     assert _carried(both, "SET_MOTION_ROTOR_AXIS") is False
     euclidean_only = set(vocabulary.EUCLIDEAN_ROTOR_COMMANDS)
     assert vocabulary.euclidean_rotor(euclidean_only) is True
+    assert vocabulary.unmarked_euclidean_rotor(euclidean_only) is False
     assert _carried(euclidean_only, "SET_MOTION_ROTOR_AXIS") is True
+    # The angular velocity alone is the unmarked rotor; with the rotary speed
+    # beside it, it is neither.
+    velocity_only = set(vocabulary.UNMARKED_EUCLIDEAN_ROTOR_COMMANDS)
+    assert vocabulary.unmarked_euclidean_rotor(velocity_only) is True
+    assert vocabulary.euclidean_rotor(velocity_only) is False
+    assert _carried(velocity_only, "SET_MOTION_ROTOR_RPM") is True
+    velocity_and_rpm = {"SET_MOTION_ROTOR_RPM", *velocity_only}
+    assert vocabulary.unmarked_euclidean_rotor(velocity_and_rpm) is False
+    assert _carried(velocity_and_rpm, "SET_MOTION_ROTOR_AXIS") is False
+    mark_only = {"SET_MOTION_IS_ROTOR"}
+    assert not vocabulary.euclidean_rotor(mark_only)
+    assert not vocabulary.unmarked_euclidean_rotor(mark_only)
+    assert _carried(mark_only, "SET_MOTION_ROTOR_AXIS") is False
     # 25.000 carries the whole Euclidean rotor and not CREATE_NEW_MOTION, so the
     # predicate holds there and coverage still refuses the build on the motion.
     assert [b for b in BUILDS if vocabulary.euclidean_rotor(registry.for_version(b))] == [
         "25.000",
         "25.100",
         "26.000",
+    ]
+    assert [b for b in BUILDS if vocabulary.unmarked_euclidean_rotor(registry.for_version(b))] == [
+        "26.100"
     ]
 
 
@@ -481,17 +497,18 @@ def test_goal023_support_matrix_the_rotor_mark_is_removed_on_26100_and_carried_b
         ({"axis": "X", "wake_stabilization_blades": 4}, "blade count"),
     ],
 )
+@pytest.mark.parametrize("build", ["26.000", "26.100"])
 def test_goal023_support_matrix_a_euclidean_rotor_refuses_what_its_vocabulary_cannot_state(
-    arguments, said
+    arguments, said, build
 ):
-    """An axis by index and a stabilization blade count have no Euclidean spelling."""
+    """An axis by index and a blade count have no Euclidean spelling, marked or not."""
     from pyflightstream.script import CommandArgumentError, helpers
 
-    script = Script("26.000")
+    script = Script(build)
     script.declare_existing(frames=2)
     with pytest.raises(CommandArgumentError, match=said) as refused:
         helpers.rotary_motion(script, frame=2, rpm=1200.0, **arguments)
-    assert "26.000" in str(refused.value)
+    assert build in str(refused.value)
     assert script.render().strip() == "", "the motion was emitted before the refusal"
 
 

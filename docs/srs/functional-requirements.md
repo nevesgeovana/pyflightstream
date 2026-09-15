@@ -3909,6 +3909,9 @@ requirement below is one seam of that division.
     `reports/RPT-049_a-rotor-on-the-builds-before-the-rotary-motion_2026-09-15.md`
     (the unit and sense of the Euclidean angular velocity measured on 26.000
     against the rotary motion on 26.120, and the rotor mark removed on 26.100).
+    `reports/RPT-051_a-rotor-on-26100-without-the-rotor-mark_2026-09-15.md`
+    (the 26.100 rotor without the mark, in rev/min, recorded as a decision at
+    0.20.1).
     AMENDS FR-98 and FR-96, whose wall clock and continuations are refused on a
     build without actions, and the coverage rule of the workflow table.*
 
@@ -3939,12 +3942,17 @@ requirement below is one seam of that division.
       axis, with `SET_MOTION_IS_ROTOR` along the same axis. The unit and the
       sense are measured on 26.000 (RPT-049); 25.100 was not run and rests on
       its manual's identical grammar and that measurement. A build carrying
-      one half of that vocabulary and not the other is refused naming both
-      halves; 26.100 is that build, its rotor mark recorded as removed.
+      the rotor mark and not the angular velocity is refused naming both
+      halves.
+    - A ROTOR ROW ON 26.100, which documents the angular velocity and has no
+      rotor mark (RPT-049), is written as a `EUCLIDEAN` motion whose
+      `SET_MOTION_ANGULAR_VELOCITY` is the row's speed IN REV/MIN along its
+      axis, with no rotor mark, and a comment line in the script saying both.
+      The unit is a maintainer decision and not a measurement (RPT-051).
 
     The cells that still do not render remain unsupported and are named by the
     evidence test with their reasons: every run type on 25.000, whose
     `INITIALIZE_SOLVER` takes five settings no later edition exposes and none
-    gives a default for, and `unsteady_rotor` on 26.100. A solver preset or a
+    gives a default for. A solver preset or a
     post-processing artifact may still name a command a build lacks; that point
     is BLOCKED at plan time naming the command.

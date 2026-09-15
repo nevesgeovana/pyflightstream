@@ -803,7 +803,13 @@ def covered_builds(
 
 
 def _carried(view: VersionView, name: str) -> bool:
-    return name in view or (name in _SUBSTITUTES and rotor_vocabulary.euclidean_rotor(view))
+    return name in view or (
+        name in _SUBSTITUTES
+        and (
+            rotor_vocabulary.euclidean_rotor(view)
+            or rotor_vocabulary.unmarked_euclidean_rotor(view)
+        )
+    )
 
 
 def _missing_commands(
@@ -847,8 +853,8 @@ def require_coverage(
     view = database.for_version(target)
     # The substitute, named only where the build carries PART of it, so
     # this sentence is a checkable truth on the builds it appears on: a
-    # build with all of it is covered, and one with none of it has nothing
-    # to be told about.
+    # build with all of it, or with the angular velocity and no mark, is
+    # covered, and one with none of it has nothing to be told about.
     note = ""
     for substitute in dict.fromkeys(_SUBSTITUTES[name] for name in missing if name in _SUBSTITUTES):
         carried = [other for other in substitute if other in view]
@@ -874,8 +880,10 @@ def require_coverage(
 #: Commands that do the same job as a rotor workflow's own on the builds
 #: that predate its vocabulary, and are WRITTEN there: the rotor axis and
 #: speed of a ROTARY motion are, on a build whose motion type is EUCLIDEAN,
-#: its angular velocity and its rotor mark (helpers.rotary_motion, GOAL-023).
-#: A build where ``rotor_vocabulary.euclidean_rotor`` holds covers the command; the
+#: its angular velocity and its rotor mark (helpers.rotary_motion, GOAL-023),
+#: or its angular velocity alone on the build without the mark (RPT-051).
+#: A build where ``rotor_vocabulary.euclidean_rotor`` or
+#: ``rotor_vocabulary.unmarked_euclidean_rotor`` holds covers the command; the
 #: decision is made there and only there.
 _SUBSTITUTES: dict[str, tuple[str, ...]] = dict.fromkeys(
     rotor_vocabulary.ROTARY_ROTOR_COMMANDS, rotor_vocabulary.EUCLIDEAN_ROTOR_COMMANDS
@@ -1949,11 +1957,12 @@ def emit_rotor_motion(
     motion with its axis and speed where the build documents them, and a
     ``EUCLIDEAN`` motion with the speed as an angular velocity plus the rotor
     mark where ``script.rotor_vocabulary.euclidean_rotor`` holds (measured on
-    26.000 by RPT-049). Coverage counts that substitute through
-    ``_SUBSTITUTES``, so the workflow writes it on 25.100 and 26.000.
-    :func:`require_coverage` refuses 26.100, which has half of that
-    vocabulary, and 25.000, which has all of it and no ``CREATE_NEW_MOTION``,
-    before this runs.
+    26.000 by RPT-049), and the angular velocity in rev/min with no mark where
+    ``script.rotor_vocabulary.unmarked_euclidean_rotor`` holds (26.100,
+    RPT-051). Coverage counts both substitutes through ``_SUBSTITUTES``, so
+    the workflow writes them on 25.100, 26.000 and 26.100.
+    :func:`require_coverage` refuses 25.000, which has the whole Euclidean
+    rotor and no ``CREATE_NEW_MOTION``, before this runs.
 
     Parameters
     ----------

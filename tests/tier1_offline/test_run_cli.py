@@ -516,19 +516,23 @@ def test_a_malformed_workflow_option_is_refused_naming_the_form(capsys):
 
 
 def test_a_build_the_workflow_does_not_cover_is_refused_before_the_solver(tmp_path, capsys):
-    """PFS-2025.18 reaching the terminal, which is where a user meets it."""
+    """PFS-2025.18 reaching the terminal, which is where a user meets it.
+
+    25.000 is the registered build the rotor workflow does not cover: it has no
+    CREATE_NEW_MOTION. 26.100 was this test's build until 0.20.1 covered it.
+    """
     workspace = make_workspace(tmp_path)
     with open(workspace.inputs_dir / "executables.toml", "a", encoding="utf-8") as handle:
-        handle.write(f'"26.100" = "{Path(sys.executable).as_posix()}"\n')
+        handle.write(f'"25.000" = "{Path(sys.executable).as_posix()}"\n')
     matrix = tmp_path / "old_build.fs"
     matrix.write_text(
-        FIXTURE.read_text(encoding="utf-8").replace("26.120", "26.100"), encoding="utf-8"
+        FIXTURE.read_text(encoding="utf-8").replace("26.120", "25.000"), encoding="utf-8"
     )
     args = planned(workspace, matrix)
-    args[args.index("26.120")] = "26.100"
+    args[args.index("26.120")] = "25.000"
     assert main(args) == 2
     error = capsys.readouterr().err
-    assert "26.100" in error and "SET_MOTION_ROTOR_RPM" in error, (
+    assert "25.000" in error and "CREATE_NEW_MOTION" in error, (
         f"the coverage refusal did not reach the terminal; got {error!r}"
     )
     assert not workspace.read_manifest(), "a point executed despite the refusal"

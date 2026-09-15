@@ -434,16 +434,23 @@ SET_MOTION_ANGULAR_VELOCITY:
     "25.000": {status: documented, note: "SRC-749 p.292, same grammar as 26.100"}
     "25.100": {status: documented, note: "SRC-748 p.307, same grammar as 26.100"}
     "26.000": {status: documented, note: "SRC-747 p.306, same grammar as 26.100"}
-    "26.100": {status: documented}
+    "26.100":
+      status: documented
+      note: >-
+        The unit is NOT measured on this build. helpers.rotary_motion writes
+        the rotor speed here in rev/min, with no rotor mark, by a maintainer
+        decision (RPT-051), while this build's manual tutorial gives rad/s
+        for the dialog field (the notes below).
   notes: >
     Angular velocity vector of a February 2026 Euclidean motion, in the
     motion definition coordinate system. The scripting page states no
-    unit, and the sample's -450.5 settles nothing. The unit is RAD/S:
-    the rotor tutorial of the same manual gives it for the dialog field
-    (SRC-741 p.394), and on 26.000 a rotor set this way turned a blade
-    exactly as a ROTARY motion at the same speed in rev/min turned it on
-    26.120, in the same sense (RPT-049). helpers.rotary_motion writes a
-    rotor this way on the builds without the ROTARY vocabulary.
+    unit, and the sample's -450.5 settles nothing. The rotor tutorial of
+    the same manual gives RAD/S for the dialog field (SRC-741 p.394), and
+    on 26.000 a rotor set this way in rad/s turned a blade exactly as a
+    ROTARY motion at the same speed in rev/min turned it on 26.120, in the
+    same sense (RPT-049). helpers.rotary_motion writes a rotor this way,
+    in rad/s with the rotor mark, on 25.100 and 26.000, and in rev/min
+    without the mark on 26.100 (see that version's note).
 
 SET_MOTION_ANGULAR_ACCELERATION:
   layout: inline
@@ -501,7 +508,8 @@ SET_MOTION_IS_ROTOR:
         26.100 solver answers it as an unrecognized command in every form
         tried, the same answer and the same stopped script it gives a name no
         build has, while 26.000 runs it; its executable carries no command of
-        this name. So 26.100 has no scripted way to mark a motion as a rotor
+        this name. So 26.100 has no scripted way to mark a motion as a rotor,
+        and helpers.rotary_motion writes the rotor there without it (RPT-051)
   notes: >
     Marks a February 2026 motion as a rotor or propeller. AXIS is the
     SLIPSTREAM CONVECTION DIRECTION rather than an axis of rotation,

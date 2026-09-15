@@ -77,7 +77,7 @@ from pyflightstream.script import (
     ScriptReferenceError,
     UnsteadyActionUse,
 )
-from pyflightstream.script.rotor_vocabulary import euclidean_rotor
+from pyflightstream.script.rotor_vocabulary import euclidean_rotor, unmarked_euclidean_rotor
 from pyflightstream.script.solver_setup import (
     LIBRARY_MINIMUM_CP,
     SEPARATION_MODELS,
@@ -633,9 +633,15 @@ def rotary_motion(
     The caller writes the same arguments on every build. The vocabulary is
     chosen by :func:`pyflightstream.script.rotor_vocabulary.euclidean_rotor`,
     which also holds on 25.000; the workflow refuses that build for its
-    missing ``CREATE_NEW_MOTION``. 26.100 also names the type EUCLIDEAN and has
-    no rotor mark (RPT-049), so no rotor can be written there and the
-    workflow refuses it before this helper is reached.
+    missing ``CREATE_NEW_MOTION``.
+
+    ON 26.100, WHICH NAMES THE TYPE EUCLIDEAN AND HAS NO SCRIPTED ROTOR MARK
+    (RPT-049), the motion is written as a Euclidean motion whose angular
+    velocity is the speed IN REV/MIN along the axis, with no rotor mark
+    (:func:`pyflightstream.script.rotor_vocabulary.unmarked_euclidean_rotor`,
+    RPT-051). The unit there is a maintainer decision and not a measurement,
+    and the solver is never told the motion is a rotor; the script says both
+    in a comment above the motion.
 
     Parameters
     ----------
@@ -681,15 +687,24 @@ def rotary_motion(
     Raises
     ------
     CommandArgumentError
-        On a Euclidean build, if the axis is given by index or a wake
-        stabilization blade count is asked for, neither of which that
-        vocabulary can state.
+        On a Euclidean build, marked or not, if the axis is given by index
+        or a wake stabilization blade count is asked for, neither of which
+        that vocabulary can state.
     """
     _reject_bare_label("rotary_motion", "boundaries", boundaries, allows_all=True)
     _reject_bare_label("rotary_motion", "moving_frames", moving_frames, allows_all=True)
-    euclidean = euclidean_rotor(script._view)
+    marked = euclidean_rotor(script._view)
+    unmarked = unmarked_euclidean_rotor(script._view)
+    euclidean = marked or unmarked
     if euclidean:
         _refuse_what_a_euclidean_rotor_cannot_state(script, axis, wake_stabilization_blades)
+    if unmarked:
+        script.comment(
+            f"FlightStream {script.version.canonical} has no scripted rotor mark: this motion "
+            "is a Euclidean motion the solver is not told is a rotor, and its angular "
+            "velocity is written in rev/min, a maintainer decision not measured on this "
+            "build (pyflightstream RPT-051)."
+        )
     script.emit("CREATE_NEW_MOTION", "EUCLIDEAN" if euclidean else "ROTARY", label=label)
     motion_id = script.num_motions
     if boundaries == "all":
@@ -701,7 +716,7 @@ def rotary_motion(
     elif moving_frames is not None:
         script.emit("SET_MOTION_MOVING_FRAMES", motion_id, len(moving_frames), list(moving_frames))
     script.emit("SET_MOTION_COORDINATE_SYSTEM", motion_id, frame)
-    if euclidean:
+    if marked:
         rad_s = rpm * 2.0 * math.pi / 60.0
         script.emit(
             "SET_MOTION_ANGULAR_VELOCITY",
@@ -709,6 +724,12 @@ def rotary_motion(
             *(rad_s if axis == letter else 0.0 for letter in "XYZ"),
         )
         script.emit("SET_MOTION_IS_ROTOR", motion_id, "ENABLE", axis)
+    elif unmarked:
+        script.emit(
+            "SET_MOTION_ANGULAR_VELOCITY",
+            motion_id,
+            *(rpm if axis == letter else 0.0 for letter in "XYZ"),
+        )
     else:
         script.emit("SET_MOTION_ROTOR_AXIS", motion_id, axis)
         script.emit("SET_MOTION_ROTOR_RPM", motion_id, rpm)
