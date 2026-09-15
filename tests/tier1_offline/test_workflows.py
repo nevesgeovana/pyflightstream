@@ -593,9 +593,70 @@ def test_26100_writes_the_rotor_as_a_euclidean_motion_without_the_mark_in_rev_pe
     expected = [rpm if letter == axis else 0.0 for letter in "XYZ"]
     assert [float(v) for v in velocity.split()[2:]] == pytest.approx(expected, rel=1e-12), velocity
     motion = lines.index("CREATE_NEW_MOTION EUCLIDEAN")
-    told = lines[motion - 1]
-    assert told.startswith("# ") and "not told is a rotor" in told and "rev/min" in told, told
-    assert "RPT-051" in told, told
+    comment = []
+    for line in reversed(lines[:motion]):
+        if not line.startswith("#"):
+            break
+        comment.insert(0, line[2:])
+    told = " ".join(comment)
+    for said in (
+        "not marked as a rotor",
+        "written in rev/min",
+        "neither the unit nor the sense",
+        "9.55",
+        "RPT-051",
+    ):
+        assert said in told, (said, told)
+
+
+@pytest.mark.parametrize("rpm", [1200.0, -1200.0])
+def test_26100_keeps_the_sign_of_the_speed_the_rotary_motion_writes(rpm):
+    """QA-1: a negative speed stays negative on 26.100, as the rotary motion on 26.120 writes it."""
+    from pyflightstream.script import helpers
+
+    unmarked = Script("26.100")
+    unmarked.declare_existing(frames=2)
+    helpers.rotary_motion(unmarked, frame=2, axis="Y", rpm=rpm)
+    rotary = Script("26.120")
+    rotary.declare_existing(frames=2)
+    helpers.rotary_motion(rotary, frame=2, axis="Y", rpm=rpm)
+    written = next(
+        line
+        for line in unmarked.render().splitlines()
+        if line.startswith("SET_MOTION_ANGULAR_VELOCITY")
+    )
+    rotary_rpm = next(
+        line for line in rotary.render().splitlines() if line.startswith("SET_MOTION_ROTOR_RPM")
+    )
+    assert [float(v) for v in written.split()[2:]] == [0.0, float(rotary_rpm.split()[2]), 0.0]
+    assert float(written.split()[3]) == rpm
+
+
+def test_the_euclidean_speed_is_written_in_the_unit_its_constant_names(monkeypatch):
+    """Architect AR-1, API-1: the unit constants decide the value, so they cannot drift from it."""
+    from pyflightstream.script import helpers
+
+    for build, constant in (
+        ("26.000", "EUCLIDEAN_ROTOR_UNIT"),
+        ("26.100", "UNMARKED_EUCLIDEAN_ROTOR_UNIT"),
+    ):
+        for unit, factor in (("rad/s", 2 * math.pi / 60), ("rev/min", 1.0)):
+            monkeypatch.setattr(helpers, constant, unit)
+            script = Script(build)
+            script.declare_existing(frames=2)
+            helpers.rotary_motion(script, frame=2, axis="X", rpm=1200.0)
+            velocity = next(
+                line
+                for line in script.render().splitlines()
+                if line.startswith("SET_MOTION_ANGULAR_VELOCITY")
+            )
+            assert float(velocity.split()[2]) == pytest.approx(1200.0 * factor, rel=1e-12), (
+                build,
+                unit,
+                velocity,
+            )
+    assert rotor_vocabulary.EUCLIDEAN_ROTOR_UNIT == "rad/s"
+    assert rotor_vocabulary.UNMARKED_EUCLIDEAN_ROTOR_UNIT == "rev/min"
 
 
 def test_the_steady_workflow_covers_every_registered_build():

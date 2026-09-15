@@ -883,8 +883,10 @@ def require_coverage(
 #: its angular velocity and its rotor mark (helpers.rotary_motion, GOAL-023),
 #: or its angular velocity alone on the build without the mark (RPT-051).
 #: A build where ``rotor_vocabulary.euclidean_rotor`` or
-#: ``rotor_vocabulary.unmarked_euclidean_rotor`` holds covers the command; the
-#: decision is made there and only there.
+#: ``rotor_vocabulary.unmarked_euclidean_rotor`` holds covers the command
+#: (``_carried``); the decision is made there and only there. This table lists
+#: the MARKED substitute's commands, which the refusal note reads to name the
+#: half a build carries; the unmarked substitute is its angular velocity alone.
 _SUBSTITUTES: dict[str, tuple[str, ...]] = dict.fromkeys(
     rotor_vocabulary.ROTARY_ROTOR_COMMANDS, rotor_vocabulary.EUCLIDEAN_ROTOR_COMMANDS
 )
@@ -1959,8 +1961,8 @@ def emit_rotor_motion(
     mark where ``script.rotor_vocabulary.euclidean_rotor`` holds (measured on
     26.000 by RPT-049), and the angular velocity in rev/min with no mark where
     ``script.rotor_vocabulary.unmarked_euclidean_rotor`` holds (26.100,
-    RPT-051). Coverage counts both substitutes through ``_SUBSTITUTES``, so
-    the workflow writes them on 25.100, 26.000 and 26.100.
+    RPT-051). Coverage counts both substitutes through ``_carried``, so the
+    workflow writes them on 25.100, 26.000 and 26.100.
     :func:`require_coverage` refuses 25.000, which has the whole Euclidean
     rotor and no ``CREATE_NEW_MOTION``, before this runs.
 

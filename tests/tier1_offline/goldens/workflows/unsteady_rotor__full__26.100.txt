@@ -16,7 +16,11 @@ VECTOR_Z_Y 0.0
 VECTOR_Z_Z 1.0
 
 SET_FREESTREAM CONSTANT
-# FlightStream 26.100 has no scripted rotor mark: this motion is a Euclidean motion the solver is not told is a rotor, and its angular velocity is written in rev/min, a maintainer decision not measured on this build (pyflightstream RPT-051).
+# The command database of FlightStream 26.100 carries no SET_MOTION_IS_ROTOR,
+# so this Euclidean motion is not marked as a rotor. Its angular velocity is
+# written in rev/min, a maintainer decision, and neither the unit nor the sense is
+# measured on this build. The 26.100 manual's rotor tutorial gives rad/s; if the solver reads
+# rad/s, the rotor turns 60/(2 pi), about 9.55, times the speed stated (pyflightstream RPT-051).
 CREATE_NEW_MOTION EUCLIDEAN
 SET_MOTION_BOUNDARIES 1 2
 1,2

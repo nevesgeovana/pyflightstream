@@ -2511,10 +2511,11 @@ so. Neither choice is measured (RPT-051):
 
 - the unit is a maintainer decision, while that build's manual tutorial
   gives rad/s for the field and 26.000 measured rad/s;
+- the sense of rotation is not measured on that build;
 - the solver is never told the motion is a rotor.
 
-If your study depends on either, check the blade rotation of one short run
-on 26.100 before trusting its loads.
+Before trusting the loads of a 26.100 rotor, check on one short run that
+the blade turned the angle the row states, and in the direction it states.
 
 **25.000 is refused for every run type.** Its `INITIALIZE_SOLVER` takes
 five settings no later edition exposes and no edition gives a default

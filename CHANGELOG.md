@@ -23,16 +23,18 @@ FlightStream versions.
 ### Fixed
 
 - **`unsteady_rotor` runs on 26.100 instead of being refused.** 26.100
-  documents the Euclidean angular velocity and does not recognize the rotor mark
-  (RPT-049). The rotor is now written there as a `EUCLIDEAN` motion whose
+  documents the Euclidean angular velocity (SRC-741 p.329) and does not
+  recognize the rotor mark (RPT-049). The rotor is now written there as a `EUCLIDEAN` motion whose
   `SET_MOTION_ANGULAR_VELOCITY` is the row's speed in rev/min along its axis,
   with no `SET_MOTION_IS_ROTOR`.
-  - A comment line above the motion says, in the script itself, that the rotor
-    is unmarked and the unit is not measured.
+  - A comment above the motion says, in the script itself, that the rotor is
+    unmarked, that the unit and sense are not measured, and what a rad/s
+    reading would do.
   - `script.rotor_vocabulary` gains `unmarked_euclidean_rotor`,
     `UNMARKED_EUCLIDEAN_ROTOR_COMMANDS` and `UNMARKED_EUCLIDEAN_ROTOR_UNIT`.
-    Coverage and `helpers.rotary_motion` read them, so the choice is made in
-    one place.
+    Coverage and `helpers.rotary_motion` read the predicate, so the choice is
+    made in one place, and the helper converts each Euclidean speed by its
+    unit constant, so a constant and the value written cannot disagree.
   - A stabilization blade count and an axis given by index are refused on
     26.100 by name, as on 25.100 and 26.000 (RPT-051).
 

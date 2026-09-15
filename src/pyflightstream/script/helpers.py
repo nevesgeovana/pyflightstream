@@ -77,7 +77,12 @@ from pyflightstream.script import (
     ScriptReferenceError,
     UnsteadyActionUse,
 )
-from pyflightstream.script.rotor_vocabulary import euclidean_rotor, unmarked_euclidean_rotor
+from pyflightstream.script.rotor_vocabulary import (
+    EUCLIDEAN_ROTOR_UNIT,
+    UNMARKED_EUCLIDEAN_ROTOR_UNIT,
+    euclidean_rotor,
+    unmarked_euclidean_rotor,
+)
 from pyflightstream.script.solver_setup import (
     LIBRARY_MINIMUM_CP,
     SEPARATION_MODELS,
@@ -639,9 +644,13 @@ def rotary_motion(
     (RPT-049), the motion is written as a Euclidean motion whose angular
     velocity is the speed IN REV/MIN along the axis, with no rotor mark
     (:func:`pyflightstream.script.rotor_vocabulary.unmarked_euclidean_rotor`,
-    RPT-051). The unit there is a maintainer decision and not a measurement,
-    and the solver is never told the motion is a rotor; the script says both
-    in a comment above the motion.
+    RPT-051). The unit and the sense of rotation there are not measured, the
+    unit is a maintainer decision, and the solver is never told the motion is
+    a rotor; the script says so in a comment above the motion.
+
+    Each Euclidean speed is converted from rev/min by the unit its constant
+    names (:data:`_FROM_REV_PER_MIN`), so a constant and the value written
+    cannot disagree.
 
     Parameters
     ----------
@@ -700,10 +709,19 @@ def rotary_motion(
         _refuse_what_a_euclidean_rotor_cannot_state(script, axis, wake_stabilization_blades)
     if unmarked:
         script.comment(
-            f"FlightStream {script.version.canonical} has no scripted rotor mark: this motion "
-            "is a Euclidean motion the solver is not told is a rotor, and its angular "
-            "velocity is written in rev/min, a maintainer decision not measured on this "
-            "build (pyflightstream RPT-051)."
+            "\n".join(
+                (
+                    f"The command database of FlightStream {script.version.canonical} carries "
+                    "no SET_MOTION_IS_ROTOR,",
+                    "so this Euclidean motion is not marked as a rotor. Its angular velocity is",
+                    f"written in {UNMARKED_EUCLIDEAN_ROTOR_UNIT}, a maintainer decision, and "
+                    "neither the unit nor the sense is",
+                    "measured on this build. The 26.100 manual's rotor tutorial gives rad/s; if "
+                    "the solver reads",
+                    "rad/s, the rotor turns 60/(2 pi), about 9.55, times the speed stated "
+                    "(pyflightstream RPT-051).",
+                )
+            )
         )
     script.emit("CREATE_NEW_MOTION", "EUCLIDEAN" if euclidean else "ROTARY", label=label)
     motion_id = script.num_motions
@@ -716,21 +734,17 @@ def rotary_motion(
     elif moving_frames is not None:
         script.emit("SET_MOTION_MOVING_FRAMES", motion_id, len(moving_frames), list(moving_frames))
     script.emit("SET_MOTION_COORDINATE_SYSTEM", motion_id, frame)
+    if euclidean:
+        unit = EUCLIDEAN_ROTOR_UNIT if marked else UNMARKED_EUCLIDEAN_ROTOR_UNIT
+        speed = rpm * _FROM_REV_PER_MIN[unit]
+        script.emit(
+            "SET_MOTION_ANGULAR_VELOCITY",
+            motion_id,
+            *(speed if axis == letter else 0.0 for letter in "XYZ"),
+        )
     if marked:
-        rad_s = rpm * 2.0 * math.pi / 60.0
-        script.emit(
-            "SET_MOTION_ANGULAR_VELOCITY",
-            motion_id,
-            *(rad_s if axis == letter else 0.0 for letter in "XYZ"),
-        )
         script.emit("SET_MOTION_IS_ROTOR", motion_id, "ENABLE", axis)
-    elif unmarked:
-        script.emit(
-            "SET_MOTION_ANGULAR_VELOCITY",
-            motion_id,
-            *(rpm if axis == letter else 0.0 for letter in "XYZ"),
-        )
-    else:
+    elif not euclidean:
         script.emit("SET_MOTION_ROTOR_AXIS", motion_id, axis)
         script.emit("SET_MOTION_ROTOR_RPM", motion_id, rpm)
     if start_time is not None:
@@ -775,6 +789,11 @@ def _refuse_what_a_euclidean_rotor_cannot_state(
 
 
 _STABILIZATION = "SET_MOTION_SLIPSTREAM_WAKE_STABILIZATION"
+
+#: The factor from a speed in rev/min to each unit a Euclidean angular
+#: velocity is written in. Keyed by the rotor_vocabulary unit constants, so
+#: changing a constant changes the value written.
+_FROM_REV_PER_MIN = {"rad/s": 2.0 * math.pi / 60.0, "rev/min": 1.0}
 
 
 def unsteady_solver(script: Script, *, time_iterations: int, delta_time: float) -> None:

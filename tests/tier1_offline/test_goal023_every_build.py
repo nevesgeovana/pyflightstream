@@ -425,6 +425,25 @@ def test_goal023_support_matrix_the_euclidean_rotor_is_decided_once():
     velocity_and_rpm = {"SET_MOTION_ROTOR_RPM", *velocity_only}
     assert vocabulary.unmarked_euclidean_rotor(velocity_and_rpm) is False
     assert _carried(velocity_and_rpm, "SET_MOTION_ROTOR_AXIS") is False
+    # QA-2: the unmarked predicate decides the vocabulary, never whether the
+    # build runs a rotor, so a build with the angular velocity and no
+    # CREATE_NEW_MOTION is still refused on the motion, as 25.000 is.
+    from pyflightstream.cases.workflows import _missing_commands, resolve_workflow
+    from pyflightstream.versions import resolve
+
+    packaged = CommandRegistry.load()
+    without_motion = CommandRegistry(
+        commands={
+            name: entry
+            for name, entry in packaged.commands.items()
+            if name not in ("CREATE_NEW_MOTION", "SET_MOTION_IS_ROTOR")
+        }
+    )
+    shape = without_motion.for_version("26.000")
+    assert vocabulary.unmarked_euclidean_rotor(shape) is True
+    assert _missing_commands(
+        resolve_workflow("unsteady_rotor"), resolve("26.000"), without_motion
+    ) == ("CREATE_NEW_MOTION",)
     mark_only = {"SET_MOTION_IS_ROTOR"}
     assert not vocabulary.euclidean_rotor(mark_only)
     assert not vocabulary.unmarked_euclidean_rotor(mark_only)
