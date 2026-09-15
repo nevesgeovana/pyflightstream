@@ -245,8 +245,8 @@ the decisions and the package derives the rest.
   <steps>`, at most one per row, is the step the PER-STEP exports begin
   on. From that step to the end of the run the solver exports every
   per-step kind of the row's output set after each time step, and stamps
-  each file with the iteration: a row whose stem is `POLAR-7001_...`
-  leaves `POLAR-7001_..._iteration=72.txt`, `_iteration=73.txt` and so
+  each file with the iteration: a row whose stem is `P7001-...`
+  leaves `P7001-..._iteration=72.txt`, `_iteration=73.txt` and so
   on beside the end-of-run export of the same name. Revolutions are
   counted on the rotor the run turns, so that form belongs to
   `unsteady_rotor`; `unsteady` takes the iterations form only, and a
@@ -761,7 +761,7 @@ declares
 
 and row 8006 of `tests/tier3_licensed/matriz_vocab.fs` writes
 `base_bending: 12.5` in its cell. The rendered script,
-`tests/tier3_licensed/goldens/matriz_vocab/POLAR-8006_M10AL+000BE+000.txt`,
+`tests/tier3_licensed/goldens/matriz_vocab/P8006-M100RE230AL+000BE+000.txt`,
 carries `SET_BASE_REGION_BENDING_ANGLE 12.5`, and it is compared against that
 golden on every commit, so the example cannot rot into a description of
 something the package no longer does.
@@ -1409,22 +1409,42 @@ point was run for.
 
 ### How a point is named
 
-Every export hangs off the point's NAME, and the name is the reference
-convention (PFS-2029.19): `POLAR-<sim>_M<mach*100>AL<alpha*10>BE<beta*10>`,
-with `J<J*100>` appended when the row has an advance ratio, every field
-fixed width so a folder of them sorts. Row 3207 at Mach 0.20 and alpha
--2 is `POLAR-3207_M20AL-020BE+000`; a rotor point at Mach 0.1441 and J 1.7
-is `POLAR-9001_M14AL+000BE+000J+170`; and its exports are
-`POLAR-9001_M14AL+000BE+000J+170.txt`, `..._cp.txt`, `..._log.txt` and
-the rest. `pyfs-matrix plan` and `run` name points this way unless
-`--point-name` gives another template; the placeholders are `{polar}`,
-`{point}` (the historical `a+02.0_b+00.0` tag), `{alpha}`, `{beta}`,
-`{mach}`, `{advance_ratio}`, `{sim}` and `{campaign}`, and inside an
-output name `{name}` is the rendered stem. The run record carries the
-template that named each point (`point_name_template`), so a name is
-never mistaken for the identity beside it: identity is the `run_id`, which
-no template touches. A campaign built in Python keeps the library default,
-`{point}`, so nothing written before v0.11.0 is renamed under it.
+Every export hangs off the point's NAME (since 0.21.0). The name writes
+every variable the row's `FLIGHT_CONDITION` declares, in the order the cell
+declares them, each as a code and a fixed-width integer so a folder of them
+sorts:
+
+| Key | Code | Written as |
+|---|---|---|
+| `MACH` | `M` | Mach × 1000, 3 digits |
+| `TASmps` | `V` | m/s × 10, 4 digits |
+| `REmi` | `RE` | millions × 100, 3 digits |
+| `ALTFT` | `ALT` | ft, 5 digits |
+| `dISA` | `DT` | K × 10, 4 digits, signed |
+| `RHOkgm3` | `RHO` | kg/m³ × 10⁴, 5 digits |
+| `MUPas` | `MU` | Pa·s × 10⁹, 5 digits |
+| `ASMPS` | `A` | m/s × 10, 4 digits |
+| `TK` | `T` | K × 10, 4 digits |
+| `PPA` | `PS` | Pa, 6 digits |
+| `ALPHA`, `BETA` | `AL`, `BE` | deg × 10, 4 digits, signed |
+| `ADVANCE_RATIO` | `J` | × 100, 4 digits, signed |
+| `RPM` | `RPM` | rev/min, 5 digits, signed |
+| `roll_rate`, `pitch_rate`, `yaw_rate` | `P`, `Q`, `R` | deg/s × 10, 4 digits, signed |
+
+A row whose cell reads `MACH:0.144, REmi:4.38, ALPHA:0, BETA:0,
+ADVANCE_RATIO:sweep` names its point at J 0.8 `M144RE438AL+000BE+000J+080`.
+The name ends the `run_id`, names the datapoint folder `DP-<name>`, and is
+the stem of every file of the point: `P<sim>-<name>`, so that point's script
+in simulation 9001 is `P9001-M144RE438AL+000BE+000J+080.txt` and its exports
+are `..._cp.txt`, `..._log.txt` and the rest. `pyfs-matrix plan` and `run`
+name points this way unless `--point-name` gives another template; the
+placeholders are `{polar}` (`P<sim>-<name>`), `{point}` (the name),
+`{alpha}`, `{beta}`, `{mach}`, `{advance_ratio}`, `{sim}` and `{campaign}`,
+and inside an output name `{name}` is the rendered stem. The run record
+carries the name (`point_name`), the name of its sweep (`sweep_name`) and
+the template that named each point (`point_name_template`). A workspace
+written before 0.21.0 carries the old names; `pyfs-matrix rename` renames
+it, as [migrating to 0.21.0](migrating-to-0.21.0.md) describes.
 
 ### What the products are
 
@@ -1432,8 +1452,8 @@ The `[products]` table names three kinds of CSV table, every one a header
 line and one row per record, so a spreadsheet or a dataframe opens it with
 nothing else. A POLAR table per group of `[groups]`, under `polars/` and
 named by the same convention as the point's script with the swept
-variable's field written as the literal word `sweep`
-(`polars/POLAR-0001_M15AL+000BE+000J+sweep_g01.csv`, FR-85 and FR-88): one
+variable's field written `<code>+sweep`
+(`polars/P0001-M150RE438AL+000BE+000J+sweep_g01.csv`, FR-85 and FR-88): one
 row per point of the polar with the
 reference block (`SREF`, `CREF`, `BREF`, the moment point), the advance
 ratio of the row in `J` (empty where the run recorded none) and twenty-four
@@ -2039,7 +2059,7 @@ of its own, resolving against each rotor's own `diameter_m`.
 ```
 
 The rendered script for its first point,
-`goldens/matriz_vocab/POLAR-8002_M10AL+000BE+000J+060.txt`, emits
+`goldens/matriz_vocab/P8002-M100RE230AL+000BE+000J+060.txt`, emits
 `SET_MOTION_ROTOR_RPM 1 930.3642` and `SET_MOTION_ROTOR_RPM 2 -1860.7283`:
 twice the speed on the rotor of half the diameter, negative because that
 block declares `rpm_sign = -1`.
@@ -2365,7 +2385,7 @@ VELOCITY: 30.0 / RPM: 1200 / ROTOR_AXIS: X / BLADES: 4 / DELTA_THETA: 10 / REVOL
 Ten degrees a step and three revolutions are 108 steps, and two
 revolutions are step 72, so the solver exports after each of steps 72 to
 108: 37 files per kind, each stamped with its iteration by the solver
-itself, `POLAR-7001_..._iteration=72.txt` and so on, beside the
+itself, `P7001-..._iteration=72.txt` and so on, beside the
 end-of-run export of the same name. The script the row builds registers
 two unsteady solver actions before the solver is initialized, in this
 order:
@@ -2414,9 +2434,9 @@ products stage writes, per windowed point, one table per export kind
 under `post/<matrix stem>/series/`:
 
 ```text
-post/matriz/series/POLAR-7001_M10AL+000BE+000J+170_loads_series.csv
-post/matriz/series/POLAR-7001_M10AL+000BE+000J+170_sections_series.csv
-post/matriz/series/POLAR-7001_M10AL+000BE+000J+170_probes_series.csv
+post/matriz/series/P7001-M144RE438AL+000BE+000_loads_series.csv
+post/matriz/series/P7001-M144RE438AL+000BE+000_sections_series.csv
+post/matriz/series/P7001-M144RE438AL+000BE+000_probes_series.csv
 ```
 
 Every table leads with `step`, `time_s` and `azimuth_deg`, the step's

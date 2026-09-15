@@ -5,12 +5,12 @@ Knowing what one simulation WAS and what it PRODUCED took six files until
 the reference and the unsteady plots, five of them in different shapes. The
 seventh feedback item of 2026-09-10 asked for one:
 
-    post/<matrix>/polars/SUPER-0001_M15AL+000BE+000J+sweep_g01.csv
+    post/<matrix>/polars/SUPER-0001-M150RE438AL+000BE+000J+sweep_g01.csv
 
-THE NAME FOLLOWS THE CONVENTION: the standard point convention with
-``SUPER-`` in place of
-``POLAR-``, so it is told apart at a glance, the swept variable written
-literally as ``sweep``, and the group suffix at the end.
+THE NAME FOLLOWS THE CONVENTION: the point file name with ``SUPER-`` in
+place of ``P`` (0.21.0; ``POLAR-`` until 0.20.x), so it is told apart at a
+glance, the swept field written ``<code>+sweep``, and the group suffix at
+the end.
 
 IT IS WRITTEN AFTER THE UNSTEADY POST-PROCESS, which settles its shape: one
 row per CONVERGED point and no time series, so nothing is repeated down the
@@ -79,7 +79,7 @@ from pyflightstream.cases.matrix import (
 )
 from pyflightstream.post._tables import ProductError, write_csv_table
 from pyflightstream.post._tables import _cell as _fixed_cell
-from pyflightstream.workspace.naming import polar_name
+from pyflightstream.workspace.naming import SUPER_FILE_PREFIX, sweep_file_stem
 
 __all__ = [
     "REPORTS_DIR",
@@ -98,7 +98,7 @@ __all__ = [
     "write_superfiles",
 ]
 
-#: What the superfile carries in place of ``POLAR-`` (FR-89). The rest of
+#: What the superfile carries in place of ``P`` (FR-89). The rest of
 #: the name is the point convention every script and export of the same
 #: point already carries, so the two sort side by side and a reader tells
 #: them apart by the one word that differs.
@@ -159,27 +159,18 @@ def release_tag(version: str) -> str:
 def super_file_name(
     sim: str,
     *,
-    mach: float,
+    sweep: str,
     group: str | int,
-    point: Mapping[str, float],
-    swept: Sequence[str] = (),
     suffix: str = ".csv",
 ) -> str:
-    """``SUPER-<point convention with 'sweep' in the swept field>_g<group:02d>.csv``.
+    """``SUPER-<sim>-<sweep name>_g<group:02d>.csv`` (0.21.0).
 
-    The same stem :func:`~pyflightstream.post.products.swept_polar_file_name`
-    renders for the polar table beside it, with the one word that tells the
-    two apart substituted in front.
+    ``sweep`` is the name of the case's whole sweep as the run recorded it
+    (``RunRecord.sweep_name``), each swept field written ``<code>+sweep``: the
+    stem of the polar table beside it with the one word that tells the two
+    apart in front.
     """
-    stem = polar_name(
-        sim,
-        mach,
-        float(point.get("alpha", 0.0) or 0.0),
-        float(point.get("beta", 0.0) or 0.0),
-        None if point.get("advance_ratio") is None else float(point["advance_ratio"]),
-        swept=swept,
-    )
-    return f"{SUPER_PREFIX}{stem.removeprefix('POLAR-')}_g{int(group):02d}{suffix}"
+    return f"{sweep_file_stem(sim, sweep, prefix=SUPER_FILE_PREFIX)}_g{int(group):02d}{suffix}"
 
 
 def matrix_rows(root: Path, matrix_stem: str | None) -> dict[str, MatrixRow]:
@@ -223,7 +214,7 @@ def declared_sweep(row: MatrixRow | None, measured: Sequence[str]) -> tuple[str,
     simulation 6002 declares `ADVANCE_RATIO:sweep` and its SWEEP_VALUES
     cell holds a single value, so nothing VARIES across its points and
     `swept_axes` correctly reports no axis. The polar table is therefore
-    named for the value it has, `POLAR-6002_M14AL+000BE+000J+170_g01.csv`,
+    named for the value it has (then `POLAR-6002_M14AL+000BE+000J+170_g01.csv`),
     which is FR-85's own rule and right for a table of one row.
 
     A superfile named that way would carry no `sweep` field at all, which
@@ -304,6 +295,11 @@ RECORD_SCALARS = (
     # and was read from an earlier iteration: a converged verdict that rests
     # on that reading says so on its row.
     "residual_note",
+    # GOAL-024, 0.21.0. The names of the point and its sweep, and whether the run
+    # accepted an installed build other than the registered one.
+    "point_name",
+    "sweep_name",
+    "accept_unregistered_build",
     # GOAL-024, 0.21.0. The solver's own times and step count, from its log.
     "solver_run_time_s",
     "solver_initialization_s",
@@ -636,7 +632,7 @@ def union_the_workspace_knows(
     everything, which is the defect this requirement exists to prevent.
     """
     known: set[str] = set()
-    for table in sorted((out / polars_dir).glob("POLAR-*.csv")):
+    for table in sorted((out / polars_dir).glob("P*-*_g*.csv")):
         known |= _header(table)
     # The CAMPAIGN-level tables sit at the top of the matrix's folder and
     # the per-polar ones do not (FR-88), so this glob is `campaign_sweep.csv`
@@ -762,7 +758,7 @@ def measure_sections(root: Path, records: Sequence[Mapping[str, object]]) -> lis
         # THE RECORD SAYS WHICH SCRIPT IT RAN, and it is taken from there rather
         # than matched by name. The first version of this looked for the point
         # tag inside the file name and found nothing: a script is named by the
-        # POLAR convention, `POLAR-6002_M14AL+000BE+000J+170.txt`, and the point
+        # point name, `P6002-M144RE438AL+000BE+000J+170.txt`, and the legacy point
         # tag is `a+00.0_b+00.0_j+01.7`, so the two never share a substring. A
         # measurement that silently matches nothing reports a clean zero, which
         # is the shape this estate keeps paying for.

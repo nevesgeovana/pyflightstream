@@ -463,6 +463,9 @@ class MatrixRow:
     #: each, in cell order (FR-67); empty for a row stating none. A record
     #: holds ``COMMAND`` or ``FILE``, never both, and ``BEFORE``.
     raw: list[dict[str, str]] = field(default_factory=list)
+    #: 0.21.0: the canonical keys of the FLIGHT_CONDITION cell in the order the
+    #: row wrote them, the swept key included; the point name follows it.
+    condition_order: list[str] = field(default_factory=list)
 
 
 #: The CLOSED set of flight-condition keys, each with the unit it is
@@ -1565,6 +1568,7 @@ def read_matrix(path: str | Path, *, active_only: bool = True) -> list[MatrixRow
             rotations=rotations,
             translations=translations,
             raw=raw,
+            condition_order=list(condition),
         )
         # Every row is checked, active or not: the sweep codes and the
         # variable grammar already are, and a refusal a user only meets
@@ -2952,6 +2956,7 @@ def to_campaign(
                 aircraft=row.aircraft,
                 description=row.description,
                 flight_condition=dict(row.flight_condition),
+                condition_order=list(row.condition_order),
                 reynolds=_condition_reynolds(row),
                 mach=row.flight_condition.get("MACH"),
                 sweep=row.sweep,
@@ -3091,6 +3096,9 @@ def convert_matrix(
                 f"{key} = {_toml_value(value)}" for key, value in sim.flight_condition.items()
             )
             lines.append(f"flight_condition = {{{pairs}}}")
+        if sim.condition_order:
+            # 0.21.0: the cell's order, which names every point of the case.
+            lines.append(f"condition_order = {_toml_value(list(sim.condition_order))}")
         plain_values = [
             list(value) if isinstance(value, tuple) else value for value in sim.sweep.values
         ]

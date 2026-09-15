@@ -187,7 +187,10 @@ def _workspace(tmp_path: Path):
         (steady / f"POLAR-6001_M20{tag}BE+000.txt").write_text(_loads(alpha), encoding="utf-8")
         workspace.append_record(
             RunRecord(
-                run_id=f"camp/sim_6001/{tag}",
+                run_id=f"camp/sim_6001/M200RE1177{tag}BE+000",
+                # 0.21.0: the names the run records, in the row's declared order.
+                point_name=f"M200RE1177{tag}BE+000",
+                sweep_name="M200RE1177AL+sweepBE+000",
                 sim_id="6001",
                 point={"alpha": alpha, "beta": 0.0},
                 fs_version_requested="26.123",
@@ -228,7 +231,9 @@ def _workspace(tmp_path: Path):
     (unsteady / f"{stem}_plots.txt").write_text(_PLOTS, encoding="utf-8")
     workspace.append_record(
         RunRecord(
-            run_id=f"camp/sim_6002/{stem}",
+            run_id="camp/sim_6002/M144RE438AL+000BE+000J+170",
+            point_name="M144RE438AL+000BE+000J+170",
+            sweep_name="M144RE438AL+000BE+000J+sweep",
             sim_id="6002",
             point={"alpha": 0.0, "beta": 0.0, "advance_ratio": 1.7},
             fs_version_requested="26.123",
@@ -381,10 +386,10 @@ def test_one_superfile_per_polar_and_group_named_with_sweep_and_the_group(tmp_pa
     _post(workspace)
     names = sorted(_superfiles(workspace))
     assert names == [
-        "SUPER-6001_M20AL+sweepBE+000_g01.csv",
-        "SUPER-6001_M20AL+sweepBE+000_g02.csv",
-        "SUPER-6002_M14AL+000BE+000J+sweep_g01.csv",
-        "SUPER-6002_M14AL+000BE+000J+sweep_g02.csv",
+        "SUPER-6001-M200RE1177AL+sweepBE+000_g01.csv",
+        "SUPER-6001-M200RE1177AL+sweepBE+000_g02.csv",
+        "SUPER-6002-M144RE438AL+000BE+000J+sweep_g01.csv",
+        "SUPER-6002-M144RE438AL+000BE+000J+sweep_g02.csv",
     ], "one file per polar and per group, the swept variable written literally as sweep"
 
 
@@ -631,10 +636,10 @@ def test_one_row_per_converged_point_and_no_time_series(tmp_path):
     found = _superfiles(workspace)
     rows_by_polar = {name: len(rows) for name, (_columns, rows) in found.items()}
     assert rows_by_polar == {
-        "SUPER-6001_M20AL+sweepBE+000_g01.csv": 2,
-        "SUPER-6001_M20AL+sweepBE+000_g02.csv": 2,
-        "SUPER-6002_M14AL+000BE+000J+sweep_g01.csv": 1,
-        "SUPER-6002_M14AL+000BE+000J+sweep_g02.csv": 1,
+        "SUPER-6001-M200RE1177AL+sweepBE+000_g01.csv": 2,
+        "SUPER-6001-M200RE1177AL+sweepBE+000_g02.csv": 2,
+        "SUPER-6002-M144RE438AL+000BE+000J+sweep_g01.csv": 1,
+        "SUPER-6002-M144RE438AL+000BE+000J+sweep_g02.csv": 1,
     }, "one row per converged point, and the unsteady point's two time steps are not two rows"
     for name, (_columns, rows) in found.items():
         points = {(row["ALPHA"], row["BETA"], row["J"]) for row in rows}
@@ -646,8 +651,8 @@ def test_a_reader_cannot_tell_a_steady_polar_from_an_unsteady_one(tmp_path):
     workspace = _workspace(tmp_path)
     _post(workspace)
     found = _superfiles(workspace)
-    steady = found["SUPER-6001_M20AL+sweepBE+000_g01.csv"][0]
-    unsteady = found["SUPER-6002_M14AL+000BE+000J+sweep_g01.csv"][0]
+    steady = found["SUPER-6001-M200RE1177AL+sweepBE+000_g01.csv"][0]
+    unsteady = found["SUPER-6002-M144RE438AL+000BE+000J+sweep_g01.csv"][0]
     assert steady == unsteady, (
         "the column set is the campaign's, so a reader cannot tell from the file "
         "whether the run behind a row was steady or unsteady"
@@ -659,7 +664,7 @@ def test_the_flight_condition_variables_are_all_there(tmp_path):
     """Her second instruction of the same evening: every variable that defines the condition."""
     workspace = _workspace(tmp_path)
     _post(workspace)
-    columns = set(_superfiles(workspace)["SUPER-6002_M14AL+000BE+000J+sweep_g01.csv"][0])
+    columns = set(_superfiles(workspace)["SUPER-6002-M144RE438AL+000BE+000J+sweep_g01.csv"][0])
     stated = {"MACH", "REmi", "ALPHA", "BETA", "ADVANCE_RATIO"}
     # DERIVED, not a second literal: four of the seven names were written
     # out here, which is a partial snapshot of a tuple that can grow.

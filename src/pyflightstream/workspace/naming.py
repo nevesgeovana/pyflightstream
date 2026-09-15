@@ -13,43 +13,34 @@ Available placeholders:
 
 - ``{campaign}``: the campaign name.
 - ``{sim}``: the ``sim_id`` of the case.
-- ``{point}``: the fixed point tag of :func:`pyflightstream.cases.point_tag`,
-  for example ``a+02.0_b+00.0`` (alpha and beta in deg, signed,
-  fixed width).
+- ``{point}``: the point name of :func:`pyflightstream.cases.point_name`, every
+  variable the row's flight condition declares, in its order, for example
+  ``M144RE438AL+000BE+000J+080`` (0.21.0).
 - ``{alpha}``, ``{beta}``: sweep angles in deg, compact (``2``, ``-3.5``).
 - ``{advance_ratio}``: rotor advance ratio J, dimensionless, compact.
 - ``{mach}``: free-stream Mach number of the case, compact.
-- ``{polar}``: the reference convention (PFS-2029.19),
-  ``POLAR-<sim>_M<mach*100:02d>AL<alpha*10:+04d>BE<beta*10:+04d>`` and
-  ``J<J*100:+04d>`` appended when the case has an advance ratio, so
-  ``POLAR-3207_M20AL-020BE+000`` and ``POLAR-9001_M14AL+000BE+000J+170``;
-  fixed width, so the names sort. It needs the case's Mach number; an
-  angle the sweep does not vary is zero.
+- ``{polar}``: the file stem of the point, ``P<sim>-<point name>``, so
+  ``P2001-M144RE438AL+000BE+000J+080`` (0.21.0; until 0.20.x it was
+  ``POLAR-<sim>_M<mach*100>AL..BE..J..``).
 - ``{name}``, in OUTPUT names only: the rendered point stem, so every
   export hangs off the point's name whatever template produced it.
 
-The default templates reproduce the historical names exactly
-(``{point}`` for per-point files, ``sim_{sim}`` for archives), so
-existing campaign roots, goldens, and manifests stay valid; the matrix
-command line names points by :data:`MATRIX_POINT_NAME`, the standard convention,
-because a matrix row always resolves a Mach number.
-
-The default templates reproduce the historical names exactly
-(``{point}`` for per-point files, ``sim_{sim}`` for archives), so
-existing campaign roots, goldens, and manifests stay valid.
+The default templates are ``{point}`` for per-point files and
+``sim_{sim}`` for archives; the matrix command line names points by
+:data:`MATRIX_POINT_NAME`, ``P<sim>-<point name>``. A workspace written
+before 0.21.0 carries the old names and is renamed by
+``pyfs-matrix rename`` (docs/migrating-to-0.21.0.md).
 """
 
 from __future__ import annotations
 
 import re
-from collections.abc import Mapping, Sequence
 from pathlib import PurePosixPath, PureWindowsPath
 from string import Formatter
 
 from pydantic import BaseModel, ConfigDict, field_validator
 
 from pyflightstream._errors import PyflightstreamError
-from pyflightstream.cases import point_tag
 
 _POINT_PLACEHOLDERS = (
     "campaign",
@@ -75,11 +66,37 @@ SIM_DATAPOINTS_DIR = "datapoints"
 
 #: What every datapoint folder name begins with, so a reader scanning
 #: `datapoints/` sees at once that the entries are points and not files.
-#: IT GUARDS NOTHING and nothing checks it: a collector is handed the
-#: POINT and renders the name here, so no caller-supplied name is left to
-#: refuse (the verification lens, 2026-09-11, on a docstring that claimed
-#: a refusal the code does not perform).
 DATAPOINT_PREFIX = "DP-"
+
+#: What every file of a point begins with, before its simulation id: the stem
+#: of a point is ``P<sim>-<point name>`` (0.21.0).
+POINT_FILE_PREFIX = "P"
+
+#: What a superfile begins with, in place of :data:`POINT_FILE_PREFIX`.
+SUPER_FILE_PREFIX = "SUPER-"
+
+
+class PointName(str):
+    """A point's name, as :func:`pyflightstream.cases.point_name` wrote it (0.21.0).
+
+    A ``str`` that has been CHECKED: not empty, a portable file name, and not
+    already carrying the ``DP-`` folder prefix. The datapoint folder is rendered
+    from it and never from a bare string, because a string that already held the
+    prefix, or a tag of the earlier scheme, put files in a folder the assessor
+    never looks in.
+    """
+
+    def __new__(cls, value: str) -> PointName:  # noqa: D102 -- the class docstring states the check
+        text = str(value)
+        if not text or not is_portable_name(text):
+            raise NamingTemplateError(f"{text!r} is not a point name: it is empty or not portable")
+        if text.startswith(DATAPOINT_PREFIX):
+            raise NamingTemplateError(
+                f"{text!r} already carries the {DATAPOINT_PREFIX} folder prefix; a point name "
+                "does not, and the folder is rendered from the name"
+            )
+        return super().__new__(cls, text)
+
 
 #: What an archive folder is called, wherever something is archived rather
 #: than lost: beside the thing it replaces, never above it.
@@ -98,19 +115,18 @@ ARCHIVE_DIR = "archive"
 ARCHIVE_STAMP = "%Y%m%d-%H%M%S"
 
 
-def datapoint_dir_name(point: Mapping[str, float]) -> str:
+def datapoint_dir_name(name: PointName) -> str:
     """Return the folder name one datapoint collects its outputs into (FR-92).
 
-    :data:`DATAPOINT_PREFIX` and the point tag that already ends the
-    ``run_id`` and names the generated script, so the folder, the script
-    and the run record carry ONE identity and a reader can map between
-    them by hand (``DP-a+02.0_b+00.0``).
+    :data:`DATAPOINT_PREFIX` and the point name that already ends the
+    ``run_id`` and is the stem of every file of the point, so the folder, the
+    files and the run record carry ONE identity
+    (``DP-M144RE438AL+000BE+000J+080``).
 
     Parameters
     ----------
-    point : mapping of str to float
-        Point coordinates, as :meth:`pyflightstream.cases.SweepAxis.points`
-        produces them.
+    name : PointName
+        The point's name, checked.
 
     Returns
     -------
@@ -119,71 +135,30 @@ def datapoint_dir_name(point: Mapping[str, float]) -> str:
 
     Raises
     ------
-    pyflightstream.cases.CampaignConfigError
-        If the point names no known axis, from
-        :func:`pyflightstream.cases.point_tag`. A datapoint with no
-        coordinates has no stable folder, and a fallback name would give
-        two different points one folder, which is the collision this
-        layout exists to remove.
+    NamingTemplateError
+        If ``name`` is a bare string rather than a :class:`PointName`.
     """
-    return f"{DATAPOINT_PREFIX}{point_tag(dict(point))}"
+    if not isinstance(name, PointName):
+        raise NamingTemplateError(
+            f"datapoint_dir_name takes a PointName, not {type(name).__name__} {name!r}: the "
+            "folder is rendered from a checked name"
+        )
+    return f"{DATAPOINT_PREFIX}{name}"
+
+
+def point_file_stem(sim: str, name: str) -> str:
+    """Return the stem of every file of one point: ``P<sim>-<point name>`` (0.21.0)."""
+    return f"{POINT_FILE_PREFIX}{sim}-{name}"
+
+
+def sweep_file_stem(sim: str, sweep: str, *, prefix: str = POINT_FILE_PREFIX) -> str:
+    """Return the stem of a file about a whole sweep: ``P<sim>-<sweep>`` or ``SUPER-<sim>-...``."""
+    return f"{prefix}{sim}-{sweep}"
 
 
 #: The point name the matrix command line uses unless told otherwise
-#: (PFS-2029.19.01): the reference convention, whose every field a
-#: matrix row resolves.
+#: (PFS-2029.19.01): the file stem ``P<sim>-<point name>`` (0.21.0).
 MATRIX_POINT_NAME = "{polar}"
-
-
-#: What a SWEPT field of the point convention carries in place of its
-#: value (FR-85): the literal word, in the position the signed number
-#: would have held, so ``J+100`` becomes ``J+sweep`` and the field stays
-#: as legible as the fixed ones beside it. A file named this way is about
-#: the whole sweep rather than about one of its points, which is exactly
-#: what a polar table is.
-SWEEP_FIELD = "+sweep"
-
-#: The axes :func:`polar_name` writes a field for, in the order it writes
-#: them, keyed by the name a sweep point uses for each.
-_POLAR_FIELDS: tuple[tuple[str, str, float], ...] = (
-    ("alpha", "AL", 10.0),
-    ("beta", "BE", 10.0),
-    ("advance_ratio", "J", 100.0),
-)
-
-
-def polar_name(
-    sim: str,
-    mach: float,
-    alpha_deg: float = 0.0,
-    beta_deg: float = 0.0,
-    advance_ratio: float | None = None,
-    swept: Sequence[str] = (),
-) -> str:
-    """Render the reference point convention (PFS-2029.19.01).
-
-    ``POLAR-<sim>_M<mach*100:02d>AL<alpha*10:+04d>BE<beta*10:+04d>``, with
-    ``J<J*100:+04d>`` appended when an advance ratio is known: the standard
-    ``POLAR-{polar:03d}_M{mach*100:02d}AL{alpha*10:+04d}BE{beta*10:+04d}``
-    and, for a rotor case, ``J{advance_ratio*100:+04d}``. Fixed width, so
-    a directory of them sorts by polar, Mach, angle and ratio.
-
-    ``swept`` names the axes this name is about a SWEEP of rather than
-    about one value of (FR-85): each of them is written
-    :data:`SWEEP_FIELD` in place of its number, so a polar table over
-    three advance ratios is ``POLAR-0001_M15AL+000BE+000J+sweep`` and
-    carries the angles it held fixed. The axes are spelled as a sweep
-    point spells them: ``alpha``, ``beta``, ``advance_ratio``.
-    """
-    values = {"alpha": alpha_deg, "beta": beta_deg, "advance_ratio": advance_ratio}
-    name = f"POLAR-{sim}_M{round(mach * 100):02d}"
-    for axis, code, scale in _POLAR_FIELDS:
-        value = values[axis]
-        if axis in swept:
-            name += f"{code}{SWEEP_FIELD}"
-        elif value is not None:
-            name += f"{code}{round(value * scale):+04d}"
-    return name
 
 
 # Characters that break file names on at least one supported platform;
@@ -254,6 +229,7 @@ class NamingTemplate(BaseModel):
         point: dict[str, float],
         mach: float | None = None,
         advance_ratio: float | None = None,
+        name: str | None = None,
     ) -> str:
         """Render the file stem of one sweep point.
 
@@ -272,8 +248,12 @@ class NamingTemplate(BaseModel):
             Free-stream Mach number of the case for ``{mach}`` and
             ``{polar}``; None when the case declares none.
         advance_ratio : float, optional
-            The case's advance ratio for ``{advance_ratio}`` and the J
-            field of ``{polar}`` when the sweep does not vary it.
+            The case's advance ratio for ``{advance_ratio}`` when the sweep
+            does not vary it.
+        name : str, optional
+            The point's name (:func:`pyflightstream.cases.point_name`), for
+            ``{point}`` and ``{polar}``; a template naming either refuses
+            without it.
 
         Returns
         -------
@@ -281,7 +261,9 @@ class NamingTemplate(BaseModel):
             The rendered stem, without extension.
         """
         return _render(
-            self.point_name, _values(campaign, sim, point, mach, advance_ratio), "point_name"
+            self.point_name,
+            _values(campaign, sim, point, mach, advance_ratio, name=name),
+            "point_name",
         )
 
     def render_output(
@@ -294,6 +276,7 @@ class NamingTemplate(BaseModel):
         mach: float | None = None,
         advance_ratio: float | None = None,
         stem: str | None = None,
+        point_name: str | None = None,
     ) -> str:
         """Render the placeholders inside one declared output name.
 
@@ -335,7 +318,7 @@ class NamingTemplate(BaseModel):
         _check_placeholders(name, _OUTPUT_PLACEHOLDERS, "output name")
         rendered = _render(
             name,
-            _values(campaign, sim, point, mach, advance_ratio, stem),
+            _values(campaign, sim, point, mach, advance_ratio, stem, name=point_name),
             "output name",
             check_name=False,
         )
@@ -391,13 +374,16 @@ def _values(
     mach: float | None,
     advance_ratio: float | None = None,
     stem: str | None = None,
+    name: str | None = None,
 ) -> dict[str, object]:
     """Assemble the placeholder values available on one point."""
     values: dict[str, object] = {
         "campaign": campaign,
         "sim": sim,
-        "point": point_tag(point),
     }
+    if name is not None:
+        values["point"] = name
+        values["polar"] = point_file_stem(sim, name)
     for axis in ("alpha", "beta", "advance_ratio"):
         if axis in point:
             values[axis] = float(point[axis])
@@ -405,14 +391,6 @@ def _values(
         values["advance_ratio"] = float(advance_ratio)
     if mach is not None:
         values["mach"] = float(mach)
-        ratio = values.get("advance_ratio")
-        values["polar"] = polar_name(
-            sim,
-            float(mach),
-            float(point.get("alpha", 0.0)),
-            float(point.get("beta", 0.0)),
-            None if ratio is None else float(ratio),
-        )
     if stem is not None:
         values["name"] = stem
     return values

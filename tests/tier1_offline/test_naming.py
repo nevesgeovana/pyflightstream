@@ -1,11 +1,12 @@
-"""PFS-2029.19: the author's naming convention names every point and its exports.
+"""PFS-2029.19 and 0.21.0: the author's naming convention names every point and its exports.
 
 The author's third sentence of 2026-09-02: the output names were bad, look at how
 the author's master's scripts did it. Measured there: the case name carried the
 polar, the Mach, the angles and the advance ratio, fixed width, and every
-export hung off it. The matrix command line names points that way unless
-told otherwise; the library default stays ``{point}`` so hand-built
-campaigns, goldens and manifests are what they were.
+export hung off it. At 0.21.0 her decision of 2026-09-15 makes the name every
+variable the row's flight condition declares, in its order, and the file stem
+``P<POL>-<name>``. The matrix command line names points by ``{polar}``; the
+library default is ``{point}``, the bare name.
 """
 
 from __future__ import annotations
@@ -15,7 +16,7 @@ from pathlib import Path
 
 import pytest
 
-from pyflightstream.cases import Campaign, SimCase, SweepAxis
+from pyflightstream.cases import Campaign, SimCase, SweepAxis, point_name
 from pyflightstream.run import RunStatus, run_campaign
 from pyflightstream.run.cli import _build_parser
 from pyflightstream.workspace import CampaignWorkspace
@@ -23,33 +24,45 @@ from pyflightstream.workspace.naming import (
     MATRIX_POINT_NAME,
     NamingTemplate,
     NamingTemplateError,
-    polar_name,
 )
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
 
+def _case(order, *, sim="9001", point_values=None, variables=None, flow=None, mach=None):
+    return SimCase(
+        sim_id=sim,
+        aircraft="X",
+        mach=mach,
+        sweep=SweepAxis(type="alpha", values=[0.0]),
+        recipe="steady",
+        flight_condition=flow or {},
+        condition_order=order,
+        variables=variables or {},
+    )
+
+
 def test_the_default_template_is_her_convention():
-    """POLAR-<sim>_M<mach*100>AL<alpha*10>BE<beta*10>[J<J*100>], fixed width."""
+    """P<sim>-<every declared variable, in row order, at the digits of its code> (0.21.0)."""
     template = NamingTemplate(point_name=MATRIX_POINT_NAME)
-    assert template.render_point(campaign="c", sim="3207", point={"alpha": -2.0}, mach=0.2) == (
-        "POLAR-3207_M20AL-020BE+000"
-    ), "row 3207 at Mach 0.20 and alpha -2; beta not swept is zero"
-    assert (
-        template.render_point(
-            campaign="c",
-            sim="9001",
-            point={"alpha": 0.0, "beta": 0.0},
-            mach=0.1441,
-            advance_ratio=1.7,
-        )
-        == "POLAR-9001_M14AL+000BE+000J+170"
-    ), "a rotor point at Mach 0.1441 and J 1.7"
-    assert polar_name("3224", 0.2, 0.0, 0.0, 1.3) == "POLAR-3224_M20AL+000BE+000J+130"
-    # The author's fixed widths sort: alpha 10 and alpha -2 keep their four characters.
-    assert polar_name("3207", 0.2, 10.0) == "POLAR-3207_M20AL+100BE+000"
-    # The convention needs the Mach number, and says so.
-    with pytest.raises(NamingTemplateError, match=r"\{polar\}.*Mach"):
+    rotor = _case(
+        ["MACH", "REmi", "ALPHA", "BETA", "ADVANCE_RATIO"],
+        flow={"MACH": 0.1441, "REmi": 4.38},
+        mach=0.1441,
+    )
+    name = point_name(rotor, {"alpha": 0.0, "beta": 0.0, "advance_ratio": 0.8007})
+    assert name == "M144RE438AL+000BE+000J+080", "her example of 2026-09-15"
+    assert template.render_point(campaign="c", sim="2001", point={}, name=name) == (
+        "P2001-M144RE438AL+000BE+000J+080"
+    )
+    # Fixed widths sort: alpha 10 and alpha -2 keep their four characters.
+    wing = _case(["MACH", "ALPHA"], flow={"MACH": 0.2}, mach=0.2)
+    assert point_name(wing, {"alpha": 10.0}) == "M200AL+100"
+    assert point_name(wing, {"alpha": -2.0}) == "M200AL-020"
+    # The order is the row's, not a fixed one.
+    assert point_name(_case(["ALPHA", "MACH"], flow={"MACH": 0.2}), {"alpha": 1.0}) == "AL+010M200"
+    # The stem needs the name, and says so.
+    with pytest.raises(NamingTemplateError, match=r"\{polar\}"):
         template.render_point(campaign="c", sim="1", point={"alpha": 0.0})
     # The command line's default is this template on both subcommands.
     parser = _build_parser()
@@ -64,12 +77,12 @@ def test_every_export_hangs_off_the_rendered_name():
     """``{name}`` inside an output name is the point's stem, whatever template made it."""
     template = NamingTemplate(point_name=MATRIX_POINT_NAME)
     stem = template.render_point(
-        campaign="c", sim="3224", point={"alpha": 0.0}, mach=0.2, advance_ratio=1.3
+        campaign="c", sim="3224", point={"alpha": 0.0}, mach=0.2, name="M200AL+000J+130"
     )
     rendered = template.render_output(
         "{name}_cp.txt", campaign="c", sim="3224", point={"alpha": 0.0}, mach=0.2, stem=stem
     )
-    assert rendered == "POLAR-3224_M20AL+000BE+000J+130_cp.txt"
+    assert rendered == "P3224-M200AL+000J+130_cp.txt"
     # {name} is an OUTPUT placeholder: a point-name template naming it is refused.
     from pydantic import ValidationError
 
@@ -77,7 +90,7 @@ def test_every_export_hangs_off_the_rendered_name():
         NamingTemplate(point_name="{name}")
 
 
-def _campaign(tmp_path, *, mach=0.2, variables=None):
+def _campaign(tmp_path, *, mach=0.2, variables=None, order=None):
     geometry = tmp_path / "wing.fsm"
     geometry.write_bytes(b"geometry")
     case = SimCase(
@@ -90,6 +103,7 @@ def _campaign(tmp_path, *, mach=0.2, variables=None):
         recipe="steady",
         outputs=["{name}.txt"],
         variables=variables or {},
+        condition_order=order or [],
     )
     return Campaign(name="camp", fs_version="26.120", fs_exe=sys.executable, sims=[case])
 
@@ -132,14 +146,15 @@ def test_the_record_names_the_template(tmp_path):
     )
     record = workspace.read_manifest()[0]
     assert record.point_name_template == "{polar}"
-    assert record.outputs == ["datapoints/DP-a-02.0/POLAR-3207_M20AL-020BE+000.txt"]
-    assert record.script_path is not None and "POLAR-3207_M20AL-020BE+000" in record.script_path
+    assert record.outputs == ["datapoints/DP-M200AL-020/P3207-M200AL-020.txt"]
+    assert record.script_path is not None and "P3207-M200AL-020" in record.script_path
+    assert record.point_name == "M200AL-020"
 
     other = CampaignWorkspace(tmp_path / "other", naming=NamingTemplate(point_name="{sim}_{point}"))
     run_campaign(_campaign(tmp_path), Stub(), other, assess=_converged, recipes={"steady": _recipe})
     record = other.read_manifest()[0]
     assert record.point_name_template == "{sim}_{point}"
-    assert record.outputs == ["datapoints/DP-a-02.0/3207_a-02.0.txt"]
+    assert record.outputs == ["datapoints/DP-M200AL-020/3207_M200AL-020.txt"]
 
 
 def test_a_stated_advance_ratio_on_a_rotorless_row_reaches_the_name(tmp_path):
@@ -163,10 +178,12 @@ def test_a_stated_advance_ratio_on_a_rotorless_row_reaches_the_name(tmp_path):
     workspace = CampaignWorkspace(
         tmp_path / "camp", naming=NamingTemplate(point_name=MATRIX_POINT_NAME)
     )
-    campaign = _campaign(tmp_path, variables={"ADVANCE_RATIO": "1.3"})
+    campaign = _campaign(
+        tmp_path, variables={"ADVANCE_RATIO": "1.3"}, order=["MACH", "ALPHA", "ADVANCE_RATIO"]
+    )
     run_campaign(campaign, Stub(), workspace, assess=_converged, recipes={"steady": _recipe})
     assert workspace.read_manifest()[0].outputs == [
-        "datapoints/DP-a-02.0/POLAR-3207_M20AL-020BE+000J+130.txt"
+        "datapoints/DP-M200AL-020J+130/P3207-M200AL-020J+130.txt"
     ]
 
 
@@ -174,14 +191,13 @@ def test_a_stated_advance_ratio_on_a_rotorless_row_reaches_the_name(tmp_path):
 
 
 def test_beta_and_the_swept_advance_ratio_reach_the_name():
-    """A non-zero sideslip is rendered, and a swept J wins over a case-level one."""
-    from pyflightstream.workspace.naming import _values
-
-    assert polar_name("3207", 0.2, -2.0, 3.5) == "POLAR-3207_M20AL-020BE+035"
-    values = _values("camp", "3207", {"alpha": -2.0, "beta": 3.5, "advance_ratio": 1.7}, 0.2, 1.3)
-    assert values["advance_ratio"] == 1.7, "the case-level J overrode the swept axis"
-    assert values["polar"] == "POLAR-3207_M20AL-020BE+035J+170"
-    assert (
-        _values("camp", "3207", {"alpha": 0.0}, 0.2, 1.3)["polar"]
-        == "POLAR-3207_M20AL+000BE+000J+130"
+    """A non-zero sideslip is written, and a swept J wins over a case-level one."""
+    case = _case(
+        ["MACH", "ALPHA", "BETA", "ADVANCE_RATIO"],
+        flow={"MACH": 0.2},
+        variables={"ADVANCE_RATIO": "1.3"},
     )
+    assert point_name(case, {"alpha": -2.0, "beta": 3.5, "advance_ratio": 1.7}) == (
+        "M200AL-020BE+035J+170"
+    ), "the case-level J overrode the swept axis"
+    assert point_name(case, {"alpha": 0.0, "beta": 0.0}) == "M200AL+000BE+000J+130"

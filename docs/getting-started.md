@@ -257,7 +257,7 @@ speed, so both take the swept ratio; `CLOCK_MOTION` says the time step
 follows `PORT`.
 
 **One number gives two speeds.** The rendered script for the first point is
-`tests/tier3_licensed/goldens/matriz_vocab/POLAR-8002_M10AL+000BE+000J+060.txt`,
+`tests/tier3_licensed/goldens/matriz_vocab/P8002-M100RE230AL+000BE+000J+060.txt`,
 and it emits:
 
 ```

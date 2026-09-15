@@ -32,9 +32,9 @@ from pyflightstream.cases.workflows import (
     restart_iterations,
 )
 from pyflightstream.script import Script
-from pyflightstream.workspace import CampaignWorkspace
+from pyflightstream.workspace import CampaignWorkspace, PointName
 
-SAVED = "datapoints/DP-a+00.0/archive/20260914-010000/point.fsm"
+SAVED = "datapoints/DP-AL+000/archive/20260914-010000/point.fsm"
 
 
 def _continuing_case(restart: str, **variables) -> SimCase:
@@ -43,7 +43,7 @@ def _continuing_case(restart: str, **variables) -> SimCase:
         aircraft="Rig",
         sweep=SweepAxis(type="alpha", values=[0.0]),
         recipe="unsteady",
-        outputs=["loads_a+00.0.txt", "run_a+00.0_log.txt"],
+        outputs=["loads_AL+000.txt", "run_AL+000_log.txt"],
         variables={
             WORKFLOW_KEY: "unsteady",
             "VELOCITY": "30.0",
@@ -163,7 +163,7 @@ def test_goal020_restart_an_ordinary_row_is_not_a_continuation():
         aircraft="Rig",
         sweep=SweepAxis(type="alpha", values=[0.0]),
         recipe="unsteady",
-        outputs=["loads_a+00.0.txt"],
+        outputs=["loads_AL+000.txt"],
         variables={WORKFLOW_KEY: "unsteady", "VELOCITY": "30.0", "TIME_ITERATIONS": "400"},
         point={"alpha": 0.0},
     )
@@ -177,12 +177,12 @@ def test_goal020_restart_archives_what_it_replaces_under_a_day_and_hour_stamp(tm
     """HER DECISION, and the clause that decided the shape: there can be more than one restart."""
     workspace = CampaignWorkspace(tmp_path / "camp")
     workspace.init(tmp_path / "camp")
-    folder = workspace.sim_dir("9001") / "datapoints" / "DP-a+00.0"
+    folder = workspace.sim_dir("9001") / "datapoints" / "DP-AL+000"
     folder.mkdir(parents=True)
     (folder / "loads.txt").write_text("the stopped run", encoding="utf-8")
 
     first = workspace.archive_datapoint(
-        "9001", {"alpha": 0.0}, stamp=datetime(2026, 9, 14, 1, 0, 0)
+        "9001", PointName("AL+000"), stamp=datetime(2026, 9, 14, 1, 0, 0)
     )
     assert first is not None
     assert first.name == "20260914-010000"
@@ -192,7 +192,7 @@ def test_goal020_restart_archives_what_it_replaces_under_a_day_and_hour_stamp(tm
     # A SECOND CONTINUATION, which is why the stamp is there at all.
     (folder / "loads.txt").write_text("the first continuation", encoding="utf-8")
     second = workspace.archive_datapoint(
-        "9001", {"alpha": 0.0}, stamp=datetime(2026, 9, 14, 2, 0, 0)
+        "9001", PointName("AL+000"), stamp=datetime(2026, 9, 14, 2, 0, 0)
     )
     assert second is not None and second.name == "20260914-020000"
     assert (second / "loads.txt").read_text(encoding="utf-8") == "the first continuation"
@@ -205,7 +205,7 @@ def test_goal020_restart_archiving_nothing_is_not_an_error(tmp_path):
     """A first run of a point has no previous outputs; that is ordinary, not a mistake."""
     workspace = CampaignWorkspace(tmp_path / "camp")
     workspace.init(tmp_path / "camp")
-    assert workspace.archive_datapoint("9001", {"alpha": 0.0}) is None
+    assert workspace.archive_datapoint("9001", PointName("AL+000")) is None
 
 
 # --- a row may not forge the two facts the run path resolves ------------------
@@ -289,7 +289,7 @@ def _stopped_record():
     from pyflightstream.workspace import RunRecord, RunStatus
 
     return RunRecord(
-        run_id="camp/sim_9001/a+00.0",
+        run_id="camp/sim_9001/AL+000",
         sim_id="9001",
         point={"alpha": 0.0},
         status=RunStatus.WALLTIME_REACHED,
@@ -309,7 +309,7 @@ def _stopped_record():
         description="STOPPED_BY_THE_CLOCK",
         mach=0.15,
         reference={"SREF": 50.0, "CREF": 2.5, "BREF": 20.0, "XMOM": 9.0},
-        outputs=["datapoints/DP-a+00.0/state.fsm", "datapoints/DP-a+00.0/loads.txt"],
+        outputs=["datapoints/DP-AL+000/state.fsm", "datapoints/DP-AL+000/loads.txt"],
         export_window={"time_iterations": 400},
         stopped_at={"step": 250},
     )
@@ -338,12 +338,12 @@ def test_goal020_restart_a_continuation_row_resolves_at_plan_time(tmp_path):
 
     workspace = CampaignWorkspace(tmp_path / "camp")
     workspace.init(tmp_path / "camp")
-    saved = workspace.sim_dir("9001") / "datapoints" / "DP-a+00.0"
+    saved = workspace.sim_dir("9001") / "datapoints" / "DP-AL+000"
     saved.mkdir(parents=True)
     (saved / "state.fsm").write_text("a stopped march", encoding="utf-8")
     workspace.append_record(_stopped_record())
     case = _continuing_case("{FINISH_PENDING}")
-    resolved = resolve_continuation(workspace, case, {"alpha": 0.0}, run_id="camp/sim_9001/a+00.0")
+    resolved = resolve_continuation(workspace, case, {"alpha": 0.0}, run_id="camp/sim_9001/AL+000")
     assert resolved is not None, (
         "the row states RESTART and a continuable record exists, so the pre-flight has "
         "everything it needs; None here is what made the plan block"

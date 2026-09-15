@@ -36,7 +36,7 @@ from pyflightstream.results import (
     write_table,
 )
 from pyflightstream.results import tables as tables_module
-from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
+from pyflightstream.workspace import CampaignWorkspace, PointName, RunRecord, RunStatus
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -45,7 +45,7 @@ def read_fixture(name: str) -> str:
     return (FIXTURES / name).read_text(encoding="utf-8")
 
 
-def make_record(run_id="camp/sim_9001/a+02.0", sim_id="9001", **overrides):
+def make_record(run_id="camp/sim_9001/AL+020", sim_id="9001", **overrides):
     body = dict(
         run_id=run_id,
         sim_id=sim_id,
@@ -422,7 +422,7 @@ def test_run_table_joins_identity_conditions_and_total_coefficients():
         "reduction_window",
         "alpha",
     ]
-    assert row["run_id"] == "camp/sim_9001/a+02.0"
+    assert row["run_id"] == "camp/sim_9001/AL+020"
     assert row["alpha"] == 2.0
     assert row["fs_version_requested"] == "26.120"
     assert row["status"] == "CONVERGED"
@@ -458,7 +458,7 @@ def collect_text(workspace, sim_id, tmp_path, name, text):
     """Collect one output through the public files API and return it."""
     produced = tmp_path / name
     produced.write_text(text, encoding="utf-8")
-    return workspace.collect_outputs(sim_id, [produced], datapoint={"alpha": 0.0})
+    return workspace.collect_outputs(sim_id, [produced], datapoint=PointName("AL+000"))
 
 
 def build_sweep_workspace(tmp_path):
@@ -469,7 +469,9 @@ def build_sweep_workspace(tmp_path):
     )
     workspace.append_record(
         make_record(
-            run_id="camp/sim_9001/a+02.0",
+            run_id="camp/sim_9001/AL+020",
+            point_name="AL+020",
+            sweep_name="AL+020",
             point={"alpha": 2.0},
             iterations=312,
             outputs=outputs_a,
@@ -480,7 +482,9 @@ def build_sweep_workspace(tmp_path):
     )
     workspace.append_record(
         make_record(
-            run_id="camp/sim_9001/a+00.0",
+            run_id="camp/sim_9001/AL+000",
+            point_name="AL+000",
+            sweep_name="AL+000",
             point={"alpha": 0.0},
             status=RunStatus.COMPLETED_MAX_ITER,
             iterations=1575,
@@ -489,7 +493,9 @@ def build_sweep_workspace(tmp_path):
     )
     workspace.append_record(
         make_record(
-            run_id="camp/sim_9001/a+04.0",
+            run_id="camp/sim_9001/AL+040",
+            point_name="AL+040",
+            sweep_name="AL+040",
             point={"alpha": 4.0},
             status=RunStatus.FAILED_EXECUTION,
             error="solver crashed",
@@ -564,7 +570,7 @@ def test_a_bare_root_path_is_refused_with_the_call_that_replaces_it():
     """
     for call, name in (
         (lambda root: sweep_table(root), "sweep_table"),
-        (lambda root: parse_run_loads(root, "camp/sim_9001/a+02.0"), "parse_run_loads"),
+        (lambda root: parse_run_loads(root, "camp/sim_9001/AL+020"), "parse_run_loads"),
     ):
         with pytest.raises(MalformedOutputError) as caught:
             call(Path("some/campaign/root"))
@@ -592,16 +598,16 @@ def test_sweep_table_flags_a_wrong_loads_file_name(tmp_path):
 
 def test_parse_run_loads_resolves_by_run_id(tmp_path):
     workspace = build_sweep_workspace(tmp_path)
-    report = parse_run_loads(workspace, "camp/sim_9001/a+02.0")
+    report = parse_run_loads(workspace, "camp/sim_9001/AL+020")
     assert report.angle_of_attack_deg == 2.0
     with pytest.raises(ValueError, match="identity authority"):
-        parse_run_loads(workspace, "camp/sim_9001/a+99.0")
+        parse_run_loads(workspace, "camp/sim_9001/AL+990")
 
 
 def test_parse_run_loads_for_a_failed_point_is_a_loads_not_found(tmp_path):
     workspace = build_sweep_workspace(tmp_path)
     with pytest.raises(LoadsNotFoundError, match="no collected outputs"):
-        parse_run_loads(workspace, "camp/sim_9001/a+04.0")
+        parse_run_loads(workspace, "camp/sim_9001/AL+040")
 
 
 def test_parse_run_loads_refuses_ambiguity_until_named(tmp_path):
@@ -627,7 +633,7 @@ def test_parse_run_loads_refuses_an_overwritten_export(tmp_path):
     outputs = collect_text(
         workspace, "9001", tmp_path, "loads.txt", read_fixture("loads_steady_26.120.txt")
     )
-    record = make_record(run_id="camp/sim_9001/a+04.0", point={"alpha": 4.0}, outputs=outputs)
+    record = make_record(run_id="camp/sim_9001/AL+040", point={"alpha": 4.0}, outputs=outputs)
     with pytest.raises(ValueError, match="not the evidence of this run"):
         parse_run_loads(workspace, record)
 
@@ -1050,9 +1056,9 @@ def test_sweep_table_can_return_the_rows_it_has_when_no_run_yielded_loads(tmp_pa
     assert frame.shape[0] == 3, "the rows already assembled must come back"
     assert "CL" not in frame.columns, "no run yielded coefficients, so there is no CL"
     assert frame["run_id"].tolist() == [
-        "camp/sim_9001/a+02.0",
-        "camp/sim_9001/a+00.0",
-        "camp/sim_9001/a+04.0",
+        "camp/sim_9001/AL+020",
+        "camp/sim_9001/AL+000",
+        "camp/sim_9001/AL+040",
     ]
     # And it is still a writable table: the provenance columns are what
     # `run_campaign` will hand to `write_table`.

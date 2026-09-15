@@ -109,7 +109,7 @@ def test_goal023_single_march_the_rotor_script_without_actions_is_in_the_legacy_
     every other export and the log come after it: the legacy scripts' order.
     """
     goldens = Path(__file__).resolve().parents[1] / "tier3_licensed" / "goldens" / "matriz_builds"
-    text = next(goldens.glob("POLAR-7001_*.txt")).read_text(encoding="utf-8")
+    text = next(goldens.glob("P7001-*.txt")).read_text(encoding="utf-8")
     commands = _commands(text)
     assert "SET_NEW_UNSTEADY_SOLVER_ACTION" not in commands
     assert commands.count("START_SOLVER") == 1

@@ -181,12 +181,12 @@ def test_goal021_inputs_absolute_a_probe_survey_the_user_cited(tmp_path):
 def test_goal021_inputs_absolute_the_saved_simulation_a_continuation_reopens(tmp_path):
     """FR-96: RESTART reopens the stopped run's saved simulation by an absolute path."""
     workspace = _workspace(tmp_path)
-    saved = workspace.sim_dir("7001") / "datapoints" / "DP-a+00.0"
+    saved = workspace.sim_dir("7001") / "datapoints" / "DP-V0300RE120AL+000"
     saved.mkdir(parents=True, exist_ok=True)
-    (saved / "a+00.0.fsm").write_text("a stopped march", encoding="utf-8")
+    (saved / "V0300RE120AL+000.fsm").write_text("a stopped march", encoding="utf-8")
     workspace.append_record(
         RunRecord(
-            run_id="rotor/sim_7001/a+00.0",
+            run_id="rotor/sim_7001/V0300RE120AL+000",
             sim_id="7001",
             point={"alpha": 0.0},
             status=RunStatus.WALLTIME_REACHED,
@@ -195,7 +195,7 @@ def test_goal021_inputs_absolute_the_saved_simulation_a_continuation_reopens(tmp
             package_version="0.18.0",
             script_sha256="c" * 64,
             raw_flag=False,
-            outputs=["datapoints/DP-a+00.0/a+00.0.fsm"],
+            outputs=["datapoints/DP-V0300RE120AL+000/V0300RE120AL+000.fsm"],
             export_window={"time_iterations": 720},
             stopped_at={"step": 250},
         )
@@ -211,7 +211,7 @@ def test_goal021_inputs_absolute_the_saved_simulation_a_continuation_reopens(tmp
         path
         for script in _point_scripts(workspace)
         for verb, path in _read_paths(script)
-        if verb == "OPEN" and path.endswith(".fsm") and "a+00.0" in path
+        if verb == "OPEN" and path.endswith(".fsm") and "V0300RE120AL+000" in path
     ]
     if not opened:
         raise NothingMeasuredError(

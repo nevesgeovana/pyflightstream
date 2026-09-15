@@ -87,8 +87,9 @@ from pyflightstream.cases import (
     ScriptRecipe,
     SimCase,
     check_recipe,
-    point_tag,
+    point_name,
     resolve_recipe,
+    sweep_name,
 )
 from pyflightstream.cases.workflows import (
     COLD_START_VARIABLE,
@@ -147,7 +148,7 @@ from pyflightstream.workspace import (
     post_stages,
 )
 from pyflightstream.workspace.inputs import HPC_BUILD_ALIAS
-from pyflightstream.workspace.naming import ARCHIVE_STAMP, polar_name
+from pyflightstream.workspace.naming import ARCHIVE_STAMP, PointName, sweep_file_stem
 
 __all__ = [
     "ACCEPT_UNREGISTERED_BUILD_FLAG",
@@ -710,7 +711,7 @@ def _bind_submission_values(executor, case, point_case) -> None:
         return
     values: dict[str, object] = {
         "sim": case.sim_id,
-        "point": point_tag(point_case.point) if point_case.point else case.sim_id,
+        "point": point_name(point_case, point_case.point) if point_case.point else case.sim_id,
     }
     # C06. THE BUILD THIS POINT ACTUALLY RUNS, and a row that inherits the
     # campaign's has none of its own: writing `case.fs_build or ""` put an
@@ -1400,7 +1401,15 @@ class LoadsAssessor:
         # `if point` and not `is not None`: an EMPTY mapping has no folder to
         # be judged from, and it cannot reach here carrying evidence anyway,
         # because `collect_outputs` refuses it before anything is moved.
-        own_name = datapoint_dir_name(point) if point else None
+        # 0.21.0: a record carried across as a case names its folder by the name
+        # the run recorded; a real case is named by `point_name`.
+        recorded_name = getattr(case, "datapoint_name", None)
+        if recorded_name:
+            own_name: str | None = datapoint_dir_name(PointName(recorded_name))
+        elif point:
+            own_name = datapoint_dir_name(PointName(point_name(case, point)))
+        else:
+            own_name = None
         own = None if own_name is None else Path(sim_dir) / SIM_DATAPOINTS_DIR / own_name
         # THE PREDICATE IS EXISTENCE AND NOT EMPTINESS, and the difference
         # is a wrong answer (the architecture and verification lenses,
@@ -2743,7 +2752,7 @@ def run_campaign(
             # (GEO-047-C05); `points_ran` is what it is for.
             job = manifest.get(_job_run_id(campaign, case))
             ran = {str(entry.get("tag") or "") for entry in (job.points_ran if job else []) or []}
-            remaining = [point for point in case_points if point_tag(point) not in ran]
+            remaining = [point for point in case_points if point_name(case, point) not in ran]
             case_points = remaining
             run_ids = [_run_id(campaign, case, point) for point in remaining]
         # A ROW STATING RESTART CONTINUES WHAT IS RECORDED, so its recorded
@@ -2770,7 +2779,9 @@ def run_campaign(
         if continuing:
             pending = []
             for point, run_id in zip(case_points, run_ids, strict=True):
-                latest = _latest_record_of_point(manifest.values(), case.sim_id, point)
+                latest = _latest_record_of_point(
+                    manifest.values(), case.sim_id, point_name(case, point)
+                )
                 if _restart_point_is_pending(latest):
                     pending.append((point, run_id))
         else:
@@ -2896,7 +2907,9 @@ def run_campaign(
                 # MORE THAN ONE RESTART. It happens before the solver starts,
                 # so a continuation never writes into the folder holding the
                 # evidence of the run it continues.
-                archived = workspace.archive_datapoint(case.sim_id, point, stamp=stamp)
+                archived = workspace.archive_datapoint(
+                    case.sim_id, PointName(point_name(case, point)), stamp=stamp
+                )
                 # THE ARCHIVED COPY, BY ABSOLUTE PATH. The archive above has just
                 # MOVED the saved simulation out of the datapoint folder, and
                 # this used to hand the solver the path it had been moved from,
@@ -2992,11 +3005,11 @@ def run_campaign(
 def _run_id(campaign: Campaign, case: SimCase, point: dict[str, float]) -> str:
     """Compose the fixed manifest identity of one campaign point.
 
-    The scheme ``<campaign>/sim_<sim_id>/<point_tag>`` is identity,
+    The scheme ``<campaign>/sim_<sim_id>/<point name>`` is identity (0.21.0),
     not presentation: it never goes through the naming template, so
     renaming outputs can never fork or collide run identities.
     """
-    return f"{campaign.name}/sim_{case.sim_id}/{point_tag(point)}"
+    return f"{campaign.name}/sim_{case.sim_id}/{point_name(case, point)}"
 
 
 def _point_names(
@@ -3013,20 +3026,27 @@ def _point_names(
     collects. The default template reproduces the historical names.
     """
     ratio = _advance_ratio_of(case)
+    name = point_name(case, point)
     stem = workspace.naming.render_point(
-        campaign=campaign.name, sim=case.sim_id, point=point, mach=case.mach, advance_ratio=ratio
+        campaign=campaign.name,
+        sim=case.sim_id,
+        point=point,
+        mach=case.mach,
+        advance_ratio=ratio,
+        name=name,
     )
     outputs = [
         workspace.naming.render_output(
-            name,
+            declared,
             campaign=campaign.name,
             sim=case.sim_id,
             point=point,
             mach=case.mach,
             advance_ratio=ratio,
             stem=stem,
+            point_name=name,
         )
-        for name in case.outputs
+        for declared in case.outputs
     ]
     return stem, outputs
 
@@ -4018,7 +4038,9 @@ def _plan_point(
     # name, so the plan reports it BLOCKED with the reason instead of recorded.
     restarting = _states_restart(case)
     if restarting:
-        latest = _latest_record_of_point(workspace.read_manifest(), case.sim_id, point)
+        latest = _latest_record_of_point(
+            workspace.read_manifest(), case.sim_id, point_name(case, point)
+        )
         if not _restart_point_is_pending(latest):
             return PointPlan(**base, script_name=script_name, status=PlanStatus.ALREADY_RECORDED)
     try:
@@ -4145,7 +4167,7 @@ def _output_collision(
             _, names = _point_names(campaign, case, point, workspace)
         except NamingTemplateError:
             return None  # the rendering error is reported by the point itself
-        tag = point_tag(point)
+        tag = point_name(case, point)
         within: dict[str, str] = {}
         for declared in names:
             collected = collection_name(declared)
@@ -4156,7 +4178,7 @@ def _output_collision(
                 )
                 return (
                     f"sim {case.sim_id!r} declares {detail} for point {tag}, and both "
-                    f"collect to {SIM_DATAPOINTS_DIR}/{datapoint_dir_name(point)}/"
+                    f"collect to {SIM_DATAPOINTS_DIR}/{datapoint_dir_name(PointName(tag))}/"
                     f"{collected}: collection moves each output under its "
                     "base name, so the second would overwrite the first and the manifest "
                     "would record one name twice while only the last content survived. "
@@ -4454,6 +4476,7 @@ def _execute_sweep(
         "run_id": run_id,
         "sim_id": case.sim_id,
         "point": dict(points[0]),
+        "sweep_name": sweep_name(case),
         "job_id": run_id,
         "matrix_stem": campaign.matrix_stem,
         "fs_version_requested": canonical,
@@ -4534,17 +4557,11 @@ def _execute_sweep(
     if setup is not None:
         base["solver_setup"] = setup.model_dump(mode="json")
     # THE HOUSE CONVENTION FOR A SWEEP, not a name of this function's own.
-    # 0.16.0 already names a per-polar product table by the point
-    # convention with the swept variable written literally as `sweep`, and
-    # a job's script is about exactly the same thing, so it is named the
-    # same way: POLAR-5001_M09AL+sweepBE+000. A reader has met it and a
-    # folder of them still sorts.
-    job_stem = polar_name(
-        case.sim_id,
-        case.mach or 0.0,
-        advance_ratio=points[0].get("advance_ratio"),
-        swept=(case.sweep.type,),
-    )
+    # A per-polar product table is named by the point name with the swept
+    # variable written literally as `sweep`, and a job's script is about
+    # exactly the same thing, so it is named the same way:
+    # P5001-M090AL+sweepBE+000 (0.21.0).
+    job_stem = sweep_file_stem(case.sim_id, sweep_name(case))
     script_path, script_sha = workspace.write_script(
         case.sim_id, f"{job_stem}.txt", script.render()
     )
@@ -4642,13 +4659,20 @@ def _execute_sweep(
                 # incidence. Found by the interface lens of the 0.18.0 release
                 # round, 2026-09-14.
                 "declared_by_point": {
-                    tag: [str(name) for name in pc.outputs] for _, tag, pc in point_cases
+                    point_name(case, point): [str(name) for name in pc.outputs]
+                    for point, _, pc in point_cases
                 },
-                "points_by_tag": {tag: dict(point) for point, tag, _ in point_cases},
+                "points_by_tag": {
+                    point_name(case, point): dict(point) for point, _, _ in point_cases
+                },
             },
             points_ran=[
-                {"tag": tag, "point": dict(point), "status": str(RunStatus.SUBMITTED)}
-                for point, tag, _ in point_cases
+                {
+                    "tag": point_name(case, point),
+                    "point": dict(point),
+                    "status": str(RunStatus.SUBMITTED),
+                }
+                for point, _, _ in point_cases
             ],
         )
     base["wall_time_s"] = result.wall_time_s
@@ -4674,7 +4698,7 @@ def _execute_sweep(
     collected_by_tag: dict[str, list[str]] = {}
     failed_tags: dict[str, str] = {}
     for point, _stem, point_case in point_cases:
-        tag = point_tag(point)
+        tag = point_name(case, point)
         try:
             collected_by_tag[tag] = workspace.collect_outputs(
                 case.sim_id,
@@ -4682,12 +4706,12 @@ def _execute_sweep(
                 # case are relative to the execution directory and the
                 # collector is handed paths, not names.
                 [sim_dir / name for name in point_case.outputs],
-                datapoint=point,
+                datapoint=PointName(tag),
             )
         except (WorkspaceError, CampaignConfigError) as error:
             failed_tags[tag] = str(error)
     for point, _stem, point_case in point_cases:
-        tag = point_tag(point)
+        tag = point_name(case, point)
         if tag in failed_tags:
             ran.append(
                 {
@@ -4814,13 +4838,13 @@ def resolve_continuation(
     request = parse_restart(case)
     if request is None:
         return None
-    tag = point_tag(dict(point))
+    tag = point_name(case, point)
     # THE MOST RECENT RECORD OF THE POINT, WHATEVER IT SAYS, and only then is
     # it asked whether it stopped. This read the latest STOPPED record until
     # 0.18.1, so a point whose continuation had since FINISHED was continued
     # again from the run before it, re-marching steps the finished run had
     # already done (GOAL-021, found beside the owner's item 2 measurement).
-    previous = _latest_record_of_point(workspace.read_manifest(), case.sim_id, point)
+    previous = _latest_record_of_point(workspace.read_manifest(), case.sim_id, tag)
     if previous is None or previous.status not in CONTINUABLE:
         latest = (
             "records no run of it"
@@ -4876,7 +4900,7 @@ _FAILED_STATUSES = tuple(status for status in RunStatus if status.name.startswit
 
 
 def _queued_record_of_point(
-    executor, workspace: CampaignWorkspace, sim_id: str, point: Mapping[str, float]
+    executor, workspace: CampaignWorkspace, sim_id: str, name: str
 ) -> RunRecord | None:
     """Return a SUBMITTED record of this simulation and point, or None.
 
@@ -4885,11 +4909,10 @@ def _queued_record_of_point(
     """
     if not isinstance(executor, Submitting):
         return None
-    tag = point_tag(dict(point))
     for record in workspace.read_manifest():
         if (
             record.sim_id == sim_id
-            and record.run_id.endswith(f"/{tag}")
+            and record.run_id.endswith(f"/{name}")
             and record.status is RunStatus.SUBMITTED
         ):
             return record
@@ -4921,17 +4944,16 @@ def _states_restart(case: SimCase) -> bool:
 
 
 def _latest_record_of_point(
-    records: Iterable[RunRecord], sim_id: str, point: Mapping[str, float]
+    records: Iterable[RunRecord], sim_id: str, name: str
 ) -> RunRecord | None:
     """Return the most recent record of one point, in file order, whatever its status.
 
-    A continuation's run id is ``<campaign>/sim_<id>/r<stamp>/<tag>``, so the
-    point tag still ENDS every run id of the point, which is what this reads.
+    A continuation's run id is ``<campaign>/sim_<id>/r<stamp>/<name>``, so the
+    point name still ENDS every run id of the point, which is what this reads.
     """
-    tag = point_tag(dict(point))
     latest = None
     for record in records:
-        if record.sim_id == sim_id and record.run_id.endswith(f"/{tag}"):
+        if record.sim_id == sim_id and record.run_id.endswith(f"/{name}"):
             latest = record
     return latest
 
@@ -4962,6 +4984,8 @@ def _execute_point(
         "run_id": run_id,
         "sim_id": case.sim_id,
         "point": dict(point),
+        "point_name": point_name(case, point),
+        "sweep_name": sweep_name(case),
         "matrix_stem": campaign.matrix_stem,
         "fs_version_requested": canonical,
         "package_version": pyflightstream.__version__,
@@ -5071,13 +5095,13 @@ def _execute_point(
     # passed, because the queued job had written nothing yet. The guard is
     # per simulation AND point: different points of one row still submit
     # together, which is the refusal that was lifted and stays lifted.
-    queued = _queued_record_of_point(executor, workspace, case.sim_id, point)
+    queued = _queued_record_of_point(executor, workspace, case.sim_id, point_name(case, point))
     if queued is not None:
         return RunRecord(
             **base,
             status=RunStatus.FAILED_SCRIPT,
             error=(
-                f"point {point_tag(dict(point))} of simulation {case.sim_id} is already in a "
+                f"point {point_name(case, point)} of simulation {case.sim_id} is already in a "
                 f"scheduler's queue as {queued.run_id!r}, and a submitted point runs in its "
                 "own datapoint folder, which that job has not finished writing. Collect it "
                 "(pyfs-matrix collect) before submitting this point again; nothing of it was "
@@ -5154,7 +5178,7 @@ def _execute_point(
     # script reads is named by absolute path since 0.18.1, which is what
     # makes the working directory free to move at all (GOAL-021 item 2).
     work_dir = (
-        sim_dir / SIM_DATAPOINTS_DIR / datapoint_dir_name(point)
+        sim_dir / SIM_DATAPOINTS_DIR / datapoint_dir_name(PointName(point_name(case, point)))
         if isinstance(executor, Submitting)
         else sim_dir
     )
@@ -5369,9 +5393,9 @@ def _execute_point(
             # 0.16.0, so from the second point of a swept row onward that
             # folder held two files that both read as loads tables and
             # nothing in the layout said which point either belonged to.
-            # The POINT is passed and the folder name is rendered there,
-            # so a caller cannot name a folder the assessor will not read.
-            datapoint=point,
+            # The point's checked NAME is passed and the folder is rendered
+            # there, so a caller cannot name a folder the assessor will not read.
+            datapoint=PointName(point_name(case, point)),
         )
     except (WorkspaceError, CampaignConfigError) as error:
         # BOTH, because collection can refuse for two reasons and only one of

@@ -7,6 +7,27 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Changed (breaking)
+
+- **A point is named by its flight condition.** The name writes every variable
+  the row's `FLIGHT_CONDITION` cell declares, in the order written, each as a
+  code and a fixed-width integer: `M144RE438AL+000BE+000J+080`. The code table is
+  in [How a point is named](docs/workspace-and-workflows.md#how-a-point-is-named).
+  One name does every job: it ends the `run_id`, names the datapoint folder
+  `DP-<name>`, and is the stem of every file, `P<sim>-<name>`. The superfile is
+  `SUPER-<sim>-<name>`, with the swept field written `<code>+sweep`, for example
+  `J+sweep`. Until 0.20.x the `run_id` and the folder ended in the tag
+  `a+00.0_b+00.0_j+00.8`, and the files were named `POLAR-<sim>_M14AL+000BE+000J+080`.
+  Under that tag J 0.80 and 0.84 shared a folder; under the new name they get
+  two. The run record gains `point_name` and `sweep_name`. `collect` and
+  `products` refuse a record written without them, and point to the renaming
+  command.
+  - `{point}` in a naming template is now the point name, and `{polar}` is
+    `P<sim>-<name>`. `pyflightstream.cases.point_name` and `sweep_name` compute
+    them, and `point_tag` still returns the 0.20 tag.
+  - `CampaignWorkspace.collect_outputs` and `archive_datapoint` take a
+    `workspace.PointName` and no longer take a point mapping.
+
 ### Added
 
 - **`plan` and `run` take `--accept-unregistered-build`.** On a workstation,

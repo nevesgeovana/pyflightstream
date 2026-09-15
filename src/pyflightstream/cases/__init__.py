@@ -23,6 +23,7 @@ from __future__ import annotations
 import re
 import tomllib
 from collections.abc import Callable, Iterator, Mapping, Sequence
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from importlib import import_module
 from inspect import Parameter, signature
@@ -102,7 +103,14 @@ __all__ = [
     "geometric_sweep_values",
     "load_campaign",
     "multiplied_sweep",
+    "NameField",
+    "POINT_AXIS_KEYS",
+    "POINT_NAME_FIELDS",
+    "SWEEP_NAME_VALUE",
+    "name_field",
+    "point_name",
     "point_tag",
+    "sweep_name",
     "resolve_recipe",
     "stamp_derived_campaign",
 ]
@@ -253,36 +261,35 @@ class SweepAxis(BaseModel):
 
     @model_validator(mode="after")
     def _points_have_distinct_tags(self) -> SweepAxis:
-        """Refuse a sweep whose points cannot be told apart by run_id.
+        """Refuse a sweep whose points cannot be told apart by their names.
 
-        PYFS-003. ``point_tag`` formats at one decimal, so alpha 1.01 and
-        1.04 both render ``a+01.0``. The tag ENDS the ``run_id``, so two
-        points of one case then shared one manifest identity.
+        PYFS-003, and since 0.21.0 read on the POINT NAME. A point's name
+        writes each axis at the digits of its code (alpha and beta to a tenth
+        of a degree, the advance ratio to a hundredth), so alpha 1.01 and 1.04
+        both write ``AL+010``. The name ENDS the ``run_id`` and names the
+        datapoint folder, so two such points would share one identity.
 
-        What made that expensive was where it surfaced. Nothing refused the
-        sweep, the pre-flight reported both points READY under the same id,
-        and the manifest's duplicate rejection only fired when the SECOND
-        point tried to record. By then the first had executed, written its
-        script and appended its record, so the campaign was left
-        half-executed with a manifest that looks complete for the id it
-        holds. The refusal belongs at the sweep, where it costs nothing.
-
-        Widening the tag was the other option and is not taken: the tag is
-        IDENTITY, it ends every ``run_id`` already in every existing
-        manifest, and any fixed precision collides at some spacing anyway.
-        Refusing the ambiguous sweep is exact; a wider tag would only move
-        the collision.
+        What made that expensive was where it surfaced: nothing refused the
+        sweep, the pre-flight reported both points READY under one id, and the
+        manifest's duplicate rejection only fired when the SECOND point tried
+        to record, after the first had run. The refusal belongs at the sweep,
+        where it costs nothing. The other variables of a name are the case's
+        and the same on every point, so the swept axes alone decide.
         """
         seen: dict[str, dict[str, float]] = {}
         for point in self.points():
-            tag = point_tag(point)
+            tag = "".join(
+                name_field(POINT_AXIS_KEYS[axis], point[axis])
+                for axis in POINT_AXIS_KEYS
+                if axis in point
+            )
             if tag in seen:
                 raise CampaignConfigError(
-                    f"sweep points {seen[tag]!r} and {point!r} both tag as {tag!r}, "
-                    "so they would share one run_id and one set of file names. "
-                    "Point tags are fixed at one decimal because they are run "
-                    "IDENTITY and appear in every existing manifest. Separate the "
-                    "values by at least 0.1, or split them across simulations."
+                    f"sweep points {seen[tag]!r} and {point!r} both write {tag!r} in their "
+                    "names, so they would share one run_id, one datapoint folder and one set "
+                    "of file names. A name writes an angle to a tenth of a degree and an "
+                    "advance ratio to a hundredth; separate the values by that much, or split "
+                    "them across simulations."
                 )
             seen[tag] = point
         return self
@@ -1691,6 +1698,151 @@ def select_group_members(
     return chosen
 
 
+@dataclass(frozen=True)
+class NameField:
+    """How one flight-condition variable is written in a point name (0.21.0).
+
+    ``code`` then the value times ``scale``, rounded, zero-padded to
+    ``width`` characters; a signed field counts its sign in the width.
+    """
+
+    code: str
+    scale: float
+    width: int
+    signed: bool
+
+
+#: THE POINT NAME'S CODE TABLE, the author's of 2026-09-15 (SCOPE-0210 section 1),
+#: keyed by the canonical FLIGHT_CONDITION key. Codes differ in LETTERS and never
+#: only in case, because a Windows file name does not distinguish case.
+POINT_NAME_FIELDS: dict[str, NameField] = {
+    "MACH": NameField("M", 1000.0, 3, False),
+    "TASmps": NameField("V", 10.0, 4, False),
+    "REmi": NameField("RE", 100.0, 3, False),
+    "ALTFT": NameField("ALT", 1.0, 5, False),
+    "dISA": NameField("DT", 10.0, 4, True),
+    "RHOkgm3": NameField("RHO", 10000.0, 5, False),
+    "MUPas": NameField("MU", 1e9, 5, False),
+    "ASMPS": NameField("A", 10.0, 4, False),
+    "TK": NameField("T", 10.0, 4, False),
+    "PPA": NameField("PS", 1.0, 6, False),
+    "ALPHA": NameField("AL", 10.0, 4, True),
+    "BETA": NameField("BE", 10.0, 4, True),
+    "ADVANCE_RATIO": NameField("J", 100.0, 4, True),
+    "RPM": NameField("RPM", 1.0, 5, True),
+    "roll_rate": NameField("P", 10.0, 4, True),
+    "pitch_rate": NameField("Q", 10.0, 4, True),
+    "yaw_rate": NameField("R", 10.0, 4, True),
+}
+
+#: The point axes, by the name a sweep point uses, and the FLIGHT_CONDITION key
+#: each one is.
+POINT_AXIS_KEYS: dict[str, str] = {
+    "alpha": "ALPHA",
+    "beta": "BETA",
+    "advance_ratio": "ADVANCE_RATIO",
+}
+
+#: What a swept field carries in place of its value in a name about a whole
+#: sweep (a one-job script, a superfile): ``AL+sweep``.
+SWEEP_NAME_VALUE = "+sweep"
+
+
+def name_field(key: str, value: float) -> str:
+    """Write one variable the way a point name carries it, for example ``M144`` or ``AL-020``.
+
+    Raises
+    ------
+    CampaignConfigError
+        If the key has no code, or an unsigned variable is negative.
+    """
+    field = POINT_NAME_FIELDS.get(key)
+    if field is None:
+        raise CampaignConfigError(
+            f"{key!r} has no code in the point name, so a point declaring it cannot be "
+            f"named; the codes are for {', '.join(POINT_NAME_FIELDS)}."
+        )
+    number = round(float(value) * field.scale)
+    if field.signed:
+        return f"{field.code}{number:+0{field.width}d}"
+    if number < 0:
+        raise CampaignConfigError(
+            f"{key} is {value!r}, and a point name writes {key} without a sign; a negative "
+            f"{key} is not a value the flight condition can hold."
+        )
+    return f"{field.code}{number:0{field.width}d}"
+
+
+def _name_order(case: SimCase, point: Mapping[str, float]) -> list[str]:
+    """Return the declared FLIGHT_CONDITION keys in row order, or a cell-less case's fallback."""
+    order = list(case.condition_order)
+    if not order:
+        if case.mach is not None:
+            order.append("MACH")
+        order.extend(POINT_AXIS_KEYS[axis] for axis in POINT_AXIS_KEYS if axis in point)
+    # A point axis the order does not state still names the point, at the end:
+    # two points of one case must never share a name for want of a key.
+    order.extend(
+        POINT_AXIS_KEYS[axis]
+        for axis in POINT_AXIS_KEYS
+        if axis in point and POINT_AXIS_KEYS[axis] not in order
+    )
+    return order
+
+
+def _name_value(case: SimCase, point: Mapping[str, float], key: str) -> float:
+    for axis, axis_key in POINT_AXIS_KEYS.items():
+        if key == axis_key and axis in point:
+            return float(point[axis])
+    if key in case.flight_condition:
+        return float(case.flight_condition[key])
+    if key == "MACH" and case.mach is not None:
+        return float(case.mach)
+    if key in case.variables:
+        return float(case.variables[key])
+    raise CampaignConfigError(
+        f"case {case.sim_id!r} declares {key} in its flight condition and this point carries "
+        f"no value for it, so the point cannot be named."
+    )
+
+
+def point_name(case: SimCase, point: Mapping[str, float]) -> str:
+    """Return the name of one point of a case: its identity, folder and file stem (0.21.0).
+
+    Every variable the row's FLIGHT_CONDITION declares, in the order the row
+    declares them, written as :data:`POINT_NAME_FIELDS` says, with the point's
+    own value for a swept one: ``M144RE438AL+000BE+000J+080``. A case with no
+    cell (authored in Python) is named by its Mach number when it has one and
+    then by the axes of its point. It ends the ``run_id``, names the datapoint
+    folder ``DP-<name>`` and is the stem of every file ``P<POL>-<name>``.
+
+    Raises
+    ------
+    CampaignConfigError
+        If a declared variable has no value on this point or no code.
+    """
+    return "".join(
+        name_field(key, _name_value(case, point, key)) for key in _name_order(case, point)
+    )
+
+
+def sweep_name(case: SimCase) -> str:
+    """Return the name of a case's whole sweep, each swept field written ``<code>+sweep``."""
+    swept = {POINT_AXIS_KEYS[axis] for axis in _swept_axes(case.sweep)}
+    first = next(case.sweep.points(), {})
+    parts = []
+    for key in _name_order(case, first):
+        if key in swept:
+            parts.append(f"{POINT_NAME_FIELDS[key].code}{SWEEP_NAME_VALUE}")
+        else:
+            parts.append(name_field(key, _name_value(case, first, key)))
+    return "".join(parts)
+
+
+def _swept_axes(sweep: SweepAxis) -> tuple[str, ...]:
+    return ("alpha", "beta") if sweep.type == "alpha_beta" else (sweep.type,)
+
+
 def point_tag(point: dict[str, float]) -> str:
     """Return the stable file-name tag of one sweep point.
 
@@ -2237,6 +2389,10 @@ class SimCase(BaseModel):
     geometry: str | None = None
     sweep: SweepAxis
     flight_condition: dict[str, float] = Field(default_factory=dict)
+    #: 0.21.0: the canonical keys of the row's FLIGHT_CONDITION cell IN THE ORDER
+    #: THE ROW WROTE THEM, the swept key included. The point name is written in
+    #: this order (:func:`point_name`). Empty for a case authored without a cell.
+    condition_order: list[str] = Field(default_factory=list)
     #: The flight-condition pins the row's SETUP artifact supplied, with the
     #: values used, for the keys the row did not state (PFS-2030.08). Written
     #: by the workspace resolver and never by the matrix reader: a matrix

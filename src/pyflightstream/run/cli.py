@@ -338,9 +338,10 @@ def _build_parser() -> argparse.ArgumentParser:
         "--point-name",
         default=MATRIX_POINT_NAME,
         help="the template that names each point's script and exports; the default "
-        "is the standard convention, POLAR-<sim>_M<mach*100>AL<alpha*10>BE<beta*10>"
-        "[J<J*100>], fixed width; {point}, {alpha}, {beta}, {mach}, {advance_ratio}, "
-        "{sim} and {campaign} are the other placeholders (PFS-2029.19)",
+        "is P<sim>-<point name>, the point name writing every variable the row's "
+        "flight condition declares, in its order (0.21.0); {point}, {alpha}, {beta}, "
+        "{mach}, {advance_ratio}, {sim} and {campaign} are the other placeholders "
+        "(PFS-2029.19)",
     )
     plan.add_argument(
         "--fs-exe",
@@ -412,9 +413,10 @@ def _build_parser() -> argparse.ArgumentParser:
         "--point-name",
         default=MATRIX_POINT_NAME,
         help="the template that names each point's script and exports; the default "
-        "is the standard convention, POLAR-<sim>_M<mach*100>AL<alpha*10>BE<beta*10>"
-        "[J<J*100>], fixed width; {point}, {alpha}, {beta}, {mach}, {advance_ratio}, "
-        "{sim} and {campaign} are the other placeholders (PFS-2029.19)",
+        "is P<sim>-<point name>, the point name writing every variable the row's "
+        "flight condition declares, in its order (0.21.0); {point}, {alpha}, {beta}, "
+        "{mach}, {advance_ratio}, {sim} and {campaign} are the other placeholders "
+        "(PFS-2029.19)",
     )
     run.add_argument(
         "--fs-exe",

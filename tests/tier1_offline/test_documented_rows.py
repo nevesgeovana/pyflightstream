@@ -87,9 +87,7 @@ def test_every_quoted_row_has_a_rendered_golden():
     `python -m tests.tier3_licensed.offline` and compared on every commit.
     """
     assert GOLDENS.is_dir(), f"no goldens for the vocabulary matrix at {GOLDENS}"
-    rendered = {
-        stem.split("-", 1)[1].split("_", 1)[0] for stem in (p.stem for p in GOLDENS.glob("*.txt"))
-    }
+    rendered = {stem[1:].split("-", 1)[0] for stem in (p.stem for p in GOLDENS.glob("*.txt"))}
     cited = cited_pols(GUIDE) | cited_pols(STARTED)
     unrendered = sorted(cited - rendered)
     assert not unrendered, (

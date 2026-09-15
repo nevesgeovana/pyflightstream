@@ -20,6 +20,7 @@ from pyflightstream.workspace import (
     InputArtifactError,
     NamingTemplate,
     NamingTemplateError,
+    PointName,
     PprocArtifact,
     RunRecord,
     RunStatus,
@@ -80,8 +81,8 @@ def test_a_workspace_that_still_carries_an_empty_parsed_folder_is_untouched(tmp_
     assert (sim / "parsed").is_dir()
     produced = tmp_path / "loads.txt"
     produced.write_text("x", encoding="utf-8")
-    assert workspace.collect_outputs("9001", [produced], datapoint={"alpha": 0.0}) == [
-        "datapoints/DP-a+00.0/loads.txt"
+    assert workspace.collect_outputs("9001", [produced], datapoint=PointName("AL+000")) == [
+        "datapoints/DP-AL+000/loads.txt"
     ]
     workspace.append_record(make_record())
     assert workspace.archive_sim("9001").is_file()
@@ -120,11 +121,11 @@ def test_collect_outputs_moves_declared_files_into_outputs(tmp_path):
     produced = tmp_path / "loads.txt"
     produced.write_text("data", encoding="utf-8")
     workspace = CampaignWorkspace(tmp_path / "camp")
-    collected = workspace.collect_outputs("9001", [produced], datapoint={"alpha": 0.0})
-    assert collected == ["datapoints/DP-a+00.0/loads.txt"]
+    collected = workspace.collect_outputs("9001", [produced], datapoint=PointName("AL+000"))
+    assert collected == ["datapoints/DP-AL+000/loads.txt"]
     assert not produced.exists()
     assert (
-        tmp_path / "camp" / "sims" / "sim_9001" / "datapoints" / "DP-a+00.0" / "loads.txt"
+        tmp_path / "camp" / "sims" / "sim_9001" / "datapoints" / "DP-AL+000" / "loads.txt"
     ).is_file()
 
 
@@ -132,7 +133,7 @@ def test_collect_refuses_missing_declared_outputs(tmp_path):
     workspace = CampaignWorkspace(tmp_path)
     with pytest.raises(WorkspaceError, match="FAILED_INCOMPLETE_OUTPUT"):
         workspace.collect_outputs(
-            "9001", [tmp_path / "never_written.txt"], datapoint={"alpha": 0.0}
+            "9001", [tmp_path / "never_written.txt"], datapoint=PointName("AL+000")
         )
 
 
@@ -702,10 +703,13 @@ def test_executable_registry_and_the_explicit_override_rule(tmp_path):
 # --- naming template: output only, never parsed back ------------------------
 
 
-def test_default_naming_reproduces_the_historical_names():
+def test_default_naming_renders_the_point_name():
+    """0.21.0: `{point}` is the point name the run hands over, and nothing else."""
     naming = NamingTemplate()
-    stem = naming.render_point(campaign="camp", sim="9001", point={"alpha": 2.0, "beta": 0.0})
-    assert stem == "a+02.0_b+00.0"
+    stem = naming.render_point(
+        campaign="camp", sim="9001", point={"alpha": 2.0, "beta": 0.0}, name="AL+020BE+000"
+    )
+    assert stem == "AL+020BE+000"
     assert naming.render_archive(sim="9001") == "sim_9001"
     assert (
         naming.render_output("loads.txt", campaign="camp", sim="9001", point={"alpha": 2.0})
@@ -719,12 +723,12 @@ def test_custom_template_renders_axes_compactly():
     assert stem == "camp_9001_M0.25_a-3.5"
 
 
-def test_output_names_can_carry_the_point_tag():
+def test_output_names_can_carry_the_point_name():
     naming = NamingTemplate()
     name = naming.render_output(
-        "loads_{point}.txt", campaign="camp", sim="9001", point={"alpha": 2.0}
+        "loads_{point}.txt", campaign="camp", sim="9001", point={"alpha": 2.0}, point_name="AL+020"
     )
-    assert name == "loads_a+02.0.txt"
+    assert name == "loads_AL+020.txt"
 
 
 def test_unknown_placeholder_is_refused_at_construction():
@@ -745,7 +749,7 @@ def test_missing_placeholder_value_is_didactic():
 def test_unportable_rendered_name_is_refused():
     naming = NamingTemplate(point_name="{campaign}_{point}")
     with pytest.raises(NamingTemplateError, match="portable"):
-        naming.render_point(campaign="my run", sim="9001", point={"alpha": 2.0})
+        naming.render_point(campaign="my run", sim="9001", point={"alpha": 2.0}, name="AL+020")
 
 
 def test_no_parse_back_api_exists_anywhere_in_the_workspace_package():
@@ -830,8 +834,10 @@ def test_an_ordinary_output_name_still_passes_through(tmp_path):
         == "loads.txt"
     )
     assert (
-        template.render_output("loads_{point}.txt", campaign="c", sim="1", point={"alpha": 2.0})
-        == "loads_a+02.0.txt"
+        template.render_output(
+            "loads_{point}.txt", campaign="c", sim="1", point={"alpha": 2.0}, point_name="AL+020"
+        )
+        == "loads_AL+020.txt"
     )
     # a subfolder is legitimate and must not be caught by the containment check
     assert (
@@ -856,7 +862,7 @@ def test_two_outputs_colliding_on_one_name_are_refused_before_any_move(tmp_path)
         workspace.collect_outputs(
             "1",
             [tmp_path / "a" / "loads.txt", tmp_path / "b" / "loads.txt"],
-            datapoint={"alpha": 0.0},
+            datapoint=PointName("AL+000"),
         )
     # refused BEFORE moving: both sources still where they were
     assert (tmp_path / "a" / "loads.txt").read_text(encoding="utf-8") == "A"
@@ -867,12 +873,12 @@ def test_collecting_onto_an_existing_collected_name_is_refused(tmp_path):
     """A second run must not silently destroy the first run's evidence."""
     workspace = CampaignWorkspace(tmp_path / "camp")
     (tmp_path / "loads.txt").write_text("first", encoding="utf-8")
-    workspace.collect_outputs("1", [tmp_path / "loads.txt"], datapoint={"alpha": 0.0})
+    workspace.collect_outputs("1", [tmp_path / "loads.txt"], datapoint=PointName("AL+000"))
 
     (tmp_path / "loads.txt").write_text("second", encoding="utf-8")
-    with pytest.raises(WorkspaceError, match=re.escape("already in datapoints/DP-a+00.0/")):
-        workspace.collect_outputs("1", [tmp_path / "loads.txt"], datapoint={"alpha": 0.0})
-    held = workspace.sim_dir("1") / "datapoints" / "DP-a+00.0" / "loads.txt"
+    with pytest.raises(WorkspaceError, match=re.escape("already in datapoints/DP-AL+000/")):
+        workspace.collect_outputs("1", [tmp_path / "loads.txt"], datapoint=PointName("AL+000"))
+    held = workspace.sim_dir("1") / "datapoints" / "DP-AL+000" / "loads.txt"
     assert held.read_text(encoding="utf-8") == "first"
 
 
@@ -960,10 +966,10 @@ def test_output_digests_hash_what_collection_produced(tmp_path):
     sim = workspace.create_sim("9001")
     produced = sim / "loads.txt"
     produced.write_text("LOADS", encoding="utf-8")
-    collected = workspace.collect_outputs("9001", [produced], datapoint={"alpha": 0.0})
+    collected = workspace.collect_outputs("9001", [produced], datapoint=PointName("AL+000"))
     digests = workspace.output_digests("9001", collected)
     assert sorted(digests) == collected
-    assert digests["datapoints/DP-a+00.0/loads.txt"] == hashlib.sha256(b"LOADS").hexdigest()
+    assert digests["datapoints/DP-AL+000/loads.txt"] == hashlib.sha256(b"LOADS").hexdigest()
 
 
 # --- collect_outputs containment (PFS-2011.01 and PFS-2011.03) ---------------
@@ -984,12 +990,12 @@ def _prepared(tmp_path, sim_id="A"):
 def test_collect_refuses_a_source_inside_a_managed_subdirectory(tmp_path):
     """Moving out of a datapoint takes a record out of the layout that owns it."""
     workspace, sim = _prepared(tmp_path)
-    source = sim / "datapoints" / "DP-a+00.0" / "already_collected.txt"
+    source = sim / "datapoints" / "DP-AL+000" / "already_collected.txt"
     source.parent.mkdir(parents=True)
     source.write_text("evidence", encoding="utf-8")
 
     with pytest.raises(WorkspaceError, match="datapoints"):
-        workspace.collect_outputs("A", [source], datapoint={"alpha": 0.0})
+        workspace.collect_outputs("A", [source], datapoint=PointName("AL+000"))
     assert source.is_file(), "a refusal must leave every source exactly where it was"
 
 
@@ -1001,7 +1007,7 @@ def test_collect_refuses_a_source_inside_the_root_but_outside_the_simulation(tmp
     source.write_text("solid wing", encoding="utf-8")
 
     with pytest.raises(WorkspaceError, match="outside sim_A"):
-        workspace.collect_outputs("A", [source], datapoint={"alpha": 0.0})
+        workspace.collect_outputs("A", [source], datapoint=PointName("AL+000"))
     assert source.is_file()
 
 
@@ -1016,12 +1022,12 @@ def test_collect_refuses_another_simulations_collected_evidence(tmp_path):
     """
     workspace, _ = _prepared(tmp_path)
     other = workspace.create_sim("OTHER")
-    source = other / "datapoints" / "DP-a+00.0" / "loads.txt"
+    source = other / "datapoints" / "DP-AL+000" / "loads.txt"
     source.parent.mkdir(parents=True)
     source.write_text("another run's numbers", encoding="utf-8")
 
     with pytest.raises(WorkspaceError, match="belongs to sim_OTHER"):
-        workspace.collect_outputs("A", [source], datapoint={"alpha": 0.0})
+        workspace.collect_outputs("A", [source], datapoint=PointName("AL+000"))
     assert source.is_file(), "the other run's evidence was moved by a refused call"
 
 
@@ -1034,13 +1040,13 @@ def test_collect_refuses_a_path_that_climbs_back_in(tmp_path):
     """
     workspace, sim = _prepared(tmp_path)
     other = workspace.create_sim("OTHER")
-    held = other / "datapoints" / "DP-a+00.0" / "loads.txt"
+    held = other / "datapoints" / "DP-AL+000" / "loads.txt"
     held.parent.mkdir(parents=True)
     held.write_text("another run's numbers", encoding="utf-8")
-    climbing = sim / ".." / "sim_OTHER" / "datapoints" / "DP-a+00.0" / "loads.txt"
+    climbing = sim / ".." / "sim_OTHER" / "datapoints" / "DP-AL+000" / "loads.txt"
 
     with pytest.raises(WorkspaceError, match="belongs to sim_OTHER"):
-        workspace.collect_outputs("A", [climbing], datapoint={"alpha": 0.0})
+        workspace.collect_outputs("A", [climbing], datapoint=PointName("AL+000"))
     assert held.is_file()
 
 
@@ -1056,10 +1062,10 @@ def test_collect_still_takes_an_unmanaged_subfolder_of_the_simulation(tmp_path):
     source = unmanaged / "loads.txt"
     source.write_text("numbers", encoding="utf-8")
 
-    assert workspace.collect_outputs("A", [source], datapoint={"alpha": 0.0}) == [
-        "datapoints/DP-a+00.0/loads.txt"
+    assert workspace.collect_outputs("A", [source], datapoint=PointName("AL+000")) == [
+        "datapoints/DP-AL+000/loads.txt"
     ]
-    assert (sim / "datapoints" / "DP-a+00.0" / "loads.txt").is_file()
+    assert (sim / "datapoints" / "DP-AL+000" / "loads.txt").is_file()
     assert not source.exists(), "collection MOVES, so the source is gone"
 
 
@@ -1071,10 +1077,10 @@ def test_collect_still_takes_a_source_outside_the_campaign_root(tmp_path):
     source = outside / "loads.txt"
     source.write_text("numbers", encoding="utf-8")
 
-    assert workspace.collect_outputs("A", [source], datapoint={"alpha": 0.0}) == [
-        "datapoints/DP-a+00.0/loads.txt"
+    assert workspace.collect_outputs("A", [source], datapoint=PointName("AL+000")) == [
+        "datapoints/DP-AL+000/loads.txt"
     ]
-    assert (sim / "datapoints" / "DP-a+00.0" / "loads.txt").is_file()
+    assert (sim / "datapoints" / "DP-AL+000" / "loads.txt").is_file()
 
 
 # --- OPS-2009.02.03: broken_commands says what shape its entries are --------
@@ -2516,14 +2522,14 @@ def test_archive_does_not_cross_a_staged_link(tmp_path):
     other = _library_geometry(workspace, "other.fsm", b"y" * 4096)
     for sim_id in ("9001", "9002"):
         workspace.stage_inputs(sim_id, [library])
-        collected = workspace.sim_dir(sim_id) / "datapoints" / "DP-a+00.0"
+        collected = workspace.sim_dir(sim_id) / "datapoints" / "DP-AL+000"
         collected.mkdir(parents=True)
         (collected / "loads.txt").write_text("loads", encoding="utf-8")
         workspace.append_record(make_record(sim_id=sim_id, run_id=f"camp/sim_{sim_id}/a"))
     bundle = workspace.archive_sim("9001")
     with zipfile.ZipFile(bundle) as archive:
         names = archive.namelist()
-        assert "datapoints/DP-a+00.0/loads.txt" in names
+        assert "datapoints/DP-AL+000/loads.txt" in names
         assert not any(name.endswith(".fsm") for name in names), "the archive crossed the link"
         assert archive.read("inputs/STAGED_AS_LINK.txt").decode().strip() == os.path.realpath(
             workspace.inputs_dir / "geometries"
@@ -3076,9 +3082,9 @@ def test_goal019_bandd_a_collision_on_the_second_file_moves_neither(tmp_path):
     second = tmp_path / "second.txt"
     first.write_text("FIRST", encoding="utf-8")
     second.write_text("SECOND", encoding="utf-8")
-    point = {"alpha": 0.0}
+    point = PointName("AL+000")
     # An earlier run of this point already left a second.txt behind.
-    held = workspace.sim_dir("9001") / "datapoints" / "DP-a+00.0"
+    held = workspace.sim_dir("9001") / "datapoints" / "DP-AL+000"
     held.mkdir(parents=True)
     (held / "second.txt").write_text("OLD SECOND", encoding="utf-8")
 
@@ -3103,7 +3109,7 @@ def test_goal019_bandd_a_collection_that_would_have_worked_still_does(tmp_path):
         path = tmp_path / name
         path.write_text(name, encoding="utf-8")
         produced.append(path)
-    assert workspace.collect_outputs("9001", produced, datapoint={"alpha": 0.0}) == [
-        "datapoints/DP-a+00.0/first.txt",
-        "datapoints/DP-a+00.0/second.txt",
+    assert workspace.collect_outputs("9001", produced, datapoint=PointName("AL+000")) == [
+        "datapoints/DP-AL+000/first.txt",
+        "datapoints/DP-AL+000/second.txt",
     ]

@@ -233,9 +233,9 @@ def test_run_executes_the_matrix_and_writes_the_sweep_table(tmp_path, capsys):
     records = workspace.read_manifest()
     assert len(records) == 3, "the run did not execute every active row of the matrix"
     assert {record.run_id for record in records} == {
-        "rotor/sim_7001/a+00.0",
-        "rotor/sim_7002/a+00.0",
-        "rotor/sim_7003/a+00.0",
+        "rotor/sim_7001/V0300RE120AL+000",
+        "rotor/sim_7002/V0300RE120AL+000",
+        "rotor/sim_7003/V0300RE120AL+000",
     }
 
 

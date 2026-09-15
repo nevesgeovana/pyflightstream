@@ -107,6 +107,7 @@ from pyflightstream.workspace.naming import (
     SIM_DATAPOINTS_DIR,
     NamingTemplate,
     NamingTemplateError,
+    PointName,
     datapoint_dir_name,
 )
 from pyflightstream.workspace.trailing_edges import (
@@ -155,6 +156,7 @@ __all__ = [
     "TrailingEdge",
     "WorkspaceError",
     "SIM_DATAPOINTS_DIR",
+    "PointName",
     "datapoint_dir_name",
     "check_reference_point_names",
     "check_unique_stems",
@@ -756,6 +758,13 @@ class RunRecord(BaseModel):
     run_id: str
     sim_id: str
     point: dict[str, float] = Field(default_factory=dict)
+    #: 0.21.0: the point's name, which ends the run_id, names its datapoint
+    #: folder and is the stem of its files (`pyflightstream.cases.point_name`);
+    #: and the name of the whole sweep of its case, each swept field written
+    #: `<code>+sweep`, which the polar tables and superfiles of the case carry.
+    #: None on a record written before 0.21.0, which `pyfs-matrix rename` names.
+    point_name: str | None = None
+    sweep_name: str | None = None
     fs_version_requested: str
     fs_version_reported: str | None = None
     fs_build: str | None = None
@@ -1022,6 +1031,9 @@ class RunRecord(BaseModel):
                 self.model_copy(
                     update={
                         "run_id": f"{self.run_id.rsplit('/', 1)[0]}/{tag}",
+                        # 0.21.0: the entry's tag is the point name the job
+                        # recorded, and a per-point record carries it as such.
+                        "point_name": tag or None,
                         "point": dict(entry.get("point") or {}),
                         "status": RunStatus(entry["status"])
                         if entry.get("status")
@@ -2207,7 +2219,7 @@ class CampaignWorkspace:
         sim_id: str,
         produced: Sequence[str | Path],
         *,
-        datapoint: Mapping[str, float],
+        datapoint: PointName,
         ran_in_datapoint: bool = False,
     ) -> list[str]:
         """Move declared solver outputs into the datapoint's folder (FR-92).
@@ -2225,9 +2237,10 @@ class CampaignWorkspace:
             has not said the job ran there is refused a file sitting in a
             datapoint folder, because that file is otherwise a record an
             earlier run already collected.
-        datapoint : mapping of str to float
-            THE POINT these outputs belong to, whose folder under
-            ``datapoints/`` this renders with
+        datapoint : PointName
+            THE POINT these outputs belong to, by its checked name
+            (:class:`~pyflightstream.workspace.naming.PointName`, 0.21.0),
+            whose folder under ``datapoints/`` this renders with
             :func:`datapoint_dir_name`. Required, with no default,
             because every collection this package makes is a
             datapoint's: each point's evidence alone in its own folder
@@ -2235,15 +2248,12 @@ class CampaignWorkspace:
             then has to work out which of several files belongs to which
             point.
 
-            THE POINT AND NOT THE RENDERED NAME, deliberately. A string
-            argument accepted ``point_tag(point)`` with the ``DP-``
-            prefix forgotten, which is the likeliest mistake because the
-            tag is what a caller already holds from the ``run_id`` and
-            the script name; the files then landed in a folder the
-            assessor never looks in, were recorded in the manifest, and
-            were invisible to the judgement. That is a wrong answer
-            rather than a refusal, so the argument no longer admits it
-            (the interface lens, 2026-09-11).
+            A CHECKED NAME AND NOT A BARE STRING, deliberately. A string
+            argument once accepted a tag with the ``DP-`` prefix forgotten,
+            or remembered twice; the files then landed in a folder the
+            assessor never looks in. A ``PointName`` refuses the prefix and
+            an unportable token, and a bare ``str`` is refused by
+            :func:`datapoint_dir_name` (the interface lens, 2026-09-11).
         produced : sequence of str or Path
             Output files the run declared it would produce. Anywhere
             OUTSIDE this campaign root, which is where a solver working
@@ -2281,9 +2291,8 @@ class CampaignWorkspace:
             ordinary case, since the solver's working directory is not
             managed by this class.
 
-            If ``datapoint`` names no known axis, from
-            :func:`datapoint_dir_name`: a point with no coordinates has
-            no stable folder.
+            ``NamingTemplateError`` if ``datapoint`` is not a
+            :class:`PointName`, from :func:`datapoint_dir_name`.
 
             If two declared outputs of one call would collect to the
             same name, or if a declared output's base name is already
@@ -2757,7 +2766,7 @@ class CampaignWorkspace:
         temporary.replace(self.manifest_path)
 
     def archive_datapoint(
-        self, sim_id: str, datapoint: Mapping[str, float], *, stamp: datetime | None = None
+        self, sim_id: str, datapoint: PointName, *, stamp: datetime | None = None
     ) -> Path | None:
         """Move a datapoint's collected outputs aside, under a day-and-hour stamp.
 

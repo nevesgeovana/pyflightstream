@@ -73,7 +73,9 @@ def _submitted_workspace(tmp_path, *, declared=("loads.txt", "run_log.txt")):
     )
     workspace.append_record(
         RunRecord(
-            run_id="camp/sim_9001/a+00.0",
+            run_id="camp/sim_9001/AL+000",
+            point_name="AL+000",
+            sweep_name="AL+000",
             point={"alpha": 0.0},
             status=RunStatus.SUBMITTED,
             outputs=[],
@@ -155,7 +157,7 @@ def test_goal020_collect_waits_while_an_output_has_not_arrived(tmp_path):
     assert not report.collected
     assert report.outstanding == 1
     assert "not there yet" in report.waiting[0].detail
-    assert _status_of(workspace, "camp/sim_9001/a+00.0") == "SUBMITTED"
+    assert _status_of(workspace, "camp/sim_9001/AL+000") == "SUBMITTED"
 
 
 def test_goal020_collect_waits_while_an_output_is_still_being_written(tmp_path):
@@ -172,7 +174,7 @@ def test_goal020_collect_waits_while_an_output_is_still_being_written(tmp_path):
     assert not report.collected
     assert report.outstanding == 1
     assert "still changing" in report.waiting[0].detail
-    assert _status_of(workspace, "camp/sim_9001/a+00.0") == "SUBMITTED"
+    assert _status_of(workspace, "camp/sim_9001/AL+000") == "SUBMITTED"
 
 
 def test_goal020_collect_completes_a_settled_point(tmp_path):
@@ -183,7 +185,7 @@ def test_goal020_collect_completes_a_settled_point(tmp_path):
     report = collect_once(workspace, interval=0.0, sleep=_no_sleep)
     assert len(report.collected) == 1
     assert report.outstanding == 0
-    assert _status_of(workspace, "camp/sim_9001/a+00.0") != "SUBMITTED"
+    assert _status_of(workspace, "camp/sim_9001/AL+000") != "SUBMITTED"
     assert report.collected[0].record is not None
     assert report.collected[0].record.outputs
 
@@ -200,7 +202,7 @@ def test_goal020_collect_reads_the_declared_set_off_the_record(tmp_path):
     (sim / "something_else.txt").write_text("not what was declared", encoding="utf-8")
     report = collect_once(workspace, interval=0.0, sleep=_no_sleep)
     assert report.outstanding == 1
-    assert _status_of(workspace, "camp/sim_9001/a+00.0") == "SUBMITTED"
+    assert _status_of(workspace, "camp/sim_9001/AL+000") == "SUBMITTED"
 
 
 def test_goal020_collect_says_so_when_a_record_declares_nothing(tmp_path):
@@ -363,7 +365,7 @@ def test_goal020_collect_records_what_the_outputs_say_and_not_a_constant(tmp_pat
     (sim / "run_log.txt").write_text("nor is this a solver log", encoding="utf-8")
     report = collect_once(workspace, interval=0.0, sleep=_no_sleep)
     assert len(report.collected) == 1
-    status = _status_of(workspace, "camp/sim_9001/a+00.0")
+    status = _status_of(workspace, "camp/sim_9001/AL+000")
     assert status != "CONVERGED", (
         "the collector recorded CONVERGED for a point whose outputs it could not read. "
         "That is the defect this test exists on: the status must come from the files."
@@ -397,7 +399,7 @@ def test_goal020_collect_uses_the_same_assessor_the_local_path_uses(tmp_path):
         collect_once(workspace, interval=0.0, sleep=_no_sleep)
     finally:
         collect_module.assess_collected = monkey
-    assert seen == ["camp/sim_9001/a+00.0"], (
+    assert seen == ["camp/sim_9001/AL+000"], (
         "the default assessor was not called, so the status on the row was not judged"
     )
 
@@ -430,20 +432,20 @@ def _submitted_sweep(tmp_path):
     submission carries, so the two fixtures cannot drift apart in the fields
     they share.
     """
-    workspace, _sim = _submitted_workspace(tmp_path, declared=("a+00.0.txt", "a+02.0.txt"))
+    workspace, _sim = _submitted_workspace(tmp_path, declared=("AL+000.txt", "AL+020.txt"))
     record = workspace.read_manifest()[0]
     submission = dict(record.submission or {})
     submission["declared_by_point"] = {
-        "a+00.0": ["a+00.0.txt"],
-        "a+02.0": ["a+02.0.txt"],
+        "AL+000": ["AL+000.txt"],
+        "AL+020": ["AL+020.txt"],
     }
-    submission["points_by_tag"] = {"a+00.0": {"alpha": 0.0}, "a+02.0": {"alpha": 2.0}}
+    submission["points_by_tag"] = {"AL+000": {"alpha": 0.0}, "AL+020": {"alpha": 2.0}}
     swept = record.model_copy(
         update={
             "submission": submission,
             "points_ran": [
-                {"tag": "a+00.0", "point": {"alpha": 0.0}, "status": "SUBMITTED"},
-                {"tag": "a+02.0", "point": {"alpha": 2.0}, "status": "SUBMITTED"},
+                {"tag": "AL+000", "point": {"alpha": 0.0}, "status": "SUBMITTED"},
+                {"tag": "AL+020", "point": {"alpha": 2.0}, "status": "SUBMITTED"},
             ],
         }
     )
@@ -467,8 +469,8 @@ def test_goal020_collect_files_each_point_of_a_sweep_under_its_own_point(tmp_pat
     in the first point's folder and nothing says so.
     """
     workspace, sim = _submitted_sweep(tmp_path)
-    (sim / "a+00.0.txt").write_text("first point", encoding="utf-8")
-    (sim / "a+02.0.txt").write_text("second point", encoding="utf-8")
+    (sim / "AL+000.txt").write_text("first point", encoding="utf-8")
+    (sim / "AL+020.txt").write_text("second point", encoding="utf-8")
     report = collect_once(workspace, interval=0.0, sleep=_no_sleep)
     assert len(report.collected) == 1, report.lines()
     folders = sorted(p.name for p in (sim / "datapoints").iterdir() if p.is_dir())
@@ -492,8 +494,8 @@ def test_goal020_collect_rewrites_points_ran_so_the_row_does_not_contradict_itse
     per-point list carries the point's own outcome.
     """
     workspace, sim = _submitted_sweep(tmp_path)
-    (sim / "a+00.0.txt").write_text("first point", encoding="utf-8")
-    (sim / "a+02.0.txt").write_text("second point", encoding="utf-8")
+    (sim / "AL+000.txt").write_text("first point", encoding="utf-8")
+    (sim / "AL+020.txt").write_text("second point", encoding="utf-8")
     collect_once(workspace, interval=0.0, sleep=_no_sleep)
     record = workspace.read_manifest()[0]
     assert record.status is not RunStatus.SUBMITTED

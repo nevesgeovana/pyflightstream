@@ -145,10 +145,10 @@ def test_1010_the_rotorless_unsteady_row_states_its_clock_in_seconds(runs):
     assert line(script, "DELTA_TIME") == "DELTA_TIME 0.01"
     assert "UNSTEADY_SOLVER_EXPORT_PLOTS" in script
     plots = runs.products(MATRIX) / "plots"
-    assert any(p.name.startswith("POLAR-1010") for p in plots.glob("*_plots.csv")), (
+    assert any(p.name.startswith("P1010-") for p in plots.glob("*_plots.csv")), (
         "p001 asks for the plots table of an unsteady point"
     )
-    table = next(p for p in plots.glob("*_plots.csv") if p.name.startswith("POLAR-1010"))
+    table = next(p for p in plots.glob("*_plots.csv") if p.name.startswith("P1010-"))
     with table.open(encoding="utf-8") as handle:
         steps = list(csv.DictReader(handle))
     assert len(steps) == 12, "one plots row per time step"

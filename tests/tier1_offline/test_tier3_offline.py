@@ -94,7 +94,7 @@ def test_the_unsteady_plots_export_is_named_by_the_run_record():
         rows = {row.pol: row for row in read_matrix(matrix)}
         _, rendered = offline.render(matrix)
         for stem, script in rendered.items():
-            pol = stem.split("-", 1)[1].split("_", 1)[0]
+            pol = stem[1:].split("-", 1)[0]  # P<POL>-<name> (0.21.0)
             row = rows.get(pol)
             if row is None or row.workflow not in unsteady:
                 continue
@@ -678,9 +678,12 @@ def test_a_nonzero_sideslip_under_mirror_symmetry_is_refused_at_plan_time(tmp_pa
     )
     plan = _plan(root, mirrored)
     blocked = {p.run_id: p.error for p in plan.blocked}
-    assert set(blocked) == {"refusal/sim_4207/b-04.0", "refusal/sim_4207/b+04.0"}, plan.summary()
+    assert set(blocked) == {
+        "refusal/sim_4207/M100RE230BE-040",
+        "refusal/sim_4207/M100RE230BE+040",
+    }, plan.summary()
     for run_id, error in blocked.items():
-        stated = "-4.0000 deg" if run_id.endswith("b-04.0") else "+4.0000 deg"
+        stated = "-4.0000 deg" if run_id.endswith("BE-040") else "+4.0000 deg"
         assert "SYMMETRY: MIRROR" in error, error
         assert stated in error, (run_id, error)
         assert "SYMMETRY: NONE" in error, (

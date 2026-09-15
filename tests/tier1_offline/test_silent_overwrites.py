@@ -60,7 +60,7 @@ def _provenance() -> OutputProvenance:
     """
     script = Script(version="26.120")
     return OutputProvenance(
-        run_id="overwrite/sim_1/a+00.0",
+        run_id="overwrite/sim_1/AL+000",
         campaign="overwrite",
         setup=helpers.solver_settings(script, velocity=30.0),
     )
@@ -232,6 +232,8 @@ def test_mach_and_advance_ratio_separate_two_rows(tmp_path):
         script.emit("CLOSE_FLIGHTSTREAM")
 
     def case(sim_id, mach, variables=None):
+        # 0.21.0: a variable reaches the name when the flight condition declares it.
+        order = ["MACH", "ALPHA", *(["ADVANCE_RATIO"] if variables else [])]
         return SimCase(
             sim_id=sim_id,
             aircraft="WB",
@@ -242,6 +244,7 @@ def test_mach_and_advance_ratio_separate_two_rows(tmp_path):
             recipe="steady",
             outputs=["{name}.txt"],
             variables=variables or {},
+            condition_order=order,
         )
 
     def names(*sims):
@@ -256,14 +259,14 @@ def test_mach_and_advance_ratio_separate_two_rows(tmp_path):
 
     two_mach = names(case("3207", 0.2), case("3208", 0.3))
     assert [status for status, _ in two_mach] == [PlanStatus.READY, PlanStatus.READY]
-    assert two_mach[0][1] == "POLAR-3207_M20AL+000BE+000.txt"
-    assert two_mach[1][1] == "POLAR-3208_M30AL+000BE+000.txt", "the Mach is in the name"
+    assert two_mach[0][1] == "P3207-M200AL+000.txt"
+    assert two_mach[1][1] == "P3208-M300AL+000.txt", "the Mach is in the name"
     two_ratios = names(
         case("3224", 0.2, {"ADVANCE_RATIO": "1.3"}), case("3225", 0.2, {"ADVANCE_RATIO": "1.7"})
     )
     assert [name for _, name in two_ratios] == [
-        "POLAR-3224_M20AL+000BE+000J+130.txt",
-        "POLAR-3225_M20AL+000BE+000J+170.txt",
+        "P3224-M200AL+000J+130.txt",
+        "P3225-M200AL+000J+170.txt",
     ], "the advance ratio is in the name"
     # The control: two points whose every rendered field is the same still
     # collide before anything runs (FR-33c), here a constant output name

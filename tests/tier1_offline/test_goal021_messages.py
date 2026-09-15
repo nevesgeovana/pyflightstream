@@ -62,8 +62,8 @@ def test_goal021_loads_message_a_submitted_only_manifest_raises_nothing_and_warn
 
 def test_goal021_loads_message_a_submitted_point_beside_a_finished_one_is_not_counted(tmp_path):
     workspace = CampaignWorkspace(tmp_path / "camp")
-    workspace.append_record(make_record(run_id="camp/sim_9001/a+00.0", status=RunStatus.SUBMITTED))
-    workspace.append_record(make_record(run_id="camp/sim_9001/a+02.0", status=RunStatus.CONVERGED))
+    workspace.append_record(make_record(run_id="camp/sim_9001/AL+000", status=RunStatus.SUBMITTED))
+    workspace.append_record(make_record(run_id="camp/sim_9001/AL+020", status=RunStatus.CONVERGED))
     with pytest.raises(LoadsNotFoundError) as raised:
         sweep_table(workspace, require_loads=True)
     message = str(raised.value)
@@ -75,17 +75,17 @@ def test_goal021_loads_message_a_submitted_point_beside_a_finished_one_is_not_co
 
 def test_goal021_loads_message_the_example_is_a_record_that_collected_something(tmp_path):
     workspace = CampaignWorkspace(tmp_path / "camp")
-    workspace.append_record(make_record(run_id="camp/sim_9001/a+00.0", outputs=[]))
+    workspace.append_record(make_record(run_id="camp/sim_9001/AL+000", outputs=[]))
     collected = collect_text(workspace, "9001", tmp_path, "notes_a2.txt", "not a loads table\n")
     workspace.append_record(
-        make_record(run_id="camp/sim_9001/a+02.0", point={"alpha": 2.0}, outputs=collected)
+        make_record(run_id="camp/sim_9001/AL+020", point={"alpha": 2.0}, outputs=collected)
     )
     with pytest.raises(LoadsNotFoundError) as raised:
         sweep_table(workspace, require_loads=True)
     message = str(raised.value)
     assert "[]" not in message, message
     assert message.count("for example") == 1, message
-    assert message.count("camp/sim_9001/a+02.0") == 1, (
+    assert message.count("camp/sim_9001/AL+020") == 1, (
         f"the example is not the record that collected something: {message}"
     )
 
@@ -129,10 +129,10 @@ def test_goal021_skip_line_a_rotor_naming_row_states_its_reason_once(tmp_path):
     write_campaign_products(workspace)
     skipped = _products_manifest(workspace)["skipped"]
     for reduction in ("per_blade", "phase_locked"):
-        said = skipped[f"probes/a-02.0_{reduction}.csv"]
+        said = skipped[f"probes/AL-020_{reduction}.csv"]
         assert said.count("names its rotors") == 1, said
         for rotor in ("LIFT_L1", "PUSHER"):
-            assert said.count(f"probes/a-02.0_{reduction}_{rotor}.csv") == 1, said
+            assert said.count(f"probes/AL-020_{reduction}_{rotor}.csv") == 1, said
         assert said.count("blade passage") == 1, said
 
 

@@ -62,13 +62,13 @@ HERE = Path(__file__).resolve().parent
 PRODUCTS = HERE / "post" / "matriz_rotate"
 
 #: The row that turns nothing: the propeller square to a uniform axial flow.
-CONTROL = "POLAR-9001_M10AL+000BE+000"
+CONTROL = "P9001-M100RE230AL+000"
 #: The rows that turn the mesh by +6 degrees about the hub's Y axis. One of
 #: them turns the flow the other way and is the null pair; the other turns it
 #: the same way and is the derangement. WHICH IS WHICH IS NOT WRITTEN HERE:
 #: it is what the measurement reports, because it is the solver's convention
 #: and not this module's opinion.
-TURNED = ("POLAR-9002_M10AL+060BE+000", "POLAR-9003_M10AL-060BE+000")
+TURNED = ("P9002-M100RE230AL+060", "P9003-M100RE230AL-060")
 
 #: How far the mesh turned, degrees, about the hub frame's Y axis. It is the
 #: ANGLE cell of rows 9002 and 9003 of matriz_rotate.fs.

@@ -23,7 +23,7 @@ import pyflightstream
 from pyflightstream.results import parse_loads, to_table
 from pyflightstream.results.tables import sweep_table
 from pyflightstream.run import LoadsAssessor
-from pyflightstream.workspace import CampaignWorkspace, RunStatus
+from pyflightstream.workspace import CampaignWorkspace, PointName, RunStatus
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -50,7 +50,7 @@ def _loads_text() -> str:
 def _record(collected: str) -> dict[str, object]:
     """One manifest record naming ``collected`` as its only output."""
     return {
-        "run_id": "camp/sim_9001/a+02.0",
+        "run_id": "camp/sim_9001/AL+020",
         "sim_id": "9001",
         "point": {"alpha": 2.0},
         "fs_version_requested": "26.120",
@@ -91,10 +91,10 @@ def test_a_simulation_collects_into_its_datapoint_and_creates_neither_older_fold
     assert not (sim / "raw").exists()
     produced = tmp_path / "loads.txt"
     produced.write_text("data", encoding="utf-8")
-    assert workspace.collect_outputs("9001", [produced], datapoint={"alpha": 2.0}) == [
-        "datapoints/DP-a+02.0/loads.txt"
+    assert workspace.collect_outputs("9001", [produced], datapoint=PointName("AL+020")) == [
+        "datapoints/DP-AL+020/loads.txt"
     ]
-    assert (sim / "datapoints" / "DP-a+02.0" / "loads.txt").is_file()
+    assert (sim / "datapoints" / "DP-AL+020" / "loads.txt").is_file()
     assert not (sim / "outputs").exists()
     assert not (sim / "raw").exists()
 
@@ -122,7 +122,7 @@ def test_the_assessor_judges_a_point_collected_under_any_of_the_three_folders(tm
     user's re-judged workspace.
     """
     verdicts = []
-    for folder in ("raw", "outputs", "datapoints/DP-a+02.0"):
+    for folder in ("raw", "outputs", "datapoints/DP-AL+020"):
         sim = tmp_path / folder.replace("/", "_")
         (sim / folder).mkdir(parents=True)
         (sim / folder / "loads.txt").write_text(_loads_text(), encoding="utf-8")
@@ -165,7 +165,7 @@ def test_a_mixed_layout_judges_the_point_from_its_own_folder_and_not_the_legacy_
     sim = tmp_path / "sim_9001"
     # The legacy shared folder, holding two OTHER points of the same row.
     (sim / "outputs").mkdir(parents=True)
-    for name, alpha in (("a+00.0.txt", "0.000"), ("a+02.0.txt", "2.000")):
+    for name, alpha in (("AL+000.txt", "0.000"), ("AL+020.txt", "2.000")):
         (sim / "outputs" / name).write_text(
             _loads_text().replace(
                 "Angle of attack (Deg)                       2.000",
@@ -174,7 +174,7 @@ def test_a_mixed_layout_judges_the_point_from_its_own_folder_and_not_the_legacy_
             encoding="utf-8",
         )
     # This point, re-run under 0.16.0 into its own folder.
-    own = sim / "datapoints" / "DP-a+04.0"
+    own = sim / "datapoints" / "DP-AL+040"
     own.mkdir(parents=True)
     (own / "loads.txt").write_text(
         _loads_text().replace(
@@ -218,12 +218,11 @@ def test_an_empty_datapoint_folder_is_this_points_refusal_and_not_a_fall_through
     verdict and hides the defect, and here the point at J=1.7 was
     recorded CONVERGED on the export of J=1.3, in silence.
     """
-    from pyflightstream.cases import SimCase, SweepAxis
-    from pyflightstream.workspace import datapoint_dir_name
+    from pyflightstream.cases import SimCase, SweepAxis, point_name
+    from pyflightstream.workspace import PointName, datapoint_dir_name
 
     sim = tmp_path / "sim_9001"
     point = {"alpha": 2.0, "advance_ratio": 1.7}
-    (sim / "datapoints" / datapoint_dir_name(point)).mkdir(parents=True)
     (sim / "outputs").mkdir(parents=True)
     (sim / "outputs" / "J+01.3.txt").write_text(_loads_text(), encoding="utf-8")
 
@@ -234,6 +233,9 @@ def test_an_empty_datapoint_folder_is_this_points_refusal_and_not_a_fall_through
         recipe="steady",
         sweep=SweepAxis(type="advance_ratio", values=[1.3, 1.7]),
     )
+    (sim / "datapoints" / datapoint_dir_name(PointName(point_name(case, point)))).mkdir(
+        parents=True
+    )
     case.point = point
     verdict = LoadsAssessor()(case, None, sim)
     assert verdict.status is RunStatus.FAILED_INCOMPLETE_OUTPUT, (
@@ -242,23 +244,27 @@ def test_an_empty_datapoint_folder_is_this_points_refusal_and_not_a_fall_through
     )
 
 
-def test_a_point_with_no_axis_is_refused_before_anything_is_moved(tmp_path):
-    """The collector takes the POINT, so this is the refusal it can earn.
+def test_a_point_with_no_name_is_refused_before_anything_is_moved(tmp_path):
+    """The collector takes a CHECKED name, so a bare mapping or string is refused (0.21.0).
 
-    A datapoint with no coordinates has no stable folder, and a fallback
-    name would give two different points one folder, which is the
-    collision this layout exists to remove. The refusal is asserted on
-    the operative content of its message rather than on its type alone.
+    A datapoint with no name has no stable folder, and a fallback name would
+    give two different points one folder, which is the collision this layout
+    exists to remove. The refusal is asserted on the operative content of its
+    message rather than on its type alone.
     """
     import pytest
 
-    from pyflightstream.cases import CampaignConfigError
+    from pyflightstream.workspace import NamingTemplateError
 
     workspace = CampaignWorkspace(tmp_path / "camp")
     produced = tmp_path / "loads.txt"
     produced.write_text("data", encoding="utf-8")
-    with pytest.raises(CampaignConfigError, match="no known axis"):
+    with pytest.raises(NamingTemplateError, match="takes a PointName"):
         workspace.collect_outputs("9001", [produced], datapoint={})
+    with pytest.raises(NamingTemplateError, match="takes a PointName"):
+        workspace.collect_outputs("9001", [produced], datapoint="AL+000")
+    with pytest.raises(NamingTemplateError, match="folder prefix"):
+        PointName("DP-AL+000")
     assert produced.is_file(), "a refusal must leave the source exactly where it was"
 
 

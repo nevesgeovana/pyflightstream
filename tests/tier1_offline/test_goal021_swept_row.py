@@ -24,7 +24,7 @@ from pyflightstream.exceptions import PyflightstreamWarning
 from pyflightstream.run import CampaignErrors, SubmittingExecutor
 from pyflightstream.run.collect import collect_once
 from pyflightstream.run.matrix import run_matrix
-from pyflightstream.workspace import RunRecord, RunStatus
+from pyflightstream.workspace import PointName, RunRecord, RunStatus
 from pyflightstream.workspace.inputs import read_hpc_profile
 from tests.tier1_offline.test_goal021_inputs_absolute import BUILD, _rotor_row, _workspace
 from tests.tier1_offline.test_matrix_run import (
@@ -36,7 +36,7 @@ from tests.tier1_offline.test_matrix_run import (
     converged,
 )
 
-TAGS = ("a+00.0", "a+02.0", "a+04.0")
+TAGS = ("V0300RE120AL+000", "V0300RE120AL+020", "V0300RE120AL+040")
 
 
 def _submitting(workspace, build=BUILD, text=HPC_PROFILE):
@@ -139,10 +139,10 @@ def test_goal021_swept_row_collect_still_refuses_another_points_folder(tmp_path)
 
     workspace, records = _submitted_row(tmp_path)
     sim = workspace.sim_dir("7001")
-    sibling = sim / "datapoints" / "DP-a+02.0" / "stray.txt"
-    sibling.write_text("not a+00.0's", encoding="utf-8")
+    sibling = sim / "datapoints" / "DP-V0300RE120AL+020" / "stray.txt"
+    sibling.write_text("not V0300RE120AL+000's", encoding="utf-8")
     with pytest.raises(WorkspaceError):
-        workspace.collect_outputs("7001", [sibling], datapoint={"alpha": 0.0})
+        workspace.collect_outputs("7001", [sibling], datapoint=PointName("V0300RE120AL+000"))
     assert sibling.is_file(), "a refused collection moved the file anyway"
 
 
@@ -193,7 +193,7 @@ def test_goal021_swept_row_the_steady_job_still_runs_in_the_simulation_folder(tm
     assert Path(records[0].submission["descriptor"]).parent == workspace.sim_dir("5001")
 
 
-def _stopped(workspace, tag="a+00.0"):
+def _stopped(workspace, tag="V0300RE120AL+000"):
     folder = workspace.sim_dir("7001") / "datapoints" / f"DP-{tag}"
     folder.mkdir(parents=True, exist_ok=True)
     (folder / f"{tag}.fsm").write_text("a stopped march", encoding="utf-8")
@@ -225,7 +225,9 @@ def test_goal021_swept_row_restart_runs_under_the_campaign_that_recorded_the_sto
     _stopped(workspace)
     records = _run(workspace, _restart_row(tmp_path), _submitting(workspace))
     assert len(records) == 1, [(r.run_id, r.status, r.error) for r in records]
-    assert "/r" in records[0].run_id and records[0].run_id.endswith("/a+00.0"), records[0].run_id
+    assert "/r" in records[0].run_id and records[0].run_id.endswith("/V0300RE120AL+000"), records[
+        0
+    ].run_id
     assert records[0].status is RunStatus.SUBMITTED, (records[0].status, records[0].error)
 
 
@@ -303,14 +305,14 @@ def test_goal021_swept_row_plan_reports_a_failed_continuation_as_blocked(tmp_pat
 def test_goal021_swept_row_a_point_is_not_submitted_over_its_own_leftover_output(tmp_path):
     """The interface lens: in-place collection is safe only if no leftover can be claimed."""
     workspace = _workspace(tmp_path)
-    folder = workspace.sim_dir("7001") / "datapoints" / "DP-a+00.0"
+    folder = workspace.sim_dir("7001") / "datapoints" / "DP-V0300RE120AL+000"
     folder.mkdir(parents=True, exist_ok=True)
-    (folder / "a+00.0.txt").write_text("an earlier run's evidence", encoding="utf-8")
+    (folder / "V0300RE120AL+000.txt").write_text("an earlier run's evidence", encoding="utf-8")
     with pytest.raises(CampaignErrors):
         _run(workspace, _rotor_row(tmp_path, sweep="0.0"), _submitting(workspace))
     record = workspace.read_manifest()[-1]
     assert record.status is RunStatus.FAILED_INCOMPLETE_OUTPUT, record.status
-    assert record.error.count("a+00.0.txt") == 1, record.error
+    assert record.error.count("V0300RE120AL+000.txt") == 1, record.error
     assert not (folder / "submit.yaml").exists(), "the point was handed to the scheduler anyway"
 
 
@@ -329,7 +331,7 @@ def test_goal021_swept_row_a_working_dir_outside_the_datapoints_is_refused(tmp_p
 def test_goal021_swept_row_a_queued_point_is_not_submitted_again_under_another_campaign(tmp_path):
     """The independent review: the folder carries no campaign name, so the job was clobbered."""
     workspace, records = _submitted_row(tmp_path)
-    folder = workspace.sim_dir("7001") / "datapoints" / "DP-a+00.0"
+    folder = workspace.sim_dir("7001") / "datapoints" / "DP-V0300RE120AL+000"
     before = {p.name: p.read_bytes() for p in folder.rglob("*") if p.is_file()}
     row = _rotor_row(tmp_path, sweep="0.0", extra=" / EXPORT_UNSTEADY_AFTER_REV: 1")
     with pytest.raises(CampaignErrors):
@@ -337,20 +339,28 @@ def test_goal021_swept_row_a_queued_point_is_not_submitted_again_under_another_c
     refused = workspace.read_manifest()[-1]
     assert refused.run_id.startswith("another/"), refused.run_id
     assert refused.status is RunStatus.FAILED_SCRIPT, refused.status
-    assert refused.error.count("is already in a scheduler's queue as 'rotor/sim_7001/a+00.0'") == 1
+    assert (
+        refused.error.count(
+            "is already in a scheduler's queue as 'rotor/sim_7001/V0300RE120AL+000'"
+        )
+        == 1
+    )
     after = {p.name: p.read_bytes() for p in folder.rglob("*") if p.is_file()}
     assert after == before, "the queued job's files were rewritten by the refused point"
 
 
 def test_goal021_swept_row_an_output_in_a_subfolder_of_the_point_is_collected(tmp_path):
     workspace, _ = _submitted_row(tmp_path)
-    folder = workspace.sim_dir("7001") / "datapoints" / "DP-a+00.0"
+    folder = workspace.sim_dir("7001") / "datapoints" / "DP-V0300RE120AL+000"
     (folder / "out").mkdir()
     (folder / "out" / "loads.txt").write_text("written in a subfolder", encoding="utf-8")
     collected = workspace.collect_outputs(
-        "7001", [folder / "out" / "loads.txt"], datapoint={"alpha": 0.0}, ran_in_datapoint=True
+        "7001",
+        [folder / "out" / "loads.txt"],
+        datapoint=PointName("V0300RE120AL+000"),
+        ran_in_datapoint=True,
     )
-    assert collected == ["datapoints/DP-a+00.0/loads.txt"], collected
+    assert collected == ["datapoints/DP-V0300RE120AL+000/loads.txt"], collected
     assert (folder / "loads.txt").read_text(encoding="utf-8") == "written in a subfolder"
 
 
@@ -358,12 +368,12 @@ def test_goal021_swept_row_an_archived_file_is_never_collected_in_place(tmp_path
     from pyflightstream.workspace import WorkspaceError
 
     workspace, _ = _submitted_row(tmp_path)
-    folder = workspace.sim_dir("7001") / "datapoints" / "DP-a+00.0"
+    folder = workspace.sim_dir("7001") / "datapoints" / "DP-V0300RE120AL+000"
     archived = folder / "archive" / "20260914-100000" / "loads.txt"
     archived.parent.mkdir(parents=True)
     archived.write_text("an earlier run's evidence", encoding="utf-8")
     with pytest.raises(WorkspaceError):
         workspace.collect_outputs(
-            "7001", [archived], datapoint={"alpha": 0.0}, ran_in_datapoint=True
+            "7001", [archived], datapoint=PointName("V0300RE120AL+000"), ran_in_datapoint=True
         )
     assert archived.is_file()

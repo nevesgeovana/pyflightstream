@@ -83,6 +83,11 @@ def _loads(lift: str) -> str:
     return text.replace("+0.4308000", lift)
 
 
+def _name(advance_ratio: float) -> str:
+    """The 0.21.0 point name of one point of the sweep."""
+    return f"M150AL+020BE+000J{round(advance_ratio * 100):+04d}"
+
+
 def _point_name(advance_ratio: float) -> str:
     """The author's own point convention, which the scripts already carry."""
     return f"POLAR-{SIM}_M15AL+020BE+000J{round(advance_ratio * 100):+04d}"
@@ -108,7 +113,9 @@ def _workspace(tmp_path: Path, *, plots: bool = False) -> CampaignWorkspace:
             outputs.append(f"outputs/{stem}_plots.txt")
         workspace.append_record(
             RunRecord(
-                run_id=f"camp/sim_{SIM}/a+02.0_b+00.0_j{advance_ratio:+05.1f}",
+                run_id=f"camp/sim_{SIM}/{_name(advance_ratio)}",
+                point_name=_name(advance_ratio),
+                sweep_name="M150AL+020BE+000J+sweep",
                 sim_id=SIM,
                 point={"alpha": 2.0, "beta": 0.0, "advance_ratio": advance_ratio},
                 matrix_stem=MATRIX,
@@ -279,7 +286,7 @@ def test_two_records_rendering_one_point_name_do_not_overwrite_each_other(tmp_pa
     (collected / f"{stem}.txt").write_text(_loads("+0.4308000"), encoding="utf-8")
     twin = workspace.read_manifest()[0].model_copy(
         update={
-            "run_id": "camp/sim_0002/a+02.0_b+00.0_j+01.0",
+            "run_id": "camp/sim_0002/M150AL+020BE+000J+100",
             "sim_id": "0002",
             "script_path": f"scripts/{stem}.txt",
             "outputs": [f"outputs/{stem}.txt"],
@@ -303,14 +310,14 @@ def test_two_records_rendering_one_point_name_do_not_overwrite_each_other(tmp_pa
     # keep the convention. Falling back for everything would pass the
     # assertion above and undo FR-86 entirely.
     assert index == {
-        "camp/sim_0001/a+02.0_b+00.0_j+01.0": (
-            "provenance/camp_sim_0001_a+02.0_b+00.0_j+01.0.prov.json"
+        "camp/sim_0001/M150AL+020BE+000J+100": (
+            "provenance/camp_sim_0001_M150AL+020BE+000J+100.prov.json"
         ),
-        "camp/sim_0002/a+02.0_b+00.0_j+01.0": (
-            "provenance/camp_sim_0002_a+02.0_b+00.0_j+01.0.prov.json"
+        "camp/sim_0002/M150AL+020BE+000J+100": (
+            "provenance/camp_sim_0002_M150AL+020BE+000J+100.prov.json"
         ),
-        "camp/sim_0001/a+02.0_b+00.0_j+01.5": f"provenance/{_point_name(1.5)}.prov.json",
-        "camp/sim_0001/a+02.0_b+00.0_j+02.0": f"provenance/{_point_name(2.0)}.prov.json",
+        "camp/sim_0001/M150AL+020BE+000J+150": f"provenance/{_point_name(1.5)}.prov.json",
+        "camp/sim_0001/M150AL+020BE+000J+200": f"provenance/{_point_name(2.0)}.prov.json",
     }, f"the fallback did not stop at the contested point: {index}"
 
 
@@ -330,11 +337,11 @@ def test_the_polar_table_takes_the_standard_name_with_sweep_in_the_swept_field(t
     out = _out(workspace)
     written = sorted(path.name for path in (out / "polars").iterdir())
     assert written == [
-        "POLAR-0001_M15AL+020BE+000J+sweep_g01.csv",
-        "POLAR-0001_M15AL+020BE+000J+sweep_g01.dat",
+        "P0001-M150AL+020BE+000J+sweep_g01.csv",
+        "P0001-M150AL+020BE+000J+sweep_g01.dat",
         # FR-89: the superfile of the same polar and group, told apart by
         # the one word of the name that differs.
-        "SUPER-0001_M15AL+020BE+000J+sweep_g01.csv",
+        "SUPER-0001-M150AL+020BE+000J+sweep_g01.csv",
     ], f"the polar tables are named {written}"
 
 
@@ -409,7 +416,7 @@ def _with_flow_field_samples(tmp_path: Path) -> CampaignWorkspace:
     )
     steady = workspace.read_manifest()[0].model_copy(
         update={
-            "run_id": "camp/sim_0002/a+02.0",
+            "run_id": "camp/sim_0002/AL+020",
             "sim_id": "0002",
             "point": {"alpha": 2.0, "beta": 0.0},
             "script_path": f"scripts/{stem}.txt",

@@ -111,7 +111,6 @@ from pyflightstream.post._tables import (
 from pyflightstream.post.series import write_point_series
 from pyflightstream.post.superfile import (
     SuperfileDraft,
-    declared_sweep,
     matrix_rows,
     measure_sections,
     plots_last_row,
@@ -133,7 +132,7 @@ from pyflightstream.results import (
     parse_unsteady_plots,
 )
 from pyflightstream.workspace import RunStatus
-from pyflightstream.workspace.naming import ARCHIVE_DIR, ARCHIVE_STAMP, polar_name
+from pyflightstream.workspace.naming import ARCHIVE_DIR, ARCHIVE_STAMP, sweep_file_stem
 
 if TYPE_CHECKING:
     from pyflightstream.cases.matrix import MatrixRow
@@ -465,29 +464,19 @@ def swept_axes(points: Sequence[Mapping[str, float]]) -> tuple[str, ...]:
 def swept_polar_file_name(
     sim: str,
     *,
-    mach: float,
+    name: str,
     group: str | int,
-    point: Mapping[str, float],
-    swept: Sequence[str] = (),
     suffix: str = ".csv",
 ) -> str:
-    """``<point convention with 'sweep' in the swept field>_g<group:02d>.csv`` (FR-85).
+    """``P<sim>-<name>_g<group:02d>.csv`` (FR-85, 0.21.0).
 
-    The name the script and every export of the same point already carry,
-    with the swept variable's field written as the literal word instead of
-    one of its values: ``POLAR-0001_M15AL+000BE+000J+sweep_g01.csv``. The
-    ``.dat`` of the custom format takes the same stem, which is what
-    ``suffix`` is for.
+    ``name`` is the recorded sweep name, each swept field written
+    ``<code>+sweep``, for a table over a sweep
+    (``P0001-M150AL+000BE+000J+sweep_g01.csv``), and the recorded point name for
+    a case whose sweep resolved to one point. The ``.dat`` of the custom format
+    takes the same stem, which is what ``suffix`` is for.
     """
-    stem = polar_name(
-        sim,
-        mach,
-        float(point.get("alpha", 0.0) or 0.0),
-        float(point.get("beta", 0.0) or 0.0),
-        None if point.get("advance_ratio") is None else float(point["advance_ratio"]),
-        swept=swept,
-    )
-    return f"{stem}_g{int(group):02d}{suffix}"
+    return f"{sweep_file_stem(sim, name)}_g{int(group):02d}{suffix}"
 
 
 def read_csv_table(path: str | Path) -> tuple[tuple[str, ...], list[dict[str, str]]]:
@@ -1883,32 +1872,29 @@ def _sim_products(
         # it has.
         stated = [point.point or {} for point in points]
         swept = swept_axes(stated)
-        fixed: dict[str, float] = {}
-        for axis in SWEEP_AXES:
-            values = [point[axis] for point in stated if point.get(axis) is not None]
-            if values and axis not in swept:
-                fixed[axis] = float(values[0])
+        # 0.21.0: THE NAMES ARE THE ONES THE RUN RECORDED. A record written before
+        # 0.21.0 carries none, and naming its tables by a recomputed name would
+        # set them beside files of another scheme.
+        recorded = [record for record in records if record.outputs]
+        if any(record.sweep_name is None or record.point_name is None for record in recorded):
+            raise ProductError(
+                f"simulation {sim_id!r} holds records written before 0.21.0, which carry no "
+                "point name; run `pyfs-matrix rename` once, naming the workspace root as workspace "
+                "(CLI: --workspace), then post"
+            )
+        table_name = str(recorded[0].sweep_name) if swept else str(recorded[0].point_name)
+        # FR-89: the SUPERFILE is about the sweep the ROW DECLARES, which is the one
+        # place its name differs from the polar table's beside it: a row declaring
+        # a one-value sweep still names it `+sweep`. With no matrix row in reach it
+        # follows the table.
+        super_name = str(recorded[0].sweep_name) if matrix_row is not None or swept else table_name
         ratios = [(point.point or {}).get("advance_ratio") for point in points]
-        # FR-89: the SUPERFILE is named for the axis the ROW DECLARES it
-        # sweeps, which is the one place its name differs from the polar
-        # table's beside it; `declared_sweep` carries the measurement that
-        # decided it. The fields it holds fixed follow from that axis and
-        # not from the measured one, or a one-point sweep would be named
-        # for both at once.
-        super_swept = declared_sweep(matrix_row, swept)
-        super_fixed: dict[str, float] = {}
-        for axis in SWEEP_AXES:
-            values = [point[axis] for point in stated if point.get(axis) is not None]
-            if values and axis not in super_swept:
-                super_fixed[axis] = float(values[0])
         for group, families in pproc.groups.items():
             rows = _polar_rows(
                 points, list(families), mach=mach, reference=reference, aliases=first.aliases
             )
             target = _target(
-                out
-                / POLARS_DIR
-                / swept_polar_file_name(sim_id, mach=mach, group=group, point=fixed, swept=swept)
+                out / POLARS_DIR / swept_polar_file_name(sim_id, name=table_name, group=group)
             )
             # ONE ASSEMBLY. The rows the polar table is written from are the
             # rows the superfile carries, so they are built once here and
@@ -1924,11 +1910,7 @@ def _sim_products(
             write_csv_table(target, POLAR_COLUMNS, full)
             if drafts is not None:
                 super_rows[str(group)] = (
-                    out
-                    / POLARS_DIR
-                    / super_file_name(
-                        sim_id, mach=mach, group=group, point=super_fixed, swept=super_swept
-                    ),
+                    out / POLARS_DIR / super_file_name(sim_id, sweep=super_name, group=group),
                     full,
                 )
             written.append(target)
@@ -1939,9 +1921,7 @@ def _sim_products(
                 target = _target(
                     out
                     / POLARS_DIR
-                    / swept_polar_file_name(
-                        sim_id, mach=mach, group=group, point=fixed, swept=swept, suffix=".dat"
-                    )
+                    / swept_polar_file_name(sim_id, name=table_name, group=group, suffix=".dat")
                 )
                 write_custom_polar_format(
                     target,

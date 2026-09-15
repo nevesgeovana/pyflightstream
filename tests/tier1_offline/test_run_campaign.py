@@ -135,16 +135,16 @@ def test_dry_run_records_every_point_end_to_end(tmp_path):
         recipes={"steady": steady_recipe},
     )
     assert [record.run_id for record in records] == [
-        "camp/sim_9001/a+00.0",
-        "camp/sim_9001/a+02.0",
+        "camp/sim_9001/AL+000",
+        "camp/sim_9001/AL+020",
     ]
     assert all(record.status is RunStatus.CONVERGED for record in records)
     assert all(record.fs_version_requested == "26.120" for record in records)
     assert records[0].iterations == 120
     # FR-92: each point's evidence sits in that point's own folder, and the
     # folder name is the point tag that also ends the run_id above.
-    assert records[0].outputs == ["datapoints/DP-a+00.0/loads_a+00.0.txt"]
-    assert records[1].outputs == ["datapoints/DP-a+02.0/loads_a+02.0.txt"]
+    assert records[0].outputs == ["datapoints/DP-AL+000/loads_AL+000.txt"]
+    assert records[1].outputs == ["datapoints/DP-AL+020/loads_AL+020.txt"]
     assert "wing.fsm" in records[0].inputs_sha256
     assert not records[0].raw_flag
     # The solver-setup snapshot of the built script rode into the manifest.
@@ -163,9 +163,9 @@ def test_dry_run_records_every_point_end_to_end(tmp_path):
     reloaded = workspace.read_manifest()
     assert reloaded[0].solver_setup == setup
     sim = tmp_path / "camp" / "sims" / "sim_9001"
-    assert (sim / "scripts" / "a+02.0.txt").is_file()
-    assert "SOLVER_SET_AOA 2.0" in (sim / "scripts" / "a+02.0.txt").read_text(encoding="utf-8")
-    assert "inputs" in (sim / "scripts" / "a+00.0.txt").read_text(encoding="utf-8")
+    assert (sim / "scripts" / "AL+020.txt").is_file()
+    assert "SOLVER_SET_AOA 2.0" in (sim / "scripts" / "AL+020.txt").read_text(encoding="utf-8")
+    assert "inputs" in (sim / "scripts" / "AL+000.txt").read_text(encoding="utf-8")
     assert len(workspace.read_manifest()) == 2
 
 
@@ -249,7 +249,7 @@ def test_loads_assessor_closes_the_convergence_judgment_end_to_end(tmp_path):
     workspace = CampaignWorkspace(tmp_path / "camp")
     records = run_campaign(
         campaign,
-        StubSolver(copies_fixture_as("loads_steady_26.120.txt", "loads_a+02.0.txt")),
+        StubSolver(copies_fixture_as("loads_steady_26.120.txt", "loads_AL+020.txt")),
         workspace,
         assess=LoadsAssessor(requested_version=campaign.fs_version),
         recipes={"steady": steady_recipe},
@@ -352,7 +352,7 @@ def test_resume_skips_recorded_points_and_runs_only_the_new_ones(tmp_path):
         recipes={"steady": steady_recipe},
         resume=True,
     )
-    assert [record.run_id for record in records] == ["camp/sim_9001/a+04.0"]
+    assert [record.run_id for record in records] == ["camp/sim_9001/AL+040"]
     assert len(workspace.read_manifest()) == 3
 
 
@@ -385,7 +385,7 @@ def test_resume_honors_a_synthetic_manifest_record(tmp_path):
     workspace = CampaignWorkspace(tmp_path / "camp")
     workspace.append_record(
         RunRecord(
-            run_id="camp/sim_9001/a+00.0",
+            run_id="camp/sim_9001/AL+000",
             sim_id="9001",
             point={"alpha": 0.0},
             fs_version_requested="26.120",
@@ -403,7 +403,7 @@ def test_resume_honors_a_synthetic_manifest_record(tmp_path):
         recipes={"steady": steady_recipe},
         resume=True,
     )
-    assert [record.run_id for record in records] == ["camp/sim_9001/a+02.0"]
+    assert [record.run_id for record in records] == ["camp/sim_9001/AL+020"]
 
 
 # --- naming template wiring: output names only, identity untouched ----------
@@ -427,7 +427,7 @@ def test_naming_template_names_scripts_and_rendered_outputs(tmp_path):
         tmp_path / "camp",
         naming=NamingTemplate(point_name="{campaign}_{sim}_a{alpha}"),
     )
-    writes_rendered = "import pathlib; pathlib.Path('loads_a+02.0.txt').write_text('LOADS')"
+    writes_rendered = "import pathlib; pathlib.Path('loads_AL+020.txt').write_text('LOADS')"
     records = run_campaign(
         campaign,
         StubSolver(writes_rendered),
@@ -437,12 +437,12 @@ def test_naming_template_names_scripts_and_rendered_outputs(tmp_path):
     )
     record = records[0]
     # Identity is untouched by the template: same run_id scheme as ever.
-    assert record.run_id == "camp/sim_9001/a+02.0"
-    assert record.outputs == ["datapoints/DP-a+02.0/loads_a+02.0.txt"]
+    assert record.run_id == "camp/sim_9001/AL+020"
+    assert record.outputs == ["datapoints/DP-AL+020/loads_AL+020.txt"]
     sim = tmp_path / "camp" / "sims" / "sim_9001"
     script_text = (sim / "scripts" / "camp_9001_a2.txt").read_text(encoding="utf-8")
-    assert "loads_a+02.0.txt" in script_text  # the recipe saw the rendered name
-    assert (sim / "datapoints" / "DP-a+02.0" / "loads_a+02.0.txt").is_file()
+    assert "loads_AL+020.txt" in script_text  # the recipe saw the rendered name
+    assert (sim / "datapoints" / "DP-AL+020" / "loads_AL+020.txt").is_file()
 
 
 # --- plan_campaign: pre-flight without execution ----------------------------
@@ -483,9 +483,9 @@ def test_plan_marks_ready_and_already_recorded_points(tmp_path):
     grown = make_campaign(tmp_path, alphas=(0.0, 2.0))
     plan = plan_campaign(grown, workspace, recipes={"steady": steady_recipe})
     by_run_id = {entry.run_id: entry for entry in plan.points}
-    assert by_run_id["camp/sim_9001/a+00.0"].status is PlanStatus.ALREADY_RECORDED
-    assert by_run_id["camp/sim_9001/a+02.0"].status is PlanStatus.READY
-    assert by_run_id["camp/sim_9001/a+02.0"].script_name == "a+02.0.txt"
+    assert by_run_id["camp/sim_9001/AL+000"].status is PlanStatus.ALREADY_RECORDED
+    assert by_run_id["camp/sim_9001/AL+020"].status is PlanStatus.READY
+    assert by_run_id["camp/sim_9001/AL+020"].script_name == "AL+020.txt"
     # The plan summary lands next to the manifest, as a report only.
     assert plan.plan_file == workspace.root / "plan.json"
     payload = json.loads(plan.plan_file.read_text(encoding="utf-8"))
@@ -734,7 +734,7 @@ def test_the_assessor_says_which_named_file_is_missing(tmp_path):
         )
     record = workspace.read_manifest()[0]
     assert "no collected output named 'not_exported.txt'" in record.error
-    assert "loads_a+00.0.txt" in record.error  # what was collected
+    assert "loads_AL+000.txt" in record.error  # what was collected
 
 
 # PYFS-004, the REV-002 blocker reproduced at ecc212e. The review published
@@ -868,8 +868,8 @@ def test_a_partial_resume_runs_the_new_point_when_the_input_is_unchanged(tmp_pat
     )
     assert len(resumed) == 1, "only the new point should run"
     assert [record.run_id for record in workspace.read_manifest()] == [
-        "camp/sim_9001/a+00.0",
-        "camp/sim_9001/a+02.0",
+        "camp/sim_9001/AL+000",
+        "camp/sim_9001/AL+020",
     ]
 
 
@@ -1211,7 +1211,7 @@ def test_a_file_that_was_already_there_is_not_collected_as_this_point(tmp_path):
     """The finding, and the reason it is worse than it sounds.
 
     The solver writes nothing at all in this test. Before the fix the point
-    was published CONVERGED, its manifest record named `raw/loads_a+00.0.txt`
+    was published CONVERGED, its manifest record named `raw/loads_AL+000.txt`
     as its evidence, and that file held whatever had been sitting in the
     folder. Nothing distinguished the record from a real one.
 
@@ -1221,7 +1221,7 @@ def test_a_file_that_was_already_there_is_not_collected_as_this_point(tmp_path):
     campaign = make_campaign(tmp_path, alphas=(0.0,))
     workspace = CampaignWorkspace(tmp_path / "camp")
     sim_dir = workspace.create_sim("9001")
-    (sim_dir / "loads_a+00.0.txt").write_text("LEFT BEHIND BY SOMETHING ELSE", encoding="utf-8")
+    (sim_dir / "loads_AL+000.txt").write_text("LEFT BEHIND BY SOMETHING ELSE", encoding="utf-8")
 
     with pytest.raises(CampaignErrors):
         run_campaign(
@@ -1234,10 +1234,10 @@ def test_a_file_that_was_already_there_is_not_collected_as_this_point(tmp_path):
     record = workspace.read_manifest()[0]
     assert record.status is RunStatus.FAILED_INCOMPLETE_OUTPUT
     assert "already exist" in record.error
-    assert "loads_a+00.0.txt" in record.error
+    assert "loads_AL+000.txt" in record.error
     assert record.outputs == []
     # The leftover is left exactly where it was: a refusal moves nothing.
-    assert (sim_dir / "loads_a+00.0.txt").read_text(encoding="utf-8") == (
+    assert (sim_dir / "loads_AL+000.txt").read_text(encoding="utf-8") == (
         "LEFT BEHIND BY SOMETHING ELSE"
     )
     # And the script is still recorded, so the refused point says what it
@@ -1261,7 +1261,7 @@ def test_an_ordinary_point_is_unaffected_by_the_stale_output_check(tmp_path):
         recipes={"steady": steady_recipe},
     )
     assert all(record.status is RunStatus.CONVERGED for record in records)
-    assert records[0].outputs == ["datapoints/DP-a+00.0/loads_a+00.0.txt"]
+    assert records[0].outputs == ["datapoints/DP-AL+000/loads_AL+000.txt"]
 
 
 def test_the_manifest_records_a_hash_per_collected_output(tmp_path):
@@ -1421,7 +1421,7 @@ def test_a_recorded_run_reconstructs_from_the_manifest_alone(tmp_path):
         record.recipe_sha256
         == hashlib.sha256(inspect.getsource(steady_recipe).encode("utf-8")).hexdigest()
     )
-    assert record.script_path == "scripts/a+00.0.txt"
+    assert record.script_path == "scripts/AL+000.txt"
     assert record.fs_exe == sys.executable
     assert record.fs_exe_sha256
 
@@ -1434,9 +1434,9 @@ def test_a_recorded_run_reconstructs_from_the_manifest_alone(tmp_path):
     assert "EXPORT_SOLVER_ANALYSIS_SPREADSHEET" in rebuilt.script_text
     assert rebuilt.faithful, rebuilt.verified
     # Everything the record hashed is checked, not just the script.
-    assert "scripts/a+00.0.txt" in rebuilt.verified
+    assert "scripts/AL+000.txt" in rebuilt.verified
     assert "inputs/wing.fsm" in rebuilt.verified
-    assert "datapoints/DP-a+00.0/loads_a+00.0.txt" in rebuilt.verified
+    assert "datapoints/DP-AL+000/loads_AL+000.txt" in rebuilt.verified
 
 
 def test_reconstruction_says_so_when_an_artifact_changed(tmp_path):
@@ -1553,10 +1553,10 @@ def test_a_run_can_be_reconstructed_by_its_run_id(tmp_path):
         assess=converged,
         recipes={"steady": steady_recipe},
     )
-    rebuilt = reconstruct("camp/sim_9001/a+00.0", workspace=workspace)
+    rebuilt = reconstruct("camp/sim_9001/AL+000", workspace=workspace)
     assert rebuilt.faithful
-    with pytest.raises(WorkspaceError, match=r"no run 'camp/sim_9001/a\+99.9'"):
-        reconstruct("camp/sim_9001/a+99.9", workspace=workspace)
+    with pytest.raises(WorkspaceError, match=r"no run 'camp/sim_9001/AL\+999'"):
+        reconstruct("camp/sim_9001/AL+999", workspace=workspace)
 
 
 def test_the_plan_reports_a_waived_command_before_any_solver_time(tmp_path):
@@ -1705,7 +1705,7 @@ def test_a_wrong_point_export_never_reaches_the_manifest_as_converged(tmp_path):
     with pytest.raises(CampaignErrors, match="different operating point"):
         run_campaign(
             campaign,
-            StubSolver(copies_fixture_as("loads_steady_26.120.txt", "loads_a+00.0.txt")),
+            StubSolver(copies_fixture_as("loads_steady_26.120.txt", "loads_AL+000.txt")),
             workspace,
             assess=LoadsAssessor(requested_version=campaign.fs_version),
             recipes={"steady": steady_recipe},
@@ -1729,7 +1729,7 @@ def test_a_wrong_point_export_never_reaches_the_manifest_as_converged(tmp_path):
 def _legacy_row() -> dict:
     """A minimal historical row: no manifest_schema, no later fields."""
     return {
-        "run_id": "camp/sim_0001/a+00.0",
+        "run_id": "camp/sim_0001/AL+000",
         "sim_id": "0001",
         "point": {"alpha": 0.0},
         "fs_version_requested": "26.120",
@@ -1767,7 +1767,7 @@ def test_appending_a_run_leaves_the_older_row_exactly_as_written(tmp_path):
     current schema and twenty-odd defaulted fields."""
     workspace = _workspace_with_legacy_row(tmp_path)
     new = RunRecord(
-        run_id="camp/sim_0001/a+02.0",
+        run_id="camp/sim_0001/AL+020",
         sim_id="0001",
         point={"alpha": 2.0},
         fs_version_requested="26.120",
@@ -1808,7 +1808,7 @@ def test_reconstruction_refuses_a_row_that_predates_the_schema_field(tmp_path):
     the current layout."""
     workspace = _workspace_with_legacy_row(tmp_path)
     with pytest.raises(WorkspaceError, match="carries no manifest schema"):
-        reconstruct("camp/sim_0001/a+00.0", workspace=workspace)
+        reconstruct("camp/sim_0001/AL+000", workspace=workspace)
 
 
 # --- a campaign whose cases run on two solver builds --------------------
@@ -2820,7 +2820,7 @@ def test_a_completed_sweep_leaves_its_csv_beside_its_runs_unasked(tmp_path):
         "state PFS-2014.03 exists to end"
     )
     table = pd.read_csv(target)
-    assert list(table["run_id"]) == ["camp/sim_9001/a+02.0", "camp/sim_9002/a+00.0"], (
+    assert list(table["run_id"]) == ["camp/sim_9001/AL+020", "camp/sim_9002/AL+000"], (
         "the table must carry one line per point, in manifest order"
     )
     # The integrated forces, read back off the two fixtures' Total rows.
@@ -2894,7 +2894,7 @@ def test_a_campaign_whose_every_point_failed_still_leaves_its_table(tmp_path):
             recipes={"steady": steady_recipe},
         )
     table = pd.read_csv(sweep_csv(tmp_path))
-    assert list(table["run_id"]) == ["camp/sim_9001/a+00.0", "camp/sim_9001/a+02.0"]
+    assert list(table["run_id"]) == ["camp/sim_9001/AL+000", "camp/sim_9001/AL+020"]
     assert set(table["status"]) == {"FAILED_INCOMPLETE_OUTPUT"}
     # Nothing was measured, so nothing is claimed about a reduction.
     assert set(table["reduction"]) == {"unknown"}
@@ -2927,7 +2927,7 @@ def test_a_sweep_whose_exports_do_not_read_as_loads_still_leaves_its_rows(tmp_pa
             recipes={"steady": steady_recipe},
         )
     table = pd.read_csv(sweep_csv(tmp_path))
-    assert list(table["run_id"]) == ["camp/sim_9001/a+00.0", "camp/sim_9001/a+02.0"]
+    assert list(table["run_id"]) == ["camp/sim_9001/AL+000", "camp/sim_9001/AL+020"]
     assert set(table["status"]) == {"CONVERGED"}
     assert "CL" not in table.columns
 
@@ -2975,7 +2975,7 @@ def test_the_table_is_rebuilt_from_the_whole_manifest_on_a_resume(tmp_path):
         assess=converged,
         recipes={"steady": steady_recipe},
     )
-    assert list(pd.read_csv(sweep_csv(tmp_path))["run_id"]) == ["camp/sim_9001/a+00.0"]
+    assert list(pd.read_csv(sweep_csv(tmp_path))["run_id"]) == ["camp/sim_9001/AL+000"]
     run_campaign(
         make_campaign(tmp_path, alphas=(0.0, 2.0)),
         StubSolver(WRITES_LOADS),
@@ -2985,8 +2985,8 @@ def test_the_table_is_rebuilt_from_the_whole_manifest_on_a_resume(tmp_path):
         resume=True,
     )
     assert list(pd.read_csv(sweep_csv(tmp_path))["run_id"]) == [
-        "camp/sim_9001/a+00.0",
-        "camp/sim_9001/a+02.0",
+        "camp/sim_9001/AL+000",
+        "camp/sim_9001/AL+020",
     ], "the rewritten table dropped the point an earlier call recorded"
 
 
@@ -3010,7 +3010,7 @@ def test_a_failed_write_costs_the_campaign_nothing_but_says_so(tmp_path):
             assess=converged,
             recipes={"steady": steady_recipe},
         )
-    assert [record.run_id for record in records] == ["camp/sim_9001/a+00.0"]
+    assert [record.run_id for record in records] == ["camp/sim_9001/AL+000"]
     assert len(workspace.read_manifest()) == 1
 
 
@@ -3180,7 +3180,7 @@ def test_the_log_that_decided_the_verdict_reaches_the_run_record(tmp_path):
             status=RunStatus.CONVERGED,
             iterations=120,
             residual=3.2e-6,
-            log_file_used="log_a+00.0.txt",
+            log_file_used="log_AL+000.txt",
         )
 
     campaign = make_campaign(tmp_path, alphas=(0.0,))
@@ -3192,12 +3192,12 @@ def test_the_log_that_decided_the_verdict_reaches_the_run_record(tmp_path):
         assess=assessed_from_a_log,
         recipes={"steady": steady_recipe},
     )
-    assert records[0].log_file_used == "log_a+00.0.txt", (
+    assert records[0].log_file_used == "log_AL+000.txt", (
         "the log the verdict was read from did not survive the RunRecord boundary"
     )
     written = json.loads((tmp_path / "camp" / "runs.json").read_text(encoding="utf-8"))
     rows = written["runs"] if isinstance(written, dict) else written
-    assert rows[0]["log_file_used"] == "log_a+00.0.txt", (
+    assert rows[0]["log_file_used"] == "log_AL+000.txt", (
         "the manifest on disk, which is the reader the field names, does not carry it"
     )
 
@@ -3281,7 +3281,7 @@ def test_a_missing_declared_export_fails_the_point_naming_it(tmp_path):
         )
     record = workspace.read_manifest()[0]
     assert record.status is RunStatus.FAILED_INCOMPLETE_OUTPUT
-    assert "loads_a+00.0.dat" in (record.error or "")
+    assert "loads_AL+000.dat" in (record.error or "")
 
 
 # --- PFS-2029.15.03: the run leaves its products, and names them ------------------
@@ -3337,12 +3337,13 @@ def test_the_campaign_writes_its_products_and_names_them(tmp_path):
         "products.json",
         "provenance",  # one PROV-JSON document per recorded run (PFS-2012.08.01)
     ]
-    # FR-85: the point convention, with its swept field written `sweep`;
+    # FR-85 at 0.21.0: the point name, with its swept field written `sweep`;
     # this campaign runs one alpha, so nothing is swept and every field
-    # carries its value.
-    stem = "POLAR-9001_M20AL-020BE+000"
+    # carries its value. A case authored without a flight-condition cell is
+    # named by its Mach number and the axes of its point.
+    stem = "P9001-M200AL-020"
     # FR-89 puts the superfile of each group here too.
-    super_stem = stem.replace("POLAR-", "SUPER-")
+    super_stem = "SUPER-9001-M200AL-020"
     assert sorted(p.name for p in (products / "polars").iterdir()) == [
         f"{stem}_g01.csv",
         f"{stem}_g03.csv",
@@ -3350,7 +3351,7 @@ def test_the_campaign_writes_its_products_and_names_them(tmp_path):
         f"{super_stem}_g03.csv",
     ]
     manifest = json.loads((products / "products.json").read_text(encoding="utf-8"))
-    assert manifest["products"][f"polars/{stem}_g01.csv"]["runs"] == ["camp/sim_9001/a-02.0"]
+    assert manifest["products"][f"polars/{stem}_g01.csv"]["runs"] == ["camp/sim_9001/M200AL-020"]
     assert manifest["products"][f"polars/{stem}_g01.csv"]["pproc"] == "p001"
     text = (products / "polars" / f"{stem}_g01.csv").read_text(encoding="utf-8").splitlines()
     assert text[0].startswith("POLAR,DESCRIPTION,GROUP,SREF,CREF,BREF,XMOM")
@@ -3411,7 +3412,7 @@ def test_a_renamed_workspace_cannot_resume_under_a_new_name(tmp_path):
         recipes={"steady": steady_recipe},
         resume=True,
     )
-    assert [record.run_id for record in records] == ["camp/sim_9001/a+02.0"]
+    assert [record.run_id for record in records] == ["camp/sim_9001/AL+020"]
 
 
 def test_the_default_assessor_judges_the_points_own_table_in_a_two_point_sweep(tmp_path):
@@ -3426,7 +3427,7 @@ def test_the_default_assessor_judges_the_points_own_table_in_a_two_point_sweep(t
 
     fixture = (FIXTURES / "loads_steady_26.120.txt").as_posix()
     # The stub writes the fixture table at the POINT's own angle, read off
-    # the export name the loop rendered (`a+02.0.txt` is 2.0 degrees).
+    # the export name the loop rendered (`AL+020.txt` is 2.0 degrees).
     writes_own_table = (
         "import pathlib, re, sys; "
         "lines = pathlib.Path(sys.argv[1]).read_text().splitlines(); "
@@ -3434,7 +3435,8 @@ def test_the_default_assessor_judges_the_points_own_table_in_a_two_point_sweep(t
         "targets = [pathlib.Path(lines[i + 1]) for i, line in enumerate(lines) "
         "if line == 'EXPORT_SOLVER_ANALYSIS_SPREADSHEET']; "
         "[t.write_text(re.sub(r'(Angle of attack .Deg.\\s+)[-+.0-9]+', "
-        "lambda m, a=float(t.stem[1:]): m.group(1) + format(a, '.3f'), text)) for t in targets]"
+        "lambda m, a=float(t.stem[2:]) / 10: m.group(1) + format(a, '.3f'), text)) "
+        "for t in targets]"
     )
     workspace = CampaignWorkspace(tmp_path / "camp")
     campaign = make_campaign(tmp_path, alphas=(2.0, 4.0), outputs=("{point}.txt",))
@@ -3449,8 +3451,8 @@ def test_the_default_assessor_judges_the_points_own_table_in_a_two_point_sweep(t
         record.error for record in records
     ]
     assert [record.outputs for record in records] == [
-        ["datapoints/DP-a+02.0/a+02.0.txt"],
-        ["datapoints/DP-a+04.0/a+04.0.txt"],
+        ["datapoints/DP-AL+020/AL+020.txt"],
+        ["datapoints/DP-AL+040/AL+040.txt"],
     ]
 
 
@@ -3596,7 +3598,7 @@ def _snapshot_with_an_explicit_empty_selection() -> dict:
 
 def _synthetic_record(solver_setup: dict) -> RunRecord:
     return RunRecord(
-        run_id="camp/sim_9001/a+00.0",
+        run_id="camp/sim_9001/AL+000",
         sim_id="9001",
         point={"alpha": 0.0},
         fs_version_requested="26.120",
@@ -3624,7 +3626,7 @@ def test_an_explicit_empty_selection_in_a_manifest_is_refused_naming_manifest_an
         workspace.read_manifest()
     message = str(refused.value)
     assert str(workspace.manifest_path) in message, message
-    assert "camp/sim_9001/a+00.0" in message, message
+    assert "camp/sim_9001/AL+000" in message, message
     assert VORTICITY_COMMAND in message, message
     assert "vorticity_drag_boundaries" in message, "the flag as a call names it"
     assert "omit" not in message.lower() and "remove" not in message.lower(), (
@@ -3800,8 +3802,8 @@ def test_a_shared_outputs_folder_still_judges_each_point_by_its_own_export(tmp_p
         "Angle of attack (Deg)                       0.000",
     )
     assert at_zero != at_two, "the derived export is identical to the fixture"
-    (collected / "a+00.0.txt").write_text(at_zero, encoding="utf-8")
-    (collected / "a+02.0.txt").write_text(at_two, encoding="utf-8")
+    (collected / "AL+000.txt").write_text(at_zero, encoding="utf-8")
+    (collected / "AL+020.txt").write_text(at_two, encoding="utf-8")
 
     def case_at(alpha: float) -> SimCase:
         case = SimCase(

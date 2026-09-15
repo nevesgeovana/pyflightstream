@@ -284,7 +284,9 @@ def test_post_reruns_from_the_manifest_without_a_solver(tmp_path, capsys):
     (raw / "POLAR-3207_M20AL-020BE+000.txt").write_text(LOADS, encoding="utf-8")
     workspace.append_record(
         RunRecord(
-            run_id="camp/sim_3207/a-02.0",
+            run_id="camp/sim_3207/M200AL-020",
+            point_name="M200AL-020",
+            sweep_name="M200AL+sweep",
             sim_id="3207",
             point={"alpha": -2.0},
             fs_version_requested="26.120",
@@ -312,12 +314,12 @@ def test_post_reruns_from_the_manifest_without_a_solver(tmp_path, capsys):
     # The polar table and the SUPERFILE beside it (FR-89), which is written
     # for every polar the stage writes.
     assert "2 product(s) written" in out
-    stem = "POLAR-3207_M20AL-020BE+000"
+    stem = "P3207-M200AL-020"
     table = workspace.root / "post" / "products" / "polars" / f"{stem}_g01.csv"
     assert table.is_file()
     assert ",0.02744,0.00000,0.18744," in table.read_text(encoding="utf-8")
     manifest = json.loads((table.parent.parent / "products.json").read_text(encoding="utf-8"))
-    assert manifest["products"][f"polars/{stem}_g01.csv"]["runs"] == ["camp/sim_3207/a-02.0"]
+    assert manifest["products"][f"polars/{stem}_g01.csv"]["runs"] == ["camp/sim_3207/M200AL-020"]
     # A SECOND RUN ARCHIVES AND REWRITES since 0.17.0, her instruction of
     # 2026-09-12: nothing is refused and nothing is lost. The refusal this
     # line used to assert made the user delete the file, which destroys it
@@ -343,10 +345,12 @@ def _record_a_converged_polar(workspace, sim_id, point, text):
     raw = workspace.sim_dir(sim_id) / "outputs"
     raw.mkdir(parents=True)
     (raw / "POLAR.txt").write_text(text, encoding="utf-8")
-    suffix = "a-02.0" if "beta" not in point else "a-02.0_b-04.0"
+    suffix = "M200AL-020" if "beta" not in point else "M200AL-020BE-040"
     workspace.append_record(
         RunRecord(
             run_id=f"camp/sim_{sim_id}/{suffix}",
+            point_name=suffix,
+            sweep_name=suffix,
             sim_id=sim_id,
             point=point,
             fs_version_requested="26.120",
@@ -424,15 +428,13 @@ def test_a_refused_polar_is_recorded_as_skipped_and_the_other_products_are_writt
     out = capsys.readouterr()
     products = workspace.root / "post" / "products"
     polars = products / "polars"
-    assert (polars / "POLAR-3207_M20AL-020BE+000_g01.csv").is_file(), (
-        "the zero-sideslip simulation's polar"
-    )
-    assert not (polars / "POLAR-3208_M20AL-020BE-040_g01.csv").exists(), (
+    assert (polars / "P3207-M200AL-020_g01.csv").is_file(), "the zero-sideslip simulation's polar"
+    assert not (polars / "P3208-M200AL-020BE-040_g01.csv").exists(), (
         "the refused polar is not written"
     )
     manifest = json.loads((products / "products.json").read_text(encoding="utf-8"))
-    assert manifest["products"]["polars/POLAR-3207_M20AL-020BE+000_g01.csv"]["runs"] == [
-        "camp/sim_3207/a-02.0"
+    assert manifest["products"]["polars/P3207-M200AL-020_g01.csv"]["runs"] == [
+        "camp/sim_3207/M200AL-020"
     ]
     assert "3208" in manifest["skipped"]
     assert "sideslip" in manifest["skipped"]["3208"]
@@ -444,9 +446,7 @@ def test_a_refused_polar_is_recorded_as_skipped_and_the_other_products_are_writt
     assert main(["post", "--workspace", str(workspace.root), "--strict"]) == 3
     err = capsys.readouterr().err
     assert "--strict" in err and "exit 3" in err, err
-    assert (polars / "POLAR-3207_M20AL-020BE+000_g01.csv").is_file(), (
-        "the products are still written in full"
-    )
+    assert (polars / "P3207-M200AL-020_g01.csv").is_file(), "the products are still written in full"
 
 
 def test_a_manifest_written_under_the_fields_one_day_name_still_reads():
@@ -457,7 +457,7 @@ def test_a_manifest_written_under_the_fields_one_day_name_still_reads():
 
     record = RunRecord.model_validate(
         {
-            "run_id": "camp/sim_1/a+00.0",
+            "run_id": "camp/sim_1/AL+000",
             "sim_id": "1",
             "point": {"alpha": 0.0},
             "matrix": "matriz",
@@ -502,7 +502,9 @@ def test_post_refuses_a_matrix_the_manifest_never_recorded_and_an_empty_manifest
     assert "records no run" in capsys.readouterr().err
     workspace.append_record(
         RunRecord(
-            run_id="camp/sim_3207/a-02.0",
+            run_id="camp/sim_3207/M200AL-020",
+            point_name="M200AL-020",
+            sweep_name="M200AL+sweep",
             sim_id="3207",
             point={"alpha": -2.0},
             matrix_stem="matriz_physics",

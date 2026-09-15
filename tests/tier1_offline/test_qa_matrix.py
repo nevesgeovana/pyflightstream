@@ -220,7 +220,12 @@ def test_the_report_reduces_every_case_the_matrix_states_with_the_qa_functions(
         assert set(body["verdicts"].values()) == {"pass"}, (case_id, body["verdicts"])
     # The point rows carry the workspace's own identities: the row and the point.
     labels = [point["label"] for point in document["cases"]["PHY-01"]["points"]]
-    assert labels == ["sim_5001/a+00.0", "sim_5001/a+02.0", "sim_5001/a+04.0", "sim_5001/a+06.0"]
+    assert labels == [
+        "sim_5001/V0300RHO12250AL+000",
+        "sim_5001/V0300RHO12250AL+020",
+        "sim_5001/V0300RHO12250AL+040",
+        "sim_5001/V0300RHO12250AL+060",
+    ]
     # PHY-06 is the unsteady row against the steady polar of the PHY-01 row.
     assert len(document["cases"]["PHY-06"]["points"]) == 8
     assert document["summary"] == {"pass": 30, "warn": 0, "fail": 0, "no_reference": 0}

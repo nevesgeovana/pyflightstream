@@ -54,7 +54,7 @@ def steady_case(**variables) -> SimCase:
         aircraft="RotorRig",
         sweep=SweepAxis(type="alpha", values=[0.0]),
         recipe="steady",
-        outputs=["loads_a+00.0.txt"],
+        outputs=["loads_AL+000.txt"],
         variables={WORKFLOW_KEY: "steady", "VELOCITY": "30.0", **variables},
         point={"alpha": 0.0},
     )
@@ -321,7 +321,7 @@ def test_the_record_after_a_stub_run_carries_the_count_and_the_two_staged_files(
     # layer wrote, and the file the solver left is the rewritten one.
     assert record.inputs_sha256[SCRIPT_FILE] == hashlib.sha256(b"").hexdigest()
     left = (sim_dir / SCRIPT_FILE).read_text(encoding="utf-8")
-    assert "EXPORT_SOLVER_ANALYSIS_SPREADSHEET\nloads_a+00.0.txt" in left, left
+    assert "EXPORT_SOLVER_ANALYSIS_SPREADSHEET\nloads_AL+000.txt" in left, left
     assert _sha256(sim_dir / SCRIPT_FILE) != record.inputs_sha256[SCRIPT_FILE]
 
 
@@ -460,7 +460,7 @@ def test_the_series_of_a_rotor_stub_run_agrees_with_the_counter_on_the_azimuth(t
     assert record.export_window["step_deg"] == pytest.approx(0.72), record.export_window
     state = json.loads((workspace.sim_dir("9002") / COUNT_FILE).read_text(encoding="utf-8"))
     write_campaign_products(workspace, overwrite=True)
-    table = workspace.root / "post" / "products" / "series" / "loads_a+00.0_loads_series.csv"
+    table = workspace.root / "post" / "products" / "series" / "loads_AL+000_loads_series.csv"
     body = [line.split(",") for line in table.read_text(encoding="utf-8").splitlines()[1:]]
     assert [int(cells[0]) for cells in body] == [2, 3, 4]
     assert float(body[-1][2]) == pytest.approx(state["azimuth_deg"])
@@ -492,11 +492,11 @@ def test_the_series_of_a_stub_run_agrees_with_the_counter_step_for_step(tmp_path
     assert "step_deg" not in record.export_window, "a rotorless row has no azimuth"
     sim_dir = workspace.sim_dir("9001")
     stamped = sorted(p.name for p in sim_dir.iterdir() if "_iteration=" in p.name)
-    assert stamped == [f"loads_a+00.0_iteration={n}.txt" for n in (2, 3, 4)], stamped
+    assert stamped == [f"loads_AL+000_iteration={n}.txt" for n in (2, 3, 4)], stamped
     state = json.loads((sim_dir / COUNT_FILE).read_text(encoding="utf-8"))
     # The run wrote the products itself; the stage rewrites them from the manifest alone.
     write_campaign_products(workspace, overwrite=True)
-    table = workspace.root / "post" / "products" / "series" / "loads_a+00.0_loads_series.csv"
+    table = workspace.root / "post" / "products" / "series" / "loads_AL+000_loads_series.csv"
     assert table.is_file(), sorted((workspace.root / "post").rglob("*"))
     rows = table.read_text(encoding="utf-8").splitlines()
     assert rows[0].startswith("step,time_s,azimuth_deg,"), rows[0]

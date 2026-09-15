@@ -7136,7 +7136,8 @@ def unsteady_time_stepping(case: SimCase) -> TimeStepping:
 #: ADVANCE_RATIO is NOT in this list since 0.11.0 (PFS-2029.19): the reference
 #: unsteady wing-body runs stated the advance ratio of the rotor they
 #: did not mesh, because it set the azimuthal step and named the point
-#: (POLAR-3224_..._J+130), and the name keeps that field. The keys that
+#: (POLAR-3224_..._J+130); since 0.21.0 the name keeps that field when the
+#: flight condition declares it. The keys that
 #: would turn something are still refused.
 ROTORLESS_REFUSED_KEYS: tuple[str, ...] = (
     MOVING_BOUNDARIES_VARIABLE,

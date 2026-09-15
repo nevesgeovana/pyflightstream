@@ -15,7 +15,7 @@ geometry is involved.
 |---|---|
 | Source | matriz_physics.fs in workspace ws |
 | Executable | FlightStream_26120.exe (sha256 not recorded, local, never committed) |
-| Executor | StubSolver, `stub_solver.py POLAR-5001_M09AL+sweepBE+000.txt` (as run; mechanism SRC-003 pp.279-280; argument spelling RPT-023) |
+| Executor | StubSolver, `stub_solver.py P5001-V0300RHO12250AL+sweep.txt` (as run; mechanism SRC-003 pp.279-280; argument spelling RPT-023) |
 | Package | pyflightstream {package_version} |
 | Solver identity | Flightstream version 26.1, build 7012026 |
 
@@ -29,10 +29,10 @@ row 5001 of matriz_physics.fs, steady workflow over 12_WING_PHY.fsm under SYMMET
 
 | point | alpha (deg) | CL | CDi | iterations | converged |
 |---|---|---|---|---|---|
-| sim_5001/a+00.0 | +0.0 | 0.00000 | 0.00000 | 312 | yes |
-| sim_5001/a+02.0 | +2.0 | 0.16850 | 0.00122 | 312 | yes |
-| sim_5001/a+04.0 | +4.0 | 0.33700 | 0.00490 | 312 | yes |
-| sim_5001/a+06.0 | +6.0 | 0.50550 | 0.01103 | 312 | yes |
+| sim_5001/V0300RHO12250AL+000 | +0.0 | 0.00000 | 0.00000 | 312 | yes |
+| sim_5001/V0300RHO12250AL+020 | +2.0 | 0.16850 | 0.00122 | 312 | yes |
+| sim_5001/V0300RHO12250AL+040 | +4.0 | 0.33700 | 0.00490 | 312 | yes |
+| sim_5001/V0300RHO12250AL+060 | +6.0 | 0.50550 | 0.01103 | 312 | yes |
 
 | Metric | Measured | Reference | Bands (warn/fail) | Verdict |
 |---|---|---|---|---|
@@ -49,8 +49,8 @@ row 5002 of matriz_physics.fs, steady workflow over 12_WING_PHY.fsm under SYMMET
 
 | point | alpha (deg) | CL | CDi | iterations | converged |
 |---|---|---|---|---|---|
-| sim_5002/a+04.0 | +4.0 | 0.33700 | 0.00490 | 312 | yes |
-| sim_5003/a+04.0 | +4.0 | 0.33840 | 0.00490 | 312 | yes |
+| sim_5002/V0300RHO12250AL+040 | +4.0 | 0.33700 | 0.00490 | 312 | yes |
+| sim_5003/V0300RHO12250AL+040 | +4.0 | 0.33840 | 0.00490 | 312 | yes |
 
 | Metric | Measured | Reference | Bands (warn/fail) | Verdict |
 |---|---|---|---|---|
@@ -65,7 +65,7 @@ row 5005 of matriz_physics.fs, unsteady_rotor workflow over 31_BLADE_PHY.fsm und
 
 | point | alpha (deg) | CL | CDi | iterations | converged |
 |---|---|---|---|---|---|
-| sim_5005/a+00.0_b+00.0 | +0.0 | -0.00010 | -0.04517 | 500 | no |
+| sim_5005/V0490RHO12250AL+000BE+000 | +0.0 | -0.00010 | -0.04517 | 500 | no |
 
 | Metric | Measured | Reference | Bands (warn/fail) | Verdict |
 |---|---|---|---|---|
@@ -80,14 +80,14 @@ row 5006 of matriz_physics.fs, unsteady workflow over 12_WING_PHY.fsm under SYMM
 
 | point | alpha (deg) | CL | CDi | iterations | converged |
 |---|---|---|---|---|---|
-| sim_5001/a+00.0 | +0.0 | 0.00000 | 0.00000 | 312 | yes |
-| sim_5001/a+02.0 | +2.0 | 0.16850 | 0.00122 | 312 | yes |
-| sim_5001/a+04.0 | +4.0 | 0.33700 | 0.00490 | 312 | yes |
-| sim_5001/a+06.0 | +6.0 | 0.50550 | 0.01103 | 312 | yes |
-| sim_5006/a+00.0 | +0.0 | 0.00000 | 0.00000 | 500 | no |
-| sim_5006/a+02.0 | +2.0 | 0.16850 | 0.00122 | 500 | no |
-| sim_5006/a+04.0 | +4.0 | 0.33700 | 0.00490 | 500 | no |
-| sim_5006/a+06.0 | +6.0 | 0.50550 | 0.01103 | 500 | no |
+| sim_5001/V0300RHO12250AL+000 | +0.0 | 0.00000 | 0.00000 | 312 | yes |
+| sim_5001/V0300RHO12250AL+020 | +2.0 | 0.16850 | 0.00122 | 312 | yes |
+| sim_5001/V0300RHO12250AL+040 | +4.0 | 0.33700 | 0.00490 | 312 | yes |
+| sim_5001/V0300RHO12250AL+060 | +6.0 | 0.50550 | 0.01103 | 312 | yes |
+| sim_5006/V0300RHO12250AL+000 | +0.0 | 0.00000 | 0.00000 | 500 | no |
+| sim_5006/V0300RHO12250AL+020 | +2.0 | 0.16850 | 0.00122 | 500 | no |
+| sim_5006/V0300RHO12250AL+040 | +4.0 | 0.33700 | 0.00490 | 500 | no |
+| sim_5006/V0300RHO12250AL+060 | +6.0 | 0.50550 | 0.01103 | 500 | no |
 
 | Metric | Measured | Reference | Bands (warn/fail) | Verdict |
 |---|---|---|---|---|

@@ -30,6 +30,7 @@ from pyflightstream.workspace import (
     InputArtifactError,
     NamingTemplate,
     NamingTemplateError,
+    PointName,
     WorkspaceError,
 )
 
@@ -351,11 +352,11 @@ def test_two_outputs_collecting_to_one_name_offer_the_placeholder_remedy(tmp_pat
         workspace.collect_outputs(
             "1",
             [tmp_path / "a" / "loads.txt", tmp_path / "b" / "loads.txt"],
-            datapoint={"alpha": 0.0},
+            datapoint=PointName("AL+000"),
         )
 
     message = str(refused.value)
-    assert "datapoints/DP-a+00.0/loads.txt" in message, (
+    assert "datapoints/DP-AL+000/loads.txt" in message, (
         "the refusal does not name the destination they share"
     )
     assert str(tmp_path / "a" / "loads.txt") in message, "the refusal does not name both sources"
@@ -380,14 +381,14 @@ def test_collecting_onto_a_held_name_offers_the_archive_remedy(tmp_path):
     """
     workspace = CampaignWorkspace(tmp_path / "camp")
     (tmp_path / "loads.txt").write_text("first", encoding="utf-8")
-    workspace.collect_outputs("1", [tmp_path / "loads.txt"], datapoint={"alpha": 0.0})
+    workspace.collect_outputs("1", [tmp_path / "loads.txt"], datapoint=PointName("AL+000"))
     (tmp_path / "loads.txt").write_text("second", encoding="utf-8")
 
     with pytest.raises(WorkspaceError) as refused:
-        workspace.collect_outputs("1", [tmp_path / "loads.txt"], datapoint={"alpha": 0.0})
+        workspace.collect_outputs("1", [tmp_path / "loads.txt"], datapoint=PointName("AL+000"))
 
     message = str(refused.value)
-    assert "already in datapoints/DP-a+00.0/" in message, (
+    assert "already in datapoints/DP-AL+000/" in message, (
         "the refusal does not name the folder the held file is in"
     )
     assert "this point's own evidence from an earlier run of it" in message, (

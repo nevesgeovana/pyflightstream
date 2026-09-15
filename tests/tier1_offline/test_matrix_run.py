@@ -948,7 +948,7 @@ def test_goal019_warm_the_one_record_names_every_point_it_ran(tmp_path):
     )
     record = records[0]
     tags = [entry["tag"] for entry in record.points_ran]
-    assert tags == ["a-02.0_b+00.0", "a+00.0_b+00.0", "a+02.0_b+00.0"], (
+    assert tags == ["M100RE230AL-020BE+000", "M100RE230AL+000BE+000", "M100RE230AL+020BE+000"], (
         f"the record names {tags}, which is not the three points in sweep order"
     )
     assert record.job_id, "a job record carries a job id"
@@ -1074,8 +1074,8 @@ def test_run_matrix_executes_and_records_every_point(tmp_path):
         "matrix/sim_8002/sweep",
     ]
     assert [[entry["tag"] for entry in record.points_ran] for record in records] == [
-        ["a+00.0", "a+02.0"],
-        ["b-03.0", "b+03.0"],
+        ["M089RE310AL+000", "M089RE310AL+020"],
+        ["M089RE310BE-030", "M089RE310BE+030"],
     ]
     assert all(record.status is RunStatus.CONVERGED for record in records)
     assert len(workspace.read_manifest()) == 2
@@ -2982,7 +2982,7 @@ def test_a_campaign_runs_under_the_relative_root_the_cli_defaults_to(tmp_path, m
     landed one level too deep. This was measured, not reasoned: before
     the fix this case died with
 
-        FileNotFoundError: 'camp/sims/sim_7001/scripts/a+00.0.txt'
+        FileNotFoundError: 'camp/sims/sim_7001/scripts/AL+000.txt'
 
     on a script that was sitting right there, and it would have done so
     for EVERY row of every matrix, with or without a geometry.
@@ -4088,7 +4088,7 @@ def test_an_empty_group_writes_the_polar_of_every_family(tmp_path):
             executor=_writes_her_loads(tmp_path),
             recipe_registry={"steady": matrix_recipe},
         )
-        polars = sorted((workspace.root / "post" / "wing_alpha" / "polars").glob("POLAR-*_g01.csv"))
+        polars = sorted((workspace.root / "post" / "wing_alpha" / "polars").glob("P*-*_g01.csv"))
         assert len(polars) == 2, f"one polar table per point of group 1: {polars}"
         tables[spelling] = [path.read_bytes() for path in polars]
     assert tables['"1" = []'] == tables['"1" = ["W", "B"]']
@@ -4129,7 +4129,7 @@ def test_an_alias_of_the_reference_reaches_the_polar_table_through_the_record(tm
         assert [r.aliases for r in records] == [
             {"wing": ["W", "Missing"]} if folder == "alias" else {}
         ] * 2, "the record carries the reference's aliases"
-        polars = sorted((workspace.root / "post" / "wing_alpha" / "polars").glob("POLAR-*_g01.csv"))
+        polars = sorted((workspace.root / "post" / "wing_alpha" / "polars").glob("P*-*_g01.csv"))
         assert len(polars) == 2, polars
         tables[folder] = [path.read_bytes() for path in polars]
         # The provenance document carries them too, as it carries the raw
@@ -4184,7 +4184,7 @@ def test_the_reference_aliases_reach_the_record(tmp_path):
     assert [r.aliases for r in records] == [{"wing": ["W", "Missing"]}] * 2, (
         "the record carries the REFERENCE's aliases"
     )
-    polars = sorted((workspace.root / "post" / "wing_alpha" / "polars").glob("POLAR-*_g01.csv"))
+    polars = sorted((workspace.root / "post" / "wing_alpha" / "polars").glob("P*-*_g01.csv"))
     assert len(polars) == 2, polars
 
 
@@ -4393,19 +4393,21 @@ def test_a_rotor_row_run_through_the_workflow_leaves_its_reductions_beside_the_p
 
     plots = workspace.root / "post" / "rotor_products" / "probes"
     assert sorted(p.name for p in plots.iterdir()) == [
-        "a-02.0_per_blade.csv",
-        "a-02.0_phase_locked.csv",
-        "a-02.0_plots.csv",
-        "a-02.0_time_average.csv",
+        "M200RE1177AL-020_per_blade.csv",
+        "M200RE1177AL-020_phase_locked.csv",
+        "M200RE1177AL-020_plots.csv",
+        "M200RE1177AL-020_time_average.csv",
     ]
     manifest = json.loads((plots.parent / "products.json").read_text(encoding="utf-8"))
-    assert manifest["products"]["probes/a-02.0_time_average.csv"]["windows"] == [[596, 720]]
+    assert manifest["products"]["probes/M200RE1177AL-020_time_average.csv"]["windows"] == [
+        [596, 720]
+    ]
     # The stub above writes the literal 'x' for every export it has no
     # fixture for, the probe points among them, so the probe table of
     # this point is a recorded SKIP naming the file (FR-87). It is a skip
     # and not the stage's refusal on purpose: the reductions beside it
     # are written, which is what the four files above say.
-    assert sorted(manifest["skipped"]) == ["probes/a-02.0_probes.csv"]
+    assert sorted(manifest["skipped"]) == ["probes/M200RE1177AL-020_probes.csv"]
 
 
 # --- PFS-2033.02: the run record carries the raw commands, and so does the provenance ---
@@ -4829,7 +4831,7 @@ def test_goal019_watchdog_a_restart_this_release_cannot_run_is_refused_by_name(t
         recipe="unsteady",
         sweep=SweepAxis(type="alpha", values=[0.0]),
         point={"alpha": 0.0},
-        outputs=["loads_a+00.0.txt"],
+        outputs=["loads_AL+000.txt"],
         variables={
             "WORKFLOW": "unsteady",
             "VELOCITY": "30.0",
@@ -4881,7 +4883,7 @@ def test_goal019_hpc_the_descriptor_asks_for_the_processors_the_solver_uses(tmp_
         recipe="steady",
         sweep=SweepAxis(type="alpha", values=[0.0]),
         point={"alpha": 0.0},
-        outputs=["loads_a+00.0.txt"],
+        outputs=["loads_AL+000.txt"],
         variables={"VELOCITY": "68.058"},
         solver={"max_threads": 8},
     )
@@ -4926,7 +4928,7 @@ def test_goal019_hpc_a_value_nothing_can_resolve_is_omitted_not_emptied(tmp_path
         recipe="steady",
         sweep=SweepAxis(type="alpha", values=[0.0]),
         point={"alpha": 0.0},
-        outputs=["loads_a+00.0.txt"],
+        outputs=["loads_AL+000.txt"],
         variables={"VELOCITY": "68.058"},
     )
     _bind_submission_values(executor, case, case)
@@ -5015,7 +5017,7 @@ def test_goal019_warm_a_sweep_refuses_a_folder_that_already_holds_its_outputs(tm
     # check is over every point of the job and not just the first.
     sim_dir = workspace.sim_dir("5001")
     sim_dir.mkdir(parents=True, exist_ok=True)
-    (sim_dir / "a+02.0_b+00.0.txt").write_text("somebody else's export", encoding="utf-8")
+    (sim_dir / "M100RE230AL+020BE+000.txt").write_text("somebody else's export", encoding="utf-8")
 
     with pytest.raises(CampaignErrors):
         run_matrix(
@@ -5030,7 +5032,7 @@ def test_goal019_warm_a_sweep_refuses_a_folder_that_already_holds_its_outputs(tm
         )
     record = workspace.read_manifest()[0]
     assert record.status is RunStatus.FAILED_INCOMPLETE_OUTPUT, record.status
-    assert "a+02.0_b+00.0.txt" in (record.error or ""), record.error
+    assert "M100RE230AL+020BE+000.txt" in (record.error or ""), record.error
     assert "already exist" in (record.error or "")
 
 
@@ -5097,7 +5099,7 @@ def test_goal019_warm_resume_runs_the_points_the_job_did_not(tmp_path):
     # record and its run_id ends with its own tag. That is the same rule
     # the job path follows in the other direction: a job is a job because
     # it has several points to warm-start through.
-    assert [record.run_id for record in extended] == ["warm/sim_5001/a+04.0_b+00.0"], [
+    assert [record.run_id for record in extended] == ["warm/sim_5001/M100RE230AL+040BE+000"], [
         record.run_id for record in extended
     ]
     assert extended[0].status is RunStatus.CONVERGED

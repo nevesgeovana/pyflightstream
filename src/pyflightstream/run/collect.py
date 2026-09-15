@@ -66,7 +66,14 @@ from pathlib import Path
 # weaker than it reads, because an unrowed module can be a conduit. Found by
 # the architect lens of the 0.18.0 release round, 2026-09-14.
 from ..cases import CampaignConfigError
-from ..workspace import SIM_DATAPOINTS_DIR, CampaignWorkspace, RunRecord, RunStatus, WorkspaceError
+from ..workspace import (
+    SIM_DATAPOINTS_DIR,
+    CampaignWorkspace,
+    PointName,
+    RunRecord,
+    RunStatus,
+    WorkspaceError,
+)
 
 __all__ = [
     "CollectOutcome",
@@ -220,10 +227,13 @@ class _RecordAsCase:
     rather than a bare ``None``.
     """
 
-    __slots__ = ("point", "outputs", "velocity")
+    __slots__ = ("point", "outputs", "velocity", "datapoint_name")
 
     def __init__(self, record: RunRecord) -> None:
         self.point = dict(record.point or {})
+        # 0.21.0: the folder the assessor judges is named by the name the run
+        # RECORDED, never recomputed from a record that is not a case.
+        self.datapoint_name = record.point_name
         self.outputs = list(record.outputs or _declared_outputs(record))
         # THE CASE DEFAULT THAT FILLS IN WHERE THE POINT SUPPLIES NO SPEED.
         # A record carries no case-level velocity, so this is None and the
@@ -483,22 +493,43 @@ def _collect_by_point(
             workspace.collect_outputs(
                 record.sim_id,
                 [work_dir / name for name in names],
-                datapoint=record.point,
+                datapoint=_recorded_name(record),
                 ran_in_datapoint=ran_here,
             )
         )
     collected: list[str] = []
-    for tag, owned in by_point.items():
-        point = points.get(tag) or record.point
+    for name, owned in by_point.items():
+        if name not in points:
+            raise WorkspaceError(
+                f"record {record.run_id!r} declares outputs for point {name!r} and names no "
+                "such point in its submission; restore the record, or complete it by hand."
+            )
         collected.extend(
             workspace.collect_outputs(
                 record.sim_id,
-                [work_dir / str(name) for name in owned],
-                datapoint=point,
+                [work_dir / str(output) for output in owned],
+                datapoint=PointName(name),
                 ran_in_datapoint=ran_here,
             )
         )
     return collected
+
+
+def _recorded_name(record: RunRecord) -> PointName:
+    """Return the point name the run recorded, where its outputs are filed (0.21.0).
+
+    A record written before 0.21.0 carries none, and its folder is named by the
+    earlier scheme; collecting it under a name recomputed now would file its
+    outputs where no record of it points. It is refused by name instead.
+    """
+    if not record.point_name:
+        raise WorkspaceError(
+            f"record {record.run_id!r} was written before 0.21.0 and carries no point name, "
+            "so this release cannot tell which folder its outputs belong in. Run "
+            "`pyfs-matrix rename` once, naming the workspace root as workspace (CLI: --workspace), "
+            "to move the workspace to the 0.21.0 names, then collect."
+        )
+    return PointName(record.point_name)
 
 
 def _points_ran_after(record: RunRecord, status: RunStatus) -> list[dict] | None:

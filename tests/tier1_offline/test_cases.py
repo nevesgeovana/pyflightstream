@@ -202,8 +202,8 @@ def test_a_sweep_whose_points_share_a_tag_is_refused():
     """The review's published probe.
 
     Measured before the fix: point_tag({'alpha': 1.01}) and
-    point_tag({'alpha': 1.04}) both returned 'a+01.0', the pre-flight
-    reported [('c/sim_1/a+01.0', 'READY'), ('c/sim_1/a+01.0', 'READY')],
+    point_tag({'alpha': 1.04}) both returned 'AL+010', the pre-flight
+    reported [('c/sim_1/AL+010', 'READY'), ('c/sim_1/AL+010', 'READY')],
     and nothing refused anything. The tag ENDS the run_id, so the two
     points shared one manifest identity.
 
@@ -211,16 +211,16 @@ def test_a_sweep_whose_points_share_a_tag_is_refused():
     appears in every existing manifest, and any fixed precision collides at
     some spacing. Widening moves the collision, refusing removes it.
     """
-    with pytest.raises(ValidationError, match="both tag as"):
+    with pytest.raises(ValidationError, match="both write"):
         SweepAxis(type="alpha", values=[1.01, 1.04])
 
 
 def test_the_collision_is_refused_for_paired_and_propeller_sweeps_too():
     """The same arithmetic applies to every axis, so the guard must too."""
-    with pytest.raises(ValidationError, match="both tag as"):
+    with pytest.raises(ValidationError, match="both write"):
         SweepAxis(type="alpha_beta", values=[(1.01, 0.0), (1.04, 0.0)])
-    with pytest.raises(ValidationError, match="both tag as"):
-        SweepAxis(type="advance_ratio", values=[0.81, 0.84])
+    with pytest.raises(ValidationError, match="both write"):
+        SweepAxis(type="advance_ratio", values=[0.811, 0.814])
 
 
 def test_points_a_tenth_apart_are_still_accepted():
