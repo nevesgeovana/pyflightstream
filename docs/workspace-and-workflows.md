@@ -2516,7 +2516,8 @@ settings too. For example, a preset's stabilization is a command from
 26.100, and its Reynolds-averaged drag from 25.100; and on the builds
 before 26.120 a section distribution takes no `INCLUDE_SYMMETRY`. Such a
 point is BLOCKED at plan time naming the command, and the plan lists
-every blocked point before any solver time is spent. Run `pyfs-matrix plan` with the `FS_BUILD` you mean first.
+every blocked point before any solver time is spent. Run `pyfs-matrix
+plan` with the `FS_BUILD` you mean first.
 
 ### Where a submitted point runs
 

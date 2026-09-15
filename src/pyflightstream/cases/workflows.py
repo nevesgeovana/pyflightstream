@@ -108,7 +108,7 @@ from pyflightstream.script import (
     Script,
     ScriptReferenceError,
     helpers,
-    vocabulary,
+    rotor_vocabulary,
 )
 from pyflightstream.versions import FsVersion, known_versions, resolve
 
@@ -803,7 +803,7 @@ def covered_builds(
 
 
 def _carried(view: VersionView, name: str) -> bool:
-    return name in view or (name in _SUBSTITUTES and vocabulary.euclidean_rotor(view))
+    return name in view or (name in _SUBSTITUTES and rotor_vocabulary.euclidean_rotor(view))
 
 
 def _missing_commands(
@@ -875,10 +875,10 @@ def require_coverage(
 #: that predate its vocabulary, and are WRITTEN there: the rotor axis and
 #: speed of a ROTARY motion are, on a build whose motion type is EUCLIDEAN,
 #: its angular velocity and its rotor mark (helpers.rotary_motion, GOAL-023).
-#: A build where ``vocabulary.euclidean_rotor`` holds covers the command; the
+#: A build where ``rotor_vocabulary.euclidean_rotor`` holds covers the command; the
 #: decision is made there and only there.
 _SUBSTITUTES: dict[str, tuple[str, ...]] = dict.fromkeys(
-    vocabulary.ROTARY_ROTOR_COMMANDS, vocabulary.EUCLIDEAN_ROTOR_COMMANDS
+    rotor_vocabulary.ROTARY_ROTOR_COMMANDS, rotor_vocabulary.EUCLIDEAN_ROTOR_COMMANDS
 )
 
 
@@ -977,7 +977,7 @@ def march_strategy(
 
     Returns
     -------
-    str or None
+    MarchStrategy or None
         None for a case that is not unsteady; ``MARCH_ACTIONS`` when the row
         states a per-step threshold or a wall clock and the build has the
         actions they need; ``MARCH_SINGLE`` otherwise. A continuation marks no
@@ -1011,16 +1011,16 @@ def march_strategy(
         wanted.append(
             (
                 f"per-step snapshot exports ({EXPORT_UNSTEADY_AFTER_ITER_VARIABLE})",
-                f"remove {EXPORT_UNSTEADY_AFTER_ITER_VARIABLE}: the plots table still records "
-                "every time step",
+                f"remove {EXPORT_UNSTEADY_AFTER_ITER_VARIABLE}, and the plots table still "
+                "records every time step",
             )
         )
     if case.variables.get(EXPORT_UNSTEADY_AFTER_REV_VARIABLE) not in (None, ""):
         wanted.append(
             (
                 f"per-step snapshot exports ({EXPORT_UNSTEADY_AFTER_REV_VARIABLE})",
-                f"remove {EXPORT_UNSTEADY_AFTER_REV_VARIABLE}: the plots table still records "
-                "every time step",
+                f"remove {EXPORT_UNSTEADY_AFTER_REV_VARIABLE}, and the plots table still "
+                "records every time step",
             )
         )
     if row_walltime_s(case) is not None:
@@ -1948,10 +1948,12 @@ def emit_rotor_motion(
     :func:`pyflightstream.script.helpers.rotary_motion` writes a ``ROTARY``
     motion with its axis and speed where the build documents them, and a
     ``EUCLIDEAN`` motion with the speed as an angular velocity plus the rotor
-    mark where ``script.vocabulary.euclidean_rotor`` holds (25.100 and 26.000; measured
-    on 26.000 by RPT-049). Coverage counts that substitute through
-    ``_SUBSTITUTES``; a build with neither vocabulary whole, 25.000 and
-    26.100, is refused by :func:`require_coverage` before this runs.
+    mark where ``script.rotor_vocabulary.euclidean_rotor`` holds (measured on
+    26.000 by RPT-049). Coverage counts that substitute through
+    ``_SUBSTITUTES``, so the workflow writes it on 25.100 and 26.000.
+    :func:`require_coverage` refuses 26.100, which has half of that
+    vocabulary, and 25.000, which has all of it and no ``CREATE_NEW_MOTION``,
+    before this runs.
 
     Parameters
     ----------

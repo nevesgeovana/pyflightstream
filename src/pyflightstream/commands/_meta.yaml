@@ -313,7 +313,8 @@ versions:
     # sha256, 417 pages, one creation date), and so are the release notes,
     # the EULA, the three libraries and the sample script. Only the
     # executable differs. The digests of every file of both packages are in
-    # reports/RPT-050_the-26124-package-against-26123_2026-09-15.md. So its documented rows are carried forward from
+    # reports/RPT-050_the-26124-package-against-26123_2026-09-15.md. So its
+    # documented rows are carried forward from
     # 26.123 citing SRC-752, and nothing is inherited from the 26.120 base:
     # a build is answered for by what was read or run on IT, and what was
     # read for it is 26.123's text.
@@ -552,7 +553,8 @@ manual_editions:
     Registered 2026-09-14, the day the build was delivered.
 
     IT IS THE SRC-751 FILE (RPT-050 records both digests). The package's
-    manual carries SRC-751's sha256, page count and creation date, and the text of all 417 pages extracts
+    manual carries SRC-751's sha256, page count and creation date, and the
+    text of all 417 pages extracts
     identically, so every SRC-751 page number addresses the same page here
     and every statement recorded against SRC-751 above holds for this
     edition word for word, the withdrawals included. What 26.124 changes,

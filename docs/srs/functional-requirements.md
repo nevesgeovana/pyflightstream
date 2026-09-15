@@ -3938,9 +3938,9 @@ requirement below is one seam of that division.
       whose `SET_MOTION_ANGULAR_VELOCITY` is the row's speed in rad/s along its
       axis, with `SET_MOTION_IS_ROTOR` along the same axis. The unit and the
       sense are measured on 26.000 (RPT-049); 25.100 was not run and rests on
-      its manual's identical grammar and that measurement. A build carrying one half of that
-      vocabulary and not the other is refused naming both halves; 26.100 is
-      that build, its rotor mark recorded as removed.
+      its manual's identical grammar and that measurement. A build carrying
+      one half of that vocabulary and not the other is refused naming both
+      halves; 26.100 is that build, its rotor mark recorded as removed.
 
     The cells that still do not render remain unsupported and are named by the
     evidence test with their reasons: every run type on 25.000, whose

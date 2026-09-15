@@ -238,6 +238,11 @@ def test_goal023_told_not_hidden_a_label_that_disagrees_with_the_script_is_refus
     monkeypatch.setattr(workflows, "march_strategy", lambda case, **_: MARCH_ACTIONS)
     with pytest.raises(workflows.WorkflowCoverageError, match="internal defect"):
         build_script(unsteady_case(), Script("26.123"))
+    # The other direction (qa lens, round two): a single march whose script
+    # registers actions is refused too.
+    monkeypatch.setattr(workflows, "march_strategy", lambda case, **_: MARCH_SINGLE)
+    with pytest.raises(workflows.WorkflowCoverageError, match="internal defect"):
+        build_script(unsteady_case(EXPORT_UNSTEADY_AFTER_ITER="2"), Script("26.123"))
 
 
 def test_goal023_told_not_hidden_the_record_refuses_a_strategy_outside_the_closed_set():
@@ -393,7 +398,7 @@ def test_goal023_support_matrix_every_run_type_renders_on_every_build(name, buil
 def test_goal023_support_matrix_the_euclidean_rotor_is_decided_once():
     """Architect lens F2: coverage and the helper read one predicate, over every build."""
     from pyflightstream.cases.workflows import _carried
-    from pyflightstream.script import vocabulary
+    from pyflightstream.script import rotor_vocabulary as vocabulary
 
     registry = CommandRegistry.load()
     for build in BUILDS:
@@ -401,6 +406,16 @@ def test_goal023_support_matrix_the_euclidean_rotor_is_decided_once():
         euclidean = vocabulary.euclidean_rotor(view)
         for name in vocabulary.ROTARY_ROTOR_COMMANDS:
             assert _carried(view, name) is (name in view or euclidean), (build, name)
+    # A build carrying the rotary speed AND the whole Euclidean rotor is not
+    # Euclidean, and coverage follows the predicate rather than deciding by
+    # itself; no registered build is that shape, so it is built here (qa lens,
+    # round two).
+    both = {"SET_MOTION_ROTOR_RPM", *vocabulary.EUCLIDEAN_ROTOR_COMMANDS}
+    assert vocabulary.euclidean_rotor(both) is False
+    assert _carried(both, "SET_MOTION_ROTOR_AXIS") is False
+    euclidean_only = set(vocabulary.EUCLIDEAN_ROTOR_COMMANDS)
+    assert vocabulary.euclidean_rotor(euclidean_only) is True
+    assert _carried(euclidean_only, "SET_MOTION_ROTOR_AXIS") is True
     # 25.000 carries the whole Euclidean rotor and not CREATE_NEW_MOTION, so the
     # predicate holds there and coverage still refuses the build on the motion.
     assert [b for b in BUILDS if vocabulary.euclidean_rotor(registry.for_version(b))] == [
@@ -429,9 +444,27 @@ def test_goal023_support_matrix_a_blade_count_refusal_names_the_builds_that_take
     script.declare_existing(frames=2)
     with pytest.raises(CommandArgumentError) as refused:
         helpers.rotary_motion(script, frame=2, axis="X", rpm=1200.0, wake_stabilization_blades=4)
-    assert f"set FS_BUILD to one that takes the count: {', '.join(takes_count)}." in str(
-        refused.value
+    assert (
+        f"build the script for one that takes the count (Script(version=...)): "
+        f"{', '.join(takes_count)}." in str(refused.value)
     )
+
+
+def test_goal023_support_matrix_the_blade_count_remedy_reads_the_scripts_own_database():
+    """Architect lens, round two: a script built on another database is told about that database."""
+    from pyflightstream.script import CommandArgumentError, helpers
+
+    packaged = CommandRegistry.load()
+    stabilization = "SET_MOTION_SLIPSTREAM_WAKE_STABILIZATION"
+    without = CommandRegistry(
+        commands={name: entry for name, entry in packaged.commands.items() if name != stabilization}
+    )
+    script = Script("26.000", registry=without)
+    script.declare_existing(frames=2)
+    with pytest.raises(
+        CommandArgumentError, match=r"\(Script\(version=\.\.\.\)\): no registered build\."
+    ):
+        helpers.rotary_motion(script, frame=2, axis="X", rpm=1200.0, wake_stabilization_blades=4)
 
 
 def test_goal023_support_matrix_the_rotor_mark_is_removed_on_26100_and_carried_before_it():

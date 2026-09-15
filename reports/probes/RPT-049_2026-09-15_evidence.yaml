@@ -91,6 +91,16 @@ rotor_rows:
     '
   pproc_p101_sha256: 5013c941253d559d450229062cf5460da8139245aa94088a162bb0fa705517d2
   reference_r003_sha256: abbeac65a4de0a377ff7504440bf940c30b10febe957fdf977ff534278a7b6c2
+  setup_s102_derivation:
+    from: inputs/setups/s002.toml, the tier-3 unsteady preset
+    s002_sha256: d5e3cd45fe4f8c0eec9dbe3a4bae9759ca50955162cd4d3832b8aaff0c1254f8
+    keys_removed:
+    - additional_wake_relaxation_iteration
+    - stabilization
+    - stabilization_strength
+    - wake_on_wake_induction
+    note: the header comment of s102 was written after the first removal and names only the stabilization
+      pair
 rotor_runs:
   '7101':
     rendered_script_sha256: 5112bbab5c234ad4d93baa5b1b10b2cb9435ccf6f923fb1f9fc75285c715c1d9
@@ -194,6 +204,8 @@ rotor_mark_scripts:
 
       '
     log_written: true
+    stdout_sha256: 3ed7e0a706e71c0a3bcad8a0cffc8b462327677d95040d9988d18299adf40d4b
+    stdout_error_lines: []
   isrotor_26000_disable_x:
     script: 'OPEN
 
@@ -216,6 +228,8 @@ rotor_mark_scripts:
 
       '
     log_written: true
+    stdout_sha256: 58083b49b25615a4d6fb2abd9c9eda6e2301d75f92002a65203afd73cd68ec78
+    stdout_error_lines: []
   isrotor_26000_enable_1:
     script: 'OPEN
 
@@ -238,6 +252,8 @@ rotor_mark_scripts:
 
       '
     log_written: true
+    stdout_sha256: a234940e29922c440fdf29a1d8dd65e84beb33f48c2228c6bc49f9ef873e9046
+    stdout_error_lines: []
   isrotor_26000_enable_only:
     script: 'OPEN
 
@@ -260,6 +276,9 @@ rotor_mark_scripts:
 
       '
     log_written: false
+    stdout_sha256: a06233ee2b8190d7172bb6b4b201f8ac556e5c5a30541a6405df09363c67ae98
+    stdout_error_lines:
+    - 'Error in script <probe>/isrotor_26000_enable_only/script.txt at line 6: SET_MOTION_IS_ROTOR 1 ENABLE'
   isrotor_26000_enable_x:
     script: 'OPEN
 
@@ -282,6 +301,8 @@ rotor_mark_scripts:
 
       '
     log_written: true
+    stdout_sha256: ca3b1349c5bbbfc8a995e4f65fa7272d0dc5822b0eefc06f3522358c230bcd81
+    stdout_error_lines: []
   isrotor_26000_enable_x_after_w:
     script: 'OPEN
 
@@ -306,6 +327,8 @@ rotor_mark_scripts:
 
       '
     log_written: true
+    stdout_sha256: e144d454aad911c2467183c0fa54a07851f6d44d0b6ca026477dbf639cb95844
+    stdout_error_lines: []
   isrotor_26000_enable_y:
     script: 'OPEN
 
@@ -328,6 +351,8 @@ rotor_mark_scripts:
 
       '
     log_written: true
+    stdout_sha256: 97ebfeaa521bb69cd7bd9a4599aabb9162976c559029ae6ea9a6509381410417
+    stdout_error_lines: []
   isrotor_26100_control_no_isrotor:
     script: 'OPEN
 
@@ -348,6 +373,8 @@ rotor_mark_scripts:
 
       '
     log_written: true
+    stdout_sha256: 3c6eca8b514c9a421b77cbd075bb407f358404c47520b32c5fde35ce0c45abe3
+    stdout_error_lines: []
   isrotor_26100_disable_x:
     script: 'OPEN
 
@@ -370,6 +397,12 @@ rotor_mark_scripts:
 
       '
     log_written: false
+    stdout_sha256: 7f6da782f7d00455fce162145b13aa7481dac2e74060bdec1c97accd78e94619
+    stdout_error_lines:
+    - 'Unrecognized command in script <probe>/isrotor_26100_disable_x/script.txt at line 6: SET_MOTION_IS_ROTOR
+      1 DISABLE X'
+    - 'Error in script <probe>/isrotor_26100_disable_x/script.txt at line 6: SET_MOTION_IS_ROTOR 1 DISABLE
+      X'
   isrotor_26100_enable_1:
     script: 'OPEN
 
@@ -392,6 +425,12 @@ rotor_mark_scripts:
 
       '
     log_written: false
+    stdout_sha256: b554fa3beb864eb031038dc85709ad2dd03f3e7f2d97c1187c3a37594c039022
+    stdout_error_lines:
+    - 'Unrecognized command in script <probe>/isrotor_26100_enable_1/script.txt at line 6: SET_MOTION_IS_ROTOR
+      1 ENABLE 1'
+    - 'Error in script <probe>/isrotor_26100_enable_1/script.txt at line 6: SET_MOTION_IS_ROTOR 1 ENABLE
+      1'
   isrotor_26100_enable_only:
     script: 'OPEN
 
@@ -414,6 +453,11 @@ rotor_mark_scripts:
 
       '
     log_written: false
+    stdout_sha256: c43319fe683c9366eb120b6a971da11b6c92547ec8b271462e44477fc618cabc
+    stdout_error_lines:
+    - 'Unrecognized command in script <probe>/isrotor_26100_enable_only/script.txt at line 6: SET_MOTION_IS_ROTOR
+      1 ENABLE'
+    - 'Error in script <probe>/isrotor_26100_enable_only/script.txt at line 6: SET_MOTION_IS_ROTOR 1 ENABLE'
   isrotor_26100_enable_x:
     script: 'OPEN
 
@@ -436,6 +480,12 @@ rotor_mark_scripts:
 
       '
     log_written: false
+    stdout_sha256: 3e509343288c61a274b673ccab914220c7efb1259cf51565ce70582d4ae816e8
+    stdout_error_lines:
+    - 'Unrecognized command in script <probe>/isrotor_26100_enable_x/script.txt at line 6: SET_MOTION_IS_ROTOR
+      1 ENABLE X'
+    - 'Error in script <probe>/isrotor_26100_enable_x/script.txt at line 6: SET_MOTION_IS_ROTOR 1 ENABLE
+      X'
   isrotor_26100_enable_x_after_w:
     script: 'OPEN
 
@@ -460,6 +510,12 @@ rotor_mark_scripts:
 
       '
     log_written: false
+    stdout_sha256: eaaf22f01f581a1b54bc8dcff5a94c795331828f927ba336edfb4dcea7a67679
+    stdout_error_lines:
+    - 'Unrecognized command in script <probe>/isrotor_26100_enable_x_after_w/script.txt at line 7: SET_MOTION_IS_ROTOR
+      1 ENABLE X'
+    - 'Error in script <probe>/isrotor_26100_enable_x_after_w/script.txt at line 7: SET_MOTION_IS_ROTOR
+      1 ENABLE X'
   isrotor_26100_enable_y:
     script: 'OPEN
 
@@ -482,6 +538,12 @@ rotor_mark_scripts:
 
       '
     log_written: false
+    stdout_sha256: 5645a7e684024e70537e2281a13ef2759630d8c80d5f4356dd989ac0ab43ab44
+    stdout_error_lines:
+    - 'Unrecognized command in script <probe>/isrotor_26100_enable_y/script.txt at line 6: SET_MOTION_IS_ROTOR
+      1 ENABLE Y'
+    - 'Error in script <probe>/isrotor_26100_enable_y/script.txt at line 6: SET_MOTION_IS_ROTOR 1 ENABLE
+      Y'
   names_26000_is_rotor:
     script: 'OPEN
 
@@ -504,6 +566,8 @@ rotor_mark_scripts:
 
       '
     log_written: true
+    stdout_sha256: 840b702259b3acd256c7e19dd7e094e1bb3e51c16e353a775f39482004ca1635
+    stdout_error_lines: []
   names_26000_no_extra_line:
     script: 'OPEN
 
@@ -524,6 +588,8 @@ rotor_mark_scripts:
 
       '
     log_written: true
+    stdout_sha256: 9fa8909663220210deaadc6917ed78050084e363e2ac8dd04fd206988977ea6f
+    stdout_error_lines: []
   names_26000_unknown_name:
     script: 'OPEN
 
@@ -546,6 +612,12 @@ rotor_mark_scripts:
 
       '
     log_written: false
+    stdout_sha256: e4b6f9b94fa32d8b7ff6e687860144cbeb668e9b1cbe6c29005ee43acba11353
+    stdout_error_lines:
+    - 'Unrecognized command in script <probe>/names_26000_unknown_name/script.txt at line 6: SET_MOTION_NOT_A_COMMAND_PROBE
+      1 ENABLE X'
+    - 'Error in script <probe>/names_26000_unknown_name/script.txt at line 6: SET_MOTION_NOT_A_COMMAND_PROBE
+      1 ENABLE X'
   names_26100_is_rotor:
     script: 'OPEN
 
@@ -568,6 +640,12 @@ rotor_mark_scripts:
 
       '
     log_written: false
+    stdout_sha256: 7a1ac6504baa3de44062b8cfa17757fb2dfbf4b86681f17a5d8ccc153db9f855
+    stdout_error_lines:
+    - 'Unrecognized command in script <probe>/names_26100_is_rotor/script.txt at line 6: SET_MOTION_IS_ROTOR
+      1 ENABLE X'
+    - 'Error in script <probe>/names_26100_is_rotor/script.txt at line 6: SET_MOTION_IS_ROTOR 1 ENABLE
+      X'
   names_26100_no_extra_line:
     script: 'OPEN
 
@@ -588,6 +666,8 @@ rotor_mark_scripts:
 
       '
     log_written: true
+    stdout_sha256: 8715f042e43c6ca55c95bc4282d4ccb85d0489f4a05e2cc0728dfbd1abc87e35
+    stdout_error_lines: []
   names_26100_unknown_name:
     script: 'OPEN
 
@@ -610,22 +690,111 @@ rotor_mark_scripts:
 
       '
     log_written: false
-rotor_mark_scripts_note: isrotor_<build>_* are the seven-script table of RPT-049, rerun on 26.100 and
+    stdout_sha256: a8d20fc9d9847707cfd1cc3f5f09299c04193c01f54414143df52b23fe88fc8b
+    stdout_error_lines:
+    - 'Unrecognized command in script <probe>/names_26100_unknown_name/script.txt at line 6: SET_MOTION_NOT_A_COMMAND_PROBE
+      1 ENABLE X'
+    - 'Error in script <probe>/names_26100_unknown_name/script.txt at line 6: SET_MOTION_NOT_A_COMMAND_PROBE
+      1 ENABLE X'
+  open_26100_saved_by_26100:
+    script: 'OPEN
+
+      <probe>/inputs/geometries/30_BLADE_26100.fsm
+
+
+      EXPORT_LOG
+
+      <probe>/open_26100_saved_by_26100/log.txt
+
+
+      CLOSE_FLIGHTSTREAM
+
+      '
+    log_written: true
+    stdout_sha256: a90b6c0b0dd7fd851848a8f5954512b7d55716c961863c81376e1b51021b3f9e
+    stdout_error_lines: []
+  open_26100_saved_by_26120:
+    script: 'OPEN
+
+      <probe>/inputs/geometries/30_BLADE_26120.fsm
+
+
+      EXPORT_LOG
+
+      <probe>/open_26100_saved_by_26120/log.txt
+
+
+      CLOSE_FLIGHTSTREAM
+
+      '
+    log_written: false
+    stdout_sha256: 328cfc22c44ca4db42ce3fc88221f10f6b4ba76e7d4b86570afa54468f323a01
+    stdout_error_lines:
+    - Error opening simulation file.
+    - 'Error in script <probe>/open_26100_saved_by_26120/script.txt at line 3:'
+rotor_mark_scripts_note: 'isrotor_<build>_* are the seven-script table of RPT-049, rerun on 26.100 and
   26.000 the same morning with the outcome the report states; names_<build>_* compare SET_MOTION_IS_ROTOR
-  with a name no build has, and 26.100 printed 'Unrecognized command in script' for both, as it does for
-  any unknown name, while 26.000 ran the first and refused the second the same way.
+  with a name no build has, and 26.100 printed ''Unrecognized command in script'' for both, as it does
+  for any unknown name, while 26.000 ran the first and refused the second the same way. On 26.000 the
+  one-argument form drew only the error line, without the unrecognized-command line: 26.000 knows the
+  name and refuses the arguments. open_26100_* show 26.100 unable to open the blade 26.120 saved and able
+  to open its own.'
 executable_name_scan:
-  method: regex SET_MOTION_(IS_ROTOR|ANGULAR_VELOCITY|ROTOR_RPM|ROTOR_AXIS) over each executable's bytes
-  found:
+  method: occurrences of each listed command name's bytes in each executable, counted wherever they occur,
+    including inside a longer token (a count of 0 is absent)
+  executables_sha256:
+    '25100': 69bf13a1edee0279c084f4d0a2b247e43541991df7258f5c1f2d3572a5925b7f
+    '26000': a0a131ee9c89c315ac5004b864bf26f5e7a689320ef4768f74cac9a16a0a2d70
+    '26100': 4dc55b6b2d3a3ca20592bf0b5747cf665401fc2a703544183b5d7551e47a33ed
+    '26101': f5ef1b107314277ca1095bb4c6b50d8c87067824cce7e8da2a6ada6dc95c94f7
+  occurrences:
     '25100':
-    - SET_MOTION_ANGULAR_VELOCITY
-    - SET_MOTION_IS_ROTOR
+      SET_MOTION_IS_ROTOR: 1
+      SET_MOTION_ANGULAR_VELOCITY: 1
+      SET_MOTION_ROTOR_RPM: 0
+      SET_MOTION_ROTOR_AXIS: 0
+      SET_MOTION_VELOCITY: 1
+      SET_MOTION_ACCELERATION: 1
+      SET_MOTION_SLIPSTREAM_WAKE_STABILIZATION: 0
     '26000':
-    - SET_MOTION_ANGULAR_VELOCITY
-    - SET_MOTION_IS_ROTOR
+      SET_MOTION_IS_ROTOR: 1
+      SET_MOTION_ANGULAR_VELOCITY: 1
+      SET_MOTION_ROTOR_RPM: 0
+      SET_MOTION_ROTOR_AXIS: 0
+      SET_MOTION_VELOCITY: 1
+      SET_MOTION_ACCELERATION: 1
+      SET_MOTION_SLIPSTREAM_WAKE_STABILIZATION: 1
     '26100':
-    - SET_MOTION_ANGULAR_VELOCITY
+      SET_MOTION_IS_ROTOR: 0
+      SET_MOTION_ANGULAR_VELOCITY: 1
+      SET_MOTION_ROTOR_RPM: 0
+      SET_MOTION_ROTOR_AXIS: 0
+      SET_MOTION_VELOCITY: 0
+      SET_MOTION_ACCELERATION: 0
+      SET_MOTION_SLIPSTREAM_WAKE_STABILIZATION: 1
     '26101':
-    - SET_MOTION_ANGULAR_VELOCITY
-    - SET_MOTION_ROTOR_AXIS
-    - SET_MOTION_ROTOR_RPM
+      SET_MOTION_IS_ROTOR: 0
+      SET_MOTION_ANGULAR_VELOCITY: 1
+      SET_MOTION_ROTOR_RPM: 1
+      SET_MOTION_ROTOR_AXIS: 1
+      SET_MOTION_VELOCITY: 1
+      SET_MOTION_ACCELERATION: 1
+      SET_MOTION_SLIPSTREAM_WAKE_STABILIZATION: 1
+axial_force_per_step:
+  '7101':
+  - step: 1.0
+    FX_MRP_TOTAL_N: -480.09
+  - step: 2.0
+    FX_MRP_TOTAL_N: -480.11
+  - step: 3.0
+    FX_MRP_TOTAL_N: -480.12
+  '7102':
+  - step: 1.0
+    FX_MRP_TOTAL_N: -480.09
+  - step: 2.0
+    FX_MRP_TOTAL_N: -474.31
+  - step: 3.0
+    FX_MRP_TOTAL_N: -473.56
+not_committed: The first bisection of the 26.100 rotor script (to the SET_MOTION_IS_ROTOR line) was run
+  on a script and a probe folder that no longer exist; the rotor_mark_scripts and their stdout supersede
+  it.

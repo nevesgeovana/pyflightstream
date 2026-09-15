@@ -16,7 +16,8 @@ FlightStream versions.
   only the executable differs (every file's digest, RPT-050). So all 372
   rows 26.123 records (371 documented commands and one removal) were
   carried to 26.124 citing that manual, nothing was inherited from 26.120,
-  and a probe run on the build then measured 86 verified and the same single broken command, `NEW_OFF_BODY_STREAMLINE`
+  and a probe run on the build then measured 86 verified and the same single
+  broken command, `NEW_OFF_BODY_STREAMLINE`
   (`reports/compat/CMP-26124_2026-09-14_full-sim.yaml`). Every workflow
   renders on 26.124 exactly what it renders on 26.123; the workflow goldens
   for 26.124 are byte-identical to 26.123's. `"26.12"` now names five builds
@@ -58,9 +59,11 @@ FlightStream versions.
   `helpers.rotary_motion` takes the same arguments on every build and
   refuses, on a Euclidean build, an axis given by index and a wake
   stabilization blade count, neither of which that vocabulary can state,
-  naming the builds that take the count. `pyflightstream.script.vocabulary.euclidean_rotor(view)`, in a new public
-  module beside the rotor command tuples, is the one decision both the helper
-  and the workflow coverage read.
+  naming the builds that take the count.
+  `pyflightstream.script.rotor_vocabulary.euclidean_rotor(view)`, in a new
+  public module beside the rotor command tuples, is the one decision both the
+  helper and the workflow coverage read; it chooses the vocabulary and does not
+  say a build runs a rotor.
 
 ### Changed
 
@@ -4899,7 +4902,7 @@ costs the reader the whole warning window the shim exists to buy.
   `[tool.mypy]` header has promised since 2026-08-03 that an exemption is
   removed as its module is typed and never added, and this is that
   direction happening rather than being restated. The re-count moves with
-  it: mypy recount 2026-09-14: 585 errors in 18 of 84 modules, where the
+  it: mypy recount 2026-09-15: 617 errors in 18 of 85 modules, where the
   tree carried 275 in 21 of 64 two days before, and the four records that
   state it move together because a tier-1 guard compares them.
 

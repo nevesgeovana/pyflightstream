@@ -33,16 +33,17 @@ there by digest.
    is recorded as removed on 26.100. The executables of 25.100 and 26.000 carry
    it, and 26.000 runs it.
 3. So the package writes the Euclidean rotor on 25.100 and 26.000, and 26.100
-   has no scripted way to mark a motion as a rotor. That build's rotor cell is
-   an owner decision rather than a substitution.
+   has no scripted way to mark a motion as a rotor. That build's rotor cell
+   remains unsupported rather than substituted.
 
 ## The probe, and the one thing it moves
 
 The tier-3 synthetic blade (`tests.tier3_licensed.recipes.SHAPES["blade"]`,
 one blade of radius 1.8288 m about the X axis), imported from the recipe's STL
-and saved separately by each build, because 26.100 ends a script at `OPEN` of
-the simulation 26.120 saved (measured the same night: the script stops at that
-line and writes no log). Two rows of one matrix, the same reference, setup and
+and saved separately by each build, because 26.100 cannot open the simulation
+26.120 saved: it answers that `OPEN` with an error opening the simulation file,
+stops the script and writes no log, and it opens the one it saved itself
+(`open_26100_*` in the evidence file). Two rows of one matrix, the same reference, setup and
 post-processing, differing in `FS_BUILD` and in the geometry file the build
 saved:
 
@@ -76,7 +77,7 @@ blade would have turned 1.6 degrees; had it read rev/min, 9.4 degrees.
 
 The loads of the two rows are not equal and this round does not claim they
 should be: the solvers are different builds. Over the three steps the total
-axial force was -480.09, -480.11, -480.12 N on 26.120 and -480.09, -474.31,
+axial force (the evidence file's `axial_force_per_step`) was -480.09, -480.11, -480.12 N on 26.120 and -480.09, -474.31,
 -473.56 N on 26.000, equal at the first step and 1.4 percent apart at the
 third. The in-plane force components rotate with the blade in both, which is
 the same sense of rotation seen in the loads.
@@ -99,21 +100,27 @@ Euclidean motion over every boundary, adding one variant and exporting the log:
 Every variant with the command exited in about a second with no log. The same
 seven scripts on 26.000, on the blade 26.000 saved: the control and the five
 forms with two arguments wrote their logs, and the form with one argument did
-not. The full rotor script was bisected on 26.100 to the line
-`SET_MOTION_IS_ROTOR 1 ENABLE X`, the first after which the log is not written.
+not. The full rotor script was first bisected on 26.100 to the line
+`SET_MOTION_IS_ROTOR 1 ENABLE X`, the first after which the log is not written;
+that bisection's scripts are not committed, and the variant and control scripts
+below, with the solver's own messages, are the committed record.
 
 A second round the same morning put the command beside a name no build has,
 `SET_MOTION_NOT_A_COMMAND_PROBE 1 ENABLE X`, in the same script, with the solver's
-standard output kept. On 26.100 both lines drew the same two messages, an
+standard output kept (each script's error lines and the digest of its output
+are in the evidence file). On 26.100 both lines drew the same two messages, an
 unrecognized command in the script at that line and an error at that line, and
 neither script wrote its log; the script without the extra line wrote it. On
 26.000 the rotor mark ran and the log was written, and the unknown name drew
-the same two messages. So 26.100 does not reject the rotor mark's arguments: it
+the same two messages; the one-argument rotor mark drew the error line alone,
+so 26.000 knows the name and refuses those arguments. Every rotor-mark variant
+was run again with its output kept, with the outcomes of the tables above. So 26.100 does not reject the rotor mark's arguments: it
 does not know the name. That is the outcome this database records as a removal
 (as RPT-021 did for a name 26.121 answered the same way), and the seven-script
 table was rerun on both builds that morning with the outcome above.
 
-The executables' own command-name strings agree: `SET_MOTION_IS_ROTOR` occurs
+The executables' own command-name strings agree (the evidence file's
+`executable_name_scan`, with each executable's digest): `SET_MOTION_IS_ROTOR` occurs
 in the 25.100 and 26.000 executables and not in the 26.100 one, which also
 lacks `SET_MOTION_VELOCITY` and `SET_MOTION_ACCELERATION` while carrying
 `SET_MOTION_ANGULAR_VELOCITY` and `SET_MOTION_SLIPSTREAM_WAKE_STABILIZATION`.

@@ -6,6 +6,10 @@ velocity and the rotor mark on the builds that document that vocabulary
 instead. :func:`pyflightstream.script.helpers.rotary_motion` writes by
 :func:`euclidean_rotor` and ``cases.workflows`` derives coverage from it, so
 the decision cannot be made two ways.
+
+It decides WHICH vocabulary a rotor is written in, never WHETHER a build runs a
+rotor: 25.000 documents the whole Euclidean rotor and no ``CREATE_NEW_MOTION``,
+so the predicate holds there and the workflow still refuses the build.
 """
 
 from __future__ import annotations
@@ -33,8 +37,9 @@ ROTARY_ROTOR_COMMANDS = ("SET_MOTION_ROTOR_AXIS", "SET_MOTION_ROTOR_RPM")
 def euclidean_rotor(view: VersionView) -> bool:
     """Return whether a rotor is written as a Euclidean motion on the build ``view`` answers for.
 
-    THE ONE PLACE THE SUBSTITUTION IS DECIDED: :func:`rotary_motion` writes by
-    it and ``cases.workflows`` derives coverage from it. True when the build
+    THE ONE PLACE THE SUBSTITUTION IS DECIDED:
+    :func:`pyflightstream.script.helpers.rotary_motion` writes by it and
+    ``cases.workflows`` derives coverage from it. True when the build
     documents no rotary rotor speed and documents the whole Euclidean rotor
     (:data:`EUCLIDEAN_ROTOR_COMMANDS`).
     """

@@ -70,13 +70,14 @@ from pyflightstream._errors import (
     PyflightstreamDeprecationWarning,
     PyflightstreamWarning,
 )
-from pyflightstream.commands import CommandNotInVersionError, CommandRegistry
+from pyflightstream.commands import CommandNotInVersionError
 from pyflightstream.script import (
     CommandArgumentError,
     Script,
     ScriptReferenceError,
     UnsteadyActionUse,
 )
+from pyflightstream.script.rotor_vocabulary import euclidean_rotor
 from pyflightstream.script.solver_setup import (
     LIBRARY_MINIMUM_CP,
     SEPARATION_MODELS,
@@ -90,7 +91,6 @@ from pyflightstream.script.solver_setup import (
     with_vorticity_selection,
 )
 from pyflightstream.script.toggles import Toggle, resolve_toggle
-from pyflightstream.script.vocabulary import euclidean_rotor
 from pyflightstream.versions import known_versions
 
 
@@ -629,8 +629,11 @@ def rotary_motion(
     The manual's rotor tutorial has the reader convert the rotor speed to
     radians per second for that field (SRC-741 p.394), and RPT-049
     measured the same unit for the script command
-    (:data:`pyflightstream.script.vocabulary.EUCLIDEAN_ROTOR_UNIT`). The caller writes the same
-    arguments on every build. 26.100 also names the type EUCLIDEAN and has
+    (:data:`pyflightstream.script.rotor_vocabulary.EUCLIDEAN_ROTOR_UNIT`).
+    The caller writes the same arguments on every build. The vocabulary is
+    chosen by :func:`pyflightstream.script.rotor_vocabulary.euclidean_rotor`,
+    which also holds on 25.000; the workflow refuses that build for its
+    missing ``CREATE_NEW_MOTION``. 26.100 also names the type EUCLIDEAN and has
     no rotor mark (RPT-049), so no rotor can be written there and the
     workflow refuses it before this helper is reached.
 
@@ -732,7 +735,9 @@ def _refuse_what_a_euclidean_rotor_cannot_state(
             "is not one of that frame's axes by letter. Write the axis as X, Y or Z."
         )
     if wake_stabilization_blades is not None:
-        registry = CommandRegistry.load()
+        # The registry the script was built against, so the builds named are
+        # the builds that database holds.
+        registry = script._registry
         counted = [
             version.canonical
             for version in known_versions()
@@ -743,8 +748,8 @@ def _refuse_what_a_euclidean_rotor_cannot_state(
             f"rotary_motion: FlightStream {build} documents no slipstream wake "
             "stabilization that takes a blade count, and this motion asks for it with "
             f"{wake_stabilization_blades} blades. Leave wake_stabilization_blades unset "
-            f"on this build, or set FS_BUILD to one that takes the count: "
-            f"{', '.join(counted) or 'no registered build'}."
+            f"on this build, or build the script for one that takes the count "
+            f"(Script(version=...)): {', '.join(counted) or 'no registered build'}."
         )
 
 
