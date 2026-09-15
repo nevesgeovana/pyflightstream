@@ -42,6 +42,8 @@ from pyflightstream.commands import CommandRegistry
 # twice was false while it was being made.
 PER_VERSION_GRAMMAR: dict[str, dict[str, dict[str, tuple[str, ...]]]] = {
     "CREATE_NEW_MOTION": {
+        "25.100": {"enum:type": ("EUCLIDEAN", "6DOF", "CUSTOM")},
+        "26.000": {"enum:type": ("EUCLIDEAN", "6DOF", "CUSTOM")},
         "26.100": {"enum:type": ("EUCLIDEAN", "6DOF", "CUSTOM")},
     },
     "SET_TRAILING_EDGE_TYPE": {
@@ -591,8 +593,11 @@ def test_an_override_differs_from_its_base_only_where_a_delta_table_says_so():
     # argument the base also carries, times the same eight fields.
     # 960 since 2026-09-14: the same override carried to 26.124, whose manual
     # is the 26.123 file, adds the same argument once more.
-    assert compared == 960, (
-        f"{compared} field comparisons ran and the shipped database supports 960. "
+    # 976 since 2026-09-15: CREATE_NEW_MOTION gains the EUCLIDEAN override on
+    # 25.100 and 26.000, whose pages name that type (SRC-748 p.306, SRC-747
+    # p.305), one argument each.
+    assert compared == 976, (
+        f"{compared} field comparisons ran and the shipped database supports 976. "
         "A rise is an override gaining an argument the base also carries, a fall is "
         "one losing it or the walk losing a chapter file"
     )

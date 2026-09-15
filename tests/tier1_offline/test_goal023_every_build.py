@@ -1,4 +1,4 @@
-"""Tier 1: every matrix workflow on every registered build (GOAL-023, 0.20.0).
+"""Tier 1: every matrix workflow on every registered build (GOAL-023, 0.20.0, FR-101).
 
 One seam decides how an unsteady row is marched on a build: with the solver's
 per-step actions where the row asks for what only they give and the build
@@ -278,16 +278,15 @@ def test_goal023_transparent_one_row_plans_on_every_build_with_only_the_build_ch
 #: edition exposes and no edition gives a default for (load frame, proximity
 #: avoidance, stabilization, its strength, fast multipole; SRC-749 p.303), so
 #: choosing them is a numerical decision that is the owner's (GOAL-023 arm 4).
-#: PENDING: 25.100, 26.000 and 26.100 document a rotor only as a Euclidean
-#: motion with SET_MOTION_ANGULAR_VELOCITY, whose unit no edition states
-#: (SRC-741 p.329); the substitution waits on a licensed measurement.
+#: OWNER: 26.100 has no scripted rotor mark. Its manual prints
+#: SET_MOTION_IS_ROTOR and its solver ends the script at it in every form
+#: (RPT-049), so a rotor there would be a Euclidean motion the solver is never
+#: told is a rotor; whether that is acceptable is a physics decision.
 NOT_YET_RENDERED = {
     ("steady", "25.000"): "OWNER",
     ("unsteady", "25.000"): "OWNER",
     ("unsteady_rotor", "25.000"): "OWNER",
-    ("unsteady_rotor", "25.100"): "PENDING",
-    ("unsteady_rotor", "26.000"): "PENDING",
-    ("unsteady_rotor", "26.100"): "PENDING",
+    ("unsteady_rotor", "26.100"): "OWNER",
 }
 
 
@@ -310,6 +309,34 @@ def test_goal023_support_matrix_every_run_type_renders_on_every_build(name, buil
             continue
         text = rendered(make(), build)
         assert text.strip(), f"{name} {label} rendered nothing on {build}"
+
+
+def test_goal023_support_matrix_the_rotor_mark_is_removed_on_26100_and_carried_before_it():
+    """RPT-049: the 26.100 solver ends a script at SET_MOTION_IS_ROTOR; 25.100 and 26.000 run it."""
+    assert "SET_MOTION_IS_ROTOR" not in Script("26.100")._view
+    for build in ("25.100", "26.000"):
+        assert "SET_MOTION_IS_ROTOR" in Script(build)._view, build
+
+
+@pytest.mark.parametrize(
+    ("arguments", "said"),
+    [
+        ({"axis": "1"}, "by letter"),
+        ({"axis": "X", "wake_stabilization_blades": 4}, "blade count"),
+    ],
+)
+def test_goal023_support_matrix_a_euclidean_rotor_refuses_what_its_vocabulary_cannot_state(
+    arguments, said
+):
+    """An axis by index and a stabilization blade count have no Euclidean spelling."""
+    from pyflightstream.script import CommandArgumentError, helpers
+
+    script = Script("26.000")
+    script.declare_existing(frames=2)
+    with pytest.raises(CommandArgumentError, match=said) as refused:
+        helpers.rotary_motion(script, frame=2, rpm=1200.0, **arguments)
+    assert "26.000" in str(refused.value)
+    assert script.render().strip() == "", "the motion was emitted before the refusal"
 
 
 def test_goal023_support_matrix_the_cells_that_do_not_render_are_exactly_the_declared_ones():

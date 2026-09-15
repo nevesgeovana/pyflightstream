@@ -619,6 +619,17 @@ def rotary_motion(
     disc surrogate (SRC-003 p.234); it requires the unsteady solver
     (see :func:`unsteady_solver`).
 
+    ON A BUILD WITHOUT THE ROTARY TYPE (25.100, 26.000 and 26.100, whose
+    manuals name the motion type EUCLIDEAN) the same rotor is written in
+    that build's own vocabulary: a Euclidean motion whose angular velocity
+    is the speed converted to rad/s along the axis, marked as a rotor
+    whose slipstream convects along that axis. The manual's rotor
+    tutorial gives the unit, "The RPM of the rotor will need to be
+    converted into rad/s and input under Angular velocity (rad/s)"
+    (SRC-741 p.394); :data:`EUCLIDEAN_ROTOR_UNIT` names the measurement
+    that confirmed it for the script command. The caller writes the same
+    arguments on every build.
+
     Parameters
     ----------
     script : Script
@@ -646,10 +657,10 @@ def rotary_motion(
         Enables slipstream wake stabilization with this blade count,
         which is PER ROTOR and not a total across the motion
         (SRC-003 p.333). The February 2026 build's grammar for that
-        command has two arguments and no blade count at all, so this
-        argument is not emittable there. Reaching it on 26.100 does not
-        arise: that build has no rotary motion to stabilize, and this
-        helper is refused earlier, at the motion type it cannot name.
+        command has two arguments and no blade count at all, and 25.100
+        and 26.000 document no such command, so on a Euclidean build
+        this argument is refused by name rather than emitted without the
+        count it states.
     label : str, optional
         Label registered for the created motion in the script's
         entity registry, so later commands can cite it by name
@@ -659,10 +670,22 @@ def rotary_motion(
     -------
     int
         Identifier of the created motion, for later citations.
+
+    Raises
+    ------
+    CommandArgumentError
+        On a Euclidean build, if the axis is given by index or a wake
+        stabilization blade count is asked for, neither of which that
+        vocabulary can state.
     """
     _reject_bare_label("rotary_motion", "boundaries", boundaries, allows_all=True)
     _reject_bare_label("rotary_motion", "moving_frames", moving_frames, allows_all=True)
-    script.emit("CREATE_NEW_MOTION", "ROTARY", label=label)
+    euclidean = "SET_MOTION_ROTOR_RPM" not in script._view and all(
+        name in script._view for name in EUCLIDEAN_ROTOR_COMMANDS
+    )
+    if euclidean:
+        _refuse_what_a_euclidean_rotor_cannot_state(script, axis, wake_stabilization_blades)
+    script.emit("CREATE_NEW_MOTION", "EUCLIDEAN" if euclidean else "ROTARY", label=label)
     motion_id = script.num_motions
     if boundaries == "all":
         script.emit("SET_MOTION_BOUNDARIES", motion_id, -1)
@@ -673,8 +696,17 @@ def rotary_motion(
     elif moving_frames is not None:
         script.emit("SET_MOTION_MOVING_FRAMES", motion_id, len(moving_frames), list(moving_frames))
     script.emit("SET_MOTION_COORDINATE_SYSTEM", motion_id, frame)
-    script.emit("SET_MOTION_ROTOR_AXIS", motion_id, axis)
-    script.emit("SET_MOTION_ROTOR_RPM", motion_id, rpm)
+    if euclidean:
+        rad_s = rpm * 2.0 * math.pi / 60.0
+        script.emit(
+            "SET_MOTION_ANGULAR_VELOCITY",
+            motion_id,
+            *(rad_s if axis == letter else 0.0 for letter in "XYZ"),
+        )
+        script.emit("SET_MOTION_IS_ROTOR", motion_id, "ENABLE", axis)
+    else:
+        script.emit("SET_MOTION_ROTOR_AXIS", motion_id, axis)
+        script.emit("SET_MOTION_ROTOR_RPM", motion_id, rpm)
     if start_time is not None:
         script.emit("SET_MOTION_START_TIME", motion_id, start_time)
     if wake_stabilization_blades is not None:
@@ -685,6 +717,37 @@ def rotary_motion(
             wake_stabilization_blades,
         )
     return motion_id
+
+
+#: The commands a rotor is written with on a build whose motion type is
+#: EUCLIDEAN: the angular velocity vector and the rotor mark (SRC-741 p.329,
+#: SRC-747 p.306, SRC-748 p.307). No registered build documents both these
+#: and SET_MOTION_ROTOR_RPM.
+EUCLIDEAN_ROTOR_COMMANDS = ("SET_MOTION_ANGULAR_VELOCITY", "SET_MOTION_IS_ROTOR")
+
+#: The unit SET_MOTION_ANGULAR_VELOCITY takes. Its scripting page states
+#: none; the rotor tutorial of the same manual states rad/s for the
+#: dialog field the command sets (SRC-741 p.394).
+EUCLIDEAN_ROTOR_UNIT = "rad/s"
+
+
+def _refuse_what_a_euclidean_rotor_cannot_state(
+    script: Script, axis: str, wake_stabilization_blades: int | None
+) -> None:
+    build = script.version.canonical
+    if axis not in ("X", "Y", "Z"):
+        raise CommandArgumentError(
+            f"rotary_motion: FlightStream {build} writes a rotor as a Euclidean motion, "
+            f"whose angular velocity is a vector in the motion's frame, and axis {axis!r} "
+            "is not one of that frame's axes by letter. Write the axis as X, Y or Z."
+        )
+    if wake_stabilization_blades is not None:
+        raise CommandArgumentError(
+            f"rotary_motion: FlightStream {build} documents no slipstream wake "
+            "stabilization that takes a blade count, and this motion asks for it with "
+            f"{wake_stabilization_blades} blades. Leave wake_stabilization_blades unset "
+            "on this build, or run the rotor on 26.101 or later."
+        )
 
 
 def unsteady_solver(script: Script, *, time_iterations: int, delta_time: float) -> None:

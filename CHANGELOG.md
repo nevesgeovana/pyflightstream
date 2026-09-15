@@ -39,8 +39,24 @@ FlightStream versions.
   named. Nothing is emulated: a row the build cannot run as written is
   refused at plan time, before any seat is used, and never rendered with the
   feature silently dropped.
+- **A rotor row runs on 25.100 and 26.000.** Those editions name the motion
+  type `EUCLIDEAN` and have no rotor axis or speed command, so
+  `unsteady_rotor` writes the rotor in their vocabulary: a Euclidean motion
+  whose `SET_MOTION_ANGULAR_VELOCITY` is the row's speed in rad/s along its
+  axis, and `SET_MOTION_IS_ROTOR` along the same axis. The row is unchanged.
+  The unit and the sense were measured: on 26.000 a blade driven this way
+  turned exactly as the rotary motion at the same speed turns it on 26.120
+  (RPT-049). `helpers.rotary_motion` takes the same arguments on every build
+  and refuses, on a Euclidean build, an axis given by index and a wake
+  stabilization blade count, neither of which that vocabulary can state.
 
 ### Changed
+
+- **`unsteady_rotor` on 26.100 is still refused, now for a measured reason.**
+  Its manual prints `SET_MOTION_IS_ROTOR` and its solver ends the script at it
+  in every form tried, writing no log; the command is recorded as removed on
+  26.100 (RPT-049), and the refusal names the half of the Euclidean rotor the
+  build carries and the half it does not.
 
 - **The `broken_commands` manifest key is promised for removal at 0.21.0**, its
   sixth deadline, on the same re-count as the five before it: re-measured the
@@ -50,6 +66,10 @@ FlightStream versions.
 
 ### Fixed
 
+- **`CREATE_NEW_MOTION` on 25.100 and 26.000 takes `EUCLIDEAN`, as their pages
+  say.** Both rows were recorded as "same grammar as 26.120", which put the
+  `ROTARY` type in two editions that never name it (SRC-748 p.306, SRC-747
+  p.305); re-read from the pages on 2026-09-15.
 - **A rebuild archives the series tables it rewrites.** `pyfs-matrix post`
   archived every existing product into `<its folder>/archive/<day and hour>/`
   before writing, except the tables under `series/`, which it rewrote in place:

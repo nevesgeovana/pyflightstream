@@ -37,11 +37,15 @@ from pyflightstream.versions import known_versions
 #: sweep compares entry NAMES and cannot see an entry missing an
 #: edition, so EXPORT_ALL_SURFACE_STREAMLINES read as covered while
 #: three builds could not emit it.
+#:
+#: 26.100 FELL by one on 2026-09-15, a measured removal and not a lost row:
+#: its solver ends a script at SET_MOTION_IS_ROTOR in every form and its
+#: executable carries no such command (RPT-049). The row stays, as removed.
 EMITTABLE = {
     "25.000": 268,
     "25.100": 270,
     "26.000": 274,
-    "26.100": 345,
+    "26.100": 344,
     "26.101": 363,
     "26.120": 363,
     "26.121": 368,

@@ -427,11 +427,13 @@ def test_cases_workflows_imports_nothing_above_its_own_layer():
 
 
 def test_the_rotor_coverage_is_derived_from_the_database_and_not_declared():
-    """Every covered build carries every command the workflow emits.
+    """Every covered build carries every command the workflow emits, or its substitute.
 
     Derived rather than listed: a build registered tomorrow joins the
     range the moment its evidence lands, and a command whose status
-    moves narrows it in the same commit.
+    moves narrows it in the same commit. The rotor axis and speed are
+    carried by a build that documents the whole Euclidean rotor instead
+    (helpers.EUCLIDEAN_ROTOR_COMMANDS, RPT-049).
     """
     registry = CommandRegistry.load()
     rotor = resolve_workflow("unsteady_rotor")
@@ -441,7 +443,12 @@ def test_the_rotor_coverage_is_derived_from_the_database_and_not_declared():
     order = [build.canonical for build in known_versions()]
     for canonical in order:
         view = registry.for_version(canonical)
-        complete = all(name in view for name in rotor.commands)
+        euclidean = all(name in view for name in helpers.EUCLIDEAN_ROTOR_COMMANDS)
+        complete = all(
+            name in view
+            or (name in ("SET_MOTION_ROTOR_AXIS", "SET_MOTION_ROTOR_RPM") and euclidean)
+            for name in rotor.commands
+        )
         assert (canonical in covered) is complete, (
             f"{canonical} is reported {'covered' if canonical in covered else 'uncovered'} "
             "while its command database says otherwise"
@@ -472,14 +479,23 @@ def test_a_build_outside_the_range_is_refused_before_any_emission():
     )
 
 
-def test_the_refusal_names_the_earlier_vocabulary_only_where_the_build_has_it():
-    """A checkable truth on the builds it appears on, not a general claim."""
-    with pytest.raises(WorkflowCoverageError) as early:
+def test_the_refusal_names_the_earlier_vocabulary_only_where_the_build_has_part_of_it():
+    """A checkable truth on the builds it appears on, not a general claim.
+
+    26.100 carries the angular velocity of the Euclidean rotor and not its rotor
+    mark (RPT-049), so its refusal names both halves; 25.000 carries the whole
+    substitute and lacks the motion itself, so its refusal says nothing of it.
+    """
+    with pytest.raises(WorkflowCoverageError) as february:
         build_script(rotor_case(), Script("26.100"))
-    assert "SET_MOTION_IS_ROTOR" in str(early.value), (
-        "26.100 carries the earlier rotor vocabulary and the refusal never mentions it, "
-        "so the reader is not told why a rotor is expressible there and not this way"
+    message = str(february.value)
+    assert "SET_MOTION_ANGULAR_VELOCITY" in message and "not SET_MOTION_IS_ROTOR" in message, (
+        "26.100 carries half of the earlier rotor vocabulary and the refusal does not say "
+        f"which half, so the reader cannot tell why the substitution stops there; got {message!r}"
     )
+    with pytest.raises(WorkflowCoverageError) as oldest:
+        build_script(rotor_case(), Script("25.000"))
+    assert "earlier vocabulary" not in str(oldest.value)
 
 
 def test_a_build_inside_the_range_emits():
@@ -489,9 +505,39 @@ def test_a_build_inside_the_range_emits():
     for build in covered:
         script = Script(build)
         build_script(rotor_case(), script)
-        assert "SET_MOTION_ROTOR_RPM" in script.render(), (
+        speed = (
+            "SET_MOTION_ROTOR_RPM"
+            if "SET_MOTION_ROTOR_RPM" in script._view
+            else ("SET_MOTION_ANGULAR_VELOCITY")
+        )
+        assert speed in script.render(), (
             f"{build} is reported covered and the workflow emitted no rotor speed on it"
         )
+
+
+@pytest.mark.parametrize("build", ["25.100", "26.000"])
+def test_a_build_without_the_rotary_type_writes_the_rotor_as_a_euclidean_motion(build):
+    """FR-101: the speed in rad/s along the axis and the rotor mark (RPT-049, on 26.000)."""
+    case = rotor_case()
+    script = Script(build)
+    build_script(case, script)
+    lines = script.render().splitlines()
+    assert "CREATE_NEW_MOTION EUCLIDEAN" in lines
+    rotary_words = ("SET_MOTION_ROTOR_", "CREATE_NEW_MOTION ROTARY")
+    assert not any(line.startswith(rotary_words) for line in lines)
+    velocity = next(line for line in lines if line.startswith("SET_MOTION_ANGULAR_VELOCITY"))
+    rotary = Script("26.120")
+    build_script(rotor_case(), rotary)
+    rotary_lines = rotary.render().splitlines()
+    rpm = float(
+        next(line for line in rotary_lines if line.startswith("SET_MOTION_ROTOR_RPM")).split()[2]
+    )
+    axis = next(line for line in rotary_lines if line.startswith("SET_MOTION_ROTOR_AXIS")).split()[
+        2
+    ]
+    expected = [rpm * 2 * math.pi / 60 if letter == axis else 0.0 for letter in "XYZ"]
+    assert [float(v) for v in velocity.split()[2:]] == pytest.approx(expected, rel=1e-12), velocity
+    assert f"SET_MOTION_IS_ROTOR 1 ENABLE {axis}" in lines
 
 
 def test_the_steady_workflow_covers_every_registered_build():

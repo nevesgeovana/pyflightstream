@@ -2,8 +2,8 @@
  "source": "docs/srs",
  "generated_by": "scripts/gen_requirements_index.py",
  "traceability": {
-  "cited_by_a_test": 105,
-  "total": 152,
+  "cited_by_a_test": 106,
+  "total": 153,
   "method": "upper bound: an id mentioned anywhere in tests/**/*.py excluding conftest.py, which is not the marked falsifying test NFR-13 asks for"
  },
  "requirements": [
@@ -965,6 +965,14 @@
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: the 0.19.0 scope, a translation stated by the row with the architecture of the rotation. Evidence: tests/tier1_offline/test_goal022_translate.py (the cell grammar and its refusals, one surface line per boundary in the named frame, every owned and auxiliary frame at its new origin once, a frame whose axes are not the reference's, the kept hub shared with a rotation, a plot on a moved hub written in both frames, and the order on every run type that rotates). And reports/RPT-048_what-a-per-surface-translation-does-to-shared-vertices_2026-09-14.md (the split and the setup phase measured on 26.123, and a null test). AMENDS FR-35, whose variables cell gains the TRANSLATE list, and FR-71, whose kept frame a translation shares.*",
+   "verification": "test"
+  },
+  {
+   "id": "FR-101",
+   "text": "A matrix row names its build in FS_BUILD and nothing else about it. The package decides, per point and before the first emission, how the row runs on that build, from the command database and recorded evidence and never from a list of builds:",
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: the 0.20.0 scope, every workflow on every registered build with the build as the only cell that changes. Evidence: tests/tier1_offline/test_goal023_every_build.py (every run type and case shape against every registered build, the cells that do not render named exactly, the single march on each build without actions, each feature only actions give refused at plan time by name, the strategy in the plan and the run record, one row planned under every build, and the 26.123 goldens unchanged). tests/tier1_offline/test_workflows.py (coverage derived with the substitute, and the Euclidean rotor's speed, axis and mark). And reports/RPT-049_a-rotor-on-the-builds-before-the-rotary-motion_2026-09-15.md (the unit and sense of the Euclidean angular velocity measured on 26.000 against the rotary motion on 26.120, and the rotor mark removed on 26.100). AMENDS FR-98 and FR-96, whose wall clock and continuations are refused on a build without actions, and the coverage rule of the workflow table.*",
    "verification": "test"
   },
   {

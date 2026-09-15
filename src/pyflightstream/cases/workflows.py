@@ -763,7 +763,9 @@ def covered_builds(
     """Return the solver builds a workflow covers, DERIVED from the database.
 
     A build is covered when its command view carries every command the
-    workflow always emits. Nothing is declared: a build registered
+    workflow always emits, or the build's own documented vocabulary for
+    that command's job (:data:`_SUBSTITUTES`, which the builder writes on
+    that build). Nothing is declared: a build registered
     tomorrow joins this tuple the moment its evidence lands, and a
     command whose status moves narrows it in the same commit.
 
@@ -786,16 +788,21 @@ def covered_builds(
     covered = []
     for build in known_versions():
         view = database.for_version(build)
-        if all(name in view for name in workflow.commands):
+        if all(_carried(view, name) for name in workflow.commands):
             covered.append(build.canonical)
     return tuple(covered)
+
+
+def _carried(view: VersionView, name: str) -> bool:
+    substitute = _SUBSTITUTES.get(name, ())
+    return name in view or bool(substitute) and all(other in view for other in substitute)
 
 
 def _missing_commands(
     workflow: Workflow, version: FsVersion, registry: CommandRegistry
 ) -> tuple[str, ...]:
     view = registry.for_version(version)
-    return tuple(name for name in workflow.commands if name not in view)
+    return tuple(name for name in workflow.commands if not _carried(view, name))
 
 
 def require_coverage(
@@ -830,17 +837,20 @@ def require_coverage(
         return
     covered = covered_builds(workflow, registry=database)
     view = database.for_version(target)
-    # The earlier vocabulary, named only where the build actually has
-    # it, so this sentence is a checkable truth on the builds it appears
-    # on rather than a general claim.
-    earlier = tuple(name for name in _EARLIER_VOCABULARY if name in view)
+    # The substitute, named only where the build carries PART of it, so
+    # this sentence is a checkable truth on the builds it appears on: a
+    # build with all of it is covered, and one with none of it has nothing
+    # to be told about.
     note = ""
-    if earlier:
-        note = (
-            f" That build carries {', '.join(earlier)} instead, which is the earlier "
-            "vocabulary for the same intent and does not accept the same arguments, so "
-            "it is not a substitution this package can make on your behalf."
-        )
+    for substitute in dict.fromkeys(_SUBSTITUTES[name] for name in missing if name in _SUBSTITUTES):
+        carried = [other for other in substitute if other in view]
+        absent = [other for other in substitute if other not in view]
+        if carried and absent:
+            note += (
+                f" That build carries {', '.join(carried)} of the earlier vocabulary this "
+                f"package writes in their place, and not {', '.join(absent)}, so it cannot be "
+                "written there either."
+            )
     covered_text = ", ".join(covered) if covered else "no registered build"
     raise WorkflowCoverageError(
         f"the {workflow.name!r} workflow does not cover FlightStream build "
@@ -854,10 +864,14 @@ def require_coverage(
 
 
 #: Commands that do the same job as a rotor workflow's own on the builds
-#: that predate its vocabulary. Named in a refusal, never emitted: no
-#: registered build documents both this and SET_MOTION_ROTOR_RPM, so a
-#: version branch that chose between them would be unreachable code.
-_EARLIER_VOCABULARY = ("SET_MOTION_IS_ROTOR",)
+#: that predate its vocabulary, and are WRITTEN there: the rotor axis and
+#: speed of a ROTARY motion are, on a build whose motion type is EUCLIDEAN,
+#: its angular velocity and its rotor mark (helpers.rotary_motion, GOAL-023).
+#: A build carrying every command of the substitute covers the command.
+_SUBSTITUTES: dict[str, tuple[str, ...]] = {
+    "SET_MOTION_ROTOR_AXIS": helpers.EUCLIDEAN_ROTOR_COMMANDS,
+    "SET_MOTION_ROTOR_RPM": helpers.EUCLIDEAN_ROTOR_COMMANDS,
+}
 
 
 # --- how a build is marched (ARCH-0200, GOAL-023) ---------------------------

@@ -2448,18 +2448,74 @@ polar the stage refuses keeps them.
 
 A workflow declares the commands it always emits, and the builds it
 covers are DERIVED from the command database rather than written down.
-`steady` and `unsteady` cover every registered build. `unsteady_rotor`
-covers 26.101 and later, because the earlier builds'
-databases carry no `SET_MOTION_ROTOR_AXIS` and no
-`SET_MOTION_ROTOR_RPM`: those builds configure a rotor by flagging an
-existing motion instead, which is a different vocabulary and not a
-substitution this package will make for you. Asked for a build outside
-its range, the workflow refuses before it emits its first line, and the
-refusal names the build you gave, the builds it covers, and the commands
-that decided it.
+Asked for a build outside its range, the workflow refuses before it
+emits its first line, and the refusal names the build you gave, the
+builds it covers, and the commands that decided it.
 
 Because the range is derived, a build registered tomorrow joins it the
 moment its evidence lands, and nobody has to remember to widen a list.
+
+**The row is the same on every build: only `FS_BUILD` changes.** Where a
+build spells the same thing in its own vocabulary, the package writes
+that vocabulary, and the plan and the run record say what was chosen.
+What each run type does on each registered build:
+
+| run type | 25.000 | 25.100, 26.000 | 26.100 | 26.101, 26.120, 26.121 | 26.122, 26.123, 26.124 |
+|---|---|---|---|---|---|
+| `steady` | refused | runs | runs | runs | runs |
+| `unsteady` | refused | single march | single march | single march | actions where the row asks for them |
+| `unsteady_rotor` | refused | single march, Euclidean rotor | refused | single march | actions where the row asks for them |
+
+**A single march** is how an unsteady row runs on a build whose manual
+documents no unsteady solver action (`SET_NEW_UNSTEADY_SOLVER_ACTION`,
+first documented in 26.122): the plots are declared before one solver
+start that runs every time step the row states, and every export is
+taken after it. It is also what a row asking for none of the features
+below has always rendered on every build, so such a row renders the
+same script on 26.123 as it did before 0.20.0. The per-step history of
+the products stage comes from the plots table the solver writes, so the
+reductions and the series are built on every build.
+
+Three things only the actions give, and a row asking a build without
+them for one is BLOCKED at plan time, before any solver time is spent,
+with a sentence naming the build, the feature, the builds that document
+the actions and the change to the row that runs where you asked:
+
+- snapshots from a threshold (`EXPORT_UNSTEADY_AFTER_ITER`,
+  `EXPORT_UNSTEADY_AFTER_REV`), because the step counter is an action;
+- the wall clock inside the run (`WALLTIME`), because the clock and its
+  stop are actions; size `TIME_ITERATIONS` to the queue instead and
+  continue a capped run with `RESTART: {ADDITIONAL_ITERS=n}`;
+- a continuation that reads their records, `RESTART: {FINISH_PENDING}` and
+  `RESTART: {ADDITIONAL_REVS=n}`.
+
+Nothing is emulated. The plan's `march_strategy` and the run record's
+`march_strategy` carry `actions` or `single_march` for every unsteady
+point, and the superfile carries it as a column, so two runs of one row
+on two builds are told apart by what they were given.
+
+**A Euclidean rotor** is how a rotor row runs on 25.100 and 26.000, whose
+manuals name the motion type `EUCLIDEAN` and have no rotor axis or speed
+command. The package writes a Euclidean motion whose angular velocity is
+the row's speed converted to rad/s along its axis, marked as a rotor
+with `SET_MOTION_IS_ROTOR`. On 26.000 a blade driven this way turned
+exactly as the rotary motion at the same speed turns it on 26.120, in
+the same sense (RPT-049). 26.100 is refused: its manual prints the rotor
+mark and its solver ends the script at it, so it has no scripted way to
+say a motion is a rotor.
+
+**25.000 is refused for every run type.** Its `INITIALIZE_SOLVER` takes
+five settings no later edition exposes and no edition gives a default
+for, and choosing them for you is not this package's decision.
+
+**The table is about the run types, and a row's inputs can still ask a
+build for more.** A solver preset or a post-processing artifact names
+settings too. For example, a preset's stabilization is a command from
+26.101, its wake-on-wake induction and additional wake relaxation from
+26.100, and its Reynolds-averaged drag from 25.100; and on the builds
+before 26.120 a section distribution takes no `INCLUDE_SYMMETRY`. Such a point is BLOCKED at plan time naming
+the command, and the plan lists every blocked point before any solver
+time is spent. Run `pyfs-matrix plan` with the `FS_BUILD` you mean first.
 
 ### Where a submitted point runs
 

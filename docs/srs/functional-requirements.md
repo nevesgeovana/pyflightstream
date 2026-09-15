@@ -3894,3 +3894,56 @@ requirement below is one seam of that division.
     alias the reference does not declare or a list of them, a frame nothing
     defines, an axis of zero length, and the key on a `LEGACY` row are each
     refused at plan time naming the row.
+
+!!! requirement "FR-101 One row on every build: the single march, the Euclidean rotor, and a refusal by name <span class='srs-implemented'>implemented</span>"
+
+    *Origin: the 0.20.0 scope, every workflow on every registered build with the
+    build as the only cell that changes. Evidence:
+    `tests/tier1_offline/test_goal023_every_build.py` (every run type and case
+    shape against every registered build, the cells that do not render named
+    exactly, the single march on each build without actions, each feature only
+    actions give refused at plan time by name, the strategy in the plan and the
+    run record, one row planned under every build, and the 26.123 goldens
+    unchanged). `tests/tier1_offline/test_workflows.py` (coverage derived with
+    the substitute, and the Euclidean rotor's speed, axis and mark). And
+    `reports/RPT-049_a-rotor-on-the-builds-before-the-rotary-motion_2026-09-15.md`
+    (the unit and sense of the Euclidean angular velocity measured on 26.000
+    against the rotary motion on 26.120, and the rotor mark removed on 26.100).
+    AMENDS FR-98 and FR-96, whose wall clock and continuations are refused on a
+    build without actions, and the coverage rule of the workflow table.*
+
+    A matrix row names its build in `FS_BUILD` and nothing else about it. The
+    package decides, per point and before the first emission, how the row runs
+    on that build, from the command database and recorded evidence and never
+    from a list of builds:
+
+    - AN UNSTEADY ROW ON A BUILD THAT DOCUMENTS NO UNSTEADY SOLVER ACTION
+      (`SET_NEW_UNSTEADY_SOLVER_ACTION`) RUNS AS A SINGLE MARCH: its plots
+      declared before one solver start over every time step the row states,
+      and every export after it. A row asking for no per-step feature renders
+      the same script on every build as it did before 0.20.0.
+    - A ROW ASKING SUCH A BUILD FOR WHAT ONLY ACTIONS GIVE is refused with
+      `BuildCapabilityError` at plan time: a snapshot threshold
+      (`EXPORT_UNSTEADY_AFTER_ITER`, `EXPORT_UNSTEADY_AFTER_REV`), the in-run
+      wall clock (`WALLTIME`), or a continuation that reads their records
+      (`RESTART: {FINISH_PENDING}`, `RESTART: {ADDITIONAL_REVS=n}`). The
+      sentence names the build, each feature, the builds that document the
+      actions and the change to the row that runs on the build named. Nothing
+      is emulated.
+    - The plan's `PointPlan.march_strategy`, the run record's `march_strategy`
+      and the superfile carry `"actions"` or `"single_march"` for every unsteady
+      point, and None for a steady one.
+    - A ROTOR ROW ON A BUILD WITHOUT THE ROTARY MOTION TYPE THAT DOCUMENTS THE
+      EUCLIDEAN ROTOR (25.100 and 26.000) is written as a `EUCLIDEAN` motion
+      whose `SET_MOTION_ANGULAR_VELOCITY` is the row's speed in rad/s along its
+      axis, with `SET_MOTION_IS_ROTOR` along the same axis. The unit and the
+      sense are measured (RPT-049). A build carrying one half of that
+      vocabulary and not the other is refused naming both halves; 26.100 is
+      that build, its rotor mark recorded as removed.
+
+    The cells that still do not render are named by the evidence test with
+    their reasons and are the owner's: every run type on 25.000, whose
+    `INITIALIZE_SOLVER` takes five settings no later edition exposes and none
+    gives a default for, and `unsteady_rotor` on 26.100. A solver preset or a
+    post-processing artifact may still name a command a build lacks; that point
+    is BLOCKED at plan time naming the command.
