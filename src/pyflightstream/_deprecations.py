@@ -598,9 +598,9 @@ WAIVED_COMMANDS_MANIFEST_KEY = DeprecatedManifestKey(
     extra=(
         "The entries are WAIVERS the recipe registered, not commands that broke in the "
         "run, which is the opposite claim. EXTENDED A SIXTH TIME, from 0.20.0 on "
-        "2026-09-15, when the 0.20.0 cycle opened and the deadline guard fired on the "
+        "2026-09-14, when the 0.20.0 cycle opened and the deadline guard fired on the "
         "bump; RE-MEASURED THE SAME MINUTE and UNCHANGED at 18 rows across 6 live "
-        "manifests. Extended a fifth time from 0.19.0 on 2026-09-14, the same way. "
+        "manifests. Extended a fifth time from 0.19.0 earlier the same day, the same way. "
         "Extended a fourth time from 0.18.0 on "
         "2026-09-14, when the 0.18.0 cycle opened and the deadline guard fired on the "
         "bump, which is what it is for. RE-MEASURED THE SAME MINUTE and UNCHANGED at 18 "
