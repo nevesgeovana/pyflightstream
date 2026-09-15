@@ -251,19 +251,21 @@ def write_point_series(
         :class:`~pyflightstream.post.products.ProductExistsError`.
     target : callable, optional
         Called with each table's path before that table is written, and the
-        table is written to the path it returns: the same seam
+        table is written to the path it returns, and its entry is keyed by
+        that path: the same seam
         :func:`~pyflightstream.post.superfile.write_superfiles` takes. When
         it is given, IT ALONE decides what becomes of an existing table and
         ``overwrite`` is not consulted, which is the rule every other product
         of the stage follows. The products stage passes its archiver, which
-        moves an existing table into ``series/archive/<day and hour>/``, or
-        with ``--force-overwrite`` leaves it to be overwritten.
+        moves an existing table into ``series/archive/<day and hour>/``, or,
+        called with ``archive=False``, leaves it to be overwritten.
 
     Returns
     -------
     tuple
-        The tables written, and their ``products.json`` entries keyed by
-        path relative to ``out``: the runs, the steps tabled, the steps the
+        The tables written, and their ``products.json`` entries keyed by the
+        path each was written to, relative to ``out`` (absolute when a
+        target wrote it outside ``out``): the runs, the steps tabled, the steps the
         window states, and on the loads entry the sections (``_cp``) and
         Tecplot (``.dat``) files of the window by path, under
         ``sections_files`` and ``tecplot_files``.
@@ -295,7 +297,8 @@ def write_point_series(
         elif path.exists() and not overwrite:
             raise ProductExistsError(
                 f"the product {path} exists; pass overwrite=True to rewrite it from the "
-                "manifest, or a target that archives it first"
+                "manifest, or a target that decides what becomes of it (the products stage "
+                "passes one that archives it first)"
             )
         done = write_csv_table(path, columns, rows)
         written.append(done)
@@ -312,5 +315,9 @@ def write_point_series(
                 entry[f"{listed}_files"] = [
                     found[step].relative_to(root).as_posix() for step in steps if step in found
                 ]
-        names[relative] = entry
+        # KEYED BY WHERE THE TABLE WENT, as write_superfiles keys its entries
+        # (the API lens, round two): keyed by the path asked for, a target that
+        # redirected left products.json naming a file that does not exist.
+        key = done.relative_to(out) if done.is_relative_to(out) else done
+        names[key.as_posix()] = entry
     return written, names

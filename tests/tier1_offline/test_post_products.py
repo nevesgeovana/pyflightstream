@@ -1456,12 +1456,14 @@ def test_a_series_table_is_written_where_its_target_says(tmp_path):
     elsewhere = tmp_path / "elsewhere"
     elsewhere.mkdir()
 
-    written, _names = write_point_series(
+    written, names = write_point_series(
         workspace.root, target=lambda path: elsewhere / path.name, **arguments
     )
 
     assert (elsewhere / "a-02.0_loads_series.csv").is_file(), sorted(elsewhere.iterdir())
     assert all(path.parent == elsewhere for path in written), written
+    # The entries name the files that exist, as write_superfiles' do.
+    assert sorted(names) == sorted(path.as_posix() for path in written), names
 
 
 def test_the_series_writer_alone_still_refuses_an_existing_table_without_overwrite(tmp_path):
@@ -1475,7 +1477,9 @@ def test_the_series_writer_alone_still_refuses_an_existing_table_without_overwri
         write_point_series(workspace.root, **arguments)
 
     message = str(refused.value)
-    assert "pass overwrite=True" in message and "a target that archives it first" in message
+    assert (
+        "pass overwrite=True" in message and "a target that decides what becomes of it" in message
+    )
     assert "--overwrite" not in message, "the refusal names a command-line flag again"
 
 
