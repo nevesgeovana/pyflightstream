@@ -57,7 +57,9 @@ saved:
 setup is the tier-3 unsteady preset without four settings 26.000 does not
 document as commands (the stabilization pair, wake-on-wake induction and the
 additional wake relaxation), removed from BOTH rows so the rows still differ
-only in the build and its motion vocabulary. Both runs converged.
+only in the build and its motion vocabulary; 26.100 lacks the same four except
+the two wake settings, and the header of the reduced preset, written for the
+first attempt on 26.100, names only the stabilization pair. Both runs converged.
 
 ## What moved
 
@@ -97,7 +99,7 @@ Euclidean motion over every boundary, adding one variant and exporting the log:
 | the angular velocity, then `SET_MOTION_IS_ROTOR 1 ENABLE X` | no |
 | `SET_MOTION_IS_ROTOR 1 ENABLE` | no |
 
-Every variant with the command exited in about a second with no log. The same
+Every variant with the command stopped with no log. The same
 seven scripts on 26.000, on the blade 26.000 saved: the control and the five
 forms with two arguments wrote their logs, and the form with one argument did
 not. The full rotor script was first bisected on 26.100 to the line
@@ -117,7 +119,7 @@ so 26.000 knows the name and refuses those arguments. Every rotor-mark variant
 was run again with its output kept, with the outcomes of the tables above. So 26.100 does not reject the rotor mark's arguments: it
 does not know the name. That is the outcome this database records as a removal
 (as RPT-021 did for a name 26.121 answered the same way), and the seven-script
-table was rerun on both builds that morning with the outcome above.
+table was rerun on both builds with its output kept, with the outcome above.
 
 The executables' own command-name strings agree (the evidence file's
 `executable_name_scan`, with each executable's digest): `SET_MOTION_IS_ROTOR` occurs

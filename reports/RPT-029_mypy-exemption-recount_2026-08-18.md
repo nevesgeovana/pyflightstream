@@ -63,6 +63,15 @@ is, not the difference between the two trees, so no share of the 32 is
 assigned to a file here. The guard asked for this re-measurement, as it did
 for the eighty-fourth: the records said 84 while the package held 85.
 
+The runs before this one keep their own sections below, and their figures are
+not repeated in this part of the report.
+
+## Re-measured 2026-09-14: the eighty-fourth module arrived, and the debt grew inside the exempted set
+
+That run found 585 errors in 18 files with every override off, and no issue
+in any of the 84 source files with the shipped configuration. Every statement
+of this section is about that run.
+
 The eighty-fourth is `run/collect.py`, added at 0.18.0 for the collect stage,
 and it arrives CLEAN: it appears nowhere in the per-file breakdown, and the
 FILE count is unchanged at 18, so the new module carries no exemption and adds
@@ -70,14 +79,14 @@ no debt of its own.
 
 THE ERROR COUNT MOVED AND THE MODULE DID NOT MOVE IT, which is the part worth
 stating rather than leaving for a reader to infer from two numbers. It went
-from 370 to 585 between the 2026-09-11 run and this one. Measured per file on
-this run: `run/__init__.py` alone carries 451 of the 585, and it is the module
+from 370 to 585 between the 2026-09-11 run and the 2026-09-14 run. Measured per
+file on that run: `run/__init__.py` alone carries 451 of the 585, and it is the module
 0.17.0's submission and warm-start work and 0.18.0's continuation all landed
 in. The remaining seventeen files carry 134 between them.
 
 WHAT THIS DOES NOT ESTABLISH, said because two numbers a fortnight apart
-invite a causal reading they do not support: this run measured the tree as it
-is now, not the difference between two trees. That one file holds 451 errors
+invite a causal reading they do not support: that run measured the tree as it
+was then, not the difference between two trees. That one file holds 451 errors
 is measured; that the growth of that file is the whole of the 215 is not, and
 nothing here re-ran the older tree to find out.
 

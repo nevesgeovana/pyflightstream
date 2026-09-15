@@ -55,6 +55,11 @@ FlightStream versions.
   this release states whether the two executables compute the same numbers.
 - **No row asked for actions in the licensed runs of this release**, so the
   actions march and the single march were not compared on one build.
+- **The internal-defect refusal of `build_script`** (a march label that
+  disagrees with the actions its script registers) is a `WorkflowCoverageError`,
+  so a package bug there reads as a blocked row; a class of its own is owed.
+- **Whether the solver's stop verb inside an action's script ends the run or
+  only that script** is still unmeasured, carried from 0.18.0.
 
 ### Added
 

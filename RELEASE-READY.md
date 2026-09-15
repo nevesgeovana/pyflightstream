@@ -75,20 +75,24 @@ has minted a version DOI that `CITATION.cff` records; anything less is a tag.
 ## What is true of the tree at the release commit
 
 Every number below comes from a command run at the moment this file was
-written, and the command is beside it.
+written, and the command and the tree it read are beside it. The commits after
+b9025c1 change no executable code (the release commit sets versions and prose,
+and the closing round's fix adds a comment to `script/__init__.py`), so a
+reading taken on the code of b9025c1 is a reading of the code this tag carries.
 
 | what | command | reading |
 |---|---|---|
 | the tier-1 suite | `python -m pytest tests/tier1_offline` (eight slices) | 4234 passed, 6 skipped, on the code of b9025c1 |
-| the type checker | `python -m mypy src/pyflightstream tests/tier3_licensed/rotation_null.py` | Success, no issues in 86 source files |
-| the linter | `python -m ruff check src tests scripts tools` | All checks passed |
-| the tier-3 suite | `python -m pytest -m needs_flightstream tests/tier3_licensed` | not run for this release; the builds were measured by RPT-049 (26.000, 26.100, 26.120) and a private workspace of three rows on 26.124, 26.123 and 26.120 |
+| the type checker | `python -m mypy src/pyflightstream tests/tier3_licensed/rotation_null.py` | Success, no issues in 86 source files, on the code of b9025c1 |
+| the linter | `python -m ruff check src tests scripts tools` | All checks passed, on the code of b9025c1 |
+| the tier-3 suite | `python -m pytest -m needs_flightstream tests/tier3_licensed` | not run for this release; the builds were measured by RPT-049 (26.000, 26.100, 26.120), `reports/compat/CMP-26124_2026-09-14_full-sim.yaml` (26.124) and RPT-050 (the 26.124 package against 26.123) |
 | the goal | `python GeoversePlan/goals/check_goal_023.py` | the exit condition is 12 of 12; the release and guides arms prove only after the tag, the archive and the guides land |
 
 ## What this release carries
 
 The change log's `[0.20.0]` section is the record, its Limits first, and is not
-restated here. In one line each:
+restated here; the list further down repeats those limits for the reader of this
+file and adds nothing the section does not carry. In one line each:
 
 - **26.124 is registered** at `operational`, its documentation the 26.123 files
   byte for byte (RPT-050);

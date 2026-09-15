@@ -100,7 +100,10 @@ __all__ = [
 ]
 
 #: How an unsteady script is marched on its build (GOAL-023). A closed set,
-#: carried by the plan, the run record and the superfile column.
+#: carried by the plan, the run record and the superfile column. The two
+#: values are the words the design uses, a march by the solver's ACTIONS and a
+#: SINGLE MARCH, and not a pair built for symmetry: they are written into
+#: records, so they stay as they shipped.
 MarchStrategy = Literal["actions", "single_march"]
 #: The march that registers the solver's per-step actions, for a row asking
 #: for a per-step threshold or a wall clock on a build that documents them.
