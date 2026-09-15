@@ -607,12 +607,17 @@ def test_convert_and_plan_still_take_recipe_references(tmp_path):
     # `collect` joined at 0.18.0 (FR-99): it reads the manifest and the
     # workspace and takes no recipe, no version and no executable either,
     # because the run it completes has already happened somewhere else.
+    # `rename` joined at 0.21.0 (GOAL-024): it reads the matrix and the
+    # manifest and moves a workspace written under the earlier point tag to
+    # the point name, so it takes no recipe, no version and no executable
+    # either.
     assert set(choices) == {
         "collect",
         "convert",
         "inventory",
         "plan",
         "post",
+        "rename",
         "run",
         "upgrade",
     }

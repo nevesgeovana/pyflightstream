@@ -32,6 +32,15 @@ FlightStream versions.
 
 ### Added
 
+- **`pyfs-matrix rename --workspace <root>`**, the one command that moves a
+  workspace written under 0.20.x to the new names. It reads the matrices beside
+  `runs.json`, works out each record's new name from its row and its recorded
+  point, and moves the datapoint folders, the scripts, the collected files, the
+  manifest and the plan; the manifest it replaces is archived first. It prints
+  every change, `--dry-run` rehearses it, and a second run changes nothing.
+  Before touching anything it refuses, by name, a record whose row is gone, a
+  record whose point the matrix no longer holds, two points that would share a
+  name, and a SUBMITTED record whose folder would move: collect that one first.
 - **`plan` and `run` take `--accept-unregistered-build`.** On a workstation,
   the pre-flight refuses an installed build other than the one registered for
   the version a row names. With the flag the run proceeds and warns, its

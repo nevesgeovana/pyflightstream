@@ -280,6 +280,35 @@ def _build_parser() -> argparse.ArgumentParser:
         ),
     )
 
+    rename = subparsers.add_parser(
+        "rename",
+        help="rename a workspace written under 0.20.x to the 0.21.0 point names",
+        description=(
+            "A point is named by its flight condition since 0.21.0, and a workspace "
+            "written before it carries the earlier tag in every run_id, folder and file. "
+            "This reads the matrices beside runs.json, works out the new name of every "
+            "record from its row and its recorded point, and moves ALL of it: the "
+            "datapoint folders, the scripts, the collected files, the manifest and the "
+            "plan. It prints every change and a second run makes none. It refuses, "
+            "before touching anything, a record whose row is gone, a record whose point "
+            "the matrix no longer holds, two records that would share a name, and a "
+            "SUBMITTED record whose folder would move: collect those first. See "
+            "docs/migrating-to-0.21.0.md."
+        ),
+    )
+    rename.add_argument(
+        "--workspace",
+        default=".",
+        help="managed campaign root carrying runs.json (default: the current directory)",
+    )
+    rename.add_argument(
+        "--dry-run",
+        dest="dry_run",
+        action="store_true",
+        help="print what would move and change nothing, which is the rehearsal to read "
+        "before the workspace is rewritten",
+    )
+
     inventory = subparsers.add_parser(
         "inventory",
         help="write <stem>.boundaries.toml beside a saved simulation, from its mesh block",
@@ -586,6 +615,8 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_inventory(args)
     if args.subcommand == "upgrade":
         return _cmd_upgrade(args)
+    if args.subcommand == "rename":
+        return _cmd_rename(args)
     try:
         recipes = _parse_recipes(args.recipe)
         if args.subcommand in ("run", "plan"):
@@ -695,6 +726,27 @@ def _naming(args: argparse.Namespace) -> NamingTemplate:
             f"point_name (CLI: --point-name): {error} The placeholders a template may "
             f"use are listed under `pyfs-matrix run --help`; the default is {MATRIX_POINT_NAME!r}."
         )
+
+
+def _cmd_rename(args: argparse.Namespace) -> int:
+    """Rename a 0.20.x workspace to the 0.21.0 names, or rehearse it."""
+    from .rename import rename_workspace
+
+    workspace = CampaignWorkspace(Path(args.workspace))
+    try:
+        report = rename_workspace(workspace, apply=not args.dry_run)
+    except (WorkspaceError, CampaignConfigError) as error:
+        print(str(error), file=sys.stderr)
+        return 2
+    for line in report.lines():
+        print(line)
+    print(report.summary())
+    if not report.changes:
+        # NOTHING TO DO IS A SUCCESS and says so in words, because this
+        # command is run twice by anybody who is careful: once to see, once
+        # to move. A silent zero reads as "it did not run".
+        print("every record is already at the 0.21.0 names; nothing moved.")
+    return 0
 
 
 def _cmd_collect(args: argparse.Namespace) -> int:
