@@ -1399,6 +1399,86 @@ def test_force_overwrite_keeps_no_copy_of_the_series_either(tmp_path):
     )
 
 
+def _series_call(tmp_path):
+    """A workspace whose series tables exist, and the arguments that rewrite them."""
+    from pyflightstream.workspace import CampaignWorkspace
+
+    window = {
+        "stated_form": "iterations",
+        "stated_value": 3.0,
+        "first_step": 3,
+        "time_iterations": 4,
+        "delta_time_s": 0.01,
+    }
+    workspace = _windowed_workspace(tmp_path, window=window)
+    write_campaign_products(workspace)
+    record = next(r for r in CampaignWorkspace(workspace.root).read_manifest() if r.export_window)
+    arguments = {
+        "sim_dir": workspace.sim_dir(record.sim_id),
+        "record": record,
+        "stem": "a-02.0",
+        "out": workspace.root / "post" / "products",
+    }
+    return workspace, arguments
+
+
+def test_a_target_alone_decides_what_becomes_of_an_existing_series_table(tmp_path):
+    """One rule, which the API, QA and architecture lenses asked for.
+
+    With the archiver passed in, the series writer also kept its own overwrite
+    gate, so a target that left the table in place was then refused unless
+    overwrite was set: the stage's archive=False with overwrite=False rewrote
+    the polars and refused the series. A given target decides alone now, as
+    it does for every product the stage writes through its archiver.
+    """
+    from pyflightstream.post.series import write_point_series
+
+    workspace, arguments = _series_call(tmp_path)
+    table = workspace.root / "post" / "products" / "series" / "a-02.0_loads_series.csv"
+    table.write_text("the first build", encoding="utf-8")
+    seen = []
+
+    def leave_it(path):
+        seen.append(path.name)
+        return path
+
+    write_point_series(workspace.root, target=leave_it, **arguments)
+
+    assert "a-02.0_loads_series.csv" in seen, seen
+    assert table.read_text(encoding="utf-8").startswith("step,"), "the table was not rewritten"
+
+
+def test_a_series_table_is_written_where_its_target_says(tmp_path):
+    """The seam write_superfiles takes: the table lands at the path the target returns."""
+    from pyflightstream.post.series import write_point_series
+
+    workspace, arguments = _series_call(tmp_path)
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+
+    written, _names = write_point_series(
+        workspace.root, target=lambda path: elsewhere / path.name, **arguments
+    )
+
+    assert (elsewhere / "a-02.0_loads_series.csv").is_file(), sorted(elsewhere.iterdir())
+    assert all(path.parent == elsewhere for path in written), written
+
+
+def test_the_series_writer_alone_still_refuses_an_existing_table_without_overwrite(tmp_path):
+    """A library call with no target keeps the refusal, and says how to get past it."""
+    from pyflightstream.post._tables import ProductExistsError
+    from pyflightstream.post.series import write_point_series
+
+    workspace, arguments = _series_call(tmp_path)
+
+    with pytest.raises(ProductExistsError) as refused:
+        write_point_series(workspace.root, **arguments)
+
+    message = str(refused.value)
+    assert "pass overwrite=True" in message and "a target that archives it first" in message
+    assert "--overwrite" not in message, "the refusal names a command-line flag again"
+
+
 def test_a_record_without_the_clock_leaves_the_time_blank_and_reads_the_azimuth_off_the_reductions(
     tmp_path,
 ):

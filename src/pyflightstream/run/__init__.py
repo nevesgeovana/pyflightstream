@@ -2387,8 +2387,8 @@ def _leave_products(workspace: CampaignWorkspace, matrix_stem: str | None) -> st
             f"{where}: {type(error).__name__}: {error}. "
             f"No run outcome is affected and nothing is lost: every point is recorded in "
             f"{workspace.manifest_path}. Fix the cause and rebuild them with "
-            # NO --overwrite. This named that flag until 0.19.1, when `post`
-            # had not accepted it since the archive replaced the refusal, so
+            # NO --overwrite. This named that flag until 2026-09-14, and `post`
+            # had not accepted it since 0.17.0, when the archive replaced the refusal, so
             # the one command the warning offered was refused by argparse.
             "`pyfs-matrix post --workspace <root>`, which archives what is there first."
         )

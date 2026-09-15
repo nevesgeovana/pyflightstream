@@ -15,12 +15,18 @@ FlightStream versions.
   the products stage accepted the archive flag and never passed it to the
   series writer. They now go through the same archiver, under the same stamp,
   and `--force-overwrite` still keeps no copy. `write_point_series` gains an
-  optional `prepare` callable, called with each table's path before it is
-  written.
+  optional `target` callable, the seam `write_superfiles` already takes: each
+  table is written to the path it returns, and when it is given it alone
+  decides what becomes of an existing table. BEHAVIOUR CHANGE for a library
+  caller: `write_campaign_products` over existing series tables used to raise
+  `ProductExistsError` without `overwrite=True`; it now archives them and
+  succeeds, as it did for every other product. `write_point_series` called
+  without a target still refuses, and its message no longer names a
+  command-line flag.
 - **The warning a failed products write prints offers a command that runs.**
   It told the user to rebuild with `pyfs-matrix post --workspace <root>
-  --overwrite`, a flag `post` has not accepted since rebuilds began archiving.
-  It now offers `pyfs-matrix post --workspace <root>`.
+  --overwrite`, a flag `post` has not accepted since 0.17.0. It now offers
+  `pyfs-matrix post --workspace <root>`.
 
 ### Owed
 

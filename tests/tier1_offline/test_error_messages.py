@@ -873,9 +873,9 @@ def test_the_rebuild_command_a_failed_products_write_offers_is_one_post_accepts(
 ):
     """The remedy is a command, so it is pinned by running it through the real parser.
 
-    Until 0.19.1 the warning told the user to rebuild with
+    Until 2026-09-14 the warning told the user to rebuild with
     `pyfs-matrix post --workspace <root> --overwrite`, and `post` has had no
-    `--overwrite` since the archive replaced the refusal: the one command the
+    `--overwrite` since 0.17.0, when the archive replaced the refusal: the one command the
     warning offered was refused by argparse. A wording pin on the text would
     have kept the flag, so this parses what the message prints.
     """

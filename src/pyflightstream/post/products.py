@@ -2155,11 +2155,9 @@ def _point_series(
         stem=stem,
         out=out,
         overwrite=overwrite,
-        # `archive` WAS ACCEPTED HERE AND NEVER USED until 0.19.1, so the
+        # `archive` WAS ACCEPTED HERE AND NEVER USED until 2026-09-14, so the
         # series were the one product a rebuild rewrote in place.
-        prepare=lambda path: _refuse_an_existing_product(
-            path, archive=archive, stamp=archive_stamp
-        ),
+        target=lambda path: _refuse_an_existing_product(path, archive=archive, stamp=archive_stamp),
     )
 
 
