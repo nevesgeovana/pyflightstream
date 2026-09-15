@@ -98,6 +98,49 @@ SET_SCENE_CONTOUR:
             - FSI_dy
             - FSI_dz
             - FSI_displacement
+    "26.124":
+      status: documented
+      note: "SRC-752 p.355, the SRC-751 file, carried from 26.123; not run on 26.124"
+      args:
+        - name: variable
+          type: enum
+          values:
+            - none
+            - x
+            - y
+            - z
+            - face_area
+            - face_quality
+            - pressure_coefficient_freestream
+            - pressure_coefficient_reference
+            - static_pressure_ratio
+            - mach_number
+            - velocity_x
+            - velocity_y
+            - velocity_z
+            - velocity_magnitude
+            - onset_velocity_x
+            - onset_velocity_y
+            - onset_velocity_z
+            - onset_velocity_magnitude
+            - solver_partition
+            - skin_friction_coefficient
+            - attachment_lines
+            - displacement_thickness
+            - momentum_thickness
+            - shape_factor
+            - streamline_length
+            - transition
+            - transpiration_velocity
+            - separation
+            - doublet_strength
+            - source_strength
+            - stabilization
+            - proximity
+            - FSI_dx
+            - FSI_dy
+            - FSI_dz
+            - FSI_displacement
   notes: >
     Selects the scalar field drawn on the surfaces of the solver scene.
 

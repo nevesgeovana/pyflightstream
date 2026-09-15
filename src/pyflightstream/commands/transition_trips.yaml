@@ -33,6 +33,7 @@ DELETE_TRANSITION_TRIP:
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.330, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.332, unchanged from SRC-750 p.332"}
+    "26.124": {status: documented, note: "SRC-752 p.332, the SRC-751 file, carried from 26.123; not run on 26.124"}
   notes: >
     Deletes one set of boundary-layer transition trip edges by its
     1-based index. The manual requires an index greater than zero and

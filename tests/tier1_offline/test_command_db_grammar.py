@@ -240,6 +240,12 @@ PER_VERSION_GRAMMAR: dict[str, dict[str, dict[str, tuple[str, ...]]]] = {
         },
     },
 }
+# 26.124 STATES THE SAME SET_SCENE_CONTOUR GRAMMAR AS 26.123 BECAUSE IT CARRIES THE
+# SAME MANUAL: its package's user guide is byte-identical to SRC-751, so the
+# pages read twice for 26.123 are the pages of 26.124 (SRC-752, 2026-09-14).
+PER_VERSION_GRAMMAR["SET_SCENE_CONTOUR"]["26.124"] = PER_VERSION_GRAMMAR["SET_SCENE_CONTOUR"][
+    "26.123"
+]
 
 #: Which arguments each override leaves OPTIONAL, stated exhaustively
 #: rather than as the exceptions. The `names` tuples above pin the
@@ -583,8 +589,10 @@ def test_an_override_differs_from_its_base_only_where_a_delta_table_says_so():
     # `unit` became a delta form, which is one fewer compared field.
     # 952 since 2026-08-19: the SET_SCENE_CONTOUR 26.123 override adds one
     # argument the base also carries, times the same eight fields.
-    assert compared == 952, (
-        f"{compared} field comparisons ran and the shipped database supports 944. "
+    # 960 since 2026-09-14: the same override carried to 26.124, whose manual
+    # is the 26.123 file, adds the same argument once more.
+    assert compared == 960, (
+        f"{compared} field comparisons ran and the shipped database supports 960. "
         "A rise is an override gaining an argument the base also carries, a fall is "
         "one losing it or the walk losing a chapter file"
     )

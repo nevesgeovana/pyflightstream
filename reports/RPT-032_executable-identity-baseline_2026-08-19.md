@@ -42,6 +42,11 @@ and names both files.
 | 26.121 | 7262026 | Flightstream_2612.exe, FlightStream_26121.exe | `d318da05d4df3f7fca57c565bab6da9712b11b256dda93a691e74cd7d027afec` | 19134856 |
 | 26.122 | 8092026 | Flightstream_2612.exe, FlightStream_26122.exe | `75668a514d1887db2f94a97e3d57662888029e3e9e0b5e8f5611ac7082b15690` | 19169160 |
 | 26.123 | 8112026 | Flightstream_2612.exe, FlightStream_26123.exe | `213c854a3f6569d74c760fda93b51dadef3a85a4cb724efa18f79b60fce84348` | 19194760 |
+| 26.124 | 8172026 | Flightstream_26124.exe | `68e64e666fad6e403a6c6747b20c263f5c9f3e4c7542eebe253397bedcc30c65` | 19197320 |
+
+The 26.124 row was ADDED ON 2026-09-14, when that build was registered, from
+the digest its identity run recorded (`reports/compat/CMP-26124_2026-09-14.yaml`);
+every other row is this report's own measurement of 2026-08-19.
 
 The Build column is the registry's number for that canonical version, not
 a second measurement: it is reproduced here so the two sides of a future

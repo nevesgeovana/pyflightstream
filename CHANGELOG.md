@@ -7,6 +7,21 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Added
+
+- **FlightStream 26.124 is registered, at `operational`.** Vendor build 8172026,
+  the fourth hotfix of the 26.12 release, alias `26.12`, read from its own
+  banner (`reports/compat/CMP-26124_2026-09-14.yaml`). Its package carries the
+  26.123 user guide byte for byte, and the same release notes and libraries;
+  only the executable differs. So the 371 commands 26.123 documents were
+  carried to 26.124 as documented rows citing that manual, nothing was
+  inherited from 26.120, and a probe run on the build then measured 86
+  verified and the same single broken command, `NEW_OFF_BODY_STREAMLINE`
+  (`reports/compat/CMP-26124_2026-09-14_full-sim.yaml`). Every workflow
+  renders on 26.124 exactly what it renders on 26.123; the workflow goldens
+  for 26.124 are byte-identical to 26.123's. `"26.12"` now names five builds
+  and is still refused as ambiguous.
+
 ### Changed
 
 - **The `broken_commands` manifest key is promised for removal at 0.21.0**, its

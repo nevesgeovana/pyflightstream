@@ -47,6 +47,7 @@ def test_known_versions_ordered_by_list_position():
         "26.121",
         "26.122",
         "26.123",
+        "26.124",
     ]
     assert [v.index for v in versions] == list(range(len(versions)))
     # strict=False on purpose: this zips the list against itself

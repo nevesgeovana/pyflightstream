@@ -1387,7 +1387,7 @@ def test_every_cad_command_is_available_on_every_registered_build():
         available[version.canonical] = [name for name in members if name in view]
 
     whole = sorted(c for c, names in available.items() if len(names) == len(members))
-    assert whole == ["26.100", "26.101", "26.120", "26.121", "26.122", "26.123"], (
+    assert whole == ["26.100", "26.101", "26.120", "26.121", "26.122", "26.123", "26.124"], (
         "the builds carrying the CAD chapter WHOLE are " + ", ".join(whole) + "; the "
         "chapter arrives at 26.100 and every build from there on documents all of it"
     )
@@ -1796,6 +1796,8 @@ def test_the_renamed_selection_command_is_recorded_once_per_edition():
         # is present because it inherits nothing, so every row it carries
         # was written from a reading of its own edition.
         "26.123",
+        # 26.124 carries the 26.123 manual itself, so its row was carried on that identity.
+        "26.124",
     ]
     Script(version="26.100").emit("SELECT_GEOMETRY_BY_ID", 2)
     Script(version="26.120").emit("SURFACE_SELECT_BY_ID", 2)
@@ -1853,6 +1855,7 @@ def test_the_two_surface_deletes_stop_at_the_edition_that_replaced_them():
         "26.121",
         "26.122",
         "26.123",
+        "26.124",
     ]
 
 
@@ -3340,7 +3343,7 @@ def test_the_wake_decay_constant_exists_in_the_hotfix_series_alone():
     here can only have come from reading an edition that does.
     """
     entry = CommandRegistry.load().commands["SET_WAKE_DECAY_CONSTANT"]
-    assert set(entry.versions) == {"26.121", "26.122", "26.123"}
+    assert set(entry.versions) == {"26.121", "26.122", "26.123", "26.124"}
     assert entry.manual_ref.startswith("SRC-740"), (
         "a command the flagship edition does not document cites the edition that does"
     )

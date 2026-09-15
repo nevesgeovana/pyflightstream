@@ -38,6 +38,7 @@ NEW_OFF_BODY_STREAMLINE:
     "26.121": {status: broken, report: "reports/compat/CMP-26121_2026-08-08_full.yaml", note: "script processing aborted at the command: the log exported before it exists, the one after it never appeared (END sentinel missing)"}
     "26.122": {status: broken, report: "reports/compat/CMP-26122_2026-08-11_full.yaml", note: "script processing aborted at the command: the log exported before it exists, the one after it never appeared (END sentinel missing)"}
     "26.123": {status: broken, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "script processing aborted at the command: the log exported before it exists, the one after it never appeared (END sentinel missing)"}
+    "26.124": {status: broken, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "script processing aborted at the command: the log exported before it exists, the one after it never appeared (END sentinel missing)"}
 
 NEW_STREAMLINE_DISTRIBUTION:
   layout: keyword_block
@@ -68,6 +69,7 @@ NEW_STREAMLINE_DISTRIBUTION:
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
     "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.374, unchanged from SRC-750 p.374"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.374, the SRC-751 file, carried from 26.123; not run on 26.124"}
   notes: >
     SUBDIVISIONS is N+1 for N streamlines between the start and end
     vertices.
@@ -87,6 +89,7 @@ GENERATE_ALL_OFF_BODY_STREAMLINES:
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
     "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.374, unchanged from SRC-750 p.374"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.374, the SRC-751 file, carried from 26.123; not run on 26.124"}
 
 EXPORT_ALL_OFF_BODY_STREAMLINES:
   layout: param_lines
@@ -105,6 +108,7 @@ EXPORT_ALL_OFF_BODY_STREAMLINES:
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
     "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.375, unchanged from SRC-750 p.375"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.375, the SRC-751 file, carried from 26.123; not run on 26.124"}
 
 NEW_OFF_BODY_STREAMTUBE:
   layout: inline
@@ -140,6 +144,7 @@ NEW_OFF_BODY_STREAMTUBE:
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.371, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.374, unchanged from SRC-750 p.374"}
+    "26.124": {status: documented, note: "SRC-752 p.374, the SRC-751 file, carried from 26.123; not run on 26.124"}
   notes: >
     Seeds a cylindrical bundle of off-body streamlines in one call,
     which is how a propeller or rotor slipstream is visualised without
@@ -183,6 +188,7 @@ SET_OFF_BODY_STREAMLINE_LENGTH:
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.371, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.374, unchanged from SRC-750 p.374"}
+    "26.124": {status: documented, note: "SRC-752 p.374, the SRC-751 file, carried from 26.123; not run on 26.124"}
   notes: >
     How far a newly created off-body streamline is propagated: to a
     stated length, or until it leaves the domain.
@@ -215,6 +221,7 @@ SET_ALL_OFF_BODY_STREAMLINES_UPSTREAM:
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.371, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.374, unchanged from SRC-750 p.374"}
+    "26.124": {status: documented, note: "SRC-752 p.374, the SRC-751 file, carried from 26.123; not run on 26.124"}
   notes: >
     Propagates every off-body streamline against the flow, back toward
     where its fluid came from. Applies to all of them at once; there is
@@ -234,6 +241,7 @@ SET_ALL_OFF_BODY_STREAMLINES_DOWNSTREAM:
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.371, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.374, unchanged from SRC-750 p.374"}
+    "26.124": {status: documented, note: "SRC-752 p.374, the SRC-751 file, carried from 26.123; not run on 26.124"}
   notes: >
     Propagates every off-body streamline with the flow. The pair with
     the command above, and neither states which is the default.
@@ -252,6 +260,7 @@ DELETE_ALL_OFF_BODY_STREAMLINES:
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.372, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.375, unchanged from SRC-750 p.375"}
+    "26.124": {status: documented, note: "SRC-752 p.375, the SRC-751 file, carried from 26.123; not run on 26.124"}
   notes: >
     Deletes every off-body streamline and streamtube. There is no
     command deleting one, so a seed placed wrongly costs the whole set.
@@ -270,6 +279,7 @@ GENERATE_ALL_SURFACE_STREAMLINES:
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.373, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.376, unchanged from SRC-750 p.376"}
+    "26.124": {status: documented, note: "SRC-752 p.376, the SRC-751 file, carried from 26.123; not run on 26.124"}
   notes: >
     Generates the on-body streamlines, which are surface friction lines
     rather than paths through the fluid: they follow the direction of
@@ -294,6 +304,7 @@ DELETE_ALL_SURFACE_STREAMLINES:
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.373, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.376, unchanged from SRC-750 p.376"}
+    "26.124": {status: documented, note: "SRC-752 p.376, the SRC-751 file, carried from 26.123; not run on 26.124"}
   notes: >
     Deletes every on-body streamline.
 
@@ -319,6 +330,7 @@ EXPORT_ALL_SURFACE_STREAMLINES:
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.373, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.376, unchanged from SRC-750 p.376"}
+    "26.124": {status: documented, note: "SRC-752 p.376, the SRC-751 file, carried from 26.123; not run on 26.124"}
   notes: >
     Writes every on-body streamline to one file, the path on the next
     line. The off-body counterpart is EXPORT_ALL_OFF_BODY_STREAMLINES,

@@ -33,6 +33,7 @@ UNSTEADY_SOLVER_NEW_FORCE_PLOT:
     "26.100": {status: documented, note: "SRC-741 p.343, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.123": {status: documented, note: "SRC-751 p.352, unchanged from SRC-750 p.352"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.352, the SRC-751 file, carried from 26.123; not run on 26.124"}
   notes: >
     Samples one force or moment parameter per solver time step, in
     FRAME and UNITS, over the listed boundaries. BOUNDARIES -1 selects
@@ -82,6 +83,7 @@ UNSTEADY_SOLVER_NEW_FLUID_PLOT:
         - name: vertex
           type: str
     "26.123": {status: documented, note: "SRC-751 p.352, unchanged from SRC-750 p.352"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.352, the SRC-751 file, carried from 26.123; not run on 26.124"}
   notes: >
     Samples one fluid property per solver time step at a fixed vertex.
     VERTEX takes the three coordinates preformatted on one line
@@ -107,6 +109,7 @@ UNSTEADY_SOLVER_DELETE_ALL_PLOTS:
     "26.100": {status: documented, note: "SRC-741 p.343, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.123": {status: documented, note: "SRC-751 p.353, unchanged from SRC-750 p.353"}
+    "26.124": {status: documented, note: "SRC-752 p.353, the SRC-751 file, carried from 26.123; not run on 26.124"}
   notes: >
     Removes every unsteady solver plot, force and fluid alike, in one
     call; there is no documented per-plot delete. Found missing from
@@ -130,6 +133,7 @@ UNSTEADY_SOLVER_EXPORT_PLOTS:
     "26.100": {status: documented, note: "SRC-741 p.343, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.123": {status: documented, note: "SRC-751 p.352, unchanged from SRC-750 p.352"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.352, the SRC-751 file, carried from 26.123; not run on 26.124"}
   notes: >
     Exports every unsteady solver plot (force and fluid) with one
     column per plot and one row per time step.
@@ -161,6 +165,7 @@ NEW_UNSTEADY_SOLVER_SURFACE_PROBE:
     "26.121": {status: documented}
     "26.122": {status: documented, note: "SRC-750 p.352, same grammar as 26.121"}
     "26.123": {status: documented, note: "SRC-751 p.352, unchanged from SRC-750 p.352"}
+    "26.124": {status: documented, note: "SRC-752 p.352, the SRC-751 file, carried from 26.123; not run on 26.124"}
   notes: >
     Samples one surface property per solver time step at a fixed
     vertex, the surface counterpart of UNSTEADY_SOLVER_NEW_FLUID_PLOT.
@@ -208,6 +213,7 @@ UNSTEADY_SOLVER_ANIMATION:
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 pp.351-352, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.353, unchanged from SRC-750 p.353"}
+    "26.124": {status: documented, note: "SRC-752 p.353, the SRC-751 file, carried from 26.123; not run on 26.124"}
   notes: >
     Writes an output file every so many time steps of an unsteady run,
     which is how an animation is produced.
@@ -314,6 +320,7 @@ SOLVER_TIME_AVERAGING:
       status: documented
       note: "SRC-750 p.353, the first edition to document it"
     "26.123": {status: documented, note: "SRC-751 p.353, unchanged from SRC-750 p.353"}
+    "26.124": {status: documented, note: "SRC-752 p.353, the SRC-751 file, carried from 26.123; not run on 26.124"}
 
 SET_NEW_UNSTEADY_SOLVER_ACTION:
   layout: inline
@@ -392,3 +399,6 @@ SET_NEW_UNSTEADY_SOLVER_ACTION:
         invocations for eight steps, none before the first; no arguments,
         no solver-named environment, working directory the simulation
         folder; exports from an action script are stamped _iteration=N.
+    "26.124":
+      status: documented
+      note: "SRC-752 p.353, the SRC-751 file, carried from 26.123; not run on 26.124"

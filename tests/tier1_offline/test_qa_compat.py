@@ -1621,13 +1621,30 @@ def test_the_committed_compat_corpus_is_readable_and_carries_no_digest():
         f"the walk read {len(corpus)} committed compat reports, fewer than the 27 that "
         "existed when this floor was set; a glob that stops matching guards nothing"
     )
+    # THE FIELD ARRIVED WITH THE BASELINE OF 2026-08-19, and a report written
+    # since carries the digest its run measured. So the rule is two rules: a
+    # report dated before the field carries none (never back-filled), and one
+    # dated after carries the digest the baseline records for its build, which
+    # is a stronger check than absence. The first report to carry one is
+    # 26.124's identity run of 2026-09-14.
+    root = Path(__file__).resolve().parents[2]
+    baseline = read_executable_baseline(root / EXECUTABLE_BASELINE_REPORT)
     for path in corpus:
         document = read_compat_report(path)
         assert document["schema"] == COMPAT_SCHEMA
-        assert document.get("fs_exe_sha256") is None, (
-            f"{path.name} carries a digest; the committed corpus predates the field and "
-            "is never back-filled"
-        )
+        digest = document.get("fs_exe_sha256")
+        dated = str(document.get("date") or "")
+        if not dated or dated < "2026-08-19":
+            assert digest is None, (
+                f"{path.name} carries a digest; the committed corpus before 2026-08-19 "
+                "predates the field and is never back-filled"
+            )
+        elif digest is not None:
+            recorded = baseline[str(document["fs_version"])]["sha256"]
+            assert digest == recorded, (
+                f"{path.name} records the digest {digest} and the baseline records "
+                f"{recorded} for {document['fs_version']}: the run measured a different binary"
+            )
 
 
 # --- PFS-2026.15: the question asked before a seat is spent ----------------

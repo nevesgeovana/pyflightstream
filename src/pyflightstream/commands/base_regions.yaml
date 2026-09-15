@@ -45,6 +45,7 @@ CREATE_NEW_BASE_REGION:
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.320, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.321, unchanged from SRC-750 p.321"}
+    "26.124": {status: documented, note: "SRC-752 p.321, the SRC-751 file, carried from 26.123; not run on 26.124"}
   notes: >
     Marks one mesh boundary as a base region and gives it a pressure
     model. No all-form is stated, so -1 is not accepted here;
@@ -93,6 +94,7 @@ SET_BASE_REGION_CP:
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 pp.320-321, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.321, unchanged from SRC-750 p.321"}
+    "26.124": {status: documented, note: "SRC-752 p.321, the SRC-751 file, carried from 26.123; not run on 26.124"}
   notes: >
     Changes the pressure model of a base region that already exists.
 
@@ -135,6 +137,7 @@ SET_BASE_REGION_BENDING_ANGLE:
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.287, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.288, unchanged from SRC-750 p.288"}
+    "26.124": {status: documented, note: "SRC-752 p.288, the SRC-751 file, carried from 26.123; not run on 26.124"}
   notes: >
     Threshold on how far a surface may bend away from the aft-facing
     direction and still be detected as part of a base region, which is
@@ -169,6 +172,7 @@ AUTO_DETECT_BASE_REGIONS:
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.320, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.321, unchanged from SRC-750 p.321"}
+    "26.124": {status: documented, note: "SRC-752 p.321, the SRC-751 file, carried from 26.123; not run on 26.124"}
   notes: >
     Marks every base region the detector finds over the whole geometry,
     using the bending angle above. Takes nothing, so which boundaries it
@@ -191,6 +195,7 @@ DETECT_BASE_REGIONS_BY_SURFACE:
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.320, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.321, unchanged from SRC-750 p.321"}
+    "26.124": {status: documented, note: "SRC-752 p.321, the SRC-751 file, carried from 26.123; not run on 26.124"}
   notes: >
     The same detection restricted to one mesh boundary, for a geometry
     where the whole-model form marks more than intended. The manual
@@ -213,6 +218,7 @@ SET_BASE_REGION_TRAILING_EDGES:
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.320, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.321, unchanged from SRC-750 p.321"}
+    "26.124": {status: documented, note: "SRC-752 p.321, the SRC-751 file, carried from 26.123; not run on 26.124"}
   notes: >
     Marks the rim of a base region as a trailing edge, which is what
     lets the wake leave the body there. The manual documents -1 for
@@ -238,6 +244,7 @@ DELETE_BASE_REGION:
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.320, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.321, unchanged from SRC-750 p.321"}
+    "26.124": {status: documented, note: "SRC-752 p.321, the SRC-751 file, carried from 26.123; not run on 26.124"}
   notes: >
     Unmarks one base region. NO ALL-FORM IS STATED HERE, unlike the two
     neighbouring commands that take the same kind of index and document
@@ -260,6 +267,7 @@ SELECT_BASE_REGION_FACES:
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.321, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.322, unchanged from SRC-750 p.322"}
+    "26.124": {status: documented, note: "SRC-752 p.322, the SRC-751 file, carried from 26.123; not run on 26.124"}
   notes: >
     Selects the mesh faces of a base region, or of all of them with -1,
     which the sample passes. Selection is application state rather than
@@ -289,6 +297,7 @@ REMESH_BASE_REGION:
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.321, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.322, unchanged from SRC-750 p.322"}
+    "26.124": {status: documented, note: "SRC-752 p.322, the SRC-751 file, carried from 26.123; not run on 26.124"}
   notes: >
     Rebuilds a base region's faces as a radial distribution, which a
     detected base region does not have: it inherits whatever the import
@@ -348,6 +357,10 @@ SET_OUTFLOW_TRAILING_EDGES:
         alike, and this spelling appears nowhere in that edition. A
         count over the document rather than a statement about the
         solver: no run on this build has tried either name.
+    "26.124":
+      status: removed
+      successor: SET_OUTLET_TRAILING_EDGES
+      note: "SRC-752 p.331, the SRC-751 file, carried from 26.123; not run on 26.124"
 
 SET_OUTLET_TRAILING_EDGES:
   layout: inline
@@ -379,3 +392,6 @@ SET_OUTLET_TRAILING_EDGES:
     "26.123":
       status: documented
       note: "SRC-751 p.331, the first edition to print this spelling"
+    "26.124":
+      status: documented
+      note: "SRC-752 p.331, the SRC-751 file, carried from 26.123; not run on 26.124"

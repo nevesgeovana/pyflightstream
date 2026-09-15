@@ -35,6 +35,7 @@ OPEN:
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
     "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.286, unchanged from SRC-750 p.286"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.286, the SRC-751 file, carried from 26.123; not run on 26.124"}
   notes: >
     Opens an existing simulation (.fsm) file. The optional
     LOAD_SOLVER_INITIALIZATION ENABLE line loads the solver
@@ -57,6 +58,7 @@ SAVEAS:
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
     "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.286, unchanged from SRC-750 p.286"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.286, the SRC-751 file, carried from 26.123; not run on 26.124"}
   notes: >
     Saves the current simulation to the given .fsm path.
 
@@ -75,6 +77,7 @@ NEW_SIMULATION:
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
     "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.286, unchanged from SRC-750 p.286"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.286, the SRC-751 file, carried from 26.123; not run on 26.124"}
 
 CLOSE_FLIGHTSTREAM:
   layout: bare
@@ -91,6 +94,7 @@ CLOSE_FLIGHTSTREAM:
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
     "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.286, unchanged from SRC-750 p.286"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.286, the SRC-751 file, carried from 26.123; not run on 26.124"}
   notes: >
     Closes FlightStream and exits; the natural last command of a
     headless batch script.
@@ -112,6 +116,7 @@ EXPORT_LOG:
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
     "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.287, unchanged from SRC-750 p.287"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.287, the SRC-751 file, carried from 26.123; not run on 26.124"}
   notes: >
     Exports the log window messages to a text file; the probe harness
     reads it for sentinel markers and error patterns.
@@ -132,6 +137,7 @@ OUTPUT_SETTINGS_AND_STATUS:
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
     "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.287, unchanged from SRC-750 p.287"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.287, the SRC-751 file, carried from 26.123; not run on 26.124"}
   notes: >
     Writes the fluid properties and solver status to a file.
 
@@ -149,6 +155,7 @@ CLEAR_LOG:
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.286, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.287, unchanged from SRC-750 p.287"}
+    "26.124": {status: documented, note: "SRC-752 p.287, the SRC-751 file, carried from 26.123; not run on 26.124"}
   notes: >
     Empties the log window. Phase control, as EXPORT_LOG is: it acts on
     the application's output rather than on the simulation.
@@ -174,6 +181,7 @@ OUTPUT_SURFACE_INDICES:
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.286, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.287, unchanged from SRC-750 p.287"}
+    "26.124": {status: documented, note: "SRC-752 p.287, the SRC-751 file, carried from 26.123; not run on 26.124"}
   notes: >
     Writes the name and index of every mesh boundary, to a file if a
     path follows and to the log window if none does. The manual states

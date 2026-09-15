@@ -48,6 +48,7 @@ SET_SOLVER_CONVERGENCE_ITERATIONS:
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_savedstate2.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
     "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.349, unchanged from SRC-750 p.349"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.349, the SRC-751 file, carried from 26.123; not run on 26.124"}
   notes: >
     Number of iterations the solver must remain below the convergence
     threshold before convergence is declared.
@@ -69,6 +70,7 @@ SOLVER_MINIMUM_CP:
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_savedstate2.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
     "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.350, unchanged from SRC-750 p.350"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.350, the SRC-751 file, carried from 26.123; not run on 26.124"}
   default: -20
   default_ref: "SRC-003 p.221"
   notes: >
@@ -91,6 +93,7 @@ REYNOLDS_AVERAGED_DRAG_FORCES:
     "26.101": {status: documented, note: "SRC-725 p.343, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-09-08_rotor-path.yaml"}
     "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-09-08_rotor-path.yaml", note: "SRC-751 p.349, unchanged from SRC-750 p.349"}
+    "26.124": {status: documented, note: "SRC-752 p.349, the SRC-751 file, carried from 26.123; not run on 26.124"}
   notes: >
     Toggles the Reynolds-averaged (flat plate) boundary layer
     calculations.
@@ -112,6 +115,7 @@ SOLVER_SET_MESH_INDUCED_WAKE_VELOCITY:
     "26.101": {status: documented, note: "SRC-725 p.343, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-09-08_rotor-path.yaml"}
     "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-09-08_rotor-path.yaml", note: "SRC-751 p.349, unchanged from SRC-750 p.349"}
+    "26.124": {status: documented, note: "SRC-752 p.349, the SRC-751 file, carried from 26.123; not run on 26.124"}
 
 SOLVER_SET_FARFIELD_LAYERS:
   layout: inline
@@ -129,6 +133,7 @@ SOLVER_SET_FARFIELD_LAYERS:
     "26.101": {status: documented, note: "SRC-725 p.343, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-09-08_rotor-path.yaml"}
     "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-09-08_rotor-path.yaml", note: "SRC-751 p.349, unchanged from SRC-750 p.349"}
+    "26.124": {status: documented, note: "SRC-752 p.349, the SRC-751 file, carried from 26.123; not run on 26.124"}
   default: 3
   default_ref: "SRC-003 p.344"
   notes: >
@@ -152,6 +157,7 @@ SOLVER_UNSTEADY_PRESSURE_AND_KUTTA:
     "26.101": {status: documented, note: "SRC-725 p.343, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-09-08_rotor-path.yaml"}
     "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-09-08_rotor-path.yaml", note: "SRC-751 p.349, unchanged from SRC-750 p.349"}
+    "26.124": {status: documented, note: "SRC-752 p.349, the SRC-751 file, carried from 26.123; not run on 26.124"}
   notes: >
     Toggles the unsteady Bernoulli and Kutta terms of the unsteady
     solver.
@@ -172,6 +178,7 @@ SET_WAKE_TERMINATION_TIME_STEPS:
     "26.101": {status: documented, note: "SRC-725 p.343, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.123": {status: documented, note: "SRC-751 p.349, unchanged from SRC-750 p.349"}
+    "26.124": {status: documented, note: "SRC-752 p.349, the SRC-751 file, carried from 26.123; not run on 26.124"}
   notes: >
     Number of time steps after which a wake vortex filament edge that
     lost all of its strength is removed from the simulation.
@@ -190,6 +197,7 @@ SET_WAKE_ON_WAKE_INDUCTION:
     "26.101": {status: documented, note: "SRC-725 p.343, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-09-08_rotor-path.yaml"}
     "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-09-08_rotor-path.yaml", note: "SRC-751 p.349, unchanged from SRC-750 p.349"}
+    "26.124": {status: documented, note: "SRC-752 p.349, the SRC-751 file, carried from 26.123; not run on 26.124"}
   notes: >
     Toggles the wake-on-wake induced velocity computation.
 
@@ -207,6 +215,7 @@ ADDITIONAL_WAKE_RELAXATION_ITERATION:
     "26.101": {status: documented, note: "SRC-725 p.344, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-09-08_rotor-path.yaml"}
     "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-09-08_rotor-path.yaml", note: "SRC-751 p.350, unchanged from SRC-750 p.350"}
+    "26.124": {status: documented, note: "SRC-752 p.350, the SRC-751 file, carried from 26.123; not run on 26.124"}
   notes: >
     Performs one additional wake relaxation iteration.
 
@@ -223,6 +232,7 @@ AEROELASTIC_RBF_TYPE:
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.379, same grammar; the entry moved out of the Advanced Settings chapter into the Aeroelastic Coupling Toolbox, while that edition's script index still files it under Advanced Settings"}
     "26.123": {status: documented, note: "SRC-751 p.383, unchanged from SRC-750 p.383"}
+    "26.124": {status: documented, note: "SRC-752 p.383, the SRC-751 file, carried from 26.123; not run on 26.124"}
   notes: >
     RBF mesh morphing algorithm of the aeroelastic coupling. The manual
     gives the options as a NUMBERED list of five and says the input may
@@ -254,6 +264,7 @@ LAMINAR_SEPARATION:
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.348, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.350, unchanged from SRC-750 p.350"}
+    "26.124": {status: documented, note: "SRC-752 p.350, the SRC-751 file, carried from 26.123; not run on 26.124"}
   notes: >
     Laminar boundary layer separation. This is the one member of the
     flow-separation family that survived the 26.101 redesign unchanged
@@ -274,6 +285,7 @@ KUTTA_JOUKOWSKI_LIFT_FORCES:
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.347, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.349, unchanged from SRC-750 p.349"}
+    "26.124": {status: documented, note: "SRC-752 p.349, the SRC-751 file, carried from 26.123; not run on 26.124"}
   notes: >
     Computes the inviscid lift by the Kutta-Joukowski theorem, from the
     bound circulation, instead of by integrating the surface pressure,
@@ -300,6 +312,7 @@ PRINT_ROTOR_INDUCED_VELOCITIES:
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.348, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.350, unchanged from SRC-750 p.350"}
+    "26.124": {status: documented, note: "SRC-752 p.350, the SRC-751 file, carried from 26.123; not run on 26.124"}
   notes: >
     Prints the rotor-induced velocities to the log at every time step of
     an unsteady run, which is what the manual's sample comment states.
@@ -320,6 +333,7 @@ SET_ADAPTIVE_FIELD_GRID_REFINEMENT:
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.348, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.350, unchanged from SRC-750 p.350"}
+    "26.124": {status: documented, note: "SRC-752 p.350, the SRC-751 file, carried from 26.123; not run on 26.124"}
   notes: >
     Refines the field-source grid where the solution needs it. The
     manual's sample comment marks this transonic only; what it does on a
@@ -338,6 +352,7 @@ ROTOR_INDUCED_VELOCITY_BLENDING:
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.348, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.350, unchanged from SRC-750 p.350"}
+    "26.124": {status: documented, note: "SRC-752 p.350, the SRC-751 file, carried from 26.123; not run on 26.124"}
   default: 0.25
   default_ref: "SRC-003 p.345"
   notes: >
@@ -363,6 +378,7 @@ SET_WAKE_NUMERICAL_RELAXATION:
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.349, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.351, unchanged from SRC-750 p.351"}
+    "26.124": {status: documented, note: "SRC-752 p.351, the SRC-751 file, carried from 26.123; not run on 26.124"}
   default: 0.15
   default_ref: "SRC-003 p.346"
   notes: >
@@ -385,6 +401,7 @@ SET_JET_WAKE_DECAY_NORMALIZED_LENGTH:
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.349, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.351, unchanged from SRC-750 p.351"}
+    "26.124": {status: documented, note: "SRC-752 p.351, the SRC-751 file, carried from 26.123; not run on 26.124"}
   default: 100.0
   default_ref: "SRC-003 p.346"
   notes: >
@@ -486,6 +503,7 @@ SET_WAKE_DECAY_CONSTANT:
     "26.121": {status: documented}
     "26.122": {status: documented, note: "SRC-750 p.348, same grammar as 26.121"}
     "26.123": {status: documented, note: "SRC-751 p.348, unchanged from SRC-750 p.348"}
+    "26.124": {status: documented, note: "SRC-752 p.348, the SRC-751 file, carried from 26.123; not run on 26.124"}
   notes: >
     Rate at which wake vorticity decays with distance.
 

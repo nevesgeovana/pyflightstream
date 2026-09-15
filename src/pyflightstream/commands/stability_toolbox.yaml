@@ -43,6 +43,7 @@ STABILITY_TOOLBOX_SETTINGS:
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.374, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.378, unchanged from SRC-750 p.378"}
+    "26.124": {status: documented, note: "SRC-752 p.378, the SRC-751 file, carried from 26.123; not run on 26.124"}
   notes: >
     Settings shared by every coefficient the toolbox computes.
 
@@ -108,6 +109,7 @@ STABILITY_TOOLBOX_NEW_COEFFICIENT:
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.374, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.378, unchanged from SRC-750 p.378"}
+    "26.124": {status: documented, note: "SRC-752 p.378, the SRC-751 file, carried from 26.123; not run on 26.124"}
   notes: >
     Defines one derivative: a numerator variable over a denominator
     variable, scaled by a constant, computed on a named set of
@@ -150,6 +152,7 @@ STABILITY_TOOLBOX_DELETE_ALL:
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.374, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.378, unchanged from SRC-750 p.378"}
+    "26.124": {status: documented, note: "SRC-752 p.378, the SRC-751 file, carried from 26.123; not run on 26.124"}
   notes: >
     Deletes every user-defined coefficient. There is no command deleting
     one, so correcting a single definition means rebuilding the set.
@@ -168,6 +171,7 @@ COMPUTE_STABILITY_COEFFICIENTS:
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 pp.374-375, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.378, unchanged from SRC-750 p.378"}
+    "26.124": {status: documented, note: "SRC-752 p.378, the SRC-751 file, carried from 26.123; not run on 26.124"}
   notes: >
     Runs the whole set.
 
@@ -196,6 +200,7 @@ STABILITY_TOOLBOX_EXPORT:
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.375, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.379, unchanged from SRC-750 p.379"}
+    "26.124": {status: documented, note: "SRC-752 p.379, the SRC-751 file, carried from 26.123; not run on 26.124"}
   notes: >
     Writes the computed coefficients to a file, the path on the next
     line. It is the only command in the chapter that produces an

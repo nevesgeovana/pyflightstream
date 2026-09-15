@@ -292,6 +292,31 @@ versions:
     # tests/tier1_offline/goldens/absent_on_26123.txt is the enumeration of what that
     # covers at each commit.
     inherits_base: false
+  - canonical: "26.124"
+    alias: "26.12"
+    # reports/compat/CMP-26124_2026-09-14.yaml
+    #
+    # The fourth hotfix of the 26.12 release, delivered 2026-09-14 and
+    # registered here the same day. Release order puts it last.
+    #
+    # REGISTERED FIRST WITH build AND prints UNSET, the order 26.123 recorded:
+    # the two fields are admitted only from a committed identity report,
+    # and the run that writes one refuses an unregistered version. The
+    # identity run then read the banner: release 26.1 at build 8172026,
+    # six days after 26.123's 8112026, from an executable invoked under its
+    # version-named file name, Flightstream_26124.exe.
+    build: "8172026"
+    prints: "26.1"
+    #
+    # ITS DOCUMENTATION IS THE 26.123 DOCUMENTATION, measured rather than
+    # assumed: the manual in its package is byte-identical to SRC-751 (one
+    # sha256, 417 pages, one creation date), and so are the release notes,
+    # the EULA, the three libraries and the sample script. Only the
+    # executable differs. So its documented rows are carried forward from
+    # 26.123 citing SRC-752, and nothing is inherited from the 26.120 base:
+    # a build is answered for by what was read or run on IT, and what was
+    # read for it is 26.123's text.
+    inherits_base: false
 
 # Every range below except the last was MEASURED on 2026-08-06 rather
 # than transcribed. The 26.123 row is the exception and states its own
@@ -519,3 +544,16 @@ manual_editions:
     vendor deleting a claim about where the solver is valid says the
     document no longer asserts it, not that the solver changed. Anything
     that wants the claim back needs a probe, not a citation.
+  "26.124": >
+    SRC-752: Altair FlightStream User Guide, 26.12 hotfix build 4
+    edition, 417 pages, scripting reference pp.283-383 with its Script
+    Index at pp.384-390; cited in version notes as "SRC-752 p.N".
+    Registered 2026-09-14, the day the build was delivered.
+
+    IT IS THE SRC-751 FILE. The package's manual carries SRC-751's sha256,
+    page count and creation date, and the text of all 417 pages extracts
+    identically, so every SRC-751 page number addresses the same page here
+    and every statement recorded against SRC-751 above holds for this
+    edition word for word, the withdrawals included. What 26.124 changes,
+    if anything, is in its executable, which is the one file of the
+    package whose bytes differ, and only running it can say what that is.

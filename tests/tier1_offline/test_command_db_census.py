@@ -89,6 +89,10 @@ EMITTABLE = {
     # the successor, and the absent-command enumeration, which stops
     # listing a command the database has an answer for.
     "26.123": 371,
+    # 2026-09-14, registered with the 26.123 manual itself (SRC-752 is the
+    # SRC-751 file), so every row 26.123 documents was carried and the count
+    # is the same 371, the removed spelling again not counted.
+    "26.124": 371,
 }
 
 #: Rows recording `verified` per build, measured the same day. Pinned
@@ -134,6 +138,13 @@ VERIFIED = {
     # (CMP-26123_2026-09-08_rotor-path): eight of the thirteen were
     # documented here and are verified now, five were already: 92.
     "26.123": 92,
+    # Measured 2026-09-14 on the build's first sweep, against the synthetic wing
+    # of the tier-3 workspace (CMP-26124_2026-09-14_full-sim): 86. Read it
+    # against 26.123's first sweep of 84: three MORE, the unsteady plot commands
+    # that carry a probe specification since, and one FEWER, SET_INVISCID_LOADS,
+    # recorded unprobed because its effect was not observable on that wing.
+    # The rotor-path sweep 26.123 received is not yet run on this build.
+    "26.124": 86,
 }
 
 #: 388 at v0.5.0, then +16 on 2026-08-10 for the commands only the
