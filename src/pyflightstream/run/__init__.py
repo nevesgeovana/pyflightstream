@@ -4476,6 +4476,12 @@ def _execute_sweep(
         "run_id": run_id,
         "sim_id": case.sim_id,
         "point": dict(points[0]),
+        # A JOB'S NAME IS ITS SWEEP'S, and it is written to `point_name` as
+        # well: the field is what every reader of a record takes the name
+        # from, collect included, so a job record that left it empty would
+        # be refused as written before 0.21.0 while being one of this
+        # version's own. The points it ran carry their own names.
+        "point_name": sweep_name(case),
         "sweep_name": sweep_name(case),
         "job_id": run_id,
         "matrix_stem": campaign.matrix_stem,
