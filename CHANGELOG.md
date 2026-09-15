@@ -7,6 +7,14 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Changed
+
+- **The `broken_commands` manifest key is promised for removal at 0.21.0**, its
+  sixth deadline, on the same re-count as the five before it: re-measured the
+  moment the 0.20.0 cycle opened and UNCHANGED at 18 recorded rows across 6
+  manifests. The reader stays while a recorded row needs it; write
+  `waived_commands`.
+
 ### Fixed
 
 - **A rebuild archives the series tables it rewrites.** `pyfs-matrix post`
