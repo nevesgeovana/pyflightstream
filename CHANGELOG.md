@@ -57,6 +57,17 @@ FlightStream versions.
   - `export_log = false` with no `native_log` is refused: it asks for a run
     with no log at all, and an unsteady run cannot be judged without one.
   - Several files matching `native_log` are refused by name.
+  - **`EXPORT_LOG` in a cell reads a yes-or-no word through one reader**, so
+    a word this package does not know is refused by name rather than read as
+    the permissive side. `disable`, which the earlier reader accepted as
+    false, is no longer among them: write `false`, `no` or `0`.
+  - **The profile's keys are a CLOSED set now**, at the top level
+    (`application_id`, `descriptor`, `submit`, `defaults`, `builds`,
+    `walltime_arithmetic`, `log`) and inside `[log]` (`export_log`,
+    `native_log`). A key outside either is refused by name rather than
+    ignored. A profile carrying a note of your own, or a misspelt key, stops
+    at the refusal instead of reaching the cluster and aborting the job at
+    `EXPORT_LOG`, which is the failure the table exists to prevent.
 - **A collected point's record carries what its log said**: the iteration it
   reached, the residual, the times the solver printed, and which file they were
   read from. The cluster path judged the point by the log and then kept only

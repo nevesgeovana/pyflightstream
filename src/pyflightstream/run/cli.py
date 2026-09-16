@@ -582,7 +582,7 @@ def _build_parser() -> argparse.ArgumentParser:
 def _confirmed_destruction(yes: bool) -> bool:
     """Ask before a product is destroyed rather than archived.
 
-    HER INSTRUCTION OF 2026-09-12: `--force-overwrite` is named so it
+    THE AUTHOR'S INSTRUCTION OF 2026-09-12: `--force-overwrite` is named so it
     cannot be reached by habit, and it asks. `--yes` answers it, for the
     script that means it.
 

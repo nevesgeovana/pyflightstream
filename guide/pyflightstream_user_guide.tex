@@ -867,7 +867,7 @@ recipe = "my_recipes:steady_point"
 outputs = ["loads_{point}.txt"]
 \end{lstlisting}
   \begin{itemize}
-    \item Sweep axes: any key of \code{FLIGHT\_CONDITION} since 0.21.0 --- the flow variables, the two angles, the advance ratio, \code{RPM} and the three body rates; the Python \code{SweepAxis} type also takes the paired \code{alpha\_beta} of the matrices written before 0.15.0.
+    \item Sweep axes: any key of \code{FLIGHT\_CONDITION} since 0.21.0, which is the flow variables, the two angles, the advance ratio, \code{RPM} and the three body rates; the Python \code{SweepAxis} type also takes the paired \code{alpha\_beta} of the matrices written before 0.15.0.
     \item Output names carry \code{\{point\}}: every point of a case runs in the same simulation folder, so a constant name would let each point overwrite the previous one's evidence. A multi-point case that declares a constant name is refused before anything runs.
   \end{itemize}
 \end{frame}

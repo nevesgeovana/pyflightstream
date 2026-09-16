@@ -1,6 +1,6 @@
 """Tier 1: a rotating free stream, stated as a body rate (0.21.0, GOAL-024 arm 6).
 
-Her decision of 2026-09-15, from the cluster. A row states ONE body rate --
+The author's decision of 2026-09-15. A row states ONE body rate --
 ``roll_rate``, ``pitch_rate`` or ``yaw_rate`` -- in deg/s and in
 flight-mechanics signs, and the free stream turns about the MOMENT REFERENCE
 POINT of the row's REF at that rate. Which axis of the model that is belongs to

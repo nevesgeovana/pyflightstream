@@ -8,6 +8,12 @@ where_the_raw_files_are: 'The solver outputs stayed on the measuring machine and
   (invariant 5). The workspace is GeoverseResearch/tools/fts_workspace/pfs0210-probe-rotation.'
 workspace: GeoverseResearch/tools/fts_workspace/pfs0210-probe-rotation
 geometry: 30_WB.fsm of pfs0160, read through a junction and never written
+input_mesh_sha256: # the inputs/30_WB.fsm of each simulation, measured 2026-09-16:
+  # the three are BYTE-IDENTICAL, so the differing input-path line of script_diff
+  # names the same geometry. Without this the control's premise was prose.
+  sim_4101: 3a5f174c594e6cd6b47517da4da9b633ea4c95cf9f00d17f4ddfd5d1539bd00a
+  sim_4102: 3a5f174c594e6cd6b47517da4da9b633ea4c95cf9f00d17f4ddfd5d1539bd00a
+  sim_4103: 3a5f174c594e6cd6b47517da4da9b633ea4c95cf9f00d17f4ddfd5d1539bd00a
 executable_sha256:
   '26.124': 68e64e666fad6e403a6c6747b20c263f5c9f3e4c7542eebe253397bedcc30c65
 command_measured: SET_FREESTREAM ROTATION
@@ -80,9 +86,11 @@ coefficients:
     CLB: 0.00993
     CMB25: -0.01642
     CDB: 0.00235
-script_diff: # every line that differs between the two scripts whose digests are above;
-  # one is the command, the rest are the simulation path and the export names, which
-  # follow from the point name (0.21.0).
+script_diff: # every line that differs between sim_4101 and sim_4102, the two
+  # scripts whose digests are above. EIGHTEEN lines of three kinds: two are the
+  # command, two are the input-mesh path (which follows from the simulation id,
+  # and whose two files are byte-identical above), and fourteen are export names
+  # (seven names, each on both sides), which follow from the point name (0.21.0).
   - '-C:/GeoverseGoddess/GeoverseResearch/tools/fts_workspace/pfs0210-probe-rotation/sims/sim_4101/inputs/30_WB.fsm'
   - '+C:/GeoverseGoddess/GeoverseResearch/tools/fts_workspace/pfs0210-probe-rotation/sims/sim_4102/inputs/30_WB.fsm'
   - '-SET_FREESTREAM CONSTANT'
@@ -101,6 +109,26 @@ script_diff: # every line that differs between the two scripts whose digests are
   - '+P4102-M200RE1177AL+020BE+000Q+040_probes.txt'
   - '-P4101-M200RE1177AL+020BE+000Q+000_log.txt'
   - '+P4102-M200RE1177AL+020BE+000Q+040_log.txt'
+script_diff_4101_4103: # the same control for the pair that carries the verdict,
+  # measured 2026-09-16. Eighteen lines, the same three kinds.
+  - '-C:/GeoverseGoddess/GeoverseResearch/tools/fts_workspace/pfs0210-probe-rotation/sims/sim_4101/inputs/30_WB.fsm'
+  - '+C:/GeoverseGoddess/GeoverseResearch/tools/fts_workspace/pfs0210-probe-rotation/sims/sim_4103/inputs/30_WB.fsm'
+  - '-SET_FREESTREAM CONSTANT'
+  - '+SET_FREESTREAM ROTATION 2 Y 6.666666666666666'
+  - '-P4101-M200RE1177AL+020BE+000Q+000.fsm'
+  - '+P4103-M200RE1177AL+020BE+000Q+400.fsm'
+  - '-P4101-M200RE1177AL+020BE+000Q+000.txt'
+  - '+P4103-M200RE1177AL+020BE+000Q+400.txt'
+  - '-P4101-M200RE1177AL+020BE+000Q+000.dat'
+  - '+P4103-M200RE1177AL+020BE+000Q+400.dat'
+  - '-P4101-M200RE1177AL+020BE+000Q+000_cp.txt'
+  - '+P4103-M200RE1177AL+020BE+000Q+400_cp.txt'
+  - '-P4101-M200RE1177AL+020BE+000Q+000_sloads.txt'
+  - '+P4103-M200RE1177AL+020BE+000Q+400_sloads.txt'
+  - '-P4101-M200RE1177AL+020BE+000Q+000_probes.txt'
+  - '+P4103-M200RE1177AL+020BE+000Q+400_probes.txt'
+  - '-P4101-M200RE1177AL+020BE+000Q+000_log.txt'
+  - '+P4103-M200RE1177AL+020BE+000Q+400_log.txt'
 verdict: a positive pitch_rate produces a nose-down (damping) moment increment and more
   lift on the wing behind the moment point, which is the flow field of a NOSE-UP rotation;
   FREESTREAM_ROTATION_SIGN stays +1.

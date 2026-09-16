@@ -1,6 +1,6 @@
 """Tier 1: the wall clock carries its unit (0.21.0, GOAL-024 arm 7).
 
-Her decision of 2026-09-15, from the cluster. The `WALLTIME` cell writes `240m`
+The author's decision of 2026-09-15. The `WALLTIME` cell writes `240m`
 or `4h`: the unit is part of the value, because a bare number read as SECONDS
 in this package and as minutes on the scheduler it was written for, and neither
 reading is visible in the file. A bare number is refused by name.

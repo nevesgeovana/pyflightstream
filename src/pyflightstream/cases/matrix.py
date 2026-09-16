@@ -188,7 +188,7 @@ _COLUMNS = (
 
 #: The layout of v0.15.0 to v0.16.0, frozen as a literal for the same
 #: reason the three older ones are: it is RECOGNISED and converted,
-#: never read. At 0.17.0 it GAINED SIX COLUMNS and MOVED TWO, on her
+#: never read. At 0.17.0 it GAINED SIX COLUMNS and MOVED TWO, on the author's
 #: decisions of 2026-09-12. What each new column costs a file already
 #: written is nothing it cannot derive: ``GEOMETRY`` and ``SYMMETRY``
 #: come out of that row's own free cell, ``NCPUS`` and
@@ -740,7 +740,7 @@ def _split_attitude(
 def _refuse_two_body_rates(condition: dict[str, float | str], pol: str) -> None:
     """Refuse a cell that turns the free stream two ways at once.
 
-    Her decision of 2026-09-15: ONE non-zero rate per row. The free stream is
+    The author's decision of 2026-09-15: ONE non-zero rate per row. The free stream is
     given one axis and one angular velocity, so two rates would have to be
     composed into an axis nobody wrote, and the row would run something other
     than what it says. A rate stated as zero is not a rotation and is free to
@@ -774,7 +774,7 @@ def _refuse_a_speed_and_a_ratio_over_a_velocity(
 ) -> None:
     """Refuse a cell that states the rotor speed, the advance ratio AND a velocity.
 
-    Her decision of 2026-09-15. The three are one relation, V = J n D, so any
+    The author's decision of 2026-09-15. The three are one relation, V = J n D, so any
     two of them give the third: RPM with ADVANCE_RATIO and no velocity is the
     static-rig form and the velocity is COMPUTED from it, which is the case a
     rotor study writes. All three is one number too many, and the package

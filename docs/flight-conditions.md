@@ -162,9 +162,7 @@ the row and is read there, because the 0.20 point tag never carried one and
 putting it in would have renamed every run that has one, which is the same
 cost running the other way. Since 0.21.0 the NAME of a point carries every
 variable the cell declares, held or swept, which is a different question
-from what the point MAPPING carries. Since 0.21.0 the NAME of a point carries every variable
-the cell declares, held or swept, which is a different question from what the
-point MAPPING carries; see
+from what the point MAPPING carries; see
 [How a point is named](workspace-and-workflows.md#how-a-point-is-named).
 
 ## The rotor speed, the advance ratio and the velocity
@@ -214,7 +212,7 @@ not write. Every rate zero, or no rate at all, writes `CONSTANT`.
 any edition of the manual.** This package emits the rate AS WRITTEN, and the
 convention was MEASURED rather than asserted: three pitch rates on one
 wing-body on FlightStream 26.124, reported in
-[RPT-052](https://github.com/geovanan/pyflightstream/blob/main/reports/RPT-052_the-sense-of-a-rotating-free-stream_2026-09-15.md).
+`reports/RPT-052_the-sense-of-a-rotating-free-stream_2026-09-15.md`.
 A positive rate came back with the nose-down moment increment that opposes a
 nose-up rotation, which is what a flight-mechanics rate means.
 

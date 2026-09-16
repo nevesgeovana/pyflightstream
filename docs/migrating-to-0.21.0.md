@@ -55,8 +55,11 @@ nothing.
 **Your products are rebuilt, not moved.** The tables under `post/` keep their
 0.20.x names until you rebuild them, so run `pyfs-matrix post --workspace
 <root>` after the rename: the polars, the superfiles and the series tables are
-then written under the new names, and the stale ones are archived by the post
-stage as they always are.
+then written under the new names. **THE 0.20.x-NAMED TABLES ARE LEFT WHERE THEY
+ARE, and deleting them is yours.** The post stage archives a product it is
+about to OVERWRITE, and a table under the old name is at a different path, so
+nothing overwrites it and nothing archives it. Until you remove them your
+`post/` folder holds both conventions.
 
 **Before it touches anything** it refuses, by name, a record it cannot map:
 one whose simulation has no row in the matrix, one whose recorded flow
@@ -118,6 +121,12 @@ shape of machine:
   asks for a run with no log at all.
 - Several files matching `native_log` are refused, because the copy would
   otherwise pick one of them silently.
+- **The profile's keys are now a CLOSED set**, at the top level and inside
+  `[log]`. A key outside it is refused by name rather than ignored, so a
+  profile that carried a `notes =` line, or that spelled `native_log` wrongly,
+  stops at the refusal instead of reaching `EXPORT_LOG` on the cluster and
+  aborting the job there. If your profile carries anything of your own, move
+  it out before you run.
 
 A profile that says nothing keeps 0.20.x behaviour: the script exports the
 log itself.

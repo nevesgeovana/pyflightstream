@@ -252,13 +252,6 @@ Milestones and session records are listed in the
     `tests/tier1_offline/fixtures/pfs202512_matrix15.fs` and
     `tests/tier1_offline/fixtures/pfs202701_matrix16.fs`.*
 
-    **The naming of this requirement is superseded by FR-102 (0.21.0).** The
-    point tag and the `POLAR-` file convention below are what 0.20.x wrote;
-    a point is named by its flight condition now, and an existing workspace
-    is moved by `pyfs-matrix rename` (FR-103). Everything else this
-    requirement states stands.
-
-
     A dedicated reader consumes the documented pipe-delimited
     run-matrix format: rows with RUN = 1 are active, the sweep columns
     define alpha, beta, or advance-ratio sweeps, and the variables
@@ -322,6 +315,16 @@ Milestones and session records are listed in the
     run identity and ends every `run_id` in every existing manifest, so the
     upgrade carries POL, the flight condition and the sweep values across
     verbatim and a resume still finds its records.
+
+    **Two clauses of this requirement are superseded, and the format promise
+    is not.** The point tag called run identity in the paragraph above is what
+    0.20.x wrote: a point is named by its flight condition since 0.21.0
+    (FR-102), and an existing workspace is moved to those names by
+    `pyfs-matrix rename` (FR-103), which is the one command allowed to do what
+    the upgrade may not. And "alpha, beta, or advance-ratio sweeps" was the
+    whole of what a row could sweep until 0.21.0; any variable the
+    `FLIGHT_CONDITION` cell declares can be swept now (FR-104). The
+    pipe-delimited format itself, and the unknown-column clause, stand.
 
     One thing about this break is unlike the three before it, and it is
     NARROWER than this paragraph first said. It said the conversion of a
@@ -3178,13 +3181,6 @@ requirement below is one seam of that division.
     `<>_M<>_g<>.csv` and `<>_M<>_g<>.dat` must be the standard convention,
     with the word `sweep` in the swept variable's field. Carried by PFS-2036.03. Evidence: tests/tier1_offline/test_products_layout.py.*
 
-    **The naming of this requirement is superseded by FR-102 (0.21.0).** The
-    point tag and the `POLAR-` file convention below are what 0.20.x wrote;
-    a point is named by its flight condition now, and an existing workspace
-    is moved by `pyfs-matrix rename` (FR-103). Everything else this
-    requirement states stands.
-
-
     WHAT IT IS FOR. The package writes one point under two conventions.
     Measured in the reference workspace, for one point of one run:
 
@@ -3212,18 +3208,19 @@ requirement below is one seam of that division.
     two rows of one sweep differ in it. A workspace holding tables under the
     old name is still read.
 
+    **The file convention of this requirement is superseded by FR-102
+    (0.21.0).** The `POLAR-` stem above is what 0.20.x wrote; the stem is
+    `P<sim>-<name>` now, where the name carries every variable the row's
+    `FLIGHT_CONDITION` cell declares, and the swept field is still written
+    `<code>+sweep`. An existing workspace is moved to it by `pyfs-matrix
+    rename` (FR-103). Everything else this requirement states stands,
+    including that a table under the old name is still read.
+
 !!! requirement "FR-86 A provenance file is named by the same convention as everything beside it <span class='srs-implemented'>implemented</span>"
 
     *Origin: the fourth feedback item of 2026-09-10, "nomes arquivos
     em post\matriz\provenance fora do padrao". Carried by PFS-2036.04.
     Evidence: tests/tier1_offline/test_products_layout.py.*
-
-    **The naming of this requirement is superseded by FR-102 (0.21.0).** The
-    point tag and the `POLAR-` file convention below are what 0.20.x wrote;
-    a point is named by its flight condition now, and an existing workspace
-    is moved by `pyfs-matrix rename` (FR-103). Everything else this
-    requirement states stands.
-
 
     WHAT IT IS FOR. Two conventions sit in one run for one point:
 
@@ -3240,6 +3237,16 @@ requirement below is one seam of that division.
     run id the file records is unchanged and stays a field of the document,
     and a test asserts the id read back from a renamed file is the string it
     was before.
+
+    **The convention this requirement points at is superseded by FR-102
+    (0.21.0).** It says the provenance file takes the same name as the script
+    and the export beside it, and that convention is now the point name,
+    `P<sim>-<name>`, rather than the `POLAR-` stem of the example above. The
+    requirement is unchanged by that: it names no convention of its own, which
+    is the whole of what it asks for. An existing workspace is moved by
+    `pyfs-matrix rename` (FR-103), and NOTHING RENAMES A RUN still holds --
+    the rename rewrites the run id's point name and the id stays the record's
+    identity.
 
 !!! requirement "FR-87 Flow-field samples go to probes and carry the fluid quantities, steady or unsteady <span class='srs-implemented'>implemented</span>"
 
@@ -3294,13 +3301,6 @@ requirement below is one seam of that division.
     *Origin: the reference sixth feedback item of 2026-09-10, "crie uma
     subpasta polars para os arquivos <>_M<>_g<>.csv e <>_M<>_g<>.dat atuais".
     Carried by PFS-2036.06. Evidence: tests/tier1_offline/test_products_layout.py.*
-
-    **The naming of this requirement is superseded by FR-102 (0.21.0).** The
-    point tag and the `POLAR-` file convention below are what 0.20.x wrote;
-    a point is named by its flight condition now, and an existing workspace
-    is moved by `pyfs-matrix rename` (FR-103). Everything else this
-    requirement states stands.
-
 
     WHAT IT IS FOR. Measured in the reference workspace, `post/matriz/`
     holds the polar tables loose at its top level beside `sections/`,
@@ -4003,7 +4003,8 @@ requirement below is one seam of that division.
     write one field refused at plan time, the seventeen keys of the table each
     against its written form, and the folder namer refusing anything but a
     checked name). SUPERSEDES the point tag of FR-10 and the file convention of
-    FR-85 and FR-88.*
+    FR-85 and FR-86. FR-88 is untouched: it says WHERE the polar tables live
+    and names no convention.*
 
     A point has ONE name, and the row writes it: every variable the
     `FLIGHT_CONDITION` cell declares, in the order the cell declares them, each
@@ -4128,7 +4129,10 @@ requirement below is one seam of that division.
     log: `export_log = false` leaves `EXPORT_LOG` out of the script, and
     `native_log` names the file the scheduler writes, which `collect` copies to
     the name the row declared. `export_log = false` with no `native_log` is
-    refused, and so are several files matching the pattern. A collected point's
+    refused, and so are several files matching the pattern. The profile's key
+    set is CLOSED, at the top level and inside `[log]`: a key outside it is
+    refused by name rather than ignored, because a misplaced key is a job that
+    reaches the cluster and aborts at `EXPORT_LOG`. A collected point's
     record carries what its log said: the iteration, the residual, the times
     and the file they were read from.
 !!! requirement "FR-107 A run may accept an unregistered build, on the user's word <span class='srs-implemented'>implemented</span>"

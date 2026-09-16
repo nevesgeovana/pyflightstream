@@ -1654,7 +1654,7 @@ def _refuse_an_existing_product(
 ) -> Path:
     """Return ``path``, ARCHIVING an existing product rather than losing it.
 
-    HER INSTRUCTION OF 2026-09-12, and it arrived as feedback on the fix
+    THE AUTHOR'S INSTRUCTION OF 2026-09-12, and it arrived as feedback on the fix
     that makes a regenerated SUPER file report different numbers: without
     an archive the previous table is gone and nothing says it ever said
     something else.
@@ -1831,6 +1831,10 @@ def _sim_products(
             except ProductError as error:
                 skipped[f"{PROBES_DIR}/{record.probe_points_file}"] = str(error)
     if not points:
+        # NOTHING COLLECTED YET, which is the ordinary state between `run` and
+        # `collect` and is not an error: the stage writes no product for this
+        # simulation and the campaign's other simulations are unaffected. It is
+        # also what makes `recorded` non-empty below.
         return [], {}, {}
     points.sort(key=lambda point: point.alpha_deg)
     if mach is None:
@@ -1875,17 +1879,14 @@ def _sim_products(
         # 0.21.0: THE NAMES ARE THE ONES THE RUN RECORDED. A record written before
         # 0.21.0 carries none, and naming its tables by a recomputed name would
         # set them beside files of another scheme.
+        # NON-EMPTY BY CONSTRUCTION, and the construction is twenty lines up:
+        # a point is appended only inside the loop that SKIPS a record with no
+        # outputs, so `points` is empty whenever this list would be, and
+        # `if not points: return` has already returned. The closing round of
+        # 0.21.0 put a refusal here against an IndexError at `recorded[0]`;
+        # measured by probe, no case reaches it, and a branch nothing reaches
+        # reads as covered while proving nothing.
         recorded = [record for record in records if record.outputs]
-        if not recorded:
-            # EMPTY IS THE SAME REFUSAL, not an IndexError two lines down. A
-            # simulation whose records collected nothing has no name to write a
-            # table under, and the didactic sentence is the one a reader can
-            # act on (the qa lens, 2026-09-16).
-            raise ProductError(
-                f"simulation {sim_id!r} holds {len(records)} record(s) and none of them "
-                "collected an output, so there is nothing to name a polar table after. "
-                "Collect the points (pyfs-matrix collect) before posting."
-            )
         if any(record.sweep_name is None or record.point_name is None for record in recorded):
             raise ProductError(
                 f"simulation {sim_id!r} holds records written before 0.21.0, which carry no "

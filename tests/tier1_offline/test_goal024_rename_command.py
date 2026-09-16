@@ -486,3 +486,52 @@ def test_goal024_rename_command_a_workspace_named_by_the_library_default(tmp_pat
             assert output.startswith("datapoints/DP-M200RE230AL"), output
             assert Path(output).name.startswith("P3207-M200RE230AL"), output
         assert "a+00.0" not in json.dumps(row), row["run_id"]
+
+
+def test_goal024_rename_command_the_steady_script_path_resolves_and_a_second_run_is_quiet(
+    tmp_path,
+):
+    """A STEADY row under the library default: the manifest names the file the move made.
+
+    Found by the qa lens of the closing round, 2026-09-16, measured end to end.
+    A steady row is ONE JOB, and its script stem is the point tag with `_sweep`
+    after it, so the point-stem rule CONTAINS the script-stem rule and consumed
+    it: the manifest came out saying `scripts/P3207-M200RE230AL-020_sweep.txt`
+    while the file on disk was `scripts/P3207-M200RE230AL+sweep.txt`, because
+    the disk move uses the script pair directly and only the record went through
+    the substitutions.
+
+    The two halves that make it a test rather than an example: the manifest's
+    own `script_path` is RESOLVED against the simulation directory, so a name
+    nothing wrote fails; and the command is run a SECOND time, because the
+    migration page promises a second run changes nothing and a self-healing
+    rewrite breaks that promise quietly.
+    """
+    workspace, _, _ = _ran(tmp_path)
+    old_rows = _as_0_20_library_default(workspace, mach=0.2)
+    assert len(old_rows) == 1, old_rows
+    # THE SHAPE THAT MATTERS: the job's script stem is the point tag plus
+    # `_sweep`, so one of the path rules is a prefix of the other.
+    assert str(old_rows[0]["script_path"]).endswith("a-02.0_sweep.txt"), old_rows
+
+    report = rename_workspace(_reopened(workspace))
+
+    assert report.renamed_records == 1, report
+    row = workspace.read_raw_manifest()[0]
+    sim = workspace.sim_dir(str(row["sim_id"]))
+    script = sim / str(row["script_path"])
+    assert script.is_file(), (
+        row["script_path"],
+        sorted(p.name for p in (sim / "scripts").iterdir()),
+    )
+    assert script.name == "P3207-M200RE230AL+sweep.txt", script.name
+    # The identity is untouched by the path rules: a steady job ends in `sweep`.
+    assert str(row["run_id"]).endswith("/sweep"), row["run_id"]
+
+    again = rename_workspace(_reopened(workspace))
+
+    assert again.renamed_records == 0, [change for change in again.changes]
+    assert not again.changes, [
+        (change.kind, change.before, change.after) for change in again.changes
+    ]
+    assert workspace.read_raw_manifest()[0]["script_path"] == row["script_path"]

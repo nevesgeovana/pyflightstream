@@ -483,12 +483,14 @@ Write it one of two ways.
   thirty three.
 
 The limit is about IDENTITY before it is about cost. A run is named by its
-FLIGHT CONDITION: the folders above are `DP-M200RE230AL+000` and
-`DP-M200RE230BE-030`, and nothing in that name is geometric. Crossing three angles into an eleven
-point sweep would give thirty three runs eleven names, so each group of
-three would share one `run_id` and one set of output file names, and the
-cost view would average the three into a single cell. Three rows cost
-the same thirty three runs and keep thirty three identities.
+FLIGHT CONDITION: a cell declaring `MACH`, `REmi`, `ALPHA` and `BETA` names
+two points of an alpha sweep `DP-M200RE230AL-040BE+000` and
+`DP-M200RE230AL+000BE+000`, and nothing in either name is geometric.
+Crossing three angles into an eleven point sweep would give thirty three
+runs eleven names, so each group of three would share one `run_id` and one
+set of output file names, and the cost view would average the three into a
+single cell. Three rows cost the same thirty three runs and keep thirty
+three identities.
 
 ## The input library those identifiers resolve against
 

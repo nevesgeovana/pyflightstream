@@ -45,17 +45,34 @@ EIGHTEEN differing lines:
 +SET_FREESTREAM ROTATION 2 Y 0.6666666666666666
 ```
 
-and seventeen lines that are the simulation's own path and its export names,
-which follow from the point name because 0.21.0 names every file of a point by
-it (`P4101-...Q+000` against `P4102-...Q+040`). ONE PHYSICAL LINE DIFFERS; the
-rest is the naming of the outputs, and it could not be otherwise on a release
-whose names carry the rate.
+and SIXTEEN lines of two kinds. Fourteen are export names, seven names each
+written on both sides, which follow from the point name because 0.21.0 names
+every file of a point by it (`P4101-...Q+000` against `P4102-...Q+040`). The
+other two are the line naming the simulation's own input mesh,
+`sims/sim_4101/inputs/30_WB.fsm` against `sims/sim_4102/inputs/30_WB.fsm`,
+which follows from the SIMULATION ID and not from the point name. **Those two
+files are byte-identical**, sha256 `3a5f174c...`, recorded per simulation in the
+evidence: the path differs and the geometry does not. ONE PHYSICAL LINE
+DIFFERS; the rest is naming, and it could not be otherwise on a release whose
+names carry the rate.
+
+The same eighteen lines of the same three kinds separate the baseline from the
+40 deg/s point, `sim_4101` against `sim_4103`, and that diff is committed
+beside this one. It is the pair that carries the verdict: the 4 deg/s
+increment is 0.6% of the base and could be argued with, and the 40 deg/s one is
+4.7%.
 
 The report's first writing said "102 lines each, ONE differing line", which was
 a diff of two cases rendered offline with their output templates unrendered:
 not the scripts whose digests the evidence records. The V&V lens of 2026-09-16
-caught it, and the diff above is committed in the evidence file so the control
-is checkable rather than asserted.
+caught it and, on the closing round, caught what the fix still claimed.
+**THE CONTROL IS RECORDED, NOT CHECKABLE FROM THIS REPOSITORY ALONE.** The two
+scripts are not committed (they carry this machine's absolute paths and live in
+the probe workspace), so a reader here has the diff as this session transcribed
+it. What the record does buy is real and is the reason it is here: each side
+carries its script's sha256, so anyone holding the workspace can recompute both
+digests and the diff and find them or not find them, and a later edit to either
+script breaks the digest rather than the prose.
 
 Frame 2 is the `MRP` coordinate system the builder creates at the reference's
 moment point; `Y` is the axis `[body_axes]` gives the pitch rate; 0.6667 rev/min

@@ -1,11 +1,11 @@
 """Tier 1: the HPC profile's ``[log]`` table (0.21.0, GOAL-024 arm 8).
 
-Her cluster aborts at ``EXPORT_LOG``: the job runs, every other export lands,
+Some machines abort at ``EXPORT_LOG``: the job runs, every other export lands,
 and the log this package judges the run by never arrives, so `collect` waits
 for a file nothing will ever write. That machine writes its own log beside the
 run instead.
 
-Her decision of 2026-09-15 is that the machine says so, not the package:
+The author's decision of 2026-09-15 is that the machine says so, not the package:
 
 * ``export_log = false`` leaves ``EXPORT_LOG`` out of the script;
 * ``native_log`` names the file the scheduler writes, and `collect` copies it

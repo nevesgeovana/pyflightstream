@@ -1569,8 +1569,8 @@ class CampaignWorkspace:
         # PFS-2032.07, and it is the owner's own instruction of 2026-09-13:
         # the per-mesh folder is the layout, AND THE USER HAS TO BE TOLD. A
         # layout nobody is told about is a layout nobody uses, which is why
-        # `migrate-geometries` existed for two releases and her own newest
-        # workspaces adopted the layout only after she asked for it by hand.
+        # `migrate-geometries` existed for two releases and the newest
+        # workspaces adopted the layout only when asked for it by hand.
         # The page is written where a user looking for somewhere to put a
         # mesh will already be standing.
         geometries = workspace.inputs_dir / "geometries"
@@ -2770,7 +2770,7 @@ class CampaignWorkspace:
     ) -> Path | None:
         """Move a datapoint's collected outputs aside, under a day-and-hour stamp.
 
-        THE OWNING SEAT'S DECISION OF 2026-09-13, and the clause that decided the shape is
+        THE AUTHOR'S DECISION OF 2026-09-13, and the clause that decided the shape is
         the reason: a continuation archives what it replaces into folders
         stamped with the day and the hour, the same structure ``post``
         already uses, **because there can be more than one restart**. Two

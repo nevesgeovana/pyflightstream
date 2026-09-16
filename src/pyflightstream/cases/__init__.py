@@ -1741,7 +1741,7 @@ class NameField:
     signed: bool
 
 
-#: THE POINT NAME'S CODE TABLE, the owning seat's of 2026-09-15 (SCOPE-0210 section 1),
+#: THE POINT NAME'S CODE TABLE, the author's of 2026-09-15 (SCOPE-0210 section 1),
 #: keyed by the canonical FLIGHT_CONDITION key. Codes differ in LETTERS and never
 #: only in case, because a Windows file name does not distinguish case.
 POINT_NAME_FIELDS: dict[str, NameField] = {
@@ -1840,27 +1840,37 @@ def _name_order(case: SimCase, point: Mapping[str, float]) -> list[str]:
     return order
 
 
+def _as_a_number(case: SimCase, key: str, stated: object, where: str) -> float:
+    """Return ``stated`` as a number, or raise the refusal this path promises.
+
+    ONE conversion for all four places a declared variable's value can come
+    from, so a fifth cannot be added past the refusal. The first writing wrapped
+    the `variables` branch alone and left the other three raising a bare
+    `ValueError` out of `float()` -- including `flight_condition`, which is where
+    a MATRIX CELL's value lands and is the branch the requirement is about
+    (measured by the closing round, 2026-09-16: a cell stating `MACH: fast` gave
+    `could not convert string to float: 'fast'`).
+    """
+    try:
+        return float(stated)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} declares {key} in its flight condition and states "
+            f"{stated!r} for it in {where}, which is not a number, so the point cannot "
+            "be named."
+        ) from None
+
+
 def _name_value(case: SimCase, point: Mapping[str, float], key: str) -> float:
     for axis, axis_key in POINT_AXIS_KEYS.items():
         if key == axis_key and axis in point:
-            return float(point[axis])
+            return _as_a_number(case, key, point[axis], "this point")
     if key in case.flight_condition:
-        return float(case.flight_condition[key])
+        return _as_a_number(case, key, case.flight_condition[key], "its FLIGHT_CONDITION")
     if key == "MACH" and case.mach is not None:
-        return float(case.mach)
+        return _as_a_number(case, key, case.mach, "its Mach number")
     if key in case.variables:
-        stated = case.variables[key]
-        try:
-            return float(stated)
-        except (TypeError, ValueError):
-            # THE PROMISED REFUSAL, which this path raised a bare ValueError
-            # past: `variables` is a user-authored string bag reachable from a
-            # matrix cell, and the caller's own Raises section promises a
-            # CampaignConfigError (the architecture lens, 2026-09-16).
-            raise CampaignConfigError(
-                f"case {case.sim_id!r} declares {key} in its flight condition and states "
-                f"{stated!r} for it, which is not a number, so the point cannot be named."
-            ) from None
+        return _as_a_number(case, key, case.variables[key], "its variables")
     raise CampaignConfigError(
         f"case {case.sim_id!r} declares {key} in its flight condition and this point carries "
         f"no value for it, so the point cannot be named."

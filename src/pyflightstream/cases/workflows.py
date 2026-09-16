@@ -1355,7 +1355,7 @@ def rotor_speed(case: SimCase) -> RotorSpeed:
                 "VALUE, which is how one rotor holds while another is swept."
             )
     if ratio_text is not None and rpm_text is not None and _the_cell_states_both(case):
-        # THE OWNING SEAT'S DECISION OF 2026-09-15: the speed and the ratio together, with no
+        # THE AUTHOR'S DECISION OF 2026-09-15: the speed and the ratio together, with no
         # velocity stated, are the static-rig form. They do not disagree: the
         # ratio fixed the VELOCITY of the run, V = J x (RPM/60) x D, and the
         # rotor turns at the speed the row wrote. So the speed is taken and the
@@ -4414,7 +4414,7 @@ RATE_VARIABLES: tuple[tuple[str, str], ...] = (
 _DEG_PER_S_TO_RPM = 60.0 / 360.0
 
 #: WHAT THE SIGN OF THE EMITTED ROTATION IS, relative to the rate the row
-#: states. The row's rates are FLIGHT MECHANICS (the owning seat's decision of 2026-09-15):
+#: states. The row's rates are FLIGHT MECHANICS (the author's decision of 2026-09-15):
 #: a positive pitch rate is nose-up. What the SOLVER does with a positive
 #: angular velocity about a frame axis is the solver's own convention, and no
 #: edition of the manual states it, so this package emits the rate AS WRITTEN
@@ -4478,7 +4478,7 @@ def _turning_rate(case: SimCase) -> tuple[str, str, float] | None:
 def _free_stream(case: SimCase, script: Script, frames: Frames) -> None:
     """Emit the free-stream definition: CONSTANT, or ROTATION where a rate turns it.
 
-    THE OWNING SEAT'S DECISION OF 2026-09-15, from the cluster. A row states ONE body rate in
+    THE AUTHOR'S DECISION OF 2026-09-15, from the cluster. A row states ONE body rate in
     deg/s, in flight-mechanics signs, and the free stream turns about the
     MOMENT REFERENCE POINT of the row's REF at that rate: it is how a run
     states a pull-up, a roll or a yaw rather than straight flight. Which axis
@@ -4662,7 +4662,7 @@ Frames = Mapping[str, int | None | Mapping[str, int]]
 #: (PFS-2035.13, the design of 2026-09-10).
 IGNORE_MISSING_FAMILIES_VARIABLE = "IGNORE_MISSING_FAMILIES"
 
-#: WHETHER THE SCRIPT EXPORTS THE SOLVER LOG (0.21.0, the owning seat's decision of
+#: WHETHER THE SCRIPT EXPORTS THE SOLVER LOG (0.21.0, the author's decision of
 #: 2026-09-15). Written onto the case by the RUN layer from the HPC profile's
 #: ``[log]`` table, exactly as IGNORE_MISSING_FAMILIES is written from the
 #: command line, and for the same reason: the builders read the case and know
@@ -7442,7 +7442,7 @@ UNSTEADY_ACTION_COUNT = "actions/pfs_unsteady_actions.count"
 #: compute cannot also be the command list the solver runs, so one writes
 #: and one is read.
 #:
-#: Her numbering of 2026-09-12: the counter is (1), the exports script is
+#: The author's numbering of 2026-09-12: the counter is (1), the exports script is
 #: (2), the clock is (3) and the stop script is (4). When a row states no
 #: export threshold the first pair is not registered at all and the clock
 #: pair takes (1) and (2), which is why the positions are conditional and
@@ -7724,7 +7724,7 @@ def unsteady_action_command_line(interpreter: str = sys.executable) -> str:
 
 #: FR-96. The three things a RESTART may ask for.
 #:
-#: ONE SEPARATOR, and her message spelled two: `ADDITIONAL_ITERS=<n>` with
+#: ONE SEPARATOR, and the author's message spelled two: `ADDITIONAL_ITERS=<n>` with
 #: an equals and `ADDITIONAL_REVS:<n>` with a colon. The equals is taken
 #: for both, because the colon is already the key/value separator of the
 #: free cell itself and nesting it inside braces reads as a second pair.
@@ -7925,8 +7925,8 @@ def walltime_margin_s(case: SimCase) -> float:
     return value
 
 
-#: The units a WALLTIME cell may carry, to their length in seconds. Her
-#: decision of 2026-09-15: the cell writes `240m` or `4h` and the unit is part
+#: The units a WALLTIME cell may carry, to their length in seconds. The
+#: author's decision of 2026-09-15: the cell writes `240m` or `4h` and the unit is part
 #: of the value, because a bare number meant seconds in one place and minutes
 #: in another and a walltime that means two things is a job that either dies
 #: early or holds a node for a day.

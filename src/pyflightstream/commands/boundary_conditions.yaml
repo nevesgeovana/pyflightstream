@@ -161,7 +161,7 @@ SET_FREESTREAM:
     "26.101": {status: documented, note: "SRC-725 p.321, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.123": {status: documented, note: "SRC-751 p.326, unchanged from SRC-750 p.326"}
-    "26.124": {status: documented, note: "SRC-752 p.326, the SRC-751 file, carried from 26.123; the ROTATION form ran on 26.124 in reports/RPT-052 (three points, CONVERGED), which measured its SENSE and is not an acceptance of the other two forms"}
+    "26.124": {status: documented, note: "SRC-752 p.326, the SRC-751 file, carried from 26.123; the ROTATION form ran on 26.124 in reports/RPT-052_the-sense-of-a-rotating-free-stream_2026-09-15.md (TWO ROTATION points against one CONSTANT baseline, all three CONVERGED), which measured its SENSE and is not an acceptance of the other two forms"}
   notes: >
     CONSTANT needs no further input. CUSTOM appends a FILETYPE token
     (STRUCTURED or UNSTRUCTURED) and takes the profile file path on

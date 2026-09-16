@@ -100,12 +100,25 @@ KEPT_FIELDS = frozenset(
 
 
 def _usable(pairs) -> tuple[tuple[str, str], ...]:
-    """Return the substitutions that say something: non-empty, and a real change."""
+    """Return the substitutions that say something, THE LONGEST PATTERN FIRST.
+
+    Non-empty, a real change, and ordered by the length of what they match.
+
+    THE ORDER IS PART OF THE ANSWER and not a tidiness: within one kind a
+    pattern can still CONTAIN another. On a workspace planned under the library
+    default (`{point}`) the point stem is the 0.20 tag, and the sweep script's
+    stem is that tag with `_sweep` after it, so substituting the stem first
+    leaves `a-02.0_sweep` as `<new stem>_sweep` -- a file name nothing wrote.
+    The first writing of this module sorted and said why; the split into
+    identities and paths kept the cut and dropped the sort, and the qa lens of
+    the closing round measured a manifest whose `script_path` named a file that
+    was not on disk while the file itself had moved correctly (2026-09-16).
+    """
     seen: dict[str, str] = {}
     for before, after in pairs:
         if before and before != after:
             seen[before] = after
-    return tuple(seen.items())
+    return tuple(sorted(seen.items(), key=lambda pair: len(pair[0]), reverse=True))
 
 
 @dataclass(frozen=True)
@@ -156,8 +169,10 @@ class _Plan:
     def path_pairs(self) -> tuple[tuple[str, str], ...]:
         """Return the substitutions of a PATH: a folder and a file stem.
 
-        THE FOLDER FIRST, because a path holds both and the folder carries the
-        tag inside it (`datapoints/DP-<tag>/<stem>.txt`).
+        The datapoint folder, the stem of every file of a point, and the
+        script. :func:`_usable` puts the longest pattern first, which matters
+        here because the script stem CONTAINS the point stem on a workspace
+        planned under the library default.
 
         WHY THE TWO KINDS ARE SEPARATE, which one ordered list could not do: a
         workspace planned under the library default rendered `{point}` as the
@@ -651,13 +666,19 @@ def _plan_changes(
     ``applied`` is False for the rehearsal, which reads the same files, decides
     the same way and writes nothing.
     """
-    identity: list[tuple[str, str]] = []
-    paths: list[tuple[str, str]] = []
+    every_identity: list[tuple[str, str]] = []
+    every_path: list[tuple[str, str]] = []
     stems: set[str | None] = set()
     for plan in plans:
-        identity.extend(plan.identity_pairs())
-        paths.extend(plan.path_pairs())
+        every_identity.extend(plan.identity_pairs())
+        every_path.extend(plan.path_pairs())
         stems.add(plan.record.get("matrix_stem"))
+    # BACK THROUGH `_usable`, because concatenating several plans' lists loses
+    # the longest-first order each of them arrived in: one plan's point stem can
+    # come before another plan's longer script stem, which is the same defect as
+    # F1 one level up.
+    identity = _usable(every_identity)
+    paths = _usable(every_path)
     changes: list[RenameChange] = []
     for stem in stems:
         plan_file = workspace.plan_dir(stem) / "plan.json"
@@ -672,9 +693,7 @@ def _plan_changes(
             if not isinstance(entry, dict):
                 continue
             for key, value in entry.items():
-                entry[key] = _substitute(
-                    value, tuple(identity) if key in IDENTITY_FIELDS else tuple(paths)
-                )
+                entry[key] = _substitute(value, identity if key in IDENTITY_FIELDS else paths)
         after = json.dumps(payload, indent=2) + "\n"
         if after != before:
             if applied:

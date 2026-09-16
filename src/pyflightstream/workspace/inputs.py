@@ -2291,7 +2291,7 @@ HPC_BUILD_ALIAS = "fs_build_alias"
 class HpcProfile:
     """How ONE cluster is asked to run a job (FR-99).
 
-    NO ROW CITES THIS. Her decision of 2026-09-12: the code sees Linux and
+    NO ROW CITES THIS. The author's decision of 2026-09-12: the code sees Linux and
     that is the cluster, so a study moves between machines by being opened
     on the other one and changing no cell.
 
@@ -2339,7 +2339,7 @@ class HpcProfile:
     defaults: dict
     path: Path
     builds: dict = field(default_factory=dict)
-    #: WHAT THE DESCRIPTOR'S WALLTIME FIELD CARRIES (0.21.0, the owning seat's decision of
+    #: WHAT THE DESCRIPTOR'S WALLTIME FIELD CARRIES (0.21.0, the author's decision of
     #: 2026-09-15). ``wall`` is the row's cell as written, which is what a
     #: scheduler taking ``4h`` wants; ``seconds`` is the whole clock in
     #: integer seconds, which is what this package wrote until 0.20.x and what
@@ -2348,7 +2348,7 @@ class HpcProfile:
     #: unknown value is refused by name rather than silently taken as one of
     #: these two.
     walltime_arithmetic: str = "wall"
-    #: WHETHER THE SCRIPT EXPORTS THE SOLVER LOG (0.21.0, the owning seat's decision of
+    #: WHETHER THE SCRIPT EXPORTS THE SOLVER LOG (0.21.0, the author's decision of
     #: 2026-09-15). Some machines abort at ``EXPORT_LOG`` and write their own
     #: log beside the run instead, so the profile says it rather than the
     #: package assuming one shape of machine.
@@ -2422,6 +2422,44 @@ def _refuse_unknown_keys(
     )
 
 
+def _refuse_a_misplaced_key(target: Path, table: Mapping[str, object]) -> None:
+    """Refuse a key this package OWNS that is written under some other table.
+
+    The top level and ``[log]`` are closed sets; the tables between them are the
+    user's own (``[submit]`` carries the submission's fields, ``[descriptor]``
+    the descriptor's names), so closing those would refuse working profiles.
+    What is refused here is narrower and is the mistake people actually make:
+    a key this package reads, written where this package does not read it.
+
+    WHY IT IS THE LIKELY SPELLING, measured by the qa lens of the closing round
+    (2026-09-16): appending ``export_log = false`` to the END of a profile file
+    is, in TOML, writing it into the LAST TABLE, which in the documented example
+    is ``[submit]``. That was accepted in silence while the message beside it
+    told the user to move the key to the table that takes it.
+    """
+    for name, value in table.items():
+        if str(name) == "log" or not isinstance(value, Mapping):
+            continue
+        for owned in sorted(HPC_LOG_KEYS):
+            if owned in value:
+                raise InputArtifactError(
+                    f"the HPC profile {target} states {owned} under [{name}], and this "
+                    f"package reads it under [log]. A key nothing reads is a key that "
+                    f"looks like it works: appending a line to the end of the file puts "
+                    f"it in the last table, not at the top level. Move {owned} under "
+                    f"[log]."
+                )
+        for nested, deeper in value.items():
+            if isinstance(deeper, Mapping):
+                for owned in sorted(HPC_LOG_KEYS):
+                    if owned in deeper:
+                        raise InputArtifactError(
+                            f"the HPC profile {target} states {owned} under "
+                            f"[{name}.{nested}], and this package reads it under [log]. "
+                            f"Move it there."
+                        )
+
+
 def read_hpc_profile(path: str | Path) -> HpcProfile:
     """Read one HPC profile, refusing what it cannot act on."""
     target = Path(path)
@@ -2467,6 +2505,7 @@ def read_hpc_profile(path: str | Path) -> HpcProfile:
             "to it either way."
         )
     _refuse_unknown_keys(target, table, HPC_PROFILE_KEYS, "at its top level")
+    _refuse_a_misplaced_key(target, table)
     log = table.get("log") or {}
     if not isinstance(log, Mapping):
         raise InputArtifactError(

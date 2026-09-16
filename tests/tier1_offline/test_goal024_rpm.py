@@ -1,6 +1,6 @@
 """Tier 1: the rotor speed is a flight-condition variable (0.21.0, GOAL-024 arm 5).
 
-Her decision of 2026-09-15, from the cluster. A rotor study varies the SPEED
+The author's decision of 2026-09-15. A rotor study varies the SPEED
 and holds the flow, and until 0.20.x the speed could only be written on a
 motion record: it could not be swept, and every motion of the row needed its
 own copy. ``RPM`` is a key of ``FLIGHT_CONDITION`` now, it sweeps like any

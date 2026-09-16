@@ -781,7 +781,28 @@ class SubmittingExecutor:
     without spending anything is how the profile gets checked.
     """
 
-    def __init__(self, profile, *, values: Mapping[str, object], submit: bool = True):
+    def __init__(self, profile: HpcProfile, *, values: Mapping[str, object], submit: bool = True):
+        # TYPED AND REFUSED HERE, because this is where it is knowable. Reading
+        # the profile's cluster fields through `isinstance` downstream turns a
+        # profile of another shape into None, and None is the OLD DEFAULTS --
+        # EXPORT_LOG left in the script, the walltime as written -- so the
+        # failure would look exactly like success on the one machine the fields
+        # exist for (the qa lens of the closing round, 2026-09-16).
+        #
+        # THE PACKAGE'S OWN ERROR, not a bare TypeError: this class is exported
+        # and `test_exceptions_catalog` refuses a bare stdlib type from an
+        # exported name. `ExecutorConfigurationError` is the one whose docstring
+        # already says it is raised at CONSTRUCTION TIME so a misconfiguration
+        # surfaces before a campaign starts rather than at its first point,
+        # which is exactly this.
+        if not isinstance(profile, HpcProfile):
+            raise ExecutorConfigurationError(
+                "a submitting executor takes an HpcProfile, and this is a "
+                f"{type(profile).__name__}. Read one with "
+                "pyflightstream.workspace.read_hpc_profile: a profile of another "
+                "shape reads as no profile downstream, which is silently the "
+                "behaviour of the release before this one."
+            )
         self.profile = profile
         #: What every point of this campaign shares, held apart so a
         #: per-point binding can REBUILD on it rather than merge into the
@@ -2917,7 +2938,7 @@ def run_campaign(
                 continue
             if continuation is not None:
                 stamp = datetime.now()
-                # THE OWNING SEAT'S DECISION: archive what the continuation replaces, per
+                # THE AUTHOR'S DECISION: archive what the continuation replaces, per
                 # datapoint, under a day-and-hour stamp, BECAUSE THERE CAN BE
                 # MORE THAN ONE RESTART. It happens before the solver starts,
                 # so a continuation never writes into the folder holding the
@@ -4414,12 +4435,12 @@ def _is_one_job(campaign: Campaign, case: SimCase) -> bool:
       recipe, which builds one point and knows nothing of a sweep; an
       unsteady point marches in time from its own initial state, so two of
       them in one process would make the second continue the first's clock.
-    * the campaign came from a MATRIX. Her decision of 2026-09-12 is about
-      the row she writes, and a campaign authored in Python is a different
-      surface with a contract of its own: thirty-one tier-1 tests state
-      that a Python campaign records one point at a time, and widening her
-      convention onto them would be a change she did not ask for, made
-      silently, to an interface she does not use.
+    * the campaign came from a MATRIX. The author's decision of 2026-09-12 is
+      about the row the author writes, and a campaign authored in Python is a
+      different surface with a contract of its own: thirty-one tier-1 tests
+      state that a Python campaign records one point at a time, and widening
+      that convention onto them would be a change nobody asked for, made
+      silently, to an interface the decision was not about.
     * there is more than one point. One point is one job either way, and
       routing it here would give it a job's run id for no gain and break
       every resume that expects its point tag.
@@ -4427,8 +4448,8 @@ def _is_one_job(campaign: Campaign, case: SimCase) -> bool:
     THE INCONSISTENCY THIS LEAVES IS REAL AND IS RECORDED RATHER THAN
     HIDDEN: the same steady sweep is one job through a matrix and one job
     per point through the Python API. Whether the Python surface should
-    follow is a question for the author, and answering it by myself while
-    she slept is what the second condition exists to prevent.
+    follow is a question for the author, and answering it unasked is what
+    the second condition exists to prevent.
 
     A FOURTH CONDITION SINCE 0.21.0: the points differ in ATTITUDE alone. A
     row may now sweep a flow variable, and one warm job cannot run such a
@@ -4855,8 +4876,8 @@ def continuation_run_id(run_id: str, stamp: datetime) -> str:
     folder its predecessor's outputs were archived into, and the tag still
     ends it.
 
-    ONE RECORD PER CONTINUATION, which is the shape her archive decision
-    pointed at without stating: if the evidence of each continuation lives
+    ONE RECORD PER CONTINUATION, which is the shape the author's archive
+    decision pointed at without stating: if the evidence of each continuation lives
     in its own stamped folder, the stamp is already the thing that tells one
     from the next, and a record per continuation costs no new vocabulary.
     The alternative, one record growing segments, would have meant rewriting
