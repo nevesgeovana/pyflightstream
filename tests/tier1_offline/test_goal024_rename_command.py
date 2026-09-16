@@ -446,14 +446,27 @@ def test_goal024_rename_command_a_workspace_named_by_the_library_default(tmp_pat
     the `point_name` beside it held the bare name -- a manifest disagreeing
     with itself, unstably.
     """
-    workspace, _, _ = _ran(tmp_path)
+    # AN UNSTEADY ROW IS ONE JOB PER POINT, so each record's run_id ENDS IN THE
+    # TAG. A steady row's ends in `sweep`, which no substitution touches, and
+    # the mutant that rewrites an identity with a path's rules walked straight
+    # past the first writing of this test.
+    workspace, _, _ = _ran(
+        tmp_path,
+        condition="MACH:0.2, REmi:2.3, ALPHA:sweep",
+        values="-2.0,0.0",
+        workflow="unsteady",
+        cell="DELTA_TIME: 0.01 / TIME_ITERATIONS: 8",
+    )
     old_rows = _as_0_20_library_default(workspace, mach=0.2)
+    assert [str(row["run_id"]).rsplit("/", 1)[-1] for row in old_rows] == [
+        "a-02.0",
+        "a+00.0",
+    ], [row["run_id"] for row in old_rows]
     # The 0.20 tag is everywhere in the fixture: the job's id ends in `sweep`,
     # and every point of it carries the tag as its identity AND as its stem.
     assert any("a+00.0" in json.dumps(row) for row in old_rows), old_rows
-    assert any(
-        entry["tag"] == "a+00.0" for row in old_rows for entry in row.get("points_ran") or []
-    ), old_rows
+    # A per-point record lists no points_ran; the tag IS its identity.
+    assert all("point_name" not in row for row in old_rows), old_rows
 
     report = rename_workspace(_reopened(workspace))
 
@@ -462,7 +475,8 @@ def test_goal024_rename_command_a_workspace_named_by_the_library_default(tmp_pat
     for row in rows:
         # THE IDENTITY IS THE NAME, and carries no file stem.
         tail = str(row["run_id"]).rsplit("/", 1)[-1]
-        assert tail in ("sweep", str(row["point_name"])), row["run_id"]
+        assert tail == str(row["point_name"]), (row["run_id"], row["point_name"])
+        assert tail.startswith("M200RE230AL"), row["run_id"]
         assert not tail.startswith("P3207-"), row["run_id"]
         for entry in row.get("points_ran") or []:
             assert entry["tag"] == entry["tag"].lstrip("P"), entry
