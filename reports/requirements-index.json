@@ -2,8 +2,8 @@
  "source": "docs/srs",
  "generated_by": "scripts/gen_requirements_index.py",
  "traceability": {
-  "cited_by_a_test": 111,
-  "total": 158,
+  "cited_by_a_test": 112,
+  "total": 159,
   "method": "upper bound: an id mentioned anywhere in tests/**/*.py excluding conftest.py, which is not the marked falsifying test NFR-13 asks for"
  },
  "requirements": [
@@ -1013,6 +1013,14 @@
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: the same feedback, sections 5 and 6. Evidence: tests/tier1_offline/test_goal024_walltime.py (the units, the refusal of a bare number, the descriptor as written, the profile's arithmetic and the deadline it does not move) and tests/tier1_offline/test_goal024_profile_log.py (the command removed, the scheduler's own log copied to the declared name and judged, and the two refusals). AMENDS FR-93.*",
+   "verification": "test"
+  },
+  {
+   "id": "FR-107",
+   "text": "plan and run take --accept-unregistered-build. Without it, a workstation whose installed build is not the one registered for the version a row names is refused, and the refusal NAMES the flag. With it the run proceeds, warns that compatibility is the user's to judge, and every record says the flag was used and carries the build the solver printed; plan.json records it too, so the rehearsal is the same command line the run executes. The library takes the same keyword.",
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: the cluster feedback of 2026-09-15, section 7: a workplace build the package does not know about must not stop a run, and registering it would put a workplace identifier in a public package. Evidence: tests/tier1_offline/test_goal024_unregistered_build_flag.py (the refusal naming the flag, the run proceeding with it and warning, the record and the plan carrying it, and the library keyword). AMENDS FR-18.*",
    "verification": "test"
   },
   {

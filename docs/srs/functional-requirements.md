@@ -4022,7 +4022,7 @@ requirement below is one seam of that division.
     move, which is collected first. A half-renamed workspace is worse than an
     unrenamed one.
 
-!!! requirement "FR-104 Every flight-condition variable sweeps, and the rotor speed is one of them <span class='srs-implemented'>implemented</span>"
+!!! requirement "FR-104 Every flight-condition variable sweeps, RPM included <span class='srs-implemented'>implemented</span>"
 
     *Origin: the same feedback, sections 2 and 3. Evidence:
     `tests/tier1_offline/test_goal024_sweep_any_variable.py` (a Mach sweep, a
@@ -4053,7 +4053,7 @@ requirement below is one seam of that division.
       speed, it reaches no motion record, and a row whose records resolve to a
       speed still names its `CLOCK_MOTION`.
 
-!!! requirement "FR-105 A row turns the free stream with a body rate <span class='srs-implemented'>implemented</span>"
+!!! requirement "FR-105 A body rate writes a free-stream rotation <span class='srs-implemented'>implemented</span>"
 
     *Origin: the same feedback, section 4. Evidence:
     `tests/tier1_offline/test_goal024_freestream_rotation.py` (one rate writing
@@ -4098,3 +4098,19 @@ requirement below is one seam of that division.
     refused, and so are several files matching the pattern. A collected point's
     record carries what its log said: the iteration, the residual, the times
     and the file they were read from.
+!!! requirement "FR-107 A run may accept an unregistered build, on the user's word <span class='srs-implemented'>implemented</span>"
+
+    *Origin: the cluster feedback of 2026-09-15, section 7: a workplace build
+    the package does not know about must not stop a run, and registering it
+    would put a workplace identifier in a public package. Evidence:
+    `tests/tier1_offline/test_goal024_unregistered_build_flag.py` (the refusal
+    naming the flag, the run proceeding with it and warning, the record and the
+    plan carrying it, and the library keyword). AMENDS FR-18.*
+
+    `plan` and `run` take `--accept-unregistered-build`. Without it, a
+    workstation whose installed build is not the one registered for the version
+    a row names is refused, and the refusal NAMES the flag. With it the run
+    proceeds, warns that compatibility is the user's to judge, and every record
+    says the flag was used and carries the build the solver printed;
+    `plan.json` records it too, so the rehearsal is the same command line the
+    run executes. The library takes the same keyword.

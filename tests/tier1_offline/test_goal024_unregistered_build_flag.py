@@ -5,6 +5,8 @@ registered one, `plan` and `run` take `--accept-unregistered-build`, and then it
 compatibility is the user's responsibility. Without the flag the refusal stands
 and names it.
 
+This module is the evidence of FR-107.
+
 The test names carry ``goal024_unregistered_build_flag`` so the goal's checker can select them.
 """
 
