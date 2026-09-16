@@ -84,6 +84,7 @@ from ..workspace import (
     WorkspaceError,
 )
 from ..workspace.inputs import resolve_hpc_profile
+from ..workspace.naming import DATAPOINT_PREFIX
 
 if TYPE_CHECKING:  # the return type of the whole judgement, without a runtime cycle
     from pyflightstream.run import Assessment
@@ -224,6 +225,27 @@ def _declared_outputs(record: RunRecord) -> list[str]:
     return []
 
 
+def _datapoint_of(record: RunRecord) -> str | None:
+    """Return the datapoint folder's NAME for this record's outputs, or None.
+
+    The name the run RECORDED when it has one. When it does not -- every record
+    written before 0.21.0 -- the folder the record's own submission block says
+    the job ran in, which is read rather than recomputed: a name recomputed now
+    would file the outputs where no record of them points, and that is the thing
+    to avoid. None when the record names neither, which is a point submitted
+    before 0.18.1, whose job ran in the simulation folder.
+
+    ONE HOME, because the two callers must not disagree. `_recorded_name`
+    refuses when this is None and the assessor's shim carries the None through,
+    and when they disagreed the shim fell into the branch written for a real
+    case and asked it for a field only a case has.
+    """
+    if record.point_name:
+        return record.point_name
+    ran_in = Path(str((record.submission or {}).get("working_dir") or "")).name
+    return ran_in[len(DATAPOINT_PREFIX) :] if ran_in.startswith(DATAPOINT_PREFIX) else None
+
+
 class _RecordAsCase:
     """The two fields the standard assessor reads, taken off the run record.
 
@@ -246,8 +268,12 @@ class _RecordAsCase:
     def __init__(self, record: RunRecord) -> None:
         self.point = dict(record.point or {})
         # 0.21.0: the folder the assessor judges is named by the name the run
-        # RECORDED, never recomputed from a record that is not a case.
-        self.datapoint_name = record.point_name
+        # RECORDED, never recomputed from a record that is not a case. 0.21.1:
+        # a record written before 0.21.0 recorded no name and names its folder
+        # in its submission block instead, and reading it here is what keeps
+        # the assessor out of the branch that would ask this shim for a field
+        # only a real case has.
+        self.datapoint_name = _datapoint_of(record)
         self.outputs = list(record.outputs or _declared_outputs(record))
         # THE CASE DEFAULT THAT FILLS IN WHERE THE POINT SUPPLIES NO SPEED.
         # A record carries no case-level velocity, so this is None and the
@@ -636,18 +662,36 @@ def _collect_by_point(
 def _recorded_name(record: RunRecord) -> PointName:
     """Return the point name the run recorded, where its outputs are filed (0.21.0).
 
-    A record written before 0.21.0 carries none, and its folder is named by the
-    earlier scheme; collecting it under a name recomputed now would file its
-    outputs where no record of it points. It is refused by name instead.
+    A record written before 0.21.0 carries none. Its folder is then read off the
+    record's OWN submission block, which names the datapoint the job ran in, and
+    never recomputed: a name recomputed now would file the outputs where no
+    record of it points, and that is what this refuses. The folder the record
+    itself names is the opposite of a guess, and it is the same folder
+    :func:`_working_dir` already resolves to read the outputs from.
+
+    WHY THIS IS NOT A REFUSAL ANY MORE (0.21.1). Refusing here deadlocked a
+    0.20.x workspace with submitted points, measured on a cluster 2026-09-16:
+    `rename` refuses a SUBMITTED record whose folder would move and says to
+    collect it first, and this said to rename first. Worse than the deadlock,
+    the refusal is caught by the sweep and written as FAILED_INCOMPLETE_OUTPUT,
+    so runs that had finished with every export on disk were stamped failed.
+
+    Raises
+    ------
+    WorkspaceError
+        If the record carries neither a point name nor a working directory,
+        which is a record written before 0.18.1: its job ran in the simulation
+        folder and no datapoint folder is named for it anywhere.
     """
-    if not record.point_name:
-        raise WorkspaceError(
-            f"record {record.run_id!r} was written before 0.21.0 and carries no point name, "
-            "so this release cannot tell which folder its outputs belong in. Run "
-            "`pyfs-matrix rename` once, naming the workspace root as workspace (CLI: --workspace), "
-            "to move the workspace to the 0.21.0 names, then collect."
-        )
-    return PointName(record.point_name)
+    name = _datapoint_of(record)
+    if name:
+        return PointName(name)
+    raise WorkspaceError(
+        f"record {record.run_id!r} was written before 0.21.0, carries no point name, and "
+        "names no working directory either, so nothing says which folder its outputs "
+        "belong in. A point submitted before 0.18.1 ran in the simulation folder rather "
+        "than in a datapoint folder of its own; complete the record by hand, or re-run it."
+    )
 
 
 def _points_ran_after(record: RunRecord, status: RunStatus) -> list[dict] | None:
