@@ -105,6 +105,9 @@ __all__ = [
     "multiplied_sweep",
     "NameField",
     "POINT_AXIS_KEYS",
+    "PointState",
+    "case_at_point",
+    "point_state_key",
     "POINT_NAME_FIELDS",
     "SWEEP_NAME_VALUE",
     "name_field",
@@ -174,9 +177,13 @@ class SweepAxis(BaseModel):
     Attributes
     ----------
     type : str
-        ``alpha`` (angle of attack, deg), ``beta`` (side slip, deg),
-        ``alpha_beta`` (paired values), or ``advance_ratio``
-        (rotor advance ratio J, dimensionless).
+        The axis that varies: ``alpha`` (angle of attack, deg), ``beta``
+        (side slip, deg), ``alpha_beta`` (paired values), ``advance_ratio``
+        (rotor advance ratio J, dimensionless), or any FLIGHT_CONDITION key
+        of :data:`POINT_AXIS_KEYS` since 0.21.0 (``MACH``, ``REmi``,
+        ``ALTFT``, ``RPM``, ``pitch_rate`` and the rest), in the unit its key
+        names. A flow variable that varies is RESOLVED PER POINT, and the
+        state each point resolved to rides on :attr:`SimCase.point_states`.
     values : list
         Axis values; for ``alpha_beta`` each entry is an
         ``[alpha, beta]`` pair in deg.
@@ -195,7 +202,29 @@ class SweepAxis(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    type: Literal["alpha", "beta", "alpha_beta", "advance_ratio"]
+    #: Every point axis, plus the paired ``alpha_beta`` of the matrices written
+    #: before 0.15.0. A member added to POINT_AXIS_KEYS is sweepable the day it
+    #: is added, which is what keeps the two from drifting apart.
+    type: Literal[
+        "alpha",
+        "beta",
+        "alpha_beta",
+        "advance_ratio",
+        "MACH",
+        "TASmps",
+        "REmi",
+        "ALTFT",
+        "dISA",
+        "RHOkgm3",
+        "MUPas",
+        "ASMPS",
+        "TK",
+        "PPA",
+        "RPM",
+        "roll_rate",
+        "pitch_rate",
+        "yaw_rate",
+    ]
     values: list[float] | list[tuple[float, float]]
     #: WHY A HELD COORDINATE IS PART OF THE POINT AND NOT ONLY OF THE ROW,
     #: which the entry above states and does not explain.
@@ -1736,11 +1765,32 @@ POINT_NAME_FIELDS: dict[str, NameField] = {
 }
 
 #: The point axes, by the name a sweep point uses, and the FLIGHT_CONDITION key
-#: each one is.
+#: each one is. THE THREE HISTORICAL AXES KEEP THEIR LOWER-CASE NAMES, which
+#: every manifest, product table and point mapping ever written here carries;
+#: the variables that became sweepable at 0.21.0 are named by their cell key,
+#: so a reader of a row and a reader of a point read one vocabulary.
+#:
+#: THE ORDER IS THE NAME'S FALLBACK ORDER, used by a case with no cell: the
+#: flow keys, then the angles, then the rotor and the rates, which is the order
+#: the reference matrices declare them in.
 POINT_AXIS_KEYS: dict[str, str] = {
+    "MACH": "MACH",
+    "TASmps": "TASmps",
+    "REmi": "REmi",
+    "ALTFT": "ALTFT",
+    "dISA": "dISA",
+    "RHOkgm3": "RHOkgm3",
+    "MUPas": "MUPas",
+    "ASMPS": "ASMPS",
+    "TK": "TK",
+    "PPA": "PPA",
     "alpha": "ALPHA",
     "beta": "BETA",
     "advance_ratio": "ADVANCE_RATIO",
+    "RPM": "RPM",
+    "roll_rate": "roll_rate",
+    "pitch_rate": "pitch_rate",
+    "yaw_rate": "yaw_rate",
 }
 
 #: What a swept field carries in place of its value in a name about a whole
@@ -2285,6 +2335,72 @@ class FluidState(BaseModel):
     reference_length_m: float | None = None
 
 
+class PointState(BaseModel):
+    """The flow state ONE point of a swept flight condition resolved to (0.21.0).
+
+    A row that sweeps a flow variable -- `MACH:sweep`, `REmi:sweep`, an
+    altitude -- states a DIFFERENT condition at every point, and the condition
+    is resolved where the reference length lives, one layer above this one. So
+    each point's resolved state travels here, keyed by the point, and
+    :func:`case_at_point` puts it on the case the builder is handed. A row that
+    sweeps an angle or a ratio resolves once and carries none of these.
+
+    Attributes
+    ----------
+    mach, velocity, reynolds : float or None
+        The three the case has fields for, at this point.
+    fluid : FluidState or None
+        The whole resolved state, which is what a builder emits.
+    flight_condition : dict
+        The condition as stated for this point: the row's cell with the swept
+        key at this point's value.
+    flight_condition_defaults : dict
+        The pins the setup supplied at this point.
+    flight_condition_defaults_from : str
+        Where those pins came from, in words a reader can act on.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    mach: float | None = None
+    velocity: float | None = None
+    reynolds: float | None = None
+    fluid: FluidState | None = None
+    flight_condition: dict[str, float] = Field(default_factory=dict)
+    flight_condition_defaults: dict[str, float] = Field(default_factory=dict)
+    flight_condition_defaults_from: str = ""
+
+
+def point_state_key(point: Mapping[str, float]) -> str:
+    """Return the key one point's resolved state is filed under.
+
+    The point itself, written to ten significant figures per axis and sorted,
+    so the same point read from a matrix, a plan or a record finds its state.
+    """
+    return "|".join(f"{axis}={float(value):.10g}" for axis, value in sorted(point.items()))
+
+
+def case_at_point(case: SimCase, point: Mapping[str, float], **update: object) -> SimCase:
+    """Return the case AT one point of its sweep, resolved state included.
+
+    Every point of a run passes through here: the point rides on the case, and
+    when the row swept a flow variable the state that point resolved to
+    replaces the row's. Without it a MACH sweep would emit the first point's
+    Mach number on every point of the row, which is the defect that makes the
+    feature a lie rather than a limitation.
+    """
+    fields: dict[str, object] = {"point": dict(point), **update}
+    state = case.point_states.get(point_state_key(point))
+    if state is not None:
+        for name in ("mach", "velocity", "reynolds", "fluid"):
+            fields[name] = getattr(state, name)
+        if state.flight_condition:
+            fields["flight_condition"] = dict(state.flight_condition)
+        fields["flight_condition_defaults"] = dict(state.flight_condition_defaults)
+        fields["flight_condition_defaults_from"] = state.flight_condition_defaults_from
+    return case.model_copy(update=fields)
+
+
 class SimCase(BaseModel):
     """One solver configuration with its sweep (SAD Section 5).
 
@@ -2472,6 +2588,10 @@ class SimCase(BaseModel):
     #: or None when the geometry declares none.
     inventory_source: str | None = None
     point: dict[str, float] = Field(default_factory=dict)
+    #: The state each point of a SWEPT FLOW VARIABLE resolved to, keyed by
+    #: :func:`point_state_key` (0.21.0). Empty on every row that sweeps an
+    #: angle or a ratio, which resolve once for the whole row.
+    point_states: dict[str, PointState] = Field(default_factory=dict)
     fs_build: str | None = None
 
     @model_validator(mode="after")

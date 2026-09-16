@@ -2277,11 +2277,20 @@ requirement below is one seam of that division.
     `SWEEP_VALUES` holds its values. Any key of the flight condition may be
     the one: the five that fix the state (`MACH`, `TASmps`, `REmi`, `ALTFT`,
     `dISA`), the five pins (`RHOkgm3`, `MUPas`, `ASMPS`, `TK`, `PPA`), the two
-    angles, and the advance ratio when the row states it there. **Of those,
-    this release implements ALPHA, BETA and ADVANCE_RATIO**; every other key
-    is refused NAMING those three and saying it may carry the word in a
-    later release, because accepted-and-ignored is how the advance-ratio
-    sweep failed before this release.
+    angles, and the advance ratio when the row states it there. **Since 0.21.0
+    every one of them is implemented**; until 0.20.x a row sweeping any but
+    the two angles and the advance ratio was refused NAMING those three and
+    saying it might carry the word in a later release, because
+    accepted-and-ignored is how the advance-ratio sweep failed before 0.15.0.
+    A key that does not define the condition is still refused.
+
+    A SWEPT FLOW VARIABLE IS RESOLVED PER POINT: the row's cell with the swept
+    key at that point's value, resolved against the row's reference length and
+    its setup's pins, so each point carries its own density, velocity and
+    Mach number. A row that sweeps one is therefore ONE JOB PER POINT and not
+    one warm job: the air state is a setup command, taken before the solver is
+    initialised, so one process cannot hold two of them. A row that sweeps an
+    attitude is the warm job it always was.
 
     The `SWEEP_TYPE` column is removed, because the cell already says which
     variable varies. A row with no `sweep`, with two of them, or with a

@@ -1232,6 +1232,7 @@ pyfs-matrix run          matrix.fs --fs-exe ...       # RUNS the solver
 pyfs-matrix inventory    30_WB.fsm                    # boundary order, read from the mesh
 pyfs-matrix collect      --workspace DIR [--watch]    # waits for a submitted job's outputs
 pyfs-matrix post         matrix.fs --workspace DIR    # rebuilds the products, no solver
+pyfs-matrix rename       --workspace DIR [--dry-run]  # 0.20.x names to the 0.21.0 point names
 pyfs-fsi init-dummy      --node-count N [--dir DIR]   # dummy config for a dry run
 pyfs-fsi step            [--dir DIR]                  # one coupling step
 pyfs-manual sweep        --editions MANIFEST [--by-section]  # every registered edition

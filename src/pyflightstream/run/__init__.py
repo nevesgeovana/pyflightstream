@@ -86,6 +86,7 @@ from pyflightstream.cases import (
     CampaignConfigError,
     ScriptRecipe,
     SimCase,
+    case_at_point,
     check_recipe,
     point_name,
     resolve_recipe,
@@ -3580,7 +3581,7 @@ def point_costs(
 
     recorded = _recorded_costs(workspace)
     filled = {
-        entry.run_id: cases_by_sim_id[entry.sim_id].model_copy(update={"point": dict(entry.point)})
+        entry.run_id: case_at_point(cases_by_sim_id[entry.sim_id], entry.point)
         for entry in plan.points
         if entry.sim_id in cases_by_sim_id
     }
@@ -4014,7 +4015,7 @@ def _plan_point(
     except NamingTemplateError as error:
         return PointPlan(**base, script_name=None, status=PlanStatus.BLOCKED, error=str(error))
     script_name = f"{stem}.txt"
-    point_case = case.model_copy(update={"point": dict(point), "outputs": outputs})
+    point_case = case_at_point(case, point, outputs=outputs)
     # THE PRE-FLIGHT RESOLVES A CONTINUATION, exactly as the run does, and the
     # reason is that a rehearsal which refuses what the run accepts is not a
     # rehearsal. A row stating RESTART carries no saved file and no step count
@@ -4414,8 +4415,33 @@ def _is_one_job(campaign: Campaign, case: SimCase) -> bool:
     per point through the Python API. Whether the Python surface should
     follow is a question for the author, and answering it by myself while
     she slept is what the second condition exists to prevent.
+
+    A FOURTH CONDITION SINCE 0.21.0: the points differ in ATTITUDE alone. A
+    row may now sweep a flow variable, and one warm job cannot run such a
+    sweep: the air state is a SETUP command, the solver takes it before it is
+    initialised, and the phase guard refuses it after. So a row sweeping MACH,
+    REmi, an altitude or any other flow variable is one job per point, each
+    with its own fluid block, and the warm sweep stays what the predecessor's
+    recipe was: one setup, one initialisation, many angles.
     """
-    return case.recipe == ONE_JOB_RECIPE and bool(getattr(campaign, "matrix_stem", None))
+    if not (case.recipe == ONE_JOB_RECIPE and bool(getattr(campaign, "matrix_stem", None))):
+        return False
+    return not _sweeps_the_flow(case)
+
+
+def _sweeps_the_flow(case: SimCase) -> bool:
+    """Whether this case's sweep moves the air state rather than the attitude.
+
+    Read from the RESOLVED points rather than from the axis name: a row that
+    sweeps a flow variable carries one state per point, and a row that sweeps
+    an angle carries none. That way a variable that becomes sweepable later
+    needs no second list to be added to.
+    """
+    states = list(case.point_states.values())
+    return any(
+        state.fluid != states[0].fluid or state.velocity != states[0].velocity
+        for state in states[1:]
+    )
 
 
 def _is_cold_start(case: SimCase) -> bool:
@@ -4545,10 +4571,10 @@ def _execute_sweep(
             stem, outputs = _point_names(campaign, case, point, workspace)
         except NamingTemplateError as error:
             return RunRecord(**base, status=RunStatus.FAILED_SCRIPT, error=str(error))
-        update: dict[str, object] = {"point": dict(point), "outputs": outputs}
+        update: dict[str, object] = {"outputs": outputs}
         if staged_geometry is not None:
             update["geometry"] = staged_geometry
-        point_cases.append((point, stem, case.model_copy(update=update)))
+        point_cases.append((point, stem, case_at_point(case, point, **update)))
 
     script = Script(version=fs_version)
     try:
@@ -5038,7 +5064,7 @@ def _execute_point(
         #
         # The unit case for that fix passed while this path still failed,
         # because the case it builds carries its point and this one did not.
-        "reductions": reduction_windows(case.model_copy(update={"point": dict(point)})),
+        "reductions": reduction_windows(case_at_point(case, point)),
         # How the geometry was staged (PFS-2029.17), read off the workspace
         # that staged it, so the record says link or copy and why.
         **dict(
@@ -5118,10 +5144,10 @@ def _execute_point(
         stem, outputs = _point_names(campaign, case, point, workspace)
     except NamingTemplateError as error:
         return RunRecord(**base, status=RunStatus.FAILED_SCRIPT, error=str(error))
-    update: dict[str, object] = {"point": dict(point), "outputs": outputs}
+    update: dict[str, object] = {"outputs": outputs}
     if staged_geometry is not None:
         update["geometry"] = staged_geometry
-    point_case = case.model_copy(update=update)
+    point_case = case_at_point(case, point, **update)
     # The BUILD's version, so a case sent to a second installation emits
     # the commands that installation documents rather than the campaign's.
     script = Script(version=fs_version)

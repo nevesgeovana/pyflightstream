@@ -32,6 +32,18 @@ FlightStream versions.
 
 ### Added
 
+- **Every `FLIGHT_CONDITION` variable can be swept** (FR-69, the rule
+  implemented). Until 0.20.x a row could vary `ALPHA`, `BETA` and
+  `ADVANCE_RATIO`, and a row sweeping any other key was refused naming those
+  three. A row may now write `sweep` against `MACH`, `TASmps`, `REmi`,
+  `ALTFT`, `dISA` or any of the five pins, with its values in `SWEEP_VALUES`
+  as before; a key that does not define the condition is still refused.
+  - A swept FLOW variable is resolved per point: each point carries its own
+    density, velocity and Mach number (`SimCase.point_states`, applied by
+    `cases.case_at_point`), and the point's name carries the swept field.
+  - Such a row is ONE JOB PER POINT rather than one warm job, because the air
+    state is a setup command the solver takes before it is initialised. A row
+    that sweeps an attitude is the warm job it was.
 - **`pyfs-matrix rename --workspace <root>`**, the one command that moves a
   workspace written under 0.20.x to the new names. It reads the matrices beside
   `runs.json`, works out each record's new name from its row and its recorded

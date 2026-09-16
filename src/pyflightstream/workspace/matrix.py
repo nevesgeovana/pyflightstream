@@ -59,14 +59,18 @@ from pydantic import ValidationError
 from pyflightstream._errors import PyflightstreamWarning
 from pyflightstream._fsm import MeshReadError, boundary_names
 from pyflightstream.cases import (
+    POINT_AXIS_KEYS,
     Campaign,
     FluidState,
+    PointState,
     RawCommand,
     ReferenceData,
     SimCase,
     SolverSettings,
+    point_state_key,
 )
 from pyflightstream.cases.matrix import (
+    ATTITUDE_KEYS,
     DEFAULT_VERSION_OPTION,
     LEGACY_WORKFLOW,
     RAW_BEFORE_KEY,
@@ -1440,6 +1444,87 @@ def renumber_repeated_pols(
     return changes
 
 
+def _swept_condition_key(row: MatrixRow) -> str | None:
+    """Return the FLIGHT_CONDITION key this row sweeps, or None for an angle or a ratio.
+
+    The angles and the advance ratio are attitude, not flow: they reach the
+    solver as they are and the fluid state is the same at every point of the
+    row. Every other key of the cell CHANGES THE STATE, so a row sweeping one
+    is resolved once per point.
+    """
+    key = POINT_AXIS_KEYS.get(row.sweep.type)
+    if key is None or key in ATTITUDE_KEYS:
+        return None
+    return key
+
+
+def _sweeps_the_flow(row: MatrixRow) -> bool:
+    """Say whether this row's sweep moves the flow state."""
+    return _swept_condition_key(row) is not None
+
+
+def _stated_at(row: MatrixRow, point: Mapping[str, float]) -> dict[str, float]:
+    """Return the condition this row states AT one point of its sweep.
+
+    The row's cell with the swept key put back at this point's value. On a row
+    that sweeps an angle or a ratio it is the cell itself.
+    """
+    key = _swept_condition_key(row)
+    stated = dict(row.flight_condition)
+    if key is not None and row.sweep.type in point:
+        stated[key] = float(point[row.sweep.type])
+    return stated
+
+
+def _states_per_point(
+    row: MatrixRow,
+    *,
+    reference_length_m: float | None,
+    defaults: Mapping[str, float] | None,
+    defaults_origin: str | None,
+) -> dict[str, PointState]:
+    """Resolve the flow state of every point of a row that sweeps a flow variable.
+
+    Empty for every other row: a row whose sweep is an angle or a ratio
+    resolves once, and carrying a copy of that one state per point would put
+    the same numbers in the manifest as many times as the row has points.
+    """
+    if not _sweeps_the_flow(row):
+        return {}
+    states: dict[str, PointState] = {}
+    for point in row.sweep.points():
+        stated = _stated_at(row, point)
+        resolved = resolve_flight_condition(
+            stated,
+            pol=row.pol,
+            reference_length_m=reference_length_m,
+            defaults=defaults,
+            defaults_origin=defaults_origin,
+        )
+        states[point_state_key(point)] = PointState(
+            mach=resolved.mach,
+            velocity=resolved.velocity_m_per_s,
+            reynolds=resolved.reynolds,
+            fluid=FluidState(
+                velocity_m_per_s=resolved.velocity_m_per_s,
+                density_kg_m3=resolved.density_kg_m3,
+                pressure_pa=resolved.pressure_pa,
+                temperature_k=resolved.temperature_k,
+                viscosity_pa_s=resolved.viscosity_pa_s,
+                sonic_velocity_m_per_s=resolved.sonic_velocity_m_per_s,
+                heat_capacity_ratio=resolved.heat_capacity_ratio,
+                source=resolved.density_source,
+                reference_length_m=resolved.reference_length_m,
+            ),
+            flight_condition=stated,
+            flight_condition_defaults=dict(resolved.defaulted),
+            flight_condition_defaults_from=(
+                (resolved.defaults_origin or "") if resolved.defaulted else ""
+            ),
+        )
+    return states
+
+
 def resolve_matrix(
     path: str | Path,
     workspace: CampaignWorkspace,
@@ -1779,9 +1864,21 @@ def resolve_matrix(
         # the failure `.04` exists to prevent, and which
         # `tests/tier1_offline/test_flight_condition_resolution.py` fails on rather
         # than describing.
-        if row.flight_condition:
+        if row.flight_condition or _sweeps_the_flow(row):
+            # A SWEPT FLOW VARIABLE IS RESOLVED PER POINT (0.21.0). The row's
+            # own cell holds every value but the swept one, so on such a row
+            # the row-level state is the FIRST point's and each point's own
+            # rides on `point_states`. Resolving once would emit the first
+            # point's Mach number, density and velocity at every point of the
+            # sweep, which is the whole of what a Mach sweep must not do.
+            update["point_states"] = _states_per_point(
+                row,
+                reference_length_m=reference.chord_m,
+                defaults=setup_pins[row.set_code],
+                defaults_origin=condition_defaults_origin(row.set_code),
+            )
             resolved = resolve_flight_condition(
-                row.flight_condition,
+                _stated_at(row, next(row.sweep.points(), {})),
                 pol=row.pol,
                 reference_length_m=reference.chord_m,
                 # PFS-2030.08: the fluid constants of the campaign live in

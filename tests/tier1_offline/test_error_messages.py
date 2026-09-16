@@ -450,32 +450,46 @@ def test_two_inputs_sharing_a_base_name_name_both_sources(tmp_path):
 # --- run-matrix reader ------------------------------------------------------
 
 
-def test_a_key_the_release_cannot_sweep_states_the_not_yet_rule(tmp_path):
-    """Not-yet is a different answer from never, and the message says which.
+def test_the_key_that_could_not_be_swept_now_is(tmp_path):
+    """The not-yet closed at 0.21.0: the Reynolds number is a sweep like any other.
 
-    This case read the SWEEP_TYPE mapping until 0.15.0, where the column
-    went and the swept variable became a key of the flight condition
-    (FR-69). The rule it measures survived the move and got stronger: the
-    author's rule licenses ANY key of the cell, so a key this release
-    does not vary is a not-yet rather than a no, and the refusal has to
-    say so rather than reading as a closed list.
+    This case read the SWEEP_TYPE mapping until 0.15.0, where the column went
+    and the swept variable became a key of the flight condition (FR-69). It
+    then measured the gap between the author's rule, which licenses ANY key of
+    the cell, and a release that varied three of them: a row sweeping REmi was
+    refused as a NOT-YET naming the three. 0.21.0 implements the rule, so what
+    is measured here is the same row going through, and the refusal that
+    remains is the one for a key the cell has no meaning for at all.
     """
     munged = tmp_path / "matrix.fs"
+    # The values cell moves with the swept key: the fixture sweeps an incidence
+    # over -4, 0 and 4, and a Reynolds number in millions is a positive
+    # quantity that a point name writes without a sign.
     munged.write_text(
-        MATRIX_FIXTURE.read_text(encoding="utf-8").replace(
+        MATRIX_FIXTURE.read_text(encoding="utf-8")
+        .replace(
             "MACH:0.1441, REmi:4.38, ALPHA:sweep, BETA:0.0",
             "MACH:0.1441, REmi:sweep, ALPHA:2.0, BETA:0.0",
+            1,
+        )
+        .replace("-4.0,0.0,4.0", "3.0,4.38,6.0", 1),
+        encoding="utf-8",
+    )
+    row = next(row for row in read_matrix(munged) if row.sweep.type == "REmi")
+    assert [point["REmi"] for point in row.sweep.points()] == [value for value in row.sweep.values]
+
+    unknown = tmp_path / "unknown.fs"
+    unknown.write_text(
+        MATRIX_FIXTURE.read_text(encoding="utf-8").replace(
+            "MACH:0.1441, REmi:4.38, ALPHA:sweep, BETA:0.0",
+            "MACH:0.1441, WING_SPAN:sweep, ALPHA:2.0, BETA:0.0",
             1,
         ),
         encoding="utf-8",
     )
-    with pytest.raises(
-        MatrixError,
-        match=r"sweeps REmi, which this release cannot vary yet\. The keys it varies "
-        r"are ADVANCE_RATIO, ALPHA, BETA\.",
-    ) as caught:
-        read_matrix(munged)
-    assert "later release" in str(caught.value), "the refusal reads as a closed list"
+    with pytest.raises(MatrixError) as caught:
+        read_matrix(unknown)
+    assert "WING_SPAN" in str(caught.value)
 
 
 def test_foreign_header_names_the_verified_layout(tmp_path):

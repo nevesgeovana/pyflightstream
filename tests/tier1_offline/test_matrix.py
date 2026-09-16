@@ -239,13 +239,20 @@ def test_full_variables_cell_keeps_every_pair_verbatim():
     assert "\n" not in variables["NOTE"]
 
 
-def _with_condition(tmp_path, replacement):
-    """Rewrite POL 9001's FLIGHT_CONDITION cell and return the file."""
+def _with_condition(tmp_path, replacement, *, values=None):
+    """Rewrite POL 9001's FLIGHT_CONDITION cell, and its values, and return the file."""
     original = "MACH:0.1441, REmi:4.38, ALPHA:sweep, BETA:0.0"
     text = FIXTURE.read_text(encoding="utf-8")
     assert text.count(original) == 1, "the fixture no longer writes the cell this case edits"
+    text = text.replace(original, replacement, 1)
+    if values is not None:
+        # A SWEEP OF A FLOW VARIABLE TAKES ITS OWN VALUES: the fixture's are
+        # angles, and a Mach number of -4 is not a value a point can hold.
+        row = next(line for line in text.splitlines() if line.startswith("9001"))
+        assert row.count("-4.0,0.0,4.0") == 1, row
+        text = text.replace(row, row.replace("-4.0,0.0,4.0", values, 1), 1)
     bad = tmp_path / "matrix.fs"
-    bad.write_text(text.replace(original, replacement, 1), encoding="utf-8")
+    bad.write_text(text, encoding="utf-8")
     return bad
 
 
@@ -281,23 +288,24 @@ def test_a_row_that_sweeps_two_variables_is_refused_naming_both(tmp_path):
     assert "one row per value" in message, "the refusal says no and not what to do instead"
 
 
-def test_a_key_this_release_cannot_vary_is_refused_naming_the_ones_it_can(tmp_path):
-    """The gap between the author's rule and this release, said out loud.
+def test_every_key_of_the_cell_can_be_varied_since_0_21_0(tmp_path):
+    """The author's rule, implemented: ANY key that defines the condition sweeps.
 
-    The author's rule licenses ANY key that defines the flight condition, and
-    0.15.0 varies the two angles and the advance ratio. A row sweeping
-    MACH is therefore legal in the design and unimplemented in the code,
-    which is a refusal naming the set rather than a silent single point:
-    accepted-and-ignored is how the advance-ratio sweep failed before
-    this release.
+    0.15.0 varied the two angles and the advance ratio and refused the rest as
+    a not-yet naming the three. A row sweeping MACH was legal in the design and
+    unimplemented in the code; it runs now, and a key the cell has no meaning
+    for is still refused rather than accepted and ignored, which is how the
+    advance-ratio sweep failed before 0.15.0.
     """
-    bad = _with_condition(tmp_path, "MACH:sweep, REmi:4.38, BETA:0.0")
+    good = _with_condition(tmp_path, "MACH:sweep, REmi:4.38, BETA:0.0", values="0.1,0.2,0.3")
+    row = next(row for row in read_matrix(good) if row.sweep.type == "MACH")
+    assert [point["MACH"] for point in row.sweep.points()] == list(row.sweep.values)
+    assert row.flight_condition["REmi"] == 4.38, "the held keys stay on the row"
+
+    bad = _with_condition(tmp_path, "MACH:0.2, WING_SPAN:sweep, BETA:0.0")
     with pytest.raises(MatrixError) as caught:
         read_matrix(bad)
-    message = str(caught.value)
-    assert "MACH" in message
-    for key in ("ALPHA", "BETA", "ADVANCE_RATIO"):
-        assert key in message, f"the refusal does not name {key}, which this release does vary"
+    assert "WING_SPAN" in str(caught.value)
 
 
 def test_a_swept_row_with_no_values_is_refused(tmp_path):

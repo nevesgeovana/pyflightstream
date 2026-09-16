@@ -76,6 +76,7 @@ from pathlib import Path
 
 from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning
 from pyflightstream.cases import (
+    POINT_AXIS_KEYS,
     ROTATION_OFFSET_KEY,
     ROTATION_SWEEP_KEY,
     Campaign,
@@ -716,17 +717,21 @@ def _split_attitude(
     return state, attitude
 
 
-#: The FLIGHT_CONDITION keys a row may sweep TODAY, to the sweep axis each
-#: becomes. The rule licenses ANY key of the cell; what this release
-#: implements is the two angles and the ratio, which is what the reference
-#: matrices vary. A key outside this map is refused NAMING the set rather
-#: than accepted and silently ignored, which is the failure the ratio
-#: sweep had before this release (PFS-2035.06, measured 2026-09-10: the
-#: axis existed, the point carried it and nothing read it).
+#: EVERY key of the cell, to the sweep axis each becomes (0.21.0). The rule
+#: always licensed any key; until 0.21.0 only the two angles and the ratio
+#: were implemented, and a row sweeping a Mach number was refused naming the
+#: three. It is built from :data:`pyflightstream.cases.POINT_AXIS_KEYS` and the
+#: cell's own vocabulary, so a variable that joins the cell is sweepable the
+#: day it joins and the two cannot drift apart.
+#:
+#: A key outside this map is still refused NAMING the set rather than accepted
+#: and silently ignored, which is the failure the ratio sweep had before 0.15.0
+#: (PFS-2035.06, measured 2026-09-10: the axis existed, the point carried it
+#: and nothing read it).
 _CONDITION_SWEEP_AXES = {
-    "ALPHA": "alpha",
-    "BETA": "beta",
-    "ADVANCE_RATIO": "advance_ratio",
+    cell_key: axis
+    for axis, cell_key in POINT_AXIS_KEYS.items()
+    if cell_key in FLIGHT_CONDITION_KEYS or cell_key in ATTITUDE_KEYS
 }
 
 #: The FLIGHT_CONDITION keys whose HELD value joins every point of the

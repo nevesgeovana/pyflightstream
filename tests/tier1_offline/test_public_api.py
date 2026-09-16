@@ -83,6 +83,10 @@ PUBLIC_MODULES = [
     # of one-shot being the primitive.
     "pyflightstream.run.collect",
     "pyflightstream.run.matrix",
+    # 0.21.0: the renaming command's module. PUBLIC deliberately, for the same
+    # reason as the collect stage: `rename_workspace` is a thing a user drives,
+    # from `pyfs-matrix rename` or from a script that moves several workspaces.
+    "pyflightstream.run.rename",
     "pyflightstream.script",
     "pyflightstream.script.entities",
     "pyflightstream.script.helpers",

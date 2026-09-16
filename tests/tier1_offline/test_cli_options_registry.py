@@ -110,6 +110,9 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     # build other than the registered one is a decision about THIS invocation,
     # recorded in every record, never a default a registry could hold.
     ("pyfs-matrix", "accept_unregistered_build"): SWITCH,
+    # 0.21.0: `rename` rehearses with --dry-run, which is a mode switch of the
+    # one invocation and changes nothing about the workspace it reads.
+    ("pyfs-matrix", "dry_run"): SWITCH,
     ("pyfs-matrix", "interval"): SWITCH,
     ("pyfs-matrix", "watch_interval"): SWITCH,
     ("pyfs-matrix", "rounds"): SWITCH,
@@ -258,6 +261,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-matrix", "watch_interval"): frozenset({"collect"}),
     ("pyfs-matrix", "rounds"): frozenset({"collect"}),
     ("pyfs-matrix", "point_name"): frozenset({"plan", "run"}),
+    ("pyfs-matrix", "dry_run"): frozenset({"rename"}),
     ("pyfs-matrix", "recipe"): frozenset({"convert", "plan", "run"}),
     ("pyfs-matrix", "refuse_missing_families"): frozenset({"plan", "run"}),
     ("pyfs-matrix", "resume"): frozenset({"run"}),
@@ -267,7 +271,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-matrix", "strict"): frozenset({"post"}),
     ("pyfs-matrix", "sweep_csv"): frozenset({"run"}),
     ("pyfs-matrix", "workflow"): frozenset({"plan", "run"}),
-    ("pyfs-matrix", "workspace"): frozenset({"collect", "plan", "post", "run"}),
+    ("pyfs-matrix", "workspace"): frozenset({"collect", "plan", "post", "rename", "run"}),
     ("pyfs-qa", "campaign"): frozenset({"cost"}),
     ("pyfs-qa", "case"): frozenset({"update-reference"}),
     ("pyfs-qa", "commands"): frozenset({"probe"}),

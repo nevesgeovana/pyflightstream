@@ -6916,8 +6916,11 @@ def build_steady_sweep(
     ----------
     point_cases : sequence of SimCase
         One case per point, each already carrying its ``point`` and its
-        ``outputs``. They differ only in those two fields; everything the
-        preamble reads is taken from the FIRST.
+        ``outputs``. They differ only in those two fields and in the ATTITUDE
+        of the point; everything the preamble reads is taken from the FIRST.
+        A row whose sweep moves the AIR STATE never reaches here: the fluid is
+        a setup command, which the solver takes before it is initialised, so
+        such a row is one job per point (``_is_one_job``).
     script : Script
         The script every point is emitted into.
     cold : bool
@@ -6986,6 +6989,7 @@ def build_steady_sweep(
             _refuse_sideslip_under_mirror(point_case)
             script.emit("SOLVER_SET_AOA", _angle(point_case, "alpha"))
             script.emit("SOLVER_SET_SIDESLIP", _angle(point_case, "beta"))
+
         # EACH POINT EXPORTS ITS OWN NAMES, so each gets its own
         # conventions. One set for the whole sweep would have every point
         # writing the first point's file names, which is the collision the
