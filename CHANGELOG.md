@@ -9,11 +9,6 @@ FlightStream versions.
 
 ### Owed
 
-- **The archive row of v0.21.1 is OWED**, and its Zenodo archive does not
-  exist yet. A version DOI is minted from the GitHub RELEASE object and not
-  from the tag, so the identifier is recorded in `CITATION.cff` one commit
-  AFTER the tag. Until that row lands, cite v0.21.1 by the concept DOI.
-
 
 
 - **The Zenodo archive of v0.14.0 DOES NOT EXIST**, re-measured against
