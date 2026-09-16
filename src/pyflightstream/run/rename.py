@@ -99,6 +99,15 @@ KEPT_FIELDS = frozenset(
 )
 
 
+def _usable(pairs) -> tuple[tuple[str, str], ...]:
+    """Return the substitutions that say something: non-empty, and a real change."""
+    seen: dict[str, str] = {}
+    for before, after in pairs:
+        if before and before != after:
+            seen[before] = after
+    return tuple(seen.items())
+
+
 @dataclass(frozen=True)
 class _PointMove:
     """One point of one record: what it is called now and what it will be called."""
@@ -115,9 +124,10 @@ class _PointMove:
             bool(self.old_stem) and self.old_stem != self.new_stem
         )
 
-    def pairs(self) -> set[tuple[str, str]]:
-        """Return this point's substitutions."""
-        return {(self.old_tag, self.new_name), (self.old_stem, self.new_stem)}
+    @property
+    def folder(self) -> tuple[str, str]:
+        """Return this point's datapoint folder, before and after."""
+        return (f"{DATAPOINT_PREFIX}{self.old_tag}", f"{DATAPOINT_PREFIX}{self.new_name}")
 
 
 @dataclass(frozen=True)
@@ -135,23 +145,34 @@ class _Plan:
         """Say whether anything of this record is named differently now."""
         return self.script[0] != self.script[1] or any(point.moves for point in self.points)
 
-    def pairs(self) -> tuple[tuple[str, str], ...]:
-        """Return every substitution of this record, the longest pattern first.
+    def identity_pairs(self) -> tuple[tuple[str, str], ...]:
+        """Return the substitutions of an IDENTITY: a tag becomes a point name.
 
-        THE LONGEST FIRST, because a stem CONTAINS the tag on a workspace
-        planned under the library default (``{point}``): substituting the tag
-        first would leave the stem half rewritten.
+        The `run_id`, the tags of `points_ran` and the keys a submission files
+        its points under. None of them is a file name.
         """
-        pairs: set[tuple[str, str]] = {self.script}
+        return _usable((point.old_tag, point.new_name) for point in self.points)
+
+    def path_pairs(self) -> tuple[tuple[str, str], ...]:
+        """Return the substitutions of a PATH: a folder and a file stem.
+
+        THE FOLDER FIRST, because a path holds both and the folder carries the
+        tag inside it (`datapoints/DP-<tag>/<stem>.txt`).
+
+        WHY THE TWO KINDS ARE SEPARATE, which one ordered list could not do: a
+        workspace planned under the library default rendered `{point}` as the
+        TAG, so there the stem and the tag are the same string. One list then
+        holds two rules with one left-hand side and the winner is
+        set-iteration order -- measured by the qa lens, 2026-09-16: the
+        `run_id` came out holding the file stem while `point_name` beside it
+        held the name. A field is an identity or a path, and that is knowable.
+        """
+        pairs = []
         for point in self.points:
-            pairs |= point.pairs()
-        return tuple(
-            sorted(
-                (pair for pair in pairs if pair[0] and pair[0] != pair[1]),
-                key=lambda pair: len(pair[0]),
-                reverse=True,
-            )
-        )
+            pairs.append(point.folder)
+            pairs.append((point.old_stem, point.new_stem))
+        pairs.append(self.script)
+        return _usable(pairs)
 
 
 @dataclass(frozen=True)
@@ -285,6 +306,59 @@ def _declared_by_point(record: Mapping[str, Any]) -> dict[str, list[str]]:
         for tag, names in declared.items()
         if isinstance(names, list)
     }
+
+
+#: The record fields that are IDENTITIES rather than paths: a tag in them is a
+#: point's name and never a file. Everything else that carries a name carries it
+#: as part of a path.
+IDENTITY_FIELDS = frozenset({"run_id", "job_id", "point_name", "sweep_name"})
+
+#: Inside the submission block, the two mappings keyed BY POINT: their keys are
+#: identities and their values are declared output paths.
+SUBMISSION_BY_POINT = ("declared_by_point", "points_by_tag")
+
+
+def _rewrite_field(name: str, value: Any, plan: _Plan) -> Any:
+    """Rewrite one record field, as the kind of thing that field holds.
+
+    An identity takes the point NAME; a path takes the datapoint folder and the
+    file stem. `points_ran` and `submission` hold both kinds and are walked
+    entry by entry rather than substituted whole.
+    """
+    if name in IDENTITY_FIELDS:
+        return _substitute(value, plan.identity_pairs())
+    if name == "points_ran" and isinstance(value, list):
+        return [_rewrite_point_ran(entry, plan) for entry in value]
+    if name == "submission" and isinstance(value, Mapping):
+        return _rewrite_submission(value, plan)
+    return _substitute(value, plan.path_pairs())
+
+
+def _rewrite_point_ran(entry: Any, plan: _Plan) -> Any:
+    """Rewrite one entry of ``points_ran``: its tag is an identity, its outputs are paths."""
+    if not isinstance(entry, Mapping):
+        return entry
+    rewritten = dict(entry)
+    if "tag" in rewritten:
+        rewritten["tag"] = _substitute(rewritten["tag"], plan.identity_pairs())
+    for key, item in rewritten.items():
+        if key != "tag":
+            rewritten[key] = _substitute(item, plan.path_pairs())
+    return rewritten
+
+
+def _rewrite_submission(block: Mapping[str, Any], plan: _Plan) -> dict[str, Any]:
+    """Rewrite a submission block: two mappings are keyed by point, the rest are paths."""
+    rewritten: dict[str, Any] = {}
+    for key, value in block.items():
+        if key in SUBMISSION_BY_POINT and isinstance(value, Mapping):
+            rewritten[key] = {
+                _substitute(point, plan.identity_pairs()): _substitute(item, plan.path_pairs())
+                for point, item in value.items()
+            }
+        else:
+            rewritten[key] = _substitute(value, plan.path_pairs())
+    return rewritten
 
 
 def _substitute(value: Any, pairs: tuple[tuple[str, str], ...]) -> Any:
@@ -521,10 +595,10 @@ def rename_workspace(
             if before_path.is_file():
                 pending.append((before_path, after_path))
                 report.changes.append(RenameChange("script", before_path.name, after_path.name))
-        pairs = plan.pairs()
         for name, value in list(entry.items()):
-            if name not in KEPT_FIELDS:
-                entry[name] = _substitute(value, pairs)
+            if name in KEPT_FIELDS:
+                continue
+            entry[name] = _rewrite_field(name, value, plan)
         entry["point_name"] = plan.new_name
         entry["sweep_name"] = plan.new_sweep
         rewritten.append(entry)
@@ -577,19 +651,31 @@ def _plan_changes(
     ``applied`` is False for the rehearsal, which reads the same files, decides
     the same way and writes nothing.
     """
-    pairs: set[tuple[str, str]] = set()
+    identity: list[tuple[str, str]] = []
+    paths: list[tuple[str, str]] = []
     stems: set[str | None] = set()
     for plan in plans:
-        pairs.update(plan.pairs())
+        identity.extend(plan.identity_pairs())
+        paths.extend(plan.path_pairs())
         stems.add(plan.record.get("matrix_stem"))
-    ordered = tuple(sorted(pairs, key=lambda pair: len(pair[0]), reverse=True))
     changes: list[RenameChange] = []
     for stem in stems:
         plan_file = workspace.plan_dir(stem) / "plan.json"
         if not plan_file.is_file():
             continue
         before = plan_file.read_text(encoding="utf-8")
-        after = json.dumps(_substitute(json.loads(before), ordered), indent=2) + "\n"
+        # THE PLAN CARRIES BOTH KINDS: `run_id` is an identity and
+        # `script_name` is a path, so each entry is rewritten the way the
+        # record's own fields are.
+        payload = json.loads(before)
+        for entry in payload.get("points", []) if isinstance(payload, dict) else []:
+            if not isinstance(entry, dict):
+                continue
+            for key, value in entry.items():
+                entry[key] = _substitute(
+                    value, tuple(identity) if key in IDENTITY_FIELDS else tuple(paths)
+                )
+        after = json.dumps(payload, indent=2) + "\n"
         if after != before:
             if applied:
                 plan_file.write_text(after, encoding="utf-8")

@@ -383,3 +383,92 @@ def test_goal024_rename_command_the_command_line_refuses_with_a_status(tmp_path,
     assert "scheduler's queue" in captured.err, captured.err
     assert captured.out == "", "a refusal writes nothing to standard output"
     assert workspace.read_raw_manifest() == rows
+
+
+def _as_0_20_library_default(workspace, mach: float) -> list[dict]:
+    """Write the workspace back into the shape the LIBRARY default left.
+
+    A campaign that took the library's own naming (`{point}`) named its files
+    by the point TAG itself, so the file stem and the identity are the SAME
+    STRING: `a+00.0` names the folder, the script and every export. That is the
+    shape in which one substitution list cannot tell an identity from a path,
+    and every other fixture here pins the matrix naming, where the 0.20 stem
+    (`POLAR-3207_M20AL+000BE+000`) never equals the tag.
+    """
+    import json
+
+    rows = workspace.read_raw_manifest()
+    old_rows = []
+    for row in rows:
+        sim_id = str(row["sim_id"])
+        sim = workspace.sim_dir(sim_id)
+        pairs: list[tuple[str, str]] = []
+        ran = row.get("points_ran") or [{"tag": row["point_name"], "point": row["point"]}]
+        for entry in ran:
+            new_name = str(entry["tag"])
+            old_tag = point_tag(dict(entry["point"]))
+            new_stem = f"P{sim_id}-{new_name}"
+            folder = sim / "datapoints" / f"DP-{new_name}"
+            target = sim / "datapoints" / f"DP-{old_tag}"
+            if folder.is_dir():
+                for path in sorted(folder.iterdir()):
+                    if path.is_file() and path.name.startswith(new_stem):
+                        # THE STEM IS THE TAG, which is the whole point of this
+                        # fixture.
+                        path.rename(path.with_name(old_tag + path.name[len(new_stem) :]))
+                folder.rename(target)
+            pairs += [(new_stem, old_tag), (new_name, old_tag)]
+        script = sim / str(row["script_path"])
+        job_stem = Path(str(row["script_path"])).stem
+        old_job_stem = point_tag(dict(row["point"])) + "_sweep"
+        if script.is_file():
+            script.rename(script.with_name(f"{old_job_stem}.txt"))
+        pairs.append((job_stem, old_job_stem))
+        text = json.dumps(row)
+        for before, after in sorted(pairs, key=lambda pair: len(pair[0]), reverse=True):
+            text = text.replace(before, after)
+        old = json.loads(text)
+        old.pop("point_name", None)
+        old.pop("sweep_name", None)
+        old_rows.append(old)
+        _rewrite_plan(workspace, str(row.get("matrix_stem")), pairs)
+    workspace.manifest_path.write_text(json.dumps(old_rows, indent=2) + "\n", encoding="utf-8")
+    return old_rows
+
+
+def test_goal024_rename_command_a_workspace_named_by_the_library_default(tmp_path):
+    """A workspace whose file stem IS its point tag: the identity and the path differ.
+
+    Found by the qa lens, 2026-09-16, with a surviving mutant: the first
+    writing substituted one ordered list of pairs, and where the stem equals
+    the tag that list holds three rules with one left-hand side. The winner was
+    set-iteration order, and the `run_id` came out holding the FILE STEM while
+    the `point_name` beside it held the bare name -- a manifest disagreeing
+    with itself, unstably.
+    """
+    workspace, _, _ = _ran(tmp_path)
+    old_rows = _as_0_20_library_default(workspace, mach=0.2)
+    # The 0.20 tag is everywhere in the fixture: the job's id ends in `sweep`,
+    # and every point of it carries the tag as its identity AND as its stem.
+    assert any("a+00.0" in json.dumps(row) for row in old_rows), old_rows
+    assert any(
+        entry["tag"] == "a+00.0" for row in old_rows for entry in row.get("points_ran") or []
+    ), old_rows
+
+    report = rename_workspace(_reopened(workspace))
+
+    assert report.renamed_records == len(old_rows)
+    rows = workspace.read_raw_manifest()
+    for row in rows:
+        # THE IDENTITY IS THE NAME, and carries no file stem.
+        tail = str(row["run_id"]).rsplit("/", 1)[-1]
+        assert tail in ("sweep", str(row["point_name"])), row["run_id"]
+        assert not tail.startswith("P3207-"), row["run_id"]
+        for entry in row.get("points_ran") or []:
+            assert entry["tag"] == entry["tag"].lstrip("P"), entry
+            assert "P3207-" not in entry["tag"], entry
+        # AND THE PATHS ARE PATHS: the folder and the stem, both moved.
+        for output in row["outputs"]:
+            assert output.startswith("datapoints/DP-M200RE230AL"), output
+            assert Path(output).name.startswith("P3207-M200RE230AL"), output
+        assert "a+00.0" not in json.dumps(row), row["run_id"]
