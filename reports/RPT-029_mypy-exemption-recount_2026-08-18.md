@@ -44,24 +44,30 @@
 > 2026-09-15 run, on the tree that carries the 0.20.0 march strategy and
 > the per-build rotor vocabulary:
 >
->     Found 617 errors in 18 files (checked 85 source files)
->     Success: no issues found in 85 source files
+>     Found 626 errors in 18 files (checked 86 source files)
+>     Success: no issues found in 86 source files
 >
 > Every figure below is that re-measurement.
 
 The result, in the sentence every record of it carries:
 
-**mypy recount 2026-09-15: 617 errors in 18 of 85 modules.**
+**mypy recount 2026-09-15: 626 errors in 18 of 86 modules.**
 
-The eighty-fifth is `script/rotor_vocabulary.py`, added at 0.20.0 for the
-per-build rotor vocabulary, and it arrives CLEAN: it appears nowhere in the
-per-file breakdown of the `scripts/mypy_recount.py` run, and the FILE count is
-unchanged at 18. The error count moved from 585 to 617 while the 0.20.0 work
-changed, among others, `run/__init__.py`, `cases/workflows.py`,
-`script/__init__.py` and `script/helpers.py`; the run measured the tree as it
-is, not the difference between the two trees, so no share of the 32 is
-assigned to a file here. The guard asked for this re-measurement, as it did
-for the eighty-fourth: the records said 84 while the package held 85.
+The eighty-sixth is `run/rename.py`, added at 0.21.0 for the command that
+moves a workspace to the point names, and it arrives CLEAN: it appears nowhere
+in the per-file breakdown of the `scripts/mypy_recount.py` run, and the FILE
+count is unchanged at 18. The error count moved from 617 to 626 while the
+0.21.0 naming work changed, among others, `run/__init__.py`,
+`cases/__init__.py`, `cases/matrix.py` and `workspace/matrix.py`; the run
+measured the tree as it is, not the difference between the two trees, so no
+share of the 9 is assigned to a file here. The guard asked for this
+re-measurement, as it did for the eighty-fifth and the eighty-fourth: the
+records said 85 while the package held 86.
+
+The eighty-fifth was `script/rotor_vocabulary.py`, added at 0.20.0 for the
+per-build rotor vocabulary, and it arrived CLEAN by the same test, at 617
+errors in 18 of 85 modules. Its figures are not repeated in this part of the
+report, which carries ONE live measurement.
 
 The runs before this one keep their own sections below, and their figures are
 not repeated in this part of the report.
@@ -290,11 +296,11 @@ configuration to be in a state the repository does not ship:
 
 The final line of that run is the measurement:
 
-    Found 617 errors in 18 files (checked 85 source files)
+    Found 626 errors in 18 files (checked 86 source files)
 
 The same run with the shipped configuration, overrides and all, is green:
 
-    Success: no issues found in 85 source files
+    Success: no issues found in 86 source files
 
 mypy walks the FILESYSTEM rather than the git index, so the state of the
 working tree is part of the measurement, and this report has already been
