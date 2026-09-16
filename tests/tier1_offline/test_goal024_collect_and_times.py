@@ -5,6 +5,8 @@ The test names carry ``goal024_collect_and_times`` so the goal's checker can sel
 
 from __future__ import annotations
 
+import pytest
+
 from pyflightstream.run.collect import collect_once
 from tests.tier1_offline.test_collect_stage import _no_sleep, _submitted_workspace
 
@@ -81,9 +83,39 @@ def test_goal024_collect_and_times_the_verdict_read_from_a_log_carries_its_times
     assert assessment.time_steps == 54
 
 
-def test_goal024_collect_and_times_the_record_carries_the_times_to_the_manifest():
-    """RunRecord holds the three fields, so a collected or local verdict reaches runs.json."""
-    from pyflightstream.workspace import RunRecord
+def test_goal024_collect_and_times_the_record_carries_the_times_to_the_manifest(tmp_path):
+    """The three times are IN runs.json after a collect, read from the log the job left.
 
-    for field in ("solver_run_time_s", "solver_initialization_s", "time_steps", "residual_note"):
-        assert field in RunRecord.model_fields, field
+    The first writing asserted that `RunRecord` declares the fields, which a
+    model with the fields and a stage that never fills them passes: removing
+    the three names from the collect stage's stamp left it green (the qa lens,
+    2026-09-16). This drives the stage and reads the manifest.
+    """
+    import json
+
+    from pyflightstream.run.collect import collect_once
+    from tests.tier1_offline.test_collect_stage import _no_sleep, _submitted_workspace
+    from tests.tier1_offline.test_goal024_profile_log import _work_dir
+    from tests.tier1_offline.test_run_campaign import FIXTURES
+
+    workspace, sim = _submitted_workspace(tmp_path, declared=("loads.txt", "P9001-AL+000_log.txt"))
+    work = _work_dir(workspace, sim, alpha=2.0)
+    (work / "loads.txt").write_text(
+        (FIXTURES / "loads_steady_26.120.txt").read_text(encoding="utf-8"), encoding="utf-8"
+    )
+    (work / "P9001-AL+000_log.txt").write_text(
+        (FIXTURES / "log_residuals_26.120.txt").read_text(encoding="utf-8"), encoding="utf-8"
+    )
+
+    report = collect_once(workspace, interval=0.0, sleep=_no_sleep)
+
+    assert not report.failed, [outcome.detail for outcome in report.failed]
+    row = json.loads(workspace.manifest_path.read_text(encoding="utf-8"))[0]
+    assert row["solver_run_time_s"] == pytest.approx(841.2), row
+    assert row["log_file_used"] == "P9001-AL+000_log.txt", row
+    assert row["iterations"] == 1575 and row["residual"], row
+    # The initialisation time and the step count are None on THIS log, which
+    # prints neither: the field is carried as None rather than as zero, which
+    # is the rule the parser states.
+    assert row["solver_initialization_s"] is None, row
+    assert row["time_steps"] is None, row

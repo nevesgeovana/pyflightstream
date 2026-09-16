@@ -219,6 +219,36 @@ def test_goal024_point_name_two_points_that_differ_in_a_declared_variable_get_tw
     assert len({datapoint_dir_name(PointName(name)) for name in names}) == 2
 
 
+def test_goal024_point_name_the_collision_guard_reads_every_axis_it_names(tmp_path):
+    """The guard is on the NAME, so it fires on any axis whose field two values share.
+
+    It was measured on three axes of seventeen (the qa lens, 2026-09-16): a
+    Mach sweep over 0.1441 and 0.1444 writes `M144` twice, and so does any
+    other variable whose digits round together.
+    """
+    # Pydantic wraps the refusal of a field validator, so the message is read
+    # off the ValidationError rather than off a CampaignConfigError.
+    from pydantic import ValidationError
+
+    from pyflightstream.cases import SweepAxis
+
+    for axis, values, field in (
+        ("MACH", [0.1441, 0.1444], "M144"),
+        ("REmi", [4.381, 4.384], "RE438"),
+        # 800.4 and 800.6 round APART, which is the guard working; 800.2 and
+        # 800.4 round together, which is what it refuses.
+        ("RPM", [800.2, 800.4], None),
+        ("pitch_rate", [2.01, 2.04], "Q+020"),
+    ):
+        if field is None:
+            # RPM is written to the rev/min, so those two are one name too.
+            field = "RPM+0800"
+        with pytest.raises(ValidationError) as caught:
+            SweepAxis(type=axis, values=values)
+        assert "both write" in str(caught.value), (axis, str(caught.value))
+        assert field in str(caught.value), (axis, field, str(caught.value))
+
+
 def test_goal024_point_name_two_points_that_write_one_name_are_refused_by_name(tmp_path):
     """Two values that round to one field cannot share a folder, so the plan refuses.
 

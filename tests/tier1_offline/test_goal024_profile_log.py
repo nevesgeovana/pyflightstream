@@ -234,3 +234,26 @@ def test_goal024_profile_log_a_profile_with_no_native_log_copies_nothing(tmp_pat
     assert not (work / "P9001-AL+000_log.txt").exists()
     assert not report.failed, [outcome.detail for outcome in report.failed]
     assert report.waiting, "the declared log has not arrived, so the point waits"
+
+
+def test_goal024_profile_log_a_point_declaring_no_log_output_is_refused_by_name(tmp_path):
+    """A native log with nowhere to go: the row declares no log among its outputs.
+
+    The one refusal of this table that no test asserted on its content (the qa
+    lens, 2026-09-16). It matters because the row's own declaration is what
+    makes the log collected and the run judged, so a profile naming a native
+    log beside a row that declares none is a silent half-configuration.
+    """
+    workspace, sim = _submitted_workspace(tmp_path, declared=("loads.txt", "P9001-AL+000.dat"))
+    _write_profile(workspace)
+    work = _work_dir(workspace, sim)
+    (work / "loads.txt").write_text("data", encoding="utf-8")
+    (work / "P9001-AL+000.dat").write_text("data", encoding="utf-8")
+    (work / "FTS9001.l3714205").write_text("the scheduler's", encoding="utf-8")
+
+    report = collect_once(workspace, interval=0.0, sleep=_no_sleep)
+
+    assert len(report.failed) == 1, report
+    detail = report.failed[0].detail
+    assert "_log.txt" in detail and "native log" in detail, detail
+    assert "loads.txt" in detail, "the refusal names the outputs the row did declare"

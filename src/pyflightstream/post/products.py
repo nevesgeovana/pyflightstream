@@ -1876,6 +1876,16 @@ def _sim_products(
         # 0.21.0 carries none, and naming its tables by a recomputed name would
         # set them beside files of another scheme.
         recorded = [record for record in records if record.outputs]
+        if not recorded:
+            # EMPTY IS THE SAME REFUSAL, not an IndexError two lines down. A
+            # simulation whose records collected nothing has no name to write a
+            # table under, and the didactic sentence is the one a reader can
+            # act on (the qa lens, 2026-09-16).
+            raise ProductError(
+                f"simulation {sim_id!r} holds {len(records)} record(s) and none of them "
+                "collected an output, so there is nothing to name a polar table after. "
+                "Collect the points (pyfs-matrix collect) before posting."
+            )
         if any(record.sweep_name is None or record.point_name is None for record in recorded):
             raise ProductError(
                 f"simulation {sim_id!r} holds records written before 0.21.0, which carry no "
