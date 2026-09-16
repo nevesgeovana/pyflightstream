@@ -1,0 +1,85 @@
+# RPT-052 evidence, collected by the session from the probe workspace.
+report: reports/RPT-052_the-sense-of-a-rotating-free-stream_2026-09-15.md
+date: '2026-09-15'
+question: what a POSITIVE angular velocity about a frame axis means to the solver,
+  which no edition of the manual states.
+where_the_raw_files_are: 'The solver outputs stayed on the measuring machine and are not
+  committed: surface exports and saved simulations are mesh data, which never enter Git
+  (invariant 5). The workspace is GeoverseResearch/tools/fts_workspace/pfs0210-probe-rotation.'
+workspace: GeoverseResearch/tools/fts_workspace/pfs0210-probe-rotation
+geometry: 30_WB.fsm of pfs0160, read through a junction and never written
+executable_sha256:
+  '26.124': 68e64e666fad6e403a6c6747b20c263f5c9f3e4c7542eebe253397bedcc30c65
+command_measured: SET_FREESTREAM ROTATION
+free_stream_line_per_simulation:
+  sim_4101: SET_FREESTREAM CONSTANT
+  sim_4102: SET_FREESTREAM ROTATION 2 Y 0.6666666666666666
+  sim_4103: SET_FREESTREAM ROTATION 2 Y 6.666666666666666
+points: # the rate of each is the Q field of its name: Q+000, Q+040, Q+400 (deg/s x10)
+  - run_id: pfs0210-probe-rotation/sim_4101/M200RE1177AL+020BE+000Q+000
+    status: CONVERGED
+    iterations: 181
+    residual: 1.4042599e-06
+    fs_build: 8172026
+    script_sha256: ba4ae952c80039c871ecb29fbacc9751434b95504fdfc0ac7c133e7c4bcde370
+  - run_id: pfs0210-probe-rotation/sim_4102/M200RE1177AL+020BE+000Q+040
+    status: CONVERGED
+    iterations: 181
+    residual: 1.4086369e-06
+    fs_build: 8172026
+    script_sha256: 0b396566dff9249cb4edbe85717d39f23b8b3df4550115097dda47e0704bb640
+  - run_id: pfs0210-probe-rotation/sim_4103/M200RE1177AL+020BE+000Q+400
+    status: CONVERGED
+    iterations: 183
+    residual: 1.419511e-06
+    fs_build: 8172026
+    script_sha256: e288d482c24ee3fd86a17b15f40c850fcd047aba08a99bc14d0ee1d6109e35c4
+coefficients:
+  - table: P4101-M200RE1177AL+020BE+000Q+000_g01.csv
+    ALPHA: 2.00000
+    CLB: 0.24116
+    CMB25: -0.02467
+    CDB: 0.00524
+  - table: P4101-M200RE1177AL+020BE+000Q+000_g02.csv
+    ALPHA: 2.00000
+    CLB: 0.22821
+    CMB25: -0.00502
+    CDB: 0.00267
+  - table: P4101-M200RE1177AL+020BE+000Q+000_g03.csv
+    ALPHA: 2.00000
+    CLB: 0.01295
+    CMB25: -0.01966
+    CDB: 0.00257
+  - table: P4102-M200RE1177AL+020BE+000Q+040_g01.csv
+    ALPHA: 2.00000
+    CLB: 0.24349
+    CMB25: -0.02481
+    CDB: 0.00475
+  - table: P4102-M200RE1177AL+020BE+000Q+040_g02.csv
+    ALPHA: 2.00000
+    CLB: 0.23083
+    CMB25: -0.00546
+    CDB: 0.00221
+  - table: P4102-M200RE1177AL+020BE+000Q+040_g03.csv
+    ALPHA: 2.00000
+    CLB: 0.01266
+    CMB25: -0.01936
+    CDB: 0.00254
+  - table: P4103-M200RE1177AL+020BE+000Q+400_g01.csv
+    ALPHA: 2.00000
+    CLB: 0.26383
+    CMB25: -0.02583
+    CDB: -0.00002
+  - table: P4103-M200RE1177AL+020BE+000Q+400_g02.csv
+    ALPHA: 2.00000
+    CLB: 0.25390
+    CMB25: -0.00942
+    CDB: -0.00237
+  - table: P4103-M200RE1177AL+020BE+000Q+400_g03.csv
+    ALPHA: 2.00000
+    CLB: 0.00993
+    CMB25: -0.01642
+    CDB: 0.00235
+verdict: a positive pitch_rate produces a nose-down (damping) moment increment and more
+  lift on the wing behind the moment point, which is the flow field of a NOSE-UP rotation;
+  FREESTREAM_ROTATION_SIGN stays +1.
