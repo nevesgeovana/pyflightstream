@@ -103,6 +103,19 @@ def test_goal024_rpm_sweeps_like_any_other_variable(tmp_path):
     ]
 
 
+def _case_of(workspace, matrix):
+    """Return the one resolved case of a one-row matrix."""
+    resolved = resolve_matrix(
+        matrix,
+        workspace,
+        name="rpm",
+        fs_version="26.120",
+        recipes=RECIPES,
+    )
+    (case,) = resolved.campaign.sims
+    return case
+
+
 def _motion_speed(workspace, matrix) -> float:
     """Return the speed the row's MOTION turns at, as the package resolves it.
 
@@ -115,31 +128,41 @@ def _motion_speed(workspace, matrix) -> float:
     """
     from pyflightstream.cases.workflows import _optional_rotor_speed
 
-    resolved = resolve_matrix(
-        matrix,
-        workspace,
-        name="rpm",
-        fs_version="26.120",
-        recipes=RECIPES,
-    )
-    (case,) = resolved.campaign.sims
-    speed = _optional_rotor_speed(case)
+    speed = _optional_rotor_speed(_case_of(workspace, matrix))
     assert speed is not None, "the row resolves no rotor speed at all"
     return speed.rpm
 
 
 def test_goal024_rpm_the_cell_speed_reaches_the_motion(tmp_path):
-    """The row states the speed once, in the cell, and its motion turns at it."""
+    """The row states the speed once, in the cell, and THE MOTION turns at it.
+
+    Read from the per-ROTOR reductions, which is the one place that can tell
+    the two apart. A row stating RPM anywhere resolves a speed: with the cell's
+    speed reaching no motion the record resolves to nothing, the rotor lands in
+    the lost list, and the row's own flat speed answers instead -- the same
+    number, from a rotor nobody turned. So the assertion is that PORT is a
+    rotor this row TURNS, at 800, and that its blade passage was cut from it.
+    """
+    from pyflightstream.cases.workflows import reduction_windows
+
     workspace, matrix = _rotor_matrix(
         tmp_path,
         condition="MACH:0.144, REmi:4.38, ALPHA:sweep, RPM:800",
         values="0.0,2.0",
     )
     assert _motion_speed(workspace, matrix) == 800.0
+    windows = reduction_windows(_case_of(workspace, matrix))
+    assert windows is not None
+    rotors = windows["rotors"]
+    assert set(rotors) == {"PORT"}, rotors
+    assert rotors["PORT"]["rpm"] == 800.0
+    assert rotors["PORT"]["steps_per_revolution"] == pytest.approx(60.0 / (800.0 * 0.01))
 
 
 def test_goal024_rpm_a_motions_record_wins_over_the_cell(tmp_path):
     """MOTIONS wins: a record naming a speed keeps it while the cell serves the rest."""
+    from pyflightstream.cases.workflows import reduction_windows
+
     workspace, matrix = _rotor_matrix(
         tmp_path,
         condition="MACH:0.144, REmi:4.38, ALPHA:sweep, RPM:800",
@@ -150,6 +173,8 @@ def test_goal024_rpm_a_motions_record_wins_over_the_cell(tmp_path):
         ),
     )
     assert _motion_speed(workspace, matrix) == 1200.0
+    rotors = reduction_windows(_case_of(workspace, matrix))["rotors"]
+    assert rotors["PORT"]["rpm"] == 1200.0, rotors
 
 
 def test_goal024_rpm_with_an_advance_ratio_and_a_velocity_is_refused_by_name(tmp_path):
