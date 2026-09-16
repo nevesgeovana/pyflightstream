@@ -10,6 +10,8 @@ What is asserted is the whole move: the folders, the files, the scripts, the
 manifest, the plan, a second run that changes nothing, the post stage reading
 the renamed tree, and each of the four refusals.
 
+This module is the evidence of FR-103.
+
 The test names carry ``goal024_rename_command`` so the goal's checker can
 select them.
 """

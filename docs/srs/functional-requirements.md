@@ -3965,3 +3965,136 @@ requirement below is one seam of that division.
     gives a default for. A solver preset or a
     post-processing artifact may still name a command a build lacks; that point
     is BLOCKED at plan time naming the command.
+!!! requirement "FR-102 A point is named by its flight condition <span class='srs-implemented'>implemented</span>"
+
+    *Origin: the cluster feedback of 2026-09-15, section 1, and the code table
+    approved the same day. Evidence:
+    `tests/tier1_offline/test_goal024_point_name.py` (the cell's variables in
+    the cell's order, the same five reordered giving another name, the run_id,
+    the folder and the files of a run, J 0.80 against J 0.84, two values that
+    write one field refused at plan time, the seventeen keys of the table each
+    against its written form, and the folder namer refusing anything but a
+    checked name). SUPERSEDES the point tag of FR-10 and the file convention of
+    FR-85 and FR-88.*
+
+    A point has ONE name, and the row writes it: every variable the
+    `FLIGHT_CONDITION` cell declares, in the order the cell declares them, each
+    as a code and a fixed-width integer. That name ends the `run_id`, names the
+    datapoint folder `DP-<name>`, and is the stem of every file of the point,
+    `P<sim>-<name>`; the superfile is `SUPER-<sim>-<name>` with the swept field
+    written `<code>+sweep`.
+
+    - The codes and digits are the approved table: `M` (Mach x1000),
+      `V` (m/s x10), `RE` (millions x100), `ALT` (feet), `DT` (K x10, signed),
+      `RHO` (kg/m3 x1e4), `MU` (Pa s x1e9), `A` (m/s x10), `T` (K x10),
+      `PS` (Pa), `AL` and `BE` (deg x10, signed), `J` (x100, signed),
+      `RPM` (rev/min, signed), and `P`, `Q`, `R` (deg/s x10, signed).
+    - A case authored in Python with no cell is named by its Mach number and
+      then by the axes of its point, so there is ONE scheme and not two.
+    - Two points of one case whose names are equal are refused AT PLAN TIME
+      naming both points and what they write.
+    - The run record carries `point_name` and `sweep_name`. A record written
+      before 0.21.0 carries neither, and `collect` and the products stage
+      refuse it by name rather than recompute one: the point's evidence would
+      be filed where no record of it points.
+
+!!! requirement "FR-103 One command renames a workspace to the point names <span class='srs-implemented'>implemented</span>"
+
+    *Origin: the same feedback, section 1: existing workspaces are renamed on
+    upgrade rather than left behind. Evidence:
+    `tests/tier1_offline/test_goal024_rename_command.py` (a workspace that ran
+    under the 0.20 names, written back into that shape and then moved: the
+    folders, the files, the scripts, the manifest, the plan, the archive, a
+    second run that changes nothing, the products stage reading the renamed
+    tree, the command line, and each of the four refusals).*
+
+    `pyfs-matrix rename --workspace <root>` moves a workspace written under
+    0.20.x to the names of FR-102. It reads the matrices beside `runs.json`,
+    works out each record's new name from its row and its recorded point, and
+    renames the datapoint folders, the scripts, the collected files, the
+    manifest and the plan. The manifest it replaces is archived first, every
+    change is printed, `--dry-run` rehearses it, and a second run changes
+    nothing.
+
+    BEFORE IT TOUCHES ANYTHING it refuses, by name: a record whose simulation
+    has no row, a record whose recorded point the matrix no longer holds, two
+    points that would share a name, and a SUBMITTED record whose folder would
+    move, which is collected first. A half-renamed workspace is worse than an
+    unrenamed one.
+
+!!! requirement "FR-104 Every flight-condition variable sweeps, and the rotor speed is one of them <span class='srs-implemented'>implemented</span>"
+
+    *Origin: the same feedback, sections 2 and 3. Evidence:
+    `tests/tier1_offline/test_goal024_sweep_any_variable.py` (a Mach sweep, a
+    Reynolds sweep, an altitude sweep, a rate sweep, the state resolved per
+    point, the emitted script of each point, and the refusals that remain) and
+    `tests/tier1_offline/test_goal024_rpm.py` (RPM in the cell, swept, reaching
+    the motion; MOTIONS winning; the three refusals and the computed velocity).
+    IMPLEMENTS the rule of FR-69, which licensed any key of the cell while the
+    code varied three.*
+
+    ANY key of `FLIGHT_CONDITION` may carry the word `sweep`. A swept FLOW
+    variable is resolved PER POINT, so each point carries its own density,
+    velocity and Mach number, and such a row is ONE JOB PER POINT: the air
+    state is a setup command the solver takes before it is initialised, so one
+    process cannot hold two of them. A row that sweeps an attitude is the one
+    warm job it has always been.
+
+    `RPM` is a key of the cell, stated once for the row and reaching every
+    motion that states no speed of its own, exactly as `ADVANCE_RATIO` does.
+
+    - A `MOTIONS` record naming a speed wins over it.
+    - `RPM` with `ADVANCE_RATIO` and a velocity is refused by name: the three
+      are one relation, V = J x (RPM/60) x D.
+    - `RPM` with `ADVANCE_RATIO` and no velocity COMPUTES the velocity, with D
+      the diameter of the rotor `CLOCK_MOTION` names; a row naming no such
+      rotor is refused by name.
+    - The flat `RPM` of `VAR_NAMES_VALUES` is unchanged: it is one rotor's
+      speed, it reaches no motion record, and a row whose records resolve to a
+      speed still names its `CLOCK_MOTION`.
+
+!!! requirement "FR-105 A row turns the free stream with a body rate <span class='srs-implemented'>implemented</span>"
+
+    *Origin: the same feedback, section 4. Evidence:
+    `tests/tier1_offline/test_goal024_freestream_rotation.py` (one rate writing
+    ROTATION about the moment point with the axis the reference declares and
+    the rate in rev/min, each rate on its own axis, zero and absent writing
+    CONSTANT, and the two refusals). The SIGN the solver applies is measured on
+    a seat and reported separately; this package emits the rate as written.*
+
+    A row states ONE body rate -- `roll_rate`, `pitch_rate` or `yaw_rate` -- in
+    deg/s and in flight-mechanics signs, and the script writes
+    `SET_FREESTREAM ROTATION` about the moment reference point of the row's
+    `REF` instead of `CONSTANT`. The rate sweeps like any other variable of the
+    cell.
+
+    - Which model axis each rate turns about is the CONFIGURATION's to state:
+      the reference artifact declares `[body_axes]`, and a row stating a rate
+      against a reference that declares none is refused by name.
+    - Two non-zero rates in one row are refused by name: the free stream turns
+      about one axis at one speed.
+    - Every rate zero, or no rate at all, writes `CONSTANT`.
+
+!!! requirement "FR-106 The wall clock carries its unit, and the cluster's own log is the log <span class='srs-implemented'>implemented</span>"
+
+    *Origin: the same feedback, sections 5 and 6. Evidence:
+    `tests/tier1_offline/test_goal024_walltime.py` (the units, the refusal of a
+    bare number, the descriptor as written, the profile's arithmetic and the
+    deadline it does not move) and
+    `tests/tier1_offline/test_goal024_profile_log.py` (the command removed, the
+    scheduler's own log copied to the declared name and judged, and the two
+    refusals). AMENDS FR-93.*
+
+    The `WALLTIME` cell carries its unit (`240m`, `4h`, `90s`, `1d`) and a bare
+    number is refused by name: it read as seconds here and as minutes on the
+    scheduler it was written for. What the descriptor's field carries is the
+    HPC profile's `walltime_arithmetic` -- `wall`, the cell as written, or
+    `seconds` -- and neither moves the watchdog's deadline.
+
+    The HPC profile's `[log]` table says how that machine writes the solver
+    log: `export_log = false` leaves `EXPORT_LOG` out of the script, and
+    `native_log` names the file the scheduler writes, which `collect` copies to
+    the name the row declared. `export_log = false` with no `native_log` is
+    refused, and so are several files matching the pattern. A collected point's
+    record carries what its log said: the iteration, the residual, the times
+    and the file they were read from.

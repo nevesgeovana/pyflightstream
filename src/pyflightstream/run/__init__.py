@@ -94,6 +94,7 @@ from pyflightstream.cases import (
 )
 from pyflightstream.cases.workflows import (
     COLD_START_VARIABLE,
+    EXPORT_LOG_VARIABLE,
     RESTART_FROM_VARIABLE,
     RESTART_ITERATIONS_VARIABLE,
     RESTART_VARIABLE,
@@ -113,6 +114,7 @@ from pyflightstream.cases.workflows import (
     restart_iterations,
     row_ncpus,
     row_walltime_s,
+    row_walltime_text,
     unsteady_export_threshold,
     walltime_clock_program,
     walltime_margin_s,
@@ -724,9 +726,21 @@ def _bind_submission_values(executor, case, point_case) -> None:
     ncpus = row_ncpus(point_case, case.solver.max_threads)
     if ncpus is not None:
         values["ncpus"] = ncpus
+    # WHAT THE SCHEDULER'S FIELD CARRIES IS THE PROFILE'S TO SAY (0.21.0).
+    # The default is the row's cell AS WRITTEN, so a profile writing
+    # `--time={walltime}` gets `4h` where the row wrote `4h`; a profile stating
+    # `walltime_arithmetic = "seconds"` gets the integer seconds this package
+    # wrote until 0.20.x. Neither touches the watchdog: `walltime_s` below is
+    # the deadline the clock counts down to, whatever the descriptor carries.
     walltime = row_walltime_s(point_case)
-    if walltime is not None:
-        values["walltime"] = int(walltime)
+    written = row_walltime_text(point_case)
+    if walltime is not None and written is not None:
+        arithmetic = getattr(getattr(executor, "profile", None), "walltime_arithmetic", "wall")
+        values["walltime"] = int(walltime) if arithmetic == "seconds" else written
+        # BOTH SPELLINGS ARE OFFERED, so a profile whose field wants one and
+        # whose comment wants the other needs no second run to get it.
+        values["walltime_s"] = int(walltime)
+        values["walltime_written"] = written
     # C07. THE POINT'S MAPPING IS REBUILT, never merged into the last
     # point's. One executor serves the whole campaign, so updating meant a
     # row that resolves neither a processor count nor a wall clock kept the
@@ -4574,7 +4588,9 @@ def _execute_sweep(
         update: dict[str, object] = {"outputs": outputs}
         if staged_geometry is not None:
             update["geometry"] = staged_geometry
-        point_cases.append((point, stem, case_at_point(case, point, **update)))
+        point_cases.append(
+            (point, stem, _with_the_profile_s_log(case_at_point(case, point, **update), executor))
+        )
 
     script = Script(version=fs_version)
     try:
@@ -4990,6 +5006,22 @@ def _latest_record_of_point(
     return latest
 
 
+def _with_the_profile_s_log(case: SimCase, executor: object) -> SimCase:
+    """Return the case as the EXECUTOR's machine writes its log (0.21.0).
+
+    Some clusters abort at ``EXPORT_LOG`` and write their own log beside the
+    run; their HPC profile says so, and the builders read the CASE and know
+    nothing of a profile. So the decision is written onto the case here, the
+    way the command line writes IGNORE_MISSING_FAMILIES, and only the FALSE
+    side is ever written: a run on any other machine, or through any other
+    executor, renders byte for byte what it rendered before.
+    """
+    profile = getattr(executor, "profile", None)
+    if profile is None or getattr(profile, "export_log", True):
+        return case
+    return case.model_copy(update={"variables": {**case.variables, EXPORT_LOG_VARIABLE: "false"}})
+
+
 def _execute_point(
     *,
     campaign: Campaign,
@@ -5147,7 +5179,7 @@ def _execute_point(
     update: dict[str, object] = {"outputs": outputs}
     if staged_geometry is not None:
         update["geometry"] = staged_geometry
-    point_case = case_at_point(case, point, **update)
+    point_case = _with_the_profile_s_log(case_at_point(case, point, **update), executor)
     # The BUILD's version, so a case sent to a second installation emits
     # the commands that installation documents rather than the campaign's.
     script = Script(version=fs_version)

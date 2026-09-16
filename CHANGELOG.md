@@ -9,6 +9,18 @@ FlightStream versions.
 
 ### Changed (breaking)
 
+- **The `WALLTIME` column carries its unit**: `240m`, `4h`, `90s`, `1d`. A bare
+  number is refused by name. It read as SECONDS in this package and as minutes
+  on the scheduler it was written for, and a wall clock that means two things
+  is a job that dies early or holds a node for a day.
+  - What the DESCRIPTOR carries is the HPC profile's to say:
+    `walltime_arithmetic = "wall"`, the default, puts the cell in as written,
+    and `"seconds"` puts the whole clock in integer seconds, which is what this
+    package wrote until 0.20.x. An arithmetic this package does not implement
+    is refused by name. Neither moves the Python clock's deadline.
+  - The descriptor also gets `{walltime_s}` and `{walltime_written}`, so a
+    profile can ask for either by name.
+
 - **A point is named by its flight condition.** The name writes every variable
   the row's `FLIGHT_CONDITION` cell declares, in the order written, each as a
   code and a fixed-width integer: `M144RE438AL+000BE+000J+080`. The code table is
@@ -32,6 +44,19 @@ FlightStream versions.
 
 ### Added
 
+- **The HPC profile's `[log]` table**, for a machine that aborts at
+  `EXPORT_LOG` and writes its own log beside the run.
+  - `export_log = false` leaves `EXPORT_LOG` out of the script.
+  - `native_log = "FTS{sim}.l*"` names the file the scheduler writes, and
+    `collect` copies it to the name the row declared, so everything downstream
+    reads one log.
+  - `export_log = false` with no `native_log` is refused: it asks for a run
+    with no log at all, and an unsteady run cannot be judged without one.
+  - Several files matching `native_log` are refused by name.
+- **A collected point's record carries what its log said**: the iteration it
+  reached, the residual, the times the solver printed, and which file they were
+  read from. The cluster path judged the point by the log and then kept only
+  the verdict, and on a cluster the log is the whole of the evidence.
 - **A rotating free stream, stated as a body rate.** A row states one of
   `roll_rate`, `pitch_rate` or `yaw_rate` in deg/s, in flight-mechanics signs,
   and the script writes `SET_FREESTREAM ROTATION` about the moment reference

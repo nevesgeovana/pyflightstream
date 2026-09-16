@@ -13,6 +13,8 @@ other, and:
   V = J x (RPM/60) x D, with D the diameter of the rotor ``CLOCK_MOTION``
   names, and a row naming none is refused by name.
 
+This module is the evidence of FR-104.
+
 The test names carry ``goal024_rpm`` so the goal's checker can select them.
 """
 

@@ -53,7 +53,7 @@ def _rotor_row(tmp_path, *, sweep="0.0,2.0,4.0", extra=""):
     for before, after in (
         ("| 0.0            |", f"| {sweep:<14} |"),
         ("| -        | r003", "| wing_clean.fsm | r003"),
-        ("| -     | -        | 26.120", f"| 8     | 3600     | {BUILD}"),
+        ("| -     | -        | 26.120", f"| 8     | 1h       | {BUILD}"),
         ("WINDOW_DEGREES: 90", "WINDOW_DEGREES: 90" + extra),
     ):
         assert before in row, (before, row)

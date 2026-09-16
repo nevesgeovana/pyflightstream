@@ -50,6 +50,7 @@ vocabulary for; the answer to that question must not be that so was a ninth.
 
 from __future__ import annotations
 
+import shutil
 import time
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
@@ -74,6 +75,7 @@ from ..workspace import (
     RunStatus,
     WorkspaceError,
 )
+from ..workspace.inputs import resolve_hpc_profile
 
 __all__ = [
     "CollectOutcome",
@@ -270,10 +272,23 @@ def assess_collected(record: RunRecord, sim_dir: Path) -> tuple[RunStatus, str |
     not visible to a stage that deliberately watches the workspace instead of
     the queue.
     """
+    assessment = assessment_of_collected(record, sim_dir)
+    return assessment.status, assessment.error
+
+
+def assessment_of_collected(record: RunRecord, sim_dir: Path):
+    """Return the WHOLE judgement of a collected point, not only its verdict.
+
+    The pair above is the assessor interface a caller may replace, and it
+    throws away everything the log said: the iteration it reached, the residual
+    it reached it at, the times the solver printed, and which file they were
+    read from. On a cluster that is the whole of the evidence, because there is
+    no process here to report on -- the record was the only place those numbers
+    could land, and until 0.21.0 they landed nowhere.
+    """
     from pyflightstream.run import LoadsAssessor
 
-    assessment = LoadsAssessor()(_RecordAsCase(record), None, sim_dir)  # type: ignore[arg-type]
-    return assessment.status, assessment.error
+    return LoadsAssessor()(_RecordAsCase(record), None, sim_dir)  # type: ignore[arg-type]
 
 
 def _sim_dir(workspace: CampaignWorkspace, record: RunRecord) -> Path:
@@ -307,6 +322,59 @@ def _working_dir(workspace: CampaignWorkspace, record: RunRecord) -> Path:
             "or complete the record by hand."
         )
     return candidate
+
+
+#: The suffix every solver log this package names carries, from EXPORT_KINDS.
+LOG_SUFFIX = "_log.txt"
+
+
+def _native_log_copy(
+    workspace: CampaignWorkspace,
+    record: RunRecord,
+    names: list[str],
+    work_dir: Path,
+) -> str | None:
+    """Copy the log the SCHEDULER wrote to the name the row declared (0.21.0).
+
+    HER DECISION OF 2026-09-15, from the cluster. Some machines abort at
+    ``EXPORT_LOG``: the job runs, every other export lands, and the log the
+    package judges the run by never arrives, so `collect` waits for a file
+    nothing will ever write. Such a machine writes its own log beside the run,
+    and its HPC profile names it (``native_log = "FTS{sim}.l*"``); this copies
+    that file to the declared name, so everything downstream reads one log
+    whatever the scheduler called it.
+
+    Returns the detail of a refusal, or None when there is nothing to say: no
+    profile, no ``native_log``, the declared log already there, or the
+    scheduler's file not written yet, which is a WAIT and not a failure.
+    """
+    profile = resolve_hpc_profile(workspace.inputs_dir)
+    pattern = getattr(profile, "native_log", None)
+    if not pattern:
+        return None
+    declared = [name for name in names if str(name).endswith(LOG_SUFFIX)]
+    if not declared:
+        return (
+            f"the HPC profile names a native log ({pattern!r}) and this point declares no "
+            f"output ending in {LOG_SUFFIX!r}, so there is no name to copy it to. The row "
+            "declares its log among its outputs, which is how it is collected and how the "
+            f"run is judged; its outputs are {', '.join(Path(n).name for n in names)}."
+        )
+    target = work_dir / declared[0]
+    if target.exists():
+        return None
+    glob = pattern.format(sim=record.sim_id, point=record.point_name or "", **{})
+    found = sorted(path for path in work_dir.glob(glob) if path.is_file())
+    if len(found) > 1:
+        return (
+            f"the HPC profile's native_log ({pattern!r}) matches {len(found)} files in "
+            f"{work_dir}: {', '.join(path.name for path in found)}. Which of them is this "
+            "run's log is not a guess this package makes, because the log is what the run "
+            "is judged by. Narrow the pattern, or clear the ones that are not this run's."
+        )
+    if found:
+        shutil.copy2(found[0], target)
+    return None
 
 
 def collect_once(
@@ -366,6 +434,15 @@ def collect_once(
         except WorkspaceError as error:
             report.failed.append(
                 CollectOutcome(run_id=record.run_id, state="FAILED", detail=str(error))
+            )
+            continue
+        # THE SCHEDULER'S OWN LOG IS PUT WHERE THE ROW SAID, before anything
+        # waits on it: on a machine that aborts at EXPORT_LOG the declared log
+        # is the one file that never arrives, and the sweep would wait forever.
+        refusal = _native_log_copy(workspace, record, names, work_dir)
+        if refusal is not None:
+            report.failed.append(
+                CollectOutcome(run_id=record.run_id, state="FAILED", detail=refusal)
             )
             continue
         paths = [work_dir / name for name in names]
@@ -446,8 +523,29 @@ def _complete(
     # package exists to make structurally impossible, so the fallback is now
     # the same assessor the local path uses and `None` is not a way to reach
     # the old behaviour.
-    status, verdict = (assessor or assess_collected)(record, sim_dir)
+    # WHAT THE LOG SAID RIDES WITH THE VERDICT (0.21.0). A replaced assessor
+    # answers with the pair its interface defines and nothing more; the
+    # package's own reads the log, and everything it read is stamped.
+    stamped: dict[str, object] = {}
+    if assessor is None:
+        assessment = assessment_of_collected(record, sim_dir)
+        status, verdict = assessment.status, assessment.error
+        for field_name in (
+            "iterations",
+            "residual",
+            "residual_note",
+            "log_file_used",
+            "solver_run_time_s",
+            "solver_initialization_s",
+            "time_steps",
+        ):
+            value = getattr(assessment, field_name, None)
+            if value is not None:
+                stamped[field_name] = value
+    else:
+        status, verdict = assessor(record, sim_dir)
     update: dict[str, object] = {
+        **stamped,
         "status": status,
         "outputs": list(collected),
         "error": verdict,

@@ -120,6 +120,7 @@ __all__ = [
     "EXPORT_UNSTEADY_AFTER_ITER_VARIABLE",
     "EXPORT_UNSTEADY_AFTER_REV_VARIABLE",
     "GEOMETRY_VARIABLE",
+    "EXPORT_LOG_VARIABLE",
     "IGNORE_MISSING_FAMILIES_VARIABLE",
     "LOG_OUTPUT_VARIABLE",
     "BASE_REGIONS_VARIABLE",
@@ -4652,6 +4653,15 @@ Frames = Mapping[str, int | None | Mapping[str, int]]
 #: (PFS-2035.13, the design of 2026-09-10).
 IGNORE_MISSING_FAMILIES_VARIABLE = "IGNORE_MISSING_FAMILIES"
 
+#: WHETHER THE SCRIPT EXPORTS THE SOLVER LOG (0.21.0, her decision of
+#: 2026-09-15). Written onto the case by the RUN layer from the HPC profile's
+#: ``[log]`` table, exactly as IGNORE_MISSING_FAMILIES is written from the
+#: command line, and for the same reason: the builders read the case and know
+#: nothing of a profile, and a machine that aborts at EXPORT_LOG is a property
+#: of the machine rather than of the row. Only the FALSE side is ever written,
+#: so a run on any other machine renders byte for byte what it rendered before.
+EXPORT_LOG_VARIABLE = "EXPORT_LOG"
+
 #: The words that mean yes and the words that mean no, in the ONE place
 #: both readers ask. The command line and the row variable used to carry a
 #: copy each, in two layers, with nothing asserting the two agreed (the
@@ -6916,6 +6926,14 @@ def _export_block(
         _export_log(conventions, case, script, claimed=(names.index(kinds["loads"]) + 1,))
 
 
+def _exports_its_log(case: SimCase) -> bool:
+    """Say whether the SCRIPT writes the solver log for this run."""
+    stated = _variable(case, EXPORT_LOG_VARIABLE)
+    if stated is None:
+        return True
+    return str(stated).strip().casefold() not in {"false", "no", "0", "disable"}
+
+
 def _export_log(
     conventions: WorkflowConventions,
     case: SimCase,
@@ -6924,6 +6942,12 @@ def _export_log(
     claimed: tuple[int, ...],
 ) -> None:
     """Export the solver log where the row says WHICH of its outputs is one.
+
+    NOT WHERE THE MACHINE WRITES ITS OWN. Some clusters abort at EXPORT_LOG;
+    their profile states ``export_log = false`` and names the log the scheduler
+    writes instead, and `collect` copies that file to this name. The row still
+    DECLARES the log among its outputs, because the point is judged by it and
+    collected with it: what changes is only who writes it.
 
     WHY A ROTOR ROW WANTS ONE. Without a log this package cannot judge
     convergence of an unsteady run at all: the time loop always reaches
@@ -6997,6 +7021,8 @@ def _export_log(
             "declared in OUTPUTS like every other file the row produces, so that it is "
             f"collected, and {LOG_OUTPUT_VARIABLE} says which one it is."
         )
+    if not _exports_its_log(case):
+        return
     if position in claimed:
         raise CampaignConfigError(
             f"case {case.sim_id!r} names output {position} as its solver log and this "
@@ -7880,29 +7906,64 @@ def walltime_margin_s(case: SimCase) -> float:
     return value
 
 
+#: The units a WALLTIME cell may carry, to their length in seconds. Her
+#: decision of 2026-09-15: the cell writes `240m` or `4h` and the unit is part
+#: of the value, because a bare number meant seconds in one place and minutes
+#: in another and a walltime that means two things is a job that either dies
+#: early or holds a node for a day.
+WALLTIME_UNITS: dict[str, float] = {"s": 1.0, "m": 60.0, "h": 3600.0, "d": 86400.0}
+
+
+def row_walltime_text(case: SimCase) -> str | None:
+    """Return the wall clock the ROW states, AS WRITTEN, or None.
+
+    What a descriptor carries by default (0.21.0): the scheduler's field takes
+    the cell's own text, so a profile writing `#SBATCH --time={walltime}` gets
+    `4h` where the row wrote `4h`.
+    """
+    stated = case.variables.get(WALLTIME_VARIABLE)
+    if stated is None or str(stated).strip() in ("", "-"):
+        return None
+    return str(stated).strip()
+
+
 def row_walltime_s(case: SimCase) -> float | None:
     """Return the wall clock the ROW states, in seconds, or None (FR-93).
 
     TWO CONSUMERS, which is what earned it a column rather than a place in
     an HPC profile: on a cluster it is what the job asks the scheduler for,
     and anywhere at all it is what this watchdog counts down to.
+
+    THE CELL CARRIES ITS UNIT since 0.21.0, and a bare number is refused by
+    name. It read as SECONDS here and as minutes on the cluster it was written
+    for, and neither reading is visible in the file: the same `240` is four
+    minutes to this watchdog and four hours to the scheduler.
     """
-    stated = case.variables.get(WALLTIME_VARIABLE)
-    if stated is None or str(stated).strip() in ("", "-"):
+    stated = row_walltime_text(case)
+    if stated is None:
         return None
+    unit = stated[-1:].lower()
+    if unit not in WALLTIME_UNITS:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} states {WALLTIME_VARIABLE}: {stated!r}, which carries "
+            "no unit. Write the unit with the number, as 240m or 4h: a bare number read "
+            "as seconds here and as minutes on the scheduler, and a wall clock that means "
+            f"two things is a job that dies early or holds a node for a day. The units "
+            f"are {', '.join(sorted(WALLTIME_UNITS))}."
+        )
     try:
-        value = float(str(stated).strip())
+        value = float(stated[:-1].strip())
     except ValueError:
         raise CampaignConfigError(
-            f"case {case.sim_id!r} states {WALLTIME_VARIABLE}: {stated!r}, which is not "
-            "a number of seconds."
+            f"case {case.sim_id!r} states {WALLTIME_VARIABLE}: {stated!r}, which is not a "
+            f"number followed by one of {', '.join(sorted(WALLTIME_UNITS))}."
         ) from None
     if value <= 0:
         raise CampaignConfigError(
-            f"case {case.sim_id!r} states {WALLTIME_VARIABLE}: {value}, and a run needs "
+            f"case {case.sim_id!r} states {WALLTIME_VARIABLE}: {stated!r}, and a run needs "
             "a positive wall clock or none at all."
         )
-    return value
+    return value * WALLTIME_UNITS[unit]
 
 
 #: The program the clock action runs, rendered with this row's deadline.
@@ -8924,6 +8985,9 @@ _STEADY_KEYS: tuple[str, ...] = (
     # are, and it is refused in a matrix CELL by the reader, so it stays a
     # choice of the invocation and never becomes a property of the row.
     IGNORE_MISSING_FAMILIES_VARIABLE,
+    # 0.21.0: the HPC profile's [log] table reaches the builder this way, on
+    # every run type because every run type exports a log.
+    EXPORT_LOG_VARIABLE,
     PERIODIC_COPIES_VARIABLE,
     BASE_REGIONS_VARIABLE,
     ROTATE_VARIABLE,

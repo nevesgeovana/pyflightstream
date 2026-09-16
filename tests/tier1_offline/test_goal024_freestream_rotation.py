@@ -16,6 +16,8 @@ written and the convention is measured by one licensed probe, recorded as a
 report under ``reports/probes``. The sign is one named constant here so that
 the probe changes one line.
 
+This module is the evidence of FR-105.
+
 The test names carry ``goal024_freestream_rotation`` so the goal's checker can
 select them.
 """

@@ -781,7 +781,7 @@ def test_goal019_watchdog_the_record_of_a_watched_run_carries_its_clock(tmp_path
 
     fixture = tmp_path / "loads_fixture.txt"
     fixture.write_text(LOADS, encoding="utf-8")
-    campaign = _threshold_campaign(tmp_path, **{ITER: "2", "WALLTIME": "3600"})
+    campaign = _threshold_campaign(tmp_path, **{ITER: "2", "WALLTIME": "1h"})
     workspace = CampaignWorkspace(tmp_path / "camp")
     records = run_campaign(
         campaign,

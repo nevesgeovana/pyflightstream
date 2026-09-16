@@ -8,7 +8,9 @@ folder ``DP-<name>``, and it is the stem of every file of the point,
 
 The tests drive the matrix path from the cell to the planned script and the run
 record, so what is asserted is what a campaign writes rather than what the
-naming function returns in isolation. The test names carry ``goal024_point_name``
+naming function returns in isolation. This module is the evidence of FR-102.
+
+The test names carry ``goal024_point_name``
 so the goal's checker can select them.
 """
 

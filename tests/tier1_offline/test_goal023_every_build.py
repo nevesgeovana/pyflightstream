@@ -158,7 +158,7 @@ def test_goal023_single_march_a_steady_row_has_no_march_strategy():
 
 
 FEATURES = [
-    ({"WALLTIME": "3600"}, "WALLTIME", "RESTART: {ADDITIONAL_ITERS=n}"),
+    ({"WALLTIME": "1h"}, "WALLTIME", "RESTART: {ADDITIONAL_ITERS=n}"),
     ({"EXPORT_UNSTEADY_AFTER_ITER": "2"}, "EXPORT_UNSTEADY_AFTER_ITER", "plots table"),
     ({"EXPORT_UNSTEADY_AFTER_REV": "1"}, "EXPORT_UNSTEADY_AFTER_REV", "plots table"),
     ({"RESTART": "{FINISH_PENDING}"}, "FINISH_PENDING", "ADDITIONAL_ITERS"),
@@ -188,7 +188,7 @@ def test_goal023_told_not_hidden_march_strategy_refuses_without_building():
     registry = CommandRegistry.load()
     with pytest.raises(BuildCapabilityError):
         march_strategy(
-            unsteady_case(WALLTIME="600"),
+            unsteady_case(WALLTIME="10m"),
             capabilities=BuildCapabilities.of(registry.for_version("25.100")),
         )
     assert (
@@ -217,7 +217,7 @@ def test_goal023_told_not_hidden_the_refusal_names_the_cell_to_change_and_each_t
 BUILD_ROWS = [
     ("plain", {}),
     ("threshold", {"EXPORT_UNSTEADY_AFTER_ITER": "2"}),
-    ("clock", {"WALLTIME": "3600"}),
+    ("clock", {"WALLTIME": "1h"}),
 ]
 
 
@@ -293,7 +293,7 @@ def test_goal023_told_not_hidden_the_plan_records_the_strategy_and_blocks_by_nam
     plan = plan_campaign(_campaign("26.120"), workspace, recipes=recipes, write_plan=False)
     assert plan.points[0].march_strategy == MARCH_SINGLE, plan.points[0]
     blocked = plan_campaign(
-        _campaign("26.120", WALLTIME="3600"),
+        _campaign("26.120", WALLTIME="1h"),
         CampaignWorkspace(tmp_path / "camp2"),
         recipes=recipes,
         write_plan=False,

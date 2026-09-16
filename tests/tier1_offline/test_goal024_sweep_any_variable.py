@@ -10,6 +10,8 @@ measure rather than the plan's list of names alone: a Mach sweep whose points
 all carry the first point's velocity would produce distinct names over
 identical runs, which is worse than the refusal it replaces.
 
+This module is the evidence of FR-104.
+
 The test names carry ``goal024_sweep_any_variable`` so the goal's checker can
 select them.
 """

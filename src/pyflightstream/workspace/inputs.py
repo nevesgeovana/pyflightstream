@@ -2339,6 +2339,26 @@ class HpcProfile:
     defaults: dict
     path: Path
     builds: dict = field(default_factory=dict)
+    #: WHAT THE DESCRIPTOR'S WALLTIME FIELD CARRIES (0.21.0, her decision of
+    #: 2026-09-15). ``wall`` is the row's cell as written, which is what a
+    #: scheduler taking ``4h`` wants; ``seconds`` is the whole clock in
+    #: integer seconds, which is what this package wrote until 0.20.x and what
+    #: a scheduler with a numeric field wants. The arithmetic a particular
+    #: cluster needs is added here when its owner says what it is, and an
+    #: unknown value is refused by name rather than silently taken as one of
+    #: these two.
+    walltime_arithmetic: str = "wall"
+    #: WHETHER THE SCRIPT EXPORTS THE SOLVER LOG (0.21.0, her decision of
+    #: 2026-09-15). Some machines abort at ``EXPORT_LOG`` and write their own
+    #: log beside the run instead, so the profile says it rather than the
+    #: package assuming one shape of machine.
+    export_log: bool = True
+    #: THE LOG THAT MACHINE WRITES ITSELF, as a glob relative to the run's
+    #: working directory, for example ``FTS{sim}.l*``. `collect` copies the one
+    #: file matching it to the standard log name, so everything downstream
+    #: reads one file whatever the scheduler called it. None where the
+    #: scheduler writes none.
+    native_log: str | None = None
 
 
 def hpc_profiles(inputs_dir: str | Path) -> list[Path]:
@@ -2369,6 +2389,10 @@ def resolve_hpc_profile(inputs_dir: str | Path) -> HpcProfile | None:
             "guessing spends a queue."
         )
     return read_hpc_profile(found[0])
+
+
+#: What a profile may ask the descriptor's walltime field to carry.
+WALLTIME_ARITHMETIC: frozenset[str] = frozenset({"wall", "seconds"})
 
 
 def read_hpc_profile(path: str | Path) -> HpcProfile:
@@ -2404,7 +2428,38 @@ def read_hpc_profile(path: str | Path) -> HpcProfile:
             "through a shell splits a path that has a space in it."
         )
     builds = _read_build_aliases(target, table.get("builds"))
+    arithmetic = str(table.get("walltime_arithmetic") or "wall").strip().lower()
+    if arithmetic not in WALLTIME_ARITHMETIC:
+        raise InputArtifactError(
+            f"the HPC profile {target} states walltime_arithmetic = {arithmetic!r}, and "
+            f"this package writes {', '.join(sorted(WALLTIME_ARITHMETIC))}. 'wall' puts "
+            "the row's cell in the descriptor as written (4h stays 4h); 'seconds' puts "
+            "the whole clock in integer seconds, which is what this package wrote until "
+            "0.20.x. Whatever your scheduler's field means, it is stated here and never "
+            "in the row: the row's cell is the wall clock and the watchdog counts down "
+            "to it either way."
+        )
+    log = table.get("log") or {}
+    if not isinstance(log, Mapping):
+        raise InputArtifactError(
+            f"the HPC profile {target} has a log entry that is not a table. Write it as "
+            "[log], with export_log and native_log under it."
+        )
+    export_log = bool(log.get("export_log", True))
+    native_log = str(log.get("native_log") or "").strip() or None
+    if not export_log and native_log is None:
+        raise InputArtifactError(
+            f"the HPC profile {target} states export_log = false and no native_log, which "
+            "asks for a run with no log at all. This package judges an unsteady run BY its "
+            "log -- the time loop always reaches its prescribed end, so without one every "
+            "such run is recorded COMPLETED_MAX_ITER whether it converged at every step or "
+            'at none. Name the log your scheduler writes, as native_log = "FTS{sim}.l*", '
+            "or leave export_log alone and let the script write it."
+        )
     return HpcProfile(
+        walltime_arithmetic=arithmetic,
+        export_log=export_log,
+        native_log=native_log,
         builds=builds,
         application_id=str(table["application_id"]),
         descriptor_format=fmt,

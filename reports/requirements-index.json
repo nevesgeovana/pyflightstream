@@ -2,8 +2,8 @@
  "source": "docs/srs",
  "generated_by": "scripts/gen_requirements_index.py",
  "traceability": {
-  "cited_by_a_test": 106,
-  "total": 153,
+  "cited_by_a_test": 111,
+  "total": 158,
   "method": "upper bound: an id mentioned anywhere in tests/**/*.py excluding conftest.py, which is not the marked falsifying test NFR-13 asks for"
  },
  "requirements": [
@@ -973,6 +973,46 @@
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: the 0.20.0 scope, every workflow on every registered build with the build as the only cell that changes. Evidence: tests/tier1_offline/test_goal023_every_build.py (every run type and case shape against every registered build, the cells that do not render named exactly, the single march on each build without actions, each feature only actions give refused at plan time by name, the strategy in the plan and the run record, one row planned under every build, and the 26.123 goldens unchanged). tests/tier1_offline/test_workflows.py (coverage derived with the substitute, and the Euclidean rotor's speed, axis and mark). And reports/RPT-049_a-rotor-on-the-builds-before-the-rotary-motion_2026-09-15.md (the unit and sense of the Euclidean angular velocity measured on 26.000 against the rotary motion on 26.120, and the rotor mark removed on 26.100). reports/RPT-051_a-rotor-on-26100-without-the-rotor-mark_2026-09-15.md (the 26.100 rotor without the mark, in rev/min, recorded as a decision at 0.20.1). AMENDS FR-98 and FR-96, whose wall clock and continuations are refused on a build without actions, and the coverage rule of the workflow table.*",
+   "verification": "test"
+  },
+  {
+   "id": "FR-102",
+   "text": "A point has ONE name, and the row writes it: every variable the FLIGHT_CONDITION cell declares, in the order the cell declares them, each as a code and a fixed-width integer. That name ends the run_id, names the datapoint folder DP-<name>, and is the stem of every file of the point, P<sim>-<name>; the superfile is SUPER-<sim>-<name> with the swept field written <code>+sweep.",
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: the cluster feedback of 2026-09-15, section 1, and the code table approved the same day. Evidence: tests/tier1_offline/test_goal024_point_name.py (the cell's variables in the cell's order, the same five reordered giving another name, the run_id, the folder and the files of a run, J 0.80 against J 0.84, two values that write one field refused at plan time, the seventeen keys of the table each against its written form, and the folder namer refusing anything but a checked name). SUPERSEDES the point tag of FR-10 and the file convention of FR-85 and FR-88.*",
+   "verification": "test"
+  },
+  {
+   "id": "FR-103",
+   "text": "pyfs-matrix rename --workspace <root> moves a workspace written under 0.20.x to the names of FR-102. It reads the matrices beside runs.json, works out each record's new name from its row and its recorded point, and renames the datapoint folders, the scripts, the collected files, the manifest and the plan. The manifest it replaces is archived first, every change is printed, --dry-run rehearses it, and a second run changes nothing.",
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: the same feedback, section 1: existing workspaces are renamed on upgrade rather than left behind. Evidence: tests/tier1_offline/test_goal024_rename_command.py (a workspace that ran under the 0.20 names, written back into that shape and then moved: the folders, the files, the scripts, the manifest, the plan, the archive, a second run that changes nothing, the products stage reading the renamed tree, the command line, and each of the four refusals).*",
+   "verification": "test"
+  },
+  {
+   "id": "FR-104",
+   "text": "ANY key of FLIGHT_CONDITION may carry the word sweep. A swept FLOW variable is resolved PER POINT, so each point carries its own density, velocity and Mach number, and such a row is ONE JOB PER POINT: the air state is a setup command the solver takes before it is initialised, so one process cannot hold two of them. A row that sweeps an attitude is the one warm job it has always been.",
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: the same feedback, sections 2 and 3. Evidence: tests/tier1_offline/test_goal024_sweep_any_variable.py (a Mach sweep, a Reynolds sweep, an altitude sweep, a rate sweep, the state resolved per point, the emitted script of each point, and the refusals that remain) and tests/tier1_offline/test_goal024_rpm.py (RPM in the cell, swept, reaching the motion; MOTIONS winning; the three refusals and the computed velocity). IMPLEMENTS the rule of FR-69, which licensed any key of the cell while the code varied three.*",
+   "verification": "test"
+  },
+  {
+   "id": "FR-105",
+   "text": "A row states ONE body rate -- roll_rate, pitch_rate or yaw_rate -- in deg/s and in flight-mechanics signs, and the script writes SET_FREESTREAM ROTATION about the moment reference point of the row's REF instead of CONSTANT. The rate sweeps like any other variable of the cell.",
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: the same feedback, section 4. Evidence: tests/tier1_offline/test_goal024_freestream_rotation.py (one rate writing ROTATION about the moment point with the axis the reference declares and the rate in rev/min, each rate on its own axis, zero and absent writing CONSTANT, and the two refusals). The SIGN the solver applies is measured on a seat and reported separately; this package emits the rate as written.*",
+   "verification": "test"
+  },
+  {
+   "id": "FR-106",
+   "text": "The WALLTIME cell carries its unit (240m, 4h, 90s, 1d) and a bare number is refused by name: it read as seconds here and as minutes on the scheduler it was written for. What the descriptor's field carries is the HPC profile's walltime_arithmetic -- wall, the cell as written, or seconds -- and neither moves the watchdog's deadline.",
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: the same feedback, sections 5 and 6. Evidence: tests/tier1_offline/test_goal024_walltime.py (the units, the refusal of a bare number, the descriptor as written, the profile's arithmetic and the deadline it does not move) and tests/tier1_offline/test_goal024_profile_log.py (the command removed, the scheduler's own log copied to the declared name and judged, and the two refusals). AMENDS FR-93.*",
    "verification": "test"
   },
   {

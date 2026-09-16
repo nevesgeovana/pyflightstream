@@ -377,9 +377,16 @@ def test_goal020_collect_uses_the_same_assessor_the_local_path_uses(tmp_path):
     """The two paths judge by ONE rule, so a cluster point and a local point agree.
 
     Asserted by identity of the judgement rather than by both happening to
-    produce the same word: `assess_collected` is called and its answer is what
-    lands on the row, so a change to the standard assessor reaches both paths
-    or neither.
+    produce the same word: the package's own assessor is called and its answer
+    is what lands on the row, so a change to the standard assessor reaches both
+    paths or neither.
+
+    THE SEAM MOVED ONE FUNCTION DOWN AT 0.21.0 and the property did not. The
+    default path now asks `assessment_of_collected` for the WHOLE judgement,
+    because the pair `assess_collected` returns threw away everything the log
+    said -- the iteration, the residual, the times -- and on a cluster that is
+    the whole of the evidence. `assess_collected` still answers with the pair,
+    through the same function, for a caller that wants it.
     """
     from pyflightstream.run import collect as collect_module
 
@@ -387,18 +394,20 @@ def test_goal020_collect_uses_the_same_assessor_the_local_path_uses(tmp_path):
     (sim / "loads.txt").write_text("unreadable", encoding="utf-8")
     (sim / "run_log.txt").write_text("unreadable", encoding="utf-8")
     seen: list[str] = []
-    real = collect_module.assess_collected
+    real = collect_module.assessment_of_collected
 
     def watching(record, sim_dir):
         seen.append(record.run_id)
         return real(record, sim_dir)
 
-    monkey = collect_module.assess_collected
-    collect_module.assess_collected = watching
+    monkey = collect_module.assessment_of_collected
+    collect_module.assessment_of_collected = watching
     try:
         collect_once(workspace, interval=0.0, sleep=_no_sleep)
     finally:
-        collect_module.assess_collected = monkey
+        collect_module.assessment_of_collected = monkey
+    # And the pair the interface defines is the same judgement, still.
+    assert collect_module.assess_collected(workspace.read_manifest()[0], sim)[0] is not None
     assert seen == ["camp/sim_9001/AL+000"], (
         "the default assessor was not called, so the status on the row was not judged"
     )

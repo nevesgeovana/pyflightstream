@@ -92,8 +92,11 @@ of the custom polar file after ` - `.
 half or a periodic sector. `SYMMETRY_LOADS` says whether the loads that
 come back are the whole aircraft's or the modelled slice's. `NCPUS` is the
 processor count, ONE number that reaches the solver's thread count and, on
-a cluster, the scheduler's request. `WALLTIME` is the wall clock in
-seconds, which on an unsteady row also arms the watchdog.
+a cluster, the scheduler's request. `WALLTIME` is the wall clock, written
+WITH ITS UNIT since 0.21.0 (`240m`, `4h`, `90s`, `1d`; a bare number is
+refused by name), which on an unsteady row also arms the watchdog. What the
+scheduler's own field is given is the HPC profile's to say
+(`walltime_arithmetic`), and it never moves the watchdog's deadline.
 
 **A COLUMN SAYS NOTHING WITH `-`.** One character rather than an empty
 cell, so a reader can tell "states nothing" from "the line is truncated".
