@@ -529,6 +529,13 @@ ATTITUDE_KEYS: dict[str, tuple[str, str]] = {
     "ALPHA": ("degrees", "the incidence of the free stream"),
     "BETA": ("degrees", "the sideslip of the free stream"),
     "ADVANCE_RATIO": ("dimensionless", "the speed of every motion that states none"),
+    # RPM JOINS THEM AT 0.21.0, on the cluster feedback of 2026-09-15: a rotor
+    # study varies the SPEED and holds the flow, and the speed had no home in
+    # the cell at all -- it could only be written on a motion record, where it
+    # cannot be swept and where every motion of the row needs its own copy.
+    # Stated here it reaches every motion that states none, exactly as the
+    # advance ratio does, and a MOTIONS record naming a speed still wins.
+    "RPM": ("rev/min", "the speed of every motion that states none, signed"),
 }
 
 
@@ -685,6 +692,7 @@ def _require_flight_condition(
 
 def _split_attitude(
     condition: dict[str, float | str],
+    pol: str = "",
 ) -> tuple[dict[str, float], dict[str, object]]:
     """Split a parsed cell into the FLOW STATE and the row's attitude (FR-69, FR-70).
 
@@ -714,7 +722,36 @@ def _split_attitude(
         if key in FLIGHT_CONDITION_KEYS and value != SWEEP_WORD
     }
     attitude = {key: value for key, value in condition.items() if key in ATTITUDE_KEYS}
+    _refuse_a_speed_and_a_ratio_over_a_velocity(condition, pol)
     return state, attitude
+
+
+#: The two keys of the cell that fix the free-stream velocity directly.
+VELOCITY_KEYS = ("MACH", "TASmps")
+
+
+def _refuse_a_speed_and_a_ratio_over_a_velocity(
+    condition: dict[str, float | str], pol: str
+) -> None:
+    """Refuse a cell that states the rotor speed, the advance ratio AND a velocity.
+
+    Her decision of 2026-09-15. The three are one relation, V = J n D, so any
+    two of them give the third: RPM with ADVANCE_RATIO and no velocity is the
+    static-rig form and the velocity is COMPUTED from it, which is the case a
+    rotor study writes. All three is one number too many, and the package
+    cannot know which two the author meant.
+    """
+    stated = [key for key in VELOCITY_KEYS if key in condition]
+    if not stated or "RPM" not in condition or "ADVANCE_RATIO" not in condition:
+        return
+    raise MatrixError(
+        f"POL {pol}: FLIGHT_CONDITION states RPM, ADVANCE_RATIO and "
+        f"{', '.join(stated)}. Those are one relation, V = J x (RPM/60) x D, so the "
+        "three over-state the point and nothing here can know which two you meant. "
+        "State RPM and ADVANCE_RATIO and the velocity is computed from them against "
+        "the diameter of the rotor CLOCK_MOTION names; or state a velocity with one "
+        "of the two and the other is derived."
+    )
 
 
 #: EVERY key of the cell, to the sweep axis each becomes (0.21.0). The rule
@@ -1544,7 +1581,7 @@ def read_matrix(path: str | Path, *, active_only: bool = True) -> list[MatrixRow
         condition = _require_flight_condition(
             record["FLIGHT_CONDITION"], record["POL"], row_number, path
         )
-        state, attitude = _split_attitude(condition)
+        state, attitude = _split_attitude(condition, record["POL"])
         # The swept key is not a value the row states: it is the word that
         # says which variable varies, and the axis it becomes is the row's
         # sweep. The other attitude keys ride on the variables, where the

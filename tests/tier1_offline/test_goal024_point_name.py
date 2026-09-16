@@ -70,7 +70,16 @@ EVERY_KEY = (
 )
 
 
-def _matrix(tmp_path, *, condition, values, pol="3207", workflow="steady", stem="wing_clean.fsm"):
+def _matrix(
+    tmp_path,
+    *,
+    condition,
+    values,
+    pol="3207",
+    workflow="steady",
+    stem="wing_clean.fsm",
+    cell="",
+):
     """A workspace and a one-row matrix whose FLIGHT_CONDITION cell is ``condition``."""
     workspace = make_library(tmp_path, register_build=("26.120", "C:/fs/FS.exe"))
     stage_geometry(workspace, stem)
@@ -97,7 +106,7 @@ def _matrix(tmp_path, *, condition, values, pol="3207", workflow="steady", stem=
             "SYMMETRY": "NONE",
             "FS_BUILD": "26.120",
             "WORKFLOW": workflow,
-            "VAR_NAMES_VALUES": "",
+            "VAR_NAMES_VALUES": cell,
         }.get(name, "-")
         for name in matrix_mod._COLUMNS
     )

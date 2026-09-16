@@ -75,6 +75,7 @@ is both (FR-69, FR-70):
 | `ALPHA` | degrees | the incidence of the free stream |
 | `BETA` | degrees | the sideslip of the free stream |
 | `ADVANCE_RATIO` | dimensionless | the speed of every motion of the row that states none of its own |
+| `RPM` | rev/min, signed | the speed of every motion of the row that states none of its own (0.21.0) |
 
 They are parsed here and NEVER handed to the resolver above: an angle
 constrains no fluid property, and asking the resolver about one would be
@@ -133,10 +134,17 @@ The reader folds case and strips spaces around it, so `SWEEP`, `Sweep` and
 `sweep ` all mean the same thing in a file a person typed; the constant is
 the canonical spelling the package stores.
 
-**The keys this release can sweep are `ALPHA`, `BETA` and
-`ADVANCE_RATIO`.** Any other key of the cell may carry the word in a later
-release; today it is refused naming those three, rather than accepted and
-quietly run as a single point.
+**Every key of the cell can be swept** since 0.21.0: the five that fix the
+state, the five pins, the two angles, the advance ratio and the rotor speed. A
+key that does not define the condition is still refused naming the ones that
+do, rather than accepted and quietly run as a single point.
+
+**A swept FLOW variable is resolved at every point.** `MACH:sweep, REmi:5.5`
+over `0.1,0.2,0.3` is three points at three velocities and three densities,
+each resolved from the cell as that point states it. Such a row is one solver
+job PER POINT: the air state is a setup command the solver takes before it is
+initialised, so one process cannot hold two of them. A row that sweeps an
+attitude is the one warm job it has always been.
 
 **An angle the row HOLDS still names the point.** `ALPHA:sweep, BETA:0.0`
 over `-4,0,4` plans three runs tagged `a-04.0_b+00.0`, `a+00.0_b+00.0` and
@@ -148,7 +156,29 @@ held to more than lossless content: it does not rename a run, and a
 **Only the two ANGLES do that.** An `ADVANCE_RATIO` the row holds stays on
 the row and is read there, because a point tag has never carried one, and
 putting it in would rename every run that has one, which is the same cost
-running the other way.
+running the other way. Since 0.21.0 the NAME of a point carries every variable
+the cell declares, held or swept, which is a different question from what the
+point MAPPING carries; see
+[How a point is named](workspace-and-workflows.md#how-a-point-is-named).
+
+## The rotor speed, the advance ratio and the velocity
+
+They are one relation, V = J x (RPM/60) x D, with D the diameter of the rotor
+`CLOCK_MOTION` names. State any two and the third follows:
+
+* `RPM` with a velocity: the ratio is what the two work out to, as before.
+* `ADVANCE_RATIO` with a velocity: the speed is derived, n = V / (J D), as
+  before.
+* **`RPM` with `ADVANCE_RATIO` and no velocity** (0.21.0): the VELOCITY is
+  computed from them. This is the form a rotor study writes, where the rig
+  states what the rotor does and the free stream follows. A row in this form
+  naming no `CLOCK_MOTION` rotor with a diameter is refused by name, because
+  there is no D to measure against.
+* All three: refused by name. The three over-state the point and nothing here
+  can know which two were meant.
+
+A `MOTIONS` record naming its own speed keeps it, whatever the cell says: the
+cell states the row's speed for every motion that states none.
 
 ## Which quantity gets solved for
 

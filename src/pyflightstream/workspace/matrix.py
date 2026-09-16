@@ -53,6 +53,7 @@ import warnings
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 from pydantic import ValidationError
 
@@ -77,6 +78,8 @@ from pyflightstream.cases.matrix import (
     RAW_COMMAND_KEY,
     RAW_FILE_KEY,
     RAW_VARIABLE,
+    SWEEP_WORD,
+    VELOCITY_KEYS,
     MatrixError,
     MatrixRow,
     read_matrix,
@@ -1444,13 +1447,28 @@ def renumber_repeated_pols(
     return changes
 
 
-def _swept_condition_key(row: MatrixRow) -> str | None:
-    """Return the FLIGHT_CONDITION key this row sweeps, or None for an angle or a ratio.
+#: The cell keys this module reaches for by name.
+ADVANCE_RATIO_KEY = "ADVANCE_RATIO"
+RPM_KEY = "RPM"
 
-    The angles and the advance ratio are attitude, not flow: they reach the
-    solver as they are and the fluid state is the same at every point of the
-    row. Every other key of the cell CHANGES THE STATE, so a row sweeping one
-    is resolved once per point.
+
+def _derives_its_velocity(row: MatrixRow) -> bool:
+    """Say whether this row's velocity comes from its rotor speed and advance ratio."""
+    if any(key in row.flight_condition for key in VELOCITY_KEYS):
+        return False
+    first = next(row.sweep.points(), {})
+    return (
+        _attitude_at(row, ADVANCE_RATIO_KEY, first) is not None
+        and _attitude_at(row, RPM_KEY, first) is not None
+    )
+
+
+def _swept_condition_key(row: MatrixRow) -> str | None:
+    """Return the FLIGHT_CONDITION key this row sweeps, or None for an attitude.
+
+    The angles, the advance ratio and the rotor speed are ATTITUDE: they reach
+    the solver as they are. Every other key of the cell is the flow itself, and
+    the swept one is the key whose value each point carries.
     """
     key = POINT_AXIS_KEYS.get(row.sweep.type)
     if key is None or key in ATTITUDE_KEYS:
@@ -1458,21 +1476,85 @@ def _swept_condition_key(row: MatrixRow) -> str | None:
     return key
 
 
-def _sweeps_the_flow(row: MatrixRow) -> bool:
-    """Say whether this row's sweep moves the flow state."""
-    return _swept_condition_key(row) is not None
+def _attitude_at(row: MatrixRow, key: str, point: Mapping[str, float]) -> float | None:
+    """Return one attitude value of this row at one point: the point's, else the row's."""
+    axis = next((axis for axis, cell in POINT_AXIS_KEYS.items() if cell == key), None)
+    if axis is not None and axis in point:
+        return float(point[axis])
+    stated = row.variables.get(key)
+    if stated is None or str(stated).strip().casefold() == SWEEP_WORD.casefold():
+        return None
+    try:
+        return float(str(stated))
+    except ValueError:
+        return None
 
 
-def _stated_at(row: MatrixRow, point: Mapping[str, float]) -> dict[str, float]:
+def _derived_velocity(
+    row: MatrixRow, point: Mapping[str, float], *, diameter_m: float | None
+) -> float | None:
+    """Return the velocity V = J x (RPM/60) x D this point states, or None.
+
+    HER DECISION OF 2026-09-15. A rotor study states the speed and the advance
+    ratio and no velocity at all: the three are one relation, and the velocity
+    is the one the run needs. The magnitude of the speed is what enters it; the
+    sign is the HAND of the rotation and turns no free stream around.
+
+    A cell stating a velocity as well is refused where the cell is read, so by
+    the time this is asked there is nothing to disagree with.
+    """
+    if any(key in row.flight_condition for key in VELOCITY_KEYS):
+        return None
+    ratio = _attitude_at(row, ADVANCE_RATIO_KEY, point)
+    rpm = _attitude_at(row, RPM_KEY, point)
+    if ratio is None or rpm is None:
+        return None
+    if diameter_m is None:
+        raise MatrixError(
+            f"POL {row.pol}: FLIGHT_CONDITION states RPM and ADVANCE_RATIO and no "
+            "velocity, so the velocity is V = J x (RPM/60) x D and D is the diameter "
+            "of the rotor the clock follows. This row names no CLOCK_MOTION rotor "
+            "whose diameter can be read: write 'CLOCK_MOTION: <alias>' in "
+            "VAR_NAMES_VALUES naming a rotor of this row's REF, and give that rotor a "
+            "diameter_m in the reference artifact."
+        )
+    return ratio * (abs(rpm) / 60.0) * diameter_m
+
+
+def _clock_rotor_diameter(row: MatrixRow, reference: Any) -> float | None:
+    """Return the diameter of the rotor this row's CLOCK_MOTION names.
+
+    THE CLOCK'S ROTOR AND NO OTHER, which is her decision: a configuration may
+    carry several rotors of different diameters, and the one the row is about
+    is the one whose clock it runs on. A row naming none has no answer here and
+    the caller refuses by name rather than reaching for the reference's own
+    single diameter, which would be a different rotor stated somewhere else.
+    """
+    alias = str(row.variables.get("CLOCK_MOTION") or "").strip()
+    if not alias:
+        return None
+    for name, block in reference.rotors.items():
+        if name.casefold() == alias.casefold():
+            return block.diameter_m
+    return None
+
+
+def _stated_at(
+    row: MatrixRow, point: Mapping[str, float], *, diameter_m: float | None = None
+) -> dict[str, float]:
     """Return the condition this row states AT one point of its sweep.
 
-    The row's cell with the swept key put back at this point's value. On a row
-    that sweeps an angle or a ratio it is the cell itself.
+    The row's cell with the swept key put back at this point's value, and the
+    velocity the point's advance ratio and rotor speed work out to where the
+    cell states no velocity of its own.
     """
     key = _swept_condition_key(row)
     stated = dict(row.flight_condition)
     if key is not None and row.sweep.type in point:
         stated[key] = float(point[row.sweep.type])
+    velocity = _derived_velocity(row, point, diameter_m=diameter_m)
+    if velocity is not None:
+        stated["TASmps"] = velocity
     return stated
 
 
@@ -1482,18 +1564,23 @@ def _states_per_point(
     reference_length_m: float | None,
     defaults: Mapping[str, float] | None,
     defaults_origin: str | None,
+    diameter_m: float | None = None,
 ) -> dict[str, PointState]:
-    """Resolve the flow state of every point of a row that sweeps a flow variable.
+    """Resolve the flow state of every point of a row whose points differ in it.
 
-    Empty for every other row: a row whose sweep is an angle or a ratio
-    resolves once, and carrying a copy of that one state per point would put
-    the same numbers in the manifest as many times as the row has points.
+    Empty for every row whose points share one state, which is every sweep of
+    an attitude: carrying a copy of that one state per point would put the same
+    numbers in the manifest as many times as the row has points. A row that
+    sweeps a flow variable is one case; so is a row whose velocity is derived
+    from a swept rotor speed or a swept advance ratio, which is why this asks
+    what the points STATE rather than which axis carries the word.
     """
-    if not _sweeps_the_flow(row):
+    points = list(row.sweep.points())
+    stated_per_point = [_stated_at(row, point, diameter_m=diameter_m) for point in points]
+    if len(points) < 2 or all(stated == stated_per_point[0] for stated in stated_per_point):
         return {}
     states: dict[str, PointState] = {}
-    for point in row.sweep.points():
-        stated = _stated_at(row, point)
+    for point, stated in zip(points, stated_per_point, strict=True):
         resolved = resolve_flight_condition(
             stated,
             pol=row.pol,
@@ -1864,21 +1951,23 @@ def resolve_matrix(
         # the failure `.04` exists to prevent, and which
         # `tests/tier1_offline/test_flight_condition_resolution.py` fails on rather
         # than describing.
-        if row.flight_condition or _sweeps_the_flow(row):
+        if row.flight_condition or _derives_its_velocity(row):
             # A SWEPT FLOW VARIABLE IS RESOLVED PER POINT (0.21.0). The row's
             # own cell holds every value but the swept one, so on such a row
             # the row-level state is the FIRST point's and each point's own
             # rides on `point_states`. Resolving once would emit the first
             # point's Mach number, density and velocity at every point of the
             # sweep, which is the whole of what a Mach sweep must not do.
+            diameter_m = _clock_rotor_diameter(row, reference)
             update["point_states"] = _states_per_point(
                 row,
                 reference_length_m=reference.chord_m,
                 defaults=setup_pins[row.set_code],
                 defaults_origin=condition_defaults_origin(row.set_code),
+                diameter_m=diameter_m,
             )
             resolved = resolve_flight_condition(
-                _stated_at(row, next(row.sweep.points(), {})),
+                _stated_at(row, next(row.sweep.points(), {}), diameter_m=diameter_m),
                 pol=row.pol,
                 reference_length_m=reference.chord_m,
                 # PFS-2030.08: the fluid constants of the campaign live in

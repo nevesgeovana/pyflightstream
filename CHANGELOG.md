@@ -32,6 +32,20 @@ FlightStream versions.
 
 ### Added
 
+- **`RPM` is a `FLIGHT_CONDITION` variable**, stated once for the row and
+  reaching every motion that states no speed of its own, exactly as
+  `ADVANCE_RATIO` does. It can be swept, which is what a rotor study varies;
+  until 0.20.x the speed could only be written on a motion record, where it
+  cannot be swept and where every motion needs its own copy.
+  - A `MOTIONS` record naming a speed still wins over it.
+  - `RPM` with `ADVANCE_RATIO` and a velocity (`MACH` or `TASmps`) is refused
+    by name: the three are one relation, V = J x (RPM/60) x D.
+  - `RPM` with `ADVANCE_RATIO` and no velocity COMPUTES the velocity from them,
+    with D the diameter of the rotor `CLOCK_MOTION` names; a row naming no such
+    rotor is refused by name.
+  - The flat `RPM` of `VAR_NAMES_VALUES` is unchanged: it is one rotor's speed,
+    it does not reach a motion record, and a row whose records resolve to a
+    speed still names its `CLOCK_MOTION`.
 - **Every `FLIGHT_CONDITION` variable can be swept** (FR-69, the rule
   implemented). Until 0.20.x a row could vary `ALPHA`, `BETA` and
   `ADVANCE_RATIO`, and a row sweeping any other key was refused naming those

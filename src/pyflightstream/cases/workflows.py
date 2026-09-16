@@ -1242,6 +1242,40 @@ _DERIVED_RPM_DECIMALS = 4
 _POINT_ADVANCE_RATIO = "advance_ratio"
 
 
+def _the_cell_states_both(case: SimCase) -> bool:
+    """Say whether the ROW'S CELL states the rotor speed and the advance ratio, and no velocity.
+
+    Read from ``condition_order``, which is the cell's own declared keys in the
+    cell's order, so this asks what the ROW wrote rather than what reached
+    `variables`: a motion record stating both forms is a different thing and
+    keeps the refusal it has always had.
+    """
+    declared = set(case.condition_order)
+    if not {"RPM", "ADVANCE_RATIO"} <= declared:
+        return False
+    return not any(key in case.flight_condition for key in ("MACH", "TASmps"))
+
+
+def _stated_rpm(case: SimCase) -> str | None:
+    """Resolve the rotor speed this row states, from `variables` or its POINT.
+
+    The same two homes as the advance ratio, and for the same reason: a row
+    writing ``RPM:sweep`` in its flight condition puts the VALUE on the point,
+    because the held coordinates of a sweep are merged into `variables` and the
+    swept one is not. A MOTION RECORD stating its own speed wins over both, and
+    it wins here rather than by a rule of its own: the record's variables are
+    merged over the row's before this is read.
+    """
+    stated = _variable(case, RPM_VARIABLE)
+    if stated is not None:
+        return stated
+    value = (getattr(case, "point", None) or {}).get(RPM_VARIABLE)
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
+
+
 def _stated_advance_ratio(case: SimCase) -> str | None:
     """Resolve the advance ratio this row states, from `variables` or its POINT.
 
@@ -1302,7 +1336,7 @@ def rotor_speed(case: SimCase) -> RotorSpeed:
     # resolved in the script emitter, which reads the point and writes
     # `SET_MOTION_ROTOR_RPM` from it.
     ratio_text = _stated_advance_ratio(case)
-    rpm_text = _variable(case, RPM_VARIABLE)
+    rpm_text = _stated_rpm(case)
     # READ FROM `variables`, NOT from the fallback: this refusal is about a
     # MOTION RECORD writing the word `sweep`, and a point carries a number.
     for key, text in (
@@ -1319,6 +1353,13 @@ def rotor_speed(case: SimCase) -> RotorSpeed:
                 "reaches every motion that states no speed of its own; a record states a "
                 "VALUE, which is how one rotor holds while another is swept."
             )
+    if ratio_text is not None and rpm_text is not None and _the_cell_states_both(case):
+        # HER DECISION OF 2026-09-15: the speed and the ratio together, with no
+        # velocity stated, are the static-rig form. They do not disagree: the
+        # ratio fixed the VELOCITY of the run, V = J x (RPM/60) x D, and the
+        # rotor turns at the speed the row wrote. So the speed is taken and the
+        # ratio is left where it already did its work, one layer above.
+        ratio_text = None
     if ratio_text is not None and rpm_text is not None:
         raise CampaignConfigError(
             f"case {case.sim_id!r} states its rotor speed twice: "
@@ -1337,7 +1378,9 @@ def rotor_speed(case: SimCase) -> RotorSpeed:
         )
 
     if ratio_text is None:
-        stated = _required_float(case, RPM_VARIABLE, quantity="rotor speed", unit="rev/min")
+        stated = _required_float(
+            case, RPM_VARIABLE, quantity="rotor speed", unit="rev/min", text=rpm_text
+        )
         if _variable(case, RPM_SIGN_VARIABLE) is not None:
             raise CampaignConfigError(
                 f"case {case.sim_id!r} states {RPM_VARIABLE} and {RPM_SIGN_VARIABLE}. A "
@@ -8541,8 +8584,27 @@ def _motion_view(case: SimCase, record: Mapping[str, str]) -> SimCase:
     row_ratio = case.variables.get(ADVANCE_RATIO_VARIABLE)
     if row_ratio is None:
         row_ratio = case.point.get("advance_ratio")
-    if row_ratio is not None and not (RPM_VARIABLE in record or ADVANCE_RATIO_VARIABLE in record):
+    # AND THE ROW'S SPEED, since 0.21.0, by the same rule and for the same
+    # reason: RPM is a key of FLIGHT_CONDITION now, the row states it for ALL
+    # its motions, and `_MOTION_RECORD_KEYS` strips it as though it described
+    # one rotor. A record stating a speed of its own still wins, which is what
+    # "MOTIONS wins" means; a swept speed is the POINT's.
+    # FROM THE CELL AND NOT FROM THE FLAT KEY. `RPM` in VAR_NAMES_VALUES is
+    # the pre-0.15.0 spelling of ONE rotor's speed and has never reached a
+    # motion record: a row whose records resolve to a speed must name its
+    # CLOCK_MOTION, and letting the flat key through would answer that
+    # question by arithmetic instead (FR-64, pinned by
+    # test_reduce_by_rotor.py::test_a_row_turning_several_rotors_still_has_to_name_its_clock).
+    # The cell's RPM is the row's statement for ALL its motions, which is what
+    # `condition_order` distinguishes: it lists the keys the CELL declared.
+    row_rpm = case.variables.get(RPM_VARIABLE) if RPM_VARIABLE in case.condition_order else None
+    if row_rpm is None:
+        row_rpm = case.point.get(RPM_VARIABLE)
+    states_its_own = RPM_VARIABLE in record or ADVANCE_RATIO_VARIABLE in record
+    if row_ratio is not None and not states_its_own:
         variables[ADVANCE_RATIO_VARIABLE] = row_ratio
+    if row_rpm is not None and not states_its_own:
+        variables[RPM_VARIABLE] = row_rpm
     variables.update({key: value for key, value in record.items() if key != ROTOR_ORIGIN_POINT_KEY})
     update: dict[str, object] = {"variables": variables, "motions": []}
     rotor = _rotor_of(case, record)
@@ -8558,7 +8620,13 @@ def _motion_view(case: SimCase, record: Mapping[str, str]) -> SimCase:
         variables[ROTOR_AXIS_VARIABLE] = rotor.axis
         variables[ROTOR_ORIGIN_VARIABLE] = "{},{},{}".format(*rotor.origin)
         variables[BLADES_VARIABLE] = str(rotor.blade_count)
-        if RPM_VARIABLE not in record:
+        # THE ROTOR'S HAND IS FOR A SPEED THAT CARRIES NO SIGN, which is a
+        # ratio: a rev/min value carries its own. Since 0.21.0 the speed may
+        # come from the ROW'S CELL as well as from the record, so the test is
+        # whether a speed reached this view at all rather than whether the
+        # record wrote one; filling it beside a stated RPM made every rotor
+        # row that states its speed in the cell refuse itself.
+        if RPM_VARIABLE not in variables:
             variables[RPM_SIGN_VARIABLE] = str(rotor.rpm_sign)
         # THE DIAMETER IS THIS ROTOR'S (FR-63). It is the reason one ratio
         # written once can govern rotors of different sizes: n = V/(J D)
