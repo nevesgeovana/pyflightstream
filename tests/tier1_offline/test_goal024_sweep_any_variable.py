@@ -23,6 +23,9 @@ from pyflightstream.cases.workflows import workflow_registry
 from pyflightstream.run.matrix import plan_matrix
 from tests.tier1_offline.test_goal024_point_name import RECIPES, _matrix
 
+#: The axes a configuration declares, so a row may state a body rate.
+AXES = '\n[body_axes]\nroll = "X"\npitch = "Y"\nyaw = "Z"\n'
+
 
 def _plan(workspace, matrix):
     return plan_matrix(
@@ -237,3 +240,19 @@ def test_goal024_sweep_any_variable_a_campaign_written_in_python_sweeps_them_too
     (case,) = campaign.sims
     assert case.sweep.type == "MACH"
     assert [point["MACH"] for point in case.sweep.points()] == [0.1, 0.2]
+
+
+def test_goal024_sweep_any_variable_a_body_rate_sweeps_too(tmp_path):
+    """A rate is a variable of the cell like any other, so it sweeps like any other.
+
+    The cluster's own case: hold the flow, vary the pull-up. The points differ
+    in the FREE STREAM rather than in the air, so each is named for its rate.
+    """
+    workspace, matrix = _matrix(
+        tmp_path,
+        condition="MACH:0.2, REmi:2.3, ALPHA:0.0, pitch_rate:sweep",
+        values="0.0,4.0",
+    )
+    reference = workspace.inputs_dir / "references" / "r003.toml"
+    reference.write_text(reference.read_text(encoding="utf-8") + AXES, encoding="utf-8")
+    assert _names(workspace, matrix) == ["M200RE230AL+000Q+000", "M200RE230AL+000Q+040"]

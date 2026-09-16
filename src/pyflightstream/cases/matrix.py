@@ -536,7 +536,17 @@ ATTITUDE_KEYS: dict[str, tuple[str, str]] = {
     # Stated here it reaches every motion that states none, exactly as the
     # advance ratio does, and a MOTIONS record naming a speed still wins.
     "RPM": ("rev/min", "the speed of every motion that states none, signed"),
+    # THE BODY RATES (0.21.0, the cluster feedback of 2026-09-15). One of
+    # them, non-zero, turns the free stream about the moment reference point
+    # of the row's REF: it is how a run states a pull-up, a roll or a yaw
+    # rather than a straight flight. Flight-mechanics signs, deg/s.
+    "roll_rate": ("deg/s", "the roll rate of the aircraft, about the REF's MRP"),
+    "pitch_rate": ("deg/s", "the pitch rate of the aircraft, about the REF's MRP"),
+    "yaw_rate": ("deg/s", "the yaw rate of the aircraft, about the REF's MRP"),
 }
+
+#: The three keys that turn the free stream, in the order a name writes them.
+RATE_KEYS = ("roll_rate", "pitch_rate", "yaw_rate")
 
 
 #: Canonical spelling by upper-cased key, for the case-insensitive match
@@ -723,7 +733,36 @@ def _split_attitude(
     }
     attitude = {key: value for key, value in condition.items() if key in ATTITUDE_KEYS}
     _refuse_a_speed_and_a_ratio_over_a_velocity(condition, pol)
+    _refuse_two_body_rates(condition, pol)
     return state, attitude
+
+
+def _refuse_two_body_rates(condition: dict[str, float | str], pol: str) -> None:
+    """Refuse a cell that turns the free stream two ways at once.
+
+    Her decision of 2026-09-15: ONE non-zero rate per row. The free stream is
+    given one axis and one angular velocity, so two rates would have to be
+    composed into an axis nobody wrote, and the row would run something other
+    than what it says. A rate stated as zero is not a rotation and is free to
+    sit beside another.
+    """
+    turning = [
+        key
+        for key in RATE_KEYS
+        if key in condition
+        and (
+            str(condition[key]).strip().casefold() == SWEEP_WORD.casefold()
+            or float(condition[key]) != 0.0
+        )
+    ]
+    if len(turning) < 2:
+        return
+    raise MatrixError(
+        f"POL {pol}: FLIGHT_CONDITION states {len(turning)} non-zero body rates "
+        f"({', '.join(turning)}), and a rotating free stream turns about ONE axis at one "
+        "speed. Two rates would be composed into an axis this row does not write. State "
+        "one rate per row, and write the others as 0."
+    )
 
 
 #: The two keys of the cell that fix the free-stream velocity directly.

@@ -76,6 +76,9 @@ is both (FR-69, FR-70):
 | `BETA` | degrees | the sideslip of the free stream |
 | `ADVANCE_RATIO` | dimensionless | the speed of every motion of the row that states none of its own |
 | `RPM` | rev/min, signed | the speed of every motion of the row that states none of its own (0.21.0) |
+| `roll_rate` | deg/s, signed | the roll rate of the aircraft, about the REF's moment point (0.21.0) |
+| `pitch_rate` | deg/s, signed | the pitch rate, about the same point (0.21.0) |
+| `yaw_rate` | deg/s, signed | the yaw rate, about the same point (0.21.0) |
 
 They are parsed here and NEVER handed to the resolver above: an angle
 constrains no fluid property, and asking the resolver about one would be
@@ -179,6 +182,35 @@ They are one relation, V = J x (RPM/60) x D, with D the diameter of the rotor
 
 A `MOTIONS` record naming its own speed keeps it, whatever the cell says: the
 cell states the row's speed for every motion that states none.
+
+## A rotating free stream
+
+A row states ONE body rate, in deg/s and in flight-mechanics signs, and the
+script writes
+
+    SET_FREESTREAM ROTATION <frame of the moment point> <axis> <rev/min>
+
+instead of `SET_FREESTREAM CONSTANT`. That is how a run states a pull-up, a
+roll or a yaw rather than straight flight: the free stream turns about the
+MOMENT REFERENCE POINT of the row's `REF`, at the rate the row wrote.
+
+**Which axis is which belongs to the configuration.** A mesh is built in
+whatever orientation its author chose, so the reference artifact says it:
+
+    [body_axes]
+    roll = "X"
+    pitch = "Y"
+    yaw = "Z"
+
+A row stating a rate against a reference that declares none is refused by name,
+and so is a row stating two non-zero rates: the free stream turns about one
+axis at one speed, and two rates would be composed into an axis the row does
+not write. Every rate zero, or no rate at all, writes `CONSTANT`.
+
+**What the solver does with a positive angular velocity is not documented by
+any edition of the manual.** This package emits the rate AS WRITTEN and records
+the measurement separately: the convention is measured by a licensed probe and
+reported, not asserted here.
 
 ## Which quantity gets solved for
 

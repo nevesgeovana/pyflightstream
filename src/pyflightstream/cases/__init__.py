@@ -2076,6 +2076,39 @@ class ReferenceData(BaseModel):
     #: and the rotor run turns about it. None when the reference declares
     #: no rotor.
     rotor_position_m: tuple[float, float, float] | None = None
+    #: WHICH MODEL AXIS EACH BODY RATE TURNS ABOUT (0.21.0), from the
+    #: reference artifact's ``[body_axes]`` table: ``roll``, ``pitch`` and
+    #: ``yaw`` to ``X``, ``Y`` or ``Z``. A mesh is built in whatever
+    #: orientation its author chose, and a rotating free stream has to be
+    #: given an AXIS of a frame, so the row cannot state one without the
+    #: reference saying which axis is which. Empty for a reference that
+    #: declares none, and a row stating a rate against such a reference is
+    #: refused by name rather than guessed for.
+    body_axes: dict[str, str] = Field(default_factory=dict)
+
+    @field_validator("body_axes")
+    @classmethod
+    def _axes_are_three_named_axes(cls, value: dict[str, str]) -> dict[str, str]:
+        """Refuse a table that names something other than one axis per rate."""
+        axes = {key.strip().lower(): str(item).strip().upper() for key, item in value.items()}
+        unknown = sorted(set(axes) - {"roll", "pitch", "yaw"})
+        if unknown:
+            raise ValueError(
+                f"body_axes names {', '.join(unknown)}, and a body rate is one of roll, "
+                "pitch or yaw. Write one axis for each rate the model can be given."
+            )
+        wrong = sorted(key for key, item in axes.items() if item not in {"X", "Y", "Z"})
+        if wrong:
+            raise ValueError(
+                f"body_axes gives {', '.join(wrong)} an axis that is not X, Y or Z. An "
+                "axis of a coordinate system is one of those three."
+            )
+        if len(set(axes.values())) != len(axes):
+            raise ValueError(
+                f"body_axes writes one axis twice ({axes}), and two body rates cannot turn "
+                "about the same axis of one frame."
+            )
+        return axes
 
 
 def _resolve_settings_toggle(value: object) -> object:

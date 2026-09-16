@@ -1842,6 +1842,7 @@ def resolve_matrix(
                         reference.rotor.position.z_m,
                     )
                 ),
+                body_axes=dict(reference.body_axes),
             ),
             "solver": solvers[row.set_code],
             # THE REFERENCE'S FRAMES RIDE ON THE CASE (FR-72, the design decision of

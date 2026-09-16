@@ -32,6 +32,24 @@ FlightStream versions.
 
 ### Added
 
+- **A rotating free stream, stated as a body rate.** A row states one of
+  `roll_rate`, `pitch_rate` or `yaw_rate` in deg/s, in flight-mechanics signs,
+  and the script writes `SET_FREESTREAM ROTATION` about the moment reference
+  point of the row's `REF` instead of `CONSTANT`: it is how a run states a
+  pull-up, a roll or a yaw rather than straight flight. The rate sweeps like
+  any other variable of the cell.
+  - Which axis of the model each rate turns about is the CONFIGURATION's to
+    state: the reference artifact declares `[body_axes]` (`roll`, `pitch`,
+    `yaw` against `X`, `Y` or `Z`), and a row stating a rate against a
+    reference that declares none is refused by name.
+  - Two non-zero rates in one row are refused by name: the free stream turns
+    about one axis at one speed.
+  - Every rate zero, or no rate at all, writes `CONSTANT`, so a row written
+    before this release renders exactly what it rendered before.
+  - WHAT THE SOLVER DOES WITH A POSITIVE ANGULAR VELOCITY is not stated by any
+    edition of the manual. The rate is emitted as written and the convention is
+    measured rather than asserted; the sign is one named constant,
+    `cases.workflows.FREESTREAM_ROTATION_SIGN`.
 - **`RPM` is a `FLIGHT_CONDITION` variable**, stated once for the row and
   reaching every motion that states no speed of its own, exactly as
   `ADVANCE_RATIO` does. It can be swept, which is what a rotor study varies;

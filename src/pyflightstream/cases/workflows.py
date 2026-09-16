@@ -4401,6 +4401,120 @@ def _row_symmetry_loads(case: SimCase, from_setup: bool | None) -> bool | None:
     return value
 
 
+#: The body rates a row may state, and the axis of ``[body_axes]`` each one
+#: turns about. The order is the one a point name writes them in.
+RATE_VARIABLES: tuple[tuple[str, str], ...] = (
+    ("roll_rate", "roll"),
+    ("pitch_rate", "pitch"),
+    ("yaw_rate", "yaw"),
+)
+
+#: Degrees per second to revolutions per minute: 60 seconds over 360 degrees.
+_DEG_PER_S_TO_RPM = 60.0 / 360.0
+
+#: WHAT THE SIGN OF THE EMITTED ROTATION IS, relative to the rate the row
+#: states. The row's rates are FLIGHT MECHANICS (her decision of 2026-09-15):
+#: a positive pitch rate is nose-up. What the SOLVER does with a positive
+#: angular velocity about a frame axis is the solver's own convention, and no
+#: edition of the manual states it, so this package emits the rate AS WRITTEN
+#: and the convention is MEASURED rather than asserted: one licensed probe,
+#: one rate, one build, recorded as a report under reports/probes.
+#:
+#: THIS IS THE ONE LINE THAT CHANGES IF THE PROBE DISAGREES, which is why it
+#: is a constant with a name rather than a sign buried in an expression.
+FREESTREAM_ROTATION_SIGN = 1.0
+
+
+def _stated_rate(case: SimCase, key: str) -> float | None:
+    """Return one body rate this row states, from `variables` or its POINT."""
+    stated = _variable(case, key)
+    if stated is None:
+        value = (getattr(case, "point", None) or {}).get(key)
+        stated = None if value is None else str(value)
+    if stated is None:
+        return None
+    try:
+        return float(stated)
+    except ValueError as error:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} states {key} as {stated!r}, and a body rate is a "
+            "number of degrees per second."
+        ) from error
+
+
+def _turning_rate(case: SimCase) -> tuple[str, str, float] | None:
+    """Return the (key, axis name, deg/s) this row turns the free stream by, or None.
+
+    A row states at most one non-zero rate: the matrix reader refuses two where
+    the cell is read, and this refuses them again for a case authored in
+    Python, which reaches no reader.
+    """
+    turning: list[tuple[str, str, float]] = [
+        (key, axis, rate)
+        for key, axis in RATE_VARIABLES
+        if (rate := _stated_rate(case, key)) is not None and rate != 0.0
+    ]
+    if not turning:
+        return None
+    if len(turning) > 1:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} states {len(turning)} non-zero body rates "
+            f"({', '.join(key for key, _, _ in turning)}), and a rotating free stream "
+            "turns about ONE axis at one speed. State one rate, and write the others as 0."
+        )
+    return turning[0]
+
+
+def _free_stream(case: SimCase, script: Script, frames: Frames) -> None:
+    """Emit the free-stream definition: CONSTANT, or ROTATION where a rate turns it.
+
+    HER DECISION OF 2026-09-15, from the cluster. A row states ONE body rate in
+    deg/s, in flight-mechanics signs, and the free stream turns about the
+    MOMENT REFERENCE POINT of the row's REF at that rate: it is how a run
+    states a pull-up, a roll or a yaw rather than straight flight. Which axis
+    of the model that is belongs to the CONFIGURATION and not to the row, so
+    the reference declares it in ``[body_axes]`` and a reference declaring none
+    is a configuration no row may turn.
+
+    Every rate zero, or no rate at all, emits CONSTANT: a row written before
+    this release renders exactly what it rendered before.
+    """
+    turning = _turning_rate(case)
+    if turning is None:
+        helpers.free_stream(script)
+        return
+    key, axis_name, rate = turning
+    reference = case.reference
+    axes = {} if reference is None else dict(reference.body_axes)
+    axis = axes.get(axis_name)
+    if axis is None:
+        declared = ", ".join(f"{name}: {value}" for name, value in sorted(axes.items()))
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} states {key}: {rate:g} deg/s, and the reference "
+            f"artifact its REF names declares no {axis_name} axis "
+            f"({'it declares ' + declared if axes else 'it declares no [body_axes] at all'}). "
+            "A mesh is built in whatever orientation its author chose, so which axis the "
+            "aircraft rolls, pitches and yaws about is the configuration's to state: write "
+            "'[body_axes]' in the reference artifact, with roll, pitch and yaw against X, "
+            "Y or Z."
+        )
+    frame = frames.get("MRP")
+    if not isinstance(frame, int):
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} states {key}: {rate:g} deg/s, and the free stream turns "
+            "about the MOMENT REFERENCE POINT, which this run has no frame for: the "
+            "reference artifact states no moment_point, so there is nothing to turn about. "
+            "Add 'moment_point' to the reference artifact this row's REF names."
+        )
+    helpers.free_stream(
+        script,
+        "ROTATION",
+        frame=frame,
+        axis=axis,
+        rpm=FREESTREAM_ROTATION_SIGN * rate * _DEG_PER_S_TO_RPM,
+    )
+
+
 def _fluid(case: SimCase, script: Script) -> None:
     """Emit the resolved air state, where the row resolved one.
 
@@ -6924,7 +7038,7 @@ def _build_steady(case: SimCase, script: Script, conventions: WorkflowConvention
     frames.update(_translations(case, script, moved))
     frames.update(_rotations(case, script, moved))
     _significant_digits(case, script)
-    helpers.free_stream(script)
+    _free_stream(case, script, frames)
     _fluid(case, script)
     _settings(case, script)
     _script_tail(conventions, case, script, frame, unsteady=False, frames=frames)
@@ -7000,7 +7114,7 @@ def build_steady_sweep(
     frames.update(_translations(first, script, moved))
     frames.update(_rotations(first, script, moved))
     _significant_digits(first, script)
-    helpers.free_stream(script)
+    _free_stream(first, script, frames)
     _fluid(first, script)
     _settings(first, script)
     _script_init(first, script, frames=frames)
@@ -8117,7 +8231,7 @@ def _build_unsteady(case: SimCase, script: Script, conventions: WorkflowConventi
     _pproc_plots(case, script, frames)
     _pproc_probes(case, script, frames, unsteady=True, analysis=False)
     _significant_digits(case, script)
-    helpers.free_stream(script)
+    _free_stream(case, script, frames)
     _fluid(case, script)
     stepping = unsteady_time_stepping(case)
     helpers.unsteady_solver(
@@ -8228,7 +8342,7 @@ def _build_unsteady_rotor(case: SimCase, script: Script, conventions: WorkflowCo
     _pproc_plots(case, script, frames)
     _pproc_probes(case, script, frames, unsteady=True, analysis=False)
     _significant_digits(case, script)
-    helpers.free_stream(script)
+    _free_stream(case, script, frames)
     _fluid(case, script)
     # RESOLVED ONCE AND THREADED. The ratio was previously converted
     # twice per case, here and again for the clock, which is the saving
@@ -8439,7 +8553,7 @@ def _rotor_motions(
     _pproc_plots(case, script, frames)
     _pproc_probes(case, script, frames, unsteady=True, analysis=False)
     _significant_digits(case, script)
-    helpers.free_stream(script)
+    _free_stream(case, script, frames)
     _fluid(case, script)
     speeds = [rotor_speed(view) for view in views]
     for number, (view, radical) in enumerate(zip(views, radicals, strict=True), start=1):
@@ -8816,6 +8930,11 @@ _STEADY_KEYS: tuple[str, ...] = (
     TRANSLATE_VARIABLE,
     VELOCITY_VARIABLE,
     ADVANCE_RATIO_VARIABLE,
+    # THE THREE BODY RATES (0.21.0), on every run type for the same reason as
+    # the two angles: they are what the aircraft is doing in the flow, the
+    # cell states them, and the free stream of every run type is written from
+    # them. A row that states none renders as it always did.
+    *(key for key, _ in RATE_VARIABLES),
     LOG_OUTPUT_VARIABLE,
     # The three columns of 0.17.0 that EVERY row answers, registered on
     # every run type for that reason. NCPUS and WALLTIME are resources

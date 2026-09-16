@@ -377,6 +377,13 @@ class ReferenceArtifact(BaseModel):
     span_m: float = Field(gt=0.0)
     rotor_diameter_m: float | None = Field(default=None, gt=0.0)
     moment_point: PointXyz = Field(default_factory=PointXyz)
+    #: WHICH MODEL AXIS EACH BODY RATE TURNS ABOUT (0.21.0): ``roll``,
+    #: ``pitch`` and ``yaw`` to ``X``, ``Y`` or ``Z``. A mesh is built in
+    #: whatever orientation its author chose, so a row stating a body rate
+    #: needs the configuration to say which axis is which; the values are
+    #: checked where they reach the case. A configuration that declares none
+    #: is a configuration no row may turn.
+    body_axes: dict[str, str] = Field(default_factory=dict)
     rotor: RotorReference | None = None
     #: The boundary aliases the ``[aliases]`` table declares (FR-59, the reference
     #: design of 2026-09-10). They lived in the setup preset at 0.14.0,
