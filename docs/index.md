@@ -3,7 +3,7 @@
 Version-aware, didactic Python driver for the FlightStream panel-method
 solver. MIT licensed.
 
-Status: v0.20.1 is the current release; the changelog records what
+Status: v0.21.0 is the current release; the changelog records what
 each release adds and what each one asks you to do.
 
 **v0.17.0 is the release that makes a sweep ONE RUN.** A steady matrix row
