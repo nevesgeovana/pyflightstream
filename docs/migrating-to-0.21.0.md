@@ -47,9 +47,16 @@ your folders will carry.
 
 It reads the matrix and the manifest, works out the new name of every
 record from its row and its recorded point, and then renames the datapoint
-folders, the scripts, the collected files and the provenance, rewrites the
-manifest, and plans again so `plan.json` matches. It prints every change;
-running it a second time changes nothing.
+folders, the scripts and the collected files, rewrites the manifest, and
+rewrites `plan.json` in place so it matches without needing your recipes or a
+solver version. It prints every change; running it a second time changes
+nothing.
+
+**Your products are rebuilt, not moved.** The tables under `post/` keep their
+0.20.x names until you rebuild them, so run `pyfs-matrix post --workspace
+<root>` after the rename: the polars, the superfiles and the series tables are
+then written under the new names, and the stale ones are archived by the post
+stage as they always are.
 
 **Before it touches anything** it refuses, by name, a record it cannot map:
 one whose simulation has no row in the matrix, one whose recorded flow
@@ -62,8 +69,16 @@ would move is refused: run `pyfs-matrix collect` until nothing is
 outstanding, then rename.
 
 **What is not renamed.** Nothing outside the workspace: your matrix file,
-your inputs library and your own notes keep their names. The manifest is
-archived before it is rewritten.
+your inputs library and your own notes keep their names. Nothing under `post/`
+either: the products are REBUILT under the new names by `pyfs-matrix post`,
+which is the step after this one. The manifest is archived before it is
+rewritten.
+
+**If you pass `--point-name`, read this twice.** The placeholders moved with
+the names: `{point}` is now the point name and `{polar}` is `P<sim>-<name>`. A
+template of your own still renders, so this is the one change in the release
+that reaches you WITHOUT a message -- your files simply come out under different
+names. Check your template before the first run.
 
 **If you do not rename**, `collect` and the post-processing stages refuse a
 record written before 0.21.0 and say so, naming this command. They do not
@@ -145,6 +160,8 @@ These add to what a row may write; they take nothing away.
 1. Read the code table, so you know what your points will be called.
 2. `pyfs-matrix collect` until nothing is outstanding.
 3. `pyfs-matrix rename --workspace <root>`, and read what it printed.
-4. Put the unit on every `WALLTIME` cell.
-5. If your cluster writes its own log, add `[log]` to its profile.
-6. Run as before.
+4. `pyfs-matrix post --workspace <root>`, to rebuild the products under the
+   new names.
+5. Put the unit on every `WALLTIME` cell.
+6. If your cluster writes its own log, add `[log]` to its profile.
+7. Run as before.

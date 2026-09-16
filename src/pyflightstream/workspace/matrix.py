@@ -1423,7 +1423,7 @@ def renumber_repeated_pols(
         # when a POL this matrix has run is repeated inside it, the first row
         # stating it is taken as the one that ran and every later row moves.
         # The round-one fix at 9691369 refused every such row instead; that is
-        # reversed here on her decision. What is still refused is the FIRST
+        # reversed here on the owning seat's decision. What is still refused is the FIRST
         # occurrence when another matrix also states the POL and this matrix
         # has runs of it: there is no other row of this file to keep it, so
         # moving it is the orphaning itself.
@@ -1495,10 +1495,18 @@ def _derived_velocity(
 ) -> float | None:
     """Return the velocity V = J x (RPM/60) x D this point states, or None.
 
-    HER DECISION OF 2026-09-15. A rotor study states the speed and the advance
-    ratio and no velocity at all: the three are one relation, and the velocity
-    is the one the run needs. The magnitude of the speed is what enters it; the
-    sign is the HAND of the rotation and turns no free stream around.
+    THE OWNING SEAT'S DECISION OF 2026-09-15. A rotor study states the speed and
+    the advance ratio and no velocity at all: the three are one relation, and
+    the velocity is the one the run needs. The magnitude of the speed is what
+    enters it; the sign is the HAND of the rotation and turns no free stream
+    around.
+
+    THE RELATION IS THE PROPELLER ADVANCE RATIO, J = V / (n D) with n in
+    revolutions per SECOND, which is why the rev/min are divided by sixty. The
+    rotorcraft advance ratio, mu = V / (Omega R), is a different number for the
+    same inputs -- larger by pi/2 -- and is not what this package reads. It is
+    named here because the vocabulary of this package spans both (the V&V lens,
+    2026-09-16).
 
     A cell stating a velocity as well is refused where the cell is read, so by
     the time this is asked there is nothing to disagree with.
@@ -1524,7 +1532,7 @@ def _derived_velocity(
 def _clock_rotor_diameter(row: MatrixRow, reference: Any) -> float | None:
     """Return the diameter of the rotor this row's CLOCK_MOTION names.
 
-    THE CLOCK'S ROTOR AND NO OTHER, which is her decision: a configuration may
+    THE CLOCK'S ROTOR AND NO OTHER, which is the owning seat's decision: a configuration may
     carry several rotors of different diameters, and the one the row is about
     is the one whose clock it runs on. A row naming none has no answer here and
     the caller refuses by name rather than reaching for the reference's own

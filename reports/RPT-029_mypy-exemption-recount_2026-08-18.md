@@ -41,8 +41,11 @@
 > THIS BLOCK IS LIVE: it carries the latest re-measurement, whose date
 > the headline sentence below names, and each earlier run keeps its
 > section further down; the two lines here were last replaced by the
-> 2026-09-15 run, on the tree that carries the 0.20.0 march strategy and
-> the per-build rotor vocabulary:
+> run of 2026-09-15 EVENING, on the tree that carries the 0.21.0 point name,
+> its renaming command and the sweep of any flight-condition variable. (An
+> earlier run of the SAME DAY measured the 0.20.0 tree at 617 errors in 18 of
+> 85 modules; two measurements of two trees fell on one date, so each is named
+> by its tree rather than by the date alone.):
 >
 >     Found 626 errors in 18 files (checked 86 source files)
 >     Success: no issues found in 86 source files
@@ -69,8 +72,9 @@ per-build rotor vocabulary, and it arrived CLEAN by the same test, at 617
 errors in 18 of 85 modules. Its figures are not repeated in this part of the
 report, which carries ONE live measurement.
 
-The runs before this one keep their own sections below, and their figures are
-not repeated in this part of the report.
+The runs before this one keep their own sections below, except the
+eighty-fifth's: it fell on the same day as this one, and its figures are in the
+paragraph above rather than in a section of its own.
 
 ## Re-measured 2026-09-14: the eighty-fourth module arrived, and the debt grew inside the exempted set
 

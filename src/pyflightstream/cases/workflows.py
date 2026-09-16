@@ -1355,7 +1355,7 @@ def rotor_speed(case: SimCase) -> RotorSpeed:
                 "VALUE, which is how one rotor holds while another is swept."
             )
     if ratio_text is not None and rpm_text is not None and _the_cell_states_both(case):
-        # HER DECISION OF 2026-09-15: the speed and the ratio together, with no
+        # THE OWNING SEAT'S DECISION OF 2026-09-15: the speed and the ratio together, with no
         # velocity stated, are the static-rig form. They do not disagree: the
         # ratio fixed the VELOCITY of the run, V = J x (RPM/60) x D, and the
         # rotor turns at the speed the row wrote. So the speed is taken and the
@@ -4414,15 +4414,24 @@ RATE_VARIABLES: tuple[tuple[str, str], ...] = (
 _DEG_PER_S_TO_RPM = 60.0 / 360.0
 
 #: WHAT THE SIGN OF THE EMITTED ROTATION IS, relative to the rate the row
-#: states. The row's rates are FLIGHT MECHANICS (her decision of 2026-09-15):
+#: states. The row's rates are FLIGHT MECHANICS (the owning seat's decision of 2026-09-15):
 #: a positive pitch rate is nose-up. What the SOLVER does with a positive
 #: angular velocity about a frame axis is the solver's own convention, and no
 #: edition of the manual states it, so this package emits the rate AS WRITTEN
 #: and the convention is MEASURED rather than asserted: one licensed probe,
-#: one rate, one build, recorded as a report under reports/probes.
+#: three rates of one kind on one build, recorded as RPT-052 with its evidence
+#: under reports/probes.
 #:
-#: THIS IS THE ONE LINE THAT CHANGES IF THE PROBE DISAGREES, which is why it
-#: is a constant with a name rather than a sign buried in an expression.
+#: THE MEASUREMENT: reports/RPT-052_the-sense-of-a-rotating-free-stream_2026-09-15.md,
+#: three pitch rates on one wing-body on 26.124, with its evidence under
+#: reports/probes/. A positive rate came back with the nose-down moment
+#: increment that opposes a nose-up rotation, so this stays +1.
+#:
+#: WHAT CHANGES IF A LATER PROBE DISAGREES: this constant AND the two rate
+#: assertions of tests/tier1_offline/test_goal024_freestream_rotation.py, which
+#: pin the emitted rev/min against the stated rate. Saying "one line" was wrong
+#: and is the sentence a maintainer would have acted on (the V&V lens,
+#: 2026-09-16).
 FREESTREAM_ROTATION_SIGN = 1.0
 
 
@@ -4469,7 +4478,7 @@ def _turning_rate(case: SimCase) -> tuple[str, str, float] | None:
 def _free_stream(case: SimCase, script: Script, frames: Frames) -> None:
     """Emit the free-stream definition: CONSTANT, or ROTATION where a rate turns it.
 
-    HER DECISION OF 2026-09-15, from the cluster. A row states ONE body rate in
+    THE OWNING SEAT'S DECISION OF 2026-09-15, from the cluster. A row states ONE body rate in
     deg/s, in flight-mechanics signs, and the free stream turns about the
     MOMENT REFERENCE POINT of the row's REF at that rate: it is how a run
     states a pull-up, a roll or a yaw rather than straight flight. Which axis
@@ -4653,7 +4662,7 @@ Frames = Mapping[str, int | None | Mapping[str, int]]
 #: (PFS-2035.13, the design of 2026-09-10).
 IGNORE_MISSING_FAMILIES_VARIABLE = "IGNORE_MISSING_FAMILIES"
 
-#: WHETHER THE SCRIPT EXPORTS THE SOLVER LOG (0.21.0, her decision of
+#: WHETHER THE SCRIPT EXPORTS THE SOLVER LOG (0.21.0, the owning seat's decision of
 #: 2026-09-15). Written onto the case by the RUN layer from the HPC profile's
 #: ``[log]`` table, exactly as IGNORE_MISSING_FAMILIES is written from the
 #: command line, and for the same reason: the builders read the case and know
@@ -6927,11 +6936,21 @@ def _export_block(
 
 
 def _exports_its_log(case: SimCase) -> bool:
-    """Say whether the SCRIPT writes the solver log for this run."""
+    """Say whether the SCRIPT writes the solver log for this run.
+
+    THROUGH `read_a_choice`, which is the one place both readers ask and which
+    REFUSES a word it does not know. The first writing carried a word list of
+    its own and read anything outside it as True, so `EXPORT_LOG: flase` would
+    have put the command back into the script on the one machine that aborts at
+    it, after the queue wait (the architecture lens, 2026-09-16).
+    """
     stated = _variable(case, EXPORT_LOG_VARIABLE)
     if stated is None:
         return True
-    return str(stated).strip().casefold() not in {"false", "no", "0", "disable"}
+    try:
+        return read_a_choice(stated, context=f"{EXPORT_LOG_VARIABLE} of case {case.sim_id!r}")
+    except ValueError as error:
+        raise CampaignConfigError(str(error)) from None
 
 
 def _export_log(
@@ -7913,6 +7932,12 @@ def walltime_margin_s(case: SimCase) -> float:
 #: early or holds a node for a day.
 WALLTIME_UNITS: dict[str, float] = {"s": 1.0, "m": 60.0, "h": 3600.0, "d": 86400.0}
 
+#: The same four, glossed and in magnitude order, for a refusal to quote. The
+#: bare letters read `d, h, m, s`, which leaves `m` and `d` to the reader in the
+#: one message whose subject is an ambiguity that cost a node-day (the interface
+#: lens, 2026-09-16).
+WALLTIME_UNITS_GLOSS = "s (seconds), m (minutes), h (hours), d (days)"
+
 
 def row_walltime_text(case: SimCase) -> str | None:
     """Return the wall clock the ROW states, AS WRITTEN, or None.
@@ -7949,14 +7974,14 @@ def row_walltime_s(case: SimCase) -> float | None:
             "no unit. Write the unit with the number, as 240m or 4h: a bare number read "
             "as seconds here and as minutes on the scheduler, and a wall clock that means "
             f"two things is a job that dies early or holds a node for a day. The units "
-            f"are {', '.join(sorted(WALLTIME_UNITS))}."
+            f"are {WALLTIME_UNITS_GLOSS}."
         )
     try:
         value = float(stated[:-1].strip())
     except ValueError:
         raise CampaignConfigError(
             f"case {case.sim_id!r} states {WALLTIME_VARIABLE}: {stated!r}, which is not a "
-            f"number followed by one of {', '.join(sorted(WALLTIME_UNITS))}."
+            f"number followed by one of {WALLTIME_UNITS_GLOSS}."
         ) from None
     if value <= 0:
         raise CampaignConfigError(

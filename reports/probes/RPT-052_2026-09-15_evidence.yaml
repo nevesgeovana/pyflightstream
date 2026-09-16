@@ -80,6 +80,27 @@ coefficients:
     CLB: 0.00993
     CMB25: -0.01642
     CDB: 0.00235
+script_diff: # every line that differs between the two scripts whose digests are above;
+  # one is the command, the rest are the simulation path and the export names, which
+  # follow from the point name (0.21.0).
+  - '-C:/GeoverseGoddess/GeoverseResearch/tools/fts_workspace/pfs0210-probe-rotation/sims/sim_4101/inputs/30_WB.fsm'
+  - '+C:/GeoverseGoddess/GeoverseResearch/tools/fts_workspace/pfs0210-probe-rotation/sims/sim_4102/inputs/30_WB.fsm'
+  - '-SET_FREESTREAM CONSTANT'
+  - '+SET_FREESTREAM ROTATION 2 Y 0.6666666666666666'
+  - '-P4101-M200RE1177AL+020BE+000Q+000.fsm'
+  - '+P4102-M200RE1177AL+020BE+000Q+040.fsm'
+  - '-P4101-M200RE1177AL+020BE+000Q+000.txt'
+  - '+P4102-M200RE1177AL+020BE+000Q+040.txt'
+  - '-P4101-M200RE1177AL+020BE+000Q+000.dat'
+  - '+P4102-M200RE1177AL+020BE+000Q+040.dat'
+  - '-P4101-M200RE1177AL+020BE+000Q+000_cp.txt'
+  - '+P4102-M200RE1177AL+020BE+000Q+040_cp.txt'
+  - '-P4101-M200RE1177AL+020BE+000Q+000_sloads.txt'
+  - '+P4102-M200RE1177AL+020BE+000Q+040_sloads.txt'
+  - '-P4101-M200RE1177AL+020BE+000Q+000_probes.txt'
+  - '+P4102-M200RE1177AL+020BE+000Q+040_probes.txt'
+  - '-P4101-M200RE1177AL+020BE+000Q+000_log.txt'
+  - '+P4102-M200RE1177AL+020BE+000Q+040_log.txt'
 verdict: a positive pitch_rate produces a nose-down (damping) moment increment and more
   lift on the wing behind the moment point, which is the flow field of a NOSE-UP rotation;
   FREESTREAM_ROTATION_SIGN stays +1.

@@ -101,7 +101,7 @@ def test_goal024_walltime_a_bare_number_is_refused_by_name(tmp_path):
     message = str(caught.value)
     assert "240" in message and "no unit" in message, message
     assert "240m or 4h" in message
-    assert "d, h, m, s" in message
+    assert "s (seconds), m (minutes), h (hours), d (days)" in message
 
 
 def test_goal024_walltime_a_value_that_is_not_a_number_and_a_unit_is_refused(tmp_path):

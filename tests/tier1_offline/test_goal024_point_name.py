@@ -318,3 +318,38 @@ def test_goal024_point_name_the_library_default_writes_the_bare_name_and_the_mat
     assert NamingTemplate().point_name == "{point}"
     assert MATRIX_POINT_NAME == "{polar}"
     assert point_file_stem("3207", name) == f"P3207-{name}"
+
+
+def test_goal024_point_name_the_code_table_reads_the_same_in_all_three_homes():
+    """The table lives in the code, in the workspace page and in FR-102: one table.
+
+    The migration page tells a user to read the DOCUMENTED table before renaming,
+    "because the names it gives are the ones your folders will carry", which
+    makes a drifted table a wrong instruction on a destructive operation. The
+    three agree today and nothing generated another, so this compares them (the
+    technical-writing lens, 2026-09-16).
+    """
+    import re
+
+    docs = (Path(__file__).resolve().parents[2] / "docs" / "workspace-and-workflows.md").read_text(
+        encoding="utf-8"
+    )
+    table = docs.split("### How a point is named", 1)[1].split("###", 1)[0]
+    documented = {}
+    for line in table.splitlines():
+        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+        if len(cells) < 3 or not cells[0].startswith("`"):
+            continue
+        names = re.findall(r"`([^`]+)`", cells[0])
+        codes = re.findall(r"`([^`]+)`", cells[1])
+        if len(names) != len(codes):
+            continue
+        documented.update(dict(zip(names, codes, strict=True)))
+    assert documented, table[:400]
+    from pyflightstream.cases import POINT_NAME_FIELDS
+
+    assert set(documented) == set(POINT_NAME_FIELDS), sorted(
+        set(documented) ^ set(POINT_NAME_FIELDS)
+    )
+    for key, code in documented.items():
+        assert POINT_NAME_FIELDS[key].code == code, (key, code, POINT_NAME_FIELDS[key].code)

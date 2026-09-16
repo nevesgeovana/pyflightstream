@@ -146,7 +146,7 @@ def datapoint_dir_name(name: PointName) -> str:
     return f"{DATAPOINT_PREFIX}{name}"
 
 
-def point_file_stem(sim: str, name: str) -> str:
+def point_file_stem(sim: str, name: PointName) -> str:
     """Return the stem of every file of one point: ``P<sim>-<point name>`` (0.21.0)."""
     return f"{POINT_FILE_PREFIX}{sim}-{name}"
 

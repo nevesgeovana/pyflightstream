@@ -36,7 +36,11 @@ FlightStream versions.
   command.
   - `{point}` in a naming template is now the point name, and `{polar}` is
     `P<sim>-<name>`. `pyflightstream.cases.point_name` and `sweep_name` compute
-    them, and `point_tag` still returns the 0.20 tag.
+    them, `POINT_NAME_FIELDS` is the code table they write from, and
+    `point_tag` still returns the 0.20 tag. A template of your own still
+    renders and produces different names WITHOUT a message, which is the one
+    change in this release that does not refuse: check your `--point-name`
+    before the first run.
   - `CampaignWorkspace.collect_outputs` and `archive_datapoint` take a
     `workspace.PointName` and no longer take a point mapping.
   - [Migrating to 0.21.0](docs/migrating-to-0.21.0.md) is the step-by-step
@@ -72,8 +76,11 @@ FlightStream versions.
   - Every rate zero, or no rate at all, writes `CONSTANT`, so a row written
     before this release renders exactly what it rendered before.
   - WHAT THE SOLVER DOES WITH A POSITIVE ANGULAR VELOCITY is not stated by any
-    edition of the manual. The rate is emitted as written and the convention is
-    measured rather than asserted; the sign is one named constant,
+    edition of the manual, so it was MEASURED: three pitch rates on one
+    wing-body on 26.124, reported in
+    `reports/RPT-052_the-sense-of-a-rotating-free-stream_2026-09-15.md`. A
+    positive rate came back with the nose-down moment increment that opposes a
+    nose-up rotation, so the sign stands as written; it is one named constant,
     `cases.workflows.FREESTREAM_ROTATION_SIGN`.
 - **`RPM` is a `FLIGHT_CONDITION` variable**, stated once for the row and
   reaching every motion that states no speed of its own, exactly as

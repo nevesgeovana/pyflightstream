@@ -36,13 +36,26 @@ One workspace, three points, ONE THING MOVED between them: the rate.
     reference   SREF 50.0, CREF 2.526, BREF 20.0, MRP at x = 9.152 m
     axes        [body_axes] roll = X, pitch = Y, yaw = Z
 
-The two scripts of the first pair were rendered offline and diffed before the
-seat was spent: **102 lines each, ONE differing line**.
+**WHAT DIFFERS BETWEEN THE TWO SCRIPTS THAT RAN**, taken from the files
+themselves and not from a rendering made beside them. 102 lines each and
+EIGHTEEN differing lines:
 
 ```
 -SET_FREESTREAM CONSTANT
 +SET_FREESTREAM ROTATION 2 Y 0.6666666666666666
 ```
+
+and seventeen lines that are the simulation's own path and its export names,
+which follow from the point name because 0.21.0 names every file of a point by
+it (`P4101-...Q+000` against `P4102-...Q+040`). ONE PHYSICAL LINE DIFFERS; the
+rest is the naming of the outputs, and it could not be otherwise on a release
+whose names carry the rate.
+
+The report's first writing said "102 lines each, ONE differing line", which was
+a diff of two cases rendered offline with their output templates unrendered:
+not the scripts whose digests the evidence records. The V&V lens of 2026-09-16
+caught it, and the diff above is committed in the evidence file so the control
+is checkable rather than asserted.
 
 Frame 2 is the `MRP` coordinate system the builder creates at the reference's
 moment point; `Y` is the axis `[body_axes]` gives the pitch rate; 0.6667 rev/min
@@ -62,11 +75,15 @@ reference.
 | 4 deg/s | 0.24349 | +0.00233 | -0.02481 | -0.00014 | +0.00262 | -0.00029 |
 | 40 deg/s | 0.26383 | +0.02267 | -0.02583 | -0.00116 | +0.02569 | -0.00302 |
 
-**The response is linear in the rate**: ten times the rate gives 9.7 times the
-lift increment and 8.3 times the moment increment. That is what says the
-solver is reading the command rather than being perturbed by it, and it is why
-the second rate was run at all: at 4 deg/s the moment increment is 0.6% of the
-base and could be argued with; at 40 deg/s it is 4.7% and cannot.
+**The response is monotone and of the same order in the rate**: ten times the
+rate gives 9.7 times the lift increment and 8.3 times the moment increment.
+The lift ratio is well resolved; THE MOMENT RATIO IS NOT, because the 4 deg/s
+moment increment is one printed digit at the five-decimal resolution of the
+table (-0.00014, so +/-3.6 per cent from the rounding alone). What the two
+rates establish is that the solver is reading the command rather than being
+perturbed by it, and that is why the second rate was run: at 4 deg/s the moment
+increment is 0.6% of the base and could be argued with; at 40 deg/s it is 4.7%
+and cannot.
 
 ## Why that is a nose-up rate
 
@@ -82,6 +99,23 @@ value as nose-down, the damping would have been nose-UP and `dCM25` positive.
 GAINS lift (+0.0257 at 40 deg/s) while the body, most of which is ahead of it,
 LOSES lift (-0.0030). Aft up, forward down, which is the same nose-up rotation
 read a second way.
+
+## The drag at the larger rate
+
+At 40 deg/s two of the three groups came back with a NEGATIVE drag
+coefficient: the airframe at -0.00002 and the wing at -0.00237, against
++0.00524 and +0.00267 at zero rate. It is recorded here because the verdict
+leans on that point and a reader should see it rather than find it in the
+evidence file.
+
+**It is not read as a verdict either way.** A panel method with no viscous
+model computes the force from the pressure distribution alone, so a rotating
+inflow that tilts the local flow forward over part of the surface can produce a
+negative pressure drag; the wing's own induced drag is also small here
+(CL 0.26 on a span of 20 m). Whether -0.0024 on the wing is that effect or an
+artefact of the rotating free stream at a rate no aircraft flies is a question
+for the domain seat, and the sign verdict does not rest on the drag: it rests
+on the moment and on which surfaces gained lift.
 
 ## What this does NOT establish
 
@@ -99,3 +133,13 @@ read a second way.
   configuration; a configuration whose lifting surfaces sit entirely ahead of
   its moment point would show the opposite lift increments and the same
   moment sign, and the moment is the half the verdict rests on.
+- **The geometric half is not checkable from anything committed.** "The wing's
+  centroid is behind the MRP" and "most of the body is ahead of it" are read
+  from the mesh, and the mesh never enters this repository. A reader without it
+  has the moment argument and not the lift one.
+- **It presumes the mesh's own orientation matches its declared axes.** The
+  reference states `[body_axes] pitch = Y`, and nothing here measures that the
+  geometry is built nose along +X with +Z up. A mesh built another way with the
+  same declaration would turn the free stream about the wrong axis and this
+  probe would not have noticed.
+- **The drag is not explained**, only recorded: see the section above.

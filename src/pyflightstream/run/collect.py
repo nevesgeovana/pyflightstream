@@ -26,13 +26,19 @@ signals that fail differently:
    poll interval. This costs nothing and catches a file still being written.
    It is a heuristic with a timer on it: a solver that pauses for longer than
    the interval between two writes to one file looks finished for one poll.
+2b. OR THE SCHEDULER'S OWN LOG HAS BEEN COPIED TO THE DECLARED NAME, which
+    is what happens on a machine whose HPC profile states ``export_log =
+    false`` and names a ``native_log`` (0.21.0). There `EXPORT_LOG` is not
+    emitted at all, so the argument below does not hold: the copy is made
+    BEFORE the settle condition is evaluated, and what settles is the copy.
+
 2. THE LAST DECLARED OUTPUT IS PRESENT. This is the stronger statement,
    because the emitted script's own order ends with the log: `EXPORT_LOG` and
    `CLOSE_FLIGHTSTREAM` are the last two commands every workflow emits, so a
    log that exists and has settled means the solver closed the file and left.
 
 Neither is a scheduler query, so neither costs a profile key, which is the
-whole advantage of her architecture. Both are required, because a run that
+whole advantage of this architecture. Both are required, because a run that
 never wrote its log and a run still writing its loads table are different
 failures and one signal cannot tell them apart.
 
@@ -66,6 +72,8 @@ from pathlib import Path
 # an unrowed module is not examined. So the guard's no-allowlist property is
 # weaker than it reads, because an unrowed module can be a conduit. Found by
 # the architect lens of the 0.18.0 release round, 2026-09-14.
+from typing import TYPE_CHECKING
+
 from ..cases import CampaignConfigError
 from ..workspace import (
     SIM_DATAPOINTS_DIR,
@@ -77,11 +85,15 @@ from ..workspace import (
 )
 from ..workspace.inputs import resolve_hpc_profile
 
+if TYPE_CHECKING:  # the return type of the whole judgement, without a runtime cycle
+    from pyflightstream.run import Assessment
+
 __all__ = [
     "CollectOutcome",
     "CollectReport",
     "Stamp",
     "assess_collected",
+    "assessment_of_collected",
     "collect_once",
     "collect_and_post",
     "observe",
@@ -266,6 +278,12 @@ def assess_collected(record: RunRecord, sim_dir: Path) -> tuple[RunStatus, str |
     execution result, which is why the two paths CAN share it even though only
     one of them has a process to report on.
 
+    IT ANSWERS WITH THE PAIR THE INTERFACE DEFINES. Everything the log said
+    -- the iteration, the residual, the times, the file -- is on the
+    :class:`~pyflightstream.run.Assessment` that
+    :func:`assessment_of_collected` returns, which is what the collect stage
+    itself reads and stamps.
+
     WHAT IT STILL CANNOT SAY, and the caller is not told otherwise: whether
     the job was killed before it finished writing is the settle predicate's
     question, answered before this runs, and a scheduler's own exit status is
@@ -276,15 +294,17 @@ def assess_collected(record: RunRecord, sim_dir: Path) -> tuple[RunStatus, str |
     return assessment.status, assessment.error
 
 
-def assessment_of_collected(record: RunRecord, sim_dir: Path):
+def assessment_of_collected(record: RunRecord, sim_dir: Path) -> Assessment:
     """Return the WHOLE judgement of a collected point, not only its verdict.
 
-    The pair above is the assessor interface a caller may replace, and it
-    throws away everything the log said: the iteration it reached, the residual
-    it reached it at, the times the solver printed, and which file they were
-    read from. On a cluster that is the whole of the evidence, because there is
-    no process here to report on -- the record was the only place those numbers
-    could land, and until 0.21.0 they landed nowhere.
+    :func:`assess_collected` is the assessor INTERFACE a caller may replace,
+    and it answers with the `(status, error)` pair that interface defines. This
+    one answers with the :class:`~pyflightstream.run.Assessment` behind it: the
+    iteration it reached, the residual it reached it at, the times the solver
+    printed, and which file they were read from. On a cluster that is the whole
+    of the evidence, because there is no process here to report on -- the
+    record was the only place those numbers could land, and until 0.21.0 they
+    landed nowhere.
     """
     from pyflightstream.run import LoadsAssessor
 
@@ -336,7 +356,7 @@ def _native_log_copy(
 ) -> str | None:
     """Copy the log the SCHEDULER wrote to the name the row declared (0.21.0).
 
-    HER DECISION OF 2026-09-15, from the cluster. Some machines abort at
+    THE OWNING SEAT'S DECISION OF 2026-09-15, from the cluster. Some machines abort at
     ``EXPORT_LOG``: the job runs, every other export lands, and the log the
     package judges the run by never arrives, so `collect` waits for a file
     nothing will ever write. Such a machine writes its own log beside the run,

@@ -150,7 +150,7 @@ from pyflightstream.workspace import (
     datapoint_dir_name,
     post_stages,
 )
-from pyflightstream.workspace.inputs import HPC_BUILD_ALIAS
+from pyflightstream.workspace.inputs import HPC_BUILD_ALIAS, HpcProfile
 from pyflightstream.workspace.naming import ARCHIVE_STAMP, PointName, sweep_file_stem
 
 __all__ = [
@@ -735,7 +735,7 @@ def _bind_submission_values(executor, case, point_case) -> None:
     walltime = row_walltime_s(point_case)
     written = row_walltime_text(point_case)
     if walltime is not None and written is not None:
-        arithmetic = getattr(getattr(executor, "profile", None), "walltime_arithmetic", "wall")
+        arithmetic = _profile_of(executor).walltime_arithmetic if _profile_of(executor) else "wall"
         values["walltime"] = int(walltime) if arithmetic == "seconds" else written
         # BOTH SPELLINGS ARE OFFERED, so a profile whose field wants one and
         # whose comment wants the other needs no second run to get it.
@@ -2917,7 +2917,7 @@ def run_campaign(
                 continue
             if continuation is not None:
                 stamp = datetime.now()
-                # HER DECISION: archive what the continuation replaces, per
+                # THE OWNING SEAT'S DECISION: archive what the continuation replaces, per
                 # datapoint, under a day-and-hour stamp, BECAUSE THERE CAN BE
                 # MORE THAN ONE RESTART. It happens before the solver starts,
                 # so a continuation never writes into the folder holding the
@@ -5006,6 +5006,20 @@ def _latest_record_of_point(
     return latest
 
 
+def _profile_of(executor: object) -> HpcProfile | None:
+    """Return the HPC profile an executor submits through, or None.
+
+    ONE `getattr`, and it asks the question that is genuinely open -- whether
+    this executor submits at all -- rather than asking each field whether it
+    exists. Reading `export_log` or `walltime_arithmetic` with a default hid
+    the model from the type checker exactly where the cluster features live,
+    and a renamed field would have returned the default in silence (the
+    architecture lens, 2026-09-16).
+    """
+    profile = getattr(executor, "profile", None)
+    return profile if isinstance(profile, HpcProfile) else None
+
+
 def _with_the_profile_s_log(case: SimCase, executor: object) -> SimCase:
     """Return the case as the EXECUTOR's machine writes its log (0.21.0).
 
@@ -5016,8 +5030,8 @@ def _with_the_profile_s_log(case: SimCase, executor: object) -> SimCase:
     side is ever written: a run on any other machine, or through any other
     executor, renders byte for byte what it rendered before.
     """
-    profile = getattr(executor, "profile", None)
-    if profile is None or getattr(profile, "export_log", True):
+    profile = _profile_of(executor)
+    if profile is None or profile.export_log:
         return case
     return case.model_copy(update={"variables": {**case.variables, EXPORT_LOG_VARIABLE: "false"}})
 

@@ -241,7 +241,7 @@ the decisions and the package derives the rest.
     It is a POSITION and not a file name because the names carry the
     point placeholder in the cell and reach a builder already rendered:
     the cell says `loads_{point}.txt` and the case carries
-    `loads_a+00.0.txt`, so a name could never match. Order survives
+    `loads_M200RE230AL+000.txt`, so a name could never match. Order survives
     rendering; a name does not.
 
 * `EXPORT_UNSTEADY_AFTER_REV: <turns>` or `EXPORT_UNSTEADY_AFTER_ITER:
@@ -454,10 +454,12 @@ sweep = {type = "alpha", values = [-4.0, 0.0, 4.0], held = {beta = 0.0}}
 degrees, and **`held` is what the row keeps constant at every point of
 the sweep**, in degrees, under the same axis names. `held` is what makes
 `ALPHA:sweep, BETA:0.0` in a matrix row and the paired `AL/BE` cell it
-replaced plan the same three runs under the same three names,
-`a-04.0_b+00.0`, `a+00.0_b+00.0` and `a+04.0_b+00.0`: the point tag ends
-the `run_id`, so a held angle has to reach the point or the upgrade
-would rename every run that has one.
+replaced plan the same three runs under the same three names: the point's
+NAME ends the `run_id`, so a held angle has to reach the point or the
+upgrade would rename every run that has one. That was the tag
+`a-04.0_b+00.0` until 0.20.x and is `AL-040BE+000` in a cell that declares
+those two variables since 0.21.0; what matters here is unchanged, which is
+that the held value is part of the point and not only of the row.
 
 It holds the two ANGLES and nothing else. A key that is not a point axis
 is refused naming the axes, and so is a `held` entry for the variable the
@@ -480,9 +482,9 @@ Write it one of two ways.
   point alpha sweep are three rows of eleven runs, not one row of
   thirty three.
 
-The limit is about IDENTITY before it is about cost. A run is named by
-its aerodynamic point: the folders above are `a+00.0` and `b-03.0`, and
-nothing in that name is geometric. Crossing three angles into an eleven
+The limit is about IDENTITY before it is about cost. A run is named by its
+FLIGHT CONDITION: the folders above are `DP-M200RE230AL+000` and
+`DP-M200RE230BE-030`, and nothing in that name is geometric. Crossing three angles into an eleven
 point sweep would give thirty three runs eleven names, so each group of
 three would share one `run_id` and one set of output file names, and the
 cost view would average the three into a single cell. Three rows cost
@@ -1866,8 +1868,10 @@ names this command.
 Two things about that conversion are worth knowing before you run it:
 
 * **It does not rename a run.** A held angle is carried at every point, so
-  the point tags that end every `run_id` in `runs.json` are the ones the
+  the point names that end every `run_id` in `runs.json` are the ones the
   converted file plans under, and a `--resume` finds the records it has.
+  (The 0.21.0 point NAME is a separate move, made once by `pyfs-matrix
+  rename`; see [migrating to 0.21.0](migrating-to-0.21.0.md).)
 * **It stops on a row that varies BOTH angles**, naming every such row.
   That row is one run per sideslip and each new row needs a POL of its
   own, which is run identity and not a converter's to invent. Split them
@@ -2160,8 +2164,9 @@ Two rows of a matrix, four points, TWO records, because since v0.17.0 a
 steady row is one job: its points run in one process, one after another,
 each starting from the one before unless the row says `COLD_START: True`.
 A run id that ends `sweep` names a job, and a run id that ends with a
-point tag names a point; the token is the one the per-polar product
-tables already use for a swept variable.
+point NAME names a point; the token is the one the per-polar product
+tables already use for a swept variable, with the swept field written
+`<code>+sweep` since 0.21.0.
 
 Every point is still there and still named. The record lists them in the
 order the job ran them, with the status each ended in, and the sweep
@@ -2318,8 +2323,8 @@ pyfs-matrix plan matriz.fs --workspace . --fs-version 26.123 --cost
 ```text
 point                                      mesh   TEs  layers  visc      type   steps  procs   expected  samples
 ----------------------------------------------------------------------------------------------------------------
-pfs0160/sim_6001/a-02.0_b+00.0            14266     2       -    no    steady       -      8      11.9s        2
-pfs0160/sim_6002/a+00.0_b+00.0_j+01.7     13502     0       5    no  unsteady      36      8     194.8s        1
+pfs0160/sim_6001/M200RE1177AL-020         14266     2       -    no    steady       -      8      11.9s        2
+pfs0160/sim_6002/M144RE438AL+000J+170     13502     0       5    no  unsteady      36      8     194.8s        1
 
 EXPECTED TIME IS AN EXTRAPOLATION AND NOT A MEASUREMENT:
   steady rows: fitted from 2 recorded steady run(s) of this workspace, ...

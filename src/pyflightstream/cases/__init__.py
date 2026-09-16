@@ -1741,7 +1741,7 @@ class NameField:
     signed: bool
 
 
-#: THE POINT NAME'S CODE TABLE, the author's of 2026-09-15 (SCOPE-0210 section 1),
+#: THE POINT NAME'S CODE TABLE, the owning seat's of 2026-09-15 (SCOPE-0210 section 1),
 #: keyed by the canonical FLIGHT_CONDITION key. Codes differ in LETTERS and never
 #: only in case, because a Windows file name does not distinguish case.
 POINT_NAME_FIELDS: dict[str, NameField] = {
@@ -1849,7 +1849,18 @@ def _name_value(case: SimCase, point: Mapping[str, float], key: str) -> float:
     if key == "MACH" and case.mach is not None:
         return float(case.mach)
     if key in case.variables:
-        return float(case.variables[key])
+        stated = case.variables[key]
+        try:
+            return float(stated)
+        except (TypeError, ValueError):
+            # THE PROMISED REFUSAL, which this path raised a bare ValueError
+            # past: `variables` is a user-authored string bag reachable from a
+            # matrix cell, and the caller's own Raises section promises a
+            # CampaignConfigError (the architecture lens, 2026-09-16).
+            raise CampaignConfigError(
+                f"case {case.sim_id!r} declares {key} in its flight condition and states "
+                f"{stated!r} for it, which is not a number, so the point cannot be named."
+            ) from None
     raise CampaignConfigError(
         f"case {case.sim_id!r} declares {key} in its flight condition and this point carries "
         f"no value for it, so the point cannot be named."
@@ -1894,11 +1905,15 @@ def _swept_axes(sweep: SweepAxis) -> tuple[str, ...]:
 
 
 def point_tag(point: dict[str, float]) -> str:
-    """Return the stable file-name tag of one sweep point.
+    """Return the 0.20.x file-name tag of one sweep point.
 
     The tag encodes the point coordinates in a fixed axis order with
-    signed fixed-width values, for example ``a+02.0_b+00.0``; it names
-    the generated script and ends the ``run_id``.
+    signed fixed-width values, for example ``a+02.0_b+00.0``. Until 0.20.x it
+    named the generated script and ended the ``run_id``; SINCE 0.21.0 NEITHER
+    IS TRUE, and :func:`point_name` is both. This is kept for the two readers
+    of a recorded workspace: `pyfs-matrix rename`, which maps a 0.20 record to
+    its new name with it, and anything reading a manifest written before the
+    rename.
 
     Parameters
     ----------

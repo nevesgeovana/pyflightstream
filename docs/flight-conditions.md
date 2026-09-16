@@ -150,16 +150,19 @@ initialised, so one process cannot hold two of them. A row that sweeps an
 attitude is the one warm job it has always been.
 
 **An angle the row HOLDS still names the point.** `ALPHA:sweep, BETA:0.0`
-over `-4,0,4` plans three runs tagged `a-04.0_b+00.0`, `a+00.0_b+00.0` and
-`a+04.0_b+00.0`, which are the tags the paired row it was upgraded from
-produced. The tag ends the `run_id` in every manifest, so the converter is
-held to more than lossless content: it does not rename a run, and a
-`--resume` after an upgrade finds the records it already has.
+over `-4,0,4` plans three runs named `AL-040BE+000`, `AL+000BE+000` and
+`AL+040BE+000`, which are the same three points the paired row it was
+upgraded from produced (`a-04.0_b+00.0` and its siblings, under the tag of
+0.20.x). The point's name ends the `run_id` in every manifest, so the
+converter is held to more than lossless content: it does not rename a run,
+and a `--resume` after an upgrade finds the records it already has.
 
 **Only the two ANGLES do that.** An `ADVANCE_RATIO` the row holds stays on
-the row and is read there, because a point tag has never carried one, and
-putting it in would rename every run that has one, which is the same cost
-running the other way. Since 0.21.0 the NAME of a point carries every variable
+the row and is read there, because the 0.20 point tag never carried one and
+putting it in would have renamed every run that has one, which is the same
+cost running the other way. Since 0.21.0 the NAME of a point carries every
+variable the cell declares, held or swept, which is a different question
+from what the point MAPPING carries. Since 0.21.0 the NAME of a point carries every variable
 the cell declares, held or swept, which is a different question from what the
 point MAPPING carries; see
 [How a point is named](workspace-and-workflows.md#how-a-point-is-named).
@@ -208,9 +211,12 @@ axis at one speed, and two rates would be composed into an axis the row does
 not write. Every rate zero, or no rate at all, writes `CONSTANT`.
 
 **What the solver does with a positive angular velocity is not documented by
-any edition of the manual.** This package emits the rate AS WRITTEN and records
-the measurement separately: the convention is measured by a licensed probe and
-reported, not asserted here.
+any edition of the manual.** This package emits the rate AS WRITTEN, and the
+convention was MEASURED rather than asserted: three pitch rates on one
+wing-body on FlightStream 26.124, reported in
+[RPT-052](https://github.com/geovanan/pyflightstream/blob/main/reports/RPT-052_the-sense-of-a-rotating-free-stream_2026-09-15.md).
+A positive rate came back with the nose-down moment increment that opposes a
+nose-up rotation, which is what a flight-mechanics rate means.
 
 ## Which quantity gets solved for
 

@@ -730,7 +730,7 @@ def _naming(args: argparse.Namespace) -> NamingTemplate:
 
 def _cmd_rename(args: argparse.Namespace) -> int:
     """Rename a 0.20.x workspace to the 0.21.0 names, or rehearse it."""
-    from .rename import rename_workspace
+    from pyflightstream.run.rename import rename_workspace
 
     workspace = CampaignWorkspace(Path(args.workspace))
     try:
@@ -741,11 +741,19 @@ def _cmd_rename(args: argparse.Namespace) -> int:
     for line in report.lines():
         print(line)
     print(report.summary())
+    # EVERY ARM ENDS WITH THE NEXT STEP. The first writing wrote one only for
+    # the nothing-to-do arm, so a user who had just read forty rehearsed
+    # changes was told nothing about how to make them happen (the interface
+    # lens, 2026-09-16).
     if not report.changes:
         # NOTHING TO DO IS A SUCCESS and says so in words, because this
         # command is run twice by anybody who is careful: once to see, once
         # to move. A silent zero reads as "it did not run".
         print("every record is already at the 0.21.0 names; nothing moved.")
+    elif args.dry_run:
+        print("nothing was changed. Run the same command without --dry-run to move them.")
+    else:
+        print("the workspace is at the 0.21.0 names; pyfs-matrix collect and post read it now.")
     return 0
 
 

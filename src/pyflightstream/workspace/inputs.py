@@ -2339,7 +2339,7 @@ class HpcProfile:
     defaults: dict
     path: Path
     builds: dict = field(default_factory=dict)
-    #: WHAT THE DESCRIPTOR'S WALLTIME FIELD CARRIES (0.21.0, her decision of
+    #: WHAT THE DESCRIPTOR'S WALLTIME FIELD CARRIES (0.21.0, the owning seat's decision of
     #: 2026-09-15). ``wall`` is the row's cell as written, which is what a
     #: scheduler taking ``4h`` wants; ``seconds`` is the whole clock in
     #: integer seconds, which is what this package wrote until 0.20.x and what
@@ -2348,7 +2348,7 @@ class HpcProfile:
     #: unknown value is refused by name rather than silently taken as one of
     #: these two.
     walltime_arithmetic: str = "wall"
-    #: WHETHER THE SCRIPT EXPORTS THE SOLVER LOG (0.21.0, her decision of
+    #: WHETHER THE SCRIPT EXPORTS THE SOLVER LOG (0.21.0, the owning seat's decision of
     #: 2026-09-15). Some machines abort at ``EXPORT_LOG`` and write their own
     #: log beside the run instead, so the profile says it rather than the
     #: package assuming one shape of machine.
@@ -2393,6 +2393,33 @@ def resolve_hpc_profile(inputs_dir: str | Path) -> HpcProfile | None:
 
 #: What a profile may ask the descriptor's walltime field to carry.
 WALLTIME_ARITHMETIC: frozenset[str] = frozenset({"wall", "seconds"})
+
+#: THE KEYS A PROFILE MAY CARRY, and the keys its ``[log]`` table may carry.
+#: Both sets are CLOSED, for the reason the flight-condition cell's set is
+#: closed: a mistyped or misplaced key costs a message rather than a job that
+#: aborts at EXPORT_LOG with a profile that looks right in the file. Measured
+#: by the interface lens, 2026-09-16: ``export_log`` written at the top level
+#: read as True, and ``native_logs`` read as absent.
+HPC_PROFILE_KEYS: frozenset[str] = frozenset(
+    {"application_id", "descriptor", "submit", "defaults", "builds", "walltime_arithmetic", "log"}
+)
+HPC_LOG_KEYS: frozenset[str] = frozenset({"export_log", "native_log"})
+
+
+def _refuse_unknown_keys(
+    target: Path, table: Mapping[str, object], allowed: frozenset[str], where: str
+) -> None:
+    """Refuse a key this package does not read, naming it and the set it is not in."""
+    unknown = sorted(str(key) for key in table if str(key) not in allowed)
+    if not unknown:
+        return
+    raise InputArtifactError(
+        f"the HPC profile {target} states {', '.join(unknown)} {where}, and this package "
+        f"reads {', '.join(sorted(allowed))} there. A key nothing reads is a key that looks "
+        "like it works: a misplaced export_log leaves EXPORT_LOG in the script on the very "
+        "machine the table exists for. Correct the spelling, or move the key to the table "
+        "that takes it."
+    )
 
 
 def read_hpc_profile(path: str | Path) -> HpcProfile:
@@ -2439,12 +2466,14 @@ def read_hpc_profile(path: str | Path) -> HpcProfile:
             "in the row: the row's cell is the wall clock and the watchdog counts down "
             "to it either way."
         )
+    _refuse_unknown_keys(target, table, HPC_PROFILE_KEYS, "at its top level")
     log = table.get("log") or {}
     if not isinstance(log, Mapping):
         raise InputArtifactError(
             f"the HPC profile {target} has a log entry that is not a table. Write it as "
             "[log], with export_log and native_log under it."
         )
+    _refuse_unknown_keys(target, log, HPC_LOG_KEYS, "under [log]")
     export_log = bool(log.get("export_log", True))
     native_log = str(log.get("native_log") or "").strip() or None
     if not export_log and native_log is None:

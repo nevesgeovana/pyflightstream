@@ -2770,7 +2770,7 @@ class CampaignWorkspace:
     ) -> Path | None:
         """Move a datapoint's collected outputs aside, under a day-and-hour stamp.
 
-        HER DECISION OF 2026-09-13, and the clause that decided the shape is
+        THE OWNING SEAT'S DECISION OF 2026-09-13, and the clause that decided the shape is
         the reason: a continuation archives what it replaces into folders
         stamped with the day and the hour, the same structure ``post``
         already uses, **because there can be more than one restart**. Two

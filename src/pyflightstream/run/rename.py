@@ -66,6 +66,7 @@ from pyflightstream.workspace.naming import (
     ARCHIVE_STAMP,
     DATAPOINT_PREFIX,
     PointName,
+    datapoint_dir_name,
     point_file_stem,
     sweep_file_stem,
 )
@@ -325,6 +326,16 @@ def _archive_manifest(workspace: CampaignWorkspace) -> RenameChange:
     )
 
 
+def _folder_of_the_old_tag(tag: str) -> str:
+    """Return the datapoint folder of a 0.20.x tag, which is not a PointName.
+
+    Named rather than concatenated inline, so the one place this package builds
+    a datapoint folder WITHOUT the checked type says in its name that it is
+    reading the older scheme.
+    """
+    return f"{DATAPOINT_PREFIX}{tag}"
+
+
 def _rename_path(before: Path, after: Path) -> None:
     """Move one path, refusing to write over something already there."""
     if after.exists():
@@ -408,7 +419,8 @@ def _plan_record(
     if plan.moves and str(record.get("status")) == str(RunStatus.SUBMITTED):
         report.refusals.append(
             f"record {run_id!r} is in a scheduler's queue and its folder would move to "
-            f"DP-{plan.new_name}. The job writes where its descriptor said, which this "
+            f"{DATAPOINT_PREFIX}{plan.new_name}. The job writes where its descriptor said, "
+            "which this "
             "command cannot reach: collect it (pyfs-matrix collect) and rename afterwards."
         )
         return None
@@ -482,8 +494,14 @@ def rename_workspace(
         if plan.moves:
             report.renamed_records += 1
         for move in plan.points:
-            folder = sim / DATAPOINTS_DIR / f"{DATAPOINT_PREFIX}{move.old_tag}"
-            target = sim / DATAPOINTS_DIR / f"{DATAPOINT_PREFIX}{move.new_name}"
+            folder = sim / DATAPOINTS_DIR / _folder_of_the_old_tag(move.old_tag)
+            # THE NEW FOLDER GOES THROUGH THE CHECKED RENDERER, which refuses a
+            # name that already carries the prefix or is not portable. The first
+            # writing concatenated, so the one command whose job is moving
+            # folders was the one place that gate did not fire (the architecture
+            # lens, 2026-09-16). The OLD side cannot: a 0.20 tag is not a
+            # PointName, which is why it has a named helper of its own.
+            target = sim / DATAPOINTS_DIR / datapoint_dir_name(PointName(move.new_name))
             # THE FILES ARE READ BEFORE THE FOLDER MOVES and moved after it, so
             # both halves of each pair name the NEW folder: a folder rename
             # carries its contents, and a file move naming the old folder would
@@ -511,10 +529,26 @@ def rename_workspace(
         entry["sweep_name"] = plan.new_sweep
         rewritten.append(entry)
 
+    # THE REHEARSAL REPORTS WHAT THE RUN WOULD DO, all of it. The first writing
+    # returned here, so a dry run named no manifest archive and no plan rewrite
+    # -- the two changes OUTSIDE the datapoint folders, which are the ones a
+    # user most wants warned about -- and its change count was lower than the
+    # apply run's for the same workspace (the interface lens, 2026-09-16).
+    moves_something = bool(report.changes) or rewritten != raw
     if not apply:
+        if moves_something:
+            report.changes.insert(
+                0,
+                RenameChange(
+                    "manifest would be archived",
+                    workspace.manifest_path.name,
+                    f"{ARCHIVE_DIR}/runs-<stamp>.json",
+                ),
+            )
+        report.changes.extend(_plan_changes(workspace, plans, applied=False))
         return report
 
-    if report.changes or rewritten != raw:
+    if moves_something:
         report.changes.insert(0, _archive_manifest(workspace))
     # THE FOLDERS MOVE BEFORE THE MANIFEST IS REWRITTEN, so a failure leaves a
     # manifest that still describes the tree as it is rather than one that
@@ -524,19 +558,24 @@ def rename_workspace(
             _rename_path(before_path, after_path)
     if rewritten != raw:
         workspace.manifest_path.write_text(json.dumps(rewritten, indent=2) + "\n", encoding="utf-8")
-    report.changes.extend(_rewrite_plans(workspace, plans))
+    report.changes.extend(_plan_changes(workspace, plans, applied=True))
     return report
 
 
-def _rewrite_plans(
+def _plan_changes(
     workspace: CampaignWorkspace,
     plans: Iterable[_Plan],
+    *,
+    applied: bool,
 ) -> list[RenameChange]:
-    """Rewrite every plan.json of the workspace with the same substitutions.
+    """Rewrite every plan.json of the workspace, or say which ones would change.
 
     The plan's points carry the run ids and script names the records do, so a
     plan left alone would name folders that are no longer there and a resume
     would rehearse against them.
+
+    ``applied`` is False for the rehearsal, which reads the same files, decides
+    the same way and writes nothing.
     """
     pairs: set[tuple[str, str]] = set()
     stems: set[str | None] = set()
@@ -552,10 +591,11 @@ def _rewrite_plans(
         before = plan_file.read_text(encoding="utf-8")
         after = json.dumps(_substitute(json.loads(before), ordered), indent=2) + "\n"
         if after != before:
-            plan_file.write_text(after, encoding="utf-8")
+            if applied:
+                plan_file.write_text(after, encoding="utf-8")
             changes.append(
                 RenameChange(
-                    "plan",
+                    "plan" if applied else "plan would be",
                     plan_file.relative_to(workspace.root).as_posix(),
                     "rewritten under the new names",
                 )

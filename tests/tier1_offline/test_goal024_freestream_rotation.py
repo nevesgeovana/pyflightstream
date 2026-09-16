@@ -85,14 +85,34 @@ def test_goal024_freestream_rotation_a_pitch_rate_turns_the_free_stream(tmp_path
         tmp_path,
         condition="MACH:0.2, REmi:2.3, ALPHA:sweep, pitch_rate:4.0",
     )
-    words = _free_stream(_script(workspace, matrix))
+    script = _script(workspace, matrix)
+    words = _free_stream(script)
     # SET_FREESTREAM ROTATION <frame> <axis> <rev/min>: the axis is the one
     # [body_axes] gives the pitch rate, and the speed is the rate in rev/min,
     # 4 deg/s being 4 x 60 / 360.
     assert words[:2] == ["SET_FREESTREAM", "ROTATION"], words
     assert words[3] == "Y", words
     assert float(words[4]) == pytest.approx(4.0 * 60.0 / 360.0), words
-    assert int(words[2]) >= 1, "the rotation names the frame of the moment point"
+    # AND THE FRAME IS THE MOMENT POINT'S, read out of the script rather than
+    # written here: `>= 1` accepted any frame, so a regression turning the free
+    # stream about a ROTOR frame passed green and FR-105's first clause had no
+    # test that could fail (the V&V lens, 2026-09-16).
+    assert int(words[2]) == _mrp_frame(script), (words, script)
+
+
+def _mrp_frame(script: str) -> int:
+    """Return the index of the MRP coordinate system this script creates.
+
+    The builder creates a coordinate system and then edits it, and the edit
+    block carries the index it is editing (`FRAME <n>`) and the name it gives
+    it (`NAME MRP`). Read from the script, so a renumbering moves the assertion
+    with it rather than leaving a constant behind.
+    """
+    lines = [line.strip() for line in script.splitlines()]
+    for index, line in enumerate(lines):
+        if line == "NAME MRP" and index and lines[index - 1].startswith("FRAME "):
+            return int(lines[index - 1].split()[1])
+    raise AssertionError("the script names no MRP frame")
 
 
 def test_goal024_freestream_rotation_each_rate_takes_its_own_axis(tmp_path):

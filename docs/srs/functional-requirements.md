@@ -252,6 +252,13 @@ Milestones and session records are listed in the
     `tests/tier1_offline/fixtures/pfs202512_matrix15.fs` and
     `tests/tier1_offline/fixtures/pfs202701_matrix16.fs`.*
 
+    **The naming of this requirement is superseded by FR-102 (0.21.0).** The
+    point tag and the `POLAR-` file convention below are what 0.20.x wrote;
+    a point is named by its flight condition now, and an existing workspace
+    is moved by `pyfs-matrix rename` (FR-103). Everything else this
+    requirement states stands.
+
+
     A dedicated reader consumes the documented pipe-delimited
     run-matrix format: rows with RUN = 1 are active, the sweep columns
     define alpha, beta, or advance-ratio sweeps, and the variables
@@ -3171,6 +3178,13 @@ requirement below is one seam of that division.
     `<>_M<>_g<>.csv` and `<>_M<>_g<>.dat` must be the standard convention,
     with the word `sweep` in the swept variable's field. Carried by PFS-2036.03. Evidence: tests/tier1_offline/test_products_layout.py.*
 
+    **The naming of this requirement is superseded by FR-102 (0.21.0).** The
+    point tag and the `POLAR-` file convention below are what 0.20.x wrote;
+    a point is named by its flight condition now, and an existing workspace
+    is moved by `pyfs-matrix rename` (FR-103). Everything else this
+    requirement states stands.
+
+
     WHAT IT IS FOR. The package writes one point under two conventions.
     Measured in the reference workspace, for one point of one run:
 
@@ -3203,6 +3217,13 @@ requirement below is one seam of that division.
     *Origin: the fourth feedback item of 2026-09-10, "nomes arquivos
     em post\matriz\provenance fora do padrao". Carried by PFS-2036.04.
     Evidence: tests/tier1_offline/test_products_layout.py.*
+
+    **The naming of this requirement is superseded by FR-102 (0.21.0).** The
+    point tag and the `POLAR-` file convention below are what 0.20.x wrote;
+    a point is named by its flight condition now, and an existing workspace
+    is moved by `pyfs-matrix rename` (FR-103). Everything else this
+    requirement states stands.
+
 
     WHAT IT IS FOR. Two conventions sit in one run for one point:
 
@@ -3273,6 +3294,13 @@ requirement below is one seam of that division.
     *Origin: the reference sixth feedback item of 2026-09-10, "crie uma
     subpasta polars para os arquivos <>_M<>_g<>.csv e <>_M<>_g<>.dat atuais".
     Carried by PFS-2036.06. Evidence: tests/tier1_offline/test_products_layout.py.*
+
+    **The naming of this requirement is superseded by FR-102 (0.21.0).** The
+    point tag and the `POLAR-` file convention below are what 0.20.x wrote;
+    a point is named by its flight condition now, and an existing workspace
+    is moved by `pyfs-matrix rename` (FR-103). Everything else this
+    requirement states stands.
+
 
     WHAT IT IS FOR. Measured in the reference workspace, `post/matriz/`
     holds the polar tables loose at its top level beside `sections/`,
@@ -4059,8 +4087,13 @@ requirement below is one seam of that division.
     `tests/tier1_offline/test_goal024_freestream_rotation.py` (one rate writing
     ROTATION about the moment point with the axis the reference declares and
     the rate in rev/min, each rate on its own axis, zero and absent writing
-    CONSTANT, and the two refusals). The SIGN the solver applies is measured on
-    a seat and reported separately; this package emits the rate as written.*
+    CONSTANT, and the two refusals). THE SIGN the solver applies is measured on a seat and
+    reported in
+    `reports/RPT-052_the-sense-of-a-rotating-free-stream_2026-09-15.md`, with
+    its evidence at `reports/probes/RPT-052_2026-09-15_evidence.yaml`: three
+    pitch rates on one wing-body on 26.124, where a positive rate came back
+    with the nose-down moment increment that opposes a nose-up rotation. This
+    package emits the rate as written.*
 
     A row states ONE body rate -- `roll_rate`, `pitch_rate` or `yaw_rate` -- in
     deg/s and in flight-mechanics signs, and the script writes
