@@ -99,17 +99,51 @@ def recorded_dois() -> dict[str, str]:
 
 
 def owed_in_the_changelog() -> set[str]:
-    """Return the tags the change log's Unreleased section names as owed a row."""
-    text = CHANGELOG.read_text(encoding="utf-8")
-    match = re.search(r"^##\s*\[Unreleased\][^\n]*\n(.*?)(?=^##\s|\Z)", text, re.M | re.S)
-    if not match:
-        return set()
-    body = match.group(1)
+    """Return the tags the change log's Unreleased section names as owed a row.
+
+    THE TIER-1 GUARD'S OWN FUNCTIONS, called rather than restated. This reader
+    had three differences from the guard that decides whether a release may
+    publish, and every one of them made it MORE permissive: it read the whole
+    Unreleased section instead of the ``### Owed`` block, it read PHYSICAL LINES
+    instead of bullets, and it never asked for a debt word at all. On 2026-09-16
+    it printed "the change log names it OWED, which is the window" for a bullet
+    that says "is not minted yet", while the guard refused the same bullet and
+    the v0.21.0 publish was skipped. A cheap gate that does not ask the expensive
+    one's question is worse than no gate, because it is believed.
+
+    Raises
+    ------
+    SystemExit
+        If the guard's functions cannot be imported. Falling back to a private
+        reader is exactly how the two drifted apart, so this refuses instead.
+    """
+    # THE REPOSITORY ROOT, so `tests` imports when this is run as a script from
+    # anywhere. Prepending is deliberate: the guard that decides the release is
+    # the one in THIS checkout, never an installed copy of another.
+    if str(REPO) not in sys.path:
+        sys.path.insert(0, str(REPO))
+    try:
+        from tests.tier1_offline.test_metadata_currency import (  # noqa: PLC0415
+            _owed_claims,
+            _the_owed_section,
+        )
+    except ImportError as error:  # pragma: no cover - a checkout without tests
+        raise SystemExit(
+            f"cannot import the tier-1 owed reader ({error}). This script answers with "
+            "the guard's own functions and has no reader of its own, because the one it "
+            "had was more permissive than the guard in three ways and reported a release "
+            "ready that the release gates then refused. Run it from a checkout that "
+            "carries tests/."
+        ) from error
+
     owed = set()
-    for line in body.splitlines():
-        if not re.search(r"archive|DOI|identifier", line, re.I):
+    for claim in _owed_claims(_the_owed_section()):
+        lowered = claim.lower()
+        if not any(word in lowered for word in ("archive", "doi", "identifier")):
             continue
-        owed.update(re.findall(r"\bv\d[\w.\-]*", line))
+        if not any(word in lowered for word in ("owed", "owe", "not exist", "missing")):
+            continue
+        owed.update(re.findall(r"\bv\d[\w.\-]*", claim))
     return owed
 
 

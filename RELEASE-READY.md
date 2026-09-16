@@ -33,7 +33,16 @@ existing workspace must be moved by `pyfs-matrix rename` before `collect` or
 #    sentences that count, and the 0.20.0.dev0 bump moved one and not the
 #    other; read both.
 #
-#    AND THE CHANGE LOG'S Owed SECTION NAMES THE NEW TAG. Its absence cost the
+#    AND THE CHANGE LOG'S Owed SECTION SAYS THE NEW TAG'S ROW IS *OWED*.
+#    NAMING THE TAG IS NOT ENOUGH, and that cost the v0.21.0 publish on
+#    2026-09-16: the bullet was there, it named v0.21.0 and it named the
+#    archive, and it said "is not minted yet". The guard asks each BULLET for
+#    three things -- the tag, an archive word, and a DEBT word (`owed`, `owe`,
+#    `not exist`, `missing`) -- and the third was missing, so `publish` was
+#    skipped. Write the word. And do not explain the rule inside the bullet:
+#    a footnote mentioning `owed` satisfies the guard on its own, which is
+#    measurable and was measured.
+#    The absence of the line entirely cost the
 #    v0.18.0 publish: the gates run against the TAGGED tree, where the version
 #    has no archive row yet, and only an Owed line naming the tag lets
 #    `test_every_released_tag_has_an_archive_row_or_the_changelog_says_it_is_owed`
