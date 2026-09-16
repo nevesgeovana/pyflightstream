@@ -4023,9 +4023,16 @@ requirement below is one seam of that division.
     - Two points of one case whose names are equal are refused AT PLAN TIME
       naming both points and what they write.
     - The run record carries `point_name` and `sweep_name`. A record written
-      before 0.21.0 carries neither, and `collect` and the products stage
-      refuse it by name rather than recompute one: the point's evidence would
-      be filed where no record of it points.
+      before 0.21.0 carries neither, and NEITHER STAGE RECOMPUTES ONE: the
+      point's evidence would be filed where no record of it points. The
+      products stage refuses such a record by name. AMENDED 0.21.1: `collect`
+      resolves its folder from the record's own submission block, which is
+      reading rather than recomputing, and refuses only a record that names no
+      datapoint folder either -- a point submitted before 0.18.1, whose job ran
+      in the simulation folder. Refusing it outright deadlocked a 0.20.x
+      workspace with submitted points against FR-103, whose command refuses
+      those same records and directs the user here. Evidence:
+      `tests/tier1_offline/test_goal025_migration_deadlock.py`.
 
 !!! requirement "FR-103 One command renames a workspace to the point names <span class='srs-implemented'>implemented</span>"
 

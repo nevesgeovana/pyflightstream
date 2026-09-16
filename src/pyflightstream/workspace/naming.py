@@ -84,6 +84,15 @@ class PointName(str):
     from it and never from a bare string, because a string that already held the
     prefix, or a tag of the earlier scheme, put files in a folder the assessor
     never looks in.
+
+    THE ONE SANCTIONED CALLER OF THE EARLIER SCHEME, since 0.21.1:
+    :func:`datapoint_name_of` builds one of these from a folder that ALREADY
+    EXISTS under a pre-0.21.0 tag, for a collector that read that folder off the
+    record rather than recomputing it. The harm above is a name INVENTED in the
+    old scheme, which files outputs where nothing looks; reading back a folder
+    that is already there is its opposite. That function answers None rather
+    than raising for anything it cannot check, which is what keeps this class's
+    refusal out of a caller that could not handle it.
     """
 
     def __new__(cls, value: str) -> PointName:  # noqa: D102 -- the class docstring states the check
@@ -144,6 +153,37 @@ def datapoint_dir_name(name: PointName) -> str:
             "folder is rendered from a checked name"
         )
     return f"{DATAPOINT_PREFIX}{name}"
+
+
+def datapoint_name_of(folder: str) -> PointName | None:
+    """Return the point a datapoint FOLDER belongs to, or None if it names none.
+
+    The inverse of :func:`datapoint_dir_name`, and it lives beside it because a
+    rule and its inverse drifting apart is the defect this module already
+    records for :data:`ARCHIVE_STAMP`.
+
+    Returns
+    -------
+    PointName or None
+        The checked name, or None when ``folder`` does not carry
+        :data:`DATAPOINT_PREFIX` or what follows it is not a point name.
+
+    WHY NONE AND NOT A RAISE, which is the whole reason this is a function and
+    not two lines at the call site. The caller is a COLLECTOR reading a folder
+    name off disk, where anything can be written and a hand-made directory is
+    ordinary; `PointName` refuses what is not portable, and its refusal is a
+    `NamingTemplateError`, which is a ValueError and not a WorkspaceError. Fed
+    an unvalidated tag, the collector's sweep did not catch it and one folder
+    named `DP-a b` aborted the collection of every other point in the
+    workspace, measured 2026-09-16. A reader that answers "not a point's
+    folder" lets the caller refuse in its own vocabulary.
+    """
+    if not folder.startswith(DATAPOINT_PREFIX):
+        return None
+    try:
+        return PointName(folder[len(DATAPOINT_PREFIX) :])
+    except NamingTemplateError:
+        return None
 
 
 def point_file_stem(sim: str, name: PointName) -> str:

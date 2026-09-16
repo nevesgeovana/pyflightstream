@@ -7,6 +7,35 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Fixed
+
+- **A 0.20.x workspace holding SUBMITTED points could not be migrated by either
+  command.** `pyfs-matrix rename` refuses a submitted record whose folder would
+  move and says to collect it first; `pyfs-matrix collect` refused a record
+  carrying no point name and said to rename first. Each pointed at the other,
+  so a workspace whose points had been submitted -- and had finished, with every
+  export on disk -- could not be moved to the 0.21.0 names at all.
+  - **THE COST WAS NOT A REFUSAL.** The refusal is caught by the collecting
+    sweep and the record rewritten as `FAILED_INCOMPLETE_OUTPUT`, so runs that
+    had converged were stamped failed and lost the `SUBMITTED` state that is
+    what lets them be collected. Back up `runs.json` before collecting a
+    workspace this happened to.
+  - `collect` now files such a record's outputs in the datapoint folder the
+    record's OWN submission block names, read and never recomputed, which is
+    what the refusal existed to protect. A record naming neither a point name
+    nor a datapoint folder is still refused: that is a point submitted before
+    0.18.1, whose job ran in the simulation folder, and the refusal now names
+    the field to set.
+  - The `[0.21.0]` section below says "`collect` and `products` refuse a record
+    written without them". The products stage still does; `collect` does not,
+    as of this release.
+- **One bad folder name no longer aborts the whole collecting sweep.** A
+  datapoint folder whose name is not a portable point name -- a space in it is
+  enough -- raised an error the sweep does not catch, so every OTHER submitted
+  point in the workspace went uncollected. `workspace.naming.datapoint_name_of`
+  reads a folder name back into a checked `PointName` and answers None for
+  anything it cannot check, so the collector refuses in its own vocabulary.
+
 ### Owed
 
 

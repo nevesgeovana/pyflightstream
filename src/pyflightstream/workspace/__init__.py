@@ -109,6 +109,7 @@ from pyflightstream.workspace.naming import (
     NamingTemplateError,
     PointName,
     datapoint_dir_name,
+    datapoint_name_of,
 )
 from pyflightstream.workspace.trailing_edges import (
     TrailingEdge,
@@ -158,6 +159,7 @@ __all__ = [
     "SIM_DATAPOINTS_DIR",
     "PointName",
     "datapoint_dir_name",
+    "datapoint_name_of",
     "check_reference_point_names",
     "check_unique_stems",
     "collection_name",

@@ -69,7 +69,16 @@ records whose new names would collide. Fix what it names and run it again.
 **Collect your queued jobs first.** A submitted job writes into the folder
 its descriptor named, so a workspace with a `SUBMITTED` record whose folder
 would move is refused: run `pyfs-matrix collect` until nothing is
-outstanding, then rename.
+outstanding, then rename. A submitted point written by 0.20.x collects into
+the folder it ran in, so this order works on a workspace that has never been
+renamed.
+
+**If you tried this under 0.21.0 and it failed**, the collecting sweep refused
+those records and wrote them back as `FAILED_INCOMPLETE_OUTPUT`, which also
+cleared the `SUBMITTED` state. Restore `runs.json` from a backup if you have
+one; if you do not, the outputs are untouched on disk and the records have to
+be set back to `SUBMITTED` by hand before collecting again. 0.21.1 fixes the
+cause.
 
 **What is not renamed.** Nothing outside the workspace: your matrix file,
 your inputs library and your own notes keep their names. Nothing under `post/`
@@ -83,9 +92,11 @@ template of your own still renders, so this is the one change in the release
 that reaches you WITHOUT a message -- your files simply come out under different
 names. Check your template before the first run.
 
-**If you do not rename**, `collect` and the post-processing stages refuse a
-record written before 0.21.0 and say so, naming this command. They do not
-guess a name for it.
+**If you do not rename**, the post-processing stages refuse a record written
+before 0.21.0 and say so, naming this command. `collect` does not refuse it:
+since 0.21.1 it collects such a record IN PLACE, under the datapoint folder the
+record's own submission block names. Neither of them guesses a name for it, and
+`pyfs-matrix rename` is still what names it.
 
 ## 3. `WALLTIME` now carries its unit
 

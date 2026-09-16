@@ -1442,9 +1442,20 @@ class LoadsAssessor:
         recorded_name = getattr(case, "datapoint_name", None)
         if recorded_name:
             own_name: str | None = datapoint_dir_name(PointName(recorded_name))
-        elif point:
+        elif point and hasattr(case, "condition_order"):
+            # A REAL CASE, asked by what only a case has, and not by whether a
+            # name happened to be recorded. 0.21.1: a record carried across as a
+            # case can reach here with NO recorded name -- a 0.20.x swept row
+            # carries neither a point name nor a working directory, because the
+            # whole sweep was one job in the simulation folder -- and it then
+            # fell into this branch and raised AttributeError on
+            # `condition_order`. That is not a WorkspaceError, so the collecting
+            # sweep does not catch it and one such record aborts the collection
+            # of every other point in the workspace (the qa lens, FIX-0211).
             own_name = datapoint_dir_name(PointName(point_name(case, point)))
         else:
+            # No name recorded and nothing that can compute one: the point is
+            # judged from the simulation folder, as it was before 0.21.0.
             own_name = None
         own = None if own_name is None else Path(sim_dir) / SIM_DATAPOINTS_DIR / own_name
         # THE PREDICATE IS EXISTENCE AND NOT EMPTINESS, and the difference

@@ -84,7 +84,7 @@ from ..workspace import (
     WorkspaceError,
 )
 from ..workspace.inputs import resolve_hpc_profile
-from ..workspace.naming import DATAPOINT_PREFIX
+from ..workspace.naming import datapoint_name_of
 
 if TYPE_CHECKING:  # the return type of the whole judgement, without a runtime cycle
     from pyflightstream.run import Assessment
@@ -242,8 +242,27 @@ def _datapoint_of(record: RunRecord) -> str | None:
     """
     if record.point_name:
         return record.point_name
-    ran_in = Path(str((record.submission or {}).get("working_dir") or "")).name
-    return ran_in[len(DATAPOINT_PREFIX) :] if ran_in.startswith(DATAPOINT_PREFIX) else None
+    # THE FOLDER NAME IS READ BY THE MODULE THAT WRITES IT, which answers None
+    # for anything that is not a point's folder rather than raising an error
+    # this sweep's handler does not catch (the architect lens, FIX-0211).
+    #
+    # WHAT THIS DOES NOT CHECK, stated because the same field is read twice in
+    # this module with two different trust models: `_working_dir` resolves
+    # `working_dir` and REFUSES one that is not a direct child of this record's
+    # own `datapoints/`, and it runs before this on the collecting path. This
+    # reads the name only and is not itself that check.
+    ran_in = datapoint_name_of(Path(str((record.submission or {}).get("working_dir") or "")).name)
+    if ran_in is None:
+        return None
+    # AND IT IS THIS RECORD'S FOLDER, not merely a datapoint folder of this
+    # simulation. `_working_dir` checks the second and not the first, so an
+    # edited `working_dir` naming ANOTHER point's folder was refused for a
+    # record that carries a point name and accepted for one that does not --
+    # this release's own records (the qa lens, FIX-0211). A 0.20.x record ends
+    # its `run_id` in the tag, which is what `pyfs-matrix rename` reads it by,
+    # so the record carries its own cross-check and only had to be asked.
+    tail = str(record.run_id).rsplit("/", 1)[-1]
+    return str(ran_in) if tail in ("", str(ran_in)) else None
 
 
 class _RecordAsCase:
@@ -409,7 +428,11 @@ def _native_log_copy(
     target = work_dir / declared[0]
     if target.exists():
         return None
-    glob = pattern.format(sim=record.sim_id, point=record.point_name or "", **{})
+    # `{point}` IS THE FOLDER THIS RECORD'S OUTPUTS ARE IN, by the one rule,
+    # not `point_name` alone: that is empty for exactly the records 0.21.1
+    # supports, so a profile naming the point in its pattern would glob nothing,
+    # copy no log, and wait for a file nothing writes (the qa lens, FIX-0211).
+    glob = pattern.format(sim=record.sim_id, point=_datapoint_of(record) or "", **{})
     found = sorted(path for path in work_dir.glob(glob) if path.is_file())
     if len(found) > 1:
         return (
@@ -686,11 +709,24 @@ def _recorded_name(record: RunRecord) -> PointName:
     name = _datapoint_of(record)
     if name:
         return PointName(name)
+    # WHICH OF THE TWO ACTUALLY HELD, because this sentence is written into
+    # `record.error` on disk and a message that asserts an unchecked fact is
+    # worse than a vague one (the V&V lens, FIX-0211). `_datapoint_of` answers
+    # None for a record with no working directory AND for one whose working
+    # directory is not a datapoint folder, which is what a pre-0.18.1 job that
+    # ran in the simulation folder records.
+    stated = str((record.submission or {}).get("working_dir") or "")
+    where = (
+        f"names its working directory as {stated!r}, which is not a datapoint folder"
+        if stated
+        else "names no working directory"
+    )
     raise WorkspaceError(
-        f"record {record.run_id!r} was written before 0.21.0, carries no point name, and "
-        "names no working directory either, so nothing says which folder its outputs "
-        "belong in. A point submitted before 0.18.1 ran in the simulation folder rather "
-        "than in a datapoint folder of its own; complete the record by hand, or re-run it."
+        f"record {record.run_id!r} carries no point name and {where}, so nothing says "
+        "which folder its outputs belong in. That is a point submitted before 0.18.1: "
+        "its job ran in the simulation folder rather than in a datapoint folder of its "
+        "own. Set `submission.working_dir` on this record in runs.json to the "
+        "`datapoints/DP-<folder>` its outputs are in, or re-run the point."
     )
 
 
