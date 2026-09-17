@@ -83,8 +83,8 @@ still evidence.
    the reference, then:
 
    ```
-   pyfs-matrix plan --workspace <root>
-   pyfs-matrix run --workspace <root> --force-rerun <point or run_id>
+   pyfs-matrix plan <matrix> --workspace <root>
+   pyfs-matrix run <matrix> --workspace <root> --force-rerun <point or run_id>
    ```
 
    `--force-rerun` archives the record and that point's collected outputs and
@@ -92,23 +92,54 @@ still evidence.
 3. **Where the sign was already right**, the point is unaffected: its script,
    its outputs and its record all stand.
 
-### If the point NAME changed
+### The point NAME changed for EVERY rotor point, including yours
 
-Only a row that wrote its hand into the number is affected: its points were
-named `...RPM-2400` and the corrected row names them `...RPM02400`.
+**Read this even if your rotor was turning the right way.** `RPM` in a point
+name is now written UNSIGNED and five digits wide, so the `+` is gone from every
+rotor point that ever ran:
 
-Those are exactly the points from step 2 -- the ones whose rotor turned the way
-the number said rather than the way the reference said. Re-run them; the new
-name is written by the re-run. `pyfs-matrix rename` is for a workspace whose
-points are still valid and whose NAMES moved, which is not this case: here the
-values moved too, and `rename` refuses a matrix that changed since the run.
+```
+0.21.x   DP-M144RE438AL+000RPM+0800
+0.22.0   DP-M144RE438AL+000RPM00800
+```
+
+That is not only the rows that carried a sign. A row that always stated
+`RPM: 800` and always turned correctly has its folders, scripts and exports
+under a name the workspace no longer computes.
+
+**Two different cases, and they take opposite actions.**
+
+**(a) The rotor was turning the RIGHT way.** The points are still evidence --
+only the name moved -- so they are RENAMED, not re-run:
+
+```
+pyfs-matrix rename --workspace <root>
+```
+
+It reads the old name from the record and computes the new one from the row, so
+it needs no version flag. Rehearse it first with `--dry-run` and read what it
+says it will move.
+
+**What is measured about that command, said exactly.** Its bridging of a
+name-only change is measured end to end on a workspace that really ran: one pass
+moved the datapoint folder and all seven files inside it, and the manifest with
+them (`test_goal024_rename_command.py`, the name-only case). The `RPM` instance
+is that same code path -- the rename compares the recorded name against the
+computed one and branches on neither the field nor its width -- but this
+release ships no case that exercises the `RPM` spelling specifically. Rehearse
+before you apply.
+
+**(b) The rotor was turning the WRONG way.** Those points are not evidence at
+all, and `rename` will refuse them anyway, because correcting the row changes
+the point's VALUES and a recorded point that is no longer a point of the row is
+refused by name. Re-run them, as step 2 above says.
 
 ## 4. The order to do it in
 
 1. Put `rpm_sign` on each rotor block of your reference artifacts.
 2. Take the sign out of every row's `RPM` and `ADVANCE_RATIO`, and remove
    `RPM_SIGN` from any row that names a rotor block.
-3. `pyfs-matrix plan --workspace <root>` -- this refuses anything still wrong,
+3. `pyfs-matrix plan <matrix> --workspace <root>` -- this refuses anything still wrong,
    by name.
 4. Check the emitted sign for each rotor row against the hand you intend.
 5. `--force-rerun` the points whose sign was wrong. Leave the rest.
@@ -116,6 +147,9 @@ values moved too, and `rename` refuses a matrix that changed since the run.
 
 ## 5. What is not changed
 
-`WALLTIME`, the HPC profile, the point-name scheme of 0.21.0, the sweep
-vocabulary and every non-rotor row are untouched. A steady row does not read a
-rotor speed at all.
+`WALLTIME`, the HPC profile, the sweep vocabulary and every non-rotor row are
+untouched. A steady row does not read a rotor speed at all, and a point name
+carrying no `RPM` field is written exactly as 0.21.0 wrote it.
+
+The point-name scheme is NOT in this list: `RPM` lost its sign, which is section
+3(a) above.

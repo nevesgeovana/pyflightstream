@@ -1674,8 +1674,8 @@ point's name -- a pproc, a geometry, a solver variable, a wall clock -- the
 corrected point has the same identity, and `--force-rerun` is how it is redone:
 
 ```text
-pyfs-matrix plan --matrix <matrix> --workspace .
-pyfs-matrix run  --matrix <matrix> --workspace . \
+pyfs-matrix plan <matrix> --workspace .
+pyfs-matrix run  <matrix> --workspace . \
     --force-rerun 'camp/sim_3207/M144RE438AL+000BE+000J+080'
 ```
 

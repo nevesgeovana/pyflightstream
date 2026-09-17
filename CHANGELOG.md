@@ -42,10 +42,14 @@ FlightStream versions.
   refused whether it agrees with the block or not: a row that agrees today says
   nothing when the reference is corrected tomorrow, which is the same silence
   this entry exists to end. The hand has one home.
-  - **The FLAT pre-0.15.0 spelling is unaffected and deliberately so.** A row
-    stating `ROTOR_AXIS` and `MOVING_BOUNDARIES` rather than naming a rotor
-    block has nowhere else to put the hand, so `RPM_SIGN` beside `RPM` is the
-    correct and only spelling there, and it plans as it always did. Until 0.21.1
+  - **The FLAT pre-0.15.0 spelling keeps its own `RPM_SIGN`, with one
+    exception.** A row stating `ROTOR_AXIS` and `MOVING_BOUNDARIES` rather than
+    naming a rotor block has nowhere else to put the hand, so `RPM_SIGN` beside
+    `RPM` is the correct and only spelling there, and it plans as it always did.
+    THE EXCEPTION: if the boundary that row turns is one of a DECLARED rotor
+    block's own families, that block is the rotor, it governs the hand, and the
+    row restating `RPM_SIGN` is refused. A flat row whose reference declares no
+    rotor at all is the shape that is genuinely untouched. Until 0.21.1
     that pair was refused outright, on the reading that a rev/min a user writes
     carries its own sign; with the speed a magnitude everywhere, the pair is no
     longer a contradiction.
@@ -83,6 +87,10 @@ FlightStream versions.
     while leaving the rest alone.
 
 ### Added
+
+- **`CampaignWorkspace.supersede_records(run_ids)`** is public: it copies the
+  manifest to `archive/runs-<stamp>.json`, removes the named rows and writes the
+  result atomically. `--force-rerun` is its one caller.
 
 - **`pyfs-matrix run --force-rerun <point>`**, for a matrix row that was wrong.
   A point whose `run_id` is already in the manifest is refused, because
@@ -129,9 +137,6 @@ FlightStream versions.
   sends the user to the one key that was right. The refusal now says which
   motions were refused and why. Reachable on a correct row from this release,
   because a hand written into a speed is now a refusal.
-- **`CampaignWorkspace.supersede_records(run_ids)`** is public: it copies the
-  manifest to `archive/runs-<stamp>.json`, removes the named rows and writes the
-  result atomically. `--force-rerun` is its one caller.
 - **The `broken_commands` manifest key is promised for removal at 0.23.0**, its
   eighth deadline. RE-MEASURED at the bump, by counting ROWS rather than files:
   74 recorded rows carry it across four manifests. **The figure this promise

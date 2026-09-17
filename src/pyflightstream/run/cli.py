@@ -465,7 +465,9 @@ def _build_parser() -> argparse.ArgumentParser:
         default=[],
         metavar="POINT",
         help="REDO this point, which is already in the manifest, for a row that was "
-        "wrong. Name it by its point name or by the full run_id the refusal printed; "
+        "wrong. Name it by its point name, by the full run_id the refusal printed, or "
+        "by the JOB id of a swept steady row, which is what that refusal prints for "
+        "one and which names every point of it, because a job is indivisible; "
         "repeat the flag for several. The manifest is copied to archive/runs-<stamp>.json, "
         "the named records leave it, and each point's collected outputs move into that "
         "point's own archive/<stamp>/ before it runs; NOTHING IS DELETED. It names points "
