@@ -76,6 +76,7 @@ from __future__ import annotations
 import csv
 import json
 import math
+import re
 import warnings
 from collections import Counter
 from collections.abc import Callable, Mapping, Sequence
@@ -513,6 +514,37 @@ def swept_polar_file_name(
     takes the same stem, which is what ``suffix`` is for.
     """
     return f"{sweep_file_stem(sim, name)}_g{int(group):02d}{suffix}"
+
+
+#: A group name that reads as the NUMBERED era's suffix, which the rename must
+#: be able to tell apart from a name of its own.
+_NUMBERED_GROUP = re.compile(r"^g\d+$", re.IGNORECASE)
+
+
+def group_product_name(*, polar: str, mach: float, group: str, suffix: str = ".csv") -> str:
+    """Return the product file name of one polar GROUP, carrying the group's NAME.
+
+    Item 14 of 0.23.0, on the owner's rule that `GROUPS` takes one named input
+    and "no nome do arquivo vai vir o nome desse input e não um numero". A
+    number told a reader which position the group held in a list, which is a
+    fact about the list and not about the group.
+
+    A group whose name IS the old numbered suffix is refused. It would produce
+    a file indistinguishable from the pre-0.23.0 form, and the rename that
+    moves her existing products has to be able to tell the two eras apart to
+    know what it has already moved.
+    """
+    token = str(group).strip()
+    if not token:
+        raise ProductError("a polar group has no name, and the product file is named after it")
+    if _NUMBERED_GROUP.match(token):
+        raise ProductError(
+            f"the polar group is named {token!r}, which is the shape this release "
+            "replaced; a file named after it could not be told from the numbered "
+            "form it supersedes, and the rename of existing products needs that "
+            "difference. Choose a name for the group"
+        )
+    return f"{polar}-M{_mach_code(mach):02d}_{token}{suffix}"
 
 
 def read_csv_table(path: str | Path) -> tuple[tuple[str, ...], list[dict[str, str]]]:

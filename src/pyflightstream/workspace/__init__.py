@@ -111,6 +111,10 @@ from pyflightstream.workspace.naming import (
     datapoint_dir_name,
     datapoint_name_of,
 )
+from pyflightstream.workspace.rename_groups import (
+    RenamedProduct,
+    rename_group_products,
+)
 from pyflightstream.workspace.trailing_edges import (
     TrailingEdge,
     extract_trailing_edge,
@@ -128,6 +132,8 @@ __all__ = [
     # undecided in the release that MOVED them is the part that is wrong.
     "ARCHIVE_DIR",
     "ARCHIVE_STAMP",
+    "RenamedProduct",
+    "rename_group_products",
     "GEOMETRIES_README",
     "EXECUTABLES_FILE",
     "INPUT_KINDS",

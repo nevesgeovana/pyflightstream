@@ -107,6 +107,12 @@ PUBLIC_MODULES = [
     "pyflightstream.workspace.inputs",
     "pyflightstream.workspace.matrix",
     "pyflightstream.workspace.naming",
+    # v0.23.0 item 14: the migration that moves a workspace's polar products
+    # from the numbered group suffix onto the group's own name. PUBLIC
+    # deliberately: a user holding products from an earlier release is who
+    # runs it, and a migration nobody can reach is a migration that does not
+    # happen. Its changelog entry is in the [Unreleased] breaking section.
+    "pyflightstream.workspace.rename_groups",
     # PFS-2025.20: the trailing-edge extraction. Public deliberately, and
     # NOT in EXTRA_GATED_MODULES: after the trimesh promotion it must
     # import on a base install with no extras, which is the whole point

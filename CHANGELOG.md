@@ -9,6 +9,32 @@ FlightStream versions.
 
 ### Changed (breaking)
 
+- **A polar group is named, and the product file carries its NAME instead of
+  `_g01`.** `GROUPS` takes one named input per group, and a number told you
+  which position the group held in a list, which is a fact about the list and
+  not about the group.
+  - **YOUR EXISTING PRODUCTS ARE RENAMED, NOT ORPHANED**, by
+    `pyflightstream.workspace.rename_group_products(root, {1: "PUSHER", ...})`.
+    You supply the mapping because nothing in a workspace records which group
+    `_g03` was; a number it is not given is LEFT ALONE and reported rather
+    than renamed on a guess.
+  - **IT ARCHIVES BEFORE IT MOVES**, and nothing is ever deleted. A copy of
+    each file lands under `archive/rename-groups-<stamp>/` first, and it stays
+    there after a successful move: the cheapest way to be wrong about a
+    migration is to be unable to look at what was there before. `dry_run=True`
+    reports what would move and moves nothing.
+  - A destination that already exists is REFUSED, naming both paths, and
+    nothing moves. Two products cannot share a name and one of the two is a
+    result.
+  - A group whose name IS the old numbered form (`g01`) is refused, because a
+    file named after it could not be told from the form it supersedes and the
+    migration needs that difference to know what it has already moved.
+  - **The super file's union was the trap and it is closed.** That union is
+    built by matching file names, so a renamed group would simply not be there
+    and the assertion that the union is a superset would have stayed green
+    over the smaller set. The pattern now matches both eras and a test asserts
+    the pattern itself rather than an outcome that nothing satisfies.
+
 - **A CSV cell that does not apply to a row now reads `NA`, where it was
   blank.** This changes the bytes of every CSV product, so a reader that
   already works on 0.22.0 output has to be told about it -- this entry is for

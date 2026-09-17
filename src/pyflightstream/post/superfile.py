@@ -568,6 +568,19 @@ def write_superfiles(
 # --- the measurement --------------------------------------------------------
 
 
+#: The glob that finds every per-polar table when the union is built.
+#:
+#: IT IS A CONSTANT AND NOT A LITERAL since 0.23.0, because it is a TRAP. The
+#: union of FR-89 is a superset of what the workspace knows, and it is built by
+#: matching file names: a table this pattern misses does not fail, it simply is
+#: not there, and the superset assertion stays green over the smaller set. Item
+#: 14 renames a group's product from `_g01` to `_<NAME>`, so a pattern pinned
+#: to the numbered form would have dropped every renamed group out of the union
+#: in silence, hiding items 5, 6 and 10 with it. Named here so a test can assert
+#: the pattern itself rather than an outcome that is satisfied by nothing.
+POLAR_TABLE_GLOB = "P*-*_*.csv"
+
+
 def _header(path: Path) -> set[str]:
     with path.open("r", encoding="utf-8", newline="") as handle:
         try:
@@ -641,7 +654,7 @@ def union_the_workspace_knows(
     everything, which is the defect this requirement exists to prevent.
     """
     known: set[str] = set()
-    for table in sorted((out / polars_dir).glob("P*-*_g*.csv")):
+    for table in sorted((out / polars_dir).glob(POLAR_TABLE_GLOB)):
         known |= _header(table)
     # The CAMPAIGN-level tables sit at the top of the matrix's folder and
     # the per-polar ones do not (FR-88), so this glob is `campaign_sweep.csv`
