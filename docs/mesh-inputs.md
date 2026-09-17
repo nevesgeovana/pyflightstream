@@ -237,9 +237,12 @@ neither. Two standing decisions bound any widening:
 
 From 0.8.0 to 0.10.1 the reference artifact's `[rotor]` block recorded
 `rotation`, `blade_travel`, `rpm_sign_installed` and `rpm_sign_isolated`,
-and no builder read them: a script states the rotor speed's sign through
-the sign of `RPM` (or `RPM_SIGN` beside `ADVANCE_RATIO`) and its axis
-through `ROTOR_AXIS`, on the row. Since 0.11.0 a file carrying the four is
+and no builder read them. From 0.11.0 to 0.21.1 a script stated the rotor
+speed's sign through the sign of `RPM` (or `RPM_SIGN` beside
+`ADVANCE_RATIO`) and its axis through `ROTOR_AXIS`, on the row; since
+0.22.0 the speed a row states is a MAGNITUDE and the hand is `rpm_sign`
+on that rotor's own block, beside the axis the block also declares.
+Since 0.11.0 a file carrying the four is
 refused naming those row keys, and `pyfs-matrix upgrade --in-place
 --inputs <inputs dir>` strips them (PFS-2029.08). The argument that
 related them is kept here, because it is what a reader setting up a new

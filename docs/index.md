@@ -238,9 +238,11 @@ emitted, silently and with no warning, so a campaign whose preset states
 anything non-default will move its numbers and wants re-baselining. And
 five names became the package's inside `VAR_NAMES_VALUES`:
 `ADVANCE_RATIO`, `RPM_SIGN`, `DELTA_THETA`, `REVOLUTIONS` and
-`LOG_OUTPUT`, matched on the exact key, with a row spelling one of the
-first two beside an existing `RPM` refused for stating the rotor speed
-twice.
+`LOG_OUTPUT`, matched on the exact key, with a row spelling
+`ADVANCE_RATIO` beside an existing `RPM` refused for stating the rotor
+speed twice. (`RPM_SIGN` beside `RPM` was refused for the same reason
+until v0.21.1; since v0.22.0 a row's speed is a magnitude and the hand of
+the rotation is `rpm_sign` on the rotor's block in the reference.)
 
 **v0.9.0 breaks the run-matrix file format**, and it is the one
 upgrade action that cannot be skipped: the `RE` and `MACH` columns are
@@ -306,6 +308,10 @@ added, never dropped.
 * [Flight conditions](flight-conditions.md): what a row states about the
   flow it runs at, which quantity gets solved for, the units that ride
   the key names, and what to run on a matrix written before v0.9.0.
+* [Migrating to 0.22.0](migrating-to-0.22.0.md): a row's rotor speed is a
+  magnitude and the reference says which way the rotor turns — what to
+  change in your rows and reference blocks, and which recorded points have
+  to be re-run rather than renamed, because they turned the wrong way.
 * [Migrating to 0.21.0](migrating-to-0.21.0.md): the one command that
   renames a workspace written under 0.20.x, and what the `WALLTIME` unit,
   the HPC profile's `[log]` table and the build flag ask of a file you

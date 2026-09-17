@@ -99,9 +99,9 @@ def test_goal024_rpm_sweeps_like_any_other_variable(tmp_path):
     )
     # The speed is written signed, five characters, the sign included.
     assert [point.run_id.rsplit("/", 1)[-1] for point in plan.points] == [
-        "M144RE438AL+000RPM+0600",
-        "M144RE438AL+000RPM+0800",
-        "M144RE438AL+000RPM+1000",
+        "M144RE438AL+000RPM00600",
+        "M144RE438AL+000RPM00800",
+        "M144RE438AL+000RPM01000",
     ]
 
 
@@ -235,3 +235,42 @@ def test_goal024_rpm_a_row_naming_no_clock_rotor_is_refused_by_name(tmp_path):
         )
     message = str(caught.value)
     assert "CLOCK_MOTION" in message and "V = J x (RPM/60) x D" in message, message
+
+
+def test_goal024_rpm_the_point_name_refuses_a_hand_written_into_the_speed():
+    """0.22.0: `RPM` is a magnitude in the name, and a sign there is REFUSED.
+
+    THE MUTANT THIS KILLS, which survived the first writing: nothing in tier one
+    asserted the magnitude rule at all, so removing it changed a reachable output
+    and 514 cases stayed green (the qa lens, FIX-0220). The two name assertions
+    that existed used positive speeds and were green before the rule existed.
+
+    AND IT REFUSES RATHER THAN ABSORBING, which is the half that was a defect.
+    Taking the absolute value silently gave a swept `600, -600` two identical
+    names, so the user met a FILE NAME COLLISION instead of the sentence saying
+    where the hand belongs -- on a row whose scalar form refuses correctly.
+    """
+    from pyflightstream.cases import CampaignConfigError, name_field
+
+    assert name_field("RPM", 800.0) == "RPM00800"
+
+    with pytest.raises(CampaignConfigError) as caught:
+        name_field("RPM", -800.0)
+    message = str(caught.value)
+    assert "MAGNITUDE" in message, message
+    assert "rpm_sign" in message, "the refusal names where the hand belongs"
+
+
+def test_goal024_rpm_the_other_signed_fields_keep_their_sign():
+    """THE CONTROL, so the rule cannot be satisfied by making everything a magnitude.
+
+    A rotor's hand is the ROTOR's; an angle of attack, a sideslip and a
+    temperature offset are properties of the OPERATING POINT and their sign is
+    part of the point's identity. A mutant that magnituded the whole table would
+    pass the test above and fail here.
+    """
+    from pyflightstream.cases import name_field
+
+    assert name_field("ALPHA", -2.0) == "AL-020"
+    assert name_field("BETA", -6.0) == "BE-060"
+    assert name_field("dISA", -1.5) == "DT-015"

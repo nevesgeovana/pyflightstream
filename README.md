@@ -306,8 +306,14 @@ and for one key it is a line in the row instead, which the refusal says.
 `ADVANCE_RATIO`, `RPM_SIGN`, `DELTA_THETA`, `REVOLUTIONS` and
 `LOG_OUTPUT`. The match is on the exact key. If a cell of yours already
 spells one, rename yours or adopt the meaning; a row spelling
-`ADVANCE_RATIO` or `RPM_SIGN` beside an existing `RPM` is REFUSED,
-because that states the rotor speed twice.
+`ADVANCE_RATIO` beside an existing `RPM` is REFUSED, because that states
+the rotor speed twice. (`RPM_SIGN` beside `RPM` was refused for the same
+reason until v0.21.1. **Since v0.22.0 a row's speed is a MAGNITUDE and the
+hand of the rotation is `rpm_sign` on the rotor's block in the reference**,
+so the pair is no longer a second statement of the speed: on a row that
+names no rotor block it is the correct and only way to write the hand, and
+on a row that names one it is refused for restating what the block
+declares.)
 
 If you are coming from v0.8.x you still have the older job. If you have
 a run matrix written then, v0.9.0 changed its FILE FORMAT and you must

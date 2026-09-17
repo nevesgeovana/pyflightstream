@@ -92,8 +92,9 @@ reading taken on the code below is a reading of the code the tag carries.
 | the linter | `python -m ruff check src tests scripts tools` | All checks passed |
 | the formatter | `python -m ruff format --check src tests scripts tools` | all files formatted |
 | the review | qa, architect, api-designer and tech-writer over dd1010f..d2a1e24 | one round, FIX-0212; one BLOCKING finding, and the flag was rebuilt on it |
+| the review | qa, architect, vv and tech-writer over d2a1e24..90c45fc | one round, FIX-0220, over the ROTOR SIGN; two BLOCKING, and each was a second live path to the same wrong-way rotation |
 | the mutants | the module's companion, six sited on this change | 6 of 6 killed against a green control |
-| the tier-3 suite | `python -m pytest -m needs_flightstream tests/tier3_licensed` | not run for this release; it changes no emitted script |
+| the tier-3 suite | `python -m pytest -m needs_flightstream tests/tier3_licensed` | NOT RUN. See below: this release DOES change the emitted script |
 
 ## What this release carries
 
@@ -107,8 +108,37 @@ The change log's `[0.22.0]` section is the record. In one line:
 - **`pyfs-matrix run --force-rerun <point>`** redoes a point whose matrix row
   was wrong, archiving its record and its collected outputs rather than deleting
   them, and naming points rather than redoing a whole matrix.
-- **A 0.20.x workspace with submitted points can be migrated**, which deadlocked
-  between `rename` and `collect` before.
+- **A refused motion no longer reads as an absent one**, and a refusal from
+  `pyfs-matrix run` is printed rather than raised as a traceback.
+
+(The 0.20.x migration deadlock between `rename` and `collect` was fixed in
+**0.21.1** and is already released; it is not carried by this tag.)
+
+## What no seat confirmed, stated plainly
+
+**This release changes the emitted script, and no licensed run was made.**
+
+Seven tier-3 goldens move in this range, each on one line, each the same shape:
+`SET_MOTION_ROTOR_RPM n 800.0` becomes `-800.0`. Those rows state `RPM: 800` and
+their reference declares `rpm_sign = -1`, so the OLD goldens are the defect
+frozen in place. The new ones are the package's own PLAN-TIME RENDER, compared
+offline by `tests/tier1_offline/test_tier3_offline.py`; a golden is not evidence
+about the solver and was never validated against a run.
+
+What the tree measures, and what it does not:
+
+- **RPT-049 measured the POSITIVE hand on a seat**: `SET_MOTION_ROTOR_RPM 1
+  473.1723` about axis `X` turned the export centroid `+90.000`, which is a
+  right-handed rotation about `+X` and is the convention FR-60 states.
+- **Nothing in the tree measures the NEGATIVE hand.** That the solver reads the
+  minus as a reversal -- rather than refusing it, clamping it, or taking the
+  magnitude -- is INFERRED from the positive measurement. It is the step this
+  release turns on, and it is asserted rather than measured.
+
+The smallest run that would settle it is one rotor at `+N` and the same rotor at
+`-N`, reading the exported centroid angle: one point, one seat. **Whether to
+spend it before or after the tag is the owner's call**, and this file does not
+decide it.
 
 ## What is NOT done, and is not being hidden
 

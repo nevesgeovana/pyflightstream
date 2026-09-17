@@ -34,12 +34,29 @@ FlightStream versions.
     the hand was read on that path only.
   - The sign is now applied to BOTH speed forms, the stated rev/min and the one
     derived from an advance ratio.
-  - **The point NAME writes `RPM` in magnitude**, so a folder is `RPM+0473`
+  - **THE HAND REACHES THE ROW HOWEVER THE ROW NAMES ITS ROTOR**, which took
+    three tries and two of them were this same defect wearing another row
+    shape. A row may cite its rotor in a `MOTIONS` record, in its own
+    `MOVING_BC_ALIAS` cell, or -- on the pre-0.15.0 spelling -- through the
+    boundary it turns. The first writing filled the hand at ONE seam, the view
+    built per RECORD, so the other two still emitted a positive rev/min against
+    a block declaring `-1`, silently. Both were measured emitting `+800` where
+    the reference said `-800`, and both are closed. One resolution serves all
+    three.
+  - **The point NAME writes `RPM` in magnitude**, so a folder is `RPM00473`
     whichever way the rotor turns. The hand is a property of the ROTOR and not
     of the point; naming it in the point would give one operating point two
     identities.
   - A row that wrote its hand into the number (`RPM: -2400`) must move it to the
-    reference. That spelling is now refused.
+    reference. That spelling is now refused -- in a SWEEP too, where absorbing
+    the sign silently gave `600, -600` two identical point names, so the user
+    met a file-name collision instead of the sentence saying where the hand
+    belongs.
+  - **A workspace whose rotor already ran the wrong way needs a RE-RUN, not a
+    rename.** See [Migrating to 0.22.0](docs/migrating-to-0.22.0.md): renaming
+    files a wrong-direction result under the corrected point's identity, and
+    `--force-rerun` is the command for redoing the points whose sign was wrong
+    while leaving the rest alone.
 
 ### Added
 
@@ -82,8 +99,15 @@ FlightStream versions.
   writes -- the already-recorded point among them -- reached the user as a
   Python traceback with the sentence at the bottom of it.
 
-### Changed
-
+- **A refused motion no longer reads as an ABSENT one.** A row naming its
+  `CLOCK_MOTION` whose clock rotor was refused for some other reason was told
+  "no motion of this row moves it", naming a rotor the row plainly states, which
+  sends the user to the one key that was right. The refusal now says which
+  motions were refused and why. Reachable on a correct row from this release,
+  because a hand written into a speed is now a refusal.
+- **`CampaignWorkspace.supersede_records(run_ids)`** is public: it copies the
+  manifest to `archive/runs-<stamp>.json`, removes the named rows and writes the
+  result atomically. `--force-rerun` is its one caller.
 - **The `broken_commands` manifest key is promised for removal at 0.23.0**, its
   eighth deadline. RE-MEASURED at the bump, by counting ROWS rather than files:
   74 recorded rows carry it across four manifests. **The figure this promise

@@ -117,7 +117,7 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     ("pyfs-matrix", "watch_interval"): SWITCH,
     ("pyfs-matrix", "rounds"): SWITCH,
     ("pyfs-matrix", "resume"): SWITCH,
-    # 0.21.2: whether a point already in the manifest is REDONE rather than
+    # 0.22.0: whether a point already in the manifest is REDONE rather than
     # refused. A SWITCH: it is a property of THIS invocation -- the row was
     # wrong and is being corrected -- and not a machine knob a registry could
     # default. It is the opposite of `resume` and refused beside it.

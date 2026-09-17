@@ -1776,6 +1776,18 @@ nodes.
     mesh a row opens and is stated in the row, a file still carrying them
     being refused naming the row keys.
 
+    AMENDED 0.22.0, and it is the REASON that was amended rather than the
+    rule. The four named fields are still absent from the reference and are
+    still refused, because each named a CONFIGURATION -- installed against
+    isolated -- which is not a property reference data several rows share.
+    But "the hand of a rotor is stated in the row" is no longer true: it is
+    `rpm_sign` on that ROTOR's own block, which is per-rotor rather than
+    per-configuration and so answers the case the four fields were reaching
+    for. See FR-60 and FR-61. A row states the hand only where it names no
+    rotor block. This clause is left standing rather than rewritten because
+    a requirement records what was believed when it was written; the
+    amendment is where the correction lives.
+
     Measured 2026-09-02: `rotor_diameter_m` is read at
     `cases/workflows.py:832`; `radius_m` is required at
     `workspace/inputs.py:299` and read by no emitter; the four rotor
@@ -1980,7 +1992,7 @@ requirement below is one seam of that division.
     every row written before this release working. They are removed at
     0.17.0.
 
-    AMENDED 0.21.2, and the amendment is the whole of what the reference
+    AMENDED 0.22.0, and the amendment is the whole of what the reference
     declaring the hand is FOR. `RPM_SIGN` is the reference's, and it reaches
     the row's view for EVERY speed form: a row's `RPM` is a MAGNITUDE and a
     negative one is refused by name, so the row says how fast and the block

@@ -2723,6 +2723,93 @@ def test_a_negative_rpm_in_a_row_is_refused_as_a_hand_written_in_the_wrong_place
     assert RPM_SIGN_VARIABLE in message, "the refusal names where the hand belongs"
 
 
+def _row_naming_its_rotor_by_alias(hand: int, **overrides) -> SimCase:
+    """A row citing its rotor in its OWN cell, with no MOTIONS list.
+
+    This is the second of the two spellings that name a rotor block, and the
+    one `_motion_view` never sees: it builds a view per MOTIONS RECORD, and this
+    row has none. The blade-count refusal recommends this spelling in those
+    words, so it is supported and not vestigial.
+    """
+    block = FIXTURE_ROTOR.model_copy(update={"rpm_sign": hand})
+    variables: dict[str, str | float | int | bool] = {
+        WORKFLOW_KEY: "unsteady_rotor",
+        "VELOCITY": "30.0",
+        "RPM": "800",
+        "MOVING_BC_ALIAS": block.alias,
+        "DELTA_TIME": "0.0001",
+        "TIME_ITERATIONS": "720",
+    }
+    variables.update(overrides)
+    return SimCase(
+        sim_id="7011",
+        aircraft="RotorRig",
+        sweep=SweepAxis(type="alpha", values=[0.0]),
+        recipe="unsteady_rotor",
+        variables=variables,
+        point={"alpha": 0.0},
+        rotors={block.alias: block},
+        reference=ReferenceData(area=16.0, length=1.6, span_m=10.0),
+    )
+
+
+@pytest.mark.parametrize("hand", [1, -1])
+def test_a_row_naming_its_rotor_in_its_own_cell_takes_that_blocks_hand(hand):
+    """THE SECOND ROW SHAPE, on which the wrong-way rotation survived the first fix.
+
+    The hand was written into the case at ONE seam, inside the view built for a
+    MOTIONS record. A row that names its rotor in its own cell and states no
+    list never enters that seam, so the sign was never read: a block declaring
+    -1, a row stating 800, and an emitted +800 with no refusal and no warning --
+    the same silence the magnitude rule exists to end, one row shape over.
+
+    Measured before the fix at exactly that: `rpm = 800.0` against a block
+    declaring -1 (the architect lens, FIX-0220).
+
+    Parametrised on the HAND rather than asserting one sign, so a mutant
+    returning a constant fails on one of the two arms whichever constant it
+    picks.
+    """
+    speed = rotor_speed(_row_naming_its_rotor_by_alias(hand))
+
+    assert speed.rpm == pytest.approx(hand * 800.0), speed
+    assert speed.stated_value == pytest.approx(800.0), "the row's own value is the magnitude"
+
+
+@pytest.mark.parametrize("hand", [1, -1])
+def test_a_row_naming_its_rotor_by_alias_may_not_restate_the_blocks_hand(hand):
+    """BOTH ARMS, because the agreeing one is the argument the rule rests on.
+
+    A row that agrees with its block today says nothing when the REFERENCE is
+    corrected tomorrow: the block flips, the row keeps the old hand, and the two
+    disagree with nobody to notice. So the refusal is about where the key goes,
+    and it names which of the two cases the reader is in -- "it already agrees"
+    being the objection a user would otherwise raise.
+
+    The agreeing arm is asserted by its own distinguishing phrase rather than by
+    the key name: the key name alone is satisfied by a NEIGHBOURING refusal that
+    also mentions it, which is how the first writing of this test passed without
+    ever reaching the branch (the architect lens, FIX-0220).
+    """
+    with pytest.raises(CampaignConfigError) as raised:
+        rotor_speed(_row_naming_its_rotor_by_alias(hand, RPM_SIGN=str(hand)))
+
+    message = str(raised.value)
+    assert "agrees with it today" in message, message
+    assert "rpm_sign" in message, "the refusal names the block's key in the block's spelling"
+    assert FIXTURE_ROTOR.alias in message, message
+
+
+def test_a_row_naming_its_rotor_by_alias_is_refused_for_a_disagreeing_hand():
+    """THE OTHER ARM, and the two must not print the same sentence."""
+    with pytest.raises(CampaignConfigError) as raised:
+        rotor_speed(_row_naming_its_rotor_by_alias(-1, RPM_SIGN="1"))
+
+    message = str(raised.value)
+    assert "disagrees with it" in message, message
+    assert "agrees with it today" not in message, "both arms printed one sentence"
+
+
 def test_a_ratio_with_no_diameter_on_the_reference_is_refused_naming_the_field():
     """The refusal has to name the artifact field, or the author cannot act."""
     case = ratio_case().model_copy(update={"reference": ReferenceData(area=50.0, length=2.526)})

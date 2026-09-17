@@ -1733,12 +1733,21 @@ class NameField:
 
     ``code`` then the value times ``scale``, rounded, zero-padded to
     ``width`` characters; a signed field counts its sign in the width.
+
+    ``magnitude`` writes the field WITHOUT its sign whatever sign the value
+    carries. It lives here, beside ``signed``, because it is the same kind of
+    fact about the same field, and a reader adding a variable reads this
+    dataclass and the table below. Held in a second table keyed by the same
+    keys, it had to be remembered at each call site and was remembered at one of
+    three: the sweep name and the duplicate-identity guard were writing the sign
+    the point name had just dropped (the architect lens, FIX-0220).
     """
 
     code: str
     scale: float
     width: int
     signed: bool
+    magnitude: bool = False
 
 
 #: THE POINT NAME'S CODE TABLE, the author's of 2026-09-15 (SCOPE-0210 section 1),
@@ -1758,7 +1767,19 @@ POINT_NAME_FIELDS: dict[str, NameField] = {
     "ALPHA": NameField("AL", 10.0, 4, True),
     "BETA": NameField("BE", 10.0, 4, True),
     "ADVANCE_RATIO": NameField("J", 100.0, 4, True),
-    "RPM": NameField("RPM", 1.0, 5, True),
+    # A MAGNITUDE, AND THEREFORE UNSIGNED. The hand of a rotation is the
+    # reference rotor's and never the point's, so a folder named `RPM-0473`
+    # would be naming a property of the ROTOR in the identity of a POINT, and
+    # two runs of one speed in opposite directions would get two names for one
+    # operating point.
+    #
+    # THE SIGN IS NOT DECORATION, IT IS A DIGIT. Written signed, the `+` could
+    # never be a `-` and it cost the fifth character: 10000 rev/min wrote
+    # `RPM+10000`, EIGHT characters where every other name is seven, so the
+    # fixed-width scheme broke silently on any rotor past 9999. Unsigned, the
+    # same width reaches 99999 and every name is the same length (the owner's
+    # question, answered 2026-09-17).
+    "RPM": NameField("RPM", 1.0, 5, False, magnitude=True),
     "roll_rate": NameField("P", 10.0, 4, True),
     "pitch_rate": NameField("Q", 10.0, 4, True),
     "yaw_rate": NameField("R", 10.0, 4, True),
@@ -1812,6 +1833,25 @@ def name_field(key: str, value: float) -> str:
             f"{key!r} has no code in the point name, so a point declaring it cannot be "
             f"named; the codes are for {', '.join(POINT_NAME_FIELDS)}."
         )
+    # A MAGNITUDE FIELD REFUSES A SIGN RATHER THAN ABSORBING ONE, and the
+    # difference is a whole defect. Absorbing it is silent, and silence is what
+    # this rule exists to end: a swept `RPM` over `600, -600` had its two points
+    # named identically, so the user met a FILE NAME COLLISION instead of the
+    # sentence that says where the hand belongs, on a row whose scalar form
+    # refuses correctly (the qa lens, FIX-0220).
+    #
+    # It is checked HERE, in the one funnel every name goes through, because
+    # three call sites write a field through this function -- the point name,
+    # the sweep name and the guard that refuses two points sharing one name --
+    # and a rule applied at one of them made those three disagree.
+    if field.magnitude and float(value) < 0.0:
+        raise CampaignConfigError(
+            f"{key} is {value!r}, and a row's rotor speed is a MAGNITUDE: it says how "
+            "fast, not which way. The hand of the rotation is the rotor's, declared "
+            "once in the reference beside its axis and its origin. Write the speed "
+            "positive and set 'rpm_sign' there; on a row that names no rotor block, "
+            "write 'RPM_SIGN: -1' beside the speed."
+        )
     number = round(float(value) * field.scale)
     if field.signed:
         return f"{field.code}{number:+0{field.width}d}"
@@ -1861,24 +1901,6 @@ def _as_a_number(case: SimCase, key: str, stated: object, where: str) -> float:
         ) from None
 
 
-#: The declared variables a point's NAME writes as a magnitude, whatever sign
-#: the value carries. RPM is one: the hand of a rotation is the reference
-#: rotor's and never the point's, so a folder named `RPM-0473` would be naming
-#: a property of the ROTOR in the identity of a POINT, and two runs of one
-#: speed in opposite directions would get two names for one operating point
-#: (the owner's decision of 2026-09-17).
-NAME_MAGNITUDE_FIELDS = frozenset({"RPM"})
-
-
-def _named_magnitude(key: str, value: float) -> float:
-    """Return the value a point's NAME writes for ``key``.
-
-    The value as resolved, except for the fields a name writes as a magnitude:
-    see :data:`NAME_MAGNITUDE_FIELDS`.
-    """
-    return abs(value) if key in NAME_MAGNITUDE_FIELDS else value
-
-
 def _name_value(case: SimCase, point: Mapping[str, float], key: str) -> float:
     for axis, axis_key in POINT_AXIS_KEYS.items():
         if key == axis_key and axis in point:
@@ -1911,8 +1933,7 @@ def point_name(case: SimCase, point: Mapping[str, float]) -> str:
         If a declared variable has no value on this point or no code.
     """
     return "".join(
-        name_field(key, _named_magnitude(key, _name_value(case, point, key)))
-        for key in _name_order(case, point)
+        name_field(key, _name_value(case, point, key)) for key in _name_order(case, point)
     )
 
 

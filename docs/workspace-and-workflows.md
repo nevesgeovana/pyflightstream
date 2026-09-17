@@ -201,13 +201,31 @@ the decisions and the package derives the rest.
     velocity silently: change the flight condition and the row keeps a
     speed that no longer means the ratio it was chosen for.
 
-    A ratio is a magnitude, so `RPM_SIGN: 1` or `RPM_SIGN: -1` carries
-    the hand of the rotation, defaulting to `1`. It is refused beside an
-    explicit `RPM`, which carries its sign in the number itself. A
-    configuration whose isolated and installed meshes are opposite hands
-    needs opposite signs for one published sense of rotation, and the
-    row is where that choice belongs, because only the row knows which
-    mesh it opened.
+    **A row's rotor speed is a MAGNITUDE, in both forms.** It says how
+    fast; it never says which way. A negative `RPM` is refused by name,
+    and so is a negative `ADVANCE_RATIO`.
+
+    **The hand of the rotation is the ROTOR's**, declared once as
+    `rpm_sign = 1` or `rpm_sign = -1` on that rotor's block in the
+    reference artifact, beside the axis, the origin and the blade count
+    it already declares there. The row says how fast and the block says
+    which way, so neither states what the other does and the two cannot
+    contradict each other. A row that restates `RPM_SIGN` beside a rotor
+    the reference declares is refused — whether or not it agrees, because
+    a row that agrees today says nothing when the reference is corrected
+    tomorrow.
+
+    **One exception, for a row whose reference declares no rotor at
+    all**: the pre-0.15.0 spelling, which states `ROTOR_AXIS` and
+    `MOVING_BOUNDARIES` rather than naming a block. Such a row has
+    nowhere else to put the hand, so `RPM_SIGN: -1` beside the speed is
+    the correct and only way to write it there. This is narrower than it
+    sounds: if the boundary the row turns is one of a declared block's
+    own families, that block is the rotor and its `rpm_sign` governs.
+
+    A configuration whose isolated and installed meshes are opposite
+    hands declares the sign on each mesh's own rotor block, which is
+    where the fact lives.
 
 * `DELTA_THETA: <deg>` and `REVOLUTIONS: <turns>` set the clock:
   `DELTA_TIME = theta / (6 rpm)`, emitted as derived, and
@@ -1066,9 +1084,12 @@ v0.11.0 (PFS-2029.08). Until 0.10.1 the block carried `rotation`,
 `blade_travel`, `rpm_sign_installed` and `rpm_sign_isolated`; no emitter
 read them, and the two signs named a configuration, installed against
 isolated, which is a property of the mesh a ROW opens and not of
-reference data several rows share. A row states the sign now, in
-`RPM_SIGN` beside `ADVANCE_RATIO` or inside the `RPM` value, and an
-artifact still carrying any of the four is refused naming the row keys;
+reference data several rows share. From 0.11.0 to 0.21.1 a row stated the
+sign, in `RPM_SIGN` beside `ADVANCE_RATIO` or inside the `RPM` value;
+since 0.22.0 the hand is `rpm_sign` on the rotor's OWN block, which is
+per-rotor rather than per-configuration and so answers the installed and
+isolated case the four fields were reaching for. An artifact still
+carrying any of the four is refused naming the row keys;
 `pyfs-matrix upgrade --inputs` strips them. The measured argument behind
 the signs, and the derivation from a published sense to a sign, are on
 [the mesh inputs page](mesh-inputs.md).
@@ -1622,7 +1643,7 @@ node the document declares; a PROV tool reads it as any PROV-JSON.
 ### Archiving a completed simulation
 
 **To redo ONE point whose row was wrong, do not archive the simulation.**
-Since 0.21.2 `pyfs-matrix run --force-rerun <point>` archives that point's
+Since 0.22.0 `pyfs-matrix run --force-rerun <point>` archives that point's
 record and its collected outputs and runs it again, keeping everything else
 where it is; the section below is for retiring a whole simulation. Archiving
 the simulation to redo one point takes the row's other points with it.

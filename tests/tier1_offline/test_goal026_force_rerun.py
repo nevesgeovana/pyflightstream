@@ -1,4 +1,4 @@
-"""Tier 1: a point whose ROW was wrong can be run again (0.21.2).
+"""Tier 1: a point whose ROW was wrong can be run again (0.22.0).
 
 `run` refuses a point whose `run_id` is already in the manifest, because
 re-running a recorded point would fork the run identity. `--resume` SKIPS such a

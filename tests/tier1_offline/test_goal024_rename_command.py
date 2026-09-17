@@ -535,3 +535,73 @@ def test_goal024_rename_command_the_steady_script_path_resolves_and_a_second_run
         (change.kind, change.before, change.after) for change in again.changes
     ]
     assert workspace.read_raw_manifest()[0]["script_path"] == row["script_path"]
+
+
+def _renamed_in_place(workspace, old: str, new: str) -> list[dict]:
+    """Rewrite a workspace so its recorded points carry `old` where they carry `new`.
+
+    A 0.21-scheme record, not a 0.20 one: it KEEPS its `point_name`, and only the
+    SPELLING of that name differs from what the row computes today. That is the
+    shape a naming change makes, as against the 0.20 upgrade the other fixtures
+    build, where the record carries no point name at all.
+    """
+    rows = workspace.read_raw_manifest()
+    swapped = json.loads(json.dumps(rows).replace(new, old))
+    workspace.manifest_path.write_text(json.dumps(swapped, indent=2) + "\n", encoding="utf-8")
+    for sim in (workspace.root / "sims").iterdir():
+        if not sim.is_dir():
+            continue
+        for folder in sorted((sim / "datapoints").glob(f"DP-*{new}*")):
+            for path in sorted(folder.iterdir()):
+                if path.is_file() and new in path.name:
+                    path.rename(folder / path.name.replace(new, old))
+            folder.rename(folder.with_name(folder.name.replace(new, old)))
+        # `old` CONTAINS `new` as a prefix here, so a second sweep over names
+        # this helper has already rewritten would rewrite them again. Only the
+        # scripts outside the datapoint folders are still to do.
+        for script in sorted(sim.glob(f"**/*{new}*")):
+            if script.is_file() and old not in script.name:
+                script.rename(script.with_name(script.name.replace(new, old)))
+    return swapped
+
+
+def test_goal024_rename_command_bridges_a_name_only_change_of_scheme(tmp_path):
+    """0.22.0: a point whose NAME moved and whose VALUES did not is renamed, not orphaned.
+
+    THE OWNER'S QUESTION, 2026-09-17, asked of the `RPM` field losing its sign:
+    that change moves the folder of every rotor point that ever ran, including
+    the ones whose rotor turned the RIGHT way. Those points are still evidence --
+    only the name moved -- so they have to be renameable rather than re-run.
+
+    AND IT NEEDS NO `--from-version`, which is what this measures. The OLD name
+    is READ from the record and the NEW one is computed from the row, so the
+    command never has to be told which scheme wrote the workspace: it compares
+    the two names it already holds. A version flag would be a second source of
+    truth for something the manifest already states, and the two could disagree.
+
+    The sign CORRECTION is the other case and deliberately not this one: there
+    the row's VALUE changes, the recorded point stops being a point of the row,
+    and `rename` refuses -- which is right, because those runs turned the wrong
+    way and renaming would file them under a name claiming they did not. That
+    refusal is `..._refuses_a_point_the_matrix_no_longer_holds`.
+    """
+    workspace, _, _ = _ran(tmp_path)
+    sim = workspace.sim_dir("3207")
+    expected = sorted(p.name for p in (sim / "datapoints").iterdir())
+    assert "DP-M200RE230AL+000" in expected, expected
+
+    # The same points, spelled the way another naming scheme spelled them.
+    old_rows = _renamed_in_place(workspace, "M200RE230AL+0000", "M200RE230AL+000")
+    assert any("AL+0000" in p.name for p in (sim / "datapoints").iterdir()), "fixture not renamed"
+
+    report = rename_workspace(_reopened(workspace))
+
+    assert report.renamed_records == len(old_rows), report.summary()
+    folders = sorted(p.name for p in (sim / "datapoints").iterdir())
+    assert not any("AL+0000" in name for name in folders), folders
+    for folder in (sim / "datapoints").iterdir():
+        files = sorted(p.name for p in folder.iterdir() if p.is_file())
+        assert files, folder.name
+        assert not any("AL+0000" in name for name in files), files
+    assert sorted(p.name for p in (sim / "datapoints").iterdir()) == expected
+    assert "AL+0000" not in workspace.manifest_path.read_text(encoding="utf-8")

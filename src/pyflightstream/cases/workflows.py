@@ -66,6 +66,7 @@ from collections.abc import Callable, Mapping, MutableMapping, Sequence
 from dataclasses import dataclass
 from pathlib import PurePath
 from types import MappingProxyType
+from typing import NoReturn
 
 from pyflightstream._deprecations import (
     ROW_MOVING_BOUNDARIES,
@@ -1212,16 +1213,116 @@ class RotorSpeed:
         }
 
 
+def _refuse_a_row_restating_the_hand(case: SimCase, rotor: RotorBlock, stated: str) -> NoReturn:
+    """Refuse a row that writes `RPM_SIGN` beside a rotor the reference declares.
+
+    ONE HOME FOR THE REFUSAL, because there are two places a row can name its
+    rotor and the sentence must not drift between them: the record path fills
+    the view in `_motion_view`, and the row path resolves the block in
+    `_rpm_sign`. The rule they both enforce is the same one.
+
+    AND IT REFUSES WHETHER OR NOT IT AGREES. A row that agrees today says
+    nothing when the REFERENCE is corrected tomorrow: the block flips, the row
+    keeps the old hand, and the two disagree with nobody to notice -- which is
+    the shape of the defect this rule exists to close. So the refusal is about
+    where the key goes rather than about its value, and it says which of the two
+    cases the reader is in, because "it already agrees" is the objection a user
+    will otherwise raise.
+    """
+    agreement = (
+        "which agrees with it today and would not survive the reference being corrected"
+        if str(stated).strip() == str(rotor.rpm_sign)
+        else "which disagrees with it"
+    )
+    raise CampaignConfigError(
+        f"case {case.sim_id!r} states {RPM_SIGN_VARIABLE} as {stated!r} and the rotor "
+        f"{rotor.alias!r} declares {rotor.rpm_sign} in the reference, {agreement}. The "
+        "hand of a rotation is the rotor's, declared once beside its axis and its "
+        f"origin. Remove {RPM_SIGN_VARIABLE} from the row; to turn it the other way, "
+        f"set 'rpm_sign' on the {rotor.alias!r} block of the reference artifact."
+    )
+
+
+def _rotor_the_row_names(case: SimCase) -> RotorBlock | None:
+    """Return the rotor block a row names by alias IN ITS OWN VARIABLES, or None.
+
+    A row may cite its rotor in two places: one record of a ``MOTIONS``
+    list, or the row's own ``MOVING_BC_ALIAS`` cell when it turns a single
+    rotor and states no list. Both are supported spellings and the second
+    is the one the blade-count refusal recommends in those words.
+
+    ONLY THE FIRST REACHED THE HAND, and that was this release's own defect
+    surviving on the other shape. `_motion_view` fills the block's
+    ``RPM_SIGN`` into the view it builds per RECORD; a row with no records
+    never enters it, so `_rpm_sign` found nothing, returned 1, and the row
+    turned whichever way its number was written while the reference said
+    otherwise -- no refusal and no warning, which is the exact failure the
+    magnitude rule exists to end (the architect lens, FIX-0220, reproduced
+    at 800 rev/min against a block declaring -1).
+
+    Returns None for a row that states a ``MOTIONS`` list, because a record
+    row's alias is the RECORD's and is answered by the view; the matrix
+    reader refuses the flat cell beside a list, so the two cannot both be
+    the row's.
+    """
+    if case.motions:
+        return None
+    alias = case.variables.get(MOVING_BC_ALIAS_VARIABLE)
+    if alias is not None:
+        return _rotor_of(case, {MOVING_BC_ALIAS_VARIABLE: str(alias)})
+    # AND THE FLAT SPELLING, WHEN THE REFERENCE DECLARES THE ROTOR IT MOVES.
+    # The rule was written as "a flat row has nowhere else to put the hand", and
+    # that is true only of a row whose reference declares NO rotor. A flat row
+    # binds a reference like any other: when the boundary it turns is one of a
+    # declared block's own families, that block is THIS ROTOR, it states a hand,
+    # and reading the row's number instead was the release's own defect on its
+    # third row shape -- measured emitting +800 against a block declaring -1,
+    # with no refusal and no warning (the qa lens, FIX-0220).
+    #
+    # A ROW WHOSE REFERENCE DECLARES NOTHING IS UNTOUCHED, which is the whole of
+    # the pre-0.15.0 exemption: no block, no hand to take, and the row's own
+    # RPM_SIGN answers as it always has.
+    moving = case.variables.get(MOVING_BOUNDARIES_VARIABLE)
+    if moving is None:
+        return None
+    turned = {
+        part.strip().casefold() for part in str(moving).replace(",", " ").split() if part.strip()
+    }
+    if not turned:
+        return None
+    return next(
+        (
+            block
+            for block in case.rotors.values()
+            if turned
+            <= {
+                name.casefold()
+                for name in (*block.families_general, *block.families_blades, block.alias)
+            }
+        ),
+        None,
+    )
+
+
 def _rpm_sign(case: SimCase) -> int:
     """Return the HAND of this rotor's rotation, defaulting to 1.
 
-    The reference's rotor block declares it and `_rotor_view` fills it here, so
-    this reads the row's view whatever the speed form is. It applies to a speed
-    STATED in rev/min exactly as it applies to one derived from an advance
-    ratio: the row says how fast and the block says which way (the owner's
-    decision of 2026-09-17).
+    The reference's rotor block declares it, and it reaches this function by
+    whichever of the two routes the row uses: `_motion_view` fills it into the
+    view it builds for a MOTIONS record, and `_rotor_the_row_names` resolves it
+    for a row that names its rotor in its own cell. It applies to a speed STATED
+    in rev/min exactly as it applies to one derived from an advance ratio: the
+    row says how fast and the block says which way.
+
+    A row that declares no rotor block keeps the hand in its own ``RPM_SIGN``,
+    which is the pre-0.15.0 spelling and the only home such a row has.
     """
     text = _variable(case, RPM_SIGN_VARIABLE)
+    block = _rotor_the_row_names(case)
+    if block is not None:
+        if text is not None:
+            _refuse_a_row_restating_the_hand(case, block, text)
+        return block.rpm_sign
     if text is None:
         return 1
     try:
@@ -8876,19 +8977,16 @@ def _motion_view(case: SimCase, record: Mapping[str, str]) -> SimCase:
         # about where the key goes rather than about its value.
         stated_hand = _variable(case, RPM_SIGN_VARIABLE)
         if stated_hand is not None:
-            agreement = (
-                "which agrees with it today and would not survive the reference being corrected"
-                if stated_hand.strip() == str(rotor.rpm_sign)
-                else "which disagrees with it"
-            )
-            raise CampaignConfigError(
-                f"case {case.sim_id!r} states {RPM_SIGN_VARIABLE} as {stated_hand!r} and "
-                f"the rotor {rotor.alias!r} declares {rotor.rpm_sign} in the reference, "
-                f"{agreement}. The hand of a rotation is the rotor's, declared once "
-                f"beside its axis and its origin. Remove {RPM_SIGN_VARIABLE} from the "
-                "row; to turn it the other way, set the hand on the rotor's block."
-            )
-        variables[RPM_SIGN_VARIABLE] = str(rotor.rpm_sign)
+            _refuse_a_row_restating_the_hand(case, rotor, stated_hand)
+        # THE VIEW CARRIES THE ALIAS, NOT THE ANSWER. Writing the block's sign
+        # into the variables put the hand in two shapes -- a resolved number
+        # here, a declared block everywhere else -- and `_rpm_sign` could no
+        # longer tell a hand the package had filled from one a USER had written,
+        # because a view sets `motions` empty and so reads as a flat row. It
+        # carries the alias instead and every shape resolves the block the one
+        # way, which is the same one-home argument this release makes about the
+        # reference (the architect and qa lenses, FIX-0220).
+        variables[MOVING_BC_ALIAS_VARIABLE] = rotor.alias
         # THE DIAMETER IS THIS ROTOR'S (FR-63). It is the reason one ratio
         # written once can govern rotors of different sizes: n = V/(J D)
         # is resolved per rotor, and the configuration's single

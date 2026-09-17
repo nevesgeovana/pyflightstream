@@ -242,7 +242,7 @@ def test_goal024_point_name_the_collision_guard_reads_every_axis_it_names(tmp_pa
     ):
         if field is None:
             # RPM is written to the rev/min, so those two are one name too.
-            field = "RPM+0800"
+            field = "RPM00800"
         with pytest.raises(ValidationError) as caught:
             SweepAxis(type=axis, values=values)
         assert "both write" in str(caught.value), (axis, str(caught.value))
