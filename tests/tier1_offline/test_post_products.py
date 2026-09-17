@@ -1493,7 +1493,7 @@ def test_the_series_writer_alone_still_refuses_an_existing_table_without_overwri
     assert "--overwrite" not in message, "the refusal names a command-line flag again"
 
 
-def test_a_record_without_the_clock_leaves_the_time_blank_and_reads_the_azimuth_off_the_reductions(
+def test_a_record_without_the_clock_writes_na_for_the_time_and_reads_the_azimuth_off_the_reductions(
     tmp_path,
 ):
     """A record written before 0.14.0 carries no clock: its time column stays blank
@@ -1510,7 +1510,7 @@ def test_a_record_without_the_clock_leaves_the_time_blank_and_reads_the_azimuth_
     )
     write_campaign_products(workspace)
     _, rows = _series(workspace, "AL-020_loads_series.csv")
-    assert [r["time_s"] for r in rows] == ["", ""], rows
+    assert [r["time_s"] for r in rows] == ["NA", "NA"], rows
     assert [float(r["azimuth_deg"]) for r in rows] == pytest.approx([120.0, 150.0])
 
 
@@ -1560,7 +1560,7 @@ def test_a_step_the_solver_never_stamped_is_absent_from_the_series_and_named_in_
     write_campaign_products(workspace)
     _, rows = _series(workspace, "AL-020_loads_series.csv")
     assert [int(r["step"]) for r in rows] == [2, 4]
-    assert [r["azimuth_deg"] for r in rows] == ["", ""], "no rotor, no azimuth"
+    assert [r["azimuth_deg"] for r in rows] == ["NA", "NA"], "no rotor, no azimuth"
     entry = _products_manifest(workspace)["products"]["series/AL-020_loads_series.csv"]
     assert entry["steps_tabled"] == [2, 4] and entry["steps"] == [2, 4]
     columns, rows = _series(workspace, "AL-020_probes_series.csv")
@@ -2366,3 +2366,48 @@ def test_goal019_record_a_job_writes_one_polar_row_per_point(tmp_path):
         f"{polars[0].name} carries {len(rows)} row(s) for a job that ran 3 points, so the "
         "release's own one-job sweep produces a one-point polar"
     )
+
+
+def test_goal023_a_product_never_writes_a_blank_cell(tmp_path):
+    """THE OWNER'S RULE: a cell that does not apply says `NA`, never nothing.
+
+    Measured on her own superfile before this existed: 50 blank cells per row
+    out of 628 columns, every one a key declared for the union of all run types
+    on a row whose run type does not have it. A blank is ambiguous three ways --
+    zero, not-measured, or not-for-this-row -- and a reader cannot tell them
+    apart, which is why her CSV reader could not either.
+
+    IT IS ASSERTED AT THE ONE FUNNEL every CSV product passes through, so the
+    polars, the superfile, the sections, the probes and the reductions all
+    inherit it and no writer can forget.
+    """
+    from pyflightstream.post._tables import write_csv_table
+
+    path = write_csv_table(
+        tmp_path / "t.csv",
+        ["A", "B", "C", "D", "E"],
+        [["", None, float("nan"), "   ", "kept"]],
+    )
+    cells = path.read_text(encoding="utf-8").splitlines()[1].split(",")
+
+    assert cells == ["NA", "NA", "NA", "NA", "kept"], cells
+
+
+def test_goal023_na_does_not_eat_a_value_that_means_something(tmp_path):
+    """THE CONTROL, so the rule cannot be satisfied by writing `NA` everywhere.
+
+    Zero is a real measurement and must survive: a rotor at rest has `RPM` of
+    zero, and a symmetric point has a rolling moment of zero. Writing `NA` there
+    would destroy the very distinction this rule exists to make.
+    """
+    from pyflightstream.post._tables import write_csv_table
+
+    path = write_csv_table(
+        tmp_path / "t.csv",
+        ["ZERO", "NEGATIVE", "FALSE", "TEXT"],
+        [[0.0, -1.25, False, "0"]],
+    )
+    cells = path.read_text(encoding="utf-8").splitlines()[1].split(",")
+
+    assert cells == ["0.00000", "-1.25000", "False", "0"], cells
+    assert "NA" not in cells, "a measured value was written as not-applicable"
