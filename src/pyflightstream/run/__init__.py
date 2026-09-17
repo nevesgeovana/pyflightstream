@@ -2680,8 +2680,9 @@ def run_campaign(
         (:func:`pyflightstream.run.matrix.run_matrix`) forwards its
         recipe registry here.
     force_rerun : sequence of str, optional
-        The points to REDO rather than refuse, each by its point name or
-        by its full ``run_id``. For a row that was WRONG, where the
+        The points to REDO rather than refuse, each by its point name, by
+        its full ``run_id``, or by the job id of a swept row, which names
+        every point of it because a job is indivisible. For a row that was WRONG, where the
         correction does not change the point's name and the identity is
         therefore the same: the manifest is copied into ``archive/``, the
         named records leave it, and each point's collected outputs move

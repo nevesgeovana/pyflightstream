@@ -44,6 +44,7 @@ import json
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 
+from pyflightstream.post._tables import NOT_APPLICABLE, write_csv_table
 from pyflightstream.post.writers import OutputExistsError
 from pyflightstream.results import MalformedOutputError
 from pyflightstream.script.solver_setup import FLAG_SPECS, SolverSetup
@@ -448,11 +449,14 @@ def write_settings_table(
             )
     destination.parent.mkdir(parents=True, exist_ok=True)
     columns = list(rows[0]) if rows else list(TIDY_COLUMNS)
-    with destination.open("w", encoding="utf-8", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=columns, restval="")
-        writer.writeheader()
-        for row in rows:
-            writer.writerow({key: "" if value is None else value for key, value in row.items()})
+    # THROUGH THE ONE FUNNEL, which it was not until 0.23.0. This writer built
+    # its own DictWriter and did the exact inverse of the product rule twice:
+    # `restval=""` for a column the row does not carry, and an explicit
+    # `None -> ""`. It is a CSV product like any other and a blank cell in it is
+    # the same ambiguity -- zero, not measured, or not applicable -- that the
+    # rule exists to end (the architect lens, v0.22.0 push round, which found
+    # the commit claiming `_cell` was the one funnel while this bypassed it).
+    write_csv_table(destination, columns, [[row.get(key) for key in columns] for row in rows])
     legend.write_text(json.dumps(codebook(), indent=2) + "\n", encoding="utf-8")
     return destination, legend
 
@@ -512,7 +516,13 @@ def read_settings_table(path: str | Path) -> list[Row]:
     for row in raw:
         converted: Row = {}
         for key, cell in row.items():
-            if cell in ("", None):
+            # `NA` IS WHAT THE WRITER NOW EMITS for a column this row does not
+            # carry, and this reader turned everything that was not blank into
+            # a float. Reading a table written by this version would have died
+            # on `float("NA")` -- a crash rather than a refusal, on the package's
+            # own round trip. The empty spellings stay readable so a table
+            # written before 0.23.0 still opens.
+            if cell in ("", None, NOT_APPLICABLE):
                 converted[key] = None
             else:
                 number = float(cell)

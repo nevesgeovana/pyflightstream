@@ -120,19 +120,35 @@ It reads the old name from the record and computes the new one from the row, so
 it needs no version flag. Rehearse it first with `--dry-run` and read what it
 says it will move.
 
-**What is measured about that command, said exactly.** Its bridging of a
-name-only change is measured end to end on a workspace that really ran: one pass
-moved the datapoint folder and all seven files inside it, and the manifest with
-them (`test_goal024_rename_command.py`, the name-only case). The `RPM` instance
-is that same code path -- the rename compares the recorded name against the
-computed one and branches on neither the field nor its width -- but this
-release ships no case that exercises the `RPM` spelling specifically. Rehearse
-before you apply.
+**What is measured about that command, said exactly.** On a workspace that
+really ran, one pass moved both datapoint folders, the files inside them, the
+scripts, the manifest and the plan
+(`tests/tier1_offline/test_goal024_rename_command.py`).
+
+`rename` does not parse the old name: it reads it off the record and asks the
+naming table for the new one. That table is where `RPM` is special -- it is the
+only field written as a magnitude -- and **no case in this release exercises the
+`RPM` spelling**. Rehearse with `--dry-run` and read what it says it will move
+before you apply it.
 
 **(b) The rotor was turning the WRONG way.** Those points are not evidence at
-all, and `rename` will refuse them anyway, because correcting the row changes
-the point's VALUES and a recorded point that is no longer a point of the row is
-refused by name. Re-run them, as step 2 above says.
+all. **Re-run them BEFORE you rename anything**, and do not rely on `rename` to
+tell them apart -- it cannot.
+
+**This is the sharp edge of this migration and it is stated plainly.** `rename`
+decides whether a recorded point is still a point of the row by comparing the
+point's swept coordinates, which are the angle of attack, the sideslip and the
+advance ratio. **`RPM` is not one of them.** So on the common shape -- an alpha
+sweep whose `RPM` is a fixed cell -- correcting `RPM: -2400` to `RPM: 2400`
+changes no coordinate, `rename` sees the same point, and it will happily move a
+wrong-direction result under the corrected name. The same is true when the sign
+lived in `RPM_SIGN`: that key is a row variable, not a point coordinate, and
+nothing in `rename` reads it.
+
+So the ONLY thing standing between you and a laundered result is step 4 of the
+order below: reading the emitted `SET_MOTION_ROTOR_RPM` and deciding yourself.
+Do that first, `--force-rerun` everything whose sign was wrong, and only then
+`rename` what is left.
 
 ## 4. The order to do it in
 
@@ -141,7 +157,9 @@ refused by name. Re-run them, as step 2 above says.
    `RPM_SIGN` from any row that names a rotor block.
 3. `pyfs-matrix plan <matrix> --workspace <root>` -- this refuses anything still wrong,
    by name.
-4. Check the emitted sign for each rotor row against the hand you intend.
+4. **Check the emitted sign for each rotor row against the hand you intend.**
+   This step is not optional and nothing downstream repeats it: `rename` cannot
+   tell a wrong-direction point from a right one (section 3(b)).
 5. `--force-rerun` the points whose sign was wrong. Leave the rest.
 6. Collect and post as before; neither stage changes in this release.
 

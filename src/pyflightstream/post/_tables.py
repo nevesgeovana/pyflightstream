@@ -60,11 +60,11 @@ class ProductExistsError(ProductError):
 
 #: What a cell writes when the column does not apply to that row.
 #:
-#: THE OWNER'S DECISION: a product never writes a BLANK cell. A blank is
-#: ambiguous three ways -- it could mean zero, it could mean not-measured, it
-#: could mean this-column-is-not-for-this-row -- and a reader cannot tell them
-#: apart. Measured on her own superfile: 50 blank cells per row out of 628
-#: columns, every one of them a key declared for the union of all run types on a
+#: A product never writes a BLANK cell. A blank is ambiguous three ways -- it
+#: could mean zero, it could mean not-measured, it could mean
+#: this-column-is-not-for-this-row -- and a reader cannot tell them apart.
+#: Measured on a production superfile, 50 of 628 columns per row were blank for
+#: the third reason alone: a key declared for the union of all run types, on a
 #: row whose run type does not have it.
 #:
 #: `NA` says the third of those three and only the third. A value that was
@@ -76,12 +76,22 @@ NOT_APPLICABLE = "NA"
 def _cell(value: object) -> str:
     """One CSV cell: floats at five decimals, a blank as ``NA``, everything else as written.
 
-    IT IS DONE HERE because this is the one funnel every CSV product passes
-    through -- the polars, the superfile, the sections, the probes and the
-    reductions all render their cells in this function. A rule applied at the
-    writers instead would have to be remembered at each of them, and the naming
-    table of 0.22.0 is the standing lesson about what that costs: held in a
-    second place, it was remembered at one call site of three.
+    IT IS DONE HERE because this is the funnel the CSV PRODUCTS pass through --
+    the polars, the superfile, the sections, the probes, the campaign reduction
+    table and, since 0.23.0, the settings table. A rule applied at the writers
+    instead would have to be remembered at each of them, and the naming table of
+    0.22.0 is the standing lesson about what that costs: held in a second place,
+    it was remembered at one call site of three.
+
+    WHAT DOES NOT PASS THROUGH IT, named rather than left to be discovered:
+    `reductions.write_series` and `reductions.write_reduction` render their own
+    rows with a bare `csv.writer`, and the probe-positions file in the run stage
+    does the same. No `None` reaches any of the three, so none of them writes a
+    blank today -- but a NaN would print as `nan` rather than `NA`, and that is
+    a gap rather than a decision. The claim here is about the products, not
+    about every line of CSV the package emits: an earlier writing of this
+    docstring said "every CSV product", and a lens measured the settings table
+    doing the exact opposite one module away.
     """
     if value is None:
         return NOT_APPLICABLE

@@ -2371,11 +2371,11 @@ def test_goal019_record_a_job_writes_one_polar_row_per_point(tmp_path):
 def test_goal023_a_product_never_writes_a_blank_cell(tmp_path):
     """THE OWNER'S RULE: a cell that does not apply says `NA`, never nothing.
 
-    Measured on her own superfile before this existed: 50 blank cells per row
-    out of 628 columns, every one a key declared for the union of all run types
+    Measured on a production superfile before this existed: 50 of 628 columns
+    per row were blank, every one a key declared for the union of all run types
     on a row whose run type does not have it. A blank is ambiguous three ways --
     zero, not-measured, or not-for-this-row -- and a reader cannot tell them
-    apart, which is why her CSV reader could not either.
+    apart, so neither can a CSV reader downstream.
 
     IT IS ASSERTED AT THE ONE FUNNEL every CSV product passes through, so the
     polars, the superfile, the sections, the probes and the reductions all
@@ -2411,3 +2411,37 @@ def test_goal023_na_does_not_eat_a_value_that_means_something(tmp_path):
 
     assert cells == ["0.00000", "-1.25000", "False", "0"], cells
     assert "NA" not in cells, "a measured value was written as not-applicable"
+
+
+def test_goal023_the_settings_table_writes_na_and_reads_it_back(tmp_path):
+    """THE PRODUCT THAT BYPASSED THE FUNNEL, and the round trip that would have died.
+
+    `write_settings_table` built its own `csv.DictWriter` with `restval=""` and
+    an explicit `None -> ""`, doing the exact inverse of the product rule twice
+    over, while the commit that introduced the rule claimed `_cell` was the one
+    funnel every CSV product passes through. The claim was false and a lens
+    measured it (the architect lens, v0.22.0 push round).
+
+    AND THE READER WOULD HAVE CRASHED ON THE FIX. `read_settings_table` turned
+    every cell that was not blank into a float, so a table written with `NA`
+    would have died on `float("NA")` -- a traceback rather than a refusal, on
+    the package's own round trip. Both halves are asserted here, because fixing
+    the writer alone would have been worse than leaving it.
+    """
+    from pyflightstream.post.settings_table import read_settings_table, write_settings_table
+    from tests.tier1_offline.test_settings_codebook import snapshot
+
+    destination, _legend = write_settings_table(tmp_path / "settings.csv", [snapshot()])
+    text = destination.read_text(encoding="utf-8")
+    body = text.splitlines()[1:]
+    assert body, text
+
+    # No cell is blank: every one carries a token, and a missing column says NA.
+    for line in body:
+        assert ",," not in line, f"a blank cell survived: {line}"
+        assert not line.endswith(","), f"a trailing blank cell survived: {line}"
+
+    # And the round trip still yields None for those, not a crash.
+    rows = read_settings_table(destination)
+    assert rows, rows
+    assert all(isinstance(row, dict) for row in rows)
