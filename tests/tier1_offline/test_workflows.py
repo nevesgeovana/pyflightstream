@@ -2686,16 +2686,41 @@ def test_the_sign_is_applied_to_a_derived_speed_and_never_invented():
     )
 
 
-def test_a_sign_beside_an_explicit_rpm_is_refused_as_a_second_opinion():
-    """A rev/min value carries its own sign; a second one can only disagree."""
+def test_a_stated_rpm_takes_the_rotors_hand(quiet_case=None):
+    """A row's rev/min is a MAGNITUDE and the reference says which way it turns.
+
+    THE OWNER'S DECISION OF 2026-09-17, made on a four-blade propeller whose
+    full wheel turned backwards: the row stated RPM, the reference declared
+    `rpm_sign = -1`, and the emitted script was positive with no refusal and no
+    warning. The same rotor as a sector, stating a ratio, turned correctly,
+    because the hand was read on that path only.
+
+    Until 0.21.1 a sign beside an explicit RPM was REFUSED as a second opinion,
+    on the reading that a rev/min value carries its own sign. That reading holds
+    for a number a user writes and fails for a hand declared on the REFERENCE,
+    where the row says how fast and the block says which way and neither states
+    what the other does.
+    """
+    turned = rotor_speed(rotor_case(**{RPM_SIGN_VARIABLE: "-1"}))
+
+    assert turned.rpm < 0.0, turned
+    assert turned.stated_value > 0.0, "the row's own value stays the magnitude it stated"
+
+
+def test_a_negative_rpm_in_a_row_is_refused_as_a_hand_written_in_the_wrong_place():
+    """THE OTHER HALF: the spelling that used to carry the hand is now refused.
+
+    A row writing `RPM: -2400` is stating a direction where only a magnitude
+    belongs, and the reference would then hold a second answer. Refusing it by
+    name is what stops the two from disagreeing silently, which is the failure
+    this release is about.
+    """
     with pytest.raises(CampaignConfigError) as raised:
-        rotor_speed(rotor_case(**{RPM_SIGN_VARIABLE: "-1"}))
+        rotor_speed(rotor_case(**{"RPM": "-2400"}))
+
     message = str(raised.value)
-    # RPM_SIGN_VARIABLE == "RPM_SIGN", so `"RPM" in message` is entailed
-    # by the first conjunct and checked nothing. The second key is named
-    # by the phrase that can only come from the rev/min branch.
-    assert RPM_SIGN_VARIABLE in message
-    assert "carries its own sign" in message
+    assert "MAGNITUDE" in message, message
+    assert RPM_SIGN_VARIABLE in message, "the refusal names where the hand belongs"
 
 
 def test_a_ratio_with_no_diameter_on_the_reference_is_refused_naming_the_field():
@@ -4380,7 +4405,7 @@ def test_two_motions_emit_two_motion_blocks_with_their_frames(tmp_path):
             "reference": ReferenceData(area=10.0, length=1.2),
             "motions": [
                 {"MOVING_BC_ALIAS": "Blade1", "RPM": "1200"},
-                {"MOVING_BC_ALIAS": "Blade2", "RPM": "-2400"},
+                {"MOVING_BC_ALIAS": "Blade2", "RPM": "2400"},
             ],
         }
     )
@@ -4389,7 +4414,7 @@ def test_two_motions_emit_two_motion_blocks_with_their_frames(tmp_path):
     text = script.render()
     lines = text.splitlines()
     assert lines.count("CREATE_NEW_MOTION ROTARY") == 2
-    assert "SET_MOTION_ROTOR_RPM 1 1200.0" in lines and "SET_MOTION_ROTOR_RPM 2 -2400.0" in lines
+    assert "SET_MOTION_ROTOR_RPM 1 1200.0" in lines and "SET_MOTION_ROTOR_RPM 2 2400.0" in lines
     assert "SET_MOTION_ROTOR_AXIS 1 X" in lines and "SET_MOTION_ROTOR_AXIS 2 X" in lines
     boundaries = {
         line.split()[1]: lines[index + 1]
@@ -4704,7 +4729,7 @@ def test_a_rotation_on_a_motions_row_turns_the_records_hub_and_its_moving_frame(
             "frames": [FrameSpec(name="NAC", origin=(0.4, 0.0, 0.1))],
             "motions": [
                 {"MOVING_BC_ALIAS": "Blade1", "RPM": "1200"},
-                {"MOVING_BC_ALIAS": "Blade2", "RPM": "-2400"},
+                {"MOVING_BC_ALIAS": "Blade2", "RPM": "2400"},
             ],
             "rotations": [
                 {"ANGLE": "3", "AXIS": "NAC-Y", "ALIAS": "Blade2", "AUX_FRAMES": "Blade2_SMRP"}
@@ -4944,7 +4969,7 @@ def test_a_pproc_entry_cites_a_rotors_own_frame_in_a_motions_row(tmp_path):
             "reference": ReferenceData(area=10.0, length=1.2),
             "motions": [
                 {"MOVING_BC_ALIAS": "Blade1", "RPM": "1200"},
-                {"MOVING_BC_ALIAS": "Blade2", "RPM": "-2400"},
+                {"MOVING_BC_ALIAS": "Blade2", "RPM": "2400"},
             ],
         }
     )

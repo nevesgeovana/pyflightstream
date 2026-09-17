@@ -1213,7 +1213,14 @@ class RotorSpeed:
 
 
 def _rpm_sign(case: SimCase) -> int:
-    """Return the declared sign of a derived rotor speed, defaulting to 1."""
+    """Return the HAND of this rotor's rotation, defaulting to 1.
+
+    The reference's rotor block declares it and `_rotor_view` fills it here, so
+    this reads the row's view whatever the speed form is. It applies to a speed
+    STATED in rev/min exactly as it applies to one derived from an advance
+    ratio: the row says how fast and the block says which way (the owner's
+    decision of 2026-09-17).
+    """
     text = _variable(case, RPM_SIGN_VARIABLE)
     if text is None:
         return 1
@@ -1382,19 +1389,26 @@ def rotor_speed(case: SimCase) -> RotorSpeed:
         stated = _required_float(
             case, RPM_VARIABLE, quantity="rotor speed", unit="rev/min", text=rpm_text
         )
-        if _variable(case, RPM_SIGN_VARIABLE) is not None:
+        # A ROW'S RPM IS A MAGNITUDE (the owner's decision of 2026-09-17). The
+        # hand is the reference's, and a row carrying a sign of its own would be
+        # a second answer to a question the rotor block already answers.
+        if stated < 0.0:
             raise CampaignConfigError(
-                f"case {case.sim_id!r} states {RPM_VARIABLE} and {RPM_SIGN_VARIABLE}. A "
-                "rev/min value carries its own sign in the number, so a second one "
-                "beside it can only disagree with it. Write the sign into the "
-                f"{RPM_VARIABLE} value, or state {ADVANCE_RATIO_VARIABLE} instead, which "
-                "is a magnitude and is the form that needs a sign of its own."
+                f"case {case.sim_id!r} states {RPM_VARIABLE} as {stated}, and a row's "
+                "rotor speed is a MAGNITUDE: it says how fast, not which way. The hand "
+                f"of the rotation is the rotor's {RPM_SIGN_VARIABLE}, declared once in "
+                "the reference beside its axis and its origin. Write the speed positive "
+                "and set the hand there."
             )
         return RotorSpeed(
             sim_id=case.sim_id,
             stated_form="rpm",
             stated_value=stated,
-            rpm=stated,
+            # THE SAME SIGN THE DERIVED FORM TAKES. Until 0.21.1 it was applied
+            # to the derived speed alone, so a row stating RPM turned whichever
+            # way the number happened to be written and the reference's hand was
+            # dropped in silence.
+            rpm=_rpm_sign(case) * stated,
             advance_ratio=None,
             velocity_m_per_s=None,
             diameter_m=None,
@@ -8820,14 +8834,31 @@ def _motion_view(case: SimCase, record: Mapping[str, str]) -> SimCase:
         variables[ROTOR_AXIS_VARIABLE] = rotor.axis
         variables[ROTOR_ORIGIN_VARIABLE] = "{},{},{}".format(*rotor.origin)
         variables[BLADES_VARIABLE] = str(rotor.blade_count)
-        # THE ROTOR'S HAND IS FOR A SPEED THAT CARRIES NO SIGN, which is a
-        # ratio: a rev/min value carries its own. Since 0.21.0 the speed may
-        # come from the ROW'S CELL as well as from the record, so the test is
-        # whether a speed reached this view at all rather than whether the
-        # record wrote one; filling it beside a stated RPM made every rotor
-        # row that states its speed in the cell refuse itself.
-        if RPM_VARIABLE not in variables:
-            variables[RPM_SIGN_VARIABLE] = str(rotor.rpm_sign)
+        # THE ROTOR'S HAND IS THE REFERENCE'S, ALWAYS, and it reaches every
+        # speed form. The owner's decision of 2026-09-17: the RPM a row states
+        # is a MAGNITUDE and the sign comes from the reference, which already
+        # says the axis, the origin and the blade count -- the row says how
+        # fast, the block says which way, and the two cannot contradict each
+        # other because neither states what the other does.
+        #
+        # UNTIL 0.21.1 THIS WAS FILLED ONLY WHEN THE ROW STATED NO SPEED,
+        # because 0.21.0 let the speed come from the cell and filling it beside
+        # a stated RPM made every such row refuse itself through the old
+        # "states RPM and RPM_SIGN" guard. That traded a loud refusal for a
+        # SILENT WRONG SIGN: measured on a four-blade propeller whose full
+        # wheel turned backwards while the same rotor as a sector, stating a
+        # ratio, turned correctly. A rotor turning the wrong way converges and
+        # reports numbers, which is why this is the worse of the two.
+        stated_hand = _variable(case, RPM_SIGN_VARIABLE)
+        if stated_hand is not None and stated_hand.strip() != str(rotor.rpm_sign):
+            raise CampaignConfigError(
+                f"case {case.sim_id!r} states {RPM_SIGN_VARIABLE} as {stated_hand!r} and "
+                f"the rotor {rotor.alias!r} declares {rotor.rpm_sign} in the reference. "
+                "The hand of a rotation is the rotor's, declared once beside its axis "
+                f"and its origin, so a row restating it can only disagree. Remove "
+                f"{RPM_SIGN_VARIABLE} from the row."
+            )
+        variables[RPM_SIGN_VARIABLE] = str(rotor.rpm_sign)
         # THE DIAMETER IS THIS ROTOR'S (FR-63). It is the reason one ratio
         # written once can govern rotors of different sizes: n = V/(J D)
         # is resolved per rotor, and the configuration's single

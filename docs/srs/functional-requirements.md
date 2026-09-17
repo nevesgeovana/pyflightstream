@@ -1980,6 +1980,20 @@ requirement below is one seam of that division.
     every row written before this release working. They are removed at
     0.17.0.
 
+    AMENDED 0.21.2, and the amendment is the whole of what the reference
+    declaring the hand is FOR. `RPM_SIGN` is the reference's, and it reaches
+    the row's view for EVERY speed form: a row's `RPM` is a MAGNITUDE and a
+    negative one is refused by name, so the row says how fast and the block
+    says which way. Until 0.21.1 the hand was filled only when the row stated
+    no speed of its own, so a row stating rev/min turned whichever way its
+    number was written and the reference's hand was dropped in SILENCE -- no
+    refusal, no warning, and a rotor turning backwards converges and reports
+    numbers. The point's NAME writes `RPM` in magnitude for the same reason:
+    the hand belongs to the rotor and naming it in the point would give one
+    operating point two identities. Evidence:
+    `tests/tier1_offline/test_workflows.py` (the stated speed taking the
+    rotor's hand, and the negative row refused).
+
     `PERIODIC_COPIES` is NOT among them and the earlier wording said it
     was: it states what the MESH is, a sector of a wheel, which is a
     property of the file the row opens rather than of the rotor the
@@ -4142,11 +4156,44 @@ requirement below is one seam of that division.
     reaches the cluster and aborts at `EXPORT_LOG`. A collected point's
     record carries what its log said: the iteration, the residual, the times
     and the file they were read from.
+!!! requirement "FR-108 A point whose row was wrong is redone by naming it <span class='srs-implemented'>implemented</span>"
+
+    *Origin: a matrix row can be wrong in a way the correction does not rename,
+    and the package then had no way to run that point again: the recorded point
+    is refused as a fork and resume skips it. Evidence:
+    `tests/tier1_offline/test_goal026_force_rerun.py` (the named point running
+    again, the points not named keeping their records, the manifest archived
+    into `archive/`, the outputs archived per point, an unmatched name refused,
+    the pair with resume refused before anything is read, and the per-point
+    campaign that the one-job fixture cannot reach). AMENDS FR-34.*
+
+    A point already in the manifest is REDONE when the run names it
+    (`force_rerun`, CLI `--force-rerun`), by its point name, its `run_id`, or
+    the job id of a swept row. Nothing is deleted: the manifest is copied whole
+    under `archive/` before any record leaves it, and each named point's
+    collected outputs move into that point's own `archive/<stamp>/`.
+
+    IT NAMES POINTS. Redoing every recorded point of a matrix because one row
+    was wrong spends a licensed seat per point, and a seat is the one thing
+    archiving cannot return. A name no recorded point carries is refused rather
+    than passed over, because a forced re-run that redid nothing reads exactly
+    like one that worked. Recorded points the run does not name are skipped, so
+    the flag is usable on a matrix of more than one row.
+
+    It is refused together with resume, which SKIPS a recorded point; and a
+    point of a row stating RESTART is continued rather than superseded, which
+    the run says rather than passing over the flag.
+
+    THIS AMENDS FR-34, which states resume semantics and was the only
+    requirement about a manifest-recorded point. Resume skips such a point;
+    this one redoes it; the refusal between them names both and says which does
+    which.
+
 !!! requirement "FR-107 A run may accept an unregistered build, on the user's word <span class='srs-implemented'>implemented</span>"
 
-    *Origin: the cluster feedback of 2026-09-15, section 7: a workplace build
-    the package does not know about must not stop a run, and registering it
-    would put a workplace identifier in a public package. Evidence:
+    *Origin: an installed build the package has no registration for must not
+    stop a run, and registering every site's build would put site identifiers
+    in a public package. Evidence:
     `tests/tier1_offline/test_goal024_unregistered_build_flag.py` (the refusal
     naming the flag, the run proceeding with it and warning, the record and the
     plan carrying it, and the library keyword). AMENDS FR-18.*

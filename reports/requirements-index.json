@@ -2,8 +2,8 @@
  "source": "docs/srs",
  "generated_by": "scripts/gen_requirements_index.py",
  "traceability": {
-  "cited_by_a_test": 112,
-  "total": 159,
+  "cited_by_a_test": 114,
+  "total": 160,
   "method": "upper bound: an id mentioned anywhere in tests/**/*.py excluding conftest.py, which is not the marked falsifying test NFR-13 asks for"
  },
  "requirements": [
@@ -1020,7 +1020,15 @@
    "text": "plan and run take --accept-unregistered-build. Without it, a workstation whose installed build is not the one registered for the version a row names is refused, and the refusal NAMES the flag. With it the run proceeds, warns that compatibility is the user's to judge, and every record says the flag was used and carries the build the solver printed; plan.json records it too, so the rehearsal is the same command line the run executes. The library takes the same keyword.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: the cluster feedback of 2026-09-15, section 7: a workplace build the package does not know about must not stop a run, and registering it would put a workplace identifier in a public package. Evidence: tests/tier1_offline/test_goal024_unregistered_build_flag.py (the refusal naming the flag, the run proceeding with it and warning, the record and the plan carrying it, and the library keyword). AMENDS FR-18.*",
+   "evidence": "*Origin: an installed build the package has no registration for must not stop a run, and registering every site's build would put site identifiers in a public package. Evidence: tests/tier1_offline/test_goal024_unregistered_build_flag.py (the refusal naming the flag, the run proceeding with it and warning, the record and the plan carrying it, and the library keyword). AMENDS FR-18.*",
+   "verification": "test"
+  },
+  {
+   "id": "FR-108",
+   "text": "A point already in the manifest is REDONE when the run names it (force_rerun, CLI --force-rerun), by its point name, its run_id, or the job id of a swept row. Nothing is deleted: the manifest is copied whole under archive/ before any record leaves it, and each named point's collected outputs move into that point's own archive/<stamp>/.",
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: a matrix row can be wrong in a way the correction does not rename, and the package then had no way to run that point again: the recorded point is refused as a fork and resume skips it. Evidence: tests/tier1_offline/test_goal026_force_rerun.py (the named point running again, the points not named keeping their records, the manifest archived into archive/, the outputs archived per point, an unmatched name refused, the pair with resume refused before anything is read, and the per-point campaign that the one-job fixture cannot reach). AMENDS FR-34.*",
    "verification": "test"
   },
   {

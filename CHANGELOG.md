@@ -7,6 +7,83 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Changed (breaking)
+
+- **A row's `RPM` is a MAGNITUDE, and the hand of the rotation comes from the
+  reference.** A matrix row stating a negative rev/min is refused by name; write
+  the speed positive and set `rpm_sign` on the rotor block of the reference,
+  beside the axis, the origin and the blade count it already declares. The row
+  says how fast and the block says which way, so the two cannot contradict each
+  other, and a row restating `RPM_SIGN` against a reference that declares one is
+  refused rather than silently overridden.
+  - **THIS FIXES A WRONG-WAY ROTATION THAT NOTHING REPORTED.** Until 0.21.1 the
+    reference's hand was copied into the case ONLY when the row stated no speed
+    of its own, so a row stating `RPM` turned whichever way its number happened
+    to be written and the reference's `rpm_sign` was dropped in silence: no
+    refusal, no warning, and a rotor turning backwards converges and reports
+    numbers. The same rotor stating `ADVANCE_RATIO` turned correctly, because
+    the hand was read on that path only.
+  - The sign is now applied to BOTH speed forms, the stated rev/min and the one
+    derived from an advance ratio.
+  - **The point NAME writes `RPM` in magnitude**, so a folder is `RPM+0473`
+    whichever way the rotor turns. The hand is a property of the ROTOR and not
+    of the point; naming it in the point would give one operating point two
+    identities.
+  - A row that wrote its hand into the number (`RPM: -2400`) must move it to the
+    reference. That spelling is now refused.
+
+### Added
+
+- **`pyfs-matrix run --force-rerun <point>`**, for a matrix row that was wrong.
+  A point whose `run_id` is already in the manifest is refused, because
+  re-running a recorded point would fork the run identity, and `--resume` SKIPS
+  such a point rather than re-running it. So when the correction does not change
+  the point's NAME -- a pproc, a geometry, a solver variable, a wall clock -- the
+  corrected point had the same identity and there was no way to redo it inside
+  the package at all.
+  - **NOTHING IS DELETED.** The manifest is copied whole to
+    `archive/runs-<stamp>.json`, the named records leave it, and each point's
+    collected outputs move into that point's own `archive/<stamp>/`. The run
+    that was wrong stays readable, which is the point: the row that produced it
+    is what somebody may need to look at.
+  - **IT NAMES POINTS AND IS NOT A SWITCH.** Give it a point name, a full
+    `run_id`, or the job id of a swept row (a swept steady row is ONE job, so
+    naming it names every point of the row); repeat the flag for several. A name
+    no recorded point carries is refused rather than passed over. Redoing a
+    whole matrix because one row was wrong would spend a licensed seat per
+    point, and a seat is the one thing archiving cannot give back.
+  - Points it does NOT name and that are already recorded are skipped, so the
+    flag works on a matrix with more than one row. It is refused together with
+    `--resume`, which skips a recorded point instead of redoing it.
+  - A point of a row stating `RESTART` is CONTINUED rather than superseded, and
+    naming one warns rather than passing over the flag.
+  - The library takes the same keyword: `run_campaign(..., force_rerun=[...])`
+    and `run_matrix(..., force_rerun=[...])`.
+
+### Changed
+
+- **The refusal of an already-recorded point names `--force-rerun` first**, and
+  says in the word that `--resume` SKIPS such a point and does not re-run it.
+  The earlier text offered `resume=True` inside a sentence about re-running, so
+  a user who followed it got a call that returned successfully having executed
+  nothing, which is worse than the refusal.
+- **A refusal from `pyfs-matrix run` is printed rather than raised.**
+  `WorkspaceError` is neither a `ValueError` nor an `OSError`, and the command
+  caught neither it nor `PyflightstreamError`, so every workspace refusal it
+  writes -- the already-recorded point among them -- reached the user as a
+  Python traceback with the sentence at the bottom of it.
+
+### Changed
+
+- **The `broken_commands` manifest key is promised for removal at 0.23.0**, its
+  eighth deadline. RE-MEASURED at the bump, by counting ROWS rather than files:
+  74 recorded rows carry it across four manifests. **The figure this promise
+  carried before does not reproduce**: it said "UNCHANGED at 18 rows across 6
+  live manifests" at two successive extensions, and 18 is the row count of ONE
+  of the four files while 6 is what a grep returns when an index and a search
+  blob are counted as manifests. The conclusion is unchanged and stronger:
+  recorded rows still need the reader. Write `waived_commands`.
+
 ### Owed
 
 

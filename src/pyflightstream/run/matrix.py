@@ -23,7 +23,7 @@ one way, from here into the campaign loop.
 from __future__ import annotations
 
 import warnings
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 
 from pyflightstream._deprecations import MATRIX_FS_VERSION
@@ -486,7 +486,7 @@ def run_matrix(
     executor: Executor | None = None,
     recipe_registry: dict[str, ScriptRecipe] | None = None,
     resume: bool = False,
-    force_rerun: bool = False,
+    force_rerun: Sequence[str] | None = None,
     hidden: bool | None = None,
     fs_version: str | None = None,
     name_from: str | None = None,
@@ -537,10 +537,13 @@ def run_matrix(
     recipe_registry : dict of str to ScriptRecipe, optional
         Named recipe registry (name to callable), forwarded to the
         pre-flight and the campaign loop.
-    force_rerun : bool
-        With True, a point already in the manifest is REDONE rather than
-        refused: its record and its collected outputs are archived first.
-        For a row that was wrong. Refused together with ``resume``.
+    force_rerun : sequence of str, optional
+        The points to REDO rather than refuse, each by its point name, its
+        full ``run_id``, or the job id of a swept row. For a row that was
+        wrong: the record and the point's collected outputs are archived
+        first, and nothing is deleted. It names points rather than being a
+        switch because redoing a whole matrix over one wrong row spends a
+        licensed seat per point. Refused together with ``resume``.
     resume : bool
         With True, points already in the manifest are skipped, so a
         grown matrix re-runs only its new points; with False (the

@@ -2767,6 +2767,63 @@ class CampaignWorkspace:
         temporary.write_text(payload + "\n", encoding="utf-8")
         temporary.replace(self.manifest_path)
 
+    def supersede_records(
+        self, run_ids: Sequence[str], *, stamp: datetime | None = None
+    ) -> Path | None:
+        """Copy the manifest into ``archive/`` and take the named rows out of it.
+
+        For a FORCED RE-RUN: a point whose matrix row was wrong keeps its
+        identity when the correction does not change its name, so the recorded
+        row has to leave before the point can run again. The copy is made FIRST
+        and the write is atomic, so there is no instant at which the workspace
+        holds neither the old manifest nor a whole one.
+
+        THE COPY GOES WHERE THIS PACKAGE ALREADY PUTS ONE. ``pyfs-matrix
+        rename`` archives the manifest to ``archive/runs-<stamp>.json`` before
+        rewriting it, and a second home for one artifact name is how a reader
+        who knows the first never finds the second.
+
+        Parameters
+        ----------
+        run_ids : sequence of str
+            The run identities to remove. One that the manifest does not hold
+            is not an error here: the caller decides what an unmatched name
+            means, and for a forced re-run it refuses before reaching this.
+        stamp : datetime, optional
+            The moment the copy is named for. Injected so a test does not race
+            the clock; the default is now.
+
+        Returns
+        -------
+        Path or None
+            Where the manifest was copied, or None when there is no manifest
+            to copy, which is a workspace nothing has run in yet.
+        """
+        if not self.manifest_path.is_file():
+            return None
+        archive = self.root / ARCHIVE_DIR
+        archive.mkdir(parents=True, exist_ok=True)
+        target = archive / f"runs-{(stamp or datetime.now()).strftime(ARCHIVE_STAMP)}.json"
+        if target.exists():
+            # Two supersedes inside one stamp window, which the stamp cannot
+            # separate. Numbering beats overwriting the older copy, which is
+            # the one that holds the state before either change.
+            index = 2
+            while (archive / f"runs-{target.stem.split('runs-', 1)[1]}.{index}.json").exists():
+                index += 1
+            target = archive / f"runs-{target.stem.split('runs-', 1)[1]}.{index}.json"
+        shutil.copy2(self.manifest_path, target)
+
+        superseded = set(run_ids)
+        kept = [
+            row for row in self.read_raw_manifest() if str(row.get("run_id", "")) not in superseded
+        ]
+        payload = json.dumps(kept, indent=2)
+        temporary = self.manifest_path.with_suffix(".json.tmp")
+        temporary.write_text(payload + "\n", encoding="utf-8")
+        temporary.replace(self.manifest_path)
+        return target
+
     def archive_datapoint(
         self, sim_id: str, datapoint: PointName, *, stamp: datetime | None = None
     ) -> Path | None:

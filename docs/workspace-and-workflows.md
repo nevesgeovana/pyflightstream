@@ -1621,13 +1621,19 @@ node the document declares; a PROV tool reads it as any PROV-JSON.
 
 ### Archiving a completed simulation
 
+**To redo ONE point whose row was wrong, do not archive the simulation.**
+Since 0.21.2 `pyfs-matrix run --force-rerun <point>` archives that point's
+record and its collected outputs and runs it again, keeping everything else
+where it is; the section below is for retiring a whole simulation. Archiving
+the simulation to redo one point takes the row's other points with it.
+
 Every point of a row runs in the same simulation folder and collects
 into its OWN folder beneath it. A run refuses to collect onto a name
-already in that point's folder, which is what a re-run of the same point
-meets, or to start a point whose declared output is already sitting in
-the simulation folder before the solver has written it, rather than
-attribute somebody else's file to the new point. Both refusals say to
-archive the simulation, and this is the command they mean:
+already in that point's folder, or to start a point whose declared
+output is already sitting in the simulation folder before the solver has
+written it, rather than attribute somebody else's file to the new point.
+Those refusals say to archive the simulation, and this is the command they
+mean:
 
 ```text
 pyfs-workspace archive . 8001        # sims/sim_8001/ becomes archive/sim_8001.zip
@@ -1639,6 +1645,34 @@ re-run into a clean one while its evidence stays and the manifest keeps
 its records. The products already under `post/` are untouched, and a
 later `pyfs-matrix post` reads the exports from the simulation folder,
 which is now in the zip: rebuild the products first, archive after.
+### Redoing a point whose row was wrong
+
+A point already in the manifest is refused, because re-running a recorded point
+would fork the run identity. When the correction to the row does NOT change the
+point's name -- a pproc, a geometry, a solver variable, a wall clock -- the
+corrected point has the same identity, and `--force-rerun` is how it is redone:
+
+```text
+pyfs-matrix plan --matrix <matrix> --workspace .
+pyfs-matrix run  --matrix <matrix> --workspace . \
+    --force-rerun 'camp/sim_3207/M144RE438AL+000BE+000J+080'
+```
+
+Re-plan first: the plan carries the digest of the matrix it read, and an edited
+matrix is refused until it is planned again.
+
+It names points, by point name, by full `run_id`, or by the job id of a swept
+row, and the flag repeats. Nothing is deleted: the manifest is copied to
+`archive/runs-<stamp>.json` and each named point's outputs move into that
+point's own `archive/<stamp>/`. A name no recorded point carries is refused, and
+recorded points it does not name are skipped rather than refused. It cannot be
+combined with `--resume`, which SKIPS a recorded point instead of redoing it.
+
+**A correction that DOES change the point's name needs none of this.** The name
+is written by the row's `FLIGHT_CONDITION`, so correcting a value in that cell
+gives the point a new identity: it is simply a new point, and `--resume` runs it
+beside the old record.
+
 Three things are refused, each by name and with
 nothing written or deleted: a simulation the manifest does not record
 (`refusing to archive sim_8001: the manifest has no record of this

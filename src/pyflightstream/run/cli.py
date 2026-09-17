@@ -461,12 +461,18 @@ def _build_parser() -> argparse.ArgumentParser:
     run.add_argument(
         "--force-rerun",
         dest="force_rerun",
-        action="store_true",
-        help="REDO a point that is already in the manifest, for a row that was wrong. "
-        "The manifest is copied aside, the record leaves it, and the point's collected "
-        "outputs move into its own archive/<stamp>/ before it runs; nothing is deleted. "
-        "This is NOT --resume, which skips such a point instead of redoing it, and the "
-        "two together are refused",
+        action="append",
+        default=[],
+        metavar="POINT",
+        help="REDO this point, which is already in the manifest, for a row that was "
+        "wrong. Name it by its point name or by the full run_id the refusal printed; "
+        "repeat the flag for several. The manifest is copied to archive/runs-<stamp>.json, "
+        "the named records leave it, and each point's collected outputs move into that "
+        "point's own archive/<stamp>/ before it runs; NOTHING IS DELETED. It names points "
+        "rather than being a switch because redoing a whole matrix over one wrong row "
+        "spends a licensed seat per point, and a seat is what archiving cannot give back. "
+        "A name no recorded point carries is refused. This is NOT --resume, which SKIPS "
+        "such a point instead of redoing it, and the two together are refused",
     )
     run.add_argument(
         "--sweep-csv",
@@ -1238,6 +1244,14 @@ def _cmd_run(args: argparse.Namespace, recipes: dict[str, str]) -> int:
         InputArtifactError,
         CampaignConfigError,
         WorkflowCoverageError,
+        # A REFUSAL IS NOT A CRASH. `WorkspaceError` is
+        # `(PyflightstreamError, RuntimeError)` and is neither a ValueError nor
+        # an OSError, so every refusal this package writes for a workspace --
+        # the already-recorded point among them -- reached the user as a Python
+        # traceback with the sentence at the bottom of it. `_cmd_post` has
+        # caught `PyflightstreamError` since 0.17.0 (the interface lens,
+        # FIX-0212).
+        PyflightstreamError,
         OSError,
         ValueError,
     ) as error:

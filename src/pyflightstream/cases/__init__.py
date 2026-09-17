@@ -1861,6 +1861,24 @@ def _as_a_number(case: SimCase, key: str, stated: object, where: str) -> float:
         ) from None
 
 
+#: The declared variables a point's NAME writes as a magnitude, whatever sign
+#: the value carries. RPM is one: the hand of a rotation is the reference
+#: rotor's and never the point's, so a folder named `RPM-0473` would be naming
+#: a property of the ROTOR in the identity of a POINT, and two runs of one
+#: speed in opposite directions would get two names for one operating point
+#: (the owner's decision of 2026-09-17).
+NAME_MAGNITUDE_FIELDS = frozenset({"RPM"})
+
+
+def _named_magnitude(key: str, value: float) -> float:
+    """Return the value a point's NAME writes for ``key``.
+
+    The value as resolved, except for the fields a name writes as a magnitude:
+    see :data:`NAME_MAGNITUDE_FIELDS`.
+    """
+    return abs(value) if key in NAME_MAGNITUDE_FIELDS else value
+
+
 def _name_value(case: SimCase, point: Mapping[str, float], key: str) -> float:
     for axis, axis_key in POINT_AXIS_KEYS.items():
         if key == axis_key and axis in point:
@@ -1893,7 +1911,8 @@ def point_name(case: SimCase, point: Mapping[str, float]) -> str:
         If a declared variable has no value on this point or no code.
     """
     return "".join(
-        name_field(key, _name_value(case, point, key)) for key in _name_order(case, point)
+        name_field(key, _named_magnitude(key, _name_value(case, point, key)))
+        for key in _name_order(case, point)
     )
 
 

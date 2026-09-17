@@ -43,7 +43,9 @@ from tests.tier1_offline.test_goal024_profile_log import _profile_text
 
 FIXTURES = Path(__file__).parent / "fixtures"
 STEM = "POLAR-9001_M14AL+020BE+000J+080"
-POL, JOB = "9001", "6654320"
+# AN INVENTED JOB ID. The first writing copied a real one out of a
+# scheduler log, which puts a workplace identifier in a public test.
+POL, JOB = "9001", "1200345"
 
 #: THE 0.20 TAG, in the scheme that release actually wrote: alpha, beta and the
 #: advance ratio at one decimal. Not a 0.21.0 name, which is what makes this

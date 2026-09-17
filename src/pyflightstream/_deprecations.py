@@ -594,13 +594,24 @@ WAIVED_COMMANDS_MANIFEST_KEY = DeprecatedManifestKey(
     old="broken_commands",
     new="waived_commands",
     deprecated_since="0.13.0",
-    removal_version="0.22.0",
+    removal_version="0.23.0",
     extra=(
         "The entries are WAIVERS the recipe registered, not commands that broke in the "
-        "run, which is the opposite claim. EXTENDED A SEVENTH TIME, from 0.21.0 on "
-        "2026-09-15, when the 0.21.0 cycle opened and the deadline guard fired on the "
-        "bump; RE-MEASURED THE SAME MINUTE and UNCHANGED at 18 rows across 6 live "
-        "manifests. Extended a sixth time from 0.20.0 on "
+        "run, which is the opposite claim. EXTENDED AN EIGHTH TIME, from 0.22.0 on "
+        "2026-09-17, when the 0.22.0 cycle opened and the deadline guard fired on the "
+        "bump. RE-MEASURED THE SAME MINUTE, BY COUNTING ROWS RATHER THAN FILES: 74 "
+        "recorded rows carry the key, across 4 manifests -- 46 in "
+        "tests/tier3_licensed/runs.json, 18 in post/matriz/plan.json, 8 in "
+        "post/matriz_time/plan.json and 2 in post/matriz_builds/plan.json. "
+        "THE FIGURE THIS ENTRY CARRIED BEFORE DOES NOT REPRODUCE. It said "
+        "'UNCHANGED at 18 rows across 6 live manifests' at two successive extensions, "
+        "and 18 is the row count of ONE of the four files while 6 is what a "
+        "grep for the key returns when an index and a search blob are counted as "
+        "manifests. So the number was carried rather than re-measured, which is the "
+        "failure this estate has recorded four times and has now made a fifth. The "
+        "reading above is rows in real manifests and nothing else. The conclusion is "
+        "unchanged and stronger: recorded rows still need the reader. "
+        "Extended a sixth time from 0.20.0 on "
         "2026-09-14, when the 0.20.0 cycle opened and the deadline guard fired on the "
         "bump; RE-MEASURED THE SAME MINUTE and UNCHANGED at 18 rows across 6 live "
         "manifests. Extended a fifth time from 0.19.0 earlier the same day, the same way. "
