@@ -2851,6 +2851,7 @@ def run_campaign(
         # still in a queue, is done for now, so running the matrix again does
         # not continue a continuation that already completed.
         continuing = _states_restart(case)
+        redoing = False
         if already and force_rerun:
             asked = _points_asked_to_redo(campaign, case, force_rerun)
             unmatched -= asked.named
@@ -2870,10 +2871,32 @@ def run_campaign(
                 # forced re-run that inherited it would archive the evidence and
                 # then execute nothing, the very failure this flag exists to be
                 # distinguishable from.
+                # WHAT IS SUPERSEDED IS WHAT IS RE-RUN, and the two were not the
+                # same set. The queue took EVERY recorded id of the case while
+                # only the NAMED points were scheduled, so a second recorded
+                # point of the same case left the manifest and was never run
+                # again: neither kept nor redone, with the only remaining copy
+                # the archived one nobody reads. Measured on a campaign
+                # recording two points of one case, `force_rerun` given one of
+                # them (an independent review from another provider, FIX-0220).
+                #
+                # A JOB IS INDIVISIBLE, so naming any point of one redoes the
+                # WHOLE job: one process ran every point of that row, and
+                # re-running a part of it while its record goes would orphan the
+                # rest. That is why the points come back from the resolver as
+                # every point of the sweep in that case, and why the id taken
+                # out of the manifest is the JOB's.
+                recorded_here = set(already)
+                job = _job_run_id(campaign, case)
                 case_points = asked.points
                 run_ids = [_run_id(campaign, case, point) for point in case_points]
-                to_supersede.append((case, list(case_points), list(already)))
-                already = []
+                if job in recorded_here:
+                    superseding = [job]
+                else:
+                    superseding = [run_id for run_id in run_ids if run_id in recorded_here]
+                to_supersede.append((case, list(case_points), superseding))
+                redoing = True
+                already = [run_id for run_id in already if run_id not in set(superseding)]
                 # AND THEY STOP COUNTING AS RECORDED, which is the half the
                 # first writing missed. `recorded` is frozen before the loop
                 # and `pending` below keeps only the points NOT in it, so
@@ -2881,15 +2904,20 @@ def run_campaign(
                 # out: the case was dropped, and the run archived the evidence
                 # and executed nothing -- the very failure the paragraph above
                 # claims to prevent, one level down (the qa lens, FIX-0212).
+                recorded.difference_update(superseding)
                 recorded.difference_update(run_ids)
         # A FORCED RE-RUN SKIPS WHAT IT DID NOT NAME, which is the only shape
         # that works on a real matrix. Naming one point to redo says "this one
         # again"; it does not say the other rows are a fork. Refusing them made
         # the flag unusable on any matrix with more than one recorded row --
         # measured by its own test, which could not get past the second case.
-        if already and force_rerun and not continuing:
+        if already and force_rerun and not continuing and not redoing:
             continue
-        if already and not resume and not continuing:
+        # A CASE THE FLAG PARTIALLY NAMED IS NOT A FORK. Its unasked recorded
+        # points are left exactly as they are -- not re-run, not removed -- so
+        # the refusal below, which exists for a re-run nobody asked for, must
+        # not fire on them.
+        if already and not resume and not continuing and not redoing:
             raise WorkspaceError(
                 f"run_id {already[0]!r} is already in the manifest of "
                 f"{workspace.root}; re-running a recorded point would fork the "

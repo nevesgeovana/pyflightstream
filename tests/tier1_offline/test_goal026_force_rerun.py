@@ -333,3 +333,55 @@ def test_goal026_a_per_point_campaign_redoes_the_point_and_does_not_lose_it(tmp_
     assert [str(record.run_id) for record in again] == [target], again
     after = [str(record.run_id) for record in workspace.read_manifest()]
     assert after == [target], after
+
+
+def test_goal026_force_rerun_does_not_drop_the_record_it_was_not_given(tmp_path):
+    """THE DATA-LOSS ARM: a recorded point nobody named stays IN THE MANIFEST.
+
+    TWO POINTS OF ONE CASE, which is the shape that can lose one. A steady matrix
+    row of several points is ONE job recorded under the job id, so a case has a
+    single record and there is nothing beside it to drop; every existing test of
+    this flag is built that way. A campaign records one point at a time, so here
+    the case holds two records and the flag names one.
+
+    The defect this pins: the supersede was queued with EVERY recorded run_id of
+    the case while only the NAMED points were scheduled. The second point was
+    removed from `runs.json` and never re-run -- neither kept nor redone, with
+    the only remaining copy the archived one nobody reads. Found by an
+    independent review from another provider (Codex, FIX-0220), which read it
+    off the queueing line rather than from a failing test.
+    """
+    from pyflightstream.run import run_campaign
+    from pyflightstream.workspace import CampaignWorkspace
+
+    campaign = make_campaign(tmp_path, alphas=(0.0, 2.0))
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    first = run_campaign(
+        campaign,
+        StubSolver(WRITES_LOADS),
+        workspace,
+        assess=converged,
+        recipes={"steady": steady_recipe},
+    )
+    assert len(first) == 2, f"the fixture must record TWO points of one case: {first}"
+    target = str(first[0].run_id)
+    untouched = str(first[1].run_id)
+
+    again = run_campaign(
+        campaign,
+        StubSolver(WRITES_LOADS),
+        workspace,
+        assess=converged,
+        recipes={"steady": steady_recipe},
+        force_rerun=[target],
+    )
+
+    assert [str(record.run_id) for record in again] == [target], (
+        f"the flag redid something other than the point it was given: {again}"
+    )
+    after = {str(record.run_id) for record in workspace.read_manifest()}
+    assert untouched in after, (
+        f"{untouched} was removed from the manifest and never re-run: the flag was "
+        f"given only {target}"
+    )
+    assert target in after, "the point that WAS named is not recorded"
