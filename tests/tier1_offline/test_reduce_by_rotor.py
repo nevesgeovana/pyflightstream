@@ -129,28 +129,58 @@ def test_a_period_whose_fraction_decides_is_rounded_not_truncated():
     assert plan["rotors"]["LIFT_L1"]["period_steps"] == 39
 
 
-@pytest.mark.parametrize("rpm", ["2200", "-2200"])
-def test_a_rotor_turning_the_other_way_reduces_over_the_same_passage(rpm):
-    """A blade passage is a DURATION, so the sign of the speed does not shorten it.
+@pytest.mark.parametrize("hand", [1, -1])
+def test_a_rotor_turning_the_other_way_reduces_over_the_same_passage(hand):
+    """A blade passage is a DURATION, so the rotor's hand does not shorten it.
 
-    Without the absolute value a negative rpm gives a negative revolution,
-    the period rounds below one, and BOTH passage reductions of that rotor
-    are skipped under a sentence saying the passage is under one time
-    step, which is false about the case. `RPM_SIGN` is part of the
-    vocabulary and a counter-rotating pair is an ordinary row (the QA
-    lens, 2026-09-10).
+    Without the absolute value a rotor turning the other way gives a
+    negative revolution, the period rounds below one, and BOTH passage
+    reductions of that rotor are skipped under a sentence saying the
+    passage is under one time step, which is false about the case. A
+    counter-rotating pair is an ordinary row (the QA lens, 2026-09-10).
+
+    WHERE THE HAND IS WRITTEN MOVED IN 0.22.0, and the property under test
+    did not. This was a negative `RPM` on the motion record; a row's rotor
+    speed is now a MAGNITUDE and the hand is declared on the reference
+    block, beside the axis and the blade count, so the same physical case
+    is written by flipping the block. The refusal that replaced the old
+    spelling is the test below.
     """
     case = transition_case(
-        motions=[
-            {"MOVING_BC_ALIAS": "LIFT_L1", "RPM": rpm},
-            {"MOVING_BC_ALIAS": "PUSHER", "RPM": "900"},
-        ]
+        rotors={
+            "LIFT_L1": LIFTER.model_copy(update={"rpm_sign": hand}),
+            "PUSHER": PUSHER,
+        }
     )
     plan = reduction_windows(case)
     assert plan is not None
     entry = plan["rotors"]["LIFT_L1"]
     assert entry["period_steps"] == 68, entry
     assert "skipped" not in entry["per_blade"], entry["per_blade"]
+
+
+def test_a_motion_writing_its_hand_into_its_number_is_refused_and_says_where_the_hand_goes():
+    """0.22.0: the spelling the test above used to carry is now refused BY NAME.
+
+    Two properties, and the second is the one a user meets. The row is
+    refused rather than silently turned the other way; and because the
+    refused motion is the row's CLOCK, the sentence the user reads has to
+    be about the number they wrote. It said "no motion of this row moves
+    it", naming a rotor the row plainly states, which sends them to the
+    one key that was right.
+    """
+    case = transition_case(
+        motions=[
+            {"MOVING_BC_ALIAS": "LIFT_L1", "RPM": "-2200"},
+            {"MOVING_BC_ALIAS": "PUSHER", "RPM": "900"},
+        ]
+    )
+    plan = reduction_windows(case)
+    assert plan is not None
+    said = plan["time_average"]["skipped"]
+    assert "MAGNITUDE" in said, said
+    assert "RPM_SIGN" in said or "rpm_sign" in said, said
+    assert "no motion of this row moves it" not in said, said
 
 
 def test_a_rotor_that_does_not_turn_is_skipped_naming_it():

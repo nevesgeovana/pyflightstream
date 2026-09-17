@@ -14,8 +14,17 @@ FlightStream versions.
   the speed positive and set `rpm_sign` on the rotor block of the reference,
   beside the axis, the origin and the blade count it already declares. The row
   says how fast and the block says which way, so the two cannot contradict each
-  other, and a row restating `RPM_SIGN` against a reference that declares one is
-  refused rather than silently overridden.
+  other, and a row restating `RPM_SIGN` beside a rotor the reference declares is
+  refused whether it agrees with the block or not: a row that agrees today says
+  nothing when the reference is corrected tomorrow, which is the same silence
+  this entry exists to end. The hand has one home.
+  - **The FLAT pre-0.15.0 spelling is unaffected and deliberately so.** A row
+    stating `ROTOR_AXIS` and `MOVING_BOUNDARIES` rather than naming a rotor
+    block has nowhere else to put the hand, so `RPM_SIGN` beside `RPM` is the
+    correct and only spelling there, and it plans as it always did. Until 0.21.1
+    that pair was refused outright, on the reading that a rev/min a user writes
+    carries its own sign; with the speed a magnitude everywhere, the pair is no
+    longer a contradiction.
   - **THIS FIXES A WRONG-WAY ROTATION THAT NOTHING REPORTED.** Until 0.21.1 the
     reference's hand was copied into the case ONLY when the row stated no speed
     of its own, so a row stating `RPM` turned whichever way its number happened

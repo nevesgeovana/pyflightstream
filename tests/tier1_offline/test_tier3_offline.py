@@ -178,6 +178,17 @@ ROTOR = (
     "DELTA_THETA: 30 / REVOLUTIONS: 0.5 / "
 )
 
+#: THE SAME ROTOR NAMED THROUGH ITS REFERENCE BLOCK, which is where the hand is
+#: declared from 0.22.0. `ROTOR` above is the flat pre-0.15.0 spelling, and on
+#: that shape the row is the ONLY home the hand has, so `RPM_SIGN` beside `RPM`
+#: is correct there and refused here.
+ROTOR_BY_ALIAS = (
+    "MACH:0.1, REmi:2.3, ALPHA:sweep | 0.0 | 40_PUSHER.fsm | r004 | s002 | p001 "
+    "| NONE | - | - | - | 26.120 | unsteady_rotor | "
+    "BASE_REGIONS: Body / DELTA_THETA: 30 / REVOLUTIONS: 0.5 / "
+    "CLOCK_MOTION: PUSHER / MOTIONS: {MOVING_BC_ALIAS: PUSHER / "
+)
+
 REFUSALS = {
     "a geometry the library does not hold": (
         f"7001 | 0 | 1 | Wing | - | REFUSED | {STEADY}GEOMETRY: 99_MISSING.fsm / SYMMETRY: NONE",
@@ -191,13 +202,12 @@ REFUSALS = {
         ("r999", "references"),
     ),
     "a rotor hub named by a free point name": (
-        f"7003 | 0 | 1 | Pusher | - | REFUSED | {ROTOR}RPM: -800 / ROTOR_ORIGIN: HUB",
+        f"7003 | 0 | 1 | Pusher | - | REFUSED | {ROTOR}RPM: 800 / ROTOR_ORIGIN: HUB",
         ("HUB", "ERP"),
     ),
-    "a rotor stating RPM and RPM_SIGN both": (
-        f"7004 | 0 | 1 | Pusher | - | REFUSED "
-        f"| {ROTOR}RPM: -800 / RPM_SIGN: 1 / ROTOR_ORIGIN: ERP3",
-        ("RPM_SIGN",),
+    "a rotor naming its block and restating the block's hand": (
+        f"7004 | 0 | 1 | Pusher | - | REFUSED | {ROTOR_BY_ALIAS}RPM: 800 / RPM_SIGN: 1}}",
+        ("RPM_SIGN", "PUSHER"),
     ),
     "a LEGACY row with a bare recipe code and no mapping": (
         "7005 | 0 | 1 | Wing | - | REFUSED "
@@ -224,7 +234,7 @@ REFUSALS = {
         ("7007", "FOO_BAR", "'steady'", "GEOMETRY", "SYMMETRY"),
     ),
     "a key no run type registers, on a rotor row": (
-        f"7008 | 0 | 1 | Pusher | - | REFUSED | {ROTOR}RPM: -800 / ROTOR_ORIGIN: ERP3 / FOO_BAR: 1",
+        f"7008 | 0 | 1 | Pusher | - | REFUSED | {ROTOR}RPM: 800 / ROTOR_ORIGIN: ERP3 / FOO_BAR: 1",
         ("7008", "FOO_BAR", "'unsteady_rotor'", "MOVING_BOUNDARIES"),
     ),
     "a key another run type registers, on a steady row": (
@@ -253,6 +263,25 @@ def test_the_workspace_refuses_a_row_it_cannot_plan_naming_the_cause(tmp_path, c
         message = " ".join(str(point.error) for point in plan.blocked)
     for fragment in fragments:
         assert fragment in message, f"{case}: {message}"
+
+
+def test_a_flat_rotor_row_states_its_hand_beside_its_speed_and_plans(tmp_path):
+    """THE OTHER SIDE OF THE ENTRY ABOVE, and the reason it is not simply stricter.
+
+    Until 0.21.1 `RPM` beside `RPM_SIGN` was refused outright, on the reading
+    that a rev/min a user writes carries its own sign. 0.22.0 made the speed a
+    MAGNITUDE everywhere, so on the FLAT spelling -- which names no reference
+    block and therefore has nowhere else to put the hand -- the two keys
+    together are now the correct and only way to turn the rotor the other way.
+    Refusing this shape would leave a pre-0.15.0 row unable to state its hand
+    at all, and this test is what would have caught that.
+    """
+    root = _tier3_copy(tmp_path)
+    matrix = _one_row_matrix(
+        root, "flat.fs", f"7010 | 0 | 1 | Pusher | - | FLAT | {ROTOR}RPM: 800 / RPM_SIGN: -1"
+    )
+    plan = _plan(root, matrix)
+    assert not plan.blocked, [str(point.error) for point in plan.blocked]
 
 
 def test_a_row_on_a_second_build_is_pre_flighted_under_that_builds_grammar(tmp_path):
@@ -371,7 +400,7 @@ def test_a_top_level_base_regions_list_is_the_documented_off_switch(tmp_path):
 
 def _rotor_row(pol, cell):
     middle = ROTOR.replace("MOVING_BOUNDARIES: Blade", cell)
-    return f"{pol} | 0 | 1 | Pusher | - | PFS-2028 | {middle}RPM: -800"
+    return f"{pol} | 0 | 1 | Pusher | - | PFS-2028 | {middle}RPM: 800"
 
 
 def _moving_payload(root, matrix):

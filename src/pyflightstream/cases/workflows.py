@@ -8762,6 +8762,23 @@ def _clock_speed(case: SimCase, views: Sequence[SimCase], speeds: Sequence[Rotor
         if owner.casefold() == token.casefold():
             return speed
     stated = ", ".join(str(_variable(view, MOVING_BOUNDARIES_VARIABLE) or "") for view in views)
+    # A MOTION THAT WAS REFUSED IS NOT A MOTION THAT IS ABSENT, and this
+    # sentence said it was. `_the_rotors_the_row_turns` drops a record it
+    # cannot resolve into its lost list with the reason, and the reason is
+    # what the user has to read: a row naming its clock and then stating
+    # that rotor's speed in a form the package refuses was told the row
+    # does not turn it, which sends the user to the key that is right.
+    # 0.22.0 made this reachable on a correct row, because a rotor's hand
+    # written into its number is now refused (GOAL-025).
+    refused = _the_rotors_the_row_turns(case)[1] if case.motions else {}
+    if refused:
+        why = "; ".join(f"{alias}: {reason}" for alias, reason in sorted(refused.items()))
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} states {CLOCK_MOTION_VARIABLE}: {token}, and no motion "
+            f"of this row RESOLVES to it. The motions that resolved are {stated or 'none'}, "
+            f"and {len(refused)} was refused, which is the likelier cause of what you are "
+            f"reading -- {why}"
+        )
     raise CampaignConfigError(
         f"case {case.sim_id!r} states {CLOCK_MOTION_VARIABLE}: {token}, and no motion of "
         f"this row moves it. The motions it states are {stated}. The clock is one of the "
@@ -8849,14 +8866,27 @@ def _motion_view(case: SimCase, record: Mapping[str, str]) -> SimCase:
         # wheel turned backwards while the same rotor as a sector, stating a
         # ratio, turned correctly. A rotor turning the wrong way converges and
         # reports numbers, which is why this is the worse of the two.
+        #
+        # AND IT IS REFUSED WHETHER OR NOT IT AGREES, which the first writing
+        # got wrong by refusing only a disagreement. A row that agrees today is
+        # a row that says nothing when the REFERENCE is corrected tomorrow: the
+        # block flips, the row keeps the old hand, and the two disagree with
+        # nobody to notice -- which is the shape of the defect this whole
+        # change exists to close. One home for the hand, and the refusal is
+        # about where the key goes rather than about its value.
         stated_hand = _variable(case, RPM_SIGN_VARIABLE)
-        if stated_hand is not None and stated_hand.strip() != str(rotor.rpm_sign):
+        if stated_hand is not None:
+            agreement = (
+                "which agrees with it today and would not survive the reference being corrected"
+                if stated_hand.strip() == str(rotor.rpm_sign)
+                else "which disagrees with it"
+            )
             raise CampaignConfigError(
                 f"case {case.sim_id!r} states {RPM_SIGN_VARIABLE} as {stated_hand!r} and "
-                f"the rotor {rotor.alias!r} declares {rotor.rpm_sign} in the reference. "
-                "The hand of a rotation is the rotor's, declared once beside its axis "
-                f"and its origin, so a row restating it can only disagree. Remove "
-                f"{RPM_SIGN_VARIABLE} from the row."
+                f"the rotor {rotor.alias!r} declares {rotor.rpm_sign} in the reference, "
+                f"{agreement}. The hand of a rotation is the rotor's, declared once "
+                f"beside its axis and its origin. Remove {RPM_SIGN_VARIABLE} from the "
+                "row; to turn it the other way, set the hand on the rotor's block."
             )
         variables[RPM_SIGN_VARIABLE] = str(rotor.rpm_sign)
         # THE DIAMETER IS THIS ROTOR'S (FR-63). It is the reason one ratio
