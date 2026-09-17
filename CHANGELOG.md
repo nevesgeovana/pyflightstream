@@ -7,6 +7,26 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Changed
+
+- **The `broken_commands` manifest key is promised for removal at 0.24.0**, its
+  NINTH deadline, and the extension is deliberate rather than a slip. The tree
+  moved to `0.23.0.dev0` and the promise fell due at that bump; the guard said
+  so and this is the answer to it.
+  - **RE-MEASURED at the bump, not carried.** Counting rows in live manifests
+    today: **74 rows across 4 manifests** -- 46 in `runs.json`, 18 in
+    `matriz/plan.json`, 8 in `matriz_time` and 2 in `matriz_builds`. That
+    reproduces the figure taken at 0.22.0, so the conclusion stands on a
+    measurement made twice rather than on one carried forward.
+  - Recorded rows still need the reader, so removing the shim would make a
+    workspace's own manifests unreadable by the package that wrote them. Write
+    `waived_commands` in anything new.
+  - The figure this promise carried BEFORE 0.22.0 -- "UNCHANGED at 18 rows
+    across 6 live manifests" -- did not reproduce and was corrected then. It is
+    named here because a promise extended nine times is worth the reminder that
+    its number was once wrong for two extensions running.
+
+
 ### Owed
 
 - **The Zenodo archive of v0.14.0 DOES NOT EXIST**, re-measured against

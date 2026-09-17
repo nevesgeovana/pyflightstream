@@ -103,6 +103,7 @@ from pyflightstream.fsi.loads import SectionalLoadsReport, parse_sectional_loads
 from pyflightstream.post._tables import (
     _COEFFICIENT_PLOT_PREFIXES,
     _DECIMALS,
+    NOT_APPLICABLE,
     SECTION_COLUMNS,
     ProductError,
     ProductExistsError,
@@ -141,6 +142,12 @@ if TYPE_CHECKING:
 __all__ = [
     "ADVANCE_RATIO_COLUMN",
     "COEFFICIENT_COLUMNS",
+    # The token a reader of any product compares against. It was reachable
+    # only from the private `_tables` until 0.23.0, while that module's own
+    # docstring said this one re-exports every public name it holds -- so the
+    # sentence was false, and a test that wanted the constant had to import
+    # the private module to get it.
+    "NOT_APPLICABLE",
     "POLAR_COLUMNS",
     "SWEEP_AXES",
     "POLARS_DIR",

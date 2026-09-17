@@ -594,12 +594,12 @@ WAIVED_COMMANDS_MANIFEST_KEY = DeprecatedManifestKey(
     old="broken_commands",
     new="waived_commands",
     deprecated_since="0.13.0",
-    removal_version="0.23.0",
+    removal_version="0.24.0",
     extra=(
         "The entries are WAIVERS the recipe registered, not commands that broke in the "
-        "run, which is the opposite claim. EXTENDED AN EIGHTH TIME, from 0.22.0 on "
-        "2026-09-17, when the 0.22.0 cycle opened and the deadline guard fired on the "
-        "bump. RE-MEASURED THE SAME MINUTE, BY COUNTING ROWS RATHER THAN FILES: 74 "
+        "run, which is the opposite claim. EXTENDED A NINTH TIME, from 0.23.0 on "
+        "2026-09-17, when the 0.23.0 cycle opened and the deadline guard fired on the "
+        "bump. RE-MEASURED AT THAT BUMP, BY COUNTING ROWS RATHER THAN FILES: 74 "
         "recorded rows carry the key, across 4 manifests -- 46 in "
         "tests/tier3_licensed/runs.json, 18 in post/matriz/plan.json, 8 in "
         "post/matriz_time/plan.json and 2 in post/matriz_builds/plan.json. "
@@ -611,6 +611,10 @@ WAIVED_COMMANDS_MANIFEST_KEY = DeprecatedManifestKey(
         "failure this estate has recorded four times and has now made a fifth. The "
         "reading above is rows in real manifests and nothing else. The conclusion is "
         "unchanged and stronger: recorded rows still need the reader. "
+        "EXTENDED AN EIGHTH TIME earlier the same day, from 0.22.0 on the 0.22.0 bump, "
+        "at these same 74 rows across these same 4 manifests -- so the count above is "
+        "one that REPRODUCED rather than one taken once, which is the difference "
+        "between the reading this entry now carries and the one it had to correct. "
         "Extended a sixth time from 0.20.0 on "
         "2026-09-14, when the 0.20.0 cycle opened and the deadline guard fired on the "
         "bump; RE-MEASURED THE SAME MINUTE and UNCHANGED at 18 rows across 6 live "

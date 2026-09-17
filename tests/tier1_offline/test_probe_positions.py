@@ -40,6 +40,7 @@ import pytest
 
 from pyflightstream.cases import ProbeLine, ProbesSpec
 from pyflightstream.post.products import (
+    NOT_APPLICABLE,
     PROBE_SPINE,
     read_csv_table,
     read_probe_positions,
@@ -170,12 +171,21 @@ def test_the_coordinate_columns_appear_once(tmp_path):
 
 
 def test_a_steady_table_of_a_run_with_no_recorded_positions_still_writes(tmp_path):
-    """The position columns come from the export; only the frame goes blank."""
+    """The position columns come from the export; the frame reads NA.
+
+    NOT BLANK, since 0.23.0, and the distinction is the point of the rule
+    rather than a spelling: FRAME is sourced from the recorded-positions
+    record and from nothing else, so a run that has no such record has no
+    source for that column on that row. That is the column-does-not-apply
+    case, which is what `NA` says. A frame that WAS recorded and failed to
+    arrive would be a defect, and it would not be spelled this way.
+    """
     export = (FIXTURES / "probe_points_26.120.txt").read_text(encoding="utf-8")
     written = write_probes_table(tmp_path / "p_probes.csv", export, positions={})
     assert written is not None
     _, rows = read_csv_table(written)
-    assert rows[0]["FRAME"] == ""
+    assert rows[0]["FRAME"] == NOT_APPLICABLE
+    assert rows[0]["FRAME"] != ""
     assert float(rows[0]["X"]) == pytest.approx(-0.5)
 
 
