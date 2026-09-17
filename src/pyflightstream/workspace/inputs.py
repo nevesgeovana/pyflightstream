@@ -92,6 +92,7 @@ from pyflightstream._retired_names import (
 )
 from pyflightstream.cases import (
     BoundaryAliases,
+    CampaignConfigError,
     CustomFlag,
     FrameSpec,
     PprocSpec,
@@ -2586,3 +2587,59 @@ def _read_build_aliases(target: Path, table: object) -> dict[str, str]:
             )
         aliases[canonical] = alias
     return aliases
+
+
+def rotor_integration_groups(
+    rotors: Mapping[str, object],
+    declared: Mapping[str, Sequence[int | str]],
+) -> dict[str, list[int | str]]:
+    """Return the pproc's groups with one integration group per DECLARED rotor.
+
+    v0.23.0 item 15, the owner's rule of 2026-09-17: "cria obrigatoriamente um
+    grupo de integração para cada rotor se ja nao existir".
+
+    WHY IT IS CREATED RATHER THAN REQUIRED. The rotor table integrates thrust
+    and torque over ONE rotor's own families. Left to a user remembering to
+    declare the group, the coefficient and the group are two lists kept in step
+    by hand, and the day they drift one rotor's thrust is reported under
+    another rotor's coefficient -- a number that looks right and is wrong,
+    which is the same class as a rotor turning the wrong way. Created from the
+    rotor itself, the group and the coefficient agree by construction.
+
+    THE CREATED GROUP IS A NORMAL GROUP. It takes the rotor's ALIAS as its name
+    and the rotor's own families as its members, general families first and
+    then the blades, so it produces its own products like any other group. A
+    group that exists but is invisible is the kind of thing nobody can debug.
+
+    A GROUP SHE DECLARED IS NEVER REPLACED. Creation fills a gap; it does not
+    overrule what she wrote.
+
+    Raises
+    ------
+    CampaignConfigError
+        If a DECLARED group takes a rotor's alias and its members are not that
+        rotor's families. The two then disagree about what the alias means, and
+        silently preferring either one attributes one rotor's loads to another
+        rotor's coefficient. The message names BOTH sets, because a refusal
+        that names only the alias sends the reader to two files to find out
+        which half is wrong.
+    """
+    resolved: dict[str, list[int | str]] = {
+        name: list(members) for name, members in declared.items()
+    }
+    for alias, block in rotors.items():
+        members = [str(name) for name in getattr(block, "members", [])]
+        if alias not in resolved:
+            resolved[alias] = list(members)
+            continue
+        stated = {str(name).casefold() for name in resolved[alias]}
+        owned = {name.casefold() for name in members}
+        if stated != owned:
+            raise CampaignConfigError(
+                f"the pproc declares a group named {alias!r}, which is a rotor's alias, "
+                f"and its members are {sorted(resolved[alias])}; that rotor's own families "
+                f"are {sorted(members)}. The two disagree about what {alias!r} means, and a "
+                "rotor coefficient integrated over the wrong families is a number that looks "
+                "right and is wrong. Rename the group, or give it the rotor's families"
+            )
+    return resolved
