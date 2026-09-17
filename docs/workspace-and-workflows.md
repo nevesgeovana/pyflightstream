@@ -1484,7 +1484,8 @@ variable's field written `<code>+sweep`
 (`polars/P0001-M150RE438AL+000BE+000J+sweep_g01.csv`, FR-85 and FR-88): one
 row per point of the polar with the
 reference block (`SREF`, `CREF`, `BREF`, the moment point), the advance
-ratio of the row in `J` (empty where the run recorded none) and twenty-four
+ratio of the row in `J` (`NA` where the run recorded none, and blank until
+0.23.0) and twenty-four
 coefficients, `ALPHA`, `BETA`, `MACH`, `RE` (Reynolds in millions), the body
 axes (`CDB`, `CYB`, `CLB`, `CRB25`, `CMB25`, `CNB25`), the stability axes
 (`CDS` to `CNS25`), the wind axes (`CDW` to `CNW25`), and `CD0` and `CDI`,
@@ -1501,7 +1502,7 @@ whichever run type filled it (FR-91), `PROBE, X, Y, Z, FRAME, STEP`, and
 then carries its own export's fluid quantities in their own names and
 units: a steady row brings Mach, Cp, the velocity components and the
 boundary-layer columns; an unsteady row brings the parameters its probe
-entry asked for, one row per point and solver step. `STEP` carries `-` on a
+entry asked for, one row per point and solver step. `STEP` carries `NA` on a
 steady row, which has one step.
 
 The `X`, `Y`, `Z` and `FRAME` columns are why this table exists. An
@@ -1519,10 +1520,15 @@ while it emits each point, writes them to
 file is the package's own record: it replaces only a file carrying its own
 header, so a points file of your own that happened to carry the same name is
 named in a refusal rather than replaced. A run recorded before
-0.16.0 named no such file, so its `FRAME` cells are empty and its steady
+0.16.0 named no such file, so its `FRAME` cells read `NA` and its steady
 coordinates still come from the export; the table is written either way.
-`STEP` carries `-` on a steady row, which has one step, and empty means a
-value the package could not derive. A probe export this release cannot
+`STEP` carries `NA` on a steady row, which has one step.
+
+**SINCE 0.23.0 THERE IS ONE TOKEN AND NO BLANK.** Every spine cell the
+package cannot fill reads `NA`: the step of a steady row, and the position
+or frame of a run that recorded none. Until 0.23.0 the step said `-` and the
+rest went empty, which was two spellings and a blank for one meaning, in one
+row. A probe export this release cannot
 read is a recorded skip naming the file and costs the simulation none of
 its other products.
 
@@ -2509,7 +2515,8 @@ time and azimuth computed from the clock the run record carries
 (`export_window.delta_time_s` and `step_deg`, written by the run since
 0.14.0) by the same arithmetic the counter program runs on the machine,
 so the two agree by construction; a record written before the clock
-leaves the time blank and reads the azimuth off its reductions plan. The
+leaves the time unstated -- which the table writes as `NA`, blank until
+0.23.0 -- and reads the azimuth off its reductions plan. The
 loads series is wide, one row per step and one column per surface and
 coefficient (`Total_CL`, `Blade1_CMx`, ...); the sections series (from
 the sectional loads export, `_sloads`, the same export the sections

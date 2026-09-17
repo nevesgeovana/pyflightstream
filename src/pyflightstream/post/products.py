@@ -1082,7 +1082,7 @@ def read_probe_positions(path: str | Path) -> dict[int, tuple[float, float, floa
 def _probe_spine(
     vertex: int,
     positions: Mapping[int, tuple[float, float, float, str]],
-    step: object = "-",
+    step: object = NOT_APPLICABLE,
     *,
     stated: tuple[float, float, float] | None = None,
 ) -> tuple[object, ...]:
@@ -1093,6 +1093,14 @@ def _probe_spine(
     export states one it wins, because it is the solver's own answer about
     the point it sampled; the recorded position then supplies only the
     frame NAME, which no export carries at all.
+
+    THE STEP OF A STEADY ROW IS ``NA`` AND WAS ``-`` UNTIL 0.23.0. The owner's
+    rule of 2026-09-17 is one sentence -- *"Quando nao se aplica, usa sempre
+    NA"* -- and the technical-writing lens had just measured why it matters:
+    a steady probes row read ``FRAME=NA`` beside ``STEP=-``, two different
+    tokens for one meaning in one row, because ``-`` is non-blank and passed
+    the funnel untouched. A reader then has to learn a second token and cannot
+    infer it from the documented rule.
     """
     recorded = positions.get(vertex)
     if stated is not None:
@@ -1141,8 +1149,11 @@ def write_probes_table(
     positions : mapping, optional
         Vertex number to ``(x, y, z, frame)``, from
         :func:`read_probe_positions`. Absent for every run recorded
-        before 0.16.0, and the spine's position and frame cells are then
-        empty rather than the table being refused.
+        before 0.16.0, and the spine's position and frame cells then read
+        ``NA`` rather than the table being refused. They were EMPTY until
+        0.23.0; the producer still returns a blank there and the funnel in
+        :mod:`pyflightstream.post._tables` renders it, so this says what the
+        user opens rather than what the tuple carries.
     """
     try:
         report = parse_probe_points(export_text)

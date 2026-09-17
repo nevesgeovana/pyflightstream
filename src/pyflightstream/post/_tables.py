@@ -70,6 +70,27 @@ class ProductExistsError(ProductError):
 #: `NA` says the third of those three and only the third. A value that was
 #: EXPECTED and is missing is NOT this: it stays a visible defect rather than
 #: being spelled the same as a column that never applied.
+#:
+#: THAT LAST SENTENCE IS AN INTENT THE FUNNEL CANNOT ENFORCE, and saying so
+#: here is the difference between a rule and a wish. `_cell` sees a blank and
+#: cannot know which of the three reasons produced it, so it spells every
+#: blank `NA`. The promise therefore rests on the PRODUCERS: it holds exactly
+#: as long as no producer emits a blank for a value it expected and did not
+#: get. It is not currently checked anywhere, and `_probe_spine` is the one
+#: place that would test it, since it returns a blank on the path where no
+#: position was recorded.
+#:
+#: The QA lens of the 0.23.0 range measured this and it is registered as owed
+#: rather than left implied: routing the does-not-apply case through this
+#: constant AT THE PRODUCER, and leaving a blank to arrive as a visible
+#: defect, is the shape that would make the sentence above testable. It is not
+#: done here because it touches every producer at once, and this release
+#: already changes the bytes of every product.
+#:
+#: One token and no second spelling, the owner's rule of 2026-09-17: *"quando
+#: nao se aplica, usa sempre NA"*. The probes table's `STEP` said `-` on a
+#: steady row until 0.23.0, which put two spellings of one meaning in one row
+#: beside a `FRAME` that already read `NA`.
 NOT_APPLICABLE = "NA"
 
 

@@ -5,6 +5,7 @@ manifest built in tmp_path through the public files API; no new large
 fixtures are committed.
 """
 
+import ast
 import json
 import math
 from pathlib import Path
@@ -1557,3 +1558,50 @@ def test_the_unsupported_kind_message_names_the_new_parsers():
         "parse_solver_analysis_csv",
     ):
         assert name in message, f"{name} is tabulatable and the refusal does not say so"
+
+
+def test_products_re_exports_every_public_name_of_the_private_tables_module():
+    """The `_tables` docstring's claim, asserted instead of trusted.
+
+    `post/_tables.py` says in its first paragraph that `post.products`
+    re-exports every public name it holds, "which is where a reader finds
+    them". THE SENTENCE WAS FALSE until 0.23.0: `NOT_APPLICABLE` lived only
+    in the private module, so a reader -- and a test -- had to import the
+    private module to compare a cell against the package's own token.
+
+    The QA lens of this range measured why a narrower test would be worth
+    nothing: `"NOT_APPLICABLE" in __all__` can be deleted along with the
+    `__all__` entry it guards and the suite stays green, because both test
+    imports are plain `from ... import NOT_APPLICABLE`, which succeeds
+    whether or not the name is exported. So this asserts the CLAIM, over
+    every public name at once, and it fails the day the next name is added
+    to `_tables` and forgotten here.
+    """
+    from pyflightstream.post import _tables, products
+
+    # READ FROM THE MODULE'S OWN SOURCE, not from `vars()`. The first writing
+    # swept `vars(_tables)` and reported `Path`, `Sequence`,
+    # `PyflightstreamError` and `annotations` as unexported public names --
+    # every one of them something `_tables` IMPORTS rather than defines, and
+    # none of them anything `products` should re-export. A namespace cannot
+    # tell the two apart; the syntax tree can.
+    tree = ast.parse(Path(_tables.__file__).read_text(encoding="utf-8"))
+    public = set()
+    for node in tree.body:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            public.add(node.name)
+        elif isinstance(node, ast.Assign):
+            public.update(t.id for t in node.targets if isinstance(t, ast.Name))
+        elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+            public.add(node.target.id)
+    public = {name for name in public if not name.startswith("_")}
+    assert public, "the sweep found no public name at all, so it is measuring nothing"
+    missing = sorted(public - set(products.__all__))
+    assert not missing, (
+        f"post/_tables.py says post.products re-exports every public name it holds, "
+        f"and these are not in products.__all__: {missing}"
+    )
+    assert "NOT_APPLICABLE" in public, (
+        "the token a reader of any product compares against left _tables; this test "
+        "was written for it and would now pass while measuring nothing"
+    )

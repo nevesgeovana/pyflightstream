@@ -7,17 +7,98 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Changed (breaking, for anyone who PARSES a product)
+
+- **A CSV cell that does not apply to a row now reads `NA`, where it was
+  blank.** This changes the bytes of every CSV product, so a reader that
+  already works on 0.22.0 output has to be told about it.
+  - **WHY A BLANK WAS THE DEFECT.** It is ambiguous three ways -- zero,
+    not-measured, or this-column-is-not-for-this-row -- and no reader can tell
+    them apart. Measured on a production super file, 50 of 628 columns in one
+    row were blank for the third reason alone: a key declared for the union of
+    every run type, on a row whose run type does not have it.
+  - **`NA` SAYS THE THIRD OF THOSE THREE AND ONLY THE THIRD.** A value that was
+    EXPECTED and went missing is NOT spelled this way: it stays a visible
+    defect rather than being dressed as a column that never applied.
+  - **Where it reaches**, which is the products and not every line of CSV the
+    package writes: the polars, the super file, the sections, the probes, the
+    campaign reduction table, the point series and the settings table. The two
+    `reductions` writers and the run stage's probe-positions file render their
+    own rows and are unchanged.
+  - **What you will see.** A steady polar row's advance ratio, which has no `J`
+    to state, goes from `...,0.00000,,-2.00000,...` to
+    `...,0.00000,NA,-2.00000,...`. A rotorless series row's `azimuth_deg` and
+    a probe row's `FRAME` change the same way.
+  - **WHAT TO CHANGE IN YOUR READER.** `NA` is already pandas's default missing
+    token, so `read_csv` parses these as `NaN` with no argument at all --
+    where an empty cell in a float column silently became `NaN` too, but an
+    empty cell in a text column became the empty string. If you parse by hand,
+    `float("")` used to raise and `float("NA")` still does, so a reader that
+    was already correct stays correct; one that tested `cell == ""` must now
+    test for `NA`. If `NA` is meaningful data in your own columns, pass
+    `keep_default_na=False` and name your own `na_values`.
+  - The constant is public as `pyflightstream.post.products.NOT_APPLICABLE`,
+    so a reader written against this package can compare to it by name rather
+    than by a literal.
+  - **ONE TOKEN, NOT TWO: the probes table's `STEP` said `-` on a steady row
+    and now says `NA` too.** A steady probes row read `FRAME=NA` beside
+    `STEP=-`, two spellings for one meaning in one row, because `-` is
+    non-blank and passed the funnel untouched. The owner's rule settles it --
+    *when it does not apply, always `NA`* -- so `-` is gone from the products
+    and every spine cell the package cannot fill now reads `NA`, including the
+    position and frame columns of a run recorded before 0.16.0, which were
+    blank. A reader keying on `-` must change; one keying on `NA` already
+    covers both.
+
 ### Changed
 
 - **The `broken_commands` manifest key is promised for removal at 0.24.0**, its
   NINTH deadline, and the extension is deliberate rather than a slip. The tree
   moved to `0.23.0.dev0` and the promise fell due at that bump; the guard said
   so and this is the answer to it.
-  - **RE-MEASURED at the bump, not carried.** Counting rows in live manifests
-    today: **74 rows across 4 manifests** -- 46 in `runs.json`, 18 in
-    `matriz/plan.json`, 8 in `matriz_time` and 2 in `matriz_builds`. That
-    reproduces the figure taken at 0.22.0, so the conclusion stands on a
-    measurement made twice rather than on one carried forward.
+  - **RE-MEASURED at the bump, not carried.** Counting rows at this bump:
+    **74 rows across 4 manifests**, and the manifests are named in full because
+    a bare file name would send a reader to their own workspace instead --
+    46 in `tests/tier3_licensed/runs.json`, 18 in
+    `tests/tier3_licensed/post/matriz/plan.json`, 8 in `matriz_time` and 2 in
+    `matriz_builds`. That reproduces the figure taken at 0.22.0, so the
+    conclusion stands on a measurement made twice rather than one carried.
+  - **THE COUNTING COMMAND, so the number is reproducible and not merely
+    asserted.** The QA lens of this range could not check the figure at all:
+    every one of the four files is either gitignored or workspace-local, so a
+    reviewer holding only the repository has to take it on trust. It should
+    not have been written without this:
+
+    ```bash
+    python - <<'PY'
+    import json, pathlib
+    def rows(o):
+        if isinstance(o, dict):
+            return ("broken_commands" in o) + sum(rows(v) for v in o.values())
+        if isinstance(o, list):
+            return sum(rows(v) for v in o)
+        return 0
+    total = 0
+    for p in sorted(pathlib.Path(".").rglob("*.json")):
+        if ".git" in p.parts:
+            continue
+        try:
+            n = rows(json.loads(p.read_text(encoding="utf-8")))
+        except Exception:
+            continue
+        if n:
+            total += n
+            print(f"{n:4d}  {p.as_posix()}")
+    print("TOTAL", total)
+    PY
+    ```
+
+  - **THESE 74 ARE IN THIS REPOSITORY, not in a user's workspace**, and the
+    distinction is owed rather than glossed: the pre-0.22.0 readings were taken
+    over a separate research tree. A fixture is regenerable and a user's
+    manifest is not, so the argument for keeping the reader rests on the
+    populations this count does NOT cover. Re-counting over a live user
+    workspace is registered as owed rather than claimed here.
   - Recorded rows still need the reader, so removing the shim would make a
     workspace's own manifests unreadable by the package that wrote them. Write
     `waived_commands` in anything new.

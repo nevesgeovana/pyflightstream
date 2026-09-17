@@ -3454,9 +3454,12 @@ requirement below is one seam of that division.
     invent what the solver did not measure. So `PROBE, X, Y, Z, FRAME, STEP` is
     identical on both paths and a test asserts it, and each table's fluid
     columns are its own export's, in its own names and units. `STEP` carries
-    `-` on a steady row, which has one step; an EMPTY cell anywhere in the
-    spine means a value the package could not derive, which is what a run
-    recorded before 0.16.0 leaves in the position and frame columns.
+    `NA` on a steady row, which has one step; since 0.23.0 EVERY spine cell
+    the package cannot fill reads `NA` and none is blank, which is what a run
+    recorded before 0.16.0 leaves in the position and frame columns. Until
+    0.23.0 the step said `-` and those cells went empty: two spellings and a
+    blank for one meaning, in one row (the owner's rule of 2026-09-17, "quando
+    nao se aplica, usa sempre NA").
 
     THE UNSTEADY GROUP IS THE ROW'S AND NOT THE FORMAT'S, and this paragraph
     once said otherwise under the word "measured". It named a six-column group

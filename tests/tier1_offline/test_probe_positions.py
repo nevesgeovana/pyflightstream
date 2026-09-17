@@ -137,12 +137,15 @@ def test_the_steady_table_keeps_the_export_coordinates_and_gains_the_frame(tmp_p
     assert float(first["Y"]) == pytest.approx(2.0)
     assert float(first["Z"]) == pytest.approx(-0.6)
     assert first["FRAME"] == "PUSHER_SMRP"
-    # `-` AND NOT EMPTY. A steady row has one step, so the cell is NOT
-    # APPLICABLE rather than unknown, and this release already chose `-`
-    # for that in the cost table shipped beside it. Empty is reserved for
-    # a value the package could not derive, which is what the position and
-    # frame cells of a pre-0.16.0 run carry (the interface lens).
-    assert first["STEP"] == "-"
+    # `NA`, AND IT SAID `-` UNTIL 0.23.0. A steady row has one step, so the
+    # cell is NOT APPLICABLE rather than unknown -- that reasoning is
+    # unchanged and only the token moved. The token moved because the
+    # technical-writing lens measured this very row reading `FRAME=NA`
+    # beside `STEP=-`: two spellings for one meaning, in one row, because
+    # `-` is non-blank and passed the funnel untouched. The owner settled it
+    # in one sentence, "quando nao se aplica, usa sempre NA".
+    assert first["STEP"] == NOT_APPLICABLE
+    assert first["STEP"] != "-", "the second spelling is what 0.23.0 removed"
     assert int(float(first["PROBE"])) == 1
 
 

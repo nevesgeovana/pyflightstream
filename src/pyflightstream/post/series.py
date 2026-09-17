@@ -112,7 +112,15 @@ def _clock(record: RunRecord) -> tuple[float | None, float | None]:
 
 
 def _lead(step: int, delta: float | None, step_deg: float | None) -> tuple[object, ...]:
-    """Return the three lead cells of one row: the step, its time and its azimuth, or blank."""
+    """Return the three lead cells of one row: the step, its time and its azimuth.
+
+    THE BLANK RETURNED HERE IS NOT WHAT THE USER OPENS. A cell this leaves
+    empty is rendered `NA` by the funnel in :mod:`pyflightstream.post._tables`,
+    which every row of this table passes through, so the file says `NA` where
+    this function says ``""``. The clause is here because the docstring said
+    "or blank" and was true of the return value and false of the product, which
+    is the half a reader of the file actually sees.
+    """
     return (
         step,
         "" if delta is None else step * delta,
