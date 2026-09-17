@@ -486,6 +486,7 @@ def run_matrix(
     executor: Executor | None = None,
     recipe_registry: dict[str, ScriptRecipe] | None = None,
     resume: bool = False,
+    force_rerun: bool = False,
     hidden: bool | None = None,
     fs_version: str | None = None,
     name_from: str | None = None,
@@ -536,6 +537,10 @@ def run_matrix(
     recipe_registry : dict of str to ScriptRecipe, optional
         Named recipe registry (name to callable), forwarded to the
         pre-flight and the campaign loop.
+    force_rerun : bool
+        With True, a point already in the manifest is REDONE rather than
+        refused: its record and its collected outputs are archived first.
+        For a row that was wrong. Refused together with ``resume``.
     resume : bool
         With True, points already in the manifest are skipped, so a
         grown matrix re-runs only its new points; with False (the
@@ -725,6 +730,7 @@ def run_matrix(
         assess=assess,
         recipes=recipe_registry,
         resume=resume,
+        force_rerun=force_rerun,
         builds=builds,
         name_from=name_from,
         accept_unregistered_build=accept_unregistered_build,

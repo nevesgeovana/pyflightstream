@@ -117,6 +117,11 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     ("pyfs-matrix", "watch_interval"): SWITCH,
     ("pyfs-matrix", "rounds"): SWITCH,
     ("pyfs-matrix", "resume"): SWITCH,
+    # 0.21.2: whether a point already in the manifest is REDONE rather than
+    # refused. A SWITCH: it is a property of THIS invocation -- the row was
+    # wrong and is being corrected -- and not a machine knob a registry could
+    # default. It is the opposite of `resume` and refused beside it.
+    ("pyfs-matrix", "force_rerun"): SWITCH,
     ("pyfs-matrix", "strict"): SWITCH,
     # FR-82, her design of 2026-09-11. A SWITCH: whether THIS plan also
     # prints what the campaign is expected to cost is a property of the
@@ -265,6 +270,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-matrix", "recipe"): frozenset({"convert", "plan", "run"}),
     ("pyfs-matrix", "refuse_missing_families"): frozenset({"plan", "run"}),
     ("pyfs-matrix", "resume"): frozenset({"run"}),
+    ("pyfs-matrix", "force_rerun"): frozenset({"run"}),
     ("pyfs-matrix", "cost"): frozenset({"plan"}),
     ("pyfs-matrix", "accept_unregistered_build"): frozenset({"plan", "run"}),
     ("pyfs-matrix", "update_ids"): frozenset({"plan"}),

@@ -2618,6 +2618,7 @@ def run_campaign(
     assess: OutcomeAssessor,
     recipes: dict[str, ScriptRecipe] | None = None,
     resume: bool = False,
+    force_rerun: bool = False,
     preflight: bool = True,
     builds: Mapping[str, SolverBuild] | None = None,
     name_from: str | None = None,
@@ -2678,6 +2679,15 @@ def run_campaign(
         the run-matrix entry
         (:func:`pyflightstream.run.matrix.run_matrix`) forwards its
         recipe registry here.
+    resume : bool
+    force_rerun : bool
+        With True, a point whose ``run_id`` is already in the manifest is
+        REDONE rather than refused: the manifest is copied aside, the
+        record leaves it, and the point's collected outputs move into its
+        own ``archive/<stamp>/``. For a row that was WRONG, where the
+        correction does not change the point's name and the identity is
+        therefore the same. Refused together with ``resume``, which skips
+        such a point instead: a caller asking for both has not said which.
     resume : bool
         With True, points whose ``run_id`` is already in the manifest
         are skipped without execution, so a campaign can grow sweep
@@ -2765,6 +2775,9 @@ def run_campaign(
             "choose a new campaign root for a new campaign."
         )
     scheduled: list[tuple[SimCase, SolverBuild | None, list[tuple[dict[str, float], str]]]] = []
+    #: Where `--force-rerun` copied the manifest, made on the first supersede of
+    #: this run and never again; empty when nothing was superseded.
+    forced_manifest_copy: list[Path] = []
     for case, build in zip(campaign.sims, case_builds, strict=True):
         # PYFS-004. Which points of this case still need running is decided
         # BEFORE anything is prepared, because preparation is not read-only:
@@ -2815,13 +2828,34 @@ def run_campaign(
         # still in a queue, is done for now, so running the matrix again does
         # not continue a continuation that already completed.
         continuing = _states_restart(case)
+        if resume and force_rerun:
+            raise WorkspaceError(
+                "resume (CLI: --resume) and force_rerun (CLI: --force-rerun) ask for "
+                "opposite things: resume SKIPS a recorded point and force_rerun REDOES "
+                "it. Name one."
+            )
+        if already and force_rerun and not continuing:
+            # THE WHOLE CASE RUNS AGAIN, so the narrowing above is undone. That
+            # branch exists for RESUME: it drops the points a recorded job
+            # already ran, which for a fully run job is all of them, and a
+            # forced re-run that inherited it would archive the evidence and
+            # then execute nothing -- the very failure this flag exists to be
+            # distinguishable from.
+            case_points = list(case.sweep.points())
+            run_ids = [_run_id(campaign, case, point) for point in case_points]
+            _supersede_recorded_points(
+                workspace, campaign, case, case_points, already, forced_manifest_copy
+            )
+            already = []
         if already and not resume and not continuing:
             raise WorkspaceError(
                 f"run_id {already[0]!r} is already in the manifest of "
                 f"{workspace.root}; re-running a recorded point would fork the "
-                "run identity. Pass resume=True to skip recorded points (and "
-                "run only the new ones), or archive the simulation / choose a "
-                "new campaign root to redo it."
+                "run identity. To REDO it, pass force_rerun=True (CLI: "
+                "--force-rerun), which archives the record and the point's "
+                "collected outputs and then runs it. To run only the points "
+                "that are NEW, pass resume=True (CLI: --resume), which SKIPS "
+                "the recorded ones and does not re-run this one."
             )
         if continuing:
             pending = []
@@ -3047,6 +3081,66 @@ def run_campaign(
     if failures:
         raise CampaignErrors(failures)
     return records
+
+
+def _supersede_recorded_points(
+    workspace: CampaignWorkspace,
+    campaign: Campaign,
+    case: SimCase,
+    points: Sequence[dict[str, float]],
+    already: Sequence[str],
+    copied: list[Path],
+) -> None:
+    """Archive what a forced re-run replaces, then take it out of the manifest.
+
+    ARCHIVED, NEVER DESTROYED. The manifest is copied aside whole before a
+    record leaves it, and each point's collected outputs move into that point's
+    own `archive/<stamp>/` by the same mechanism a continuation uses. A forced
+    re-run is a user saying the earlier run answered the wrong question, which
+    is not the same as saying its evidence may be thrown away: the row that
+    produced it was wrong, and that is exactly the thing somebody may need to
+    look at afterwards.
+    """
+    import shutil
+    from datetime import datetime
+
+    stamp = datetime.now()
+    superseded = set(already)
+    # ONCE PER RUN, NOT ONCE PER CASE. The copy is named by a stamp with
+    # one-second resolution, so two cases superseded inside the same second
+    # produced ONE file: the second copy overwrote the first, and the surviving
+    # "backup" held the manifest as it was after the first case's record had
+    # already gone. A backup that is not the state before the change is worse
+    # than none, because it is believed. `copied` is the caller's marker.
+    if workspace.manifest_path.is_file():
+        if not copied:
+            archived_manifest = workspace.manifest_path.with_name(
+                f"runs-{stamp.strftime('%Y%m%d-%H%M%S')}.json"
+            )
+            shutil.copy2(workspace.manifest_path, archived_manifest)
+            copied.append(archived_manifest)
+            warnings.warn(
+                f"--force-rerun: the manifest was copied to {archived_manifest.name} "
+                "before any record was superseded.",
+                PyflightstreamWarning,
+                stacklevel=2,
+            )
+        rows = [
+            row
+            for row in json.loads(workspace.manifest_path.read_text(encoding="utf-8"))
+            if str(row.get("run_id", "")) not in superseded
+        ]
+        workspace.manifest_path.write_text(json.dumps(rows, indent=2) + "\n", encoding="utf-8")
+
+    for point in points:
+        moved = workspace.archive_datapoint(case.sim_id, PointName(point_name(case, point)))
+        if moved is not None:
+            warnings.warn(
+                f"--force-rerun: the collected outputs of {point_name(case, point)} moved "
+                f"to {moved}.",
+                PyflightstreamWarning,
+                stacklevel=2,
+            )
 
 
 def _run_id(campaign: Campaign, case: SimCase, point: dict[str, float]) -> str:

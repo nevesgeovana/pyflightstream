@@ -459,6 +459,16 @@ def _build_parser() -> argparse.ArgumentParser:
         "points; without it an already-recorded point refuses before anything executes",
     )
     run.add_argument(
+        "--force-rerun",
+        dest="force_rerun",
+        action="store_true",
+        help="REDO a point that is already in the manifest, for a row that was wrong. "
+        "The manifest is copied aside, the record leaves it, and the point's collected "
+        "outputs move into its own archive/<stamp>/ before it runs; nothing is deleted. "
+        "This is NOT --resume, which skips such a point instead of redoing it, and the "
+        "two together are refused",
+    )
+    run.add_argument(
         "--sweep-csv",
         help="write the campaign sweep table here (default: "
         "post/<matrix stem>/campaign_sweep.csv in the workspace, so each matrix of a "
@@ -1209,6 +1219,7 @@ def _cmd_run(args: argparse.Namespace, recipes: dict[str, str]) -> int:
             fs_exe=args.fs_exe,
             recipe_registry=workflow_registry(),
             resume=args.resume,
+            force_rerun=args.force_rerun,
             ignore_missing_families=_the_missing_family_choice(args),
             accept_unregistered_build=args.accept_unregistered_build,
         )
