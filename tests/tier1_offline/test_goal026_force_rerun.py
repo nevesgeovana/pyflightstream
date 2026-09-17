@@ -27,6 +27,7 @@ FIX-0212).
 from __future__ import annotations
 
 import json
+import re
 
 import pytest
 
@@ -265,6 +266,14 @@ def test_goal026_the_refusal_names_force_rerun_and_says_what_resume_does(tmp_pat
     detail = str(raised.value)
     assert "--force-rerun" in detail, detail
     assert "SKIPS" in detail, "the refusal must say that resume skips rather than redoes"
+
+    # AND THE REMEDY IT OFFERS MUST RUN. The flag takes a point, so a refusal
+    # offering the bare `--force-rerun` offers a parse error, and `force_rerun=
+    # True` is a boolean where a sequence goes. It names the point it refused.
+    refused = re.search(r"run_id '([^']+)' is already", detail)
+    assert refused, detail
+    assert f"--force-rerun {refused.group(1)}" in detail, detail
+    assert "force_rerun=True" not in detail, detail
 
 
 def test_goal026_without_the_flag_nothing_changed(tmp_path):

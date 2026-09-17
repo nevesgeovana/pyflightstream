@@ -2893,11 +2893,13 @@ def run_campaign(
             raise WorkspaceError(
                 f"run_id {already[0]!r} is already in the manifest of "
                 f"{workspace.root}; re-running a recorded point would fork the "
-                "run identity. To REDO it, pass force_rerun=True (CLI: "
-                "--force-rerun), which archives the record and the point's "
-                "collected outputs and then runs it. To run only the points "
-                "that are NEW, pass resume=True (CLI: --resume), which SKIPS "
-                "the recorded ones and does not re-run this one."
+                "run identity. To REDO it, name it: force_rerun="
+                f"[{already[0]!r}] (CLI: --force-rerun {already[0]}), which "
+                "archives that record and that point's collected outputs and "
+                "then runs it, leaving every point it does not name alone. To "
+                "run only the points that are NEW, pass resume=True (CLI: "
+                "--resume), which SKIPS the recorded ones and does not re-run "
+                "this one."
             )
         if continuing:
             pending = []
