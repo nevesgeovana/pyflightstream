@@ -190,6 +190,28 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
         return 2
+    # A NAMED TAG IS CHECKED AGAINST THE CHECKOUT, and it was not. `args.tag`
+    # went straight into the loop below, so asking about a tag that does not
+    # exist -- a version not cut yet, or a typo -- printed "TAGGED BUT NOT
+    # RELEASED: no release object". The VERDICT was right by accident and the
+    # REASON was false, which sends a reader to look for a missing release
+    # object on a tag nobody ever cut. Found 2026-09-17 by GOAL-026's release
+    # arm, which asks about the version it is trying to ship.
+    if args.tag:
+        present = set(version_tags())
+        absent = [t for t in args.tag if t not in present]
+        if absent:
+            for tag in absent:
+                print(f"  {tag:12} NOT TAGGED: this checkout carries no such tag")
+            print(
+                "NOT RELEASED: "
+                + ", ".join(absent)
+                + " is not tagged here, so there is nothing to ask the service about. "
+                "That is not the same as a tag whose release object is missing.",
+                file=sys.stderr,
+            )
+            return 1
+
     judged = [t for t in tags if _sortable(t) >= _sortable(FIRST_RECORDED)]
     skipped = [t for t in tags if t not in judged]
 
