@@ -5902,3 +5902,101 @@ def test_goal019_watchdog_the_setup_can_state_the_margin_it_is_documented_to_sta
     assert walltime_margin_s(case) == 300.0
     bare = case.model_copy(update={"solver": SolverSettings()})
     assert walltime_margin_s(bare) == float(WALLTIME_MARGIN_DEFAULT_S)
+
+
+def _flat_row_turning(moving: str, *, hand: int = -1, aliases=None, second=False) -> SimCase:
+    """A pre-0.15.0 row, naming its moving boundaries rather than a rotor block."""
+    block = FIXTURE_ROTOR.model_copy(update={"rpm_sign": hand})
+    rotors = {block.alias: block}
+    if second:
+        rotors["PORT"] = FIXTURE_ROTOR.model_copy(
+            update={"alias": "PORT", "families_blades": ["Port1"], "rpm_sign": -hand}
+        )
+    return SimCase(
+        sim_id="7012",
+        aircraft="RotorRig",
+        sweep=SweepAxis(type="alpha", values=[0.0]),
+        recipe="unsteady_rotor",
+        rotors=rotors,
+        aliases=aliases or {},
+        variables={
+            WORKFLOW_KEY: "unsteady_rotor",
+            "VELOCITY": "30.0",
+            "RPM": "800",
+            "ROTOR_AXIS": "X",
+            "MOVING_BOUNDARIES": moving,
+            "DELTA_TIME": "0.0001",
+            "TIME_ITERATIONS": "720",
+        },
+        point={"alpha": 0.0},
+        reference=ReferenceData(area=16.0, length=1.6, span_m=10.0),
+    )
+
+
+@pytest.mark.parametrize(
+    ("label", "moving", "aliases"),
+    [
+        ("the families spelled out", "Blade1", None),
+        ("the rotor's own alias", "ROTOR", None),
+        ("a SETUP ALIAS standing for the family", "PROP", {"PROP": ["Blade1"]}),
+        ("a family in another case", "blade1", None),
+        ("the rotor's blade AND a surface that is not its", "Blade1 Wing", None),
+    ],
+)
+def test_a_flat_row_takes_the_block_hand_however_its_selector_is_spelt(label, moving, aliases):
+    """THE THIRD, FOURTH AND FIFTH PATHS TO THE SAME WRONG-WAY ROTATION.
+
+    A row may select the rotor it turns by naming the FAMILIES, the rotor's own
+    ALIAS, or a SETUP ALIAS that stands for them -- three spellings of one
+    selection. Matching the raw tokens caught the first two and missed the third,
+    and requiring the row's whole selection to be a SUBSET of one block's
+    families missed the ordinary row that turns a blade AND something else. Both
+    read as "this row turns no declared rotor", so the row kept its own hand and
+    emitted +800 against a block declaring -1, silently.
+
+    Found by an INDEPENDENT review from another provider, after four lenses of
+    this one had passed the same code: the value of the second reader is that it
+    does not share the first's blind spots, and the owner asked for it.
+
+    Parametrised on the SPELLING with the hand held at -1, so every arm asserts
+    the same physical answer and a mutant returning a constant fails all of them.
+    """
+    speed = rotor_speed(_flat_row_turning(moving, aliases=aliases))
+
+    assert speed.rpm == pytest.approx(-800.0), f"{label}: {speed.rpm}"
+    assert speed.stated_value == pytest.approx(800.0), "the row's own value is the magnitude"
+
+
+def test_a_flat_row_whose_reference_declares_no_rotor_keeps_its_own_hand():
+    """THE EXEMPTION, and the control that stops the rule above eating it.
+
+    A row turning a boundary that belongs to no declared rotor block has nowhere
+    else to put the hand, so its own `RPM_SIGN` answers, exactly as it did before
+    0.22.0. Without this arm the rule above is satisfied by a package that takes
+    SOME block's hand for every row.
+    """
+    speed = rotor_speed(_flat_row_turning("Wing"))
+    assert speed.rpm == pytest.approx(800.0), speed
+
+    turned = rotor_speed(
+        _flat_row_turning("Wing", **{}).model_copy(
+            update={"variables": {**_flat_row_turning("Wing").variables, "RPM_SIGN": "-1"}}
+        )
+    )
+    assert turned.rpm == pytest.approx(-800.0), "the flat row lost its own hand"
+
+
+def test_a_flat_row_reaching_two_declared_rotors_is_refused_naming_both():
+    """ONE SPEED CANNOT ANSWER FOR TWO HANDS, so it is refused rather than guessed.
+
+    A selection spanning two declared rotors has as many answers as it has
+    rotors. Taking whichever block was read first is the shape of defect this
+    whole release is about, so the refusal names both rotors, their declared
+    hands, and the spelling that states each rotor separately.
+    """
+    with pytest.raises(CampaignConfigError) as raised:
+        rotor_speed(_flat_row_turning("Blade1 Port1", second=True))
+
+    message = str(raised.value)
+    assert "ROTOR" in message and "PORT" in message, message
+    assert "MOTIONS" in message, "the refusal must name the spelling that works"

@@ -1285,23 +1285,49 @@ def _rotor_the_row_names(case: SimCase) -> RotorBlock | None:
     moving = case.variables.get(MOVING_BOUNDARIES_VARIABLE)
     if moving is None:
         return None
-    turned = {
-        part.strip().casefold() for part in str(moving).replace(",", " ").split() if part.strip()
-    }
-    if not turned:
+    named = [part.strip() for part in str(moving).replace(",", " ").split() if part.strip()]
+    if not named:
         return None
-    return next(
-        (
-            block
-            for block in case.rotors.values()
-            if turned
-            <= {
-                name.casefold()
-                for name in (*block.families_general, *block.families_blades, block.alias)
-            }
-        ),
-        None,
-    )
+    # THE SELECTOR IS RESOLVED, NOT SPELT-MATCHED. A row may name the families
+    # themselves, the rotor's own alias, or a SETUP ALIAS that stands for them,
+    # and the three are the same selection. Comparing the raw tokens matched the
+    # first two and missed the third, so a row turning `PROP` -- an alias of the
+    # rotor's own blade -- read as turning no declared rotor and kept the row's
+    # hand: +800 against a block declaring -1, silent (Codex, FIX-0220).
+    vocabulary = _the_names_a_rotor_answers_to(case)
+    families = {
+        family.casefold()
+        for token in named
+        for family in (vocabulary.get(token) or vocabulary.get(token.upper()) or [token])
+    }
+    families |= {token.casefold() for token in named}
+    # AND THE TEST IS INTERSECTION, NOT SUBSET. A row turning a rotor's blade
+    # AND a non-rotor surface in the same cell is an ordinary row, and under a
+    # subset test it matched no block at all -- the same silence again, and the
+    # likeliest shape of the three.
+    touched = [
+        block
+        for block in case.rotors.values()
+        if families
+        & {
+            name.casefold()
+            for name in (*block.families_general, *block.families_blades, block.alias)
+        }
+    ]
+    if not touched:
+        return None
+    if len(touched) > 1:
+        hands = ", ".join(f"{block.alias} ({block.rpm_sign:+d})" for block in touched)
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} states {MOVING_BOUNDARIES_VARIABLE}: {moving}, which "
+            f"reaches {len(touched)} rotors the reference declares -- {hands} -- and the "
+            "row states ONE speed for them. Which way that speed turns has as many "
+            "answers as there are rotors, so it is refused rather than answered by "
+            f"whichever block was read first. State each rotor as its own motion, with "
+            f"{MOTIONS_VARIABLE} and {MOVING_BC_ALIAS_VARIABLE}, so each takes its own "
+            "block's hand and its own speed."
+        )
+    return touched[0]
 
 
 def _rpm_sign(case: SimCase) -> int:
