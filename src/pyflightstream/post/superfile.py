@@ -339,8 +339,10 @@ def superfile_row(
     NONE WHERE THE POINT HAS NO RECORD, and then this row simply carries no
     key the record would have supplied. It does not need to: the header is
     the campaign's, and :func:`write_superfiles` unions the keys of every
-    row and writes an empty cell for a row that lacks one, so the file's
-    columns are the same whatever any single row knows.
+    row and writes `NA` for a row that lacks one, so the file's columns are
+    the same whatever any single row knows. It wrote an EMPTY cell until
+    0.23.0, and this is the exact shape the rule was made for: a key declared
+    for the union of every run type, on a row whose run type does not have it.
 
     Borrowing another point's record was the alternative and it is the
     worse one: a missing cell is visible and a wrong one is not, in the one

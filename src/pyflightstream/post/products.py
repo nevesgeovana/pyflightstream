@@ -973,10 +973,13 @@ def write_plots_table(path: str | Path, export_text: str) -> Path | None:
 #: `PROBE` is the word the requirement uses for these, so the column
 #: keeps it and this note says which of the two things it counts.
 #:
-#: `STEP` carries `-` on a steady row, which has one step: NOT APPLICABLE,
-#: the same glyph the cost table uses for it. An EMPTY cell means a value the
-#: package could not derive, which is what a run recorded before 0.16.0
-#: leaves in the position and frame columns.
+#: `STEP` carries `NA` on a steady row, which has one step: NOT APPLICABLE.
+#: It said `-` until 0.23.0, the glyph the PRINTED cost table still uses, and
+#: no product writes a second spelling any more. No spine cell is EVER blank
+#: now either: a run recorded before 0.16.0 leaves `NA` in the position and
+#: frame columns, which is the one place `NA` stands for a value the package
+#: could not derive rather than a column that does not apply -- the exception
+#: named beside :data:`NOT_APPLICABLE` and in the change log.
 #:
 #: THE COORDINATES ARE IN THE UNITS THE ARTIFACT WROTE THEM IN. A probe entry
 #: states its points either in the reference's length unit or, where it says

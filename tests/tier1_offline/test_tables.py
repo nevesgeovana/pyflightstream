@@ -1585,23 +1585,66 @@ def test_products_re_exports_every_public_name_of_the_private_tables_module():
     # every one of them something `_tables` IMPORTS rather than defines, and
     # none of them anything `products` should re-export. A namespace cannot
     # tell the two apart; the syntax tree can.
+    #
+    # AND THE FIRST SYNTAX-TREE WRITING WAS KILLED BY A MUTANT IT COULD NOT
+    # SEE. It walked `tree.body` and read `ast.Name` targets only, so the QA
+    # lens inserted `MUTANT_ALPHA, MUTANT_BETA = "a", "b"` into a copy of
+    # `_tables` -- two genuinely public, genuinely un-re-exported names -- and
+    # this test passed. A tuple target is an `ast.Tuple`, not an `ast.Name`,
+    # and a binding inside a module-level `if` or `try` is not in `tree.body`
+    # at all while still being a module attribute. Both are now walked.
     tree = ast.parse(Path(_tables.__file__).read_text(encoding="utf-8"))
-    public = set()
-    for node in tree.body:
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
-            public.add(node.name)
-        elif isinstance(node, ast.Assign):
-            public.update(t.id for t in node.targets if isinstance(t, ast.Name))
-        elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
-            public.add(node.target.id)
-    public = {name for name in public if not name.startswith("_")}
+
+    def bound_names(target: ast.expr) -> set[str]:
+        """Every name one assignment target binds, through tuples and stars."""
+        if isinstance(target, ast.Name):
+            return {target.id}
+        if isinstance(target, (ast.Tuple, ast.List)):
+            return {name for element in target.elts for name in bound_names(element)}
+        if isinstance(target, ast.Starred):
+            return bound_names(target.value)
+        return set()
+
+    def module_scope(body: list[ast.stmt]) -> set[str]:
+        """Names bound at MODULE scope, descending into blocks but not into defs."""
+        found: set[str] = set()
+        for node in body:
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                # The def's NAME is bound here; its body is another scope.
+                found.add(node.name)
+            elif isinstance(node, ast.Assign):
+                found.update(name for t in node.targets for name in bound_names(t))
+            elif isinstance(node, (ast.AnnAssign, ast.AugAssign)):
+                found.update(bound_names(node.target))
+            elif isinstance(node, (ast.If, ast.Try, ast.With, ast.For, ast.While)):
+                # A `try: import numpy` or an `if TYPE_CHECKING:` binds at
+                # module scope just as the top level does.
+                for attribute in ("body", "orelse", "finalbody", "handlers"):
+                    block = getattr(node, attribute, None) or []
+                    for item in block:
+                        inner = getattr(item, "body", None)
+                        found |= module_scope(inner if inner is not None else [item])
+        return found
+
+    public = {name for name in module_scope(tree.body) if not name.startswith("_")}
     assert public, "the sweep found no public name at all, so it is measuring nothing"
-    missing = sorted(public - set(products.__all__))
-    assert not missing, (
-        f"post/_tables.py says post.products re-exports every public name it holds, "
-        f"and these are not in products.__all__: {missing}"
-    )
     assert "NOT_APPLICABLE" in public, (
         "the token a reader of any product compares against left _tables; this test "
         "was written for it and would now pass while measuring nothing"
+    )
+
+    # THE LIST AND THE BINDING ARE TWO CLAIMS, and only one of them is what a
+    # reader relies on. A name can sit in `products.__all__` while the
+    # `from ._tables import ...` line no longer imports it, and
+    # `from pyflightstream.post.products import <name>` would then fail while
+    # a membership test passed -- so `hasattr` is asserted beside it.
+    listed = sorted(public - set(products.__all__))
+    assert not listed, (
+        f"post/_tables.py says post.products re-exports every public name it holds, "
+        f"and these are not in products.__all__: {listed}"
+    )
+    unbound = sorted(name for name in public if not hasattr(products, name))
+    assert not unbound, (
+        f"these are named in products.__all__ but post.products does not bind them, "
+        f"so importing them from it raises: {unbound}"
     )

@@ -87,24 +87,48 @@ class ProductExistsError(ProductError):
 #: done here because it touches every producer at once, and this release
 #: already changes the bytes of every product.
 #:
-#: One token and no second spelling, the owner's rule of 2026-09-17: *"quando
-#: nao se aplica, usa sempre NA"*. The probes table's `STEP` said `-` on a
-#: steady row until 0.23.0, which put two spellings of one meaning in one row
-#: beside a `FRAME` that already read `NA`.
+#: ONE PRODUCER IS A KNOWN EXCEPTION TODAY, and it is named because the
+#: closing round found the same commit asserting the promise and breaking it.
+#: A run recorded before 0.16.0 names no probe-positions file, so that table's
+#: position and frame cells are a value the package COULD NOT DERIVE -- reason
+#: two, which this comment says is not spelled `NA` -- and they read `NA` all
+#: the same, because a blank is the one thing a product may not write. The
+#: honest statement is therefore narrower than the sentence above: `NA` means
+#: does-not-apply EXCEPT in the probes spine of a pre-0.16.0 run, where it
+#: means the record that would have said is not there.
 #:
-#: THE SCOPE OF THAT RULE, stated here because no artifact stated it and the
-#: closing round of FIX-0230 found the gap. It governs the CSV PRODUCTS -- the
-#: files a reader parses -- and that is where a second spelling actually costs
-#: something. The PRINTED plan and cost table of `pyfs-matrix` still writes
-#: `-` for a cell it cannot derive, deliberately: it is read by eyes in a
-#: terminal and never parsed, `-` is easier to scan in a column of numbers
-#: than a two-letter word, and FR-82 has a test asserting it.
+#: THAT EXCEPTION IS CARRIED FOR COMPATIBILITY and is the owner's to close:
+#: refusing such a table instead would take a product away from a campaign
+#: that already happened, which is why it was never refused. The alternative,
+#: a third token meaning "not recorded", is a decision about her file format
+#: and is not taken here.
 #:
-#: WHETHER THE ESTATE SHOULD CONVERGE ON ONE TOKEN EVERYWHERE IS THE OWNER'S,
-#: and it is open. What is NOT open is that the boundary be written down: the
-#: one sentence in the tree that named both tokens together lived in a test
-#: comment and was deleted by this release's own fix, which made the
-#: inconsistency harder to find while asserting the rule that exposes it.
+#: ONE TOKEN IN THE CSV PRODUCTS, and the scope word is load-bearing. The
+#: owner's rule of 2026-09-17 is *"quando nao se aplica, usa sempre NA"*, and
+#: it is written here with the boundary the rule's REASON gives it: a second
+#: spelling costs something exactly where a reader PARSES, which is the
+#: products. The probes table's `STEP` said `-` on a steady row until 0.23.0,
+#: putting two spellings of one meaning in one row beside a `FRAME` that
+#: already read `NA`.
+#:
+#: `-` IS STILL A LIVE SENTINEL OUTSIDE THE PRODUCTS, named here rather than
+#: left for a reader to trip over, because the closing round of FIX-0230 found
+#: this comment asserting the rule with no scope at all while five surfaces
+#: contradicted it: the PRINTED plan and cost table (`run/__init__`, FR-82,
+#: which has a test asserting the dash), the QA physics, drift and CLI tables,
+#: and `cases.matrix.UNSTATED_CELL` -- which is PUBLIC, is written into an
+#: upgraded matrix file and read back out of one, and carries a documented
+#: argument FOR the dash: a single character lets a reader tell "stated
+#: nothing" from a truncated line.
+#:
+#: None of those is parsed by a user's CSV reader, which is why the rule and
+#: they can both be right. WHETHER THE ESTATE SHOULD CONVERGE ON ONE TOKEN
+#: EVERYWHERE IS THE OWNER'S and stays open; the matrix cell is the one that
+#: would actually cost something to move, since it round-trips through a file.
+#: What is NOT open is that the boundary be written down: the one sentence in
+#: the tree naming both tokens together lived in a test comment and was
+#: deleted by this release's own fix, which made the inconsistency harder to
+#: find while asserting the rule that exposes it.
 NOT_APPLICABLE = "NA"
 
 

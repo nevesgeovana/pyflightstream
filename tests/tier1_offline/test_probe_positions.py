@@ -145,7 +145,17 @@ def test_the_steady_table_keeps_the_export_coordinates_and_gains_the_frame(tmp_p
     # `-` is non-blank and passed the funnel untouched. The owner settled it
     # in one sentence, "quando nao se aplica, usa sempre NA".
     assert first["STEP"] == NOT_APPLICABLE
-    assert first["STEP"] != "-", "the second spelling is what 0.23.0 removed"
+    # NOT `first["STEP"] != "-"`, WHICH CANNOT FAIL. `NOT_APPLICABLE` is
+    # "NA", so once the line above passes that one is constant-true, and if
+    # the line above fails it never runs -- a decorative assertion that reads
+    # like a guard, which is the shape this estate has recorded as "a check
+    # can accept everything". The QA lens caught it here one commit after the
+    # session had corrected the same shape elsewhere. This is the guard it
+    # was pretending to be: the second spelling is gone from the WHOLE row,
+    # so a producer reintroducing it anywhere in the spine fails this.
+    assert "-" not in first.values(), (
+        f"a cell still writes the second spelling of not-applicable: {first}"
+    )
     assert int(float(first["PROBE"])) == 1
 
 

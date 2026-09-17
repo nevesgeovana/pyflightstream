@@ -18,9 +18,15 @@ FlightStream versions.
     them apart. Measured on a production super file, 50 of 628 columns in one
     row were blank for the third reason alone: a key declared for the union of
     every run type, on a row whose run type does not have it.
-  - **`NA` SAYS THE THIRD OF THOSE THREE AND ONLY THE THIRD.** A value that was
-    EXPECTED and went missing is NOT spelled this way: it stays a visible
-    defect rather than being dressed as a column that never applied.
+  - **`NA` SAYS THE THIRD OF THOSE THREE, WITH ONE NAMED EXCEPTION.** A value
+    that was EXPECTED and went missing is not meant to be spelled this way.
+    The exception is the probes table of a run recorded before 0.16.0: it
+    names no positions file, so its position and frame cells are a value the
+    package could not derive, and they read `NA` because a blank is the one
+    thing a product may not write. Refusing those tables would take a product
+    away from a campaign that already happened, so the exception is carried
+    rather than removed -- and named here rather than left for you to infer
+    from a cell.
   - **Where it reaches**, which is the products and not every line of CSV the
     package writes: the polars, the super file, the sections, the probes, the
     campaign reduction table, the point series and the settings table. The two
@@ -30,13 +36,18 @@ FlightStream versions.
     to state, goes from `...,0.00000,,-2.00000,...` to
     `...,0.00000,NA,-2.00000,...`. A rotorless series row's `azimuth_deg` and
     a probe row's `FRAME` change the same way.
-  - **WHAT TO CHANGE IN YOUR READER.** `NA` is already pandas's default missing
-    token, so `read_csv` parses these as `NaN` with no argument at all --
-    where an empty cell in a float column silently became `NaN` too, but an
-    empty cell in a text column became the empty string. If you parse by hand,
-    `float("")` used to raise and `float("NA")` still does, so a reader that
-    was already correct stays correct; one that tested `cell == ""` must now
-    test for `NA`. If `NA` is meaningful data in your own columns, pass
+  - **WHAT TO CHANGE IN YOUR READER, and for one whole class of reader the
+    answer is NOTHING.** Measured on pandas 3.0.5 rather than asserted: both
+    `''` and `'NA'` are default missing tokens, for EVERY column and not only
+    numeric ones, so `read_csv` returned `NaN` for these cells before and
+    returns `NaN` for them now. **A pandas reader sees no change at all.**
+  - **IF YOU PARSE BY HAND, it does change**, and that is who this entry is
+    for. The `csv` module gives `""` for an empty cell and now gives `"NA"`,
+    so a reader that tested `cell == ""` must test for `NA`. A reader that
+    called `float(cell)` is unaffected in the sense that matters: `float("")`
+    raised before and `float("NA")` raises now, so code that was already
+    correct about the failure stays correct.
+  - If `NA` is meaningful data in your own columns, pass
     `keep_default_na=False` and name your own `na_values`.
   - The constant is public as `pyflightstream.post.products.NOT_APPLICABLE`,
     so a reader written against this package can compare to it by name rather
