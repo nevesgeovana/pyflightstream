@@ -3355,16 +3355,24 @@ def test_the_campaign_writes_its_products_and_names_them(tmp_path):
     assert manifest["products"][f"polars/{stem}_g01.csv"]["pproc"] == "p001"
     text = (products / "polars" / f"{stem}_g01.csv").read_text(encoding="utf-8").splitlines()
     assert text[0].startswith("POLAR,DESCRIPTION,GROUP,SREF,CREF,BREF,XMOM")
-    assert text[0].split(",")[9] == "J", f"the swept-value column is missing: {text[0]}"
-    # The `NA` cell after ZMOM is the advance ratio this row does not
-    # have: zero is a value a rotor row can hold and "not recorded" is
-    # not it (FR-85). IT WAS AN EMPTY CELL UNTIL 0.23.0, and the reason it
-    # is not one any more is the owner's: a blank breaks a CSV reader and
-    # cannot be told apart from a zero or from a value that went missing.
-    # This is the column-does-not-apply case, which is what `NA` says.
-    assert text[1].startswith(
-        "9001,STEADY_WB,1,50.00000,2.52600,20.00000,9.15200,0.00000,0.00000,NA,-2.00000,"
-    )
+    header = text[0].split(",")
+    cells = text[1].split(",")
+    # BY NAME AND NOT BY POSITION. This asserted `header[9] == "J"`, and item 5
+    # of 0.23.0 put `VINF` and `ALT` in front of the advance ratio, so the
+    # assertion failed on a header that is MORE complete than the one it was
+    # written against. A column pinned by its index is the same defect `J`
+    # itself exists to fix -- rows told apart by their order -- one level up.
+    assert "J" in header, f"the swept-value column is missing: {text[0]}"
+    for name in ("VINF", "ALT", "SREF", "CREF", "BREF"):
+        assert name in header, f"{name} is missing: {text[0]}"
+    # The `NA` cell is the advance ratio this row does not have: zero is a
+    # value a rotor row can hold and "not recorded" is not it (FR-85). IT WAS
+    # AN EMPTY CELL UNTIL 0.23.0, and the reason it is not one any more is the
+    # owner's: a blank breaks a CSV reader and cannot be told apart from a zero
+    # or from a value that went missing.
+    assert cells[header.index("J")] == "NA", text[1]
+    assert cells[header.index("ALPHA")] == "-2.00000", text[1]
+    assert text[1].startswith("9001,STEADY_WB,1,50.00000,2.52600,20.00000,9.15200,")
     assert ",0.02744,0.00000,0.18744," in text[1], "the body axes of the author's recorded row"
     record = workspace.read_manifest()[0]
     assert record.reference == {

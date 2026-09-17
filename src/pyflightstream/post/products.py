@@ -103,10 +103,15 @@ from pyflightstream.fsi.loads import SectionalLoadsReport, parse_sectional_loads
 from pyflightstream.post._tables import (
     _COEFFICIENT_PLOT_PREFIXES,
     _DECIMALS,
+    ADVANCE_RATIO_COLUMN,
+    CONTEXT_COLUMNS,
+    FLIGHT_CONDITION_COLUMNS,
     NOT_APPLICABLE,
+    REFERENCE_LENGTH_COLUMNS,
     SECTION_COLUMNS,
     ProductError,
     ProductExistsError,
+    context_row,
     write_csv_table,
 )
 from pyflightstream.post.series import write_point_series
@@ -142,6 +147,15 @@ if TYPE_CHECKING:
 __all__ = [
     "ADVANCE_RATIO_COLUMN",
     "COEFFICIENT_COLUMNS",
+    # The condition and length tuples every product family composes. They live
+    # in `post._tables` because three modules share them and the sharer cannot
+    # sit in the module that imports it; they are re-exported here because that
+    # is where a reader finds every public name of that module, and the tier-1
+    # test of that claim is what caught their absence the minute they moved.
+    "CONTEXT_COLUMNS",
+    "FLIGHT_CONDITION_COLUMNS",
+    "REFERENCE_LENGTH_COLUMNS",
+    "context_row",
     # The token a reader of any product compares against. It was reachable
     # only from the private `_tables` until 0.23.0, while that module's own
     # docstring said this one re-exports every public name it holds -- so the
@@ -219,29 +233,34 @@ COEFFICIENT_COLUMNS: tuple[str, ...] = (
 #: so a row is self-describing: which polar, which group, which reference.
 _REFERENCE_COLUMNS: tuple[str, ...] = ("SREF", "CREF", "BREF", "XMOM", "YMOM", "ZMOM")
 
-#: The column naming the ADVANCE RATIO of a polar row (FR-85).
+#: WHY THE ADVANCE RATIO HAS A COLUMN AT ALL (FR-85), kept here beside its one
+#: user although the constant itself moved to `post._tables` at 0.23.0, where
+#: three modules can compose it. Measured on the reference ``0001_M15_g01.csv``,
+#: written by 0.15.0 for a three-value sweep of the advance ratio: the three
+#: rows carried identical ``ALPHA``, ``BETA``, ``MACH`` and ``RE`` and no column
+#: naming what was swept, so the only thing distinguishing the first row from
+#: the third was its POSITION in the file. A table whose rows are told apart by
+#: order is not a table.
+
+#: What the POLAR adds beside the twenty-four, which already carry `ALPHA`,
+#: `BETA`, `MACH` and `RE`.
 #:
-#: WHY IT EXISTS. Measured on the reference ``0001_M15_g01.csv``, written by
-#: 0.15.0 for a three-value sweep of the advance ratio: the three rows
-#: carried identical ``ALPHA``, ``BETA``, ``MACH`` and ``RE`` and no
-#: column naming what was swept, so the only thing distinguishing the
-#: first row from the third was its position in the file. A table whose
-#: rows are told apart by order is not a table.
-#:
-#: IT IS OUTSIDE :data:`COEFFICIENT_COLUMNS` on purpose: those
-#: twenty-four are the custom format's own line 9 and its fixture pins
-#: them, so a flight-condition column added there would change a file
-#: format that was specified line by line.
-ADVANCE_RATIO_COLUMN = "J"
+#: WHY THESE THREE SIT OUTSIDE THE TWENTY-FOUR and may never move inside:
+#: :data:`COEFFICIENT_COLUMNS` IS the custom format's own line 9 and a fixture
+#: pins it line by line, so a flight-condition column added there changes a
+#: file format that was specified byte by byte. `J` was already outside for
+#: exactly this reason; `VINF` and `ALT` join it rather than it.
+_POLAR_CONDITION_COLUMNS: tuple[str, ...] = ("VINF", "ALT", ADVANCE_RATIO_COLUMN)
 
 #: A polar table's columns: the polar, its description, the group, the
-#: reference block, the advance ratio, the twenty-four coefficients.
+#: reference block, the condition the twenty-four do not carry, the
+#: twenty-four coefficients.
 POLAR_COLUMNS: tuple[str, ...] = (
     "POLAR",
     "DESCRIPTION",
     "GROUP",
     *_REFERENCE_COLUMNS,
-    ADVANCE_RATIO_COLUMN,
+    *_POLAR_CONDITION_COLUMNS,
     *COEFFICIENT_COLUMNS,
 )
 
@@ -284,6 +303,16 @@ class ReferenceValues:
     def as_row(self) -> tuple[float, ...]:
         """Return the six values in :data:`_REFERENCE_COLUMNS` order."""
         return (self.sref_m2, self.cref_m, self.bref_m, self.xmom_m, self.ymom_m, self.zmom_m)
+
+    def as_lengths(self) -> dict[str, float]:
+        """Return the three reference LENGTHS, keyed by their column names.
+
+        For the product families that carry no moment: a probe sample and a
+        reduction window have no moment coefficient, so three columns of moment
+        point would be three columns of nothing. The lengths are what a reader
+        of those files needs to check a coefficient against.
+        """
+        return {"SREF": self.sref_m2, "CREF": self.cref_m, "BREF": self.bref_m}
 
 
 @dataclass(frozen=True)
@@ -518,8 +547,18 @@ def polar_table_rows(
     reference: ReferenceValues,
     rows: Sequence[Sequence[float]],
     advance_ratios: Sequence[float | None] | None = None,
+    conditions: Sequence[Mapping[str, object]] | None = None,
 ) -> list[tuple[object, ...]]:
     """Assemble the rows of one polar table, each under :data:`POLAR_COLUMNS`.
+
+    ``conditions`` is the flight condition of each row, in the row order, for
+    the columns the twenty-four coefficients do NOT carry: ``VINF``, ``ALT``
+    and the advance ratio. A key a run did not record arrives as ``NA`` rather
+    than as a blank or a zero. ``advance_ratios`` remains accepted and means
+    the same as a ``conditions`` sequence carrying only ``J``; giving both is
+    refused rather than silently preferring one, because a caller that states
+    the ratio twice has two sources for it and this function cannot know which
+    is current.
 
     ONE ASSEMBLY, TWO CONSUMERS, and that is why it is a function of its
     own rather than three lines inside the writer below. The superfile of
@@ -529,17 +568,28 @@ def polar_table_rows(
     2026-09-10, where a column inserted in one assembly reached the other
     as a value under its neighbour's name.
     """
-    lead = (str(polar), description, str(group), *reference.as_row())
-    ratios = list(advance_ratios) if advance_ratios is not None else [None] * len(rows)
-    if len(ratios) != len(rows):
+    if advance_ratios is not None and conditions is not None:
         raise ProductError(
-            f"the polar table was given {len(ratios)} advance ratios for {len(rows)} rows"
+            "the polar table was given both advance_ratios and conditions, which "
+            "are two sources for the same column; pass the advance ratio inside "
+            "conditions as 'J' and drop advance_ratios"
+        )
+    lead = (str(polar), description, str(group), *reference.as_row())
+    if conditions is not None:
+        states: list[Mapping[str, object]] = list(conditions)
+    elif advance_ratios is not None:
+        states = [{ADVANCE_RATIO_COLUMN: ratio} for ratio in advance_ratios]
+    else:
+        states = [{} for _ in rows]
+    if len(states) != len(rows):
+        raise ProductError(
+            f"the polar table was given {len(states)} flight condition(s) for {len(rows)} rows"
         )
     full: list[tuple[object, ...]] = []
-    for row, ratio in zip(rows, ratios, strict=True):
+    for row, state in zip(rows, states, strict=True):
         if len(row) != len(COEFFICIENT_COLUMNS):
             raise ProductError(f"a polar row has {len(row)} values, not {len(COEFFICIENT_COLUMNS)}")
-        full.append((*lead, "" if ratio is None else float(ratio), *row))
+        full.append((*lead, *context_row(state, columns=_POLAR_CONDITION_COLUMNS), *row))
     return full
 
 
@@ -886,13 +936,26 @@ def _altitude_ft(text: str) -> float:
 
 
 def write_sections_table(
-    path: str | Path, export_text: str, *, point: str, mach: float
+    path: str | Path,
+    export_text: str,
+    *,
+    point: str,
+    mach: float,
+    reference: ReferenceValues | None = None,
+    advance_ratio: float | None = None,
 ) -> Path | None:
     """Write one sections table from a sectional loads export.
 
     Returns None without writing when the export declares no section, as
     a run that defined no distribution leaves; the columns are the point,
     its condition, and the export's own seven, in the export's units.
+
+    ``reference`` supplies the reference LENGTHS, which this table carried
+    none of until 0.23.0: a sectional force beside no area is a number nobody
+    can check. It is optional because a caller that genuinely holds no
+    reference should write `NA` rather than be refused a product it can
+    otherwise make, and a run's reference is recorded beside its outputs
+    rather than inside this export.
     """
     # A run that defined no distribution leaves an export declaring zero
     # sections, which the parser refuses as impossible for a real table;
@@ -915,14 +978,26 @@ def write_sections_table(
             f"the sectional loads export carries {table.shape[1]} columns, fewer than the seven "
             "the product tables"
         )
+    # THROUGH `context_row` AND NOT ASSEMBLED HERE. This lead used to be built
+    # by hand in the order ALPHA, BETA, MACH, VINF, RE, ALT; the shared tuple
+    # orders them ALPHA, BETA, MACH, RE, VINF, ALT, J, and a hand-built lead is
+    # exactly how two families come to disagree about which column is which --
+    # a value landing under its neighbour's name, which is the defect 0.23.0
+    # item 5 found in three of the four families.
     lead = (
         point,
-        report.angle_of_attack_deg,
-        report.sideslip_deg,
-        mach,
-        report.freestream_velocity_m_s,
-        _reynolds_millions(export_text),
-        _altitude_ft(export_text),
+        *context_row(
+            {
+                "ALPHA": report.angle_of_attack_deg,
+                "BETA": report.sideslip_deg,
+                "MACH": mach,
+                "RE": _reynolds_millions(export_text),
+                "VINF": report.freestream_velocity_m_s,
+                "ALT": _altitude_ft(export_text),
+                ADVANCE_RATIO_COLUMN: advance_ratio,
+            },
+            None if reference is None else reference.as_lengths(),
+        ),
     )
     rows = [(*lead, *(float(v) for v in row[:7])) for row in table]
     return write_csv_table(path, SECTION_COLUMNS, rows)
@@ -986,7 +1061,13 @@ def write_plots_table(path: str | Path, export_text: str) -> Path | None:
 #: `scale = "rotor_radius"`, in rotor radii, which the builder resolves before
 #: it emits; no export and no artifact states a unit name, so no column here
 #: invents one (the technical writing lens asked, 2026-09-11).
-PROBE_SPINE: tuple[str, ...] = (*PROBE_POSITION_COLUMNS, "STEP")
+#: THE CONTEXT FOLLOWS THE SPINE AND PRECEDES THE FLUID COLUMNS, so the shape
+#: a reader learned at 0.16.0 -- where the point is, in which frame, at which
+#: step -- is still the first thing in the row, and the export's own columns
+#: still arrive in the export's own order after it. Inserting the condition
+#: between them would have moved the fluid columns twice: once now and once
+#: whenever the condition grows.
+PROBE_SPINE: tuple[str, ...] = (*PROBE_POSITION_COLUMNS, "STEP", *CONTEXT_COLUMNS)
 
 
 def _probe_parameters(pproc) -> tuple[str, ...]:
@@ -1095,6 +1176,7 @@ def _probe_spine(
     step: object = NOT_APPLICABLE,
     *,
     stated: tuple[float, float, float] | None = None,
+    context: Sequence[object] = (),
 ) -> tuple[object, ...]:
     """One row's spine: the point, where it is, its frame, and the step.
 
@@ -1118,9 +1200,9 @@ def _probe_spine(
     elif recorded is not None:
         x, y, z = recorded[0], recorded[1], recorded[2]
     else:
-        return (vertex, "", "", "", "", step)
+        return (vertex, "", "", "", "", step, *context)
     frame = "" if recorded is None else recorded[3]
-    return (vertex, x, y, z, frame, step)
+    return (vertex, x, y, z, frame, step, *context)
 
 
 def write_probes_table(
@@ -1128,6 +1210,8 @@ def write_probes_table(
     export_text: str,
     *,
     positions: Mapping[int, tuple[float, float, float, str]] | None = None,
+    condition: Mapping[str, object] | None = None,
+    reference: ReferenceValues | None = None,
 ) -> Path | None:
     """Write one probe-points table from an EXPORT_PROBE_POINTS export (FR-87, FR-91).
 
@@ -1172,6 +1256,9 @@ def write_probes_table(
     values = np.asarray(report.values, dtype=float)
     if values.size == 0:
         return None
+    # ONE ASSEMBLY PER TABLE, not per row: every sample in a probes table is a
+    # sample of the same point, so the condition belongs to the file.
+    context = context_row(condition, None if reference is None else reference.as_lengths())
     known = dict(positions or {})
     columns = tuple(report.columns)
     # THE EXPORT'S OWN X, Y AND Z MOVE INTO THE SPINE rather than being
@@ -1188,7 +1275,7 @@ def write_probes_table(
             stated = (float(row[axes["X"]]), float(row[axes["Y"]]), float(row[axes["Z"]]))
         rows.append(
             (
-                *_probe_spine(order, known, stated=stated),
+                *_probe_spine(order, known, stated=stated, context=context),
                 *(float(row[columns.index(name)]) for name in rest),
             )
         )
@@ -1201,6 +1288,8 @@ def write_unsteady_probes_table(
     *,
     positions: Mapping[int, tuple[float, float, float, str]],
     parameters: Sequence[str],
+    condition: Mapping[str, object] | None = None,
+    reference: ReferenceValues | None = None,
 ) -> Path | None:
     """Write the probe table of an UNSTEADY row, from its plots table (FR-91).
 
@@ -1297,6 +1386,7 @@ def write_unsteady_probes_table(
     # 2026-09-11). A table with no such column falls back to the ordinal,
     # which is the only thing left, rather than refusing a product.
     stated = "Time-step" if "Time-step" in present else None
+    context = context_row(condition, None if reference is None else reference.as_lengths())
     out: list[tuple[object, ...]] = []
     for ordinal, row in enumerate(rows, start=1):
         step: object = ordinal
@@ -1311,7 +1401,7 @@ def write_unsteady_probes_table(
         for vertex, names in groups:
             out.append(
                 (
-                    *_probe_spine(vertex, positions, step),
+                    *_probe_spine(vertex, positions, step, context=context),
                     *(float(row[name]) for name in names),
                 )
             )
@@ -1323,7 +1413,14 @@ def write_unsteady_probes_table(
 #: The window block every reduction row carries before the plots table's own
 #: columns: which reduction, which window of it (1-based), the inclusive
 #: solver steps it spans, and how many rows of the table fell inside.
-REDUCTION_COLUMNS: tuple[str, ...] = ("REDUCTION", "WINDOW", "FIRST_STEP", "LAST_STEP", "STEPS")
+REDUCTION_COLUMNS: tuple[str, ...] = (
+    "REDUCTION",
+    "WINDOW",
+    "FIRST_STEP",
+    "LAST_STEP",
+    "STEPS",
+    *CONTEXT_COLUMNS,
+)
 
 
 #: PFS-2038.04. The column an unsteady plots export states its clock in.
@@ -1409,8 +1506,16 @@ def write_reduction_table(
     *,
     reduction: str,
     windows: Sequence[Sequence[int]],
+    condition: Mapping[str, object] | None = None,
+    reference: ReferenceValues | None = None,
 ) -> Path:
     """Write one reduction of a plots table: one row per window, the table's columns averaged.
+
+    ``condition`` and ``reference`` are what the row is a reduction OF, and
+    this table carried neither until 0.23.0: a window of averaged coefficients
+    with no angle of attack and no reference area beside it is a set of numbers
+    about nothing. Both are optional, and what neither supplies reads `NA`
+    rather than being invented.
 
     The average is :func:`pyflightstream.post.unsteady.blade_passage_average`,
     the only implementation of that average in the package, applied once
@@ -1446,6 +1551,10 @@ def write_reduction_table(
     # was refused as though it reached past the end of it. This is the
     # bound alone; the review's step-coverage validation, which would
     # refuse windows that work today, is not taken.
+    # ASSEMBLED ONCE, OUTSIDE THE LOOP: every window of one reduction is a
+    # reduction of the SAME point, so the condition is the row's context and
+    # not the window's.
+    context = context_row(condition, None if reference is None else reference.as_lengths())
     first_step = int(series.steps[0]) if len(series.steps) else 1
     last_step = int(series.steps[-1]) if len(series.steps) else 0
     for index, (first, last) in enumerate(windows, start=1):
@@ -1464,6 +1573,7 @@ def write_reduction_table(
                 int(first),
                 int(last),
                 average.n_frames,
+                *context,
                 *(float(average.fields[name][0]) for name in columns),
             )
         )

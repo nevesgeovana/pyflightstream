@@ -16,6 +16,7 @@ import pytest
 from pyflightstream._errors import PyflightstreamDeprecationWarning
 from pyflightstream.post.products import (
     COEFFICIENT_COLUMNS,
+    CONTEXT_COLUMNS,
     POLAR_COLUMNS,
     SECTION_COLUMNS,
     ProductError,
@@ -572,16 +573,19 @@ def test_pyfs_matrix_post_writes_every_reduction_beside_the_plots_table(tmp_path
     assert {p.name for p in written} >= set(names), "every reduction is a product returned"
 
     columns, rows = read_csv_table(plots / "AL-020_time_average.csv")
-    assert columns == (
-        "REDUCTION",
-        "WINDOW",
-        "FIRST_STEP",
-        "LAST_STEP",
-        "STEPS",
+    # THE CONTEXT BLOCK SITS BETWEEN THEM SINCE 0.23.0 (item 5). A window of
+    # averaged coefficients with no angle of attack and no reference area
+    # beside it is a set of numbers about nothing, which is what this table
+    # was until the owner's rule that every product says what it is a file of.
+    # The window block still leads and the plots table's own columns still
+    # follow, so a reader's column ORDER within each block is unchanged.
+    assert columns[:5] == ("REDUCTION", "WINDOW", "FIRST_STEP", "LAST_STEP", "STEPS"), columns
+    assert columns[5 : 5 + len(CONTEXT_COLUMNS)] == CONTEXT_COLUMNS, columns
+    assert columns[5 + len(CONTEXT_COLUMNS) :] == (
         "Time-step",
         "CL_MRP_TOTAL",
         "CDI_MRP_TOTAL",
-    ), "the reduction carries the window block and then the plots table's own columns"
+    ), "the reduction carries the window block, the context, then the plots table's own columns"
     assert len(rows) == 1
     assert rows[0]["REDUCTION"] == "time_average" and rows[0]["WINDOW"] == "1"
     assert (rows[0]["FIRST_STEP"], rows[0]["LAST_STEP"], rows[0]["STEPS"]) == ("3", "8", "6")

@@ -12,21 +12,96 @@ from __future__ import annotations
 
 import csv
 import math
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 import numpy as np
 
 from pyflightstream._errors import PyflightstreamError
 
-SECTION_COLUMNS: tuple[str, ...] = (
-    "POINT",
+#: The column naming the ADVANCE RATIO of a row.
+#:
+#: IT LIVES HERE AND NOT IN `products` since 0.23.0, because the condition
+#: tuples below are composed by `products`, by `series` and by `superfile`, and
+#: a constant three modules share cannot sit in the one that imports them. Its
+#: public home is unchanged: `post.products` re-exports it, as it does every
+#: public name of this module.
+ADVANCE_RATIO_COLUMN = "J"
+
+#: EVERY flight-condition variable a product states, so a reader holding one
+#: file can tell what it is a file OF. The owner's rule of 2026-09-17: "todos
+#: os arquivos gerados no post precisam carregar todas as variáveis de flight
+#: condition, se não não da para saber do que se trata".
+#:
+#: `ALPHA`, `BETA`, `MACH` and `RE` are inside the twenty-four coefficient
+#: columns for the family that carries those, so the polar states only the
+#: remainder beside them. A family carrying none of the twenty-four states this
+#: whole tuple.
+FLIGHT_CONDITION_COLUMNS: tuple[str, ...] = (
     "ALPHA",
     "BETA",
     "MACH",
-    "VINF",
     "RE",
+    "VINF",
     "ALT",
+    ADVANCE_RATIO_COLUMN,
+)
+
+#: The reference LENGTHS every product states, the owner's rule of the same
+#: day: "todos precisam carregar tambem os comprimentos de referencia". A
+#: coefficient without the length it was normalised by is a number nobody can
+#: check, and two of the four product families carried no length at all until
+#: 0.23.0.
+#:
+#: THE MOMENT POINT IS NOT HERE. It rides with these three in the polar's own
+#: reference block, because a moment coefficient is meaningless without it; a
+#: probe sample and a reduction window carry no moment and would carry three
+#: columns of `NA` to no purpose.
+REFERENCE_LENGTH_COLUMNS: tuple[str, ...] = ("SREF", "CREF", "BREF")
+
+#: What a product family states when it carries none of the twenty-four: the
+#: whole condition and the lengths, in ONE tuple so a fifth family composes it
+#: rather than remembering it. A family that assembles its own list is a family
+#: that drifts from the other three, which is the state 0.23.0 item 5 repaired
+#: after three of four families could not say what they were files of.
+CONTEXT_COLUMNS: tuple[str, ...] = (*FLIGHT_CONDITION_COLUMNS, *REFERENCE_LENGTH_COLUMNS)
+
+
+def context_row(
+    condition: Mapping[str, object] | None = None,
+    reference: Mapping[str, object] | None = None,
+    *,
+    columns: Sequence[str] = CONTEXT_COLUMNS,
+) -> tuple[object, ...]:
+    """Return the values of ``columns``, read from what the run recorded.
+
+    ONE ASSEMBLY FOR EVERY PRODUCT FAMILY, which is the whole point of the
+    function existing rather than four list comprehensions. Item 5 of 0.23.0
+    exists because three of the four families had drifted into carrying
+    different subsets of the condition, and four call sites assembling the same
+    tuple is how they drift again.
+
+    A key the run did not record is NOT invented and is not left blank: it
+    arrives at the funnel as ``None`` and is written as ``NA``, which says the
+    column does not apply to that row. That is the third of the three reasons a
+    cell can be empty and the only one `NA` stands for -- so a condition the
+    solver was never told is visibly absent rather than quietly zero, and a
+    zero angle of attack stays a zero.
+
+    The lookup is CASE-INSENSITIVE on purpose: a record writes ``alpha`` and a
+    column is ``ALPHA``, and requiring the two to agree makes every caller
+    remember a convention that this function can simply apply.
+    """
+    folded: dict[str, object] = {}
+    for source in (condition or {}, reference or {}):
+        for key, value in source.items():
+            folded[str(key).casefold()] = value
+    return tuple(folded.get(name.casefold()) for name in columns)
+
+
+SECTION_COLUMNS: tuple[str, ...] = (
+    "POINT",
+    *CONTEXT_COLUMNS,
     "Offset",
     "Chord",
     "X_QC",
