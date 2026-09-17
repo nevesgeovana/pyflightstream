@@ -32,6 +32,7 @@ import pytest
 
 from pyflightstream.cases import Campaign, CampaignConfigError, SimCase, SweepAxis
 from pyflightstream.cases.workflows import WORKFLOW_KEY, build_script, workflow_registry
+from pyflightstream.post.products import NOT_APPLICABLE
 from pyflightstream.run import run_campaign
 from pyflightstream.script import Script
 from pyflightstream.workspace import CampaignWorkspace, RunStatus
@@ -504,7 +505,13 @@ def test_the_series_of_a_stub_run_agrees_with_the_counter_step_for_step(tmp_path
     assert [int(cells[0]) for cells in body] == [2, 3, 4]
     # The counter's last state is step 4 at 4 * DELTA_TIME; the table's last row says the same.
     assert float(body[-1][1]) == pytest.approx(state["time_s"])
-    assert all(cells[2] == "" for cells in body), "no rotor, no azimuth"
+    # `NA` AND NOT BLANK since 0.23.0. A row with no rotor has no azimuth,
+    # and this is the exact shape the owner reported from a production
+    # superfile: a column declared for the union of every run type, empty on
+    # a row whose run type does not have it. Her reader cannot parse the
+    # blank, and no reader can tell it from a zero.
+    assert all(cells[2] == NOT_APPLICABLE for cells in body), "no rotor, no azimuth"
+    assert not any(cells[2] == "" for cells in body), "a blank cell is the defect, not the fix"
 
 
 # --- FR-98, GOAL-019 item 7: the wall-clock watchdog --------------------------

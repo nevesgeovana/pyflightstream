@@ -3356,11 +3356,14 @@ def test_the_campaign_writes_its_products_and_names_them(tmp_path):
     text = (products / "polars" / f"{stem}_g01.csv").read_text(encoding="utf-8").splitlines()
     assert text[0].startswith("POLAR,DESCRIPTION,GROUP,SREF,CREF,BREF,XMOM")
     assert text[0].split(",")[9] == "J", f"the swept-value column is missing: {text[0]}"
-    # The EMPTY cell after ZMOM is the advance ratio this row does not
+    # The `NA` cell after ZMOM is the advance ratio this row does not
     # have: zero is a value a rotor row can hold and "not recorded" is
-    # not it (FR-85).
+    # not it (FR-85). IT WAS AN EMPTY CELL UNTIL 0.23.0, and the reason it
+    # is not one any more is the owner's: a blank breaks a CSV reader and
+    # cannot be told apart from a zero or from a value that went missing.
+    # This is the column-does-not-apply case, which is what `NA` says.
     assert text[1].startswith(
-        "9001,STEADY_WB,1,50.00000,2.52600,20.00000,9.15200,0.00000,0.00000,,-2.00000,"
+        "9001,STEADY_WB,1,50.00000,2.52600,20.00000,9.15200,0.00000,0.00000,NA,-2.00000,"
     )
     assert ",0.02744,0.00000,0.18744," in text[1], "the body axes of the author's recorded row"
     record = workspace.read_manifest()[0]
