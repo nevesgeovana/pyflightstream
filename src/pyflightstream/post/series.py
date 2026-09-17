@@ -96,7 +96,13 @@ def _clock(record: RunRecord) -> tuple[float | None, float | None]:
     A record written since 0.14.0 carries both in its export window; one
     written before carries neither, and its azimuth step is still known
     from the reductions plan's steps per revolution, while its time step
-    is not known at all and the column stays empty rather than guessed.
+    is not known at all and the column is left unstated rather than guessed.
+
+    UNSTATED HERE IS `NA` IN THE FILE, the same clause :func:`_lead` carries
+    fifteen lines below: this returns a blank and the funnel renders it. The
+    correction was applied to `_lead` alone when it was first made, in this
+    same module, which is how one of two functions on one path ends up
+    describing a product the other one writes.
     """
     window = record.export_window or {}
     delta = window.get("delta_time_s")

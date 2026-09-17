@@ -557,10 +557,17 @@ def write_polar_table(
 
     ``advance_ratios`` is the advance ratio of each row in the row order,
     for :data:`ADVANCE_RATIO_COLUMN` (FR-85); a row whose ratio is not
-    known writes an EMPTY cell rather than a zero, because zero is a
-    value a rotor row can have and "not recorded" is not it. Omitted
-    entirely, every row's cell is empty, which is what a caller with no
+    known writes :data:`NOT_APPLICABLE` rather than a zero, because zero is
+    a value a rotor row can have and "not recorded" is not it. Omitted
+    entirely, every row's cell reads `NA`, which is what a caller with no
     sweep point to offer should write.
+
+    IT WAS AN EMPTY CELL UNTIL 0.23.0, and the reasoning above is what
+    changed the token rather than what resisted it: arguing for a cell that
+    is not a zero is arguing for a DISTINGUISHABLE one, and a blank is not
+    distinguishable -- from a zero, from a value that went missing, or from
+    a column that never applied. This is the worked example the change log
+    uses, `...,0.00000,NA,-2.00000,...` on a steady row.
     """
     full = polar_table_rows(
         polar=polar,

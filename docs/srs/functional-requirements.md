@@ -3013,7 +3013,14 @@ requirement below is one seam of that division.
 
     EVERY CELL THE PACKAGE CANNOT DERIVE PRINTS AS `-`, and `unknown` is
     reserved for the one column that is an extrapolation: a time with no
-    comparable recorded run. This paragraph said `unknown` everywhere while
+    comparable recorded run. **THIS TABLE IS PRINTED AND NEVER PARSED**, which
+    is why it keeps `-` while every CSV PRODUCT writes `NA` from 0.23.0 (see
+    `NOT_APPLICABLE`): the owner's rule that one token means "does not apply"
+    exists because a second spelling breaks a reader, and nothing reads this
+    one but a person, for whom `-` scans better in a column of numbers. The
+    boundary is written here and beside the constant because it was written
+    nowhere at all until the closing round of FIX-0230 asked which surface
+    used which. This paragraph said `unknown` everywhere while
     the paragraphs above and below it were being corrected, which is how a
     surviving sentence outlives its own requirement. A test
     asserts that a mesh with no countable panels prints `-` in that
@@ -3502,8 +3509,9 @@ requirement below is one seam of that division.
     (the verification lens, 2026-09-11).
 
     A RUN RECORDED BEFORE 0.16.0 STILL PRODUCES ITS TABLE. It names no
-    positions file, the frame cell is empty, and the steady coordinates still
-    come from the export as they always did. Refusing those runs would take a
+    positions file, the frame cell reads `NA` (it was EMPTY until 0.23.0,
+    like every other spine cell the package cannot fill), and the steady
+    coordinates still come from the export as they always did. Refusing those runs would take a
     product away from a campaign that already happened.
 
 

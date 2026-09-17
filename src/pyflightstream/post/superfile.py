@@ -18,7 +18,14 @@ file and a reader cannot tell from it whether the run behind a row was steady
 or unsteady. That transparency is the point of it rather than a consequence,
 and it is why the COLUMN SET IS THE CAMPAIGN'S rather than the polar's: a
 steady polar's file carries the same header as the rotor's beside it, with
-empty cells where that run produced nothing.
+`NA` cells where that run produced nothing.
+
+THOSE CELLS WERE EMPTY UNTIL 0.23.0, and this module is the reason they are
+not: the measurement behind the rule is a production super file of this very
+writer, 50 of whose 628 columns in one row were blank for one reason -- a key
+declared for the union of every run type, on a row whose run type does not
+have it. A blank cannot be told from a zero or from a value that went
+missing, and it broke the reader it was handed to.
 
 ITS COLUMN SET IS A SUPERSET of the union of what the workspace knows about
 that simulation, and the rule is a superset rather than a list because a list

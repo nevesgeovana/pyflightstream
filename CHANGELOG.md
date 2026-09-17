@@ -7,11 +7,12 @@ FlightStream versions.
 
 ## [Unreleased]
 
-### Changed (breaking, for anyone who PARSES a product)
+### Changed (breaking)
 
 - **A CSV cell that does not apply to a row now reads `NA`, where it was
   blank.** This changes the bytes of every CSV product, so a reader that
-  already works on 0.22.0 output has to be told about it.
+  already works on 0.22.0 output has to be told about it -- this entry is for
+  anyone who PARSES a product rather than reads one.
   - **WHY A BLANK WAS THE DEFECT.** It is ambiguous three ways -- zero,
     not-measured, or this-column-is-not-for-this-row -- and no reader can tell
     them apart. Measured on a production super file, 50 of 628 columns in one
@@ -63,49 +64,37 @@ FlightStream versions.
     `tests/tier3_licensed/post/matriz/plan.json`, 8 in `matriz_time` and 2 in
     `matriz_builds`. That reproduces the figure taken at 0.22.0, so the
     conclusion stands on a measurement made twice rather than one carried.
-  - **THE COUNTING COMMAND, so the number is reproducible and not merely
-    asserted.** The QA lens of this range could not check the figure at all:
-    every one of the four files is either gitignored or workspace-local, so a
-    reviewer holding only the repository has to take it on trust. It should
-    not have been written without this:
-
-    ```bash
-    python - <<'PY'
-    import json, pathlib
-    def rows(o):
-        if isinstance(o, dict):
-            return ("broken_commands" in o) + sum(rows(v) for v in o.values())
-        if isinstance(o, list):
-            return sum(rows(v) for v in o)
-        return 0
-    total = 0
-    for p in sorted(pathlib.Path(".").rglob("*.json")):
-        if ".git" in p.parts:
-            continue
-        try:
-            n = rows(json.loads(p.read_text(encoding="utf-8")))
-        except Exception:
-            continue
-        if n:
-            total += n
-            print(f"{n:4d}  {p.as_posix()}")
-    print("TOTAL", total)
-    PY
-    ```
-
-  - **THESE 74 ARE IN THIS REPOSITORY, not in a user's workspace**, and the
-    distinction is owed rather than glossed: the pre-0.22.0 readings were taken
-    over a separate research tree. A fixture is regenerable and a user's
-    manifest is not, so the argument for keeping the reader rests on the
-    populations this count does NOT cover. Re-counting over a live user
-    workspace is registered as owed rather than claimed here.
-  - Recorded rows still need the reader, so removing the shim would make a
-    workspace's own manifests unreadable by the package that wrote them. Write
-    `waived_commands` in anything new.
+  - **The counter is committed: `scripts/count_manifest_key_rows.py`**, which
+    takes `--root` so it can be pointed at a workspace, reports the files it
+    could not read instead of dropping them, and says when its total is a
+    floor. The QA lens of this range could not check the figure at all, and a
+    number only its author can reproduce is not a measurement.
+  - **IT WILL NOT PRINT 74 IN A CLEAN CHECKOUT, and that is not a defect in
+    the counter.** All four manifests are gitignored (`.gitignore:116` and
+    `:118`), so a reviewer who clones this repository and runs the script gets
+    `0 row(s)`. To reproduce the figure you need a tree where tier-3 has been
+    run, or your own workspace passed with `--root`. The first writing of this
+    entry carried the counting code inline and did NOT say this, which would
+    have had a reviewer run it, see zero, and have no reason to suspect
+    anything was missing.
+  - **AND THE USER POPULATION IS MEASURED TOO, which is what makes the
+    conclusion stand.** Those 74 are all in this repository and a fixture is
+    regenerable, so they never carried the argument on their own. Counted at
+    this bump over the recorded research workspaces: **43 further rows across
+    15 manifests** (`pfs0100`, `pfs0101`, `pfs0110`, `pfs0120`, `pfs040`,
+    `pfs090`), each a plan or runs manifest of a campaign that actually ran.
+  - **117 rows across 19 manifests in total**, and the 43 are the half nothing
+    can regenerate: removing the shim would make a user's own records
+    unreadable by the package that wrote them. Write `waived_commands` in
+    anything new.
   - The figure this promise carried BEFORE 0.22.0 -- "UNCHANGED at 18 rows
-    across 6 live manifests" -- did not reproduce and was corrected then. It is
-    named here because a promise extended nine times is worth the reminder that
-    its number was once wrong for two extensions running.
+    across 6 live manifests" -- did not reproduce and was corrected then. It
+    was stated at EVERY extension from the third to the seventh, five readings
+    and not the "two" this entry claimed until the closing round of FIX-0230
+    counted them, and neither tree produces it today. What was counted to get
+    18 and 6 is not recoverable, and the entry no longer guesses: a promise
+    whose subject is a number asserted without measurement must not explain it
+    with another one.
 
 
 ### Owed

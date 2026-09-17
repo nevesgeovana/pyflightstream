@@ -91,6 +91,20 @@ class ProductExistsError(ProductError):
 #: nao se aplica, usa sempre NA"*. The probes table's `STEP` said `-` on a
 #: steady row until 0.23.0, which put two spellings of one meaning in one row
 #: beside a `FRAME` that already read `NA`.
+#:
+#: THE SCOPE OF THAT RULE, stated here because no artifact stated it and the
+#: closing round of FIX-0230 found the gap. It governs the CSV PRODUCTS -- the
+#: files a reader parses -- and that is where a second spelling actually costs
+#: something. The PRINTED plan and cost table of `pyfs-matrix` still writes
+#: `-` for a cell it cannot derive, deliberately: it is read by eyes in a
+#: terminal and never parsed, `-` is easier to scan in a column of numbers
+#: than a two-letter word, and FR-82 has a test asserting it.
+#:
+#: WHETHER THE ESTATE SHOULD CONVERGE ON ONE TOKEN EVERYWHERE IS THE OWNER'S,
+#: and it is open. What is NOT open is that the boundary be written down: the
+#: one sentence in the tree that named both tokens together lived in a test
+#: comment and was deleted by this release's own fix, which made the
+#: inconsistency harder to find while asserting the rule that exposes it.
 NOT_APPLICABLE = "NA"
 
 
@@ -99,7 +113,8 @@ def _cell(value: object) -> str:
 
     IT IS DONE HERE because this is the funnel the CSV PRODUCTS pass through --
     the polars, the superfile, the sections, the probes, the campaign reduction
-    table and, since 0.23.0, the settings table. A rule applied at the writers
+    table, the POINT SERIES and, since 0.23.0, the settings table. A rule
+    applied at the writers
     instead would have to be remembered at each of them, and the naming table of
     0.22.0 is the standing lesson about what that costs: held in a second place,
     it was remembered at one call site of three.
@@ -113,6 +128,13 @@ def _cell(value: object) -> str:
     about every line of CSV the package emits: an earlier writing of this
     docstring said "every CSV product", and a lens measured the settings table
     doing the exact opposite one module away.
+
+    THIS LIST IS THE AUTHORITY AND EVERY OTHER COPY POINTS AT IT. The closing
+    round of FIX-0230 found the change log naming SEVEN products here and this
+    docstring naming six, the point series being the one it had dropped --
+    `post.series` writes through `write_csv_table` and always did. An
+    enumeration that has just been corrected for overclaiming is worth
+    re-reading for the opposite, and nobody had.
     """
     if value is None:
         return NOT_APPLICABLE
