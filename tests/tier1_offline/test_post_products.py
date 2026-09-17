@@ -17,6 +17,7 @@ from pyflightstream._errors import PyflightstreamDeprecationWarning
 from pyflightstream.post.products import (
     COEFFICIENT_COLUMNS,
     CONTEXT_COLUMNS,
+    NOT_APPLICABLE,
     POLAR_COLUMNS,
     SECTION_COLUMNS,
     ProductError,
@@ -261,13 +262,17 @@ SLOADS = """\
 
 def test_sections_table_round_trips(tmp_path):
     target = write_sections_table(
-        tmp_path / "sections" / "P_sections.csv", SLOADS, point="P", mach=0.2
+        tmp_path / "sections" / "P_sections.csv", SLOADS, mach=0.2, iteration=412, azimuth_deg=37.5
     )
     assert target is not None
     columns, rows = read_csv_table(target)
     assert columns == SECTION_COLUMNS
     assert len(rows) == 2
-    assert rows[0]["POINT"] == "P" and rows[0]["VINF"] == "68.05800" and rows[0]["RE"] == "11.77170"
+    # ITERATION AND AZIMUTH, NOT `POINT`, since 0.23.0 item 13: the polar's
+    # name is the file's name, so the column restated it while the two things
+    # that vary down the table were absent.
+    assert rows[0]["ITERATION"] == "412" and rows[0]["AZIMUTH"] == "37.50000"
+    assert rows[0]["VINF"] == "68.05800" and rows[0]["RE"] == "11.77170"
     assert (
         rows[0]["Offset"] == "-9.90900"
         and rows[0]["Fx"] == "115.70000"
@@ -282,10 +287,25 @@ def test_sections_table_round_trips(tmp_path):
     none = (
         "\n".join(line for line in none.splitlines() if not line.strip().startswith("-0.9")) + "\n"
     )
-    assert (
-        write_sections_table(tmp_path / "sections" / "Q_sections.csv", none, point="Q", mach=0.2)
-        is None
+    assert write_sections_table(tmp_path / "sections" / "Q_sections.csv", none, mach=0.2) is None
+
+
+def test_a_sections_row_with_no_rotor_reads_not_applicable_for_the_azimuth(tmp_path):
+    """A run with no rotor has no azimuth, and `NA` is not zero.
+
+    Zero is a REAL azimuth that a rotor row can hold, so writing it for a run
+    that has no blade at all would make a steady wing indistinguishable from a
+    rotor caught at the datum. This is the case the owner named when she asked
+    for the column: "se não tiver rotor, ela fica na".
+    """
+    target = write_sections_table(
+        tmp_path / "sections" / "R_sections.csv", SLOADS, mach=0.2, iteration=7
     )
+    assert target is not None
+    _, rows = read_csv_table(target)
+    assert rows[0]["AZIMUTH"] == NOT_APPLICABLE, rows[0]
+    assert rows[0]["AZIMUTH"] != "0.00000", "a missing azimuth must not read as the datum"
+    assert rows[0]["ITERATION"] == "7"
 
 
 PLOTS = """\

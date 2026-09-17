@@ -939,12 +939,20 @@ def write_sections_table(
     path: str | Path,
     export_text: str,
     *,
-    point: str,
     mach: float,
+    iteration: int | None = None,
+    azimuth_deg: float | None = None,
     reference: ReferenceValues | None = None,
     advance_ratio: float | None = None,
 ) -> Path | None:
     """Write one sections table from a sectional loads export.
+
+    ``iteration`` is the solver iteration the distribution was sampled at and
+    ``azimuth_deg`` is where the blade was when it was; both lead the row
+    because they are the only two things that vary down the file. They replace
+    the `POINT` column, which carried the polar's NAME and therefore restated
+    the file name (v0.23.0 item 13). A run with no rotor states no azimuth and
+    the cell reads `NA`, which is not zero: zero is a real azimuth.
 
     Returns None without writing when the export declares no section, as
     a run that defined no distribution leaves; the columns are the point,
@@ -985,7 +993,8 @@ def write_sections_table(
     # a value landing under its neighbour's name, which is the defect 0.23.0
     # item 5 found in three of the four families.
     lead = (
-        point,
+        iteration,
+        azimuth_deg,
         *context_row(
             {
                 "ALPHA": report.angle_of_attack_deg,
@@ -1693,7 +1702,12 @@ def write_recorded_polar(
             target = write_sections_table(
                 out / "sections" / f"{point.name}_sections.csv",
                 sloads.read_text(encoding="utf-8", errors="replace"),
-                point=point.name,
+                # NO `point=` SINCE 0.23.0 ITEM 13: the polar's name is the
+                # FILE's name and a column spent restating it told no row
+                # from another. The iteration and the azimuth are read from
+                # the export where it states them and are `NA` where it does
+                # not, which is the honest answer for a steady distribution
+                # and for a run that recorded no clock.
                 mach=mach,
             )
             if target is not None:
@@ -2099,7 +2113,12 @@ def _sim_products(
             done = write_sections_table(
                 target,
                 sloads_path.read_text(encoding="utf-8", errors="replace"),
-                point=point.name,
+                # NO `point=` SINCE 0.23.0 ITEM 13: the polar's name is the
+                # FILE's name and a column spent restating it told no row
+                # from another. The iteration and the azimuth are read from
+                # the export where it states them and are `NA` where it does
+                # not, which is the honest answer for a steady distribution
+                # and for a run that recorded no clock.
                 mach=mach,
             )
             if done is not None:

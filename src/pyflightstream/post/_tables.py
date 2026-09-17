@@ -99,8 +99,19 @@ def context_row(
     return tuple(folded.get(name.casefold()) for name in columns)
 
 
+#: What tells one sections ROW from another, in front of the condition every
+#: row of the file shares. v0.23.0 item 13, on the owner's reading of one of
+#: her own files: `POINT` carried the polar's NAME, which the file name already
+#: carries, so the column restated the one fact a reader holds before opening
+#: the file while the two facts that vary down the table were nowhere. On an
+#: unsteady run every row then looked identical apart from its position.
+#:
+#: `AZIMUTH` is `NA` on a run with no rotor, and never zero: zero is a real
+#: azimuth a rotor row can hold.
+_SECTION_IDENTITY_COLUMNS: tuple[str, ...] = ("ITERATION", "AZIMUTH")
+
 SECTION_COLUMNS: tuple[str, ...] = (
-    "POINT",
+    *_SECTION_IDENTITY_COLUMNS,
     *CONTEXT_COLUMNS,
     "Offset",
     "Chord",
