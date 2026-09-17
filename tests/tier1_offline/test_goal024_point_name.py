@@ -297,7 +297,10 @@ CASES = (
     ("ALPHA", -2.0, "AL-020"),
     ("BETA", 4.0, "BE+040"),
     ("ADVANCE_RATIO", 0.8, "J+080"),
-    ("RPM", -1860.0, "RPM-1860"),
+    # 0.22.0: a MAGNITUDE, and therefore unsigned. The sign could never be a
+    # minus, and written signed it cost the fifth character: 10000 rev/min
+    # wrote an eight-character field where every other name is seven.
+    ("RPM", 1860.0, "RPM01860"),
     ("roll_rate", 2.5, "P+025"),
     ("pitch_rate", -2.5, "Q-025"),
     ("yaw_rate", 0.0, "R+000"),

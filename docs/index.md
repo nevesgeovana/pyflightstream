@@ -309,7 +309,7 @@ added, never dropped.
   flow it runs at, which quantity gets solved for, the units that ride
   the key names, and what to run on a matrix written before v0.9.0.
 * [Migrating to 0.22.0](migrating-to-0.22.0.md): a row's rotor speed is a
-  magnitude and the reference says which way the rotor turns — what to
+  magnitude and the reference says which way the rotor turns -- what to
   change in your rows and reference blocks, and which recorded points have
   to be re-run rather than renamed, because they turned the wrong way.
 * [Migrating to 0.21.0](migrating-to-0.21.0.md): the one command that

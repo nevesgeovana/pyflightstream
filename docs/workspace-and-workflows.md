@@ -211,7 +211,7 @@ the decisions and the package derives the rest.
     it already declares there. The row says how fast and the block says
     which way, so neither states what the other does and the two cannot
     contradict each other. A row that restates `RPM_SIGN` beside a rotor
-    the reference declares is refused — whether or not it agrees, because
+    the reference declares is refused -- whether or not it agrees, because
     a row that agrees today says nothing when the reference is corrected
     tomorrow.
 
