@@ -1021,7 +1021,15 @@ def test_a_rotor_row_states_every_window_from_its_clock_and_its_blades():
     assert "WINDOW_DEGREES" in plan["time_average"]["window_from"]
     blades = plan["per_blade"]
     assert blades["period_steps"] == 125
-    assert blades["windows"] == [[221, 345], [346, 470], [471, 595], [596, 720]]
+    # ONE WINDOW SINCE 0.23.0 ITEM 8, and this line is what it replaced:
+    #     [[221, 345], [346, 470], [471, 595], [596, 720]]
+    # one window per BLADE, each a different stretch of the history. This test
+    # was right for the design it was written against and the item supersedes
+    # that design: a difference between two blades measured over two stretches
+    # mixes a real azimuthal difference with a difference in WHEN each was
+    # sampled, and nothing in the file said which was which. The blades are
+    # still told apart -- by their azimuths, written at both ends.
+    assert blades["windows"] == [[221, 720]]
     assert plan["phase_locked"]["windows"] == [[596, 720]]
     assert plan["phase_locked"]["period_steps"] == 125
 
@@ -1033,9 +1041,23 @@ def test_a_rotor_row_stating_no_export_window_averages_its_last_revolution():
     plan = _reduction_windows()(rotor_case(WINDOW_DEGREES=None))
     assert plan["time_average"]["windows"] == [[221, 720]]
     assert "revolution" in plan["time_average"]["window_from"]
-    assert plan["phase_locked"]["windows"] == plan["per_blade"]["windows"], (
-        "over one revolution the passages and the blades are the same four windows"
-    )
+    # THE TWO ARE NO LONGER THE SAME SHAPE SINCE 0.23.0 ITEM 8, and this test
+    # asserted that they were: "over one revolution the passages and the blades
+    # are the same four windows". The PASSAGES are still four -- a phase-locked
+    # reduction is one average per passage, which is what it is FOR -- while
+    # `per_blade` is now ONE window covering all four, with the blades told
+    # apart by their azimuths rather than by which stretch they came from.
+    #
+    # The relation that survives is containment: every passage falls inside the
+    # one window, so the two products are still about the same part of the run.
+    (blade_window,) = plan["per_blade"]["windows"]
+    passages = plan["phase_locked"]["windows"]
+    assert len(passages) == 4, passages
+    for first, last in passages:
+        assert blade_window[0] <= first and last <= blade_window[1], (
+            blade_window,
+            passages,
+        )
 
 
 def test_a_rotor_row_with_no_blade_count_skips_the_two_blade_reductions_naming_it():

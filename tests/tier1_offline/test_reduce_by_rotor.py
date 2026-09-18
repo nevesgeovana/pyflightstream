@@ -241,15 +241,35 @@ def test_a_window_shorter_than_one_passage_of_a_rotor_is_skipped_naming_it():
 
 
 def test_the_windows_of_each_rotor_are_that_rotors_last_revolution():
-    """A per-blade window per blade, contiguous, ending at the run's last step."""
+    """ONE window per rotor, its own last complete revolution, ending at the run.
+
+    IT WAS A WINDOW PER BLADE until 0.23.0 item 8, and this test asserted that:
+    `len(windows) == blades`, contiguous. The item supersedes that design --
+    blade 1 came from one stretch of the history and blade 4 from another, so a
+    difference between two blades mixed a real azimuthal difference with a
+    difference in WHEN each was sampled.
+
+    WHAT THE ITEM DOES NOT CHANGE, and what this test still measures, is that
+    the window is PER ROTOR: two rotors turning at two speeds have revolutions
+    of different lengths, so one window for the row would be one rotor's turn
+    imposed on the other. That is the property this file exists for.
+    """
     plan = reduction_windows(transition_case())
     assert plan is not None
+    lengths = {}
     for alias, blades in (("LIFT_L1", 4), ("PUSHER", 3)):
         windows = plan["rotors"][alias]["per_blade"]["windows"]
-        assert len(windows) == blades, (alias, windows)
-        assert windows[-1][1] == 720, (alias, "the last window does not end at the run")
-        for earlier, later in zip(windows, windows[1:], strict=False):
-            assert later[0] == earlier[1] + 1, (alias, "the windows are not contiguous")
+        assert len(windows) == 1, (alias, "item 8: one window, not one per blade", windows)
+        (first, last) = windows[0]
+        assert last == 720, (alias, "the window does not end at the run")
+        period = plan["rotors"][alias]["period_steps"]
+        assert last - first + 1 == blades * period, (alias, windows, blades, period)
+        lengths[alias] = last - first + 1
+
+    # PER ROTOR, which is the whole point of this file: two rotors at two
+    # speeds have revolutions of different lengths, and one window for the row
+    # would impose one rotor's turn on the other.
+    assert lengths["LIFT_L1"] != lengths["PUSHER"], lengths
 
 
 def test_the_phase_locked_passages_of_each_rotor_start_at_the_rows_window():

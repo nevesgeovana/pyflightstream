@@ -101,3 +101,37 @@ def test_a_window_outside_the_history_is_refused():
         per_blade_rows(
             _series(), window=(90, 99), blades=2, steps_per_revolution=8.0, blade1_azimuth_deg=0.0
         )
+
+
+def test_the_plan_hands_out_one_window_and_not_one_per_blade():
+    """ITEM 8 AT THE PLAN, which is where the windows are actually decided.
+
+    The six tests above exercise `per_blade_rows`, and it had NO CALLER: the
+    reduction the stage writes takes its windows from the PLAN, and the plan
+    cut one window PER BLADE --
+
+        blade k: last_step - (blades - k) * period + 1  ..  last_step - (blades - 1 - k) * period
+
+    -- so blade 1 came from one stretch of the history and blade 4 from
+    another. Any difference between two blades then mixes a real azimuthal
+    difference with a difference in WHEN they were sampled, and nothing in the
+    file says which is which.
+
+    One window removes the second cause entirely, which is the whole of her
+    reading: "mesmo pro wheel, faz sentido olhar todas as blades na mesma
+    janela".
+    """
+    from pyflightstream.cases.workflows import per_blade_window
+
+    # Four blades, 40 steps a revolution, a history ending at step 400.
+    window = per_blade_window(last_step=400, blades=4, period_steps=10)
+    assert window == (361, 400), window
+    # ONE window, covering ONE whole revolution: four blades of ten steps.
+    assert window[1] - window[0] + 1 == 4 * 10, window
+
+
+def test_a_run_holding_no_complete_revolution_gets_no_window():
+    """None rather than a short window: a partial turn is not every blade."""
+    from pyflightstream.cases.workflows import per_blade_window
+
+    assert per_blade_window(last_step=30, blades=4, period_steps=10) is None

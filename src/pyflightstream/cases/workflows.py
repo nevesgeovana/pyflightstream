@@ -3244,6 +3244,36 @@ def _passages(window: tuple[int, int], period: int) -> list[tuple[int, int]]:
     return windows
 
 
+def per_blade_window(*, last_step: int, blades: int, period_steps: int) -> tuple[int, int] | None:
+    """Return THE one window every blade of a rotor is averaged over (item 8).
+
+    The last complete revolution of the history: ``blades * period_steps``
+    steps ending at ``last_step``.
+
+    WHAT THIS REPLACES. The plan cut one window PER BLADE -- blade k from
+    ``last_step - (blades - k) * period`` onwards -- so blade 1 came from one
+    stretch of the history and blade 4 from another. Any difference between two
+    blades then mixes a real azimuthal difference with a difference in WHEN
+    they were sampled, and nothing in the file says which is which. One window
+    removes the second cause entirely, which is the owner's own reading:
+    "mesmo pro wheel, faz sentido olhar todas as blades na mesma janela".
+
+    The blades are still told apart -- by their AZIMUTHS, which
+    :func:`pyflightstream.post.unsteady.per_blade_rows` writes at both ends of
+    this window rather than averaging away.
+
+    None where the run holds no complete revolution: a partial turn is not
+    every blade, and a short window would report three blades as four.
+    """
+    if blades <= 0 or period_steps <= 0:
+        return None
+    span = blades * period_steps
+    first = last_step - span + 1
+    if first < 1:
+        return None
+    return (first, last_step)
+
+
 def phase_locked_gate(
     spec: PhaseLockedSpec | None, *, revolutions: float
 ) -> dict[str, object] | None:
@@ -3379,14 +3409,14 @@ def _the_passages_of_one_rotor(
                 f"fewer than one blade passage of {alias}, which is {period} steps"
             )
         }
-    per_blade = [
-        (
-            last_step - (blades - index) * period + 1,
-            last_step - (blades - 1 - index) * period,
-        )
-        for index in range(blades)
-    ]
-    if per_blade[0][0] < 1:
+    # ITEM 8: ONE WINDOW, not one per blade. What this replaces is the list
+    # that stood here -- blade k over `last_step - (blades - k) * period`
+    # onwards -- so blade 1 came from one stretch of the history and blade 4
+    # from another, and any difference between two blades mixed a real
+    # azimuthal difference with a difference in WHEN they were sampled.
+    one_window = per_blade_window(last_step=last_step, blades=blades, period_steps=period)
+    per_blade = [one_window] if one_window is not None else []
+    if one_window is None:
         entry["per_blade"] = {
             "skipped": (
                 f"the run is {last_step} steps and {alias} has {blades} blades of "
@@ -3644,14 +3674,14 @@ def reduction_windows(case: SimCase) -> dict[str, object] | None:
         }
     # One window per blade over the LAST complete revolution, contiguous
     # and ending at the run's last step: :meth:`ReductionPlan.blade_windows`.
-    per_blade = [
-        (
-            last_step - (blades - index) * period + 1,
-            last_step - (blades - 1 - index) * period,
-        )
-        for index in range(blades)
-    ]
-    if per_blade[0][0] < 1:
+    # ITEM 8: ONE WINDOW, not one per blade. What this replaces is the list
+    # that stood here -- blade k over `last_step - (blades - k) * period`
+    # onwards -- so blade 1 came from one stretch of the history and blade 4
+    # from another, and any difference between two blades mixed a real
+    # azimuthal difference with a difference in WHEN they were sampled.
+    one_window = per_blade_window(last_step=last_step, blades=blades, period_steps=period)
+    per_blade = [one_window] if one_window is not None else []
+    if one_window is None:
         plan["per_blade"] = {
             "skipped": (
                 f"the run is {last_step} steps and {blades} blades of {period} steps each "
