@@ -338,3 +338,141 @@ def test_the_post_stage_writes_a_rotor_table_from_a_recorded_workspace(tmp_path)
     )
     first = tables[0].read_text(encoding="utf-8").splitlines()[0]
     assert first.strip() == "PUSHER", first
+
+
+def test_a_rotor_declaring_a_family_sums_that_familys_surfaces():
+    """THE FALSE ZERO, and no fixture in this file could see it.
+
+    A rotor's `members` are FAMILIES -- the field is `families_blades` -- and
+    the package has ONE rule for turning a member token into surface names:
+    `select_group_members`, which takes an exact name, an alias of the row's
+    setup, or a FAMILY, the label without its trailing number, so `Blade`
+    selects `Blade1` to `Blade6`. `group_coefficients` calls it forty lines
+    above `rotor_shaft_loads`, which matched by exact name instead.
+
+    So a rotor declared the way the resolver EXISTS TO SERVE summed nothing:
+    thrust exactly 0.0, written `0.00000` by the funnel -- not `NA` -- and
+    `ETA`/`ETAW` routed to `NA` by the zero power, which makes the row look
+    like the documented static case rather than like a defect.
+
+    Every fixture in this file used exact surface names, so nothing here could
+    fail on it. A V&V round read it instead. This is the case that would have.
+    """
+    from pyflightstream.cases import BladeDatum, RotorBlock
+
+    family = RotorBlock(
+        alias="PUSHER",
+        axis="Z",
+        diameter_m=2.0,
+        families_blades=["Blade"],
+        blade1=BladeDatum(zero="X"),
+    )
+    loads = rotor_shaft_loads(
+        _surfaces(Blade1={"Cz": 0.25}, Blade2={"Cz": 0.25}, Wing={"Cz": 99.0}),
+        rotor=family,
+        reference=_reference(),
+        density_kg_m3=1.225,
+        speed_m_s=40.0,
+    )
+    # The two blades sum to Cz = 0.5, which is 4900 N; the wing is not the rotor.
+    assert loads.thrust_n == pytest.approx(4900.0), loads
+    assert set(loads.families_used) == {"Blade1", "Blade2"}, loads.families_used
+
+
+def test_the_shaft_angle_follows_the_free_stream_and_not_the_body_axis():
+    """THE AIRCRAFT'S PITCH, reintroduced as an omission.
+
+    `shaft_angle_deg` read `acos(shaft[0])` -- the angle to body +X -- under a
+    comment calling +X "this package's convention everywhere". The same module
+    says otherwise: `polar_row` turns stability-axis forces into body axes
+    THROUGH ALPHA, and the wind and stability axes coincide only at BETA 0.
+
+    So on an alpha sweep, which is the ordinary shape of a polar, the angle was
+    off by alpha on EVERY row and `ETAW = ETA * cos(theta)` with it. That is the
+    defect item 19 exists to remove, one level up, and `rotor_coefficients`
+    warns about it in its own docstring.
+
+    THE OLD TEST COULD NOT FAIL ON THIS: it used no alpha at all, asserting 0
+    and 90 degrees for shafts on X and Z with the aircraft level. A V&V round
+    read the arithmetic instead.
+    """
+    level = rotor_shaft_loads(
+        _surfaces(Blade1={"Cx": 0.5}),
+        rotor=_rotor("X"),
+        reference=_reference(),
+        density_kg_m3=1.225,
+        speed_m_s=40.0,
+    )
+    assert level.shaft_angle_deg == pytest.approx(0.0, abs=1e-9), level
+
+    # THE SAME SHAFT, the aircraft at ten degrees: the free stream has moved and
+    # the shaft has not, so the angle between them is ten.
+    pitched = rotor_shaft_loads(
+        _surfaces(Blade1={"Cx": 0.5}),
+        rotor=_rotor("X"),
+        reference=_reference(),
+        density_kg_m3=1.225,
+        speed_m_s=40.0,
+        alpha_deg=10.0,
+    )
+    assert pitched.shaft_angle_deg == pytest.approx(10.0), pitched
+
+    # AND SIDESLIP COUNTS TOO, which the body-axis reading also missed.
+    yawed = rotor_shaft_loads(
+        _surfaces(Blade1={"Cx": 0.5}),
+        rotor=_rotor("X"),
+        reference=_reference(),
+        density_kg_m3=1.225,
+        speed_m_s=40.0,
+        beta_deg=5.0,
+    )
+    assert yawed.shaft_angle_deg == pytest.approx(5.0), yawed
+
+
+def test_a_refused_row_leaves_nothing_behind_in_the_products_folder(tmp_path):
+    """THE SCRATCH FILE SURVIVED EVERY FAILURE, in her products folder.
+
+    The rows were written to `<product>.rows` beside the destination and
+    unlinked after. `write_csv_table` refuses a malformed row, and that refusal
+    left the scratch behind: a HEADED TABLE WITH NO ALIAS LINE, in `polars/`,
+    which is exactly what the write order claims to prevent -- and nothing on
+    any later run cleans it up. A QA round reproduced it by shrinking the
+    column tuple.
+
+    It is a temporary directory now, so a process killed mid-write leaves
+    nothing in the workspace at all. This machine killed three runs for memory
+    in one session; that is not hypothetical.
+    """
+    polars = tmp_path / "polars"
+    polars.mkdir()
+    target = polars / "P0001-M150_PUSHER_rotor.csv"
+
+    from pyflightstream.post import products as module
+
+    # A row narrower than the header is what the funnel refuses.
+    original = module.rotor_coefficient_columns
+    try:
+        module.rotor_coefficient_columns = lambda alias: ("ONLY_ONE",)
+        # NAMED, not blind: a bare `Exception` here would pass on an
+        # AttributeError from the patch itself and prove nothing about the
+        # funnel's refusal, which is what this test is about.
+        with pytest.raises(module.ProductError):
+            module.write_rotor_table(
+                target,
+                rotor=_rotor("Z"),
+                rows=[
+                    {
+                        "surfaces": _surfaces(Blade1={"Cz": 0.5}),
+                        "condition": {"MACH": 0.15},
+                        "rpm": 3000.0,
+                    }
+                ],
+                reference=_reference(),
+                density_kg_m3=1.225,
+                speed_m_s=40.0,
+            )
+    finally:
+        module.rotor_coefficient_columns = original
+
+    left = sorted(p.name for p in polars.iterdir())
+    assert left == [], f"the refusal left files in the products folder: {left}"

@@ -3389,12 +3389,24 @@ def _the_passages_of_one_rotor(
     turned = (span[1] - span[0] + 1) / per_revolution if per_revolution > 0 else 0.0
     gated = phase_locked_gate(getattr(case.pproc, "phase_locked", None), revolutions=turned)
     if gated is not None:
+        # THE PHASE-LOCKED REDUCTION ONLY. This skipped `per_blade` too for one
+        # commit, which takes a second product away for a reason that belongs to
+        # the first: her rule is "nao ter o rev min ... so nao gera o
+        # phase_locked", and `per_blade` needs one complete revolution, not the
+        # minimum a pproc asks of a phase average. The gate is `min_revolutions`
+        # of `[phase_locked]`, and gating a neighbour with it is the same shape
+        # as refusing a polar -- taking a product away from a campaign that
+        # already happened.
         entry["phase_locked"] = gated
-        entry["per_blade"] = gated
-        return entry
 
     passages = _passages(span, period)
-    if passages:
+    if gated is not None:
+        # ALREADY ANSWERED ABOVE. Dropping the `return` that used to stand here
+        # -- so that `per_blade` survives the gate -- left the block below free
+        # to OVERWRITE the skip with the passages it had just been gated out of,
+        # which is how removing one line can undo the whole of a fix.
+        pass
+    elif passages:
         entry["phase_locked"] = {
             "windows": [list(item) for item in passages],
             "period_steps": period,

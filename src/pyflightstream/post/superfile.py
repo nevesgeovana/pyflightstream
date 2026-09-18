@@ -556,7 +556,12 @@ class SuperfileDraft:
     #: because the choice is a pproc's, and one campaign can name several:
     #: resolving it once for the whole run would hand one simulation's
     #: products the format another simulation asked for.
-    fmt: str = "csv"
+    #:
+    #: NONE MEANS UNSET, and that is not decoration. It was `str = "csv"` for
+    #: one commit, which makes the default and a real choice the same value --
+    #: so a pproc that WROTE `superfile_format = "csv"` could not be told from
+    #: one that said nothing, and the campaign-wide argument overrode it.
+    fmt: str | None = None
 
 
 def write_superfiles(
@@ -599,10 +604,21 @@ def write_superfiles(
     for draft in drafts:
         path = target(draft.path)
         rows = [[row.get(column, "") for column in columns] for row in draft.rows]
-        # THE DRAFT'S OWN FORMAT WINS. The choice belongs to the pproc that
-        # produced this file, and one campaign can name several; `fmt` is the
-        # campaign-wide default for a caller that has no per-draft answer.
-        chosen = draft.fmt if draft.fmt != "csv" else fmt
+        # THE DRAFT'S OWN FORMAT WINS, and UNSET is told from `csv`.
+        #
+        # This read `draft.fmt if draft.fmt != "csv" else fmt` for one commit,
+        # which cannot tell a pproc that CHOSE `csv` from one that said nothing
+        # -- so a caller passing `legacy_polar` silently rewrote a simulation's
+        # super file in the format it had explicitly declined, under a comment
+        # claiming the draft's format wins.
+        #
+        # It is the same defect item 7 exists to close, one turn further in: a
+        # default nobody can override became a default nobody can DISTINGUISH.
+        # The rule is written twice in this same release -- "ABSENT IS NOT ZERO"
+        # in `cases.workflows.phase_locked_gate`, and "None and not zero: zero is
+        # a value a rotor row can HAVE" beside the advance ratio -- and I wrote
+        # both of those and then did this.
+        chosen = fmt if draft.fmt is None else draft.fmt
         if chosen not in SUPERFILE_FORMATS:
             raise ProductError(
                 f"the super file format {chosen!r} is not one this package writes; it "

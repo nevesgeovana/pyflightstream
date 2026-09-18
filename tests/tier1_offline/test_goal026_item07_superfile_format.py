@@ -179,3 +179,45 @@ def test_a_pproc_asking_for_the_legacy_format_gets_it_from_the_post_stage(tmp_pa
     assert "," not in header, (
         f"the pproc asked for the legacy format and the stage wrote a CSV header: {header[:120]}"
     )
+
+
+def test_a_pproc_that_chose_csv_is_not_overridden_by_the_campaign(tmp_path):
+    """UNSET AND CHOSEN ARE DIFFERENT, and for one commit they were not.
+
+    The draft's format defaulted to the STRING `"csv"`, so a pproc that wrote
+    `superfile_format = "csv"` was indistinguishable from one that said
+    nothing -- and a caller passing `legacy_polar` silently rewrote that
+    simulation's super file in the format it had explicitly declined, under a
+    comment claiming the draft's format wins.
+
+    It is the same defect item 7 exists to close, one turn further in: a
+    default nobody could OVERRIDE became a default nobody could DISTINGUISH.
+    The architecture lens of the closing round found it.
+    """
+    chose_csv = SuperfileDraft(
+        path=tmp_path / "chose" / "SUPER-0001-M150_PUSHER.csv",
+        rows=({"POLAR": "0001", "ALPHA": "-2.0"},),
+        entry={},
+        fmt="csv",
+    )
+    written, _, _ = write_superfiles(
+        [chose_csv], target=_maker(tmp_path / "chose"), fmt="legacy_polar"
+    )
+    header = written[0].read_text(encoding="utf-8").splitlines()[0]
+    assert "," in header, (
+        "the pproc chose csv and the campaign-wide argument overrode it: " + header[:120]
+    )
+
+
+def test_a_draft_that_states_no_format_takes_the_campaigns(tmp_path):
+    """The other half, so the fix is not satisfied by ignoring `fmt` entirely."""
+    silent = SuperfileDraft(
+        path=tmp_path / "silent" / "SUPER-0001-M150_PUSHER.csv",
+        rows=({"POLAR": "0001", "ALPHA": "-2.0"},),
+        entry={},
+    )
+    written, _, _ = write_superfiles(
+        [silent], target=_maker(tmp_path / "silent"), fmt="legacy_polar"
+    )
+    header = written[0].read_text(encoding="utf-8").splitlines()[0]
+    assert "," not in header, header[:120]

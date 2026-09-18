@@ -152,3 +152,48 @@ def test_a_pproc_that_declares_no_gate_is_not_gated():
     from pyflightstream.cases.workflows import phase_locked_gate
 
     assert phase_locked_gate(None, revolutions=0.1) is None
+
+
+def test_the_gate_takes_the_phase_locked_reduction_and_leaves_per_blade():
+    """IT SKIPPED BOTH for one commit, and that takes a second product away.
+
+    Her rule gates one reduction: "nao ter o rev min nao recusa a polar, so nao
+    gera o phase_locked". `per_blade` needs ONE COMPLETE REVOLUTION, not the
+    minimum a pproc asks of a phase average, and the two numbers have nothing to
+    do with each other. Gating a neighbour with someone else's threshold is the
+    same shape as refusing the polar -- a product taken from a campaign that
+    already happened.
+
+    The QA lens of the closing round reproduced it: with `min_revolutions=99`,
+    `per_blade` came back skipped, carrying the phase-locked reason verbatim.
+
+    THIS GOES THROUGH THE PLAN, which my two earlier cases claimed in their
+    titles and did not do: they called `phase_locked_gate` directly, so neither
+    could see what the plan did with its answer.
+    """
+    import sys
+    from pathlib import Path
+
+    sys.path.insert(0, str(Path(__file__).parent))
+    from test_reduce_by_rotor import transition_case
+
+    from pyflightstream.cases import PhaseLockedSpec, PprocSpec
+    from pyflightstream.cases.workflows import reduction_windows
+
+    case = transition_case()
+    gate = PhaseLockedSpec(min_revolutions=99.0, last_revolutions_avg=1.0)
+    # The fixture carries no pproc, so one is built rather than copied: the
+    # gate has to come from somewhere the plan reads, and that is the artifact.
+    base = case.pproc if case.pproc is not None else PprocSpec()
+    case = case.model_copy(update={"pproc": base.model_copy(update={"phase_locked": gate})})
+
+    plan = reduction_windows(case)
+    assert plan is not None
+    for alias in ("LIFT_L1", "PUSHER"):
+        entry = plan["rotors"][alias]
+        assert "skipped" in entry["phase_locked"], (alias, entry["phase_locked"])
+        assert "windows" in entry["per_blade"], (
+            alias,
+            "per_blade was gated by the phase-locked minimum, which is not its rule",
+            entry["per_blade"],
+        )

@@ -150,16 +150,21 @@ def test_what_the_loads_export_reports_reaches_the_same_columns():
 
 
 def test_a_reynolds_in_millions_is_not_written_into_an_absolute_column():
-    """THE UNIT TRAP, refused rather than aliased.
+    """An alias may not carry a UNIT CONVERSION, so `REmi` stays out.
 
-    `REmi` is the Reynolds number in MILLIONS; the export's "Reynolds Number" is
-    absolute and the fixture reads 4380000. Aliasing `REmi` onto `RE` would
-    write 4.38 into a column where every other row writes 4380000, silently, in
-    a column whose name says nothing about which it holds.
+    THE REASON THIS DOCSTRING FIRST GAVE WAS FALSE, and it is corrected here
+    rather than quietly reworded. It said aliasing `REmi` "would write 4.38 into
+    a column where every other row writes 4380000". THE COLUMN IS MILLIONS --
+    `products.COEFFICIENT_COLUMNS` says so and the sections table writes
+    `_reynolds_millions` -- and a V&V round found that because this sentence was
+    wrong, the rotor table had been wired to write the absolute number, putting
+    4380000 and 4.38 under one column name in two files of one directory.
 
-    So the cell key does NOT reach the column, and a point carrying only the
-    cell key leaves RE as NA -- which is the honest answer and is visibly
-    absent rather than quietly wrong by six orders of magnitude.
+    The behaviour is unchanged and right: every pair in the alias table differs
+    from its column only in SPELLING, and `REmi` differs by a factor of a
+    million. A point carrying only the cell key leaves `RE` as `NA`, which is
+    visibly absent rather than quietly wrong. The conversion happens in
+    `point_condition`, where a reader can see it.
     """
     from pyflightstream.post._tables import (
         CONTEXT_COLUMNS,
@@ -171,3 +176,41 @@ def test_a_reynolds_in_millions_is_not_written_into_an_absolute_column():
     row = dict(zip(CONTEXT_COLUMNS, context_row({"REmi": 4.38}), strict=True))
     assert row["RE"] is None, row
     assert _cell(row["RE"]) == NOT_APPLICABLE
+
+
+def test_the_reynolds_column_means_one_thing_in_every_family():
+    """A COLUMN NAME IS A PROMISE, and this one was kept two ways.
+
+    A V&V round measured `RE` carrying MILLIONS in the polar and the sections
+    table -- `COEFFICIENT_COLUMNS` says so, `_reynolds_millions` writes it --
+    and the ABSOLUTE number in the rotor table, because `point_condition` took
+    the export's own value straight through. Two files of one directory, one
+    column name, six orders of magnitude apart, and a reader joins them on
+    exactly those columns.
+
+    Worse, the comment justifying the alias table's one EXCLUSION asserted the
+    opposite of what the tree did. The exclusion was right and its stated reason
+    was false, which is the shape where a guard argument survives the thing it
+    argued about.
+
+    The fixture's Reynolds is the loads export's own 4380000.
+    """
+    from pyflightstream.post.products import point_condition
+
+    class _Report:
+        angle_of_attack_deg = 0.0
+        sideslip_deg = 0.0
+        freestream_velocity_m_s = 49.036
+        reynolds = 4380000.0
+
+    class _Point:
+        loads = _Report()
+        point: dict[str, float] = {}
+
+    condition = point_condition(_Point(), mach=0.15)
+    assert condition["RE"] == pytest.approx(4.38), condition
+    assert condition["RE"] < 1000.0, (
+        "RE reached the condition as the absolute number; the polar and the "
+        "sections table both write millions, so a rotor table beside them would "
+        f"disagree by six orders of magnitude: {condition['RE']}"
+    )

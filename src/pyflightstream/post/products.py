@@ -76,6 +76,7 @@ from __future__ import annotations
 import csv
 import json
 import math
+import tempfile
 import warnings
 from collections import Counter
 from collections.abc import Callable, Mapping, Sequence
@@ -424,7 +425,19 @@ def point_condition(
             ("ALPHA", report.angle_of_attack_deg),
             ("BETA", report.sideslip_deg),
             ("VINF", report.freestream_velocity_m_s),
-            ("RE", report.reynolds),
+            # IN MILLIONS, which is what the `RE` column already means in the
+            # two families that carried it before this release: the polar's
+            # twenty-four say so at `COEFFICIENT_COLUMNS`, and the sections
+            # table writes `_reynolds_millions`. The export states the absolute
+            # number, so it is converted HERE.
+            #
+            # It went in absolute for one commit, which put 4380000 in a rotor
+            # table and 4.38 in the polar BESIDE IT, under one column name --
+            # six orders of magnitude between two files a reader joins on their
+            # condition columns. Aligning the polar instead would change bytes
+            # she already reads for a second time in one release, and that is
+            # her call rather than mine.
+            ("RE", None if report.reynolds is None else report.reynolds / 1e6),
         )
         for column, value in reported:
             if value is None:
@@ -700,6 +713,9 @@ def rotor_shaft_loads(
     reference: ReferenceValues,
     density_kg_m3: float,
     speed_m_s: float,
+    aliases: Mapping[str, Sequence[str]] | None = None,
+    alpha_deg: float = 0.0,
+    beta_deg: float = 0.0,
 ) -> RotorShaftLoads:
     """Return one rotor's THRUST and TORQUE from the loads the run already left.
 
@@ -729,8 +745,20 @@ def rotor_shaft_loads(
     suffixes every column with the alias.
     """
     shaft = _unit(getattr(rotor, "axis_vector", (0.0, 0.0, 1.0)))
+    # THROUGH THE PACKAGE'S ONE RESOLVER, not an exact-name match. A rotor's
+    # `members` are FAMILIES -- the field is named `families_blades` -- and
+    # `select_group_members` is the single rule for turning a member token into
+    # surface names: an exact name, an alias of the row's setup, or a FAMILY,
+    # the label without its trailing number, so `Blade` selects `Blade1` to
+    # `Blade6`. `group_coefficients` forty lines above calls it.
+    #
+    # Matching by exact name summed NOTHING for a rotor declared the way the
+    # resolver exists to serve, and wrote 0.00000 thrust with no refusal -- a
+    # physically false zero, in the one product item 6 delivers, indistinguishable
+    # from the documented static row. Every fixture used exact surface names, so
+    # no test in the range could fail on it; a V&V round read it instead.
     families = [str(name) for name in getattr(rotor, "members", [])]
-    owned = {name.casefold() for name in families}
+    owned = {name.casefold() for name in select_group_members(families, list(surfaces), aliases)}
 
     force = [0.0, 0.0, 0.0]
     moment = [0.0, 0.0, 0.0]
@@ -761,7 +789,7 @@ def rotor_shaft_loads(
         return RotorShaftLoads(
             thrust_n=math.nan,
             torque_nm=math.nan,
-            shaft_angle_deg=math.degrees(math.acos(max(-1.0, min(1.0, shaft[0])))),
+            shaft_angle_deg=_shaft_angle(shaft, alpha_deg, beta_deg),
             families_used=tuple(used),
         )
     area = float(reference.sref_m2)
@@ -787,9 +815,40 @@ def rotor_shaft_loads(
         # THE FREE STREAM IS ALONG +X, which is this package's convention
         # everywhere else: a shaft on X is aligned with it and a shaft on Z is
         # square to it.
-        shaft_angle_deg=math.degrees(math.acos(max(-1.0, min(1.0, shaft[0])))),
+        shaft_angle_deg=_shaft_angle(shaft, alpha_deg, beta_deg),
         families_used=tuple(used),
     )
+
+
+def _shaft_angle(shaft: Sequence[float], alpha_deg: float, beta_deg: float) -> float:
+    """Return the angle between the shaft and the FREE STREAM, in degrees.
+
+    This read `acos(shaft[0])` for one commit -- the angle to body +X -- under a
+    comment calling +X "this package's convention everywhere". IT IS NOT, and
+    the same module says so: `polar_row` turns stability-axis forces into body
+    axes THROUGH ALPHA, and its docstring records that the wind and stability
+    axes coincide here only because every reference polar carried `BETA 0.0`.
+
+    So body +X is the free stream at alpha = 0 and beta = 0 and nowhere else. On
+    an alpha sweep -- the ordinary shape of a polar -- the angle was off by
+    alpha on every row, and `ETAW = ETA * cos(theta)` with it. That is the
+    aircraft's pitch reintroduced as an omission, which is precisely the defect
+    item 19 was raised to remove and which `rotor_coefficients` warns about in
+    its own docstring.
+
+    The free stream in body axes is `(cos a cos b, sin b, sin a cos b)`, which
+    reduces to +X exactly when both angles are zero -- so a case that states
+    neither gets the same answer it did.
+    """
+    alpha = math.radians(float(alpha_deg))
+    beta = math.radians(float(beta_deg))
+    stream = (
+        math.cos(alpha) * math.cos(beta),
+        math.sin(beta),
+        math.sin(alpha) * math.cos(beta),
+    )
+    projection = sum(a * b for a, b in zip(stream, _unit(shaft), strict=True))
+    return math.degrees(math.acos(max(-1.0, min(1.0, projection))))
 
 
 def _unit(vector: Sequence[float]) -> tuple[float, float, float]:
@@ -1092,12 +1151,20 @@ def write_rotor_table(
         rpm = float(stated) if isinstance(stated, int | float) else 0.0
         if rpm <= 0.0 or diameter <= 0.0:
             continue
+        # THE ROW'S OWN ATTITUDE REACHES THE ANGLE. Left to default, every
+        # point reports the level-flight shaft angle and `ETAW` carries the
+        # aircraft's pitch as an omission -- the defect one level up from the
+        # one item 19 removed.
+        stated = row.get("condition")
+        attitude = stated if isinstance(stated, Mapping) else {}
         loads = rotor_shaft_loads(
             surfaces if isinstance(surfaces := row.get("surfaces"), Mapping) else {},
             rotor=rotor,
             reference=reference,
             density_kg_m3=density_kg_m3,
             speed_m_s=speed_m_s,
+            alpha_deg=float(attitude.get("ALPHA") or 0.0),
+            beta_deg=float(attitude.get("BETA") or 0.0),
         )
         coefficients = rotor_coefficients(
             thrust_n=loads.thrust_n,
@@ -1130,10 +1197,21 @@ def write_rotor_table(
     # reads `NA` like every other product rather than by a rule of its own.
     # Writing the rows here with `csv.writer` would be a fifth family spelling
     # its own absences, which is the drift item 5 repaired.
-    scratch = target.with_suffix(target.suffix + ".rows")
-    write_csv_table(scratch, columns, written)
-    table = scratch.read_text(encoding="utf-8")
-    scratch.unlink()
+    # THE SCRATCH FILE IS REMOVED WHATEVER HAPPENS, and it was not for one
+    # commit. `write_csv_table` refuses a malformed row, and the refusal left
+    # `<product>.rows` behind IN THE POLARS FOLDER -- a headed table with no
+    # alias line, which is exactly what the write order below claims to
+    # prevent, and nothing on any later run cleans it up. A QA round reproduced
+    # it by shrinking the column tuple.
+    #
+    # It goes in a TEMPORARY DIRECTORY rather than beside the product, so a
+    # process killed between the two steps leaves nothing in her workspace at
+    # all. This machine killed three runs for memory today; that is not a
+    # hypothetical.
+    with tempfile.TemporaryDirectory() as scratch_dir:
+        scratch = Path(scratch_dir) / "rows.csv"
+        write_csv_table(scratch, columns, written)
+        table = scratch.read_text(encoding="utf-8")
     # ONE WRITE. `rotor_table_alias_line` ALREADY ENDS IN A NEWLINE -- it is a
     # LINE -- and adding a second put a blank between the alias and the header,
     # which the reader then took for the header and refused the file this

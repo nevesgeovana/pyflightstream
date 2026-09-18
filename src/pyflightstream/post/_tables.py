@@ -86,11 +86,21 @@ CONTEXT_COLUMNS: tuple[str, ...] = (*FLIGHT_CONDITION_COLUMNS, *REFERENCE_LENGTH
 #:
 #: ONLY PAIRS WHOSE UNITS AGREE ARE HERE, and that is the whole discipline of
 #: the table rather than a note on it. `ALTFT` is feet and so is `ALT`; `TASmps`
-#: is m/s and so is `VINF`. What is deliberately ABSENT is `REmi`, the Reynolds
-#: number in MILLIONS, which would write 4.38 into a column where every other
-#: row writes 4380000 -- silently, under a name that says nothing about which of
-#: the two it holds. A cell that is visibly absent beats one that is wrong by
-#: six orders of magnitude, so a point carrying only `REmi` leaves `RE` as `NA`.
+#: is m/s and so is `VINF`.
+#:
+#: `REmi` IS DELIBERATELY ABSENT, and the reason is the opposite of the one this
+#: comment first gave. It said `REmi` "would write 4.38 into a column where
+#: every other row writes 4380000". THE COLUMN IS MILLIONS: the polar's
+#: twenty-four say so at `products.COEFFICIENT_COLUMNS`, and the sections table
+#: writes `_reynolds_millions`. A V&V round measured the tree against this
+#: sentence and found the sentence wrong -- and, because the sentence was wrong,
+#: the rotor table had been wired to write the absolute number, putting 4380000
+#: and 4.38 under one column name in two files of one directory.
+#:
+#: So `REmi` stays out for a plainer reason: an alias may not carry a unit
+#: conversion. The cell keys that ARE here differ from their column only in
+#: spelling. `point_condition` converts the export's absolute Reynolds where it
+#: assembles the condition, which is a place a reader can see it happen.
 CONDITION_KEY_ALIASES: dict[str, str] = {
     # The sweep point and the matrix cell, which spell one quantity two ways.
     "advance_ratio": ADVANCE_RATIO_COLUMN,
