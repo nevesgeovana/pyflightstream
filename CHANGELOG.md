@@ -9,14 +9,6 @@ FlightStream versions.
 
 ### Owed
 
-- **The archive row for v0.23.0 is OWED.** The tag is cut and the version DOI
-  is minted from the GitHub release object, so the row in `CITATION.cff` is
-  written one commit AFTER the tag. Until it lands, this line is what the
-  tree's own guard reads instead: a shipped release that quietly stops being
-  citable is the gap PFS-2024.09 is about, and an absent row with nothing
-  saying so is exactly that gap. Cite v0.23.0 by the concept DOI until the row
-  is here.
-
 - **The Zenodo archive of v0.14.0 DOES NOT EXIST**, re-measured against
   Zenodo's own API on 2026-09-14, when the v0.18.0 archive row was paid: the
   concept record lists NINETEEN archived versions and v0.14.0 is not among
