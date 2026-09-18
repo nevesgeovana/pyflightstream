@@ -4267,7 +4267,7 @@ def _flat_rotor_frames(case: SimCase, index: int | None) -> dict[str, int | None
     return {_the_flat_frame_name(case): index}
 
 
-def _hub_basis(block: object | None) -> tuple[tuple[float, ...], tuple[float, ...]]:
+def _hub_basis(block: RotorBlock | None) -> tuple[tuple[float, ...], tuple[float, ...]]:
     """Return the hub frame's first two axes, square to the rotor's shaft.
 
     A row that turns no declared rotor keeps the geometry's own axes, which is
@@ -9007,7 +9007,16 @@ def _motion_view(case: SimCase, record: Mapping[str, str]) -> SimCase:
         # the row's variables, so filling them here makes the whole rotor
         # path read the reference without one of those readers changing.
         variables[MOVING_BOUNDARIES_VARIABLE] = rotor.alias
-        variables[ROTOR_AXIS_VARIABLE] = rotor.axis
+        # THE FRAME'S OWN THIRD AXIS WHEN THE ROTOR STATES A VECTOR, and the
+        # letter itself when it states a letter. A row variable is a STRING, so
+        # a three-component shaft cannot be written here at all -- which the
+        # type checker is what surfaced, and the answer it forced is better than
+        # a serialisation would have been. `_hub_basis` builds the hub frame with
+        # the shaft as its third axis, so the motion turns about `Z` OF THAT
+        # FRAME and the direction is carried by the frame rather than by this
+        # cell. A rotor stating a LETTER keeps the identity frame and the letter,
+        # so every reference written before 0.23.0 emits what it always did.
+        variables[ROTOR_AXIS_VARIABLE] = rotor.axis if isinstance(rotor.axis, str) else "Z"
         variables[ROTOR_ORIGIN_VARIABLE] = "{},{},{}".format(*rotor.origin)
         variables[BLADES_VARIABLE] = str(rotor.blade_count)
         # THE ROTOR'S HAND IS THE REFERENCE'S, ALWAYS, and it reaches every

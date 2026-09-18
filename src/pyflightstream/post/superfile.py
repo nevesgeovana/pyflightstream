@@ -577,7 +577,11 @@ def write_superfiles(
     Returns the files written, their manifest entries and the columns.
     """
     if fmt not in SUPERFILE_FORMATS:
-        raise ValueError(
+        # ProductError AND NOT A BARE ValueError, which the exceptions catalogue
+        # refuses in an exported public name: `except PyflightstreamError` has to
+        # catch everything this package raises (FR-39). It keeps the ValueError
+        # base, so an existing `except ValueError` catches exactly what it did.
+        raise ProductError(
             f"the super file format {fmt!r} is not one this package writes; it offers "
             f"{', '.join(SUPERFILE_FORMATS)}. Could-not-understand is never a silent "
             "fallback to the default, because a file in a format you did not ask for "

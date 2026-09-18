@@ -47,14 +47,22 @@
 > 85 modules; two measurements of two trees fell on one date, so each is named
 > by its tree rather than by the date alone.):
 >
->     Found 626 errors in 18 files (checked 86 source files)
->     Success: no issues found in 86 source files
+>     Found 639 errors in 18 files (checked 88 source files)
+>     Success: no issues found in 88 source files
 >
 > Every figure below is that re-measurement.
 
 The result, in the sentence every record of it carries:
 
-**mypy recount 2026-09-15: 626 errors in 18 of 86 modules.**
+**mypy recount 2026-09-17: 639 errors in 18 of 88 modules.**
+
+THE EIGHTY-SEVENTH AND EIGHTY-EIGHTH ARRIVED AT 0.23.0 and both arrive
+CLEAN: `post/guides.py`, the generated pproc guides of item 11, and
+`workspace/rename_groups.py`, the migration that moves a workspace's polar
+products onto the named-group form for item 14. Neither appears in the
+per-file breakdown. The count rose from 626 to 639 on sites in modules that
+already carried exemptions, which is worth saying plainly: the two new
+modules did not add one error between them.
 
 The eighty-sixth is `run/rename.py`, added at 0.21.0 for the command that
 moves a workspace to the point names, and it arrives CLEAN: it appears nowhere
@@ -300,11 +308,11 @@ configuration to be in a state the repository does not ship:
 
 The final line of that run is the measurement:
 
-    Found 626 errors in 18 files (checked 86 source files)
+    Found 639 errors in 18 files (checked 88 source files)
 
 The same run with the shipped configuration, overrides and all, is green:
 
-    Success: no issues found in 86 source files
+    Success: no issues found in 88 source files
 
 mypy walks the FILESYSTEM rather than the git index, so the state of the
 working tree is part of the measurement, and this report has already been

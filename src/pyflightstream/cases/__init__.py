@@ -1291,9 +1291,13 @@ class RotorBlock(BaseModel):
         if isinstance(value, str):
             token = value.strip().upper()
             if token not in ("X", "Y", "Z"):
+                # "not an axis" IS THE CONTRACT and the vocabulary test pins it:
+                # it is the phrase a user greps for and the one the reference
+                # documentation carries. Widening what `axis` accepts may add to
+                # the sentence and may not replace it.
                 raise ValueError(
-                    f"axis = {value!r} is neither an axis letter nor a vector; write X, Y "
-                    "or Z, or the three components of the shaft direction"
+                    f"axis = {value!r} is not an axis; write X, Y or Z, or the three "
+                    "components of the shaft direction for a rotor installed at an angle"
                 )
             return token
         if isinstance(value, (list, tuple)):

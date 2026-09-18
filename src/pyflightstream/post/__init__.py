@@ -48,6 +48,10 @@ Sweep assembly is not here either, it is
 :mod:`pyflightstream.results.tables`.
 """
 
+# v0.23.0 item 11: the generated pproc guides. Re-exported here because a
+# module under `post` that its package root cannot reach is a module a
+# reader cannot find, which the results guard refuses by name.
+from pyflightstream.post.guides import PPROC_GUIDE_NAMES, write_pproc_guides
 from pyflightstream.post.products import (
     CustomPolarTable,
     ProductError,
@@ -121,6 +125,8 @@ __all__ = [
     "write_plots_table",
     "write_polar_table",
     "write_recorded_polar",
+    "PPROC_GUIDE_NAMES",
+    "write_pproc_guides",
     "write_reduction",
     "write_sections_table",
     "write_point_series",

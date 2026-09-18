@@ -66,6 +66,6 @@ def test_a_record_with_no_operator_reads_not_applicable_rather_than_being_absent
 
 
 def test_a_record_that_names_its_operator_carries_that_name():
-    agent = operator_agent("geovana")
+    agent = operator_agent("an.operator")
     assert agent["prov:type"] == "prov:Person", agent
-    assert agent["pyfs:submitted_by"] == "geovana", agent
+    assert agent["pyfs:submitted_by"] == "an.operator", agent

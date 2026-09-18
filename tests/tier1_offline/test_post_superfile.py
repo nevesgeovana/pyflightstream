@@ -274,7 +274,7 @@ def _workspace(tmp_path: Path):
             # reason it names its clock above. With None here the union
             # cannot see the field, and nothing would require a superfile to
             # carry a value it is supposed to carry.
-            submitted_by="geovana",
+            submitted_by="an.operator",
             # GOAL-024: a verdict read past an overflowed residual field says so.
             residual_note="the pressure residual of iteration 1535 did not fit its printed field",
             solver_run_time_s=333.6,
