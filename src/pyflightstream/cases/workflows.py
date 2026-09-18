@@ -89,6 +89,7 @@ from pyflightstream.cases import (
     EXPORT_KINDS,
     FORCE_PLOT_PARAMETERS,
     RAW_PHASES,
+    ROTOR_BLADE_ROTATION_AXIS,
     CampaignConfigError,
     CustomFlag,
     RotorBlock,
@@ -6460,15 +6461,27 @@ def _rotor_blade_frames(
             script,
             name=f"{radical}_RMRP{number}",
             origin=rotor.origin,
-            x_axis=(1.0, 0.0, 0.0),
-            y_axis=(0.0, 1.0, 0.0),
+            # ON THE SHAFT SINCE 0.23.0 ITEM 19, and the identity before it.
+            # A rotor installed at pitch and toe got blade frames built on the
+            # GEOMETRY's axes, so turning about that frame's third axis turned
+            # about global Z -- and the comment justifying the letter below had
+            # a premise the code did not meet. `_hub_basis` returns the literal
+            # identity for a rotor stating a LETTER, so every reference written
+            # before this release emits exactly the same two axes.
+            x_axis=_hub_basis(rotor)[0],
+            y_axis=_hub_basis(rotor)[1],
             label=f"blade_axis:{family}",
         )
         script.emit(
             "ROTATE_COORDINATE_SYSTEM",
             frame=index,
             rotation_frame=hub,
-            rotation_axis=rotor.axis,
+            # A LETTER, never the axis itself. `rotation_axis` is an ENUM over
+            # X, Y, Z, 1, 2, 3, and `rotor.axis` takes three components since
+            # item 19 -- so passing it emitted a Python tuple into an enum
+            # field. The direction rides on the hub FRAME, whose third axis is
+            # the shaft, so the letter is right whatever the shaft points at.
+            rotation_axis=ROTOR_BLADE_ROTATION_AXIS,
             angle=rotor.blade1.azimuth_deg + (number - 1) * 360.0 / count,
         )
         created[family] = index

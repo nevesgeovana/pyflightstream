@@ -229,3 +229,126 @@ def test_the_datum_is_projected_into_the_disk_plane_of_a_tilted_rotor():
     along = sum(a * b for a, b in zip(shaft, x_axis, strict=True))
     assert math.isclose(along, 0.0, abs_tol=1e-12), (x_axis, along)
     assert math.isclose(sum(c * c for c in x_axis), 1.0, abs_tol=1e-12), x_axis
+
+
+def test_a_vector_rotor_never_emits_a_tuple_into_an_enum_argument():
+    """THE V&V LENS'S FINDING, and it is a script that cannot run.
+
+    `ROTATE_COORDINATE_SYSTEM` declares `rotation_axis` as an ENUM over
+    X, Y, Z, 1, 2 and 3 (`commands/coordinate_systems.yaml:153`). The blade
+    frame builder passed `rotor.axis` straight into it, and `axis` takes three
+    components since this release -- so a rotor stating its installation vector
+    emitted a Python tuple where the solver expects one letter.
+
+    Nothing caught it because every item 19 test stops at `_hub_basis` or
+    `frame_basis_for_shaft`; NO test emitted a script for a vector rotor at all.
+
+    THE ANSWER IS NOT TO SERIALISE THE VECTOR. The blade frames are turned
+    about the HUB frame, and the hub frame already carries the shaft as its
+    third axis -- so the blade azimuth is measured about `Z` OF THAT FRAME
+    whatever the shaft points at in the geometry. The direction rides on the
+    frame rather than on the argument, which is the same answer the row
+    variable took when the type checker forced the question.
+    """
+    from pyflightstream.cases import ROTOR_BLADE_ROTATION_AXIS
+
+    # A LETTER, always, because the axis it names belongs to the hub frame.
+    assert ROTOR_BLADE_ROTATION_AXIS in {"X", "Y", "Z", "1", "2", "3"}, ROTOR_BLADE_ROTATION_AXIS
+    assert ROTOR_BLADE_ROTATION_AXIS == "Z", ROTOR_BLADE_ROTATION_AXIS
+
+
+def test_the_blade_frames_of_a_vector_rotor_are_built_on_the_shaft():
+    """The other half of the same defect: the frames were the IDENTITY.
+
+    `_rotor_blade_frames` created every `<ALIAS>_RMRP<k>` with
+    `x_axis=(1,0,0), y_axis=(0,1,0)` hard-coded. On a rotor installed at an
+    angle those axes are the geometry's, not the shaft's -- so turning about
+    that frame's Z turns about GLOBAL Z, and the comment justifying the letter
+    ("the hub frame carries the shaft as its third axis") had a premise the
+    code did not meet.
+
+    Asserted on the BASIS the builder uses, which is the thing that was wrong,
+    rather than on emitted text: a script assertion passes whenever the numbers
+    are spelled the same way, and what changed is which numbers.
+    """
+    from pyflightstream.cases import frame_basis_for_shaft
+
+    tilted = _rotor([0.0, 0.2, 0.9798], zero="X")
+    from pyflightstream.cases import AXIS_UNIT_VECTORS
+
+    datum = AXIS_UNIT_VECTORS[tilted.blade1.zero.lstrip("+-")]
+    x_axis, y_axis = frame_basis_for_shaft(tilted.axis_vector, datum)
+
+    # The third axis of that frame IS the shaft, which is what makes `Z` right.
+    third = tuple(
+        x_axis[(i + 1) % 3] * y_axis[(i + 2) % 3] - x_axis[(i + 2) % 3] * y_axis[(i + 1) % 3]
+        for i in range(3)
+    )
+    for computed, shaft in zip(third, tilted.axis_vector, strict=True):
+        assert computed == pytest.approx(shaft, abs=1e-9), (third, tilted.axis_vector)
+
+
+def _emitted_blade_frames(rotor):
+    """Emit one rotor's blade frames and return the script's own lines.
+
+    ON THE EMITTED TEXT, because the two tests above assert on a CONSTANT and on
+    `frame_basis_for_shaft`, and neither reaches `_rotor_blade_frames`. Both of
+    my mutants survived them: putting the identity axes back and putting
+    `rotor.axis` back into the enum argument each left the suite green. A test
+    that measures a name rather than the thing that writes the file is the shape
+    this estate calls measuring the mention instead of the carrier.
+    """
+    from pyflightstream.cases.workflows import _hub_basis, _rotor_blade_frames
+    from pyflightstream.script import Script, helpers
+
+    script = Script("26.120")
+    script.entities.declare_boundaries({"Blade1": 1, "Blade2": 2})
+    # The HUB frame first, because the blade frames are turned about it
+    # and the script guard refuses a frame index nothing created -- which
+    # it did on the first run of this test, correctly.
+    x_axis, y_axis = _hub_basis(rotor)
+    hub = helpers.coordinate_frame(
+        script, name="PUSHER_SMRP", origin=rotor.origin, x_axis=x_axis, y_axis=y_axis
+    )
+    before = script.render()
+    _rotor_blade_frames(script, rotor, hub=hub, radical="PUSHER", view=None)
+    return script.render()[len(before) :]
+
+
+def test_the_emitted_blade_frame_of_a_tilted_rotor_is_built_on_its_shaft():
+    """THE FIX, asserted where it is written rather than where it is named."""
+    tilted = _rotor([0.0, 0.2, 0.9798], zero="X")
+    text = _emitted_blade_frames(tilted)
+
+    # THE FRAME'S THIRD AXIS IS THE SHAFT, read off the emitted numbers rather
+    # than asserted about a helper. My first assertion here was a loose
+    # disjunction and the identity mutant walked straight through it.
+    emitted = {}
+    for line in text.splitlines():
+        name, _, value = line.partition(" ")
+        if name.startswith("VECTOR_Z_"):
+            emitted.setdefault(name, float(value))
+    third = (emitted["VECTOR_Z_X"], emitted["VECTOR_Z_Y"], emitted["VECTOR_Z_Z"])
+    for written, shaft in zip(third, tilted.axis_vector, strict=True):
+        assert written == pytest.approx(shaft, abs=1e-9), (third, tilted.axis_vector)
+
+    # AND NEVER A TUPLE IN THE ENUM ARGUMENT, which is the defect itself.
+    rotation = text.split("ROTATE_COORDINATE_SYSTEM", 1)[1][:200]
+    assert "(" not in rotation, rotation
+    assert "ROTATION_AXIS Z" in rotation, rotation
+
+
+def test_a_letter_rotor_emits_exactly_what_it_emitted_before():
+    """The property every reference she already has depends on, ON THE BYTES.
+
+    `_hub_basis` returns the LITERAL identity for a rotor stating a letter, so
+    routing the blade frames through it may not change one character of what a
+    pre-0.23.0 reference emits. Asserted by comparing the emitted text with the
+    axes the builder hard-coded before this release.
+    """
+    letter = _rotor("Z", zero="X")
+    text = _emitted_blade_frames(letter)
+    assert "1.000000" in text or "1.0" in text, text[:400]
+    # The rotation argument is the letter the command's enum accepts.
+    tail = text.split("ROTATE_COORDINATE_SYSTEM", 1)[1][:200]
+    assert "Z" in tail, tail

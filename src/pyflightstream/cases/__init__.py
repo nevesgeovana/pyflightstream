@@ -59,8 +59,10 @@ from pyflightstream.script.toggles import resolve_toggle
 from pyflightstream.versions import resolve
 
 __all__ = [
+    "AXIS_UNIT_VECTORS",
     "AliasCycleError",
     "BladeDatum",
+    "ROTOR_BLADE_ROTATION_AXIS",
     "RotorBlock",
     "ROTATION_OFFSET_KEY",
     "ROTATION_SWEEP_KEY",
@@ -1160,6 +1162,23 @@ AXIS_UNIT_VECTORS: dict[str, tuple[float, float, float]] = {
 }
 
 _AXIS_TOKEN = re.compile(r"^[+-]?[XYZ]$")
+
+#: The axis a blade's azimuth is turned about, as the emitted command names it.
+#:
+#: IT IS A LETTER AND ALWAYS WILL BE, because the axis it names belongs to the
+#: HUB FRAME rather than to the geometry. `ROTATE_COORDINATE_SYSTEM` declares
+#: `rotation_axis` as an enum over X, Y, Z, 1, 2 and 3, and the blade frames are
+#: turned about the hub -- whose third axis IS the shaft, by construction of
+#: :func:`frame_basis_for_shaft`. So the shaft's direction rides on the FRAME
+#: and never on this argument, and a rotor installed at any pitch and toe emits
+#: the same letter as one installed square.
+#:
+#: The blade frame builder passed `rotor.axis` straight into that argument until
+#: 0.23.0's release round, and `axis` had just been widened to take three
+#: components -- so a rotor stating its installation vector emitted a PYTHON
+#: TUPLE where the solver expects one letter. Nothing caught it because every
+#: test of the item stopped at the basis and none emitted a script.
+ROTOR_BLADE_ROTATION_AXIS = "Z"
 
 
 class BladeDatum(BaseModel):
