@@ -5874,3 +5874,89 @@ def export_surface_mesh(
             f"check the simulation file and the log excerpt: {log_excerpt!r}"
         )
     return mesh_path
+
+
+def assess_unsteady_from_plots(
+    series: object,
+    *,
+    settle_tolerance: float | None = None,
+    window: tuple[int, int] | None = None,
+) -> str:
+    """Judge an unsteady point from its PLOTS history rather than its last iteration.
+
+    v0.23.0 item 17. The owner's reading of 2026-09-17: the native coefficient
+    export "e' so para ultima iteracao", which on an oscillating rotor is ONE
+    INSTANT of a cycle, so a coefficient read from it is not the point's answer
+    and reads as though it were. The plots history carries every step and is
+    strictly more than that file ever told the assessor.
+
+    THE NATIVE FILE STILL SHIPS, for the one purpose she kept it for: "pra
+    saber que nao explodiu a simulacao". Removing it would have left an
+    unsteady point with no loads table for the standard judgment to parse, and
+    a point judged UNASSESSED is worse than the ambiguity being removed.
+
+    THE CONVERGENCE THRESHOLD IS NOT INVENTED HERE. The goal reserves every
+    tolerance and band to the owner, so without ``settle_tolerance`` this
+    judges only the half that needs no number -- whether the history is finite,
+    which is exactly "it did not blow up" -- and otherwise returns the status
+    the package already returns for an unsteady run, ``COMPLETED_MAX_ITER``.
+    An unsteady time loop always runs to its prescribed end, so that is the
+    honest answer and not a fallback. Returning CONVERGED on a default would be
+    the package deciding her physics on a number nobody set.
+
+    Parameters
+    ----------
+    series : pyflightstream.post.unsteady.TimestepSeries
+        The plots history, as `post.unsteady` reads it back. Annotated as
+        ``object`` rather than imported: `post` imports `run`, so naming the
+        type here at runtime would invert the dependency direction, which is
+        a design error rather than a lint finding.
+    settle_tolerance : float, optional
+        The fractional change across the last two halves of the history below
+        which it counts as settled. HERS to set.
+
+    Raises
+    ------
+    ValueError
+        If the history holds no step. Could-not-measure is never a pass.
+    """
+    import numpy as _np
+
+    columns = [values for values in series.fields.values()]
+    if not columns or not len(series.steps):
+        raise ValueError(
+            "the plots history holds no step, so nothing about this run can be judged "
+            "from it; that is a missing measurement rather than a passing one"
+        )
+    stacked = _np.concatenate(
+        [_np.asarray(values, dtype=float).reshape(len(series.steps), -1) for values in columns],
+        axis=1,
+    )
+    if not _np.isfinite(stacked).all():
+        return "FAILED_DIVERGED"
+    if settle_tolerance is None:
+        return "COMPLETED_MAX_ITER"
+    # THE WINDOW COMES FROM THE CALLER, which is `post.unsteady.converged_window`
+    # (item 16), and this function does not derive one. Judging settledness over
+    # the WHOLE history compares the transient against the answer and calls a
+    # perfectly converged run unsettled -- which is what the first writing of
+    # this did, and the fixture that caught it was a history whose first step
+    # was five times its last.
+    if window is not None:
+        first, last = int(window[0]), int(window[1])
+        steps = _np.asarray(series.steps, dtype=int)
+        inside = (steps >= first) & (steps <= last)
+        if not inside.any():
+            raise ValueError(
+                f"the window {window} names no step this history holds, which runs from "
+                f"{int(steps[0])} to {int(steps[-1])}"
+            )
+        stacked = stacked[inside]
+    half = max(1, len(stacked) // 2)
+    early = _np.mean(stacked[-2 * half : -half], axis=0) if len(stacked) >= 2 * half else None
+    late = _np.mean(stacked[-half:], axis=0)
+    if early is None:
+        return "COMPLETED_MAX_ITER"
+    scale = _np.maximum(_np.abs(late), 1e-12)
+    drift = _np.max(_np.abs(late - early) / scale)
+    return "CONVERGED" if drift <= settle_tolerance else "COMPLETED_MAX_ITER"
