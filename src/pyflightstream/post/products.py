@@ -338,6 +338,84 @@ class GroupCoefficients:
     families_used: tuple[str, ...]
 
 
+def _advance_ratio_of(point: PolarPoint) -> float | None:
+    """Return the point's advance ratio, or None where the run recorded none.
+
+    None and not zero: zero is a value a rotor row can HAVE, and "not recorded"
+    is not it. The funnel writes `NA` for the None, which says the column does
+    not apply to this row rather than that the rotor was stopped.
+    """
+    stated = (point.point or {}).get("advance_ratio")
+    return float(stated) if isinstance(stated, int | float) else None
+
+
+def point_condition(
+    point: PolarPoint,
+    *,
+    mach: float,
+    cell: Mapping[str, object] | None = None,
+) -> dict[str, object]:
+    """Return the flight condition ONE product row states.
+
+    Item 5: every file the post stage writes says what it is a file OF, which
+    means the condition has to reach the row rather than only the header. The
+    columns existed from the first commit of this release and the values did
+    not; a release round measured `VINF` and `ALT` reading `NA` in every row of
+    every polar and super file.
+
+    THE REPORTED CONDITION WINS OVER THE REQUESTED ONE. Two sources exist per
+    point and they are not equivalent: ``cell`` is the matrix row, what was
+    ASKED for, and ``point.loads`` is the export header, what the solver SAYS it
+    ran at. A file that says what it is a file of must carry the second, because
+    the two differ exactly when something went wrong -- which is the case a
+    reader most needs to see, and the one a product silently stating the request
+    would hide.
+
+    The winner is chosen HERE and not by dictionary insertion order: each
+    reported value replaces every other spelling of its column before it is
+    written, so a swept ``alpha`` cannot outrank the ``ALPHA`` the run reports
+    because it happened to be inserted first.
+
+    Parameters
+    ----------
+    point : PolarPoint
+        The point, carrying its loads report and the sweep point it was asked
+        for.
+    mach : float
+        The row's Mach number, which no export header states.
+    cell : mapping, optional
+        The matrix row's flight condition, for the keys no export reports --
+        the altitude among them.
+
+    Returns
+    -------
+    dict
+        Keys in the spellings :func:`pyflightstream.post._tables.context_row`
+        resolves, which is the column's own name or one of its recorded aliases.
+    """
+    condition: dict[str, object] = {}
+    for source in (cell or {}, point.point or {}):
+        condition.update(source)
+
+    report = point.loads
+    if report is not None:
+        reported: tuple[tuple[str, object | None], ...] = (
+            ("ALPHA", report.angle_of_attack_deg),
+            ("BETA", report.sideslip_deg),
+            ("VINF", report.freestream_velocity_m_s),
+            ("RE", report.reynolds),
+        )
+        for column, value in reported:
+            if value is None:
+                continue
+            for spelling in [key for key in condition if str(key).casefold() == column.casefold()]:
+                del condition[spelling]
+            condition[column] = value
+
+    condition.setdefault("MACH", mach)
+    return condition
+
+
 @dataclass(frozen=True)
 class PolarPoint:
     """One point of a polar: its loads report and where it came from.
@@ -1866,6 +1944,12 @@ def write_recorded_polar(
                 # not, which is the honest answer for a steady distribution
                 # and for a run that recorded no clock.
                 mach=mach,
+                # ITEM 5. This path rebuilds from a bare folder of recorded
+                # loads files and reaches no run record, so the advance ratio
+                # is not available here and is NOT invented: the reference is
+                # what this caller has, and it is what a coefficient most needs
+                # beside it.
+                reference=ref,
             )
             if target is not None:
                 written.append(target)
@@ -2157,6 +2241,12 @@ def _sim_products(
             "reference artifact"
         )
     reference = ReferenceValues.from_mapping(reference_block)
+    # BOUND BEFORE THE `products.polars` GATE, deliberately. Every product
+    # family states the condition since item 5, so a pproc writing no polar
+    # still needs this for its probes and its reduction; binding it inside the
+    # polar branch is a NameError on `polars = false`, which is the shape the
+    # advance-ratio list beside it already had.
+    cell = first.flight_condition if isinstance(first.flight_condition, Mapping) else None
     run_ids = [rid for stem in sources for rid in sources[stem]]
     written_names: dict[str, dict[str, object]] = {}
     #: One entry per group: where its superfile goes and the polar rows it
@@ -2208,7 +2298,12 @@ def _sim_products(
         # a one-value sweep still names it `+sweep`. With no matrix row in reach it
         # follows the table.
         super_name = str(recorded[0].sweep_name) if matrix_row is not None or swept else table_name
-        ratios = [(point.point or {}).get("advance_ratio") for point in points]
+        # ITEM 5 WIRED HERE. This read ONE key of the condition by hand --
+        # `advance_ratio` -- and the other columns the release added therefore
+        # reached the file as `NA` in every row. `point_condition` assembles the
+        # whole condition, reported over requested, and `context_row` resolves
+        # each recorded spelling onto its column.
+        conditions = [point_condition(point, mach=mach, cell=cell) for point in points]
         for group, families in pproc.groups.items():
             rows = _polar_rows(
                 points, list(families), mach=mach, reference=reference, aliases=first.aliases
@@ -2225,7 +2320,7 @@ def _sim_products(
                 group=str(group),
                 reference=reference,
                 rows=rows,
-                advance_ratios=ratios,
+                conditions=conditions,
             )
             write_csv_table(target, POLAR_COLUMNS, full)
             if drafts is not None:
@@ -2277,6 +2372,13 @@ def _sim_products(
                 # not, which is the honest answer for a steady distribution
                 # and for a run that recorded no clock.
                 mach=mach,
+                # ITEM 5 WIRED HERE. A section is a distribution along a chord,
+                # and a number beside no reference length is a number nobody can
+                # check. The sections table carried no length AT ALL before this
+                # release, and carried the COLUMN and not the value until this
+                # line.
+                reference=reference,
+                advance_ratio=_advance_ratio_of(point),
             )
             if done is not None:
                 written.append(done)
@@ -2306,6 +2408,11 @@ def _sim_products(
                     target,
                     probes_path.read_text(encoding="utf-8", errors="replace"),
                     positions=probe_positions,
+                    # ITEM 5. A probe sample with no condition is a table about
+                    # nowhere, and this family carried none of the twenty-four
+                    # coefficients, so it states the WHOLE condition.
+                    condition=point_condition(point, mach=mach, cell=cell),
+                    reference=reference,
                 )
             except ProductError as error:
                 skipped[relative] = str(error)
@@ -2347,6 +2454,11 @@ def _sim_products(
                         done,
                         positions=probe_positions,
                         parameters=_probe_parameters(pproc),
+                        # ITEM 5. A probe sample with no condition is a table
+                        # about nowhere: the numbers in it are a flow field, and
+                        # which flow is exactly what the condition states.
+                        condition=point_condition(point, mach=mach, cell=cell),
+                        reference=reference,
                     )
                     if field is not None:
                         written.append(field)
@@ -2362,6 +2474,11 @@ def _sim_products(
                     written=written,
                     written_names=written_names,
                     skipped=skipped,
+                    # ITEM 5, threaded from HERE because this is where the point
+                    # still is: `_point_reductions` takes a plots table and a
+                    # plan and reaches no record at all.
+                    condition=point_condition(point, mach=mach, cell=cell),
+                    reference=reference,
                 )
     if drafts is not None and super_rows:
         # FR-89, and it happens HERE, after the plots tables of every point
@@ -2551,6 +2668,8 @@ def _point_reductions(
     written: list[Path],
     written_names: dict[str, dict[str, object]],
     skipped: dict[str, str],
+    condition: Mapping[str, object] | None = None,
+    reference: ReferenceValues | None = None,
 ) -> None:
     """Write every applicable reduction of one plots table beside it (PFS-2015.04).
 
@@ -2631,7 +2750,19 @@ def _point_reductions(
         destination = target(out / relative)
         try:
             done = write_reduction_table(
-                destination, series, columns, reduction=name, windows=windows
+                destination,
+                series,
+                columns,
+                reduction=name,
+                windows=windows,
+                # ITEM 5. A reduction is an AVERAGE over a window, and an
+                # average of coefficients states nothing without the condition
+                # they were taken at and the lengths they were normalised by.
+                # Both are threaded in from the caller: this function reaches no
+                # record, and inventing them here is how two products of one
+                # point come to disagree about what point it was.
+                condition=condition,
+                reference=reference,
             )
         except ProductError as error:
             skipped[relative] = str(error)

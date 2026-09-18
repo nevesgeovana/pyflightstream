@@ -67,6 +67,42 @@ REFERENCE_LENGTH_COLUMNS: tuple[str, ...] = ("SREF", "CREF", "BREF")
 CONTEXT_COLUMNS: tuple[str, ...] = (*FLIGHT_CONDITION_COLUMNS, *REFERENCE_LENGTH_COLUMNS)
 
 
+#: The spellings a RUN recorded, mapped to the product column they mean.
+#:
+#: `context_row` folds case and nothing else, so a recorded key reaches a column
+#: only when the two are the same word -- and none of the three columns item 5
+#: most needs is spelled the way the run recorded it. The cell keys carry their
+#: UNIT in the name (`TASmps`, `ALTFT`) and the column does not; the sweep point
+#: and the matrix cell spell the advance ratio two ways; and the loads export
+#: reports under the labels its own header uses. Without this table the products
+#: carry the columns and never the values, which is what a release round
+#: measured on real files: `VINF` and `ALT` read `NA` in every row of every
+#: polar and super file.
+#:
+#: ONLY PAIRS WHOSE UNITS AGREE ARE HERE, and that is the whole discipline of
+#: the table rather than a note on it. `ALTFT` is feet and so is `ALT`; `TASmps`
+#: is m/s and so is `VINF`. What is deliberately ABSENT is `REmi`, the Reynolds
+#: number in MILLIONS, which would write 4.38 into a column where every other
+#: row writes 4380000 -- silently, under a name that says nothing about which of
+#: the two it holds. A cell that is visibly absent beats one that is wrong by
+#: six orders of magnitude, so a point carrying only `REmi` leaves `RE` as `NA`.
+CONDITION_KEY_ALIASES: dict[str, str] = {
+    # The sweep point and the matrix cell, which spell one quantity two ways.
+    "advance_ratio": ADVANCE_RATIO_COLUMN,
+    "tasmps": "VINF",
+    "altft": "ALT",
+    # What the loads export REPORTS, which is what the solver says it ran at
+    # rather than what the matrix asked for. A product should carry this one:
+    # the two differ exactly when something went wrong, which is the case a
+    # reader most needs to see.
+    "angle_of_attack_deg": "ALPHA",
+    "sideslip_deg": "BETA",
+    "freestream_velocity_m_s": "VINF",
+    "altitude_ft": "ALT",
+    "reynolds": "RE",
+}
+
+
 def context_row(
     condition: Mapping[str, object] | None = None,
     reference: Mapping[str, object] | None = None,
@@ -95,7 +131,15 @@ def context_row(
     folded: dict[str, object] = {}
     for source in (condition or {}, reference or {}):
         for key, value in source.items():
-            folded[str(key).casefold()] = value
+            name = str(key).casefold()
+            folded[name] = value
+            alias = CONDITION_KEY_ALIASES.get(name)
+            if alias is not None:
+                # `setdefault` and not assignment: a mapping already carrying
+                # the COLUMN's own spelling wins over an alias, so a caller that
+                # has done the translation itself is never overwritten by one
+                # that happens to carry both spellings.
+                folded.setdefault(alias.casefold(), value)
     return tuple(folded.get(name.casefold()) for name in columns)
 
 

@@ -29,6 +29,7 @@ import inspect
 from pathlib import Path
 
 from pyflightstream.post import products
+from pyflightstream.post.products import NOT_APPLICABLE
 
 
 def test_the_post_stage_takes_no_executor_and_no_solver(tmp_path):
@@ -83,9 +84,27 @@ def test_the_post_stage_rebuilds_from_a_recorded_workspace_with_no_solver(tmp_pa
     # their count: a count passes while a column is missing.
     polars = [p for p in written if "polars" in Path(p).parts]
     assert polars, sorted(names)
-    header = Path(polars[0]).read_text(encoding="utf-8").splitlines()[0].split(",")
+    lines = Path(polars[0]).read_text(encoding="utf-8").splitlines()
+    header = lines[0].split(",")
     for column in ("VINF", "ALT", "SREF", "CREF", "BREF"):
         assert column in header, (column, header)
+
+    # AND THE VALUES, which is the assertion this file was missing. A header is
+    # guaranteed by the column tuple whatever the writers pass, so checking it
+    # alone passes over a product whose new columns all read `NA` -- which is
+    # exactly what a release round measured on real files before item 5 was
+    # wired. The columns existed from the first commit and the values did not.
+    body = [line.split(",") for line in lines[1:] if line.strip()]
+    assert body, "the polar has a header and no rows"
+    for column in ("VINF", "SREF", "CREF", "BREF"):
+        index = header.index(column)
+        stated = {row[index] for row in body}
+        assert stated != {NOT_APPLICABLE}, (
+            f"every row's {column} reads {NOT_APPLICABLE}: the column is there and the "
+            f"value never is, which is the defect item 5 exists to close"
+        )
+        for cell in stated:
+            float(cell)  # a condition that reached the row is a NUMBER
 
     # AND NO BLANK CELL ANYWHERE, which is item 4 measured over a real product
     # rather than over a constructed row.
