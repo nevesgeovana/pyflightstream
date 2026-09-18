@@ -527,6 +527,36 @@ _NUMBERED_GROUP = re.compile(r"^g\d+$", re.IGNORECASE)
 ROTOR_COEFFICIENT_COLUMNS: tuple[str, ...] = ("J", "CT", "CQ", "CP", "ETA", "ETAW")
 
 
+def rotor_table_alias_line(alias: str) -> str:
+    """Return the first line of a rotor table: the rotor's alias, alone.
+
+    v0.23.0 item 18, the owner's rule of 2026-09-17: the alias is written on the
+    first line "para saber qual grupo e' aquele quando tiver sido carregado por
+    script".
+
+    WHY THE FILE NAME IS NOT ENOUGH, which is the whole reason this exists. A
+    script that has already LOADED the file no longer has its name: it holds an
+    array of numbers. The alias has to be inside the bytes.
+
+    ALONE ON THE LINE, with no label and no separator. A line carrying a label
+    and the alias makes every reader strip a prefix, and a prefix is the kind
+    of thing that gets spelled two ways within a year -- which is the defect
+    this release spent a round removing from the `NA` token.
+    """
+    token = str(alias).strip()
+    if not token:
+        raise ProductError(
+            "a rotor table's first line is its rotor's alias, and none was given; a "
+            "first line that names nobody is worse than no first line"
+        )
+    if "\n" in token or "\r" in token:
+        raise ProductError(
+            f"the rotor alias {alias!r} spans more than one line, and the first LINE is "
+            "the unit a reader takes; an alias carrying a newline breaks the file's shape"
+        )
+    return token + "\n"
+
+
 def rotor_coefficient_columns(alias: str) -> tuple[str, ...]:
     """Return the rotor coefficient columns of ONE rotor, suffixed with its alias.
 
