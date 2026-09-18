@@ -227,6 +227,14 @@ See `docs/migrating-to-0.23.0.md` before upgrading a workspace you care about.
     `min_revolutions`. Not reaching it does NOT refuse the polar.
   - An equation points at an ALIAS and never at a mesh family, so every derived
     coefficient carries `_<alias>`.
+  - **An equation MAY NAME ANOTHER EQUATION and the package works out the
+    order**, because you write them in a TOML table and a table has no order a
+    reader may rely on. `PprocSpec.equation_order()` returns it; a chain that
+    loops is refused NAMING the equations in the loop, since "circular" alone
+    sends you back to the file to find it by eye. A symbol the table does not
+    define is a variable the products already carry, so a base is never
+    declared -- which is why the guide's own first example, `CT * 2`, needs
+    nothing around it.
 - **Generated pproc guides**: `write_pproc_guides` writes `VARIABLES.md` and
   `WRITING-EQUATIONS.md` into the pproc input folder, read from the models they
   document so they cannot go stale.

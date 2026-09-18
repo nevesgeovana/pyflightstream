@@ -50,7 +50,7 @@ from pyflightstream._deprecations import (
     refusal_text,
 )
 from pyflightstream._digest import file_sha256, text_sha256
-from pyflightstream._errors import PyflightstreamError
+from pyflightstream._errors import InputArtifactError, PyflightstreamError
 from pyflightstream._fsm import names_of
 from pyflightstream._retired_names import PROBE_SCALE_PROPELLER_RADIUS, retired_frame
 from pyflightstream.commands import Phase
@@ -1546,6 +1546,76 @@ class PprocSpec(BaseModel):
     #: those families, after OPEN. Empty, the default, emits nothing; a
     #: row's BASE_REGIONS key overrides the artifact.
     base_regions: list[str] = Field(default_factory=list)
+
+    def equation_order(self) -> list[str]:
+        """Return the order the equations must be evaluated in.
+
+        Item 10's chaining. The docstring below is the whole of what "may
+        chain" means, because the phrase on its own is satisfied by silence.
+
+        An equation may name another equation, and the user writes them in a
+        TOML table, which has no order anyone may rely on. So chaining is a
+        feature only if the package can say WHICH ORDER, and an order exists
+        only if a cycle is refused, because a cycle has none.
+
+        A symbol the table does not define is a BASE VARIABLE and not a missing
+        dependency. That direction matters more than it looks: the generated
+        guide's own worked example is ``expression = "CT * 2"``, and treating
+        every unknown symbol as unresolved would refuse the first equation any
+        user writes.
+
+        The expression is TOKENISED rather than searched, so ``CT`` inside
+        ``CTX_WIND`` is not read as a reference to ``CT``. A substring reader
+        invents dependencies and then invents cycles out of pairs that have
+        none.
+
+        Returns
+        -------
+        list of str
+            Every equation name exactly once, each after every equation its
+            expression names. Ties keep declaration order, so the answer is
+            stable across runs and a diff of two products is about the numbers.
+
+        Raises
+        ------
+        InputArtifactError
+            When the equations are circular, naming the members of the cycle.
+            "Circular" alone would send the user back to a TOML table to find
+            the loop by eye.
+        """
+        symbol = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+        names = list(self.equations)
+        # A self-reference is kept rather than filtered out, so `A = A + 1`
+        # can never be placed and reads as the cycle of one that it is. A
+        # filter here would make it order cleanly and compute nothing.
+        depends = {
+            name: [
+                token
+                for token in dict.fromkeys(symbol.findall(spec.expression))
+                if token in self.equations
+            ]
+            for name, spec in self.equations.items()
+        }
+
+        order: list[str] = []
+        placed: set[str] = set()
+        while len(order) < len(names):
+            ready = [
+                name
+                for name in names
+                if name not in placed and all(dep in placed for dep in depends[name])
+            ]
+            if not ready:
+                stuck = sorted(name for name in names if name not in placed)
+                raise InputArtifactError(
+                    f"the equations {', '.join(stuck)} are circular: each waits on "
+                    f"another in the set, so there is no order to evaluate them in. "
+                    f"An equation may name another equation, but the chain has to end "
+                    f"at variables the products already carry."
+                )
+            order.extend(ready)
+            placed.update(ready)
+        return order
 
     @field_validator("exports")
     @classmethod
