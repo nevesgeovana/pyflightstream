@@ -276,3 +276,65 @@ def test_a_rotor_that_is_not_turning_writes_no_table(tmp_path):
         speed_m_s=40.0,
     )
     assert written is None, written
+
+
+def test_the_post_stage_writes_a_rotor_table_from_a_recorded_workspace(tmp_path):
+    """ITEM 6 THROUGH THE STAGE, and it needed a route the record does not carry.
+
+    THE ROTOR'S GEOMETRY IS NOT IN THE RECORD. A run leaves its reference BLOCK
+    -- areas, lengths and the moment point -- and, under `reductions`, a rotors
+    block with blades, rpm and steps per revolution. Neither carries the shaft,
+    the hub or the diameter, and the record does not even name its reference. So
+    the coefficients of item 6 cannot be derived from a record alone.
+
+    They can be derived without a RE-RUN, which is the test the owner's rule
+    sets. The stage already reads the campaign's matrix -- the super file
+    depends on it -- the matrix row names its REF, and the reference file is
+    still in the workspace. That is the route, and it costs nothing she has.
+
+    This asserts the product: a recorded campaign whose reference declares a
+    rotor gets a rotor table, with the alias on its first line.
+    """
+    import sys
+    from pathlib import Path
+
+    sys.path.insert(0, str(Path(__file__).parent))
+    from test_post_superfile import _post, _workspace
+
+    workspace = _workspace(tmp_path)
+
+    # THE FIXTURE'S ROTOR ROW names REF `r002` and turns the alias `PUSHER`.
+    # The reference FILE is what carries the shaft, the hub and the diameter,
+    # and it is the half a record does not keep -- so the test writes the file
+    # a real workspace would already hold rather than skipping.
+    (workspace.inputs_dir / "references" / "r002.toml").write_text(
+        "\n".join(
+            [
+                "area_m2 = 50.0",
+                "chord_m = 2.526",
+                "span_m = 20.0",
+                "",
+                "[rotors.PUSHER]",
+                'alias = "PUSHER"',
+                "x_m = 0.0",
+                "y_m = 0.0",
+                "z_m = 0.0",
+                'axis = "X"',
+                "rpm_sign = 1",
+                "diameter_m = 1.2",
+                'families_blades = ["Blade1", "Blade2"]',
+                'blade1 = { azimuth_deg = 0.0, zero = "Y" }',
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    written = _post(workspace)
+    tables = [Path(p) for p in written if str(p).endswith("_rotor.csv")]
+    assert tables, (
+        "the campaign turns a rotor and the stage wrote no rotor table; "
+        f"it wrote {sorted(Path(p).name for p in written)}"
+    )
+    first = tables[0].read_text(encoding="utf-8").splitlines()[0]
+    assert first.strip() == "PUSHER", first

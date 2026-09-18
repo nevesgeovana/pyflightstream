@@ -139,6 +139,7 @@ from pyflightstream.results import (
     parse_unsteady_plots,
 )
 from pyflightstream.workspace import RunStatus
+from pyflightstream.workspace.inputs import resolve_reference
 from pyflightstream.workspace.naming import (
     ARCHIVE_DIR,
     ARCHIVE_STAMP,
@@ -924,6 +925,77 @@ def read_csv_table(
                 )
             rows.append(dict(zip(columns, cells, strict=True)))
     return columns, rows
+
+
+def _rotor_tables(
+    workspace: CampaignWorkspace,
+    sim_id: str,
+    points: Sequence[PolarPoint],
+    first: RunRecord,
+    reference: ReferenceValues,
+    matrix_row: MatrixRow | None,
+    out: Path,
+) -> list[tuple[Path, str, dict[str, object]]]:
+    """Assemble one rotor table per rotor the ROW's reference declares (item 6).
+
+    Returns the destination, the alias and everything `write_rotor_table` needs.
+    Empty where the row names no reference, the reference declares no rotor, or
+    the record kept no speed -- each of which is an ordinary campaign rather
+    than a fault, so none of them refuses the simulation's other products.
+    """
+    if matrix_row is None:
+        return []
+    try:
+        artifact = resolve_reference(workspace.inputs_dir, matrix_row.ref_code)
+    except PyflightstreamError:
+        # A reference the workspace can no longer resolve is a reason to write
+        # no rotor table, never a reason to lose the polars beside it.
+        return []
+
+    rotors = getattr(artifact, "rotors", None) or {}
+    if not rotors:
+        return []
+
+    speeds = {}
+    reductions = first.reductions if isinstance(first.reductions, Mapping) else {}
+    stated = reductions.get("rotors")
+    if isinstance(stated, Mapping):
+        for alias, block in stated.items():
+            if isinstance(block, Mapping) and isinstance(block.get("rpm"), int | float):
+                speeds[str(alias)] = float(block["rpm"])
+
+    density = first.density_kg_m3
+    speed = first.velocity_requested_m_s
+    if not isinstance(density, int | float) or not isinstance(speed, int | float):
+        return []
+
+    tables: list[tuple[Path, str, dict[str, object]]] = []
+    for alias, rotor in rotors.items():
+        rpm = speeds.get(str(alias))
+        if rpm is None:
+            continue
+        rows = [
+            {
+                "surfaces": (point.loads.surfaces if point.loads is not None else {}),
+                "condition": point_condition(point, mach=first.mach or 0.0),
+                "rpm": rpm,
+            }
+            for point in points
+        ]
+        name = f"{sweep_file_stem(sim_id, str(alias))}_rotor.csv"
+        tables.append(
+            (
+                out / POLARS_DIR / name,
+                str(alias),
+                {
+                    "rotor": rotor,
+                    "rows": rows,
+                    "density": float(density),
+                    "speed": float(speed),
+                },
+            )
+        )
+    return tables
 
 
 def write_rotor_table(
@@ -2631,6 +2703,34 @@ def _sim_products(
                 )
                 written.append(target)
                 written_names[target.relative_to(out).as_posix()] = {"runs": run_ids}
+
+    # ITEM 6 WIRED HERE: one coefficient table per rotor the reference declares.
+    #
+    # THE GEOMETRY COMES FROM THE REFERENCE FILE AND NOT FROM THE RECORD, which
+    # is the route this item needed and did not have. A run leaves its reference
+    # BLOCK -- areas, lengths, the moment point -- and a rotors block under
+    # `reductions` carrying blades, rpm and steps; neither keeps the shaft, the
+    # hub or the diameter, and a record does not even name its reference. The
+    # matrix row does, the file is still in the workspace, and reading it costs
+    # nothing she already has: no re-run.
+    for target_path, alias, plan in _rotor_tables(
+        workspace, sim_id, points, first, reference, matrix_row, out
+    ):
+        destination = _target(target_path)
+        if write_rotor_table(
+            destination,
+            rotor=plan["rotor"],
+            rows=plan["rows"],  # type: ignore[arg-type]
+            reference=reference,
+            density_kg_m3=plan["density"],  # type: ignore[arg-type]
+            speed_m_s=plan["speed"],  # type: ignore[arg-type]
+        ):
+            written.append(destination)
+            written_names[destination.relative_to(out).as_posix()] = {
+                "runs": run_ids,
+                "rotor": alias,
+            }
+
     for point in points:
         sloads_path, plots_path, probes_path = exports[point.name]
         if products.sections and sloads_path is not None and sloads_path.is_file():
