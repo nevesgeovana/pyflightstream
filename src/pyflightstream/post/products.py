@@ -95,7 +95,6 @@ from pyflightstream._errors import (
 from pyflightstream.cases import select_group_members
 from pyflightstream.cases.workflows import (
     CONFIGURATION_VARIABLE,
-    EXPORT_UNSTEADY_AFTER_REV_VARIABLE,
     PER_ROTOR_REDUCTIONS,
     PROBE_POSITION_COLUMNS,
     REDUCTION_NAMES,
@@ -719,6 +718,20 @@ class RotorShaftLoads:
     families_used: tuple[str, ...]
 
 
+#: The values `Coordinate frame for analysis:` takes when the export's forces
+#: are stated in the GEOMETRY frame -- the only case the shaft projection and
+#: the wind-axis rotation are valid in. Measured across the recorded exports of
+#: these workspaces: every one prints `Reference`.
+#:
+#: A CAMPAIGN CAN CHANGE THIS. `script.helpers.analysis_setup(loads_frame=...)`
+#: points the analysis at a created coordinate system, and the export then
+#: states that frame's label here. The V&V lens of the release round found the
+#: field parsed, carried on `LoadsReport`, and read by nobody -- while a comment
+#: asserted the geometry frame as a property of the export. It is a property of
+#: the campaign's setup, and this is the witness.
+GEOMETRY_ANALYSIS_FRAMES = frozenset({"reference", "global", "geometry"})
+
+
 def rotor_shaft_loads(
     surfaces: Mapping[str, Mapping[str, float]],
     *,
@@ -729,6 +742,7 @@ def rotor_shaft_loads(
     aliases: Mapping[str, Sequence[str]] | None = None,
     alpha_deg: float = 0.0,
     beta_deg: float = 0.0,
+    analysis_frame: str | None = None,
 ) -> RotorShaftLoads:
     """Return one rotor's THRUST and TORQUE from the loads the run already left.
 
@@ -764,7 +778,6 @@ def rotor_shaft_loads(
     # surface names: an exact name, an alias of the row's setup, or a FAMILY,
     # the label without its trailing number, so `Blade` selects `Blade1` to
     # `Blade6`. `group_coefficients` forty lines above calls it.
-    #
     # Matching by exact name summed NOTHING for a rotor declared the way the
     # resolver exists to serve, and wrote 0.00000 thrust with no refusal -- a
     # physically false zero, in the one product item 6 delivers, indistinguishable
@@ -786,14 +799,12 @@ def rotor_shaft_loads(
             moment[index] += float(row.get(key, 0.0) or 0.0)
 
     # The dynamic pressure the export's own coefficients were taken against.
-    #
     # AT V = 0 IT IS ZERO, AND NOTHING IS RECOVERABLE. The export states
     # DIMENSIONLESS coefficients, normalised by this pressure; at rest there is
     # no pressure to divide by and a hovering rotor's real thrust has been
     # divided away. Returning 0.0 would be a lie a reader believes -- a static
     # rotor produces plenty of thrust -- so the loads are NOT A NUMBER and the
     # funnel writes `NA`.
-    #
     # This is a finding rather than a design: item 6's coefficients cannot be
     # derived from a dimensionless export for a static point at all, whatever
     # is wired. A hover figure of merit needs the run to state a force.
@@ -840,8 +851,20 @@ def rotor_shaft_loads(
         # and beta, taking the X component. That is exactly the dot product of
         # the body-frame force with the free-stream unit vector, which
         # `_free_stream` builds and `_shaft_angle` uses for the angle.
-        wind_force_n=sum(
-            a * b for a, b in zip(newtons, _free_stream(alpha_deg, beta_deg), strict=True)
+        # `NA` WHERE THE EXPORT IS NOT IN THE GEOMETRY FRAME. The body-to-wind
+        # rotation assumes the force is stated in the geometry's own axes; a
+        # campaign that sets `analysis_setup(loads_frame=...)` states it in a
+        # created coordinate system instead, and rotating THAT by alpha and beta
+        # yields a plausible efficiency of nothing. The V&V lens of the release
+        # round found the field parsed, carried on `LoadsReport`, and read by
+        # nobody -- while a comment asserted the geometry frame as a property of
+        # the EXPORT. It is a property of the campaign's setup, and this is the
+        # witness. An absent label means the export stated none.
+        wind_force_n=(
+            sum(a * b for a, b in zip(newtons, _free_stream(alpha_deg, beta_deg), strict=True))
+            if analysis_frame is None
+            or str(analysis_frame).strip().casefold() in GEOMETRY_ANALYSIS_FRAMES
+            else math.nan
         ),
         families_used=tuple(used),
     )
@@ -1000,12 +1023,10 @@ def rotor_coefficients(
     # discarding exactly the components an installed rotor produces off it. Hers
     # carries the whole force vector through two rotations and takes the wind X
     # component, which `rotor_shaft_loads` computes as `wind_force_n`.
-    #
     # `ETAW` STAYS DIMENSIONLESS, which she confirmed when asked: the wind-axis
     # force is nondimensionalised exactly as the thrust is, and enters the same
     # efficiency where `CT` enters. So `ETAW` reduces to `ETA` when the shaft is
     # aligned with the stream, which is the property that makes it readable.
-    #
     # A CALLER THAT STATES NO WIND FORCE GETS `NA`, never the cosine. Falling
     # back to the old form would publish the number she called wrong under the
     # name she corrected, and a reader could not tell which they were holding.
@@ -1071,66 +1092,19 @@ def read_csv_table(
     return columns, rows
 
 
-def unsteady_window(
-    *,
-    reductions: Mapping[str, object] | None,
-    variables: Mapping[str, object] | None,
-    first_step: int,
-    last_step: int,
-) -> tuple[int, int] | None:
-    """Resolve the window a simulation's unsteady products SHOULD share. Nothing calls it yet.
-
-    **THIS FUNCTION HAS NO CALLER, and that sentence is the first line of its
-    own documentation because the alternative is what it was.** It read "the
-    window every unsteady product averages over" and named `converged_window`'s
-    missing caller as the defect it ended -- while reproducing that defect
-    exactly one level up. A closing round found the description and the tree
-    disagreeing, and the description was the part that was wrong. Item 16 is not
-    delivered; see the change log entry that says so.
-
-    WHY IT IS NOT WIRED, measured rather than deferred. The POLAR half waits on
-    whether the native loads export is already a time average or a single step,
-    which this repository asserts both ways with no evidence (`QUESTION-0230`).
-    The ROTOR TABLE half cannot be served by the plots export at all: it carries
-    `Time, CL, CDi, CM` and not the six components a shaft projection needs.
-
-    The rule below is still the right rule, and the tests hold it to that: a
-    reader comparing a coefficient against the per-blade rows beneath it should
-    be comparing numbers from the same part of the run, and two windows put a
-    difference in the fourth digit that nobody can attribute to anything.
-
-    NONE RATHER THAN A WRONG WINDOW, in all three ways a simulation can fail to
-    have one: no revolution length, no anchor, or a history too short for the
-    anchor to fit in. `converged_window` REFUSES the last of those, and it is
-    right to where a caller asked for a window -- but at the stage a short
-    history is an ordinary campaign, a run that stopped early, and it must cost
-    that simulation its unsteady products and never the polars of every other
-    simulation beside it.
-
-    Averaging from step one instead would mix the TRANSIENT with the answer,
-    which is the design error a fixture in this suite still records.
-    """
-    from pyflightstream.post.unsteady import converged_window
-
-    plan = reductions if isinstance(reductions, Mapping) else {}
-    stated = plan.get("steps_per_revolution")
-    if not isinstance(stated, int | float) or stated <= 0:
-        return None
-
-    row = variables if isinstance(variables, Mapping) else {}
-    anchor = row.get(EXPORT_UNSTEADY_AFTER_REV_VARIABLE)
-    if not isinstance(anchor, int | float):
-        return None
-
-    try:
-        return converged_window(
-            first_step=int(first_step),
-            last_step=int(last_step),
-            steps_per_revolution=int(stated),
-            after_rev=float(anchor),
-        )
-    except ValueError:
-        return None
+# `unsteady_window` WAS HERE AND IS DELETED, with item 16 landing through
+# `cases.workflows._averaging_window` and `_stated_window` below instead.
+#
+# IT NEVER HAD A CALLER. It was written to end `converged_window`'s missing
+# caller and reproduced that defect exactly one level up; a closing round caught
+# the false docstring, a change-log entry was written saying it was NOT WIRED,
+# and then item 16 was built somewhere else entirely -- leaving a public-looking
+# function nothing reached and two contradictory entries in one release's Added
+# list. The architect lens of the release round found both.
+#
+# THE RULE IT HELD IS NOT LOST. The window is still the last converged one and
+# still refuses to average from step one; that now lives where a stage reaches
+# it, and `converged_window` in `post.unsteady` still holds the derivation.
 
 
 def _rotor_tables(
@@ -1185,6 +1159,11 @@ def _rotor_tables(
                 "surfaces": (point.loads.surfaces if point.loads is not None else {}),
                 "condition": point_condition(point, mach=first.mach or 0.0),
                 "rpm": rpm,
+                # THE EXPORT'S OWN STATEMENT OF WHICH FRAME ITS FORCES ARE IN.
+                # Carried from the point to the coefficient rather than assumed,
+                # because `ETAW` rotates that force into wind axes and the
+                # rotation is only valid from the geometry frame.
+                "frame": (point.loads.frame if point.loads is not None else None),
             }
             for point in points
         ]
@@ -1261,6 +1240,13 @@ def write_rotor_table(
             speed_m_s=speed_m_s,
             alpha_deg=float(attitude.get("ALPHA") or 0.0),
             beta_deg=float(attitude.get("BETA") or 0.0),
+            # THE CALL SITE IS WHAT DELIVERS THE CHECK. The witness field and
+            # the refusal both existed for a few minutes without this line, and
+            # `ETAW` would have gone on being computed from a force in whatever
+            # frame the campaign chose.
+            analysis_frame=(
+                stated_frame if isinstance(stated_frame := row.get("frame"), str) else None
+            ),
         )
         coefficients = rotor_coefficients(
             thrust_n=loads.thrust_n,
@@ -1303,7 +1289,6 @@ def write_rotor_table(
     # alias line, which is exactly what the write order below claims to
     # prevent, and nothing on any later run cleans it up. A QA round reproduced
     # it by shrinking the column tuple.
-    #
     # It goes in a TEMPORARY DIRECTORY rather than beside the product, so a
     # process killed between the two steps leaves nothing in her workspace at
     # all. This machine killed three runs for memory today; that is not a
@@ -2161,7 +2146,6 @@ def write_unsteady_probes_table(
     # and not all of them is what an artifact whose entries ask for
     # DIFFERENT parameters produces: `_probe_parameters` unions them and
     # this writer then requires the union at every vertex.
-    #
     # THE REFUSAL IS FOR THE LOST PRODUCT ALONE, which is the narrowing.
     # A single point dropped from a table that still gets written is the
     # rule this writer has always had and it stays: a row carrying MACH2
@@ -2703,7 +2687,20 @@ def _sweep_rows(
 
 
 def _stated_window(record: object) -> tuple[int, int] | None:
-    """Return the ONE window the row stated, off the run record, or None if steady.
+    """Return the window the ROW STATED, off the run record, or None.
+
+    THE NAME IS THE CONTRACT AND IT WAS FALSE. This read the record's
+    `time_average` window and returned it whatever produced it -- and
+    `reduction_windows` fills that slot from FOUR sources: the row's averaging
+    key, a retired `WINDOW_*` key, the last revolution, and finally the whole
+    run. So "the row stated a window" was really "this point is unsteady at
+    all", and a row that stated nothing had its POLAR averaged from step one,
+    transient included. That is the design error this package refuses by name
+    elsewhere, shipped under the name of the check that refuses it. The
+    architect lens of the release round found it.
+    The plan now records `window_stated`, and only a window the row actually
+    asked for reaches the unsteady polar.
+
 
     Item 16's window as the PRODUCTS stage meets it. The plan writes it once,
     under `time_average`, from `last_revs_avg` or `last_iters_avg`; every
@@ -2717,6 +2714,12 @@ def _stated_window(record: object) -> tuple[int, int] | None:
     plan = getattr(record, "reductions", None)
     if not isinstance(plan, Mapping):
         return None
+    # ONLY A WINDOW THE ROW ASKED FOR. A record written before 0.23.0 carries no
+    # such flag and is therefore not re-sourced, which is exactly right: it never
+    # stated an averaging window, and averaging its polar from step one would
+    # publish the transient as though it were the answer.
+    if not plan.get("window_stated"):
+        return None
     entry = plan.get("time_average")
     if not isinstance(entry, Mapping):
         return None
@@ -2726,7 +2729,19 @@ def _stated_window(record: object) -> tuple[int, int] | None:
     first = windows[0]
     if not isinstance(first, Sequence) or len(first) != 2:
         return None
-    return (int(first[0]), int(first[1]))
+    # EVERY MALFORMED SHAPE YIELDS None, WHICH IS WHAT THE DOCSTRING PROMISED.
+    # The `int()` conversions sat outside every guard, so a record carrying a
+    # string window aborted the WHOLE products stage for that simulation with a
+    # bare ValueError naming neither the simulation nor the key. A window that
+    # runs backwards was passed straight through and made every point of the
+    # polar drop silently. The QA lens of the release round measured both.
+    try:
+        window = (int(first[0]), int(first[1]))
+    except (TypeError, ValueError):
+        return None
+    if window[1] < window[0]:
+        return None
+    return window
 
 
 def unsteady_polar_file_name(sim_id: str | int, *, name: str) -> str:
@@ -2743,6 +2758,16 @@ def unsteady_polar_file_name(sim_id: str | int, *, name: str) -> str:
     # simulation id is not a group and carries no such history, and prefixing it
     # would rename every file of every workspace she has.
     return f"{sim_id}_{name}_unsteady.csv"
+
+
+#: The columns of a plots table that state WHEN a sample was taken rather than
+#: WHAT was measured. They are the table's axis, not its data, and a product
+#: that averages them publishes the mean of a step number beside a coefficient.
+#:
+#: BOTH SPELLINGS, because a table may carry either or both: `Time-step` is what
+#: this package writes and reads as the clock, and `Time (sec)` is what the
+#: solver's own export prints.
+_PLOTS_CLOCK_COLUMNS = frozenset({PLOTS_STEP_COLUMN, "Time (sec)", "Time"})
 
 
 def write_unsteady_polar(
@@ -2792,6 +2817,22 @@ def write_unsteady_polar(
             continue
         try:
             names, series = plots_table_series(source)
+            # A PARTIAL COVER IS NOT A COVER, and this dropped only the point
+            # whose history missed the window ENTIRELY. `blade_passage_average`
+            # refuses when NO frame falls inside, so a point that stopped
+            # part-way through averaged the part and returned normally -- and
+            # its row sat beside a full one, in one file, with no frame count
+            # and a manifest claiming the whole window. A reader comparing the
+            # two is comparing a ten-step mean with a four-step one.
+            #
+            # THE SIBLING READER OF THIS SAME FILE ALREADY REFUSES IT:
+            # `write_reduction_table` says "a shorter history averaged as a
+            # whole one would be an average of a run that did not finish
+            # writing". Two readers of one plots table with opposite rules, and
+            # the PUBLISHED one was the permissive one. The QA lens found it.
+            steps = np.asarray(series.steps, dtype=int)
+            if not len(steps) or int(steps[0]) > window[0] or int(steps[-1]) < window[1]:
+                continue
             averaged = blade_passage_average(series, window=window)
         except (PyflightstreamError, ValueError):
             # A history that does not cover the row's window is a run that
@@ -2799,6 +2840,20 @@ def write_unsteady_polar(
             continue
         values: dict[str, float] = {}
         for name in names:
+            # THE CLOCK IS NOT A COEFFICIENT, and averaging it publishes a number
+            # with no physical meaning under the same contract as `CL`. Over
+            # steps 5 to 8 the mean of the step column is 6.5, which is not a
+            # measurement of anything. `plots_table_series` carries the step
+            # column as a FIELD as well as using it as the axis -- its own
+            # docstring says so -- and a writer that takes "every name it
+            # returns" therefore takes the clock with them.
+            #
+            # The V&V lens of the release round found this. My test asserted
+            # `"CL" in columns` and the ABSENCE of the steady polar's names; it
+            # never asserted the column SET, so an extra column was invisible to
+            # it. Measure the carrier, not the mention.
+            if name in _PLOTS_CLOCK_COLUMNS:
+                continue
             column = averaged.fields.get(name)
             if column is not None and len(column):
                 values[name] = float(column[0])
@@ -3074,7 +3129,6 @@ def _sim_products(
                 written_names[target.relative_to(out).as_posix()] = {"runs": run_ids}
 
     # ITEM 6 WIRED HERE: one coefficient table per rotor the reference declares.
-    #
     # THE GEOMETRY COMES FROM THE REFERENCE FILE AND NOT FROM THE RECORD, which
     # is the route this item needed and did not have. A run leaves its reference
     # BLOCK -- areas, lengths, the moment point -- and a rotors block under
@@ -3228,32 +3282,46 @@ def _sim_products(
                     condition=point_condition(point, mach=mach, cell=cell),
                     reference=reference,
                 )
+    # ITEM 17, AT THE OUTER NESTING AND NOT INSIDE THE SUPERFILE GUARD.
+    # IT WAS INSIDE, AND THE ARCHITECT LENS OF THE RELEASE ROUND MEASURED WHAT
+    # THAT COST. The guard below is `drafts is not None and super_rows`, and
+    # `super_rows` is filled only by the GROUP polar loop -- which this very
+    # release makes iterate an empty tuple for an unsteady point. So the two
+    # conditions were mutually exclusive: on every unsteady simulation the group
+    # polars were skipped AND this writer was never reached, and the point ended
+    # with NO POLAR OF ANY KIND. A 0.22.0 workspace lost a product and gained
+    # nothing.
+    # THAT IS THIS RELEASE'S OWN DEFECT CLASS, one turn harder to see: grepping
+    # for the caller returned a hit, and the hit was dead code. A caller inside a
+    # branch that cannot be true is not a caller.
+    # It runs after the per-point loop because it reads the WRITTEN plots tables,
+    # so the reference-velocity scaling is performed once, where it belongs.
+    # ITEM 17, HERE BECAUSE THE PLOTS TABLES ARE NOW ON DISK. The POLAR of an
+    # unsteady simulation is the plots history time-averaged over the row's
+    # one window, and it reads the WRITTEN tables rather than the raw export
+    # so that the reference-velocity scaling is performed in one place.
+    if unsteady_window_steps is not None:
+        done = write_unsteady_polar(
+            _target(out / POLARS_DIR / unsteady_polar_file_name(sim_id, name=table_name)),
+            points=points,
+            plots=plots_tables,
+            window=unsteady_window_steps,
+            conditions=conditions,
+            reference=reference,
+        )
+        if done is not None:
+            written.append(done)
+            written_names[done.relative_to(out).as_posix()] = {
+                "runs": sorted({run for names in sources.values() for run in names}),
+                "source": "the unsteady plots, time-averaged",
+                "window": list(unsteady_window_steps),
+            }
+
     if drafts is not None and super_rows:
         # FR-89, and it happens HERE, after the plots tables of every point
         # of this simulation are on disk: the superfile is written after the
         # unsteady post-process, which is what makes one row per converged
         # point possible at all.
-        # ITEM 17, HERE BECAUSE THE PLOTS TABLES ARE NOW ON DISK. The POLAR of an
-        # unsteady simulation is the plots history time-averaged over the row's
-        # one window, and it reads the WRITTEN tables rather than the raw export
-        # so that the reference-velocity scaling is performed in one place.
-        if unsteady_window_steps is not None:
-            done = write_unsteady_polar(
-                _target(out / POLARS_DIR / unsteady_polar_file_name(sim_id, name=table_name)),
-                points=points,
-                plots=plots_tables,
-                window=unsteady_window_steps,
-                conditions=conditions,
-                reference=reference,
-            )
-            if done is not None:
-                written.append(done)
-                written_names[done.relative_to(out).as_posix()] = {
-                    "runs": sorted({run for names in sources.values() for run in names}),
-                    "source": "the unsteady plots, time-averaged",
-                    "window": list(unsteady_window_steps),
-                }
-
         by_run = {record.run_id: record for record in records}
         last_step: dict[str, Mapping[str, str]] = {}
         for name, table in plots_tables.items():
@@ -3957,7 +4025,6 @@ def write_campaign_products(
     converged point.
     """
     # ONE STAMP PER REBUILD, taken here and threaded to every archiver.
-    #
     # The archive folder's whole claim is that a rebuild is ONE thing a
     # reader can look at. It was not: each archiver called `datetime.now()`
     # for itself at one-second resolution, so a rebuild that archived more

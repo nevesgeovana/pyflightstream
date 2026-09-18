@@ -34,9 +34,73 @@ from pyflightstream.cases.workflows import reduction_windows  # noqa: E402
 
 
 def _rotor_row(**overrides):
+    """A rotor row with the retired export window CLEARED unless a case sets one.
+
+    `WINDOW_DEGREES` is on the fixture by default, and it is the key item 16
+    retires, so a case that does not say otherwise gets a row stating none of
+    the three retired spellings. A case that DOES pass one is testing the
+    migration and keeps it.
+    """
     from test_workflows import rotor_case
 
-    return rotor_case(WINDOW_DEGREES=None, **overrides)
+    return rotor_case(**{"WINDOW_DEGREES": None, **overrides})
+
+
+@pytest.mark.parametrize("revs", ["0.5", "1.0", "3.0"])
+def test_every_product_of_the_point_shares_the_window_at_every_value(revs):
+    """THE PROPERTY AT MORE THAN ONE VALUE, which is what makes it a property.
+
+    The case below asserts the same equality at `1.0` alone -- and ONE
+    REVOLUTION IS EXACTLY THE VALUE AT WHICH THE OLD BEHAVIOUR AND THE NEW ONE
+    COINCIDE, because `per_blade` used to derive this rotor's last complete
+    revolution. A mutant reverting `per_blade` to its own derivation SURVIVED
+    the whole tier-1 suite, and the QA lens of the release round measured what
+    it would have published:
+
+        revs   time_average      per_blade
+        0.5    [[471, 720]]      [[221, 720]]
+        3.0    [[  1, 720]]      [[221, 720]]
+
+    At three revolutions the polar averages 720 steps while `per_blade` averages
+    500, and every test was green. These three values discriminate.
+    """
+    plan = reduction_windows(_rotor_row(LAST_REVS_AVG=revs))
+    assert plan is not None
+    assert plan["time_average"]["windows"] == plan["per_blade"]["windows"], (
+        revs,
+        plan["time_average"]["windows"],
+        plan["per_blade"]["windows"],
+    )
+
+
+def test_an_old_window_key_warns_that_it_is_on_a_clock():
+    """A PROMISE REGISTERED AND NEVER SPOKEN IS A DEADLINE NOBODY IS TOLD ABOUT.
+
+    The three `WINDOW_*` retirements were defined and carried into
+    `DEPRECATIONS`, which satisfies the ledger guard and starts the countdown to
+    0.26.0 -- and nothing warned, so a user would have met the removal rather
+    than the notice. This repository has recorded that exact defect before, by
+    name, about `ROW_MOVING_BOUNDARIES`; the QA lens of the release round
+    measured it again here.
+    """
+    import warnings
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        reduction_windows(_rotor_row(WINDOW_DEGREES="90"))
+    spoken = [str(item.message) for item in caught]
+    assert any("WINDOW_DEGREES" in text and "0.26.0" in text for text in spoken), spoken
+    # THE REPLACEMENT IS NAMED, because a notice that does not say what to write
+    # instead sends the reader to the source to find out.
+    assert any("last_revs_avg" in text for text in spoken), spoken
+
+
+def test_a_new_key_beats_an_old_one_and_the_row_is_told_which_answered():
+    """The precedence existed only as a code comment; nothing asserted it."""
+    plan = reduction_windows(_rotor_row(WINDOW_DEGREES="90", LAST_REVS_AVG="1.0"))
+    assert plan is not None
+    assert plan["time_average"]["windows"] == [[221, 720]], plan["time_average"]
+    assert "LAST_REVS_AVG" in plan["time_average"]["window_from"], plan["time_average"]
 
 
 def test_the_row_states_the_window_and_every_product_of_the_point_shares_it():

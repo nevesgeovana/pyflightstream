@@ -265,21 +265,6 @@ See `docs/migrating-to-0.23.0.md` before upgrading a workspace you care about.
   edit; a line emitted into a script the solver rejects costs a run.
 - **The operator in the provenance**, as a `prov:Person` agent, resolved by one
   standard-library call that answers on Windows and on the cluster alike.
-- **The one unsteady window is DERIVED and is NOT YET WIRED**, and it is listed
-  here saying so rather than as the feature it was drafted as.
-  `pyflightstream.post.products.unsteady_window` resolves the single window a
-  simulation's unsteady products should share, and returns nothing rather than a
-  wrong window in each of the three ways a run can fail to have one. **No
-  product calls it yet**, so no polar and no rotor table is averaged over it, and
-  nothing a reader opens has changed.
-
-  Two measured facts block the wiring, and neither is code. The POLAR half waits
-  on the same question as the entry above (`QUESTION-0230`). The ROTOR TABLE half
-  cannot be served by the plots at all: that export carries `Time, CL, CDi, CM`
-  and not the six force and moment components a shaft projection needs, so the
-  rotor table stays sourced where it is. **Shipping the resolver uncalled is
-  named here because an unused function reads as a delivered capability in a
-  change log, and this release makes no such claim.**
 - **THE UNSTEADY POLAR COMES FROM THE PLOTS**, time-averaged over the window the
   row states, one table per simulation and one row per point:
   `polars/<sim>_<sweep>_unsteady.csv`.
@@ -289,10 +274,21 @@ See `docs/migrating-to-0.23.0.md` before upgrading a workspace you care about.
   here knows which plot label carries which of them, and a label invented by the
   package would not fail loudly -- it would write `NA` down a whole column.
 
-  The native coefficient export states the LAST TIME STEP, which on an
-  oscillating rotor is one instant of a cycle, so a polar read from it is a polar
-  of an instant that looks exactly like a polar of an average. It still ships, as
-  a health check. **The group polars are not written for an unsteady point**,
+  **The premise is the owner's answer of 2026-09-18, not a measurement**, and it
+  is attributed here because this is the page a user reads: asked whether the
+  native coefficient export writes the time average or the last time step, she
+  answered the LAST TIME STEP. On an oscillating rotor that is one instant of a
+  cycle, so a polar read from it is a polar of an instant that looks exactly like
+  a polar of an average. This repository previously asserted BOTH readings, in
+  two files, with no manual citation and no characterised export for either; the
+  contradiction and its evidence are recorded in `QUESTION-0230`. The native
+  export still ships, as a health check.
+
+  **OWED, and named rather than left to be discovered:** the plots parser's only
+  fixture states in its own header that it is SYNTHETIC -- written by hand from a
+  paraphrase of one manual sentence, with its delimiter assumed and not observed
+  -- and that "a real export is owed before this parser may be called verified".
+  This release builds a published product on that parser. **The group polars are not written for an unsteady point**,
   because writing both would put two files with one name's worth of meaning in
   one folder.
 

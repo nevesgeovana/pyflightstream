@@ -199,15 +199,65 @@ CTX = "my own coefficient"
   point, where they are `0/0`; `CT` and `CQ` are still written.
 - **The rotor table names its alias on its first line**, alone, so a script
   that has loaded the file still knows which group it holds.
-- **`per_blade` is ONE window**, one row per blade, with each blade's start and
-  end azimuth in columns. It averaged each blade over its own passage before,
-  which mixed a real azimuthal difference with a difference in when each blade
-  was sampled.
-- **An unsteady POLAR and rotor table are the plots averaged** over the same
-  window `per_blade` uses.
-- **The native coefficient export stays as a health check.** It is only the
-  last iteration, which on an oscillating rotor is one instant of a cycle, so
-  the POLAR no longer reads it and the run assessor judges from the plots
-  history instead.
-- **The super file takes a format**: `csv` as before, or `legacy_polar`. Both
-  carry the same columns.
+## The averaging window moves to the matrix row
+
+**State it once, on the row, beside the clock that gives it a length.**
+
+| column | run type | unit |
+|---|---|---|
+| `last_revs_avg` | `unsteady_rotor` | last revolutions, **accepts a float** |
+| `last_iters_avg` | `unsteady` | last iterations |
+
+It is the window the POLAR, the time average and `per_blade` all use. On a row
+turning several rotors, `last_revs_avg` is a COUNT of revolutions: each rotor
+converts it with its own revolution length, so a lifter and a pusher get
+different spans from the same key and neither has the other's turn imposed on
+it.
+
+**`WINDOW_STEPS`, `WINDOW_REVOLUTIONS` and `WINDOW_DEGREES` are deprecated**,
+due for removal at 0.26.0. A row stating one still binds and now WARNS, naming
+the replacement. Degrees are revolutions over 360, so `WINDOW_DEGREES = 90` is
+`last_revs_avg = 0.25`. A row stating both an old key and a new one gets the new
+one.
+
+## An unsteady point's POLAR changes shape, and so does its folder
+
+**This is the migration fact most likely to surprise you**, so it is stated
+before the reasoning.
+
+An unsteady simulation used to write one polar per pproc group under
+`polars/<sim>_<sweep>_<group>.csv`, plus the super file and, where asked, the
+fixed-width `.dat`. It now writes **one table per simulation** instead:
+
+    polars/<sim>_<sweep>_unsteady.csv
+
+one row per point, and **the group polars, the super file and the `.dat` are not
+written for that point**. Nothing is silently dropped: a simulation whose points
+exported no plots records a skip naming the file.
+
+**Its columns are the plot variables under the names the export prints them**,
+not the twenty-four fixed coefficients of the steady polar. Nothing in this
+package knows which plot label carries which coefficient, and a label the
+package invented would not fail loudly -- it would write `NA` down a whole
+column. A dictionary that maps the names is 0.24.0 scope.
+
+**Why it changed:** asked whether the native coefficient export writes the time
+average or the last time step, the owner answered the LAST TIME STEP. On an
+oscillating rotor that is one instant of a cycle. The native export still ships,
+as a health check, and the run assessor judges an unsteady point from the plots
+history.
+
+## Not in this release
+
+Listed because an absence you discover is worse than one you are told:
+
+- the super file in the fixed-width `legacy_polar` format,
+- `per_blade` as one row per blade with the azimuths in columns,
+- the `[phase_locked]` pproc table,
+- the `[equations]` table and its `[glossary]`,
+- the generated `VARIABLES.md` and `WRITING-EQUATIONS.md`.
+
+**0.23.0 adds no pproc table at all**, so a pproc written for 0.22.0 binds
+unchanged. Those three table names are refused BY NAME rather than accepted and
+ignored: a refusal says the feature is not here, where silent acceptance would
+let you write the table and get nothing back.

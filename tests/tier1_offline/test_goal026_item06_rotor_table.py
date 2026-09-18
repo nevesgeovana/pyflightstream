@@ -324,3 +324,77 @@ def test_etaw_reduces_to_eta_when_the_shaft_is_along_the_stream():
         wind_force_n=loads.wind_force_n,
     )
     assert values["ETAW"] == pytest.approx(values["ETA"]), values
+
+
+def test_etaw_is_na_when_the_export_is_not_in_the_geometry_frame():
+    """THE PREMISE OF THE ROTATION, CHECKED AGAINST A WITNESS THE EXPORT CARRIES.
+
+    `ETAW` carries the rotor's force into wind axes by alpha and beta. That
+    rotation is only valid from the GEOMETRY frame, and the implementation
+    collapses the owner's rotor-frame round trip on exactly that ground: the
+    export already states the force in body axes, so resolving into the rotor
+    frame and back is the identity.
+
+    A CAMPAIGN CAN MAKE THAT FALSE. `script.helpers.analysis_setup(loads_frame=)`
+    points the analysis at a created coordinate system, and the export then
+    prints that frame's label under "Coordinate frame for analysis:". Rotating a
+    force stated in some other frame by alpha and beta produces a plausible
+    efficiency of nothing -- no error, no `NA`, just a wrong number.
+
+    THE FIELD WAS PARSED, CARRIED ON `LoadsReport`, AND READ BY NOBODY, while a
+    comment asserted the geometry frame as a property of the EXPORT. It is a
+    property of the campaign's setup. The V&V lens of the release round found
+    it; every fixture in this suite prints `Reference`, so no case here could
+    have failed on it.
+    """
+    from pyflightstream.post.products import (
+        NOT_APPLICABLE,
+        ReferenceValues,
+        rotor_coefficients,
+        rotor_shaft_loads,
+    )
+
+    class _Rotor:
+        alias = "PUSHER"
+        axis_vector = (1.0, 0.0, 0.0)
+        x_m = y_m = z_m = 0.0
+        members = ["Blade1"]
+
+    reference = ReferenceValues(
+        sref_m2=1.0, cref_m=1.0, bref_m=1.0, xmom_m=0.0, ymom_m=0.0, zmom_m=0.0
+    )
+
+    def _loads(frame):
+        return rotor_shaft_loads(
+            {"Blade1": {"Cx": 1.0, "Cy": 0.0, "Cz": 1.0}},
+            rotor=_Rotor(),
+            reference=reference,
+            density_kg_m3=1.225,
+            speed_m_s=50.0,
+            alpha_deg=20.0,
+            beta_deg=0.0,
+            analysis_frame=frame,
+        )
+
+    def _etaw(loads):
+        return rotor_coefficients(
+            thrust_n=loads.thrust_n,
+            torque_nm=100.0,
+            rps=20.0,
+            diameter_m=2.0,
+            density_kg_m3=1.225,
+            speed_m_s=50.0,
+            shaft_angle_deg=loads.shaft_angle_deg,
+            wind_force_n=loads.wind_force_n,
+        )["ETAW"]
+
+    # THE FRAME EVERY RECORDED EXPORT PRINTS, and an export that states none.
+    assert isinstance(_etaw(_loads("Reference")), float)
+    assert isinstance(_etaw(_loads(None)), float)
+
+    # A CAMPAIGN'S OWN COORDINATE SYSTEM: the rotation's premise is false, so the
+    # cell is visibly absent rather than quietly wrong.
+    assert _etaw(_loads("PUSHER_SMRP")) == NOT_APPLICABLE
+    # AND THE THRUST IS UNAFFECTED: it is a projection on the shaft, which needs
+    # no wind axes, so only the column whose premise failed goes NA.
+    assert isinstance(_loads("PUSHER_SMRP").thrust_n, float)

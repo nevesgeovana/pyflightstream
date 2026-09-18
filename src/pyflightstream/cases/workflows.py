@@ -71,6 +71,9 @@ from typing import NoReturn
 from pyflightstream._deprecations import (
     ROW_MOVING_BOUNDARIES,
     ROW_ROTATE_FAMILIES,
+    ROW_WINDOW_DEGREES,
+    ROW_WINDOW_REVOLUTIONS,
+    ROW_WINDOW_STEPS,
     refusal_text,
 )
 from pyflightstream._errors import (
@@ -3495,12 +3498,12 @@ def _the_passages_of_one_rotor(
     # the old shape needed a whole revolution because it CUT the window into one
     # passage per blade, and one shared window is not cut. Each blade's row
     # carries the azimuth it actually swept.
-    turns = _stated_revolutions(case)
-    if turns is not None:
-        rotor_steps = max(int(round(turns * per_revolution)), 1)
+    rotor_steps = _stated_blade_steps(case, per_revolution)
+    if rotor_steps is not None:
         rotor_span = (max(span[1] - rotor_steps + 1, 1), span[1])
         window_from = (
-            f"{turns:g} revolution(s) of {alias}, {rotor_steps} steps, shared by every blade"
+            f"the averaging window the row states, {rotor_steps} steps of {alias}, "
+            "shared by every blade"
         )
     else:
         # A ROW WRITTEN BEFORE THIS RELEASE STATES NO COUNT OF REVOLUTIONS, so it
@@ -3531,27 +3534,47 @@ def _the_passages_of_one_rotor(
     return entry
 
 
-def _stated_revolutions(case: SimCase) -> float | None:
-    """Return the COUNT of revolutions the row states for averaging, or None.
+def _stated_blade_steps(case: SimCase, per_revolution: float) -> int | None:
+    """Return the averaging window in THIS rotor's steps, from whichever key the row states.
 
     Item 16's window read as INFORMATION rather than as a range of steps, which
     is what lets it serve a row turning two rotors at two speeds. `last_revs_avg`
-    says how many turns to average over; each rotor converts that to steps with
-    its OWN revolution, so the same instruction gives the lifter and the pusher
-    different spans and neither has the other's turn imposed on it (FR-68).
+    says how many TURNS to average over; each rotor converts that with its OWN
+    revolution, so the same instruction gives the lifter and the pusher different
+    spans and neither has the other's turn imposed on it (FR-68).
 
-    None where the row states the window in ITERATIONS instead, or states none:
-    a count of iterations is already in steps and is the same number for every
-    rotor, which is the honest reading of what the row asked for.
+    `LAST_ITERS_AVG` IS HONOURED HERE TOO, AND IT WAS NOT. This read only the
+    revolutions key and returned None otherwise, so an `unsteady` row stating
+    `last_iters_avg` -- her designated key for that run type -- had its POLAR and
+    time average use the stated window while `per_blade` fell back to the last
+    complete revolution. That is exactly the fourth-digit disagreement item 16
+    exists to end, on the run type the item's own key was designed for, and the
+    change log claimed the opposite. The V&V lens of the release round found it;
+    every case I had written passed `last_revs_avg`.
+
+    A count of ITERATIONS is already in steps and is the same number for every
+    rotor, which is the honest reading of what such a row asked for.
+
+    None where the row states neither, so the caller falls back to the answer a
+    matrix written before this release has always had.
     """
     revs = _variable(case, LAST_REVS_AVG_VARIABLE)
-    if revs is None:
+    if revs is not None:
+        try:
+            turns = float(revs)
+        except (TypeError, ValueError):
+            # The refusal belongs to `_averaging_window`, which names the case
+            # and the key; this helper is asked after it, never instead of it.
+            return None
+        if per_revolution <= 0:
+            return None
+        return max(int(round(turns * per_revolution)), 1)
+    iters = _variable(case, LAST_ITERS_AVG_VARIABLE)
+    if iters is None:
         return None
     try:
-        return float(revs)
+        return max(int(round(float(iters))), 1)
     except (TypeError, ValueError):
-        # The refusal belongs to `_averaging_window`, which names the case and
-        # the key; this helper is asked after it and never instead of it.
         return None
 
 
@@ -3738,6 +3761,23 @@ def reduction_windows(case: SimCase) -> dict[str, object] | None:
         for key in (WINDOW_DEGREES_VARIABLE, WINDOW_STEPS_VARIABLE, WINDOW_REVOLUTIONS_VARIABLE)
         if (value := _variable(case, key)) is not None
     }
+    # THE PROMISE IS SPOKEN, not merely registered. `ROW_WINDOW_*` were defined
+    # and carried into `DEPRECATIONS` -- which satisfies the ledger guard and
+    # starts a deadline -- and NOTHING WARNED, so 0.26.0 would have arrived with
+    # every `WINDOW_*` row silently in scope for removal. This repository has
+    # recorded that exact defect before, by name, about `ROW_MOVING_BOUNDARIES`.
+    # The QA lens of the release round measured it again here.
+    for key, promise in (
+        (WINDOW_DEGREES_VARIABLE, ROW_WINDOW_DEGREES),
+        (WINDOW_STEPS_VARIABLE, ROW_WINDOW_STEPS),
+        (WINDOW_REVOLUTIONS_VARIABLE, ROW_WINDOW_REVOLUTIONS),
+    ):
+        if key in stated:
+            warnings.warn(
+                f"case {case.sim_id!r}: {promise.message()}",
+                PyflightstreamWarning,
+                stacklevel=2,
+            )
     try:
         if averaging is not None:
             span, window_from = averaging
@@ -3761,6 +3801,13 @@ def reduction_windows(case: SimCase) -> dict[str, object] | None:
     except CampaignConfigError as error:
         return _every_reduction_skipped(rotor, str(error))
     plan: dict[str, object] = {
+        # WHERE THE WINDOW CAME FROM, recorded so a reader downstream can tell a
+        # window the ROW STATED from one this function defaulted. The products
+        # stage needs that distinction and had no way to make it: every unsteady
+        # record carries a `time_average` window, including one that fell through
+        # to "the whole run", so a gate on "is there a window" is really a gate
+        # on "is this point unsteady at all".
+        "window_stated": averaging is not None,
         "time_iterations": last_step,
         "steps_per_revolution": per_revolution,
         "blades": None,
@@ -3936,11 +3983,10 @@ def reduction_windows(case: SimCase) -> dict[str, object] | None:
     # last complete revolution. That is the whole migration for `per_blade` --
     # her existing matrices produce the same windows they did, and only a row
     # that states the new key moves.
-    turns = _stated_revolutions(case)
-    if turns is not None and per_revolution:
-        wanted = max(int(round(turns * per_revolution)), 1)
+    wanted = _stated_blade_steps(case, per_revolution or 0.0)
+    if wanted is not None:
         blade_span: tuple[int, int] | None = (max(span[1] - wanted + 1, 1), span[1])
-        window_from = f"{turns:g} revolution(s), {wanted} steps, shared by every blade"
+        window_from = f"the averaging window the row states, {wanted} steps, shared by every blade"
     else:
         blade_span = per_blade_window(last_step=span[1], blades=blades, period_steps=period)
         window_from = (
@@ -9698,6 +9744,12 @@ _UNSTEADY_KEYS: tuple[str, ...] = (
     WINDOW_DEGREES_VARIABLE,
     WINDOW_STEPS_VARIABLE,
     WINDOW_REVOLUTIONS_VARIABLE,
+    # ITEM 16's KEY FOR A ROW THAT TURNS NOTHING. Without this registration the
+    # row-key guard refuses `last_iters_avg` as "a key of no run type", so the
+    # feature is unreachable from a MATRIX while every unit test passes -- the
+    # tests build a case in Python and never meet the guard. The architect lens
+    # of the release round found it, and named the fixture shape that hid it.
+    LAST_ITERS_AVG_VARIABLE,
     BLADES_VARIABLE,
     EXPORT_UNSTEADY_AFTER_ITER_VARIABLE,
     # Unsteady's alone: only a run that marches in time can be continued
@@ -9706,6 +9758,11 @@ _UNSTEADY_KEYS: tuple[str, ...] = (
 )
 _UNSTEADY_ROTOR_KEYS: tuple[str, ...] = (
     *_UNSTEADY_KEYS,
+    # ITEM 16's KEY FOR A ROW THAT TURNS A ROTOR, in REVOLUTIONS. It is the
+    # rotor type's alone, because a count of turns has no length without a
+    # speed -- which is also what `_averaging_window` refuses when a row states
+    # it with no clock.
+    LAST_REVS_AVG_VARIABLE,
     # FR-64: which of the row's motions owns the time step.
     CLOCK_MOTION_VARIABLE,
     RPM_VARIABLE,
