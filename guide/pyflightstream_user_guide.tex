@@ -1070,6 +1070,90 @@ samples = parse_residual_history(log_text)
 \end{frame}
 
 % =====================================================================
+\subsection{What every product carries from 0.23.0}
+% =====================================================================
+
+\begin{frame}[fragile]{Every product says what it is a file OF}
+\begin{lstlisting}
+POLAR,DESCRIPTION,GROUP,SREF,CREF,BREF,XMOM,YMOM,ZMOM,VINF,ALT,J,ALPHA,...
+PROBE,X,Y,Z,FRAME,STEP,ALPHA,BETA,MACH,RE,VINF,ALT,J,SREF,CREF,BREF,...
+ITERATION,AZIMUTH,ALPHA,BETA,MACH,RE,VINF,ALT,J,SREF,CREF,BREF,Offset,...
+\end{lstlisting}
+  \begin{itemize}
+    \item From 0.23.0 every file the post stage writes carries the WHOLE flight condition and the reference lengths. Before it, three of the four product families carried no reference length at all.
+    \item A coefficient beside no reference area is a number nobody can check, and a probe sample with no condition is a table about nowhere.
+    \item \code{\_sections} now leads with \code{ITERATION} and \code{AZIMUTH}: what varies down the table. It used to lead with the polar's NAME, which the file name already carries.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{No cell is ever blank}
+\begin{lstlisting}
+from pyflightstream.post.products import NOT_APPLICABLE   # "NA"
+\end{lstlisting}
+  \begin{itemize}
+    \item A cell that does not apply to a row reads \code{NA}. A blank is ambiguous three ways: zero, not measured, or this column is not for this row.
+    \item \textbf{pandas readers see no change}: both \code{''} and \code{'NA'} are default missing tokens. A hand parser that tested \code{cell == ""} must test for \code{NA}.
+    \item One token, not two: the probes \code{STEP} column wrote \code{-} until 0.23.0. The PRINTED plan table keeps \code{-} deliberately, because nothing parses it.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Rotor coefficients, one set per rotor}
+\begin{lstlisting}
+J_PUSHER, CT_PUSHER, CQ_PUSHER, CP_PUSHER, ETA_PUSHER, ETAW_PUSHER
+
+J  = V/(nD)      CT = T/(rho n^2 D^4)     CQ = Q/(rho n^2 D^5)
+CP = 2 pi CQ     ETA = J CT / CP          ETAW = ETA cos(theta)
+\end{lstlisting}
+  \begin{itemize}
+    \item \code{n} is revolutions per SECOND; \code{theta} is the angle between the shaft and the free stream.
+    \item Every column carries the rotor's ALIAS, because these make physical sense for ONE rotor and not for several summed: the diameters and speeds that normalise them are different numbers.
+    \item \code{ETA} and \code{ETAW} read \code{NA} on a static point, where both are 0/0. A figure of merit is the static measure and you define it.
+    \item The table names its alias on its FIRST LINE, alone, so a script that has already loaded the file still knows which group it holds.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{A rotor states how it is INSTALLED}
+\begin{lstlisting}
+[PUSHER]
+kind = "rotor"
+axis = "Z"                    # as before: Z IS (0, 0, 1)
+axis = [0.0, 0.199, 0.980]    # a mesh that arrives with pitch and toe in it
+\end{lstlisting}
+  \begin{itemize}
+    \item Until 0.23.0 every frame the package built for a rotor used the geometry's own axes, which assumes the rotor is installed at zero pitch and zero toe.
+    \item A LETTER keeps its exact meaning and takes the same code path, so every reference written before this release emits the same script.
+    \item The blade datum is refused by ANGLE when it lies within five degrees of the shaft. The old check compared two strings, so it was blind to a datum one degree from parallel, whose azimuth locates nothing.
+    \item \textbf{Not yet validated against a licensed run}: no run with pitch and toe exists yet. What is proved offline is that the letter path is unchanged.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Unsteady products come from the plots}
+\begin{lstlisting}
+from pyflightstream.post.unsteady import converged_window, per_blade_rows
+window = converged_window(first_step=1, last_step=400,
+                          steps_per_revolution=100, after_rev=2.0)
+\end{lstlisting}
+  \begin{itemize}
+    \item The POLAR, the rotor table and \code{per\_blade} all average over the SAME window, anchored on the export-after-revolutions variable. Two windows would put a difference in the fourth digit that nobody could attribute.
+    \item \code{per\_blade} is ONE window, one row per blade, with each blade's start and end azimuth in columns. It averaged each blade over its own passage before, which mixed a real azimuthal difference with a difference in WHEN each blade was sampled.
+    \item The native coefficient export stays as a HEALTH CHECK only. It is the last iteration, which on an oscillating rotor is one instant of a cycle, so the POLAR no longer reads it and the assessor judges from the history.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Groups are named, and your files are renamed for you}
+\begin{lstlisting}
+from pyflightstream.workspace import rename_group_products
+rename_group_products(root, {1: "PUSHER"}, dry_run=True)   # look first
+rename_group_products(root, {1: "PUSHER"})
+\end{lstlisting}
+  \begin{itemize}
+    \item A product file carries the group's NAME instead of \code{\_g01}. A number told you which position the group held in a list, which is a fact about the list and not about the group.
+    \item You supply the mapping: nothing in a workspace records which group \code{\_g03} was. A number you do not give is LEFT ALONE, never renamed on a guess.
+    \item It ARCHIVES each file before it moves it, and never deletes. A destination that already exists is refused, naming both paths, with nothing moved.
+  \end{itemize}
+\end{frame}
+
+% =====================================================================
 \section{Versions and Evidence in Practice}
 % =====================================================================
 

@@ -7,6 +7,36 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Owed
+
+- **The Zenodo archive of v0.14.0 DOES NOT EXIST**, re-measured against
+  Zenodo's own API on 2026-09-14, when the v0.18.0 archive row was paid: the
+  concept record lists NINETEEN archived versions and v0.14.0 is not among
+  them. The earlier reading of 2026-09-10 said the same and could not be
+  confirmed for four days because the service was answering 504; it is
+  confirmed now, so this is a fact about the archive rather than about its
+  availability.
+  THE RELEASE OBJECT FOR v0.14.0 EXISTS, published 2026-09-09, so the webhook
+  had what it needs and the archive still has no version for it. Whatever
+  failed, it failed silently, and re-triggering it is the repair.
+  Until that row lands this section says so, because a shipped release that
+  quietly stops being citable is the gap PFS-2024.09 is about. Cite that
+  release by the concept DOI, which resolves to the newest archived version.
+
+
+## [0.23.0] - 2026-09-17
+
+Sixteen items, all of them about the same thing: **every file the post stage
+writes says what it is.** The release opened with one message, and both halves
+of it shipped -- a super file that could not be written in the format she reads,
+and a super file whose blank cells broke her CSV reader.
+
+**NOTHING HERE NEEDS A RE-RUN.** Every change below is produced by
+`pyfs-matrix post --workspace <root>` over outputs already collected, on
+Windows and on the cluster, with one exception named under *Owed* at the end.
+See `docs/migrating-to-0.23.0.md` before upgrading a workspace you care about.
+
+
 ### Changed (breaking)
 
 - **A polar group is named, and the product file carries its NAME instead of
@@ -88,6 +118,33 @@ FlightStream versions.
     blank. A reader keying on `-` must change; one keying on `NA` already
     covers both.
 
+- **Every product carries the whole flight condition and the reference
+  lengths.** The sections, probes and reduction tables carried no reference
+  length at all, and the polar carried no `VINF` or `ALT`. These are NEW
+  COLUMNS: a reader that selects by name is unaffected, one that assumes a
+  column count is not.
+
+- **A polar group is NAMED and the product file carries its name**, not `_g01`.
+  Your existing products are RENAMED for you by
+  `pyflightstream.workspace.rename_group_products`, which archives each file
+  before it moves it, never deletes, leaves a group number you did not name
+  alone rather than guessing, and refuses a destination that already exists.
+
+- **`_sections` carries `ITERATION` and `AZIMUTH` instead of `POINT`.** `POINT`
+  held the polar's name, which the file name already carries, while the two
+  things that vary down the table were absent. `AZIMUTH` is `NA` without a
+  rotor and never `0`, which is a real azimuth.
+
+- **`per_blade` is ONE window**, one row per blade, with each blade's start and
+  end azimuth in columns. It averaged each blade over its own passage before,
+  which mixed a real azimuthal difference with a difference in WHEN each blade
+  was sampled, and nothing in the file said which was which.
+
+- **The POLAR of an unsteady point no longer reads the native coefficient
+  export.** That file is only the last iteration, which on an oscillating rotor
+  is one instant of a cycle. It still ships as a health check, and the run
+  assessor judges an unsteady point from the plots history instead.
+
 ### Changed
 
 - **The `broken_commands` manifest key is promised for removal at 0.24.0**, its
@@ -134,21 +191,69 @@ FlightStream versions.
     with another one.
 
 
+### Added
+
+- **A rotor table per rotor**, carrying `J`, `CT`, `CQ`, `CP`, `ETA` and
+  `ETAW`, each column suffixed with the rotor's alias. These make physical
+  sense for ONE rotor and not for several summed: the diameters and speeds that
+  normalise them are different numbers. `ETA` and `ETAW` read `NA` on a static
+  point, where both are `0/0`; a figure of merit is the static measure and the
+  user defines it.
+- **The rotor table names its alias on its first line, alone**, so a script
+  that has already loaded the file still knows which group it holds.
+- **A rotor carries its INSTALLATION VECTOR.** `axis` accepts three components
+  as well as a letter, for a mesh that arrives with its pitch and toe already
+  in it. A letter keeps its exact meaning and takes the same code path, so
+  every existing reference emits the same script. The blade datum is now
+  refused by ANGLE rather than by comparing two strings.
+- **An integration group for every rotor the reference declares**, created from
+  that rotor's own families when the pproc declares none, as a normal group. A
+  declared group under a rotor's alias whose families are not that rotor's is
+  refused at plan time, naming both sets.
+- **The operator in the provenance**, as a `prov:Person` agent, resolved by one
+  standard-library call that answers on Windows and on the cluster alike.
+- **An unsteady POLAR and rotor table are the plots averaged** over the same
+  window `per_blade` uses, derived by
+  `pyflightstream.post.unsteady.converged_window`.
+- **The super file takes a format**: `csv` as before, or `legacy_polar`. Both
+  carry the same columns; a format nobody offers is refused naming those that
+  exist rather than falling back.
+- **Three optional pproc tables, shipped together**: `[phase_locked]`,
+  `[equations]` and `[glossary]`. The pproc spec forbids unknown tables, so a
+  half shipment would make an artifact written for this release unreadable by
+  an install that almost has the feature. A pproc that mentions none of them
+  loads exactly as before.
+  - `phase_locked` is generated when the matrix specifies AT LEAST
+    `min_revolutions`. Not reaching it does NOT refuse the polar.
+  - An equation points at an ALIAS and never at a mesh family, so every derived
+    coefficient carries `_<alias>`.
+- **Generated pproc guides**: `write_pproc_guides` writes `VARIABLES.md` and
+  `WRITING-EQUATIONS.md` into the pproc input folder, read from the models they
+  document so they cannot go stale.
+
+
+### Fixed
+
+- `check_release_published.py <tag>` answered "TAGGED BUT NOT RELEASED: no
+  release object" for a tag the checkout does not carry at all. The verdict was
+  right by accident and the reason was false, sending a reader to look for a
+  missing release object on a tag nobody ever cut. An absent tag now reads NOT
+  TAGGED.
+
+
 ### Owed
 
-- **The Zenodo archive of v0.14.0 DOES NOT EXIST**, re-measured against
-  Zenodo's own API on 2026-09-14, when the v0.18.0 archive row was paid: the
-  concept record lists NINETEEN archived versions and v0.14.0 is not among
-  them. The earlier reading of 2026-09-10 said the same and could not be
-  confirmed for four days because the service was answering 504; it is
-  confirmed now, so this is a fact about the archive rather than about its
-  availability.
-  THE RELEASE OBJECT FOR v0.14.0 EXISTS, published 2026-09-09, so the webhook
-  had what it needs and the archive still has no version for it. Whatever
-  failed, it failed silently, and re-triggering it is the repair.
-  Until that row lands this section says so, because a shipped release that
-  quietly stops being citable is the gap PFS-2024.09 is about. Cite that
-  release by the concept DOI, which resolves to the newest archived version.
+- **`submitted_by` is `NA` on every run that finished before this release.** It
+  is a RUN-time fact, nobody recorded it, and it cannot be recovered. No value
+  is invented. It is filled from the next run onward.
+- **The installation vector is not validated against a licensed run.** No run
+  with pitch and toe exists yet. What is proved offline is that the letter path
+  is unchanged and that a vector spelling of a letter emits the same script;
+  whether the frames a TILTED shaft produces match the hardware is owed to one
+  licensed run at a known pitch.
+- **`ETAW` is implemented as the thrust component along the free stream**, the
+  standard reading of the wind-axis efficiency. The definition is a domain call
+  and is the owner's to confirm.
 
 
 ## [0.22.0] - 2026-09-17
@@ -10164,7 +10269,8 @@ the repository seeding and this tag (milestones M0 through M5).
 * 26.000: registered, no recorded evidence yet (honest empty column;
   backfill planned for v0.2+).
 
-[Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.22.0...HEAD
+[Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.23.0...HEAD
+[0.23.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.23.0
 [0.22.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.22.0
 [0.21.1]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.21.1
 [0.21.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.21.0
