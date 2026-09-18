@@ -521,6 +521,101 @@ def swept_polar_file_name(
 _NUMBERED_GROUP = re.compile(r"^g\d+$", re.IGNORECASE)
 
 
+#: The six coefficients a rotor table carries, in the order the owner named
+#: them on 2026-09-17: "J, CT, CQ, CP, ETA, ETAW (eficiência no eixo do
+#: vento) para cada rotor".
+ROTOR_COEFFICIENT_COLUMNS: tuple[str, ...] = ("J", "CT", "CQ", "CP", "ETA", "ETAW")
+
+
+def rotor_coefficient_columns(alias: str) -> tuple[str, ...]:
+    """Return the rotor coefficient columns of ONE rotor, suffixed with its alias.
+
+    Her constraint, and it is physical rather than cosmetic: "esses coefs fazem
+    sentido físico apenas para um rotor, não vários juntos". Two rotors summed
+    into one CT is not a worse CT, it is not a CT at all -- the diameters and
+    the speeds that normalise it are different numbers. The alias in every
+    column name is what makes summing them impossible by accident.
+    """
+    token = str(alias).strip()
+    if not token:
+        raise ProductError("a rotor coefficient column needs the rotor's alias to carry")
+    return tuple(f"{name}_{token}" for name in ROTOR_COEFFICIENT_COLUMNS)
+
+
+def rotor_coefficients(
+    *,
+    thrust_n: float,
+    torque_nm: float,
+    rps: float,
+    diameter_m: float,
+    density_kg_m3: float,
+    speed_m_s: float,
+    shaft_angle_deg: float = 0.0,
+) -> dict[str, float | str]:
+    """Return the six standard coefficients of one rotor.
+
+    THE DEFINITIONS, written here because a coefficient whose formula lives
+    only in code is a number nobody can check. ``n`` is revolutions per SECOND
+    and ``D`` the diameter::
+
+        J    = V / (n D)
+        CT   = T / (rho n^2 D^4)
+        CQ   = Q / (rho n^2 D^5)
+        CP   = 2 pi CQ
+        ETA  = J CT / CP
+        ETAW = ETA cos(theta)
+
+    ``shaft_angle_deg`` is the angle between the rotor's SHAFT and the free
+    stream, which is why this rests on item 19: until the installation vector
+    existed the shaft was assumed to lie on a geometry axis, so a rotor
+    installed at pitch reported the wind-axis efficiency of an aligned rotor.
+    A rotor tilted out of the flight direction does not put all of its thrust
+    into going forward, and `ETAW` is the half that does.
+
+    ETA AND ETAW ARE `NA` ON A STATIC POINT. At V = 0 both are 0/0: the rotor
+    produces thrust and absorbs torque and no useful propulsive power, so any
+    number there is an artifact of the algebra rather than a measurement. `CT`
+    and `CQ` are still real and still written. The static measure is a figure
+    of merit, which by the owner's decision of 2026-09-17 the package does not
+    choose: "o usuário define uma se ele for rodar estático".
+
+    THE DEFINITION OF `ETAW` IS A DOMAIN CALL AND IS FLAGGED AS ONE. It is
+    implemented as the thrust component along the free stream, which is the
+    standard reading of "eficiência no eixo do vento", and it is the owner's to
+    confirm or correct before the release is tagged.
+
+    Raises
+    ------
+    ZeroDivisionError
+        If the rotor is not turning. Every coefficient divides by the square of
+        the speed, and a rotor at zero rev/min has no coefficients rather than
+        infinite ones.
+    """
+    if rps == 0:
+        raise ZeroDivisionError(
+            "the rotor is not turning, so it has no thrust or torque coefficient: "
+            "every one of them divides by the square of its speed"
+        )
+    advance_ratio = speed_m_s / (rps * diameter_m)
+    thrust_coefficient = thrust_n / (density_kg_m3 * rps**2 * diameter_m**4)
+    torque_coefficient = torque_nm / (density_kg_m3 * rps**2 * diameter_m**5)
+    power_coefficient = 2.0 * math.pi * torque_coefficient
+    values: dict[str, float | str] = {
+        "J": advance_ratio,
+        "CT": thrust_coefficient,
+        "CQ": torque_coefficient,
+        "CP": power_coefficient,
+    }
+    if speed_m_s == 0 or power_coefficient == 0:
+        values["ETA"] = NOT_APPLICABLE
+        values["ETAW"] = NOT_APPLICABLE
+        return values
+    efficiency = advance_ratio * thrust_coefficient / power_coefficient
+    values["ETA"] = efficiency
+    values["ETAW"] = efficiency * math.cos(math.radians(shaft_angle_deg))
+    return values
+
+
 def group_product_name(*, polar: str, mach: float, group: str, suffix: str = ".csv") -> str:
     """Return the product file name of one polar GROUP, carrying the group's NAME.
 
