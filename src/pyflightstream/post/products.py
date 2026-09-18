@@ -2702,6 +2702,127 @@ def _sweep_rows(
     return rows
 
 
+def _stated_window(record: object) -> tuple[int, int] | None:
+    """Return the ONE window the row stated, off the run record, or None if steady.
+
+    Item 16's window as the PRODUCTS stage meets it. The plan writes it once,
+    under `time_average`, from `last_revs_avg` or `last_iters_avg`; every
+    unsteady product of the point reads it from there rather than deriving one,
+    which is what makes "one window" true of the files rather than of a docstring.
+
+    None for a record with no reductions at all -- a steady point -- and for one
+    whose time average was SKIPPED, because a row whose clock could not be
+    resolved has no window to average the polar over either.
+    """
+    plan = getattr(record, "reductions", None)
+    if not isinstance(plan, Mapping):
+        return None
+    entry = plan.get("time_average")
+    if not isinstance(entry, Mapping):
+        return None
+    windows = entry.get("windows")
+    if not isinstance(windows, Sequence) or not windows:
+        return None
+    first = windows[0]
+    if not isinstance(first, Sequence) or len(first) != 2:
+        return None
+    return (int(first[0]), int(first[1]))
+
+
+def unsteady_polar_file_name(sim_id: str | int, *, name: str) -> str:
+    """Return the file name of one unsteady simulation's POLAR, which is per SIMULATION.
+
+    Item 17. It carries no GROUP, and that is the whole difference from
+    :func:`swept_polar_file_name`: the steady polar is one table per pproc group
+    because its source, the loads export, states loads PER FAMILY. This one's
+    source is the plots history, whose columns are whatever the run defined as
+    plots, so there is one table per simulation and one row per point.
+    """
+    # NOT `group_token`, which is the GROUP rule: it prefixes a bare number with
+    # `g` so a named group can never be told from the numbered era's suffix. A
+    # simulation id is not a group and carries no such history, and prefixing it
+    # would rename every file of every workspace she has.
+    return f"{sim_id}_{name}_unsteady.csv"
+
+
+def write_unsteady_polar(
+    path: str | Path,
+    *,
+    points: Sequence[object],
+    plots: Mapping[str, Path],
+    window: tuple[int, int],
+    conditions: Sequence[Mapping[str, object]],
+    reference: ReferenceValues | None,
+) -> Path | None:
+    """Write the POLAR of one unsteady simulation from the PLOTS history (item 17).
+
+    THE NATIVE COEFFICIENT EXPORT IS NOT THE SOURCE, by the owner's answer of
+    2026-09-18: it states the LAST TIME STEP, which on an oscillating rotor is
+    one instant of a cycle. Her instruction: *"A POLAR do unsteady sempre vai vir
+    do unsteady plots, alem de ter a media temporal"*.
+
+    THE COLUMNS ARE THE EXPORT'S OWN NAMES, and this is the decision that made
+    the item buildable. Her words: *"despega daqueles nomes da polar, escreve o
+    nome das variaveis como elas vieram no unsteady plots"*. So this table does
+    NOT carry the steady polar's twenty-four fixed coefficients; it carries the
+    plots the run defined, under the names the export prints them.
+
+    Nothing in this package knows which plot label carries which coefficient, and
+    a label invented here would not fail loudly -- it would write `NA` down a
+    whole column. Taking the names from the file removes that possibility
+    entirely rather than guarding against it.
+
+    THE WINDOW IS THE ROW'S, the one `last_revs_avg` or `last_iters_avg` states,
+    and it is the same window `per_blade` and the time average use (item 16).
+
+    ONE ROW PER POINT, in the order given. A point whose plots export is missing
+    or unreadable is LEFT OUT rather than written as a row of `NA`: the sweep is
+    a table of what ran, and an absent point is absent.
+
+    Returns None when no point yields a row, which is an ordinary campaign -- an
+    unsteady simulation whose points exported no plots -- and never a refusal
+    that would cost the simulation its other products.
+    """
+    path = Path(path)
+    columns: list[str] = []
+    rows: list[tuple[Mapping[str, object], dict[str, float]]] = []
+    for point, condition in zip(points, conditions, strict=True):
+        source = plots.get(str(getattr(point, "name", "")))
+        if source is None or not source.is_file():
+            continue
+        try:
+            names, series = plots_table_series(source)
+            averaged = blade_passage_average(series, window=window)
+        except (PyflightstreamError, ValueError):
+            # A history that does not cover the row's window is a run that
+            # stopped early, not a fault: it costs this point its row.
+            continue
+        values: dict[str, float] = {}
+        for name in names:
+            column = averaged.fields.get(name)
+            if column is not None and len(column):
+                values[name] = float(column[0])
+        if not values:
+            continue
+        for name in values:
+            if name not in columns:
+                columns.append(name)
+        rows.append((condition, values))
+    if not rows:
+        return None
+    # ITEM 5 REACHES THIS PRODUCT TOO: a coefficient states nothing without the
+    # condition it was taken at and the lengths it was normalised by.
+    lengths = None if reference is None else reference.as_lengths()
+    return write_csv_table(
+        path,
+        (*CONTEXT_COLUMNS, *columns),
+        [
+            (*context_row(condition, lengths), *(values.get(name) for name in columns))
+            for condition, values in rows
+        ],
+    )
+
+
 def _sim_products(
     workspace: CampaignWorkspace,
     sim_id: str,
@@ -2878,7 +2999,26 @@ def _sim_products(
         # whole condition, reported over requested, and `context_row` resolves
         # each recorded spelling onto its column.
         conditions = [point_condition(point, mach=mach, cell=cell) for point in points]
-        for group, families in pproc.groups.items():
+
+        # ITEM 17: AN UNSTEADY SIMULATION'S POLAR COMES FROM THE PLOTS, and the
+        # group polars below are NOT written for it. Her answers of 2026-09-18:
+        # the native coefficient export states the LAST TIME STEP, which on an
+        # oscillating rotor is one instant of a cycle, so a polar read from it is
+        # a polar of an instant; and "A POLAR do unsteady sempre vai vir do
+        # unsteady plots, alem de ter a media temporal".
+        #
+        # THE TABLE ITSELF IS WRITTEN LATER, after the per-point loop has put the
+        # plots tables on disk: it reads THOSE rather than the raw export, so the
+        # scaling `write_plots_table` applies is not performed a second time here.
+        # Two implementations of one conversion is how two published numbers come
+        # to disagree.
+        unsteady_window_steps = _stated_window(first)
+
+        # THE GROUP POLARS ARE SKIPPED RATHER THAN WRITTEN FROM AN INSTANT.
+        # Writing both would put two files with one name's worth of meaning in
+        # one folder, and a reader would have no way to tell which of them the
+        # coefficients she is comparing came from.
+        for group, families in () if unsteady_window_steps is not None else pproc.groups.items():
             rows = _polar_rows(
                 points, list(families), mach=mach, reference=reference, aliases=first.aliases
             )
@@ -3093,6 +3233,27 @@ def _sim_products(
         # of this simulation are on disk: the superfile is written after the
         # unsteady post-process, which is what makes one row per converged
         # point possible at all.
+        # ITEM 17, HERE BECAUSE THE PLOTS TABLES ARE NOW ON DISK. The POLAR of an
+        # unsteady simulation is the plots history time-averaged over the row's
+        # one window, and it reads the WRITTEN tables rather than the raw export
+        # so that the reference-velocity scaling is performed in one place.
+        if unsteady_window_steps is not None:
+            done = write_unsteady_polar(
+                _target(out / POLARS_DIR / unsteady_polar_file_name(sim_id, name=table_name)),
+                points=points,
+                plots=plots_tables,
+                window=unsteady_window_steps,
+                conditions=conditions,
+                reference=reference,
+            )
+            if done is not None:
+                written.append(done)
+                written_names[done.relative_to(out).as_posix()] = {
+                    "runs": sorted({run for names in sources.values() for run in names}),
+                    "source": "the unsteady plots, time-averaged",
+                    "window": list(unsteady_window_steps),
+                }
+
         by_run = {record.run_id: record for record in records}
         last_step: dict[str, Mapping[str, str]] = {}
         for name, table in plots_tables.items():

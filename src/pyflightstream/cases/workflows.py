@@ -151,6 +151,8 @@ __all__ = [
     "SYMMETRY_VARIABLE",
     "TIME_ITERATIONS_VARIABLE",
     "VELOCITY_VARIABLE",
+    "LAST_ITERS_AVG_VARIABLE",
+    "LAST_REVS_AVG_VARIABLE",
     "WINDOW_DEGREES_VARIABLE",
     "WINDOW_REVOLUTIONS_VARIABLE",
     "WINDOW_STEPS_VARIABLE",
@@ -416,6 +418,28 @@ LOG_OUTPUT_VARIABLE = "LOG_OUTPUT"
 WINDOW_DEGREES_VARIABLE = "WINDOW_DEGREES"
 WINDOW_STEPS_VARIABLE = "WINDOW_STEPS"
 WINDOW_REVOLUTIONS_VARIABLE = "WINDOW_REVOLUTIONS"
+
+#: ITEM 16: THE ONE WINDOW, stated on the MATRIX ROW, one key per run type.
+#:
+#: The owner's decision of 2026-09-18: *"fica na matriz e e input obrigatorio de
+#: unsteady_rotor, para unsteady apenas, fica last_iters_avg. Eu quero isso na
+#: matriz por conversar diretamente com setup temporal."*
+#:
+#: ON THE ROW AND NOT IN THE PPROC, and her reason is better than tidiness: the
+#: window converses with the TEMPORAL SETUP, and `DELTA_TIME`, `TIME_ITERATIONS`
+#: and `RPM` are all on the same row. A window in the pproc would sit apart from
+#: the quantities that give it a length.
+#:
+#: `last_revs_avg` ACCEPTS A FLOAT, which she stated explicitly: one and a half
+#: revolutions is a window a reader can mean.
+#:
+#: IT IS THE SAME WINDOW FOR EVERY UNSTEADY PRODUCT of the point -- the POLAR,
+#: the time average and `per_blade` -- which is the whole of item 16. Her words,
+#: 2026-09-18: *"a media per_blade usa a mesma info de last_revs e last_iters
+#: que o unsteady plots"*. Two windows put a difference in the fourth digit that
+#: no reader can attribute to anything.
+LAST_REVS_AVG_VARIABLE = "LAST_REVS_AVG"
+LAST_ITERS_AVG_VARIABLE = "LAST_ITERS_AVG"
 #: The step the per-step exports BEGIN on, stated in revolutions of the
 #: rotor or in time iterations (PFS-2031.18, the design of 2026-09-08,
 #: GeoversePlan design 67). A row states at most one. From that step to
@@ -3444,26 +3468,163 @@ def _the_passages_of_one_rotor(
     # onwards -- so blade 1 came from one stretch of the history and blade 4
     # from another, and any difference between two blades mixed a real
     # azimuthal difference with a difference in WHEN they were sampled.
-    one_window = per_blade_window(last_step=last_step, blades=blades, period_steps=period)
-    per_blade = [one_window] if one_window is not None else []
-    if one_window is None:
-        entry["per_blade"] = {
-            "skipped": (
-                f"the run is {last_step} steps and {alias} has {blades} blades of "
-                f"{period} steps each, needing {blades * period}, so the run holds no "
-                "complete revolution of it to split by blade"
-            )
-        }
+    #
+    # ITEM 16: IT IS THE ROW'S WINDOW, not a second one derived here. Her rule of
+    # 2026-09-18: "a media per_blade usa a mesma info de last_revs e last_iters
+    # que o unsteady plots". `span` is what the row stated and what the POLAR and
+    # the time average use; deriving the last complete revolution separately gave
+    # the SAME answer only when the row asked for exactly one revolution, and a
+    # different one the moment it asked for half or for three.
+    #
+    # `per_blade_window` still decides whether the span HOLDS a revolution to
+    # split by blade, which is a different question from where the window is.
+    # THE SAME INFORMATION, THIS ROTOR'S OWN STEPS. Her rule of 2026-09-18 is
+    # "a media per_blade usa a mesma INFO de last_revs e last_iters que o
+    # unsteady plots", and `last_revs_avg` is stated in REVOLUTIONS: one
+    # revolution of a lifter and one of a pusher are different numbers of solver
+    # steps, so the same information gives each rotor a different span.
+    #
+    # THIS IS FR-68 AND IT IS WHY THE ROW'S SPAN IS NOT USED HERE. I wired the
+    # row's span for every rotor and a test refused it, correctly: "two rotors
+    # turning at two speeds have revolutions of different lengths, so one window
+    # for the row would be one rotor's turn imposed on the other". Item 16 and
+    # FR-68 are not in tension once the window is read as a COUNT OF
+    # REVOLUTIONS rather than as a range of steps.
+    #
+    # NO COMPLETE-REVOLUTION GATE remains, and that is items 8 and 16 together:
+    # the old shape needed a whole revolution because it CUT the window into one
+    # passage per blade, and one shared window is not cut. Each blade's row
+    # carries the azimuth it actually swept.
+    turns = _stated_revolutions(case)
+    if turns is not None:
+        rotor_steps = max(int(round(turns * per_revolution)), 1)
+        rotor_span = (max(span[1] - rotor_steps + 1, 1), span[1])
+        window_from = (
+            f"{turns:g} revolution(s) of {alias}, {rotor_steps} steps, shared by every blade"
+        )
     else:
-        entry["per_blade"] = {
-            "windows": [list(item) for item in per_blade],
-            "period_steps": period,
-            "window_from": (
-                f"the last revolution of {alias}, one window of {period} steps per blade, "
-                f"{blades} blades"
-            ),
-        }
+        # A ROW WRITTEN BEFORE THIS RELEASE STATES NO COUNT OF REVOLUTIONS, so it
+        # keeps the answer it has always had: this rotor's own last complete
+        # revolution. Falling back to the ROW'S span instead would impose one
+        # rotor's turn on the other, which is the defect FR-68 exists against and
+        # which a test in this file refused when I tried it.
+        fallback = per_blade_window(last_step=span[1], blades=blades, period_steps=period)
+        if fallback is None:
+            entry["per_blade"] = {
+                "skipped": (
+                    f"the run is {span[1]} steps and {alias} has {blades} blades of "
+                    f"{period} steps each, needing {blades * period}, so the run holds no "
+                    "complete revolution of it to split by blade"
+                )
+            }
+            return entry
+        rotor_span = fallback
+        window_from = (
+            f"the last revolution of {alias}, {blades} blades of {period} steps, "
+            "shared by every blade"
+        )
+    entry["per_blade"] = {
+        "windows": [list(rotor_span)],
+        "period_steps": period,
+        "window_from": window_from,
+    }
     return entry
+
+
+def _stated_revolutions(case: SimCase) -> float | None:
+    """Return the COUNT of revolutions the row states for averaging, or None.
+
+    Item 16's window read as INFORMATION rather than as a range of steps, which
+    is what lets it serve a row turning two rotors at two speeds. `last_revs_avg`
+    says how many turns to average over; each rotor converts that to steps with
+    its OWN revolution, so the same instruction gives the lifter and the pusher
+    different spans and neither has the other's turn imposed on it (FR-68).
+
+    None where the row states the window in ITERATIONS instead, or states none:
+    a count of iterations is already in steps and is the same number for every
+    rotor, which is the honest reading of what the row asked for.
+    """
+    revs = _variable(case, LAST_REVS_AVG_VARIABLE)
+    if revs is None:
+        return None
+    try:
+        return float(revs)
+    except (TypeError, ValueError):
+        # The refusal belongs to `_averaging_window`, which names the case and
+        # the key; this helper is asked after it and never instead of it.
+        return None
+
+
+def _averaging_window(
+    case: SimCase, *, last_step: int, per_revolution: float | None
+) -> tuple[tuple[int, int], str] | None:
+    """Return the window the ROW states for averaging, and the sentence that says so.
+
+    Item 16. The owner's decision of 2026-09-18: the averaging window is a MATRIX
+    input, `last_revs_avg` on an `unsteady_rotor` row and `last_iters_avg` on an
+    `unsteady` one, and it is the SAME window for every unsteady product of the
+    point -- the POLAR, the time average and `per_blade`.
+
+    `last_revs_avg` TAKES A FLOAT, which she stated explicitly. One and a half
+    revolutions is a window a reader can mean, and rounding it to two would
+    silently average over a third more history than the row asked for.
+
+    RETURNS None WHEN THE ROW STATES NEITHER, so the caller can fall back to the
+    retired `WINDOW_*` spellings for a matrix written before this release. That
+    fallback is the whole of the migration: her existing rows keep binding, and
+    the deprecation warns rather than refuses.
+
+    A ROW THAT STATES REVOLUTIONS WITHOUT A CLOCK gets None rather than a guess.
+    Without `steps_per_revolution` a count of revolutions has no length in steps,
+    and the caller's own refusal path says so with the row named.
+    """
+    revs = _variable(case, LAST_REVS_AVG_VARIABLE)
+    iters = _variable(case, LAST_ITERS_AVG_VARIABLE)
+    if revs is not None and iters is not None:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} states both {LAST_REVS_AVG_VARIABLE} = {revs} and "
+            f"{LAST_ITERS_AVG_VARIABLE} = {iters}, and they are two ways to say one "
+            "window. State the revolutions on a row that turns a rotor and the "
+            "iterations on one that does not."
+        )
+    if revs is not None:
+        turns = _required_float(
+            case, LAST_REVS_AVG_VARIABLE, quantity="averaging window", unit="revolutions"
+        )
+        if per_revolution is None or per_revolution <= 0:
+            raise CampaignConfigError(
+                f"case {case.sim_id!r} states {LAST_REVS_AVG_VARIABLE} = {revs} and the row "
+                "states no rotor speed, so a count of revolutions has no length in solver "
+                f"steps. State the speed, or use {LAST_ITERS_AVG_VARIABLE}."
+            )
+        steps = int(round(turns * float(per_revolution)))
+        detail = f"{turns:g} revolution(s) of {per_revolution:g} steps"
+        key = LAST_REVS_AVG_VARIABLE
+    elif iters is not None:
+        steps = int(
+            round(
+                _required_float(
+                    case, LAST_ITERS_AVG_VARIABLE, quantity="averaging window", unit="iterations"
+                )
+            )
+        )
+        detail = f"{steps} iteration(s)"
+        key = LAST_ITERS_AVG_VARIABLE
+    else:
+        return None
+    if steps < 1:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} states an averaging window of {steps} solver step(s), "
+            "which averages nothing. State a window of at least one step."
+        )
+    # LONGER THAN THE RUN IS THE WHOLE RUN, not a refusal. A row asking to
+    # average the last four revolutions of a run that turned three has asked for
+    # everything it has, and refusing there would cost her the products of a
+    # campaign that already happened over an arithmetic edge.
+    first = max(last_step - steps + 1, 1)
+    return (first, last_step), (
+        f"the averaging window the row states: {key} = {detail}, steps {first} to {last_step}"
+    )
 
 
 def reduction_windows(case: SimCase) -> dict[str, object] | None:
@@ -3560,14 +3721,27 @@ def reduction_windows(case: SimCase) -> dict[str, object] | None:
     per_revolution = stepping.steps_per_revolution
     revolution = None if per_revolution is None else int(round(per_revolution))
 
-    # THE TIME-AVERAGE WINDOW: stated, else the last revolution, else the run.
+    # ITEM 16: THE ONE WINDOW, FROM THE ROW'S OWN AVERAGING KEY FIRST.
+    #
+    # `last_revs_avg` on a rotor row and `last_iters_avg` on a rotorless one are
+    # what the owner decided the window is stated by (2026-09-18), and they take
+    # precedence over the three retired WINDOW_* spellings. A row carrying both
+    # an old key and a new one gets the NEW one, because that is the answer she
+    # would be asking for by writing it.
+    #
+    # THE SAME SPAN SERVES EVERY UNSTEADY PRODUCT of the point. It is computed
+    # once here and every reduction below cuts from it, which is what makes "one
+    # window" a property of the plan rather than a promise in a docstring.
+    averaging = _averaging_window(case, last_step=last_step, per_revolution=per_revolution)
     stated = {
         key: value
         for key in (WINDOW_DEGREES_VARIABLE, WINDOW_STEPS_VARIABLE, WINDOW_REVOLUTIONS_VARIABLE)
         if (value := _variable(case, key)) is not None
     }
     try:
-        if stated:
+        if averaging is not None:
+            span, window_from = averaging
+        elif stated:
             window = ExportWindow.from_case(case)
             span = window.window_steps()
             key, value = next(iter(stated.items()))
@@ -3749,24 +3923,43 @@ def reduction_windows(case: SimCase) -> dict[str, object] | None:
     # onwards -- so blade 1 came from one stretch of the history and blade 4
     # from another, and any difference between two blades mixed a real
     # azimuthal difference with a difference in WHEN they were sampled.
-    one_window = per_blade_window(last_step=last_step, blades=blades, period_steps=period)
-    per_blade = [one_window] if one_window is not None else []
-    if one_window is None:
+    #
+    # ITEM 16 ON THIS PATH TOO: the window is the ROW'S, the same one the POLAR
+    # and the time average use, and not a second derivation. Deriving the last
+    # complete revolution here agreed with the row only when the row asked for
+    # exactly one, and disagreed the moment it asked for half or for three.
+    # THE ROW'S OWN COUNT OF REVOLUTIONS, in this row's steps; see the note on
+    # the per-rotor path for why the window is read as a COUNT rather than as a
+    # range. A row stating `last_revs_avg` gets exactly that many turns.
+    #
+    # A ROW WRITTEN BEFORE THIS RELEASE KEEPS THE ANSWER IT HAS ALWAYS HAD: its
+    # last complete revolution. That is the whole migration for `per_blade` --
+    # her existing matrices produce the same windows they did, and only a row
+    # that states the new key moves.
+    turns = _stated_revolutions(case)
+    if turns is not None and per_revolution:
+        wanted = max(int(round(turns * per_revolution)), 1)
+        blade_span: tuple[int, int] | None = (max(span[1] - wanted + 1, 1), span[1])
+        window_from = f"{turns:g} revolution(s), {wanted} steps, shared by every blade"
+    else:
+        blade_span = per_blade_window(last_step=span[1], blades=blades, period_steps=period)
+        window_from = (
+            f"the last revolution of the run, {blades} blades of {period} steps, "
+            "shared by every blade"
+        )
+    if blade_span is None:
         plan["per_blade"] = {
             "skipped": (
-                f"the run is {last_step} steps and {blades} blades of {period} steps each "
+                f"the run is {span[1]} steps and {blades} blades of {period} steps each "
                 f"need {blades * period}, so it holds no complete revolution to split "
                 "by blade"
             )
         }
     else:
         plan["per_blade"] = {
-            "windows": [list(item) for item in per_blade],
+            "windows": [list(blade_span)],
             "period_steps": period,
-            "window_from": (
-                f"the last revolution of the run, one window of {period} steps per blade, "
-                f"{blades} blades"
-            ),
+            "window_from": window_from,
         }
     return plan
 

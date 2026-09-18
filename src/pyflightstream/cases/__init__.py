@@ -1598,10 +1598,18 @@ class PprocSpec(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     groups: dict[str, list[int | str]] = Field(default_factory=dict)
-    #: Item 9. Absent by default: a pproc that says nothing about it gets no
-    #: phase-locked reduction, and not reaching the minimum never refuses the
-    #: polar.
-    phase_locked: PhaseLockedSpec | None = None
+    # ITEM 9 IS 0.24.0 SCOPE, by the owner's decision of 2026-09-18: "vamos
+    # deixar o phase-locked para a 24". With items 10 and 11 already moved, this
+    # completes the rule she wrote into the goal -- "itens 9, 10 e 11 sobem
+    # juntos ou nenhum" -- from the side where NONE of them ships. 0.23.0
+    # therefore adds no pproc table at all, and a pproc written for 0.22.0 binds
+    # unchanged.
+    #
+    # THE REDUCTION ITSELF IS UNTOUCHED. `phase_locked` has been a plotted
+    # reduction since long before this release and every workspace that produces
+    # one still produces it. What waits for 0.24.0 is the `[phase_locked]` TABLE
+    # -- the optional gate and the averaging depth -- and the azimuthal shape she
+    # defined on 2026-09-18, which the current reduction does not have.
     # ITEMS 10 AND 11 ARE 0.24.0 SCOPE, by the owner's decision of 2026-09-18:
     # "vamos colocar equations e VARIABLES.md e WRITING-EQUATIONS.md gerados
     # para a 24". The `[equations]` and `[glossary]` tables are therefore NOT

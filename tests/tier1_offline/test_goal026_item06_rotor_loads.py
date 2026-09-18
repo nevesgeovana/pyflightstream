@@ -239,8 +239,18 @@ def test_a_static_point_reads_not_applicable_because_nothing_is_recoverable(tmp_
     unrecoverable, which is a fact about the export rather than about the code.
     A hover figure of merit needs the run to state a FORCE.
 
-    So every coefficient reads `NA`: visibly absent, rather than a zero a
-    reader would believe of a rotor that is plainly pushing.
+    So every coefficient reads `NA` EXCEPT `J`: visibly absent, rather than a
+    zero a reader would believe of a rotor that is plainly pushing.
+
+    THE EXCEPTION IS NAMED BECAUSE THE SENTENCE WITHOUT IT WAS WRONG, and a V&V
+    round caught it against the assertion two lines below, which checked four
+    columns of six. `J = V / (n D)` is `0.0 / (50.0 * 2.0)`, a clean float, so
+    `J_PUSHER` writes `0.00000` -- and that is PHYSICALLY RIGHT: a turning rotor
+    at rest genuinely has an advance ratio of zero. It is the one number on the
+    row a reader may believe. `CP` is `2 pi * nan` and does read `NA`.
+
+    A wrong sentence and a right number, which is the harder of the two to see:
+    this docstring is what a reader takes for the column set's contract.
     """
     from pyflightstream.post.products import NOT_APPLICABLE, read_csv_table, write_rotor_table
 
@@ -259,8 +269,17 @@ def test_a_static_point_reads_not_applicable_because_nothing_is_recoverable(tmp_
         speed_m_s=0.0,
     )
     _, rows = read_csv_table(written, skip=1)
-    for name in ("CT_PUSHER", "CQ_PUSHER", "ETA_PUSHER", "ETAW_PUSHER"):
+    # ALL FIVE, not the four this asserted. `CP` was the column the docstring
+    # covered and the assertion did not, which is how "every coefficient" stayed
+    # unchallenged while one of them wrote a number.
+    for name in ("CT_PUSHER", "CQ_PUSHER", "CP_PUSHER", "ETA_PUSHER", "ETAW_PUSHER"):
         assert rows[0][name] == NOT_APPLICABLE, (name, rows[0])
+    # AND THE ONE THAT IS A REAL ZERO, pinned with its reason so nobody "fixes"
+    # it into `NA` for consistency with the five above.
+    assert rows[0]["J_PUSHER"] == "0.00000", (
+        "J is V / (n D) and a turning rotor at rest has an advance ratio of "
+        f"exactly zero, which is a measurement and not a missing value: {rows[0]}"
+    )
 
 
 def test_a_rotor_that_is_not_turning_writes_no_table(tmp_path):

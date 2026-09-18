@@ -280,33 +280,62 @@ See `docs/migrating-to-0.23.0.md` before upgrading a workspace you care about.
   rotor table stays sourced where it is. **Shipping the resolver uncalled is
   named here because an unused function reads as a delivered capability in a
   change log, and this release makes no such claim.**
-- **`[phase_locked]`, an optional pproc table.** `phase_locked` is generated when
-  the row turns AT LEAST `min_revolutions`; not reaching it does NOT refuse the
-  polar, it skips that one reduction with the reason. A pproc that says nothing
-  about it loads exactly as before.
+- **THE UNSTEADY POLAR COMES FROM THE PLOTS**, time-averaged over the window the
+  row states, one table per simulation and one row per point:
+  `polars/<sim>_<sweep>_unsteady.csv`.
 
-  **THE GATE COUNTS WHAT THE ROW TURNS, not the exported window.** It did not
-  exist on the row-level path at all -- the ordinary single-rotor row got a full
-  phase-locked reduction whatever it turned -- and where it did exist it counted
-  the window, so a campaign turning six revolutions and exporting the last one
-  was read as turning one and failed a minimum of two it had comfortably met.
+  **Its columns are the plot variables under the names the export prints them.**
+  It does NOT carry the steady polar's twenty-four fixed coefficients. Nothing
+  here knows which plot label carries which of them, and a label invented by the
+  package would not fail loudly -- it would write `NA` down a whole column.
 
-- **ITEMS 7, 10 AND 11 ARE NOT IN THIS RELEASE**, by the owner's decision of
-  2026-09-18, and they are listed here because their absence is a fact a reader
-  needs rather than one to discover:
+  The native coefficient export states the LAST TIME STEP, which on an
+  oscillating rotor is one instant of a cycle, so a polar read from it is a polar
+  of an instant that looks exactly like a polar of an average. It still ships, as
+  a health check. **The group polars are not written for an unsteady point**,
+  because writing both would put two files with one name's worth of meaning in
+  one folder.
+
+- **ONE AVERAGING WINDOW, STATED ON THE MATRIX ROW**: `last_revs_avg` on an
+  `unsteady_rotor` row, which **accepts a float**, and `last_iters_avg` on an
+  `unsteady` one. It is the same window the POLAR, the time average and
+  `per_blade` all use.
+
+  **It is on the ROW because it converses with the temporal setup** --
+  `DELTA_TIME`, `TIME_ITERATIONS` and `RPM` are on that row -- and a window
+  stated elsewhere sits apart from the quantities that give it a length.
+
+  **`last_revs_avg` IS A COUNT OF REVOLUTIONS AND NOT A RANGE OF STEPS**, which
+  is what lets one instruction serve a row turning two rotors at two speeds: each
+  converts the count with its OWN revolution, so a lifter at 2200 rev/min and a
+  pusher at 900 get different spans from the same key, and neither has the
+  other's turn imposed on it (FR-68). A window longer than the run is the whole
+  run rather than a refusal.
+
+  `WINDOW_STEPS`, `WINDOW_REVOLUTIONS` and `WINDOW_DEGREES` are DEPRECATED, due
+  for removal at 0.26.0. They were one idea in another place under another name.
+  A row stating none of the new keys keeps the answer it has always had.
+
+- **ITEMS 7, 9, 10 AND 11 ARE NOT IN THIS RELEASE**, by the owner's decisions of
+  2026-09-18, and they are listed here because an absence a reader has to
+  discover is worse than one they are told:
 
   - the super file in the fixed-width `legacy_polar` format,
-  - the `[equations]` pproc table and its `[glossary]`,
+  - the `[phase_locked]` pproc table,
+  - the `[equations]` table and its `[glossary]`,
   - the generated `VARIABLES.md` and `WRITING-EQUATIONS.md`.
 
-  **The `[equations]` and `[glossary]` FIELDS HAVE BEEN REMOVED from the pproc
-  spec**, and that is deliberate rather than an oversight. They were declared
-  while nothing consumed them, and `write_pproc_guides` had no caller on any
-  campaign path, so a user could have written `[equations]` into a pproc, had
-  the file accepted, and got no coefficient back. The spec forbids unknown
-  tables, so those keys are now REFUSED BY NAME -- which tells you the feature is
-  not here, where silent acceptance would not. They return in 0.24.0 with the
-  behaviour behind them.
+  **0.23.0 therefore adds NO pproc table at all**, which satisfies the rule those
+  items were grouped under -- they rise together or none -- from the side where
+  none of them ships. A pproc written for 0.22.0 binds unchanged, and the three
+  keys are REFUSED BY NAME rather than accepted and ignored. Accepting a table
+  the release does not implement would let a user write it and get nothing back;
+  a refusal says the feature is not here.
+
+  **The `phase_locked` REDUCTION is untouched** and every workspace that produces
+  one still does. What waits is the table that would let a pproc gate it, and the
+  azimuthal shape: the mean at each azimuth across several revolutions, which the
+  current reduction does not compute.
 
 ### Fixed
 

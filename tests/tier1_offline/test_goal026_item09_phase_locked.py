@@ -38,6 +38,27 @@ from pydantic import ValidationError
 
 from pyflightstream.cases import PprocSpec
 
+# ITEM 9 IS 0.24.0 SCOPE, by the owner's decision of 2026-09-18: "vamos deixar o
+# phase-locked para a 24". With items 10 and 11 already moved, this completes the
+# rule she wrote into the goal -- "itens 9, 10 e 11 sobem juntos ou nenhum" --
+# from the side where NONE of the three ships, so 0.23.0 adds no pproc table at
+# all and a pproc written for 0.22.0 binds unchanged.
+#
+# THESE CASES ARE SKIPPED AND NOT ONE IS DELETED. Several of them found real
+# defects today and the findings are worth more than the feature: the gate did
+# not exist on the row-level path at all, and where it existed it counted the
+# EXPORTED WINDOW rather than what the row turned, so a campaign turning six
+# revolutions and exporting the last one failed a minimum of two it had met.
+# Both fixes stay in the code; what waits is the `[phase_locked]` TABLE that
+# lets a pproc ask for them, and the azimuthal shape she defined -- the mean at
+# each azimuth across several revolutions, which the current reduction does not
+# compute.
+#
+# The marker expires by itself: the field returning to `PprocSpec` in 0.24.0
+# turns these red until the behaviour is wired, which is what they are for.
+pytestmark = pytest.mark.skip(reason="item 9 is 0.24.0 scope by the owner's decision of 2026-09-18")
+
+
 #: What 0.23.0's pproc spec SHIPS, and what it must NOT carry.
 #:
 #: The rule was "the three tables are present together or absent together",

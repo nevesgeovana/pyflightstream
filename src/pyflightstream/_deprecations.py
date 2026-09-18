@@ -710,6 +710,47 @@ ROW_MOVING_BOUNDARIES = DeprecatedParameter(
     removal_version="0.18.0",
     extra=_STATED_IN_THE_BLOCK,
 )
+#: ITEM 16 RETIRES THE THREE WINDOW SPELLINGS, by the owner's instruction of
+#: 2026-09-18: "aposenta WINDOW_STEPS e WINDOW_REVOLUTIONS". `WINDOW_DEGREES`
+#: she did not name, and it is retired with them because the reason is identical
+#: and leaving one of three would keep the split this item exists to end; the
+#: default was recorded for her in GEO-050 before it was taken.
+#:
+#: THEY WERE THE SAME IDEA IN ANOTHER PLACE UNDER ANOTHER NAME. A window said
+#: two ways is how two published numbers come to disagree about which steps they
+#: averaged, and the averaging window now has ONE home -- the matrix row, beside
+#: the temporal setup that gives it a length.
+_ONE_WINDOW_ON_THE_ROW = (
+    "The averaging window is stated once on the matrix row, beside the clock that gives it a "
+    "length: last_revs_avg on an unsteady_rotor row, last_iters_avg on an unsteady one."
+)
+ROW_WINDOW_STEPS = DeprecatedParameter(
+    owner="a matrix row",
+    old="WINDOW_STEPS",
+    new="last_iters_avg",
+    deprecated_since="0.23.0",
+    removal_version="0.26.0",
+    extra=_ONE_WINDOW_ON_THE_ROW,
+)
+ROW_WINDOW_REVOLUTIONS = DeprecatedParameter(
+    owner="a matrix row",
+    old="WINDOW_REVOLUTIONS",
+    new="last_revs_avg",
+    deprecated_since="0.23.0",
+    removal_version="0.26.0",
+    extra=_ONE_WINDOW_ON_THE_ROW,
+)
+ROW_WINDOW_DEGREES = DeprecatedParameter(
+    owner="a matrix row",
+    old="WINDOW_DEGREES",
+    new="last_revs_avg",
+    deprecated_since="0.23.0",
+    removal_version="0.26.0",
+    extra=(
+        _ONE_WINDOW_ON_THE_ROW
+        + " Degrees are revolutions over 360, so WINDOW_DEGREES = 90 is last_revs_avg = 0.25."
+    ),
+)
 ROW_ROTOR_AXIS = DeprecatedParameter(
     owner="a motion record",
     old="ROTOR_AXIS",
@@ -869,4 +910,10 @@ DEPRECATIONS: tuple[Deprecation, ...] = (
     PLAN_MATRIX_FS_VERSION,
     RUN_MATRIX_FS_VERSION,
     WAIVED_COMMANDS_MANIFEST_KEY,
+    # ITEM 16 RETIRES THE THREE WINDOW SPELLINGS. They are here rather than
+    # only defined above because the ledger guard measures exactly that gap: a
+    # promise defined and not carried is a deadline nothing counts down.
+    ROW_WINDOW_DEGREES,
+    ROW_WINDOW_REVOLUTIONS,
+    ROW_WINDOW_STEPS,
 )
