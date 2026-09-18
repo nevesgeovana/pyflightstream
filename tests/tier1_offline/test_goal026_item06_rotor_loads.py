@@ -208,11 +208,14 @@ def test_the_rotor_table_is_written_with_its_alias_on_the_first_line(tmp_path):
                 "surfaces": _surfaces(Blade1={"Cz": 0.5}),
                 "condition": {"MACH": 0.15, "ALPHA": 0.0},
                 "rpm": 3000.0,
+                # THE ROW'S OWN AIR AND VELOCITY. These were arguments of the
+                # WHOLE call until 2026-09-18, so every row of a sweep divided
+                # by the first point's state.
+                "density": 1.225,
+                "speed": 40.0,
             }
         ],
         reference=_reference(),
-        density_kg_m3=1.225,
-        speed_m_s=40.0,
     )
     assert written is not None and written.is_file(), written
 
@@ -262,11 +265,11 @@ def test_a_static_point_reads_not_applicable_because_nothing_is_recoverable(tmp_
                 "surfaces": _surfaces(Blade1={"Cz": 0.5}),
                 "condition": {"MACH": 0.0},
                 "rpm": 3000.0,
+                "density": 1.225,
+                "speed": 0.0,
             }
         ],
         reference=_reference(),
-        density_kg_m3=1.225,
-        speed_m_s=0.0,
     )
     _, rows = read_csv_table(written, skip=1)
     # ALL FIVE, not the four this asserted. `CP` was the column the docstring
@@ -289,12 +292,204 @@ def test_a_rotor_that_is_not_turning_writes_no_table(tmp_path):
     written = write_rotor_table(
         tmp_path / "polars" / "P0001_PUSHER_rotor.csv",
         rotor=_rotor("Z"),
-        rows=[{"surfaces": _surfaces(Blade1={"Cz": 0.5}), "condition": {}, "rpm": 0.0}],
+        rows=[
+            {
+                "surfaces": _surfaces(Blade1={"Cz": 0.5}),
+                "condition": {},
+                "rpm": 0.0,
+                "density": 1.225,
+                "speed": 40.0,
+            }
+        ],
         reference=_reference(),
-        density_kg_m3=1.225,
-        speed_m_s=40.0,
     )
     assert written is None, written
+
+
+def test_a_counter_rotating_rotor_keeps_its_table(tmp_path):
+    """A NEGATIVE RPM IS A DIRECTION AND NOT A STOPPED ROTOR.
+
+    The plan records the speed SIGNED -- `rpm=_rpm_sign(case) * stated` in
+    `cases.workflows` -- so that the sense of rotation survives into the
+    record, and that module divides by `abs(self.rpm)` wherever it needs a
+    rate. The writer's guard read `rpm <= 0.0` and discarded EVERY row of such
+    a rotor: no table, no skip line, nothing saying the product was absent. On
+    a contra-rotating pair that is half the aircraft, silently.
+
+    Found by the independent review of `main` at 0.23.0, 2026-09-18. The two
+    in-house rounds over this code did not, because every fixture spun forward.
+
+    THE COEFFICIENTS ARE THE SAME AS THE FORWARD ROTOR'S, and that is the
+    property worth pinning rather than "a file exists": `CT = T/(rho n^2 D^4)`
+    is quadratic in the rate and `J = V/(n D)` would go NEGATIVE for a rotor
+    flying forwards, so the rate that normalises them is the MAGNITUDE. The
+    sign is physical on the torque, where the export already carries it.
+    """
+    from pyflightstream.post.products import read_csv_table, write_rotor_table
+
+    def _row(rpm):
+        return {
+            "surfaces": _surfaces(Blade1={"Cz": 0.5}),
+            "condition": {"MACH": 0.15, "ALPHA": 0.0},
+            "rpm": rpm,
+            "density": 1.225,
+            "speed": 40.0,
+        }
+
+    forward = write_rotor_table(
+        tmp_path / "fwd" / "P0001_PUSHER_rotor.csv",
+        rotor=_rotor("Z"),
+        rows=[_row(3000.0)],
+        reference=_reference(),
+    )
+    reverse = write_rotor_table(
+        tmp_path / "rev" / "P0001_PUSHER_rotor.csv",
+        rotor=_rotor("Z"),
+        rows=[_row(-3000.0)],
+        reference=_reference(),
+    )
+    assert reverse is not None, (
+        "a counter-rotating rotor lost its entire table; a negative rpm is a "
+        "direction, not a stopped rotor"
+    )
+    _, forward_rows = read_csv_table(forward, skip=1)
+    _, reverse_rows = read_csv_table(reverse, skip=1)
+    for name in ("J_PUSHER", "CT_PUSHER", "CQ_PUSHER", "CP_PUSHER"):
+        assert reverse_rows[0][name] == forward_rows[0][name], (
+            f"{name} must normalise by the RATE, which has no sign: "
+            f"{reverse_rows[0][name]} against {forward_rows[0][name]}"
+        )
+    assert float(reverse_rows[0]["J_PUSHER"]) > 0.0, (
+        "J is V/(n D) and a rotor flying forwards has a positive advance "
+        f"ratio whichever way it turns: {reverse_rows[0]}"
+    )
+
+
+def test_every_row_is_dimensionalised_from_its_own_points_record(tmp_path):
+    """A SWEEP IS A TABLE OF ITS POINTS, AND EACH POINT HAS ITS OWN AIR.
+
+    `_rotor_tables` read the rotor speed, the density, the velocity and the
+    Mach once off `records[0]`, and it HOISTED THE SPEED OUT OF THE POINT LOOP.
+    Every row of a sweep was therefore normalised by the FIRST point's state.
+    On an advance-ratio sweep -- the one shape this table exists for, where the
+    rotor speed is what MOVES -- the second point came out a factor of four
+    wrong in `CT`, `CQ` and `CP`, and `J` came out at the first point's value.
+
+    THE ROW STILL LOOKED RIGHT, which is why four in-house rounds walked past
+    it: `point_condition` is per point, so `ALPHA` and `MACH` in the same row
+    were that point's own and correct, sitting beside coefficients computed
+    from a different point entirely.
+
+    Found by the independent review of `main` at 0.23.0, 2026-09-18.
+
+    IT ASSERTS THE PLAN AND NOT A COEFFICIENT, deliberately. The plan row is
+    where the borrowed value entered, so that is where a mutant has to show;
+    a coefficient asserted at a value computed HERE would pass under the
+    defect, which is the exact failure this release already shipped once in
+    the ETAW sign.
+    """
+    import sys
+    from pathlib import Path as _Path
+
+    sys.path.insert(0, str(_Path(__file__).parent))
+    from test_post_products import LOADS
+    from test_post_superfile import _workspace
+
+    from pyflightstream.post.products import PolarPoint
+    from pyflightstream.post.products import _rotor_tables as rotor_tables
+    from pyflightstream.results import parse_loads
+    from pyflightstream.workspace import RunRecord
+
+    workspace = _workspace(tmp_path)
+    (workspace.inputs_dir / "references" / "r002.toml").write_text(
+        "\n".join(
+            [
+                "area_m2 = 50.0",
+                "chord_m = 2.526",
+                "span_m = 20.0",
+                "",
+                "[rotors.PUSHER]",
+                'alias = "PUSHER"',
+                "x_m = 0.0",
+                "y_m = 0.0",
+                "z_m = 0.0",
+                'axis = "X"',
+                "rpm_sign = 1",
+                "diameter_m = 1.2",
+                'families_blades = ["Blade1"]',
+                'blade1 = { azimuth_deg = 0.0, zero = "Y" }',
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    # TWO POINTS OF ONE ADVANCE-RATIO SWEEP: the rotor slows and the air does
+    # not. Different densities too, so a borrowed density is visible as well.
+    plan_rows = [("J050", 2400.0, 1.225), ("J100", 1200.0, 1.100)]
+
+    points = []
+    records = []
+    sources = {}
+    for name, rpm, density in plan_rows:
+        path = tmp_path / f"{name}.txt"
+        path.write_text(LOADS, encoding="utf-8")
+        points.append(PolarPoint(name=name, loads=parse_loads(LOADS), loads_path=path))
+        run_id = f"camp/sim_0001/{name}"
+        sources[name] = [run_id]
+        records.append(
+            RunRecord(
+                run_id=run_id,
+                sim_id="0001",
+                fs_version_requested="26.123",
+                package_version="0.23.0",
+                script_sha256="0" * 64,
+                raw_flag=False,
+                status="CONVERGED",
+                density_kg_m3=density,
+                velocity_requested_m_s=40.0,
+                mach=0.12,
+                reductions={"rotors": {"PUSHER": {"rpm": rpm, "blades": 2}}},
+            )
+        )
+
+    # THE STAGE'S OWN ROUTE to the row, not a hand-built one: `matrix_rows` is
+    # what `write_products` calls, so a change to that resolution reaches this
+    # test instead of passing beside it.
+    from pyflightstream.post.products import matrix_rows
+
+    rows_of_the_matrix = matrix_rows(workspace.root, "matriz")
+    matrix_row = next(
+        (row for row in rows_of_the_matrix.values() if str(getattr(row, "ref_code", "")) == "r002"),
+        None,
+    )
+    assert matrix_row is not None, (
+        "the fixture no longer carries a row naming r002: "
+        f"{[getattr(r, 'ref_code', None) for r in rows_of_the_matrix.values()]}"
+    )
+
+    tables = rotor_tables(
+        workspace,
+        "0001",
+        points,
+        records,
+        sources,
+        _reference(area_m2=50.0, span_m=20.0, chord_m=2.526),
+        matrix_row,
+        tmp_path / "out",
+    )
+    assert tables, "the reference declares a rotor and no table was planned"
+
+    _target, _alias, plan = tables[0]
+    rows = plan["rows"]
+    assert len(rows) == 2, rows
+    assert [row["rpm"] for row in rows] == [2400.0, 1200.0], (
+        "both rows carry the first point's rotor speed; a sweep's second point "
+        f"turns at its own rate -- {[row['rpm'] for row in rows]}"
+    )
+    assert [row["density"] for row in rows] == [1.225, 1.100], (
+        f"both rows carry the first point's air -- {[row['density'] for row in rows]}"
+    )
 
 
 def test_the_post_stage_writes_a_rotor_table_from_a_recorded_workspace(tmp_path):
@@ -484,11 +679,11 @@ def test_a_refused_row_leaves_nothing_behind_in_the_products_folder(tmp_path):
                         "surfaces": _surfaces(Blade1={"Cz": 0.5}),
                         "condition": {"MACH": 0.15},
                         "rpm": 3000.0,
+                        "density": 1.225,
+                        "speed": 40.0,
                     }
                 ],
                 reference=_reference(),
-                density_kg_m3=1.225,
-                speed_m_s=40.0,
             )
     finally:
         module.rotor_coefficient_columns = original

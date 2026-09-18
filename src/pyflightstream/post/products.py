@@ -1175,7 +1175,8 @@ def _rotor_tables(
     workspace: CampaignWorkspace,
     sim_id: str,
     points: Sequence[PolarPoint],
-    first: RunRecord,
+    records: Sequence[RunRecord],
+    sources: Mapping[str, Sequence[str]],
     reference: ReferenceValues,
     matrix_row: MatrixRow | None,
     out: Path,
@@ -1184,8 +1185,27 @@ def _rotor_tables(
 
     Returns the destination, the alias and everything `write_rotor_table` needs.
     Empty where the row names no reference, the reference declares no rotor, or
-    the record kept no speed -- each of which is an ordinary campaign rather
+    no point states a speed -- each of which is an ordinary campaign rather
     than a fault, so none of them refuses the simulation's other products.
+
+    EVERY ROW IS DIMENSIONALISED FROM ITS OWN POINT'S RECORD, and until the
+    independent review of 2026-09-18 not one of them was. The rotor speed, the
+    density, the velocity and the Mach were all read once off `records[0]` and
+    the SPEED WAS HOISTED OUT OF THE POINT LOOP, so every row of a sweep was
+    normalised by the FIRST point's state. On a J sweep from 0.5 to 1.0 -- the
+    one shape this table exists for -- the second point's `CT` came out 0.03125
+    where it is 0.125, a factor of four, and `J` came out 0.5 where it is 1.0.
+
+    IT IS THE WORST FORM OF WRONG because the row still LOOKS right:
+    `point_condition` is per point, so `ALPHA` and `MACH` in the same row are
+    that point's own and correct, sitting beside coefficients computed from a
+    different point entirely.
+
+    THE PACKAGE ALREADY KNEW. The superfile writer sixty lines below resolves
+    each point through `by_run` and carries a comment, dated 2026-09-11, saying
+    in these words that a borrowed value is worse than a missing one because a
+    reader sees a missing cell and cannot see a wrong one. That is the rule; it
+    had one consumer and needed two.
     """
     if matrix_row is None:
         return []
@@ -1200,48 +1220,67 @@ def _rotor_tables(
     if not rotors:
         return []
 
-    speeds = {}
-    reductions = first.reductions if isinstance(first.reductions, Mapping) else {}
-    stated = reductions.get("rotors")
-    if isinstance(stated, Mapping):
-        for alias, block in stated.items():
-            if isinstance(block, Mapping) and isinstance(block.get("rpm"), int | float):
-                speeds[str(alias)] = float(block["rpm"])
+    by_run = {record.run_id: record for record in records}
 
-    density = first.density_kg_m3
-    speed = first.velocity_requested_m_s
-    if not isinstance(density, int | float) or not isinstance(speed, int | float):
-        return []
+    def _state(point: PolarPoint) -> RunRecord | None:
+        """Return the record of THIS point, or None -- never another point's.
+
+        No fallback to `records[0]`, for the reason the superfile writer states
+        at its own `by_run.get`: a borrowed value is worse than a missing one,
+        because a reader sees a missing cell and cannot see a wrong one. Here it
+        would not even be a cell -- it would be the divisor of every coefficient
+        in the row.
+        """
+        run_id = (sources.get(point.name) or [""])[0]
+        return by_run.get(run_id)
 
     tables: list[tuple[Path, str, dict[str, object]]] = []
     for alias, rotor in rotors.items():
-        rpm = speeds.get(str(alias))
-        if rpm is None:
+        rows: list[dict[str, object]] = []
+        for point in points:
+            record = _state(point)
+            if record is None:
+                continue
+            reductions = record.reductions if isinstance(record.reductions, Mapping) else {}
+            stated = reductions.get("rotors")
+            rpm: float | None = None
+            if isinstance(stated, Mapping):
+                block = stated.get(str(alias))
+                if isinstance(block, Mapping) and isinstance(block.get("rpm"), int | float):
+                    rpm = float(block["rpm"])
+            density = record.density_kg_m3
+            speed = record.velocity_requested_m_s
+            if (
+                rpm is None
+                or not isinstance(density, int | float)
+                or not isinstance(speed, int | float)
+            ):
+                # THIS POINT states no speed, no density or no velocity. It
+                # costs its own ROW and never the rows beside it, which is the
+                # same rule every other product of this stage follows.
+                continue
+            rows.append(
+                {
+                    "surfaces": (point.loads.surfaces if point.loads is not None else {}),
+                    "condition": point_condition(point, mach=record.mach or 0.0),
+                    "rpm": rpm,
+                    "density": float(density),
+                    "speed": float(speed),
+                    # THE EXPORT'S OWN STATEMENT OF WHICH FRAME ITS FORCES ARE
+                    # IN. Carried from the point to the coefficient rather than
+                    # assumed, because `ETAW` rotates that force into wind axes
+                    # and the rotation is only valid from the geometry frame.
+                    "frame": (point.loads.frame if point.loads is not None else None),
+                }
+            )
+        if not rows:
             continue
-        rows = [
-            {
-                "surfaces": (point.loads.surfaces if point.loads is not None else {}),
-                "condition": point_condition(point, mach=first.mach or 0.0),
-                "rpm": rpm,
-                # THE EXPORT'S OWN STATEMENT OF WHICH FRAME ITS FORCES ARE IN.
-                # Carried from the point to the coefficient rather than assumed,
-                # because `ETAW` rotates that force into wind axes and the
-                # rotation is only valid from the geometry frame.
-                "frame": (point.loads.frame if point.loads is not None else None),
-            }
-            for point in points
-        ]
         name = f"{sweep_file_stem(sim_id, str(alias))}_rotor.csv"
         tables.append(
             (
                 out / POLARS_DIR / name,
                 str(alias),
-                {
-                    "rotor": rotor,
-                    "rows": rows,
-                    "density": float(density),
-                    "speed": float(speed),
-                },
+                {"rotor": rotor, "rows": rows},
             )
         )
     return tables
@@ -1253,8 +1292,6 @@ def write_rotor_table(
     rotor: object,
     rows: Sequence[Mapping[str, object]],
     reference: ReferenceValues,
-    density_kg_m3: float,
-    speed_m_s: float,
 ) -> Path | None:
     """Write ONE rotor's coefficient table (items 6 and 18).
 
@@ -1288,7 +1325,32 @@ def write_rotor_table(
         # speed, and there is no table to write for it.
         stated = row.get("rpm")
         rpm = float(stated) if isinstance(stated, int | float) else 0.0
-        if rpm <= 0.0 or diameter <= 0.0:
+        # A NEGATIVE RPM IS A DIRECTION, NOT A STOPPED ROTOR, and this read
+        # `rpm <= 0.0` until the independent review of 2026-09-18. The plan
+        # records the speed SIGNED -- `rpm=_rpm_sign(case) * stated` in
+        # `cases.workflows` -- precisely so the sense of rotation survives, and
+        # the same module divides by `abs(self.rpm)` where it needs a RATE. So
+        # every counter-rotating rotor lost its ENTIRE table here, with no
+        # product and no skip line saying why it was absent. On a
+        # contra-rotating pair that is half the aircraft, silently.
+        #
+        # `rate` IS THE MAGNITUDE because a coefficient divides by revolutions
+        # per second, which has no sign: `CT = T / (rho n^2 D^4)` is quadratic
+        # in `n` and `J = V / (n D)` would go negative for a rotor flying
+        # forwards. The SIGN stays on the torque, which is where it is physical
+        # and where the export already put it.
+        rate = abs(rpm)
+        if rate <= 0.0 or diameter <= 0.0:
+            continue
+        # THIS ROW'S OWN AIR AND ITS OWN VELOCITY. These were one pair of
+        # arguments for the WHOLE table until 2026-09-18, read off the first
+        # point of the sweep, so every row but the first was normalised by
+        # another point's state -- see `_rotor_tables`.
+        stated = row.get("density")
+        density_kg_m3 = float(stated) if isinstance(stated, int | float) else 0.0
+        stated = row.get("speed")
+        speed_m_s = float(stated) if isinstance(stated, int | float) else 0.0
+        if density_kg_m3 <= 0.0:
             continue
         # THE ROW'S OWN ATTITUDE REACHES THE ANGLE. Left to default, every
         # point reports the level-flight shaft angle and `ETAW` carries the
@@ -1315,7 +1377,7 @@ def write_rotor_table(
         coefficients = rotor_coefficients(
             thrust_n=loads.thrust_n,
             torque_nm=loads.torque_nm,
-            rps=rpm / 60.0,
+            rps=rate / 60.0,
             diameter_m=diameter,
             density_kg_m3=density_kg_m3,
             speed_m_s=speed_m_s,
@@ -3228,7 +3290,7 @@ def _sim_products(
     # matrix row does, the file is still in the workspace, and reading it costs
     # nothing she already has: no re-run.
     for target_path, alias, plan in _rotor_tables(
-        workspace, sim_id, points, first, reference, matrix_row, out
+        workspace, sim_id, points, records, sources, reference, matrix_row, out
     ):
         destination = _target(target_path)
         if write_rotor_table(
@@ -3236,8 +3298,6 @@ def _sim_products(
             rotor=plan["rotor"],
             rows=plan["rows"],  # type: ignore[arg-type]
             reference=reference,
-            density_kg_m3=plan["density"],  # type: ignore[arg-type]
-            speed_m_s=plan["speed"],  # type: ignore[arg-type]
         ):
             written.append(destination)
             written_names[destination.relative_to(out).as_posix()] = {
