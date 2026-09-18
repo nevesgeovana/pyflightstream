@@ -1065,10 +1065,38 @@ def rotor_coefficients(
             "the rotor is not turning, so it has no thrust or torque coefficient: "
             "every one of them divides by the square of its speed"
         )
-    advance_ratio = speed_m_s / (rps * diameter_m)
-    thrust_coefficient = thrust_n / (density_kg_m3 * rps**2 * diameter_m**4)
-    torque_coefficient = torque_nm / (density_kg_m3 * rps**2 * diameter_m**5)
-    power_coefficient = 2.0 * math.pi * torque_coefficient
+    # `rps` IS SIGNED AND THE SIGN IS THE SENSE OF ROTATION. Both halves of that
+    # sentence are load-bearing and one of them was got wrong on 2026-09-18.
+    #
+    # THE RATE NORMALISES. `J = V/(n D)` would go NEGATIVE for a rotor flying
+    # forwards and `CT` is quadratic anyway, so the magnitude is what divides.
+    #
+    # THE SIGN REACHES THE POWER, AND ONLY THE POWER. `CP` is a normalised
+    # POWER and power is `P = Q * omega`: reverse a rotor AND its torque and the
+    # shaft power is UNCHANGED, because both factors flipped. Writing
+    # `CP = 2 pi CQ` against a magnitude rate therefore flips `CP`, `ETA` and
+    # `ETAW` for a counter-rotating rotor whose torque is the signed projection
+    # on a FIXED axis -- which is what `rotor_shaft_loads` returns.
+    #
+    #     CP = P / (rho |n|^3 D^5) = 2 pi Q n / (rho |n|^3 D^5)
+    #        = 2 pi CQ * sign(n)
+    #
+    # MEASURED, by the independent lens over the first fix: at T=10, V=5,
+    # rho=D=1, reversing +600 rpm with +2 N m to -600 with -2 N m held
+    # `Q*omega` at +125.664 and flipped the returned `CP` from +0.125664 to
+    # -0.125664, and `ETA` with it.
+    #
+    # `CQ` KEEPS ITS OWN SIGN and is not touched: it is the torque about the
+    # rotor's fixed axis, so its sign says which way the shaft is loaded, and
+    # taking its magnitude would erase the difference between driving and
+    # braking. That distinction is real and the estate does not get to lose it
+    # for tidiness.
+    rate = abs(rps)
+    sense = 1.0 if rps > 0 else -1.0
+    advance_ratio = speed_m_s / (rate * diameter_m)
+    thrust_coefficient = thrust_n / (density_kg_m3 * rate**2 * diameter_m**4)
+    torque_coefficient = torque_nm / (density_kg_m3 * rate**2 * diameter_m**5)
+    power_coefficient = 2.0 * math.pi * torque_coefficient * sense
     values: dict[str, float | str] = {
         "J": advance_ratio,
         "CT": thrust_coefficient,
@@ -1180,6 +1208,8 @@ def _rotor_tables(
     reference: ReferenceValues,
     matrix_row: MatrixRow | None,
     out: Path,
+    plots: Mapping[str, Path] | None = None,
+    window: tuple[int, int] | None = None,
 ) -> list[tuple[Path, str, dict[str, object]]]:
     """Assemble one rotor table per rotor the ROW's reference declares (item 6).
 
@@ -1234,12 +1264,101 @@ def _rotor_tables(
         run_id = (sources.get(point.name) or [""])[0]
         return by_run.get(run_id)
 
+    #: The six components a plots table states for one group, in NEWTONS, and
+    #: the order `rotor_shaft_loads` reads them back in as coefficients.
+    _PLOT_COMPONENTS = ("FX", "FY", "FZ", "MX", "MY", "MZ")
+
+    def _averaged_newtons(point: PolarPoint, alias: str) -> dict[str, float] | None:
+        """Return the rotor group's six components, averaged over the row's window.
+
+        ITEM 16 SAYS ONE WINDOW FOR EVERY UNSTEADY PRODUCT OF THE POINT, and the
+        rotor table was the product it did not reach: it was built from
+        `point.loads`, the native export, which states THE LAST TIME STEP --
+        the owner's own answer of 2026-09-18. So an unsteady rotor table
+        published one instant of a cycle beside a polar that averaged correctly,
+        in the same directory, and nothing in either file said which was which.
+        The independent review of `main` found it (L6-04).
+
+        THE HISTORY IS ALREADY ON DISK AND COSTS NO RE-RUN. A plots table states
+        `FX_<GROUP>` ... `MZ_<GROUP>` per plot group, in Newtons, in that group's
+        declared frame -- measured on a licensed run, `superfile-0180.json`.
+        Item 15 names a rotor's integration group after its ALIAS, so the
+        columns this looks for are `FX_<alias>` and its five siblings.
+
+        None WHERE THE COLUMNS ARE NOT THERE, which is an ordinary campaign and
+        not a fault: the plot groups are declared in her pproc and a campaign
+        that plotted no group for this rotor has no history to average. The
+        caller then writes the native-export table and RECORDS that it is an
+        instant, rather than silently publishing one.
+        """
+        if plots is None or window is None:
+            return None
+        source = plots.get(point.name)
+        if source is None or not source.is_file():
+            return None
+        try:
+            columns, series = plots_table_series(source)
+        except (PyflightstreamError, OSError, ValueError):
+            return None
+        wanted = {name: f"{name}_{alias}" for name in _PLOT_COMPONENTS}
+        if not all(column in columns for column in wanted.values()):
+            return None
+        steps = series.steps
+        if not len(steps) or int(steps[0]) > window[0] or int(steps[-1]) < window[1]:
+            # THE SAME COVERAGE REFUSAL `write_unsteady_polar` makes. A history
+            # that does not reach the window is a run that stopped early, and
+            # averaging the part of it that exists publishes a window the file
+            # does not contain.
+            return None
+        try:
+            averaged = blade_passage_average(series, window=window)
+        except (PyflightstreamError, ValueError):
+            return None
+        return {name: float(averaged.fields[column][0]) for name, column in wanted.items()}
+
+    def _as_coefficients(newtons: Mapping[str, float], *, density: float, speed: float) -> dict:
+        """Turn the averaged Newtons back into the export's own coefficients.
+
+        WHY THIS ROUND TRIP RATHER THAN A SECOND FORCE PATH. `rotor_shaft_loads`
+        holds the family selection, the moment transfer to the hub, the shaft
+        projection, the analysis-frame refusal and the wind-axis rotation --
+        every one of them tested. A second entry point taking Newtons would be
+        a second implementation of all of it, which is how two published numbers
+        come to disagree. Dividing by the same dynamic pressure the export
+        divided by is exact, not an approximation.
+        """
+        pressure = 0.5 * float(density) * float(speed) ** 2
+        area = reference.sref or 0.0
+        length = reference.cref or 0.0
+        if pressure <= 0.0 or area <= 0.0 or length <= 0.0:
+            return {}
+        force = pressure * area
+        moment = force * length
+        return {
+            "Cx": newtons["FX"] / force,
+            "Cy": newtons["FY"] / force,
+            "Cz": newtons["FZ"] / force,
+            "CMx": newtons["MX"] / moment,
+            "CMy": newtons["MY"] / moment,
+            "CMz": newtons["MZ"] / moment,
+        }
+
     tables: list[tuple[Path, str, dict[str, object]]] = []
     for alias, rotor in rotors.items():
         rows: list[dict[str, object]] = []
+        # EVERY POINT THAT IS NOT A ROW, WITH ITS REASON AND ITS RUN ID. The
+        # first writing of this function dropped three kinds of point on a bare
+        # `continue`, leaving a table quietly shorter than her matrix while the
+        # manifest's `runs` list still named every point -- so the provenance
+        # said the row was there. The independent lens counted the sites. It is
+        # the same defect this release had already fixed for the unsteady polar,
+        # reintroduced three hours later by the fix for a different one.
+        left_out: list[tuple[str, str]] = []
         for point in points:
             record = _state(point)
+            run_id = (sources.get(point.name) or [""])[0]
             if record is None:
+                left_out.append((run_id, f"{point.name}: no run record resolves for this point"))
                 continue
             reductions = record.reductions if isinstance(record.reductions, Mapping) else {}
             stated = reductions.get("rotors")
@@ -1249,19 +1368,69 @@ def _rotor_tables(
                 if isinstance(block, Mapping) and isinstance(block.get("rpm"), int | float):
                     rpm = float(block["rpm"])
             density = record.density_kg_m3
-            speed = record.velocity_requested_m_s
-            if (
-                rpm is None
-                or not isinstance(density, int | float)
-                or not isinstance(speed, int | float)
-            ):
-                # THIS POINT states no speed, no density or no velocity. It
-                # costs its own ROW and never the rows beside it, which is the
-                # same rule every other product of this stage follows.
+            # THE VELOCITY THE EXPORT REPORTS, NOT THE ONE THE MATRIX ASKED FOR.
+            #
+            # The owner settled which quantity, 2026-09-18: the export's surface
+            # coefficients are normalised by its REFERENCE velocity. So that is
+            # the number this dimensionalisation must divide by, and the loads
+            # header states it on its own line.
+            #
+            # IT READ `record.velocity_requested_m_s`, which is what the MATRIX
+            # asked for -- disobeying the rule this package states in
+            # `point_condition`'s own docstring, that the REPORTED condition
+            # wins over the requested one, because the two differ exactly when
+            # something went wrong. A fixture in this suite already carries a
+            # run whose free stream is 50 and whose reference velocity is 100,
+            # in Unsteady mode: a factor of four in dynamic pressure.
+            #
+            # HER CAMPAIGNS NEVER SET THE TWO APART -- "nunca usamos as duas
+            # diferentes", 2026-09-18 -- so no number she already holds changes.
+            # That is why this is a correctness fix and not a migration, and it
+            # is also why the published sentence about a static point stays
+            # TRUE: with the two equal, hover really is divided by zero.
+            reported = getattr(point.loads, "reference_velocity_m_s", None) if point.loads else None
+            speed = reported if isinstance(reported, int | float) else None
+            if rpm is None:
+                left_out.append((run_id, f"{point.name}: its record states no speed for {alias!r}"))
                 continue
+            if not isinstance(density, int | float):
+                left_out.append((run_id, f"{point.name}: its record states no air density"))
+                continue
+            if speed is None:
+                left_out.append(
+                    (
+                        run_id,
+                        f"{point.name}: its loads export states no reference velocity, "
+                        "which is what its coefficients are normalised by",
+                    )
+                )
+                continue
+            # THE WINDOW AVERAGE WHERE THE HISTORY HAS IT, the last time step
+            # where it does not -- and the file says which, every time.
+            surfaces: Mapping[str, Mapping[str, float]] = (
+                point.loads.surfaces if point.loads is not None else {}
+            )
+            newtons = _averaged_newtons(point, str(alias))
+            instant = True
+            if newtons is not None:
+                averaged_surfaces = _as_coefficients(
+                    newtons, density=float(density), speed=float(speed)
+                )
+                families = list(getattr(rotor, "families_blades", None) or [])
+                if averaged_surfaces and families:
+                    # ONE SYNTHETIC SURFACE CARRYING THE WHOLE GROUP, UNDER THE
+                    # ROTOR'S FIRST FAMILY NAME. The plots table states the
+                    # group's RESULTANT, already summed over every family, so it
+                    # must enter under exactly ONE name the rotor's own family
+                    # selection will pick -- putting it under all of them would
+                    # sum the whole rotor once per blade.
+                    surfaces = {str(families[0]): averaged_surfaces}
+                    instant = False
             rows.append(
                 {
-                    "surfaces": (point.loads.surfaces if point.loads is not None else {}),
+                    "run_id": run_id,
+                    "surfaces": surfaces,
+                    "instant": instant,
                     "condition": point_condition(point, mach=record.mach or 0.0),
                     "rpm": rpm,
                     "density": float(density),
@@ -1273,14 +1442,25 @@ def _rotor_tables(
                     "frame": (point.loads.frame if point.loads is not None else None),
                 }
             )
-        if not rows:
-            continue
         name = f"{sweep_file_stem(sim_id, str(alias))}_rotor.csv"
+        if not rows:
+            # EVERY ROW REJECTED IS STILL A REPORT. Returning nothing here made
+            # the whole product vanish with no explanation, which is the same
+            # silence one level up. The caller writes no file for a plan whose
+            # rows are empty and records the reasons instead.
+            tables.append(
+                (
+                    out / POLARS_DIR / name,
+                    str(alias),
+                    {"rotor": rotor, "rows": [], "left_out": left_out},
+                )
+            )
+            continue
         tables.append(
             (
                 out / POLARS_DIR / name,
                 str(alias),
-                {"rotor": rotor, "rows": rows},
+                {"rotor": rotor, "rows": rows, "left_out": left_out},
             )
         )
     return tables
@@ -1292,8 +1472,16 @@ def write_rotor_table(
     rotor: object,
     rows: Sequence[Mapping[str, object]],
     reference: ReferenceValues,
+    left_out: list[tuple[str, str]] | None = None,
+    written_runs: list[str] | None = None,
 ) -> Path | None:
     """Write ONE rotor's coefficient table (items 6 and 18).
+
+    ``left_out`` collects ``(run_id, reason)`` for every row this refuses, and
+    ``written_runs`` collects the run id of every row it DID write. Both are
+    out-parameters because the caller owns the manifest: a row dropped here
+    used to leave the table shorter with the provenance still naming its run,
+    so the file claimed a point it does not contain.
 
     `rotor_coefficients`, `rotor_coefficient_columns` and
     `rotor_table_alias_line` all existed with no caller: three pieces of a table
@@ -1317,7 +1505,16 @@ def write_rotor_table(
     diameter = float(getattr(rotor, "diameter_m", 0.0) or 0.0)
 
     written: list[tuple[object, ...]] = []
+    # THE TWO OUT-PARAMETERS, normalised once so every `continue` below can
+    # report without checking for None. A row refused here is a point of her
+    # matrix that the table does not contain, and the manifest has to be able
+    # to say so: both of these paths were bare `continue`s, counted by the
+    # independent lens of 2026-09-18.
+    refused = [] if left_out is None else left_out
+    emitted = [] if written_runs is None else written_runs
     for row in rows:
+        stated = row.get("run_id")
+        run_id = str(stated) if isinstance(stated, str) else ""
         # NARROWED HERE rather than annotated away: the row is a plain
         # mapping the caller assembles, so its values arrive as `object`
         # and a `float(...)` on one is a claim the type checker is right
@@ -1340,7 +1537,17 @@ def write_rotor_table(
         # forwards. The SIGN stays on the torque, which is where it is physical
         # and where the export already put it.
         rate = abs(rpm)
-        if rate <= 0.0 or diameter <= 0.0:
+        if rate <= 0.0:
+            refused.append(
+                (
+                    run_id,
+                    f"{alias}: the row states no rotor speed, so every "
+                    "coefficient here would divide by zero",
+                )
+            )
+            continue
+        if diameter <= 0.0:
+            refused.append((run_id, f"{alias}: the reference states no diameter for this rotor"))
             continue
         # THIS ROW'S OWN AIR AND ITS OWN VELOCITY. These were one pair of
         # arguments for the WHOLE table until 2026-09-18, read off the first
@@ -1351,6 +1558,7 @@ def write_rotor_table(
         stated = row.get("speed")
         speed_m_s = float(stated) if isinstance(stated, int | float) else 0.0
         if density_kg_m3 <= 0.0:
+            refused.append((run_id, f"{alias}: the row states no air density"))
             continue
         # THE ROW'S OWN ATTITUDE REACHES THE ANGLE. Left to default, every
         # point reports the level-flight shaft angle and `ETAW` carries the
@@ -1377,7 +1585,11 @@ def write_rotor_table(
         coefficients = rotor_coefficients(
             thrust_n=loads.thrust_n,
             torque_nm=loads.torque_nm,
-            rps=rate / 60.0,
+            # THE SIGNED RATE, not the magnitude. `rotor_coefficients` needs the
+            # sense of rotation to keep `CP` a power, and takes the magnitude
+            # itself for everything that normalises. Passing `rate` here flipped
+            # CP, ETA and ETAW on every counter-rotating rotor.
+            rps=rpm / 60.0,
             diameter_m=diameter,
             density_kg_m3=density_kg_m3,
             speed_m_s=speed_m_s,
@@ -1395,6 +1607,7 @@ def write_rotor_table(
                 *(coefficients[name] for name in ROTOR_COEFFICIENT_COLUMNS),
             )
         )
+        emitted.append(run_id)
 
     if not written:
         return None
@@ -2812,6 +3025,92 @@ def _sweep_rows(
     return rows
 
 
+def _matrix_window(matrix_row: MatrixRow | None, record: object) -> tuple[int, int] | None:
+    """Return the window the MATRIX states NOW, resolved against the recorded clock.
+
+    ITEM 16 IS POST-ONLY AND IT WAS NOT. `_stated_window` below reads the window
+    off the RUN RECORD, which `reduction_windows` wrote when the point EXECUTED.
+    So editing `LAST_REVS_AVG` in the matrix and re-running only the post stage
+    changed nothing, and a record written before 0.23.0 carries no
+    `window_stated` flag at all, so its polar fell back to the native
+    last-time-step export. Both silently.
+
+    THE OWNER'S ACCEPTANCE RULE FOR THIS WHOLE RELEASE, in her own words: *"eu ja
+    tenho simulacoes prontas, quero refazer so o pproc, e isso inclui Windows e
+    HPC. Item que exige re-run nao esta pronto."* A window she cannot change
+    without re-running the solver fails it. She settled the direction on
+    2026-09-18: recompute it here, and the MATRIX WINS THE RECORD.
+
+    IT COSTS NO RE-RUN BECAUSE THE CLOCK IS ALREADY IN THE RECORD. The plan
+    writes `steps_per_revolution` and `time_iterations` next to the window it
+    derived, so a count of revolutions has a length in solver steps and the run
+    has a last step -- which is everything the derivation needs. Nothing here
+    reads the solver, the geometry or the script.
+
+    PRECEDENCE, stated because a silent precedence is the defect one level up:
+
+    1. The matrix row's `LAST_REVS_AVG` or `LAST_ITERS_AVG`, resolved here.
+    2. Failing that, the window the record states AND FLAGS as stated, which is
+       `_stated_window` -- a point whose matrix no longer names a key still
+       reduces the way it was run.
+    3. Failing both, None, and the polar comes from the native export.
+
+    Returns None rather than raising for every shape it cannot resolve: a
+    malformed record costs this product and never the stage.
+    """
+    if matrix_row is None:
+        return None
+    variables = getattr(matrix_row, "variables", None)
+    if not isinstance(variables, Mapping):
+        return None
+
+    def _number(key: str) -> float | None:
+        stated = variables.get(key)
+        if stated is None or isinstance(stated, bool):
+            return None
+        try:
+            value = float(str(stated).strip())
+        except (TypeError, ValueError):
+            return None
+        return value if value > 0.0 else None
+
+    revs = _number("LAST_REVS_AVG")
+    iters = _number("LAST_ITERS_AVG")
+    if revs is not None and iters is not None:
+        # BOTH KEYS IS A CONTRADICTION AND `_averaging_window` REFUSES IT AT
+        # PLAN TIME. Here it can only mean a matrix edited after the run, so it
+        # falls through to what the record states rather than picking one.
+        return None
+    if revs is None and iters is None:
+        return None
+
+    plan = getattr(record, "reductions", None)
+    if not isinstance(plan, Mapping):
+        return None
+    last_step = plan.get("time_iterations")
+    if not isinstance(last_step, int | float) or last_step <= 0:
+        return None
+    last = int(last_step)
+
+    if iters is not None:
+        length = int(iters)
+    else:
+        per_revolution = plan.get("steps_per_revolution")
+        if not isinstance(per_revolution, int | float) or per_revolution <= 0:
+            # A COUNT OF REVOLUTIONS HAS NO LENGTH IN STEPS without the rotor's
+            # rate, which is exactly what `_averaging_window` refuses by name.
+            return None
+        # `last_revs_avg` TAKES A FLOAT -- her decision, 2026-09-18 -- so one
+        # and a half revolutions is a window and not a rounding error.
+        length = int(round(float(revs) * float(per_revolution)))
+    if length <= 0:
+        return None
+    # CLIPPED TO THE RUN, never past its first step. A window longer than the
+    # history is the whole history, which is what the plan-time derivation does.
+    first = max(1, last - length + 1)
+    return (first, last)
+
+
 def _stated_window(record: object) -> tuple[int, int] | None:
     """Return the window the ROW STATED, off the run record, or None.
 
@@ -3145,7 +3444,12 @@ def _sim_products(
     # the post stage for every simulation of such a workspace. No test sets that
     # field, so the suite was green. The architect lens of the closing round
     # found it by reading the nesting rather than by running anything.
-    unsteady_window_steps = _stated_window(first)
+    # THE MATRIX FIRST, THE RECORD SECOND. Item 16's window is a POST-PROCESSING
+    # instruction and she must be able to change it without re-running the
+    # solver; `_matrix_window` resolves what the matrix says NOW against the
+    # clock the record already carries. `_stated_window` remains the fallback,
+    # so a point whose matrix no longer names a key reduces as it was run.
+    unsteady_window_steps = _matrix_window(matrix_row, first) or _stated_window(first)
     cell = first.flight_condition if isinstance(first.flight_condition, Mapping) else None
     # ITEM 13's other half. The clock is a property of the ROW's export
     # settings, so every point of one row shares it; the iteration is per point
@@ -3280,30 +3584,6 @@ def _sim_products(
                 )
                 written.append(target)
                 written_names[target.relative_to(out).as_posix()] = {"runs": run_ids}
-
-    # ITEM 6 WIRED HERE: one coefficient table per rotor the reference declares.
-    # THE GEOMETRY COMES FROM THE REFERENCE FILE AND NOT FROM THE RECORD, which
-    # is the route this item needed and did not have. A run leaves its reference
-    # BLOCK -- areas, lengths, the moment point -- and a rotors block under
-    # `reductions` carrying blades, rpm and steps; neither keeps the shaft, the
-    # hub or the diameter, and a record does not even name its reference. The
-    # matrix row does, the file is still in the workspace, and reading it costs
-    # nothing she already has: no re-run.
-    for target_path, alias, plan in _rotor_tables(
-        workspace, sim_id, points, records, sources, reference, matrix_row, out
-    ):
-        destination = _target(target_path)
-        if write_rotor_table(
-            destination,
-            rotor=plan["rotor"],
-            rows=plan["rows"],  # type: ignore[arg-type]
-            reference=reference,
-        ):
-            written.append(destination)
-            written_names[destination.relative_to(out).as_posix()] = {
-                "runs": run_ids,
-                "rotor": alias,
-            }
 
     for point in points:
         sloads_path, plots_path, probes_path = exports[point.name]
@@ -3450,6 +3730,57 @@ def _sim_products(
     # ITEM 17, HERE BECAUSE THE PLOTS TABLES ARE NOW ON DISK. The POLAR of an
     # unsteady simulation is the plots history time-averaged over the row's
     # one window, and it reads the WRITTEN tables rather than the raw export
+    # ITEM 6 WIRED HERE: one coefficient table per rotor the reference declares.
+    # THE GEOMETRY COMES FROM THE REFERENCE FILE AND NOT FROM THE RECORD, which
+    # is the route this item needed and did not have. A run leaves its reference
+    # BLOCK -- areas, lengths, the moment point -- and a rotors block under
+    # `reductions` carrying blades, rpm and steps; neither keeps the shaft, the
+    # hub or the diameter, and a record does not even name its reference. The
+    # matrix row does, the file is still in the workspace, and reading it costs
+    # nothing she already has: no re-run.
+    for target_path, alias, plan in _rotor_tables(
+        workspace,
+        sim_id,
+        points,
+        records,
+        sources,
+        reference,
+        matrix_row,
+        out,
+        plots=plots_tables,
+        window=unsteady_window_steps,
+    ):
+        destination = _target(target_path)
+        # THE PLAN'S OWN REJECTIONS PLUS THE WRITER'S, IN ONE LIST. Both halves
+        # dropped points on a bare `continue` until 2026-09-18, so a table came
+        # back shorter than her matrix with the manifest still naming every run.
+        rotor_left_out: list[tuple[str, str]] = list(plan.get("left_out") or [])  # type: ignore[arg-type]
+        rotor_runs: list[str] = []
+        done = write_rotor_table(
+            destination,
+            rotor=plan["rotor"],
+            rows=plan["rows"],  # type: ignore[arg-type]
+            reference=reference,
+            left_out=rotor_left_out,
+            written_runs=rotor_runs,
+        )
+        relative = destination.relative_to(out).as_posix()
+        if done:
+            written.append(destination)
+            written_names[relative] = {
+                # ONLY THE RUNS THIS TABLE ACTUALLY CONTAINS. It listed every
+                # run of the simulation, so the provenance claimed points the
+                # file does not hold -- which is worse than a short table,
+                # because a reader checking the manifest is reassured.
+                "runs": [rid for rid in rotor_runs if rid] or run_ids,
+                "rotor": alias,
+            }
+        if rotor_left_out:
+            skipped[relative] = (
+                f"these points of the sweep are not rows of the {alias} rotor table: "
+                + "; ".join(reason for _rid, reason in rotor_left_out)
+            )
+
     # so that the reference-velocity scaling is performed in one place.
     if unsteady_window_steps is not None:
         unsteady_left_out: list[str] = []

@@ -319,49 +319,87 @@ def test_a_counter_rotating_rotor_keeps_its_table(tmp_path):
     Found by the independent review of `main` at 0.23.0, 2026-09-18. The two
     in-house rounds over this code did not, because every fixture spun forward.
 
-    THE COEFFICIENTS ARE THE SAME AS THE FORWARD ROTOR'S, and that is the
-    property worth pinning rather than "a file exists": `CT = T/(rho n^2 D^4)`
-    is quadratic in the rate and `J = V/(n D)` would go NEGATIVE for a rotor
-    flying forwards, so the rate that normalises them is the MAGNITUDE. The
-    sign is physical on the torque, where the export already carries it.
+    THE TORQUE IS NON-ZERO HERE AND THE FIRST WRITING OF THIS TEST HAD IT AT
+    ZERO, which is why it could not see the defect the fix then introduced. With
+    `CQ = CP = 0` the two tables agree under ANY sign rule, including taking the
+    magnitude of the torque, so the case proved only that a file existed. The
+    independent lens said so in those words. A reversed rotor with a real torque
+    is the only fixture that discriminates.
+
+    THE THREE PROPERTIES, each derived from physics rather than read off the
+    implementation:
+
+    1. `J` and `CT` are UNCHANGED. `CT = T/(rho n^2 D^4)` is quadratic in the
+       rate, and `J = V/(n D)` would go NEGATIVE for a rotor flying forwards, so
+       the rate that normalises them is the MAGNITUDE.
+    2. `CQ` FLIPS. It is the torque about the rotor's fixed axis, and reversing
+       the rotor reverses that projection. Taking its magnitude would erase the
+       difference between a rotor driving and one braking, which is real.
+    3. `CP`, `ETA` and `ETAW` are UNCHANGED, and this is the one the fix got
+       wrong. `CP` is a normalised POWER and `P = Q * omega`: reverse the rotor
+       AND its torque and the shaft power is the same number, because both
+       factors flipped. Normalising with a magnitude rate while `CQ` keeps its
+       sign made `CP` flip, and `ETA` with it.
     """
     from pyflightstream.post.products import read_csv_table, write_rotor_table
 
-    def _row(rpm):
+    def _row(rpm, swirl):
         return {
-            "surfaces": _surfaces(Blade1={"Cz": 0.5}),
+            # A REAL TORQUE: `Cy` at a hub offset in x gives a moment about the
+            # shaft on Z, so `CQ` is non-zero and the sign rules are separable.
+            "surfaces": _surfaces(Blade1={"Cz": 0.5, "Cy": swirl}),
             "condition": {"MACH": 0.15, "ALPHA": 0.0},
             "rpm": rpm,
             "density": 1.225,
             "speed": 40.0,
         }
 
-    forward = write_rotor_table(
-        tmp_path / "fwd" / "P0001_PUSHER_rotor.csv",
-        rotor=_rotor("Z"),
-        rows=[_row(3000.0)],
-        reference=_reference(),
-    )
-    reverse = write_rotor_table(
-        tmp_path / "rev" / "P0001_PUSHER_rotor.csv",
-        rotor=_rotor("Z"),
-        rows=[_row(-3000.0)],
-        reference=_reference(),
-    )
+    def _write(where, rpm, swirl):
+        return write_rotor_table(
+            tmp_path / where / "P0001_PUSHER_rotor.csv",
+            rotor=_rotor("Z", hub=(2.0, 0.0, 0.0)),
+            rows=[_row(rpm, swirl)],
+            reference=_reference(CREF=1.0),
+        )
+
+    # THE MIRRORED ROTOR, which is the physical case: reverse the rotation AND
+    # the swirl it imparts, so the torque about the fixed axis reverses with it.
+    # Reversing the rpm ALONE while holding the loads is a different situation
+    # entirely -- a rotor being driven BY the flow -- and there `CP` SHOULD go
+    # negative. The first writing of this test reversed only the rpm and then
+    # asserted the power was unchanged, which asked for the wrong answer.
+    forward = _write("fwd", 3000.0, 0.25)
+    reverse = _write("rev", -3000.0, -0.25)
     assert reverse is not None, (
         "a counter-rotating rotor lost its entire table; a negative rpm is a "
         "direction, not a stopped rotor"
     )
-    _, forward_rows = read_csv_table(forward, skip=1)
-    _, reverse_rows = read_csv_table(reverse, skip=1)
-    for name in ("J_PUSHER", "CT_PUSHER", "CQ_PUSHER", "CP_PUSHER"):
-        assert reverse_rows[0][name] == forward_rows[0][name], (
-            f"{name} must normalise by the RATE, which has no sign: "
-            f"{reverse_rows[0][name]} against {forward_rows[0][name]}"
+    _, fwd = read_csv_table(forward, skip=1)
+    _, rev = read_csv_table(reverse, skip=1)
+
+    # THE FIXTURE MUST DISCRIMINATE, asserted before the comparisons that rest
+    # on it. With a zero torque every check below passes under a wrong fix.
+    assert float(fwd[0]["CQ_PUSHER"]) != 0.0, (
+        f"this fixture states no torque, so it cannot tell the sign rules apart: {fwd[0]}"
+    )
+
+    for name in ("J_PUSHER", "CT_PUSHER"):
+        assert rev[0][name] == fwd[0][name], (
+            f"{name} normalises by the RATE, which has no sign: "
+            f"{rev[0][name]} against {fwd[0][name]}"
         )
-    assert float(reverse_rows[0]["J_PUSHER"]) > 0.0, (
+    assert float(rev[0]["CQ_PUSHER"]) == pytest.approx(-float(fwd[0]["CQ_PUSHER"])), (
+        "CQ is the torque about the rotor's fixed axis, and a mirrored rotor "
+        f"imparts the opposite swirl: {rev[0]['CQ_PUSHER']} against {fwd[0]['CQ_PUSHER']}"
+    )
+    for name in ("CP_PUSHER", "ETA_PUSHER", "ETAW_PUSHER"):
+        assert rev[0][name] == fwd[0][name], (
+            f"{name} rests on P = Q * omega, and reversing BOTH the torque and "
+            f"the rotation leaves the power unchanged: {rev[0][name]} against {fwd[0][name]}"
+        )
+    assert float(rev[0]["J_PUSHER"]) > 0.0, (
         "J is V/(n D) and a rotor flying forwards has a positive advance "
-        f"ratio whichever way it turns: {reverse_rows[0]}"
+        f"ratio whichever way it turns: {rev[0]}"
     )
 
 

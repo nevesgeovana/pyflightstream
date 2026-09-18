@@ -37,6 +37,42 @@ Windows and on the cluster, with one exception -- `submitted_by`, the first
 bullet of *Owed* at the end.
 See `docs/migrating-to-0.23.0.md` before upgrading a workspace you care about.
 
+### The independent review, and what it changed before the tag
+
+This release was read by an **independent reviewer** — a separate tool, on a
+clean clone of `main` from GitHub, after the push and before the tag. It ran
+after four in-house review rounds had closed with 92 findings between them, and
+**it found seven more that none of them had.** Every one was a wrong number or a
+missing product. They are fixed here, and the fixes were themselves reviewed,
+which found four more. The record is `GEO-055`.
+
+Three of the seven matter to anyone with a rotor:
+
+- **A rotor table's rows were dimensionalised by the FIRST point of the sweep.**
+  The rotor speed, air density and velocity were read once and reused for every
+  row, so an advance-ratio sweep — the one shape the table exists for — came out
+  a factor of four wrong from its second point. The flight-condition columns in
+  the same row were correct, so nothing looked wrong.
+- **A counter-rotating rotor produced no table at all**, with nothing recorded
+  to say it was missing. A negative rotor speed is a direction and was read as a
+  stopped rotor.
+- **An unsteady rotor table published one instant of a cycle** beside a polar
+  that averaged correctly, in the same folder, with neither file saying which it
+  was.
+
+### `last_revs_avg` and `last_iters_avg` now work from POST alone
+
+**This is the change most likely to affect what you do next.** The averaging
+window was resolved when a point RAN and stored in its record, so editing the
+key in the matrix and re-running only the post stage changed nothing — and a
+workspace recorded before 0.23.0 fell back to the last time step, silently, in
+both cases.
+
+The post stage now resolves the window from **the matrix as it reads it**,
+against the clock the record already carries. Change the key, re-run `post`, get
+the new window. No solver run, on Windows or on the cluster. Where the matrix
+names no key, the window the run recorded still stands.
+
 
 ### Changed (breaking)
 
