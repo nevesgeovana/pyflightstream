@@ -216,7 +216,7 @@ See `docs/migrating-to-0.23.0.md` before upgrading a workspace you care about.
   dynamic pressure, which is zero at rest, so a hovering rotor's real thrust has
   been divided away before any of this is computed. No rotor coefficient is
   recoverable from a static point whatever the package does, which is also why a
-  figure of merit cannot be offered here — it needs a force the run does not
+  figure of merit cannot be offered here -- it needs a force the run does not
   state. `J` is a real `0.00000`: at rest with a turning rotor it is genuinely
   zero. A figure of merit is the static measure and the user defines it.
 - **The rotor table names its alias on its first line, alone**, so a script

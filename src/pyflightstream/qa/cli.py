@@ -31,6 +31,7 @@ import argparse
 import sys
 from pathlib import Path
 
+from pyflightstream._tokens import NOT_APPLICABLE
 from pyflightstream.cases import CampaignConfigError
 from pyflightstream.cases.matrix import MatrixError
 from pyflightstream.cases.workflows import WorkflowCoverageError
@@ -410,7 +411,7 @@ def _print_cost_comparison(view: CostView, spec: str) -> int:
         return 2
     print("")
     for pair in comparison.paired:
-        ratio = "-" if pair.ratio is None else f"{pair.ratio:.2f}"
+        ratio = NOT_APPLICABLE if pair.ratio is None else f"{pair.ratio:.2f}"
         print(
             f"{pair.point.sim_id}  {pair.point.label}  "
             f"{pair.baseline_s:.2f} -> {pair.candidate_s:.2f}  x{ratio}"

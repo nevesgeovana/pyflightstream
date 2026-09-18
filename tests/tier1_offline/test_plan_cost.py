@@ -44,6 +44,7 @@ from pathlib import Path
 import pytest
 
 from pyflightstream._fsm import MESH_MARKER
+from pyflightstream._tokens import NOT_APPLICABLE
 from pyflightstream.cases import ReferenceData, RotorBlock, SimCase, SolverSettings, SweepAxis
 from pyflightstream.run import estimate_point_cost, format_cost_table
 
@@ -170,13 +171,21 @@ def test_a_geometry_with_no_mesh_block_leaves_the_column_blank(tmp_path):
     empty.write_text("nothing here\n", encoding="utf-8")
     cost = estimate_point_cost(steady_case(empty), run_id="run/a", recorded=[])
     assert cost.panels is None
-    # THE MESH FIELD, not "a dash somewhere in the row". The row already
-    # carries dashes in `layers`, `steps` and `procs`, so `"-" in line` held
-    # whatever the mesh cell printed, and a mutant rendering `0` there
-    # survived (the QA lens scoring M26, 2026-09-11).
+    # THE MESH FIELD, not "a token somewhere in the row". The row already
+    # carries the same token in `layers`, `steps` and `procs`, so `"-" in line`
+    # held whatever the mesh cell printed, and a mutant rendering `0` there
+    # survived (the QA lens scoring M26, 2026-09-11). That is the property this
+    # case exists for and it is unchanged.
+    #
+    # THE EXPECTED TOKEN MOVED FROM `-` TO `NA` BECAUSE THE REQUIREMENT MOVED,
+    # not to make anything pass. The owner decided on 2026-09-18 -- "Converge
+    # tudo pra NA" -- that one token serves the whole package, ending a split
+    # where the CSV products wrote `NA` through one funnel while this table and
+    # three others each wrote a dash. Asserted through the constant rather than
+    # against a literal, so this case cannot drift from the funnel again.
     table = format_cost_table([cost]).splitlines()
     header, row = table[0].split(), table[2].split()
-    assert row[header.index("mesh")] == "-"
+    assert row[header.index("mesh")] == NOT_APPLICABLE
 
 
 def test_the_marked_trailing_edges_are_the_families_the_geometry_actually_carries(tmp_path):

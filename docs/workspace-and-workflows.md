@@ -682,7 +682,7 @@ axial_separation_families = ["Nacelle"]
     `SET_AXIAL_SEPARATION_BOUNDARIES` is documented to 26.100 and no further, and
     RPT-018 measured it reported deprecated and then REFUSED by the 26.101 and
     26.121 solvers. A row naming this key on a later build is refused **at plan
-    time**, naming the build — which costs an edit, where a line emitted into the
+    time**, naming the build -- which costs an edit, where a line emitted into the
     script would cost a run. What the later builds want in its place is a
     judgement rather than a measurement: the solver's deprecation notice leaves
     its replacement field empty.

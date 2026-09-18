@@ -29,6 +29,7 @@ from pathlib import Path
 import yaml
 
 import pyflightstream
+from pyflightstream._tokens import NOT_APPLICABLE
 from pyflightstream.qa.physics import (
     PhysicsRun,
     ReferenceBand,
@@ -419,7 +420,7 @@ def _render_markdown(run: DriftRun, date: str, counts: dict[str, int]) -> str:
         )
         for name, metric in result.metrics.items():
             band_cell = (
-                "-"
+                NOT_APPLICABLE
                 if metric.verdict is Verdict.NO_REFERENCE
                 else f"{metric.warn:g}/{metric.fail:g} ({metric.kind})"
             )

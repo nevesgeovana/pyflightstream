@@ -75,6 +75,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning
+from pyflightstream._tokens import NOT_APPLICABLE
 from pyflightstream.cases import (
     POINT_AXIS_KEYS,
     ROTATION_OFFSET_KEY,
@@ -120,6 +121,7 @@ __all__ = [
     "COLUMNS_NEW_AT_0_17_0",
     "COLUMNS_THAT_MAY_BE_UNSTATED",
     "UNSTATED_CELL",
+    "UNSTATED_CELLS",
     "CODE_COLUMNS",
     "DEFAULT_VERSION_OPTION",
     "LEGACY_WORKFLOW",
@@ -229,11 +231,33 @@ COLUMNS_NEW_AT_0_17_0 = {
     "WALLTIME": "no earlier row could state one, so it is written '-'",
 }
 
-#: The cell a column uses when the row states nothing. It is a single
-#: character rather than an empty cell so a reader can tell "stated
-#: nothing" from "the line is truncated", which an empty cell at the end
-#: of a run of them cannot.
-UNSTATED_CELL = "-"
+#: The cell a column uses when the row states nothing. It is a visible token
+#: rather than an empty cell so a reader can tell "stated nothing" from "the
+#: line is truncated", which an empty cell at the end of a run of them cannot.
+#:
+#: IT WAS `-` UNTIL 2026-09-18 and is now `NA`, by the owner's decision --
+#: *"Converge tudo pra NA"* -- which ended a split this package carried in
+#: five places: the CSV products wrote `NA` through one funnel while this cell,
+#: the printed plan and cost table, and three QA report tables each wrote a
+#: dash. One idea, two tokens, and a reader comparing two of her files had to
+#: know which convention each followed. The token itself now lives at
+#: :data:`pyflightstream._tokens.NOT_APPLICABLE`, below every layer, because
+#: `qa` cannot import `post` and must not learn to.
+#:
+#: **EVERY MATRIX SHE ALREADY HAS STILL BINDS.** This constant is what the
+#: package WRITES; :data:`UNSTATED_CELLS` is what it ACCEPTS, and the dash is
+#: still in it. Converging the read side would have made the package refuse the
+#: campaigns it exists to run, which is the one thing her acceptance rule
+#: forbids.
+UNSTATED_CELL = NOT_APPLICABLE
+
+#: Every spelling of "this row states nothing" that a matrix may be READ with.
+#:
+#: THE WRITE SIDE CONVERGED AND THE READ SIDE DID NOT, deliberately. `-` is what
+#: every matrix written before 0.23.0 carries, and an empty cell has always been
+#: accepted. A reader that took only the current token would refuse files this
+#: package itself produced one release ago.
+UNSTATED_CELLS: tuple[str, ...] = ("", "-", NOT_APPLICABLE)
 
 #: The six columns of 0.17.0, every one of which MAY read ``-``.
 #:
@@ -956,14 +980,14 @@ def _fold_columns_into_variables(
     """
     for column in ("GEOMETRY", "SYMMETRY", "SYMMETRY_LOADS", "NCPUS", "WALLTIME", "CONFIGURATION"):
         cell = str(record.get(column, "")).strip()
-        if column in variables and cell not in ("", UNSTATED_CELL):
+        if column in variables and cell not in UNSTATED_CELLS:
             raise MatrixError(
                 f"matrix row POL {pol}: {column} is stated twice, in its own column as "
                 f"{cell!r} and in VAR_NAMES_VALUES as {variables[column]!r}. Since "
                 f"v0.17.0 {column} is a COLUMN; take it out of the free cell. One fact, "
                 "one home."
             )
-        if cell in ("", UNSTATED_CELL):
+        if cell in UNSTATED_CELLS:
             continue
         variables[column] = cell
     return variables

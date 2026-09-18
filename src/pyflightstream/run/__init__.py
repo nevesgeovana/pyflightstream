@@ -81,6 +81,7 @@ from typing import Protocol, runtime_checkable
 import pyflightstream
 from pyflightstream._digest import file_sha256, optional_file_sha256, text_sha256
 from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning
+from pyflightstream._tokens import NOT_APPLICABLE
 from pyflightstream.cases import (
     Campaign,
     CampaignConfigError,
@@ -3881,13 +3882,13 @@ def format_cost_table(costs: list[PlannedPointCost]) -> str:
         expected = "unknown" if cost.seconds is None else f"{cost.seconds:.1f}s"
         rows.append(
             f"{_elide(cost.run_id, 38):38} "
-            f"{'-' if cost.panels is None else cost.panels:>8} "
-            f"{'-' if cost.trailing_edges is None else cost.trailing_edges:>5} "
-            f"{'-' if cost.farfield_layers is None else cost.farfield_layers:>7} "
+            f"{NOT_APPLICABLE if cost.panels is None else cost.panels:>8} "
+            f"{NOT_APPLICABLE if cost.trailing_edges is None else cost.trailing_edges:>5} "
+            f"{NOT_APPLICABLE if cost.farfield_layers is None else cost.farfield_layers:>7} "
             f"{'yes' if cost.viscous_coupling else 'no':>5} "
             f"{'unsteady' if cost.unsteady else 'steady':>9} "
-            f"{'-' if cost.time_iterations is None else cost.time_iterations:>7} "
-            f"{'-' if cost.processors is None else cost.processors:>6} "
+            f"{NOT_APPLICABLE if cost.time_iterations is None else cost.time_iterations:>7} "
+            f"{NOT_APPLICABLE if cost.processors is None else cost.processors:>6} "
             f"{expected:>10} {cost.samples:>8}"
         )
     if costs:

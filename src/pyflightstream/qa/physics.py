@@ -56,6 +56,7 @@ import numpy as np
 import yaml
 
 from pyflightstream._errors import PyflightstreamError
+from pyflightstream._tokens import NOT_APPLICABLE
 from pyflightstream.qa.errors import QaEvidenceError
 from pyflightstream.qa.geometry import WingSpec
 from pyflightstream.qa.reports import (
@@ -1229,7 +1230,7 @@ def _render_markdown(run: PhysicsRun, date: str, counts: dict[str, int]) -> str:
         for name, value in result.metrics.items():
             band = result.reference.metrics.get(name) if result.reference else None
             if band is None:
-                reference_cell, band_cell = "-", "-"
+                reference_cell, band_cell = NOT_APPLICABLE, NOT_APPLICABLE
             else:
                 reference_cell = f"{band.value:.5f}"
                 band_cell = f"{band.warn:g}/{band.fail:g} ({band.kind})"

@@ -1616,6 +1616,26 @@ def test_products_re_exports_every_public_name_of_the_private_tables_module():
                 found.update(name for t in node.targets for name in bound_names(t))
             elif isinstance(node, (ast.AnnAssign, ast.AugAssign)):
                 found.update(bound_names(node.target))
+            elif isinstance(node, ast.ImportFrom):
+                # AN EXPLICIT RE-EXPORT IS A PUBLIC NAME OF THIS MODULE; a plain
+                # import is not, and the syntax tells them apart. `from x import
+                # Y as Y` is the form that says "this module offers Y", which is
+                # what a type checker reads and what `_tables` uses for the names
+                # it re-exports from the package floor. `from x import Y` on its
+                # own is a dependency and stays excluded, which is why `Path` and
+                # `Sequence` are still not swept.
+                #
+                # THIS WAS ADDED WHEN `NOT_APPLICABLE` MOVED to
+                # `pyflightstream._tokens` on 2026-09-18, and the test caught its
+                # own blind spot rather than quietly passing: the assertion below
+                # refuses to run over a sweep that has lost the name it was
+                # written for. Widening the sweep is what keeps the guard strong;
+                # deleting that assertion would have made it green and worthless.
+                found.update(
+                    alias.asname
+                    for alias in node.names
+                    if alias.asname is not None and alias.asname == alias.name
+                )
             elif isinstance(node, (ast.If, ast.Try, ast.With, ast.For, ast.While)):
                 # A `try: import numpy` or an `if TYPE_CHECKING:` binds at
                 # module scope just as the top level does.

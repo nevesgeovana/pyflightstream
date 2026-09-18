@@ -23,6 +23,7 @@ import numpy as np
 # raises them and `workspace.rename_groups` does too.
 from pyflightstream._errors import ProductError as ProductError
 from pyflightstream._errors import ProductExistsError as ProductExistsError
+from pyflightstream._tokens import NOT_APPLICABLE as NOT_APPLICABLE
 
 #: The column naming the ADVANCE RATIO of a row.
 #:
@@ -242,25 +243,26 @@ _DECIMALS = 5
 #: putting two spellings of one meaning in one row beside a `FRAME` that
 #: already read `NA`.
 #:
-#: `-` IS STILL A LIVE SENTINEL OUTSIDE THE PRODUCTS, named here rather than
-#: left for a reader to trip over, because the closing round of FIX-0230 found
-#: this comment asserting the rule with no scope at all while five surfaces
-#: contradicted it: the PRINTED plan and cost table (`run/__init__`, FR-82,
-#: which has a test asserting the dash), the QA physics, drift and CLI tables,
-#: and `cases.matrix.UNSTATED_CELL` -- which is PUBLIC, is written into an
-#: upgraded matrix file and read back out of one, and carries a documented
-#: argument FOR the dash: a single character lets a reader tell "stated
-#: nothing" from a truncated line.
+#: `-` WAS A LIVE SENTINEL OUTSIDE THE PRODUCTS UNTIL 2026-09-18, and the
+#: paragraph that stood here listed the five surfaces that contradicted this
+#: rule and then left the question open, because converging them is her file
+#: format and was hers to decide. SHE DECIDED IT: *"Converge tudo pra NA"*.
 #:
-#: None of those is parsed by a user's CSV reader, which is why the rule and
-#: they can both be right. WHETHER THE ESTATE SHOULD CONVERGE ON ONE TOKEN
-#: EVERYWHERE IS THE OWNER'S and stays open; the matrix cell is the one that
-#: would actually cost something to move, since it round-trips through a file.
-#: What is NOT open is that the boundary be written down: the one sentence in
-#: the tree naming both tokens together lived in a test comment and was
-#: deleted by this release's own fix, which made the inconsistency harder to
-#: find while asserting the rule that exposes it.
-NOT_APPLICABLE = "NA"
+#: The five were the printed plan and cost table (`run/__init__`, FR-82), the
+#: QA physics, drift and CLI tables, and `cases.matrix.UNSTATED_CELL`. All five
+#: now WRITE `NA`, and every READER still accepts `-`, so a matrix or a product
+#: written by an earlier release is read exactly as it was.
+#:
+#: THE TOKEN NO LONGER LIVES HERE. It moved to :mod:`pyflightstream._tokens`,
+#: below every layer, for the reason the rule itself demands: `qa` does not
+#: import `post` and must not start, so a token defined in `post` could only
+#: reach those three tables by inverting a layer. It is re-exported under this
+#: name because every existing importer asks for it here, and because this
+#: module remains the FUNNEL even though it is no longer the DEFINITION --
+#: `_cell` below is still the one place a CSV product turns a value into a cell.
+#:
+#: (The re-export is the `X as X` form in the import block above, which is what
+#: makes it explicit to a type checker rather than incidental.)
 
 
 def _cell(value: object) -> str:
