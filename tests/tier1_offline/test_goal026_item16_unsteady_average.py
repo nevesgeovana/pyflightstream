@@ -1,4 +1,12 @@
-"""Tier 1, v0.23.0 item 16: the unsteady POLAR and rotor table are the plots averaged.
+"""Tier 1, v0.23.0 item 16: the one unsteady window, DERIVED HERE AND NOT DELIVERED.
+
+READ THIS FIRST, because the file's title claimed the opposite until a closing
+round measured it. **Item 16 did not ship in 0.23.0.** The window is derived and
+no product calls it: the polar still reads the native loads export, and the
+rotor table is built from that export's surfaces rather than from the plots. The
+tests below hold the DERIVATION to the right rule, which is worth having, and the
+last test in the file is the guard that stops the change log claiming more than
+that. What blocks the wiring is a question to the owner, not code: `QUESTION-0230`.
 
 THE OWNER'S WORDS, 2026-09-17:
 
@@ -20,15 +28,39 @@ implementations of one average is how two published numbers come to disagree".
 So item 16 is ROUTING and a WINDOW, never a second averaging routine.
 
 THE WINDOW IS THE ONE `per_blade` USES, anchored on the export-after-revolutions
-variable, so a reader comparing a POLAR against the per-blade rows beneath it
-is comparing numbers taken over the same steps.
+variable, so that a reader comparing a POLAR against the per-blade rows beneath
+it WOULD BE comparing numbers taken over the same steps. That is the design and
+it is the tense this sentence now carries: no reader gets that yet.
 """
 
 from __future__ import annotations
 
+import re
+from pathlib import Path
+
 import pytest
 
 from pyflightstream.post.unsteady import blade_passage_average, converged_window
+
+_ROOT = Path(__file__).resolve().parents[2]
+_SRC = _ROOT / "src" / "pyflightstream"
+_CHANGELOG = _ROOT / "CHANGELOG.md"
+
+#: A CALL, not a mention: the name followed by an open parenthesis. The
+#: definition line `def unsteady_window(` matches this too and is excluded by
+#: the `def ` prefix rather than by excluding its file, so a second definition
+#: anywhere would still be seen.
+_CALL = re.compile(r"(?<!def )\bunsteady_window\s*\(")
+
+
+def _production_callers() -> list[str]:
+    """Every line under `src/` that CALLS `unsteady_window`, as `path:line`."""
+    found = []
+    for path in sorted(_SRC.rglob("*.py")):
+        for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+            if _CALL.search(line):
+                found.append(f"{path.relative_to(_ROOT).as_posix()}:{number}")
+    return found
 
 
 def test_the_window_is_anchored_on_the_export_after_revolutions_variable():
@@ -80,22 +112,27 @@ def test_there_is_exactly_one_implementation_of_the_average():
     assert callable(blade_passage_average)
 
 
-def test_the_stage_derives_one_window_and_hands_it_to_the_products():
-    """ITEM 16 THROUGH THE STAGE, which is where "one window" is a claim at all.
+def test_one_function_derives_the_window_from_what_the_run_recorded():
+    """THE DERIVATION ONLY. Nothing in the package calls it, and the name said otherwise.
 
-    The four tests above exercise `converged_window` directly, and it had NO
-    caller in the package: every one of them passed over a release where the
+    THIS TEST WAS CALLED `test_the_stage_derives_one_window_and_hands_it_to_the_products`
+    AND ITS ASSERTION IS UNCHANGED. Only the name and this docstring moved,
+    because only they were wrong: they claimed the window reached the products,
+    and the single assertion below calls one function and compares a tuple.
+    Nothing was weakened to make anything pass -- the assertion passed before
+    and passes now, which is precisely the problem a name like that one hides.
+
+    The old docstring said the four tests above "passed over a release where the
     polar, the rotor table and `per_blade` each took whatever window they
-    happened to be given -- which is the state "one window" exists to end.
+    happened to be given", as though this test had ended that. It had not:
+    `unsteady_window` has no caller either, which the guard below now measures
+    rather than describes.
 
     THE POINT OF ONE WINDOW is not tidiness. A reader comparing a coefficient
     against the per-blade rows beneath it is comparing numbers from the same
     part of the run; two windows put a difference in the fourth digit that
-    nobody can attribute to anything.
-
-    The stage derives it from what the run recorded: `steps_per_revolution`
-    off the reductions plan, and the export-after-revolutions anchor off the
-    row. This asserts that ONE function answers for the whole simulation.
+    nobody can attribute to anything. That is still the right rule, and the
+    derivation below is still the right derivation. It is just not delivered.
     """
     from pyflightstream.post.products import unsteady_window
 
@@ -148,3 +185,51 @@ def test_a_history_too_short_for_the_anchor_gets_no_window_rather_than_a_refusal
         )
         is None
     )
+
+
+def test_the_change_log_says_item_16_is_wired_exactly_when_it_is():
+    """THE GUARD ON THE FALSE CLAIM, and it is two-way by construction.
+
+    WHAT WENT WRONG. The change log's 0.23.0 section said "An unsteady POLAR and
+    rotor table are the plots averaged over the same window `per_blade` uses".
+    Three things in that one sentence were false: the polar still reads the
+    native loads export, the rotor table is built from that export's surfaces
+    and not from the plots at all, and `unsteady_window` -- the function the
+    sentence rests on -- HAS NO CALLER, so nothing is averaged over any window.
+    A closing round found it by grepping for the caller rather than the
+    definition, which is this estate's own rule for measuring delivery.
+
+    WHY A TEST AND NOT A CORRECTION. Correcting the sentence fixes this
+    instance; it does nothing about the next one. The failure mode is that the
+    prose and the wiring drift apart in EITHER direction, so this measures both
+    and fails on either:
+
+        no caller + the change log claims delivery  -> the defect that shipped
+        a caller  + the change log still says NOT WIRED -> stale in the other
+                                                           direction, and the
+                                                           reader is told a
+                                                           capability is absent
+                                                           when it is there
+
+    So whoever wires item 16 is failed by this test until they say so in the
+    change log, and whoever writes the claim is failed until the wiring exists.
+    It is deliberately NOT a test that item 16 is unfinished: it pins the two
+    statements to each other, and it goes green on the day the item lands.
+    """
+    callers = _production_callers()
+    text = _CHANGELOG.read_text(encoding="utf-8")
+    claims_unwired = "The one unsteady window is DERIVED and is NOT YET WIRED" in text
+
+    if callers:
+        assert not claims_unwired, (
+            "the change log still says the one unsteady window is NOT YET WIRED, and "
+            f"these production lines call it: {callers}. Item 16 landed and the entry "
+            "that told the reader it had not is now the false sentence."
+        )
+    else:
+        assert claims_unwired, (
+            "nothing under src/ calls `unsteady_window`, so no product is averaged over "
+            "the one window -- and the change log does not say so. A change log entry "
+            "describing an uncalled function reads to every user as a delivered "
+            "capability. Either wire it or say it is not wired."
+        )

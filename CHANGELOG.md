@@ -144,10 +144,18 @@ See `docs/migrating-to-0.23.0.md` before upgrading a workspace you care about.
   which mixed a real azimuthal difference with a difference in WHEN each blade
   was sampled, and nothing in the file said which was which.
 
-- **The POLAR of an unsteady point no longer reads the native coefficient
-  export.** That file is only the last iteration, which on an oscillating rotor
-  is one instant of a cycle. It still ships as a health check, and the run
-  assessor judges an unsteady point from the plots history instead.
+- **The run assessor judges an unsteady point from the plots HISTORY**, not from
+  the single row the native coefficient export leaves behind. A run whose
+  history holds no step is now unjudgeable and says so, instead of being scored
+  from one iteration.
+
+  **THE POLAR STILL READS THE NATIVE EXPORT, and this release does not change
+  that.** The other half of this item -- re-sourcing the polar -- rests on
+  whether that export is the solver's own time average or the last time step.
+  This repository asserts BOTH, in two files, and has no evidence for either:
+  no manual citation and no characterised export. Resolving it is a question to
+  the owner (`QUESTION-0230`), not a judgement this release makes, so the polar
+  is left exactly as it was rather than moved on an inference.
 
 ### Changed
 
@@ -216,9 +224,21 @@ See `docs/migrating-to-0.23.0.md` before upgrading a workspace you care about.
   refused at plan time, naming both sets.
 - **The operator in the provenance**, as a `prov:Person` agent, resolved by one
   standard-library call that answers on Windows and on the cluster alike.
-- **An unsteady POLAR and rotor table are the plots averaged** over the same
-  window `per_blade` uses, derived by
-  `pyflightstream.post.unsteady.converged_window`.
+- **The one unsteady window is DERIVED and is NOT YET WIRED**, and it is listed
+  here saying so rather than as the feature it was drafted as.
+  `pyflightstream.post.products.unsteady_window` resolves the single window a
+  simulation's unsteady products should share, and returns nothing rather than a
+  wrong window in each of the three ways a run can fail to have one. **No
+  product calls it yet**, so no polar and no rotor table is averaged over it, and
+  nothing a reader opens has changed.
+
+  Two measured facts block the wiring, and neither is code. The POLAR half waits
+  on the same question as the entry above (`QUESTION-0230`). The ROTOR TABLE half
+  cannot be served by the plots at all: that export carries `Time, CL, CDi, CM`
+  and not the six force and moment components a shaft projection needs, so the
+  rotor table stays sourced where it is. **Shipping the resolver uncalled is
+  named here because an unused function reads as a delivered capability in a
+  change log, and this release makes no such claim.**
 - **The super file takes a format**: `csv` as before, or `legacy_polar`. Both
   carry the same columns; a format nobody offers is refused naming those that
   exist rather than falling back.

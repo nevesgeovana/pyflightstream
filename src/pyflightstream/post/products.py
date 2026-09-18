@@ -994,14 +994,26 @@ def unsteady_window(
     first_step: int,
     last_step: int,
 ) -> tuple[int, int] | None:
-    """Return THE window every unsteady product of one simulation averages over.
+    """Resolve the window a simulation's unsteady products SHOULD share. Nothing calls it yet.
 
-    Item 16. `converged_window` held the rule and had no caller, so the polar,
-    the rotor table and `per_blade` each took whatever window they happened to
-    be given -- which is the state "one window" exists to end. A reader
-    comparing a coefficient against the per-blade rows beneath it is comparing
-    numbers from the same part of the run; two windows put a difference in the
-    fourth digit that nobody can attribute to anything.
+    **THIS FUNCTION HAS NO CALLER, and that sentence is the first line of its
+    own documentation because the alternative is what it was.** It read "the
+    window every unsteady product averages over" and named `converged_window`'s
+    missing caller as the defect it ended -- while reproducing that defect
+    exactly one level up. A closing round found the description and the tree
+    disagreeing, and the description was the part that was wrong. Item 16 is not
+    delivered; see the change log entry that says so.
+
+    WHY IT IS NOT WIRED, measured rather than deferred. The POLAR half waits on
+    whether the native loads export is already a time average or a single step,
+    which this repository asserts both ways with no evidence (`QUESTION-0230`).
+    The ROTOR TABLE half cannot be served by the plots export at all: it carries
+    `Time, CL, CDi, CM` and not the six components a shaft projection needs.
+
+    The rule below is still the right rule, and the tests hold it to that: a
+    reader comparing a coefficient against the per-blade rows beneath it should
+    be comparing numbers from the same part of the run, and two windows put a
+    difference in the fourth digit that nobody can attribute to anything.
 
     NONE RATHER THAN A WRONG WINDOW, in all three ways a simulation can fail to
     have one: no revolution length, no anchor, or a history too short for the
