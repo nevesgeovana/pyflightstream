@@ -165,32 +165,33 @@ those runs the field reads `NA`. It is filled from your next run onward.
 
 ---
 
-## 7. New, and optional: three pproc tables
+## 7. The three pproc tables are NOT in this release
 
-They ship together. A pproc that mentions none of them loads exactly as before.
+`phase_locked`, `equations` and `glossary` were planned for 0.23.0, were built,
+and were **withdrawn to 0.24.0** before the release. Do not write them.
 
 ```toml
-[phase_locked]
-min_revolutions      = 5
-last_revolutions_avg = 2
-
-[equations.CTX]
-expression   = "CT * 2"
-meshes_alias = "PUSHER"
-frame        = "BODY"
-
-[glossary]
-CTX = "my own coefficient"
+# ALL THREE ARE REFUSED BY NAME in 0.23.0. A pproc carrying any of them
+# does not load, and the message names the key.
+[phase_locked]   # refused
+[equations.CTX]  # refused
+[glossary]       # refused
 ```
 
-- `phase_locked` is generated when the matrix specifies AT LEAST
-  `min_revolutions`. **Not reaching it does not refuse the polar**; it only
-  means no phase-locked reduction.
-- An equation points at an ALIAS and never at a mesh family, so every
-  coefficient you derive carries `_<alias>`.
-- `pyflightstream.post.write_pproc_guides` writes `VARIABLES.md`
-  and `WRITING-EQUATIONS.md` into your pproc folder, generated from the code so
-  they cannot go stale.
+**They are refused rather than ignored, and that is deliberate.** A key the
+release does not support must fail on the key: a pproc that is accepted and
+then quietly does nothing is the worse of the two failures, because you would
+read the products as though the reduction had run.
+
+**This section used to show you how to write all three**, and it contradicted
+the *Not in this release* section at the foot of this same page. A page that
+teaches a key the package refuses is worse than a page that omits it, so this
+is the correction rather than a deletion: if you wrote one of these tables on
+the strength of the old text, the refusal you saw was the package being right.
+
+Nothing you write today is lost. The code behind all three is still in the
+tree; what was withdrawn is the ability to ASK for it, and 0.24.0 resumes from
+there.
 
 ---
 
