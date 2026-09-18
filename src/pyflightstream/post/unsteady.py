@@ -589,3 +589,104 @@ def converged_window(
             "average of a run that did not finish writing"
         )
     return (start, last_step)
+
+
+def per_blade_rows(
+    series: TimestepSeries,
+    *,
+    window: tuple[int, int],
+    blades: int,
+    steps_per_revolution: float,
+    blade1_azimuth_deg: float = 0.0,
+) -> list[dict[str, object]]:
+    """One row per blade, every blade averaged over the SAME window.
+
+    v0.23.0 item 8, the owner's reading of her own periodic case on 2026-09-17:
+    "faz sentido sempre olhar a ultima janela convergida ... mesmo pro wheel,
+    faz sentido olhar todas as blades na mesma janela".
+
+    WHAT THIS REPLACES. `per_blade` averaged each blade over ITS OWN passage,
+    so blade 1 came from one stretch of the history and blade 4 from another.
+    Any difference between two blades then mixes a real azimuthal difference
+    with a difference in WHEN they were sampled, and nothing in the file says
+    which is which. One window removes the second cause entirely.
+
+    THE AZIMUTHS ARE WRITTEN, NOT AVERAGED AWAY. The blades genuinely are at
+    different azimuths at any instant, and that is a fact to record rather than
+    a problem to smooth: her words, "podemos ter uma coluna que mostra a
+    posição azimutal de inicio e fim de cada para a mesma janela". Each row
+    says where that blade was when the window opened and when it closed.
+
+    THE AVERAGE IS `blade_passage_average`, over the window this is given. No
+    second averaging routine is written here: two implementations of one
+    average is how two published numbers come to disagree, which that
+    function's own docstring says and item 16 turned on a probe that asked for
+    exactly that mistake.
+
+    Parameters
+    ----------
+    series : TimestepSeries
+        The plots history, read back.
+    window : tuple of int
+        Inclusive ``(first_step, last_step)``, the converged window every blade
+        shares. `post.unsteady.converged_window` derives it (item 16).
+    blades : int
+        How many blades the rotor carries.
+    steps_per_revolution : float
+        Solver steps in one revolution, which turns a step count into an angle.
+    blade1_azimuth_deg : float
+        Where blade one sits at the window's first step. The other blades are
+        spaced evenly from it.
+
+    Returns
+    -------
+    list of dict
+        One mapping per blade: ``BLADE``, ``FIRST_STEP``, ``LAST_STEP``,
+        ``AZIMUTH_START``, ``AZIMUTH_END``, and that blade's own averaged
+        columns with the blade prefix removed.
+
+    Raises
+    ------
+    ValueError
+        If the window names no step the history holds, or the rotor carries no
+        blade. Could-not-measure is never a pass.
+    """
+    if blades < 1:
+        raise ValueError(f"the rotor carries {blades} blades, so it has no per-blade rows")
+    if steps_per_revolution <= 0:
+        raise ValueError(
+            f"steps_per_revolution is {steps_per_revolution}, so a step count cannot be "
+            "turned into an angle and no azimuth can be written"
+        )
+    first, last = int(window[0]), int(window[1])
+    steps = np.asarray(series.steps, dtype=int)
+    if not ((steps >= first) & (steps <= last)).any():
+        raise ValueError(
+            f"the window {window} names no step this history holds, which runs from "
+            f"{int(steps[0])} to {int(steps[-1])}"
+        )
+    spanned = last - first
+    average = blade_passage_average(series, window=(first, last))
+    spacing = 360.0 / blades
+
+    rows: list[dict[str, object]] = []
+    for index in range(blades):
+        number = index + 1
+        start = (blade1_azimuth_deg + index * spacing) % 360.0
+        end = (start + spanned * 360.0 / steps_per_revolution) % 360.0
+        row: dict[str, object] = {
+            "BLADE": number,
+            "FIRST_STEP": first,
+            "LAST_STEP": last,
+            "AZIMUTH_START": start,
+            "AZIMUTH_END": end,
+        }
+        # THAT BLADE'S OWN COLUMNS AND NOT THE ROTOR'S. A column named for one
+        # blade belongs to one row; the prefix is dropped so the rows of two
+        # blades line up under the same headings and can be compared.
+        prefix = f"Blade{number}_"
+        for name, values in average.fields.items():
+            if name.startswith(prefix):
+                row[name[len(prefix) :]] = float(values[0])
+        rows.append(row)
+    return rows
