@@ -39,7 +39,7 @@ See `docs/migrating-to-0.23.0.md` before upgrading a workspace you care about.
 
 ### The independent review, and what it changed before the tag
 
-This release was read by an **independent reviewer** — a separate tool, on a
+This release was read by an **independent reviewer** -- a separate tool, on a
 clean clone of `main` from GitHub, after the push and before the tag. It ran
 after four in-house review rounds had closed with 92 findings between them, and
 **it found seven more that none of them had.** Every one was a wrong number or a
@@ -50,7 +50,7 @@ Three of the seven matter to anyone with a rotor:
 
 - **A rotor table's rows were dimensionalised by the FIRST point of the sweep.**
   The rotor speed, air density and velocity were read once and reused for every
-  row, so an advance-ratio sweep — the one shape the table exists for — came out
+  row, so an advance-ratio sweep -- the one shape the table exists for -- came out
   a factor of four wrong from its second point. The flight-condition columns in
   the same row were correct, so nothing looked wrong.
 - **A counter-rotating rotor produced no table at all**, with nothing recorded
@@ -64,7 +64,7 @@ Three of the seven matter to anyone with a rotor:
 
 **This is the change most likely to affect what you do next.** The averaging
 window was resolved when a point RAN and stored in its record, so editing the
-key in the matrix and re-running only the post stage changed nothing — and a
+key in the matrix and re-running only the post stage changed nothing -- and a
 workspace recorded before 0.23.0 fell back to the last time step, silently, in
 both cases.
 
