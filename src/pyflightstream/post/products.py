@@ -94,6 +94,7 @@ from pyflightstream._errors import (
 from pyflightstream.cases import select_group_members
 from pyflightstream.cases.workflows import (
     CONFIGURATION_VARIABLE,
+    EXPORT_UNSTEADY_AFTER_REV_VARIABLE,
     PER_ROTOR_REDUCTIONS,
     PROBE_POSITION_COLUMNS,
     REDUCTION_NAMES,
@@ -925,6 +926,56 @@ def read_csv_table(
                 )
             rows.append(dict(zip(columns, cells, strict=True)))
     return columns, rows
+
+
+def unsteady_window(
+    *,
+    reductions: Mapping[str, object] | None,
+    variables: Mapping[str, object] | None,
+    first_step: int,
+    last_step: int,
+) -> tuple[int, int] | None:
+    """Return THE window every unsteady product of one simulation averages over.
+
+    Item 16. `converged_window` held the rule and had no caller, so the polar,
+    the rotor table and `per_blade` each took whatever window they happened to
+    be given -- which is the state "one window" exists to end. A reader
+    comparing a coefficient against the per-blade rows beneath it is comparing
+    numbers from the same part of the run; two windows put a difference in the
+    fourth digit that nobody can attribute to anything.
+
+    NONE RATHER THAN A WRONG WINDOW, in all three ways a simulation can fail to
+    have one: no revolution length, no anchor, or a history too short for the
+    anchor to fit in. `converged_window` REFUSES the last of those, and it is
+    right to where a caller asked for a window -- but at the stage a short
+    history is an ordinary campaign, a run that stopped early, and it must cost
+    that simulation its unsteady products and never the polars of every other
+    simulation beside it.
+
+    Averaging from step one instead would mix the TRANSIENT with the answer,
+    which is the design error a fixture in this suite still records.
+    """
+    from pyflightstream.post.unsteady import converged_window
+
+    plan = reductions if isinstance(reductions, Mapping) else {}
+    stated = plan.get("steps_per_revolution")
+    if not isinstance(stated, int | float) or stated <= 0:
+        return None
+
+    row = variables if isinstance(variables, Mapping) else {}
+    anchor = row.get(EXPORT_UNSTEADY_AFTER_REV_VARIABLE)
+    if not isinstance(anchor, int | float):
+        return None
+
+    try:
+        return converged_window(
+            first_step=int(first_step),
+            last_step=int(last_step),
+            steps_per_revolution=int(stated),
+            after_rev=float(anchor),
+        )
+    except ValueError:
+        return None
 
 
 def _rotor_tables(

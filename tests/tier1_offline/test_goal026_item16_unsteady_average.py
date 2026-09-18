@@ -78,3 +78,73 @@ def test_there_is_exactly_one_implementation_of_the_average():
     ]
     assert averagers == ["blade_passage_average"], averagers
     assert callable(blade_passage_average)
+
+
+def test_the_stage_derives_one_window_and_hands_it_to_the_products():
+    """ITEM 16 THROUGH THE STAGE, which is where "one window" is a claim at all.
+
+    The four tests above exercise `converged_window` directly, and it had NO
+    caller in the package: every one of them passed over a release where the
+    polar, the rotor table and `per_blade` each took whatever window they
+    happened to be given -- which is the state "one window" exists to end.
+
+    THE POINT OF ONE WINDOW is not tidiness. A reader comparing a coefficient
+    against the per-blade rows beneath it is comparing numbers from the same
+    part of the run; two windows put a difference in the fourth digit that
+    nobody can attribute to anything.
+
+    The stage derives it from what the run recorded: `steps_per_revolution`
+    off the reductions plan, and the export-after-revolutions anchor off the
+    row. This asserts that ONE function answers for the whole simulation.
+    """
+    from pyflightstream.post.products import unsteady_window
+
+    window = unsteady_window(
+        reductions={"steps_per_revolution": 100},
+        variables={"EXPORT_UNSTEADY_AFTER_REV": 2.0},
+        first_step=1,
+        last_step=400,
+    )
+    assert window == (201, 400), window
+
+
+def test_a_simulation_that_states_no_anchor_gets_no_window():
+    """`None` and not the whole history, which is the transient included.
+
+    Averaging a run from step one mixes the transient with the answer -- the
+    design error a fixture in this suite still records -- so a row that does
+    not say where the transient ends gets no window rather than a wrong one.
+    """
+    from pyflightstream.post.products import unsteady_window
+
+    assert (
+        unsteady_window(
+            reductions={"steps_per_revolution": 100},
+            variables={},
+            first_step=1,
+            last_step=400,
+        )
+        is None
+    )
+
+
+def test_a_history_too_short_for_the_anchor_gets_no_window_rather_than_a_refusal():
+    """The refusal belongs to the derivation; the STAGE writes fewer products.
+
+    `converged_window` refuses a history shorter than its anchor, which is
+    right where a caller asked for a window. At the stage a short history is an
+    ordinary campaign -- a run that stopped early -- and it must cost that
+    simulation its rotor table, never the polars of every other simulation
+    beside it.
+    """
+    from pyflightstream.post.products import unsteady_window
+
+    assert (
+        unsteady_window(
+            reductions={"steps_per_revolution": 100},
+            variables={"EXPORT_UNSTEADY_AFTER_REV": 9.0},
+            first_step=1,
+            last_step=400,
+        )
+        is None
+    )
