@@ -110,3 +110,45 @@ def test_a_pproc_saying_nothing_about_any_of_the_three_still_loads():
     assert spec.phase_locked is None
     assert spec.equations == {}
     assert spec.glossary == {}
+
+
+def test_the_gate_reaches_the_plan_and_a_short_run_is_skipped_not_refused():
+    """ITEM 9 THROUGH THE PLAN, which is where the gate is a gate at all.
+
+    `PhaseLockedSpec.generated_for` held the comparison and had NO CALLER, so a
+    pproc declaring `min_revolutions` got a phase-locked reduction whatever the
+    row turned. Every test of it called the method directly.
+
+    HER RULE HAS TWO HALVES and the second is the one a wiring gets wrong: "se a
+    especificacao da matriz bater esse numero minimo, o phase_locked e gerado",
+    and "nao ter o rev min nao recusa a polar, so nao gera o phase_locked". A
+    short run is SKIPPED WITH A REASON, never refused -- losing a polar because
+    a rotor did not turn long enough is taking a product away from a campaign
+    that already happened.
+    """
+    from pyflightstream.cases import PhaseLockedSpec
+    from pyflightstream.cases.workflows import phase_locked_gate
+
+    gate = PhaseLockedSpec(min_revolutions=3.0, last_revolutions_avg=1.0)
+
+    # Long enough: the reduction is planned and says nothing about being gated.
+    assert phase_locked_gate(gate, revolutions=4.0) is None
+    assert phase_locked_gate(gate, revolutions=3.0) is None, "AT LEAST, not more than"
+
+    # Too short: a SKIP carrying the reason, and the numbers that decided it.
+    skipped = phase_locked_gate(gate, revolutions=1.5)
+    assert isinstance(skipped, dict) and "skipped" in skipped, skipped
+    reason = str(skipped["skipped"])
+    assert "1.5" in reason and "3" in reason, reason
+
+
+def test_a_pproc_that_declares_no_gate_is_not_gated():
+    """Absent is not zero and not a refusal: the reduction is planned as before.
+
+    A pproc saying nothing about `phase_locked` got one before this release and
+    gets one now, so adding the gate changes nothing for a workspace that does
+    not use it.
+    """
+    from pyflightstream.cases.workflows import phase_locked_gate
+
+    assert phase_locked_gate(None, revolutions=0.1) is None

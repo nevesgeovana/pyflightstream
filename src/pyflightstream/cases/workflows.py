@@ -92,6 +92,7 @@ from pyflightstream.cases import (
     ROTOR_BLADE_ROTATION_AXIS,
     CampaignConfigError,
     CustomFlag,
+    PhaseLockedSpec,
     RotorBlock,
     ScriptRecipe,
     SimCase,
@@ -157,6 +158,7 @@ __all__ = [
     "WORKFLOW_KEY",
     "ExportWindow",
     "PER_ROTOR_REDUCTIONS",
+    "phase_locked_gate",
     "REDUCTION_NAMES",
     "ROTORS_KEY",
     "ReductionPlan",
@@ -3242,6 +3244,38 @@ def _passages(window: tuple[int, int], period: int) -> list[tuple[int, int]]:
     return windows
 
 
+def phase_locked_gate(
+    spec: PhaseLockedSpec | None, *, revolutions: float
+) -> dict[str, object] | None:
+    """Return the SKIP a short run's phase-locked reduction carries, or None.
+
+    Item 9. `PhaseLockedSpec.generated_for` held the comparison and had NO
+    CALLER, so a pproc declaring `min_revolutions` got a phase-locked reduction
+    whatever the row actually turned.
+
+    HER RULE HAS TWO HALVES and the second is the one a wiring gets wrong:
+    "se a especificacao da matriz bater esse numero minimo, o phase_locked e
+    gerado", and "nao ter o rev min nao recusa a polar, so nao gera o
+    phase_locked". A short run is SKIPPED WITH A REASON and never refused --
+    losing a polar because a rotor did not turn long enough is taking a product
+    away from a campaign that already happened.
+
+    ABSENT IS NOT ZERO. A pproc saying nothing about `phase_locked` got one
+    before this release and gets one now, so the gate changes nothing for a
+    workspace that does not use it.
+    """
+    if spec is None or spec.generated_for(revolutions=revolutions):
+        return None
+    return {
+        "skipped": (
+            f"the row turns {revolutions} revolution(s) and the pproc asks for at least "
+            f"{spec.min_revolutions} before a phase-locked reduction is generated. The "
+            "polar is unaffected: a short run means no phase-locked reduction, never a "
+            "refused product."
+        )
+    }
+
+
 def _every_reduction_skipped(rotor: bool, reason: str) -> dict[str, object]:
     """Build the plan of a row whose clock could not be resolved: every reduction skipped."""
     refused = {"skipped": reason}
@@ -3317,6 +3351,18 @@ def _the_passages_of_one_rotor(
         entry["per_blade"] = {"skipped": reason}
         return entry
     entry["period_steps"] = period
+
+    # ITEM 9's GATE, asked HERE and before the passages are cut: a pproc that
+    # sets `min_revolutions` gets no phase-locked reduction from a run that
+    # turned fewer. The polar is untouched -- a short run means no reduction,
+    # never a refused product.
+    turned = (span[1] - span[0] + 1) / per_revolution if per_revolution > 0 else 0.0
+    gated = phase_locked_gate(getattr(case.pproc, "phase_locked", None), revolutions=turned)
+    if gated is not None:
+        entry["phase_locked"] = gated
+        entry["per_blade"] = gated
+        return entry
+
     passages = _passages(span, period)
     if passages:
         entry["phase_locked"] = {
