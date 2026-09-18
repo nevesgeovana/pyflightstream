@@ -25,6 +25,8 @@ predates this release from a document that forgot.
 
 from __future__ import annotations
 
+import json
+
 from pyflightstream.post.products import NOT_APPLICABLE, operator_agent
 from pyflightstream.workspace.naming import submitted_by
 
@@ -69,3 +71,57 @@ def test_a_record_that_names_its_operator_carries_that_name():
     agent = operator_agent("an.operator")
     assert agent["prov:type"] == "prov:Person", agent
     assert agent["pyfs:submitted_by"] == "an.operator", agent
+
+
+def test_the_provenance_document_the_stage_writes_names_the_operator(tmp_path):
+    """ITEM 12 THROUGH THE PROVENANCE, which is the file a reader opens.
+
+    The four tests above check the resolver and the record field; none opens the
+    document. Item 12 is the ONE item of this release that was genuinely wired
+    when the release round measured the others, and "genuinely wired" is a claim
+    about the product, so it is asserted on the product.
+
+    THE OWNER'S NAMED EXCEPTION APPLIES HERE and is what the second half
+    asserts: `submitted_by` is a RUN-time fact, nobody recorded it for the runs
+    she already has, and it cannot be recovered. The cell reads `NA` and no
+    value is invented -- which is the honest answer and is visibly absent rather
+    than a plausible name somebody would believe.
+    """
+    from pyflightstream.post.products import _prov_document
+    from pyflightstream.workspace import RunRecord, RunStatus
+
+    def _record(operator: str | None) -> RunRecord:
+        """A REAL record, not a hand-built double.
+
+        A stub carrying only the attributes this function happens to read today
+        drifts the moment it reads one more, and a fixture that encodes what the
+        code does rather than what a record IS is a shape this estate has paid
+        for. The model names its own required fields.
+        """
+        return RunRecord(
+            run_id="camp/sim_6001/M200AL+000",
+            sim_id="6001",
+            fs_version_requested="26.120",
+            package_version="0.23.0",
+            script_sha256="0" * 64,
+            raw_flag=False,
+            status=RunStatus.CONVERGED,
+            submitted_by=operator,
+        )
+
+    document = _prov_document(_record("an.operator"), tmp_path)
+    text = json.dumps(document)
+    assert "an.operator" in text, text[:400]
+
+    # A PERSON, not a piece of software. The package and the solver are already
+    # `prov:SoftwareAgent` in this document; an operator that arrived as a third
+    # one would say a human ran nothing.
+    agents = [
+        value for value in document.get("agent", {}).values() if "an.operator" in json.dumps(value)
+    ]
+    assert agents, document.get("agent")
+    assert any("prov:Person" in json.dumps(agent) for agent in agents), agents
+
+    # AND THE RUN SHE ALREADY HAS, which recorded nobody.
+    recovered = json.dumps(_prov_document(_record(None), tmp_path))
+    assert NOT_APPLICABLE in recovered, recovered[:400]
