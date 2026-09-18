@@ -44,6 +44,7 @@ __all__ = [
     "SERIES_DIR",
     "SERIES_KINDS",
     "SERIES_LEAD",
+    "run_clock",
     "stamped_exports",
     "write_point_series",
 ]
@@ -90,8 +91,14 @@ def stamped_exports(sim_dir: Path, stem: str) -> dict[tuple[str, str], dict[int,
     return found
 
 
-def _clock(record: RunRecord) -> tuple[float | None, float | None]:
+def run_clock(record: RunRecord) -> tuple[float | None, float | None]:
     """Return (delta_time_s, step_deg) as the record states them, or what it lets one infer.
+
+    PUBLIC SINCE 0.23.0 ITEM 13, because the sections table needs the same
+    answer. Reaching into a sibling module for an underscore-private name is
+    the boundary this package already refuses for a helper, and the honest fix
+    is to publish it: two functions computing one clock is how two products of
+    the same point come to disagree about when it was sampled.
 
     A record written since 0.14.0 carries both in its export window; one
     written before carries neither, and its azimuth step is still known
@@ -289,7 +296,7 @@ def write_point_series(
         return [], {}
     first, last = int(window["first_step"]), int(window["time_iterations"])
     steps = range(first, last + 1)
-    delta, step_deg = _clock(record)
+    delta, step_deg = run_clock(record)
     stamped = stamped_exports(sim_dir, stem)
     written: list[Path] = []
     names: dict[str, dict[str, object]] = {}

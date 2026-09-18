@@ -25,6 +25,8 @@ THE USAGE, as a user meets it:
 
 from __future__ import annotations
 
+import pytest
+
 from pyflightstream.post import products
 
 
@@ -56,3 +58,100 @@ def test_the_iteration_and_the_azimuth_lead_the_row():
     columns = products.SECTION_COLUMNS
     assert columns[0] == "ITERATION", columns
     assert columns[1] == "AZIMUTH", columns
+
+
+#: What the shipped sections fixture states as its own iteration. Asserted
+#: below rather than trusted, so this file fails loudly if the fixture moves
+#: instead of silently measuring a different number.
+FIXTURE_ITERATION = 3134
+
+
+def _sections_export() -> str:
+    """The shipped sections export, which ALREADY states its iteration.
+
+    Used rather than a new fixture, so the body is the same bytes every other
+    sections test reads. My first attempt built one by injecting a
+    `Current solver iteration number` line, on the belief that the fixture
+    carried none -- it carries 3134, and the writer read that instead. The
+    header line was there the whole time and nothing had ever read it.
+
+    The real-export fixture (`fixtures/all_surface_sections_26.123.txt`) is not
+    used here because it carries forces in COEFFICIENTS, which the writer
+    refuses by name (FSI-R03) -- a refusal that fired on the first run of this
+    test and was right to.
+    """
+    import sys
+    from pathlib import Path
+
+    sys.path.insert(0, str(Path(__file__).parent))
+    from test_post_products import SLOADS
+
+    assert f"number:            {FIXTURE_ITERATION}" in SLOADS, "the fixture's iteration moved"
+    return SLOADS
+
+
+def test_the_iteration_is_read_from_the_export_that_states_it(tmp_path):
+    """THE COLUMNS EXIST AND THE VALUES NEVER DO, item 13's half of it.
+
+    All three tests above assert the COLUMN TUPLE and none asserts a value, so
+    the file they describe passed while every row read `NA,NA` -- which is what
+    a release round measured on real products. The same shape as item 5, in the
+    family beside it.
+
+    The writer's own docstring says the iteration is "read from the export where
+    it states them", and nothing read it. It IS stated: the surface sections
+    export carries `Current solver iteration number` in its header, exactly as
+    the loads export does. So the writer reads it, and a caller that knows
+    better may still override it.
+    """
+    from pyflightstream.post.products import read_csv_table, write_sections_table
+
+    target = write_sections_table(
+        tmp_path / "sections" / "P_sections.csv", _sections_export(), mach=0.2
+    )
+    assert target is not None
+    _, rows = read_csv_table(target)
+    assert rows, "the export declares a section and the table has no row"
+    assert rows[0]["ITERATION"] == str(FIXTURE_ITERATION), rows[0]
+
+
+def test_the_azimuth_is_where_the_blade_was_at_that_iteration(tmp_path):
+    """The azimuth is the iteration ON THE ROW'S CLOCK, and it WRAPS.
+
+    A step count is not an angle. This fixture is 3134 steps at 3.6 degrees
+    each, which is 11282.4 degrees -- thirty-one full turns and a bit, and a
+    blade is not 11282 degrees round. The cell states where the blade WAS,
+    which is that modulo a turn.
+
+    The wrap is what this test is for: without it the column would carry a
+    number that grows without bound down a long unsteady run, and every reader
+    would have to know to take a modulus the file never mentions.
+    """
+    from pyflightstream.post.products import read_csv_table, write_sections_table
+
+    target = write_sections_table(
+        tmp_path / "sections" / "Q_sections.csv",
+        _sections_export(),
+        mach=0.2,
+        step_deg=3.6,
+    )
+    assert target is not None
+    _, rows = read_csv_table(target)
+    assert float(rows[0]["AZIMUTH"]) == pytest.approx(122.4), rows[0]
+    assert 0.0 <= float(rows[0]["AZIMUTH"]) < 360.0, rows[0]
+
+
+def test_a_run_with_no_clock_states_no_azimuth_and_never_a_zero(tmp_path):
+    """`NA` and not `0`, because zero is a real azimuth.
+
+    Without this the fix is satisfied by writing 0 wherever the clock is
+    unknown, which is a number a reader would believe.
+    """
+    from pyflightstream.post.products import NOT_APPLICABLE, read_csv_table, write_sections_table
+
+    target = write_sections_table(
+        tmp_path / "sections" / "R_sections.csv", _sections_export(), mach=0.2
+    )
+    assert target is not None
+    _, rows = read_csv_table(target)
+    assert rows[0]["AZIMUTH"] == NOT_APPLICABLE, rows[0]

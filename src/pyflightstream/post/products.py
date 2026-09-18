@@ -115,7 +115,7 @@ from pyflightstream.post._tables import (
     context_row,
     write_csv_table,
 )
-from pyflightstream.post.series import write_point_series
+from pyflightstream.post.series import run_clock, write_point_series
 from pyflightstream.post.superfile import (
     SuperfileDraft,
     matrix_rows,
@@ -336,6 +336,19 @@ class GroupCoefficients:
     drag_profile: float
     drag_induced: float
     families_used: tuple[str, ...]
+
+
+def _stated_iteration(export_text: str) -> int | None:
+    """Return the solver iteration an export states, or None where it states none.
+
+    Both the loads and the surface sections exports carry `Current solver
+    iteration number` in their header. A steady export written before the
+    solver stamped it carries none, and that is `NA` rather than a guess.
+    """
+    try:
+        return int(float(labeled_value(export_text, "Current solver iteration number:")))
+    except (MalformedOutputError, ValueError):
+        return None
 
 
 def _advance_ratio_of(point: PolarPoint) -> float | None:
@@ -1177,6 +1190,7 @@ def write_sections_table(
     mach: float,
     iteration: int | None = None,
     azimuth_deg: float | None = None,
+    step_deg: float | None = None,
     reference: ReferenceValues | None = None,
     advance_ratio: float | None = None,
 ) -> Path | None:
@@ -1188,6 +1202,20 @@ def write_sections_table(
     the `POINT` column, which carried the polar's NAME and therefore restated
     the file name (v0.23.0 item 13). A run with no rotor states no azimuth and
     the cell reads `NA`, which is not zero: zero is a real azimuth.
+
+    BOTH ARE READ FROM THE EXPORT WHERE IT STATES THEM, which this docstring
+    promised before anything did it: the surface sections export carries
+    `Current solver iteration number` in its header, exactly as the loads
+    export does, and nothing read it -- so every row of every sections file
+    said `NA,NA` while the answer sat in the text the writer was handed. A
+    caller that knows better may still pass ``iteration`` and it wins.
+
+    ``step_deg`` is the row's clock: how far the blade turns in one solver
+    step, from :func:`pyflightstream.post.series.run_clock`. Given it, the
+    azimuth is the iteration ON that clock, WRAPPED -- a step count is not an
+    angle, and 1575 steps of 3.6 degrees is 5670 degrees, which is not
+    somewhere a blade can be. Without it the azimuth stays `NA`, because the
+    alternative is writing a zero that a reader would believe.
 
     Returns None without writing when the export declares no section, as
     a run that defined no distribution leaves; the columns are the point,
@@ -1215,6 +1243,14 @@ def write_sections_table(
         raise ProductError(f"the sectional loads export cannot be read: {error}") from error
     if report.count == 0:
         return None
+    # ITEM 13. The export states which iteration it is, and the caller's own
+    # value wins where it has one -- a caller holding a stamped file name knows
+    # the step better than a header does.
+    if iteration is None:
+        iteration = _stated_iteration(export_text)
+    if azimuth_deg is None and iteration is not None and step_deg is not None:
+        # WRAPPED. A step count is not an angle.
+        azimuth_deg = (iteration * step_deg) % 360.0
     table = np.asarray(report.values, dtype=float)
     if table.shape[1] < 7:
         raise ProductError(
@@ -2247,6 +2283,10 @@ def _sim_products(
     # polar branch is a NameError on `polars = false`, which is the shape the
     # advance-ratio list beside it already had.
     cell = first.flight_condition if isinstance(first.flight_condition, Mapping) else None
+    # ITEM 13's other half. The clock is a property of the ROW's export
+    # settings, so every point of one row shares it; the iteration is per point
+    # and comes out of each export's own header.
+    _, step_deg = run_clock(first)
     run_ids = [rid for stem in sources for rid in sources[stem]]
     written_names: dict[str, dict[str, object]] = {}
     #: One entry per group: where its superfile goes and the polar rows it
@@ -2379,6 +2419,12 @@ def _sim_products(
                 # line.
                 reference=reference,
                 advance_ratio=_advance_ratio_of(point),
+                # ITEM 13. The iteration comes out of the export itself; the
+                # CLOCK does not, and only a record states it. `run_clock` is
+                # the one that writes the point series, published for this
+                # rather than copied: two functions deriving one clock is how
+                # two products of a point disagree about when it was sampled.
+                step_deg=step_deg,
             )
             if done is not None:
                 written.append(done)
