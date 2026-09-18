@@ -3360,6 +3360,15 @@ def _the_passages_of_one_rotor(
     # writing a case for the empty branch that could not be built.
     blades = _blade_count(view) or 0
     entry: dict[str, object] = {"blades": blades, "rpm": speed.rpm}
+    # WHERE BLADE ONE SITS, carried into the record because the PRODUCTS stage
+    # needs it and cannot reach the reference artifact to ask. Item 8 writes each
+    # blade's azimuth at both ends of the shared window, and every blade's angle
+    # is measured from this datum: without it the products stage would assume
+    # zero, which is a real azimuth and would be silently wrong for any rotor
+    # whose datum is not zero.
+    block = (case.rotors or {}).get(alias)
+    if block is not None:
+        entry["blade1_azimuth_deg"] = float(block.blade1.azimuth_deg)
     if delta_time_s is None or not speed.rpm:
         reason = (
             f"case {case.sim_id!r} turns {alias!r} at {speed.rpm} rev/min with a solver "
@@ -3659,6 +3668,14 @@ def reduction_windows(case: SimCase) -> dict[str, object] | None:
         plan["per_blade"] = {"skipped": reason}
         return plan
     plan["blades"] = blades
+    # THE SAME DATUM ON THE ROW-LEVEL PATH. A row that names one rotor block
+    # still has one, and item 8's azimuth columns are measured from it. A row
+    # that declares no rotor block leaves the key absent rather than writing a
+    # zero, because zero IS a real azimuth and the products stage must be able
+    # to tell "the datum is zero" from "nobody said".
+    _flat_rotor = next(iter((case.rotors or {}).values()), None)
+    if _flat_rotor is not None:
+        plan["blade1_azimuth_deg"] = float(_flat_rotor.blade1.azimuth_deg)
     if revolution is None or per_revolution is None or blades < 1:
         reason = (
             f"case {case.sim_id!r} declares {blades} blades and "

@@ -47,14 +47,14 @@
 > 85 modules; two measurements of two trees fell on one date, so each is named
 > by its tree rather than by the date alone.):
 >
->     Found 639 errors in 18 files (checked 88 source files)
->     Success: no issues found in 88 source files
+>     Found 639 errors in 18 files (checked 89 source files)
+>     Success: no issues found in 89 source files
 >
 > Every figure below is that re-measurement.
 
 The result, in the sentence every record of it carries:
 
-**mypy recount 2026-09-17: 639 errors in 18 of 88 modules.**
+**mypy recount 2026-09-18: 639 errors in 18 of 89 modules.**
 
 THE EIGHTY-SEVENTH AND EIGHTY-EIGHTH ARRIVED AT 0.23.0 and both arrive
 CLEAN: `post/guides.py`, the generated pproc guides of item 11, and
@@ -308,11 +308,11 @@ configuration to be in a state the repository does not ship:
 
 The final line of that run is the measurement:
 
-    Found 639 errors in 18 files (checked 88 source files)
+    Found 639 errors in 18 files (checked 89 source files)
 
 The same run with the shipped configuration, overrides and all, is green:
 
-    Success: no issues found in 88 source files
+    Success: no issues found in 89 source files
 
 mypy walks the FILESYSTEM rather than the git index, so the state of the
 working tree is part of the measurement, and this report has already been
