@@ -20,6 +20,7 @@ import-by-number system (PP-7, FR-12).
 
 from __future__ import annotations
 
+import math
 import re
 import tomllib
 from collections.abc import Callable, Iterator, Mapping, Sequence
@@ -1123,6 +1124,27 @@ class FrameSpec(BaseModel):
 #: among the frame names, where an earlier edit put it between a doc
 #: comment and the constants that comment describes (the technical
 #: writing lens and the architecture lens, independently, 2026-09-10).
+#: Below this, a vector has no length worth normalising and names no
+#: direction. It is a LENGTH tolerance rather than a component one, so a
+#: direction stated in millimetres is not refused for being small.
+#: How closely a blade datum may lie along the shaft before its azimuth means
+#: nothing. cos(85 degrees): a datum within five degrees of the shaft is
+#: refused. The number is a JUDGEMENT rather than a measurement and is written
+#: as one; what is not a judgement is that some bound must exist, because an
+#: axis that can point anywhere makes "nearly parallel" the ordinary case.
+_DATUM_ALIGNMENT_LIMIT = 0.0871557427476582
+
+_AXIS_TOLERANCE = 1e-12
+
+#: The unit vector each axis letter has always meant. The letter path resolves
+#: through this rather than through a branch, so "Z is (0,0,1)" is a lookup a
+#: reader can check instead of a claim.
+_AXIS_LETTERS: dict[str, tuple[float, float, float]] = {
+    "X": (1.0, 0.0, 0.0),
+    "Y": (0.0, 1.0, 0.0),
+    "Z": (0.0, 0.0, 1.0),
+}
+
 _AXIS_TOKEN = re.compile(r"^[+-]?[XYZ]$")
 
 
@@ -1222,7 +1244,7 @@ class RotorBlock(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     alias: str
-    axis: str
+    axis: str | tuple[float, float, float] | list[float]
     diameter_m: float = Field(gt=0.0)
     families_blades: list[str]
     x_m: float = 0.0
@@ -1251,12 +1273,56 @@ class RotorBlock(BaseModel):
     @field_validator("axis", mode="before")
     @classmethod
     def _an_axis(cls, value: object) -> object:
-        if not isinstance(value, str):
-            return value
-        token = value.strip().upper()
-        if token not in ("X", "Y", "Z"):
-            raise ValueError(f"axis = {value!r} is not an axis; write X, Y or Z")
-        return token
+        """Accept a LETTER or a three-component VECTOR (v0.23.0 item 19).
+
+        The letter keeps its exact meaning: `Z` IS the vector (0, 0, 1), so the
+        old spelling is a special case of the new one and every reference
+        written before this release asks the solver for exactly what it always
+        did. The vector exists because a mesh can arrive with its pitch and toe
+        already in it, and a shaft installed at an angle lies on no geometry
+        axis at all.
+        """
+        if isinstance(value, str):
+            token = value.strip().upper()
+            if token not in ("X", "Y", "Z"):
+                raise ValueError(
+                    f"axis = {value!r} is neither an axis letter nor a vector; write X, Y "
+                    "or Z, or the three components of the shaft direction"
+                )
+            return token
+        if isinstance(value, (list, tuple)):
+            if len(value) != 3:
+                raise ValueError(
+                    f"axis = {value!r} has {len(value)} components; a direction in space has three"
+                )
+            try:
+                components = tuple(float(component) for component in value)
+            except (TypeError, ValueError) as error:
+                raise ValueError(f"axis = {value!r} is not three numbers: {error}") from error
+            length = math.sqrt(sum(component * component for component in components))
+            if length <= _AXIS_TOLERANCE:
+                raise ValueError(
+                    f"axis = {value!r} has no length, so it names no direction, and a rotor "
+                    "turns about a direction"
+                )
+            return components
+        return value
+
+    @property
+    def axis_vector(self) -> tuple[float, float, float]:
+        """The shaft direction as a UNIT vector, whichever way it was written.
+
+        Every frame the package builds for this rotor is built on this, rather
+        than on the geometry's own axes. Until 0.23.0 seven call sites created
+        a rotor's frames with `x_axis=(1,0,0)` and `y_axis=(0,1,0)`, which is
+        to assume the rotor is installed at zero pitch and zero toe.
+        """
+        stated = self.axis
+        if isinstance(stated, str):
+            return _AXIS_LETTERS[stated]
+        components = tuple(float(component) for component in stated)
+        length = math.sqrt(sum(component * component for component in components))
+        return (components[0] / length, components[1] / length, components[2] / length)
 
     @field_validator("rpm_sign")
     @classmethod
@@ -1275,13 +1341,63 @@ class RotorBlock(BaseModel):
                 "families_blades is empty, and the blade count is its length, so this "
                 "rotor has no blades; name one mesh family per blade, in order"
             )
-        if self.blade1.zero.lstrip("+-") == self.axis:
+        # BY ANGLE AND NOT BY SPELLING since 0.23.0 item 19. This compared two
+        # STRINGS, so it caught `axis = Z, zero = Z` and was blind to a shaft
+        # at (0, 0.02, 0.9998) with a datum at Z, which is one degree from
+        # parallel: an azimuth measured from it locates nothing and it reported
+        # a number rather than refusing. A string comparison cannot see
+        # "nearly", and once the axis can be any direction, nearly is the
+        # ordinary case rather than the exotic one.
+        shaft = self.axis_vector
+        datum = _AXIS_LETTERS[self.blade1.zero.lstrip("+-")]
+        alignment = abs(sum(a * b for a, b in zip(shaft, datum, strict=True)))
+        if alignment > _DATUM_ALIGNMENT_LIMIT:
+            degrees = math.degrees(math.acos(min(1.0, alignment)))
             raise ValueError(
-                f"blade1 measures its azimuth from {self.blade1.zero}, which is parallel to "
-                f"axis = {self.axis}, the axis the rotor turns about; an angle measured from "
-                "that axis locates nothing. Choose one of the other two axes"
+                f"blade1 measures its azimuth from {self.blade1.zero}, which is "
+                f"{degrees:.2f} degrees from the shaft direction {shaft}. An azimuth "
+                "measured from a datum that nearly lies along the shaft locates nothing, "
+                "so it is refused rather than reported. Choose a datum square to the disk"
             )
         return self
+
+
+def frame_basis_for_shaft(
+    shaft: tuple[float, float, float],
+    datum: tuple[float, float, float],
+) -> tuple[tuple[float, float, float], tuple[float, float, float]]:
+    """Return the ``x_axis`` and ``y_axis`` of a frame whose THIRD axis is ``shaft``.
+
+    v0.23.0 item 19. `coordinate_frame` completes a basis with the right-handed
+    cross product, so handing it two axes square to the shaft puts the shaft on
+    the frame's third axis by construction rather than by arithmetic anyone has
+    to check.
+
+    ``x_axis`` is the blade datum PROJECTED INTO THE DISK PLANE. That is what
+    makes an azimuth well defined on a tilted rotor: the datum a user names is
+    a direction in the geometry, and the angle is measured in the plane the
+    blades actually sweep, not in the plane the geometry's axes happen to
+    define. On an untilted rotor the projection changes nothing, which is why
+    a reference written before this release produces the same frame.
+
+    The caller is responsible for the datum not lying along the shaft;
+    `RotorBlock` refuses that by ANGLE before anything reaches here.
+    """
+    along = sum(a * b for a, b in zip(shaft, datum, strict=True))
+    projected = tuple(d - along * s for s, d in zip(shaft, datum, strict=True))
+    length = math.sqrt(sum(component * component for component in projected))
+    if length <= _AXIS_TOLERANCE:
+        raise CampaignConfigError(
+            f"the blade datum {datum} lies along the shaft {shaft}, so it projects to "
+            "nothing in the disk plane and no azimuth can be measured from it"
+        )
+    x_axis = tuple(component / length for component in projected)
+    y_axis = (
+        shaft[1] * x_axis[2] - shaft[2] * x_axis[1],
+        shaft[2] * x_axis[0] - shaft[0] * x_axis[2],
+        shaft[0] * x_axis[1] - shaft[1] * x_axis[0],
+    )
+    return x_axis, y_axis
 
 
 class AliasCycleError(PyflightstreamError, ValueError):

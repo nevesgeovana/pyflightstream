@@ -84,6 +84,7 @@ from pyflightstream._fsm import (
 )
 from pyflightstream._retired_names import retired_frame
 from pyflightstream.cases import (
+    _AXIS_LETTERS,
     EXPANDING_FRAMES,
     EXPORT_KINDS,
     FORCE_PLOT_PARAMETERS,
@@ -95,6 +96,7 @@ from pyflightstream.cases import (
     SimCase,
     alias_members_missing,
     classify_outputs,
+    frame_basis_for_shaft,
     resolve_alias,
     select_families,
     select_group_members,
@@ -4265,6 +4267,29 @@ def _flat_rotor_frames(case: SimCase, index: int | None) -> dict[str, int | None
     return {_the_flat_frame_name(case): index}
 
 
+def _hub_basis(block: object | None) -> tuple[tuple[float, ...], tuple[float, ...]]:
+    """Return the hub frame's first two axes, square to the rotor's shaft.
+
+    A row that turns no declared rotor keeps the geometry's own axes, which is
+    what every frame used before 0.23.0 and is still right when there is no
+    shaft to align to.
+    """
+    if block is None or isinstance(block.axis, str):
+        # THE LETTER PATH IS UNTOUCHED, and this branch is the whole of the
+        # promise that a reference written before 0.23.0 emits the same script.
+        #
+        # IT WAS NOT ENOUGH TO DERIVE THE BASIS AND CHECK IT MATCHED. The first
+        # writing sent every rotor through `frame_basis_for_shaft`, reasoning
+        # that an untilted shaft returns exactly (1,0,0) and (0,1,0). That is
+        # true only when the blade datum is X: a rotor with `axis = Z` and
+        # `zero = Y` yields x=(0,1,0), y=(-1,0,0), which is the same disk
+        # turned a quarter. 27 tier-1 cases failed on it, which is the suite
+        # catching a claim this session had already written down as proved.
+        return (1.0, 0.0, 0.0), (0.0, 1.0, 0.0)
+    datum = _AXIS_LETTERS[block.blade1.zero.lstrip("+-")]
+    return frame_basis_for_shaft(block.axis_vector, datum)
+
+
 def _rotor_frame(case: SimCase, script: Script) -> int | None:
     """Create the hub frame of the rotor a flat row turns, named for its alias.
 
@@ -4287,12 +4312,19 @@ def _rotor_frame(case: SimCase, script: Script) -> int | None:
         origin = case.reference.rotor_position_m
     else:
         return None
+    # ON THE SHAFT, not on the geometry's axes (v0.23.0 item 19). This built
+    # the hub frame with the identity orientation, which assumes the rotor is
+    # installed at zero pitch and zero toe; a mesh that already carries its
+    # pitch and toe got a frame that does not match the hardware. For a rotor
+    # whose axis is a LETTER the basis below is exactly (1,0,0) and (0,1,0),
+    # so every reference written before this release emits the same script.
+    x_axis, y_axis = _hub_basis(block)
     return helpers.coordinate_frame(
         script,
         name=_the_flat_frame_name(case),
         origin=origin,
-        x_axis=(1.0, 0.0, 0.0),
-        y_axis=(0.0, 1.0, 0.0),
+        x_axis=x_axis,
+        y_axis=y_axis,
         label="rotor",
     )
 
