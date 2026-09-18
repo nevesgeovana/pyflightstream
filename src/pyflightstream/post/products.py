@@ -675,6 +675,111 @@ def rotor_coefficient_columns(alias: str) -> tuple[str, ...]:
     return tuple(f"{name}_{token}" for name in ROTOR_COEFFICIENT_COLUMNS)
 
 
+@dataclass(frozen=True)
+class RotorShaftLoads:
+    """One rotor's thrust and torque about its OWN shaft, in newtons and N m.
+
+    ``shaft_angle_deg`` is the angle between the shaft and the free stream,
+    which `rotor_coefficients` needs for `ETAW` and which nothing produced: a
+    rotor table wired without it would report the ALIGNED-rotor efficiency by
+    omission, on every installed rotor.
+    """
+
+    thrust_n: float
+    torque_nm: float
+    shaft_angle_deg: float
+    families_used: tuple[str, ...]
+
+
+def rotor_shaft_loads(
+    surfaces: Mapping[str, Mapping[str, float]],
+    *,
+    rotor: object,
+    reference: ReferenceValues,
+    density_kg_m3: float,
+    speed_m_s: float,
+) -> RotorShaftLoads:
+    """Return one rotor's THRUST and TORQUE from the loads the run already left.
+
+    Item 6's missing half. `rotor_coefficients` has taken `thrust_n` and
+    `torque_nm` since this release opened and nothing computed them, so the
+    coefficients were a formula with an empty socket.
+
+    NO RE-RUN IS NEEDED, which is what puts this inside the owner's acceptance
+    rule. Everything here is read from what a finished campaign already holds:
+    the loads export's per-surface `Cx, Cy, Cz, CMx, CMy, CMz`, the reference
+    area, length and MOMENT POINT, and the rotor's hub, diameter and shaft.
+
+    THE MOMENT TRANSFER IS THE ONE STEP THAT IS NOT ARITHMETIC. The export's
+    moments are about the moment reference point; a rotor's torque is about its
+    own shaft through its HUB, and the two differ by the moment of the force
+    about the offset between them::
+
+        M_hub = M_mrp + (r_mrp - r_hub) x F
+
+    That is elementary statics rather than a convention, so it is implemented
+    rather than asked: choosing the other reading reports a torque no rotor
+    produces. What stays the owner's is the DEFINITION of `ETAW`, flagged where
+    it is computed, and physical validation, which needs a licensed run.
+
+    ONLY THE ROTOR'S OWN FAMILIES ARE SUMMED. The airframe sits in the same
+    table, and a rotor's thrust is its own -- which is the same reason item 6
+    suffixes every column with the alias.
+    """
+    shaft = _unit(getattr(rotor, "axis_vector", (0.0, 0.0, 1.0)))
+    families = [str(name) for name in getattr(rotor, "members", [])]
+    owned = {name.casefold() for name in families}
+
+    force = [0.0, 0.0, 0.0]
+    moment = [0.0, 0.0, 0.0]
+    used: list[str] = []
+    for name, row in surfaces.items():
+        if str(name).casefold() not in owned:
+            continue
+        used.append(str(name))
+        for index, key in enumerate(("Cx", "Cy", "Cz")):
+            force[index] += float(row.get(key, 0.0) or 0.0)
+        for index, key in enumerate(("CMx", "CMy", "CMz")):
+            moment[index] += float(row.get(key, 0.0) or 0.0)
+
+    # The dynamic pressure the export's own coefficients were taken against.
+    pressure = 0.5 * float(density_kg_m3) * float(speed_m_s) ** 2
+    area = float(reference.sref_m2)
+    length = float(reference.cref_m)
+    newtons = [component * pressure * area for component in force]
+    about_mrp = [component * pressure * area * length for component in moment]
+
+    offset = (
+        float(reference.xmom_m) - float(getattr(rotor, "x_m", 0.0)),
+        float(reference.ymom_m) - float(getattr(rotor, "y_m", 0.0)),
+        float(reference.zmom_m) - float(getattr(rotor, "z_m", 0.0)),
+    )
+    about_hub = [
+        about_mrp[index]
+        + offset[(index + 1) % 3] * newtons[(index + 2) % 3]
+        - offset[(index + 2) % 3] * newtons[(index + 1) % 3]
+        for index in range(3)
+    ]
+
+    return RotorShaftLoads(
+        thrust_n=sum(a * b for a, b in zip(newtons, shaft, strict=True)),
+        torque_nm=sum(a * b for a, b in zip(about_hub, shaft, strict=True)),
+        # THE FREE STREAM IS ALONG +X, which is this package's convention
+        # everywhere else: a shaft on X is aligned with it and a shaft on Z is
+        # square to it.
+        shaft_angle_deg=math.degrees(math.acos(max(-1.0, min(1.0, shaft[0])))),
+        families_used=tuple(used),
+    )
+
+
+def _unit(vector: Sequence[float]) -> tuple[float, float, float]:
+    """Return ``vector`` normalised, or +Z where it names no direction."""
+    length = math.sqrt(sum(float(component) ** 2 for component in vector))
+    if length <= 0.0:
+        return (0.0, 0.0, 1.0)
+    return tuple(float(component) / length for component in vector)  # type: ignore[return-value]
+
+
 def rotor_coefficients(
     *,
     thrust_n: float,
