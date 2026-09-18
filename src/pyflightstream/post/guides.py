@@ -16,6 +16,10 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from pathlib import Path
+from types import UnionType
+from typing import Union, get_args, get_origin
+
+from pydantic import BaseModel
 
 from pyflightstream.cases import EquationSpec, PhaseLockedSpec, PprocSpec
 from pyflightstream.post._tables import CONTEXT_COLUMNS
@@ -23,6 +27,46 @@ from pyflightstream.post.products import ROTOR_COEFFICIENT_COLUMNS
 
 #: The two guides item 11 writes into the pproc input folder.
 PPROC_GUIDE_NAMES: tuple[str, ...] = ("VARIABLES.md", "WRITING-EQUATIONS.md")
+
+
+def _pproc_table_spellings() -> list[str]:
+    """How each `PprocSpec` field is spelled in a pproc file, derived not assumed.
+
+    A page that advertises itself as generated from the code is TRUSTED, so a
+    wrong spelling in it is worse than the same sentence written by hand. This
+    listed every field as `[name]` until the 0.23.0 release round, which offered
+    a reader `[blade_pattern]` for a `str`, `[base_regions]` for a `list[str]`,
+    and `[probes]` for a field whose single-table form has been REFUSED by name
+    since 0.16.0. The model declares `extra="forbid"`, so each of those is a
+    refusal the guide walked the reader into.
+
+    The mapping is the TOML one: a model-typed field is a table, a list of
+    model-typed entries is an array of tables, a mapping is a table with your
+    own keys under it, and anything else is a key rather than a table.
+    """
+    spellings: list[str] = []
+    for name in sorted(PprocSpec.model_fields):
+        annotation = PprocSpec.model_fields[name].annotation
+        origin = get_origin(annotation)
+
+        def is_model(candidate: object) -> bool:
+            return isinstance(candidate, type) and issubclass(candidate, BaseModel)
+
+        # `X | None` carries the model in its arguments, and its origin is the
+        # union rather than nothing -- which is what made `phase_locked`, the
+        # one optional table, come out as a key on the first pass.
+        optional = [arg for arg in get_args(annotation) if arg is not type(None)]
+        inner = optional[0] if origin in (Union, UnionType) and len(optional) == 1 else None
+
+        if is_model(annotation) or is_model(inner):
+            spellings.append(f"`[{name}]`")
+        elif origin in (list, tuple) and any(is_model(arg) for arg in get_args(annotation)):
+            spellings.append(f"`[[{name}]]`, one table per entry")
+        elif origin is dict:
+            spellings.append(f"`[{name}]`, with your own keys under it")
+        else:
+            spellings.append(f"`{name}`, a key rather than a table")
+    return spellings
 
 
 def write_pproc_guides(
@@ -84,10 +128,10 @@ def write_pproc_guides(
     lines += [f"- `{name}_<alias>`" for name in ROTOR_COEFFICIENT_COLUMNS]
     lines += [
         "",
-        "## The tables a pproc may declare",
+        "## What a pproc may declare, and how each one is spelled",
         "",
     ]
-    lines += [f"- `[{name}]`" for name in sorted(PprocSpec.model_fields)]
+    lines += [f"- {spelling}" for spelling in _pproc_table_spellings()]
     if glossary:
         lines += ["", "## Your own definitions, from `[glossary]`", ""]
         lines += [f"- `{name}`: {text}" for name, text in sorted(glossary.items())]
@@ -140,9 +184,11 @@ def write_pproc_guides(
         "A symbol this table does not define is a variable the products already",
         "carry -- `CT` above is one -- so you never have to declare a base.",
         "",
-        "A chain that loops is REFUSED and the refusal names the equations in the",
-        "loop, because a cycle has no order to evaluate it in. Ask for the order",
-        "yourself with `PprocSpec.equation_order()`.",
+        "A chain that loops is REFUSED WHEN THIS FILE IS READ, and the refusal",
+        "names the equations in the loop, because a cycle has no order to",
+        "evaluate it in. You do not have to go and ask: the check runs where the",
+        "mistake is, when you load the pproc. If you want the order itself,",
+        "`PprocSpec.equation_order()` returns it.",
         "",
         "## Renaming",
         "",

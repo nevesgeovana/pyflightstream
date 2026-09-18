@@ -39,11 +39,52 @@ def test_the_variable_page_lists_every_table_the_spec_declares(tmp_path):
     This is the test that makes "generated" mean something. If the page were
     written by hand it would pass today and go quietly wrong the next time a
     table is added.
+
+    IT ASKS ONLY ABOUT THE FIELDS THAT ARE TABLES. It demanded `[name]` for
+    every field until the release round, which pinned the defect rather than
+    the property: two of the ten fields are scalars and one is an array of
+    tables, so the page it required was one that offered `[blade_pattern]` to a
+    reader. The next test is the one that would have caught it.
     """
     variables, _ = write_pproc_guides(tmp_path)
     text = variables.read_text(encoding="utf-8")
-    for name in PprocSpec.model_fields:
+    for name in ("groups", "phase_locked", "equations", "glossary", "sections"):
         assert f"`[{name}]`" in text, name
+
+
+def test_every_spelling_the_variable_page_offers_is_one_the_spec_accepts(tmp_path):
+    """THE PROPERTY A GENERATED PAGE EXISTS FOR, and it was not held.
+
+    A hand-written page can be wrong and looks it. A page that advertises
+    itself as generated from the code is TRUSTED, so a wrong spelling in it is
+    worse than the same sentence written by hand: the reader has been told not
+    to doubt it. `PprocSpec` declares `extra="forbid"`, so every name the page
+    offers as a table is a name the reader will be refused for using if it is
+    not one.
+
+    Measured: the page offered `[blade_pattern]` (a `str`), `[base_regions]` (a
+    `list[str]`) and `[probes]` -- and the single-table `[probes]` form has been
+    REFUSED since 0.16.0 in favour of `[[probes]]`, so the generated guide
+    taught the one spelling the model rejects by name.
+    """
+    variables, _ = write_pproc_guides(tmp_path)
+    text = variables.read_text(encoding="utf-8")
+
+    scalars = [
+        name
+        for name, field in PprocSpec.model_fields.items()
+        if field.annotation in (str, list[str])
+    ]
+    assert scalars, "the fixture assumes the spec has at least one scalar field"
+    for name in scalars:
+        assert f"`[{name}]`" not in text, (
+            f"{name} is a key and not a table, and the page offers it as one"
+        )
+
+    # `probes` is a LIST of tables, so the array-of-tables spelling is the only
+    # one that loads; the single-table form is refused by name.
+    assert "`[[probes]]`" in text, text
+    assert "`[probes]`" not in text, text
 
 
 def test_the_variable_page_lists_every_rotor_coefficient(tmp_path):

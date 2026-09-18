@@ -1625,6 +1625,27 @@ class PprocSpec(BaseModel):
             placed.update(ready)
         return order
 
+    @model_validator(mode="after")
+    def _the_equations_can_be_ordered(self) -> PprocSpec:
+        """Refuse a circular chain when the pproc is READ, not when it is asked.
+
+        `equation_order()` is public because a caller may want the order, but a
+        refusal that only fires when someone remembers to ask is not a check.
+        The information is available the moment the artifact is validated, and
+        an engineer writing a TOML file should not have to open an interpreter
+        to learn that the file is not well formed.
+
+        The refusal is re-raised as a `ValueError` so it arrives as pydantic's
+        own validation error, carrying the field and the artifact path that the
+        loader adds, rather than escaping the model layer as something a caller
+        of `PprocSpec(...)` would not think to catch.
+        """
+        try:
+            self.equation_order()
+        except InputArtifactError as circular:
+            raise ValueError(str(circular)) from circular
+        return self
+
     @field_validator("exports")
     @classmethod
     def _known_export_kinds(cls, value: dict[str, bool]) -> dict[str, bool]:

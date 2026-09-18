@@ -33,8 +33,9 @@ the generated guide, which is `expression = "CT * 2"`.
 from __future__ import annotations
 
 import pytest
+from pydantic import ValidationError
 
-from pyflightstream.cases import PprocSpec
+from pyflightstream.cases import EquationSpec, PprocSpec
 from pyflightstream.exceptions import PyflightstreamError
 
 
@@ -101,8 +102,13 @@ def test_a_cycle_is_refused_and_names_the_equations_in_it():
 
     The message has to name the members: "circular" alone sends the user back to
     a TOML table to find the loop by eye.
+
+    The refusal arrives from the CONSTRUCTOR, because `_spec` builds a
+    `PprocSpec` and the model validates the ordering. It was raised by
+    `equation_order()` until the release round moved the check to load time; the
+    message is the same sentence either way, and this asserts the sentence.
     """
-    with pytest.raises(PyflightstreamError) as caught:
+    with pytest.raises((PyflightstreamError, ValidationError)) as caught:
         _spec(A="B + 1", B="A + 1").equation_order()
     message = str(caught.value)
     assert "A" in message and "B" in message, message
@@ -111,9 +117,26 @@ def test_a_cycle_is_refused_and_names_the_equations_in_it():
 
 def test_an_equation_that_names_itself_is_a_cycle_of_one():
     """The degenerate case, which a two-node cycle check misses."""
-    with pytest.raises(PyflightstreamError) as caught:
+    with pytest.raises((PyflightstreamError, ValidationError)) as caught:
         _spec(A="A + 1").equation_order()
     assert "A" in str(caught.value), str(caught.value)
+
+
+def test_the_method_still_refuses_a_cycle_reached_around_the_constructor():
+    """The validator calls the METHOD, so the method must keep its own refusal.
+
+    A reader could reasonably conclude that load-time validation makes the
+    method's cycle branch dead, and delete it. It is not dead: pydantic models
+    are mutable by default, so a caller who assigns `equations` after
+    construction bypasses the model validator entirely and reaches the method
+    with a cycle in hand. This is what stops the branch being tidied away.
+    """
+    spec = _spec(CTX="CT * 2")
+    spec.equations["A"] = EquationSpec(expression="B + 1", meshes_alias="PUSHER")
+    spec.equations["B"] = EquationSpec(expression="A + 1", meshes_alias="PUSHER")
+    with pytest.raises(PyflightstreamError) as caught:
+        spec.equation_order()
+    assert "circular" in str(caught.value).lower(), str(caught.value)
 
 
 def test_a_name_that_is_a_substring_of_a_used_name_is_not_a_dependency():
@@ -138,3 +161,44 @@ def test_a_name_that_is_a_substring_of_a_used_name_is_not_a_dependency():
 def test_a_pproc_with_no_equations_has_an_empty_order():
     """Not an error and not None: the empty list, so a caller can iterate it."""
     assert PprocSpec().equation_order() == []
+
+
+def test_a_cycle_is_refused_when_the_pproc_is_loaded_and_not_when_asked():
+    """THE TIMING, which is the difference between a check and a courtesy.
+
+    `equation_order()` had the best refusal in the release and fired nowhere: it
+    is a method, so a pproc carrying a circular chain LOADED WITHOUT COMPLAINT
+    and the package's own generated guide told the reader to "ask for the order
+    yourself". That asks an engineer to open a Python interpreter to find out
+    whether the file she just wrote is well formed, and the information was
+    available the moment the artifact was read.
+
+    So the model validates it. This test constructs the spec and expects the
+    refusal from the CONSTRUCTOR, with no method call anywhere in it -- which is
+    what makes it fail against an implementation that only offers the method.
+    """
+    with pytest.raises(ValidationError) as caught:
+        PprocSpec(
+            equations={
+                "A": {"expression": "B + 1", "meshes_alias": "PUSHER"},
+                "B": {"expression": "A + 1", "meshes_alias": "PUSHER"},
+            }
+        )
+    message = str(caught.value)
+    assert "circular" in message.lower(), message
+    assert "A" in message and "B" in message, message
+
+
+def test_a_pproc_whose_chain_ends_at_a_base_variable_still_loads():
+    """The other half, so the new refusal is not satisfied by refusing everything.
+
+    A validator that raised unconditionally would pass the test above. This is
+    the ordinary pproc the generated guide teaches, and it must load.
+    """
+    spec = PprocSpec(
+        equations={
+            "CTX": {"expression": "CT * 2", "meshes_alias": "PUSHER"},
+            "CTX_WIND": {"expression": "CTX * 3", "meshes_alias": "PUSHER"},
+        }
+    )
+    assert spec.equation_order() == ["CTX", "CTX_WIND"]
