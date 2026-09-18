@@ -86,3 +86,70 @@ def test_every_declared_rotor_gets_one_and_a_second_rotor_is_not_forgotten():
     resolved = rotor_integration_groups(rotors, {"PUSHER": ["Blade1", "Blade2"]})
     assert set(resolved) == {"PUSHER", "LIFT_L1"}, resolved
     assert set(resolved["LIFT_L1"]) == {"LH_L1_B1", "LH_L1_B2"}, resolved
+
+
+def _bound_pproc(tmp_path, *, declared: str):
+    """Bind a one-row rotor matrix and return the pproc the CASE carries.
+
+    Through `resolve_matrix`, which is the binding the campaign actually runs,
+    rather than through `rotor_integration_groups` directly: the four tests
+    above call the function and it had NO caller in the package, so every one of
+    them passed over a release that did not create a single group.
+    """
+    from pyflightstream.workspace.matrix import resolve_matrix
+    from tests.tier1_offline.test_goal024_point_name import RECIPES
+    from tests.tier1_offline.test_goal024_rpm import ROTOR_CELL, _rotor_matrix
+
+    workspace, matrix = _rotor_matrix(
+        tmp_path,
+        condition="MACH:0.144, REmi:4.38, ALPHA:sweep, RPM:800",
+        values="0.0",
+        cell=ROTOR_CELL,
+    )
+    (workspace.inputs_dir / "pproc" / "p001.toml").write_text(declared, encoding="utf-8")
+    resolved = resolve_matrix(
+        matrix, workspace, name="rotorgroups", fs_version="26.120", recipes=RECIPES
+    )
+    (case,) = resolved.campaign.sims
+    return case.pproc
+
+
+def test_the_binding_creates_the_group_for_a_rotor_that_has_none(tmp_path):
+    """ITEM 15 THROUGH THE BINDING, which is the only place it is delivered.
+
+    `rotor_integration_groups` had zero callers in the package. The rotor table
+    integrates thrust and torque over ONE rotor's own families, and left to a
+    user remembering to declare the group, the coefficient and the group are two
+    lists kept in step by hand -- the day they drift, one rotor's thrust is
+    reported under another rotor's coefficient. Created from the rotor itself,
+    they agree by construction. That was the design; nothing performed it.
+    """
+    pproc = _bound_pproc(tmp_path, declared='[groups]\nWING = ["Wing"]\n')
+
+    assert "PORT" in pproc.groups, sorted(pproc.groups)
+    members = {str(name).casefold() for name in pproc.groups["PORT"]}
+    assert members == {"hub", "blade_1", "blade_2"}, pproc.groups["PORT"]
+    # AND THE GROUP SHE DECLARED IS STILL THERE. Creation fills a gap.
+    assert "WING" in pproc.groups, sorted(pproc.groups)
+
+
+def test_a_group_she_declared_for_the_rotor_is_not_replaced_by_the_binding(tmp_path):
+    """Creation fills a gap; it never overrules what she wrote."""
+    declared = '[groups]\nPORT = ["Hub", "Blade_1", "Blade_2"]\n'
+    pproc = _bound_pproc(tmp_path, declared=declared)
+    assert [str(name) for name in pproc.groups["PORT"]] == ["Hub", "Blade_1", "Blade_2"]
+
+
+def test_the_binding_refuses_a_rotor_alias_whose_families_are_not_the_rotors(tmp_path):
+    """The refusal, at PLAN time, naming both sets.
+
+    Two lists disagreeing about what one alias means is how a rotor's loads end
+    up under another rotor's coefficient -- a number that looks right and is
+    wrong. Refused rather than resolved by preferring either side.
+    """
+    with pytest.raises(Exception) as caught:
+        _bound_pproc(tmp_path, declared='[groups]\nPORT = ["Wing"]\n')
+    message = str(caught.value)
+    assert "PORT" in message, message
+    assert "Wing" in message, message
+    assert "Blade_1" in message or "Hub" in message, message

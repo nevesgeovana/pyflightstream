@@ -57,7 +57,7 @@ from typing import Any
 
 from pydantic import ValidationError
 
-from pyflightstream._errors import PyflightstreamWarning
+from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning
 from pyflightstream._fsm import MeshReadError, boundary_names
 from pyflightstream.cases import (
     POINT_AXIS_KEYS,
@@ -118,11 +118,13 @@ from pyflightstream.workspace.inputs import (
     is_valid_artifact_id,
     read_inventory,
     resolve_build,
+    rotor_integration_groups,
 )
 
-# SIDEWAYS, to the module of this layer that resolves a constraint set
-# into a flow state. It needs the reference LENGTH, which is why it is
-# here and not on the floor with the atmosphere (PFS-2027.02).
+# SIDEWAYS, to the module of this layer that owns the naming conventions.
+# `group_token` decides what a product file carries for a group, and the
+# refusal below asks it rather than restating the rule: two copies of one
+# naming rule is how a refusal and the file it is about come to disagree.
 from pyflightstream.workspace.naming import group_token
 
 __all__ = [
@@ -1175,6 +1177,39 @@ def _solver_from_setup(setup: SetupArtifact, set_code: str) -> SolverSettings:
         ) from error
 
 
+def _with_rotor_groups(pproc: PprocArtifact, reference, code: str, pol: str) -> PprocArtifact:
+    """Return ``pproc`` with one integration group per rotor the reference declares.
+
+    Item 15. `rotor_integration_groups` held the whole rule and had NO CALLER,
+    so a release that promised a group per rotor created none: every test of it
+    called the function directly and passed over a campaign that never reached
+    it.
+
+    A reference declaring no rotor leaves the artifact untouched, so a matrix
+    written before rotors existed binds exactly as it did.
+
+    The refusal it can raise is re-raised with the ROW and the artifact named,
+    which is what the binder adds to every other artifact refusal here: a
+    message saying two lists disagree is only actionable once a reader knows
+    which pproc file and which matrix row to open.
+    """
+    rotors = getattr(reference, "rotors", None) or {}
+    if not rotors:
+        return pproc
+    try:
+        resolved = rotor_integration_groups(rotors, pproc.groups)
+    except PyflightstreamError as clash:
+        raise InputArtifactError(
+            f"matrix row POL {pol}: the PPROC column names pproc {code!r} "
+            f"(inputs/pproc/{code}.toml). {clash}",
+            kind="pproc",
+            artifact_id=code,
+        ) from clash
+    if resolved == dict(pproc.groups):
+        return pproc
+    return pproc.model_copy(update={"groups": resolved})
+
+
 def _refuse_groups_named_by_a_word(pproc: PprocArtifact, code: str, pol: str) -> None:
     """Refuse a pproc group whose name reads as the NUMBERED era's own suffix.
 
@@ -1919,7 +1954,12 @@ def resolve_matrix(
             # kinds it selects, and the record names its id. A LEGACY row's
             # recipe decides its own outputs, so only a workflow row takes
             # the export set from the artifact.
-            "pproc": pprocs[row.pproc_code],
+            # ITEM 15 WIRED HERE, and here rather than where the pproc is
+            # RESOLVED, because the created group comes from the ROW's
+            # reference: one pproc named by two rows with different references
+            # owes each of them the groups of its own rotors, and resolving it
+            # once per code would give the second row the first one's.
+            "pproc": _with_rotor_groups(pprocs[row.pproc_code], reference, row.pproc_code, row.pol),
             "pproc_id": row.pproc_code,
         }
         # ABSENT AND BLANK ARE THE SAME SILENCE, and it is the same rule
