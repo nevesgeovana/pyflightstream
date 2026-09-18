@@ -104,6 +104,7 @@ from pyflightstream.post._tables import (
     _COEFFICIENT_PLOT_PREFIXES,
     _DECIMALS,
     ADVANCE_RATIO_COLUMN,
+    CONDITION_KEY_ALIASES,
     CONTEXT_COLUMNS,
     FLIGHT_CONDITION_COLUMNS,
     NOT_APPLICABLE,
@@ -157,6 +158,7 @@ __all__ = [
     # sit in the module that imports it; they are re-exported here because that
     # is where a reader finds every public name of that module, and the tier-1
     # test of that claim is what caught their absence the minute they moved.
+    "CONDITION_KEY_ALIASES",
     "CONTEXT_COLUMNS",
     "FLIGHT_CONDITION_COLUMNS",
     "REFERENCE_LENGTH_COLUMNS",
