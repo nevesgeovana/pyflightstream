@@ -113,6 +113,15 @@ _DIMENSIONLESS_OR_DEBT = {
     # A DIRECTION AND NOT A LENGTH: the axis the disk is perpendicular to,
     # normalised on use, so its magnitude carries no meaning at all.
     "normal",  # ProbeCircle.normal
+    # v0.23.0 item 19. A DIRECTION, not a length: the shaft the rotor turns
+    # about, normalised on use, so its magnitude carries no meaning. It is
+    # also a str on the letter path, where a unit suffix would be nonsense.
+    "axis",  # RotorBlock.axis
+    # v0.23.0 item 9. REVOLUTIONS are a dimensionless count of turns, and the
+    # spelling is the owner's own: "escreve last_revolutions_avg". A `_rev`
+    # suffix would rename a field she named.
+    "min_revolutions",  # PhaseLockedSpec.min_revolutions
+    "last_revolutions_avg",  # PhaseLockedSpec.last_revolutions_avg
     # Unit DIRECTIONS in the reference frame, not lengths (FR-100).
     "axes",  # FramePlacement.axes
     "reference",  # RunRecord: the block by column name, SREF m2 and CREF/BREF/XMOM..ZMOM m

@@ -84,7 +84,7 @@ from pyflightstream._fsm import (
 )
 from pyflightstream._retired_names import retired_frame
 from pyflightstream.cases import (
-    _AXIS_LETTERS,
+    AXIS_UNIT_VECTORS,
     EXPANDING_FRAMES,
     EXPORT_KINDS,
     FORCE_PLOT_PARAMETERS,
@@ -4286,7 +4286,7 @@ def _hub_basis(block: object | None) -> tuple[tuple[float, ...], tuple[float, ..
         # turned a quarter. 27 tier-1 cases failed on it, which is the suite
         # catching a claim this session had already written down as proved.
         return (1.0, 0.0, 0.0), (0.0, 1.0, 0.0)
-    datum = _AXIS_LETTERS[block.blade1.zero.lstrip("+-")]
+    datum = AXIS_UNIT_VECTORS[block.blade1.zero.lstrip("+-")]
     return frame_basis_for_shaft(block.axis_vector, datum)
 
 

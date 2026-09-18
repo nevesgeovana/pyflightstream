@@ -46,6 +46,13 @@ PUBLIC_MODULES = [
     "pyflightstream.options",
     "pyflightstream.overview",
     "pyflightstream.post",
+    # v0.23.0 item 11: the generated pproc guides. PUBLIC deliberately: a
+    # user who wants the variable reference and the equation guide beside
+    # her pproc is who calls it. It lives in `post` and not in `workspace`
+    # because it documents the pproc spec AND the products, and the layer
+    # test refused the other placement -- deferring an import to call time
+    # does not change its direction.
+    "pyflightstream.post.guides",
     "pyflightstream.post.products",
     "pyflightstream.post.reductions",
     "pyflightstream.post.series",

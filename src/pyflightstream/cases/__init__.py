@@ -1139,7 +1139,13 @@ _AXIS_TOLERANCE = 1e-12
 #: The unit vector each axis letter has always meant. The letter path resolves
 #: through this rather than through a branch, so "Z is (0,0,1)" is a lookup a
 #: reader can check instead of a claim.
-_AXIS_LETTERS: dict[str, tuple[float, float, float]] = {
+#:
+#: PUBLIC, and a guard made it so. It was `_AXIS_LETTERS` and `cases.workflows`
+#: imported it from `cases`, which the layer test refuses: an underscore-private
+#: name taken out of a public sibling is a boundary crossed for a helper.
+#: Publishing it is the fix the guard names, and it is the honest one -- a
+#: reader writing a rotor block needs to know what a letter means.
+AXIS_UNIT_VECTORS: dict[str, tuple[float, float, float]] = {
     "X": (1.0, 0.0, 0.0),
     "Y": (0.0, 1.0, 0.0),
     "Z": (0.0, 0.0, 1.0),
@@ -1319,7 +1325,7 @@ class RotorBlock(BaseModel):
         """
         stated = self.axis
         if isinstance(stated, str):
-            return _AXIS_LETTERS[stated]
+            return AXIS_UNIT_VECTORS[stated]
         components = tuple(float(component) for component in stated)
         length = math.sqrt(sum(component * component for component in components))
         return (components[0] / length, components[1] / length, components[2] / length)
@@ -1349,7 +1355,7 @@ class RotorBlock(BaseModel):
         # "nearly", and once the axis can be any direction, nearly is the
         # ordinary case rather than the exotic one.
         shaft = self.axis_vector
-        datum = _AXIS_LETTERS[self.blade1.zero.lstrip("+-")]
+        datum = AXIS_UNIT_VECTORS[self.blade1.zero.lstrip("+-")]
         alignment = abs(sum(a * b for a, b in zip(shaft, datum, strict=True)))
         if alignment > _DATUM_ALIGNMENT_LIMIT:
             degrees = math.degrees(math.acos(min(1.0, alignment)))

@@ -17,8 +17,14 @@ and the tests below are what turn that into a check.
 from __future__ import annotations
 
 from pyflightstream.cases import PprocSpec
+from pyflightstream.post.guides import PPROC_GUIDE_NAMES, write_pproc_guides
 from pyflightstream.post.products import ROTOR_COEFFICIENT_COLUMNS
-from pyflightstream.workspace.inputs import PPROC_GUIDE_NAMES, write_pproc_guides
+
+# THE MODULE MOVED AND A GUARD MOVED IT. The first writing put this in
+# `workspace.inputs` with its imports of `post` deferred to call time; the
+# convention test refused it: "deferring an import to call time does not
+# change its direction". The guides document the pproc spec AND the
+# products, so they belong in the layer that already depends on both.
 
 
 def test_both_guides_are_written_into_the_pproc_folder(tmp_path):
