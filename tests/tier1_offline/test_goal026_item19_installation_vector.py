@@ -346,10 +346,34 @@ def test_a_letter_rotor_emits_exactly_what_it_emitted_before():
     pre-0.23.0 reference emits. Asserted by comparing the emitted text with the
     axes the builder hard-coded before this release.
     """
+    #: The three axes `_hub_basis` returns for EVERY letter: the literal
+    #: identity. That is the whole claim of this test, and until a closing round
+    #: read it, the body asserted nothing about these nine numbers at all.
+    identity = {
+        "VECTOR_X_X": 1.0, "VECTOR_X_Y": 0.0, "VECTOR_X_Z": 0.0,
+        "VECTOR_Y_X": 0.0, "VECTOR_Y_Y": 1.0, "VECTOR_Y_Z": 0.0,
+        "VECTOR_Z_X": 0.0, "VECTOR_Z_Y": 0.0, "VECTOR_Z_Z": 1.0,
+    }  # fmt: skip
+
     for letter in ("X", "Y", "Z"):
         text = _emitted_blade_frames(_rotor(letter, zero="Y" if letter != "Y" else "X"))
         tail = text.split("ROTATE_COORDINATE_SYSTEM", 1)[1][:200]
         assert f"ROTATION_AXIS {letter}" in tail, (letter, tail)
+
+        # THE BYTES THE DOCSTRING PROMISED. It said the emitted text was
+        # compared "with the axes the builder hard-coded before this release",
+        # and the body compared NO AXES: it read one enum argument and stopped.
+        # A regression in `_hub_basis` on the letter path would move every one
+        # of these nine numbers and leave the test green -- which is the same
+        # shape as the `ROTATION_AXIS Z` defect this round was told about, one
+        # field over. The test measured the argument that was wrong last time
+        # and not the values beside it.
+        emitted = {}
+        for line in text.splitlines():
+            name, _, value = line.partition(" ")
+            if name.startswith("VECTOR_"):
+                emitted.setdefault(name, float(value))
+        assert emitted == pytest.approx(identity, abs=1e-12), (letter, emitted)
 
     # THE ASSERTION THIS TEST FIRST MADE WAS SATISFIED BY THE WRONG ANSWER. It
     # checked that "Z" appeared in the tail, which is true of an X-axis rotor

@@ -3298,8 +3298,10 @@ def phase_locked_gate(
         return None
     return {
         "skipped": (
-            f"the row turns {revolutions} revolution(s) and the pproc asks for at least "
-            f"{spec.min_revolutions} before a phase-locked reduction is generated. The "
+            f"the EXPORTED WINDOW holds {revolutions} revolution(s) and the pproc asks "
+            f"for at least {spec.min_revolutions} before a phase-locked reduction is "
+            "generated. That is the window the row states, NOT the whole run: a row that "
+            "turns six revolutions and exports the last one counts as one here. The "
             "polar is unaffected: a short run means no phase-locked reduction, never a "
             "refused product."
         )

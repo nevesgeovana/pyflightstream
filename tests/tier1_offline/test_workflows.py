@@ -1050,7 +1050,20 @@ def test_a_rotor_row_stating_no_export_window_averages_its_last_revolution():
     #
     # The relation that survives is containment: every passage falls inside the
     # one window, so the two products are still about the same part of the run.
+    #
+    # CONTAINMENT ALONE IS STRICTLY WEAKER THAN WHAT IT REPLACED, and a closing
+    # round said so. The line here used to pin the two window lists EQUAL; when
+    # item 8 made them different shapes I replaced it with containment and
+    # pinned nothing about the blade window itself -- so `[1, 720]`, the whole
+    # history with the transient in it, satisfies this test. That window is the
+    # design error `unsteady_window`'s own docstring names. The blade window is
+    # derivable here, so it is pinned, and containment is kept for the relation
+    # it actually expresses.
     (blade_window,) = plan["per_blade"]["windows"]
+    assert blade_window == [221, 720], (
+        "the per-blade window is the LAST REVOLUTION of a 720-step run at 500 steps "
+        f"per revolution; anything longer has the transient in it: {blade_window}"
+    )
     passages = plan["phase_locked"]["windows"]
     assert len(passages) == 4, passages
     for first, last in passages:
