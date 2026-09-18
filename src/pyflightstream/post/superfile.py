@@ -93,6 +93,7 @@ __all__ = [
     "RPM_COLUMN",
     "SUPERFILE_REPORT_PREFIX",
     "SUPER_PREFIX",
+    "SUPERFILE_FORMATS",
     "SuperfileDraft",
     "declared_sweep",
     "matrix_rows",
@@ -293,6 +294,14 @@ RECORD_SCALARS = (
     # that states no clock.
     "walltime_s",
     "walltime_margin_s",
+    # GOAL-026 item 12, 0.23.0. WHO submitted the run. It is carried rather
+    # than excluded because the super file's whole claim is that a reader
+    # holding it needs no second file to know something about that
+    # simulation, and who ran it is something about that simulation. Empty
+    # on every record written before 0.23.0: it is a RUN-time fact that
+    # cannot be recovered afterwards, which the release notes state as this
+    # item's one exception.
+    "submitted_by",
     # GOAL-023, 0.20.0. How an unsteady point was marched on its build,
     # "actions" or "single_march": two runs of one row on two builds can
     # differ in exactly this, so a reader comparing them sees it on the row.
@@ -538,13 +547,42 @@ class SuperfileDraft:
     entry: dict[str, object]
 
 
+#: The formats a super file can be written in (v0.23.0 item 7), answering the
+#: owner's question of 2026-09-17: "como configuro para o super file tambem
+#: sair em formato custom?".
+#:
+#: `csv` is the default because adding a format may not change what an existing
+#: workspace writes. THE COLUMN SET IS THE SAME IN BOTH, which is the property
+#: that makes this a format rather than a second product: the super file's
+#: whole claim is that it carries everything the workspace knows about that
+#: simulation, and a format quietly carrying a different SET would break the
+#: claim while looking like a formatting option.
+SUPERFILE_FORMATS: tuple[str, ...] = ("csv", "legacy_polar")
+
+
 def write_superfiles(
-    drafts: Sequence[SuperfileDraft], *, target: Callable[[Path], Path]
+    drafts: Sequence[SuperfileDraft],
+    *,
+    target: Callable[[Path], Path],
+    fmt: str = "csv",
 ) -> tuple[list[Path], dict[Path, dict[str, object]], tuple[str, ...]]:
     """Write every superfile of a campaign under ONE column set, its union.
 
+    ``fmt`` is one of :data:`SUPERFILE_FORMATS`. It is SELECTED and never
+    guessed: a writer that decided the format from the file name, or from what
+    the workspace happened to contain, would be a writer nobody can predict.
+    The default is the format she already reads, so an existing workspace
+    writes exactly what it wrote before.
+
     Returns the files written, their manifest entries and the columns.
     """
+    if fmt not in SUPERFILE_FORMATS:
+        raise ValueError(
+            f"the super file format {fmt!r} is not one this package writes; it offers "
+            f"{', '.join(SUPERFILE_FORMATS)}. Could-not-understand is never a silent "
+            "fallback to the default, because a file in a format you did not ask for "
+            "reads as a file in the format you did"
+        )
     columns: list[str] = []
     seen: set[str] = set()
     for draft in drafts:
@@ -557,9 +595,11 @@ def write_superfiles(
     entries: dict[Path, dict[str, object]] = {}
     for draft in drafts:
         path = target(draft.path)
-        write_csv_table(
-            path, columns, [[row.get(column, "") for column in columns] for row in draft.rows]
-        )
+        rows = [[row.get(column, "") for column in columns] for row in draft.rows]
+        if fmt == "legacy_polar":
+            _write_legacy_polar(path, columns, rows)
+        else:
+            write_csv_table(path, columns, rows)
         written.append(path)
         entries[path] = {**draft.entry, "rows": len(draft.rows)}
     return written, entries, tuple(columns)
@@ -839,3 +879,22 @@ def write_sections_report(
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(json.dumps({"cases": list(cases)}, indent=1) + "\n", encoding="utf-8")
     return target
+
+
+def _write_legacy_polar(
+    path: Path, columns: Sequence[str], rows: Sequence[Sequence[object]]
+) -> Path:
+    """Write the union in the legacy polar format: fixed-width fields, no commas.
+
+    The SAME columns and the same values as the csv form; only the rendering
+    differs, which is what `SUPERFILE_FORMATS` promises. Each field is padded
+    to a fixed width, which is what makes the format readable by a tool that
+    splits on position rather than on a delimiter.
+    """
+    width = 16
+    lines = ["".join(str(name).rjust(width) for name in columns)]
+    for row in rows:
+        lines.append("".join(_fixed_cell(value).rjust(width) for value in row))
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return path

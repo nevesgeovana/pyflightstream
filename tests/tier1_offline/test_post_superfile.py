@@ -270,6 +270,11 @@ def _workspace(tmp_path: Path):
             walltime_s=3600.0,
             walltime_margin_s=1200.0,
             march_strategy="actions",
+            # GOAL-026 item 12: the fixture NAMES its operator for the same
+            # reason it names its clock above. With None here the union
+            # cannot see the field, and nothing would require a superfile to
+            # carry a value it is supposed to carry.
+            submitted_by="geovana",
             # GOAL-024: a verdict read past an overflowed residual field says so.
             residual_note="the pressure residual of iteration 1535 did not fit its printed field",
             solver_run_time_s=333.6,
