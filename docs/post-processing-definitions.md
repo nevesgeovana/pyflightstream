@@ -73,8 +73,13 @@ between two blades mixes a real azimuthal difference with a difference in WHEN
 each was sampled -- and nothing in the file says which is which. With one window,
 the azimuth columns carry the difference explicitly and the reader can see it.
 
-**The window is the last converged one**, anchored on the export-after-revolutions
-variable. Averaging from step one mixes the transient with the answer.
+**The window is the same one the unsteady plots use.** Her words, 2026-09-18:
+*"a media per_blade usa a mesma info de last_revs e last_iters que o unsteady
+plots"* -- so it comes from `last_revs_avg` or `last_iters_avg` on the matrix
+row, and not from a derivation of its own. One window per point, stated once,
+shared by the POLAR and by this table.
+
+Averaging from step one mixes the transient with the answer.
 
 ---
 
@@ -216,7 +221,14 @@ numbers.
    rotor-to-body rotation.
 3. Carry it to wind axes by the **AIAA** rotation, with **alpha and beta**.
 4. Take the **X** component: `Fx_W`.
-5. `ETAW` is the efficiency built on that component and stays **dimensionless**.
+5. `ETAW = J * CTW / CP`, where `CTW = Fx_W / (rho n^2 D^4)` -- the wind-axis
+   force nondimensionalised exactly as the thrust is, entering the same
+   efficiency where `CT` enters. It stays **dimensionless**.
+
+**It reduces to `ETA` when the shaft lies along the stream**, which is what makes
+the column readable beside `ETA`. A caller that states no wind-axis force gets
+`NA`, never the old cosine: publishing the superseded number under the corrected
+name would leave a reader unable to tell which of the two they hold.
 
 **It is two rotations on a vector, never the cosine of a scalar angle.** A cosine
 discards the components that are not along the axis, which is exactly what the

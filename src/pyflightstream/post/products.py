@@ -694,15 +694,28 @@ def rotor_coefficient_columns(alias: str) -> tuple[str, ...]:
 class RotorShaftLoads:
     """One rotor's thrust and torque about its OWN shaft, in newtons and N m.
 
-    ``shaft_angle_deg`` is the angle between the shaft and the free stream,
-    which `rotor_coefficients` needs for `ETAW` and which nothing produced: a
-    rotor table wired without it would report the ALIGNED-rotor efficiency by
-    omission, on every installed rotor.
+    ``wind_force_n`` is the rotor's force along the FREE STREAM, which is what
+    `ETAW` is built on. ``shaft_angle_deg`` is the angle between the shaft and
+    that same stream; it is kept because it is a fact a reader of the table may
+    want, and it is NO LONGER what `ETAW` is computed from.
+
+    WHY BOTH, AND WHY THE ANGLE IS NOT ENOUGH. `ETAW` was `ETA * cos(theta)`
+    until the owner corrected it on 2026-09-18. A cosine projects the SHAFT
+    direction and therefore keeps only the thrust that lies along the shaft --
+    it discards every component of the rotor's force that does not, which on an
+    installed rotor is exactly the part her definition keeps. Her words:
+
+        "[Fx_rotor_axis Fy_rotor_axis Fz_rotor_axis] * rotacao^T(eixo motor ->
+        eixo corpo airframe) * rotacao(alpha) = Fx_W"
+
+    and, asked, both alpha AND beta by the AIAA axis convention, with `ETAW`
+    still a dimensionless efficiency.
     """
 
     thrust_n: float
     torque_nm: float
     shaft_angle_deg: float
+    wind_force_n: float
     families_used: tuple[str, ...]
 
 
@@ -790,6 +803,7 @@ def rotor_shaft_loads(
             thrust_n=math.nan,
             torque_nm=math.nan,
             shaft_angle_deg=_shaft_angle(shaft, alpha_deg, beta_deg),
+            wind_force_n=math.nan,
             families_used=tuple(used),
         )
     area = float(reference.sref_m2)
@@ -812,11 +826,50 @@ def rotor_shaft_loads(
     return RotorShaftLoads(
         thrust_n=sum(a * b for a, b in zip(newtons, shaft, strict=True)),
         torque_nm=sum(a * b for a, b in zip(about_hub, shaft, strict=True)),
-        # THE FREE STREAM IS ALONG +X, which is this package's convention
-        # everywhere else: a shaft on X is aligned with it and a shaft on Z is
-        # square to it.
         shaft_angle_deg=_shaft_angle(shaft, alpha_deg, beta_deg),
+        # THE OWNER'S `Fx_W`, 2026-09-18, AND THE ROUND TRIP IS COLLAPSED.
+        # Her definition starts from the force in the ROTOR frame and carries
+        # it to the body frame by the TRANSPOSE of the rotor-to-body rotation.
+        # `newtons` is already that body-frame force -- it is built from the
+        # export's `Cx, Cy, Cz`, which the export states in the geometry frame --
+        # so resolving it into the rotor frame and straight back out is `R^T R`,
+        # the identity, for any orthonormal `R`. Writing the two rotations would
+        # give the same number with two more places to make a sign error.
+        #
+        # What remains is her second rotation: body axes to WIND axes, by alpha
+        # and beta, taking the X component. That is exactly the dot product of
+        # the body-frame force with the free-stream unit vector, which
+        # `_free_stream` builds and `_shaft_angle` uses for the angle.
+        wind_force_n=sum(
+            a * b for a, b in zip(newtons, _free_stream(alpha_deg, beta_deg), strict=True)
+        ),
         families_used=tuple(used),
+    )
+
+
+def _free_stream(alpha_deg: float, beta_deg: float) -> tuple[float, float, float]:
+    """Return the free-stream direction in BODY axes, as a unit vector.
+
+    The AIAA convention for the body-to-wind rotation, which the owner named on
+    2026-09-18 when she corrected `ETAW`: the wind X axis in body components is
+    ``(cos a cos b, sin b, sin a cos b)``.
+
+    ONE DEFINITION, TWO USERS. The shaft ANGLE and the wind-axis FORCE are the
+    same geometry asked two ways, and they were one expression written twice for
+    a few minutes. Two copies of a rotation are how two published numbers come to
+    disagree about which way the air is going.
+
+    IT REDUCES TO +X AT ZERO AND ZERO, so a case that states neither angle gets
+    the answer it always got. That is not a coincidence to rely on quietly: body
+    +X was called "this package's convention everywhere" in a comment that was
+    false, and the reduction is why the false comment survived as long as it did.
+    """
+    alpha = math.radians(float(alpha_deg))
+    beta = math.radians(float(beta_deg))
+    return (
+        math.cos(alpha) * math.cos(beta),
+        math.sin(beta),
+        math.sin(alpha) * math.cos(beta),
     )
 
 
@@ -840,14 +893,9 @@ def _shaft_angle(shaft: Sequence[float], alpha_deg: float, beta_deg: float) -> f
     reduces to +X exactly when both angles are zero -- so a case that states
     neither gets the same answer it did.
     """
-    alpha = math.radians(float(alpha_deg))
-    beta = math.radians(float(beta_deg))
-    stream = (
-        math.cos(alpha) * math.cos(beta),
-        math.sin(beta),
-        math.sin(alpha) * math.cos(beta),
+    projection = sum(
+        a * b for a, b in zip(_free_stream(alpha_deg, beta_deg), _unit(shaft), strict=True)
     )
-    projection = sum(a * b for a, b in zip(stream, _unit(shaft), strict=True))
     return math.degrees(math.acos(max(-1.0, min(1.0, projection))))
 
 
@@ -868,6 +916,7 @@ def rotor_coefficients(
     density_kg_m3: float,
     speed_m_s: float,
     shaft_angle_deg: float = 0.0,
+    wind_force_n: float | None = None,
 ) -> dict[str, float | str]:
     """Return the six standard coefficients of one rotor.
 
@@ -896,10 +945,26 @@ def rotor_coefficients(
     of merit, which by the owner's decision of 2026-09-17 the package does not
     choose: "o usuário define uma se ele for rodar estático".
 
-    THE DEFINITION OF `ETAW` IS A DOMAIN CALL AND IS FLAGGED AS ONE. It is
-    implemented as the thrust component along the free stream, which is the
-    standard reading of "eficiência no eixo do vento", and it is the owner's to
-    confirm or correct before the release is tagged.
+    `ETAW` IS THE OWNER'S DEFINITION AND SHE CORRECTED IT ON 2026-09-18. It was
+    implemented as the thrust component along the free stream -- `ETA` times the
+    cosine of the shaft angle -- and this paragraph asked her to confirm that.
+    She did not: she said it was wrong and gave the form, and the flag is
+    replaced by the answer rather than left standing beside it.
+
+        [Fx_rotor_axis Fy_rotor_axis Fz_rotor_axis]
+            * rotacao^T(eixo motor -> eixo corpo airframe)
+            * rotacao(alpha)      -> Fx_W
+
+    with, asked directly, BOTH alpha and beta by the AIAA axis convention, and
+    `ETAW` remaining a dimensionless efficiency.
+
+    WHY THE COSINE WAS WRONG AND NOT MERELY IMPRECISE. A cosine of the shaft
+    angle projects the SHAFT and keeps only what lies along it, so every
+    component of the rotor's force that is off the shaft is discarded -- which
+    on an installed rotor is exactly the part her chain preserves. It is a
+    scalar where the physics is a vector, and the two agree only when the shaft
+    and the stream are already aligned, which is the case that needs no
+    correction.
 
     Raises
     ------
@@ -929,7 +994,26 @@ def rotor_coefficients(
         return values
     efficiency = advance_ratio * thrust_coefficient / power_coefficient
     values["ETA"] = efficiency
-    values["ETAW"] = efficiency * math.cos(math.radians(shaft_angle_deg))
+    # ETAW IS THE OWNER'S FORMULA, 2026-09-18, AND IT IS NOT A COSINE.
+    # It read `ETA * cos(shaft_angle)`, which projects the SHAFT direction and
+    # so keeps only the part of the rotor's force that lies along the shaft --
+    # discarding exactly the components an installed rotor produces off it. Hers
+    # carries the whole force vector through two rotations and takes the wind X
+    # component, which `rotor_shaft_loads` computes as `wind_force_n`.
+    #
+    # `ETAW` STAYS DIMENSIONLESS, which she confirmed when asked: the wind-axis
+    # force is nondimensionalised exactly as the thrust is, and enters the same
+    # efficiency where `CT` enters. So `ETAW` reduces to `ETA` when the shaft is
+    # aligned with the stream, which is the property that makes it readable.
+    #
+    # A CALLER THAT STATES NO WIND FORCE GETS `NA`, never the cosine. Falling
+    # back to the old form would publish the number she called wrong under the
+    # name she corrected, and a reader could not tell which they were holding.
+    if wind_force_n is None or not math.isfinite(wind_force_n):
+        values["ETAW"] = NOT_APPLICABLE
+        return values
+    wind_coefficient = wind_force_n / (density_kg_m3 * rps**2 * diameter_m**4)
+    values["ETAW"] = advance_ratio * wind_coefficient / power_coefficient
     return values
 
 
@@ -1186,6 +1270,10 @@ def write_rotor_table(
             density_kg_m3=density_kg_m3,
             speed_m_s=speed_m_s,
             shaft_angle_deg=loads.shaft_angle_deg,
+            # THE CALL SITE IS WHAT DELIVERS HER CORRECTION. The formula and the
+            # wind-axis force both existed for a few minutes without this line,
+            # and `ETAW` would have gone on being the cosine it was.
+            wind_force_n=loads.wind_force_n,
         )
         stated_condition = row.get("condition")
         condition = dict(stated_condition) if isinstance(stated_condition, Mapping) else {}

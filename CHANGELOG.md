@@ -219,6 +219,22 @@ See `docs/migrating-to-0.23.0.md` before upgrading a workspace you care about.
   figure of merit cannot be offered here -- it needs a force the run does not
   state. `J` is a real `0.00000`: at rest with a turning rotor it is genuinely
   zero. A figure of merit is the static measure and the user defines it.
+- **`ETAW` IS A DIFFERENT NUMBER, by the owner's correction of 2026-09-18.** It
+  was `ETA * cos(theta)`, the thrust projected on the free stream by the cosine
+  of the shaft angle. It is now built on the rotor's WIND-AXIS FORCE: the whole
+  force vector carried from the rotor frame to body axes by the transpose of the
+  rotor-to-body rotation, then to wind axes by the AIAA rotation with alpha AND
+  beta, taking `Fx_W`; `ETAW = J * CTW / CP` with `CTW = Fx_W / (rho n^2 D^4)`.
+
+  **A cosine is a scalar where the physics is a vector.** It keeps only the force
+  lying along the shaft and discards every component an installed rotor produces
+  off it, which is exactly the part the rotation chain preserves. The two agree
+  only when the shaft is already aligned with the stream -- the case that needed
+  no correction -- which is why no test in this suite caught the change until one
+  was written with a rotor pushing off its own shaft.
+
+  `ETAW` still reduces to `ETA` for an aligned rotor, and a caller that states no
+  wind-axis force now reads `NA` rather than the superseded number.
 - **The rotor table names its alias on its first line, alone**, so a script
   that has already loaded the file still knows which group it holds.
 - **A rotor carries its INSTALLATION VECTOR.** `axis` accepts three components
