@@ -114,6 +114,7 @@ from pyflightstream.workspace.naming import (
 from pyflightstream.workspace.rename_groups import (
     RenamedProduct,
     rename_group_products,
+    unmapped_group_numbers,
 )
 from pyflightstream.workspace.trailing_edges import (
     TrailingEdge,
@@ -134,6 +135,7 @@ __all__ = [
     "ARCHIVE_STAMP",
     "RenamedProduct",
     "rename_group_products",
+    "unmapped_group_numbers",
     "GEOMETRIES_README",
     "EXECUTABLES_FILE",
     "INPUT_KINDS",

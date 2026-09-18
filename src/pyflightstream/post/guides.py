@@ -19,8 +19,6 @@ from pathlib import Path
 from types import UnionType
 from typing import Union, get_args, get_origin
 
-from pydantic import BaseModel
-
 from pyflightstream.cases import EquationSpec, PhaseLockedSpec, PprocSpec
 from pyflightstream.post._tables import CONTEXT_COLUMNS
 from pyflightstream.post.products import ROTOR_COEFFICIENT_COLUMNS
@@ -50,7 +48,13 @@ def _pproc_table_spellings() -> list[str]:
         origin = get_origin(annotation)
 
         def is_model(candidate: object) -> bool:
-            return isinstance(candidate, type) and issubclass(candidate, BaseModel)
+            # DUCK-TYPED, and not `issubclass(candidate, BaseModel)`, because
+            # importing pydantic here is refused: a module under `post` may
+            # reach for numpy and little else, since a file conversion is the
+            # last place a user should meet an install problem. The guard was
+            # right and caught this on the first run. `model_fields` is the
+            # attribute this function already reads off the spec anyway.
+            return isinstance(candidate, type) and hasattr(candidate, "model_fields")
 
         # `X | None` carries the model in its arguments, and its origin is the
         # union rather than nothing -- which is what made `phase_locked`, the

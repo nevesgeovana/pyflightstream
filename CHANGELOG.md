@@ -47,13 +47,22 @@ See `docs/migrating-to-0.23.0.md` before upgrading a workspace you care about.
   - **YOUR EXISTING PRODUCTS ARE RENAMED, NOT ORPHANED**, by
     `pyflightstream.workspace.rename_group_products(root, {1: "PUSHER", ...})`.
     You supply the mapping because nothing in a workspace records which group
-    `_g03` was; a number it is not given is LEFT ALONE and reported rather
-    than renamed on a guess.
-  - **IT ARCHIVES BEFORE IT MOVES**, and nothing is ever deleted. A copy of
-    each file lands under `archive/rename-groups-<stamp>/` first, and it stays
-    there after a successful move: the cheapest way to be wrong about a
-    migration is to be unable to look at what was there before. `dry_run=True`
-    reports what would move and moves nothing.
+    `_g03` was; a number it is not given is LEFT ALONE rather than renamed on a
+    guess, and `pyflightstream.workspace.unmapped_group_numbers(root, mapping)`
+    NAMES the numbers you left out, with the products carrying each. Run it
+    before the migration, which is while you can still act on it: a number you
+    forgot is otherwise indistinguishable from a number that was never there.
+  - **IT REFUSES BEFORE IT MOVES ANYTHING.** Every product is checked first and
+    moved second, so a refusal saying nothing was moved is true of the FOLDER
+    and not only of the moment it was written. Two numbers you mapped to one
+    name are refused too, which the per-file check cannot see: neither
+    destination exists when the first is tested.
+  - **IT ARCHIVES BEFORE IT MOVES**, and deletes nothing. A copy of each file
+    lands under `archive/rename-groups-<stamp>/` first and stays there after a
+    successful move: the cheapest way to be wrong about a migration is to be
+    unable to look at what was there before. That is the default; `archive=False`
+    moves without a copy. `dry_run=True` reports what would move, moves nothing,
+    and its records name NO archive, because none was written.
   - A destination that already exists is REFUSED, naming both paths, and
     nothing moves. Two products cannot share a name and one of the two is a
     result.

@@ -142,3 +142,119 @@ def test_the_rename_refuses_rather_than_overwriting_a_result(tmp_path):
     assert "overwrite" in str(caught.value)
     assert (polars / "P0001-M150_g01.csv").read_text(encoding="utf-8") == "a\n"
     assert (polars / "P0001-M150_PUSHER.csv").read_text(encoding="utf-8") == "b\n"
+
+
+def test_a_group_number_the_mapping_does_not_name_is_reported(tmp_path):
+    """ "Left alone AND REPORTED" -- the second half was a promise and no code.
+
+    Three documents said an unmapped number is left alone and reported; the
+    migration did `continue` and the return type carries only what MOVED. A user
+    maps {1, 2}, forgets `_g03`, sees the products that moved and concludes the
+    migration is done. Nothing would ever tell her otherwise, and the next post
+    run would not either.
+
+    The report is its own call rather than a second return value, so it can be
+    made BEFORE the migration -- which is when a user can still act on it.
+    """
+    from pyflightstream.workspace import rename_group_products, unmapped_group_numbers
+
+    polars = tmp_path / "post" / "matriz" / "polars"
+    polars.mkdir(parents=True)
+    (polars / "P0001-M150_g01.csv").write_text("one\n", encoding="utf-8")
+    (polars / "P0001-M150_g03.csv").write_text("three\n", encoding="utf-8")
+
+    left = unmapped_group_numbers(tmp_path, {1: "PUSHER"})
+    assert list(left) == [3], left
+    assert left[3] == [polars / "P0001-M150_g03.csv"], left
+
+    # And it stays true after the migration: 3 is still there, still unnamed.
+    rename_group_products(tmp_path, {1: "PUSHER"})
+    assert list(unmapped_group_numbers(tmp_path, {1: "PUSHER"})) == [3]
+
+    # A mapping that covers everything reports nothing, so the report is not
+    # satisfied by always naming something.
+    assert unmapped_group_numbers(tmp_path, {1: "PUSHER", 3: "LIFT"}) == {}
+
+
+def test_a_dry_run_names_no_archive_because_it_wrote_none(tmp_path):
+    """`archived` names a path that EXISTS, or it names nothing.
+
+    It carried the path a copy would have taken under `dry_run`, so a user doing
+    the careful thing -- looking before moving files a licensed run is what it
+    costs to regenerate -- checked a folder that was never going to be there.
+    """
+    from pyflightstream.workspace import rename_group_products
+
+    polars = tmp_path / "post" / "matriz" / "polars"
+    polars.mkdir(parents=True)
+    (polars / "P0001-M150_g01.csv").write_text("one\n", encoding="utf-8")
+
+    planned = rename_group_products(tmp_path, {1: "PUSHER"}, dry_run=True)
+    assert len(planned) == 1
+    assert planned[0].archived is None, planned[0].archived
+
+    moved = rename_group_products(tmp_path, {1: "PUSHER"})
+    assert moved[0].archived is not None
+    assert moved[0].archived.exists(), moved[0].archived
+
+
+def test_two_numbers_mapped_to_one_name_are_refused_before_anything_moves(tmp_path):
+    """The collision the existing-destination check cannot see.
+
+    `{1: "PUSHER", 2: "PUSHER"}` makes two products want ONE name, and neither
+    destination exists on disk when the first is checked -- so a per-file
+    existence test passes both and the second silently overwrites the first.
+    """
+    from pyflightstream.workspace import rename_group_products
+
+    polars = tmp_path / "post" / "matriz" / "polars"
+    polars.mkdir(parents=True)
+    (polars / "P0001-M150_g01.csv").write_text("one\n", encoding="utf-8")
+    (polars / "P0001-M150_g02.csv").write_text("two\n", encoding="utf-8")
+
+    with pytest.raises(products.ProductError) as caught:
+        rename_group_products(tmp_path, {1: "PUSHER", 2: "PUSHER"})
+    assert "same name" in str(caught.value), str(caught.value)
+    assert (polars / "P0001-M150_g01.csv").read_text(encoding="utf-8") == "one\n"
+    assert (polars / "P0001-M150_g02.csv").read_text(encoding="utf-8") == "two\n"
+
+
+def test_nothing_is_moved_when_the_collision_is_reached_late(tmp_path):
+    """The refusal says "nothing was moved", and that has to be TRUE of the disk.
+
+    THE TEST ABOVE PASSES BY ACCIDENT, and the QA lens of the release round
+    proved it by reproducing the defect with two directories. It puts both files
+    in ONE folder, which is the single ordering where `sorted()` reaches the
+    collision on the first candidate -- so nothing had been moved yet and the
+    sentence was true without the code doing anything to make it true.
+
+    Here the collision sits in a folder sorted AFTER a folder holding a product
+    that renames cleanly. The migration used to discover, check and move in one
+    pass, so it renamed the first file, hit the second, and raised a refusal
+    stating that nothing was moved. On a workspace of hers that is a partly
+    migrated folder plus a sentence saying it was untouched, and the products it
+    moved cannot be regenerated without a licensed run.
+
+    The assertion is on the DISK and not on the return value: a refusal returns
+    nothing, so a caller has no list to check, and what the user has afterwards
+    is the folder.
+    """
+    from pyflightstream.workspace import rename_group_products
+
+    early = tmp_path / "post" / "a-first" / "polars"
+    late = tmp_path / "post" / "z-last" / "polars"
+    early.mkdir(parents=True)
+    late.mkdir(parents=True)
+    (early / "P0001-M150_g01.csv").write_text("clean\n", encoding="utf-8")
+    (late / "P0002-M150_g01.csv").write_text("a\n", encoding="utf-8")
+    (late / "P0002-M150_PUSHER.csv").write_text("b\n", encoding="utf-8")
+
+    with pytest.raises(products.ProductError) as caught:
+        rename_group_products(tmp_path, {1: "PUSHER"})
+    assert "nothing was moved" in str(caught.value)
+
+    # THE FILE IN THE FOLDER SORTED FIRST IS STILL WHERE IT WAS.
+    assert (early / "P0001-M150_g01.csv").read_text(encoding="utf-8") == "clean\n"
+    assert not (early / "P0001-M150_PUSHER.csv").exists(), "it moved, and the refusal denied it"
+    assert (late / "P0002-M150_g01.csv").read_text(encoding="utf-8") == "a\n"
+    assert (late / "P0002-M150_PUSHER.csv").read_text(encoding="utf-8") == "b\n"

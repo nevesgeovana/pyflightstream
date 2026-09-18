@@ -87,15 +87,30 @@ rename_group_products("<workspace root>", {1: "PUSHER", 2: "LIFT_L1"})
 ```
 
 - **You supply the mapping** because nothing in a workspace records which group
-  `_g03` was. A number you do not give is LEFT ALONE and reported, never
-  renamed on a guess: a product renamed to the wrong group is worse than one
-  not renamed at all.
-- **It archives before it moves, and never deletes.** A copy of each file lands
-  under `archive/rename-groups-<stamp>/` first and stays there afterwards.
+  `_g03` was. A number you do not give is LEFT ALONE, never renamed on a guess:
+  a product renamed to the wrong group is worse than one not renamed at all.
+- **Ask what you left out, before you migrate**, which is while you can still
+  act on it:
+
+  ```python
+  from pyflightstream.workspace import unmapped_group_numbers
+
+  unmapped_group_numbers("<workspace root>", {1: "PUSHER", 2: "LIFT_L1"})
+  # {3: [Path('.../P0001-M150_g03.csv')]}
+  ```
+
+  A number you forgot is otherwise indistinguishable from a number that was
+  never there: you would see the products that moved and conclude you were done.
+- **It refuses before it moves anything.** Every product is checked first and
+  moved second, so a refusal saying nothing was moved is true of the folder.
+  Two numbers you mapped to ONE name are refused too.
+- **It archives before it moves, and deletes nothing.** A copy of each file
+  lands under `archive/rename-groups-<stamp>/` first and stays there afterwards.
+  That is the default; `archive=False` moves without a copy.
 - **A destination that already exists is refused**, naming both paths, with
   nothing moved.
 - Run it with `dry_run=True` first. It reports what would move and moves
-  nothing.
+  nothing, and those records name no archive, because none was written.
 
 ---
 
