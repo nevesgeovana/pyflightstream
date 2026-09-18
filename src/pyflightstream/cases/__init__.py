@@ -1411,6 +1411,84 @@ class AliasCycleError(PyflightstreamError, ValueError):
     """
 
 
+class PhaseLockedSpec(BaseModel):
+    """When a phase-locked reduction is generated, and over how much (item 9).
+
+    The owner's rule of 2026-09-17: "o usuário fala o número mínimo de revs
+    total e revs usadas para media. Se a especificacao da matriz bater esse
+    número mínimo, o phase_locked e' gerado", and the comparison is at least:
+    "sendo igual ou maior".
+
+    NOT REACHING THE MINIMUM DOES NOT REFUSE THE POLAR, which is her second
+    sentence and the one that decides the shape: "e não ter o rev min não
+    recusa a polar, s'o não gera o phase_locked". So this is a GATE on one
+    product and never a validation of the run.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    #: Total revolutions the matrix must specify before this is generated.
+    min_revolutions: float = Field(gt=0.0)
+    #: How many of the LAST revolutions the average uses. Her spelling.
+    last_revolutions_avg: float = Field(gt=0.0)
+
+    @model_validator(mode="after")
+    def _averages_no_more_than_it_required(self) -> PhaseLockedSpec:
+        if self.last_revolutions_avg > self.min_revolutions:
+            raise ValueError(
+                f"phase_locked averages over {self.last_revolutions_avg} revolutions but "
+                f"is only generated from {self.min_revolutions}, so it would average over "
+                "more history than it required to exist. Raise min_revolutions, or "
+                "average over fewer"
+            )
+        return self
+
+    def generated_for(self, *, revolutions: float) -> bool:
+        """Whether a run of ``revolutions`` turns gets a phase-locked reduction.
+
+        AT LEAST, not more than: her words are "sendo igual ou maior", and the
+        boundary is the whole content of the rule, so it is one comparison with
+        its own name rather than an inline `>=` at each call site.
+        """
+        return float(revolutions) >= self.min_revolutions
+
+
+class EquationSpec(BaseModel):
+    """One custom coefficient the pproc derives (item 10).
+
+    THE EQUATION POINTS AT AN ALIAS AND NEVER AT A MESH FAMILY, which is the
+    owner's rule of 2026-09-17 and is not a restriction for its own sake: "não
+    vamos aceitar apontar famílias, eles so podem apontar alias pois assim
+    todos os coefs ficaram com _<alias>". An alias is what gives the derived
+    coefficient a name that says which body it is about; a family list gives it
+    nothing to be called.
+
+    ``frame`` is here because she added it the same day -- "deixa meshes_alias
+    e frame como inputs da equations" -- and because an axis matters: the same
+    expression in the body and the wind axes is two different coefficients.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    #: The arithmetic, in the variables the glossary names.
+    expression: str
+    #: WHICH BODY. An alias, never a family list.
+    meshes_alias: str
+    #: WHICH AXES. Optional, because an expression of scalars needs none.
+    frame: str | None = None
+
+    @field_validator("expression", "meshes_alias")
+    @classmethod
+    def _not_blank(cls, value: str) -> str:
+        token = value.strip()
+        if not token:
+            raise ValueError(
+                "an equation needs both an expression and the alias it is about; the "
+                "alias is what every derived coefficient carries as its `_<alias>` suffix"
+            )
+        return token
+
+
 class PprocSpec(BaseModel):
     """The post-processing specification a matrix row's PPROC cell names.
 
@@ -1429,6 +1507,17 @@ class PprocSpec(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     groups: dict[str, list[int | str]] = Field(default_factory=dict)
+    #: Item 9. Absent by default: a pproc that says nothing about it gets no
+    #: phase-locked reduction, and not reaching the minimum never refuses the
+    #: polar.
+    phase_locked: PhaseLockedSpec | None = None
+    #: Item 10. Keyed by the coefficient's own name; the value says what it is
+    #: and which body it is about.
+    equations: dict[str, EquationSpec] = Field(default_factory=dict)
+    #: Item 10's other half: what each symbol means, extensible by the user.
+    #: She asked whether the package needs a glossary and whether she can add
+    #: to it; this is both answers.
+    glossary: dict[str, str] = Field(default_factory=dict)
     exports: dict[str, bool] = Field(default_factory=dict)
     sections: SectionsSpec = Field(default_factory=SectionsSpec)
     plots: PlotsSpec = Field(default_factory=PlotsSpec)
