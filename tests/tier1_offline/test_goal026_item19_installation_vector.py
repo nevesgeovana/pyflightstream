@@ -346,9 +346,20 @@ def test_a_letter_rotor_emits_exactly_what_it_emitted_before():
     pre-0.23.0 reference emits. Asserted by comparing the emitted text with the
     axes the builder hard-coded before this release.
     """
-    letter = _rotor("Z", zero="X")
-    text = _emitted_blade_frames(letter)
-    assert "1.000000" in text or "1.0" in text, text[:400]
-    # The rotation argument is the letter the command's enum accepts.
-    tail = text.split("ROTATE_COORDINATE_SYSTEM", 1)[1][:200]
-    assert "Z" in tail, tail
+    for letter in ("X", "Y", "Z"):
+        text = _emitted_blade_frames(_rotor(letter, zero="Y" if letter != "Y" else "X"))
+        tail = text.split("ROTATE_COORDINATE_SYSTEM", 1)[1][:200]
+        assert f"ROTATION_AXIS {letter}" in tail, (letter, tail)
+
+    # THE ASSERTION THIS TEST FIRST MADE WAS SATISFIED BY THE WRONG ANSWER. It
+    # checked that "Z" appeared in the tail, which is true of an X-axis rotor
+    # emitting `ROTATION_AXIS Z` -- the defect. A golden script of tier 3 caught
+    # it instead, showing exactly one changed line:
+    #
+    #     -ROTATION_AXIS X
+    #     +ROTATION_AXIS Z
+    #
+    # `_hub_basis` returns the LITERAL IDENTITY for every letter, so that frame's
+    # third axis is global Z whatever the rotor turns about, and naming `Z` there
+    # turns an X-axis rotor's blades about the wrong axis. A test asserting a
+    # letter is PRESENT is not a test that the RIGHT letter is written.

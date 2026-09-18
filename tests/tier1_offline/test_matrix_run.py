@@ -4387,7 +4387,14 @@ def test_a_rotor_row_run_through_the_workflow_leaves_its_reductions_beside_the_p
     plan = getattr(record, "reductions", None)
     assert plan is not None, "the run record carries no reduction windows"
     assert plan["time_average"]["windows"] == [[596, 720]]
-    assert plan["per_blade"]["windows"][-1] == [596, 720] and plan["blades"] == 4
+    # ONE WINDOW SINCE 0.23.0 ITEM 8, covering the last whole revolution. This
+    # asserted the LAST of four per-blade windows, `[596, 720]`, which was the
+    # fourth blade's own passage; the four are now one window over all of them,
+    # with the blades told apart by their azimuths rather than by which stretch
+    # they came from. The window still ENDS at the run, which is what this line
+    # was really guarding.
+    assert plan["per_blade"]["windows"] == [[221, 720]] and plan["blades"] == 4
+    assert plan["per_blade"]["windows"][0][1] == 720, "the window must end at the run"
     reread = workspace.read_manifest()[0]
     assert reread.reductions == plan, "the windows round-trip through the manifest"
 

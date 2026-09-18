@@ -6552,12 +6552,27 @@ def _rotor_blade_frames(
             "ROTATE_COORDINATE_SYSTEM",
             frame=index,
             rotation_frame=hub,
-            # A LETTER, never the axis itself. `rotation_axis` is an ENUM over
+            # A LETTER, NEVER A TUPLE: `rotation_axis` is an ENUM over
             # X, Y, Z, 1, 2, 3, and `rotor.axis` takes three components since
-            # item 19 -- so passing it emitted a Python tuple into an enum
-            # field. The direction rides on the hub FRAME, whose third axis is
-            # the shaft, so the letter is right whatever the shaft points at.
-            rotation_axis=ROTOR_BLADE_ROTATION_AXIS,
+            # item 19, so passing it emitted a Python tuple into an enum field.
+            #
+            # WHICH letter depends on what the frame IS, and getting this wrong
+            # is a defect I shipped for one commit. `_hub_basis` returns the
+            # LITERAL IDENTITY for a rotor stating a letter -- measured, for X,
+            # Y and Z alike -- so that frame's third axis is global Z whatever
+            # the rotor turns about, and naming `Z` there would turn an X-axis
+            # rotor's blades about the wrong axis. The letter path keeps the
+            # rotor's own letter, which is byte for byte what it emitted before
+            # this release.
+            #
+            # Only a rotor stating a VECTOR gets a frame built on its shaft, and
+            # there the shaft IS the third axis by construction, so `Z` of that
+            # frame is the shaft. The premise has to be met before the
+            # conclusion is written down -- which is the same defect the V&V
+            # lens found in `_motion_view`, reproduced here one screen away.
+            rotation_axis=(
+                rotor.axis if isinstance(rotor.axis, str) else ROTOR_BLADE_ROTATION_AXIS
+            ),
             angle=rotor.blade1.azimuth_deg + (number - 1) * 360.0 / count,
         )
         created[family] = index

@@ -338,13 +338,27 @@ WING_ROW = (
 )
 
 
-def test_a_pproc_group_named_by_a_word_is_refused_at_plan_time(tmp_path):
-    """PFS-2032.03: `polar_file_name` writes the group NUMBER into the polar table's
-    name, so a group named `wing` crashed the whole products stage with a bare
-    ValueError after the seat was spent; measured planning READY on 2026-09-08.
-    The refusal names the artifact, the key and the polar table the number is for."""
+def test_a_pproc_group_named_like_the_numbered_era_is_refused_at_plan_time(tmp_path):
+    """The NARROWED refusal of 0.23.0 item 14, at plan time and end to end.
+
+    IT REFUSED EVERY WORD until this release (PFS-2032.03): `polar_file_name`
+    wrote the group NUMBER into the table's name, so a group named `wing`
+    crashed the whole products stage with a bare ValueError after the seat was
+    spent. Item 14 makes the NAME the file carries, so that reason is gone --
+    and a user following the migration guide met this refusal telling her to
+    undo the rename the guide had just asked for.
+
+    WHAT STAYS REFUSED is `g01` and its kin: the shape the numbered era wrote as
+    a SUFFIX, which a product named after could not be told from the form it
+    supersedes -- and the migration that moves her existing products needs
+    exactly that difference to know what it has already moved.
+
+    This test asserted the OLD rule with `wing`, and it was right for the design
+    it was written against. The word it uses now is the one that still cannot
+    work.
+    """
     root = _tier3_copy(tmp_path)
-    _pproc(root, "p006", '[groups]\n"wing" = ["Wing"]\n')
+    _pproc(root, "p006", '[groups]\n"g01" = ["Wing"]\n')
     matrix = _one_row_matrix(
         root,
         "word.fs",
@@ -355,7 +369,8 @@ def test_a_pproc_group_named_by_a_word_is_refused_at_plan_time(tmp_path):
     with pytest.raises(PyflightstreamError) as caught:
         _plan(root, matrix)
     message = str(caught.value)
-    assert "p006" in message and "wing" in message and "polar" in message, message
+    assert "p006" in message and "g01" in message, message
+    assert "numbered era" in message or "supersedes" in message, message
 
 
 def test_a_top_level_base_regions_list_is_the_documented_off_switch(tmp_path):
