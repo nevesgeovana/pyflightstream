@@ -33,7 +33,8 @@ and a super file whose blank cells broke her CSV reader.
 
 **NOTHING HERE NEEDS A RE-RUN.** Every change below is produced by
 `pyfs-matrix post --workspace <root>` over outputs already collected, on
-Windows and on the cluster, with one exception named under *Owed* at the end.
+Windows and on the cluster, with one exception -- `submitted_by`, the first
+bullet of *Owed* at the end.
 See `docs/migrating-to-0.23.0.md` before upgrading a workspace you care about.
 
 
@@ -123,12 +124,6 @@ See `docs/migrating-to-0.23.0.md` before upgrading a workspace you care about.
   length at all, and the polar carried no `VINF` or `ALT`. These are NEW
   COLUMNS: a reader that selects by name is unaffected, one that assumes a
   column count is not.
-
-- **A polar group is NAMED and the product file carries its name**, not `_g01`.
-  Your existing products are RENAMED for you by
-  `pyflightstream.workspace.rename_group_products`, which archives each file
-  before it moves it, never deletes, leaves a group number you did not name
-  alone rather than guessing, and refuses a destination that already exists.
 
 - **`_sections` carries `ITERATION` and `AZIMUTH` instead of `POINT`.** `POINT`
   held the polar's name, which the file name already carries, while the two

@@ -1080,7 +1080,7 @@ PROBE,X,Y,Z,FRAME,STEP,ALPHA,BETA,MACH,RE,VINF,ALT,J,SREF,CREF,BREF,...
 ITERATION,AZIMUTH,ALPHA,BETA,MACH,RE,VINF,ALT,J,SREF,CREF,BREF,Offset,...
 \end{lstlisting}
   \begin{itemize}
-    \item From 0.23.0 every file the post stage writes carries the WHOLE flight condition and the reference lengths. Before it, three of the four product families carried no reference length at all.
+    \item From 0.23.0 every file the post stage writes carries the WHOLE flight condition and the reference lengths. Before it, the sections, probes and reduction tables carried no reference length at all.
     \item A coefficient beside no reference area is a number nobody can check, and a probe sample with no condition is a table about nowhere.
     \item \code{\_sections} now leads with \code{ITERATION} and \code{AZIMUTH}: what varies down the table. It used to lead with the polar's NAME, which the file name already carries.
   \end{itemize}

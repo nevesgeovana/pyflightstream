@@ -99,6 +99,53 @@ def test_a_datum_square_to_a_tilted_shaft_is_accepted():
     assert block.axis_vector[0] == 0.0
 
 
+@pytest.mark.parametrize("off_square_deg", [10.0, 30.0, 60.0, 80.0])
+def test_a_datum_well_away_from_the_shaft_is_accepted_however_far_from_square(
+    off_square_deg,
+):
+    """THE CASE THE TWO TESTS ABOVE BOTH MISS, and it hid a reversed comparison.
+
+    The two datum tests beside this one use a datum EXACTLY square and a datum
+    one degree from PARALLEL. Both verdicts are the same under the documented
+    rule and under its complement, so neither could tell the two apart -- and
+    the code implemented the complement: `alignment > _DATUM_ALIGNMENT_LIMIT`
+    on `|cos(angle)|` refuses everything MORE than five degrees from SQUARE,
+    which is the opposite of "a datum within five degrees of the SHAFT is
+    refused".
+
+    Measured before the fix, sweeping the angle off square: accepted at 0, 2
+    and 4 degrees, REFUSED at 6, 15, 30, 60, 85 and 88. A datum 30 degrees off
+    square is a perfectly ordinary installation and every document promises it
+    is accepted; the refusal it got even told it that it "nearly lies along the
+    shaft" while printing 60 degrees from that shaft in the same sentence.
+
+    Parametrised across the whole band rather than at one angle, because a
+    single case is satisfied by moving the bound rather than by fixing the
+    side of it that is compared.
+    """
+    radians = math.radians(off_square_deg)
+    shaft = [math.sin(radians), 0.0, math.cos(radians)]
+    block = _rotor(shaft, zero="X")
+    assert block.axis_vector[1] == 0.0
+
+
+def test_the_datum_refusal_fires_on_nearness_to_the_shaft_and_nowhere_else():
+    """The boundary itself, asserted from both sides of the documented five.
+
+    Without this, the fix above is satisfied by removing the check entirely.
+    """
+    # Four degrees from the shaft: refused, because an azimuth measured from it
+    # locates nothing.
+    near = math.radians(4.0)
+    with pytest.raises(ValidationError):
+        _rotor([math.cos(near), 0.0, math.sin(near)], zero="X")
+
+    # Six degrees from the shaft: accepted. The bound is a judgement, and what
+    # is asserted here is that it is applied to the angle from the SHAFT.
+    far = math.radians(6.0)
+    _rotor([math.cos(far), 0.0, math.sin(far)], zero="X")
+
+
 def test_the_shaft_basis_is_the_identity_only_when_the_datum_is_x():
     """THE CLAIM THIS TEST FIRST MADE WAS FALSE, and the suite proved it.
 

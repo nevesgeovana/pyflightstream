@@ -3,7 +3,7 @@
 Version-aware, didactic Python driver for the FlightStream panel-method
 solver. MIT licensed.
 
-Status: v0.22.0 is the current release; the changelog records what
+Status: v0.23.0 is the current release; the changelog records what
 each release adds and what each one asks you to do.
 
 **v0.17.0 is the release that makes a sweep ONE RUN.** A steady matrix row
@@ -308,6 +308,10 @@ added, never dropped.
 * [Flight conditions](flight-conditions.md): what a row states about the
   flow it runs at, which quantity gets solved for, the units that ride
   the key names, and what to run on a matrix written before v0.9.0.
+* [Migrating to 0.23.0](migrating-to-0.23.0.md): every product carries the
+  flight condition it is a file of and no cell is ever blank -- what changes
+  in the bytes your reader parses, and the one command that moves the
+  products you already have onto the named-group form.
 * [Migrating to 0.22.0](migrating-to-0.22.0.md): a row's rotor speed is a
   magnitude and the reference says which way the rotor turns -- what to
   change in your rows and reference blocks, and which recorded points have

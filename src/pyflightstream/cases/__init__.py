@@ -1119,21 +1119,29 @@ class FrameSpec(BaseModel):
         return self
 
 
-#: An axis letter with at most one leading sign, which is exactly what a
-#: blade datum may be written as. It sits with its only user rather than
-#: among the frame names, where an earlier edit put it between a doc
-#: comment and the constants that comment describes (the technical
-#: writing lens and the architecture lens, independently, 2026-09-10).
+#: How closely a blade datum may lie along the shaft before its azimuth means
+#: nothing. It is compared against `|cos(angle between shaft and datum)|`,
+#: which is 1 when they are PARALLEL and 0 when they are square, so the
+#: number is `cos(5 degrees)` and the refusal fires ABOVE it: a datum within
+#: five degrees of the shaft is refused, and a datum at any other angle,
+#: however far from square, is accepted.
+#:
+#: IT WAS `cos(85 degrees)` UNTIL 0.23.0's RELEASE ROUND, which is the
+#: complement, and the complement refused every datum more than five degrees
+#: from SQUARE -- an ordinary installation at 30 degrees among them. Both
+#: datum tests of the day used a datum exactly square or one degree from
+#: parallel, and those two verdicts are the same under either reading, so
+#: nothing could tell them apart. The message made it worse by printing the
+#: angle from the shaft and then saying the datum "nearly lies along" it.
+#:
+#: The FIVE is a JUDGEMENT rather than a measurement and is written as one;
+#: what is not a judgement is that some bound must exist, because an axis that
+#: can point anywhere makes "nearly parallel" the ordinary case.
+_DATUM_ALIGNMENT_LIMIT = 0.9961946980917455
+
 #: Below this, a vector has no length worth normalising and names no
 #: direction. It is a LENGTH tolerance rather than a component one, so a
 #: direction stated in millimetres is not refused for being small.
-#: How closely a blade datum may lie along the shaft before its azimuth means
-#: nothing. cos(85 degrees): a datum within five degrees of the shaft is
-#: refused. The number is a JUDGEMENT rather than a measurement and is written
-#: as one; what is not a judgement is that some bound must exist, because an
-#: axis that can point anywhere makes "nearly parallel" the ordinary case.
-_DATUM_ALIGNMENT_LIMIT = 0.0871557427476582
-
 _AXIS_TOLERANCE = 1e-12
 
 #: The unit vector each axis letter has always meant. The letter path resolves

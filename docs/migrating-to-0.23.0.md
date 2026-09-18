@@ -171,7 +171,7 @@ CTX = "my own coefficient"
   means no phase-locked reduction.
 - An equation points at an ALIAS and never at a mesh family, so every
   coefficient you derive carries `_<alias>`.
-- `pyflightstream.workspace.inputs.write_pproc_guides` writes `VARIABLES.md`
+- `pyflightstream.post.write_pproc_guides` writes `VARIABLES.md`
   and `WRITING-EQUATIONS.md` into your pproc folder, generated from the code so
   they cannot go stale.
 
