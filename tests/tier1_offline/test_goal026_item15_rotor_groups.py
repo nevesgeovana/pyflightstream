@@ -88,13 +88,18 @@ def test_every_declared_rotor_gets_one_and_a_second_rotor_is_not_forgotten():
     assert set(resolved["LIFT_L1"]) == {"LH_L1_B1", "LH_L1_B2"}, resolved
 
 
-def _bound_pproc(tmp_path, *, declared: str):
+def _bound_pproc(tmp_path, *, declared: str, rotor_alias: str = "PORT"):
     """Bind a one-row rotor matrix and return the pproc the CASE carries.
 
     Through `resolve_matrix`, which is the binding the campaign actually runs,
     rather than through `rotor_integration_groups` directly: the four tests
     above call the function and it had NO caller in the package, so every one of
     them passed over a release that did not create a single group.
+
+    ``rotor_alias`` renames the reference's rotor, which is the only way to
+    reach the group item 15 INVENTS rather than the one a user declares. It
+    defaults to the fixture's own alias, so every caller written before it
+    binds exactly as it did.
     """
     from pyflightstream.workspace.matrix import resolve_matrix
     from tests.tier1_offline.test_goal024_point_name import RECIPES
@@ -106,6 +111,14 @@ def _bound_pproc(tmp_path, *, declared: str):
         values="0.0",
         cell=ROTOR_CELL,
     )
+    if rotor_alias != "PORT":
+        reference = workspace.inputs_dir / "references" / "r003.toml"
+        reference.write_text(
+            reference.read_text(encoding="utf-8")
+            .replace("[PORT]", f"[{rotor_alias}]")
+            .replace('alias = "PORT"', f'alias = "{rotor_alias}"'),
+            encoding="utf-8",
+        )
     (workspace.inputs_dir / "pproc" / "p001.toml").write_text(declared, encoding="utf-8")
     resolved = resolve_matrix(
         matrix, workspace, name="rotorgroups", fs_version="26.120", recipes=RECIPES
@@ -147,9 +160,68 @@ def test_the_binding_refuses_a_rotor_alias_whose_families_are_not_the_rotors(tmp
     up under another rotor's coefficient -- a number that looks right and is
     wrong. Refused rather than resolved by preferring either side.
     """
-    with pytest.raises(Exception) as caught:
+    from pyflightstream.workspace.inputs import InputArtifactError
+
+    # NAMED, NOT `Exception`. A blind `raises` here passes on an AttributeError
+    # from the fixture itself, which is not this refusal and proves nothing. The
+    # QA lens caught the same habit of mine one file away in this same round.
+    with pytest.raises(InputArtifactError) as caught:
         _bound_pproc(tmp_path, declared='[groups]\nPORT = ["Wing"]\n')
     message = str(caught.value)
     assert "PORT" in message, message
     assert "Wing" in message, message
     assert "Blade_1" in message or "Hub" in message, message
+
+
+def test_a_rotor_aliased_like_the_numbered_era_is_refused_at_plan_time(tmp_path):
+    """THE HOLE A CLOSING ROUND REPORTED IS GUARDED, BY A RULE ONE LAYER UP.
+
+    THE REPORT, and the first half of it is true. `_refuse_groups_named_by_a_word`
+    runs on the RAW pproc only. Item 15 then creates one group per rotor FROM
+    THE ROTOR'S ALIAS, and that refusal never sees those, so the reasoning went:
+    a reference declaring a rotor aliased `g01` binds cleanly, the run is
+    submitted, and the group it created cannot be turned into a file name at
+    POST time -- PFS-2032.03's failure mode re-opened, costing a run instead of
+    an edit.
+
+    THE CONCLUSION IS WRONG, and this test is what measures that rather than an
+    argument about it. `ReferenceArtifact` refuses the alias when the REFERENCE
+    is validated, which is before the pproc is even read:
+
+        alias 'g01' is spelled as a pproc group, which a boundary-citing cell
+        reads as [groups] entry '01'; choose a name that is not g<number>
+
+    The lens measured `RotorBlock` in isolation, where the alias IS accepted;
+    the rule lives on the artifact that contains it. So no guard was added --
+    one there could never fire -- and this case is what the round was actually
+    worth: nothing covered the plan-time refusal of a rotor alias, and now the
+    rule cannot be dropped without a red test.
+    """
+    from pyflightstream.workspace.inputs import InputArtifactError
+
+    with pytest.raises(InputArtifactError) as caught:
+        _bound_pproc(
+            tmp_path,
+            declared='[groups]\nWING = ["Wing"]\n',
+            rotor_alias="g01",
+        )
+
+    message = str(caught.value)
+    assert "g01" in message, message
+    assert "not g<number>" in message, message
+    # REFUSED BEFORE THE SEAT, which is the whole property. A message naming the
+    # alias is worth nothing if it arrives after a run; this asserts the failure
+    # is the REFERENCE not validating, which happens at plan time.
+    assert "does not validate" in message, message
+
+
+def test_a_rotor_aliased_by_a_word_still_binds(tmp_path):
+    """THE CONTROL FOR THE TEST ABOVE, and it is the reason that one means something.
+
+    A refusal test alone is satisfied by a constant: a function that refuses
+    everything passes it. `PORT` is the ordinary alias and must still create its
+    group, so the refusal above is discriminating between two aliases rather
+    than rejecting the path.
+    """
+    pproc = _bound_pproc(tmp_path, declared='[groups]\nWING = ["Wing"]\n', rotor_alias="PORT")
+    assert "PORT" in pproc.groups, sorted(pproc.groups)

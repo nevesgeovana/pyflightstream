@@ -197,3 +197,70 @@ def test_the_gate_takes_the_phase_locked_reduction_and_leaves_per_blade():
             "per_blade was gated by the phase-locked minimum, which is not its rule",
             entry["per_blade"],
         )
+
+
+def test_the_gate_reaches_the_row_that_does_not_name_its_rotors():
+    """THE GATE WAS ON ONE PATH OF TWO, and the one it missed is the ordinary row.
+
+    `phase_locked_gate` was called in `_the_passages_of_one_rotor` only, which
+    runs for a row that names its rotors under `rotors`. The row-level path --
+    the plain single-rotor row, which is most rows -- built `plan["phase_locked"]`
+    with no gate anywhere in it. The QA lens of the closing round reproduced it
+    against a pproc asking for ninety-nine revolutions:
+
+        phase_locked: {'windows': [[596, 720]], 'period_steps': 125, ...}
+
+    A run turning about four revolutions, handed a full phase-locked reduction.
+    For such a row item 9 did nothing at all, and every test of item 9 was green
+    because all of them asked the gate function directly or went down the
+    per-rotor path.
+
+    THE ROW HERE STATES NO ROTORS BLOCK on purpose. That is the whole point of
+    the case: it is the path the gate could not see.
+    """
+    from pyflightstream.cases import PhaseLockedSpec, PprocSpec, SimCase, SweepAxis
+    from pyflightstream.cases.workflows import reduction_windows
+
+    case = SimCase(
+        sim_id="7001",
+        aircraft="RotorRig",
+        recipe="unsteady_rotor",
+        sweep=SweepAxis(type="alpha", values=[0.0]),
+        variables={
+            "VELOCITY": "30.0",
+            "RPM": "1200",
+            "BLADES": "4",
+            "DELTA_TIME": "0.0001",
+            "TIME_ITERATIONS": "720",
+            "WINDOW_DEGREES": "90",
+        },
+        pproc=PprocSpec(
+            phase_locked=PhaseLockedSpec(min_revolutions=99.0, last_revolutions_avg=1.0)
+        ),
+    )
+
+    plan = reduction_windows(case)
+    assert plan is not None
+    assert "rotors" not in plan, "this case must exercise the ROW-LEVEL path, and it does not"
+    assert "skipped" in plan["phase_locked"], (
+        "the row-level plan built a full phase-locked reduction against a pproc asking "
+        f"for 99 revolutions from a run that turns about four: {plan['phase_locked']}"
+    )
+    assert "99" in str(plan["phase_locked"]["skipped"]), plan["phase_locked"]
+    # HER RULE'S SECOND HALF, on this path too: the gate takes the phase-locked
+    # reduction and nothing else. `per_blade` needs one complete revolution,
+    # which this run has, and the phase-locked minimum is not its threshold.
+    #
+    # THIS ASSERTION IS SATISFIED BY THE STRUCTURE AND NOT BY A DECISION, and
+    # saying so is the point of the comment. A mutant that gates `per_blade`
+    # here SURVIVED: the row-level path assigns `plan["per_blade"]` in both
+    # branches of its own `if` at the end of the function, so anything written
+    # to it earlier is overwritten and the mistake cannot be made on this path.
+    # That is a stronger guarantee than a test, and it is why the mutant is dead
+    # code rather than a hole in this case. The path where the mistake IS
+    # reachable is the per-rotor one -- it was made there, by dropping a
+    # `return` -- and the case above it is what catches that.
+    assert "windows" in plan["per_blade"], (
+        "per_blade was gated by the phase-locked minimum on the row-level path, "
+        f"which is not its rule: {plan['per_blade']}"
+    )

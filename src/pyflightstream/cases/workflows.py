@@ -3669,8 +3669,33 @@ def reduction_windows(case: SimCase) -> dict[str, object] | None:
         plan["per_blade"] = {"skipped": reason}
         return plan
 
+    # ITEM 9's GATE ON THE ROW-LEVEL PATH, which had none. `phase_locked_gate`
+    # was called in `_the_passages_of_one_rotor` alone, so a row that does NOT
+    # name its rotors under `rotors` -- the ordinary single-rotor row -- got a
+    # full phase-locked reduction whatever it turned. A closing round reproduced
+    # it: a pproc asking for 99 revolutions against a run of about four got
+    # `phase_locked: {'windows': [[596, 720]], ...}`. For such a row item 9 did
+    # nothing at all.
+    #
+    # ASKED PER SCOPE AND NOT ONCE FOR BOTH, deliberately, and this departs from
+    # the fix shape the lens proposed. The two paths are mutually exclusive and
+    # they are not asking the same question: the per-rotor gate counts THAT
+    # ROTOR's revolutions, and a second rotor at another speed sweeps a
+    # different angle over the same window, so one gate hoisted above both would
+    # answer for the row's clock and silently mis-gate every other rotor. That
+    # is the defect FR-68 exists against. Two call sites, each about its own
+    # revolution, is the correct shape rather than the tidier one.
+    turned = (span[1] - span[0] + 1) / per_revolution if per_revolution > 0 else 0.0
+    gated = phase_locked_gate(getattr(case.pproc, "phase_locked", None), revolutions=turned)
+
     passages = _passages(span, period)
-    if passages:
+    if gated is not None:
+        # THE PHASE-LOCKED REDUCTION ONLY, never `per_blade`: her rule is "nao
+        # ter o rev min ... so nao gera o phase_locked". Gating the neighbour
+        # with it takes a second product away for a reason belonging to the
+        # first, which is the shape of refusing a polar over a short run.
+        plan["phase_locked"] = gated
+    elif passages:
         plan["phase_locked"] = {
             "windows": [list(item) for item in passages],
             "period_steps": period,

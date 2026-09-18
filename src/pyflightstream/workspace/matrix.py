@@ -1207,6 +1207,24 @@ def _with_rotor_groups(pproc: PprocArtifact, reference, code: str, pol: str) -> 
         ) from clash
     if resolved == dict(pproc.groups):
         return pproc
+    # NO SECOND NAMING REFUSAL IS ADDED HERE, and that is a decision with a
+    # measurement behind it rather than an omission. A closing round reported
+    # that `_refuse_groups_named_by_a_word` runs on the RAW pproc only, so the
+    # groups THIS function invents from a rotor's alias were never checked --
+    # and that a rotor aliased `g01` would therefore reach the products stage
+    # and fail there, after the seat was spent.
+    #
+    # THE FIRST HALF IS TRUE AND THE CONCLUSION IS NOT. `ReferenceArtifact`
+    # already refuses such an alias when the reference is validated, which is
+    # before any of this and long before a run: "alias 'g01' is spelled as a
+    # pproc group ... choose a name that is not g<number>". The lens measured
+    # `RotorBlock` in isolation, where the alias is indeed accepted, and the
+    # artifact that contains it is where the rule lives. A guard added here
+    # could never fire, and an unreachable refusal carrying a comment that
+    # claims to close a live hole is worse than none: it reads as cover.
+    # The case that proves the refusal happens at plan time is
+    # `test_a_rotor_aliased_like_the_numbered_era_is_refused_at_plan_time`,
+    # which nothing covered until that round asked the question.
     return pproc.model_copy(update={"groups": resolved})
 
 
@@ -1227,9 +1245,13 @@ def _refuse_groups_named_by_a_word(pproc: PprocArtifact, code: str, pol: str) ->
     told from the form it supersedes -- and the migration that moves her
     existing products needs exactly that difference to know what it has already
     moved. The token is resolved by
-    :func:`pyflightstream.post._tables.group_token`, which is what the products
-    stage and the super file both call, so this refusal and the file name cannot
-    drift apart.
+    :func:`pyflightstream.workspace.naming.group_token`, which is what the
+    products stage and the super file both call, so this refusal and the file
+    name cannot drift apart. THIS LINE SAID `post._tables` until a closing round
+    read it: the function moved to `workspace.naming` in this same release,
+    precisely so that this module could ask it without importing `post`, and the
+    sentence explaining the arrangement still pointed at the layer the move was
+    made to avoid.
 
     An artifact that writes no polar tables is left alone, as before.
     """
