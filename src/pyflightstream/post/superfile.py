@@ -86,7 +86,7 @@ from pyflightstream.cases.matrix import (
 )
 from pyflightstream.post._tables import ProductError, write_csv_table
 from pyflightstream.post._tables import _cell as _fixed_cell
-from pyflightstream.workspace.naming import SUPER_FILE_PREFIX, sweep_file_stem
+from pyflightstream.workspace.naming import SUPER_FILE_PREFIX, group_token, sweep_file_stem
 
 __all__ = [
     "REPORTS_DIR",
@@ -178,7 +178,12 @@ def super_file_name(
     stem of the polar table beside it with the one word that tells the two
     apart in front.
     """
-    return f"{sweep_file_stem(sim, sweep, prefix=SUPER_FILE_PREFIX)}_g{int(group):02d}{suffix}"
+    # THROUGH THE SAME TOKEN AS THE POLAR BESIDE IT, and not a second
+    # `int(group)`: the super file's stem is the polar's stem with one word in
+    # front, so a group naming convention that reached one and not the other
+    # would leave a workspace whose super file and polar disagree about which
+    # group they are about. That is also what makes the union's glob work.
+    return f"{sweep_file_stem(sim, sweep, prefix=SUPER_FILE_PREFIX)}_{group_token(group)}{suffix}"
 
 
 def matrix_rows(root: Path, matrix_stem: str | None) -> dict[str, MatrixRow]:

@@ -76,7 +76,6 @@ from __future__ import annotations
 import csv
 import json
 import math
-import re
 import warnings
 from collections import Counter
 from collections.abc import Callable, Mapping, Sequence
@@ -139,7 +138,12 @@ from pyflightstream.results import (
     parse_unsteady_plots,
 )
 from pyflightstream.workspace import RunStatus
-from pyflightstream.workspace.naming import ARCHIVE_DIR, ARCHIVE_STAMP, sweep_file_stem
+from pyflightstream.workspace.naming import (
+    ARCHIVE_DIR,
+    ARCHIVE_STAMP,
+    group_token,
+    sweep_file_stem,
+)
 
 if TYPE_CHECKING:
     from pyflightstream.cases.matrix import MatrixRow
@@ -596,20 +600,26 @@ def swept_polar_file_name(
     group: str | int,
     suffix: str = ".csv",
 ) -> str:
-    """``P<sim>-<name>_g<group:02d>.csv`` (FR-85, 0.21.0).
+    """``P<sim>-<name>_<group>.csv``, the group NAMED since 0.23.0 (FR-85).
 
     ``name`` is the recorded sweep name, each swept field written
     ``<code>+sweep``, for a table over a sweep
-    (``P0001-M150AL+000BE+000J+sweep_g01.csv``), and the recorded point name for
-    a case whose sweep resolved to one point. The ``.dat`` of the custom format
-    takes the same stem, which is what ``suffix`` is for.
+    (``P0001-M150AL+000BE+000J+sweep_PUSHER.csv``), and the recorded point name
+    for a case whose sweep resolved to one point. The ``.dat`` of the custom
+    format takes the same stem, which is what ``suffix`` is for.
+
+    A NUMBERED group still writes ``_g01``, because a workspace recorded before
+    0.23.0 holds those files and a pproc that still numbers its groups must keep
+    producing the names beside them rather than a second era of its own.
+
+    ``int(group)`` WAS UNCONDITIONAL HERE, which made item 14 unreachable: a
+    named group raised a bare `ValueError` inside the products stage -- not even
+    a `ProductError`, so `except PyflightstreamError` did not catch it and the
+    refusal carried no file, no group and no fix. The matrix binder refused the
+    same pproc one stage earlier, so the feature this release is named for was
+    refused at BOTH ends.
     """
-    return f"{sweep_file_stem(sim, name)}_g{int(group):02d}{suffix}"
-
-
-#: A group name that reads as the NUMBERED era's suffix, which the rename must
-#: be able to tell apart from a name of its own.
-_NUMBERED_GROUP = re.compile(r"^g\d+$", re.IGNORECASE)
+    return f"{sweep_file_stem(sim, name)}_{group_token(group)}{suffix}"
 
 
 #: The six coefficients a rotor table carries, in the order the owner named
@@ -750,17 +760,12 @@ def group_product_name(*, polar: str, mach: float, group: str, suffix: str = ".c
     moves her existing products has to be able to tell the two eras apart to
     know what it has already moved.
     """
-    token = str(group).strip()
-    if not token:
-        raise ProductError("a polar group has no name, and the product file is named after it")
-    if _NUMBERED_GROUP.match(token):
-        raise ProductError(
-            f"the polar group is named {token!r}, which is the shape this release "
-            "replaced; a file named after it could not be told from the numbered "
-            "form it supersedes, and the rename of existing products needs that "
-            "difference. Choose a name for the group"
-        )
-    return f"{polar}-M{_mach_code(mach):02d}_{token}{suffix}"
+    # THROUGH THE SHARED RULE, which is what makes this name and the one the
+    # campaign path writes tell the two eras apart the same way. It refuses the
+    # empty name and the `gNN` collision; `group_token` is the ONE place either
+    # is decided, so the binder that refuses a pproc, the polar the stage
+    # writes and this name cannot drift into three readings of one convention.
+    return f"{polar}-M{_mach_code(mach):02d}_{group_token(group)}{suffix}"
 
 
 def read_csv_table(path: str | Path) -> tuple[tuple[str, ...], list[dict[str, str]]]:

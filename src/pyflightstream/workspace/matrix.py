@@ -100,10 +100,6 @@ from pyflightstream.workspace import (
     ReferenceArtifact,
     SetupArtifact,
 )
-
-# SIDEWAYS, to the module of this layer that resolves a constraint set
-# into a flow state. It needs the reference LENGTH, which is why it is
-# here and not on the floor with the atmosphere (PFS-2027.02).
 from pyflightstream.workspace.flight_condition import (
     PINNED_KEYS,
     ResolvedCondition,
@@ -123,6 +119,11 @@ from pyflightstream.workspace.inputs import (
     read_inventory,
     resolve_build,
 )
+
+# SIDEWAYS, to the module of this layer that resolves a constraint set
+# into a flow state. It needs the reference LENGTH, which is why it is
+# here and not on the floor with the atmosphere (PFS-2027.02).
+from pyflightstream.workspace.naming import group_token
 
 __all__ = [
     "GEOMETRY_VARIABLE",
@@ -1175,34 +1176,49 @@ def _solver_from_setup(setup: SetupArtifact, set_code: str) -> SolverSettings:
 
 
 def _refuse_groups_named_by_a_word(pproc: PprocArtifact, code: str, pol: str) -> None:
-    """Refuse a pproc artifact whose polar groups are keyed by a word.
+    """Refuse a pproc group whose name reads as the NUMBERED era's own suffix.
 
-    PFS-2032.03. The polar table written per group carries the group
-    NUMBER in its name (``<polar>_M<mach>_g<number>.csv``, the reference
-    convention, :func:`pyflightstream.post.products.polar_file_name`), so
-    a group named ``wing`` reached ``int(group)`` in the products stage
-    and stopped the whole stage with a bare ValueError, outside the skip
-    mechanism and after the seat was spent; measured planning READY on
-    2026-09-08. Refused HERE, at binding, and not at the artifact's shape:
-    a group's members are also what :func:`pyflightstream.workspace.expand_group`
-    numbers by the group's own name (``Blade`` to ``Blade1``, ``Blade2``),
-    which is a recipe's tool and reads no polar, so the shape stays free
-    and the campaign path, where the number is the table's name, is what
-    refuses. An artifact that writes no polar tables is left alone.
+    THIS REFUSED EVERY WORD UNTIL 0.23.0, and that is what made item 14
+    unreachable from the other side. PFS-2032.03 refused a word here because the
+    polar table carried the group NUMBER in its name and `int(group)` therefore
+    stopped the whole products stage with a bare ValueError, after the seat was
+    spent. The naming is what changed: a group is now NAMED and the product file
+    carries that name, so the refusal's own reason is gone -- and a user
+    following the migration guide met this refusal telling her to undo the very
+    rename the guide had just asked for.
+
+    WHAT STAYS REFUSED is the one name that cannot work: `g01` and its kin read
+    as the suffix the numbered era wrote, so a file named after one could not be
+    told from the form it supersedes -- and the migration that moves her
+    existing products needs exactly that difference to know what it has already
+    moved. The token is resolved by
+    :func:`pyflightstream.post._tables.group_token`, which is what the products
+    stage and the super file both call, so this refusal and the file name cannot
+    drift apart.
+
+    An artifact that writes no polar tables is left alone, as before.
     """
     if not pproc.products.polars:
         return
-    words = sorted(name for name in pproc.groups if not str(name).strip().isdigit())
-    if not words:
+    # THROUGH `group_token`, the one function that decides what a product
+    # file carries for a group. Asking it is how this refusal and the file
+    # name stay one rule instead of two that drift.
+    collides = []
+    for name in pproc.groups:
+        try:
+            group_token(str(name))
+        except ValueError:
+            collides.append(str(name))
+    collides.sort()
+    if not collides:
         return
     raise InputArtifactError(
         f"matrix row POL {pol}: the PPROC column names pproc {code!r} "
-        f"(inputs/pproc/{code}.toml), whose [groups] table is keyed by "
-        f"{', '.join(repr(name) for name in words)}. A group is keyed by its NUMBER, "
-        "which is the entry the polar table written per group carries in its name "
-        "(<polar>_M<mach>_g<number>.csv), and the families it sums are the list: write "
-        '"1" = ["Wing"] rather than wing = ["Wing"]. An artifact whose groups are not '
-        "for polar tables says so with products.polars = false.",
+        f"(inputs/pproc/{code}.toml), whose [groups] table names "
+        f"{', '.join(repr(name) for name in collides)}. That is the shape the numbered "
+        "era wrote as a SUFFIX, so a product named after it could not be told from the "
+        "form it supersedes, and the rename that moves the products you already have "
+        'needs that difference. Give the group a name of its own: PUSHER = ["Blade1"].',
         kind="pproc",
         artifact_id=code,
     )

@@ -26,7 +26,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
-from pyflightstream.post.products import ProductError
+from pyflightstream._errors import ProductError
 from pyflightstream.workspace.naming import ARCHIVE_STAMP
 
 #: The suffix the numbered era wrote, which is what this migration reads.

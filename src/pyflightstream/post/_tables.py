@@ -17,7 +17,12 @@ from pathlib import Path
 
 import numpy as np
 
-from pyflightstream._errors import PyflightstreamError
+# RE-EXPORTED, not used here. `post.products` imports both from this module,
+# which is what its own docstring promises a reader, and they are DEFINED in
+# `_errors` since 0.23.0 because two layers name them: the products stage
+# raises them and `workspace.rename_groups` does too.
+from pyflightstream._errors import ProductError as ProductError
+from pyflightstream._errors import ProductExistsError as ProductExistsError
 
 #: The column naming the ADVANCE RATIO of a row.
 #:
@@ -172,20 +177,6 @@ _COEFFICIENT_PLOT_PREFIXES = ("CL_", "CDI_", "CDO_", "CD_")
 
 #: Decimals written for every coefficient and section value, the reference precision.
 _DECIMALS = 5
-
-
-class ProductError(PyflightstreamError, ValueError):
-    """A product cannot be written from what the run left."""
-
-
-class ProductExistsError(ProductError):
-    """A product exists and ``overwrite`` was not given.
-
-    Its own class because the campaign writer treats it differently from
-    every other refusal (PFS-2031.16): a refusal about one simulation's
-    content is recorded as a skip and the other simulations are written,
-    while this one is about the caller's flag and stops the stage.
-    """
 
 
 #: What a cell writes when the column does not apply to that row.

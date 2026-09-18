@@ -258,3 +258,147 @@ def test_nothing_is_moved_when_the_collision_is_reached_late(tmp_path):
     assert not (early / "P0001-M150_PUSHER.csv").exists(), "it moved, and the refusal denied it"
     assert (late / "P0002-M150_g01.csv").read_text(encoding="utf-8") == "a\n"
     assert (late / "P0002-M150_PUSHER.csv").read_text(encoding="utf-8") == "b\n"
+
+
+def _named_workspace(tmp_path):
+    """The recorded campaign, with its groups NAMED rather than numbered."""
+    import sys
+    from pathlib import Path
+
+    sys.path.insert(0, str(Path(__file__).parent))
+    from test_post_superfile import _workspace
+
+    workspace = _workspace(tmp_path)
+    for pproc in ("p001", "p002"):
+        (workspace.inputs_dir / "pproc" / f"{pproc}.toml").write_text(
+            '[groups]\nPUSHER = ["W", "B"]\nWING = ["W"]\n', encoding="utf-8"
+        )
+    return workspace
+
+
+def test_the_post_stage_writes_a_named_group_end_to_end(tmp_path):
+    """ITEM 14 THROUGH THE STAGE, which is the only way it is delivered.
+
+    The item's three other tests call `group_product_name` directly, and it had
+    NO caller in the package: the stage still called `swept_polar_file_name`,
+    whose `int(group)` raises a bare `ValueError` on a name. So a user following
+    the migration guide renamed her groups and met a traceback -- and the matrix
+    binder refused the pproc before that, telling her to undo it. The feature
+    was refused at BOTH ends.
+
+    This asserts what she gets: a product file carrying the group's name.
+    """
+    import sys
+    from pathlib import Path
+
+    sys.path.insert(0, str(Path(__file__).parent))
+    from test_post_superfile import _post
+
+    workspace = _named_workspace(tmp_path)
+    written = _post(workspace)
+
+    polars = [Path(p) for p in written if "polars" in Path(p).parts]
+    assert polars, [str(p) for p in written]
+    names = {p.name for p in polars}
+    assert any("PUSHER" in name for name in names), sorted(names)
+    assert not any("_g01" in name or "_g02" in name for name in names), sorted(names)
+
+
+def test_what_the_rename_produces_is_what_the_post_stage_writes(tmp_path):
+    """THE PROMISE THE MIGRATION PAGE MAKES, and nothing checked it.
+
+    The page tells a user to run `rename_group_products` over the products she
+    already has, then upgrade. That is only true if the renamed file IS the file
+    the next post writes -- otherwise she ends with both eras side by side and a
+    superset assertion that is satisfied by either.
+
+    The two were built by DIFFERENT functions with different conventions: the
+    rename swaps `_g01` for `_PUSHER` on the existing stem, while
+    `group_product_name` builds a stem of its own from the polar and a Mach
+    code. A technical-writing lens flagged the mismatch and said only running
+    both would settle it. This runs both.
+    """
+    import sys
+    from pathlib import Path
+
+    sys.path.insert(0, str(Path(__file__).parent))
+    from test_post_superfile import _post
+
+    from pyflightstream.workspace import rename_group_products
+
+    # The era she has: numbered products on disk, written by the old naming.
+    numbered = _named_workspace(tmp_path)
+    for pproc in ("p001", "p002"):
+        (numbered.inputs_dir / "pproc" / f"{pproc}.toml").write_text(
+            '[groups]\n"1" = ["W", "B"]\n"2" = ["W"]\n', encoding="utf-8"
+        )
+    _post(numbered)
+    before = sorted(p.name for p in numbered.root.rglob("*_g0*.csv"))
+    assert before, "the numbered era wrote nothing to migrate"
+
+    renamed = rename_group_products(numbered.root, {1: "PUSHER", 2: "WING"})
+    assert renamed, "the migration moved nothing"
+    after_rename = {product.after.name for product in renamed}
+
+    # The era she upgrades into: the same campaign, groups named, posted fresh.
+    fresh = _named_workspace(tmp_path / "fresh")
+    _post(fresh)
+    after_post = {Path(p).name for p in fresh.root.rglob("*.csv") if "polars" in Path(p).parts}
+
+    overlap = after_rename & after_post
+    assert overlap, (
+        "the rename and the post stage produce DIFFERENT names for one group, so a "
+        f"migrated workspace ends with both eras side by side.\n  rename: "
+        f"{sorted(after_rename)}\n  post:   {sorted(after_post)}"
+    )
+
+
+@pytest.mark.parametrize("colliding", ["g01", "G7", "g003"])
+def test_the_binder_still_refuses_a_group_named_like_the_numbered_era(colliding):
+    """THE OTHER END OF ITEM 14, and a surviving mutant is why this exists.
+
+    The matrix binder refused EVERY word-keyed group until this release, which
+    is what made the named group unreachable: a user following the migration
+    guide was told at plan time to undo the rename the guide had just asked for.
+    The refusal is narrowed rather than deleted -- `g01` and its kin read as the
+    suffix the numbered era wrote, and the migration needs that difference to
+    know what it has already moved.
+
+    I claimed the narrowing without proving it, and scoring the mutants found
+    it: removing the binder's refusal entirely broke NOTHING. Nothing covered
+    it, so "narrowed" and "deleted" were indistinguishable from the suite.
+
+    It asserts through `_refuse_groups_named_by_a_word` rather than through a
+    whole campaign, because the binding needs a resolved workspace and what is
+    under test is the rule, not the plumbing around it. The rule itself is
+    `group_token`, which the products stage also calls -- so the refusal and
+    the file name cannot drift into two readings.
+    """
+    from pyflightstream.cases import ProductsSpec
+    from pyflightstream.workspace.matrix import _refuse_groups_named_by_a_word
+
+    class _Pproc:
+        groups = {colliding: ["Blade1"]}
+        products = ProductsSpec()
+
+    with pytest.raises(Exception) as caught:
+        _refuse_groups_named_by_a_word(_Pproc(), "p001", "0001")
+    message = str(caught.value)
+    assert colliding in message, message
+    assert "numbered era" in message or "supersedes" in message, message
+
+
+def test_the_binder_accepts_a_group_named_like_a_rotor():
+    """The other half, so the refusal is not satisfied by refusing everything.
+
+    This is the case the release is FOR, and the case the binder refused until
+    now. A check that only ever refuses is the shape this estate has recorded.
+    """
+    from pyflightstream.cases import ProductsSpec
+    from pyflightstream.workspace.matrix import _refuse_groups_named_by_a_word
+
+    class _Pproc:
+        groups = {"PUSHER": ["Blade1"], "1": ["Wing"]}
+        products = ProductsSpec()
+
+    _refuse_groups_named_by_a_word(_Pproc(), "p001", "0001")

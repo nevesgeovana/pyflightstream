@@ -41,7 +41,7 @@ from string import Formatter
 
 from pydantic import BaseModel, ConfigDict, field_validator
 
-from pyflightstream._errors import PyflightstreamError
+from pyflightstream._errors import ProductError, PyflightstreamError
 
 _POINT_PLACEHOLDERS = (
     "campaign",
@@ -190,6 +190,38 @@ def datapoint_name_of(folder: str) -> PointName | None:
 def point_file_stem(sim: str, name: PointName) -> str:
     """Return the stem of every file of one point: ``P<sim>-<point name>`` (0.21.0)."""
     return f"{POINT_FILE_PREFIX}{sim}-{name}"
+
+
+#: A group name that reads as the NUMBERED era's suffix, which the rename must
+#: be able to tell apart from a name of its own. It sits here rather than in
+#: `post` because the MATRIX BINDER refuses the colliding shape one stage
+#: earlier, and `workspace` may not import `post`. Two copies of one naming
+#: rule is how a refusal and the file it is about come to disagree.
+_NUMBERED_GROUP = re.compile(r"^g\d+$", re.IGNORECASE)
+
+
+def group_token(group: str | int) -> str:
+    """Return what a product file carries for one group: its NAME, or ``gNN``.
+
+    The one place the two eras are told apart, so the rename that moves her
+    products and the stage that writes new ones cannot drift into two
+    conventions -- which is the drift a technical-writing lens flagged, since
+    the migration page's whole promise is that the renamed file IS the file the
+    next post writes.
+    """
+    token = str(group).strip()
+    if not token:
+        raise ProductError("a polar group has no name, and the product file is named after it")
+    if token.isdigit():
+        return f"g{int(token):02d}"
+    if _NUMBERED_GROUP.match(token):
+        raise ProductError(
+            f"the polar group is named {token!r}, which is the shape this release "
+            "replaced; a file named after it could not be told from the numbered "
+            "form it supersedes, and the rename of existing products needs that "
+            "difference. Choose a name for the group"
+        )
+    return token
 
 
 def sweep_file_stem(sim: str, sweep: str, *, prefix: str = POINT_FILE_PREFIX) -> str:
