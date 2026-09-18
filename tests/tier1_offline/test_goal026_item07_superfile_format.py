@@ -65,11 +65,30 @@ def test_the_two_formats_carry_the_same_columns(tmp_path):
     knows about that simulation. A second format quietly carrying a different
     SET would break that claim while looking like a formatting option.
     """
-    _, _, plain = write_superfiles(_drafts(tmp_path / "a"), target=_maker(tmp_path / "a"))
-    _, _, legacy = write_superfiles(
+    plain_files, _, plain = write_superfiles(_drafts(tmp_path / "a"), target=_maker(tmp_path / "a"))
+    legacy_files, _, legacy = write_superfiles(
         _drafts(tmp_path / "b"), target=_maker(tmp_path / "b"), fmt="legacy_polar"
     )
     assert plain == legacy, (plain, legacy)
+
+    # THE RETURNED TUPLE IS NOT THE FILE, and comparing it was the whole of this
+    # test until the QA lens of REL-0230 scored a mutant against it: the tuple is
+    # built BEFORE the format branch, so truncating `_write_legacy_polar` to one
+    # column left the assertion above green. A legacy file dropping 627 of 628
+    # columns shipped with this test passing.
+    #
+    # So the columns are counted IN THE BYTES each writer produced. The two
+    # formats spell a header differently by design, which is why the assertion
+    # is on the COUNT of the declared columns appearing rather than on equal
+    # text: what must not differ is how much of the workspace each file carries.
+    assert plain_files and legacy_files, (plain_files, legacy_files)
+    for written in (plain_files[0], legacy_files[0]):
+        text = written.read_text(encoding="utf-8")
+        missing = [name for name in plain if name not in text]
+        assert not missing, (
+            f"{written.name} carries {len(plain) - len(missing)} of {len(plain)} columns; "
+            f"the first few missing are {missing[:5]}"
+        )
 
 
 def _maker(root):
