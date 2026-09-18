@@ -24,7 +24,7 @@ FlightStream versions.
   release by the concept DOI, which resolves to the newest archived version.
 
 
-## [0.23.0] - 2026-09-17
+## [0.23.0] - 2026-09-18
 
 Sixteen items, all of them about the same thing: **every file the post stage
 writes says what it is.** The release opened with one message, and both halves
