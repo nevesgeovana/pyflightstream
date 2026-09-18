@@ -280,30 +280,33 @@ See `docs/migrating-to-0.23.0.md` before upgrading a workspace you care about.
   rotor table stays sourced where it is. **Shipping the resolver uncalled is
   named here because an unused function reads as a delivered capability in a
   change log, and this release makes no such claim.**
-- **The super file takes a format**: `csv` as before, or `legacy_polar`. Both
-  carry the same columns; a format nobody offers is refused naming those that
-  exist rather than falling back.
-- **Three optional pproc tables, shipped together**: `[phase_locked]`,
-  `[equations]` and `[glossary]`. The pproc spec forbids unknown tables, so a
-  half shipment would make an artifact written for this release unreadable by
-  an install that almost has the feature. A pproc that mentions none of them
-  loads exactly as before.
-  - `phase_locked` is generated when the matrix specifies AT LEAST
-    `min_revolutions`. Not reaching it does NOT refuse the polar.
-  - An equation points at an ALIAS and never at a mesh family, so every derived
-    coefficient carries `_<alias>`.
-  - **An equation MAY NAME ANOTHER EQUATION and the package works out the
-    order**, because you write them in a TOML table and a table has no order a
-    reader may rely on. `PprocSpec.equation_order()` returns it; a chain that
-    loops is refused NAMING the equations in the loop, since "circular" alone
-    sends you back to the file to find it by eye. A symbol the table does not
-    define is a variable the products already carry, so a base is never
-    declared -- which is why the guide's own first example, `CT * 2`, needs
-    nothing around it.
-- **Generated pproc guides**: `write_pproc_guides` writes `VARIABLES.md` and
-  `WRITING-EQUATIONS.md` into the pproc input folder, read from the models they
-  document so they cannot go stale.
+- **`[phase_locked]`, an optional pproc table.** `phase_locked` is generated when
+  the row turns AT LEAST `min_revolutions`; not reaching it does NOT refuse the
+  polar, it skips that one reduction with the reason. A pproc that says nothing
+  about it loads exactly as before.
 
+  **THE GATE COUNTS WHAT THE ROW TURNS, not the exported window.** It did not
+  exist on the row-level path at all -- the ordinary single-rotor row got a full
+  phase-locked reduction whatever it turned -- and where it did exist it counted
+  the window, so a campaign turning six revolutions and exporting the last one
+  was read as turning one and failed a minimum of two it had comfortably met.
+
+- **ITEMS 7, 10 AND 11 ARE NOT IN THIS RELEASE**, by the owner's decision of
+  2026-09-18, and they are listed here because their absence is a fact a reader
+  needs rather than one to discover:
+
+  - the super file in the fixed-width `legacy_polar` format,
+  - the `[equations]` pproc table and its `[glossary]`,
+  - the generated `VARIABLES.md` and `WRITING-EQUATIONS.md`.
+
+  **The `[equations]` and `[glossary]` FIELDS HAVE BEEN REMOVED from the pproc
+  spec**, and that is deliberate rather than an oversight. They were declared
+  while nothing consumed them, and `write_pproc_guides` had no caller on any
+  campaign path, so a user could have written `[equations]` into a pproc, had
+  the file accepted, and got no coefficient back. The spec forbids unknown
+  tables, so those keys are now REFUSED BY NAME -- which tells you the feature is
+  not here, where silent acceptance would not. They return in 0.24.0 with the
+  behaviour behind them.
 
 ### Fixed
 

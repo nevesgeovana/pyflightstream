@@ -999,6 +999,17 @@ _UNREACHABLE_FROM_ITS_PACKAGE_ROOT = {
         "post/__init__.py mentions it in its docstring and imports nothing from "
         "it; the re-export is owed and this entry goes stale the moment it lands"
     ),
+    "pyflightstream.post.guides": (
+        "ITEM 11 IS 0.24.0 SCOPE, by the owner's decision of 2026-09-18: 'vamos "
+        "colocar equations e VARIABLES.md e WRITING-EQUATIONS.md gerados para a 24'. "
+        "The re-export was REMOVED from post/__init__.py rather than the module "
+        "deleted, because the module is the 0.24.0 work and git is not where a "
+        "reader looks for it. Publishing the name would have been worse than "
+        "either: `write_pproc_guides` has no caller on any campaign path, so the "
+        "package would have offered a capability it does not perform. THE ROW THAT "
+        "CLOSES THIS is item 11 landing in 0.24.0, at which point the re-export "
+        "returns and this entry must go."
+    ),
 }
 
 

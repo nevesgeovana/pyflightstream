@@ -51,7 +51,10 @@ Sweep assembly is not here either, it is
 # v0.23.0 item 11: the generated pproc guides. Re-exported here because a
 # module under `post` that its package root cannot reach is a module a
 # reader cannot find, which the results guard refuses by name.
-from pyflightstream.post.guides import PPROC_GUIDE_NAMES, write_pproc_guides
+# ITEM 11 IS 0.24.0 SCOPE, by the owner's decision of 2026-09-18, so
+# `pyflightstream.post.guides` is NOT re-exported here. It had no caller on
+# any campaign path either, so publishing the name would have offered a
+# capability the package does not perform. The module stays for 0.24.0.
 from pyflightstream.post.products import (
     CustomPolarTable,
     ProductError,
@@ -125,8 +128,6 @@ __all__ = [
     "write_plots_table",
     "write_polar_table",
     "write_recorded_polar",
-    "PPROC_GUIDE_NAMES",
-    "write_pproc_guides",
     "write_reduction",
     "write_sections_table",
     "write_point_series",

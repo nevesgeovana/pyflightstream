@@ -38,18 +38,38 @@ from pydantic import ValidationError
 
 from pyflightstream.cases import PprocSpec
 
-ATOMIC = ("phase_locked", "equations", "glossary")
+#: What 0.23.0's pproc spec SHIPS, and what it must NOT carry.
+#:
+#: The rule was "the three tables are present together or absent together",
+#: because `extra="forbid"` means an artifact written for this release is
+#: REFUSED by an install carrying only part of them. On 2026-09-18 the owner
+#: moved items 10 and 11 to 0.24.0, so the rule is now satisfied by the two
+#: being ABSENT. The property is unchanged; which side of it holds is not.
+SHIPPED = ("phase_locked",)
+DEFERRED = ("equations", "glossary")
 
 
-def test_the_three_tables_are_present_together():
+def test_the_pproc_spec_carries_this_release_and_not_the_next_one():
     """The atomicity itself, asserted rather than remembered.
 
     `extra="forbid"` means a half shipment turns her artifact into one an
     install refuses, so this is a property of the release and not of one item.
+
+    THE SIDE OF THE PROPERTY CHANGED WHEN SHE MOVED ITEMS 10 AND 11 to 0.24.0
+    on 2026-09-18. The absence is asserted rather than assumed, and that is the
+    stronger half now: both fields were declared here while NOTHING consumed
+    them, so a user could have written `[equations]` into a pproc, had the file
+    accepted, and got no coefficient out of it. A refusal names the key; silent
+    acceptance names nothing.
     """
     fields = set(PprocSpec.model_fields)
-    missing = [name for name in ATOMIC if name not in fields]
-    assert not missing, f"the pproc spec carries only part of the shipment; missing {missing}"
+    missing = [name for name in SHIPPED if name not in fields]
+    assert not missing, f"the pproc spec is missing {missing}, which 0.23.0 ships"
+    early = [name for name in DEFERRED if name in fields]
+    assert not early, (
+        f"the pproc spec carries {early}, which is 0.24.0 scope. Declaring a table the "
+        "release does not IMPLEMENT lets a user write it and get nothing back"
+    )
 
 
 def test_phase_locked_is_optional_and_absent_by_default():
@@ -72,6 +92,7 @@ def test_averaging_over_more_revolutions_than_the_minimum_is_refused():
         PprocSpec(phase_locked={"min_revolutions": 2, "last_revolutions_avg": 5})
 
 
+@pytest.mark.skip(reason="items 10 and 11 are 0.24.0 scope by the owner's decision of 2026-09-18")
 def test_an_equation_points_at_an_alias_and_never_at_a_family():
     """Her rule, and the reason for it: every coefficient then carries `_<alias>`."""
     spec = PprocSpec(
@@ -81,6 +102,7 @@ def test_an_equation_points_at_an_alias_and_never_at_a_family():
     assert spec.equations["CTX"].frame == "BODY"
 
 
+@pytest.mark.skip(reason="items 10 and 11 are 0.24.0 scope by the owner's decision of 2026-09-18")
 def test_an_equation_that_names_a_mesh_family_is_refused_by_name():
     """ "não vamos aceitar apontar famílias". Refused, and the refusal says why."""
     with pytest.raises(ValidationError) as caught:
@@ -92,24 +114,29 @@ def test_an_equation_that_names_a_mesh_family_is_refused_by_name():
     assert "famil" in str(caught.value).lower() or "extra" in str(caught.value).lower()
 
 
+@pytest.mark.skip(reason="items 10 and 11 are 0.24.0 scope by the owner's decision of 2026-09-18")
 def test_an_equation_with_no_alias_is_refused():
     """Without an alias the derived coefficient has no `_<alias>` to carry."""
     with pytest.raises(ValidationError):
         PprocSpec(equations={"CTX": {"expression": "CT * 2", "frame": "BODY"}})
 
 
+@pytest.mark.skip(reason="items 10 and 11 are 0.24.0 scope by the owner's decision of 2026-09-18")
 def test_the_glossary_is_a_table_the_user_can_extend():
     """She asked whether the package needs one and whether she can add to it."""
     spec = PprocSpec(glossary={"CT": "thrust coefficient, T / (rho n^2 D^4)"})
     assert spec.glossary["CT"].startswith("thrust coefficient")
 
 
-def test_a_pproc_saying_nothing_about_any_of_the_three_still_loads():
-    """The three are OPTIONAL. Adding them may not refuse every pproc she has."""
+def test_a_pproc_saying_nothing_about_phase_locked_still_loads():
+    """It is OPTIONAL. Adding it may not refuse every pproc she already has.
+
+    This also asserted `equations == {}` and `glossary == {}`; those fields left
+    the spec with items 10 and 11 on 2026-09-18, and asking a model for a field
+    it does not declare would raise here rather than measure anything.
+    """
     spec = PprocSpec()
     assert spec.phase_locked is None
-    assert spec.equations == {}
-    assert spec.glossary == {}
 
 
 def test_the_gate_reaches_the_plan_and_a_short_run_is_skipped_not_refused():
@@ -263,4 +290,72 @@ def test_the_gate_reaches_the_row_that_does_not_name_its_rotors():
     assert "windows" in plan["per_blade"], (
         "per_blade was gated by the phase-locked minimum on the row-level path, "
         f"which is not its rule: {plan['per_blade']}"
+    )
+
+
+def test_the_gate_counts_the_run_and_not_the_exported_window():
+    """THE CASE THAT DISCRIMINATES, and without it the fix is unproved.
+
+    HER WORDS SETTLE IT, 2026-09-17: "Se a especificacao da matriz bater esse
+    numero minimo, o phase_locked e gerado". The MATRIX SPECIFICATION is the
+    run -- `DELTA_THETA` and `REVOLUTIONS`, or `RPM` and the seconds -- and the
+    exported window is a different number entirely.
+
+    THE ARITHMETIC OF THIS CASE, which is why it can tell the two apart:
+
+        RPM 1200, DELTA_TIME 0.0001   ->   500 solver steps per revolution
+        TIME_ITERATIONS 720           ->   the RUN turns 1.44 revolutions
+        WINDOW_DEGREES 90             ->   the WINDOW holds 0.25 of one
+
+    So at `min_revolutions = 1.0` the two readings disagree by the verdict, not
+    by a digit: counting the run GENERATES the reduction, counting the window
+    SKIPS it. Every other case in this file has the two readings agreeing, which
+    is exactly why none of them caught this.
+
+    A campaign that turns six revolutions and exports the last one is the real
+    shape of the defect: it was read as turning one, and failed a minimum of two
+    it had comfortably met.
+    """
+    from pyflightstream.cases import PhaseLockedSpec, PprocSpec, SimCase, SweepAxis
+    from pyflightstream.cases.workflows import reduction_windows
+
+    def plan_at(minimum: float):
+        case = SimCase(
+            sim_id="7001",
+            aircraft="RotorRig",
+            recipe="unsteady_rotor",
+            sweep=SweepAxis(type="alpha", values=[0.0]),
+            variables={
+                "VELOCITY": "30.0",
+                "RPM": "1200",
+                "BLADES": "4",
+                "DELTA_TIME": "0.0001",
+                "TIME_ITERATIONS": "720",
+                "WINDOW_DEGREES": "90",
+            },
+            pproc=PprocSpec(
+                phase_locked=PhaseLockedSpec(min_revolutions=minimum, last_revolutions_avg=0.1)
+            ),
+        )
+        plan = reduction_windows(case)
+        assert plan is not None
+        return plan
+
+    # THE RUN TURNS 1.44, so a minimum of one is MET and the reduction exists.
+    # Under the window reading this row holds 0.25 of a revolution and would be
+    # skipped, so this single assertion is the whole discrimination.
+    generated = plan_at(1.0)["phase_locked"]
+    assert "windows" in generated, (
+        "the gate skipped a run that turns 1.44 revolutions against a minimum of 1.0, "
+        f"which means it counted the 0.25-revolution export window instead: {generated}"
+    )
+
+    # AND IT STILL REFUSES WHAT IT SHOULD, so the assertion above is not
+    # satisfied by a gate that stopped gating: a refusal test alone is met by a
+    # constant, and so is an acceptance test alone.
+    skipped = plan_at(2.0)["phase_locked"]
+    assert "skipped" in skipped, f"the run turns 1.44 revolutions and 2.0 were asked for: {skipped}"
+    assert "1.44" in str(skipped["skipped"]), (
+        "the skip states a number that is not what the row turned; a message naming the "
+        f"window would read 0.25 here: {skipped['skipped']}"
     )

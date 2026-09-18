@@ -38,6 +38,24 @@ from pydantic import ValidationError
 from pyflightstream.cases import EquationSpec, PprocSpec
 from pyflightstream.exceptions import PyflightstreamError
 
+# ITEMS 10 AND 11 ARE 0.24.0 SCOPE, by the owner's decision of 2026-09-18:
+# "vamos colocar equations e VARIABLES.md e WRITING-EQUATIONS.md gerados para
+# a 24", and "deixa o super files no farmato legacy para 24 tb".
+#
+# THESE CASES ARE SKIPPED, NEVER DELETED. They are the specification of a
+# feature that is coming, written while her words were fresh, and every one of
+# them was measured red before its implementation existed. Deleting them would
+# throw away the part of this work that is hardest to rebuild -- the reasoning,
+# in her own quoted words -- to make a suite green about something nobody asked
+# it to be green about.
+#
+# THE SKIP IS THE HONEST STATE and it expires by itself: the moment the fields
+# return to `PprocSpec` in 0.24.0 these go red until the behaviour is wired,
+# which is exactly what they are for. Remove this marker then, not before.
+pytestmark = pytest.mark.skip(
+    reason="items 10 and 11 are 0.24.0 scope by the owner's decision of 2026-09-18"
+)
+
 
 def _spec(**equations: str) -> PprocSpec:
     """A pproc carrying nothing but the named equations, all on one alias.

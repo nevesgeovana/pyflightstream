@@ -50,7 +50,7 @@ from pyflightstream._deprecations import (
     refusal_text,
 )
 from pyflightstream._digest import file_sha256, text_sha256
-from pyflightstream._errors import InputArtifactError, PyflightstreamError
+from pyflightstream._errors import PyflightstreamError
 from pyflightstream._fsm import names_of
 from pyflightstream._retired_names import PROBE_SCALE_PROPELLER_RADIUS, retired_frame
 from pyflightstream.commands import Phase
@@ -1602,13 +1602,22 @@ class PprocSpec(BaseModel):
     #: phase-locked reduction, and not reaching the minimum never refuses the
     #: polar.
     phase_locked: PhaseLockedSpec | None = None
-    #: Item 10. Keyed by the coefficient's own name; the value says what it is
-    #: and which body it is about.
-    equations: dict[str, EquationSpec] = Field(default_factory=dict)
-    #: Item 10's other half: what each symbol means, extensible by the user.
-    #: She asked whether the package needs a glossary and whether she can add
-    #: to it; this is both answers.
-    glossary: dict[str, str] = Field(default_factory=dict)
+    # ITEMS 10 AND 11 ARE 0.24.0 SCOPE, by the owner's decision of 2026-09-18:
+    # "vamos colocar equations e VARIABLES.md e WRITING-EQUATIONS.md gerados
+    # para a 24". The `[equations]` and `[glossary]` tables are therefore NOT
+    # fields of this model in 0.23.0, and a pproc declaring either is refused by
+    # `extra="forbid"` naming the key.
+    #
+    # REFUSING IS THE HONEST OUTCOME AND ACCEPTING WOULD NOT BE. Both tables
+    # were already declared here while nothing consumed them -- `write_pproc_guides`
+    # has no caller either -- so a user could have written `[equations]` into a
+    # pproc, had the file accepted, and got no coefficient out of it. That is the
+    # API-only defect this release was opened on, arriving in the file format she
+    # writes by hand, which is the worst place for it: the artifact would look
+    # correct and answer nothing.
+    #
+    # `EquationSpec` stays defined for 0.24.0 and is deliberately not referenced
+    # here. Its being unused is visible rather than hidden, which is the point.
     exports: dict[str, bool] = Field(default_factory=dict)
     sections: SectionsSpec = Field(default_factory=SectionsSpec)
     plots: PlotsSpec = Field(default_factory=PlotsSpec)
@@ -1628,96 +1637,11 @@ class PprocSpec(BaseModel):
     #: row's BASE_REGIONS key overrides the artifact.
     base_regions: list[str] = Field(default_factory=list)
 
-    def equation_order(self) -> list[str]:
-        """Return the order the equations must be evaluated in.
-
-        Item 10's chaining. The docstring below is the whole of what "may
-        chain" means, because the phrase on its own is satisfied by silence.
-
-        An equation may name another equation, and the user writes them in a
-        TOML table, which has no order anyone may rely on. So chaining is a
-        feature only if the package can say WHICH ORDER, and an order exists
-        only if a cycle is refused, because a cycle has none.
-
-        A symbol the table does not define is a BASE VARIABLE and not a missing
-        dependency. That direction matters more than it looks: the generated
-        guide's own worked example is ``expression = "CT * 2"``, and treating
-        every unknown symbol as unresolved would refuse the first equation any
-        user writes.
-
-        The expression is TOKENISED rather than searched, so ``CT`` inside
-        ``CTX_WIND`` is not read as a reference to ``CT``. A substring reader
-        invents dependencies and then invents cycles out of pairs that have
-        none.
-
-        Returns
-        -------
-        list of str
-            Every equation name exactly once, each after every equation its
-            expression names. Ties keep declaration order, so the answer is
-            stable across runs and a diff of two products is about the numbers.
-
-        Raises
-        ------
-        InputArtifactError
-            When the equations are circular, naming the members of the cycle.
-            "Circular" alone would send the user back to a TOML table to find
-            the loop by eye.
-        """
-        symbol = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
-        names = list(self.equations)
-        # A self-reference is kept rather than filtered out, so `A = A + 1`
-        # can never be placed and reads as the cycle of one that it is. A
-        # filter here would make it order cleanly and compute nothing.
-        depends = {
-            name: [
-                token
-                for token in dict.fromkeys(symbol.findall(spec.expression))
-                if token in self.equations
-            ]
-            for name, spec in self.equations.items()
-        }
-
-        order: list[str] = []
-        placed: set[str] = set()
-        while len(order) < len(names):
-            ready = [
-                name
-                for name in names
-                if name not in placed and all(dep in placed for dep in depends[name])
-            ]
-            if not ready:
-                stuck = sorted(name for name in names if name not in placed)
-                raise InputArtifactError(
-                    f"the equations {', '.join(stuck)} are circular: each waits on "
-                    f"another in the set, so there is no order to evaluate them in. "
-                    f"An equation may name another equation, but the chain has to end "
-                    f"at variables the products already carry."
-                )
-            order.extend(ready)
-            placed.update(ready)
-        return order
-
-    @model_validator(mode="after")
-    def _the_equations_can_be_ordered(self) -> PprocSpec:
-        """Refuse a circular chain when the pproc is READ, not when it is asked.
-
-        `equation_order()` is public because a caller may want the order, but a
-        refusal that only fires when someone remembers to ask is not a check.
-        The information is available the moment the artifact is validated, and
-        an engineer writing a TOML file should not have to open an interpreter
-        to learn that the file is not well formed.
-
-        The refusal is re-raised as a `ValueError` so it arrives as pydantic's
-        own validation error, carrying the field and the artifact path that the
-        loader adds, rather than escaping the model layer as something a caller
-        of `PprocSpec(...)` would not think to catch.
-        """
-        try:
-            self.equation_order()
-        except InputArtifactError as circular:
-            raise ValueError(str(circular)) from circular
-        return self
+    # `equation_order()` AND ITS VALIDATOR MOVED OUT WITH ITEM 10, to 0.24.0.
+    # They held the chaining rule -- an equation may name another, a TOML table
+    # has no order anyone may rely on, so an order exists only if a cycle is
+    # refused -- and they answered about a field this model no longer carries.
+    # The rule is right and it returns with the field; git holds it.
 
     @field_validator("exports")
     @classmethod
