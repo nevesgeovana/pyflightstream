@@ -184,3 +184,95 @@ def test_the_shaft_angle_to_the_free_stream_is_reported_for_etaw():
         speed_m_s=40.0,
     )
     assert on_z.shaft_angle_deg == pytest.approx(90.0), on_z
+
+
+def test_the_rotor_table_is_written_with_its_alias_on_the_first_line(tmp_path):
+    """THE PRODUCT, which is what item 6 asks for and what nothing wrote.
+
+    `rotor_coefficients`, `rotor_coefficient_columns` and
+    `rotor_table_alias_line` all existed with no caller: three pieces of a
+    table and no table. This writes one and reads it back.
+
+    THE ALIAS LEADS THE FILE, alone on its first line, which is item 18: a
+    script that has already LOADED the file no longer has its name, so the
+    alias has to be inside the bytes.
+    """
+    from pyflightstream.post.products import read_csv_table, write_rotor_table
+
+    rotor = _rotor("Z")
+    written = write_rotor_table(
+        tmp_path / "polars" / "P0001-M150_PUSHER_rotor.csv",
+        rotor=rotor,
+        rows=[
+            {
+                "surfaces": _surfaces(Blade1={"Cz": 0.5}),
+                "condition": {"MACH": 0.15, "ALPHA": 0.0},
+                "rpm": 3000.0,
+            }
+        ],
+        reference=_reference(),
+        density_kg_m3=1.225,
+        speed_m_s=40.0,
+    )
+    assert written is not None and written.is_file(), written
+
+    first = written.read_text(encoding="utf-8").splitlines()[0]
+    assert first.strip() == "PUSHER", first
+
+    columns, rows = read_csv_table(written, skip=1)
+    assert "CT_PUSHER" in columns, columns
+    assert "ETAW_PUSHER" in columns, columns
+    assert len(rows) == 1, rows
+    assert float(rows[0]["CT_PUSHER"]) > 0.0, rows[0]
+
+
+def test_a_static_point_reads_not_applicable_because_nothing_is_recoverable(tmp_path):
+    """A FINDING RATHER THAN A DESIGN, and it is worth the owner's attention.
+
+    The loads export states DIMENSIONLESS coefficients, normalised by the run's
+    own dynamic pressure. At V = 0 that pressure is zero and a hovering rotor's
+    real thrust has been divided away -- so item 6's coefficients cannot be
+    derived from this export for a static point AT ALL, whatever is wired.
+
+    This test asserted `CT > 0` when it was written, on the assumption that
+    only the two efficiencies were 0/0. Running it showed the whole row is
+    unrecoverable, which is a fact about the export rather than about the code.
+    A hover figure of merit needs the run to state a FORCE.
+
+    So every coefficient reads `NA`: visibly absent, rather than a zero a
+    reader would believe of a rotor that is plainly pushing.
+    """
+    from pyflightstream.post.products import NOT_APPLICABLE, read_csv_table, write_rotor_table
+
+    written = write_rotor_table(
+        tmp_path / "polars" / "P0001-M000_PUSHER_rotor.csv",
+        rotor=_rotor("Z"),
+        rows=[
+            {
+                "surfaces": _surfaces(Blade1={"Cz": 0.5}),
+                "condition": {"MACH": 0.0},
+                "rpm": 3000.0,
+            }
+        ],
+        reference=_reference(),
+        density_kg_m3=1.225,
+        speed_m_s=0.0,
+    )
+    _, rows = read_csv_table(written, skip=1)
+    for name in ("CT_PUSHER", "CQ_PUSHER", "ETA_PUSHER", "ETAW_PUSHER"):
+        assert rows[0][name] == NOT_APPLICABLE, (name, rows[0])
+
+
+def test_a_rotor_that_is_not_turning_writes_no_table(tmp_path):
+    """Every coefficient divides by the speed, so there is no table to write."""
+    from pyflightstream.post.products import write_rotor_table
+
+    written = write_rotor_table(
+        tmp_path / "polars" / "P0001_PUSHER_rotor.csv",
+        rotor=_rotor("Z"),
+        rows=[{"surfaces": _surfaces(Blade1={"Cz": 0.5}), "condition": {}, "rpm": 0.0}],
+        reference=_reference(),
+        density_kg_m3=1.225,
+        speed_m_s=40.0,
+    )
+    assert written is None, written

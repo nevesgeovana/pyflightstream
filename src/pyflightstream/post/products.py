@@ -743,7 +743,25 @@ def rotor_shaft_loads(
             moment[index] += float(row.get(key, 0.0) or 0.0)
 
     # The dynamic pressure the export's own coefficients were taken against.
+    #
+    # AT V = 0 IT IS ZERO, AND NOTHING IS RECOVERABLE. The export states
+    # DIMENSIONLESS coefficients, normalised by this pressure; at rest there is
+    # no pressure to divide by and a hovering rotor's real thrust has been
+    # divided away. Returning 0.0 would be a lie a reader believes -- a static
+    # rotor produces plenty of thrust -- so the loads are NOT A NUMBER and the
+    # funnel writes `NA`.
+    #
+    # This is a finding rather than a design: item 6's coefficients cannot be
+    # derived from a dimensionless export for a static point at all, whatever
+    # is wired. A hover figure of merit needs the run to state a force.
     pressure = 0.5 * float(density_kg_m3) * float(speed_m_s) ** 2
+    if pressure <= 0.0:
+        return RotorShaftLoads(
+            thrust_n=math.nan,
+            torque_nm=math.nan,
+            shaft_angle_deg=math.degrees(math.acos(max(-1.0, min(1.0, shaft[0])))),
+            families_used=tuple(used),
+        )
     area = float(reference.sref_m2)
     length = float(reference.cref_m)
     newtons = [component * pressure * area for component in force]
@@ -875,16 +893,25 @@ def group_product_name(*, polar: str, mach: float, group: str, suffix: str = ".c
     return f"{polar}-M{_mach_code(mach):02d}_{group_token(group)}{suffix}"
 
 
-def read_csv_table(path: str | Path) -> tuple[tuple[str, ...], list[dict[str, str]]]:
+def read_csv_table(
+    path: str | Path, *, skip: int = 0
+) -> tuple[tuple[str, ...], list[dict[str, str]]]:
     """Read one CSV table back: its columns and its rows as mappings of text.
 
     Values come back as the text written, so a caller decides what is a
     number; a row whose width differs from the header is refused naming
     the line, which is what makes the round trip a proof.
+
+    ``skip`` drops that many lines before the header, for the ONE product that
+    leads with something else: the rotor table's first line is its alias, alone
+    (item 18), so that a script which has already loaded the file still knows
+    which rotor it holds.
     """
     target = Path(path)
     with target.open("r", encoding="utf-8", newline="") as handle:
         reader = csv.reader(handle)
+        for _ in range(max(0, int(skip))):
+            next(reader, None)
         try:
             columns = tuple(next(reader))
         except StopIteration:
@@ -897,6 +924,100 @@ def read_csv_table(path: str | Path) -> tuple[tuple[str, ...], list[dict[str, st
                 )
             rows.append(dict(zip(columns, cells, strict=True)))
     return columns, rows
+
+
+def write_rotor_table(
+    path: str | Path,
+    *,
+    rotor: object,
+    rows: Sequence[Mapping[str, object]],
+    reference: ReferenceValues,
+    density_kg_m3: float,
+    speed_m_s: float,
+) -> Path | None:
+    """Write ONE rotor's coefficient table (items 6 and 18).
+
+    `rotor_coefficients`, `rotor_coefficient_columns` and
+    `rotor_table_alias_line` all existed with no caller: three pieces of a table
+    and no table. This is the table.
+
+    THE ALIAS LEADS THE FILE, alone on its first line, because a script that has
+    already LOADED the file no longer has its name -- it holds an array of
+    numbers, and the alias has to be inside the bytes.
+
+    EVERY COLUMN CARRIES THE ALIAS TOO, which is physical rather than cosmetic:
+    two rotors summed into one `CT` is not a worse `CT`, it is not a `CT` at
+    all, because the diameters and speeds that normalise them are different
+    numbers. The suffix is what makes the mistake impossible by accident.
+
+    Returns None without writing when no row states a speed, since every
+    coefficient here divides by one: there is no table to write rather than a
+    table of `NA`.
+    """
+    alias = str(getattr(rotor, "alias", "") or "")
+    columns = (*CONTEXT_COLUMNS, *rotor_coefficient_columns(alias))
+    diameter = float(getattr(rotor, "diameter_m", 0.0) or 0.0)
+
+    written: list[tuple[object, ...]] = []
+    for row in rows:
+        # NARROWED HERE rather than annotated away: the row is a plain
+        # mapping the caller assembles, so its values arrive as `object`
+        # and a `float(...)` on one is a claim the type checker is right
+        # to refuse. A row stating a speed that is not a number states no
+        # speed, and there is no table to write for it.
+        stated = row.get("rpm")
+        rpm = float(stated) if isinstance(stated, int | float) else 0.0
+        if rpm <= 0.0 or diameter <= 0.0:
+            continue
+        loads = rotor_shaft_loads(
+            surfaces if isinstance(surfaces := row.get("surfaces"), Mapping) else {},
+            rotor=rotor,
+            reference=reference,
+            density_kg_m3=density_kg_m3,
+            speed_m_s=speed_m_s,
+        )
+        coefficients = rotor_coefficients(
+            thrust_n=loads.thrust_n,
+            torque_nm=loads.torque_nm,
+            rps=rpm / 60.0,
+            diameter_m=diameter,
+            density_kg_m3=density_kg_m3,
+            speed_m_s=speed_m_s,
+            shaft_angle_deg=loads.shaft_angle_deg,
+        )
+        stated_condition = row.get("condition")
+        condition = dict(stated_condition) if isinstance(stated_condition, Mapping) else {}
+        written.append(
+            (
+                *context_row(condition, reference.as_lengths()),
+                *(coefficients[name] for name in ROTOR_COEFFICIENT_COLUMNS),
+            )
+        )
+
+    if not written:
+        return None
+    target = Path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    # THE ALIAS LINE IS WRITTEN FIRST and the table appended, rather than the
+    # table written and the line prepended: prepending rewrites a file that is
+    # already correct, and a failure between the two leaves a table nobody can
+    # attribute.
+    # THROUGH `write_csv_table`, which is THE funnel: every cell of every
+    # product is rendered by `_cell` there, so a value this table cannot fill
+    # reads `NA` like every other product rather than by a rule of its own.
+    # Writing the rows here with `csv.writer` would be a fifth family spelling
+    # its own absences, which is the drift item 5 repaired.
+    scratch = target.with_suffix(target.suffix + ".rows")
+    write_csv_table(scratch, columns, written)
+    table = scratch.read_text(encoding="utf-8")
+    scratch.unlink()
+    # ONE WRITE. `rotor_table_alias_line` ALREADY ENDS IN A NEWLINE -- it is a
+    # LINE -- and adding a second put a blank between the alias and the header,
+    # which the reader then took for the header and refused the file this
+    # function had just written. The reader was right and I had written the
+    # separator twice.
+    target.write_text(rotor_table_alias_line(alias) + table.lstrip("\r\n"), encoding="utf-8")
+    return target
 
 
 def polar_table_rows(
