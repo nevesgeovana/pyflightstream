@@ -6035,3 +6035,84 @@ def test_a_flat_row_reaching_two_declared_rotors_is_refused_naming_both():
     message = str(raised.value)
     assert "ROTOR" in message and "PORT" in message, message
     assert "MOTIONS" in message, "the refusal must name the spelling that works"
+
+
+def test_axial_separation_families_resolve_through_the_inventory(tmp_path):
+    """Her instruction of 2026-09-18: "mesma regra do vorticity".
+
+    THE DEFECT THIS CLOSES IS API-ONLY, ONE LEVEL BELOW THE PRODUCTS.
+    `solver_settings` has accepted `axial_separation_boundaries` since the helper
+    was written, `SET_AXIAL_SEPARATION_BOUNDARIES` is in the command database and
+    in the settings table -- and NO CAMPAIGN PATH EVER PASSED IT, so no preset
+    could ask for it. Measured before the fix:
+
+        rg 'axial_separation' src/pyflightstream/{cases,workspace,run}/  ->  nothing
+
+    The field, the keyword and the database entry all existed and the capability
+    did not. Grepping for the CALLER rather than the definition is what found it,
+    which is this release's own central rule applied below its own scope.
+
+    ON 26.100, WHICH IS THE BUILD THAT OFFERS IT. The command is documented to
+    26.100 and no further; the case below pins the refusal on a later build.
+    """
+    from pyflightstream.cases import SolverSettings
+
+    case = steady_case(geometry=str(_wb_geometry(tmp_path))).model_copy(
+        update={"solver": SolverSettings(axial_separation_families=["W", "B", "P", "N", "H"])}
+    )
+    lines = rendered(case, build="26.100").splitlines()
+    at = lines.index("SET_AXIAL_SEPARATION_BOUNDARIES 2")
+    assert lines[at + 1] == "1,2", (
+        "W and B are boundaries 1 and 2 of the opened file; P, N and H are not in it"
+    )
+
+
+def test_axial_separation_families_the_geometry_lacks_entirely_are_refused(tmp_path):
+    """An empty selection would read to the solver as the DEFAULT, which the preset did not ask for.
+
+    The same refusal `vorticity_drag_families` makes, and through the same
+    function: one rule rather than two copies that drift.
+    """
+    from pyflightstream.cases import CampaignConfigError, SolverSettings
+
+    case = steady_case(geometry=str(_wb_geometry(tmp_path))).model_copy(
+        update={"solver": SolverSettings(axial_separation_families=["P", "N"])}
+    )
+    with pytest.raises(CampaignConfigError, match="carries none of them") as caught:
+        rendered(case, build="26.100")
+    # THE REFUSAL NAMES THE KEY THE USER WROTE, not the neighbouring one. The
+    # resolver is now shared, so a context argument threaded wrongly would put
+    # `vorticity_drag_boundaries` in a message about the axial list and send her
+    # to the wrong line of her own file.
+    assert "axial_separation_boundaries" in str(caught.value), caught.value
+
+
+def test_a_preset_that_says_nothing_places_no_boundary_on_the_axial_list(tmp_path):
+    """ABSENT IS NOT EMPTY. A preset silent about this emits neither the SET nor the DELETE.
+
+    The control for the two cases above: a refusal test and an emission test are
+    each satisfied by a constant, and this is what makes them discriminate. Every
+    preset that exists today says nothing here, so this is also the assertion
+    that the new key changed nothing for her existing workspaces.
+    """
+    text = rendered(steady_case(geometry=str(_wb_geometry(tmp_path))), build="26.100")
+    assert "AXIAL_SEPARATION" not in text, text
+
+
+def test_axial_separation_on_a_build_that_refuses_it_is_refused_at_plan_time(tmp_path):
+    """RPT-018 measured the solver REJECTING this command on 26.101 and 26.121.
+
+    So the honest outcome on her current builds is a refusal naming the build,
+    at PLAN time, which costs an edit -- not a line emitted into a script that
+    the solver rejects mid-run, after the seat is spent. This asserts the guard
+    that already refuses any command a build does not offer reaches this key.
+    """
+    from pyflightstream.cases import SolverSettings
+    from pyflightstream.exceptions import PyflightstreamError
+
+    case = steady_case(geometry=str(_wb_geometry(tmp_path))).model_copy(
+        update={"solver": SolverSettings(axial_separation_families=["W", "B"])}
+    )
+    with pytest.raises(PyflightstreamError) as caught:
+        rendered(case, build="26.120")
+    assert "26.120" in str(caught.value), caught.value

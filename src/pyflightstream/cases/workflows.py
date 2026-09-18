@@ -3298,12 +3298,10 @@ def phase_locked_gate(
         return None
     return {
         "skipped": (
-            f"the EXPORTED WINDOW holds {revolutions} revolution(s) and the pproc asks "
-            f"for at least {spec.min_revolutions} before a phase-locked reduction is "
-            "generated. That is the window the row states, NOT the whole run: a row that "
-            "turns six revolutions and exports the last one counts as one here. The "
-            "polar is unaffected: a short run means no phase-locked reduction, never a "
-            "refused product."
+            f"the row turns {revolutions} revolution(s) over the whole run and the pproc "
+            f"asks for at least {spec.min_revolutions} before a phase-locked reduction is "
+            "generated. The polar is unaffected: a short run means no phase-locked "
+            "reduction, never a refused product."
         )
     }
 
@@ -3388,7 +3386,16 @@ def _the_passages_of_one_rotor(
     # sets `min_revolutions` gets no phase-locked reduction from a run that
     # turned fewer. The polar is untouched -- a short run means no reduction,
     # never a refused product.
-    turned = (span[1] - span[0] + 1) / per_revolution if per_revolution > 0 else 0.0
+    #
+    # WHAT THIS ROTOR TURNS over the whole run, and NOT what the exported window
+    # holds. Her words: "Se a especificacao da matriz bater esse numero minimo,
+    # o phase_locked e gerado" (2026-09-17) -- the MATRIX SPECIFICATION, which is
+    # the run. Counting the window read a campaign that turned six revolutions
+    # and exported the last one as turning one, and failed a minimum of two it
+    # had comfortably met. THE REVOLUTION IS THIS ROTOR'S, which is the whole of
+    # FR-68: a second rotor at another speed sweeps a different angle over the
+    # same steps.
+    turned = last_step / per_revolution if per_revolution > 0 else 0.0
     gated = phase_locked_gate(getattr(case.pproc, "phase_locked", None), revolutions=turned)
     if gated is not None:
         # THE PHASE-LOCKED REDUCTION ONLY. This skipped `per_blade` too for one
@@ -3687,7 +3694,14 @@ def reduction_windows(case: SimCase) -> dict[str, object] | None:
     # answer for the row's clock and silently mis-gate every other rotor. That
     # is the defect FR-68 exists against. Two call sites, each about its own
     # revolution, is the correct shape rather than the tidier one.
-    turned = (span[1] - span[0] + 1) / per_revolution if per_revolution > 0 else 0.0
+    # WHAT THE ROW TURNS, not what the window holds, and her own words settle it:
+    # "Se a especificacao da matriz bater esse numero minimo, o phase_locked e
+    # gerado" (2026-09-17). THE MATRIX SPECIFICATION is `last_step` against the
+    # revolution -- the whole run -- and the exported window is a different
+    # number entirely. Counting the window meant a campaign that turned six
+    # revolutions and exported the last one was read as turning one, and failed
+    # a `min_revolutions` of two that it had comfortably met.
+    turned = last_step / per_revolution if per_revolution > 0 else 0.0
     gated = phase_locked_gate(getattr(case.pproc, "phase_locked", None), revolutions=turned)
 
     passages = _passages(span, period)
@@ -4458,34 +4472,88 @@ def _significant_digits(case: SimCase, script: Script) -> None:
         script.emit("SET_SIGNIFICANT_DIGITS", digits)
 
 
-def _vorticity_indices(case: SimCase, script: Script) -> list[int] | None:
-    """Resolve the preset's vorticity-drag FAMILIES through the opened inventory.
+def _family_indices(
+    case: SimCase,
+    script: Script,
+    families: Sequence[str] | None,
+    *,
+    keyword: str,
+    dropped: str,
+) -> list[int] | None:
+    """Resolve one preset boundary list's FAMILIES through the opened inventory.
 
-    PFS-2030.03.03. A family the geometry does not carry is left out, as
-    the reference driver filtered the preset's list to the configuration it opened;
-    a list that resolves to nothing is refused, because an empty selection
-    would be read by the solver as the default and the preset asked for
-    something else.
+    PFS-2030.03.03. A family the geometry does not carry is left out, as the
+    reference driver filtered the preset's list to the configuration it opened;
+    a list that resolves to nothing is refused, because an empty selection would
+    be read by the solver as the default and the preset asked for something else.
+
+    ONE RULE FOR EVERY PER-FAMILY LIST, not one copy per list. This was written
+    for `vorticity_drag_families` alone and generalised when the owner added
+    `axial_separation_families` on 2026-09-18 with the words "mesma regra do
+    vorticity". Two copies of this resolution would drift on the day one of them
+    learned something about a mesh the other did not, and every one of them
+    answers the same question: which boundaries of the opened geometry does this
+    family list name?
+
+    ``keyword`` is the helper argument this feeds, used as the resolution
+    context so a bad label names the key the user wrote. ``dropped`` completes
+    the sentence "or drop the key so ..." in the refusal, because what the
+    solver does with an ABSENT list is different for each one and is the fact a
+    reader needs in order to choose.
     """
-    families = case.solver.vorticity_drag_families
     if families is None:
         return None
     chosen: list[int] = []
     absent: list[str] = []
     for name in families:
         try:
-            chosen.append(script.resolve_boundary(name, context="vorticity_drag_boundaries"))
+            chosen.append(script.resolve_boundary(name, context=keyword))
         except PyflightstreamError:
             absent.append(name)
     if not chosen:
         raise CampaignConfigError(
-            f"case {case.sim_id!r}: the preset names vorticity drag boundaries "
+            f"case {case.sim_id!r}: the preset names {keyword} "
             f"{', '.join(families)} and the opened geometry carries none of them "
             f"(absent: {', '.join(absent)}), so the selection would be empty. Name "
-            "families the geometry carries, or drop the key so the solver integrates "
-            "surface pressure on every boundary."
+            f"families the geometry carries, or drop the key so {dropped}."
         )
     return sorted(chosen)
+
+
+def _vorticity_indices(case: SimCase, script: Script) -> list[int] | None:
+    """Resolve the induced-drag boundary list from the preset's families."""
+    return _family_indices(
+        case,
+        script,
+        case.solver.vorticity_drag_families,
+        keyword="vorticity_drag_boundaries",
+        dropped="the solver integrates surface pressure on every boundary",
+    )
+
+
+def _axial_separation_indices(case: SimCase, script: Script) -> list[int] | None:
+    """Resolve the axial flow separation list from the preset's families.
+
+    Her instruction of 2026-09-18: "adiciona axial_separation_families no setup,
+    mesma regra do vorticity". It had been reachable only as a helper keyword
+    that no campaign path passed -- the API-only shape this release exists to
+    catch, one level below the products.
+
+    THE BUILD GUARD STILL DECIDES WHETHER IT MAY RUN, and this does not argue
+    with it. `SET_AXIAL_SEPARATION_BOUNDARIES` is documented to 26.100 and no
+    further; RPT-018 measured it reported deprecated and then REFUSED by the
+    26.101 and 26.121 solvers. So a row naming this key on a later build is
+    refused by the mechanism that already refuses any command a build does not
+    offer, naming the build -- which is the honest outcome and much better than
+    emitting a line the solver will reject mid-run.
+    """
+    return _family_indices(
+        case,
+        script,
+        case.solver.axial_separation_families,
+        keyword="axial_separation_boundaries",
+        dropped="no boundary is placed on the axial flow separation list",
+    )
 
 
 def _analysis(case: SimCase, script: Script, frame: int | None) -> None:
@@ -4588,6 +4656,11 @@ def _settings(
             else _velocity(case)
         ),
         vorticity_drag_boundaries=_vorticity_indices(case, script),
+        # THE CALL SITE IS WHAT DELIVERS THIS, not the field and not the helper
+        # keyword. Both of those existed already and a preset still could not ask
+        # for an axial separation list, because this hand-written argument list is
+        # the only path from a setup to the script.
+        axial_separation_boundaries=_axial_separation_indices(case, script),
         iterations=solver.iterations,
         convergence=solver.convergence,
         max_threads=row_ncpus(case, solver.max_threads),

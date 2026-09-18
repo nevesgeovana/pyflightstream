@@ -208,9 +208,17 @@ See `docs/migrating-to-0.23.0.md` before upgrading a workspace you care about.
 - **A rotor table per rotor**, carrying `J`, `CT`, `CQ`, `CP`, `ETA` and
   `ETAW`, each column suffixed with the rotor's alias. These make physical
   sense for ONE rotor and not for several summed: the diameters and speeds that
-  normalise them are different numbers. `ETA` and `ETAW` read `NA` on a static
-  point, where both are `0/0`; a figure of merit is the static measure and the
-  user defines it.
+  normalise them are different numbers.
+
+  **ON A STATIC POINT EVERY ONE OF THESE READS `NA` EXCEPT `J`**, and not only
+  `ETA` and `ETAW` as this entry first said. The reason is the export, not the
+  package: it states DIMENSIONLESS coefficients normalised by the run's own
+  dynamic pressure, which is zero at rest, so a hovering rotor's real thrust has
+  been divided away before any of this is computed. No rotor coefficient is
+  recoverable from a static point whatever the package does, which is also why a
+  figure of merit cannot be offered here — it needs a force the run does not
+  state. `J` is a real `0.00000`: at rest with a turning rotor it is genuinely
+  zero. A figure of merit is the static measure and the user defines it.
 - **The rotor table names its alias on its first line, alone**, so a script
   that has already loaded the file still knows which group it holds.
 - **A rotor carries its INSTALLATION VECTOR.** `axis` accepts three components
@@ -222,6 +230,23 @@ See `docs/migrating-to-0.23.0.md` before upgrading a workspace you care about.
   that rotor's own families when the pproc declares none, as a normal group. A
   declared group under a rotor's alias whose families are not that rotor's is
   refused at plan time, naming both sets.
+- **A preset selects the AXIAL FLOW SEPARATION boundaries by family**,
+  `axial_separation_families`, resolved against the opened geometry by the same
+  rule and the same function as `vorticity_drag_families`: a family the geometry
+  does not carry is left out, and a list that resolves to nothing is refused
+  naming what it could not find.
+
+  **THE KEYWORD, THE COMMAND AND THE SETTINGS TABLE ALL EXISTED ALREADY.** What
+  did not exist was a path from a preset to any of them: the campaign's call into
+  `solver_settings` is a hand-written argument list and it never named this one,
+  so `SET_AXIAL_SEPARATION_BOUNDARIES` was unreachable from a workspace. Found by
+  grepping for the CALLER rather than the definition, which is this release's own
+  rule applied one level below the products.
+
+  It is documented to 26.100 and no further -- RPT-018 measured it reported
+  deprecated and then refused by the 26.101 and 26.121 solvers -- so a row naming
+  it on a later build is refused at PLAN time, naming the build. That costs an
+  edit; a line emitted into a script the solver rejects costs a run.
 - **The operator in the provenance**, as a `prov:Person` agent, resolved by one
   standard-library call that answers on Windows and on the cluster alike.
 - **The one unsteady window is DERIVED and is NOT YET WIRED**, and it is listed

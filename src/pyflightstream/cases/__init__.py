@@ -2749,6 +2749,22 @@ class SolverSettings(BaseModel):
     #: the families the geometry does not carry, as the reference driver did
     #: (PFS-2030.03.03). An empty result is refused.
     vorticity_drag_families: list[str] | None = None
+    #: SET_AXIAL_SEPARATION_BOUNDARIES written as FAMILY NAMES, resolved by the
+    #: same rule as :attr:`vorticity_drag_families` and through the same
+    #: function -- her instruction of 2026-09-18, "mesma regra do vorticity".
+    #:
+    #: IT WAS REACHABLE ONLY AS A HELPER KEYWORD NOBODY PASSED. `solver_settings`
+    #: has taken `axial_separation_boundaries` since the helper was written and
+    #: the campaign path never stated it, so no preset could ask for it: the
+    #: API-only shape this release exists to catch, one level below the products.
+    #:
+    #: THE BUILD GUARD DECIDES WHETHER IT MAY RUN. The command is documented to
+    #: 26.100 and no further, and RPT-018 measured it reported deprecated and
+    #: then REFUSED by the 26.101 and 26.121 solvers. A row naming this key on a
+    #: later build is refused where every unavailable command is refused, naming
+    #: the build -- which is better than emitting a line the solver rejects
+    #: mid-run, after the seat is spent.
+    axial_separation_families: list[str] | None = None
     #: The LOAD_SOLVER_INITIALIZATION argument of OPEN. None means DISABLE,
     #: which is what the reference scripts wrote on every open: a saved simulation
     #: may carry an initialised solver, and loading it would start the run

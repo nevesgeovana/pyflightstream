@@ -654,12 +654,42 @@ solver's default. Those runs converge, export and publish numbers
 against a physics nobody selected. A refusal costs an edit; a silent
 drop costs a result.
 
-One key of a preset selects boundaries rather than setting a number:
-`vorticity_drag_boundaries` (also spelled `set_vorticity_drag_boundaries`
-or `vorticity_drag_families`), the families whose induced drag comes from
-vorticity integration, `SET_VORTICITY_DRAG_BOUNDARIES`. Stating it as an
-EMPTY list is refused when the file is read, at `pyfs-matrix plan`
-(PFS-2005.02):
+**Two keys of a preset select BOUNDARIES rather than set a number**, and both
+take FAMILY NAMES resolved against the geometry the run opens. You never write
+an index: an index is a fact about the order of a file and it does not survive a
+mesh being rebuilt, while a family name is a fact about the aircraft.
+
+| key | the list it builds | command |
+|---|---|---|
+| `vorticity_drag_families` | families whose induced drag comes from vorticity integration | `SET_VORTICITY_DRAG_BOUNDARIES` |
+| `axial_separation_families` | families on the axial flow separation list | `SET_AXIAL_SEPARATION_BOUNDARIES` |
+
+```toml
+vorticity_drag_families   = ["Wing", "HTP", "VTP"]
+axial_separation_families = ["Nacelle"]
+```
+
+**Both follow one rule**, and it is one function rather than two copies:
+
+- A family the opened geometry does not carry is **left out**, as the reference
+  driver filtered a preset's list to the configuration it opened.
+- A list that resolves to **nothing at all is refused**, naming the case, the
+  key and the families it could not find. An empty selection would reach the
+  solver as its DEFAULT, and the preset asked for something else.
+- A preset that says nothing emits neither the `SET` nor the `DELETE`.
+
+!!! warning "`axial_separation_families` runs on 26.100 and is refused above it"
+    `SET_AXIAL_SEPARATION_BOUNDARIES` is documented to 26.100 and no further, and
+    RPT-018 measured it reported deprecated and then REFUSED by the 26.101 and
+    26.121 solvers. A row naming this key on a later build is refused **at plan
+    time**, naming the build — which costs an edit, where a line emitted into the
+    script would cost a run. What the later builds want in its place is a
+    judgement rather than a measurement: the solver's deprecation notice leaves
+    its replacement field empty.
+
+`vorticity_drag_boundaries` (also spelled `set_vorticity_drag_boundaries`) is an
+accepted spelling of the first. Stating either as an EMPTY list is refused when
+the file is read, at `pyfs-matrix plan` (PFS-2005.02):
 
 ```toml
 iterations = 800
