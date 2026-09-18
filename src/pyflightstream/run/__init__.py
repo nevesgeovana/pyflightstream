@@ -151,7 +151,7 @@ from pyflightstream.workspace import (
     post_stages,
 )
 from pyflightstream.workspace.inputs import HPC_BUILD_ALIAS, HpcProfile
-from pyflightstream.workspace.naming import ARCHIVE_STAMP, PointName, sweep_file_stem
+from pyflightstream.workspace.naming import ARCHIVE_STAMP, PointName, submitted_by, sweep_file_stem
 
 __all__ = [
     "ACCEPT_UNREGISTERED_BUILD_FLAG",
@@ -4766,6 +4766,9 @@ def _execute_sweep(
         "package_version": pyflightstream.__version__,
         "package_commit": package_commit,
         "package_dirty": package_dirty,
+        # v0.23.0 item 12. CAPTURED HERE because this is the only moment it
+        # is knowable: who submitted a run cannot be recovered afterwards.
+        "submitted_by": submitted_by(),
         "recipe": case.recipe,
         # A JOB'S RECIPE IS THE RUN TYPE, which has no user function behind
         # it and therefore no source to digest. The field is carried empty
@@ -5306,6 +5309,9 @@ def _execute_point(
         "package_version": pyflightstream.__version__,
         "package_commit": package_commit,
         "package_dirty": package_dirty,
+        # v0.23.0 item 12. CAPTURED HERE because this is the only moment it
+        # is knowable: who submitted a run cannot be recovered afterwards.
+        "submitted_by": submitted_by(),
         "recipe": case.recipe,
         "recipe_sha256": _recipe_digest(recipe),
         # The BUILD's executable, which is the campaign's unless the case

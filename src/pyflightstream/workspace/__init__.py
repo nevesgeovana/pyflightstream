@@ -818,6 +818,13 @@ class RunRecord(BaseModel):
     package_version: str
     package_commit: str | None = None
     package_dirty: bool | None = None
+    #: WHO SUBMITTED THE RUN, v0.23.0 item 12. Captured at RUN time because
+    #: that is the only moment it is knowable: it cannot be recovered
+    #: afterwards, so every simulation that finished before this release
+    #: carries None here and its provenance reads `NA`. Resolved by one
+    #: standard-library call that answers on Windows and on the cluster
+    #: alike, so the two platforms stay one code path.
+    submitted_by: str | None = None
     manifest_schema: str | None = None
     fs_exe: str | None = None
     fs_exe_sha256: str | None = None

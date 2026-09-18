@@ -2604,6 +2604,26 @@ def _attributes(**pairs: object) -> dict[str, object]:
     return {name: value for name, value in pairs.items() if value is not None}
 
 
+def operator_agent(name: str | None) -> dict[str, object]:
+    """Return the `prov:Person` agent for the operator a record names.
+
+    A `prov:Person` and not a string on the activity, because the document is
+    W3C PROV and already carries two `prov:SoftwareAgent`s: the operator is the
+    third agent the run was associated with, which another tool reads without
+    being told anything about this package.
+
+    ``None`` is the run she ALREADY HAS. `submitted_by` is a RUN-time fact and
+    nobody recorded it for the simulations that already finished; it cannot be
+    recovered and none is invented. The field is PRESENT and reads `NA`, so a
+    reader tells a run that predates this release from a document that forgot.
+    """
+    stated = (name or "").strip()
+    return {
+        "prov:type": "prov:Person",
+        "pyfs:submitted_by": stated or NOT_APPLICABLE,
+    }
+
+
 def _prov_document(record: RunRecord, sim_dir: Path) -> dict[str, object]:
     """Build one run's PROV-JSON document from its record and the files it left.
 
@@ -2638,6 +2658,10 @@ def _prov_document(record: RunRecord, sim_dir: Path) -> dict[str, object]:
     activity_id = f"pyfs:run/{record.run_id}"
     package_id = f"pyfs:package/pyflightstream/{record.package_version}"
     solver_id = f"pyfs:solver/FlightStream/{record.fs_version_requested}"
+    # ONE AGENT ID PER OPERATOR, so two runs by the same person are the same
+    # agent in the document rather than two agents that happen to agree.
+    operator = operator_agent(getattr(record, "submitted_by", None))
+    operator_id = f"pyfs:operator/{operator['pyfs:submitted_by']}"
     entities: dict[str, dict[str, object]] = {}
     used: dict[str, dict[str, str]] = {}
     generated: dict[str, dict[str, str]] = {}
@@ -2767,6 +2791,10 @@ def _prov_document(record: RunRecord, sim_dir: Path) -> dict[str, object]:
                 "pyfs:dirty": record.package_dirty,
             }
         ),
+        # THE OPERATOR, v0.23.0 item 12. Always present: a record that names
+        # nobody reads `NA`, which is the run she already has, and the absence
+        # is visible rather than silent.
+        operator_id: operator,
         solver_id: _attributes(
             **{
                 "prov:type": "prov:SoftwareAgent",

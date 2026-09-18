@@ -34,6 +34,7 @@ before 0.21.0 carries the old names and is renamed by
 
 from __future__ import annotations
 
+import getpass
 import re
 from pathlib import PurePosixPath, PureWindowsPath
 from string import Formatter
@@ -530,3 +531,37 @@ def _render(template: str, values: dict[str, object], role: str, check_name: boo
             "lives in the manifest."
         )
     return rendered
+
+
+#: The standard-library resolver for the operator, bound so a test can take it
+#: away. `getpass.getuser` reads LOGNAME, USER, LNAME and USERNAME in turn and
+#: falls back to the password database where there is one, which is what makes
+#: ONE call right on Windows and on the cluster alike.
+_getuser = getpass.getuser
+
+
+def submitted_by() -> str | None:
+    """Return the operator running this process, or None if the host names nobody.
+
+    v0.23.0 item 12, the owner's question of 2026-09-17: how to name the user
+    who ran, transparently for Linux and Windows. One call, not a pair of
+    `sys.platform` branches, which would be two paths that drift.
+
+    IT LIVES HERE AND NOT BESIDE THE PRODUCTS because `run` captures it and
+    `post` writes it, and `post` imports `workspace` rather than the reverse.
+    Putting it beside the products would have inverted the dependency
+    direction, which is a design error rather than a lint finding.
+
+    IT RETURNS None AND NOT `NA`. The product layer spells the absence, because
+    the token belongs to the CSV and provenance surface and this function is
+    below it. A host that cannot say who is running is a real path rather than
+    a defensive one: a batch submission with a scrubbed environment and no
+    password entry reaches it, and inventing a name there would put a false
+    claim into the one artifact whose purpose is to be believed.
+    """
+    try:
+        who = _getuser()
+    except (OSError, KeyError, ImportError):
+        return None
+    who = str(who).strip()
+    return who or None
