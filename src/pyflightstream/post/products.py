@@ -1328,8 +1328,14 @@ def _rotor_tables(
         divided by is exact, not an approximation.
         """
         pressure = 0.5 * float(density) * float(speed) ** 2
-        area = reference.sref or 0.0
-        length = reference.cref or 0.0
+        # `sref_m2` AND `cref_m`, WITH THEIR UNITS IN THE NAME. This read
+        # `reference.sref` and `reference.cref`, which do not exist on this
+        # class: an AttributeError the moment the averaging path ran, and NO
+        # TEST REACHED IT because reaching it needs a plots table carrying
+        # `FX_<alias>`. The type checker is what caught it, which is the whole
+        # argument for running that gate rather than trusting a green suite.
+        area = reference.sref_m2 or 0.0
+        length = reference.cref_m or 0.0
         if pressure <= 0.0 or area <= 0.0 or length <= 0.0:
             return {}
         force = pressure * area
@@ -3102,7 +3108,14 @@ def _matrix_window(matrix_row: MatrixRow | None, record: object) -> tuple[int, i
             return None
         # `last_revs_avg` TAKES A FLOAT -- her decision, 2026-09-18 -- so one
         # and a half revolutions is a window and not a rounding error.
-        length = int(round(float(revs) * float(per_revolution)))
+        #
+        # NARROWED RATHER THAN ANNOTATED AWAY: `revs` is `float | None` to the
+        # checker here, and it is not None on this branch because the pair was
+        # refused above and `iters is None` reached the `else`. Saying so with a
+        # guard rather than a cast keeps the claim checkable.
+        if revs is None:
+            return None
+        length = int(round(revs * float(per_revolution)))
     if length <= 0:
         return None
     # CLIPPED TO THE RUN, never past its first step. A window longer than the
@@ -3754,7 +3767,16 @@ def _sim_products(
         # THE PLAN'S OWN REJECTIONS PLUS THE WRITER'S, IN ONE LIST. Both halves
         # dropped points on a bare `continue` until 2026-09-18, so a table came
         # back shorter than her matrix with the manifest still naming every run.
-        rotor_left_out: list[tuple[str, str]] = list(plan.get("left_out") or [])  # type: ignore[arg-type]
+        # NARROWED, not ignored. The plan is a `dict[str, object]` the planner
+        # assembles, so its values arrive as `object` and `list(...)` on one is
+        # a claim the checker is right to refuse. The suppression that stood
+        # here named the WRONG error code, which mypy reported as a second
+        # error: a `type: ignore` for a code that does not fire silences
+        # nothing and hides that it silences nothing.
+        stated_left_out = plan.get("left_out")
+        rotor_left_out: list[tuple[str, str]] = (
+            list(stated_left_out) if isinstance(stated_left_out, list) else []
+        )
         rotor_runs: list[str] = []
         done = write_rotor_table(
             destination,

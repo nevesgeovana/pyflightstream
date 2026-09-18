@@ -403,6 +403,144 @@ def test_a_counter_rotating_rotor_keeps_its_table(tmp_path):
     )
 
 
+def test_an_unsteady_rotor_table_is_the_window_average_and_not_the_last_step(tmp_path):
+    """ITEM 16'S WINDOW REACHES THE LAST PRODUCT THAT DID NOT HAVE IT.
+
+    The rotor table was built from `point.loads`, the NATIVE export, which
+    states the last time step -- the owner's own answer of 2026-09-18. So an
+    unsteady rotor table published one instant of a cycle beside a polar that
+    averaged correctly, in the same folder, with neither file saying which it
+    was. The independent review of `main` found it (L6-04).
+
+    THE HISTORY IS ALREADY ON DISK. A plots table states `FX_<GROUP>` through
+    `MZ_<GROUP>` per plot group, in NEWTONS -- measured on a licensed run. Item
+    15 names a rotor's integration group after its alias, so the columns are
+    `FX_PUSHER` and its five siblings.
+
+    THE ARITHMETIC IS CHECKABLE BY HAND, which is the point of these numbers:
+    `FZ_PUSHER` runs 100, 200, 300, 400 over steps 1 to 4. Over the window 3-4
+    the mean is 350 and the LAST STEP is 400. A table built from the native
+    export would carry the 400-equivalent and look identical.
+
+    THIS TEST EXISTS BECAUSE THE TYPE CHECKER FOUND WHAT IT SHOULD HAVE. The
+    first writing of the averaging path read `reference.sref` and
+    `reference.cref`, which are not attributes of `ReferenceValues` -- an
+    AttributeError the moment the path ran. The whole suite was green because
+    NOTHING REACHED IT: no fixture carried a plots table with these columns.
+    `mypy` caught it in CI. A path no case exercises is a path that is not
+    delivered, which is this release's own recurring finding.
+    """
+    import sys
+    from pathlib import Path as _Path
+
+    sys.path.insert(0, str(_Path(__file__).parent))
+    from test_post_products import LOADS
+    from test_post_superfile import _workspace
+
+    from pyflightstream.post.products import PolarPoint, matrix_rows, write_rotor_table
+    from pyflightstream.post.products import _rotor_tables as rotor_tables
+    from pyflightstream.results import parse_loads
+    from pyflightstream.workspace import RunRecord
+
+    workspace = _workspace(tmp_path)
+    (workspace.inputs_dir / "references" / "r002.toml").write_text(
+        "\n".join(
+            [
+                "area_m2 = 50.0",
+                "chord_m = 2.526",
+                "span_m = 20.0",
+                "",
+                "[rotors.PUSHER]",
+                'alias = "PUSHER"',
+                "x_m = 0.0",
+                "y_m = 0.0",
+                "z_m = 0.0",
+                'axis = "Z"',
+                "rpm_sign = 1",
+                "diameter_m = 1.2",
+                'families_blades = ["Blade1"]',
+                'blade1 = { azimuth_deg = 0.0, zero = "Y" }',
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    # THE PLOTS TABLE, in the export's own spelling: `{PARAM}_{GROUP}`, in
+    # Newtons, with the group named for the rotor's alias.
+    history = tmp_path / "plots.csv"
+    lines = ["Time-step,FX_PUSHER,FY_PUSHER,FZ_PUSHER,MX_PUSHER,MY_PUSHER,MZ_PUSHER"]
+    for step in range(1, 5):
+        thrust = 100.0 * step
+        lines.append(f"{step},0.0,0.0,{thrust:.5f},0.0,0.0,0.0")
+    history.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+    path = tmp_path / "P.txt"
+    path.write_text(LOADS, encoding="utf-8")
+    point = PolarPoint(name="P", loads=parse_loads(LOADS), loads_path=path)
+    run_id = "camp/sim_0001/P"
+    record = RunRecord(
+        run_id=run_id,
+        sim_id="0001",
+        fs_version_requested="26.123",
+        package_version="0.23.0",
+        script_sha256="0" * 64,
+        raw_flag=False,
+        status="CONVERGED",
+        density_kg_m3=1.225,
+        velocity_requested_m_s=40.0,
+        mach=0.12,
+        reductions={"rotors": {"PUSHER": {"rpm": 1200.0, "blades": 2}}},
+    )
+
+    matrix_row = next(
+        (
+            row
+            for row in matrix_rows(workspace.root, "matriz").values()
+            if str(getattr(row, "ref_code", "")) == "r002"
+        ),
+        None,
+    )
+    assert matrix_row is not None
+
+    reference = _reference(area_m2=50.0, span_m=20.0, chord_m=2.526)
+
+    def _thrust(window):
+        tables = rotor_tables(
+            workspace,
+            "0001",
+            [point],
+            [record],
+            {"P": [run_id]},
+            reference,
+            matrix_row,
+            tmp_path / "out",
+            plots={"P": history} if window else None,
+            window=window,
+        )
+        assert tables, "the reference declares a rotor and no table was planned"
+        target, _alias, plan = tables[0]
+        written = write_rotor_table(
+            target, rotor=plan["rotor"], rows=plan["rows"], reference=reference
+        )
+        assert written is not None, written
+        from pyflightstream.post.products import read_csv_table
+
+        _, rows = read_csv_table(written, skip=1)
+        return float(rows[0]["CT_PUSHER"])
+
+    early = _thrust((1, 2))
+    late = _thrust((3, 4))
+
+    # THE WINDOW IS WHAT MOVED and nothing else did, so the ratio is the ratio
+    # of the two means: 350 over 150. Derived from the fixture, never read off
+    # the implementation.
+    assert late == pytest.approx(early * (350.0 / 150.0), rel=1e-6), (
+        "the rotor table is not averaging over the row's window; "
+        f"steps 1-2 mean 150 N and steps 3-4 mean 350 N: {early} and {late}"
+    )
+
+
 def test_every_row_is_dimensionalised_from_its_own_points_record(tmp_path):
     """A SWEEP IS A TABLE OF ITS POINTS, AND EACH POINT HAS ITS OWN AIR.
 

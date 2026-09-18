@@ -79,6 +79,8 @@ after    P0001-M150AL+000BE+000J+sweep_PUSHER.csv
 
 **Your existing products are moved, not orphaned:**
 
+<!-- skip: next -->
+
 ```python
 from pyflightstream.workspace import rename_group_products
 

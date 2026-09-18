@@ -3712,7 +3712,7 @@ def reduction_windows(case: SimCase) -> dict[str, object] | None:
     ...     sweep=SweepAxis(type="alpha", values=[0.0]),
     ...     variables={"VELOCITY": "30", "RPM": "1200", "BLADES": "4",
     ...                "DELTA_TIME": "0.0001", "TIME_ITERATIONS": "720",
-    ...                "WINDOW_DEGREES": "90"},
+    ...                "LAST_REVS_AVG": "0.25"},
     ... )
     >>> plan = reduction_windows(case)
     >>> plan["time_average"]["windows"], plan["per_blade"]["period_steps"]
