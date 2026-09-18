@@ -2585,6 +2585,12 @@ def _sim_products(
                 SuperfileDraft(
                     path=path,
                     rows=tuple(wide),
+                    # ITEM 7 WIRED HERE, on the DRAFT, because this is where
+                    # the pproc is: the campaign writer has no pproc in scope
+                    # and one campaign can name several, so resolving the
+                    # format there would give one simulation's products the
+                    # format another simulation asked for.
+                    fmt=products.superfile_format,
                     entry={
                         # The same keys `write_campaign_products` stamps on
                         # every other product's entry, written here because

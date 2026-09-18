@@ -78,6 +78,7 @@ from pathlib import Path
 
 import numpy as np
 
+from pyflightstream.cases import SUPERFILE_FORMATS
 from pyflightstream.cases.matrix import (
     COLUMNS_THAT_MAY_BE_UNSTATED,
     MatrixError,
@@ -550,19 +551,12 @@ class SuperfileDraft:
     path: Path
     rows: tuple[dict[str, str], ...]
     entry: dict[str, object]
-
-
-#: The formats a super file can be written in (v0.23.0 item 7), answering the
-#: owner's question of 2026-09-17: "como configuro para o super file tambem
-#: sair em formato custom?".
-#:
-#: `csv` is the default because adding a format may not change what an existing
-#: workspace writes. THE COLUMN SET IS THE SAME IN BOTH, which is the property
-#: that makes this a format rather than a second product: the super file's
-#: whole claim is that it carries everything the workspace knows about that
-#: simulation, and a format quietly carrying a different SET would break the
-#: claim while looking like a formatting option.
-SUPERFILE_FORMATS: tuple[str, ...] = ("csv", "legacy_polar")
+    #: Item 7: which FORMAT this file is written in, from the pproc that
+    #: produced it. It rides on the DRAFT rather than on the campaign call
+    #: because the choice is a pproc's, and one campaign can name several:
+    #: resolving it once for the whole run would hand one simulation's
+    #: products the format another simulation asked for.
+    fmt: str = "csv"
 
 
 def write_superfiles(
@@ -605,7 +599,16 @@ def write_superfiles(
     for draft in drafts:
         path = target(draft.path)
         rows = [[row.get(column, "") for column in columns] for row in draft.rows]
-        if fmt == "legacy_polar":
+        # THE DRAFT'S OWN FORMAT WINS. The choice belongs to the pproc that
+        # produced this file, and one campaign can name several; `fmt` is the
+        # campaign-wide default for a caller that has no per-draft answer.
+        chosen = draft.fmt if draft.fmt != "csv" else fmt
+        if chosen not in SUPERFILE_FORMATS:
+            raise ProductError(
+                f"the super file format {chosen!r} is not one this package writes; it "
+                f"offers {', '.join(SUPERFILE_FORMATS)}"
+            )
+        if chosen == "legacy_polar":
             _write_legacy_polar(path, columns, rows)
         else:
             write_csv_table(path, columns, rows)

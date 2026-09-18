@@ -888,6 +888,26 @@ class ProbesSpec(BaseModel):
         return value
 
 
+#: The formats a super file can be written in (v0.23.0 item 7), answering the
+#: owner's question of 2026-09-17: "como configuro para o super file tambem
+#: sair em formato custom?".
+#:
+#: IT LIVES HERE AND NOT WITH THE WRITER since the layer guard refused the
+#: alternative by name: `ProductsSpec` validates against this list, `cases`
+#: may not import `post`, and deferring the import into the validator body
+#: does not change its direction. A name two layers need belongs below both.
+#: `post.superfile` imports it, so every reader who found it there still
+#: does.
+#:
+#: `csv` is the default because adding a format may not change what an existing
+#: workspace writes. THE COLUMN SET IS THE SAME IN BOTH, which is the property
+#: that makes this a format rather than a second product: the super file's
+#: whole claim is that it carries everything the workspace knows about that
+#: simulation, and a format quietly carrying a different SET would break the
+#: claim while looking like a formatting option.
+SUPERFILE_FORMATS: tuple[str, ...] = ("csv", "legacy_polar")
+
+
 class ProductsSpec(BaseModel):
     """The ``[products]`` table: which post-processed CSV tables the campaign writes.
 
@@ -909,6 +929,40 @@ class ProductsSpec(BaseModel):
     sections: bool = True
     plots: bool = True
     custom_polar_format: bool = False
+    #: Item 7. Which FORMAT the super file is written in: `csv` as before, or
+    #: `legacy_polar`, the fixed-width form the existing tooling opens. The
+    #: writer took this argument from the first commit of 0.23.0 and the ONE
+    #: production call omitted it, so every campaign got `csv` and the second
+    #: format was a constant nobody could select.
+    #:
+    #: A FIELD AND NOT A FLAG, because `custom_polar_format` beside it is
+    #: already a `[products]` key: a user choosing how her products are written
+    #: should find both choices in one table rather than one here and one on a
+    #: command line.
+    #:
+    #: The DEFAULT MAY NOT MOVE. It is the format she already reads, so adding
+    #: this changes nothing about an existing workspace.
+    superfile_format: str = "csv"
+
+    @field_validator("superfile_format")
+    @classmethod
+    def _a_format_the_package_offers(cls, value: str) -> str:
+        """Refuse an unknown format where the pproc is READ.
+
+        The writer already refuses one, naming the formats that exist -- and it
+        fires after a campaign has been planned and a seat possibly spent. A
+        typo in a TOML file is a typo the loader can see, so it is seen here.
+
+        The list is the one the writer uses, which is why it lives in this
+        module rather than with the writer: a third format cannot be offered
+        by one and refused by the other.
+        """
+        if value not in SUPERFILE_FORMATS:
+            raise ValueError(
+                f"the super file format {value!r} is not one this package writes; "
+                f"the formats that exist are {', '.join(SUPERFILE_FORMATS)}"
+            )
+        return value
 
 
 #: Frame names the package creates itself (PFS-2030.03.02); a setup may

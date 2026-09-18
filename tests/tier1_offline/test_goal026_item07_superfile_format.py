@@ -107,3 +107,75 @@ def test_a_format_nobody_offers_is_refused_naming_the_ones_that_exist(tmp_path):
     assert "tecplot" in message
     for name in SUPERFILE_FORMATS:
         assert name in message, (name, message)
+
+
+def test_a_pproc_can_ask_for_the_legacy_format(tmp_path):
+    """ITEM 7 THROUGH THE PPROC, which is the only way a user reaches it.
+
+    `SUPERFILE_FORMATS` declared two formats and `write_superfiles` took `fmt`,
+    and the ONE production call omitted it -- so every campaign got `csv` and
+    `legacy_polar` was a constant nobody could select. That answers her question
+    ("como configuro para o super file tambem sair em formato custom?") with a
+    format she has no way to configure.
+
+    It is a FIELD on `[products]` rather than a flag, because the neighbouring
+    `custom_polar_format` is already a `[products]` key and a user choosing how
+    her products are written should find both in one table.
+    """
+    from pyflightstream.cases import ProductsSpec
+
+    assert ProductsSpec().superfile_format == "csv", "the default may not move"
+    assert ProductsSpec(superfile_format="legacy_polar").superfile_format == "legacy_polar"
+
+
+def test_a_format_the_package_does_not_offer_is_refused_at_the_pproc(tmp_path):
+    """Refused where it is WRITTEN, not where it is used.
+
+    The writer already refuses an unknown format naming the ones that exist, and
+    that refusal fires after a campaign has been planned and a seat possibly
+    spent. A typo in a pproc file is a typo the loader can see.
+    """
+    import pytest as _pytest
+    from pydantic import ValidationError
+
+    from pyflightstream.cases import ProductsSpec
+
+    with _pytest.raises(ValidationError) as caught:
+        ProductsSpec(superfile_format="tecplot")
+    message = str(caught.value)
+    assert "tecplot" in message, message
+    for name in SUPERFILE_FORMATS:
+        assert name in message, (name, message)
+
+
+def test_a_pproc_asking_for_the_legacy_format_gets_it_from_the_post_stage(tmp_path):
+    """ITEM 7 END TO END, which is the only claim that answers her question.
+
+    The two tests above assert the FIELD and the writer. Neither runs the stage,
+    and the stage was exactly what omitted the argument -- so both would pass
+    over a release where `legacy_polar` is still unreachable. This runs
+    `write_campaign_products` over a recorded workspace whose pproc asks for it,
+    and looks at the bytes.
+    """
+    import sys
+    from pathlib import Path
+
+    sys.path.insert(0, str(Path(__file__).parent))
+    from test_post_superfile import _post, _workspace
+
+    workspace = _workspace(tmp_path)
+    for code in ("p001", "p002"):
+        path = workspace.inputs_dir / "pproc" / f"{code}.toml"
+        path.write_text(
+            path.read_text(encoding="utf-8") + '\n[products]\nsuperfile_format = "legacy_polar"\n',
+            encoding="utf-8",
+        )
+
+    written = _post(workspace)
+    supers = [Path(p) for p in written if Path(p).name.startswith("SUPER-")]
+    assert supers, sorted(Path(p).name for p in written)
+
+    header = supers[0].read_text(encoding="utf-8").splitlines()[0]
+    assert "," not in header, (
+        f"the pproc asked for the legacy format and the stage wrote a CSV header: {header[:120]}"
+    )
