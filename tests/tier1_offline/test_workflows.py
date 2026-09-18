@@ -6084,7 +6084,12 @@ def test_axial_separation_families_the_geometry_lacks_entirely_are_refused(tmp_p
     # resolver is now shared, so a context argument threaded wrongly would put
     # `vorticity_drag_boundaries` in a message about the axial list and send her
     # to the wrong line of her own file.
-    assert "axial_separation_boundaries" in str(caught.value), caught.value
+    # THE PRESET'S OWN SPELLING, and this asserted the HELPER keyword. The
+    # refusal named `axial_separation_boundaries`, which is a `solver_settings()`
+    # Python argument and a key she cannot write in a preset at all -- so it sent
+    # a reader to a line that is not in her file. The QA lens of the closing round
+    # measured the sentence.
+    assert "axial_separation_families" in str(caught.value), caught.value
 
 
 def test_a_preset_that_says_nothing_places_no_boundary_on_the_axial_list(tmp_path):
@@ -6099,7 +6104,8 @@ def test_a_preset_that_says_nothing_places_no_boundary_on_the_axial_list(tmp_pat
     assert "AXIAL_SEPARATION" not in text, text
 
 
-def test_axial_separation_on_a_build_that_refuses_it_is_refused_at_plan_time(tmp_path):
+@pytest.mark.parametrize("build", ["26.120", "26.123"])
+def test_axial_separation_on_a_build_that_refuses_it_is_refused_at_plan_time(tmp_path, build):
     """RPT-018 measured the solver REJECTING this command on 26.101 and 26.121.
 
     So the honest outcome on her current builds is a refusal naming the build,
@@ -6114,5 +6120,8 @@ def test_axial_separation_on_a_build_that_refuses_it_is_refused_at_plan_time(tmp
         update={"solver": SolverSettings(axial_separation_families=["W", "B"])}
     )
     with pytest.raises(PyflightstreamError) as caught:
-        rendered(case, build="26.120")
-    assert "26.120" in str(caught.value), caught.value
+        rendered(case, build=build)
+    # HER BUILD IS IN THE LIST AND WAS NOT. The case pinned 26.120 alone while
+    # she runs 26.123+, so the one proof a reader would look for was about a
+    # build she does not use. The V&V lens of the closing round named it.
+    assert build in str(caught.value), caught.value

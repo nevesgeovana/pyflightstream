@@ -56,13 +56,24 @@ The result, in the sentence every record of it carries:
 
 **mypy recount 2026-09-18: 639 errors in 18 of 89 modules.**
 
-THE EIGHTY-SEVENTH AND EIGHTY-EIGHTH ARRIVED AT 0.23.0 and both arrive
-CLEAN: `post/guides.py`, the generated pproc guides of item 11, and
-`workspace/rename_groups.py`, the migration that moves a workspace's polar
-products onto the named-group form for item 14. Neither appears in the
-per-file breakdown. The count rose from 626 to 639 on sites in modules that
-already carried exemptions, which is worth saying plainly: the two new
-modules did not add one error between them.
+THE EIGHTY-SEVENTH, EIGHTY-EIGHTH AND EIGHTY-NINTH ARRIVED AT 0.23.0 and all
+three arrive CLEAN:
+
+- `post/guides.py`, the generated pproc guides of item 11;
+- `workspace/rename_groups.py`, the migration that moves a workspace's polar
+  products onto the named-group form for item 14;
+- `_tokens.py`, created when the owner decided the `-` token converges on `NA`
+  and `qa` needed to reach it without importing `post`. It holds one constant
+  and a docstring and imports nothing from this package.
+
+Not one of the three appears in the per-file breakdown. The count rose from 626
+to 639 on sites in modules that already carried exemptions, which is worth
+saying plainly: **the three new modules did not add one error between them.**
+
+ITEM 11 MOVED TO 0.24.0 AFTER THIS PARAGRAPH WAS WRITTEN, and `post/guides.py`
+is still on disk and still measured, because the recount measures the TREE and
+not the release scope. The sentence describing what the module is FOR is the
+part that is now ahead of the release; the count is not.
 
 The eighty-sixth is `run/rename.py`, added at 0.21.0 for the command that
 moves a workspace to the point names, and it arrives CLEAN: it appears nowhere

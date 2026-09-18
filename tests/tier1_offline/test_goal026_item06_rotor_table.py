@@ -256,9 +256,20 @@ def test_etaw_is_the_wind_axis_force_and_not_the_cosine_of_the_shaft_angle():
     # THE SHAFT reading keeps Fx alone; THE STREAM reading keeps both terms.
     pressure = 0.5 * 1.225 * 50.0**2
     assert loads.thrust_n == pytest.approx(pressure), "the shaft is on X, so thrust is Fx"
+    # DERIVED FROM THE CONVENTION, NOT READ OFF THE IMPLEMENTATION, and the
+    # difference is the whole point of this line. It asserted `cos + sin` --
+    # a number taken from the code -- and the code had the sign wrong, so the
+    # case written to discriminate passed under both answers. Every other
+    # assertion here holds under either sign too.
+    #
+    # THE DERIVATION: `Cz` is positive UP (the owner, 2026-09-18) and the basis
+    # is z-up, so the free stream at positive alpha points DOWN in body z:
+    # `v = (cos a, 0, -sin a)`. The surface pushes `(1, 0, 1) * q`, so
+    # `Fx_W = q * (cos a - sin a)`. At alpha 20 that is 0.598 q, where the
+    # wrong sign gives 1.282 q -- a factor of 2.1 in a published column.
     assert loads.wind_force_n == pytest.approx(
-        pressure * (math.cos(math.radians(alpha)) + math.sin(math.radians(alpha)))
-    ), "Fx_W is the force dotted with the free stream, which has a Z component at alpha"
+        pressure * (math.cos(math.radians(alpha)) - math.sin(math.radians(alpha)))
+    ), "Fx_W is the force dotted with the free stream, whose Z term is NEGATIVE at alpha"
     assert loads.wind_force_n != pytest.approx(loads.thrust_n), (
         "this case must discriminate; with these two equal the test proves nothing"
     )
@@ -392,9 +403,23 @@ def test_etaw_is_na_when_the_export_is_not_in_the_geometry_frame():
     assert isinstance(_etaw(_loads("Reference")), float)
     assert isinstance(_etaw(_loads(None)), float)
 
-    # A CAMPAIGN'S OWN COORDINATE SYSTEM: the rotation's premise is false, so the
-    # cell is visibly absent rather than quietly wrong.
+    # `MRP` IS ADMITTED AND WAS NOT. This package points the analysis at MRP
+    # itself whenever the reference states a moment point, and builds it as a
+    # pure TRANSLATION -- origin moved, axes identity -- so every force
+    # direction is unchanged and the rotation is valid. Denying it would have
+    # written NA on exactly the campaign item 6 exists for, and the unsteady
+    # loads fixture prints `MRP` on line 21.
+    assert isinstance(_etaw(_loads("MRP")), float)
+
+    # A ROTOR'S OWN FRAME IS GENUINELY TURNED, so the premise fails.
     assert _etaw(_loads("PUSHER_SMRP")) == NOT_APPLICABLE
-    # AND THE THRUST IS UNAFFECTED: it is a projection on the shaft, which needs
-    # no wind axes, so only the column whose premise failed goes NA.
-    assert isinstance(_loads("PUSHER_SMRP").thrust_n, float)
+    # AND THE WHOLE ROW GOES WITH IT. This asserted the opposite for one commit
+    # -- that the thrust was unaffected "because it is a projection on the
+    # shaft, which needs no wind axes". That sentence is wrong: `shaft` is a
+    # vector in GEOMETRY axes, so the dot product rests on the same premise the
+    # wind rotation rests on. Guarding one column meant CT, CQ, CP and ETA
+    # published silently wrong numbers while only ETAW went visibly absent.
+    # One premise, one verdict.
+    refused = _loads("PUSHER_SMRP")
+    assert refused.thrust_n != refused.thrust_n, "thrust must be NaN, not a number"
+    assert refused.torque_nm != refused.torque_nm, "torque must be NaN, not a number"

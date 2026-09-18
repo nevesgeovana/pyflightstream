@@ -195,8 +195,16 @@ CTX = "my own coefficient"
 ## 8. Everything else that moved
 
 - **A rotor table** carries `J`, `CT`, `CQ`, `CP`, `ETA`, `ETAW` per rotor,
-  each suffixed with the rotor's alias. `ETA` and `ETAW` read `NA` on a static
-  point, where they are `0/0`; `CT` and `CQ` are still written.
+  each suffixed with the rotor's alias.
+
+  **ON A STATIC POINT EVERY ONE OF THEM READS `NA` EXCEPT `J`.** This page said
+  `CT` and `CQ` were still written; a V&V round proved that false at every
+  caller and the change log was corrected without this page following. The
+  reason is the export rather than the package: it states coefficients
+  normalised by the run's own dynamic pressure, which is zero at rest, so a
+  hovering rotor's real thrust has been divided away before any of this is
+  computed. `J` is a real `0.00000` -- at rest with a turning rotor the advance
+  ratio genuinely is zero.
 - **The rotor table names its alias on its first line**, alone, so a script
   that has loaded the file still knows which group it holds.
 ## The averaging window moves to the matrix row

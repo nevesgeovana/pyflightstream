@@ -194,6 +194,14 @@ __all__ = [
     "polar_row",
     "swept_axes",
     "swept_polar_file_name",
+    # ITEM 17. `unsteady_polar_file_name` is the sibling of the name above it
+    # and was not in this list, so a reader looking one up would not find the
+    # other -- which is the claim this module's own docstring makes about the
+    # list and which was found false for `NOT_APPLICABLE` earlier in this
+    # same release. The architect lens of the closing round found it again.
+    "unsteady_polar_file_name",
+    "write_unsteady_polar",
+    "GEOMETRY_ANALYSIS_FRAMES",
     "provenance_file_name",
     "read_csv_table",
     "read_custom_polar_format",
@@ -718,18 +726,32 @@ class RotorShaftLoads:
     families_used: tuple[str, ...]
 
 
-#: The values `Coordinate frame for analysis:` takes when the export's forces
-#: are stated in the GEOMETRY frame -- the only case the shaft projection and
-#: the wind-axis rotation are valid in. Measured across the recorded exports of
-#: these workspaces: every one prints `Reference`.
+#: The analysis frames whose axes are the GEOMETRY's, so a force stated in them
+#: may be projected on a shaft and rotated into wind axes.
 #:
-#: A CAMPAIGN CAN CHANGE THIS. `script.helpers.analysis_setup(loads_frame=...)`
-#: points the analysis at a created coordinate system, and the export then
-#: states that frame's label here. The V&V lens of the release round found the
-#: field parsed, carried on `LoadsReport`, and read by nobody -- while a comment
-#: asserted the geometry frame as a property of the export. It is a property of
-#: the campaign's setup, and this is the witness.
-GEOMETRY_ANALYSIS_FRAMES = frozenset({"reference", "global", "geometry"})
+#: `MRP` IS IN THE LIST AND WAS LEFT OUT, and leaving it out would have denied
+#: `ETAW` on exactly the campaign item 6 exists for. This package POINTS THE
+#: ANALYSIS AT MRP ITSELF whenever the reference states a moment point
+#: (`cases.workflows._moment_frame`, then `_analysis(loads_frame=...)`), and it
+#: builds that frame with `x_axis = (1,0,0)` and `y_axis = (0,1,0)` -- the origin
+#: moves and the AXES DO NOT. A pure translation leaves every force direction
+#: unchanged, so the rotation is valid in it.
+#:
+#: MY COMMENT HERE SAID "measured across the recorded exports of these
+#: workspaces: every one prints `Reference`". THAT WAS FALSE and it is the worst
+#: kind of false: I read the sections and force-distribution fixtures and wrote
+#: the sentence as though I had read the loads ones. The unsteady loads fixture
+#: prints `MRP` on line 21, and so does every loads fixture of the rotor tests.
+#: The V&V lens of the closing round read the file I claimed to have read.
+#:
+#: IT IS A NAME CHECK AND THAT IS A LIMITATION, not a measurement. It admits the
+#: frames THIS PACKAGE creates as translations of the geometry and refuses
+#: everything else -- including a rotor's own `<ALIAS>_SMRP`, whose axes really
+#: are turned, and including a user's created frame whatever its axes. The
+#: question it stands for is "is this frame rotated relative to the geometry",
+#: and a name cannot answer that. What makes it safe is the DIRECTION of its
+#: error: an unknown frame is refused, never silently accepted.
+GEOMETRY_ANALYSIS_FRAMES = frozenset({"reference", "global", "geometry", "mrp"})
 
 
 def rotor_shaft_loads(
@@ -808,6 +830,25 @@ def rotor_shaft_loads(
     # This is a finding rather than a design: item 6's coefficients cannot be
     # derived from a dimensionless export for a static point at all, whatever
     # is wired. A hover figure of merit needs the run to state a force.
+    # ONE PREMISE, ONE VERDICT. The frame check guarded `wind_force_n` alone for
+    # one commit, and a test of mine PINNED that asymmetry -- "the thrust is
+    # unaffected: it is a projection on the shaft, which needs no wind axes".
+    # That sentence is wrong: `shaft` is a vector in GEOMETRY axes, so the dot
+    # product `force . shaft` rests on exactly the premise the wind rotation
+    # rests on. A rotated analysis frame breaks both, and guarding one meant
+    # `CT`, `CQ`, `CP` and `ETA` published silently wrong numbers while only
+    # `ETAW` went visibly absent. The V&V lens of the closing round found the
+    # test holding the asymmetry in place.
+    if analysis_frame is not None and (
+        str(analysis_frame).strip().casefold() not in GEOMETRY_ANALYSIS_FRAMES
+    ):
+        return RotorShaftLoads(
+            thrust_n=math.nan,
+            torque_nm=math.nan,
+            shaft_angle_deg=_shaft_angle(shaft, alpha_deg, beta_deg),
+            wind_force_n=math.nan,
+            families_used=tuple(used),
+        )
     pressure = 0.5 * float(density_kg_m3) * float(speed_m_s) ** 2
     if pressure <= 0.0:
         return RotorShaftLoads(
@@ -841,8 +882,13 @@ def rotor_shaft_loads(
         # THE OWNER'S `Fx_W`, 2026-09-18, AND THE ROUND TRIP IS COLLAPSED.
         # Her definition starts from the force in the ROTOR frame and carries
         # it to the body frame by the TRANSPOSE of the rotor-to-body rotation.
-        # `newtons` is already that body-frame force -- it is built from the
-        # export's `Cx, Cy, Cz`, which the export states in the geometry frame --
+        # `newtons` is that force in the frame THE EXPORT STATES, which is checked
+        # against `GEOMETRY_ANALYSIS_FRAMES` above and refuses the whole row when
+        # it is not the geometry's. THIS COMMENT SAID "which the export states in
+        # the geometry frame", flatly, and the correction of that very sentence
+        # is twenty lines below it in the same function -- the false claim and
+        # its retraction shipped together, and the false one is what the
+        # identity argument rests on. The QA lens of the closing round found it.
         # so resolving it into the rotor frame and straight back out is `R^T R`,
         # the identity, for any orthonormal `R`. Writing the two rotations would
         # give the same number with two more places to make a sign error.
@@ -860,11 +906,9 @@ def rotor_shaft_loads(
         # nobody -- while a comment asserted the geometry frame as a property of
         # the EXPORT. It is a property of the campaign's setup, and this is the
         # witness. An absent label means the export stated none.
-        wind_force_n=(
-            sum(a * b for a, b in zip(newtons, _free_stream(alpha_deg, beta_deg), strict=True))
-            if analysis_frame is None
-            or str(analysis_frame).strip().casefold() in GEOMETRY_ANALYSIS_FRAMES
-            else math.nan
+        # The frame was settled above, for the whole row rather than this column.
+        wind_force_n=sum(
+            a * b for a, b in zip(newtons, _free_stream(alpha_deg, beta_deg), strict=True)
         ),
         families_used=tuple(used),
     )
@@ -889,10 +933,30 @@ def _free_stream(alpha_deg: float, beta_deg: float) -> tuple[float, float, float
     """
     alpha = math.radians(float(alpha_deg))
     beta = math.radians(float(beta_deg))
+    # THE Z TERM IS NEGATIVE, AND IT WAS POSITIVE FOR ONE COMMIT.
+    #
+    # The owner settled the fact it turns on, 2026-09-18: in the loads export
+    # `Cz` IS POSITIVE UP. With a z-up basis -- which `reference.py` records this
+    # estate pinning by test -- the free stream at positive alpha points DOWN in
+    # body z, so the term is `-sin(alpha)`.
+    #
+    # `polar_row` twenty lines above says the same thing and said it first:
+    # `cdb = cds*cos(a) - cls*sin(a)` maps a unit drag direction, which IS the
+    # free stream, to `(cos a, ..., -sin a)`. This function's own docstring
+    # cites `polar_row` as its authority and then used the opposite sign.
+    #
+    # NO TEST CAUGHT IT, and the reason is the one this release keeps finding:
+    # the case written to discriminate asserted a value READ OFF THE
+    # IMPLEMENTATION rather than derived from the convention, and its other
+    # assertions held under both signs. A fixture encoding the thing it exists
+    # to expose. The V&V lens of the closing round derived it independently.
+    #
+    # The cost of being wrong here is not subtle: on the test's own geometry it
+    # is 68 per cent, on every row with a non-zero alpha, in a published column.
     return (
         math.cos(alpha) * math.cos(beta),
         math.sin(beta),
-        math.sin(alpha) * math.cos(beta),
+        -math.sin(alpha) * math.cos(beta),
     )
 
 
@@ -2778,6 +2842,7 @@ def write_unsteady_polar(
     window: tuple[int, int],
     conditions: Sequence[Mapping[str, object]],
     reference: ReferenceValues | None,
+    left_out: list[str] | None = None,
 ) -> Path | None:
     """Write the POLAR of one unsteady simulation from the PLOTS history (item 17).
 
@@ -2811,9 +2876,20 @@ def write_unsteady_polar(
     path = Path(path)
     columns: list[str] = []
     rows: list[tuple[Mapping[str, object], dict[str, float]]] = []
+    # WHY EACH ABSENT POINT IS ABSENT, collected rather than discarded. A sweep
+    # dropping rows in silence hands a reader a table shorter than her matrix
+    # with nothing saying which points went or why -- which is a blank cell one
+    # level up, and `_tokens.py` argues against exactly that: indistinguishable
+    # from a value that went missing, from a column that never applied, and from
+    # a writer that crashed halfway. The QA lens of the closing round found the
+    # round had fixed the two readers disagreeing about the RULE and left them
+    # disagreeing about the REPORT.
+    left_out = [] if left_out is None else left_out
     for point, condition in zip(points, conditions, strict=True):
-        source = plots.get(str(getattr(point, "name", "")))
+        name = str(getattr(point, "name", ""))
+        source = plots.get(name)
         if source is None or not source.is_file():
+            left_out.append(f"{name}: no plots table")
             continue
         try:
             names, series = plots_table_series(source)
@@ -2832,11 +2908,17 @@ def write_unsteady_polar(
             # the PUBLISHED one was the permissive one. The QA lens found it.
             steps = np.asarray(series.steps, dtype=int)
             if not len(steps) or int(steps[0]) > window[0] or int(steps[-1]) < window[1]:
+                held = f"steps {int(steps[0])} to {int(steps[-1])}" if len(steps) else "no step"
+                left_out.append(
+                    f"{name}: the row states steps {window[0]} to {window[1]} and the "
+                    f"history holds {held}"
+                )
                 continue
             averaged = blade_passage_average(series, window=window)
-        except (PyflightstreamError, ValueError):
+        except (PyflightstreamError, ValueError) as error:
             # A history that does not cover the row's window is a run that
             # stopped early, not a fault: it costs this point its row.
+            left_out.append(f"{name}: its plots table could not be read: {error}")
             continue
         values: dict[str, float] = {}
         for name in names:
@@ -2858,6 +2940,7 @@ def write_unsteady_polar(
             if column is not None and len(column):
                 values[name] = float(column[0])
         if not values:
+            left_out.append(f"{name}: its plots table states no numeric plot column")
             continue
         for name in values:
             if name not in columns:
@@ -2992,6 +3075,15 @@ def _sim_products(
     # still needs this for its probes and its reduction; binding it inside the
     # polar branch is a NameError on `polars = false`, which is the shape the
     # advance-ratio list beside it already had.
+    # BOUND HERE FOR THE SAME REASON AS `cell` ABOVE, and it was bound inside
+    # the `products.polars` branch for one commit -- sixty lines below the
+    # comment that names that exact mistake. `products.polars = false` is a real
+    # pproc setting a user writes when her groups are not for polar tables, and
+    # reading this outside the branch that bound it is a NameError that aborts
+    # the post stage for every simulation of such a workspace. No test sets that
+    # field, so the suite was green. The architect lens of the closing round
+    # found it by reading the nesting rather than by running anything.
+    unsteady_window_steps = _stated_window(first)
     cell = first.flight_condition if isinstance(first.flight_condition, Mapping) else None
     # ITEM 13's other half. The clock is a property of the ROW's export
     # settings, so every point of one row shares it; the iteration is per point
@@ -3067,7 +3159,6 @@ def _sim_products(
         # scaling `write_plots_table` applies is not performed a second time here.
         # Two implementations of one conversion is how two published numbers come
         # to disagree.
-        unsteady_window_steps = _stated_window(first)
 
         # THE GROUP POLARS ARE SKIPPED RATHER THAN WRITTEN FROM AN INSTANT.
         # Writing both would put two files with one name's worth of meaning in
@@ -3301,14 +3392,25 @@ def _sim_products(
     # one window, and it reads the WRITTEN tables rather than the raw export
     # so that the reference-velocity scaling is performed in one place.
     if unsteady_window_steps is not None:
+        unsteady_left_out: list[str] = []
+        unsteady_name = unsteady_polar_file_name(sim_id, name=table_name)
         done = write_unsteady_polar(
-            _target(out / POLARS_DIR / unsteady_polar_file_name(sim_id, name=table_name)),
+            _target(out / POLARS_DIR / unsteady_name),
             points=points,
             plots=plots_tables,
             window=unsteady_window_steps,
             conditions=conditions,
             reference=reference,
+            left_out=unsteady_left_out,
         )
+        # EVERY POINT THAT IS NOT A ROW IS NAMED, with its reason. A sweep table
+        # quietly shorter than her matrix says nothing about which points went
+        # or why, which is a blank cell one level up.
+        if unsteady_left_out:
+            skipped[f"{POLARS_DIR}/{unsteady_name}"] = (
+                "these points of the sweep are not rows of the unsteady polar: "
+                + "; ".join(unsteady_left_out)
+            )
         if done is not None:
             written.append(done)
             written_names[done.relative_to(out).as_posix()] = {

@@ -139,10 +139,16 @@ See `docs/migrating-to-0.23.0.md` before upgrading a workspace you care about.
   things that vary down the table were absent. `AZIMUTH` is `NA` without a
   rotor and never `0`, which is a real azimuth.
 
-- **`per_blade` is ONE window**, one row per blade, with each blade's start and
-  end azimuth in columns. It averaged each blade over its own passage before,
-  which mixed a real azimuthal difference with a difference in WHEN each blade
-  was sampled, and nothing in the file said which was which.
+- **`per_blade` is ONE window**, shared by every blade, taken from the averaging
+  window the matrix row states. It averaged each blade over its OWN passage
+  before, which mixed a real azimuthal difference with a difference in WHEN each
+  blade was sampled, and nothing in the file said which was which.
+
+  **ONE ROW PER BLADE, WITH THE AZIMUTHS IN COLUMNS, IS 0.24.0** and this entry
+  claimed it. `per_blade_rows` holds that shape and has no caller, so the table
+  still carries one row per window -- which, with a shared window, is one row.
+  The migration page said so correctly and this page did not; the architect and
+  V&V lenses of the closing round found the two disagreeing.
 
 - **The run assessor judges an unsteady point from the plots HISTORY**, not from
   the single row the native coefficient export leaves behind. A run whose

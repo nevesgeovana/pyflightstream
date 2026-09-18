@@ -21,11 +21,17 @@ which is why it was hers to decide and not mine.
 WHAT DELIBERATELY DID NOT CONVERGE, because "everything" has an edge and an
 undocumented edge is the next defect:
 
-- **The MATRIX cell** (``cases.matrix.UNSTATED_CELL``). That ``-`` is INPUT --
-  what she types in a matrix cell to mean "not stated" -- and every matrix she
-  already has is written with it. Converging it would make the package refuse
-  the campaigns it exists to run, which is the one thing her acceptance rule
+- **The matrix's READ SET** (``cases.matrix.UNSTATED_CELLS``). Every matrix she
+  already has says "not stated" with a ``-``, so that spelling is still
+  ACCEPTED; converging the read side would make the package refuse the
+  campaigns it exists to run, which is the one thing her acceptance rule
   forbids: *"eu já tenho simulações prontas"*.
+
+  THIS BULLET NAMED ``UNSTATED_CELL`` -- the WRITE token -- and that symbol DID
+  converge, in the same commit, one character away from the one that did not.
+  The QA lens of the closing round read the two side by side. In a file whose
+  whole subject is one token per idea, naming the wrong one of a pair is the
+  defect it exists against.
 - **Rule lines, separators and padding.** ``"-" * 120`` is a horizontal rule,
   not a value. A reader never mistakes one for a cell.
 - **Every READER still accepts ``-``**, and that is not an oversight. A product

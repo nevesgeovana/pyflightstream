@@ -3916,13 +3916,26 @@ def reduction_windows(case: SimCase) -> dict[str, object] | None:
         plan["per_blade"] = {"skipped": reason}
         return plan
 
-    # ITEM 9's GATE ON THE ROW-LEVEL PATH, which had none. `phase_locked_gate`
-    # was called in `_the_passages_of_one_rotor` alone, so a row that does NOT
-    # name its rotors under `rotors` -- the ordinary single-rotor row -- got a
-    # full phase-locked reduction whatever it turned. A closing round reproduced
-    # it: a pproc asking for 99 revolutions against a run of about four got
-    # `phase_locked: {'windows': [[596, 720]], ...}`. For such a row item 9 did
-    # nothing at all.
+    # ITEM 9's GATE ON THE ROW-LEVEL PATH, WHICH IS INERT IN 0.23.0 AND IS KEPT.
+    #
+    # The gate was missing here entirely: `phase_locked_gate` was called in
+    # `_the_passages_of_one_rotor` alone, so a row that does NOT name its rotors
+    # -- the ordinary single-rotor row -- got a full phase-locked reduction
+    # whatever it turned. A closing round reproduced it against a tree where
+    # `PprocSpec` still carried the field.
+    #
+    # IT CANNOT BE REPRODUCED AGAINST THIS TREE, and saying so is the point.
+    # Item 9 moved to 0.24.0 and the field is gone, with `extra="forbid"`
+    # refusing it by name, so `getattr(case.pproc, "phase_locked", None)` is
+    # always None and this call returns None unconditionally. The block below is
+    # inert until the field returns.
+    #
+    # KEPT RATHER THAN DELETED because the defect was real and the fix is right,
+    # and deleting it would mean 0.24.0 re-discovering that this path has no
+    # gate. What is NOT kept is the claim that it closes something live today --
+    # this same release refused a guard elsewhere on exactly that ground, that
+    # an unreachable refusal carrying such a comment reads as cover. The
+    # architect lens of the closing round held me to it here.
     #
     # ASKED PER SCOPE AND NOT ONCE FOR BOTH, deliberately, and this departs from
     # the fix shape the lens proposed. The two paths are mutually exclusive and
@@ -4734,6 +4747,7 @@ def _family_indices(
     families: Sequence[str] | None,
     *,
     keyword: str,
+    preset_key: str,
     dropped: str,
 ) -> list[int] | None:
     """Resolve one preset boundary list's FAMILIES through the opened inventory.
@@ -4759,6 +4773,23 @@ def _family_indices(
     """
     if families is None:
         return None
+    # AN EMPTY LIST IS ITS OWN REFUSAL, and it fell through to the absent-family
+    # branch for one commit: the message read "the preset names <key>  and the
+    # opened geometry carries none of them (absent: )" -- two spaces, an empty
+    # parenthesis, and a sentence claiming the geometry lacks families that were
+    # never named. `vorticity_drag_families` is caught earlier and properly by an
+    # `EntitySelection` row at input validation; its new twin was given the
+    # resolver and not the validation, and the field's own docstring said it
+    # followed "the same rule ... through the same function", which is true of
+    # the resolver and not of the check. The QA lens of the closing round
+    # measured the mangled sentence.
+    if not list(families):
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: the preset states {preset_key} = [], an EMPTY "
+            "selection. The solver reads an empty list as its own default, which is "
+            f"not what a preset naming the key asked for: either name families, or "
+            f"drop {preset_key} so {dropped}."
+        )
     chosen: list[int] = []
     absent: list[str] = []
     for name in families:
@@ -4768,10 +4799,17 @@ def _family_indices(
             absent.append(name)
     if not chosen:
         raise CampaignConfigError(
-            f"case {case.sim_id!r}: the preset names {keyword} "
+            # THE PRESET'S OWN SPELLING, not the helper keyword. This named
+            # `keyword` -- which is the `solver_settings()` Python argument and
+            # is what `resolve_boundary` should be told -- so the refusal sent a
+            # user to `axial_separation_boundaries`, a key she cannot write in a
+            # preset at all. For `vorticity` an alias softened it; for the new
+            # twin there was nothing. The resolver's own docstring promised the
+            # opposite: "so a bad label names the key the user wrote".
+            f"case {case.sim_id!r}: the preset names {preset_key} "
             f"{', '.join(families)} and the opened geometry carries none of them "
             f"(absent: {', '.join(absent)}), so the selection would be empty. Name "
-            f"families the geometry carries, or drop the key so {dropped}."
+            f"families the geometry carries, or drop {preset_key} so {dropped}."
         )
     return sorted(chosen)
 
@@ -4783,6 +4821,7 @@ def _vorticity_indices(case: SimCase, script: Script) -> list[int] | None:
         script,
         case.solver.vorticity_drag_families,
         keyword="vorticity_drag_boundaries",
+        preset_key="vorticity_drag_families",
         dropped="the solver integrates surface pressure on every boundary",
     )
 
@@ -4808,6 +4847,7 @@ def _axial_separation_indices(case: SimCase, script: Script) -> list[int] | None
         script,
         case.solver.axial_separation_families,
         keyword="axial_separation_boundaries",
+        preset_key="axial_separation_families",
         dropped="no boundary is placed on the axial flow separation list",
     )
 

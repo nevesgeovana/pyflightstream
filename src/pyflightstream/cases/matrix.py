@@ -219,16 +219,21 @@ _LAYOUT_0_15_0 = (
 #: Read as: column -> what the converter puts there for a row written
 #: before 0.17.0. Two of them used to be described by where the FACT used
 #: to live, which read as a promise that the converter goes and fetches it;
-#: it does not, it has no workspace, and it writes a dash (the interface
+#: it does not, it has no workspace, and it writes the unstated cell (the interface
 #: lens, 2026-09-13). Where the older home still answers, this says so,
 #: because that is what makes the dash safe rather than lossy.
 COLUMNS_NEW_AT_0_17_0 = {
-    "CONFIGURATION": "nothing implies it; the upgrade writes '-'",
+    "CONFIGURATION": "nothing implies it; the upgrade writes the unstated cell",
     "GEOMETRY": "the row's own GEOMETRY key, out of the free cell",
     "SYMMETRY": "the row's own SYMMETRY key, out of the free cell",
-    "SYMMETRY_LOADS": ("'-'; the cited setup's symmetry_loads is still read, so nothing is lost"),
-    "NCPUS": ("'-'; the cited setup's max_parallel_threads is still read, so nothing is lost"),
-    "WALLTIME": "no earlier row could state one, so it is written '-'",
+    "SYMMETRY_LOADS": (
+        "the unstated cell; the cited setup's symmetry_loads is still read, so nothing is lost"
+    ),
+    "NCPUS": (
+        "the unstated cell; the cited setup's max_parallel_threads is still read, "
+        "so nothing is lost"
+    ),
+    "WALLTIME": "no earlier row could state one, so it is written as the unstated cell",
 }
 
 #: The cell a column uses when the row states nothing. It is a visible token
@@ -2370,7 +2375,7 @@ def _expand_to_nineteen(data: bytes, source: str) -> bytes:
     THEM IS A LOSS. `WALLTIME` and `CONFIGURATION` never existed, so a
     dash is the truth. `NCPUS` and `SYMMETRY_LOADS` DID exist, in the
     setup artifact, and this converter does NOT read the setup: it has no
-    workspace and takes none, so it writes a dash in both.
+    workspace and takes none, so it writes the unstated cell in both.
 
     A DASH IS NOT A ZERO AND NOT A DEFAULT. It says the ROW states
     nothing, and the setup is then still read exactly as it was before
