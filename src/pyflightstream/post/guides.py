@@ -88,15 +88,15 @@ VARIABLE_DEFINITIONS: dict[str, str] = {
     "ETA": "-. Propulsive efficiency, J CT / CP",
     "ETAW": "-. The efficiency with the wind-axis force in place of the thrust, J CTW / CP",
     **{
-        f"C{part}{axes}": f"-. {what} coefficient in {system} axes"
+        f"C{part}{axes}{at}": f"-. {what} coefficient in {system} axes{about}"
         for axes, system in (("W", "wind"), ("S", "stability"), ("B", "body"))
-        for part, what in (
-            ("D", "Drag"),
-            ("Y", "Side-force"),
-            ("L", "Lift"),
-            ("R", "Rolling-moment"),
-            ("M", "Pitching-moment"),
-            ("N", "Yawing-moment"),
+        for part, what, at, about in (
+            ("D", "Drag", "", ""),
+            ("Y", "Side-force", "", ""),
+            ("L", "Lift", "", ""),
+            ("R", "Rolling-moment", "25", ", about the moment reference point"),
+            ("M", "Pitching-moment", "25", ", about the moment reference point"),
+            ("N", "Yawing-moment", "25", ", about the moment reference point"),
         )
     },
 }
@@ -191,7 +191,7 @@ def _variables_page(glossary: Sequence[tuple[str, str]]) -> str:
     ]
     lines += [_defined(name) for name in ("FIRST_STEP", "LAST_STEP", "STEPS")]
     lines += [_defined(name) for name in ("XMOM", "YMOM", "ZMOM")]
-    lines += [_defined(name) for name in UNSTEADY_AXIS_COLUMNS]
+    lines += [_defined(name, f"{name}_<group>") for name in UNSTEADY_AXIS_COLUMNS]
     lines += [
         "",
         "## The phase-locked table leads with these",

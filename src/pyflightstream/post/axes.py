@@ -47,6 +47,7 @@ from pyflightstream._errors import ProductError
 
 __all__ = [
     "EXPORT_TO_BODY",
+    "blade_azimuth_deg",
     "body_to_stability",
     "body_to_wind",
     "dcm",
@@ -57,6 +58,46 @@ __all__ = [
     "wind_angles",
     "wind_force_coefficients",
 ]
+
+
+def blade_azimuth_deg(
+    datum_deg: object,
+    step: object,
+    *,
+    steps_per_revolution: object,
+    rpm: object,
+) -> float | None:
+    """Return where a blade is at a step, in degrees in [0, 360), or None.
+
+    ``datum_deg`` is where the blade sits at step zero, and it turns by one
+    revolution every ``steps_per_revolution`` steps, in the sense of the sign of
+    ``rpm``. THE ONE HOME OF THIS RULE: the sections table, the per-blade table
+    and the per-blade rows each wrote it out, with their own reading of the sign
+    and of when the clock is not stated, and three copies of one rule are how
+    two published columns come to disagree about where a blade is.
+
+    None where the clock is not stated: a step, a datum, a positive number of
+    steps per revolution or a non-zero ``rpm`` that is not a number. A caller
+    publishes that as not applicable, never as zero.
+
+    Examples
+    --------
+    >>> blade_azimuth_deg(10.0, 18, steps_per_revolution=72, rpm=2000.0)
+    100.0
+    >>> blade_azimuth_deg(10.0, 18, steps_per_revolution=72, rpm=-2000.0)
+    280.0
+    >>> blade_azimuth_deg(10.0, 18, steps_per_revolution=72, rpm=None) is None
+    True
+    """
+    stated = (datum_deg, step, steps_per_revolution, rpm)
+    if any(isinstance(value, bool) or not isinstance(value, int | float) for value in stated):
+        return None
+    if not steps_per_revolution > 0 or not rpm:  # type: ignore[operator]
+        return None
+    sense = 1.0 if rpm > 0 else -1.0  # type: ignore[operator]
+    turned = sense * float(step) * 360.0 / float(steps_per_revolution)  # type: ignore[arg-type]
+    return (float(datum_deg) + turned) % 360.0 + 0.0  # type: ignore[arg-type]
+
 
 Matrix = NDArray[np.float64]
 Vector = NDArray[np.float64]

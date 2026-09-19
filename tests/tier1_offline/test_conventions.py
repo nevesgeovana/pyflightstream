@@ -425,9 +425,26 @@ _SRC = Path(pyflightstream.__file__).parent
 #: Giving a base layer a row BELOW every core row makes the property
 #: structural instead of hand-written, and subsumes both of those
 #: guards rather than asking for a third.
-_LAYER_ROW: dict[str, int] = {
-    name: row for row, (names, _) in enumerate(_CORE_LAYERS) for name in names
-} | {name: len(_CORE_LAYERS) for names, _ in _BASE_LAYERS for name in names}
+#:
+#: TWO MORE FLOOR MODULES HAD NO ROW (release review of 0.24.0, ARCH-A4):
+#: `_expressions`, which both `cases` and `post` import and which states in its
+#: own docstring that it imports the errors and the standard library only, and
+#: `_tokens`. The overview's layer table does not draw them, so they are named
+#: here; the row is the floor's, and the walks now read their imports.
+_UNDRAWN_FLOOR_MODULES: tuple[str, ...] = ("_expressions", "_tokens")
+_LAYER_ROW: dict[str, int] = (
+    {name: row for row, (names, _) in enumerate(_CORE_LAYERS) for name in names}
+    | {name: len(_CORE_LAYERS) for names, _ in _BASE_LAYERS for name in names}
+    | {name: len(_CORE_LAYERS) for name in _UNDRAWN_FLOOR_MODULES}
+)
+
+
+def test_the_undrawn_floor_modules_exist_and_have_the_floors_row():
+    """A name in that tuple that matches no file would be a row nothing reads."""
+    package = Path(__file__).parents[2] / "src" / "pyflightstream"
+    for name in _UNDRAWN_FLOOR_MODULES:
+        assert (package / f"{name}.py").is_file(), name
+        assert _layer_row(f"pyflightstream.{name}") == len(_CORE_LAYERS)
 
 
 def _layer_row(dotted: str) -> int | None:

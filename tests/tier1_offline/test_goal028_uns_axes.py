@@ -28,6 +28,7 @@ from test_goal028_polar_from_the_vector import _oracle  # noqa: E402
 from test_post_products import PLOTS_HEADER  # noqa: E402
 
 from pyflightstream.post.products import (  # noqa: E402
+    COEFFICIENT_COLUMNS,
     ReferenceValues,
     read_csv_table,
     write_plots_table,
@@ -37,7 +38,19 @@ from pyflightstream.post.products import (  # noqa: E402
 REFERENCE = ReferenceValues(sref_m2=50.0, cref_m=2.526, bref_m=20.0)
 RHO, VINF = 1.1, 60.0
 CONDITION = {"ALPHA": 4.0, "BETA": 6.0, "MACH": 0.18, "RHO": RHO, "VINF": VINF, "VREF": VINF}
-AXES = ("CDW CYW CLW CRW CMW CNW CDS CYS CLS CRS CMS CNS CDB CYB CLB CRB CMB CNB").split()
+#: THE REQUIREMENT MOVED at the release review (REL-0240 round 1, API-B1 to B3): the
+#: eighteen names are the STEADY polar's, `25` included, and every one carries its
+#: plot group's whole name, one group or several.
+AXES = (
+    "CDW CYW CLW CRW25 CMW25 CNW25 CDS CYS CLS CRS25 CMS25 CNS25 CDB CYB CLB CRB25 CMB25 CNB25"
+).split()
+
+
+def _column(key: str, group: str = "MRP_TOTAL") -> str:
+    """The column an oracle key is published under: `CMW` is `CMW25_<group>`."""
+    return f"{key}{'25' if key[1] in 'RMN' else ''}_{group}"
+
+
 #: Step 1 is outside the window; steps 2 and 3 average to the second tuple.
 HISTORY = {
     1: (9000.0, 9000.0, 9000.0, 9000.0, 9000.0, 9000.0),
@@ -96,21 +109,32 @@ def _expected() -> dict[str, float]:
 
 def test_the_axes_are_the_averaged_newtons_made_coefficients_and_turned(tmp_path):
     columns, row = _written(tmp_path, ("MRP_TOTAL",))
-    at = columns.index("CDW")
-    assert columns[at : at + 18] == AXES, columns[at : at + 18]
+    at = columns.index("CDW_MRP_TOTAL")
+    assert columns[at : at + 18] == [f"{name}_MRP_TOTAL" for name in AXES], columns[at : at + 18]
     for name, expected in _expected().items():
-        assert float(row[name]) == pytest.approx(expected, abs=5e-6), name
+        assert float(row[_column(name)]) == pytest.approx(expected, abs=5e-6), name
     # The body-axis force IS the averaged force over the dynamic pressure and the area.
     unit = 0.5 * RHO * VINF**2 * REFERENCE.sref_m2
-    assert float(row["CDB"]) == pytest.approx(MEAN[0] / unit, abs=5e-6)
-    assert math.isfinite(float(row["CLW"]))
+    assert float(row["CDB_MRP_TOTAL"]) == pytest.approx(MEAN[0] / unit, abs=5e-6)
+    assert math.isfinite(float(row["CLW_MRP_TOTAL"]))
+    # ONE GROUP OR SEVERAL, the name is the same: a second group added to the pproc
+    # renames nothing a reader was keyed to.
+    assert "CLW" not in columns
+    assert set(AXES) == set(COEFFICIENT_COLUMNS[4:22])
 
 
 def test_two_groups_in_the_global_frame_take_their_groups_name(tmp_path):
     columns, row = _written(tmp_path, ("MRP_TOTAL", "MRP_AIRFRAME"))
-    assert "CLW" not in columns
-    assert "CLW_TOTAL" in columns and "CLW_AIRFRAME" in columns, columns
-    assert row["CLW_TOTAL"] == row["CLW_AIRFRAME"]
+    assert "CLW" not in columns and "CLW_TOTAL" not in columns
+    assert "CLW_MRP_TOTAL" in columns and "CLW_MRP_AIRFRAME" in columns, columns
+    assert row["CLW_MRP_TOTAL"] == row["CLW_MRP_AIRFRAME"]
+
+
+def test_two_groups_that_differ_by_a_prefix_never_share_a_column(tmp_path):
+    """`MRP_TOTAL` and `TOTAL` each write their own eighteen."""
+    columns, _row = _written(tmp_path, ("MRP_TOTAL", "TOTAL"))
+    assert "CLW_MRP_TOTAL" in columns and "CLW_TOTAL" in columns, columns
+    assert len([name for name in columns if name.startswith("CLW_")]) == 2
 
 
 def test_a_rotors_own_frame_is_never_the_source_and_the_block_says_why_it_is_absent(tmp_path):
@@ -135,7 +159,7 @@ def test_a_row_stating_no_density_gets_no_axes_and_says_so(tmp_path):
         axes_groups=("MRP_TOTAL",),
     )
     columns, _rows = read_csv_table(path)
-    assert "CLW" not in columns
+    assert not [name for name in columns if name.startswith("CLW")], columns
     assert any("RHO" in note for note in notes), notes
 
 
@@ -152,7 +176,7 @@ def test_the_stage_records_why_an_unsteady_polar_carries_no_axes(tmp_path):
     written = [Path(path) for path in _post(workspace)]
     (polar,) = [path for path in written if path.name.endswith("_uns_avg.csv")]
     columns, _rows = read_csv_table(polar)
-    assert "CLW" not in columns
+    assert not [name for name in columns if name.startswith("CLW")], columns
     (manifest,) = workspace.root.rglob("products.json")
     skipped = json.loads(manifest.read_text(encoding="utf-8"))["skipped"]
     reason = skipped[f"polars/{polar.name}#axes"]

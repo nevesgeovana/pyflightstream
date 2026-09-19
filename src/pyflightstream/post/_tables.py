@@ -24,6 +24,7 @@ import numpy as np
 from pyflightstream._errors import ProductError as ProductError
 from pyflightstream._errors import ProductExistsError as ProductExistsError
 from pyflightstream._tokens import NOT_APPLICABLE as NOT_APPLICABLE
+from pyflightstream.post.axes import blade_azimuth_deg
 
 #: The column naming the ADVANCE RATIO of a row.
 #:
@@ -441,18 +442,10 @@ def _rotor_of_the_block(
         owned = set(_names_of(rotor.get("families")))
         if not families or not set(families) <= owned:
             continue
-        per_revolution = rotor.get("steps_per_revolution")
-        datum = rotor.get("blade1_azimuth_deg")
-        rpm = rotor.get("rpm")
-        if (
-            step is None
-            or not isinstance(per_revolution, int | float)
-            or per_revolution <= 0
-            or not isinstance(datum, int | float)
-            or not isinstance(rpm, int | float)
-            or not rpm
-        ):
-            return str(alias), None
-        sense = 1.0 if rpm > 0 else -1.0
-        return str(alias), (float(datum) + sense * step * 360.0 / float(per_revolution)) % 360.0
+        return str(alias), blade_azimuth_deg(
+            rotor.get("blade1_azimuth_deg"),
+            step,
+            steps_per_revolution=rotor.get("steps_per_revolution"),
+            rpm=rotor.get("rpm"),
+        )
     return None, None

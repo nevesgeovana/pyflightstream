@@ -62,7 +62,7 @@ def test_a_named_plot_column_is_written_under_the_readers_name_with_its_value(tm
     assert float(rows[0]["DRAG_N"]) == pytest.approx(120.0), "the mean of 110 and 130"
     assert "FY_MRP_TOTAL" in columns, "a column the dictionary does not name keeps its name"
     # The axes are built from the six components BEFORE the rename, so they are still there.
-    assert "CLW" in columns
+    assert "CLW_MRP_TOTAL" in columns, "named for its group since the release review"
 
 
 def test_without_a_dictionary_every_name_passes_through(tmp_path):

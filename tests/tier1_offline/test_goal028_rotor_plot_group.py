@@ -99,7 +99,9 @@ def test_a_group_that_only_shares_the_aliass_name_is_not_the_rotors_history():
         }
     )
     inventory = [*PUSHER_FAMILIES, "W"]
-    candidates, _refused = rotor_plot_source(pproc, "PUSHER", PUSHER_FAMILIES, inventory)
+    candidates, _refused = rotor_plot_source(
+        pproc, "PUSHER", rotor_families=PUSHER_FAMILIES, inventory=inventory
+    )
     assert candidates == ["ROTOR_PUSHER"], candidates
 
 
@@ -113,6 +115,6 @@ def test_a_group_over_exactly_the_rotors_families_is_found_whatever_it_is_called
         }
     )
     candidates, refused = rotor_plot_source(
-        pproc, "PUSHER", PUSHER_FAMILIES, [*PUSHER_FAMILIES, "W"]
+        pproc, "PUSHER", rotor_families=PUSHER_FAMILIES, inventory=[*PUSHER_FAMILIES, "W"]
     )
     assert candidates == ["HUB_PUSHER", "ROTOR_PUSHER"] and refused is None

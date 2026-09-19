@@ -53,6 +53,7 @@ from pathlib import Path
 import numpy as np
 
 from pyflightstream._errors import ProductError
+from pyflightstream.post.axes import blade_azimuth_deg
 from pyflightstream.results import IncompleteOutputError, MalformedOutputError
 
 __all__ = [
@@ -631,7 +632,9 @@ def per_blade_rows(
         end: float | None = None
         if blade1_azimuth_deg is not None and steps_per_revolution is not None:
             start = (blade1_azimuth_deg + index * spacing) % 360.0 + 0.0
-            end = (start + turning * spanned * 360.0 / steps_per_revolution) % 360.0 + 0.0
+            end = blade_azimuth_deg(
+                start, spanned, steps_per_revolution=steps_per_revolution, rpm=turning
+            )
         row: dict[str, object] = {
             "BLADE": number,
             "FIRST_STEP": first,
@@ -673,10 +676,18 @@ def blade_one_azimuth(
     >>> blade_one_azimuth(3, datum_deg=10.0, sense=-1.0, steps_per_revolution=8.0)
     235.0
     """
-    turning = 1.0 if sense >= 0 else -1.0
-    return (float(datum_deg) + turning * float(step) * 360.0 / float(steps_per_revolution)) % (
-        360.0
-    ) + 0.0
+    turned = blade_azimuth_deg(
+        datum_deg,
+        step,
+        steps_per_revolution=steps_per_revolution,
+        rpm=1.0 if sense >= 0 else -1.0,
+    )
+    if turned is None:
+        raise ProductError(
+            f"no azimuth at step {step!r}: the datum {datum_deg!r} and the "
+            f"{steps_per_revolution!r} steps per revolution do not state a clock"
+        )
+    return turned
 
 
 def phase_locked_rows(

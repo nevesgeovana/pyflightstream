@@ -128,9 +128,11 @@ export's own vector equals its `CDi + CDo`, which the recorded exports
 confirm to their printed precision, under sideslip too. `CD0` and `CDI` are
 those two integrals as the solver states them.
 
-**`CLW` is NOT the solver's `CL`.** The `CL` an export prints sits about 0.13
-per cent above the wind-axis lift of the vector printed beside it; the cause
-is not known. The polar states the vector's, so that every column of a row
+**`CLW` is NOT the solver's `CL`.** The `CL` an export prints sits
+between 0.10 and 0.25 per cent above the wind-axis lift of the vector printed
+beside it, measured over the recorded exports of
+`tests/tier1_offline/fixtures/recorded_total_rows.csv` (one of the 28 lifting
+ones sits at 0.71); the cause is not known. The polar states the vector's, so that every column of a row
 comes from one source and `CDB`, `CLB` agree with the `Cx`, `Cz` of the
 export. A table written before 0.24.0 used the solver's `CL`, so its `CLS`
 and `CLW` are higher by that much.

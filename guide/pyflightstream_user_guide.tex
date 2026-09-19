@@ -1102,10 +1102,10 @@ from pyflightstream.post.products import NOT_APPLICABLE   # "NA"
 J_PUSHER, CT_PUSHER, CQ_PUSHER, CP_PUSHER, ETA_PUSHER, ETAW_PUSHER
 
 J  = V/(nD)      CT = T/(rho n^2 D^4)     CQ = Q/(rho n^2 D^5)
-CP = 2 pi CQ     ETA = J CT / CP          ETAW = ETA cos(theta)
+CP = 2 pi CQ     ETA = J CT / CP          ETAW = J CTW / CP
 \end{lstlisting}
   \begin{itemize}
-    \item \code{n} is revolutions per SECOND; \code{theta} is the angle between the shaft and the free stream.
+    \item \code{n} is revolutions per SECOND; \code{CTW} is the rotor's force projected on the free stream, against it, over \code{rho n^2 D^4}. \code{ETAW} equals \code{ETA} at zero incidence and zero sideslip.
     \item Every column carries the rotor's ALIAS, because these make physical sense for ONE rotor and not for several summed: the diameters and speeds that normalise them are different numbers.
     \item \code{ETA} and \code{ETAW} read \code{NA} on a static point, where both are 0/0. A figure of merit is the static measure and you define it.
     \item The table names its alias on its FIRST LINE, alone, so a script that has already loaded the file still knows which group it holds.

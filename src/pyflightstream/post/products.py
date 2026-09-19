@@ -66,10 +66,10 @@ written at five decimals.
 
 UNTIL 0.24.0 the row took the solver's ``CL`` and ``CDi + CDo`` as stability-axis
 forces and turned them back to body axes, and a point under sideslip was
-refused. The solver's ``CL`` sits about 0.13 per cent above the projection of
-its own vector, so ``CLS`` and ``CLW`` of a table written before differ from one
-written now by that much, and its ``CDB`` and ``CLB`` differ from the ``Cx`` and
-``Cz`` printed in the same export. The 27 recorded polars that
+refused. The solver's ``CL`` sits 0.10 to 0.25 per cent above the projection
+of its own vector on the recorded exports, so ``CLS`` and ``CLW`` of a table
+written before differ from one written now by that much, and its ``CDB`` and
+``CLB`` differ from the ``Cx`` and ``Cz`` printed in the same export. The 27 recorded polars that
 :func:`write_recorded_polar` regenerated as equal text on 2026-09-03 are
 therefore no longer equal text in those four columns.
 """
@@ -132,7 +132,11 @@ from pyflightstream.post._tables import (
     section_identity,
     write_csv_table,
 )
-from pyflightstream.post.axes import free_stream_in_export_frame, polar_axis_coefficients
+from pyflightstream.post.axes import (
+    blade_azimuth_deg,
+    free_stream_in_export_frame,
+    polar_axis_coefficients,
+)
 from pyflightstream.post.equations import apply_equations
 from pyflightstream.post.series import write_point_series
 from pyflightstream.post.superfile import (
@@ -392,9 +396,14 @@ class GroupCoefficients:
     ``force`` and ``moment`` are the VECTORS the export states in its own
     frame, ``(Cx, Cy, Cz)`` and ``(CMx, CMy, CMz)``, summed over the same
     families. They are what :func:`polar_row` builds the axis columns from
-    since 0.24.0; the solver's own ``CL`` is about 0.13 per cent above the
-    projection of that vector, so a row built from one and printed beside the
-    other did not agree with itself.
+    since 0.24.0; the solver's own ``CL`` is 0.10 to 0.25 per cent above the
+    projection of that vector on the recorded exports, so a row built from one
+    and printed beside the other did not agree with itself.
+
+    NOTHING IN THE PACKAGE READS ``drag``, ``side``, ``lift``, ``roll``,
+    ``pitch`` OR ``yaw`` SINCE 0.24.0. They stay for a caller that wants the
+    solver's own integrals, and they are the source of NO axis column of any
+    product: ``lift`` is the solver's ``CL``, which a polar no longer prints.
     """
 
     drag: float
@@ -718,12 +727,17 @@ def polar_row(
 
     Until 0.24.0 the row took the solver's ``CL`` and ``CDi + CDo`` as
     stability-axis forces and turned them BACK to body axes. The solver's ``CL``
-    sits about 0.13 per cent above the projection of its own vector, so ``CLS`` and
+    sits 0.10 to 0.25 per cent above the projection of its own vector on the
+    recorded exports, so ``CLS`` and
     ``CLW`` fall by that much against a table written before, and ``CDB`` and
     ``CLB`` now equal the columns printed beside them. A point under sideslip was
     refused; it is a row like any other, with ``BETA`` as the point flew it.
 
     ``CD0`` and ``CDI`` stay the solver's own profile and induced drag.
+
+    AN OMITTED ``beta_deg`` ASSERTS ZERO SIDESLIP. The axes are turned by it, so
+    a caller whose point flew at sideslip states it, or gets the row of a point
+    that did not.
     """
     g = coefficients
     axes = polar_axis_coefficients(
@@ -1335,6 +1349,7 @@ def read_csv_table(
 def rotor_plot_source(
     pproc: object | None,
     alias: str,
+    *,
     rotor_families: Sequence[str],
     inventory: Sequence[str],
     aliases: Mapping[str, Sequence[str]] | None = None,
@@ -1502,7 +1517,9 @@ def _rotor_tables(
         except (PyflightstreamError, OSError, ValueError) as error:
             return None, f"its plots table could not be read: {error}", None
         inventory = list(point.loads.surfaces) if point.loads is not None else []
-        candidates, refused = rotor_plot_source(pproc, alias, families, inventory, aliases)
+        candidates, refused = rotor_plot_source(
+            pproc, alias, rotor_families=families, inventory=inventory, aliases=aliases
+        )
         group = next(
             (
                 name
@@ -3228,20 +3245,10 @@ def write_per_blade_table(
     per_revolution = facts.get("steps_per_revolution")
     datum = facts.get("blade1_azimuth_deg")
     rpm = facts.get("rpm")
-    clocked = (
-        isinstance(per_revolution, int | float)
-        and per_revolution > 0
-        and isinstance(datum, int | float)
-        and isinstance(rpm, int | float)
-        and bool(rpm)
-    )
-    sense = 1.0 if not clocked or float(rpm) > 0 else -1.0  # type: ignore[arg-type]
     # WHERE BLADE ONE IS AT THE WINDOW'S FIRST STEP, from its datum at step zero.
-    opening = (
-        (float(datum) + sense * first * 360.0 / float(per_revolution)) % 360.0  # type: ignore[arg-type]
-        if clocked
-        else None
-    )
+    opening = blade_azimuth_deg(datum, first, steps_per_revolution=per_revolution, rpm=rpm)
+    clocked = opening is not None
+    sense = 1.0 if not clocked or float(rpm) > 0 else -1.0  # type: ignore[arg-type]
     try:
         blade_rows = per_blade_rows(
             series,
@@ -4313,13 +4320,14 @@ def global_frame_plot_groups(pproc: object) -> tuple[str, ...]:
 #: the product lists them, and where each sits in what
 #: :func:`pyflightstream.post.axes.polar_axis_coefficients` returns (body,
 #: stability, wind).
-UNSTEADY_AXIS_COLUMNS: tuple[str, ...] = tuple(
-    f"C{part}{axes}" for axes in ("W", "S", "B") for part in ("D", "Y", "L", "R", "M", "N")
+#: They ARE the steady polar's eighteen names, read off its one tuple, `25`
+#: included: one construction about one moment point has one name in `polars/`.
+_STEADY_AXIS_COLUMNS: tuple[str, ...] = COEFFICIENT_COLUMNS[4:22]
+UNSTEADY_AXIS_COLUMNS: tuple[str, ...] = (
+    *_STEADY_AXIS_COLUMNS[12:18],
+    *_STEADY_AXIS_COLUMNS[6:12],
+    *_STEADY_AXIS_COLUMNS[0:6],
 )
-_AXES_OFFSET = {"B": 0, "S": 6, "W": 12}
-#: The habit of naming a global-frame group `MRP_<what>`; dropped from a column's
-#: suffix, so two groups read `CLW_TOTAL` and `CLW_AIRFRAME`.
-_MRP_NAME_PREFIX = "MRP_"
 _SIX_COMPONENTS = AXES_PLOT_COMPONENTS
 
 
@@ -4390,10 +4398,13 @@ def _the_axes_of_the_unsteady_rows(
                 cref_m=reference.cref_m,
                 bref_m=reference.bref_m,
             )
-            suffix = f"_{group.removeprefix(_MRP_NAME_PREFIX)}" if len(groups) > 1 else ""
+            # ALWAYS the group's whole name, as every plotted column of this file
+            # carries it (`CL_MRP_TOTAL`, so `CLW_MRP_TOTAL`): a column that changed
+            # its name when the pproc gained a second group broke every reader keyed
+            # to it, and a shortened name let two groups write one column.
             for column in UNSTEADY_AXIS_COLUMNS:
-                at = _AXES_OFFSET[column[-1]] + "DYLRMN".index(column[1])
-                name = f"{column}{suffix}"
+                at = _STEADY_AXIS_COLUMNS.index(column)
+                name = f"{column}_{group}"
                 values[name] = turned[at]
                 if name not in added:
                     added.append(name)
@@ -5126,6 +5137,11 @@ def _sim_products(
         # with a marker, so it is never mistaken for the file being absent.
         if unsteady_notes and done is not None:
             skipped[f"{POLARS_DIR}/{unsteady_name}#axes"] = "; ".join(unsteady_notes)
+            warnings.warn(
+                f"{POLARS_DIR}/{unsteady_name}: " + "; ".join(unsteady_notes),
+                PyflightstreamWarning,
+                stacklevel=2,
+            )
         # EVERY POINT THAT IS NOT A ROW IS NAMED, with its reason. A sweep table
         # quietly shorter than her matrix says nothing about which points went
         # or why, which is a blank cell one level up.

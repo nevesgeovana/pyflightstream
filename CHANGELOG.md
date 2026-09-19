@@ -14,10 +14,14 @@ FlightStream versions.
   through `post/axes.py` (`polar_axis_coefficients`). `CDB` is now the `Cx`
   of the export and `CLB` its `Cz`. The row used to take the solver's `CL` and
   `CDi + CDo` as stability-axis forces and turn them BACK to body axes.
-- **`CLS` and `CLW` fall by about 0.13 per cent on EVERY steady polar, zero
-  sideslip included.** The `CL` an export prints sits that far above the
-  wind-axis lift of the vector printed beside it; the cause is not known. On
-  the recorded point at alpha -2: `CLS` 0.18828 becomes 0.18800, `CLB` 0.18744
+- **`CLS` and `CLW` fall on EVERY steady polar, zero sideslip included, by
+  between 0.10 and 0.25 per cent.** The `CL` an export prints sits that far
+  above the wind-axis lift of the vector printed beside it; the cause is not
+  known. The range is measured over the recorded exports of
+  `tests/tier1_offline/fixtures/recorded_total_rows.csv` (27 of the 28 lifting
+  ones; one sits at 0.71), and a tier-one test re-measures it. On the
+  recorded point at alpha -2 the exports differ by 0.135 per cent, and at the
+  five decimals a polar prints `CLS` 0.18828 becomes 0.18800, `CLB` 0.18744
   becomes 0.18716, `CDB` 0.02744 becomes 0.02743. `CDS`, `CDW`, `CD0`, `CDI`
   and every moment at zero sideslip are unchanged.
 - **A point under sideslip gets its polar row.** It was refused, because the
