@@ -194,6 +194,23 @@ FlightStream versions.
 
 ### Fixed (a product that vanished now says why)
 
+- **`products.json` NEVER CLAIMS A FILE THAT IS NOT ON DISK.** It was written
+  once, last, after every existing product had been moved into `archive/`; a
+  rebuild that died on anything but a product refusal left the PREVIOUS manifest
+  naming files that had just been moved away. The previous manifest is removed
+  first, and a rebuild that dies still writes one: `complete: false`, the reason
+  under `interrupted`, and only the products that are on disk. A finished rebuild
+  says `complete: true`.
+- A matrix the post stage cannot read, or that is not at the workspace root, is
+  SAID. It used to fall back to the run records in silence: an edited window did
+  nothing and the rotor tables, which take their geometry from the row's
+  reference, left the disk and the manifest with the stage reporting success.
+- The products follow the pproc the ROW names today, and the stage says so when
+  that is not the one the run recorded. The row's PPROC cell only stamped the
+  super file before, so pointing a row at another pproc changed nothing else.
+- The sections report is written for a windowed unsteady campaign. It sat in the
+  branch that writes a super file, which such a campaign does not draft.
+
 - A pproc that NAMES its groups and sets `custom_polar_format = true` stopped the
   whole products stage on a bare `ValueError`: the fixed-width format states the
   group as a two-digit number. A named group states its position in the

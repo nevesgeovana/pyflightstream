@@ -3684,6 +3684,21 @@ def _sim_products(
 
     first = records[0]
     pproc_id = first.pproc
+    # THE PPROC THE ROW NAMES TODAY (PO-05). Which groups, which products and which
+    # format are post-processing choices, and the matrix wins the record for those.
+    # The stage resolved the artifact the RECORD names while the row's PPROC cell
+    # was in scope and only stamped the super file, so pointing a row at another
+    # pproc and posting again changed nothing but that stamp.
+    stated = getattr(matrix_row, "pproc_code", None)
+    if stated and str(stated) not in ("-", "NA") and str(stated) != str(pproc_id):
+        warnings.warn(
+            f"simulation {sim_id}: the row names pproc {stated} and the run recorded "
+            f"{pproc_id}. The products follow {stated}; its [exports] half still describes "
+            "what the run wrote, so an export the run did not make is not there to read.",
+            PyflightstreamWarning,
+            stacklevel=2,
+        )
+        pproc_id = str(stated)
     if pproc_id is None:
         return [], {}, {}
     pproc = workspace.resolve_pproc(pproc_id)
@@ -5093,8 +5108,90 @@ def write_campaign_products(
     # carries what that file holds by carrying the same row rather than by
     # assembling one that looks like it.
     rows_of_the_matrix = matrix_rows(workspace.root, matrix_stem)
+    if matrix_stem and not rows_of_the_matrix:
+        # SAID, NOT SWALLOWED (PO-06). `matrix_rows` answers `{}` for a matrix that
+        # is not at the root and for one it cannot parse, and every post-only
+        # choice then falls back to the run records in silence: an edited window
+        # does nothing and the rotor tables, which need the row's reference, are
+        # not written at all.
+        where = workspace.root / f"{matrix_stem}.fs"
+        state = "cannot be read" if where.is_file() else "is not at the workspace root"
+        warnings.warn(
+            f"the matrix {where.name} {state}. Every post-only choice falls back to the run "
+            "records, and the rotor tables, which take their geometry from the row's "
+            "reference, are not written.",
+            PyflightstreamWarning,
+            stacklevel=2,
+        )
     sweep_rows = _sweep_rows(workspace, matrix_stem)
     drafts: list[SuperfileDraft] = []
+    # THE MANIFEST DESCRIBES THE DISK EVEN WHEN THE REBUILD DIES (MT-08). It was
+    # written ONCE, last, after every existing product had been moved into
+    # `archive/`; a rebuild that died on anything but a `ProductError` (a raw
+    # `ValueError` from a malformed export, an `OSError`, the memory watchdog) left
+    # the PREVIOUS manifest naming files the archiver had just moved away. The old
+    # one is invalidated first and the new one is written in a `finally`, saying it
+    # is incomplete and why.
+    previous = out / PRODUCTS_MANIFEST
+    if previous.is_file():
+        previous.unlink()
+    try:
+        _write_the_products(
+            workspace,
+            records,
+            by_sim,
+            out,
+            written,
+            products_index,
+            manifest,
+            skipped,
+            drafts,
+            rows_of_the_matrix=rows_of_the_matrix,
+            sweep_rows=sweep_rows,
+            matrix_stem=matrix_stem,
+            overwrite=overwrite,
+            archive=archive,
+            archive_stamp=archive_stamp,
+        )
+    except BaseException as error:
+        manifest["complete"] = False
+        manifest["interrupted"] = f"{type(error).__name__}: {error}"
+        manifest["skipped"] = skipped
+        products_index_on_disk = {
+            name: entry for name, entry in products_index.items() if (out / name).is_file()
+        }
+        manifest["products"] = products_index_on_disk
+        out.mkdir(parents=True, exist_ok=True)
+        (out / PRODUCTS_MANIFEST).write_text(
+            json.dumps(manifest, indent=1) + "\n", encoding="utf-8"
+        )
+        raise
+    return written
+
+
+def _write_the_products(
+    workspace: CampaignWorkspace,
+    records: Sequence[RunRecord],
+    by_sim: Mapping[str, list[RunRecord]],
+    out: Path,
+    written: list[Path],
+    products_index: dict[str, dict[str, object]],
+    manifest: dict[str, object],
+    skipped: dict[str, str],
+    drafts: list[SuperfileDraft],
+    *,
+    rows_of_the_matrix: Mapping[str, MatrixRow],
+    sweep_rows: Mapping[str, Mapping[str, object]] | None,
+    matrix_stem: str | None,
+    overwrite: bool,
+    archive: bool,
+    archive_stamp: datetime | None,
+) -> None:
+    """Write every product of the campaign, filling the caller's manifest as it goes.
+
+    Split out of :func:`write_campaign_products` so that function can wrap it in
+    the `try` that keeps the manifest true of the disk.
+    """
     for sim_id, sim_records in by_sim.items():
         # PFS-2031.18.01: the per-step exports of a windowed point as a
         # series, written before the polar so a simulation the polar
@@ -5201,26 +5298,29 @@ def write_campaign_products(
         )
         manifest["superfile_report"] = report.relative_to(workspace.root).as_posix()
 
-        # THE SECTIONS MEASUREMENT, beside the superfile one and written the
-        # same way: from the workspace rather than from this stage's own
-        # arithmetic. It counts what each point's ARTIFACT declared against
-        # what its SCRIPT emitted, two different files, neither derived from
-        # the other (FR-83).
-        # The records are pydantic models here and the measurement takes
-        # plain mappings, because it reads the same JSON a manifest on disk
-        # holds and must not depend on this package's model to do it.
-        section_cases = measure_sections(
-            workspace.root, [record.model_dump(mode="json") for record in records]
+    # THE SECTIONS MEASUREMENT, written the same way as the superfile one: from
+    # the workspace rather than from this stage's own arithmetic. It counts what
+    # each point's ARTIFACT declared against what its SCRIPT emitted, two
+    # different files, neither derived from the other (FR-83). The records are
+    # pydantic models here and the measurement takes plain mappings, because it
+    # reads the same JSON a manifest on disk holds.
+    #
+    # OUTSIDE `if drafts:` SINCE 0.24.0 (MT-02). It has nothing to do with a super
+    # file, but it sat in the branch that writes one, and a windowed unsteady
+    # campaign drafts none: the rotor campaigns, which are the ones that declare
+    # sections, never got their report.
+    import pyflightstream as _package
+
+    section_cases = measure_sections(
+        workspace.root, [record.model_dump(mode="json") for record in records]
+    )
+    if section_cases:
+        sections_report = write_sections_report(
+            workspace.root,
+            version=_package.__version__,
+            cases=section_cases,
         )
-        if section_cases:
-            sections_report = write_sections_report(
-                workspace.root,
-                version=pyflightstream.__version__,
-                cases=section_cases,
-            )
-            manifest["sections_report"] = sections_report.relative_to(workspace.root).as_posix()
-    # Always present, empty when nothing was refused, so a wrapper reads one
-    # key rather than testing for it (review round two of 2026-09-08).
+        manifest["sections_report"] = sections_report.relative_to(workspace.root).as_posix()
     manifest["skipped"] = skipped
     # PFS-2012.08.01: one document per recorded run, whatever its status.
     manifest["provenance"] = _run_provenance(
@@ -5231,9 +5331,9 @@ def write_campaign_products(
         archive=archive,
         archive_stamp=archive_stamp,
     )
+    manifest["complete"] = True
     if written or skipped or records:
         out.mkdir(parents=True, exist_ok=True)
         (out / PRODUCTS_MANIFEST).write_text(
             json.dumps(manifest, indent=1) + "\n", encoding="utf-8"
         )
-    return written
