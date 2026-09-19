@@ -23,6 +23,7 @@ from __future__ import annotations
 import math
 import re
 import tomllib
+import warnings
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -44,13 +45,14 @@ from pydantic import (
 
 from pyflightstream._atmosphere import ISA
 from pyflightstream._deprecations import (
+    PPROC_GROUP_MEMBER_LIST,
     ROW_AIRFRAME_SELECTOR,
     ROW_BLADES_SELECTOR,
     ROW_EACH_BLADE,
     refusal_text,
 )
 from pyflightstream._digest import file_sha256, text_sha256
-from pyflightstream._errors import PyflightstreamError
+from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning
 from pyflightstream._fsm import names_of
 from pyflightstream._retired_names import PROBE_SCALE_PROPELLER_RADIUS, retired_frame
 from pyflightstream.commands import Phase
@@ -691,6 +693,57 @@ class PlotsSpec(BaseModel):
                 f"{', '.join(FORCE_PLOT_PARAMETERS)}"
             )
         return value
+
+
+def _a_group_is_one_alias(value):
+    """Read each ``[groups]`` entry as ONE alias, and keep binding the list form (0.24.0).
+
+    The requirement: a group names one alias, so its value is a STRING. What the
+    rest of the package iterates is unchanged, a list of members, so the string
+    becomes a one-member list here and nowhere else.
+
+    THE LIST FORM STILL BINDS, with a warning that writes the replacement out,
+    because a pproc a workspace already holds must not stop validating on an
+    upgrade. AN INTEGER MEMBER STAYS LEGAL: it is a POSITION, which the motion
+    path reads (`MOVING_BOUNDARIES: g1`), and refusing it here broke every row
+    that moves a boundary by position. What an integer cannot do is select a
+    surface of a loads table, and the products stage names that group as
+    skipped instead of writing it a row of zeros.
+    """
+    if not isinstance(value, Mapping):
+        return value
+    groups: dict[str, list[int | str]] = {}
+    written_as_lists: list[str] = []
+    for name, stated in value.items():
+        if isinstance(stated, str):
+            groups[str(name)] = [stated]
+            continue
+        members = list(stated) if isinstance(stated, list | tuple) else stated
+        if not isinstance(members, list):
+            return value  # not a shape this reads; the field's own type says so
+        groups[str(name)] = list(members)
+        if all(isinstance(member, str) for member in members):
+            # A list holding a POSITION has no alias to be rewritten as.
+            written_as_lists.append(str(name))
+    if written_as_lists:
+        examples = []
+        for name in written_as_lists:
+            members = groups[name]
+            if len(members) == 1:
+                examples.append(f'{name} = "{members[0]}"')
+            elif members:
+                examples.append(
+                    f'{name} = "<alias>", with <alias> = {members!r} '
+                    "under [aliases] in the reference"
+                )
+            else:
+                examples.append(f'{name} = "all"')
+        warnings.warn(
+            f"{PPROC_GROUP_MEMBER_LIST.message()} Here: " + "; ".join(examples) + ".",
+            PyflightstreamWarning,
+            stacklevel=2,
+        )
+    return groups
 
 
 def _probes_are_a_list(value):
@@ -1609,7 +1662,12 @@ class PprocSpec(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    groups: dict[str, list[int | str]] = Field(default_factory=dict)
+    #: ONE ALIAS PER GROUP, written as a string since 0.24.0; held as a list of
+    #: members because that is what every reader of it iterates. The list form
+    #: still binds with a warning until 0.26.0, and an integer member is refused.
+    groups: Annotated[dict[str, list[int | str]], BeforeValidator(_a_group_is_one_alias)] = Field(
+        default_factory=dict
+    )
     # ITEM 9 IS 0.24.0 SCOPE, by the owner's decision of 2026-09-18: "vamos
     # deixar o phase-locked para a 24". With items 10 and 11 already moved, this
     # completes the rule she wrote into the goal -- "itens 9, 10 e 11 sobem
@@ -1656,6 +1714,13 @@ class PprocSpec(BaseModel):
     #: those families, after OPEN. Empty, the default, emits nothing; a
     #: row's BASE_REGIONS key overrides the artifact.
     base_regions: list[str] = Field(default_factory=list)
+
+    def group_alias(self, name: str) -> str | None:
+        """Return the ONE alias group ``name`` names, or None where it names several."""
+        members = self.groups.get(name)
+        if members is None or len(members) != 1 or not isinstance(members[0], str):
+            return None
+        return members[0]
 
     # `equation_order()` AND ITS VALIDATOR MOVED OUT WITH ITEM 10, to 0.24.0.
     # They held the chaining rule -- an equation may name another, a TOML table

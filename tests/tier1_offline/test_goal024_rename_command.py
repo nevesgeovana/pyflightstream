@@ -284,6 +284,14 @@ def test_goal024_rename_command_leaves_a_tree_the_post_stage_reads(tmp_path):
     report the same empty answer either way.
     """
     workspace, _, _ = _ran(tmp_path, executor=_writes_loads_and_every_export(tmp_path))
+    # A GROUP THAT SELECTS A SURFACE OF THE EXPORT (0.24.0). The shared fixture's
+    # pproc names `wing_left` and `wing_right`, which this loads table does not
+    # carry, and the polar this test counted was a table of zeros. A group that
+    # selects nothing is now a named skip, by the rule that `NA` and never a zero
+    # stands for no value, so the fixture names the surfaces the export has.
+    (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
+        '[groups]\n"1" = ["W", "B"]\n', encoding="utf-8"
+    )
     _as_0_20(workspace, mach=0.2)
     reopened = _reopened(workspace)
 
@@ -296,7 +304,13 @@ def test_goal024_rename_command_leaves_a_tree_the_post_stage_reads(tmp_path):
 
     after, _ = _polars(reopened)
     assert after, "the renamed tree produced no polar table"
-    assert all(p.name.startswith("P3207-M200RE230") for p in after), [p.name for p in after]
+    # THE RENAMED POINT NAME IS IN EVERY TABLE, the super file included. This asked
+    # for a `P3207-` prefix on everything in the folder, and it passed only because
+    # the placeholder sections export of this fixture ABORTED the simulation before
+    # its super file was written (MT-01). One unreadable export now costs one
+    # product, so the super file is there, under its own `SUPER-` prefix.
+    assert all("3207-M200RE230" in p.name for p in after), [p.name for p in after]
+    assert any(p.name.startswith("P3207-M200RE230") for p in after), [p.name for p in after]
 
 
 def test_goal024_rename_command_refuses_a_record_whose_row_is_gone(tmp_path):

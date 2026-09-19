@@ -2627,6 +2627,16 @@ def rotor_integration_groups(
     resolved: dict[str, list[int | str]] = {
         name: list(members) for name, members in declared.items()
     }
+    # A GROUP THAT NAMES A ROTOR IS THAT ROTOR'S FAMILIES (0.24.0). A group is one
+    # alias, and a rotor's alias is the one name for its families, so
+    # `PUSHER = "PUSHER"` and `PROP = "PUSHER"` both mean the rotor. Expanded
+    # here, before the agreement check below, which would otherwise read the
+    # rotor's own name as a family that is not the rotor's.
+    by_name = {str(alias).casefold(): block for alias, block in rotors.items()}
+    for name, stated in list(resolved.items()):
+        if len(stated) == 1 and str(stated[0]).casefold() in by_name:
+            block = by_name[str(stated[0]).casefold()]
+            resolved[name] = [str(member) for member in getattr(block, "members", [])]
     for alias, block in rotors.items():
         members = [str(name) for name in getattr(block, "members", [])]
         if alias not in resolved:

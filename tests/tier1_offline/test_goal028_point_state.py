@@ -104,6 +104,11 @@ def test_the_post_stage_re_resolves_a_point_a_record_describes_wrongly(swept):
     for record in swept.read_manifest():
         loads = next(o for o in record.outputs if o.endswith(f"{record.point_name}.txt"))
         (swept.sim_dir("3207") / loads).write_text(LOADS, encoding="utf-8")
+    # And a group that selects the surfaces that export carries: one that selects
+    # nothing is a named skip, not a polar of zeros.
+    (swept.inputs_dir / "pproc" / "p001.toml").write_text(
+        '[groups]\n"1" = ["W", "B"]\n', encoding="utf-8"
+    )
     _as_0_23_0_wrote_them(swept)
     before = (swept.root / "runs.json").read_bytes()
     with warnings.catch_warnings(record=True) as caught:

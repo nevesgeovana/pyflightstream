@@ -27,6 +27,7 @@ from pyflightstream._deprecations import DEPRECATED_MODULES
 PUBLIC_MODULES = [
     "pyflightstream.cases",
     "pyflightstream.cases.matrix",
+    "pyflightstream.cases.windows",
     "pyflightstream.cases.workflows",
     "pyflightstream.commands",
     "pyflightstream.exceptions",
@@ -46,6 +47,7 @@ PUBLIC_MODULES = [
     "pyflightstream.options",
     "pyflightstream.overview",
     "pyflightstream.post",
+    "pyflightstream.post.axes",
     # v0.23.0 item 11: the generated pproc guides. PUBLIC deliberately: a
     # user who wants the variable reference and the equation guide beside
     # her pproc is who calls it. It lives in `post` and not in `workspace`

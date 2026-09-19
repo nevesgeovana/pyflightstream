@@ -594,10 +594,18 @@ WAIVED_COMMANDS_MANIFEST_KEY = DeprecatedManifestKey(
     old="broken_commands",
     new="waived_commands",
     deprecated_since="0.13.0",
-    removal_version="0.24.0",
+    removal_version="0.26.0",
     extra=(
         "The entries are WAIVERS the recipe registered, not commands that broke in the "
-        "run, which is the opposite claim. EXTENDED A NINTH TIME, from 0.23.0 on "
+        "run, which is the opposite claim. EXTENDED A TENTH TIME, from 0.24.0 on "
+        "2026-09-19, when the 0.24.0 cycle opened and the deadline guard fired on the "
+        "bump, and BY TWO RELEASES rather than one: 0.26.0 is where the other row-level "
+        "promises of this ledger already come due, so the question is asked once there "
+        "instead of at every bump. RE-MEASURED AT THIS BUMP and unchanged: 74 recorded "
+        "rows across 4 manifests in this repository (46, 18, 8 and 2, the files named "
+        "below). A recorded manifest is data a run produced once and is never rewritten, "
+        "so the reader stays while rows that carry the key exist. "
+        "EXTENDED A NINTH TIME, from 0.23.0 on "
         "2026-09-17, when the 0.23.0 cycle opened and the deadline guard fired on the "
         "bump. RE-MEASURED AT THAT BUMP, BY COUNTING ROWS RATHER THAN FILES: 74 "
         "recorded rows carry the key, across 4 manifests -- 46 in "
@@ -723,6 +731,18 @@ ROW_MOVING_BOUNDARIES = DeprecatedParameter(
 _ONE_WINDOW_ON_THE_ROW = (
     "The averaging window is stated once on the matrix row, beside the clock that gives it a "
     "length: last_revs_avg on an unsteady_rotor row, last_iters_avg on an unsteady one."
+)
+PPROC_GROUP_MEMBER_LIST = DeprecatedParameter(
+    owner="a pproc [groups] entry",
+    old="a list of members",
+    new="ONE alias, written as a string",
+    deprecated_since="0.24.0",
+    removal_version="0.26.0",
+    extra=(
+        "A group names one alias. Where the list held one member, write it as the string; "
+        "where it held several, declare them once as an alias in the reference's [aliases] "
+        "table and point the group at that alias."
+    ),
 )
 ROW_WINDOW_STEPS = DeprecatedParameter(
     owner="a matrix row",
@@ -915,5 +935,6 @@ DEPRECATIONS: tuple[Deprecation, ...] = (
     # promise defined and not carried is a deadline nothing counts down.
     ROW_WINDOW_DEGREES,
     ROW_WINDOW_REVOLUTIONS,
+    PPROC_GROUP_MEMBER_LIST,
     ROW_WINDOW_STEPS,
 )

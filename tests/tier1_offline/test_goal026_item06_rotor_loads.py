@@ -712,7 +712,12 @@ def test_the_post_stage_writes_a_rotor_table_from_a_recorded_workspace(tmp_path)
                 'axis = "X"',
                 "rpm_sign = 1",
                 "diameter_m = 1.2",
-                'families_blades = ["Blade1", "Blade2"]',
+                # A FAMILY THE EXPORT CARRIES (0.24.0, WT-02). This said Blade1 and
+                # Blade2, which the fixture's loads table does not hold (it holds W,
+                # B and Total), so the table this test celebrated was CT 0.00000 on
+                # every row and the only assertion was the alias line. The rotor is
+                # now refused where it selects nothing, and this fixture selects.
+                'families_blades = ["B"]',
                 'blade1 = { azimuth_deg = 0.0, zero = "Y" }',
                 "",
             ]
@@ -728,6 +733,23 @@ def test_the_post_stage_writes_a_rotor_table_from_a_recorded_workspace(tmp_path)
     )
     first = tables[0].read_text(encoding="utf-8").splitlines()[0]
     assert first.strip() == "PUSHER", first
+
+    # AND A VALUE, DERIVED HERE FROM THE EXPORT AND THE DEFINITION, which is what
+    # the alias line alone never proved. The shaft is X, so the thrust is the X
+    # force of family B: `Cx * q * S`, and `CT = T / (rho n^2 D^4)`.
+    from pyflightstream.post.products import read_csv_table
+    from pyflightstream.results import parse_loads
+
+    (record,) = [r for r in workspace.read_manifest() if r.sim_id == "6002"]
+    loads_file = next(o for o in record.outputs if o.endswith("J+170.txt"))
+    report = parse_loads((workspace.sim_dir("6002") / loads_file).read_text(encoding="utf-8"))
+    rho, speed = record.density_kg_m3, report.reference_velocity_m_s
+    rps = 2200.0 / 60.0
+    thrust = report.surfaces["B"]["Cx"] * 0.5 * rho * speed**2 * 50.0
+    expected = thrust / (rho * rps**2 * 1.2**4)
+    _columns, rows = read_csv_table(tables[0], skip=1)
+    assert expected != 0.0, "the fixture's family carries no X force, so nothing is proved"
+    assert float(rows[0]["CT_PUSHER"]) == pytest.approx(expected, rel=1e-4), rows[0]
 
 
 def test_a_rotor_declaring_a_family_sums_that_familys_surfaces():

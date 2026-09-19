@@ -1488,6 +1488,11 @@ def test_no_warning_when_the_override_overrules_nothing(tmp_path):
     workspace = make_library(tmp_path, register_build=("26.120", "C:/fs26120/FlightStream.exe"))
     with _warnings.catch_warnings():
         _warnings.simplefilter("error", UserWarning)
+        # THE ONE WARNING THIS TEST IS NOT ABOUT (0.24.0). The shared library's
+        # pproc writes `[groups]` in the list form, which now binds with a
+        # deprecation warning of its own; the subject here is the FS_BUILD
+        # override, so that one message is let through and every other still errors.
+        _warnings.filterwarnings("ignore", message=r".*pproc \[groups\] entry.*")
         resolve_matrix(
             path,
             workspace,

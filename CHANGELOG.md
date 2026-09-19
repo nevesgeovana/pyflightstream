@@ -48,6 +48,42 @@ FlightStream versions.
   the record is left as it was. No re-run. A row that sweeps an angle or an
   advance ratio is unaffected.
 
+### Changed (an input format, with the old form still read)
+
+- **A PPROC GROUP IS ONE ALIAS, WRITTEN AS A STRING.** `[groups]` took a list of
+  members; it takes the alias the group names:
+
+      [groups]
+      PUSHER   = "PUSHER"      # a rotor of the reference: its own families
+      AIRFRAME = "airframe"    # an alias of the reference's [aliases] table
+      TOTAL    = "all"
+
+  The key still names the product file (`..._PUSHER.csv`), so a steady polar per
+  alias is one line. A group that names a rotor, under any key, is that rotor's
+  families. THE LIST FORM STILL BINDS and warns with the line to write instead,
+  until 0.26.0: a one-member list becomes its string, and several members become
+  ONE alias declared in the reference. A list holding a position, which the
+  motion path reads, has no alias to be rewritten as and says nothing.
+- The members of a group resolve through the reference AS IT STANDS when
+  `pyfs-matrix post` runs, not through the alias table frozen into the run
+  record, so renaming or extending an alias needs no re-run. The record is the
+  fallback where the reference no longer resolves.
+
+### Fixed (a zero that was not a measurement)
+
+- A group whose alias selects NO surface of any loads export of the simulation
+  wrote a polar table of `0.00000` in every column. The table is not written and
+  the group is named under `skipped` with the surfaces the export does carry.
+- A rotor whose families select no surface of a point's loads export printed
+  `CT 0.00000` for that point. The point is left out of the rotor table and
+  named, like every other point that is not a row.
+
+### Changed (a removal promise that moved)
+
+- The manifest key `broken_commands` is still READ, and its removal moves from
+  0.24.0 to 0.26.0. Re-measured when this cycle opened: 74 recorded rows across
+  4 manifests still carry it, and a recorded manifest is never rewritten.
+
 ### Fixed (a product that vanished now says why)
 
 - A run recorded as successful whose loads table is not on disk, or that names

@@ -143,7 +143,7 @@ from pyflightstream.results import (
 )
 from pyflightstream.workspace import RunStatus
 from pyflightstream.workspace.flight_condition import resolve_flight_condition
-from pyflightstream.workspace.inputs import resolve_reference
+from pyflightstream.workspace.inputs import resolve_reference, rotor_integration_groups
 from pyflightstream.workspace.naming import (
     ARCHIVE_DIR,
     ARCHIVE_STAMP,
@@ -1666,6 +1666,22 @@ def write_rotor_table(
                 stated_frame if isinstance(stated_frame := row.get("frame"), str) else None
             ),
         )
+        if not loads.families_used:
+            # A FALSE ZERO IS REFUSED, NOT PUBLISHED (WT-02). `families_used` was
+            # filled and read by nothing: a rotor whose families are not in the
+            # export summed to zero thrust and the table printed CT 0.00000 down
+            # the whole sweep with nothing skipped. Zero is a value a rotor can
+            # have, which is exactly why it cannot stand for "no surface".
+            carried = ", ".join(sorted(map(str, surfaces))) if isinstance(surfaces, Mapping) else ""
+            refused.append(
+                (
+                    run_id,
+                    f"{alias}: its families {', '.join(map(str, getattr(rotor, 'members', [])))} "
+                    f"select no surface of this point's loads export ({carried}), so there is "
+                    "no force to take a coefficient of",
+                )
+            )
+            continue
         coefficients = rotor_coefficients(
             thrust_n=loads.thrust_n,
             torque_nm=loads.torque_nm,
@@ -3169,6 +3185,21 @@ def _matrix_window(matrix_row: MatrixRow | None, record: object) -> tuple[int, i
     )
 
 
+def _live_reference(workspace: CampaignWorkspace, matrix_row: MatrixRow | None) -> object | None:
+    """Return the reference artifact the matrix row names TODAY, or None.
+
+    None where the stage has no matrix row or the workspace can no longer resolve
+    the artifact: a caller then falls back to what the run recorded, and a missing
+    reference never costs a product that does not need it.
+    """
+    if matrix_row is None:
+        return None
+    try:
+        return resolve_reference(workspace.inputs_dir, matrix_row.ref_code)
+    except PyflightstreamError:
+        return None
+
+
 def _recorded_window(plan: object) -> tuple[int, int] | None:
     """Return the time-average window a reductions plan states, or None."""
     if not isinstance(plan, Mapping):
@@ -3671,13 +3702,41 @@ def _sim_products(
         # Writing both would put two files with one name's worth of meaning in
         # one folder, and a reader would have no way to tell which of them the
         # coefficients she is comparing came from.
-        for group, families in () if unsteady_window_steps is not None else pproc.groups.items():
+        # THE ALIASES OF THE REFERENCE AS IT STANDS TODAY (PO-07). The group polars
+        # resolved their members through the table frozen into the run record
+        # while the rotor table beside them already read the live reference, so
+        # renaming or extending an alias and posting again gave a polar of zeros,
+        # or a plausible wrong sum, with no skip. A group's meaning is a
+        # post-processing choice; the record stays the fallback.
+        live = _live_reference(workspace, matrix_row)
+        aliases = getattr(live, "aliases", None) or first.aliases
+        groups: Mapping[str, Sequence[int | str]] = pproc.groups
+        if live is not None and getattr(live, "rotors", None):
+            try:
+                groups = rotor_integration_groups(getattr(live, "rotors", {}), pproc.groups)
+            except PyflightstreamError as clash:
+                skipped[f"{POLARS_DIR}/{sim_id}"] = str(clash)
+        for group, families in () if unsteady_window_steps is not None else groups.items():
+            relative = f"{POLARS_DIR}/{swept_polar_file_name(sim_id, name=table_name, group=group)}"
+            if families and not any(
+                select_group_members(list(families), list(point.loads.surfaces), aliases)
+                for point in points
+            ):
+                # A NAMED SKIP, NEVER A ROW OF ZEROS. A group whose alias selects no
+                # surface of any export of this simulation summed to 0.00000 in
+                # every column: the token for "no value" is `NA`, and a table of
+                # zeros is a table a reader believes.
+                skipped[relative] = (
+                    f"group {group!r} names {', '.join(map(str, families))}, which selects no "
+                    f"surface of any loads export of simulation {sim_id!r} "
+                    f"({', '.join(sorted(points[0].loads.surfaces))}). Its polar table is not "
+                    "written. Check the alias against the reference's [aliases] table."
+                )
+                continue
             rows = _polar_rows(
-                points, list(families), mach=mach, reference=reference, aliases=first.aliases
+                points, list(families), mach=mach, reference=reference, aliases=aliases
             )
-            target = _target(
-                out / POLARS_DIR / swept_polar_file_name(sim_id, name=table_name, group=group)
-            )
+            target = _target(out / relative)
             # ONE ASSEMBLY. The rows the polar table is written from are the
             # rows the superfile carries, so they are built once here and
             # handed to both writers (FR-89).
