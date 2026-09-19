@@ -1,0 +1,284 @@
+{
+ "campaign": "pfs0240",
+ "matrix": "matriz.fs",
+ "geometries": [
+  "12_WING_PHY.fsm",
+  "13_NX_B30_NMIN.fsm",
+  "24_NX_B30_NMI_FW.fsm"
+ ],
+ "manifest_complete": true,
+ "skipped": {
+  "polars/P2401-V0300RHO12250AL+040BE+sweep_g03.csv": "group '3' names Body, Base, which selects no surface of any loads export of simulation '2401' (Wing). Its polar table is not written. Check the alias against the reference's [aliases] table.",
+  "probes/P2411-M144RE438AL+000BE+000_phase_locked.csv": "case '2411' names its rotors, so each reduces over ITS OWN blade passage and there is no single passage of the ROW: the per-rotor files are probes/P2411-M144RE438AL+000BE+000_phase_locked_PROP.csv.",
+  "probes/P2411-M144RE438AL+000BE+000_per_blade.csv": "case '2411' names its rotors, so each reduces over ITS OWN blade passage and there is no single passage of the ROW: the per-rotor files are probes/P2411-M144RE438AL+000BE+000_per_blade_PROP.csv.",
+  "probes/P2411-M144RE438AL+000BE+000_phase_locked_PROP.csv": "the window 109 to 144 holds 36 steps, fewer than one blade passage of PROP, which is 72 steps",
+  "probes/P2411-M144RE438AL+000BE+000_per_blade_PROP.csv": "the plots table holds no column of a blade family of rotor 'PROP' (its blades are ['Blade1']), so there is no blade to give a row to. A blade's plots are the ones named for its family: declare a plot group with families = \"each\" or frame = \"LOCAL_AXIS\" over the rotor in the pproc artifact. It takes a new run; the script defines what the solver plots.",
+  "probes/P2412-M144RE438AL+000BE+000_phase_locked.csv": "case '2412' names its rotors, so each reduces over ITS OWN blade passage and there is no single passage of the ROW: the per-rotor files are probes/P2412-M144RE438AL+000BE+000_phase_locked_PROP.csv.",
+  "probes/P2412-M144RE438AL+000BE+000_per_blade.csv": "case '2412' names its rotors, so each reduces over ITS OWN blade passage and there is no single passage of the ROW: the per-rotor files are probes/P2412-M144RE438AL+000BE+000_per_blade_PROP.csv.",
+  "probes/P2412-M144RE438AL+000BE+000_per_blade_PROP.csv": "the plots table holds no column of a blade family of rotor 'PROP' (its blades are ['Blade1', 'Blade2', 'Blade3', 'Blade4', 'Blade5', 'Blade6']), so there is no blade to give a row to. A blade's plots are the ones named for its family: declare a plot group with families = \"each\" or frame = \"LOCAL_AXIS\" over the rotor in the pproc artifact. It takes a new run; the script defines what the solver plots.",
+  "probes/P2412-M144RE438AL+100BE+000_phase_locked.csv": "case '2412' names its rotors, so each reduces over ITS OWN blade passage and there is no single passage of the ROW: the per-rotor files are probes/P2412-M144RE438AL+100BE+000_phase_locked_PROP.csv.",
+  "probes/P2412-M144RE438AL+100BE+000_per_blade.csv": "case '2412' names its rotors, so each reduces over ITS OWN blade passage and there is no single passage of the ROW: the per-rotor files are probes/P2412-M144RE438AL+100BE+000_per_blade_PROP.csv.",
+  "probes/P2412-M144RE438AL+100BE+000_per_blade_PROP.csv": "the plots table holds no column of a blade family of rotor 'PROP' (its blades are ['Blade1', 'Blade2', 'Blade3', 'Blade4', 'Blade5', 'Blade6']), so there is no blade to give a row to. A blade's plots are the ones named for its family: declare a plot group with families = \"each\" or frame = \"LOCAL_AXIS\" over the rotor in the pproc artifact. It takes a new run; the script defines what the solver plots."
+ },
+ "checks": {
+  "cdw_equals_cd_on_steady_exports": {
+   "measured": {
+    "polar_rows": [
+     {
+      "polar": "P2401-V0300RHO12250AL+040BE+sweep_g01.csv",
+      "ALPHA": "4.00000",
+      "BETA": "0.00000",
+      "CDW": 0.01201,
+      "CD0_plus_CDI": 0.012,
+      "gap": 9.999999999999593e-06,
+      "allowed": 0.0001683660262001975,
+      "inherited_from_its_export": 0.0001533660262001975
+     },
+     {
+      "polar": "P2401-V0300RHO12250AL+040BE+sweep_g01.csv",
+      "ALPHA": "4.00000",
+      "BETA": "5.00000",
+      "CDW": 0.01194,
+      "CD0_plus_CDI": 0.0119,
+      "gap": 3.999999999999837e-05,
+      "allowed": 0.00017252339636793235,
+      "inherited_from_its_export": 0.00015752339636793233
+     },
+     {
+      "polar": "P2401-V0300RHO12250AL+040BE+sweep_g02.csv",
+      "ALPHA": "4.00000",
+      "BETA": "0.00000",
+      "CDW": 0.01201,
+      "CD0_plus_CDI": 0.012,
+      "gap": 9.999999999999593e-06,
+      "allowed": 0.0001683660262001975,
+      "inherited_from_its_export": 0.0001533660262001975
+     },
+     {
+      "polar": "P2401-V0300RHO12250AL+040BE+sweep_g02.csv",
+      "ALPHA": "4.00000",
+      "BETA": "5.00000",
+      "CDW": 0.01194,
+      "CD0_plus_CDI": 0.0119,
+      "gap": 3.999999999999837e-05,
+      "allowed": 0.00017252339636793235,
+      "inherited_from_its_export": 0.00015752339636793233
+     }
+    ],
+    "exports": [
+     {
+      "export": "P2401-V0300RHO12250AL+040BE+000.txt",
+      "alpha": 4.0,
+      "beta": 0.0,
+      "projected": 0.012005945142500396,
+      "CDi_plus_CDo": 0.012,
+      "gap": 5.94514250039542e-06,
+      "printed_decimals": 4.0,
+      "allowed": 0.0001533660262001975
+     },
+     {
+      "export": "P2401-V0300RHO12250AL+040BE+050.txt",
+      "alpha": 4.0,
+      "beta": 5.0,
+      "projected": 0.011943524848763274,
+      "CDi_plus_CDo": 0.0119,
+      "gap": 4.352484876327285e-05,
+      "printed_decimals": 4.0,
+      "allowed": 0.00015752339636793233
+     }
+    ],
+    "unsteady_polar_rows": [
+     {
+      "polar": "P2411_M144RE438AL+000BE+000_uns_avg.csv",
+      "ALPHA": "0.00000",
+      "group": "PROP",
+      "CDW_PROP": 0.02366,
+      "CD_plotted": 0.02366,
+      "gap": 0.0
+     },
+     {
+      "polar": "P2411_M144RE438AL+000BE+000_uns_avg.csv",
+      "ALPHA": "0.00000",
+      "group": "MRP_TOTAL",
+      "CDW_MRP_TOTAL": 0.0233,
+      "CD_plotted": 0.0233,
+      "gap": 0.0
+     },
+     {
+      "polar": "P2412_M144RE438AL+sweepBE+000_uns_avg.csv",
+      "ALPHA": "0.00000",
+      "group": "PROP",
+      "CDW_PROP": 0.01764,
+      "CD_plotted": 0.01764,
+      "gap": 0.0
+     },
+     {
+      "polar": "P2412_M144RE438AL+sweepBE+000_uns_avg.csv",
+      "ALPHA": "0.00000",
+      "group": "MRP_TOTAL",
+      "CDW_MRP_TOTAL": 0.01877,
+      "CD_plotted": 0.01877,
+      "gap": 0.0
+     },
+     {
+      "polar": "P2412_M144RE438AL+sweepBE+000_uns_avg.csv",
+      "ALPHA": "10.00000",
+      "group": "PROP",
+      "CDW_PROP": -0.00203,
+      "CD_plotted": -0.00203,
+      "gap": 0.0
+     },
+     {
+      "polar": "P2412_M144RE438AL+sweepBE+000_uns_avg.csv",
+      "ALPHA": "10.00000",
+      "group": "MRP_TOTAL",
+      "CDW_MRP_TOTAL": -0.00342,
+      "CD_plotted": -0.00342,
+      "gap": 0.0
+     }
+    ],
+    "worst_gap": 4.352484876327285e-05,
+    "worst_ratio": 0.2763072011322718,
+    "worst_ratio_at": "P2401-V0300RHO12250AL+040BE+050.txt"
+   },
+   "band": "EACH against its own: an export, half a unit of the last digit IT prints on each of the five numbers read off it; a polar row, half a unit on each of its three five-decimal columns; an unsteady polar's CDW against the CD the solver plots for the same group, 2e-5. The verdict is the worst gap over its own band",
+   "verdict": "coherent"
+  },
+  "rotor_table_equals_window_mean": {
+   "measured": {
+    "points": [
+     {
+      "table": "P2411-PROP_rotor.csv",
+      "alias": "PROP",
+      "group": "ROTOR_PROP",
+      "ALPHA": 0.0,
+      "J": 1.70001,
+      "CT": 0.13222,
+      "CP": 0.18372,
+      "ETA": 1.22349,
+      "ETAW": 1.22349,
+      "RPM": 473.1723,
+      "DIAMETER": 3.6576,
+      "window": [
+       109,
+       144
+      ],
+      "steps": 36.0,
+      "mean_shaft_force_N": 931.0427777777778,
+      "last_step_shaft_force_N": 931.1,
+      "table_thrust_N": 931.0096124072884,
+      "force_along_the_stream_N": 931.0427777777778,
+      "unit_N": 7041.367511778009
+     },
+     {
+      "table": "P2412-PROP_rotor.csv",
+      "alias": "PROP",
+      "group": "ROTOR_PROP",
+      "ALPHA": 0.0,
+      "J": 1.70001,
+      "CT": 0.10194,
+      "CP": 0.13151,
+      "ETA": 1.3177,
+      "ETAW": 1.3177,
+      "RPM": 473.1723,
+      "DIAMETER": 3.6576,
+      "window": [
+       109,
+       144
+      ],
+      "steps": 36.0,
+      "mean_shaft_force_N": 717.7936111111111,
+      "last_step_shaft_force_N": 719.47,
+      "table_thrust_N": 717.7970041506503,
+      "force_along_the_stream_N": 717.7936111111111,
+      "unit_N": 7041.367511778009
+     },
+     {
+      "table": "P2412-PROP_rotor.csv",
+      "alias": "PROP",
+      "group": "ROTOR_PROP",
+      "ALPHA": 10.0,
+      "J": 1.70001,
+      "CT": -0.01905,
+      "CP": 0.04388,
+      "ETA": -0.73804,
+      "ETAW": -0.75313,
+      "RPM": 473.1723,
+      "DIAMETER": 3.6576,
+      "window": [
+       109,
+       144
+      ],
+      "steps": 36.0,
+      "mean_shaft_force_N": -134.13972222222222,
+      "last_step_shaft_force_N": -128.68,
+      "table_thrust_N": -134.1380510993711,
+      "force_along_the_stream_N": -136.88187593578843,
+      "unit_N": 7041.367511778009
+     }
+    ],
+    "worst_relative_gap": 3.5621747229045e-05,
+    "last_step_against_mean": [
+     6.146035777087133e-05,
+     0.002335474797963115,
+     0.04070175583916431
+    ]
+   },
+   "band": "1e-3 of the window mean: CT is printed at five decimals",
+   "verdict": "coherent"
+  },
+  "sector_times_copies_against_full_wheel": {
+   "measured": {
+    "CT_sector": 0.13222,
+    "CT_full_wheel": 0.10194,
+    "ratio": 1.2970374730233472
+   },
+   "band": "the ratio within 5 per cent of one: the products state the WHOLE rotor either way",
+   "verdict": "INCOHERENT"
+  },
+  "etaw_equals_eta_at_alpha_zero": {
+   "measured": {
+    "gaps": [
+     0.0,
+     0.0
+    ]
+   },
+   "band": "2e-5: two columns printed at five decimals",
+   "verdict": "coherent"
+  },
+  "etaw_departs_with_alpha": {
+   "measured": {
+    "points": [
+     {
+      "ALPHA": 10.0,
+      "ETA": -0.73804,
+      "ETAW": -0.75313,
+      "J_CTW_over_CP_from_the_history": 0.7531366694700997,
+      "gap": 6.6694700997516065e-06,
+      "same_sign_as_ETA": true
+     }
+    ]
+   },
+   "band": "ETAW differs from ETA, equals J CTW / CP from the history within 1e-3 in magnitude, and carries the sign of ETA below 45 degrees of incidence",
+   "verdict": "coherent"
+  },
+  "every_file_says_average_or_instant": {
+   "measured": {
+    "stated": 12,
+    "silent": []
+   },
+   "band": "no unsteady product's manifest entry is silent about its kind",
+   "verdict": "coherent"
+  },
+  "manifest_equals_disk": {
+   "measured": {
+    "named_and_absent": [],
+    "on_disk_and_unnamed": [],
+    "named": 19,
+    "on_disk": 19
+   },
+   "band": "both differences empty",
+   "verdict": "coherent"
+  }
+ }
+}

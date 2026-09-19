@@ -354,13 +354,30 @@ def rotor_checks(out: Path, manifest: dict) -> dict[str, dict[str, object]]:
                 "ETAW": p["ETAW"],
                 "J_CTW_over_CP_from_the_history": expected,
                 "gap": abs(abs(p["ETAW"]) - expected),
+                # THE SIGN, which the magnitude above cannot see, and a flipped sign
+                # is the defect 0.23.0 shipped in this column. Below 45 degrees of
+                # incidence the force along the stream and the force along the shaft
+                # point the same way, so ETAW carries the sign of ETA.
+                "same_sign_as_ETA": (
+                    None
+                    if p.get("ETA") is None or abs(float(p["ALPHA"])) >= 45.0  # type: ignore[arg-type]
+                    else (float(p["ETAW"]) > 0) == (float(p["ETA"]) > 0)  # type: ignore[arg-type]
+                ),
             }
         )  # type: ignore[arg-type]
     checks["etaw_departs_with_alpha"] = {
         "measured": {"points": tilted},
-        "band": "ETAW differs from ETA, and equals J CTW / CP from the history within 1e-3",
+        "band": (
+            "ETAW differs from ETA, equals J CTW / CP from the history within 1e-3 in "
+            "magnitude, and carries the sign of ETA below 45 degrees of incidence"
+        ),
         "verdict": _verdict(
-            None if not tilted else all(t["gap"] <= 1e-3 and t["ETAW"] != t["ETA"] for t in tilted)
+            None
+            if not tilted
+            else all(
+                t["gap"] <= 1e-3 and t["ETAW"] != t["ETA"] and t["same_sign_as_ETA"] is not False
+                for t in tilted
+            )
         ),
     }
     return checks
