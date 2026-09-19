@@ -93,7 +93,19 @@ def test_a_rotor_frame_named_mrp_total_is_not_a_global_axes_source(name, frame):
 
 
 @pytest.mark.parametrize("automatic", ["ROTOR_PROP", "MRP_TOTAL"])
-def test_blade_plot_names_do_not_occupy_automatic_rotor_or_total_names(automatic):
+def test_a_family_template_that_could_emit_the_automatic_name_is_never_read_as_it(automatic):
+    """THE REQUIREMENT MOVED, and this is the test's second expectation.
+
+    Round 2 of the release review (R2-API-1) asked that a `{family}` group over the
+    blades never cost the rotor table, and this test first asserted the automatic
+    name stayed a source. Meeting that needs the label the builder puts in each
+    name, which the post stage cannot derive: three attempts each let a rotor-frame
+    or custom-frame history pass as GLOBAL loads, which the independent review
+    measured. The rule is now conservative: a template that could produce the name
+    makes the source ambiguous, and an ambiguous source costs its table, with a
+    reason, and never publishes a number. The exact rule, from the names the run
+    records it emitted, is registered for 0.25.0.
+    """
     pproc = SimpleNamespace(
         plots=SimpleNamespace(
             parameters=["FX", "FY", "FZ", "MX", "MY", "MZ"],
@@ -111,7 +123,7 @@ def test_blade_plot_names_do_not_occupy_automatic_rotor_or_total_names(automatic
         pproc, "PROP", rotor_families=["Blade1", "Blade2"], inventory=["Blade1", "Blade2"]
     )
     actual = candidates if automatic == "ROTOR_PROP" else global_frame_plot_groups(pproc)
-    assert automatic in actual, f"blade plots suppressed {automatic}"
+    assert automatic not in actual, f"an ambiguous {automatic} was read as a source"
 
 
 def test_recorded_polar_refuses_an_area_the_export_did_not_use(tmp_path):

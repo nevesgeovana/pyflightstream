@@ -84,6 +84,7 @@ from __future__ import annotations
 import csv
 import json
 import math
+import re
 import tempfile
 import warnings
 from collections import Counter
@@ -1362,19 +1363,23 @@ def _plot_name_can_emit(
     aliases: Mapping[str, Sequence[str]] | None = None,
     frame: str = "",
 ) -> bool:
-    """Whether a declared plot name can occupy an automatic group's name."""
+    """Whether a declared plot name CAN occupy an automatic group's name.
+
+    CONSERVATIVE BY DECISION (release 0.24.0). The label a ``{family}`` group puts
+    in its name is chosen by the script builder from the run's case and frames
+    (`cases.workflows._pproc_emissions`), which the post stage does not hold. Three
+    attempts to re-derive it here each let a rotor-frame or custom-frame history
+    pass as global loads. So any template that COULD produce the automatic name
+    counts as producing it: a history that might be the wrong one is never read,
+    and its table is skipped with the reason. The exact answer, the names the run
+    emitted and their frames recorded in the run record, is registered for 0.25.0.
+    The other arguments are kept for that successor and are not read here.
+    """
+    del families, inventory, is_blade, aliases, frame
     if "{family}" not in template:
         return template == name
-    if isinstance(families, str):
-        # Use the builder's family selector; selector words are not plot labels.
-        # In a common frame `all` has an empty label; expanding frames label
-        # their individual emissions instead.
-        selection = (
-            "each" if families == "all" and frame in {"SMRP", "RMRP", "LOCAL_AXIS"} else families
-        )
-        resolved = select_families(selection, inventory, is_blade, aliases)
-        families = [family for selected in resolved for family in selected]
-    return any(template.format(family=family) == name for family in families)
+    pattern = re.escape(template).replace(re.escape("{family}"), ".+")
+    return re.fullmatch(pattern, name) is not None
 
 
 def rotor_plot_source(
