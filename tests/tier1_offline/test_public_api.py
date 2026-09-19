@@ -48,6 +48,11 @@ PUBLIC_MODULES = [
     "pyflightstream.overview",
     "pyflightstream.post",
     "pyflightstream.post.axes",
+    # 0.24.0: the evaluator of a pproc `[equations]` table. PUBLIC deliberately:
+    # `resolve_symbol` IS the rule by which a symbol finds its column, the
+    # generated guide and the workspace page both state it, and a user asking
+    # why `CL` read `CL_WING` is who calls it.
+    "pyflightstream.post.equations",
     # v0.23.0 item 11: the generated pproc guides. PUBLIC deliberately: a
     # user who wants the variable reference and the equation guide beside
     # her pproc is who calls it. It lives in `post` and not in `workspace`

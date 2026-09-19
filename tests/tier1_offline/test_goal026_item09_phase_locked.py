@@ -56,7 +56,12 @@ from pyflightstream.cases import PprocSpec
 #
 # The marker expires by itself: the field returning to `PprocSpec` in 0.24.0
 # turns these red until the behaviour is wired, which is what they are for.
-pytestmark = pytest.mark.skip(reason="item 9 is 0.24.0 scope by the owner's decision of 2026-09-18")
+#
+# 0.24.0: THE MARKER IS GONE, here and on the four equation and glossary cases
+# below. Measured with the markers removed and nothing restored: 19 failed, 13
+# passed across this file and its two siblings. The three tables are back on
+# `PprocSpec` and each is CONSUMED by a campaign step, which
+# `test_goal028_pproc_tables.py` holds through the command line.
 
 
 #: What 0.23.0's pproc spec SHIPS, and what it must NOT carry.
@@ -66,8 +71,14 @@ pytestmark = pytest.mark.skip(reason="item 9 is 0.24.0 scope by the owner's deci
 #: REFUSED by an install carrying only part of them. On 2026-09-18 the owner
 #: moved items 10 and 11 to 0.24.0, so the rule is now satisfied by the two
 #: being ABSENT. The property is unchanged; which side of it holds is not.
-SHIPPED = ("phase_locked",)
-DEFERRED = ("equations", "glossary")
+#:
+#: 0.24.0: THE REQUIREMENT MOVED AGAIN, AND SO DID THE SIDE THAT HOLDS. All three
+#: ship in this release, so the rule is satisfied by the three being PRESENT
+#: together and nothing is deferred. The assertion below is unchanged; what it
+#: is handed is not. `DEFERRED` stays, empty, so the next table that is declared
+#: before it is implemented has a place to be named.
+SHIPPED = ("phase_locked", "equations", "glossary")
+DEFERRED: tuple[str, ...] = ()
 
 
 def test_the_pproc_spec_carries_this_release_and_not_the_next_one():
@@ -85,16 +96,16 @@ def test_the_pproc_spec_carries_this_release_and_not_the_next_one():
     """
     fields = set(PprocSpec.model_fields)
     missing = [name for name in SHIPPED if name not in fields]
-    assert not missing, f"the pproc spec is missing {missing}, which 0.23.0 ships"
+    assert not missing, f"the pproc spec is missing {missing}, which this release ships"
     early = [name for name in DEFERRED if name in fields]
     assert not early, (
-        f"the pproc spec carries {early}, which is 0.24.0 scope. Declaring a table the "
+        f"the pproc spec carries {early}, which a later release ships. Declaring a table the "
         "release does not IMPLEMENT lets a user write it and get nothing back"
     )
 
 
 def test_phase_locked_is_optional_and_absent_by_default():
-    """A pproc that says nothing about it gets no phase-locked reduction."""
+    """A pproc that says nothing about it declares no gate; its reduction is ungated."""
     spec = PprocSpec()
     assert spec.phase_locked is None
 
@@ -113,7 +124,6 @@ def test_averaging_over_more_revolutions_than_the_minimum_is_refused():
         PprocSpec(phase_locked={"min_revolutions": 2, "last_revolutions_avg": 5})
 
 
-@pytest.mark.skip(reason="items 10 and 11 are 0.24.0 scope by the owner's decision of 2026-09-18")
 def test_an_equation_points_at_an_alias_and_never_at_a_family():
     """Her rule, and the reason for it: every coefficient then carries `_<alias>`."""
     spec = PprocSpec(
@@ -123,7 +133,6 @@ def test_an_equation_points_at_an_alias_and_never_at_a_family():
     assert spec.equations["CTX"].frame == "BODY"
 
 
-@pytest.mark.skip(reason="items 10 and 11 are 0.24.0 scope by the owner's decision of 2026-09-18")
 def test_an_equation_that_names_a_mesh_family_is_refused_by_name():
     """ "não vamos aceitar apontar famílias". Refused, and the refusal says why."""
     with pytest.raises(ValidationError) as caught:
@@ -135,14 +144,12 @@ def test_an_equation_that_names_a_mesh_family_is_refused_by_name():
     assert "famil" in str(caught.value).lower() or "extra" in str(caught.value).lower()
 
 
-@pytest.mark.skip(reason="items 10 and 11 are 0.24.0 scope by the owner's decision of 2026-09-18")
 def test_an_equation_with_no_alias_is_refused():
     """Without an alias the derived coefficient has no `_<alias>` to carry."""
     with pytest.raises(ValidationError):
         PprocSpec(equations={"CTX": {"expression": "CT * 2", "frame": "BODY"}})
 
 
-@pytest.mark.skip(reason="items 10 and 11 are 0.24.0 scope by the owner's decision of 2026-09-18")
 def test_the_glossary_is_a_table_the_user_can_extend():
     """She asked whether the package needs one and whether she can add to it."""
     spec = PprocSpec(glossary={"CT": "thrust coefficient, T / (rho n^2 D^4)"})

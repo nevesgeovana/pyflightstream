@@ -237,12 +237,12 @@ then the condition block and the moment point.
 
 ## `phase_locked`
 
-!!! warning "NOT YET THE CODE as of 0.23.0 (marked 2026-09-18)"
-    This section is the definition 0.24.0 implements. What 0.23.0 writes under
-    this name is the averaging window cut into consecutive blade passages, one
-    row per passage. It does not average across revolutions at a fixed azimuth
-    and it is not tabulated from 0 to 360. The definition stands; the code is
-    behind it.
+!!! note "The code since 0.24.0, where the pproc declares `[phase_locked]`"
+    0.23.0 wrote the averaging window cut into consecutive blade passages, one
+    row per passage, under this name. Since 0.24.0 a pproc that declares the
+    `[phase_locked]` table gets the table defined here. **A pproc that does not
+    declare it still gets the passage series**, so a workspace that never asked
+    for the table reads the file it has always read.
 
 > "a ideia do phase-locked é olhar a mesma posição azimutal de varias voltas e
 > voltar um resultado que traz a media vs posição azimutal. Dessa forma, seria
@@ -274,14 +274,39 @@ The operation, step by step:
 **The row of this product is an azimuthal position.** Not a passage, not a
 revolution, not a blade.
 
+**How the file carries it.** `probes/<point>_phase_locked[_<ALIAS>].csv` leads
+with `REDUCTION`, `ROTOR`, `AZIMUTH`, `STEP`, `REVOLUTIONS`, the steps the
+revolutions span (`FIRST_STEP`, `LAST_STEP`, `STEPS`), the condition block and
+the moment point, then the plotted columns under the names the export prints.
+
+- **The rows are the azimuthal positions of the rotor's LAST revolution**, one
+  per solver step of it, sorted from 0 towards 360. `AZIMUTH` is where BLADE ONE
+  is, by the formula of [the sections table](#the-sections-table-and-which-row-is-which),
+  and `STEP` is the step of the last revolution that azimuth falls on.
+- **A blade's column is tabulated by THAT blade's azimuth.** A column ending in
+  a blade family of the rotor is sampled where that blade, which sits its
+  position times `360 / blades` after blade one, is at the row's azimuth, so two
+  blades line up azimuth for azimuth. Every other column, a rotor's total or the
+  aircraft's, is tabulated by blade one's azimuth.
+- **The suffix is the plot's own.** A plot is `<parameter>_<group>` and the pproc
+  names the group, so `_{alias or blade_name}_{SMRP or MRP}` is what a group
+  named `PUSHER_SMRP` or cut per blade prints; the package renames nothing.
+- **`REVOLUTIONS` is how many samples entered the mean**, `last_revolutions_avg`
+  exactly when that is a whole number.
+- **Between two steps the history is read linearly.** One revolution earlier is
+  a whole number of steps earlier only when `steps_per_revolution` is whole, and
+  a blade's offset only when it divides by the blade count. Where both hold,
+  every sample is a row of the history and nothing is interpolated.
+- **Without blade one's datum or the rotor's signed speed no azimuth can be
+  stated**, and the table is a named skip: declare the rotor in the reference
+  and have the row cite it. A depth under one revolution is a named skip too.
+
 ### When it is generated
 
-!!! warning "NOT YET THE CODE as of 0.23.0 (marked 2026-09-18)"
-    This section is the definition 0.24.0 implements. **Do not write the
-    `[phase_locked]` table in a 0.23.0 pproc: it is refused by name and the
-    artifact does not load.** In 0.23.0 no minimum is read, so nothing gates
-    the reduction on the revolutions a row turns. The definition stands; the
-    code is behind it.
+!!! note "The code since 0.24.0"
+    0.23.0 refused the `[phase_locked]` table by name. Since 0.24.0 it binds, and
+    `pyfs-matrix post` reads it again from the pproc as it stands, so the gate
+    and the depth can be edited with no solver re-run.
 
 > "no arquivo de pproc o usuário fala o número mínimo de revs total e revs usadas
 > para media. Se a especificação da matriz bater esse número mínimo, o
@@ -312,7 +337,8 @@ written as usual. Taking a product away from a campaign that already ran is
 never the answer to a threshold not being met.
 
 **A pproc that says nothing about `phase_locked` gets one as it always did.**
-Absent is not zero.
+Absent is not zero: nothing gates it, and it is the passage series it has
+always been.
 
 ---
 

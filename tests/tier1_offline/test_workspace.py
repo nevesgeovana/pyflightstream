@@ -2315,6 +2315,25 @@ def test_the_documented_pproc_artifact_resolves_as_the_page_reads(tmp_path):
     assert set(pproc.groups) == {"1", "2", "3", "4"}, pproc.groups
     assert pproc.groups["3"] == [], "the page's empty group, every family (2026-09-09)"
     assert pproc.groups["4"] == ["Blade", "airframe"], "a family and a selector word"
+    # 0.24.0: THE THREE TABLES OF THE PAGE BIND TOO, and its equations are the
+    # worked example: the chain is ordered, and `FZ` about LIFT in SMRP is the
+    # column the page's own `{family}_SMRP` plot group prints.
+    from pyflightstream.post.equations import resolve_symbol
+
+    assert pproc.phase_locked is not None
+    assert (pproc.phase_locked.min_revolutions, pproc.phase_locked.last_revolutions_avg) == (
+        4.0,
+        2.0,
+    )
+    assert pproc.equation_order() == ["T_AXIAL", "CT_FLIGHT"]
+    assert set(pproc.glossary) == set(pproc.equations)
+    rotor_group = next(group for group in pproc.plots.groups if group.frame == "SMRP")
+    plotted = "FZ_" + rotor_group.name.replace("{family}", "LIFT")
+    spec = pproc.equations["T_AXIAL"]
+    assert (
+        resolve_symbol("FZ", alias=spec.meshes_alias, frame=spec.frame, columns=[plotted, "RHO"])
+        == "FZ_LIFT_SMRP"
+    )
     # The old shape is still told apart: a bare list that is not the one
     # top-level key the pproc shape defines is a groups file of before 0.11.0.
     (workspace.inputs_dir / "pproc" / "p021.toml").write_text('wing = ["W"]\n', encoding="utf-8")

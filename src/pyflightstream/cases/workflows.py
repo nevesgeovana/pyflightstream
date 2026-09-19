@@ -3329,14 +3329,12 @@ def phase_locked_gate(
     """
     if spec is None or spec.generated_for(revolutions=revolutions):
         return None
-    return {
-        "skipped": (
-            f"the row turns {revolutions} revolution(s) over the whole run and the pproc "
-            f"asks for at least {spec.min_revolutions} before a phase-locked reduction is "
-            "generated. The polar is unaffected: a short run means no phase-locked "
-            "reduction, never a refused product."
-        )
-    }
+    # ONE SENTENCE AND ONE COMPARISON, the resolver's, which the post stage calls
+    # too when it reads the table again: a revolution counted on a clock of one
+    # step is the number handed in.
+    return _windows.phase_locked_entry(
+        spec, last_step=revolutions, per_revolution=1.0, who="the rotor"
+    )
 
 
 def _every_reduction_skipped(rotor: bool, reason: str) -> dict[str, object]:
@@ -3462,6 +3460,13 @@ def _the_passages_of_one_rotor(
         # to OVERWRITE the skip with the passages it had just been gated out of,
         # which is how removing one line can undo the whole of a fix.
         pass
+    elif case.pproc is not None and case.pproc.phase_locked is not None:
+        # THE TABLE IS DECLARED AND MET: the mean at each azimuth across the last
+        # `last_revolutions_avg` revolutions of THIS rotor, which the row's own
+        # averaging window has no say in.
+        entry["phase_locked"] = _windows.phase_locked_entry(
+            case.pproc.phase_locked, last_step=last_step, per_revolution=per_revolution, who=alias
+        )
     elif passages:
         entry["phase_locked"] = {
             "windows": [list(item) for item in passages],
@@ -3973,6 +3978,13 @@ def reduction_windows(case: SimCase) -> dict[str, object] | None:
         # with it takes a second product away for a reason belonging to the
         # first, which is the shape of refusing a polar over a short run.
         plan["phase_locked"] = gated
+    elif case.pproc is not None and case.pproc.phase_locked is not None:
+        plan["phase_locked"] = _windows.phase_locked_entry(
+            case.pproc.phase_locked,
+            last_step=last_step,
+            per_revolution=per_revolution,
+            who="the rotor",
+        )
     elif passages:
         plan["phase_locked"] = {
             "windows": [list(item) for item in passages],

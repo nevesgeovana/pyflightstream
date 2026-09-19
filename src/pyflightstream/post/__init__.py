@@ -48,13 +48,16 @@ Sweep assembly is not here either, it is
 :mod:`pyflightstream.results.tables`.
 """
 
-# v0.23.0 item 11: the generated pproc guides. Re-exported here because a
+# The generated pproc guides. Re-exported here because a
 # module under `post` that its package root cannot reach is a module a
 # reader cannot find, which the results guard refuses by name.
-# ITEM 11 IS 0.24.0 SCOPE, by the owner's decision of 2026-09-18, so
-# `pyflightstream.post.guides` is NOT re-exported here. It had no caller on
-# any campaign path either, so publishing the name would have offered a
-# capability the package does not perform. The module stays for 0.24.0.
+from pathlib import Path
+
+from pyflightstream.post.guides import (
+    PPROC_GUIDE_NAMES,
+    write_pproc_guides,
+    write_workspace_pproc_guides,
+)
 from pyflightstream.post.products import (
     CustomPolarTable,
     ProductError,
@@ -86,7 +89,7 @@ from pyflightstream.post.writers import (
     write_tecplot_points,
     write_vtk_points,
 )
-from pyflightstream.workspace import register_post_stage
+from pyflightstream.workspace import register_input_guide, register_post_stage
 
 
 def __getattr__(name: str) -> object:
@@ -128,6 +131,8 @@ __all__ = [
     "write_plots_table",
     "write_polar_table",
     "write_recorded_polar",
+    "PPROC_GUIDE_NAMES",
+    "write_pproc_guides",
     "write_reduction",
     "write_sections_table",
     "write_point_series",
@@ -140,3 +145,15 @@ __all__ = [
 # (PFS-2029.15.03); registered here, below the run layer's reach, so the
 # run calls it without importing this layer.
 register_post_stage(write_campaign_products)
+# THE GENERATED PPROC GUIDES reach the workspace init and the plan, which live
+# below this layer, through the same kind of registry the post stage uses.
+register_input_guide(write_workspace_pproc_guides)
+
+
+def _the_guides_stage(workspace: object, **_options: object) -> list[Path]:
+    """Refresh the generated pproc guides at post; a guide is not a product, so return none."""
+    write_workspace_pproc_guides(workspace.inputs_dir)  # type: ignore[attr-defined]
+    return []
+
+
+register_post_stage(_the_guides_stage)

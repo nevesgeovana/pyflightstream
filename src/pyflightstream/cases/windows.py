@@ -27,6 +27,7 @@ the polar and the time average use, is counted on the row's clock rotor.
 from __future__ import annotations
 
 import copy
+import math
 from collections.abc import Mapping
 
 __all__ = [
@@ -35,6 +36,8 @@ __all__ = [
     "averaging_span",
     "averaging_steps",
     "passages",
+    "phase_locked_entry",
+    "regate",
     "replan",
     "stated_key",
 ]
@@ -44,6 +47,11 @@ LAST_REVS_AVG = "LAST_REVS_AVG"
 LAST_ITERS_AVG = "LAST_ITERS_AVG"
 
 _PASSAGE_REDUCTIONS = ("phase_locked", "per_blade")
+
+#: What a plan entry states under ``shape`` when the phase-locked reduction is the
+#: mean at each azimuth, which a pproc asks for with its ``[phase_locked]`` table.
+#: An entry without the key is the passage series a pproc without the table gets.
+AZIMUTHAL = "azimuthal"
 
 
 def _positive(variables: Mapping[str, object], key: str) -> float | None:
@@ -235,3 +243,152 @@ def replan(
             fresh, who="the rotor", span=span, variables=variables, per_revolution=clock, said=said
         )
     return fresh
+
+
+def phase_locked_entry(
+    gate: object, *, last_step: float, per_revolution: float, who: str
+) -> dict[str, object]:
+    """Return the plan entry of the phase-locked reduction a ``[phase_locked]`` table asks for.
+
+    ``gate`` is the table: ``min_revolutions``, ``last_revolutions_avg`` and the
+    comparison itself, ``generated_for(revolutions=...)``, which is AT LEAST.
+    What is compared is what the row TURNS, ``last_step / per_revolution`` of
+    THAT rotor, and never the length of an exported window.
+
+    A run that turned fewer is a SKIP carrying both numbers, and only of this
+    reduction. One that turned enough gets ONE window, the last
+    ``last_revolutions_avg`` revolutions of that rotor ending at the run's last
+    step, and ``shape`` :data:`AZIMUTHAL`: the products stage averages ACROSS
+    those revolutions at each azimuth and writes one row per azimuthal position.
+
+    Examples
+    --------
+    >>> class Gate:
+    ...     min_revolutions, last_revolutions_avg = 4.0, 2.0
+    ...     def generated_for(self, *, revolutions):
+    ...         return revolutions >= self.min_revolutions
+    >>> entry = phase_locked_entry(Gate(), last_step=1000, per_revolution=250.0, who="PUSHER")
+    >>> entry["windows"], entry["revolutions"], entry["shape"]
+    ([[501, 1000]], 2.0, 'azimuthal')
+    >>> sorted(phase_locked_entry(Gate(), last_step=999, per_revolution=250.0, who="PUSHER"))
+    ['min_revolutions', 'revolutions_turned', 'skipped']
+    """
+    minimum = float(getattr(gate, "min_revolutions"))  # noqa: B009
+    depth = float(getattr(gate, "last_revolutions_avg"))  # noqa: B009
+    turned = last_step / per_revolution if per_revolution > 0 else 0.0
+    if not gate.generated_for(revolutions=turned):  # type: ignore[attr-defined]
+        return {
+            "skipped": (
+                f"the row turns {turned} revolution(s) over the whole run and the pproc "
+                f"asks for at least {minimum} before a phase-locked reduction is "
+                "generated. The polar is unaffected: a short run means no phase-locked "
+                "reduction, never a refused product."
+            ),
+            "min_revolutions": minimum,
+            "revolutions_turned": turned,
+        }
+    # THE STEPS INSIDE (last - depth * per_revolution, last]. A revolution of a
+    # whole number of steps gives exactly depth * per_revolution of them.
+    first = max(int(math.floor(last_step - depth * per_revolution + 1e-9)) + 1, 1)
+    return {
+        "windows": [[first, int(last_step)]],
+        "shape": AZIMUTHAL,
+        "revolutions": depth,
+        "steps_per_revolution": float(per_revolution),
+        "window_from": (
+            f"the last {depth:g} revolution(s) of {who}, which the pproc's [phase_locked] "
+            f"table states as last_revolutions_avg; the mean is taken at each azimuth "
+            f"across them"
+        ),
+    }
+
+
+def _from_the_table(entry: object) -> bool:
+    """Whether a recorded entry was planned under a ``[phase_locked]`` table."""
+    return isinstance(entry, Mapping) and (
+        entry.get("shape") == AZIMUTHAL or "min_revolutions" in entry
+    )
+
+
+def regate(plan: Mapping[str, object] | None, gate: object | None) -> dict[str, object] | None:
+    """Return ``plan`` with its phase-locked reduction as the pproc asks for it TODAY.
+
+    The ``[phase_locked]`` table is a post-processing choice, so it is read again
+    when the products are composed and needs no solver re-run: a table added,
+    edited or removed after the campaign ran moves this one reduction. The
+    record is never rewritten; the result is a new mapping.
+
+    With a table, every block that has a clock (``steps_per_revolution`` and the
+    plan's ``time_iterations``) and a reduction to move gets
+    :func:`phase_locked_entry`. A block skipped for a reason no table cures, no
+    rotor speed or no blade count, keeps its skip. Without a table, a block
+    recorded under one goes back to the passages of the point's averaging
+    window; any other block is left exactly as recorded.
+
+    Returns None where there is nothing to move, so a caller keeps its plan.
+    """
+    if not isinstance(plan, Mapping):
+        return None
+    last = _number(plan.get("time_iterations"))
+    if last is None or last <= 0:
+        return None
+    fresh: dict[str, object] = copy.deepcopy(dict(plan))
+    rotors = fresh.get("rotors")
+    blocks: list[tuple[str, dict[str, object]]] = (
+        [(str(alias), block) for alias, block in rotors.items() if isinstance(block, dict)]
+        if isinstance(rotors, dict) and rotors
+        else [("the rotor", fresh)]
+    )
+    moved = False
+    for who, block in blocks:
+        entry = block.get("phase_locked")
+        clock = _number(block.get("steps_per_revolution"))
+        period = _number(block.get("period_steps"))
+        for name in _PASSAGE_REDUCTIONS:
+            held = block.get(name)
+            if period is None and isinstance(held, Mapping):
+                period = _number(held.get("period_steps"))
+        if entry is None or clock is None or clock <= 0:
+            continue
+        # A SKIP NO TABLE CURES STANDS: no blade count, no rotor speed. What moves
+        # is an entry that has windows, one a table planned, or a block that at
+        # least knows its passage length.
+        curable = (
+            (isinstance(entry, Mapping) and "windows" in entry)
+            or _from_the_table(entry)
+            or (period is not None and period >= 1)
+        )
+        if not curable:
+            continue
+        if gate is not None:
+            block["phase_locked"] = phase_locked_entry(
+                gate, last_step=int(last), per_revolution=clock, who=who
+            )
+            moved = True
+        elif _from_the_table(entry) and period is not None and period >= 1:
+            average = fresh.get("time_average")
+            stated = average.get("windows") if isinstance(average, Mapping) else None
+            if not stated:
+                continue
+            span = (int(stated[0][0]), int(stated[-1][1]))
+            cut = passages(span, int(period))
+            block["phase_locked"] = (
+                {
+                    "windows": [list(item) for item in cut],
+                    "period_steps": int(period),
+                    "window_from": (
+                        f"the point's averaging window, cut into blade passages of {who}, "
+                        f"{int(period)} steps each; the pproc states no [phase_locked] table"
+                    ),
+                }
+                if cut
+                else {
+                    "skipped": (
+                        f"the window {span[0]} to {span[1]} holds {span[1] - span[0] + 1} "
+                        f"steps, fewer than one blade passage of {who}, which is "
+                        f"{int(period)} steps"
+                    )
+                }
+            )
+            moved = True
+    return fresh if moved else None

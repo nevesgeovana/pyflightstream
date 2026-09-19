@@ -52,7 +52,12 @@ from pyflightstream._deprecations import (
     refusal_text,
 )
 from pyflightstream._digest import file_sha256, text_sha256
-from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning
+from pyflightstream._errors import (
+    InputArtifactError,
+    PyflightstreamError,
+    PyflightstreamWarning,
+)
+from pyflightstream._expressions import ALLOWED_FUNCTIONS, expression_symbols
 from pyflightstream._fsm import names_of
 from pyflightstream._retired_names import PROBE_SCALE_PROPELLER_RADIUS, retired_frame
 from pyflightstream.commands import Phase
@@ -1577,17 +1582,27 @@ class AliasCycleError(PyflightstreamError, ValueError):
 
 
 class PhaseLockedSpec(BaseModel):
-    """When a phase-locked reduction is generated, and over how much (item 9).
+    """The ``[phase_locked]`` table: when the reduction exists, and over how much.
 
-    The owner's rule of 2026-09-17: "o usuário fala o número mínimo de revs
-    total e revs usadas para media. Se a especificacao da matriz bater esse
-    número mínimo, o phase_locked e' gerado", and the comparison is at least:
-    "sendo igual ou maior".
+    ``min_revolutions`` is the minimum TOTAL revolutions the matrix row must
+    turn for the reduction to be generated, and the comparison is AT LEAST:
+    equal generates it. What is compared is what the row states, the whole run
+    of THAT rotor, and never the length of the exported window.
 
-    NOT REACHING THE MINIMUM DOES NOT REFUSE THE POLAR, which is her second
-    sentence and the one that decides the shape: "e não ter o rev min não
-    recusa a polar, s'o não gera o phase_locked". So this is a GATE on one
-    product and never a validation of the run.
+    ``last_revolutions_avg`` is how many of the last revolutions enter the mean
+    at each azimuth. It may not exceed ``min_revolutions``: a reduction may not
+    average over more history than it required in order to exist.
+
+    NOT REACHING THE MINIMUM NEVER REFUSES ANOTHER PRODUCT. This is a gate on
+    one reduction: a short run loses the phase-locked table, named as a skip in
+    ``products.json`` with the two numbers, and keeps its polar, its per-blade
+    table and everything else.
+
+    Examples
+    --------
+    >>> gate = PhaseLockedSpec(min_revolutions=4.0, last_revolutions_avg=2.0)
+    >>> gate.generated_for(revolutions=4.0), gate.generated_for(revolutions=3.9)
+    (True, False)
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -1619,18 +1634,29 @@ class PhaseLockedSpec(BaseModel):
 
 
 class EquationSpec(BaseModel):
-    """One custom coefficient the pproc derives (item 10).
+    """One entry of ``[equations]``: a coefficient the post stage derives.
 
-    THE EQUATION POINTS AT AN ALIAS AND NEVER AT A MESH FAMILY, which is the
-    owner's rule of 2026-09-17 and is not a restriction for its own sake: "não
-    vamos aceitar apontar famílias, eles so podem apontar alias pois assim
-    todos os coefs ficaram com _<alias>". An alias is what gives the derived
-    coefficient a name that says which body it is about; a family list gives it
-    nothing to be called.
+    AN EQUATION POINTS AT AN ALIAS AND NEVER AT A MESH FAMILY. The alias is
+    what gives the derived coefficient a name that says which body it is
+    about, so every derived column is ``<NAME>_<alias>``; a family list would
+    give it nothing to be called, and ``families`` is refused as an unknown key.
 
-    ``frame`` is here because she added it the same day -- "deixa meshes_alias
-    e frame como inputs da equations" -- and because an axis matters: the same
-    expression in the body and the wind axes is two different coefficients.
+    ``frame`` rides beside it because an axis matters: the same expression over
+    the plots of two frames is two different coefficients. It is optional, and
+    it steers which plotted column a symbol finds (see
+    :func:`pyflightstream.post.equations.resolve_symbol`).
+
+    The expression is arithmetic over the columns the unsteady polar's row
+    already holds: numbers, names, ``+ - * / **``, unary minus, parentheses and
+    the functions ``abs, sqrt, sin, cos, tan, radians, degrees, min, max``. It
+    is checked when the pproc is read, so a construct outside that set is
+    refused at load and never at the end of a campaign.
+
+    Examples
+    --------
+    >>> spec = EquationSpec(expression="FX / (0.5 * RHO * VINF**2 * SREF)", meshes_alias="PUSHER")
+    >>> spec.symbols()
+    ['FX', 'RHO', 'VINF', 'SREF']
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -1653,12 +1679,26 @@ class EquationSpec(BaseModel):
             )
         return token
 
+    @field_validator("expression")
+    @classmethod
+    def _an_expression_this_package_evaluates(cls, value: str) -> str:
+        """Refuse at LOAD what the evaluator would refuse at post."""
+        try:
+            expression_symbols(value)
+        except InputArtifactError as refused:
+            raise ValueError(str(refused)) from refused
+        return value
+
+    def symbols(self) -> list[str]:
+        """Return the names the expression reads, in order, functions left out."""
+        return expression_symbols(self.expression)
+
 
 class PprocSpec(BaseModel):
     """The post-processing specification a matrix row's PPROC cell names.
 
     PFS-2029.07.01, the design decision of 2026-09-02: the groups artifact IS the
-    home of post-processing and is renamed pproc. Six tables. ``groups``
+    home of post-processing and is renamed pproc. Nine tables. ``groups``
     is exactly what the groups file held, a number to the families it
     aggregates, and the polar tables are written per group of it; a
     member is resolved by :func:`select_group_members`, and an empty
@@ -1666,7 +1706,12 @@ class PprocSpec(BaseModel):
     the eight export kinds a point writes, all of them unless a kind is
     set to false; ``sections``, ``plots`` and ``probes`` are the solver
     definitions the builders emit before the solver runs; ``products``
-    says which post-processed files are written after it.
+    says which post-processed files are written after it. Since 0.24.0
+    ``phase_locked`` gates and shapes the phase-locked reduction, ``equations``
+    adds derived columns to the unsteady polar, and ``glossary`` says what the
+    user's own symbols mean; the three ship together, because the model forbids
+    unknown keys and an artifact written for one of them is refused by an
+    install that lacks it.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -1677,34 +1722,19 @@ class PprocSpec(BaseModel):
     groups: Annotated[dict[str, list[int | str]], BeforeValidator(_a_group_is_one_alias)] = Field(
         default_factory=dict
     )
-    # ITEM 9 IS 0.24.0 SCOPE, by the owner's decision of 2026-09-18: "vamos
-    # deixar o phase-locked para a 24". With items 10 and 11 already moved, this
-    # completes the rule she wrote into the goal -- "itens 9, 10 e 11 sobem
-    # juntos ou nenhum" -- from the side where NONE of them ships. 0.23.0
-    # therefore adds no pproc table at all, and a pproc written for 0.22.0 binds
-    # unchanged.
-    #
-    # THE REDUCTION ITSELF IS UNTOUCHED. `phase_locked` has been a plotted
-    # reduction since long before this release and every workspace that produces
-    # one still produces it. What waits for 0.24.0 is the `[phase_locked]` TABLE
-    # -- the optional gate and the averaging depth -- and the azimuthal shape she
-    # defined on 2026-09-18, which the current reduction does not have.
-    # ITEMS 10 AND 11 ARE 0.24.0 SCOPE, by the owner's decision of 2026-09-18:
-    # "vamos colocar equations e VARIABLES.md e WRITING-EQUATIONS.md gerados
-    # para a 24". The `[equations]` and `[glossary]` tables are therefore NOT
-    # fields of this model in 0.23.0, and a pproc declaring either is refused by
-    # `extra="forbid"` naming the key.
-    #
-    # REFUSING IS THE HONEST OUTCOME AND ACCEPTING WOULD NOT BE. Both tables
-    # were already declared here while nothing consumed them -- `write_pproc_guides`
-    # has no caller either -- so a user could have written `[equations]` into a
-    # pproc, had the file accepted, and got no coefficient out of it. That is the
-    # API-only defect this release was opened on, arriving in the file format she
-    # writes by hand, which is the worst place for it: the artifact would look
-    # correct and answer nothing.
-    #
-    # `EquationSpec` stays defined for 0.24.0 and is deliberately not referenced
-    # here. Its being unused is visible rather than hidden, which is the point.
+    #: ``[phase_locked]``, OPTIONAL. Absent, the phase-locked reduction is the
+    #: passage series it has always been and nothing gates it. Declared, it is
+    #: generated when the matrix row turns AT LEAST ``min_revolutions``, as the
+    #: mean at each azimuth over the last ``last_revolutions_avg`` revolutions;
+    #: a shorter run loses this reduction and nothing else.
+    phase_locked: PhaseLockedSpec | None = None
+    #: ``[equations]``, keyed by the derived coefficient's own name; the value
+    #: says what it is and which alias it is about. The post stage evaluates
+    #: them, in :meth:`equation_order`, into the unsteady polar.
+    equations: dict[str, EquationSpec] = Field(default_factory=dict)
+    #: ``[glossary]``: what each symbol means, extensible by the user. The
+    #: generated ``VARIABLES.md`` lists it beside the package's own.
+    glossary: dict[str, str] = Field(default_factory=dict)
     exports: dict[str, bool] = Field(default_factory=dict)
     sections: SectionsSpec = Field(default_factory=SectionsSpec)
     plots: PlotsSpec = Field(default_factory=PlotsSpec)
@@ -1731,11 +1761,109 @@ class PprocSpec(BaseModel):
             return None
         return members[0]
 
-    # `equation_order()` AND ITS VALIDATOR MOVED OUT WITH ITEM 10, to 0.24.0.
-    # They held the chaining rule -- an equation may name another, a TOML table
-    # has no order anyone may rely on, so an order exists only if a cycle is
-    # refused -- and they answered about a field this model no longer carries.
-    # The rule is right and it returns with the field; git holds it.
+    def equation_order(self) -> list[str]:
+        """Return the order the equations must be evaluated in.
+
+        An equation may name another equation, and the user writes them in a
+        TOML table, which has no order anyone may rely on. So chaining is a
+        feature only if the package can say WHICH ORDER, and an order exists
+        only if a cycle is refused, because a cycle has none.
+
+        A symbol the table does not define is a BASE VARIABLE and not a missing
+        dependency. That direction matters more than it looks: the generated
+        guide's own worked example is ``expression = "CT * 2"``, and treating
+        every unknown symbol as unresolved would refuse the first equation any
+        user writes.
+
+        The expression is PARSED rather than searched, so ``CT`` inside
+        ``CTX_WIND`` is not read as a reference to ``CT``. A substring reader
+        invents dependencies and then invents cycles out of pairs that have
+        none.
+
+        Returns
+        -------
+        list of str
+            Every equation name exactly once, each after every equation its
+            expression names. Ties keep declaration order, so the answer is
+            stable across runs and a diff of two products is about the numbers.
+
+        Raises
+        ------
+        InputArtifactError
+            When the equations are circular, naming the members of the cycle.
+            "Circular" alone would send the user back to a TOML table to find
+            the loop by eye.
+        """
+        names = list(self.equations)
+        # A self-reference is kept rather than filtered out, so `A = A + 1`
+        # can never be placed and reads as the cycle of one that it is. A
+        # filter here would make it order cleanly and compute nothing.
+        depends = {
+            name: [token for token in spec.symbols() if token in self.equations]
+            for name, spec in self.equations.items()
+        }
+
+        order: list[str] = []
+        placed: set[str] = set()
+        while len(order) < len(names):
+            ready = [
+                name
+                for name in names
+                if name not in placed and all(dep in placed for dep in depends[name])
+            ]
+            if not ready:
+                stuck = sorted(name for name in names if name not in placed)
+                raise InputArtifactError(
+                    f"the equations {', '.join(stuck)} are circular: each waits on "
+                    f"another in the set, so there is no order to evaluate them in. "
+                    f"An equation may name another equation, but the chain has to end "
+                    f"at variables the products already carry."
+                )
+            order.extend(ready)
+            placed.update(ready)
+        return order
+
+    @model_validator(mode="after")
+    def _the_equations_can_be_ordered(self) -> PprocSpec:
+        """Refuse a circular chain when the pproc is READ, not when it is asked.
+
+        `equation_order()` is public because a caller may want the order, but a
+        refusal that only fires when someone remembers to ask is not a check.
+        The information is available the moment the artifact is validated, and
+        an engineer writing a TOML file should not have to open an interpreter
+        to learn that the file is not well formed.
+
+        The refusal is re-raised as a `ValueError` so it arrives as pydantic's
+        own validation error, carrying the field and the artifact path that the
+        loader adds, rather than escaping the model layer as something a caller
+        of `PprocSpec(...)` would not think to catch.
+        """
+        try:
+            self.equation_order()
+        except InputArtifactError as circular:
+            raise ValueError(str(circular)) from circular
+        return self
+
+    @field_validator("equations")
+    @classmethod
+    def _an_equation_name_is_a_symbol(
+        cls, value: dict[str, EquationSpec]
+    ) -> dict[str, EquationSpec]:
+        """Refuse a name no expression could write: it is how another equation uses this one.
+
+        So it is one identifier, and it is none of the functions an expression
+        may call: ``[equations.sqrt]`` would make ``sqrt(x)`` ambiguous, and
+        ``[equations."C T"]`` could never be named by anything.
+        """
+        for name in value:
+            if not name.isidentifier() or name in ALLOWED_FUNCTIONS:
+                raise ValueError(
+                    f"[equations.{name}]: an equation's name becomes the column "
+                    f"{name}_<alias> and the symbol other expressions use, so it is letters, "
+                    "digits and underscores, not starting with a digit, and not one of the "
+                    f"functions {', '.join(ALLOWED_FUNCTIONS)}. Rename the entry."
+                )
+        return value
 
     @field_validator("exports")
     @classmethod

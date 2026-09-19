@@ -181,8 +181,10 @@ __all__ = [
     "migrate_input_ids",
     "resolve_build",
     "post_stages",
+    "register_input_guide",
     "register_post_stage",
     "resolve_pproc",
+    "write_input_guides",
     "write_trailing_edge_node_file",
 ]
 
@@ -492,6 +494,38 @@ def register_post_stage(stage: Callable[..., list[Path]]) -> Callable[..., list[
 def post_stages() -> tuple[Callable[..., list[Path]], ...]:
     """Return the registered post stages, in registration order."""
     return tuple(_POST_STAGES)
+
+
+#: The writers of the guides GENERATED into the input library, by the same
+#: registry and for the same reason: the pages document the products, so their
+#: writer lives in the post layer, and the steps that must write them, the
+#: workspace init and the plan, live below it. No import points upward.
+_INPUT_GUIDES: list[Callable[[Path], list[Path]]] = []
+
+
+def register_input_guide(writer: Callable[[Path], list[Path]]) -> Callable[[Path], list[Path]]:
+    """Register a writer of generated input guides; returns it.
+
+    A writer takes the workspace's ``inputs`` directory and returns the pages it
+    actually CHANGED, none when they already say what it would write.
+    """
+    if writer not in _INPUT_GUIDES:
+        _INPUT_GUIDES.append(writer)
+    return writer
+
+
+def write_input_guides(inputs_dir: str | Path) -> list[Path]:
+    """Write every registered input guide under ``inputs_dir``; return the pages that changed.
+
+    Idempotent: a second call returns nothing and touches nothing. Called by
+    :meth:`CampaignWorkspace.init`, by the matrix plan and by the post stage, so
+    the guides reach a new workspace, one made before they existed, and one
+    whose pproc gained a ``[glossary]``.
+    """
+    changed: list[Path] = []
+    for writer in _INPUT_GUIDES:
+        changed.extend(writer(Path(inputs_dir)))
+    return changed
 
 
 class RunRecord(BaseModel):
@@ -1626,6 +1660,10 @@ class CampaignWorkspace:
         readme = geometries / GEOMETRIES_README
         if not readme.exists():
             readme.write_text(_GEOMETRIES_README, encoding="utf-8")
+        # THE GENERATED PPROC GUIDES, where whoever writes a pproc artifact is
+        # already standing: every variable with its definition, and how to write
+        # an equation. Rewritten only when their content differs.
+        write_input_guides(workspace.inputs_dir)
         check_unique_stems(workspace.inputs_dir)
         return workspace
 
