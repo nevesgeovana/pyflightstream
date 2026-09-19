@@ -1827,7 +1827,13 @@ def _two_build_campaign(tmp_path, *, second_recipe="steady"):
             geometry=str(geometry),
             sweep=SweepAxis(type="alpha", values=[0.0]),
             recipe=recipe,
-            outputs=["loads_{point}.txt"],
+            # THE SIMULATION IS IN THE NAME (0.24.0, MT-07). Both cases are one
+            # point at one condition, so `loads_{point}.txt` rendered ONE name
+            # for the two of them, which the plan now refuses: their per-point
+            # products would share one file in the campaign's products folder.
+            # What these tests measure is the BUILD each case runs on, and no
+            # assertion of theirs reads this name.
+            outputs=["loads_{sim}_{point}.txt"],
             fs_build=fs_build,
         )
 
