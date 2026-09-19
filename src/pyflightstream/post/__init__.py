@@ -17,10 +17,10 @@ module, which is stated rather than left to be discovered:
   point, from the collected exports and the manifest (PFS-2029.15); the
   custom polar format beside the polar table when asked (PFS-2014.01.01), its
   writer and reader re-exported here; and a PROV-JSON provenance document
-  per recorded run (PFS-2012.08.01). Its other writers, among them
-  ``polar_row``, ``write_rotor_table``, ``write_per_blade_table`` and
-  ``write_unsteady_polar``, are reached through ``post.products`` itself,
-  as is ``UNSTEADY_AXIS_COLUMNS``, the header of an unsteady polar's axes.
+  per recorded run (PFS-2012.08.01). Its other writers (the polar row, the
+  rotor table, the per-blade table, the unsteady polar) and the header of an
+  unsteady polar's axes are reached through :mod:`pyflightstream.post.products`
+  itself and are not re-exported here.
 * :mod:`pyflightstream.post.superfile` writes the SUPERFILE of each polar
   and group beside the polar table (FR-89), one row per converged point
   whose column set is a superset of everything the workspace knows about
