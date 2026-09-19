@@ -52,9 +52,10 @@ from pyflightstream.exceptions import PyflightstreamError
 # THE SKIP IS THE HONEST STATE and it expires by itself: the moment the fields
 # return to `PprocSpec` in 0.24.0 these go red until the behaviour is wired,
 # which is exactly what they are for. Remove this marker then, not before.
-pytestmark = pytest.mark.skip(
-    reason="items 10 and 11 are 0.24.0 scope by the owner's decision of 2026-09-18"
-)
+#
+# 0.24.0: THE MARKER IS REMOVED. The fields are back and the post stage
+# evaluates them; `test_goal028_pproc_tables.py` holds that through the command
+# line, which is the half whose absence withdrew them.
 
 
 def _spec(**equations: str) -> PprocSpec:

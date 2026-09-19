@@ -96,7 +96,7 @@ from pyflightstream._errors import (
     PyflightstreamWarning,
 )
 from pyflightstream.cases import AXES_PLOT_COMPONENTS, AXES_PLOT_GROUP, select_group_members
-from pyflightstream.cases.windows import averaging_span, replan
+from pyflightstream.cases.windows import AZIMUTHAL, averaging_span, regate, replan
 from pyflightstream.cases.workflows import (
     BLADE_FAMILIES_KEY,
     CONFIGURATION_VARIABLE,
@@ -126,6 +126,7 @@ from pyflightstream.post._tables import (
     write_csv_table,
 )
 from pyflightstream.post.axes import free_stream_in_export_frame, polar_axis_coefficients
+from pyflightstream.post.equations import apply_equations
 from pyflightstream.post.series import write_point_series
 from pyflightstream.post.superfile import (
     SuperfileDraft,
@@ -139,7 +140,12 @@ from pyflightstream.post.superfile import (
     write_superfile_report,
     write_superfiles,
 )
-from pyflightstream.post.unsteady import TimestepSeries, blade_passage_average, per_blade_rows
+from pyflightstream.post.unsteady import (
+    TimestepSeries,
+    blade_passage_average,
+    per_blade_rows,
+    phase_locked_rows,
+)
 from pyflightstream.results import (
     LoadsReport,
     MalformedOutputError,
@@ -227,6 +233,7 @@ __all__ = [
     "write_plots_table",
     "write_probes_table",
     "write_per_blade_table",
+    "write_phase_locked_table",
     "write_reduction_table",
     "write_polar_table",
     "write_campaign_products",
@@ -3154,6 +3161,116 @@ def write_per_blade_table(
     return write_csv_table(path, (*PER_BLADE_COLUMNS, *names), table)
 
 
+#: What a row of the azimuthal phase-locked table states before the condition:
+#: which reduction and rotor, WHERE blade one is, the step of the last revolution
+#: that azimuth falls on, how many revolutions entered the mean, and the steps
+#: those revolutions span.
+PHASE_LOCKED_COLUMNS: tuple[str, ...] = (
+    "REDUCTION",
+    "ROTOR",
+    "AZIMUTH",
+    "STEP",
+    "REVOLUTIONS",
+    "FIRST_STEP",
+    "LAST_STEP",
+    "STEPS",
+    *CONTEXT_COLUMNS,
+    "XMOM",
+    "YMOM",
+    "ZMOM",
+)
+
+
+def write_phase_locked_table(
+    path: str | Path,
+    series: TimestepSeries,
+    columns: Sequence[str],
+    *,
+    window: Sequence[int],
+    revolutions: float,
+    steps_per_revolution: float,
+    rotor: str | None,
+    blades: int,
+    facts: Mapping[str, object],
+    condition: Mapping[str, object] | None = None,
+    reference: ReferenceValues | None = None,
+) -> Path:
+    """Write the phase-locked reduction a ``[phase_locked]`` table asks for: ONE ROW PER AZIMUTH.
+
+    Each row is an azimuthal position of the rotor's last revolution, and each
+    value the mean of the samples AT that position across the last
+    ``revolutions`` revolutions; the rows run from 0 towards 360 degrees. It is
+    :func:`pyflightstream.post.unsteady.phase_locked_rows`, which says how a
+    blade's own columns are tabulated by that blade's azimuth.
+
+    ``facts`` is what :func:`write_per_blade_table` takes of the rotor: its blade
+    ``families``, its ``blade1_azimuth_deg`` and its signed ``rpm``. The columns
+    keep the names the plots export prints, all in one file: a blade's end in its
+    family, a rotor's in the group the pproc named for it.
+
+    Raises
+    ------
+    ProductError
+        If nothing states where blade one is or which way the rotor turns, so no
+        azimuth can be written, or the history does not hold the revolutions.
+    """
+    datum = facts.get("blade1_azimuth_deg")
+    rpm = facts.get("rpm")
+    if not isinstance(datum, int | float) or not isinstance(rpm, int | float) or not rpm:
+        raise ProductError(
+            f"the phase-locked table of rotor {rotor!r} is tabulated by azimuth, and nothing "
+            f"states where its blade one is (blade1_azimuth_deg: {datum!r}) or which way it "
+            f"turns (rpm: {rpm!r}). Declare the rotor in the reference artifact, with its "
+            "[rotors.<ALIAS>.blade1] azimuth_deg, and have the matrix row cite it; a run made "
+            "since 0.24.0 records both."
+        )
+    stated = facts.get("families")
+    families = (
+        [str(f) for f in stated]
+        if isinstance(stated, Sequence) and not isinstance(stated, str)
+        else []
+    )
+    first, last = int(window[0]), int(window[1])
+    names = [name for name in columns if name not in _PLOTS_CLOCK_COLUMNS]
+    try:
+        rows = phase_locked_rows(
+            series,
+            names,
+            last_step=last,
+            revolutions=float(revolutions),
+            steps_per_revolution=float(steps_per_revolution),
+            blade1_azimuth_deg=float(datum),
+            sense=1.0 if float(rpm) > 0 else -1.0,
+            blades=int(blades),
+            blade_families=families,
+        )
+    except ProductError as error:
+        raise ProductError(f"the phase_locked reduction of rotor {rotor!r}: {error}") from error
+    context = context_row(condition, None if reference is None else reference.as_lengths())
+    moment = context_row(
+        None if reference is None else reference.as_moment_point(),
+        None,
+        columns=_MOMENT_POINT_COLUMNS,
+    )
+    table = [
+        (
+            "phase_locked",
+            rotor,
+            row["AZIMUTH"],
+            row["STEP"],
+            row["REVOLUTIONS"],
+            first,
+            last,
+            last - first + 1,
+            *context,
+            *moment,
+            *(row.get(name) for name in names),
+        )
+        for row in rows
+    ]
+    return write_csv_table(path, (*PHASE_LOCKED_COLUMNS, *names), table)
+
+
 def _polar_points(polar_dir: Path, *, loads_suffix: str = ".txt") -> list[PolarPoint]:
     """Return the points of a recorded polar: one folder per point, its loads table inside."""
     points: list[PolarPoint] = []
@@ -3806,8 +3923,22 @@ def write_unsteady_polar(
     setup: Mapping[str, Mapping[str, object]] | None = None,
     notes: list[str] | None = None,
     axes_groups: Sequence[str] | None = None,
+    equations: Mapping[str, object] | None = None,
+    equation_order: Sequence[str] | None = None,
+    equation_notes: list[str] | None = None,
 ) -> Path | None:
     """Write the POLAR of one unsteady simulation from the PLOTS history (item 17).
+
+    THE PPROC'S ``[equations]`` ARE EVALUATED HERE (0.24.0), into columns named
+    ``<NAME>_<alias>`` that follow the axis block and precede the super content.
+    An expression reads the columns THAT ROW already holds, the window, the
+    condition block, the moment point, the averaged plots, the axis coefficients
+    and whatever of the super content is a number; how a symbol finds its column
+    is :func:`pyflightstream.post.equations.resolve_symbol`. ``equation_order`` is
+    :meth:`pyflightstream.cases.PprocSpec.equation_order`. A symbol that is no
+    equation and no column refuses the BLOCK, whole, and ``equation_notes``
+    receives the refusal; the polar is written without it, never with a column
+    of `NA`.
 
     THE NATIVE COEFFICIENT EXPORT IS NOT THE SOURCE, by the owner's answer of
     2026-09-18: it states the LAST TIME STEP, which on an oscillating rotor is
@@ -3955,20 +4086,44 @@ def write_unsteady_polar(
         for key in content:
             if key not in stated and key not in extra:
                 extra.append(key)
+    header = (*_WINDOW_COLUMNS, *CONTEXT_COLUMNS, *_MOMENT_POINT_COLUMNS, *columns, *extra)
+    table = [
+        (
+            span[0],
+            span[1],
+            span[1] - span[0] + 1,
+            *context_row(condition, lengths),
+            *context_row(moment, None, columns=_MOMENT_POINT_COLUMNS),
+            *(values.get(name) for name in columns),
+            *(content.get(key) for key in extra),
+        )
+        for condition, values, span, content in rows
+    ]
+    derived_columns: list[str] = []
+    derived: list[dict[str, float | None]] = [{} for _row in table]
+    if equations:
+        # THE ROW AS THE FILE WILL STATE IT is what an expression reads, so a
+        # symbol means the column a reader of the file sees under that name.
+        try:
+            derived_columns, derived = apply_equations(
+                [dict(zip(header, cells, strict=True)) for cells in table],
+                equations,
+                list(equation_order if equation_order is not None else equations),
+                columns=header,
+                where=f"{POLARS_DIR}/{path.name}",
+                notes=equation_notes,
+            )
+        except ProductError as refused:
+            if equation_notes is None:
+                raise
+            equation_notes.append(str(refused))
+    at = len(header) - len(extra)
     return write_csv_table(
         path,
-        (*_WINDOW_COLUMNS, *CONTEXT_COLUMNS, *_MOMENT_POINT_COLUMNS, *columns, *extra),
+        (*header[:at], *derived_columns, *header[at:]),
         [
-            (
-                span[0],
-                span[1],
-                span[1] - span[0] + 1,
-                *context_row(condition, lengths),
-                *context_row(moment, None, columns=_MOMENT_POINT_COLUMNS),
-                *(values.get(name) for name in columns),
-                *(content.get(key) for key in extra),
-            )
-            for condition, values, span, content in rows
+            (*cells[:at], *(values.get(name) for name in derived_columns), *cells[at:])
+            for cells, values in zip(table, derived, strict=True)
         ],
     )
 
@@ -4239,7 +4394,12 @@ def _sim_products(
                     PyflightstreamWarning,
                     stacklevel=2,
                 )
-        plans.setdefault(stem, replanned or record.reductions)
+        # THE [phase_locked] TABLE IS READ AGAIN TOO, from the pproc as it stands
+        # today, AFTER the window: it is a post-processing choice, so adding,
+        # editing or removing it moves this one reduction with no solver re-run.
+        current = replanned or record.reductions
+        regated = regate(current, getattr(pproc, "phase_locked", None))
+        plans.setdefault(stem, regated or current)
         point_window = _matrix_window(matrix_row, record) or _stated_window(record)
         if point_window is None:
             # A RECORD THAT STATED NO WINDOW IS AVERAGED OVER THE ONE IT DEFAULTED TO
@@ -4736,6 +4896,7 @@ def _sim_products(
     if unsteady_window_steps is not None:
         unsteady_left_out: list[str] = []
         unsteady_notes: list[str] = []
+        equation_notes: list[str] = []
         unsteady_name = unsteady_polar_file_name(sim_id, name=table_name)
         # THE FILE 0.23.0 WROTE UNDER THE OLD NAME IS ARCHIVED, NOT LEFT BESIDE THIS
         # ONE. A rebuild moves what it is about to replace, and it replaces by
@@ -4756,7 +4917,20 @@ def _sim_products(
             left_out=unsteady_left_out,
             notes=unsteady_notes,
             axes_groups=global_frame_plot_groups(pproc),
+            equations=getattr(pproc, "equations", None) or None,
+            equation_order=pproc.equation_order() if getattr(pproc, "equations", None) else None,
+            equation_notes=equation_notes,
         )
+        # THE EQUATIONS BLOCK, like the axes block: what is not written is SAID,
+        # under the file's own name with a marker, and warned, because a derived
+        # column a user asked for and did not get must not be found by accident.
+        if equation_notes and done is not None:
+            skipped[f"{POLARS_DIR}/{unsteady_name}#equations"] = "; ".join(equation_notes)
+            warnings.warn(
+                f"{POLARS_DIR}/{unsteady_name}: " + "; ".join(equation_notes),
+                PyflightstreamWarning,
+                stacklevel=2,
+            )
         # A BLOCK THAT IS NOT WRITTEN IS SAID (0.24.0), under the file's own name
         # with a marker, so it is never mistaken for the file being absent.
         if unsteady_notes and done is not None:
@@ -5117,6 +5291,22 @@ def _point_reductions(
                 )
                 # ONE WINDOW, and the manifest says the one the file holds.
                 windows = [(windows[0][0], windows[-1][1])]
+            elif name == _PHASE_LOCKED and entry.get("shape") == AZIMUTHAL:
+                # THE PPROC DECLARES [phase_locked]: the mean at each azimuth.
+                rotor_of, facts, count = _the_rotor_of_a_reduction(rotor, plan, rotor_facts or {})
+                done = write_phase_locked_table(
+                    destination,
+                    series,
+                    columns,
+                    window=windows[0],
+                    revolutions=float(entry.get("revolutions") or 0.0),  # type: ignore[arg-type]
+                    steps_per_revolution=float(entry.get("steps_per_revolution") or 0.0),  # type: ignore[arg-type]
+                    rotor=rotor_of,
+                    blades=count,
+                    facts=facts,
+                    condition=condition,
+                    reference=reference,
+                )
             else:
                 done = write_reduction_table(
                     destination,
@@ -5146,6 +5336,9 @@ def _point_reductions(
         }
         if "period_steps" in entry:
             record["period_steps"] = entry["period_steps"]
+        for key in ("shape", "revolutions", "steps_per_revolution"):
+            if key in entry:
+                record[key] = entry[key]
         if rotor is not None:
             # THE ROTOR AS A FIELD, not only as a piece of a file name. The
             # name is `{stem}_{reduction}_{alias}` and both the reduction
@@ -5158,6 +5351,33 @@ def _point_reductions(
 
 
 _PER_BLADE = "per_blade"
+_PHASE_LOCKED = "phase_locked"
+
+
+def _the_rotor_of_a_reduction(
+    rotor: str | None,
+    plan: Mapping[str, object],
+    rotor_facts: Mapping[str, Mapping[str, object]],
+) -> tuple[str | None, Mapping[str, object], int]:
+    """Return the rotor a passage reduction is about, what is known of it, and its blades.
+
+    A per-rotor file names its rotor. The row-level file of a row that turns ONE
+    rotor is that rotor's; with none or several it is nobody's and the facts are
+    empty, which the writer refuses by name.
+    """
+    facts: Mapping[str, object] = {}
+    blades: object = plan.get("blades")
+    if rotor is not None:
+        facts = rotor_facts.get(rotor, {})
+        blocks = plan.get(ROTORS_KEY)
+        block = blocks.get(rotor) if isinstance(blocks, Mapping) else None
+        if isinstance(block, Mapping) and block.get("blades") is not None:
+            blades = block.get("blades")
+    elif len(rotor_facts) == 1:
+        rotor, facts = next(iter(rotor_facts.items()))
+        rotor = rotor or None
+    count = int(blades) if isinstance(blades, int | float) and not isinstance(blades, bool) else 0
+    return rotor, facts, count
 
 
 def _write_the_per_blade_table(
@@ -5182,19 +5402,7 @@ def _write_the_per_blade_table(
     """
     if not windows:
         raise ProductError("the per_blade reduction states no window")
-    facts: Mapping[str, object] = {}
-    blades: object = plan.get("blades")
-    if rotor is not None:
-        facts = rotor_facts.get(rotor, {})
-        blocks = plan.get(ROTORS_KEY)
-        block = blocks.get(rotor) if isinstance(blocks, Mapping) else None
-        if isinstance(block, Mapping) and block.get("blades") is not None:
-            blades = block.get("blades")
-    elif len(rotor_facts) == 1:
-        rotor, facts = next(iter(rotor_facts.items()))
-        # A row-level plan names no rotor; its one rotor's facts sit under an empty key.
-        rotor = rotor or None
-    count = int(blades) if isinstance(blades, int | float) and not isinstance(blades, bool) else 0
+    rotor, facts, count = _the_rotor_of_a_reduction(rotor, plan, rotor_facts)
     return write_per_blade_table(
         destination,
         series,

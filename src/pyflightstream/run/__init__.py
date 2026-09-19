@@ -4021,6 +4021,9 @@ class CampaignPlan:
     #: constructor call that worked in every release -- raised TypeError.
     #: The architecture and interface lenses both caught it (2026-09-11).
     costs: list[PlannedPointCost] = field(default_factory=list)
+    #: The generated input guides this plan wrote or rewrote (0.24.0), under
+    #: ``inputs/pproc``; empty when they already said what they would say.
+    guides: list[Path] = field(default_factory=list)
 
     @property
     def blocked(self) -> list[PointPlan]:

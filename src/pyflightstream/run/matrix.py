@@ -45,7 +45,7 @@ from pyflightstream.run import (
     plan_campaign,
     run_campaign,
 )
-from pyflightstream.workspace import CampaignWorkspace, RunRecord
+from pyflightstream.workspace import CampaignWorkspace, RunRecord, write_input_guides
 from pyflightstream.workspace.inputs import resolve_hpc_profile
 from pyflightstream.workspace.matrix import ResolvedMatrix, resolve_matrix
 
@@ -438,6 +438,12 @@ def plan_matrix(
         matrix_path=path,
         accept_unregistered_build=accept_unregistered_build,
     )
+    if write_plan:
+        # THE GENERATED PPROC GUIDES (0.24.0), written by the step every campaign
+        # passes through, so a workspace made before they existed gets them and a
+        # `[glossary]` just written reaches the variables page. A plan asked to
+        # write nothing writes nothing.
+        plan.guides.extend(write_input_guides(workspace.inputs_dir))
     if cost:
         # FR-82. Computed HERE, where the resolved cases are; a caller
         # re-resolving the matrix to find them would be re-deriving state

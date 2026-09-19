@@ -1198,6 +1198,8 @@ def _cmd_plan(args: argparse.Namespace, recipes: dict[str, str]) -> int:
         print(format_cost_table(plan.costs))
     if plan.plan_file is not None:
         print(f"plan: {plan.plan_file}")
+    for guide in plan.guides:
+        print(f"guide written: {guide}")
     return 1 if plan.blocked else 0
 
 

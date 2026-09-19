@@ -52,13 +52,16 @@ from pathlib import Path
 
 import numpy as np
 
+from pyflightstream._errors import ProductError
 from pyflightstream.results import IncompleteOutputError, MalformedOutputError
 
 __all__ = [
     "FrameAverage",
     "TimestepSeries",
     "blade_passage_average",
+    "blade_one_azimuth",
     "passage_windows",
+    "phase_locked_rows",
     "read_timestep_series",
 ]
 
@@ -652,4 +655,188 @@ def per_blade_rows(
             if name.startswith(prefix):
                 row[name[len(prefix) :]] = float(values[0])
         rows.append(row)
+    return rows
+
+
+def blade_one_azimuth(
+    step: float, *, datum_deg: float, sense: float, steps_per_revolution: float
+) -> float:
+    """Return where blade one of a rotor is at ``step``, in degrees, wrapped to one turn.
+
+    The one convention of every table that states an azimuth:
+    ``(datum + sense * step * 360 / steps_per_revolution) mod 360``, the datum
+    being blade one's azimuth at step zero and ``sense`` the sign of the rotor's
+    speed, all of THAT rotor.
+
+    Examples
+    --------
+    >>> blade_one_azimuth(3, datum_deg=10.0, sense=-1.0, steps_per_revolution=8.0)
+    235.0
+    """
+    turning = 1.0 if sense >= 0 else -1.0
+    return (float(datum_deg) + turning * float(step) * 360.0 / float(steps_per_revolution)) % (
+        360.0
+    ) + 0.0
+
+
+def phase_locked_rows(
+    series: TimestepSeries,
+    columns: Sequence[str],
+    *,
+    last_step: int,
+    revolutions: float,
+    steps_per_revolution: float,
+    blade1_azimuth_deg: float,
+    sense: float = 1.0,
+    blades: int = 0,
+    blade_families: Sequence[str] = (),
+) -> list[dict[str, object]]:
+    """Return the mean AT EACH AZIMUTH across the last ``revolutions`` turns, a row per azimuth.
+
+    THIS IS NOT A WINDOW AVERAGE, and that is the whole of it. A window average
+    (:func:`blade_passage_average`) runs ALONG the history; this one runs ACROSS
+    it: the sample at one azimuthal position is taken from each of the last
+    ``revolutions`` revolutions, and those samples are averaged. With three
+    revolutions every azimuth has three datapoints in its mean.
+
+    THE ROWS are the azimuthal positions the rotor visits in its LAST revolution,
+    one per solver step of it, sorted from 0 towards 360. ``AZIMUTH`` is where
+    blade one is, by :func:`blade_one_azimuth`.
+
+    A COLUMN OF ONE BLADE IS TABULATED BY THAT BLADE'S OWN AZIMUTH. A plot is
+    named ``<parameter>_<group>`` and a group cut per blade ends in the blade's
+    family, so a column ending ``_<family>`` of a family in ``blade_families`` is
+    sampled where THAT blade, which sits ``position * 360 / blades`` after blade
+    one, is at the row's azimuth. Two blades then line up azimuth for azimuth.
+    Every other column, a rotor's total or the aircraft's, is tabulated by blade
+    one's azimuth.
+
+    BETWEEN TWO STEPS THE HISTORY IS READ LINEARLY. One revolution earlier is
+    ``steps_per_revolution`` steps earlier, which is a whole step only when the
+    revolution is a whole number of steps, and a blade's offset is a whole step
+    only when that number divides by ``blades``. Where both hold every sample is
+    a row of the history and nothing is interpolated.
+
+    ``REVOLUTIONS`` is how many samples entered the means of the row's
+    blade-one columns: ``revolutions`` exactly when that is a whole number.
+
+    Parameters
+    ----------
+    series : TimestepSeries
+        The plots history, read back.
+    columns : sequence of str
+        The plotted columns to reduce, in order; the clock is the caller's to
+        leave out.
+    last_step : int
+        The step the last revolution ends at.
+    revolutions : float
+        How many of the last revolutions enter each mean; at least one.
+    steps_per_revolution : float
+        Solver steps in one revolution of THIS rotor.
+    blade1_azimuth_deg, sense : float
+        Blade one's azimuth at step zero, and the sign of the rotor's speed.
+    blades : int
+        The rotor's blade count, which spaces the blades.
+    blade_families : sequence of str
+        The blade families in the rotor's own order, blade one first.
+
+    Raises
+    ------
+    ProductError
+        If the depth is under one revolution, the clock is not positive, or the
+        history does not cover the revolutions asked for. Could-not-measure is
+        never a pass.
+
+    Examples
+    --------
+    Two revolutions of four steps; the mean of steps 1 and 5, 2 and 6, and so on.
+
+    >>> import numpy as np
+    >>> history = TimestepSeries(
+    ...     steps=np.arange(1, 9), times_s=None, points=np.zeros((1, 3)),
+    ...     fields={"CL": np.array([1.0, 2.0, 4.0, 8.0, 3.0, 6.0, 0.0, 0.0])[:, None]},
+    ...     sources=(),
+    ... )
+    >>> rows = phase_locked_rows(
+    ...     history, ["CL"], last_step=8, revolutions=2, steps_per_revolution=4.0,
+    ...     blade1_azimuth_deg=0.0,
+    ... )
+    >>> [(row["AZIMUTH"], row["CL"]) for row in rows]
+    [(0.0, 4.0), (90.0, 2.0), (180.0, 4.0), (270.0, 2.0)]
+    """
+    per_revolution = float(steps_per_revolution)
+    depth = float(revolutions)
+    if per_revolution <= 0:
+        raise ProductError(
+            f"steps_per_revolution is {steps_per_revolution}, so a step cannot be turned "
+            "into an azimuth"
+        )
+    if depth < 1.0:
+        raise ProductError(
+            f"last_revolutions_avg is {depth:g}, under one revolution, so no table from 0 to "
+            "360 degrees can be filled. State at least 1 under [phase_locked] in the pproc "
+            "artifact"
+        )
+    steps = np.asarray(series.steps, dtype=float)
+    last = int(last_step)
+    opening = last - depth * per_revolution  # exclusive
+    first_needed = int(np.floor(opening + 1e-9)) + 1
+    if not len(steps) or steps[0] > max(first_needed, 1) or steps[-1] < last:
+        held = f"steps {int(steps[0])} to {int(steps[-1])}" if len(steps) else "no step"
+        raise ProductError(
+            f"the last {depth:g} revolution(s) are steps {max(first_needed, 1)} to {last} and "
+            f"the history holds {held}, so the revolutions to average across are not all there"
+        )
+    tolerance = 1e-9 * per_revolution
+    turning = 1.0 if sense >= 0 else -1.0
+    families = [str(family) for family in blade_families]
+    count = int(blades) if int(blades) >= len(families) else len(families)
+
+    def offset_of(name: str) -> float:
+        """How many steps BEFORE blade one a blade's column is sampled."""
+        for position, family in enumerate(families):
+            if position and name.endswith(f"_{family}") and len(name) > len(family) + 1:
+                return (turning * position * per_revolution / count) % per_revolution
+        return 0.0
+
+    def samples(at: float) -> np.ndarray:
+        """Every moment inside the revolutions asked for that is congruent to ``at``."""
+        newest = at + np.floor((last - at) / per_revolution + 1e-12) * per_revolution
+        moments = []
+        moment = newest
+        while moment > opening + tolerance:
+            if moment >= steps[0] - tolerance:
+                moments.append(moment)
+            moment -= per_revolution
+        return np.asarray(moments, dtype=float)
+
+    final_revolution = [
+        step
+        for step in range(max(first_needed, 1), last + 1)
+        if step > last - per_revolution + tolerance
+    ]
+    rows: list[dict[str, object]] = []
+    for step in final_revolution:
+        row: dict[str, object] = {
+            "AZIMUTH": blade_one_azimuth(
+                step,
+                datum_deg=blade1_azimuth_deg,
+                sense=turning,
+                steps_per_revolution=per_revolution,
+            ),
+            "STEP": step,
+            "REVOLUTIONS": int(len(samples(float(step)))),
+        }
+        for name in columns:
+            values = series.fields.get(name)
+            if values is None:
+                continue
+            moments = samples(step - offset_of(name))
+            if not len(moments):
+                row[name] = None
+                continue
+            history = np.asarray(values, dtype=float).reshape(len(steps), -1)[:, 0]
+            row[name] = float(np.mean(np.interp(moments, steps, history)))
+        rows.append(row)
+    rows.sort(key=lambda row: float(row["AZIMUTH"]))  # type: ignore[arg-type]
     return rows
