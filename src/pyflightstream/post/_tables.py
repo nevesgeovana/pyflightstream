@@ -445,7 +445,7 @@ def _rotor_of_the_block(
             continue
         return str(alias), blade_azimuth_deg(
             rotor.get("blade1_azimuth_deg"),
-            step,
+            step=step,
             steps_per_revolution=rotor.get("steps_per_revolution"),
             rpm=rotor.get("rpm"),
         )

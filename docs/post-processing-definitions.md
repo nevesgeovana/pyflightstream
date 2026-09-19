@@ -130,9 +130,9 @@ those two integrals as the solver states them.
 
 **`CLW` is NOT the solver's `CL`.** The `CL` an export prints sits
 between 0.10 and 0.25 per cent above the wind-axis lift of the vector printed
-beside it, measured over the recorded exports of
-`tests/tier1_offline/fixtures/recorded_total_rows.csv` (one of the 28 lifting
-ones sits at 0.71); the cause is not known. The polar states the vector's, so that every column of a row
+beside it on 27 of the 28 lifting recorded exports (lift above 0.05) in
+`tests/tier1_offline/fixtures/recorded_total_rows.csv`; one sits at 0.71 per cent.
+The cause is not known. The polar states the vector's, so that every column of a row
 comes from one source and `CDB`, `CLB` agree with the `Cx`, `Cz` of the
 export. A table written before 0.24.0 used the solver's `CL`, so its `CLS`
 and `CLW` are higher by that much.
@@ -356,8 +356,10 @@ replacement, until 0.26.0 removes them. What such a row binds is the
 `time_average` window and the passages cut from it, and NOT the unsteady POLAR:
 until 0.24.0 a row that stated neither `LAST_REVS_AVG` nor `LAST_ITERS_AVG` had
 its polar read from the native export, the run's last time step. Since 0.24.0 a
-NEW plan of such a row is refused, and a record made before it is averaged over
-the window the run was given, with a warning naming the steps.
+NEW plan of a row with NO window key is refused. A row with a deprecated
+`WINDOW_*` key still plans with a warning until 0.26.0. An older record without
+the current keys is averaged over the window the run was given, with a warning
+naming the steps.
 
 ---
 

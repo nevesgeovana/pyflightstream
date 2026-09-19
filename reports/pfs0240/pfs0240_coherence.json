@@ -28,6 +28,10 @@
       "polar": "P2401-V0300RHO12250AL+040BE+sweep_g01.csv",
       "ALPHA": "4.00000",
       "BETA": "0.00000",
+      "MACH": "0.08816",
+      "RE": "2.05376",
+      "VINF": "30.00000",
+      "VREF": "30.00000",
       "CDW": 0.01201,
       "CD0_plus_CDI": 0.012,
       "gap": 9.999999999999593e-06,
@@ -38,6 +42,10 @@
       "polar": "P2401-V0300RHO12250AL+040BE+sweep_g01.csv",
       "ALPHA": "4.00000",
       "BETA": "5.00000",
+      "MACH": "0.08816",
+      "RE": "2.05376",
+      "VINF": "30.00000",
+      "VREF": "30.00000",
       "CDW": 0.01194,
       "CD0_plus_CDI": 0.0119,
       "gap": 3.999999999999837e-05,
@@ -48,6 +56,10 @@
       "polar": "P2401-V0300RHO12250AL+040BE+sweep_g02.csv",
       "ALPHA": "4.00000",
       "BETA": "0.00000",
+      "MACH": "0.08816",
+      "RE": "2.05376",
+      "VINF": "30.00000",
+      "VREF": "30.00000",
       "CDW": 0.01201,
       "CD0_plus_CDI": 0.012,
       "gap": 9.999999999999593e-06,
@@ -58,6 +70,10 @@
       "polar": "P2401-V0300RHO12250AL+040BE+sweep_g02.csv",
       "ALPHA": "4.00000",
       "BETA": "5.00000",
+      "MACH": "0.08816",
+      "RE": "2.05376",
+      "VINF": "30.00000",
+      "VREF": "30.00000",
       "CDW": 0.01194,
       "CD0_plus_CDI": 0.0119,
       "gap": 3.999999999999837e-05,
@@ -141,7 +157,7 @@
     "worst_ratio": 0.2763072011322718,
     "worst_ratio_at": "P2401-V0300RHO12250AL+040BE+050.txt"
    },
-   "band": "EACH against its own: an export, half a unit of the last digit IT prints on each of the five numbers read off it; a polar row, half a unit on each of its three five-decimal columns; an unsteady polar's CDW against the CD the solver plots for the same group, 2e-5. The verdict is the worst gap over its own band",
+   "band": "EACH against its own: an export, half a unit of the last digit IT prints on each of the five numbers read off it; a polar row, half a unit on each of its three five-decimal columns PLUS the matched export's allowance; an unsteady polar's CDW against the CD the solver plots for the same group, 2e-5. The verdict is the worst gap over its own band",
    "verdict": "coherent"
   },
   "rotor_table_equals_window_mean": {
@@ -253,13 +269,12 @@
       "ALPHA": 10.0,
       "ETA": -0.73804,
       "ETAW": -0.75313,
-      "J_CTW_over_CP_from_the_history": 0.7531366694700997,
-      "gap": 6.6694700997516065e-06,
-      "same_sign_as_ETA": true
+      "J_CTW_over_CP_from_the_history": -0.7531366694700997,
+      "gap": 6.6694700997516065e-06
      }
     ]
    },
-   "band": "ETAW differs from ETA, equals J CTW / CP from the history within 1e-3 in magnitude, and carries the sign of ETA below 45 degrees of incidence",
+   "band": "ETAW differs from ETA and equals the SIGNED J CTW / CP from the history within 1e-3",
    "verdict": "coherent"
   },
   "every_file_says_average_or_instant": {

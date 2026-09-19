@@ -19,6 +19,11 @@ from pyflightstream.post.axes import blade_azimuth_deg
 POST = Path(__file__).parents[2] / "src" / "pyflightstream" / "post"
 
 
+def test_step_must_be_named():
+    with pytest.raises(TypeError, match="positional"):
+        blade_azimuth_deg(10.0, 18, steps_per_revolution=72, rpm=2000.0)
+
+
 @pytest.mark.parametrize(
     ("datum", "step", "per_revolution", "rpm", "expected"),
     [
@@ -32,7 +37,7 @@ POST = Path(__file__).parents[2] / "src" / "pyflightstream" / "post"
 def test_a_blade_turns_from_its_datum_in_the_sense_of_rpm(
     datum, step, per_revolution, rpm, expected
 ):
-    got = blade_azimuth_deg(datum, step, steps_per_revolution=per_revolution, rpm=rpm)
+    got = blade_azimuth_deg(datum, step=step, steps_per_revolution=per_revolution, rpm=rpm)
     assert got == pytest.approx(expected, abs=1e-9)
 
 
@@ -51,7 +56,7 @@ def test_a_blade_turns_from_its_datum_in_the_sense_of_rpm(
 def test_a_clock_that_is_not_stated_gives_no_azimuth_and_never_a_zero(
     datum, step, per_revolution, rpm
 ):
-    assert blade_azimuth_deg(datum, step, steps_per_revolution=per_revolution, rpm=rpm) is None
+    assert blade_azimuth_deg(datum, step=step, steps_per_revolution=per_revolution, rpm=rpm) is None
 
 
 def _modules_that_turn_a_step_into_degrees() -> set[str]:

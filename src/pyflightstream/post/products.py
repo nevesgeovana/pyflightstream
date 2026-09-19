@@ -69,8 +69,10 @@ written at five decimals.
 
 UNTIL 0.24.0 the row took the solver's ``CL`` and ``CDi + CDo`` as stability-axis
 forces and turned them back to body axes, and a point under sideslip was
-refused. The solver's ``CL`` sits 0.10 to 0.25 per cent above the projection
-of its own vector on the recorded exports, so ``CLS`` and ``CLW`` of a table
+refused. The solver's ``CL`` sits between 0.10 and 0.25 per cent above the projection
+of its own vector on 27 of the 28 lifting recorded exports (lift above 0.05);
+one sits at 0.71 per cent. See ``tests/tier1_offline/fixtures/recorded_total_rows.csv``.
+So ``CLS`` and ``CLW`` of a table
 written before differ from one written now by that much, and its ``CDB`` and
 ``CLB`` differ from the ``Cx`` and ``Cz`` printed in the same export. The 27 recorded polars that
 :func:`write_recorded_polar` regenerated as equal text on 2026-09-03 are
@@ -82,7 +84,6 @@ from __future__ import annotations
 import csv
 import json
 import math
-import re
 import tempfile
 import warnings
 from collections import Counter
@@ -401,8 +402,10 @@ class GroupCoefficients:
     ``force`` and ``moment`` are the VECTORS the export states in its own
     frame, ``(Cx, Cy, Cz)`` and ``(CMx, CMy, CMz)``, summed over the same
     families. They are what :func:`polar_row` builds the axis columns from
-    since 0.24.0; the solver's own ``CL`` is 0.10 to 0.25 per cent above the
-    projection of that vector on the recorded exports, so a row built from one
+    since 0.24.0; the solver's own ``CL`` is between 0.10 and 0.25 per cent above the
+    projection of that vector on 27 of the 28 lifting recorded exports (lift above
+    0.05); one sits at 0.71 per cent. See
+    ``tests/tier1_offline/fixtures/recorded_total_rows.csv``. A row built from one
     and printed beside the other did not agree with itself.
 
     NOTHING IN THE PACKAGE READS ``drag``, ``side``, ``lift``, ``roll``,
@@ -732,9 +735,10 @@ def polar_row(
 
     Until 0.24.0 the row took the solver's ``CL`` and ``CDi + CDo`` as
     stability-axis forces and turned them BACK to body axes. The solver's ``CL``
-    sits 0.10 to 0.25 per cent above the projection of its own vector on the
-    recorded exports, so ``CLS`` and
-    ``CLW`` fall by that much against a table written before, and ``CDB`` and
+    sits between 0.10 and 0.25 per cent above the projection of its own vector on
+    27 of the 28 lifting recorded exports (lift above 0.05); one sits at 0.71 per cent.
+    See ``tests/tier1_offline/fixtures/recorded_total_rows.csv``. ``CLS`` and
+    ``CLW`` fall by the measured gap against a table written before, and ``CDB`` and
     ``CLB`` now equal the columns printed beside them. A point under sideslip was
     refused; it is a row like any other, with ``BETA`` as the point flew it.
 
@@ -1348,10 +1352,11 @@ def read_csv_table(
 # call, so a stage reaches it.
 
 
-def _plot_name_can_emit(template: str, name: str) -> bool:
+def _plot_name_can_emit(template: str, name: str, families: Sequence[str]) -> bool:
     """Whether a declared plot name can occupy an automatic group's name."""
-    pattern = re.escape(template).replace(re.escape("{family}"), ".+")
-    return re.fullmatch(pattern, name) is not None
+    if "{family}" not in template:
+        return template == name
+    return any(template.format(family=family) == name for family in families)
 
 
 def rotor_plot_source(
@@ -1401,13 +1406,20 @@ def rotor_plot_source(
     for group in getattr(getattr(pproc, "plots", None), "groups", ()) or ():
         frame = str(getattr(group, "frame", "")).strip().upper()
         name = str(getattr(group, "name", ""))
-        generated_is_declared |= _plot_name_can_emit(name, generated)
+        named = group.families if isinstance(group.families, list) else [group.families]
+        # Expanding rotor frames label their emissions with the cited rotor.
+        generated_is_declared |= _plot_name_can_emit(
+            name, generated, named if frame in {"SMRP", "RMRP"} else ()
+        )
         try:
             resolved = select_families(group.families, list(inventory), is_blade, aliases)
         except PyflightstreamError:
             continue
+        if frame not in {"SMRP", "RMRP"}:
+            generated_is_declared |= _plot_name_can_emit(
+                name, generated, [family for selected in resolved for family in selected]
+            )
         if frame != "MRP":
-            named = group.families if isinstance(group.families, list) else [group.families]
             if "{family}" in name and alias in {str(member) for member in named}:
                 refused = (
                     f"the pproc plots {name.replace('{family}', alias)!r} in the frame {frame}, "
@@ -3266,7 +3278,7 @@ def write_per_blade_table(
     datum = facts.get("blade1_azimuth_deg")
     rpm = facts.get("rpm")
     # WHERE BLADE ONE IS AT THE WINDOW'S FIRST STEP, from its datum at step zero.
-    opening = blade_azimuth_deg(datum, first, steps_per_revolution=per_revolution, rpm=rpm)
+    opening = blade_azimuth_deg(datum, step=first, steps_per_revolution=per_revolution, rpm=rpm)
     clocked = opening is not None
     sense = 1.0 if not clocked or float(rpm) > 0 else -1.0  # type: ignore[arg-type]
     try:
@@ -4350,7 +4362,11 @@ def global_frame_plot_groups(pproc: object) -> tuple[str, ...]:
     # Automatic plots never overwrite an already emitted name. A group with
     # this name in another frame therefore cannot supply global components.
     if parameters.intersection(_SIX_COMPONENTS) and any(
-        _plot_name_can_emit(str(group.name), AXES_PLOT_GROUP)
+        _plot_name_can_emit(
+            str(group.name),
+            AXES_PLOT_GROUP,
+            group.families if isinstance(group.families, list) else [group.families],
+        )
         and str(getattr(group, "frame", "")).strip().upper() != "MRP"
         for group in (getattr(plots, "groups", ()) or ())
     ):

@@ -32,7 +32,7 @@ sign in y and in z. It is `(cos a cos b, -cos a sin b, +sin a)` in the export's
 frame, x aft, y right, z up: measured on the recorded exports, whose own drag is
 the projection of their own force vector on it. `ETAW` and `shaft_angle_deg`
 change on every rotor row with incidence or sideslip. At zero incidence and zero
-sideslip nothing moves, and `ETAW` equals `ETA` there.
+sideslip nothing moves. `ETAW` equals `ETA` when the shaft lies along the stream.
 
 ### `CLS`, `CLW`, `CDB` and `CLB` of every steady polar
 
@@ -42,9 +42,10 @@ place. `CDB` IS the export's `Cx` and `CLB` its `Cz`. 0.23.0 took the solver's
 `CL` and `CDi + CDo` as stability-axis forces and turned them back.
 
 The `CL` an export prints sits between 0.10 and 0.25 per cent above the wind-axis
-lift of the vector printed beside it on the recorded exports (the cause is not
-known), so **`CLS` and `CLW` fall by
-about that much on every steady polar, zero sideslip included.** On one recorded
+lift of the vector printed beside it on 27 of the 28 lifting recorded exports
+(lift above 0.05); one sits at 0.71 per cent. The measurements are in
+`tests/tier1_offline/fixtures/recorded_total_rows.csv`, and the cause is not
+known. **`CLS` and `CLW` fall by the measured gap, zero sideslip included.** On one recorded
 point at alpha -2: `CLS` 0.18828 becomes 0.18800, `CLB` 0.18744 becomes 0.18716,
 `CDB` 0.02744 becomes 0.02743. `CDS`, `CDW`, `CD0`, `CDI` and the moments at zero
 sideslip do not move.
@@ -170,7 +171,9 @@ about the package, and the licensed comparison is in `reports/pfs0240/`.
 
 An unsteady row states its averaging window, or `pyfs-matrix plan` refuses it
 naming the key: `LAST_REVS_AVG` on a row that turns a rotor, `LAST_ITERS_AVG` on
-one that does not. Add it to the `VAR_NAMES_VALUES` cell:
+one that does not. A row with a deprecated `WINDOW_STEPS`, `WINDOW_REVOLUTIONS`
+or `WINDOW_DEGREES` key still plans with a warning until 0.26.0; only a row with
+NO window key is refused. Add the current key to the `VAR_NAMES_VALUES` cell:
 
 ```
 ... / DELTA_THETA: 5 / REVOLUTIONS: 2.0 / LAST_REVS_AVG: 0.5

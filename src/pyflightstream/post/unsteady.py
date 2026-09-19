@@ -632,7 +632,7 @@ def per_blade_rows(
         if blade1_azimuth_deg is not None and steps_per_revolution is not None:
             start = (blade1_azimuth_deg + index * spacing) % 360.0 + 0.0
             end = blade_azimuth_deg(
-                start, spanned, steps_per_revolution=steps_per_revolution, rpm=turning
+                start, step=spanned, steps_per_revolution=steps_per_revolution, rpm=turning
             )
         row: dict[str, object] = {
             "BLADE": number,
@@ -677,7 +677,7 @@ def blade_one_azimuth(
     """
     turned = blade_azimuth_deg(
         datum_deg,
-        step,
+        step=step,
         steps_per_revolution=steps_per_revolution,
         rpm=1.0 if sense >= 0 else -1.0,
     )

@@ -335,7 +335,7 @@ The final line of that run is the measurement:
 
 The same run with the shipped configuration, overrides and all, is green:
 
-    Success: no issues found in 89 source files
+    Success: no issues found in 93 source files
 
 mypy walks the FILESYSTEM rather than the git index, so the state of the
 working tree is part of the measurement, and this report has already been

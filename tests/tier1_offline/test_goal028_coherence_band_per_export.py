@@ -18,6 +18,8 @@ import importlib.util
 import math
 from pathlib import Path
 
+import pytest
+
 SCRIPT = Path(__file__).parents[2] / "scripts" / "measure_campaign_coherence.py"
 
 
@@ -118,3 +120,79 @@ def test_a_row_off_by_more_than_its_export_and_its_own_digits_is_still_refused(t
     result = _instrument().steady_drag(workspace, out)
     assert result["verdict"] == "INCOHERENT", result["measured"]
     assert result["measured"]["worst_ratio_at"].startswith("P5001_x.csv")
+
+
+@pytest.mark.parametrize("row_gap,verdict", [(0.0, "coherent"), (4e-5, "INCOHERENT")])
+def test_two_speeds_at_the_same_angles_keep_their_own_bands(tmp_path, row_gap, verdict):
+    for name, speed, decimals in [("A", 30.0, 7), ("B", 60.0, 4)]:
+        path = tmp_path / "sims" / "sim_5001" / "datapoints" / name / f"{name}.txt"
+        _export(path, 0.0, 0.0, (0.02, 0.0, 0.1), 0.02, decimals)
+        with path.open("a", encoding="utf-8") as handle:
+            handle.write(f"Freestream velocity (m/s) {speed:.3f}\n")
+    out = tmp_path / "out"
+    (out / "polars").mkdir(parents=True)
+    (out / "polars" / "P5001_x.csv").write_text(
+        "ALPHA,BETA,VINF,CDW,CD0,CDI\n"
+        f"0,0,30,{0.02 + row_gap:.5f},0.01500,0.00500\n"
+        "0,0,60,0.02004,0.01500,0.00500\n",
+        encoding="utf-8",
+    )
+    result = _instrument().steady_drag(tmp_path, out)
+    assert result["verdict"] == verdict, "a different speed supplied the polar's precision band"
+    first, second = result["measured"]["polar_rows"]
+    assert first["inherited_from_its_export"] == pytest.approx(1.5e-7)
+    assert second["inherited_from_its_export"] == pytest.approx(1.5e-4)
+
+
+def test_an_ambiguous_export_match_is_refused(tmp_path):
+    workspace, out = _workspace(tmp_path, flip_y=False)
+    _export(
+        workspace / "sims" / "sim_5001" / "datapoints" / "B" / "other.txt",
+        2.0,
+        0.0,
+        (0.02, 0.0, 0.1),
+        _projection(2.0, 0.0, (0.02, 0.0, 0.1)),
+        7,
+    )
+    with pytest.raises(ValueError, match="ambiguous.*P5001_x"):
+        _instrument().steady_drag(workspace, out)
+
+
+@pytest.mark.parametrize("cdw,verdict", [(0.02, "coherent"), (-0.02, "INCOHERENT")])
+def test_unsteady_drag_is_checked_against_the_plotted_drag(tmp_path, cdw, verdict):
+    workspace, out = _workspace(tmp_path, flip_y=False)
+    (out / "polars" / "P6001_x_uns_avg.csv").write_text(
+        f"ALPHA,CDW_MRP_TOTAL,CD_MRP_TOTAL\n10,{cdw},0.02000\n", encoding="utf-8"
+    )
+    result = _instrument().steady_drag(workspace, out)
+    assert result["verdict"] == verdict, "unsteady CDW must agree with the plotted CD"
+    assert len(result["measured"]["unsteady_polar_rows"]) == 1
+
+
+@pytest.mark.parametrize("sign,verdict", [(1, "coherent"), (-1, "INCOHERENT")])
+def test_etaw_is_checked_against_signed_history_even_if_eta_is_flipped(tmp_path, sign, verdict):
+    # rho=1, RPM=60, D=1 give unit_N=1. At alpha=30 a force (-2,0,0)
+    # projects to -sqrt(3) N; J=CP=1 make ETAW=-sqrt(3) and shaft ETA=-2.
+    (tmp_path / "polars").mkdir()
+    (tmp_path / "probes").mkdir()
+    (tmp_path / "polars" / "P1_PROP_rotor.csv").write_text(
+        "PROP\nALPHA,RHO,J_PROP,CT_PROP,CP_PROP,ETA_PROP,ETAW_PROP,RPM_PROP,DIAMETER_PROP\n"
+        f"30,1,1,-2,1,{-2 * sign},{-math.sqrt(3) * sign},60,1\n",
+        encoding="utf-8",
+    )
+    point = "P1-AL+300"
+    (tmp_path / "probes" / f"{point}_plots.csv").write_text(
+        "Time-step,FX_ROTOR_PROP,FY_ROTOR_PROP,FZ_ROTOR_PROP,"
+        "MX_ROTOR_PROP,MY_ROTOR_PROP,MZ_ROTOR_PROP\n1,-2,0,0,0,0,0\n",
+        encoding="utf-8",
+    )
+    manifest = {
+        "products": {
+            "polars/P1_PROP_rotor.csv": {
+                "source": "plot group ROTOR_PROP",
+                "windows": {point: [1, 1]},
+            }
+        }
+    }
+    check = _instrument().rotor_checks(tmp_path, manifest)["etaw_departs_with_alpha"]
+    assert check["verdict"] == verdict, "ETAW must match signed history, independent of ETA"

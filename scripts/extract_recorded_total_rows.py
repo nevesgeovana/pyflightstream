@@ -64,12 +64,16 @@ def rows() -> list[dict[str, str]]:
     table = []
     for path in sorted(SIMS.glob("sim_*/raw/*.txt")):
         text = path.read_text(errors="replace")
+        if not text.strip():
+            raise ValueError(f"{path}: empty export")
         alpha = labeled(text, "Angle of attack (Deg)")
         beta = labeled(text, "Side-slip angle (Deg)")
         try:
             total = total_row(text)
         except ValueError as refused:
             raise ValueError(f"{path}: {refused}") from None
+        if alpha is not None and beta is not None and total is None:
+            raise ValueError(f"{path}: loads export has no Total row")
         frame = re.search(r"Coordinate frame for analysis:\s*(\S.*)", text)
         if alpha is None or beta is None or total is None or "Cx" not in total:
             continue

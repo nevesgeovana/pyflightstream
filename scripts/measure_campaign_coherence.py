@@ -39,6 +39,14 @@ import sys
 from pathlib import Path
 
 SIX = ("FX", "FY", "FZ", "MX", "MY", "MZ")
+CONDITION_LABELS = {
+    "ALPHA": "Angle of attack (Deg)",
+    "BETA": "Side-slip angle (Deg)",
+    "MACH": "Mach Number",
+    "RE": "Reynolds Number",
+    "VINF": "Freestream velocity (m/s)",
+    "VREF": "Reference velocity (m/s)",
+}
 
 
 def _table(path: Path, skip: int = 0) -> list[dict[str, str]]:
@@ -81,6 +89,21 @@ def _verdict(ok: bool | None) -> str:
     return "could not measure" if ok is None else ("coherent" if ok else "INCOHERENT")
 
 
+def _export_condition(path: Path) -> dict[str, tuple[float, float]]:
+    """Read the shared condition and its printed rounding allowance from an export."""
+    text = path.read_text(encoding="utf-8", errors="replace")
+    condition = {}
+    for column, label in CONDITION_LABELS.items():
+        found = re.search(re.escape(label) + r"\s*:?\s*(\S+)", text, re.I)
+        if found is None or (value := _number(found.group(1))) is None:
+            continue
+        mantissa, _, exponent = found.group(1).lower().partition("e")
+        half = 0.5 * 10.0 ** (int(exponent or 0) - len(mantissa.partition(".")[2]))
+        scale = 1e-6 if column == "RE" else 1.0
+        condition[column] = (value * scale, half * scale)
+    return condition
+
+
 def steady_drag(workspace: Path, out: Path) -> dict[str, object]:
     """Check `CDW == CDi + CDo` on every steady export and on every steady polar row."""
     # EACH MEASUREMENT AGAINST ITS OWN BAND (release review of 0.24.0, VV-V1). One
@@ -106,8 +129,7 @@ def steady_drag(workspace: Path, out: Path) -> dict[str, object]:
             measured.append(
                 {
                     "polar": polar.name,
-                    "ALPHA": row.get("ALPHA"),
-                    "BETA": row.get("BETA"),
+                    **{key: row[key] for key in CONDITION_LABELS if key in row},
                     "CDW": cdw,
                     "CD0_plus_CDI": cd0 + cdi,
                     "gap": gap,
@@ -115,7 +137,7 @@ def steady_drag(workspace: Path, out: Path) -> dict[str, object]:
                 }
             )  # type: ignore[operator]
     exports: list[dict[str, object]] = []
-    source_band: dict[tuple[str | None, float, float], float] = {}
+    source_band: dict[tuple[str | None, Path], tuple[dict[str, tuple[float, float]], float]] = {}
     for loads in sorted(workspace.glob("sims/sim_*/datapoints/*/*.txt")):
         if re.search(r"_(plots|sloads|probes|cp|log)\b|_iteration=", loads.name):
             continue
@@ -138,7 +160,7 @@ def steady_drag(workspace: Path, out: Path) -> dict[str, object]:
         worst = max(worst, gap)
         judged.append((gap / allowed, loads.name))
         sim = next((part[4:] for part in loads.parts if part.startswith("sim_")), None)
-        source_band[(sim, round(total["alpha"], 3), round(total["beta"], 3))] = allowed
+        source_band[(sim, loads)] = (_export_condition(loads), allowed)
         exports.append(
             {
                 "export": loads.name,
@@ -196,12 +218,25 @@ def steady_drag(workspace: Path, out: Path) -> dict[str, object]:
     # own dry run, where a four-decimal export at beta 5 left a row 4e-5 off.
     for row in measured:
         sim = re.match(r"P(\d+)", str(row["polar"]))
-        alpha, beta = _number(row.get("ALPHA")), _number(row.get("BETA"))
-        inherited = (
-            source_band.get((sim.group(1), round(alpha, 3), round(beta, 3)), 0.0)
-            if sim and alpha is not None and beta is not None
-            else 0.0
-        )
+        matches = [
+            (path, allowed)
+            for (source_sim, path), (condition, allowed) in source_band.items()
+            if sim
+            and source_sim == sim.group(1)
+            and all(_number(row.get(key)) is not None for key in ("ALPHA", "BETA"))
+            and all(
+                math.isclose(actual, value, rel_tol=0.0, abs_tol=half + 0.5e-5)
+                for key, (value, half) in condition.items()
+                if (actual := _number(row.get(key))) is not None
+            )
+        ]
+        if len(matches) > 1:
+            raise ValueError(
+                f"ambiguous export match for {row['polar']} at "
+                f"{ {key: row[key] for key in CONDITION_LABELS if key in row} }: "
+                + ", ".join(str(path) for path, _ in matches)
+            )
+        inherited = matches[0][1] if matches else 0.0
         row["allowed"] = float(row["allowed"]) + inherited  # type: ignore[arg-type]
         row["inherited_from_its_export"] = inherited
         judged.append(
@@ -221,7 +256,8 @@ def steady_drag(workspace: Path, out: Path) -> dict[str, object]:
         "band": (
             "EACH against its own: an export, half a unit of the last digit IT prints on "
             "each of the five numbers read off it; a polar row, half a unit on each of its "
-            "three five-decimal columns; an unsteady polar's CDW against the CD the solver "
+            "three five-decimal columns PLUS the matched export's allowance; an unsteady "
+            "polar's CDW against the CD the solver "
             "plots for the same group, 2e-5. The verdict is the worst gap over its own band"
         ),
         "verdict": _verdict(ok),
@@ -346,38 +382,23 @@ def rotor_checks(out: Path, manifest: dict) -> dict[str, dict[str, object]]:
             or None in (p.get("J"), p.get("CP"), p.get("ETAW"))
         ):
             continue
-        expected = abs(p["J"] * (p["force_along_the_stream_N"] / p["unit_N"]) / p["CP"])  # type: ignore[operator]
+        expected = p["J"] * (p["force_along_the_stream_N"] / p["unit_N"]) / p["CP"]  # type: ignore[operator]
         tilted.append(
             {
                 "ALPHA": p["ALPHA"],
                 "ETA": p.get("ETA"),
                 "ETAW": p["ETAW"],
                 "J_CTW_over_CP_from_the_history": expected,
-                "gap": abs(abs(p["ETAW"]) - expected),
-                # THE SIGN, which the magnitude above cannot see, and a flipped sign
-                # is the defect 0.23.0 shipped in this column. Below 45 degrees of
-                # incidence the force along the stream and the force along the shaft
-                # point the same way, so ETAW carries the sign of ETA.
-                "same_sign_as_ETA": (
-                    None
-                    if p.get("ETA") is None or abs(float(p["ALPHA"])) >= 45.0  # type: ignore[arg-type]
-                    else (float(p["ETAW"]) > 0) == (float(p["ETA"]) > 0)  # type: ignore[arg-type]
-                ),
+                "gap": abs(p["ETAW"] - expected),
             }
         )  # type: ignore[arg-type]
     checks["etaw_departs_with_alpha"] = {
         "measured": {"points": tilted},
         "band": (
-            "ETAW differs from ETA, equals J CTW / CP from the history within 1e-3 in "
-            "magnitude, and carries the sign of ETA below 45 degrees of incidence"
+            "ETAW differs from ETA and equals the SIGNED J CTW / CP from the history within 1e-3"
         ),
         "verdict": _verdict(
-            None
-            if not tilted
-            else all(
-                t["gap"] <= 1e-3 and t["ETAW"] != t["ETA"] and t["same_sign_as_ETA"] is not False
-                for t in tilted
-            )
+            None if not tilted else all(t["gap"] <= 1e-3 and t["ETAW"] != t["ETA"] for t in tilted)
         ),
     }
     return checks

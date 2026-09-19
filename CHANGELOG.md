@@ -7,6 +7,32 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Fixed (refusals that protect a run and its products)
+
+- Matrix rows stating `ALPHA` or `BETA` in both `FLIGHT_CONDITION` and
+  `VAR_NAMES_VALUES` are refused, even when the values agree. Keep each attitude
+  key in one interface and plan again.
+- A steady polar whose loads vectors are in an analysis frame the package
+  cannot rotate is refused. Workspaces exporting a rotor or custom frame must
+  export loads in the global `MRP` frame and post those exports again.
+- Staging refuses a destination that links to another file. Workspaces reusing
+  linked input destinations must choose an ordinary destination or remove the
+  link before staging again; the linked file is not overwritten.
+- Staging refuses destination names that differ only by case. Campaigns with
+  inputs such as `Wing.fsm` and `wing.fsm` must give them distinct names and
+  update their references before staging again.
+- Setup presets stating stabilisation through both `solver_stabilization` and
+  `stabilization` / `stabilization_strength` are refused. Keep one interface in
+  the preset and plan again.
+
+### Known limitations
+
+- The run manifest lock treats a lock older than 30 seconds as abandoned,
+  even if its writer is still running. Workspaces with manifest updates lasting
+  that long must serialize writers: let an update finish before another submit,
+  collect or run operation writes the manifest.
+  Lock ownership and renewal are registered for 0.25.0.
+
 ### Changed (breaking: a steady polar is built from the export's vector)
 
 - **Every axis column of a steady polar row comes from the force
@@ -14,12 +40,12 @@ FlightStream versions.
   through `post/axes.py` (`polar_axis_coefficients`). `CDB` is now the `Cx`
   of the export and `CLB` its `Cz`. The row used to take the solver's `CL` and
   `CDi + CDo` as stability-axis forces and turn them BACK to body axes.
-- **`CLS` and `CLW` fall on EVERY steady polar, zero sideslip included, by
-  between 0.10 and 0.25 per cent.** The `CL` an export prints sits that far
+- **`CLS` and `CLW` fall, zero sideslip included, by
+  between 0.10 and 0.25 per cent on 27 of the 28 lifting recorded exports
+  (lift above 0.05); one sits at 0.71 per cent.** The `CL` an export prints sits that far
   above the wind-axis lift of the vector printed beside it; the cause is not
   known. The range is measured over the recorded exports of
-  `tests/tier1_offline/fixtures/recorded_total_rows.csv` (27 of the 28 lifting
-  ones; one sits at 0.71), and a tier-one test re-measures it. On the
+  `tests/tier1_offline/fixtures/recorded_total_rows.csv`, and a tier-one test re-measures it. On the
   recorded point at alpha -2 the exports differ by 0.135 per cent, and at the
   five decimals a polar prints `CLS` 0.18828 becomes 0.18800, `CLB` 0.18744
   becomes 0.18716, `CDB` 0.02744 becomes 0.02743. `CDS`, `CDW`, `CD0`, `CDI`

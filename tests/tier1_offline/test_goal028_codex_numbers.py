@@ -92,6 +92,28 @@ def test_a_rotor_frame_named_mrp_total_is_not_a_global_axes_source(name, frame):
     assert "MRP_TOTAL" in global_frame_plot_groups(pproc)
 
 
+@pytest.mark.parametrize("automatic", ["ROTOR_PROP", "MRP_TOTAL"])
+def test_blade_plot_names_do_not_occupy_automatic_rotor_or_total_names(automatic):
+    pproc = SimpleNamespace(
+        plots=SimpleNamespace(
+            parameters=["FX", "FY", "FZ", "MX", "MY", "MZ"],
+            groups=[
+                ForcePlotGroup(
+                    name="ROTOR_{family}", frame="LOCAL_AXIS", families=["Blade1", "Blade2"]
+                ),
+                ForcePlotGroup(
+                    name="MRP_{family}", frame="LOCAL_AXIS", families=["Blade1", "Blade2"]
+                ),
+            ],
+        )
+    )
+    candidates, _ = rotor_plot_source(
+        pproc, "PROP", rotor_families=["Blade1", "Blade2"], inventory=["Blade1", "Blade2"]
+    )
+    actual = candidates if automatic == "ROTOR_PROP" else global_frame_plot_groups(pproc)
+    assert automatic in actual, f"blade plots suppressed {automatic}"
+
+
 def test_recorded_polar_refuses_an_area_the_export_did_not_use(tmp_path):
     polar = _recorded(tmp_path, LOADS)
     with pytest.raises(ProductError, match="SREF"):

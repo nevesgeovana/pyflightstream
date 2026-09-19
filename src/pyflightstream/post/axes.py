@@ -62,8 +62,8 @@ __all__ = [
 
 def blade_azimuth_deg(
     datum_deg: object,
-    step: object,
     *,
+    step: object,
     steps_per_revolution: object,
     rpm: object,
 ) -> float | None:
@@ -82,11 +82,11 @@ def blade_azimuth_deg(
 
     Examples
     --------
-    >>> blade_azimuth_deg(10.0, 18, steps_per_revolution=72, rpm=2000.0)
+    >>> blade_azimuth_deg(10.0, step=18, steps_per_revolution=72, rpm=2000.0)
     100.0
-    >>> blade_azimuth_deg(10.0, 18, steps_per_revolution=72, rpm=-2000.0)
+    >>> blade_azimuth_deg(10.0, step=18, steps_per_revolution=72, rpm=-2000.0)
     280.0
-    >>> blade_azimuth_deg(10.0, 18, steps_per_revolution=72, rpm=None) is None
+    >>> blade_azimuth_deg(10.0, step=18, steps_per_revolution=72, rpm=None) is None
     True
     """
     stated = (datum_deg, step, steps_per_revolution, rpm)

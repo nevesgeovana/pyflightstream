@@ -1884,7 +1884,7 @@ type's, and the window is the one the row states:
 | `probes/<point>_phase_locked_<ALIAS>.csv` | `unsteady_rotor`, a row naming its rotors | WITH a `[phase_locked]` table in the pproc: the last `last_revolutions_avg` revolutions OF THAT ROTOR, one row per azimuthal position, each value the mean across those revolutions at that azimuth. WITHOUT it: the time-average window cut into blade passages OF THAT ROTOR, one of its revolutions over its own blade count, a trailing partial passage dropped; one row per passage |
 | `probes/<point>_per_blade_<ALIAS>.csv` | `unsteady_rotor`, a row naming its rotors | ONE window shared by every blade: the row's `LAST_REVS_AVG`, counted in THAT ROTOR's revolutions and ending at the run's last step, and without the key that rotor's last complete revolution; ONE ROW PER BLADE since 0.24.0, each with its `BLADE`, its `FAMILY` and its `AZIMUTH_START` and `AZIMUTH_END` over that window |
 | `probes/<point>_phase_locked.csv` | `unsteady_rotor`, a row naming no rotor by alias | WITH a `[phase_locked]` table: the last `last_revolutions_avg` revolutions, one row per azimuthal position. WITHOUT it: the time-average window cut into blade passages, one revolution over `BLADES` steps each, a trailing partial passage dropped; one row per passage |
-| `probes/<point>_per_blade.csv` | `unsteady_rotor`, a row naming no rotor by alias | ONE window shared by every blade: the averaging window the row states, and without `LAST_REVS_AVG` the last complete revolution of the run; ONE ROW PER BLADE since 0.24.0, with its start and end azimuth |
+| no per-blade table | `unsteady_rotor`, a row naming no rotor by alias | No reference block identifies the blade families; `products.json` says why the table is skipped |
 
 **`per_blade` IS ONE ROW PER BLADE OVER ONE SHARED WINDOW (0.24.0).** Until
 0.23.0 it cut the last revolution into one window per blade, which put each blade
@@ -1896,11 +1896,11 @@ record](post-processing-definitions.md#per_blade) asks. The azimuthal form of
 `[phase_locked]`.
 
 **The window is required.** Since 0.24.0 `pyfs-matrix plan` refuses a new
-unsteady row that states neither `LAST_REVS_AVG` nor `LAST_ITERS_AVG`. A
-deprecated `WINDOW_*` key still binds the time average until 0.26.0, and it does
-not reach `per_blade` or the unsteady polar: those of such a row, like those of a
-record made before 0.24.0, are averaged over the window the run was given, with a
-warning naming the steps.
+unsteady row that states NO window key. A deprecated `WINDOW_STEPS`,
+`WINDOW_REVOLUTIONS` or `WINDOW_DEGREES` key still plans with a warning until
+0.26.0; replace it with `LAST_REVS_AVG` or `LAST_ITERS_AVG`. The reductions and
+unsteady polar of a record without the current keys use the window the run was
+given, with a warning naming the steps.
 
 Every window is counted in solver steps, inclusive, 1-based, and row `k` of
 the plots table is step `k`; the table's own time column is averaged like
@@ -1953,15 +1953,31 @@ for alias, block in per_rotor.items():
         #    or {'skipped': '<the reason this rotor has none>'}
 ```
 
-A worked example: a rotor row of eight steps, four steps per revolution,
-two blades, stating `LAST_REVS_AVG: 1.5`, which is six steps. The reductions
-of `AL-020_plots.csv` land as
+A worked example: a row naming rotor `PROP` of eight steps, four steps per
+revolution, two blades, stating `LAST_REVS_AVG: 1.5`, which is six steps. Its
+reference declares a `[PROP]` block with `kind = "rotor"` and
+`families_blades = ["Blade1", "Blade2"]`, alongside its hub, axis, diameter and
+blade-one datum. Its pproc requests blade plots, for example:
+
+```toml
+[plots]
+parameters = ["FX", "FY", "FZ", "MX", "MY", "MZ"]
+
+[[plots.groups]]
+name = "MRP_{family}"
+frame = "MRP"
+families = "each"
+```
+
+The run must export those blade columns; adding the declaration afterwards
+requires a new run. With no `[phase_locked]` table, the reductions of
+`AL-020_plots.csv` land as
 
 ```text
 probes/AL-020_plots.csv           raw, one row per step
 probes/AL-020_time_average.csv    one row, steps 3 to 8
-probes/AL-020_phase_locked.csv    three rows, steps 3 to 4, 5 to 6, 7 to 8
-probes/AL-020_per_blade.csv       two rows, one per blade, steps 3 to 8
+probes/AL-020_phase_locked_PROP.csv  three rows, steps 3 to 4, 5 to 6, 7 to 8
+probes/AL-020_per_blade_PROP.csv     two rows, one per blade, steps 3 to 8
 ```
 
 each reduction file leading with its window and the flight condition, and then
@@ -1970,9 +1986,9 @@ record](post-processing-definitions.md), which is the one place it is kept. And
 `products.json` names each:
 
 ```text
-"probes/AL-020_per_blade.csv": {
+"probes/AL-020_per_blade_PROP.csv": {
  "sim_id": "7001", "pproc": "p001", "runs": ["camp/sim_7001/AL-020"],
- "reduction": "per_blade", "windows": [[3, 8]],
+ "reduction": "per_blade", "rotor": "PROP", "windows": [[3, 8]],
  "window_from": "the averaging window the row states, 6 steps, shared by every blade",
  "period_steps": 2
 }
@@ -2616,7 +2632,8 @@ line says how many were dropped.
 IT**: `LAST_REVS_AVG` on an `unsteady_rotor` row, a count of the last
 revolutions that accepts a float, and `LAST_ITERS_AVG` on an `unsteady` row, a
 count of the last iterations. `pyfs-matrix plan` refuses a new unsteady row that
-states neither. It is the one window the unsteady polar, the time average and
+states NO window key. A deprecated `WINDOW_*` key still plans with a warning
+until 0.26.0. It is the one window the unsteady polar, the time average and
 `per_blade` use. A window longer than the run is the whole run rather than a
 refusal.
 
