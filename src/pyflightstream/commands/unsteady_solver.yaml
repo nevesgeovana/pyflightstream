@@ -82,8 +82,43 @@ UNSTEADY_SOLVER_NEW_FLUID_PLOT:
           type: str
         - name: vertex
           type: str
-    "26.123": {status: documented, note: "SRC-751 p.352, unchanged from SRC-750 p.352"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.352, the SRC-751 file, carried from 26.123"}
+    "26.122":
+      status: documented
+      note: "SRC-750 p.352 lists the six BL parameters as in SRC-740 p.350."
+      args:
+        - name: frame
+        - name: parameter
+          values: [CP_FREE, CP_REF, MACH, VELOCITY, VX, VY, VZ, STATIC_PRESSURE_RATIO,
+                   BL_MOMENTUM_THICKNESS, BL_DISPLACEMENT_THICKNESS, BL_TOTAL_THICKNESS,
+                   BL_SHAPE_FACTOR, BL_SKIN_FRICTION, BL_TRANSITION_MARKER]
+        - name: name
+        - name: vertex
+    "26.123":
+      status: documented
+      note: "SRC-751 p.352 lists the six BL parameters as in SRC-740 p.350."
+      args:
+        - name: frame
+        - name: parameter
+          values: [CP_FREE, CP_REF, MACH, VELOCITY, VX, VY, VZ, STATIC_PRESSURE_RATIO,
+                   BL_MOMENTUM_THICKNESS, BL_DISPLACEMENT_THICKNESS, BL_TOTAL_THICKNESS,
+                   BL_SHAPE_FACTOR, BL_SKIN_FRICTION, BL_TRANSITION_MARKER]
+        - name: name
+        - name: vertex
+    "26.124":
+      status: verified
+      report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml"
+      note: >
+        SRC-752 p.352, the SRC-751 file, carried from 26.123.
+        The six BL parameters are documented there; the report does not
+        verify each parameter.
+      args:
+        - name: frame
+        - name: parameter
+          values: [CP_FREE, CP_REF, MACH, VELOCITY, VX, VY, VZ, STATIC_PRESSURE_RATIO,
+                   BL_MOMENTUM_THICKNESS, BL_DISPLACEMENT_THICKNESS, BL_TOTAL_THICKNESS,
+                   BL_SHAPE_FACTOR, BL_SKIN_FRICTION, BL_TRANSITION_MARKER]
+        - name: name
+        - name: vertex
   notes: >
     Samples one fluid property per solver time step at a fixed vertex.
     VERTEX takes the three coordinates preformatted on one line

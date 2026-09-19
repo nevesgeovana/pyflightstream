@@ -452,8 +452,8 @@ AXES_PLOT_GROUP = "MRP_TOTAL"
 #: expanding frame names its emissions `<alias>` in the rotor's own axes.
 ROTOR_PLOT_GROUP_PREFIX = "ROTOR_"
 
-#: The fluid parameters an unsteady fluid plot can sample, the command's
-#: own enumeration (SRC-003 p.347).
+#: Fluid parameters documented across builds (SRC-003 p.347, SRC-751 p.352).
+#: The pproc has no build; the workflow checks the run's command-database enum.
 FLUID_PLOT_PARAMETERS = (
     "CP_FREE",
     "CP_REF",
@@ -463,6 +463,12 @@ FLUID_PLOT_PARAMETERS = (
     "VY",
     "VZ",
     "STATIC_PRESSURE_RATIO",
+    "BL_MOMENTUM_THICKNESS",
+    "BL_DISPLACEMENT_THICKNESS",
+    "BL_TOTAL_THICKNESS",
+    "BL_SHAPE_FACTOR",
+    "BL_SKIN_FRICTION",
+    "BL_TRANSITION_MARKER",
 )
 
 #: The family SELECTORS a pproc entry may write instead of a family name.
@@ -2955,6 +2961,23 @@ class SolverSettings(BaseModel):
     additional_wake_relaxation: SolverToggle | None = None
     reynolds_averaged_drag: SolverToggle | None = None
     solver_stabilization: float | None = Field(default=None, ge=0.0)
+    #: Optional advanced settings, using the existing solver helper keywords.
+    #: None emits nothing; the command database validates each stated value
+    #: against the run's build before emission.
+    laminar_separation: SolverToggle | None = None
+    kutta_joukowski_lift: SolverToggle | None = None
+    aeroelastic_rbf_type: str | None = None
+    print_rotor_induced_velocities: SolverToggle | None = None
+    adaptive_field_grid_refinement: SolverToggle | None = None
+    rotor_induced_velocity_blending: float | None = None
+    wake_numerical_relaxation: float | None = None
+    wake_relaxation: SolverToggle | None = None
+    wake_decay_constant: float | None = None
+    wake_streamwise_agglomeration: SolverToggle | None = None
+    jet_wake_decay_normalized_length: float | None = None
+    jet_wake_filaments_grid_induction: SolverToggle | None = None
+    adverse_gradient_boundary_layer: SolverToggle | None = None
+    vortex_ring_normalization: SolverToggle | None = None
     #: Wake termination stated in REVOLUTIONS, which is the unit a rotor
     #: preset writes it in, and negative counting backwards from the end
     #: of the run. The emitter takes time STEPS, and the conversion needs

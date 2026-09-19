@@ -26,6 +26,27 @@ FlightStream versions.
   quietly stops being citable is the gap PFS-2024.09 is about. Cite that
   release by the concept DOI, which resolves to the newest archived version.
 
+### Added
+
+- **Fourteen advanced solver settings have a setup key of their own**, so they no
+  longer need `[[raw]]`: `laminar_separation`, `kutta_joukowski_lift`,
+  `aeroelastic_rbf_type`, `print_rotor_induced_velocities`,
+  `adaptive_field_grid_refinement`, `rotor_induced_velocity_blending`,
+  `wake_numerical_relaxation`, `wake_relaxation`, `wake_decay_constant`,
+  `wake_streamwise_agglomeration`, `jet_wake_decay_normalized_length`,
+  `jet_wake_filaments_grid_induction`, `adverse_gradient_boundary_layer` and
+  `vortex_ring_normalization`. Each emits its solver command when set and nothing
+  when absent, so existing setups produce the same script; a value or command the
+  run's build does not carry is refused naming the build; `[[raw]]` still works and
+  an unknown key is still refused.
+- **The six boundary-layer fluid-plot parameters** (`BL_MOMENTUM_THICKNESS`,
+  `BL_DISPLACEMENT_THICKNESS`, `BL_TOTAL_THICKNESS`, `BL_SHAPE_FACTOR`,
+  `BL_SKIN_FRICTION`, `BL_TRANSITION_MARKER`) are accepted in a pproc probe's
+  `parameters` on the builds whose manual lists them (26.122 and 26.123 manuals,
+  p.352; 26.124 carries the 26.123 manual). A parameter the run's build does not
+  document is refused naming the parameter and the build. The pproc's own
+  vocabulary refused them on every build before.
+
 ### Fixed
 
 - **A frozen unsteady solve is a failure, and its averages are not published.** A

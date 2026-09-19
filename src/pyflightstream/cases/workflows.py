@@ -4997,6 +4997,20 @@ def _settings(
         additional_wake_relaxation=solver.additional_wake_relaxation,
         reynolds_averaged_drag=solver.reynolds_averaged_drag,
         solver_stabilization=solver.solver_stabilization,
+        laminar_separation=solver.laminar_separation,
+        kutta_joukowski_lift=solver.kutta_joukowski_lift,
+        aeroelastic_rbf_type=solver.aeroelastic_rbf_type,
+        print_rotor_induced_velocities=solver.print_rotor_induced_velocities,
+        adaptive_field_grid_refinement=solver.adaptive_field_grid_refinement,
+        rotor_induced_velocity_blending=solver.rotor_induced_velocity_blending,
+        wake_numerical_relaxation=solver.wake_numerical_relaxation,
+        wake_relaxation=solver.wake_relaxation,
+        wake_decay_constant=solver.wake_decay_constant,
+        wake_streamwise_agglomeration=solver.wake_streamwise_agglomeration,
+        jet_wake_decay_normalized_length=solver.jet_wake_decay_normalized_length,
+        jet_wake_filaments_grid_induction=solver.jet_wake_filaments_grid_induction,
+        adverse_gradient_boundary_layer=solver.adverse_gradient_boundary_layer,
+        vortex_ring_normalization=solver.vortex_ring_normalization,
         wake_termination_time_steps=wake_termination_time_steps,
     )
     # SYMMETRY LOADS AS STATED, the design decision of 2026-09-02 (PFS-2028.05): an
@@ -7225,6 +7239,18 @@ def _pproc_probes(
             # or the numbering would depend on which pass is running.
             vertex += 0 if cited else len(probes.lines) * probes.points
             continue
+        if unsteady and not cited and probes.parameters:
+            command = "UNSTEADY_SOLVER_NEW_FLUID_PLOT"
+            entry = script.registry.for_version(script.version)[command]
+            allowed = next(arg.values for arg in entry.args if arg.name == "parameter") or ()
+            unsupported = [name for name in probes.parameters if name not in allowed]
+            if unsupported:
+                raise CampaignConfigError(
+                    f"case {case.sim_id!r}: fluid plot parameter(s) {', '.join(unsupported)} "
+                    f"are not available for {command} on FlightStream "
+                    f"{script.version.canonical} ({entry.citation}). "
+                    f"The parameters for this build are: {', '.join(allowed)}."
+                )
         vertex = _emit_one_probe_table(case, script, frames, probes, vertex, unsteady=unsteady)
 
 
