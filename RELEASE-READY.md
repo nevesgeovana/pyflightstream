@@ -1,28 +1,25 @@
-# v0.22.0 is released by this sequence, followed as written
+# v0.24.0 is released by this sequence, followed as written
 
-0.22.0 carries one BREAKING change, one feature and one fix. Breaking: a row's
-`RPM` is a MAGNITUDE and the hand of the rotation comes from the reference's
-`rpm_sign`, so a row stating a negative rev/min is refused by name. It is a
-MINOR bump and not a patch for exactly that reason.
+0.24.0 changes numbers that 0.23.0 published, changes the header of almost every
+table the post stage writes, and asks one new thing of a matrix row. It is a MINOR
+bump for that reason. `docs/migrating-to-0.24.0.md` is the reader's account; the
+change log's `[0.24.0]` section is the record.
 
-**THIS FILE IS RE-TITLED AND RE-MEASURED PER TAG, and it was not for v0.21.1.**
-It carried the v0.21.0 title, commands and readings through the whole 0.21.1
-release, so a reader following it would have run `git tag -a v0.21.0`, which
-fails, and read a readings table two patches old. Whether it is re-titled each
+**THIS FILE IS RE-TITLED AND RE-MEASURED PER TAG.** It carried the v0.22.0 title,
+commands and readings through the whole 0.23.0 release, which is the reuse TW-F7 of
+FIX-0211 registered and the second time it happened. Whether it is re-titled each
 time or split into a version-free sequence plus a per-release readings file is
-the owner's call, registered as TW-F7 of FIX-0211; until she rules, it is
-re-titled, and the reuse is recorded here rather than repeated silently.
+still the owner's call; until she rules, it is re-titled, and the lapse is recorded
+here rather than repeated silently.
 
 ## The sequence, in order, and the steps that were missed before
 
 ```
 # 1. the release commit: set the version and CONFIRM the change log's date.
-#    pyproject.toml says 0.22.0.dev0 until this step, deliberately: a tree that
-#    already said 0.22.0 would have every run made from it reporting the
-#    released version while being a different tree. THAT IS NOT HYPOTHETICAL:
-#    the post-tag dev bump was missed after v0.21.1, so the tree sat at the
-#    released identity while carrying code 0.21.1 does not have.
-#    (pyproject.toml: version = "0.22.0")
+#    pyproject.toml says 0.24.0.dev0 until this step, deliberately: a tree that
+#    already said 0.24.0 would have every run made from it reporting the released
+#    version while being a different tree.
+#    (pyproject.toml: version = "0.24.0")
 #
 #    AND BOTH FRONT PAGES NAME THE NEW VERSION: the status line of README.md,
 #    which is the PyPI project page, and of docs/index.md.
@@ -31,126 +28,130 @@ re-titled, and the reuse is recorded here rather than repeated silently.
 #    version in \institute, and test_guide_currency compares it to pyproject.
 #
 #    AND CITATION.cff MOVES IN THE SAME COMMIT, all three fields together:
-#    version, date-released, and the header paragraph that says whether this
-#    is a DEVELOPMENT or a RELEASE tree, with its tally. The tally has TWO
-#    sentences that count; read both.
+#    version, date-released, and the header paragraph that says whether this is a
+#    DEVELOPMENT or a RELEASE tree, with its tally. The tally has TWO sentences
+#    that count; read both.
 #
-#    AND THE CHANGE LOG'S Owed SECTION SAYS THE NEW TAG'S ROW IS *OWED*.
-#    NAMING THE TAG IS NOT ENOUGH, and that cost the v0.21.0 publish on
-#    2026-09-16: the bullet was there, it named the tag and it named the
-#    archive, and it said "is not minted yet". The guard asks each BULLET for
-#    three things -- the tag, an archive word, and a DEBT word (`owed`, `owe`,
-#    `not exist`, `missing`) -- and the third was missing, so `publish` was
-#    skipped and the tag had to be re-cut. Write the word. And do not explain
-#    the rule inside the bullet: a footnote mentioning `owed` satisfies the
-#    guard on its own, which is measurable and was measured.
-git commit -m "chore: v0.22.0"
+#    AND THE MODULE RE-COUNT: `python scripts/mypy_recount.py` ON A SETTLED TREE
+#    (it says so itself when the tree is not), and its sentence goes, identical,
+#    into reports/RPT-029, pyproject.toml, tests/tier1_offline/test_traceability.py
+#    and CHANGELOG.md. test_traceability re-counts the package on every run.
+#
+#    AND THE CHANGE LOG'S Owed SECTION SAYS THE NEW TAG'S ROW IS *OWED*. The
+#    guard asks each BULLET for three things: the tag, an archive word, and a DEBT
+#    word (`owed`, `owe`, `not exist`, `missing`). Write the word. Do not explain
+#    the rule inside the bullet: a footnote mentioning `owed` satisfies the guard
+#    on its own.
+git commit -m "chore: v0.24.0"
 
-# 2. the tag, annotated, on that commit, once CI is green on it
-git tag -a v0.22.0 -m "v0.22.0"
+# 2. THE INTERNAL REVIEW ROUND over the release range, every finding fixed or
+#    registered, recorded in the lane's rounds ledger.
 
-# 3. push the tag. THIS PUBLISHES TO PyPI and nothing else.
-git push origin v0.22.0
+# 3. merge to main and PUSH main. No tag yet.
+git push origin main
 
-# 4. THE RELEASE OBJECT. This is the step that was missed at v0.17.0.
-gh release create v0.22.0 --title "v0.22.0" --notes-file <the section body and its limits>
+# 4. THE INDEPENDENT REVIEW, OF GitHub main, AFTER THE PUSH AND BEFORE THE TAG.
+#    A FIXED STEP SINCE 0.24.0, not a reminder. A second reader, given the
+#    repository as GitHub serves it and nothing from the session that wrote it,
+#    looks for defects. Every finding is FIXED (and pushed, and the review re-read
+#    on the new main) or REGISTERED with its reason, and the record names the
+#    commit of main it read and says it ran before the tag.
+#
+#    WHY IT IS A STEP. The gate was created on 2026-09-12 and only 0.17.0 and
+#    0.23.0 carry its record; 0.18.0 to 0.22.0 carry none. Both times it ran it
+#    found defects no internal round had: at 0.23.0, seven of the first severity
+#    after four internal rounds and ninety-two internal findings.
 
-# 5. the archive DOI. Zenodo's webhook fires on the RELEASE OBJECT of step 4,
-#    not on the tag of step 3. Read the new version DOI off the Zenodo record.
+# 5. the tag, annotated, on the reviewed commit, once CI is green on it
+git tag -a v0.24.0 -m "v0.24.0"
 
-# 6. the citation row, one commit after the tag
-#    CITATION.cff gains the version DOI from step 5, and the Owed line for
-#    v0.22.0 leaves the change log in the same commit.
-git commit -m "chore: the v0.22.0 archive row"
+# 6. push the tag. THIS PUBLISHES TO PyPI and nothing else.
+git push origin v0.24.0
 
-# 7. confirm, rather than assume
+# 7. THE RELEASE OBJECT. This is the step that was missed at v0.17.0.
+gh release create v0.24.0 --title "v0.24.0" --notes-file <the section body and its limits>
+
+# 8. the archive DOI. Zenodo's webhook fires on the RELEASE OBJECT of step 7,
+#    not on the tag of step 6. Read the new version DOI off the Zenodo record.
+
+# 9. the citation row, one commit after the tag
+#    CITATION.cff gains the version DOI from step 8, and the Owed line for
+#    v0.24.0 leaves the change log in the same commit. THE TREE MOVES TO THE NEXT
+#    .dev0 IN THAT COMMIT: the post-tag dev bump was missed after v0.21.1.
+git commit -m "chore: the v0.24.0 archive row"
+
+# 10. confirm, rather than assume
 python scripts/check_release_published.py    # online is the default; --offline skips the network
 ```
 
-**STEP 4 WAS MISSED AT v0.17.0** and the release was archived nowhere for a day;
+**STEP 7 WAS MISSED AT v0.17.0** and the release was archived nowhere for a day;
 **THE OWED LINE OF STEP 1 WAS MISSING AT v0.18.0** and its publish was skipped;
-**IT WAS PRESENT BUT WORDLESS AT v0.21.0** and the publish was skipped again, for
-the debt word; **THE FRONT PAGES WERE MISSED AT v0.18.1** and CI caught them
-before the tag; **THE POST-TAG DEV BUMP WAS MISSED AFTER v0.21.1**. Each is
-written into the sequence rather than remembered, because a fast release is
-exactly when a step gets skipped.
+**IT WAS PRESENT BUT WORDLESS AT v0.21.0** and the publish was skipped again;
+**THE FRONT PAGES WERE MISSED AT v0.18.1** and CI caught them before the tag;
+**THE POST-TAG DEV BUMP WAS MISSED AFTER v0.21.1**; **THE INDEPENDENT REVIEW WAS
+SKIPPED FROM v0.18.0 TO v0.22.0**. Each is written into the sequence rather than
+remembered, because a fast release is exactly when a step gets skipped.
 
-A tag is RELEASED when the release object exists at that tag AND the archive
-has minted a version DOI that `CITATION.cff` records; anything less is a tag.
+A tag is RELEASED when the release object exists at that tag AND the archive has
+minted a version DOI that `CITATION.cff` records; anything less is a tag.
 `scripts/check_release_published.py` asks both halves.
 
 ## What is true of the tree at the release commit
 
 Every number comes from a command run at the moment this file was written, with
-the command beside it. The release commit changes no executable code, so a
-reading taken on the code below is a reading of the code the tag carries.
+the command beside it.
 
-| what | command | reading |
-|---|---|---|
-| the tier-1 suite | `python -m pytest tests/tier1_offline` (one file per process) | 145 files, 4361 passed, 0 failures |
-| the type checker | `python -m mypy src/pyflightstream tests/tier3_licensed/rotation_null.py` | Success, no issues in 87 source files |
-| the linter | `python -m ruff check src tests scripts tools` | All checks passed |
-| the formatter | `python -m ruff format --check src tests scripts tools` | all files formatted |
-| the review | qa, architect, api-designer and tech-writer over dd1010f..d2a1e24 | one round, FIX-0212; one BLOCKING finding, and the flag was rebuilt on it |
-| the review | qa, architect, vv and tech-writer over d2a1e24..90c45fc | one round, FIX-0220, over the ROTOR SIGN; two BLOCKING, and each was a second live path to the same wrong-way rotation |
-| the mutants | the module's companion, six sited on this change | 6 of 6 killed against a green control |
-| the tier-3 suite | `python -m pytest -m needs_flightstream tests/tier3_licensed` | NOT RUN. See below: this release DOES change the emitted script |
+Readings of 2026-09-19, each status read from the process:
+
+- `ruff check .` exit 0; `ruff format --check .` exit 0; `mypy` exit 0, "Success: no issues
+  found in 93 source files".
+- The full tier-1 suite, detached, at 056067e: 4974 passed, 6 skipped, exit 0; re-run on
+  the release commit before the tag.
+- The executable examples (`src/pyflightstream README.md docs`, warnings as errors): 381
+  passed.
+- `python -m tests.tier3_licensed.offline`: every matrix 0 differing, 0 orphan.
+- mypy recount 2026-09-19: 661 errors in 18 of 93 modules (reports/RPT-029).
+- Review: round 1 (five lenses, 52 findings) and round 2 (five codex lenses, 15 findings),
+  REL-0240_rounds.ledger VERIFIED, 2 rounds, 67 findings; three independent codex passes
+  (numbers, unsteady reductions, inputs and infrastructure) before round 2.
 
 ## What this release carries
 
-The change log's `[0.22.0]` section is the record. In one line:
+The change log's `[0.24.0]` section is the record, and `docs/migrating-to-0.24.0.md`
+says what a reader of existing files must know. In one line each:
 
-- **BREAKING: a row's `RPM` is a magnitude and the reference's `rpm_sign` is the
-  hand.** Until 0.21.1 the reference's hand was dropped in silence for a row that
-  stated its own speed, so such a rotor turned whichever way its number was
-  written: no refusal, no warning, and a rotor turning backwards converges and
-  reports numbers. The point's name writes `RPM` in magnitude.
-- **`pyfs-matrix run --force-rerun <point>`** redoes a point whose matrix row
-  was wrong, archiving its record and its collected outputs rather than deleting
-  them, and naming points rather than redoing a whole matrix.
-- **A refused motion no longer reads as an absent one**, and a refusal from
-  `pyfs-matrix run` is printed rather than raised as a traceback.
+- **Numbers that change:** `ETAW` and the shaft angle wherever alpha or beta is not
+  zero (two wrong signs in the free-stream vector of 0.23.0); `CLS`, `CLW`, `CDB`
+  and `CLB` of every steady polar, now built from the export's own vector; the
+  rotor table of an unsteady point, which held the last time step and now holds
+  the window average.
+- **One new thing a row must say:** an unsteady row states its averaging window.
+- **One header migration, once:** the condition block with the air and the
+  reference velocity; the unsteady polar as `P<sim>_<name>_uns_avg.csv` with its
+  window, its axes and the super content; sections, series, reductions, per-blade
+  and rotor tables that say which step, surface, rotor, blade and window a row is.
+- **Axes under sideslip**, in one module checked against scipy and against the
+  recorded exports.
+- **New, optional, in the pproc:** `[phase_locked]`, `[equations]`, `[glossary]`,
+  `[names]`, the fixed-width super file, two generated guides.
+- **The cluster path:** collect, the run records and the manifest as a transaction.
 
-(The 0.20.x migration deadlock between `rename` and `collect` was fixed in
-**0.21.1** and is already released; it is not carried by this tag.)
+## What the licensed campaign measured, and what it did not
 
-## What no seat confirmed, stated plainly
-
-**This release changes the emitted script, and no licensed run was made.**
-
-Seven tier-3 goldens move in this range, each on one line, each the same shape:
-`SET_MOTION_ROTOR_RPM n 800.0` becomes `-800.0`. Those rows state `RPM: 800` and
-their reference declares `rpm_sign = -1`, so the OLD goldens are the defect
-frozen in place. The new ones are the package's own PLAN-TIME RENDER, compared
-offline by `tests/tier1_offline/test_tier3_offline.py`; a golden is not evidence
-about the solver and was never validated against a run.
-
-What the tree measures, and what it does not:
-
-- **RPT-049 measured the POSITIVE hand on a seat**: `SET_MOTION_ROTOR_RPM 1
-  473.1723` about axis `X` turned the export centroid `+90.000`, which is a
-  right-handed rotation about `+X` and is the convention FR-60 states.
-- **Nothing in the tree measures the NEGATIVE hand.** That the solver reads the
-  minus as a reversal -- rather than refusing it, clamping it, or taking the
-  magnitude -- is INFERRED from the positive measurement. It is the step this
-  release turns on, and it is asserted rather than measured.
-
-The smallest run that would settle it is one rotor at `+N` and the same rotor at
-`-N`, reading the exported centroid angle: one point, one seat. **Whether to
-spend it before or after the tag is the owner's call**, and this file does not
-decide it.
+The licensed campaign `pfs0240` (FlightStream 26.124; a steady wing under sideslip, the
+owner's periodic rotor sector, her full wheel at alpha 0 and 10) is committed under
+`reports/pfs0240/`: six of seven coherence checks hold, re-measured from the raw exports
+with the standard library. The seventh, the sector against the full wheel, reads 1.297
+because the full wheel used a nacelle that is not axisymmetric; the owner named the right
+geometry (`17_NX_B30_NMIN_FW.fsm`) and decided the release is not held for its run.
 
 ## What is NOT done, and is not being hidden
 
-- **THE REVIEW FOUND THE FIRST WRITING OF THIS FLAG BROKEN**, in a way that
-  archived the evidence and then ran nothing, and the six tests covering it
-  could not fail because every one used a fixture whose shape could not reach
-  the defect. It is fixed and scored; the episode is the reason this release
-  carries a round rather than a patch.
-- **A refusal in the collecting sweep still rewrites the record as
-  `FAILED_INCOMPLETE_OUTPUT` and clears `SUBMITTED`**, so any refusal costs the
-  ability to retry that point. Unchanged here; the owner's call.
-- **`plan` does not know the flag**, so a plan marks a point ALREADY_RECORDED
-  and a run with `--force-rerun` then executes it. Registered, the owner's call.
-- **No cluster has confirmed 0.21.0, 0.21.1 or this.**
-- **v0.14.0 is still not archived**, carried in the change log's Owed section.
+- The full-wheel run on `17_NX_B30_NMIN_FW.fsm` is owed, after this release, by the owner's
+  decision; until it runs, GOAL-028's campaign arm reads NOT YET.
+- The manifest lock treats a lock older than 30 s as abandoned (codex review I01): a
+  recovery policy that holds across cluster hosts is owed to 0.25.0.
+- Registered for 0.25.0 in REL-0240_rounds.ledger: ARCH-A1, ARCH-A5, API-B6, TW-F4b,
+  TW-F6, QA-Q4, SES-05 to SES-08, VV-V4, VV-V5, R2-TW-4, and the per-blade window of a
+  legacy record (codex U01, second half).
+- The Zenodo version DOI of v0.24.0 is owed one commit after the tag.

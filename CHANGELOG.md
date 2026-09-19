@@ -5,7 +5,7 @@ All notable changes to pyflightstream. The format follows
 follow [SemVer](https://semver.org/) and are decoupled from
 FlightStream versions.
 
-## [Unreleased]
+## [0.24.0] - 2026-09-19
 
 ### Fixed (refusals that protect a run and its products)
 
@@ -573,6 +573,13 @@ FlightStream versions.
 
 ### Owed
 
+- **The Zenodo version DOI of v0.24.0 is owed** one commit after the tag, as for every
+  release: it is minted from the GitHub release.
+- **The full-wheel run of the licensed campaign on the axisymmetric nacelle is owed**
+  (`reports/pfs0240/README.md`): the sector-against-wheel check reads 1.297 on a full
+  wheel whose nacelle is not axisymmetric.
+- **The manifest lock's recovery policy is owed to 0.25.0**: a lock older than 30 s is
+  taken as abandoned.
 - **The Zenodo archive of v0.14.0 DOES NOT EXIST**, re-measured against
   Zenodo's own API on 2026-09-14, when the v0.18.0 archive row was paid: the
   concept record lists NINETEEN archived versions and v0.14.0 is not among
