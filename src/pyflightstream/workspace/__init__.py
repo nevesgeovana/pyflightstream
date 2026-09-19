@@ -1039,6 +1039,11 @@ class RunRecord(BaseModel):
     #: and a post stage meeting one writes the probe table without the
     #: position columns rather than refusing a run that already happened.
     probe_points_file: str | None = None
+    #: The section distributions this point's script created, in order, each
+    #: with its families by name, its plane, its frame and its count (0.24.0).
+    #: None on every record written before it, whose sections table then states
+    #: `NA` for the identity of a row rather than a guess.
+    sections_layout: list[dict[str, object]] | None = None
     error: str | None = None
     #: The two files of a row stating an export threshold (PFS-2031.18),
     #: relative to the simulation folder, and the count the program

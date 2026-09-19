@@ -877,6 +877,13 @@ class Script:
         #: entry cites a user's points file, since the package does not
         #: parse a survey the user wrote.
         self.probe_points: list[tuple[int, float, float, float, str]] = []
+        #: EACH SECTION DISTRIBUTION THIS SCRIPT CREATED, in emission order
+        #: (0.24.0): its families BY NAME, its plane, its frame and its count.
+        #: Filled by the loop that emits the distribution, for the reason
+        #: ``probe_points`` is. The script itself states surfaces by INDEX, so a
+        #: sections table could not say which rows belong to which surface, and
+        #: nothing at post can recover a name the script never wrote.
+        self.section_blocks: list[dict[str, object]] = []
         #: WHERE THIS SCRIPT PUT EACH COORDINATE SYSTEM (FR-100), keyed by
         #: frame index. Filled by :meth:`emit` from the commands that place a
         #: frame, for the reason ``probe_points`` is filled by the loop that

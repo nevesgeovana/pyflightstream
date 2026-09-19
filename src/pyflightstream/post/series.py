@@ -21,15 +21,18 @@ formats, and a table of either would be a second format of one thing.
 from __future__ import annotations
 
 import re
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 
 from pyflightstream._errors import PyflightstreamError
 from pyflightstream.fsi.loads import parse_sectional_loads
 from pyflightstream.post._tables import (
+    CONTEXT_COLUMNS,
     SECTION_COLUMNS,
     ProductError,
     ProductExistsError,
+    context_row,
+    section_identity,
     write_csv_table,
 )
 from pyflightstream.results import (
@@ -58,8 +61,18 @@ SERIES_KINDS: tuple[tuple[str, str | None], ...] = (
     ("sections", "_sloads"),
     ("probes", "_probes"),
 )
-#: The three columns every series table leads with.
-SERIES_LEAD: tuple[str, ...] = ("step", "time_s", "azimuth_deg")
+#: The three columns every series table leads with. `STEP` since 0.24.0, the ONE
+#: name of the solver step across the package's tables; it was `step` here,
+#: `ITERATION` in the sections table and `STEP` in the probe table.
+SERIES_LEAD: tuple[str, ...] = ("STEP", "time_s", "azimuth_deg")
+#: What a SECTIONS series row leads with (0.24.0): the step and its time, then
+#: which distribution the row belongs to and where THAT rotor's blade one is.
+#: `azimuth_deg`, the row clock's unwrapped angle, is not carried beside an
+#: `AZIMUTH` that means something else.
+SECTIONS_SERIES_LEAD: tuple[str, ...] = ("STEP", "time_s", "FAMILY", "PLANE", "ROTOR", "AZIMUTH")
+#: The column saying WHICH probe a probes series row is (0.24.0), numbered from
+#: one in the export's own order, as the probe table numbers them.
+PROBE_COLUMN = "PROBE"
 #: The stamped kinds that are listed by path and not tabled.
 #: The keys carry the package's own kind names (``cases.EXPORT_KINDS``):
 #: ``sections`` is the ``_cp`` export and ``tecplot`` the ``.dat`` file.
@@ -72,8 +85,16 @@ LISTED_KINDS: tuple[tuple[str, str, str], ...] = (
 LOADS_COLUMNS: tuple[str, ...] = ("Cx", "Cy", "Cz", "CL", "CDi", "CDo", "CMx", "CMy", "CMz")
 
 
-def stamped_exports(sim_dir: Path, stem: str) -> dict[tuple[str, str], dict[int, Path]]:
+def stamped_exports(
+    sim_dir: Path, stem: str, *more: Path
+) -> dict[tuple[str, str], dict[int, Path]]:
     """Return the stamped files of ``stem`` in ``sim_dir``, by (suffix, extension) then step.
+
+    ``more`` are further folders to look in, a later one winning a step two hold.
+    A SUBMITTED point runs in ``datapoints/DP-<tag>/`` since 0.18.1 and the solver
+    stamps its per-step exports into its working directory, which collect does
+    not move because they are not declared outputs; scanning the simulation
+    folder alone found nothing of such a point.
 
     The suffix is ``""`` for the loads spreadsheet and the Tecplot file,
     ``_cp``, ``_sloads`` or ``_probes`` otherwise; the extension ``txt`` or
@@ -82,12 +103,17 @@ def stamped_exports(sim_dir: Path, stem: str) -> dict[tuple[str, str], dict[int,
     """
     pattern = re.compile(rf"{re.escape(stem)}(_cp|_sloads|_probes)?_iteration=(\d+)\.(txt|dat)$")
     found: dict[tuple[str, str], dict[int, Path]] = {}
-    for path in sorted(sim_dir.iterdir()) if sim_dir.is_dir() else ():
-        matched = pattern.match(path.name)
-        if matched is None:
-            continue
-        suffix, step, extension = matched.group(1) or "", int(matched.group(2)), matched.group(3)
-        found.setdefault((suffix, extension), {})[step] = path
+    folders: list[Path] = []
+    for folder in (sim_dir, *more):
+        if folder not in folders and folder.is_dir():
+            folders.append(folder)
+    for folder in folders:
+        for path in sorted(folder.iterdir()):
+            matched = pattern.match(path.name)
+            if matched is None:
+                continue
+            suffix, step = matched.group(1) or "", int(matched.group(2))
+            found.setdefault((suffix, matched.group(3)), {})[step] = path
     return found
 
 
@@ -142,7 +168,12 @@ def _lead(step: int, delta: float | None, step_deg: float | None) -> tuple[objec
 
 
 def _loads_rows(
-    files: Mapping[int, Path], steps: range, delta: float | None, step_deg: float | None
+    files: Mapping[int, Path],
+    steps: range,
+    delta: float | None,
+    step_deg: float | None,
+    context: tuple[object, ...],
+    **_: object,
 ) -> tuple[tuple[str, ...], list[tuple[object, ...]]]:
     """One row per step, the coefficients of every surface and the Total, wide."""
     columns: list[str] = []
@@ -173,8 +204,8 @@ def _loads_rows(
             for name in _names(columns)
             for column in LOADS_COLUMNS
         ]
-        rows.append((*_lead(step, delta, step_deg), *values))
-    return (*SERIES_LEAD, *columns), rows
+        rows.append((*_lead(step, delta, step_deg), *context, *values))
+    return (*SERIES_LEAD, *CONTEXT_COLUMNS, *columns), rows
 
 
 def _names(columns: list[str]) -> list[str]:
@@ -188,10 +219,23 @@ def _names(columns: list[str]) -> list[str]:
 
 
 def _sections_rows(
-    files: Mapping[int, Path], steps: range, delta: float | None, step_deg: float | None
+    files: Mapping[int, Path],
+    steps: range,
+    delta: float | None,
+    step_deg: float | None,
+    context: tuple[object, ...],
+    *,
+    layout: Sequence[Mapping[str, object]] | None = None,
+    rotors: Mapping[str, Mapping[str, object]] | None = None,
+    **_: object,
 ) -> tuple[tuple[str, ...], list[tuple[object, ...]]]:
-    """One row per step and section, the export's own seven columns."""
-    columns = (*SERIES_LEAD, *SECTION_COLUMNS[-7:])
+    """One row per step and section: its block's identity, the condition, the export's seven.
+
+    The identity is the sections table's own (RI-04), from the same function: a
+    series that named its blocks another way would be a second reading of one
+    export.
+    """
+    columns = (*SECTIONS_SERIES_LEAD, *CONTEXT_COLUMNS, *SECTION_COLUMNS[-7:])
     rows: list[tuple[object, ...]] = []
     for step in steps:
         path = files.get(step)
@@ -208,13 +252,20 @@ def _sections_rows(
             report = parse_sectional_loads(text)
         except PyflightstreamError as error:
             raise ProductError(f"{path} is not a sectional loads export: {error}") from error
-        for values in report.values:
-            rows.append((*_lead(step, delta, step_deg), *(float(v) for v in values[:7])))
+        identity = section_identity(len(report.values), layout, rotors, step, None)
+        lead = _lead(step, delta, step_deg)[:2]
+        for at, values in enumerate(report.values):
+            rows.append((*lead, *identity[at], *context, *(float(v) for v in values[:7])))
     return columns, rows
 
 
 def _probes_rows(
-    files: Mapping[int, Path], steps: range, delta: float | None, step_deg: float | None
+    files: Mapping[int, Path],
+    steps: range,
+    delta: float | None,
+    step_deg: float | None,
+    context: tuple[object, ...],
+    **_: object,
 ) -> tuple[tuple[str, ...], list[tuple[object, ...]]]:
     """One row per step and probe, the export's own columns; a run with no probe has none."""
     columns: tuple[str, ...] = ()
@@ -229,9 +280,11 @@ def _probes_rows(
             raise ProductError(f"{path} is not a probe points export: {error}") from error
         if not columns:
             columns = tuple(report.columns)
-        for values in report.values.tolist():
-            rows.append((*_lead(step, delta, step_deg), *values))
-    return (*SERIES_LEAD, *columns), rows
+        # WHICH PROBE (RI-06). Twelve rows of one step were told apart by their
+        # order, which is not a table.
+        for number, values in enumerate(report.values.tolist(), start=1):
+            rows.append((*_lead(step, delta, step_deg), number, *context, *values))
+    return (*SERIES_LEAD, PROBE_COLUMN, *CONTEXT_COLUMNS, *columns), rows
 
 
 _ROWS: dict[str, Callable[..., tuple[tuple[str, ...], list[tuple[object, ...]]]]] = {
@@ -250,8 +303,21 @@ def write_point_series(
     out: Path,
     overwrite: bool = False,
     target: Callable[[Path], Path] | None = None,
+    condition: Mapping[str, object] | None = None,
+    reference: Mapping[str, object] | None = None,
+    rotors: Mapping[str, Mapping[str, object]] | None = None,
+    skipped: dict[str, str] | None = None,
 ) -> tuple[list[Path], dict[str, dict[str, object]]]:
     """Write the series tables of one point from its stamped exports.
+
+    ``condition`` and ``reference`` are the point's, as every other product of it
+    states them (0.24.0); without them the cells read `NA`. ``rotors`` is what
+    the sections identity needs of each rotor, as
+    :func:`~pyflightstream.post.products.write_sections_table` takes it.
+
+    A KIND WITH NO STAMPED FILE IS NOT WRITTEN (0.24.0). It used to be a table of
+    a header and no row, recorded in the manifest as written; ``skipped``, when
+    given, receives the reason under the table's own name.
 
     Parameters
     ----------
@@ -297,13 +363,27 @@ def write_point_series(
     first, last = int(window["first_step"]), int(window["time_iterations"])
     steps = range(first, last + 1)
     delta, step_deg = run_clock(record)
-    stamped = stamped_exports(sim_dir, stem)
+    # WHERE THE POINT RAN, as its own outputs state it: the simulation folder for a
+    # local run, its datapoint folder for a submitted one (MT-06).
+    ran_in = [sim_dir / Path(output).parent for output in record.outputs]
+    stamped = stamped_exports(sim_dir, stem, *ran_in)
+    context = context_row(condition, reference)
     written: list[Path] = []
     names: dict[str, dict[str, object]] = {}
     for kind, suffix in SERIES_KINDS:
         files = stamped.get((suffix or "", "txt"), {})
-        columns, rows = _ROWS[kind](files, steps, delta, step_deg)
         relative = f"{SERIES_DIR}/{stem}_{kind}_series.csv"
+        if not any(step in files for step in steps):
+            if skipped is not None:
+                looked = ", ".join(str(folder) for folder in dict.fromkeys([sim_dir, *ran_in]))
+                skipped[relative] = (
+                    f"no {stem}{suffix or ''}_iteration=<step>.txt of steps {first} to {last} "
+                    f"is in {looked}, so there is no row to table"
+                )
+            continue
+        columns, rows = _ROWS[kind](
+            files, steps, delta, step_deg, context, layout=record.sections_layout, rotors=rotors
+        )
         path = out / relative
         # THE TARGET DECIDES, AND DECIDES ALONE. Until 2026-09-14 the products
         # stage accepted `archive` and never passed it here, so a rebuild

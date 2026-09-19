@@ -21,6 +21,13 @@ THE USAGE, as a user meets it:
 
     ITERATION,AZIMUTH,ALPHA,BETA,MACH,RE,VINF,ALT,J,SREF,CREF,BREF,Offset,...
     412,37.50000,-2.00000,...
+
+THE REQUIREMENT MOVED IN 0.24.0, and these expectations moved with it. The
+owner's answer of 2026-09-18 is ONE name for the solver step across every
+table, `STEP`, so the column this file calls the iteration is spelled `STEP`;
+and the azimuth is blade one of the BLOCK'S OWN rotor, from its datum and in
+its sense, so it is stated through a layout and a rotor and no longer through
+one clock for the whole file (`test_goal028_sections_identity.py`).
 """
 
 from __future__ import annotations
@@ -33,7 +40,7 @@ from pyflightstream.post import products
 def test_the_sections_table_says_which_iteration_and_which_azimuth():
     """The two columns that tell one sections row from another."""
     columns = products.SECTION_COLUMNS
-    assert "ITERATION" in columns, columns
+    assert "STEP" in columns, columns
     assert "AZIMUTH" in columns, columns
 
 
@@ -56,8 +63,9 @@ def test_the_iteration_and_the_azimuth_lead_the_row():
     scanning the left edge of the table should be reading what changes.
     """
     columns = products.SECTION_COLUMNS
-    assert columns[0] == "ITERATION", columns
-    assert columns[1] == "AZIMUTH", columns
+    assert columns[0] == "STEP", columns
+    # FAMILY, PLANE and ROTOR sit between them since 0.24.0: they are identity too.
+    assert columns[:5] == ("STEP", "FAMILY", "PLANE", "ROTOR", "AZIMUTH"), columns
 
 
 #: What the shipped sections fixture states as its own iteration. Asserted
@@ -112,7 +120,7 @@ def test_the_iteration_is_read_from_the_export_that_states_it(tmp_path):
     assert target is not None
     _, rows = read_csv_table(target)
     assert rows, "the export declares a section and the table has no row"
-    assert rows[0]["ITERATION"] == str(FIXTURE_ITERATION), rows[0]
+    assert rows[0]["STEP"] == str(FIXTURE_ITERATION), rows[0]
 
 
 def test_the_azimuth_is_where_the_blade_was_at_that_iteration(tmp_path):
@@ -133,7 +141,16 @@ def test_the_azimuth_is_where_the_blade_was_at_that_iteration(tmp_path):
         tmp_path / "sections" / "Q_sections.csv",
         _sections_export(),
         mach=0.2,
-        step_deg=3.6,
+        # 100 steps per revolution is 3.6 degrees a step, from a datum of zero.
+        layout=[{"families": ["Blade1"], "plane": "XY", "count": 2, "frame": "B1"}],
+        rotors={
+            "PROP": {
+                "families": ["Blade1"],
+                "steps_per_revolution": 100.0,
+                "blade1_azimuth_deg": 0.0,
+                "rpm": 1200.0,
+            }
+        },
     )
     assert target is not None
     _, rows = read_csv_table(target)

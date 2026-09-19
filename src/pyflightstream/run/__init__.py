@@ -5670,6 +5670,10 @@ def _execute_point(
         )
     if probe_points_file is not None:
         base["probe_points_file"] = probe_points_file
+    if script.section_blocks:
+        # WHICH ROWS OF THE SECTIONS EXPORT ARE WHICH SURFACE (0.24.0), recorded
+        # beside the script that created the distributions.
+        base["sections_layout"] = [dict(block) for block in script.section_blocks]
     # PFS-2031.13. The child script of a SCRIPT action is parked on the
     # script by helpers.unsteady_action and written HERE, before the
     # solver starts, where the registration line names it: a relative

@@ -115,10 +115,11 @@ from pyflightstream.post._tables import (
     ProductError,
     ProductExistsError,
     context_row,
+    section_identity,
     write_csv_table,
 )
 from pyflightstream.post.axes import free_stream_in_export_frame
-from pyflightstream.post.series import run_clock, write_point_series
+from pyflightstream.post.series import write_point_series
 from pyflightstream.post.superfile import (
     SuperfileDraft,
     matrix_rows,
@@ -168,6 +169,7 @@ __all__ = [
     "FLIGHT_CONDITION_COLUMNS",
     "REFERENCE_LENGTH_COLUMNS",
     "context_row",
+    "section_identity",
     # The token a reader of any product compares against. It was reachable
     # only from the private `_tables` until 0.23.0, while that module's own
     # docstring said this one re-exports every public name it holds -- so the
@@ -2248,12 +2250,33 @@ def write_sections_table(
     mach: float,
     iteration: int | None = None,
     azimuth_deg: float | None = None,
-    step_deg: float | None = None,
     reference: ReferenceValues | None = None,
     advance_ratio: float | None = None,
     condition: Mapping[str, object] | None = None,
+    layout: Sequence[Mapping[str, object]] | None = None,
+    rotors: Mapping[str, Mapping[str, object]] | None = None,
 ) -> Path | None:
     """Write one sections table from a sectional loads export.
+
+    ``layout`` is WHICH DISTRIBUTION EACH ROW BELONGS TO (0.24.0): the blocks the
+    run's script created, in order, as the run record states them under
+    ``sections_layout``. A pproc declares several distributions, the wing in XZ
+    and each blade in its own frame, and the export concatenates them with no
+    marker; with `Offset` the only coordinate, two distributions of similar span
+    were indistinguishable. `FAMILY`, `PLANE` and `ROTOR` say which is which.
+    The layout is applied ONLY when its counts add up to the rows the export
+    holds; otherwise, and on every record written before the run recorded one,
+    the three read `NA`. The script states surfaces by index, so nothing at post
+    can name them.
+
+    ``rotors`` maps a rotor's alias to its ``families``, its
+    ``steps_per_revolution``, its ``blade1_azimuth_deg`` and its signed ``rpm``.
+    `AZIMUTH` is where BLADE ONE OF THE BLOCK'S OWN ROTOR is at the export's step,
+
+        (blade1_azimuth_deg + sign(rpm) * STEP * 360 / steps_per_revolution) mod 360
+
+    and `NA` on a block no rotor owns. It used to be ONE number for the whole
+    file, the row's clock rotor turned from zero and unsigned, on wing rows too.
 
     ``condition`` is the POINT's condition as :func:`point_condition` assembles it,
     and the stage always passes it (0.24.0): this family used to build its own
@@ -2275,12 +2298,11 @@ def write_sections_table(
     said `NA,NA` while the answer sat in the text the writer was handed. A
     caller that knows better may still pass ``iteration`` and it wins.
 
-    ``step_deg`` is the row's clock: how far the blade turns in one solver
-    step, from :func:`pyflightstream.post.series.run_clock`. Given it, the
-    azimuth is the iteration ON that clock, WRAPPED -- a step count is not an
-    angle, and 1575 steps of 3.6 degrees is 5670 degrees, which is not
-    somewhere a blade can be. Without it the azimuth stays `NA`, because the
-    alternative is writing a zero that a reader would believe.
+    THE AZIMUTH IS WRAPPED -- a step count is not an angle, and 1575 steps of
+    3.6 degrees is 5670 degrees, which is not somewhere a blade can be. Without
+    a rotor that owns the block it stays `NA`, because the alternative is
+    writing a zero that a reader would believe. ``azimuth_deg`` is for a caller
+    holding one export of one rotor and no layout; it states every row.
 
     Returns None without writing when the export declares no section, as
     a run that defined no distribution leaves; the columns are the point,
@@ -2313,9 +2335,6 @@ def write_sections_table(
     # the step better than a header does.
     if iteration is None:
         iteration = _stated_iteration(export_text)
-    if azimuth_deg is None and iteration is not None and step_deg is not None:
-        # WRAPPED. A step count is not an angle.
-        azimuth_deg = (iteration * step_deg) % 360.0
     table = np.asarray(report.values, dtype=float)
     if table.shape[1] < 7:
         raise ProductError(
@@ -2341,12 +2360,12 @@ def write_sections_table(
             ADVANCE_RATIO_COLUMN: advance_ratio,
         }
     )
-    lead = (
-        iteration,
-        azimuth_deg,
-        *context_row(stated, None if reference is None else reference.as_lengths()),
-    )
-    rows = [(*lead, *(float(v) for v in row[:7])) for row in table]
+    context = context_row(stated, None if reference is None else reference.as_lengths())
+    identity = section_identity(len(table), layout, rotors, iteration, azimuth_deg)
+    rows = [
+        (iteration, *identity[at], *context, *(float(v) for v in row[:7]))
+        for at, row in enumerate(table)
+    ]
     return write_csv_table(path, SECTION_COLUMNS, rows)
 
 
@@ -3318,6 +3337,36 @@ def _matrix_window(matrix_row: MatrixRow | None, record: object) -> tuple[int, i
     )
 
 
+def _section_rotors(
+    live: object | None, aliases: Mapping[str, Sequence[str]] | None, record: RunRecord
+) -> dict[str, dict[str, object]]:
+    """Return what the sections table needs of each rotor: its families and its clock.
+
+    The families come from the reference the row names today, expanded through
+    the aliases, because a section block states geometry families. The speed,
+    the steps per revolution and blade one's datum come from the point's own
+    record, which is the only place a run states them.
+    """
+    blocks = getattr(live, "rotors", None) or {}
+    reductions = record.reductions if isinstance(record.reductions, Mapping) else {}
+    stated = reductions.get("rotors")
+    table: dict[str, dict[str, object]] = {}
+    for alias, block in blocks.items():
+        families: list[str] = []
+        for name in getattr(block, "families_blades", ()) or ():
+            families.extend(str(m) for m in (aliases or {}).get(str(name), (name,)))
+        own = stated.get(str(alias)) if isinstance(stated, Mapping) else None
+        if not isinstance(own, Mapping) and len(blocks) == 1:
+            # THE ROW-LEVEL PATH: one rotor, whose clock is the plan's own.
+            own = reductions
+        entry: dict[str, object] = {"families": families}
+        if isinstance(own, Mapping):
+            for key in ("steps_per_revolution", "blade1_azimuth_deg", "rpm"):
+                entry[key] = own.get(key)
+        table[str(alias)] = entry
+    return table
+
+
 def _live_reference(workspace: CampaignWorkspace, matrix_row: MatrixRow | None) -> object | None:
     """Return the reference artifact the matrix row names TODAY, or None.
 
@@ -3708,6 +3757,7 @@ def _sim_products(
     mach = first.mach
     written: list[Path] = []
     sources: dict[str, list[str]] = {}
+    record_of: dict[str, RunRecord] = {}
     points: list[PolarPoint] = []
     exports: dict[str, tuple[Path | None, Path | None, Path | None]] = {}
     plans: dict[str, dict[str, object] | None] = {}
@@ -3757,6 +3807,7 @@ def _sim_products(
                 state=point_state(record),
             )
         )
+        record_of[stem] = record
         vinf = report.freestream_velocity_m_s
         vref = getattr(report, "reference_velocity_m_s", None)
         if (
@@ -3891,10 +3942,6 @@ def _sim_products(
         # clock took the polar away from every other point of the sweep.
         unsteady_window_steps = unsteady_window_steps or next(iter(point_windows.values()))
     cell = first.flight_condition if isinstance(first.flight_condition, Mapping) else None
-    # ITEM 13's other half. The clock is a property of the ROW's export
-    # settings, so every point of one row shares it; the iteration is per point
-    # and comes out of each export's own header.
-    _, step_deg = run_clock(first)
     run_ids = [rid for stem in sources for rid in sources[stem]]
     written_names: dict[str, dict[str, object]] = {}
     #: One entry per group: where its superfile goes and the polar rows it
@@ -4090,19 +4137,26 @@ def _sim_products(
                     reference=reference,
                     advance_ratio=_advance_ratio_of(point),
                     condition=point_condition(point, mach=mach, cell=cell),
-                    # ITEM 13. The iteration comes out of the export itself; the
-                    # CLOCK does not, and only a record states it. `run_clock` is
-                    # the one that writes the point series, published for this
-                    # rather than copied: two functions deriving one clock is how
-                    # two products of a point disagree about when it was sampled.
-                    step_deg=step_deg,
+                    # WHICH ROWS ARE WHICH SURFACE, and where THAT rotor's blade one
+                    # is (0.24.0). The layout is the point's own record's, and so is
+                    # each rotor's speed: an RPM sweep turns a different angle per
+                    # step at each point.
+                    layout=record_of[point.name].sections_layout,
+                    rotors=_section_rotors(live, aliases, record_of[point.name]),
                 )
             except ProductError as error:
                 skipped[relative] = str(error)
                 done = None
             if done is not None:
                 written.append(done)
-                written_names[done.relative_to(out).as_posix()] = {"runs": sources[point.name]}
+                written_names[done.relative_to(out).as_posix()] = {
+                    "runs": sources[point.name],
+                    # ONE PHOTOGRAPH, AND THE MANIFEST SAYS SO (0.24.0). On an
+                    # unsteady point this table is the distribution at the step its
+                    # `STEP` column states and not an average over the window; the
+                    # history is `series/<point>_sections_series.csv`.
+                    "kind": "instant",
+                }
         # FR-87, the steady half. The probe-points export is the
         # flow-field sample of a point that is not an unsteady history,
         # and it is the ONE export both run types produce, so it is what
@@ -4421,6 +4475,8 @@ def _point_series(
     overwrite: bool,
     archive: bool = True,
     archive_stamp: datetime | None = None,
+    matrix_row: MatrixRow | None = None,
+    skipped: dict[str, str] | None = None,
 ) -> tuple[list[Path], dict[str, dict[str, object]]]:
     """Write the series tables of one windowed record (PFS-2031.18.01).
 
@@ -4435,6 +4491,35 @@ def _point_series(
     if loads_name is None:
         return [], {}
     stem = loads_name[: -len(".txt")]
+    # THE CONDITION EVERY OTHER PRODUCT OF THE POINT STATES (NL-05), assembled by
+    # the same function from the same sources. A loads table that is not on disk
+    # leaves the cells `NA`; the series rest on the stamped files and are still
+    # written.
+    condition: Mapping[str, object] | None = None
+    loads_path = workspace.sim_dir(sim_id) / next(
+        (o for o in record.outputs if Path(o).name == loads_name), loads_name
+    )
+    if loads_path.is_file():
+        try:
+            report = parse_loads(loads_path.read_text(encoding="utf-8", errors="replace"))
+        except PyflightstreamError:
+            report = None
+        if report is not None:
+            point = PolarPoint(
+                name=stem,
+                loads=report,
+                loads_path=loads_path,
+                point=dict(record.point),
+                state=point_state(record),
+            )
+            cell = record.flight_condition if isinstance(record.flight_condition, Mapping) else None
+            if record.mach is not None:
+                condition = point_condition(point, mach=record.mach, cell=cell)
+    reference = (
+        ReferenceValues.from_mapping(record.reference).as_lengths() if record.reference else None
+    )
+    live = _live_reference(workspace, matrix_row)
+    aliases = getattr(live, "aliases", None) or record.aliases
     return write_point_series(
         workspace.root,
         sim_dir=workspace.sim_dir(sim_id),
@@ -4442,6 +4527,10 @@ def _point_series(
         stem=stem,
         out=out,
         overwrite=overwrite,
+        condition=condition,
+        reference=reference,
+        rotors=_section_rotors(live, aliases, record),
+        skipped=skipped,
         # `archive` WAS ACCEPTED HERE AND NEVER USED until 2026-09-14, so the
         # series were the one product a rebuild rewrote in place.
         target=lambda path: _refuse_an_existing_product(path, archive=archive, stamp=archive_stamp),
@@ -5204,6 +5293,7 @@ def _write_the_products(
         for record in sim_records:
             if not record.export_window:
                 continue
+            said = set(skipped)
             try:
                 series_files, series_names = _point_series(
                     workspace,
@@ -5213,6 +5303,8 @@ def _write_the_products(
                     overwrite=overwrite,
                     archive=archive,
                     archive_stamp=archive_stamp,
+                    matrix_row=rows_of_the_matrix.get(sim_id),
+                    skipped=skipped,
                 )
             except ProductExistsError:
                 raise
@@ -5224,6 +5316,11 @@ def _write_the_products(
                     stacklevel=2,
                 )
                 continue
+            for name in sorted(set(skipped) - said):
+                # SAID, as every other product the stage leaves out is (MT-06).
+                warnings.warn(
+                    f"{name} not written: {skipped[name]}", PyflightstreamWarning, stacklevel=2
+                )
             written.extend(series_files)
             for name, entry in series_names.items():
                 products_index[name] = {"sim_id": sim_id, "pproc": record.pproc, **entry}

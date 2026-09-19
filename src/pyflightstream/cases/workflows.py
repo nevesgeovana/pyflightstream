@@ -7552,6 +7552,14 @@ def _pproc_sections(case: SimCase, script: Script, frames: Frames) -> None:
                 else {}
             )
             for plane in entry.planes:
+                script.section_blocks.append(
+                    {
+                        "families": [str(family) for family in families],
+                        "plane": str(plane),
+                        "frame": "" if frame_name is None else str(frame_name),
+                        "count": int(entry.count if entry.count is not None else sections.count),
+                    }
+                )
                 script.emit(
                     _SECTION_COMMAND,
                     frame=frame,

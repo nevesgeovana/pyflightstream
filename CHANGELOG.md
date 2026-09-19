@@ -91,6 +91,32 @@ FlightStream versions.
   not its free stream: the steady polar's coefficients are by `VREF`, while the
   plots table, its reductions and the unsteady polar are rescaled to `VINF`.
 
+### Changed (breaking: the sections table and the series name their rows)
+
+- **`ITERATION` is `STEP`, and so is the series' `step`.** One name for the
+  solver step across every table the package writes.
+- **A sections row says which distribution it belongs to:** `FAMILY`, `PLANE`
+  and `ROTOR` follow `STEP`. The export concatenates every distribution the
+  pproc declares with no marker, and with `Offset` the only coordinate two
+  distributions of similar span could not be told apart. The run records the
+  blocks (`sections_layout` on the run record); a record written before this
+  release states `NA`.
+- **`AZIMUTH` is blade one of the row's OWN rotor**, from that rotor's datum,
+  in its sense of rotation, on its own steps per revolution, wrapped. It was
+  one number for the whole file: the row's clock rotor, turned from zero,
+  unsigned, written on wing rows too. `write_sections_table` takes `layout=`
+  and `rotors=` and no longer takes `step_deg=`.
+- The sections entry of `products.json` says `"kind": "instant"`.
+- **The series state the condition block**, as every other product does; the
+  probes series says WHICH probe a row is in `PROBE`; the sections series
+  leads with `STEP, time_s, FAMILY, PLANE, ROTOR, AZIMUTH`.
+- **A submitted point gets its series.** The stamped per-step exports are
+  looked for in the point's datapoint folder as well as the simulation
+  folder; they were searched for at the simulation's top level only, so a
+  point collected from a cluster got three header-only tables recorded as
+  written. A kind with no stamped file is no longer written: it is a named
+  skip.
+
 ### Fixed (one column name, one source)
 
 - **`ALT` CAME FROM THREE SOURCES IN ONE FOLDER.** The sections table read the

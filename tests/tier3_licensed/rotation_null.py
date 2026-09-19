@@ -217,8 +217,8 @@ def compare_series(control_point: str, turned_point: str) -> Verdict:
     """
     verdict = Verdict("per-step loads series")
     series = PRODUCTS / "series"
-    left = {row["step"]: row for row in read_csv(series / f"{control_point}_loads_series.csv")}
-    right = {row["step"]: row for row in read_csv(series / f"{turned_point}_loads_series.csv")}
+    left = {row["STEP"]: row for row in read_csv(series / f"{control_point}_loads_series.csv")}
+    right = {row["STEP"]: row for row in read_csv(series / f"{turned_point}_loads_series.csv")}
     shared = sorted(set(left) & set(right), key=int)
     if not shared:
         raise SystemExit(f"the two series share no step: {sorted(left)} against {sorted(right)}")

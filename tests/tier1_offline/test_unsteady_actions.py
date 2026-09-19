@@ -500,7 +500,7 @@ def test_the_series_of_a_stub_run_agrees_with_the_counter_step_for_step(tmp_path
     table = workspace.root / "post" / "products" / "series" / "loads_AL+000_loads_series.csv"
     assert table.is_file(), sorted((workspace.root / "post").rglob("*"))
     rows = table.read_text(encoding="utf-8").splitlines()
-    assert rows[0].startswith("step,time_s,azimuth_deg,"), rows[0]
+    assert rows[0].startswith("STEP,time_s,azimuth_deg,"), rows[0]
     body = [line.split(",") for line in rows[1:]]
     assert [int(cells[0]) for cells in body] == [2, 3, 4]
     # The counter's last state is step 4 at 4 * DELTA_TIME; the table's last row says the same.

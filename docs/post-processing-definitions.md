@@ -20,6 +20,7 @@ she gave it. Nothing here was inferred from an implementation.
 
 - [The vocabulary](#the-vocabulary)
 - [What every product states](#what-every-product-states)
+- [The sections table, and which row is which](#the-sections-table-and-which-row-is-which)
 - [`time_average`](#time_average)
 - [`per_blade`](#per_blade)
 - [`phase_locked`](#phase_locked)
@@ -85,6 +86,38 @@ The steady polar already carries `ALPHA`, `BETA`, `MACH` and `RE` among its
 twenty-four, so it states the rest of the block beside them. The plots table
 `probes/<point>_plots.csv` states NO condition, on purpose: it is the export's own
 header, and the reductions read every column of it back as a plotted quantity.
+
+---
+
+## The sections table, and which row is which
+
+`sections/<point>_sections.csv` is ONE export of the solver holding EVERY
+distribution the pproc declares, the wing in `XZ` and each blade in its own
+frame, one after another with no marker between them. Each row leads with:
+
+| column | what it is |
+|---|---|
+| `STEP` | the solver step the export states. One name across every table; on a steady run it is the solver iteration |
+| `FAMILY` | the geometry families of the row's distribution, joined by `+` |
+| `PLANE` | the cutting plane of that distribution |
+| `ROTOR` | the rotor whose blades those families are; `NA` for a surface no rotor owns |
+| `AZIMUTH` | where BLADE ONE OF THAT ROTOR is at `STEP`, in degrees, wrapped to one turn; `NA` without a rotor |
+
+`AZIMUTH = (blade1.azimuth_deg + sense * STEP * 360 / steps_per_revolution) mod 360`,
+with the datum, the sense of rotation (the sign of the rotor's speed) and the
+steps per revolution all taken from THAT rotor. Two rotors at two speeds have
+two azimuths at one step, and a wing has none.
+
+The run records which distribution is which, because the script states
+surfaces by index and nothing at post can name them. A run recorded before
+0.24.0 states `NA` in all four, and so does a record whose blocks do not add
+up to the rows the export holds: a row given its neighbour's family is worse
+than a row given none.
+
+**It is one instant.** On an unsteady point this table is the distribution at
+`STEP`, not an average over the window, and its `products.json` entry says
+`"kind": "instant"`. The history is `series/<point>_sections_series.csv`,
+which carries the same identity on every row.
 
 ---
 

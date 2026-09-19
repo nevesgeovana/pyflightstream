@@ -136,8 +136,8 @@ def test_the_stamped_files_of_the_window_table_as_a_series(runs, workspace):
             reader = csv.DictReader(handle)
             tables[kind] = (tuple(reader.fieldnames or ()), list(reader))
     columns, rows = tables["loads"]
-    assert columns[:3] == ("step", "time_s", "azimuth_deg") and "Total_CL" in columns
-    assert [int(r["step"]) for r in rows] == list(range(THRESHOLD, STEPS + 1))
+    assert columns[:3] == ("STEP", "time_s", "azimuth_deg") and "Total_CL" in columns
+    assert [int(r["STEP"]) for r in rows] == list(range(THRESHOLD, STEPS + 1))
     delta = record.export_window["delta_time_s"]
     assert [float(r["time_s"]) for r in rows] == pytest.approx(
         [s * delta for s in range(THRESHOLD, STEPS + 1)]
@@ -145,7 +145,7 @@ def test_the_stamped_files_of_the_window_table_as_a_series(runs, workspace):
     assert all(r["azimuth_deg"] == "" for r in rows), "row 6002 turns nothing"
     # The wing row defines no section and no probe: the two tables are their header.
     assert tables["sections"][1] == [] and tables["probes"][1] == []
-    assert tables["probes"][0][:3] == ("step", "time_s", "azimuth_deg")
+    assert tables["probes"][0][:3] == ("STEP", "time_s", "azimuth_deg")
     index = json.loads((runs.products(MATRIX) / "products.json").read_text(encoding="utf-8"))
     entry = index["products"][f"series/{stem}_loads_series.csv"]
     assert entry["steps"] == [THRESHOLD, STEPS] and entry["steps_tabled"] == list(

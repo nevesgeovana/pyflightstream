@@ -567,6 +567,11 @@ def test_every_record_scalar_is_carried_or_excluded_on_purpose(tmp_path):
         # that a reader of the MANIFEST can take the end of a continuation
         # chain; a superfile row is already the point the stage selected.
         "continues",
+        # 0.24.0. WHICH ROWS OF THE SECTIONS EXPORT ARE WHICH SURFACE: a list of
+        # blocks, and so not a scalar a row could hold. It reaches a reader as
+        # the FAMILY, PLANE and ROTOR columns of `sections/<point>_sections.csv`,
+        # beside the rows it names.
+        "sections_layout",
     }
     carried_by_the_campaign_sweep_table = {
         # FR-95, 0.17.0, and both for the same reason: a job's identity is

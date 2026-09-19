@@ -271,7 +271,8 @@ def test_sections_table_round_trips(tmp_path):
     # ITERATION AND AZIMUTH, NOT `POINT`, since 0.23.0 item 13: the polar's
     # name is the file's name, so the column restated it while the two things
     # that vary down the table were absent.
-    assert rows[0]["ITERATION"] == "412" and rows[0]["AZIMUTH"] == "37.50000"
+    # `STEP` since 0.24.0: one name for the solver step across every table.
+    assert rows[0]["STEP"] == "412" and rows[0]["AZIMUTH"] == "37.50000"
     assert rows[0]["VINF"] == "68.05800" and rows[0]["RE"] == "11.77170"
     assert (
         rows[0]["Offset"] == "-9.90900"
@@ -305,7 +306,7 @@ def test_a_sections_row_with_no_rotor_reads_not_applicable_for_the_azimuth(tmp_p
     _, rows = read_csv_table(target)
     assert rows[0]["AZIMUTH"] == NOT_APPLICABLE, rows[0]
     assert rows[0]["AZIMUTH"] != "0.00000", "a missing azimuth must not read as the datum"
-    assert rows[0]["ITERATION"] == "7"
+    assert rows[0]["STEP"] == "7"
 
 
 PLOTS = """\
@@ -1359,18 +1360,20 @@ def test_a_windowed_point_gets_one_series_table_per_export_kind(tmp_path):
     workspace = _windowed_workspace(tmp_path, window=window)
     write_campaign_products(workspace)
     columns, rows = _series(workspace, "AL-020_loads_series.csv")
-    assert columns[:3] == ["step", "time_s", "azimuth_deg"], columns
-    assert [int(r["step"]) for r in rows] == [3, 4, 5]
+    # `STEP` SINCE 0.24.0: one name for the solver step across every table.
+    assert columns[:3] == ["STEP", "time_s", "azimuth_deg"], columns
+    assert [int(r["STEP"]) for r in rows] == [3, 4, 5]
     assert [float(r["time_s"]) for r in rows] == pytest.approx([0.03, 0.04, 0.05])
     assert [float(r["azimuth_deg"]) for r in rows] == pytest.approx([90.0, 120.0, 150.0])
     assert "W_CL" in columns and "Total_CL" in columns and "B_CMy" in columns, columns
     assert float(rows[0]["Total_CL"]) == pytest.approx(0.1882829, abs=1e-5), "five decimals"
     columns, rows = _series(workspace, "AL-020_sections_series.csv")
-    assert columns[:3] == ["step", "time_s", "azimuth_deg"] and "Chord" in columns, columns
-    assert [int(r["step"]) for r in rows] == [3, 3, 4, 4, 5, 5], "two sections per step"
+    # The sections series leads with its block's identity since 0.24.0 (RI-04).
+    assert columns[:2] == ["STEP", "time_s"] and "Chord" in columns, columns
+    assert [int(r["STEP"]) for r in rows] == [3, 3, 4, 4, 5, 5], "two sections per step"
     columns, rows = _series(workspace, "AL-020_probes_series.csv")
-    assert columns[:3] == ["step", "time_s", "azimuth_deg"] and "Cp" in columns, columns
-    assert len(rows) == 3 * 12 and {int(r["step"]) for r in rows} == {3, 4, 5}
+    assert columns[:3] == ["STEP", "time_s", "azimuth_deg"] and "Cp" in columns, columns
+    assert len(rows) == 3 * 12 and {int(r["STEP"]) for r in rows} == {3, 4, 5}
     index = _products_manifest(workspace)["products"]
     entry = index["series/AL-020_loads_series.csv"]
     assert entry["steps"] == [3, 5] and entry["steps_tabled"] == [3, 4, 5], entry
@@ -1419,7 +1422,7 @@ def test_a_rebuild_archives_the_series_tables_it_rewrites_as_it_does_every_produ
             f"{sorted(p.name for p in folder.parent.rglob('*')) if folder.parent.exists() else []}"
         )
         assert archived.read_text(encoding="utf-8") == f"the first build of {name}"
-        assert (series / name).read_text(encoding="utf-8").startswith("step,"), (
+        assert (series / name).read_text(encoding="utf-8").startswith("STEP,"), (
             "the rebuild archived the table and did not write the new one"
         )
 
@@ -1493,7 +1496,7 @@ def test_a_target_alone_decides_what_becomes_of_an_existing_series_table(tmp_pat
     write_point_series(workspace.root, target=leave_it, **arguments)
 
     assert "AL-020_loads_series.csv" in seen, seen
-    assert table.read_text(encoding="utf-8").startswith("step,"), "the table was not rewritten"
+    assert table.read_text(encoding="utf-8").startswith("STEP,"), "the table was not rewritten"
 
 
 def test_a_series_table_is_written_where_its_target_says(tmp_path):
@@ -1597,14 +1600,16 @@ def test_a_step_the_solver_never_stamped_is_absent_from_the_series_and_named_in_
     (workspace.sim_dir("7001") / "AL-020_iteration=3.txt").unlink()
     write_campaign_products(workspace)
     _, rows = _series(workspace, "AL-020_loads_series.csv")
-    assert [int(r["step"]) for r in rows] == [2, 4]
+    assert [int(r["STEP"]) for r in rows] == [2, 4]
     assert [r["azimuth_deg"] for r in rows] == ["NA", "NA"], "no rotor, no azimuth"
     entry = _products_manifest(workspace)["products"]["series/AL-020_loads_series.csv"]
     assert entry["steps_tabled"] == [2, 4] and entry["steps"] == [2, 4]
-    columns, rows = _series(workspace, "AL-020_probes_series.csv")
-    assert columns == ["step", "time_s", "azimuth_deg"] and rows == [], (
-        "no probe export, a header alone"
-    )
+    # NO PROBE EXPORT IS NO TABLE, AND A NAMED SKIP, since 0.24.0 (MT-06). This
+    # asserted a header alone, which is what the manifest then recorded as a
+    # product written.
+    series = workspace.root / "post" / "products" / "series"
+    assert not (series / "AL-020_probes_series.csv").exists()
+    assert "series/AL-020_probes_series.csv" in _products_manifest(workspace)["skipped"]
 
 
 def test_a_step_whose_surfaces_differ_from_the_first_refuses_the_loads_series_naming_both(tmp_path):

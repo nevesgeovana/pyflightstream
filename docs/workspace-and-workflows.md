@@ -1556,7 +1556,9 @@ coefficients, `ALPHA`, `BETA`, `MACH`, `RE` (Reynolds in millions), the body
 axes (`CDB`, `CYB`, `CLB`, `CRB25`, `CMB25`, `CNB25`), the stability axes
 (`CDS` to `CNS25`), the wind axes (`CDW` to `CNW25`), and `CD0` and `CDI`,
 every value at five decimals. A SECTIONS table per point,
-`sections/<point>_sections.csv`, the point's condition and the seven columns
+`sections/<point>_sections.csv`: the solver `STEP` it was sampled at, WHICH
+distribution each row belongs to (`FAMILY`, `PLANE`, `ROTOR`) and where blade
+one of that rotor was (`AZIMUTH`), then the point's condition and the seven columns
 of its sectional loads export, in the export's units; a run that defined no
 distribution leaves an export declaring zero sections and gets no table. The
 FLOW-FIELD SAMPLES of a point under `probes/`, whatever the run type was
@@ -2611,7 +2613,11 @@ post/matriz/series/P7001-M144RE438AL+000BE+000_sections_series.csv
 post/matriz/series/P7001-M144RE438AL+000BE+000_probes_series.csv
 ```
 
-Every table leads with `step`, `time_s` and `azimuth_deg`, the step's
+Every table leads with `STEP` (spelled `step` until 0.24.0), `time_s` and
+`azimuth_deg`, and then states the point's condition block; the probes series
+says WHICH probe each row is in `PROBE`, and the sections series leads with
+`STEP`, `time_s`, `FAMILY`, `PLANE`, `ROTOR`, `AZIMUTH`, the identity the
+sections table carries. `time_s` and `azimuth_deg` are the step's
 time and azimuth computed from the clock the run record carries
 (`export_window.delta_time_s` and `step_deg`, written by the run since
 0.14.0) by the same arithmetic the counter program runs on the machine,
@@ -2622,8 +2628,11 @@ loads series is wide, one row per step and one column per surface and
 coefficient (`Total_CL`, `Blade1_CMx`, ...); the sections series (from
 the sectional loads export, `_sloads`, the same export the sections
 table of the products reads) and the probes series are long, one row per
-step and section or probe, with the export's own columns. A run defining
-no section or no probe gets the table's header and nothing under it. A
+step and section or probe, with the export's own columns. A kind with no
+stamped file is NOT written, and `products.json` names it under `skipped`
+with the folders that were searched (a header-only table recorded as written,
+until 0.24.0). The stamped files are looked for where the point RAN: the
+simulation folder for a local run, `datapoints/DP-<point>/` for a submitted one. A
 step the solver never stamped is absent and the `products.json` entry
 says which steps were tabled; the surface sections export (`_cp`) and
 the Tecplot file (`.dat`) of the window are listed there by path, as

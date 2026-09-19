@@ -189,7 +189,10 @@ def context_row(
 #:
 #: `AZIMUTH` is `NA` on a run with no rotor, and never zero: zero is a real
 #: azimuth a rotor row can hold.
-_SECTION_IDENTITY_COLUMNS: tuple[str, ...] = ("ITERATION", "AZIMUTH")
+#: 0.24.0. `STEP` is the ONE name of the solver step across the package's tables
+#: (it was `ITERATION` here); on a steady run it is the solver iteration. `FAMILY`,
+#: `PLANE` and `ROTOR` say which DISTRIBUTION a row belongs to, which nothing did.
+_SECTION_IDENTITY_COLUMNS: tuple[str, ...] = ("STEP", "FAMILY", "PLANE", "ROTOR", "AZIMUTH")
 
 SECTION_COLUMNS: tuple[str, ...] = (
     *_SECTION_IDENTITY_COLUMNS,
@@ -337,3 +340,71 @@ def write_csv_table(
                 raise ProductError(f"a row has {len(row)} values for {len(columns)} columns")
             writer.writerow([_cell(value) for value in row])
     return target
+
+
+def section_identity(
+    n_rows: int,
+    layout: Sequence[Mapping[str, object]] | None,
+    rotors: Mapping[str, Mapping[str, object]] | None,
+    step: int | None,
+    azimuth_deg: float | None,
+) -> list[tuple[object, object, object, object]]:
+    """Return (FAMILY, PLANE, ROTOR, AZIMUTH) for each row of one sections export.
+
+    A layout whose counts do not add up to the export is NOT applied: a row given
+    its neighbour's family is worse than a row given none.
+    """
+    unknown: list[tuple[object, object, object, object]] = [
+        (None, None, None, azimuth_deg)
+    ] * n_rows
+    if not layout:
+        return unknown
+    counts: list[int] = []
+    for block in layout:
+        count = block.get("count")
+        if not isinstance(count, int) or isinstance(count, bool) or count < 1:
+            return unknown
+        counts.append(count)
+    if sum(counts) != n_rows:
+        return unknown
+    identity: list[tuple[object, object, object, object]] = []
+    for block, count in zip(layout, counts, strict=True):
+        families = _names_of(block.get("families"))
+        alias, azimuth = _rotor_of_the_block(families, rotors, step)
+        cell = ("+".join(families) or None, block.get("plane"), alias, azimuth)
+        identity.extend([cell] * count)
+    return identity
+
+
+def _names_of(stated: object) -> list[str]:
+    """Return a recorded list of names as strings, and nothing for anything else."""
+    if isinstance(stated, str) or not isinstance(stated, Sequence):
+        return []
+    return [str(name) for name in stated]
+
+
+def _rotor_of_the_block(
+    families: Sequence[str],
+    rotors: Mapping[str, Mapping[str, object]] | None,
+    step: int | None,
+) -> tuple[str | None, float | None]:
+    """Return the rotor that owns every family of a block, and blade one's azimuth."""
+    for alias, rotor in (rotors or {}).items():
+        owned = set(_names_of(rotor.get("families")))
+        if not families or not set(families) <= owned:
+            continue
+        per_revolution = rotor.get("steps_per_revolution")
+        datum = rotor.get("blade1_azimuth_deg")
+        rpm = rotor.get("rpm")
+        if (
+            step is None
+            or not isinstance(per_revolution, int | float)
+            or per_revolution <= 0
+            or not isinstance(datum, int | float)
+            or not isinstance(rpm, int | float)
+            or not rpm
+        ):
+            return str(alias), None
+        sense = 1.0 if rpm > 0 else -1.0
+        return str(alias), (float(datum) + sense * step * 360.0 / float(per_revolution)) % 360.0
+    return None, None
