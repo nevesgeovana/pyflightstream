@@ -49,7 +49,18 @@ FLIGHT_CONDITION_COLUMNS: tuple[str, ...] = (
     "MACH",
     "RE",
     "VINF",
+    # 0.24.0: EVERY DIVISOR OF A COEFFICIENT. A coefficient is a force over
+    # `1/2 rho V^2 S`; until now a product stated the coefficient and the area and
+    # neither the density nor the velocity it was divided by. `VREF` is the
+    # export's REFERENCE velocity, which is what the solver normalises by and may
+    # differ from the free stream beside it; `RHO`, `TEMP` and `MU` are the air
+    # the run resolved for THAT point. The list is defined on the definitions
+    # page, and a test compares this tuple with the page rather than with itself.
+    "VREF",
     "ALT",
+    "RHO",
+    "TEMP",
+    "MU",
     ADVANCE_RATIO_COLUMN,
 )
 
@@ -116,6 +127,16 @@ CONDITION_KEY_ALIASES: dict[str, str] = {
     "freestream_velocity_m_s": "VINF",
     "altitude_ft": "ALT",
     "reynolds": "RE",
+    # 0.24.0. The export's reference velocity, the record's air, and the cell
+    # keys that pin the air directly. Units agree in every pair: m/s, kg/m3, K
+    # and Pa s.
+    "reference_velocity_m_s": "VREF",
+    "density_kg_m3": "RHO",
+    "temperature_k": "TEMP",
+    "viscosity_pa_s": "MU",
+    "rhokgm3": "RHO",
+    "tk": "TEMP",
+    "mupas": "MU",
 }
 
 

@@ -48,6 +48,33 @@ FlightStream versions.
   the record is left as it was. No re-run. A row that sweeps an angle or an
   advance ratio is unaffected.
 
+### Changed (breaking: every product table gains columns)
+
+- **EVERY PRODUCT STATES EVERY DIVISOR OF ITS COEFFICIENTS.** The condition block
+  every composed table carries is now
+
+      ALPHA, BETA, MACH, RE, VINF, VREF, ALT, RHO, TEMP, MU, J, SREF, CREF, BREF
+
+  `VREF` is the solver's reference velocity, read off that point's export; `RHO`,
+  `TEMP` and `MU` are the air the run resolved for that point (kg/m3, K, Pa s,
+  the last in scientific notation). 0.23.0 stated the coefficient and the area
+  and neither the density nor the velocity it was divided by. A READER THAT
+  SELECTS COLUMNS BY NAME IS UNAFFECTED; ONE THAT READS BY POSITION OR COUNTS
+  COLUMNS MUST BE UPDATED. The list is defined on the definitions page, and a test
+  compares the package with the page rather than with itself.
+- The post stage WARNS, naming the point, when an export's reference velocity is
+  not its free stream: the steady polar's coefficients are by `VREF`, while the
+  plots table, its reductions and the unsteady polar are rescaled to `VINF`.
+
+### Fixed (one column name, one source)
+
+- **`ALT` CAME FROM THREE SOURCES IN ONE FOLDER.** The sections table read the
+  export's `Altitude (ft)` line, which a campaign never sets, and printed
+  `0.00000` on a row whose cell says `ALTFT:10000`, beside a polar printing 10000
+  and a rotor table printing `NA`. The sections table now states the point's
+  condition through the same assembly as every other family, and the rotor table
+  reads the point's own cell. A row that states no altitude reads `NA`.
+
 ### Changed (an input format, with the old form still read)
 
 - **A PPROC GROUP IS ONE ALIAS, WRITTEN AS A STRING.** `[groups]` took a list of

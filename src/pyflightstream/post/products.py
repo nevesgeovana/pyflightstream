@@ -270,7 +270,12 @@ _REFERENCE_COLUMNS: tuple[str, ...] = ("SREF", "CREF", "BREF", "XMOM", "YMOM", "
 #: pins it line by line, so a flight-condition column added there changes a
 #: file format that was specified byte by byte. `J` was already outside for
 #: exactly this reason; `VINF` and `ALT` join it rather than it.
-_POLAR_CONDITION_COLUMNS: tuple[str, ...] = ("VINF", "ALT", ADVANCE_RATIO_COLUMN)
+#: DERIVED, not listed: the shared condition minus the four the twenty-four
+#: already carry. It was a hand-kept triple, which is how a family drifts from
+#: the tuple every other family composes.
+_POLAR_CONDITION_COLUMNS: tuple[str, ...] = tuple(
+    name for name in FLIGHT_CONDITION_COLUMNS if name not in COEFFICIENT_COLUMNS
+)
 
 #: A polar table's columns: the polar, its description, the group, the
 #: reference block, the condition the twenty-four do not carry, the
@@ -464,6 +469,20 @@ def point_condition(
             condition[column] = value
 
     condition.setdefault("MACH", mach)
+    # 0.24.0: THE DIVISORS. The reference velocity is the EXPORT's, because that
+    # is what its coefficients were normalised by; the air is the POINT's, from
+    # its own resolved state. A value the run never stated stays absent and the
+    # funnel writes `NA`.
+    if report is not None and getattr(report, "reference_velocity_m_s", None) is not None:
+        condition["VREF"] = report.reference_velocity_m_s
+    if own is not None:
+        for column, value in (("RHO", own.density_kg_m3), ("TEMP", own.temperature_k)):
+            if value is not None:
+                condition[column] = value
+        if own.viscosity_pa_s is not None:
+            # IN SCIENTIFIC NOTATION, AS TEXT. The funnel writes five decimals, and
+            # air's viscosity is 1.8e-05: `0.00002` would be a column of one digit.
+            condition["MU"] = f"{own.viscosity_pa_s:.5e}"
     return condition
 
 
@@ -2157,11 +2176,12 @@ def _reynolds_millions(text: str) -> float:
     return float(labeled_value(text, "Reynolds Number")) / 1e6
 
 
-def _altitude_ft(text: str) -> float:
+def _altitude_ft(text: str) -> float | None:
     try:
         return float(labeled_value(text, "Altitude (ft)"))
     except (MalformedOutputError, ValueError):
-        return 0.0
+        # NOT STATED IS `NA`, never a zero: sea level is an altitude.
+        return None
 
 
 def write_sections_table(
@@ -2174,8 +2194,15 @@ def write_sections_table(
     step_deg: float | None = None,
     reference: ReferenceValues | None = None,
     advance_ratio: float | None = None,
+    condition: Mapping[str, object] | None = None,
 ) -> Path | None:
     """Write one sections table from a sectional loads export.
+
+    ``condition`` is the POINT's condition as :func:`point_condition` assembles it,
+    and the stage always passes it (0.24.0): this family used to build its own
+    from the export's header, whose `Altitude (ft)` line the campaign never sets,
+    so a row at 10000 ft printed `ALT 0.00000` beside a polar printing 10000.
+    Without it the header is read, for a caller holding an export and no point.
 
     ``iteration`` is the solver iteration the distribution was sampled at and
     ``azimuth_deg`` is where the blade was when it was; both lead the row
@@ -2244,21 +2271,23 @@ def write_sections_table(
     # exactly how two families come to disagree about which column is which --
     # a value landing under its neighbour's name, which is the defect 0.23.0
     # item 5 found in three of the four families.
+    stated: Mapping[str, object] = (
+        condition
+        if condition is not None
+        else {
+            "ALPHA": report.angle_of_attack_deg,
+            "BETA": report.sideslip_deg,
+            "MACH": mach,
+            "RE": _reynolds_millions(export_text),
+            "VINF": report.freestream_velocity_m_s,
+            "ALT": _altitude_ft(export_text),
+            ADVANCE_RATIO_COLUMN: advance_ratio,
+        }
+    )
     lead = (
         iteration,
         azimuth_deg,
-        *context_row(
-            {
-                "ALPHA": report.angle_of_attack_deg,
-                "BETA": report.sideslip_deg,
-                "MACH": mach,
-                "RE": _reynolds_millions(export_text),
-                "VINF": report.freestream_velocity_m_s,
-                "ALT": _altitude_ft(export_text),
-                ADVANCE_RATIO_COLUMN: advance_ratio,
-            },
-            None if reference is None else reference.as_lengths(),
-        ),
+        *context_row(stated, None if reference is None else reference.as_lengths()),
     )
     rows = [(*lead, *(float(v) for v in row[:7])) for row in table]
     return write_csv_table(path, SECTION_COLUMNS, rows)
@@ -3541,6 +3570,24 @@ def _sim_products(
                 state=point_state(record),
             )
         )
+        vinf = report.freestream_velocity_m_s
+        vref = getattr(report, "reference_velocity_m_s", None)
+        if (
+            isinstance(vinf, int | float)
+            and isinstance(vref, int | float)
+            and abs(vref - vinf) > 1e-6 * max(1.0, abs(vinf))
+        ):
+            # SAID ONCE PER POINT (0.24.0). Both velocities are columns of every
+            # product now, so nothing is hidden; what a reader still cannot see
+            # from one file is that the FAMILIES differ in which one they use.
+            warnings.warn(
+                f"{stem}: the export states a reference velocity of {vref:g} m/s and a free "
+                f"stream of {vinf:g} m/s. The steady polar's coefficients are normalised by "
+                "the REFERENCE velocity; the plots table, the reductions and the unsteady "
+                "polar are rescaled to the FREE STREAM. Both are in every row, as VREF and VINF.",
+                PyflightstreamWarning,
+                stacklevel=2,
+            )
         if points[-1].state is not None and points[-1].state.differs:
             warnings.warn(
                 f"{stem}: the run record states the simulation's first point where this "
@@ -3838,6 +3885,7 @@ def _sim_products(
                     # line.
                     reference=reference,
                     advance_ratio=_advance_ratio_of(point),
+                    condition=point_condition(point, mach=mach, cell=cell),
                     # ITEM 13. The iteration comes out of the export itself; the
                     # CLOCK does not, and only a record states it. `run_clock` is
                     # the one that writes the point series, published for this

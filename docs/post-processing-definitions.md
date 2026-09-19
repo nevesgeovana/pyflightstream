@@ -19,6 +19,7 @@ she gave it. Nothing here was inferred from an implementation.
 ## Contents
 
 - [The vocabulary](#the-vocabulary)
+- [What every product states](#what-every-product-states)
 - [`time_average`](#time_average)
 - [`per_blade`](#per_blade)
 - [`phase_locked`](#phase_locked)
@@ -41,6 +42,49 @@ she gave it. Nothing here was inferred from an implementation.
 | **SMRP** | a rotor's own static moment reference point, `<ALIAS>_SMRP` |
 | **MRP** | the global moment reference point of the aircraft |
 | **alias** | the name of a rotor, and of the integration group built from its families |
+
+---
+
+## What every product states
+
+Every table the post stage composes states the condition it is a table OF, in
+one block, in this order:
+
+<!-- condition-columns: ALPHA, BETA, MACH, RE, VINF, VREF, ALT, RHO, TEMP, MU, J, SREF, CREF, BREF -->
+
+| column | unit | what it is |
+|---|---|---|
+| `ALPHA`, `BETA` | deg | the angles the solver REPORTS it ran at, as the row wrote them |
+| `MACH` | - | the Mach number of THAT point |
+| `RE` | millions | the Reynolds number the solver reports |
+| `VINF` | m/s | the free-stream velocity the solver reports |
+| `VREF` | m/s | the solver's REFERENCE velocity, which is what it normalises a coefficient by |
+| `ALT` | ft | the altitude the row states; `NA` where it states none |
+| `RHO` | kg/m3 | the air density the run resolved for that point |
+| `TEMP` | K | the air temperature the run resolved for that point |
+| `MU` | Pa s | the dynamic viscosity, written in scientific notation |
+| `J` | - | the advance ratio the row REQUESTED; `NA` on a row that turns no rotor |
+| `SREF`, `CREF`, `BREF` | m2, m, m | the reference area, chord and span |
+
+**Why the block is this long.** A coefficient is a force divided by
+`1/2 rho V^2 S`. A file that states the coefficient and the area, and neither the
+density nor the velocity it was divided by, is a number nobody can take back to a
+force or compare with another campaign. `ALT` does not stand in for the density:
+a row may pin the density directly, and then the altitude says nothing about it.
+
+**Which velocity normalised what.** The solver normalises by `VREF`. The steady
+polar's twenty-four coefficients are the solver's own, so they are by `VREF`. The
+plots table, every reduction of it and the unsteady polar are rescaled to the
+free stream by `(VREF / VINF)^2`, so they are by `VINF`. The rotor table takes
+the export back to Newtons with `VREF`, which undoes the solver's own division,
+and its coefficients are by `rho n^2 D^4` and carry no velocity at all. With both
+velocities in the row, a reader can tell which one a number used; the post stage
+also WARNS, naming the point, when the two differ.
+
+The steady polar already carries `ALPHA`, `BETA`, `MACH` and `RE` among its
+twenty-four, so it states the rest of the block beside them. The plots table
+`probes/<point>_plots.csv` states NO condition, on purpose: it is the export's own
+header, and the reductions read every column of it back as a plotted quantity.
 
 ---
 
