@@ -2312,9 +2312,12 @@ def test_the_documented_pproc_artifact_resolves_as_the_page_reads(tmp_path):
     (workspace.inputs_dir / "pproc" / "p020.toml").write_text(block, encoding="utf-8")
     pproc = workspace.resolve_pproc("p020")
     assert pproc.base_regions == ["W", "B"], "the documented off switch did not resolve"
-    assert set(pproc.groups) == {"1", "2", "3", "4"}, pproc.groups
-    assert pproc.groups["3"] == [], "the page's empty group, every family (2026-09-09)"
-    assert pproc.groups["4"] == ["Blade", "airframe"], "a family and a selector word"
+    # THE PAGE TEACHES A GROUP AS ONE NAMED ALIAS since 0.24.0, which is the
+    # requirement: it taught four NUMBERED groups holding member lists, the form
+    # this release deprecates. What is read off it moved with it.
+    assert set(pproc.groups) == {"TOTAL", "AIRFRAME", "ROTOR"}, pproc.groups
+    assert pproc.groups["TOTAL"] == ["all"], "every family, as the deprecation spells it"
+    assert pproc.groups["ROTOR"] == ["Blade"], "a family is every member of it"
     # 0.24.0: THE THREE TABLES OF THE PAGE BIND TOO, and its equations are the
     # worked example: the chain is ordered, and `FZ` about LIFT in SMRP is the
     # column the page's own `{family}_SMRP` plot group prints.

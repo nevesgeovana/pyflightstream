@@ -1239,11 +1239,10 @@ described under [the three tables that reduce and derive](#the-three-tables-that
 ```toml
 base_regions = ["W", "B"]      # families the base-region autodetect may consider; [] = off
 
-[groups]                       # group -> families; numbered here, NAMED since 0.23.0 (see below)
-"1" = ["Blade1", "S", "N", "P", "W", "B", "H"]
-"2" = ["W", "B"]
-"3" = []                       # every family the geometry carries
-"4" = ["Blade", "airframe"]    # a family is every member of it; airframe is the reference's alias
+[groups]                       # group NAME -> ONE alias, written as a string (0.24.0)
+TOTAL = "all"                  # every family the geometry carries
+AIRFRAME = "airframe"          # an alias of the row's reference, under its [aliases]
+ROTOR = "Blade"                # a family is every member of it: Blade1, Blade2, ...
 
 [exports]                      # which of the eight export kinds a point writes
 tecplot = false                # a kind not named is written; loads cannot be off
@@ -1478,12 +1477,14 @@ since 0.14.0, the design decision of 2026-09-09:
 
 ```toml
 [groups]
-"1" = []
+TOTAL = []
 ```
 
-is EVERY FAMILY the geometry carries: the polar table of group 1 sums
+is EVERY FAMILY the geometry carries: the polar table of that group sums
 every surface row of the loads table, and `MOVING_BOUNDARIES: g1` moves
-every boundary of the file. A member of a group is, tried in this order,
+every boundary of the file. Since 0.24.0 a group is ONE alias written as a
+string and the word for this is `TOTAL = "all"`; the empty list still binds
+and the warning writes that replacement out. A member of a group is, tried in this order,
 a boundary name of the file; an ALIAS of the row's REFERENCE (its
 `[aliases]` table, above), so `["airframe"]` is whatever the
 reference calls airframe and nothing is hardcoded; or a FAMILY, the label

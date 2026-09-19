@@ -154,3 +154,25 @@ def test_a_named_group_gets_its_fixed_width_polar_and_states_its_position(tmp_pa
     # named group is its 1-based position in the table.
     numbers = [path.read_text(encoding="utf-8").splitlines()[3].split()[1] for path in dats]
     assert numbers == ["01", "02"], numbers
+
+
+def test_the_word_the_warning_tells_a_user_to_write_means_what_the_warning_says():
+    """An EMPTY group is every family, and the deprecation tells its owner to write `"all"`.
+
+    So `"all"`, as a group's one alias, has to select every family too. It selected
+    NOTHING: a user who followed the package's own advice turned the polar of the
+    whole configuration into a named skip. A reference that defines an alias or
+    carries a family called `all` keeps its own meaning, because those are tried
+    first.
+    """
+    from pyflightstream.cases import select_group_members
+
+    inventory = ["W", "B", "Blade1", "Blade2"]
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        spec = PprocSpec.model_validate({"groups": {"TOTAL": []}})
+    assert any('TOTAL = "all"' in str(w.message) for w in caught), [str(w.message) for w in caught]
+    assert select_group_members(spec.groups["TOTAL"], inventory) == inventory
+    written = PprocSpec.model_validate({"groups": {"TOTAL": "all"}})
+    assert select_group_members(written.groups["TOTAL"], inventory) == inventory
+    assert select_group_members(["all"], inventory, {"all": ["W"]}) == ["W"], "an alias wins"

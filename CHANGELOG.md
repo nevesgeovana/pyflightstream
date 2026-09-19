@@ -369,6 +369,16 @@ FlightStream versions.
   record, so renaming or extending an alias needs no re-run. The record is the
   fallback where the reference no longer resolves.
 
+### Fixed (the word the deprecation tells you to write)
+
+- A `[groups]` entry written as an EMPTY list is every family, and the
+  deprecation of the list form tells its owner to write `NAME = "all"`. As a
+  group's one alias, `"all"` selected nothing, so following the package's own
+  advice turned the polar of the whole configuration into a named skip. `"all"`
+  selects every family (`cases.EVERY_FAMILY`); an alias, a boundary or a family
+  of that name is tried first. The workflows page teaches a group as ONE named
+  alias written as a string; it still taught four numbered member lists.
+
 ### Fixed (a zero that was not a measurement)
 
 - A group whose alias selects NO surface of any loads export of the simulation

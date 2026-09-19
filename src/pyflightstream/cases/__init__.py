@@ -760,7 +760,7 @@ def _a_group_is_one_alias(value):
                     "under [aliases] in the reference"
                 )
             else:
-                examples.append(f'{name} = "all"')
+                examples.append(f'{name} = "{EVERY_FAMILY}"')
         warnings.warn(
             f"{PPROC_GROUP_MEMBER_LIST.message()} Here: " + "; ".join(examples) + ".",
             PyflightstreamWarning,
@@ -2256,6 +2256,11 @@ def _absent_members(
     return absent
 
 
+#: The one alias that means every family the geometry carries, in a `[groups]` entry
+#: as in a `families` selector.
+EVERY_FAMILY = "all"
+
+
 def select_group_members(
     members: Sequence[int | str],
     inventory: Sequence[str],
@@ -2287,6 +2292,13 @@ def select_group_members(
         names = [token] if token in inventory else resolve_alias(token, inventory, aliases)
         if names is None:
             names = names_of(token, inventory)
+        if not names and token == EVERY_FAMILY:
+            # THE WORD THE DEPRECATION TELLS AN EMPTY GROUP'S OWNER TO WRITE (0.24.0).
+            # A group is ONE alias as a string, an empty list was every family, and
+            # its replacement is `"all"`; it selected nothing, so following the
+            # package's own advice cost the polar of the whole configuration. An
+            # alias, a boundary or a family of that name is tried first and wins.
+            names = list(inventory)
         chosen.extend(name for name in names if name not in chosen)
     return chosen
 
