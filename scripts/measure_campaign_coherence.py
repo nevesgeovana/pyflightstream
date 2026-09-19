@@ -16,7 +16,9 @@ The checks:
   mean, over the window the unsteady polar states, of the rotor's shaft force in the
   plots history, and NOT the last step.
 - `sector_times_copies_against_full_wheel`: the periodic sector's `CT` against the
-  full wheel's at the same condition.
+  full wheel's at the same condition, on the same nacelle (row 2414); the wheel on
+  the non-axisymmetric nacelle (row 2412) and the first run of the same wheel, whose
+  solve froze (row 2413), are reported beside it and decide nothing.
 - `etaw_equals_eta_at_alpha_zero` and `etaw_departs_with_alpha`: `ETAW` against
   `ETA`, and against `J CTW / CP` with `CTW` recomputed from the history's force
   projected on the free stream `(cos a, 0, sin a)` of the export frame.
@@ -277,9 +279,37 @@ def _history(plots: Path, group: str, window: tuple[int, int]) -> dict[str, floa
     return mean
 
 
+_STEP_HEADER = re.compile(r"Solving unsteady time-step iteration \((\d+)/(\d+)\)")
+_RESIDUALS = re.compile(r"^\d+\s+([+-][\d.]+E[+-]\d+)\s+([+-][\d.]+E[+-]\d+)", re.M)
+
+
+def frozen_steps(log: Path) -> list[int]:
+    """Return the time steps of a native log whose solve FROZE.
+
+    A step froze when its velocity and pressure residuals are exactly zero on every
+    inner iteration after its first two: the solver stops iterating and every later
+    load is a
+    constant, not a solution. Measured on pfs0240 rows 2413 (from step 60) and 2412 at
+    alpha 10 (from step 64); every other log of the campaign has none.
+    """
+    parts = _STEP_HEADER.split(log.read_text(encoding="latin-1"))
+    frozen = []
+    for k in range(1, len(parts), 3):
+        rows = _RESIDUALS.findall(parts[k + 2])
+        if len(rows) > 2 and all(float(a) == 0.0 and float(b) == 0.0 for a, b in rows[2:]):
+            frozen.append(int(parts[k]))
+    return frozen
+
+
 def rotor_checks(out: Path, manifest: dict) -> dict[str, dict[str, object]]:
-    """Check each rotor table against the plots history it was read from, and ETAW."""
+    """Check each rotor table against the plots history it was read from, and ETAW.
+
+    A point whose window touches a FROZEN step (:func:`frozen_steps`) is listed under
+    `no_frozen_solve_in_a_window` and takes part in no other verdict: its numbers are
+    no solution.
+    """
     products = manifest.get("products", {})
+    workspace = out.parent.parent
     points: list[dict[str, object]] = []
     for table in sorted((out / "polars").glob("P*_rotor.csv")):
         alias = table.read_text(encoding="utf-8").splitlines()[0].strip()
@@ -305,6 +335,11 @@ def rotor_checks(out: Path, manifest: dict) -> dict[str, dict[str, object]]:
                 at = re.search(r"AL([+-]\d+)", name)
                 if at is None or alpha is None or abs(int(at.group(1)) / 10.0 - alpha) > 1e-6:
                     continue
+                logs = sorted(workspace.glob(f"sims/*/datapoints/*/{name}_log.txt"))
+                if logs:
+                    frozen = [s for s in frozen_steps(logs[0]) if int(span[0]) <= s <= int(span[1])]
+                    if frozen:
+                        point["frozen_from_step"] = frozen[0]
                 if (
                     group
                     and plots.is_file()
@@ -325,6 +360,12 @@ def rotor_checks(out: Path, manifest: dict) -> dict[str, dict[str, object]]:
                             unit_N=unit,
                         )
             points.append(point)
+    frozen_points = [
+        {"table": p["table"], "ALPHA": p["ALPHA"], "frozen_from_step": p["frozen_from_step"]}
+        for p in points
+        if "frozen_from_step" in p
+    ]
+    points = [p for p in points if "frozen_from_step" not in p]
 
     def _gap(point: dict) -> float | None:
         t, m = point.get("table_thrust_N"), point.get("mean_shaft_force_N")
@@ -350,16 +391,33 @@ def rotor_checks(out: Path, manifest: dict) -> dict[str, dict[str, object]]:
         "verdict": _verdict(None if not gaps else max(gaps) <= 1e-3),
     }
     zero = [p for p in points if p.get("ALPHA") == 0.0 and p.get("CT") is not None]
+    # THE WHEEL IS THE SECTOR'S OWN GEOMETRY, COMPLETED: geometry 17, the sector 13
+    # six times over (the axisymmetric NMIN nacelle). Row 2414 runs it; row 2413 ran it
+    # first and its solve FROZE at time step 60 (residuals exactly zero from then on),
+    # so its window is no solution and it decides nothing. Row 2412 (geometry 24, the
+    # NMI nacelle, not axisymmetric) is no copy of the sector either; both are reported
+    # beside the verdict (reports/pfs0240/README.md).
     sector = [p for p in zero if "2411" in str(p["table"])]
-    wheel = [p for p in zero if "2412" in str(p["table"])]
+    wheel = [p for p in zero if "2414" in str(p["table"])]
+    frozen = [p for p in zero if "2413" in str(p["table"])]
+    other = [p for p in zero if "2412" in str(p["table"])]
     ratio = None
     if sector and wheel and wheel[0]["CT"]:
         ratio = sector[0]["CT"] / wheel[0]["CT"]  # type: ignore[operator]
+    ratio_other = None
+    if sector and other and other[0]["CT"]:
+        ratio_other = sector[0]["CT"] / other[0]["CT"]  # type: ignore[operator]
     checks["sector_times_copies_against_full_wheel"] = {
         "measured": {
             "CT_sector": sector[0]["CT"] if sector else None,
             "CT_full_wheel": wheel[0]["CT"] if wheel else None,
             "ratio": ratio,
+            "full_wheel_row": "2414",
+            "frozen_solve_2413": {"CT": frozen[0]["CT"] if frozen else None},
+            "not_axisymmetric_wheel_2412": {
+                "CT": other[0]["CT"] if other else None,
+                "ratio": ratio_other,
+            },
         },
         "band": "the ratio within 5 per cent of one: the products state the WHOLE rotor either way",
         "verdict": _verdict(None if ratio is None else abs(ratio - 1.0) <= 0.05),
@@ -400,6 +458,15 @@ def rotor_checks(out: Path, manifest: dict) -> dict[str, dict[str, object]]:
         "verdict": _verdict(
             None if not tilted else all(t["gap"] <= 1e-3 and t["ETAW"] != t["ETA"] for t in tilted)
         ),
+    }
+    checks["no_frozen_solve_in_a_window"] = {
+        "measured": {"frozen_points_left_out": frozen_points},
+        "band": "none: a point whose window touches a frozen step is no solution",
+        "note": (
+            "informational; the frozen points take part in no other verdict, so a "
+            "check left with no valid point reads could-not-measure, never coherent"
+        ),
+        "verdict": "coherent",
     }
     return checks
 

@@ -4,6 +4,7 @@
  "geometries": [
   "12_WING_PHY.fsm",
   "13_NX_B30_NMIN.fsm",
+  "17_NX_B30_NMIN_FW.fsm",
   "24_NX_B30_NMI_FW.fsm"
  ],
  "manifest_complete": true,
@@ -18,7 +19,16 @@
   "probes/P2412-M144RE438AL+000BE+000_per_blade_PROP.csv": "the plots table holds no column of a blade family of rotor 'PROP' (its blades are ['Blade1', 'Blade2', 'Blade3', 'Blade4', 'Blade5', 'Blade6']), so there is no blade to give a row to. A blade's plots are the ones named for its family: declare a plot group with families = \"each\" or frame = \"LOCAL_AXIS\" over the rotor in the pproc artifact. It takes a new run; the script defines what the solver plots.",
   "probes/P2412-M144RE438AL+100BE+000_phase_locked.csv": "case '2412' names its rotors, so each reduces over ITS OWN blade passage and there is no single passage of the ROW: the per-rotor files are probes/P2412-M144RE438AL+100BE+000_phase_locked_PROP.csv.",
   "probes/P2412-M144RE438AL+100BE+000_per_blade.csv": "case '2412' names its rotors, so each reduces over ITS OWN blade passage and there is no single passage of the ROW: the per-rotor files are probes/P2412-M144RE438AL+100BE+000_per_blade_PROP.csv.",
-  "probes/P2412-M144RE438AL+100BE+000_per_blade_PROP.csv": "the plots table holds no column of a blade family of rotor 'PROP' (its blades are ['Blade1', 'Blade2', 'Blade3', 'Blade4', 'Blade5', 'Blade6']), so there is no blade to give a row to. A blade's plots are the ones named for its family: declare a plot group with families = \"each\" or frame = \"LOCAL_AXIS\" over the rotor in the pproc artifact. It takes a new run; the script defines what the solver plots."
+  "probes/P2412-M144RE438AL+100BE+000_per_blade_PROP.csv": "the plots table holds no column of a blade family of rotor 'PROP' (its blades are ['Blade1', 'Blade2', 'Blade3', 'Blade4', 'Blade5', 'Blade6']), so there is no blade to give a row to. A blade's plots are the ones named for its family: declare a plot group with families = \"each\" or frame = \"LOCAL_AXIS\" over the rotor in the pproc artifact. It takes a new run; the script defines what the solver plots.",
+  "probes/P2413-M144RE438AL+000BE+000_phase_locked.csv": "case '2413' names its rotors, so each reduces over ITS OWN blade passage and there is no single passage of the ROW: the per-rotor files are probes/P2413-M144RE438AL+000BE+000_phase_locked_PROP.csv.",
+  "probes/P2413-M144RE438AL+000BE+000_per_blade.csv": "case '2413' names its rotors, so each reduces over ITS OWN blade passage and there is no single passage of the ROW: the per-rotor files are probes/P2413-M144RE438AL+000BE+000_per_blade_PROP.csv.",
+  "probes/P2413-M144RE438AL+000BE+000_per_blade_PROP.csv": "the plots table holds no column of a blade family of rotor 'PROP' (its blades are ['Blade1', 'Blade2', 'Blade3', 'Blade4', 'Blade5', 'Blade6']), so there is no blade to give a row to. A blade's plots are the ones named for its family: declare a plot group with families = \"each\" or frame = \"LOCAL_AXIS\" over the rotor in the pproc artifact. It takes a new run; the script defines what the solver plots.",
+  "probes/P2414-M144RE438AL+000BE+000_phase_locked.csv": "case '2414' names its rotors, so each reduces over ITS OWN blade passage and there is no single passage of the ROW: the per-rotor files are probes/P2414-M144RE438AL+000BE+000_phase_locked_PROP.csv.",
+  "probes/P2414-M144RE438AL+000BE+000_per_blade.csv": "case '2414' names its rotors, so each reduces over ITS OWN blade passage and there is no single passage of the ROW: the per-rotor files are probes/P2414-M144RE438AL+000BE+000_per_blade_PROP.csv.",
+  "probes/P2414-M144RE438AL+000BE+000_per_blade_PROP.csv": "the plots table holds no column of a blade family of rotor 'PROP' (its blades are ['Blade1', 'Blade2', 'Blade3', 'Blade4', 'Blade5', 'Blade6']), so there is no blade to give a row to. A blade's plots are the ones named for its family: declare a plot group with families = \"each\" or frame = \"LOCAL_AXIS\" over the rotor in the pproc artifact. It takes a new run; the script defines what the solver plots.",
+  "probes/P2415-M144RE438AL+100BE+000_phase_locked.csv": "case '2415' names its rotors, so each reduces over ITS OWN blade passage and there is no single passage of the ROW: the per-rotor files are probes/P2415-M144RE438AL+100BE+000_phase_locked_PROP.csv.",
+  "probes/P2415-M144RE438AL+100BE+000_per_blade.csv": "case '2415' names its rotors, so each reduces over ITS OWN blade passage and there is no single passage of the ROW: the per-rotor files are probes/P2415-M144RE438AL+100BE+000_per_blade_PROP.csv.",
+  "probes/P2415-M144RE438AL+100BE+000_per_blade_PROP.csv": "the plots table holds no column of a blade family of rotor 'PROP' (its blades are ['Blade1', 'Blade2', 'Blade3', 'Blade4', 'Blade5', 'Blade6']), so there is no blade to give a row to. A blade's plots are the ones named for its family: declare a plot group with families = \"each\" or frame = \"LOCAL_AXIS\" over the rotor in the pproc artifact. It takes a new run; the script defines what the solver plots."
  },
  "checks": {
   "cdw_equals_cd_on_steady_exports": {
@@ -151,6 +161,54 @@
       "CDW_MRP_TOTAL": -0.00342,
       "CD_plotted": -0.00342,
       "gap": 0.0
+     },
+     {
+      "polar": "P2413_M144RE438AL+000BE+000_uns_avg.csv",
+      "ALPHA": "0.00000",
+      "group": "PROP",
+      "CDW_PROP": -0.0017,
+      "CD_plotted": -0.0017,
+      "gap": 0.0
+     },
+     {
+      "polar": "P2413_M144RE438AL+000BE+000_uns_avg.csv",
+      "ALPHA": "0.00000",
+      "group": "MRP_TOTAL",
+      "CDW_MRP_TOTAL": -0.00172,
+      "CD_plotted": -0.00172,
+      "gap": 0.0
+     },
+     {
+      "polar": "P2414_M144RE438AL+000BE+000_uns_avg.csv",
+      "ALPHA": "0.00000",
+      "group": "PROP",
+      "CDW_PROP": 0.02369,
+      "CD_plotted": 0.02369,
+      "gap": 0.0
+     },
+     {
+      "polar": "P2414_M144RE438AL+000BE+000_uns_avg.csv",
+      "ALPHA": "0.00000",
+      "group": "MRP_TOTAL",
+      "CDW_MRP_TOTAL": 0.02334,
+      "CD_plotted": 0.02334,
+      "gap": 0.0
+     },
+     {
+      "polar": "P2415_M144RE438AL+100BE+000_uns_avg.csv",
+      "ALPHA": "10.00000",
+      "group": "PROP",
+      "CDW_PROP": 0.02072,
+      "CD_plotted": 0.02072,
+      "gap": 0.0
+     },
+     {
+      "polar": "P2415_M144RE438AL+100BE+000_uns_avg.csv",
+      "ALPHA": "10.00000",
+      "group": "MRP_TOTAL",
+      "CDW_MRP_TOTAL": 0.02061,
+      "CD_plotted": 0.02061,
+      "gap": 0.0
      }
     ],
     "worst_gap": 4.352484876327285e-05,
@@ -210,15 +268,15 @@
       "unit_N": 7041.367511778009
      },
      {
-      "table": "P2412-PROP_rotor.csv",
+      "table": "P2414-PROP_rotor.csv",
       "alias": "PROP",
       "group": "ROTOR_PROP",
-      "ALPHA": 10.0,
+      "ALPHA": 0.0,
       "J": 1.70001,
-      "CT": -0.01905,
-      "CP": 0.04388,
-      "ETA": -0.73804,
-      "ETAW": -0.75313,
+      "CT": 0.13243,
+      "CP": 0.18388,
+      "ETA": 1.22437,
+      "ETAW": 1.22437,
       "RPM": 473.1723,
       "DIAMETER": 3.6576,
       "window": [
@@ -226,10 +284,33 @@
        144
       ],
       "steps": 36.0,
-      "mean_shaft_force_N": -134.13972222222222,
-      "last_step_shaft_force_N": -128.68,
-      "table_thrust_N": -134.1380510993711,
-      "force_along_the_stream_N": -136.88187593578843,
+      "mean_shaft_force_N": 932.488611111111,
+      "last_step_shaft_force_N": 932.35,
+      "table_thrust_N": 932.4882995847618,
+      "force_along_the_stream_N": 932.488611111111,
+      "unit_N": 7041.367511778009
+     },
+     {
+      "table": "P2415-PROP_rotor.csv",
+      "alias": "PROP",
+      "group": "ROTOR_PROP",
+      "ALPHA": 10.0,
+      "J": 1.70001,
+      "CT": 0.10138,
+      "CP": 0.15784,
+      "ETA": 1.09187,
+      "ETAW": 1.26777,
+      "RPM": 473.1723,
+      "DIAMETER": 3.6576,
+      "window": [
+       109,
+       144
+      ],
+      "steps": 36.0,
+      "mean_shaft_force_N": 713.8361111111111,
+      "last_step_shaft_force_N": 714.62,
+      "table_thrust_N": 713.8538383440546,
+      "force_along_the_stream_N": 828.8353768476533,
       "unit_N": 7041.367511778009
      }
     ],
@@ -237,7 +318,8 @@
     "last_step_against_mean": [
      6.146035777087133e-05,
      0.002335474797963115,
-     0.04070175583916431
+     0.00014864643863675856,
+     0.0010981356598347837
     ]
    },
    "band": "1e-3 of the window mean: CT is printed at five decimals",
@@ -246,15 +328,24 @@
   "sector_times_copies_against_full_wheel": {
    "measured": {
     "CT_sector": 0.13222,
-    "CT_full_wheel": 0.10194,
-    "ratio": 1.2970374730233472
+    "CT_full_wheel": 0.13243,
+    "ratio": 0.9984142565883865,
+    "full_wheel_row": "2414",
+    "frozen_solve_2413": {
+     "CT": null
+    },
+    "not_axisymmetric_wheel_2412": {
+     "CT": 0.10194,
+     "ratio": 1.2970374730233472
+    }
    },
    "band": "the ratio within 5 per cent of one: the products state the WHOLE rotor either way",
-   "verdict": "INCOHERENT"
+   "verdict": "coherent"
   },
   "etaw_equals_eta_at_alpha_zero": {
    "measured": {
     "gaps": [
+     0.0,
      0.0,
      0.0
     ]
@@ -267,19 +358,38 @@
     "points": [
      {
       "ALPHA": 10.0,
-      "ETA": -0.73804,
-      "ETAW": -0.75313,
-      "J_CTW_over_CP_from_the_history": -0.7531366694700997,
-      "gap": 6.6694700997516065e-06
+      "ETA": 1.09187,
+      "ETAW": 1.26777,
+      "J_CTW_over_CP_from_the_history": 1.2677851816497492,
+      "gap": 1.518164974911862e-05
      }
     ]
    },
    "band": "ETAW differs from ETA and equals the SIGNED J CTW / CP from the history within 1e-3",
    "verdict": "coherent"
   },
+  "no_frozen_solve_in_a_window": {
+   "measured": {
+    "frozen_points_left_out": [
+     {
+      "table": "P2412-PROP_rotor.csv",
+      "ALPHA": 10.0,
+      "frozen_from_step": 109
+     },
+     {
+      "table": "P2413-PROP_rotor.csv",
+      "ALPHA": 0.0,
+      "frozen_from_step": 109
+     }
+    ]
+   },
+   "band": "none: a point whose window touches a frozen step is no solution",
+   "note": "informational; the frozen points take part in no other verdict, so a check left with no valid point reads could-not-measure, never coherent",
+   "verdict": "coherent"
+  },
   "every_file_says_average_or_instant": {
    "measured": {
-    "stated": 12,
+    "stated": 27,
     "silent": []
    },
    "band": "no unsteady product's manifest entry is silent about its kind",
@@ -289,8 +399,8 @@
    "measured": {
     "named_and_absent": [],
     "on_disk_and_unnamed": [],
-    "named": 19,
-    "on_disk": 19
+    "named": 37,
+    "on_disk": 37
    },
    "band": "both differences empty",
    "verdict": "coherent"
