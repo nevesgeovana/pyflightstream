@@ -95,6 +95,7 @@ from pyflightstream.cases import (
     FORCE_PLOT_PARAMETERS,
     RAW_PHASES,
     ROTOR_BLADE_ROTATION_AXIS,
+    ROTOR_PLOT_GROUP_PREFIX,
     CampaignConfigError,
     CustomFlag,
     PhaseLockedSpec,
@@ -7076,6 +7077,7 @@ def _pproc_plots(case: SimCase, script: Script, frames: Frames) -> None:
                         name=f"{short}_{name}",
                         boundaries=-1,
                     )
+    _plot_each_rotors_own_history(case, script, frames, inventory, emitted)
     # THE SIX COMPONENTS IN THE GLOBAL FRAME, ADDED WHERE THE ARTIFACT PLOTS THEM FOR
     # NO GROUP OF IT (0.24.0). The unsteady polar's axis coefficients are built from
     # the forces and moments of the whole configuration in the MRP frame; a rotor's
@@ -7107,6 +7109,72 @@ def _pproc_plots(case: SimCase, script: Script, frames: Frames) -> None:
 
 #: The frame of the geometry itself, as a pproc artifact spells it.
 _GLOBAL_FRAME = "MRP"
+
+
+def _plot_each_rotors_own_history(
+    case: SimCase, script: Script, frames: Frames, inventory: Sequence[str], emitted: set[str]
+) -> None:
+    """Plot the six components of each rotor the row turns, over ITS families, in MRP (0.24.0).
+
+    The rotor table of an unsteady point is the window average of that history.
+    It was looked for under a name no run printed, so every unsteady rotor table
+    held the last time step. An artifact that already plots the six over exactly a
+    rotor's families in the global frame is left as it is for that rotor; the
+    products stage finds either through
+    :func:`pyflightstream.post.products.rotor_plot_source`.
+
+    ONLY WHERE THE RUN HAS THE GLOBAL FRAME, for the reason the axes group states:
+    an addition may not cost a run.
+    """
+    pproc = case.pproc
+    frame = frames.get(_GLOBAL_FRAME)
+    if pproc is None or not isinstance(frame, int) or not case.rotors:
+        return
+    turning, _lost = _the_rotors_the_row_turns(case)
+    aliases = [alias for alias, _view, _speed in turning]
+    if not aliases and len(case.rotors) == 1:
+        # A row stating its one rotor with flat keys turns it all the same.
+        aliases = list(case.rotors)
+    plotted = set(AXES_PLOT_COMPONENTS) <= set(pproc.plots.parameters)
+    for alias in aliases:
+        block = case.rotors.get(alias)
+        if block is None:
+            continue
+        own = [
+            family
+            for chosen in select_families(block.members, inventory, pproc.is_blade, case.aliases)
+            for family in chosen
+        ]
+        if not own:
+            continue
+        declared = False
+        for group in pproc.plots.groups:
+            if group.frame.strip().upper() != _GLOBAL_FRAME or "{family}" in group.name:
+                continue
+            try:
+                resolved = select_families(group.families, inventory, pproc.is_blade, case.aliases)
+            except CampaignConfigError:
+                continue
+            if plotted and any(set(families) == set(own) for families in resolved):
+                declared = True
+        if declared:
+            continue
+        indices = [script.resolve_boundary(family, context="rotor plot group") for family in own]
+        for short in AXES_PLOT_COMPONENTS:
+            name = f"{short}_{ROTOR_PLOT_GROUP_PREFIX}{alias}"
+            if name in emitted:
+                continue
+            parameter, units = FORCE_PLOT_PARAMETERS[short]
+            emitted.add(name)
+            script.emit(
+                "UNSTEADY_SOLVER_NEW_FORCE_PLOT",
+                frame=frame,
+                units=units,
+                parameter=parameter,
+                name=name,
+                boundaries=len(indices),
+                boundary_indices=indices,
+            )
 
 
 def _pproc_probes(

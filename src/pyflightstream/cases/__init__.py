@@ -82,6 +82,7 @@ __all__ = [
     "FLUID_PLOT_PARAMETERS",
     "AXES_PLOT_COMPONENTS",
     "AXES_PLOT_GROUP",
+    "ROTOR_PLOT_GROUP_PREFIX",
     "FORCE_PLOT_PARAMETERS",
     "PPROC_FRAMES",
     "FrameSpec",
@@ -437,6 +438,13 @@ AXES_PLOT_COMPONENTS: tuple[str, ...] = ("FX", "FY", "FZ", "MX", "MY", "MZ")
 #: unsteady polar's axis coefficients are built from it; a rotor's own frame is
 #: not the geometry's axes. The plots are named `FX_MRP_TOTAL` and so on.
 AXES_PLOT_GROUP = "MRP_TOTAL"
+#: The prefix of the plot group an unsteady run ADDS for each rotor it turns
+#: (0.24.0): that rotor's own families, general and blades, in the global MRP
+#: frame, named `ROTOR_<ALIAS>`. The rotor table of an unsteady point is the
+#: window average of that history. A prefix and not the bare alias, because a
+#: pproc may name a group of its own after the alias over OTHER families, and an
+#: expanding frame names its emissions `<alias>` in the rotor's own axes.
+ROTOR_PLOT_GROUP_PREFIX = "ROTOR_"
 
 #: The fluid parameters an unsteady fluid plot can sample, the command's
 #: own enumeration (SRC-003 p.347).

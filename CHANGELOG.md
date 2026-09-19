@@ -78,6 +78,35 @@ FlightStream versions.
   `write_per_blade_table` is public; `per_blade_rows` takes `blade_families=`
   and `sense=`.
 
+### Fixed (changes a published number: an unsteady rotor table is the window average)
+
+- **Every rotor table of an unsteady point held the LAST TIME STEP, and it now
+  holds the average over the row's window.** The average was looked for under
+  `FX_<alias>` ... `MZ_<alias>`, and a force plot is named for its pproc group
+  (`FX_HUB_PUSHER`), so the lookup missed on every campaign and the fallback to
+  the native export was silent. A licensed run measured -606.6 N at the last
+  step against -397.4 N over the window. The history is found through the
+  pproc now: the plot group in the global `MRP` frame whose families are
+  exactly the rotor's (`post.products.rotor_plot_source`).
+- **An unsteady run adds that group where the pproc plots none:** six Newton
+  plots per rotor the row turns, `FX_ROTOR_<ALIAS>` and its siblings, over the
+  rotor's general and blade families, where the run has an `MRP` frame. A pproc
+  that already plots the six over exactly those families renders the same
+  script for that rotor. Twelve tier-3 goldens gained the plots and nothing
+  else.
+- **A group in a rotor's own frame is never the source**, and neither is a group
+  that only shares the alias's name over other families. A bare `FX_<alias>`
+  arises only from `{family}` in an expanding frame, in axes that turn with the
+  rotor and with its moment about the hub; the table used to average it and
+  then transfer that moment to the hub a second time.
+- **A row that states a window never gets an instant in its rotor table.** A
+  point with no usable history is left out and named under `skipped`, as the
+  unsteady polar beside it does; the table used to write the last step beside
+  averaged rows under one header. The manifest entry states `source` and
+  `window`. A campaign run before 0.24.0 whose pproc plots no such group gets
+  NO rotor table for its unsteady points, with the reason: declare the group
+  and run again, or read the steady points.
+
 ### Fixed (changes a published number)
 
 - **`ETAW` AND THE SHAFT ANGLE WERE COMPUTED AGAINST A FREE STREAM WITH TWO

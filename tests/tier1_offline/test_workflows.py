@@ -4344,7 +4344,16 @@ def test_the_rotor_run_creates_one_axis_frame_per_blade_and_moves_them(tmp_path)
     names = [
         lines[i + 4] for i, line in enumerate(lines) if line == "UNSTEADY_SOLVER_NEW_FORCE_PLOT"
     ]
-    assert len(names) == 80, "TOTAL, AIRFRAME, Blade1, S, N, PROP_X, PROP_XS, LOCAL_Blade1"
+    # EIGHTY ARE THE ARTIFACT'S, ten parameters over eight groups. SIX MORE ARE THE
+    # PACKAGE'S since 0.24.0: the rotor's own six components in the global frame,
+    # `*_ROTOR_ROTOR`, which the artifact plots for no group over exactly the rotor's
+    # families (its `PROP_XS` is in the rotor's own frame), and which the unsteady
+    # rotor table is the window average of.
+    own = [name for name in names if name.endswith("_ROTOR_ROTOR")]
+    assert len(own) == 6, own
+    assert len(names) - len(own) == 80, (
+        "TOTAL, AIRFRAME, Blade1, S, N, PROP_X, PROP_XS, LOCAL_Blade1"
+    )
 
 
 def test_a_pproc_frame_the_run_did_not_create_is_refused_naming_the_created_ones(tmp_path):
@@ -5027,7 +5036,12 @@ def test_a_pproc_entry_cites_a_setup_frame_and_an_alias_word(tmp_path):
     # THE SIX `*_MRP_TOTAL` ARE THE PACKAGE'S OWN SINCE 0.24.0: this artifact plots no
     # force or moment in the global frame, so the run adds them for the unsteady
     # polar's axes. What the ARTIFACT asked for is still exactly these two.
-    added = {f"{part}_MRP_TOTAL" for part in ("FX", "FY", "FZ", "MX", "MY", "MZ")}
+    added = {
+        f"{part}_{group}"
+        for part in ("FX", "FY", "FZ", "MX", "MY", "MZ")
+        # ...and, for the rotor table's window average, the rotor's own six.
+        for group in ("MRP_TOTAL", "ROTOR_ROTOR")
+    }
     assert set(plots) - added == {"CL_LIFTERS_X", "CL_PUSHER_X"}, sorted(plots)
     assert added <= set(plots), sorted(plots)
     # The frame indices are read off the script's own coordinate-system blocks,

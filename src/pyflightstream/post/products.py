@@ -95,7 +95,13 @@ from pyflightstream._errors import (
     PyflightstreamError,
     PyflightstreamWarning,
 )
-from pyflightstream.cases import AXES_PLOT_COMPONENTS, AXES_PLOT_GROUP, select_group_members
+from pyflightstream.cases import (
+    AXES_PLOT_COMPONENTS,
+    AXES_PLOT_GROUP,
+    ROTOR_PLOT_GROUP_PREFIX,
+    select_families,
+    select_group_members,
+)
 from pyflightstream.cases.windows import averaging_span, replan
 from pyflightstream.cases.workflows import (
     BLADE_FAMILIES_KEY,
@@ -1317,6 +1323,71 @@ def read_csv_table(
 # call, so a stage reaches it.
 
 
+def rotor_plot_source(
+    pproc: object | None,
+    alias: str,
+    rotor_families: Sequence[str],
+    inventory: Sequence[str],
+    aliases: Mapping[str, Sequence[str]] | None = None,
+) -> tuple[list[str], str | None]:
+    """Return the plot groups a rotor's six components may be read from, and why not.
+
+    A force plot is named ``<parameter>_<group name>``, the group being an entry of
+    the pproc's ``[[plots.groups]]``. So a rotor's history is found THROUGH THE
+    PPROC, never by guessing a name:
+
+    1. a group in the global ``MRP`` frame whose families are exactly the rotor's
+       own, as the artifact declares it (``HUB_PUSHER`` is as good a name as any);
+    2. the group the run adds since 0.24.0, ``ROTOR_<ALIAS>``, also in ``MRP``.
+
+    A GROUP THAT MERELY SHARES THE ALIAS'S NAME IS NOT ONE: an artifact may call a
+    group ``PROP`` over the blades alone while the rotor ``PROP`` owns a spinner
+    too, and the table would then average another set of surfaces than the one it
+    integrates on a steady run.
+
+    A GROUP IN A ROTOR'S OWN FRAME IS NEVER A SOURCE. Its force is stated in axes
+    that turn with the rotor and its moment is already about the hub, while the
+    rotor table turns a geometry-frame force and transfers the moment from the
+    moment point. An expanding frame names its emissions by ``{family}``, which is
+    the one way a bare ``FX_<alias>`` arises, so that spelling is refused when the
+    artifact declares it there.
+
+    Returns the candidate group names, best first, and what was ruled out and
+    why. Without a pproc, a caller holding a plots table and nothing else, the
+    alias itself is the only candidate.
+    """
+    if pproc is None:
+        return [alias], None
+    wanted = {str(family) for family in rotor_families}
+    candidates: list[str] = []
+    refused: str | None = None
+    is_blade = getattr(pproc, "is_blade", lambda _name: False)
+    for group in getattr(getattr(pproc, "plots", None), "groups", ()) or ():
+        frame = str(getattr(group, "frame", "")).strip().upper()
+        name = str(getattr(group, "name", ""))
+        try:
+            resolved = select_families(group.families, list(inventory), is_blade, aliases)
+        except PyflightstreamError:
+            continue
+        if frame != "MRP":
+            named = group.families if isinstance(group.families, list) else [group.families]
+            if "{family}" in name and alias in {str(member) for member in named}:
+                refused = (
+                    f"the pproc plots {name.replace('{family}', alias)!r} in the frame {frame}, "
+                    "which is the rotor's own: a force there is not in the geometry's axes and "
+                    "its moment is already about the hub, so it is not what a rotor table is "
+                    "built from. Declare a plot group over the rotor's families with "
+                    'frame = "MRP"'
+                )
+            continue
+        if "{family}" in name:
+            continue
+        if any(wanted and set(families) == wanted for families in resolved):
+            candidates.append(name)
+    candidates.append(f"{ROTOR_PLOT_GROUP_PREFIX}{alias}")
+    return candidates, refused
+
+
 def _rotor_tables(
     workspace: CampaignWorkspace,
     sim_id: str,
@@ -1328,6 +1399,9 @@ def _rotor_tables(
     out: Path,
     plots: Mapping[str, Path] | None = None,
     window: tuple[int, int] | None = None,
+    pproc: object | None = None,
+    windows: Mapping[str, tuple[int, int]] | None = None,
+    aliases: Mapping[str, Sequence[str]] | None = None,
 ) -> list[tuple[Path, str, dict[str, object]]]:
     """Assemble one rotor table per rotor the ROW's reference declares (item 6).
 
@@ -1369,6 +1443,8 @@ def _rotor_tables(
         return []
 
     by_run = {record.run_id: record for record in records}
+    #: Which plot group each rotor's history was read from, for the manifest.
+    sources_read: dict[str, str] = {}
 
     def _state(point: PolarPoint) -> RunRecord | None:
         """Return the record of THIS point, or None -- never another point's.
@@ -1386,53 +1462,71 @@ def _rotor_tables(
     #: the order `rotor_shaft_loads` reads them back in as coefficients.
     _PLOT_COMPONENTS = ("FX", "FY", "FZ", "MX", "MY", "MZ")
 
-    def _averaged_newtons(point: PolarPoint, alias: str) -> dict[str, float] | None:
-        """Return the rotor group's six components, averaged over the row's window.
+    def _averaged_newtons(
+        point: PolarPoint, alias: str, families: Sequence[str]
+    ) -> tuple[dict[str, float] | None, str, str | None]:
+        """Return the rotor's six components averaged over the point's window, or why not.
 
         ITEM 16 SAYS ONE WINDOW FOR EVERY UNSTEADY PRODUCT OF THE POINT, and the
         rotor table was the product it did not reach: it was built from
-        `point.loads`, the native export, which states THE LAST TIME STEP --
-        the owner's own answer of 2026-09-18. So an unsteady rotor table
-        published one instant of a cycle beside a polar that averaged correctly,
-        in the same directory, and nothing in either file said which was which.
-        The independent review of `main` found it (L6-04).
+        `point.loads`, the native export, which states THE LAST TIME STEP. So an
+        unsteady rotor table published one instant of a cycle beside a polar that
+        averaged correctly, and nothing in either file said which was which.
 
-        THE HISTORY IS ALREADY ON DISK AND COSTS NO RE-RUN. A plots table states
-        `FX_<GROUP>` ... `MZ_<GROUP>` per plot group, in Newtons, in that group's
-        declared frame -- measured on a licensed run, `superfile-0180.json`.
-        Item 15 names a rotor's integration group after its ALIAS, so the
-        columns this looks for are `FX_<alias>` and its five siblings.
+        IT LOOKED FOR `FX_<alias>` AND NO RUN PRINTED THAT NAME (L6-04). A force
+        plot is named for its pproc GROUP, so the columns read `FX_HUB_PUSHER`;
+        the lookup missed on every campaign and the fallback was silent. The
+        columns are found through :func:`rotor_plot_source` now.
 
-        None WHERE THE COLUMNS ARE NOT THERE, which is an ordinary campaign and
-        not a fault: the plot groups are declared in her pproc and a campaign
-        that plotted no group for this rotor has no history to average. The
-        caller then writes the native-export table and RECORDS that it is an
-        instant, rather than silently publishing one.
+        The second value is the reason, for the caller to record; the third is the
+        group the history was read from, which the manifest states.
         """
-        if plots is None or window is None:
-            return None
+        span = (windows or {}).get(point.name, window)
+        if plots is None or span is None:
+            return None, "the row states no averaging window", None
+        where = f"over steps {span[0]} to {span[1]}"
         source = plots.get(point.name)
         if source is None or not source.is_file():
-            return None
+            return None, f"it has no plots table to average {where}", None
         try:
             columns, series = plots_table_series(source)
-        except (PyflightstreamError, OSError, ValueError):
-            return None
-        wanted = {name: f"{name}_{alias}" for name in _PLOT_COMPONENTS}
-        if not all(column in columns for column in wanted.values()):
-            return None
+        except (PyflightstreamError, OSError, ValueError) as error:
+            return None, f"its plots table could not be read: {error}", None
+        inventory = list(point.loads.surfaces) if point.loads is not None else []
+        candidates, refused = rotor_plot_source(pproc, alias, families, inventory, aliases)
+        group = next(
+            (
+                name
+                for name in candidates
+                if all(f"{part}_{name}" in columns for part in _PLOT_COMPONENTS)
+            ),
+            None,
+        )
+        if group is None:
+            looked = ", ".join(f"FX_{name}" for name in candidates) or "none"
+            reason = (
+                f"its plots table holds the six components of no plot group of rotor {alias!r} "
+                f"in the global MRP frame (looked for {looked} and their five siblings) to "
+                f"average {where}"
+            )
+            return None, reason if refused is None else f"{reason}; {refused}", None
         steps = series.steps
-        if not len(steps) or int(steps[0]) > window[0] or int(steps[-1]) < window[1]:
-            # THE SAME COVERAGE REFUSAL `write_unsteady_polar` makes. A history
-            # that does not reach the window is a run that stopped early, and
-            # averaging the part of it that exists publishes a window the file
-            # does not contain.
-            return None
+        if not len(steps) or int(steps[0]) > span[0] or int(steps[-1]) < span[1]:
+            held = f"steps {int(steps[0])} to {int(steps[-1])}" if len(steps) else "no step"
+            return (
+                None,
+                f"the row states steps {span[0]} to {span[1]} and its history holds {held}",
+                None,
+            )
         try:
-            averaged = blade_passage_average(series, window=window)
-        except (PyflightstreamError, ValueError):
-            return None
-        return {name: float(averaged.fields[column][0]) for name, column in wanted.items()}
+            averaged = blade_passage_average(series, window=span)
+        except (PyflightstreamError, ValueError) as error:
+            return None, f"its history could not be averaged {where}: {error}", None
+        return (
+            {part: float(averaged.fields[f"{part}_{group}"][0]) for part in _PLOT_COMPONENTS},
+            "",
+            group,
+        )
 
     def _as_coefficients(newtons: Mapping[str, float], *, density: float, speed: float) -> dict:
         """Turn the averaged Newtons back into the export's own coefficients.
@@ -1579,9 +1673,27 @@ def _rotor_tables(
             surfaces: Mapping[str, Mapping[str, float]] = (
                 point.loads.surfaces if point.loads is not None else {}
             )
-            newtons = _averaged_newtons(point, str(alias))
+            own_families: list[str] = []
+            for stated_family in [
+                *(getattr(rotor, "families_general", None) or []),
+                *(getattr(rotor, "families_blades", None) or []),
+            ]:
+                own_families.extend(
+                    str(member)
+                    for member in (aliases or {}).get(str(stated_family), (stated_family,))
+                )
+            carried = [name for name in own_families if name in surfaces]
+            newtons, why_not, read_from = _averaged_newtons(point, str(alias), carried)
+            if newtons is None and (windows or {}).get(point.name, window) is not None:
+                # A ROW THAT STATES A WINDOW NEVER GETS AN INSTANT (RI-01). The table
+                # used to fall back to the native export, the last time step, and
+                # write it beside averaged rows under one header. The unsteady polar
+                # beside it leaves such a point out and names it; so does this.
+                left_out.append((run_id, f"{point.name}: {why_not}"))
+                continue
             instant = True
             if newtons is not None:
+                sources_read[str(alias)] = str(read_from)
                 averaged_surfaces = _as_coefficients(
                     newtons, density=float(density), speed=float(speed)
                 )
@@ -1639,7 +1751,15 @@ def _rotor_tables(
             (
                 out / POLARS_DIR / name,
                 str(alias),
-                {"rotor": rotor, "rows": rows, "left_out": left_out},
+                {
+                    "rotor": rotor,
+                    "rows": rows,
+                    "left_out": left_out,
+                    # WHAT THE TABLE IS (RI-01), for the manifest: the group its
+                    # history was read from, or None where it is the native export
+                    # of a steady run.
+                    "read_from": sources_read.get(str(alias)),
+                },
             )
         )
     return tables
@@ -4691,6 +4811,9 @@ def _sim_products(
         out,
         plots=plots_tables,
         window=unsteady_window_steps,
+        pproc=pproc,
+        windows=point_windows,
+        aliases=aliases,
     ):
         destination = _target(target_path)
         # THE PLAN'S OWN REJECTIONS PLUS THE WRITER'S, IN ONE LIST. Both halves
@@ -4725,6 +4848,22 @@ def _sim_products(
                 # because a reader checking the manifest is reassured.
                 "runs": [rid for rid in rotor_runs if rid] or run_ids,
                 "rotor": alias,
+                # AN AVERAGE OR THE SOLVER'S OWN EXPORT, AND THE MANIFEST SAYS WHICH
+                # (RI-01), as the unsteady polar's entry does. A row that states a
+                # window never holds an instant, so one entry describes every row.
+                **(
+                    {
+                        "source": (
+                            f"the unsteady plots, time-averaged, of plot group {plan['read_from']}"
+                        ),
+                        "window": list(unsteady_window_steps),
+                        "windows": {
+                            name: list(span) for name, span in sorted(point_windows.items())
+                        },
+                    }
+                    if plan.get("read_from") and unsteady_window_steps is not None
+                    else {"source": "the loads export of a steady run"}
+                ),
             }
         if rotor_left_out:
             skipped[relative] = (

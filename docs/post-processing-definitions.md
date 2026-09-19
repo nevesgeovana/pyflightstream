@@ -417,6 +417,29 @@ with the rotor's alias. They make physical sense for **one** rotor and not for
 several summed: the diameters and speeds that normalise them are different
 numbers.
 
+### Where an unsteady point's numbers come from
+
+A steady point's row is built from the loads export. **An unsteady point's row
+is the average of the PLOTS history over the row's window**, the same window the
+unsteady polar and the reductions use, because the loads export of an unsteady
+run states the last time step, one instant of a cycle.
+
+- **The history is the rotor's own six components in the global `MRP` frame**,
+  `FX, FY, FZ, MX, MY, MZ` in Newtons, over the rotor's own families, general
+  and blades. It is found through the pproc: a `[[plots.groups]]` entry with
+  `frame = "MRP"` whose families are exactly the rotor's, whatever it is
+  called. Where the pproc plots none, the run adds one itself, `ROTOR_<ALIAS>`.
+- **A group in a rotor's own frame is never the source.** Its force is stated in
+  axes that turn with the rotor and its moment is already about the hub. A
+  group that merely shares the alias's name over other families is not one either.
+- **A row that states a window never holds an instant.** A point whose history
+  does not cover the window, or holds no such columns, is LEFT OUT of the table
+  and named in `products.json`, as the unsteady polar beside it does. The
+  table's manifest entry states `source` and `window`.
+
+Until 0.24.0 the history was looked for under `FX_<alias>`, a name no run
+printed, so every unsteady rotor table silently held the last time step.
+
 ### `ETAW`
 
 > "é a rotação por alpha. `[Fx_rotor_axis Fy_rotor_axis Fz_rotor_axis] *
