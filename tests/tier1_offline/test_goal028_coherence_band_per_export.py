@@ -51,7 +51,7 @@ def _projection(alpha, beta, force, flip_y=False) -> float:
     return force[0] * math.cos(a) * math.cos(b) + force[1] * y + force[2] * math.sin(a)
 
 
-def _workspace(tmp_path: Path, *, flip_y: bool) -> tuple[Path, Path]:
+def _workspace(tmp_path: Path, *, flip_y: bool, row_gap: float = 0.0) -> tuple[Path, Path]:
     sideslip = (0.0221000, -0.0004864, 0.0040000)
     _export(
         tmp_path / "sims" / "sim_1003" / "datapoints" / "B" / "loads.txt",
@@ -73,7 +73,8 @@ def _workspace(tmp_path: Path, *, flip_y: bool) -> tuple[Path, Path]:
     out = tmp_path / "out"
     (out / "polars").mkdir(parents=True)
     (out / "polars" / "P5001_x.csv").write_text(
-        "ALPHA,BETA,CDW,CD0,CDI\n2.0,0.0,0.02350,0.02000,0.00350\n", encoding="utf-8"
+        f"ALPHA,BETA,CDW,CD0,CDI\n2.0,0.0,{0.02350 + row_gap:.5f},0.02000,0.00350\n",
+        encoding="utf-8",
     )
     return tmp_path, out
 
@@ -94,3 +95,26 @@ def test_a_sign_defect_on_a_seven_decimal_export_is_not_hidden_by_a_four_decimal
     # The gap itself is the signature, 2 |Cy sin b|, well under the four-decimal band.
     gap = max(row["gap"] for row in result["measured"]["exports"])
     assert abs(gap - 2 * 0.0004864 * math.sin(math.radians(4.0))) < 2e-7
+
+
+# --- A POLAR ROW IS NO MORE PRECISE THAN THE EXPORT IT WAS COMPUTED FROM ----------
+#
+# Found by the campaign's own dry run: a polar row's CDW is the projection of the
+# export's (Cx, Cy, Cz) and its CD0, CDI are the export's CDo, CDi, so a row
+# computed from a four-decimal export carries that export's rounding. Judging the
+# row against its own five decimals alone called a coherent row incoherent.
+
+
+def test_a_row_is_judged_with_the_digits_of_the_export_it_came_from(tmp_path):
+    # 4e-5 off: outside the row's own 1.5e-5, inside its four-decimal export's band.
+    workspace, out = _workspace(tmp_path, flip_y=False, row_gap=4.0e-5)
+    result = _instrument().steady_drag(workspace, out)
+    assert result["verdict"] == "coherent", result["measured"]
+
+
+def test_a_row_off_by_more_than_its_export_and_its_own_digits_is_still_refused(tmp_path):
+    # THE CONTROL: 5e-4 is more than any rounding of either file explains.
+    workspace, out = _workspace(tmp_path, flip_y=False, row_gap=5.0e-4)
+    result = _instrument().steady_drag(workspace, out)
+    assert result["verdict"] == "INCOHERENT", result["measured"]
+    assert result["measured"]["worst_ratio_at"].startswith("P5001_x.csv")

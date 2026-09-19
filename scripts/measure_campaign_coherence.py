@@ -100,9 +100,9 @@ def steady_drag(workspace: Path, out: Path) -> dict[str, object]:
                 continue
             gap = abs(cdw - (cd0 + cdi))  # type: ignore[operator]
             worst = max(worst, gap)
-            # Three columns printed at five decimals: half a unit on each.
+            # Three columns printed at five decimals: half a unit on each. The band of
+            # the export the row was computed from is added below, once it is known.
             allowed = 3 * 0.5e-5
-            judged.append((gap / allowed, f"{polar.name} ALPHA {row.get('ALPHA')}"))
             measured.append(
                 {
                     "polar": polar.name,
@@ -115,6 +115,7 @@ def steady_drag(workspace: Path, out: Path) -> dict[str, object]:
                 }
             )  # type: ignore[operator]
     exports: list[dict[str, object]] = []
+    source_band: dict[tuple[str | None, float, float], float] = {}
     for loads in sorted(workspace.glob("sims/sim_*/datapoints/*/*.txt")):
         if re.search(r"_(plots|sloads|probes|cp|log)\b|_iteration=", loads.name):
             continue
@@ -136,6 +137,8 @@ def steady_drag(workspace: Path, out: Path) -> dict[str, object]:
         allowed = half * (sum(abs(weight) for weight in stream) + 2.0)
         worst = max(worst, gap)
         judged.append((gap / allowed, loads.name))
+        sim = next((part[4:] for part in loads.parts if part.startswith("sim_")), None)
+        source_band[(sim, round(total["alpha"], 3), round(total["beta"], 3))] = allowed
         exports.append(
             {
                 "export": loads.name,
@@ -187,6 +190,23 @@ def steady_drag(workspace: Path, out: Path) -> dict[str, object]:
                         "gap": gap,
                     }
                 )
+    # A POLAR ROW IS NO MORE PRECISE THAN THE EXPORT IT WAS COMPUTED FROM: its CDW is
+    # the projection of that export's vector and its CD0, CDI are that export's
+    # integrals, so the export's rounding reaches the row. Found by the campaign's
+    # own dry run, where a four-decimal export at beta 5 left a row 4e-5 off.
+    for row in measured:
+        sim = re.match(r"P(\d+)", str(row["polar"]))
+        alpha, beta = _number(row.get("ALPHA")), _number(row.get("BETA"))
+        inherited = (
+            source_band.get((sim.group(1), round(alpha, 3), round(beta, 3)), 0.0)
+            if sim and alpha is not None and beta is not None
+            else 0.0
+        )
+        row["allowed"] = float(row["allowed"]) + inherited  # type: ignore[arg-type]
+        row["inherited_from_its_export"] = inherited
+        judged.append(
+            (float(row["gap"]) / row["allowed"], f"{row['polar']} ALPHA {row.get('ALPHA')}")  # type: ignore[arg-type]
+        )
     ratio, where = max(judged) if judged else (None, None)
     ok = None if not (measured and exports) else ratio is not None and ratio <= 1.0
     return {
