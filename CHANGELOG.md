@@ -117,6 +117,14 @@ FlightStream versions.
 
 ### Fixed
 
+- **A campaign recorded with 0.24.0 posts with 0.25.0 without a re-run.** Measured on
+  a recorded licensed campaign of five points: the stage exits 0, every product is
+  written or skipped WITH ITS REASON, and no recorded file is rewritten. Two defects
+  of the per-distribution split were found that way and fixed: a legacy record's
+  section frame was matched loosely, so a block could be claimed by the wrong
+  distribution, and the refusal of a record that cannot be split now names the
+  missing evidence and says a new run is needed.
+
 - **A frozen unsteady solve is a failure, and its averages are not published.** A
   time step whose inner iterations after the first print a velocity residual of
   exactly zero, and whose last prints both residuals exactly zero, is frozen; two or

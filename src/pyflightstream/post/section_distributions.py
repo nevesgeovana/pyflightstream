@@ -28,7 +28,10 @@ def _distributions(
 ) -> tuple[list[dict[str, object]], dict[int, str | list[str]]]:
     """Resolve block ownership, refusing ambiguous pre-0.25.0 layouts."""
     if not record.sections_layout:
-        raise ProductError("distribution split needs the recorded sections_layout; never guessed")
+        raise ProductError(
+            "distribution split needs the recorded sections_layout; never guessed. "
+            "A new run is needed to record the missing layout."
+        )
     layout = [dict(block) for block in record.sections_layout]
     selections: dict[int, str | list[str]] = {}
     for block in layout:
@@ -51,14 +54,23 @@ def _distributions(
                 members = select_group_members(tokens, inventory, record.aliases)
                 families = cast(list[str], block.get("families", []))
                 frame = entry.frame.strip().upper()
+                recorded_frame = str(block.get("frame", ""))
+                expanded = {
+                    "LOCAL_AXIS": r".+_RMRP[1-9][0-9]*",
+                    "RMRP": r".+_RMRP",
+                    "SMRP": r".+_SMRP(?:_ORIGINAL)?",
+                }.get(frame)
+                frame_matches = (
+                    re.fullmatch(expanded, recorded_frame) is not None
+                    if expanded is not None
+                    else recorded_frame == entry.frame
+                )
                 if (
                     families
                     and set(families) <= set(members)
                     and block.get("plane") in entry.planes
                     and count == (entry.count or pproc.sections.count)
-                    and (
-                        frame in ("LOCAL_AXIS", "RMRP", "SMRP") or block.get("frame") == entry.frame
-                    )
+                    and frame_matches
                 ):
                     matches.append((k, entry.families))
             if len(matches) == 1:
@@ -73,7 +85,10 @@ def _distributions(
         ):
             raise ProductError(
                 "sections_layout does not identify each pproc distribution unambiguously; "
-                "split needs recorded distribution positions/families or a uniquely matching pproc"
+                "split needs recorded distribution positions/families "
+                "or a uniquely matching pproc. "
+                "Restore the matching pproc, or a new run is needed "
+                "to record distribution identity."
             )
         if position in selections and selections[position] != selection:
             raise ProductError(f"sections_layout disagrees on families of distribution {position}")
