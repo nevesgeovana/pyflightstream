@@ -1527,7 +1527,7 @@ def rotor_speed(case: SimCase) -> RotorSpeed:
                 "VALUE, which is how one rotor holds while another is swept."
             )
     if ratio_text is not None and rpm_text is not None and _the_cell_states_both(case):
-        # THE AUTHOR'S DECISION OF 2026-09-15: the speed and the ratio together, with no
+        # The speed and the ratio together, with no
         # velocity stated, are the static-rig form. They do not disagree: the
         # ratio fixed the VELOCITY of the run, V = J x (RPM/60) x D, and the
         # rotor turns at the speed the row wrote. So the speed is taken and the
@@ -1554,7 +1554,7 @@ def rotor_speed(case: SimCase) -> RotorSpeed:
         stated = _required_float(
             case, RPM_VARIABLE, quantity="rotor speed", unit="rev/min", text=rpm_text
         )
-        # A ROW'S RPM IS A MAGNITUDE (the owner's decision of 2026-09-17). The
+        # A ROW'S RPM IS A MAGNITUDE. The
         # hand is the reference's, and a row carrying a sign of its own would be
         # a second answer to a question the rotor block already answers.
         if stated < 0.0:
@@ -3444,18 +3444,18 @@ def _the_passages_of_one_rotor(
     # from another, and any difference between two blades mixed a real
     # azimuthal difference with a difference in WHEN they were sampled.
     #
-    # ITEM 16: IT IS THE ROW'S WINDOW, not a second one derived here. Her rule of
-    # 2026-09-18: "a media per_blade usa a mesma info de last_revs e last_iters
-    # que o unsteady plots". `span` is what the row stated and what the POLAR and
+    # ITEM 16: IT IS THE ROW'S WINDOW, not a second one derived here. The
+    # `per_blade` average uses the same last_revs or last_iters
+    # setting as the plots. `span` is what the row stated and what the POLAR and
     # the time average use; deriving the last complete revolution separately gave
     # the SAME answer only when the row asked for exactly one revolution, and a
     # different one the moment it asked for half or for three.
     #
     # `per_blade_window` still decides whether the span HOLDS a revolution to
     # split by blade, which is a different question from where the window is.
-    # THE SAME INFORMATION, THIS ROTOR'S OWN STEPS. Her rule of 2026-09-18 is
-    # "a media per_blade usa a mesma INFO de last_revs e last_iters que o
-    # unsteady plots", and `last_revs_avg` is stated in REVOLUTIONS: one
+    # THE SAME INFORMATION, THIS ROTOR'S OWN STEPS. The `per_blade` average uses
+    # the plots' last_revs or last_iters setting, and `last_revs_avg` is stated
+    # in REVOLUTIONS: one
     # revolution of a lifter and one of a pusher are different numbers of solver
     # steps, so the same information gives each rotor a different span.
     #
@@ -3603,7 +3603,7 @@ def _averaging_window(
         )
     # LONGER THAN THE RUN IS THE WHOLE RUN, not a refusal. A row asking to
     # average the last four revolutions of a run that turned three has asked for
-    # everything it has, and refusing there would cost her the products of a
+    # everything it has, and refusing there would discard the products of a
     # campaign that already happened over an arithmetic edge.
     first = max(last_step - steps + 1, 1)
     return (first, last_step), (
@@ -3708,10 +3708,10 @@ def reduction_windows(case: SimCase) -> dict[str, object] | None:
     # ITEM 16: THE ONE WINDOW, FROM THE ROW'S OWN AVERAGING KEY FIRST.
     #
     # `last_revs_avg` on a rotor row and `last_iters_avg` on a rotorless one are
-    # what the owner decided the window is stated by (2026-09-18), and they take
+    # the keys that state the averaging window, and they take
     # precedence over the three retired WINDOW_* spellings. A row carrying both
-    # an old key and a new one gets the NEW one, because that is the answer she
-    # would be asking for by writing it.
+    # an old key and a new one gets the NEW one, which explicitly selects
+    # the current window convention.
     #
     # THE SAME SPAN SERVES EVERY UNSTEADY PRODUCT of the point. It is computed
     # once here and every reduction below cuts from it, which is what makes "one
@@ -3914,7 +3914,7 @@ def reduction_windows(case: SimCase) -> dict[str, object] | None:
     #
     # A ROW WRITTEN BEFORE THIS RELEASE KEEPS THE ANSWER IT HAS ALWAYS HAD: its
     # last complete revolution. That is the whole migration for `per_blade` --
-    # her existing matrices produce the same windows they did, and only a row
+    # existing matrices produce the same windows they did, and only a row
     # that states the new key moves.
     wanted = _stated_blade_steps(case, per_revolution or 0.0)
     if wanted is not None:
@@ -4722,7 +4722,7 @@ def _family_indices(
             # THE PRESET'S OWN SPELLING, not the helper keyword. This named
             # `keyword` -- which is the `solver_settings()` Python argument and
             # is what `resolve_boundary` should be told -- so the refusal sent a
-            # user to `axial_separation_boundaries`, a key she cannot write in a
+            # user to `axial_separation_boundaries`, a key they cannot write in a
             # preset at all. For `vorticity` an alias softened it; for the new
             # twin there was nothing. The resolver's own docstring promised the
             # opposite: "so a bad label names the key the user wrote".
@@ -5006,7 +5006,7 @@ RATE_VARIABLES: tuple[tuple[str, str], ...] = (
 _DEG_PER_S_TO_RPM = 60.0 / 360.0
 
 #: WHAT THE SIGN OF THE EMITTED ROTATION IS, relative to the rate the row
-#: states. The row's rates are FLIGHT MECHANICS (the author's decision of 2026-09-15):
+#: states. The row's rates are FLIGHT MECHANICS:
 #: a positive pitch rate is nose-up. What the SOLVER does with a positive
 #: angular velocity about a frame axis is the solver's own convention, and no
 #: edition of the manual states it, so this package emits the rate AS WRITTEN
@@ -5070,7 +5070,7 @@ def _turning_rate(case: SimCase) -> tuple[str, str, float] | None:
 def _free_stream(case: SimCase, script: Script, frames: Frames) -> None:
     """Emit the free-stream definition: CONSTANT, or ROTATION where a rate turns it.
 
-    THE AUTHOR'S DECISION OF 2026-09-15, from the cluster. A row states ONE body rate in
+    A row states ONE body rate in
     deg/s, in flight-mechanics signs, and the free stream turns about the
     MOMENT REFERENCE POINT of the row's REF at that rate: it is how a run
     states a pull-up, a roll or a yaw rather than straight flight. Which axis
@@ -5254,8 +5254,8 @@ Frames = Mapping[str, int | None | Mapping[str, int]]
 #: (PFS-2035.13, the design of 2026-09-10).
 IGNORE_MISSING_FAMILIES_VARIABLE = "IGNORE_MISSING_FAMILIES"
 
-#: WHETHER THE SCRIPT EXPORTS THE SOLVER LOG (0.21.0, the author's decision of
-#: 2026-09-15). Written onto the case by the RUN layer from the HPC profile's
+#: WHETHER THE SCRIPT EXPORTS THE SOLVER LOG (0.21.0).
+#: Written onto the case by the RUN layer from the HPC profile's
 #: ``[log]`` table, exactly as IGNORE_MISSING_FAMILIES is written from the
 #: command line, and for the same reason: the builders read the case and know
 #: nothing of a profile, and a machine that aborts at EXPORT_LOG is a property
@@ -8323,7 +8323,7 @@ UNSTEADY_ACTION_COUNT = "actions/pfs_unsteady_actions.count"
 #: compute cannot also be the command list the solver runs, so one writes
 #: and one is read.
 #:
-#: The author's numbering of 2026-09-12: the counter is (1), the exports script is
+#: The counter is (1), the exports script is
 #: (2), the clock is (3) and the stop script is (4). When a row states no
 #: export threshold the first pair is not registered at all and the clock
 #: pair takes (1) and (2), which is why the positions are conditional and
@@ -8623,9 +8623,8 @@ def unsteady_action_command_line(interpreter: str = sys.executable) -> str:
 
 #: FR-96. The three things a RESTART may ask for.
 #:
-#: ONE SEPARATOR, and the author's message spelled two: `ADDITIONAL_ITERS=<n>` with
-#: an equals and `ADDITIONAL_REVS:<n>` with a colon. The equals is taken
-#: for both, because the colon is already the key/value separator of the
+#: ONE SEPARATOR: `ADDITIONAL_ITERS=<n>` and `ADDITIONAL_REVS=<n>` both
+#: use an equals sign, because the colon is already the key/value separator of the
 #: free cell itself and nesting it inside braces reads as a second pair.
 RESTART_FINISH_PENDING = "FINISH_PENDING"
 RESTART_ADDITIONAL_ITERS = "ADDITIONAL_ITERS"
@@ -8825,7 +8824,7 @@ def walltime_margin_s(case: SimCase) -> float:
 
 
 #: The units a WALLTIME cell may carry, to their length in seconds. The
-#: author's decision of 2026-09-15: the cell writes `240m` or `4h` and the unit is part
+#: cell writes `240m` or `4h` and the unit is part
 #: of the value, because a bare number meant seconds in one place and minutes
 #: in another and a walltime that means two things is a job that either dies
 #: early or holds a node for a day.
@@ -9752,7 +9751,7 @@ def _motion_view(case: SimCase, record: Mapping[str, str]) -> SimCase:
         variables[ROTOR_ORIGIN_VARIABLE] = "{},{},{}".format(*rotor.origin)
         variables[BLADES_VARIABLE] = str(rotor.blade_count)
         # THE ROTOR'S HAND IS THE REFERENCE'S, ALWAYS, and it reaches every
-        # speed form. The owner's decision of 2026-09-17: the RPM a row states
+        # speed form. The RPM a row states
         # is a MAGNITUDE and the sign comes from the reference, which already
         # says the axis, the origin and the blade count -- the row says how
         # fast, the block says which way, and the two cannot contradict each

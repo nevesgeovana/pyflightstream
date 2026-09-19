@@ -2328,7 +2328,7 @@ def check_solver_identity(
         return
     installed = found.group("build")
     if installed != version.build:
-        # 0.21.0, the owner's decision of 2026-09-15: a build that EXISTS and is
+        # Since 0.21.0, a build that EXISTS and is
         # not the registered one may be accepted on request, and then its
         # compatibility is the user's responsibility. It is warned, and every
         # record of the run says the acceptance was made.
@@ -2902,8 +2902,8 @@ def run_campaign(
             case_points = remaining
             run_ids = [_run_id(campaign, case, point) for point in remaining]
         # A ROW STATING RESTART CONTINUES WHAT IS RECORDED, so its recorded
-        # points are its subject and not a fork (GOAL-021, the owner's call of
-        # 2026-09-14). Until 0.18.1 such a row, under the campaign that recorded
+        # points are its subject and not a fork (GOAL-021).
+        # Until 0.18.1 such a row, under the campaign that recorded
         # the stopped run, was refused as a fork without `resume` and skipped
         # as done with it, and ran only under another campaign name. A point
         # of it is pending when the most recent record of that point stopped
@@ -3151,7 +3151,7 @@ def run_campaign(
                 continue
             if continuation is not None:
                 stamp = datetime.now()
-                # THE AUTHOR'S DECISION: archive what the continuation replaces, per
+                # Archive what the continuation replaces, per
                 # datapoint, under a day-and-hour stamp, BECAUSE THERE CAN BE
                 # MORE THAN ONE RESTART. It happens before the solver starts,
                 # so a continuation never writes into the folder holding the
@@ -4806,8 +4806,8 @@ def _is_one_job(campaign: Campaign, case: SimCase) -> bool:
       recipe, which builds one point and knows nothing of a sweep; an
       unsteady point marches in time from its own initial state, so two of
       them in one process would make the second continue the first's clock.
-    * the campaign came from a MATRIX. The author's decision of 2026-09-12 is
-      about the row the author writes, and a campaign authored in Python is a
+    * the campaign came from a MATRIX. This convention applies to matrix
+      rows, and a campaign authored in Python is a
       different surface with a contract of its own: thirty-one tier-1 tests
       state that a Python campaign records one point at a time, and widening
       that convention onto them would be a change nobody asked for, made
@@ -5240,7 +5240,7 @@ def continuation_run_id(run_id: str, stamp: datetime) -> str:
     """Return the run id of a continuation of ``run_id``.
 
     THE STAMP GOES BEFORE THE POINT TAG AND NOT AFTER IT, and that is the
-    whole of the decision the owner left to this session. FR-95 states that
+    continuation policy. FR-95 states that
     the point tag is run IDENTITY and ENDS every ``run_id`` in every
     manifest; a stamp appended after it would break that for every reader
     and every resume that walks a manifest by its tags.
@@ -5250,9 +5250,8 @@ def continuation_run_id(run_id: str, stamp: datetime) -> str:
     folder its predecessor's outputs were archived into, and the tag still
     ends it.
 
-    ONE RECORD PER CONTINUATION, which is the shape the author's archive
-    decision pointed at without stating: if the evidence of each continuation lives
-    in its own stamped folder, the stamp is already the thing that tells one
+    ONE RECORD PER CONTINUATION: the evidence of each continuation lives
+    in its own stamped folder. The stamp is already the thing that tells one
     from the next, and a record per continuation costs no new vocabulary.
     The alternative, one record growing segments, would have meant rewriting
     a finished row, which is the thing `append_record` exists to prevent.
@@ -5306,7 +5305,7 @@ def resolve_continuation(
     # it asked whether it stopped. This read the latest STOPPED record until
     # 0.18.1, so a point whose continuation had since FINISHED was continued
     # again from the run before it, re-marching steps the finished run had
-    # already done (GOAL-021, found beside the owner's item 2 measurement).
+    # already done (GOAL-021, found beside the item 2 measurement).
     previous = _latest_record_of_point(workspace.read_manifest(), case.sim_id, tag)
     if previous is None or previous.status not in CONTINUABLE:
         latest = (
@@ -5834,7 +5833,7 @@ def _execute_point(
         )
 
     # FR-99, GEO-047-C04. THE REFUSAL OF A SECOND SUBMITTED POINT OF A ROW IS
-    # GONE FROM THIS PATH, and deliberately from this path only (the owner's
+    # GONE FROM THIS PATH, and deliberately from this path only (the
     # lifting of GOAL-020's hold, GOAL-021 item 3). It refused because every
     # point shared the simulation folder's action program, script and clock
     # state; each submitted point now runs in its own datapoint folder, so the
