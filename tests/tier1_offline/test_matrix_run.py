@@ -4424,7 +4424,12 @@ def test_a_rotor_row_run_through_the_workflow_leaves_its_reductions_beside_the_p
     # this point is a recorded SKIP naming the file (FR-87). It is a skip
     # and not the stage's refusal on purpose: the reductions beside it
     # are written, which is what the four files above say.
-    assert sorted(manifest["skipped"]) == ["probes/M200RE1177AL-020_probes.csv"]
+    # AND, since 0.24.0, the axes block of the unsteady polar: the stub's plots hold
+    # no force or moment of the global frame, so the block is not written and says so.
+    assert sorted(manifest["skipped"]) == [
+        "polars/P7001_M200RE1177AL-020_uns_avg.csv#axes",
+        "probes/M200RE1177AL-020_probes.csv",
+    ]
 
 
 # --- PFS-2033.02: the run record carries the raw commands, and so does the provenance ---

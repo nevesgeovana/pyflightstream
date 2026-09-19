@@ -80,6 +80,8 @@ __all__ = [
     "EXPORT_KINDS",
     "FAMILY_SELECTORS",
     "FLUID_PLOT_PARAMETERS",
+    "AXES_PLOT_COMPONENTS",
+    "AXES_PLOT_GROUP",
     "FORCE_PLOT_PARAMETERS",
     "PPROC_FRAMES",
     "FrameSpec",
@@ -427,6 +429,14 @@ FORCE_PLOT_PARAMETERS: dict[str, tuple[str, str]] = {
     "MY": ("MOMENT_Y", "NEWTONS"),
     "MZ": ("MOMENT_Z", "NEWTONS"),
 }
+
+#: The six components an axis rotation needs, as `FORCE_PLOT_PARAMETERS` spells them.
+AXES_PLOT_COMPONENTS: tuple[str, ...] = ("FX", "FY", "FZ", "MX", "MY", "MZ")
+#: The plot group an unsteady run ADDS when its pproc plots those six for no
+#: group in the global MRP frame (0.24.0): every boundary, in the MRP frame. The
+#: unsteady polar's axis coefficients are built from it; a rotor's own frame is
+#: not the geometry's axes. The plots are named `FX_MRP_TOTAL` and so on.
+AXES_PLOT_GROUP = "MRP_TOTAL"
 
 #: The fluid parameters an unsteady fluid plot can sample, the command's
 #: own enumeration (SRC-003 p.347).

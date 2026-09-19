@@ -92,7 +92,7 @@ from pyflightstream._errors import (
     PyflightstreamError,
     PyflightstreamWarning,
 )
-from pyflightstream.cases import select_group_members
+from pyflightstream.cases import AXES_PLOT_COMPONENTS, AXES_PLOT_GROUP, select_group_members
 from pyflightstream.cases.windows import averaging_span, replan
 from pyflightstream.cases.workflows import (
     CONFIGURATION_VARIABLE,
@@ -3616,6 +3616,8 @@ def write_unsteady_polar(
     left_out: list[str] | None = None,
     windows: Mapping[str, tuple[int, int]] | None = None,
     setup: Mapping[str, Mapping[str, object]] | None = None,
+    notes: list[str] | None = None,
+    axes_groups: Sequence[str] | None = None,
 ) -> Path | None:
     """Write the POLAR of one unsteady simulation from the PLOTS history (item 17).
 
@@ -3652,6 +3654,19 @@ def write_unsteady_polar(
 
     ``windows`` gives a point ITS OWN window by name where the points of one row
     do not share a clock; a point it does not name takes ``window``.
+
+    THE AXIS COEFFICIENTS FOLLOW THE PLOTS (0.24.0), from the plot variables of the
+    GLOBAL MRP frame: the six components ``FX .. MZ`` of each plot group
+    ``axes_groups`` names, which the caller reads off the pproc artifact (a plot's
+    column states its group's NAME and never its frame, so the frame cannot be
+    read here), in Newtons and Newton metres, averaged over the window like every
+    other column, made coefficients by the row's own ``RHO``, ``VINF``, ``SREF``
+    and ``CREF`` and turned by the chain the steady polar uses. Never a rotor's
+    own frame, whose axes are not the geometry's. With one such group the columns
+    are the steady polar's eighteen; with several each takes its group's name.
+    Where the block cannot be written, no MRP group with the six or a row stating
+    no density, it is NOT written as a column of `NA`: ``notes`` receives the
+    reason.
 
     ONE ROW PER POINT, in the order given. A point whose plots export is missing
     or unreadable is LEFT OUT rather than written as a row of `NA`: the sweep is
@@ -3740,10 +3755,12 @@ def write_unsteady_polar(
         rows.append((condition, values, window, dict((setup or {}).get(name_of_point, {}))))
     if not rows:
         return None
+    axis_columns = _the_axes_of_the_unsteady_rows(rows, reference, notes, axes_groups or ())
     # ITEM 5 REACHES THIS PRODUCT TOO: a coefficient states nothing without the
     # condition it was taken at and the lengths it was normalised by.
     lengths = None if reference is None else reference.as_lengths()
     moment = None if reference is None else reference.as_moment_point()
+    columns = [*columns, *axis_columns]
     stated = {*_WINDOW_COLUMNS, *CONTEXT_COLUMNS, *_MOMENT_POINT_COLUMNS, *columns}
     extra: list[str] = []
     for _condition, _values, _window, content in rows:
@@ -3766,6 +3783,119 @@ def write_unsteady_polar(
             for condition, values, span, content in rows
         ],
     )
+
+
+def global_frame_plot_groups(pproc: object) -> tuple[str, ...]:
+    """Return the names of the plot groups whose six components are in the GLOBAL frame.
+
+    Read off the pproc artifact, which is the only place a plot's frame is stated.
+    A group counts when its frame is `MRP` and the artifact plots all of
+    ``FX, FY, FZ, MX, MY, MZ``. Where the artifact declares none, the run adds one of
+    its own over every boundary (:data:`pyflightstream.cases.AXES_PLOT_GROUP`), so
+    that name is what is looked for; a run made before 0.24.0 has no such columns
+    and its polar says so.
+    """
+    plots = getattr(pproc, "plots", None)
+    parameters = set(getattr(plots, "parameters", ()) or ())
+    declared = [
+        str(group.name)
+        for group in (getattr(plots, "groups", ()) or ())
+        if str(getattr(group, "frame", "")).strip().upper() == "MRP" and "{" not in str(group.name)
+    ]
+    if declared and set(_SIX_COMPONENTS) <= parameters:
+        return tuple(declared)
+    return (AXES_PLOT_GROUP,)
+
+
+#: The eighteen axis columns of an unsteady polar, wind axes first as the draft of
+#: the product lists them, and where each sits in what
+#: :func:`pyflightstream.post.axes.polar_axis_coefficients` returns (body,
+#: stability, wind).
+UNSTEADY_AXIS_COLUMNS: tuple[str, ...] = tuple(
+    f"C{part}{axes}" for axes in ("W", "S", "B") for part in ("D", "Y", "L", "R", "M", "N")
+)
+_AXES_OFFSET = {"B": 0, "S": 6, "W": 12}
+#: The habit of naming a global-frame group `MRP_<what>`; dropped from a column's
+#: suffix, so two groups read `CLW_TOTAL` and `CLW_AIRFRAME`.
+_MRP_NAME_PREFIX = "MRP_"
+_SIX_COMPONENTS = AXES_PLOT_COMPONENTS
+
+
+def _the_axes_of_the_unsteady_rows(
+    rows: Sequence[
+        tuple[Mapping[str, object], dict[str, float], tuple[int, int], dict[str, object]]
+    ],
+    reference: ReferenceValues | None,
+    notes: list[str] | None,
+    declared: Sequence[str],
+) -> list[str]:
+    """Add the axis coefficients to each row's values, and return the columns added.
+
+    The values of a row are the window's average of every plotted column, so the
+    six components are already averaged; what is done here is the division by the
+    dynamic pressure of THAT row and the turn.
+    """
+    notes = [] if notes is None else notes
+    groups = [
+        group
+        for group in dict.fromkeys(str(name) for name in declared)
+        if any(
+            all(f"{part}_{group}" in values for part in _SIX_COMPONENTS)
+            for _condition, values, _window, _content in rows
+        )
+    ]
+    if not groups:
+        notes.append(
+            "the axis coefficients are not written: the plots hold FX, FY, FZ, MX, MY and MZ "
+            f"of no plot group in the global MRP frame (looked for: {list(declared) or 'none'}; "
+            "a rotor's own frame is not the geometry's "
+            'axes). Declare a [[plots.groups]] entry with frame = "MRP" and those six '
+            "parameters; it takes a new run, the script defines what the solver plots."
+        )
+        return []
+    if reference is None or reference.sref_m2 <= 0.0 or reference.cref_m <= 0.0:
+        notes.append("the axis coefficients are not written: no reference area and chord")
+        return []
+    added: list[str] = []
+    for condition, values, _window, _content in rows:
+        stated = {str(key).upper(): value for key, value in condition.items()}
+        rho, speed = stated.get("RHO"), stated.get("VINF")
+        alpha, beta = stated.get("ALPHA"), stated.get("BETA")
+        lacking = [
+            key
+            for key, value in (("RHO", rho), ("VINF", speed), ("ALPHA", alpha), ("BETA", beta))
+            if not isinstance(value, int | float) or isinstance(value, bool)
+        ]
+        if not lacking and not (float(rho) > 0.0 and float(speed) > 0.0):  # type: ignore[arg-type]
+            lacking = ["a positive RHO and VINF"]
+        if lacking:
+            notes.append(
+                f"the axis coefficients of steps {_window[0]} to {_window[1]} are not written: "
+                f"the row states no {', '.join(lacking)}, and a force in Newtons is no "
+                "coefficient without the dynamic pressure it is divided by"
+            )
+            continue
+        unit = 0.5 * float(rho) * float(speed) ** 2 * reference.sref_m2  # type: ignore[arg-type]
+        for group in groups:
+            six = [values.get(f"{part}_{group}") for part in _SIX_COMPONENTS]
+            if any(value is None for value in six):
+                continue
+            turned = polar_axis_coefficients(
+                [float(value) / unit for value in six[:3]],  # type: ignore[arg-type]
+                [float(value) / (unit * reference.cref_m) for value in six[3:]],  # type: ignore[arg-type]
+                float(alpha),  # type: ignore[arg-type]
+                float(beta),  # type: ignore[arg-type]
+                cref_m=reference.cref_m,
+                bref_m=reference.bref_m,
+            )
+            suffix = f"_{group.removeprefix(_MRP_NAME_PREFIX)}" if len(groups) > 1 else ""
+            for column in UNSTEADY_AXIS_COLUMNS:
+                at = _AXES_OFFSET[column[-1]] + "DYLRMN".index(column[1])
+                name = f"{column}{suffix}"
+                values[name] = turned[at]
+                if name not in added:
+                    added.append(name)
+    return added
 
 
 def _sim_products(
@@ -4410,6 +4540,7 @@ def _sim_products(
     # so that the reference-velocity scaling is performed in one place.
     if unsteady_window_steps is not None:
         unsteady_left_out: list[str] = []
+        unsteady_notes: list[str] = []
         unsteady_name = unsteady_polar_file_name(sim_id, name=table_name)
         # THE FILE 0.23.0 WROTE UNDER THE OLD NAME IS ARCHIVED, NOT LEFT BESIDE THIS
         # ONE. A rebuild moves what it is about to replace, and it replaces by
@@ -4428,7 +4559,13 @@ def _sim_products(
             conditions=conditions,
             reference=reference,
             left_out=unsteady_left_out,
+            notes=unsteady_notes,
+            axes_groups=global_frame_plot_groups(pproc),
         )
+        # A BLOCK THAT IS NOT WRITTEN IS SAID (0.24.0), under the file's own name
+        # with a marker, so it is never mistaken for the file being absent.
+        if unsteady_notes and done is not None:
+            skipped[f"{POLARS_DIR}/{unsteady_name}#axes"] = "; ".join(unsteady_notes)
         # EVERY POINT THAT IS NOT A ROW IS NAMED, with its reason. A sweep table
         # quietly shorter than her matrix says nothing about which points went
         # or why, which is a blank cell one level up.

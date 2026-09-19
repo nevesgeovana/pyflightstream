@@ -5024,7 +5024,12 @@ def test_a_pproc_entry_cites_a_setup_frame_and_an_alias_word(tmp_path):
     lines = rendered(case, "26.123").splitlines()
     plots = _force_plots(lines)
     assert "CL_GHOST_X" not in plots, "an entry resolving to nothing is skipped"
-    assert set(plots) == {"CL_LIFTERS_X", "CL_PUSHER_X"}, sorted(plots)
+    # THE SIX `*_MRP_TOTAL` ARE THE PACKAGE'S OWN SINCE 0.24.0: this artifact plots no
+    # force or moment in the global frame, so the run adds them for the unsteady
+    # polar's axes. What the ARTIFACT asked for is still exactly these two.
+    added = {f"{part}_MRP_TOTAL" for part in ("FX", "FY", "FZ", "MX", "MY", "MZ")}
+    assert set(plots) - added == {"CL_LIFTERS_X", "CL_PUSHER_X"}, sorted(plots)
+    assert added <= set(plots), sorted(plots)
     # The frame indices are read off the script's own coordinate-system blocks,
     # so the assertion does not depend on how many frames the run type makes.
     frames_by_name = {}

@@ -87,6 +87,8 @@ from pyflightstream._fsm import (
 )
 from pyflightstream._retired_names import retired_frame
 from pyflightstream.cases import (
+    AXES_PLOT_COMPONENTS,
+    AXES_PLOT_GROUP,
     AXIS_UNIT_VECTORS,
     EXPANDING_FRAMES,
     EXPORT_KINDS,
@@ -7012,6 +7014,7 @@ def _pproc_plots(case: SimCase, script: Script, frames: Frames) -> None:
     if pproc is None:
         return
     inventory = _inventory(script)
+    emitted: set[str] = set()
     for group in pproc.plots.groups:
         what = f"plot group {group.name!r}"
         for frame_name, families, label in _pproc_emissions(
@@ -7029,6 +7032,7 @@ def _pproc_plots(case: SimCase, script: Script, frames: Frames) -> None:
             indices = [script.resolve_boundary(f, context="pproc plot") for f in families]
             for short in pproc.plots.parameters:
                 parameter, units = FORCE_PLOT_PARAMETERS[short]
+                emitted.add(f"{short}_{name}")
                 if indices:
                     script.emit(
                         "UNSTEADY_SOLVER_NEW_FORCE_PLOT",
@@ -7048,6 +7052,37 @@ def _pproc_plots(case: SimCase, script: Script, frames: Frames) -> None:
                         name=f"{short}_{name}",
                         boundaries=-1,
                     )
+    # THE SIX COMPONENTS IN THE GLOBAL FRAME, ADDED WHERE THE ARTIFACT PLOTS THEM FOR
+    # NO GROUP OF IT (0.24.0). The unsteady polar's axis coefficients are built from
+    # the forces and moments of the whole configuration in the MRP frame; a rotor's
+    # own frame is not the geometry's axes. An artifact that plots them already is
+    # left exactly as it is, so its script does not change by a byte.
+    declared = any(group.frame.strip().upper() == _GLOBAL_FRAME for group in pproc.plots.groups)
+    if declared and set(AXES_PLOT_COMPONENTS) <= set(pproc.plots.parameters):
+        return
+    # ONLY WHERE THE RUN HAS THAT FRAME. It is created from the reference artifact's
+    # moment point, and a row with none gets no such plots rather than a refusal:
+    # this is the package's addition, and an addition may not cost a run.
+    if not isinstance(frames.get(_GLOBAL_FRAME), int):
+        return
+    frame = _pproc_frame(case, frames, _GLOBAL_FRAME, "the axes plot group", [])
+    for short in AXES_PLOT_COMPONENTS:
+        name = f"{short}_{AXES_PLOT_GROUP}"
+        if name in emitted:
+            continue
+        parameter, units = FORCE_PLOT_PARAMETERS[short]
+        script.emit(
+            "UNSTEADY_SOLVER_NEW_FORCE_PLOT",
+            frame=frame,
+            units=units,
+            parameter=parameter,
+            name=name,
+            boundaries=-1,
+        )
+
+
+#: The frame of the geometry itself, as a pproc artifact spells it.
+_GLOBAL_FRAME = "MRP"
 
 
 def _pproc_probes(

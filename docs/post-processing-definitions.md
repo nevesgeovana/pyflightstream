@@ -362,6 +362,21 @@ read from the native export.
   the matrix row's cells, the record's scalars, each rotor's speed, the solver
   flags. The super file is what the polar does not have; for an unsteady point it
   is not a second file.
+- **The axis coefficients follow the plot columns**, the eighteen of the steady
+  polar in the order `CDW .. CNW`, `CDS .. CNS`, `CDB .. CNB`. Their source is
+  the plots of the GLOBAL `MRP` frame: the six components `FX, FY, FZ, MX, MY,
+  MZ` of a plot group the pproc declares with `frame = "MRP"`, in Newtons and
+  Newton metres, averaged over the row's window like every other column, divided
+  by `1/2 RHO VINF^2 SREF` (and by `CREF` for the moments) of THAT row, and
+  turned as [the axes of a steady polar](#the-axes-of-a-steady-polar) are. A
+  rotor's own frame is never the source: its axes are not the geometry's. With
+  several global-frame groups each block takes its group's name, `CLW_TOTAL`,
+  `CLW_AIRFRAME`.
+- **A pproc that plots those six for no global-frame group gets one added by
+  the run**, `MRP_TOTAL`, over every boundary, where the run has an `MRP` frame.
+  A pproc that already plots them is left as it is, to the byte. A run made
+  before 0.24.0 without such plots has no axes block, and `products.json` says
+  so under `polars/<file>#axes`; the block is never a column of `NA`.
 
 **Why the native export is not the source.** It states the **last time step
 only**, which on an oscillating rotor is one instant of a cycle. It still ships,

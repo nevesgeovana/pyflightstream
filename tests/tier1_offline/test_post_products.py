@@ -559,6 +559,17 @@ TWO_ROTOR_PLAN = {
 }
 
 
+def _skipped_besides_the_axes(manifest) -> dict:
+    """What the stage skipped, leaving out the unsteady polar's axes block.
+
+    SINCE 0.24.0 the unsteady polar states its axis coefficients from the forces the
+    run plotted in the global frame, and says under `polars/<file>#axes` when a run
+    plotted none. The synthetic plots of this module carry no force, so that entry is
+    always there; what these tests measure is that NOTHING ELSE is skipped.
+    """
+    return {key: why for key, why in manifest["skipped"].items() if not key.endswith("#axes")}
+
+
 def _unsteady_workspace(tmp_path, *, reductions, recipe="unsteady_rotor", rows=8):
     """One converged unsteady record with a loads table and a plots export under outputs/."""
     from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
@@ -682,7 +693,7 @@ def test_pyfs_matrix_post_writes_every_reduction_beside_the_plots_table(tmp_path
     assert "reduction" not in manifest["products"]["probes/AL-020_plots.csv"], (
         "raw is the plots table itself, not a reduction"
     )
-    assert manifest["skipped"] == {}
+    assert _skipped_besides_the_axes(manifest) == {}
 
     # The docs name the files a user meets beside the plots table.
     page = (Path(__file__).parents[2] / "docs" / "workspace-and-workflows.md").read_text(
@@ -717,7 +728,7 @@ def test_a_rotorless_unsteady_point_gets_the_time_average_alone(tmp_path):
     _, rows = read_csv_table(plots / "AL-020_time_average.csv")
     assert rows[0]["CL_MRP_TOTAL"] == "1.80000", "mean step 4.5 times 0.1, scaled by four"
     manifest = _products_manifest(workspace)
-    assert manifest["skipped"] == {}, "not applicable is not skipped"
+    assert _skipped_besides_the_axes(manifest) == {}, "not applicable is not skipped"
 
 
 def test_a_transition_row_writes_one_passage_reduction_per_rotor(tmp_path):

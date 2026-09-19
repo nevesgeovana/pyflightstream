@@ -29,6 +29,25 @@ FlightStream versions.
 - `polar_row` takes `beta_deg=`; `GroupCoefficients` carries `force` and
   `moment`, the export-frame sums.
 
+### Added (the unsteady polar states its axes)
+
+- **`P<sim>_<name>_uns_avg.csv` carries the eighteen axis coefficients**,
+  `CDW .. CNW`, `CDS .. CNS`, `CDB .. CNB`, after the plot columns. They come
+  from the plots of the global `MRP` frame: the window average of `FX, FY, FZ,
+  MX, MY, MZ` of a plot group declared in that frame, made coefficients by the
+  row's own `RHO`, `VINF`, `SREF` and `CREF` and turned through `post/axes.py`.
+  Never a rotor's own frame. Several global-frame groups each take their
+  group's name (`CLW_TOTAL`, `CLW_AIRFRAME`). The groups are read off the pproc
+  artifact, because a plot's column states its group's name and not its frame.
+- **An unsteady run whose pproc plots those six for no global-frame group gets
+  the group `MRP_TOTAL` added** (six more `UNSTEADY_SOLVER_NEW_FORCE_PLOT`
+  commands, where the run has an `MRP` frame). A pproc that already plots them
+  renders the same script, byte for byte. Ten tier-3 goldens gained the six
+  plots and nothing else.
+- Where the block cannot be written, no such plots in a run made before
+  0.24.0 or a row stating no density, `products.json` says why under
+  `polars/<file>#axes`. `pyfs-matrix post --strict` counts that as a skip.
+
 ### Fixed (changes a published number)
 
 - **`ETAW` AND THE SHAFT ANGLE WERE COMPUTED AGAINST A FREE STREAM WITH TWO
