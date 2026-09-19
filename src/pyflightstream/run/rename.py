@@ -329,7 +329,12 @@ def _declared_by_point(record: Mapping[str, Any]) -> dict[str, list[str]]:
 #: The record fields that are IDENTITIES rather than paths: a tag in them is a
 #: point's name and never a file. Everything else that carries a name carries it
 #: as part of a path.
-IDENTITY_FIELDS = frozenset({"run_id", "job_id", "point_name", "sweep_name"})
+#:
+#: ``continues`` is one (0.24.0): it holds the ``run_id`` of the run a
+#: continuation continues. Read as a path it kept the predecessor's OLD id on a
+#: workspace named by the matrix, where no path rule matches a bare tag, and the
+#: chain stopped resolving the moment it was renamed.
+IDENTITY_FIELDS = frozenset({"run_id", "job_id", "point_name", "sweep_name", "continues"})
 
 #: Inside the submission block, the two mappings keyed BY POINT: their keys are
 #: identities and their values are declared output paths.
@@ -467,8 +472,15 @@ class _Destinations:
     refusals: list[str] = field(default_factory=list)
     _bound: dict[Path, Path] = field(default_factory=dict)
 
-    def claim(self, source: Path, final: Path, *, now: Path | None = None) -> None:
-        """Register one move, recording why it cannot land if it cannot."""
+    def claim(self, source: Path, final: Path, *, now: Path | None = None) -> bool:
+        """Register one move, recording why it cannot land if it cannot.
+
+        False when this very move is already registered, which is what two
+        records of one point are: a run and its continuation share a folder,
+        and that folder and each file in it move ONCE.
+        """
+        if self._bound.get(final) == source:
+            return False
         if (final if now is None else now).exists():
             self.refusals.append(
                 f"{final} is already there, so renaming {source.name} onto it would destroy "
@@ -480,6 +492,7 @@ class _Destinations:
                 "the second would destroy the first."
             )
         self._bound[final] = source
+        return True
 
 
 def _files_to_move(folder: Path, old_stem: str, new_stem: str) -> list[tuple[str, str]]:
@@ -497,7 +510,7 @@ def _plan_record(
     record: Mapping[str, Any],
     row: MatrixRow,
     report: RenameReport,
-    claimed: dict[tuple[str, str], str],
+    claimed: dict[tuple[str, str], tuple[str, str]],
 ) -> _Plan | None:
     """Work out what one record takes, or register the refusal that stops it."""
     sim_id = str(record.get("sim_id", ""))
@@ -518,14 +531,26 @@ def _plan_record(
         except CampaignConfigError as error:
             report.refusals.append(f"record {run_id!r}: {error}")
             return None
+        # THE COLLISION IS BETWEEN FOLDERS, NOT BETWEEN RECORDS (0.24.0). A
+        # continuation is a record of its own OF THE SAME POINT as the run it
+        # continues: `<campaign>/sim_<id>/r<stamp>/<tag>`, one datapoint folder,
+        # the predecessor's files under `archive/<stamp>/` inside it. Keyed by
+        # the record, the two were refused as two points, and so was every
+        # workspace that held a continuation. Two records that are ALREADY in
+        # one folder lose nothing by moving together; what must not happen is
+        # two folders becoming one, so the key is the folder a record would
+        # move TO and the value is the folder it moves FROM. That reads a chain
+        # recorded before 0.24.0 exactly as it reads one carrying `continues`.
         key = (sim_id, new_name)
-        if key in claimed and claimed[key] != run_id:
+        if key in claimed and claimed[key][0] != tag:
             report.refusals.append(
-                f"records {claimed[key]!r} and {run_id!r} would both name a point "
-                f"{new_name!r} in simulation {sim_id}, and two points cannot share one folder."
+                f"records {claimed[key][1]!r} and {run_id!r} would both name a point "
+                f"{new_name!r} in simulation {sim_id}, from the folders "
+                f"{_folder_of_the_old_tag(claimed[key][0])} and {_folder_of_the_old_tag(tag)}, "
+                "and two points cannot share one folder."
             )
             return None
-        claimed[key] = run_id
+        claimed.setdefault(key, (tag, run_id))
         moves.append(
             _PointMove(
                 old_tag=tag,
@@ -597,7 +622,7 @@ def rename_workspace(
     report.records = len(raw)
     rows_by_stem: dict[str | None, dict[str, MatrixRow]] = {}
     plans: list[_Plan] = []
-    claimed: dict[tuple[str, str], str] = {}
+    claimed: dict[tuple[str, str], tuple[str, str]] = {}
 
     for record in raw:
         stem = record.get("matrix_stem")
@@ -644,20 +669,18 @@ def rename_workspace(
             # then find nothing there.
             inside = folder if folder.is_dir() else target
             files = _files_to_move(inside, move.old_stem, move.new_stem)
-            if folder.is_dir() and folder != target:
-                destinations.claim(folder, target)
+            if folder.is_dir() and folder != target and destinations.claim(folder, target):
                 pending.append((folder, target))
                 report.changes.append(RenameChange("datapoint", folder.name, target.name))
             for before, after in files:
-                destinations.claim(inside / before, target / after, now=inside / after)
-                pending.append((target / before, target / after))
-                report.changes.append(RenameChange("file", before, after))
+                if destinations.claim(inside / before, target / after, now=inside / after):
+                    pending.append((target / before, target / after))
+                    report.changes.append(RenameChange("file", before, after))
         old_stem, new_stem = plan.script
         if old_stem and old_stem != new_stem:
             before_path = sim / str(plan.record.get("script_path"))
             after_path = before_path.with_name(f"{new_stem}{before_path.suffix}")
-            if before_path.is_file():
-                destinations.claim(before_path, after_path)
+            if before_path.is_file() and destinations.claim(before_path, after_path):
                 pending.append((before_path, after_path))
                 report.changes.append(RenameChange("script", before_path.name, after_path.name))
         for name, value in list(entry.items()):
