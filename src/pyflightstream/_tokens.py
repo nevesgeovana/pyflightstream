@@ -50,3 +50,80 @@ from __future__ import annotations
 #: from a value that went missing, from a column that never applied, and from a
 #: writer that crashed halfway.
 NOT_APPLICABLE = "NA"
+
+#: The column naming the ADVANCE RATIO of a row.
+#:
+#: Shared by pproc validation and the product writers since 0.25.0 so reserved
+#: headings are checked without a cases-to-post import. The post modules retain
+#: their existing public spellings as re-exports.
+ADVANCE_RATIO_COLUMN = "J"
+
+#: EVERY flight-condition variable a product states, so a reader holding one
+#: file can tell what it is a file OF. The rule: every file the post stage
+#: writes carries every flight-condition variable, because without them nobody
+#: can tell what the file is about.
+#:
+#: `ALPHA`, `BETA`, `MACH` and `RE` are inside the twenty-four coefficient
+#: columns for the family that carries those, so the polar states only the
+#: remainder beside them. A family carrying none of the twenty-four states this
+#: whole tuple.
+FLIGHT_CONDITION_COLUMNS: tuple[str, ...] = (
+    "ALPHA",
+    "BETA",
+    "MACH",
+    "RE",
+    "VINF",
+    # 0.24.0: EVERY DIVISOR OF A COEFFICIENT. A coefficient is a force over
+    # `1/2 rho V^2 S`; until now a product stated the coefficient and the area and
+    # neither the density nor the velocity it was divided by. `VREF` is the
+    # export's REFERENCE velocity, which is what the solver normalises by and may
+    # differ from the free stream beside it; `RHO`, `TEMP` and `MU` are the air
+    # the run resolved for THAT point. The list is defined on the definitions
+    # page, and a test compares this tuple with the page rather than with itself.
+    "VREF",
+    "ALT",
+    "RHO",
+    "TEMP",
+    "MU",
+    ADVANCE_RATIO_COLUMN,
+)
+
+#: The reference LENGTHS every product states, by the companion rule: every
+#: file carries the reference lengths as well. A
+#: coefficient without the length it was normalised by is a number nobody can
+#: check, and two of the four product families carried no length at all until
+#: 0.23.0.
+#:
+#: THE MOMENT POINT IS NOT HERE. It rides with these three in the polar's own
+#: reference block, because a moment coefficient is meaningless without it; a
+#: probe sample and a reduction window carry no moment and would carry three
+#: columns of `NA` to no purpose.
+REFERENCE_LENGTH_COLUMNS: tuple[str, ...] = ("SREF", "CREF", "BREF")
+
+#: What a product family states when it carries none of the twenty-four: the
+#: whole condition and the lengths, in ONE tuple so a fifth family composes it
+#: rather than remembering it. A family that assembles its own list is a family
+#: that drifts from the other three, which is the state 0.23.0 item 5 repaired
+#: after three of four families could not say what they were files of.
+CONTEXT_COLUMNS: tuple[str, ...] = (*FLIGHT_CONDITION_COLUMNS, *REFERENCE_LENGTH_COLUMNS)
+
+
+#: Fixed reduction headings, reserved during pproc validation and written in this order.
+REDUCTION_COLUMNS: tuple[str, ...] = (
+    "REDUCTION",
+    # 0.24.0. THE ROTOR AS A COLUMN, `NA` on the time average. The alias lived in
+    # the file name alone, which does not decompose (both the reduction and the
+    # alias carry underscores), so two rotors' files were identical inside and
+    # could not be told apart once read into one table.
+    "ROTOR",
+    "WINDOW",
+    "FIRST_STEP",
+    "LAST_STEP",
+    "STEPS",
+    *CONTEXT_COLUMNS,
+    # The table averages the plots' moment columns, and a moment states nothing
+    # without the point it is taken about.
+    "XMOM",
+    "YMOM",
+    "ZMOM",
+)

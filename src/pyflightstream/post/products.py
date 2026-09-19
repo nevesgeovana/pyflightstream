@@ -102,6 +102,7 @@ from pyflightstream._errors import (
     PyflightstreamError,
     PyflightstreamWarning,
 )
+from pyflightstream._tokens import REDUCTION_COLUMNS as REDUCTION_COLUMNS
 from pyflightstream.cases import (
     AXES_PLOT_COMPONENTS,
     AXES_PLOT_GROUP,
@@ -1377,9 +1378,9 @@ def _plot_name_can_emit(
     attempts to re-derive it here each let a rotor-frame or custom-frame history
     pass as global loads. So any template that COULD produce the automatic name
     counts as producing it: a history that might be the wrong one is never read,
-    and its table is skipped with the reason. The exact answer, the names the run
-    emitted and their frames recorded in the run record, is registered for 0.25.0.
-    The other arguments are kept for that successor and are not read here.
+    and its table is skipped with the reason. New runs record the emitted names,
+    frames and families; rotor tables read that record directly. This matcher
+    remains the conservative fallback for older records.
     """
     del families, inventory, is_blade, aliases, frame
     # The builder appends the original frame's suffix to a group plotted in a
@@ -1522,6 +1523,49 @@ def rotor_plot_source(
     return candidates, refused
 
 
+def _recorded_rotor_plot_groups(emitted: object, families: Sequence[str]) -> list[str]:
+    """Select a disjoint, exact cover of the rotor from recorded global-frame plots.
+
+    Each selected group must carry all six components. Duplicate emitted names
+    are ambiguous and cannot establish a frame or a surface selection.
+    """
+    if not isinstance(emitted, list):
+        return []
+    entries = [entry for entry in emitted if isinstance(entry, Mapping)]
+    names = [str(entry.get("name", "")).casefold() for entry in entries]
+    wanted = {family.casefold() for family in families}
+    candidates: list[tuple[str, set[str]]] = []
+    for entry in entries:
+        name = str(entry.get("name", ""))
+        owned = entry.get("families")
+        parameters = entry.get("parameters")
+        if (
+            not name
+            or names.count(name.casefold()) != 1
+            or str(entry.get("frame", "")).upper() != "MRP"
+            or not isinstance(owned, list)
+            or not isinstance(parameters, list)
+            or not set(AXES_PLOT_COMPONENTS) <= set(parameters)
+        ):
+            continue
+        selected = {str(family).casefold() for family in owned}
+        if selected and selected <= wanted:
+            candidates.append((name, selected))
+
+    def cover(remaining: set[str], start: int) -> list[str] | None:
+        if not remaining:
+            return []
+        for index in range(start, len(candidates)):
+            name, selected = candidates[index]
+            if selected <= remaining:
+                tail = cover(remaining - selected, index + 1)
+                if tail is not None:
+                    return [name, *tail]
+        return None
+
+    return cover(wanted, 0) or []
+
+
 def _rotor_surfaces_carried(
     rotor: object,
     surfaces: Mapping[str, object],
@@ -1570,10 +1614,12 @@ def _rotor_tables(
     windows: Mapping[str, tuple[int, int]] | None = None,
     aliases: Mapping[str, Sequence[str]] | None = None,
     frozen: Mapping[str, FrozenSolve] | None = None,
+    skipped: dict[str, str] | None = None,
 ) -> list[tuple[Path, str, dict[str, object]]]:
     """Assemble one rotor table per rotor the ROW's reference declares (item 6).
 
     Returns the destination, the alias and everything `write_rotor_table` needs.
+    A missing matrix row or unresolved reference is named in ``skipped``.
     Empty where the row names no reference, the reference declares no rotor, or
     no point states a speed -- each of which is an ordinary campaign rather
     than a fault, so none of them refuses the simulation's other products.
@@ -1597,13 +1643,21 @@ def _rotor_tables(
     reader sees a missing cell and cannot see a wrong one. That is the rule; it
     had one consumer and needed two.
     """
+    skip_name = f"{POLARS_DIR}/{sim_id}#rotor_tables"
     if matrix_row is None:
+        # An authored campaign never had a matrix row; only a matrix-derived
+        # record can have lost the row needed to recover its rotor reference.
+        if skipped is not None and any(record.matrix_stem for record in records):
+            skipped[skip_name] = "no matrix row for this simulation; rotor tables cannot be planned"
         return []
     try:
         artifact = resolve_reference(workspace.inputs_dir, matrix_row.ref_code)
-    except PyflightstreamError:
-        # A reference the workspace can no longer resolve is a reason to write
-        # no rotor table, never a reason to lose the polars beside it.
+    except PyflightstreamError as error:
+        if skipped is not None:
+            skipped[skip_name] = (
+                f"reference {matrix_row.ref_code!r} cannot be resolved; "
+                f"rotor tables cannot be planned: {error}"
+            )
         return []
 
     rotors = getattr(artifact, "rotors", None) or {}
@@ -1675,7 +1729,23 @@ def _rotor_tables(
             ),
             None,
         )
-        if group is None:
+        groups = [group] if group is not None else []
+        record = _state(point)
+        recorded_plan = None if record is None else record.reductions
+        if isinstance(recorded_plan, Mapping) and "plot_groups" in recorded_plan:
+            groups = _recorded_rotor_plot_groups(recorded_plan["plot_groups"], families)
+            if not groups or not all(
+                f"{part}_{name}" in columns for name in groups for part in _PLOT_COMPONENTS
+            ):
+                return (
+                    None,
+                    (
+                        f"recorded plot groups do not provide an exact, unambiguous MRP history "
+                        f"of rotor {alias!r} with all six components {where}"
+                    ),
+                    None,
+                )
+        if not groups:
             looked = ", ".join(f"FX_{name}" for name in candidates) or "none"
             reason = (
                 f"its plots table holds the six components of no plot group of rotor {alias!r} "
@@ -1696,9 +1766,12 @@ def _rotor_tables(
         except (PyflightstreamError, ValueError) as error:
             return None, f"its history could not be averaged {where}: {error}", None
         return (
-            {part: float(averaged.fields[f"{part}_{group}"][0]) for part in _PLOT_COMPONENTS},
+            {
+                part: sum(float(averaged.fields[f"{part}_{name}"][0]) for name in groups)
+                for part in _PLOT_COMPONENTS
+            },
             "",
-            group,
+            ", ".join(groups),
         )
 
     def _as_coefficients(newtons: Mapping[str, float], *, density: float, speed: float) -> dict:
@@ -3099,29 +3172,6 @@ def write_unsteady_probes_table(
 
 # --- PFS-2015.04: the reductions of a plots table, beside it -----------------------
 
-#: The window block every reduction row carries before the plots table's own
-#: columns: which reduction, which window of it (1-based), the inclusive
-#: solver steps it spans, and how many rows of the table fell inside.
-REDUCTION_COLUMNS: tuple[str, ...] = (
-    "REDUCTION",
-    # 0.24.0. THE ROTOR AS A COLUMN, `NA` on the time average. The alias lived in
-    # the file name alone, which does not decompose (both the reduction and the
-    # alias carry underscores), so two rotors' files were identical inside and
-    # could not be told apart once read into one table.
-    "ROTOR",
-    "WINDOW",
-    "FIRST_STEP",
-    "LAST_STEP",
-    "STEPS",
-    *CONTEXT_COLUMNS,
-    # The table averages the plots' moment columns, and a moment states nothing
-    # without the point it is taken about.
-    "XMOM",
-    "YMOM",
-    "ZMOM",
-)
-
-
 #: PFS-2038.04. The column an unsteady plots export states its clock in.
 #: The same name `post.superfile` and the probe table already read, and the
 #: same rule those two write down: the step a sample came from is not a guess.
@@ -4062,8 +4112,8 @@ def _setup_content(
 ) -> dict[str, dict[str, str]]:
     """Return the SUPER content of each point by name, through the super file's own assembly.
 
-    `superfile_row` with no polar block and no plots block is exactly "every flag
-    of the setup and whatever the simulation knows that the polar does not": the
+    `superfile_row` seeded with the point's axes and no plots block carries every flag
+    of the setup and whatever the simulation knows that the polar does not: the
     record's condition and scalars, the matrix row's cells, each rotor's speed,
     the campaign sweep row and the solver flags. One assembly, so the steady super
     file and the unsteady polar cannot drift in what they call the setup.
@@ -4073,8 +4123,8 @@ def _setup_content(
     for point in points:
         run_id = (sources.get(point.name) or [""])[0]
         content[point.name] = superfile_row(
-            polar_columns=(),
-            polar_values=(),
+            polar_columns=("ALPHA", "BETA", ADVANCE_RATIO_COLUMN),
+            polar_values=(point.alpha_deg, point.beta_deg, _advance_ratio_of(point)),
             matrix_row=matrix_row,
             record=by_run.get(run_id),
             sweep_row=(sweep_rows or {}).get(run_id),
@@ -4818,7 +4868,7 @@ def _sim_products(
         # `collect` and is not an error: the stage writes no product for this
         # simulation and the campaign's other simulations are unaffected. It is
         # also what makes `recorded` non-empty below.
-        return [], {}, {}
+        return [], {}, skipped
     points.sort(key=lambda point: point.alpha_deg)
     if mach is None:
         raise ProductError(
@@ -5221,6 +5271,7 @@ def _sim_products(
         windows=point_windows,
         aliases=aliases,
         frozen=frozen_points,
+        skipped=skipped,
     ):
         destination = _target(target_path)
         # THE PLAN'S OWN REJECTIONS PLUS THE WRITER'S, IN ONE LIST. Both halves

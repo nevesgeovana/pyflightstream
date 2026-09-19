@@ -61,6 +61,7 @@ from pyflightstream._errors import (
 from pyflightstream._expressions import ALLOWED_FUNCTIONS, expression_symbols
 from pyflightstream._fsm import names_of
 from pyflightstream._retired_names import PROBE_SCALE_PROPELLER_RADIUS, retired_frame
+from pyflightstream._tokens import REDUCTION_COLUMNS
 from pyflightstream.commands import Phase
 from pyflightstream.script import Script
 from pyflightstream.script.toggles import resolve_toggle
@@ -1903,6 +1904,11 @@ class PprocSpec(BaseModel):
         """
         taken: dict[str, str] = {}
         for printed, wanted in value.items():
+            if wanted in REDUCTION_COLUMNS:
+                raise ValueError(
+                    f"[names] reduction column {printed!r} cannot be named {wanted!r}: "
+                    f"{wanted} is a reserved context or identity column of the product"
+                )
             if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_.\-]*", str(wanted)):
                 raise ValueError(
                     f"[names] {printed} = {wanted!r}: the name a column is given is one "

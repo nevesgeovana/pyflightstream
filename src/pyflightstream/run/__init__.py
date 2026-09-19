@@ -5683,6 +5683,8 @@ def _execute_point(
         )
     if probe_points_file is not None:
         base["probe_points_file"] = probe_points_file
+    if script.plot_groups and isinstance(base.get("reductions"), dict):
+        base["reductions"]["plot_groups"] = [dict(group) for group in script.plot_groups]
     if script.section_blocks:
         # WHICH ROWS OF THE SECTIONS EXPORT ARE WHICH SURFACE (0.24.0), recorded
         # beside the script that created the distributions.

@@ -23,67 +23,12 @@ import numpy as np
 # raises them and `workspace.rename_groups` does too.
 from pyflightstream._errors import ProductError as ProductError
 from pyflightstream._errors import ProductExistsError as ProductExistsError
+from pyflightstream._tokens import ADVANCE_RATIO_COLUMN as ADVANCE_RATIO_COLUMN
+from pyflightstream._tokens import CONTEXT_COLUMNS as CONTEXT_COLUMNS
+from pyflightstream._tokens import FLIGHT_CONDITION_COLUMNS as FLIGHT_CONDITION_COLUMNS
 from pyflightstream._tokens import NOT_APPLICABLE as NOT_APPLICABLE
+from pyflightstream._tokens import REFERENCE_LENGTH_COLUMNS as REFERENCE_LENGTH_COLUMNS
 from pyflightstream.post.axes import blade_azimuth_deg
-
-#: The column naming the ADVANCE RATIO of a row.
-#:
-#: IT LIVES HERE AND NOT IN `products` since 0.23.0, because the condition
-#: tuples below are composed by `products`, by `series` and by `superfile`, and
-#: a constant three modules share cannot sit in the one that imports them. Its
-#: public home is unchanged: `post.products` re-exports it, as it does every
-#: public name of this module.
-ADVANCE_RATIO_COLUMN = "J"
-
-#: EVERY flight-condition variable a product states, so a reader holding one
-#: file can tell what it is a file OF. The rule: every file the post stage
-#: writes carries every flight-condition variable, because without them nobody
-#: can tell what the file is about.
-#:
-#: `ALPHA`, `BETA`, `MACH` and `RE` are inside the twenty-four coefficient
-#: columns for the family that carries those, so the polar states only the
-#: remainder beside them. A family carrying none of the twenty-four states this
-#: whole tuple.
-FLIGHT_CONDITION_COLUMNS: tuple[str, ...] = (
-    "ALPHA",
-    "BETA",
-    "MACH",
-    "RE",
-    "VINF",
-    # 0.24.0: EVERY DIVISOR OF A COEFFICIENT. A coefficient is a force over
-    # `1/2 rho V^2 S`; until now a product stated the coefficient and the area and
-    # neither the density nor the velocity it was divided by. `VREF` is the
-    # export's REFERENCE velocity, which is what the solver normalises by and may
-    # differ from the free stream beside it; `RHO`, `TEMP` and `MU` are the air
-    # the run resolved for THAT point. The list is defined on the definitions
-    # page, and a test compares this tuple with the page rather than with itself.
-    "VREF",
-    "ALT",
-    "RHO",
-    "TEMP",
-    "MU",
-    ADVANCE_RATIO_COLUMN,
-)
-
-#: The reference LENGTHS every product states, by the companion rule: every
-#: file carries the reference lengths as well. A
-#: coefficient without the length it was normalised by is a number nobody can
-#: check, and two of the four product families carried no length at all until
-#: 0.23.0.
-#:
-#: THE MOMENT POINT IS NOT HERE. It rides with these three in the polar's own
-#: reference block, because a moment coefficient is meaningless without it; a
-#: probe sample and a reduction window carry no moment and would carry three
-#: columns of `NA` to no purpose.
-REFERENCE_LENGTH_COLUMNS: tuple[str, ...] = ("SREF", "CREF", "BREF")
-
-#: What a product family states when it carries none of the twenty-four: the
-#: whole condition and the lengths, in ONE tuple so a fifth family composes it
-#: rather than remembering it. A family that assembles its own list is a family
-#: that drifts from the other three, which is the state 0.23.0 item 5 repaired
-#: after three of four families could not say what they were files of.
-CONTEXT_COLUMNS: tuple[str, ...] = (*FLIGHT_CONDITION_COLUMNS, *REFERENCE_LENGTH_COLUMNS)
-
 
 #: The spellings a RUN recorded, mapped to the product column they mean.
 #:

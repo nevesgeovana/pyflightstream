@@ -7082,6 +7082,15 @@ def _pproc_plots(case: SimCase, script: Script, frames: Frames) -> None:
             if frame_name.endswith(ORIGINAL_FRAME_SUFFIX):
                 name = f"{name}{ORIGINAL_FRAME_SUFFIX}"
             indices = [script.resolve_boundary(f, context="pproc plot") for f in families]
+            if pproc.plots.parameters:
+                script.plot_groups.append(
+                    {
+                        "name": name,
+                        "frame": frame_name,
+                        "families": list(families or inventory),
+                        "parameters": list(pproc.plots.parameters),
+                    }
+                )
             for short in pproc.plots.parameters:
                 parameter, units = FORCE_PLOT_PARAMETERS[short]
                 emitted.add(f"{short}_{name}")
@@ -7119,6 +7128,18 @@ def _pproc_plots(case: SimCase, script: Script, frames: Frames) -> None:
     if not isinstance(frames.get(_GLOBAL_FRAME), int):
         return
     frame = _pproc_frame(case, frames, _GLOBAL_FRAME, "the axes plot group", [])
+    parameters = [
+        short for short in AXES_PLOT_COMPONENTS if f"{short}_{AXES_PLOT_GROUP}" not in emitted
+    ]
+    if parameters:
+        script.plot_groups.append(
+            {
+                "name": AXES_PLOT_GROUP,
+                "frame": _GLOBAL_FRAME,
+                "families": list(inventory),
+                "parameters": parameters,
+            }
+        )
     for short in AXES_PLOT_COMPONENTS:
         name = f"{short}_{AXES_PLOT_GROUP}"
         if name in emitted:
@@ -7187,6 +7208,20 @@ def _plot_each_rotors_own_history(
         if declared:
             continue
         indices = [script.resolve_boundary(family, context="rotor plot group") for family in own]
+        parameters = [
+            short
+            for short in AXES_PLOT_COMPONENTS
+            if f"{short}_{ROTOR_PLOT_GROUP_PREFIX}{alias}" not in emitted
+        ]
+        if parameters:
+            script.plot_groups.append(
+                {
+                    "name": f"{ROTOR_PLOT_GROUP_PREFIX}{alias}",
+                    "frame": _GLOBAL_FRAME,
+                    "families": list(own),
+                    "parameters": parameters,
+                }
+            )
         for short in AXES_PLOT_COMPONENTS:
             name = f"{short}_{ROTOR_PLOT_GROUP_PREFIX}{alias}"
             if name in emitted:
@@ -7229,7 +7264,18 @@ def _pproc_probes(
     # Unsteady fluid plots are placed in INIT; steady probes in ANALYSIS.
     if analysis == unsteady:
         return
-    for probes in pproc.probes:
+    for entry_number, probes in enumerate(pproc.probes, start=1):
+        if not unsteady and probes.parameters:
+            # B10: on a steady run the list enables the entry and filters nothing.
+            warnings.warn(
+                f"case {case.sim_id!r}: {_artifact_of(case)} [[probes]] entry {entry_number} "
+                f"(frame {probes.frame!r}) lists parameters, but on a steady run this "
+                "list only enables the entry; it does not filter the probe-points "
+                "export's fixed set of variables. On an unsteady run it selects "
+                "the fluid-plot variables.",
+                PyflightstreamWarning,
+                stacklevel=2,
+            )
         if unsteady and probes.parameters:
             # F05: a fluid plot's parameter must be one the run's build documents,
             # for a drawn entry and (F01) a cited profile alike.

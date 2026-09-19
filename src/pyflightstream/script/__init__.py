@@ -884,6 +884,8 @@ class Script:
         #: sections table could not say which rows belong to which surface, and
         #: nothing at post can recover a name the script never wrote.
         self.section_blocks: list[dict[str, object]] = []
+        #: Force plot groups actually emitted, with their frame, families and parameters.
+        self.plot_groups: list[dict[str, object]] = []
         #: WHERE THIS SCRIPT PUT EACH COORDINATE SYSTEM (FR-100), keyed by
         #: frame index. Filled by :meth:`emit` from the commands that place a
         #: frame, for the reason ``probe_points`` is filled by the loop that

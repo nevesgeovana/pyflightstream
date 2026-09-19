@@ -77,6 +77,25 @@ FlightStream versions.
   file is archived. Windows ending before the freeze, raw histories and last-step
   products are kept. Measured on a recorded licensed campaign: two of four unsteady
   points froze, from steps 60 and 64 of 144.
+- **An unsteady polar of an `ADVANCE_RATIO` sweep states `ADVANCE_RATIO` on every
+  row** (it wrote `NA`); the column under the matrix's key carries the point's `J`.
+- **A rotor table that cannot be planned says why.** When a simulation's matrix row
+  was deleted or its reference no longer resolves, the rotor tables are a named skip
+  (`polars/<sim>#rotor_tables`) in `products.json` instead of vanishing.
+- **The per-point skip reasons reach `products.json` when no point of a simulation
+  has usable loads**; they were collected and then lost.
+- **A `[names]` target that collides with a heading the product always writes**
+  (a condition column such as `ALPHA` or `MACH`, the window and reference columns,
+  `REDUCTION`, `ROTOR`) is refused when the pproc is read, naming the heading; it
+  was found at write time and the product was dropped.
+- **A rotor table from a family-templated plot group over the blades** (a group
+  named with `{family}`) is written: a run now records the plot groups it emitted,
+  with each one's frame, families and parameters, and post sums an exact,
+  non-overlapping set of recorded MRP groups covering the rotor. A run recorded
+  before 0.25.0 keeps the named skip.
+- **A steady probe's `parameters` list is documented and warned about**: on a steady
+  run it only enables the entry and does not select the exported variables, which
+  are the probe-points export's fixed set; `pyfs-matrix plan` warns naming the entry.
 - **An input artifact that exists and does not validate now says so first.** A matrix
   row naming a reference, setup or pproc whose file is present but invalid is refused
   with "the <kind> artifact at <path> does not validate" followed by the validation
