@@ -79,6 +79,10 @@ a person. Both write only with an explicit `--write`.
   the key names, and what to run on a matrix written before v0.9.0.
 * Migrating to newer versions, newest first. Each page says what a release
   asks of a file you already have, and the one command that carries it across:
+    * [Migrating to 0.25.0](migrating-to-0.25.0.md): frozen-solve averages,
+      probe histories, sections and Cp by distribution, and optional surface
+      exports; what posting a 0.24.0 record again recovers and what needs a
+      new run.
     * [Migrating to 0.24.0](migrating-to-0.24.0.md): the numbers 0.23.0 published
       that 0.24.0 states differently, among them `ETAW` under incidence, the
       unsteady rotor table and the steady polar's axis columns; the averaging
