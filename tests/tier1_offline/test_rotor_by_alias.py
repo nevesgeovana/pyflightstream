@@ -104,6 +104,11 @@ def two_rotor_case(tmp_path, **overrides) -> SimCase:
         # `test_a_motions_row_without_a_clock_is_refused` is the one that
         # takes it away.
         "CLOCK_MOTION": "LIFT_L1",
+        # REQUIRED SINCE 0.24.0 on every unsteady row: the averaging window.
+        # One revolution of the clock rotor is the window a rotor row with
+        # none was given before the key became mandatory, so no script and
+        # no record this fixture renders moves.
+        "LAST_REVS_AVG": "1",
     }
     variables.update({k: v for k, v in overrides.items() if v is not None})
     return SimCase(

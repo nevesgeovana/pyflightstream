@@ -281,6 +281,9 @@ def _campaign(build: str, **variables) -> Campaign:
             "VELOCITY": "30.0",
             "DELTA_TIME": "0.01",
             "TIME_ITERATIONS": "4",
+            # The whole run, which is the window a rotorless row with none
+            # was given before 0.24.0 made the key mandatory.
+            "LAST_ITERS_AVG": "4",
             **variables,
         },
     )

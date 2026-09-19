@@ -39,7 +39,7 @@ def _unsteady(tmp_path) -> CampaignWorkspace:
     workspace, _, _ = _ran(
         tmp_path,
         workflow="unsteady",
-        cell="DELTA_TIME: 0.01 / TIME_ITERATIONS: 8",
+        cell="DELTA_TIME: 0.01 / TIME_ITERATIONS: 8 / LAST_ITERS_AVG: 8",
     )
     assert [row["run_id"] for row in workspace.read_raw_manifest()] == [
         "named/sim_3207/M200RE230AL-020",

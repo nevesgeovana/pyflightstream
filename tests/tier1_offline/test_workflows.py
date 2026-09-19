@@ -127,6 +127,13 @@ SRC = REPO / "src" / "pyflightstream"
 CODES = {"010": "unsteady_rotor", "003": "steady", "020": "unsteady"}
 
 
+#: Every key that states an unsteady row's averaging window: the two of
+#: 0.23.0 and the three retired spellings that still bind until 0.26.0.
+_WINDOW_KEYS = frozenset(
+    {"LAST_REVS_AVG", "LAST_ITERS_AVG", "WINDOW_DEGREES", "WINDOW_STEPS", "WINDOW_REVOLUTIONS"}
+)
+
+
 def fixture_campaign(fs_version: str = "26.120"):
     """The committed fixture, converted with no Python recipe anywhere."""
     return to_campaign(
@@ -1691,7 +1698,15 @@ def rotor_case_resolved() -> SimCase:
 
 
 def unsteady_case(**overrides) -> SimCase:
-    """The bare shape: a free stream, a clock, and nothing turning."""
+    """The bare shape: a free stream, a clock, and nothing turning.
+
+    THE ROW STATES ITS AVERAGING WINDOW, because since 0.24.0 an unsteady row
+    must. The window is the WHOLE RUN, ``LAST_ITERS_AVG`` equal to the row's
+    own ``TIME_ITERATIONS`` after the overrides, which is the span a rotorless
+    row with no window was given before the key became mandatory, so nothing
+    a test measures off this shape moves. A caller that states any window key
+    itself, or removes one with None, is left exactly as it asked.
+    """
     variables: dict[str, str | float | int | bool] = {
         WORKFLOW_KEY: "unsteady",
         "VELOCITY": "30.0",
@@ -1704,6 +1719,8 @@ def unsteady_case(**overrides) -> SimCase:
             variables.pop(key, None)
         else:
             variables[key] = value
+    if not _WINDOW_KEYS & set(overrides):
+        variables["LAST_ITERS_AVG"] = variables.get("TIME_ITERATIONS", "480")
     return SimCase(
         sim_id="7003",
         aircraft="RotorRig",

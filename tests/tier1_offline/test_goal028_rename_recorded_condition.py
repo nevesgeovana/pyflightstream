@@ -125,7 +125,8 @@ def test_goal028_rename_recorded_condition_a_swept_flow_variable_is_not_a_disagr
     `MACH: 0.1` on one record and `MACH: 0.2` on the next, while the row's cell
     says `sweep`. That is the record agreeing with the row, not a changed matrix.
     """
-    cell = "DELTA_TIME: 0.01 / TIME_ITERATIONS: 8" if workflow == "unsteady" else ""
+    unsteady = "DELTA_TIME: 0.01 / TIME_ITERATIONS: 8 / LAST_ITERS_AVG: 8"
+    cell = unsteady if workflow == "unsteady" else ""
     workspace, _, _ = _ran(
         tmp_path,
         condition="MACH:sweep, REmi:2.3, ALPHA:0.0",
