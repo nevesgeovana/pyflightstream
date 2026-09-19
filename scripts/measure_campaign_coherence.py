@@ -179,8 +179,39 @@ def steady_drag(workspace: Path, out: Path) -> dict[str, object]:
     # global-frame plot group and the row's own density, and the solver plots its own
     # `CD` of the same group. Two five-decimal columns of one file.
     unsteady: list[dict[str, object]] = []
+    said_by_point = frozen_by_point(workspace)
+    left_out: list[dict[str, object]] = []
     for polar in sorted((out / "polars").glob("P*_uns_avg.csv")):
         for row in _table(polar):
+            # A FROZEN OR UNREADABLE POINT JUDGES NOTHING HERE EITHER. This check read
+            # every unsteady row until the independent review of the evidence
+            # (2026-09-19) found the page claiming an exclusion the rotor checks made
+            # and this one did not.
+            # THE SIM TOO, NOT THE POINT NAME ALONE: two rows of one campaign share a
+            # point name (`M144RE438AL+100BE+000` is row 2412's and row 2415's), and
+            # matching on the name alone struck out the live row with the frozen one's
+            # log. Measured on this campaign while the exclusion was being written.
+            run_id = str(row.get("run_id") or "")
+            point = run_id.rsplit("/", 1)[-1]
+            sim = re.search(r"sim_(\w+)", run_id)
+            stem = f"P{sim.group(1)}-{point}" if sim and point else None
+            if stem not in said_by_point:
+                stem = None
+            if stem is not None:
+                steps = said_by_point[stem]["steps"]
+                first, last = _number(row.get("FIRST_STEP")), _number(row.get("LAST_STEP"))
+                if steps is None:
+                    left_out.append({"polar": polar.name, "point": point, "why": "log unreadable"})
+                    continue
+                if None not in (first, last) and [s for s in steps if first <= s <= last]:  # type: ignore[operator]
+                    left_out.append(
+                        {
+                            "polar": polar.name,
+                            "point": point,
+                            "why": f"the solve froze at step {steps[0]}, inside the window",
+                        }
+                    )
+                    continue
             for name in row:
                 if not name.startswith("CDW_"):
                     continue
@@ -251,6 +282,7 @@ def steady_drag(workspace: Path, out: Path) -> dict[str, object]:
             "polar_rows": measured,
             "exports": exports,
             "unsteady_polar_rows": unsteady,
+            "unsteady_rows_left_out": left_out,
             "worst_gap": worst,
             "worst_ratio": ratio,
             "worst_ratio_at": where,
@@ -283,8 +315,12 @@ _STEP_HEADER = re.compile(r"Solving unsteady time-step iteration \((\d+)/(\d+)\)
 _RESIDUALS = re.compile(r"^\d+\s+([+-][\d.]+E[+-]\d+)\s+([+-][\d.]+E[+-]\d+)", re.M)
 
 
-def frozen_steps(log: Path) -> list[int]:
-    """Return the time steps of a native log whose solve FROZE.
+def frozen_steps(log: Path) -> list[int] | None:
+    """Return the time steps of a native log whose solve FROZE, or None if unreadable.
+
+    None means the log states no time step at all, so this measurement could not be
+    made: the caller leaves such a point out rather than taking silence for a clean
+    solve (the independent review of the evidence, 2026-09-19).
 
     A step froze when its velocity and pressure residuals are exactly zero on every
     inner iteration after its first two: the solver stops iterating and every later
@@ -293,12 +329,34 @@ def frozen_steps(log: Path) -> list[int]:
     alpha 10 (from step 64); every other log of the campaign has none.
     """
     parts = _STEP_HEADER.split(log.read_text(encoding="latin-1"))
+    if len(parts) < 4:
+        return None
     frozen = []
     for k in range(1, len(parts), 3):
         rows = _RESIDUALS.findall(parts[k + 2])
         if len(rows) > 2 and all(float(a) == 0.0 and float(b) == 0.0 for a, b in rows[2:]):
             frozen.append(int(parts[k]))
     return frozen
+
+
+def frozen_by_point(workspace: Path) -> dict[str, dict[str, object]]:
+    """Return, per point name, what its native log says about a frozen solve.
+
+    The key is the point's file stem as every product spells it (`P2412-M144RE...`).
+    A point with no unsteady log at all is absent: a steady run has no time step to
+    freeze. `steps` is None where the log could not be read for them.
+    """
+    found: dict[str, dict[str, object]] = {}
+    for log in sorted(workspace.glob("sims/sim_*/datapoints/*/*_log.txt")):
+        steps = frozen_steps(log)
+        if steps is None and "unsteady time-step" not in log.read_text(encoding="latin-1"):
+            continue  # a steady run: nothing to say
+        found[log.name[: -len("_log.txt")]] = {
+            "log": log.name,
+            "steps": steps,
+            "first_frozen_step": None if not steps else steps[0],
+        }
+    return found
 
 
 def rotor_checks(out: Path, manifest: dict) -> dict[str, dict[str, object]]:
@@ -335,11 +393,17 @@ def rotor_checks(out: Path, manifest: dict) -> dict[str, dict[str, object]]:
                 at = re.search(r"AL([+-]\d+)", name)
                 if at is None or alpha is None or abs(int(at.group(1)) / 10.0 - alpha) > 1e-6:
                     continue
-                logs = sorted(workspace.glob(f"sims/*/datapoints/*/{name}_log.txt"))
-                if logs:
-                    frozen = [s for s in frozen_steps(logs[0]) if int(span[0]) <= s <= int(span[1])]
-                    if frozen:
-                        point["frozen_from_step"] = frozen[0]
+                said = frozen_by_point(workspace).get(str(name))
+                if said is not None:
+                    steps = said["steps"]
+                    if steps is None:
+                        point["left_out"] = f"{said['log']} states no time step: not measured"
+                    elif [s for s in steps if int(span[0]) <= s <= int(span[1])]:
+                        point["left_out"] = (
+                            f"the solve froze at step {said['first_frozen_step']} of "
+                            f"{said['log']}, inside this window"
+                        )
+                        point["first_frozen_step"] = said["first_frozen_step"]
                 if (
                     group
                     and plots.is_file()
@@ -355,17 +419,25 @@ def rotor_checks(out: Path, manifest: dict) -> dict[str, dict[str, object]]:
                             steps=mean["steps"],
                             mean_shaft_force_N=mean["FX"],
                             last_step_shaft_force_N=mean["last_FX"],
+                            mean_shaft_torque_N_m=mean["MX"],
+                            mean_side_force_N=mean["FY"],
+                            mean_lift_force_N=mean["FZ"],
                             table_thrust_N=None if numbers["CT"] is None else numbers["CT"] * unit,
                             force_along_the_stream_N=along,
                             unit_N=unit,
                         )
             points.append(point)
     frozen_points = [
-        {"table": p["table"], "ALPHA": p["ALPHA"], "frozen_from_step": p["frozen_from_step"]}
+        {
+            "table": p["table"],
+            "ALPHA": p["ALPHA"],
+            "first_frozen_step": p.get("first_frozen_step"),
+            "left_out": p["left_out"],
+        }
         for p in points
-        if "frozen_from_step" in p
+        if "left_out" in p
     ]
-    points = [p for p in points if "frozen_from_step" not in p]
+    points = [p for p in points if "left_out" not in p]
 
     def _gap(point: dict) -> float | None:
         t, m = point.get("table_thrust_N"), point.get("mean_shaft_force_N")

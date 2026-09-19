@@ -8,7 +8,8 @@ each check found, and what is not a property of the package.
 
 ## What was run
 
-FlightStream 26.124 (build #8172026), one workspace, three matrix rows:
+FlightStream 26.124 (build #8172026, as every record of `runs.json` states), one
+workspace, six matrix rows:
 
 | row | geometry | run | points |
 |---|---|---|---|
@@ -19,10 +20,10 @@ FlightStream 26.124 (build #8172026), one workspace, three matrix rows:
 | 2414 | `17_NX_B30_NMIN_FW.fsm` | the same row again, far-field layers stated in the setup | alpha 0 |
 | 2415 | `17_NX_B30_NMIN_FW.fsm` | the same, at incidence | alpha 10 |
 
-Both rotor rows turn at 473.1723 rev/min for 144 time steps of 0.0017612 s (two
-revolutions of 72 steps) and state `LAST_REVS_AVG: 0.5`, so every average is over
-steps 109 to 144. In both scripts the blades and the spinner turn and the nacelle
-does not.
+Every rotor row turns at 473.1723 rev/min for 144 time steps of 0.0017612 s (two
+revolutions of 72 steps) and states `LAST_REVS_AVG: 0.5`, so every average is over
+steps 109 to 144, which is what `FIRST_STEP` and `LAST_STEP` of each `_uns_avg.csv`
+carry. In every script the blades and the spinner turn and the nacelle does not.
 
 Rows 2414 and 2415 turn for the same 144 steps and state the same window. Their
 setup `s009` states `farfield_layers = 5`, so their scripts carry
@@ -30,9 +31,10 @@ setup `s009` states `farfield_layers = 5`, so their scripts carry
 
 **A CHANGE MADE BY HAND, NOT BY THE PACKAGE.** On rows 2412 and 2413 the number of
 far-field layers was set to 5 in the solver's interface, DURING the run, to shorten
-it. It is not in the script those rows emitted, and its effect on the aerodynamics
-is of second order. A reader reproducing row 2412 or 2413 from the script alone will
-not have it.
+it. It is not in the script those rows emitted, so a reader reproducing row 2412 or
+2413 from the script alone will not have it, and nothing here measures what it
+changed: the far-field layer count of those two runs is stated nowhere in their
+records. Rows 2414 and 2415 do not have that gap.
 
 ## CORRECTION, 2026-09-19 evening: two runs FROZE, and what that changed
 
@@ -106,9 +108,11 @@ At alpha 0 the rotor's force along its shaft, averaged over the same window:
 | force along the shaft | 931.04 N | 932.49 N | 717.79 N |
 | torque about the shaft | 753.07 N m | 753.62 N m | 539.08 N m |
 | side force, lift force | 0 and 0 | -- | -115.7 N and +143.1 N |
-| one blade's axial coefficient | one value, every copy the same | -- | 0.0017 to 0.0037 around the disc |
+| one blade's axial coefficient | one value, every copy the same | -- | 0.0017 to 0.0037 around the disc, read off that point's own loads export |
 
-Every history is flat over its last revolution: none is a transient.
+None of these is a transient: for every point the json states the window mean beside
+the run's LAST step (`mean_shaft_force_N` against `last_step_shaft_force_N`), and the
+two differ by 0.006, 0.015, 0.11 and 0.23 per cent on rows 2411, 2414, 2415 and 2412.
 
 **ANSWERED, and by the geometry.** The sector and the full wheel OF THE SECTOR'S OWN
 NACELLE agree to 0.16 per cent (CT 0.13222 against 0.13243, ratio 0.9984), inside the
@@ -123,15 +127,27 @@ them about 155 N. The two emitted runs are equivalent in speed, clock and in whi
 boundaries turn.
 
 **The two geometries are.** At alpha 0 an axisymmetric rotor has no force across
-its shaft and every blade carries the same load. The full wheel carries 184 N
+its shaft and every blade carries the same load. The wheel of the other nacelle
+carries 184 N
 across its shaft and its blades differ by a factor of two, so it is not the
 axisymmetric body the periodic sector assumes: that file carries a nacelle which is
-NOT axisymmetric, and the periodic sector assumes one. Its nacelle reaches a radius of
-0.836 m where the sector's reaches 0.366 m, measured from the two mesh files. The two
-files are not one body, and the check is answered only by a full wheel of the
-sector's own axisymmetric nacelle: row 2414, whose mesh is the sector's blade six
-times over (every vertex of blade 1 identical, blades 2 to 6 exact 60 degree
-rotations of it, and the spinner and nacelle areas six times the sector's). The
+NOT axisymmetric, and the periodic sector assumes one.
+
+The meshes say the same, read straight from the `.fsm` files by
+`scripts/compare_rotor_meshes.py <sector> <wheel> [<other>]`, which prints per surface
+the face count, the extent, the wetted area and how many vertices it shares with the
+first file:
+
+| surface | sector 13 | wheel 17 (row 2414) | wheel 24 (row 2412) |
+|---|---|---|---|
+| nacelle `N`, radial extent | r to 0.3656 m | r to 0.3656 m | r to 0.8363 m |
+| nacelle `N`, area | 1.63220 m2 | 9.79319 m2, six times | 12.34005 m2 |
+| nacelle `N`, vertices shared with the sector | -- | 1065 | 13 |
+| blade 1 | 0.78601 m2 | identical, 4072 of 4072 vertices | identical |
+| blades 2 to 6 | -- | each 4072 of 4072 on blade 1 after turning back 60, 120, 180, 240, 300 degrees | the same |
+
+So the two files are not one body, and the check is answered only by a full wheel of
+the sector's own axisymmetric nacelle: row 2414, whose mesh is the sector completed. The
 check's band of 5 per cent, stated before the data, is not widened to pass it.
 
 ## How to re-read it

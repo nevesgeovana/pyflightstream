@@ -78,6 +78,14 @@ def test_a_step_whose_pressure_still_moves_is_not_frozen(tmp_path: Path) -> None
     assert coherence.frozen_steps(log) == []
 
 
+def test_a_log_stating_no_time_step_is_not_read_as_clean(tmp_path: Path) -> None:
+    # None, not []: the measurement could not be made, and the caller leaves the point
+    # out instead of taking silence for a solve that ran to the end.
+    log = tmp_path / "P9999-M144RE438AL+000BE+000_log.txt"
+    log.write_text("FlightStream version 26.1\nSimulation file opened\n", encoding="latin-1")
+    assert coherence.frozen_steps(log) is None
+
+
 def test_a_live_log_has_no_frozen_step(tmp_path: Path) -> None:
     log = tmp_path / "P9999-M144RE438AL+000BE+000_log.txt"
     log.write_text(_step(1, 2, LIVE) + _step(2, 2, LIVE), encoding="latin-1")

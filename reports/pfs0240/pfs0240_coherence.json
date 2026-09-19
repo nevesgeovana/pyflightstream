@@ -147,38 +147,6 @@
       "gap": 0.0
      },
      {
-      "polar": "P2412_M144RE438AL+sweepBE+000_uns_avg.csv",
-      "ALPHA": "10.00000",
-      "group": "PROP",
-      "CDW_PROP": -0.00203,
-      "CD_plotted": -0.00203,
-      "gap": 0.0
-     },
-     {
-      "polar": "P2412_M144RE438AL+sweepBE+000_uns_avg.csv",
-      "ALPHA": "10.00000",
-      "group": "MRP_TOTAL",
-      "CDW_MRP_TOTAL": -0.00342,
-      "CD_plotted": -0.00342,
-      "gap": 0.0
-     },
-     {
-      "polar": "P2413_M144RE438AL+000BE+000_uns_avg.csv",
-      "ALPHA": "0.00000",
-      "group": "PROP",
-      "CDW_PROP": -0.0017,
-      "CD_plotted": -0.0017,
-      "gap": 0.0
-     },
-     {
-      "polar": "P2413_M144RE438AL+000BE+000_uns_avg.csv",
-      "ALPHA": "0.00000",
-      "group": "MRP_TOTAL",
-      "CDW_MRP_TOTAL": -0.00172,
-      "CD_plotted": -0.00172,
-      "gap": 0.0
-     },
-     {
       "polar": "P2414_M144RE438AL+000BE+000_uns_avg.csv",
       "ALPHA": "0.00000",
       "group": "PROP",
@@ -211,6 +179,18 @@
       "gap": 0.0
      }
     ],
+    "unsteady_rows_left_out": [
+     {
+      "polar": "P2412_M144RE438AL+sweepBE+000_uns_avg.csv",
+      "point": "M144RE438AL+100BE+000",
+      "why": "the solve froze at step 64, inside the window"
+     },
+     {
+      "polar": "P2413_M144RE438AL+000BE+000_uns_avg.csv",
+      "point": "M144RE438AL+000BE+000",
+      "why": "the solve froze at step 60, inside the window"
+     }
+    ],
     "worst_gap": 4.352484876327285e-05,
     "worst_ratio": 0.2763072011322718,
     "worst_ratio_at": "P2401-V0300RHO12250AL+040BE+050.txt"
@@ -240,6 +220,9 @@
       "steps": 36.0,
       "mean_shaft_force_N": 931.0427777777778,
       "last_step_shaft_force_N": 931.1,
+      "mean_shaft_torque_N_m": 753.0691666666667,
+      "mean_side_force_N": 0.0,
+      "mean_lift_force_N": 0.0,
       "table_thrust_N": 931.0096124072884,
       "force_along_the_stream_N": 931.0427777777778,
       "unit_N": 7041.367511778009
@@ -263,6 +246,9 @@
       "steps": 36.0,
       "mean_shaft_force_N": 717.7936111111111,
       "last_step_shaft_force_N": 719.47,
+      "mean_shaft_torque_N_m": 539.0761111111111,
+      "mean_side_force_N": -115.65138888888889,
+      "mean_lift_force_N": 143.07444444444445,
       "table_thrust_N": 717.7970041506503,
       "force_along_the_stream_N": 717.7936111111111,
       "unit_N": 7041.367511778009
@@ -286,6 +272,9 @@
       "steps": 36.0,
       "mean_shaft_force_N": 932.488611111111,
       "last_step_shaft_force_N": 932.35,
+      "mean_shaft_torque_N_m": 753.6994444444445,
+      "mean_side_force_N": 0.20522527777777777,
+      "mean_lift_force_N": -1.2872180555555555,
       "table_thrust_N": 932.4882995847618,
       "force_along_the_stream_N": 932.488611111111,
       "unit_N": 7041.367511778009
@@ -309,6 +298,9 @@
       "steps": 36.0,
       "mean_shaft_force_N": 713.8361111111111,
       "last_step_shaft_force_N": 714.62,
+      "mean_shaft_torque_N_m": 646.9852777777778,
+      "mean_side_force_N": -115.03083333333332,
+      "mean_lift_force_N": 724.7069444444445,
       "table_thrust_N": 713.8538383440546,
       "force_along_the_stream_N": 828.8353768476533,
       "unit_N": 7041.367511778009
@@ -374,12 +366,14 @@
      {
       "table": "P2412-PROP_rotor.csv",
       "ALPHA": 10.0,
-      "frozen_from_step": 109
+      "first_frozen_step": 64,
+      "left_out": "the solve froze at step 64 of P2412-M144RE438AL+100BE+000_log.txt, inside this window"
      },
      {
       "table": "P2413-PROP_rotor.csv",
       "ALPHA": 0.0,
-      "frozen_from_step": 109
+      "first_frozen_step": 60,
+      "left_out": "the solve froze at step 60 of P2413-M144RE438AL+000BE+000_log.txt, inside this window"
      }
     ]
    },
