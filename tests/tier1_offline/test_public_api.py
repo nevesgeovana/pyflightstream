@@ -68,6 +68,7 @@ PUBLIC_MODULES = [
     "pyflightstream.post.guides",
     "pyflightstream.post.products",
     "pyflightstream.post.reductions",
+    "pyflightstream.post.section_distributions",
     "pyflightstream.post.series",
     "pyflightstream.post.settings_table",
     "pyflightstream.post.superfile",

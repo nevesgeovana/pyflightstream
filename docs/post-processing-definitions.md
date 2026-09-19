@@ -171,6 +171,54 @@ than a row given none.
 `"kind": "instant"`. The history is `series/<point>_sections_series.csv`,
 which carries the same identity on every row.
 
+### Per-distribution sectional loads and Cp (0.25.0)
+
+For every point, post also writes one file per `[[sections.distributions]]`
+entry for each export:
+
+- `sections/<point>_sloads_<name>.csv`, from the sectional loads export;
+- `sections/<point>_cp_<name>.csv`, from `EXPORT_ALL_SURFACE_SECTIONS`.
+
+`<name>` preserves the entry's `families` word (including an alias such as
+`blades`); a list joins its words with `-`, for example `Blade1-Blade2`.
+Filename-invalid characters become `_`, and trailing spaces and dots are
+removed. Names that collide after sanitization, including differences only in
+case, receive `_<k>`, the entry's 1-based pproc position. If that creates another
+collision, the same position suffix is applied again until names are unique.
+All planes and expanded blade/rotor blocks of one entry share its one file.
+
+With `EXPORT_UNSTEADY_AFTER_REV` or `EXPORT_UNSTEADY_AFTER_ITER`, each file holds
+**every available stamped step**, in ascending order. Without per-step exports,
+it holds the end-of-run export, with `STEP` interpreted as in the existing
+sections table above. The existing end-of-run table and combined
+`series/<point>_sections_series.csv` remain available.
+
+Rows lead with `STEP, time_s, FAMILY, PLANE, ROTOR, AZIMUTH`, then the shared
+condition block, then the export's columns. Sectional loads retain
+`Offset, Chord, X_QC, Z_QC, Fx, Fz, Moment`. Cp carries `SECTION`, the export's
+1-based cross-section index, followed by its twenty printed columns:
+`Section_direction_value, X, Y, Z, nx, ny, nz, L, Cp, Mach, vx, vy, vz, vtot,
+Cp_ref, Theta, CF, Delta*, Delta, H`. There is one row per step, section and
+chordwise station, in the export's station order. Unknown time or identity
+values read `NA`.
+
+The recorded `sections_layout` assigns sections to blocks. New records also
+retain each block's pproc entry position and original `families` selection;
+editing the pproc cannot reassign those recorded blocks. For a 0.24.0 layout,
+the recorded pproc must match each block unambiguously by families, plane,
+frame and count. An ambiguous match is a named skip. Without a recorded layout,
+**no split file is written**: `products.json` names the layout requirement.
+A layout whose counts disagree with an export is likewise refused for that
+export kind, rather than assigning rows to guessed distributions.
+
+Each manifest entry states `distribution` (1-based), `families` (the original
+alias/selection), and `steps_tabled`. A pproc entry with no recorded blocks
+gets a named skip rather than a guessed share of another entry's rows.
+Missing exports and missing stamped steps
+are named skips. A section without chordwise stations contributes no Cp rows;
+a distribution with no stations at a step is named as a skip. A malformed
+export skips that kind's split files; the other kind remains available.
+
 ---
 
 ## The probes table

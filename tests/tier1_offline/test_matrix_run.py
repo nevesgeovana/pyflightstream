@@ -4438,6 +4438,11 @@ def test_a_rotor_row_run_through_the_workflow_leaves_its_reductions_beside_the_p
         "polars/7001#rotor_tables",
         "polars/P7001_M200RE1177AL-020_uns_avg.csv#axes",
         "probes/M200RE1177AL-020_per_blade.csv",
+        # 0.25.0 F07: the per-distribution sections and cp files are never
+        # guessed; this point's record does not identify its distributions, so
+        # both kinds are named instead of split.
+        "sections/M200RE1177AL-020_cp#distributions",
+        "sections/M200RE1177AL-020_sloads#distributions",
     ]
     # 0.25.0 F01: this row's artifact declares no [[probes]], and an unsteady
     # point no longer takes the probe-points route, so no probes table is owed

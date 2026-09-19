@@ -80,6 +80,27 @@ FlightStream versions.
   document is refused naming the parameter and the build. The pproc's own
   vocabulary refused them on every build before.
 
+### Added
+
+- **One sections file and one Cp file per distribution**, under `sections/`, named
+  with the distribution's alias or families (the entry's position is added when two
+  would collide): `<point>_sloads_<name>.csv` and `<point>_cp_<name>.csv`. With the
+  per-step exports on (`EXPORT_UNSTEADY_AFTER_REV` / `..._ITER`) each file holds every
+  exported step in a `STEP` column; without them it holds the end-of-run export. The
+  Cp export was only listed in the manifest before and is now tabled. Every block a
+  pproc entry emits, over its planes and blades, lands in that entry's file. A record
+  that does not identify its distributions is a named skip: the split is never
+  guessed. The combined sections series and the end-of-run sections table are
+  unchanged. New public module: `pyflightstream.post.section_distributions`.
+
+### Changed
+
+- **The recorded-export fixture carries a second witness**: a `sha256` column beside
+  each row, so an export replaced on disk is caught even when its `Total` row still
+  agrees. No printed value moved (48 rows, the value columns byte-identical).
+- Source documentation and the requirements specification state requirements rather
+  than attributing them to a person; no behaviour and no doctest changed.
+
 ### Deprecated
 
 - **`write_sections_table(iteration=)` is now `step=`**, the one name for a solver

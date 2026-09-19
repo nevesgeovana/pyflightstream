@@ -153,6 +153,7 @@ from pyflightstream.post.axes import (
     polar_axis_coefficients,
 )
 from pyflightstream.post.equations import apply_equations
+from pyflightstream.post.section_distributions import write_section_distributions
 from pyflightstream.post.series import surface_export_metadata, write_point_series
 from pyflightstream.post.superfile import (
     SuperfileDraft,
@@ -5580,7 +5581,7 @@ def _point_series(
     matrix_row: MatrixRow | None = None,
     skipped: dict[str, str] | None = None,
 ) -> tuple[list[Path], dict[str, dict[str, object]]]:
-    """Write the series tables of one windowed record (PFS-2031.18.01).
+    """Write distribution tables and any per-step series of one record.
 
     Each existing table is archived under the rebuild's stamp before it is
     rewritten, by the same archiver as every other product; ``archive``
@@ -5591,8 +5592,13 @@ def _point_series(
     kinds = classify_outputs([Path(o).name for o in record.outputs])
     loads_name = kinds.get("loads")
     if loads_name is None:
-        return [], {}
-    stem = loads_name[: -len(".txt")]
+        sectional = kinds.get("sectional_loads") or kinds.get("sections")
+        if sectional is None:
+            return [], {}
+        stem = sectional.rsplit("_", 1)[0]
+        loads_name = f"{stem}.txt"
+    else:
+        stem = loads_name[: -len(".txt")]
     # THE CONDITION EVERY OTHER PRODUCT OF THE POINT STATES (NL-05), assembled by
     # the same function from the same sources. A loads table that is not on disk
     # leaves the cells `NA`; the series rest on the stamped files and are still
@@ -5623,23 +5629,55 @@ def _point_series(
     live = _live_reference(workspace, matrix_row)
     aliases = getattr(live, "aliases", None) or record.aliases
     surface_exports: dict[str, dict[str, object]] = {}
-    written, names = write_point_series(
-        workspace.root,
+    split_skips = skipped if skipped is not None else {}
+    pproc = None
+    try:
+        pproc = workspace.resolve_pproc(record.pproc) if record.pproc else None
+    except PyflightstreamError:
+        pass  # The split writer names any missing distribution identity.
+    split_files, split_names = write_section_distributions(
         sim_dir=workspace.sim_dir(sim_id),
         record=record,
         stem=stem,
         out=out,
-        overwrite=overwrite,
+        target=lambda path: _refuse_an_existing_product(path, archive=archive, stamp=archive_stamp),
+        skipped=split_skips,
+        step=_last_time_step(record),
+        pproc=pproc,
         condition=condition,
         reference=reference,
         rotors=_section_rotors(live, aliases, record),
-        skipped=skipped,
-        surface_exports=surface_exports,
-        # `archive` WAS ACCEPTED HERE AND NEVER USED until 2026-09-14, so the
-        # series were the one product a rebuild rewrote in place.
-        target=lambda path: _refuse_an_existing_product(path, archive=archive, stamp=archive_stamp),
     )
-    return written, {**names, **surface_exports}
+    try:
+        written, names = write_point_series(
+            workspace.root,
+            sim_dir=workspace.sim_dir(sim_id),
+            record=record,
+            stem=stem,
+            out=out,
+            overwrite=overwrite,
+            condition=condition,
+            reference=reference,
+            rotors=_section_rotors(live, aliases, record),
+            skipped=skipped,
+            surface_exports=surface_exports,
+            # `archive` WAS ACCEPTED HERE AND NEVER USED until 2026-09-14, so the
+            # series were the one product a rebuild rewrote in place.
+            target=lambda path: _refuse_an_existing_product(
+                path, archive=archive, stamp=archive_stamp
+            ),
+        )
+    except ProductExistsError:
+        raise
+    except ProductError as error:
+        split_skips[f"series/{record.run_id}"] = str(error)
+        warnings.warn(
+            f"series of {record.run_id} not written: {error}",
+            PyflightstreamWarning,
+            stacklevel=2,
+        )
+        written, names = [], {}
+    return [*split_files, *written], {**split_names, **names, **surface_exports}
 
 
 #: The characters an alias may carry into a file name. Everything else is
@@ -6572,8 +6610,6 @@ def _write_the_products(
                     "format": kind,
                     **metadata,
                 }
-            if not record.export_window:
-                continue
             said = set(skipped)
             try:
                 series_files, series_names = _point_series(

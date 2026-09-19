@@ -2721,6 +2721,27 @@ exports: the exports begin AFTER a threshold, in the reference definition, and t
 `WINDOW_*` keys keep their one job, the averaging window of the
 reductions.
 
+**One file per sections distribution (0.25.0).** Post always writes
+`sections/<point>_sloads_<name>.csv` and `sections/<point>_cp_<name>.csv` for
+each `[[sections.distributions]]` entry with usable exports and recorded layout.
+The name is its `families` word or alias, or its list joined with `-`
+(`Blade1-Blade2`). Invalid filename characters become `_`; trailing spaces
+and dots are removed. Colliding names receive the 1-based entry position
+`_<k>` (repeated if needed), including collisions introduced by sanitization
+or case differences. One entry's planes and expanded blade blocks stay together.
+
+With either per-step export threshold, these files contain **all exported
+steps**, with `STEP, time_s, FAMILY, PLANE, ROTOR, AZIMUTH`, the condition block,
+and the export's own columns. Cp adds the export's cross-section index as
+`SECTION`, followed by all twenty chordwise columns, one row per station.
+Without a threshold, the files hold the end-of-run exports and state their
+step as the existing sections table does. That table and the combined sections
+series remain available. `products.json` records each distribution, its original
+families/alias and `steps_tabled`, with named skips for missing exports or steps.
+No recorded `sections_layout` means no split: post names the missing layout.
+Older layouts require an unambiguous match to their recorded pproc. See the
+[sections definitions](post-processing-definitions.md#per-distribution-sectional-loads-and-cp-0250).
+
 **The stamped files as a series** (since 0.14.0, PFS-2031.18.01). Thirty
 seven spreadsheets are not a history until something tables them, so the
 products stage writes, per windowed point, one table per export kind
@@ -2755,8 +2776,8 @@ simulation folder for a local run, `datapoints/DP-<point>/` for a submitted one.
 step the solver never stamped is absent and the `products.json` entry
 says which steps were tabled; the surface sections export (`_cp`) and
 the Tecplot file (`.dat`) of the window are listed there by path, as
-`sections_files` and `tecplot_files`, and not tabled, since they are the
-solver's own formats. A stamped file the parsers cannot read costs that
+`sections_files` and `tecplot_files`. Cp is also tabled in the per-distribution
+files above; Tecplot keeps its native format. A stamped file the parsers cannot read costs that
 point its series, recorded under `skipped` as `series/<run id>`, and
 never the stage. These tables are not the "raw series" the reductions
 write beside the plots table: that one is the plots export's history of

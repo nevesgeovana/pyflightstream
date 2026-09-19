@@ -13,9 +13,9 @@ run record carries, which is the same arithmetic the counter program runs
 on the machine (``run/_actions_counter.py``, ``state()``), so the series and
 the counter agree by construction.
 
-The Tecplot ``.dat`` and the ``_cp`` files of the window are listed in
-``products.json`` by path and not tabled: they are the solver's own
-formats, and a table of either would be a second format of one thing.
+Native surface files and the ``_cp`` files remain listed in ``products.json``.
+The distribution writer also tables sectional loads and Cp, one file per
+pproc distribution, while this module retains the combined sections series.
 """
 
 from __future__ import annotations
@@ -77,7 +77,7 @@ SECTIONS_SERIES_LEAD: tuple[str, ...] = ("STEP", "time_s", "FAMILY", "PLANE", "R
 #: The column saying WHICH probe a probes series row is (0.24.0), numbered from
 #: one in the export's own order, as the probe table numbers them.
 PROBE_COLUMN = "PROBE"
-#: The stamped kinds that are listed by path and not tabled.
+#: Native paths retained in the loads-series entry; Cp is also split by distribution.
 #: The keys carry the package's own kind names (``cases.EXPORT_KINDS``):
 #: ``sections`` is the ``_cp`` export and ``tecplot`` the ``.dat`` file.
 LISTED_KINDS: tuple[tuple[str, str, str], ...] = (
