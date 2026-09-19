@@ -128,6 +128,7 @@ from pyflightstream.post._tables import (
     ProductError,
     ProductExistsError,
     context_row,
+    renamed_columns,
     section_identity,
     write_csv_table,
 )
@@ -191,6 +192,7 @@ __all__ = [
     "ROTOR_TABLE_LEAD_LINES",
     "ROTOR_TABLE_SUFFIX",
     "context_row",
+    "renamed_columns",
     "section_identity",
     # The token a reader of any product compares against. It was reachable
     # only from the private `_tables` until 0.23.0, while that module's own
@@ -3042,6 +3044,7 @@ def write_reduction_table(
     *,
     reduction: str,
     windows: Sequence[Sequence[int]],
+    names: Mapping[str, str] | None = None,
     condition: Mapping[str, object] | None = None,
     reference: ReferenceValues | None = None,
     rotor: str | None = None,
@@ -3127,7 +3130,10 @@ def write_reduction_table(
                 *(float(average.fields[name][0]) for name in columns),
             )
         )
-    return write_csv_table(path, (*REDUCTION_COLUMNS, *columns), rows)
+    heading = renamed_columns(
+        (*REDUCTION_COLUMNS, *columns), names, printed=columns, where=Path(path).name
+    )
+    return write_csv_table(path, heading, rows)
 
 
 #: What a per-blade row states before the condition: which reduction, which rotor,
@@ -4043,6 +4049,8 @@ def write_unsteady_polar(
     setup: Mapping[str, Mapping[str, object]] | None = None,
     notes: list[str] | None = None,
     axes_groups: Sequence[str] | None = None,
+    names: Mapping[str, str] | None = None,
+    name_notes: list[str] | None = None,
     equations: Mapping[str, object] | None = None,
     equation_order: Sequence[str] | None = None,
     equation_notes: list[str] | None = None,
@@ -4138,7 +4146,7 @@ def write_unsteady_polar(
             continue
         window = (windows or {}).get(name, window)
         try:
-            names, series = plots_table_series(source)
+            printed_names, series = plots_table_series(source)
             # A PARTIAL COVER IS NOT A COVER, and this dropped only the point
             # whose history missed the window ENTIRELY. `blade_passage_average`
             # refuses when NO frame falls inside, so a point that stopped
@@ -4167,7 +4175,7 @@ def write_unsteady_polar(
             left_out.append(f"{name}: its plots table could not be read: {error}")
             continue
         values: dict[str, float] = {}
-        for name in names:
+        for name in printed_names:
             # THE CLOCK IS NOT A COEFFICIENT, and averaging it publishes a number
             # with no physical meaning under the same contract as `CL`. Over
             # steps 5 to 8 the mean of the step column is 6.5, which is not a
@@ -4194,6 +4202,7 @@ def write_unsteady_polar(
         rows.append((condition, values, window, dict((setup or {}).get(name_of_point, {}))))
     if not rows:
         return None
+    plot_columns = list(columns)
     axis_columns = _the_axes_of_the_unsteady_rows(rows, reference, notes, axes_groups or ())
     # ITEM 5 REACHES THIS PRODUCT TOO: a coefficient states nothing without the
     # condition it was taken at and the lengths it was normalised by.
@@ -4238,9 +4247,21 @@ def write_unsteady_polar(
                 raise
             equation_notes.append(str(refused))
     at = len(header) - len(extra)
+    # THE DICTIONARY IS APPLIED LAST, to the heading alone: the axes and the
+    # equations above read the names the export prints, and a reader's tool reads
+    # the names the pproc gives them.
+    final = (*header[:at], *derived_columns, *header[at:])
+    try:
+        final = renamed_columns(
+            final, names, printed=plot_columns, where=f"{POLARS_DIR}/{path.name}"
+        )
+    except ProductError as refused:
+        if name_notes is None:
+            raise
+        name_notes.append(str(refused))
     return write_csv_table(
         path,
-        (*header[:at], *derived_columns, *header[at:]),
+        final,
         [
             (*cells[:at], *(values.get(name) for name in derived_columns), *cells[at:])
             for cells, values in zip(table, derived, strict=True)
@@ -4934,6 +4955,7 @@ def _sim_products(
                     # from the reference the row names, the clock from this point's
                     # own record, as the sections table takes them.
                     rotor_facts=_section_rotors(live, aliases, record_of[point.name]),
+                    names=getattr(pproc, "names", None) or None,
                 )
     # ITEM 17, AT THE OUTER NESTING AND NOT INSIDE THE SUPERFILE GUARD.
     # IT WAS INSIDE, AND THE ARCHITECT LENS OF THE RELEASE ROUND MEASURED WHAT
@@ -5035,6 +5057,7 @@ def _sim_products(
     if unsteady_window_steps is not None:
         unsteady_left_out: list[str] = []
         unsteady_notes: list[str] = []
+        name_notes: list[str] = []
         equation_notes: list[str] = []
         unsteady_name = unsteady_polar_file_name(sim_id, name=table_name)
         # THE FILE 0.23.0 WROTE UNDER THE OLD NAME IS ARCHIVED, NOT LEFT BESIDE THIS
@@ -5059,7 +5082,13 @@ def _sim_products(
             equations=getattr(pproc, "equations", None) or None,
             equation_order=pproc.equation_order() if getattr(pproc, "equations", None) else None,
             equation_notes=equation_notes,
+            names=getattr(pproc, "names", None) or None,
+            name_notes=name_notes,
         )
+        # THE DICTIONARY, like the two blocks above: what was not applied is SAID.
+        if name_notes and done is not None:
+            skipped[f"{POLARS_DIR}/{unsteady_name}#names"] = "; ".join(name_notes)
+            warnings.warn("; ".join(name_notes), PyflightstreamWarning, stacklevel=2)
         # THE EQUATIONS BLOCK, like the axes block: what is not written is SAID,
         # under the file's own name with a marker, and warned, because a derived
         # column a user asked for and did not get must not be found by accident.
@@ -5333,8 +5362,15 @@ def _point_reductions(
     condition: Mapping[str, object] | None = None,
     reference: ReferenceValues | None = None,
     rotor_facts: Mapping[str, Mapping[str, object]] | None = None,
+    names: Mapping[str, str] | None = None,
 ) -> None:
     """Write every applicable reduction of one plots table beside it (PFS-2015.04).
+
+    ``names`` is the pproc's dictionary. It renames the columns of the averaged
+    reductions; a dictionary the plots table cannot honour is said ONCE for the
+    point, under ``probes/<point>#names``, and the reductions keep the export's
+    names rather than be lost. The per-blade and azimuthal tables carry columns
+    that are no longer the export's own names and are not renamed.
 
     ``rotor_facts`` is what the sections table takes of each rotor, its blade
     families and its clock; the per-blade reduction is ONE ROW PER BLADE since
@@ -5414,6 +5450,12 @@ def _point_reductions(
         windows = [tuple(int(v) for v in window) for window in stated]  # type: ignore[union-attr]
         if series is None:
             columns, series = plots_table_series(plots_table)
+            try:
+                renamed_columns(columns, names, printed=columns, where=f"{PROBES_DIR}/{stem}")
+            except ProductError as refused:
+                skipped[f"{PROBES_DIR}/{stem}#names"] = str(refused)
+                warnings.warn(str(refused), PyflightstreamWarning, stacklevel=2)
+                names = None
         destination = target(out / relative)
         try:
             if name == _PER_BLADE:
@@ -5453,6 +5495,7 @@ def _point_reductions(
                     columns,
                     reduction=name,
                     windows=windows,
+                    names=names,
                     # ITEM 5. A reduction is an AVERAGE over a window, and an
                     # average of coefficients states nothing without the condition
                     # they were taken at and the lengths they were normalised by.

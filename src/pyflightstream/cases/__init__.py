@@ -1735,6 +1735,11 @@ class PprocSpec(BaseModel):
     #: ``[glossary]``: what each symbol means, extensible by the user. The
     #: generated ``VARIABLES.md`` lists it beside the package's own.
     glossary: dict[str, str] = Field(default_factory=dict)
+    #: ``[names]``: the dictionary from a plot column as the export prints it to
+    #: the name a reader's tool expects (0.24.0). It renames columns of the
+    #: unsteady polar and of the reductions and nothing else; absent, every name
+    #: passes through as printed.
+    names: dict[str, str] = Field(default_factory=dict)
     exports: dict[str, bool] = Field(default_factory=dict)
     sections: SectionsSpec = Field(default_factory=SectionsSpec)
     plots: PlotsSpec = Field(default_factory=PlotsSpec)
@@ -1843,6 +1848,32 @@ class PprocSpec(BaseModel):
         except InputArtifactError as circular:
             raise ValueError(str(circular)) from circular
         return self
+
+    @field_validator("names")
+    @classmethod
+    def _one_readers_name_per_export_name(cls, value: dict[str, str]) -> dict[str, str]:
+        """Refuse a dictionary two entries of which name one column, or a name not one word.
+
+        Two plot columns renamed to one name would be two columns under one
+        heading, and a reader taking a column by name would get whichever came
+        last. A name holding a comma or a space is not a CSV heading a tool can
+        ask for. Both are visible the moment the artifact is read.
+        """
+        taken: dict[str, str] = {}
+        for printed, wanted in value.items():
+            if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_.\-]*", str(wanted)):
+                raise ValueError(
+                    f"[names] {printed} = {wanted!r}: the name a column is given is one "
+                    "word of letters, digits, underscores, dots and hyphens, starting with "
+                    "a letter or an underscore, because it becomes a CSV heading"
+                )
+            if wanted in taken:
+                raise ValueError(
+                    f"[names] gives {taken[wanted]} and {printed} the one name {wanted!r}, "
+                    "which would put two columns under one heading; give each its own"
+                )
+            taken[wanted] = printed
+        return value
 
     @field_validator("equations")
     @classmethod

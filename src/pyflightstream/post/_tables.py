@@ -342,6 +342,47 @@ def write_csv_table(
     return target
 
 
+def renamed_columns(
+    columns: Sequence[str],
+    names: Mapping[str, str] | None,
+    *,
+    printed: Sequence[str],
+    where: str,
+) -> tuple[str, ...]:
+    """Return ``columns`` with the pproc's ``[names]`` dictionary applied (0.24.0).
+
+    ``printed`` is what the plots export prints, which is what a dictionary's
+    left side may name. THE WHOLE DICTIONARY APPLIES OR NONE OF IT DOES: half a
+    dictionary applied is a file nobody can predict.
+
+    Raises
+    ------
+    ProductError
+        If an entry names a column no plot prints, which must never become a
+        column of `NA` nor pass in silence; or gives a column a name the table
+        already carries.
+    """
+    if not names:
+        return tuple(columns)
+    unknown = [name for name in names if name not in printed]
+    if unknown:
+        raise ProductError(
+            f"{where}: the pproc's [names] table names {', '.join(unknown)}, which no plot "
+            f"of this point prints (it prints {', '.join(printed) or 'none'}). A plot column "
+            "is <parameter>_<group name>; correct the left side of the entry, or remove "
+            "it. No column was renamed."
+        )
+    kept = {name for name in columns if name not in names}
+    clash = [f"{old} -> {new}" for old, new in names.items() if new in kept]
+    if clash:
+        raise ProductError(
+            f"{where}: the pproc's [names] table renames {', '.join(clash)}, and the table "
+            "already carries a column of that name. Choose another name. No column was "
+            "renamed."
+        )
+    return tuple(names.get(name, name) for name in columns)
+
+
 #: How a rotor table's file name ends, and how many lines lead its header: the
 #: rotor's alias, alone on line one, so a script that has loaded the file still
 #: knows which rotor it holds. Every reader of `polars/` needs both.

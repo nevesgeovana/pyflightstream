@@ -29,6 +29,19 @@ FlightStream versions.
 - `polar_row` takes `beta_deg=`; `GroupCoefficients` carries `force` and
   `moment`, the export-frame sums.
 
+### Added (the `[names]` dictionary of the pproc)
+
+- `[names]` maps a plot column as the export prints it to the name a reader's
+  tool expects (`CL_MRP_TOTAL = "CL_TOTAL"`). It renames columns of the unsteady
+  polar and of the averaged reductions; the plots table stays raw, and absent,
+  every name passes through as printed. The axes and the equations read the
+  export's names, and the dictionary is applied last.
+- The whole dictionary applies or none of it does: an entry naming a column no
+  plot prints, or a name the table already carries, leaves the export's names
+  in place and is said under `polars/<file>#names` or `probes/<point>#names`.
+  The unsteady polar already carries the native export's last-step `CL`, so that
+  name is taken; `CL_TOTAL` is not. Two entries for one name are refused at load.
+
 ### Added (three pproc tables, which ship together)
 
 - **`[phase_locked]`** (`min_revolutions`, `last_revolutions_avg`), optional. With

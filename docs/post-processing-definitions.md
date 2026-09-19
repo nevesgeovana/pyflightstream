@@ -430,9 +430,36 @@ as a health check.
 
 **Why the columns are not renamed.** Nothing in this package knows which plot
 label carries which coefficient, and a label invented by the package does not
-fail loudly -- it writes `NA` down a whole column. A dictionary from plot names to
-a downstream tool's names is **0.24.0** scope; it lives in the pproc, and
-undeclared, the names pass through exactly as printed.
+fail loudly -- it writes `NA` down a whole column.
+
+**The `[names]` dictionary (0.24.0).** A downstream tool may read other names, so
+the pproc may state a dictionary, from a plot column AS THE EXPORT PRINTS IT to
+the name the reader wants:
+
+```toml
+[names]
+CL_MRP_TOTAL = "CL_TOTAL"
+FX_HUB_PUSHER = "FX_PUSHER"
+```
+
+- It renames columns of the unsteady polar and of the averaged reductions
+  (`time_average`, and the passage series). The plots table
+  `probes/<point>_plots.csv` stays as the export prints it, because it is the
+  source the others are read from; the per-blade and azimuthal tables carry
+  columns that are no longer the export's own names and are not renamed.
+- Undeclared, every name passes through exactly as printed.
+- The axes and the `[equations]` read the export's names; the dictionary is
+  applied last, to the heading alone.
+- **The whole dictionary applies or none of it does.** An entry naming a column
+  no plot of the point prints, or giving a column a name the table ALREADY
+  carries, leaves every column under the export's name and is said in
+  `products.json` (`polars/<file>#names`, `probes/<point>#names`) and as a
+  warning. It never becomes a column of `NA`.
+- **`CL` is taken.** The unsteady polar carries the native export's last-step
+  `CL`, `CDi`, `CDo`, `Cx` and the rest in its setup content, as a health
+  check, so a plot column cannot be renamed to one of those; `CL_TOTAL` can.
+- Two entries giving one name, or a name that is not one word, are refused when
+  the pproc is read.
 
 ---
 
