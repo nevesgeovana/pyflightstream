@@ -564,7 +564,11 @@ ATTITUDE_KEYS: dict[str, tuple[str, str]] = {
     # cannot be swept and where every motion of the row needs its own copy.
     # Stated here it reaches every motion that states none, exactly as the
     # advance ratio does, and a MOTIONS record naming a speed still wins.
-    "RPM": ("rev/min", "the speed of every motion that states none, signed"),
+    "RPM": (
+        "rev/min",
+        "the speed of every motion that states none, a magnitude: the sense is "
+        "the reference's rpm_sign",
+    ),
     # THE BODY RATES (0.21.0, the cluster feedback of 2026-09-15). One of
     # them, non-zero, turns the free stream about the moment reference point
     # of the row's REF: it is how a run states a pull-up, a roll or a yaw

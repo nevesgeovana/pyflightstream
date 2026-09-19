@@ -36,9 +36,12 @@ record, so any spreadsheet or dataframe reads them with nothing else:
   carry the rotor's alias, ``probes/<point>_per_blade_<ALIAS>.csv``, and
   their manifest entries carry a ``rotor`` field; the time average is one
   file whatever turns in the run. Raw is the plots table
-  itself and is written once. The windows come off the run record, which
-  the run stage resolved from the row
-  (:func:`pyflightstream.cases.workflows.reduction_windows`), and a
+  itself and is written once. Since 0.24.0 the per-blade table is one row
+  PER BLADE over one shared window. The windows follow the MATRIX ROW as it
+  stands (:mod:`pyflightstream.cases.windows`), and a record's own windows,
+  resolved by the run stage
+  (:func:`pyflightstream.cases.workflows.reduction_windows`), where the row
+  no longer states a key; a
   reduction the row could not window is recorded under ``skipped`` in
   ``products.json`` with its reason, as a refused polar is;
 * THE CUSTOM POLAR FORMAT beside each polar table when the pproc artifact asks
@@ -3738,7 +3741,8 @@ def _matrix_window(matrix_row: MatrixRow | None, record: object) -> tuple[int, i
     2. Failing that, the window the record states AND FLAGS as stated, which is
        `_stated_window` -- a point whose matrix no longer names a key still
        reduces the way it was run.
-    3. Failing both, None, and the polar comes from the native export.
+    3. Failing both, None: the caller then averages over the window the record
+       defaulted to (:func:`_defaulted_window`) and says so in a warning.
 
     Returns None rather than raising for every shape it cannot resolve: a
     malformed record costs this product and never the stage.
@@ -4132,8 +4136,9 @@ def write_unsteady_polar(
     read here), in Newtons and Newton metres, averaged over the window like every
     other column, made coefficients by the row's own ``RHO``, ``VINF``, ``SREF``
     and ``CREF`` and turned by the chain the steady polar uses. Never a rotor's
-    own frame, whose axes are not the geometry's. With one such group the columns
-    are the steady polar's eighteen; with several each takes its group's name.
+    own frame, whose axes are not the geometry's. The columns are the steady
+    polar's eighteen names, each suffixed with its plot group's whole name
+    (``CLW_MRP_TOTAL``), one group or several.
     Where the block cannot be written, no MRP group with the six or a row stating
     no density, it is NOT written as a column of `NA`: ``notes`` receives the
     reason.
@@ -4578,10 +4583,17 @@ def _sim_products(
             point_window = _defaulted_window(record)
             if point_window is not None and stem not in point_windows:
                 key = "LAST_REVS_AVG" if record.recipe == "unsteady_rotor" else "LAST_ITERS_AVG"
+                # WHERE THE WINDOW CAME FROM, as the record states it: a retired
+                # `WINDOW_*` key of the row is not a default, and the warning called
+                # every unstated window "the window the run defaulted to".
+                entry = (record.reductions or {}).get("time_average")
+                origin = entry.get("window_from") if isinstance(entry, Mapping) else None
                 warnings.warn(
                     f"{stem}: this record states no {key}. Its unsteady polar is averaged "
-                    f"over the window the run defaulted to, steps {point_window[0]} to "
-                    f"{point_window[1]}. State {key} on the row and post again to choose the "
+                    f"over the window its run recorded, steps {point_window[0]} to "
+                    f"{point_window[1]}"
+                    + (f" ({origin})" if origin else "")
+                    + f". State {key} on the row and post again to choose the "
                     "window; no re-run is needed.",
                     PyflightstreamWarning,
                     stacklevel=2,
@@ -5076,6 +5088,18 @@ def _sim_products(
                         },
                     }
                     if plan.get("read_from") and unsteady_window_steps is not None
+                    # AN UNSTEADY RUN READ FROM ITS LOADS EXPORT HOLDS AN INSTANT, and
+                    # says so: that export states the LAST TIME STEP. A record that
+                    # states no window reaches here, and the entry called it a steady
+                    # run, with no `kind`, as a sections table's entry has.
+                    else {
+                        "source": (
+                            "the loads export of an unsteady run: its LAST TIME STEP, one "
+                            "instant of a cycle, because the run states no averaging window"
+                        ),
+                        "kind": "instant",
+                    }
+                    if any(str(r.recipe or "").startswith("unsteady") for r in records)
                     else {"source": "the loads export of a steady run"}
                 ),
             }

@@ -382,8 +382,9 @@ FlightStream versions.
   defaulted, with nothing marking either. A row that still states `WINDOW_STEPS`,
   `WINDOW_REVOLUTIONS` or `WINDOW_DEGREES` satisfies the rule until 0.26.0.
 - **A RECORD ALREADY WRITTEN WITHOUT A WINDOW IS NEVER REFUSED, AND ITS POLAR
-  CHANGES KIND.** `pyfs-matrix post` averages it over the window the run
-  defaulted to (the last revolution with a rotor, the whole run without), writes
+  CHANGES KIND.** `pyfs-matrix post` averages it over the window its run
+  recorded (its default: the last revolution with a rotor, the whole run without;
+  or a retired `WINDOW_*` key of the row, named as such), writes
   `P<sim>_<name>_uns_avg.csv`, and SAYS which steps that was and how to choose
   another. The group polars, the super file and the `.dat` that such a point
   used to get were read off the last time step and are no longer written for it.

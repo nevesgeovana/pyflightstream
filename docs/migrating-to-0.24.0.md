@@ -56,7 +56,8 @@ A point under sideslip is no longer refused: it is a row like any other.
 A run recorded before the window was stated on the row has no `LAST_REVS_AVG` (or
 `LAST_ITERS_AVG`) to read. 0.23.0 wrote such a point's group polars from the native
 export, which states the **last time step** of the run. 0.24.0 averages it over
-the window the run defaulted to, says so in a warning naming the steps, and writes
+the window its run recorded (the run's default, or a retired `WINDOW_*` key of the
+row), says so in a warning naming the steps and where they came from, and writes
 `P<sim>_<name>_uns_avg.csv`; the per-group polars of that point are no longer
 written. State the key on the row and post again to choose the window.
 

@@ -70,3 +70,27 @@ def test_no_last_step_polar_is_written_under_a_steady_name(tmp_path):
     ]
     assert steady_named == [], steady_named
     assert all("_g01" not in key for key in _products_manifest(workspace)["products"])
+
+
+def test_a_window_from_a_retired_key_is_said_as_that_and_not_as_a_default(tmp_path):
+    """A row with a deprecated WINDOW_* key did state a window; the run did not default.
+
+    Found reading the code for the architecture document of 0.24.0: the warning
+    called every unstated window "the window the run defaulted to", including one a
+    retired key of the row had chosen. It names where the window came from.
+    """
+    retired = {
+        **DEFAULTED,
+        "time_average": {
+            "windows": [[5, 8]],
+            "window_from": "the retired WINDOW_STEPS of the row: 4 steps",
+        },
+    }
+    workspace = _unsteady_workspace(tmp_path, reductions=retired, recipe="unsteady")
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        write_campaign_products(workspace)
+    about = [str(w.message) for w in caught if "states no" in str(w.message)]
+    assert len(about) == 1, [str(w.message) for w in caught]
+    assert "WINDOW_STEPS" in about[0] and "5 to 8" in about[0], about[0]
+    assert "defaulted" not in about[0], about[0]
