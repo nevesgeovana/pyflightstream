@@ -5660,6 +5660,7 @@ def _execute_point(
     setup = script.solver_setup
     if setup is not None:
         base["solver_setup"] = setup.model_dump(mode="json")
+    base["surface_time_averaging"] = script.surface_time_averaging
     script_path, script_sha = workspace.write_script(case.sim_id, f"{stem}.txt", script.render())
     # FR-91. WHERE THIS SCRIPT PUT ITS PROBE POINTS, written next to the
     # script that placed them. An unsteady plots export numbers its columns
@@ -5732,7 +5733,7 @@ def _execute_point(
     # before its first step.
     threshold = None
     if any(use.name == UNSTEADY_COUNTER_ACTION for use in script.unsteady_actions):
-        threshold = unsteady_export_threshold(point_case)
+        threshold = unsteady_export_threshold(point_case, version=fs_version)
     if threshold is not None:
         program = work_dir / UNSTEADY_ACTION_PROGRAM
         program.parent.mkdir(parents=True, exist_ok=True)
@@ -5771,7 +5772,9 @@ def _execute_point(
         clock = work_dir / WALLTIME_CLOCK_PROGRAM
         clock.parent.mkdir(parents=True, exist_ok=True)
         clock.write_text(
-            walltime_clock_program(point_case, workflow_conventions_for(point_case)),
+            walltime_clock_program(
+                point_case, workflow_conventions_for(point_case), version=fs_version
+            ),
             encoding="utf-8",
         )
         (work_dir / WALLTIME_CLOCK_STATE).unlink(missing_ok=True)

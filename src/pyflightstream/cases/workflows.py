@@ -196,6 +196,7 @@ __all__ = [
     "export_window",
     "reduction_plan",
     "reduction_windows",
+    "surface_time_averaging",
     "require_coverage",
     "resolve_workflow",
     "rotor_relaxed_trailing_edges",
@@ -6010,6 +6011,12 @@ def _script_init(
     one function used, and renders the same bytes.
     """
     _raw_commands(case, script, "init")
+    surface_window = surface_time_averaging(case)
+    if surface_window is not None:
+        bounds = surface_window["iterations"]
+        assert isinstance(bounds, list)
+        script.emit("SOLVER_TIME_AVERAGING", "ENABLE", *bounds)
+        script.surface_time_averaging = surface_window
     _initialize(case, script)
     # THE SECTION DISTRIBUTIONS SIT HERE, between the solver being initialised
     # and being started, which is where the reference working scripts put
@@ -7810,6 +7817,48 @@ _SECTION_COMMAND = "NEW_SURFACE_SECTION_DISTRIBUTION"
 _SECTION_SYMMETRY_ARG = "include_symmetry"
 
 
+def surface_time_averaging(case: SimCase) -> dict[str, object] | None:
+    """Resolve the pproc's surface window on the same clock as LAST_REVS_AVG."""
+    stated = case.pproc.time_averaging if case.pproc is not None else None
+    if stated is None:
+        return None
+    if case.recipe not in _UNSTEADY_RECIPES:
+        raise CampaignConfigError("[time_averaging] requires an unsteady run")
+    plan = reduction_windows(case)
+    assert plan is not None
+    last = plan.get("time_iterations")
+    clock = plan.get("steps_per_revolution")
+    if not isinstance(last, int):
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: surface time averaging has no valid run clock"
+        )
+    try:
+        return _windows.surface_averaging_window(
+            last_step=last,
+            per_revolution=float(clock) if isinstance(clock, int | float) else None,
+            last_revs=stated.last_revs,
+            last_iters=stated.last_iters,
+        )
+    except ValueError as error:
+        raise CampaignConfigError(f"case {case.sim_id!r}: {error}") from error
+
+
+def _surface_export(script: Script, case: SimCase, kind: str, name: str) -> bool:
+    """Emit the surface formats with payloads, validated on the selected build."""
+    if kind == "vtk":
+        variables = case.pproc.vtk_variables if case.pproc is not None else None
+        helpers.export_results(script, vtk=name, vtk_variables=variables or "all")
+    elif kind == "csv":
+        verb = "EXPORT_SOLVER_ANALYSIS_CSV"
+        args: list[object] = [name, "CP-FREESTREAM", "PASCALS"]
+        if any(arg.name == "frame" for arg in script.entry(verb).args):
+            args.append(1)
+        script.emit(verb, *args, -1)
+    else:
+        return False
+    return True
+
+
 def _export_block(
     conventions: WorkflowConventions, case: SimCase, script: Script, *, unsteady: bool
 ) -> None:
@@ -7865,7 +7914,8 @@ def _export_block(
             continue
         if kind == "log" and (declared_log or not exports_its_log):
             continue
-        script.emit(verb, kinds[kind])
+        if not _surface_export(script, case, kind, kinds[kind]):
+            script.emit(verb, kinds[kind])
     if declared_log:
         _export_log(conventions, case, script, claimed=(names.index(kinds["loads"]) + 1,))
 
@@ -7998,7 +8048,7 @@ def _build_steady(case: SimCase, script: Script, conventions: WorkflowConvention
     _refuse_wake_termination_without_a_clock(case)
     # A steady row stating an export threshold is refused there, naming
     # the time loop it lacks (PFS-2031.18); a row stating none returns.
-    unsteady_export_threshold(case, conventions)
+    unsteady_export_threshold(case, conventions, version=script.version)
     _refuse_unregistered_keys(case, "steady")
     _raw_commands(case, script, "control")
     _custom_flags(case, script, "control")
@@ -8074,7 +8124,7 @@ def build_steady_sweep(
     first = point_cases[0]
     conventions = WorkflowConventions.for_case(first)
     _refuse_wake_termination_without_a_clock(first)
-    unsteady_export_threshold(first, conventions)
+    unsteady_export_threshold(first, conventions, version=script.version)
     _refuse_unregistered_keys(first, "steady")
     _raw_commands(first, script, "control")
     _custom_flags(first, script, "control")
@@ -8465,7 +8515,11 @@ class UnsteadyExportThreshold:
 
 
 def action_export_lines(
-    conventions: WorkflowConventions, case: SimCase, *, whole_run: bool = False
+    conventions: WorkflowConventions,
+    case: SimCase,
+    *,
+    whole_run: bool = False,
+    version: str | FsVersion = "26.120",
 ) -> list[str]:
     """Return the export lines an ACTION writes: the update prelude, then the verbs.
 
@@ -8515,18 +8569,24 @@ def action_export_lines(
             lines.append("UPDATE_PROBE_POINTS")
     for kind, _, verb, _ in EXPORT_KINDS:
         if kind in kinds:
-            lines += [verb, kinds[kind]]
+            payload = Script(version)
+            if _surface_export(payload, case, kind, kinds[kind]):
+                lines += payload.render().splitlines()
+            else:
+                lines += [verb, kinds[kind]]
     return lines
 
 
-def _per_step_exports(conventions: WorkflowConventions, case: SimCase) -> str:
+def _per_step_exports(
+    conventions: WorkflowConventions, case: SimCase, *, version: str | FsVersion = "26.120"
+) -> str:
     """Return the child script text: the per-step kinds of the row's outputs.
 
     The names are the row's rendered outputs, the same names the
     end-of-run block exports, and the solver tells the two apart by the
     ``_iteration=N`` it stamps on an action's export (RPT-041 finding 3).
     """
-    return "".join(f"{line}\n" for line in action_export_lines(conventions, case))
+    return "".join(f"{line}\n" for line in action_export_lines(conventions, case, version=version))
 
 
 def _rotor_clock(case: SimCase) -> TimeStepping:
@@ -8540,7 +8600,10 @@ def _rotor_clock(case: SimCase) -> TimeStepping:
 
 
 def unsteady_export_threshold(
-    case: SimCase, conventions: WorkflowConventions | None = None
+    case: SimCase,
+    conventions: WorkflowConventions | None = None,
+    *,
+    version: str | FsVersion = "26.120",
 ) -> UnsteadyExportThreshold | None:
     """Resolve the export threshold a row states, or None when it states none.
 
@@ -8645,7 +8708,9 @@ def unsteady_export_threshold(
         # product's last bit.
         step_deg=None if per_revolution is None else round(360.0 / per_revolution, 9),
         rpm=stepping.rpm,
-        exports=_per_step_exports(conventions or WorkflowConventions.for_case(case), case),
+        exports=_per_step_exports(
+            conventions or WorkflowConventions.for_case(case), case, version=version
+        ),
     )
 
 
@@ -8978,7 +9043,9 @@ STATE.write_text(json.dumps(state, indent=2), encoding="utf-8")
 """
 
 
-def walltime_clock_program(case: SimCase, conventions: WorkflowConventions) -> str:
+def walltime_clock_program(
+    case: SimCase, conventions: WorkflowConventions, *, version: str | FsVersion = "26.120"
+) -> str:
     """Render the clock program for one row, with its deadline baked in.
 
     THE DEADLINE IS THE ROW'S WALL CLOCK MINUS THE SETUP'S MARGIN, computed
@@ -9006,7 +9073,7 @@ def walltime_clock_program(case: SimCase, conventions: WorkflowConventions) -> s
         state_name=PurePath(WALLTIME_CLOCK_STATE).name,
         stop_name=PurePath(WALLTIME_STOP_SCRIPT).name,
         deadline=deadline,
-        stop_text=walltime_stop_text(case, conventions),
+        stop_text=walltime_stop_text(case, conventions, version=version),
     )
 
 
@@ -9122,7 +9189,9 @@ def _build_continuation(
     _script_tail(conventions, case, script, None, unsteady=True, reopens_a_saved_state=True)
 
 
-def walltime_stop_text(case: SimCase, conventions: WorkflowConventions) -> str:
+def walltime_stop_text(
+    case: SimCase, conventions: WorkflowConventions, *, version: str | FsVersion = "26.120"
+) -> str:
     """Render what the clock writes into the stop script when it fires.
 
     The row's own exports, then the stop. The exports are the names the
@@ -9144,7 +9213,7 @@ def walltime_stop_text(case: SimCase, conventions: WorkflowConventions) -> str:
     # before a `.txt` got its sections file exported as the loads
     # spreadsheet. These are the ONLY outputs a stopped run leaves, which
     # is what makes a divergence here cost the whole run's evidence.
-    lines += action_export_lines(conventions, case, whole_run=True)
+    lines += action_export_lines(conventions, case, whole_run=True, version=version)
     lines.append(WALLTIME_STOP_VERB)
     return "\n".join(lines) + "\n"
 
@@ -9229,12 +9298,12 @@ def _build_unsteady(case: SimCase, script: Script, conventions: WorkflowConventi
             script,
             conventions,
             *continuation,
-            threshold=unsteady_export_threshold(case, conventions),
+            threshold=unsteady_export_threshold(case, conventions, version=script.version),
         )
         return
     _refuse_rotor_keys_on_a_rotorless_run(case)
     _refuse_wake_termination_without_a_rotor(case)
-    threshold = unsteady_export_threshold(case, conventions)
+    threshold = unsteady_export_threshold(case, conventions, version=script.version)
     _refuse_unregistered_keys(case, "unsteady")
     _require_the_averaging_window(case, "unsteady")
     _raw_commands(case, script, "control")
@@ -9291,12 +9360,12 @@ def _build_unsteady_rotor(case: SimCase, script: Script, conventions: WorkflowCo
             script,
             conventions,
             *continuation,
-            threshold=unsteady_export_threshold(case, conventions),
+            threshold=unsteady_export_threshold(case, conventions, version=script.version),
         )
         return
     # Resolved before the first emission, as every refusal of a row key
     # is; a row stating no threshold pays nothing here.
-    threshold = unsteady_export_threshold(case, conventions)
+    threshold = unsteady_export_threshold(case, conventions, version=script.version)
     _refuse_unregistered_keys(case, "unsteady_rotor")
     _require_the_averaging_window(case, "unsteady_rotor")
     _raw_commands(case, script, "control")
@@ -10345,6 +10414,9 @@ def build_script(
     """
     workflow = resolve_workflow(select_workflow(case))
     require_coverage(workflow, script.version, registry=registry)
+    if case.pproc is not None and case.pproc.time_averaging is not None:
+        script.entry("SOLVER_TIME_AVERAGING")
+        surface_time_averaging(case)
     # THE SEAM (ARCH-0200): how this case is marched on this build, decided
     # once and before the first emission, so a refusal leaves nothing written.
     script.march_strategy = march_strategy(

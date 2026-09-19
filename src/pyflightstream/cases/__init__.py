@@ -62,7 +62,7 @@ from pyflightstream._expressions import ALLOWED_FUNCTIONS, expression_symbols
 from pyflightstream._fsm import names_of
 from pyflightstream._retired_names import PROBE_SCALE_PROPELLER_RADIUS, retired_frame
 from pyflightstream._tokens import REDUCTION_COLUMNS
-from pyflightstream.commands import Phase
+from pyflightstream.commands import CommandRegistry, Phase
 from pyflightstream.script import Script
 from pyflightstream.script.toggles import resolve_toggle
 from pyflightstream.versions import resolve
@@ -97,6 +97,7 @@ __all__ = [
     "CustomFlag",
     "RawCommand",
     "PprocSpec",
+    "SurfaceTimeAveragingSpec",
     "RESERVED_FRAME_NAMES",
     "SectionsSpec",
     "PlotsSpec",
@@ -374,6 +375,8 @@ EXPORT_KINDS: tuple[tuple[str, str, str, bool], ...] = (
     ("simulation", ".fsm", "SAVEAS", False),
     ("loads", ".txt", "EXPORT_SOLVER_ANALYSIS_SPREADSHEET", False),
     ("tecplot", ".dat", "EXPORT_SOLVER_ANALYSIS_TECPLOT", False),
+    ("vtk", ".vtk", "EXPORT_SOLVER_ANALYSIS_VTK", False),
+    ("csv", ".csv", "EXPORT_SOLVER_ANALYSIS_CSV", False),
     ("sections", "_cp.txt", "EXPORT_ALL_SURFACE_SECTIONS", False),
     ("sectional_loads", "_sloads.txt", "EXPORT_SURFACE_SECTIONAL_LOADS", False),
     ("probes", "_probes.txt", "EXPORT_PROBE_POINTS", False),
@@ -391,15 +394,15 @@ def default_outputs(unsteady: bool, exports: Mapping[str, bool] | None = None) -
     leaves out the probe-points instant export. ``exports`` is
     the pproc artifact's
     ``[exports]`` table (PFS-2029.14.02): a kind set to false is left
-    out, a kind the table does not name is kept, so an empty table is
-    the whole set, as the reference driver's ``files_to_save`` defaulted.
+    out. Unstated kinds are kept except ``vtk`` and ``csv``, which are
+    opt-in, so an empty table preserves the existing export set.
     """
     chosen = exports or {}
     return [
         f"{{name}}{suffix}"
         for kind, suffix, _, only_unsteady in EXPORT_KINDS
         if (unsteady or not only_unsteady)
-        and chosen.get(kind, True)
+        and chosen.get(kind, kind not in ("vtk", "csv"))
         and not (unsteady and kind == "probes")
     ]
 
@@ -1736,6 +1739,21 @@ class EquationSpec(BaseModel):
         return expression_symbols(self.expression)
 
 
+class SurfaceTimeAveragingSpec(BaseModel):
+    """The last iterations or revolutions used for solver surface averaging."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    last_revs: float | None = Field(default=None, gt=0, strict=True, allow_inf_nan=False)
+    last_iters: int | None = Field(default=None, gt=0, strict=True)
+
+    @model_validator(mode="after")
+    def _one_window(self) -> SurfaceTimeAveragingSpec:
+        if (self.last_revs is None) == (self.last_iters is None):
+            raise ValueError("[time_averaging] requires exactly one of last_revs or last_iters")
+        return self
+
+
 class PprocSpec(BaseModel):
     """The post-processing specification a matrix row's PPROC cell names.
 
@@ -1745,9 +1763,9 @@ class PprocSpec(BaseModel):
     aggregates, and the polar tables are written per group of it; a
     member is resolved by :func:`select_group_members`, and an empty
     group is every family (the design decision of 2026-09-09); ``exports`` says which of
-    the eight export kinds a point writes, all of them unless a kind is
-    set to false; ``sections``, ``plots`` and ``probes`` are the solver
-    definitions the builders emit before the solver runs; ``products``
+    the export kinds a point writes, with VTK and CSV opt-in and the
+    existing kinds enabled unless set to false; ``sections``, ``plots`` and
+    ``probes`` are the solver definitions the builders emit before the solver runs; ``products``
     says which post-processed files are written after it. Since 0.24.0
     ``phase_locked`` gates and shapes the phase-locked reduction, ``equations``
     adds derived columns to the unsteady polar, ``glossary`` says what the
@@ -1784,6 +1802,25 @@ class PprocSpec(BaseModel):
     #: passes through as printed.
     names: dict[str, str] = Field(default_factory=dict)
     exports: dict[str, bool] = Field(default_factory=dict)
+    time_averaging: SurfaceTimeAveragingSpec | None = None
+    vtk_variables: list[str] | None = None
+
+    @field_validator("vtk_variables")
+    @classmethod
+    def _known_vtk_variables(cls, value: list[str] | None) -> list[str] | None:
+        if value is None:
+            return None
+        entry = CommandRegistry.load().commands["SET_VTK_EXPORT_VARIABLES"]
+        allowed = next(arg.values for arg in entry.args if arg.name == "variables")
+        unknown = sorted(set(value) - set(allowed))
+        if unknown:
+            raise ValueError(f"vtk_variables: unknown variable(s) {', '.join(unknown)}")
+        if not value or len(set(value)) != len(value):
+            raise ValueError(
+                "vtk_variables must be a nonempty list of distinct command variable names"
+            )
+        return value
+
     sections: SectionsSpec = Field(default_factory=SectionsSpec)
     plots: PlotsSpec = Field(default_factory=PlotsSpec)
     #: FR-77: a LIST, so one artifact probes several frames on one row. It was
@@ -1951,7 +1988,7 @@ class PprocSpec(BaseModel):
         unknown = sorted(set(value) - set(kinds))
         if unknown:
             raise ValueError(
-                f"export kind(s) {', '.join(unknown)} are not among the eight a point "
+                f"export kind(s) {', '.join(unknown)} are not among the export kinds a point "
                 f"leaves: {', '.join(kinds)}"
             )
         if not value.get("loads", True):

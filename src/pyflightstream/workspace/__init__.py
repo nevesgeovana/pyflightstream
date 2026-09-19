@@ -1033,6 +1033,8 @@ class RunRecord(BaseModel):
     #: run type alone, absent on a rotorless row. A record written before
     #: carries neither, and the series tables leave the time blank for it.
     export_window: dict[str, float | int | str] | None = None
+    #: Solver surface averaging as emitted, never re-derived from an edited pproc.
+    surface_time_averaging: dict[str, object] | None = None
     #: The solver commands the row's setup stated verbatim and the script
     #: carried (PFS-2033.02): ``command``, ``before`` and ``setup`` each;
     #: empty for a setup stating none and for every record written before

@@ -84,6 +84,7 @@ from __future__ import annotations
 import csv
 import json
 import math
+import os
 import re
 import string
 import tempfile
@@ -107,6 +108,7 @@ from pyflightstream.cases import (
     AXES_PLOT_COMPONENTS,
     AXES_PLOT_GROUP,
     ROTOR_PLOT_GROUP_PREFIX,
+    classify_outputs,
     select_families,
     select_group_members,
 )
@@ -147,7 +149,7 @@ from pyflightstream.post.axes import (
     polar_axis_coefficients,
 )
 from pyflightstream.post.equations import apply_equations
-from pyflightstream.post.series import write_point_series
+from pyflightstream.post.series import surface_export_metadata, write_point_series
 from pyflightstream.post.superfile import (
     SuperfileDraft,
     matrix_rows,
@@ -1588,6 +1590,17 @@ def _rotor_surfaces_carried(
     ]
     owned = {name.casefold() for name in select_group_members(stated, list(surfaces), aliases)}
     return [str(name) for name in surfaces if str(name).casefold() in owned]
+
+
+def _surface_export_skip(entry: Mapping[str, object], frozen: FrozenSolve | None) -> str | None:
+    """Apply the existing average refusal rule to a native surface window."""
+    if "skipped" in entry:
+        return str(entry["skipped"])
+    window = entry.get("window")
+    bounds = window.get("iterations") if isinstance(window, Mapping) else None
+    if isinstance(bounds, list):
+        return _frozen_window_reason(frozen, [int(bounds[0]), int(bounds[1])])
+    return None
 
 
 def _frozen_window_reason(frozen: FrozenSolve | None, window: Sequence[int]) -> str | None:
@@ -5562,7 +5575,8 @@ def _point_series(
     )
     live = _live_reference(workspace, matrix_row)
     aliases = getattr(live, "aliases", None) or record.aliases
-    return write_point_series(
+    surface_exports: dict[str, dict[str, object]] = {}
+    written, names = write_point_series(
         workspace.root,
         sim_dir=workspace.sim_dir(sim_id),
         record=record,
@@ -5573,10 +5587,12 @@ def _point_series(
         reference=reference,
         rotors=_section_rotors(live, aliases, record),
         skipped=skipped,
+        surface_exports=surface_exports,
         # `archive` WAS ACCEPTED HERE AND NEVER USED until 2026-09-14, so the
         # series were the one product a rebuild rewrote in place.
         target=lambda path: _refuse_an_existing_product(path, archive=archive, stamp=archive_stamp),
     )
+    return written, {**names, **surface_exports}
 
 
 #: The characters an alias may carry into a file name. Everything else is
@@ -6103,6 +6119,11 @@ def _prov_document(record: RunRecord, sim_dir: Path) -> dict[str, object]:
                 "pyfs:name": name,
                 "pyfs:sha256": output_sha256,
                 "pyfs:sha256_from": sha256_from,
+                **(
+                    {f"pyfs:{key}": value for key, value in surface_export_metadata(record).items()}
+                    if set(classify_outputs([name])) & {"tecplot", "vtk", "csv"}
+                    else {}
+                ),
             }
         )
         generated[f"_:generated{len(generated) + 1}"] = {
@@ -6474,6 +6495,34 @@ def _write_the_products(
         # and never the stage's abort: the same rule the polar below follows
         # since 2026-09-08 (the V&V lens of REL-0140).
         for record in sim_records:
+            output_kinds = classify_outputs(record.outputs)
+            surface_freeze: FrozenSolve | None = None
+            if record.surface_time_averaging is not None and "log" in output_kinds:
+                log_path = workspace.sim_dir(sim_id) / output_kinds["log"]
+                if log_path.is_file():
+                    surface_freeze = frozen_time_steps(
+                        log_path.read_text(encoding="utf-8", errors="replace")
+                    )
+            for kind, name in output_kinds.items():
+                if kind not in ("tecplot", "vtk", "csv"):
+                    continue
+                path = workspace.sim_dir(sim_id) / name
+                relative = Path(os.path.relpath(path, out)).as_posix()
+                if not path.is_file():
+                    skipped[relative] = f"the recorded {kind} surface export is missing: {path}"
+                    continue
+                metadata = surface_export_metadata(record)
+                reason = _surface_export_skip(metadata, surface_freeze)
+                if reason is not None:
+                    skipped[relative] = reason
+                    continue
+                products_index[relative] = {
+                    "sim_id": sim_id,
+                    "pproc": record.pproc,
+                    "runs": [record.run_id],
+                    "format": kind,
+                    **metadata,
+                }
             if not record.export_window:
                 continue
             said = set(skipped)
@@ -6506,6 +6555,10 @@ def _write_the_products(
                 )
             written.extend(series_files)
             for name, entry in series_names.items():
+                reason = _surface_export_skip(entry, surface_freeze)
+                if reason is not None:
+                    skipped[name] = reason
+                    continue
                 products_index[name] = {"sim_id": sim_id, "pproc": record.pproc, **entry}
         try:
             files, names, reductions_skipped = _sim_products(

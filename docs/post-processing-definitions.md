@@ -27,6 +27,7 @@ them was inferred from an implementation.
 - [`per_blade`](#per_blade)
 - [`phase_locked`](#phase_locked)
 - [The averaging window](#the-averaging-window)
+- [Native surface flow exports](#native-surface-flow-exports)
 - [The unsteady POLAR](#the-unsteady-polar)
 - [Rotor coefficients](#rotor-coefficients)
 - [What the package does NOT judge](#what-the-package-does-not-judge)
@@ -403,6 +404,55 @@ NEW plan of a row with NO window key is refused. A row with a deprecated
 `WINDOW_*` key still plans with a warning until 0.26.0. An older record without
 the current keys is averaged over the window the run was given, with a warning
 naming the steps.
+
+---
+
+## Native surface flow exports
+
+Tecplot (`.dat`), VTK (`.vtk`) and FEM CSV (`.csv`) are native solver surface
+exports. VTK and CSV are **off by default**. The pproc can request them and
+select VTK variables by their command-database names:
+
+```toml
+vtk_variables = ["X", "Y", "Z", "CP_FREESTREAM"] # top-level; optional
+
+[exports]
+vtk = true
+csv = true
+
+[time_averaging]
+last_revs = 1.5 # OR last_iters = 54; exactly one, positive
+```
+
+Without `vtk_variables`, VTK uses the command's all-variables form. Both forms
+exclude the wake. CSV exports `CP-FREESTREAM`, `PASCALS`, all surfaces, in the
+solver reference frame (frame 1 on builds whose grammar includes it). Unknown
+VTK variables and commands unavailable on the selected build are refused at
+plan. Both formats also join the per-step `EXPORT_UNSTEADY_AFTER_REV` or
+`EXPORT_UNSTEADY_AFTER_ITER` exports.
+
+`[time_averaging]` applies to these three native surface formats on an unsteady
+run; it emits `SOLVER_TIME_AVERAGING ENABLE first last` in INIT. It requires
+command support (documented from 26.122). Without the table no averaging
+command is emitted. This is separate from the matrix window used to reduce
+plots: changing it requires a solver re-run.
+
+The bounds are inclusive, 1-based, ending at the run's last time step.
+`last_iters` is a count of steps; `last_revs` uses the same rotor clock and
+rounding as `LAST_REVS_AVG` (with `DELTA_THETA`, steps per revolution is
+`360 / DELTA_THETA`). A window longer than the run is clipped at step 1.
+SRC-750 p.353 says "unsteady time iteration"; interpreting that as time steps
+rather than inner iterations remains **UNVERIFIED**, pending licensed C01.
+The export header's inner-iteration counter is never used for this conversion.
+
+The run records the emitted window. Surface entries in `products.json` and
+PROV-JSON carry `kind: average` and `window`, including iteration bounds,
+the declared count and, for revolutions, the clock. Re-posting reads that
+recorded request, even if the pproc has changed. Per-step entries end their
+window at the export's step until the requested end is reached; a stopped run
+also ends its native export window at the recorded stop step. Exports before
+the averaging start are named skips. Without the table, surface entries carry
+`kind: instant`. The native files retain the solver's own format.
 
 ---
 

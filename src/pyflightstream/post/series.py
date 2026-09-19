@@ -20,6 +20,7 @@ formats, and a table of either would be a second format of one thing.
 
 from __future__ import annotations
 
+import os
 import re
 from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
@@ -51,6 +52,7 @@ __all__ = [
     "SERIES_LEAD",
     "run_clock",
     "stamped_exports",
+    "surface_export_metadata",
     "write_point_series",
 ]
 
@@ -81,6 +83,8 @@ PROBE_COLUMN = "PROBE"
 LISTED_KINDS: tuple[tuple[str, str, str], ...] = (
     ("sections", "_cp", "txt"),
     ("tecplot", "", "dat"),
+    ("vtk", "", "vtk"),
+    ("csv", "", "csv"),
 )
 
 #: The columns of one loads spreadsheet row, in the solver's order.
@@ -103,7 +107,9 @@ def stamped_exports(
     ``dat``. The pattern is the one the tier-3 actions test reads the same
     folder with.
     """
-    pattern = re.compile(rf"{re.escape(stem)}(_cp|_sloads|_probes)?_iteration=(\d+)\.(txt|dat)$")
+    pattern = re.compile(
+        rf"{re.escape(stem)}(_cp|_sloads|_probes)?_iteration=(\d+)\.(txt|dat|vtk|csv)$"
+    )
     found: dict[tuple[str, str], dict[int, Path]] = {}
     folders: list[Path] = []
     for folder in (sim_dir, *more):
@@ -117,6 +123,29 @@ def stamped_exports(
             suffix, step = matched.group(1) or "", int(matched.group(2))
             found.setdefault((suffix, matched.group(3)), {})[step] = path
     return found
+
+
+def surface_export_metadata(record: RunRecord, *, step: int | None = None) -> dict[str, object]:
+    """Describe a native surface export from the run's immutable averaging request."""
+    stated = record.surface_time_averaging
+    if stated is None:
+        return {"kind": "instant"}
+    window = dict(stated)
+    bounds = window["iterations"]
+    assert isinstance(bounds, list)
+    first, last = int(bounds[0]), int(bounds[1])
+    if step is None and record.stopped_at is not None:
+        stopped = record.stopped_at.get("step")
+        if isinstance(stopped, int | float) and not isinstance(stopped, bool):
+            step = int(stopped)
+    if step is not None:
+        if step < first:
+            return {
+                "skipped": f"surface averaging starts at step {first}; export is at step {step}"
+            }
+        last = min(last, step)
+    window["iterations"] = [first, last]
+    return {"kind": "average", "window": window}
 
 
 def run_clock(record: RunRecord) -> tuple[float | None, float | None]:
@@ -309,6 +338,7 @@ def write_point_series(
     reference: Mapping[str, object] | None = None,
     rotors: Mapping[str, Mapping[str, object]] | None = None,
     skipped: dict[str, str] | None = None,
+    surface_exports: dict[str, dict[str, object]] | None = None,
 ) -> tuple[list[Path], dict[str, dict[str, object]]]:
     """Write the series tables of one point from its stamped exports.
 
@@ -316,6 +346,10 @@ def write_point_series(
     states them (0.24.0); without them the cells read `NA`. ``rotors`` is what
     the sections identity needs of each rotor, as
     :func:`~pyflightstream.post.products.write_sections_table` takes it.
+
+    ``surface_exports``, when given, receives manifest entries for native
+    Tecplot, VTK and CSV files. Those files are listed, not rewritten, and
+    are separate from the returned tables and their entries.
 
     A KIND WITH NO STAMPED FILE IS NOT WRITTEN (0.24.0). It used to be a table of
     a header and no row, recorded in the manifest as written; ``skipped``, when
@@ -372,6 +406,25 @@ def write_point_series(
     context = context_row(condition, reference)
     written: list[Path] = []
     names: dict[str, dict[str, object]] = {}
+    if surface_exports is not None:
+        for kind, listed_suffix, extension in LISTED_KINDS:
+            if kind == "sections":
+                continue
+            for step, path in stamped.get((listed_suffix, extension), {}).items():
+                if step not in steps:
+                    continue
+                relative = Path(os.path.relpath(path, out)).as_posix()
+                metadata = surface_export_metadata(record, step=step)
+                if "skipped" in metadata:
+                    if skipped is not None:
+                        skipped[relative] = str(metadata["skipped"])
+                    continue
+                surface_exports[relative] = {
+                    "runs": [record.run_id],
+                    "format": kind,
+                    "step": step,
+                    **metadata,
+                }
     for kind, suffix in SERIES_KINDS:
         files = stamped.get((suffix or "", "txt"), {})
         relative = f"{SERIES_DIR}/{stem}_{kind}_series.csv"

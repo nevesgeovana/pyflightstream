@@ -877,6 +877,8 @@ class Script:
         #: entry cites a user's points file, since the package does not
         #: parse a survey the user wrote.
         self.probe_points: list[tuple[int, float, float, float, str]] = []
+        #: Surface averaging window emitted by the workflow, for run provenance.
+        self.surface_time_averaging: dict[str, object] | None = None
         #: EACH SECTION DISTRIBUTION THIS SCRIPT CREATED, in emission order
         #: (0.24.0): its families BY NAME, its plane, its frame and its count.
         #: Filled by the loop that emits the distribution, for the reason

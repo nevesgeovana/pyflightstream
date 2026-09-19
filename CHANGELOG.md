@@ -45,6 +45,22 @@ FlightStream versions.
 
 ### Added
 
+- **A time-averaged surface, from the pproc.** A `[time_averaging]` table with exactly
+  one of `last_revs` (revolutions of the rotor clock, converted through the same
+  resolver as `LAST_REVS_AVG`) or `last_iters` emits `SOLVER_TIME_AVERAGING ENABLE
+  <first> <last>` in the initialisation phase, so the surface flow exports (Tecplot,
+  VTK, CSV) state the average over that window instead of the last step. Refused on
+  a build before 26.122, naming the build. The run records the window it emitted, and
+  the products manifest marks those exports `kind: average` with the window, read
+  from the record even if the pproc is edited later. The bounds are TIME STEPS, which
+  the manual does not settle against inner iterations; the licensed verification of
+  this release measures it.
+- **Surface flow in VTK and CSV.** Two `[exports]` kinds, `vtk` and `csv`, OFF BY
+  DEFAULT, emit `EXPORT_SOLVER_ANALYSIS_VTK` (with `SET_VTK_EXPORT_VARIABLES` when the
+  pproc lists `vtk_variables`, each validated against the build's database; absent,
+  every variable) and `EXPORT_SOLVER_ANALYSIS_CSV`. Both join the per-step exports of
+  `EXPORT_UNSTEADY_AFTER_REV` / `..._ITER` like the Tecplot file, and are the averaged
+  surface when `[time_averaging]` is set.
 - **Fourteen advanced solver settings have a setup key of their own**, so they no
   longer need `[[raw]]`: `laminar_separation`, `kutta_joukowski_lift`,
   `aeroelastic_rbf_type`, `print_rotor_induced_velocities`,
