@@ -82,6 +82,7 @@ from __future__ import annotations
 import csv
 import json
 import math
+import re
 import tempfile
 import warnings
 from collections import Counter
@@ -1347,6 +1348,12 @@ def read_csv_table(
 # call, so a stage reaches it.
 
 
+def _plot_name_can_emit(template: str, name: str) -> bool:
+    """Whether a declared plot name can occupy an automatic group's name."""
+    pattern = re.escape(template).replace(re.escape("{family}"), ".+")
+    return re.fullmatch(pattern, name) is not None
+
+
 def rotor_plot_source(
     pproc: object | None,
     alias: str,
@@ -1386,10 +1393,15 @@ def rotor_plot_source(
     wanted = {str(family) for family in rotor_families}
     candidates: list[str] = []
     refused: str | None = None
+    generated = f"{ROTOR_PLOT_GROUP_PREFIX}{alias}"
+    generated_is_declared = False
+    plots = getattr(pproc, "plots", None)
+    components_declared = set(getattr(plots, "parameters", ()) or ()) & set(AXES_PLOT_COMPONENTS)
     is_blade = getattr(pproc, "is_blade", lambda _name: False)
     for group in getattr(getattr(pproc, "plots", None), "groups", ()) or ():
         frame = str(getattr(group, "frame", "")).strip().upper()
         name = str(getattr(group, "name", ""))
+        generated_is_declared |= _plot_name_can_emit(name, generated)
         try:
             resolved = select_families(group.families, list(inventory), is_blade, aliases)
         except PyflightstreamError:
@@ -1409,7 +1421,10 @@ def rotor_plot_source(
             continue
         if any(wanted and set(families) == wanted for families in resolved):
             candidates.append(name)
-    candidates.append(f"{ROTOR_PLOT_GROUP_PREFIX}{alias}")
+    # A declared name keeps its declared frame and families. The run skips
+    # already emitted names when adding its automatic plots.
+    if not (generated_is_declared and components_declared):
+        candidates.append(generated)
     return candidates, refused
 
 
@@ -1738,6 +1753,7 @@ def _rotor_tables(
                 {
                     "run_id": run_id,
                     "surfaces": surfaces,
+                    "aliases": aliases,
                     "instant": instant,
                     "condition": point_condition(point, mach=record.mach or 0.0),
                     "rpm": rpm,
@@ -1913,6 +1929,11 @@ def write_rotor_table(
             reference=reference,
             density_kg_m3=density_kg_m3,
             speed_m_s=speed_m_s,
+            aliases=(
+                stated_aliases
+                if isinstance(stated_aliases := row.get("aliases"), Mapping)
+                else None
+            ),
             alpha_deg=float(attitude.get("ALPHA") or 0.0),
             beta_deg=float(attitude.get("BETA") or 0.0),
             # THE CALL SITE IS WHAT DELIVERS THE CHECK. The witness field and
@@ -3438,6 +3459,12 @@ def _polar_rows(
     """
     rows = []
     for point in points:
+        frame = point.loads.frame
+        if frame is not None and frame.strip().casefold() not in GEOMETRY_ANALYSIS_FRAMES:
+            raise ProductError(
+                f"{point.loads_path} states analysis frame {frame!r}; polar axes require "
+                "vectors in the geometry's axes, and this frame's rotation is unknown"
+            )
         reynolds = point.loads.reynolds
         if reynolds is None:
             raise ProductError(f"{point.loads_path} states no Reynolds number")
@@ -3494,6 +3521,7 @@ def write_recorded_polar(
     )
     polar = polar_dir.name.split("-")[-1] if polar_dir.name.startswith("POLAR-") else polar_dir.name
     points = _polar_points(polar_dir)
+    _refuse_a_reference_the_solver_did_not_use(polar, points, ref)
     written: list[Path] = []
     for group, families in groups.items():
         written.append(
@@ -4172,7 +4200,7 @@ def write_unsteady_polar(
         if source is None or not source.is_file():
             left_out.append(f"{name}: no plots table")
             continue
-        window = (windows or {}).get(name, window)
+        point_window = (windows or {}).get(name, window)
         try:
             printed_names, series = plots_table_series(source)
             # A PARTIAL COVER IS NOT A COVER, and this dropped only the point
@@ -4189,14 +4217,18 @@ def write_unsteady_polar(
             # writing". Two readers of one plots table with opposite rules, and
             # the PUBLISHED one was the permissive one. The QA lens found it.
             steps = np.asarray(series.steps, dtype=int)
-            if not len(steps) or int(steps[0]) > window[0] or int(steps[-1]) < window[1]:
+            if (
+                not len(steps)
+                or int(steps[0]) > point_window[0]
+                or int(steps[-1]) < point_window[1]
+            ):
                 held = f"steps {int(steps[0])} to {int(steps[-1])}" if len(steps) else "no step"
                 left_out.append(
-                    f"{name}: the row states steps {window[0]} to {window[1]} and the "
+                    f"{name}: the row states steps {point_window[0]} to {point_window[1]} and the "
                     f"history holds {held}"
                 )
                 continue
-            averaged = blade_passage_average(series, window=window)
+            averaged = blade_passage_average(series, window=point_window)
         except (PyflightstreamError, ValueError) as error:
             # A history that does not cover the row's window is a run that
             # stopped early, not a fault: it costs this point its row.
@@ -4227,7 +4259,7 @@ def write_unsteady_polar(
         for name in values:
             if name not in columns:
                 columns.append(name)
-        rows.append((condition, values, window, dict((setup or {}).get(name_of_point, {}))))
+        rows.append((condition, values, point_window, dict((setup or {}).get(name_of_point, {}))))
     if not rows:
         return None
     plot_columns = list(columns)
@@ -4316,6 +4348,14 @@ def global_frame_plot_groups(pproc: object) -> tuple[str, ...]:
     ]
     if declared and set(_SIX_COMPONENTS) <= parameters:
         return tuple(declared)
+    # Automatic plots never overwrite an already emitted name. A group with
+    # this name in another frame therefore cannot supply global components.
+    if parameters.intersection(_SIX_COMPONENTS) and any(
+        _plot_name_can_emit(str(group.name), AXES_PLOT_GROUP)
+        and str(getattr(group, "frame", "")).strip().upper() != "MRP"
+        for group in (getattr(plots, "groups", ()) or ())
+    ):
+        return ()
     return (AXES_PLOT_GROUP,)
 
 
