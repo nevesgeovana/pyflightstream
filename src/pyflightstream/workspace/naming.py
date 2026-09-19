@@ -318,8 +318,10 @@ class NamingTemplate(BaseModel):
             :meth:`pyflightstream.cases.SweepAxis.points`; feeds
             ``{point}`` and the per-axis placeholders.
         mach : float, optional
-            Free-stream Mach number of the case for ``{mach}`` and
-            ``{polar}``; None when the case declares none.
+            Free-stream Mach number of the case for ``{mach}``; None when
+            the case declares none. Where the sweep varies the Mach number
+            the point carries its own under ``MACH``, and that one is
+            rendered (0.24.0): a placeholder describes the point being named.
         advance_ratio : float, optional
             The case's advance ratio for ``{advance_ratio}`` when the sweep
             does not vary it.
@@ -439,6 +441,11 @@ class _CompactFormatter(Formatter):
 
 _FORMATTER = _CompactFormatter()
 
+#: The key a sweep point carries its Mach number under, where the row sweeps it.
+#: It is the matrix's own spelling of the variable (``MACH:sweep``); the three
+#: attitude axes are lower case because they predate the flight-condition cell.
+MACH_POINT_KEY = "MACH"
+
 
 def _values(
     campaign: str,
@@ -462,7 +469,15 @@ def _values(
             values[axis] = float(point[axis])
     if advance_ratio is not None and "advance_ratio" not in values:
         values["advance_ratio"] = float(advance_ratio)
-    if mach is not None:
+    # THE POINT'S OWN MACH NUMBER WINS (0.24.0). `mach` arrives from the
+    # simulation-level case, which on a Mach sweep is the row's FIRST point, so
+    # `{mach}_{point}` rendered `0.1_M100...` and then `0.1_M200...`: a name
+    # contradicting itself. A placeholder describes the point being named, the
+    # way the three axes above already do. Neither default template renders
+    # `{mach}`, so only a custom one ever saw the difference.
+    if MACH_POINT_KEY in point:
+        values["mach"] = float(point[MACH_POINT_KEY])
+    elif mach is not None:
         values["mach"] = float(mach)
     if stem is not None:
         values["name"] = stem
