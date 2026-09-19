@@ -43,6 +43,8 @@ from collections.abc import Sequence
 import numpy as np
 from numpy.typing import NDArray
 
+from pyflightstream._errors import ProductError
+
 __all__ = [
     "EXPORT_TO_BODY",
     "body_to_stability",
@@ -81,8 +83,8 @@ def dcm(axis: Sequence[float], angle_rad: float) -> Matrix:
 
     Raises
     ------
-    ValueError
-        If ``axis`` has no direction.
+    ProductError
+        If ``axis`` has no direction. It is a ``ValueError`` too.
 
     Examples
     --------
@@ -95,7 +97,7 @@ def dcm(axis: Sequence[float], angle_rad: float) -> Matrix:
     n = np.asarray(axis, dtype=float)
     length = float(np.linalg.norm(n))
     if length == 0.0:
-        raise ValueError("a rotation axis of zero length names no direction to turn about")
+        raise ProductError("a rotation axis of zero length names no direction to turn about")
     n = n / length
     mu = float(angle_rad)
     tilde = np.array([[0.0, -n[2], n[1]], [n[2], 0.0, -n[0]], [-n[1], n[0], 0.0]])

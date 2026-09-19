@@ -4682,7 +4682,7 @@ _STATUS_SEVERITY: tuple[RunStatus, ...] = (
 )
 
 
-def _worse_of(left: RunStatus, right: RunStatus) -> RunStatus:
+def worse_of(left: RunStatus, right: RunStatus) -> RunStatus:
     """Return the more serious of two point outcomes, by :data:`_STATUS_SEVERITY`."""
 
     def rank(status: RunStatus) -> int:
@@ -4692,6 +4692,12 @@ def _worse_of(left: RunStatus, right: RunStatus) -> RunStatus:
             return len(_STATUS_SEVERITY)
 
     return right if rank(right) > rank(left) else left
+
+
+#: PUBLIC SINCE 0.24.0, because `run.collect` folds a swept job's points with the
+#: same rule and reaching into a sibling for an underscore name is the boundary
+#: the digest guard refuses. The private spelling stays for what already reads it.
+_worse_of = worse_of
 
 
 def _job_run_id(campaign: Campaign, case: SimCase) -> str:
@@ -5101,7 +5107,7 @@ def _execute_sweep(
         # status was pointed at the wrong point (the QA lens). `points_ran`
         # carried each point's own status either way, so nothing was lost;
         # what was wrong was the job's headline.
-        worst = _worse_of(worst, assessment.status)
+        worst = worse_of(worst, assessment.status)
     base["points_ran"] = ran
     return RunRecord(
         **base,

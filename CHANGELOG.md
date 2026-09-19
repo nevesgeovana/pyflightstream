@@ -84,6 +84,44 @@ FlightStream versions.
   0.24.0 to 0.26.0. Re-measured when this cycle opened: 74 recorded rows across
   4 manifests still carry it, and a recorded manifest is never rewritten.
 
+### Fixed (the cluster path: collect, the run records and the manifest)
+
+- **A STEADY SWEEP SUBMITTED TO A QUEUE WAS COLLECTED AS ONE POINT.** One status
+  was stamped on every point and no point carried its outputs, so the post stage
+  passed over all of them: no product, no skip, exit 0. Each point is now
+  collected, assessed and finalised on its own, and the job's status is its
+  worst point. A sweep collected BEFORE this release keeps the record it has;
+  repairing it from its collected folders is a one-off step, not a re-run.
+- The collected verdict is asked the velocity the row requested, as the local
+  verdict always was: a point exported at 30 m/s against a request of 80 was
+  FAILED locally and CONVERGED once collected.
+- **A solver log no longer excuses an unfinished solve.** A forced run exported
+  before its last iteration was refused without a log and ACCEPTED with one, and
+  a log ending at another iteration than the export was read as that export's.
+  Completeness is checked first, and a log whose last iteration is not the
+  export's is refused naming both files. SOME ROWS THAT WERE ACCEPTED WILL NOW BE
+  REPORTED AS FAILED WHEN RE-ASSESSED; they were never complete.
+- Readiness is judged on the scheduler's OWN log file, copied to the declared
+  name after it settles. The copy was made first and then watched, so a job
+  still running was collected on the log of the moment it was copied.
+- `pyfs-matrix collect` posts each matrix it collected. It called the stage with
+  no matrix, which selects no named-matrix record, so it posted nothing.
+- A queue profile that says `export_log = false` governs every route that emits
+  the log export; the ordinary matrix route ignored it and spent a seat on a job
+  the cluster aborts.
+- A continuation that cannot be resolved is RECORDED as a failure and reported.
+  A continuation's record names the run it continues in the new field
+  `continues`, and a row stopped by the wall clock whose pproc declares sections
+  can be continued (the section distributions live in the saved state).
+- Two writers on one `runs.json` keep both changes: the manifest is rewritten
+  under `runs.json.lock`, through a temporary file per process.
+- A `VAR_NAMES_VALUES` key stated twice, and one solver setting spelled two ways
+  in a setup, are REFUSED by name; the last one written used to win in silence.
+- `--sweep-csv` writes ONE sweep table, where the help says it does; `run_matrix`
+  and `run_campaign` take `sweep_csv`, and `collect_and_post` takes `post_matrix`.
+- The refusal of a negative `ALTFT` said the flight condition cannot hold one. It
+  can; the point NAME cannot carry it, and the sentence now says that.
+
 ### Fixed (a product that vanished now says why)
 
 - A pproc that NAMES its groups and sets `custom_polar_format = true` stopped the

@@ -720,7 +720,7 @@ def _complete_sweep(
     have left it. A point whose collection is refused fails ALONE; the others
     ran, their files are on disk, and they are collected and judged.
     """
-    from pyflightstream.run import _worse_of
+    from pyflightstream.run import worse_of
 
     submission = record.submission or {}
     by_point = submission["declared_by_point"]
@@ -762,7 +762,7 @@ def _complete_sweep(
                     "status": str(RunStatus.FAILED_INCOMPLETE_OUTPUT),
                 }
             )
-            worst = _worse_of(worst, RunStatus.FAILED_INCOMPLETE_OUTPUT)
+            worst = worse_of(worst, RunStatus.FAILED_INCOMPLETE_OUTPUT)
             error_lines.append(f"{tag}: {refused[tag]}")
             continue
         # THE POINT AS A RECORD OF ITS OWN, which is what both assessors are
@@ -796,7 +796,7 @@ def _complete_sweep(
         collected_all.extend(collected_by_tag[tag])
         if str(status).startswith("FAILED"):
             error_lines.append(f"{tag}: {verdict or status}")
-        worst = _worse_of(worst, status)
+        worst = worse_of(worst, status)
 
     completed = record.model_copy(
         update={
