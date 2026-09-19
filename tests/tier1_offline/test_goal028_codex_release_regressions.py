@@ -120,3 +120,14 @@ def test_a_nested_format_spec_is_still_one_wildcard_in_the_matcher():
 
     assert emits("MRP_{family}{family:.{family:.0}0}", "MRP_TOTAL")
     assert emits("ROTOR_{family}{family:.{family:.0}0}", "ROTOR_PROP")
+
+
+def test_a_plot_name_outside_the_closed_alphabet_is_refused_when_read():
+    """The export reader strips whitespace from column names, so a name with a trailing
+    space emitted a history the post stage matched to another group."""
+    import pytest
+
+    for name in ("MRP_{family} ", "MRP_TOTAL ", " HUB", "HUB-A", "HUB.A"):
+        with pytest.raises(ValueError, match="plot group"):
+            ForcePlotGroup(name=name, frame="MRP", families="all")
+    assert ForcePlotGroup(name="HUB_PUSHER2", frame="MRP", families="all")

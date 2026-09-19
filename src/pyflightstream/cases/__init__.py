@@ -688,6 +688,15 @@ class ForcePlotGroup(BaseModel):
                 f"plot group {self.name!r}: a plot name may carry only the bare "
                 "placeholder {family}, with no format spec and no conversion"
             )
+        # A CLOSED ALPHABET, so a name reads back as it was written: the export
+        # reader strips whitespace from column names, and a name with a trailing
+        # space emitted a history the post stage matched to another group.
+        if re.fullmatch(r"(?:[A-Za-z0-9_]|\{family\})+", self.name) is None:
+            raise ValueError(
+                f"plot group {self.name!r}: a plot name is letters, digits and "
+                "underscores, and the bare placeholder {family}; no space and no "
+                "other character"
+            )
         return self
 
     @model_validator(mode="after")

@@ -51,7 +51,9 @@ FlightStream versions.
   the preset and plan again.
 - A pproc plot-group name whose placeholder carries a format spec or a
   conversion (`{family:.0}`, `{family!r}`) is refused when the pproc is read:
-  the name may carry only the bare `{family}`. Rename the group.
+  the name may carry only the bare `{family}`. Rename the group. A name is
+  letters, digits, underscores and that placeholder: no space and no other
+  character, since the export reader strips whitespace from column names.
 - A plot-group name another declaration could also produce is AMBIGUOUS and is
   never read as a rotor's or the geometry's global loads: its rotor table or axis
   block is skipped with the reason, never written from a history that may be
