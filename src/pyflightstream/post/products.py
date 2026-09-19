@@ -1913,6 +1913,28 @@ def _custom_field(value: object) -> str:
     return f"{value!s:>{_CUSTOM_WIDTH}}"
 
 
+def _group_number(group: str | int, position: int | None) -> int:
+    """Return the NUMBER line four of the fixed-width format states for a group.
+
+    The format has room for two digits and nothing else, and it was written when
+    a group WAS a number. A group is named since 0.23.0, and ``int(group)`` on a
+    name was a bare ``ValueError`` that no handler of the products stage catches:
+    a pproc naming its groups and asking for this format stopped the whole stage.
+    A named group states its 1-based POSITION in the ``[groups]`` table, which is
+    the number it would have had; the file's NAME carries the alias.
+    """
+    try:
+        return int(group)
+    except (TypeError, ValueError):
+        pass
+    if position is None:
+        raise ProductError(
+            f"the fixed-width polar format states a group by NUMBER and {group!r} is a name; "
+            "pass group_number, the group's 1-based position in the [groups] table"
+        )
+    return int(position)
+
+
 def write_custom_polar_format(
     path: str | Path,
     *,
@@ -1924,6 +1946,7 @@ def write_custom_polar_format(
     rows: Sequence[Sequence[float]],
     date: str | None = None,
     configuration: str | None = None,
+    group_number: int | None = None,
 ) -> Path:
     """Write one polar of one group in the fixed-width text format the reference tooling opens.
 
@@ -2014,7 +2037,7 @@ def write_custom_polar_format(
         title,
         f"{polar}{_mach_code(mach):02d}",
         date if date is not None else datetime.now().strftime(_CUSTOM_DATE_FORMAT),
-        f"{len(_CUSTOM_REFERENCE_COLUMNS):03d} {int(group):02d}",
+        f"{len(_CUSTOM_REFERENCE_COLUMNS):03d} {_group_number(group, group_number):02d}",
         "".join(_custom_field(name) for name in _CUSTOM_REFERENCE_COLUMNS),
         "".join(_custom_field(float(value)) for value in (mach, *reference.as_row())),
         f"{len(rows):03d}",
@@ -3716,6 +3739,7 @@ def _sim_products(
                 groups = rotor_integration_groups(getattr(live, "rotors", {}), pproc.groups)
             except PyflightstreamError as clash:
                 skipped[f"{POLARS_DIR}/{sim_id}"] = str(clash)
+        positions = {name: index for index, name in enumerate(groups, start=1)}
         for group, families in () if unsteady_window_steps is not None else groups.items():
             relative = f"{POLARS_DIR}/{swept_polar_file_name(sim_id, name=table_name, group=group)}"
             if families and not any(
@@ -3769,6 +3793,7 @@ def _sim_products(
                     polar=sim_id,
                     description=description,
                     group=group,
+                    group_number=positions.get(group),
                     mach=mach,
                     reference=reference,
                     rows=rows,

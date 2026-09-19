@@ -1310,9 +1310,14 @@ def expand_group(
     {'Blade1': 3, 'Blade2': 5, 'Blade3': 7}
 
     A group written in NAMES expands the same way, against the boundary
-    inventory of the geometry it belongs to (PFS-2028.00):
+    inventory of the geometry it belongs to (PFS-2028.00). A list of names is
+    the form kept until 0.26.0: a group names ONE alias since 0.24.0, so loading
+    this one warns with the line to write instead, which is silenced here:
 
-    >>> named = PprocArtifact(groups={"Blade": ["Blade1", "S"]})
+    >>> import warnings
+    >>> with warnings.catch_warnings():
+    ...     warnings.simplefilter("ignore")
+    ...     named = PprocArtifact(groups={"Blade": ["Blade1", "S"]})
     >>> expand_group(
     ...     named, "Blade", "prop", boundaries={"Blade1": 1, "S": 2, "N": 3}
     ... )

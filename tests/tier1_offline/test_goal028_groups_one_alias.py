@@ -121,3 +121,36 @@ def test_a_group_that_selects_no_surface_is_a_named_skip_and_not_a_row_of_zeros(
     assert "Nacelle" in manifest["skipped"][ghost[0]]
     assert not any(name.endswith("_GHOST.csv") for name in names), sorted(names)
     assert any(name.endswith("_WB.csv") for name in names), sorted(names)
+
+
+def test_a_named_group_gets_its_fixed_width_polar_and_states_its_position(tmp_path):
+    """`int(group)` on a name was a bare ValueError that stopped the whole stage."""
+    from test_post_products import _products_manifest, _unsteady_workspace
+
+    from pyflightstream.post.products import write_campaign_products
+
+    workspace = _unsteady_workspace(tmp_path, reductions=None)
+    (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
+        "\n".join(
+            [
+                "[groups]",
+                'FIRST = "W"',
+                'SECOND = "B"',
+                "",
+                "[products]",
+                "custom_polar_format = true",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    written = write_campaign_products(workspace)
+    dats = sorted(Path(path) for path in written if str(path).endswith(".dat"))
+    assert [path.name.rsplit("_", 1)[-1] for path in dats] == ["FIRST.dat", "SECOND.dat"], (
+        [path.name for path in dats],
+        _products_manifest(workspace).get("skipped"),
+    )
+    # Line four: the count of reference columns, then the group's NUMBER, which for a
+    # named group is its 1-based position in the table.
+    numbers = [path.read_text(encoding="utf-8").splitlines()[3].split()[1] for path in dats]
+    assert numbers == ["01", "02"], numbers

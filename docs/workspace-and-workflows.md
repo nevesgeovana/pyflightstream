@@ -1458,6 +1458,31 @@ products of a workspace recorded before 0.23.0 and the ones written beside them
 stay one convention. [Migrating to 0.23.0](migrating-to-0.23.0.md) has the
 command that renames products already written.
 
+**SINCE 0.24.0 A GROUP IS ONE ALIAS, written as a string.** The key names the
+product file and the value names what is summed:
+
+```toml
+[groups]
+PUSHER   = "PUSHER"      # a rotor of the reference: that rotor's own families
+AIRFRAME = "airframe"    # an alias of the reference's [aliases] table
+TOTAL    = "all"         # every family the geometry carries
+```
+
+so a steady polar per alias is one line, and its table is `..._PUSHER.csv`. A
+group that names a rotor, under any key, is that rotor's families; a rotor the
+artifact does not name still gets its group made for it. The alias resolves
+through the reference AS IT STANDS when `pyfs-matrix post` runs, so renaming or
+extending an alias needs no re-run. **A group whose alias selects no surface of
+any loads export of the simulation writes no table**: it is named under
+`skipped` in `products.json` with the surfaces the export does carry, where
+before 0.24.0 it wrote a table of `0.00000`.
+
+The list form (`PUSHER = ["Blade1"]`) still binds until 0.26.0 and warns with
+the line to write instead: a one-member list becomes its string, and several
+members become ONE alias declared in the reference, which the group then names.
+A list holding a POSITION (`"2" = [1]`), which a row moves a boundary by, has no
+alias to be rewritten as and is left alone.
+
 **THE ONE NAME REFUSED** at `pyfs-matrix plan` is a name shaped like the
 numbered suffix itself, `g01` and its kin: a file named after it could not be
 told from the form it supersedes, and the rename of existing products needs
@@ -1621,10 +1646,10 @@ writes that file beside every polar table the stage writes, under the polar
 table's own stem with the suffix `.dat`
 (`P0001-M150AL+000BE+000J+sweep_g01.dat` beside `..._g01.csv`), the same rows
 a second time (PFS-2014.01.01). Off by default. **The format carries the group
-as a two-digit NUMBER on its fourth line, so in 0.23.0 it is written for a
-numbered group only**: a pproc that NAMES its groups and sets this key stops
-the products stage on the group's name. Keep the groups numbered in an artifact
-that asks for this format. The shape, read off a recorded file and pinned by the committed
+as a two-digit NUMBER on its fourth line.** A numbered group states its number;
+a NAMED group states its position in the `[groups]` table, counted from one,
+and the file's name carries the alias. In 0.23.0 a named group stopped the
+products stage here. The shape, read off a recorded file and pinned by the committed
 fixture `tests/tier1_offline/fixtures/custom_polar_format_sample.dat` (every
 value in it synthetic), is nine header lines and then one line per point:
 

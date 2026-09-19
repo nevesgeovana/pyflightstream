@@ -86,6 +86,11 @@ FlightStream versions.
 
 ### Fixed (a product that vanished now says why)
 
+- A pproc that NAMES its groups and sets `custom_polar_format = true` stopped the
+  whole products stage on a bare `ValueError`: the fixed-width format states the
+  group as a two-digit number. A named group states its position in the
+  `[groups]` table, counted from one, and the file's name carries the alias.
+
 - A run recorded as successful whose loads table is not on disk, or that names
   no output, left every product in silence. It is named under `skipped`.
 - The unsteady probe table was unreachable on a default unsteady row: its gate
