@@ -1518,6 +1518,33 @@ def _rotor_tables(
                     )
                 )
                 continue
+            # BOTH ADVANCE RATIOS ARE IN THE ROW, and the stage says when they part
+            # (0.24.0, NL-09). `J` is what the row REQUESTED; `J_<alias>` is what this
+            # rotor RAN at, from its own speed and diameter, and it is the one every
+            # coefficient of the table uses. On the rotor the row sweeps the two
+            # should agree; on a second rotor of the row they are not expected to,
+            # so nothing is said about it.
+            requested = (point.point or {}).get("advance_ratio")
+            flight = point.loads.freestream_velocity_m_s if point.loads is not None else None
+            span = float(getattr(rotor, "diameter_m", 0.0) or 0.0)
+            clock = str(getattr(matrix_row, "variables", {}).get("CLOCK_MOTION", "") or "")
+            if (
+                isinstance(requested, int | float)
+                and isinstance(flight, int | float)
+                and span > 0.0
+                and rpm
+                and (len(rotors) == 1 or clock == str(alias))
+            ):
+                ran = float(flight) / (abs(rpm) / 60.0 * span)
+                if abs(ran - float(requested)) > 5e-4 * max(1.0, abs(float(requested))):
+                    warnings.warn(
+                        f"{point.name}: the row asks for J = {float(requested):g} and rotor "
+                        f"{alias} ran at J_{alias} = {ran:.5g} ({float(flight):g} m/s, "
+                        f"{abs(rpm):g} rev/min, D {span:g} m). The coefficients of its rotor "
+                        f"table use J_{alias}.",
+                        PyflightstreamWarning,
+                        stacklevel=2,
+                    )
             # THE WINDOW AVERAGE WHERE THE HISTORY HAS IT, the last time step
             # where it does not -- and the file says which, every time.
             surfaces: Mapping[str, Mapping[str, float]] = (
@@ -1548,6 +1575,9 @@ def _rotor_tables(
                     "rpm": rpm,
                     "density": float(density),
                     "speed": float(speed),
+                    "free_stream": (
+                        point.loads.freestream_velocity_m_s if point.loads is not None else None
+                    ),
                     # THE EXPORT'S OWN STATEMENT OF WHICH FRAME ITS FORCES ARE
                     # IN. Carried from the point to the coefficient rather than
                     # assumed, because `ETAW` rotates that force into wind axes
@@ -1614,7 +1644,15 @@ def write_rotor_table(
     table of `NA`.
     """
     alias = str(getattr(rotor, "alias", "") or "")
-    columns = (*CONTEXT_COLUMNS, *rotor_coefficient_columns(alias))
+    # 0.24.0: THE SPEED AND THE DIAMETER THE COEFFICIENTS DIVIDED BY, beside them.
+    # Every coefficient here is over `rho n^2 D^4` or `D^5`; `RHO` is in the shared
+    # block, and the rotor's own `n` and `D` were stated nowhere in the file.
+    columns = (
+        *CONTEXT_COLUMNS,
+        f"RPM_{alias}",
+        f"DIAMETER_{alias}",
+        *rotor_coefficient_columns(alias),
+    )
     diameter = float(getattr(rotor, "diameter_m", 0.0) or 0.0)
 
     written: list[tuple[object, ...]] = []
@@ -1670,6 +1708,13 @@ def write_rotor_table(
         density_kg_m3 = float(stated) if isinstance(stated, int | float) else 0.0
         stated = row.get("speed")
         speed_m_s = float(stated) if isinstance(stated, int | float) else 0.0
+        # THE ADVANCE RATIO IS THE FREE STREAM'S (0.24.0). `speed` is the export's
+        # REFERENCE velocity, which is right for taking a coefficient back to
+        # Newtons and wrong for `J = V / (n D)`, a ratio of the flight speed. The
+        # two are equal in every campaign recorded so far; a row that states no
+        # free stream keeps the speed it has.
+        stated = row.get("free_stream")
+        flight_m_s = float(stated) if isinstance(stated, int | float) else speed_m_s
         if density_kg_m3 <= 0.0:
             refused.append((run_id, f"{alias}: the row states no air density"))
             continue
@@ -1721,7 +1766,7 @@ def write_rotor_table(
             rps=rpm / 60.0,
             diameter_m=diameter,
             density_kg_m3=density_kg_m3,
-            speed_m_s=speed_m_s,
+            speed_m_s=flight_m_s,
             shaft_angle_deg=loads.shaft_angle_deg,
             # THE CALL SITE IS WHAT DELIVERS HER CORRECTION. The formula and the
             # wind-axis force both existed for a few minutes without this line,
@@ -1733,6 +1778,8 @@ def write_rotor_table(
         written.append(
             (
                 *context_row(condition, reference.as_lengths()),
+                rpm,
+                diameter,
                 *(coefficients[name] for name in ROTOR_COEFFICIENT_COLUMNS),
             )
         )

@@ -79,6 +79,14 @@ FlightStream versions.
   LEAVE THEM: every column of the plots table was averaged, the clock included,
   so a row stated steps 1 to 8 beside `Time-step 4.50000`. The plots table itself
   keeps its clock, which is its axis.
+- **THE ROTOR TABLE** gains `RPM_<alias>` and `DIAMETER_<alias>` before its
+  coefficients: every one of them divides by `rho n^2 D^4` or `D^5`, and with
+  `RHO` in the shared block the table now states all three. `J` (what the row
+  REQUESTED) stays beside `J_<alias>` (what that rotor RAN at, and the one the
+  coefficients use); the post stage says so when they differ on the rotor the row
+  sweeps. `J_<alias>` is computed with the FREE-STREAM velocity, not the solver's
+  reference velocity: it is a ratio of the flight speed. No recorded campaign
+  sets the two velocities apart, so no recorded number moves.
 - The post stage WARNS, naming the point, when an export's reference velocity is
   not its free stream: the steady polar's coefficients are by `VREF`, while the
   plots table, its reductions and the unsteady polar are rescaled to `VINF`.
