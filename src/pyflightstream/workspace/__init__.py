@@ -2101,16 +2101,17 @@ class CampaignWorkspace:
         seen: dict[str, str] = {}
         for source in sources:
             name = Path(source).name
-            if name in seen and str(source) != seen[name]:
+            key = os.path.normcase(name)
+            if key in seen and str(source) != seen[key]:
                 raise WorkspaceError(
                     f"two declared inputs share the base name {name!r} "
-                    f"({seen[name]} and {source}). Staging places each under "
+                    f"({seen[key]} and {source}). Staging places each under "
                     "inputs/ by its base name, so the second would stand for "
                     "the first and the manifest would record one hash for two "
                     "inputs. Rename one, or stage them from directories the "
                     "recipe references separately."
                 )
-            seen[name] = str(source)
+            seen[key] = str(source)
         origins = [Path(source) for source in sources]
         for origin in origins:
             if not origin.is_file():
@@ -2120,6 +2121,18 @@ class CampaignWorkspace:
                 )
         inputs = sim / "inputs"
         mode, reason = self._link_inputs(inputs, origins)
+        if mode == "copy":
+            # Check every destination before copying any file: copy2 follows
+            # symbolic links and truncates every name of a hard-linked file.
+            for origin in origins:
+                target = inputs / origin.name
+                if _is_link(target) or (target.exists() and target.stat().st_nlink > 1):
+                    raise WorkspaceError(
+                        f"cannot stage {origin}: the destination {target} is a linked file. "
+                        "Copying over it could overwrite a user's input outside the "
+                        "simulation. Remove the staged link or choose another simulation; "
+                        "no input was copied."
+                    )
         hashes: dict[str, str] = {}
         for origin in origins:
             target = inputs / origin.name

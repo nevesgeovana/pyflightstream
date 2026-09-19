@@ -605,7 +605,7 @@ def _complete(
     files belongs to which point. The local sweep pays two passes to honour
     it and carries a comment about the defect that taught it.
     """
-    if _is_a_job_over_several_points(record):
+    if _is_a_sweep_job(record):
         return _complete_sweep(workspace, record, sim_dir, assessor)
     try:
         collected = _collect_by_point(workspace, record, names, _working_dir(workspace, record))
@@ -691,10 +691,10 @@ def _complete(
 _ATTITUDE_AXES = frozenset({"alpha", "beta", "advance_ratio"})
 
 
-def _is_a_job_over_several_points(record: RunRecord) -> bool:
-    """Whether the record is ONE job that ran several points (a submitted steady sweep)."""
+def _is_a_sweep_job(record: RunRecord) -> bool:
+    """Whether the record carries a job's per-point mapping, even for one point."""
     by_point = (record.submission or {}).get("declared_by_point")
-    return isinstance(by_point, Mapping) and len(by_point) > 1
+    return isinstance(by_point, Mapping) and bool(by_point)
 
 
 def _complete_sweep(

@@ -1666,6 +1666,12 @@ def read_matrix(path: str | Path, *, active_only: bool = True) -> list[MatrixRow
             record["FLIGHT_CONDITION"], record["POL"], row_number, path
         )
         state, attitude = _split_attitude(condition, record["POL"])
+        for key in sorted(attitude.keys() & variables.keys()):
+            raise MatrixError(
+                f"POL {record['POL']}: {key} is stated in FLIGHT_CONDITION as "
+                f"{attitude[key]!r} and in VAR_NAMES_VALUES as {variables[key]!r}. "
+                "Keep the declaration in FLIGHT_CONDITION only."
+            )
         # The swept key is not a value the row states: it is the word that
         # says which variable varies, and the axis it becomes is the row's
         # sweep. The other attitude keys ride on the variables, where the

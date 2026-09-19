@@ -1040,6 +1040,14 @@ def _solver_from_setup(setup: SetupArtifact, set_code: str) -> SolverSettings:
     # this pop and a valid file is refused, delete that read and valid
     # pins are silently ignored.
     settings.pop(_FLIGHT_CONDITION_TABLE, None)
+    if "solver_stabilization" in settings and (
+        "stabilization" in settings or "stabilization_strength" in settings
+    ):
+        raise InputArtifactError(
+            f"setup preset {set_code!r} states solver_stabilization alongside "
+            "stabilization or stabilization_strength, which are two declarations of "
+            "one solver setting. Keep the direct strength or the gated pair, not both."
+        )
     stabilization = _resolve_stabilization(settings, set_code)
     gated = "stabilization" in settings or "stabilization_strength" in settings
     settings.pop("stabilization", None)

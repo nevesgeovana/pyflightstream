@@ -690,6 +690,12 @@ def rename_workspace(
         If anything cannot be mapped. Nothing has been written when it is
         raised: every refusal is found in the reading pass.
     """
+    with workspace._manifest_lock():
+        return _rename_workspace_locked(workspace, apply=apply)
+
+
+def _rename_workspace_locked(workspace: CampaignWorkspace, *, apply: bool) -> RenameReport:
+    """Read, rename and replace while other manifest writers wait."""
     report = RenameReport(applied=apply)
     if not workspace.manifest_path.is_file():
         raise WorkspaceError(
@@ -808,7 +814,7 @@ def rename_workspace(
         if before_path.exists():
             _rename_path(before_path, after_path)
     if rewritten != raw:
-        workspace.manifest_path.write_text(json.dumps(rewritten, indent=2) + "\n", encoding="utf-8")
+        workspace._replace_manifest(rewritten)
     report.changes.extend(_plan_changes(workspace, plans, applied=True))
     return report
 

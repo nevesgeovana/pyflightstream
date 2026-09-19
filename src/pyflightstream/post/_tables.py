@@ -374,8 +374,8 @@ def renamed_columns(
             "is <parameter>_<group name>; correct the left side of the entry, or remove "
             "it. No column was renamed."
         )
-    kept = {name for name in columns if name not in names}
-    clash = [f"{old} -> {new}" for old, new in names.items() if new in kept]
+    held = set(columns)
+    clash = [f"{old} -> {new}" for old, new in names.items() if new != old and new in held]
     if clash:
         raise ProductError(
             f"{where}: the pproc's [names] table renames {', '.join(clash)}, and the table "
