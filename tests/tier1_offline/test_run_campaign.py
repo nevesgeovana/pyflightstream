@@ -3379,7 +3379,7 @@ def test_the_campaign_writes_its_products_and_names_them(tmp_path):
     assert cells[header.index("J")] == "NA", text[1]
     assert cells[header.index("ALPHA")] == "-2.00000", text[1]
     assert text[1].startswith("9001,STEADY_WB,1,50.00000,2.52600,20.00000,9.15200,")
-    assert ",0.02744,0.00000,0.18744," in text[1], "the body axes of the author's recorded row"
+    assert ",0.02743,0.00000,0.18716," in text[1], "the body axes of the author's recorded row"
     record = workspace.read_manifest()[0]
     assert record.reference == {
         "SREF": 50.0,

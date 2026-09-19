@@ -317,7 +317,7 @@ def test_post_reruns_from_the_manifest_without_a_solver(tmp_path, capsys):
     stem = "P3207-M200AL-020"
     table = workspace.root / "post" / "products" / "polars" / f"{stem}_g01.csv"
     assert table.is_file()
-    assert ",0.02744,0.00000,0.18744," in table.read_text(encoding="utf-8")
+    assert ",0.02743,0.00000,0.18716," in table.read_text(encoding="utf-8")
     manifest = json.loads((table.parent.parent / "products.json").read_text(encoding="utf-8"))
     assert manifest["products"][f"polars/{stem}_g01.csv"]["runs"] == ["camp/sim_3207/M200AL-020"]
     # A SECOND RUN ARCHIVES AND REWRITES since 0.17.0, her instruction of
@@ -400,8 +400,11 @@ def test_strict_exits_zero_when_nothing_was_skipped(tmp_path, capsys):
 def test_a_refused_polar_is_recorded_as_skipped_and_the_other_products_are_written(
     tmp_path, capsys
 ):
-    """A polar under sideslip is refused by design (its wind-axis columns are checked
-    at zero sideslip only). Until 2026-09-08 that one refusal aborted the whole
+    """A simulation whose export was divided by another reference area than the
+    products would state is refused by design. (THE EXAMPLE MOVED IN 0.24.0: it was
+    a polar under sideslip, which is a row like any other now. The subject is
+    unchanged: one refusal costs one simulation.) Until 2026-09-08 that one refusal
+    aborted the whole
     products stage: the tier-3 tour's sideslip row left every later row without a
     table and the workspace without products.json. Now the refusal is a skip the
     manifest records with its reason, and every other simulation's products land."""
@@ -414,31 +417,29 @@ def test_a_refused_polar_is_recorded_as_skipped_and_the_other_products_are_writt
     (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
         '[groups]\n"1" = ["W", "B"]\n', encoding="utf-8"
     )
-    sideslip = LOADS.replace(
-        "Side-slip angle (Deg)                       .000",
-        "Side-slip angle (Deg)                       -4.000",
+    other_area = LOADS.replace(
+        "Reference area (m^2)                        50.000",
+        "Reference area (m^2)                        40.000",
     )
-    assert sideslip != LOADS
+    assert other_area != LOADS
     for sim_id, point, text in (
         ("3207", {"alpha": -2.0}, LOADS),
-        ("3208", {"alpha": -2.0, "beta": -4.0}, sideslip),
+        ("3208", {"alpha": -2.0}, other_area),
     ):
         _record_a_converged_polar(workspace, sim_id, point, text)
     assert main(["post", "--workspace", str(workspace.root)]) == 0
     out = capsys.readouterr()
     products = workspace.root / "post" / "products"
     polars = products / "polars"
-    assert (polars / "P3207-M200AL-020_g01.csv").is_file(), "the zero-sideslip simulation's polar"
-    assert not (polars / "P3208-M200AL-020BE-040_g01.csv").exists(), (
-        "the refused polar is not written"
-    )
+    assert (polars / "P3207-M200AL-020_g01.csv").is_file(), "the simulation that agrees"
+    assert not (polars / "P3208-M200AL-020_g01.csv").exists(), "the refused polar is not written"
     manifest = json.loads((products / "products.json").read_text(encoding="utf-8"))
     assert manifest["products"]["polars/P3207-M200AL-020_g01.csv"]["runs"] == [
         "camp/sim_3207/M200AL-020"
     ]
     assert "3208" in manifest["skipped"]
-    assert "sideslip" in manifest["skipped"]["3208"]
-    assert "3208" in out.err and "sideslip" in out.err, "the skip is said where the user looks"
+    assert "SREF" in manifest["skipped"]["3208"]
+    assert "3208" in out.err and "SREF" in out.err, "the skip is said where the user looks"
     # The author's decision of 2026-09-08 on the exit code: 0 by default, and --strict
     # makes a recorded skip exit 2 for a wrapper that must tell them apart.
     # No --overwrite since 0.17.0: a rebuild archives what is there, so

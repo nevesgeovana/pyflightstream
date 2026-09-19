@@ -7,6 +7,28 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Changed (breaking: a steady polar is built from the export's vector)
+
+- **Every axis column of a steady polar row comes from the force
+  `(Cx, Cy, Cz)` and the moment `(CMx, CMy, CMz)` the export states**, turned
+  through `post/axes.py` (`polar_axis_coefficients`). `CDB` is now the `Cx`
+  of the export and `CLB` its `Cz`. The row used to take the solver's `CL` and
+  `CDi + CDo` as stability-axis forces and turn them BACK to body axes.
+- **`CLS` and `CLW` fall by about 0.13 per cent on EVERY steady polar, zero
+  sideslip included.** The `CL` an export prints sits that far above the
+  wind-axis lift of the vector printed beside it; the cause is not known. On
+  the recorded point at alpha -2: `CLS` 0.18828 becomes 0.18800, `CLB` 0.18744
+  becomes 0.18716, `CDB` 0.02744 becomes 0.02743. `CDS`, `CDW`, `CD0`, `CDI`
+  and every moment at zero sideslip are unchanged.
+- **A point under sideslip gets its polar row.** It was refused, because the
+  wind-axis turn had been checked against nothing. It is checked against
+  scipy's rotations under both angles and against the recorded exports, whose
+  own drag is the wind-axis drag of their own vector. `BETA` states the
+  sideslip; the axes turn by the geometric angles of the velocity the solver
+  flies, which the definitions page gives.
+- `polar_row` takes `beta_deg=`; `GroupCoefficients` carries `force` and
+  `moment`, the export-frame sums.
+
 ### Fixed (changes a published number)
 
 - **`ETAW` AND THE SHAFT ANGLE WERE COMPUTED AGAINST A FREE STREAM WITH TWO

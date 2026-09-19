@@ -20,6 +20,7 @@ she gave it. Nothing here was inferred from an implementation.
 
 - [The vocabulary](#the-vocabulary)
 - [What every product states](#what-every-product-states)
+- [The axes of a steady polar](#the-axes-of-a-steady-polar)
 - [The sections table, and which row is which](#the-sections-table-and-which-row-is-which)
 - [`time_average`](#time_average)
 - [`per_blade`](#per_blade)
@@ -94,6 +95,45 @@ The steady polar already carries `ALPHA`, `BETA`, `MACH` and `RE` among its
 twenty-four, so it states the rest of the block beside them. The plots table
 `probes/<point>_plots.csv` states NO condition, on purpose: it is the export's own
 header, and the reductions read every column of it back as a plotted quantity.
+
+---
+
+## The axes of a steady polar
+
+The loads export states ONE force and ONE moment per surface, in the
+geometry's own frame: **x aft, y right, z up**. Every axis column of a steady
+polar row is that pair, summed over the group's surfaces and turned.
+
+| columns | axes | how |
+|---|---|---|
+| `CDB, CYB, CLB, CRB, CMB, CNB` | body: forward, right, down | half a turn about y. `CDB` IS the export's `Cx` and `CLB` its `Cz` |
+| `CDS ... CNS` | stability | body axes turned by `-alpha_s` about y |
+| `CDW ... CNW` | wind | stability axes turned by `beta_w` about z |
+
+Drag opposes +x and lift opposes +z of each system; the side force keeps its
+sign. The moment turns as ONE vector in one length and only then is
+normalised: `CR` and `CN` by the span, `CM` by the chord. Under sideslip that
+is what moves pitch into roll by the ratio of chord to span.
+
+**The angles that turn the axes are read off the velocity the solver flies.**
+The solver turns sideslip about the body z axis first and incidence second,
+so it flies `V (cos a cos b, cos a sin b, sin a)`, and
+`alpha_s = atan2(w, u)`, `beta_w = asin(v / V)`. They equal the written
+`ALPHA` and `BETA` whenever either is zero and differ at second order
+otherwise: at `ALPHA 4, BETA 2` they are 4.0024 and 1.9951 degrees. The
+`ALPHA` and `BETA` columns stay what the row wrote.
+
+**`CDW` is the drag the solver integrates.** The wind-axis drag of the
+export's own vector equals its `CDi + CDo`, which the recorded exports
+confirm to their printed precision, under sideslip too. `CD0` and `CDI` are
+those two integrals as the solver states them.
+
+**`CLW` is NOT the solver's `CL`.** The `CL` an export prints sits about 0.13
+per cent above the wind-axis lift of the vector printed beside it; the cause
+is not known. The polar states the vector's, so that every column of a row
+comes from one source and `CDB`, `CLB` agree with the `Cx`, `Cz` of the
+export. A table written before 0.24.0 used the solver's `CL`, so its `CLS`
+and `CLW` are higher by that much.
 
 ---
 

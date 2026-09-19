@@ -77,11 +77,21 @@ LOADS = """\
      Date: 8/3/2026, Time: 2305 hours (local)
 """
 
-#: The author's recorded row for the whole configuration at alpha -2 (group 1 of the author's
-#: polar 3207 at Mach 0.20), the twenty-four coefficients at five decimals.
+#: The row of the whole configuration at alpha -2 (group 1 of polar 3207 at Mach
+#: 0.20), the twenty-four coefficients at five decimals.
+#:
+#: FOUR VALUES MOVED IN 0.24.0, BECAUSE THE REQUIREMENT DID. The recorded table was
+#: built from the export's `CL` and `CDi + CDo` taken as stability-axis forces and
+#: turned back to body axes: `CDB 0.02744`, `CLB 0.18744`, `CLS` and `CLW 0.18828`.
+#: The row is now built from the vector `(Cx, Cy, Cz)` of the same export (answer 8b,
+#: 2026-09-18), so `CDB` is the `Cx` printed above, 0.0274326, and `CLB` the `Cz`,
+#: 0.1871579; `CLS = Cz cos(a) - Cx sin(a)` at a = -2 deg is 0.18800, 0.15 per cent
+#: under the solver's own `CL`. `CDS`, `CDW` and every moment are unchanged. The four
+#: are computed through scipy in `test_goal028_polar_from_the_vector.py`, never by the
+#: module under test.
 HER_ROW = (
-    "-2.00000 0.00000 0.20000 11.77168 0.02744 0.00000 0.18744 0.00000 -0.09694 0.00000 "
-    "0.02088 0.00000 0.18828 0.00000 -0.09694 0.00000 0.02088 0.00000 0.18828 0.00000 "
+    "-2.00000 0.00000 0.20000 11.77168 0.02743 0.00000 0.18716 0.00000 -0.09694 0.00000 "
+    "0.02088 0.00000 0.18800 0.00000 -0.09694 0.00000 0.02088 0.00000 0.18800 0.00000 "
     "-0.09694 0.00000 0.01964 0.00124"
 ).split()
 
@@ -417,9 +427,15 @@ def test_write_recorded_polar_writes_one_table_per_group_and_the_sections(tmp_pa
     assert empty[0]["CLB"] == "0.00000", "a group of absent families sums to zero"
 
 
-def test_a_point_under_sideslip_is_refused_naming_it(tmp_path):
-    """The wind-axis turn through sideslip is checked against nothing, so it is refused."""
-    from pyflightstream.post.products import PolarPoint, ProductError
+def test_a_point_under_sideslip_is_a_row_stating_its_sideslip(tmp_path):
+    """THE REFUSAL THIS TEST HELD IS WITHDRAWN IN 0.24.0, and the test with it.
+
+    It refused a point under sideslip because the wind-axis turn had been checked
+    against nothing. It is checked now: against scipy under both angles, and against
+    the recorded exports, whose own drag is the wind-axis drag of their own vector
+    under sideslip too. So the point is a row like any other.
+    """
+    from pyflightstream.post.products import PolarPoint
     from pyflightstream.post.products import _polar_rows as polar_rows
 
     text = LOADS.replace(
@@ -430,10 +446,8 @@ def test_a_point_under_sideslip_is_refused_naming_it(tmp_path):
     path = tmp_path / "AL+020.txt"
     path.write_text(text, encoding="utf-8")
     point = PolarPoint(name="AL+020", loads=parse_loads(text), loads_path=path)
-    with pytest.raises(ProductError) as caught:
-        polar_rows([point], ["W"], mach=0.2, reference=REFERENCE)
-    message = str(caught.value)
-    assert "AL+020.txt" in message and "2.0" in message and "sideslip" in message
+    (row,) = polar_rows([point], ["W"], mach=0.2, reference=REFERENCE)
+    assert row[1] == 2.0, "BETA is the sideslip the export states"
 
 
 def test_the_mach_code_rounds_rather_than_truncates():

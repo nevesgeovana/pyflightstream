@@ -1615,7 +1615,8 @@ folder named after the matrix file (`post/matriz/` for `matriz.fs`), and
 `products.json` beside them names every file with the run ids it derives
 from and the pproc artifact; a campaign resumed with new points rewrites
 them, since they derive from the manifest. A simulation whose product is
-refused by design, a polar under sideslip for one, is listed under
+refused by design, one whose export was normalised by another reference
+area than the products would state for one, is listed under
 `skipped` in that file with the reason, and the others are written
 (PFS-2031.16); the key is always there, empty when nothing was refused. A
 windowed unsteady point also gets its per-step series under `series/`,

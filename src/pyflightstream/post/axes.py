@@ -51,6 +51,7 @@ __all__ = [
     "body_to_wind",
     "dcm",
     "free_stream_in_export_frame",
+    "polar_axis_coefficients",
     "stability_force_coefficients",
     "velocity_in_body_frame",
     "wind_angles",
@@ -186,3 +187,66 @@ def stability_force_coefficients(
     return _forward_right_down_to_drag_side_lift(
         body_to_stability(alpha_deg, beta_deg) @ EXPORT_TO_BODY @ force
     )
+
+
+def polar_axis_coefficients(
+    force_in_export_frame: Sequence[float],
+    moment_in_export_frame: Sequence[float],
+    alpha_deg: float,
+    beta_deg: float,
+    *,
+    cref_m: float,
+    bref_m: float,
+) -> tuple[float, ...]:
+    """Return the eighteen axis coefficients of one polar row, from ONE force and ONE moment.
+
+    Parameters
+    ----------
+    force_in_export_frame : sequence of float
+        ``(Cx, Cy, Cz)`` as the loads export states them: x aft, y right, z up.
+    moment_in_export_frame : sequence of float
+        ``(CMx, CMy, CMz)`` in that frame, ALL THREE normalised by the reference
+        chord, which is how the export states them.
+    alpha_deg, beta_deg : float
+        The angles the point flew, as written; the axes are turned by the
+        geometric angles of :func:`wind_angles`.
+    cref_m, bref_m : float
+        The reference chord and span.
+
+    Returns
+    -------
+    tuple of float
+        ``CD, CY, CL, CR, CM, CN`` in body axes, then in stability axes, then in
+        wind axes. Drag opposes +x and lift opposes +z of each forward-right-down
+        system; the rolling and yawing moments are normalised by the SPAN and the
+        pitching moment by the CHORD.
+
+    Notes
+    -----
+    THE MOMENT TURNS AS ONE VECTOR IN ONE LENGTH, and takes the span or the chord
+    only afterwards. That is where the ``c/b`` exchange between roll and pitch
+    under sideslip comes from: it is not a separate rule.
+
+    In body axes the forces are the export's own, ``CD == Cx`` and ``CL == Cz``.
+
+    Examples
+    --------
+    At zero incidence and zero sideslip the three systems coincide:
+
+    >>> row = polar_axis_coefficients((0.02, 0.0, 0.5), (0.0, -0.1, 0.0), 0.0, 0.0,
+    ...                               cref_m=2.0, bref_m=10.0)
+    >>> [round(value, 12) + 0.0 for value in row[:3]] == [round(v, 12) + 0.0 for v in row[12:15]]
+    True
+    """
+    to_stability = body_to_stability(alpha_deg, beta_deg)
+    to_wind = body_to_wind(alpha_deg, beta_deg)
+    force = EXPORT_TO_BODY @ np.asarray(force_in_export_frame, dtype=float)
+    moment = EXPORT_TO_BODY @ np.asarray(moment_in_export_frame, dtype=float)
+    span = float(cref_m) / float(bref_m)
+    row: list[float] = []
+    for turn in (np.eye(3), to_stability, to_wind):
+        turned = turn @ moment
+        row.extend(_forward_right_down_to_drag_side_lift(turn @ force))
+        row.extend((float(turned[0]) * span, float(turned[1]), float(turned[2]) * span))
+    # `+ 0.0` turns a negative zero into zero: a table prints `-0.00000` otherwise.
+    return tuple(value + 0.0 for value in row)

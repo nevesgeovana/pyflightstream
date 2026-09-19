@@ -52,23 +52,23 @@ record, so any spreadsheet or dataframe reads them with nothing else:
   solver run as the activity with its start, end and argv, the package
   and the solver build as agents.
 
-THE ARITHMETIC IS THE REFERENCE ONE, re-derived here from the recorded files and
-never imported. FlightStream's ``CL``, ``CDi + CDo`` and ``Cy`` are the
-STABILITY-axis force coefficients and the body-axis forces follow by
-turning them through the angle of attack; the solver's ``CMx`` and ``CMz``
-are the BODY-axis rolling and yawing moments, scaled from the chord to the
-span and, by the reference sign convention, negated, and the stability-axis moments
-follow by turning them through the angle of attack. The reference polars carried
-``BETA 0.0`` on every row, so the wind axes coincide with the stability
-axes in every table this writer has been checked against; a point with a
-non-zero sideslip is REFUSED naming the point, because the wind-axis turn
-through sideslip has been checked against nothing. Values are written at
-five decimals, the reference precision, so a table regenerated from the same exports
-is equal text. The evidence is the products arm of GOAL-011,
-``python GeoversePlan/goals/check_goal_011.py --products``, which
-regenerates the 27 recorded polars and 5 section tables through
-:func:`write_recorded_polar` and compares them with the reference tables
-converted to this shape outside the package: 32 of 32 equal on 2026-09-03.
+THE AXIS COLUMNS COME FROM ONE VECTOR (0.24.0). The loads export states a force
+``(Cx, Cy, Cz)`` and a moment ``(CMx, CMy, CMz)`` in its own frame, x aft, y right,
+z up, and :mod:`pyflightstream.post.axes` turns that one pair into body, stability
+and wind axes, under sideslip too. So ``CDB`` is the ``Cx`` of the export and
+``CLB`` its ``Cz``; the rolling and yawing moments are normalised by the span and
+the pitching moment by the chord, after the moment has turned as one vector.
+``CD0`` and ``CDI`` stay the solver's own profile and induced drag. Values are
+written at five decimals.
+
+UNTIL 0.24.0 the row took the solver's ``CL`` and ``CDi + CDo`` as stability-axis
+forces and turned them back to body axes, and a point under sideslip was
+refused. The solver's ``CL`` sits about 0.13 per cent above the projection of
+its own vector, so ``CLS`` and ``CLW`` of a table written before differ from one
+written now by that much, and its ``CDB`` and ``CLB`` differ from the ``Cx`` and
+``Cz`` printed in the same export. The 27 recorded polars that
+:func:`write_recorded_polar` regenerated as equal text on 2026-09-03 are
+therefore no longer equal text in those four columns.
 """
 
 from __future__ import annotations
@@ -120,7 +120,7 @@ from pyflightstream.post._tables import (
     section_identity,
     write_csv_table,
 )
-from pyflightstream.post.axes import free_stream_in_export_frame
+from pyflightstream.post.axes import free_stream_in_export_frame, polar_axis_coefficients
 from pyflightstream.post.series import write_point_series
 from pyflightstream.post.superfile import (
     SuperfileDraft,
@@ -361,11 +361,17 @@ class ReferenceValues:
 class GroupCoefficients:
     """The coefficients of one group, summed over its families, as the solver reports them.
 
-    ``lift``, ``drag`` and ``side`` are the STABILITY-axis forces; ``roll``,
-    ``pitch`` and ``yaw`` are the BODY-axis moments, ``roll`` and ``yaw``
-    already scaled from the chord to the span and carrying the reference sign. That
-    is the mixed convention the solver's loads table reports in, and
-    :func:`polar_row` turns each half into the other axes from there.
+    ``lift`` and ``drag`` are the solver's OWN integrals, ``CL`` and
+    ``CDi + CDo``, and ``side`` its ``Cy``; ``roll``, ``pitch`` and ``yaw`` are
+    the BODY-axis moments, ``roll`` and ``yaw`` already scaled from the chord to
+    the span and carrying the reference sign.
+
+    ``force`` and ``moment`` are the VECTORS the export states in its own
+    frame, ``(Cx, Cy, Cz)`` and ``(CMx, CMy, CMz)``, summed over the same
+    families. They are what :func:`polar_row` builds the axis columns from
+    since 0.24.0; the solver's own ``CL`` is about 0.13 per cent above the
+    projection of that vector, so a row built from one and printed beside the
+    other did not agree with itself.
     """
 
     drag: float
@@ -377,6 +383,8 @@ class GroupCoefficients:
     drag_profile: float
     drag_induced: float
     families_used: tuple[str, ...]
+    force: tuple[float, float, float] = (0.0, 0.0, 0.0)
+    moment: tuple[float, float, float] = (0.0, 0.0, 0.0)
 
 
 def _stated_iteration(export_text: str) -> int | None:
@@ -639,6 +647,8 @@ def group_coefficients(
     if cref is None:
         raise ProductError("the loads table states no reference length, so no span scaling")
     drag = side = lift = roll = pitch = yaw = profile = induced = 0.0
+    force = [0.0, 0.0, 0.0]
+    moment = [0.0, 0.0, 0.0]
     used: list[str] = []
     selected: list[str] = []
     if families or empty_is_every:
@@ -654,7 +664,14 @@ def group_coefficients(
         yaw -= row["CMz"] * cref / bref_m
         profile += row["CDo"]
         induced += row["CDi"]
-    return GroupCoefficients(drag, side, lift, roll, pitch, yaw, profile, induced, tuple(used))
+        for at, (f, m) in enumerate((("Cx", "CMx"), ("Cy", "CMy"), ("Cz", "CMz"))):
+            force[at] += row[f]
+            moment[at] += row[m]
+    return GroupCoefficients(
+        drag, side, lift, roll, pitch, yaw, profile, induced, tuple(used),
+        force=(force[0], force[1], force[2]),
+        moment=(moment[0], moment[1], moment[2]),
+    )  # fmt: skip
 
 
 def polar_row(
@@ -665,39 +682,31 @@ def polar_row(
     *,
     cref_m: float,
     bref_m: float,
+    beta_deg: float = 0.0,
 ) -> tuple[float, ...]:
     """Return the twenty-four coefficient values of one polar row.
 
-    The reference polars carried ``BETA 0.0`` on every row, so the wind axes coincide
-    with the stability axes in every table this row has been checked
-    against; :func:`_polar_rows` refuses a point stating a sideslip, and the
-    wind-axis turn below is written for the day one is checked.
+    EVERY AXIS COLUMN COMES FROM ONE VECTOR (0.24.0): the force ``(Cx, Cy, Cz)`` and
+    the moment ``(CMx, CMy, CMz)`` the export states in its own frame, turned by
+    :func:`pyflightstream.post.axes.polar_axis_coefficients`. So ``CDB`` IS the
+    ``Cx`` of the export and ``CLB`` its ``Cz``, and the wind-axis drag of that
+    vector is the ``CDi + CDo`` the solver integrates, which the recorded exports
+    confirm to their printed precision, under sideslip too.
+
+    Until 0.24.0 the row took the solver's ``CL`` and ``CDi + CDo`` as
+    stability-axis forces and turned them BACK to body axes. The solver's ``CL``
+    sits about 0.13 per cent above the projection of its own vector, so ``CLS`` and
+    ``CLW`` fall by that much against a table written before, and ``CDB`` and
+    ``CLB`` now equal the columns printed beside them. A point under sideslip was
+    refused; it is a row like any other, with ``BETA`` as the point flew it.
+
+    ``CD0`` and ``CDI`` stay the solver's own profile and induced drag.
     """
-    beta_deg = 0.0
-    a = math.radians(alpha_deg)
-    b = math.radians(beta_deg)
     g = coefficients
-    cds, cys, cls = g.drag, g.side, g.lift
-    crb, cmb, cnb = g.roll, g.pitch, g.yaw
-    cdb = cds * math.cos(a) - cls * math.sin(a)
-    cyb = cys
-    clb = cds * math.sin(a) + cls * math.cos(a)
-    crs = crb * math.cos(a) + cnb * math.sin(a)
-    cms = cmb
-    cns = -crb * math.sin(a) + cnb * math.cos(a)
-    cdw = cds * math.cos(b) - cys * math.sin(b)
-    cyw = cds * math.sin(b) + cys * math.cos(b)
-    clw = cls
-    crw = crs * math.cos(b) + cms * math.sin(b) * cref_m / bref_m
-    cmw = -crs * math.sin(b) * bref_m / cref_m + cms * math.cos(b)
-    cnw = cns
-    return (
-        alpha_deg, beta_deg, mach, reynolds_millions,
-        cdb, cyb, clb, crb, cmb, cnb,
-        cds, cys, cls, crs, cms, cns,
-        cdw, cyw, clw, crw, cmw, cnw,
-        g.drag_profile, g.drag_induced,
-    )  # fmt: skip
+    axes = polar_axis_coefficients(
+        g.force, g.moment, alpha_deg, beta_deg, cref_m=cref_m, bref_m=bref_m
+    )
+    return (alpha_deg, beta_deg, mach, reynolds_millions, *axes, g.drag_profile, g.drag_induced)
 
 
 def _mach_of(point: object, fallback: float) -> float:
@@ -3017,13 +3026,6 @@ def _polar_rows(
         reynolds = point.loads.reynolds
         if reynolds is None:
             raise ProductError(f"{point.loads_path} states no Reynolds number")
-        if point.beta_deg != 0.0:
-            raise ProductError(
-                f"{point.loads_path} states a sideslip of {point.beta_deg} deg, and the polar "
-                "table's wind-axis columns have been checked against the recorded tables at "
-                "zero sideslip only; a polar under sideslip is not written by this release. "
-                "Leave the point out of the products, or state the sweep without sideslip."
-            )
         coefficients = group_coefficients(
             point.loads,
             list(families),
@@ -3039,6 +3041,8 @@ def _polar_rows(
                 coefficients,
                 cref_m=reference.cref_m,
                 bref_m=reference.bref_m,
+                # AS THE POINT FLEW IT. A sideslip was a refusal until 0.24.0.
+                beta_deg=point.beta_deg,
             )
         )
     return rows
