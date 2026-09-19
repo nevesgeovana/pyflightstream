@@ -2253,8 +2253,9 @@ def name_field(key: str, value: float) -> str:
         return f"{field.code}{number:+0{field.width}d}"
     if number < 0:
         raise CampaignConfigError(
-            f"{key} is {value!r}, and a point name writes {key} without a sign; a negative "
-            f"{key} is not a value the flight condition can hold."
+            f"{key} is {value!r}, and a point name writes {key} without a sign, so the "
+            f"point name cannot carry a negative {key}. The flight condition itself can "
+            "hold one; it is the name of the point that has no place for the sign."
         )
     return f"{field.code}{number:0{field.width}d}"
 

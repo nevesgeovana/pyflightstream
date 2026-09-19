@@ -5927,6 +5927,7 @@ def _script_tail(
     *,
     unsteady: bool,
     frames: Frames | None = None,
+    reopens_a_saved_state: bool = False,
 ) -> None:
     """Emit the four phases every run type ends with, each preceded by its raw commands.
 
@@ -5935,12 +5936,18 @@ def _script_tail(
     (PFS-2033.01) meet each phase at one seam rather than at four copies
     of it.
     """
-    _script_init(case, script, frames=frames)
+    _script_init(case, script, frames=frames, reopens_a_saved_state=reopens_a_saved_state)
     _script_solve_and_export(conventions, case, script, frame, unsteady=unsteady, frames=frames)
     script.emit("CLOSE_FLIGHTSTREAM")
 
 
-def _script_init(case: SimCase, script: Script, *, frames: Frames | None) -> None:
+def _script_init(
+    case: SimCase,
+    script: Script,
+    *,
+    frames: Frames | None,
+    reopens_a_saved_state: bool = False,
+) -> None:
     """Emit the init phase, which happens ONCE however many points follow.
 
     Split out of :func:`_script_tail` at 0.17.0 so a warm steady sweep can
@@ -5961,6 +5968,17 @@ def _script_init(case: SimCase, script: Script, *, frames: Frames | None) -> Non
     # the script's phase guard neither permitted nor prevented it.
     if frames is not None:
         _pproc_sections(case, script, frames)
+    elif reopens_a_saved_state:
+        # A CONTINUATION EMITS NO DISTRIBUTION AND IS NOT REFUSED FOR IT
+        # (0.24.0). It builds no frames because the saved simulation it reopens
+        # carries them, and carries the distributions the stopped run created
+        # with them; creating them again would add a second set beside the
+        # first. The refusal below is for a builder that FORGOT its frames, and
+        # it fired here on a builder that has none by design, so a row the wall
+        # clock stopped could not be continued once its artifact declared
+        # sections. That the reopened state still exports its sections is the
+        # premise, and it is a solver behaviour a licensed run confirms.
+        pass
     elif case.pproc is not None and case.pproc.sections.distributions:
         raise CampaignConfigError(
             f"case {case.sim_id!r}: the pproc artifact {case.pproc_id!r} declares "
@@ -7594,10 +7612,18 @@ def _export_block(
         script.emit("COMPUTE_SURFACE_SECTIONAL_LOADS", "NEWTONS")
         script.emit("UPDATE_PROBE_POINTS")
     declared_log = _variable(case, LOG_OUTPUT_VARIABLE) is not None
+    # ASKED ONCE, FOR BOTH ROUTES TO THE LOG (0.24.0). The machine's
+    # `export_log = false` was read inside `_export_log` alone, the route of a
+    # row that names its log through LOG_OUTPUT. A row whose outputs carry a
+    # `_log.txt` name is exported by suffix in the loop below, which asked
+    # nothing, and that is the route every matrix row takes by default: the
+    # command the profile exists to remove reached the one machine that aborts
+    # at it, after the queue wait.
+    exports_its_log = _exports_its_log(case)
     for kind, _, verb, only_unsteady in EXPORT_KINDS:
         if kind not in kinds or (only_unsteady and not unsteady):
             continue
-        if kind == "log" and declared_log:
+        if kind == "log" and (declared_log or not exports_its_log):
             continue
         script.emit(verb, kinds[kind])
     if declared_log:
@@ -8850,7 +8876,7 @@ def _build_continuation(
         stepping = unsteady_time_stepping(case)
     helpers.unsteady_solver(script, time_iterations=iterations, delta_time=stepping.delta_time_s)
     _unsteady_actions(script, threshold, walltime=row_walltime_s(case) is not None)
-    _script_tail(conventions, case, script, None, unsteady=True)
+    _script_tail(conventions, case, script, None, unsteady=True, reopens_a_saved_state=True)
 
 
 def walltime_stop_text(case: SimCase, conventions: WorkflowConventions) -> str:

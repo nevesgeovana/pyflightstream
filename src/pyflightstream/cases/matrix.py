@@ -1010,7 +1010,19 @@ def _parse_variables(cell: str) -> dict[str, str]:
                 f"variable {pair.strip()!r} is not a KEY:VALUE pair; VAR_NAMES_VALUES "
                 "holds '/'-separated KEY:VALUE entries"
             )
-        variables[name.strip()] = value.strip()
+        key = name.strip()
+        # A KEY STATED TWICE IS REFUSED, NOT RESOLVED BY ITS POSITION. Assigning
+        # into the dict kept the last one in silence, so `RPM:1000/RPM:2000` ran
+        # at 2000 and nothing said a second value had been written. Two that
+        # agree are refused as well: the rule is about the declaration, and an
+        # agreeing pair is the state the next edit of one of them breaks.
+        if key in variables:
+            raise MatrixError(
+                f"variable {key!r} is stated twice in one VAR_NAMES_VALUES cell, as "
+                f"{variables[key]!r} and as {value.strip()!r}. A cell states each key "
+                "once; keep the value the row means and remove the other."
+            )
+        variables[key] = value.strip()
     return variables
 
 

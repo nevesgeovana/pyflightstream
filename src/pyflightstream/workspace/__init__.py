@@ -53,10 +53,12 @@ import re
 import shutil
 import stat
 import sys
+import time
 import tomllib
 import warnings
 import zipfile
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
+from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 
@@ -222,6 +224,17 @@ MANIFEST_SCHEMA = "pyfs-manifest/3"
 #: which is the "must refuse when the value is one it has never seen"
 #: half, and that includes a stamp from a LATER version.
 KNOWN_MANIFEST_SCHEMAS = ("pyfs-manifest/1", "pyfs-manifest/2", "pyfs-manifest/3")
+
+#: How long a writer waits for the manifest before refusing, in seconds. A
+#: holder keeps it for the milliseconds one rewrite takes, so a wait this
+#: long means the holder is gone, and the refusal says what to remove.
+MANIFEST_LOCK_TIMEOUT_S = 60.0
+#: The age, in seconds, past which a lock file is one a killed process left.
+#: Far above any real hold and below the timeout, so a waiter clears an
+#: abandoned lock itself instead of refusing over it.
+MANIFEST_LOCK_STALE_S = 30.0
+#: The pause between two attempts to take the manifest, in seconds.
+MANIFEST_LOCK_POLL_S = 0.02
 
 #: The stamp from which every waiver row carries ``source_version``
 #: (PFS-2012.03). Named apart from :data:`MANIFEST_SCHEMA` the day that
@@ -839,6 +852,15 @@ class RunRecord(BaseModel):
     #: it writes the number down before the solver goes away; without it
     #: `RESTART: {FINISH_PENDING}` has nothing to subtract from.
     stopped_at: dict | None = None
+    #: The ``run_id`` of the run this record CONTINUES (0.24.0); None on a run
+    #: that continues nothing and on every record written before 0.24.0.
+    #:
+    #: A continuation archives the CONTENTS of the datapoint folder and writes
+    #: into that same folder, and the stopped run's row is never rewritten, so
+    #: its ``outputs`` go on naming the folder its continuation fills. This is
+    #: what lets a reader tell a chain from two runs of one point and take the
+    #: end of it; the continuation resolver knew the answer and nothing kept it.
+    continues: str | None = None
     #: FR-98: the wall clock the ROW stated, in seconds, and the margin the
     #: SETUP stated, on a run that registered the watchdog. Both are written
     #: because neither can be recovered afterwards: the row may have been
@@ -2747,6 +2769,94 @@ class CampaignWorkspace:
                     "run layer does for every record it builds."
                 )
 
+    @contextmanager
+    def _manifest_lock(self) -> Iterator[None]:
+        """Hold the manifest for one read-modify-replace, against every other writer.
+
+        Each writer of ``runs.json`` reads the file, changes its copy and
+        replaces the file. The replace is atomic and the SEQUENCE was not: a
+        collection watcher completing a record while another process appended
+        one each replaced the file with a copy that had never seen the other's
+        change, and both calls returned success with one row gone. Two
+        campaigns against one workspace is a thing that has happened.
+
+        THE LOCK IS A FILE CREATED EXCLUSIVELY beside the manifest, because
+        that is the one primitive that means the same thing on Windows, on
+        Linux and on the shared file systems a cluster mounts; an advisory
+        ``flock`` is not honoured across every one of those. It is held for
+        the few milliseconds the rewrite takes and removed on every way out,
+        a refusal included.
+
+        A LOCK NOBODY HOLDS is one a killed process left behind. It is
+        recognised by its AGE, since a holder keeps it for milliseconds, and
+        taken aside by a rename, which only one waiter can win, so two waiters
+        cannot both break it and then both hold it.
+
+        Raises
+        ------
+        WorkspaceError
+            When the manifest stays held for :data:`MANIFEST_LOCK_TIMEOUT_S`.
+            Nothing was written, and the message names the file.
+        """
+        self.root.mkdir(parents=True, exist_ok=True)
+        lock = self.manifest_path.with_suffix(".json.lock")
+        deadline = time.monotonic() + MANIFEST_LOCK_TIMEOUT_S
+        while True:
+            try:
+                handle = os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            except FileExistsError:
+                pass
+            except PermissionError:
+                # Windows answers this while another writer is deleting the
+                # lock; it is the same "held" and is waited out the same way.
+                pass
+            else:
+                os.write(handle, f"{os.getpid()}\n".encode())
+                os.close(handle)
+                break
+            try:
+                abandoned = time.time() - lock.stat().st_mtime > MANIFEST_LOCK_STALE_S
+            except OSError:
+                abandoned = False
+            if abandoned:
+                try:
+                    aside = lock.with_name(f"{lock.name}.{os.getpid()}.abandoned")
+                    lock.replace(aside)
+                    aside.unlink()
+                except OSError:
+                    pass
+                continue
+            if time.monotonic() > deadline:
+                raise WorkspaceError(
+                    f"the manifest {self.manifest_path} has been held by another writer "
+                    f"for {MANIFEST_LOCK_TIMEOUT_S:.0f} s ({lock} exists), so this record "
+                    "was NOT written. If no pyflightstream process is running against "
+                    "this workspace, the lock was left by one that was killed: remove "
+                    "that file and run again."
+                )
+            time.sleep(MANIFEST_LOCK_POLL_S)
+        try:
+            yield
+        finally:
+            try:
+                lock.unlink()
+            except OSError:
+                pass
+
+    def _replace_manifest(self, raw: list[dict]) -> None:
+        """Replace the manifest with ``raw``, atomically, through THIS process's own file.
+
+        The temporary file was ``runs.json.tmp`` for every writer, so two
+        processes could write one temporary file between them and replace the
+        manifest with a mixture. The process id is in the name; the lock
+        already keeps two writers of one process apart.
+        """
+        self.root.mkdir(parents=True, exist_ok=True)
+        payload = json.dumps(raw, indent=2)
+        temporary = self.manifest_path.with_suffix(f".json.{os.getpid()}.tmp")
+        temporary.write_text(payload + "\n", encoding="utf-8")
+        temporary.replace(self.manifest_path)
+
     def append_record(self, record: RunRecord) -> None:
         """Append one record to the manifest, atomically.
 
@@ -2774,18 +2884,15 @@ class CampaignWorkspace:
             manifest (PFS-2012.03).
         """
         self._refuse_a_waiver_this_version_may_not_write(record)
-        raw = self.read_raw_manifest()
-        if any(entry.get("run_id") == record.run_id for entry in raw):
-            raise WorkspaceError(
-                f"run_id {record.run_id!r} is already in the manifest; run identity "
-                "must be unique. Use a new run_id or archive the campaign first."
-            )
-        raw.append(record.model_dump(mode="json"))
-        self.root.mkdir(parents=True, exist_ok=True)
-        payload = json.dumps(raw, indent=2)
-        temporary = self.manifest_path.with_suffix(".json.tmp")
-        temporary.write_text(payload + "\n", encoding="utf-8")
-        temporary.replace(self.manifest_path)
+        with self._manifest_lock():
+            raw = self.read_raw_manifest()
+            if any(entry.get("run_id") == record.run_id for entry in raw):
+                raise WorkspaceError(
+                    f"run_id {record.run_id!r} is already in the manifest; run identity "
+                    "must be unique. Use a new run_id or archive the campaign first."
+                )
+            raw.append(record.model_dump(mode="json"))
+            self._replace_manifest(raw)
 
     def supersede_records(
         self, run_ids: Sequence[str], *, stamp: datetime | None = None
@@ -2835,13 +2942,13 @@ class CampaignWorkspace:
         shutil.copy2(self.manifest_path, target)
 
         superseded = set(run_ids)
-        kept = [
-            row for row in self.read_raw_manifest() if str(row.get("run_id", "")) not in superseded
-        ]
-        payload = json.dumps(kept, indent=2)
-        temporary = self.manifest_path.with_suffix(".json.tmp")
-        temporary.write_text(payload + "\n", encoding="utf-8")
-        temporary.replace(self.manifest_path)
+        with self._manifest_lock():
+            kept = [
+                row
+                for row in self.read_raw_manifest()
+                if str(row.get("run_id", "")) not in superseded
+            ]
+            self._replace_manifest(kept)
         return target
 
     def archive_datapoint(
@@ -2925,24 +3032,22 @@ class CampaignWorkspace:
             workspace and a collector pointed at a finished run are
             different mistakes and the message has to tell them apart.
         """
-        raw = self.read_raw_manifest()
-        for index, entry in enumerate(raw):
-            if entry.get("run_id") != record.run_id:
-                continue
-            was = str(entry.get("status"))
-            if was != str(RunStatus.SUBMITTED):
-                raise WorkspaceError(
-                    f"refusing to complete run {record.run_id!r}: the manifest records it "
-                    f"{was}, not {RunStatus.SUBMITTED}. Only a submitted run is completed "
-                    "later; every other row is a run that finished, and this is not the "
-                    "method that edits one."
-                )
-            raw[index] = record.model_dump(mode="json")
-            payload = json.dumps(raw, indent=2)
-            temporary = self.manifest_path.with_suffix(".json.tmp")
-            temporary.write_text(payload + "\n", encoding="utf-8")
-            temporary.replace(self.manifest_path)
-            return
+        with self._manifest_lock():
+            raw = self.read_raw_manifest()
+            for index, entry in enumerate(raw):
+                if entry.get("run_id") != record.run_id:
+                    continue
+                was = str(entry.get("status"))
+                if was != str(RunStatus.SUBMITTED):
+                    raise WorkspaceError(
+                        f"refusing to complete run {record.run_id!r}: the manifest records "
+                        f"it {was}, not {RunStatus.SUBMITTED}. Only a submitted run is "
+                        "completed later; every other row is a run that finished, and this "
+                        "is not the method that edits one."
+                    )
+                raw[index] = record.model_dump(mode="json")
+                self._replace_manifest(raw)
+                return
         raise WorkspaceError(
             f"refusing to complete run {record.run_id!r}: the manifest at "
             f"{self.manifest_path} holds no row with that run_id."

@@ -1063,9 +1063,22 @@ def _solver_from_setup(setup: SetupArtifact, set_code: str) -> SolverSettings:
         )
     refused: list[str] = []
     recorded: list[str] = []
+    spelled: dict[str, str] = {}
     for key, value in settings.items():
         field = _PRESET_ALIASES.get(key, key)
         if field in known:
+            # TWO SPELLINGS OF ONE SETTING ARE REFUSED. They are distinct TOML
+            # keys, so the file parses, and both map onto one field: assigning
+            # let the one the file lists LAST win, and reordering two lines of a
+            # preset changed the solve with nothing saying so.
+            if field in spelled:
+                raise InputArtifactError(
+                    f"setup preset {set_code!r} states the solver setting {field!r} "
+                    f"twice, as {spelled[field]!r} and as {key!r}, which are two "
+                    "spellings of one setting. Keep the one the preset means and "
+                    "remove the other."
+                )
+            spelled[field] = key
             matched[field] = value
         elif key in _PRESET_RECORDED_ONLY or key in declared_names:
             recorded.append(key)

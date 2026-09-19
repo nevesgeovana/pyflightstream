@@ -71,7 +71,7 @@ import sys
 import tempfile
 import time
 import warnings
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Collection, Iterable, Mapping, Sequence
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from functools import lru_cache
@@ -1650,6 +1650,41 @@ class LoadsAssessor:
                 ),
                 **stamp,
             )
+        stopped_early = mode == "steady" and report.current_iteration < report.requested_iterations
+        # PYFS-008. The iteration-count judgment below reads an early stop
+        # as "the convergence threshold stopped the solver", and that
+        # inference holds only while the threshold is what can stop it.
+        # SOLVER_SET_FORCED_ITERATIONS turns the threshold off: the solver
+        # is told to run the full budget whatever the residual does. So
+        # under forced iterations an early stop means the opposite of
+        # convergence, because the one mechanism that could legitimately
+        # end the loop early was disabled. The field was parsed
+        # (LoadsReport.forced_iterations) and never consulted, so a run
+        # that stopped at 312 of a forced 500 was published CONVERGED,
+        # indistinguishable from one that met the threshold at 312.
+        #
+        # BEFORE THE LOG, since 0.24.0. This check sat below the log branch,
+        # which returns, so a collected log turned the refusal into
+        # COMPLETED_MAX_ITER or CONVERGED: a residual says how far the
+        # iteration it was printed at had come, and says nothing about the
+        # iterations a run that was told to do all of them never did.
+        # Completeness is established first and the residual judged after.
+        if stopped_early and report.forced_iterations:
+            return Assessment(
+                status=RunStatus.FAILED_INCOMPLETE_OUTPUT,
+                iterations=report.current_iteration,
+                error=(
+                    f"the solver stopped at iteration {report.current_iteration} of "
+                    f"{report.requested_iterations} with forced iterations enabled, "
+                    "so the convergence threshold was not what ended the loop: it "
+                    "was disabled. The loads file describes an unfinished solve. "
+                    "A solver log, which is found by content and does not have to be "
+                    "named, does not change this: a residual cannot stand in for "
+                    "iterations that were required and not run. Find why the solver "
+                    "stopped"
+                ),
+                **stamp,
+            )
         log_path = None
         if self.log_file is None:
             # AUTO-DETECTION BY CONTENT, on the same ground the loads
@@ -1736,6 +1771,28 @@ class LoadsAssessor:
                     error=f"solver log unusable: {error}",
                     **stamp,
                 )
+            # THE LOG AND THE EXPORT END AT ONE ITERATION, OR THE LOG IS NOT
+            # THIS EXPORT'S. A log is found by content or by name, and neither
+            # says it belongs to the loads file beside it: an export of
+            # iteration 312 was judged CONVERGED on the residual a log printed
+            # at iteration 1575. Both files print the solver's own counter, and
+            # the recorded pair of one run agrees on it, so a disagreement means
+            # the residual describes a state the coefficients were not read at.
+            if final.iteration != report.current_iteration:
+                return Assessment(
+                    status=RunStatus.FAILED_INCOMPLETE_OUTPUT,
+                    iterations=report.current_iteration,
+                    error=(
+                        f"the solver log {log_path.name} ends at iteration "
+                        f"{final.iteration} and the loads export {report_path.name} was "
+                        f"written at iteration {report.current_iteration}, so the residual "
+                        "is not the residual of the exported coefficients and no "
+                        "convergence judgment is made from it. The log is of another "
+                        "run or another point, or one of the two files was written "
+                        "before the solve ended; export both at the end of the same solve"
+                    ),
+                    **stamp,
+                )
             # PYFS-007. Every component is judged BEFORE they are combined,
             # and that order is the fix rather than a detail of it.
             #
@@ -1820,33 +1877,6 @@ class LoadsAssessor:
                 **stamp,
             )
         if mode == "steady":
-            stopped_early = report.current_iteration < report.requested_iterations
-            # PYFS-008. The iteration-count judgment below reads an early stop
-            # as "the convergence threshold stopped the solver", and that
-            # inference holds only while the threshold is what can stop it.
-            # SOLVER_SET_FORCED_ITERATIONS turns the threshold off: the solver
-            # is told to run the full budget whatever the residual does. So
-            # under forced iterations an early stop means the opposite of
-            # convergence, because the one mechanism that could legitimately
-            # end the loop early was disabled. The field was parsed
-            # (LoadsReport.forced_iterations) and never consulted, so a run
-            # that stopped at 312 of a forced 500 was published CONVERGED,
-            # indistinguishable from one that met the threshold at 312.
-            if stopped_early and report.forced_iterations:
-                return Assessment(
-                    status=RunStatus.FAILED_INCOMPLETE_OUTPUT,
-                    iterations=report.current_iteration,
-                    error=(
-                        f"the solver stopped at iteration {report.current_iteration} of "
-                        f"{report.requested_iterations} with forced iterations enabled, "
-                        "so the convergence threshold was not what ended the loop: it "
-                        "was disabled. The loads file describes an unfinished solve. "
-                        "Export the solver log (EXPORT_LOG) for a residual judgment, which "
-                        "is found by content and does not have to be named, or find "
-                        "why the solver stopped"
-                    ),
-                    **stamp,
-                )
             # forced_iterations is None when the loads footer does not print
             # the line; the count judgment then stands, because nothing says
             # the threshold was off. Stated rather than left implicit: the
@@ -2538,7 +2568,11 @@ def _leave_products(workspace: CampaignWorkspace, matrix_stem: str | None) -> st
     return None
 
 
-def _leave_sweep_table(workspace: CampaignWorkspace, matrix_stem: str | None) -> str | None:
+def _leave_sweep_table(
+    workspace: CampaignWorkspace,
+    matrix_stem: str | None,
+    target: str | Path | None = None,
+) -> str | None:
     """Write the campaign's sweep table under ``post/``, never raising.
 
     Under ``post/<matrix>/`` for a campaign converted from a run matrix,
@@ -2570,6 +2604,10 @@ def _leave_sweep_table(workspace: CampaignWorkspace, matrix_stem: str | None) ->
     workspace : CampaignWorkspace
         The managed campaign root whose manifest is tabulated and under
         whose ``post/`` folder the file lands.
+    target : str or Path, optional
+        Where the caller chose to have the table INSTEAD of the default
+        place. The table is written once: a chosen path replaces the default
+        one and is never a copy beside it.
 
     Returns
     -------
@@ -2595,7 +2633,9 @@ def _leave_sweep_table(workspace: CampaignWorkspace, matrix_stem: str | None) ->
     ``BaseException`` is NOT caught: a ``KeyboardInterrupt`` means the
     operator asked for the process to stop.
     """
-    target = workspace.sweep_dir(matrix_stem) / SWEEP_TABLE_NAME
+    target = (
+        Path(target) if target is not None else workspace.sweep_dir(matrix_stem) / SWEEP_TABLE_NAME
+    )
     try:
         target.parent.mkdir(parents=True, exist_ok=True)
         write_table(sweep_table(workspace, require_loads=False, matrix_stem=matrix_stem), target)
@@ -2625,6 +2665,7 @@ def run_campaign(
     name_from: str | None = None,
     quiet: bool = False,
     accept_unregistered_build: bool = False,
+    sweep_csv: str | Path | None = None,
 ) -> list[RunRecord]:
     """Run every point of a campaign, recording each in the manifest.
 
@@ -2728,6 +2769,11 @@ def run_campaign(
         across two builds no longer has to lie about which one produced
         a point. A case naming a build this mapping does not carry is
         refused before anything executes.
+    sweep_csv : str or Path, optional
+        Where to leave the campaign's sweep table instead of
+        ``post/<matrix stem>/`` under :data:`SWEEP_TABLE_NAME`. ONE table is
+        written either way: a chosen path replaces the default one, so the
+        command line's ``--sweep-csv`` never leaves a second copy.
 
     Returns
     -------
@@ -3049,25 +3095,44 @@ def run_campaign(
             # it later would mean a run id already printed and a folder
             # already read.
             point_extra: dict[str, object] = {}
+            continues: str | None = None
             try:
                 continuation = resolve_continuation(workspace, case, point, run_id=run_id)
             except (CampaignConfigError, WorkspaceError) as error:
-                records.append(
-                    RunRecord(
-                        run_id=run_id,
-                        sim_id=case.sim_id,
-                        point=dict(point),
-                        fs_version_requested=case_version,
-                        package_version=pyflightstream.__version__,
-                        script_sha256="",
-                        raw_flag=False,
-                        # FAILED_SCRIPT, because that is what happened: the
-                        # script could not be built. No new status, and no
-                        # guessing at one that may not exist.
-                        status=RunStatus.FAILED_SCRIPT,
-                        error=str(error),
-                    )
+                # RECORDED AND REPORTED, LIKE EVERY OTHER FAILED POINT. This
+                # branch put the record in the returned list alone: nothing in
+                # the manifest, nothing in `failures`, so a campaign whose
+                # continuation could not start returned as though it had
+                # succeeded, to any caller that did not read the list.
+                #
+                # UNDER AN ID OF ITS OWN WHEN THE POINT'S IS TAKEN, which it is
+                # whenever there was a run to continue: the stopped run holds
+                # the plain id, and the manifest refuses a second row under it.
+                # The stamped form is the one a continuation would have carried.
+                refused = RunRecord(
+                    run_id=(
+                        _unused_continuation_run_id(run_id, datetime.now(), recorded)
+                        if run_id in recorded
+                        else run_id
+                    ),
+                    sim_id=case.sim_id,
+                    point=dict(point),
+                    matrix_stem=campaign.matrix_stem,
+                    fs_version_requested=case_version,
+                    package_version=pyflightstream.__version__,
+                    manifest_schema=MANIFEST_SCHEMA,
+                    script_sha256="",
+                    raw_flag=False,
+                    # FAILED_SCRIPT, because that is what happened: the
+                    # script could not be built. No new status, and no
+                    # guessing at one that may not exist.
+                    status=RunStatus.FAILED_SCRIPT,
+                    error=str(error),
                 )
+                workspace.append_record(refused)
+                recorded.add(refused.run_id)
+                records.append(refused)
+                failures.append(refused)
                 continue
             if continuation is not None:
                 stamp = datetime.now()
@@ -3094,7 +3159,8 @@ def run_campaign(
                     RESTART_FROM_VARIABLE: str(source.resolve()),
                     RESTART_ITERATIONS_VARIABLE: str(continuation["iterations"]),
                 }
-                run_id = continuation_run_id(run_id, stamp)
+                run_id = _unused_continuation_run_id(run_id, stamp, recorded)
+                continues = str(continuation["continues"])
                 _say(
                     f"  -> continuing {continuation['continues']} for "
                     f"{continuation['iterations']} more step(s)",
@@ -3127,6 +3193,7 @@ def run_campaign(
                 workspace=workspace,
                 sim_dir=sim_dir,
                 assess=assess,
+                continues=continues,
             )
             # And as it ENDS, with the status, so the two lines bracket the
             # wait and a reader can see which point a warning between them
@@ -3158,7 +3225,7 @@ def run_campaign(
         problem = _leave_products(workspace, campaign.matrix_stem)
         if problem is not None:
             warnings.warn(problem, PyflightstreamWarning, stacklevel=2)
-        problem = _leave_sweep_table(workspace, campaign.matrix_stem)
+        problem = _leave_sweep_table(workspace, campaign.matrix_stem, sweep_csv)
         if problem is not None:
             # The one residual, stated rather than hidden: under
             # `-W error` this warning is promoted to an exception and
@@ -5107,6 +5174,26 @@ def continuation_run_id(run_id: str, stamp: datetime) -> str:
     return f"{head}/r{stamp.strftime(ARCHIVE_STAMP)}/{tag}"
 
 
+def _unused_continuation_run_id(run_id: str, stamp: datetime, recorded: Collection[str]) -> str:
+    """Return :func:`continuation_run_id`, numbered when the manifest holds that id.
+
+    The stamp resolves one second, and two rows of one point can fall inside it:
+    a refusal recorded and the attempt after its cause was fixed, or two
+    continuations that each stopped at once. The manifest refuses a second row
+    under one id, after the predecessor's outputs have already been archived, so
+    the id is numbered the way the archive numbers a folder that exists. The
+    point tag still ends it.
+    """
+    candidate = continuation_run_id(run_id, stamp)
+    if candidate not in recorded:
+        return candidate
+    head, _, tag = candidate.rpartition("/")
+    index = 2
+    while f"{head}.{index}/{tag}" in recorded:
+        index += 1
+    return f"{head}.{index}/{tag}"
+
+
 def resolve_continuation(
     workspace: CampaignWorkspace,
     case: SimCase,
@@ -5242,9 +5329,32 @@ def _latest_record_of_point(
     """
     latest = None
     for record in records:
+        if _is_a_continuation_that_never_started(record):
+            continue
         if record.sim_id == sim_id and record.run_id.endswith(f"/{name}"):
             latest = record
     return latest
+
+
+def _is_a_continuation_that_never_started(record: RunRecord) -> bool:
+    """Whether a record is `run_campaign`'s note that a continuation was refused.
+
+    Such a row says an attempt was made and why it could not start; it built no
+    script, archived nothing and touched no folder, so it is NOT the state of the
+    point and the run before it still is. Read as the latest run it would turn a
+    refusal whose remedy is "restore the saved simulation" into one that can
+    never be lifted, because the next attempt would find a FAILED run and be
+    told that a failed continuation is not retried.
+
+    It is told apart by what it lacks: every record `_execute_point` builds
+    names its recipe, including the four that fail before a script exists, and
+    this one reached no recipe.
+    """
+    return (
+        record.status is RunStatus.FAILED_SCRIPT
+        and not record.script_sha256
+        and record.recipe is None
+    )
 
 
 def _profile_of(executor: object) -> HpcProfile | None:
@@ -5296,6 +5406,7 @@ def _execute_point(
     workspace: CampaignWorkspace,
     sim_dir: Path,
     assess: OutcomeAssessor,
+    continues: str | None = None,
 ) -> RunRecord:
     """Take one point from sweep coordinates to its manifest record."""
     package_commit, package_dirty = package_vcs_state()
@@ -5314,6 +5425,10 @@ def _execute_point(
         "point_name": point_name(case, point),
         "sweep_name": sweep_name(case),
         "matrix_stem": campaign.matrix_stem,
+        # The run this one CONTINUES, in the base dict so that a continuation
+        # that fails says so as well: the chain is a fact about the attempt,
+        # not about its success. None for every point that continues nothing.
+        "continues": continues,
         "fs_version_requested": canonical,
         "package_version": pyflightstream.__version__,
         "package_commit": package_commit,

@@ -103,8 +103,16 @@ def test_goal024_collect_and_times_the_record_carries_the_times_to_the_manifest(
     (work / "loads.txt").write_text(
         (FIXTURES / "loads_steady_26.120.txt").read_text(encoding="utf-8"), encoding="utf-8"
     )
+    # THE LOG ENDS WHERE THE EXPORT ENDS (0.24.0). The two fixtures are of two
+    # runs, the export at iteration 312 and the log at 1575, and the assessor
+    # now refuses a log that is not of the export beside it. What this case
+    # asserts is unchanged; only the pairing is made one a single run writes.
     (work / "P9001-AL+000_log.txt").write_text(
-        (FIXTURES / "log_residuals_26.120.txt").read_text(encoding="utf-8"), encoding="utf-8"
+        (FIXTURES / "log_residuals_26.120.txt")
+        .read_text(encoding="utf-8")
+        .replace("\n1575 ", "\n312 ")
+        .replace("\n1574 ", "\n311 "),
+        encoding="utf-8",
     )
 
     report = collect_once(workspace, interval=0.0, sleep=_no_sleep)
@@ -113,7 +121,9 @@ def test_goal024_collect_and_times_the_record_carries_the_times_to_the_manifest(
     row = json.loads(workspace.manifest_path.read_text(encoding="utf-8"))[0]
     assert row["solver_run_time_s"] == pytest.approx(841.2), row
     assert row["log_file_used"] == "P9001-AL+000_log.txt", row
-    assert row["iterations"] == 1575 and row["residual"], row
+    # 312 and no longer 1575: the number was the OTHER run's last iteration,
+    # recorded against an export written at 312.
+    assert row["iterations"] == 312 and row["residual"], row
     # The initialisation time and the step count are None on THIS log, which
     # prints neither: the field is carried as None rather than as zero, which
     # is the rule the parser states.

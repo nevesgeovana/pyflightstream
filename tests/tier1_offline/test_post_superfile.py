@@ -562,6 +562,11 @@ def test_every_record_scalar_is_carried_or_excluded_on_purpose(tmp_path):
         # point was launched and not about the simulation, which is the
         # same reason `executor` and `argv` are here.
         "submission",
+        # 0.24.0. WHICH RUN THIS ONE CONTINUES: a run id, and so an index into
+        # the manifest rather than a fact about the simulation. It exists so
+        # that a reader of the MANIFEST can take the end of a continuation
+        # chain; a superfile row is already the point the stage selected.
+        "continues",
     }
     carried_by_the_campaign_sweep_table = {
         # FR-95, 0.17.0, and both for the same reason: a job's identity is

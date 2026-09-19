@@ -817,13 +817,21 @@ def _cmd_collect(args: argparse.Namespace) -> int:
         DEFAULT_WATCH_INTERVAL_S if args.watch_interval is None else args.watch_interval
     )
 
-    def _post(ws: CampaignWorkspace) -> None:
+    def _post(ws: CampaignWorkspace, matrix: str | None) -> None:
         # THE PRODUCTS ARE REBUILT ONLY WHERE SOMETHING WAS COLLECTED, which
         # `collect_and_post` decides: a rebuild ARCHIVES what it replaces, so
         # a watch that posted on every sweep would fill the archive with
         # copies of an unchanged answer.
+        #
+        # PER MATRIX, AND AS `post` DOES IT (0.24.0). This called `stage(ws)`:
+        # no matrix, so the stage selected the records that name none and left
+        # every named-matrix record out, which is every record a matrix run
+        # writes, and the command exited 0 having written nothing. And no
+        # `overwrite`, so where products of that matrix already stood, the
+        # second sweep of a watch among them, the stage refused them instead
+        # of archiving them as the paragraph above says it does.
         for stage in post_stages():
-            stage(ws)
+            stage(ws, overwrite=True, archive=True, matrix_stem=matrix)
 
     try:
         report = collect_and_post(
@@ -832,7 +840,7 @@ def _cmd_collect(args: argparse.Namespace) -> int:
             interval=interval,
             watch_interval=watch_interval,
             rounds=args.rounds,
-            post=_post if args.post else None,
+            post_matrix=_post if args.post else None,
         )
     except (WorkspaceError, CampaignConfigError) as error:
         print(str(error), file=sys.stderr)
@@ -1230,6 +1238,11 @@ def _cmd_run(args: argparse.Namespace, recipes: dict[str, str]) -> int:
             force_rerun=args.force_rerun,
             ignore_missing_families=_the_missing_family_choice(args),
             accept_unregistered_build=args.accept_unregistered_build,
+            # THE CHOSEN PATH GOES TO THE ONE WRITER. The library leaves the
+            # table on its own, so choosing a path here and writing it below
+            # left TWO: the default one from the library and the chosen one
+            # from this command, against a help text promising one.
+            sweep_csv=args.sweep_csv,
         )
     except CampaignErrors as error:
         # SEPARATED FROM THE OTHERS on purpose. Every arm below this one

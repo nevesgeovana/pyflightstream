@@ -177,8 +177,16 @@ def test_goal024_profile_log_collect_copies_the_scheduler_s_log_to_the_declared_
         (FIXTURES / "loads_steady_26.120.txt").read_text(encoding="utf-8"), encoding="utf-8"
     )
     # WHAT THE SCHEDULER WROTE, under its own name.
+    # THE LOG ENDS WHERE THE EXPORT ENDS (0.24.0). The two fixtures are of two
+    # runs, the export at iteration 312 and the log at 1575, and the assessor
+    # now refuses a log that is not of the export beside it. What this case
+    # asserts is unchanged; only the pairing is made one a single run writes.
     (work / "FTS9001.l3714205").write_text(
-        (FIXTURES / "log_residuals_26.120.txt").read_text(encoding="utf-8"), encoding="utf-8"
+        (FIXTURES / "log_residuals_26.120.txt")
+        .read_text(encoding="utf-8")
+        .replace("\n1575 ", "\n312 ")
+        .replace("\n1574 ", "\n311 "),
+        encoding="utf-8",
     )
 
     report = collect_once(workspace, interval=0.0, sleep=_no_sleep)
