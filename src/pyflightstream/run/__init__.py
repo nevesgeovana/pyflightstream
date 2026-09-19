@@ -4212,6 +4212,7 @@ def plan_campaign(
     case_builds = [_case_build(case, builds) for case in campaign.sims]
     recorded = {record.run_id for record in workspace.read_manifest()}
     points: list[PointPlan] = []
+    shared = _names_two_cases_share(campaign, workspace)
     for case, build in zip(campaign.sims, case_builds, strict=True):
         if build is not None:
             case_version = build.fs_version
@@ -4220,7 +4221,7 @@ def plan_campaign(
         else:
             case_version = campaign.fs_version
         workspace.create_sim(case.sim_id)
-        case_error = _plan_case_error(campaign, case, workspace, recipes)
+        case_error = _plan_case_error(campaign, case, workspace, recipes) or shared.get(case.sim_id)
         recipe = None
         if case_error is None:
             recipe = (
@@ -4528,6 +4529,68 @@ def _output_collision(
                 )
             seen[collected] = tag
     return None
+
+
+def _names_two_cases_share(campaign: Campaign, workspace: CampaignWorkspace) -> dict[str, str]:
+    """Return, per ``sim_id``, why a case renders an output name another case renders too.
+
+    :func:`_output_collision` ACROSS CASES (0.24.0), keyed the same way, by the
+    name collection files an output under. Each simulation collects into its
+    own folder, so nothing on disk is overwritten there. WHERE TWO CASES MEET
+    IS THE PRODUCTS FOLDER, which a campaign has one of: every per-point
+    product (sections, probes, plots, reductions, series) is named by the stem
+    of the point's loads file and carries no simulation id. The library's
+    default point name writes the flight condition alone, so two cases at one
+    condition (two geometries, two post-processing artifacts) render one stem,
+    and the second case's product archives the first one's and takes its key in
+    the products manifest.
+
+    The matrix command line names by ``{polar}``, which carries ``P<sim>-``,
+    and never meets this. A campaign authored in Python does, and is refused
+    HERE, at plan time, for BOTH cases, because neither is the one at fault.
+
+    A CAMPAIGN CONVERTED FROM A MATRIX IS LEFT ALONE (``matrix_stem`` set),
+    which is the scope the finding was accepted under: the matrix path is
+    untouched. Measured before it was decided, 2026-09-19: applied to every
+    campaign the rule blocked seven tests of ``test_matrix_run.py``, whose
+    two-row matrices state one condition twice under the library's default
+    template. That path has the same exposure when it is driven from Python
+    WITHOUT ``{polar}``, and it stays open, registered rather than taken here.
+
+    Empty when no two cases share a name. A case whose names cannot be
+    rendered is left to its own points, which report why.
+    """
+    if campaign.matrix_stem is not None:
+        return {}
+    owner: dict[str, tuple[str, str]] = {}
+    said: dict[str, str] = {}
+    for case in campaign.sims:
+        for point in case.sweep.points():
+            try:
+                _, names = _point_names(campaign, case, point, workspace)
+                tag = point_name(case, point)
+            except (NamingTemplateError, CampaignConfigError):
+                break
+            for declared in names:
+                collected = collection_name(declared)
+                first = owner.setdefault(collected, (case.sim_id, tag))
+                if first[0] == case.sim_id:
+                    continue
+                reason = (
+                    f"sims {first[0]!r} and {case.sim_id!r} both render the output name "
+                    f"{collected} (points {first[1]} and {tag}). Each simulation collects "
+                    "into its own folder, so nothing is overwritten there; the two meet in "
+                    "the campaign's ONE products folder, where every per-point product is "
+                    "named by the stem of its point's loads file and carries no simulation "
+                    "id, so the second case's tables would replace the first one's and take "
+                    "their place in products.json. Put the simulation in the name: declare "
+                    "the outputs with '{sim}' or '{polar}' (for example "
+                    "'loads_{sim}_{point}.txt'); the matrix command line names by '{polar}', "
+                    "which carries the simulation, and never meets this"
+                )
+                said.setdefault(first[0], reason)
+                said.setdefault(case.sim_id, reason)
+    return said
 
 
 def _staged_inputs_conflict(

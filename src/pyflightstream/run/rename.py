@@ -31,7 +31,15 @@ than an unrenamed one):
 * a record whose recorded point is not one of the row's points, which is a
   matrix edited since the run: renaming under the edited row would file old
   evidence under a name that means something else;
-* two points whose new names would collide;
+* a record whose recorded flight condition disagrees with the row as it reads
+  today (0.24.0): the name is written from what the run was GIVEN, the row
+  gives only the order, and a fixed Mach number edited since the run would
+  otherwise relabel the evidence of another condition;
+* two points whose new names would collide, which a run and its continuation
+  are not: they are two records of one folder;
+* a folder, a file or a script whose new name is already taken on disk, found
+  for EVERY move before the first one is made (0.24.0), and refused by the
+  rehearsal as well;
 * a SUBMITTED record whose folder would move, because the scheduler writes into
   the folder the descriptor named and this command cannot reach the job.
 
@@ -53,6 +61,7 @@ from pathlib import Path
 from typing import Any
 
 from pyflightstream.cases import (
+    POINT_AXIS_KEYS,
     CampaignConfigError,
     SimCase,
     point_name,
@@ -226,21 +235,78 @@ class RenameReport:
         )
 
 
-def _case_for_naming(row: MatrixRow) -> SimCase:
+#: The one condition key the matrix binder DERIVES rather than reads: a row that
+#: states an advance ratio or a rotor speed and no velocity gets the velocity
+#: they work out to, written into the recorded condition as this key. A record
+#: carrying it beside a row that states none is the binder's work and not an
+#: edited matrix.
+DERIVED_CONDITION_KEY = "TASmps"
+
+
+def _recorded_condition(record: Mapping[str, Any]) -> dict[str, float] | None:
+    """Return the flight condition a record RAN AT, or None where it recorded none.
+
+    None for a record written before the field existed, and for one that holds
+    an empty table: there is then nothing to name from but the row, which is
+    what every release before 0.24.0 did for every record.
+    """
+    stated = record.get("flight_condition")
+    if not isinstance(stated, Mapping) or not stated:
+        return None
+    try:
+        return {str(key): float(value) for key, value in stated.items()}
+    except (TypeError, ValueError):
+        return None
+
+
+def _condition_disagreements(row: MatrixRow, recorded: Mapping[str, float]) -> list[str]:
+    """Return, per variable, how today's row disagrees with what a record ran at.
+
+    THE AXES OF THE SWEEP ARE LEFT OUT, because a point's own value of them is
+    in the record's ``point`` and is checked there: on a Mach sweep each record
+    states ITS Mach number while the row's cell says ``sweep``, and that is
+    agreement. So is :data:`DERIVED_CONDITION_KEY` on a row that states none.
+    """
+    first = next(iter(row.sweep.points()), {})
+    of_the_point = {POINT_AXIS_KEYS.get(axis, axis) for axis in first}
+    today = {key: float(value) for key, value in row.flight_condition.items()}
+    said: list[str] = []
+    for key in sorted(set(today) | set(recorded)):
+        if key in of_the_point or today.get(key) == recorded.get(key):
+            continue
+        if key not in today:
+            if key != DERIVED_CONDITION_KEY:
+                said.append(f"it ran at {key} {recorded[key]!r} and the row states no {key} today")
+        elif key not in recorded:
+            said.append(f"the row states {key} {today[key]!r} today and it ran with no {key}")
+        else:
+            said.append(
+                f"it ran at {key} {recorded[key]!r} and the row states {key} {today[key]!r} today"
+            )
+    return said
+
+
+def _case_for_naming(row: MatrixRow, recorded: Mapping[str, float] | None = None) -> SimCase:
     """Build the case the NAMING functions read, and nothing more.
 
     A rename needs the row's declared condition, its order, its Mach number
     and its sweep; it needs no recipe, no geometry, no artifact and no
     FlightStream version. Building the full campaign would demand every one of
     them from a user who is renaming records that already ran.
+
+    THE VALUES ARE THE RECORD'S WHERE IT RECORDED THEM (0.24.0), and the row
+    gives the order, which no record carries. A name is a statement about the
+    run it names, so it is written from what that run was given and not from
+    what the row says today.
     """
+    condition = dict(row.flight_condition) if recorded is None else dict(recorded)
     return SimCase(
         sim_id=row.pol,
         aircraft=row.aircraft,
         description=row.description,
-        flight_condition=dict(row.flight_condition),
+        flight_condition=condition,
         condition_order=list(row.condition_order),
-        mach=row.flight_condition.get("MACH"),
+        mach=condition.get("MACH"),
         sweep=row.sweep,
         recipe=row.workflow or "rename",
         variables=dict(row.variables),
@@ -326,7 +392,12 @@ def _declared_by_point(record: Mapping[str, Any]) -> dict[str, list[str]]:
 #: The record fields that are IDENTITIES rather than paths: a tag in them is a
 #: point's name and never a file. Everything else that carries a name carries it
 #: as part of a path.
-IDENTITY_FIELDS = frozenset({"run_id", "job_id", "point_name", "sweep_name"})
+#:
+#: ``continues`` is one (0.24.0): it holds the ``run_id`` of the run a
+#: continuation continues. Read as a path it kept the predecessor's OLD id on a
+#: workspace named by the matrix, where no path rule matches a bare tag, and the
+#: chain stopped resolving the moment it was renamed.
+IDENTITY_FIELDS = frozenset({"run_id", "job_id", "point_name", "sweep_name", "continues"})
 
 #: Inside the submission block, the two mappings keyed BY POINT: their keys are
 #: identities and their values are declared output paths.
@@ -426,14 +497,65 @@ def _folder_of_the_old_tag(tag: str) -> str:
 
 
 def _rename_path(before: Path, after: Path) -> None:
-    """Move one path, refusing to write over something already there."""
+    """Move one path, refusing to write over something already there.
+
+    THE LAST LINE OF DEFENCE AND NOT THE CHECK. Every destination is checked in
+    the reading pass (:class:`_Destinations`), before the first move, so this
+    fires only when something appeared between that pass and this move. Until
+    0.24.0 it WAS the check, and its message said nothing else had been changed
+    while the paths before this one had already moved. It now says what is true.
+    """
     if after.exists():
         raise WorkspaceError(
-            f"{after} is already there, so renaming {before.name} onto it would destroy it. "
-            "Nothing else was changed; move it aside and run this again."
+            f"{after} appeared while the rename was running, so renaming {before.name} onto "
+            "it would destroy it. THE RENAME STOPPED HALFWAY: the paths before this one have "
+            "moved and runs.json was not rewritten, so the manifest names folders that are "
+            "no longer there. The manifest as it was is under archive/. Move the path aside "
+            "and run this again: the command reads where each point is now and finishes."
         )
     after.parent.mkdir(parents=True, exist_ok=True)
     before.rename(after)
+
+
+@dataclass
+class _Destinations:
+    """Every destination of one rename, checked in the READING pass (0.24.0).
+
+    A rename either completes or leaves the workspace as it was, and the only
+    way to hold that without a rollback is to know, before the first move, that
+    every move can land. Two things can stop one: something already at the
+    destination, and another move of this same rename bound for it.
+
+    ``now`` is where the destination is TODAY, which differs from where the
+    move will put it for a file inside a folder that moves first: the file
+    ``DP-<old>/<new stem>.txt`` is what occupies ``DP-<new>/<new stem>.txt``
+    once the folder has been renamed.
+    """
+
+    refusals: list[str] = field(default_factory=list)
+    _bound: dict[Path, Path] = field(default_factory=dict)
+
+    def claim(self, source: Path, final: Path, *, now: Path | None = None) -> bool:
+        """Register one move, recording why it cannot land if it cannot.
+
+        False when this very move is already registered, which is what two
+        records of one point are: a run and its continuation share a folder,
+        and that folder and each file in it move ONCE.
+        """
+        if self._bound.get(final) == source:
+            return False
+        if (final if now is None else now).exists():
+            self.refusals.append(
+                f"{final} is already there, so renaming {source.name} onto it would destroy "
+                "it. Move it aside and run this again."
+            )
+        elif final in self._bound:
+            self.refusals.append(
+                f"{source} and {self._bound[final]} would both be renamed to {final}, and "
+                "the second would destroy the first."
+            )
+        self._bound[final] = source
+        return True
 
 
 def _files_to_move(folder: Path, old_stem: str, new_stem: str) -> list[tuple[str, str]]:
@@ -451,12 +573,27 @@ def _plan_record(
     record: Mapping[str, Any],
     row: MatrixRow,
     report: RenameReport,
-    claimed: dict[tuple[str, str], str],
+    claimed: dict[tuple[str, str], tuple[str, str]],
 ) -> _Plan | None:
     """Work out what one record takes, or register the refusal that stops it."""
     sim_id = str(record.get("sim_id", ""))
     run_id = str(record.get("run_id", ""))
-    case = _case_for_naming(row)
+    # NAMED BY WHAT IT RAN AT, AND REFUSED WHERE THE ROW HAS MOVED (0.24.0). The
+    # point check below compares point tags, which carry the swept axes alone,
+    # so a FIXED variable edited after the run walked past it: a record of Mach
+    # 0.2 was renamed `M100...` because the row said 0.1 that day.
+    recorded = _recorded_condition(record)
+    if recorded is not None:
+        disagreements = _condition_disagreements(row, recorded)
+        if disagreements:
+            report.refusals.append(
+                f"record {run_id!r}: {'; '.join(disagreements)}. The matrix changed since "
+                f"the run, and the name of a run says what THAT run was given, so row {sim_id} "
+                "as it reads today cannot name it. Rename against the matrix that ran it, or "
+                "move that record aside."
+            )
+            return None
+    case = _case_for_naming(row, recorded)
     declared = _declared_by_point(record)
     moves: list[_PointMove] = []
     for tag, point, outputs in _recorded_points(record):
@@ -472,14 +609,26 @@ def _plan_record(
         except CampaignConfigError as error:
             report.refusals.append(f"record {run_id!r}: {error}")
             return None
+        # THE COLLISION IS BETWEEN FOLDERS, NOT BETWEEN RECORDS (0.24.0). A
+        # continuation is a record of its own OF THE SAME POINT as the run it
+        # continues: `<campaign>/sim_<id>/r<stamp>/<tag>`, one datapoint folder,
+        # the predecessor's files under `archive/<stamp>/` inside it. Keyed by
+        # the record, the two were refused as two points, and so was every
+        # workspace that held a continuation. Two records that are ALREADY in
+        # one folder lose nothing by moving together; what must not happen is
+        # two folders becoming one, so the key is the folder a record would
+        # move TO and the value is the folder it moves FROM. That reads a chain
+        # recorded before 0.24.0 exactly as it reads one carrying `continues`.
         key = (sim_id, new_name)
-        if key in claimed and claimed[key] != run_id:
+        if key in claimed and claimed[key][0] != tag:
             report.refusals.append(
-                f"records {claimed[key]!r} and {run_id!r} would both name a point "
-                f"{new_name!r} in simulation {sim_id}, and two points cannot share one folder."
+                f"records {claimed[key][1]!r} and {run_id!r} would both name a point "
+                f"{new_name!r} in simulation {sim_id}, from the folders "
+                f"{_folder_of_the_old_tag(claimed[key][0])} and {_folder_of_the_old_tag(tag)}, "
+                "and two points cannot share one folder."
             )
             return None
-        claimed[key] = run_id
+        claimed.setdefault(key, (tag, run_id))
         moves.append(
             _PointMove(
                 old_tag=tag,
@@ -551,7 +700,7 @@ def rename_workspace(
     report.records = len(raw)
     rows_by_stem: dict[str | None, dict[str, MatrixRow]] = {}
     plans: list[_Plan] = []
-    claimed: dict[tuple[str, str], str] = {}
+    claimed: dict[tuple[str, str], tuple[str, str]] = {}
 
     for record in raw:
         stem = record.get("matrix_stem")
@@ -577,6 +726,7 @@ def rename_workspace(
 
     rewritten: list[dict[str, Any]] = []
     pending: list[tuple[Path, Path]] = []
+    destinations = _Destinations()
     for plan in plans:
         entry = dict(plan.record)
         sim = workspace.sim_dir(str(plan.record.get("sim_id", "")))
@@ -597,17 +747,18 @@ def rename_workspace(
             # then find nothing there.
             inside = folder if folder.is_dir() else target
             files = _files_to_move(inside, move.old_stem, move.new_stem)
-            if folder.is_dir() and folder != target:
+            if folder.is_dir() and folder != target and destinations.claim(folder, target):
                 pending.append((folder, target))
                 report.changes.append(RenameChange("datapoint", folder.name, target.name))
             for before, after in files:
-                pending.append((target / before, target / after))
-                report.changes.append(RenameChange("file", before, after))
+                if destinations.claim(inside / before, target / after, now=inside / after):
+                    pending.append((target / before, target / after))
+                    report.changes.append(RenameChange("file", before, after))
         old_stem, new_stem = plan.script
         if old_stem and old_stem != new_stem:
             before_path = sim / str(plan.record.get("script_path"))
             after_path = before_path.with_name(f"{new_stem}{before_path.suffix}")
-            if before_path.is_file():
+            if before_path.is_file() and destinations.claim(before_path, after_path):
                 pending.append((before_path, after_path))
                 report.changes.append(RenameChange("script", before_path.name, after_path.name))
         for name, value in list(entry.items()):
@@ -617,6 +768,17 @@ def rename_workspace(
         entry["point_name"] = plan.new_name
         entry["sweep_name"] = plan.new_sweep
         rewritten.append(entry)
+
+    # EVERY DESTINATION IS KNOWN TO BE FREE BEFORE THE FIRST MOVE (0.24.0), and
+    # the rehearsal refuses what the run refuses. Until then the moves below ran
+    # in order and the first occupied destination stopped them halfway, with the
+    # manifest still naming the folders that had already gone.
+    if destinations.refusals:
+        report.refusals.extend(destinations.refusals)
+        raise WorkspaceError(
+            "this workspace cannot be renamed as it stands, and nothing was changed:\n  "
+            + "\n  ".join(report.refusals)
+        )
 
     # THE REHEARSAL REPORTS WHAT THE RUN WOULD DO, all of it. The first writing
     # returned here, so a dry run named no manifest archive and no plan rewrite
