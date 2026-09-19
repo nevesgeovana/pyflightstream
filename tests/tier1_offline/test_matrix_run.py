@@ -4433,10 +4433,16 @@ def test_a_rotor_row_run_through_the_workflow_leaves_its_reductions_beside_the_p
     # AND, since 0.24.0, the axes block of the unsteady polar: the stub's plots hold
     # no force or moment of the global frame, so the block is not written and says so.
     assert sorted(manifest["skipped"]) == [
+        # 0.25.0 B05: a rotor table that cannot be planned says so; this row's
+        # reference declares no blade families, and the absence was silent.
+        "polars/7001#rotor_tables",
         "polars/P7001_M200RE1177AL-020_uns_avg.csv#axes",
         "probes/M200RE1177AL-020_per_blade.csv",
-        "probes/M200RE1177AL-020_probes.csv",
     ]
+    # 0.25.0 F01: this row's artifact declares no [[probes]], and an unsteady
+    # point no longer takes the probe-points route, so no probes table is owed
+    # and none is named. A point that DOES declare probes and gets no history
+    # is skipped with its reason (test_f01_probe_source.py).
     assert "families_blades" in manifest["skipped"]["probes/M200RE1177AL-020_per_blade.csv"]
 
 

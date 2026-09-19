@@ -5223,6 +5223,24 @@ def _sim_products(
                         written_names[field.relative_to(out).as_posix()] = {
                             "runs": sources[point.name]
                         }
+                    elif pproc.probes:
+                        # F01 REVIEW: the writer returns None when the history
+                        # carries no whole probe group, and until this line the
+                        # table was neither written nor named -- a product lost
+                        # in silence, where the probe-points route left a skip.
+                        # A point whose artifact declares NO probe at all is not
+                        # missing a product and gets no skip: this arm is only for
+                        # a pproc that asked for probes and got no table.
+                        declared = _probe_parameters(pproc, drawn_only=legacy_profiles)
+                        skipped[probe_relative] = (
+                            "no probes table: the plots history of this unsteady point carries "
+                            f"no whole probe group for "
+                            f"{', '.join(declared) if declared else 'no declared parameter'}"
+                            f" over {len(probe_positions)} recorded position(s). An unsteady row "
+                            "samples its probes through fluid plots, so the history is the only "
+                            "source; declare the same parameters on every [[probes]] entry and run "
+                            "again if this point should have one."
+                        )
                 _point_reductions(
                     done,
                     plans[point.name],

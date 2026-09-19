@@ -343,7 +343,7 @@ SOLVER_TIME_AVERAGING:
     Averages the surface flow properties over a window of unsteady
     time iterations, given as the first and last iteration to
     include. First documented by the 26.122 edition.
-    UNVERIFIED: SRC-750 p.353 calls each bound an "unsteady time iteration"
+    UNVERIFIED: SRC-750 p.353 names each bound an unsteady time iteration
     without explicitly distinguishing time steps from inner iterations.
     The pproc conversion uses inclusive time steps pending licensed C01
     verification; the export header iteration counter counts inner iterations

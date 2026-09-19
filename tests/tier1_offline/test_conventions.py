@@ -127,6 +127,8 @@ _DIMENSIONLESS_OR_DEBT = {
     # suffix would rename a field she named.
     "min_revolutions",  # PhaseLockedSpec.min_revolutions
     "last_revolutions_avg",  # PhaseLockedSpec.last_revolutions_avg
+    # 0.25.0 F02: the same count of turns, for the surface time average.
+    "last_revs",  # SurfaceTimeAveragingSpec.last_revs
     # Unit DIRECTIONS in the reference frame, not lengths (FR-100).
     "axes",  # FramePlacement.axes
     "reference",  # RunRecord: the block by column name, SREF m2 and CREF/BREF/XMOM..ZMOM m

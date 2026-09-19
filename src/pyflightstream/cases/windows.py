@@ -30,6 +30,8 @@ import copy
 import math
 from collections.abc import Mapping
 
+from pyflightstream.cases import CampaignConfigError
+
 __all__ = [
     "LAST_ITERS_AVG",
     "LAST_REVS_AVG",
@@ -127,17 +129,18 @@ def surface_averaging_window(
 ) -> dict[str, object]:
     """Resolve the solver surface window using the matrix averaging clock.
 
-    Bounds are inclusive time steps: SRC-750 p.353 says "unsteady time
-    iteration". The distinction from inner iterations awaits licensed
-    verification. This is the sole conversion to the command's bounds.
+    Bounds are inclusive time steps: SRC-750 p.353 names each bound an
+    unsteady time iteration without distinguishing time steps from inner
+    iterations, which awaits licensed verification. This is the sole
+    conversion to the command's bounds.
     """
     if (last_revs is None) == (last_iters is None):
-        raise ValueError("state exactly one of last_revs or last_iters")
+        raise CampaignConfigError("state exactly one of last_revs or last_iters")
     key = LAST_REVS_AVG if last_revs is not None else LAST_ITERS_AVG
     value = last_revs if last_revs is not None else last_iters
     span = averaging_span({key: value}, last_step=last_step, per_revolution=per_revolution)
     if span is None:
-        raise ValueError(
+        raise CampaignConfigError(
             "surface time averaging requires a run clock; last_revs requires a rotor clock"
         )
     result: dict[str, object] = {

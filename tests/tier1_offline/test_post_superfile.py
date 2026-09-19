@@ -503,6 +503,11 @@ def test_every_record_scalar_is_carried_or_excluded_on_purpose(tmp_path):
         "reductions",
         "solver_setup",
         "point",
+        # 0.25.0 F02: the surface averaging window is a BLOCK (its bounds, their
+        # unit, the revolutions or iterations asked for), not a scalar, and the
+        # products manifest and the provenance state it beside each averaged
+        # surface export, which is where a reader of that export looks.
+        "surface_time_averaging",
     }
     carried_under_the_matrix_or_polar_name = {
         "description",
