@@ -1,15 +1,14 @@
 """Move the polar products a workspace already holds onto the NAMED group form.
 
 v0.23.0 item 14 renames a group's product file from the numbered suffix `_g01`
-to the group's own name, and the owner's standing rule of 2026-09-17 is that
-"qualquer migração de nome precisa vir com o rename quando aplicável". This is
-that rename.
+to the group's own name, and a standing rule is that any name migration ships
+with the rename of existing files wherever one applies. This is that rename.
 
-IT ARCHIVES BEFORE IT MOVES, and the order is the whole safety property. The
-goal holds her recorded workspaces as untouchable and names this as the one
-operation allowed to touch them, so it has to be recoverable: a rename that
-moved first and archived after would leave a window in which neither copy is
-the one she had. A copy lands under `archive/` with a timestamp, and only then
+IT ARCHIVES BEFORE IT MOVES, and the order is the whole safety property.
+Recorded workspaces are treated as untouchable and this is the one operation
+allowed to touch them, so it has to be recoverable: a rename that moved first
+and archived after would leave a window in which neither copy is the one the
+user had. A copy lands under `archive/` with a timestamp, and only then
 does anything move.
 
 WHAT IT DOES NOT DO, said here rather than discovered: it does not delete
@@ -40,9 +39,9 @@ class RenamedProduct:
     ``archived`` is None when no copy was written -- under ``dry_run``, where
     nothing moved at all, and under ``archive=False``, where the move was made
     without one. It carried the path the copy WOULD have taken until 0.23.0's
-    release round, so a user checking her archive existed before trusting a
+    release round, so a user checking that the archive existed before trusting a
     migration of irreplaceable files was sent to a folder that was never going
-    to be there, with nothing to tell her which of the two reasons applied.
+    to be there, with nothing to say which of the two reasons applied.
     """
 
     before: Path
@@ -174,7 +173,7 @@ def unmapped_group_numbers(root: str | Path, groups: Mapping[int, str]) -> dict[
     guess, which is the right behaviour and was the whole of it: nothing said
     which numbers those were. A user maps ``{1, 2}``, forgets `_g03`, sees the
     products that moved, and concludes the migration is done. Nothing would ever
-    tell her otherwise.
+    say otherwise.
 
     So the report is its own call, and it takes the same mapping as the
     migration so the two answer about the same thing. Run it before the

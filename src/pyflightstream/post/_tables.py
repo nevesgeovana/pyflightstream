@@ -36,9 +36,9 @@ from pyflightstream.post.axes import blade_azimuth_deg
 ADVANCE_RATIO_COLUMN = "J"
 
 #: EVERY flight-condition variable a product states, so a reader holding one
-#: file can tell what it is a file OF. The owner's rule of 2026-09-17: "todos
-#: os arquivos gerados no post precisam carregar todas as variáveis de flight
-#: condition, se não não da para saber do que se trata".
+#: file can tell what it is a file OF. The rule: every file the post stage
+#: writes carries every flight-condition variable, because without them nobody
+#: can tell what the file is about.
 #:
 #: `ALPHA`, `BETA`, `MACH` and `RE` are inside the twenty-four coefficient
 #: columns for the family that carries those, so the polar states only the
@@ -65,8 +65,8 @@ FLIGHT_CONDITION_COLUMNS: tuple[str, ...] = (
     ADVANCE_RATIO_COLUMN,
 )
 
-#: The reference LENGTHS every product states, the owner's rule of the same
-#: day: "todos precisam carregar tambem os comprimentos de referencia". A
+#: The reference LENGTHS every product states, by the companion rule: every
+#: file carries the reference lengths as well. A
 #: coefficient without the length it was normalised by is a number nobody can
 #: check, and two of the four product families carried no length at all until
 #: 0.23.0.
@@ -182,8 +182,8 @@ def context_row(
 
 
 #: What tells one sections ROW from another, in front of the condition every
-#: row of the file shares. v0.23.0 item 13, on the owner's reading of one of
-#: her own files: `POINT` carried the polar's NAME, which the file name already
+#: row of the file shares. v0.23.0 item 13, found by reading a real production
+#: file: `POINT` carried the polar's NAME, which the file name already
 #: carries, so the column restated the one fact a reader holds before opening
 #: the file while the two facts that vary down the table were nowhere. On an
 #: unsteady run every row then looked identical apart from its position.
@@ -254,14 +254,14 @@ _DECIMALS = 5
 #: does-not-apply EXCEPT in the probes spine of a pre-0.16.0 run, where it
 #: means the record that would have said is not there.
 #:
-#: THAT EXCEPTION IS CARRIED FOR COMPATIBILITY and is the owner's to close:
-#: refusing such a table instead would take a product away from a campaign
-#: that already happened, which is why it was never refused. The alternative,
-#: a third token meaning "not recorded", is a decision about her file format
-#: and is not taken here.
+#: THAT EXCEPTION IS CARRIED FOR COMPATIBILITY and remains open: refusing such
+#: a table instead would take a product away from a campaign that already
+#: happened, which is why it was never refused. The alternative, a third token
+#: meaning "not recorded", is a change to the product file format and is not
+#: taken here.
 #:
 #: ONE TOKEN IN THE CSV PRODUCTS, and the scope word is load-bearing. The
-#: owner's rule of 2026-09-17 is *"quando nao se aplica, usa sempre NA"*, and
+#: rule is that where a value does not apply the token is always `NA`, and
 #: it is written here with the boundary the rule's REASON gives it: a second
 #: spelling costs something exactly where a reader PARSES, which is the
 #: products. The probes table's `STEP` said `-` on a steady row until 0.23.0,
@@ -270,8 +270,9 @@ _DECIMALS = 5
 #:
 #: `-` WAS A LIVE SENTINEL OUTSIDE THE PRODUCTS UNTIL 2026-09-18, and the
 #: paragraph that stood here listed the five surfaces that contradicted this
-#: rule and then left the question open, because converging them is her file
-#: format and was hers to decide. SHE DECIDED IT: *"Converge tudo pra NA"*.
+#: rule and then left the question open, because converging them changes a
+#: file format users already read. IT IS DECIDED: every surface converges on
+#: `NA`.
 #:
 #: The five were the printed plan and cost table (`run/__init__`, FR-82), the
 #: QA physics, drift and CLI tables, and `cases.matrix.UNSTATED_CELL`. All five

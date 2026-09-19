@@ -428,22 +428,21 @@ WINDOW_REVOLUTIONS_VARIABLE = "WINDOW_REVOLUTIONS"
 
 #: ITEM 16: THE ONE WINDOW, stated on the MATRIX ROW, one key per run type.
 #:
-#: The owner's decision of 2026-09-18: *"fica na matriz e e input obrigatorio de
-#: unsteady_rotor, para unsteady apenas, fica last_iters_avg. Eu quero isso na
-#: matriz por conversar diretamente com setup temporal."*
+#: The window lives on the matrix and is a mandatory input of `unsteady_rotor`
+#: (`last_revs_avg`); for plain `unsteady` the key is `last_iters_avg`.
 #:
-#: ON THE ROW AND NOT IN THE PPROC, and her reason is better than tidiness: the
+#: ON THE ROW AND NOT IN THE PPROC, and the reason is better than tidiness: the
 #: window converses with the TEMPORAL SETUP, and `DELTA_TIME`, `TIME_ITERATIONS`
 #: and `RPM` are all on the same row. A window in the pproc would sit apart from
 #: the quantities that give it a length.
 #:
-#: `last_revs_avg` ACCEPTS A FLOAT, which she stated explicitly: one and a half
-#: revolutions is a window a reader can mean.
+#: `last_revs_avg` ACCEPTS A FLOAT, deliberately: one and a half revolutions is
+#: a window a reader can mean.
 #:
 #: IT IS THE SAME WINDOW FOR EVERY UNSTEADY PRODUCT of the point -- the POLAR,
-#: the time average and `per_blade` -- which is the whole of item 16. Her words,
-#: 2026-09-18: *"a media per_blade usa a mesma info de last_revs e last_iters
-#: que o unsteady plots"*. Two windows put a difference in the fourth digit that
+#: the time average and `per_blade` -- which is the whole of item 16: the
+#: `per_blade` average uses the same `last_revs_avg` or `last_iters_avg` as the
+#: unsteady plots. Two windows put a difference in the fourth digit that
 #: no reader can attribute to anything.
 LAST_REVS_AVG_VARIABLE = "LAST_REVS_AVG"
 LAST_ITERS_AVG_VARIABLE = "LAST_ITERS_AVG"
@@ -3288,8 +3287,8 @@ def per_blade_window(*, last_step: int, blades: int, period_steps: int) -> tuple
     stretch of the history and blade 4 from another. Any difference between two
     blades then mixes a real azimuthal difference with a difference in WHEN
     they were sampled, and nothing in the file says which is which. One window
-    removes the second cause entirely, which is the owner's own reading:
-    "mesmo pro wheel, faz sentido olhar todas as blades na mesma janela".
+    removes the second cause entirely: even on a wheel, every blade is read over
+    the same window.
 
     The blades are still told apart -- by their AZIMUTHS, which
     :func:`pyflightstream.post.unsteady.per_blade_rows` writes at both ends of
@@ -3316,12 +3315,13 @@ def phase_locked_gate(
     CALLER, so a pproc declaring `min_revolutions` got a phase-locked reduction
     whatever the row actually turned.
 
-    HER RULE HAS TWO HALVES and the second is the one a wiring gets wrong:
-    "se a especificacao da matriz bater esse numero minimo, o phase_locked e
-    gerado", and "nao ter o rev min nao recusa a polar, so nao gera o
-    phase_locked". A short run is SKIPPED WITH A REASON and never refused --
-    losing a polar because a rotor did not turn long enough is taking a product
-    away from a campaign that already happened.
+    THE RULE HAS TWO HALVES and the second is the one a wiring gets wrong: if
+    the matrix row reaches the minimum number of revolutions, the phase-locked
+    reduction is generated; and falling short of that minimum does not refuse
+    the polar, it only skips the phase-locked reduction. A short run is SKIPPED
+    WITH A REASON and never refused -- losing a polar because a rotor did not
+    turn long enough is taking a product away from a campaign that already
+    happened.
 
     ABSENT IS NOT ZERO. A pproc saying nothing about `phase_locked` got one
     before this release and gets one now, so the gate changes nothing for a
@@ -3561,12 +3561,12 @@ def _stated_blade_steps(case: SimCase, per_revolution: float) -> int | None:
 
     `LAST_ITERS_AVG` IS HONOURED HERE TOO, AND IT WAS NOT. This read only the
     revolutions key and returned None otherwise, so an `unsteady` row stating
-    `last_iters_avg` -- her designated key for that run type -- had its POLAR and
+    `last_iters_avg` -- the designated key for that run type -- had its POLAR and
     time average use the stated window while `per_blade` fell back to the last
     complete revolution. That is exactly the fourth-digit disagreement item 16
     exists to end, on the run type the item's own key was designed for, and the
     change log claimed the opposite. The V&V lens of the release round found it;
-    every case I had written passed `last_revs_avg`.
+    every test case then passed `last_revs_avg`.
 
     A count of ITERATIONS is already in steps and is the same number for every
     rotor, which is the honest reading of what such a row asked for.
@@ -3588,18 +3588,18 @@ def _averaging_window(
 ) -> tuple[tuple[int, int], str] | None:
     """Return the window the ROW states for averaging, and the sentence that says so.
 
-    Item 16. The owner's decision of 2026-09-18: the averaging window is a MATRIX
-    input, `last_revs_avg` on an `unsteady_rotor` row and `last_iters_avg` on an
-    `unsteady` one, and it is the SAME window for every unsteady product of the
-    point -- the POLAR, the time average and `per_blade`.
+    Item 16. The averaging window is a MATRIX input, `last_revs_avg` on an
+    `unsteady_rotor` row and `last_iters_avg` on an `unsteady` one, and it is
+    the SAME window for every unsteady product of the point -- the POLAR, the
+    time average and `per_blade`.
 
-    `last_revs_avg` TAKES A FLOAT, which she stated explicitly. One and a half
-    revolutions is a window a reader can mean, and rounding it to two would
+    `last_revs_avg` TAKES A FLOAT, deliberately. One and a half revolutions is
+    a window a reader can mean, and rounding it to two would
     silently average over a third more history than the row asked for.
 
     RETURNS None WHEN THE ROW STATES NEITHER, so the caller can fall back to the
     retired `WINDOW_*` spellings for a matrix written before this release. That
-    fallback is the whole of the migration: her existing rows keep binding, and
+    fallback is the whole of the migration: existing rows keep binding, and
     the deprecation warns rather than refuses.
 
     A ROW THAT STATES REVOLUTIONS WITHOUT A CLOCK gets None rather than a guess.
@@ -4781,9 +4781,9 @@ def _family_indices(
     be read by the solver as the default and the preset asked for something else.
 
     ONE RULE FOR EVERY PER-FAMILY LIST, not one copy per list. This was written
-    for `vorticity_drag_families` alone and generalised when the owner added
-    `axial_separation_families` on 2026-09-18 with the words "mesma regra do
-    vorticity". Two copies of this resolution would drift on the day one of them
+    for `vorticity_drag_families` alone and generalised when
+    `axial_separation_families` was added under the same rule as the vorticity
+    list. Two copies of this resolution would drift on the day one of them
     learned something about a mesh the other did not, and every one of them
     answers the same question: which boundaries of the opened geometry does this
     family list name?
@@ -4852,8 +4852,8 @@ def _vorticity_indices(case: SimCase, script: Script) -> list[int] | None:
 def _axial_separation_indices(case: SimCase, script: Script) -> list[int] | None:
     """Resolve the axial flow separation list from the preset's families.
 
-    Her instruction of 2026-09-18: "adiciona axial_separation_families no setup,
-    mesma regra do vorticity". It had been reachable only as a helper keyword
+    `axial_separation_families` is a setup key and follows the same rule as
+    `vorticity_drag_families`. It had been reachable only as a helper keyword
     that no campaign path passed -- the API-only shape this release exists to
     catch, one level below the products.
 
@@ -8978,7 +8978,7 @@ def _build_continuation(
 ) -> None:
     """Continue a march the wall clock stopped, from the simulation it saved.
 
-    HER MEASUREMENT OF 2026-09-13, and the whole shape rests on it: the
+    A MEASURED SOLVER BEHAVIOUR, and the whole shape rests on it: the
     solver DOES resume an unsteady march from a saved file, picking up
     where it stopped and running the new iteration count it is given. That
     is what makes this a CONTINUATION rather than a re-march with a better
@@ -9067,7 +9067,7 @@ def _unsteady_actions(
 ) -> None:
     """Register the action pairs this row needs, in creation order.
 
-    TWO PAIRS AND HER NUMBERING OF 2026-09-12. The counter is (1) and the
+    TWO PAIRS AND A FIXED NUMBERING. The counter is (1) and the
     exports script is (2); the wall clock is (3) and the stop script is
     (4). A row that states no export threshold registers no first pair, so
     the clock pair takes (1) and (2): the positions are what the row asks
@@ -9988,8 +9988,8 @@ CONVERTER_PREFIX = "matrix_"
 def _require_the_averaging_window(case: SimCase, name: str) -> None:
     """Refuse an unsteady row that states no averaging window (0.24.0).
 
-    The definitions page says it in the owner's words: the window "fica na matriz
-    e e input obrigatorio". 0.23.0 did not refuse. A row without the key planned,
+    The definitions page states it: the window lives on the matrix and is a
+    mandatory input. 0.23.0 did not refuse. A row without the key planned,
     ran, and then took the STEADY route at post: group polars read off the LAST
     TIME STEP under the steady names, beside a time average over a window the
     package had defaulted, with nothing in either file saying which was which.

@@ -822,18 +822,16 @@ def swept_polar_file_name(
     return f"{sweep_file_stem(sim, name)}_{group_token(group)}{suffix}"
 
 
-#: The six coefficients a rotor table carries, in the order the owner named
-#: them on 2026-09-17: "J, CT, CQ, CP, ETA, ETAW (eficiência no eixo do
-#: vento) para cada rotor".
+#: The six coefficients a rotor table carries, in this order, for each rotor:
+#: J, CT, CQ, CP, ETA and ETAW (the efficiency in wind axes).
 ROTOR_COEFFICIENT_COLUMNS: tuple[str, ...] = ("J", "CT", "CQ", "CP", "ETA", "ETAW")
 
 
 def rotor_table_alias_line(alias: str) -> str:
     """Return the first line of a rotor table: the rotor's alias, alone.
 
-    v0.23.0 item 18, the owner's rule of 2026-09-17: the alias is written on the
-    first line "para saber qual grupo e' aquele quando tiver sido carregado por
-    script".
+    v0.23.0 item 18: the alias is written on the first line so that a script
+    that has loaded the table can tell which group it belongs to.
 
     WHY THE FILE NAME IS NOT ENOUGH, which is the whole reason this exists. A
     script that has already LOADED the file no longer has its name: it holds an
@@ -861,9 +859,9 @@ def rotor_table_alias_line(alias: str) -> str:
 def rotor_coefficient_columns(alias: str) -> tuple[str, ...]:
     """Return the rotor coefficient columns of ONE rotor, suffixed with its alias.
 
-    Her constraint, and it is physical rather than cosmetic: "esses coefs fazem
-    sentido físico apenas para um rotor, não vários juntos". Two rotors summed
-    into one CT is not a worse CT, it is not a CT at all -- the diameters and
+    The constraint is physical rather than cosmetic: these coefficients have a
+    physical meaning for one rotor only, never for several together. Two rotors
+    summed into one CT is not a worse CT, it is not a CT at all -- the diameters and
     the speeds that normalise it are different numbers. The alias in every
     column name is what makes summing them impossible by accident.
     """
@@ -882,16 +880,16 @@ class RotorShaftLoads:
     that same stream; it is kept because it is a fact a reader of the table may
     want, and it is NO LONGER what `ETAW` is computed from.
 
-    WHY BOTH, AND WHY THE ANGLE IS NOT ENOUGH. `ETAW` was `ETA * cos(theta)`
-    until the owner corrected it on 2026-09-18. A cosine projects the SHAFT
-    direction and therefore keeps only the thrust that lies along the shaft --
+    WHY BOTH, AND WHY THE ANGLE IS NOT ENOUGH. `ETAW` was formerly
+    `ETA * cos(theta)`, and that was wrong. A cosine projects the SHAFT direction
+    and therefore keeps only the thrust that lies along the shaft --
     it discards every component of the rotor's force that does not, which on an
-    installed rotor is exactly the part her definition keeps. Her words:
+    installed rotor is exactly the part the definition keeps. The definition:
 
-        "[Fx_rotor_axis Fy_rotor_axis Fz_rotor_axis] * rotacao^T(eixo motor ->
-        eixo corpo airframe) * rotacao(alpha) = Fx_W"
+        [Fx_rotor_axis Fy_rotor_axis Fz_rotor_axis] * R^T(rotor axes ->
+        airframe body axes) * R(alpha) = Fx_W
 
-    and, asked, both alpha AND beta by the AIAA axis convention, with `ETAW`
+    with both alpha AND beta applied by the AIAA axis convention, and `ETAW`
     still a dimensionless efficiency.
     """
 
@@ -948,10 +946,11 @@ def rotor_shaft_loads(
     `torque_nm` since this release opened and nothing computed them, so the
     coefficients were a formula with an empty socket.
 
-    NO RE-RUN IS NEEDED, which is what puts this inside the owner's acceptance
-    rule. Everything here is read from what a finished campaign already holds:
-    the loads export's per-surface `Cx, Cy, Cz, CMx, CMy, CMz`, the reference
-    area, length and MOMENT POINT, and the rotor's hub, diameter and shaft.
+    NO RE-RUN IS NEEDED, which is what puts this inside the release's acceptance
+    rule: an item that requires re-running the solver is not ready. Everything
+    here is read from what a finished campaign already holds: the loads export's
+    per-surface `Cx, Cy, Cz, CMx, CMy, CMz`, the reference area, length and
+    MOMENT POINT, and the rotor's hub, diameter and shaft.
 
     THE MOMENT TRANSFER IS THE ONE STEP THAT IS NOT ARITHMETIC. The export's
     moments are about the moment reference point; a rotor's torque is about its
@@ -962,8 +961,8 @@ def rotor_shaft_loads(
 
     That is elementary statics rather than a convention, so it is implemented
     rather than asked: choosing the other reading reports a torque no rotor
-    produces. What stays the owner's is the DEFINITION of `ETAW`, flagged where
-    it is computed, and physical validation, which needs a licensed run.
+    produces. The DEFINITION of `ETAW` is not made here: it is stated where it is
+    computed, in :func:`rotor_coefficients`.
 
     ONLY THE ROTOR'S OWN FAMILIES ARE SUMMED. The airframe sits in the same
     table, and a rotor's thrust is its own -- which is the same reason item 6
@@ -1195,26 +1194,24 @@ def rotor_coefficients(
     produces thrust and absorbs torque and no useful propulsive power, so any
     number there is an artifact of the algebra rather than a measurement. `CT`
     and `CQ` are still real and still written. The static measure is a figure
-    of merit, which by the owner's decision of 2026-09-17 the package does not
-    choose: "o usuário define uma se ele for rodar estático".
+    of merit, which the package does not choose: a user who runs a static
+    point defines one.
 
-    `ETAW` IS THE OWNER'S DEFINITION AND SHE CORRECTED IT ON 2026-09-18. It was
+    `ETAW` IS DEFINED AS A ROTATION CHAIN, NOT A COSINE. It was formerly
     implemented as the thrust component along the free stream -- `ETA` times the
-    cosine of the shaft angle -- and this paragraph asked her to confirm that.
-    She did not: she said it was wrong and gave the form, and the flag is
-    replaced by the answer rather than left standing beside it.
+    cosine of the shaft angle -- and that form was wrong. The definition is:
 
         [Fx_rotor_axis Fy_rotor_axis Fz_rotor_axis]
-            * rotacao^T(eixo motor -> eixo corpo airframe)
-            * rotacao(alpha)      -> Fx_W
+            * R^T(rotor axes -> airframe body axes)
+            * R(alpha)      -> Fx_W
 
-    with, asked directly, BOTH alpha and beta by the AIAA axis convention, and
+    with BOTH alpha and beta applied by the AIAA axis convention, and
     `ETAW` remaining a dimensionless efficiency.
 
     WHY THE COSINE WAS WRONG AND NOT MERELY IMPRECISE. A cosine of the shaft
     angle projects the SHAFT and keeps only what lies along it, so every
     component of the rotor's force that is off the shaft is discarded -- which
-    on an installed rotor is exactly the part her chain preserves. It is a
+    on an installed rotor is exactly the part the rotation chain preserves. It is a
     scalar where the physics is a vector, and the two agree only when the shaft
     and the stream are already aligned, which is the case that needs no
     correction.
@@ -2733,9 +2730,9 @@ def _probe_spine(
     the point it sampled; the recorded position then supplies only the
     frame NAME, which no export carries at all.
 
-    THE STEP OF A STEADY ROW IS ``NA`` AND WAS ``-`` UNTIL 0.23.0. The owner's
-    rule of 2026-09-17 is one sentence -- *"Quando nao se aplica, usa sempre
-    NA"* -- and the technical-writing lens had just measured why it matters:
+    THE STEP OF A STEADY ROW IS ``NA`` AND WAS ``-`` UNTIL 0.23.0. The rule is
+    one sentence -- where a value does not apply, the token is always ``NA`` --
+    and the technical-writing lens had just measured why it matters:
     a steady probes row read ``FRAME=NA`` beside ``STEP=-``, two different
     tokens for one meaning in one row, because ``-`` is non-blank and passed
     the funnel untouched. A reader then has to learn a second token and cannot
@@ -3723,11 +3720,11 @@ def _matrix_window(matrix_row: MatrixRow | None, record: object) -> tuple[int, i
     `window_stated` flag at all, so its polar fell back to the native
     last-time-step export. Both silently.
 
-    THE OWNER'S ACCEPTANCE RULE FOR THIS WHOLE RELEASE, in her own words: *"eu ja
-    tenho simulacoes prontas, quero refazer so o pproc, e isso inclui Windows e
-    HPC. Item que exige re-run nao esta pronto."* A window she cannot change
-    without re-running the solver fails it. She settled the direction on
-    2026-09-18: recompute it here, and the MATRIX WINS THE RECORD.
+    THE ACCEPTANCE RULE FOR THIS WHOLE RELEASE: finished simulations already
+    exist and only the post-processing is redone, on Windows and on HPC alike;
+    an item that requires a re-run is not ready. A window a user cannot change
+    without re-running the solver fails it. The direction is therefore to
+    recompute it here, and the MATRIX WINS THE RECORD.
 
     IT COSTS NO RE-RUN BECAUSE THE CLOCK IS ALREADY IN THE RECORD. The plan
     writes `steps_per_revolution` and `time_iterations` next to the window it
@@ -4094,16 +4091,16 @@ def write_unsteady_polar(
     receives the refusal; the polar is written without it, never with a column
     of `NA`.
 
-    THE NATIVE COEFFICIENT EXPORT IS NOT THE SOURCE, by the owner's answer of
-    2026-09-18: it states the LAST TIME STEP, which on an oscillating rotor is
-    one instant of a cycle. Her instruction: *"A POLAR do unsteady sempre vai vir
-    do unsteady plots, alem de ter a media temporal"*.
+    THE NATIVE COEFFICIENT EXPORT IS NOT THE SOURCE: it states the LAST TIME
+    STEP, which on an oscillating rotor is one instant of a cycle. The unsteady
+    polar always comes from the unsteady plots export, and carries the time
+    average as well.
 
     THE COLUMNS ARE THE EXPORT'S OWN NAMES, and this is the decision that made
-    the item buildable. Her words: *"despega daqueles nomes da polar, escreve o
-    nome das variaveis como elas vieram no unsteady plots"*. So this table does
-    NOT carry the steady polar's twenty-four fixed coefficients; it carries the
-    plots the run defined, under the names the export prints them.
+    the item buildable: the table is detached from the steady polar's names and
+    writes each variable under the name the unsteady plots export gave it. So
+    this table does NOT carry the steady polar's twenty-four fixed coefficients;
+    it carries the plots the run defined, under the names the export prints them.
 
     Nothing in this package knows which plot label carries which coefficient, and
     a label invented here would not fail loudly -- it would write `NA` down a
@@ -5719,7 +5716,7 @@ def operator_agent(name: str | None) -> dict[str, object]:
     third agent the run was associated with, which another tool reads without
     being told anything about this package.
 
-    ``None`` is the run she ALREADY HAS. `submitted_by` is a RUN-time fact and
+    ``None`` is a run that ALREADY EXISTS. `submitted_by` is a RUN-time fact and
     nobody recorded it for the simulations that already finished; it cannot be
     recovered and none is invented. The field is PRESENT and reads `NA`, so a
     reader tells a run that predates this release from a document that forgot.

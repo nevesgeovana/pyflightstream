@@ -2212,7 +2212,7 @@ def migrate_geometry_layout(inputs_dir: str | Path) -> GeometryMigration:
     geometry sits in one place (PFS-2032.05, design 68 section A3). A
     folder that already exists is left alone with whatever it holds, and a
     second run over the same library moves nothing: nothing here decides
-    for the owner. The run records of a workspace are untouched and keep
+    for the user. The run records of a workspace are untouched and keep
     reading, because a record names its inputs by file name and hashes
     their bytes, and neither moved.
 
@@ -2597,8 +2597,8 @@ def rotor_integration_groups(
 ) -> dict[str, list[int | str]]:
     """Return the pproc's groups with one integration group per DECLARED rotor.
 
-    v0.23.0 item 15, the owner's rule of 2026-09-17: "cria obrigatoriamente um
-    grupo de integração para cada rotor se ja nao existir".
+    v0.23.0 item 15: an integration group is always created for each rotor that
+    does not already have one.
 
     WHY IT IS CREATED RATHER THAN REQUIRED. The rotor table integrates thrust
     and torque over ONE rotor's own families. Left to a user remembering to
@@ -2613,8 +2613,8 @@ def rotor_integration_groups(
     then the blades, so it produces its own products like any other group. A
     group that exists but is invisible is the kind of thing nobody can debug.
 
-    A GROUP SHE DECLARED IS NEVER REPLACED. Creation fills a gap; it does not
-    overrule what she wrote.
+    A GROUP THE USER DECLARED IS NEVER REPLACED. Creation fills a gap; it does
+    not overrule what the user wrote.
 
     Raises
     ------

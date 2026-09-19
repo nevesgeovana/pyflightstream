@@ -14,18 +14,18 @@ cell whose value does not exist. One package, one idea, two tokens, and a reader
 comparing a drift report against a polar had to know which convention each file
 followed.
 
-THE OWNER DECIDED THE CONVERGENCE, 2026-09-18: *"Converge tudo pra NA"*. It is
-her file format and the second change in one release to bytes she already reads,
-which is why it was hers to decide and not mine.
+EVERYTHING CONVERGES ON ``NA``. It is a change to a file format users already
+read, and the second change in one release to those bytes, which is why it was
+a deliberate decision rather than a cleanup.
 
 WHAT DELIBERATELY DID NOT CONVERGE, because "everything" has an edge and an
 undocumented edge is the next defect:
 
-- **The matrix's READ SET** (``cases.matrix.UNSTATED_CELLS``). Every matrix she
-  already has says "not stated" with a ``-``, so that spelling is still
+- **The matrix's READ SET** (``cases.matrix.UNSTATED_CELLS``). Every existing
+  matrix says "not stated" with a ``-``, so that spelling is still
   ACCEPTED; converging the read side would make the package refuse the
-  campaigns it exists to run, which is the one thing her acceptance rule
-  forbids: *"eu já tenho simulações prontas"*.
+  campaigns it exists to run, which is the one thing the acceptance rule
+  forbids: finished simulations already exist and must keep working.
 
   THIS BULLET NAMED ``UNSTATED_CELL`` -- the WRITE token -- and that symbol DID
   converge, in the same commit, one character away from the one that did not.

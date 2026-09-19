@@ -543,9 +543,8 @@ def per_blade_rows(
 ) -> list[dict[str, object]]:
     """One row per blade, every blade averaged over the SAME window.
 
-    v0.23.0 item 8, the owner's reading of her own periodic case on 2026-09-17:
-    "faz sentido sempre olhar a ultima janela convergida ... mesmo pro wheel,
-    faz sentido olhar todas as blades na mesma janela".
+    v0.23.0 item 8: the right reading is always the last converged window, and
+    even for a wheel every blade is read over that same window.
 
     WHAT THIS REPLACES. `per_blade` averaged each blade over ITS OWN passage,
     so blade 1 came from one stretch of the history and blade 4 from another.
@@ -555,8 +554,8 @@ def per_blade_rows(
 
     THE AZIMUTHS ARE WRITTEN, NOT AVERAGED AWAY. The blades genuinely are at
     different azimuths at any instant, and that is a fact to record rather than
-    a problem to smooth: her words, "podemos ter uma coluna que mostra a
-    posição azimutal de inicio e fim de cada para a mesma janela". Each row
+    a problem to smooth: a column states each blade's azimuthal position at the
+    start and at the end of the shared window. Each row
     says where that blade was when the window opened and when it closed.
 
     THE AVERAGE IS `blade_passage_average`, over the window this is given. No
