@@ -29,6 +29,36 @@ FlightStream versions.
 - `polar_row` takes `beta_deg=`; `GroupCoefficients` carries `force` and
   `moment`, the export-frame sums.
 
+### Added (three pproc tables, which ship together)
+
+- **`[phase_locked]`** (`min_revolutions`, `last_revolutions_avg`), optional. With
+  it, `probes/<point>_phase_locked[_<ALIAS>].csv` is one row per AZIMUTHAL
+  position of the rotor's last revolution, each value the mean of the samples at
+  that azimuth across the last `last_revolutions_avg` revolutions. It is generated
+  when the row turns at least `min_revolutions` (`>=`); a shorter run skips THIS
+  table only, with both numbers in `products.json`, and keeps its polar and every
+  other product. The table is read again at `post`, so adding or editing it needs
+  no solver run. A pproc without it keeps the passage series it always got.
+- **`[equations]` and `[glossary]`.** An equation names an ALIAS and a frame, never
+  a mesh family, so every derived column is `<NAME>_<alias>`; equations may chain
+  and a cycle is refused when the pproc is read. They are EVALUATED at `post`
+  into `P<sim>_<name>_uns_avg.csv`, after the axis block. The expression is parsed
+  and walked, never executed: numbers, names, `+ - * / **`, parentheses and `abs,
+  sqrt, sin, cos, tan, radians, degrees, min, max`. A symbol reads another
+  equation first, then `<S>_<alias>` in its frame, then the exact column. A symbol
+  that resolves to nothing refuses the equations block, named under
+  `polars/<file>#equations`, and never writes a column of `NA`.
+- **`inputs/pproc/VARIABLES.md` and `WRITING-EQUATIONS.md`**, generated from the
+  code by `pyfs-workspace init`, `pyfs-matrix plan` and `pyfs-matrix post`, and
+  rewritten only when their content would change. No other file of that folder is
+  touched. Commit them or ignore them.
+- 0.23.0 refused all three table names by name, because a pproc written for a
+  release carrying only some of them is unreadable by it. They bind together.
+- Public surface: `pyflightstream.post.equations`; `post.unsteady.phase_locked_rows`
+  and `blade_one_azimuth`; `post.products.write_phase_locked_table` and
+  `PHASE_LOCKED_COLUMNS`; `cases.windows.phase_locked_entry`, `regate`, `AZIMUTHAL`;
+  `workspace.register_input_guide` and `write_input_guides`; `CampaignPlan.guides`.
+
 ### Added (the super file in fixed-width text)
 
 - `[products] superfile_format = "legacy_polar"` writes the super file as
