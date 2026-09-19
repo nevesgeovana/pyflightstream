@@ -111,6 +111,8 @@ from pyflightstream.post._tables import (
     FLIGHT_CONDITION_COLUMNS,
     NOT_APPLICABLE,
     REFERENCE_LENGTH_COLUMNS,
+    ROTOR_TABLE_LEAD_LINES,
+    ROTOR_TABLE_SUFFIX,
     SECTION_COLUMNS,
     ProductError,
     ProductExistsError,
@@ -168,6 +170,8 @@ __all__ = [
     "CONTEXT_COLUMNS",
     "FLIGHT_CONDITION_COLUMNS",
     "REFERENCE_LENGTH_COLUMNS",
+    "ROTOR_TABLE_LEAD_LINES",
+    "ROTOR_TABLE_SUFFIX",
     "context_row",
     "section_identity",
     # The token a reader of any product compares against. It was reachable
@@ -1587,7 +1591,14 @@ def _rotor_tables(
                     "frame": (point.loads.frame if point.loads is not None else None),
                 }
             )
-        name = f"{sweep_file_stem(sim_id, str(alias))}_rotor.csv"
+        # THE ALIAS REACHES A FILE NAME SANITISED (NL-04), by the function the
+        # passage reductions of this same rotor already use. Raw, a slash wrote
+        # the table into a subfolder the manifest then keyed with a slash, and a
+        # colon on Windows wrote a stream nobody can see. The rotor's own
+        # spelling is the file's first line and the manifest's `rotor` field.
+        name = (
+            f"{sweep_file_stem(sim_id, _a_name_a_file_may_carry(str(alias)))}{ROTOR_TABLE_SUFFIX}"
+        )
         if not rows:
             # EVERY ROW REJECTED IS STILL A REPORT. Returning nothing here made
             # the whole product vanish with no explanation, which is the same
@@ -3337,6 +3348,52 @@ def _matrix_window(matrix_row: MatrixRow | None, record: object) -> tuple[int, i
     )
 
 
+#: How far an export's printed reference may sit from the stated one and still be
+#: the same number: the export prints three decimals, so half of the last one, plus
+#: a relative part for a large area.
+_REFERENCE_PRINT_TOLERANCE = 5.0e-4
+_REFERENCE_RELATIVE_TOLERANCE = 1.0e-6
+
+
+def _refuse_a_reference_the_solver_did_not_use(
+    sim_id: str, points: Sequence[PolarPoint], reference: ReferenceValues
+) -> None:
+    """Refuse a simulation whose export was normalised by another area or length (CC-05).
+
+    THE PACKAGE EMITS NO REFERENCE-SETTING COMMAND, so the solver divides every
+    coefficient by the area and the length its own project file carries, and the
+    loads export prints both. Every product states `SREF` and `CREF` from the
+    reference ARTIFACT. Where the two differ the table is wrong by a constant
+    factor that nothing in it reveals, which is worse than no table: the products
+    of the simulation are not written and the difference is named.
+
+    An export that prints neither line is not refused; there is nothing to compare.
+    """
+    for point in points:
+        loads = point.loads
+        if loads is None:
+            continue
+        for label, column, printed, stated in (
+            ("area", "SREF", getattr(loads, "reference_area", None), reference.sref_m2),
+            ("length", "CREF", getattr(loads, "reference_length", None), reference.cref_m),
+        ):
+            if not isinstance(printed, int | float):
+                continue
+            allowed = _REFERENCE_PRINT_TOLERANCE + _REFERENCE_RELATIVE_TOLERANCE * abs(stated)
+            if abs(float(printed) - stated) > allowed:
+                raise ProductError(
+                    f"simulation {sim_id!r}: the loads export of {point.name} states a reference "
+                    f"{label} of {float(printed):g}, which is what the solver divided its "
+                    f"coefficients by, and the reference the products would state is {column} "
+                    f"{stated:g}. A table stating {column} {stated:g} beside coefficients "
+                    f"divided by {float(printed):g} is wrong by a constant factor nothing in it "
+                    "shows, so no product of this simulation is written. The solver takes its "
+                    "reference from the project file it opened: state the same area and chord on "
+                    "the reference artifact the row names, or set them in that project, and post "
+                    "again."
+                )
+
+
 def _section_rotors(
     live: object | None, aliases: Mapping[str, Sequence[str]] | None, record: RunRecord
 ) -> dict[str, dict[str, object]]:
@@ -3917,6 +3974,7 @@ def _sim_products(
             "reference artifact"
         )
     reference = ReferenceValues.from_mapping(reference_block)
+    _refuse_a_reference_the_solver_did_not_use(sim_id, points, reference)
     # BOUND BEFORE THE `products.polars` GATE, deliberately. Every product
     # family states the condition since item 5, so a pproc writing no polar
     # still needs this for its probes and its reduction; binding it inside the

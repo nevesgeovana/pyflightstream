@@ -82,6 +82,14 @@ and its coefficients are by `rho n^2 D^4` and carry no velocity at all. With bot
 velocities in the row, a reader can tell which one a number used; the post stage
 also WARNS, naming the point, when the two differ.
 
+**`SREF` and `CREF` are checked against the export.** The solver divides by the
+area and the length of the project file it opened, and the loads export prints
+both. The package sets neither: it states the reference artifact's. Where the
+two differ by more than the export's printed precision, the simulation gets NO
+product and `products.json` names both numbers, because a table stating one
+area beside coefficients divided by another is wrong by a constant factor that
+nothing in it shows.
+
 The steady polar already carries `ALPHA`, `BETA`, `MACH` and `RE` among its
 twenty-four, so it states the rest of the block beside them. The plots table
 `probes/<point>_plots.csv` states NO condition, on purpose: it is the export's own

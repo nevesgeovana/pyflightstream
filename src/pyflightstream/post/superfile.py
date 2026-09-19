@@ -85,7 +85,12 @@ from pyflightstream.cases.matrix import (
     MatrixRow,
     read_matrix,
 )
-from pyflightstream.post._tables import ProductError, write_csv_table
+from pyflightstream.post._tables import (
+    ROTOR_TABLE_LEAD_LINES,
+    ROTOR_TABLE_SUFFIX,
+    ProductError,
+    write_csv_table,
+)
 from pyflightstream.post._tables import _cell as _fixed_cell
 from pyflightstream.workspace.naming import SUPER_FILE_PREFIX, group_token, sweep_file_stem
 
@@ -650,9 +655,20 @@ POLAR_TABLE_GLOB = "P*-*_*.csv"
 
 
 def _header(path: Path) -> set[str]:
+    """Return the column names of one product table.
+
+    A ROTOR TABLE'S HEADER IS ITS SECOND LINE (NL-03). Its first is the rotor's
+    alias, alone, and the polar glob matches it: read as a header, that line
+    put the alias into the union as if it were a column and left the table's
+    real columns out.
+    """
     with path.open("r", encoding="utf-8", newline="") as handle:
+        reader = csv.reader(handle)
+        if path.name.endswith(ROTOR_TABLE_SUFFIX):
+            for _ in range(ROTOR_TABLE_LEAD_LINES):
+                next(reader, None)
         try:
-            return set(next(csv.reader(handle)))
+            return set(next(reader))
         except StopIteration:
             return set()
 

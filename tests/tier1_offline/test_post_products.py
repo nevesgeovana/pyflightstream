@@ -217,6 +217,22 @@ def test_polar_table_round_trips(tmp_path):
         read_csv_table(tmp_path / "torn.csv")
 
 
+def loads_stating(*, area_m2: float, chord_m: float) -> str:
+    """Return the loads fixture as a solver whose project carries THIS reference prints it.
+
+    The solver divides by the area and the length of the project it opened and
+    prints both, and the post stage refuses a simulation whose export and
+    stated reference disagree (0.24.0). A test pasting this export into a
+    workspace that states another reference was describing a campaign whose
+    every coefficient is wrong by a constant factor.
+    """
+    text = LOADS
+    for label, value in (("Reference length (m)", chord_m), ("Reference area (m^2)", area_m2)):
+        (line,) = [row for row in LOADS.splitlines() if label in row]
+        text = text.replace(line, line.replace(line.split()[-1], f"{value:.3f}"))
+    return text
+
+
 SLOADS = """\
 
 

@@ -54,10 +54,12 @@ def _writes_loads_and_every_export(tmp_path):
     nothing writes nothing and would report the same empty answer before and
     after a rename.
     """
-    from tests.tier1_offline.test_post_products import LOADS
+    from tests.tier1_offline.test_post_products import loads_stating
 
     source = tmp_path / "loads.txt"
-    source.write_text(LOADS, encoding="utf-8")
+    # DIVIDED BY THE REFERENCE THIS WORKSPACE STATES (`r003`: 10 m2, 1.2 m), as a
+    # real export is; since 0.24.0 the post stage refuses one that is not.
+    source.write_text(loads_stating(area_m2=10.0, chord_m=1.2), encoding="utf-8")
     return CountingStub(
         "import pathlib, sys; "
         "from pyflightstream.cases import EXPORT_KINDS; "

@@ -97,13 +97,16 @@ def test_the_post_stage_re_resolves_a_point_a_record_describes_wrongly(swept):
     import warnings
 
     from pyflightstream.post.products import read_csv_table, write_campaign_products
-    from tests.tier1_offline.test_post_products import LOADS
+    from tests.tier1_offline.test_post_products import loads_stating
 
     # The stub executor leaves placeholders; a real loads export per point is
     # what the post stage reads. It states no Mach, so one text serves both.
     for record in swept.read_manifest():
         loads = next(o for o in record.outputs if o.endswith(f"{record.point_name}.txt"))
-        (swept.sim_dir("3207") / loads).write_text(LOADS, encoding="utf-8")
+        # ...divided by the reference THIS workspace states, as a real export is.
+        reference = record.reference
+        text = loads_stating(area_m2=reference["SREF"], chord_m=reference["CREF"])
+        (swept.sim_dir("3207") / loads).write_text(text, encoding="utf-8")
     # And a group that selects the surfaces that export carries: one that selects
     # nothing is a named skip, not a polar of zeros.
     (swept.inputs_dir / "pproc" / "p001.toml").write_text(

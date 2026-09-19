@@ -342,6 +342,13 @@ def write_csv_table(
     return target
 
 
+#: How a rotor table's file name ends, and how many lines lead its header: the
+#: rotor's alias, alone on line one, so a script that has loaded the file still
+#: knows which rotor it holds. Every reader of `polars/` needs both.
+ROTOR_TABLE_SUFFIX = "_rotor.csv"
+ROTOR_TABLE_LEAD_LINES = 1
+
+
 def section_identity(
     n_rows: int,
     layout: Sequence[Mapping[str, object]] | None,

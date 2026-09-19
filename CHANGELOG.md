@@ -117,6 +117,33 @@ FlightStream versions.
   written. A kind with no stamped file is no longer written: it is a named
   skip.
 
+### Changed (breaking: a reference the solver did not use is refused)
+
+- **A simulation whose loads export was normalised by another area or chord
+  than the products would state gets NO product, and the two numbers are
+  named.** The package emits no reference-setting command, so the solver
+  divides by the area and the length of the project file it opened, and the
+  export prints both; every product states `SREF` and `CREF` from the
+  reference artifact, and nothing compared the two. A project carrying 40 m2
+  beside an artifact stating 50 posted `SREF 50.00000` next to coefficients
+  divided by 40. The comparison allows the export's printed precision, three
+  decimals. A workspace whose artifact and project agree is unaffected; one
+  that is refused was publishing coefficients wrong by a constant factor.
+
+### Fixed (a rotor's alias in a file name and in the union)
+
+- The rotor table's file name takes the alias through the same sanitiser as
+  that rotor's passage reductions. Raw, an alias holding a slash wrote the
+  table into a subfolder and keyed the manifest with the slash, and a colon on
+  Windows wrote a stream nobody can see. The rotor's own spelling is still the
+  file's first line and the manifest's `rotor` field.
+- The union of what the workspace knows (`reports/superfile-<tag>.json`,
+  `known`) reads a rotor table's HEADER, its second line. It read the first,
+  the alias alone, so `known` carried the alias as if it were a column and
+  none of the table's real columns. `known` now lists `J_<alias>`,
+  `CT_<alias>` and the rest. The super file does not carry those columns, so a
+  reader comparing the two now sees that difference, which is real.
+
 ### Fixed (one column name, one source)
 
 - **`ALT` CAME FROM THREE SOURCES IN ONE FOLDER.** The sections table read the
