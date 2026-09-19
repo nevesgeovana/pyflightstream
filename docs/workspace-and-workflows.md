@@ -1231,10 +1231,12 @@ row exactly as the built-in `unsteady_rotor` workflow does.
 v0.11.0 this was the groups artifact, `inputs/groups/e<id>.toml`, a flat
 table of group name to members that nothing on the run path read; the
 owning seat decided on 2026-09-02 that it is the home of post-processing and it
-was renamed (PFS-2029.07). It carries nine tables, every one optional, and a
-file holding `[groups]` alone is what the old file was. The last three,
-`[phase_locked]`, `[equations]` and `[glossary]`, are new in 0.24.0 and are
-described under [the three tables that reduce and derive](#the-three-tables-that-reduce-and-derive):
+was renamed (PFS-2029.07). It carries ten tables, every one optional, and a
+file holding `[groups]` alone is what the old file was. Four are new in
+0.24.0. `[names]` renames the unsteady polar's plot columns to the names a
+downstream tool reads, the whole dictionary or none of it, and is defined on
+[the definition of record](post-processing-definitions.md); the other three,
+`[phase_locked]`, `[equations]` and `[glossary]`, are described under [the three tables that reduce and derive](#the-three-tables-that-reduce-and-derive):
 
 ```toml
 base_regions = ["W", "B"]      # families the base-region autodetect may consider; [] = off
@@ -1878,22 +1880,27 @@ type's, and the window is the one the row states:
 
 | file | run type | window |
 |---|---|---|
-| `probes/<point>_time_average.csv` | `unsteady_rotor` and `unsteady` | the AVERAGING WINDOW the row states, `LAST_REVS_AVG` on a rotor row and `LAST_ITERS_AVG` on a rotorless one, ending at the run's last step; failing that a deprecated `WINDOW_DEGREES`, `WINDOW_STEPS` or `WINDOW_REVOLUTIONS`, which still binds and warns; without any, a rotor row's last revolution (from `DELTA_THETA` and `REVOLUTIONS`, or `RPM` and `DELTA_TIME`), and a rotorless row's whole run (`DELTA_TIME` and `TIME_ITERATIONS`). One row |
+| `probes/<point>_time_average.csv` | `unsteady_rotor` and `unsteady` | the AVERAGING WINDOW the row states, `LAST_REVS_AVG` on a rotor row and `LAST_ITERS_AVG` on a rotorless one, ending at the run's last step; failing that a deprecated `WINDOW_DEGREES`, `WINDOW_STEPS` or `WINDOW_REVOLUTIONS`, which still binds and warns; without any (a record made before 0.24.0, since a new plan of such a row is refused), a rotor row's last revolution (from `DELTA_THETA` and `REVOLUTIONS`, or `RPM` and `DELTA_TIME`), and a rotorless row's whole run (`DELTA_TIME` and `TIME_ITERATIONS`). One row |
 | `probes/<point>_phase_locked_<ALIAS>.csv` | `unsteady_rotor`, a row naming its rotors | WITH a `[phase_locked]` table in the pproc: the last `last_revolutions_avg` revolutions OF THAT ROTOR, one row per azimuthal position, each value the mean across those revolutions at that azimuth. WITHOUT it: the time-average window cut into blade passages OF THAT ROTOR, one of its revolutions over its own blade count, a trailing partial passage dropped; one row per passage |
-| `probes/<point>_per_blade_<ALIAS>.csv` | `unsteady_rotor`, a row naming its rotors | since 0.23.0 ONE window shared by every blade: the row's `LAST_REVS_AVG`, counted in THAT ROTOR's revolutions and ending at the run's last step, and without the key that rotor's last complete revolution; one row for the window, NOT one per blade |
+| `probes/<point>_per_blade_<ALIAS>.csv` | `unsteady_rotor`, a row naming its rotors | ONE window shared by every blade: the row's `LAST_REVS_AVG`, counted in THAT ROTOR's revolutions and ending at the run's last step, and without the key that rotor's last complete revolution; ONE ROW PER BLADE since 0.24.0, each with its `BLADE`, its `FAMILY` and its `AZIMUTH_START` and `AZIMUTH_END` over that window |
 | `probes/<point>_phase_locked.csv` | `unsteady_rotor`, a row naming no rotor by alias | WITH a `[phase_locked]` table: the last `last_revolutions_avg` revolutions, one row per azimuthal position. WITHOUT it: the time-average window cut into blade passages, one revolution over `BLADES` steps each, a trailing partial passage dropped; one row per passage |
-| `probes/<point>_per_blade.csv` | `unsteady_rotor`, a row naming no rotor by alias | since 0.23.0 ONE window shared by every blade: the averaging window the row states, and without `LAST_REVS_AVG` the last complete revolution of the run; one row for the window, NOT one per blade |
+| `probes/<point>_per_blade.csv` | `unsteady_rotor`, a row naming no rotor by alias | ONE window shared by every blade: the averaging window the row states, and without `LAST_REVS_AVG` the last complete revolution of the run; ONE ROW PER BLADE since 0.24.0, with its start and end azimuth |
 
-**`per_blade` CHANGED SHAPE AT 0.23.0.** Until then it cut the last revolution
-into one window per blade and wrote one row per blade, which put each blade in a
-different stretch of the history. It is now one window and one row. One row per
-blade over that shared window, with each blade's start and end azimuth in
-columns, is what [the definition of record](post-processing-definitions.md#per_blade)
-asks for and is NOT written by 0.23.0; nor is the azimuthal form of
-`phase_locked` that page defines. A deprecated `WINDOW_*` key does not reach
-`per_blade`, and it does not reach the unsteady polar either: a row that states
-neither `LAST_REVS_AVG` nor `LAST_ITERS_AVG` has its polar read from the native
-export.
+**`per_blade` IS ONE ROW PER BLADE OVER ONE SHARED WINDOW (0.24.0).** Until
+0.23.0 it cut the last revolution into one window per blade, which put each blade
+in a different stretch of the history; 0.23.0 wrote one window and ONE row. Since
+0.24.0 every blade is averaged over the same window and has its own row, with its
+start and end azimuth in columns, as [the definition of
+record](post-processing-definitions.md#per_blade) asks. The azimuthal form of
+`phase_locked` that page defines is written where the pproc declares
+`[phase_locked]`.
+
+**The window is required.** Since 0.24.0 `pyfs-matrix plan` refuses a new
+unsteady row that states neither `LAST_REVS_AVG` nor `LAST_ITERS_AVG`. A
+deprecated `WINDOW_*` key still binds the time average until 0.26.0, and it does
+not reach `per_blade` or the unsteady polar: those of such a row, like those of a
+record made before 0.24.0, are averaged over the window the run was given, with a
+warning naming the steps.
 
 Every window is counted in solver steps, inclusive, 1-based, and row `k` of
 the plots table is step `k`; the table's own time column is averaged like
@@ -1954,12 +1961,13 @@ of `AL-020_plots.csv` land as
 probes/AL-020_plots.csv           raw, one row per step
 probes/AL-020_time_average.csv    one row, steps 3 to 8
 probes/AL-020_phase_locked.csv    three rows, steps 3 to 4, 5 to 6, 7 to 8
-probes/AL-020_per_blade.csv       one row, steps 3 to 8
+probes/AL-020_per_blade.csv       two rows, one per blade, steps 3 to 8
 ```
 
-each reduction file carrying `REDUCTION,WINDOW,FIRST_STEP,LAST_STEP,STEPS`,
-then the flight condition and the reference lengths (since 0.23.0), and then
-the plots table's own columns, and `products.json` naming each:
+each reduction file leading with its window and the flight condition, and then
+the plots table's own columns; the exact header of each is on [the definition of
+record](post-processing-definitions.md), which is the one place it is kept. And
+`products.json` names each:
 
 ```text
 "probes/AL-020_per_blade.csv": {
@@ -2604,15 +2612,19 @@ line says how many were dropped.
 
 ### The window, said once
 
-**SINCE 0.23.0 THE AVERAGING WINDOW HAS A KEY OF ITS OWN**: `LAST_REVS_AVG` on
-an `unsteady_rotor` row, a count of the last revolutions that accepts a float,
-and `LAST_ITERS_AVG` on an `unsteady` row, a count of the last iterations. It
-is the one window the unsteady polar, the time average and `per_blade` use.
-A window longer than the run is the whole run rather than a refusal. The row
-above still states the older spelling, `WINDOW_DEGREES: 90`, which is
-DEPRECATED: it binds and warns until 0.26.0 removes it, and the spelling that
-replaces it on that row is `LAST_REVS_AVG: 0.25`, degrees being revolutions
-over 360. A row stating both an old key and a new one gets the new one. What the
+**THE AVERAGING WINDOW HAS A KEY OF ITS OWN, AND SINCE 0.24.0 A ROW MUST STATE
+IT**: `LAST_REVS_AVG` on an `unsteady_rotor` row, a count of the last
+revolutions that accepts a float, and `LAST_ITERS_AVG` on an `unsteady` row, a
+count of the last iterations. `pyfs-matrix plan` refuses a new unsteady row that
+states neither. It is the one window the unsteady polar, the time average and
+`per_blade` use. A window longer than the run is the whole run rather than a
+refusal.
+
+**DO NOT COPY ROW 7001'S WINDOW.** It states the older spelling,
+`WINDOW_DEGREES: 90`, because it is the suite's own matrix, run byte for byte,
+and it stands for a row written before the key existed. That spelling is
+DEPRECATED: it binds and warns until 0.26.0 removes it. A new row states
+`LAST_REVS_AVG: 0.25` in its place, degrees being revolutions over 360. A row stating both an old key and a new one gets the new one. What the
 next paragraph says is what the older keys do while they last.
 
 `WINDOW_DEGREES: 90` is the span the expensive exports apply over,

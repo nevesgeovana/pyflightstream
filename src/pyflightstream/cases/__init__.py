@@ -1698,7 +1698,7 @@ class PprocSpec(BaseModel):
     """The post-processing specification a matrix row's PPROC cell names.
 
     PFS-2029.07.01, the design decision of 2026-09-02: the groups artifact IS the
-    home of post-processing and is renamed pproc. Nine tables. ``groups``
+    home of post-processing and is renamed pproc. Ten tables. ``groups``
     is exactly what the groups file held, a number to the families it
     aggregates, and the polar tables are written per group of it; a
     member is resolved by :func:`select_group_members`, and an empty
@@ -1708,10 +1708,11 @@ class PprocSpec(BaseModel):
     definitions the builders emit before the solver runs; ``products``
     says which post-processed files are written after it. Since 0.24.0
     ``phase_locked`` gates and shapes the phase-locked reduction, ``equations``
-    adds derived columns to the unsteady polar, and ``glossary`` says what the
-    user's own symbols mean; the three ship together, because the model forbids
-    unknown keys and an artifact written for one of them is refused by an
-    install that lacks it.
+    adds derived columns to the unsteady polar, ``glossary`` says what the
+    user's own symbols mean, and ``names`` renames the unsteady polar's plot
+    columns for a downstream tool. The four ship together, because the model
+    forbids unknown keys and an artifact written for one of them is refused by
+    an install that lacks it.
     """
 
     model_config = ConfigDict(extra="forbid")
