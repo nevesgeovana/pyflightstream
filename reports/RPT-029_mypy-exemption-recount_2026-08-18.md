@@ -384,7 +384,11 @@ total in every record at once, which is cheaper and leaves the error figure
 older than the module figure. What the guard makes impossible is the third
 option, and the third option is what happened between 2026-08-03 and today.
 
-## The debt, per module
+## The debt, per module (historical)
+
+**Superseded by the recount dated 2026-09-19 above.** The following per-module
+table, per-code tally and source-line concentration discussion retain earlier
+measurements for history; they do not break down the current recount.
 
     errors   lines   module
        142      29   pyflightstream.run

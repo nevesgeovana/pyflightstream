@@ -12,8 +12,6 @@ FlightStream versions.
 - **The full-wheel run of the licensed campaign on the axisymmetric nacelle is owed**
   (`reports/pfs0240/README.md`): the sector-against-wheel check reads 1.297 on a full
   wheel whose nacelle is not axisymmetric.
-- **The manifest lock's recovery policy is owed to 0.25.0**: a lock older than 30 s is
-  taken as abandoned.
 - **The Zenodo archive of v0.14.0 DOES NOT EXIST**, re-measured against
   Zenodo's own API on 2026-09-14, when the v0.18.0 archive row was paid: the
   concept record lists NINETEEN archived versions and v0.14.0 is not among
@@ -27,6 +25,29 @@ FlightStream versions.
   Until that row lands this section says so, because a shipped release that
   quietly stops being citable is the gap PFS-2024.09 is about. Cite that
   release by the concept DOI, which resolves to the newest archived version.
+
+### Fixed
+
+- **An input artifact that exists and does not validate now says so first.** A matrix
+  row naming a reference, setup or pproc whose file is present but invalid is refused
+  with "the <kind> artifact at <path> does not validate" followed by the validation
+  errors; "cannot resolve ... put the artifact at <path>" is said only when no file
+  exists.
+- **The run manifest's lock is recovered by ownership, not by age.** The lock records
+  its owner (process, host and a token) and a live holder renews it every 5 s, so a
+  slow writer is no longer displaced after 30 s. A waiter takes the lock over only
+  when its owner's process is gone on this host or its heartbeat is older than 300 s,
+  and a release removes only a lock its releaser owns. A writer of 0.24.0 or earlier
+  does not follow this protocol: do not run two package versions against one
+  workspace at once.
+
+### Documentation
+
+- `rotor_coefficients` and the user guide state the rotation sign:
+  `J = V / (|n| D)` and `CP = 2 pi CQ sign(n)`, with `CQ` the signed torque about
+  the fixed rotor axis. No computed value changes.
+- The definitions page states that on a multi-rotor run each blade's window follows
+  its own rotor's clock.
 
 ## [0.24.0] - 2026-09-19
 

@@ -466,6 +466,14 @@ def _resolve_code(workspace: CampaignWorkspace, kind: str, code: str, pol: str):
     try:
         return resolver(code)
     except InputArtifactError as error:
+        path = workspace.inputs_dir / subdir / f"{code}.toml"
+        if is_valid_artifact_id(code) and path.is_file():
+            raise InputArtifactError(
+                f"matrix row POL {pol}: the {kind} artifact at {path} does not validate. {error}",
+                kind=error.kind,
+                artifact_id=error.artifact_id,
+                available=error.available,
+            ) from error
         # THE SAME THREE-WAY READING ITS GEOMETRY SIBLING MAKES, and for
         # the same reason: one arm prescribed a file for every refusal,
         # so a code refused for its SHAPE was told to create a file that

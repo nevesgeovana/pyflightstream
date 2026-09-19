@@ -1174,13 +1174,15 @@ def rotor_coefficients(
     """Return the six standard coefficients of one rotor.
 
     THE DEFINITIONS, written here because a coefficient whose formula lives
-    only in code is a number nobody can check. ``n`` is revolutions per SECOND
-    and ``D`` the diameter::
+    only in code is a number nobody can check. ``n`` is signed revolutions per
+    second and ``D`` the diameter. Its magnitude normalises the coefficients;
+    its rotation sign enters power. ``CQ`` retains the signed torque about the
+    fixed rotor axis, while reversing rotation alone does not change ``J``::
 
-        J    = V / (n D)
+        J    = V / (|n| D)
         CT   = T / (rho n^2 D^4)
         CQ   = Q / (rho n^2 D^5)
-        CP   = 2 pi CQ
+        CP   = 2 pi CQ sign(n)
         ETA  = J CT / CP
         CTW  = Fx_W / (rho n^2 D^4)
         ETAW = J CTW / CP

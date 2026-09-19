@@ -51,10 +51,13 @@ import json
 import os
 import re
 import shutil
+import socket
 import stat
 import sys
+import threading
 import time
 import tomllib
+import uuid
 import warnings
 import zipfile
 from collections.abc import Callable, Iterator, Mapping, Sequence
@@ -227,14 +230,14 @@ MANIFEST_SCHEMA = "pyfs-manifest/3"
 #: half, and that includes a stamp from a LATER version.
 KNOWN_MANIFEST_SCHEMAS = ("pyfs-manifest/1", "pyfs-manifest/2", "pyfs-manifest/3")
 
-#: How long a writer waits for the manifest before refusing, in seconds. A
-#: holder keeps it for the milliseconds one rewrite takes, so a wait this
-#: long means the holder is gone, and the refusal says what to remove.
+#: Maximum wait for a held manifest, in seconds; a timeout is not proof of death.
 MANIFEST_LOCK_TIMEOUT_S = 60.0
-#: The age, in seconds, past which a lock file is one a killed process left.
-#: Far above any real hold and below the timeout, so a waiter clears an
-#: abandoned lock itself instead of refusing over it.
-MANIFEST_LOCK_STALE_S = 30.0
+#: Renew a held lock's modification timestamp every five seconds.
+MANIFEST_LOCK_RENEW_S = 5.0
+#: Recover an unrenewed lease after five minutes (60 renewal periods), including
+#: legacy or unreadable owner records. A confirmed dead local PID is recovered
+#: immediately. Shared hosts must have synchronised clocks for lease expiry.
+MANIFEST_LOCK_STALE_S = 300.0
 #: The pause between two attempts to take the manifest, in seconds.
 MANIFEST_LOCK_POLL_S = 0.02
 
@@ -2834,77 +2837,166 @@ class CampaignWorkspace:
 
     @contextmanager
     def _manifest_lock(self) -> Iterator[None]:
-        """Hold the manifest for one read-modify-replace, against every other writer.
+        """Hold the manifest's read-modify-replace under an owned, renewable lease.
 
-        Each writer of ``runs.json`` reads the file, changes its copy and
-        replaces the file. The replace is atomic and the SEQUENCE was not: a
-        collection watcher completing a record while another process appended
-        one each replaced the file with a copy that had never seen the other's
-        change, and both calls returned success with one row gone. Two
-        campaigns against one workspace is a thing that has happened.
+        ``runs.json.lock`` records the PID, host and a unique token. A background
+        heartbeat updates its modification timestamp every five seconds. A waiter
+        recovers it only for a confirmed dead local PID or after 300 seconds with
+        no renewal; elapsed time since acquisition alone never expires a lease.
+        Legacy PID-only files have no verifiable host and use the same stale bound.
 
-        THE LOCK IS A FILE CREATED EXCLUSIVELY beside the manifest, because
-        that is the one primitive that means the same thing on Windows, on
-        Linux and on the shared file systems a cluster mounts; an advisory
-        ``flock`` is not honoured across every one of those. It is held for
-        the few milliseconds the rewrite takes and removed on every way out,
-        a refusal included.
+        A persistent ``.runs.json.lock.guard`` serialises the brief ownership
+        checks, renewal and removal using an OS byte/file lock. It is never
+        deleted: replacing its inode would split the arbitration between waiters.
+        The OS releases this guard if its process dies. The filesystem must honour
+        these locks across clients (SMB/NFS deployments must support locking), and
+        hosts must synchronise clocks for the stale-heartbeat fallback. No guard
+        is held while the manifest is being read or rewritten.
 
-        A LOCK NOBODY HOLDS is one a killed process left behind. It is
-        recognised by its AGE, since a holder keeps it for milliseconds, and
-        taken aside by a rename, which only one waiter can win, so two waiters
-        cannot both break it and then both hold it.
+        A release removes only its own token, including on a refused write.
 
         Raises
         ------
         WorkspaceError
-            When the manifest stays held for :data:`MANIFEST_LOCK_TIMEOUT_S`.
-            Nothing was written, and the message names the file.
+            If another writer holds the manifest for the configured wait bound.
         """
         self.root.mkdir(parents=True, exist_ok=True)
         lock = self.manifest_path.with_suffix(".json.lock")
+        guard = lock.with_name(f".{lock.name}.guard")
+        owner = {"pid": os.getpid(), "host": socket.gethostname(), "token": uuid.uuid4().hex}
+
+        @contextmanager
+        def arbitrate() -> Iterator[None]:
+            # Only metadata operations hold this OS lock, never the slow writer.
+            with guard.open("a+b") as handle:
+                if os.fstat(handle.fileno()).st_size == 0:
+                    handle.write(b"0")
+                    handle.flush()
+                until = time.monotonic() + MANIFEST_LOCK_TIMEOUT_S
+                while True:
+                    try:
+                        handle.seek(0)
+                        if sys.platform == "win32":
+                            import msvcrt
+
+                            msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
+                        else:
+                            import fcntl
+
+                            fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    except OSError:
+                        if time.monotonic() > until:
+                            raise WorkspaceError(
+                                f"the manifest guard {guard} stays held; the record was NOT written"
+                            ) from None
+                        time.sleep(MANIFEST_LOCK_POLL_S)
+                    else:
+                        break
+                try:
+                    yield
+                finally:
+                    handle.seek(0)
+                    if sys.platform == "win32":
+                        msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+                    else:
+                        fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+
+        def read_owner() -> dict:
+            try:
+                value = json.loads(lock.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                return {}
+            return value if isinstance(value, dict) else {}
+
+        def dead_local_holder(holder: dict) -> bool:
+            pid = holder.get("pid")
+            if holder.get("host") != owner["host"] or not isinstance(pid, int) or pid <= 0:
+                return False
+            if pid == os.getpid():
+                return False
+            if sys.platform == "win32":
+                # os.kill(pid, 0) can terminate a process on Windows. Query only.
+                import ctypes
+                from ctypes import wintypes
+
+                kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+                kernel.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+                kernel.OpenProcess.restype = wintypes.HANDLE
+                kernel.GetExitCodeProcess.argtypes = [
+                    wintypes.HANDLE,
+                    ctypes.POINTER(wintypes.DWORD),
+                ]
+                kernel.GetExitCodeProcess.restype = wintypes.BOOL
+                kernel.CloseHandle.argtypes = [wintypes.HANDLE]
+                process = kernel.OpenProcess(0x1000, False, pid)
+                if not process:
+                    return ctypes.get_last_error() == 87  # ERROR_INVALID_PARAMETER: no such PID
+                try:
+                    code = wintypes.DWORD()
+                    return (
+                        bool(kernel.GetExitCodeProcess(process, ctypes.byref(code)))
+                        and code.value != 259
+                    )
+                finally:
+                    kernel.CloseHandle(process)
+            try:
+                os.kill(pid, 0)
+            except ProcessLookupError:
+                return True
+            except OSError:
+                pass  # Permission denied is not proof that the process is gone.
+            return False
+
         deadline = time.monotonic() + MANIFEST_LOCK_TIMEOUT_S
         while True:
-            try:
-                handle = os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-            except FileExistsError:
-                pass
-            except PermissionError:
-                # Windows answers this while another writer is deleting the
-                # lock; it is the same "held" and is waited out the same way.
-                pass
-            else:
-                os.write(handle, f"{os.getpid()}\n".encode())
-                os.close(handle)
-                break
-            try:
-                abandoned = time.time() - lock.stat().st_mtime > MANIFEST_LOCK_STALE_S
-            except OSError:
-                abandoned = False
-            if abandoned:
+            with arbitrate():
+                if lock.exists():
+                    holder = read_owner()
+                    if (
+                        dead_local_holder(holder)
+                        or time.time() - lock.stat().st_mtime > MANIFEST_LOCK_STALE_S
+                    ):
+                        lock.unlink()
                 try:
-                    aside = lock.with_name(f"{lock.name}.{os.getpid()}.abandoned")
-                    lock.replace(aside)
-                    aside.unlink()
-                except OSError:
+                    with lock.open("x", encoding="utf-8", newline="\n") as handle:
+                        handle.write(json.dumps(owner) + "\n")
+                except (FileExistsError, PermissionError):
                     pass
-                continue
+                else:
+                    break
             if time.monotonic() > deadline:
                 raise WorkspaceError(
                     f"the manifest {self.manifest_path} has been held by another writer "
                     f"for {MANIFEST_LOCK_TIMEOUT_S:.0f} s ({lock} exists), so this record "
-                    "was NOT written. If no pyflightstream process is running against "
-                    "this workspace, the lock was left by one that was killed: remove "
-                    "that file and run again."
+                    "was NOT written. The lock is recovered only after its local owner "
+                    "exits or its heartbeat expires; retry after the holder finishes."
                 )
             time.sleep(MANIFEST_LOCK_POLL_S)
+
+        stopped = threading.Event()
+
+        def renew() -> None:
+            while not stopped.wait(MANIFEST_LOCK_RENEW_S):
+                try:
+                    with arbitrate():
+                        if read_owner() != owner:
+                            return
+                        os.utime(lock, None)
+                except (OSError, WorkspaceError):
+                    # A transient filesystem refusal can be retried next period.
+                    continue
+
+        heartbeat = threading.Thread(target=renew, name="pyfs-manifest-heartbeat", daemon=True)
         try:
+            heartbeat.start()
             yield
         finally:
-            try:
-                lock.unlink()
-            except OSError:
-                pass
+            stopped.set()
+            if heartbeat.ident is not None:
+                heartbeat.join()
+            with arbitrate():
+                if read_owner() == owner:
+                    lock.unlink()
 
     def _replace_manifest(self, raw: list[dict]) -> None:
         """Replace the manifest with ``raw``, atomically, through THIS process's own file.

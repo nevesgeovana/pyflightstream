@@ -33,7 +33,7 @@ license: MIT
 # one that has ever worked. THE TALLY, kept separate because merging the two
 # into one number is what made the first writing of this sentence
 # unreconstructable: THREE failures are recorded above, and the version,
-# the date and this sentence have moved together in one commit FIFTEEN
+# the date and this sentence have moved together in one commit NINETEEN
 # times: the 0.16.0.dev0 bump of 2026-09-11, the v0.16.0 RELEASE commit of
 # the same day, the 0.17.0.dev0 bump, the v0.17.0 RELEASE commit of
 # 2026-09-13, the 0.18.0.dev0 bump, the v0.18.0 RELEASE commit of
