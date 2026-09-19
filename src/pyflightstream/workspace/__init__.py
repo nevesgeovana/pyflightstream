@@ -2122,7 +2122,14 @@ class CampaignWorkspace:
                 "earlier release, and they are the evidence its records hash"
             )
         else:
-            inputs.rmdir()
+            # THE REMOVAL IS COVERED BY THE SAME FALLBACK AS THE LINK (0.24.0). A sync
+            # client that has just seen this empty folder appear holds it for a
+            # moment, and the refusal stopped the whole matrix before any solver
+            # started. It costs the link, never the run.
+            try:
+                inputs.rmdir()
+            except OSError as error:
+                return "copy", f"the empty inputs folder could not be replaced by a link: {error}"
         try:
             _make_dir_link(target, inputs)
         except OSError as error:

@@ -241,6 +241,16 @@ FlightStream versions.
   the skip stays. A run made before 0.24.0 recorded no such speed and keeps its
   skip; state the rotor through `MOTIONS` or run the row again.
 
+### Fixed (a held inputs folder costs a link, never the run)
+
+- Staging makes `sims/sim_<id>/inputs` a link to the geometry library, and first
+  removes the empty folder that stood there. Where a sync client holds that
+  folder for a moment, the removal is refused with "access denied", and the
+  whole matrix stopped before any solver started (`matrix not run: [WinError 5]`).
+  The removal is covered by the fallback the link already had: the inputs are
+  copied and the record says why. Met on a licensed campaign whose workspace
+  sits under a synced folder.
+
 ### Fixed (a continued point is in its tables once)
 
 - A run that was CONTINUED is left out of the products and of the sweep table,
