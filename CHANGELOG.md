@@ -9,8 +9,6 @@ FlightStream versions.
 
 ### Owed
 
-- **The Zenodo version DOI of v0.24.0 is owed** one commit after the tag, as for every
-  release: it is minted from the GitHub release.
 - **The full-wheel run of the licensed campaign on the axisymmetric nacelle is owed**
   (`reports/pfs0240/README.md`): the sector-against-wheel check reads 1.297 on a full
   wheel whose nacelle is not axisymmetric.
