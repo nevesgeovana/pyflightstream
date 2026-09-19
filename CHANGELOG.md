@@ -121,6 +121,24 @@ FlightStream versions.
 
 ### Fixed
 
+- **A probes table combines every available history.** Where a pproc's `[[probes]]`
+  entries ask for different parameters, the table carries a column per requested
+  parameter and a point states `NA` where it was not sampled. Until 0.25.0 a point
+  missing one column of its group was dropped, and entries asking for different
+  parameters produced no table at all, whose refusal also cost the simulation its
+  other products. A probe failure is now contained to the probes table.
+- **A refused or frozen rebuild retires the file it refuses**, under both archive
+  policies: `products.json` said "skipped" while the stale table stayed at its
+  normal path when archiving was off.
+- **A frozen point keeps what the freeze did not touch**: its histories, its
+  last-step products and the averages whose window ends before the first frozen
+  step. Only the averages that reach the freeze are left out, with their reason.
+- **A continuation keeps the surface averaging window** its predecessor recorded;
+  it was lost, so the continued run's exports called themselves instants.
+- **A recorded averaging window is validated when it is read**: a malformed one is
+  refused naming the run, the field and the remedy, instead of raising KeyError or
+  IndexError inside the post stage.
+
 - **A campaign recorded with 0.24.0 posts with 0.25.0 without a re-run.** Measured on
   a recorded licensed campaign of five points: the stage exits 0, every product is
   written or skipped WITH ITS REASON, and no recorded file is rewritten. Two defects

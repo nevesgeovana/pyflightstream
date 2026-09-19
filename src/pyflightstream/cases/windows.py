@@ -31,6 +31,7 @@ import math
 from collections.abc import Mapping
 
 from pyflightstream.cases import CampaignConfigError
+from pyflightstream.script._surface_averaging import SurfaceAveragingWindow
 
 __all__ = [
     "LAST_ITERS_AVG",
@@ -126,16 +127,23 @@ def averaging_span(
 def surface_averaging_window(
     *,
     last_step: int,
-    per_revolution: float | None,
+    per_revolution: float | None = None,
     last_revs: float | None = None,
     last_iters: int | None = None,
-) -> dict[str, object]:
+) -> SurfaceAveragingWindow:
     """Resolve the solver surface window using the matrix averaging clock.
 
     Bounds are inclusive time steps: SRC-750 p.353 names each bound an
     unsteady time iteration without distinguishing time steps from inner
     iterations, which awaits licensed verification. This is the sole
     conversion to the command's bounds.
+
+    Examples
+    --------
+    >>> surface_averaging_window(last_step=144, last_iters=54)["iterations"]
+    [91, 144]
+    >>> surface_averaging_window(last_step=144, last_revs=1.5, per_revolution=36)["iterations"]
+    [91, 144]
     """
     if (last_revs is None) == (last_iters is None):
         raise CampaignConfigError("state exactly one of last_revs or last_iters")
@@ -146,14 +154,18 @@ def surface_averaging_window(
         raise CampaignConfigError(
             "surface time averaging requires a run clock; last_revs requires a rotor clock"
         )
-    result: dict[str, object] = {
+    result: SurfaceAveragingWindow = {
         "iterations": list(span),
         "iteration_unit": "time_steps",
-        "last_revs" if last_revs is not None else "last_iters": value,
         "verification": "UNVERIFIED",
     }
     if last_revs is not None:
+        assert per_revolution is not None
+        result["last_revs"] = last_revs
         result["steps_per_revolution"] = per_revolution
+    else:
+        assert last_iters is not None
+        result["last_iters"] = last_iters
     return result
 
 

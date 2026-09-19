@@ -131,8 +131,7 @@ def surface_export_metadata(record: RunRecord, *, step: int | None = None) -> di
     if stated is None:
         return {"kind": "instant"}
     window = dict(stated)
-    bounds = window["iterations"]
-    assert isinstance(bounds, list)
+    bounds = stated["iterations"]
     first, last = int(bounds[0]), int(bounds[1])
     if step is None and record.stopped_at is not None:
         stopped = record.stopped_at.get("step")

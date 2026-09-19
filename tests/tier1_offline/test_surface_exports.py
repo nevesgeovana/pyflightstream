@@ -284,7 +284,14 @@ def test_frozen_surface_averages_are_named_skips_but_earlier_steps_survive(tmp_p
     workspace = CampaignWorkspace.init(tmp_path / "camp")
     record = _record(
         recipe="unsteady",
-        surface_time_averaging={"iterations": [55, 65], "last_iters": 11},
+        surface_time_averaging={
+            # 0.25.0 round 1: a recorded window is a validated shape, so a
+            # fixture states the fields a real record carries.
+            "iterations": [55, 65],
+            "last_iters": 11,
+            "iteration_unit": "time_steps",
+            "verification": "UNVERIFIED",
+        },
         export_window={"first_step": 55, "time_iterations": 65},
     ).model_copy(update={"outputs": ["p.txt", "p.dat", "p.vtk", "p.csv", "p_log.txt"]})
     sim = workspace.sim_dir(record.sim_id)

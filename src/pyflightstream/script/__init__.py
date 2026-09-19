@@ -70,6 +70,7 @@ from pyflightstream.commands import (
     Phase,
     Status,
 )
+from pyflightstream.script._surface_averaging import SurfaceAveragingWindow
 from pyflightstream.script.entities import (
     EntityRegistry,
     ScriptLabelError,
@@ -878,7 +879,7 @@ class Script:
         #: parse a survey the user wrote.
         self.probe_points: list[tuple[int, float, float, float, str]] = []
         #: Surface averaging window emitted by the workflow, for run provenance.
-        self.surface_time_averaging: dict[str, object] | None = None
+        self.surface_time_averaging: SurfaceAveragingWindow | None = None
         #: EACH SECTION DISTRIBUTION THIS SCRIPT CREATED, in emission order
         #: (0.24.0): its families BY NAME, its plane, its frame and its count.
         #: Filled by the loop that emits the distribution, for the reason

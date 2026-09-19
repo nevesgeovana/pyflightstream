@@ -5664,6 +5664,19 @@ def _execute_point(
     setup = script.solver_setup
     if setup is not None:
         base["solver_setup"] = setup.model_dump(mode="json")
+    if continues is not None:
+        predecessor = next(
+            (record for record in workspace.read_manifest() if record.run_id == continues), None
+        )
+        if predecessor is None:
+            return RunRecord(
+                **base,
+                status=RunStatus.FAILED_SCRIPT,
+                error=f"cannot recover surface averaging provenance of predecessor {continues!r}",
+            )
+        # Preserve the original recorded request when reopening the saved state,
+        # including its UNVERIFIED qualification; today's pproc cannot replace it.
+        script.surface_time_averaging = predecessor.surface_time_averaging
     base["surface_time_averaging"] = script.surface_time_averaging
     script_path, script_sha = workspace.write_script(case.sim_id, f"{stem}.txt", script.render())
     # FR-91. WHERE THIS SCRIPT PUT ITS PROBE POINTS, written next to the

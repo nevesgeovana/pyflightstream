@@ -240,6 +240,11 @@ the final instant. Those probes have no recorded history: posting again skips
 them, names the profile and reason in `products.json`, and keeps the available
 drawn-probe histories. A new run is needed to obtain the cited profiles' history.
 
+Where the artifact's entries ask for DIFFERENT parameters, the table carries a
+column for every requested parameter, and a point that was not sampled for one
+carries `NA` there. A point keeps the samples it has; no entry loses its history
+because a neighbour asked for something else.
+
 For an unsteady run, a cited profile is a count followed by `X,Y,Z,TYPE` CSV
 rows, with type 0 or 1. Both types supply fixed vertices to fluid plots; the
 entry's frame, scale and parameters apply to those vertices. Invalid counts,

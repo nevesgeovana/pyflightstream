@@ -2502,18 +2502,7 @@ def _probe_parameters(pproc, *, drawn_only: bool = False) -> tuple[str, ...]:
     because the numbered groups of an unsteady plots export are composed
     from these names and the vertex counter runs across the entries.
 
-    THIS IS A UNION AND IT ASSUMES THE ENTRIES AGREE. Where two entries of
-    one artifact declare DIFFERENT parameters, the union composes a name for
-    each vertex that only one of them has, and `write_unsteady_probes_table`
-    cannot write a half row. So such an artifact loses its probe table
-    instead of getting a wrong one, which is the right way round.
-
-    SINCE 0.17.0 IT SAYS SO (PFS-2038.05, GEO-039-F06). The drop used to be
-    indistinguishable from a row that declared no probes at all; the writer
-    now refuses the shape by name. The vertex-to-entry association is known
-    in the builder loop that already records the vertex and the frame, and
-    recording the parameters beside them is what would SERVE the shape
-    rather than name it; that is deliberately not done here.
+    Each vertex keeps its available parameters; other parameter cells are NA.
     """
     out: list[str] = []
     for entry in getattr(pproc, "probes", None) or []:
@@ -2753,14 +2742,8 @@ def write_unsteady_probes_table(
         actually in the table: a file of a spine and nothing else is a
         promise of content that is not there.
 
-    Raises
-    ------
-    ProductError
-        If EVERY probe point carries part of its composed group and not
-        all of it, which is what an artifact whose entries ask for
-        different parameters produces (PFS-2038.05): no table can be
-        written, and None there would be a lost product with no message.
-        A single incomplete point among whole ones is still left out.
+    Parameters absent at a vertex are written as NA, so entries requesting
+    different parameters retain their available histories in the same table.
     """
     if not positions or not parameters:
         return None
@@ -2770,38 +2753,8 @@ def write_unsteady_probes_table(
         (vertex, [f"{parameter}{vertex}" for parameter in parameters])
         for vertex in sorted(positions)
     ]
-    # PFS-2038.05, GEO-039-F06. A vertex holding SOME of its composed names
-    # and not all of them is what an artifact whose entries ask for
-    # DIFFERENT parameters produces: `_probe_parameters` unions them and
-    # this writer then requires the union at every vertex.
-    # THE REFUSAL IS FOR THE LOST PRODUCT ALONE, which is the narrowing.
-    # A single point dropped from a table that still gets written is the
-    # rule this writer has always had and it stays: a row carrying MACH2
-    # with a blank where VX2 belongs reads as a measured absence. What
-    # changes is the case where EVERY point is partial, so no table is
-    # written and nothing says why: silence there is indistinguishable
-    # from a row that declared no probes at all. The review's own fix, the
-    # vertex-to-entry-to-parameter mapping, would SERVE the shape; that is
-    # a refactor of the probe product nobody has asked for and is not taken.
-    partial = [
-        (vertex, [n for n in names if n in present])
-        for vertex, names in groups
-        if not all(n in present for n in names) and any(n in present for n in names)
-    ]
-    groups = [(vertex, names) for vertex, names in groups if all(n in present for n in names)]
-    if not groups:
-        if partial:
-            vertex, have = partial[0]
-            raise ProductError(
-                f"no probe table can be written from {Path(plots_table).name}: it carries "
-                f"{', '.join(have)} for probe point {vertex}, and every one of its "
-                f"{len(partial)} probe points holds part of {', '.join(parameters)} and not "
-                "all of it. Those are the parameters the artifact's [[probes]] entries ask "
-                "for BETWEEN them, and this writer composes one group per point from their "
-                "union, so a point that belongs to only one entry can never be whole. "
-                "Declare the SAME parameters on every [[probes]] entry of this artifact. "
-                "The samples are in the plots table and are not lost."
-            )
+    groups = [(vertex, names) for vertex, names in groups if any(n in present for n in names)]
+    if not groups or not rows:
         return None
     # THE STEP THE TABLE STATES, never the row's position in it. The plots
     # table carries `Time-step` and the superfile already reads it, with the
@@ -2828,7 +2781,7 @@ def write_unsteady_probes_table(
             out.append(
                 (
                     *_probe_spine(vertex, positions, step, context=context),
-                    *(float(row[name]) for name in names),
+                    *(float(row[name]) if name in present else None for name in names),
                 )
             )
     return write_csv_table(path, (*PROBE_SPINE, *tuple(parameters)), out)
@@ -4748,6 +4701,12 @@ def _sim_products(
             if done is not None:
                 written.append(done)
                 written_names[done.relative_to(out).as_posix()] = {"runs": sources[point.name]}
+        probe_requested = unsteady and products.plots and bool(_probe_parameters(pproc))
+        if probe_requested:
+            skipped[probe_relative] = (
+                "no probes table: missing plots history export. Restore or collect the "
+                "recorded plots export; run again with fluid plots if no history was recorded."
+            )
         if products.plots and plots_path is not None and plots_path.is_file():
             relative = f"{PROBES_DIR}/{point.name}_plots.csv"
             target = _target(out / relative)
@@ -4755,10 +4714,15 @@ def _sim_products(
                 done = write_plots_table(
                     target, plots_path.read_text(encoding="utf-8", errors="replace")
                 )
-            except ProductError as error:
+            except (ProductError, OSError) as error:
                 # THE SAME RULE (MT-01): this point loses its plots table and the
                 # reductions cut from it, named here, and nothing else.
                 skipped[relative] = str(error)
+                if probe_requested:
+                    skipped[probe_relative] = (
+                        f"no probes table: unreadable or empty plots history: {error}. "
+                        "Restore or collect a complete plots export; run again if none exists."
+                    )
                 done = None
             if done is not None:
                 written.append(done)
@@ -4766,23 +4730,33 @@ def _sim_products(
                 plots_tables[point.name] = done
                 if unsteady:
                     probe_target = _target(out / PROBES_DIR / f"{point.name}_probes.csv")
-                    field = write_unsteady_probes_table(
-                        probe_target,
-                        done,
-                        positions=probe_positions,
-                        parameters=_probe_parameters(pproc, drawn_only=legacy_profiles),
-                        # ITEM 5. A probe sample with no condition is a table
-                        # about nowhere: the numbers in it are a flow field, and
-                        # which flow is exactly what the condition states.
-                        condition=point_condition(point, mach=mach, cell=cell),
-                        reference=reference,
-                    )
+                    try:
+                        field = write_unsteady_probes_table(
+                            probe_target,
+                            done,
+                            positions=probe_positions,
+                            parameters=_probe_parameters(pproc, drawn_only=legacy_profiles),
+                            # ITEM 5. A probe sample with no condition is a table
+                            # about nowhere: the numbers in it are a flow field, and
+                            # which flow is exactly what the condition states.
+                            condition=point_condition(point, mach=mach, cell=cell),
+                            reference=reference,
+                        )
+                    except (ProductError, OSError, ValueError) as error:
+                        skipped[probe_relative] = (
+                            f"no probes table: {error}. Restore the plots history and recorded "
+                            "probe positions, then post again."
+                        )
+                        field = None
                     if field is not None:
+                        skipped.pop(probe_relative, None)
                         written.append(field)
                         written_names[field.relative_to(out).as_posix()] = {
                             "runs": sources[point.name]
                         }
-                    elif pproc.probes:
+                    elif probe_requested and skipped[probe_relative].startswith(
+                        "no probes table: missing"
+                    ):
                         # F01 REVIEW: the writer returns None when the history
                         # carries no whole probe group, and until this line the
                         # table was neither written nor named -- a product lost
@@ -4797,7 +4771,7 @@ def _sim_products(
                             f"{', '.join(declared) if declared else 'no declared parameter'}"
                             f" over {len(probe_positions)} recorded position(s). An unsteady row "
                             "samples its probes through fluid plots, so the history is the only "
-                            "source; declare the same parameters on every [[probes]] entry and run "
+                            "source; restore a complete history export or run "
                             "again if this point should have one."
                         )
                 _point_reductions(
@@ -5630,7 +5604,20 @@ def write_campaign_products(
         for point_record in record.as_points():
             if point_record.run_id in superseded:
                 continue
-            if point_record.status in (RunStatus.CONVERGED, RunStatus.COMPLETED_MAX_ITER):
+            frozen_failure = False
+            if point_record.status is RunStatus.FAILED_DIVERGED:
+                kinds = classify_outputs(point_record.outputs)
+                log_name = kinds.get("log")
+                log_path = workspace.sim_dir(point_record.sim_id) / log_name if log_name else None
+                if log_path is not None and log_path.is_file():
+                    frozen_failure = (
+                        frozen_time_steps(log_path.read_text(encoding="utf-8", errors="replace"))
+                        is not None
+                    )
+            if frozen_failure or point_record.status in (
+                RunStatus.CONVERGED,
+                RunStatus.COMPLETED_MAX_ITER,
+            ):
                 by_sim.setdefault(point_record.sim_id, []).append(point_record)
     written: list[Path] = []
     products_index: dict[str, dict[str, object]] = {}
@@ -5681,7 +5668,9 @@ def write_campaign_products(
     # one is invalidated first and the new one is written in a `finally`, saying it
     # is incomplete and why.
     previous = out / PRODUCTS_MANIFEST
+    previous_products = {}
     if previous.is_file():
+        previous_products = json.loads(previous.read_text(encoding="utf-8")).get("products", {})
         previous.unlink()
     try:
         _write_the_products(
@@ -5701,6 +5690,26 @@ def write_campaign_products(
             archive=archive,
             archive_stamp=archive_stamp,
         )
+        # Retire refused generated tables under both rebuild policies. Native exports
+        # outside this folder remain evidence and are never removed here.
+        refused = {name.split("#", 1)[0] for name in skipped}
+        refused.update(
+            name for name, entry in previous_products.items() if entry.get("sim_id") in skipped
+        )
+        distribution_prefixes = [
+            name.split("#", 1)[0] + "_" for name in skipped if name.endswith("#distributions")
+        ]
+        refused.update(
+            name
+            for name in previous_products
+            if any(name.startswith(prefix) for prefix in distribution_prefixes)
+        )
+        for name in refused - products_index.keys():
+            path = out / name
+            if path.resolve().is_relative_to(out.resolve()) and path.is_file():
+                _refuse_an_existing_product(path, archive=archive, stamp=archive_stamp)
+                if not archive:
+                    path.unlink()
     except BaseException as error:
         manifest["complete"] = False
         manifest["interrupted"] = f"{type(error).__name__}: {error}"
@@ -5741,6 +5750,34 @@ def _write_the_products(
     the `try` that keeps the manifest true of the disk.
     """
     for sim_id, sim_records in by_sim.items():
+        try:
+            for record in sim_records:
+                loads_name = classify_outputs(record.outputs).get("loads")
+                loads_path = workspace.sim_dir(sim_id) / loads_name if loads_name else None
+                if record.reference and loads_path is not None and loads_path.is_file():
+                    try:
+                        reference_report = parse_loads(
+                            loads_path.read_text(encoding="utf-8", errors="replace")
+                        )
+                    except PyflightstreamError:
+                        continue  # The individual writers explain malformed exports.
+                    for reference_block in (sim_records[0].reference, record.reference):
+                        if reference_block is None:
+                            continue
+                        _refuse_a_reference_the_solver_did_not_use(
+                            sim_id,
+                            [
+                                PolarPoint(
+                                    name=loads_path.stem,
+                                    loads=reference_report,
+                                    loads_path=loads_path,
+                                )
+                            ],
+                            ReferenceValues.from_mapping(reference_block),
+                        )
+        except ProductError as error:
+            skipped[sim_id] = str(error)
+            continue
         # PFS-2031.18.01: the per-step exports of a windowed point as a
         # series, written before the polar so a simulation the polar
         # refuses (no Mach, a sideslip) keeps its series, which rest on

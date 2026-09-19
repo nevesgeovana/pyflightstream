@@ -79,6 +79,7 @@ from pyflightstream._errors import PyflightstreamDeprecationWarning, Pyflightstr
 from pyflightstream._retired_names import WORKSPACE_ENGINE_POINT, RetiredAttributeError
 from pyflightstream.cases import BoundaryAliases, RawCommand
 from pyflightstream.script import MarchStrategy
+from pyflightstream.script._surface_averaging import SurfaceAveragingWindow
 from pyflightstream.script.solver_setup import explicit_empty_selections
 from pyflightstream.workspace.inputs import (
     EXECUTABLES_FILE,
@@ -1034,7 +1035,7 @@ class RunRecord(BaseModel):
     #: carries neither, and the series tables leave the time blank for it.
     export_window: dict[str, float | int | str] | None = None
     #: Solver surface averaging as emitted, never re-derived from an edited pproc.
-    surface_time_averaging: dict[str, object] | None = None
+    surface_time_averaging: SurfaceAveragingWindow | None = None
     #: The solver commands the row's setup stated verbatim and the script
     #: carried (PFS-2033.02): ``command``, ``before`` and ``setup`` each;
     #: empty for a setup stating none and for every record written before
@@ -2639,9 +2640,29 @@ class CampaignWorkspace:
             row was written under (PFS-2012.03); or when a solver-setup
             snapshot marks a selection flag explicit with an empty
             selection, naming the manifest, the run and the flag
-            (PFS-2012.01).
+            (PFS-2012.01); or when a recorded surface averaging window has invalid
+            bounds or missing provenance, naming the run and invalid fields.
         """
-        records = [RunRecord.model_validate(entry) for entry in self.read_raw_manifest()]
+        records = []
+        for entry in self.read_raw_manifest():
+            try:
+                records.append(RunRecord.model_validate(entry))
+            except ValidationError as error:
+                window_errors = [
+                    item
+                    for item in error.errors()
+                    if item["loc"] and item["loc"][0] == "surface_time_averaging"
+                ]
+                if not window_errors:
+                    raise
+                detail = "; ".join(
+                    f"{'.'.join(map(str, item['loc']))}: {item['msg']}" for item in window_errors
+                )
+                raise WorkspaceError(
+                    f"the manifest {self.manifest_path} records run {entry.get('run_id')!r} "
+                    f"with an invalid surface averaging window: {detail}. Restore the "
+                    "recorded window from the original run; do not infer it from today's pproc."
+                ) from error
         for record in records:
             self._check_waivers_name_their_source(record)
             self._check_explicit_selections_are_not_empty(record)

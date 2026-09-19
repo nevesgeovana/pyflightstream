@@ -425,13 +425,16 @@ def test_the_recorded_position_is_the_emitted_position(tmp_path):
     assert [entry[1] for entry in script.probe_points] == [0.0, 0.5, 1.0]
 
 
-def test_a_point_whose_group_is_only_half_present_is_left_out(tmp_path):
-    """A group is all of its columns or none of it.
+def test_a_point_whose_group_is_only_half_present_keeps_what_it_has(tmp_path):
+    """A point keeps the samples it has, and says NA where it has none.
 
     A point that reached the plots table with `MACH2` and no `VX2` has a
-    sample of one quantity and not of the other, and a row carrying the
-    first with a blank where the second belongs reads as a measured
-    absence. The point is left out and the ones that are whole are kept.
+    sample of one quantity and not of the other. UNTIL 0.25.0 THE WHOLE
+    POINT WAS DROPPED, which loses a measurement in silence; the round-one
+    review found the same rule costing a simulation its other products. The
+    definitions page requires one table combining all available histories,
+    and `NA` is this package's one token for no value, so the point is
+    written with `NA` in the column it was not sampled for.
     """
     recorded = read_probe_positions(
         positions_file(
@@ -449,8 +452,13 @@ def test_a_point_whose_group_is_only_half_present_is_left_out(tmp_path):
         tmp_path / "p_probes.csv", plots, positions=recorded, parameters=["MACH", "VX"]
     )
     assert written is not None
-    _, rows = read_csv_table(written)
-    assert [int(float(row["PROBE"])) for row in rows] == [1]
+    columns, rows = read_csv_table(written)
+    assert [int(float(row["PROBE"])) for row in rows] == [1, 2]
+    assert "VX" in columns and "MACH" in columns
+    whole, half = rows
+    assert float(whole["MACH"]) == 0.1 and float(whole["VX"]) == 70.0
+    assert float(half["MACH"]) == 0.2, "the sample this point does have is kept"
+    assert half["VX"] in ("NA", ""), f"the unsampled column says NA, not a number: {half['VX']!r}"
 
 
 def test_a_positions_table_whose_columns_are_in_another_order_still_reads(tmp_path):
@@ -735,17 +743,16 @@ def test_a_mesh_block_whose_count_is_not_a_number_answers_nothing(tmp_path):
 def test_goal019_bandd_two_entries_asking_for_different_parameters_say_so(tmp_path):
     """The review's own reproduction: one entry wants MACH, one wants VELOCITY.
 
-    `_probe_parameters` unions the two and the writer then requires the
-    union at every vertex, so four valid samples exist and NO table is
-    written. The drop was indistinguishable from a row that declared no
-    probes at all.
+    `_probe_parameters` unions the two, and until 0.25.0 the writer required
+    the union at every vertex, so four valid samples existed and NO table was
+    written -- a drop indistinguishable from a row that declared no probes.
+    Round one of the 0.25.0 review found that refusal escaping its product
+    and costing the simulation its other products as well.
 
-    WHAT IS TAKEN is the message. WHAT IS LEFT OUT is the
-    vertex-to-entry-to-parameter mapping, which would SERVE the shape and
-    is a refactor of the probe product nobody has asked for.
+    SINCE 0.25.0 the table is written with every requested column, each point
+    keeping the samples it has and stating `NA` where it has none, which is
+    what the definitions page requires of one combined table.
     """
-    from pyflightstream.post.products import ProductError
-
     recorded = read_probe_positions(
         positions_file(
             tmp_path,
@@ -762,15 +769,19 @@ def test_goal019_bandd_two_entries_asking_for_different_parameters_say_so(tmp_pa
         "Time-step,MACH1,MACH2,VELOCITY3,VELOCITY4\n1.00000,0.10000,0.20000,70.00000,71.00000\n",
         encoding="utf-8",
     )
-    with pytest.raises(ProductError, match="no probe table can be written") as raised:
-        write_unsteady_probes_table(
-            tmp_path / "p_probes.csv",
-            plots,
-            positions=recorded,
-            parameters=["MACH", "VELOCITY"],
-        )
-    assert "MACH" in str(raised.value) and "VELOCITY" in str(raised.value)
-    assert not (tmp_path / "p_probes.csv").exists()
+    written = write_unsteady_probes_table(
+        tmp_path / "p_probes.csv",
+        plots,
+        positions=recorded,
+        parameters=["MACH", "VELOCITY"],
+    )
+    assert written is not None, "four valid samples exist; the table is written"
+    columns, rows = read_csv_table(written)
+    assert "MACH" in columns and "VELOCITY" in columns
+    probes = {int(float(row["PROBE"])): row for row in rows}
+    assert sorted(probes) == [1, 2, 3, 4]
+    assert float(probes[1]["MACH"]) == 0.1 and probes[1]["VELOCITY"] in ("NA", "")
+    assert float(probes[3]["VELOCITY"]) == 70.0 and probes[3]["MACH"] in ("NA", "")
 
 
 def test_goal019_bandd_a_row_that_declared_no_probes_still_answers_none(tmp_path):

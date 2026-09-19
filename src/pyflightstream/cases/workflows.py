@@ -124,6 +124,7 @@ from pyflightstream.script import (
     helpers,
     rotor_vocabulary,
 )
+from pyflightstream.script._surface_averaging import SurfaceAveragingWindow
 from pyflightstream.versions import FsVersion, known_versions, resolve
 
 __all__ = [
@@ -7713,7 +7714,7 @@ _SECTION_COMMAND = "NEW_SURFACE_SECTION_DISTRIBUTION"
 _SECTION_SYMMETRY_ARG = "include_symmetry"
 
 
-def surface_time_averaging(case: SimCase) -> dict[str, object] | None:
+def surface_time_averaging(case: SimCase) -> SurfaceAveragingWindow | None:
     """Resolve the pproc's surface window on the same clock as LAST_REVS_AVG."""
     stated = case.pproc.time_averaging if case.pproc is not None else None
     if stated is None:
