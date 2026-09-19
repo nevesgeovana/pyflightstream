@@ -145,7 +145,7 @@ frame, one after another with no marker between them. Each row leads with:
 
 | column | what it is |
 |---|---|
-| `STEP` | the solver step the export states. One name across every table; on a steady run it is the solver iteration |
+| `STEP` | on an unsteady point, the run's last TIME STEP, from the run record: the export is written when the march ends, and its own header counts the solver's inner iterations, not steps. On a steady point, the solver iteration the export states. One name across every table |
 | `FAMILY` | the geometry families of the row's distribution, joined by `+` |
 | `PLANE` | the cutting plane of that distribution |
 | `ROTOR` | the rotor whose blades those families are; `NA` for a surface no rotor owns |

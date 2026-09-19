@@ -3811,6 +3811,24 @@ def _refuse_a_reference_the_solver_did_not_use(
                 )
 
 
+def _last_time_step(record: RunRecord) -> int | None:
+    """Return the time step an UNSTEADY point's end-of-run exports belong to, else None.
+
+    The sections export of an unsteady run is written once, when the march ends,
+    so it is a photograph of the run's last time step: where a watchdog stopped
+    the run, the step it stopped at; otherwise the steps the plan marched. None on
+    a steady record, whose export states its own iteration and is read from there.
+    """
+    plan = record.reductions if isinstance(record.reductions, Mapping) else None
+    if plan is None:
+        return None
+    stopped = record.stopped_at if isinstance(record.stopped_at, Mapping) else {}
+    for stated in (stopped.get("step"), plan.get("time_iterations")):
+        if isinstance(stated, int | float) and not isinstance(stated, bool) and stated > 0:
+            return int(stated)
+    return None
+
+
 def _section_rotors(
     live: object | None, aliases: Mapping[str, Sequence[str]] | None, record: RunRecord
 ) -> dict[str, dict[str, object]]:
@@ -4826,6 +4844,11 @@ def _sim_products(
                     # is (0.24.0). The layout is the point's own record's, and so is
                     # each rotor's speed: an RPM sweep turns a different angle per
                     # step at each point.
+                    # THE TIME STEP OF AN UNSTEADY POINT, from its record. The export's
+                    # header counts the solver's INNER iterations there, summed over
+                    # every step: 2813 on a licensed run of 144 steps, from which the
+                    # azimuth was then computed.
+                    iteration=_last_time_step(record_of[point.name]),
                     layout=record_of[point.name].sections_layout,
                     rotors=_section_rotors(live, aliases, record_of[point.name]),
                 )

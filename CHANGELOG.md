@@ -284,6 +284,18 @@ FlightStream versions.
   the skip stays. A run made before 0.24.0 recorded no such speed and keeps its
   skip; state the rotor through `MOTIONS` or run the row again.
 
+### Fixed (the step of an unsteady point's sections table)
+
+- On an unsteady run the export header's `Current solver iteration number` counts
+  the solver's INNER iterations, summed over every time step: 2813 on a licensed
+  run of 144 steps. The sections table took it for the step, so `STEP` read 2813
+  and `AZIMUTH` was computed from it (25 degrees for a blade that was back at 0).
+  The sections export of an unsteady point is written when the march ends, so its
+  `STEP` is the run's last time step, which the record states (the step a
+  watchdog stopped it at, else the steps the plan marched). A steady point still
+  reads the iteration its own export states. 0.23.0 published the same column as
+  `ITERATION` with the same number.
+
 ### Fixed (a held inputs folder costs a link, never the run)
 
 - Staging makes `sims/sim_<id>/inputs` a link to the geometry library, and first

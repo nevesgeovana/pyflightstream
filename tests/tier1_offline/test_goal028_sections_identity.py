@@ -184,3 +184,55 @@ def test_the_stage_reads_the_layout_off_the_points_own_record_and_says_it_is_one
     assert [(r["FAMILY"], r["PLANE"]) for r in rows] == [("Wing", "XZ"), ("Blade1", "XY")]
     entry = _products_manifest(workspace)["products"]["sections/AL-020_sections.csv"]
     assert entry["kind"] == "instant", entry
+
+
+def test_an_unsteady_points_step_is_its_time_step_and_not_the_solvers_iteration_count(tmp_path):
+    """MEASURED ON A LICENSED RUN: 144 time steps, and the export's header said 2813.
+
+    On an unsteady run the header line `Current solver iteration number` counts the
+    solver's INNER iterations, summed over every time step. The table took it for the
+    step, so `STEP` read 2813 on a run of 144 steps and `AZIMUTH` was computed from it:
+    25 degrees for a blade that, at step 144 of a 72-step turn from a datum of zero,
+    is back at 0. The sections export of an unsteady point is written at the END of
+    the run, so its step is the run's last time step, which the record states.
+
+    This fixture's export says 3134; the record says the run marched 144 steps.
+    """
+    from test_goal028_explained_products import _give
+    from test_post_products import _unsteady_workspace
+
+    from pyflightstream.post.products import write_campaign_products
+
+    plan = {
+        "time_iterations": 144,
+        "steps_per_revolution": 72.0,
+        "rotors": {
+            "PUSHER": {
+                "blades": 1,
+                "blade_families": ["Blade1"],
+                "steps_per_revolution": 72.0,
+                "blade1_azimuth_deg": 0.0,
+                "rpm": 1200.0,
+            }
+        },
+    }
+    workspace = _unsteady_workspace(tmp_path, reductions=plan)
+    outputs = workspace.sim_dir("7001") / "outputs"
+    (outputs / "AL-020_sloads.txt").write_text(SLOADS, encoding="utf-8")
+    _give(
+        workspace,
+        outputs=["outputs/AL-020.txt", "outputs/AL-020_plots.txt", "outputs/AL-020_sloads.txt"],
+        sections_layout=LAYOUT,
+    )
+    import warnings
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        write_campaign_products(workspace)
+    table = workspace.root / "post" / "products" / "sections" / "AL-020_sections.csv"
+    _columns, rows = read_csv_table(table)
+    assert {row["STEP"] for row in rows} == {"144"}, "the time step, not the 3134 of the header"
+    blade = next(row for row in rows if row["FAMILY"] == "Blade1")
+    assert blade["ROTOR"] == "PUSHER"
+    # 144 steps of 5 degrees is two whole turns from a datum of zero.
+    assert float(blade["AZIMUTH"]) == pytest.approx(0.0)
