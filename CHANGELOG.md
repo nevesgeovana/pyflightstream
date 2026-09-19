@@ -100,6 +100,24 @@ FlightStream versions.
   condition through the same assembly as every other family, and the rotor table
   reads the point's own cell. A row that states no altitude reads `NA`.
 
+### Changed (breaking: an unsteady row states its averaging window)
+
+- **`LAST_REVS_AVG` ON AN `unsteady_rotor` ROW, AND `LAST_ITERS_AVG` ON AN
+  `unsteady` ONE, ARE REQUIRED.** `pyfs-matrix plan` refuses a row that states
+  neither, naming the case and the key with an example. The definitions page
+  always said the window is a required matrix input; 0.23.0 did not refuse, and a
+  row without it took the STEADY route at post: polars read off the LAST TIME STEP
+  under the steady names, beside a time average over a window the package had
+  defaulted, with nothing marking either. A row that still states `WINDOW_STEPS`,
+  `WINDOW_REVOLUTIONS` or `WINDOW_DEGREES` satisfies the rule until 0.26.0.
+- **A RECORD ALREADY WRITTEN WITHOUT A WINDOW IS NEVER REFUSED, AND ITS POLAR
+  CHANGES KIND.** `pyfs-matrix post` averages it over the window the run
+  defaulted to (the last revolution with a rotor, the whole run without), writes
+  `P<sim>_<name>_uns_avg.csv`, and SAYS which steps that was and how to choose
+  another. The group polars, the super file and the `.dat` that such a point
+  used to get were read off the last time step and are no longer written for it.
+  State the key on the row and post again to choose the window; no re-run.
+
 ### Changed (an input format, with the old form still read)
 
 - **A PPROC GROUP IS ONE ALIAS, WRITTEN AS A STRING.** `[groups]` took a list of

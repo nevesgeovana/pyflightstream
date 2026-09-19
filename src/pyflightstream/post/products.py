@@ -3363,6 +3363,23 @@ def _setup_content(
     return content
 
 
+def _defaulted_window(record: object) -> tuple[int, int] | None:
+    """Return the window a record DEFAULTED to, where its row stated none.
+
+    `reduction_windows` always fills the time average of an unsteady point: from
+    the row's key, from a retired `WINDOW_*` key, or, failing both, from the last
+    revolution (a rotor row) or the whole run. `window_stated` says which. This
+    answers only for a record of an unsteady run type whose row stated nothing;
+    a steady record has no reductions and gets None.
+    """
+    if getattr(record, "recipe", None) not in ("unsteady", "unsteady_rotor"):
+        return None
+    plan = getattr(record, "reductions", None)
+    if not isinstance(plan, Mapping) or plan.get("window_stated"):
+        return None
+    return _recorded_window(plan)
+
+
 def _recorded_window(plan: object) -> tuple[int, int] | None:
     """Return the time-average window a reductions plan states, or None."""
     if not isinstance(plan, Mapping):
@@ -3778,6 +3795,23 @@ def _sim_products(
                 )
         plans.setdefault(stem, replanned or record.reductions)
         point_window = _matrix_window(matrix_row, record) or _stated_window(record)
+        if point_window is None:
+            # A RECORD THAT STATED NO WINDOW IS AVERAGED OVER THE ONE IT DEFAULTED TO
+            # (0.24.0, the post half of the required window). It used to take the
+            # STEADY route: a polar read off the last time step, under a steady
+            # name, beside a time average, with nothing marking either. A new row
+            # is refused at plan; a record already held is never refused here.
+            point_window = _defaulted_window(record)
+            if point_window is not None and stem not in point_windows:
+                key = "LAST_REVS_AVG" if record.recipe == "unsteady_rotor" else "LAST_ITERS_AVG"
+                warnings.warn(
+                    f"{stem}: this record states no {key}. Its unsteady polar is averaged "
+                    f"over the window the run defaulted to, steps {point_window[0]} to "
+                    f"{point_window[1]}. State {key} on the row and post again to choose the "
+                    "window; no re-run is needed.",
+                    PyflightstreamWarning,
+                    stacklevel=2,
+                )
         if point_window is not None:
             point_windows.setdefault(stem, point_window)
         sources.setdefault(stem, []).append(record.run_id)
