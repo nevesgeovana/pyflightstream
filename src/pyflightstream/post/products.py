@@ -2451,6 +2451,7 @@ def write_sections_table(
     *,
     mach: float,
     iteration: int | None = None,
+    unsteady: bool = False,
     azimuth_deg: float | None = None,
     reference: ReferenceValues | None = None,
     advance_ratio: float | None = None,
@@ -2493,12 +2494,9 @@ def write_sections_table(
     the file name (v0.23.0 item 13). A run with no rotor states no azimuth and
     the cell reads `NA`, which is not zero: zero is a real azimuth.
 
-    BOTH ARE READ FROM THE EXPORT WHERE IT STATES THEM, which this docstring
-    promised before anything did it: the surface sections export carries
-    `Current solver iteration number` in its header, exactly as the loads
-    export does, and nothing read it -- so every row of every sections file
-    said `NA,NA` while the answer sat in the text the writer was handed. A
-    caller that knows better may still pass ``iteration`` and it wins.
+    On a steady export, an omitted ``iteration`` is read from the header.
+    With ``unsteady=True`` the header counts inner iterations, so the caller
+    supplies the time step from the run record; an unknown step stays `NA`.
 
     THE AZIMUTH IS WRAPPED -- a step count is not an angle, and 1575 steps of
     3.6 degrees is 5670 degrees, which is not somewhere a blade can be. Without
@@ -2535,7 +2533,7 @@ def write_sections_table(
     # ITEM 13. The export states which iteration it is, and the caller's own
     # value wins where it has one -- a caller holding a stamped file name knows
     # the step better than a header does.
-    if iteration is None:
+    if iteration is None and not unsteady:
         iteration = _stated_iteration(export_text)
     table = np.asarray(report.values, dtype=float)
     if table.shape[1] < 7:
@@ -3856,11 +3854,12 @@ def _last_time_step(record: RunRecord) -> int | None:
     the run, the step it stopped at; otherwise the steps the plan marched. None on
     a steady record, whose export states its own iteration and is read from there.
     """
-    plan = record.reductions if isinstance(record.reductions, Mapping) else None
-    if plan is None:
+    plan = record.reductions if isinstance(record.reductions, Mapping) else {}
+    export = record.export_window if isinstance(record.export_window, Mapping) else {}
+    if not plan and not export and record.recipe not in ("unsteady", "unsteady_rotor"):
         return None
     stopped = record.stopped_at if isinstance(record.stopped_at, Mapping) else {}
-    for stated in (stopped.get("step"), plan.get("time_iterations")):
+    for stated in (stopped.get("step"), plan.get("time_iterations"), export.get("time_iterations")):
         if isinstance(stated, int | float) and not isinstance(stated, bool) and stated > 0:
             return int(stated)
     return None
@@ -4910,6 +4909,7 @@ def _sim_products(
                     # every step: 2813 on a licensed run of 144 steps (RPT-053), from which the
                     # azimuth was then computed.
                     iteration=_last_time_step(record_of[point.name]),
+                    unsteady=record_of[point.name].recipe in ("unsteady", "unsteady_rotor"),
                     layout=record_of[point.name].sections_layout,
                     rotors=_section_rotors(live, aliases, record_of[point.name]),
                 )

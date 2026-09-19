@@ -815,8 +815,13 @@ def phase_locked_rows(
         moments = []
         moment = newest
         while moment > opening + tolerance:
-            if moment >= steps[0] - tolerance:
-                moments.append(moment)
+            if moment < steps[0] - tolerance:
+                raise ProductError(
+                    f"the phase-locked sample at step {moment:g} needs interpolation "
+                    f"support before the history begins at step {steps[0]:g}; "
+                    "dropping it would average fewer revolutions than requested"
+                )
+            moments.append(moment)
             moment -= per_revolution
         return np.asarray(moments, dtype=float)
 
