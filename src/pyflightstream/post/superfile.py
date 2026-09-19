@@ -169,7 +169,11 @@ def super_file_name(
     group: str | int,
     suffix: str = ".csv",
 ) -> str:
-    """``SUPER-<sim>-<sweep name>_g<group:02d>.csv`` (0.21.0).
+    """``SUPER-<sim>-<sweep name>_<group>.csv`` (0.21.0), the group NAMED since 0.23.0.
+
+    ``<group>`` is the group's name, as in
+    ``SUPER-0001-M150AL+000BE+000J+sweep_PUSHER.csv``, and ``g<NN>`` for a group
+    that is still numbered, exactly as the polar table beside it writes it.
 
     ``sweep`` is the name of the case's whole sweep as the run recorded it
     (``RunRecord.sweep_name``), each swept field written ``<code>+sweep``: the

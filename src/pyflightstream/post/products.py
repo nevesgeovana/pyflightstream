@@ -10,7 +10,9 @@ record, so any spreadsheet or dataframe reads them with nothing else:
   reference block and the coefficients of the group in body, stability
   and wind axes with the two drag parts;
 * the SUPERFILE of each polar and group beside it since 0.16.0 (FR-89),
-  ``polars/SUPER-<point with the swept variable as sweep>_g<NN>.csv``:
+  ``polars/SUPER-<sim>-<sweep name>_<group>.csv``, the polar table's own stem
+  with ``SUPER-`` in place of ``P``; ``<group>`` is the group's NAME
+  (``_PUSHER``) since 0.23.0, and ``g<NN>`` for a group that is still numbered:
   one row per CONVERGED point, written after the unsteady post-process so
   it holds no time series, and its column set is a SUPERSET of the union
   of everything the workspace knows about that simulation. The assembly
@@ -41,7 +43,8 @@ record, so any spreadsheet or dataframe reads them with nothing else:
   ``products.json`` with its reason, as a refused polar is;
 * THE CUSTOM POLAR FORMAT beside each polar table when the pproc artifact asks
   (``[products] custom_polar_format = true``, PFS-2014.01.01):
-  ``<polar>_M<mach code>_g<group>.dat``, the same rows in the fixed-width
+  ``P<sim>-<sweep name>_<group>.dat``, the polar table's own name with the
+  suffix changed (:func:`swept_polar_file_name`), the same rows in the fixed-width
   text file the existing tooling opens, specified line by line in
   :func:`write_custom_polar_format` and read back by
   :func:`read_custom_polar_format`;
@@ -1126,10 +1129,20 @@ def rotor_coefficients(
         CQ   = Q / (rho n^2 D^5)
         CP   = 2 pi CQ
         ETA  = J CT / CP
-        ETAW = ETA cos(theta)
+        CTW  = Fx_W / (rho n^2 D^4)
+        ETAW = J CTW / CP
+
+    ``Fx_W`` is ``wind_force_n``: the rotor's whole force vector carried from the
+    rotor frame to the airframe body frame and then to wind axes by the AIAA
+    rotation with alpha and beta, X component (``rotor_shaft_loads`` computes
+    it; the definition of record is ``docs/post-processing-definitions.md``,
+    section ``ETAW``). It is two rotations on a vector and never the cosine of
+    an angle; ``ETAW`` equals ``ETA`` when the shaft lies along the stream, and
+    reads ``NA`` when no wind-axis force is stated.
 
     ``shaft_angle_deg`` is the angle between the rotor's SHAFT and the free
-    stream, which is why this rests on item 19: until the installation vector
+    stream, reported beside the coefficients and entering none of them. It
+    rests on item 19: until the installation vector
     existed the shaft was assumed to lie on a geometry axis, so a rotor
     installed at pitch reported the wind-axis efficiency of an aligned rotor.
     A rotor tilted out of the flight direction does not put all of its thrust

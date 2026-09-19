@@ -730,7 +730,7 @@ ROW_MOVING_BOUNDARIES = DeprecatedParameter(
 #: the temporal setup that gives it a length.
 _ONE_WINDOW_ON_THE_ROW = (
     "The averaging window is stated once on the matrix row, beside the clock that gives it a "
-    "length: last_revs_avg on an unsteady_rotor row, last_iters_avg on an unsteady one."
+    "length: LAST_REVS_AVG on an unsteady_rotor row, LAST_ITERS_AVG on an unsteady one."
 )
 PPROC_GROUP_MEMBER_LIST = DeprecatedParameter(
     owner="a pproc [groups] entry",
@@ -747,7 +747,7 @@ PPROC_GROUP_MEMBER_LIST = DeprecatedParameter(
 ROW_WINDOW_STEPS = DeprecatedParameter(
     owner="a matrix row",
     old="WINDOW_STEPS",
-    new="last_iters_avg",
+    new="LAST_ITERS_AVG",
     deprecated_since="0.23.0",
     removal_version="0.26.0",
     extra=_ONE_WINDOW_ON_THE_ROW,
@@ -755,7 +755,7 @@ ROW_WINDOW_STEPS = DeprecatedParameter(
 ROW_WINDOW_REVOLUTIONS = DeprecatedParameter(
     owner="a matrix row",
     old="WINDOW_REVOLUTIONS",
-    new="last_revs_avg",
+    new="LAST_REVS_AVG",
     deprecated_since="0.23.0",
     removal_version="0.26.0",
     extra=_ONE_WINDOW_ON_THE_ROW,
@@ -763,12 +763,12 @@ ROW_WINDOW_REVOLUTIONS = DeprecatedParameter(
 ROW_WINDOW_DEGREES = DeprecatedParameter(
     owner="a matrix row",
     old="WINDOW_DEGREES",
-    new="last_revs_avg",
+    new="LAST_REVS_AVG",
     deprecated_since="0.23.0",
     removal_version="0.26.0",
     extra=(
         _ONE_WINDOW_ON_THE_ROW
-        + " Degrees are revolutions over 360, so WINDOW_DEGREES = 90 is last_revs_avg = 0.25."
+        + " Degrees are revolutions over 360, so WINDOW_DEGREES = 90 is LAST_REVS_AVG = 0.25."
     ),
 )
 ROW_ROTOR_AXIS = DeprecatedParameter(

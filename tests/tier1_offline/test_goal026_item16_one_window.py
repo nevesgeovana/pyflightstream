@@ -91,8 +91,13 @@ def test_an_old_window_key_warns_that_it_is_on_a_clock():
     spoken = [str(item.message) for item in caught]
     assert any("WINDOW_DEGREES" in text and "0.26.0" in text for text in spoken), spoken
     # THE REPLACEMENT IS NAMED, because a notice that does not say what to write
-    # instead sends the reader to the source to find out.
-    assert any("last_revs_avg" in text for text in spoken), spoken
+    # instead sends the reader to the source to find out. NAMED AS THE ROW MUST
+    # SPELL IT (0.24.0, MC-04): this asserted the lower-case `last_revs_avg`,
+    # which is the spelling the matrix does NOT read -- the next case of this
+    # file writes the key as `LAST_REVS_AVG`, and a row written in lower case is
+    # refused or ignored. The expectation encoded the defect and is corrected.
+    assert any("LAST_REVS_AVG" in text for text in spoken), spoken
+    assert not any("last_revs_avg" in text for text in spoken), spoken
 
 
 def test_a_new_key_beats_an_old_one_and_the_row_is_told_which_answered():

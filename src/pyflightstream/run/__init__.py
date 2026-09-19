@@ -6105,9 +6105,9 @@ def assess_unsteady_from_plots(
     ----------
     series : pyflightstream.post.unsteady.TimestepSeries
         The plots history, as `post.unsteady` reads it back. Annotated as
-        ``object`` rather than imported: `post` imports `run`, so naming the
-        type here at runtime would invert the dependency direction, which is
-        a design error rather than a lint finding.
+        ``object`` rather than imported: `post` is the layer ABOVE `run`, so
+        importing the type here would be an upward import, which is a design
+        error rather than a lint finding.
     settle_tolerance : float, optional
         The fractional change across the last two halves of the history below
         which it counts as settled. HERS to set.
