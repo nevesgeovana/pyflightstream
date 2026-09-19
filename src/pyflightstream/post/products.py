@@ -2714,11 +2714,21 @@ def write_unsteady_probes_table(
 #: solver steps it spans, and how many rows of the table fell inside.
 REDUCTION_COLUMNS: tuple[str, ...] = (
     "REDUCTION",
+    # 0.24.0. THE ROTOR AS A COLUMN, `NA` on the time average. The alias lived in
+    # the file name alone, which does not decompose (both the reduction and the
+    # alias carry underscores), so two rotors' files were identical inside and
+    # could not be told apart once read into one table.
+    "ROTOR",
     "WINDOW",
     "FIRST_STEP",
     "LAST_STEP",
     "STEPS",
     *CONTEXT_COLUMNS,
+    # The table averages the plots' moment columns, and a moment states nothing
+    # without the point it is taken about.
+    "XMOM",
+    "YMOM",
+    "ZMOM",
 )
 
 
@@ -2807,8 +2817,14 @@ def write_reduction_table(
     windows: Sequence[Sequence[int]],
     condition: Mapping[str, object] | None = None,
     reference: ReferenceValues | None = None,
+    rotor: str | None = None,
 ) -> Path:
     """Write one reduction of a plots table: one row per window, the table's columns averaged.
+
+    THE CLOCK IS NOT AVERAGED (0.24.0). Every column of the plots table used to
+    be, `Time-step` among them, so a row stated FIRST_STEP 1, LAST_STEP 8 and
+    `Time-step 4.50000`: the mean of a counter, under the same contract as `CL`.
+    ``rotor`` is the alias this reduction is cut for, `NA` for the time average.
 
     ``condition`` and ``reference`` are what the row is a reduction OF, and
     this table carried neither until 0.23.0: a window of averaged coefficients
@@ -2854,6 +2870,12 @@ def write_reduction_table(
     # reduction of the SAME point, so the condition is the row's context and
     # not the window's.
     context = context_row(condition, None if reference is None else reference.as_lengths())
+    moment = context_row(
+        None if reference is None else reference.as_moment_point(),
+        None,
+        columns=_MOMENT_POINT_COLUMNS,
+    )
+    columns = [name for name in columns if name not in _PLOTS_CLOCK_COLUMNS]
     first_step = int(series.steps[0]) if len(series.steps) else 1
     last_step = int(series.steps[-1]) if len(series.steps) else 0
     for index, (first, last) in enumerate(windows, start=1):
@@ -2868,11 +2890,13 @@ def write_reduction_table(
         rows.append(
             (
                 reduction,
+                rotor,
                 index,
                 int(first),
                 int(last),
                 average.n_frames,
                 *context,
+                *moment,
                 *(float(average.fields[name][0]) for name in columns),
             )
         )
@@ -4508,6 +4532,7 @@ def _point_reductions(
                 # point come to disagree about what point it was.
                 condition=condition,
                 reference=reference,
+                rotor=rotor,
             )
         except ProductError as error:
             skipped[relative] = str(error)

@@ -72,6 +72,13 @@ FlightStream versions.
   cells, the record's scalars, each rotor's speed and the solver flags. The super
   file is what the polar does not have, and for an unsteady point it is not a
   second file.
+- **THE REDUCTION TABLES** (`<point>_time_average.csv` and the per-rotor
+  `per_blade` and `phase_locked` files) gain `ROTOR` after `REDUCTION`, the alias
+  the reduction is cut for and `NA` on the time average, and `XMOM`, `YMOM`,
+  `ZMOM` after the reference lengths. THE COLUMNS `Time-step` AND `Time (sec)`
+  LEAVE THEM: every column of the plots table was averaged, the clock included,
+  so a row stated steps 1 to 8 beside `Time-step 4.50000`. The plots table itself
+  keeps its clock, which is its axis.
 - The post stage WARNS, naming the point, when an export's reference velocity is
   not its free stream: the steady polar's coefficients are by `VREF`, while the
   plots table, its reductions and the unsteady polar are rescaled to `VINF`.

@@ -599,13 +599,27 @@ def test_pyfs_matrix_post_writes_every_reduction_beside_the_plots_table(tmp_path
     # was until the owner's rule that every product says what it is a file of.
     # The window block still leads and the plots table's own columns still
     # follow, so a reader's column ORDER within each block is unchanged.
-    assert columns[:5] == ("REDUCTION", "WINDOW", "FIRST_STEP", "LAST_STEP", "STEPS"), columns
-    assert columns[5 : 5 + len(CONTEXT_COLUMNS)] == CONTEXT_COLUMNS, columns
-    assert columns[5 + len(CONTEXT_COLUMNS) :] == (
-        "Time-step",
+    # THREE EXPECTATIONS MOVED WITH THE REQUIREMENT AT 0.24.0, and this test had
+    # pinned one of them by reading it off the implementation. `ROTOR` follows
+    # `REDUCTION` (RI-03); the moment point follows the context (CC-09); and
+    # `Time-step` IS GONE (RI-07): this assertion listed it as a reduction column,
+    # which is the mean of a step counter published under the same contract as CL.
+    assert columns[:6] == (
+        "REDUCTION",
+        "ROTOR",
+        "WINDOW",
+        "FIRST_STEP",
+        "LAST_STEP",
+        "STEPS",
+    ), columns
+    assert columns[6 : 6 + len(CONTEXT_COLUMNS)] == CONTEXT_COLUMNS, columns
+    assert columns[6 + len(CONTEXT_COLUMNS) :] == (
+        "XMOM",
+        "YMOM",
+        "ZMOM",
         "CL_MRP_TOTAL",
         "CDI_MRP_TOTAL",
-    ), "the reduction carries the window block, the context, then the plots table's own columns"
+    ), "the window block, the context, the moment point, then the plots' own DATA columns"
     assert len(rows) == 1
     assert rows[0]["REDUCTION"] == "time_average" and rows[0]["WINDOW"] == "1"
     assert (rows[0]["FIRST_STEP"], rows[0]["LAST_STEP"], rows[0]["STEPS"]) == ("3", "8", "6")
