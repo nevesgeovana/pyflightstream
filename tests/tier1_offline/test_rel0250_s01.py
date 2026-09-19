@@ -102,7 +102,7 @@ def test_replan_alone_preserves_the_recorded_gate(last):
 
 @pytest.mark.parametrize("name, expected", [("TOTAL", ("TOTAL",)), ("LOAD_{family}", ())])
 def test_mrp_reader_agrees_with_run_and_post(tmp_path, name, expected):
-    from .test_goal028_uns_axes import _plot_names, _script_of
+    from tests.tier1_offline.test_goal028_uns_axes import _plot_names, _script_of
 
     plots = {
         "parameters": ["FX", "FY", "FZ", "MX", "MY", "MZ"],
@@ -119,8 +119,7 @@ def test_mrp_reader_agrees_with_run_and_post(tmp_path, name, expected):
 
 def test_planner_calls_policy_once_per_rotor(monkeypatch):
     from pyflightstream.cases.workflows import reduction_windows
-
-    from .test_reduce_by_rotor import transition_case
+    from tests.tier1_offline.test_reduce_by_rotor import transition_case
 
     assert hasattr(windows, "phase_locked_plan"), "phase-locked policy has no single entry point"
     original = windows.phase_locked_plan

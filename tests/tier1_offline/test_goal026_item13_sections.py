@@ -88,11 +88,8 @@ def _sections_export() -> str:
     refuses by name (FSI-R03) -- a refusal that fired on the first run of this
     test and was right to.
     """
-    import sys
-    from pathlib import Path
 
-    sys.path.insert(0, str(Path(__file__).parent))
-    from test_post_products import SLOADS
+    from tests.tier1_offline.test_post_products import SLOADS
 
     assert f"number:            {FIXTURE_ITERATION}" in SLOADS, "the fixture's iteration moved"
     return SLOADS

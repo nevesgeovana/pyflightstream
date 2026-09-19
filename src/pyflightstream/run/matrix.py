@@ -648,8 +648,8 @@ def run_matrix(
         fs_exe=fs_exe,
         ignore_missing_families=ignore_missing_families,
     )
-    # FR-97. THE GATE IS ON THE COMMAND, not here. The author's
-    # words are "o comando run", and that is the right layer: this
+    # FR-97. THE GATE IS ON THE COMMAND, not here. The CLI
+    # requires a plan receipt; the library API does not: this
     # function is the library entry a caller composes, and a caller that
     # composed plan and run into one call would be made to write a file
     # between them for no reason. `pyfs-matrix run` asks

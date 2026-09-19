@@ -534,8 +534,7 @@ def point_condition(
             # table and 4.38 in the polar BESIDE IT, under one column name --
             # six orders of magnitude between two files a reader joins on their
             # condition columns. Aligning the polar instead would change bytes
-            # she already reads for a second time in one release, and that is
-            # her call rather than mine.
+            # already published for a second time in one release.
             ("RE", None if report.reynolds is None else report.reynolds / 1e6),
         )
         for column, value in reported:
@@ -1074,8 +1073,8 @@ def rotor_shaft_loads(
         thrust_n=sum(a * b for a, b in zip(newtons, shaft, strict=True)),
         torque_nm=sum(a * b for a, b in zip(about_hub, shaft, strict=True)),
         shaft_angle_deg=_shaft_angle(shaft, alpha_deg, beta_deg),
-        # THE OWNER'S `Fx_W`, 2026-09-18, AND THE ROUND TRIP IS COLLAPSED.
-        # Her definition starts from the force in the ROTOR frame and carries
+        # THE WIND-AXIS FORCE `Fx_W`, WITH THE ROUND TRIP COLLAPSED.
+        # The definition starts from the force in the ROTOR frame and carries
         # it to the body frame by the TRANSPOSE of the rotor-to-body rotation.
         # `newtons` is that force in the frame THE EXPORT STATES, which is checked
         # against `GEOMETRY_ANALYSIS_FRAMES` above and refuses the whole row when
@@ -1088,7 +1087,7 @@ def rotor_shaft_loads(
         # the identity, for any orthonormal `R`. Writing the two rotations would
         # give the same number with two more places to make a sign error.
         #
-        # What remains is her second rotation: body axes to WIND axes, by alpha
+        # What remains is the second rotation: body axes to WIND axes, by alpha
         # and beta, taking the X component. That is exactly the dot product of
         # the body-frame force with the free-stream unit vector, which
         # `post.axes` builds and `_shaft_angle` uses for the angle.
@@ -1294,19 +1293,19 @@ def rotor_coefficients(
         return values
     efficiency = advance_ratio * thrust_coefficient / power_coefficient
     values["ETA"] = efficiency
-    # ETAW IS THE OWNER'S FORMULA, 2026-09-18, AND IT IS NOT A COSINE.
+    # ETAW USES THE WIND-AXIS FORCE, NOT A COSINE.
     # It read `ETA * cos(shaft_angle)`, which projects the SHAFT direction and
     # so keeps only the part of the rotor's force that lies along the shaft --
-    # discarding exactly the components an installed rotor produces off it. Hers
-    # carries the whole force vector through two rotations and takes the wind X
+    # discarding exactly the components an installed rotor produces off it. The
+    # current definition carries the whole force vector through two rotations and takes the wind X
     # component, which `rotor_shaft_loads` computes as `wind_force_n`.
-    # `ETAW` STAYS DIMENSIONLESS, which she confirmed when asked: the wind-axis
+    # `ETAW` STAYS DIMENSIONLESS: the wind-axis
     # force is nondimensionalised exactly as the thrust is, and enters the same
     # efficiency where `CT` enters. So `ETAW` reduces to `ETA` when the shaft is
     # aligned with the stream, which is the property that makes it readable.
     # A CALLER THAT STATES NO WIND FORCE GETS `NA`, never the cosine. Falling
-    # back to the old form would publish the number she called wrong under the
-    # name she corrected, and a reader could not tell which they were holding.
+    # back to the old form would publish the superseded number under the
+    # corrected name, and a reader could not tell which they were holding.
     if wind_force_n is None or not math.isfinite(wind_force_n):
         values["ETAW"] = NOT_APPLICABLE
         return values
@@ -1829,7 +1828,7 @@ def _rotor_tables(
         rows: list[dict[str, object]] = []
         # EVERY POINT THAT IS NOT A ROW, WITH ITS REASON AND ITS RUN ID. The
         # first writing of this function dropped three kinds of point on a bare
-        # `continue`, leaving a table quietly shorter than her matrix while the
+        # `continue`, leaving a table quietly shorter than the matrix while the
         # manifest's `runs` list still named every point -- so the provenance
         # said the row was there. The independent lens counted the sites. It is
         # the same defect this release had already fixed for the unsteady polar,
@@ -1869,7 +1868,7 @@ def _rotor_tables(
             )
             # THE VELOCITY THE EXPORT REPORTS, NOT THE ONE THE MATRIX ASKED FOR.
             #
-            # The owner settled which quantity, 2026-09-18: the export's surface
+            # The export's surface
             # coefficients are normalised by its REFERENCE velocity. So that is
             # the number this dimensionalisation must divide by, and the loads
             # header states it on its own line.
@@ -1882,10 +1881,8 @@ def _rotor_tables(
             # run whose free stream is 50 and whose reference velocity is 100,
             # in Unsteady mode: a factor of four in dynamic pressure.
             #
-            # HER CAMPAIGNS NEVER SET THE TWO APART -- "nunca usamos as duas
-            # diferentes", 2026-09-18 -- so no number she already holds changes.
-            # That is why this is a correctness fix and not a migration, and it
-            # is also why the published sentence about a static point stays
+            # When the two velocities agree, existing numbers do not change.
+            # The published sentence about a static point stays
             # TRUE: with the two equal, hover really is divided by zero.
             reported = getattr(point.loads, "reference_velocity_m_s", None) if point.loads else None
             speed = reported if isinstance(reported, int | float) else None
@@ -2068,7 +2065,7 @@ def write_rotor_table(
 
     written: list[tuple[object, ...]] = []
     # THE TWO OUT-PARAMETERS, normalised once so every `continue` below can
-    # report without checking for None. A row refused here is a point of her
+    # report without checking for None. A row refused here is a point of the
     # matrix that the table does not contain, and the manifest has to be able
     # to say so: both of these paths were bare `continue`s, counted by the
     # independent lens of 2026-09-18.
@@ -2184,7 +2181,7 @@ def write_rotor_table(
             density_kg_m3=density_kg_m3,
             speed_m_s=flight_m_s,
             shaft_angle_deg=loads.shaft_angle_deg,
-            # THE CALL SITE IS WHAT DELIVERS HER CORRECTION. The formula and the
+            # THE CALL SITE PASSES THE WIND-AXIS FORCE. The formula and the
             # wind-axis force both existed for a few minutes without this line,
             # and `ETAW` would have gone on being the cosine it was.
             wind_force_n=loads.wind_force_n,
@@ -2221,7 +2218,7 @@ def write_rotor_table(
     # prevent, and nothing on any later run cleans it up. A QA round reproduced
     # it by shrinking the column tuple.
     # It goes in a TEMPORARY DIRECTORY rather than beside the product, so a
-    # process killed between the two steps leaves nothing in her workspace at
+    # process killed between the two steps leaves nothing in the user's workspace at
     # all. This machine killed three runs for memory today; that is not a
     # hypothetical.
     with tempfile.TemporaryDirectory() as scratch_dir:
@@ -3870,8 +3867,7 @@ def _refuse_an_existing_product(
 ) -> Path:
     """Return ``path``, ARCHIVING an existing product rather than losing it.
 
-    THE AUTHOR'S INSTRUCTION OF 2026-09-12, and it arrived as feedback on the fix
-    that makes a regenerated SUPER file report different numbers: without
+    A regenerated SUPER file can report different numbers: without
     an archive the previous table is gone and nothing says it ever said
     something else.
 
@@ -4287,8 +4283,8 @@ def unsteady_polar_file_name(sim_id: str | int, *, name: str) -> str:
     # NOT `group_token`, which is the GROUP rule: it prefixes a bare number with
     # `g` so a named group can never be told from the numbered era's suffix. A
     # simulation id is not a group and carries no such history, and prefixing it
-    # would rename every file of every workspace she has.
-    # `P<sim>_<name>_uns_avg.csv` SINCE 0.24.0, the owner's naming. Every file under
+    # would rename every file of every existing workspace.
+    # `P<sim>_<name>_uns_avg.csv` SINCE 0.24.0. Every file under
     # `post/` comes from a sweep, so a sweep token in the middle of the name told a
     # reader nothing; `uns_avg` says what the file IS, the average of the unsteady
     # history, and the `P` is the prefix every per-point product already carries.
@@ -4403,7 +4399,7 @@ def write_unsteady_polar(
         tuple[Mapping[str, object], dict[str, float], tuple[int, int], dict[str, object]]
     ] = []
     # WHY EACH ABSENT POINT IS ABSENT, collected rather than discarded. A sweep
-    # dropping rows in silence hands a reader a table shorter than her matrix
+    # dropping rows in silence hands a reader a table shorter than the matrix
     # with nothing saying which points went or why -- which is a blank cell one
     # level up, and `_tokens.py` argues against exactly that: indistinguishable
     # from a value that went missing, from a column that never applied, and from
@@ -4936,13 +4932,13 @@ def _sim_products(
     # BOUND HERE FOR THE SAME REASON AS `cell` ABOVE, and it was bound inside
     # the `products.polars` branch for one commit -- sixty lines below the
     # comment that names that exact mistake. `products.polars = false` is a real
-    # pproc setting a user writes when her groups are not for polar tables, and
+    # pproc setting a user writes when their groups are not for polar tables, and
     # reading this outside the branch that bound it is a NameError that aborts
     # the post stage for every simulation of such a workspace. No test sets that
     # field, so the suite was green. The architect lens of the closing round
     # found it by reading the nesting rather than by running anything.
     # THE MATRIX FIRST, THE RECORD SECOND. Item 16's window is a POST-PROCESSING
-    # instruction and she must be able to change it without re-running the
+    # instruction and the user must be able to change it without re-running the
     # solver; `_matrix_window` resolves what the matrix says NOW against the
     # clock the record already carries. `_stated_window` remains the fallback,
     # so a point whose matrix no longer names a key reduces as it was run.
@@ -5023,11 +5019,11 @@ def _sim_products(
 
     if products.polars:
         # ITEM 17: AN UNSTEADY SIMULATION'S POLAR COMES FROM THE PLOTS, and the
-        # group polars below are NOT written for it. Her answers of 2026-09-18:
+        # group polars below are NOT written for it:
         # the native coefficient export states the LAST TIME STEP, which on an
         # oscillating rotor is one instant of a cycle, so a polar read from it is
-        # a polar of an instant; and "A POLAR do unsteady sempre vai vir do
-        # unsteady plots, alem de ter a media temporal".
+        # a polar of an instant. The unsteady polar instead reads the plots
+        # history and averages it over time.
         #
         # THE TABLE ITSELF IS WRITTEN LATER, after the per-point loop has put the
         # plots tables on disk: it reads THOSE rather than the raw export, so the
@@ -5038,7 +5034,7 @@ def _sim_products(
         # THE GROUP POLARS ARE SKIPPED RATHER THAN WRITTEN FROM AN INSTANT.
         # Writing both would put two files with one name's worth of meaning in
         # one folder, and a reader would have no way to tell which of them the
-        # coefficients she is comparing came from.
+        # coefficients the user is comparing came from.
         # THE ALIASES OF THE REFERENCE AS IT STANDS TODAY (PO-07). The group polars
         # resolved their members through the table frozen into the run record
         # while the rotor table beside them already read the live reference, so
@@ -5319,7 +5315,7 @@ def _sim_products(
     # `reductions` carrying blades, rpm and steps; neither keeps the shaft, the
     # hub or the diameter, and a record does not even name its reference. The
     # matrix row does, the file is still in the workspace, and reading it costs
-    # nothing she already has: no re-run.
+    # no new solver run.
     for target_path, alias, plan in _rotor_tables(
         workspace,
         sim_id,
@@ -5340,7 +5336,7 @@ def _sim_products(
         destination = _target(target_path)
         # THE PLAN'S OWN REJECTIONS PLUS THE WRITER'S, IN ONE LIST. Both halves
         # dropped points on a bare `continue` until 2026-09-18, so a table came
-        # back shorter than her matrix with the manifest still naming every run.
+        # back shorter than the matrix with the manifest still naming every run.
         # NARROWED, not ignored. The plan is a `dict[str, object]` the planner
         # assembles, so its values arrive as `object` and `list(...)` on one is
         # a claim the checker is right to refuse. The suppression that stood
@@ -5473,7 +5469,7 @@ def _sim_products(
                 stacklevel=2,
             )
         # EVERY POINT THAT IS NOT A ROW IS NAMED, with its reason. A sweep table
-        # quietly shorter than her matrix says nothing about which points went
+        # quietly shorter than the matrix says nothing about which points went
         # or why, which is a blank cell one level up.
         if unsteady_left_out:
             skipped[f"{POLARS_DIR}/{unsteady_name}"] = (
@@ -6247,7 +6243,7 @@ def _prov_document(record: RunRecord, sim_dir: Path) -> dict[str, object]:
             }
         ),
         # THE OPERATOR, v0.23.0 item 12. Always present: a record that names
-        # nobody reads `NA`, which is the run she already has, and the absence
+        # nobody reads `NA`, so existing records remain usable and the absence
         # is visible rather than silent.
         operator_id: operator,
         solver_id: _attributes(

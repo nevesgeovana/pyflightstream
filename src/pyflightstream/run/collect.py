@@ -418,7 +418,7 @@ def _native_log(
 ) -> _NativeLog:
     """Find the log the SCHEDULER wrote, and the declared name it is read under (0.21.0).
 
-    THE AUTHOR'S DECISION OF 2026-09-15, from the cluster. Some machines abort at
+    Some machines abort at
     ``EXPORT_LOG``: the job runs, every other export lands, and the log the
     package judges the run by never arrives, so `collect` waits for a file
     nothing will ever write. Such a machine writes its own log beside the run,

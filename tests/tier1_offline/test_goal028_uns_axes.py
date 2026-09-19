@@ -17,23 +17,19 @@ through scipy. Nothing is taken from the module under test.
 from __future__ import annotations
 
 import math
-import sys
 from pathlib import Path
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).parent))
-
-from test_goal028_polar_from_the_vector import _oracle  # noqa: E402
-from test_post_products import PLOTS_HEADER  # noqa: E402
-
-from pyflightstream.post.products import (  # noqa: E402
+from pyflightstream.post.products import (
     COEFFICIENT_COLUMNS,
     ReferenceValues,
     read_csv_table,
     write_plots_table,
     write_unsteady_polar,
 )
+from tests.tier1_offline.test_goal028_polar_from_the_vector import _oracle
+from tests.tier1_offline.test_post_products import PLOTS_HEADER
 
 REFERENCE = ReferenceValues(sref_m2=50.0, cref_m=2.526, bref_m=20.0)
 RHO, VINF = 1.1, 60.0
@@ -167,7 +163,7 @@ def test_the_stage_records_why_an_unsteady_polar_carries_no_axes(tmp_path):
     """The recorded campaign plots no six components in the global frame, and says so."""
     import json
 
-    from test_post_superfile import _MATRIX, _post, _workspace
+    from tests.tier1_offline.test_post_superfile import _MATRIX, _post, _workspace
 
     workspace = _workspace(tmp_path)
     row = next(line for line in _MATRIX.splitlines() if line.startswith("6002"))
@@ -184,7 +180,13 @@ def test_the_stage_records_why_an_unsteady_polar_carries_no_axes(tmp_path):
 
 
 def _script_of(tmp_path, plots: dict) -> list[str]:
-    from test_workflows import _her_pproc, _wb_geometry, _with_pproc, rendered, unsteady_case
+    from tests.tier1_offline.test_workflows import (
+        _her_pproc,
+        _wb_geometry,
+        _with_pproc,
+        rendered,
+        unsteady_case,
+    )
 
     stated = type(_her_pproc().plots).model_validate(plots)
     pproc = _her_pproc().model_copy(update={"plots": stated})
@@ -212,7 +214,7 @@ def test_a_run_whose_pproc_plots_no_global_frame_six_gets_the_group_added(tmp_pa
 
 
 def test_a_pproc_that_already_plots_them_gets_nothing_added(tmp_path):
-    from test_workflows import _her_pproc
+    from tests.tier1_offline.test_workflows import _her_pproc
 
     lines = _script_of(tmp_path, _her_pproc().plots.model_dump())
     names = _plot_names(lines)
@@ -220,9 +222,8 @@ def test_a_pproc_that_already_plots_them_gets_nothing_added(tmp_path):
 
 
 def test_the_stage_looks_for_the_groups_the_artifact_puts_in_the_global_frame():
-    from test_workflows import _her_pproc
-
     from pyflightstream.post.products import global_frame_plot_groups
+    from tests.tier1_offline.test_workflows import _her_pproc
 
     assert global_frame_plot_groups(_her_pproc()) == ("MRP_TOTAL", "MRP_AIRFRAME")
     bare = _her_pproc().model_copy(
@@ -246,9 +247,8 @@ def test_a_component_the_artifact_already_plots_in_that_group_is_not_plotted_twi
 
 
 def test_a_global_frame_group_that_lacks_the_six_is_not_what_the_stage_looks_for():
-    from test_workflows import _her_pproc
-
     from pyflightstream.post.products import global_frame_plot_groups
+    from tests.tier1_offline.test_workflows import _her_pproc
 
     plots = type(_her_pproc().plots).model_validate(
         {

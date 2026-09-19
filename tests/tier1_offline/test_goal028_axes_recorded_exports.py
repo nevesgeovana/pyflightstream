@@ -25,8 +25,10 @@ printing seven decimals, 2e-4 on one printing four.
 from __future__ import annotations
 
 import csv
+import hashlib
 import importlib.util
 import math
+import os
 from pathlib import Path
 
 import numpy as np
@@ -36,7 +38,7 @@ from pyflightstream.post import axes
 
 ROOT = Path(__file__).resolve().parents[2]
 FIXTURE = Path(__file__).with_name("fixtures") / "recorded_total_rows.csv"
-SIMS = ROOT / "tests" / "tier3_licensed" / "sims"
+SIMS = Path(os.environ.get("PYFLIGHTSTREAM_RECORDED_SIMS", ROOT / "tests/tier3_licensed/sims"))
 EXTRACTOR = ROOT / "scripts" / "extract_recorded_total_rows.py"
 
 
@@ -101,5 +103,71 @@ def test_the_fixture_is_the_live_exports_as_printed():
     spec.loader.exec_module(module)
     live = {row["export"]: row for row in module.rows()}
     for row in ROWS:
+        relative = Path(row["export"])
+        path = SIMS / relative.parent / "raw" / relative.name
+        if path.is_file():
+            assert hashlib.sha256(path.read_bytes()).hexdigest() == row.get("sha256"), (
+                f"{row['export']}: live export bytes differ from the recorded sha256"
+            )
         if row["export"] in live:
             assert row == live[row["export"]], f"{row['export']} was edited in the fixture"
+
+
+def test_every_recorded_export_has_a_sha256_witness():
+    import re
+
+    assert ROWS, "the recorded export fixture must not be empty"
+    assert all(re.fullmatch(r"[0-9a-f]{64}", row.get("sha256", "")) for row in ROWS), (
+        "every recorded Total row needs a sha256 witness"
+    )
+
+
+@pytest.mark.parametrize(
+    "old,new",
+    [(b"Original heading", b"Replaced heading"), (b"Angle of attack (Deg)", b"Unknown heading")],
+    ids=["same-values", "no-longer-selected"],
+)
+def test_replacing_export_bytes_with_the_same_total_row_is_refused(tmp_path, monkeypatch, old, new):
+    # Only the non-tabular heading changes; all printed values stay identical.
+    path = tmp_path / "sim_1/raw/loads.txt"
+    path.parent.mkdir(parents=True)
+    original = (
+        b"Original heading\r\nAngle of attack (Deg) 4\r\nSide-slip angle (Deg) 2\r\n"
+        b"Surface, Cx, Cy, Cz, CL, CDi, CDo\r\nTotal, 1, 2, 3, 4, 5, 6\r\n"
+    )
+    path.write_bytes(original)
+    monkeypatch.setenv("PYFLIGHTSTREAM_RECORDED_SIMS", str(tmp_path))
+    spec = importlib.util.spec_from_file_location("extract_recorded_total_rows", EXTRACTOR)
+    assert spec is not None and spec.loader is not None
+    extractor = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(extractor)
+    before = extractor.rows()
+    monkeypatch.setitem(globals(), "ROWS", before)
+    monkeypatch.setitem(globals(), "SIMS", tmp_path)
+    test_the_fixture_is_the_live_exports_as_printed()
+    replacement = original.replace(old, new)
+    path.write_bytes(replacement)
+    assert extractor.total_row(original.decode()) == extractor.total_row(replacement.decode())
+    with pytest.raises(AssertionError, match="sim_1/loads.txt"):
+        test_the_fixture_is_the_live_exports_as_printed()
+
+
+def test_extractor_hashes_exact_bytes_before_newline_normalization(tmp_path, monkeypatch):
+    path = tmp_path / "sim_1/raw/loads.txt"
+    path.parent.mkdir(parents=True)
+    payload = (
+        b"Angle of attack (Deg) 4\r\nSide-slip angle (Deg) 2\r\n"
+        b"Surface, Cx, Cy, Cz, CL, CDi, CDo\r\nTotal, 1, 2, 3, 4, 5, 6\r\n"
+    )
+    path.write_bytes(payload)
+    monkeypatch.setenv("PYFLIGHTSTREAM_RECORDED_SIMS", str(tmp_path))
+    spec = importlib.util.spec_from_file_location("extract_recorded_total_rows", EXTRACTOR)
+    assert spec is not None and spec.loader is not None
+    extractor = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(extractor)
+    assert extractor.rows()[0].get("sha256") == hashlib.sha256(payload).hexdigest(), (
+        "sha256 must witness the original export bytes"
+    )
+    assert (
+        hashlib.sha256(payload).digest() != hashlib.sha256(payload.replace(b"\r\n", b"\n")).digest()
+    )

@@ -9,7 +9,7 @@ from pyflightstream.post.products import ProductError, plots_table_series, write
 
 @pytest.mark.parametrize("notes", [False, True])
 def test_polar_names_locator(tmp_path, notes):
-    from .test_goal028_names_dictionary import _polar
+    from tests.tier1_offline.test_goal028_names_dictionary import _polar
 
     if notes:
         refusals = []
@@ -23,7 +23,7 @@ def test_polar_names_locator(tmp_path, notes):
 
 
 def test_reduction_names_locator(tmp_path):
-    from .test_goal028_uns_axes import _plots
+    from tests.tier1_offline.test_goal028_uns_axes import _plots
 
     columns, series = plots_table_series(_plots(tmp_path, ("MRP_TOTAL",)))
     with pytest.raises(ProductError) as caught:
@@ -40,8 +40,11 @@ def test_reduction_names_locator(tmp_path):
 
 def test_campaign_names_locator_reaches_manifest(tmp_path):
     from pyflightstream.post.products import write_campaign_products
-
-    from .test_post_products import ROTOR_PLAN, _products_manifest, _unsteady_workspace
+    from tests.tier1_offline.test_post_products import (
+        ROTOR_PLAN,
+        _products_manifest,
+        _unsteady_workspace,
+    )
 
     workspace = _unsteady_workspace(tmp_path, reductions=ROTOR_PLAN)
     (workspace.inputs_dir / "pproc" / "p001.toml").write_text(

@@ -19,14 +19,10 @@ in the test, never a value read off the resolver.
 from __future__ import annotations
 
 import json
-import sys
-from pathlib import Path
 
 import pytest
 
 from pyflightstream.cases import windows
-
-sys.path.insert(0, str(Path(__file__).parent))
 
 #: A run of 1000 steps turning a rotor at 250 steps per revolution, four blades
 #: on the flat path, with a second rotor block at 500 steps per revolution.
@@ -170,10 +166,9 @@ def _matrix(window: str) -> str:
 
 def _posted(tmp_path, window: str) -> dict:
     """Post ONE recorded workspace under a matrix stating ``window``; return the manifest."""
-    from test_post_products import _unsteady_workspace
-
     from pyflightstream.post.products import write_campaign_products
     from pyflightstream.workspace import RunRecord
+    from tests.tier1_offline.test_post_products import _unsteady_workspace
 
     plan = {
         "window_stated": True,

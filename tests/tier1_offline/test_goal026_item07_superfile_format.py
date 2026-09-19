@@ -165,11 +165,9 @@ def test_a_pproc_asking_for_the_legacy_format_gets_it_from_the_post_stage(tmp_pa
     `write_campaign_products` over a recorded workspace whose pproc asks for it,
     and looks at the bytes.
     """
-    import sys
     from pathlib import Path
 
-    sys.path.insert(0, str(Path(__file__).parent))
-    from test_post_superfile import _post, _workspace
+    from tests.tier1_offline.test_post_superfile import _post, _workspace
 
     workspace = _workspace(tmp_path)
     for code in ("p001", "p002"):

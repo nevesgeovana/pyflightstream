@@ -1266,12 +1266,12 @@ def _refuse_groups_named_by_a_word(pproc: PprocArtifact, code: str, pol: str) ->
     stopped the whole products stage with a bare ValueError, after the seat was
     spent. The naming is what changed: a group is now NAMED and the product file
     carries that name, so the refusal's own reason is gone -- and a user
-    following the migration guide met this refusal telling her to undo the very
+    following the migration guide met this refusal telling them to undo the very
     rename the guide had just asked for.
 
     WHAT STAYS REFUSED is the one name that cannot work: `g01` and its kin read
     as the suffix the numbered era wrote, so a file named after one could not be
-    told from the form it supersedes -- and the migration that moves her
+    told from the form it supersedes -- and the migration that moves
     existing products needs exactly that difference to know what it has already
     moved. The token is resolved by
     :func:`pyflightstream.workspace.naming.group_token`, which is what the
@@ -1520,12 +1520,12 @@ def renumber_repeated_pols(
         if row.pol not in claimed_elsewhere and row.pol not in seen:
             seen.add(row.pol)
             continue
-        # THE FIRST ROW OF THIS FILE KEEPS THE POL, the owner's call of
-        # 2026-09-14 (DEC-0181). A run record names a POL and never a row, so
+        # THE FIRST ROW OF THIS FILE KEEPS THE POL (DEC-0181). A run record names a POL and
+        # never a row, so
         # when a POL this matrix has run is repeated inside it, the first row
         # stating it is taken as the one that ran and every later row moves.
         # The round-one fix at 9691369 refused every such row instead; that is
-        # reversed here on the author's decision. What is still refused is the FIRST
+        # reversed here to preserve the first row. What is still refused is the FIRST
         # occurrence when another matrix also states the POL and this matrix
         # has runs of it: there is no other row of this file to keep it, so
         # moving it is the orphaning itself.
@@ -1597,7 +1597,7 @@ def _derived_velocity(
 ) -> float | None:
     """Return the velocity V = J x (RPM/60) x D this point states, or None.
 
-    THE AUTHOR'S DECISION OF 2026-09-15. A rotor study states the speed and
+    A rotor study states the speed and
     the advance ratio and no velocity at all: the three are one relation, and
     the velocity is the one the run needs. The magnitude of the speed is what
     enters it; the sign is the HAND of the rotation and turns no free stream
@@ -1634,7 +1634,7 @@ def _derived_velocity(
 def _clock_rotor_diameter(row: MatrixRow, reference: Any) -> float | None:
     """Return the diameter of the rotor this row's CLOCK_MOTION names.
 
-    THE CLOCK'S ROTOR AND NO OTHER, which is the author's decision: a configuration may
+    THE CLOCK'S ROTOR AND NO OTHER: a configuration may
     carry several rotors of different diameters, and the one the row is about
     is the one whose clock it runs on. A row naming none has no answer here and
     the caller refuses by name rather than reaching for the reference's own

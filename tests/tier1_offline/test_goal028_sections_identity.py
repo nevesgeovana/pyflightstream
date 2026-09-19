@@ -22,23 +22,17 @@ THE LAYOUT IS RECORDED BY THE LOOP THAT EMITS THE DISTRIBUTIONS, for the reason
 
 from __future__ import annotations
 
-import sys
-from pathlib import Path
-
 import pytest
 
-sys.path.insert(0, str(Path(__file__).parent))
-
-from test_post_products import SLOADS  # noqa: E402
-from test_workflows import _wb_geometry, _with_pproc, unsteady_case  # noqa: E402
-
-from pyflightstream.cases.workflows import build_script  # noqa: E402
-from pyflightstream.post.products import (  # noqa: E402
+from pyflightstream.cases.workflows import build_script
+from pyflightstream.post.products import (
     NOT_APPLICABLE,
     read_csv_table,
     write_sections_table,
 )
-from pyflightstream.script import Script  # noqa: E402
+from pyflightstream.script import Script
+from tests.tier1_offline.test_post_products import SLOADS
+from tests.tier1_offline.test_workflows import _wb_geometry, _with_pproc, unsteady_case
 
 
 def test_the_builder_records_each_block_it_emits_in_the_order_it_emits_them(tmp_path):
@@ -165,10 +159,9 @@ def test_the_stage_reads_the_layout_off_the_points_own_record_and_says_it_is_one
     table is the distribution at ONE step, not an average over the window, and
     nothing said so.
     """
-    from test_goal028_explained_products import _give
-    from test_post_products import _products_manifest, _unsteady_workspace
-
     from pyflightstream.post.products import write_campaign_products
+    from tests.tier1_offline.test_goal028_explained_products import _give
+    from tests.tier1_offline.test_post_products import _products_manifest, _unsteady_workspace
 
     workspace = _unsteady_workspace(tmp_path, reductions=None)
     outputs = workspace.sim_dir("7001") / "outputs"
@@ -199,10 +192,9 @@ def test_an_unsteady_points_step_is_its_time_step_and_not_the_solvers_iteration_
 
     This fixture's export says 3134; the record says the run marched 144 steps.
     """
-    from test_goal028_explained_products import _give
-    from test_post_products import _unsteady_workspace
-
     from pyflightstream.post.products import write_campaign_products
+    from tests.tier1_offline.test_goal028_explained_products import _give
+    from tests.tier1_offline.test_post_products import _unsteady_workspace
 
     plan = {
         "time_iterations": 144,

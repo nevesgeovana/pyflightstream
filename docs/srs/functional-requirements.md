@@ -3015,7 +3015,7 @@ requirement below is one seam of that division.
     reserved for the one column that is an extrapolation: a time with no
     comparable recorded run. **THIS TABLE IS PRINTED AND NEVER PARSED**, which
     is why it keeps `-` while every CSV PRODUCT writes `NA` from 0.23.0 (see
-    `NOT_APPLICABLE`): the owner's rule that one token means "does not apply"
+    `NOT_APPLICABLE`): the rule that one token means "does not apply"
     exists because a second spelling breaks a reader, and nothing reads this
     one but a person, for whom `-` scans better in a column of numbers. The
     boundary is written here and beside the constant because it was written
@@ -3465,8 +3465,7 @@ requirement below is one seam of that division.
     the package cannot fill reads `NA` and none is blank, which is what a run
     recorded before 0.16.0 leaves in the position and frame columns. Until
     0.23.0 the step said `-` and those cells went empty: two spellings and a
-    blank for one meaning, in one row (the owner's rule of 2026-09-17, "quando
-    nao se aplica, usa sempre NA").
+    blank for one meaning, in one row. A value that does not apply is always `NA`.
 
     THE UNSTEADY GROUP IS THE ROW'S AND NOT THE FORMAT'S, and this paragraph
     once said otherwise under the word "measured". It named a six-column group

@@ -269,11 +269,8 @@ def test_nothing_is_moved_when_the_collision_is_reached_late(tmp_path):
 
 def _named_workspace(tmp_path):
     """The recorded campaign, with its groups NAMED rather than numbered."""
-    import sys
-    from pathlib import Path
 
-    sys.path.insert(0, str(Path(__file__).parent))
-    from test_post_superfile import _workspace
+    from tests.tier1_offline.test_post_superfile import _workspace
 
     workspace = _workspace(tmp_path)
     for pproc in ("p001", "p002"):
@@ -295,11 +292,9 @@ def test_the_post_stage_writes_a_named_group_end_to_end(tmp_path):
 
     This asserts what she gets: a product file carrying the group's name.
     """
-    import sys
     from pathlib import Path
 
-    sys.path.insert(0, str(Path(__file__).parent))
-    from test_post_superfile import _post
+    from tests.tier1_offline.test_post_superfile import _post
 
     workspace = _named_workspace(tmp_path)
     written = _post(workspace)
@@ -325,13 +320,10 @@ def test_what_the_rename_produces_is_what_the_post_stage_writes(tmp_path):
     polar and a Mach code. A technical-writing lens flagged the mismatch and said only running
     both would settle it. This runs both.
     """
-    import sys
     from pathlib import Path
 
-    sys.path.insert(0, str(Path(__file__).parent))
-    from test_post_superfile import _post
-
     from pyflightstream.workspace import rename_group_products
+    from tests.tier1_offline.test_post_superfile import _post
 
     # The era she has: numbered products on disk, written by the old naming.
     numbered = _named_workspace(tmp_path)

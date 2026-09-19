@@ -15,16 +15,10 @@ Expected values are the definitions, computed here from the row's own inputs.
 
 from __future__ import annotations
 
-import sys
-from pathlib import Path
-
 import pytest
 
-sys.path.insert(0, str(Path(__file__).parent))
-
-from test_goal026_item06_rotor_loads import _reference, _rotor, _surfaces  # noqa: E402
-
-from pyflightstream.post.products import read_csv_table, write_rotor_table  # noqa: E402
+from pyflightstream.post.products import read_csv_table, write_rotor_table
+from tests.tier1_offline.test_goal026_item06_rotor_loads import _reference, _rotor, _surfaces
 
 
 def _row(**update):
@@ -74,7 +68,7 @@ def _posted_with_a_rotor(tmp_path, diameter: float) -> list[str]:
     """Post the recorded two-simulation campaign with one rotor of ``diameter`` declared."""
     import warnings
 
-    from test_post_superfile import _post, _workspace
+    from tests.tier1_offline.test_post_superfile import _post, _workspace
 
     workspace = _workspace(tmp_path)
     (workspace.inputs_dir / "references" / "r002.toml").write_text(

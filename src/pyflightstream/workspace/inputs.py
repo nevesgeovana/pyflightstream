@@ -2294,7 +2294,7 @@ HPC_BUILD_ALIAS = "fs_build_alias"
 class HpcProfile:
     """How ONE cluster is asked to run a job (FR-99).
 
-    NO ROW CITES THIS. The author's decision of 2026-09-12: the code sees Linux and
+    NO ROW CITES THIS. The code sees Linux and
     that is the cluster, so a study moves between machines by being opened
     on the other one and changing no cell.
 
@@ -2342,19 +2342,17 @@ class HpcProfile:
     defaults: dict
     path: Path
     builds: dict = field(default_factory=dict)
-    #: WHAT THE DESCRIPTOR'S WALLTIME FIELD CARRIES (0.21.0, the author's decision of
-    #: 2026-09-15). ``wall`` is the row's cell as written, which is what a
-    #: scheduler taking ``4h`` wants; ``seconds`` is the whole clock in
-    #: integer seconds, which is what this package wrote until 0.20.x and what
+    #: WHAT THE DESCRIPTOR'S WALLTIME FIELD CARRIES (0.21.0). ``wall`` is the row's
+    #: cell as written, which is what a scheduler taking ``4h`` wants; ``seconds``
+    #: is the whole clock in integer seconds, which is what this package wrote until 0.20.x and what
     #: a scheduler with a numeric field wants. The arithmetic a particular
-    #: cluster needs is added here when its owner says what it is, and an
+    #: cluster needs is configured here explicitly, and an
     #: unknown value is refused by name rather than silently taken as one of
     #: these two.
     walltime_arithmetic: str = "wall"
-    #: WHETHER THE SCRIPT EXPORTS THE SOLVER LOG (0.21.0, the author's decision of
-    #: 2026-09-15). Some machines abort at ``EXPORT_LOG`` and write their own
-    #: log beside the run instead, so the profile says it rather than the
-    #: package assuming one shape of machine.
+    #: WHETHER THE SCRIPT EXPORTS THE SOLVER LOG (0.21.0). Some machines abort at
+    #: ``EXPORT_LOG`` and write their own log beside the run instead, so the profile
+    #: says it rather than the package assuming one shape of machine.
     export_log: bool = True
     #: THE LOG THAT MACHINE WRITES ITSELF, as a glob relative to the run's
     #: working directory, for example ``FTS{sim}.l*``. `collect` copies the one

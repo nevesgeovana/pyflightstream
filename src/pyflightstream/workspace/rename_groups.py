@@ -97,7 +97,7 @@ def rename_group_products(
     # has been checked, because the refusal says "nothing was moved" and that
     # sentence has to be true of the FOLDER and not only of the moment it was
     # written. Discovering, checking and moving in one pass renamed everything
-    # sorted before the collision and then denied it -- on a workspace of hers
+    # sorted before the collision and then denied it -- on an existing workspace
     # that is a partly migrated folder plus a sentence saying it was untouched,
     # and a licensed run is what it costs to regenerate what moved.
     planned: list[tuple[Path, Path]] = []
@@ -133,7 +133,7 @@ def rename_group_products(
         if dry_run:
             # NOTHING WAS COPIED, so `archived` names nothing. It used to carry
             # the path the copy WOULD have taken, which sent a user who checked
-            # her archive before trusting the migration to a folder that was
+            # their archive before trusting the migration to a folder that was
             # never going to be there.
             moved.append(RenamedProduct(before=path, after=target, archived=None))
             continue

@@ -25,7 +25,6 @@ lived in that list form and end here by construction:
 
 from __future__ import annotations
 
-import sys
 import warnings
 from pathlib import Path
 
@@ -34,8 +33,6 @@ import pytest
 from pyflightstream._errors import PyflightstreamWarning
 from pyflightstream.cases import PprocSpec, RotorBlock
 from pyflightstream.workspace.inputs import rotor_integration_groups
-
-sys.path.insert(0, str(Path(__file__).parent))
 
 
 def _rotor(alias: str, blades: list[str], general: list[str] | None = None) -> RotorBlock:
@@ -74,9 +71,8 @@ def test_an_integer_member_is_a_position_and_is_never_summed_to_a_row_of_zeros(t
     What it cannot do is select a surface of a loads table. 0.23.0 wrote such a
     group a polar row of plausible zeros; the stage names it as skipped instead.
     """
-    from test_post_products import _products_manifest, _unsteady_workspace
-
     from pyflightstream.post.products import write_campaign_products
+    from tests.tier1_offline.test_post_products import _products_manifest, _unsteady_workspace
 
     with warnings.catch_warnings():
         warnings.simplefilter("error", PyflightstreamWarning)
@@ -103,9 +99,8 @@ def test_a_group_naming_a_rotor_is_that_rotors_families():
 
 
 def test_a_group_that_selects_no_surface_is_a_named_skip_and_not_a_row_of_zeros(tmp_path):
-    from test_post_products import _products_manifest, _unsteady_workspace
-
     from pyflightstream.post.products import write_campaign_products
+    from tests.tier1_offline.test_post_products import _products_manifest, _unsteady_workspace
 
     # The loads fixture carries surfaces W and B. `GHOST` points at a family the
     # export does not have, which is what a renamed alias leaves behind.
@@ -125,9 +120,8 @@ def test_a_group_that_selects_no_surface_is_a_named_skip_and_not_a_row_of_zeros(
 
 def test_a_named_group_gets_its_fixed_width_polar_and_states_its_position(tmp_path):
     """`int(group)` on a name was a bare ValueError that stopped the whole stage."""
-    from test_post_products import _products_manifest, _unsteady_workspace
-
     from pyflightstream.post.products import write_campaign_products
+    from tests.tier1_offline.test_post_products import _products_manifest, _unsteady_workspace
 
     workspace = _unsteady_workspace(tmp_path, reductions=None)
     (workspace.inputs_dir / "pproc" / "p001.toml").write_text(

@@ -21,16 +21,12 @@ LAST_REVS_AVG 0.5 of a 2-step revolution over a 2-step run: step 2 alone.
 
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).parent))
-
-from test_post_superfile import _MATRIX, _post, _workspace  # noqa: E402
-
-from pyflightstream.post.products import read_csv_table, unsteady_polar_file_name  # noqa: E402
+from pyflightstream.post.products import read_csv_table, unsteady_polar_file_name
+from tests.tier1_offline.test_post_superfile import _MATRIX, _post, _workspace
 
 
 def test_the_name_has_the_point_prefix_and_says_it_is_an_average():

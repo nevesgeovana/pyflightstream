@@ -13,17 +13,12 @@ the superseded record is left out and NAMED, so a table is one row per point aga
 
 from __future__ import annotations
 
-import sys
 import warnings
-from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent))
-
-from test_post_products import _products_manifest, _unsteady_workspace  # noqa: E402
-
-from pyflightstream.post.products import read_csv_table, write_campaign_products  # noqa: E402
-from pyflightstream.results.tables import sweep_table  # noqa: E402
-from pyflightstream.workspace import RunRecord, RunStatus  # noqa: E402
+from pyflightstream.post.products import read_csv_table, write_campaign_products
+from pyflightstream.results.tables import sweep_table
+from pyflightstream.workspace import RunRecord, RunStatus
+from tests.tier1_offline.test_post_products import _products_manifest, _unsteady_workspace
 
 STOPPED = "camp/sim_7001/AL-020"
 CONTINUED = "camp/sim_7001/20260919T120000/AL-020"

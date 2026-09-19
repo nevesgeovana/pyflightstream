@@ -18,17 +18,13 @@
 from __future__ import annotations
 
 import json
-import sys
 import warnings
 from pathlib import Path
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).parent))
-
-from test_post_superfile import _MATRIX, _post, _workspace  # noqa: E402
-
-import pyflightstream.post.products as products  # noqa: E402
+import pyflightstream.post.products as products
+from tests.tier1_offline.test_post_superfile import _MATRIX, _post, _workspace
 
 
 def _said(workspace) -> list[str]:

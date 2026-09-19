@@ -13,18 +13,14 @@ stays.
 
 from __future__ import annotations
 
-import sys
 import warnings
 from pathlib import Path
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).parent))
-
-from test_post_superfile import _post, _workspace  # noqa: E402
-
-from pyflightstream.post.products import read_csv_table  # noqa: E402
-from pyflightstream.workspace import RunRecord  # noqa: E402
+from pyflightstream.post.products import read_csv_table
+from pyflightstream.workspace import RunRecord
+from tests.tier1_offline.test_post_superfile import _post, _workspace
 
 ROTOR = """
 [rotors.{alias}]
@@ -88,9 +84,8 @@ def test_a_flat_record_stating_no_speed_is_still_the_named_skip(tmp_path):
 
 def test_the_plan_of_a_flat_rotor_row_records_the_speed_it_turned_at(tmp_path):
     """The run half: the speed is on the record, signed, for the table to read."""
-    from test_workflows import rotor_case
-
     from pyflightstream.cases.workflows import reduction_windows
+    from tests.tier1_offline.test_workflows import rotor_case
 
     case = rotor_case()
     plan = reduction_windows(case)

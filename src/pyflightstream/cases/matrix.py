@@ -190,9 +190,8 @@ _COLUMNS = (
 
 #: The layout of v0.15.0 to v0.16.0, frozen as a literal for the same
 #: reason the three older ones are: it is RECOGNISED and converted,
-#: never read. At 0.17.0 it GAINED SIX COLUMNS and MOVED TWO, on the author's
-#: decisions of 2026-09-12. What each new column costs a file already
-#: written is nothing it cannot derive: ``GEOMETRY`` and ``SYMMETRY``
+#: never read. At 0.17.0 it GAINED SIX COLUMNS and MOVED TWO. What each new
+#: column costs a file already written is nothing it cannot derive: ``GEOMETRY`` and ``SYMMETRY``
 #: come out of that row's own free cell, ``NCPUS`` and
 #: ``SYMMETRY_LOADS`` come from the setup artifact the row cites,
 #: ``WALLTIME`` is written ``-`` because no earlier row could state one,
@@ -240,20 +239,19 @@ COLUMNS_NEW_AT_0_17_0 = {
 #: rather than an empty cell so a reader can tell "stated nothing" from "the
 #: line is truncated", which an empty cell at the end of a run of them cannot.
 #:
-#: IT WAS `-` UNTIL 2026-09-18 and is now `NA`, by the owner's decision --
-#: *"Converge tudo pra NA"* -- which ended a split this package carried in
-#: five places: the CSV products wrote `NA` through one funnel while this cell,
+#: The written token is `NA`, shared for no value. It replaces `-`.
+#: This ended a split this package carried in five places: the CSV products wrote `NA` through
+#: one funnel while this cell,
 #: the printed plan and cost table, and three QA report tables each wrote a
-#: dash. One idea, two tokens, and a reader comparing two of her files had to
+#: dash. One idea, two tokens, and a reader comparing two files had to
 #: know which convention each followed. The token itself now lives at
 #: :data:`pyflightstream._tokens.NOT_APPLICABLE`, below every layer, because
 #: `qa` cannot import `post` and must not learn to.
 #:
-#: **EVERY MATRIX SHE ALREADY HAS STILL BINDS.** This constant is what the
+#: **EVERY EXISTING MATRIX STILL BINDS.** This constant is what the
 #: package WRITES; :data:`UNSTATED_CELLS` is what it ACCEPTS, and the dash is
 #: still in it. Converging the read side would have made the package refuse the
-#: campaigns it exists to run, which is the one thing her acceptance rule
-#: forbids.
+#: campaigns it exists to run, violating backwards compatibility.
 UNSTATED_CELL = NOT_APPLICABLE
 
 #: Every spelling of "this row states nothing" that a matrix may be READ with.
@@ -773,7 +771,7 @@ def _split_attitude(
 def _refuse_two_body_rates(condition: dict[str, float | str], pol: str) -> None:
     """Refuse a cell that turns the free stream two ways at once.
 
-    The author's decision of 2026-09-15: ONE non-zero rate per row. The free stream is
+    ONE non-zero rate per row. The free stream is
     given one axis and one angular velocity, so two rates would have to be
     composed into an axis nobody wrote, and the row would run something other
     than what it says. A rate stated as zero is not a rotation and is free to
@@ -807,11 +805,11 @@ def _refuse_a_speed_and_a_ratio_over_a_velocity(
 ) -> None:
     """Refuse a cell that states the rotor speed, the advance ratio AND a velocity.
 
-    The author's decision of 2026-09-15. The three are one relation, V = J n D, so any
+    The three are one relation, V = J n D, so any
     two of them give the third: RPM with ADVANCE_RATIO and no velocity is the
     static-rig form and the velocity is COMPUTED from it, which is the case a
     rotor study writes. All three is one number too many, and the package
-    cannot know which two the author meant.
+    cannot know which two were intended.
     """
     stated = [key for key in VELOCITY_KEYS if key in condition]
     if not stated or "RPM" not in condition or "ADVANCE_RATIO" not in condition:

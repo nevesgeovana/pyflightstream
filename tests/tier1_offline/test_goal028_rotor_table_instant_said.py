@@ -12,16 +12,11 @@ does with `kind: instant`.
 from __future__ import annotations
 
 import json
-import sys
 import warnings
-from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent))
-
-from test_goal028_rotor_table_average import REFERENCE, _pproc  # noqa: E402
-from test_post_superfile import _MATRIX, _post, _workspace  # noqa: E402
-
-from pyflightstream.workspace import RunRecord  # noqa: E402
+from pyflightstream.workspace import RunRecord
+from tests.tier1_offline.test_goal028_rotor_table_average import REFERENCE, _pproc
+from tests.tier1_offline.test_post_superfile import _MATRIX, _post, _workspace
 
 
 def _posted_without_a_plan(tmp_path) -> dict:

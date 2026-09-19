@@ -552,7 +552,7 @@ def write_superfiles(
     ``fmt`` is one of :data:`SUPERFILE_FORMATS`. It is SELECTED and never
     guessed: a writer that decided the format from the file name, or from what
     the workspace happened to contain, would be a writer nobody can predict.
-    The default is the format she already reads, so an existing workspace
+    The default is the existing file format, so an existing workspace
     writes exactly what it wrote before.
 
     Returns the files written, their manifest entries and the columns.

@@ -203,7 +203,7 @@ _NUMBERED_GROUP = re.compile(r"^g\d+$", re.IGNORECASE)
 def group_token(group: str | int) -> str:
     """Return what a product file carries for one group: its NAME, or ``gNN``.
 
-    The one place the two eras are told apart, so the rename that moves her
+    The one place the two eras are told apart, so the rename that moves existing
     products and the stage that writes new ones cannot drift into two
     conventions -- which is the drift a technical-writing lens flagged, since
     the migration page's whole promise is that the renamed file IS the file the
@@ -590,7 +590,7 @@ _getuser = getpass.getuser
 def submitted_by() -> str | None:
     """Return the operator running this process, or None if the host names nobody.
 
-    v0.23.0 item 12, the owner's question of 2026-09-17: how to name the user
+    v0.23.0 item 12: identify the user
     who ran, transparently for Linux and Windows. One call, not a pair of
     `sys.platform` branches, which would be two paths that drift.
 

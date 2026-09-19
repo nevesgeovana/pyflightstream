@@ -10,7 +10,7 @@ when the point EXECUTED and froze them into the run record; the post stage
 re-derived ONE of them, the polar's, from the matrix; and the reductions beside
 it kept reading the frozen ones. So an edit to the window moved the polar and
 left its neighbours behind, in one folder, with a manifest calling both "the
-row's window". The owner's rule is that a post-processing choice never needs a
+row's window". A post-processing choice never needs a
 solver re-run, so the derivation has to be callable from BOTH sides, and it has
 to be the same code.
 

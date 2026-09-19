@@ -78,9 +78,8 @@ SET_TRAILING_EDGE_TYPE:
     IMPORT_WAKE_EDGES_FROM_FILE takes the same type vocabulary for a
     whole imported file; neither carries a direction. The direction is a
     field of the component specification, and this package writes no
-    component file, so nothing here emits it. Whether the package should
-    gain a writer for that specification is the product owner's call and
-    is deliberately not taken here (PFS-2026.06).
+    component file, so nothing here emits it. A writer for that
+    specification is not implemented (PFS-2026.06).
 
     THE CITATION SITS IN THESE FREE-TEXT NOTES ON PURPOSE. Page 85 lies
     outside the registered scripting-reference range, which is where an

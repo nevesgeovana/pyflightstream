@@ -24,21 +24,16 @@ rotor's speed. Expected values below are that formula worked by hand.
 
 from __future__ import annotations
 
-import sys
-from pathlib import Path
-
 import numpy as np
 import pytest
 
-sys.path.insert(0, str(Path(__file__).parent))
-
-from pyflightstream.post.products import (  # noqa: E402
+from pyflightstream.post.products import (
     NOT_APPLICABLE,
     ReferenceValues,
     read_csv_table,
     write_per_blade_table,
 )
-from pyflightstream.post.unsteady import TimestepSeries  # noqa: E402
+from pyflightstream.post.unsteady import TimestepSeries
 
 REFERENCE = ReferenceValues(sref_m2=50.0, cref_m=2.526, bref_m=20.0)
 STEPS = np.arange(1, 9)

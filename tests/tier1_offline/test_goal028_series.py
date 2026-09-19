@@ -23,14 +23,11 @@ THE USAGE, as a reader meets it:
 
 from __future__ import annotations
 
-import sys
-from pathlib import Path
-
 import pytest
 
-sys.path.insert(0, str(Path(__file__).parent))
-
-from test_post_products import (  # noqa: E402
+from pyflightstream.post._tables import CONTEXT_COLUMNS
+from pyflightstream.post.products import NOT_APPLICABLE, write_campaign_products
+from tests.tier1_offline.test_post_products import (
     LOADS,
     PROBES,
     SLOADS,
@@ -38,9 +35,6 @@ from test_post_products import (  # noqa: E402
     _series,
     _windowed_workspace,
 )
-
-from pyflightstream.post._tables import CONTEXT_COLUMNS  # noqa: E402
-from pyflightstream.post.products import NOT_APPLICABLE, write_campaign_products  # noqa: E402
 
 WINDOW = {
     "stated_form": "iterations",

@@ -226,14 +226,10 @@ def test_the_gate_takes_the_phase_locked_reduction_and_leaves_per_blade():
     titles and did not do: they called `phase_locked_gate` directly, so neither
     could see what the plan did with its answer.
     """
-    import sys
-    from pathlib import Path
-
-    sys.path.insert(0, str(Path(__file__).parent))
-    from test_reduce_by_rotor import transition_case
 
     from pyflightstream.cases import PhaseLockedSpec, PprocSpec
     from pyflightstream.cases.workflows import reduction_windows
+    from tests.tier1_offline.test_reduce_by_rotor import transition_case
 
     case = transition_case()
     gate = PhaseLockedSpec(min_revolutions=99.0, last_revolutions_avg=1.0)

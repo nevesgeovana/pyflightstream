@@ -9,7 +9,7 @@ from pyflightstream.post.products import read_csv_table, write_sections_table
 
 
 def test_iteration_warns_and_matches_step(tmp_path):
-    from .test_post_products import SLOADS
+    from tests.tier1_offline.test_post_products import SLOADS
 
     export = SLOADS
     with pytest.warns(PyflightstreamDeprecationWarning, match=r"step=.*0\.26\.0"):

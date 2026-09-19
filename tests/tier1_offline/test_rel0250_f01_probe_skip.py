@@ -9,14 +9,8 @@ point whose artifact declares NO probe is not missing a product and is not named
 
 from __future__ import annotations
 
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).parent))
-
-from test_post_products import _products_manifest, _unsteady_workspace  # noqa: E402
-
-from pyflightstream.post.products import write_campaign_products  # noqa: E402
+from pyflightstream.post.products import write_campaign_products
+from tests.tier1_offline.test_post_products import _products_manifest, _unsteady_workspace
 
 PROBED = (
     '[groups]\n"1" = ["W", "B"]\n'

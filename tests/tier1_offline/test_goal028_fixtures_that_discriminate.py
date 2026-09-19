@@ -21,16 +21,11 @@ history is quadratic, where the three differ.
 
 from __future__ import annotations
 
-import sys
-from pathlib import Path
-
 import numpy as np
 import pytest
 
 from pyflightstream.post.products import read_csv_table, write_unsteady_polar
 from pyflightstream.post.unsteady import TimestepSeries, per_blade_rows
-
-sys.path.insert(0, str(Path(__file__).parent))
 
 # --- WT-04 -----------------------------------------------------------------
 
@@ -45,7 +40,7 @@ _CX = 0.0193288
 
 def _loads_text(speed: float) -> str:
     """The shared loads fixture, its first surface renamed `Blade1`, at ``speed`` m/s."""
-    from test_post_products import LOADS
+    from tests.tier1_offline.test_post_products import LOADS
 
     assert LOADS.count("68.058") == 2, "the fixture states its two velocities once each"
     assert LOADS.count("     W,") == 1
@@ -54,8 +49,6 @@ def _loads_text(speed: float) -> str:
 
 def _rotor_sweep(tmp_path):
     """Plan the rotor table of a two-point sweep through `_rotor_tables`, the stage's planner."""
-    from test_post_superfile import _workspace
-
     from pyflightstream.post.products import (
         PolarPoint,
         ReferenceValues,
@@ -64,6 +57,7 @@ def _rotor_sweep(tmp_path):
     )
     from pyflightstream.results import parse_loads
     from pyflightstream.workspace import RunRecord
+    from tests.tier1_offline.test_post_superfile import _workspace
 
     workspace = _workspace(tmp_path)
     (workspace.inputs_dir / "references" / "r002.toml").write_text(

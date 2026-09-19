@@ -7,19 +7,36 @@ they are extracted here, verbatim as printed, into a tracked table:
     python scripts/extract_recorded_total_rows.py
 
 The fixture is never edited by hand; the axes test re-reads the live exports
-where they exist and refuses a fixture that disagrees with them.
+where they exist and refuses a fixture that disagrees with them. The final
+``sha256`` column witnesses the exact export bytes, including line endings.
+Set ``PYFLIGHTSTREAM_RECORDED_SIMS`` to read exports from another checkout;
+the generated fixture still belongs to this checkout.
 """
 
 from __future__ import annotations
 
 import csv
+import hashlib
+import os
 import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SIMS = ROOT / "tests" / "tier3_licensed" / "sims"
+SIMS = Path(os.environ.get("PYFLIGHTSTREAM_RECORDED_SIMS", ROOT / "tests/tier3_licensed/sims"))
 FIXTURE = ROOT / "tests" / "tier1_offline" / "fixtures" / "recorded_total_rows.csv"
-COLUMNS = ("export", "alpha_deg", "beta_deg", "frame", "Cx", "Cy", "Cz", "CL", "CDi", "CDo")
+COLUMNS = (
+    "export",
+    "alpha_deg",
+    "beta_deg",
+    "frame",
+    "Cx",
+    "Cy",
+    "Cz",
+    "CL",
+    "CDi",
+    "CDo",
+    "sha256",
+)
 
 
 def _cells(line: str) -> list[str]:
@@ -65,7 +82,8 @@ def rows() -> list[dict[str, str]]:
     for path in sorted(SIMS.glob("sim_*/raw/*.txt")):
         if path.stem.lower().endswith(("_cp", "_sloads", "_probes", "_plots", "_log")):
             continue
-        text = path.read_text(errors="replace")
+        payload = path.read_bytes()
+        text = payload.decode("utf-8", errors="replace")
         if not text.strip():
             raise ValueError(f"{path}: empty export")
         if not any(line.strip().startswith("Surface,") for line in text.splitlines()):
@@ -84,6 +102,7 @@ def rows() -> list[dict[str, str]]:
         table.append(
             {
                 "export": f"{path.parent.parent.name}/{path.name}",
+                "sha256": hashlib.sha256(payload).hexdigest(),
                 "alpha_deg": alpha,
                 "beta_deg": beta,
                 "frame": frame.group(1).strip() if frame else "",

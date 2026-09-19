@@ -23,23 +23,19 @@ give another number than the mean across revolutions.
 
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 
 import numpy as np
 import pytest
 
-sys.path.insert(0, str(Path(__file__).parent))
-
-from test_matrix_cli import _workflow_plan_args, make_planned_workspace  # noqa: E402
-from test_post_products import (  # noqa: E402
+from pyflightstream._errors import PyflightstreamWarning
+from pyflightstream.post.products import read_csv_table
+from tests.tier1_offline.test_matrix_cli import _workflow_plan_args, make_planned_workspace
+from tests.tier1_offline.test_post_products import (
     PLOTS_HEADER,
     _products_manifest,
     _unsteady_workspace,
 )
-
-from pyflightstream._errors import PyflightstreamWarning  # noqa: E402
-from pyflightstream.post.products import read_csv_table  # noqa: E402
 
 #: Twelve steps, four per revolution, two blades, blade one's datum at 30 degrees,
 #: turning in the NEGATIVE sense. Neither constant nor linear.
@@ -201,7 +197,7 @@ def test_a_pproc_without_the_table_keeps_the_passage_series(tmp_path):
 
 def test_removing_the_table_after_the_run_brings_the_passages_back(tmp_path):
     """A record planned UNDER a table, posted with a pproc that no longer has one."""
-    from test_goal028_explained_products import _give
+    from tests.tier1_offline.test_goal028_explained_products import _give
 
     workspace = _workspace(tmp_path, "")
     _give(

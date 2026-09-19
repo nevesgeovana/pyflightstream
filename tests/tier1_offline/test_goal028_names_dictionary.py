@@ -21,24 +21,18 @@ pproc may state a dictionary, export name to the reader's name:
 
 from __future__ import annotations
 
-import sys
-from pathlib import Path
-
 import pytest
 from pydantic import ValidationError
 
-sys.path.insert(0, str(Path(__file__).parent))
-
-from test_goal028_uns_axes import CONDITION, REFERENCE, _plots, _Point  # noqa: E402
-
-from pyflightstream.cases import PprocSpec  # noqa: E402
-from pyflightstream.post.products import (  # noqa: E402
+from pyflightstream.cases import PprocSpec
+from pyflightstream.post.products import (
     ProductError,
-    plots_table_series,  # noqa: E402
+    plots_table_series,
     read_csv_table,
     write_reduction_table,
     write_unsteady_polar,
 )
+from tests.tier1_offline.test_goal028_uns_axes import CONDITION, REFERENCE, _plots, _Point
 
 
 def _polar(tmp_path, names, notes=None):
@@ -133,9 +127,12 @@ def test_the_stage_applies_the_dictionary_to_the_polar_and_the_reductions(tmp_pa
     """End to end: the pproc states it, `post` writes it, and the plots table stays raw."""
     import warnings
 
-    from test_post_products import ROTOR_PLAN, _products_manifest, _unsteady_workspace
-
     from pyflightstream.post.products import write_campaign_products
+    from tests.tier1_offline.test_post_products import (
+        ROTOR_PLAN,
+        _products_manifest,
+        _unsteady_workspace,
+    )
 
     workspace = _unsteady_workspace(tmp_path, reductions=ROTOR_PLAN)
     (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
@@ -157,9 +154,12 @@ def test_the_stage_applies_the_dictionary_to_the_polar_and_the_reductions(tmp_pa
 def test_the_stage_says_once_per_point_when_the_dictionary_cannot_be_honoured(tmp_path):
     import warnings
 
-    from test_post_products import ROTOR_PLAN, _products_manifest, _unsteady_workspace
-
     from pyflightstream.post.products import write_campaign_products
+    from tests.tier1_offline.test_post_products import (
+        ROTOR_PLAN,
+        _products_manifest,
+        _unsteady_workspace,
+    )
 
     workspace = _unsteady_workspace(tmp_path, reductions=ROTOR_PLAN)
     (workspace.inputs_dir / "pproc" / "p001.toml").write_text(

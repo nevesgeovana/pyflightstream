@@ -15,21 +15,15 @@ The expectations are the requirement's: the rotor is the alias the plan names,
 
 from __future__ import annotations
 
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).parent))
-
-from test_post_products import (  # noqa: E402
-    TWO_ROTOR_PLAN,
-    _products_manifest,
-    _unsteady_workspace,
-)
-
-from pyflightstream.post.products import (  # noqa: E402
+from pyflightstream.post.products import (
     NOT_APPLICABLE,
     read_csv_table,
     write_campaign_products,
+)
+from tests.tier1_offline.test_post_products import (
+    TWO_ROTOR_PLAN,
+    _products_manifest,
+    _unsteady_workspace,
 )
 
 

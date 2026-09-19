@@ -14,15 +14,11 @@ the table's real header.
 
 from __future__ import annotations
 
-import sys
 import warnings
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent))
-
-from test_post_superfile import _post, _workspace  # noqa: E402
-
-from pyflightstream.post.superfile import union_the_workspace_knows  # noqa: E402
+from pyflightstream.post.superfile import union_the_workspace_knows
+from tests.tier1_offline.test_post_superfile import _post, _workspace
 
 
 def _posted(tmp_path, alias: str):

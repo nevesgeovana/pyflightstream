@@ -14,14 +14,8 @@ written is a product explained.
 
 from __future__ import annotations
 
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).parent))
-
-from test_goal026_item06_rotor_loads import _reference, _rotor, _surfaces  # noqa: E402
-
-from pyflightstream.post.products import write_rotor_table  # noqa: E402
+from pyflightstream.post.products import write_rotor_table
+from tests.tier1_offline.test_goal026_item06_rotor_loads import _reference, _rotor, _surfaces
 
 
 def _row(surfaces):

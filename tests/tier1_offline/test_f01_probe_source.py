@@ -1,6 +1,5 @@
 """F01: the run type selects the probe source for every declaration form."""
 
-import sys
 from pathlib import Path
 
 import pytest
@@ -11,11 +10,12 @@ from pyflightstream.post.products import read_csv_table, write_campaign_products
 from pyflightstream.run import _write_probe_points
 from pyflightstream.script import Script
 from pyflightstream.workspace import CampaignWorkspace
-
-sys.path.insert(0, str(Path(__file__).parent))
-
-from test_post_products import PLOTS_HEADER, _products_manifest, _unsteady_workspace  # noqa: E402
-from test_workflows import _wb_geometry, _with_pproc, steady_case, unsteady_case  # noqa: E402
+from tests.tier1_offline.test_post_products import (
+    PLOTS_HEADER,
+    _products_manifest,
+    _unsteady_workspace,
+)
+from tests.tier1_offline.test_workflows import _wb_geometry, _with_pproc, steady_case, unsteady_case
 
 
 def _case(tmp_path, *, steady=False, profile="2\n2,3,4,1\n5,6,7,0\n"):

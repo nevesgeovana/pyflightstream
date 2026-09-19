@@ -14,15 +14,9 @@ in the rotor's own turning axes. Neither is the rotor's global-frame history.
 
 from __future__ import annotations
 
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).parent))
-
-from test_rotor_by_alias import LIFTER, PUSHER, rendered, two_rotor_case  # noqa: E402
-
-from pyflightstream.cases import PprocSpec, ReferenceData  # noqa: E402
-from pyflightstream.post.products import rotor_plot_source  # noqa: E402
+from pyflightstream.cases import PprocSpec, ReferenceData
+from pyflightstream.post.products import rotor_plot_source
+from tests.tier1_offline.test_rotor_by_alias import LIFTER, PUSHER, rendered, two_rotor_case
 
 SIX = ("FX", "FY", "FZ", "MX", "MY", "MZ")
 PUSHER_FAMILIES = [*PUSHER.families_general, *PUSHER.families_blades]

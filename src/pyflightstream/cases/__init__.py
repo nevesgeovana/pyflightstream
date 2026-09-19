@@ -1027,9 +1027,8 @@ class ProbesSpec(BaseModel):
         return value
 
 
-#: The formats a super file can be written in (v0.23.0 item 7), answering the
-#: owner's question of 2026-09-17: "como configuro para o super file tambem
-#: sair em formato custom?".
+#: The formats a super file can be written in (v0.23.0 item 7), including
+#: the custom polar format.
 #:
 #: IT LIVES HERE AND NOT WITH THE WRITER since the layer guard refused the
 #: alternative by name: `ProductsSpec` validates against this list, `cases`
@@ -1078,11 +1077,11 @@ class ProductsSpec(BaseModel):
     #: format was a constant nobody could select.
     #:
     #: A FIELD AND NOT A FLAG, because `custom_polar_format` beside it is
-    #: already a `[products]` key: a user choosing how her products are written
+    #: already a `[products]` key: a user choosing how their products are written
     #: should find both choices in one table rather than one here and one on a
     #: command line.
     #:
-    #: The DEFAULT MAY NOT MOVE. It is the format she already reads, so adding
+    #: The DEFAULT MAY NOT MOVE. It is the existing file format, so adding
     #: this changes nothing about an existing workspace.
     superfile_format: str = "csv"
 
@@ -1672,7 +1671,7 @@ class PhaseLockedSpec(BaseModel):
 
     #: Total revolutions the matrix must specify before this is generated.
     min_revolutions: float = Field(gt=0.0)
-    #: How many of the LAST revolutions the average uses. Her spelling.
+    #: How many of the LAST revolutions the average uses.
     last_revolutions_avg: float = Field(gt=0.0)
 
     @model_validator(mode="after")
@@ -1689,7 +1688,7 @@ class PhaseLockedSpec(BaseModel):
     def generated_for(self, *, revolutions: float) -> bool:
         """Whether a run of ``revolutions`` turns gets a phase-locked reduction.
 
-        AT LEAST, not more than: her words are "sendo igual ou maior", and the
+        AT LEAST, not more than: equality meets the minimum, and the
         boundary is the whole content of the rule, so it is one comparison with
         its own name rather than an inline `>=` at each call site.
         """
@@ -2442,7 +2441,7 @@ class NameField:
     magnitude: bool = False
 
 
-#: THE POINT NAME'S CODE TABLE, the author's of 2026-09-15 (SCOPE-0210 section 1),
+#: THE POINT NAME'S CODE TABLE (SCOPE-0210 section 1),
 #: keyed by the canonical FLIGHT_CONDITION key. Codes differ in LETTERS and never
 #: only in case, because a Windows file name does not distinguish case.
 POINT_NAME_FIELDS: dict[str, NameField] = {
@@ -2469,8 +2468,7 @@ POINT_NAME_FIELDS: dict[str, NameField] = {
     # never be a `-` and it cost the fifth character: 10000 rev/min wrote
     # `RPM+10000`, EIGHT characters where every other name is seven, so the
     # fixed-width scheme broke silently on any rotor past 9999. Unsigned, the
-    # same width reaches 99999 and every name is the same length (the owner's
-    # question, answered 2026-09-17).
+    # same width reaches 99999 and every name is the same length.
     "RPM": NameField("RPM", 1.0, 5, False, magnitude=True),
     "roll_rate": NameField("P", 10.0, 4, True),
     "pitch_rate": NameField("Q", 10.0, 4, True),
@@ -3074,7 +3072,7 @@ class SolverSettings(BaseModel):
     vorticity_drag_families: list[str] | None = None
     #: SET_AXIAL_SEPARATION_BOUNDARIES written as FAMILY NAMES, resolved by the
     #: same rule as :attr:`vorticity_drag_families` and through the same
-    #: function -- her instruction of 2026-09-18, "mesma regra do vorticity".
+    #: function.
     #:
     #: IT WAS REACHABLE ONLY AS A HELPER KEYWORD NOBODY PASSED. `solver_settings`
     #: has taken `axial_separation_boundaries` since the helper was written and

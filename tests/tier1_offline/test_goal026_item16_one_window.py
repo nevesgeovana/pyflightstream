@@ -23,14 +23,9 @@ other, which is the defect FR-68 exists against -- and which a test in
 
 from __future__ import annotations
 
-import sys
-from pathlib import Path
-
 import pytest
 
-sys.path.insert(0, str(Path(__file__).parent))
-
-from pyflightstream.cases.workflows import reduction_windows  # noqa: E402
+from pyflightstream.cases.workflows import reduction_windows
 
 
 def _rotor_row(**overrides):
@@ -41,7 +36,7 @@ def _rotor_row(**overrides):
     the three retired spellings. A case that DOES pass one is testing the
     migration and keeps it.
     """
-    from test_workflows import rotor_case
+    from tests.tier1_offline.test_workflows import rotor_case
 
     return rotor_case(**{"WINDOW_DEGREES": None, **overrides})
 
@@ -163,7 +158,7 @@ def test_one_instruction_gives_each_rotor_its_own_steps():
     own. The two spans below must therefore DIFFER, and each must be that
     rotor's own revolution.
     """
-    from test_reduce_by_rotor import transition_case
+    from tests.tier1_offline.test_reduce_by_rotor import transition_case
 
     case = transition_case()
     case = case.model_copy(update={"variables": {**case.variables, "LAST_REVS_AVG": "1.0"}})

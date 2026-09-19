@@ -13,15 +13,11 @@ The requirement is the method's own: make the folder a link, "or say why not".
 
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent))
-
-from test_workspace import _library_geometry  # noqa: E402
-
-from pyflightstream._digest import file_sha256  # noqa: E402
-from pyflightstream.workspace import CampaignWorkspace, _is_link  # noqa: E402
+from pyflightstream._digest import file_sha256
+from pyflightstream.workspace import CampaignWorkspace, _is_link
+from tests.tier1_offline.test_workspace import _library_geometry
 
 
 def test_an_inputs_folder_that_cannot_be_removed_is_staged_by_copy_with_the_reason(

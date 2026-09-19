@@ -10,18 +10,12 @@ was the one family that assembled its condition by hand instead of through
 
 from __future__ import annotations
 
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).parent))
-
-from test_post_products import SLOADS as EXPORT  # noqa: E402
-
-from pyflightstream.post.products import (  # noqa: E402
+from pyflightstream.post.products import (
     NOT_APPLICABLE,
     read_csv_table,
     write_sections_table,
 )
+from tests.tier1_offline.test_post_products import SLOADS as EXPORT
 
 
 def test_the_altitude_is_the_rows_and_not_the_exports_unset_zero(tmp_path):

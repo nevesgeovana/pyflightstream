@@ -15,15 +15,11 @@ under a steady name.
 
 from __future__ import annotations
 
-import sys
 import warnings
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent))
-
-from test_post_products import _products_manifest, _unsteady_workspace  # noqa: E402
-
-from pyflightstream.post.products import read_csv_table, write_campaign_products  # noqa: E402
+from pyflightstream.post.products import read_csv_table, write_campaign_products
+from tests.tier1_offline.test_post_products import _products_manifest, _unsteady_workspace
 
 #: As `reduction_windows` writes it for a rotorless row that states no key: the
 #: whole run, and the flag that says the ROW did not state it.

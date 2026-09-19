@@ -68,10 +68,8 @@ def test_the_post_stage_rebuilds_from_a_recorded_workspace_with_no_solver(tmp_pa
     campaign recorded AS A RUN LEAVES IT: outputs on disk, a manifest, no
     solver and no executor anywhere.
     """
-    import sys
 
-    sys.path.insert(0, str(Path(__file__).parent))
-    from test_post_superfile import _post, _workspace
+    from tests.tier1_offline.test_post_superfile import _post, _workspace
 
     workspace = _workspace(tmp_path)
     written = _post(workspace)

@@ -34,19 +34,15 @@ Mean 400, last step 500, whole history 275. `CT = T / (rho n^2 D^4)`.
 from __future__ import annotations
 
 import json
-import sys
 import warnings
 from pathlib import Path
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).parent))
-
-from test_post_products import PLOTS_HEADER  # noqa: E402
-from test_post_superfile import _MATRIX, _post, _workspace  # noqa: E402
-
-from pyflightstream.post.products import read_csv_table  # noqa: E402
-from pyflightstream.workspace import RunRecord  # noqa: E402
+from pyflightstream.post.products import read_csv_table
+from pyflightstream.workspace import RunRecord
+from tests.tier1_offline.test_post_products import PLOTS_HEADER
+from tests.tier1_offline.test_post_superfile import _MATRIX, _post, _workspace
 
 DIAMETER = 2.0
 RPM = 2200.0

@@ -5,7 +5,7 @@ which way the air is going: until 0.24.0 the polar row turned its coefficients
 inline and the rotor table built its own free-stream vector, and the second one
 carried two wrong signs into a published column. Both call this module now.
 
-THE CONVENTION, the owner's of 2026-09-18. Direction-cosine matrices are
+THE CONVENTION. Direction-cosine matrices are
 PASSIVE and right-handed: ``C @ v`` gives the components of the SAME vector in
 the coordinate system turned by ``mu`` about ``n``,
 

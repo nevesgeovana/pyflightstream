@@ -688,8 +688,7 @@ WAIVED_COMMANDS_MANIFEST_KEY = DeprecatedManifestKey(
         "2026-09-14, when the 0.18.0 cycle opened and the deadline guard fired on the "
         "bump, which is what it is for. RE-MEASURED THE SAME MINUTE and UNCHANGED at 18 "
         "rows across 6 live manifests, archives excluded; the reference recorded campaign "
-        "is still among them. The owner's instruction of 2026-09-13 is the authority for "
-        "this move and it is quoted rather than paraphrased: this key is extended ON THE "
+        "is still among them. This key is extended ON THE "
         "MEASUREMENT, not removed on the date. Extended from 0.15.0 on 2026-09-10, from "
         "0.16.0 on 2026-09-11 and from 0.17.0 the same day when the 0.17.0 cycle opened "
         "and the count was re-measured UNCHANGED at 18 rows in 6 manifests. The "
@@ -743,11 +742,9 @@ ROW_MOVING_BOUNDARIES = DeprecatedParameter(
     removal_version="0.18.0",
     extra=_STATED_IN_THE_BLOCK,
 )
-#: ITEM 16 RETIRES THE THREE WINDOW SPELLINGS, by the owner's instruction of
-#: 2026-09-18: "aposenta WINDOW_STEPS e WINDOW_REVOLUTIONS". `WINDOW_DEGREES`
-#: she did not name, and it is retired with them because the reason is identical
-#: and leaving one of three would keep the split this item exists to end; the
-#: default was recorded for her in GEO-050 before it was taken.
+#: ITEM 16 RETIRES THE THREE WINDOW SPELLINGS: `WINDOW_STEPS`,
+#: `WINDOW_REVOLUTIONS` and `WINDOW_DEGREES`. Leaving one of three would
+#: preserve the split between two ways to state the same averaging window.
 #:
 #: THEY WERE THE SAME IDEA IN ANOTHER PLACE UNDER ANOTHER NAME. A window said
 #: two ways is how two published numbers come to disagree about which steps they

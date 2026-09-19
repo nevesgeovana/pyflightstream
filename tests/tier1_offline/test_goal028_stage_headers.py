@@ -17,18 +17,14 @@ directly, not with anything the writers computed.
 from __future__ import annotations
 
 import re
-import sys
 from pathlib import Path
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).parent))
-
-from test_post_superfile import _post, _workspace  # noqa: E402
-
-from pyflightstream.post._tables import CONTEXT_COLUMNS  # noqa: E402
-from pyflightstream.post.products import read_csv_table  # noqa: E402
-from pyflightstream.results import parse_loads  # noqa: E402
+from pyflightstream.post._tables import CONTEXT_COLUMNS
+from pyflightstream.post.products import read_csv_table
+from pyflightstream.results import parse_loads
+from tests.tier1_offline.test_post_superfile import _post, _workspace
 
 PAGE = Path(__file__).resolve().parents[2] / "docs" / "post-processing-definitions.md"
 MARKER = re.compile(r"<!--\s*condition-columns:(?P<names>.*?)-->", flags=re.S)

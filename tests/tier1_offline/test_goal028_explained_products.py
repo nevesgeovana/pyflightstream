@@ -18,12 +18,9 @@ and a campaign could not:
 from __future__ import annotations
 
 import json
-import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent))
-
-from test_post_products import (  # noqa: E402
+from tests.tier1_offline.test_post_products import (
     LOADS,
     PLOTS_HEADER,
     _plots_export,

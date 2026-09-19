@@ -430,17 +430,13 @@ def test_an_unsteady_rotor_table_is_the_window_average_and_not_the_last_step(tmp
     `mypy` caught it in CI. A path no case exercises is a path that is not
     delivered, which is this release's own recurring finding.
     """
-    import sys
-    from pathlib import Path as _Path
-
-    sys.path.insert(0, str(_Path(__file__).parent))
-    from test_post_products import LOADS
-    from test_post_superfile import _workspace
 
     from pyflightstream.post.products import PolarPoint, matrix_rows, write_rotor_table
     from pyflightstream.post.products import _rotor_tables as rotor_tables
     from pyflightstream.results import parse_loads
     from pyflightstream.workspace import RunRecord
+    from tests.tier1_offline.test_post_products import LOADS
+    from tests.tier1_offline.test_post_superfile import _workspace
 
     workspace = _workspace(tmp_path)
     (workspace.inputs_dir / "references" / "r002.toml").write_text(
@@ -564,17 +560,13 @@ def test_every_row_is_dimensionalised_from_its_own_points_record(tmp_path):
     defect, which is the exact failure this release already shipped once in
     the ETAW sign.
     """
-    import sys
-    from pathlib import Path as _Path
-
-    sys.path.insert(0, str(_Path(__file__).parent))
-    from test_post_products import LOADS
-    from test_post_superfile import _workspace
 
     from pyflightstream.post.products import PolarPoint
     from pyflightstream.post.products import _rotor_tables as rotor_tables
     from pyflightstream.results import parse_loads
     from pyflightstream.workspace import RunRecord
+    from tests.tier1_offline.test_post_products import LOADS
+    from tests.tier1_offline.test_post_superfile import _workspace
 
     workspace = _workspace(tmp_path)
     (workspace.inputs_dir / "references" / "r002.toml").write_text(
@@ -685,11 +677,9 @@ def test_the_post_stage_writes_a_rotor_table_from_a_recorded_workspace(tmp_path)
     This asserts the product: a recorded campaign whose reference declares a
     rotor gets a rotor table, with the alias on its first line.
     """
-    import sys
     from pathlib import Path
 
-    sys.path.insert(0, str(Path(__file__).parent))
-    from test_post_superfile import _post, _workspace
+    from tests.tier1_offline.test_post_superfile import _post, _workspace
 
     workspace = _workspace(tmp_path)
 

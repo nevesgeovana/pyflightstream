@@ -24,8 +24,6 @@ is computed by the module under test.
 from __future__ import annotations
 
 import math
-import sys
-from pathlib import Path
 
 import numpy as np
 import pytest
@@ -33,9 +31,6 @@ import pytest
 # scipy is a TEST oracle and one CI leg does not install it.
 Rotation = pytest.importorskip("scipy.spatial.transform").Rotation
 
-sys.path.insert(0, str(Path(__file__).parent))
-
-from test_post_products import LOADS, REFERENCE  # noqa: E402
 
 from pyflightstream.post.products import (  # noqa: E402
     PolarPoint,
@@ -44,6 +39,7 @@ from pyflightstream.post.products import (  # noqa: E402
     polar_row,
 )
 from pyflightstream.results import parse_loads  # noqa: E402
+from tests.tier1_offline.test_post_products import LOADS, REFERENCE  # noqa: E402
 
 NAMES = (
     "ALPHA BETA MACH RE CDB CYB CLB CRB CMB CNB CDS CYS CLS CRS CMS CNS "
