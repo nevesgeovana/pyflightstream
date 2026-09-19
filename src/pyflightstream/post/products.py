@@ -1352,10 +1352,28 @@ def read_csv_table(
 # call, so a stage reaches it.
 
 
-def _plot_name_can_emit(template: str, name: str, families: Sequence[str]) -> bool:
+def _plot_name_can_emit(
+    template: str,
+    name: str,
+    families: str | Sequence[str],
+    *,
+    inventory: Sequence[str],
+    is_blade: Callable[[str], bool],
+    aliases: Mapping[str, Sequence[str]] | None = None,
+    frame: str = "",
+) -> bool:
     """Whether a declared plot name can occupy an automatic group's name."""
     if "{family}" not in template:
         return template == name
+    if isinstance(families, str):
+        # Use the builder's family selector; selector words are not plot labels.
+        # In a common frame `all` has an empty label; expanding frames label
+        # their individual emissions instead.
+        selection = (
+            "each" if families == "all" and frame in {"SMRP", "RMRP", "LOCAL_AXIS"} else families
+        )
+        resolved = select_families(selection, inventory, is_blade, aliases)
+        families = [family for selected in resolved for family in selected]
     return any(template.format(family=family) == name for family in families)
 
 
@@ -1409,7 +1427,13 @@ def rotor_plot_source(
         named = group.families if isinstance(group.families, list) else [group.families]
         # Expanding rotor frames label their emissions with the cited rotor.
         generated_is_declared |= _plot_name_can_emit(
-            name, generated, named if frame in {"SMRP", "RMRP"} else ()
+            name,
+            generated,
+            group.families if frame in {"SMRP", "RMRP"} else (),
+            inventory=inventory,
+            is_blade=is_blade,
+            aliases=aliases,
+            frame=frame,
         )
         try:
             resolved = select_families(group.families, list(inventory), is_blade, aliases)
@@ -1417,7 +1441,11 @@ def rotor_plot_source(
             continue
         if frame not in {"SMRP", "RMRP"}:
             generated_is_declared |= _plot_name_can_emit(
-                name, generated, [family for selected in resolved for family in selected]
+                name,
+                generated,
+                [family for selected in resolved for family in selected],
+                inventory=inventory,
+                is_blade=is_blade,
             )
         if frame != "MRP":
             if "{family}" in name and alias in {str(member) for member in named}:
@@ -4340,7 +4368,12 @@ def write_unsteady_polar(
     )
 
 
-def global_frame_plot_groups(pproc: object) -> tuple[str, ...]:
+def global_frame_plot_groups(
+    pproc: object,
+    *,
+    inventory: Sequence[str] = (),
+    aliases: Mapping[str, Sequence[str]] | None = None,
+) -> tuple[str, ...]:
     """Return the names of the plot groups whose six components are in the GLOBAL frame.
 
     Read off the pproc artifact, which is the only place a plot's frame is stated.
@@ -4365,7 +4398,11 @@ def global_frame_plot_groups(pproc: object) -> tuple[str, ...]:
         _plot_name_can_emit(
             str(group.name),
             AXES_PLOT_GROUP,
-            group.families if isinstance(group.families, list) else [group.families],
+            group.families,
+            inventory=inventory,
+            is_blade=getattr(pproc, "is_blade", lambda _name: False),
+            aliases=aliases,
+            frame=str(getattr(group, "frame", "")).strip().upper(),
         )
         and str(getattr(group, "frame", "")).strip().upper() != "MRP"
         for group in (getattr(plots, "groups", ()) or ())
@@ -5190,7 +5227,18 @@ def _sim_products(
             reference=reference,
             left_out=unsteady_left_out,
             notes=unsteady_notes,
-            axes_groups=global_frame_plot_groups(pproc),
+            axes_groups=global_frame_plot_groups(
+                pproc,
+                inventory=list(
+                    dict.fromkeys(
+                        family
+                        for point in points
+                        if point.loads is not None
+                        for family in point.loads.surfaces
+                    )
+                ),
+                aliases=aliases,
+            ),
             equations=getattr(pproc, "equations", None) or None,
             equation_order=pproc.equation_order() if getattr(pproc, "equations", None) else None,
             equation_notes=equation_notes,

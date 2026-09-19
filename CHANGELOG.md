@@ -5,6 +5,31 @@ All notable changes to pyflightstream. The format follows
 follow [SemVer](https://semver.org/) and are decoupled from
 FlightStream versions.
 
+## [Unreleased]
+
+### Owed
+
+- **The Zenodo version DOI of v0.24.0 is owed** one commit after the tag, as for every
+  release: it is minted from the GitHub release.
+- **The full-wheel run of the licensed campaign on the axisymmetric nacelle is owed**
+  (`reports/pfs0240/README.md`): the sector-against-wheel check reads 1.297 on a full
+  wheel whose nacelle is not axisymmetric.
+- **The manifest lock's recovery policy is owed to 0.25.0**: a lock older than 30 s is
+  taken as abandoned.
+- **The Zenodo archive of v0.14.0 DOES NOT EXIST**, re-measured against
+  Zenodo's own API on 2026-09-14, when the v0.18.0 archive row was paid: the
+  concept record lists NINETEEN archived versions and v0.14.0 is not among
+  them. The earlier reading of 2026-09-10 said the same and could not be
+  confirmed for four days because the service was answering 504; it is
+  confirmed now, so this is a fact about the archive rather than about its
+  availability.
+  THE RELEASE OBJECT FOR v0.14.0 EXISTS, published 2026-09-09, so the webhook
+  had what it needs and the archive still has no version for it. Whatever
+  failed, it failed silently, and re-triggering it is the repair.
+  Until that row lands this section says so, because a shipped release that
+  quietly stops being citable is the gap PFS-2024.09 is about. Cite that
+  release by the concept DOI, which resolves to the newest archived version.
+
 ## [0.24.0] - 2026-09-19
 
 ### Fixed (refusals that protect a run and its products)
@@ -570,30 +595,6 @@ FlightStream versions.
 - The layer rule is now held over module-level imports across the whole package,
   with no allowlist; two upward imports planted at module level used to pass
   both existing guards.
-
-### Owed
-
-- **The Zenodo version DOI of v0.24.0 is owed** one commit after the tag, as for every
-  release: it is minted from the GitHub release.
-- **The full-wheel run of the licensed campaign on the axisymmetric nacelle is owed**
-  (`reports/pfs0240/README.md`): the sector-against-wheel check reads 1.297 on a full
-  wheel whose nacelle is not axisymmetric.
-- **The manifest lock's recovery policy is owed to 0.25.0**: a lock older than 30 s is
-  taken as abandoned.
-- **The Zenodo archive of v0.14.0 DOES NOT EXIST**, re-measured against
-  Zenodo's own API on 2026-09-14, when the v0.18.0 archive row was paid: the
-  concept record lists NINETEEN archived versions and v0.14.0 is not among
-  them. The earlier reading of 2026-09-10 said the same and could not be
-  confirmed for four days because the service was answering 504; it is
-  confirmed now, so this is a fact about the archive rather than about its
-  availability.
-  THE RELEASE OBJECT FOR v0.14.0 EXISTS, published 2026-09-09, so the webhook
-  had what it needs and the archive still has no version for it. Whatever
-  failed, it failed silently, and re-triggering it is the repair.
-  Until that row lands this section says so, because a shipped release that
-  quietly stops being citable is the gap PFS-2024.09 is about. Cite that
-  release by the concept DOI, which resolves to the newest archived version.
-
 
 ## [0.23.0] - 2026-09-18
 
@@ -10993,7 +10994,8 @@ the repository seeding and this tag (milestones M0 through M5).
 * 26.000: registered, no recorded evidence yet (honest empty column;
   backfill planned for v0.2+).
 
-[Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.23.0...HEAD
+[Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.24.0...HEAD
+[0.24.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.24.0
 [0.23.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.23.0
 [0.22.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.22.0
 [0.21.1]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.21.1
