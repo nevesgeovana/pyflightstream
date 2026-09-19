@@ -166,9 +166,11 @@ from pyflightstream.post.unsteady import (
     phase_locked_rows,
 )
 from pyflightstream.results import (
+    FrozenSolve,
     LoadsReport,
     MalformedOutputError,
     UnsteadyPlotsReport,
+    frozen_time_steps,
     labeled_value,
     parse_loads,
     parse_probe_points,
@@ -1544,6 +1546,15 @@ def _rotor_surfaces_carried(
     return [str(name) for name in surfaces if str(name).casefold() in owned]
 
 
+def _frozen_window_reason(frozen: FrozenSolve | None, window: Sequence[int]) -> str | None:
+    """Explain why an average reaches the frozen part of a solve."""
+    # cases.windows and the products' STEP use inclusive 1-based time steps,
+    # just like the log's (k/N): there is no offset and no inner-iteration mapping.
+    if frozen is not None and window[1] >= frozen.first_step:
+        return f"{frozen.reason}; averaging window spans steps {window[0]} to {window[1]}"
+    return None
+
+
 def _rotor_tables(
     workspace: CampaignWorkspace,
     sim_id: str,
@@ -1558,6 +1569,7 @@ def _rotor_tables(
     pproc: object | None = None,
     windows: Mapping[str, tuple[int, int]] | None = None,
     aliases: Mapping[str, Sequence[str]] | None = None,
+    frozen: Mapping[str, FrozenSolve] | None = None,
 ) -> list[tuple[Path, str, dict[str, object]]]:
     """Assemble one rotor table per rotor the ROW's reference declares (item 6).
 
@@ -1640,6 +1652,9 @@ def _rotor_tables(
         span = (windows or {}).get(point.name, window)
         if plots is None or span is None:
             return None, "the row states no averaging window", None
+        refusal = _frozen_window_reason((frozen or {}).get(point.name), span)
+        if refusal is not None:
+            return None, refusal, None
         where = f"over steps {span[0]} to {span[1]}"
         source = plots.get(point.name)
         if source is None or not source.is_file():
@@ -4215,6 +4230,7 @@ def write_unsteady_polar(
     equations: Mapping[str, object] | None = None,
     equation_order: Sequence[str] | None = None,
     equation_notes: list[str] | None = None,
+    frozen: Mapping[str, FrozenSolve] | None = None,
 ) -> Path | None:
     """Write the POLAR of one unsteady simulation from the PLOTS history (item 17).
 
@@ -4262,6 +4278,8 @@ def write_unsteady_polar(
 
     ``windows`` gives a point ITS OWN window by name where the points of one row
     do not share a clock; a point it does not name takes ``window``.
+    ``frozen`` carries native-log freeze evidence by point name. An affected
+    averaging window is left out with its reason, including on a recorded success.
 
     THE AXIS COEFFICIENTS FOLLOW THE PLOTS (0.24.0), from the plot variables of the
     GLOBAL MRP frame: the six components ``FX .. MZ`` of each plot group
@@ -4307,6 +4325,10 @@ def write_unsteady_polar(
             left_out.append(f"{name}: no plots table")
             continue
         point_window = (windows or {}).get(name, window)
+        refusal = _frozen_window_reason((frozen or {}).get(name), point_window)
+        if refusal is not None:
+            left_out.append(f"{name}: {refusal}")
+            continue
         try:
             printed_names, series = plots_table_series(source)
             # A PARTIAL COVER IS NOT A COVER, and this dropped only the point
@@ -4634,6 +4656,7 @@ def _sim_products(
     exports: dict[str, tuple[Path | None, Path | None, Path | None]] = {}
     plans: dict[str, dict[str, object] | None] = {}
     point_windows: dict[str, tuple[int, int]] = {}
+    frozen_points: dict[str, FrozenSolve] = {}
     probe_positions: dict[int, tuple[float, float, float, str]] = {}
     # DECLARED HERE rather than with its siblings below, because the
     # positions are read in the record loop and an unreadable file is
@@ -4680,6 +4703,11 @@ def _sim_products(
             )
         )
         record_of[stem] = record
+        log_path = by_name.get(kinds.get("log", ""))
+        if log_path is not None and log_path.is_file():
+            frozen = frozen_time_steps(log_path.read_text(encoding="utf-8", errors="replace"))
+            if frozen is not None:
+                frozen_points[stem] = frozen
         vinf = report.freestream_velocity_m_s
         vref = getattr(report, "reference_velocity_m_s", None)
         if (
@@ -5150,6 +5178,7 @@ def _sim_products(
                     done,
                     plans[point.name],
                     out,
+                    frozen=frozen_points.get(point.name),
                     runs=sources[point.name],
                     target=_target,
                     written=written,
@@ -5205,6 +5234,7 @@ def _sim_products(
         pproc=pproc,
         windows=point_windows,
         aliases=aliases,
+        frozen=frozen_points,
     ):
         destination = _target(target_path)
         # THE PLAN'S OWN REJECTIONS PLUS THE WRITER'S, IN ONE LIST. Both halves
@@ -5294,6 +5324,7 @@ def _sim_products(
             plots=plots_tables,
             window=unsteady_window_steps,
             windows=point_windows,
+            frozen=frozen_points,
             setup=_setup_content(points, sources, records, matrix_row, sweep_rows),
             conditions=conditions,
             reference=reference,
@@ -5600,6 +5631,7 @@ def _point_reductions(
     reference: ReferenceValues | None = None,
     rotor_facts: Mapping[str, Mapping[str, object]] | None = None,
     names: Mapping[str, str] | None = None,
+    frozen: FrozenSolve | None = None,
 ) -> None:
     """Write every applicable reduction of one plots table beside it (PFS-2015.04).
 
@@ -5685,6 +5717,14 @@ def _point_reductions(
             continue
         stated = entry.get("windows", ())
         windows = [tuple(int(v) for v in window) for window in stated]  # type: ignore[union-attr]
+        refusal = next(
+            (why for window in windows if (why := _frozen_window_reason(frozen, window))),
+            None,
+        )
+        if refusal is not None:
+            target(out / relative)  # archive any stale product from an earlier post
+            skipped[relative] = refusal
+            continue
         if series is None:
             columns, series = plots_table_series(plots_table)
             try:

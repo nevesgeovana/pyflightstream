@@ -1386,6 +1386,67 @@ def parse_residual_history(text: str) -> list[ResidualSample]:
 
 
 @dataclass(frozen=True)
+class FrozenSolve:
+    """A frozen unsteady solve, counted in the log's 1-based time steps."""
+
+    first_step: int
+    count: int
+
+    @property
+    def reason(self) -> str:
+        """Describe the freeze for assessment and product skip records."""
+        return f"frozen solve: first frozen time step {self.first_step}; {self.count} frozen steps"
+
+
+def frozen_time_steps(log_text: str) -> FrozenSolve | None:
+    """Detect a freeze from the printed residuals of an unsteady log.
+
+    A time step is frozen when every inner iteration after its first prints
+    exactly zero velocity residual and its last iteration prints both residuals
+    exactly zero. A solve is
+    frozen only when at least two consecutive time steps meet this rule; the
+    result names the first step of the first such stretch and counts the frozen
+    steps in qualifying stretches. Step numbers come from the solver's 1-based
+    ``(k/N)`` markers, never from its cumulative inner-iteration counter.
+    Steady logs, which have no unsteady step markers, return None.
+    """
+    clean = log_text.replace("\x00", "")
+    markers = list(re.finditer(r"Solving unsteady time-step iteration \((\d+)/(\d+)\)", clean))
+    # Compare the printed mantissa: a tiny nonzero value must not underflow to
+    # zero, and neither an overflow field nor NaN is evidence of a freeze.
+    zero = re.compile(r"[+-]?(?:0+(?:\.0*)?|\.0+)(?:[EeDd][+-]?\d+)?\Z")
+    first: int | None = None
+    count = 0
+    streak = 0
+    previous: int | None = None
+    for index, marker in enumerate(markers):
+        step = int(marker[1])
+        end = markers[index + 1].start() if index + 1 < len(markers) else len(clean)
+        block = clean[marker.end() : end]
+        rows = [
+            row
+            for page in _RESIDUAL_PAGE.split(block)[1:]
+            for row in delimited_table("Iteration" + page, "Iteration", delimiter=None)
+        ]
+        frozen = (
+            bool(rows)
+            and len(rows[-1]) >= 3
+            and all(len(row) >= 3 and zero.fullmatch(row[1]) for row in rows[1:])
+            and zero.fullmatch(rows[-1][1]) is not None
+            and zero.fullmatch(rows[-1][2]) is not None
+        )
+        streak = (streak + 1 if previous == step - 1 else 1) if frozen else 0
+        if streak == 2:
+            if first is None:
+                first = step - 1
+            count += 2
+        elif streak > 2:
+            count += 1
+        previous = step
+    return None if first is None else FrozenSolve(first_step=first, count=count)
+
+
+@dataclass(frozen=True)
 class LogTimes:
     """The times and the step count a solver log prints (0.21.0).
 
@@ -3196,6 +3257,8 @@ __all__ = [
     "parse_off_body_streamlines",
     "parse_probe_points",
     "parse_residual_history",
+    "FrozenSolve",
+    "frozen_time_steps",
     "parse_run_loads",
     "parse_solver_analysis_csv",
     "parse_surface_sections",

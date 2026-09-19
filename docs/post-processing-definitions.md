@@ -510,8 +510,17 @@ of merit cannot be offered: it needs a force the run does not state.
 
 ## What the package does NOT judge
 
-The package asserts **one** thing about an unsteady point's convergence: whether
-the **numerical iterations within the last time step** converged.
+The package checks whether the **numerical iterations within the last time
+step** converged. It also rejects a frozen solve: at least two consecutive time
+steps whose inner iterations after the first all print exactly zero velocity
+residual and whose last inner iteration prints both residuals exactly zero.
+
+A frozen solve is recorded as `FAILED_DIVERGED`, naming the first frozen step
+and the count. When re-posting an existing success, the collected native log is
+checked again: an average whose inclusive, 1-based window ends at or after the
+first frozen step is skipped by name in `products.json`. Windows wholly before
+that step keep their products. Raw histories and explicitly instant products
+remain available; an instant is not an accepted average.
 
 It does **not** judge whether the time history has settled. There is no settle
 tolerance, no convergence criterion over the history, and no point is failed for

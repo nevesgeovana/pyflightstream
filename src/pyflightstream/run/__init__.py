@@ -126,6 +126,7 @@ from pyflightstream.results import (
     LoadsReport,
     VersionMismatchWarning,
     classify_solver_mode,
+    frozen_time_steps,
     parse_loads,
     parse_log_times,
     parse_residual_history,
@@ -1300,6 +1301,7 @@ class LoadsAssessor:
     status.
 
     - NaN or infinite Total coefficients: FAILED_DIVERGED.
+    - A native log with consecutive frozen time steps: FAILED_DIVERGED.
     - With a log: the final velocity and pressure residuals against
       the run's convergence limit (SRC-003 p.200). A NaN or infinite
       residual in EITHER column is a divergence, judged before the two
@@ -1791,6 +1793,14 @@ class LoadsAssessor:
                         "run or another point, or one of the two files was written "
                         "before the solve ended; export both at the end of the same solve"
                     ),
+                    **stamp,
+                )
+            frozen = frozen_time_steps(log_text)
+            if frozen is not None:
+                return Assessment(
+                    status=RunStatus.FAILED_DIVERGED,
+                    iterations=final.iteration,
+                    error=frozen.reason,
                     **stamp,
                 )
             # PYFS-007. Every component is judged BEFORE they are combined,

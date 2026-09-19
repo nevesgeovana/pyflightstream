@@ -28,6 +28,17 @@ FlightStream versions.
 
 ### Fixed
 
+- **A frozen unsteady solve is a failure, and its averages are not published.** A
+  time step whose inner iterations after the first print a velocity residual of
+  exactly zero, and whose last prints both residuals exactly zero, is frozen; two or
+  more consecutive frozen steps make the point `FAILED_DIVERGED`, with the first
+  frozen step and the count in its reason. `post` reads each point's native log too,
+  so a run RECORDED as a success before 0.25.0 is caught on re-post: every average
+  (unsteady polar row, rotor table, reduction) whose window reaches the first frozen
+  step is left out with that reason in `products.json`, and an earlier post's stale
+  file is archived. Windows ending before the freeze, raw histories and last-step
+  products are kept. Measured on a recorded licensed campaign: two of four unsteady
+  points froze, from steps 60 and 64 of 144.
 - **An input artifact that exists and does not validate now says so first.** A matrix
   row naming a reference, setup or pproc whose file is present but invalid is refused
   with "the <kind> artifact at <path> does not validate" followed by the validation
