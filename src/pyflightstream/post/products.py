@@ -195,6 +195,7 @@ __all__ = [
     "REFERENCE_LENGTH_COLUMNS",
     "ROTOR_TABLE_LEAD_LINES",
     "ROTOR_TABLE_SUFFIX",
+    "UNSTEADY_AXIS_COLUMNS",
     "context_row",
     "renamed_columns",
     "section_identity",

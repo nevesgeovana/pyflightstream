@@ -44,6 +44,8 @@ from pyflightstream.results import (
 from pyflightstream.workspace import RunRecord
 
 __all__ = [
+    "PROBE_COLUMN",
+    "SECTIONS_SERIES_LEAD",
     "SERIES_DIR",
     "SERIES_KINDS",
     "SERIES_LEAD",

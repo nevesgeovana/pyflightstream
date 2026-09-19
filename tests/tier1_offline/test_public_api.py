@@ -27,6 +27,9 @@ from pyflightstream._deprecations import DEPRECATED_MODULES
 PUBLIC_MODULES = [
     "pyflightstream.cases",
     "pyflightstream.cases.matrix",
+    # 0.24.0: the one resolver of an unsteady row's averaging window. PUBLIC
+    # deliberately: a post-processing choice needs no new run, so a user who
+    # recomputes a window off a recorded plan calls `averaging_steps` here.
     "pyflightstream.cases.windows",
     "pyflightstream.cases.workflows",
     "pyflightstream.commands",
@@ -47,6 +50,9 @@ PUBLIC_MODULES = [
     "pyflightstream.options",
     "pyflightstream.overview",
     "pyflightstream.post",
+    # 0.24.0: the one home of the frame conventions. PUBLIC deliberately: a
+    # user checking which frame a published axis column is in, or turning a
+    # vector of their own the way the polar does, calls `polar_axis_coefficients`.
     "pyflightstream.post.axes",
     # 0.24.0: the evaluator of a pproc `[equations]` table. PUBLIC deliberately:
     # `resolve_symbol` IS the rule by which a symbol finds its column, the

@@ -2299,6 +2299,19 @@ def select_group_members(
             # package's own advice cost the polar of the whole configuration. An
             # alias, a boundary or a family of that name is tried first and wins.
             names = list(inventory)
+        elif names and token == EVERY_FAMILY:
+            # AND WHEN ONE DOES WIN, IT IS SAID (release review of 0.24.0, API-B9): a
+            # geometry with a surface or a family called `all` turns the word that
+            # means every surface into that one surface, and a polar of one surface
+            # under the configuration's group name is a number nobody asked for.
+            warnings.warn(
+                f'the group member "{EVERY_FAMILY}" selected {names}, a surface, family '
+                "or alias of that name, and NOT every surface of the geometry. Rename "
+                f'that surface, or name the group\'s members, if "{EVERY_FAMILY}" meant '
+                "all of them.",
+                PyflightstreamWarning,
+                stacklevel=2,
+            )
         chosen.extend(name for name in names if name not in chosen)
     return chosen
 

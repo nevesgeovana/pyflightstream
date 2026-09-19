@@ -1,10 +1,10 @@
 """Results into engineering data.
 
 Pipeline role: the top of the pipeline, where parsed solver output
-becomes something a report can carry. FOUR inhabitants today, and the
-list is what EXISTS rather than what is planned. Two are reached
-through this package and two through their own module, which is stated
-rather than left to be discovered:
+becomes something a report can carry. TEN public inhabitants and one
+private one, and the list is what EXISTS rather than what is planned.
+Each says whether it is reached through this package or through its own
+module, which is stated rather than left to be discovered:
 
 * :mod:`pyflightstream.post.writers` writes flow-visualization exports
   (VTK legacy ASCII and Tecplot ASCII), each beside a settings record
@@ -17,7 +17,10 @@ rather than left to be discovered:
   point, from the collected exports and the manifest (PFS-2029.15); the
   custom polar format beside the polar table when asked (PFS-2014.01.01), its
   writer and reader re-exported here; and a PROV-JSON provenance document
-  per recorded run (PFS-2012.08.01).
+  per recorded run (PFS-2012.08.01). Its other writers, among them
+  ``polar_row``, ``write_rotor_table``, ``write_per_blade_table`` and
+  ``write_unsteady_polar``, are reached through ``post.products`` itself,
+  as is ``UNSTEADY_AXIS_COLUMNS``, the header of an unsteady polar's axes.
 * :mod:`pyflightstream.post.superfile` writes the SUPERFILE of each polar
   and group beside the polar table (FR-89), one row per converged point
   whose column set is a superset of everything the workspace knows about
@@ -37,7 +40,21 @@ rather than left to be discovered:
 * :mod:`pyflightstream.post.settings_table` projects a solver-flag
   snapshot into an all-numeric table, for tools that cannot read
   strings. Imported from its own module, because the projection is
-  optional and lossy and a reader should meet its page first.
+  optional and lossy and a reader should meet its page first;
+* :mod:`pyflightstream.post.axes` is the ONE home of the frame conventions:
+  the export's frame, the body, stability and wind axes with sideslip, the
+  eighteen axis coefficients of a polar row, and where a blade is at a step.
+  Reached through its own module, because a reader asking which frame a
+  published column is in wants that page and nothing else;
+* :mod:`pyflightstream.post.equations` evaluates a pproc's ``[equations]``
+  over the averaged columns of an unsteady polar. Reached through its own
+  module: the products stage is its caller, and a user writing an equation
+  reads the generated ``WRITING-EQUATIONS.md`` first;
+* :mod:`pyflightstream.post.guides` writes the two generated pproc guides,
+  ``VARIABLES.md`` and ``WRITING-EQUATIONS.md``. Re-exported here;
+* :mod:`pyflightstream.post._tables` is PRIVATE: the table primitives
+  (the condition block, the CSV writer, the column renaming) the product
+  modules share, so that no two of them import each other.
 
 WHAT THIS LAYER DOES NOT HAVE, said plainly because this docstring
 advertised it for three releases and a reader has no other way to find
@@ -48,9 +65,10 @@ Sweep assembly is not here either, it is
 :mod:`pyflightstream.results.tables`.
 """
 
-# The generated pproc guides. Re-exported here because a
-# module under `post` that its package root cannot reach is a module a
-# reader cannot find, which the results guard refuses by name.
+# The generated pproc guides. Re-exported here because a module under
+# `post` that its package root cannot reach by import is a module a reader
+# cannot find, and `tests/tier1_offline/test_results.py` refuses one by name
+# unless `_UNREACHABLE_FROM_ITS_PACKAGE_ROOT` records why.
 from pathlib import Path
 
 from pyflightstream.post.guides import (
