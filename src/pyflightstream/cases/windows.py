@@ -39,6 +39,7 @@ __all__ = [
     "averaging_steps",
     "passages",
     "phase_locked_entry",
+    "phase_locked_plan",
     "regate",
     "replan",
     "stated_key",
@@ -48,6 +49,8 @@ __all__ = [
 #: The two keys, spelled once. Upper case and exact, like every other row key.
 LAST_REVS_AVG = "LAST_REVS_AVG"
 LAST_ITERS_AVG = "LAST_ITERS_AVG"
+
+_KEEP_GATE = object()
 
 _PASSAGE_REDUCTIONS = ("phase_locked", "per_blade")
 
@@ -181,6 +184,7 @@ def _recut(
     variables: Mapping[str, object],
     per_revolution: float | None,
     said: str,
+    gate: object = _KEEP_GATE,
 ) -> None:
     """Re-cut the two passage reductions of one block, in place, from ``span``."""
     period_value = _number(block.get("period_steps"))
@@ -188,25 +192,28 @@ def _recut(
         entry = block.get(name)
         if period_value is None and isinstance(entry, Mapping):
             period_value = _number(entry.get("period_steps"))
-    if period_value is None or period_value < 1:
-        return  # the block never had a passage length; its skips stand as written
-    period = int(period_value)
+    period = int(period_value or 0)
+    entry = block.get("phase_locked")
+    table_can_move = (
+        gate is not _KEEP_GATE
+        and gate is not None
+        and per_revolution is not None
+        and per_revolution > 0
+        and (_from_the_table(entry) or (isinstance(entry, Mapping) and "windows" in entry))
+    )
+    # An omitted pproc cannot erase a recorded gate or azimuthal window.
+    if table_can_move or (period >= 1 and (gate is not _KEEP_GATE or not _from_the_table(entry))):
+        block["phase_locked"] = phase_locked_plan(
+            None if gate is _KEEP_GATE or not per_revolution or per_revolution <= 0 else gate,
+            last_step=span[1],
+            per_revolution=per_revolution or 0.0,
+            who=who,
+            span=span,
+            period=period,
+        )
 
-    cut = passages(span, period)
-    if cut:
-        block["phase_locked"] = {
-            "windows": [list(item) for item in cut],
-            "period_steps": period,
-            "window_from": f"{said}, cut into blade passages of {who}, {period} steps each",
-        }
-    else:
-        block["phase_locked"] = {
-            "skipped": (
-                f"the window {span[0]} to {span[1]} holds {span[1] - span[0] + 1} steps, "
-                f"fewer than one blade passage of {who}, which is {period} steps"
-            )
-        }
-
+    if period < 1:
+        return  # no passage length: the per-blade skip stands as recorded
     own = averaging_steps(variables, per_revolution=per_revolution)
     if own is None:
         return
@@ -219,7 +226,10 @@ def _recut(
 
 
 def replan(
-    plan: Mapping[str, object] | None, variables: Mapping[str, object] | None
+    plan: Mapping[str, object] | None,
+    variables: Mapping[str, object] | None,
+    *,
+    gate: object = _KEEP_GATE,
 ) -> dict[str, object] | None:
     """Return the recorded ``plan`` with EVERY window re-cut from what the row states NOW.
 
@@ -240,6 +250,11 @@ def replan(
         ``rotors`` with its own ``steps_per_revolution`` and ``period_steps``.
     variables : mapping or None
         The matrix row's variables as they stand today.
+    gate : object or None, optional
+        The current phase-locked table. Explicit None removes the table; omitted,
+        a recorded gate or azimuthal window is preserved. Supplying the table
+        re-cuts and gates each rotor in one operation.
+
     """
     if not isinstance(plan, Mapping) or not isinstance(variables, Mapping):
         return None
@@ -274,10 +289,17 @@ def replan(
                     variables=variables,
                     per_revolution=_number(block.get("steps_per_revolution")),
                     said=said,
+                    gate=gate,
                 )
     else:
         _recut(
-            fresh, who="the rotor", span=span, variables=variables, per_revolution=clock, said=said
+            fresh,
+            who="the rotor",
+            span=span,
+            variables=variables,
+            per_revolution=clock,
+            said=said,
+            gate=gate,
         )
     return fresh
 
@@ -340,6 +362,40 @@ def phase_locked_entry(
     }
 
 
+def phase_locked_plan(
+    gate: object | None,
+    *,
+    last_step: float,
+    per_revolution: float,
+    who: str,
+    span: tuple[int, int],
+    period: int,
+) -> dict[str, object]:
+    """Plan one rotor's phase-locked reduction, including its named skip.
+
+    A declared table gates on total revolutions and selects an azimuthal mean.
+    Without a table, the row's window supplies complete blade passages.
+    Other reductions are independent of this decision.
+    """
+    if gate is not None:
+        return phase_locked_entry(gate, last_step=last_step, per_revolution=per_revolution, who=who)
+    cut = passages(span, period)
+    if cut:
+        return {
+            "windows": [list(item) for item in cut],
+            "period_steps": period,
+            "window_from": (
+                f"the row's window cut into blade passages of {who}, {period} steps each"
+            ),
+        }
+    return {
+        "skipped": (
+            f"the window {span[0]} to {span[1]} holds {span[1] - span[0] + 1} steps, "
+            f"fewer than one blade passage of {who}, which is {period} steps"
+        )
+    }
+
+
 def _from_the_table(entry: object) -> bool:
     """Whether a recorded entry was planned under a ``[phase_locked]`` table."""
     return isinstance(entry, Mapping) and (
@@ -397,35 +453,22 @@ def regate(plan: Mapping[str, object] | None, gate: object | None) -> dict[str, 
         )
         if not curable:
             continue
-        if gate is not None:
-            block["phase_locked"] = phase_locked_entry(
-                gate, last_step=int(last), per_revolution=clock, who=who
-            )
-            moved = True
-        elif _from_the_table(entry) and period is not None and period >= 1:
-            average = fresh.get("time_average")
-            stated = average.get("windows") if isinstance(average, Mapping) else None
-            if not stated:
-                continue
-            span = (int(stated[0][0]), int(stated[-1][1]))
-            cut = passages(span, int(period))
-            block["phase_locked"] = (
-                {
-                    "windows": [list(item) for item in cut],
-                    "period_steps": int(period),
-                    "window_from": (
-                        f"the point's averaging window, cut into blade passages of {who}, "
-                        f"{int(period)} steps each; the pproc states no [phase_locked] table"
-                    ),
-                }
-                if cut
-                else {
-                    "skipped": (
-                        f"the window {span[0]} to {span[1]} holds {span[1] - span[0] + 1} "
-                        f"steps, fewer than one blade passage of {who}, which is "
-                        f"{int(period)} steps"
-                    )
-                }
-            )
-            moved = True
+        if gate is None and not _from_the_table(entry):
+            continue
+        average = fresh.get("time_average")
+        stated = average.get("windows") if isinstance(average, Mapping) else None
+        if gate is None and (not stated or period is None or period < 1):
+            continue
+        span = (
+            (int(stated[0][0]), int(stated[-1][1])) if gate is None and stated else (1, int(last))
+        )
+        block["phase_locked"] = phase_locked_plan(
+            gate,
+            last_step=int(last),
+            per_revolution=clock,
+            who=who,
+            span=span,
+            period=int(period or 0),
+        )
+        moved = True
     return fresh if moved else None

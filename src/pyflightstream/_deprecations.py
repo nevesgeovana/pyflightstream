@@ -14,7 +14,7 @@ is deleted together with the shim in the release that reaches that
 version. The Tier 1 guard fails the suite when a shim survives past its
 promise, so a release cannot ship an expired shim unnoticed.
 
-FIVE KINDS OF PROMISE, since 0.13.0 (PFS-2021.07.01). The ledger held
+SIX KINDS OF PROMISE, since 0.25.0 (PFS-2021.07.01). The ledger held
 module shims only until then, and three live promises of other shapes
 sat outside it in a comment, where nothing enforced them: the dataclass
 was too narrow, and the comment said so. A promise now has a home
@@ -22,9 +22,10 @@ whatever it renames: a module (:class:`DeprecatedModule`), a parameter
 of a function or an attribute of a class (:class:`DeprecatedParameter`),
 a command-line flag (:class:`DeprecatedFlag`), a key of the run manifest
 (:class:`DeprecatedManifestKey`) or a column of a run matrix
-(:class:`DeprecatedColumn`). Every kind carries the old name, the new
-name, the release that introduced the shim and the release that removes
-it, and :func:`expired_promise` judges every kind the same way.
+(:class:`DeprecatedColumn`). A function retiring without an equivalent
+replacement uses :class:`DeprecatedFunction`. Every kind records the
+release that introduced the shim and the release that removes it, and
+:func:`expired_promise` judges every kind the same way.
 """
 
 from __future__ import annotations
@@ -373,6 +374,29 @@ class DeprecatedColumn:
         )
 
 
+@dataclass(frozen=True)
+class DeprecatedFunction:
+    """A callable retained until its removal release, with migration advice."""
+
+    function: str
+    deprecated_since: str
+    removal_version: str
+    advice: str
+    kind: ClassVar[str] = "function"
+
+    @property
+    def subject(self) -> str:
+        """The callable whose removal the deadline guard watches."""
+        return self.function
+
+    def message(self) -> str:
+        """Render the warning from the recorded removal promise."""
+        return (
+            f"{self.function} is deprecated since v{self.deprecated_since} and will be "
+            f"removed in v{self.removal_version}; {self.advice}."
+        )
+
+
 #: Every kind of promise the ledger holds, for a caller that iterates them.
 Deprecation = (
     DeprecatedModule
@@ -380,6 +404,7 @@ Deprecation = (
     | DeprecatedFlag
     | DeprecatedManifestKey
     | DeprecatedColumn
+    | DeprecatedFunction
 )
 
 
@@ -387,7 +412,7 @@ def expired_promise(entry: Deprecation, project_version: str) -> str | None:
     """Judge one promise against the version being built; the deadline itself.
 
     The Tier 1 deadline guard calls this for every entry of every kind,
-    which is what makes the five kinds one policy rather than five: an
+    which gives every kind the same policy: an
     entry is expired when the project version has REACHED its
     ``removal_version``, and the refusal text says which promise and
     which version, so the guard's assertion message is the same sentence
@@ -924,7 +949,27 @@ REFUSED_IN_0_15_0: tuple[Deprecation, ...] = (
 #: architecture lens of 2026-09-09: the mapping was private to one module
 #: and its sibling reached into it).
 
+WRITE_SECTIONS_ITERATION = DeprecatedParameter(
+    owner="write_sections_table",
+    old="iteration=",
+    new="step=",
+    deprecated_since="0.25.0",
+    removal_version="0.26.0",
+)
+
+ASSESS_UNSTEADY_FROM_PLOTS = DeprecatedFunction(
+    function="run.assess_unsteady_from_plots",
+    deprecated_since="0.25.0",
+    removal_version="0.26.0",
+    advice=(
+        "use LoadsAssessor for campaign assessment of native loads and solver residuals; "
+        "history settling remains a separate user judgement"
+    ),
+)
+
 DEPRECATIONS: tuple[Deprecation, ...] = (
+    WRITE_SECTIONS_ITERATION,
+    ASSESS_UNSTEADY_FROM_PLOTS,
     *DEPRECATED_MODULES,
     ANALYSIS_SETUP_VORTICITY_DRAG_BOUNDARIES,
     PLAN_MATRIX_FS_VERSION,

@@ -80,6 +80,15 @@ FlightStream versions.
   document is refused naming the parameter and the build. The pproc's own
   vocabulary refused them on every build before.
 
+### Deprecated
+
+- **`write_sections_table(iteration=)` is now `step=`**, the one name for a solver
+  step across the package's tables. The old keyword still works, with the ledger's
+  deprecation warning, until 0.26.0; passing both is refused.
+- **`run.assess_unsteady_from_plots` is deprecated**, for removal in 0.26.0: the
+  collect path judges a point through `LoadsAssessor`, and this helper has no caller
+  on it. It still returns what it returned.
+
 ### Fixed
 
 - **A frozen unsteady solve is a failure, and its averages are not published.** A

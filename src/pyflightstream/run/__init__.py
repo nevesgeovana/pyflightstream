@@ -79,8 +79,13 @@ from pathlib import Path
 from typing import Protocol, runtime_checkable
 
 import pyflightstream
+from pyflightstream._deprecations import ASSESS_UNSTEADY_FROM_PLOTS
 from pyflightstream._digest import file_sha256, optional_file_sha256, text_sha256
-from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning
+from pyflightstream._errors import (
+    PyflightstreamDeprecationWarning,
+    PyflightstreamError,
+    PyflightstreamWarning,
+)
 from pyflightstream._tokens import NOT_APPLICABLE
 from pyflightstream.cases import (
     Campaign,
@@ -6097,44 +6102,20 @@ def assess_unsteady_from_plots(
     settle_tolerance: float | None = None,
     window: tuple[int, int] | None = None,
 ) -> str:
-    """Judge an unsteady point from its PLOTS history rather than its last iteration.
+    """Assess a supplied history's finiteness and optional fractional drift.
 
-    v0.23.0 item 17. The owner's reading of 2026-09-17: the native coefficient
-    export "e' so para ultima iteracao", which on an oscillating rotor is ONE
-    INSTANT of a cycle, so a coefficient read from it is not the point's answer
-    and reads as though it were. The plots history carries every step and is
-    strictly more than that file ever told the assessor.
+    Deprecated since 0.25.0; removed in 0.26.0. Campaign assessment uses
+    :class:`LoadsAssessor` to judge native loads and solver residuals. History
+    settling is a separate user judgement and this helper has no campaign caller.
 
-    THE NATIVE FILE STILL SHIPS, for the one purpose she kept it for: "pra
-    saber que nao explodiu a simulacao". Removing it would have left an
-    unsteady point with no loads table for the standard judgment to parse, and
-    a point judged UNASSESSED is worse than the ambiguity being removed.
-
-    THE CONVERGENCE THRESHOLD IS NOT INVENTED HERE. The goal reserves every
-    tolerance and band to the owner, so without ``settle_tolerance`` this
-    judges only the half that needs no number -- whether the history is finite,
-    which is exactly "it did not blow up" -- and otherwise returns the status
-    the package already returns for an unsteady run, ``COMPLETED_MAX_ITER``.
-    An unsteady time loop always runs to its prescribed end, so that is the
-    honest answer and not a fallback. Returning CONVERGED on a default would be
-    the package deciding her physics on a number nobody set.
-
-    Parameters
-    ----------
-    series : pyflightstream.post.unsteady.TimestepSeries
-        The plots history, as `post.unsteady` reads it back. Annotated as
-        ``object`` rather than imported: `post` is the layer ABOVE `run`, so
-        importing the type here would be an upward import, which is a design
-        error rather than a lint finding.
-    settle_tolerance : float, optional
-        The fractional change across the last two halves of the history below
-        which it counts as settled. HERS to set.
-
-    Raises
-    ------
-    ValueError
-        If the history holds no step. Could-not-measure is never a pass.
+    With no ``settle_tolerance``, finite histories return COMPLETED_MAX_ITER.
+    When supplied, the tolerance compares the last two halves of ``window``
+    (or the full history). Empty histories and empty windows raise ValueError.
+    Existing return values remain available during the deprecation period.
     """
+    warnings.warn(
+        ASSESS_UNSTEADY_FROM_PLOTS.message(), PyflightstreamDeprecationWarning, stacklevel=2
+    )
     import numpy as _np
 
     columns = [values for values in series.fields.values()]

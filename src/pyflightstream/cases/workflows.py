@@ -106,6 +106,7 @@ from pyflightstream.cases import (
     alias_members_missing,
     classify_outputs,
     frame_basis_for_shaft,
+    global_frame_plot_declarations,
     resolve_alias,
     select_families,
     select_group_members,
@@ -3429,61 +3430,14 @@ def _the_passages_of_one_rotor(
         return entry
     entry["period_steps"] = period
 
-    # ITEM 9's GATE, asked HERE and before the passages are cut: a pproc that
-    # sets `min_revolutions` gets no phase-locked reduction from a run that
-    # turned fewer. The polar is untouched -- a short run means no reduction,
-    # never a refused product.
-    #
-    # WHAT THIS ROTOR TURNS over the whole run, and NOT what the exported window
-    # holds. Her words: "Se a especificacao da matriz bater esse numero minimo,
-    # o phase_locked e gerado" (2026-09-17) -- the MATRIX SPECIFICATION, which is
-    # the run. Counting the window read a campaign that turned six revolutions
-    # and exported the last one as turning one, and failed a minimum of two it
-    # had comfortably met. THE REVOLUTION IS THIS ROTOR'S, which is the whole of
-    # FR-68: a second rotor at another speed sweeps a different angle over the
-    # same steps.
-    turned = last_step / per_revolution if per_revolution > 0 else 0.0
-    gated = phase_locked_gate(getattr(case.pproc, "phase_locked", None), revolutions=turned)
-    if gated is not None:
-        # THE PHASE-LOCKED REDUCTION ONLY. This skipped `per_blade` too for one
-        # commit, which takes a second product away for a reason that belongs to
-        # the first: her rule is "nao ter o rev min ... so nao gera o
-        # phase_locked", and `per_blade` needs one complete revolution, not the
-        # minimum a pproc asks of a phase average. The gate is `min_revolutions`
-        # of `[phase_locked]`, and gating a neighbour with it is the same shape
-        # as refusing a polar -- taking a product away from a campaign that
-        # already happened.
-        entry["phase_locked"] = gated
-
-    passages = _passages(span, period)
-    if gated is not None:
-        # ALREADY ANSWERED ABOVE. Dropping the `return` that used to stand here
-        # -- so that `per_blade` survives the gate -- left the block below free
-        # to OVERWRITE the skip with the passages it had just been gated out of,
-        # which is how removing one line can undo the whole of a fix.
-        pass
-    elif case.pproc is not None and case.pproc.phase_locked is not None:
-        # THE TABLE IS DECLARED AND MET: the mean at each azimuth across the last
-        # `last_revolutions_avg` revolutions of THIS rotor, which the row's own
-        # averaging window has no say in.
-        entry["phase_locked"] = _windows.phase_locked_entry(
-            case.pproc.phase_locked, last_step=last_step, per_revolution=per_revolution, who=alias
-        )
-    elif passages:
-        entry["phase_locked"] = {
-            "windows": [list(item) for item in passages],
-            "period_steps": period,
-            "window_from": (
-                f"the row's window cut into blade passages of {alias}, {period} steps each"
-            ),
-        }
-    else:
-        entry["phase_locked"] = {
-            "skipped": (
-                f"the window {span[0]} to {span[1]} holds {span[1] - span[0] + 1} steps, "
-                f"fewer than one blade passage of {alias}, which is {period} steps"
-            )
-        }
+    entry["phase_locked"] = _windows.phase_locked_plan(
+        getattr(case.pproc, "phase_locked", None),
+        last_step=last_step,
+        per_revolution=per_revolution,
+        who=alias,
+        span=span,
+        period=period,
+    )
     # ITEM 8: ONE WINDOW, not one per blade. What this replaces is the list
     # that stood here -- blade k over `last_step - (blades - k) * period`
     # onwards -- so blade 1 came from one stretch of the history and blade 4
@@ -3934,73 +3888,14 @@ def reduction_windows(case: SimCase) -> dict[str, object] | None:
         plan["per_blade"] = {"skipped": reason}
         return plan
 
-    # ITEM 9's GATE ON THE ROW-LEVEL PATH, WHICH IS INERT IN 0.23.0 AND IS KEPT.
-    #
-    # The gate was missing here entirely: `phase_locked_gate` was called in
-    # `_the_passages_of_one_rotor` alone, so a row that does NOT name its rotors
-    # -- the ordinary single-rotor row -- got a full phase-locked reduction
-    # whatever it turned. A closing round reproduced it against a tree where
-    # `PprocSpec` still carried the field.
-    #
-    # IT CANNOT BE REPRODUCED AGAINST THIS TREE, and saying so is the point.
-    # Item 9 moved to 0.24.0 and the field is gone, with `extra="forbid"`
-    # refusing it by name, so `getattr(case.pproc, "phase_locked", None)` is
-    # always None and this call returns None unconditionally. The block below is
-    # inert until the field returns.
-    #
-    # KEPT RATHER THAN DELETED because the defect was real and the fix is right,
-    # and deleting it would mean 0.24.0 re-discovering that this path has no
-    # gate. What is NOT kept is the claim that it closes something live today --
-    # this same release refused a guard elsewhere on exactly that ground, that
-    # an unreachable refusal carrying such a comment reads as cover. The
-    # architect lens of the closing round held me to it here.
-    #
-    # ASKED PER SCOPE AND NOT ONCE FOR BOTH, deliberately, and this departs from
-    # the fix shape the lens proposed. The two paths are mutually exclusive and
-    # they are not asking the same question: the per-rotor gate counts THAT
-    # ROTOR's revolutions, and a second rotor at another speed sweeps a
-    # different angle over the same window, so one gate hoisted above both would
-    # answer for the row's clock and silently mis-gate every other rotor. That
-    # is the defect FR-68 exists against. Two call sites, each about its own
-    # revolution, is the correct shape rather than the tidier one.
-    # WHAT THE ROW TURNS, not what the window holds, and her own words settle it:
-    # "Se a especificacao da matriz bater esse numero minimo, o phase_locked e
-    # gerado" (2026-09-17). THE MATRIX SPECIFICATION is `last_step` against the
-    # revolution -- the whole run -- and the exported window is a different
-    # number entirely. Counting the window meant a campaign that turned six
-    # revolutions and exported the last one was read as turning one, and failed
-    # a `min_revolutions` of two that it had comfortably met.
-    turned = last_step / per_revolution if per_revolution > 0 else 0.0
-    gated = phase_locked_gate(getattr(case.pproc, "phase_locked", None), revolutions=turned)
-
-    passages = _passages(span, period)
-    if gated is not None:
-        # THE PHASE-LOCKED REDUCTION ONLY, never `per_blade`: her rule is "nao
-        # ter o rev min ... so nao gera o phase_locked". Gating the neighbour
-        # with it takes a second product away for a reason belonging to the
-        # first, which is the shape of refusing a polar over a short run.
-        plan["phase_locked"] = gated
-    elif case.pproc is not None and case.pproc.phase_locked is not None:
-        plan["phase_locked"] = _windows.phase_locked_entry(
-            case.pproc.phase_locked,
-            last_step=last_step,
-            per_revolution=per_revolution,
-            who="the rotor",
-        )
-    elif passages:
-        plan["phase_locked"] = {
-            "windows": [list(item) for item in passages],
-            "period_steps": period,
-            "window_from": f"{window_from}, cut into blade passages of {period} steps",
-        }
-    else:
-        plan["phase_locked"] = {
-            "skipped": (
-                f"the window {span[0]} to {span[1]} holds {span[1] - span[0] + 1} steps, "
-                f"fewer than one blade passage of {period} steps, so no complete passage "
-                "can be averaged"
-            )
-        }
+    plan["phase_locked"] = _windows.phase_locked_plan(
+        getattr(case.pproc, "phase_locked", None),
+        last_step=last_step,
+        per_revolution=per_revolution,
+        who="the rotor",
+        span=span,
+        period=period,
+    )
     # One window per blade over the LAST complete revolution, contiguous
     # and ending at the run's last step: :meth:`ReductionPlan.blade_windows`.
     # ITEM 8: ONE WINDOW, not one per blade. What this replaces is the list
@@ -7126,8 +7021,7 @@ def _pproc_plots(case: SimCase, script: Script, frames: Frames) -> None:
     # the forces and moments of the whole configuration in the MRP frame; a rotor's
     # own frame is not the geometry's axes. An artifact that plots them already is
     # left exactly as it is, so its script does not change by a byte.
-    declared = any(group.frame.strip().upper() == _GLOBAL_FRAME for group in pproc.plots.groups)
-    if declared and set(AXES_PLOT_COMPONENTS) <= set(pproc.plots.parameters):
+    if global_frame_plot_declarations(pproc):
         return
     # ONLY WHERE THE RUN HAS THAT FRAME. It is created from the reference artifact's
     # moment point, and a row with none gets no such plots rather than a refusal:

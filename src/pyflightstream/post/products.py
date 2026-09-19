@@ -93,13 +93,16 @@ from collections import Counter
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
+from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 import numpy as np
 
+from pyflightstream._deprecations import WRITE_SECTIONS_ITERATION
 from pyflightstream._digest import file_sha256
 from pyflightstream._errors import (
+    PyflightstreamDeprecationWarning,
     PyflightstreamError,
     PyflightstreamWarning,
 )
@@ -109,6 +112,7 @@ from pyflightstream.cases import (
     AXES_PLOT_GROUP,
     ROTOR_PLOT_GROUP_PREFIX,
     classify_outputs,
+    global_frame_plot_declarations,
     select_families,
     select_group_members,
 )
@@ -2653,12 +2657,17 @@ def _altitude_ft(text: str) -> float | None:
         return None
 
 
+class _UnspecifiedStep(Enum):
+    VALUE = "unspecified"
+
+
 def write_sections_table(
     path: str | Path,
     export_text: str,
     *,
     mach: float,
-    iteration: int | None = None,
+    step: int | None | _UnspecifiedStep = _UnspecifiedStep.VALUE,
+    iteration: int | None | _UnspecifiedStep = _UnspecifiedStep.VALUE,
     unsteady: bool = False,
     azimuth_deg: float | None = None,
     reference: ReferenceValues | None = None,
@@ -2695,14 +2704,17 @@ def write_sections_table(
     so a row at 10000 ft printed `ALT 0.00000` beside a polar printing 10000.
     Without it the header is read, for a caller holding an export and no point.
 
-    ``iteration`` is the solver iteration the distribution was sampled at and
+    ``step`` is the solver step the distribution was sampled at and
     ``azimuth_deg`` is where the blade was when it was; both lead the row
     because they are the only two things that vary down the file. They replace
     the `POINT` column, which carried the polar's NAME and therefore restated
     the file name (v0.23.0 item 13). A run with no rotor states no azimuth and
     the cell reads `NA`, which is not zero: zero is a real azimuth.
 
-    On a steady export, an omitted ``iteration`` is read from the header.
+    ``iteration=`` is a deprecated alias for ``step=`` until 0.26.0. Passing
+    both keywords is refused, including when either value is None.
+
+    On a steady export, an omitted ``step`` is read from the header.
     With ``unsteady=True`` the header counts inner iterations, so the caller
     supplies the time step from the run record; an unknown step stays `NA`.
 
@@ -2723,6 +2735,15 @@ def write_sections_table(
     otherwise make, and a run's reference is recorded beside its outputs
     rather than inside this export.
     """
+    if iteration is not _UnspecifiedStep.VALUE:
+        if step is not _UnspecifiedStep.VALUE:
+            raise TypeError("write_sections_table: pass only step= or iteration=, not both")
+        warnings.warn(
+            WRITE_SECTIONS_ITERATION.message(), PyflightstreamDeprecationWarning, stacklevel=2
+        )
+        step = iteration
+    if isinstance(step, _UnspecifiedStep):
+        step = None
     # A run that defined no distribution leaves an export declaring zero
     # sections, which the parser refuses as impossible for a real table;
     # here it is the ordinary case of a steady polar and means no product.
@@ -2741,8 +2762,8 @@ def write_sections_table(
     # ITEM 13. The export states which iteration it is, and the caller's own
     # value wins where it has one -- a caller holding a stamped file name knows
     # the step better than a header does.
-    if iteration is None and not unsteady:
-        iteration = _stated_iteration(export_text)
+    if step is None and not unsteady:
+        step = _stated_iteration(export_text)
     table = np.asarray(report.values, dtype=float)
     if table.shape[1] < 7:
         raise ProductError(
@@ -2769,9 +2790,9 @@ def write_sections_table(
         }
     )
     context = context_row(stated, None if reference is None else reference.as_lengths())
-    identity = section_identity(len(table), layout, rotors, iteration, azimuth_deg)
+    identity = section_identity(len(table), layout, rotors, step, azimuth_deg)
     rows = [
-        (iteration, *identity[at], *context, *(float(v) for v in row[:7]))
+        (step, *identity[at], *context, *(float(v) for v in row[:7]))
         for at, row in enumerate(table)
     ]
     return write_csv_table(path, SECTION_COLUMNS, rows)
@@ -3261,6 +3282,11 @@ def plots_table_series(path: str | Path) -> tuple[tuple[str, ...], TimestepSerie
     )
 
 
+def _names_location(folder: str, path: str | Path) -> str:
+    """Locate a names refusal relative to the products directory."""
+    return f"{folder}/{Path(path).name}#names"
+
+
 def write_reduction_table(
     path: str | Path,
     series: TimestepSeries,
@@ -3355,7 +3381,10 @@ def write_reduction_table(
             )
         )
     heading = renamed_columns(
-        (*REDUCTION_COLUMNS, *columns), names, printed=columns, where=Path(path).name
+        (*REDUCTION_COLUMNS, *columns),
+        names,
+        printed=columns,
+        where=_names_location(PROBES_DIR, path),
     )
     return write_csv_table(path, heading, rows)
 
@@ -4506,7 +4535,7 @@ def write_unsteady_polar(
     final = (*header[:at], *derived_columns, *header[at:])
     try:
         final = renamed_columns(
-            final, names, printed=plot_columns, where=f"{POLARS_DIR}/{path.name}"
+            final, names, printed=plot_columns, where=_names_location(POLARS_DIR, path)
         )
     except ProductError as refused:
         if name_notes is None:
@@ -4535,21 +4564,24 @@ def global_frame_plot_groups(
     ``FX, FY, FZ, MX, MY, MZ``. Where the artifact declares none, the run adds one of
     its own over every boundary (:data:`pyflightstream.cases.AXES_PLOT_GROUP`), so
     that name is what is looked for; a run made before 0.24.0 has no such columns
-    and its polar says so.
+    and its polar says so. A template also suppresses that automatic group, but
+    its unresolved names cannot supply an axes block; that block is a named skip.
     """
     plots = getattr(pproc, "plots", None)
     parameters = set(getattr(plots, "parameters", ()) or ())
     every_group = getattr(plots, "groups", ()) or ()
+    global_groups = global_frame_plot_declarations(pproc)
     declared = [
         str(group.name)
-        for group in every_group
-        if str(getattr(group, "frame", "")).strip().upper() == "MRP"
-        and "{" not in str(group.name)
+        for group in global_groups
+        if "{" not in str(group.name)
         # A NAME ANOTHER DECLARATION COULD EMIT IS AMBIGUOUS and is never read as
         # global: its history may be that other group's, in another frame.
         and not _emitted_by_another(str(group.name), every_group, group, outside_frame="MRP")
     ]
-    if declared and set(_SIX_COMPONENTS) <= parameters:
+    if global_groups:
+        # Templates also suppress the automatic group at run. Without resolved
+        # emitted names, skip their axes rather than claim an automatic source.
         return tuple(declared)
     # Automatic plots never overwrite an already emitted name. A group with
     # this name in another frame therefore cannot supply global components.
@@ -4808,7 +4840,8 @@ def _sim_products(
         # POLAR'S (PO-01), AND PER POINT: each record carries its own clock, so a
         # count of revolutions is cut on THAT point's steps per revolution.
         row_variables = getattr(matrix_row, "variables", None)
-        replanned = replan(record.reductions, row_variables)
+        gate = getattr(pproc, "phase_locked", None)
+        replanned = replan(record.reductions, row_variables, gate=gate)
         if replanned is not None and stem not in plans:
             ran = _recorded_window(record.reductions)
             now = _recorded_window(replanned)
@@ -4825,10 +4858,10 @@ def _sim_products(
                     stacklevel=2,
                 )
         # THE [phase_locked] TABLE IS READ AGAIN TOO, from the pproc as it stands
-        # today, AFTER the window: it is a post-processing choice, so adding,
-        # editing or removing it moves this one reduction with no solver re-run.
+        # today, together with the window. Without a usable matrix window,
+        # regate applies the same policy to the recorded plan instead.
         current = replanned or record.reductions
-        regated = regate(current, getattr(pproc, "phase_locked", None))
+        regated = regate(current, gate) if replanned is None else None
         plans.setdefault(stem, regated or current)
         point_window = _matrix_window(matrix_row, record) or _stated_window(record)
         if point_window is None:
@@ -5126,7 +5159,7 @@ def _sim_products(
                     # header counts the solver's INNER iterations there, summed over
                     # every step: 2813 on a licensed run of 144 steps (RPT-053), from which the
                     # azimuth was then computed.
-                    iteration=_last_time_step(record_of[point.name]),
+                    step=_last_time_step(record_of[point.name]),
                     unsteady=record_of[point.name].recipe in ("unsteady", "unsteady_rotor"),
                     layout=record_of[point.name].sections_layout,
                     rotors=_section_rotors(live, aliases, record_of[point.name]),
@@ -5799,7 +5832,9 @@ def _point_reductions(
         if series is None:
             columns, series = plots_table_series(plots_table)
             try:
-                renamed_columns(columns, names, printed=columns, where=f"{PROBES_DIR}/{stem}")
+                renamed_columns(
+                    columns, names, printed=columns, where=_names_location(PROBES_DIR, stem)
+                )
             except ProductError as refused:
                 skipped[f"{PROBES_DIR}/{stem}#names"] = str(refused)
                 warnings.warn(str(refused), PyflightstreamWarning, stacklevel=2)

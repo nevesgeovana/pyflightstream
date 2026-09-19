@@ -88,6 +88,7 @@ __all__ = [
     "FAMILY_SELECTORS",
     "FLUID_PLOT_PARAMETERS",
     "AXES_PLOT_COMPONENTS",
+    "global_frame_plot_declarations",
     "AXES_PLOT_GROUP",
     "ROTOR_PLOT_GROUP_PREFIX",
     "FORCE_PLOT_PARAMETERS",
@@ -620,6 +621,23 @@ class SectionsSpec(BaseModel):
 #: many of it there are. `SMRP` and `RMRP` are per ROTOR, because a rotor
 #: has one of each; `LOCAL_AXIS` is per BLADE, because a blade has one.
 EXPANDING_FRAMES = {"SMRP": "rotor", "RMRP": "rotor", "LOCAL_AXIS": "blade"}
+
+
+def global_frame_plot_declarations(pproc: object) -> tuple[ForcePlotGroup, ...]:
+    """Read declarations of all six load components in the global MRP frame.
+
+    A ``{family}`` name counts: its emitted groups still measure global loads.
+    This reads declarations, not emitted names; post must separately reject
+    ambiguous names and cannot infer a template's expansion from its spelling.
+    """
+    plots = getattr(pproc, "plots", None)
+    if not set(AXES_PLOT_COMPONENTS) <= set(getattr(plots, "parameters", ()) or ()):
+        return ()
+    return tuple(
+        group
+        for group in (getattr(plots, "groups", ()) or ())
+        if str(getattr(group, "frame", "")).strip().upper() == "MRP"
+    )
 
 
 class ForcePlotGroup(BaseModel):
