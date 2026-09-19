@@ -24,6 +24,17 @@ from pyflightstream.workspace.naming import ARCHIVE_DIR, ARCHIVE_STAMP
 if TYPE_CHECKING:
     from pyflightstream.workspace import CampaignWorkspace, RunRecord
 
+__all__ = [
+    "PRODUCT_ARCHIVE_DIR",
+    "PRODUCT_ARCHIVE_STAMP",
+    "PROVENANCE_DIR",
+    "PROVENANCE_SUFFIX",
+    "operator_agent",
+    "point_name_of",
+    "product_archive_dir",
+    "provenance_file_name",
+]
+
 #: The folder an existing product is moved into before a new one is
 #: written, under the matrix's own post folder: ``archive/<day and hour>/``.
 #: One folder per rebuild, so a rebuild is one thing a reader can look at.

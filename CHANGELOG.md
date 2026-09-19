@@ -128,6 +128,7 @@ FlightStream versions.
   section frame was matched loosely, so a block could be claimed by the wrong
   distribution, and the refusal of a record that cannot be split now names the
   missing evidence and says a new run is needed.
+  See [RPT-054](reports/RPT-054_0-25-0-legacy-repost_2026-09-19.md).
 
 - **A frozen unsteady solve is a failure, and its averages are not published.** A
   time step whose inner iterations after the first print a velocity residual of
@@ -140,6 +141,7 @@ FlightStream versions.
   file is archived. Windows ending before the freeze, raw histories and last-step
   products are kept. Measured on a recorded licensed campaign: two of four unsteady
   points froze, from steps 60 and 64 of 144.
+  See [RPT-054](reports/RPT-054_0-25-0-legacy-repost_2026-09-19.md).
 - **An unsteady polar of an `ADVANCE_RATIO` sweep states `ADVANCE_RATIO` on every
   row** (it wrote `NA`); the column under the matrix's key carries the point's `J`.
 - **A rotor table that cannot be planned says why.** When a simulation's matrix row

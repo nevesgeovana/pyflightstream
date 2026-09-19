@@ -977,9 +977,10 @@ class ProbesSpec(BaseModel):
     #: THE PACKAGE SETS THIS, A FILE NEVER DOES: the absolute path of
     #: `points_file` under the workspace's `inputs/profiles/`, filled when a
     #: row binds, the way a GEOMETRY stem becomes an absolute path on the case.
-    #: The script imports the survey by this path, because a relative one
-    #: resolves against the solver's working directory, which is not the
-    #: simulation folder for a submitted point.
+    #: On an unsteady row, PLAN reads this file and turns its points into
+    #: fluid-plot vertices. On a steady row, the script imports the survey by
+    #: this absolute path, since a relative path resolves against the solver's
+    #: working directory rather than the submitted point's simulation folder.
     #: Excluded from every dump, so no machine path reaches a record or a plan.
     resolved_points_file: str | None = Field(default=None, exclude=True)
 

@@ -1236,7 +1236,12 @@ file holding `[groups]` alone is what the old file was. Four are new in
 0.24.0. `[names]` renames the unsteady polar's plot columns to the names a
 downstream tool reads, the whole dictionary or none of it, and is defined on
 [the definition of record](post-processing-definitions.md); the other three,
-`[phase_locked]`, `[equations]` and `[glossary]`, are described under [the three tables that reduce and derive](#the-three-tables-that-reduce-and-derive):
+`[phase_locked]`, `[equations]` and `[glossary]`, are described under [the three tables that reduce and derive](#the-three-tables-that-reduce-and-derive).
+
+Omitted export kinds follow the run type's defaults; they are not all enabled.
+See [Native surface flow exports](post-processing-definitions.md#native-surface-flow-exports)
+for the VTK/CSV opt-in rule and [The probes table](post-processing-definitions.md#the-probes-table)
+for the unsteady plots source, whose defaults omit the probe-points export.
 
 ```toml
 base_regions = ["W", "B"]      # families the base-region autodetect may consider; [] = off
@@ -1246,8 +1251,10 @@ TOTAL = "all"                  # every family the geometry carries
 AIRFRAME = "airframe"          # an alias of the row's reference, under its [aliases]
 ROTOR = "Blade"                # a family is every member of it: Blade1, Blade2, ...
 
-[exports]                      # which of the eight export kinds a point writes
-tecplot = false                # a kind not named is written; loads cannot be off
+[exports]                      # override the defaults for this run type
+tecplot = false                # disable Tecplot; loads cannot be off
+vtk = true                     # opt in to VTK surface export
+csv = true                     # opt in to CSV surface export
 
 [sections]                     # NEW_SURFACE_SECTION_DISTRIBUTION per entry and plane
 count = 50
@@ -1614,12 +1621,9 @@ it, as [migrating to 0.21.0](migrating-to-0.21.0.md) describes.
 
 ### What the products are
 
-On a **steady** run, a `[[probes]]` entry's `parameters` list only enables
-the entry when nonempty (an empty list disables it). It does **not** select or
-filter the exported variables: the solver's probe-points export carries its
-fixed set. `pyfs-matrix plan` warns for each steady entry with a nonempty list,
-naming its entry number and frame. On an **unsteady** run, `parameters` selects
-the fluid-plot variables sampled by the entry.
+The meaning of a `[[probes]]` entry's `parameters` list depends on the run type;
+see [Probe parameters](post-processing-definitions.md#probe-parameters) for the
+definition and the steady-plan warning.
 
 The `[products]` table names three kinds of CSV table, every one a header
 line and one row per record, so a spreadsheet or a dataframe opens it with

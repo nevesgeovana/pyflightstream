@@ -22,6 +22,13 @@ from pyflightstream.post._tables import (
     polar_file_name,
 )
 
+__all__ = [
+    "CustomPolarTable",
+    "custom_polar_file_name",
+    "read_custom_polar_format",
+    "write_custom_polar_format",
+]
+
 # --- PFS-2014.01: the custom polar format, the polar table as the reference tooling reads it --
 
 #: The columns of the custom format's reference line: the nominal Mach and then the

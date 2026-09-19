@@ -22,6 +22,8 @@ from pyflightstream.post.series import SECTIONS_SERIES_LEAD, run_clock, stamped_
 from pyflightstream.results import labeled_value, parse_surface_sections
 from pyflightstream.workspace import RunRecord
 
+__all__ = ["write_section_distributions"]
+
 
 def _distributions(
     record: RunRecord, pproc: PprocSpec | None
@@ -135,6 +137,64 @@ def write_section_distributions(
 
     A bad or missing export skips its kind by name without costing the other
     kind. Layout counts must cover every section before any split is written.
+
+    Parameters
+    ----------
+    sim_dir : Path
+        Simulation directory containing the recorded exports.
+    record : RunRecord
+        Run metadata, including outputs, section layout and export clock.
+    stem : str
+        Point's export filename stem.
+    out : Path
+        Root directory for the products.
+    target : callable
+        Prepare a destination path, applying the caller's archive policy.
+    skipped : dict[str, str]
+        Mutable mapping of product names to skip reasons.
+    step : int or None
+        End-of-run STEP when there are no stamped exports. On an unsteady
+        run this is the solver's 1-based time step, never the export header's
+        inner-iteration counter; stamps supply their own time steps. On a
+        steady run it is the exported solver iteration. Unknown values are
+        written as ``NA``. See `The sections table, and which row is which
+        <../post-processing-definitions.md#the-sections-table-and-which-row-is-which>`_.
+    pproc : PprocSpec or None, optional
+        Recorded post-processing specification used to resolve legacy
+        distribution ownership. See `Per-distribution sectional loads and Cp
+        <../post-processing-definitions.md#per-distribution-sectional-loads-and-cp-0250>`_.
+    condition : Mapping[str, object] or None, optional
+        Point's condition, with case-insensitive keys: ``ALPHA``, ``BETA``
+        (degrees, solver-reported angles in the export frame: x aft, y right,
+        z up), ``MACH`` and ``J`` (dimensionless), ``RE`` (millions),
+        ``VINF`` and ``VREF`` (m/s), ``ALT`` (ft), ``RHO`` (kg/m3),
+        ``TEMP`` (K) and ``MU`` (Pa s). Spellings in
+        :data:`pyflightstream.post.products.CONDITION_KEY_ALIASES` are also
+        accepted without unit conversion. Missing values are ``NA``. See
+        `What every product states
+        <../post-processing-definitions.md#what-every-product-states>`_ and
+        `The axes of a steady polar
+        <../post-processing-definitions.md#the-axes-of-a-steady-polar>`_.
+    reference : Mapping[str, object] or None, optional
+        Reference dimensions, with case-insensitive keys ``SREF`` (m2),
+        ``CREF`` and ``BREF`` (m); missing values are ``NA``. These scalars
+        require no frame transformation. See `What every product states
+        <../post-processing-definitions.md#what-every-product-states>`_.
+    rotors : Mapping[str, Mapping[str, object]] or None, optional
+        Rotor alias to metadata: ``families`` is the list of owned geometry
+        families, ``blade1_azimuth_deg`` is blade one's datum in degrees in
+        that rotor's frame, ``rpm`` is its signed speed in revolutions/minute,
+        and ``steps_per_revolution`` is its own clock in time steps/turn.
+        They determine ``ROTOR`` and ``AZIMUTH`` at each STEP; missing
+        identity or azimuth is ``NA``. Section coordinates and loads retain
+        their recorded distribution frame. See `The sections table, and
+        which row is which
+        <../post-processing-definitions.md#the-sections-table-and-which-row-is-which>`_.
+
+    Returns
+    -------
+    tuple[list[Path], dict[str, dict[str, object]]]
+        Written paths and their product-manifest entries.
     """
     folders = [sim_dir / Path(output).parent for output in record.outputs]
     stamped = stamped_exports(sim_dir, stem, *folders)

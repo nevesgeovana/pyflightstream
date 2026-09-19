@@ -7,6 +7,8 @@ import importlib
 import importlib.util
 from pathlib import Path
 
+import pytest
+
 from pyflightstream.post import products
 from tests.tier1_offline.test_public_api import PUBLIC_MODULES
 
@@ -91,10 +93,59 @@ def test_extracted_product_modules_preserve_the_public_surface():
                 defined.add(node.name)
             elif isinstance(node, ast.Assign | ast.AnnAssign):
                 targets = node.targets if isinstance(node, ast.Assign) else [node.target]
-                defined.update(target.id for target in targets if isinstance(target, ast.Name))
+                defined.update(
+                    target.id
+                    for target in targets
+                    if isinstance(target, ast.Name) and target.id != "__all__"
+                )
         assert defined, f"{module_name} defines no extracted names"
         for name in sorted(defined):
             assert hasattr(products, name), f"post.products no longer binds {module_name}.{name}"
             assert getattr(products, name) is getattr(module, name), (
                 f"post.products.{name} must re-export the same object as {module_name}.{name}"
             )
+
+
+@pytest.mark.parametrize(
+    ("module_name", "expected"),
+    [
+        (
+            "custom_polar",
+            {
+                "CustomPolarTable",
+                "custom_polar_file_name",
+                "read_custom_polar_format",
+                "write_custom_polar_format",
+            },
+        ),
+        (
+            "provenance",
+            {
+                "PRODUCT_ARCHIVE_DIR",
+                "PRODUCT_ARCHIVE_STAMP",
+                "PROVENANCE_DIR",
+                "PROVENANCE_SUFFIX",
+                "operator_agent",
+                "point_name_of",
+                "product_archive_dir",
+                "provenance_file_name",
+            },
+        ),
+        ("section_distributions", {"write_section_distributions"}),
+    ],
+)
+def test_product_module_export_inventory(module_name, expected):
+    """Each public module limits wildcard imports to its intended product API."""
+    qualified = f"pyflightstream.post.{module_name}"
+    assert qualified in PUBLIC_MODULES
+    module = importlib.import_module(qualified)
+    assert hasattr(module, "__all__"), f"{qualified} must declare __all__"
+    assert set(module.__all__) == expected
+    assert len(module.__all__) == len(expected), f"{qualified} repeats an export"
+    namespace = {}
+    exec(f"from {qualified} import *", namespace)
+    assert namespace.keys() - {"__builtins__"} == expected
+    for name in expected:
+        assert namespace[name] is getattr(products, name), (
+            f"post.products.{name} must preserve the same exported object"
+        )
