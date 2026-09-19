@@ -98,3 +98,25 @@ def test_a_format_spec_in_the_family_field_is_still_a_wildcard():
     assert emits("ROTOR_{family}{family:.0}", "ROTOR_PROP")
     assert emits("ROTOR_{family:.0}PROP", "ROTOR_PROP")
     assert not emits("HUB_{family}", "ROTOR_PROP")
+
+
+def test_a_plot_name_with_a_format_spec_or_conversion_is_refused_when_read():
+    """The pproc refuses any replacement field but a bare {family}: the builder formats
+    names with str.format, and a spec or conversion can make a name print anything."""
+    import pytest
+
+    for name in ("MRP_{family}{family:.0}", "MRP_{family}{family:.{family:.0}0}", "R_{family!r}"):
+        # Refused; which of the name validators speaks first is not the property.
+        with pytest.raises(ValueError, match=r"plot group .*\{family"):
+            ForcePlotGroup(name=name, frame="LOCAL_AXIS", families="all")
+    assert ForcePlotGroup(name="LOCAL_{family}", frame="LOCAL_AXIS", families="all")
+
+
+def test_a_nested_format_spec_is_still_one_wildcard_in_the_matcher():
+    from pyflightstream.post.products import _plot_name_can_emit
+
+    def emits(template: str, name: str) -> bool:
+        return _plot_name_can_emit(template, name, (), inventory=(), is_blade=lambda _f: False)
+
+    assert emits("MRP_{family}{family:.{family:.0}0}", "MRP_TOTAL")
+    assert emits("ROTOR_{family}{family:.{family:.0}0}", "ROTOR_PROP")

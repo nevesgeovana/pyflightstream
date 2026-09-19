@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import math
 import re
+import string
 import tomllib
 import warnings
 from collections.abc import Callable, Iterator, Mapping, Sequence
@@ -664,6 +665,28 @@ class ForcePlotGroup(BaseModel):
                 "{family}, which names what each emission is about. The frames that "
                 f"expand are {', '.join(sorted(EXPANDING_FRAMES))}, and the selector "
                 "'each' expands in a common frame."
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _the_only_field_is_a_bare_family(self) -> ForcePlotGroup:
+        """Refuse a plot name whose replacement fields are anything but a bare `{family}`.
+
+        The builder names an emission with `str.format`, so a format spec or a
+        conversion (`{family:.0}`, `{family!r}`, a nested spec) can make a name
+        print anything, an automatic group's name among them, and the post stage
+        would then read another frame's history as the geometry's (release review
+        of 0.24.0). No plot name needs more than the bare placeholder.
+        """
+        fields = [
+            (field, spec, conversion)
+            for _literal, field, spec, conversion in string.Formatter().parse(self.name)
+            if field is not None
+        ]
+        if any(stated != ("family", "", None) for stated in fields):
+            raise ValueError(
+                f"plot group {self.name!r}: a plot name may carry only the bare "
+                "placeholder {family}, with no format spec and no conversion"
             )
         return self
 

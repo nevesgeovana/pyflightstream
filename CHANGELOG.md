@@ -49,6 +49,13 @@ FlightStream versions.
 - Setup presets stating stabilisation through both `solver_stabilization` and
   `stabilization` / `stabilization_strength` are refused. Keep one interface in
   the preset and plan again.
+- A pproc plot-group name whose placeholder carries a format spec or a
+  conversion (`{family:.0}`, `{family!r}`) is refused when the pproc is read:
+  the name may carry only the bare `{family}`. Rename the group.
+- A plot-group name another declaration could also produce is AMBIGUOUS and is
+  never read as a rotor's or the geometry's global loads: its rotor table or axis
+  block is skipped with the reason, never written from a history that may be
+  another frame's. Give each group a name no other can produce.
 
 ### Known limitations
 

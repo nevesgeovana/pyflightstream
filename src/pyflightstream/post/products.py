@@ -85,6 +85,7 @@ import csv
 import json
 import math
 import re
+import string
 import tempfile
 import warnings
 from collections import Counter
@@ -1383,7 +1384,13 @@ def _plot_name_can_emit(
     # EVERY replacement field is a wildcard, whatever its format spec: the builder
     # applies `str.format`, so `{family}`, `{family:.0}` (empty) or `{family!r}`
     # can each put any text, or none, where they stand.
-    pattern = ".*".join(re.escape(part) for part in re.split(r"\{[^{}]*\}", template))
+    # Parsed with Python's own format parser, which handles nested specs; each
+    # top-level field becomes a wildcard. The pproc refuses anything but a bare
+    # `{family}` when it is read, so this is the second line of defence.
+    pattern = "".join(
+        re.escape(literal) + (".*" if field is not None else "")
+        for literal, field, _spec, _conversion in string.Formatter().parse(template)
+    )
     suffix = re.escape(ORIGINAL_FRAME_SUFFIX)
     return re.fullmatch(f"{pattern}(?:{suffix})?", name) is not None
 
