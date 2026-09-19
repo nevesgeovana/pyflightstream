@@ -8993,6 +8993,7 @@ def _build_unsteady(case: SimCase, script: Script, conventions: WorkflowConventi
     _refuse_wake_termination_without_a_rotor(case)
     threshold = unsteady_export_threshold(case, conventions)
     _refuse_unregistered_keys(case, "unsteady")
+    _require_the_averaging_window(case, "unsteady")
     _raw_commands(case, script, "control")
     _custom_flags(case, script, "control")
     _raw_commands(case, script, "geometry")
@@ -9054,6 +9055,7 @@ def _build_unsteady_rotor(case: SimCase, script: Script, conventions: WorkflowCo
     # is; a row stating no threshold pays nothing here.
     threshold = unsteady_export_threshold(case, conventions)
     _refuse_unregistered_keys(case, "unsteady_rotor")
+    _require_the_averaging_window(case, "unsteady_rotor")
     _raw_commands(case, script, "control")
     _custom_flags(case, script, "control")
     _raw_commands(case, script, "geometry")
@@ -9834,6 +9836,50 @@ _UNSTEADY_ROTOR_KEYS: tuple[str, ...] = (
 #: with one, and a private name crossing a public sibling is a layer
 #: boundary crossed for a helper (the layer guard of test_digest.py).
 CONVERTER_PREFIX = "matrix_"
+
+
+def _require_the_averaging_window(case: SimCase, name: str) -> None:
+    """Refuse an unsteady row that states no averaging window (0.24.0).
+
+    The definitions page says it in the owner's words: the window "fica na matriz
+    e e input obrigatorio". 0.23.0 did not refuse. A row without the key planned,
+    ran, and then took the STEADY route at post: group polars read off the LAST
+    TIME STEP under the steady names, beside a time average over a window the
+    package had defaulted, with nothing in either file saying which was which.
+
+    A row that still states one of the three retired `WINDOW_*` keys SATISFIES
+    this: those keys bind, with their own deprecation warning, until 0.26.0, and a
+    matrix that already has them must keep planning.
+
+    ONLY A NEW PLAN IS REFUSED. A record already written without a window is never
+    refused at post: it is averaged over the window the run defaulted to, and the
+    post stage says which.
+    """
+    stated = (
+        LAST_REVS_AVG_VARIABLE,
+        LAST_ITERS_AVG_VARIABLE,
+        WINDOW_DEGREES_VARIABLE,
+        WINDOW_STEPS_VARIABLE,
+        WINDOW_REVOLUTIONS_VARIABLE,
+    )
+    if any(_variable(case, key) is not None for key in stated):
+        return
+    key, example, other = (
+        (LAST_REVS_AVG_VARIABLE, "0.5' averages the last half revolution", LAST_ITERS_AVG_VARIABLE)
+        if name == "unsteady_rotor"
+        else (
+            LAST_ITERS_AVG_VARIABLE,
+            "100' averages the last hundred steps",
+            LAST_REVS_AVG_VARIABLE,
+        )
+    )
+    raise CampaignConfigError(
+        f"case {case.sim_id!r} names the run type {name} and states no {key}. An unsteady "
+        "point's polar, its time average and its per-blade table are all averaged over that "
+        f"window, so the row must say it: '{key}: {example}. "
+        f"(A row that turns {'no' if name == 'unsteady_rotor' else 'a'} rotor "
+        f"states {other} instead.)"
+    )
 
 
 def _refuse_unregistered_keys(case: SimCase, name: str) -> None:
