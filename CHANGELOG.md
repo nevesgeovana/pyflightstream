@@ -26,6 +26,18 @@ FlightStream versions.
   shaft, so `ETAW` reduces to `ETA` at zero angles whether the axis was
   declared pointing aft or forward.
 
+- **EDITING THE AVERAGING WINDOW MOVED THE POLAR AND LEFT THE REDUCTIONS
+  BEHIND.** 0.23.0 resolved `LAST_REVS_AVG` / `LAST_ITERS_AVG` from the matrix for
+  the unsteady polar alone; `<point>_time_average.csv`, the per-blade table and
+  the phase-locked passages kept the window the RUN had recorded, in the same
+  folder, under a manifest calling both "the row's window". Every window of a
+  point now comes from one resolver, `pyflightstream.cases.windows`, which the
+  plan and the post stage both call: the matrix wins the record, the record is
+  never rewritten, and each rotor's span is cut on ITS OWN steps per revolution.
+  The post stage says so when the matrix and the record differ. No re-run.
+- The window is resolved PER POINT. It was resolved once per simulation, off the
+  first record, which is right only while every point of a row shares one clock.
+
 ### Owed
 
 - **The Zenodo archive of v0.14.0 DOES NOT EXIST**, re-measured against

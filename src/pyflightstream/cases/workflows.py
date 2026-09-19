@@ -107,6 +107,7 @@ from pyflightstream.cases import (
     select_group_members,
     warn_a_selector_that_guesses,
 )
+from pyflightstream.cases import windows as _windows
 from pyflightstream.commands import CommandRegistry, Phase, VersionView
 from pyflightstream.script import (
     MARCH_ACTIONS,
@@ -3262,13 +3263,7 @@ def _passages(window: tuple[int, int], period: int) -> list[tuple[int, int]]:
     step forward, a trailing partial passage dropped rather than averaged
     against a shorter one.
     """
-    first, last = window
-    windows: list[tuple[int, int]] = []
-    start = first
-    while start + period - 1 <= last:
-        windows.append((start, start + period - 1))
-        start += period
-    return windows
+    return _windows.passages(window, period)
 
 
 def per_blade_window(*, last_step: int, blades: int, period_steps: int) -> tuple[int, int] | None:
@@ -3558,24 +3553,13 @@ def _stated_blade_steps(case: SimCase, per_revolution: float) -> int | None:
     None where the row states neither, so the caller falls back to the answer a
     matrix written before this release has always had.
     """
-    revs = _variable(case, LAST_REVS_AVG_VARIABLE)
-    if revs is not None:
-        try:
-            turns = float(revs)
-        except (TypeError, ValueError):
-            # The refusal belongs to `_averaging_window`, which names the case
-            # and the key; this helper is asked after it, never instead of it.
-            return None
-        if per_revolution <= 0:
-            return None
-        return max(int(round(turns * per_revolution)), 1)
-    iters = _variable(case, LAST_ITERS_AVG_VARIABLE)
-    if iters is None:
-        return None
-    try:
-        return max(int(round(float(iters))), 1)
-    except (TypeError, ValueError):
-        return None
+    # ONE ARITHMETIC, in `cases.windows`, which the post stage calls too (0.24.0).
+    stated = {
+        key: value
+        for key in (LAST_REVS_AVG_VARIABLE, LAST_ITERS_AVG_VARIABLE)
+        if (value := _variable(case, key)) is not None
+    }
+    return _windows.averaging_steps(stated, per_revolution=per_revolution)
 
 
 def _averaging_window(

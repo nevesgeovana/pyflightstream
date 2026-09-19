@@ -93,6 +93,7 @@ from pyflightstream._errors import (
     PyflightstreamWarning,
 )
 from pyflightstream.cases import select_group_members
+from pyflightstream.cases.windows import averaging_span, replan
 from pyflightstream.cases.workflows import (
     CONFIGURATION_VARIABLE,
     PER_ROTOR_REDUCTIONS,
@@ -3050,59 +3051,43 @@ def _matrix_window(matrix_row: MatrixRow | None, record: object) -> tuple[int, i
     variables = getattr(matrix_row, "variables", None)
     if not isinstance(variables, Mapping):
         return None
-
-    def _number(key: str) -> float | None:
-        stated = variables.get(key)
-        if stated is None or isinstance(stated, bool):
-            return None
-        try:
-            value = float(str(stated).strip())
-        except (TypeError, ValueError):
-            return None
-        return value if value > 0.0 else None
-
-    revs = _number("LAST_REVS_AVG")
-    iters = _number("LAST_ITERS_AVG")
-    if revs is not None and iters is not None:
-        # BOTH KEYS IS A CONTRADICTION AND `_averaging_window` REFUSES IT AT
-        # PLAN TIME. Here it can only mean a matrix edited after the run, so it
-        # falls through to what the record states rather than picking one.
-        return None
-    if revs is None and iters is None:
-        return None
-
     plan = getattr(record, "reductions", None)
     if not isinstance(plan, Mapping):
         return None
     last_step = plan.get("time_iterations")
-    if not isinstance(last_step, int | float) or last_step <= 0:
+    if isinstance(last_step, bool) or not isinstance(last_step, int | float) or last_step <= 0:
         return None
-    last = int(last_step)
+    per_revolution = plan.get("steps_per_revolution")
+    # THE ARITHMETIC IS `cases.windows` AND NOTHING ELSE (0.24.0). It stood here
+    # as a second copy of what the plan derives, and a third copy fed the
+    # reductions from the frozen record, which is how one edit to the matrix
+    # moved the polar and left `<point>_time_average.csv` behind (PO-01).
+    return averaging_span(
+        variables,
+        last_step=int(last_step),
+        per_revolution=(
+            float(per_revolution)
+            if isinstance(per_revolution, int | float) and not isinstance(per_revolution, bool)
+            else None
+        ),
+    )
 
-    if iters is not None:
-        length = int(iters)
-    else:
-        per_revolution = plan.get("steps_per_revolution")
-        if not isinstance(per_revolution, int | float) or per_revolution <= 0:
-            # A COUNT OF REVOLUTIONS HAS NO LENGTH IN STEPS without the rotor's
-            # rate, which is exactly what `_averaging_window` refuses by name.
-            return None
-        # `last_revs_avg` TAKES A FLOAT -- her decision, 2026-09-18 -- so one
-        # and a half revolutions is a window and not a rounding error.
-        #
-        # NARROWED RATHER THAN ANNOTATED AWAY: `revs` is `float | None` to the
-        # checker here, and it is not None on this branch because the pair was
-        # refused above and `iters is None` reached the `else`. Saying so with a
-        # guard rather than a cast keeps the claim checkable.
-        if revs is None:
-            return None
-        length = int(round(revs * float(per_revolution)))
-    if length <= 0:
+
+def _recorded_window(plan: object) -> tuple[int, int] | None:
+    """Return the time-average window a reductions plan states, or None."""
+    if not isinstance(plan, Mapping):
         return None
-    # CLIPPED TO THE RUN, never past its first step. A window longer than the
-    # history is the whole history, which is what the plan-time derivation does.
-    first = max(1, last - length + 1)
-    return (first, last)
+    entry = plan.get("time_average")
+    stated = entry.get("windows") if isinstance(entry, Mapping) else None
+    if not isinstance(stated, Sequence) or not stated:
+        return None
+    first = stated[0]
+    if not isinstance(first, Sequence) or len(first) != 2:
+        return None
+    try:
+        return int(first[0]), int(first[1])
+    except (TypeError, ValueError):
+        return None
 
 
 def _stated_window(record: object) -> tuple[int, int] | None:
@@ -3198,6 +3183,7 @@ def write_unsteady_polar(
     conditions: Sequence[Mapping[str, object]],
     reference: ReferenceValues | None,
     left_out: list[str] | None = None,
+    windows: Mapping[str, tuple[int, int]] | None = None,
 ) -> Path | None:
     """Write the POLAR of one unsteady simulation from the PLOTS history (item 17).
 
@@ -3219,6 +3205,9 @@ def write_unsteady_polar(
 
     THE WINDOW IS THE ROW'S, the one `last_revs_avg` or `last_iters_avg` states,
     and it is the same window `per_blade` and the time average use (item 16).
+
+    ``windows`` gives a point ITS OWN window by name where the points of one row
+    do not share a clock; a point it does not name takes ``window``.
 
     ONE ROW PER POINT, in the order given. A point whose plots export is missing
     or unreadable is LEFT OUT rather than written as a row of `NA`: the sweep is
@@ -3246,6 +3235,7 @@ def write_unsteady_polar(
         if source is None or not source.is_file():
             left_out.append(f"{name}: no plots table")
             continue
+        window = (windows or {}).get(name, window)
         try:
             names, series = plots_table_series(source)
             # A PARTIAL COVER IS NOT A COVER, and this dropped only the point
@@ -3355,6 +3345,7 @@ def _sim_products(
     points: list[PolarPoint] = []
     exports: dict[str, tuple[Path | None, Path | None, Path | None]] = {}
     plans: dict[str, dict[str, object] | None] = {}
+    point_windows: dict[str, tuple[int, int]] = {}
     probe_positions: dict[int, tuple[float, float, float, str]] = {}
     # DECLARED HERE rather than with its siblings below, because the
     # positions are read in the record loop and an unreadable file is
@@ -3387,7 +3378,30 @@ def _sim_products(
         plots_path = by_name.get(kinds["plots"]) if "plots" in kinds else None
         probes_path = by_name.get(kinds["probes"]) if "probes" in kinds else None
         exports[stem] = (sloads_path, plots_path, probes_path)
-        plans.setdefault(stem, record.reductions)
+        # THE MATRIX WINS THE RECORD FOR EVERY WINDOW OF THE POINT, NOT ONLY THE
+        # POLAR'S (PO-01), AND PER POINT: each record carries its own clock, so a
+        # count of revolutions is cut on THAT point's steps per revolution.
+        row_variables = getattr(matrix_row, "variables", None)
+        replanned = replan(record.reductions, row_variables)
+        if replanned is not None and stem not in plans:
+            ran = _recorded_window(record.reductions)
+            now = _recorded_window(replanned)
+            if ran is not None and now is not None and ran != now:
+                # SAID, NOT ONLY DONE. The products of this point no longer
+                # average what the run recorded, and a reader comparing them
+                # with an earlier post needs to know that it was the matrix
+                # that moved and not the data.
+                warnings.warn(
+                    f"{stem}: the matrix now states an averaging window of steps "
+                    f"{now[0]} to {now[1]} and the run recorded {ran[0]} to {ran[1]}. "
+                    "Every reduction of this point follows the matrix; no re-run is needed.",
+                    PyflightstreamWarning,
+                    stacklevel=2,
+                )
+        plans.setdefault(stem, replanned or record.reductions)
+        point_window = _matrix_window(matrix_row, record) or _stated_window(record)
+        if point_window is not None:
+            point_windows.setdefault(stem, point_window)
         sources.setdefault(stem, []).append(record.run_id)
         # FR-91. Where this run put its probe points. Per SIM and identical
         # across the sweep, so the first record that names one answers for
@@ -3444,6 +3458,11 @@ def _sim_products(
     # clock the record already carries. `_stated_window` remains the fallback,
     # so a point whose matrix no longer names a key reduces as it was run.
     unsteady_window_steps = _matrix_window(matrix_row, first) or _stated_window(first)
+    if point_windows:
+        # ANY point with a window makes this an averaged simulation; the first
+        # record alone decided it, and a first point that failed to state its
+        # clock took the polar away from every other point of the sweep.
+        unsteady_window_steps = unsteady_window_steps or next(iter(point_windows.values()))
     cell = first.flight_condition if isinstance(first.flight_condition, Mapping) else None
     # ITEM 13's other half. The clock is a property of the ROW's export
     # settings, so every point of one row shares it; the iteration is per point
@@ -3793,6 +3812,7 @@ def _sim_products(
             points=points,
             plots=plots_tables,
             window=unsteady_window_steps,
+            windows=point_windows,
             conditions=conditions,
             reference=reference,
             left_out=unsteady_left_out,
@@ -3811,6 +3831,9 @@ def _sim_products(
                 "runs": sorted({run for names in sources.values() for run in names}),
                 "source": "the unsteady plots, time-averaged",
                 "window": list(unsteady_window_steps),
+                # PER POINT where the points do not share one, so the manifest
+                # never states one window for a file that holds two.
+                "windows": {name: list(span) for name, span in sorted(point_windows.items())},
             }
 
     if drafts is not None and super_rows:
