@@ -32,6 +32,9 @@ than an unrenamed one):
   matrix edited since the run: renaming under the edited row would file old
   evidence under a name that means something else;
 * two points whose new names would collide;
+* a folder, a file or a script whose new name is already taken on disk, found
+  for EVERY move before the first one is made (0.24.0), and refused by the
+  rehearsal as well;
 * a SUBMITTED record whose folder would move, because the scheduler writes into
   the folder the descriptor named and this command cannot reach the job.
 
@@ -426,14 +429,57 @@ def _folder_of_the_old_tag(tag: str) -> str:
 
 
 def _rename_path(before: Path, after: Path) -> None:
-    """Move one path, refusing to write over something already there."""
+    """Move one path, refusing to write over something already there.
+
+    THE LAST LINE OF DEFENCE AND NOT THE CHECK. Every destination is checked in
+    the reading pass (:class:`_Destinations`), before the first move, so this
+    fires only when something appeared between that pass and this move. Until
+    0.24.0 it WAS the check, and its message said nothing else had been changed
+    while the paths before this one had already moved. It now says what is true.
+    """
     if after.exists():
         raise WorkspaceError(
-            f"{after} is already there, so renaming {before.name} onto it would destroy it. "
-            "Nothing else was changed; move it aside and run this again."
+            f"{after} appeared while the rename was running, so renaming {before.name} onto "
+            "it would destroy it. THE RENAME STOPPED HALFWAY: the paths before this one have "
+            "moved and runs.json was not rewritten, so the manifest names folders that are "
+            "no longer there. The manifest as it was is under archive/. Move the path aside "
+            "and run this again: the command reads where each point is now and finishes."
         )
     after.parent.mkdir(parents=True, exist_ok=True)
     before.rename(after)
+
+
+@dataclass
+class _Destinations:
+    """Every destination of one rename, checked in the READING pass (0.24.0).
+
+    A rename either completes or leaves the workspace as it was, and the only
+    way to hold that without a rollback is to know, before the first move, that
+    every move can land. Two things can stop one: something already at the
+    destination, and another move of this same rename bound for it.
+
+    ``now`` is where the destination is TODAY, which differs from where the
+    move will put it for a file inside a folder that moves first: the file
+    ``DP-<old>/<new stem>.txt`` is what occupies ``DP-<new>/<new stem>.txt``
+    once the folder has been renamed.
+    """
+
+    refusals: list[str] = field(default_factory=list)
+    _bound: dict[Path, Path] = field(default_factory=dict)
+
+    def claim(self, source: Path, final: Path, *, now: Path | None = None) -> None:
+        """Register one move, recording why it cannot land if it cannot."""
+        if (final if now is None else now).exists():
+            self.refusals.append(
+                f"{final} is already there, so renaming {source.name} onto it would destroy "
+                "it. Move it aside and run this again."
+            )
+        elif final in self._bound:
+            self.refusals.append(
+                f"{source} and {self._bound[final]} would both be renamed to {final}, and "
+                "the second would destroy the first."
+            )
+        self._bound[final] = source
 
 
 def _files_to_move(folder: Path, old_stem: str, new_stem: str) -> list[tuple[str, str]]:
@@ -577,6 +623,7 @@ def rename_workspace(
 
     rewritten: list[dict[str, Any]] = []
     pending: list[tuple[Path, Path]] = []
+    destinations = _Destinations()
     for plan in plans:
         entry = dict(plan.record)
         sim = workspace.sim_dir(str(plan.record.get("sim_id", "")))
@@ -598,9 +645,11 @@ def rename_workspace(
             inside = folder if folder.is_dir() else target
             files = _files_to_move(inside, move.old_stem, move.new_stem)
             if folder.is_dir() and folder != target:
+                destinations.claim(folder, target)
                 pending.append((folder, target))
                 report.changes.append(RenameChange("datapoint", folder.name, target.name))
             for before, after in files:
+                destinations.claim(inside / before, target / after, now=inside / after)
                 pending.append((target / before, target / after))
                 report.changes.append(RenameChange("file", before, after))
         old_stem, new_stem = plan.script
@@ -608,6 +657,7 @@ def rename_workspace(
             before_path = sim / str(plan.record.get("script_path"))
             after_path = before_path.with_name(f"{new_stem}{before_path.suffix}")
             if before_path.is_file():
+                destinations.claim(before_path, after_path)
                 pending.append((before_path, after_path))
                 report.changes.append(RenameChange("script", before_path.name, after_path.name))
         for name, value in list(entry.items()):
@@ -617,6 +667,17 @@ def rename_workspace(
         entry["point_name"] = plan.new_name
         entry["sweep_name"] = plan.new_sweep
         rewritten.append(entry)
+
+    # EVERY DESTINATION IS KNOWN TO BE FREE BEFORE THE FIRST MOVE (0.24.0), and
+    # the rehearsal refuses what the run refuses. Until then the moves below ran
+    # in order and the first occupied destination stopped them halfway, with the
+    # manifest still naming the folders that had already gone.
+    if destinations.refusals:
+        report.refusals.extend(destinations.refusals)
+        raise WorkspaceError(
+            "this workspace cannot be renamed as it stands, and nothing was changed:\n  "
+            + "\n  ".join(report.refusals)
+        )
 
     # THE REHEARSAL REPORTS WHAT THE RUN WOULD DO, all of it. The first writing
     # returned here, so a dry run named no manifest archive and no plan rewrite
