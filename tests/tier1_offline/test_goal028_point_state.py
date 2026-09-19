@@ -126,5 +126,12 @@ def test_the_post_stage_re_resolves_a_point_a_record_describes_wrongly(swept):
     assert [float(row["MACH"]) for row in rows] == pytest.approx([0.1, 0.3]), (
         "the Mach 0.3 run is published as Mach 0.1: every row took the first record's Mach"
     )
-    said = [str(w.message) for w in caught if "M300RE230AL+000" in str(w.message)]
-    assert said and "0.3" in said[0] and "0.1" in said[0], [str(w.message) for w in caught]
+    # THE WARNING ABOUT THE CONDITION, chosen by what it says rather than by
+    # its position: since 0.25.0 a point also warns about products it cannot
+    # split, and that warning names the same point.
+    said = [
+        str(w.message)
+        for w in caught
+        if "M300RE230AL+000" in str(w.message) and "0.3" in str(w.message)
+    ]
+    assert said and "0.1" in said[0], [str(w.message) for w in caught]

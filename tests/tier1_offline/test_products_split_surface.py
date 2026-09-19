@@ -75,6 +75,24 @@ _ORIGINAL_ALL = [
 ]
 
 
+# Public helpers in the extracted modules retain their private products aliases.
+_PRODUCTS_PRIVATE_ALIASES = {
+    "CUSTOM_DATE_FORMAT": "_CUSTOM_DATE_FORMAT",
+    "CUSTOM_REFERENCE_COLUMNS": "_CUSTOM_REFERENCE_COLUMNS",
+    "CUSTOM_TITLE_PREFIX": "_CUSTOM_TITLE_PREFIX",
+    "CUSTOM_WIDTH": "_CUSTOM_WIDTH",
+    "custom_count": "_custom_count",
+    "custom_field": "_custom_field",
+    "group_number": "_group_number",
+    "PROV_PREFIX": "_PROV_PREFIX",
+    "SCRIPT_SUFFIX": "_SCRIPT_SUFFIX",
+    "attributes": "_attributes",
+    "prov_document": "_prov_document",
+    "refuse_an_existing_product": "_refuse_an_existing_product",
+    "run_provenance": "_run_provenance",
+}
+
+
 def test_extracted_product_modules_preserve_the_public_surface():
     module_names = ("pyflightstream.post.custom_polar", "pyflightstream.post.provenance")
     missing = [name for name in module_names if importlib.util.find_spec(name) is None]
@@ -100,9 +118,13 @@ def test_extracted_product_modules_preserve_the_public_surface():
                 )
         assert defined, f"{module_name} defines no extracted names"
         for name in sorted(defined):
-            assert hasattr(products, name), f"post.products no longer binds {module_name}.{name}"
-            assert getattr(products, name) is getattr(module, name), (
-                f"post.products.{name} must re-export the same object as {module_name}.{name}"
+            product_name = _PRODUCTS_PRIVATE_ALIASES.get(name, name)
+            assert hasattr(products, product_name), (
+                f"post.products no longer binds {module_name}.{name}"
+            )
+            assert getattr(products, product_name) is getattr(module, name), (
+                f"post.products.{product_name} must re-export "
+                f"the same object as {module_name}.{name}"
             )
 
 
@@ -112,6 +134,13 @@ def test_extracted_product_modules_preserve_the_public_surface():
         (
             "custom_polar",
             {
+                "CUSTOM_DATE_FORMAT",
+                "CUSTOM_REFERENCE_COLUMNS",
+                "CUSTOM_TITLE_PREFIX",
+                "CUSTOM_WIDTH",
+                "custom_count",
+                "custom_field",
+                "group_number",
                 "CustomPolarTable",
                 "custom_polar_file_name",
                 "read_custom_polar_format",
@@ -121,6 +150,12 @@ def test_extracted_product_modules_preserve_the_public_surface():
         (
             "provenance",
             {
+                "PROV_PREFIX",
+                "SCRIPT_SUFFIX",
+                "attributes",
+                "prov_document",
+                "refuse_an_existing_product",
+                "run_provenance",
                 "PRODUCT_ARCHIVE_DIR",
                 "PRODUCT_ARCHIVE_STAMP",
                 "PROVENANCE_DIR",
@@ -146,6 +181,7 @@ def test_product_module_export_inventory(module_name, expected):
     exec(f"from {qualified} import *", namespace)
     assert namespace.keys() - {"__builtins__"} == expected
     for name in expected:
-        assert namespace[name] is getattr(products, name), (
-            f"post.products.{name} must preserve the same exported object"
+        product_name = _PRODUCTS_PRIVATE_ALIASES.get(name, name)
+        assert namespace[name] is getattr(products, product_name), (
+            f"post.products.{product_name} must preserve the same exported object"
         )

@@ -23,6 +23,13 @@ from pyflightstream.post._tables import (
 )
 
 __all__ = [
+    "CUSTOM_DATE_FORMAT",
+    "CUSTOM_REFERENCE_COLUMNS",
+    "CUSTOM_TITLE_PREFIX",
+    "CUSTOM_WIDTH",
+    "custom_count",
+    "custom_field",
+    "group_number",
     "CustomPolarTable",
     "custom_polar_file_name",
     "read_custom_polar_format",
@@ -33,15 +40,15 @@ __all__ = [
 
 #: The columns of the custom format's reference line: the nominal Mach and then the
 #: reference block in the polar table's own order.
-_CUSTOM_REFERENCE_COLUMNS: tuple[str, ...] = ("MNOM", *_REFERENCE_COLUMNS)
+CUSTOM_REFERENCE_COLUMNS: tuple[str, ...] = ("MNOM", *_REFERENCE_COLUMNS)
 
 #: Every field of the custom format is right-aligned to this width.
-_CUSTOM_WIDTH = 10
+CUSTOM_WIDTH = 10
 
 #: The reference date line, ``Tue Sep 08 23:41:07  2026``: two spaces before the year.
-_CUSTOM_DATE_FORMAT = "%a %b %d %H:%M:%S  %Y"
+CUSTOM_DATE_FORMAT = "%a %b %d %H:%M:%S  %Y"
 
-_CUSTOM_TITLE_PREFIX = "FlightStream - "
+CUSTOM_TITLE_PREFIX = "FlightStream - "
 
 
 @dataclass(frozen=True)
@@ -84,11 +91,12 @@ def custom_polar_file_name(polar: str | int, *, mach: float, group: str | int) -
     return polar_file_name(polar, mach, group)[: -len(".csv")] + ".dat"
 
 
-def _custom_field(value: object) -> str:
-    return f"{value!s:>{_CUSTOM_WIDTH}}"
+def custom_field(value: object) -> str:
+    """Right-align one custom polar field to the fixed format width."""
+    return f"{value!s:>{CUSTOM_WIDTH}}"
 
 
-def _group_number(group: str | int, position: int | None) -> int:
+def group_number(group: str | int, position: int | None) -> int:
     """Return the NUMBER line four of the fixed-width format states for a group.
 
     The format has room for two digits and nothing else, and it was written when
@@ -108,6 +116,10 @@ def _group_number(group: str | int, position: int | None) -> int:
             "pass group_number, the group's 1-based position in the [groups] table"
         )
     return int(position)
+
+
+# Keep the helper distinct from write_custom_polar_format's group_number keyword.
+_group_number = group_number
 
 
 def write_custom_polar_format(
@@ -205,31 +217,32 @@ def write_custom_polar_format(
     # a tenth would make every file this writes unreadable by the
     # reference tooling. The title is the one line with room for a word,
     # and ` - ` is the separator the prefix itself already uses.
-    title = f"{_CUSTOM_TITLE_PREFIX}{description}"
+    title = f"{CUSTOM_TITLE_PREFIX}{description}"
     if configuration and configuration.strip() and configuration.strip() != "-":
         title = f"{title} - {configuration.strip()}"
     lines = [
         title,
         f"{polar}{_mach_code(mach):02d}",
-        date if date is not None else datetime.now().strftime(_CUSTOM_DATE_FORMAT),
-        f"{len(_CUSTOM_REFERENCE_COLUMNS):03d} {_group_number(group, group_number):02d}",
-        "".join(_custom_field(name) for name in _CUSTOM_REFERENCE_COLUMNS),
-        "".join(_custom_field(float(value)) for value in (mach, *reference.as_row())),
+        date if date is not None else datetime.now().strftime(CUSTOM_DATE_FORMAT),
+        f"{len(CUSTOM_REFERENCE_COLUMNS):03d} {_group_number(group, group_number):02d}",
+        "".join(custom_field(name) for name in CUSTOM_REFERENCE_COLUMNS),
+        "".join(custom_field(float(value)) for value in (mach, *reference.as_row())),
         f"{len(rows):03d}",
         f"{len(COEFFICIENT_COLUMNS):03d}",
-        "".join(_custom_field(name) for name in COEFFICIENT_COLUMNS),
+        "".join(custom_field(name) for name in COEFFICIENT_COLUMNS),
     ]
     for row in rows:
         if len(row) != len(COEFFICIENT_COLUMNS):
             raise ProductError(f"a polar row has {len(row)} values, not {len(COEFFICIENT_COLUMNS)}")
-        lines.append("".join(f"{float(value):{_CUSTOM_WIDTH}.{_DECIMALS}f}" for value in row))
+        lines.append("".join(f"{float(value):{CUSTOM_WIDTH}.{_DECIMALS}f}" for value in row))
     target = Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_bytes(("\n".join(lines) + "\n").encode("ascii"))
     return target
 
 
-def _custom_count(line: str, path: Path, number: int, what: str) -> int:
+def custom_count(line: str, path: Path, number: int, what: str) -> int:
+    """Read a count from a custom polar line, naming malformed input."""
     try:
         return int(line.split()[0])
     except (IndexError, ValueError):
@@ -266,12 +279,12 @@ def read_custom_polar_format(path: str | Path) -> CustomPolarTable:
     lines = target.read_text(encoding="ascii").split("\n")
     if lines and lines[-1] == "":
         lines.pop()
-    if len(lines) < 9 or not lines[0].startswith(_CUSTOM_TITLE_PREFIX):
+    if len(lines) < 9 or not lines[0].startswith(CUSTOM_TITLE_PREFIX):
         raise ProductError(
             f"{target} is not in the custom polar format: it needs nine header lines, the first "
-            f"beginning {_CUSTOM_TITLE_PREFIX!r}"
+            f"beginning {CUSTOM_TITLE_PREFIX!r}"
         )
-    description = lines[0][len(_CUSTOM_TITLE_PREFIX) :]
+    description = lines[0][len(CUSTOM_TITLE_PREFIX) :]
     identifier = lines[1].strip()
     if len(identifier) < 3 or not identifier[-2:].isdigit():
         raise ProductError(
@@ -293,8 +306,8 @@ def read_custom_polar_format(path: str | Path) -> CustomPolarTable:
             f"carry {len(names)} names and {len(values)} values"
         )
     reference_values = dict(zip(names, (float(v) for v in values), strict=True))
-    row_count = _custom_count(lines[6], target, 7, "data rows")
-    column_count = _custom_count(lines[7], target, 8, "data columns")
+    row_count = custom_count(lines[6], target, 7, "data rows")
+    column_count = custom_count(lines[7], target, 8, "data columns")
     columns = tuple(lines[8].split())
     if len(columns) != column_count:
         raise ProductError(

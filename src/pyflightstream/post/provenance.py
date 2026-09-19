@@ -25,6 +25,12 @@ if TYPE_CHECKING:
     from pyflightstream.workspace import CampaignWorkspace, RunRecord
 
 __all__ = [
+    "PROV_PREFIX",
+    "SCRIPT_SUFFIX",
+    "attributes",
+    "prov_document",
+    "refuse_an_existing_product",
+    "run_provenance",
     "PRODUCT_ARCHIVE_DIR",
     "PRODUCT_ARCHIVE_STAMP",
     "PROVENANCE_DIR",
@@ -79,7 +85,7 @@ def product_archive_dir(path: Path, *, now: datetime | None = None) -> Path:
     return path.parent / PRODUCT_ARCHIVE_DIR / stamp
 
 
-def _refuse_an_existing_product(
+def refuse_an_existing_product(
     path: Path, *, archive: bool = True, stamp: datetime | None = None
 ) -> Path:
     """Return ``path``, ARCHIVING an existing product rather than losing it.
@@ -151,7 +157,7 @@ PROVENANCE_SUFFIX = ".prov.json"
 #: The namespaces a document declares. ``prov`` and ``xsd`` are the W3C's;
 #: ``pyfs`` is this package's, for the attributes and identifiers it coins,
 #: a URN rather than a web address so the document promises no page.
-_PROV_PREFIX = {
+PROV_PREFIX = {
     "prov": "http://www.w3.org/ns/prov#",
     "xsd": "http://www.w3.org/2001/XMLSchema#",
     "pyfs": "urn:pyflightstream:",
@@ -165,7 +171,7 @@ _PROV_PREFIX = {
 #: literal rather than by `Path.stem`, because a point stem carries dots
 #: of its own: `Path("a+02.0").stem` is `a+02`, and a name shortened that
 #: way would collide two points of one sweep.
-_SCRIPT_SUFFIX = ".txt"
+SCRIPT_SUFFIX = ".txt"
 
 
 def point_name_of(record: RunRecord) -> str | None:
@@ -183,9 +189,9 @@ def point_name_of(record: RunRecord) -> str | None:
     if not declared:
         return None
     name = str(declared).replace("\\", "/").rsplit("/", 1)[-1]
-    if not name.endswith(_SCRIPT_SUFFIX):
+    if not name.endswith(SCRIPT_SUFFIX):
         return None
-    return name[: -len(_SCRIPT_SUFFIX)] or None
+    return name[: -len(SCRIPT_SUFFIX)] or None
 
 
 def provenance_file_name(run_id: str, *, point_name: str | None = None) -> str:
@@ -206,7 +212,7 @@ def provenance_file_name(run_id: str, *, point_name: str | None = None) -> str:
     return stem.replace("/", "_") + PROVENANCE_SUFFIX
 
 
-def _attributes(**pairs: object) -> dict[str, object]:
+def attributes(**pairs: object) -> dict[str, object]:
     """Return the attributes of one PROV node, a None value left out rather than written."""
     return {name: value for name, value in pairs.items() if value is not None}
 
@@ -231,7 +237,7 @@ def operator_agent(name: str | None) -> dict[str, object]:
     }
 
 
-def _prov_document(record: RunRecord, sim_dir: Path) -> dict[str, object]:
+def prov_document(record: RunRecord, sim_dir: Path) -> dict[str, object]:
     """Build one run's PROV-JSON document from its record and the files it left.
 
     W3C PROV, in the PROV-JSON serialization (the design decision of 2026-09-08,
@@ -279,12 +285,12 @@ def _prov_document(record: RunRecord, sim_dir: Path) -> dict[str, object]:
     derived: dict[str, dict[str, str]] = {}
     for name, input_sha256 in sorted(record.inputs_sha256.items()):
         entity_id = f"pyfs:input/{name}"
-        entities[entity_id] = _attributes(
+        entities[entity_id] = attributes(
             **{"prov:type": "pyfs:StagedInput", "pyfs:name": name, "pyfs:sha256": input_sha256}
         )
         used[f"_:used{len(used) + 1}"] = {"prov:activity": activity_id, "prov:entity": entity_id}
     script_id = f"pyfs:script/{record.script_path or 'script'}"
-    entities[script_id] = _attributes(
+    entities[script_id] = attributes(
         **{
             "prov:type": "pyfs:Script",
             "pyfs:name": record.script_path,
@@ -323,7 +329,7 @@ def _prov_document(record: RunRecord, sim_dir: Path) -> dict[str, object]:
         else:
             output_sha256 = recorded
             sha256_from = "record" if recorded is not None else None
-        entities[entity_id] = _attributes(
+        entities[entity_id] = attributes(
             **{
                 "prov:type": "pyfs:Output",
                 "pyfs:name": name,
@@ -346,7 +352,7 @@ def _prov_document(record: RunRecord, sim_dir: Path) -> dict[str, object]:
         }
         if changed:
             derived_id = f"pyfs:file/{name}"
-            entities[derived_id] = _attributes(
+            entities[derived_id] = attributes(
                 **{
                     "prov:type": "pyfs:ChangedOutput",
                     "pyfs:name": name,
@@ -371,7 +377,7 @@ def _prov_document(record: RunRecord, sim_dir: Path) -> dict[str, object]:
             # a legitimate re-export or a file repaired after a partial
             # write. Correcting the assertion is the whole defect.
     executor = record.executor
-    activity = _attributes(
+    activity = attributes(
         **{
             "prov:type": "pyfs:SolverRun",
             "prov:startTime": record.started_at,
@@ -394,7 +400,7 @@ def _prov_document(record: RunRecord, sim_dir: Path) -> dict[str, object]:
         }
     )
     agents = {
-        package_id: _attributes(
+        package_id: attributes(
             **{
                 "prov:type": "prov:SoftwareAgent",
                 "pyfs:name": "pyflightstream",
@@ -407,7 +413,7 @@ def _prov_document(record: RunRecord, sim_dir: Path) -> dict[str, object]:
         # nobody reads `NA`, so existing records remain usable and the absence
         # is visible rather than silent.
         operator_id: operator,
-        solver_id: _attributes(
+        solver_id: attributes(
             **{
                 "prov:type": "prov:SoftwareAgent",
                 "pyfs:name": "FlightStream",
@@ -420,7 +426,7 @@ def _prov_document(record: RunRecord, sim_dir: Path) -> dict[str, object]:
         ),
     }
     document: dict[str, object] = {
-        "prefix": dict(_PROV_PREFIX),
+        "prefix": dict(PROV_PREFIX),
         "entity": entities,
         "activity": {activity_id: activity},
         "agent": agents,
@@ -443,7 +449,7 @@ def _prov_document(record: RunRecord, sim_dir: Path) -> dict[str, object]:
     return document
 
 
-def _run_provenance(
+def run_provenance(
     workspace: CampaignWorkspace,
     records: Sequence[RunRecord],
     out: Path,
@@ -483,7 +489,7 @@ def _run_provenance(
             # THE SAME RULE AS A PRODUCT. A provenance document about to
             # be rewritten is evidence about the run that produced the
             # file it describes, so it is archived rather than replaced.
-            _refuse_an_existing_product(target, archive=True, stamp=archive_stamp)
+            refuse_an_existing_product(target, archive=True, stamp=archive_stamp)
         elif target.exists() and not overwrite:
             raise ProductExistsError(
                 f"the provenance document {target} exists; pass overwrite=True to rewrite "
@@ -492,7 +498,7 @@ def _run_provenance(
                 "alone: the command-line flag this named until 2026-09-13, --overwrite, "
                 "is gone and argparse now refuses it (the interface lens)"
             )
-        document = _prov_document(record, workspace.sim_dir(record.sim_id))
+        document = prov_document(record, workspace.sim_dir(record.sim_id))
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(json.dumps(document, indent=1) + "\n", encoding="utf-8")
         index[record.run_id] = relative
