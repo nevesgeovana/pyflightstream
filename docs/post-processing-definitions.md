@@ -269,6 +269,19 @@ read from the native export.
 - The flight-condition and reference-length columns are still added, because
   those come from the workspace and not from the export.
 
+- **The file is `polars/P<sim>_<name>_uns_avg.csv`**, one per simulation and one
+  row per point. Every file under `post/` comes from a sweep, so the name says
+  what the file IS, the average of the unsteady history, and carries the `P`
+  every per-point product carries. It was `<sim>_<name>_unsteady.csv` in 0.23.0.
+- **Each row opens with `FIRST_STEP`, `LAST_STEP`, `STEPS`**, the window THAT
+  point was averaged over, so the file says on its own that it is an average and
+  over what. The condition block follows, then `XMOM`, `YMOM`, `ZMOM`, because
+  the plots carry moments and a moment states nothing without its point.
+- **The super file's content is ADDED to this table**, after the plot columns:
+  the matrix row's cells, the record's scalars, each rotor's speed, the solver
+  flags. The super file is what the polar does not have; for an unsteady point it
+  is not a second file.
+
 **Why the native export is not the source.** It states the **last time step
 only**, which on an oscillating rotor is one instant of a cycle. It still ships,
 as a health check.

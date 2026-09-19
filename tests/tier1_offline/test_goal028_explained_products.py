@@ -181,7 +181,9 @@ def test_the_unsteady_polar_vouches_only_for_the_points_it_holds(tmp_path):
     write_campaign_products(workspace)
     manifest = _products_manifest(workspace)
     (polar,) = [
-        key for key in manifest["products"] if key.startswith("polars/") and "unsteady" in key
+        key
+        for key in manifest["products"]
+        if key.startswith("polars/") and key.endswith("_uns_avg.csv")
     ]
     assert manifest["products"][polar]["runs"] == ["camp/sim_7001/AL-020"], manifest["products"][
         polar

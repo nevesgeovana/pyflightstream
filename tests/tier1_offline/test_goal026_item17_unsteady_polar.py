@@ -82,8 +82,12 @@ def test_the_columns_are_the_names_the_export_prints(tmp_path):
     assert not {"CDB", "CLW", "CMS25"} & set(columns), (
         "the unsteady polar is carrying the steady polar's fixed coefficient names"
     )
-    # ITEM 5 REACHES IT TOO: the condition columns lead the row.
-    assert tuple(columns[: len(CONTEXT_COLUMNS)]) == tuple(CONTEXT_COLUMNS), columns
+    # ITEM 5 REACHES IT TOO: the condition block is in the row, whole and in order.
+    # IT LED THE ROW UNTIL 0.24.0, WHEN THE REQUIREMENT CHANGED: the window the
+    # average was taken over (`FIRST_STEP, LAST_STEP, STEPS`) now opens the row, so
+    # the file says it is an average and over what. The block follows it.
+    assert list(columns[:3]) == ["FIRST_STEP", "LAST_STEP", "STEPS"], columns
+    assert tuple(columns[3 : 3 + len(CONTEXT_COLUMNS)]) == tuple(CONTEXT_COLUMNS), columns
     assert rows[0]["ALPHA"] == "2.00000", rows[0]
 
 
@@ -170,4 +174,7 @@ def test_no_point_yields_a_row_and_nothing_is_written(tmp_path):
 def test_the_file_name_carries_no_group():
     """It is per SIMULATION, which is the difference from the steady polar's name."""
     name = unsteady_polar_file_name("7001", name="a-sweep")
-    assert name == "7001_a-sweep_unsteady.csv", name
+    # THE NAME CHANGED BECAUSE THE REQUIREMENT DID (0.24.0): it was
+    # `7001_a-sweep_unsteady.csv`. `uns_avg` says what the file IS, and the `P` is the
+    # prefix every per-point product carries. It still names no group.
+    assert name == "P7001_a-sweep_uns_avg.csv", name

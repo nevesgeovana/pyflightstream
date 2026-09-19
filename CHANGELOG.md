@@ -62,6 +62,16 @@ FlightStream versions.
   SELECTS COLUMNS BY NAME IS UNAFFECTED; ONE THAT READS BY POSITION OR COUNTS
   COLUMNS MUST BE UPDATED. The list is defined on the definitions page, and a test
   compares the package with the page rather than with itself.
+- **THE UNSTEADY POLAR IS `polars/P<sim>_<name>_uns_avg.csv`**, where 0.23.0 wrote
+  `<sim>_<name>_unsteady.csv`. A rebuild ARCHIVES the file under the old name
+  rather than leaving it beside the new one. Each row opens with `FIRST_STEP`,
+  `LAST_STEP`, `STEPS`, the window THAT point was averaged over, which was in
+  `products.json` alone; the moment point `XMOM`, `YMOM`, `ZMOM` follows the
+  reference lengths, because the table carries the plots' moments; and THE SUPER
+  FILE'S CONTENT IS ADDED to the table, after the plot columns: the matrix row's
+  cells, the record's scalars, each rotor's speed and the solver flags. The super
+  file is what the polar does not have, and for an unsteady point it is not a
+  second file.
 - The post stage WARNS, naming the point, when an export's reference velocity is
   not its free stream: the steady polar's coefficients are by `VREF`, while the
   plots table, its reductions and the unsteady polar are rescaled to `VINF`.

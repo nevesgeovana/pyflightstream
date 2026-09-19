@@ -339,6 +339,16 @@ class ReferenceValues:
         """
         return {"SREF": self.sref_m2, "CREF": self.cref_m, "BREF": self.bref_m}
 
+    def as_moment_point(self) -> dict[str, float]:
+        """Return the moment point, keyed by its column names (0.24.0).
+
+        For the families that DO carry a moment without carrying the polar's own
+        reference block: the unsteady polar and the reductions average the plots'
+        `MX_/MY_/MZ_` columns, and a moment states nothing without the point it
+        is taken about.
+        """
+        return {"XMOM": self.xmom_m, "YMOM": self.ymom_m, "ZMOM": self.zmom_m}
+
 
 @dataclass(frozen=True)
 class GroupCoefficients:
@@ -3252,6 +3262,36 @@ def _live_reference(workspace: CampaignWorkspace, matrix_row: MatrixRow | None) 
         return None
 
 
+def _setup_content(
+    points: Sequence[PolarPoint],
+    sources: Mapping[str, Sequence[str]],
+    records: Sequence[RunRecord],
+    matrix_row: MatrixRow | None,
+    sweep_rows: Mapping[str, Mapping[str, object]] | None,
+) -> dict[str, dict[str, str]]:
+    """Return the SUPER content of each point by name, through the super file's own assembly.
+
+    `superfile_row` with no polar block and no plots block is exactly "every flag
+    of the setup and whatever the simulation knows that the polar does not": the
+    record's condition and scalars, the matrix row's cells, each rotor's speed,
+    the campaign sweep row and the solver flags. One assembly, so the steady super
+    file and the unsteady polar cannot drift in what they call the setup.
+    """
+    by_run = {record.run_id: record for record in records}
+    content: dict[str, dict[str, str]] = {}
+    for point in points:
+        run_id = (sources.get(point.name) or [""])[0]
+        content[point.name] = superfile_row(
+            polar_columns=(),
+            polar_values=(),
+            matrix_row=matrix_row,
+            record=by_run.get(run_id),
+            sweep_row=(sweep_rows or {}).get(run_id),
+            plots_row=None,
+        )
+    return content
+
+
 def _recorded_window(plan: object) -> tuple[int, int] | None:
     """Return the time-average window a reductions plan states, or None."""
     if not isinstance(plan, Mapping):
@@ -3327,6 +3367,14 @@ def _stated_window(record: object) -> tuple[int, int] | None:
     return window
 
 
+#: What opens a row that is an AVERAGE: the window it was taken over, in the three
+#: columns the reductions use.
+_WINDOW_COLUMNS: tuple[str, ...] = ("FIRST_STEP", "LAST_STEP", "STEPS")
+
+#: The moment point, stated wherever a table carries a moment.
+_MOMENT_POINT_COLUMNS: tuple[str, ...] = ("XMOM", "YMOM", "ZMOM")
+
+
 def unsteady_polar_file_name(sim_id: str | int, *, name: str) -> str:
     """Return the file name of one unsteady simulation's POLAR, which is per SIMULATION.
 
@@ -3340,7 +3388,12 @@ def unsteady_polar_file_name(sim_id: str | int, *, name: str) -> str:
     # `g` so a named group can never be told from the numbered era's suffix. A
     # simulation id is not a group and carries no such history, and prefixing it
     # would rename every file of every workspace she has.
-    return f"{sim_id}_{name}_unsteady.csv"
+    # `P<sim>_<name>_uns_avg.csv` SINCE 0.24.0, the owner's naming. Every file under
+    # `post/` comes from a sweep, so a sweep token in the middle of the name told a
+    # reader nothing; `uns_avg` says what the file IS, the average of the unsteady
+    # history, and the `P` is the prefix every per-point product already carries.
+    # It was `<sim>_<name>_unsteady.csv`.
+    return f"P{sim_id}_{name}_uns_avg.csv"
 
 
 #: The columns of a plots table that state WHEN a sample was taken rather than
@@ -3363,6 +3416,7 @@ def write_unsteady_polar(
     reference: ReferenceValues | None,
     left_out: list[str] | None = None,
     windows: Mapping[str, tuple[int, int]] | None = None,
+    setup: Mapping[str, Mapping[str, object]] | None = None,
 ) -> Path | None:
     """Write the POLAR of one unsteady simulation from the PLOTS history (item 17).
 
@@ -3385,6 +3439,18 @@ def write_unsteady_polar(
     THE WINDOW IS THE ROW'S, the one `last_revs_avg` or `last_iters_avg` states,
     and it is the same window `per_blade` and the time average use (item 16).
 
+    THE FILE SAYS IT IS AN AVERAGE, AND OVER WHAT (0.24.0). Each row opens with
+    `FIRST_STEP, LAST_STEP, STEPS`, the three columns the reductions beside it
+    already use; the window used to be in `products.json` alone. The moment point
+    follows the reference lengths, because the plots carry `MX_/MY_/MZ_` columns
+    and a moment states nothing without the point it is about.
+
+    ``setup`` is the SUPER CONTENT of each point by name: what the polar does NOT
+    have, the matrix cells, the record's scalars, each rotor's speed, the solver
+    flags. It is ADDED to this table rather than written as a second file; a key
+    already stated by an earlier block is not repeated, and a point that lacks a
+    key reads `NA` under it.
+
     ``windows`` gives a point ITS OWN window by name where the points of one row
     do not share a clock; a point it does not name takes ``window``.
 
@@ -3398,7 +3464,9 @@ def write_unsteady_polar(
     """
     path = Path(path)
     columns: list[str] = []
-    rows: list[tuple[Mapping[str, object], dict[str, float]]] = []
+    rows: list[
+        tuple[Mapping[str, object], dict[str, float], tuple[int, int], dict[str, object]]
+    ] = []
     # WHY EACH ABSENT POINT IS ABSENT, collected rather than discarded. A sweep
     # dropping rows in silence hands a reader a table shorter than her matrix
     # with nothing saying which points went or why -- which is a blank cell one
@@ -3410,6 +3478,7 @@ def write_unsteady_polar(
     left_out = [] if left_out is None else left_out
     for point, condition in zip(points, conditions, strict=True):
         name = str(getattr(point, "name", ""))
+        name_of_point = name  # `name` is reused for the plot columns below
         source = plots.get(name)
         if source is None or not source.is_file():
             left_out.append(f"{name}: no plots table")
@@ -3469,18 +3538,33 @@ def write_unsteady_polar(
         for name in values:
             if name not in columns:
                 columns.append(name)
-        rows.append((condition, values))
+        rows.append((condition, values, window, dict((setup or {}).get(name_of_point, {}))))
     if not rows:
         return None
     # ITEM 5 REACHES THIS PRODUCT TOO: a coefficient states nothing without the
     # condition it was taken at and the lengths it was normalised by.
     lengths = None if reference is None else reference.as_lengths()
+    moment = None if reference is None else reference.as_moment_point()
+    stated = {*_WINDOW_COLUMNS, *CONTEXT_COLUMNS, *_MOMENT_POINT_COLUMNS, *columns}
+    extra: list[str] = []
+    for _condition, _values, _window, content in rows:
+        for key in content:
+            if key not in stated and key not in extra:
+                extra.append(key)
     return write_csv_table(
         path,
-        (*CONTEXT_COLUMNS, *columns),
+        (*_WINDOW_COLUMNS, *CONTEXT_COLUMNS, *_MOMENT_POINT_COLUMNS, *columns, *extra),
         [
-            (*context_row(condition, lengths), *(values.get(name) for name in columns))
-            for condition, values in rows
+            (
+                span[0],
+                span[1],
+                span[1] - span[0] + 1,
+                *context_row(condition, lengths),
+                *context_row(moment, None, columns=_MOMENT_POINT_COLUMNS),
+                *(values.get(name) for name in columns),
+                *(content.get(key) for key in extra),
+            )
+            for condition, values, span, content in rows
         ],
     )
 
@@ -4090,12 +4174,20 @@ def _sim_products(
     if unsteady_window_steps is not None:
         unsteady_left_out: list[str] = []
         unsteady_name = unsteady_polar_file_name(sim_id, name=table_name)
+        # THE FILE 0.23.0 WROTE UNDER THE OLD NAME IS ARCHIVED, NOT LEFT BESIDE THIS
+        # ONE. A rebuild moves what it is about to replace, and it replaces by
+        # PATH: a product whose name changed would otherwise stay in the folder,
+        # stale, under a name the manifest no longer knows.
+        former = out / POLARS_DIR / f"{sim_id}_{table_name}_unsteady.csv"
+        if former.is_file():
+            _target(former)
         done = write_unsteady_polar(
             _target(out / POLARS_DIR / unsteady_name),
             points=points,
             plots=plots_tables,
             window=unsteady_window_steps,
             windows=point_windows,
+            setup=_setup_content(points, sources, records, matrix_row, sweep_rows),
             conditions=conditions,
             reference=reference,
             left_out=unsteady_left_out,
