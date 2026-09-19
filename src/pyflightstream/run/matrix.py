@@ -492,6 +492,7 @@ def run_matrix(
     name_from: str | None = None,
     ignore_missing_families: bool = True,
     accept_unregistered_build: bool = False,
+    sweep_csv: str | Path | None = None,
 ) -> list[RunRecord]:
     """Read a run matrix and run it: the one-call first-class entry.
 
@@ -557,6 +558,11 @@ def run_matrix(
         :func:`pyflightstream.workspace.matrix.resolve_matrix`
         (PFS-2035.13); the command line spells it
         ``--ignore-missing-families``.
+    sweep_csv : str or Path, optional
+        Where to leave the campaign's sweep table instead of the default
+        place; forwarded to :func:`pyflightstream.run.run_campaign`, which
+        writes ONE table either way. The command line spells it
+        ``--sweep-csv``.
     hidden : bool or None
         Windowless solver runs, forwarded to the default executor only
         and ignored when ``executor`` is given. The default is None,
@@ -737,4 +743,5 @@ def run_matrix(
         builds=builds,
         name_from=name_from,
         accept_unregistered_build=accept_unregistered_build,
+        sweep_csv=sweep_csv,
     )

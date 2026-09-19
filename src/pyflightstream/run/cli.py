@@ -1230,6 +1230,11 @@ def _cmd_run(args: argparse.Namespace, recipes: dict[str, str]) -> int:
             force_rerun=args.force_rerun,
             ignore_missing_families=_the_missing_family_choice(args),
             accept_unregistered_build=args.accept_unregistered_build,
+            # THE CHOSEN PATH GOES TO THE ONE WRITER. The library leaves the
+            # table on its own, so choosing a path here and writing it below
+            # left TWO: the default one from the library and the chosen one
+            # from this command, against a help text promising one.
+            sweep_csv=args.sweep_csv,
         )
     except CampaignErrors as error:
         # SEPARATED FROM THE OTHERS on purpose. Every arm below this one

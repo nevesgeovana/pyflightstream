@@ -839,6 +839,15 @@ class RunRecord(BaseModel):
     #: it writes the number down before the solver goes away; without it
     #: `RESTART: {FINISH_PENDING}` has nothing to subtract from.
     stopped_at: dict | None = None
+    #: The ``run_id`` of the run this record CONTINUES (0.24.0); None on a run
+    #: that continues nothing and on every record written before 0.24.0.
+    #:
+    #: A continuation archives the CONTENTS of the datapoint folder and writes
+    #: into that same folder, and the stopped run's row is never rewritten, so
+    #: its ``outputs`` go on naming the folder its continuation fills. This is
+    #: what lets a reader tell a chain from two runs of one point and take the
+    #: end of it; the continuation resolver knew the answer and nothing kept it.
+    continues: str | None = None
     #: FR-98: the wall clock the ROW stated, in seconds, and the margin the
     #: SETUP stated, on a run that registered the watchdog. Both are written
     #: because neither can be recovered afterwards: the row may have been

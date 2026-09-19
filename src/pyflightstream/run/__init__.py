@@ -71,7 +71,7 @@ import sys
 import tempfile
 import time
 import warnings
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Collection, Iterable, Mapping, Sequence
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from functools import lru_cache
@@ -2538,7 +2538,11 @@ def _leave_products(workspace: CampaignWorkspace, matrix_stem: str | None) -> st
     return None
 
 
-def _leave_sweep_table(workspace: CampaignWorkspace, matrix_stem: str | None) -> str | None:
+def _leave_sweep_table(
+    workspace: CampaignWorkspace,
+    matrix_stem: str | None,
+    target: str | Path | None = None,
+) -> str | None:
     """Write the campaign's sweep table under ``post/``, never raising.
 
     Under ``post/<matrix>/`` for a campaign converted from a run matrix,
@@ -2570,6 +2574,10 @@ def _leave_sweep_table(workspace: CampaignWorkspace, matrix_stem: str | None) ->
     workspace : CampaignWorkspace
         The managed campaign root whose manifest is tabulated and under
         whose ``post/`` folder the file lands.
+    target : str or Path, optional
+        Where the caller chose to have the table INSTEAD of the default
+        place. The table is written once: a chosen path replaces the default
+        one and is never a copy beside it.
 
     Returns
     -------
@@ -2595,7 +2603,9 @@ def _leave_sweep_table(workspace: CampaignWorkspace, matrix_stem: str | None) ->
     ``BaseException`` is NOT caught: a ``KeyboardInterrupt`` means the
     operator asked for the process to stop.
     """
-    target = workspace.sweep_dir(matrix_stem) / SWEEP_TABLE_NAME
+    target = (
+        Path(target) if target is not None else workspace.sweep_dir(matrix_stem) / SWEEP_TABLE_NAME
+    )
     try:
         target.parent.mkdir(parents=True, exist_ok=True)
         write_table(sweep_table(workspace, require_loads=False, matrix_stem=matrix_stem), target)
@@ -2625,6 +2635,7 @@ def run_campaign(
     name_from: str | None = None,
     quiet: bool = False,
     accept_unregistered_build: bool = False,
+    sweep_csv: str | Path | None = None,
 ) -> list[RunRecord]:
     """Run every point of a campaign, recording each in the manifest.
 
@@ -2728,6 +2739,11 @@ def run_campaign(
         across two builds no longer has to lie about which one produced
         a point. A case naming a build this mapping does not carry is
         refused before anything executes.
+    sweep_csv : str or Path, optional
+        Where to leave the campaign's sweep table instead of
+        ``post/<matrix stem>/`` under :data:`SWEEP_TABLE_NAME`. ONE table is
+        written either way: a chosen path replaces the default one, so the
+        command line's ``--sweep-csv`` never leaves a second copy.
 
     Returns
     -------
@@ -3049,25 +3065,44 @@ def run_campaign(
             # it later would mean a run id already printed and a folder
             # already read.
             point_extra: dict[str, object] = {}
+            continues: str | None = None
             try:
                 continuation = resolve_continuation(workspace, case, point, run_id=run_id)
             except (CampaignConfigError, WorkspaceError) as error:
-                records.append(
-                    RunRecord(
-                        run_id=run_id,
-                        sim_id=case.sim_id,
-                        point=dict(point),
-                        fs_version_requested=case_version,
-                        package_version=pyflightstream.__version__,
-                        script_sha256="",
-                        raw_flag=False,
-                        # FAILED_SCRIPT, because that is what happened: the
-                        # script could not be built. No new status, and no
-                        # guessing at one that may not exist.
-                        status=RunStatus.FAILED_SCRIPT,
-                        error=str(error),
-                    )
+                # RECORDED AND REPORTED, LIKE EVERY OTHER FAILED POINT. This
+                # branch put the record in the returned list alone: nothing in
+                # the manifest, nothing in `failures`, so a campaign whose
+                # continuation could not start returned as though it had
+                # succeeded, to any caller that did not read the list.
+                #
+                # UNDER AN ID OF ITS OWN WHEN THE POINT'S IS TAKEN, which it is
+                # whenever there was a run to continue: the stopped run holds
+                # the plain id, and the manifest refuses a second row under it.
+                # The stamped form is the one a continuation would have carried.
+                refused = RunRecord(
+                    run_id=(
+                        _unused_continuation_run_id(run_id, datetime.now(), recorded)
+                        if run_id in recorded
+                        else run_id
+                    ),
+                    sim_id=case.sim_id,
+                    point=dict(point),
+                    matrix_stem=campaign.matrix_stem,
+                    fs_version_requested=case_version,
+                    package_version=pyflightstream.__version__,
+                    manifest_schema=MANIFEST_SCHEMA,
+                    script_sha256="",
+                    raw_flag=False,
+                    # FAILED_SCRIPT, because that is what happened: the
+                    # script could not be built. No new status, and no
+                    # guessing at one that may not exist.
+                    status=RunStatus.FAILED_SCRIPT,
+                    error=str(error),
                 )
+                workspace.append_record(refused)
+                recorded.add(refused.run_id)
+                records.append(refused)
+                failures.append(refused)
                 continue
             if continuation is not None:
                 stamp = datetime.now()
@@ -3094,7 +3129,8 @@ def run_campaign(
                     RESTART_FROM_VARIABLE: str(source.resolve()),
                     RESTART_ITERATIONS_VARIABLE: str(continuation["iterations"]),
                 }
-                run_id = continuation_run_id(run_id, stamp)
+                run_id = _unused_continuation_run_id(run_id, stamp, recorded)
+                continues = str(continuation["continues"])
                 _say(
                     f"  -> continuing {continuation['continues']} for "
                     f"{continuation['iterations']} more step(s)",
@@ -3127,6 +3163,7 @@ def run_campaign(
                 workspace=workspace,
                 sim_dir=sim_dir,
                 assess=assess,
+                continues=continues,
             )
             # And as it ENDS, with the status, so the two lines bracket the
             # wait and a reader can see which point a warning between them
@@ -3158,7 +3195,7 @@ def run_campaign(
         problem = _leave_products(workspace, campaign.matrix_stem)
         if problem is not None:
             warnings.warn(problem, PyflightstreamWarning, stacklevel=2)
-        problem = _leave_sweep_table(workspace, campaign.matrix_stem)
+        problem = _leave_sweep_table(workspace, campaign.matrix_stem, sweep_csv)
         if problem is not None:
             # The one residual, stated rather than hidden: under
             # `-W error` this warning is promoted to an exception and
@@ -5107,6 +5144,26 @@ def continuation_run_id(run_id: str, stamp: datetime) -> str:
     return f"{head}/r{stamp.strftime(ARCHIVE_STAMP)}/{tag}"
 
 
+def _unused_continuation_run_id(run_id: str, stamp: datetime, recorded: Collection[str]) -> str:
+    """Return :func:`continuation_run_id`, numbered when the manifest holds that id.
+
+    The stamp resolves one second, and two rows of one point can fall inside it:
+    a refusal recorded and the attempt after its cause was fixed, or two
+    continuations that each stopped at once. The manifest refuses a second row
+    under one id, after the predecessor's outputs have already been archived, so
+    the id is numbered the way the archive numbers a folder that exists. The
+    point tag still ends it.
+    """
+    candidate = continuation_run_id(run_id, stamp)
+    if candidate not in recorded:
+        return candidate
+    head, _, tag = candidate.rpartition("/")
+    index = 2
+    while f"{head}.{index}/{tag}" in recorded:
+        index += 1
+    return f"{head}.{index}/{tag}"
+
+
 def resolve_continuation(
     workspace: CampaignWorkspace,
     case: SimCase,
@@ -5242,9 +5299,32 @@ def _latest_record_of_point(
     """
     latest = None
     for record in records:
+        if _is_a_continuation_that_never_started(record):
+            continue
         if record.sim_id == sim_id and record.run_id.endswith(f"/{name}"):
             latest = record
     return latest
+
+
+def _is_a_continuation_that_never_started(record: RunRecord) -> bool:
+    """Whether a record is `run_campaign`'s note that a continuation was refused.
+
+    Such a row says an attempt was made and why it could not start; it built no
+    script, archived nothing and touched no folder, so it is NOT the state of the
+    point and the run before it still is. Read as the latest run it would turn a
+    refusal whose remedy is "restore the saved simulation" into one that can
+    never be lifted, because the next attempt would find a FAILED run and be
+    told that a failed continuation is not retried.
+
+    It is told apart by what it lacks: every record `_execute_point` builds
+    names its recipe, including the four that fail before a script exists, and
+    this one reached no recipe.
+    """
+    return (
+        record.status is RunStatus.FAILED_SCRIPT
+        and not record.script_sha256
+        and record.recipe is None
+    )
 
 
 def _profile_of(executor: object) -> HpcProfile | None:
@@ -5296,6 +5376,7 @@ def _execute_point(
     workspace: CampaignWorkspace,
     sim_dir: Path,
     assess: OutcomeAssessor,
+    continues: str | None = None,
 ) -> RunRecord:
     """Take one point from sweep coordinates to its manifest record."""
     package_commit, package_dirty = package_vcs_state()
@@ -5314,6 +5395,10 @@ def _execute_point(
         "point_name": point_name(case, point),
         "sweep_name": sweep_name(case),
         "matrix_stem": campaign.matrix_stem,
+        # The run this one CONTINUES, in the base dict so that a continuation
+        # that fails says so as well: the chain is a fact about the attempt,
+        # not about its success. None for every point that continues nothing.
+        "continues": continues,
         "fs_version_requested": canonical,
         "package_version": pyflightstream.__version__,
         "package_commit": package_commit,
