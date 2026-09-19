@@ -38,6 +38,31 @@ FlightStream versions.
 - The window is resolved PER POINT. It was resolved once per simulation, off the
   first record, which is right only while every point of a row shares one clock.
 
+- **A ROW SWEEPING A FLOW VARIABLE RECORDED, AND PUBLISHED, THE FIRST POINT'S
+  STATE ON EVERY POINT.** Each point of a `MACH`, `TASmps`, `REmi`, `ALTFT` or
+  `dISA` sweep ran at its own velocity and density, and its run record was
+  written from the simulation-level case: a Mach 0.3 run recorded Mach 0.1, the
+  polar printed 0.1 on its row, and the rotor table divided by another point's
+  density. New records carry the point's own state. For records ALREADY written
+  the post stage resolves each point again from its row, uses that, and says so;
+  the record is left as it was. No re-run. A row that sweeps an angle or an
+  advance ratio is unaffected.
+
+### Fixed (a product that vanished now says why)
+
+- A run recorded as successful whose loads table is not on disk, or that names
+  no output, left every product in silence. It is named under `skipped`.
+- The unsteady probe table was unreachable on a default unsteady row: its gate
+  asked whether the steady probe export existed, and every such row leaves one
+  declaring zero points. It asks what the steady writer wrote.
+- An export one reader refuses now costs THAT product. A sectional-loads or
+  plots export that could not be read aborted the whole simulation after its
+  polars were on disk, so the manifest disowned files it had just written.
+- `[products] polars = false` on an unsteady row with a stated window was an
+  `UnboundLocalError` that aborted the post stage for every simulation.
+- The unsteady polar's `runs` named every run of the simulation while the
+  writer left points out. It names the points the file holds.
+
 ### Owed
 
 - **The Zenodo archive of v0.14.0 DOES NOT EXIST**, re-measured against

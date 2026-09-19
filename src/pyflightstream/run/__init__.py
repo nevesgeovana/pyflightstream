@@ -5299,6 +5299,14 @@ def _execute_point(
 ) -> RunRecord:
     """Take one point from sweep coordinates to its manifest record."""
     package_commit, package_dirty = package_vcs_state()
+    # THE STATE OF THIS POINT, NOT OF THE ROW (0.24.0). Every state field below
+    # read `case.*`, the simulation-level case, while the point's own case went
+    # to the script alone. On a row sweeping a flow variable each point therefore
+    # ran at its own Mach, velocity and density and RECORDED the first point's,
+    # and the rotor table then divided one point's force by another's density.
+    # `case_at_point` is the one function that resolves a point; asking it here
+    # is what makes the record describe what the solver was given.
+    at_point = case_at_point(case, point)
     base = {
         "run_id": run_id,
         "sim_id": case.sim_id,
@@ -5332,7 +5340,7 @@ def _execute_point(
         # `base` alone, so a field written later would be absent from
         # exactly the failed points a reader most wants to compare
         # (OPS-2009.01.13).
-        "velocity_requested_m_s": case.velocity,
+        "velocity_requested_m_s": at_point.velocity,
         # The post-processing artifact the row named (PFS-2029.16), so a
         # reader of the record knows which sections, plots and products
         # the point was run for without opening the matrix.
@@ -5368,19 +5376,19 @@ def _execute_point(
         # so a reader can tell a name from the identity beside it.
         "point_name_template": workspace.naming.point_name,
         "description": case.description or None,
-        "mach": case.mach,
+        "mach": at_point.mach,
         "reference": _reference_block(case),
         "campaign_name_from": name_from,
         # PFS-2027.05: the inputs as written and the resolved state, so
         # the record is recomputable rather than merely trusted.
-        "flight_condition": dict(case.flight_condition),
-        "flight_condition_defaults": dict(case.flight_condition_defaults),
-        "flight_condition_defaults_from": case.flight_condition_defaults_from,
-        "density_kg_m3": None if case.fluid is None else case.fluid.density_kg_m3,
-        "temperature_k": None if case.fluid is None else case.fluid.temperature_k,
-        "viscosity_pa_s": None if case.fluid is None else case.fluid.viscosity_pa_s,
-        "density_source": None if case.fluid is None else case.fluid.source,
-        "reference_length_m": None if case.fluid is None else case.fluid.reference_length_m,
+        "flight_condition": dict(at_point.flight_condition),
+        "flight_condition_defaults": dict(at_point.flight_condition_defaults),
+        "flight_condition_defaults_from": at_point.flight_condition_defaults_from,
+        "density_kg_m3": None if at_point.fluid is None else at_point.fluid.density_kg_m3,
+        "temperature_k": None if at_point.fluid is None else at_point.fluid.temperature_k,
+        "viscosity_pa_s": None if at_point.fluid is None else at_point.fluid.viscosity_pa_s,
+        "density_source": None if at_point.fluid is None else at_point.fluid.source,
+        "reference_length_m": None if at_point.fluid is None else at_point.fluid.reference_length_m,
         "inputs_sha256": inputs_sha256,
         "script_sha256": "",
         "raw_flag": False,

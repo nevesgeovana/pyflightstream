@@ -142,6 +142,7 @@ from pyflightstream.results import (
     parse_unsteady_plots,
 )
 from pyflightstream.workspace import RunStatus
+from pyflightstream.workspace.flight_condition import resolve_flight_condition
 from pyflightstream.workspace.inputs import resolve_reference
 from pyflightstream.workspace.naming import (
     ARCHIVE_DIR,
@@ -424,6 +425,13 @@ def point_condition(
         Keys in the spellings :func:`pyflightstream.post._tables.context_row`
         resolves, which is the column's own name or one of its recorded aliases.
     """
+    # THE POINT'S OWN STATE WINS THE SIMULATION'S (CC-01). The caller hands the
+    # FIRST record's Mach and cell, which is right for a row that sweeps an angle
+    # and publishes one Mach on every row of a Mach sweep.
+    own = getattr(point, "state", None)
+    if own is not None:
+        cell = own.cell or cell
+        mach = own.mach if own.mach is not None else mach
     condition: dict[str, object] = {}
     for source in (cell or {}, point.point or {}):
         condition.update(source)
@@ -460,6 +468,78 @@ def point_condition(
 
 
 @dataclass(frozen=True)
+class PointState:
+    """The flow state ONE point of a sweep resolved to, as the post stage holds it.
+
+    A record written before 0.24.0 states the SIMULATION's Mach, velocity and
+    air on every point of a row that swept a flow variable: the run layer wrote
+    them from the simulation-level case (STATE-SNAPSHOT). What such a record still
+    states truthfully is its ``point`` mapping and the row's cell as written, and
+    that is enough to resolve the point again with the same function the plan
+    used. The record is never rewritten; the products simply stop repeating it.
+    """
+
+    mach: float | None
+    cell: Mapping[str, object]
+    density_kg_m3: float | None
+    temperature_k: float | None
+    viscosity_pa_s: float | None
+    density_source: str | None
+    #: What the record said where this differs from it, for the warning.
+    differs: tuple[str, ...] = ()
+
+
+#: The keys of a sweep point that move the FLOW, as a row's cell spells them.
+_FLOW_KEYS = ("MACH", "TASmps", "REmi", "ALTFT", "dISA", "RHOkgm3", "MUPas", "ASMPS", "TK", "PPA")
+
+
+def point_state(record: RunRecord) -> PointState:
+    """Return the state of the record's OWN point, re-resolved where it swept the flow."""
+    stated = dict(record.flight_condition or {})
+    recorded = PointState(
+        mach=record.mach,
+        cell=stated,
+        density_kg_m3=record.density_kg_m3,
+        temperature_k=record.temperature_k,
+        viscosity_pa_s=record.viscosity_pa_s,
+        density_source=record.density_source,
+    )
+    swept = {key: value for key, value in (record.point or {}).items() if key in _FLOW_KEYS}
+    if not swept:
+        return recorded
+    cell = {**stated, **swept}
+    try:
+        resolved = resolve_flight_condition(
+            cell,
+            pol=str(record.sim_id),
+            reference_length_m=record.reference_length_m,
+            defaults=record.flight_condition_defaults or None,
+            defaults_origin=record.flight_condition_defaults_from,
+        )
+    except PyflightstreamError:
+        # A cell this release cannot resolve costs the correction and never the
+        # product: the point keeps what its record states, as it always did.
+        return PointState(**{**recorded.__dict__, "cell": cell})
+    differs = tuple(
+        f"{label} {was:g} is {now:g}"
+        for label, was, now in (
+            ("Mach", record.mach, resolved.mach),
+            ("density", record.density_kg_m3, resolved.density_kg_m3),
+        )
+        if isinstance(was, int | float) and abs(float(was) - float(now)) > 1e-9 * max(1.0, abs(now))
+    )
+    return PointState(
+        mach=resolved.mach,
+        cell=cell,
+        density_kg_m3=resolved.density_kg_m3,
+        temperature_k=resolved.temperature_k,
+        viscosity_pa_s=resolved.viscosity_pa_s,
+        density_source=resolved.density_source,
+        differs=differs,
+    )
+
+
+@dataclass(frozen=True)
 class PolarPoint:
     """One point of a polar: its loads report and where it came from.
 
@@ -474,6 +554,10 @@ class PolarPoint:
     loads: LoadsReport
     loads_path: Path
     point: Mapping[str, float] | None = None
+    #: The state THIS point resolved to (0.24.0): its Mach, its row cell with the
+    #: swept value in place, its air. None on a caller that builds a point by
+    #: hand, which then states the simulation's.
+    state: PointState | None = None
 
     @property
     def alpha_deg(self) -> float:
@@ -578,6 +662,13 @@ def polar_row(
         cdw, cyw, clw, crw, cmw, cnw,
         g.drag_profile, g.drag_induced,
     )  # fmt: skip
+
+
+def _mach_of(point: object, fallback: float) -> float:
+    """Return the Mach number of THIS point, the simulation's where it states none."""
+    own = getattr(point, "state", None)
+    mach = getattr(own, "mach", None)
+    return float(mach) if isinstance(mach, int | float) else fallback
 
 
 def _mach_code(mach: float) -> int:
@@ -1355,7 +1446,12 @@ def _rotor_tables(
                 block = stated.get(str(alias))
                 if isinstance(block, Mapping) and isinstance(block.get("rpm"), int | float):
                     rpm = float(block["rpm"])
-            density = record.density_kg_m3
+            own = getattr(point, "state", None)
+            density = (
+                own.density_kg_m3
+                if own is not None and own.density_kg_m3 is not None
+                else record.density_kg_m3
+            )
             # THE VELOCITY THE EXPORT REPORTS, NOT THE ONE THE MATRIX ASKED FOR.
             #
             # The owner settled which quantity, 2026-09-18: the export's surface
@@ -2758,7 +2854,7 @@ def _polar_rows(
         rows.append(
             polar_row(
                 point.alpha_deg,
-                mach,
+                _mach_of(point, mach),
                 reynolds / 1e6,
                 coefficients,
                 cref_m=reference.cref_m,
@@ -3354,11 +3450,27 @@ def _sim_products(
     sim_dir = workspace.sim_dir(sim_id)
     for record in records:
         if not record.outputs:
+            # NAMED, NOT DROPPED. A converged record with no outputs is what a
+            # submitted sweep leaves per point, and it vanished from every
+            # product on a bare `continue` with the manifest none the wiser.
+            skipped[f"runs/{record.run_id}"] = (
+                "this run is recorded as successful and names no output file, so no "
+                "product holds a row of it; collect it, or look at how it was submitted"
+            )
             continue
         kinds = classify_outputs([Path(o).name for o in record.outputs])
         by_name = {Path(o).name: sim_dir / o for o in record.outputs}
         loads_name = kinds.get("loads")
         if loads_name is None or not by_name[loads_name].is_file():
+            missing = (
+                "no loads export among its outputs"
+                if loads_name is None
+                else str(by_name[loads_name])
+            )
+            skipped[f"runs/{record.run_id}"] = (
+                f"this run is recorded as successful and its loads table is not on disk "
+                f"({missing}), so no product holds a row of it"
+            )
             continue
         text = by_name[loads_name].read_text(encoding="utf-8", errors="replace")
         try:
@@ -3372,8 +3484,18 @@ def _sim_products(
                 loads=report,
                 loads_path=by_name[loads_name],
                 point=dict(record.point),
+                state=point_state(record),
             )
         )
+        if points[-1].state is not None and points[-1].state.differs:
+            warnings.warn(
+                f"{stem}: the run record states the simulation's first point where this "
+                f"point swept the flow ({'; '.join(points[-1].state.differs)}). The products "
+                "use the point's own state, resolved again from its row; the record is "
+                "left as it was written.",
+                PyflightstreamWarning,
+                stacklevel=2,
+            )
         sloads_path = by_name.get(kinds["sectional_loads"]) if "sectional_loads" in kinds else None
         plots_path = by_name.get(kinds["plots"]) if "plots" in kinds else None
         probes_path = by_name.get(kinds["probes"]) if "probes" in kinds else None
@@ -3486,46 +3608,52 @@ def _sim_products(
     # simulation, so the refusal costs nothing to recover from.
     _refuse_aliases_a_file_name_cannot_tell_apart(plans, sim_id)
 
-    if products.polars:
-        # FR-85: ONE CONVENTION FOR THE WHOLE POINT. The table's rows are
-        # the sweep, so the name is the point convention the scripts and
-        # the exports already carry with the swept field written `sweep`,
-        # and the fields the sweep held FIXED are carried as values. The
-        # sweep is measured over the records rather than declared, so a
-        # case whose sweep resolved to one point is named for the point
-        # it has.
-        stated = [point.point or {} for point in points]
-        swept = swept_axes(stated)
-        # 0.21.0: THE NAMES ARE THE ONES THE RUN RECORDED. A record written before
-        # 0.21.0 carries none, and naming its tables by a recomputed name would
-        # set them beside files of another scheme.
-        # NON-EMPTY BY CONSTRUCTION, and the construction is twenty lines up:
-        # a point is appended only inside the loop that SKIPS a record with no
-        # outputs, so `points` is empty whenever this list would be, and
-        # `if not points: return` has already returned. The closing round of
-        # 0.21.0 put a refusal here against an IndexError at `recorded[0]`;
-        # measured by probe, no case reaches it, and a branch nothing reaches
-        # reads as covered while proving nothing.
-        recorded = [record for record in records if record.outputs]
-        if any(record.sweep_name is None or record.point_name is None for record in recorded):
-            raise ProductError(
-                f"simulation {sim_id!r} holds records written before 0.21.0, which carry no "
-                "point name; run `pyfs-matrix rename` once, naming the workspace root as workspace "
-                "(CLI: --workspace), then post"
-            )
-        table_name = str(recorded[0].sweep_name) if swept else str(recorded[0].point_name)
-        # FR-89: the SUPERFILE is about the sweep the ROW DECLARES, which is the one
-        # place its name differs from the polar table's beside it: a row declaring
-        # a one-value sweep still names it `+sweep`. With no matrix row in reach it
-        # follows the table.
-        super_name = str(recorded[0].sweep_name) if matrix_row is not None or swept else table_name
-        # ITEM 5 WIRED HERE. This read ONE key of the condition by hand --
-        # `advance_ratio` -- and the other columns the release added therefore
-        # reached the file as `NA` in every row. `point_condition` assembles the
-        # whole condition, reported over requested, and `context_row` resolves
-        # each recorded spelling onto its column.
-        conditions = [point_condition(point, mach=mach, cell=cell) for point in points]
+    # BOUND BEFORE THE `products.polars` GATE (MC-06). The four names below are read
+    # by the unsteady polar and the rotor tables, which do not ask that gate, so a
+    # pproc writing `polars = false` on an unsteady row met an `UnboundLocalError`:
+    # not a `ProductError`, so nothing caught it and the post stage aborted for
+    # EVERY simulation of the workspace. The comment forty lines up names this
+    # exact mistake for `cell`; it was fixed for one name and left for four.
+    # FR-85: ONE CONVENTION FOR THE WHOLE POINT. The table's rows are
+    # the sweep, so the name is the point convention the scripts and
+    # the exports already carry with the swept field written `sweep`,
+    # and the fields the sweep held FIXED are carried as values. The
+    # sweep is measured over the records rather than declared, so a
+    # case whose sweep resolved to one point is named for the point
+    # it has.
+    stated = [point.point or {} for point in points]
+    swept = swept_axes(stated)
+    # 0.21.0: THE NAMES ARE THE ONES THE RUN RECORDED. A record written before
+    # 0.21.0 carries none, and naming its tables by a recomputed name would
+    # set them beside files of another scheme.
+    # NON-EMPTY BY CONSTRUCTION, and the construction is twenty lines up:
+    # a point is appended only inside the loop that SKIPS a record with no
+    # outputs, so `points` is empty whenever this list would be, and
+    # `if not points: return` has already returned. The closing round of
+    # 0.21.0 put a refusal here against an IndexError at `recorded[0]`;
+    # measured by probe, no case reaches it, and a branch nothing reaches
+    # reads as covered while proving nothing.
+    recorded = [record for record in records if record.outputs]
+    if any(record.sweep_name is None or record.point_name is None for record in recorded):
+        raise ProductError(
+            f"simulation {sim_id!r} holds records written before 0.21.0, which carry no "
+            "point name; run `pyfs-matrix rename` once, naming the workspace root as workspace "
+            "(CLI: --workspace), then post"
+        )
+    table_name = str(recorded[0].sweep_name) if swept else str(recorded[0].point_name)
+    # FR-89: the SUPERFILE is about the sweep the ROW DECLARES, which is the one
+    # place its name differs from the polar table's beside it: a row declaring
+    # a one-value sweep still names it `+sweep`. With no matrix row in reach it
+    # follows the table.
+    super_name = str(recorded[0].sweep_name) if matrix_row is not None or swept else table_name
+    # ITEM 5 WIRED HERE. This read ONE key of the condition by hand --
+    # `advance_ratio` -- and the other columns the release added therefore
+    # reached the file as `NA` in every row. `point_condition` assembles the
+    # whole condition, reported over requested, and `context_row` resolves
+    # each recorded spelling onto its column.
+    conditions = [point_condition(point, mach=mach, cell=cell) for point in points]
 
+    if products.polars:
         # ITEM 17: AN UNSTEADY SIMULATION'S POLAR COMES FROM THE PLOTS, and the
         # group polars below are NOT written for it. Her answers of 2026-09-18:
         # the native coefficient export states the LAST TIME STEP, which on an
@@ -3601,31 +3729,41 @@ def _sim_products(
     for point in points:
         sloads_path, plots_path, probes_path = exports[point.name]
         if products.sections and sloads_path is not None and sloads_path.is_file():
-            target = _target(out / "sections" / f"{point.name}_sections.csv")
-            done = write_sections_table(
-                target,
-                sloads_path.read_text(encoding="utf-8", errors="replace"),
-                # NO `point=` SINCE 0.23.0 ITEM 13: the polar's name is the
-                # FILE's name and a column spent restating it told no row
-                # from another. The iteration and the azimuth are read from
-                # the export where it states them and are `NA` where it does
-                # not, which is the honest answer for a steady distribution
-                # and for a run that recorded no clock.
-                mach=mach,
-                # ITEM 5 WIRED HERE. A section is a distribution along a chord,
-                # and a number beside no reference length is a number nobody can
-                # check. The sections table carried no length AT ALL before this
-                # release, and carried the COLUMN and not the value until this
-                # line.
-                reference=reference,
-                advance_ratio=_advance_ratio_of(point),
-                # ITEM 13. The iteration comes out of the export itself; the
-                # CLOCK does not, and only a record states it. `run_clock` is
-                # the one that writes the point series, published for this
-                # rather than copied: two functions deriving one clock is how
-                # two products of a point disagree about when it was sampled.
-                step_deg=step_deg,
-            )
+            relative = f"sections/{point.name}_sections.csv"
+            target = _target(out / relative)
+            # ONE EXPORT, ONE PRODUCT (MT-01). A `ProductError` here used to leave
+            # this function after the polars were already on disk: the caller then
+            # recorded the whole SIMULATION as skipped, so the manifest disowned
+            # files it had just written and a stale super file stayed beside a
+            # fresh polar. The probe reader below has worked this way since 0.16.0.
+            try:
+                done = write_sections_table(
+                    target,
+                    sloads_path.read_text(encoding="utf-8", errors="replace"),
+                    # NO `point=` SINCE 0.23.0 ITEM 13: the polar's name is the
+                    # FILE's name and a column spent restating it told no row
+                    # from another. The iteration and the azimuth are read from
+                    # the export where it states them and are `NA` where it does
+                    # not, which is the honest answer for a steady distribution
+                    # and for a run that recorded no clock.
+                    mach=_mach_of(point, mach),
+                    # ITEM 5 WIRED HERE. A section is a distribution along a chord,
+                    # and a number beside no reference length is a number nobody can
+                    # check. The sections table carried no length AT ALL before this
+                    # release, and carried the COLUMN and not the value until this
+                    # line.
+                    reference=reference,
+                    advance_ratio=_advance_ratio_of(point),
+                    # ITEM 13. The iteration comes out of the export itself; the
+                    # CLOCK does not, and only a record states it. `run_clock` is
+                    # the one that writes the point series, published for this
+                    # rather than copied: two functions deriving one clock is how
+                    # two products of a point disagree about when it was sampled.
+                    step_deg=step_deg,
+                )
+            except ProductError as error:
+                skipped[relative] = str(error)
+                done = None
             if done is not None:
                 written.append(done)
                 written_names[done.relative_to(out).as_posix()] = {"runs": sources[point.name]}
@@ -3637,6 +3775,7 @@ def _sim_products(
         # deliberately: the artifact's `[exports]` table already decides
         # whether a row exports probe points at all, and a second switch
         # over the same fact is a way for the two to disagree.
+        steady_probes_written = False
         if probes_path is not None and probes_path.is_file():
             relative = f"{PROBES_DIR}/{point.name}_probes.csv"
             target = _target(out / relative)
@@ -3664,13 +3803,21 @@ def _sim_products(
                 skipped[relative] = str(error)
                 done = None
             if done is not None:
+                steady_probes_written = True
                 written.append(done)
                 written_names[done.relative_to(out).as_posix()] = {"runs": sources[point.name]}
         if products.plots and plots_path is not None and plots_path.is_file():
-            target = _target(out / PROBES_DIR / f"{point.name}_plots.csv")
-            done = write_plots_table(
-                target, plots_path.read_text(encoding="utf-8", errors="replace")
-            )
+            relative = f"{PROBES_DIR}/{point.name}_plots.csv"
+            target = _target(out / relative)
+            try:
+                done = write_plots_table(
+                    target, plots_path.read_text(encoding="utf-8", errors="replace")
+                )
+            except ProductError as error:
+                # THE SAME RULE (MT-01): this point loses its plots table and the
+                # reductions cut from it, named here, and nothing else.
+                skipped[relative] = str(error)
+                done = None
             if done is not None:
                 written.append(done)
                 written_names[done.relative_to(out).as_posix()] = {"runs": sources[point.name]}
@@ -3686,8 +3833,12 @@ def _sim_products(
                 # depended on state outside this invocation (the architecture
                 # lens, 2026-09-11). The question is whether THIS point had a
                 # steady probe export, which is the thing the rule is about.
-                steady_probes = exports[point.name][2]
-                if steady_probes is None or not steady_probes.is_file():
+                # ON WHAT THE STEADY WRITER WROTE, NOT ON ITS EXPORT EXISTING
+                # (NL-01). Every default unsteady row leaves a steady probe export
+                # of ZERO points, a file that is there and yields no table, so
+                # asking `is_file()` made this product unreachable on exactly the
+                # rows it exists for, with no skip to say so.
+                if not steady_probes_written:
                     # `_target` IS CALLED INSIDE THE GATE, not before it. It
                     # refuses a product that already exists, and on a point
                     # that produced BOTH exports the steady writer has just
@@ -3828,7 +3979,15 @@ def _sim_products(
         if done is not None:
             written.append(done)
             written_names[done.relative_to(out).as_posix()] = {
-                "runs": sorted({run for names in sources.values() for run in names}),
+                # ONLY THE POINTS THE FILE HOLDS (MT-03). It listed every run of
+                # the simulation while the writer left points out, so the
+                # provenance vouched for rows that are not there.
+                "runs": sorted(
+                    run
+                    for name, names in sources.items()
+                    if not any(left.startswith(f"{name}:") for left in unsteady_left_out)
+                    for run in names
+                ),
                 "source": "the unsteady plots, time-averaged",
                 "window": list(unsteady_window_steps),
                 # PER POINT where the points do not share one, so the manifest
