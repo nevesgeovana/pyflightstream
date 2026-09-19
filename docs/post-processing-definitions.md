@@ -6,8 +6,8 @@ conversation and re-derived from code, and a definition derived from code makes
 the code its own specification. Where this page and the code disagree, **this
 page is right and the code is a defect**.
 
-Every definition below is the product owner's, in her own words, with the date
-she gave it. Nothing here was inferred from an implementation.
+Every definition below states the requirement a product is built to. None of
+them was inferred from an implementation.
 
 !!! note "For whoever maintains this package"
     Read this page before changing any reduction, any averaging window, or any
@@ -188,14 +188,9 @@ unsteady point is built from.
     `probes/<point>_per_blade_<ALIAS>.csv` is one row per blade with its start
     and end azimuth, as defined here.
 
-> "O per-blade vai seguir a media olhando para a variável que fala de export
-> after x revs." -- 2026-09-17
->
-> "faz sentido sempre olhar a ultima janela convergida" -- 2026-09-17
->
-> "Nao importa que as blades estão em posições azimutais diferentes, nos podemos
-> ter uma coluna que mostra a posição azimutal de inicio e fim de cada para a
-> mesma janela" -- 2026-09-17
+The per-blade table averages each blade over the LAST part of the run, the
+row's averaging window. The blades sit at different azimuths, and that is not a
+reason for different windows: a column states where each blade starts and ends.
 
 **ONE window, shared by every blade.** One row per blade, and each row carries
 the **start and end azimuth of that blade** over that one shared window.
@@ -206,10 +201,8 @@ between two blades mixes a real azimuthal difference with a difference in WHEN
 each was sampled -- and nothing in the file says which is which. With one window,
 the azimuth columns carry the difference explicitly and the reader can see it.
 
-**The window is the same one the unsteady plots use.** Her words, 2026-09-18:
-*"a media per_blade usa a mesma info de last_revs e last_iters que o unsteady
-plots"* -- so it comes from `LAST_REVS_AVG` or `LAST_ITERS_AVG` on the matrix
-row, and not from a derivation of its own. One window per point, stated once,
+**The window is the same one the unsteady plots use**: it comes from
+`LAST_REVS_AVG` or `LAST_ITERS_AVG` on the matrix row, and not from a derivation of its own. One window per point, stated once,
 shared by the POLAR and by this table.
 
 Averaging from step one mixes the transient with the answer.
@@ -246,16 +239,8 @@ then the condition block and the moment point.
     declare it still gets the passage series**, so a workspace that never asked
     for the table reads the file it has always read.
 
-> "a ideia do phase-locked é olhar a mesma posição azimutal de varias voltas e
-> voltar um resultado que traz a media vs posição azimutal. Dessa forma, seria
-> 5*iter linhas se tiver 5 blades." -- 2026-09-17
->
-> "Phase_locked é quando você pega por exemplo três revoluções e faz a media para
-> cada ponto azimutal, ou seja, cada ponto azimutal vai ter 3 datapoints para a
-> media. Depois disso, você escreve o resultado final tabelado por posição
-> azimutal de 0 a 360. Você faz isso para cada blade isoladamente usando o SMRP,
-> e depois faz isso para cada alias usando o MRP global. Tudo num mesmo arquivo
-> com `_{alias/blade_name}_{SMRP ou MRP}`." -- 2026-09-18
+It looks at the SAME azimuthal position over several revolutions and returns
+the mean against azimuthal position.
 
 **It is an average ACROSS revolutions at a FIXED azimuth.** It is not a series
 of consecutive passages, and that distinction is the whole content of this
@@ -310,12 +295,9 @@ the moment point, then the plotted columns under the names the export prints.
     `pyfs-matrix post` reads it again from the pproc as it stands, so the gate
     and the depth can be edited with no solver re-run.
 
-> "no arquivo de pproc o usuário fala o número mínimo de revs total e revs usadas
-> para media. Se a especificação da matriz bater esse número mínimo, o
-> phase_locked é gerado" -- 2026-09-17
->
-> "Escreve last_revolutions_avg e lembra que o critério é o min_revolutions.
-> Sendo igual ou maior, o phase-locked é gerado" -- 2026-09-17
+The pproc states the minimum TOTAL revolutions and the revolutions each
+azimuthal mean takes; the table is generated when the matrix specification
+reaches that minimum.
 
 ```toml
 [phase_locked]
@@ -331,8 +313,6 @@ last_revolutions_avg = 2.0   # how many revolutions enter each azimuthal mean
 
 ### A short run is SKIPPED, never REFUSED
 
-> "não ter o rev min não recusa a polar, só não gera o phase_locked" -- 2026-09-17
-
 A run that turns fewer revolutions than the minimum loses **this reduction and
 nothing else**. Its POLAR, its per-blade table and every other product are
 written as usual. Taking a product away from a campaign that already ran is
@@ -346,12 +326,8 @@ always been.
 
 ## The averaging window
 
-> "o window como argumento opcional, pode ser em numero de iterações ou last
-> revs" -- 2026-09-18
->
-> "fica na matriz e é input obrigatorio de unsteady_rotor, para unsteady apenas,
-> fica last_iters_avg. Eu quero isso na matriz por conversar diretamente com
-> setup temporal." -- 2026-09-18
+The window is stated in iterations or in last revolutions, ON THE MATRIX ROW,
+and a row of an unsteady run type must state it.
 
 | column | run type | required | unit |
 |---|---|---|---|
@@ -378,18 +354,14 @@ published numbers come to disagree.
 refused: a row stating one still binds, with a warning that names the
 replacement, until 0.26.0 removes them. What such a row binds is the
 `time_average` window and the passages cut from it, and NOT the unsteady POLAR:
-a row that states neither `LAST_REVS_AVG` nor `LAST_ITERS_AVG` has its polar
-read from the native export.
+until 0.24.0 a row that stated neither `LAST_REVS_AVG` nor `LAST_ITERS_AVG` had
+its polar read from the native export, the run's last time step. Since 0.24.0 a
+NEW plan of such a row is refused, and a record made before it is averaged over
+the window the run was given, with a warning naming the steps.
 
 ---
 
 ## The unsteady POLAR
-
-> "A POLAR do unsteady sempre vai vir do unsteady plots, alem de ter a media
-> temporal" -- 2026-09-18
->
-> "despega daqueles nomes da polar, escreve o nome das variaveis como elas vieram
-> no unsteady plots" -- 2026-09-18
 
 - The POLAR of an unsteady point is the **plots history, time-averaged** over the
   window, and it does **not** read the native coefficient export.
@@ -497,10 +469,8 @@ printed, so every unsteady rotor table silently held the last time step.
 
 ### `ETAW`
 
-> "é a rotação por alpha. `[Fx_rotor_axis Fy_rotor_axis Fz_rotor_axis] *
-> rotação^T(eixo motor -> eixo corpo airframe) * rotação(alpha) = Fx_W`" and
-> "tem beta tambem, olha o standard do AIAA para rotação de eixos" and "sim,
-> continua sendo uma eficiencia" -- 2026-09-18
+It is an efficiency, with the rotor's force vector turned to wind axes in
+place of the thrust.
 
 1. Take the full force vector in the rotor frame, `[Fx, Fy, Fz]_rotor`.
 2. Carry it to the airframe body frame by the **transpose** of the
@@ -532,10 +502,6 @@ of merit cannot be offered: it needs a force the run does not state.
 ---
 
 ## What the package does NOT judge
-
-> "a convergencia temporal do unsteady vai ficar a cargo do usuario em analise a
-> posteriori" and "O pacote apenas diz se as iterações numericas dentro do ultimo
-> passo no tempo convergiu" -- 2026-09-18
 
 The package asserts **one** thing about an unsteady point's convergence: whether
 the **numerical iterations within the last time step** converged.
