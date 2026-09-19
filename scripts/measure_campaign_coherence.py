@@ -83,6 +83,12 @@ def _verdict(ok: bool | None) -> str:
 
 def steady_drag(workspace: Path, out: Path) -> dict[str, object]:
     """Check `CDW == CDi + CDo` on every steady export and on every steady polar row."""
+    # EACH MEASUREMENT AGAINST ITS OWN BAND (release review of 0.24.0, VV-V1). One
+    # band for the whole population, set by the loosest export, let a four-decimal
+    # export hide a sign defect on a seven-decimal one: the y-sign of 0.23.0 moves
+    # the projection by about 7e-5 at beta 4, and a four-decimal band is 1.5e-4.
+    # The verdict is the worst RATIO of a gap to its own band, with its row.
+    judged: list[tuple[float, str]] = []
     measured: list[dict[str, object]] = []
     worst = 0.0
     for polar in sorted((out / "polars").glob("P*.csv")):
@@ -94,6 +100,9 @@ def steady_drag(workspace: Path, out: Path) -> dict[str, object]:
                 continue
             gap = abs(cdw - (cd0 + cdi))  # type: ignore[operator]
             worst = max(worst, gap)
+            # Three columns printed at five decimals: half a unit on each.
+            allowed = 3 * 0.5e-5
+            judged.append((gap / allowed, f"{polar.name} ALPHA {row.get('ALPHA')}"))
             measured.append(
                 {
                     "polar": polar.name,
@@ -102,10 +111,10 @@ def steady_drag(workspace: Path, out: Path) -> dict[str, object]:
                     "CDW": cdw,
                     "CD0_plus_CDI": cd0 + cdi,
                     "gap": gap,
+                    "allowed": allowed,
                 }
             )  # type: ignore[operator]
     exports: list[dict[str, object]] = []
-    band = 0.0
     for loads in sorted(workspace.glob("sims/sim_*/datapoints/*/*.txt")):
         if re.search(r"_(plots|sloads|probes|cp|log)\b|_iteration=", loads.name):
             continue
@@ -125,8 +134,8 @@ def steady_drag(workspace: Path, out: Path) -> dict[str, object]:
         # drag integrals.
         half = 0.5 * 10.0 ** -total["decimals"]
         allowed = half * (sum(abs(weight) for weight in stream) + 2.0)
-        band = max(band, allowed)
         worst = max(worst, gap)
+        judged.append((gap / allowed, loads.name))
         exports.append(
             {
                 "export": loads.name,
@@ -139,14 +148,61 @@ def steady_drag(workspace: Path, out: Path) -> dict[str, object]:
                 "allowed": allowed,
             }
         )
-    # A polar row prints five decimals of numbers read off the same export.
-    band += 1.0e-5
-    ok = None if not (measured and exports) else worst <= band
+    # THE UNSTEADY POLAR TOO: its wind-axis drag is built from the averaged Newtons of a
+    # global-frame plot group and the row's own density, and the solver plots its own
+    # `CD` of the same group. Two five-decimal columns of one file.
+    unsteady: list[dict[str, object]] = []
+    for polar in sorted((out / "polars").glob("P*_uns_avg.csv")):
+        for row in _table(polar):
+            for name in row:
+                if not name.startswith("CDW_"):
+                    continue
+                group = name[len("CDW_") :]
+                plotted = next(
+                    (
+                        _number(row.get(candidate))
+                        # The axis block names the WHOLE plot group since the release
+                        # review (`CDW_MRP_TOTAL`); a polar written before took off
+                        # its `MRP_` (`CDW_TOTAL`).
+                        for candidate in (f"CD_{group}", f"CD_MRP_{group}")
+                        if _number(row.get(candidate)) is not None
+                    ),
+                    None,
+                )
+                turned = _number(row.get(name))
+                if plotted is None or turned is None:
+                    continue
+                gap = abs(turned - plotted)
+                # Two five-decimal columns, and the density the row states against
+                # the one the solver divided by: 2e-5, measured coherent on the
+                # licensed sector.
+                judged.append((gap / 2.0e-5, f"{polar.name} {name}"))
+                unsteady.append(
+                    {
+                        "polar": polar.name,
+                        "ALPHA": row.get("ALPHA"),
+                        "group": group,
+                        name: turned,
+                        "CD_plotted": plotted,
+                        "gap": gap,
+                    }
+                )
+    ratio, where = max(judged) if judged else (None, None)
+    ok = None if not (measured and exports) else ratio is not None and ratio <= 1.0
     return {
-        "measured": {"polar_rows": measured, "exports": exports, "worst_gap": worst},
+        "measured": {
+            "polar_rows": measured,
+            "exports": exports,
+            "unsteady_polar_rows": unsteady,
+            "worst_gap": worst,
+            "worst_ratio": ratio,
+            "worst_ratio_at": where,
+        },
         "band": (
-            f"{band:.2e}: half a unit of the last digit the export prints, on each of the "
-            "five numbers read off it, plus the polar's own five decimals"
+            "EACH against its own: an export, half a unit of the last digit IT prints on "
+            "each of the five numbers read off it; a polar row, half a unit on each of its "
+            "three five-decimal columns; an unsteady polar's CDW against the CD the solver "
+            "plots for the same group, 2e-5. The verdict is the worst gap over its own band"
         ),
         "verdict": _verdict(ok),
     }
