@@ -55,6 +55,13 @@ unsteady point is built from.
 
 ## `per_blade`
 
+!!! warning "NOT YET THE CODE as of 0.23.0 (marked 2026-09-18)"
+    This section is the definition 0.24.0 implements. What 0.23.0 writes is
+    the ONE shared window below and ONE ROW for it:
+    `probes/<point>_per_blade.csv` (or `..._per_blade_<ALIAS>.csv`) carries no
+    row per blade and no start and end azimuth columns. The definition stands;
+    the code is behind it.
+
 > "O per-blade vai seguir a media olhando para a variável que fala de export
 > after x revs." -- 2026-09-17
 >
@@ -75,7 +82,7 @@ the azimuth columns carry the difference explicitly and the reader can see it.
 
 **The window is the same one the unsteady plots use.** Her words, 2026-09-18:
 *"a media per_blade usa a mesma info de last_revs e last_iters que o unsteady
-plots"* -- so it comes from `last_revs_avg` or `last_iters_avg` on the matrix
+plots"* -- so it comes from `LAST_REVS_AVG` or `LAST_ITERS_AVG` on the matrix
 row, and not from a derivation of its own. One window per point, stated once,
 shared by the POLAR and by this table.
 
@@ -84,6 +91,13 @@ Averaging from step one mixes the transient with the answer.
 ---
 
 ## `phase_locked`
+
+!!! warning "NOT YET THE CODE as of 0.23.0 (marked 2026-09-18)"
+    This section is the definition 0.24.0 implements. What 0.23.0 writes under
+    this name is the averaging window cut into consecutive blade passages, one
+    row per passage. It does not average across revolutions at a fixed azimuth
+    and it is not tabulated from 0 to 360. The definition stands; the code is
+    behind it.
 
 > "a ideia do phase-locked é olhar a mesma posição azimutal de varias voltas e
 > voltar um resultado que traz a media vs posição azimutal. Dessa forma, seria
@@ -116,6 +130,13 @@ The operation, step by step:
 revolution, not a blade.
 
 ### When it is generated
+
+!!! warning "NOT YET THE CODE as of 0.23.0 (marked 2026-09-18)"
+    This section is the definition 0.24.0 implements. **Do not write the
+    `[phase_locked]` table in a 0.23.0 pproc: it is refused by name and the
+    artifact does not load.** In 0.23.0 no minimum is read, so nothing gates
+    the reduction on the revolutions a row turns. The definition stands; the
+    code is behind it.
 
 > "no arquivo de pproc o usuário fala o número mínimo de revs total e revs usadas
 > para media. Se a especificação da matriz bater esse número mínimo, o
@@ -161,8 +182,14 @@ Absent is not zero.
 
 | column | run type | required | unit |
 |---|---|---|---|
-| `last_revs_avg` | `unsteady_rotor` | **yes** | last revolutions, **accepts a float** |
-| `last_iters_avg` | `unsteady` | yes | last iterations |
+| `LAST_REVS_AVG` | `unsteady_rotor` | **yes** | last revolutions, **accepts a float** |
+| `LAST_ITERS_AVG` | `unsteady` | yes | last iterations |
+
+**The key is written in UPPER CASE, exactly as the table spells it**, like every
+other key of a matrix row. `VAR_NAMES_VALUES` keys are matched on the exact
+spelling: a lower-case `last_revs_avg` on a workflow row is refused as a key of
+no run type, and where that check does not run it is not read at all, so the
+window it meant to state is not applied.
 
 **It lives in the MATRIX, not in the pproc**, because it converses directly with
 the temporal setup: `DELTA_TIME`, `TIME_ITERATIONS` and `RPM` are all on the same
@@ -172,6 +199,14 @@ define it.
 `WINDOW_STEPS` and `WINDOW_REVOLUTIONS` are **retired** -- they were the same idea
 under another name in another place, and two spellings of one idea are how two
 published numbers come to disagree.
+
+**How the retirement is carried out, as of 0.23.0.** `WINDOW_STEPS`,
+`WINDOW_REVOLUTIONS` and `WINDOW_DEGREES`, all three, are DEPRECATED rather than
+refused: a row stating one still binds, with a warning that names the
+replacement, until 0.26.0 removes them. What such a row binds is the
+`time_average` window and the passages cut from it, and NOT the unsteady POLAR:
+a row that states neither `LAST_REVS_AVG` nor `LAST_ITERS_AVG` has its polar
+read from the native export.
 
 ---
 
