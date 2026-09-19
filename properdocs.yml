@@ -53,6 +53,7 @@ nav:
   # One section, newest first, so a release adds a line here and not an
   # entry at the top level of the menu (the pattern the SRS section uses).
   - Migrating to newer versions:
+      - Migrating to 0.24.0: migrating-to-0.24.0.md
       - Migrating to 0.23.0: migrating-to-0.23.0.md
       - Migrating to 0.22.0: migrating-to-0.22.0.md
       - Migrating to 0.21.0: migrating-to-0.21.0.md
