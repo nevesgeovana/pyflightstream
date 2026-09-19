@@ -32,6 +32,12 @@ FlightStream versions.
   flies, which the definitions page gives.
 - `polar_row` takes `beta_deg=`; `GroupCoefficients` carries `force` and
   `moment`, the export-frame sums.
+- Public surface: the new module `pyflightstream.post.axes`:
+  `polar_axis_coefficients`, `EXPORT_TO_BODY`, `dcm`, `body_to_stability`,
+  `body_to_wind`, `free_stream_in_export_frame`, `velocity_in_body_frame`,
+  `wind_angles`, `stability_force_coefficients`, `wind_force_coefficients`,
+  and `blade_azimuth_deg`, where a blade is at a step: the one rule the
+  sections table, the per-blade table and the per-blade rows call.
 
 ### Added (the `[names]` dictionary of the pproc)
 
@@ -45,6 +51,7 @@ FlightStream versions.
   in place and is said under `polars/<file>#names` or `probes/<point>#names`.
   The unsteady polar already carries the native export's last-step `CL`, so that
   name is taken; `CL_TOTAL` is not. Two entries for one name are refused at load.
+- Public surface: `post.products.renamed_columns`.
 
 ### Added (three pproc tables, which ship together)
 
@@ -75,6 +82,9 @@ FlightStream versions.
   and `blade_one_azimuth`; `post.products.write_phase_locked_table` and
   `PHASE_LOCKED_COLUMNS`; `cases.windows.phase_locked_entry`, `regate`, `AZIMUTHAL`;
   `workspace.register_input_guide` and `write_input_guides`; `CampaignPlan.guides`.
+- Public surface, also: `post.equations.apply_equations`, `resolve_symbol`,
+  `derived_column`; `post.guides.write_pproc_guides`,
+  `write_workspace_pproc_guides`, `PPROC_GUIDE_NAMES`, `VARIABLE_DEFINITIONS`.
 
 ### Added (the super file in fixed-width text)
 
@@ -87,12 +97,15 @@ FlightStream versions.
 ### Added (the unsteady polar states its axes)
 
 - **`P<sim>_<name>_uns_avg.csv` carries the eighteen axis coefficients**,
-  `CDW .. CNW`, `CDS .. CNS`, `CDB .. CNB`, after the plot columns. They come
+  under the steady polar's own eighteen names (`CDW .. CNW25`, `CDS .. CNS25`,
+  `CDB .. CNB25`), after the plot columns, EACH suffixed with its plot group's
+  whole name: `CLW_MRP_TOTAL`, `CMW25_MRP_TOTAL`. They come
   from the plots of the global `MRP` frame: the window average of `FX, FY, FZ,
   MX, MY, MZ` of a plot group declared in that frame, made coefficients by the
   row's own `RHO`, `VINF`, `SREF` and `CREF` and turned through `post/axes.py`.
-  Never a rotor's own frame. Several global-frame groups each take their
-  group's name (`CLW_TOTAL`, `CLW_AIRFRAME`). The groups are read off the pproc
+  Never a rotor's own frame. The suffix is there with one group or several,
+  so adding a group to the pproc renames no column a reader is keyed to, and two
+  groups can never write one column. The groups are read off the pproc
   artifact, because a plot's column states its group's name and not its frame.
 - **An unsteady run whose pproc plots those six for no global-frame group gets
   the group `MRP_TOTAL` added** (six more `UNSTEADY_SOLVER_NEW_FORCE_PLOT`
@@ -102,6 +115,9 @@ FlightStream versions.
 - Where the block cannot be written, no such plots in a run made before
   0.24.0 or a row stating no density, `products.json` says why under
   `polars/<file>#axes`. `pyfs-matrix post --strict` counts that as a skip.
+- Public surface: `post.products.UNSTEADY_AXIS_COLUMNS`, the eighteen names
+  before their suffix; `cases.AXES_PLOT_GROUP`, `AXES_PLOT_COMPONENTS` and
+  `ROTOR_PLOT_GROUP_PREFIX`, the plot groups a run adds.
 
 ### Changed (breaking: `per_blade` is one row per blade)
 
@@ -124,6 +140,7 @@ FlightStream versions.
   families are its blades. So does a run whose plots hold no column of a blade.
   `write_per_blade_table` is public; `per_blade_rows` takes `blade_families=`
   and `sense=`.
+- Public surface: `post.products.PER_BLADE_COLUMNS`.
 
 ### Fixed (changes a published number: an unsteady rotor table is the window average)
 
@@ -153,6 +170,8 @@ FlightStream versions.
   `window`. A campaign run before 0.24.0 whose pproc plots no such group gets
   NO rotor table for its unsteady points, with the reason: declare the group
   and run again, or read the steady points.
+- Public surface: `post.products.ROTOR_TABLE_LEAD_LINES` and
+  `ROTOR_TABLE_SUFFIX`, the first lines and the file-name suffix of a rotor table.
 
 ### Fixed (changes a published number)
 
@@ -263,6 +282,8 @@ FlightStream versions.
   point collected from a cluster got three header-only tables recorded as
   written. A kind with no stamped file is no longer written: it is a named
   skip.
+- Public surface: `post.products.section_identity`; `post.series.SECTIONS_SERIES_LEAD`
+  and `PROBE_COLUMN`.
 
 ### Changed (breaking: a reference the solver did not use is refused)
 
@@ -363,6 +384,8 @@ FlightStream versions.
   another. The group polars, the super file and the `.dat` that such a point
   used to get were read off the last time step and are no longer written for it.
   State the key on the row and post again to choose the window; no re-run.
+- Public surface: `cases.windows.averaging_steps`, `averaging_span`, `passages`,
+  `stated_key`, `replan`, and the two keys `LAST_REVS_AVG` and `LAST_ITERS_AVG`.
 
 ### Changed (an input format, with the old form still read)
 

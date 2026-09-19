@@ -106,7 +106,7 @@ polar row is that pair, summed over the group's surfaces and turned.
 
 | columns | axes | how |
 |---|---|---|
-| `CDB, CYB, CLB, CRB, CMB, CNB` | body: forward, right, down | half a turn about y. `CDB` IS the export's `Cx` and `CLB` its `Cz` |
+| `CDB, CYB, CLB, CRB25, CMB25, CNB25` | body: forward, right, down | half a turn about y. `CDB` IS the export's `Cx` and `CLB` its `Cz` |
 | `CDS ... CNS` | stability | body axes turned by `-alpha_s` about y |
 | `CDW ... CNW` | wind | stability axes turned by `beta_w` about z |
 
@@ -383,15 +383,16 @@ the window the run was given, with a warning naming the steps.
   flags. The super file is what the polar does not have; for an unsteady point it
   is not a second file.
 - **The axis coefficients follow the plot columns**, the eighteen of the steady
-  polar in the order `CDW .. CNW`, `CDS .. CNS`, `CDB .. CNB`. Their source is
+  polar under its own names, in the order `CDW .. CNW25`, `CDS .. CNS25`,
+  `CDB .. CNB25`, each suffixed with its plot group's WHOLE name
+  (`CLW_MRP_TOTAL`), one group or several. Their source is
   the plots of the GLOBAL `MRP` frame: the six components `FX, FY, FZ, MX, MY,
   MZ` of a plot group the pproc declares with `frame = "MRP"`, in Newtons and
   Newton metres, averaged over the row's window like every other column, divided
   by `1/2 RHO VINF^2 SREF` (and by `CREF` for the moments) of THAT row, and
   turned as [the axes of a steady polar](#the-axes-of-a-steady-polar) are. A
-  rotor's own frame is never the source: its axes are not the geometry's. With
-  several global-frame groups each block takes its group's name, `CLW_TOTAL`,
-  `CLW_AIRFRAME`.
+  rotor's own frame is never the source: its axes are not the geometry's. A
+  second global-frame group adds its own eighteen and renames none.
 - **A pproc that plots those six for no global-frame group gets one added by
   the run**, `MRP_TOTAL`, over every boundary, where the run has an `MRP` frame.
   A pproc that already plots them is left as it is, to the byte. A run made
