@@ -193,6 +193,17 @@ FlightStream versions.
   decimals. A workspace whose artifact and project agree is unaffected; one
   that is refused was publishing coefficients wrong by a constant factor.
 
+### Fixed (a row stating its one rotor with flat keys gets that rotor's table)
+
+- A row that states `RPM` and `ROTOR_AXIS` and no `MOTIONS` list plans no
+  per-rotor block, and the rotor table read a rotor's speed from that block
+  alone, so such a row never got its table; 0.23.0 made that a named skip. The
+  plan of such a row now records the speed it turned at (`rpm`, signed), and the
+  table is written when the row's reference declares EXACTLY ONE rotor, whose
+  speed it can only be. With several rotors nothing says whose speed it is and
+  the skip stays. A run made before 0.24.0 recorded no such speed and keeps its
+  skip; state the rotor through `MOTIONS` or run the row again.
+
 ### Fixed (a continued point is in its tables once)
 
 - A run that was CONTINUED is left out of the products and of the sweep table,

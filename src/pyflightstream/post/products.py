@@ -100,6 +100,7 @@ from pyflightstream.cases.windows import averaging_span, replan
 from pyflightstream.cases.workflows import (
     BLADE_FAMILIES_KEY,
     CONFIGURATION_VARIABLE,
+    FLAT_RPM_KEY,
     PER_ROTOR_REDUCTIONS,
     PROBE_POSITION_COLUMNS,
     REDUCTION_NAMES,
@@ -1490,6 +1491,19 @@ def _rotor_tables(
                 block = stated.get(str(alias))
                 if isinstance(block, Mapping) and isinstance(block.get("rpm"), int | float):
                     rpm = float(block["rpm"])
+            flat = reductions.get(FLAT_RPM_KEY)
+            if (
+                rpm is None
+                and not (isinstance(stated, Mapping) and stated)
+                and len(rotors) == 1
+                and isinstance(flat, int | float)
+                and not isinstance(flat, bool)
+            ):
+                # A ROW THAT STATES ITS ROTOR WITH FLAT KEYS plans no per-rotor
+                # block and records its speed at the top of the plan. With ONE
+                # rotor in the reference that speed can only be this rotor's;
+                # with several nothing says whose it is, and the skip stays.
+                rpm = float(flat)
             own = getattr(point, "state", None)
             density = (
                 own.density_kg_m3

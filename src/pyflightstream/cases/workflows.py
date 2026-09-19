@@ -3252,6 +3252,10 @@ ROTORS_KEY = "rotors"
 #: the whole run, whatever turns in it.
 PER_ROTOR_REDUCTIONS: tuple[str, ...] = ("phase_locked", "per_blade")
 
+#: The plan key under which a row stating its rotor with flat keys records the
+#: speed it turned at, rev/min, signed (0.24.0).
+FLAT_RPM_KEY = "rpm"
+
 #: The plan key under which a rotor's blade families are recorded, in the rotor's
 #: own order (0.24.0). A name and not a literal for the reason `ROTORS_KEY` is.
 BLADE_FAMILIES_KEY = "blade_families"
@@ -3810,6 +3814,16 @@ def reduction_windows(case: SimCase) -> dict[str, object] | None:
     }
     if not rotor:
         return plan
+
+    # THE SPEED OF A ROW THAT STATES ITS ROTOR WITH FLAT KEYS (0.24.0). It plans no
+    # per-rotor block, and the rotor table read a rotor's speed from that block
+    # alone, so such a row never got its table although the clock above was
+    # computed from this very number. Signed, as a block's is. A row whose speed
+    # cannot be resolved states none, and every reduction below says why.
+    try:
+        plan[FLAT_RPM_KEY] = float(rotor_speed(case).rpm)
+    except CampaignConfigError:
+        pass
 
     # ONE BLOCK PER ROTOR THE ROW TURNS (FR-68), each over its OWN blade
     # passage. A row turning one rotor also gets a block, so the products
