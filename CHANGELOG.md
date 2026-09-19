@@ -95,6 +95,10 @@ FlightStream versions.
 
 ### Changed
 
+- **Two public modules split out of `post.products`**: `post.provenance` and
+  `post.custom_polar`. Every name importable from `post.products` today is still
+  importable from there under the same spelling, and no product's format changed.
+
 - **New catalogued exception `ProductArgumentError`** (base `TypeError`), raised when
   a product writer is called with arguments that contradict each other, such as
   `write_sections_table(step=..., iteration=...)`. `except TypeError` catches it as it

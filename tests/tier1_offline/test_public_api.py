@@ -54,6 +54,7 @@ PUBLIC_MODULES = [
     # user checking which frame a published axis column is in, or turning a
     # vector of their own the way the polar does, calls `polar_axis_coefficients`.
     "pyflightstream.post.axes",
+    "pyflightstream.post.custom_polar",
     # 0.24.0: the evaluator of a pproc `[equations]` table. PUBLIC deliberately:
     # `resolve_symbol` IS the rule by which a symbol finds its column, the
     # generated guide and the workspace page both state it, and a user asking
@@ -67,6 +68,7 @@ PUBLIC_MODULES = [
     # does not change its direction.
     "pyflightstream.post.guides",
     "pyflightstream.post.products",
+    "pyflightstream.post.provenance",
     "pyflightstream.post.reductions",
     "pyflightstream.post.section_distributions",
     "pyflightstream.post.series",

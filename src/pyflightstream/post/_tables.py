@@ -13,6 +13,7 @@ from __future__ import annotations
 import csv
 import math
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
@@ -395,3 +396,115 @@ def _rotor_of_the_block(
             rpm=rotor.get("rpm"),
         )
     return None, None
+
+
+#: The twenty-four coefficient columns of a polar row, in the order: the
+#: point, the body axes, the stability axes, the wind axes, the two drag
+#: parts. ``RE`` is the Reynolds number in millions.
+COEFFICIENT_COLUMNS: tuple[str, ...] = (
+    "ALPHA",
+    "BETA",
+    "MACH",
+    "RE",
+    "CDB",
+    "CYB",
+    "CLB",
+    "CRB25",
+    "CMB25",
+    "CNB25",
+    "CDS",
+    "CYS",
+    "CLS",
+    "CRS25",
+    "CMS25",
+    "CNS25",
+    "CDW",
+    "CYW",
+    "CLW",
+    "CRW25",
+    "CMW25",
+    "CNW25",
+    "CD0",
+    "CDI",
+)
+
+#: The reference block every product row carries in front of its values,
+#: so a row is self-describing: which polar, which group, which reference.
+_REFERENCE_COLUMNS: tuple[str, ...] = ("SREF", "CREF", "BREF", "XMOM", "YMOM", "ZMOM")
+
+
+#: A sections table's columns: the point and its condition, then the
+#: sectional loads export's own seven columns, in its units.
+@dataclass(frozen=True)
+class ReferenceValues:
+    """The reference block of a product: SREF, CREF, BREF and the moment point.
+
+    The moment point is in the geometry's own coordinate system, the one the
+    solver holds the mesh in and reports loads about (the MRP frame the reference
+    scripts created sits at this point); the units ride on the field names.
+    """
+
+    sref_m2: float
+    cref_m: float
+    bref_m: float
+    xmom_m: float = 0.0
+    ymom_m: float = 0.0
+    zmom_m: float = 0.0
+
+    @classmethod
+    def from_mapping(cls, values: Mapping[str, float]) -> ReferenceValues:
+        """Read the block from a mapping keyed by the column names."""
+        try:
+            return cls(
+                sref_m2=float(values["SREF"]),
+                cref_m=float(values["CREF"]),
+                bref_m=float(values["BREF"]),
+                xmom_m=float(values.get("XMOM", 0.0)),
+                ymom_m=float(values.get("YMOM", 0.0)),
+                zmom_m=float(values.get("ZMOM", 0.0)),
+            )
+        except KeyError as missing:
+            raise ProductError(
+                f"the reference block needs {missing.args[0]}; it carries {sorted(values)}"
+            ) from missing
+
+    def as_row(self) -> tuple[float, ...]:
+        """Return the six values in :data:`_REFERENCE_COLUMNS` order."""
+        return (self.sref_m2, self.cref_m, self.bref_m, self.xmom_m, self.ymom_m, self.zmom_m)
+
+    def as_lengths(self) -> dict[str, float]:
+        """Return the three reference LENGTHS, keyed by their column names.
+
+        For the product families that carry no moment: a probe sample and a
+        reduction window have no moment coefficient, so three columns of moment
+        point would be three columns of nothing. The lengths are what a reader
+        of those files needs to check a coefficient against.
+        """
+        return {"SREF": self.sref_m2, "CREF": self.cref_m, "BREF": self.bref_m}
+
+    def as_moment_point(self) -> dict[str, float]:
+        """Return the moment point, keyed by its column names (0.24.0).
+
+        For the families that DO carry a moment without carrying the polar's own
+        reference block: the unsteady polar and the reductions average the plots'
+        `MX_/MY_/MZ_` columns, and a moment states nothing without the point it
+        is taken about.
+        """
+        return {"XMOM": self.xmom_m, "YMOM": self.ymom_m, "ZMOM": self.zmom_m}
+
+
+def _mach_code(mach: float) -> int:
+    """Return the two-digit Mach code of the reference file names: ``round(mach * 100)``."""
+    return round(mach * 100)
+
+
+def polar_file_name(polar: str | int, mach: float, group: str | int) -> str:
+    """``<polar>_M<mach code:02d>_g<group:02d>.csv``: one polar table per group.
+
+    THE RECORDED CONVENTION, and the one the reference tooling wrote
+    before this package existed. :func:`write_recorded_polar` regenerates
+    the recorded tables under it and is compared with what those files name for
+    name, which is why it stays. A polar table of a WORKSPACE is named by
+    :func:`swept_polar_file_name`, the standard point convention (FR-85).
+    """
+    return f"{polar}_M{_mach_code(mach):02d}_g{int(group):02d}.csv"
