@@ -527,70 +527,6 @@ def passage_windows(series: TimestepSeries, *, period_steps: int) -> list[tuple[
     return windows
 
 
-def converged_window(
-    *,
-    first_step: int,
-    last_step: int,
-    steps_per_revolution: int,
-    after_rev: float,
-) -> tuple[int, int]:
-    """Return the inclusive step window an unsteady product averages over.
-
-    v0.23.0 item 16, the owner's rule of 2026-09-17: "POLAR e [rotor table] do
-    unsteady vai ser vir do unsteady plots fazendo a media similar ao per
-    blades", and her reading of her own periodic case: "faz sentido sempre
-    olhar a ultima janela convergida".
-
-    ONE WINDOW FOR EVERY UNSTEADY PRODUCT, which is the point of this function
-    existing rather than three call sites each anchoring their own. The polar,
-    the rotor table and `per_blade` take the same steps, so a reader comparing
-    a coefficient against the per-blade rows beneath it is comparing numbers
-    from the same part of the run. Two windows would put a difference in the
-    fourth digit that nobody could attribute.
-
-    IT DERIVES NO AVERAGE. `blade_passage_average` is the only implementation
-    of that in the package, by its own docstring, and this returns the window
-    that function is given. Item 16 is a window and a routing, never a second
-    averaging routine: two implementations of one average is how two published
-    numbers come to disagree.
-
-    Parameters
-    ----------
-    first_step, last_step : int
-        The inclusive step range the history actually holds.
-    steps_per_revolution : int
-        Solver steps in one revolution, from the reductions plan.
-    after_rev : float
-        Revolutions to discard from the start, the export-after-revolutions
-        variable. The transient is the part of an unsteady run that is not the
-        answer.
-
-    Raises
-    ------
-    ValueError
-        If the history is shorter than the anchor asks to discard. A shorter
-        history averaged as a whole one is an average of a run that did not
-        finish writing, which is the refusal `write_reduction_table` already
-        makes at the moment a window is USED; this makes it at the moment the
-        window is derived, which is earlier and cheaper.
-    """
-    if steps_per_revolution <= 0:
-        raise ValueError(
-            f"steps_per_revolution is {steps_per_revolution}, so no revolution has a "
-            "length and no window can be anchored on one"
-        )
-    discarded = int(round(after_rev * steps_per_revolution))
-    start = first_step + discarded
-    if start > last_step:
-        raise ValueError(
-            f"the history runs from step {first_step} to {last_step} and the window "
-            f"discards {after_rev} revolution(s), which is {discarded} steps, so nothing "
-            "is left to average: a shorter history averaged as a whole one would be an "
-            "average of a run that did not finish writing"
-        )
-    return (start, last_step)
-
-
 def per_blade_rows(
     series: TimestepSeries,
     *,
@@ -628,8 +564,9 @@ def per_blade_rows(
     series : TimestepSeries
         The plots history, read back.
     window : tuple of int
-        Inclusive ``(first_step, last_step)``, the converged window every blade
-        shares. `post.unsteady.converged_window` derives it (item 16).
+        Inclusive ``(first_step, last_step)``, the one window every blade
+        shares: the LAST revolutions or iterations the matrix row states,
+        resolved by :func:`pyflightstream.cases.windows.averaging_span`.
     blades : int
         How many blades the rotor carries.
     steps_per_revolution : float

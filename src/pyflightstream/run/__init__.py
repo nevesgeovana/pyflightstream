@@ -6105,9 +6105,9 @@ def assess_unsteady_from_plots(
     ----------
     series : pyflightstream.post.unsteady.TimestepSeries
         The plots history, as `post.unsteady` reads it back. Annotated as
-        ``object`` rather than imported: `post` imports `run`, so naming the
-        type here at runtime would invert the dependency direction, which is
-        a design error rather than a lint finding.
+        ``object`` rather than imported: `post` is the layer ABOVE `run`, so
+        importing the type here would be an upward import, which is a design
+        error rather than a lint finding.
     settle_tolerance : float, optional
         The fractional change across the last two halves of the history below
         which it counts as settled. HERS to set.
@@ -6133,8 +6133,9 @@ def assess_unsteady_from_plots(
         return "FAILED_DIVERGED"
     if settle_tolerance is None:
         return "COMPLETED_MAX_ITER"
-    # THE WINDOW COMES FROM THE CALLER, which is `post.unsteady.converged_window`
-    # (item 16), and this function does not derive one. Judging settledness over
+    # THE WINDOW COMES FROM THE CALLER, which resolves it from the matrix row
+    # through `cases.windows.averaging_span` (the LAST revolutions or iterations
+    # the row states), and this function does not derive one. Judging settledness over
     # the WHOLE history compares the transient against the answer and calls a
     # perfectly converged run unsettled -- which is what the first writing of
     # this did, and the fixture that caught it was a history whose first step

@@ -98,10 +98,8 @@ __all__ = [
     "REPORTS_DIR",
     "RPM_COLUMN",
     "SUPERFILE_REPORT_PREFIX",
-    "SUPER_PREFIX",
     "SUPERFILE_FORMATS",
     "SuperfileDraft",
-    "declared_sweep",
     "matrix_rows",
     "plots_last_row",
     "release_tag",
@@ -111,12 +109,6 @@ __all__ = [
     "write_superfile_report",
     "write_superfiles",
 ]
-
-#: What the superfile carries in place of ``P`` (FR-89). The rest of
-#: the name is the point convention every script and export of the same
-#: point already carries, so the two sort side by side and a reader tells
-#: them apart by the one word that differs.
-SUPER_PREFIX = "SUPER-"
 
 #: Where a workspace's measurements land, beside ``post/`` and ``sims/``.
 REPORTS_DIR = "reports"
@@ -177,7 +169,11 @@ def super_file_name(
     group: str | int,
     suffix: str = ".csv",
 ) -> str:
-    """``SUPER-<sim>-<sweep name>_g<group:02d>.csv`` (0.21.0).
+    """``SUPER-<sim>-<sweep name>_<group>.csv`` (0.21.0), the group NAMED since 0.23.0.
+
+    ``<group>`` is the group's name, as in
+    ``SUPER-0001-M150AL+000BE+000J+sweep_PUSHER.csv``, and ``g<NN>`` for a group
+    that is still numbered, exactly as the polar table beside it writes it.
 
     ``sweep`` is the name of the case's whole sweep as the run recorded it
     (``RunRecord.sweep_name``), each swept field written ``<code>+sweep``: the
@@ -223,30 +219,6 @@ def matrix_rows(root: Path, matrix_stem: str | None) -> dict[str, MatrixRow]:
         # not evidence of any run. The cells are absent from both sides.
         return {}
     return {row.pol: row for row in rows}
-
-
-def declared_sweep(row: MatrixRow | None, measured: Sequence[str]) -> tuple[str, ...]:
-    """Return the axes the superfile writes as ``sweep``: the row's, else the measured ones.
-
-    THE ROW'S DECLARATION WINS, and this is the one place the superfile's
-    name differs from the polar table's beside it. MEASURED on `pfs0160`:
-    simulation 6002 declares `ADVANCE_RATIO:sweep` and its SWEEP_VALUES
-    cell holds a single value, so nothing VARIES across its points and
-    `swept_axes` correctly reports no axis. The polar table is therefore
-    named for the value it has (then `POLAR-6002_M14AL+000BE+000J+170_g01.csv`),
-    which is FR-85's own rule and right for a table of one row.
-
-    A superfile named that way would carry no `sweep` field at all, which
-    the requirement's own example and the decision behind it exclude: the superfile
-    is about the SWEEP, whatever the sweep resolved to. So the axis comes
-    from the cell that declares it, and falls back to what varied only
-    where no matrix row is in reach.
-    """
-    if row is None:
-        return tuple(measured)
-    if row.sweep.type == "alpha_beta":
-        return ("alpha", "beta")
-    return (row.sweep.type,)
 
 
 # --- the row ---------------------------------------------------------------

@@ -1129,12 +1129,13 @@ axis = [0.0, 0.199, 0.980]    # a mesh that arrives with pitch and toe in it
 
 \begin{frame}[fragile]{Unsteady products come from the plots}
 \begin{lstlisting}
-from pyflightstream.post.unsteady import converged_window, per_blade_rows
-window = converged_window(first_step=1, last_step=400,
-                          steps_per_revolution=100, after_rev=2.0)
+from pyflightstream.cases.windows import averaging_span
+# the row states LAST_REVS_AVG = 0.5; the run took 1000 steps, 250 a revolution
+averaging_span({"LAST_REVS_AVG": "0.5"}, last_step=1000, per_revolution=250.0)
+# (876, 1000)
 \end{lstlisting}
   \begin{itemize}
-    \item The POLAR, the rotor table and \code{per\_blade} all average over the SAME window, anchored on the export-after-revolutions variable. Two windows would put a difference in the fourth digit that nobody could attribute.
+    \item The POLAR, the rotor table and \code{per\_blade} all average over the SAME window: the LAST revolutions (\code{LAST\_REVS\_AVG}) or iterations (\code{LAST\_ITERS\_AVG}) the matrix row states, ending at the run's last step. Two windows would put a difference in the fourth digit that nobody could attribute.
     \item \code{per\_blade} is ONE window, one row per blade, with each blade's start and end azimuth in columns. It averaged each blade over its own passage before, which mixed a real azimuthal difference with a difference in WHEN each blade was sampled.
     \item The native coefficient export stays as a HEALTH CHECK only. It is the last iteration, which on an oscillating rotor is one instant of a cycle, so the POLAR no longer reads it and the assessor judges from the history.
   \end{itemize}
