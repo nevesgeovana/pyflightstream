@@ -1518,6 +1518,30 @@ def rotor_plot_source(
     return candidates, refused
 
 
+def _rotor_surfaces_carried(
+    rotor: object,
+    surfaces: Mapping[str, object],
+    aliases: Mapping[str, Sequence[str]] | None,
+) -> list[str]:
+    """Return the surfaces of this point that belong to ``rotor``, as the export names them.
+
+    RESOLVED AS THE ROTOR'S LOADS ARE (:func:`rotor_shaft_loads`): through the
+    package's group resolver, an alias, a family or an exact name, and compared
+    without case. A plain membership test kept `Spinner` and lost `blade1` against
+    an export naming `Blade1`, so a spinner-only plot group read as the rotor's
+    whole history (the independent review of GitHub main, GH-1).
+    """
+    stated = [
+        str(family)
+        for family in [
+            *(getattr(rotor, "families_general", None) or []),
+            *(getattr(rotor, "families_blades", None) or []),
+        ]
+    ]
+    owned = {name.casefold() for name in select_group_members(stated, list(surfaces), aliases)}
+    return [str(name) for name in surfaces if str(name).casefold() in owned]
+
+
 def _rotor_tables(
     workspace: CampaignWorkspace,
     sim_id: str,
@@ -1805,16 +1829,7 @@ def _rotor_tables(
             surfaces: Mapping[str, Mapping[str, float]] = (
                 point.loads.surfaces if point.loads is not None else {}
             )
-            own_families: list[str] = []
-            for stated_family in [
-                *(getattr(rotor, "families_general", None) or []),
-                *(getattr(rotor, "families_blades", None) or []),
-            ]:
-                own_families.extend(
-                    str(member)
-                    for member in (aliases or {}).get(str(stated_family), (stated_family,))
-                )
-            carried = [name for name in own_families if name in surfaces]
+            carried = _rotor_surfaces_carried(rotor, surfaces, aliases)
             newtons, why_not, read_from = _averaged_newtons(point, str(alias), carried)
             if newtons is None and (windows or {}).get(point.name, window) is not None:
                 # A ROW THAT STATES A WINDOW NEVER GETS AN INSTANT (RI-01). The table
