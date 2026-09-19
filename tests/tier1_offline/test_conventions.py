@@ -100,6 +100,11 @@ _UNIT_SUFFIX = re.compile(
 #: with a stated reason.
 _DIMENSIONLESS_OR_DEBT = {
     # (a) dimensionless by physics or by construction
+    # 0.25.0 F04: advanced solver factors the command database states with no unit
+    # (a blending factor, a relaxation factor) or in jet wake diameters.
+    "rotor_induced_velocity_blending",  # SolverSettings, ROTOR_INDUCED_VELOCITY_BLENDING
+    "wake_numerical_relaxation",  # SolverSettings, SET_WAKE_NUMERICAL_RELAXATION
+    "jet_wake_decay_normalized_length",  # SolverSettings, in jet wake diameters
     "end",  # ProbeLine.end (start is below): in the unit ProbesSpec.scale names (PFS-2029.07)
     # FR-79, and the same reason as ProbeLine.end above: a probe shape is
     # stated in the unit its entry's `scale` names, metres OR rotor radii, so

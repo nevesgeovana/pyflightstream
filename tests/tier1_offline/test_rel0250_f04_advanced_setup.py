@@ -42,7 +42,7 @@ SETTINGS = [
     ),
     ("wake_numerical_relaxation", "SET_WAKE_NUMERICAL_RELAXATION", 0.2, "0.2", "26.123", 28),
     ("wake_relaxation", "SET_WAKE_RELAXATION", True, "ENABLE", "26.000", 36),
-    ("wake_decay_constant", "SET_WAKE_DECAY_CONSTANT", 0.3, "0.3", "26.123", 30),
+    ("wake_decay_constant_per_m", "SET_WAKE_DECAY_CONSTANT", 0.3, "0.3", "26.123", 30),
     (
         "wake_streamwise_agglomeration",
         "SET_WAKE_STREAMWISE_AGGLOMERATION",
@@ -131,13 +131,13 @@ def test_setup_emits_advanced_setting_and_preserves_post_flag(
 @pytest.mark.parametrize(
     "key,build,command",
     [
-        ("wake_decay_constant", "26.120", "SET_WAKE_DECAY_CONSTANT"),
+        ("wake_decay_constant_per_m", "26.120", "SET_WAKE_DECAY_CONSTANT"),
         ("wake_relaxation", "26.121", "SET_WAKE_RELAXATION"),
         ("jet_wake_filaments_grid_induction", "26.121", "SET_JET_WAKE_FILAMENTS_GRID_INDUCTION"),
     ],
 )
 def test_setup_refuses_unavailable_command_with_build(tmp_path, key, build, command):
-    value = "0.3" if key == "wake_decay_constant" else "true"
+    value = "0.3" if key == "wake_decay_constant_per_m" else "true"
     case = setup_case(tmp_path, f"{key} = {value}\n")
     with pytest.raises(CommandNotInVersionError) as raised:
         _settings(case, Script(build))

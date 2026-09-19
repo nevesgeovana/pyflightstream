@@ -173,15 +173,15 @@ def test_the_per_step_exports_are_read_from_the_export_set_and_update_before_exp
     assert threshold is not None
     lines = threshold.exports.splitlines()
     verbs = [line for line in lines if line and not line.startswith("p")]
+    # F01 (0.25.0): an unsteady row samples probes through fluid plots, so it
+    # neither updates nor exports probe points, per step or at the end.
     assert verbs == [
         "UPDATE_ALL_SURFACE_SECTIONS",
         "COMPUTE_SURFACE_SECTIONAL_LOADS NEWTONS",
-        "UPDATE_PROBE_POINTS",
         "EXPORT_SOLVER_ANALYSIS_SPREADSHEET",
         "EXPORT_SOLVER_ANALYSIS_TECPLOT",
         "EXPORT_ALL_SURFACE_SECTIONS",
         "EXPORT_SURFACE_SECTIONAL_LOADS",
-        "EXPORT_PROBE_POINTS",
     ], lines
     assert "SAVEAS" not in threshold.exports
     assert "EXPORT_LOG" not in threshold.exports
@@ -880,12 +880,15 @@ def test_goal019_watchdog_the_rescue_exports_update_before_it_exports(tmp_path):
     for command in (
         "UPDATE_ALL_SURFACE_SECTIONS",
         "COMPUTE_SURFACE_SECTIONAL_LOADS NEWTONS",
-        "UPDATE_PROBE_POINTS",
     ):
         assert command in lines, f"the rescue exports without {command}: {lines}"
         assert lines.index(command) < min(
             index for index, line in enumerate(lines) if line.startswith("EXPORT_")
         ), f"{command} comes after an export, so the export is of the previous state"
+    # F01 (0.25.0): this unsteady row samples its probes through fluid plots, so
+    # the rescue neither updates nor exports probe points.
+    assert "UPDATE_PROBE_POINTS" not in lines, lines
+    assert "EXPORT_PROBE_POINTS" not in lines, lines
     assert lines[-1] == WALLTIME_STOP_VERB, lines
     assert lines.count(WALLTIME_STOP_VERB) == 1, lines
 

@@ -3,7 +3,10 @@ The `pfs0240_row2413_steps58-61_log.txt` and
 campaign pfs0240, rows 2413 and 2411, respectively. Each contains the native
 log's first eight lines (version/copyright header), followed by the bytes from
 the start of `Solving unsteady time-step iteration (58/144)` up to, but not
-including, the step 62 marker. NUL bytes, tabs and CRLF line endings are retained.
+including, the step 62 marker. Tabs are retained; the solver's NUL padding bytes are removed (the
+repository's control-byte guard forbids them in a tracked text file, and
+`frozen_time_steps` strips them before parsing), and line endings are
+normalised to LF by `.gitattributes`. Every other byte is the source's.
 
 Source relative to the campaign directory:
 `sims/sim_<row>/datapoints/DP-M144RE438AL+000BE+000/P<row>-M144RE438AL+000BE+000_log.txt`.

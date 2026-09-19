@@ -26,13 +26,30 @@ FlightStream versions.
   quietly stops being citable is the gap PFS-2024.09 is about. Cite that
   release by the concept DOI, which resolves to the newest archived version.
 
+### Changed (breaking: the probe source follows the run type)
+
+- **On an unsteady row every `[[probes]]` entry is a fluid plot, and its table is the
+  plots history.** A cited `points_file` is read at plan and each of its points,
+  for each listed parameter, becomes a fluid plot on the same vertex counter as the
+  drawn lines; the row no longer imports the file (`PROBE_POINTS_IMPORT`) nor exports
+  probe points (`EXPORT_PROBE_POINTS`, the LAST STEP only). `post` builds an unsteady
+  point's probes table from the plots history, never from a probe-points export, so
+  a pproc mixing drawn lines and a cited profile yields ONE history table holding
+  both. A steady row is unchanged: both forms use the probe-points path.
+- **Re-posting an unsteady run recorded before 0.25.0**: its cited-profile probes
+  were exported as a last-step instant and have no history; posting again cannot
+  create one. They are left out with that reason in `products.json`, and the
+  drawn-line probes of the same run keep their history. A new run is needed for the
+  cited probes' history.
+- An unsteady row's default outputs lose `{name}_probes.txt` (seven, not eight).
+
 ### Added
 
 - **Fourteen advanced solver settings have a setup key of their own**, so they no
   longer need `[[raw]]`: `laminar_separation`, `kutta_joukowski_lift`,
   `aeroelastic_rbf_type`, `print_rotor_induced_velocities`,
   `adaptive_field_grid_refinement`, `rotor_induced_velocity_blending`,
-  `wake_numerical_relaxation`, `wake_relaxation`, `wake_decay_constant`,
+  `wake_numerical_relaxation`, `wake_relaxation`, `wake_decay_constant_per_m`,
   `wake_streamwise_agglomeration`, `jet_wake_decay_normalized_length`,
   `jet_wake_filaments_grid_induction`, `adverse_gradient_boundary_layer` and
   `vortex_ring_normalization`. Each emits its solver command when set and nothing

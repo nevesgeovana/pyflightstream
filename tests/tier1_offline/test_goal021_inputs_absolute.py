@@ -151,7 +151,13 @@ def test_goal021_inputs_absolute_the_geometry_a_point_opens(tmp_path):
 
 
 def test_goal021_inputs_absolute_a_probe_survey_the_user_cited(tmp_path):
-    """FR-80: a `[[probes]]` entry citing her points file is imported by an absolute path."""
+    """FR-80: a `[[probes]]` entry citing a points file leaves no relative path in a script.
+
+    SINCE 0.25.0 (F01) THIS ROTOR ROW READS THE SURVEY ITSELF, at plan, and
+    samples each point through a fluid plot; it imports nothing, so no path to
+    the survey reaches the script at all. The import by absolute path is held on
+    a steady row by test_workflows.py.
+    """
     workspace = _workspace(tmp_path)
     (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
         '[groups]\n"1" = ["W", "B"]\n\n'
@@ -163,18 +169,16 @@ def test_goal021_inputs_absolute_a_probe_survey_the_user_cited(tmp_path):
     )
     profiles = workspace.inputs_dir / "profiles"
     profiles.mkdir(parents=True, exist_ok=True)
-    (profiles / "disk_survey.txt").write_text("0.0 0.0 0.0\n", encoding="utf-8")
+    # The import file format of the manual (SRC-003 p.362): the count, then
+    # X,Y,Z,TYPE. The one-line placeholder this held was never read before F01.
+    (profiles / "disk_survey.txt").write_text("1\n0.0,0.0,0.0,1\n", encoding="utf-8")
     _run(workspace, _rotor_row(tmp_path))
-    imported = [
-        path
-        for script in _point_scripts(workspace)
-        for verb, path in _read_paths(script)
-        if verb == "PROBE_POINTS_IMPORT"
-    ]
-    if not imported:
+    text = "\n".join(s.read_text(encoding="utf-8") for s in _point_scripts(workspace))
+    if "UNSTEADY_SOLVER_NEW_FLUID_PLOT" not in text:
         raise NothingMeasuredError(
-            "no PROBE_POINTS_IMPORT was emitted, so the cited survey was not measured"
+            "no fluid plot was emitted, so the cited survey was not measured"
         )
+    assert "PROBE_POINTS_IMPORT" not in text, "an unsteady row imports no survey (F01)"
     assert _relative(workspace) == [], _relative(workspace)
 
 

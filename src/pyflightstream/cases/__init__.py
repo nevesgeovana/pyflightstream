@@ -365,8 +365,8 @@ class SweepAxis(BaseModel):
 
 #: THE EXPORT KINDS A POINT LEAVES (FR-51, PFS-2029.14), in the order the
 #: the reference driver wrote them and with the reference suffixes: (kind, suffix, the
-#: solver verb, unsteady only). A steady point leaves seven, an unsteady point
-#: eight, the plots file being the one only a time loop produces. The suffix is
+#: solver verb, unsteady only). A steady point leaves probe points; an unsteady
+#: point leaves plots history in their place. The suffix is
 #: what pairs a declared output name with its verb, longest suffix first, so
 #: ``x_cp.txt`` is the sections export and never the loads table.
 EXPORT_KINDS: tuple[tuple[str, str, str, bool], ...] = (
@@ -386,7 +386,8 @@ def default_outputs(unsteady: bool, exports: Mapping[str, bool] | None = None) -
 
     Every kind hangs off ``{name}``, the point's rendered stem, so the
     naming template decides the stem and this list decides the suffixes
-    (PFS-2029.19); a steady row leaves out the plots file. ``exports`` is
+    (PFS-2029.19); a steady row leaves out the plots file, and an unsteady row
+    leaves out the probe-points instant export. ``exports`` is
     the pproc artifact's
     ``[exports]`` table (PFS-2029.14.02): a kind set to false is left
     out, a kind the table does not name is kept, so an empty table is
@@ -396,7 +397,9 @@ def default_outputs(unsteady: bool, exports: Mapping[str, bool] | None = None) -
     return [
         f"{{name}}{suffix}"
         for kind, suffix, _, only_unsteady in EXPORT_KINDS
-        if (unsteady or not only_unsteady) and chosen.get(kind, True)
+        if (unsteady or not only_unsteady)
+        and chosen.get(kind, True)
+        and not (unsteady and kind == "probes")
     ]
 
 
@@ -2972,7 +2975,7 @@ class SolverSettings(BaseModel):
     rotor_induced_velocity_blending: float | None = None
     wake_numerical_relaxation: float | None = None
     wake_relaxation: SolverToggle | None = None
-    wake_decay_constant: float | None = None
+    wake_decay_constant_per_m: float | None = None
     wake_streamwise_agglomeration: SolverToggle | None = None
     jet_wake_decay_normalized_length: float | None = None
     jet_wake_filaments_grid_induction: SolverToggle | None = None

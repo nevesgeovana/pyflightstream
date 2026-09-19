@@ -24,8 +24,8 @@ record, so any spreadsheet or dataframe reads them with nothing else:
   (FR-87), whatever the run type was: ``probes/<point>_plots.csv``, the
   unsteady plots export re-tabled with its coefficient columns brought
   from the solver's reference velocity to the free stream, and
-  ``probes/<point>_probes.csv``, the probe-points export of a row of any
-  kind re-tabled in its own units;
+  ``probes/<point>_probes.csv``, the probe-points export of a steady row or the
+  fluid-plots history of an unsteady row, re-tabled in its own units;
 * the REDUCTIONS of that table, one file per applicable reduction beside
   it (PFS-2015.04): ``probes/<point>_time_average.csv``,
   ``probes/<point>_phase_locked.csv`` and
@@ -2758,7 +2758,7 @@ def write_plots_table(path: str | Path, export_text: str) -> Path | None:
 PROBE_SPINE: tuple[str, ...] = (*PROBE_POSITION_COLUMNS, "STEP", *CONTEXT_COLUMNS)
 
 
-def _probe_parameters(pproc) -> tuple[str, ...]:
+def _probe_parameters(pproc, *, drawn_only: bool = False) -> tuple[str, ...]:
     """Return the fluid parameters this artifact's probe entries ask for (FR-91).
 
     In declaration order, de-duplicated, across every `[[probes]]` entry,
@@ -2780,6 +2780,8 @@ def _probe_parameters(pproc) -> tuple[str, ...]:
     """
     out: list[str] = []
     for entry in getattr(pproc, "probes", None) or []:
+        if drawn_only and entry.points_file:
+            continue
         for parameter in getattr(entry, "parameters", None) or []:
             if parameter not in out:
                 out.append(parameter)
@@ -5079,16 +5081,23 @@ def _sim_products(
                     # history is `series/<point>_sections_series.csv`.
                     "kind": "instant",
                 }
-        # FR-87, the steady half. The probe-points export is the
-        # flow-field sample of a point that is not an unsteady history,
-        # and it is the ONE export both run types produce, so it is what
-        # makes `probes/` mean the same thing on a steady row and an
-        # unsteady one. It is gated by no `[products]` key of its own,
-        # deliberately: the artifact's `[exports]` table already decides
-        # whether a row exports probe points at all, and a second switch
-        # over the same fact is a way for the two to disagree.
-        steady_probes_written = False
-        if probes_path is not None and probes_path.is_file():
+        # F01: the recorded run type selects the source. An instant from an
+        # older unsteady run cannot supply or replace a fluid-plots history.
+        record = record_of[point.name]
+        unsteady = record.recipe in ("unsteady", "unsteady_rotor")
+        probe_relative = f"{PROBES_DIR}/{point.name}_probes.csv"
+        release = re.match(r"(\d+)\.(\d+)", record.package_version)
+        legacy_profiles = bool(release and tuple(map(int, release.groups())) < (0, 25))
+        if unsteady and legacy_profiles:
+            for entry in pproc.probes:
+                if entry.points_file and entry.parameters:
+                    skipped[f"{probe_relative}#points_file={entry.points_file}"] = (
+                        f"probe profile {entry.points_file!r} was sampled as an instant by "
+                        f"pyflightstream {record.package_version}; no fluid-plots history was "
+                        "recorded for these probes. Posting again cannot create history; "
+                        "a new run is needed. Drawn probes keep their available history."
+                    )
+        if not unsteady and probes_path is not None and probes_path.is_file():
             relative = f"{PROBES_DIR}/{point.name}_probes.csv"
             target = _target(out / relative)
             # A SKIP AND NOT THE SIMULATION'S WHOLE STAGE, which is where
@@ -5115,7 +5124,6 @@ def _sim_products(
                 skipped[relative] = str(error)
                 done = None
             if done is not None:
-                steady_probes_written = True
                 written.append(done)
                 written_names[done.relative_to(out).as_posix()] = {"runs": sources[point.name]}
         if products.plots and plots_path is not None and plots_path.is_file():
@@ -5134,35 +5142,13 @@ def _sim_products(
                 written.append(done)
                 written_names[done.relative_to(out).as_posix()] = {"runs": sources[point.name]}
                 plots_tables[point.name] = done
-                # FR-91. The unsteady half, and only where the steady
-                # export did not already write this point's table: a row
-                # that produced both has the fuller of the two, and two
-                # writers racing for one name is the duplicate FR-90 is
-                # about.
-                # FROM THE DATA AND NOT FROM THE FILESYSTEM. This asked
-                # whether the destination existed, so a stale table left by an
-                # earlier post run suppressed the fresh one and the product
-                # depended on state outside this invocation (the architecture
-                # lens, 2026-09-11). The question is whether THIS point had a
-                # steady probe export, which is the thing the rule is about.
-                # ON WHAT THE STEADY WRITER WROTE, NOT ON ITS EXPORT EXISTING
-                # (NL-01). Every default unsteady row leaves a steady probe export
-                # of ZERO points, a file that is there and yields no table, so
-                # asking `is_file()` made this product unreachable on exactly the
-                # rows it exists for, with no skip to say so.
-                if not steady_probes_written:
-                    # `_target` IS CALLED INSIDE THE GATE, not before it. It
-                    # refuses a product that already exists, and on a point
-                    # that produced BOTH exports the steady writer has just
-                    # written this very path, so calling it first turned the
-                    # steady-wins rule into a refusal of the whole simulation
-                    # (found by the case written for this rule, 2026-09-11).
+                if unsteady:
                     probe_target = _target(out / PROBES_DIR / f"{point.name}_probes.csv")
                     field = write_unsteady_probes_table(
                         probe_target,
                         done,
                         positions=probe_positions,
-                        parameters=_probe_parameters(pproc),
+                        parameters=_probe_parameters(pproc, drawn_only=legacy_profiles),
                         # ITEM 5. A probe sample with no condition is a table
                         # about nowhere: the numbers in it are a flow field, and
                         # which flow is exactly what the condition states.

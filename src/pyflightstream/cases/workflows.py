@@ -58,13 +58,14 @@ exported (PFS-2025.02.02, PFS-2025.02.03).
 
 from __future__ import annotations
 
+import csv
 import math
 import re
 import sys
 import warnings
 from collections.abc import Callable, Mapping, MutableMapping, Sequence
 from dataclasses import dataclass
-from pathlib import PurePath
+from pathlib import Path, PurePath
 from types import MappingProxyType
 from typing import NoReturn
 
@@ -5005,7 +5006,7 @@ def _settings(
         rotor_induced_velocity_blending=solver.rotor_induced_velocity_blending,
         wake_numerical_relaxation=solver.wake_numerical_relaxation,
         wake_relaxation=solver.wake_relaxation,
-        wake_decay_constant=solver.wake_decay_constant,
+        wake_decay_constant=solver.wake_decay_constant_per_m,
         wake_streamwise_agglomeration=solver.wake_streamwise_agglomeration,
         jet_wake_decay_normalized_length=solver.jet_wake_decay_normalized_length,
         jet_wake_filaments_grid_induction=solver.jet_wake_filaments_grid_induction,
@@ -7224,22 +7225,14 @@ def _pproc_probes(
     if pproc is None:
         return
     vertex = 0
+    # F01: every declaration follows the run type, including cited profiles.
+    # Unsteady fluid plots are placed in INIT; steady probes in ANALYSIS.
+    if analysis == unsteady:
+        return
     for probes in pproc.probes:
-        # THE PHASE DECIDES WHICH ENTRIES THIS PASS EMITS, because the three
-        # verbs do not share one. An entry citing a profile imports it, and
-        # `PROBE_POINTS_IMPORT` is an ANALYSIS command, so it waits for the
-        # analysis pass whatever the run type is. An entry drawing its own
-        # lines places vertices through the fluid plots on an unsteady row,
-        # which is INIT, and through the survey line on a steady one, which is
-        # analysis again.
-        cited = bool(probes.points_file)
-        wanted = cited or not unsteady if analysis else not cited and unsteady
-        if not wanted:
-            # The vertex counter still advances for an entry this pass skips,
-            # or the numbering would depend on which pass is running.
-            vertex += 0 if cited else len(probes.lines) * probes.points
-            continue
-        if unsteady and not cited and probes.parameters:
+        if unsteady and probes.parameters:
+            # F05: a fluid plot's parameter must be one the run's build documents,
+            # for a drawn entry and (F01) a cited profile alike.
             command = "UNSTEADY_SOLVER_NEW_FLUID_PLOT"
             entry = script.registry.for_version(script.version)[command]
             allowed = next(arg.values for arg in entry.args if arg.name == "parameter") or ()
@@ -7358,21 +7351,38 @@ def _circle_points(circle, scale: float) -> list[list[float]]:
     return out
 
 
+def _read_probe_profile(path: str) -> list[list[float]]:
+    """Read the counted X,Y,Z,TYPE profile defined by PROBE_POINTS_IMPORT.
+
+    Both surface (0) and volume (1) rows supply fixed vertices to unsteady
+    fluid plots. The type does not change the fluid-plot sampling command.
+    """
+    try:
+        with Path(path).open(encoding="utf-8-sig", newline="") as handle:
+            rows = list(csv.reader(handle))
+        if not rows or len(rows[0]) != 1:
+            raise ValueError("the first line must contain the point count")
+        count = int(rows[0][0])
+        if count < 0 or len(rows) - 1 != count:
+            raise ValueError(f"declares {count} points but contains {len(rows) - 1} rows")
+        points = []
+        for number, row in enumerate(rows[1:], start=1):
+            if len(row) != 4 or row[3].strip() not in ("0", "1"):
+                raise ValueError(f"point {number} must be X,Y,Z,TYPE with TYPE 0 or 1")
+            point = [float(value) for value in row[:3]]
+            if not all(math.isfinite(value) for value in point):
+                raise ValueError(f"point {number} has a non-finite coordinate")
+            points.append(point)
+        return points
+    except (OSError, UnicodeError, ValueError, csv.Error) as error:
+        raise CampaignConfigError(f"probe profile {path!r} cannot be read: {error}") from error
+
+
 def _emit_one_probe_table(case, script, frames, probes, vertex: int, *, unsteady: bool) -> int:
     """Emit one `[[probes]]` entry, returning the vertex count after it."""
     if not probes.parameters:
         return vertex
     if probes.points_file:
-        # FR-80: the entry cites a file the USER wrote rather than drawing its
-        # own lines. The points are read by the SOLVER from the staged copy, so
-        # this emits the import and nothing else: the package does not parse
-        # that file to re-emit it point by point, which would make this package
-        # the second author of a survey the user wrote.
-        #
-        # THE EMISSION IS THE ONE THAT ALREADY EXISTED. `probes.emit_probe_import`
-        # has emitted `PROBE_POINTS_IMPORT` since the subpackage was written and
-        # nothing under `cases/` had ever called it; a second emitter beside it
-        # would be the defect rather than the feature.
         from pyflightstream.probes import emit_probe_import
 
         # BY ABSOLUTE PATH, resolved when the row bound (GOAL-021 item 2). The
@@ -7387,9 +7397,10 @@ def _emit_one_probe_table(case, script, frames, probes, vertex: int, *, unsteady
                 "is resolved against the workspace's inputs/profiles/ when the row binds, so "
                 "build this case through the workspace (plan_matrix or run_matrix)."
             )
-        emit_probe_import(script, probes.resolved_points_file)
-        return vertex
-    if not (probes.lines or probes.rectangles or probes.circles):
+        if not unsteady:
+            emit_probe_import(script, probes.resolved_points_file)
+            return vertex
+    if not (probes.points_file or probes.lines or probes.rectangles or probes.circles):
         return vertex
     probes = probes.model_copy(update={"frame": _the_probe_frame(case, probes.frame)})
     # A PROBE TABLE NAMES ONE ROTOR'S FRAME, and a row that does not turn
@@ -7497,6 +7508,11 @@ def _emit_one_probe_table(case, script, frames, probes, vertex: int, *, unsteady
     # fluid plots; a steady row places it with `NEW_PROBE_POINT`, which is the
     # per-vertex verb beside the survey line.
     lattice: list[list[float]] = []
+    if probes.points_file:
+        lattice += [
+            [value * scale for value in point]
+            for point in _read_probe_profile(probes.resolved_points_file)
+        ]
     for rectangle in probes.rectangles:
         lattice += _rectangle_points(rectangle, scale)
     for circle in probes.circles:
@@ -7773,6 +7789,8 @@ def _export_block(
     """
     names = list(conventions.outputs or case.outputs)
     kinds = classify_outputs(names)
+    if unsteady:
+        kinds.pop("probes", None)
     if "loads" not in kinds:
         raise CampaignConfigError(
             f"case {case.sim_id!r} declares outputs {names or 'nothing'} and none of them "
@@ -7783,7 +7801,10 @@ def _export_block(
     if any(kind in kinds for kind in ("sections", "sectional_loads", "probes")):
         script.emit("UPDATE_ALL_SURFACE_SECTIONS")
         script.emit("COMPUTE_SURFACE_SECTIONAL_LOADS", "NEWTONS")
-        script.emit("UPDATE_PROBE_POINTS")
+        # F01: only a row that still exports probe points updates them; an
+        # unsteady row samples its probes through fluid plots and has none.
+        if "probes" in kinds:
+            script.emit("UPDATE_PROBE_POINTS")
     declared_log = _variable(case, LOG_OUTPUT_VARIABLE) is not None
     # ASKED ONCE, FOR BOTH ROUTES TO THE LOG (0.24.0). The machine's
     # `export_log = false` was read inside `_export_log` alone, the route of a
@@ -8439,10 +8460,13 @@ def action_export_lines(
         for kind, name in classify_outputs(names).items()
         if whole_run or kind not in WHOLE_RUN_EXPORT_KINDS
     }
+    if case.recipe in _UNSTEADY_RECIPES:
+        kinds.pop("probes", None)
     lines: list[str] = []
     if any(kind in kinds for kind in ("sections", "sectional_loads", "probes")):
         lines += ["UPDATE_ALL_SURFACE_SECTIONS", "COMPUTE_SURFACE_SECTIONAL_LOADS NEWTONS"]
-        lines.append("UPDATE_PROBE_POINTS")
+        if "probes" in kinds:  # F01: an unsteady row has no probe points to update
+            lines.append("UPDATE_PROBE_POINTS")
     for kind, _, verb, _ in EXPORT_KINDS:
         if kind in kinds:
             lines += [verb, kinds[kind]]
@@ -10165,13 +10189,11 @@ WORKFLOWS: Mapping[str, Workflow] = {
             "START_SOLVER",
             "UPDATE_ALL_SURFACE_SECTIONS",
             "COMPUTE_SURFACE_SECTIONAL_LOADS",
-            "UPDATE_PROBE_POINTS",
             "SAVEAS",
             "EXPORT_SOLVER_ANALYSIS_SPREADSHEET",
             "EXPORT_SOLVER_ANALYSIS_TECPLOT",
             "EXPORT_ALL_SURFACE_SECTIONS",
             "EXPORT_SURFACE_SECTIONAL_LOADS",
-            "EXPORT_PROBE_POINTS",
             "UNSTEADY_SOLVER_EXPORT_PLOTS",
             "EXPORT_LOG",
             "CLOSE_FLIGHTSTREAM",
@@ -10207,13 +10229,11 @@ WORKFLOWS: Mapping[str, Workflow] = {
             "START_SOLVER",
             "UPDATE_ALL_SURFACE_SECTIONS",
             "COMPUTE_SURFACE_SECTIONAL_LOADS",
-            "UPDATE_PROBE_POINTS",
             "SAVEAS",
             "EXPORT_SOLVER_ANALYSIS_SPREADSHEET",
             "EXPORT_SOLVER_ANALYSIS_TECPLOT",
             "EXPORT_ALL_SURFACE_SECTIONS",
             "EXPORT_SURFACE_SECTIONAL_LOADS",
-            "EXPORT_PROBE_POINTS",
             "UNSTEADY_SOLVER_EXPORT_PLOTS",
             "EXPORT_LOG",
             "CLOSE_FLIGHTSTREAM",

@@ -4099,8 +4099,14 @@ def test_the_export_block_is_her_eight_kinds_in_her_order(make, unsteady):
     lines = rendered(_with_default_outputs(make(), unsteady)).splitlines()
     wanted = {v.split()[0] for v in HER_EXPORT_ORDER}
     verbs = [line for line in lines if line.strip() and line.split()[0] in wanted]
+    # F01 (0.25.0): an unsteady row samples every probe through fluid plots and
+    # post reads the plots history, so its export block carries no probe-points
+    # export; the steady block keeps it.
     expected = [
-        v for v in HER_EXPORT_ORDER if unsteady or not v.startswith("UNSTEADY_SOLVER_EXPORT")
+        v
+        for v in HER_EXPORT_ORDER
+        if (unsteady or not v.startswith("UNSTEADY_SOLVER_EXPORT"))
+        and not (unsteady and v in ("UPDATE_PROBE_POINTS", "EXPORT_PROBE_POINTS"))
     ]
     assert verbs == expected, "the export block is not the author's order"
     at = lines.index("SAVEAS")
@@ -4305,13 +4311,19 @@ def test_pproc_exports_select_the_export_verbs(tmp_path):
 
 
 def test_pproc_exports_deselect_a_kind():
-    """PFS-2029.14.02: tecplot = false leaves seven outputs on an unsteady row."""
+    """PFS-2029.14.02: tecplot = false drops one output of an unsteady row.
+
+    F01 (0.25.0): an unsteady row has no probe-points export, so its full set is
+    seven and not eight; a steady row keeps its probe-points file.
+    """
     from pyflightstream.cases import PprocSpec
 
     pproc = PprocSpec.model_validate({"exports": {"tecplot": False}})
-    assert len(pproc.outputs(unsteady=True)) == 7
+    assert len(pproc.outputs(unsteady=True)) == 6
     assert "{name}.dat" not in pproc.outputs(unsteady=True)
-    assert len(PprocSpec().outputs(unsteady=True)) == 8
+    assert len(PprocSpec().outputs(unsteady=True)) == 7
+    assert "{name}_probes.txt" not in PprocSpec().outputs(unsteady=True)
+    assert "{name}_probes.txt" in PprocSpec().outputs(unsteady=False)
 
 
 def test_the_rotor_run_creates_one_axis_frame_per_blade_and_moves_them(tmp_path):
@@ -5671,7 +5683,9 @@ def test_a_probe_entry_may_cite_a_points_file_the_user_wrote(tmp_path):
     resolved = spec.model_copy(
         update={"probes": [spec.probes[0].model_copy(update={"resolved_points_file": str(survey)})]}
     )
-    case = _with_pproc(unsteady_case(), _wb_geometry(tmp_path), pproc=resolved)
+    # A STEADY ROW since 0.25.0 (F01): an unsteady row samples a cited profile
+    # through fluid plots, held by test_f01_probe_source.py.
+    case = _with_pproc(steady_case(), _wb_geometry(tmp_path), pproc=resolved)
     lines = rendered(case).splitlines()
 
     # `PROBE_POINTS_IMPORT` is `param_lines`: the name alone, then UNITS, FRAME

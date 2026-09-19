@@ -191,6 +191,63 @@ PER_VERSION_GRAMMAR: dict[str, dict[str, dict[str, tuple[str, ...]]]] = {
                 "BL_TRANSITION_MARKER",
             )
         },
+        # 0.25.0 F05: SRC-750/751 p.352; 26.124 carries 26.123 (RPT-050).
+        "26.122": {
+            "enum:parameter": (
+                "CP_FREE",
+                "CP_REF",
+                "MACH",
+                "VELOCITY",
+                "VX",
+                "VY",
+                "VZ",
+                "STATIC_PRESSURE_RATIO",
+                "BL_MOMENTUM_THICKNESS",
+                "BL_DISPLACEMENT_THICKNESS",
+                "BL_TOTAL_THICKNESS",
+                "BL_SHAPE_FACTOR",
+                "BL_SKIN_FRICTION",
+                "BL_TRANSITION_MARKER",
+            )
+        },
+        # 0.25.0 F05: SRC-750/751 p.352; 26.124 carries 26.123 (RPT-050).
+        "26.123": {
+            "enum:parameter": (
+                "CP_FREE",
+                "CP_REF",
+                "MACH",
+                "VELOCITY",
+                "VX",
+                "VY",
+                "VZ",
+                "STATIC_PRESSURE_RATIO",
+                "BL_MOMENTUM_THICKNESS",
+                "BL_DISPLACEMENT_THICKNESS",
+                "BL_TOTAL_THICKNESS",
+                "BL_SHAPE_FACTOR",
+                "BL_SKIN_FRICTION",
+                "BL_TRANSITION_MARKER",
+            )
+        },
+        # 0.25.0 F05: SRC-750/751 p.352; 26.124 carries 26.123 (RPT-050).
+        "26.124": {
+            "enum:parameter": (
+                "CP_FREE",
+                "CP_REF",
+                "MACH",
+                "VELOCITY",
+                "VX",
+                "VY",
+                "VZ",
+                "STATIC_PRESSURE_RATIO",
+                "BL_MOMENTUM_THICKNESS",
+                "BL_DISPLACEMENT_THICKNESS",
+                "BL_TOTAL_THICKNESS",
+                "BL_SHAPE_FACTOR",
+                "BL_SKIN_FRICTION",
+                "BL_TRANSITION_MARKER",
+            )
+        },
     },
     "SET_SCENE_CONTOUR": {
         # The only value delta in this table that GREW rather than shrank
@@ -488,7 +545,8 @@ def test_every_field_an_override_leaves_unstated_is_filled_from_the_base():
     # assertion above, so all this has left to say is that the walk
     # still reaches everything, and a number says it. It moves when an
     # override is added, which costs a sentence in a delta table anyway.
-    assert checked == 33, (
+    # 0.25.0 F05: three fluid-plot overrides (26.122, 26.123, 26.124).
+    assert checked == 48, (
         f"{checked} inherited fields were checked and the shipped database has 33, "
         "distributed cites 12, unit 12, separator 7 and joins_previous 2. A change "
         "here is an override that stopped inheriting or started, both of which are "
@@ -596,7 +654,8 @@ def test_an_override_differs_from_its_base_only_where_a_delta_table_says_so():
     # 976 since 2026-09-15: CREATE_NEW_MOTION gains the EUCLIDEAN override on
     # 25.100 and 26.000, whose pages name that type (SRC-748 p.306, SRC-747
     # p.305), one argument each.
-    assert compared == 976, (
+    # 0.25.0 F05: three fluid-plot overrides (26.122, 26.123, 26.124).
+    assert compared == 1072, (
         f"{compared} field comparisons ran and the shipped database supports 976. "
         "A rise is an override gaining an argument the base also carries, a fall is "
         "one losing it or the walk losing a chapter file"

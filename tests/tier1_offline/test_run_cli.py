@@ -469,16 +469,21 @@ def test_a_workflow_row_declaring_no_outputs_gets_the_study_export_set(tmp_path,
     records = workspace.read_manifest()
     assert records, "the rows were not run at all"
     for record in records:
-        unsteady = record.sim_id == "7001"
+        # 7001 is unsteady_rotor and 7003 unsteady (the fixture's WORKFLOW column);
+        # this read 7001 alone, which the steady subset never exposed.
+        unsteady = record.sim_id in ("7001", "7003")
         assert record.status.name == "FAILED_INCOMPLETE_OUTPUT", (
             f"{record.run_id}: the stub wrote only the loads table, so the point cannot be complete"
         )
         # A failed point collects nothing, so the declared set is read off the
         # refusal, which names every declared output the run did not find.
+        # F01 (0.25.0): an unsteady row exports no probe points.
         missing = [
             suffix
-            for _, suffix, _, only_unsteady in EXPORT_KINDS
-            if (unsteady or not only_unsteady) and suffix not in (".txt",)
+            for kind, suffix, _, only_unsteady in EXPORT_KINDS
+            if (unsteady or not only_unsteady)
+            and suffix not in (".txt",)
+            and not (unsteady and kind == "probes")
         ]
         for suffix in missing:
             assert suffix in (record.error or ""), (

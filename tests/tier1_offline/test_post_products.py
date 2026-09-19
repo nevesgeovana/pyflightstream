@@ -1914,7 +1914,7 @@ def test_an_unreadable_positions_file_costs_the_probe_table_and_nothing_else(tmp
     assert polars, "the simulation lost its polar table to an unreadable probe positions file"
 
 
-def test_a_point_with_a_steady_probe_export_does_not_get_the_unsteady_table(tmp_path):
+def test_an_unsteady_point_with_a_steady_probe_export_gets_the_history_table(tmp_path):
     """F2 of round two: the filesystem-to-data change was untested BOTH ways.
 
     Reverting it to `if not probe_target.exists()` was green, and so was
@@ -1924,8 +1924,11 @@ def test_a_point_with_a_steady_probe_export_does_not_get_the_unsteady_table(tmp_
 
     THE FIXTURE GIVES THE POINT BOTH, which is the only shape that can tell
     the two apart: a steady probe export AND an unsteady plots export with
-    numbered groups. The steady one must win, and the way to tell is the
+    numbered groups. Until 0.25.0 the steady one won, and the way to tell is the
     boundary-layer column, which only the steady export carries.
+
+    SINCE 0.25.0 (F01) THE HISTORY WINS on an unsteady point: its probes table
+    is always the plots history, and the steady export is never read for it.
     """
     from pyflightstream.post.products import read_csv_table, write_campaign_products
     from pyflightstream.run import _write_probe_points
@@ -1976,8 +1979,10 @@ def test_a_point_with_a_steady_probe_export_does_not_get_the_unsteady_table(tmp_
     columns, _ = read_csv_table(table)
     # The boundary layer is the steady export's and the unsteady one has none,
     # so this tells which writer won without asserting on either's name.
-    assert "momentum_thickness" in columns, columns
-    assert "STATIC_PRESSURE_RATIO" not in columns
+    # F01 (0.25.0) REVERSED THE WINNER: an unsteady point's probes table is
+    # ALWAYS the plots history, and the probe-points export is never read for it.
+    assert "momentum_thickness" not in columns, columns
+    assert "STEP" in columns, columns
 
 
 # --- GOAL-019 item 5: post ARCHIVES rather than overwrites -------------------
