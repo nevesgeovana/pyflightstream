@@ -84,3 +84,17 @@ def test_the_original_frame_suffix_can_occupy_the_automatic_rotor_name():
     assert emits("ROTOR_PROP", "ROTOR_PROP_ORIGINAL")
     assert emits("ROTOR_{family}", "ROTOR_PROP_ORIGINAL")
     assert not emits("ROTOR_PROP", "ROTOR_PROPELLER")
+
+
+def test_a_format_spec_in_the_family_field_is_still_a_wildcard():
+    """The builder applies `str.format`, so `MRP_{family}{family:.0}` over TOTAL emits
+    MRP_TOTAL (`:.0` prints nothing): every replacement field may put any text, or none."""
+    from pyflightstream.post.products import _plot_name_can_emit
+
+    def emits(template: str, name: str) -> bool:
+        return _plot_name_can_emit(template, name, (), inventory=(), is_blade=lambda _f: False)
+
+    assert emits("MRP_{family}{family:.0}", "MRP_TOTAL")
+    assert emits("ROTOR_{family}{family:.0}", "ROTOR_PROP")
+    assert emits("ROTOR_{family:.0}PROP", "ROTOR_PROP")
+    assert not emits("HUB_{family}", "ROTOR_PROP")

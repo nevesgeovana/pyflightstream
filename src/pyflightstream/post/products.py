@@ -1380,7 +1380,10 @@ def _plot_name_can_emit(
     # The builder appends the original frame's suffix to a group plotted in a
     # retained ORIGINAL frame, so a declaration emits its name AND that name
     # suffixed; both can occupy an automatic name.
-    pattern = re.escape(template).replace(re.escape("{family}"), ".+")
+    # EVERY replacement field is a wildcard, whatever its format spec: the builder
+    # applies `str.format`, so `{family}`, `{family:.0}` (empty) or `{family!r}`
+    # can each put any text, or none, where they stand.
+    pattern = ".*".join(re.escape(part) for part in re.split(r"\{[^{}]*\}", template))
     suffix = re.escape(ORIGINAL_FRAME_SUFFIX)
     return re.fullmatch(f"{pattern}(?:{suffix})?", name) is not None
 
