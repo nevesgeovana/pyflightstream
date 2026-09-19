@@ -176,6 +176,10 @@ ROTOR = (
     "| NONE | - | - | - | 26.120 | unsteady_rotor | "
     "ROTOR_AXIS: X / MOVING_BOUNDARIES: Blade / "
     "DELTA_THETA: 30 / REVOLUTIONS: 0.5 / "
+    # The averaging window an unsteady row must state since 0.24.0. One
+    # revolution of a half-revolution run is the whole run, which is the
+    # window these rows were given before the key became mandatory.
+    "LAST_REVS_AVG: 1 / "
 )
 
 #: THE SAME ROTOR NAMED THROUGH ITS REFERENCE BLOCK, which is where the hand is
@@ -186,6 +190,7 @@ ROTOR_BY_ALIAS = (
     "MACH:0.1, REmi:2.3, ALPHA:sweep | 0.0 | 40_PUSHER.fsm | r004 | s002 | p001 "
     "| NONE | - | - | - | 26.120 | unsteady_rotor | "
     "BASE_REGIONS: Body / DELTA_THETA: 30 / REVOLUTIONS: 0.5 / "
+    "LAST_REVS_AVG: 1 / "
     "CLOCK_MOTION: PUSHER / MOTIONS: {MOVING_BC_ALIAS: PUSHER / "
 )
 
