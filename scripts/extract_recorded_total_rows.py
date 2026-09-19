@@ -22,17 +22,34 @@ FIXTURE = ROOT / "tests" / "tier1_offline" / "fixtures" / "recorded_total_rows.c
 COLUMNS = ("export", "alpha_deg", "beta_deg", "frame", "Cx", "Cy", "Cz", "CL", "CDi", "CDo")
 
 
+def _cells(line: str) -> list[str]:
+    """Return the cells of one printed row, without the empty ones a trailing comma adds."""
+    cells = [cell.strip() for cell in line.split(",")]
+    while cells and not cells[-1]:
+        cells.pop()
+    return cells
+
+
 def total_row(text: str) -> dict[str, str] | None:
-    """Return the Total row's cells as PRINTED, keyed by the export's own header."""
+    """Return the Total row's cells as PRINTED, keyed by the export's own header.
+
+    A Total row whose cell count differs from its header's is REFUSED, naming both
+    counts: a shorter row read leniently would narrow the oracle every axes test is
+    scored against, in silence (release review of 0.24.0, QA-Q3).
+    """
     header: list[str] | None = None
     for line in text.splitlines():
         stripped = line.strip()
         if stripped.startswith("Surface,"):
-            header = [cell.strip() for cell in stripped.split(",")]
+            header = _cells(stripped)
         elif header and stripped.startswith("Total,"):
-            return dict(
-                zip(header[1:], (cell.strip() for cell in stripped.split(",")[1:]), strict=False)
-            )
+            values = _cells(stripped)
+            if len(values) != len(header):
+                raise ValueError(
+                    f"the Total row prints {len(values) - 1} cells under a header of "
+                    f"{len(header) - 1}, so which number is which cannot be read"
+                )
+            return dict(zip(header[1:], values[1:], strict=True))
     return None
 
 
@@ -49,7 +66,10 @@ def rows() -> list[dict[str, str]]:
         text = path.read_text(errors="replace")
         alpha = labeled(text, "Angle of attack (Deg)")
         beta = labeled(text, "Side-slip angle (Deg)")
-        total = total_row(text)
+        try:
+            total = total_row(text)
+        except ValueError as refused:
+            raise ValueError(f"{path}: {refused}") from None
         frame = re.search(r"Coordinate frame for analysis:\s*(\S.*)", text)
         if alpha is None or beta is None or total is None or "Cx" not in total:
             continue

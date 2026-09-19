@@ -53,3 +53,29 @@ def test_a_rotorless_row_is_pointed_at_the_iterations_key():
 )
 def test_a_row_that_states_a_window_in_any_spelling_that_still_binds_is_accepted(variables):
     _require_the_averaging_window(_case("unsteady_rotor", **variables), "unsteady_rotor")
+
+
+# --- THROUGH THE PUBLIC PLANNER (release review of 0.24.0, QA-Q1) ----------------
+#
+# Every case above calls the private helper. The review deleted BOTH of its call
+# sites in a scratch copy and 526 tests stayed green: nothing planned a windowless
+# row the way a campaign does. These two build the script, which is what a plan is.
+
+
+def test_a_windowless_rotorless_row_is_refused_when_its_script_is_built():
+    from tests.tier1_offline.test_workflows import rendered, unsteady_case
+
+    with pytest.raises(CampaignConfigError) as refused:
+        rendered(unsteady_case(LAST_ITERS_AVG=None))
+    assert "LAST_ITERS_AVG" in str(refused.value) and "7003" in str(refused.value)
+    # THE CONTROL: the same row stating its window builds.
+    assert "SOLVER" in rendered(unsteady_case()).upper()
+
+
+def test_a_windowless_rotor_row_is_refused_when_its_script_is_built():
+    from tests.tier1_offline.test_workflows import rendered, rotor_case
+
+    with pytest.raises(CampaignConfigError) as refused:
+        rendered(rotor_case(WINDOW_DEGREES=None))
+    assert "LAST_REVS_AVG" in str(refused.value)
+    assert "SOLVER" in rendered(rotor_case()).upper()

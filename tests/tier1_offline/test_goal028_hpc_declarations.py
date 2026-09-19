@@ -59,3 +59,54 @@ def test_two_spellings_of_one_solver_setting_are_refused_in_either_order(
 def test_one_spelling_of_the_setting_still_applies() -> None:
     assert _solver_from_setup(SetupArtifact(settings={"NITER": 100}), "s900").iterations == 100
     assert _solver_from_setup(SetupArtifact(settings={"iterations": 250}), "s900").iterations == 250
+
+
+# --- THROUGH THE READER A CAMPAIGN ENTERS (release review of 0.24.0, QA-Q2) -------
+
+
+def test_a_matrix_file_stating_a_key_twice_is_refused_by_the_public_reader(tmp_path) -> None:
+    from pathlib import Path
+
+    from pyflightstream.cases.matrix import read_matrix
+
+    fixture = Path(__file__).parent / "fixtures" / "matrix.fs"
+    text = fixture.read_text(encoding="utf-8")
+    stated = "ADVANCE_RATIO: 1.7 /"
+    assert text.count(stated) == 1, "the fixture moved; this test names one row's cell"
+    # THE CONTROL: the file as committed reads.
+    assert read_matrix(fixture)
+    doubled = tmp_path / "matrix.fs"
+    doubled.write_text(text.replace(stated, f"{stated} ADVANCE_RATIO: 1.9 /"), encoding="utf-8")
+    with pytest.raises(MatrixError) as refusal:
+        read_matrix(doubled)
+    sentence = str(refusal.value)
+    assert "ADVANCE_RATIO" in sentence and "1.7" in sentence and "1.9" in sentence
+
+
+def test_a_setup_stating_two_spellings_is_refused_when_the_matrix_is_resolved(
+    tmp_path,
+) -> None:
+    """The setup loader a campaign enters, not the private helper."""
+    from pyflightstream.workspace.matrix import resolve_matrix
+    from tests.tier1_offline.test_goal024_point_name import RECIPES, _matrix
+
+    workspace, matrix = _matrix(
+        tmp_path, condition="MACH:0.144, REmi:4.38, ALPHA:sweep", values="0.0"
+    )
+
+    def resolved():
+        return resolve_matrix(matrix, workspace, name="dup", fs_version="26.120", recipes=RECIPES)
+
+    # THE CONTROL: the library's setup, as committed, resolves.
+    assert resolved().campaign.sims
+    setup = workspace.inputs_dir / "setups" / "s002.toml"
+    assert setup.is_file(), "the row names s002; the library moved"
+    text = setup.read_text(encoding="utf-8")
+    # The library's setup states the setting ONCE, as `iterations`; the second
+    # spelling goes at the top, before any table, where the first one sits.
+    assert "iterations = " in text and "NITER" not in text, text
+    setup.write_text("NITER = 100\n" + text, encoding="utf-8")
+    with pytest.raises(InputArtifactError) as refusal:
+        resolved()
+    sentence = str(refusal.value)
+    assert "NITER" in sentence and "iterations" in sentence and "s002" in sentence
