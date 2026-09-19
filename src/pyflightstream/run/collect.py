@@ -284,7 +284,7 @@ class _RecordAsCase:
 
     __slots__ = ("point", "outputs", "velocity", "datapoint_name")
 
-    def __init__(self, record: RunRecord) -> None:
+    def __init__(self, record: RunRecord, *, velocity_is_the_point_s: bool = True) -> None:
         self.point = dict(record.point or {})
         # 0.21.0: the folder the assessor judges is named by the name the run
         # RECORDED, never recomputed from a record that is not a case. 0.21.1:
@@ -294,14 +294,19 @@ class _RecordAsCase:
         # only a real case has.
         self.datapoint_name = _datapoint_of(record)
         self.outputs = list(record.outputs or _declared_outputs(record))
-        # THE CASE DEFAULT THAT FILLS IN WHERE THE POINT SUPPLIES NO SPEED.
-        # A record carries no case-level velocity, so this is None and the
-        # binding falls to rule 3 of `_bind_case_conditions`: nothing is
-        # requested, recorded as unasked rather than as agreed. That is the
-        # honest answer and it is why the attribute is present rather than
-        # absent, since `getattr` would otherwise silently produce the same
-        # None and hide that the rule was reached deliberately.
-        self.velocity = None
+        # THE VELOCITY THE RUN REQUESTED, which the record has carried since
+        # OPS-2009.01.13 and which this read as None until 0.24.0, calling None
+        # the honest answer. It was not: a local point whose export printed
+        # 30 m/s against a requested 80 is FAILED_INCOMPLETE_OUTPUT, and the
+        # same files collected from a cluster were CONVERGED, because nothing
+        # here asked. The two paths claim one judgement and now make it.
+        #
+        # None still, in the one place the record cannot answer: a POINT OF A
+        # JOB that sweeps a flow variable. The job's record carries the row's
+        # velocity and not that point's, and holding a point to another
+        # point's speed would refuse a correct export. Unasked is recorded as
+        # unasked there, which rule 3 of `_bind_case_conditions` exists for.
+        self.velocity = record.velocity_requested_m_s if velocity_is_the_point_s else None
 
 
 def assess_collected(record: RunRecord, sim_dir: Path) -> tuple[RunStatus, str | None]:
@@ -393,13 +398,25 @@ def _working_dir(workspace: CampaignWorkspace, record: RunRecord) -> Path:
 LOG_SUFFIX = "_log.txt"
 
 
-def _native_log_copy(
+@dataclass(frozen=True)
+class _NativeLog:
+    """What the HPC profile's ``native_log`` resolved to for one record."""
+
+    #: The sentence of a refusal, or None.
+    refusal: str | None = None
+    #: The file the scheduler is writing, or None when there is none to read.
+    source: Path | None = None
+    #: The declared name the row's log is read under.
+    target: Path | None = None
+
+
+def _native_log(
     workspace: CampaignWorkspace,
     record: RunRecord,
     names: list[str],
     work_dir: Path,
-) -> str | None:
-    """Copy the log the SCHEDULER wrote to the name the row declared (0.21.0).
+) -> _NativeLog:
+    """Find the log the SCHEDULER wrote, and the declared name it is read under (0.21.0).
 
     THE AUTHOR'S DECISION OF 2026-09-15, from the cluster. Some machines abort at
     ``EXPORT_LOG``: the job runs, every other export lands, and the log the
@@ -409,25 +426,32 @@ def _native_log_copy(
     that file to the declared name, so everything downstream reads one log
     whatever the scheduler called it.
 
-    Returns the detail of a refusal, or None when there is nothing to say: no
-    profile, no ``native_log``, the declared log already there, or the
-    scheduler's file not written yet, which is a WAIT and not a failure.
+    NOTHING IS COPIED HERE, since 0.24.0. This used to copy the scheduler's
+    file to the declared name BEFORE the two settling observations, which then
+    watched the COPY: a file nothing writes is settled by construction, so a
+    job still running was collected and judged by the log as it stood at the
+    first sweep, and the copy was never refreshed once it existed. The source
+    is what is OBSERVED (:func:`collect_once`), and it is copied once it has
+    settled (:func:`_copy_native_log`), over whatever an earlier sweep left.
+
+    The answer carries a refusal; or the scheduler's file and the declared
+    name; or neither, when there is nothing to say: no profile, no
+    ``native_log``, or the scheduler's file not written yet, which is a WAIT
+    and not a failure.
     """
     profile = resolve_hpc_profile(workspace.inputs_dir)
     pattern = getattr(profile, "native_log", None)
     if not pattern:
-        return None
+        return _NativeLog()
     declared = [name for name in names if str(name).endswith(LOG_SUFFIX)]
     if not declared:
-        return (
+        return _NativeLog(
             f"the HPC profile names a native log ({pattern!r}) and this point declares no "
             f"output ending in {LOG_SUFFIX!r}, so there is no name to copy it to. The row "
             "declares its log among its outputs, which is how it is collected and how the "
             f"run is judged; its outputs are {', '.join(Path(n).name for n in names)}."
         )
     target = work_dir / declared[0]
-    if target.exists():
-        return None
     # `{point}` IS THE FOLDER THIS RECORD'S OUTPUTS ARE IN, by the one rule,
     # not `point_name` alone: that is empty for exactly the records 0.21.1
     # supports, so a profile naming the point in its pattern would glob nothing,
@@ -435,15 +459,19 @@ def _native_log_copy(
     glob = pattern.format(sim=record.sim_id, point=_datapoint_of(record) or "", **{})
     found = sorted(path for path in work_dir.glob(glob) if path.is_file())
     if len(found) > 1:
-        return (
+        return _NativeLog(
             f"the HPC profile's native_log ({pattern!r}) matches {len(found)} files in "
             f"{work_dir}: {', '.join(path.name for path in found)}. Which of them is this "
             "run's log is not a guess this package makes, because the log is what the run "
             "is judged by. Narrow the pattern, or clear the ones that are not this run's."
         )
-    if found:
-        shutil.copy2(found[0], target)
-    return None
+    return _NativeLog(source=found[0] if found else None, target=target)
+
+
+def _copy_native_log(native: _NativeLog) -> None:
+    """Copy the SETTLED scheduler log to the declared name, over any earlier copy."""
+    if native.source is not None and native.target is not None:
+        shutil.copy2(native.source, native.target)
 
 
 def collect_once(
@@ -508,18 +536,31 @@ def collect_once(
         # THE SCHEDULER'S OWN LOG IS PUT WHERE THE ROW SAID, before anything
         # waits on it: on a machine that aborts at EXPORT_LOG the declared log
         # is the one file that never arrives, and the sweep would wait forever.
-        refusal = _native_log_copy(workspace, record, names, work_dir)
-        if refusal is not None:
+        native = _native_log(workspace, record, names, work_dir)
+        if native.refusal is not None:
             report.failed.append(
-                CollectOutcome(run_id=record.run_id, state="FAILED", detail=refusal)
+                CollectOutcome(run_id=record.run_id, state="FAILED", detail=native.refusal)
             )
             continue
-        paths = [work_dir / name for name in names]
+        # THE SCHEDULER'S FILE STANDS IN FOR THE DECLARED LOG while the two
+        # observations are taken, because it is the one the job is writing.
+        # Where the scheduler has written nothing yet the declared name is
+        # observed as it always was, and reads as missing.
+        paths = [
+            native.source
+            if native.source is not None and work_dir / name == native.target
+            else work_dir / name
+            for name in names
+        ]
         first = observer(paths)
         sleep(interval)
         second = observer(paths)
         if not settled(first, second):
-            missing = [n for n, stamp in second.items() if stamp is None]
+            missing = [
+                str(native.target) if native.source is not None and n == str(native.source) else n
+                for n, stamp in second.items()
+                if stamp is None
+            ]
             if missing:
                 # 0.21.0: THE FILES ARE NAMED, not only counted. "1 of 8 not there
                 # yet" sent a user looking through eight names to find the one
@@ -534,6 +575,8 @@ def collect_once(
                 CollectOutcome(run_id=record.run_id, state="WAITING", detail=detail)
             )
             continue
+        # SETTLED, so this is the log of a job that has stopped writing it.
+        _copy_native_log(native)
         outcome = _complete(workspace, record, names, sim_dir, assessor)
         if outcome.state == "COLLECTED":
             report.collected.append(outcome)
@@ -551,8 +594,9 @@ def _complete(
 ) -> CollectOutcome:
     """Collect one settled job's outputs and write its completed record.
 
-    ONE CALL PER POINT WHERE THE RECORD SAYS WHICH POINT OWNS WHAT, and one
-    call for the whole set where it does not. A swept row is submitted as ONE
+    A JOB OVER SEVERAL POINTS IS FINALISED POINT BY POINT, in
+    :func:`_complete_sweep`, and everything below is the record that is one
+    point. Why the split is by point: a swept row is submitted as ONE
     job whose record carries the first point in `point`, so filing the whole
     job under `record.point` put every point's exports in the first point's
     datapoint folder. `collect_outputs` states the rule that breaks: each
@@ -561,6 +605,8 @@ def _complete(
     files belongs to which point. The local sweep pays two passes to honour
     it and carries a comment about the defect that taught it.
     """
+    if _is_a_job_over_several_points(record):
+        return _complete_sweep(workspace, record, sim_dir, assessor)
     try:
         collected = _collect_by_point(workspace, record, names, _working_dir(workspace, record))
     except (WorkspaceError, CampaignConfigError) as error:
@@ -607,6 +653,13 @@ def _complete(
             "solver_run_time_s",
             "solver_initialization_s",
             "time_steps",
+            # 0.24.0: WHAT WAS COMPARED, as the local path records it. The
+            # verdict above rests on these checks, and a record that kept the
+            # verdict and dropped the comparison could not say what the point
+            # was held to. The reported version, build and output hashes stay
+            # out: a hash taken at collection cannot say what bytes existed
+            # when the job wrote them.
+            "conditions",
         ):
             value = getattr(assessment, field_name, None)
             if value is not None:
@@ -632,54 +685,169 @@ def _complete(
     )
 
 
+#: The axes a point of a job can carry that say nothing about its speed. A
+#: point carrying any other axis sweeps a flow variable, and the job's one
+#: recorded velocity is then not that point's.
+_ATTITUDE_AXES = frozenset({"alpha", "beta", "advance_ratio"})
+
+
+def _is_a_job_over_several_points(record: RunRecord) -> bool:
+    """Whether the record is ONE job that ran several points (a submitted steady sweep)."""
+    by_point = (record.submission or {}).get("declared_by_point")
+    return isinstance(by_point, Mapping) and len(by_point) > 1
+
+
+def _complete_sweep(
+    workspace: CampaignWorkspace,
+    record: RunRecord,
+    sim_dir: Path,
+    assessor: Callable[[RunRecord, Path], tuple[RunStatus, str | None]] | None,
+) -> CollectOutcome:
+    """Collect, assess and finalise EACH point of a submitted sweep (0.24.0).
+
+    THE SHAPE IS THE LOCAL SWEEP'S, entry for entry: ``points_ran`` carries each
+    point's tag, point, status, OUTPUTS, iterations and residual, the job's
+    status is its worst point's by the one stated order, and its error names
+    the points that failed. Until this existed the job was assessed once, as
+    though it were its first point, one status was stamped on every entry and
+    no entry was given its outputs, so :meth:`RunRecord.as_points` expanded a
+    collected sweep into points with nothing in them and the products stage,
+    which skips a record with no outputs, left the whole sweep out of every
+    product without a word.
+
+    TWO PASSES, for the reason the local sweep states: every point of the job
+    wrote into one folder, and a point is judged only once its siblings' files
+    have left it. A point whose collection is refused fails ALONE; the others
+    ran, their files are on disk, and they are collected and judged.
+    """
+    from pyflightstream.run import _worse_of
+
+    submission = record.submission or {}
+    by_point = submission["declared_by_point"]
+    points = submission.get("points_by_tag") or {}
+    work_dir = _working_dir(workspace, record)
+    ran_here = bool(submission.get("working_dir"))
+    collected_by_tag: dict[str, list[str]] = {}
+    refused: dict[str, str] = {}
+    for tag, owned in by_point.items():
+        try:
+            if tag not in points:
+                raise WorkspaceError(
+                    f"record {record.run_id!r} declares outputs for point {tag!r} and names "
+                    "no such point in its submission; restore the record, or complete it by "
+                    "hand."
+                )
+            collected_by_tag[tag] = list(
+                workspace.collect_outputs(
+                    record.sim_id,
+                    [work_dir / str(output) for output in owned],
+                    datapoint=PointName(tag),
+                    ran_in_datapoint=ran_here,
+                )
+            )
+        except (WorkspaceError, CampaignConfigError) as error:
+            refused[tag] = str(error)
+
+    ran: list[dict] = []
+    worst = RunStatus.CONVERGED
+    collected_all: list[str] = []
+    error_lines: list[str] = []
+    for tag in by_point:
+        point = dict(points.get(tag) or {})
+        if tag in refused:
+            ran.append(
+                {
+                    "tag": tag,
+                    "point": point,
+                    "status": str(RunStatus.FAILED_INCOMPLETE_OUTPUT),
+                }
+            )
+            worst = _worse_of(worst, RunStatus.FAILED_INCOMPLETE_OUTPUT)
+            error_lines.append(f"{tag}: {refused[tag]}")
+            continue
+        # THE POINT AS A RECORD OF ITS OWN, which is what both assessors are
+        # written against: its tag as its name, its own point, its own outputs.
+        as_point = record.model_copy(
+            update={
+                "run_id": f"{record.run_id.rsplit('/', 1)[0]}/{tag}",
+                "point_name": tag,
+                "point": point,
+                "outputs": list(collected_by_tag[tag]),
+                "points_ran": [],
+            }
+        )
+        entry: dict[str, object] = {"tag": tag, "point": point}
+        if assessor is None:
+            from pyflightstream.run import LoadsAssessor
+
+            shim = _RecordAsCase(as_point, velocity_is_the_point_s=set(point) <= _ATTITUDE_AXES)
+            assessment = LoadsAssessor()(shim, None, sim_dir)  # type: ignore[arg-type]
+            status, verdict = assessment.status, assessment.error
+            entry.update(
+                status=str(status),
+                outputs=list(collected_by_tag[tag]),
+                iterations=assessment.iterations,
+                residual=assessment.residual,
+            )
+        else:
+            status, verdict = assessor(as_point, sim_dir)
+            entry.update(status=str(status), outputs=list(collected_by_tag[tag]))
+        ran.append(entry)
+        collected_all.extend(collected_by_tag[tag])
+        if str(status).startswith("FAILED"):
+            error_lines.append(f"{tag}: {verdict or status}")
+        worst = _worse_of(worst, status)
+
+    completed = record.model_copy(
+        update={
+            "status": worst,
+            "outputs": collected_all,
+            "error": "; ".join(error_lines) or None,
+            "points_ran": ran,
+        }
+    )
+    _write(workspace, completed)
+    return CollectOutcome(
+        run_id=record.run_id,
+        state="COLLECTED",
+        detail=(
+            f"{len(collected_all)} output(s) of {len(by_point)} point(s) collected, "
+            f"recorded {worst}"
+        ),
+        record=completed,
+    )
+
+
 def _collect_by_point(
     workspace: CampaignWorkspace,
     record: RunRecord,
     names: Sequence[str],
     work_dir: Path,
 ) -> list[str]:
-    """File each declared output under the point that declared it.
+    """File the declared outputs of a record that is ONE point under that point.
 
-    ``work_dir`` is where the job wrote: the simulation folder for a job over
-    a whole row, and the point's own datapoint folder for a submitted point
-    since 0.18.1, whose outputs are then collected in place.
+    ``work_dir`` is where the job wrote: the point's own datapoint folder for a
+    submitted point since 0.18.1, whose outputs are then collected in place,
+    and the simulation folder before that.
 
     A record written before the per-point mapping existed, and a record for a
-    single point, both fall to the whole-set call under `record.point`, which
-    is correct for them: one point's job has one owner.
+    single point, both come here, which is correct for them: one point's job
+    has one owner. A job over several points never does: it is collected,
+    assessed and finalised point by point in :func:`_complete_sweep`.
     """
     submission = record.submission or {}
     # IN PLACE ONLY WHERE THE RECORD SAYS THE JOB RAN IN ITS DATAPOINT FOLDER
     # (the V&V lens, closing round): a record written before 0.18.1 names no
     # working_dir, ran in the simulation folder, and asserts nothing.
     ran_here = bool(submission.get("working_dir"))
-    by_point = submission.get("declared_by_point")
-    points = submission.get("points_by_tag") or {}
-    if not isinstance(by_point, Mapping) or len(by_point) <= 1:
-        return list(
-            workspace.collect_outputs(
-                record.sim_id,
-                [work_dir / name for name in names],
-                datapoint=_recorded_name(record),
-                ran_in_datapoint=ran_here,
-            )
+    return list(
+        workspace.collect_outputs(
+            record.sim_id,
+            [work_dir / name for name in names],
+            datapoint=_recorded_name(record),
+            ran_in_datapoint=ran_here,
         )
-    collected: list[str] = []
-    for name, owned in by_point.items():
-        if name not in points:
-            raise WorkspaceError(
-                f"record {record.run_id!r} declares outputs for point {name!r} and names no "
-                "such point in its submission; restore the record, or complete it by hand."
-            )
-        collected.extend(
-            workspace.collect_outputs(
-                record.sim_id,
-                [work_dir / str(output) for output in owned],
-                datapoint=PointName(name),
-                ran_in_datapoint=ran_here,
-            )
-        )
-    return collected
+    )
 
 
 def _recorded_name(record: RunRecord) -> PointName:
@@ -757,6 +925,7 @@ def collect_and_post(
     rounds: int | None = None,
     sleep: Callable[[float], None] = time.sleep,
     post: Callable[[CampaignWorkspace], None] | None = None,
+    post_matrix: Callable[[CampaignWorkspace, str | None], None] | None = None,
     # NAMED, NOT PASSED THROUGH `**kwargs`. These are the two injection points
     # of the primitive and they used to reach it as `object`, with a
     # `type: ignore` recording that the checker had refused: on a module this
@@ -778,6 +947,15 @@ def collect_and_post(
     nothing new must not rewrite the products: rebuilding archives the
     previous ones by design, so a watch that posted every minute would fill
     the archive with copies of an unchanged answer.
+
+    ``post`` is called once per sweep that collected something, with the
+    workspace alone. ``post_matrix`` is called once per MATRIX that sweep
+    collected a record of, with the matrix stem the record names (None for a
+    record that names none), in the order first collected. The products of a
+    workspace are rebuilt per matrix, so a caller that rebuilds them needs the
+    second: the command line's own post called the stage with no matrix, and
+    the stage then selected the records naming none, which left every
+    named-matrix record out and wrote nothing (0.24.0).
     """
     total = CollectReport()
     swept = 0
@@ -796,6 +974,14 @@ def collect_and_post(
         swept += 1
         if report.collected and post is not None:
             post(workspace)
+        if report.collected and post_matrix is not None:
+            stems = [
+                outcome.record.matrix_stem
+                for outcome in report.collected
+                if outcome.record is not None
+            ]
+            for stem in dict.fromkeys(stems):
+                post_matrix(workspace, stem)
         if not watch:
             break
         if report.outstanding == 0:
