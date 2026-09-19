@@ -336,6 +336,28 @@ FlightStream versions.
 - The unsteady polar's `runs` named every run of the simulation while the
   writer left points out. It names the points the file holds.
 
+### Removed (names nothing called)
+
+- `post.unsteady.converged_window`, `post.products.group_product_name`,
+  `post.superfile.declared_sweep` and `post.superfile.SUPER_PREFIX`. None had a
+  caller. `converged_window` held the opposite of the shipped window rule; the
+  window is `cases.windows.averaging_span`. The super file's prefix is
+  `workspace.naming.SUPER_FILE_PREFIX`. `post.products.SECTIONS_DIR` is added,
+  the `sections/` folder as a constant beside `POLARS_DIR` and `PROBES_DIR`.
+
+### Fixed (a warning and three docstrings that said the wrong thing)
+
+- The deprecation warnings of `WINDOW_STEPS`, `WINDOW_REVOLUTIONS` and
+  `WINDOW_DEGREES` name the replacement keys as the matrix reads them,
+  `LAST_ITERS_AVG` and `LAST_REVS_AVG`. They spelled them in lower case, and a
+  row written that way is not read.
+- The `rotor_coefficients` docstring states `ETAW = J CTW / CP`, as the
+  definitions page does, and no longer the cosine form. The `post.products` and
+  `super_file_name` docstrings state the file names the stage writes.
+- The layer rule is now held over module-level imports across the whole package,
+  with no allowlist; two upward imports planted at module level used to pass
+  both existing guards.
+
 ### Owed
 
 - **The Zenodo archive of v0.14.0 DOES NOT EXIST**, re-measured against
