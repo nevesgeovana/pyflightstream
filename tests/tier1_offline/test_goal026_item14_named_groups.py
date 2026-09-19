@@ -25,6 +25,9 @@ import pytest
 
 from pyflightstream.post import products, superfile
 
+#: A recorded sweep name, each swept field written ``<code>+sweep`` (FR-85).
+_SWEEP = "M150AL+000BE+000J+sweep"
+
 
 def test_the_union_glob_matches_a_named_group_and_not_only_a_numbered_one():
     """THE TRAP. A glob that only matches `_g01` loses a renamed group in silence.
@@ -34,7 +37,11 @@ def test_the_union_glob_matches_a_named_group_and_not_only_a_numbered_one():
     a superset assertion over nothing is satisfied by nothing.
     """
     pattern = superfile.POLAR_TABLE_GLOB
-    named = products.group_product_name(polar="P0001", mach=1.5, group="PUSHER")
+    # THE NAME THE STAGE WRITES. This called `group_product_name` until 0.24.0
+    # (CR-07), a function with no caller whose convention the stage never wrote;
+    # it is deleted, and the file name comes from the function the stage calls.
+    named = products.swept_polar_file_name("0001", name=_SWEEP, group="PUSHER")
+    assert named == "P0001-M150AL+000BE+000J+sweep_PUSHER.csv", named
     numbered_era = "P0001-M150AL+000BE+000J+sweep_g01.csv"
     import fnmatch
 
@@ -51,7 +58,7 @@ def test_the_union_glob_matches_a_named_group_and_not_only_a_numbered_one():
 
 def test_a_group_product_is_named_after_its_input_and_not_numbered():
     """The file carries the group's NAME, which is what she asked for."""
-    written = products.group_product_name(polar="0001", mach=1.5, group="PUSHER")
+    written = products.swept_polar_file_name("0001", name=_SWEEP, group="PUSHER")
     assert "PUSHER" in written, written
     assert "_g0" not in written, written
 
@@ -64,7 +71,7 @@ def test_a_group_name_that_would_collide_with_the_numbered_form_is_refused():
     to tell the two eras apart to know what it has already moved.
     """
     with pytest.raises(products.ProductError):
-        products.group_product_name(polar="0001", mach=1.5, group="g01")
+        products.swept_polar_file_name("0001", name=_SWEEP, group="g01")
 
 
 def test_the_rename_moves_the_products_she_already_has_and_archives_first():
@@ -279,8 +286,8 @@ def _named_workspace(tmp_path):
 def test_the_post_stage_writes_a_named_group_end_to_end(tmp_path):
     """ITEM 14 THROUGH THE STAGE, which is the only way it is delivered.
 
-    The item's three other tests call `group_product_name` directly, and it had
-    NO caller in the package: the stage still called `swept_polar_file_name`,
+    The item's three other tests called `group_product_name` directly (deleted in
+    0.24.0), and it had NO caller in the package: the stage still called `swept_polar_file_name`,
     whose `int(group)` raises a bare `ValueError` on a name. So a user following
     the migration guide renamed her groups and met a traceback -- and the matrix
     binder refused the pproc before that, telling her to undo it. The feature
@@ -314,8 +321,8 @@ def test_what_the_rename_produces_is_what_the_post_stage_writes(tmp_path):
 
     The two were built by DIFFERENT functions with different conventions: the
     rename swaps `_g01` for `_PUSHER` on the existing stem, while
-    `group_product_name` builds a stem of its own from the polar and a Mach
-    code. A technical-writing lens flagged the mismatch and said only running
+    `group_product_name` (deleted in 0.24.0) built a stem of its own from the
+    polar and a Mach code. A technical-writing lens flagged the mismatch and said only running
     both would settle it. This runs both.
     """
     import sys

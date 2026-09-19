@@ -1,63 +1,75 @@
-"""Tier 1: `converged_window`, the derivation item 16 rests on.
+"""Tier 1: the averaging window item 16 rests on, asserted on the function a stage calls.
 
-ITEM 16 SHIPPED IN 0.23.0 AND IT SHIPPED ELSEWHERE. This file's title used to
-say the item was not delivered, which was true when it was written and is not
-now: the window is stated on the MATRIX ROW -- `last_revs_avg` on a rotor row,
-`last_iters_avg` otherwise -- and every unsteady product of the point shares it.
-The cases that prove that are in `test_goal026_item16_one_window.py`, through
-`reduction_windows`, which is where the item is a claim at all.
+THIS FILE PINNED `post.unsteady.converged_window` UNTIL 0.24.0 (CR-05), a
+function no product called and whose rule was the OPPOSITE of the shipped one:
+it discarded the FIRST ``after_rev`` revolutions and kept everything after,
+where the products keep the LAST revolutions or iterations the matrix row
+states. A mutant of the shipped rule was therefore caught by nothing here. The
+function is deleted and these cases drive `post.products._matrix_window`, which
+is what `write_products` calls, down to `cases.windows.averaging_span`.
 
-WHAT IS LEFT HERE is the arithmetic underneath: the last converged window, the
-refusal of a history shorter than its anchor, and the rule that this package
-holds exactly ONE implementation of the average. Her reading of 2026-09-17,
-"faz sentido sempre olhar a ultima janela convergida", is what the second case
-pins -- averaging the whole history includes the transient, which is the part of
-an unsteady run that is not the answer.
+THE EXPECTED WINDOWS ARE THE CONVENTION'S, worked by hand: the window is
+inclusive, counted in solver steps from 1, ends at the run's last step and is
+exactly as long as the row states. One revolution of 100 steps ending at step
+400 is steps 301 to 400, which is 100 steps; 300 to 400 would be 101, and 101
+to 400 is what discarding the first revolution gives.
 
-NO SECOND AVERAGE IS WRITTEN, and that is the finding this item produced. The
-first writing of the checker's probe asked for a `window_average` function.
-`blade_passage_average` already is that function, and its own docstring says it
-is "the only implementation of this average in the package ... two
-implementations of one average is how two published numbers come to disagree".
-So item 16 is ROUTING and a WINDOW, never a second averaging routine.
+WHAT STAYS is the rule that the package holds exactly ONE implementation of the
+average: item 16 is a window and a routing, never a second averaging routine.
 """
 
 from __future__ import annotations
 
-import pytest
-
-from pyflightstream.post.unsteady import blade_passage_average, converged_window
-
-
-def test_the_window_is_anchored_on_the_export_after_revolutions_variable():
-    """The same anchor `per_blade` uses, so the two are comparable by construction."""
-    window = converged_window(first_step=1, last_step=400, steps_per_revolution=100, after_rev=2.0)
-    assert window == (201, 400), window
+from pyflightstream.post.products import _matrix_window
+from pyflightstream.post.unsteady import blade_passage_average
 
 
-def test_the_window_is_the_last_converged_one_and_not_the_whole_history():
-    """Her reading: "faz sentido sempre olhar a ultima janela convergida".
+class _Row:
+    """A matrix row as the post stage meets it: variables and nothing else."""
 
-    Averaging the whole history includes the transient, which is the part of an
-    unsteady run that is not the answer.
+    def __init__(self, **variables):
+        self.variables = {key: str(value) for key, value in variables.items()}
+
+
+class _Record:
+    """A run record carrying only the clock the post stage reads."""
+
+    def __init__(self, *, last, per_revolution):
+        self.reductions = {"time_iterations": last, "steps_per_revolution": per_revolution}
+
+
+def test_the_window_keeps_the_last_revolutions_and_not_what_follows_the_first():
+    """Four revolutions of 100 steps; the row asks for the last ONE.
+
+    Keeping the last revolution is 301-400. Discarding the first revolution,
+    the rule the deleted function held, is 101-400.
     """
-    whole = converged_window(first_step=1, last_step=400, steps_per_revolution=100, after_rev=0.0)
-    late = converged_window(first_step=1, last_step=400, steps_per_revolution=100, after_rev=3.0)
-    assert whole == (1, 400), whole
-    assert late == (301, 400), late
-    assert late[0] > whole[0]
+    window = _matrix_window(_Row(LAST_REVS_AVG="1.0"), _Record(last=400, per_revolution=100))
+    assert window == (301, 400), window
 
 
-def test_a_history_shorter_than_the_anchor_is_refused_rather_than_averaged():
-    """A shorter history averaged as a whole one is an average of a run that did not finish.
+def test_the_window_is_exactly_as_long_as_the_row_states():
+    """Inclusive at both ends: `last - first + 1` IS the stated length.
 
-    This is the same refusal `write_reduction_table` already makes about a
-    window reaching past the rows a table holds, made at the moment the window
-    is DERIVED rather than at the moment it is used.
+    The off-by-one that starts one step early averages 101 steps under a row
+    that says 100, and nothing in the product would show it.
     """
-    with pytest.raises(ValueError) as caught:
-        converged_window(first_step=1, last_step=150, steps_per_revolution=100, after_rev=3.0)
-    assert "revolution" in str(caught.value).lower()
+    for stated, steps in (("100", 100), ("1", 1), ("37", 37)):
+        first, last = _matrix_window(
+            _Row(LAST_ITERS_AVG=stated), _Record(last=400, per_revolution=None)
+        )
+        assert last == 400, (stated, first, last)
+        assert last - first + 1 == steps, (stated, first, last)
+
+
+def test_a_longer_window_reaches_further_back_and_still_ends_at_the_last_step():
+    """More revolutions move the FIRST step earlier; the last step does not move."""
+    record = _Record(last=400, per_revolution=100)
+    one = _matrix_window(_Row(LAST_REVS_AVG="1.0"), record)
+    three = _matrix_window(_Row(LAST_REVS_AVG="3.0"), record)
+    assert one == (301, 400), one
+    assert three == (101, 400), three
+    assert three[0] < one[0] and three[1] == one[1]
 
 
 def test_there_is_exactly_one_implementation_of_the_average():

@@ -187,6 +187,7 @@ __all__ = [
     "PROBES_DIR",
     "PROVENANCE_DIR",
     "PROVENANCE_SUFFIX",
+    "SECTIONS_DIR",
     "SECTION_COLUMNS",
     "GroupCoefficients",
     "CustomPolarTable",
@@ -1239,27 +1240,6 @@ def rotor_coefficients(
     return values
 
 
-def group_product_name(*, polar: str, mach: float, group: str, suffix: str = ".csv") -> str:
-    """Return the product file name of one polar GROUP, carrying the group's NAME.
-
-    Item 14 of 0.23.0, on the owner's rule that `GROUPS` takes one named input
-    and "no nome do arquivo vai vir o nome desse input e não um numero". A
-    number told a reader which position the group held in a list, which is a
-    fact about the list and not about the group.
-
-    A group whose name IS the old numbered suffix is refused. It would produce
-    a file indistinguishable from the pre-0.23.0 form, and the rename that
-    moves her existing products has to be able to tell the two eras apart to
-    know what it has already moved.
-    """
-    # THROUGH THE SHARED RULE, which is what makes this name and the one the
-    # campaign path writes tell the two eras apart the same way. It refuses the
-    # empty name and the `gNN` collision; `group_token` is the ONE place either
-    # is decided, so the binder that refuses a pproc, the polar the stage
-    # writes and this name cannot drift into three readings of one convention.
-    return f"{polar}-M{_mach_code(mach):02d}_{group_token(group)}{suffix}"
-
-
 def read_csv_table(
     path: str | Path, *, skip: int = 0
 ) -> tuple[tuple[str, ...], list[dict[str, str]]]:
@@ -1296,16 +1276,19 @@ def read_csv_table(
 # `unsteady_window` WAS HERE AND IS DELETED, with item 16 landing through
 # `cases.workflows._averaging_window` and `_stated_window` below instead.
 #
-# IT NEVER HAD A CALLER. It was written to end `converged_window`'s missing
-# caller and reproduced that defect exactly one level up; a closing round caught
+# IT NEVER HAD A CALLER. It was written to give a caller to a window function of
+# `post.unsteady` that had none (deleted in 0.24.0, CR-05: its rule discarded the
+# FIRST revolutions, the opposite of the shipped one) and reproduced that defect
+# exactly one level up; a closing round caught
 # the false docstring, a change-log entry was written saying it was NOT WIRED,
 # and then item 16 was built somewhere else entirely -- leaving a public-looking
 # function nothing reached and two contradictory entries in one release's Added
 # list. The architect lens of the release round found both.
 #
-# THE RULE IT HELD IS NOT LOST. The window is still the last converged one and
-# still refuses to average from step one; that now lives where a stage reaches
-# it, and `converged_window` in `post.unsteady` still holds the derivation.
+# THE RULE IT HELD IS NOT LOST. The window is still the LAST revolutions or
+# iterations the row states and never the whole history; the derivation is
+# `cases.windows.averaging_span`, which `_matrix_window` below and the plan both
+# call, so a stage reaches it.
 
 
 def _rotor_tables(
@@ -3092,7 +3075,7 @@ def write_recorded_polar(
         sloads = folder / f"{point.name}_sloads.txt"
         if sections and sloads.is_file():
             target = write_sections_table(
-                out / "sections" / f"{point.name}_sections.csv",
+                out / SECTIONS_DIR / f"{point.name}_sections.csv",
                 sloads.read_text(encoding="utf-8", errors="replace"),
                 # NO `point=` SINCE 0.23.0 ITEM 13: the polar's name is the
                 # FILE's name and a column spent restating it told no row
@@ -3141,6 +3124,11 @@ PRODUCTS_MANIFEST = "products.json"
 #: polar's sweep, so sweeping them in would be wrong in exactly the way
 #: that passes a shallower test.
 POLARS_DIR = "polars"
+
+#: The folder of the per-point sections tables, under the products folder. One
+#: constant like its siblings, so the writer of the recorded tables and the
+#: stage cannot spell the folder two ways (0.24.0).
+SECTIONS_DIR = "sections"
 
 #: The folder under a matrix's products where the FLOW-FIELD SAMPLES of a
 #: point land, whatever the run type was (FR-87).
@@ -4170,7 +4158,7 @@ def _sim_products(
     for point in points:
         sloads_path, plots_path, probes_path = exports[point.name]
         if products.sections and sloads_path is not None and sloads_path.is_file():
-            relative = f"sections/{point.name}_sections.csv"
+            relative = f"{SECTIONS_DIR}/{point.name}_sections.csv"
             target = _target(out / relative)
             # ONE EXPORT, ONE PRODUCT (MT-01). A `ProductError` here used to leave
             # this function after the polars were already on disk: the caller then
