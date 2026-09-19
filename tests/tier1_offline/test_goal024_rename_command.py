@@ -471,7 +471,7 @@ def test_goal024_rename_command_a_workspace_named_by_the_library_default(tmp_pat
         condition="MACH:0.2, REmi:2.3, ALPHA:sweep",
         values="-2.0,0.0",
         workflow="unsteady",
-        cell="DELTA_TIME: 0.01 / TIME_ITERATIONS: 8",
+        cell="DELTA_TIME: 0.01 / TIME_ITERATIONS: 8 / LAST_ITERS_AVG: 8",
     )
     old_rows = _as_0_20_library_default(workspace, mach=0.2)
     assert [str(row["run_id"]).rsplit("/", 1)[-1] for row in old_rows] == [

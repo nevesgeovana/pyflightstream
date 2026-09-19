@@ -247,14 +247,16 @@ sweeps. Row 8002 is the one to look at first:
 ```
 8002 | Twin | ... | MACH:0.1, REmi:2.3, ALPHA:0, BETA:0, ADVANCE_RATIO:sweep | 0.6,0.8 | r006 | s002 | p005 | ...
      | GEOMETRY: 41_TWIN.fsm / DELTA_THETA: 30 / REVOLUTIONS: 0.5 /
-       CLOCK_MOTION: PORT / MOTIONS: {MOVING_BC_ALIAS: PORT}, {MOVING_BC_ALIAS: STARBOARD}
+       CLOCK_MOTION: PORT / MOTIONS: {MOVING_BC_ALIAS: PORT}, {MOVING_BC_ALIAS: STARBOARD} /
+       LAST_REVS_AVG: 1
 ```
 
 Read it left to right: at Mach 0.1, at zero incidence and sideslip,
 sweeping the advance ratio over 0.6 and 0.8, against reference `r006`,
 setup `s002` and post-processing `p005`. Two rotors turn; neither states a
 speed, so both take the swept ratio; `CLOCK_MOTION` says the time step
-follows `PORT`.
+follows `PORT`. `LAST_REVS_AVG` is the averaging window, in revolutions,
+which every unsteady row must state.
 
 **One number gives two speeds.** The rendered script for the first point is
 `tests/tier3_licensed/goldens/matriz_vocab/P8002-M100RE230AL+000BE+000J+060.txt`,

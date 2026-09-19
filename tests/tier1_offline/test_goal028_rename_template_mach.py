@@ -29,7 +29,7 @@ def _script_names(tmp_path, *, condition: str, values: str, template: str) -> li
         condition=condition,
         values=values,
         workflow="unsteady",
-        cell="DELTA_TIME: 0.01 / TIME_ITERATIONS: 8",
+        cell="DELTA_TIME: 0.01 / TIME_ITERATIONS: 8 / LAST_ITERS_AVG: 8",
     )
     workspace = CampaignWorkspace(workspace.root, naming=NamingTemplate(point_name=template))
     plan = plan_matrix(

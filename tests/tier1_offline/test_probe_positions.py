@@ -381,6 +381,9 @@ def test_the_recorded_position_is_the_emitted_position(tmp_path):
             "VELOCITY": "30.0",
             "DELTA_TIME": "0.001",
             "TIME_ITERATIONS": "3",
+            # The whole run, which is the window a rotorless row with none
+            # was given before 0.24.0 made the key mandatory.
+            "LAST_ITERS_AVG": "3",
         },
         geometry=str(geometry),
         outputs=["loads_a+00.0.txt"],
@@ -540,6 +543,9 @@ def test_a_rectangle_and_a_circle_record_every_point_they_place(tmp_path):
             "VELOCITY": "30.0",
             "DELTA_TIME": "0.001",
             "TIME_ITERATIONS": "3",
+            # The whole run, which is the window a rotorless row with none
+            # was given before 0.24.0 made the key mandatory.
+            "LAST_ITERS_AVG": "3",
         },
         geometry=str(geometry),
         outputs=["loads_a+00.0.txt"],
