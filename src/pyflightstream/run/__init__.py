@@ -1650,6 +1650,41 @@ class LoadsAssessor:
                 ),
                 **stamp,
             )
+        stopped_early = mode == "steady" and report.current_iteration < report.requested_iterations
+        # PYFS-008. The iteration-count judgment below reads an early stop
+        # as "the convergence threshold stopped the solver", and that
+        # inference holds only while the threshold is what can stop it.
+        # SOLVER_SET_FORCED_ITERATIONS turns the threshold off: the solver
+        # is told to run the full budget whatever the residual does. So
+        # under forced iterations an early stop means the opposite of
+        # convergence, because the one mechanism that could legitimately
+        # end the loop early was disabled. The field was parsed
+        # (LoadsReport.forced_iterations) and never consulted, so a run
+        # that stopped at 312 of a forced 500 was published CONVERGED,
+        # indistinguishable from one that met the threshold at 312.
+        #
+        # BEFORE THE LOG, since 0.24.0. This check sat below the log branch,
+        # which returns, so a collected log turned the refusal into
+        # COMPLETED_MAX_ITER or CONVERGED: a residual says how far the
+        # iteration it was printed at had come, and says nothing about the
+        # iterations a run that was told to do all of them never did.
+        # Completeness is established first and the residual judged after.
+        if stopped_early and report.forced_iterations:
+            return Assessment(
+                status=RunStatus.FAILED_INCOMPLETE_OUTPUT,
+                iterations=report.current_iteration,
+                error=(
+                    f"the solver stopped at iteration {report.current_iteration} of "
+                    f"{report.requested_iterations} with forced iterations enabled, "
+                    "so the convergence threshold was not what ended the loop: it "
+                    "was disabled. The loads file describes an unfinished solve. "
+                    "A solver log, which is found by content and does not have to be "
+                    "named, does not change this: a residual cannot stand in for "
+                    "iterations that were required and not run. Find why the solver "
+                    "stopped"
+                ),
+                **stamp,
+            )
         log_path = None
         if self.log_file is None:
             # AUTO-DETECTION BY CONTENT, on the same ground the loads
@@ -1736,6 +1771,28 @@ class LoadsAssessor:
                     error=f"solver log unusable: {error}",
                     **stamp,
                 )
+            # THE LOG AND THE EXPORT END AT ONE ITERATION, OR THE LOG IS NOT
+            # THIS EXPORT'S. A log is found by content or by name, and neither
+            # says it belongs to the loads file beside it: an export of
+            # iteration 312 was judged CONVERGED on the residual a log printed
+            # at iteration 1575. Both files print the solver's own counter, and
+            # the recorded pair of one run agrees on it, so a disagreement means
+            # the residual describes a state the coefficients were not read at.
+            if final.iteration != report.current_iteration:
+                return Assessment(
+                    status=RunStatus.FAILED_INCOMPLETE_OUTPUT,
+                    iterations=report.current_iteration,
+                    error=(
+                        f"the solver log {log_path.name} ends at iteration "
+                        f"{final.iteration} and the loads export {report_path.name} was "
+                        f"written at iteration {report.current_iteration}, so the residual "
+                        "is not the residual of the exported coefficients and no "
+                        "convergence judgment is made from it. The log is of another "
+                        "run or another point, or one of the two files was written "
+                        "before the solve ended; export both at the end of the same solve"
+                    ),
+                    **stamp,
+                )
             # PYFS-007. Every component is judged BEFORE they are combined,
             # and that order is the fix rather than a detail of it.
             #
@@ -1820,33 +1877,6 @@ class LoadsAssessor:
                 **stamp,
             )
         if mode == "steady":
-            stopped_early = report.current_iteration < report.requested_iterations
-            # PYFS-008. The iteration-count judgment below reads an early stop
-            # as "the convergence threshold stopped the solver", and that
-            # inference holds only while the threshold is what can stop it.
-            # SOLVER_SET_FORCED_ITERATIONS turns the threshold off: the solver
-            # is told to run the full budget whatever the residual does. So
-            # under forced iterations an early stop means the opposite of
-            # convergence, because the one mechanism that could legitimately
-            # end the loop early was disabled. The field was parsed
-            # (LoadsReport.forced_iterations) and never consulted, so a run
-            # that stopped at 312 of a forced 500 was published CONVERGED,
-            # indistinguishable from one that met the threshold at 312.
-            if stopped_early and report.forced_iterations:
-                return Assessment(
-                    status=RunStatus.FAILED_INCOMPLETE_OUTPUT,
-                    iterations=report.current_iteration,
-                    error=(
-                        f"the solver stopped at iteration {report.current_iteration} of "
-                        f"{report.requested_iterations} with forced iterations enabled, "
-                        "so the convergence threshold was not what ended the loop: it "
-                        "was disabled. The loads file describes an unfinished solve. "
-                        "Export the solver log (EXPORT_LOG) for a residual judgment, which "
-                        "is found by content and does not have to be named, or find "
-                        "why the solver stopped"
-                    ),
-                    **stamp,
-                )
             # forced_iterations is None when the loads footer does not print
             # the line; the count judgment then stands, because nothing says
             # the threshold was off. Stated rather than left implicit: the

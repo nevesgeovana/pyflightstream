@@ -78,7 +78,17 @@ def _a_0_20_workspace(tmp_path, *, with_native_log: bool = True):
         # THE LOG THE SCHEDULER WROTE, which is the only log on a machine that
         # aborts at EXPORT_LOG. Its siblings are there too, because the pattern
         # has to tell them apart.
-        shutil.copy2(FIXTURES / "log_residuals_26.120.txt", work / f"FTS{POL}.l{JOB}")
+        # RENUMBERED TO END WHERE THE EXPORT ENDS (0.24.0). The two fixtures are
+        # of two runs, the export at iteration 312 and the log at 1575, and the
+        # assessor now refuses a log that is not of the export beside it. What
+        # this case asserts is unchanged.
+        (work / f"FTS{POL}.l{JOB}").write_text(
+            (FIXTURES / "log_residuals_26.120.txt")
+            .read_text(encoding="utf-8")
+            .replace(chr(10) + "1575 ", chr(10) + "312 ")
+            .replace(chr(10) + "1574 ", chr(10) + "311 "),
+            encoding="utf-8",
+        )
         (work / f"FTS{POL}.e{JOB}").write_text("", encoding="utf-8")
         (work / f"FTS{POL}.o{JOB}").write_text("", encoding="utf-8")
 
