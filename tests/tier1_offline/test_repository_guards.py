@@ -205,10 +205,15 @@ def test_no_forbidden_identifier_in_the_versioned_tree() -> None:
     # the config is a deliberate edit here rather than a quiet loosening: the
     # `reports/` exemption started as a tree covering 118 files and was
     # narrowed to three named files on review.
-    assert numbers["exempt"] <= 40, (
-        f"{numbers['exempt']} files exempt, up from the 33 measured when this "
-        "floor was last read. An exemption was widened; widen this number in "
-        "the same commit and say why in tools/shipped_surface.conf."
+    # 41 measured at 0.25.0, one more than 0.24.0's 40: the release adds
+    # docs/migrating-to-0.25.0.md, and `docs/` is an exempt TREE, so a release
+    # that writes its migration page moves this number by one without widening
+    # any exemption. The cap allows two more pages before it is read again.
+    assert numbers["exempt"] <= 43, (
+        f"{numbers['exempt']} files exempt, up from the 41 measured at 0.25.0. "
+        "An exemption was widened, or a tree grew by more than a release's own "
+        "pages; widen this number in the same commit and say why in "
+        "tools/shipped_surface.conf."
     )
 
 

@@ -457,7 +457,7 @@ def test_a_workflow_row_declaring_no_outputs_gets_the_study_export_set(tmp_path,
     which is the refusal moving from before the run to the record, where a
     real solver that wrote all eight would have passed.
     """
-    from pyflightstream.cases import EXPORT_KINDS, default_outputs
+    from pyflightstream.cases import default_outputs
 
     workspace = make_workspace(tmp_path)
     (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
@@ -477,13 +477,14 @@ def test_a_workflow_row_declaring_no_outputs_gets_the_study_export_set(tmp_path,
         )
         # A failed point collects nothing, so the declared set is read off the
         # refusal, which names every declared output the run did not find.
-        # F01 (0.25.0): an unsteady row exports no probe points.
+        # THE ROW'S OWN DEFAULT SET, which is what it declared and therefore
+        # what the refusal names. Reading EXPORT_KINDS instead counted kinds
+        # that exist and are NOT default: an unsteady row exports no probe
+        # points (F01) and neither VTK nor CSV unless the pproc asks (F03).
         missing = [
-            suffix
-            for kind, suffix, _, only_unsteady in EXPORT_KINDS
-            if (unsteady or not only_unsteady)
-            and suffix not in (".txt",)
-            and not (unsteady and kind == "probes")
+            name.removeprefix("{name}")
+            for name in default_outputs(unsteady)
+            if name != "{name}.txt"
         ]
         for suffix in missing:
             assert suffix in (record.error or ""), (

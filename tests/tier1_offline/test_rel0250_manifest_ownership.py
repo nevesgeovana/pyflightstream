@@ -27,7 +27,11 @@ def test_slow_live_writer_is_not_displaced_after_thirty_seconds(tmp_path, monkey
 
 def test_dead_local_owner_is_recovered_without_waiting_for_age(tmp_path, monkeypatch):
     workspace = CampaignWorkspace(tmp_path)
-    child = subprocess.Popen([sys.executable, "-c", "pass"])
+    # env= ON EVERY SPAWN (the repository guard): a child that inherits the
+    # whole environment carries whatever the runner set, and this one only
+    # needs to exist and exit so its pid is a DEAD one.
+    env = {"SYSTEMROOT": os.environ.get("SYSTEMROOT", "")}
+    child = subprocess.Popen([sys.executable, "-c", "pass"], env=env)
     assert child.wait(timeout=10) == 0
     lock = tmp_path / "runs.json.lock"
     lock.write_text(json.dumps({"pid": child.pid, "host": socket.gethostname(), "token": "dead"}))
