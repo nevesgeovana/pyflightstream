@@ -113,6 +113,7 @@ from pyflightstream.cases.workflows import (
     BLADE_FAMILIES_KEY,
     CONFIGURATION_VARIABLE,
     FLAT_RPM_KEY,
+    ORIGINAL_FRAME_SUFFIX,
     PER_ROTOR_REDUCTIONS,
     PROBE_POSITION_COLUMNS,
     REDUCTION_NAMES,
@@ -1376,10 +1377,40 @@ def _plot_name_can_emit(
     The other arguments are kept for that successor and are not read here.
     """
     del families, inventory, is_blade, aliases, frame
-    if "{family}" not in template:
-        return template == name
+    # The builder appends the original frame's suffix to a group plotted in a
+    # retained ORIGINAL frame, so a declaration emits its name AND that name
+    # suffixed; both can occupy an automatic name.
     pattern = re.escape(template).replace(re.escape("{family}"), ".+")
-    return re.fullmatch(pattern, name) is not None
+    suffix = re.escape(ORIGINAL_FRAME_SUFFIX)
+    return re.fullmatch(f"{pattern}(?:{suffix})?", name) is not None
+
+
+def _emitted_by_another(
+    name: str, groups: Sequence[object], own: object, *, outside_frame: str | None = None
+) -> bool:
+    """Whether a group OTHER than ``own`` could emit plot group ``name``.
+
+    A history column states a group's name and nothing else, so a name two
+    declarations could produce is ambiguous: its history may be the other one's.
+    An ambiguous name is never read as a source. With ``outside_frame``, only a
+    group in ANOTHER frame counts: for the global axes, a second group in the same
+    global frame still yields a global history.
+    """
+    return any(
+        group is not own
+        and (
+            outside_frame is None
+            or str(getattr(group, "frame", "")).strip().upper() != outside_frame
+        )
+        and _plot_name_can_emit(
+            str(getattr(group, "name", "")),
+            name,
+            (),
+            inventory=(),
+            is_blade=lambda _family: False,
+        )
+        for group in groups
+    )
 
 
 def rotor_plot_source(
@@ -1465,6 +1496,8 @@ def rotor_plot_source(
         if "{family}" in name:
             continue
         if any(wanted and set(families) == wanted for families in resolved):
+            if _emitted_by_another(name, getattr(plots, "groups", ()) or (), group):
+                continue
             candidates.append(name)
     # A declared name keeps its declared frame and families. The run skips
     # already emitted names when adding its automatic plots.
@@ -4390,10 +4423,15 @@ def global_frame_plot_groups(
     """
     plots = getattr(pproc, "plots", None)
     parameters = set(getattr(plots, "parameters", ()) or ())
+    every_group = getattr(plots, "groups", ()) or ()
     declared = [
         str(group.name)
-        for group in (getattr(plots, "groups", ()) or ())
-        if str(getattr(group, "frame", "")).strip().upper() == "MRP" and "{" not in str(group.name)
+        for group in every_group
+        if str(getattr(group, "frame", "")).strip().upper() == "MRP"
+        and "{" not in str(group.name)
+        # A NAME ANOTHER DECLARATION COULD EMIT IS AMBIGUOUS and is never read as
+        # global: its history may be that other group's, in another frame.
+        and not _emitted_by_another(str(group.name), every_group, group, outside_frame="MRP")
     ]
     if declared and set(_SIX_COMPONENTS) <= parameters:
         return tuple(declared)
