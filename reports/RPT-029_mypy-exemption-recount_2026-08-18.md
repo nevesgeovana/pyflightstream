@@ -42,19 +42,31 @@
 > the headline sentence below names, and each earlier run keeps its
 > section further down; the two lines here were last replaced by the
 > run of 2026-09-15 EVENING, on the tree that carries the 0.21.0 point name,
-> its renaming command and the sweep of any flight-condition variable. (An
+> its renaming command and the sweep of any flight-condition variable, and
+> replaced again by the run of 2026-09-19 on the settled 0.24.0 tree. (An
 > earlier run of the SAME DAY measured the 0.20.0 tree at 617 errors in 18 of
 > 85 modules; two measurements of two trees fell on one date, so each is named
 > by its tree rather than by the date alone.):
 >
->     Found 639 errors in 18 files (checked 89 source files)
->     Success: no issues found in 89 source files
+>     Found 661 errors in 18 files (checked 93 source files)
+>     Success: no issues found in 93 source files
 >
 > Every figure below is that re-measurement.
 
 The result, in the sentence every record of it carries:
 
-**mypy recount 2026-09-18: 639 errors in 18 of 89 modules.**
+**mypy recount 2026-09-19: 661 errors in 18 of 93 modules.**
+
+THE NINETIETH TO THE NINETY-THIRD ARRIVED AT 0.24.0 and all four arrive
+CLEAN: `post/axes.py`, the one home of the frame conventions; `cases/windows.py`,
+the one resolver of an unsteady row's averaging window; `_expressions.py`, the
+floor module that evaluates a pproc equation; and `post/equations.py`, which
+applies them to the unsteady polar. None of the four is among the 18 files the
+run reports. The count rose from 639 to 661, 22 errors, on sites in modules
+that already carried exemptions, `pyflightstream.run` above all; the run
+measured the tree as it is and assigns no share of the 22 to a change.
+
+The previous reading, 639 errors in 18 of 89 modules on 2026-09-18, measured the 0.23.0 tree.
 
 THE EIGHTY-SEVENTH, EIGHTY-EIGHTH AND EIGHTY-NINTH ARRIVED AT 0.23.0 and all
 three arrive CLEAN:
@@ -319,7 +331,7 @@ configuration to be in a state the repository does not ship:
 
 The final line of that run is the measurement:
 
-    Found 639 errors in 18 files (checked 89 source files)
+    Found 661 errors in 18 files (checked 93 source files)
 
 The same run with the shipped configuration, overrides and all, is green:
 

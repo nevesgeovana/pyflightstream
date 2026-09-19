@@ -431,6 +431,16 @@ FlightStream versions.
   `CT 0.00000` for that point. The point is left out of the rotor table and
   named, like every other point that is not a row.
 
+### Changed (the type-checker debt, re-measured on the release tree)
+
+- mypy recount 2026-09-19: 661 errors in 18 of 93 modules. The four modules
+  this release adds, `post/axes.py`, `cases/windows.py`, `_expressions.py` and
+  `post/equations.py`, arrive with no error; the 22 more than 0.23.0's reading
+  sit in modules that were already exempt (`reports/RPT-029`).
+- The old entry of 0.8.0 that stated the reading was redated at every recount,
+  so it said a figure measured five weeks after it was written. It now points
+  here and states no number of its own.
+
 ### Changed (a removal promise that moved)
 
 - The manifest key `broken_commands` is still READ, and its removal moves from
@@ -6199,9 +6209,9 @@ costs the reader the whole warning window the shim exists to buy.
   `[tool.mypy]` header has promised since 2026-08-03 that an exemption is
   removed as its module is typed and never added, and this is that
   direction happening rather than being restated. The re-count moves with
-  it: mypy recount 2026-09-18: 639 errors in 18 of 89 modules, where the
-  tree carried 275 in 21 of 64 two days before, and the four records that
-  state it move together because a tier-1 guard compares them.
+  it, and the tree had carried 275 errors in 21 of 64 modules two days
+  before; the current reading is the one `reports/RPT-029` and the
+  [Unreleased] section state, which a tier-1 guard holds together.
 
   It was re-measured a THIRD time on 2026-08-20, when this release's last
   two modules landed and the module-total guard went red exactly as
