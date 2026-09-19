@@ -301,6 +301,7 @@ read by the package rather than ignored:
 | v0.17.0 | **FOUR NAMES LEFT THIS CELL AND BECAME COLUMNS**: `GEOMETRY`, `SYMMETRY`, `SYMMETRY_LOADS` and `NCPUS`, which lived here or in the setup and now have a column each, beside the two that are new in both homes, `CONFIGURATION` and `WALLTIME` (FR-93). A row that states one of the six in BOTH homes is refused naming both. The rows above still show the cell spelling because that is what a file written before 0.17.0 carries, and `pyfs-matrix upgrade` moves them |
 | v0.18.0 | `RESTART` now RUNS (FR-96). Two further names are reserved and they are the PACKAGE'S to set, never a row's: `RESTART_FROM`, the saved simulation a continuation opens, and `RESTART_ITERATIONS`, the remaining step count. The run path resolves both from the recorded run being continued and writes them onto the case; a row that states either is refused, because stating them by hand would skip the resolution that checks a recorded run exists, that its status is continuable, and that its outputs are archived before they are replaced |
 | v0.19.0 | `TRANSLATE`, a list of records, one translation of the opened mesh each, in the order written and before every rotation: `TRANSLATE: {DISTANCE: 0.05 / AXIS: PUSHER_SMRP-X / ALIAS: PUSHER}, {...}`; on every run type that reads `ROTATE`, the distance in metres along one axis of the named frame (FR-100), see [One row, one geometry, moved](#one-row-one-geometry-moved) |
+| v0.23.0 | `LAST_REVS_AVG` and `LAST_ITERS_AVG`, the AVERAGING WINDOW of an unsteady point, one per row at most: the first on `unsteady_rotor` only, a count of the last revolutions that accepts a float (`LAST_REVS_AVG: 0.25`); the second a count of the last iterations, the key of an `unsteady` row and read on a rotor row too. Written in UPPER CASE like every key of this cell, which is matched on its exact spelling: `last_revs_avg` is refused as a key of no run type. A row stating both is refused naming both. `WINDOW_DEGREES`, `WINDOW_STEPS` and `WINDOW_REVOLUTIONS` are DEPRECATED from this release: a row stating one still binds and warns, naming the replacement, until 0.26.0 removes them. See [The window, said once](#the-window-said-once) and [the definition of record](post-processing-definitions.md#the-averaging-window) |
 
 **A WORKFLOW ROW STATES ONLY WHAT THE SCRIPT WILL CARRY.** Each run type
 registers the keys it reads (`Workflow.keys` in
@@ -1231,7 +1232,7 @@ file holding `[groups]` alone is what the old file was:
 ```toml
 base_regions = ["W", "B"]      # families the base-region autodetect may consider; [] = off
 
-[groups]                       # what the groups file held: number -> families
+[groups]                       # group -> families; numbered here, NAMED since 0.23.0 (see below)
 "1" = ["Blade1", "S", "N", "P", "W", "B", "H"]
 "2" = ["W", "B"]
 "3" = []                       # every family the geometry carries
@@ -1439,22 +1440,31 @@ header, as the example above places it: TOML puts a key written under
 plans READY, and `base_regions = ["Base"]` reaches the script as one
 `DETECT_BASE_REGIONS_BY_SURFACE` per boundary of the family.
 
-A group is keyed by its NUMBER, and a word there is refused at
-`pyfs-matrix plan` (PFS-2032.03): the polar table written per group
-carries the number in its name (`3207_M20_g01.csv` is group 1 of polar
-3207 at Mach 0.20), so an artifact
+**SINCE 0.23.0 A GROUP IS NAMED, and the product file carries the name.** An
+artifact
 
 ```toml
 [groups]
+PUSHER = ["Blade1"]
 "wing" = ["Wing"]
 ```
 
-is refused naming the row, `inputs/pproc/p006.toml`, the key `'wing'`
-and the table name the number is for; write `"1" = ["Wing"]`. Until
-0.13.0 that artifact planned READY and stopped the whole products stage
-after the seat was spent, outside the skip mechanism. An artifact whose
-groups are not for polar tables says so with `products.polars = false`
-and keeps its names.
+is accepted, and its polar tables are
+`polars/P0001-M150AL+000BE+000J+sweep_PUSHER.csv` and `..._wing.csv`. A group
+keyed by a NUMBER, as the example at the top of this section keys its four,
+still binds, and its files keep the numbered suffix: `"1"` writes `..._g01.csv`.
+That suffix survives only for a pproc that still numbers its groups, so the
+products of a workspace recorded before 0.23.0 and the ones written beside them
+stay one convention. [Migrating to 0.23.0](migrating-to-0.23.0.md) has the
+command that renames products already written.
+
+**THE ONE NAME REFUSED** at `pyfs-matrix plan` is a name shaped like the
+numbered suffix itself, `g01` and its kin: a file named after it could not be
+told from the form it supersedes, and the rename of existing products needs
+that difference. The refusal names the row, the artifact and the key. From
+0.13.0 until 0.23.0 EVERY word was refused here (PFS-2032.03), because the polar
+table carried the group number in its name. An artifact whose groups are not
+for polar tables says so with `products.polars = false` and is not checked.
 
 The `[exports]` table decides the row's export set (FR-51): a workflow row
 declares no `OUTPUTS` of its own any more, every export is named for the
@@ -1511,7 +1521,8 @@ line and one row per record, so a spreadsheet or a dataframe opens it with
 nothing else. A POLAR table per group of `[groups]`, under `polars/` and
 named by the same convention as the point's script with the swept
 variable's field written `<code>+sweep`
-(`polars/P0001-M150RE438AL+000BE+000J+sweep_g01.csv`, FR-85 and FR-88): one
+(`polars/P0001-M150RE438AL+000BE+000J+sweep_PUSHER.csv` for a group named
+`PUSHER`, and `..._g01.csv` for a group still keyed `"1"`; FR-85 and FR-88): one
 row per point of the polar with the
 reference block (`SREF`, `CREF`, `BREF`, the moment point), the advance
 ratio of the row in `J` (`NA` where the run recorded none, and blank until
@@ -1606,10 +1617,14 @@ one, and it changes the exit code alone, after every product is written.
 
 The existing tooling opens a fixed-width text polar file, not a
 CSV, and `[products] custom_polar_format = true` on the pproc artifact
-writes that file beside every polar table the stage writes,
-`<polar>_M<code>_g<group>.dat`
-beside the `.csv`, the same rows a second time (PFS-2014.01.01). Off by
-default. The shape, read off a recorded file and pinned by the committed
+writes that file beside every polar table the stage writes, under the polar
+table's own stem with the suffix `.dat`
+(`P0001-M150AL+000BE+000J+sweep_g01.dat` beside `..._g01.csv`), the same rows
+a second time (PFS-2014.01.01). Off by default. **The format carries the group
+as a two-digit NUMBER on its fourth line, so in 0.23.0 it is written for a
+numbered group only**: a pproc that NAMES its groups and sets this key stops
+the products stage on the group's name. Keep the groups numbered in an artifact
+that asks for this format. The shape, read off a recorded file and pinned by the committed
 fixture `tests/tier1_offline/fixtures/custom_polar_format_sample.dat` (every
 value in it synthetic), is nine header lines and then one line per point:
 
@@ -1626,8 +1641,8 @@ Tue Sep 08 23:41:07  2026
   -2.00000   0.00000   0.10000   2.30000   0.00398   0.00000  -0.16424  ...
 ```
 
-The title carries the row's description; line 2 is the polar and the
-two-digit Mach code of the file name (`1001` at Mach 0.10 is `100110`);
+The title carries the row's description; line 2 is the polar and a
+two-digit Mach code (`1001` at Mach 0.10 is `100110`);
 line 3 the write time; `007 01` the number of reference columns and the
 group; then the reference names and values, the row and column counts,
 the twenty-four column names of the polar table in its order, and every
@@ -1753,11 +1768,22 @@ type's, and the window is the one the row states:
 
 | file | run type | window |
 |---|---|---|
-| `probes/<point>_time_average.csv` | `unsteady_rotor` and `unsteady` | the export window the row states (`WINDOW_DEGREES`, `WINDOW_STEPS` or `WINDOW_REVOLUTIONS`); without one, a rotor row's last revolution (from `DELTA_THETA` and `REVOLUTIONS`, or `RPM` and `DELTA_TIME`), and a rotorless row's whole run (`DELTA_TIME` and `TIME_ITERATIONS`) |
+| `probes/<point>_time_average.csv` | `unsteady_rotor` and `unsteady` | the AVERAGING WINDOW the row states, `LAST_REVS_AVG` on a rotor row and `LAST_ITERS_AVG` on a rotorless one, ending at the run's last step; failing that a deprecated `WINDOW_DEGREES`, `WINDOW_STEPS` or `WINDOW_REVOLUTIONS`, which still binds and warns; without any, a rotor row's last revolution (from `DELTA_THETA` and `REVOLUTIONS`, or `RPM` and `DELTA_TIME`), and a rotorless row's whole run (`DELTA_TIME` and `TIME_ITERATIONS`). One row |
 | `probes/<point>_phase_locked_<ALIAS>.csv` | `unsteady_rotor`, a row naming its rotors | the time-average window cut into blade passages OF THAT ROTOR, one of its revolutions over its own blade count, a trailing partial passage dropped; one row per passage |
-| `probes/<point>_per_blade_<ALIAS>.csv` | `unsteady_rotor`, a row naming its rotors | the last revolution OF THAT ROTOR cut into one window per blade, contiguous and ending at the run's last step; one row per blade |
+| `probes/<point>_per_blade_<ALIAS>.csv` | `unsteady_rotor`, a row naming its rotors | since 0.23.0 ONE window shared by every blade: the row's `LAST_REVS_AVG`, counted in THAT ROTOR's revolutions and ending at the run's last step, and without the key that rotor's last complete revolution; one row for the window, NOT one per blade |
 | `probes/<point>_phase_locked.csv` | `unsteady_rotor`, a row naming no rotor by alias | the time-average window cut into blade passages, one revolution over `BLADES` steps each, a trailing partial passage dropped; one row per passage |
-| `probes/<point>_per_blade.csv` | `unsteady_rotor`, a row naming no rotor by alias | the last revolution of the run cut into one window per blade, contiguous and ending at the run's last step; one row per blade |
+| `probes/<point>_per_blade.csv` | `unsteady_rotor`, a row naming no rotor by alias | since 0.23.0 ONE window shared by every blade: the averaging window the row states, and without `LAST_REVS_AVG` the last complete revolution of the run; one row for the window, NOT one per blade |
+
+**`per_blade` CHANGED SHAPE AT 0.23.0.** Until then it cut the last revolution
+into one window per blade and wrote one row per blade, which put each blade in a
+different stretch of the history. It is now one window and one row. One row per
+blade over that shared window, with each blade's start and end azimuth in
+columns, is what [the definition of record](post-processing-definitions.md#per_blade)
+asks for and is NOT written by 0.23.0; nor is the azimuthal form of
+`phase_locked` that page defines. A deprecated `WINDOW_*` key does not reach
+`per_blade`, and it does not reach the unsteady polar either: a row that states
+neither `LAST_REVS_AVG` nor `LAST_ITERS_AVG` has its polar read from the native
+export.
 
 Every window is counted in solver steps, inclusive, 1-based, and row `k` of
 the plots table is step `k`; the table's own time column is averaged like
@@ -1767,7 +1793,11 @@ implementation of blade-passage averaging the package holds
 it is taken over the WRITTEN plots table, so a reduction can be recomputed
 from the file beside it. The windows travel on the run record: `pyfs-matrix
 run` resolves them off the row when it writes the record (`reductions` in
-`runs.json`), and `pyfs-matrix post` reads the record alone. A reduction the
+`runs.json`), and `pyfs-matrix post` reads them from there, with one
+exception: the averaging window is resolved again from the matrix as `post`
+reads it (`LAST_REVS_AVG` or `LAST_ITERS_AVG`), against the clock the record
+already carries, so the key can be edited and `post` re-run with no solver.
+Where the matrix names no key, the window the run recorded stands. A reduction the
 row cannot window is listed under `skipped` with the reason, keyed by the
 file it would have been: a rotor row that names NO rotor by alias and
 states no `BLADES` skips the two passage reductions; a plots table shorter
@@ -1806,27 +1836,32 @@ for alias, block in per_rotor.items():
         #    or {'skipped': '<the reason this rotor has none>'}
 ```
 
-A worked example, the tier-1 fixture: a rotor row of eight steps, four
-steps per revolution, two blades, an export window of six steps. The
-reductions of `a-02.0_plots.csv` land as
+A worked example: a rotor row of eight steps, four steps per revolution,
+two blades, stating `LAST_REVS_AVG: 1.5`, which is six steps. The reductions
+of `AL-020_plots.csv` land as
 
 ```text
-probes/a-02.0_plots.csv           raw, one row per step
-probes/a-02.0_time_average.csv    one row, steps 3 to 8
-probes/a-02.0_phase_locked.csv    three rows, steps 3 to 4, 5 to 6, 7 to 8
-probes/a-02.0_per_blade.csv       two rows, steps 5 to 6 and 7 to 8
+probes/AL-020_plots.csv           raw, one row per step
+probes/AL-020_time_average.csv    one row, steps 3 to 8
+probes/AL-020_phase_locked.csv    three rows, steps 3 to 4, 5 to 6, 7 to 8
+probes/AL-020_per_blade.csv       one row, steps 3 to 8
 ```
 
-each reduction file carrying `REDUCTION,WINDOW,FIRST_STEP,LAST_STEP,STEPS`
-and then the plots table's own columns, and `products.json` naming each:
+each reduction file carrying `REDUCTION,WINDOW,FIRST_STEP,LAST_STEP,STEPS`,
+then the flight condition and the reference lengths (since 0.23.0), and then
+the plots table's own columns, and `products.json` naming each:
 
 ```text
-"probes/a-02.0_per_blade.csv": {
- "sim_id": "7001", "pproc": "p001", "runs": ["camp/sim_7001/a-02.0"],
- "reduction": "per_blade", "windows": [[5, 6], [7, 8]], "period_steps": 2,
- "window_from": "the last revolution, one window per blade"
+"probes/AL-020_per_blade.csv": {
+ "sim_id": "7001", "pproc": "p001", "runs": ["camp/sim_7001/AL-020"],
+ "reduction": "per_blade", "windows": [[3, 8]],
+ "window_from": "the averaging window the row states, 6 steps, shared by every blade",
+ "period_steps": 2
 }
 ```
+
+A record written before 0.23.0 keeps the windows it recorded, so its
+`per_blade` entry may still list one window per blade.
 
 ### Several matrices in one workspace
 
@@ -2458,6 +2493,17 @@ be resolved is left out rather than counted as a single solve, and the basis
 line says how many were dropped.
 
 ### The window, said once
+
+**SINCE 0.23.0 THE AVERAGING WINDOW HAS A KEY OF ITS OWN**: `LAST_REVS_AVG` on
+an `unsteady_rotor` row, a count of the last revolutions that accepts a float,
+and `LAST_ITERS_AVG` on an `unsteady` row, a count of the last iterations. It
+is the one window the unsteady polar, the time average and `per_blade` use.
+A window longer than the run is the whole run rather than a refusal. The row
+above still states the older spelling, `WINDOW_DEGREES: 90`, which is
+DEPRECATED: it binds and warns until 0.26.0 removes it, and the spelling that
+replaces it on that row is `LAST_REVS_AVG: 0.25`, degrees being revolutions
+over 360. A row stating both an old key and a new one gets the new one. What the
+next paragraph says is what the older keys do while they last.
 
 `WINDOW_DEGREES: 90` is the span the expensive exports apply over,
 counted BACKWARDS from the end of the run: the last quarter turn of the

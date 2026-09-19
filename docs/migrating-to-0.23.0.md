@@ -52,9 +52,16 @@ those tables would take a product away from a campaign that already happened.
 
 ## 2. Every product says what it is a file OF
 
-Every file the post stage writes now carries the whole flight condition
-(`ALPHA`, `BETA`, `MACH`, `RE`, `VINF`, `ALT`, `J`) and the reference lengths
-(`SREF`, `CREF`, `BREF`).
+The product tables now carry the whole flight condition (`ALPHA`, `BETA`,
+`MACH`, `RE`, `VINF`, `ALT`, `J`) and the reference lengths (`SREF`, `CREF`,
+`BREF`): the polars, the unsteady polar, the rotor tables, the sections, the
+probes and the reduction tables.
+
+**Not every file the post stage writes does.** The plots table,
+`probes/<point>_plots.csv`, carries the export's own columns and nothing else,
+and the three point series under `series/` carry `step`, `time_s`,
+`azimuth_deg` and their export's columns. Read the condition of either from the
+product beside it.
 
 Before this release the sections, probes and reduction tables carried no
 reference length at all, and the polar carried no `VINF` or `ALT`. A
@@ -216,11 +223,16 @@ there.
 
 | column | run type | unit |
 |---|---|---|
-| `last_revs_avg` | `unsteady_rotor` | last revolutions, **accepts a float** |
-| `last_iters_avg` | `unsteady` | last iterations |
+| `LAST_REVS_AVG` | `unsteady_rotor` | last revolutions, **accepts a float** |
+| `LAST_ITERS_AVG` | `unsteady` | last iterations |
+
+**Write the key in UPPER CASE, exactly as above.** A key of `VAR_NAMES_VALUES`
+is matched on its exact spelling, so `last_revs_avg` in lower case is refused
+on a workflow row as a key of no run type, and is not read at all where that
+check does not run.
 
 It is the window the POLAR, the time average and `per_blade` all use. On a row
-turning several rotors, `last_revs_avg` is a COUNT of revolutions: each rotor
+turning several rotors, `LAST_REVS_AVG` is a COUNT of revolutions: each rotor
 converts it with its own revolution length, so a lifter and a pusher get
 different spans from the same key and neither has the other's turn imposed on
 it.
@@ -228,7 +240,7 @@ it.
 **`WINDOW_STEPS`, `WINDOW_REVOLUTIONS` and `WINDOW_DEGREES` are deprecated**,
 due for removal at 0.26.0. A row stating one still binds and now WARNS, naming
 the replacement. Degrees are revolutions over 360, so `WINDOW_DEGREES = 90` is
-`last_revs_avg = 0.25`. A row stating both an old key and a new one gets the new
+`LAST_REVS_AVG: 0.25`. A row stating both an old key and a new one gets the new
 one.
 
 ## An unsteady point's POLAR changes shape, and so does its folder
@@ -252,11 +264,20 @@ package knows which plot label carries which coefficient, and a label the
 package invented would not fail loudly -- it would write `NA` down a whole
 column. A dictionary that maps the names is 0.24.0 scope.
 
-**Why it changed:** asked whether the native coefficient export writes the time
-average or the last time step, the owner answered the LAST TIME STEP. On an
-oscillating rotor that is one instant of a cycle. The native export still ships,
-as a health check, and the run assessor judges an unsteady point from the plots
-history.
+**Why it changed:** by [the definition of record](post-processing-definitions.md#the-unsteady-polar),
+the native coefficient export states the LAST TIME STEP only. On an oscillating
+rotor that is one instant of a cycle. The native export still ships, as a health
+check.
+
+**What judges an unsteady point did NOT change.** This page said the run
+assessor judges an unsteady point from the plots history. It does not: the
+function that would do so, `assess_unsteady_from_plots`, exists and is called by
+nothing on the run or collect path. An unsteady point is judged in 0.23.0
+exactly as in 0.22.0, by the standard loads assessor, from the collected loads
+table and, where one was exported, the solver log. A history that diverged and
+ended on a finite step is therefore NOT caught by this release, and whether the
+history has settled is never the package's judgement: see
+[what the package does not judge](post-processing-definitions.md#what-the-package-does-not-judge).
 
 ## Not in this release
 

@@ -152,7 +152,7 @@ Three of the seven matter to anyone with a rotor:
   that averaged correctly, in the same folder, with neither file saying which it
   was.
 
-### `last_revs_avg` and `last_iters_avg` now work from POST alone
+### `LAST_REVS_AVG` and `LAST_ITERS_AVG` now work from POST alone
 
 **This is the change most likely to affect what you do next.** The averaging
 window was resolved when a point RAN and stored in its record, so editing the
@@ -278,18 +278,22 @@ names no key, the window the run recorded still stands.
   The migration page said so correctly and this page did not; the architect and
   V&V lenses of the closing round found the two disagreeing.
 
-- **The run assessor judges an unsteady point from the plots HISTORY**, not from
-  the single row the native coefficient export leaves behind. A run whose
-  history holds no step is now unjudgeable and says so, instead of being scored
-  from one iteration.
+- **The POLAR of an unsteady point is the plots HISTORY, time-averaged over the
+  window the row states**, and no longer the single row the native coefficient
+  export leaves behind. The table, its name and its columns are under *Added*
+  below. A row that states no averaging window (`LAST_REVS_AVG` or
+  `LAST_ITERS_AVG`) has no window to average over, and its polar is still read
+  from the native export.
 
-  **THE POLAR STILL READS THE NATIVE EXPORT, and this release does not change
-  that.** The other half of this item -- re-sourcing the polar -- rests on
-  whether that export is the solver's own time average or the last time step.
-  This repository asserts BOTH, in two files, and has no evidence for either:
-  no manual citation and no characterised export. Resolving it is a question to
-  the owner (`QUESTION-0230`), not a judgement this release makes, so the polar
-  is left exactly as it was rather than moved on an inference.
+  **WHAT JUDGES AN UNSTEADY POINT DID NOT CHANGE, and this entry said it had.**
+  Until it was corrected on 2026-09-18 this bullet said the run assessor judges
+  an unsteady point from the plots history and that a history holding no step is
+  unjudgeable. Neither is true of 0.23.0: `assess_unsteady_from_plots` exists, is
+  tested, and is called by nothing on the run or collect path. An unsteady point
+  is judged exactly as in 0.22.0, by the standard loads assessor, from the
+  collected loads table and the solver log where one was exported. The same
+  bullet also said THE POLAR STILL READS THE NATIVE EXPORT, which contradicted
+  *Added*; what *Added* says is what shipped.
 
 ### Changed
 
@@ -426,16 +430,17 @@ names no key, the window the run recorded still stands.
   because writing both would put two files with one name's worth of meaning in
   one folder.
 
-- **ONE AVERAGING WINDOW, STATED ON THE MATRIX ROW**: `last_revs_avg` on an
-  `unsteady_rotor` row, which **accepts a float**, and `last_iters_avg` on an
-  `unsteady` one. It is the same window the POLAR, the time average and
+- **ONE AVERAGING WINDOW, STATED ON THE MATRIX ROW**: `LAST_REVS_AVG` on an
+  `unsteady_rotor` row, which **accepts a float**, and `LAST_ITERS_AVG` on an
+  `unsteady` one, both in UPPER CASE because a row's keys are matched on the
+  exact spelling. It is the same window the POLAR, the time average and
   `per_blade` all use.
 
   **It is on the ROW because it converses with the temporal setup** --
   `DELTA_TIME`, `TIME_ITERATIONS` and `RPM` are on that row -- and a window
   stated elsewhere sits apart from the quantities that give it a length.
 
-  **`last_revs_avg` IS A COUNT OF REVOLUTIONS AND NOT A RANGE OF STEPS**, which
+  **`LAST_REVS_AVG` IS A COUNT OF REVOLUTIONS AND NOT A RANGE OF STEPS**, which
   is what lets one instruction serve a row turning two rotors at two speeds: each
   converts the count with its OWN revolution, so a lifter at 2200 rev/min and a
   pusher at 900 get different spans from the same key, and neither has the
@@ -486,9 +491,14 @@ names no key, the window the run recorded still stands.
   is unchanged and that a vector spelling of a letter emits the same script;
   whether the frames a TILTED shaft produces match the hardware is owed to one
   licensed run at a known pitch.
-- **`ETAW` is implemented as the thrust component along the free stream**, the
-  standard reading of the wind-axis efficiency. The definition is a domain call
-  and is the owner's to confirm.
+- **`ETAW`: nothing is owed on its definition, and this bullet said there was.**
+  Until it was corrected on 2026-09-18 it described `ETAW` as the thrust
+  component along the free stream, awaiting confirmation. That is the form this
+  release SUPERSEDED: what shipped is the wind-axis force form under *Added*,
+  `ETAW = J * CTW / CP`, and a caller that states no wind-axis force reads `NA`.
+  The definition is `docs/post-processing-definitions.md`. A defect in the
+  free-stream vector that form shipped with is recorded under the release that
+  fixes it.
 
 
 ## [0.22.0] - 2026-09-17
