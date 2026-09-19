@@ -70,6 +70,7 @@ from __future__ import annotations
 
 import math
 import warnings
+from collections.abc import Iterable
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -629,6 +630,26 @@ def parse_run_loads(
     return report
 
 
+def superseded_by_a_continuation(records: Iterable[RunRecord]) -> dict[str, str]:
+    """Return the runs a later run CONTINUED, each mapped to the run that continued it.
+
+    A continuation archives the contents of the point's folder and writes into
+    that same folder, and a record is never rewritten, so the stopped run's
+    ``outputs`` go on naming files its continuation wrote. Read through that
+    record, the point appears twice with the continuation's numbers. The
+    continuation states which run it continues (``continues``, since 0.24.0)
+    and that statement is the ONLY thing read here: two runs that merely
+    resemble each other are both kept. A record written before 0.24.0 states
+    nothing and is never dropped.
+    """
+    superseded: dict[str, str] = {}
+    for record in records:
+        continued = getattr(record, "continues", None)
+        if continued:
+            superseded[str(continued)] = str(record.run_id)
+    return superseded
+
+
 def sweep_table(
     workspace: CampaignWorkspace,
     *,
@@ -716,6 +737,19 @@ def sweep_table(
     # and would carry the job's aggregate status for all of them. The
     # record expands itself; one that is a single point returns itself.
     records = [point for record in workspace.read_manifest() for point in record.as_points()]
+    # THE END OF A CONTINUATION CHAIN, AND NOT EVERY LINK OF IT (0.24.0). The
+    # stopped run's record still names the files its continuation wrote, so its
+    # row carried the continuation's coefficients under another run id.
+    superseded = superseded_by_a_continuation(records)
+    if superseded:
+        warnings.warn(
+            "the sweep table leaves out every run a later run continued, because its "
+            "record names the files its continuation wrote: "
+            + "; ".join(f"{old} (continued by {new})" for old, new in superseded.items()),
+            PyflightstreamWarning,
+            stacklevel=2,
+        )
+        records = [record for record in records if record.run_id not in superseded]
     if not records:
         raise MalformedOutputError(
             f"the campaign root {workspace.root} has no manifest records; "

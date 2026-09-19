@@ -130,6 +130,19 @@ FlightStream versions.
   decimals. A workspace whose artifact and project agree is unaffected; one
   that is refused was publishing coefficients wrong by a constant factor.
 
+### Fixed (a continued point is in its tables once)
+
+- A run that was CONTINUED is left out of the products and of the sweep table,
+  and named: under `skipped` in `products.json`, in a warning from
+  `sweep_table`. A continuation writes into the folder of the run it continues
+  and no record is rewritten, so the stopped run's record went on naming files
+  its continuation wrote; a run that reached its iteration limit and was then
+  continued put the point in its polar twice, both rows carrying the
+  continuation's coefficients. Only the record's own `continues` field is read
+  (`results.superseded_by_a_continuation`): two runs that merely resemble each
+  other are both kept, and a chain recorded before 0.24.0 states nothing and is
+  unchanged.
+
 ### Fixed (a rotor's alias in a file name and in the union)
 
 - The rotor table's file name takes the alias through the same sanitiser as

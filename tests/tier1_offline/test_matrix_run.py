@@ -3931,10 +3931,12 @@ def _two_matrices(tmp_path):
 
 def _writes_her_loads(tmp_path):
     """A stub solver that writes a real loads spreadsheet where the script exports one."""
-    from tests.tier1_offline.test_post_products import LOADS
+    from tests.tier1_offline.test_post_products import loads_stating
 
     source = tmp_path / "loads.txt"
-    source.write_text(LOADS, encoding="utf-8")
+    # DIVIDED BY THE REFERENCE THESE ROWS NAME (`r003`: 10 m2, 1.2 m), as a real export
+    # is; since 0.24.0 the post stage refuses a simulation whose export is not.
+    source.write_text(loads_stating(area_m2=10.0, chord_m=1.2), encoding="utf-8")
     return StubSolver(
         "import pathlib, sys; "
         "lines = pathlib.Path(sys.argv[1]).read_text().splitlines(); "
@@ -4355,7 +4357,10 @@ def test_a_rotor_row_run_through_the_workflow_leaves_its_reductions_beside_the_p
     import json
 
     import pyflightstream.post  # noqa: F401  (registers the products stage)
-    from tests.tier1_offline.test_post_products import LOADS, SLOADS, _plots_export
+    from tests.tier1_offline.test_post_products import SLOADS, _plots_export, loads_stating
+
+    # The export is divided by the reference this row names (`r003`), as a real one is.
+    LOADS = loads_stating(area_m2=10.0, chord_m=1.2)  # noqa: N806
 
     # Every export the script names is written, the three the products
     # stage reads as real tables: a sectional export it cannot read costs

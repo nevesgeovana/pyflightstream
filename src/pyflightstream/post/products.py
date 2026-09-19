@@ -143,6 +143,7 @@ from pyflightstream.results import (
     parse_loads,
     parse_probe_points,
     parse_unsteady_plots,
+    superseded_by_a_continuation,
 )
 from pyflightstream.workspace import RunStatus
 from pyflightstream.workspace.flight_condition import resolve_flight_condition
@@ -5219,6 +5220,11 @@ def write_campaign_products(
         )
     out = workspace.products_dir(matrix_stem)
     by_sim: dict[str, list[RunRecord]] = {}
+    # THE END OF A CONTINUATION CHAIN (0.24.0). Expanded first, because a chain
+    # is between POINTS; named below in `skipped`, once that exists.
+    superseded = superseded_by_a_continuation(
+        [point for record in records for point in record.as_points()]
+    )
     for record in records:
         # FR-95. ONE JOB IS SEVERAL POINTS, so the record is expanded
         # before its status is read. A steady row is one job since 0.17.0
@@ -5235,6 +5241,8 @@ def write_campaign_products(
         # A record that is one point returns itself, so nothing written
         # before 0.17.0 changes.
         for point_record in record.as_points():
+            if point_record.run_id in superseded:
+                continue
             if point_record.status in (RunStatus.CONVERGED, RunStatus.COMPLETED_MAX_ITER):
                 by_sim.setdefault(point_record.sim_id, []).append(point_record)
     written: list[Path] = []
@@ -5248,6 +5256,12 @@ def write_campaign_products(
     # existing product without overwrite is still the whole stage's
     # refusal, since it is about the caller's flag and not about a row.
     skipped: dict[str, str] = {}
+    for old, new in superseded.items():
+        skipped[f"runs/{old}"] = (
+            f"this run was continued by {new}, which wrote into the same folder, so its "
+            "record names the files of its continuation; the products hold the point once, "
+            "from the end of the chain"
+        )
     # FR-89, gathered ONCE for the whole campaign and never per simulation:
     # the rows of the matrix this campaign came from, keyed by POL, and the
     # campaign sweep table's own rows keyed by run id. The sweep table is
