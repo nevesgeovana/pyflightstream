@@ -31,7 +31,12 @@ than an unrenamed one):
 * a record whose recorded point is not one of the row's points, which is a
   matrix edited since the run: renaming under the edited row would file old
   evidence under a name that means something else;
-* two points whose new names would collide;
+* a record whose recorded flight condition disagrees with the row as it reads
+  today (0.24.0): the name is written from what the run was GIVEN, the row
+  gives only the order, and a fixed Mach number edited since the run would
+  otherwise relabel the evidence of another condition;
+* two points whose new names would collide, which a run and its continuation
+  are not: they are two records of one folder;
 * a folder, a file or a script whose new name is already taken on disk, found
   for EVERY move before the first one is made (0.24.0), and refused by the
   rehearsal as well;
@@ -56,6 +61,7 @@ from pathlib import Path
 from typing import Any
 
 from pyflightstream.cases import (
+    POINT_AXIS_KEYS,
     CampaignConfigError,
     SimCase,
     point_name,
@@ -229,21 +235,78 @@ class RenameReport:
         )
 
 
-def _case_for_naming(row: MatrixRow) -> SimCase:
+#: The one condition key the matrix binder DERIVES rather than reads: a row that
+#: states an advance ratio or a rotor speed and no velocity gets the velocity
+#: they work out to, written into the recorded condition as this key. A record
+#: carrying it beside a row that states none is the binder's work and not an
+#: edited matrix.
+DERIVED_CONDITION_KEY = "TASmps"
+
+
+def _recorded_condition(record: Mapping[str, Any]) -> dict[str, float] | None:
+    """Return the flight condition a record RAN AT, or None where it recorded none.
+
+    None for a record written before the field existed, and for one that holds
+    an empty table: there is then nothing to name from but the row, which is
+    what every release before 0.24.0 did for every record.
+    """
+    stated = record.get("flight_condition")
+    if not isinstance(stated, Mapping) or not stated:
+        return None
+    try:
+        return {str(key): float(value) for key, value in stated.items()}
+    except (TypeError, ValueError):
+        return None
+
+
+def _condition_disagreements(row: MatrixRow, recorded: Mapping[str, float]) -> list[str]:
+    """Return, per variable, how today's row disagrees with what a record ran at.
+
+    THE AXES OF THE SWEEP ARE LEFT OUT, because a point's own value of them is
+    in the record's ``point`` and is checked there: on a Mach sweep each record
+    states ITS Mach number while the row's cell says ``sweep``, and that is
+    agreement. So is :data:`DERIVED_CONDITION_KEY` on a row that states none.
+    """
+    first = next(iter(row.sweep.points()), {})
+    of_the_point = {POINT_AXIS_KEYS.get(axis, axis) for axis in first}
+    today = {key: float(value) for key, value in row.flight_condition.items()}
+    said: list[str] = []
+    for key in sorted(set(today) | set(recorded)):
+        if key in of_the_point or today.get(key) == recorded.get(key):
+            continue
+        if key not in today:
+            if key != DERIVED_CONDITION_KEY:
+                said.append(f"it ran at {key} {recorded[key]!r} and the row states no {key} today")
+        elif key not in recorded:
+            said.append(f"the row states {key} {today[key]!r} today and it ran with no {key}")
+        else:
+            said.append(
+                f"it ran at {key} {recorded[key]!r} and the row states {key} {today[key]!r} today"
+            )
+    return said
+
+
+def _case_for_naming(row: MatrixRow, recorded: Mapping[str, float] | None = None) -> SimCase:
     """Build the case the NAMING functions read, and nothing more.
 
     A rename needs the row's declared condition, its order, its Mach number
     and its sweep; it needs no recipe, no geometry, no artifact and no
     FlightStream version. Building the full campaign would demand every one of
     them from a user who is renaming records that already ran.
+
+    THE VALUES ARE THE RECORD'S WHERE IT RECORDED THEM (0.24.0), and the row
+    gives the order, which no record carries. A name is a statement about the
+    run it names, so it is written from what that run was given and not from
+    what the row says today.
     """
+    condition = dict(row.flight_condition) if recorded is None else dict(recorded)
     return SimCase(
         sim_id=row.pol,
         aircraft=row.aircraft,
         description=row.description,
-        flight_condition=dict(row.flight_condition),
+        flight_condition=condition,
         condition_order=list(row.condition_order),
-        mach=row.flight_condition.get("MACH"),
+        mach=condition.get("MACH"),
         sweep=row.sweep,
         recipe=row.workflow or "rename",
         variables=dict(row.variables),
@@ -515,7 +578,22 @@ def _plan_record(
     """Work out what one record takes, or register the refusal that stops it."""
     sim_id = str(record.get("sim_id", ""))
     run_id = str(record.get("run_id", ""))
-    case = _case_for_naming(row)
+    # NAMED BY WHAT IT RAN AT, AND REFUSED WHERE THE ROW HAS MOVED (0.24.0). The
+    # point check below compares point tags, which carry the swept axes alone,
+    # so a FIXED variable edited after the run walked past it: a record of Mach
+    # 0.2 was renamed `M100...` because the row said 0.1 that day.
+    recorded = _recorded_condition(record)
+    if recorded is not None:
+        disagreements = _condition_disagreements(row, recorded)
+        if disagreements:
+            report.refusals.append(
+                f"record {run_id!r}: {'; '.join(disagreements)}. The matrix changed since "
+                f"the run, and the name of a run says what THAT run was given, so row {sim_id} "
+                "as it reads today cannot name it. Rename against the matrix that ran it, or "
+                "move that record aside."
+            )
+            return None
+    case = _case_for_naming(row, recorded)
     declared = _declared_by_point(record)
     moves: list[_PointMove] = []
     for tag, point, outputs in _recorded_points(record):
