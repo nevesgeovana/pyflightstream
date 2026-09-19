@@ -40,6 +40,25 @@ second order. A reader reproducing row 2412 from the script alone will not have 
 
 Six of seven are coherent. The seventh is not a property of the package, as the next section measures.
 
+## Where these rotors operate: windmilling
+
+At alpha 0 both rotors are WINDMILLING, not propelling. The rotation frame of both
+scripts is the export's own (x aft), the rotor turns at +473 rev/min about +x, and:
+
+| alpha 0 | sector | full wheel |
+|---|---|---|
+| force along the shaft | +931 N, aft | +718 N, aft |
+| torque about the shaft | +753 N m | +539 N m |
+
+The force points AFT, a drag, and the torque points WITH the rotation (a positive
+rev/min read as a right-hand rotation about +x, the package's convention): the air
+drives the rotor. At an advance ratio of 1.70 that is the windmilling regime. So `ETA`
+above 1 (1.22 and 1.32) is not a propulsive efficiency: J CT / CP is a ratio of two
+quantities that are both reversed. At alpha 10 the full wheel sits near zero force
+along its shaft (CT -0.019), and its `ETA` of -0.74 is a ratio with a numerator near
+zero. The coherence checks compare the package's columns with the history and hold
+whatever the regime; the regime is what a reader of `ETA` needs to know.
+
 ## The sector against the full wheel
 
 At alpha 0 the rotor's force along its shaft, averaged over the same window:
