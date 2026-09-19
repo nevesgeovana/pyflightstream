@@ -79,6 +79,11 @@ a person. Both write only with an explicit `--write`.
   the key names, and what to run on a matrix written before v0.9.0.
 * Migrating to newer versions, newest first. Each page says what a release
   asks of a file you already have, and the one command that carries it across:
+    * [Migrating to 0.24.0](migrating-to-0.24.0.md): the numbers 0.23.0 published
+      that 0.24.0 states differently, among them `ETAW` under incidence, the
+      unsteady rotor table and the steady polar's axis columns; the averaging
+      window a new unsteady row must state; and what posting again gives you
+      without a solver run.
     * [Migrating to 0.23.0](migrating-to-0.23.0.md): every product table
       carries the flight condition it is a file of and no cell is ever blank.
       What changes in the bytes your reader parses, and the one command that
