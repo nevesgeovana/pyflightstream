@@ -4855,7 +4855,7 @@ def _sim_products(
                     # step at each point.
                     # THE TIME STEP OF AN UNSTEADY POINT, from its record. The export's
                     # header counts the solver's INNER iterations there, summed over
-                    # every step: 2813 on a licensed run of 144 steps, from which the
+                    # every step: 2813 on a licensed run of 144 steps (RPT-053), from which the
                     # azimuth was then computed.
                     iteration=_last_time_step(record_of[point.name]),
                     layout=record_of[point.name].sections_layout,

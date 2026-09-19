@@ -148,8 +148,10 @@ FlightStream versions.
   holds the average over the row's window.** The average was looked for under
   `FX_<alias>` ... `MZ_<alias>`, and a force plot is named for its pproc group
   (`FX_HUB_PUSHER`), so the lookup missed on every campaign and the fallback to
-  the native export was silent. A licensed run measured -606.6 N at the last
-  step against -397.4 N over the window. The history is found through the
+  the native export was silent. On a recorded licensed rotor point the two
+  differ by 43 per cent: -410.75 N at the last step against -287.82 N over the
+  row's window (`reports/RPT-053_what-an-unsteady-export-states-and-when_2026-09-19.md`, campaign `pfs0230`
+  row 2302 at alpha 10). The history is found through the
   pproc now: the plot group in the global `MRP` frame whose families are
   exactly the rotor's (`post.products.rotor_plot_source`).
 - **An unsteady run adds that group where the pproc plots none:** six Newton
@@ -313,7 +315,9 @@ FlightStream versions.
 
 - On an unsteady run the export header's `Current solver iteration number` counts
   the solver's INNER iterations, summed over every time step: 2813 on a licensed
-  run of 144 steps. The sections table took it for the step, so `STEP` read 2813
+  run of 144 steps (`RPT-053`, campaign `pfs0240` row 2411; the mechanism was
+  first recorded in `RPT-005`). The sections table took it for the step, so
+  `STEP` read 2813
   and `AZIMUTH` was computed from it (25 degrees for a blade that was back at 0).
   The sections export of an unsteady point is written when the march ends, so its
   `STEP` is the run's last time step, which the record states (the step a

@@ -187,7 +187,8 @@ def test_the_stage_reads_the_layout_off_the_points_own_record_and_says_it_is_one
 
 
 def test_an_unsteady_points_step_is_its_time_step_and_not_the_solvers_iteration_count(tmp_path):
-    """MEASURED ON A LICENSED RUN: 144 time steps, and the export's header said 2813.
+    """MEASURED ON A LICENSED RUN: 144 time steps, and the export's header said 2813
+    (reports/RPT-053, campaign pfs0240 row 2411).
 
     On an unsteady run the header line `Current solver iteration number` counts the
     solver's INNER iterations, summed over every time step. The table took it for the

@@ -147,7 +147,7 @@ frame, one after another with no marker between them. Each row leads with:
 
 | column | what it is |
 |---|---|
-| `STEP` | on an unsteady point, the run's last TIME STEP, from the run record: the export is written when the march ends, and its own header counts the solver's inner iterations, not steps. On a steady point, the solver iteration the export states. One name across every table |
+| `STEP` | on an unsteady point, the run's last TIME STEP, from the run record: the export is written when the march ends, and its own header counts the solver's inner iterations, not steps ([RPT-053](https://github.com/nevesgeovana/pyflightstream/blob/main/reports/RPT-053_what-an-unsteady-export-states-and-when_2026-09-19.md)). On a steady point, the solver iteration the export states. One name across every table |
 | `FAMILY` | the geometry families of the row's distribution, joined by `+` |
 | `PLANE` | the cutting plane of that distribution |
 | `ROTOR` | the rotor whose blades those families are; `NA` for a surface no rotor owns |

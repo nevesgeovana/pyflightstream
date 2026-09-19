@@ -8,8 +8,9 @@ plots history over the row's window. It looked for the six components under
 named `<parameter>_<group name>` from the pproc's `[[plots.groups]]`, so a rotor's
 columns read `FX_HUB_PUSHER`. The lookup missed on every campaign and the table fell
 back, silently, to the native export, which states the LAST TIME STEP: one instant of
-a cycle, beside a polar that averaged correctly. A licensed run measured it:
--606.6 N at the last step against -397.4 N over the window.
+a cycle, beside a polar that averaged correctly. A recorded licensed rotor point
+differs by 43 per cent: -410.75 N at the last step against -287.82 N over the
+row's window (reports/RPT-053_what-an-unsteady-export-states-and-when_2026-09-19.md).
 
 THE REQUIREMENT.
 - The rotor's columns are found through the PPROC: the plot group in the global
