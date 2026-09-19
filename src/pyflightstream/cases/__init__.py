@@ -968,19 +968,10 @@ class ProbesSpec(BaseModel):
 #: whole claim is that it carries everything the workspace knows about that
 #: simulation, and a format quietly carrying a different SET would break the
 #: claim while looking like a formatting option.
-# ITEM 7 IS 0.24.0 SCOPE, by the owner's decision of 2026-09-18: "deixa o super
-# files no farmato legacy para 24 tb". So `legacy_polar` is NOT an accepted
-# format here, and a pproc naming it is refused BY NAME with the formats that
-# exist -- the same disposition items 9, 10 and 11 were given.
-#
-# IT WAS DOCUMENTED AS ABSENT AND WAS STILL REACHABLE. The change log and the
-# migration page both listed the fixed-width super file under "not in this
-# release" while `superfile_format = "legacy_polar"` reached `_write_legacy_polar`
-# on the campaign path. That pair is the worst of the three states: a user
-# reading the release notes was told a working capability is absent, and a user
-# writing the key got it anyway. The architect lens of the closing round found
-# it. The WRITER stays, because 0.24.0 resumes from it.
-SUPERFILE_FORMATS: tuple[str, ...] = ("csv",)
+#: `legacy_polar` LEFT THIS TUPLE FOR 0.23.0 AND IS BACK IN 0.24.0. That release
+#: moved the item out, so a pproc naming the format was refused by name rather
+#: than accepted and ignored; the writer stayed, and this release resumes from it.
+SUPERFILE_FORMATS: tuple[str, ...] = ("csv", "legacy_polar")
 
 
 class ProductsSpec(BaseModel):

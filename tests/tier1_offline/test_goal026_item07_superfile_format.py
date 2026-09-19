@@ -26,27 +26,13 @@ import pytest
 
 from pyflightstream.post.superfile import SUPERFILE_FORMATS, SuperfileDraft, write_superfiles
 
-# ITEM 7 IS 0.24.0 SCOPE, by the owner's decision of 2026-09-18: "deixa o super
-# files no farmato legacy para 24 tb". `legacy_polar` has left
-# `cases.SUPERFILE_FORMATS`, so a pproc naming it is refused BY NAME -- the same
-# disposition items 9, 10 and 11 were given, and for the same reason: a format
-# the release does not offer must fail on the key rather than be accepted and
-# ignored.
-#
-# THESE CASES ARE SKIPPED AND NOT ONE IS DELETED. Several of them found real
-# defects that STAY FIXED in the code: the writer took its format argument from
-# the first commit while the one production call omitted it, so every campaign
-# got `csv` and the second format was a constant nobody could select; and the
-# sentinel then could not tell a pproc that CHOSE `csv` from one that said
-# nothing, so a campaign-wide flag silently rewrote a super file in the format
-# the pproc had explicitly declined.
-#
-# THE WRITER ITSELF IS UNTOUCHED -- `_write_legacy_polar` and the `fmt` argument
-# both remain -- because 0.24.0 resumes from them. What is withdrawn is the
-# ability to ASK for it, which is the only part a user can see. The marker
-# expires by itself: the moment `legacy_polar` returns to SUPERFILE_FORMATS
-# these go red until the behaviour is wired.
-pytestmark = pytest.mark.skip(reason="item 7 is 0.24.0 scope by the owner's decision of 2026-09-18")
+# ITEM 7 SHIPS IN 0.24.0. These cases were SKIPPED through 0.23.0, where the owner
+# moved the item out and `legacy_polar` left `cases.SUPERFILE_FORMATS`, so a pproc
+# naming it was refused by name. Not one was deleted then, because several found
+# defects that stayed fixed: the one production call omitted the format argument,
+# so the second format was a constant nobody could select; and the sentinel could
+# not tell a pproc that CHOSE `csv` from one that said nothing. The marker is gone
+# and they run again.
 
 
 def _drafts(tmp_path):

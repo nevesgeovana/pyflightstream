@@ -1641,6 +1641,17 @@ A skip is a success by default, since everything producible was produced;
 `--strict` is for a wrapper that must tell a partial rebuild from a whole
 one, and it changes the exit code alone, after every product is written.
 
+#### The super file in fixed-width text
+
+`[products] superfile_format = "legacy_polar"` on the pproc artifact writes the
+super file as fixed-width text, every field right-aligned in sixteen characters
+and no commas, for a tool that splits on position. `csv` is the default and what
+every existing workspace keeps. THE COLUMNS AND THE VALUES ARE THE SAME in both:
+it is a second rendering of one table, never a second product. 0.23.0 refused the
+key by name; since 0.24.0 it is read. An unsteady simulation has no super file of
+its own, its content rides in `P<sim>_<name>_uns_avg.csv`, so the key has nothing
+to format there.
+
 #### Custom polar format
 
 The existing tooling opens a fixed-width text polar file, not a

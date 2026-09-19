@@ -29,6 +29,14 @@ FlightStream versions.
 - `polar_row` takes `beta_deg=`; `GroupCoefficients` carries `force` and
   `moment`, the export-frame sums.
 
+### Added (the super file in fixed-width text)
+
+- `[products] superfile_format = "legacy_polar"` writes the super file as
+  fixed-width text, sixteen characters a field, with the same columns and values
+  as the `csv` form, which stays the default. 0.23.0 moved this out and refused
+  the key by name; the writer stayed and ten tests were parked, and they run
+  again. A pproc that CHOSE `csv` is not overridden by a campaign-wide format.
+
 ### Added (the unsteady polar states its axes)
 
 - **`P<sim>_<name>_uns_avg.csv` carries the eighteen axis coefficients**,
