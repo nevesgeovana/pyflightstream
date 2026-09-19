@@ -1392,7 +1392,9 @@ def _plot_name_can_emit(
         for literal, field, _spec, _conversion in string.Formatter().parse(template)
     )
     suffix = re.escape(ORIGINAL_FRAME_SUFFIX)
-    return re.fullmatch(f"{pattern}(?:{suffix})?", name) is not None
+    # Case-insensitive: whether the solver keeps a plot name's case is not measured,
+    # so two names equal but for case are taken as able to collide.
+    return re.fullmatch(f"{pattern}(?:{suffix})?", name, flags=re.IGNORECASE) is not None
 
 
 def _emitted_by_another(

@@ -131,3 +131,14 @@ def test_a_plot_name_outside_the_closed_alphabet_is_refused_when_read():
         with pytest.raises(ValueError, match="plot group"):
             ForcePlotGroup(name=name, frame="MRP", families="all")
     assert ForcePlotGroup(name="HUB_PUSHER2", frame="MRP", families="all")
+
+
+def test_names_equal_but_for_case_are_taken_as_able_to_collide():
+    """Whether the solver keeps a plot name's case is not measured: conservative."""
+    from pyflightstream.post.products import _plot_name_can_emit
+
+    def emits(template: str, name: str) -> bool:
+        return _plot_name_can_emit(template, name, (), inventory=(), is_blade=lambda _f: False)
+
+    assert emits("mrp_{family}", "MRP_TOTAL")
+    assert emits("Rotor_Prop", "ROTOR_PROP")
