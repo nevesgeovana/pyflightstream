@@ -7,6 +7,25 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Fixed (changes a published number)
+
+- **`ETAW` AND THE SHAFT ANGLE WERE COMPUTED AGAINST A FREE STREAM WITH TWO
+  WRONG SIGNS**, in every rotor table row with a non-zero incidence or sideslip.
+  0.23.0 built the free stream as `(cos a cos b, +sin b, -sin a cos b)`; the
+  export's frame is x aft, y right, z up, and the air moves along
+  `(cos a cos b, -cos a sin b, +sin a)`. It is measured, not derived: a loads
+  export states its own drag, and projecting its total force on the old vector
+  gave -0.01058 where the export of incidence 4, sideslip 2 states +0.03578.
+  A rotor whose force has a component off its shaft therefore had its wind-axis
+  force, and `ETAW`, wrong; a rotor pushing exactly along the stream at zero
+  angles is unaffected. `pyfs-matrix post` rewrites the tables; no re-run.
+  The rotation now lives in ONE module, `pyflightstream.post.axes`, whose tests
+  take their expected values from scipy's `Rotation` and from the recorded
+  exports' own drag, never from the implementation.
+- The force along the stream takes the SENSE the reference gave the rotor's
+  shaft, so `ETAW` reduces to `ETA` at zero angles whether the axis was
+  declared pointing aft or forward.
+
 ### Owed
 
 - **The Zenodo archive of v0.14.0 DOES NOT EXIST**, re-measured against

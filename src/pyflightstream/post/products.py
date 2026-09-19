@@ -116,6 +116,7 @@ from pyflightstream.post._tables import (
     context_row,
     write_csv_table,
 )
+from pyflightstream.post.axes import free_stream_in_export_frame
 from pyflightstream.post.series import run_clock, write_point_series
 from pyflightstream.post.superfile import (
     SuperfileDraft,
@@ -896,7 +897,7 @@ def rotor_shaft_loads(
         # What remains is her second rotation: body axes to WIND axes, by alpha
         # and beta, taking the X component. That is exactly the dot product of
         # the body-frame force with the free-stream unit vector, which
-        # `_free_stream` builds and `_shaft_angle` uses for the angle.
+        # `post.axes` builds and `_shaft_angle` uses for the angle.
         # `NA` WHERE THE EXPORT IS NOT IN THE GEOMETRY FRAME. The body-to-wind
         # rotation assumes the force is stated in the geometry's own axes; a
         # campaign that sets `analysis_setup(loads_frame=...)` states it in a
@@ -907,56 +908,8 @@ def rotor_shaft_loads(
         # the EXPORT. It is a property of the campaign's setup, and this is the
         # witness. An absent label means the export stated none.
         # The frame was settled above, for the whole row rather than this column.
-        wind_force_n=sum(
-            a * b for a, b in zip(newtons, _free_stream(alpha_deg, beta_deg), strict=True)
-        ),
+        wind_force_n=_force_along_the_stream(newtons, shaft, alpha_deg, beta_deg),
         families_used=tuple(used),
-    )
-
-
-def _free_stream(alpha_deg: float, beta_deg: float) -> tuple[float, float, float]:
-    """Return the free-stream direction in BODY axes, as a unit vector.
-
-    The AIAA convention for the body-to-wind rotation, which the owner named on
-    2026-09-18 when she corrected `ETAW`: the wind X axis in body components is
-    ``(cos a cos b, sin b, sin a cos b)``.
-
-    ONE DEFINITION, TWO USERS. The shaft ANGLE and the wind-axis FORCE are the
-    same geometry asked two ways, and they were one expression written twice for
-    a few minutes. Two copies of a rotation are how two published numbers come to
-    disagree about which way the air is going.
-
-    IT REDUCES TO +X AT ZERO AND ZERO, so a case that states neither angle gets
-    the answer it always got. That is not a coincidence to rely on quietly: body
-    +X was called "this package's convention everywhere" in a comment that was
-    false, and the reduction is why the false comment survived as long as it did.
-    """
-    alpha = math.radians(float(alpha_deg))
-    beta = math.radians(float(beta_deg))
-    # THE Z TERM IS NEGATIVE, AND IT WAS POSITIVE FOR ONE COMMIT.
-    #
-    # The owner settled the fact it turns on, 2026-09-18: in the loads export
-    # `Cz` IS POSITIVE UP. With a z-up basis -- which `reference.py` records this
-    # estate pinning by test -- the free stream at positive alpha points DOWN in
-    # body z, so the term is `-sin(alpha)`.
-    #
-    # `polar_row` twenty lines above says the same thing and said it first:
-    # `cdb = cds*cos(a) - cls*sin(a)` maps a unit drag direction, which IS the
-    # free stream, to `(cos a, ..., -sin a)`. This function's own docstring
-    # cites `polar_row` as its authority and then used the opposite sign.
-    #
-    # NO TEST CAUGHT IT, and the reason is the one this release keeps finding:
-    # the case written to discriminate asserted a value READ OFF THE
-    # IMPLEMENTATION rather than derived from the convention, and its other
-    # assertions held under both signs. A fixture encoding the thing it exists
-    # to expose. The V&V lens of the closing round derived it independently.
-    #
-    # The cost of being wrong here is not subtle: on the test's own geometry it
-    # is 68 per cent, on every row with a non-zero alpha, in a published column.
-    return (
-        math.cos(alpha) * math.cos(beta),
-        math.sin(beta),
-        -math.sin(alpha) * math.cos(beta),
     )
 
 
@@ -976,14 +929,42 @@ def _shaft_angle(shaft: Sequence[float], alpha_deg: float, beta_deg: float) -> f
     item 19 was raised to remove and which `rotor_coefficients` warns about in
     its own docstring.
 
-    The free stream in body axes is `(cos a cos b, sin b, sin a cos b)`, which
-    reduces to +X exactly when both angles are zero -- so a case that states
-    neither gets the same answer it did.
+    The free stream comes from :func:`pyflightstream.post.axes.free_stream_in_export_frame`,
+    `(cos a cos b, -cos a sin b, sin a)` in the export's frame, which reduces to
+    +X exactly when both angles are zero -- so a case that states neither gets
+    the same answer it did.
     """
     projection = sum(
-        a * b for a, b in zip(_free_stream(alpha_deg, beta_deg), _unit(shaft), strict=True)
+        a * b
+        for a, b in zip(free_stream_in_export_frame(alpha_deg, beta_deg), _unit(shaft), strict=True)
     )
     return math.degrees(math.acos(max(-1.0, min(1.0, projection))))
+
+
+def _force_along_the_stream(
+    newtons: Sequence[float], shaft: Sequence[float], alpha_deg: float, beta_deg: float
+) -> float:
+    """Return the force along the free stream, in the SENSE of the shaft.
+
+    THE ROTATION IS `post.axes` AND NOTHING ELSE (0.24.0). Until then this
+    module built its own free-stream vector, `(ca cb, +sb, -sa cb)`, whose y and
+    z terms carried the opposite sign to its x term: on a recorded export at
+    alpha 4, beta 2 it projected the total force to -0.01058 where the export
+    states a drag of +0.03578. It had been derived and never scored against an
+    export. `tests/tier1_offline/test_goal028_axes_recorded_exports.py` scores it.
+
+    THE SENSE IS THE SHAFT'S, so `ETAW` reduces to `ETA` when the shaft lies
+    along the stream WHICHEVER WAY the reference points the rotor's axis. A
+    thrust is `force . shaft`; an axis declared pointing aft makes a pulling
+    rotor's thrust negative and one declared pointing forward makes it positive,
+    and the efficiency, a ratio, is the same number either way. The wind-axis
+    force has to follow the same sense or that ratio flips sign with a choice
+    that is the user's to make.
+    """
+    stream = free_stream_in_export_frame(alpha_deg, beta_deg)
+    along = sum(a * b for a, b in zip(stream, _unit(shaft), strict=True))
+    sense = -1.0 if along < 0.0 else 1.0
+    return sense * sum(float(a) * float(b) for a, b in zip(newtons, stream, strict=True))
 
 
 def _unit(vector: Sequence[float]) -> tuple[float, float, float]:

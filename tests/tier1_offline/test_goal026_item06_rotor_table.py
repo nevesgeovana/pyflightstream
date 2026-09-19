@@ -262,14 +262,24 @@ def test_etaw_is_the_wind_axis_force_and_not_the_cosine_of_the_shaft_angle():
     # case written to discriminate passed under both answers. Every other
     # assertion here holds under either sign too.
     #
-    # THE DERIVATION: `Cz` is positive UP (the owner, 2026-09-18) and the basis
-    # is z-up, so the free stream at positive alpha points DOWN in body z:
-    # `v = (cos a, 0, -sin a)`. The surface pushes `(1, 0, 1) * q`, so
-    # `Fx_W = q * (cos a - sin a)`. At alpha 20 that is 0.598 q, where the
-    # wrong sign gives 1.282 q -- a factor of 2.1 in a published column.
+    # THE DERIVATION ABOVE THIS LINE WAS WRONG, AND 0.24.0 CHANGES THE EXPECTED
+    # VALUE FOR THAT REASON AND NO OTHER. It argued that with `Cz` positive up
+    # the free stream at positive alpha points DOWN, `v = (cos a, 0, -sin a)`,
+    # and asserted `cos a - sin a`. It points UP: the air reaches a nose-up
+    # aircraft from below, so it moves aft AND up, `v = (cos a, 0, +sin a)`.
+    #
+    # THAT IS MEASURED, NOT ARGUED. Every recorded licensed export states its
+    # own drag, and `CDi + CDo == Cx cos a + Cz sin a` to the printed precision
+    # on all of them, while the minus sign misses by up to 0.05 and makes the
+    # drag NEGATIVE (`test_goal028_axes_recorded_exports.py`). A derivation
+    # nobody scored against the solver is how the sign shipped in 0.23.0.
+    #
+    # The surface pushes `(1, 0, 1) * q`, so `Fx_W = q * (cos a + sin a)`, which
+    # at alpha 20 is 1.282 q. The shaft reading is 1.000 q, so the case still
+    # discriminates the wind-axis force from the cosine, in the other direction.
     assert loads.wind_force_n == pytest.approx(
-        pressure * (math.cos(math.radians(alpha)) - math.sin(math.radians(alpha)))
-    ), "Fx_W is the force dotted with the free stream, whose Z term is NEGATIVE at alpha"
+        pressure * (math.cos(math.radians(alpha)) + math.sin(math.radians(alpha)))
+    ), "Fx_W is the force dotted with the free stream, whose Z term is POSITIVE at alpha"
     assert loads.wind_force_n != pytest.approx(loads.thrust_n), (
         "this case must discriminate; with these two equal the test proves nothing"
     )
