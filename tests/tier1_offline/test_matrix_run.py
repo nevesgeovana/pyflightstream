@@ -4365,11 +4365,14 @@ def test_a_rotor_row_run_through_the_workflow_leaves_its_reductions_beside_the_p
     # Every export the script names is written, the three the products
     # stage reads as real tables: a sectional export it cannot read costs
     # the simulation every later product, the plots table among them.
+    plots_source = tmp_path / "plots_export.txt"
+    plots_source.write_text(_plots_export(720), encoding="utf-8")
     writes_every_export = (
         "import pathlib, sys; "
         "lines = pathlib.Path(sys.argv[1]).read_text().splitlines(); "
         "LOADS = " + repr(LOADS) + "; SLOADS = " + repr(SLOADS) + "; "
-        "PLOTS = " + repr(_plots_export(720)) + "; "
+        # READ FROM A FILE: 720 steps of history no longer fit a command line.
+        f"PLOTS = pathlib.Path({plots_source.as_posix()!r}).read_text(); "
         "exports = {'EXPORT_SOLVER_ANALYSIS_SPREADSHEET': LOADS, "
         "'EXPORT_SURFACE_SECTIONAL_LOADS': SLOADS, "
         "'UNSTEADY_SOLVER_EXPORT_PLOTS': PLOTS}; "
@@ -4409,8 +4412,11 @@ def test_a_rotor_row_run_through_the_workflow_leaves_its_reductions_beside_the_p
     assert reread.reductions == plan, "the windows round-trip through the manifest"
 
     plots = workspace.root / "post" / "rotor_products" / "probes"
+    # NO PER-BLADE FILE since 0.24.0, and a named skip below: this row states its
+    # rotor with flat keys and cites no rotor block, so nothing says which families
+    # are its blades. The file it used to get was one row of the TOTAL's average
+    # under the per-blade name.
     assert sorted(p.name for p in plots.iterdir()) == [
-        "M200RE1177AL-020_per_blade.csv",
         "M200RE1177AL-020_phase_locked.csv",
         "M200RE1177AL-020_plots.csv",
         "M200RE1177AL-020_time_average.csv",
@@ -4428,8 +4434,10 @@ def test_a_rotor_row_run_through_the_workflow_leaves_its_reductions_beside_the_p
     # no force or moment of the global frame, so the block is not written and says so.
     assert sorted(manifest["skipped"]) == [
         "polars/P7001_M200RE1177AL-020_uns_avg.csv#axes",
+        "probes/M200RE1177AL-020_per_blade.csv",
         "probes/M200RE1177AL-020_probes.csv",
     ]
+    assert "families_blades" in manifest["skipped"]["probes/M200RE1177AL-020_per_blade.csv"]
 
 
 # --- PFS-2033.02: the run record carries the raw commands, and so does the provenance ---

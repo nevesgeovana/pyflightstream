@@ -98,6 +98,7 @@ from pyflightstream._errors import (
 from pyflightstream.cases import AXES_PLOT_COMPONENTS, AXES_PLOT_GROUP, select_group_members
 from pyflightstream.cases.windows import averaging_span, replan
 from pyflightstream.cases.workflows import (
+    BLADE_FAMILIES_KEY,
     CONFIGURATION_VARIABLE,
     PER_ROTOR_REDUCTIONS,
     PROBE_POSITION_COLUMNS,
@@ -137,7 +138,7 @@ from pyflightstream.post.superfile import (
     write_superfile_report,
     write_superfiles,
 )
-from pyflightstream.post.unsteady import TimestepSeries, blade_passage_average
+from pyflightstream.post.unsteady import TimestepSeries, blade_passage_average, per_blade_rows
 from pyflightstream.results import (
     LoadsReport,
     MalformedOutputError,
@@ -195,6 +196,7 @@ __all__ = [
     "GroupCoefficients",
     "CustomPolarTable",
     "PRODUCTS_MANIFEST",
+    "PER_BLADE_COLUMNS",
     "REDUCTION_COLUMNS",
     "PolarPoint",
     "ProductError",
@@ -223,6 +225,7 @@ __all__ = [
     "write_custom_polar_format",
     "write_plots_table",
     "write_probes_table",
+    "write_per_blade_table",
     "write_reduction_table",
     "write_polar_table",
     "write_campaign_products",
@@ -2986,6 +2989,157 @@ def write_reduction_table(
     return write_csv_table(path, (*REDUCTION_COLUMNS, *columns), rows)
 
 
+#: What a per-blade row states before the condition: which reduction, which rotor,
+#: which blade and its family, the ONE window every blade shares, and where THAT
+#: blade was when the window opened and when it closed.
+PER_BLADE_COLUMNS: tuple[str, ...] = (
+    "REDUCTION",
+    "ROTOR",
+    "BLADE",
+    "FAMILY",
+    "FIRST_STEP",
+    "LAST_STEP",
+    "STEPS",
+    "AZIMUTH_START",
+    "AZIMUTH_END",
+    *CONTEXT_COLUMNS,
+    "XMOM",
+    "YMOM",
+    "ZMOM",
+)
+
+
+def write_per_blade_table(
+    path: str | Path,
+    series: TimestepSeries,
+    columns: Sequence[str],
+    *,
+    window: Sequence[int],
+    rotor: str | None,
+    blades: int,
+    facts: Mapping[str, object],
+    condition: Mapping[str, object] | None = None,
+    reference: ReferenceValues | None = None,
+) -> Path:
+    """Write the per-blade reduction: ONE ROW PER BLADE over the one shared window.
+
+    ``facts`` is what the run and the reference state of the rotor, as
+    :func:`write_sections_table` takes it: its blade ``families`` in order, its
+    ``steps_per_revolution``, its ``blade1_azimuth_deg`` and its signed ``rpm``.
+    ``blades`` is the rotor's blade count, which spaces the blades; on a sector the
+    mesh carries fewer families than that and there is one row per family.
+
+    A blade's columns are the plots ENDING in its family (``CL_MRP_Blade1``),
+    written with the family removed so two blades line up under one heading.
+    `AZIMUTH_START` and `AZIMUTH_END` are where that blade is AT the window's first
+    and last step, by the sections table's own formula; without the rotor's clock
+    they read `NA`, and the averages are written all the same.
+
+    Until 0.24.0 this file was one row with the time average's shape under the
+    per-blade name.
+
+    Raises
+    ------
+    ProductError
+        If the history does not cover the window, or holds no column of any blade
+        family: a per-blade table with no blade in it is the defect this replaces.
+    """
+    first, last = int(window[0]), int(window[1])
+    first_step = int(series.steps[0]) if len(series.steps) else 1
+    last_step = int(series.steps[-1]) if len(series.steps) else 0
+    if last > last_step or first < first_step:
+        raise ProductError(
+            f"the plots table runs from step {first_step} to step {last_step} and the "
+            f"per_blade window spans steps {first} to {last}, so the history does not cover "
+            "the window the row states; a shorter history averaged as a whole one would be "
+            "an average of a run that did not finish writing"
+        )
+    stated = facts.get("families")
+    families = (
+        [str(f) for f in stated]
+        if isinstance(stated, Sequence) and not isinstance(stated, str)
+        else []
+    )
+    if not families:
+        raise ProductError(
+            f"nothing states which families are the blades of rotor {rotor!r}, so the "
+            "per-blade reduction has no blade to give a row to. A rotor's blades are the "
+            "families_blades of its block in the reference artifact: declare the rotor "
+            "there and have the row cite it. A run made since 0.24.0 records them; this "
+            "row names no rotor block, so neither its record nor the reference has them."
+        )
+    held = [f for f in families if any(str(c).endswith(f"_{f}") for c in columns)]
+    if not held:
+        raise ProductError(
+            f"the plots table holds no column of a blade family of rotor {rotor!r} "
+            f"(its blades are {families}), so there is no "
+            "blade to give a row to. A blade's plots are the ones named for its family: "
+            'declare a plot group with families = "each" or frame = "LOCAL_AXIS" over the '
+            "rotor in the pproc artifact. It takes a new run; the script defines what the "
+            "solver plots."
+        )
+    per_revolution = facts.get("steps_per_revolution")
+    datum = facts.get("blade1_azimuth_deg")
+    rpm = facts.get("rpm")
+    clocked = (
+        isinstance(per_revolution, int | float)
+        and per_revolution > 0
+        and isinstance(datum, int | float)
+        and isinstance(rpm, int | float)
+        and bool(rpm)
+    )
+    sense = 1.0 if not clocked or float(rpm) > 0 else -1.0  # type: ignore[arg-type]
+    # WHERE BLADE ONE IS AT THE WINDOW'S FIRST STEP, from its datum at step zero.
+    opening = (
+        (float(datum) + sense * first * 360.0 / float(per_revolution)) % 360.0  # type: ignore[arg-type]
+        if clocked
+        else None
+    )
+    try:
+        blade_rows = per_blade_rows(
+            series,
+            window=(first, last),
+            blades=int(blades) if int(blades) >= len(families) else len(families),
+            steps_per_revolution=float(per_revolution) if clocked else None,  # type: ignore[arg-type]
+            blade1_azimuth_deg=opening,
+            blade_families=families,
+            sense=sense,
+        )
+    except ValueError as error:
+        raise ProductError(f"the per_blade reduction of rotor {rotor!r}: {error}") from error
+    context = context_row(condition, None if reference is None else reference.as_lengths())
+    moment = context_row(
+        None if reference is None else reference.as_moment_point(),
+        None,
+        columns=_MOMENT_POINT_COLUMNS,
+    )
+    lead = {"BLADE", "FAMILY", "FIRST_STEP", "LAST_STEP", "AZIMUTH_START", "AZIMUTH_END"}
+    names: list[str] = []
+    for row in blade_rows:
+        for name in row:
+            if name not in lead and name not in names:
+                names.append(name)
+    table = [
+        (
+            "per_blade",
+            rotor,
+            row["BLADE"],
+            row.get("FAMILY"),
+            first,
+            last,
+            last - first + 1,
+            row["AZIMUTH_START"],
+            row["AZIMUTH_END"],
+            *context,
+            *moment,
+            *(row.get(name) for name in names),
+        )
+        for row in blade_rows
+        if row.get("FAMILY") in held
+    ]
+    return write_csv_table(path, (*PER_BLADE_COLUMNS, *names), table)
+
+
 def _polar_points(polar_dir: Path, *, loads_suffix: str = ".txt") -> list[PolarPoint]:
     """Return the points of a recorded polar: one folder per point, its loads table inside."""
     points: list[PolarPoint] = []
@@ -3414,6 +3568,25 @@ def _section_rotors(
     reductions = record.reductions if isinstance(record.reductions, Mapping) else {}
     stated = reductions.get("rotors")
     table: dict[str, dict[str, object]] = {}
+    if not blocks:
+        # NO REFERENCE TO ASK, which is a workspace posted without its matrix. The
+        # record states each rotor's blade families since 0.24.0, so it answers.
+        recorded = stated if isinstance(stated, Mapping) and stated else {"": reductions}
+        for alias, own in recorded.items():
+            named = own.get(BLADE_FAMILIES_KEY) if isinstance(own, Mapping) else None
+            if not isinstance(named, Sequence) or isinstance(named, str):
+                continue
+            stated_blades: list[str] = []
+            for name in named:
+                stated_blades.extend(str(m) for m in (aliases or {}).get(str(name), (name,)))
+            table[str(alias)] = {
+                "families": stated_blades,
+                **{
+                    key: own.get(key)
+                    for key in ("steps_per_revolution", "blade1_azimuth_deg", "rpm")
+                },
+            }
+        return table
     for alias, block in blocks.items():
         families: list[str] = []
         for name in getattr(block, "families_blades", ()) or ():
@@ -4198,6 +4371,11 @@ def _sim_products(
     # whole condition, reported over requested, and `context_row` resolves
     # each recorded spelling onto its column.
     conditions = [point_condition(point, mach=mach, cell=cell) for point in points]
+    # BOUND BEFORE THE `products.polars` GATE, as `reference` is and for its reason:
+    # the sections table and the reductions read both on a pproc that writes no
+    # polar, and binding them inside the polar branch was an UnboundLocalError there.
+    live = _live_reference(workspace, matrix_row)
+    aliases = getattr(live, "aliases", None) or first.aliases
 
     if products.polars:
         # ITEM 17: AN UNSTEADY SIMULATION'S POLAR COMES FROM THE PLOTS, and the
@@ -4223,8 +4401,6 @@ def _sim_products(
         # renaming or extending an alias and posting again gave a polar of zeros,
         # or a plausible wrong sum, with no skip. A group's meaning is a
         # post-processing choice; the record stays the fallback.
-        live = _live_reference(workspace, matrix_row)
-        aliases = getattr(live, "aliases", None) or first.aliases
         groups: Mapping[str, Sequence[int | str]] = pproc.groups
         if live is not None and getattr(live, "rotors", None):
             try:
@@ -4460,6 +4636,10 @@ def _sim_products(
                     # plan and reaches no record at all.
                     condition=point_condition(point, mach=mach, cell=cell),
                     reference=reference,
+                    # THE BLADES AND THE CLOCK OF EACH ROTOR (CR-04): the families
+                    # from the reference the row names, the clock from this point's
+                    # own record, as the sections table takes them.
+                    rotor_facts=_section_rotors(live, aliases, record_of[point.name]),
                 )
     # ITEM 17, AT THE OUTER NESTING AND NOT INSIDE THE SUPERFILE GUARD.
     # IT WAS INSIDE, AND THE ARCHITECT LENS OF THE RELEASE ROUND MEASURED WHAT
@@ -4825,8 +5005,13 @@ def _point_reductions(
     skipped: dict[str, str],
     condition: Mapping[str, object] | None = None,
     reference: ReferenceValues | None = None,
+    rotor_facts: Mapping[str, Mapping[str, object]] | None = None,
 ) -> None:
     """Write every applicable reduction of one plots table beside it (PFS-2015.04).
+
+    ``rotor_facts`` is what the sections table takes of each rotor, its blade
+    families and its clock; the per-blade reduction is ONE ROW PER BLADE since
+    0.24.0 and needs both.
 
     The plots table is written FIRST and is never touched here: the
     reductions are read off it and land under their own names beside it,
@@ -4904,22 +5089,37 @@ def _point_reductions(
             columns, series = plots_table_series(plots_table)
         destination = target(out / relative)
         try:
-            done = write_reduction_table(
-                destination,
-                series,
-                columns,
-                reduction=name,
-                windows=windows,
-                # ITEM 5. A reduction is an AVERAGE over a window, and an
-                # average of coefficients states nothing without the condition
-                # they were taken at and the lengths they were normalised by.
-                # Both are threaded in from the caller: this function reaches no
-                # record, and inventing them here is how two products of one
-                # point come to disagree about what point it was.
-                condition=condition,
-                reference=reference,
-                rotor=rotor,
-            )
+            if name == _PER_BLADE:
+                done = _write_the_per_blade_table(
+                    destination,
+                    series,
+                    columns,
+                    windows,
+                    rotor=rotor,
+                    plan=plan,
+                    rotor_facts=rotor_facts or {},
+                    condition=condition,
+                    reference=reference,
+                )
+                # ONE WINDOW, and the manifest says the one the file holds.
+                windows = [(windows[0][0], windows[-1][1])]
+            else:
+                done = write_reduction_table(
+                    destination,
+                    series,
+                    columns,
+                    reduction=name,
+                    windows=windows,
+                    # ITEM 5. A reduction is an AVERAGE over a window, and an
+                    # average of coefficients states nothing without the condition
+                    # they were taken at and the lengths they were normalised by.
+                    # Both are threaded in from the caller: this function reaches no
+                    # record, and inventing them here is how two products of one
+                    # point come to disagree about what point it was.
+                    condition=condition,
+                    reference=reference,
+                    rotor=rotor,
+                )
         except ProductError as error:
             skipped[relative] = str(error)
             continue
@@ -4941,6 +5141,57 @@ def _point_reductions(
             # interface lens, 2026-09-10).
             record["rotor"] = rotor
         written_names[relative] = record
+
+
+_PER_BLADE = "per_blade"
+
+
+def _write_the_per_blade_table(
+    destination: Path,
+    series: TimestepSeries,
+    columns: Sequence[str],
+    windows: Sequence[tuple[int, ...]],
+    *,
+    rotor: str | None,
+    plan: Mapping[str, object],
+    rotor_facts: Mapping[str, Mapping[str, object]],
+    condition: Mapping[str, object] | None,
+    reference: ReferenceValues | None,
+) -> Path:
+    """Resolve which rotor a per-blade file is about, and write one row per blade.
+
+    A per-rotor file names its rotor. The row-level file of a row that turns ONE
+    rotor is that rotor's; with none or several it is nobody's, and the writer
+    refuses it by name rather than guess. A record planned before the window was
+    shared holds one window per blade: their span is the revolution they cut, and
+    it is the window every blade is averaged over now.
+    """
+    if not windows:
+        raise ProductError("the per_blade reduction states no window")
+    facts: Mapping[str, object] = {}
+    blades: object = plan.get("blades")
+    if rotor is not None:
+        facts = rotor_facts.get(rotor, {})
+        blocks = plan.get(ROTORS_KEY)
+        block = blocks.get(rotor) if isinstance(blocks, Mapping) else None
+        if isinstance(block, Mapping) and block.get("blades") is not None:
+            blades = block.get("blades")
+    elif len(rotor_facts) == 1:
+        rotor, facts = next(iter(rotor_facts.items()))
+        # A row-level plan names no rotor; its one rotor's facts sit under an empty key.
+        rotor = rotor or None
+    count = int(blades) if isinstance(blades, int | float) and not isinstance(blades, bool) else 0
+    return write_per_blade_table(
+        destination,
+        series,
+        columns,
+        window=(int(windows[0][0]), int(windows[-1][1])),
+        rotor=rotor,
+        blades=count,
+        facts=facts,
+        condition=condition,
+        reference=reference,
+    )
 
 
 # --- PFS-2012.08.01: a run's provenance in an interchange format, PROV-JSON --------

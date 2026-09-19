@@ -3252,6 +3252,10 @@ ROTORS_KEY = "rotors"
 #: the whole run, whatever turns in it.
 PER_ROTOR_REDUCTIONS: tuple[str, ...] = ("phase_locked", "per_blade")
 
+#: The plan key under which a rotor's blade families are recorded, in the rotor's
+#: own order (0.24.0). A name and not a literal for the reason `ROTORS_KEY` is.
+BLADE_FAMILIES_KEY = "blade_families"
+
 #: The two run types whose points carry a time history, and therefore the
 #: only ones a reduction applies to.
 _UNSTEADY_RECIPES = ("unsteady", "unsteady_rotor")
@@ -3393,6 +3397,11 @@ def _the_passages_of_one_rotor(
     block = (case.rotors or {}).get(alias)
     if block is not None:
         entry["blade1_azimuth_deg"] = float(block.blade1.azimuth_deg)
+        # AND WHICH FAMILIES ITS BLADES ARE, IN ITS OWN ORDER (0.24.0), for the
+        # same reason: the per-blade reduction is one row per blade, a blade's
+        # plots are the ones named for its family, and the products stage
+        # reaches the reference only through a matrix it may not have.
+        entry[BLADE_FAMILIES_KEY] = [str(family) for family in block.families_blades]
     if delta_time_s is None or not speed.rpm:
         reason = (
             f"case {case.sim_id!r} turns {alias!r} at {speed.rpm} rev/min with a solver "
@@ -3883,6 +3892,7 @@ def reduction_windows(case: SimCase) -> dict[str, object] | None:
     _flat_rotor = next(iter((case.rotors or {}).values()), None)
     if _flat_rotor is not None:
         plan["blade1_azimuth_deg"] = float(_flat_rotor.blade1.azimuth_deg)
+        plan[BLADE_FAMILIES_KEY] = [str(family) for family in _flat_rotor.families_blades]
     if revolution is None or per_revolution is None or blades < 1:
         reason = (
             f"case {case.sim_id!r} declares {blades} blades and "

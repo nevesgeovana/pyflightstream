@@ -476,8 +476,12 @@ def _plots_export(rows: int) -> str:
     The step is the value, so the mean over any window is the mean step
     times 0.1 and, after the free-stream scaling, times 0.4.
     """
-    table = "Time-step,CL_MRP_TOTAL,CDI_MRP_TOTAL\n" + "".join(
-        f"{i}.0000,{0.1 * i:.5f},{0.01 * i:.5f},\n" for i in range(1, rows + 1)
+    # THE BLADES ARE IN THE HISTORY since 0.24.0, as a real run plots them: a plot cut
+    # per blade is named for the blade's family, and the per-blade reduction is one
+    # row per blade, which a history holding no blade cannot give.
+    table = "Time-step,CL_MRP_TOTAL,CDI_MRP_TOTAL,CL_MRP_Blade1,CL_MRP_Blade2\n" + "".join(
+        f"{i}.0000,{0.1 * i:.5f},{0.01 * i:.5f},{0.2 * i:.5f},{0.3 * i:.5f},\n"
+        for i in range(1, rows + 1)
     )
     return PLOTS_HEADER + table + "-" * 60 + "\n     Force Units: Coefficients\n"
 
@@ -490,6 +494,7 @@ ROTOR_PLAN = {
     "time_iterations": 8,
     "steps_per_revolution": 4.0,
     "blades": 2,
+    "blade_families": ["Blade1", "Blade2"],
     "time_average": {"windows": [[3, 8]], "window_from": "the export window: 6 steps"},
     "phase_locked": {
         "windows": [[3, 4], [5, 6], [7, 8]],
@@ -515,6 +520,7 @@ TWO_ROTOR_PLAN = {
     "rotors": {
         "LIFT_L1": {
             "blades": 2,
+            "blade_families": ["Blade1"],
             "rpm": 2200.0,
             "steps_per_revolution": 4.0,
             "period_steps": 2,
@@ -531,6 +537,7 @@ TWO_ROTOR_PLAN = {
         },
         "PUSHER": {
             "blades": 2,
+            "blade_families": ["Blade2"],
             "rpm": 900.0,
             "steps_per_revolution": 8.0,
             "period_steps": 4,
@@ -661,6 +668,9 @@ def test_pyfs_matrix_post_writes_every_reduction_beside_the_plots_table(tmp_path
         "ZMOM",
         "CL_MRP_TOTAL",
         "CDI_MRP_TOTAL",
+        # The fixture's history holds the two blades since 0.24.0.
+        "CL_MRP_Blade1",
+        "CL_MRP_Blade2",
     ), "the window block, the context, the moment point, then the plots' own DATA columns"
     assert len(rows) == 1
     assert rows[0]["REDUCTION"] == "time_average" and rows[0]["WINDOW"] == "1"
@@ -668,11 +678,16 @@ def test_pyfs_matrix_post_writes_every_reduction_beside_the_plots_table(tmp_path
     assert rows[0]["CL_MRP_TOTAL"] == "2.20000", "mean step 5.5 times 0.1, scaled by four"
 
     _, blades = read_csv_table(plots / "AL-020_per_blade.csv")
-    assert [(r["WINDOW"], r["FIRST_STEP"], r["LAST_STEP"]) for r in blades] == [
-        ("1", "5", "6"),
-        ("2", "7", "8"),
+    # ONE ROW PER BLADE OVER ONE SHARED WINDOW since 0.24.0, the definition of
+    # `per_blade`. This asserted one row per WINDOW holding the TOTAL's average,
+    # which is the time average's shape under the per-blade name. The shared window
+    # is the revolution the two old windows cut, 5 to 8; the blades' histories are
+    # 0.2 i and 0.3 i, scaled by four, and the mean step there is 6.5.
+    assert [(r["BLADE"], r["FAMILY"], r["FIRST_STEP"], r["LAST_STEP"]) for r in blades] == [
+        ("1", "Blade1", "5", "8"),
+        ("2", "Blade2", "5", "8"),
     ]
-    assert [r["CL_MRP_TOTAL"] for r in blades] == ["2.20000", "3.00000"]
+    assert [r["CL_MRP"] for r in blades] == ["5.20000", "7.80000"]
 
     _, passages = read_csv_table(plots / "AL-020_phase_locked.csv")
     assert [(r["FIRST_STEP"], r["LAST_STEP"]) for r in passages] == [
@@ -686,7 +701,7 @@ def test_pyfs_matrix_post_writes_every_reduction_beside_the_plots_table(tmp_path
     entry = manifest["products"]["probes/AL-020_per_blade.csv"]
     assert entry["runs"] == ["camp/sim_7001/AL-020"] and entry["sim_id"] == "7001"
     assert entry["reduction"] == "per_blade"
-    assert entry["windows"] == [[5, 6], [7, 8]] and entry["period_steps"] == 2
+    assert entry["windows"] == [[5, 8]] and entry["period_steps"] == 2
     assert "last revolution" in entry["window_from"]
     average = manifest["products"]["probes/AL-020_time_average.csv"]
     assert average["reduction"] == "time_average" and average["windows"] == [[3, 8]]
@@ -756,9 +771,21 @@ def test_a_transition_row_writes_one_passage_reduction_per_rotor(tmp_path):
 
     _, lifter = read_csv_table(plots / "AL-020_per_blade_LIFT_L1.csv")
     _, pusher = read_csv_table(plots / "AL-020_per_blade_PUSHER.csv")
-    assert [(r["FIRST_STEP"], r["LAST_STEP"]) for r in lifter] == [("5", "6"), ("7", "8")]
-    assert [(r["FIRST_STEP"], r["LAST_STEP"]) for r in pusher] == [("1", "4"), ("5", "8")]
-    assert lifter[0]["CL_MRP_TOTAL"] != pusher[0]["CL_MRP_TOTAL"], (
+    # ONE ROW PER BLADE OVER ONE SHARED WINDOW since 0.24.0, which is the definition
+    # of `per_blade` on the definitions page; this asserted one row per WINDOW, a
+    # window per blade, which put each blade in another part of the history. Each
+    # rotor's window is still ITS OWN, the revolution its old windows cut: 5 to 8
+    # for the lifters (4 steps a turn) and 1 to 8 for the pusher (8 steps a turn).
+    assert [(r["FAMILY"], r["FIRST_STEP"], r["LAST_STEP"]) for r in lifter] == [
+        ("Blade1", "5", "8")
+    ]
+    assert [(r["FAMILY"], r["FIRST_STEP"], r["LAST_STEP"]) for r in pusher] == [
+        ("Blade2", "1", "8")
+    ]
+    # The history is 0.2 i and 0.3 i, scaled by four to the free stream: the means
+    # over 5..8 and over 1..8 are 6.5 and 4.5 steps.
+    assert float(lifter[0]["CL_MRP"]) == pytest.approx(0.2 * 6.5 * 4)
+    assert float(pusher[0]["CL_MRP"]) == pytest.approx(0.3 * 4.5 * 4), (
         "both rotors were averaged over one window, so one of them is not its own"
     )
 

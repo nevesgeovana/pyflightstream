@@ -180,12 +180,11 @@ unsteady point is built from.
 
 ## `per_blade`
 
-!!! warning "NOT YET THE CODE as of 0.23.0 (marked 2026-09-18)"
-    This section is the definition 0.24.0 implements. What 0.23.0 writes is
-    the ONE shared window below and ONE ROW for it:
-    `probes/<point>_per_blade.csv` (or `..._per_blade_<ALIAS>.csv`) carries no
-    row per blade and no start and end azimuth columns. The definition stands;
-    the code is behind it.
+!!! note "The code since 0.24.0"
+    0.23.0 wrote the ONE shared window below and ONE ROW for it, the time
+    average's shape under the per-blade name. Since 0.24.0
+    `probes/<point>_per_blade_<ALIAS>.csv` is one row per blade with its start
+    and end azimuth, as defined here.
 
 > "O per-blade vai seguir a media olhando para a variável que fala de export
 > after x revs." -- 2026-09-17
@@ -212,6 +211,27 @@ row, and not from a derivation of its own. One window per point, stated once,
 shared by the POLAR and by this table.
 
 Averaging from step one mixes the transient with the answer.
+
+**The rows.** Each row leads with `REDUCTION`, `ROTOR`, `BLADE`, `FAMILY`, the
+window (`FIRST_STEP`, `LAST_STEP`, `STEPS`), `AZIMUTH_START`, `AZIMUTH_END`,
+then the condition block and the moment point.
+
+- **A blade's columns are the plots named for its family.** A plot is
+  `<parameter>_<group>` and a group cut per blade is named for the blade's
+  family, so blade one's are `CL_MRP_Blade1`, `FX_LOCAL_Blade1`. The row carries
+  them with the family removed, `CL_MRP`, `FX_LOCAL`, so two blades line up
+  under one heading. A pproc gets them with `families = "each"` or
+  `frame = "LOCAL_AXIS"` over the rotor.
+- **The azimuths are where that blade IS at the window's first and last step**,
+  by the formula of the sections table: blade one's datum, plus the blade's
+  position times `360 / blades`, plus the rotor's sense times the step times
+  `360 / steps_per_revolution`, wrapped. `blades` is the ROTOR's count, so a
+  periodic sector carrying two blades of four spaces them a quarter turn apart.
+  Without the rotor's clock they read `NA`; the averages are written all the same.
+- **Which families are a rotor's blades** is the `families_blades` of its block
+  in the reference artifact; a run made since 0.24.0 also records them. A row
+  that states its rotor with flat keys and cites no block has no per-blade
+  table, and `products.json` says why.
 
 ---
 

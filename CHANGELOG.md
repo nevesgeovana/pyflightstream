@@ -48,6 +48,28 @@ FlightStream versions.
   0.24.0 or a row stating no density, `products.json` says why under
   `polars/<file>#axes`. `pyfs-matrix post --strict` counts that as a skip.
 
+### Changed (breaking: `per_blade` is one row per blade)
+
+- **`probes/<point>_per_blade_<ALIAS>.csv` holds one row PER BLADE over the one
+  shared window**, each with `BLADE`, `FAMILY`, `AZIMUTH_START` and
+  `AZIMUTH_END`, which is the definition the definitions page has carried
+  since 0.23.0. The file was one row with the time average's shape, the
+  TOTAL's columns included, under the per-blade name; `per_blade_rows` had no
+  caller and the record's `blade1_azimuth_deg` no reader.
+- A blade's columns are the plots ENDING in its family (`CL_MRP_Blade1`),
+  written with the family removed (`CL_MRP`). The azimuths are where that blade
+  is at the window's first and last step: its rotor's datum, the blade's
+  position by `360 / blades`, the rotor's sense and its own steps per
+  revolution, wrapped.
+- The run records each rotor's blade families in the reductions plan
+  (`blade_families`), so a workspace posted without its matrix still knows
+  them; an older record asks the reference the row names.
+- **A row that states its rotor with flat keys and cites no rotor block gets no
+  per-blade table**, with the reason in `products.json`: nothing says which
+  families are its blades. So does a run whose plots hold no column of a blade.
+  `write_per_blade_table` is public; `per_blade_rows` takes `blade_families=`
+  and `sense=`.
+
 ### Fixed (changes a published number)
 
 - **`ETAW` AND THE SHAFT ANGLE WERE COMPUTED AGAINST A FREE STREAM WITH TWO

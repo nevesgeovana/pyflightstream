@@ -532,8 +532,10 @@ def per_blade_rows(
     *,
     window: tuple[int, int],
     blades: int,
-    steps_per_revolution: float,
-    blade1_azimuth_deg: float = 0.0,
+    steps_per_revolution: float | None,
+    blade1_azimuth_deg: float | None = 0.0,
+    blade_families: Sequence[str] | None = None,
+    sense: float = 1.0,
 ) -> list[dict[str, object]]:
     """One row per blade, every blade averaged over the SAME window.
 
@@ -571,9 +573,20 @@ def per_blade_rows(
         How many blades the rotor carries.
     steps_per_revolution : float
         Solver steps in one revolution, which turns a step count into an angle.
-    blade1_azimuth_deg : float
+    blade1_azimuth_deg : float or None
         Where blade one sits at the window's first step. The other blades are
-        spaced evenly from it.
+        spaced evenly from it, by ``360 / blades``. None, or no
+        ``steps_per_revolution``, leaves both azimuths unstated (None), which
+        a table writes as `NA`: zero is a real azimuth.
+    blade_families : sequence of str, optional
+        The blade families in the rotor's own order (0.24.0). A plot is named
+        ``<parameter>_<group>`` and a group cut per blade is named for the
+        blade's family, so a blade's columns are the ones ENDING in
+        ``_<family>``; the row carries them with the family removed. There is
+        one row per family given, which on a sector is fewer than ``blades``.
+        Without it the columns are the ones PREFIXED ``Blade<n>_``.
+    sense : float
+        The sign of the rotor's speed: the way the azimuth grows.
 
     Returns
     -------
@@ -590,7 +603,7 @@ def per_blade_rows(
     """
     if blades < 1:
         raise ValueError(f"the rotor carries {blades} blades, so it has no per-blade rows")
-    if steps_per_revolution <= 0:
+    if steps_per_revolution is not None and steps_per_revolution <= 0:
         raise ValueError(
             f"steps_per_revolution is {steps_per_revolution}, so a step count cannot be "
             "turned into an angle and no azimuth can be written"
@@ -607,10 +620,15 @@ def per_blade_rows(
     spacing = 360.0 / blades
 
     rows: list[dict[str, object]] = []
-    for index in range(blades):
+    families = None if blade_families is None else [str(f) for f in blade_families]
+    turning = 1.0 if sense >= 0 else -1.0
+    for index in range(blades if families is None else len(families)):
         number = index + 1
-        start = (blade1_azimuth_deg + index * spacing) % 360.0
-        end = (start + spanned * 360.0 / steps_per_revolution) % 360.0
+        start: float | None = None
+        end: float | None = None
+        if blade1_azimuth_deg is not None and steps_per_revolution is not None:
+            start = (blade1_azimuth_deg + index * spacing) % 360.0 + 0.0
+            end = (start + turning * spanned * 360.0 / steps_per_revolution) % 360.0 + 0.0
         row: dict[str, object] = {
             "BLADE": number,
             "FIRST_STEP": first,
@@ -621,6 +639,14 @@ def per_blade_rows(
         # THAT BLADE'S OWN COLUMNS AND NOT THE ROTOR'S. A column named for one
         # blade belongs to one row; the prefix is dropped so the rows of two
         # blades line up under the same headings and can be compared.
+        if families is not None:
+            row["FAMILY"] = families[index]
+            suffix = f"_{families[index]}"
+            for name, values in average.fields.items():
+                if name.endswith(suffix) and len(name) > len(suffix):
+                    row[name[: -len(suffix)]] = float(values[0])
+            rows.append(row)
+            continue
         prefix = f"Blade{number}_"
         for name, values in average.fields.items():
             if name.startswith(prefix):
