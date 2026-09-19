@@ -82,7 +82,10 @@ boundaries turn.
 **The two geometries are.** At alpha 0 an axisymmetric rotor has no force across
 its shaft and every blade carries the same load. The full wheel carries 184 N
 across its shaft and its blades differ by a factor of two, so it is not the
-axisymmetric body the periodic sector assumes. Whether the two files are meant to
+axisymmetric body the periodic sector assumes. The owner confirms it: the full wheel file carries a
+nacelle that is NOT axisymmetric, while the periodic sector assumes one. The two
+files are not one body, and the check is answered only by a full wheel of the
+sector's own axisymmetric nacelle. Whether the two files are meant to
 be one rotor is a question about the geometries and not about the package, and the
 check's band of 5 per cent, stated before the data, is not widened to pass it.
 
