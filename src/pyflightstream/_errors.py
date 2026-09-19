@@ -141,6 +141,17 @@ class InputArtifactError(PyflightstreamError, RuntimeError):
         self.available = available
 
 
+class ProductArgumentError(PyflightstreamError, TypeError):
+    """A product writer was called with arguments that contradict each other.
+
+    An argument misuse and not a datum, so the standard-library base is
+    TypeError and not ValueError: `except TypeError` catches it exactly as it
+    caught the bare raise this replaced. Beside ProductError below because the
+    same two layers name both (0.25.0, the `step=` / `iteration=` deprecation
+    of `write_sections_table`).
+    """
+
+
 class ProductError(PyflightstreamError, ValueError):
     """A product cannot be written from what the run left.
 

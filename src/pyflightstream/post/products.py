@@ -102,6 +102,7 @@ import numpy as np
 from pyflightstream._deprecations import WRITE_SECTIONS_ITERATION
 from pyflightstream._digest import file_sha256
 from pyflightstream._errors import (
+    ProductArgumentError,
     PyflightstreamDeprecationWarning,
     PyflightstreamError,
     PyflightstreamWarning,
@@ -237,6 +238,7 @@ __all__ = [
     "PER_BLADE_COLUMNS",
     "REDUCTION_COLUMNS",
     "PolarPoint",
+    "ProductArgumentError",
     "ProductError",
     "ProductExistsError",
     "ReferenceValues",
@@ -2735,7 +2737,9 @@ def write_sections_table(
     """
     if iteration is not _UnspecifiedStep.VALUE:
         if step is not _UnspecifiedStep.VALUE:
-            raise TypeError("write_sections_table: pass only step= or iteration=, not both")
+            raise ProductArgumentError(
+                "write_sections_table: pass only step= or iteration=, not both"
+            )
         warnings.warn(
             WRITE_SECTIONS_ITERATION.message(), PyflightstreamDeprecationWarning, stacklevel=2
         )

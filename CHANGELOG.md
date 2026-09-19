@@ -95,6 +95,11 @@ FlightStream versions.
 
 ### Changed
 
+- **New catalogued exception `ProductArgumentError`** (base `TypeError`), raised when
+  a product writer is called with arguments that contradict each other, such as
+  `write_sections_table(step=..., iteration=...)`. `except TypeError` catches it as it
+  caught the bare raise it replaces, and `except PyflightstreamError` now catches it too.
+
 - **The recorded-export fixture carries a second witness**: a `sha256` column beside
   each row, so an export replaced on disk is caught even when its `Total` row still
   agrees. No printed value moved (48 rows, the value columns byte-identical).

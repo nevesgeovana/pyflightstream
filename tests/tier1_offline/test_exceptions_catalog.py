@@ -163,10 +163,10 @@ def test_the_package_base_does_not_widen_what_the_builtin_bases_caught():
         "NamingTemplateError": ValueError,
         "OpenMeshError": ValueError,
         "OptionError": KeyError,
-        # ONE OF THREE error rows whose standard-library base is not
+        # ONE OF FOUR error rows whose standard-library base is not
         # ValueError, RuntimeError, LookupError, KeyError or ImportError.
-        # `UnsupportedResultTypeError` and `ScriptDeclarationTypeError`
-        # below are the other two. This comment has now read "the one"
+        # `UnsupportedResultTypeError`, `ScriptDeclarationTypeError` and
+        # `ProductArgumentError` are the other three. This comment has now read "the one"
         # and "one of two" in turn, each time going stale in the commit
         # that added the next such class and each time unread by
         # anything, so the population is pinned BY NAME in
@@ -180,6 +180,8 @@ def test_the_package_base_does_not_widen_what_the_builtin_bases_caught():
         # to two writers that had none.
         "OutputExistsError": FileExistsError,
         "ProbeGeometryError": ValueError,
+        # 0.25.0: an argument misuse of a product writer, so TypeError.
+        "ProductArgumentError": TypeError,
         "ProductError": ValueError,
         "ProductExistsError": ValueError,
         "QaEvidenceError": ValueError,
@@ -259,6 +261,10 @@ _UNUSUAL_BASE_CLASSES = (
     # (PFS-2022.05, 2026-09-09).
     "ManualCallError",
     "OutputExistsError",
+    # TypeError: a product writer called with arguments that contradict each
+    # other (step= and iteration= together). The base stays TypeError so an
+    # `except TypeError` catches what the bare raise it replaced caught (0.25.0).
+    "ProductArgumentError",
     # AttributeError: a name this package RETIRED was reached for. The second
     # base is the shape of the mistake, and it has to stay a builtin one so
     # that `except AttributeError` around a renamed method keeps catching what
