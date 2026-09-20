@@ -33,16 +33,18 @@ def _log(kind: str) -> str:
     return "\n".join(out) + "\n"
 
 
-def _polar(sim: str) -> str:
+def _polar(sim: str, cdw: str = "0.02000") -> str:
     # One unsteady polar row: the window, the run it came from, and one axis pair the
     # drag check judges (CDW against the CD the solver plots for the same group).
     return (
         "FIRST_STEP,LAST_STEP,ALPHA,run_id,CDW_MRP_TOTAL,CD_MRP_TOTAL\n"
-        f"1,3,10.00000,pfs0240/sim_{sim}/{POINT},0.02000,0.02000\n"
+        f"1,3,10.00000,pfs0240/sim_{sim}/{POINT},{cdw},0.02000\n"
     )
 
 
-def _workspace(tmp_path: Path, logs: dict[str, str]) -> tuple[Path, Path]:
+def _workspace(
+    tmp_path: Path, logs: dict[str, str], cdw: dict[str, str] | None = None
+) -> tuple[Path, Path]:
     workspace = tmp_path / "campaign"
     out = workspace / "post" / "matriz"
     (out / "polars").mkdir(parents=True)
@@ -52,7 +54,9 @@ def _workspace(tmp_path: Path, logs: dict[str, str]) -> tuple[Path, Path]:
         if kind != "missing":
             text = "FlightStream version 26.1\n" if kind == "unreadable" else _log(kind)
             (datapoint / f"P{sim}-{POINT}_log.txt").write_text(text, encoding="latin-1")
-        (out / "polars" / f"P{sim}_{POINT}_uns_avg.csv").write_text(_polar(sim), encoding="utf-8")
+        (out / "polars" / f"P{sim}_{POINT}_uns_avg.csv").write_text(
+            _polar(sim, (cdw or {}).get(sim, "0.02000")), encoding="utf-8"
+        )
     return workspace, out
 
 
@@ -63,11 +67,25 @@ def _left_out(workspace: Path, out: Path) -> dict[str, str]:
     }
 
 
+def _measured(workspace: Path, out: Path) -> set[str]:
+    """The polars whose rows actually reached the measurement, not the exclusion list.
+
+    A row can be LISTED as excluded and measured anyway, and a row can be dropped from
+    the measurement without being listed: two faults the first writing of these tests
+    let through, because it read the exclusion list alone (the independent review of
+    the evidence, round three).
+    """
+    check = coherence.steady_drag(workspace, out)
+    return {str(row["polar"]) for row in check["measured"]["unsteady_polar_rows"]}
+
+
 def test_the_drag_check_leaves_out_a_frozen_point_and_keeps_the_live_one(tmp_path: Path) -> None:
     workspace, out = _workspace(tmp_path, {"2412": "frozen", "2415": "clean"})
     left_out = _left_out(workspace, out)
     assert list(left_out) == [f"P2412_{POINT}_uns_avg.csv"]
     assert "froze at step 2" in left_out[f"P2412_{POINT}_uns_avg.csv"]
+    # AND IT REACHED NO MEASUREMENT: being on the list is not being left out.
+    assert _measured(workspace, out) == {f"P2415_{POINT}_uns_avg.csv"}
 
 
 def test_a_point_is_matched_to_its_own_simulations_log(tmp_path: Path) -> None:
@@ -75,6 +93,21 @@ def test_a_point_is_matched_to_its_own_simulations_log(tmp_path: Path) -> None:
     # alone struck 2415 out with 2412's log.
     workspace, out = _workspace(tmp_path, {"2412": "frozen", "2415": "clean"})
     assert f"P2415_{POINT}_uns_avg.csv" not in _left_out(workspace, out)
+    assert f"P2415_{POINT}_uns_avg.csv" in _measured(workspace, out)
+
+
+def test_a_frozen_row_that_disagrees_does_not_decide_the_verdict(tmp_path: Path) -> None:
+    # The frozen row's CDW is a hundred times its plotted CD: judged, it would carry the
+    # verdict on its own. Excluded, the live row decides and the check holds.
+    workspace, out = _workspace(
+        tmp_path, {"2412": "frozen", "2415": "clean"}, cdw={"2412": "2.00000"}
+    )
+    # The verdict itself reads could-not-measure here, since this workspace holds no
+    # steady export for the rest of the check; what the exclusion decides is the worst
+    # gap, which the frozen row would carry to 1.98 and which stays at the live row's.
+    check = coherence.steady_drag(workspace, out)
+    assert _measured(workspace, out) == {f"P2415_{POINT}_uns_avg.csv"}
+    assert check["measured"]["worst_gap"] == 0.0
 
 
 def test_an_unreadable_log_leaves_the_point_out(tmp_path: Path) -> None:

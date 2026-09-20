@@ -31,12 +31,13 @@ Rows 2414 and 2415 turn for the same 144 steps and state the same window. Their
 setup `s009` states `farfield_layers = 5`, so their scripts carry
 `SOLVER_SET_FARFIELD_LAYERS 5` and a reader reproduces them from the script alone.
 
-**A CHANGE MADE BY HAND, NOT BY THE PACKAGE.** On rows 2412 and 2413 the number of
-far-field layers was set to 5 in the solver's interface, DURING the run, to shorten
-it. It is not in the script those rows emitted, so a reader reproducing row 2412 or
-2413 from the script alone will not have it, and nothing here measures what it
-changed: the far-field layer count of those two runs is stated nowhere in their
-records. Rows 2414 and 2415 do not have that gap.
+**A CHANGE MADE BY HAND, NOT BY THE PACKAGE.** On rows 2412 and 2413 the far-field
+layer count was changed in the solver's interface, DURING the run. The value it was
+changed to is recorded nowhere: not in the script those rows emitted, not in their
+run records, and not here, so this page states none. What follows is that rows 2412
+and 2413 are not reproducible from their scripts alone, and that nothing measures
+what the change did. Rows 2414 and 2415 do not have that gap: their setup states the
+count, their scripts carry it, and their records keep it.
 
 ## CORRECTION, 2026-09-19 evening: two runs FROZE, and what that changed
 
