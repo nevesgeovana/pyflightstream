@@ -96,7 +96,7 @@ def custom_field(value: object) -> str:
     return f"{value!s:>{CUSTOM_WIDTH}}"
 
 
-def group_number(group: str | int, position: int | None) -> int:
+def group_number(group: str | int, *, position: int | None = None) -> int:
     """Return the NUMBER line four of the fixed-width format states for a group.
 
     The format has room for two digits and nothing else, and it was written when
@@ -113,7 +113,7 @@ def group_number(group: str | int, position: int | None) -> int:
     if position is None:
         raise ProductError(
             f"the fixed-width polar format states a group by NUMBER and {group!r} is a name; "
-            "pass group_number, the group's 1-based position in the [groups] table"
+            "pass position= with the group's 1-based position in the [groups] table"
         )
     return int(position)
 
@@ -224,7 +224,7 @@ def write_custom_polar_format(
         title,
         f"{polar}{_mach_code(mach):02d}",
         date if date is not None else datetime.now().strftime(CUSTOM_DATE_FORMAT),
-        f"{len(CUSTOM_REFERENCE_COLUMNS):03d} {_group_number(group, group_number):02d}",
+        f"{len(CUSTOM_REFERENCE_COLUMNS):03d} {_group_number(group, position=group_number):02d}",
         "".join(custom_field(name) for name in CUSTOM_REFERENCE_COLUMNS),
         "".join(custom_field(float(value)) for value in (mach, *reference.as_row())),
         f"{len(rows):03d}",

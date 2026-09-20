@@ -459,7 +459,7 @@ def run_provenance(
     records: Sequence[RunRecord],
     out: Path,
     *,
-    overwrite: bool,
+    overwrite: bool = False,
     archive: bool = True,
     archive_stamp: datetime | None = None,
 ) -> dict[str, str]:
@@ -468,7 +468,8 @@ def run_provenance(
     Every recorded run, whatever its status: a failed run's provenance is
     evidence about the failure. Returns the manifest's ``provenance`` map,
     run id to the document's path relative to ``out``. An existing document
-    is refused as an existing table is, unless ``overwrite`` is set.
+    is archived by default. With ``archive=False``, replacing it requires
+    ``overwrite=True`` and keeps no copy; otherwise it is refused.
     """
     # A POINT NAME NEED NOT BE UNIQUE AND A RUN ID IS (FR-86). The
     # default naming template is `{point}`, which carries no sim id, so
@@ -497,11 +498,9 @@ def run_provenance(
             refuse_an_existing_product(target, archive=True, stamp=archive_stamp)
         elif target.exists() and not overwrite:
             raise ProductExistsError(
-                f"the provenance document {target} exists; pass overwrite=True to rewrite "
-                "it from the manifest, and the old one is archived rather than lost. "
-                "`pyfs-matrix post` passes it already, so this reaches a library caller "
-                "alone: the command-line flag this named until 2026-09-13, --overwrite, "
-                "is gone and argparse now refuses it (the interface lens)"
+                f"the provenance document {target} exists; pass "
+                "archive=True to keep a copy under archive/<day and hour>/, or "
+                "overwrite=True with archive=False to replace without a copy"
             )
         document = prov_document(record, workspace.sim_dir(record.sim_id))
         target.parent.mkdir(parents=True, exist_ok=True)
