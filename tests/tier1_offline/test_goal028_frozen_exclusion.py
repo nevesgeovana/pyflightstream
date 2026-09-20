@@ -114,6 +114,34 @@ def test_a_frozen_row_that_disagrees_does_not_decide_the_verdict(tmp_path: Path)
     assert f"P2415_{POINT}_uns_avg.csv" in str(check["measured"]["worst_ratio_at"])
 
 
+def test_a_frozen_row_does_not_take_the_rest_of_its_file_with_it(tmp_path: Path) -> None:
+    """One polar, two points: the frozen row is skipped and the row AFTER it is judged.
+
+    Leaving the loop at the frozen row instead of skipping that row alone drops every
+    later row of the same file, silently: the exclusion list and the measured list
+    still look right, and only the ratio says so (the independent review, round six).
+    The live row's CDW is one band off, so the ratio is 1.0 where it is judged, None
+    where the file was abandoned, and about 99000 where the frozen row was judged.
+    """
+    live = "M144RE438AL+000BE+000"
+    workspace = tmp_path / "campaign"
+    out = workspace / "post" / "matriz"
+    (out / "polars").mkdir(parents=True)
+    datapoint = workspace / "sims" / "sim_2412" / "datapoints" / "DP"
+    datapoint.mkdir(parents=True)
+    (datapoint / f"P2412-{POINT}_log.txt").write_text(_log("frozen"), encoding="latin-1")
+    (datapoint / f"P2412-{live}_log.txt").write_text(_log("clean"), encoding="latin-1")
+    (out / "polars" / "P2412_sweep_uns_avg.csv").write_text(
+        "FIRST_STEP,LAST_STEP,ALPHA,run_id,CDW_MRP_TOTAL,CD_MRP_TOTAL\n"
+        f"1,3,10.00000,pfs0240/sim_2412/{POINT},2.00000,0.02000\n"
+        f"1,3,0.00000,pfs0240/sim_2412/{live},0.02002,0.02000\n",
+        encoding="utf-8",
+    )
+    check = coherence.steady_drag(workspace, out)
+    assert [row["point"] for row in check["measured"]["unsteady_rows_left_out"]] == [POINT]
+    assert round(float(str(check["measured"]["worst_ratio"])), 6) == 1.0
+
+
 def test_an_unreadable_log_leaves_the_point_out(tmp_path: Path) -> None:
     # Its CDW disagrees by a hundred times, so a row judged here would carry the ratio
     # to about 99000 even while the lists look right: assert the ratio, not the lists.
