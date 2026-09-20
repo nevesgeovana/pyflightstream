@@ -8,8 +8,9 @@ each check found, and what is not a property of the package.
 
 ## What was run
 
-FlightStream 26.124 (build #8172026, as every record of `runs.json` states), one
-workspace, six matrix rows:
+FlightStream 26.124 (build #8172026, as every record of the campaign's own `runs.json`
+states; that workspace is private and is not in this repository), one workspace, six
+matrix rows:
 
 | row | geometry | run | points |
 |---|---|---|---|
@@ -20,8 +21,9 @@ workspace, six matrix rows:
 | 2414 | `17_NX_B30_NMIN_FW.fsm` | the same row again, far-field layers stated in the setup | alpha 0 |
 | 2415 | `17_NX_B30_NMIN_FW.fsm` | the same, at incidence | alpha 10 |
 
-Every rotor row turns at 473.1723 rev/min for 144 time steps of 0.0017612 s (two
-revolutions of 72 steps) and states `LAST_REVS_AVG: 0.5`, so every average is over
+Every rotor row turns at 473.1723 rev/min (the `RPM_PROP` of every rotor table) for
+144 time steps (two revolutions of 72, at 5 degrees a step), so a step is
+60 / 473.1723 / 72 = 0.0017612 s. Every rotor row states `LAST_REVS_AVG: 0.5`, so every average is over
 steps 109 to 144, which is what `FIRST_STEP` and `LAST_STEP` of each `_uns_avg.csv`
 carry. In every script the blades and the spinner turn and the nacelle does not.
 
@@ -106,11 +108,11 @@ At alpha 0 the rotor's force along its shaft, averaged over the same window:
 | | sector (2411, six periodic copies) | full wheel, the sector's nacelle (2414) | full wheel, the other nacelle (2412) |
 |---|---|---|---|
 | force along the shaft | 931.04 N | 932.49 N | 717.79 N |
-| torque about the shaft | 753.07 N m | 753.62 N m | 539.08 N m |
+| torque about the shaft | 753.07 N m | 753.70 N m | 539.08 N m |
 | side force, lift force | 0 and 0 | -- | -115.7 N and +143.1 N |
-| one blade's axial coefficient | one value, every copy the same | -- | 0.0017 to 0.0037 around the disc, read off that point's own loads export |
+| side force and lift force | `mean_side_force_N` and `mean_lift_force_N` of the json | -- | -- |
 
-None of these is a transient: for every point the json states the window mean beside
+How far each window sits from the run's end: the json states the window mean beside
 the run's LAST step (`mean_shaft_force_N` against `last_step_shaft_force_N`), and the
 two differ by 0.006, 0.015, 0.11 and 0.23 per cent on rows 2411, 2414, 2415 and 2412.
 
@@ -129,7 +131,7 @@ boundaries turn.
 **The two geometries are.** At alpha 0 an axisymmetric rotor has no force across
 its shaft and every blade carries the same load. The wheel of the other nacelle
 carries 184 N
-across its shaft and its blades differ by a factor of two, so it is not the
+across its shaft, so it is not the
 axisymmetric body the periodic sector assumes: that file carries a nacelle which is
 NOT axisymmetric, and the periodic sector assumes one.
 

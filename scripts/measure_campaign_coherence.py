@@ -181,6 +181,12 @@ def steady_drag(workspace: Path, out: Path) -> dict[str, object]:
     unsteady: list[dict[str, object]] = []
     said_by_point = frozen_by_point(workspace)
     left_out: list[dict[str, object]] = []
+    # A WORKSPACE THAT KEPT NO NATIVE LOG AT ALL cannot be asked about a frozen solve,
+    # and every point of it would be left out for the same reason, which is a refusal
+    # of the whole check rather than an exclusion of a point. The campaign keeps its
+    # logs (the run collects them), so this is the shape of a workspace assembled
+    # without them; the check says so under `frozen_rule` and judges as before.
+    logs_kept = bool(said_by_point)
     for polar in sorted((out / "polars").glob("P*_uns_avg.csv")):
         for row in _table(polar):
             # A FROZEN OR UNREADABLE POINT JUDGES NOTHING HERE EITHER. This check read
@@ -195,9 +201,13 @@ def steady_drag(workspace: Path, out: Path) -> dict[str, object]:
             point = run_id.rsplit("/", 1)[-1]
             sim = re.search(r"sim_(\w+)", run_id)
             stem = f"P{sim.group(1)}-{point}" if sim and point else None
-            if stem not in said_by_point:
-                stem = None
-            if stem is not None:
+            # AN UNSTEADY ROW WITHOUT A READABLE LOG IS NOT JUDGED. This row is one of
+            # an unsteady polar, so its point HAS a time loop; a log that states no
+            # time step is a log this cannot read, never a steady point.
+            if logs_kept and stem is not None and stem not in said_by_point:
+                left_out.append({"polar": polar.name, "point": point, "why": "no native log"})
+                continue
+            if stem is not None and stem in said_by_point:
                 steps = said_by_point[stem]["steps"]
                 first, last = _number(row.get("FIRST_STEP")), _number(row.get("LAST_STEP"))
                 if steps is None:
@@ -283,6 +293,11 @@ def steady_drag(workspace: Path, out: Path) -> dict[str, object]:
             "exports": exports,
             "unsteady_polar_rows": unsteady,
             "unsteady_rows_left_out": left_out,
+            "frozen_rule": (
+                "each unsteady row judged against its own point's native log"
+                if logs_kept
+                else "NOT APPLIED: this workspace keeps no native log"
+            ),
             "worst_gap": worst,
             "worst_ratio": ratio,
             "worst_ratio_at": where,
@@ -343,14 +358,16 @@ def frozen_by_point(workspace: Path) -> dict[str, dict[str, object]]:
     """Return, per point name, what its native log says about a frozen solve.
 
     The key is the point's file stem as every product spells it (`P2412-M144RE...`).
-    A point with no unsteady log at all is absent: a steady run has no time step to
-    freeze. `steps` is None where the log could not be read for them.
+    EVERY log is here, whatever its run type and whether or not it could be read:
+    `steps` is None where the log states no time step at all. Deciding from that
+    silence that a point is steady is what the caller must not do, since an unsteady
+    point whose log was truncated states no time step either (the independent review
+    of the evidence, 2026-09-19). The CALLER knows the run type: it is asking about a
+    point that has an unsteady window.
     """
     found: dict[str, dict[str, object]] = {}
     for log in sorted(workspace.glob("sims/sim_*/datapoints/*/*_log.txt")):
         steps = frozen_steps(log)
-        if steps is None and "unsteady time-step" not in log.read_text(encoding="latin-1"):
-            continue  # a steady run: nothing to say
         found[log.name[: -len("_log.txt")]] = {
             "log": log.name,
             "steps": steps,
@@ -393,8 +410,15 @@ def rotor_checks(out: Path, manifest: dict) -> dict[str, dict[str, object]]:
                 at = re.search(r"AL([+-]\d+)", name)
                 if at is None or alpha is None or abs(int(at.group(1)) / 10.0 - alpha) > 1e-6:
                     continue
-                said = frozen_by_point(workspace).get(str(name))
-                if said is not None:
+                logs = frozen_by_point(workspace)
+                said = logs.get(str(name))
+                if said is None and not logs:
+                    pass  # the workspace keeps no native log: the rule cannot run
+                elif said is None:
+                    # This point has a WINDOW, so it ran a time loop; no log means the
+                    # freeze question cannot be asked and the point judges nothing.
+                    point["left_out"] = f"no native log for {name}: not measured"
+                else:
                     steps = said["steps"]
                     if steps is None:
                         point["left_out"] = f"{said['log']} states no time step: not measured"
