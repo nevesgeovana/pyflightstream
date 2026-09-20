@@ -7,20 +7,8 @@ FlightStream versions.
 
 ## [Unreleased]
 
-Nothing yet: 0.25.0 was tagged from the section below, and the next change
-to reach a user is written here.
-
-## [0.25.0] - 2026-09-20
-
 ### Owed
 
-- **The Zenodo archive row of v0.25.0 is owed.** A version DOI is minted from
-  the GitHub release object and recorded one commit after the tag, so between
-  the tag and that commit this release has no archive row; cite the concept DOI
-  until it lands.
-- **The full-wheel run of the licensed campaign on the axisymmetric nacelle is owed**
-  (`reports/pfs0240/README.md`): the sector-against-wheel check reads 1.297 on a full
-  wheel whose nacelle is not axisymmetric.
 - **The Zenodo archive of v0.14.0 DOES NOT EXIST**, re-measured against
   Zenodo's own API on 2026-09-14, when the v0.18.0 archive row was paid: the
   concept record lists NINETEEN archived versions and v0.14.0 is not among
@@ -34,6 +22,19 @@ to reach a user is written here.
   Until that row lands this section says so, because a shipped release that
   quietly stops being citable is the gap PFS-2024.09 is about. Cite that
   release by the concept DOI, which resolves to the newest archived version.
+
+## [0.25.0] - 2026-09-20
+
+### Owed
+
+- **The Zenodo archive row of v0.25.0 is owed.** A version DOI is minted from
+  the GitHub release object and recorded one commit after the tag, so between
+  the tag and that commit this release has no archive row; cite the concept DOI
+  until it lands.
+- **The full-wheel run of the licensed campaign on the axisymmetric nacelle is owed**
+  (`reports/pfs0240/README.md`): the sector-against-wheel check reads 1.297 on a full
+  wheel whose nacelle is not axisymmetric.
+
 
 ### Changed (breaking: the probe source follows the run type)
 
@@ -11204,6 +11205,7 @@ the repository seeding and this tag (milestones M0 through M5).
   backfill planned for v0.2+).
 
 [Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.24.0...HEAD
+[0.25.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.25.0
 [0.24.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.24.0
 [0.23.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.23.0
 [0.22.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.22.0
