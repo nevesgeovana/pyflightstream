@@ -102,17 +102,22 @@ def test_a_frozen_row_that_disagrees_does_not_decide_the_verdict(tmp_path: Path)
     workspace, out = _workspace(
         tmp_path, {"2412": "frozen", "2415": "clean"}, cdw={"2412": "2.00000"}
     )
-    # The verdict itself reads could-not-measure here, since this workspace holds no
-    # steady export for the rest of the check; what the exclusion decides is the worst
-    # gap, which the frozen row would carry to 1.98 and which stays at the live row's.
+    # WHAT THE EXCLUSION DECIDES IS `worst_ratio`, the number the verdict is taken
+    # from, and the row it is attributed to. `worst_gap` is updated by the steady
+    # paths alone, so asserting on it proved nothing: a frozen row judged here leaves
+    # it 0.0 while carrying the ratio to about 99000 (the independent review, round
+    # four). The verdict itself reads could-not-measure, this workspace holding no
+    # steady export.
     check = coherence.steady_drag(workspace, out)
     assert _measured(workspace, out) == {f"P2415_{POINT}_uns_avg.csv"}
-    assert check["measured"]["worst_gap"] == 0.0
+    assert check["measured"]["worst_ratio"] == 0.0
+    assert f"P2415_{POINT}_uns_avg.csv" in str(check["measured"]["worst_ratio_at"])
 
 
 def test_an_unreadable_log_leaves_the_point_out(tmp_path: Path) -> None:
     workspace, out = _workspace(tmp_path, {"2415": "unreadable"})
     assert _left_out(workspace, out) == {f"P2415_{POINT}_uns_avg.csv": "log unreadable"}
+    assert _measured(workspace, out) == set()
 
 
 def test_a_point_with_no_log_leaves_the_point_out(tmp_path: Path) -> None:
@@ -121,6 +126,7 @@ def test_a_point_with_no_log_leaves_the_point_out(tmp_path: Path) -> None:
     # under `frozen_rule` instead of striking every point out for the same reason.)
     workspace, out = _workspace(tmp_path, {"2412": "clean", "2415": "missing"})
     assert _left_out(workspace, out) == {f"P2415_{POINT}_uns_avg.csv": "no native log"}
+    assert _measured(workspace, out) == {f"P2412_{POINT}_uns_avg.csv"}
 
 
 def test_a_workspace_that_keeps_no_log_says_the_rule_did_not_run(tmp_path: Path) -> None:
