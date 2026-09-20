@@ -16,7 +16,9 @@ The checks:
   mean, over the window the unsteady polar states, of the rotor's shaft force in the
   plots history, and NOT the last step.
 - `sector_times_copies_against_full_wheel`: the periodic sector's `CT` against the
-  full wheel's at the same condition.
+  full wheel's at the same condition, on the same nacelle (row 2414); the wheel on
+  the non-axisymmetric nacelle (row 2412) and the first run of the same wheel, whose
+  solve froze (row 2413), are reported beside it and decide nothing.
 - `etaw_equals_eta_at_alpha_zero` and `etaw_departs_with_alpha`: `ETAW` against
   `ETA`, and against `J CTW / CP` with `CTW` recomputed from the history's force
   projected on the free stream `(cos a, 0, sin a)` of the export frame.
@@ -177,8 +179,49 @@ def steady_drag(workspace: Path, out: Path) -> dict[str, object]:
     # global-frame plot group and the row's own density, and the solver plots its own
     # `CD` of the same group. Two five-decimal columns of one file.
     unsteady: list[dict[str, object]] = []
+    said_by_point = frozen_by_point(workspace)
+    left_out: list[dict[str, object]] = []
+    # A WORKSPACE THAT KEPT NO NATIVE LOG AT ALL cannot be asked about a frozen solve,
+    # and every point of it would be left out for the same reason, which is a refusal
+    # of the whole check rather than an exclusion of a point. The campaign keeps its
+    # logs (the run collects them), so this is the shape of a workspace assembled
+    # without them; the check says so under `frozen_rule` and judges as before.
+    logs_kept = bool(said_by_point)
     for polar in sorted((out / "polars").glob("P*_uns_avg.csv")):
         for row in _table(polar):
+            # A FROZEN OR UNREADABLE POINT JUDGES NOTHING HERE EITHER. This check read
+            # every unsteady row until the independent review of the evidence
+            # (2026-09-19) found the page claiming an exclusion the rotor checks made
+            # and this one did not.
+            # THE SIM TOO, NOT THE POINT NAME ALONE: two rows of one campaign share a
+            # point name (`M144RE438AL+100BE+000` is row 2412's and row 2415's), and
+            # matching on the name alone struck out the live row with the frozen one's
+            # log. Measured on this campaign while the exclusion was being written.
+            run_id = str(row.get("run_id") or "")
+            point = run_id.rsplit("/", 1)[-1]
+            sim = re.search(r"sim_(\w+)", run_id)
+            stem = f"P{sim.group(1)}-{point}" if sim and point else None
+            # AN UNSTEADY ROW WITHOUT A READABLE LOG IS NOT JUDGED. This row is one of
+            # an unsteady polar, so its point HAS a time loop; a log that states no
+            # time step is a log this cannot read, never a steady point.
+            if logs_kept and stem is not None and stem not in said_by_point:
+                left_out.append({"polar": polar.name, "point": point, "why": "no native log"})
+                continue
+            if stem is not None and stem in said_by_point:
+                steps = said_by_point[stem]["steps"]
+                first, last = _number(row.get("FIRST_STEP")), _number(row.get("LAST_STEP"))
+                if steps is None:
+                    left_out.append({"polar": polar.name, "point": point, "why": "log unreadable"})
+                    continue
+                if None not in (first, last) and [s for s in steps if first <= s <= last]:  # type: ignore[operator]
+                    left_out.append(
+                        {
+                            "polar": polar.name,
+                            "point": point,
+                            "why": f"the solve froze at step {steps[0]}, inside the window",
+                        }
+                    )
+                    continue
             for name in row:
                 if not name.startswith("CDW_"):
                     continue
@@ -249,6 +292,12 @@ def steady_drag(workspace: Path, out: Path) -> dict[str, object]:
             "polar_rows": measured,
             "exports": exports,
             "unsteady_polar_rows": unsteady,
+            "unsteady_rows_left_out": left_out,
+            "frozen_rule": (
+                "each unsteady row judged against its own point's native log"
+                if logs_kept
+                else "NOT APPLIED: this workspace keeps no native log"
+            ),
             "worst_gap": worst,
             "worst_ratio": ratio,
             "worst_ratio_at": where,
@@ -277,9 +326,65 @@ def _history(plots: Path, group: str, window: tuple[int, int]) -> dict[str, floa
     return mean
 
 
+_STEP_HEADER = re.compile(r"Solving unsteady time-step iteration \((\d+)/(\d+)\)")
+_RESIDUALS = re.compile(r"^\d+\s+([+-][\d.]+E[+-]\d+)\s+([+-][\d.]+E[+-]\d+)", re.M)
+
+
+def frozen_steps(log: Path) -> list[int] | None:
+    """Return the time steps of a native log whose solve FROZE, or None if unreadable.
+
+    None means the log states no time step at all, so this measurement could not be
+    made: the caller leaves such a point out rather than taking silence for a clean
+    solve (the independent review of the evidence, 2026-09-19).
+
+    A step froze when its velocity and pressure residuals are exactly zero on every
+    inner iteration after its first two: the solver stops iterating and every later
+    load is a
+    constant, not a solution. Measured on pfs0240 rows 2413 (from step 60) and 2412 at
+    alpha 10 (from step 64); every other log of the campaign has none.
+    """
+    parts = _STEP_HEADER.split(log.read_text(encoding="latin-1"))
+    if len(parts) < 4:
+        return None
+    frozen = []
+    for k in range(1, len(parts), 3):
+        rows = _RESIDUALS.findall(parts[k + 2])
+        if len(rows) > 2 and all(float(a) == 0.0 and float(b) == 0.0 for a, b in rows[2:]):
+            frozen.append(int(parts[k]))
+    return frozen
+
+
+def frozen_by_point(workspace: Path) -> dict[str, dict[str, object]]:
+    """Return, per point name, what its native log says about a frozen solve.
+
+    The key is the point's file stem as every product spells it (`P2412-M144RE...`).
+    EVERY log is here, whatever its run type and whether or not it could be read:
+    `steps` is None where the log states no time step at all. Deciding from that
+    silence that a point is steady is what the caller must not do, since an unsteady
+    point whose log was truncated states no time step either (the independent review
+    of the evidence, 2026-09-19). The CALLER knows the run type: it is asking about a
+    point that has an unsteady window.
+    """
+    found: dict[str, dict[str, object]] = {}
+    for log in sorted(workspace.glob("sims/sim_*/datapoints/*/*_log.txt")):
+        steps = frozen_steps(log)
+        found[log.name[: -len("_log.txt")]] = {
+            "log": log.name,
+            "steps": steps,
+            "first_frozen_step": None if not steps else steps[0],
+        }
+    return found
+
+
 def rotor_checks(out: Path, manifest: dict) -> dict[str, dict[str, object]]:
-    """Check each rotor table against the plots history it was read from, and ETAW."""
+    """Check each rotor table against the plots history it was read from, and ETAW.
+
+    A point whose window touches a FROZEN step (:func:`frozen_steps`) is listed under
+    `no_frozen_solve_in_a_window` and takes part in no other verdict: its numbers are
+    no solution.
+    """
     products = manifest.get("products", {})
+    workspace = out.parent.parent
     points: list[dict[str, object]] = []
     for table in sorted((out / "polars").glob("P*_rotor.csv")):
         alias = table.read_text(encoding="utf-8").splitlines()[0].strip()
@@ -305,6 +410,24 @@ def rotor_checks(out: Path, manifest: dict) -> dict[str, dict[str, object]]:
                 at = re.search(r"AL([+-]\d+)", name)
                 if at is None or alpha is None or abs(int(at.group(1)) / 10.0 - alpha) > 1e-6:
                     continue
+                logs = frozen_by_point(workspace)
+                said = logs.get(str(name))
+                if said is None and not logs:
+                    pass  # the workspace keeps no native log: the rule cannot run
+                elif said is None:
+                    # This point has a WINDOW, so it ran a time loop; no log means the
+                    # freeze question cannot be asked and the point judges nothing.
+                    point["left_out"] = f"no native log for {name}: not measured"
+                else:
+                    steps = said["steps"]
+                    if steps is None:
+                        point["left_out"] = f"{said['log']} states no time step: not measured"
+                    elif [s for s in steps if int(span[0]) <= s <= int(span[1])]:
+                        point["left_out"] = (
+                            f"the solve froze at step {said['first_frozen_step']} of "
+                            f"{said['log']}, inside this window"
+                        )
+                        point["first_frozen_step"] = said["first_frozen_step"]
                 if (
                     group
                     and plots.is_file()
@@ -320,11 +443,25 @@ def rotor_checks(out: Path, manifest: dict) -> dict[str, dict[str, object]]:
                             steps=mean["steps"],
                             mean_shaft_force_N=mean["FX"],
                             last_step_shaft_force_N=mean["last_FX"],
+                            mean_shaft_torque_N_m=mean["MX"],
+                            mean_side_force_N=mean["FY"],
+                            mean_lift_force_N=mean["FZ"],
                             table_thrust_N=None if numbers["CT"] is None else numbers["CT"] * unit,
                             force_along_the_stream_N=along,
                             unit_N=unit,
                         )
             points.append(point)
+    frozen_points = [
+        {
+            "table": p["table"],
+            "ALPHA": p["ALPHA"],
+            "first_frozen_step": p.get("first_frozen_step"),
+            "left_out": p["left_out"],
+        }
+        for p in points
+        if "left_out" in p
+    ]
+    points = [p for p in points if "left_out" not in p]
 
     def _gap(point: dict) -> float | None:
         t, m = point.get("table_thrust_N"), point.get("mean_shaft_force_N")
@@ -350,16 +487,33 @@ def rotor_checks(out: Path, manifest: dict) -> dict[str, dict[str, object]]:
         "verdict": _verdict(None if not gaps else max(gaps) <= 1e-3),
     }
     zero = [p for p in points if p.get("ALPHA") == 0.0 and p.get("CT") is not None]
+    # THE WHEEL IS THE SECTOR'S OWN GEOMETRY, COMPLETED: geometry 17, the sector 13
+    # six times over (the axisymmetric NMIN nacelle). Row 2414 runs it; row 2413 ran it
+    # first and its solve FROZE at time step 60 (residuals exactly zero from then on),
+    # so its window is no solution and it decides nothing. Row 2412 (geometry 24, the
+    # NMI nacelle, not axisymmetric) is no copy of the sector either; both are reported
+    # beside the verdict (reports/pfs0240/README.md).
     sector = [p for p in zero if "2411" in str(p["table"])]
-    wheel = [p for p in zero if "2412" in str(p["table"])]
+    wheel = [p for p in zero if "2414" in str(p["table"])]
+    frozen = [p for p in zero if "2413" in str(p["table"])]
+    other = [p for p in zero if "2412" in str(p["table"])]
     ratio = None
     if sector and wheel and wheel[0]["CT"]:
         ratio = sector[0]["CT"] / wheel[0]["CT"]  # type: ignore[operator]
+    ratio_other = None
+    if sector and other and other[0]["CT"]:
+        ratio_other = sector[0]["CT"] / other[0]["CT"]  # type: ignore[operator]
     checks["sector_times_copies_against_full_wheel"] = {
         "measured": {
             "CT_sector": sector[0]["CT"] if sector else None,
             "CT_full_wheel": wheel[0]["CT"] if wheel else None,
             "ratio": ratio,
+            "full_wheel_row": "2414",
+            "frozen_solve_2413": {"CT": frozen[0]["CT"] if frozen else None},
+            "not_axisymmetric_wheel_2412": {
+                "CT": other[0]["CT"] if other else None,
+                "ratio": ratio_other,
+            },
         },
         "band": "the ratio within 5 per cent of one: the products state the WHOLE rotor either way",
         "verdict": _verdict(None if ratio is None else abs(ratio - 1.0) <= 0.05),
@@ -400,6 +554,15 @@ def rotor_checks(out: Path, manifest: dict) -> dict[str, dict[str, object]]:
         "verdict": _verdict(
             None if not tilted else all(t["gap"] <= 1e-3 and t["ETAW"] != t["ETA"] for t in tilted)
         ),
+    }
+    checks["no_frozen_solve_in_a_window"] = {
+        "measured": {"frozen_points_left_out": frozen_points},
+        "band": "none: a point whose window touches a frozen step is no solution",
+        "note": (
+            "informational; the frozen points take part in no other verdict, so a "
+            "check left with no valid point reads could-not-measure, never coherent"
+        ),
+        "verdict": "coherent",
     }
     return checks
 
