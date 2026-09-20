@@ -115,18 +115,28 @@ def test_a_frozen_row_that_disagrees_does_not_decide_the_verdict(tmp_path: Path)
 
 
 def test_an_unreadable_log_leaves_the_point_out(tmp_path: Path) -> None:
-    workspace, out = _workspace(tmp_path, {"2415": "unreadable"})
+    # Its CDW disagrees by a hundred times, so a row judged here would carry the ratio
+    # to about 99000 even while the lists look right: assert the ratio, not the lists.
+    workspace, out = _workspace(tmp_path, {"2415": "unreadable"}, cdw={"2415": "2.00000"})
     assert _left_out(workspace, out) == {f"P2415_{POINT}_uns_avg.csv": "log unreadable"}
     assert _measured(workspace, out) == set()
+    check = coherence.steady_drag(workspace, out)
+    assert check["measured"]["worst_ratio"] is None
+    assert check["measured"]["worst_ratio_at"] is None
 
 
 def test_a_point_with_no_log_leaves_the_point_out(tmp_path: Path) -> None:
     # A workspace that KEEPS logs and has none for this point: the point is not judged.
     # (A workspace that keeps none at all cannot be asked at all, and the check says so
     # under `frozen_rule` instead of striking every point out for the same reason.)
-    workspace, out = _workspace(tmp_path, {"2412": "clean", "2415": "missing"})
+    workspace, out = _workspace(
+        tmp_path, {"2412": "clean", "2415": "missing"}, cdw={"2415": "2.00000"}
+    )
     assert _left_out(workspace, out) == {f"P2415_{POINT}_uns_avg.csv": "no native log"}
     assert _measured(workspace, out) == {f"P2412_{POINT}_uns_avg.csv"}
+    check = coherence.steady_drag(workspace, out)
+    assert check["measured"]["worst_ratio"] == 0.0
+    assert f"P2412_{POINT}_uns_avg.csv" in str(check["measured"]["worst_ratio_at"])
 
 
 def test_a_workspace_that_keeps_no_log_says_the_rule_did_not_run(tmp_path: Path) -> None:
@@ -134,3 +144,7 @@ def test_a_workspace_that_keeps_no_log_says_the_rule_did_not_run(tmp_path: Path)
     check = coherence.steady_drag(workspace, out)
     assert check["measured"]["unsteady_rows_left_out"] == []
     assert check["measured"]["frozen_rule"].startswith("NOT APPLIED")
+    # AND THE ROWS ARE STILL JUDGED: not applying the rule is not dropping the data.
+    assert _measured(workspace, out) == {f"P2415_{POINT}_uns_avg.csv"}
+    assert check["measured"]["worst_ratio"] == 0.0
+    assert f"P2415_{POINT}_uns_avg.csv" in str(check["measured"]["worst_ratio_at"])
