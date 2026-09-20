@@ -65,8 +65,13 @@ FlightStream versions.
   one of `last_revs` (revolutions of the rotor clock, converted through the same
   resolver as `LAST_REVS_AVG`) or `last_iters` emits `SOLVER_TIME_AVERAGING ENABLE
   <first> <last>` in the initialisation phase, so the surface flow exports (Tecplot,
-  VTK, CSV) state the average over that window instead of the last step. Refused on
-  a build before 26.122, naming the build. The run records the window it emitted, and
+  VTK, CSV) state the average over that window instead of the last step.
+  **ON A BUILD WHERE THE COMMAND IS RECORDED VERIFIED, AND NO BUILD IS TODAY**: see
+  the known limitation above, which is why a pproc carrying the key is refused at
+  plan on 26.124 and on every build before 26.122. Whether the command's bounds are
+  time steps or inner iterations could not be measured, because the command hangs
+  the build this release could run: the database says UNVERIFIED and the conversion
+  is a single function for the day a build settles it. The run records the window it emitted, and
   the products manifest marks those exports `kind: average` with the window, read
   from the record even if the pproc is edited later. The bounds are TIME STEPS, which
   the manual does not settle against inner iterations; the licensed verification of

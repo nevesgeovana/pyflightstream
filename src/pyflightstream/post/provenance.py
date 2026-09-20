@@ -96,13 +96,18 @@ def refuse_an_existing_product(
 
     THREE BEHAVIOURS AND ONE FLAG, and the default is the first:
 
+    IT PREPARES THE DESTINATION AND WRITES NOTHING. The caller writes the
+    replacement, at the path this returns; where the caller writes nothing,
+    as a refused or skipped product does, the destination is left empty on
+    purpose and no stale file stays current.
+
     * the product exists and ``archive`` holds: it is MOVED into
-      ``<its own folder>/archive/<day and hour>/`` and the new one is
-      written in its place. Nothing is lost and nothing is refused.
-    * the product exists and ``archive`` is false: it is overwritten and
-      no copy is kept. That is the explicit escape, and the command line
-      spells it ``--force-overwrite`` and asks for a confirmation, so it
-      cannot be reached by habit.
+      ``<its own folder>/archive/<day and hour>/``, so the caller's write
+      lands on a free path. Nothing is lost and nothing is refused.
+    * the product exists and ``archive`` is false: it is REMOVED and no copy
+      is kept. That is the explicit escape, and the command line spells it
+      ``--force-overwrite`` and asks for a confirmation, so it cannot be
+      reached by habit.
     * the product does not exist: nothing happens.
 
     IT TOOK AN ``overwrite`` FLAG TOO, AND THAT WAS THE DEFECT. The guard

@@ -363,7 +363,7 @@ SOLVER_TIME_AVERAGING:
         C01 on 2026-09-19 measured that it hangs 26.124, so [time_averaging]
         is refused until successful execution is verified on this build.
     "26.123": {status: documented, note: "SRC-751 p.353 documents the command; execution on 26.123 is unverified. C01 on 2026-09-19 measured that it hangs 26.124, so [time_averaging] is refused until successful execution is verified on this build."}
-    "26.124": {status: broken, report: "reports/compat/CMP-26124_2026-09-19_time-averaging.yaml", note: "C01, 2026-09-19: on 26.124 this command hangs before or after INITIALIZE_SOLVER (no outputs; killed at 300 s). Without the line the same script wrote all seven outputs and its final log export, exiting 0 in 126 s."}
+    "26.124": {status: broken, report: "reports/compat/CMP-26124_2026-09-19_time-averaging.yaml", note: "Measured 2026-09-19 on FlightStream 26.124: SOLVER_TIME_AVERAGING ENABLE hangs the solver both in INIT before INITIALIZE_SOLVER and [...]"}
 
 SET_NEW_UNSTEADY_SOLVER_ACTION:
   layout: inline

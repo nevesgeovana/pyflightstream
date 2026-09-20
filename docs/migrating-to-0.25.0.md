@@ -207,13 +207,24 @@ refused them on every build. An unsupported parameter is refused naming both
 the parameter and the build. A new run is needed to sample a newly requested
 variable; changing the list cannot add samples to an existing history.
 
-### What `NITER` limits on an unsteady run is still an open question
+### What `NITER` limits on an unsteady run, measured
 
-Whether `NITER` and the setup's `convergence_iterations` limit inner iterations
-per time step or the total across an unsteady run remains to be measured.
-**The licensed verification of this release measures it with a short run and a
-low limit.** No measurement is recorded under `reports/pfs0250/` in this tree,
-so this page does not claim either interpretation as a licensed result.
+`NITER` bounds EACH TIME STEP, not the run. The licensed verification of this
+release measured it on build 26.124 with a short rotor run of 36 time steps
+(`reports/pfs0250/pfs0250_verification.json`, check `niter_limit`): with
+`NITER = 5` every one of the 36 steps ran exactly five inner iterations, 180 in
+all, and the run was recorded `COMPLETED_MAX_ITER`.
+
+The setup's `convergence_iterations` is NOT a cap: with it set to 3 and `NITER`
+at 300 the same geometry ran between 6 and 90 inner iterations per step, a median
+of 32.5 and 1100 in all, and converged. It states how many consecutive iterations
+must satisfy the convergence criterion before a step is taken as done.
+
+Size an unsteady budget accordingly: the work is `NITER` times the number of time
+steps in the worst case, and a step that converges early costs less.
+
+This measurement is the release's own, on one build and one geometry; it is
+stated as such rather than as a property of every build.
 
 The export header's `Current solver iteration number` does count INNER
 iterations: the recorded 0.24.0 measurement had 2813 inner iterations over

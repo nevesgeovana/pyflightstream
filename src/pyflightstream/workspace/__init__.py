@@ -71,13 +71,14 @@ from pathlib import Path
 # 3.12, so the branch went with the leg.
 from typing import TypedDict
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
 from pyflightstream._deprecations import WAIVED_COMMANDS_MANIFEST_KEY
 from pyflightstream._digest import file_sha256
 from pyflightstream._errors import PyflightstreamDeprecationWarning, PyflightstreamError
 from pyflightstream._retired_names import WORKSPACE_ENGINE_POINT, RetiredAttributeError
 from pyflightstream.cases import BoundaryAliases, RawCommand
+from pyflightstream.cases.windows import surface_averaging_window
 from pyflightstream.script import MarchStrategy
 from pyflightstream.script._surface_averaging import SurfaceAveragingWindow
 from pyflightstream.script.solver_setup import explicit_empty_selections
@@ -1092,6 +1093,29 @@ class RunRecord(BaseModel):
     action_program: str | None = None
     action_script: str | None = None
     action_count: int | None = None
+
+    @field_validator("surface_time_averaging")
+    @classmethod
+    def _surface_window_matches_request(
+        cls, window: SurfaceAveragingWindow | None
+    ) -> SurfaceAveragingWindow | None:
+        if window is None:
+            return None
+        resolved = surface_averaging_window(
+            last_step=window["iterations"][1],
+            last_iters=window.get("last_iters"),
+            last_revs=window.get("last_revs"),
+            per_revolution=window.get("steps_per_revolution"),
+        )
+        if window["iterations"] != resolved["iterations"]:
+            fields = (
+                "last_iters" if "last_iters" in window else "last_revs and steps_per_revolution"
+            )
+            raise ValueError(
+                f"iterations {window['iterations']} contradict recorded {fields}; "
+                f"expected {resolved['iterations']}"
+            )
+        return window
 
     def as_points(self) -> list[RunRecord]:
         """Return this record as one record per POINT.
