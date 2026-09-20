@@ -1,0 +1,33 @@
+schema: pyflightstream-compat-report/1
+fs_version: '26.124'
+date: '2026-09-19'
+source: >
+  Transcription of the licensed C01 one-line comparison supplied for F02;
+  no solver was invoked while implementing the planning refusal.
+summary:
+  verified: 0
+  broken: 1
+  removed: 0
+  unprobed: 0
+commands:
+  SOLVER_TIME_AVERAGING:
+    outcome: broken
+    detail: >
+      Measured 2026-09-19 on FlightStream 26.124: SOLVER_TIME_AVERAGING ENABLE
+      hangs the solver both in INIT before INITIALIZE_SOLVER and after it,
+      with no output and termination at 300 seconds in either position.
+      Removing only this line let the same script write all seven outputs
+      and its final log export, exiting 0 in 126 seconds.
+    measurement:
+      control:
+        wall_time_s: 126
+        output_count: 7
+        final_log_export_written: true
+        return_code: 0
+      with_command:
+        - position: before INITIALIZE_SOLVER
+          terminated_at_s: 300
+          output_count: 0
+        - position: after INITIALIZE_SOLVER
+          terminated_at_s: 300
+          output_count: 0

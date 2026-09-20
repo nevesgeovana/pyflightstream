@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 
 from pyflightstream.cases.workflows import unsteady_export_threshold
-from tests.tier1_offline.test_surface_exports import _case, _script
+from tests.tier1_offline.test_surface_exports import _case, _script, _verified_registry
 
 GOLDENS = Path(__file__).parent / "goldens"
 
@@ -21,7 +21,9 @@ def _emissions():
         vtk_variables=["X", "CP_FREESTREAM"],
         threshold={"EXPORT_UNSTEADY_AFTER_ITER": "91"},
     )
-    main = _script(case).render()
+    # The emission is refused where the command is not verified (C01 measured it
+    # hanging 26.124); this file is about WHAT THE EMISSION LOOKS LIKE.
+    main = _script(case, registry=_verified_registry()).render()
     return {
         "main": main[main.index("SOLVER_TIME_AVERAGING") :],
         "action": unsteady_export_threshold(case, version="26.124").exports,

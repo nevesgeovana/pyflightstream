@@ -43,6 +43,22 @@ FlightStream versions.
   cited probes' history.
 - An unsteady row's default outputs lose `{name}_probes.txt` (seven, not eight).
 
+### Known limitations
+
+- **The time-averaged surface cannot be produced on FlightStream 26.124.** The
+  licensed verification of this release measured `SOLVER_TIME_AVERAGING` HANGING the
+  solver: the script the package writes, run without that one line, finished in 126
+  seconds and wrote all seven outputs including its final log export; with the line,
+  in the emitted position and again after `INITIALIZE_SOLVER`, nothing was written
+  and the solver had to be killed at 300 seconds. The command is emitted exactly as
+  its manual documents it (SRC-750 p.353). The package therefore REFUSES a pproc
+  carrying `[time_averaging]` when the run's build does not record the command as
+  verified, at plan, naming the build and the measurement; it does not hang. The
+  key, its validation, the window resolver and the provenance ship, so the feature
+  works on a build where the command runs. Evidence:
+  `reports/pfs0250/pfs0250_verification.json` and
+  `reports/compat/CMP-26124_2026-09-19_time-averaging.yaml`.
+
 ### Added
 
 - **A time-averaged surface, from the pproc.** A `[time_averaging]` table with exactly

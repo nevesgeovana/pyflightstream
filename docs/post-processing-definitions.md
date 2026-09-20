@@ -484,19 +484,33 @@ VTK variables and commands unavailable on the selected build are refused at
 plan. Both formats also join the per-step `EXPORT_UNSTEADY_AFTER_REV` or
 `EXPORT_UNSTEADY_AFTER_ITER` exports.
 
-`[time_averaging]` applies to these three native surface formats on an unsteady
-run; it emits `SOLVER_TIME_AVERAGING ENABLE first last` in INIT. It requires
-command support (documented from 26.122). Without the table no averaging
-command is emitted. This is separate from the matrix window used to reduce
-plots: changing it requires a solver re-run.
+**Time-averaged surfaces cannot be produced on the builds measured so far.**
+On 2026-09-19, licensed C01 measured that `SOLVER_TIME_AVERAGING` hangs
+FlightStream 26.124 both before and after `INITIALIZE_SOLVER`: no outputs were
+written before the 300-second termination. Without that command, the script
+wrote all seven outputs and its final log export, exiting successfully in
+126 seconds.
+
+The package refuses a pproc carrying `[time_averaging]` at plan time, naming
+the build and the measurement, rather than sending the hanging command to the
+solver. Remove the table to obtain Tecplot, VTK and CSV surfaces as **instants**,
+including the requested per-step exports. This does not change the matrix
+window used to average the plots history.
+
+The key remains available only on a build whose command-database status is
+`verified`; manual documentation alone (from 26.122) is insufficient. On such
+a build it emits `SOLVER_TIME_AVERAGING ENABLE first last` in INIT for these
+three native surface formats on an unsteady run. Without the table no
+averaging command is emitted. Changing the surface window requires a new run.
 
 The bounds are inclusive, 1-based, ending at the run's last time step.
 `last_iters` is a count of steps; `last_revs` uses the same rotor clock and
 rounding as `LAST_REVS_AVG` (with `DELTA_THETA`, steps per revolution is
 `360 / DELTA_THETA`). A window longer than the run is clipped at step 1.
 SRC-750 p.353 says "unsteady time iteration"; interpreting that as time steps
-rather than inner iterations remains **UNVERIFIED**, pending licensed C01.
-The export header's inner-iteration counter is never used for this conversion.
+rather than inner iterations remains **UNVERIFIED**: the C01 hang prevented
+measurement of the bounds. The export header's inner-iteration counter is
+never used for this conversion.
 
 The run records the emitted window. Surface entries in `products.json` and
 PROV-JSON carry `kind: average` and `window`, including iteration bounds,

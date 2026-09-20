@@ -113,7 +113,7 @@ from pyflightstream.cases import (
     warn_a_selector_that_guesses,
 )
 from pyflightstream.cases import windows as _windows
-from pyflightstream.commands import CommandRegistry, Phase, VersionView
+from pyflightstream.commands import CommandRegistry, Phase, Status, VersionView
 from pyflightstream.script import (
     MARCH_ACTIONS,
     MARCH_SINGLE,
@@ -10311,7 +10311,16 @@ def build_script(
     workflow = resolve_workflow(select_workflow(case))
     require_coverage(workflow, script.version, registry=registry)
     if case.pproc is not None and case.pproc.time_averaging is not None:
-        script.entry("SOLVER_TIME_AVERAGING")
+        entry = script.entry("SOLVER_TIME_AVERAGING")
+        record = entry.status_in(script.version)
+        if record is None or record.status is not Status.VERIFIED:
+            reason = (record.note if record is not None else None) or "No execution is verified."
+            raise CampaignConfigError(
+                f"[time_averaging] requires SOLVER_TIME_AVERAGING verified on "
+                f"FlightStream {script.version.canonical}. {reason} "
+                "Remove [time_averaging] to write Tecplot, VTK and CSV surface exports "
+                "as instants; the key works on a build where the command is verified to run."
+            )
         surface_time_averaging(case)
     # THE SEAM (ARCH-0200): how this case is marched on this build, decided
     # once and before the first emission, so a refusal leaves nothing written.

@@ -345,9 +345,9 @@ SOLVER_TIME_AVERAGING:
     include. First documented by the 26.122 edition.
     UNVERIFIED: SRC-750 p.353 names each bound an unsteady time iteration
     without explicitly distinguishing time steps from inner iterations.
-    The pproc conversion uses inclusive time steps pending licensed C01
-    verification; the export header iteration counter counts inner iterations
-    and is not used to derive these bounds.
+    The pproc conversion uses inclusive time steps; the C01 hang on
+    2026-09-19 prevented verification of the bounds. The export header
+    iteration counter counts inner iterations and is not used to derive them.
 
     The window is in ITERATIONS and not in seconds, so it moves with
     the time-step size: halving the step doubles the iteration
@@ -358,9 +358,12 @@ SOLVER_TIME_AVERAGING:
   versions:
     "26.122":
       status: documented
-      note: "SRC-750 p.353, the first edition to document it"
-    "26.123": {status: documented, note: "SRC-751 p.353, unchanged from SRC-750 p.353"}
-    "26.124": {status: documented, note: "SRC-752 p.353, the SRC-751 file, carried from 26.123; not run on 26.124"}
+      note: >
+        SRC-750 p.353 documents the command; execution on 26.122 is unverified.
+        C01 on 2026-09-19 measured that it hangs 26.124, so [time_averaging]
+        is refused until successful execution is verified on this build.
+    "26.123": {status: documented, note: "SRC-751 p.353 documents the command; execution on 26.123 is unverified. C01 on 2026-09-19 measured that it hangs 26.124, so [time_averaging] is refused until successful execution is verified on this build."}
+    "26.124": {status: broken, report: "reports/compat/CMP-26124_2026-09-19_time-averaging.yaml", note: "C01, 2026-09-19: on 26.124 this command hangs before or after INITIALIZE_SOLVER (no outputs; killed at 300 s). Without the line the same script wrote all seven outputs and its final log export, exiting 0 in 126 s."}
 
 SET_NEW_UNSTEADY_SOLVER_ACTION:
   layout: inline

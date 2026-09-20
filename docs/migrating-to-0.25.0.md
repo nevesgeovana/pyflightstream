@@ -116,16 +116,30 @@ The pproc can request a time-averaged native surface export:
 last_revs = 1.5 # OR last_iters = 54; exactly one, positive
 ```
 
-This emits `SOLVER_TIME_AVERAGING ENABLE <first> <last>` in initialisation.
-It applies to Tecplot, VTK and CSV surface flow exports, and is refused on
-builds before 26.122. Without the table, no averaging command is emitted.
+**Time-averaged surfaces cannot be produced on the builds measured so far.**
+Licensed C01 on 2026-09-19 found that `SOLVER_TIME_AVERAGING` hangs FlightStream
+26.124, both before and after `INITIALIZE_SOLVER`, without writing any output
+before termination at 300 seconds. The same script without that command wrote
+all seven outputs and its final log export, exiting successfully in 126 seconds.
+
+The package now refuses `[time_averaging]` at plan time, naming the build and
+the dated measurement, rather than hanging the solver. **Remove this table to
+run on these builds.** Tecplot, VTK and CSV surfaces are then written as
+**instants**, including any requested per-step exports; the plots-history
+averages remain available through the matrix's reduction window.
+
+The key, its validation, window resolver and recorded provenance remain.
+Only a build whose command-database status is `verified` may emit
+`SOLVER_TIME_AVERAGING ENABLE <first> <last>` in initialisation. Documentation
+alone (from 26.122) does not establish that it runs; earlier builds remain
+unsupported. Without the table, no averaging command is emitted.
 
 The resolver uses inclusive, 1-based time-step bounds ending at the run's last
 step. `last_iters` counts steps; `last_revs` uses the same rotor clock and
 rounding as `LAST_REVS_AVG`. A window longer than the run is clipped at step 1.
 The manual does not settle time steps against inner iterations: **this solver
-interpretation remains unverified, and the licensed verification of this release
-measures it.** The export header's inner-iteration count is not the clock.
+interpretation remains unverified because the C01 hang prevented measurement
+of the bounds.** The export header's inner-iteration count is not the clock.
 
 The run records the window it emitted. Surface entries in `products.json` and
 PROV-JSON state `kind: average` and that window, even if the pproc is edited
@@ -158,9 +172,11 @@ commands are checked against the selected build's committed command database;
 an unavailable one is refused at plan, naming the build.
 
 Both join the per-step exports of `EXPORT_UNSTEADY_AFTER_REV` or
-`EXPORT_UNSTEADY_AFTER_ITER`, and use the surface average when
-`[time_averaging]` is set. Enable them and run again to obtain files a previous
-run did not export. Their licensed verification for this release is still owed.
+`EXPORT_UNSTEADY_AFTER_ITER`. They are instants on the builds measured so far;
+a surface average requires `[time_averaging]` on a build verified to run that
+command. Enable the exports and run again to obtain files a previous run did
+not export. VTK, CSV and the per-step export program completed successfully
+on 26.124 in licensed C01 on 2026-09-19.
 
 ### Fourteen setup keys replace the need for `[[raw]]`
 

@@ -60,6 +60,28 @@ def _script(case, build="26.124", registry=None):
     return script
 
 
+def _verified_registry(build: str = "26.124"):
+    """A database in which SOLVER_TIME_AVERAGING is VERIFIED for ``build``.
+
+    C01 measured the command hanging 26.124 (reports/compat/CMP-26124_2026-09-19),
+    so the package refuses to emit it where the status is not `verified`, and no
+    build carries that status today. A test about WHAT THE EMISSION LOOKS LIKE
+    therefore states the build it is about, rather than depending on a status the
+    measurement took away.
+    """
+    from pyflightstream.commands import CommandRegistry, Status, VersionStatus
+
+    registry = CommandRegistry.load()
+    entry = registry.commands["SOLVER_TIME_AVERAGING"]
+    record = VersionStatus(
+        status=Status.VERIFIED,
+        report="synthetic-test-report.yaml",
+        note="Synthetic per-build execution evidence for this test only.",
+    )
+    changed = entry.model_copy(update={"versions": {**entry.versions, build: record}})
+    return CommandRegistry(commands={**registry.commands, entry.name: changed})
+
+
 def test_window_conversion_shares_the_last_revolutions_clock():
     resolve = getattr(windows, "surface_averaging_window", None)
     assert callable(resolve), "surface averaging has no shared windows.py resolver"
@@ -76,12 +98,15 @@ def test_window_conversion_shares_the_last_revolutions_clock():
 @pytest.mark.parametrize("window", [{"last_revs": 1.5}, {"last_iters": 54}])
 def test_pproc_window_emits_in_init_and_absence_emits_nothing(window):
     case = _case(rotor=True, time_averaging=window, formats=False)
-    text = _script(case).render()
+    # The emission is refused where the command is not verified (C01), so a
+    # test ABOUT the emission states the build it is about.
+    text = _script(case, registry=_verified_registry()).render()
     assert "SOLVER_TIME_AVERAGING ENABLE 91 144" in text
     assert text.index("SOLVER_TIME_AVERAGING") < text.index("START_SOLVER")
-    assert _script(case).entry("SOLVER_TIME_AVERAGING").phase.value == "init"
+    verified = _verified_registry()
+    assert _script(case, registry=verified).entry("SOLVER_TIME_AVERAGING").phase.value == "init"
     case.pproc = PprocSpec(exports={"vtk": True, "csv": True})
-    assert "SOLVER_TIME_AVERAGING" not in _script(case).render()
+    assert "SOLVER_TIME_AVERAGING" not in _script(case, registry=verified).render()
 
 
 def test_old_build_refusal_names_the_build():
@@ -186,7 +211,14 @@ WINDOW = {
 }
 
 
-def test_run_records_emitted_window_and_products_use_record_not_edited_pproc(tmp_path):
+def test_run_records_emitted_window_and_products_use_record_not_edited_pproc(tmp_path, monkeypatch):
+    # THE EMISSION IS REFUSED where SOLVER_TIME_AVERAGING is not verified (C01
+    # measured it hanging 26.124), and this test is about what the RUN RECORDS
+    # when it does emit, so it states the database it is about.
+    from pyflightstream.commands import CommandRegistry
+
+    verified = _verified_registry()
+    monkeypatch.setattr(CommandRegistry, "load", classmethod(lambda cls, *a, **k: verified))
     case = _case(rotor=True, time_averaging={"last_revs": 1.5})
     case.pproc_id = "p001"
     campaign = Campaign(name="camp", fs_version="26.124", fs_exe=sys.executable, sims=[case])
