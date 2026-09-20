@@ -7,8 +7,17 @@ FlightStream versions.
 
 ## [Unreleased]
 
+Nothing yet: 0.25.0 was tagged from the section below, and the next change
+to reach a user is written here.
+
+## [0.25.0] - 2026-09-20
+
 ### Owed
 
+- **The Zenodo archive row of v0.25.0 is owed.** A version DOI is minted from
+  the GitHub release object and recorded one commit after the tag, so between
+  the tag and that commit this release has no archive row; cite the concept DOI
+  until it lands.
 - **The full-wheel run of the licensed campaign on the axisymmetric nacelle is owed**
   (`reports/pfs0240/README.md`): the sector-against-wheel check reads 1.297 on a full
   wheel whose nacelle is not axisymmetric.
@@ -685,7 +694,7 @@ FlightStream versions.
 
 ### Changed (the type-checker debt, re-measured on the release tree)
 
-- mypy recount 2026-09-19: 661 errors in 18 of 93 modules. The four modules
+- mypy recount 2026-09-20: 713 errors in 18 of 97 modules. The four modules
   this release adds, `post/axes.py`, `cases/windows.py`, `_expressions.py` and
   `post/equations.py`, arrive with no error; the 22 more than 0.23.0's reading
   sit in modules that were already exempt (`reports/RPT-029`).

@@ -43,19 +43,26 @@
 > section further down; the two lines here were last replaced by the
 > run of 2026-09-15 EVENING, on the tree that carries the 0.21.0 point name,
 > its renaming command and the sweep of any flight-condition variable, and
-> replaced again by the run of 2026-09-19 on the settled 0.24.0 tree. (An
-> earlier run of the SAME DAY measured the 0.20.0 tree at 617 errors in 18 of
-> 85 modules; two measurements of two trees fell on one date, so each is named
-> by its tree rather than by the date alone.):
+> replaced again by the run of 2026-09-20 on the settled 0.25.0 tree. (An
+> earlier run of 2026-09-19 measured the 0.20.0 tree at 617 errors in 18 of 85
+> modules and the 0.24.0 tree at 661 in 18 of 93; measurements of different
+> trees fall on one date, so each is named by its tree rather than by the date
+> alone.):
 >
->     Found 661 errors in 18 files (checked 93 source files)
->     Success: no issues found in 93 source files
+>     Found 713 errors in 18 files (checked 97 source files)
+>     Success: no issues found in 97 source files
 >
 > Every figure below is that re-measurement.
 
 The result, in the sentence every record of it carries:
 
-**mypy recount 2026-09-19: 661 errors in 18 of 93 modules.**
+**mypy recount 2026-09-20: 713 errors in 18 of 97 modules.**
+
+The module total rises by the four modules 0.25.0 adds
+(post/section_distributions, post/provenance, post/custom_polar and
+script/_surface_averaging) and the error total with the sites they carry; the
+number of modules holding an exemption is unchanged at eighteen. The previous
+reading of this report is in its own history.
 
 THE NINETIETH TO THE NINETY-THIRD ARRIVED AT 0.24.0 and all four arrive
 CLEAN: `post/axes.py`, the one home of the frame conventions; `cases/windows.py`,
@@ -331,11 +338,11 @@ configuration to be in a state the repository does not ship:
 
 The final line of that run is the measurement:
 
-    Found 661 errors in 18 files (checked 93 source files)
+    Found 713 errors in 18 files (checked 97 source files)
 
 The same run with the shipped configuration, overrides and all, is green:
 
-    Success: no issues found in 93 source files
+    Success: no issues found in 97 source files
 
 mypy walks the FILESYSTEM rather than the git index, so the state of the
 working tree is part of the measurement, and this report has already been
