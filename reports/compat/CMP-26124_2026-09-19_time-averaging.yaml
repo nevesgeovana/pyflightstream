@@ -17,8 +17,10 @@ commands:
     outcome: broken
     detail: >
       Measured 2026-09-19 on FlightStream 26.124: SOLVER_TIME_AVERAGING ENABLE
-      hangs the solver both in INIT before INITIALIZE_SOLVER and after it,
-      with no output and termination at 240.5 seconds in the emitted position.
+      hangs the solver in the position the package emits it, in INIT before
+      INITIALIZE_SOLVER, with no output and a kill at 240.5 seconds. An earlier
+      run with the line moved after INITIALIZE_SOLVER hung the same way; it
+      predates the receipts and is recorded below as an observation.
       Removing only this line let the same script write all seven outputs
       and its final log export, exiting 0 in 133.0 seconds.
     measurement:
@@ -29,8 +31,14 @@ commands:
         return_code: 0
       with_command:
         - position: before INITIALIZE_SOLVER
-          terminated_at_s: 300
+          terminated_at_s: 240.5
           output_count: 0
+          killed_at_limit: true
+          receipt: reports/pfs0250/time_averaging/with/receipt.json
+      with_command_observed_without_receipt:
         - position: after INITIALIZE_SOLVER
           terminated_at_s: 300
           output_count: 0
+          note: >
+            Predates the receipts of 2026-09-19T23:47. Recorded as an
+            observation; no receipt certifies it.

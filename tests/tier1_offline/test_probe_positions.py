@@ -806,3 +806,44 @@ def test_goal019_bandd_a_row_that_declared_no_probes_still_answers_none(tmp_path
         )
         is None
     )
+
+
+def test_a_recorded_probe_with_no_history_is_named_and_the_others_are_kept(tmp_path):
+    """GH-01 of the independent review of GitHub main, 2026-09-20.
+
+    The writer dropped a recorded vertex whose group is absent from the
+    export and said nothing, and the caller cleared the point's skip
+    because a table HAD been written. A reader holding four rows for one
+    probe cannot tell that a second probe was recorded and lost: this is
+    the omission-in-silence shape, and the definitions page requires the
+    profile and the reason to be named while the available histories stay.
+    """
+    recorded = read_probe_positions(
+        positions_file(
+            tmp_path,
+            [(1, 0.0, 1.0, 2.0, "PUSHER_SMRP"), (2, 0.5, 1.0, 2.0, "PUSHER_SMRP")],
+        )
+    )
+    plots = tmp_path / "p_plots.csv"
+    plots.write_text(
+        "Time-step,CL_MRP_TOTAL,MACH1,VX1\n1.00000,1.20000,0.11000,71.00000\n"
+        "2.00000,2.20000,0.12000,72.00000\n",
+        encoding="utf-8",
+    )
+    notes: list[str] = []
+    written = write_unsteady_probes_table(
+        tmp_path / "p_probes.csv",
+        plots,
+        positions=recorded,
+        parameters=["MACH", "VX"],
+        notes=notes,
+    )
+    assert written is not None
+    _, rows = read_csv_table(written)
+    # the probe that HAS a history keeps every sample of it
+    assert {int(float(row["PROBE"])) for row in rows} == {1}
+    assert len(rows) == 2
+    # and the one that does not is named, with its number and the parameters asked for
+    assert len(notes) == 1
+    assert "2" in notes[0]
+    assert "MACH" in notes[0] and "VX" in notes[0]

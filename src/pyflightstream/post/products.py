@@ -2730,6 +2730,7 @@ def write_unsteady_probes_table(
     parameters: Sequence[str],
     condition: Mapping[str, object] | None = None,
     reference: ReferenceValues | None = None,
+    notes: list[str] | None = None,
 ) -> Path | None:
     """Write the probe table of an UNSTEADY row, from its plots table (FR-91).
 
@@ -2768,6 +2769,14 @@ def write_unsteady_probes_table(
 
     Parameters absent at a vertex are written as NA, so entries requesting
     different parameters retain their available histories in the same table.
+
+    A RECORDED VERTEX THE EXPORT CARRIES NO GROUP FOR IS NAMED IN ``notes``
+    and the others are kept, which is what the definitions page requires of
+    a probe with no recorded history: the profile and the reason are said,
+    the available histories stay. Until 0.25.0 it was dropped in silence and
+    the caller cleared the point's skip because a table had been written, so
+    a reader held a short table with nothing anywhere to say it was short
+    (the independent review of GitHub main, 2026-09-20).
     """
     if not positions or not parameters:
         return None
@@ -2777,9 +2786,19 @@ def write_unsteady_probes_table(
         (vertex, [f"{parameter}{vertex}" for parameter in parameters])
         for vertex in sorted(positions)
     ]
-    groups = [(vertex, names) for vertex, names in groups if any(n in present for n in names)]
+    kept = [(vertex, names) for vertex, names in groups if any(n in present for n in names)]
+    absent = [vertex for vertex, names in groups if not any(n in present for n in names)]
+    groups = kept
     if not groups or not rows:
         return None
+    if absent and notes is not None:
+        notes.append(
+            "no history for recorded probe position(s) "
+            + ", ".join(str(vertex) for vertex in absent)
+            + ": the plots export carries no column of "
+            + ", ".join(parameters)
+            + " for them, so they are not in this table; a new run is needed to sample them"
+        )
     # THE STEP THE TABLE STATES, never the row's position in it. The plots
     # table carries `Time-step` and the superfile already reads it, with the
     # rule written down there: "The step it came from is not a guess". This
@@ -4754,6 +4773,7 @@ def _sim_products(
                 plots_tables[point.name] = done
                 if unsteady:
                     probe_target = _target(out / PROBES_DIR / f"{point.name}_probes.csv")
+                    probe_notes: list[str] = []
                     try:
                         field = write_unsteady_probes_table(
                             probe_target,
@@ -4765,6 +4785,7 @@ def _sim_products(
                             # which flow is exactly what the condition states.
                             condition=point_condition(point, mach=mach, cell=cell),
                             reference=reference,
+                            notes=probe_notes,
                         )
                     except (ProductError, OSError, ValueError) as error:
                         skipped[probe_relative] = (
@@ -4774,6 +4795,18 @@ def _sim_products(
                         field = None
                     if field is not None:
                         skipped.pop(probe_relative, None)
+                        # A PROBE THAT WAS RECORDED AND HAS NO HISTORY IS NAMED, under the
+                        # file's own name with a marker, like a names or equations block
+                        # that was not applied. Popping the skip above is right -- a table
+                        # WAS written -- and until this arm it also erased the only chance
+                        # to say the table is short.
+                        if probe_notes:
+                            skipped[f"{probe_relative}#positions"] = "; ".join(probe_notes)
+                            warnings.warn(
+                                f"{probe_relative}: " + "; ".join(probe_notes),
+                                PyflightstreamWarning,
+                                stacklevel=2,
+                            )
                         written.append(field)
                         written_names[field.relative_to(out).as_posix()] = {
                             "runs": sources[point.name]
@@ -5382,14 +5415,25 @@ def _point_reductions(
             continue
         stated = entry.get("windows", ())
         windows = [tuple(int(v) for v in window) for window in stated]  # type: ignore[union-attr]
-        refusal = next(
-            (why for window in windows if (why := _frozen_window_reason(frozen, window))),
-            None,
-        )
-        if refusal is not None:
+        # THE FREEZE TAKES THE WINDOWS IT REACHES, AND ONLY THOSE. The
+        # definitions page: an average whose window ends at or after the first
+        # frozen step is skipped by name, and "windows wholly before that step
+        # keep their products". This asked whether ANY window was frozen and
+        # threw away the file, so a row whose earlier passages are clean lost
+        # them with the dead one (the independent review of GitHub main,
+        # 2026-09-20).
+        reached = [
+            (window, why)
+            for window in windows
+            if (why := _frozen_window_reason(frozen, window)) is not None
+        ]
+        if reached and len(reached) == len(windows):
             target(out / relative)  # archive any stale product from an earlier post
-            skipped[relative] = refusal
+            skipped[relative] = reached[0][1]
             continue
+        frozen_windows = [window for window, _ in reached]
+        if reached:
+            windows = [window for window in windows if window not in frozen_windows]
         if series is None:
             columns, series = plots_table_series(plots_table)
             try:
@@ -5454,6 +5498,14 @@ def _point_reductions(
             skipped[relative] = str(error)
             continue
         written.append(done)
+        # A FILE WRITTEN WITHOUT SOME OF ITS WINDOWS SAYS SO, under its own name
+        # with a marker, the idiom this module uses for a block that was asked for
+        # and not applied. Without it the kept passages would look like the whole
+        # reduction and the frozen one would have vanished unnamed.
+        if reached:
+            note = "; ".join(why for _, why in reached)
+            skipped[f"{relative}#windows"] = note
+            warnings.warn(f"{relative}: {note}", PyflightstreamWarning, stacklevel=2)
         record: dict[str, object] = {
             "runs": runs,
             "reduction": name,
@@ -5540,6 +5592,49 @@ def _write_the_per_blade_table(
         condition=condition,
         reference=reference,
     )
+
+
+def products_to_retire(
+    skipped: Mapping[str, str],
+    previous_products: Mapping[str, Mapping[str, object]],
+) -> set[str]:
+    """Return every product of a previous post that this post's refusals retire.
+
+    A refused rebuild MUST retire the product it refuses. The manifest stops
+    naming it, and a file left beside the new ones is read as current: the
+    numbers in it are the ones the refusal says cannot be trusted.
+
+    THREE SHAPES OF SKIP KEY, because a skip is named after what was refused
+    and that is not always a file:
+
+    * ``polars/<file>.csv`` -- the file itself, with or without a ``#marker``.
+    * ``sections/<stem>#distributions`` -- a family of files that share a stem.
+    * ``polars/<sim>#rotor_tables`` -- the rotor tables of ONE SIMULATION, whose
+      files are ``polars/P<sim>-<alias>_rotor.csv`` and share no prefix with the
+      skip key at all. They were not retired until the independent review of
+      GitHub main found the stale file still current (2026-09-20); the previous
+      manifest records each product's ``sim_id``, so the identity is read rather
+      than parsed out of a name.
+    """
+    refused = {name.split("#", 1)[0] for name in skipped}
+    refused.update(
+        name for name, entry in previous_products.items() if entry.get("sim_id") in skipped
+    )
+    distribution_prefixes = [
+        name.split("#", 1)[0] + "_" for name in skipped if name.endswith("#distributions")
+    ]
+    refused.update(
+        name
+        for name in previous_products
+        if any(name.startswith(prefix) for prefix in distribution_prefixes)
+    )
+    refused.update(
+        name
+        for name, entry in previous_products.items()
+        if name.endswith(ROTOR_TABLE_SUFFIX)
+        and f"{POLARS_DIR}/{entry.get('sim_id')}#rotor_tables" in skipped
+    )
+    return refused
 
 
 def write_campaign_products(
@@ -5716,18 +5811,7 @@ def write_campaign_products(
         )
         # Retire refused generated tables under both rebuild policies. Native exports
         # outside this folder remain evidence and are never removed here.
-        refused = {name.split("#", 1)[0] for name in skipped}
-        refused.update(
-            name for name, entry in previous_products.items() if entry.get("sim_id") in skipped
-        )
-        distribution_prefixes = [
-            name.split("#", 1)[0] + "_" for name in skipped if name.endswith("#distributions")
-        ]
-        refused.update(
-            name
-            for name in previous_products
-            if any(name.startswith(prefix) for prefix in distribution_prefixes)
-        )
+        refused = products_to_retire(skipped, previous_products)
         for name in refused - products_index.keys():
             path = out / name
             if path.resolve().is_relative_to(out.resolve()) and path.is_file():

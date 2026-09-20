@@ -93,9 +93,7 @@ FlightStream versions.
   the semantics as UNVERIFIED, and the conversion is a single function so the day a
   build settles it the correction is one line. The run records the window it emitted, and
   the products manifest marks those exports `kind: average` with the window, read
-  from the record even if the pproc is edited later. The bounds are TIME STEPS, which
-  the manual does not settle against inner iterations; the licensed verification of
-  this release measures it.
+  from the record even if the pproc is edited later.
 - **Surface flow in VTK and CSV.** Two `[exports]` kinds, `vtk` and `csv`, OFF BY
   DEFAULT, emit `EXPORT_SOLVER_ANALYSIS_VTK` (with `SET_VTK_EXPORT_VARIABLES` when the
   pproc lists `vtk_variables`, each validated against the build's database; absent,
@@ -167,13 +165,24 @@ FlightStream versions.
   parameter and a point states `NA` where it was not sampled. Until 0.25.0 a point
   missing one column of its group was dropped, and entries asking for different
   parameters produced no table at all, whose refusal also cost the simulation its
-  other products. A probe failure is now contained to the probes table.
+  other products. A probe failure is now contained to the probes table. A RECORDED
+  PROBE THE HISTORY CARRIES NO COLUMN FOR IS NAMED under `probes/<point>_probes.csv
+  #positions` and the probes that have a history keep it: until the independent review
+  of GitHub main it was dropped in silence and the point's skip was cleared, so a short
+  table was indistinguishable from a whole one.
 - **A refused or frozen rebuild retires the file it refuses**, under both archive
   policies: `products.json` said "skipped" while the stale table stayed at its
-  normal path when archiving was off.
+  normal path when archiving was off. THIS NOW REACHES THE ROTOR TABLES, whose skip
+  is named for the simulation (`polars/<sim>#rotor_tables`) and whose files are named
+  for the rotor, so cutting the skip key at `#` never found them and a refused rotor
+  rebuild left its previous CSV current (the independent review of GitHub main).
 - **A frozen point keeps what the freeze did not touch**: its histories, its
   last-step products and the averages whose window ends before the first frozen
   step. Only the averages that reach the freeze are left out, with their reason.
+  THIS IS TRUE WINDOW BY WINDOW, not file by file: a reduction carrying several
+  passages keeps the passages that end before the freeze and names the ones that
+  reach it under `<file>#windows`. Until the independent review of GitHub main, one
+  frozen passage took the whole file, including passages the freeze never touched.
 - **A continuation keeps the surface averaging window** its predecessor recorded;
   it was lost, so the continued run's exports called themselves instants.
 - **A recorded averaging window is validated when it is read**: a malformed one is

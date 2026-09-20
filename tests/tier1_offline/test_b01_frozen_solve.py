@@ -111,7 +111,7 @@ def test_collect_persists_frozen_failure_and_reason(tmp_path):
             assert record.log_file_used == "run_log.txt"
 
 
-def _post_workspace(tmp_path, row, window, *, rotor=False):
+def _post_workspace(tmp_path, row, window, *, rotor=False, passages=None):
     plan = {
         "time_iterations": 61,
         "window_stated": True,
@@ -119,7 +119,10 @@ def _post_workspace(tmp_path, row, window, *, rotor=False):
         "blades": 2,
         "blade_families": ["Blade1", "Blade2"],
         "time_average": {"windows": [list(window)]},
-        "per_blade": {"windows": [list(window)]},
+        # THE PASSAGES OF THE PER-BLADE REDUCTION, one window each, are the
+        # shape a rotor row has and the only one where a freeze can reach
+        # some windows of a file and not others.
+        "per_blade": {"windows": [list(w) for w in (passages or [window])]},
         "phase_locked": {"windows": [list(window)]},
     }
     # Use the existing stage fixture's record and pproc, then collect all
@@ -255,3 +258,27 @@ def test_post_checks_each_reduction_window_independently(tmp_path):
     phase = "probes/AL-020_phase_locked.csv"
     assert phase not in manifest["products"], "a separate frozen reduction was published"
     assert "step 60" in manifest["skipped"][phase]
+
+
+def test_a_frozen_passage_does_not_take_the_passages_that_end_before_it(tmp_path):
+    """GH-03 of the independent review of GitHub main, 2026-09-20.
+
+    The definitions page: an average whose window ends at or after the first
+    frozen step is skipped by name, and "windows wholly before that step keep
+    their products". The reduction refused the whole file as soon as ONE of
+    its windows reached the freeze, so a row whose earlier passages are clean
+    lost them together with the dead one, and the manifest said only that the
+    file was skipped for a freeze at step 60.
+    """
+    workspace = _post_workspace(tmp_path, 2413, (58, 59), passages=[(58, 59), (60, 61)])
+    write_campaign_products(workspace)
+    manifest = _products_manifest(workspace)
+    name = "probes/AL-020_per_blade.csv"
+    # the clean passage keeps its product
+    assert name in manifest["products"], manifest["skipped"]
+    assert (workspace.root / "post/products" / name).is_file()
+    assert manifest["products"][name]["windows"] == [[58, 59]]
+    # and the passage that reaches the freeze is named, under the file's own name
+    partial = manifest["skipped"][f"{name}#windows"]
+    assert "step 60" in partial
+    assert "60" in partial and "61" in partial
