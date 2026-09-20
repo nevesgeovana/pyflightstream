@@ -9,6 +9,10 @@ FlightStream versions.
 
 ### Owed
 
+- **The Zenodo archive row of v0.25.0 is owed.** A version DOI is minted from
+  the GitHub release object and recorded one commit after the tag, so between
+  the tag and that commit this release has no archive row; cite the concept DOI
+  until it lands.
 - **The Zenodo archive of v0.14.0 DOES NOT EXIST**, re-measured against
   Zenodo's own API on 2026-09-14, when the v0.18.0 archive row was paid: the
   concept record lists NINETEEN archived versions and v0.14.0 is not among
@@ -25,15 +29,17 @@ FlightStream versions.
 
 ## [0.25.0] - 2026-09-20
 
+### Changed (the type-checker debt, re-measured on the release tree)
+
+- mypy recount 2026-09-20: 713 errors in 18 of 97 modules, against 0.24.0's 661
+  in 18 of 93. The four modules this release adds --
+  `post/section_distributions.py`, `post/provenance.py`, `post/custom_polar.py`
+  and `script/_surface_averaging.py` -- and the sites they carry are the rise;
+  the number of modules holding an exemption is unchanged at eighteen
+  (`reports/RPT-029`).
+
 ### Owed
 
-- **The Zenodo archive row of v0.25.0 is owed.** A version DOI is minted from
-  the GitHub release object and recorded one commit after the tag, so between
-  the tag and that commit this release has no archive row; cite the concept DOI
-  until it lands.
-- **The full-wheel run of the licensed campaign on the axisymmetric nacelle is owed**
-  (`reports/pfs0240/README.md`): the sector-against-wheel check reads 1.297 on a full
-  wheel whose nacelle is not axisymmetric.
 
 
 ### Changed (breaking: the probe source follows the run type)
@@ -57,10 +63,13 @@ FlightStream versions.
 
 - **The time-averaged surface cannot be produced on FlightStream 26.124.** The
   licensed verification of this release measured `SOLVER_TIME_AVERAGING` HANGING the
-  solver: the script the package writes, run without that one line, finished in 126
-  seconds and wrote all seven outputs including its final log export; with the line,
-  in the emitted position and again after `INITIALIZE_SOLVER`, nothing was written
-  and the solver had to be killed at 300 seconds. The command is emitted exactly as
+  solver. The script the package writes, run WITHOUT that one line, finished in 133.0
+  seconds and wrote all seven outputs including its final log export; WITH the line in
+  the position the package emits it, nothing was written and the solver had to be
+  killed at 240.5 seconds. Both runs left a receipt carrying the executable's sha256
+  and the script's, under `reports/pfs0250/time_averaging/`. (An earlier run with the
+  line moved after `INITIALIZE_SOLVER` hung the same way; it predates the receipts and
+  is recorded as an observation rather than as certified evidence.) The command is emitted exactly as
   its manual documents it (SRC-750 p.353). The package therefore REFUSES a pproc
   carrying `[time_averaging]` when the run's build does not record the command as
   verified, at plan, naming the build and the measurement; it does not hang. The
@@ -78,10 +87,11 @@ FlightStream versions.
   VTK, CSV) state the average over that window instead of the last step.
   **ON A BUILD WHERE THE COMMAND IS RECORDED VERIFIED, AND NO BUILD IS TODAY**: see
   the known limitation above, which is why a pproc carrying the key is refused at
-  plan on 26.124 and on every build before 26.122. Whether the command's bounds are
-  time steps or inner iterations could not be measured, because the command hangs
-  the build this release could run: the database says UNVERIFIED and the conversion
-  is a single function for the day a build settles it. The run records the window it emitted, and
+  plan on 26.124 and on every build before 26.122. WHETHER THE COMMAND'S BOUNDS ARE
+  TIME STEPS OR INNER ITERATIONS IS UNMEASURED: the command hangs the one build this
+  release could run it on. The package converts to time steps, the database records
+  the semantics as UNVERIFIED, and the conversion is a single function so the day a
+  build settles it the correction is one line. The run records the window it emitted, and
   the products manifest marks those exports `kind: average` with the window, read
   from the record even if the pproc is edited later. The bounds are TIME STEPS, which
   the manual does not settle against inner iterations; the licensed verification of
@@ -695,8 +705,9 @@ FlightStream versions.
 
 ### Changed (the type-checker debt, re-measured on the release tree)
 
-- mypy recount 2026-09-20: 713 errors in 18 of 97 modules. The four modules
-  this release adds, `post/axes.py`, `cases/windows.py`, `_expressions.py` and
+- the type-checker debt of this release, re-measured on its own tree, was 661
+  errors in 18 of 93 modules (the sentence in the guarded form belongs to the
+  newest measurement, which is 0.25.0's). The four modules that release adds, `post/axes.py`, `cases/windows.py`, `_expressions.py` and
   `post/equations.py`, arrive with no error; the 22 more than 0.23.0's reading
   sit in modules that were already exempt (`reports/RPT-029`).
 - The old entry of 0.8.0 that stated the reading was redated at every recount,

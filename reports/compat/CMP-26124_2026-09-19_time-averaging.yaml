@@ -18,12 +18,12 @@ commands:
     detail: >
       Measured 2026-09-19 on FlightStream 26.124: SOLVER_TIME_AVERAGING ENABLE
       hangs the solver both in INIT before INITIALIZE_SOLVER and after it,
-      with no output and termination at 300 seconds in either position.
+      with no output and termination at 240.5 seconds in the emitted position.
       Removing only this line let the same script write all seven outputs
-      and its final log export, exiting 0 in 126 seconds.
+      and its final log export, exiting 0 in 133.0 seconds.
     measurement:
       control:
-        wall_time_s: 126
+        wall_time_s: 133.0
         output_count: 7
         final_log_export_written: true
         return_code: 0

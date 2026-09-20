@@ -118,9 +118,13 @@ last_revs = 1.5 # OR last_iters = 54; exactly one, positive
 
 **Time-averaged surfaces cannot be produced on the builds measured so far.**
 Licensed C01 on 2026-09-19 found that `SOLVER_TIME_AVERAGING` hangs FlightStream
-26.124, both before and after `INITIALIZE_SOLVER`, without writing any output
-before termination at 300 seconds. The same script without that command wrote
-all seven outputs and its final log export, exiting successfully in 126 seconds.
+26.124 in the position the package emits it, without writing any output before
+termination at 240.5 seconds. The same script without that command wrote all
+seven outputs and its final log export, exiting successfully in 133.0 seconds.
+Both runs left a receipt carrying the executable's digest, committed under
+`reports/pfs0250/time_averaging/`. An earlier run with the command moved after
+`INITIALIZE_SOLVER` hung the same way; it predates the receipts and is recorded
+as an observation rather than as certified evidence.
 
 The package now refuses `[time_averaging]` at plan time, naming the build and
 the dated measurement, rather than hanging the solver. **Remove this table to

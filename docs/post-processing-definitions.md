@@ -486,10 +486,10 @@ plan. Both formats also join the per-step `EXPORT_UNSTEADY_AFTER_REV` or
 
 **Time-averaged surfaces cannot be produced on the builds measured so far.**
 On 2026-09-19, licensed C01 measured that `SOLVER_TIME_AVERAGING` hangs
-FlightStream 26.124 both before and after `INITIALIZE_SOLVER`: no outputs were
-written before the 300-second termination. Without that command, the script
-wrote all seven outputs and its final log export, exiting successfully in
-126 seconds.
+FlightStream 26.124 in the position the package emits it: no outputs were
+written before the termination at 240.5 seconds. Without that command, the
+script wrote all seven outputs and its final log export, exiting successfully
+in 133.0 seconds. Both runs left a receipt under `reports/pfs0250/`.
 
 The package refuses a pproc carrying `[time_averaging]` at plan time, naming
 the build and the measurement, rather than sending the hanging command to the
