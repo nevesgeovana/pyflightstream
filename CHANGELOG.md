@@ -11204,7 +11204,7 @@ the repository seeding and this tag (milestones M0 through M5).
 * 26.000: registered, no recorded evidence yet (honest empty column;
   backfill planned for v0.2+).
 
-[Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.24.0...HEAD
+[Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.25.0...HEAD
 [0.25.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.25.0
 [0.24.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.24.0
 [0.23.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.23.0
