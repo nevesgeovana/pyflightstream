@@ -84,7 +84,7 @@ def test_an_old_window_key_warns_that_it_is_on_a_clock():
         warnings.simplefilter("always")
         reduction_windows(_rotor_row(WINDOW_DEGREES="90"))
     spoken = [str(item.message) for item in caught]
-    assert any("WINDOW_DEGREES" in text and "0.26.0" in text for text in spoken), spoken
+    assert any("WINDOW_DEGREES" in text and "0.27.0" in text for text in spoken), spoken
     # THE REPLACEMENT IS NAMED, because a notice that does not say what to write
     # instead sends the reader to the source to find out. NAMED AS THE ROW MUST
     # SPELL IT (0.24.0, MC-04): this asserted the lower-case `last_revs_avg`,

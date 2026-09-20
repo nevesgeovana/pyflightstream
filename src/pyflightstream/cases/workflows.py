@@ -10056,7 +10056,7 @@ def _require_the_averaging_window(case: SimCase, name: str) -> None:
     package had defaulted, with nothing in either file saying which was which.
 
     A row that still states one of the three retired `WINDOW_*` keys SATISFIES
-    this: those keys bind, with their own deprecation warning, until 0.26.0, and a
+    this: those keys bind, with their own deprecation warning, until 0.27.0, and a
     matrix that already has them must keep planning.
 
     ONLY A NEW PLAN IS REFUSED. A record already written without a window is never

@@ -314,10 +314,10 @@ writers do not follow this protocol. Finish the old writer before upgrading.
 
 `write_sections_table(iteration=)` is now `write_sections_table(step=)`.
 The old keyword still works with a deprecation warning and is removed in
-0.26.0. Passing both is refused with `ProductArgumentError`, a catalogued
+0.27.0. Passing both is refused with `ProductArgumentError`, a catalogued
 `TypeError` that is also caught by `PyflightstreamError`.
 
-`run.assess_unsteady_from_plots` is deprecated and is also removed in 0.26.0.
+`run.assess_unsteady_from_plots` is deprecated and is also removed in 0.27.0.
 It still returns what it returned. Use `LoadsAssessor` for campaign assessment
 of native loads and solver residuals; whether the history has settled remains
 a separate judgement made from that history.

@@ -2363,7 +2363,7 @@ def write_sections_table(
     the file name (v0.23.0 item 13). A run with no rotor states no azimuth and
     the cell reads `NA`, which is not zero: zero is a real azimuth.
 
-    ``iteration=`` is a deprecated alias for ``step=`` until 0.26.0. Passing
+    ``iteration=`` is a deprecated alias for ``step=`` until 0.27.0. Passing
     both keywords is refused, including when either value is None.
 
     On a steady export, an omitted ``step`` is read from the header.

@@ -1402,7 +1402,7 @@ def expand_group(
 
     A group written in NAMES expands the same way, against the boundary
     inventory of the geometry it belongs to (PFS-2028.00). A list of names is
-    the form kept until 0.26.0: a group names ONE alias since 0.24.0, so loading
+    the form kept until 0.27.0: a group names ONE alias since 0.24.0, so loading
     this one warns with the line to write instead, which is silenced here:
 
     >>> import warnings

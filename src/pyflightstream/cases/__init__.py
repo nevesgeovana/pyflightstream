@@ -1797,7 +1797,7 @@ class PprocSpec(BaseModel):
 
     #: ONE ALIAS PER GROUP, written as a string since 0.24.0; held as a list of
     #: members because that is what every reader of it iterates. The list form
-    #: still binds with a warning until 0.26.0, and an integer member is refused.
+    #: still binds with a warning until 0.27.0, and an integer member is refused.
     groups: Annotated[dict[str, list[int | str]], BeforeValidator(_a_group_is_one_alias)] = Field(
         default_factory=dict
     )

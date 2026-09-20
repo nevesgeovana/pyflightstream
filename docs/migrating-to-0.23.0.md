@@ -238,7 +238,7 @@ different spans from the same key and neither has the other's turn imposed on
 it.
 
 **`WINDOW_STEPS`, `WINDOW_REVOLUTIONS` and `WINDOW_DEGREES` are deprecated**,
-due for removal at 0.26.0. A row stating one still binds and now WARNS, naming
+due for removal at 0.27.0. A row stating one still binds and now WARNS, naming
 the replacement. Degrees are revolutions over 360, so `WINDOW_DEGREES = 90` is
 `LAST_REVS_AVG: 0.25`. A row stating both an old key and a new one gets the new
 one.

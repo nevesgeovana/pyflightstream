@@ -6,7 +6,7 @@ STEADY route: group polars off the last time step under the steady names, beside
 a time average over a window the package had defaulted, nothing marking either.
 
 ONLY A NEW PLAN IS REFUSED. A row that still states a retired `WINDOW_*` key
-satisfies the rule until 0.26.0, because a matrix already written must keep
+satisfies the rule until 0.27.0, because a matrix already written must keep
 planning.
 """
 
