@@ -5,8 +5,9 @@ Usage: python scripts/measure_c01_verification.py WORKSPACE EVIDENCE.json
 
 Only aggregate measurements enter the report; private geometry and native exports
 stay in the workspace. Unsupported or incomplete evidence is never verified.
-Probe wall times have no on-disk receipt in the original campaign: the explicitly
-labelled transcription is the supplied measurement, not a filesystem timestamp.
+Probe measurements require execution receipts bound to the exact script bytes.
+Regeneration copies sanitized workspace receipts into the report directory;
+subsequent reads use those copies and still require the matching probe scripts.
 """
 
 from __future__ import annotations
@@ -14,20 +15,22 @@ from __future__ import annotations
 import argparse
 import ast
 import csv
+import hashlib
 import json
 import math
 import re
 import statistics
 from collections import Counter, defaultdict
 from collections.abc import Callable, Iterator
-from datetime import date
-from pathlib import Path
+from datetime import date, datetime
+from pathlib import Path, PureWindowsPath
 
 REMEDY = (
     "The package refuses the pproc [time_averaging] key at plan on a build where "
     "SOLVER_TIME_AVERAGING is not verified."
 )
 PROBES = Path("C:/WORK/codex-rel0250/probe_time_averaging")
+RECEIPTS = Path(__file__).resolve().parents[1] / "reports/pfs0250/time_averaging"
 
 
 def _text(path: Path) -> str:
@@ -267,37 +270,120 @@ def niter_limit(workspace: Path) -> dict:
     return _attempt(read)
 
 
-def solver_time_averaging(probes: Path, remedy: str = REMEDY) -> dict:
-    """Compare the one-line probe variants and their actual output counts."""
+def _probe_receipt(probes: Path, receipts: Path, variant: str) -> dict:
+    receipt = json.loads(_text(receipts / variant / "receipt.json"))
+    required = {
+        "variant",
+        "exit",
+        "wall_seconds",
+        "outputs",
+        "log_exported",
+        "script_sha256",
+        "fs_exe",
+        "fs_exe_sha256",
+        "killed_at_limit",
+        "measured_at",
+    }
+    if not isinstance(receipt, dict) or not required <= receipt.keys():
+        raise ValueError(f"{variant}: incomplete probe receipt")
+    if receipt["variant"] != variant:
+        raise ValueError(f"{variant}: receipt variant mismatch")
+    digest = hashlib.sha256((probes / variant / "probe.txt").read_bytes()).hexdigest()
+    if receipt["script_sha256"] != digest:
+        raise ValueError(f"{variant}: receipt script digest mismatch")
+    if not isinstance(receipt["fs_exe"], str) or not receipt["fs_exe"]:
+        raise ValueError(f"{variant}: missing executable identity")
+    if not re.fullmatch(r"[0-9a-f]{64}", str(receipt["fs_exe_sha256"])):
+        raise ValueError(f"{variant}: invalid executable digest")
+    if not isinstance(receipt["measured_at"], str):
+        raise ValueError(f"{variant}: missing measurement date")
+    if datetime.fromisoformat(receipt["measured_at"]).tzinfo is None:
+        raise ValueError(f"{variant}: measurement date lacks timezone")
+    wall = receipt["wall_seconds"]
+    if type(wall) not in (int, float) or not math.isfinite(wall) or wall <= 0:
+        raise ValueError(f"{variant}: invalid wall seconds")
+    if type(receipt["exit"]) is not int or any(
+        type(receipt[key]) is not bool for key in ("killed_at_limit", "log_exported")
+    ):
+        raise ValueError(f"{variant}: invalid execution status")
+    outputs = receipt["outputs"]
+    if not isinstance(outputs, list) or any(
+        not isinstance(name, str) or not name or PureWindowsPath(name).name != name
+        for name in outputs
+    ):
+        raise ValueError(f"{variant}: invalid output names")
+    actual = {
+        p.name
+        for p in (probes / variant).iterdir()
+        if p.is_file() and p.name not in {"probe.txt", "receipt.json"}
+    }
+    if len(outputs) != len(set(outputs)) or set(outputs) != actual:
+        raise ValueError(f"{variant}: receipt outputs disagree with probe files")
+    control = variant == "without"
+    if (
+        bool(outputs) != control
+        or receipt["log_exported"] != control
+        or any(name.endswith("_log.txt") for name in outputs) != receipt["log_exported"]
+        or (receipt["exit"] == 0) != control
+        or receipt["killed_at_limit"] == control
+    ):
+        raise ValueError(f"{variant}: receipt contradicts measured refusal")
+    # Whitelist fields and strip the only machine-local path before publication.
+    clean = {key: value for key, value in receipt.items() if key in required}
+    clean["fs_exe"] = PureWindowsPath(receipt["fs_exe"]).name
+    return clean
+
+
+def solver_time_averaging(
+    probes: Path,
+    remedy: str = REMEDY,
+    *,
+    receipts: Path | None = None,
+    refresh_receipts: bool = False,
+) -> dict:
+    """Certify only the control/mutant pair supported by script-bound receipts."""
 
     def read() -> dict:
-        control = _text(probes / "without/probe.txt").splitlines()
-        measured = {"control_wall_seconds": 126, "mutant_wall_seconds": 300}
-        outputs = [
-            p for p in (probes / "without").iterdir() if p.is_file() and p.name != "probe.txt"
-        ]
-        measured["control_output_count"] = len(outputs)
-        ok = bool(outputs) and bool(remedy.strip())
-        positions = {}
-        for name in ("with", "after_init"):
-            lines = _text(probes / name / "probe.txt").splitlines()
-            command = "SOLVER_TIME_AVERAGING ENABLE 19 36"
-            index = lines.index(command)
-            init = lines.index("INITIALIZE_SOLVER")
-            positions["before_initialize" if index < init else "after_initialize"] = 1
-            ok &= lines[:index] + lines[index + 1 :] == control
-            count = sum(p.is_file() and p.name != "probe.txt" for p in (probes / name).iterdir())
-            measured["mutant_output_count" if name == "with" else "after_init_output_count"] = count
-            ok &= count == 0
-        measured["positions_tried"] = len(positions)
-        ok &= len(positions) == 2 and any(p.name.endswith("_log.txt") for p in outputs)
+        destination = probes if receipts is None else receipts
+        variants = ("without", "with")
+        if refresh_receipts:
+            source = {name: _probe_receipt(probes, probes, name) for name in variants}
+            for name, receipt in source.items():
+                path = destination / name / "receipt.json"
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(
+                    json.dumps(receipt, indent=2) + "\n", encoding="utf-8", newline="\n"
+                )
+        control, mutant = (_probe_receipt(probes, destination, name) for name in variants)
+        if (control["fs_exe"], control["fs_exe_sha256"]) != (
+            mutant["fs_exe"],
+            mutant["fs_exe_sha256"],
+        ):
+            raise ValueError("probe receipts identify different executables")
+        lines = _text(probes / "with/probe.txt").splitlines()
+        command = "SOLVER_TIME_AVERAGING ENABLE 19 36"
+        index = lines.index(command)
+        position = (
+            "before_initialize" if index < lines.index("INITIALIZE_SOLVER") else "after_initialize"
+        )
+        if lines[:index] + lines[index + 1 :] != _text(probes / "without/probe.txt").splitlines():
+            raise ValueError("probe scripts differ by more than the time-averaging command")
+        measured = {}
+        for label, receipt in (("control", control), ("mutant", mutant)):
+            for field in ("wall_seconds", "exit", "killed_at_limit", "log_exported", "measured_at"):
+                measured[f"{label}_{field}"] = receipt[field]
+            measured[f"{label}_output_count"] = len(receipt["outputs"])
+        measured.update(
+            fs_exe=control["fs_exe"], fs_exe_sha256=control["fs_exe_sha256"], positions_tried=1
+        )
+        ok = bool(remedy.strip())
         result = _result(
             measured,
             ok,
-            "Compared probe scripts differing only by SOLVER_TIME_AVERAGING before/after "
-            "INITIALIZE_SOLVER and counted their outputs; wall seconds (126 control, "
-            "300 killed mutant) are transcribed from the supplied probe measurement "
-            "because the folders contain no wall-time receipt.",
+            f"Read control and mutant execution receipts ({position}), checked their script "
+            "SHA-256 digests, one-line difference, matching executable identity and output "
+            "lists; the control exited successfully and the mutant was killed at its limit "
+            "without outputs. Only this receipted command position is certified.",
             remedy=remedy,
         )
         if ok:
@@ -373,14 +459,22 @@ def per_step_exports(workspace: Path) -> dict:
     return _attempt(read)
 
 
-def measure(workspace: Path, probes: Path = PROBES) -> dict:
+def measure(
+    workspace: Path,
+    probes: Path = PROBES,
+    *,
+    receipts: Path = RECEIPTS,
+    refresh_receipts: bool = False,
+) -> dict:
     """Return five checks with a measurement date and the campaign's supplied build identity."""
     return {
         "build": "26.124",
         "campaign": workspace.name,
         "date": date.today().isoformat(),
         "checks": {
-            "solver_time_averaging": solver_time_averaging(probes),
+            "solver_time_averaging": solver_time_averaging(
+                probes, receipts=receipts, refresh_receipts=refresh_receipts
+            ),
             "vtk_export": vtk_export(workspace),
             "csv_export": csv_export(workspace),
             "niter_limit": niter_limit(workspace),
@@ -396,7 +490,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("output", type=Path)
     parser.add_argument("--probe-workspace", type=Path, default=PROBES)
     args = parser.parse_args(argv)
-    evidence = measure(args.workspace, args.probe_workspace)
+    evidence = measure(
+        args.workspace,
+        args.probe_workspace,
+        receipts=args.output.parent / "time_averaging",
+        refresh_receipts=True,
+    )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(evidence, indent=2) + "\n", encoding="utf-8", newline="\n")
     for name, check in evidence["checks"].items():

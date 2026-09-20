@@ -8,9 +8,12 @@ as the solver logs do. Expected counts come from these constructed fixtures.
 
 from __future__ import annotations
 
+import hashlib
 import importlib.util
 import json
 from pathlib import Path
+
+import pytest
 
 SCRIPT = Path(__file__).parents[2] / "scripts/measure_c01_verification.py"
 
@@ -162,31 +165,38 @@ def test_niter_rejects_a_time_step_above_its_limit(tmp_path):
 
 def test_refusal_requires_a_remedy(tmp_path):
     instrument = _instrument()
-    _probes(tmp_path)
+    _receipted_probes(tmp_path)
     check = instrument.solver_time_averaging(tmp_path)
     assert check["verdict"] == "refused-by-measurement"
-    assert check["measured"] == {
-        "control_wall_seconds": 126,
-        "mutant_wall_seconds": 300,
-        "control_output_count": 1,
-        "mutant_output_count": 0,
-        "after_init_output_count": 0,
-        "positions_tried": 2,
-    }
-    assert "transcribed" in check["how"]
+    assert check["measured"]["control_wall_seconds"] == 133.0
+    assert check["measured"]["mutant_wall_seconds"] == 240.5
+    assert check["measured"]["control_output_count"] == 1
+    assert check["measured"]["mutant_output_count"] == 0
+    assert check["measured"]["positions_tried"] == 1
+    assert "receipts" in check["how"]
     assert "not verified" in check["remedy"]
     assert instrument.solver_time_averaging(tmp_path, remedy="")["verdict"] == "failed", (
         "refusal without a remedy must fail"
     )
 
 
-def test_refusal_rejects_mutant_outputs(tmp_path):
+@pytest.mark.parametrize("receipted_output", [False, True])
+def test_refusal_rejects_mutant_outputs(tmp_path, receipted_output):
     instrument = _instrument()
-    _probes(tmp_path)
+    _receipted_probes(tmp_path)
+    assert instrument.solver_time_averaging(tmp_path)["verdict"] == "refused-by-measurement"
     _write(tmp_path / "with/point_log.txt", "Unsteady solver run time: 1.0 minutes.\n")
-    assert instrument.solver_time_averaging(tmp_path)["verdict"] == "failed", (
+    if receipted_output:
+        path = tmp_path / "with/receipt.json"
+        receipt = json.loads(path.read_text())
+        receipt["outputs"] = ["point_log.txt"]
+        receipt["log_exported"] = True
+        _write(path, json.dumps(receipt))
+    check = instrument.solver_time_averaging(tmp_path)
+    assert check["verdict"] == "could-not-measure", (
         "a mutant which writes outputs does not support the measured refusal"
     )
+    assert check["measured"] == "NA"
 
 
 def test_per_step_exports_rejects_a_missing_step(tmp_path):
@@ -234,3 +244,82 @@ def test_missing_evidence_writes_na_and_returns_nonzero(tmp_path):
         assert check["verdict"] == "could-not-measure"
         assert check["how"]
     assert report["checks"]["solver_time_averaging"]["remedy"]
+
+
+def _receipted_probes(root: Path) -> None:
+    _probes(root)
+    for variant, wall, outputs, code, killed in (
+        ("without", 133.0, ["point_log.txt"], 0, False),
+        ("with", 240.5, [], -1, True),
+    ):
+        receipt = {
+            "variant": variant,
+            "wall_seconds": wall,
+            "outputs": outputs,
+            "exit": code,
+            "killed_at_limit": killed,
+            "log_exported": bool(outputs),
+            "script_sha256": hashlib.sha256(
+                (root / variant / "probe.txt").read_bytes()
+            ).hexdigest(),
+            "fs_exe": "FlightStream_26124.exe",
+            "fs_exe_sha256": "a" * 64,
+            "measured_at": "2026-09-19T23:42:35-0300",
+        }
+        _write(root / variant / "receipt.json", json.dumps(receipt))
+
+
+@pytest.mark.parametrize("variant", ["without", "with"])
+def test_missing_probe_receipt_cannot_certify(tmp_path, variant):
+    _receipted_probes(tmp_path)
+    (tmp_path / variant / "receipt.json").unlink()
+    check = _instrument().solver_time_averaging(tmp_path)
+    assert check["verdict"] == "could-not-measure", "missing receipt must prevent certification"
+    assert check["measured"] == "NA"
+
+
+@pytest.mark.parametrize("variant", ["without", "with"])
+def test_mismatched_probe_script_digest_cannot_certify(tmp_path, variant):
+    _receipted_probes(tmp_path)
+    path = tmp_path / variant / "receipt.json"
+    receipt = json.loads(path.read_text())
+    receipt["script_sha256"] = "0" * 64
+    _write(path, json.dumps(receipt))
+    check = _instrument().solver_time_averaging(tmp_path)
+    assert check["verdict"] == "could-not-measure", (
+        "script digest mismatch must prevent certification"
+    )
+    assert check["measured"] == "NA"
+
+
+@pytest.mark.parametrize("variant", ["without", "with"])
+def test_contradictory_probe_outputs_cannot_certify(tmp_path, variant):
+    _receipted_probes(tmp_path)
+    path = tmp_path / variant / "receipt.json"
+    receipt = json.loads(path.read_text())
+    receipt["outputs"] = [] if variant == "without" else ["unexpected.txt"]
+    _write(path, json.dumps(receipt))
+    check = _instrument().solver_time_averaging(tmp_path)
+    assert check["verdict"] == "could-not-measure", (
+        "contradictory outputs must prevent certification"
+    )
+    assert check["measured"] == "NA"
+
+
+def test_probe_verdict_uses_receipted_measurements(tmp_path):
+    _receipted_probes(tmp_path)
+    instrument = _instrument()
+    check = instrument.solver_time_averaging(tmp_path)
+    assert check["verdict"] == "refused-by-measurement"
+    measured = check["measured"]
+    assert measured["control_wall_seconds"] == 133.0
+    assert measured["mutant_wall_seconds"] == 240.5
+    assert measured["control_output_count"] == 1
+    assert measured["mutant_output_count"] == 0
+    assert measured["control_exit"] == 0
+    assert measured["mutant_exit"] == -1
+    assert measured["control_killed_at_limit"] is False
+    assert measured["mutant_killed_at_limit"] is True
+    assert measured["fs_exe_sha256"] == "a" * 64
+    assert measured["positions_tried"] == 1
+    assert instrument.solver_time_averaging(tmp_path, remedy="")["verdict"] == "failed"

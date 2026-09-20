@@ -5,15 +5,24 @@
   "checks": {
     "solver_time_averaging": {
       "measured": {
-        "control_wall_seconds": 126,
-        "mutant_wall_seconds": 300,
+        "control_wall_seconds": 133.0,
+        "control_exit": 0,
+        "control_killed_at_limit": false,
+        "control_log_exported": true,
+        "control_measured_at": "2026-09-19T23:42:35-0300",
         "control_output_count": 7,
+        "mutant_wall_seconds": 240.5,
+        "mutant_exit": -1,
+        "mutant_killed_at_limit": true,
+        "mutant_log_exported": false,
+        "mutant_measured_at": "2026-09-19T23:47:00-0300",
         "mutant_output_count": 0,
-        "after_init_output_count": 0,
-        "positions_tried": 2
+        "fs_exe": "FlightStream_26124.exe",
+        "fs_exe_sha256": "68e64e666fad6e403a6c6747b20c263f5c9f3e4c7542eebe253397bedcc30c65",
+        "positions_tried": 1
       },
       "verdict": "refused-by-measurement",
-      "how": "Compared probe scripts differing only by SOLVER_TIME_AVERAGING before/after INITIALIZE_SOLVER and counted their outputs; wall seconds (126 control, 300 killed mutant) are transcribed from the supplied probe measurement because the folders contain no wall-time receipt.",
+      "how": "Read control and mutant execution receipts (before_initialize), checked their script SHA-256 digests, one-line difference, matching executable identity and output lists; the control exited successfully and the mutant was killed at its limit without outputs. Only this receipted command position is certified.",
       "remedy": "The package refuses the pproc [time_averaging] key at plan on a build where SOLVER_TIME_AVERAGING is not verified."
     },
     "vtk_export": {

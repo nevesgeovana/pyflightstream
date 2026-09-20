@@ -1,0 +1,12 @@
+{
+  "variant": "with",
+  "exit": -1,
+  "wall_seconds": 240.5,
+  "outputs": [],
+  "log_exported": false,
+  "script_sha256": "c3022ada5fd86440d1faa16324d15fa96191e5afcdd6e188b7c9aeede1fe4b3b",
+  "fs_exe": "FlightStream_26124.exe",
+  "fs_exe_sha256": "68e64e666fad6e403a6c6747b20c263f5c9f3e4c7542eebe253397bedcc30c65",
+  "killed_at_limit": true,
+  "measured_at": "2026-09-19T23:47:00-0300"
+}
