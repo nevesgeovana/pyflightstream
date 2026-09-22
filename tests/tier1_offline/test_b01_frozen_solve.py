@@ -293,6 +293,23 @@ def _cut_the_log_mid_table(workspace) -> None:
     log_path.write_text(text[: page + 260], encoding="latin-1")
 
 
+def _make_one_step_unreadable(workspace, step: int) -> None:
+    """Leave the residual table of ONE step in the middle without its rows.
+
+    `_cut_the_log_mid_table` cuts the END of the log, which is what a killed run
+    leaves; a run stopped and continued leaves a block in the MIDDLE unreadable,
+    and only that shape can strand a passage between two that survive.
+    """
+    log_path = workspace.sim_dir("7001") / "datapoints/DP-AL-020/AL-020_log.txt"
+    text = log_path.read_text(encoding="latin-1")
+    marker = text.index(f"Solving unsteady time-step iteration ({step}/")
+    after = text.find("Solving unsteady time-step iteration", marker + 10)
+    following = len(text) if after < 0 else after
+    head = text.index("Iteration", marker)
+    rule = text.index("\n", text.index("----", head)) + 1
+    log_path.write_text(text[:rule] + text[following:], encoding="latin-1")
+
+
 @pytest.mark.parametrize("row", [2411, 2413])
 def test_a_log_the_solver_stopped_under_does_not_kill_the_whole_post(tmp_path, row):
     """Measured on the cluster and on Windows alike, 2026-09-22.
@@ -367,9 +384,30 @@ def test_a_per_blade_table_never_bridges_a_refused_passage_in_the_middle(tmp_pat
     refuses whole instead, and says why; losing a passage from an END is not
     bridging and keeps its product, which is what the 0.25.0 review restored.
     """
-    workspace = _post_workspace(tmp_path, 2413, (58, 59), passages=[(58, 59), (60, 61), (58, 59)])
+    # THE SHAPE MATTERS, and two earlier versions of this test got it wrong: a
+    # FREEZE refuses every window reaching it, so it cannot strand a passage
+    # between two survivors. An UNREAD STEP can, and that is the case the lens
+    # measured publishing [55,60] on a tree without the fix: a healthy log with
+    # step 57 unreadable, between passages that are both intact.
+    workspace = _post_workspace(tmp_path, 2411, (58, 58), passages=[(58, 58), (59, 59), (60, 60)])
+    _make_one_step_unreadable(workspace, 59)
     write_campaign_products(workspace)
     manifest = _products_manifest(workspace)
     name = "probes/AL-020_per_blade.csv"
     assert name not in manifest["products"], "the table bridged the passage it refused"
     assert "would span the refused steps" in manifest["skipped"][name]
+
+
+def test_a_per_blade_table_that_loses_an_end_passage_keeps_its_product(tmp_path):
+    """The other side of the contiguity rule, and the one GH-03 restored.
+
+    Losing the LAST passage to a freeze is not bridging: the window the table
+    states simply ends earlier, so the product stays.
+    """
+    workspace = _post_workspace(tmp_path, 2411, (58, 58), passages=[(58, 58), (59, 59), (61, 61)])
+    _make_one_step_unreadable(workspace, 61)
+    write_campaign_products(workspace)
+    manifest = _products_manifest(workspace)
+    name = "probes/AL-020_per_blade.csv"
+    assert name in manifest["products"], manifest["skipped"]
+    assert manifest["products"][name]["windows"] == [[58, 59]]

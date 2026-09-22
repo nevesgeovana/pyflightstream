@@ -1500,9 +1500,14 @@ def rotor_plot_source(
         # group over the wrong families both take the name and both leave no
         # source, but they are different mistakes and calling MRP "the rotor's
         # own" misnames the second (the V&V lens at the push review).
+        # A ROTOR'S OWN FRAME IS NAMED FOR IT. The pproc writes the radical
+        # (`SMRP`, `RMRP`) and the run builds `<ALIAS>_SMRP`, `<ALIAS>_RMRP<k>`;
+        # both spellings reach here, and calling `PROP_SMRP` a family mismatch
+        # named the wrong cause (the closing round, 2026-09-22).
+        radical = declared_frame.rsplit("_", 1)[-1].rstrip("0123456789")
         why = (
             f"in the frame {declared_frame}, which is the rotor's own"
-            if declared_frame in {"SMRP", "RMRP"}
+            if radical in {"SMRP", "RMRP"}
             else f"in the frame {declared_frame}, over families that are not exactly the rotor's"
         )
         refused = (

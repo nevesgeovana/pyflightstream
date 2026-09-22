@@ -1475,7 +1475,12 @@ def frozen_time_steps(log_text: str, *, unjudged: list[int] | None = None) -> Fr
     count = 0
     streak = 0
     previous: int | None = None
-    #: The last step whose block could not be read, for the successor rule.
+    #: Whether the block IMMEDIATELY BEFORE this one could not be read, and
+    #: which step it was. A log can hold two attempts, and a measured one does,
+    #: so "the last unread step" is not "the previous block": comparing against
+    #: the former marked a frozen step of the second attempt unread because a
+    #: step of the same number in the first could not be read (the closing
+    #: round, 2026-09-22).
     unread: int | None = None
     for index, marker in enumerate(markers):
         step = int(marker[1])
@@ -1517,6 +1522,7 @@ def frozen_time_steps(log_text: str, *, unjudged: list[int] | None = None) -> Fr
             # The block before this one could not be read and this one froze:
             # the pair may be a freeze, and the streak alone cannot say so.
             unjudged.append(step)
+        unread = None  # this block WAS read, whatever it says
         streak = (streak + 1 if previous == step - 1 else 1) if frozen else 0
         if streak == 2:
             if first is None:
