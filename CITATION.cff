@@ -44,12 +44,15 @@ license: MIT
 # the THIRTEENTH, the v0.20.1 RELEASE commit, the FOURTEENTH, the
 # 0.21.0.dev0 bump, the FIFTEENTH, the v0.21.0 RELEASE commit of
 # 2026-09-16, the SIXTEENTH, the 0.21.1.dev0 bump, the SEVENTEENTH, and
-# the v0.21.1 RELEASE commit of 2026-09-16, the EIGHTEENTH, and this
-# 0.22.0.dev0 bump, which is the NINETEENTH and was owed from the moment
-# the tag was cut: it was not made then, so the tree sat at the released
-# identity while carrying code that release does not have, which is the
-# thing this pair exists to prevent (the technical-writing lens,
-# FIX-0212). A FOURTH
+# the v0.21.1 RELEASE commit of 2026-09-16, the EIGHTEENTH, and the
+# 0.22.0.dev0 bump, the NINETEENTH, which was owed from the moment that tag
+# was cut: it was not made then, so the tree sat at the released identity
+# while carrying code that release does not have, which is the thing this
+# pair exists to prevent (the technical-writing lens, FIX-0212). THIS
+# COMMIT IS THE v0.25.1 RELEASE, and the paragraph is re-stated with it
+# because a tally naming a bump three releases old as "this" one is the
+# same staleness from the other side (the independent review of GitHub
+# main, 2026-09-22). A FOURTH
 # failure was caught by
 # the verification lens rather than by the guard: the release commit advanced
 # the pair and left this sentence claiming it was the second move and the

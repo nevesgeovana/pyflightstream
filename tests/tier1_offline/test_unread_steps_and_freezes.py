@@ -161,10 +161,13 @@ def test_a_phase_locked_window_is_judged_over_the_steps_it_reads(verdict_of):
     # the window as declared does not contain step 94, and a reduction that
     # reads only its own steps keeps its product
     assert _frozen_window_reason(verdict, declared) is None
-    # but the phase-locked reduction reads one revolution earlier, and THAT
-    # window is what must be judged
-    reads = _window_the_reduction_reads("phase_locked", {"steps_per_revolution": 53.0}, declared)
-    assert reads[0] <= 94, reads
+    # but the phase-locked reduction reads the plotted step below its opening,
+    # and THAT window is what must be judged
+    dense = list(range(1, 201))
+    reads = _window_the_reduction_reads(
+        "phase_locked", {"steps_per_revolution": 53.0}, declared, dense
+    )
+    assert reads == (94, 200), reads
     assert _frozen_window_reason(verdict, reads) is not None, "an unread step fed the average"
 
 
@@ -177,5 +180,28 @@ def test_a_reduction_that_reads_only_its_own_steps_is_judged_over_them(verdict_o
     """
     declared = (95, 200)
     per_revolution = {"steps_per_revolution": 53.0}
-    assert _window_the_reduction_reads("time_average", per_revolution, declared) == (95, 200)
-    assert _window_the_reduction_reads("phase_locked", {}, declared) == (95, 200)
+    dense = list(range(1, 201))
+    assert _window_the_reduction_reads("time_average", per_revolution, declared, dense) == (95, 200)
+    assert _window_the_reduction_reads("phase_locked", {}, declared, ()) == (95, 200)
+
+
+def test_the_interpolation_support_is_the_history_and_not_a_revolution(verdict_of):
+    """The re-read of GitHub main, 2026-09-22, measured this bound wrong BOTH ways.
+
+    A revolution is neither necessary nor sufficient. On a history that plots
+    every step, a window of [95, 200] reads step 94 and nothing earlier, so
+    refusing it for an unread step 93 costs an average the arithmetic never
+    touches. On a sparse history -- steps 1, then 95 to 200 -- the same window
+    reaches step 1, which a one-revolution bound leaves outside and publishes.
+    """
+    dense = list(range(1, 201))
+    sparse = [1, *range(95, 201)]
+    entry = {"steps_per_revolution": 53.0, "revolutions": 2.0}
+    assert _window_the_reduction_reads("phase_locked", entry, (95, 200), dense) == (94, 200)
+    assert _window_the_reduction_reads("phase_locked", entry, (95, 200), sparse) == (1, 200)
+
+    # and the consequence, through the judge: 93 is clean, 94 is not
+    verdict = verdict_of(_log((92, "live"), (93, "unread"), (94, "live"), (95, "live")))
+    assert isinstance(verdict, UnjudgeableSolve), verdict
+    reads = _window_the_reduction_reads("phase_locked", entry, (95, 200), dense)
+    assert _frozen_window_reason(verdict, reads) is None, "a clean average was refused"

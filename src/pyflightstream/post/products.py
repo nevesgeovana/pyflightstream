@@ -98,6 +98,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import numpy as np
+from numpy.typing import NDArray
 
 from pyflightstream._deprecations import WRITE_SECTIONS_ITERATION
 from pyflightstream._digest import file_sha256 as file_sha256
@@ -1601,27 +1602,40 @@ def _surface_export_skip(entry: Mapping[str, object], frozen: FrozenSolve | None
 
 
 def _window_the_reduction_reads(
-    name: str, entry: Mapping[str, object], window: tuple[int, ...]
+    name: str,
+    entry: Mapping[str, object],
+    window: tuple[int, ...],
+    plotted: Sequence[float] | NDArray[np.floating] = (),
 ) -> tuple[int, int]:
     """Return the steps a reduction's arithmetic READS, not the ones it states.
 
     A phase-locked average is interpolated at fractional moments, one per blade,
-    each `offset_of(name)` steps before blade one; `np.interp` therefore reads
-    the integer steps bracketing each moment, and a window declared [95, 200]
-    reads step 94. An offset is bounded by one revolution (`post.unsteady`
-    computes it modulo `per_revolution`), so opening the judged window one
-    revolution earlier covers every sample the average can touch.
+    and `np.interp` reads the PLOTTED steps bracketing each moment, so a window
+    declared [95, 200] reads step 94 on a history that holds every step. The
+    moments themselves are bounded below: `post.unsteady` takes those strictly
+    above `opening`, which the planner writes as one step before the window. The
+    first step the arithmetic can therefore read is THE LAST PLOTTED STEP AT OR
+    BELOW that opening, and nothing below it.
 
-    Measured by the independent review of GitHub main, 2026-09-22: with step 94
-    unread and its plotted value changed, the published average moved and the
-    manifest said [95, 200] with no skip.
+    A REVOLUTION IS THE WRONG BOUND, in both directions, and the independent
+    review of GitHub main measured each (2026-09-22). Too narrow on a sparse
+    history: with steps 1, 95, 96 ... 200 plotted, the interpolation reaches
+    step 1, which a one-revolution bound leaves outside. Too wide on a dense
+    one: it refused a product for an unread step 93 whose value the average
+    provably does not use.
+
+    ``plotted`` is the history's own step column. Without it -- the reduction is
+    not interpolated, or the history is not loaded -- the declared window stands.
     """
-    if name != _PHASE_LOCKED:
+    if name != _PHASE_LOCKED or not len(plotted):
         return int(window[0]), int(window[-1])
-    per_revolution = entry.get("steps_per_revolution")
-    if not isinstance(per_revolution, int | float) or per_revolution <= 0:
+    opening = int(window[0]) - 1
+    below = [float(step) for step in plotted if float(step) <= opening]
+    if not below:
+        # Every plotted step is inside the window: `np.interp` clamps at the
+        # first of them and reads nothing earlier.
         return int(window[0]), int(window[-1])
-    return max(1, int(window[0] - math.ceil(float(per_revolution)))), int(window[-1])
+    return int(math.floor(max(below))), int(window[-1])
 
 
 def _frozen_window_reason(frozen: FrozenSolve | None, window: Sequence[int]) -> str | None:
@@ -5537,6 +5551,10 @@ def _point_reductions(
             continue
         stated = entry.get("windows", ())
         windows = [tuple(int(v) for v in window) for window in stated]  # type: ignore[union-attr]
+        if name == _PHASE_LOCKED and series is None:
+            # THE HISTORY DECIDES WHAT THE INTERPOLATION CAN READ, so it is
+            # loaded before the freeze judgement rather than after it.
+            columns, series = plots_table_series(plots_table)
         # THE FREEZE TAKES THE WINDOWS IT REACHES, AND ONLY THOSE. The
         # definitions page: an average whose window ends at or after the first
         # frozen step is skipped by name, and "windows wholly before that step
@@ -5549,7 +5567,10 @@ def _point_reductions(
             for window in windows
             if (
                 why := _frozen_window_reason(
-                    frozen, _window_the_reduction_reads(name, entry, window)
+                    frozen,
+                    _window_the_reduction_reads(
+                        name, entry, window, () if series is None else series.steps
+                    ),
                 )
             )
             is not None

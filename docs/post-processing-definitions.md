@@ -685,8 +685,10 @@ closing rule, and that step cannot be judged. Such steps are named in
 
 - an average is refused when an unread step falls INSIDE the window it reads,
   and the window a reduction READS is not always the one it states: a
-  phase-locked average interpolates at moments up to one revolution before its
-  first step, so that whole revolution is judged with it;
+  phase-locked average is interpolated, so it also reads the LAST PLOTTED STEP
+  AT OR BELOW the step before its window, and that step is judged with it. On a
+  history holding every step that is one step earlier; on a sparse history it
+  can be far earlier, and a revolution is the wrong bound in both directions;
 - a step that froze with an unread step immediately beside it is reported
   unread too, in either order, because a freeze is declared from two
   CONSECUTIVE frozen steps and the pair cannot be ruled out;

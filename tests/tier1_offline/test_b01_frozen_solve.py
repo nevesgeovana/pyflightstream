@@ -450,12 +450,16 @@ def test_a_phase_locked_product_is_refused_for_a_step_only_its_interpolation_rea
     product. Calling the helper alone left this green with the helper
     disconnected (the QA lens, 2026-09-22).
     """
+    # STEP 59, NOT 58: the support of a window [60, 61] on a history that plots
+    # every step is the plotted step below its opening, which is 59. An unread
+    # 58 is not read by this average and keeps its product -- the re-read of
+    # GitHub main measured both sides of that bound (2026-09-22).
     workspace = _post_workspace(tmp_path, 2411, (60, 61))
-    _make_one_step_unreadable(workspace, 58)
+    _make_one_step_unreadable(workspace, 59)
     write_campaign_products(workspace)
     manifest = _products_manifest(workspace)
     phase_locked = "probes/AL-020_phase_locked.csv"
     time_average = "probes/AL-020_time_average.csv"
     assert phase_locked not in manifest["products"], "an unread step fed a published average"
-    assert "58" in manifest["skipped"][phase_locked], manifest["skipped"][phase_locked]
+    assert "59" in manifest["skipped"][phase_locked], manifest["skipped"][phase_locked]
     assert time_average in manifest["products"], manifest["skipped"]
