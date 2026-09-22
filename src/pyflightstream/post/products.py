@@ -1600,6 +1600,30 @@ def _surface_export_skip(entry: Mapping[str, object], frozen: FrozenSolve | None
     return None
 
 
+def _window_the_reduction_reads(
+    name: str, entry: Mapping[str, object], window: tuple[int, ...]
+) -> tuple[int, int]:
+    """Return the steps a reduction's arithmetic READS, not the ones it states.
+
+    A phase-locked average is interpolated at fractional moments, one per blade,
+    each `offset_of(name)` steps before blade one; `np.interp` therefore reads
+    the integer steps bracketing each moment, and a window declared [95, 200]
+    reads step 94. An offset is bounded by one revolution (`post.unsteady`
+    computes it modulo `per_revolution`), so opening the judged window one
+    revolution earlier covers every sample the average can touch.
+
+    Measured by the independent review of GitHub main, 2026-09-22: with step 94
+    unread and its plotted value changed, the published average moved and the
+    manifest said [95, 200] with no skip.
+    """
+    if name != _PHASE_LOCKED:
+        return int(window[0]), int(window[-1])
+    per_revolution = entry.get("steps_per_revolution")
+    if not isinstance(per_revolution, int | float) or per_revolution <= 0:
+        return int(window[0]), int(window[-1])
+    return max(1, int(window[0] - math.ceil(float(per_revolution)))), int(window[-1])
+
+
 def _frozen_window_reason(frozen: FrozenSolve | None, window: Sequence[int]) -> str | None:
     """Explain why an average reaches the frozen, or the unreadable, part of a solve."""
     # cases.windows and the products' STEP use inclusive 1-based time steps,
@@ -5523,7 +5547,12 @@ def _point_reductions(
         reached = [
             (window, why)
             for window in windows
-            if (why := _frozen_window_reason(frozen, window)) is not None
+            if (
+                why := _frozen_window_reason(
+                    frozen, _window_the_reduction_reads(name, entry, window)
+                )
+            )
+            is not None
         ]
         frozen_windows = [window for window, _ in reached]
         kept = [window for window in windows if window not in frozen_windows]
@@ -5848,11 +5877,17 @@ def write_campaign_products(
                 log_name = kinds.get("log")
                 log_path = workspace.sim_dir(point_record.sim_id) / log_name if log_name else None
                 if log_path is not None and log_path.is_file():
-                    # An unreadable log is not a freeze to post: it stays out,
-                    # as it did before, but it no longer raises here either.
+                    # A LOG THAT PROVES A FREEZE ADMITS ITS POINT, even when
+                    # another block of it could not be read: excluding every
+                    # UnjudgeableSolve removed the point's histories, instants
+                    # and earlier averages before their own checks could run,
+                    # against the preservation rule of the definitions page (the
+                    # independent review of GitHub main, 2026-09-22). A log that
+                    # proves NOTHING is not a freeze to post and stays out, as
+                    # it did before; it no longer raises here either.
                     verdict = freeze_of_log(log_path)
-                    frozen_failure = verdict is not None and not isinstance(
-                        verdict, UnjudgeableSolve
+                    frozen_failure = verdict is not None and (
+                        not isinstance(verdict, UnjudgeableSolve) or verdict.frozen_from is not None
                     )
             if frozen_failure or point_record.status in (
                 RunStatus.CONVERGED,

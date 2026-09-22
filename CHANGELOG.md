@@ -68,7 +68,19 @@ cluster and on Windows within an hour of each other, on campaigns recorded with
   consecutive frozen steps, so a step that froze with its neighbour unreadable
   would have vanished into silence and its average published. Both steps are
   reported as unread instead, and the windows covering either lose their
-  averages.
+  averages. THE LIMIT, measured by the independent review and older than this
+  patch: a block whose `Iteration` anchor is itself cut mid-word carries no
+  residual table to refuse, so it is read as a step with no evidence rather
+  than as an unread one (`reports/RPT-055`).
+- **A phase-locked average is judged over the steps it READS**, which its
+  declared window does not name: it interpolates at moments up to one
+  revolution before its first step, so that revolution is judged with it. An
+  unread step there moved a published average while the manifest stated a clean
+  window.
+- **A point whose log proves a freeze is still posted** for everything the
+  freeze does not touch, even when another block of that log cannot be read.
+  Excluding it removed its histories, instants and earlier averages before
+  their own checks could run.
 - **A refused rotor table names the plot group that took its name.** Where a
   pproc declares a group that emits `ROTOR_<ALIAS>` in the rotor's own frame
   (`SMRP` or `RMRP`), the run does not add its automatic `ROTOR_<ALIAS>` in the

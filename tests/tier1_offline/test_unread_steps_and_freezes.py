@@ -10,7 +10,11 @@ from __future__ import annotations
 
 import pytest
 
-from pyflightstream.post.products import _frozen_window_reason, freeze_of_log
+from pyflightstream.post.products import (
+    _frozen_window_reason,
+    _window_the_reduction_reads,
+    freeze_of_log,
+)
 from pyflightstream.results import UnjudgeableSolve
 
 LIVE = "+5.5597573E-4      \t+5.6313020E-4"
@@ -138,3 +142,40 @@ def test_an_unread_block_does_not_reach_across_a_restart(verdict_of):
     assert isinstance(verdict, UnjudgeableSolve), verdict
     assert verdict.steps == (1,), verdict.steps
     assert _frozen_window_reason(verdict, (2, 2)) is None, "a clean window lost its average"
+
+
+def test_a_phase_locked_window_is_judged_over_the_steps_it_reads(verdict_of):
+    """GH-1 of the independent review of GitHub main, 2026-09-22.
+
+    A phase-locked average interpolates at fractional moments, one per blade,
+    each an offset inside one revolution before blade one, so `np.interp` reads
+    the integer steps bracketing each moment. A window declared [95, 200] with
+    53 steps per revolution reads step 94. The reader made step 94 unread and
+    changed its plotted value: the published average moved and the manifest
+    stated [95, 200] with no skip.
+    """
+    verdict = verdict_of(_log((93, "live"), (94, "unread"), (95, "live"), (96, "live")))
+    assert isinstance(verdict, UnjudgeableSolve), verdict
+    assert verdict.steps == (94,), verdict.steps
+    declared = (95, 200)
+    # the window as declared does not contain step 94, and a reduction that
+    # reads only its own steps keeps its product
+    assert _frozen_window_reason(verdict, declared) is None
+    # but the phase-locked reduction reads one revolution earlier, and THAT
+    # window is what must be judged
+    reads = _window_the_reduction_reads("phase_locked", {"steps_per_revolution": 53.0}, declared)
+    assert reads[0] <= 94, reads
+    assert _frozen_window_reason(verdict, reads) is not None, "an unread step fed the average"
+
+
+def test_a_reduction_that_reads_only_its_own_steps_is_judged_over_them(verdict_of):
+    """The other side: widening the judged window for everything would cost averages.
+
+    A time average reads the steps it states, so its judged window is its own;
+    a phase-locked one without a recorded revolution cannot be widened either,
+    and says so by keeping its declared window.
+    """
+    declared = (95, 200)
+    per_revolution = {"steps_per_revolution": 53.0}
+    assert _window_the_reduction_reads("time_average", per_revolution, declared) == (95, 200)
+    assert _window_the_reduction_reads("phase_locked", {}, declared) == (95, 200)

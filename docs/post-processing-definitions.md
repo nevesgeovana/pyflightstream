@@ -678,6 +678,32 @@ first frozen step is skipped by name in `products.json`. Windows wholly before
 that step keep their products. Raw histories and explicitly instant products
 remain available; an instant is not an accepted average.
 
+**A BLOCK THE SOLVER STOPPED UNDER IS NEITHER FROZEN NOR HEALTHY.** A run
+stopped, killed or aborted mid-write leaves a residual table without its
+closing rule, and that step cannot be judged. Such steps are named in
+`products.json`, and:
+
+- an average is refused when an unread step falls INSIDE the window it reads,
+  and the window a reduction READS is not always the one it states: a
+  phase-locked average interpolates at moments up to one revolution before its
+  first step, so that whole revolution is judged with it;
+- a step that froze with an unread step immediately beside it is reported
+  unread too, in either order, because a freeze is declared from two
+  CONSECUTIVE frozen steps and the pair cannot be ruled out;
+- a log may prove a freeze AND carry unread steps, and both refuse: a window
+  before the freeze that covers an unread step is refused for the unread step;
+- the per-blade table states ONE window over its passages, so a refused passage
+  BETWEEN two kept ones refuses the whole table rather than bridging it; a
+  passage lost from either END keeps the product, with the window ending
+  earlier or starting later;
+- a point whose log proves a freeze is still posted for everything the freeze
+  does not touch, whether or not another block of that log could be read.
+
+A LIMIT OF THE DETECTOR, stated because it is not a rule: a block whose
+`Iteration` anchor is itself cut mid-word carries no residual table to refuse,
+so it is read as a step with no evidence rather than as an unread one. It
+predates 0.25.1 (`reports/RPT-055`).
+
 It does **not** judge whether the time history has settled. There is no settle
 tolerance, no convergence criterion over the history, and no point is failed for
 one. **That judgement is the user's, made afterwards from the history.**

@@ -411,3 +411,20 @@ def test_a_per_blade_table_that_loses_an_end_passage_keeps_its_product(tmp_path)
     name = "probes/AL-020_per_blade.csv"
     assert name in manifest["products"], manifest["skipped"]
     assert manifest["products"][name]["windows"] == [[58, 59]]
+
+
+def test_a_frozen_point_whose_log_also_has_an_unread_block_is_still_posted(tmp_path):
+    """GH-2 of the independent review of GitHub main, 2026-09-22.
+
+    A FAILED_DIVERGED record is admitted to the post stage when its log PROVES
+    the freeze. Excluding every unjudgeable verdict removed the point entirely
+    once one block of a frozen log could not be read, so its histories, instants
+    and the averages that end before the freeze disappeared before their own
+    checks could run.
+    """
+    workspace = _post_workspace(tmp_path, 2413, (58, 59))
+    _make_one_step_unreadable(workspace, 59)
+    write_campaign_products(workspace)
+    manifest = _products_manifest(workspace)
+    assert "probes/AL-020_plots.csv" in manifest["products"], manifest["skipped"]
+    assert manifest["products"]["sections/AL-020_sections.csv"]["kind"] == "instant"

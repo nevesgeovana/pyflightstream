@@ -137,11 +137,17 @@ Readings of 2026-09-22, each status read from the process:
   raises on one and the patched one returns an unread-step verdict that keeps the
   windows not covering it. Measured through the BUILT WHEEL in a clean virtual
   environment, not only through the source tree.
-- Review: round 1 and round 2 as codex lens passes, REL-0250_rounds.ledger VERIFIED,
-  2 rounds, 31 findings; a release-tail review over the release commits (5 findings, all
-  fixed); and THE INDEPENDENT REVIEW OF GitHub main at 7fddf7b (6 findings: three
-  behaviour, three documentation and release chore; all fixed, recorded in
-  `REL-0250_independent-review.json`).
+- Review OF THIS PATCH, recorded in REL-0251_rounds.ledger: TWO ROUNDS of role review at
+  the PUSH moment (architect, QA and V&V), 10 findings over 5 distinct defects, then a
+  verification pass over the round-two fixes (2 findings) and one over the regressions it
+  asked for (no findings). EVERY FINDING OF BOTH ROUNDS WAS ABOUT THIS PATCH ITSELF, and
+  two of them were tests of mine that could not fail. Then THE INDEPENDENT REVIEW OF GitHub
+  main at 0402a02: 6 findings, two of the first severity (a phase-locked average reading an
+  unread step through its interpolation, and a frozen point excluded from the post stage
+  when another block of its log could not be read), recorded in
+  `REL-0251_independent-review.json`.
+  The reviews of 0.25.0 -- its two rounds of 31 findings, its release-tail review and its
+  independent review at 7fddf7b -- belong to that release and are recorded with it.
 
 ## What this release carries
 
