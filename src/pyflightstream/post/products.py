@@ -470,8 +470,17 @@ def clock_rotor_facts(
     rpm: float | None = None
     if alias is not None:
         rpm = speeds[alias]
-    elif isinstance(reductions, Mapping) and isinstance(reductions.get("rpm"), int | float):
-        # A row that records one speed and no rotor block still turns one rotor.
+    elif (
+        not speeds
+        and isinstance(reductions, Mapping)
+        and isinstance(reductions.get("rpm"), int | float)
+    ):
+        # A row that records one speed and NO ROTOR BLOCK AT ALL still turns one
+        # rotor, and the flat field is its speed. With rotor blocks present and
+        # no clock resolved, this fallback published one rotor's speed for a row
+        # whose clock nobody could name -- and `reduction_windows` records both
+        # fields, so such a record is ordinary (the architect and V&V lenses,
+        # 2026-09-22).
         rpm = float(reductions["rpm"])
     diameter: float | None = None
     blocks = getattr(artifact, "rotors", None) or {}
@@ -484,7 +493,11 @@ def clock_rotor_facts(
         if declared is not None:
             span = getattr(blocks[declared], "diameter_m", None)
             diameter = float(span) if isinstance(span, int | float) else None
-        elif len(blocks) == 1:
+        elif alias is None and not speeds and len(blocks) == 1:
+            # ONLY WHERE THERE IS NOTHING TO CONFUSE IT WITH. A clock that IS
+            # named and is absent from the reference has no diameter, and
+            # taking the only declared rotor's would measure this rotor's ratio
+            # against another rotor's span (the architect lens, 2026-09-22).
             span = getattr(next(iter(blocks.values())), "diameter_m", None)
             diameter = float(span) if isinstance(span, int | float) else None
     return {"alias": alias, "rpm": rpm, "diameter_m": diameter}

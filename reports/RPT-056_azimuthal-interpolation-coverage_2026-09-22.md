@@ -48,3 +48,29 @@ lens's own recipe, which is complete enough to write the test from:
 The guard is proved by the mutant at the helper and by the product-level case on the passage
 path, and the lens proved it independently on the azimuthal path with its own probe. What is
 missing is a COMMITTED test on that path, so a future change could remove it unnoticed.
+
+
+## A second gap of the same shape, registered with it
+
+**The clock columns are not asserted at the product level either.** `J_CLOCK` and `RPM_CLOCK`
+are proved by unit cases over `clock_rotor_facts` and `point_condition`: the clock chosen by
+`CLOCK_MOTION`, case-folded as the planner folds it, the unresolved multi-rotor record stating
+neither, a named clock absent from the reference taking no other rotor's diameter, and the ratio
+against a measured row. What no committed test does is read the two columns OUT OF the polar,
+the rotor table and the per-step series of one campaign and compare them.
+
+The QA lens measured the consequence on 2026-09-22: omitting `clock=` from both repaired callers
+left 35 targeted tests green while three rotor-table calls and 33 series calls discarded the
+facts. The defect that fix repaired -- those families reading `NA` while the polar beside them
+carries values -- can therefore return unnoticed.
+
+WHY IT IS REGISTERED. The freeze fixture this suite reuses carries no rotor diameter in its
+reference, so `J_CLOCK` cannot be computed there at all, and the rotor variant writes under
+another matrix stem. A campaign-level case needs a reference with `rotor_diameter_m` and a
+matrix row naming it, which is a fixture of its own. Measured, not assumed: with that fixture the
+facts resolve to `rpm 2200.0` and `diameter_m None`.
+
+WHAT TO WRITE, when it is written: one campaign with a rotor of known diameter and speed, posted
+once, asserting that the polar, the rotor table and the per-step series all state the same
+`J_CLOCK` and `RPM_CLOCK`, and one campaign whose `CLOCK_MOTION` is written in another case,
+asserting the same.

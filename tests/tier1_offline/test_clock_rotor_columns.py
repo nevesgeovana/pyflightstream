@@ -126,3 +126,41 @@ def test_the_clock_name_is_matched_the_way_the_planner_matches_it():
     # and the diameter is found under the reference's own spelling too
     mixed = _Artifact({"Lift": _Rotor(2.0), "PUSHER": _Rotor(1.2)})
     assert clock_rotor_facts(record, _Row({"CLOCK_MOTION": "LIFT"}), mixed)["diameter_m"] == 2.0
+
+
+def test_a_record_holding_both_a_flat_speed_and_rotor_blocks_states_no_clock():
+    """The architect and V&V lenses, 2026-09-22, on the same defect.
+
+    `reduction_windows` records BOTH a flat `rpm` and per-rotor blocks, so a
+    record holding both is ordinary. With two rotors and no CLOCK_MOTION the
+    clock is unresolved, and the flat fallback published that speed anyway --
+    one rotor's number for a row whose clock nobody could name. The page is
+    explicit: both columns are NA there.
+    """
+    record = _Record(
+        {"rpm": 2200.0, "rotors": {"LIFT": {"rpm": -2200.0}, "PUSHER": {"rpm": 900.0}}}
+    )
+    facts = clock_rotor_facts(record, _Row({}), _Artifact({"LIFT": _Rotor(2.0)}))
+    assert facts["alias"] is None, facts
+    assert facts["rpm"] is None, "a speed was published for a clock nobody identified"
+    assert facts["diameter_m"] is None, facts
+
+    # the flat field still serves a record that carries NO rotor block at all
+    flat = _Record({"rpm": 2200.0})
+    assert clock_rotor_facts(flat, _Row({}), _Artifact({"LIFT": _Rotor(2.0)}))["rpm"] == 2200.0
+
+
+def test_a_named_clock_absent_from_the_reference_takes_no_other_rotors_diameter():
+    """The architect lens: a ratio measured against another rotor's span is a wrong number.
+
+    The clock is named and recorded, and the reference declares a DIFFERENT
+    rotor. Falling back to the only declared diameter would divide this rotor's
+    speed by that rotor's span and publish it as this row's ratio.
+    """
+    record = _Record({"rotors": {"PUSHER": {"rpm": -7585.0}}})
+    facts = clock_rotor_facts(
+        record, _Row({"CLOCK_MOTION": "PUSHER"}), _Artifact({"LIFT": _Rotor(2.0)})
+    )
+    assert facts["alias"] == "PUSHER"
+    assert facts["rpm"] == -7585.0, "the speed is the record's and is known"
+    assert facts["diameter_m"] is None, "another rotor's diameter was taken"
