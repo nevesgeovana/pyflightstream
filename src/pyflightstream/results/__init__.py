@@ -1398,7 +1398,43 @@ class FrozenSolve:
         return f"frozen solve: first frozen time step {self.first_step}; {self.count} frozen steps"
 
 
-def frozen_time_steps(log_text: str) -> FrozenSolve | None:
+@dataclass(frozen=True)
+class UnjudgeableSolve(FrozenSolve):
+    """A solve whose native log cannot answer the freeze question.
+
+    A run that was stopped or killed leaves its last residual page without a
+    closing separator, and the detector refuses to read a table that ends
+    mid-write. That is not evidence of a freeze and it is NOT evidence of a
+    healthy solve either: on a real frozen log, cutting the last page hides
+    ``FrozenSolve(60, 2)`` entirely. An average that cannot be shown to avoid a
+    frozen solve is therefore refused exactly as a frozen one is -- and so
+    ``first_step`` is 1, which every window of the point ends at or after.
+
+    Created on 2026-09-22, when one such log ended a whole campaign post with an
+    exception instead of costing the steps it covers. ``steps`` names the time
+    steps whose residual blocks could not be read; ``first_step`` is the first
+    of them, so a reader that knows only ``FrozenSolve`` still refuses rather
+    than accepts.
+    """
+
+    steps: tuple[int, ...] = ()
+    detail: str = ""
+
+    @property
+    def reason(self) -> str:
+        """Say what could not be read and what would settle it."""
+        named = ", ".join(str(step) for step in self.steps) or str(self.first_step)
+        return (
+            f"the native log cannot be read for time step(s) {named}, so the freeze check "
+            "could not run over them and an average covering them cannot be shown to avoid a "
+            "frozen solve"
+            + (f": {self.detail}" if self.detail else "")
+            + ". The solver stopped mid-write there; recollect that log, or run the point "
+            "again, and the average returns on its own."
+        )
+
+
+def frozen_time_steps(log_text: str, *, unjudged: list[int] | None = None) -> FrozenSolve | None:
     """Detect a freeze from the printed residuals of an unsteady log.
 
     A time step is frozen when every inner iteration after its first prints
@@ -1409,6 +1445,17 @@ def frozen_time_steps(log_text: str) -> FrozenSolve | None:
     steps in qualifying stretches. Step numbers come from the solver's 1-based
     ``(k/N)`` markers, never from its cumulative inner-iteration counter.
     Steady logs, which have no unsteady step markers, return None.
+
+    ``unjudged`` OPTS IN TO TOLERANCE, and the post stage is its only caller.
+    A block whose residual pages cannot be read -- a header with no rows under
+    it, which is what a run stopped by its walltime guard leaves, or a page cut
+    mid-write -- is then SKIPPED and its step number appended, rather than
+    raising. Without it this raises as it always has, which is what the collect
+    path needs to record FAILED_INCOMPLETE_OUTPUT (FR-17).
+
+    A skipped block is not evidence of a healthy step and must never be read as
+    one: it breaks the streak, so it can neither begin nor extend a freeze, and
+    the caller is handed the step numbers to refuse the windows they fall in.
     """
     clean = log_text.replace("\x00", "")
     markers = list(re.finditer(r"Solving unsteady time-step iteration \((\d+)/(\d+)\)", clean))
@@ -1423,11 +1470,27 @@ def frozen_time_steps(log_text: str) -> FrozenSolve | None:
         step = int(marker[1])
         end = markers[index + 1].start() if index + 1 < len(markers) else len(clean)
         block = clean[marker.end() : end]
-        rows = [
-            row
-            for page in _RESIDUAL_PAGE.split(block)[1:]
-            for row in delimited_table("Iteration" + page, "Iteration", delimiter=None)
-        ]
+        try:
+            rows = [
+                row
+                for page in _RESIDUAL_PAGE.split(block)[1:]
+                for row in delimited_table("Iteration" + page, "Iteration", delimiter=None)
+            ]
+        except (IncompleteOutputError, MalformedOutputError):
+            if unjudged is None:
+                raise
+            # A FROZEN STEP NEXT TO AN UNREAD ONE IS A FREEZE NOBODY CAN RULE OUT.
+            # A freeze needs two consecutive frozen steps, so a step that froze
+            # with its successor unreadable would otherwise vanish: measured on
+            # the 2413 fixture, whose freeze at 60 disappeared the moment block
+            # 61 could not be read. Both steps go into the unread set, and the
+            # windows that cover either of them lose their averages.
+            if streak >= 1 and previous is not None:
+                unjudged.append(previous)
+            unjudged.append(step)
+            streak = 0
+            previous = step
+            continue
         frozen = (
             bool(rows)
             and len(rows[-1]) >= 3
@@ -3258,6 +3321,7 @@ __all__ = [
     "parse_probe_points",
     "parse_residual_history",
     "FrozenSolve",
+    "UnjudgeableSolve",
     "frozen_time_steps",
     "parse_run_loads",
     "parse_solver_analysis_csv",

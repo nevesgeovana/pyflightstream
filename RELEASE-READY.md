@@ -1,10 +1,11 @@
-# v0.25.0 is released by this sequence, followed as written
+# v0.25.1 is released by this sequence, followed as written
 
-0.25.0 changes what the post stage writes for a probe, a section and a surface, adds
-features the owner decided, and refuses one solver command that hangs the build this
-release could measure. It is a MINOR bump for that reason.
-`docs/migrating-to-0.25.0.md` is the reader's account; the change log's `[0.25.0]`
-section is the record.
+0.25.1 is a PATCH for one defect that stopped the post stage dead on two machines
+within an hour of each other: a residual block the solver stopped under ended the
+whole campaign post with an exception instead of costing the averages that cover it.
+It adds no feature and changes no published number. The change log's `[0.25.1]`
+section is the record; `docs/migrating-to-0.25.0.md` still describes the minor
+release under it, because a patch asks nothing new of a reader's files.
 
 **THIS FILE IS RE-TITLED AND RE-MEASURED PER TAG.** It carried the v0.22.0 title,
 commands and readings through the whole 0.23.0 release, and it carried the v0.24.0
@@ -19,10 +20,10 @@ it is re-titled, and the lapse is recorded here rather than repeated silently.
 
 ```
 # 1. the release commit: set the version and CONFIRM the change log's date.
-#    pyproject.toml says 0.25.0.dev0 until this step, deliberately: a tree that
+#    pyproject.toml says 0.26.0.dev0 (the tree before this patch) until this step, deliberately: a tree that
 #    already said 0.25.0 would have every run made from it reporting the released
 #    version while being a different tree.
-#    (pyproject.toml: version = "0.25.0")
+#    (pyproject.toml: version = "0.25.1")
 #
 #    AND BOTH FRONT PAGES NAME THE NEW VERSION: the status line of README.md,
 #    which is the PyPI project page, and of docs/index.md.
@@ -49,7 +50,7 @@ it is re-titled, and the lapse is recorded here rather than repeated silently.
 #    the rule inside the bullet: a footnote mentioning `owed` satisfies the guard
 #    on its own. IT GOES UNDER [Unreleased] -> Owed, not under the dated section:
 #    under the dated section the tag fails its own archive gate.
-git commit -m "chore: v0.25.0"
+git commit -m "chore: v0.25.1"
 
 # 2. THE INTERNAL REVIEW ROUND over the release range, every finding fixed or
 #    registered, recorded in the lane's rounds ledger.
@@ -79,22 +80,22 @@ git push origin main
 #    two rounds and thirty-one findings, three of them behaviour.
 
 # 5. the tag, annotated, on the reviewed commit, once CI is green on it
-git tag -a v0.25.0 -m "v0.25.0"
+git tag -a v0.25.1 -m "v0.25.1"
 
 # 6. push the tag. THIS PUBLISHES TO PyPI and nothing else.
-git push origin v0.25.0
+git push origin v0.25.1
 
 # 7. THE RELEASE OBJECT. This is the step that was missed at v0.17.0.
-gh release create v0.25.0 --title "v0.25.0" --notes-file <the section body and its limits>
+gh release create v0.25.1 --title "v0.25.1" --notes-file <the section body and its limits>
 
 # 8. the archive DOI. Zenodo's webhook fires on the RELEASE OBJECT of step 7,
 #    not on the tag of step 6. Read the new version DOI off the Zenodo record.
 
 # 9. the citation row, one commit after the tag
 #    CITATION.cff gains the version DOI from step 8, and the Owed line for
-#    v0.25.0 leaves the change log in the same commit. THE TREE MOVES TO THE NEXT
+#    v0.25.1 leaves the change log in the same commit. THE TREE MOVES TO THE NEXT
 #    .dev0 IN THAT COMMIT: the post-tag dev bump was missed after v0.21.1.
-git commit -m "chore: the v0.25.0 archive row"
+git commit -m "chore: the v0.25.1 archive row"
 
 # 10. confirm, rather than assume
 python scripts/check_release_published.py    # online is the default; --offline skips the network
@@ -104,7 +105,9 @@ python scripts/check_release_published.py    # online is the default; --offline 
 **THE OWED LINE OF STEP 1 WAS MISSING AT v0.18.0** and its publish was skipped;
 **IT WAS PRESENT BUT WORDLESS AT v0.21.0** and the publish was skipped again;
 **IT WAS IN THE WRONG SECTION AT v0.25.0** and the release-tail review caught it
-before the tag; **THE FRONT PAGES WERE MISSED AT v0.18.1** and CI caught them
+before the tag; **AN UNRELEASED SECTION DESCRIBED BEHAVIOUR THE TAG WOULD SHIP AT
+v0.25.1**, caught by the version-identity guard, because a patch cut from the
+development tree carries what that tree already changed; **THE FRONT PAGES WERE MISSED AT v0.18.1** and CI caught them
 before the tag; **THE POST-TAG DEV BUMP WAS MISSED AFTER v0.21.1**; **THE
 INDEPENDENT REVIEW WAS SKIPPED FROM v0.18.0 TO v0.22.0**; **THIS FILE ITSELF WAS
 STILL RELEASING v0.24.0 ON THE EVE OF v0.25.0**. Each is written into the sequence
@@ -119,16 +122,21 @@ minted a version DOI that `CITATION.cff` records; anything less is a tag.
 Every number comes from a command run at the moment this file was written, with
 the command beside it.
 
-Readings of 2026-09-20, each status read from the process:
+Readings of 2026-09-22, each status read from the process:
 
 - `ruff check .` exit 0; `ruff format --check .` exit 0; `mypy` exit 0, "Success: no issues
   found in 97 source files".
-- The full tier-1 suite, detached, one process per file, on the tree carrying the
-  independent review's fixes: exit 0, 0 red files.
+- The full tier-1 suite, detached, one process per file, on the release tree.
 - The executable examples, using CONTRIBUTING.md's command with package warnings
   promoted to errors: 383 passed, exit 0.
-- `python -m tests.tier3_licensed.offline`: every matrix 0 differing, 0 orphan, exit 0.
-- mypy recount 2026-09-20: 713 errors in 18 of 97 modules (reports/RPT-029).
+- `python -m tests.tier3_licensed.offline`: unchanged by this patch; last read 2026-09-20,
+  every matrix 0 differing, 0 orphan, exit 0.
+- mypy recount 2026-09-22: 713 errors in 18 of 97 modules, unchanged by this patch
+  (reports/RPT-029).
+- THE DEFECT ITSELF, on the two real logs that reported it: the shipped 0.25.0 detector
+  raises on one and the patched one returns an unread-step verdict that keeps the
+  windows not covering it. Measured through the BUILT WHEEL in a clean virtual
+  environment, not only through the source tree.
 - Review: round 1 and round 2 as codex lens passes, REL-0250_rounds.ledger VERIFIED,
   2 rounds, 31 findings; a release-tail review over the release commits (5 findings, all
   fixed); and THE INDEPENDENT REVIEW OF GitHub main at 7fddf7b (6 findings: three
@@ -137,28 +145,24 @@ Readings of 2026-09-20, each status read from the process:
 
 ## What this release carries
 
-The change log's `[0.25.0]` section is the record, and `docs/migrating-to-0.25.0.md`
-says what a reader of existing files must know. In one line each:
+In one line each:
 
-- **A refusal that protects a run:** a pproc carrying `[time_averaging]` is refused at
-  PLAN on any build where `SOLVER_TIME_AVERAGING` is not recorded verified, which is
-  every build today, because the licensed verification measured it HANGING 26.124.
-- **The probe source follows the run type:** an unsteady row samples every `[[probes]]`
-  entry through fluid plots, and its table is the plots history.
-- **One sections file and one cp file per distribution**, named for the alias or the
-  concatenated families, for every exported step when per-step export is on.
-- **Surface flow in VTK and CSV**, off by default, validated against the build's
-  command database.
-- **Fourteen advanced solver settings** have a setup key of their own.
-- **`post` reads a simulation recorded with 0.24.0**, whose records carry none of the
-  new fields.
-- **Structure without behaviour change:** one phase-locked policy, one MRP reader, two
-  ledger deprecations, and `post/products.py` split into `provenance` and
-  `custom_polar`.
+- **The post stage survives a log the solver stopped under.** `pyfs-matrix collect`
+  died with a traceback and `pyfs-matrix post` printed one line and wrote nothing;
+  both walked campaigns recorded with 0.24.0.
+- **The blocks the solver did finish are still judged**, and only the averages whose
+  window covers an unread step are refused, by name, with what would settle them.
+- **A freeze beside an unread block is not lost**: both steps are reported unread, so
+  the average falls rather than being published from half the evidence.
+- **The compatibility removals move from 0.26.0 to 0.27.0**, which the development tree
+  already carried and which therefore ships here rather than waiting.
 
 ## What the licensed campaign measured, and what it did not
 
-The licensed campaign of this release is the C01 verification under `reports/pfs0250/`.
+NO SEAT WAS SPENT ON THIS PATCH. Its evidence is two native logs a user supplied from her
+own runs, one from the cluster and one from Windows, replayed against the detector here.
+
+The licensed campaign of 0.25.0 is the C01 verification under `reports/pfs0250/`.
 On FlightStream 26.124, with receipts carrying the executable's digest: the script the
 package writes, WITHOUT `SOLVER_TIME_AVERAGING`, exited 0 in 133.0 seconds with all seven
 outputs and its final log export; WITH that one line, in the position the package emits
@@ -184,4 +188,4 @@ by this release.
 - The items registered for 0.26.0 in REL-0250_rounds.ledger, with their reasons.
 - The owner's open questions of this release are registered in the ledger and are
   summarised to her after the goal's checker proves, per her mandate of 2026-09-19.
-- The Zenodo version DOI of v0.25.0 is owed one commit after the tag.
+- The Zenodo version DOI of v0.25.1 is owed one commit after the tag.

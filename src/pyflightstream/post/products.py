@@ -236,6 +236,7 @@ from pyflightstream.results import (
     FrozenSolve,
     LoadsReport,
     MalformedOutputError,
+    UnjudgeableSolve,
     UnsteadyPlotsReport,
     frozen_time_steps,
     labeled_value,
@@ -1430,6 +1431,8 @@ def rotor_plot_source(
     refused: str | None = None
     generated = f"{ROTOR_PLOT_GROUP_PREFIX}{alias}"
     generated_is_declared = False
+    #: The group that takes the generated name, and the frame it takes it in.
+    taken_by: tuple[str, str] | None = None
     plots = getattr(pproc, "plots", None)
     components_declared = set(getattr(plots, "parameters", ()) or ()) & set(AXES_PLOT_COMPONENTS)
     is_blade = getattr(pproc, "is_blade", lambda _name: False)
@@ -1438,7 +1441,7 @@ def rotor_plot_source(
         name = str(getattr(group, "name", ""))
         named = group.families if isinstance(group.families, list) else [group.families]
         # Expanding rotor frames label their emissions with the cited rotor.
-        generated_is_declared |= _plot_name_can_emit(
+        took = _plot_name_can_emit(
             name,
             generated,
             group.families if frame in {"SMRP", "RMRP"} else (),
@@ -1447,18 +1450,24 @@ def rotor_plot_source(
             aliases=aliases,
             frame=frame,
         )
+        generated_is_declared |= took
+        if took and taken_by is None:
+            taken_by = (name, frame)
         try:
             resolved = select_families(group.families, list(inventory), is_blade, aliases)
         except PyflightstreamError:
             continue
         if frame not in {"SMRP", "RMRP"}:
-            generated_is_declared |= _plot_name_can_emit(
+            took = _plot_name_can_emit(
                 name,
                 generated,
                 [family for selected in resolved for family in selected],
                 inventory=inventory,
                 is_blade=is_blade,
             )
+            generated_is_declared |= took
+            if took and taken_by is None:
+                taken_by = (name, frame)
         if frame != "MRP":
             if "{family}" in name and alias in {str(member) for member in named}:
                 refused = (
@@ -1479,6 +1488,23 @@ def rotor_plot_source(
     # already emitted names when adding its automatic plots.
     if not (generated_is_declared and components_declared):
         candidates.append(generated)
+    elif not candidates and refused is None and taken_by is not None:
+        # THE NAME IS TAKEN AND NOTHING ELSE CAN SERVE, which left the caller
+        # with no candidate at all and a message that named none. Measured on a
+        # real pproc declaring `ROTOR_{family}` in `SMRP`: the run wrote
+        # `FX_ROTOR_PUSHER` in the rotor's own frame, the automatic global-MRP
+        # plot of that name was therefore not added, and eight rotor tables were
+        # refused without a word a reader could act on (2026-09-22).
+        declared, declared_frame = taken_by
+        refused = (
+            f"the pproc's plot group {declared!r} already emits {generated!r} in the frame "
+            f"{declared_frame}, which is the rotor's own, so the run did not add its automatic "
+            f"{generated!r} in the global MRP frame and this run has no global-frame history of "
+            f"rotor {alias!r} at all. No post-processing can recover it. Rename that group to a "
+            f"name that is not {generated!r} (for example 'SHAFT_{{family}}'), or declare a plot "
+            f'group over exactly the rotor\'s families with frame = "MRP"; either way the rotor '
+            "table returns on the next run"
+        )
     return candidates, refused
 
 
@@ -1561,10 +1587,22 @@ def _surface_export_skip(entry: Mapping[str, object], frozen: FrozenSolve | None
 
 
 def _frozen_window_reason(frozen: FrozenSolve | None, window: Sequence[int]) -> str | None:
-    """Explain why an average reaches the frozen part of a solve."""
+    """Explain why an average reaches the frozen, or the unreadable, part of a solve."""
     # cases.windows and the products' STEP use inclusive 1-based time steps,
     # just like the log's (k/N): there is no offset and no inner-iteration mapping.
-    if frozen is not None and window[1] >= frozen.first_step:
+    if frozen is None:
+        return None
+    if isinstance(frozen, UnjudgeableSolve):
+        # AN UNREAD BLOCK SAYS NOTHING ABOUT THE STEPS AROUND IT, which is the
+        # whole difference from a freeze: a freeze contaminates every step after
+        # its first, while a block the solver stopped under leaves its
+        # neighbours exactly as measurable as they were. So this refuses a
+        # window only when an unread step falls INSIDE it.
+        inside = [step for step in frozen.steps if window[0] <= step <= window[1]]
+        if not inside and frozen.steps:
+            return None
+        return f"{frozen.reason}; averaging window spans steps {window[0]} to {window[1]}"
+    if window[1] >= frozen.first_step:
         return f"{frozen.reason}; averaging window spans steps {window[0]} to {window[1]}"
     return None
 
@@ -4324,7 +4362,7 @@ def _sim_products(
         record_of[stem] = record
         log_path = by_name.get(kinds.get("log", ""))
         if log_path is not None and log_path.is_file():
-            frozen = frozen_time_steps(log_path.read_text(encoding="utf-8", errors="replace"))
+            frozen = freeze_of_log(log_path)
             if frozen is not None:
                 frozen_points[stem] = frozen
         vinf = report.freestream_velocity_m_s
@@ -5315,6 +5353,45 @@ def _refuse_aliases_a_file_name_cannot_tell_apart(
     )
 
 
+def freeze_of_log(log_path: Path) -> FrozenSolve | None:
+    """Return this point's freeze verdict, or None, and never raise for the log.
+
+    THE POST STAGE MUST SURVIVE A LOG IT CANNOT READ. The detector refuses a
+    residual table that ends mid-write, which is what a stopped or killed run
+    leaves behind; until 2026-09-22 that exception travelled out of
+    `write_campaign_products` and ended the campaign's whole post, so ONE cut
+    log cost every product of every simulation after it. It was measured on a
+    cluster campaign recorded with 0.24.0 and posted with 0.25.0 (2026-09-22).
+
+    An unreadable log returns `UnjudgeableSolve`, which refuses this point's
+    averages by name and leaves its histories and instants alone.
+    """
+    try:
+        text = log_path.read_text(encoding="utf-8", errors="replace")
+    except OSError as error:
+        return UnjudgeableSolve(
+            first_step=1, count=0, steps=(), detail=f"the log cannot be read: {error}"
+        )
+    # THE BLOCKS THE SOLVER DID FINISH ARE STILL EVIDENCE, and on a real log they
+    # are nearly all of it: the one measured here carries 144 step blocks of which
+    # exactly ONE cannot be read, a header the walltime guard stopped under. A
+    # freeze found in the readable blocks wins, because it is evidence; otherwise
+    # the unreadable steps are named and only the windows containing them lose
+    # their averages.
+    unjudged: list[int] = []
+    verdict = frozen_time_steps(text, unjudged=unjudged)
+    if verdict is not None:
+        return verdict
+    if unjudged:
+        return UnjudgeableSolve(
+            first_step=min(unjudged),
+            count=len(unjudged),
+            steps=tuple(sorted(set(unjudged))),
+            detail="a residual block ends without its closing separator line",
+        )
+    return None
+
+
 def _point_reductions(
     plots_table: Path,
     plan: Mapping[str, object] | None,
@@ -5729,9 +5806,11 @@ def write_campaign_products(
                 log_name = kinds.get("log")
                 log_path = workspace.sim_dir(point_record.sim_id) / log_name if log_name else None
                 if log_path is not None and log_path.is_file():
-                    frozen_failure = (
-                        frozen_time_steps(log_path.read_text(encoding="utf-8", errors="replace"))
-                        is not None
+                    # An unreadable log is not a freeze to post: it stays out,
+                    # as it did before, but it no longer raises here either.
+                    verdict = freeze_of_log(log_path)
+                    frozen_failure = verdict is not None and not isinstance(
+                        verdict, UnjudgeableSolve
                     )
             if frozen_failure or point_record.status in (
                 RunStatus.CONVERGED,
@@ -5900,9 +5979,7 @@ def _write_the_products(
             if record.surface_time_averaging is not None and "log" in output_kinds:
                 log_path = workspace.sim_dir(sim_id) / output_kinds["log"]
                 if log_path.is_file():
-                    surface_freeze = frozen_time_steps(
-                        log_path.read_text(encoding="utf-8", errors="replace")
-                    )
+                    surface_freeze = freeze_of_log(log_path)
             for kind, name in output_kinds.items():
                 if kind not in ("tecplot", "vtk", "csv"):
                     continue

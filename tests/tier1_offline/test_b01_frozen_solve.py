@@ -282,3 +282,77 @@ def test_a_frozen_passage_does_not_take_the_passages_that_end_before_it(tmp_path
     partial = manifest["skipped"][f"{name}#windows"]
     assert "step 60" in partial
     assert "60" in partial and "61" in partial
+
+
+def _cut_the_log_mid_table(workspace) -> None:
+    """Leave the last residual page without its closing separator, as a killed run does."""
+    log_path = workspace.sim_dir("7001") / "datapoints/DP-AL-020/AL-020_log.txt"
+    text = log_path.read_text(encoding="latin-1")
+    marker = text.rfind("Solving unsteady time-step iteration")
+    page = text.index("Iteration", marker)
+    log_path.write_text(text[: page + 260], encoding="latin-1")
+
+
+@pytest.mark.parametrize("row", [2411, 2413])
+def test_a_log_the_solver_stopped_under_does_not_kill_the_whole_post(tmp_path, row):
+    """Measured on the cluster and on Windows alike, 2026-09-22.
+
+    `pyfs-matrix collect` and `pyfs-matrix post` both died with
+    IncompleteOutputError out of `frozen_time_steps`: the freeze check reads the
+    native log, and a block the solver stopped under has a residual header with
+    no rows and no closing rule. The exception left `write_campaign_products`,
+    so ONE such block cost every product of every simulation.
+    """
+    workspace = _post_workspace(tmp_path / str(row), row, (58, 60))
+    _cut_the_log_mid_table(workspace)
+    write_campaign_products(workspace)  # must not raise
+    manifest = _products_manifest(workspace)
+    assert "probes/AL-020_plots.csv" in manifest["products"]
+    assert manifest["products"]["sections/AL-020_sections.csv"]["kind"] == "instant"
+
+
+def test_an_unreadable_step_refuses_only_the_windows_it_falls_in(tmp_path):
+    """The real log decided this, against the first version of this test.
+
+    It carries 144 step blocks and exactly ONE cannot be read -- the second
+    block of step 1, a header the walltime guard stopped under -- while a second
+    attempt runs to step 72 and parses to the end. Refusing every average of
+    that point would be far more than the evidence requires. An unread block
+    says nothing about the steps around it, which is exactly what a freeze does
+    not: a freeze contaminates every step after its first.
+    """
+    kept = _post_workspace(tmp_path / "before", 2411, (58, 60))
+    _cut_the_log_mid_table(kept)  # the unreadable block is step 61
+    write_campaign_products(kept)
+    name = "probes/AL-020_time_average.csv"
+    manifest = _products_manifest(kept)
+    assert name in manifest["products"], manifest["skipped"]
+    assert manifest["products"][name]["windows"] == [[58, 60]]
+
+    covered = _post_workspace(tmp_path / "covering", 2411, (58, 61))
+    _cut_the_log_mid_table(covered)
+    write_campaign_products(covered)
+    manifest = _products_manifest(covered)
+    assert name not in manifest["products"], "an average was published over a step nobody read"
+    assert "cannot be read for time step(s) 61" in manifest["skipped"][name]
+
+
+def test_a_freeze_in_the_readable_blocks_still_refuses_everything_after_it(tmp_path):
+    """Tolerating an unreadable block may not cost the detector a freeze it CAN see.
+
+    Row 2413 freezes at step 60. With its last block unreadable, the freeze is
+    still in the blocks that parse, and it wins: the reason is the freeze, not
+    the unread step, and the window is refused for it.
+    """
+    workspace = _post_workspace(tmp_path, 2413, (58, 60))
+    _cut_the_log_mid_table(workspace)
+    write_campaign_products(workspace)
+    manifest = _products_manifest(workspace)
+    name = "probes/AL-020_time_average.csv"
+    assert name not in manifest["products"], "an average of a frozen solve was published"
+    # Step 60 froze and step 61 could not be read, so the pair may be the freeze
+    # the detector needs two consecutive steps to declare. It is named as unread
+    # rather than asserted as frozen -- what matters is that the average over it
+    # is refused, which is what a silent publish would have cost her.
+    assert "60" in manifest["skipped"][name]
+    assert "cannot be read for time step(s)" in manifest["skipped"][name]

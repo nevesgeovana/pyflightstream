@@ -7,17 +7,12 @@ FlightStream versions.
 
 ## [Unreleased]
 
-### Changed
-
-- The seven compatibility removals due at 0.26.0 move to **0.27.0** so existing
-  workspaces remain readable through the 0.26 development cycle: the `iteration=`
-  alias of `write_sections_table`, `run.assess_unsteady_from_plots`, the three
-  `WINDOW_*` aliases, pproc group-member lists, and the `broken_commands` manifest
-  key. Warnings and current documentation name the new deadline. Recorded run
-  manifests are not rewritten, and their compatibility reader remains available.
-
 ### Owed
 
+- **The Zenodo archive row of v0.25.1 is owed.** A version DOI is minted from
+  the GitHub release object and recorded one commit after the tag, so between
+  the tag and that commit this release has no archive row; cite the concept DOI
+  until it lands.
 - **The Zenodo archive of v0.14.0 DOES NOT EXIST**, re-measured against
   Zenodo's own API on 2026-09-14, when the v0.18.0 archive row was paid: the
   concept record lists NINETEEN archived versions and v0.14.0 is not among
@@ -31,6 +26,64 @@ FlightStream versions.
   Until that row lands this section says so, because a shipped release that
   quietly stops being citable is the gap PFS-2024.09 is about. Cite that
   release by the concept DOI, which resolves to the newest archived version.
+
+## [0.25.1] - 2026-09-22
+
+A PATCH RELEASE FOR ONE DEFECT THAT STOPS THE POST STAGE DEAD, measured on a
+cluster and on Windows within an hour of each other, on campaigns recorded with
+0.24.0 and posted with 0.25.0.
+
+### Changed
+
+- The seven compatibility removals due at 0.26.0 move to **0.27.0** so existing
+  workspaces remain readable through the 0.26 development cycle: the `iteration=`
+  alias of `write_sections_table`, `run.assess_unsteady_from_plots`, the three
+  `WINDOW_*` aliases, pproc group-member lists, and the `broken_commands` manifest
+  key. Warnings and current documentation name the new deadline. Recorded run
+  manifests are not rewritten, and their compatibility reader remains available.
+  IT SHIPS HERE rather than in 0.26.0 because this patch is cut from the
+  development tree that already carried it, and a change a user can observe may
+  not sit in an Unreleased section while a release built from the same tree
+  answers to a number (the version-identity guard, REV010-015).
+
+### Fixed
+
+- **A residual block the solver stopped under no longer ends the whole post.**
+  The freeze check of 0.25.0 reads the native log, and a run stopped by its
+  walltime guard, killed, or aborted leaves a residual header with no rows and
+  no closing rule under it. `frozen_time_steps` refuses such a table, by
+  design, and the post stage let that refusal travel: `pyfs-matrix collect`
+  died with `IncompleteOutputError` and its traceback, `pyfs-matrix post`
+  printed the one-line message and wrote NOTHING. One unreadable block cost
+  every product of every simulation, which is the opposite of this package's
+  rule that a point that cannot be judged loses its own products and no more.
+- **The blocks the solver did finish are still judged.** A real log measured
+  here carries 144 step blocks of which exactly ONE cannot be read; the steps
+  around it are as measurable as they ever were. The post stage now reads the
+  log tolerantly, names the time steps it could not read, and refuses ONLY the
+  averages whose window covers one of them, under the file's own name with the
+  reason and what would settle it. Histories, instants and every other product
+  of the point are untouched.
+- **A freeze beside an unreadable block is not lost.** A freeze needs two
+  consecutive frozen steps, so a step that froze with its neighbour unreadable
+  would have vanished into silence and its average published. Both steps are
+  reported as unread instead, and the windows covering either lose their
+  averages.
+- **A refused rotor table names the plot group that took its name.** Where a
+  pproc declares a group that emits `ROTOR_<ALIAS>` in the rotor's own frame
+  (`SMRP` or `RMRP`), the run does not add its automatic `ROTOR_<ALIAS>` in the
+  global MRP frame, because two plots cannot share a name -- and the rotor table
+  then had no source and was refused with "looked for none", which names nothing
+  a reader can act on. Eight rotor tables across two campaigns were refused that
+  way. The refusal now names the declaring group, its frame, and what to rename
+  it to. NOTHING IS RECOVERED BY POST-PROCESSING: a run whose global-frame rotor
+  history was never written does not have it, and the message says so.
+- `results.frozen_time_steps` gains an opt-in `unjudged` list. Given one, it
+  skips a block it cannot read and records the step; without one it raises
+  exactly as before, which is what the collect path needs to record
+  `FAILED_INCOMPLETE_OUTPUT` (FR-17). `results.UnjudgeableSolve` is the verdict
+  such a log earns, and it is a `FrozenSolve`, so a reader that knows only the
+  older type refuses rather than accepts.
 
 ## [0.25.0] - 2026-09-20
 
@@ -11229,7 +11282,8 @@ the repository seeding and this tag (milestones M0 through M5).
 * 26.000: registered, no recorded evidence yet (honest empty column;
   backfill planned for v0.2+).
 
-[Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.25.0...HEAD
+[Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.25.1...HEAD
+[0.25.1]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.25.1
 [0.25.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.25.0
 [0.24.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.24.0
 [0.23.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.23.0
