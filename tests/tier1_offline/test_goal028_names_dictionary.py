@@ -195,14 +195,16 @@ def test_the_dictionary_is_checked_when_an_azimuthal_reduction_loads_the_history
         _unsteady_workspace,
     )
 
-    plan = {
-        **ROTOR_PLAN,
-        "phase_locked": {
-            **ROTOR_PLAN["phase_locked"],
-            "shape": AZIMUTHAL,
-            "revolutions": 1.0,
-            "steps_per_revolution": 2.0,
-        },
+    # NO `time_average`: it loads and validates the history BEFORE the azimuthal
+    # entry runs, so a plan that keeps it never reaches the early load this test
+    # is about -- measured by the QA lens, which found this case inert
+    # (2026-09-22). The azimuthal entry must be the FIRST to touch the history.
+    plan = {key: value for key, value in ROTOR_PLAN.items() if key not in {"time_average"}}
+    plan["phase_locked"] = {
+        **ROTOR_PLAN["phase_locked"],
+        "shape": AZIMUTHAL,
+        "revolutions": 1.0,
+        "steps_per_revolution": 2.0,
     }
     workspace = _unsteady_workspace(tmp_path, reductions=plan)
     (workspace.inputs_dir / "pproc" / "p001.toml").write_text(

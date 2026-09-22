@@ -460,9 +460,12 @@ def clock_rotor_facts(
                 speeds[str(turned)] = float(block["rpm"])
     named = str((getattr(matrix_row, "variables", {}) or {}).get("CLOCK_MOTION", "") or "").strip()
     alias: str | None = None
-    if named and named in speeds:
-        alias = named
-    elif len(speeds) == 1:
+    if named:
+        # CASE-FOLDED, as the planner matches it: a row planning happily with
+        # `CLOCK_MOTION = lift` and recording `LIFT` published NA in both
+        # columns (both lenses, 2026-09-22).
+        alias = next((turned for turned in speeds if turned.casefold() == named.casefold()), None)
+    if alias is None and len(speeds) == 1:
         alias = next(iter(speeds))
     rpm: float | None = None
     if alias is not None:
@@ -473,8 +476,13 @@ def clock_rotor_facts(
     diameter: float | None = None
     blocks = getattr(artifact, "rotors", None) or {}
     if isinstance(blocks, Mapping):
-        if alias is not None and alias in blocks:
-            span = getattr(blocks[alias], "diameter_m", None)
+        declared = (
+            None
+            if alias is None
+            else next((name for name in blocks if str(name).casefold() == alias.casefold()), None)
+        )
+        if declared is not None:
+            span = getattr(blocks[declared], "diameter_m", None)
             diameter = float(span) if isinstance(span, int | float) else None
         elif len(blocks) == 1:
             span = getattr(next(iter(blocks.values())), "diameter_m", None)
@@ -2089,7 +2097,11 @@ def _rotor_tables(
                     "surfaces": surfaces,
                     "aliases": aliases,
                     "instant": instant,
-                    "condition": point_condition(point, mach=record.mach or 0.0),
+                    "condition": point_condition(
+                        point,
+                        mach=record.mach or 0.0,
+                        clock=clock_rotor_facts(record, matrix_row, artifact),
+                    ),
                     "rpm": rpm,
                     "density": float(density),
                     "speed": float(speed),
@@ -5366,6 +5378,10 @@ def _point_series(
     # leaves the cells `NA`; the series rest on the stamped files and are still
     # written.
     condition: Mapping[str, object] | None = None
+    # BOUND BEFORE THE BRANCH THAT FILLS THEM: a loads table that is not on disk
+    # leaves the point unbuilt, and the clock block below reads both.
+    point: PolarPoint | None = None
+    cell: Mapping[str, object] | None = None
     loads_path = workspace.sim_dir(sim_id) / next(
         (o for o in record.outputs if Path(o).name == loads_name), loads_name
     )
@@ -5383,12 +5399,21 @@ def _point_series(
                 state=point_state(record),
             )
             cell = record.flight_condition if isinstance(record.flight_condition, Mapping) else None
-            if record.mach is not None:
-                condition = point_condition(point, mach=record.mach, cell=cell)
     reference = (
         ReferenceValues.from_mapping(record.reference).as_lengths() if record.reference else None
     )
     live = _live_reference(workspace, matrix_row)
+    if point is not None and record.mach is not None:
+        # THE CLOCK COLUMNS REACH THIS FAMILY TOO. Both lenses measured the
+        # rotor table and the per-step series carrying neither while the polar
+        # beside them carried both, which is the drift the shared condition
+        # exists to prevent (2026-09-22).
+        condition = point_condition(
+            point,
+            mach=record.mach,
+            cell=cell,
+            clock=clock_rotor_facts(record, matrix_row, live),
+        )
     aliases = getattr(live, "aliases", None) or record.aliases
     surface_exports: dict[str, dict[str, object]] = {}
     split_skips = skipped if skipped is not None else {}

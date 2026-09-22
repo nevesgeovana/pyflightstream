@@ -109,3 +109,20 @@ def test_a_row_that_records_no_rotor_states_neither():
     condition = point_condition(_Point(), mach=0.18, clock={"alias": None, "rpm": None})
     assert "RPM_CLOCK" not in condition
     assert "J_CLOCK" not in condition
+
+
+def test_the_clock_name_is_matched_the_way_the_planner_matches_it():
+    """Both lenses, 2026-09-22: the planner folds the case and this did not.
+
+    `cases.workflows` resolves CLOCK_MOTION against the rotors it turns with
+    `alias.casefold() == clock.casefold()`, so a row writing `lift` plans
+    happily and records `LIFT`. Matching exactly here published NA in both
+    columns for a campaign that had named its clock perfectly well.
+    """
+    record = _Record({"rotors": {"LIFT": {"rpm": 1200.0}, "PUSHER": {"rpm": -7585.0}}})
+    artifact = _Artifact({"LIFT": _Rotor(2.0), "PUSHER": _Rotor(1.2)})
+    facts = clock_rotor_facts(record, _Row({"CLOCK_MOTION": "lift"}), artifact)
+    assert facts == {"alias": "LIFT", "rpm": 1200.0, "diameter_m": 2.0}, facts
+    # and the diameter is found under the reference's own spelling too
+    mixed = _Artifact({"Lift": _Rotor(2.0), "PUSHER": _Rotor(1.2)})
+    assert clock_rotor_facts(record, _Row({"CLOCK_MOTION": "LIFT"}), mixed)["diameter_m"] == 2.0
