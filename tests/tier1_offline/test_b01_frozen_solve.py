@@ -111,7 +111,7 @@ def test_collect_persists_frozen_failure_and_reason(tmp_path):
             assert record.log_file_used == "run_log.txt"
 
 
-def _post_workspace(tmp_path, row, window, *, rotor=False, passages=None):
+def _post_workspace(tmp_path, row, window, *, rotor=False, passages=None, status=None):
     plan = {
         "time_iterations": 61,
         "window_stated": True,
@@ -123,7 +123,11 @@ def _post_workspace(tmp_path, row, window, *, rotor=False, passages=None):
         # shape a rotor row has and the only one where a freeze can reach
         # some windows of a file and not others.
         "per_blade": {"windows": [list(w) for w in (passages or [window])]},
-        "phase_locked": {"windows": [list(window)]},
+        # THE REVOLUTION TRAVELS WITH THE ENTRY, as a real plan carries it:
+        # the phase-locked average interpolates at moments up to one
+        # revolution before its first step, and the window judged for it
+        # cannot be widened without knowing how long a revolution is.
+        "phase_locked": {"windows": [list(window)], "steps_per_revolution": 4.0},
     }
     # Use the existing stage fixture's record and pproc, then collect all
     # evidence beside the loads in the current datapoint layout.
@@ -148,6 +152,13 @@ def _post_workspace(tmp_path, row, window, *, rotor=False, passages=None):
         for name in ("AL-020.txt", "AL-020_plots.txt", "AL-020_log.txt", "AL-020_sloads.txt")
     ]
     fields = record.model_dump(exclude={"outputs"})
+    if status is not None:
+        # A FAILED point is admitted to the post stage only when its log PROVES
+        # the freeze, and that branch is not reached by a CONVERGED record: the
+        # first version of the regression below inherited one and passed against
+        # the very tree it was written to fail (the QA lens, 2026-09-22).
+        fields["status"] = status
+        fields["error"] = "frozen solve: first frozen time step 60; 2 frozen steps"
     if rotor:
         from tests.tier1_offline.test_goal028_rotor_table_average import REFERENCE, _pproc
 
@@ -413,18 +424,38 @@ def test_a_per_blade_table_that_loses_an_end_passage_keeps_its_product(tmp_path)
     assert manifest["products"][name]["windows"] == [[58, 59]]
 
 
-def test_a_frozen_point_whose_log_also_has_an_unread_block_is_still_posted(tmp_path):
-    """GH-2 of the independent review of GitHub main, 2026-09-22.
+def test_a_frozen_failed_point_with_an_unread_block_keeps_what_the_freeze_did_not_touch(tmp_path):
+    """GH-2 of the independent review, through the branch it is about.
 
     A FAILED_DIVERGED record is admitted to the post stage when its log PROVES
-    the freeze. Excluding every unjudgeable verdict removed the point entirely
-    once one block of a frozen log could not be read, so its histories, instants
-    and the averages that end before the freeze disappeared before their own
-    checks could run.
+    the freeze. Excluding every unjudgeable verdict removed the point once
+    another block of that log could not be read, so its histories and instants
+    disappeared before their own checks could run.
     """
-    workspace = _post_workspace(tmp_path, 2413, (58, 59))
+    workspace = _post_workspace(tmp_path, 2413, (58, 59), status=RunStatus.FAILED_DIVERGED)
     _make_one_step_unreadable(workspace, 59)
     write_campaign_products(workspace)
     manifest = _products_manifest(workspace)
     assert "probes/AL-020_plots.csv" in manifest["products"], manifest["skipped"]
     assert manifest["products"]["sections/AL-020_sections.csv"]["kind"] == "instant"
+
+
+def test_a_phase_locked_product_is_refused_for_a_step_only_its_interpolation_reads(tmp_path):
+    """GH-1 of the independent review, at the product boundary rather than the helper.
+
+    The phase-locked average interpolates at moments up to one revolution before
+    its first step. With four steps per revolution and a window of [60, 61], it
+    reads back to step 56, so an unread step 58 feeds it -- while the time
+    average over the same [60, 61] reads only its own steps and keeps its
+    product. Calling the helper alone left this green with the helper
+    disconnected (the QA lens, 2026-09-22).
+    """
+    workspace = _post_workspace(tmp_path, 2411, (60, 61))
+    _make_one_step_unreadable(workspace, 58)
+    write_campaign_products(workspace)
+    manifest = _products_manifest(workspace)
+    phase_locked = "probes/AL-020_phase_locked.csv"
+    time_average = "probes/AL-020_time_average.csv"
+    assert phase_locked not in manifest["products"], "an unread step fed a published average"
+    assert "58" in manifest["skipped"][phase_locked], manifest["skipped"][phase_locked]
+    assert time_average in manifest["products"], manifest["skipped"]
