@@ -1697,6 +1697,21 @@ def _surface_export_skip(entry: Mapping[str, object], frozen: FrozenSolve | None
     return None
 
 
+def _the_plan_of_a_reduction(
+    plan: Mapping[str, object] | None, rotor: str | None
+) -> Mapping[str, object] | None:
+    """Return the plan block a reduction is about: the rotor's own, or the row's.
+
+    A row turning several rotors keeps each one's blades, clock and speed under
+    `rotors[<alias>]`, and the top level then states none of them.
+    """
+    if rotor is None or not isinstance(plan, Mapping):
+        return plan
+    blocks = plan.get(ROTORS_KEY)
+    own = blocks.get(rotor) if isinstance(blocks, Mapping) else None
+    return own if isinstance(own, Mapping) else plan
+
+
 def _blade_offsets(plan: Mapping[str, object] | None, per_revolution: float) -> list[float]:
     """Return how many steps before blade one each blade column is sampled.
 
@@ -1764,11 +1779,20 @@ def _window_the_reduction_reads(
     last = float(window[-1])
     opening = last - revolutions * span
     tolerance = 1e-9 * span
+    # EVERY AZIMUTH, not only the last one. The reducer writes one row per step
+    # of the final revolution, and each blade samples each of them: with three
+    # steps per revolution and two blades, the row at azimuth 60 reads 58.5,
+    # which taking `last - offset` alone never reaches (the QA lens,
+    # 2026-09-22).
+    azimuths = range(max(int(math.floor(opening)) + 1, 1), int(last) + 1)
     lowest = last
     for offset in _blade_offsets(plan, span):
-        moment = last - offset
-        steps_back = math.floor((moment - opening - tolerance) / span)
-        lowest = min(lowest, moment - steps_back * span)
+        for azimuth in azimuths:
+            moment = azimuth - offset
+            steps_back = math.floor((moment - opening - tolerance) / span)
+            moment -= steps_back * span
+            if moment > opening + tolerance:
+                lowest = min(lowest, moment)
     ordered = sorted(float(step) for step in plotted)
     below = [step for step in ordered if step <= lowest + tolerance]
     above = [step for step in ordered if step >= last - tolerance]
@@ -5792,7 +5816,11 @@ def _point_reductions(
                         entry,
                         window,
                         () if series is None else series.steps,
-                        plan,
+                        # THE ROTOR'S OWN FACTS where the reduction is one
+                        # rotor's: a per-rotor plan keeps its blades inside
+                        # `rotors[alias]`, and reading the top level returned no
+                        # blade offset at all (the QA lens, 2026-09-22).
+                        _the_plan_of_a_reduction(plan, rotor),
                     ),
                 )
             )

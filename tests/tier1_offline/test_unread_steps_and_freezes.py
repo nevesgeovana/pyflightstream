@@ -170,15 +170,16 @@ def test_a_phase_locked_window_is_judged_over_the_steps_it_reads(verdict_of):
     # reads only its own steps keeps its product
     assert _frozen_window_reason(verdict, declared) is None
     # and the azimuthal reduction is judged over the steps its samples are read
-    # from. With 53 steps per revolution, two blades and two revolutions the
-    # azimuths are steps 148 to 200; blade one's chain descends to 95 and blade
-    # two's to 121.5, so nothing outside the window is read and the support IS
-    # the window. An unread 94 therefore costs this average nothing.
+    # from. EVERY AZIMUTH IS SAMPLED, not only the last: with 53 steps per
+    # revolution, two blades and two revolutions the rows are steps 95 to 200,
+    # and the row at azimuth 121 reads blade two at 94.5 -- so step 94 IS read,
+    # from the plotted steps 94 and 95. Deriving this from the extremes alone
+    # gave 95 twice, and both times it was wrong.
     dense = list(range(1, 201))
     entry = {"steps_per_revolution": 53.0, "revolutions": 2.0, "shape": AZIMUTHAL}
     reads = _window_the_reduction_reads("phase_locked", entry, declared, dense, INTERPOLATING)
-    assert reads == (95, 200), reads
-    assert _frozen_window_reason(verdict, reads) is None, "a clean average was refused"
+    assert reads == (94, 200), reads
+    assert _frozen_window_reason(verdict, reads) is not None, "an unread step fed the average"
 
 
 def test_a_reduction_that_reads_only_its_own_steps_is_judged_over_them(verdict_of):
@@ -211,19 +212,20 @@ def test_the_interpolation_support_is_the_history_and_not_a_revolution(verdict_o
     sparse = [1, *range(95, 201)]
     entry = {"steps_per_revolution": 53.0, "revolutions": 2.0, "shape": AZIMUTHAL}
     reads = _window_the_reduction_reads("phase_locked", entry, (95, 200), dense, INTERPOLATING)
-    assert reads == (95, 200), "no sample of this window falls outside it"
-    # the same samples on a history that plots nothing between 1 and 95 read the
-    # same steps: what a history changes is the BRACKETS, and here every sample
-    # is at or inside 95
+    assert reads == (94, 200), "the row at azimuth 121 reads blade two at 94.5"
+    # the same samples on a history that plots nothing between 1 and 95: the
+    # bracket below 94.5 is then step 1, which no revolution-wide bound finds
     assert _window_the_reduction_reads("phase_locked", entry, (95, 200), sparse, INTERPOLATING) == (
-        95,
+        1,
         200,
     )
 
-    # the consequence, through the judge: an unread step outside is clean
+    # the consequence, through the judge: the declared window is clean, the
+    # support is not
     verdict = verdict_of(_log((92, "live"), (93, "unread"), (94, "live"), (95, "live")))
     assert isinstance(verdict, UnjudgeableSolve), verdict
-    assert _frozen_window_reason(verdict, reads) is None, "a clean average was refused"
+    assert _frozen_window_reason(verdict, (95, 200)) is None, "the declared window is clean"
+    assert _frozen_window_reason(verdict, reads) is None, "step 93 is outside the support"
 
 
 def test_a_passage_series_is_not_widened_because_it_does_not_interpolate():
@@ -242,10 +244,11 @@ def test_a_passage_series_is_not_widened_because_it_does_not_interpolate():
     ) == (60, 61)
     # AND WHERE THE AZIMUTHS REACH BELOW THE DECLARED WINDOW, the azimuthal one
     # is judged over them: three steps per revolution put the final revolution
-    # at steps 59 to 61, so 59 is read although the window says 60.
+    # at steps 59 to 61, and blade two reads 58.5 at the row of azimuth 60, so
+    # the support opens at the plotted step below it.
     azimuthal = {"steps_per_revolution": 3.0, "revolutions": 1.0, "shape": AZIMUTHAL}
     reads = _window_the_reduction_reads("phase_locked", azimuthal, (60, 61), dense, INTERPOLATING)
-    assert reads == (59, 61), reads
+    assert reads == (58, 61), reads
 
 
 def test_the_support_takes_the_plotted_step_above_the_window_too(verdict_of):
@@ -260,18 +263,63 @@ def test_the_support_takes_the_plotted_step_above_the_window_too(verdict_of):
     entry = {"steps_per_revolution": 53.0, "revolutions": 2.0, "shape": AZIMUTHAL}
     gapped = [1, *range(95, 200), 201]
     # the UPPER bracket is what this case is about: the history stops at 199 and
-    # resumes at 201, so the sample at 200 is read from 199 and 201. Below, every
-    # sample is at or inside 95, so the lower end is the window's own.
+    # resumes at 201, so the sample at 200 is read from 199 and 201. Below, the
+    # sample at 94.5 brackets down to step 1, since nothing between is plotted.
     assert _window_the_reduction_reads("phase_locked", entry, (95, 200), gapped, INTERPOLATING) == (
-        95,
+        1,
         201,
     )
     # a history that plots the window's end reads nothing beyond it
     ends_at_window = list(range(94, 201))
     assert _window_the_reduction_reads(
         "phase_locked", entry, (95, 200), ends_at_window, INTERPOLATING
-    ) == (95, 200)
+    ) == (94, 200)
     verdict = verdict_of(_log((199, "live"), (201, "unread")))
     assert isinstance(verdict, UnjudgeableSolve), verdict
     reads = _window_the_reduction_reads("phase_locked", entry, (95, 200), gapped, INTERPOLATING)
     assert _frozen_window_reason(verdict, reads) is not None, "a step above the window was read"
+
+
+def test_every_azimuth_is_sampled_and_not_only_the_last_step():
+    """The QA lens, 2026-09-22, on what the sample bracketing still missed.
+
+    The reducer writes one row per step of the final revolution and each blade
+    samples EVERY one of them. Taking `last - offset` alone reached only the
+    last row's samples: with three steps per revolution and two blades, the row
+    at azimuth 60 reads 58.5, and an unread step 58 fed the published average
+    while the guard reported the window unchanged.
+    """
+    entry = {"steps_per_revolution": 3.0, "revolutions": 1.0, "shape": AZIMUTHAL}
+    dense = list(range(1, 62))
+    reads = _window_the_reduction_reads("phase_locked", entry, (59, 61), dense, INTERPOLATING)
+    assert reads == (58, 61), reads
+
+
+def test_a_per_rotor_reduction_is_judged_by_that_rotors_blades():
+    """The same lens: the blades of a per-rotor plan live under its alias.
+
+    Reading the top level returned no blade offset at all, so a four-blade
+    rotor was judged as though it had one blade and an unread step its samples
+    reach went unnoticed.
+    """
+    from pyflightstream.post.products import _the_plan_of_a_reduction
+
+    plan = {
+        "rotors": {
+            "PUSHER": {
+                "blades": 4,
+                "blade_families": ["B1", "B2", "B3", "B4"],
+                "rpm": 2200.0,
+            }
+        }
+    }
+    own = _the_plan_of_a_reduction(plan, "PUSHER")
+    assert own == plan["rotors"]["PUSHER"], own
+    assert _the_plan_of_a_reduction(plan, None) is plan, "a row-level reduction keeps the row's"
+
+    entry = {"steps_per_revolution": 3.0, "revolutions": 1.0, "shape": AZIMUTHAL}
+    dense = list(range(1, 62))
+    assert _window_the_reduction_reads("phase_locked", entry, (59, 61), dense, own) == (58, 61)
+    assert _window_the_reduction_reads("phase_locked", entry, (59, 61), dense, plan) == (59, 61), (
+        "the top level states no blades, and a judge that reads it sees one blade"
+    )
