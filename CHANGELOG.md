@@ -76,7 +76,9 @@ cluster and on Windows within an hour of each other, on campaigns recorded with
   declared window does not name: it interpolates at moments up to one
   revolution before its first step, so that revolution is judged with it. An
   unread step there moved a published average while the manifest stated a clean
-  window.
+  window. The guard is proved on the passage-series product and, by the
+  reviewer's own probe, on the azimuthal one; a committed test of the azimuthal
+  path is owed (`reports/RPT-056`).
 - **A point whose log proves a freeze is still posted** for everything the
   freeze does not touch, even when another block of that log cannot be read.
   Excluding it removed its histories, instants and earlier averages before
