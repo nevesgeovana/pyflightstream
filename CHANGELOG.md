@@ -78,6 +78,17 @@ cluster and on Windows within an hour of each other, on campaigns recorded with
   way. The refusal now names the declaring group, its frame, and what to rename
   it to. NOTHING IS RECOVERED BY POST-PROCESSING: a run whose global-frame rotor
   history was never written does not have it, and the message says so.
+- **A window is refused exactly when it touches an unread step**, and a
+  confirmed freeze no longer discards them: a log can hold both kinds of
+  evidence and the verdict carries both, so a window before the freeze and over
+  an unread block is refused too. The neighbour rule runs in BOTH directions and
+  only across consecutive step numbers, so a frozen step after an unread block
+  is unread as well, and a frozen step separated from one by a gap is not.
+- **The per-blade table never bridges a refused passage.** It states ONE window
+  collapsed from its passages, so dropping a refused passage BETWEEN two kept
+  ones and collapsing the rest averaged the steps the refusal had just removed.
+  It now refuses whole and says why; passages lost from an END still keep their
+  product, which is what the definitions page asks.
 - `results.frozen_time_steps` gains an opt-in `unjudged` list. Given one, it
   skips a block it cannot read and records the step; without one it raises
   exactly as before, which is what the collect path needs to record

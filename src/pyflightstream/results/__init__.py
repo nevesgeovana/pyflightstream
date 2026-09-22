@@ -1418,16 +1418,25 @@ class UnjudgeableSolve(FrozenSolve):
     """
 
     steps: tuple[int, ...] = ()
+    #: The first step of a freeze confirmed in the blocks that WERE read, if any.
+    #: A log can hold both kinds of evidence, and returning only one of them
+    #: published averages over the other (the push review, 2026-09-22).
+    frozen_from: int | None = None
     detail: str = ""
 
     @property
     def reason(self) -> str:
         """Say what could not be read and what would settle it."""
         named = ", ".join(str(step) for step in self.steps) or str(self.first_step)
+        frozen = (
+            f"; the blocks that WERE read show a frozen solve from time step {self.frozen_from}"
+            if self.frozen_from is not None
+            else ""
+        )
         return (
             f"the native log cannot be read for time step(s) {named}, so the freeze check "
             "could not run over them and an average covering them cannot be shown to avoid a "
-            "frozen solve"
+            f"frozen solve{frozen}"
             + (f": {self.detail}" if self.detail else "")
             + ". The solver stopped mid-write there; recollect that log, or run the point "
             "again, and the average returns on its own."
@@ -1466,6 +1475,8 @@ def frozen_time_steps(log_text: str, *, unjudged: list[int] | None = None) -> Fr
     count = 0
     streak = 0
     previous: int | None = None
+    #: The last step whose block could not be read, for the successor rule.
+    unread: int | None = None
     for index, marker in enumerate(markers):
         step = int(marker[1])
         end = markers[index + 1].start() if index + 1 < len(markers) else len(clean)
@@ -1481,13 +1492,17 @@ def frozen_time_steps(log_text: str, *, unjudged: list[int] | None = None) -> Fr
                 raise
             # A FROZEN STEP NEXT TO AN UNREAD ONE IS A FREEZE NOBODY CAN RULE OUT.
             # A freeze needs two consecutive frozen steps, so a step that froze
-            # with its successor unreadable would otherwise vanish: measured on
+            # with its neighbour unreadable would otherwise vanish: measured on
             # the 2413 fixture, whose freeze at 60 disappeared the moment block
-            # 61 could not be read. Both steps go into the unread set, and the
-            # windows that cover either of them lose their averages.
-            if streak >= 1 and previous is not None:
+            # 61 could not be read. BOTH DIRECTIONS AND ONLY ACROSS CONSECUTIVE
+            # STEPS: the predecessor here, the successor at the frozen branch
+            # below, and neither across a gap in the printed step numbers, since
+            # steps that are not consecutive cannot form the pair (the push
+            # review, three lenses, 2026-09-22).
+            if streak >= 1 and previous == step - 1:
                 unjudged.append(previous)
             unjudged.append(step)
+            unread = step
             streak = 0
             previous = step
             continue
@@ -1498,6 +1513,10 @@ def frozen_time_steps(log_text: str, *, unjudged: list[int] | None = None) -> Fr
             and zero.fullmatch(rows[-1][1]) is not None
             and zero.fullmatch(rows[-1][2]) is not None
         )
+        if frozen and unread == step - 1 and unjudged is not None:
+            # The block before this one could not be read and this one froze:
+            # the pair may be a freeze, and the streak alone cannot say so.
+            unjudged.append(step)
         streak = (streak + 1 if previous == step - 1 else 1) if frozen else 0
         if streak == 2:
             if first is None:

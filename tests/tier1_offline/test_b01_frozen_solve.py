@@ -356,3 +356,20 @@ def test_a_freeze_in_the_readable_blocks_still_refuses_everything_after_it(tmp_p
     # is refused, which is what a silent publish would have cost her.
     assert "60" in manifest["skipped"][name]
     assert "cannot be read for time step(s)" in manifest["skipped"][name]
+
+
+def test_a_per_blade_table_never_bridges_a_refused_passage_in_the_middle(tmp_path):
+    """Finding 4 of the push review, from the V&V lens.
+
+    The per-blade table states ONE window, collapsed from its passages. Dropping
+    a refused passage between two kept ones and collapsing the rest averages the
+    very steps the refusal removed, and records that span in the manifest. It
+    refuses whole instead, and says why; losing a passage from an END is not
+    bridging and keeps its product, which is what the 0.25.0 review restored.
+    """
+    workspace = _post_workspace(tmp_path, 2413, (58, 59), passages=[(58, 59), (60, 61), (58, 59)])
+    write_campaign_products(workspace)
+    manifest = _products_manifest(workspace)
+    name = "probes/AL-020_per_blade.csv"
+    assert name not in manifest["products"], "the table bridged the passage it refused"
+    assert "would span the refused steps" in manifest["skipped"][name]

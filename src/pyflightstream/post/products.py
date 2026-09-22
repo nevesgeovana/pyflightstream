@@ -1496,14 +1496,23 @@ def rotor_plot_source(
         # plot of that name was therefore not added, and eight rotor tables were
         # refused without a word a reader could act on (2026-09-22).
         declared, declared_frame = taken_by
+        # WHICH COLLISION IT IS. A group in the rotor's own frame and a global
+        # group over the wrong families both take the name and both leave no
+        # source, but they are different mistakes and calling MRP "the rotor's
+        # own" misnames the second (the V&V lens at the push review).
+        why = (
+            f"in the frame {declared_frame}, which is the rotor's own"
+            if declared_frame in {"SMRP", "RMRP"}
+            else f"in the frame {declared_frame}, over families that are not exactly the rotor's"
+        )
         refused = (
-            f"the pproc's plot group {declared!r} already emits {generated!r} in the frame "
-            f"{declared_frame}, which is the rotor's own, so the run did not add its automatic "
-            f"{generated!r} in the global MRP frame and this run has no global-frame history of "
-            f"rotor {alias!r} at all. No post-processing can recover it. Rename that group to a "
-            f"name that is not {generated!r} (for example 'SHAFT_{{family}}'), or declare a plot "
-            f'group over exactly the rotor\'s families with frame = "MRP"; either way the rotor '
-            "table returns on the next run"
+            f"the pproc's plot group {declared!r} already emits {generated!r} {why}, so the run "
+            f"did not add its automatic {generated!r} in the global MRP frame over exactly the "
+            f"rotor's families, and this run has no such history of rotor {alias!r} at all. No "
+            f"post-processing can recover it. Rename that group to a name that is not "
+            f"{generated!r} (for example 'SHAFT_{{family}}'), or declare a plot group over "
+            f'exactly the rotor\'s families with frame = "MRP"; either way the rotor table '
+            "returns on the next run"
         )
     return candidates, refused
 
@@ -1599,7 +1608,8 @@ def _frozen_window_reason(frozen: FrozenSolve | None, window: Sequence[int]) -> 
         # neighbours exactly as measurable as they were. So this refuses a
         # window only when an unread step falls INSIDE it.
         inside = [step for step in frozen.steps if window[0] <= step <= window[1]]
-        if not inside and frozen.steps:
+        reaches_freeze = frozen.frozen_from is not None and window[1] >= frozen.frozen_from
+        if not inside and frozen.steps and not reaches_freeze:
             return None
         return f"{frozen.reason}; averaging window spans steps {window[0]} to {window[1]}"
     if window[1] >= frozen.first_step:
@@ -5380,13 +5390,19 @@ def freeze_of_log(log_path: Path) -> FrozenSolve | None:
     # their averages.
     unjudged: list[int] = []
     verdict = frozen_time_steps(text, unjudged=unjudged)
-    if verdict is not None:
+    if verdict is not None and not unjudged:
         return verdict
     if unjudged:
+        # BOTH KINDS OF EVIDENCE OR NEITHER. Returning the confirmed freeze alone
+        # dropped the unread steps, and a window before the freeze then published
+        # an average over blocks nobody read; returning the unread steps alone
+        # would drop the freeze the read blocks prove.
+        steps = tuple(sorted(set(unjudged)))
         return UnjudgeableSolve(
-            first_step=min(unjudged),
-            count=len(unjudged),
-            steps=tuple(sorted(set(unjudged))),
+            first_step=min(steps if verdict is None else (*steps, verdict.first_step)),
+            count=len(steps),
+            steps=steps,
+            frozen_from=None if verdict is None else verdict.first_step,
             detail="a residual block ends without its closing separator line",
         )
     return None
@@ -5504,13 +5520,34 @@ def _point_reductions(
             for window in windows
             if (why := _frozen_window_reason(frozen, window)) is not None
         ]
-        if reached and len(reached) == len(windows):
-            target(out / relative)  # archive any stale product from an earlier post
-            skipped[relative] = reached[0][1]
-            continue
         frozen_windows = [window for window, _ in reached]
+        kept = [window for window in windows if window not in frozen_windows]
+        # THE PER-BLADE TABLE HAS ONE WINDOW, collapsed from its passages, so
+        # dropping a refused passage IN THE MIDDLE and collapsing the rest
+        # BRIDGES it: passages [55,56] and [59,60] became [55,60], averaging the
+        # very step the refusal had just removed and recording that span in the
+        # manifest (the V&V lens at the push review, 2026-09-22). Losing
+        # passages from an END is not bridging and keeps its product, which is
+        # what the definitions page asks and what the independent review of
+        # 0.25.0 restored. So the test is CONTIGUITY, not "any refusal".
+        bridged = (
+            name == _PER_BLADE
+            and kept != windows[windows.index(kept[0]) : windows.index(kept[-1]) + 1]
+            if kept
+            else False
+        )
+        if reached and (not kept or bridged):
+            target(out / relative)  # archive any stale product from an earlier post
+            skipped[relative] = (
+                reached[0][1]
+                if not kept
+                else f"{reached[0][1]}; this table states ONE window over its passages and the "
+                "refused one lies between passages that were kept, so the window it would state "
+                "would span the refused steps"
+            )
+            continue
         if reached:
-            windows = [window for window in windows if window not in frozen_windows]
+            windows = kept
         if series is None:
             columns, series = plots_table_series(plots_table)
             try:
