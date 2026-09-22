@@ -440,26 +440,20 @@ def test_a_frozen_failed_point_with_an_unread_block_keeps_what_the_freeze_did_no
     assert manifest["products"]["sections/AL-020_sections.csv"]["kind"] == "instant"
 
 
-def test_a_phase_locked_product_is_refused_for_a_step_only_its_interpolation_reads(tmp_path):
-    """GH-1 of the independent review, at the product boundary rather than the helper.
+def test_a_passage_series_keeps_its_product_when_the_unread_step_is_outside_it(tmp_path):
+    """The QA lens, 2026-09-22, on a regression my interpolation fix introduced.
 
-    The phase-locked average interpolates at moments up to one revolution before
-    its first step. With four steps per revolution and a window of [60, 61], it
-    reads back to step 56, so an unread step 58 feeds it -- while the time
-    average over the same [60, 61] reads only its own steps and keeps its
-    product. Calling the helper alone left this green with the helper
-    disconnected (the QA lens, 2026-09-22).
+    Widening the judged window for every `phase_locked` entry refused the
+    passage series too, and that product does not interpolate: it averages the
+    steps of each passage and reads nothing else. With a window of [60, 61] and
+    step 59 unread, its mean does not move whatever step 59 holds, so the
+    product stays. Only the azimuthal shape is widened, and a committed case for
+    the azimuthal product itself is owed (reports/RPT-056).
     """
-    # STEP 59, NOT 58: the support of a window [60, 61] on a history that plots
-    # every step is the plotted step below its opening, which is 59. An unread
-    # 58 is not read by this average and keeps its product -- the re-read of
-    # GitHub main measured both sides of that bound (2026-09-22).
     workspace = _post_workspace(tmp_path, 2411, (60, 61))
     _make_one_step_unreadable(workspace, 59)
     write_campaign_products(workspace)
     manifest = _products_manifest(workspace)
     phase_locked = "probes/AL-020_phase_locked.csv"
-    time_average = "probes/AL-020_time_average.csv"
-    assert phase_locked not in manifest["products"], "an unread step fed a published average"
-    assert "59" in manifest["skipped"][phase_locked], manifest["skipped"][phase_locked]
-    assert time_average in manifest["products"], manifest["skipped"]
+    assert phase_locked in manifest["products"], manifest["skipped"]
+    assert manifest["products"][phase_locked]["windows"] == [[60, 61]]

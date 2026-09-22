@@ -73,8 +73,10 @@ cluster and on Windows within an hour of each other, on campaigns recorded with
   residual table to refuse, so it is read as a step with no evidence rather
   than as an unread one (`reports/RPT-055`).
 - **A phase-locked average is judged over the steps it READS**, which its
-  declared window does not name: being interpolated, it also reads the last
-  plotted step at or below the step before its window. An unread step there
+  declared window does not name: the azimuthal one is interpolated, so it also
+  reads the last plotted step at or below the step before its window. The
+  passage series a pproc without a `[phase_locked]` table produces reads only
+  the steps of its passages and is judged as it states. An unread step there
   moved a published average while the manifest stated a clean window. THE BOUND
   IS THE HISTORY, NOT A REVOLUTION, and the re-read of GitHub main measured a
   revolution failing in both directions: too narrow on a sparse history, where

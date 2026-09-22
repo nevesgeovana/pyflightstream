@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import pytest
 
+from pyflightstream.cases.windows import AZIMUTHAL
 from pyflightstream.post.products import (
     _frozen_window_reason,
     _window_the_reduction_reads,
@@ -165,7 +166,7 @@ def test_a_phase_locked_window_is_judged_over_the_steps_it_reads(verdict_of):
     # and THAT window is what must be judged
     dense = list(range(1, 201))
     reads = _window_the_reduction_reads(
-        "phase_locked", {"steps_per_revolution": 53.0}, declared, dense
+        "phase_locked", {"steps_per_revolution": 53.0, "shape": AZIMUTHAL}, declared, dense
     )
     assert reads == (94, 200), reads
     assert _frozen_window_reason(verdict, reads) is not None, "an unread step fed the average"
@@ -181,7 +182,10 @@ def test_a_reduction_that_reads_only_its_own_steps_is_judged_over_them(verdict_o
     declared = (95, 200)
     per_revolution = {"steps_per_revolution": 53.0}
     dense = list(range(1, 201))
-    assert _window_the_reduction_reads("time_average", per_revolution, declared, dense) == (95, 200)
+    assert _window_the_reduction_reads("time_average", per_revolution, declared, dense) == (
+        95,
+        200,
+    )
     assert _window_the_reduction_reads("phase_locked", {}, declared, ()) == (95, 200)
 
 
@@ -196,7 +200,7 @@ def test_the_interpolation_support_is_the_history_and_not_a_revolution(verdict_o
     """
     dense = list(range(1, 201))
     sparse = [1, *range(95, 201)]
-    entry = {"steps_per_revolution": 53.0, "revolutions": 2.0}
+    entry = {"steps_per_revolution": 53.0, "revolutions": 2.0, "shape": AZIMUTHAL}
     assert _window_the_reduction_reads("phase_locked", entry, (95, 200), dense) == (94, 200)
     assert _window_the_reduction_reads("phase_locked", entry, (95, 200), sparse) == (1, 200)
 
@@ -205,3 +209,19 @@ def test_the_interpolation_support_is_the_history_and_not_a_revolution(verdict_o
     assert isinstance(verdict, UnjudgeableSolve), verdict
     reads = _window_the_reduction_reads("phase_locked", entry, (95, 200), dense)
     assert _frozen_window_reason(verdict, reads) is None, "a clean average was refused"
+
+
+def test_a_passage_series_is_not_widened_because_it_does_not_interpolate():
+    """The QA lens, 2026-09-22: my support fix refused clean passage averages.
+
+    The planner writes a passage series when the pproc declares no
+    `[phase_locked]` table, and that product averages the steps of each passage
+    and reads nothing else. Widening its window refused passages whose mean does
+    not move whatever the unread step holds -- measured: passages [58,59] and
+    [60,61] with step 59 unread, and the second mean 60.5 either way.
+    """
+    dense = list(range(1, 201))
+    passages = {"steps_per_revolution": 53.0}  # no shape: the legacy series
+    assert _window_the_reduction_reads("phase_locked", passages, (60, 61), dense) == (60, 61)
+    azimuthal = {**passages, "shape": AZIMUTHAL}
+    assert _window_the_reduction_reads("phase_locked", azimuthal, (60, 61), dense) == (59, 61)

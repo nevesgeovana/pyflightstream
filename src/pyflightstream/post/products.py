@@ -1627,7 +1627,13 @@ def _window_the_reduction_reads(
     ``plotted`` is the history's own step column. Without it -- the reduction is
     not interpolated, or the history is not loaded -- the declared window stands.
     """
-    if name != _PHASE_LOCKED or not len(plotted):
+    if name != _PHASE_LOCKED or entry.get("shape") != AZIMUTHAL or not len(plotted):
+        # ONLY THE AZIMUTHAL SHAPE INTERPOLATES. The passage series the planner
+        # writes when the pproc declares no [phase_locked] table averages the
+        # steps of each passage and reads nothing else, so widening its window
+        # refused clean passages: with [58,59] and [60,61] and step 59 unread,
+        # the second passage's mean is 60.5 whatever step 59 holds (the QA lens,
+        # 2026-09-22).
         return int(window[0]), int(window[-1])
     opening = int(window[0]) - 1
     below = [float(step) for step in plotted if float(step) <= opening]
@@ -5451,6 +5457,30 @@ def freeze_of_log(log_path: Path) -> FrozenSolve | None:
     return None
 
 
+def _dictionary_the_table_can_honour(
+    columns: Sequence[str],
+    names: Mapping[str, str] | None,
+    stem: str,
+    skipped: dict[str, str],
+) -> Mapping[str, str] | None:
+    """Return the pproc dictionary, or None once it is reported as unusable.
+
+    A dictionary the plots table cannot honour is said ONCE for the point, under
+    `probes/<point>#names`, and the reductions keep the export's own names
+    rather than be lost. This lived inside the lazy load of the history until
+    2026-09-22, when loading it earlier for the interpolation support skipped
+    the check and handed the writer a dictionary it then refused the product
+    for.
+    """
+    try:
+        renamed_columns(columns, names, printed=columns, where=_names_location(PROBES_DIR, stem))
+    except ProductError as refused:
+        skipped[f"{PROBES_DIR}/{stem}#names"] = str(refused)
+        warnings.warn(str(refused), PyflightstreamWarning, stacklevel=2)
+        return None
+    return names
+
+
 def _point_reductions(
     plots_table: Path,
     plan: Mapping[str, object] | None,
@@ -5551,10 +5581,14 @@ def _point_reductions(
             continue
         stated = entry.get("windows", ())
         windows = [tuple(int(v) for v in window) for window in stated]  # type: ignore[union-attr]
-        if name == _PHASE_LOCKED and series is None:
+        if name == _PHASE_LOCKED and entry.get("shape") == AZIMUTHAL and series is None:
             # THE HISTORY DECIDES WHAT THE INTERPOLATION CAN READ, so it is
-            # loaded before the freeze judgement rather than after it.
+            # loaded before the freeze judgement rather than after it -- and the
+            # dictionary is validated with it, because that check used to live
+            # inside the later load and an early one skipped it (the QA lens,
+            # 2026-09-22).
             columns, series = plots_table_series(plots_table)
+            names = _dictionary_the_table_can_honour(columns, names, stem, skipped)
         # THE FREEZE TAKES THE WINDOWS IT REACHES, AND ONLY THOSE. The
         # definitions page: an average whose window ends at or after the first
         # frozen step is skipped by name, and "windows wholly before that step
@@ -5605,14 +5639,7 @@ def _point_reductions(
             windows = kept
         if series is None:
             columns, series = plots_table_series(plots_table)
-            try:
-                renamed_columns(
-                    columns, names, printed=columns, where=_names_location(PROBES_DIR, stem)
-                )
-            except ProductError as refused:
-                skipped[f"{PROBES_DIR}/{stem}#names"] = str(refused)
-                warnings.warn(str(refused), PyflightstreamWarning, stacklevel=2)
-                names = None
+            names = _dictionary_the_table_can_honour(columns, names, stem, skipped)
         destination = target(out / relative)
         try:
             if name == _PER_BLADE:
