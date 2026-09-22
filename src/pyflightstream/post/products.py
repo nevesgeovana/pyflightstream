@@ -484,11 +484,15 @@ def clock_rotor_facts(
     if spelt_in_speeds is not None:
         rpm = speeds[spelt_in_speeds]
     elif (
-        alias is not None
-        and not speeds
+        not speeds
         and isinstance(reductions, Mapping)
         and isinstance(reductions.get("rpm"), int | float)
     ):
+        # WITHOUT AN ALIAS TOO. A record with no rotor block turns ONE rotor and
+        # the flat field is its speed, whether or not the row names it or the
+        # reference declares it: requiring the alias here dropped a speed the
+        # record states plainly (the QA lens, 2026-09-22). What stays unknown is
+        # the SPAN, so J_CLOCK is still absent.
         # A row that records one speed and NO ROTOR BLOCK AT ALL turns one
         # rotor, and the flat field is its speed. With rotor blocks present and
         # no clock resolved, this published one rotor's speed for a row whose

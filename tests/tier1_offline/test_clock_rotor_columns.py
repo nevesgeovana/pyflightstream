@@ -201,3 +201,38 @@ def test_a_flat_record_that_names_its_clock_takes_no_other_rotors_diameter():
     condition = point_condition(_Point(), mach=0.18, clock=facts)
     assert condition["RPM_CLOCK"] == 2200.0
     assert "J_CLOCK" not in condition, "a ratio was published against a span nobody stated"
+
+
+def test_a_legacy_flat_record_keeps_the_speed_it_states():
+    """The QA lens, 2026-09-22, on a regression the identity fix introduced.
+
+    A record with NO rotor block turns one rotor, and the flat field is its
+    speed -- whether or not the row names a clock and whether or not the
+    reference declares exactly one rotor. Requiring a resolved alias there
+    dropped a speed the record states plainly. The SPAN stays unknown, so no
+    ratio is published.
+    """
+    from pyflightstream.post.products import point_condition
+
+    record = _Record({"rpm": 2200.0})
+    artifact = _Artifact({"LIFT": _Rotor(2.0), "PUSHER": _Rotor(1.2)})
+    facts = clock_rotor_facts(record, _Row({}), artifact)
+    assert facts["rpm"] == 2200.0, "a speed the record states was dropped"
+    assert facts["diameter_m"] is None, "no rotor is identified, so no span is"
+
+    class _Report:
+        angle_of_attack_deg = 0.0
+        sideslip_deg = 0.0
+        freestream_velocity_m_s = 60.0
+        reynolds = None
+        reference_velocity_m_s = None
+
+    class _Point:
+        name = "AL-000"
+        loads = _Report()
+        point: dict[str, object] = {}
+        state = None
+
+    condition = point_condition(_Point(), mach=0.18, clock=facts)
+    assert condition["RPM_CLOCK"] == 2200.0
+    assert "J_CLOCK" not in condition
