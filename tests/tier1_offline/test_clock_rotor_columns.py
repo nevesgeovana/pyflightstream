@@ -164,3 +164,40 @@ def test_a_named_clock_absent_from_the_reference_takes_no_other_rotors_diameter(
     assert facts["alias"] == "PUSHER"
     assert facts["rpm"] == -7585.0, "the speed is the record's and is known"
     assert facts["diameter_m"] is None, "another rotor's diameter was taken"
+
+
+def test_a_flat_record_that_names_its_clock_takes_no_other_rotors_diameter():
+    """The QA lens, 2026-09-22, on what the previous fix still missed.
+
+    A flat record keeps one speed and no rotor block, so the NAME is the only
+    thing that identifies the clock. Inferring the identity from the speed map
+    left the alias unresolved, and the sole-reference fallback then took the
+    other rotor's diameter: at VINF 60 the condition published
+    J_CLOCK 0.818181... for a rotor whose span nobody stated.
+    """
+    from pyflightstream.post.products import point_condition
+
+    record = _Record({"rpm": 2200.0})
+    facts = clock_rotor_facts(
+        record, _Row({"CLOCK_MOTION": "PUSHER"}), _Artifact({"LIFT": _Rotor(2.0)})
+    )
+    assert facts["alias"] == "PUSHER", facts
+    assert facts["rpm"] == 2200.0, "the flat speed is this clock's, and it is known"
+    assert facts["diameter_m"] is None, "another rotor's diameter was taken"
+
+    class _Report:
+        angle_of_attack_deg = 0.0
+        sideslip_deg = 0.0
+        freestream_velocity_m_s = 60.0
+        reynolds = None
+        reference_velocity_m_s = None
+
+    class _Point:
+        name = "AL-000"
+        loads = _Report()
+        point: dict[str, object] = {}
+        state = None
+
+    condition = point_condition(_Point(), mach=0.18, clock=facts)
+    assert condition["RPM_CLOCK"] == 2200.0
+    assert "J_CLOCK" not in condition, "a ratio was published against a span nobody stated"

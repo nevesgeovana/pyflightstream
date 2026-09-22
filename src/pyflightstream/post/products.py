@@ -459,47 +459,49 @@ def clock_rotor_facts(
             if isinstance(block, Mapping) and isinstance(block.get("rpm"), int | float):
                 speeds[str(turned)] = float(block["rpm"])
     named = str((getattr(matrix_row, "variables", {}) or {}).get("CLOCK_MOTION", "") or "").strip()
+    blocks = getattr(artifact, "rotors", None) or {}
+    declared: Mapping[str, object] = blocks if isinstance(blocks, Mapping) else {}
+
+    def _spelt(name: str, among: Mapping[str, object] | Mapping[str, float]) -> str | None:
+        """Return the key that spells this name, case-folded as the planner folds it."""
+        return next((key for key in among if str(key).casefold() == name.casefold()), None)
+
+    # THE IDENTITY FIRST, AND FROM THE NAME. Inferring it from the speed map
+    # alone left a row that NAMES its clock unresolved whenever the record kept
+    # a flat speed and no rotor block, and the diameter then fell back to the
+    # only rotor the reference declared -- another rotor's span under this
+    # rotor's ratio (the QA lens, 2026-09-22).
     alias: str | None = None
     if named:
-        # CASE-FOLDED, as the planner matches it: a row planning happily with
-        # `CLOCK_MOTION = lift` and recording `LIFT` published NA in both
-        # columns (both lenses, 2026-09-22).
-        alias = next((turned for turned in speeds if turned.casefold() == named.casefold()), None)
-    if alias is None and len(speeds) == 1:
+        alias = _spelt(named, speeds) or _spelt(named, declared) or named
+    elif len(speeds) == 1:
         alias = next(iter(speeds))
+    elif not speeds and len(declared) == 1:
+        alias = str(next(iter(declared)))
+
     rpm: float | None = None
-    if alias is not None:
-        rpm = speeds[alias]
+    spelt_in_speeds = None if alias is None else _spelt(alias, speeds)
+    if spelt_in_speeds is not None:
+        rpm = speeds[spelt_in_speeds]
     elif (
-        not speeds
+        alias is not None
+        and not speeds
         and isinstance(reductions, Mapping)
         and isinstance(reductions.get("rpm"), int | float)
     ):
-        # A row that records one speed and NO ROTOR BLOCK AT ALL still turns one
+        # A row that records one speed and NO ROTOR BLOCK AT ALL turns one
         # rotor, and the flat field is its speed. With rotor blocks present and
-        # no clock resolved, this fallback published one rotor's speed for a row
-        # whose clock nobody could name -- and `reduction_windows` records both
-        # fields, so such a record is ordinary (the architect and V&V lenses,
-        # 2026-09-22).
+        # no clock resolved, this published one rotor's speed for a row whose
+        # clock nobody could name, and `reduction_windows` records both fields
+        # (the architect and V&V lenses, 2026-09-22).
         rpm = float(reductions["rpm"])
+
+    # THE SPAN COMES FROM THE BLOCK BEARING THAT IDENTITY, or from nowhere.
     diameter: float | None = None
-    blocks = getattr(artifact, "rotors", None) or {}
-    if isinstance(blocks, Mapping):
-        declared = (
-            None
-            if alias is None
-            else next((name for name in blocks if str(name).casefold() == alias.casefold()), None)
-        )
-        if declared is not None:
-            span = getattr(blocks[declared], "diameter_m", None)
-            diameter = float(span) if isinstance(span, int | float) else None
-        elif alias is None and not speeds and len(blocks) == 1:
-            # ONLY WHERE THERE IS NOTHING TO CONFUSE IT WITH. A clock that IS
-            # named and is absent from the reference has no diameter, and
-            # taking the only declared rotor's would measure this rotor's ratio
-            # against another rotor's span (the architect lens, 2026-09-22).
-            span = getattr(next(iter(blocks.values())), "diameter_m", None)
-            diameter = float(span) if isinstance(span, int | float) else None
+    spelt_in_reference = None if alias is None else _spelt(alias, declared)
+    if spelt_in_reference is not None:
+        span = getattr(declared[spelt_in_reference], "diameter_m", None)
+        diameter = float(span) if isinstance(span, int | float) else None
     return {"alias": alias, "rpm": rpm, "diameter_m": diameter}
 
 
