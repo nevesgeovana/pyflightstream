@@ -3,7 +3,10 @@
 0.25.1 is a PATCH for one defect that stopped the post stage dead on two machines
 within an hour of each other: a residual block the solver stopped under ended the
 whole campaign post with an exception instead of costing the averages that cover it.
-It adds no feature and changes no published number. The change log's `[0.25.1]`
+It also ADDS TWO COLUMNS, `J_CLOCK` and `RPM_CLOCK`, at the owner's explicit
+request and against the recommendation to separate them: by semver that makes
+this a minor, and she chose the patch knowing it (2026-09-22). It changes no
+published number. The change log's `[0.25.1]`
 section is the record; `docs/migrating-to-0.25.0.md` still describes the minor
 release under it, because a patch asks nothing new of a reader's files.
 

@@ -94,13 +94,13 @@ cluster and on Windows within an hour of each other, on campaigns recorded with
   passage series a pproc without a `[phase_locked]` table produces reads only
   the steps of its passages and is judged as it states. An unread step there
   moved a published average while the manifest stated a clean window. THE BOUND
-  IS THE HISTORY, NOT A REVOLUTION, and the re-read of GitHub main measured a
-  revolution failing in both directions: too narrow on a sparse history, where
-  the interpolation reached step 1 of a window opening at 95, and too wide on a
-  dense one, where it refused a product for an unread step the average provably
-  does not use. The guard is proved on the passage-series product and, by the
-  reviewer's own probe, on the azimuthal one; a committed test of the azimuthal
-  path is owed (`reports/RPT-056`).
+  IS THE SAMPLES, not a revolution and not the window's opening: three readings
+  of GitHub main measured each wrong bound in turn -- a revolution is too narrow
+  on a sparse history, where the interpolation reaches step 1 of a window opening
+  at 95, and too wide on a dense one; and the opening is still too wide, because
+  with whole-step blade offsets every sample lands on a plotted step and nothing
+  outside the window is read. The guard is proved at the product, on an azimuthal
+  rotor campaign, against a mutant that restores the opening bracket.
 - **A point whose log proves a freeze is still posted** for everything the
   freeze does not touch, even when another block of that log cannot be read.
   Excluding it removed its histories, instants and earlier averages before

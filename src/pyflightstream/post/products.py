@@ -1697,52 +1697,84 @@ def _surface_export_skip(entry: Mapping[str, object], frozen: FrozenSolve | None
     return None
 
 
+def _blade_offsets(plan: Mapping[str, object] | None, per_revolution: float) -> list[float]:
+    """Return how many steps before blade one each blade column is sampled.
+
+    The same arithmetic `post.unsteady` applies: a blade at position `k` of
+    `blades` sits `k * per_revolution / blades` behind blade one, modulo the
+    revolution and with the hand of the rotation. Blade one's own offset is
+    zero, which is why the largest sample of a window is its last step.
+    """
+    if not isinstance(plan, Mapping) or per_revolution <= 0.0:
+        return [0.0]
+    declared = plan.get("blade_families")
+    families = [str(family) for family in declared] if isinstance(declared, list | tuple) else []
+    stated = plan.get("blades")
+    blades = int(stated) if isinstance(stated, int | float) and not isinstance(stated, bool) else 0
+    count = blades if blades >= len(families) else len(families)
+    if count <= 1:
+        return [0.0]
+    speed = plan.get("rpm")
+    handed = isinstance(speed, int | float) and not isinstance(speed, bool) and speed < 0
+    turning = -1.0 if handed else 1.0
+    return [0.0] + [
+        (turning * position * per_revolution / count) % per_revolution
+        for position in range(1, max(len(families), 1))
+    ]
+
+
 def _window_the_reduction_reads(
     name: str,
     entry: Mapping[str, object],
     window: tuple[int, ...],
     plotted: Sequence[float] | NDArray[np.floating] = (),
+    plan: Mapping[str, object] | None = None,
 ) -> tuple[int, int]:
     """Return the steps a reduction's arithmetic READS, not the ones it states.
 
-    A phase-locked average is interpolated at fractional moments, one per blade,
-    and `np.interp` reads the PLOTTED steps bracketing each moment, so a window
-    declared [95, 200] reads step 94 on a history that holds every step. The
-    moments themselves are bounded below: `post.unsteady` takes those strictly
-    above `opening`, which the planner writes as one step before the window. The
-    first step the arithmetic can therefore read is THE LAST PLOTTED STEP AT OR
-    BELOW that opening, and nothing below it.
+    Only the AZIMUTHAL phase-locked average is interpolated. It samples, for
+    each azimuth of the final revolution and each blade offset, the moments
+    congruent to that azimuth inside the revolutions asked for, and `np.interp`
+    reads the PLOTTED steps bracketing each moment. A moment that IS a plotted
+    step brackets to itself and widens nothing.
 
-    A REVOLUTION IS THE WRONG BOUND, in both directions, and the independent
-    review of GitHub main measured each (2026-09-22). Too narrow on a sparse
-    history: with steps 1, 95, 96 ... 200 plotted, the interpolation reaches
-    step 1, which a one-revolution bound leaves outside. Too wide on a dense
-    one: it refused a product for an unread step 93 whose value the average
-    provably does not use.
+    THREE MEASUREMENTS SHAPED THIS, each from a reading of GitHub main:
+    a revolution is too narrow on a sparse history, where the interpolation
+    reaches step 1 of a window opening at 95; it is too wide on a dense one,
+    where it refused a product for a step the average does not use; and
+    bracketing the window's OPENING is still too wide, because with whole-step
+    offsets every sample lands on a plotted step and nothing outside the window
+    is read at all (2026-09-22).
 
-    ``plotted`` is the history's own step column. Without it -- the reduction is
-    not interpolated, or the history is not loaded -- the declared window stands.
+    ``plotted`` is the history's own step column and ``plan`` the point's
+    reduction plan, which states the blades and the rotor's hand. Without
+    either, the declared window stands.
     """
+    declared = int(window[0]), int(window[-1])
     if name != _PHASE_LOCKED or entry.get("shape") != AZIMUTHAL or not len(plotted):
-        # ONLY THE AZIMUTHAL SHAPE INTERPOLATES. The passage series the planner
-        # writes when the pproc declares no [phase_locked] table averages the
-        # steps of each passage and reads nothing else, so widening its window
-        # refused clean passages: with [58,59] and [60,61] and step 59 unread,
-        # the second passage's mean is 60.5 whatever step 59 holds (the QA lens,
-        # 2026-09-22).
-        return int(window[0]), int(window[-1])
-    # BOTH BRACKETS, because interpolation reads the plotted steps on EITHER
-    # side of each moment. Fixing only the lower one left a history plotting
-    # 1, 95 ... 199, 201 reading step 201 for a window ending at 200, with the
-    # record stating [95, 200] and no skip (the QA lens, 2026-09-22).
-    opening = int(window[0]) - 1
-    below = [float(step) for step in plotted if float(step) <= opening]
-    above = [float(step) for step in plotted if float(step) >= int(window[-1])]
-    # Without a plotted step on a side, `np.interp` clamps there and reads
-    # nothing beyond the window.
-    low = int(math.floor(max(below))) if below else int(window[0])
-    high = int(math.ceil(min(above))) if above else int(window[-1])
-    return low, high
+        # The passage series averages the steps of each passage and reads
+        # nothing else, so its window is judged as stated.
+        return declared
+    per_revolution = entry.get("steps_per_revolution")
+    if not isinstance(per_revolution, int | float) or per_revolution <= 0:
+        return declared
+    span = float(per_revolution)
+    depth = entry.get("revolutions")
+    revolutions = float(depth) if isinstance(depth, int | float) and depth else 1.0
+    last = float(window[-1])
+    opening = last - revolutions * span
+    tolerance = 1e-9 * span
+    lowest = last
+    for offset in _blade_offsets(plan, span):
+        moment = last - offset
+        steps_back = math.floor((moment - opening - tolerance) / span)
+        lowest = min(lowest, moment - steps_back * span)
+    ordered = sorted(float(step) for step in plotted)
+    below = [step for step in ordered if step <= lowest + tolerance]
+    above = [step for step in ordered if step >= last - tolerance]
+    low = int(math.floor(below[-1])) if below else declared[0]
+    high = int(math.ceil(above[0])) if above else declared[1]
+    return min(low, declared[0]), max(high, declared[1])
 
 
 def _frozen_window_reason(frozen: FrozenSolve | None, window: Sequence[int]) -> str | None:
@@ -1905,14 +1937,18 @@ def _rotor_tables(
             if not groups or not all(
                 f"{part}_{name}" in columns for name in groups for part in _PLOT_COMPONENTS
             ):
-                return (
-                    None,
-                    (
-                        f"recorded plot groups do not provide an exact, unambiguous MRP history "
-                        f"of rotor {alias!r} with all six components {where}"
-                    ),
-                    None,
+                # THE EXPLANATION TRAVELS WITH THIS REFUSAL TOO. A run that
+                # records its emitted plot groups reached here BEFORE the
+                # collision was explained, so a pproc taking the ROTOR_<ALIAS>
+                # name in the rotor's own frame got a generic sentence naming
+                # neither the group nor the remedy -- the very repair this
+                # release made, bypassed on the path a 0.24.0 run takes (the
+                # third independent reading, 2026-09-22).
+                said = (
+                    f"recorded plot groups do not provide an exact, unambiguous MRP history "
+                    f"of rotor {alias!r} with all six components {where}"
                 )
+                return None, said if refused is None else f"{said}; {refused}", None
         if not groups:
             looked = ", ".join(f"FX_{name}" for name in candidates) or "none"
             reason = (
@@ -5752,7 +5788,11 @@ def _point_reductions(
                 why := _frozen_window_reason(
                     frozen,
                     _window_the_reduction_reads(
-                        name, entry, window, () if series is None else series.steps
+                        name,
+                        entry,
+                        window,
+                        () if series is None else series.steps,
+                        plan,
                     ),
                 )
             )

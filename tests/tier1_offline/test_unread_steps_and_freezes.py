@@ -18,6 +18,13 @@ from pyflightstream.post.products import (
 )
 from pyflightstream.results import UnjudgeableSolve
 
+#: A plan whose second blade sits at a fraction of a step behind blade one: with
+#: 53 steps per revolution and two blades the offset is 26.5, so every sample of
+#: that blade is read from the two plotted steps around it. A whole-step offset
+#: reads no step outside the window at all, which is what the third independent
+#: reading of GitHub main measured and what these cases had wrong.
+INTERPOLATING = {"blades": 2, "blade_families": ["Blade1", "Blade2"], "rpm": 7585.0}
+
 LIVE = "+5.5597573E-4      \t+5.6313020E-4"
 DEAD = "+0.0000000E+0      \t+0.0000000E+0"
 HEADER = (
@@ -162,14 +169,16 @@ def test_a_phase_locked_window_is_judged_over_the_steps_it_reads(verdict_of):
     # the window as declared does not contain step 94, and a reduction that
     # reads only its own steps keeps its product
     assert _frozen_window_reason(verdict, declared) is None
-    # but the phase-locked reduction reads the plotted step below its opening,
-    # and THAT window is what must be judged
+    # and the azimuthal reduction is judged over the steps its samples are read
+    # from. With 53 steps per revolution, two blades and two revolutions the
+    # azimuths are steps 148 to 200; blade one's chain descends to 95 and blade
+    # two's to 121.5, so nothing outside the window is read and the support IS
+    # the window. An unread 94 therefore costs this average nothing.
     dense = list(range(1, 201))
-    reads = _window_the_reduction_reads(
-        "phase_locked", {"steps_per_revolution": 53.0, "shape": AZIMUTHAL}, declared, dense
-    )
-    assert reads == (94, 200), reads
-    assert _frozen_window_reason(verdict, reads) is not None, "an unread step fed the average"
+    entry = {"steps_per_revolution": 53.0, "revolutions": 2.0, "shape": AZIMUTHAL}
+    reads = _window_the_reduction_reads("phase_locked", entry, declared, dense, INTERPOLATING)
+    assert reads == (95, 200), reads
+    assert _frozen_window_reason(verdict, reads) is None, "a clean average was refused"
 
 
 def test_a_reduction_that_reads_only_its_own_steps_is_judged_over_them(verdict_of):
@@ -201,13 +210,19 @@ def test_the_interpolation_support_is_the_history_and_not_a_revolution(verdict_o
     dense = list(range(1, 201))
     sparse = [1, *range(95, 201)]
     entry = {"steps_per_revolution": 53.0, "revolutions": 2.0, "shape": AZIMUTHAL}
-    assert _window_the_reduction_reads("phase_locked", entry, (95, 200), dense) == (94, 200)
-    assert _window_the_reduction_reads("phase_locked", entry, (95, 200), sparse) == (1, 200)
+    reads = _window_the_reduction_reads("phase_locked", entry, (95, 200), dense, INTERPOLATING)
+    assert reads == (95, 200), "no sample of this window falls outside it"
+    # the same samples on a history that plots nothing between 1 and 95 read the
+    # same steps: what a history changes is the BRACKETS, and here every sample
+    # is at or inside 95
+    assert _window_the_reduction_reads("phase_locked", entry, (95, 200), sparse, INTERPOLATING) == (
+        95,
+        200,
+    )
 
-    # and the consequence, through the judge: 93 is clean, 94 is not
+    # the consequence, through the judge: an unread step outside is clean
     verdict = verdict_of(_log((92, "live"), (93, "unread"), (94, "live"), (95, "live")))
     assert isinstance(verdict, UnjudgeableSolve), verdict
-    reads = _window_the_reduction_reads("phase_locked", entry, (95, 200), dense)
     assert _frozen_window_reason(verdict, reads) is None, "a clean average was refused"
 
 
@@ -222,9 +237,15 @@ def test_a_passage_series_is_not_widened_because_it_does_not_interpolate():
     """
     dense = list(range(1, 201))
     passages = {"steps_per_revolution": 53.0}  # no shape: the legacy series
-    assert _window_the_reduction_reads("phase_locked", passages, (60, 61), dense) == (60, 61)
-    azimuthal = {**passages, "shape": AZIMUTHAL}
-    assert _window_the_reduction_reads("phase_locked", azimuthal, (60, 61), dense) == (59, 61)
+    assert _window_the_reduction_reads(
+        "phase_locked", passages, (60, 61), dense, INTERPOLATING
+    ) == (60, 61)
+    # AND WHERE THE AZIMUTHS REACH BELOW THE DECLARED WINDOW, the azimuthal one
+    # is judged over them: three steps per revolution put the final revolution
+    # at steps 59 to 61, so 59 is read although the window says 60.
+    azimuthal = {"steps_per_revolution": 3.0, "revolutions": 1.0, "shape": AZIMUTHAL}
+    reads = _window_the_reduction_reads("phase_locked", azimuthal, (60, 61), dense, INTERPOLATING)
+    assert reads == (59, 61), reads
 
 
 def test_the_support_takes_the_plotted_step_above_the_window_too(verdict_of):
@@ -236,16 +257,21 @@ def test_the_support_takes_the_plotted_step_above_the_window_too(verdict_of):
     record stated [95, 200] with no skip. Changing only that value by 1000
     moved the step-200 coefficient from 173.5 to 423.5.
     """
-    entry = {"steps_per_revolution": 53.0, "shape": AZIMUTHAL}
+    entry = {"steps_per_revolution": 53.0, "revolutions": 2.0, "shape": AZIMUTHAL}
     gapped = [1, *range(95, 200), 201]
-    assert _window_the_reduction_reads("phase_locked", entry, (95, 200), gapped) == (1, 201)
-    # a history that stops at the window's end clamps there and reads nothing beyond
-    ends_at_window = list(range(94, 201))
-    assert _window_the_reduction_reads("phase_locked", entry, (95, 200), ends_at_window) == (
-        94,
-        200,
+    # the UPPER bracket is what this case is about: the history stops at 199 and
+    # resumes at 201, so the sample at 200 is read from 199 and 201. Below, every
+    # sample is at or inside 95, so the lower end is the window's own.
+    assert _window_the_reduction_reads("phase_locked", entry, (95, 200), gapped, INTERPOLATING) == (
+        95,
+        201,
     )
+    # a history that plots the window's end reads nothing beyond it
+    ends_at_window = list(range(94, 201))
+    assert _window_the_reduction_reads(
+        "phase_locked", entry, (95, 200), ends_at_window, INTERPOLATING
+    ) == (95, 200)
     verdict = verdict_of(_log((199, "live"), (201, "unread")))
     assert isinstance(verdict, UnjudgeableSolve), verdict
-    reads = _window_the_reduction_reads("phase_locked", entry, (95, 200), gapped)
+    reads = _window_the_reduction_reads("phase_locked", entry, (95, 200), gapped, INTERPOLATING)
     assert _frozen_window_reason(verdict, reads) is not None, "a step above the window was read"

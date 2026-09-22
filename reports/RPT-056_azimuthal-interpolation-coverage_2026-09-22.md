@@ -7,8 +7,11 @@
 
 ## What is guarded, and what is tested
 
-v0.25.1 judges a phase-locked average over the steps its arithmetic READS, one revolution
-earlier than its declared window, because its samples are interpolated at fractional moments.
+v0.25.1 judges a phase-locked average over the steps its arithmetic READS. THE RULE CHANGED
+TWICE WHILE THIS REPORT STOOD, and the sentence here described the first version: one revolution
+earlier than the declared window. It is now the SAMPLES that are bracketed -- the moments
+`post.unsteady` takes, each read through the plotted steps on either side of it -- which is
+neither a revolution nor the window's opening.
 
 The committed regressions exercise that guard twice: at the helper
 (`_window_the_reduction_reads`) and through `write_campaign_products` on a plan whose
@@ -45,9 +48,9 @@ lens's own recipe, which is complete enough to write the test from:
 
 ## What is true meanwhile
 
-The guard is proved by the mutant at the helper and by the product-level case on the passage
-path, and the lens proved it independently on the azimuthal path with its own probe. What is
-missing is a COMMITTED test on that path, so a future change could remove it unnoticed.
+That was true while this report stood: the guard was proved at the helper and on the passage
+path, which since then DELIBERATELY BYPASSES the widening, so the passage case is no evidence
+for the azimuthal guard at all. See the closing note below for what replaced it.
 
 
 ## A second gap of the same shape, registered with it
@@ -74,3 +77,30 @@ WHAT TO WRITE, when it is written: one campaign with a rotor of known diameter a
 once, asserting that the polar, the rotor table and the per-step series all state the same
 `J_CLOCK` and `RPM_CLOCK`, and one campaign whose `CLOCK_MOTION` is written in another case,
 asserting the same.
+
+
+---
+
+## CLOSED on 2026-09-22, by the reading that said it should hold the tag
+
+The third independent reading of GitHub `main` judged this registration directly: RPT-055 is an
+honest bounded disclosure and would not hold the tag, but **this one should**, because the
+azimuthal path needed committed product-level coverage. It also found what that coverage would
+have caught: bracketing the window's OPENING still refused a clean average wherever every
+sample lands on a plotted step.
+
+BOTH ARE NOW DONE, so this report is a record rather than a debt:
+
+- the support brackets THE SAMPLES, computed as `post.unsteady` computes them -- each azimuth of
+  the final revolution, each blade offset, each moment inside the revolutions asked for -- and a
+  moment that is a plotted step brackets to itself;
+- `tests/tier1_offline/test_azimuthal_interpolation_support.py` builds an azimuthal rotor
+  campaign through `write_campaign_products` and asserts both sides at the product: two steps per
+  revolution put every sample on a plotted step and an unread step outside the window costs
+  nothing; three put the second blade one and a half steps behind, so a sample at 59.5 is read
+  from steps 59 and 60 and an unread 59 refuses the product by name. It is scored against a
+  mutant that restores the opening bracket.
+
+WHAT REMAINS REGISTERED from the second half of this report: the cross-family assertion for
+`J_CLOCK` and `RPM_CLOCK`, which is coverage of a different promise and is not what the reading
+held the tag for.
