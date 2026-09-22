@@ -123,3 +123,18 @@ def test_a_window_is_refused_exactly_when_it_touches_an_unread_step(verdict_of, 
     verdict = verdict_of(_log((57, "live"), (58, "unread"), (59, "live")))
     assert isinstance(verdict, UnjudgeableSolve), verdict
     assert (_frozen_window_reason(verdict, window) is not None) is refused
+
+
+def test_an_unread_block_does_not_reach_across_a_restart(verdict_of):
+    """The closing round's first fix, measured by the lens that asked for it.
+
+    A log can hold two attempts, and a restarted one prints its step numbers
+    again from the beginning. Comparing against "the last unread step" rather
+    than the block immediately before then marked a frozen step of the second
+    attempt unread because a step of the same number in the first could not be
+    read, and refused a window nothing had contaminated.
+    """
+    verdict = verdict_of(_log((1, "unread"), (1, "live"), (2, "frozen"), (3, "live")))
+    assert isinstance(verdict, UnjudgeableSolve), verdict
+    assert verdict.steps == (1,), verdict.steps
+    assert _frozen_window_reason(verdict, (2, 2)) is None, "a clean window lost its average"
