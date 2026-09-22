@@ -173,3 +173,53 @@ def test_the_stage_says_once_per_point_when_the_dictionary_cannot_be_honoured(tm
     assert "CL_MRP_TOTAL" in names, "the reduction is kept, under the export's names"
     skipped = _products_manifest(workspace)["skipped"]
     assert "CL_HUB_GHOST" in skipped["probes/AL-020#names"], skipped
+
+
+def test_the_dictionary_is_checked_when_an_azimuthal_reduction_loads_the_history_first(tmp_path):
+    """The QA lens, 2026-09-22: the early load skipped this check and nothing said so.
+
+    v0.25.1 loads the plots history BEFORE judging the freeze when the point
+    carries an azimuthal phase-locked reduction, because the interpolation
+    support is read from the history. That load used to skip the dictionary
+    validation, which lived inside the later one, so an unusable `[names]`
+    reached the writer instead of being said once under `probes/<point>#names`.
+    The existing case above loads through `time_average` and cannot see it.
+    """
+    import warnings
+
+    from pyflightstream.cases.windows import AZIMUTHAL
+    from pyflightstream.post.products import write_campaign_products
+    from tests.tier1_offline.test_post_products import (
+        ROTOR_PLAN,
+        _products_manifest,
+        _unsteady_workspace,
+    )
+
+    plan = {
+        **ROTOR_PLAN,
+        "phase_locked": {
+            **ROTOR_PLAN["phase_locked"],
+            "shape": AZIMUTHAL,
+            "revolutions": 1.0,
+            "steps_per_revolution": 2.0,
+        },
+    }
+    workspace = _unsteady_workspace(tmp_path, reductions=plan)
+    (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
+        '[groups]\n"1" = ["W", "B"]\n\n[names]\nCL_HUB_GHOST = "CL"\n', encoding="utf-8"
+    )
+    with warnings.catch_warnings(record=True) as raised:
+        warnings.simplefilter("always")
+        write_campaign_products(workspace)
+    skipped = _products_manifest(workspace)["skipped"]
+    # WITHOUT the early check this key is absent altogether: the later validation
+    # is guarded by `series is None`, and the azimuthal entry has already loaded
+    # the history, so nothing would validate the dictionary at all.
+    assert "CL_HUB_GHOST" in skipped["probes/AL-020#names"], skipped
+    said = [str(w.message) for w in raised if "CL_HUB_GHOST" in str(w.message)]
+    # THE COUNT IS NOT PINNED AT ONE: two product families validate the
+    # dictionary for this point, and both say so. Measured here rather than
+    # assumed -- the first version of this assertion read `== 1` and the second
+    # warning comes from the polar path, which predates this fix.
+    assert said, "the dictionary was not reported at all"
+    assert all("CL_HUB_GHOST" in message for message in said), said

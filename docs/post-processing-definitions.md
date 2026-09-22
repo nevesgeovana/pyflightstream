@@ -54,7 +54,7 @@ them was inferred from an implementation.
 Every table the post stage composes states the condition it is a table OF, in
 one block, in this order:
 
-<!-- condition-columns: ALPHA, BETA, MACH, RE, VINF, VREF, ALT, RHO, TEMP, MU, J, SREF, CREF, BREF -->
+<!-- condition-columns: ALPHA, BETA, MACH, RE, VINF, VREF, ALT, RHO, TEMP, MU, J, J_CLOCK, RPM_CLOCK, SREF, CREF, BREF -->
 
 | column | unit | what it is |
 |---|---|---|
@@ -67,7 +67,9 @@ one block, in this order:
 | `RHO` | kg/m3 | the air density the run resolved for that point |
 | `TEMP` | K | the air temperature the run resolved for that point |
 | `MU` | Pa s | the dynamic viscosity, written in scientific notation |
-| `J` | - | the advance ratio the row REQUESTED; `NA` on a row that turns no rotor |
+| `J` | - | the advance ratio the row REQUESTED; `NA` on a row that turns no rotor, and on one that states its speed as `RPM` |
+| `J_CLOCK` | - | the advance ratio the CLOCK rotor RAN at, `V / (n D)` from this point's free stream, the speed the record kept and the rotor's diameter; `NA` where the record or the reference does not say |
+| `RPM_CLOCK` | rev/min | the speed the CLOCK rotor turned at, with its hand; the CLOCK rotor is the one `CLOCK_MOTION` names, or the only rotor the row turns. A row turning several and naming none has no clock, and both columns are `NA` rather than taking one rotor's number for another's |
 | `SREF`, `CREF`, `BREF` | m2, m, m | the reference area, chord and span |
 
 **Why the block is this long.** A coefficient is a force divided by

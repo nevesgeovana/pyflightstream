@@ -67,7 +67,20 @@ VARIABLE_DEFINITIONS: dict[str, str] = {
     "RHO": "kg/m3. The air density the run resolved for that point",
     "TEMP": "K. The air temperature the run resolved for that point",
     "MU": "Pa s. The dynamic viscosity",
-    "J": "-. The advance ratio the row requested; NA on a row that turns no rotor",
+    "J": (
+        "-. The advance ratio the row requested; NA on a row that turns no rotor, "
+        "and on one that states its speed as RPM"
+    ),
+    "J_CLOCK": (
+        "-. The advance ratio the CLOCK rotor RAN at, V/(n D) from this point's free "
+        "stream, the speed the record kept and that rotor's diameter; NA where the "
+        "record or the reference does not say"
+    ),
+    "RPM_CLOCK": (
+        "rev/min. The speed the CLOCK rotor turned at, with its hand. The CLOCK rotor "
+        "is the one CLOCK_MOTION names, or the only rotor the row turns; a row turning "
+        "several and naming none has no clock and both columns are NA"
+    ),
     "SREF": "m2. The reference area",
     "CREF": "m. The reference chord",
     "BREF": "m. The reference span",

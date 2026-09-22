@@ -225,3 +225,27 @@ def test_a_passage_series_is_not_widened_because_it_does_not_interpolate():
     assert _window_the_reduction_reads("phase_locked", passages, (60, 61), dense) == (60, 61)
     azimuthal = {**passages, "shape": AZIMUTHAL}
     assert _window_the_reduction_reads("phase_locked", azimuthal, (60, 61), dense) == (59, 61)
+
+
+def test_the_support_takes_the_plotted_step_above_the_window_too(verdict_of):
+    """The QA lens, 2026-09-22: I fixed the lower bracket and left the upper one.
+
+    Interpolation reads the plotted steps on EITHER side of each moment. With
+    steps 1, 95 ... 199, 201 plotted and a window of [95, 200], the moment at
+    200 is bracketed by 199 and 201, so step 201 feeds the average -- and the
+    record stated [95, 200] with no skip. Changing only that value by 1000
+    moved the step-200 coefficient from 173.5 to 423.5.
+    """
+    entry = {"steps_per_revolution": 53.0, "shape": AZIMUTHAL}
+    gapped = [1, *range(95, 200), 201]
+    assert _window_the_reduction_reads("phase_locked", entry, (95, 200), gapped) == (1, 201)
+    # a history that stops at the window's end clamps there and reads nothing beyond
+    ends_at_window = list(range(94, 201))
+    assert _window_the_reduction_reads("phase_locked", entry, (95, 200), ends_at_window) == (
+        94,
+        200,
+    )
+    verdict = verdict_of(_log((199, "live"), (201, "unread")))
+    assert isinstance(verdict, UnjudgeableSolve), verdict
+    reads = _window_the_reduction_reads("phase_locked", entry, (95, 200), gapped)
+    assert _frozen_window_reason(verdict, reads) is not None, "a step above the window was read"

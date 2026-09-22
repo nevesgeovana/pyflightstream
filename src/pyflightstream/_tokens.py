@@ -86,6 +86,15 @@ FLIGHT_CONDITION_COLUMNS: tuple[str, ...] = (
     "TEMP",
     "MU",
     ADVANCE_RATIO_COLUMN,
+    # 0.25.1: WHAT THE CLOCK ROTOR RAN AT, beside what the row REQUESTED.
+    # `J` is the request, so a row stating RPM and sweeping alpha reads NA in
+    # every one of its rows while carrying the velocity and the speed that
+    # determine the ratio (measured on a real polar, 2026-09-22). These two are
+    # the CLOCK rotor's -- the one CLOCK_MOTION names, or the only one the row
+    # turns -- because a row may turn several and each has its own ratio; the
+    # rotor table keeps `J_<alias>` per rotor.
+    "J_CLOCK",
+    "RPM_CLOCK",
 )
 
 #: The reference LENGTHS every product states, by the companion rule: every

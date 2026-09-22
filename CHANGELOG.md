@@ -46,6 +46,22 @@ cluster and on Windows within an hour of each other, on campaigns recorded with
   not sit in an Unreleased section while a release built from the same tree
   answers to a number (the version-identity guard, REV010-015).
 
+### Added
+
+- **`J_CLOCK` and `RPM_CLOCK`, beside `J` in every product's condition.** `J` is
+  the advance ratio the ROW REQUESTED, so a row that states `RPM` and sweeps
+  alpha reads `NA` in every one of its rows while carrying the velocity and the
+  speed that determine the ratio -- measured on a real polar whose `VINF` is
+  61.4 and whose `RPM` is 7585, two thousand columns apart. The two new columns
+  state what the CLOCK rotor RAN at: its speed with its hand, and
+  `V / (n D)` from this point's own free stream, the speed the record kept and
+  the rotor's diameter. THE CLOCK ROTOR is the one `CLOCK_MOTION` names, or the
+  only rotor the row turns; a row turning several and naming none has no clock
+  and both columns are `NA`, because one rotor's ratio is not another's. The
+  rotor table keeps `J_<alias>` per rotor, unchanged.
+  This is why 0.25.1 adds columns rather than only fixing defects: the owner
+  asked for it in this release (2026-09-22).
+
 ### Fixed
 
 - **A residual block the solver stopped under no longer ends the whole post.**

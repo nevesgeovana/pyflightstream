@@ -436,11 +436,58 @@ def _advance_ratio_of(point: PolarPoint) -> float | None:
     return float(stated) if isinstance(stated, int | float) else None
 
 
+def clock_rotor_facts(
+    record: RunRecord | None,
+    matrix_row: MatrixRow | None,
+    artifact: object | None,
+) -> dict[str, object]:
+    """Return the CLOCK rotor's alias, speed and diameter, as far as they are known.
+
+    THE CLOCK ROTOR is the one ``CLOCK_MOTION`` names, or the only rotor the row
+    turns. A row turning several and naming none has no clock, and the two
+    columns then read `NA` rather than taking one rotor's number for another's.
+
+    The speed comes from the RECORD, which is what the run actually turned, and
+    the diameter from the reference artifact the row cites. Both are needed for
+    the ratio and either may be absent on a record written before 0.24.0.
+    """
+    reductions = getattr(record, "reductions", None)
+    rotors = reductions.get("rotors") if isinstance(reductions, Mapping) else None
+    speeds: dict[str, float] = {}
+    if isinstance(rotors, Mapping):
+        for turned, block in rotors.items():
+            if isinstance(block, Mapping) and isinstance(block.get("rpm"), int | float):
+                speeds[str(turned)] = float(block["rpm"])
+    named = str((getattr(matrix_row, "variables", {}) or {}).get("CLOCK_MOTION", "") or "").strip()
+    alias: str | None = None
+    if named and named in speeds:
+        alias = named
+    elif len(speeds) == 1:
+        alias = next(iter(speeds))
+    rpm: float | None = None
+    if alias is not None:
+        rpm = speeds[alias]
+    elif isinstance(reductions, Mapping) and isinstance(reductions.get("rpm"), int | float):
+        # A row that records one speed and no rotor block still turns one rotor.
+        rpm = float(reductions["rpm"])
+    diameter: float | None = None
+    blocks = getattr(artifact, "rotors", None) or {}
+    if isinstance(blocks, Mapping):
+        if alias is not None and alias in blocks:
+            span = getattr(blocks[alias], "diameter_m", None)
+            diameter = float(span) if isinstance(span, int | float) else None
+        elif len(blocks) == 1:
+            span = getattr(next(iter(blocks.values())), "diameter_m", None)
+            diameter = float(span) if isinstance(span, int | float) else None
+    return {"alias": alias, "rpm": rpm, "diameter_m": diameter}
+
+
 def point_condition(
     point: PolarPoint,
     *,
     mach: float,
     cell: Mapping[str, object] | None = None,
+    clock: Mapping[str, object] | None = None,
 ) -> dict[str, object]:
     """Return the flight condition ONE product row states.
 
@@ -532,6 +579,28 @@ def point_condition(
             # IN SCIENTIFIC NOTATION, AS TEXT. The funnel writes five decimals, and
             # air's viscosity is 1.8e-05: `0.00002` would be a column of one digit.
             condition["MU"] = f"{own.viscosity_pa_s:.5e}"
+    # WHAT THE CLOCK ROTOR RAN AT (0.25.1). `J` above is what the row REQUESTED
+    # and is `NA` on a row that states RPM; these two are measured from the run:
+    # the speed the record kept and the ratio it implies against this point's
+    # own free stream and the rotor's diameter. Either stays absent -- and the
+    # funnel writes `NA` -- where the record or the reference does not say.
+    if clock is not None:
+        rpm = clock.get("rpm")
+        diameter = clock.get("diameter_m")
+        if isinstance(rpm, int | float) and not isinstance(rpm, bool):
+            condition["RPM_CLOCK"] = float(rpm)
+        speed = condition.get("VINF")
+        if (
+            isinstance(rpm, int | float)
+            and isinstance(diameter, int | float)
+            and isinstance(speed, int | float)
+            and not isinstance(speed, bool)
+            and abs(float(rpm)) > 0.0
+            and float(diameter) > 0.0
+        ):
+            # J = V / (n D), with n in rev/s and the MAGNITUDE of the speed: the
+            # hand of the rotation is the rotor's and `RPM_CLOCK` carries it.
+            condition["J_CLOCK"] = float(speed) / (abs(float(rpm)) / 60.0 * float(diameter))
     return condition
 
 
@@ -1635,13 +1704,18 @@ def _window_the_reduction_reads(
         # the second passage's mean is 60.5 whatever step 59 holds (the QA lens,
         # 2026-09-22).
         return int(window[0]), int(window[-1])
+    # BOTH BRACKETS, because interpolation reads the plotted steps on EITHER
+    # side of each moment. Fixing only the lower one left a history plotting
+    # 1, 95 ... 199, 201 reading step 201 for a window ending at 200, with the
+    # record stating [95, 200] and no skip (the QA lens, 2026-09-22).
     opening = int(window[0]) - 1
     below = [float(step) for step in plotted if float(step) <= opening]
-    if not below:
-        # Every plotted step is inside the window: `np.interp` clamps at the
-        # first of them and reads nothing earlier.
-        return int(window[0]), int(window[-1])
-    return int(math.floor(max(below))), int(window[-1])
+    above = [float(step) for step in plotted if float(step) >= int(window[-1])]
+    # Without a plotted step on a side, `np.interp` clamps there and reads
+    # nothing beyond the window.
+    low = int(math.floor(max(below))) if below else int(window[0])
+    high = int(math.ceil(min(above))) if above else int(window[-1])
+    return low, high
 
 
 def _frozen_window_reason(frozen: FrozenSolve | None, window: Sequence[int]) -> str | None:
@@ -4633,11 +4707,20 @@ def _sim_products(
     # reached the file as `NA` in every row. `point_condition` assembles the
     # whole condition, reported over requested, and `context_row` resolves
     # each recorded spelling onto its column.
-    conditions = [point_condition(point, mach=mach, cell=cell) for point in points]
     # BOUND BEFORE THE `products.polars` GATE, as `reference` is and for its reason:
     # the sections table and the reductions read both on a pproc that writes no
     # polar, and binding them inside the polar branch was an UnboundLocalError there.
     live = _live_reference(workspace, matrix_row)
+
+    conditions = [
+        point_condition(
+            point,
+            mach=mach,
+            cell=cell,
+            clock=clock_rotor_facts(record_of.get(point.name), matrix_row, live),
+        )
+        for point in points
+    ]
     aliases = getattr(live, "aliases", None) or first.aliases
 
     if products.polars:
@@ -4769,7 +4852,12 @@ def _sim_products(
                     # line.
                     reference=reference,
                     advance_ratio=_advance_ratio_of(point),
-                    condition=point_condition(point, mach=mach, cell=cell),
+                    condition=point_condition(
+                        point,
+                        mach=mach,
+                        cell=cell,
+                        clock=clock_rotor_facts(record_of.get(point.name), matrix_row, live),
+                    ),
                     # WHICH ROWS ARE WHICH SURFACE, and where THAT rotor's blade one
                     # is (0.24.0). The layout is the point's own record's, and so is
                     # each rotor's speed: an RPM sweep turns a different angle per
@@ -4832,7 +4920,12 @@ def _sim_products(
                     # ITEM 5. A probe sample with no condition is a table about
                     # nowhere, and this family carried none of the twenty-four
                     # coefficients, so it states the WHOLE condition.
-                    condition=point_condition(point, mach=mach, cell=cell),
+                    condition=point_condition(
+                        point,
+                        mach=mach,
+                        cell=cell,
+                        clock=clock_rotor_facts(record_of.get(point.name), matrix_row, live),
+                    ),
                     reference=reference,
                 )
             except ProductError as error:
@@ -4880,7 +4973,14 @@ def _sim_products(
                             # ITEM 5. A probe sample with no condition is a table
                             # about nowhere: the numbers in it are a flow field, and
                             # which flow is exactly what the condition states.
-                            condition=point_condition(point, mach=mach, cell=cell),
+                            condition=point_condition(
+                                point,
+                                mach=mach,
+                                cell=cell,
+                                clock=clock_rotor_facts(
+                                    record_of.get(point.name), matrix_row, live
+                                ),
+                            ),
                             reference=reference,
                             notes=probe_notes,
                         )
@@ -4941,7 +5041,12 @@ def _sim_products(
                     # ITEM 5, threaded from HERE because this is where the point
                     # still is: `_point_reductions` takes a plots table and a
                     # plan and reaches no record at all.
-                    condition=point_condition(point, mach=mach, cell=cell),
+                    condition=point_condition(
+                        point,
+                        mach=mach,
+                        cell=cell,
+                        clock=clock_rotor_facts(record_of.get(point.name), matrix_row, live),
+                    ),
                     reference=reference,
                     # THE BLADES AND THE CLOCK OF EACH ROTOR (CR-04): the families
                     # from the reference the row names, the clock from this point's
