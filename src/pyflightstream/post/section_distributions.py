@@ -274,10 +274,19 @@ def _matching_distributions(
         siblings: set[str] = set()
         own_rotor: set[str] = set()
         for b in layout:
-            other = _rotor_group(str(b.get("frame", "")), literal, established)
+            frame_name = str(b.get("frame", ""))
+            other = _rotor_group(frame_name, literal, established)
             recorded = {str(f) for f in cast(list[str], b["families"])}
             if other == group:
                 in_group |= recorded
+            elif frame_name in literal:
+                # A literally cited frame can hold ANY family (an entry may
+                # export a foreign blade into a rotor's frame), so it says
+                # nothing about which rotor owns what and never stands as a
+                # sibling; uncertain membership keeps the raw columns. It still
+                # counts as its own rotor's frame for a per-blade entry below.
+                if per_blade and other[0] == group[0] and other[1] in ("rmrp", "smrp"):
+                    own_rotor |= recorded
             elif kind is not None and other[1].split(":")[0] == kind:
                 siblings |= recorded
             elif per_blade and other[0] == group[0] and other[1] in ("rmrp", "smrp"):

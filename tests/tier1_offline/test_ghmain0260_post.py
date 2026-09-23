@@ -628,3 +628,36 @@ def test_ab_one_custom_block_holding_the_whole_selection_is_still_no_emission(
     columns, _ = read_csv_table(out / key)
     assert not set(EXTRA) & set(columns), "a user's frame owned by an RMRP entry"
     assert "missing" in manifest["skipped"].get(f"{key}#integration", "")
+
+
+def test_ab_a_literally_cited_frame_never_stands_as_a_sibling(tmp_path, monkeypatch):
+    """Rotor R owns Blade1 and Blade2; a literal entry exported Blade2 into rotor X's frame.
+
+    X_RMRP is the rotor's frame because X_RMRP1 is recorded, so the literal
+    citation does not demote it; but a literally cited frame can hold any
+    family, so it never supplies a sibling's missing family. The combined RMRP
+    entry over Blade1 and Blade2 would have been emitted as one block in
+    R_RMRP, and the Blade1 block keeps its raw columns, named missing.
+    """
+    workspace = _case(tmp_path, monkeypatch, blocks=[(0, 1), (0, 1), (0, 1)])
+    record = workspace.read_manifest()[0]
+    frames = ("R_RMRP", "X_RMRP", "X_RMRP1")
+    names = ("Blade1", "Blade2", "Blade3")
+    for k, (block, frame, name) in enumerate(
+        zip(record.sections_layout, frames, names, strict=True), 1
+    ):
+        block.update(distribution=k, distribution_families=name, families=[name], frame=frame)
+    spec = workspace.resolve_pproc("p001")
+    entry = spec.sections.distributions[0]
+    spec.sections.distributions = [
+        entry.model_copy(update={"families": ["Blade1", "Blade2"], "frame": "RMRP"}),
+        entry.model_copy(update={"families": "Blade2", "frame": "X_RMRP", "integrate": False}),
+        entry.model_copy(update={"families": "Blade3", "frame": "LOCAL_AXIS", "integrate": False}),
+    ]
+    write_campaign_products(workspace)
+    manifest = _products_manifest(workspace)
+    out = workspace.products_dir(None)
+    key = "sections/AL-020_sloads_Blade1.csv"
+    columns, rows = read_csv_table(out / key)
+    assert not set(EXTRA) & set(columns), "Blade1 integrated by an entry that never emitted it"
+    assert len(rows) == 2 and "missing" in manifest["skipped"].get(f"{key}#integration", "")

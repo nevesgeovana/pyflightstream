@@ -259,7 +259,9 @@ carry the builder's grouping, because they name the rotor: `<alias>_RMRP`,
 literally (a user's own `X_RMRP`) names no rotor whatever it is called, unless
 a recorded frame no specification cites literally establishes the same rotor
 (the rotor's `ROTOR_RMRP` cited by an entry over its hub stays the rotor's
-while `ROTOR_RMRP1` is recorded). A block of any other kind than the entry's
+while `ROTOR_RMRP1` is recorded); even then a literally cited frame can hold
+any family, so it never supplies a sibling's missing family, and uncertain
+membership keeps the raw columns. A block of any other kind than the entry's
 frame expands per, a common frame included, is not that entry's emission and
 cannot stand as a sibling of one. On an expanding frame (`LOCAL_AXIS`, `RMRP`,
 `SMRP`) a recorded block is an entry's emission when it is exactly the selected
