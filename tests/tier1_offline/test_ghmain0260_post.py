@@ -334,3 +334,75 @@ def test_ab_legacy_common_frame_entry_still_needs_the_whole_block(tmp_path, monk
     assert not any(key.startswith("sections/AL-020_sloads") for key in manifest["products"])
     reason = manifest["skipped"].get("sections/AL-020_sloads#distributions", "")
     assert "does not identify" in reason
+
+
+@pytest.mark.parametrize("identity", [False, True])
+@pytest.mark.parametrize(
+    ("frame", "block_frames", "names"),
+    [
+        ("RMRP", ("ROTOR_RMRP", "ROTOR_RMRP"), ("Blade1", "Blade2")),
+        ("SMRP", ("ROTOR_SMRP", "ROTOR_SMRP"), ("Blade1", "Blade2")),
+        ("RMRP", ("L_RMRP", "MRP"), ("Blade1", "Hub")),
+    ],
+)
+def test_ab_two_blocks_in_one_frame_are_not_one_entry(
+    tmp_path, monkeypatch, identity, frame, block_frames, names
+):
+    """Subset alone is false ownership on an expanding frame.
+
+    Two singleton blocks recorded in ONE rotor frame came from two entries; a
+    combined entry over both would have been emitted as one block, so neither
+    is its. And a selected family recorded only in a common frame belongs to a
+    rotor nothing here can name. With recorded identity the current entry must
+    not integrate the two files; without it the split stays unidentified.
+    """
+    workspace = _case(tmp_path, monkeypatch, blocks=[(0, 1), (0, 1)])
+    record = workspace.read_manifest()[0]
+    for k, (block, block_frame, name) in enumerate(
+        zip(record.sections_layout, block_frames, names, strict=True), 1
+    ):
+        block.update(families=[name], frame=block_frame)
+        if identity:
+            block.update(distribution=k, distribution_families=name)
+        else:
+            del block["distribution"]
+            del block["distribution_families"]
+    spec = workspace.resolve_pproc("p001")
+    entry = spec.sections.distributions[0]
+    spec.sections.distributions = [
+        entry.model_copy(update={"families": list(names), "frame": frame})
+    ]
+    write_campaign_products(workspace)
+    manifest = _products_manifest(workspace)
+    out = workspace.products_dir(None)
+    if not identity:
+        assert not any(key.startswith("sections/AL-020_sloads") for key in manifest["products"])
+        assert "does not identify" in manifest["skipped"].get(
+            "sections/AL-020_sloads#distributions", ""
+        )
+        return
+    for number, name in enumerate(names, 1):
+        key = f"sections/AL-020_sloads_{name}.csv"
+        columns, _ = read_csv_table(out / key)
+        assert not set(EXTRA) & set(columns), f"{name} integrated by an entry that never emitted it"
+        reason = manifest["skipped"].get(f"{key}#integration", "")
+        assert f"block {number}" in reason and "missing" in reason
+
+
+def test_ab_a_per_blade_block_is_one_blade(tmp_path, monkeypatch):
+    workspace = _case(tmp_path, monkeypatch, blocks=[(0, 1)])
+    record = workspace.read_manifest()[0]
+    record.sections_layout[0].update(families=["Blade1", "Blade2"], frame="ROTOR_RMRP1")
+    del record.sections_layout[0]["distribution"]
+    del record.sections_layout[0]["distribution_families"]
+    spec = workspace.resolve_pproc("p001")
+    entry = spec.sections.distributions[0]
+    spec.sections.distributions = [
+        entry.model_copy(update={"families": ["Blade1", "Blade2"], "frame": "LOCAL_AXIS"})
+    ]
+    write_campaign_products(workspace)
+    manifest = _products_manifest(workspace)
+    assert not any(key.startswith("sections/AL-020_sloads") for key in manifest["products"])
+    assert "does not identify" in manifest["skipped"].get(
+        "sections/AL-020_sloads#distributions", ""
+    )

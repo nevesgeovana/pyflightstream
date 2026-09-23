@@ -251,7 +251,15 @@ the live reference to the recorded boundary families, including rotor names and
 aliases of rotor names. An expanded emission's family set must equal the recorded
 block's set. In a common frame, `["Wing", "Tail"]` describes one combined block,
 so it cannot integrate separate recorded Wing and Tail blocks; both keep their
-raw columns with a named warning. If the effective pproc cannot be
+raw columns with a named warning. Where no rotor definition reaches the match
+(a legacy layout, or a reference without rotors), the recorded frame names
+carry the builder's grouping: on an expanding frame (`LOCAL_AXIS`, `RMRP`,
+`SMRP`) a recorded block is an entry's emission when it is exactly the selected
+families recorded in its frame, every other selected family is recorded in a
+sibling frame of the same kind, and a per-blade block is one blade; two blocks
+recorded in one rotor frame came from two entries and a combined entry owns
+neither, and a selected family recorded only in a common frame leaves the block
+unmatched. If the effective pproc cannot be
 resolved, complete recorded layouts and available stamped exports still supply
 their histories. Integration and products needing that specification are named
 skips in `products.json` and `post.log`.

@@ -176,21 +176,59 @@ def _matching_distributions(
             else block.get("frame", "") == entry.frame
         )
         # No rotor definition reaches this path, so it cannot rebuild the export
-        # builder's grouping. On an EXPANDING frame the builder emits one block
-        # per rotor or per blade, each a subset of the entry's selection, so a
-        # recorded block that lies inside the selection is one of them; on a
-        # common frame the builder emits ONE block over the whole selection,
-        # so only the equal set is that block.
-        owned = (
-            (lambda block_set, members: block_set <= members)
+        # builder's grouping; the recorded layout carries it in the FRAME
+        # names. On an EXPANDING frame the builder emits one block per rotor
+        # (`<alias>_RMRP`) or per blade (`<alias>_RMRP<n>`), each the part of
+        # the selection that rotor or blade owns, so a recorded block is the
+        # entry's emission when it is exactly the selected families recorded in
+        # its frame, every other selected family is recorded in a sibling frame
+        # of the same kind (another rotor's, another blade's) and a per-blade
+        # block is one blade. Two blocks in one frame came from two entries and
+        # neither is a combined entry's; a selected family recorded only in a
+        # common frame belongs to a rotor nothing here can name, and the block
+        # stays unmatched rather than owned by a guess. On a common frame the
+        # builder emits ONE block over the whole selection.
+        block_frame = str(block.get("frame", ""))
+        block_set = set(families)
+        layout = record.sections_layout or []
+        in_frame = {
+            str(f)
+            for b in layout
+            if str(b.get("frame", "")) == block_frame
+            for f in cast(list[str], b["families"])
+        }
+        siblings = {
+            str(f)
+            for b in layout
             if expanded is not None
-            else (lambda block_set, members: block_set == members)
-        )
+            and str(b.get("frame", "")) != block_frame
+            and re.fullmatch(expanded, str(b.get("frame", ""))) is not None
+            for f in cast(list[str], b["families"])
+        }
+        per_blade = entry.frame.strip().upper() == "LOCAL_AXIS"
+
+        def owned(
+            members: Sequence[str],
+            *,
+            common: bool = expanded is None,
+            block_set: frozenset[str] = frozenset(block_set),
+            in_frame: frozenset[str] = frozenset(in_frame),
+            siblings: frozenset[str] = frozenset(siblings),
+            per_blade: bool = per_blade,
+        ) -> bool:
+            selected = set(members or inventory)
+            if common:
+                return block_set == selected
+            return (
+                block_set <= selected
+                and selected & in_frame == block_set
+                and (selected - in_frame) <= siblings
+                and (len(block_set) == 1 or not per_blade)
+            )
+
         if (
             families
-            and any(
-                owned(set(families), set(members or inventory)) for members in expanded_families
-            )
+            and any(owned(members) for members in expanded_families)
             and block.get("plane") in entry.planes
             and block["count"] == (entry.count or pproc.sections.count)
             and frame_matches

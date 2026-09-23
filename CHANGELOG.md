@@ -102,9 +102,11 @@ samples it reads, and no compatibility promise waits past this release.
   expanded family set rather than a subset; rotor names and live aliases of
   rotor names resolve through the export builder's own expansion; and a legacy
   layout with no rotor definition still owns each recorded block of an entry on
-  an expanding frame (`LOCAL_AXIS`, `RMRP`, `SMRP`), where the builder emits one
-  block per rotor or per blade inside the selection, while a common frame still
-  requires the whole selection.
+  an expanding frame (`LOCAL_AXIS`, `RMRP`, `SMRP`) by the grouping the recorded
+  frame names carry: the block is exactly the selected families recorded in its
+  frame, the rest of the selection is recorded in sibling frames, a per-blade
+  block is one blade; two blocks in one rotor frame are never one entry's, and
+  a common frame still requires the whole selection.
 - Legacy sectional and Cp ownership uses the recorded pproc, while the effective
   pproc selects integration, including `families = "each"`. An unresolved pproc
   preserves histories supported by recorded layouts and names integration skips.
