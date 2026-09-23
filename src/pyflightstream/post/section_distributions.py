@@ -128,17 +128,8 @@ def _literal_frames(*specs: PprocSpec | None) -> frozenset[str]:
     )
 
 
-def _rotor_group(frame: str, literal: frozenset[str] = frozenset()) -> tuple[str, str]:
-    """Name the rotor and the kind a recorded frame belongs to.
-
-    ``("<alias>", "blade:<n>")`` for one blade's frame, ``("<alias>", "rmrp")``
-    for the rotor's rotating frame, ``("<alias>", "smrp")`` for the stationary
-    one and its ``_ORIGINAL`` twin together, and ``(frame, "common")`` for any
-    other frame, which names no rotor; a frame a specification cites literally
-    is common whatever its name says.
-    """
-    if frame in literal:
-        return frame, "common"
+def _rotor_frame(frame: str) -> tuple[str, str] | None:
+    """Read a rotor's frame name into its alias and kind, or None for any other name."""
     blade = re.fullmatch(r"(.+)_RMRP([1-9][0-9]*)", frame)
     if blade:
         return blade[1], f"blade:{blade[2]}"
@@ -148,7 +139,39 @@ def _rotor_group(frame: str, literal: frozenset[str] = frozenset()) -> tuple[str
     stationary = re.fullmatch(r"(.+)_SMRP(?:_ORIGINAL)?", frame)
     if stationary:
         return stationary[1], "smrp"
-    return frame, "common"
+    return None
+
+
+def _rotor_group(
+    frame: str, literal: frozenset[str] = frozenset(), established: frozenset[str] = frozenset()
+) -> tuple[str, str]:
+    """Name the rotor and the kind a recorded frame belongs to.
+
+    ``("<alias>", "blade:<n>")`` for one blade's frame, ``("<alias>", "rmrp")``
+    for the rotor's rotating frame, ``("<alias>", "smrp")`` for the stationary
+    one and its ``_ORIGINAL`` twin together, and ``(frame, "common")`` for any
+    other frame, which names no rotor. A frame a specification cites literally
+    is common whatever its name says, UNLESS another recorded frame that no
+    specification cites literally establishes the same rotor alias: a user's
+    own ``X_RMRP`` names no rotor, while the rotor's ``ROTOR_RMRP`` cited by an
+    entry over its hub is still the rotor's when ``ROTOR_RMRP1`` is recorded.
+    """
+    named = _rotor_frame(frame)
+    if named is None or (frame in literal and named[0] not in established):
+        return frame, "common"
+    return named
+
+
+def _established_aliases(
+    layout: Sequence[Mapping[str, object]], literal: frozenset[str]
+) -> frozenset[str]:
+    """Return the rotor aliases that recorded frames no specification cites literally name."""
+    return frozenset(
+        named[0]
+        for b in layout
+        if (frame := str(b.get("frame", ""))) not in literal
+        and (named := _rotor_frame(frame)) is not None
+    )
 
 
 def _matching_distributions(
@@ -238,17 +261,24 @@ def _matching_distributions(
         # the whole selection.
         block_set = set(families)
         layout = record.sections_layout or []
-        group = _rotor_group(str(block.get("frame", "")), literal)
-        per_blade = entry.frame.strip().upper() == "LOCAL_AXIS"
+        established = _established_aliases(layout, literal)
+        group = _rotor_group(str(block.get("frame", "")), literal, established)
+        # The kind the entry's frame expands per: a block of any other kind,
+        # a common frame included, is not this entry's emission and cannot
+        # stand as a sibling of one.
+        kind = {"LOCAL_AXIS": "blade", "RMRP": "rmrp", "SMRP": "smrp"}.get(
+            entry.frame.strip().upper()
+        )
+        per_blade = kind == "blade"
         in_group: set[str] = set()
         siblings: set[str] = set()
         own_rotor: set[str] = set()
         for b in layout:
-            other = _rotor_group(str(b.get("frame", "")), literal)
+            other = _rotor_group(str(b.get("frame", "")), literal, established)
             recorded = {str(f) for f in cast(list[str], b["families"])}
             if other == group:
                 in_group |= recorded
-            elif expanded is not None and other[1].split(":")[0] == group[1].split(":")[0]:
+            elif kind is not None and other[1].split(":")[0] == kind:
                 siblings |= recorded
             elif per_blade and other[0] == group[0] and other[1] in ("rmrp", "smrp"):
                 own_rotor |= recorded
@@ -257,6 +287,7 @@ def _matching_distributions(
             members: Sequence[str],
             *,
             common: bool = expanded is None,
+            of_kind: bool = kind is not None and group[1].split(":")[0] == kind,
             block_set: frozenset[str] = frozenset(block_set),
             in_group: frozenset[str] = frozenset(in_group),
             elsewhere: frozenset[str] = frozenset(siblings | own_rotor),
@@ -266,7 +297,8 @@ def _matching_distributions(
             if common:
                 return block_set == selected
             return (
-                block_set <= selected
+                of_kind
+                and block_set <= selected
                 and selected & in_group == block_set
                 and (selected - in_group) <= elsewhere
                 and (len(block_set) == 1 or not per_blade)

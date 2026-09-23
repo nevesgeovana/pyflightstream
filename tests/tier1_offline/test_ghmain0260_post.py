@@ -529,3 +529,102 @@ def test_ab_a_custom_frame_named_like_a_rotor_is_no_sibling(tmp_path, monkeypatc
     columns, _ = read_csv_table(out / key)
     assert not set(EXTRA) & set(columns), "Blade1 integrated by an entry that never emitted it"
     assert "missing" in manifest["skipped"].get(f"{key}#integration", "")
+
+
+def test_ab_two_custom_frames_are_no_emission_of_an_expanding_entry(tmp_path, monkeypatch):
+    """Blade1 in a user's X_RMRP, Blade2 in Y_RMRP: an RMRP entry over both owns neither.
+
+    Both frames are cited literally and name no rotor, so neither block is an
+    RMRP emission nor a sibling that could supply the other's family.
+    """
+    workspace = _case(tmp_path, monkeypatch, blocks=[(0, 1), (0, 1)])
+    record = workspace.read_manifest()[0]
+    frames = ("X_RMRP", "Y_RMRP")
+    names = ("Blade1", "Blade2")
+    for k, (block, frame, name) in enumerate(
+        zip(record.sections_layout, frames, names, strict=True), 1
+    ):
+        block.update(distribution=k, distribution_families=name, families=[name], frame=frame)
+    spec = workspace.resolve_pproc("p001")
+    entry = spec.sections.distributions[0]
+    spec.sections.distributions = [
+        entry.model_copy(update={"families": ["Blade1", "Blade2"], "frame": "RMRP"}),
+        # The literal citations name the frames without owning these blocks,
+        # so the combined entry is the only candidate.
+        entry.model_copy(update={"families": "Hub", "frame": "X_RMRP", "integrate": False}),
+        entry.model_copy(update={"families": "Hub", "frame": "Y_RMRP", "integrate": False}),
+    ]
+    write_campaign_products(workspace)
+    manifest = _products_manifest(workspace)
+    out = workspace.products_dir(None)
+    keys = {
+        product["distribution"]: key
+        for key, product in manifest["products"].items()
+        if key.startswith("sections/AL-020_sloads")
+    }
+    for position, name in enumerate(names, 1):
+        key = keys[position]
+        columns, _ = read_csv_table(out / key)
+        assert not set(EXTRA) & set(columns), f"{name} integrated by an entry that never emitted it"
+        assert "missing" in manifest["skipped"].get(f"{key}#integration", "")
+
+
+def test_ab_a_rotor_frame_cited_literally_keeps_the_rotor_its_blades_establish(
+    tmp_path, monkeypatch
+):
+    """The hub entry cites ROTOR_RMRP by name; ROTOR_RMRP1 proves the rotor exists.
+
+    A literal citation demotes a frame to common only when no recorded frame
+    outside the literal set establishes its alias; here the blade frames do,
+    so the LOCAL_AXIS entry over the blades and the hub still owns its blocks.
+    """
+    workspace = _case(tmp_path, monkeypatch, blocks=[(0, 1), (0, 1), (0, 1)])
+    record = workspace.read_manifest()[0]
+    frames = ("ROTOR_RMRP1", "ROTOR_RMRP2", "ROTOR_RMRP")
+    names = ("Blade1", "Blade2", "Hub")
+    for block, frame, name in zip(record.sections_layout, frames, names, strict=True):
+        block.update(families=[name], frame=frame)
+        del block["distribution"]
+        del block["distribution_families"]
+    spec = workspace.resolve_pproc("p001")
+    entry = spec.sections.distributions[0]
+    spec.sections.distributions = [
+        entry.model_copy(update={"families": ["Blade1", "Blade2", "Hub"], "frame": "LOCAL_AXIS"}),
+        entry.model_copy(update={"families": "Hub", "frame": "ROTOR_RMRP", "integrate": False}),
+    ]
+    write_campaign_products(workspace)
+    manifest = _products_manifest(workspace)
+    out = workspace.products_dir(None)
+    key = "sections/AL-020_sloads_Blade1-Blade2-Hub.csv"
+    assert key in manifest["products"], manifest["skipped"]
+    columns, rows = read_csv_table(out / key)
+    assert tuple(columns[-4:]) == EXTRA and {row["FAMILY"] for row in rows} == {"Blade1", "Blade2"}
+    hub_columns, hub_rows = read_csv_table(out / "sections/AL-020_sloads_Hub.csv")
+    assert not set(EXTRA) & set(hub_columns) and {row["FAMILY"] for row in hub_rows} == {"Hub"}
+
+
+def test_ab_one_custom_block_holding_the_whole_selection_is_still_no_emission(
+    tmp_path, monkeypatch
+):
+    """Both blades in one user frame X_RMRP: an RMRP entry over both does not own it."""
+    workspace = _case(tmp_path, monkeypatch, blocks=[(0, 1)])
+    record = workspace.read_manifest()[0]
+    record.sections_layout[0].update(
+        distribution=1,
+        distribution_families=["Blade1", "Blade2"],
+        families=["Blade1", "Blade2"],
+        frame="X_RMRP",
+    )
+    spec = workspace.resolve_pproc("p001")
+    entry = spec.sections.distributions[0]
+    spec.sections.distributions = [
+        entry.model_copy(update={"families": ["Blade1", "Blade2"], "frame": "RMRP"}),
+        entry.model_copy(update={"families": "Hub", "frame": "X_RMRP", "integrate": False}),
+    ]
+    write_campaign_products(workspace)
+    manifest = _products_manifest(workspace)
+    out = workspace.products_dir(None)
+    key = "sections/AL-020_sloads_Blade1-Blade2.csv"
+    columns, _ = read_csv_table(out / key)
+    assert not set(EXTRA) & set(columns), "a user's frame owned by an RMRP entry"
+    assert "missing" in manifest["skipped"].get(f"{key}#integration", "")
