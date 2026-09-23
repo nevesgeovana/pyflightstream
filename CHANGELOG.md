@@ -51,8 +51,8 @@ cluster and on Windows within an hour of each other, on campaigns recorded with
 
 ### Changed (breaking: the native-log freeze check is OPT-IN)
 
-- **`post` and `collect` no longer read each point's native log unless asked.**
-  `--check-frozen` turns the reading on; without it the stage reads a log for a
+- **`post` and `collect` no longer refuse anything from a point's native log
+  unless asked.** `--check-frozen` turns the refusal on; without it the stage reads a log for a
   freeze only to ADMIT a point recorded as `FAILED_DIVERGED` whose solver froze,
   so that point's histories, instants and pre-freeze averages are written as
   they were in 0.25.0, and nothing is refused from what it reads. The provenance

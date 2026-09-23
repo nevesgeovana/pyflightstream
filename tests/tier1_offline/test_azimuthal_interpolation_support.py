@@ -92,6 +92,20 @@ def test_a_clean_azimuthal_campaign_writes_its_product(tmp_path, steps_per_revol
     assert "probes/AL-020_per_blade.csv" in manifest["products"], (
         "the reducer saw one blade family, so no sample is fractional here"
     )
+    # BOTH FAMILIES, one row each: the reducer writes a per-blade row per
+    # family it matched, so a reference naming only Blade1 would still write
+    # the file (the tech-writer lens) and would apply no second-blade offset.
+    per_blade = (
+        tmp_path
+        / str(steps_per_revolution)
+        / "test"
+        / "post"
+        / "products"
+        / "probes"
+        / "AL-020_per_blade.csv"
+    ).read_text(encoding="utf-8")
+    families = [row.split(",")[3] for row in per_blade.splitlines()[1:]]
+    assert families == ["Blade1", "Blade2"], families
 
 
 def test_whole_step_samples_do_not_read_outside_the_window(tmp_path):

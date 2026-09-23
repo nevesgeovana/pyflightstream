@@ -676,7 +676,7 @@ residual and whose last inner iteration prints both residuals exactly zero.
 A frozen solve is recorded as `FAILED_DIVERGED`, naming the first frozen step
 and the count.
 
-**THE POST STAGE READS THE NATIVE LOG ONLY WHEN ASKED (0.25.1).** `post` and
+**THE POST STAGE REFUSES ON THE NATIVE LOG ONLY WHEN ASKED (0.25.1).** `post` and
 `collect` take `--check-frozen`; without it the log is READ FOR A FREEZE only
 to admit a `FAILED_DIVERGED` point whose solver froze (its histories, instants
 and pre-freeze averages are written, as before), nothing is refused from it, and
