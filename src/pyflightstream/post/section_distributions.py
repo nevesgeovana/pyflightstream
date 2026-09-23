@@ -170,23 +170,27 @@ def _matching_distributions(
             "RMRP": r".+_RMRP",
             "SMRP": r".+_SMRP(?:_ORIGINAL)?",
         }.get(entry.frame.strip().upper())
-        if entry.frame.strip().upper() == "LOCAL_AXIS":
-            # No rotor definition reaches this path, so it has to know what the
-            # export builder does with a per-blade frame: one block per BLADE.
-            expanded_families = [
-                [name]
-                for members in expanded_families
-                for name in (members or inventory)
-                if pproc.is_blade(name)
-            ]
         frame_matches = (
             re.fullmatch(expanded, str(block.get("frame", ""))) is not None
             if expanded is not None
             else block.get("frame", "") == entry.frame
         )
+        # No rotor definition reaches this path, so it cannot rebuild the export
+        # builder's grouping. On an EXPANDING frame the builder emits one block
+        # per rotor or per blade, each a subset of the entry's selection, so a
+        # recorded block that lies inside the selection is one of them; on a
+        # common frame the builder emits ONE block over the whole selection,
+        # so only the equal set is that block.
+        owned = (
+            (lambda block_set, members: block_set <= members)
+            if expanded is not None
+            else (lambda block_set, members: block_set == members)
+        )
         if (
             families
-            and any(set(families) == set(members or inventory) for members in expanded_families)
+            and any(
+                owned(set(families), set(members or inventory)) for members in expanded_families
+            )
             and block.get("plane") in entry.planes
             and block["count"] == (entry.count or pproc.sections.count)
             and frame_matches

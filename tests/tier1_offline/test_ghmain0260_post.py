@@ -273,32 +273,64 @@ def test_aa_rotor_names_and_live_aliases_use_builder_expansion(tmp_path, monkeyp
 
 
 @pytest.mark.parametrize("integrate", [False, True])
-def test_ab_legacy_layout_keeps_one_blade_frame_entry_over_two_blades(
-    tmp_path, monkeypatch, integrate
+@pytest.mark.parametrize(
+    ("frame", "block_frames", "names"),
+    [
+        ("LOCAL_AXIS", ("ROTOR_RMRP1", "ROTOR_RMRP2"), ("Blade1", "Blade2")),
+        ("LOCAL_AXIS", ("ROTOR_RMRP1", "ROTOR_RMRP2"), ("PB_1", "PB_2")),
+        ("RMRP", ("L_RMRP", "R_RMRP"), ("Blade1", "Blade2")),
+        ("SMRP", ("L_SMRP", "R_SMRP_ORIGINAL"), ("Blade1", "Blade2")),
+    ],
+)
+def test_ab_legacy_layout_keeps_one_expanding_entry_over_two_blocks(
+    tmp_path, monkeypatch, integrate, frame, block_frames, names
 ):
-    """A blade-frame entry over two blades was recorded as one block per blade.
+    """An entry on an expanding frame was recorded as one block per rotor or blade.
 
-    A legacy layout carries no distribution identity and no rotor definitions
-    reach the matcher, so the fallback has to know what the export builder does
-    with a per-blade frame: one emission per blade. The equal-set rule alone
-    rejected both singletons and the split lost its raw files.
+    A legacy layout carries no distribution identity and no rotor definition
+    reaches the matcher, so the fallback cannot rebuild the builder's grouping;
+    what it knows is that on an expanding frame each emitted block is a SUBSET
+    of the entry's selection. The equal-set rule alone rejected every block and
+    the split lost its raw files, and a blade predicate by name pattern lost a
+    declared blade named outside the pattern.
     """
     workspace = _case(tmp_path, monkeypatch, option=integrate, blocks=[(0, 1), (0, 1)])
     record = workspace.read_manifest()[0]
-    for block in record.sections_layout:
+    for block, block_frame, name in zip(record.sections_layout, block_frames, names, strict=True):
         del block["distribution"]
         del block["distribution_families"]
+        block.update(families=[name], frame=block_frame)
     spec = workspace.resolve_pproc("p001")
     entry = spec.sections.distributions[0]
     spec.sections.distributions = [
-        entry.model_copy(update={"families": ["Blade1", "Blade2"], "frame": "LOCAL_AXIS"})
+        entry.model_copy(update={"families": list(names), "frame": frame})
     ]
     write_campaign_products(workspace)
     manifest = _products_manifest(workspace)
     out = workspace.products_dir(None)
-    key = "sections/AL-020_sloads_Blade1-Blade2.csv"
+    key = f"sections/AL-020_sloads_{'-'.join(names)}.csv"
     assert key in manifest["products"], manifest["skipped"]
     columns, rows = read_csv_table(out / key)
-    assert {row["FAMILY"] for row in rows} == {"Blade1", "Blade2"} and len(rows) == 4
+    assert {row["FAMILY"] for row in rows} == set(names) and len(rows) == 4
     assert (tuple(columns[-4:]) == EXTRA) is integrate, manifest["skipped"]
     assert f"{key}#integration" not in manifest["skipped"]
+
+
+def test_ab_legacy_common_frame_entry_still_needs_the_whole_block(tmp_path, monkeypatch):
+    """The subset rule stays out of a common frame: Z's case holds on a legacy layout."""
+    workspace = _case(tmp_path, monkeypatch, blocks=[(0, 1), (0, 1)])
+    record = workspace.read_manifest()[0]
+    for block, family in zip(record.sections_layout, ("Wing", "Tail"), strict=True):
+        del block["distribution"]
+        del block["distribution_families"]
+        block.update(families=[family], frame="MRP")
+    spec = workspace.resolve_pproc("p001")
+    entry = spec.sections.distributions[0]
+    spec.sections.distributions = [
+        entry.model_copy(update={"families": ["Wing", "Tail"], "frame": "MRP"})
+    ]
+    write_campaign_products(workspace)
+    manifest = _products_manifest(workspace)
+    assert not any(key.startswith("sections/AL-020_sloads") for key in manifest["products"])
+    reason = manifest["skipped"].get("sections/AL-020_sloads#distributions", "")
+    assert "does not identify" in reason
