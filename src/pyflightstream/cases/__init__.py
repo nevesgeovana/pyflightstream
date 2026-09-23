@@ -799,7 +799,13 @@ def _a_group_is_one_alias(value):
             if len(stated) == 1 and isinstance(stated[0], str):
                 replacement = f'{name} = "{stated[0]}"'
             elif not stated:
-                replacement = f'{name} = "{EVERY_FAMILY}"'
+                replacement = (
+                    f'{name} = "{EVERY_FAMILY}" only if no boundary, family or alias '
+                    f'named "{EVERY_FAMILY}" exists in the inventory or reference; '
+                    "that name takes precedence and selects its own members. Otherwise "
+                    "declare every intended boundary under a unique alias in the "
+                    f'reference [aliases] and write {name} = "<alias>"'
+                )
             else:
                 replacement = (
                     f'{name} = "<alias>"; declare the members under [aliases] '

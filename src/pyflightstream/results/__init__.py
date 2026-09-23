@@ -1571,15 +1571,19 @@ class LogTimes:
     time_steps : int or None
         The total of the ``Solving unsteady time-step iteration (i/N)`` lines,
         N; None on a steady log.
+    solver_mode : str or None
+        ``steady`` or ``unsteady`` from time-step or run-time lines; None when
+        neither is printed. Time-step evidence takes precedence.
     """
 
     solver_run_time_s: float | None = None
     solver_initialization_s: float | None = None
     time_steps: int | None = None
+    solver_mode: str | None = None
 
 
 _RUN_TIME_LINE = re.compile(
-    r"^\s*(?:Unsteady solver|Solver) run time:\s*([0-9.Ee+-]+)\s*minutes", re.M
+    r"^\s*(Unsteady solver|Solver) run time:\s*([0-9.Ee+-]+)\s*minutes", re.M
 )
 _INITIALIZED_LINE = re.compile(r"^\s*Solver initialized in\s*([0-9.Ee+-]+)\s*seconds", re.M)
 _TIME_STEP_LINE = re.compile(r"Solving unsteady time-step iteration \(\s*\d+\s*/\s*(\d+)\s*\)")
@@ -1604,9 +1608,16 @@ def parse_log_times(text: str) -> LogTimes:
     initialized = _INITIALIZED_LINE.findall(clean)
     steps = _TIME_STEP_LINE.findall(clean)
     return LogTimes(
-        solver_run_time_s=parse_number(run_times[-1]) * 60.0 if run_times else None,
+        solver_run_time_s=parse_number(run_times[-1][1]) * 60.0 if run_times else None,
         solver_initialization_s=parse_number(initialized[-1]) if initialized else None,
         time_steps=int(steps[-1]) if steps else None,
+        solver_mode=(
+            "unsteady"
+            if steps or (run_times and run_times[-1][0] == "Unsteady solver")
+            else "steady"
+            if run_times
+            else None
+        ),
     )
 
 

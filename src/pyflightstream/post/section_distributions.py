@@ -12,7 +12,7 @@ from typing import cast
 
 from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning
 from pyflightstream._tokens import INTEGRATED_SECTION_COLUMNS
-from pyflightstream.cases import PprocSpec, select_group_members
+from pyflightstream.cases import PprocSpec, select_families
 from pyflightstream.fsi.loads import parse_sectional_loads
 from pyflightstream.post._tables import (
     CONTEXT_COLUMNS,
@@ -119,8 +119,9 @@ def _matching_distributions(
     )
     matches = []
     for k, entry in enumerate(pproc.sections.distributions, 1):
-        tokens = [entry.families] if isinstance(entry.families, str) else entry.families
-        members = select_group_members(tokens, inventory, record.aliases)
+        expanded_families = select_families(
+            entry.families, inventory, pproc.is_blade, record.aliases
+        )
         families = cast(list[str], block["families"])
         expanded = {
             "LOCAL_AXIS": r".+_RMRP[1-9][0-9]*",
@@ -134,7 +135,7 @@ def _matching_distributions(
         )
         if (
             families
-            and set(families) <= set(members)
+            and any(set(families) <= set(members or inventory) for members in expanded_families)
             and block.get("plane") in entry.planes
             and block["count"] == (entry.count or pproc.sections.count)
             and frame_matches
@@ -201,6 +202,8 @@ def write_section_distributions(
     skipped: dict[str, str],
     step: int | None,
     pproc: PprocSpec | None = None,
+    current_pproc: PprocSpec | None = None,
+    integration_error: str | None = None,
     condition: Mapping[str, object] | None = None,
     reference: Mapping[str, object] | None = None,
     rotors: Mapping[str, Mapping[str, object]] | None = None,
@@ -232,9 +235,14 @@ def write_section_distributions(
         written as ``NA``. See `The sections table, and which row is which
         <../post-processing-definitions.md#the-sections-table-and-which-row-is-which>`_.
     pproc : PprocSpec or None, optional
-        Post-processing specification used to resolve legacy distribution
-        ownership and select optional strip integrals. See `Per-distribution sectional loads and Cp
+        Recorded post-processing specification used to resolve legacy distribution
+        ownership. Also selects strip integrals when current_pproc is omitted.
+        See `Per-distribution sectional loads and Cp
         <../post-processing-definitions.md#per-distribution-sectional-loads-and-cp-0250>`_.
+    current_pproc : PprocSpec or None, optional
+        Effective post specification selecting integration against recorded blocks.
+    integration_error : str or None, optional
+        Unresolved effective specification; retain raw files and name integration skips.
     condition : Mapping[str, object] or None, optional
         Point's condition, with case-insensitive keys: ``ALPHA``, ``BETA``
         (degrees, solver-reported angles in the export frame: x aft, y right,
@@ -291,7 +299,10 @@ def write_section_distributions(
             )
         return [], {}
     names = _file_names(selections)
-    integrate, matching_errors = _integration_requests(record, pproc, layout)
+    integrate, matching_errors = _integration_requests(record, current_pproc or pproc, layout)
+    if integration_error is not None:
+        integrate = set()
+        matching_errors = dict.fromkeys(selections, integration_error)
     delta, _ = run_clock(record)
     context = context_row(condition, reference)
     written: list[Path] = []
