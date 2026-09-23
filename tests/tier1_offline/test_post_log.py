@@ -5,6 +5,7 @@ import re
 
 import pytest
 
+from pyflightstream import __version__
 from pyflightstream.post.products import freeze_of_log, write_campaign_products
 from pyflightstream.results import UnjudgeableSolve
 from tests.tier1_offline.test_b01_frozen_solve import (
@@ -23,7 +24,12 @@ def test_every_post_writes_and_archives_its_log(tmp_path):
     log = workspace.products_dir(None) / manifest["log"]
     before = log.read_bytes()
     text = before.decode()
-    assert all(word in text for word in ("0.26.0", str(workspace.root), "matrix", "time", "False"))
+    # THE PACKAGE'S OWN VERSION, not a literal: the literal "0.26.0" passed on
+    # the release tree and failed CI on the post-tag commit that opened
+    # 0.27.0.dev0 (2026-09-23), a version macro re-dating a claim.
+    assert all(
+        word in text for word in (__version__, str(workspace.root), "matrix", "time", "False")
+    )
     for name, reason in manifest["skipped"].items():
         assert name in text and reason in text
     write_campaign_products(workspace, overwrite=True)
