@@ -1725,7 +1725,6 @@ def test_the_former_key_of_the_polar_format_is_refused_on_a_real_artifact(tmp_pa
     were migrated in the same change, so nothing in this estate meets this
     refusal; a user's own file might, which is why the message matters.
     """
-    from pyflightstream._errors import InputArtifactError
     from pyflightstream.post.products import write_campaign_products
     from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
 
@@ -1755,8 +1754,21 @@ def test_the_former_key_of_the_polar_format_is_refused_on_a_real_artifact(tmp_pa
             reference={"SREF": 50.0, "CREF": 2.526, "BREF": 20.0, "XMOM": 9.152},
         )
     )
-    with pytest.raises(InputArtifactError, match="her_polar_format"):
-        write_campaign_products(workspace)
+    # SINCE 0.26.0 NOTHING BLOCKS BY DEFAULT: the artifact is still REFUSED, in
+    # the words of the same InputArtifactError, but the refusal is a named skip
+    # in products.json and a line in post.log, and the post completes for
+    # whatever the recorded facts alone support (the closing round of 0.26.0,
+    # fix O). The key is still named, which is what this case is about.
+    import json
+
+    write_campaign_products(workspace)
+    manifest = json.loads(
+        (workspace.products_dir(None) / "products.json").read_text(encoding="utf-8")
+    )
+    assert any("her_polar_format" in reason for reason in manifest["skipped"].values()), manifest
+    assert "her_polar_format" in (workspace.products_dir(None) / "post.log").read_text(
+        encoding="utf-8"
+    )
 
 
 def test_the_former_her_names_of_the_polar_format_are_gone(tmp_path):

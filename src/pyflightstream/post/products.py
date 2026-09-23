@@ -5920,10 +5920,21 @@ def _point_reductions(
         if name == _PER_BLADE and windows:
             # End trimming changes the span. Ask the reducer again for exactly
             # what the final table reads, including samples between passages.
-            final_reads = _window_the_reduction_reads(
-                name, entry, (windows[0][0], windows[-1][1]), series, columns, count, facts
-            )
-            final_reason = _judge_average(frozen, final_reads, point=stem, product=relative)
+            # UNDER THE SAME HANDLING AS THE FIRST ASK: a trimmed span that
+            # holds no plotted frame is a named skip of this table, as the
+            # definitions page asks of every no-data impossibility, and not an
+            # exception out of the post (the QA read of the closing-round
+            # fixes, 2026-09-23: passages [58,58], [59,59], [60,61], plotted
+            # 60 and 61, unread 61 opt-in, aborted every later product).
+            try:
+                final_reads = _window_the_reduction_reads(
+                    name, entry, (windows[0][0], windows[-1][1]), series, columns, count, facts
+                )
+                final_reason = _judge_average(frozen, final_reads, point=stem, product=relative)
+            except (PyflightstreamError, OSError, ValueError) as error:
+                target(out / relative)
+                skipped[relative] = str(error)
+                continue
             if final_reason is not None:
                 target(out / relative)
                 skipped[relative] = final_reason

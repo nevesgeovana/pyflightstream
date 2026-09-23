@@ -352,3 +352,42 @@ def test_a_per_rotor_reduction_is_judged_by_that_rotors_blades():
     assert _window_the_reduction_reads("phase_locked", entry, (59, 61), dense, plan) == (59, 61), (
         "the top level states no blades, and a judge that reads it sees one blade"
     )
+
+
+def test_a_trimmed_per_blade_span_with_no_frame_is_a_named_skip_not_an_abort(tmp_path):
+    """The QA read of the 0.26.0 closing-round fixes, 2026-09-23.
+
+    Passages [58,58], [59,59], [60,61] with plotted samples at 60 and 61 only
+    and step 61 unread: asked to refuse, the stage trims the last passage and
+    asks the reducer what [58,59] reads, which holds no plotted frame. That
+    answer escaped as MalformedOutputError and ended every later product;
+    it is the per-blade table's own named skip, and the campaign completes.
+    """
+    import re
+
+    from pyflightstream.post.products import write_campaign_products
+    from tests.tier1_offline.test_b01_frozen_solve import (
+        _make_one_step_unreadable,
+        _post_workspace,
+        _products_manifest,
+    )
+
+    workspace = _post_workspace(
+        tmp_path, 2411, (60, 61), rotor=True, passages=[(58, 58), (59, 59), (60, 61)]
+    )
+    plots = workspace.sim_dir("7001") / "outputs" / "AL-020_plots.txt"
+    if not plots.is_file():
+        plots = next(workspace.sim_dir("7001").rglob("AL-020_plots.txt"))
+    kept = [
+        line
+        for line in plots.read_text(encoding="utf-8").splitlines(keepends=True)
+        if not re.match(r"^(\d+)\.0000,", line) or int(re.match(r"^(\d+)", line)[1]) >= 60
+    ]
+    plots.write_text("".join(kept), encoding="utf-8")
+    _make_one_step_unreadable(workspace, 61)
+    write_campaign_products(workspace, matrix_stem="products", check_frozen=True)
+    manifest = _products_manifest(workspace)
+    key = "probes/AL-020_per_blade.csv"
+    assert key in manifest["skipped"], manifest
+    assert "no frame" in manifest["skipped"][key] or "58" in manifest["skipped"][key]
+    assert "probes/AL-020_plots.csv" in manifest["products"], "the post did not complete"

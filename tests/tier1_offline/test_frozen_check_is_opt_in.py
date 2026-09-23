@@ -68,14 +68,19 @@ def test_both_modes_read_the_log_to_explain_doubts(tmp_path, monkeypatch):
     """Since 0.26.0 the default reads the log to warn while preserving products."""
     calls: list[object] = []
 
-    def spy(log_path):
-        calls.append(log_path)
+    # THE SPY TAKES WHAT THE CALLER PASSES, by name: since the closing round
+    # of 0.26.0 the stage says whether the loads export reports a steady solve
+    # (`steady=`), and a spy that could not take it made this test red before
+    # it asserted anything (the QA read of that round's fixes).
+    def spy(log_path, *, steady=False):
+        calls.append((log_path, steady))
         return None
 
     monkeypatch.setattr(products_module, "freeze_of_log", spy)
     workspace = _post_workspace(tmp_path / "off", 2413, (60, 61))
     write_campaign_products(workspace)
     assert calls, "since 0.26.0 the native log is read to warn by default"
+    assert all(steady is False for _path, steady in calls), "an unsteady fixture was called steady"
     calls.clear()
     workspace = _post_workspace(tmp_path / "on", 2413, (60, 61))
     write_campaign_products(workspace, check_frozen=True)
