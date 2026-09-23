@@ -930,3 +930,101 @@ def test_ad_a_rotor_name_keeps_its_expanding_meaning_under_any_alias(tmp_path, m
         assert not set(EXTRA) & set(columns), f"{name} integrated through a falsely unique match"
         assert len(rows) == 2
         assert "ambiguous" in manifest["skipped"].get(f"{key}#integration", ""), manifest["skipped"]
+
+
+def test_ad_a_common_frame_alias_is_a_possible_owner_whatever_the_order(tmp_path, monkeypatch):
+    """A = [A], B = [A]; the geometry carries A1; entries A (off), A1 (on), B on another frame.
+
+    The builder emits A1 for `A` over the geometry; a later entry citing the
+    name A turns the member's stem reading into an exact one, so the
+    subset argument over the maximal inventory fails on a common frame. The
+    alias entry is a possible owner on frame, plane and count whatever the
+    entry order: both A1 blocks ambiguous and refused by name.
+    """
+    workspace = _case(tmp_path, monkeypatch, blocks=[(0, 1), (0, 1)])
+    record = workspace.read_manifest()[0]
+    record.aliases = {"A": ["A"], "B": ["A"]}
+    for k, (block, name) in enumerate(zip(record.sections_layout, ("A", "A1"), strict=True), 1):
+        block.update(distribution=k, distribution_families=name, families=["A1"], frame="MRP")
+    spec = workspace.resolve_pproc("p001")
+    entry = spec.sections.distributions[0]
+    spec.sections.distributions = [
+        entry.model_copy(update={"families": "A", "frame": "MRP", "integrate": False}),
+        entry.model_copy(update={"families": "A1", "frame": "MRP", "integrate": True}),
+        entry.model_copy(update={"families": "B", "frame": "Other", "integrate": False}),
+    ]
+    write_campaign_products(workspace)
+    manifest = _products_manifest(workspace)
+    out = workspace.products_dir(None)
+    for name in ("A", "A1"):
+        key = f"sections/AL-020_sloads_{name}.csv"
+        columns, rows = read_csv_table(out / key)
+        assert not set(EXTRA) & set(columns), f"{name} integrated through a falsely unique match"
+        assert len(rows) == 2
+        assert "ambiguous" in manifest["skipped"].get(f"{key}#integration", ""), manifest["skipped"]
+
+
+def test_ad_a_literal_frame_owns_its_original_twin_too(tmp_path, monkeypatch):
+    """Two Wing blocks in R_SMRP_ORIGINAL, entries A = [Wing, Tail] on R_SMRP and Wing on the twin.
+
+    The builder emits the ORIGINAL twin for a literal frame that has one, so
+    the alias entry could own the twin's block; the possible reading's frame
+    gate rejected it before asking, and the Wing entry's flag went to both.
+    Both blocks ambiguous and refused by name.
+    """
+    workspace = _case(tmp_path, monkeypatch, blocks=[(0, 1), (0, 1)])
+    record = workspace.read_manifest()[0]
+    record.aliases = {"A": ["Wing", "Tail"]}
+    for k, (block, name) in enumerate(zip(record.sections_layout, ("A", "Wing"), strict=True), 1):
+        block.update(
+            distribution=k, distribution_families=name, families=["Wing"], frame="R_SMRP_ORIGINAL"
+        )
+    spec = workspace.resolve_pproc("p001")
+    entry = spec.sections.distributions[0]
+    spec.sections.distributions = [
+        entry.model_copy(update={"families": "A", "frame": "R_SMRP", "integrate": False}),
+        entry.model_copy(
+            update={"families": "Wing", "frame": "R_SMRP_ORIGINAL", "integrate": True}
+        ),
+    ]
+    write_campaign_products(workspace)
+    manifest = _products_manifest(workspace)
+    out = workspace.products_dir(None)
+    for name in ("A", "Wing"):
+        key = f"sections/AL-020_sloads_{name}.csv"
+        columns, rows = read_csv_table(out / key)
+        assert not set(EXTRA) & set(columns), f"{name} integrated through a falsely unique match"
+        assert len(rows) == 2
+        assert "ambiguous" in manifest["skipped"].get(f"{key}#integration", ""), manifest["skipped"]
+
+
+def test_ad_two_recorded_blades_without_a_rotor_definition_integrate_uniquely(
+    tmp_path, monkeypatch
+):
+    """Blade1 and Blade2 entries on LOCAL_AXIS, both recorded with identity, no rotor definition.
+
+    The builder emits nothing over the cuts without a rotor, and reading
+    every expanding entry as possible made Blade2 a possible owner of every
+    Blade1 block: both files lost their integration as ambiguous. Exact
+    recorded names alone are settled by the recorded-frame grouping, so each
+    entry owns its own block uniquely and both files integrate.
+    """
+    workspace = _case(tmp_path, monkeypatch, blocks=[(0, 1), (0, 1)])
+    record = workspace.read_manifest()[0]
+    for k, block in enumerate(record.sections_layout, 1):
+        block.update(distribution=k, distribution_families=f"Blade{k}")
+    spec = workspace.resolve_pproc("p001")
+    entry = spec.sections.distributions[0]
+    spec.sections.distributions = [
+        entry.model_copy(update={"families": f"Blade{k}", "frame": "LOCAL_AXIS", "integrate": True})
+        for k in (1, 2)
+    ]
+    write_campaign_products(workspace)
+    manifest = _products_manifest(workspace)
+    out = workspace.products_dir(None)
+    for k in (1, 2):
+        key = f"sections/AL-020_sloads_Blade{k}.csv"
+        columns, rows = read_csv_table(out / key)
+        assert tuple(columns[-4:]) == EXTRA, manifest["skipped"]
+        assert len(rows) == 2 and {row["FAMILY"] for row in rows} == {f"Blade{k}"}
+        assert f"{key}#integration" not in manifest["skipped"]

@@ -19,7 +19,7 @@ from pyflightstream.cases import (
     SimCase,
     select_families,
 )
-from pyflightstream.cases.workflows import pproc_emissions
+from pyflightstream.cases.workflows import ORIGINAL_FRAME_SUFFIX, pproc_emissions
 from pyflightstream.fsi.loads import parse_sectional_loads
 from pyflightstream.post._tables import (
     CONTEXT_COLUMNS,
@@ -256,6 +256,9 @@ def _matching_distributions(
             return True
         key = alias_key(word)
         if key is not None and key in visiting:
+            # A ring, or a member naming its own alias: the builder falls back
+            # to the family reading, which the cuts cannot settle.
+            met["uncertain"] = True
             return word in inventory
         if key is not None:
             if visiting and word not in recorded_names:
@@ -491,7 +494,7 @@ def _matching_distributions(
         frame_ok = (
             re.fullmatch(kind_re, frame) is not None
             if kind_re is not None
-            else frame == entry.frame
+            else frame in (entry.frame, f"{entry.frame}{ORIGINAL_FRAME_SUFFIX}")
         )
         if not (
             frame_ok
@@ -501,6 +504,12 @@ def _matching_distributions(
             return False
         if uncertain[k - 1]:
             return True
+        # ON A COMMON FRAME the builder's alias and stem reading is not
+        # monotone in the inventory: exact-boundary precedence turns a
+        # member's stem reading into an exact one as soon as another entry
+        # cites that name. Every such case cites a name the cuts do not carry
+        # or closes a ring, and both mark uncertainty above; exact recorded
+        # names alone are monotone and keep the builder's reading below.
         # THE BUILDER'S OWN READING, over the MAXIMAL inventory: the recorded
         # names, the declared rotor families and every name any entry cited.
         # The geometry the cuts came from is a subset of it, so the builder's
@@ -529,7 +538,20 @@ def _matching_distributions(
         except PyflightstreamError:
             return True
         if not emissions:
-            return kind_re is not None and not rotors
+            if kind_re is None or rotors:
+                return False
+            # AN EXPANDING FRAME WITH NO ROTOR DEFINITION: the builder emits
+            # nothing here, so the entry is possible on frame, plane and count
+            # unless its selection is exact recorded names alone, which the
+            # recorded-frame grouping of the strict reading settles as the
+            # builder would; then the block has to lie inside the selection,
+            # or Blade2 would be a possible owner of every Blade1 block.
+            try:
+                groups = select_families(entry.families, inventory, pproc.is_blade, vocabulary)
+            except PyflightstreamError:
+                return True
+            held = set(cast(list[str], block["families"]))
+            return any(held <= set(members or inventory) for members in groups)
         held = set(cast(list[str], block["families"]))
         return any(
             emitted == frame and held <= set(members or inventory)
