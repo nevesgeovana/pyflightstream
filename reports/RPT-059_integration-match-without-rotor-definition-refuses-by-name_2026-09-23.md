@@ -47,6 +47,21 @@ geometry's inventory at export time is a design change for the run and
 workspace subpackages, planned for 0.27.0 with the post-completeness work,
 rather than a further widening of a matcher that nine rounds narrowed.
 
+## The one case ownership gets wrong by name, registered here on 2026-09-23
+
+Ownership of a legacy layout resolves the recorded pproc's selectors over the
+recorded cuts, because there is no other evidence and a raw file has to be
+named by something. Two `RMRP` entries, the first selecting `Blade1` on a
+rotor that emitted nothing at export time and the second selecting rotor
+`ACTIVE` (Blade11, Blade12) with no rotor definition in hand: the cuts hold
+one block, the first entry resolves to it by stem, the second resolves to
+nothing, and the block is written under the first entry's name with the
+manifest naming it as the first distribution. The four rows are all present
+and nothing is integrated; the name and the ownership are wrong. The
+alternative, refusing the split as unidentified, loses the rows. The name is
+settled the same way as the rest of this report: a live rotor definition or
+a recorded inventory, and the same 0.27.0 work closes it.
+
 ## What the reader can rely on meanwhile
 
 State the rotors in the reference's `[rotors]` table and cite exact boundary

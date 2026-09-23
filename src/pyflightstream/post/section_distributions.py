@@ -221,7 +221,7 @@ def _matching_distributions(
             return True
         folded = word.casefold()
         if folded in visiting:
-            return any(f.casefold() == folded for f in inventory)
+            return word in inventory
         if folded in vocabulary:
             return all([cited(member, visiting | {folded}) for member in vocabulary[folded]])
         # THE FIVE SELECTOR WORDS ARE SELECTORS ONLY WHEN THEY STAND ALONE:
@@ -235,7 +235,10 @@ def _matching_distributions(
         if not visiting and word in ("each", "each_blade"):
             # Each emitted block is one known family, regardless of siblings.
             return True
-        if not any(f.casefold() == folded for f in inventory):
+        if word not in inventory:
+            # EXACT MEANS THE BUILDER'S EXACT: its boundary lookup is
+            # case-sensitive, so `blade1` beside a recorded Blade1 is not that
+            # boundary here either, whatever a case-folded reader would say.
             # A word that is neither an exact recorded name, an alias nor a
             # rotor is kept as an unrecorded member so selection cannot erase
             # it: a boundary the cuts do not carry (`Blade2` beside a recorded

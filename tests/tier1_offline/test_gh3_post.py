@@ -239,7 +239,7 @@ def test_ad_an_entry_that_emitted_nothing_claims_no_other_entrys_cuts(tmp_path, 
     spec = workspace.resolve_pproc("p001")
     entry = spec.sections.distributions[0]
     spec.sections.distributions = [
-        entry.model_copy(update={"families": "Blade1", "frame": "IDLE_RMRP", "integrate": True}),
+        entry.model_copy(update={"families": "Blade1", "frame": "RMRP", "integrate": True}),
         entry.model_copy(update={"families": "ACTIVE", "frame": "RMRP", "integrate": False}),
     ]
     write_campaign_products(workspace)
@@ -371,3 +371,32 @@ def test_ad_a_selector_word_inside_an_alias_is_a_boundary_name(tmp_path, monkeyp
     assert not set(EXTRA) & set(columns), "a selector word in an alias matched the old block"
     assert {row["FAMILY"] for row in rows} == {"Wing"}
     assert "missing" in manifest["skipped"].get(f"{key}#integration", "")
+
+
+def test_ad_a_case_folded_name_is_not_the_builders_exact_name(tmp_path, monkeypatch):
+    """The recorded block holds Blade1; the current entry asks `blade1`.
+
+    The builder's boundary lookup is case-sensitive, and the geometry may hold
+    a Blade2 the cuts do not show, so `blade1` is not exact evidence of the
+    recorded block: raw columns, named missing.
+    """
+    workspace = _case(tmp_path, monkeypatch)
+    record = workspace.read_manifest()[0]
+    recorded = workspace.resolve_pproc("p001")
+    current = recorded.model_copy(deep=True)
+    current.sections.distributions[0].families = "blade1"
+    current.sections.distributions[0].frame = "MRP"
+    record.sections_layout[0]["frame"] = "MRP"
+    specs = {"p001": recorded, "p002": current}
+    monkeypatch.setattr(CampaignWorkspace, "resolve_pproc", lambda self, key: specs[key])
+    record.matrix_stem = "products"
+    _matrix(workspace)
+    matrix = workspace.root / "products.fs"
+    matrix.write_text(matrix.read_text().replace("p001", "p002"))
+    write_campaign_products(workspace, matrix_stem="products")
+    manifest = _products_manifest(workspace)
+    out = workspace.products_dir("products")
+    key = "sections/AL-020_sloads_Blade1.csv"
+    columns, rows = read_csv_table(out / key)
+    assert not set(EXTRA) & set(columns), "a case-folded name integrated the block"
+    assert len(rows) == 4 and "missing" in manifest["skipped"].get(f"{key}#integration", "")
