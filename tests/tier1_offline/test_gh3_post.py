@@ -666,3 +666,28 @@ def test_ad_a_possible_owner_in_a_literally_cited_frame_is_still_possible(
         assert not set(EXTRA) & set(columns), f"{name} integrated through a falsely unique match"
         assert len(rows) == 2
         assert "ambiguous" in manifest["skipped"].get(f"{key}#integration", ""), manifest["skipped"]
+
+
+def test_ad_a_possible_reading_that_raises_costs_no_raw_row(tmp_path, monkeypatch):
+    """A Wing entry that integrates beside `families = ["blades"]`, which the resolver refuses.
+
+    The artifact accepts both entries; the retired selector raises when the
+    possible reading resolves it. That refusal is the entry's own and cannot
+    cost the raw split or the Wing entry's integration: the post completes,
+    the file has its rows and its integrated columns.
+    """
+    workspace, record, recorded = _one_distribution(tmp_path, monkeypatch)
+    entry = recorded.sections.distributions[0]
+    recorded.sections.distributions = [
+        entry.model_copy(update={"families": "Wing", "frame": "MRP", "integrate": True}),
+        entry.model_copy(update={"families": ["blades"], "frame": "MRP", "integrate": False}),
+    ]
+    record.sections_layout[0].update(families=["Wing"], distribution_families="Wing", frame="MRP")
+    write_campaign_products(workspace)
+    manifest = _products_manifest(workspace)
+    out = workspace.products_dir(None)
+    key = "sections/AL-020_sloads_Wing.csv"
+    assert key in manifest["products"], manifest["skipped"]
+    columns, rows = read_csv_table(out / key)
+    assert tuple(columns[-4:]) == EXTRA, manifest["skipped"]
+    assert len(rows) == 2 and {row["FAMILY"] for row in rows} == {"Wing"}
