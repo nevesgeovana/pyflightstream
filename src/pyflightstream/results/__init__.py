@@ -1434,7 +1434,7 @@ class UnjudgeableSolve(FrozenSolve):
             else ""
         )
         return (
-            f"the native log cannot be read for time step(s) {named}, so the freeze check "
+            f"the native log cannot be read for time step(s) {named} (unread), so the freeze check "
             "could not run over them and an average covering them cannot be shown to avoid a "
             f"frozen solve{frozen}"
             + (f": {self.detail}" if self.detail else "")
@@ -1487,9 +1487,18 @@ def frozen_time_steps(log_text: str, *, unjudged: list[int] | None = None) -> Fr
         end = markers[index + 1].start() if index + 1 < len(markers) else len(clean)
         block = clean[marker.end() : end]
         try:
+            pages = _RESIDUAL_PAGE.split(block)[1:]
+            if not pages:
+                if index + 1 < len(markers) and int(markers[index + 1][1]) == step:
+                    # Per-step export actions repeat the marker before its table.
+                    continue
+                if index + 1 == len(markers):
+                    raise IncompleteOutputError(
+                        f"time step {step} ends before its Iteration anchor; recollect the log"
+                    )
             rows = [
                 row
-                for page in _RESIDUAL_PAGE.split(block)[1:]
+                for page in pages
                 for row in delimited_table("Iteration" + page, "Iteration", delimiter=None)
             ]
         except (IncompleteOutputError, MalformedOutputError):

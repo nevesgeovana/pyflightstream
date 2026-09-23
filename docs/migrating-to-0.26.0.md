@@ -94,3 +94,27 @@ An invalid block leaves the entire file in its original form and emits a
 `PyflightstreamWarning` naming the point, file and reason; post continues.
 See [Integrated sectional loads](post-processing-definitions.md#integrated-sectional-loads-since-0260)
 for the column definitions, moment-point evidence and exact strip rule.
+
+## The post log and what no longer refuses
+
+Every post writes `post.log` beside `products.json`, and the manifest names it
+under `log`. Check this file after posting, including after a clean campaign.
+It records warnings and named skips with their point, product, applicable step
+and remedy. Rebuilding archives the old log with the old products.
+
+The default now reads native logs and warns about frozen solves and unread
+blocks while writing every product it can compute. A failed point's status
+alone no longer excludes usable exports. No-data, malformed-export and
+unassignable-layout cases still have named skips because the requested table
+cannot be computed.
+
+```text
+pyfs-matrix post --workspace campaign
+pyfs-matrix post --workspace campaign --check-frozen
+```
+
+The second form asks to refuse affected averages instead of warning alone.
+Both forms write the log. The azimuthal guard now uses the reducer's exact set
+of plotted samples, including resolved blade-family aliases and every nonzero
+interpolation weight. A terminal log cut before `Iteration` is unread; a
+page-less marker immediately followed by the same step's marker is a repeat.

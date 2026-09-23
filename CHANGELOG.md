@@ -9,6 +9,9 @@ FlightStream versions.
 
 ### Added
 
+- Every campaign post writes `post.log` beside `products.json`, even when clean.
+  It records every named skip and stage warning, carries the invocation header,
+  and is archived with the products on rebuild. The manifest names the log.
 - Optional integrated sectional loads: `integrate = true` on a pproc
   `[[sections.distributions]]` entry appends `Strip_length`, `Fx_int`, `Fz_int`
   and `My_int` to the same sectional CSV. Each instant uses exported station
@@ -30,6 +33,13 @@ FlightStream versions.
 
 ### Changed
 
+- Nothing in the post blocks by default: frozen solves and unread blocks warn
+  while computable products are written. `--check-frozen` refuses affected
+  averages instead of warning alone. Failed status alone no longer excludes
+  usable exports in default mode.
+- The reducer states its exact plotted sample set using its resolved families.
+  The freeze guard no longer reconstructs azimuthal samples. Every nonzero
+  interpolation weight counts, including weights near 5e-11 (RPT-057).
 - The development version is `0.26.0.dev0`. See
   [Migrating to 0.26.0](docs/migrating-to-0.26.0.md) for each replacement.
 - Recorded manifest key `broken_commands` is read silently as `waived_commands`
@@ -41,6 +51,12 @@ FlightStream versions.
   All four are absent from this isolated worktree. The historical census of
   74 rows (46, 18, 8, 2) across four manifests does not reproduce here;
   absent files are not a measurement of zero recorded rows.
+
+### Fixed
+
+- A terminal residual block cut before the `Iteration` anchor is unread.
+  Page-less repeated markers for the same step retain their residual evidence
+  and do not create false unread steps (RPT-055).
 
 ### Owed
 

@@ -14,15 +14,16 @@ from tests.tier1_offline.test_f07_section_distributions import _workspace
 from tests.tier1_offline.test_post_products import _products_manifest
 
 
-def test_reference_mismatch_refuses_all_distribution_tables(tmp_path, monkeypatch):
+@pytest.mark.parametrize("asked", [False, True])
+def test_reference_mismatch_warns_by_default_and_refuses_when_asked(tmp_path, monkeypatch, asked):
+    """Since 0.26.0 a reference mismatch warns while computable exports are posted."""
     workspace, record = _workspace(tmp_path, monkeypatch)
     record.reference["SREF"] = 99.0
-    write_campaign_products(workspace)
+    write_campaign_products(workspace, check_frozen=asked)
     manifest = _products_manifest(workspace)
-    assert "reference" in manifest["skipped"]["7001"]
-    assert not list(workspace.products_dir(None).glob("sections/*.csv")), (
-        "reference mismatch published distribution tables"
-    )
+    assert ("7001" in manifest["skipped"]) is asked
+    assert bool(list(workspace.products_dir(None).glob("sections/*.csv"))) is not asked
+    assert "reference" in (workspace.products_dir(None) / "post.log").read_text()
 
 
 @pytest.mark.parametrize("source", ["missing", "unreadable", "empty"])
@@ -145,15 +146,16 @@ def test_frozen_repost_retires_previous_average(tmp_path, archive):
 
 
 @pytest.mark.parametrize("archive", [True, False])
-def test_reference_refused_repost_retires_previous_tables(tmp_path, monkeypatch, archive):
+@pytest.mark.parametrize("asked", [False, True])
+def test_reference_mismatch_repost_warns_or_retires(tmp_path, monkeypatch, archive, asked):
+    """Since 0.26.0 the default rebuild writes products and logs the reference doubt."""
     workspace, record = _workspace(tmp_path, monkeypatch)
     write_campaign_products(workspace)
     record.reference["SREF"] = 99.0
-    write_campaign_products(workspace, overwrite=True, archive=archive)
-    assert "7001" in _products_manifest(workspace)["skipped"]
-    assert not list(workspace.products_dir(None).glob("sections/*.csv")), (
-        "reference-refused rebuild left old tables current"
-    )
+    write_campaign_products(workspace, overwrite=True, archive=archive, check_frozen=asked)
+    assert ("7001" in _products_manifest(workspace)["skipped"]) is asked
+    assert bool(list(workspace.products_dir(None).glob("sections/*.csv"))) is not asked
+    assert "reference" in (workspace.products_dir(None) / "post.log").read_text()
 
 
 @pytest.mark.parametrize("archive", [True, False])

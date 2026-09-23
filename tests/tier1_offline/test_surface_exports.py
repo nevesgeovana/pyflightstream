@@ -309,7 +309,9 @@ def test_stopped_surface_provenance_ends_at_the_actual_step(tmp_path):
     assert all(node["pyfs:window"]["iterations"] == [91, 100] for node in surfaces)
 
 
-def test_frozen_surface_averages_are_named_skips_but_earlier_steps_survive(tmp_path):
+@pytest.mark.parametrize("asked", [False, True])
+def test_frozen_surface_averages_warn_or_refuse_but_earlier_steps_survive(tmp_path, asked):
+    """Since 0.26.0 the default keeps surface averages and logs the frozen steps."""
     from tests.tier1_offline.test_b01_frozen_solve import _log
 
     workspace = CampaignWorkspace.init(tmp_path / "camp")
@@ -334,19 +336,22 @@ def test_frozen_surface_averages_are_named_skips_but_earlier_steps_survive(tmp_p
             (sim / f"p_iteration={step}.{ext}").write_text("native surface")
     workspace.append_record(record)
     # The freeze reading is opt-in since 0.25.1; this test asserts the refusal, so it asks.
-    write_campaign_products(workspace, overwrite=True, check_frozen=True)
+    write_campaign_products(workspace, overwrite=True, check_frozen=asked)
     manifest = json.loads((workspace.products_dir(None) / "products.json").read_text())
     surfaces = [
         entry
         for entry in manifest["products"].values()
         if entry.get("format") in ("tecplot", "vtk", "csv")
     ]
-    assert len(surfaces) == 3, "only the three step-59 averages precede the freeze at step 60"
-    assert all(entry["window"]["iterations"] == [55, 59] for entry in surfaces)
+    assert len(surfaces) == (3 if asked else 9)
+    if asked:
+        assert all(entry["window"]["iterations"] == [55, 59] for entry in surfaces)
     native_skips = {
         name: reason
         for name, reason in manifest["skipped"].items()
         if reason.startswith("frozen solve:")
     }
-    assert len(native_skips) == 6
+    assert len(native_skips) == (6 if asked else 0)
     assert all("frozen" in reason.lower() for reason in native_skips.values())
+    log = (workspace.products_dir(None) / "post.log").read_text()
+    assert "frozen" in log and "step 60" in log

@@ -518,13 +518,10 @@ def _build_parser() -> argparse.ArgumentParser:
         "--check-frozen",
         action="store_true",
         help=(
-            "read each point's NATIVE LOG while posting and refuse the averages "
-            "a frozen solve or an unreadable block touches. OFF BY DEFAULT since "
-            "0.25.1: with it off, the averages of a frozen solve are published "
-            "like any other, and a frozen solve prints plausible numbers, so "
-            "nothing in the products says they are wrong. Turn it on when the "
-            "campaign matters enough to pay for the reading; every refusal it "
-            "makes is named in products.json with the step and the remedy"
+            "REFUSE instead of WARN for averages touched by a frozen solve or "
+            "an unread native-log block. By default computable products are written "
+            "and post.log warns. Both modes write post.log with the point, product, "
+            "step and remedy; refusals are also named in products.json"
         ),
     )
     collect.add_argument(
@@ -574,13 +571,10 @@ def _build_parser() -> argparse.ArgumentParser:
         "--check-frozen",
         action="store_true",
         help=(
-            "read each point's NATIVE LOG while posting and refuse the averages "
-            "a frozen solve or an unreadable block touches. OFF BY DEFAULT since "
-            "0.25.1: with it off, the averages of a frozen solve are published "
-            "like any other, and a frozen solve prints plausible numbers, so "
-            "nothing in the products says they are wrong. Turn it on when the "
-            "campaign matters enough to pay for the reading; every refusal it "
-            "makes is named in products.json with the step and the remedy"
+            "REFUSE instead of WARN for averages touched by a frozen solve or "
+            "an unread native-log block. By default computable products are written "
+            "and post.log warns. Both modes write post.log with the point, product, "
+            "step and remedy; refusals are also named in products.json"
         ),
     )
     post.add_argument(

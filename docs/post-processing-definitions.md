@@ -733,61 +733,87 @@ residual and whose last inner iteration prints both residuals exactly zero.
 A frozen solve is recorded as `FAILED_DIVERGED`, naming the first frozen step
 and the count.
 
-**THE POST STAGE REFUSES ON THE NATIVE LOG ONLY WHEN ASKED (0.25.1).** `post` and
-`collect` take `--check-frozen`; without it the log is READ FOR A FREEZE only
-to admit a `FAILED_DIVERGED` point whose solver froze (its histories, instants
-and pre-freeze averages are written, as before), nothing is refused from it, and
-the averages of a frozen solve are published like any other. The provenance
-document still digests every recorded output, the log included, in every mode,
-and a file that cannot be opened is recorded from the record. A frozen solve prints
-plausible numbers, so no product says they are wrong. The reading is a choice
-since 0.25.1, and the architecture is re-discussed in 0.26.0 (`reports/RPT-057`).
-What follows describes the stage WITH the reading asked for.
+### The post log and the default warning rule (since 0.26.0)
 
-When re-posting an existing success and the reading is asked for, the collected
-native log is checked again: an average whose inclusive, 1-based window ends at or after the
-first frozen step is skipped by name in `products.json`. Windows wholly before
-that step keep their products. Raw histories and explicitly instant products
-remain available; an instant is not an accepted average.
+**Nothing in the post blocks by default.** Every `write_campaign_products` run
+creates `post.log` beside `products.json`, under `post/<matrix stem>/` or
+`post/products/` when no matrix is named. The manifest names it under `log`.
+A clean campaign writes the log too. Its header states the package version,
+workspace, matrix stem, local time with UTC offset, and `check_frozen` choice.
+Each WARNING names the point and product, the step where one applies, and what
+would settle the issue. Every named manifest skip and every
+`PyflightstreamWarning` emitted during the stage is recorded there. A rebuild
+archives the previous log with the same timestamp as its products. An
+interrupted post keeps its header and the warnings collected before it stopped.
 
-**A BLOCK THE SOLVER STOPPED UNDER IS NEITHER FROZEN NOR HEALTHY.** A run
-stopped, killed or aborted mid-write leaves a residual table without its
-closing rule, and that step cannot be judged. Such steps are named in
-`products.json`, and:
+A frozen solve, an unread native-log block, a reference mismatch, or a failed
+point's status is a
+reason to warn, not to withhold a computable product. Histories, instants and
+averages remain available. A log that cannot be opened never ends the post.
+No-data and malformed-export cases still cannot supply numbers; missing frame,
+clock or layout facts cannot assign them to a requested product. These
+impossibilities are named skips in both the manifest and the post log.
+Superseded runs and inapplicable products retain their named explanations too.
+Existing-output protection still requires an explicit rebuild request.
 
-- an average is refused when an unread step falls INSIDE the window it reads,
-  and the window a reduction READS is not always the one it states: a
-  phase-locked average TAKEN AT EACH AZIMUTH is interpolated. It samples, for
-  each azimuth of the final revolution and each blade offset, the moments
-  congruent to that azimuth inside the revolutions asked for, and reads the
-  PLOTTED STEPS BRACKETING each moment; so the judged window is the stated one
-  widened to the earliest and latest plotted steps any sample brackets. A
-  moment that IS a plotted step brackets to itself and widens nothing: with two
-  blades and two steps per revolution every sample is a whole step and, when
-  the history holds every step, the window is judged as stated (a whole-step
-  moment the history does NOT hold is read from its neighbours like any other
-  and widens to them); with three steps per revolution the second blade
-  samples half a step back and the step before the window is judged with it.
-  On a sparse history the bracketing step can be far earlier; a revolution is
-  the wrong bound in both directions. The passage series, which a pproc
-  without a `[phase_locked]` table produces, averages the steps of each passage
-  and reads nothing else, so its window is judged as stated;
-- a step that froze with an unread step immediately beside it is reported
-  unread too, in either order, because a freeze is declared from two
-  CONSECUTIVE frozen steps and the pair cannot be ruled out;
-- a log may prove a freeze AND carry unread steps, and both refuse: a window
-  before the freeze that covers an unread step is refused for the unread step;
-- the per-blade table states ONE window over its passages, so a refused passage
-  BETWEEN two kept ones refuses the whole table rather than bridging it; a
-  passage lost from either END keeps the product, with the window ending
-  earlier or starting later;
-- a point whose log proves a freeze is still posted for everything the freeze
-  does not touch, whether or not another block of that log could be read.
+**`--check-frozen` means REFUSE INSTEAD OF WARN.** It opts into the earlier
+refusals for affected averages and reference mismatches; the warning is still
+written to `post.log`.
+Averages wholly before a proven freeze keep their products. A freeze affects
+all steps from its first frozen step onward. An unread block affects only the
+samples that use it. Raw histories and explicitly instant products stay
+available. The provenance document still digests every recorded output,
+including the native log, and records an inaccessible file from its run record.
 
-A LIMIT OF THE DETECTOR, stated because it is not a rule: a block whose
-`Iteration` anchor is itself cut mid-word carries no residual table to refuse,
-so it is read as a step with no evidence rather than as an unread one. It
-predates 0.25.1 (`reports/RPT-055`).
+### The reducer states the plotted steps it reads
+
+The reducer in `post/unsteady.py` reports its set of plotted steps through
+`read_steps`, on the same code path that computes the average. The guard asks
+for that set using the same resolved rotor families as the writer. It performs
+no sample arithmetic, does not enumerate the declared interval, and does not
+invent offsets from blades whose columns the history does not contain.
+
+The azimuthal phase-locked average samples each azimuth of the final revolution
+across the requested revolutions. Each interpolation reports its plotted
+bracketing steps; an exact plotted moment reports that step alone. The guard
+checks set membership for unread steps, not every step between the extremes.
+A sparse history can reach far outside the declared window while reading none
+of the intervening unplotted steps. Ordinary passage and time averages report
+the whole plotted steps they actually take.
+
+**Every nonzero interpolation weight counts, without a cutoff.** This keeps
+the verdict true of the arithmetic: a tiny weight can still multiply a large
+value. At 2.0000000001 steps per revolution the sample at 59.99999999995 reads
+step 59 with weight about 5e-11; that step is included. The reducer's existing
+clock tolerances select moments; they do not round their interpolation support.
+
+Measured examples with dense plotted histories:
+
+| History and plan | Plotted steps read |
+|---|---|
+| Totals only, two declared blades, three steps per revolution, window [59,61] | {59,60,61} |
+| Totals only, 3.6 steps per revolution, four revolutions ending at 20 | {6,7,...,20} |
+| Family alias expanding to two plotted blades, three steps per revolution, window [59,61] | {58,59,60,61} |
+
+### Unread residual blocks and repeated markers
+
+A residual page stopped before its closing separator is unread. Since 0.26.0,
+a terminal marker block with no residual page is unread too, including a cut
+after `Iterat`, before the `Iteration` anchor finishes (RPT-055). A page-less
+marker followed immediately by another marker for the same step is a repeat
+associated with per-step export actions; it is skipped without resetting the
+residual evidence. It is not a terminal cut.
+
+A frozen step immediately beside an unread step is reported unread too, in
+either order, because the two consecutive steps might establish a freeze. A
+log can prove a freeze and carry unread steps; both facts are kept and logged.
+With `check_frozen=True`, either can refuse an affected average.
+
+The per-blade table states one window over its passages. In opt-in refusal
+mode, a refused passage between two kept ones refuses the whole table, because
+joining the survivors would bridge the unread data. Losing passages only from
+an end keeps a shorter contiguous product. In default warning mode all
+computable passages remain in the product and the affected ones are logged.
 
 It does **not** judge whether the time history has settled. There is no settle
 tolerance, no convergence criterion over the history, and no point is failed for
