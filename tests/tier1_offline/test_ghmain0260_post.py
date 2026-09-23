@@ -406,3 +406,85 @@ def test_ab_a_per_blade_block_is_one_blade(tmp_path, monkeypatch):
     assert "does not identify" in manifest["skipped"].get(
         "sections/AL-020_sloads#distributions", ""
     )
+
+
+def test_ab_the_smrp_pair_of_one_rotor_is_one_group(tmp_path, monkeypatch):
+    """`ROTOR_SMRP` and `ROTOR_SMRP_ORIGINAL` are one emission turned, not siblings.
+
+    Blade1 recorded in both frames under two identities, Blade2 in the twin
+    only, and the twin's blocks each owned by a literal-frame current entry:
+    the combined SMRP entry must not own the Blade1 block of the first frame,
+    because the builder would have emitted both blades together in each frame.
+    """
+    workspace = _case(tmp_path, monkeypatch, blocks=[(0, 1), (0, 1), (0, 1)])
+    record = workspace.read_manifest()[0]
+    frames = ("ROTOR_SMRP", "ROTOR_SMRP_ORIGINAL", "ROTOR_SMRP_ORIGINAL")
+    names = ("Blade1", "Blade1", "Blade2")
+    for k, (block, frame, name) in enumerate(
+        zip(record.sections_layout, frames, names, strict=True), 1
+    ):
+        block.update(distribution=k, distribution_families=name, families=[name], frame=frame)
+    spec = workspace.resolve_pproc("p001")
+    entry = spec.sections.distributions[0]
+    spec.sections.distributions = [
+        entry.model_copy(update={"families": ["Blade1", "Blade2"], "frame": "SMRP"}),
+        entry.model_copy(
+            update={"families": "Blade1", "frame": "ROTOR_SMRP_ORIGINAL", "integrate": False}
+        ),
+        entry.model_copy(
+            update={"families": "Blade2", "frame": "ROTOR_SMRP_ORIGINAL", "integrate": False}
+        ),
+    ]
+    write_campaign_products(workspace)
+    manifest = _products_manifest(workspace)
+    out = workspace.products_dir(None)
+    (key,) = [
+        key
+        for key, product in manifest["products"].items()
+        if key.startswith("sections/AL-020_sloads") and product.get("distribution") == 1
+    ]
+    columns, _ = read_csv_table(out / key)
+    assert not set(EXTRA) & set(columns), "Blade1 integrated by an entry that never emitted it"
+    assert "missing" in manifest["skipped"].get(f"{key}#integration", "")
+
+
+@pytest.mark.parametrize("identity", [False, True])
+def test_ab_a_per_blade_entry_may_name_the_hub_the_builder_leaves_out(
+    tmp_path, monkeypatch, identity
+):
+    """Blades in their frames, the hub in the rotor's: a LOCAL_AXIS entry over all three."""
+    workspace = _case(tmp_path, monkeypatch, blocks=[(0, 1), (0, 1), (0, 1)])
+    record = workspace.read_manifest()[0]
+    frames = ("ROTOR_RMRP1", "ROTOR_RMRP2", "ROTOR_RMRP")
+    names = ("Blade1", "Blade2", "Hub")
+    for k, (block, frame, name) in enumerate(
+        zip(record.sections_layout, frames, names, strict=True), 1
+    ):
+        block.update(families=[name], frame=frame)
+        if identity:
+            block.update(
+                distribution=1 if k < 3 else 2,
+                distribution_families=["Blade1", "Blade2"] if k < 3 else name,
+            )
+        else:
+            del block["distribution"]
+            del block["distribution_families"]
+    spec = workspace.resolve_pproc("p001")
+    entry = spec.sections.distributions[0]
+    spec.sections.distributions = [
+        entry.model_copy(update={"families": ["Blade1", "Blade2", "Hub"], "frame": "LOCAL_AXIS"}),
+        entry.model_copy(update={"families": "Hub", "frame": "RMRP", "integrate": False}),
+    ]
+    write_campaign_products(workspace)
+    manifest = _products_manifest(workspace)
+    out = workspace.products_dir(None)
+    key = (
+        "sections/AL-020_sloads_Blade1-Blade2.csv"
+        if identity
+        else "sections/AL-020_sloads_Blade1-Blade2-Hub.csv"
+    )
+    assert key in manifest["products"], manifest["skipped"]
+    columns, rows = read_csv_table(out / key)
+    assert tuple(columns[-4:]) == EXTRA, manifest["skipped"]
+    assert {row["FAMILY"] for row in rows} == {"Blade1", "Blade2"}
+    assert f"{key}#integration" not in manifest["skipped"]

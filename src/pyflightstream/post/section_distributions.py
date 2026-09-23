@@ -109,6 +109,26 @@ def _distributions(
     return layout, selections
 
 
+def _rotor_group(frame: str) -> tuple[str, str]:
+    """Name the rotor and the kind a recorded frame belongs to.
+
+    ``("<alias>", "blade:<n>")`` for one blade's frame, ``("<alias>", "rmrp")``
+    for the rotor's rotating frame, ``("<alias>", "smrp")`` for the stationary
+    one and its ``_ORIGINAL`` twin together, and ``(frame, "common")`` for any
+    other frame, which names no rotor.
+    """
+    blade = re.fullmatch(r"(.+)_RMRP([1-9][0-9]*)", frame)
+    if blade:
+        return blade[1], f"blade:{blade[2]}"
+    rotor = re.fullmatch(r"(.+)_RMRP", frame)
+    if rotor:
+        return rotor[1], "rmrp"
+    stationary = re.fullmatch(r"(.+)_SMRP(?:_ORIGINAL)?", frame)
+    if stationary:
+        return stationary[1], "smrp"
+    return frame, "common"
+
+
 def _matching_distributions(
     record: RunRecord,
     pproc: PprocSpec,
@@ -177,43 +197,45 @@ def _matching_distributions(
         )
         # No rotor definition reaches this path, so it cannot rebuild the export
         # builder's grouping; the recorded layout carries it in the FRAME
-        # names. On an EXPANDING frame the builder emits one block per rotor
-        # (`<alias>_RMRP`) or per blade (`<alias>_RMRP<n>`), each the part of
-        # the selection that rotor or blade owns, so a recorded block is the
-        # entry's emission when it is exactly the selected families recorded in
-        # its frame, every other selected family is recorded in a sibling frame
-        # of the same kind (another rotor's, another blade's) and a per-blade
-        # block is one blade. Two blocks in one frame came from two entries and
-        # neither is a combined entry's; a selected family recorded only in a
-        # common frame belongs to a rotor nothing here can name, and the block
-        # stays unmatched rather than owned by a guess. On a common frame the
-        # builder emits ONE block over the whole selection.
-        block_frame = str(block.get("frame", ""))
+        # names, which name the rotor: `<alias>_RMRP`, `<alias>_SMRP` and its
+        # `_ORIGINAL` twin (one emission turned, not two), `<alias>_RMRP<n>`
+        # for one blade. On an EXPANDING frame the builder emits one block per
+        # rotor or per blade, each the part of the selection that rotor or
+        # blade owns, so a recorded block is the entry's emission when it is
+        # exactly the selected families recorded in its own group, every other
+        # selected family is recorded in a sibling group of the same kind
+        # (another rotor's, another blade's) or, for a per-blade entry, in its
+        # own rotor's frame (the hub and the spinner ride the rotor and are
+        # left out of a cut), and a per-blade block is one blade. Two blocks in
+        # one group came from two entries and neither is a combined entry's; a
+        # selected family recorded only in a common frame belongs to a rotor
+        # nothing here can name, and the block stays unmatched rather than
+        # owned by a guess. On a common frame the builder emits ONE block over
+        # the whole selection.
         block_set = set(families)
         layout = record.sections_layout or []
-        in_frame = {
-            str(f)
-            for b in layout
-            if str(b.get("frame", "")) == block_frame
-            for f in cast(list[str], b["families"])
-        }
-        siblings = {
-            str(f)
-            for b in layout
-            if expanded is not None
-            and str(b.get("frame", "")) != block_frame
-            and re.fullmatch(expanded, str(b.get("frame", ""))) is not None
-            for f in cast(list[str], b["families"])
-        }
+        group = _rotor_group(str(block.get("frame", "")))
         per_blade = entry.frame.strip().upper() == "LOCAL_AXIS"
+        in_group: set[str] = set()
+        siblings: set[str] = set()
+        own_rotor: set[str] = set()
+        for b in layout:
+            other = _rotor_group(str(b.get("frame", "")))
+            recorded = {str(f) for f in cast(list[str], b["families"])}
+            if other == group:
+                in_group |= recorded
+            elif expanded is not None and other[1].split(":")[0] == group[1].split(":")[0]:
+                siblings |= recorded
+            elif per_blade and other[0] == group[0] and other[1] in ("rmrp", "smrp"):
+                own_rotor |= recorded
 
         def owned(
             members: Sequence[str],
             *,
             common: bool = expanded is None,
             block_set: frozenset[str] = frozenset(block_set),
-            in_frame: frozenset[str] = frozenset(in_frame),
-            siblings: frozenset[str] = frozenset(siblings),
+            in_group: frozenset[str] = frozenset(in_group),
+            elsewhere: frozenset[str] = frozenset(siblings | own_rotor),
             per_blade: bool = per_blade,
         ) -> bool:
             selected = set(members or inventory)
@@ -221,8 +243,8 @@ def _matching_distributions(
                 return block_set == selected
             return (
                 block_set <= selected
-                and selected & in_frame == block_set
-                and (selected - in_frame) <= siblings
+                and selected & in_group == block_set
+                and (selected - in_group) <= elsewhere
                 and (len(block_set) == 1 or not per_blade)
             )
 
