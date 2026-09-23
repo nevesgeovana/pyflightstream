@@ -255,7 +255,9 @@ raw columns with a named warning. Where no rotor definition reaches the match
 (a legacy layout, or a reference without rotors), the recorded frame names
 carry the builder's grouping, because they name the rotor: `<alias>_RMRP`,
 `<alias>_SMRP` with its `_ORIGINAL` twin (one emission turned, one group), and
-`<alias>_RMRP<n>` for one blade. On an expanding frame (`LOCAL_AXIS`, `RMRP`,
+`<alias>_RMRP<n>` for one blade; a frame either specification in hand cites
+literally (a user's own `X_RMRP`) names no rotor whatever it is called. On an
+expanding frame (`LOCAL_AXIS`, `RMRP`,
 `SMRP`) a recorded block is an entry's emission when it is exactly the selected
 families recorded in its group, every other selected family is recorded in a
 sibling group of the same kind (another rotor, another blade) or, for a

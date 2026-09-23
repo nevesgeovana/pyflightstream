@@ -488,3 +488,44 @@ def test_ab_a_per_blade_entry_may_name_the_hub_the_builder_leaves_out(
     assert tuple(columns[-4:]) == EXTRA, manifest["skipped"]
     assert {row["FAMILY"] for row in rows} == {"Blade1", "Blade2"}
     assert f"{key}#integration" not in manifest["skipped"]
+
+
+@pytest.mark.parametrize("cited_by", ["recorded", "current"])
+def test_ab_a_custom_frame_named_like_a_rotor_is_no_sibling(tmp_path, monkeypatch, cited_by):
+    """A frame a specification cites literally names no rotor, whatever it is called.
+
+    Blade1 recorded in ROTOR_RMRP and Blade2 in a custom frame X_RMRP: a
+    combined RMRP entry over both must not own the Blade1 block, because the
+    builder would have emitted both blades together in ROTOR_RMRP.
+    """
+    workspace = _case(tmp_path, monkeypatch, blocks=[(0, 1), (0, 1)])
+    record = workspace.read_manifest()[0]
+    frames = ("ROTOR_RMRP", "X_RMRP")
+    names = ("Blade1", "Blade2")
+    for k, (block, frame, name) in enumerate(
+        zip(record.sections_layout, frames, names, strict=True), 1
+    ):
+        block.update(distribution=k, distribution_families=name, families=[name], frame=frame)
+    recorded = workspace.resolve_pproc("p001")
+    entry = recorded.sections.distributions[0]
+    custom = entry.model_copy(update={"families": "Blade2", "frame": "X_RMRP", "integrate": False})
+    combined = entry.model_copy(update={"families": ["Blade1", "Blade2"], "frame": "RMRP"})
+    if cited_by == "recorded":
+        recorded.sections.distributions = [combined, custom]
+    else:
+        recorded.sections.distributions = [combined]
+        current = recorded.model_copy(deep=True)
+        current.sections.distributions = [combined, custom]
+        specs = {"p001": recorded, "p002": current}
+        monkeypatch.setattr(CampaignWorkspace, "resolve_pproc", lambda self, key: specs[key])
+        record.matrix_stem = "products"
+        _matrix(workspace)
+        matrix = workspace.root / "products.fs"
+        matrix.write_text(matrix.read_text().replace("p001", "p002"))
+    write_campaign_products(workspace, matrix_stem=record.matrix_stem)
+    manifest = _products_manifest(workspace)
+    out = workspace.products_dir(record.matrix_stem)
+    key = "sections/AL-020_sloads_Blade1.csv"
+    columns, _ = read_csv_table(out / key)
+    assert not set(EXTRA) & set(columns), "Blade1 integrated by an entry that never emitted it"
+    assert "missing" in manifest["skipped"].get(f"{key}#integration", "")

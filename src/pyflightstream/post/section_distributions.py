@@ -109,14 +109,36 @@ def _distributions(
     return layout, selections
 
 
-def _rotor_group(frame: str) -> tuple[str, str]:
+EXPANDING_WORDS = frozenset({"LOCAL_AXIS", "RMRP", "SMRP"})
+
+
+def _literal_frames(*specs: PprocSpec | None) -> frozenset[str]:
+    """Return the frame names these specifications cite as their own, which name no rotor.
+
+    A user may name a frame ``X_RMRP``; by name alone it reads as a rotor's.
+    The specifications in hand (the recorded one that produced the layout,
+    the current one asking to integrate) say which names are theirs.
+    """
+    return frozenset(
+        entry.frame.strip()
+        for spec in specs
+        if spec is not None
+        for entry in spec.sections.distributions
+        if entry.frame.strip().upper() not in EXPANDING_WORDS
+    )
+
+
+def _rotor_group(frame: str, literal: frozenset[str] = frozenset()) -> tuple[str, str]:
     """Name the rotor and the kind a recorded frame belongs to.
 
     ``("<alias>", "blade:<n>")`` for one blade's frame, ``("<alias>", "rmrp")``
     for the rotor's rotating frame, ``("<alias>", "smrp")`` for the stationary
     one and its ``_ORIGINAL`` twin together, and ``(frame, "common")`` for any
-    other frame, which names no rotor.
+    other frame, which names no rotor; a frame a specification cites literally
+    is common whatever its name says.
     """
+    if frame in literal:
+        return frame, "common"
     blade = re.fullmatch(r"(.+)_RMRP([1-9][0-9]*)", frame)
     if blade:
         return blade[1], f"blade:{blade[2]}"
@@ -135,8 +157,10 @@ def _matching_distributions(
     block: Mapping[str, object],
     aliases: Mapping[str, Sequence[str]] | None = None,
     rotors: Mapping[str, RotorBlock] | None = None,
+    literal: frozenset[str] = frozenset(),
 ) -> list[int]:
     """Match current entries to recorded geometry, never to mutable positions."""
+    literal = literal | _literal_frames(pproc)
     inventory = list(
         dict.fromkeys(
             str(f) for b in record.sections_layout or [] for f in cast(list[str], b["families"])
@@ -214,13 +238,13 @@ def _matching_distributions(
         # the whole selection.
         block_set = set(families)
         layout = record.sections_layout or []
-        group = _rotor_group(str(block.get("frame", "")))
+        group = _rotor_group(str(block.get("frame", "")), literal)
         per_blade = entry.frame.strip().upper() == "LOCAL_AXIS"
         in_group: set[str] = set()
         siblings: set[str] = set()
         own_rotor: set[str] = set()
         for b in layout:
-            other = _rotor_group(str(b.get("frame", "")))
+            other = _rotor_group(str(b.get("frame", "")), literal)
             recorded = {str(f) for f in cast(list[str], b["families"])}
             if other == group:
                 in_group |= recorded
@@ -265,6 +289,7 @@ def _integration_requests(
     layout: list[dict[str, object]],
     aliases: Mapping[str, Sequence[str]] | None = None,
     rotors: Mapping[str, RotorBlock] | None = None,
+    literal: frozenset[str] = frozenset(),
 ) -> tuple[set[int], dict[int, str]]:
     """Bind integration to recorded owners; a doubtful block keeps its file raw."""
     requested: set[int] = set()
@@ -274,7 +299,7 @@ def _integration_requests(
         return requested, errors
     for number, block in enumerate(layout, 1):
         owner = cast(int, block["distribution"])
-        matches = _matching_distributions(record, pproc, block, aliases, rotors)
+        matches = _matching_distributions(record, pproc, block, aliases, rotors, literal)
         if len(matches) != 1:
             reason = "ambiguous" if matches else "missing"
             errors[owner] = (
@@ -426,7 +451,12 @@ def write_section_distributions(
         return [], {}
     names = _file_names(selections)
     integrate, matching_errors = _integration_requests(
-        record, current_pproc or pproc, layout, current_aliases, current_rotors
+        record,
+        current_pproc or pproc,
+        layout,
+        current_aliases,
+        current_rotors,
+        _literal_frames(pproc, current_pproc),
     )
     if integration_error is not None:
         integrate = set()
