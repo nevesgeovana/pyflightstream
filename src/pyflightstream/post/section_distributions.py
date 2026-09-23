@@ -36,12 +36,12 @@ def _integrated_strips(values: list[list[float]]) -> list[tuple[float, ...]]:
     Forces are N/m and Moment is N m/m; the added columns are m, N, N, N m.
     """
     if len(values) < 2:
-        raise ValueError("integration needs at least two stations in each block")
+        raise ProductError("integration needs at least two stations in each block")
     if not all(math.isfinite(value) for row in values for value in row):
-        raise ValueError("integration needs finite sectional values (NaN or infinity found)")
+        raise ProductError("integration needs finite sectional values (NaN or infinity found)")
     gaps = [b[0] - a[0] for a, b in zip(values[:-1], values[1:], strict=True)]
     if not (all(gap > 0 for gap in gaps) or all(gap < 0 for gap in gaps)):
-        raise ValueError("integration needs strictly monotonic Offset in each block")
+        raise ProductError("integration needs strictly monotonic Offset in each block")
     halves = [abs(gap) / 2 for gap in gaps]
     lengths = [
         halves[0],
@@ -53,7 +53,7 @@ def _integrated_strips(values: list[list[float]]) -> list[tuple[float, ...]]:
         for row, length in zip(values, lengths, strict=True)
     ]
     if not all(math.isfinite(value) for row in result for value in row):
-        raise ValueError("integration produced a non-finite length or load")
+        raise ProductError("integration produced a non-finite length or load")
     return result
 
 
@@ -326,7 +326,7 @@ def write_section_distributions(
                                 integrated[owner].extend(
                                     _integrated_strips(loads.values[start:block_end].tolist())
                                 )
-                            except ValueError as error:
+                            except ProductError as error:
                                 integration_errors[owner] = (
                                     f"{path.name}, STEP {current}, block {block_number}: {error}"
                                 )
