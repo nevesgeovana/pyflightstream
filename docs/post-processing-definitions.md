@@ -451,12 +451,12 @@ published numbers come to disagree.
 **How the retirement is carried out, as of 0.23.0.** `WINDOW_STEPS`,
 `WINDOW_REVOLUTIONS` and `WINDOW_DEGREES`, all three, are DEPRECATED rather than
 refused: a row stating one still binds, with a warning that names the
-replacement, until 0.27.0 removes them. What such a row binds is the
+replacement, until 0.26.0 removes them. What such a row binds is the
 `time_average` window and the passages cut from it, and NOT the unsteady POLAR:
 until 0.24.0 a row that stated neither `LAST_REVS_AVG` nor `LAST_ITERS_AVG` had
 its polar read from the native export, the run's last time step. Since 0.24.0 a
 NEW plan of a row with NO window key is refused. A row with a deprecated
-`WINDOW_*` key still plans with a warning until 0.27.0. An older record without
+`WINDOW_*` key still plans with a warning until 0.26.0. An older record without
 the current keys is averaged over the window the run was given, with a warning
 naming the steps.
 
@@ -674,8 +674,17 @@ steps whose inner iterations after the first all print exactly zero velocity
 residual and whose last inner iteration prints both residuals exactly zero.
 
 A frozen solve is recorded as `FAILED_DIVERGED`, naming the first frozen step
-and the count. When re-posting an existing success, the collected native log is
-checked again: an average whose inclusive, 1-based window ends at or after the
+and the count.
+
+**THE POST STAGE READS THE NATIVE LOG ONLY WHEN ASKED (0.25.1).** `post` and
+`collect` take `--check-frozen`; without it they never open the log, and the
+averages of a frozen solve are published like any other. A frozen solve prints
+plausible numbers, so no product says they are wrong. The reading is a choice
+since 0.25.1, and the architecture is re-discussed in 0.26.0 (`reports/RPT-057`).
+What follows describes the stage WITH the reading asked for.
+
+When re-posting an existing success and the reading is asked for, the collected
+native log is checked again: an average whose inclusive, 1-based window ends at or after the
 first frozen step is skipped by name in `products.json`. Windows wholly before
 that step keep their products. Raw histories and explicitly instant products
 remain available; an instant is not an accepted average.

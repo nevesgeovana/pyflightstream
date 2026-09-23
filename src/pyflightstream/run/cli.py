@@ -515,6 +515,19 @@ def _build_parser() -> argparse.ArgumentParser:
         help="managed campaign root carrying runs.json (default: the current directory)",
     )
     collect.add_argument(
+        "--check-frozen",
+        action="store_true",
+        help=(
+            "read each point's NATIVE LOG while posting and refuse the averages "
+            "a frozen solve or an unreadable block touches. OFF BY DEFAULT since "
+            "0.25.1: with it off, the averages of a frozen solve are published "
+            "like any other, and a frozen solve prints plausible numbers, so "
+            "nothing in the products says they are wrong. Turn it on when the "
+            "campaign matters enough to pay for the reading; every refusal it "
+            "makes is named in products.json with the step and the remedy"
+        ),
+    )
+    collect.add_argument(
         "--watch",
         action="store_true",
         help="keep sweeping until no submitted point is outstanding, instead of once",
@@ -555,6 +568,19 @@ def _build_parser() -> argparse.ArgumentParser:
             "left them; needs no executable and spends no seat (PFS-2029.15.03). Given a "
             "matrix, rebuilds that matrix's products; given none, every matrix the manifest "
             "names, and the records naming none under post/products."
+        ),
+    )
+    post.add_argument(
+        "--check-frozen",
+        action="store_true",
+        help=(
+            "read each point's NATIVE LOG while posting and refuse the averages "
+            "a frozen solve or an unreadable block touches. OFF BY DEFAULT since "
+            "0.25.1: with it off, the averages of a frozen solve are published "
+            "like any other, and a frozen solve prints plausible numbers, so "
+            "nothing in the products says they are wrong. Turn it on when the "
+            "campaign matters enough to pay for the reading; every refusal it "
+            "makes is named in products.json with the step and the remedy"
         ),
     )
     post.add_argument(
@@ -831,7 +857,13 @@ def _cmd_collect(args: argparse.Namespace) -> int:
         # second sweep of a watch among them, the stage refused them instead
         # of archiving them as the paragraph above says it does.
         for stage in post_stages():
-            stage(ws, overwrite=True, archive=True, matrix_stem=matrix)
+            stage(
+                ws,
+                overwrite=True,
+                archive=True,
+                matrix_stem=matrix,
+                check_frozen=args.check_frozen,
+            )
 
     try:
         report = collect_and_post(
@@ -925,6 +957,7 @@ def _cmd_post(args: argparse.Namespace) -> int:
                         overwrite=True,
                         archive=not args.force_overwrite,
                         matrix_stem=matrix,
+                        check_frozen=args.check_frozen,
                     )
                 )
     except (OSError, PyflightstreamError) as error:

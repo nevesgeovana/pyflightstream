@@ -128,7 +128,7 @@ CODES = {"010": "unsteady_rotor", "003": "steady", "020": "unsteady"}
 
 
 #: Every key that states an unsteady row's averaging window: the two of
-#: 0.23.0 and the three retired spellings that still bind until 0.27.0.
+#: 0.23.0 and the three retired spellings that still bind until 0.26.0.
 _WINDOW_KEYS = frozenset(
     {"LAST_REVS_AVG", "LAST_ITERS_AVG", "WINDOW_DEGREES", "WINDOW_STEPS", "WINDOW_REVOLUTIONS"}
 )

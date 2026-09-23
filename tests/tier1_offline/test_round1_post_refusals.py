@@ -104,7 +104,9 @@ def test_frozen_failed_record_keeps_histories_and_safe_windows(tmp_path, monkeyp
     workspace = _post_workspace(tmp_path, 2413, window)
     record = workspace.read_manifest()[0].model_copy(update={"status": RunStatus.FAILED_DIVERGED})
     monkeypatch.setattr(CampaignWorkspace, "read_manifest", lambda self: [record])
-    write_campaign_products(workspace)
+    # Since 0.25.1 the native log is read only when asked (her decision of
+    # 2026-09-22); this test is about what the reading refuses, so it asks.
+    write_campaign_products(workspace, check_frozen=True)
     manifest = _products_manifest(workspace)
     assert "probes/AL-020_plots.csv" in manifest["products"], "frozen failure lost its history"
     assert "sections/AL-020_sections.csv" in manifest["products"]
@@ -133,10 +135,10 @@ def test_malformed_repost_retires_previous_distribution(tmp_path, monkeypatch, a
 @pytest.mark.parametrize("archive", [True, False])
 def test_frozen_repost_retires_previous_average(tmp_path, archive):
     workspace = _post_workspace(tmp_path, 2411, (60, 61))
-    write_campaign_products(workspace)
+    write_campaign_products(workspace, check_frozen=True)
     log = workspace.sim_dir("7001") / "datapoints/DP-AL-020/AL-020_log.txt"
     log.write_text(_log(2413), newline="\n")
-    write_campaign_products(workspace, overwrite=True, archive=archive)
+    write_campaign_products(workspace, overwrite=True, archive=archive, check_frozen=True)
     key = "probes/AL-020_time_average.csv"
     assert key in _products_manifest(workspace)["skipped"]
     assert not (workspace.products_dir(None) / key).exists(), "frozen average remains current"

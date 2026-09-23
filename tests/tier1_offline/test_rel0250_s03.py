@@ -12,7 +12,7 @@ def test_iteration_warns_and_matches_step(tmp_path):
     from tests.tier1_offline.test_post_products import SLOADS
 
     export = SLOADS
-    with pytest.warns(PyflightstreamDeprecationWarning, match=r"step=.*0\.27\.0"):
+    with pytest.warns(PyflightstreamDeprecationWarning, match=r"step=.*0\.26\.0"):
         old = write_sections_table(tmp_path / "old.csv", export, mach=0.1, iteration=144)
     with warnings.catch_warnings(record=True) as caught:
         new = write_sections_table(tmp_path / "new.csv", export, mach=0.1, step=144)

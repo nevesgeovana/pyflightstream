@@ -163,8 +163,9 @@ In one line each:
   window covers an unread step are refused, by name, with what would settle them.
 - **A freeze beside an unread block is not lost**: both steps are reported unread, so
   the average falls rather than being published from half the evidence.
-- **The compatibility removals move from 0.26.0 to 0.27.0**, which the development tree
-  already carried and which therefore ships here rather than waiting.
+- **The seven compatibility removals stay due at 0.26.0.** The development tree had
+  moved them to 0.27.0 on 2026-09-20; the owner returned them on 2026-09-22 before this
+  patch was cut, so no release ever stated the later deadline.
 
 ## What the licensed campaign measured, and what it did not
 

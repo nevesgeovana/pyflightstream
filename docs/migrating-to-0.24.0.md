@@ -172,7 +172,7 @@ about the package, and the licensed comparison is in `reports/pfs0240/`.
 An unsteady row states its averaging window, or `pyfs-matrix plan` refuses it
 naming the key: `LAST_REVS_AVG` on a row that turns a rotor, `LAST_ITERS_AVG` on
 one that does not. A row with a deprecated `WINDOW_STEPS`, `WINDOW_REVOLUTIONS`
-or `WINDOW_DEGREES` key still plans with a warning until 0.27.0; only a row with
+or `WINDOW_DEGREES` key still plans with a warning until 0.26.0; only a row with
 NO window key is refused. Add the current key to the `VAR_NAMES_VALUES` cell:
 
 ```
@@ -246,9 +246,9 @@ carries the native export's last-step `CL`.
   `post.products.group_product_name`, `post.superfile.declared_sweep`,
   `post.superfile.SUPER_PREFIX`. `write_sections_table` no longer takes
   `step_deg=`.
-- Deprecated, removed in 0.27.0: a `[groups]` entry written as a list of members.
+- Deprecated, removed in 0.26.0: a `[groups]` entry written as a list of members.
   Write ONE alias as a string.
 - `broken_commands` in a record: its removal moved from 0.24.0 to 0.26.0 in this
-  release, then to 0.27.0 when the 0.26 development cycle opened, because recorded
-  workspaces still carry it. The other compatibility deadlines above were also
-  extended to 0.27.0 at that point.
+  release, because recorded workspaces still carry it. The 0.26 development
+  cycle briefly carried a later deadline for it and for the other compatibility
+  promises above; no release stated it, and 0.26.0 remains the deadline.

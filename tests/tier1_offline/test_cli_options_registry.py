@@ -106,6 +106,12 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     # which is exactly why no registry default can know which this is.
     ("pyfs-matrix", "watch"): SWITCH,
     ("pyfs-matrix", "post"): SWITCH,
+    # 0.25.1, the owner's decision of 2026-09-22: reading each point's native
+    # log for a frozen solve is asked for per invocation, on `post` and on
+    # `collect`, and off otherwise. A SWITCH about what THIS run looks at;
+    # a workspace default would silently decide, for every rebuild, whether
+    # a frozen solve's averages are published.
+    ("pyfs-matrix", "check_frozen"): SWITCH,
     # GOAL-024, 0.21.0, the owner's decision of 2026-09-15: accepting an installed
     # build other than the registered one is a decision about THIS invocation,
     # recorded in every record, never a default a registry could hold.
@@ -262,6 +268,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-matrix", "yes"): frozenset({"post"}),
     ("pyfs-matrix", "watch"): frozenset({"collect"}),
     ("pyfs-matrix", "post"): frozenset({"collect"}),
+    ("pyfs-matrix", "check_frozen"): frozenset({"collect", "post"}),
     ("pyfs-matrix", "interval"): frozenset({"collect"}),
     ("pyfs-matrix", "watch_interval"): frozenset({"collect"}),
     ("pyfs-matrix", "rounds"): frozenset({"collect"}),

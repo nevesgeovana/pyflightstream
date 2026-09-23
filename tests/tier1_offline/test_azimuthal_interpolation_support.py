@@ -62,7 +62,7 @@ def _azimuthal_campaign(tmp_path, steps_per_revolution: float, unread: int | Non
     (workspace.root / "runs.json").write_text(json.dumps(recorded, indent=1), encoding="utf-8")
     if unread is not None:
         _make_one_step_unreadable(workspace, unread)
-    write_campaign_products(workspace, matrix_stem="products")
+    write_campaign_products(workspace, matrix_stem="products", check_frozen=True)
     return _products_manifest(workspace)
 
 

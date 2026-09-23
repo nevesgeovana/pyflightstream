@@ -2625,7 +2625,7 @@ def write_sections_table(
     the file name (v0.23.0 item 13). A run with no rotor states no azimuth and
     the cell reads `NA`, which is not zero: zero is a real azimuth.
 
-    ``iteration=`` is a deprecated alias for ``step=`` until 0.27.0. Passing
+    ``iteration=`` is a deprecated alias for ``step=`` until 0.26.0. Passing
     both keywords is refused, including when either value is None.
 
     On a steady export, an omitted ``step`` is read from the header.
@@ -4493,6 +4493,7 @@ def _sim_products(
     matrix_row: MatrixRow | None = None,
     sweep_rows: Mapping[str, Mapping[str, object]] | None = None,
     drafts: list[SuperfileDraft] | None = None,
+    check_frozen: bool = False,
 ) -> tuple[list[Path], dict[str, dict[str, object]], dict[str, str]]:
     """Write one simulation's products from its successful records.
 
@@ -4585,7 +4586,7 @@ def _sim_products(
         )
         record_of[stem] = record
         log_path = by_name.get(kinds.get("log", ""))
-        if log_path is not None and log_path.is_file():
+        if check_frozen and log_path is not None and log_path.is_file():
             frozen = freeze_of_log(log_path)
             if frozen is not None:
                 frozen_points[stem] = frozen
@@ -6057,6 +6058,7 @@ def write_campaign_products(
     archive: bool = True,
     archive_stamp: datetime | None = None,
     matrix_stem: str | None = None,
+    check_frozen: bool = False,
 ) -> list[Path]:
     """Write the products of the simulations in a workspace's manifest.
 
@@ -6137,7 +6139,7 @@ def write_campaign_products(
             if point_record.run_id in superseded:
                 continue
             frozen_failure = False
-            if point_record.status is RunStatus.FAILED_DIVERGED:
+            if check_frozen and point_record.status is RunStatus.FAILED_DIVERGED:
                 kinds = classify_outputs(point_record.outputs)
                 log_name = kinds.get("log")
                 log_path = workspace.sim_dir(point_record.sim_id) / log_name if log_name else None
@@ -6229,6 +6231,7 @@ def write_campaign_products(
             overwrite=overwrite,
             archive=archive,
             archive_stamp=archive_stamp,
+            check_frozen=check_frozen,
         )
         # Retire refused generated tables under both rebuild policies. Native exports
         # outside this folder remain evidence and are never removed here.
@@ -6272,6 +6275,7 @@ def _write_the_products(
     overwrite: bool,
     archive: bool,
     archive_stamp: datetime | None,
+    check_frozen: bool = False,
 ) -> None:
     """Write every product of the campaign, filling the caller's manifest as it goes.
 
@@ -6320,7 +6324,7 @@ def _write_the_products(
             surface_freeze: FrozenSolve | None = None
             if record.surface_time_averaging is not None and "log" in output_kinds:
                 log_path = workspace.sim_dir(sim_id) / output_kinds["log"]
-                if log_path.is_file():
+                if check_frozen and log_path.is_file():
                     surface_freeze = freeze_of_log(log_path)
             for kind, name in output_kinds.items():
                 if kind not in ("tecplot", "vtk", "csv"):
@@ -6389,6 +6393,7 @@ def _write_the_products(
                 matrix_row=rows_of_the_matrix.get(sim_id),
                 sweep_rows=sweep_rows,
                 drafts=drafts,
+                check_frozen=check_frozen,
             )
         except ProductExistsError:
             raise

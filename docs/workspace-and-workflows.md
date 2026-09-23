@@ -301,7 +301,7 @@ read by the package rather than ignored:
 | v0.17.0 | **FOUR NAMES LEFT THIS CELL AND BECAME COLUMNS**: `GEOMETRY`, `SYMMETRY`, `SYMMETRY_LOADS` and `NCPUS`, which lived here or in the setup and now have a column each, beside the two that are new in both homes, `CONFIGURATION` and `WALLTIME` (FR-93). A row that states one of the six in BOTH homes is refused naming both. The rows above still show the cell spelling because that is what a file written before 0.17.0 carries, and `pyfs-matrix upgrade` moves them |
 | v0.18.0 | `RESTART` now RUNS (FR-96). Two further names are reserved and they are the PACKAGE'S to set, never a row's: `RESTART_FROM`, the saved simulation a continuation opens, and `RESTART_ITERATIONS`, the remaining step count. The run path resolves both from the recorded run being continued and writes them onto the case; a row that states either is refused, because stating them by hand would skip the resolution that checks a recorded run exists, that its status is continuable, and that its outputs are archived before they are replaced |
 | v0.19.0 | `TRANSLATE`, a list of records, one translation of the opened mesh each, in the order written and before every rotation: `TRANSLATE: {DISTANCE: 0.05 / AXIS: PUSHER_SMRP-X / ALIAS: PUSHER}, {...}`; on every run type that reads `ROTATE`, the distance in metres along one axis of the named frame (FR-100), see [One row, one geometry, moved](#one-row-one-geometry-moved) |
-| v0.23.0 | `LAST_REVS_AVG` and `LAST_ITERS_AVG`, the AVERAGING WINDOW of an unsteady point, one per row at most: the first on `unsteady_rotor` only, a count of the last revolutions that accepts a float (`LAST_REVS_AVG: 0.25`); the second a count of the last iterations, the key of an `unsteady` row and read on a rotor row too. Written in UPPER CASE like every key of this cell, which is matched on its exact spelling: `last_revs_avg` is refused as a key of no run type. A row stating both is refused naming both. `WINDOW_DEGREES`, `WINDOW_STEPS` and `WINDOW_REVOLUTIONS` are DEPRECATED from this release: a row stating one still binds and warns, naming the replacement, until 0.27.0 removes them. See [The window, said once](#the-window-said-once) and [the definition of record](post-processing-definitions.md#the-averaging-window) |
+| v0.23.0 | `LAST_REVS_AVG` and `LAST_ITERS_AVG`, the AVERAGING WINDOW of an unsteady point, one per row at most: the first on `unsteady_rotor` only, a count of the last revolutions that accepts a float (`LAST_REVS_AVG: 0.25`); the second a count of the last iterations, the key of an `unsteady` row and read on a rotor row too. Written in UPPER CASE like every key of this cell, which is matched on its exact spelling: `last_revs_avg` is refused as a key of no run type. A row stating both is refused naming both. `WINDOW_DEGREES`, `WINDOW_STEPS` and `WINDOW_REVOLUTIONS` are DEPRECATED from this release: a row stating one still binds and warns, naming the replacement, until 0.26.0 removes them. See [The window, said once](#the-window-said-once) and [the definition of record](post-processing-definitions.md#the-averaging-window) |
 
 **A WORKFLOW ROW STATES ONLY WHAT THE SCRIPT WILL CARRY.** Each run type
 registers the keys it reads (`Workflow.keys` in
@@ -1557,7 +1557,7 @@ any loads export of the simulation writes no table**: it is named under
 `skipped` in `products.json` with the surfaces the export does carry, where
 before 0.24.0 it wrote a table of `0.00000`.
 
-The list form (`PUSHER = ["Blade1"]`) still binds until 0.27.0 and warns with
+The list form (`PUSHER = ["Blade1"]`) still binds until 0.26.0 and warns with
 the line to write instead: a one-member list becomes its string, and several
 members become ONE alias declared in the reference, which the group then names.
 A list holding a POSITION (`"2" = [1]`), which a row moves a boundary by, has no
@@ -1909,7 +1909,7 @@ record](post-processing-definitions.md#per_blade) asks. The azimuthal form of
 **The window is required.** Since 0.24.0 `pyfs-matrix plan` refuses a new
 unsteady row that states NO window key. A deprecated `WINDOW_STEPS`,
 `WINDOW_REVOLUTIONS` or `WINDOW_DEGREES` key still plans with a warning until
-0.27.0; replace it with `LAST_REVS_AVG` or `LAST_ITERS_AVG`. The reductions and
+0.26.0; replace it with `LAST_REVS_AVG` or `LAST_ITERS_AVG`. The reductions and
 unsteady polar of a record without the current keys use the window the run was
 given, with a warning naming the steps.
 
@@ -2644,14 +2644,14 @@ IT**: `LAST_REVS_AVG` on an `unsteady_rotor` row, a count of the last
 revolutions that accepts a float, and `LAST_ITERS_AVG` on an `unsteady` row, a
 count of the last iterations. `pyfs-matrix plan` refuses a new unsteady row that
 states NO window key. A deprecated `WINDOW_*` key still plans with a warning
-until 0.27.0. It is the one window the unsteady polar, the time average and
+until 0.26.0. It is the one window the unsteady polar, the time average and
 `per_blade` use. A window longer than the run is the whole run rather than a
 refusal.
 
 **DO NOT COPY ROW 7001'S WINDOW.** It states the older spelling,
 `WINDOW_DEGREES: 90`, because it is the suite's own matrix, run byte for byte,
 and it stands for a row written before the key existed. That spelling is
-DEPRECATED: it binds and warns until 0.27.0 removes it. A new row states
+DEPRECATED: it binds and warns until 0.26.0 removes it. A new row states
 `LAST_REVS_AVG: 0.25` in its place, degrees being revolutions over 360. A row stating both an old key and a new one gets the new one. What the
 next paragraph says is what the older keys do while they last.
 

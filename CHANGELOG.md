@@ -33,19 +33,6 @@ A PATCH RELEASE FOR ONE DEFECT THAT STOPS THE POST STAGE DEAD, measured on a
 cluster and on Windows within an hour of each other, on campaigns recorded with
 0.24.0 and posted with 0.25.0.
 
-### Changed
-
-- The seven compatibility removals due at 0.26.0 move to **0.27.0** so existing
-  workspaces remain readable through the 0.26 development cycle: the `iteration=`
-  alias of `write_sections_table`, `run.assess_unsteady_from_plots`, the three
-  `WINDOW_*` aliases, pproc group-member lists, and the `broken_commands` manifest
-  key. Warnings and current documentation name the new deadline. Recorded run
-  manifests are not rewritten, and their compatibility reader remains available.
-  IT SHIPS HERE rather than in 0.26.0 because this patch is cut from the
-  development tree that already carried it, and a change a user can observe may
-  not sit in an Unreleased section while a release built from the same tree
-  answers to a number (the version-identity guard, REV010-015).
-
 ### Added
 
 - **`J_CLOCK` and `RPM_CLOCK`, beside `J` in every product's condition.** `J` is
@@ -61,6 +48,24 @@ cluster and on Windows within an hour of each other, on campaigns recorded with
   rotor table keeps `J_<alias>` per rotor, unchanged.
   This is why 0.25.1 adds columns rather than only fixing defects: the owner
   asked for it in this release (2026-09-22).
+
+### Changed (breaking: the native-log freeze check is OPT-IN)
+
+- **`post` and `collect` no longer read each point's native log unless asked.**
+  `--check-frozen` turns the reading on; without it the stage never opens the
+  log. THE CONSEQUENCE, stated where it can be read: the averages of a FROZEN
+  solve are published like any other, and a frozen solve prints plausible
+  numbers, so nothing in the products says they are wrong. 0.25.0 added that
+  refusal; 0.25.1 makes it a choice.
+  WHY: the reading decides which steps an INTERPOLATED average reads, and eight
+  rounds of review on that one corner found the guard wrong in one direction or
+  the other each time -- publishing an average over a step nobody read, then
+  refusing averages that read no such step. The owner's decision of 2026-09-22
+  is to ship the release with the reading off and re-discuss the architecture in
+  0.26.0, where the reducer states the moments it samples instead of a second
+  implementation guessing them (`reports/RPT-057`).
+  WHAT IS NOT A CHOICE: the crash. A log that cannot be read never ends the
+  post, with the reading on or off.
 
 ### Fixed
 

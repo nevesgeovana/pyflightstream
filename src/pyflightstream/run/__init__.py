@@ -6116,7 +6116,7 @@ def assess_unsteady_from_plots(
 ) -> str:
     """Assess a supplied history's finiteness and optional fractional drift.
 
-    Deprecated since 0.25.0; removed in 0.27.0. Campaign assessment uses
+    Deprecated since 0.25.0; removed in 0.26.0. Campaign assessment uses
     :class:`LoadsAssessor` to judge native loads and solver residuals. History
     settling is a separate user judgement and this helper has no campaign caller.
 

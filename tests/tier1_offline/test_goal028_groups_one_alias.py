@@ -62,7 +62,7 @@ def test_the_list_form_still_binds_and_says_what_to_write_instead():
     assert list(spec.groups["WB"]) == ["W", "B"], "a pproc she already has must keep its meaning"
     assert 'PUSHER = "Blade1"' in said, said
     assert "[aliases]" in said, "a group of several members is pointed at an alias of the reference"
-    assert "0.27.0" in said
+    assert "0.26.0" in said
 
 
 def test_an_integer_member_is_a_position_and_is_never_summed_to_a_row_of_zeros(tmp_path):

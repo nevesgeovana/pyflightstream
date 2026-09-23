@@ -334,7 +334,8 @@ def test_frozen_surface_averages_are_named_skips_but_earlier_steps_survive(tmp_p
         for step in (59, 61):
             (sim / f"p_iteration={step}.{ext}").write_text("native surface")
     workspace.append_record(record)
-    write_campaign_products(workspace, overwrite=True)
+    # The freeze reading is opt-in since 0.25.1; this test asserts the refusal, so it asks.
+    write_campaign_products(workspace, overwrite=True, check_frozen=True)
     manifest = json.loads((workspace.products_dir(None) / "products.json").read_text())
     surfaces = [
         entry

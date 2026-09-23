@@ -619,10 +619,12 @@ WAIVED_COMMANDS_MANIFEST_KEY = DeprecatedManifestKey(
     old="broken_commands",
     new="waived_commands",
     deprecated_since="0.13.0",
-    removal_version="0.27.0",
+    removal_version="0.26.0",
     extra=(
-        "Extended from 0.26.0 to 0.27.0 on 2026-09-20 with the other six active "
-        "compatibility promises, preserving existing workspaces through the 0.26 cycle. "
+        "Moved to 0.27.0 on 2026-09-20 with the other six active compatibility "
+        "promises and RETURNED to 0.26.0 on 2026-09-22 under the rule that no promise "
+        "waits past 0.26.0; no release stated the later deadline. What 0.26.0 "
+        "does with the reader of recorded manifests is decided there, on a fresh count. "
         "The current checkout still contains 46 rows with this key in "
         "tests/tier3_licensed/runs.json. The three post/ plan paths named in the "
         "earlier measurement are absent at this checkout root; the research manifests "
@@ -766,7 +768,7 @@ PPROC_GROUP_MEMBER_LIST = DeprecatedParameter(
     old="a list of members",
     new="ONE alias, written as a string",
     deprecated_since="0.24.0",
-    removal_version="0.27.0",
+    removal_version="0.26.0",
     extra=(
         "A group names one alias. Where the list held one member, write it as the string; "
         "where it held several, declare them once as an alias in the reference's [aliases] "
@@ -778,7 +780,7 @@ ROW_WINDOW_STEPS = DeprecatedParameter(
     old="WINDOW_STEPS",
     new="LAST_ITERS_AVG",
     deprecated_since="0.23.0",
-    removal_version="0.27.0",
+    removal_version="0.26.0",
     extra=_ONE_WINDOW_ON_THE_ROW,
 )
 ROW_WINDOW_REVOLUTIONS = DeprecatedParameter(
@@ -786,7 +788,7 @@ ROW_WINDOW_REVOLUTIONS = DeprecatedParameter(
     old="WINDOW_REVOLUTIONS",
     new="LAST_REVS_AVG",
     deprecated_since="0.23.0",
-    removal_version="0.27.0",
+    removal_version="0.26.0",
     extra=_ONE_WINDOW_ON_THE_ROW,
 )
 ROW_WINDOW_DEGREES = DeprecatedParameter(
@@ -794,7 +796,7 @@ ROW_WINDOW_DEGREES = DeprecatedParameter(
     old="WINDOW_DEGREES",
     new="LAST_REVS_AVG",
     deprecated_since="0.23.0",
-    removal_version="0.27.0",
+    removal_version="0.26.0",
     extra=(
         _ONE_WINDOW_ON_THE_ROW
         + " Degrees are revolutions over 360, so WINDOW_DEGREES = 90 is LAST_REVS_AVG = 0.25."
@@ -958,13 +960,13 @@ WRITE_SECTIONS_ITERATION = DeprecatedParameter(
     old="iteration=",
     new="step=",
     deprecated_since="0.25.0",
-    removal_version="0.27.0",
+    removal_version="0.26.0",
 )
 
 ASSESS_UNSTEADY_FROM_PLOTS = DeprecatedFunction(
     function="run.assess_unsteady_from_plots",
     deprecated_since="0.25.0",
-    removal_version="0.27.0",
+    removal_version="0.26.0",
     advice=(
         "use LoadsAssessor for campaign assessment of native loads and solver residuals; "
         "history settling remains a separate user judgement"
