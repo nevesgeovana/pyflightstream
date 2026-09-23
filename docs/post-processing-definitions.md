@@ -258,15 +258,18 @@ still resolves through the recorded pproc. Section selectors, including `each`,
 use the same expansion as the export builder, resolving current aliases through
 the live reference to the recorded boundary families, including rotor names and
 aliases of rotor names. An expanded emission's family set must equal the recorded
-block's set. The recorded pproc produced the cuts, so under its own entries
-the layout is the whole evidence its selectors need: ownership, and the
-integration its own entries request, trust it, a family stem and a numbered
-name included. A different effective pproc is knowable only by exact recorded
-boundary names, by aliases and by the live reference's rotor definitions,
-whose members count even when they have no sectional block; `RunRecord`
-carries no complete geometry inventory, layout silence never proves a family
-absent, and any other word (a family stem, an unrecorded name, a
-whole-geometry selector) leaves membership uncertain, establishes no
+block's set. Ownership of a legacy layout (a name and a grouping for raw
+files, no number added) resolves the recorded pproc's selectors over the
+recorded cuts, the only evidence there is, a family stem and a numbered name
+included. Integration is never matched that way, whoever asks, because the
+post cannot tell a recorded specification from a current one (two
+resolutions of one artifact id compare equal after an edit, and a recorded
+entry may have emitted nothing): a selector is knowable only by exact
+recorded boundary names, by aliases and by the live reference's rotor
+definitions, whose members count even when they have no sectional block;
+`RunRecord` carries no complete geometry inventory, layout silence never
+proves a family absent, and any other word (a family stem, an unrecorded
+name, a whole-geometry selector) leaves membership uncertain, establishes no
 integration match and keeps the raw columns with a named skip. `each` and
 `each_blade` still identify one known family per block without claiming a
 complete inventory.

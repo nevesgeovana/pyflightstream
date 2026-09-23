@@ -80,7 +80,7 @@ def _distributions(
         position = block.get("distribution")
         selection = block.get("distribution_families")
         if position is None and pproc is not None:
-            matches = _matching_distributions(record, pproc, block, recorded=True)
+            matches = _matching_distributions(record, pproc, block, ownership=True)
             if len(matches) == 1:
                 position = matches[0]
                 selection = pproc.sections.distributions[position - 1].families
@@ -181,14 +181,16 @@ def _matching_distributions(
     aliases: Mapping[str, Sequence[str]] | None = None,
     rotors: Mapping[str, RotorBlock] | None = None,
     literal: frozenset[str] = frozenset(),
-    recorded: bool = False,
+    ownership: bool = False,
 ) -> list[int]:
     """Match current entries to recorded geometry, never to mutable positions.
 
-    ``recorded`` says the specification IS the record's own: its cuts are its
-    expansion, so the layout is the whole evidence its selectors need. A
-    different current specification is knowable only by exact recorded names,
-    aliases and rotor definitions; any other word leaves membership uncertain.
+    ``ownership`` says the match assigns a legacy layout's blocks to the
+    recorded pproc's entries, which is a name and a grouping for raw files:
+    there the cuts are the only evidence and a selector resolves over them.
+    Integration is never matched that way, whoever asks: it adds computed
+    numbers, so a selector is knowable only by exact recorded names, aliases
+    and rotor definitions, and any other word leaves membership uncertain.
     """
     literal = literal | _literal_frames(pproc)
     inventory = list(
@@ -208,11 +210,14 @@ def _matching_distributions(
     vocabulary.update({name.casefold(): members for name, members in rotor_members.items()})
 
     def cited(word: str, visiting: frozenset[str] = frozenset()) -> bool:
-        if recorded:
-            # THE RECORDED SPECIFICATION PRODUCED THESE CUTS, so what the layout
-            # holds under its entries is exactly what its selectors expanded
-            # to; the cuts are the evidence, and a stem or a numbered name
-            # resolves over them as it resolved when they were exported.
+        if ownership:
+            # OWNERSHIP OF A LEGACY LAYOUT names and groups raw files and adds
+            # no number; the recorded pproc's cuts are the only evidence there
+            # is, and a selector resolves over them as it did when exported.
+            # Nothing here is trusted for integration: two resolutions of one
+            # artifact id compare equal after an edit, and a recorded entry
+            # may have emitted nothing, so "recorded" cannot be told apart
+            # from "current" by anything the post holds.
             return True
         folded = word.casefold()
         if folded in visiting:
@@ -394,7 +399,6 @@ def _integration_requests(
     aliases: Mapping[str, Sequence[str]] | None = None,
     rotors: Mapping[str, RotorBlock] | None = None,
     literal: frozenset[str] = frozenset(),
-    recorded: bool = False,
 ) -> tuple[set[int], dict[int, str]]:
     """Bind integration to recorded owners; a doubtful block keeps its file raw."""
     requested: set[int] = set()
@@ -404,9 +408,7 @@ def _integration_requests(
         return requested, errors
     for number, block in enumerate(layout, 1):
         owner = cast(int, block["distribution"])
-        matches = _matching_distributions(
-            record, pproc, block, aliases, rotors, literal, recorded=recorded
-        )
+        matches = _matching_distributions(record, pproc, block, aliases, rotors, literal)
         if len(matches) != 1:
             reason = "ambiguous" if matches else "missing"
             errors[owner] = (
@@ -564,7 +566,6 @@ def write_section_distributions(
         current_aliases,
         current_rotors,
         _literal_frames(pproc, current_pproc),
-        recorded=current_pproc is None or current_pproc == pproc,
     )
     if integration_error is not None:
         integrate = set()

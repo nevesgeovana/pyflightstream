@@ -4874,7 +4874,12 @@ def _sim_products(
         )
         for point in points
     ]
-    aliases = getattr(live, "aliases", None) or first.aliases
+    # THE LIVE REFERENCE'S ALIASES ARE THE LIVE ALIASES, an empty table
+    # included: a reader who deleted the last alias meant it, and falling back
+    # to the recorded table on "empty" resurrected a group that no longer
+    # selects anything and published its row from the old membership.
+    live_aliases = getattr(live, "aliases", None) if live is not None else None
+    aliases = live_aliases if live_aliases is not None else first.aliases
 
     if products.polars:
         # ITEM 17: AN UNSTEADY SIMULATION'S POLAR COMES FROM THE PLOTS, and the
@@ -5602,7 +5607,8 @@ def _point_series(
             cell=cell,
             clock=clock_rotor_facts(record, matrix_row, live),
         )
-    aliases = getattr(live, "aliases", None) or record.aliases
+    live_aliases = getattr(live, "aliases", None) if live is not None else None
+    aliases = live_aliases if live_aliases is not None else record.aliases
     surface_exports: dict[str, dict[str, object]] = {}
     split_skips = skipped if skipped is not None else {}
     split_files, split_names = write_section_distributions(

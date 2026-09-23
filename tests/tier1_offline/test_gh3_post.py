@@ -180,13 +180,16 @@ def test_af_released_changelog_has_no_development_version():
 
 @pytest.mark.parametrize("legacy", [False, True])
 @pytest.mark.parametrize("selection", ["Blade", "blade_alias", "Blade1"])
-def test_ad_the_recorded_pproc_trusts_its_own_cuts(tmp_path, monkeypatch, legacy, selection):
-    """`families = "Blade"` (or an alias of it, or `Blade1` over Blade11 and Blade12).
+def test_ad_a_stem_owns_its_legacy_cuts_and_integrates_nothing(
+    tmp_path, monkeypatch, legacy, selection
+):
+    """`families = "Blade"` (an alias of it, or `Blade1` over Blade11 and Blade12).
 
-    The recorded pproc produced the cuts, so under its own entries the layout
-    is the evidence: a stem or a numbered name resolves over the cuts as it did
-    when they were exported, ownership holds, and its own integration request
-    is honoured. Appending the word as an invented boundary name lost both.
+    Ownership of a legacy layout resolves the recorded selector over the cuts,
+    so the raw split is present under its name; integration is never trusted
+    to a stem, because the post cannot tell the recorded specification from an
+    edited one (both resolve to the same artifact id) and the geometry may
+    carry a boundary the stem names or a third blade. Raw columns, named.
     """
     workspace = _case(tmp_path, monkeypatch)
     record = workspace.read_manifest()[0]
@@ -206,8 +209,47 @@ def test_ad_the_recorded_pproc_trusts_its_own_cuts(tmp_path, monkeypatch, legacy
     key = f"sections/AL-020_sloads_{selection}.csv"
     assert key in manifest["products"], manifest["skipped"]
     columns, rows = read_csv_table(out / key)
-    assert tuple(columns[-4:]) == EXTRA, manifest["skipped"]
+    assert not set(EXTRA) & set(columns), "a stem's membership integrated by a guess"
     assert len(rows) == 4 and {row["FAMILY"] for row in rows} == {"+".join(blades)}
+    assert "missing" in manifest["skipped"].get(f"{key}#integration", "")
+
+
+def test_ad_an_entry_that_emitted_nothing_claims_no_other_entrys_cuts(tmp_path, monkeypatch):
+    """Entry 1 asks integration over an idle rotor's `Blade1` and emitted nothing.
+
+    Entry 2 selects rotor ACTIVE (Blade11, Blade12), integrate off, and owns
+    the one recorded block. Trusting every recorded selector expanded entry 1
+    over the cuts by stem and applied its integration to entry 2's block; a
+    selector is knowable only by exact names, aliases and rotors, so entry 1
+    matches nothing and entry 2's block keeps its raw columns. (On a layout
+    with no identity the rotor name resolves to nothing without a definition
+    and the split is refused by name, on this matcher and on every earlier
+    one: a false miss registered for 0.27.0, not a number.)
+    """
+    workspace = _case(tmp_path, monkeypatch)
+    record = workspace.read_manifest()[0]
+    # ACTIVE is a ROTOR name the live reference would define; none reaches
+    # this match, so nothing resolves it, and nothing may resolve Blade1 either.
+    record.sections_layout[0].update(
+        families=["Blade11", "Blade12"],
+        distribution=2,
+        distribution_families="ACTIVE",
+        frame="ACTIVE_RMRP",
+    )
+    spec = workspace.resolve_pproc("p001")
+    entry = spec.sections.distributions[0]
+    spec.sections.distributions = [
+        entry.model_copy(update={"families": "Blade1", "frame": "IDLE_RMRP", "integrate": True}),
+        entry.model_copy(update={"families": "ACTIVE", "frame": "RMRP", "integrate": False}),
+    ]
+    write_campaign_products(workspace)
+    manifest = _products_manifest(workspace)
+    out = workspace.products_dir(None)
+    key = "sections/AL-020_sloads_ACTIVE.csv"
+    assert key in manifest["products"], manifest["skipped"]
+    columns, rows = read_csv_table(out / key)
+    assert not set(EXTRA) & set(columns), "entry 1's integration applied to entry 2's block"
+    assert len(rows) == 4 and {row["FAMILY"] for row in rows} == {"Blade11+Blade12"}
 
 
 @pytest.mark.parametrize("selection", ["Blade", "Blade1"])
@@ -244,3 +286,57 @@ def test_ad_a_different_pproc_cannot_know_what_a_stem_selects(tmp_path, monkeypa
     columns, rows = read_csv_table(out / key)
     assert not set(EXTRA) & set(columns), "a stem's membership owned by a guess"
     assert len(rows) == 4 and "missing" in manifest["skipped"].get(f"{key}#integration", "")
+
+
+def test_ad_a_widened_live_alias_is_not_the_recorded_block(tmp_path, monkeypatch):
+    """The pproc is unchanged; the live reference widened AERO from [Wing] to [Wing, Tail].
+
+    Equal pproc text does not establish an unchanged selector meaning. The
+    current entry over AERO now names Tail, which the layout has no block
+    for, so the Wing-only block is not its emission and keeps its raw columns.
+    """
+    workspace, record, recorded = _one_distribution(tmp_path, monkeypatch)
+    record.aliases = {"AERO": ["Wing"]}
+    recorded.sections.distributions[0].families = "AERO"
+    recorded.sections.distributions[0].integrate = True
+    record.sections_layout[0]["distribution_families"] = "AERO"
+    record.matrix_stem = "products"
+    _matrix(workspace)
+    reference = workspace.inputs_dir / "references/r001.toml"
+    reference.parent.mkdir(parents=True, exist_ok=True)
+    reference.write_text(
+        'area_m2 = 11.5\nchord_m = 1.5\nspan_m = 20.0\n[aliases]\nAERO = ["Wing", "Tail"]\n'
+    )
+    write_campaign_products(workspace, matrix_stem="products")
+    manifest = _products_manifest(workspace)
+    out = workspace.products_dir("products")
+    key = "sections/AL-020_sloads_AERO.csv"
+    columns, rows = read_csv_table(out / key)
+    assert not set(EXTRA) & set(columns), "a widened alias integrated the old block"
+    assert {row["FAMILY"] for row in rows} == {"Wing"}
+    assert "missing" in manifest["skipped"].get(f"{key}#integration", "")
+
+
+def test_ab_a_deleted_live_alias_does_not_resurrect_its_recorded_group(tmp_path, monkeypatch):
+    """The record aliases AERO = [Wing]; the current reference has no aliases at all.
+
+    An empty live table is the live table. The polar group AERO selects no
+    surface under it, so no row is published from the recorded membership and
+    the table is named as selecting nothing.
+    """
+    workspace, healthy, spec = _one_distribution(tmp_path, monkeypatch)
+    healthy.aliases = {"AERO": ["Wing"]}
+    spec.products.polars = True
+    spec.groups = {"AERO": ["AERO"]}
+    healthy.matrix_stem = "products"
+    _matrix(workspace)
+    reference = workspace.inputs_dir / "references/r001.toml"
+    reference.parent.mkdir(parents=True, exist_ok=True)
+    reference.write_text("area_m2 = 11.5\nchord_m = 1.5\nspan_m = 20.0\n")
+    write_campaign_products(workspace, matrix_stem="products")
+    manifest = _products_manifest(workspace)
+    key = "polars/P7001-AL-020_AERO.csv"
+    assert key not in manifest["products"], "a deleted alias published its recorded group"
+    reason = manifest["skipped"].get(key, "")
+    assert "AERO" in reason and "selects no surface" in reason, manifest["skipped"]
+    assert reason in (workspace.products_dir("products") / "post.log").read_text()

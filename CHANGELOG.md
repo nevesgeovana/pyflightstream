@@ -47,7 +47,10 @@ samples it reads, and no compatibility promise waits past this release.
   and `My_int` to the same sectional CSV. Each instant uses exported station
   midpoints, half intervals at the ends, and moments about the local quarter
   chord. Invalid distributions warn and keep the original columns; the default
-  is off and preserves the previous file bytes.
+  is off and preserves the previous file bytes. Without a live rotor
+  definition the match is conservative and refuses by name wherever the
+  recorded evidence cannot say what the builder would emit
+  ([RPT-059](reports/RPT-059_integration-match-without-rotor-definition-refuses-by-name_2026-09-23.md)).
 
 ### Removed
 
