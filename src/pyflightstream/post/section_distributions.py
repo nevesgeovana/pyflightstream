@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import cast
 
 from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning
+from pyflightstream._fsm import family_of
 from pyflightstream._tokens import INTEGRATED_SECTION_COLUMNS
 from pyflightstream.cases import (
     PprocSpec,
@@ -454,11 +455,45 @@ def _matching_distributions(
     # gate). A possible owner makes the ownership ambiguous, and an
     # ambiguous block is refused by name. Dropping it instead made the other
     # entry falsely unique for every block and handed it that entry's flag.
+    def permissive(word: str, seen: frozenset[str] = frozenset()) -> set[str] | None:
+        """Every cut this word could select, or None where its meaning cannot be read here."""
+        key = alias_key(word)
+        if key is not None and key not in seen:
+            union: set[str] = set()
+            for member in vocabulary[key]:
+                part = permissive(member, seen | {key})
+                if part is None:
+                    return None
+                union |= part
+            return union
+        return {
+            name
+            for name in recorded_names
+            if name == word or family_of(name) == word or family_of(name) == family_of(word)
+        }
+
     def could_own(entry: SectionDistribution) -> bool:
-        try:
-            groups = select_families(entry.families, recorded_names, pproc.is_blade, vocabulary)
-        except PyflightstreamError:
+        # THE POSSIBLE READING RESOLVES NOTHING BY A RULE THE BUILDER DOES NOT
+        # SHARE. A word it can read (a name, a stem, an alias, a rotor) is read
+        # permissively, exact or stem, both ways; a word it cannot (a selector
+        # word, a listed `all`) makes the entry's selection unreadable here,
+        # and an unreadable entry could own any block of its frame, plane and
+        # count. Reading it with the common resolver instead dropped a live
+        # rotor's `["all"]` entry and a stem beside a cut of the stem's own
+        # name, and the other entry's flag went to both blocks.
+        words = [entry.families] if isinstance(entry.families, str) else list(entry.families)
+        if any(word in ("blades", "airframe") for word in words):
+            # The two retired selector words are refused by the resolver, so
+            # the builder emits nothing for the entry: it can own no block.
             return False
+        union: set[str] = set()
+        readable: set[str] | None = union
+        for word in words:
+            part = None if word in ("all", "each", "each_blade") else permissive(word)
+            if part is None:
+                readable = None
+                break
+            union |= part
         frame = str(block.get("frame", ""))
         kind_re = {
             "LOCAL_AXIS": r".+_RMRP[1-9][0-9]*",
@@ -475,7 +510,7 @@ def _matching_distributions(
             frame_ok
             and block.get("plane") in entry.planes
             and block["count"] == (entry.count or pproc.sections.count)
-            and any(held <= set(members or recorded_names) for members in groups)
+            and (readable is None or held <= readable)
         )
 
     possible = [

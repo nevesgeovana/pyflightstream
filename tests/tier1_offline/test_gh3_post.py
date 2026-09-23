@@ -691,3 +691,51 @@ def test_ad_a_possible_reading_that_raises_costs_no_raw_row(tmp_path, monkeypatc
     columns, rows = read_csv_table(out / key)
     assert tuple(columns[-4:]) == EXTRA, manifest["skipped"]
     assert len(rows) == 2 and {row["FAMILY"] for row in rows} == {"Wing"}
+
+
+@pytest.mark.parametrize("flags", [(False, True), (True, False)])
+def test_ad_an_entry_the_possible_reading_cannot_read_is_a_possible_owner(
+    tmp_path, monkeypatch, flags
+):
+    """Rotor R declares Blade1 and Blade2; `["all"]` on RMRP beside `Blade1` on the literal R_RMRP.
+
+    The builder emits an identical R_RMRP block for each entry. The strict
+    reading refuses `["all"]` (Blade2 is declared and unrecorded), and a
+    possible reading that resolved the list with the common resolver read it
+    as nothing and dropped it, so the literal entry was the only candidate
+    for both blocks and its flag went to both. A selection the possible
+    reading cannot read owns any block of its frame, plane and count: both
+    blocks are ambiguous and refused by name.
+    """
+    workspace = _case(tmp_path, monkeypatch, blocks=[(0, 1), (0, 1)])
+    record = workspace.read_manifest()[0]
+    for k, (block, name) in enumerate(
+        zip(record.sections_layout, ("all", "Blade1"), strict=True), 1
+    ):
+        block.update(
+            distribution=k, distribution_families=name, families=["Blade1"], frame="R_RMRP"
+        )
+    record.matrix_stem = "products"
+    _matrix(workspace)
+    reference = workspace.inputs_dir / "references/r001.toml"
+    reference.parent.mkdir(parents=True, exist_ok=True)
+    reference.write_text(
+        "area_m2 = 11.5\nchord_m = 1.5\nspan_m = 20.0\n"
+        '[rotors.R]\nalias = "R"\naxis = "Z"\ndiameter_m = 2.0\n'
+        'families_blades = ["Blade1", "Blade2"]\n'
+    )
+    spec = workspace.resolve_pproc("p001")
+    entry = spec.sections.distributions[0]
+    spec.sections.distributions = [
+        entry.model_copy(update={"families": ["all"], "frame": "RMRP", "integrate": flags[0]}),
+        entry.model_copy(update={"families": "Blade1", "frame": "R_RMRP", "integrate": flags[1]}),
+    ]
+    write_campaign_products(workspace, matrix_stem="products")
+    manifest = _products_manifest(workspace)
+    out = workspace.products_dir("products")
+    for name in ("all", "Blade1"):
+        key = f"sections/AL-020_sloads_{name}.csv"
+        columns, rows = read_csv_table(out / key)
+        assert not set(EXTRA) & set(columns), f"{name} integrated through a falsely unique match"
+        assert len(rows) == 2
+        assert "ambiguous" in manifest["skipped"].get(f"{key}#integration", ""), manifest["skipped"]
