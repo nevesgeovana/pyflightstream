@@ -21,7 +21,7 @@ def test_a_legacy_clock_labels_the_end_export_without_a_reduction_plan(tmp_path,
         tmp_path / "sections.csv",
         SLOADS,
         mach=0.2,
-        iteration=_last_time_step(record),
+        step=_last_time_step(record),
     )
     _, rows = read_csv_table(path)
     assert {row["STEP"] for row in rows} == {str(expected)}

@@ -166,7 +166,7 @@ def test_two_distributions_keep_export_values_and_every_step(
         old,
         _exports()[1],
         mach=0.2,
-        iteration=5 if stamped else None,
+        step=5 if stamped else None,
         unsteady=stamped,
         layout=record.sections_layout,
     )
