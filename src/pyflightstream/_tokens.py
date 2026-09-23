@@ -58,6 +58,13 @@ NOT_APPLICABLE = "NA"
 #: their existing public spellings as re-exports.
 ADVANCE_RATIO_COLUMN = "J"
 
+#: Optional sectional strip columns, in the export's mixed-case naming idiom.
+STRIP_LENGTH = "Strip_length"
+FX_INT = "Fx_int"
+FZ_INT = "Fz_int"
+MY_INT = "My_int"
+INTEGRATED_SECTION_COLUMNS: tuple[str, ...] = (STRIP_LENGTH, FX_INT, FZ_INT, MY_INT)
+
 #: EVERY flight-condition variable a product states, so a reader holding one
 #: file can tell what it is a file OF. The rule: every file the post stage
 #: writes carries every flight-condition variable, because without them nobody

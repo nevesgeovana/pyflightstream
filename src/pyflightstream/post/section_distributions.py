@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
+import math
 import re
+import warnings
 from collections import Counter
 from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import cast
 
-from pyflightstream._errors import PyflightstreamError
+from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning
+from pyflightstream._tokens import INTEGRATED_SECTION_COLUMNS
 from pyflightstream.cases import PprocSpec, select_group_members
 from pyflightstream.fsi.loads import parse_sectional_loads
 from pyflightstream.post._tables import (
@@ -23,6 +26,35 @@ from pyflightstream.results import labeled_value, parse_surface_sections
 from pyflightstream.workspace import RunRecord
 
 __all__ = ["write_section_distributions"]
+
+
+def _integrated_strips(values: list[list[float]]) -> list[tuple[float, ...]]:
+    """Integrate one instant/block in its export axes about each quarter chord.
+
+    Strip edges are the endpoint stations and the intervening midpoints.
+    Positive lengths tile only the interval between the first and last Offset.
+    Forces are N/m and Moment is N m/m; the added columns are m, N, N, N m.
+    """
+    if len(values) < 2:
+        raise ValueError("integration needs at least two stations in each block")
+    if not all(math.isfinite(value) for row in values for value in row):
+        raise ValueError("integration needs finite sectional values (NaN or infinity found)")
+    gaps = [b[0] - a[0] for a, b in zip(values[:-1], values[1:], strict=True)]
+    if not (all(gap > 0 for gap in gaps) or all(gap < 0 for gap in gaps)):
+        raise ValueError("integration needs strictly monotonic Offset in each block")
+    halves = [abs(gap) / 2 for gap in gaps]
+    lengths = [
+        halves[0],
+        *(a + b for a, b in zip(halves[:-1], halves[1:], strict=True)),
+        halves[-1],
+    ]
+    result = [
+        (length, *(row[i] * length for i in (4, 5, 6)))
+        for row, length in zip(values, lengths, strict=True)
+    ]
+    if not all(math.isfinite(value) for row in result for value in row):
+        raise ValueError("integration produced a non-finite length or load")
+    return result
 
 
 def _distributions(
@@ -160,8 +192,8 @@ def write_section_distributions(
         written as ``NA``. See `The sections table, and which row is which
         <../post-processing-definitions.md#the-sections-table-and-which-row-is-which>`_.
     pproc : PprocSpec or None, optional
-        Recorded post-processing specification used to resolve legacy
-        distribution ownership. See `Per-distribution sectional loads and Cp
+        Post-processing specification used to resolve legacy distribution
+        ownership and select optional strip integrals. See `Per-distribution sectional loads and Cp
         <../post-processing-definitions.md#per-distribution-sectional-loads-and-cp-0250>`_.
     condition : Mapping[str, object] or None, optional
         Point's condition, with case-insensitive keys: ``ALPHA``, ``BETA``
@@ -213,6 +245,11 @@ def write_section_distributions(
             skipped[f"sections/{stem}_{kind}#distributions"] = str(error)
         return [], {}
     names = _file_names(selections)
+    integrate = (
+        {k for k, entry in enumerate(pproc.sections.distributions, 1) if entry.integrate}
+        if pproc is not None
+        else set()
+    )
     delta, _ = run_clock(record)
     context = context_row(condition, reference)
     written: list[Path] = []
@@ -242,6 +279,8 @@ def write_section_distributions(
             )
             files = [(step, end)] if end.is_file() else []
         rows: dict[int, list[tuple[object, ...]]] = {k: [] for k in names}
+        integrated: dict[int, list[tuple[float, ...]]] = {k: [] for k in names}
+        integration_errors: dict[int, str] = {}
         tabled: dict[int, list[int | None]] = {k: [] for k in names}
         try:
             if not files:
@@ -277,6 +316,21 @@ def write_section_distributions(
                     raise ProductError(
                         f"{path}: sections_layout counts {total} sections; export holds {count}"
                     )
+                if kind == "sloads" and integrate:
+                    start = 0
+                    for block_number, block in enumerate(layout, 1):
+                        owner = cast(int, block["distribution"])
+                        block_end = start + cast(int, block["count"])
+                        if owner in integrate and owner not in integration_errors:
+                            try:
+                                integrated[owner].extend(
+                                    _integrated_strips(loads.values[start:block_end].tolist())
+                                )
+                            except ValueError as error:
+                                integration_errors[owner] = (
+                                    f"{path.name}, STEP {current}, block {block_number}: {error}"
+                                )
+                        start = block_end
                 identity = section_identity(total, layout, rotors, current, None)
                 touched: set[int] = set()
                 for i, values in samples:
@@ -307,9 +361,22 @@ def write_section_distributions(
             if not rows[k]:
                 skipped[relative] = "recorded layout/export has no rows for this distribution"
                 continue
-            done = write_csv_table(
-                target(out / relative), (*SECTIONS_SERIES_LEAD, *CONTEXT_COLUMNS, *columns), rows[k]
-            )
+            headings = (*SECTIONS_SERIES_LEAD, *CONTEXT_COLUMNS, *columns)
+            output_rows = rows[k]
+            if kind == "sloads" and k in integrate:
+                if k in integration_errors:
+                    warnings.warn(
+                        f"{stem}: {relative} written without integrated columns: "
+                        f"{integration_errors[k]}",
+                        PyflightstreamWarning,
+                        stacklevel=2,
+                    )
+                else:
+                    headings = (*headings, *INTEGRATED_SECTION_COLUMNS)
+                    output_rows = [
+                        (*row, *extra) for row, extra in zip(rows[k], integrated[k], strict=True)
+                    ]
+            done = write_csv_table(target(out / relative), headings, output_rows)
             written.append(done)
             key = done.relative_to(out) if done.is_relative_to(out) else done
             entries[key.as_posix()] = {

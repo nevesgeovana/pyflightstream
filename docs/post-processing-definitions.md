@@ -221,6 +221,69 @@ are named skips. A section without chordwise stations contributes no Cp rows;
 a distribution with no stations at a step is named as a skip. A malformed
 export skips that kind's split files; the other kind remains available.
 
+#### Integrated sectional loads (since 0.26.0)
+
+Set `integrate = true` beside `families`, `planes` and `count` in the desired
+`[[sections.distributions]]` entry. The default is `false`. Omitted or false,
+the sectional CSV is byte-for-byte the seven export columns and existing
+context written by 0.25.1, with no additional column. This is a post-processing
+choice in the pproc, so it also applies when posting existing recorded exports.
+
+```toml
+[[sections.distributions]]
+families = "blades"
+frame = "LOCAL_AXIS"
+planes = ["XZ"]
+count = 50
+integrate = true
+```
+
+The same `sections/<point>_sloads_<name>.csv` gains these columns, in this order
+immediately after `Moment`:
+
+| column | token in `_tokens.py` | unit | definition |
+|---|---|---|---|
+| `Strip_length` | `STRIP_LENGTH` | m | positive length of this station's strip |
+| `Fx_int` | `FX_INT` | N | `Fx * Strip_length` |
+| `Fz_int` | `FZ_INT` | N | `Fz * Strip_length` |
+| `My_int` | `MY_INT` | N m | `Moment * Strip_length`, about this station's quarter chord |
+
+**Strip rule.** For strictly monotonic exported offsets `s[0] ... s[n-1]`,
+the interior boundaries are `(s[i-1] + s[i]) / 2`. The outer boundaries are
+`s[0]` and `s[n-1]`. Endpoint lengths are half their one adjacent interval;
+each interior length is half the distance between its two neighboring stations.
+Thus the strips tile exactly the first-to-last station interval with no gap,
+overlap or extrapolation to a geometric root or tip. Decreasing offsets retain
+their order and use positive lengths. The nominal `count` spacing is never
+used. Each recorded block (one plane, frame and family selection) is integrated
+independently at each exported STEP, including blocks sharing a distribution
+file. Original rows, axes, STEP and AZIMUTH are preserved. These are instants,
+with no temporal average or revolution envelope.
+
+**Moment-point decision, 2026-09-23.** `My_int` reports the integral of the
+export's `Moment` about the local quarter chord `(X_QC, Z_QC)`. SRC-751,
+the registered 26.123 manual, p.253 (Sectional Load Distributions), explicitly
+identifies Xqc and Zqc as the 25% chord coordinates used for the CM reference.
+Its pp.370-371 document computing and exporting the same sectional loads.
+The recorded export
+`tests/tier1_offline/fixtures/fsi/FS_SurfaceSection_Loads_call0002.txt` carries
+`Offset, Chord, X_QC, Z_QC, Fx, Fz, Moment`; its Newtons/Newton-Meter footer
+states the computation units. The line-density interpretation is supported
+by the force-integral comparison in RPT-006. Multiplying the moment density
+by the strip length preserves that moment point and the export's sign and
+section-plane axes. For an XZ cut in a blade's own frame this is its My.
+For another cut plane it retains the export's plane-normal moment component
+under the same column name. No transfer to an elastic axis, hub or global MRP
+is applied. A sum of these local moments is not a moment about one common point.
+
+**Integration never blocks post.** A block with fewer than two stations,
+non-monotonic or repeated Offset, or a non-finite sectional value cannot be
+integrated. Overflow in the integration is handled the same way. Post writes
+the entire distribution file with its original columns, omitting all four
+added columns, even when other blocks or steps in that file are valid. A
+`PyflightstreamWarning` names the point, output file, source step/block and
+reason. Other distribution files and Cp products continue normally.
+
 ---
 
 ## The probes table
