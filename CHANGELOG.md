@@ -44,8 +44,11 @@ cluster and on Windows within an hour of each other, on campaigns recorded with
   `V / (n D)` from this point's own free stream, the speed the record kept and
   the rotor's diameter. THE CLOCK ROTOR is the one `CLOCK_MOTION` names, or the
   only rotor the row turns; a row turning several and naming none has no clock
-  and both columns are `NA`, because one rotor's ratio is not another's. The
-  rotor table keeps `J_<alias>` per rotor, unchanged.
+  and both columns are `NA`, because one rotor's ratio is not another's. A flat
+  single-rotor reference, with no named rotor block and a top-level
+  `rotor_diameter_m`, supplies the span of its one rotor; beside named blocks the
+  flat diameter answers for nobody. The rotor table keeps `J_<alias>` per rotor,
+  unchanged.
   This is why 0.25.1 adds columns rather than only fixing defects: the owner
   asked for it in this release (2026-09-22).
 

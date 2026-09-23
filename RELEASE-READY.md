@@ -5,8 +5,13 @@ within an hour of each other: a residual block the solver stopped under ended th
 whole campaign post with an exception instead of costing the averages that cover it.
 It also ADDS TWO COLUMNS, `J_CLOCK` and `RPM_CLOCK`, at the owner's explicit
 request and against the recommendation to separate them: by semver that makes
-this a minor, and she chose the patch knowing it (2026-09-22). It changes no
-published number. The change log's `[0.25.1]`
+this a minor, and she chose the patch knowing it (2026-09-22). IT CHANGES
+PUBLISHED NUMBERS IN ONE PLACE, BY THE OWNER'S DECISION: with the freeze reading
+off by default, a per-blade passage that 0.25.0 refused for a freeze is now kept
+and averaged over its whole window (the fifth independent reading measured blade
+means 1, 2 over 58 to 59 become 2, 3 over 58 to 61 on the committed fixture),
+with no skip in `products.json`; `--check-frozen` restores the 0.25.0 refusals.
+Every other number is unchanged. The change log's `[0.25.1]`
 section is the record; `docs/migrating-to-0.25.0.md` still describes the minor
 release under it, because a patch asks nothing new of a reader's files.
 

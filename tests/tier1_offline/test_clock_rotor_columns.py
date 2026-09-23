@@ -236,3 +236,51 @@ def test_a_legacy_flat_record_keeps_the_speed_it_states():
     condition = point_condition(_Point(), mach=0.18, clock=facts)
     assert condition["RPM_CLOCK"] == 2200.0
     assert "J_CLOCK" not in condition
+
+
+def test_a_legacy_flat_reference_supplies_the_span_of_its_one_rotor():
+    """The fifth independent reading of GitHub main, 2026-09-23.
+
+    A supported flat single-rotor shape: the record keeps a flat `rpm` and no
+    rotor block, and the reference keeps no named rotor block but a top-level
+    `rotor_diameter_m`. Both facts are stated and nothing has to be borrowed
+    from another rotor, so `J_CLOCK` is a number here, not `NA`; the definitions
+    page reserves `NA` for the facts the record or the reference does not supply.
+    """
+    from pyflightstream.post.products import point_condition
+
+    class _FlatArtifact:
+        rotors: dict[str, object] = {}
+        rotor_diameter_m = 2.0
+
+    facts = clock_rotor_facts(_Record({"rpm": 2200.0}), _Row({}), _FlatArtifact())
+    assert facts["rpm"] == 2200.0
+    assert facts["diameter_m"] == 2.0, "the one rotor's span was left unread"
+
+    class _Report:
+        angle_of_attack_deg = 0.0
+        sideslip_deg = 0.0
+        freestream_velocity_m_s = 60.0
+        reynolds = None
+        reference_velocity_m_s = None
+
+    class _Point:
+        name = "AL-000"
+        loads = _Report()
+        point: dict[str, object] = {}
+        state = None
+
+    condition = point_condition(_Point(), mach=0.18, clock=facts)
+    assert condition["RPM_CLOCK"] == 2200.0
+    assert abs(condition["J_CLOCK"] - 60.0 / (2200.0 / 60.0 * 2.0)) < 1e-9, condition["J_CLOCK"]
+
+
+def test_a_flat_reference_beside_several_declared_rotors_lends_no_span():
+    """The flat diameter answers for ONE rotor; with named blocks it says nothing."""
+
+    class _MixedArtifact:
+        rotors = {"LIFT": _Rotor(2.0), "PUSHER": _Rotor(1.2)}
+        rotor_diameter_m = 2.0
+
+    facts = clock_rotor_facts(_Record({"rpm": 2200.0}), _Row({}), _MixedArtifact())
+    assert facts["diameter_m"] is None, "a span was borrowed for a rotor nobody identified"

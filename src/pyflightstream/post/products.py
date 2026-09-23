@@ -506,6 +506,15 @@ def clock_rotor_facts(
     if spelt_in_reference is not None:
         span = getattr(declared[spelt_in_reference], "diameter_m", None)
         diameter = float(span) if isinstance(span, int | float) else None
+    elif rpm is not None and not speeds and not declared:
+        # THE FLAT SINGLE-ROTOR SHAPE: no rotor block in the record and none in
+        # the reference, one flat speed and one top-level `rotor_diameter_m`.
+        # Both facts are stated and no other rotor exists to borrow from, so
+        # `NA` here would refuse a ratio the files supply (the fifth independent
+        # reading of GitHub main, 2026-09-23). With named blocks present the
+        # flat diameter answers for nobody and is not read.
+        span = getattr(artifact, "rotor_diameter_m", None)
+        diameter = float(span) if isinstance(span, int | float) else None
     return {"alias": alias, "rpm": rpm, "diameter_m": diameter}
 
 
