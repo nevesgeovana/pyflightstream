@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import cast
 
 from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning
+from pyflightstream._fsm import family_of
 from pyflightstream._tokens import INTEGRATED_SECTION_COLUMNS
 from pyflightstream.cases import (
     PprocSpec,
@@ -239,6 +240,7 @@ def _matching_distributions(
     # families of its own: it asks only whether the strict reading's refusal
     # rested on uncertainty.
     met: dict[str, bool] = {"uncertain": False}
+    cited_names: list[str] = []
 
     def cited(word: str, visiting: frozenset[str] = frozenset(), *, listed: bool = False) -> bool:
         if ownership:
@@ -251,6 +253,7 @@ def _matching_distributions(
             # from "current" by anything the post holds.
             return True
         if visiting and word in inventory:
+            cited_names.append(word)
             if word not in recorded_names:
                 met["uncertain"] = True
             return True
@@ -291,6 +294,7 @@ def _matching_distributions(
         if not visiting and not listed and word in ("each", "each_blade"):
             # Each emitted block is one known family, regardless of siblings.
             return True
+        cited_names.append(word)
         if word not in recorded_names:
             met["uncertain"] = True
         if word not in inventory:
@@ -316,13 +320,16 @@ def _matching_distributions(
                 inventory.append(member)
     knowable = []
     uncertain: list[bool] = []
+    names_of_entry: list[list[str]] = []
     for entry in pproc.sections.distributions:
         met["uncertain"] = False
+        cited_names.clear()
         if isinstance(entry.families, str):
             knowable.append(cited(entry.families))
         else:
             knowable.append(all([cited(word, listed=True) for word in entry.families]))
         uncertain.append(met["uncertain"])
+        names_of_entry.append(list(cited_names))
 
     def entry_matches(k: int, entry: SectionDistribution, inventory: list[str]) -> bool:
         """Whether this entry, read over this inventory, would have emitted the block."""
@@ -503,6 +510,21 @@ def _matching_distributions(
         ):
             return False
         if uncertain[k - 1]:
+            return True
+        if kind_re is None and any(
+            family_of(name).casefold() == family_of(other).casefold()
+            for name in names_of_entry[k - 1]
+            for other in inventory
+            if other != name
+        ):
+            # ON A COMMON FRAME the builder reads a name exactly where the
+            # inventory carries that spelling and by its family stem where it
+            # does not, so a name whose stem another spelling of the maximal
+            # inventory shares (a case variant, a numbered sibling, the
+            # rotor's reference spelling beside the geometry's) reads
+            # differently over the geometry and over the maximal inventory;
+            # the subset argument does not hold for it and the entry is
+            # possible on frame, plane and count.
             return True
         # ON A COMMON FRAME the builder's alias and stem reading is not
         # monotone in the inventory: exact-boundary precedence turns a

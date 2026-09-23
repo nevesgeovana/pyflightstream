@@ -1028,3 +1028,57 @@ def test_ad_two_recorded_blades_without_a_rotor_definition_integrate_uniquely(
         assert tuple(columns[-4:]) == EXTRA, manifest["skipped"]
         assert len(rows) == 2 and {row["FAMILY"] for row in rows} == {f"Blade{k}"}
         assert f"{key}#integration" not in manifest["skipped"]
+
+
+@pytest.mark.parametrize("selection", ["Blade1", "A"])
+def test_ad_a_name_whose_stem_another_spelling_shares_is_uncertain_on_a_common_frame(
+    tmp_path, monkeypatch, selection
+):
+    """Cuts hold blade1 and blade2; rotor R declares Blade1, recorded under that spelling.
+
+    Over the geometry the builder reads `Blade1` by its stem (both lowercase
+    blades); over the maximal inventory, which carries the rotor's spelling,
+    it reads it exactly. The entry citing it (or an alias of it) refused by
+    the strict reading was dropped as certain and the neighbour's flag went
+    to both common-frame blocks. It is a possible owner: both ambiguous.
+    """
+    workspace = _case(tmp_path, monkeypatch, blocks=[(0, 1), (0, 1), (0, 1)])
+    record = workspace.read_manifest()[0]
+    record.aliases = {"A": ["Blade1"]}
+    layout = (
+        (selection, ["blade1", "blade2"], "MRP"),
+        ("blade1-blade2", ["blade1", "blade2"], "MRP"),
+        ("R", ["Blade1"], "R_RMRP1"),
+    )
+    for k, (block, (name, held, frame)) in enumerate(
+        zip(record.sections_layout, layout, strict=True), 1
+    ):
+        block.update(distribution=k, distribution_families=name, families=held, frame=frame)
+    record.matrix_stem = "products"
+    _matrix(workspace)
+    reference = workspace.inputs_dir / "references/r001.toml"
+    reference.parent.mkdir(parents=True, exist_ok=True)
+    reference.write_text(
+        "area_m2 = 11.5\nchord_m = 1.5\nspan_m = 20.0\n"
+        '[aliases]\nA = ["Blade1"]\n'
+        '[rotors.R]\nalias = "R"\naxis = "Z"\ndiameter_m = 2.0\n'
+        'families_blades = ["Blade1"]\n'
+    )
+    spec = workspace.resolve_pproc("p001")
+    entry = spec.sections.distributions[0]
+    spec.sections.distributions = [
+        entry.model_copy(update={"families": selection, "frame": "MRP", "integrate": False}),
+        entry.model_copy(
+            update={"families": ["blade1", "blade2"], "frame": "MRP", "integrate": True}
+        ),
+        entry.model_copy(update={"families": "R", "frame": "LOCAL_AXIS", "integrate": False}),
+    ]
+    write_campaign_products(workspace, matrix_stem="products")
+    manifest = _products_manifest(workspace)
+    out = workspace.products_dir("products")
+    for name in (selection, "blade1-blade2"):
+        key = f"sections/AL-020_sloads_{name}.csv"
+        columns, rows = read_csv_table(out / key)
+        assert not set(EXTRA) & set(columns), f"{name} integrated through a falsely unique match"
+        assert len(rows) == 2
+        assert "ambiguous" in manifest["skipped"].get(f"{key}#integration", ""), manifest["skipped"]
