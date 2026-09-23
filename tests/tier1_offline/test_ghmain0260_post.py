@@ -121,3 +121,46 @@ def test_x_integration_resolves_new_alias_only_in_live_reference(tmp_path, monke
     assert record.aliases == original["aliases"]
     assert record.sections_layout == original["sections_layout"]
     assert not list((out / "sections").glob("*new_wing*"))
+
+
+def test_v_a_successful_record_wins_a_metadata_conflict_and_only_absent_fields_fall_back():
+    """The QA read of the reading's fixes, 2026-09-23: the preference was unguarded.
+
+    The six cases above remove the failed record's metadata, so an input-order
+    choice passed them all while taking the FAILED record's pproc over the
+    successful one's. Here both carry conflicting values: the successful
+    record's win on every field it carries, and a field it lacks falls back to
+    the failed record's, which is the field-by-field contract.
+    """
+    from pyflightstream.post.products import _simulation_metadata
+    from pyflightstream.workspace import RunRecord
+
+    base = dict(
+        sim_id="7001",
+        fs_version_requested="26.124",
+        package_version="0.26.0",
+        script_sha256="0" * 64,
+        raw_flag=False,
+        outputs=[],
+    )
+    failed = RunRecord(
+        run_id="camp/sim_7001/failed",
+        status=RunStatus.FAILED_SCRIPT,
+        pproc="failed",
+        mach=0.8,
+        description="FAILED_DESC",
+        **base,
+    )
+    healthy = RunRecord(
+        run_id="camp/sim_7001/healthy",
+        status=RunStatus.CONVERGED,
+        pproc="p001",
+        mach=0.2,
+        description=None,
+        **base,
+    )
+    chosen = _simulation_metadata([failed, healthy])
+    assert chosen.pproc == "p001", "the failed record's pproc won over the successful one's"
+    assert chosen.mach == 0.2, "the failed record's Mach won over the successful one's"
+    assert chosen.description == "FAILED_DESC", "a field the successful record lacks falls back"
+    assert chosen.run_id == healthy.run_id, "the carrier of record is the successful one"
