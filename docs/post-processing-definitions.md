@@ -677,10 +677,12 @@ A frozen solve is recorded as `FAILED_DIVERGED`, naming the first frozen step
 and the count.
 
 **THE POST STAGE READS THE NATIVE LOG ONLY WHEN ASKED (0.25.1).** `post` and
-`collect` take `--check-frozen`; without it the log is opened only to admit a
-`FAILED_DIVERGED` point whose solver froze (its histories, instants and
-pre-freeze averages are written, as before), nothing is refused from it, and the
-averages of a frozen solve are published like any other. A frozen solve prints
+`collect` take `--check-frozen`; without it the log is READ FOR A FREEZE only
+to admit a `FAILED_DIVERGED` point whose solver froze (its histories, instants
+and pre-freeze averages are written, as before), nothing is refused from it, and
+the averages of a frozen solve are published like any other. The provenance
+document still digests every recorded output, the log included, in every mode,
+and a file that cannot be opened is recorded from the record. A frozen solve prints
 plausible numbers, so no product says they are wrong. The reading is a choice
 since 0.25.1, and the architecture is re-discussed in 0.26.0 (`reports/RPT-057`).
 What follows describes the stage WITH the reading asked for.

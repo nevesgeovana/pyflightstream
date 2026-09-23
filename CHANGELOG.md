@@ -52,10 +52,12 @@ cluster and on Windows within an hour of each other, on campaigns recorded with
 ### Changed (breaking: the native-log freeze check is OPT-IN)
 
 - **`post` and `collect` no longer read each point's native log unless asked.**
-  `--check-frozen` turns the reading on; without it the stage opens a log only
-  to ADMIT a point recorded as `FAILED_DIVERGED` whose solver froze, so that
-  point's histories, instants and pre-freeze averages are written as they were
-  in 0.25.0, and nothing is refused from what it reads. THE CONSEQUENCE, stated
+  `--check-frozen` turns the reading on; without it the stage reads a log for a
+  freeze only to ADMIT a point recorded as `FAILED_DIVERGED` whose solver froze,
+  so that point's histories, instants and pre-freeze averages are written as
+  they were in 0.25.0, and nothing is refused from what it reads. The provenance
+  digest still hashes every recorded output, the log included, in every mode, and
+  a file it cannot open is recorded from the record. THE CONSEQUENCE, stated
   where it can be read: the averages of a FROZEN
   solve are published like any other, and a frozen solve prints plausible
   numbers, so nothing in the products says they are wrong. 0.25.0 added that

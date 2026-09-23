@@ -80,9 +80,18 @@ def _azimuthal_campaign(tmp_path, steps_per_revolution: float, unread: int | Non
 
 @pytest.mark.parametrize("steps_per_revolution", [2.0, 3.0])
 def test_a_clean_azimuthal_campaign_writes_its_product(tmp_path, steps_per_revolution):
-    """The control, without which a refusal proves nothing."""
+    """The control, without which a refusal proves nothing.
+
+    The per-blade product is the proof that the reducer saw TWO blades: with
+    the inherited one-family reference it is not written at all, so a fixture
+    that quietly lost the second blade fails here before it can make the
+    refusal below look like interpolation (the QA lens, closing round).
+    """
     manifest = _azimuthal_campaign(tmp_path / str(steps_per_revolution), steps_per_revolution)
     assert PRODUCT in manifest["products"], manifest["skipped"]
+    assert "probes/AL-020_per_blade.csv" in manifest["products"], (
+        "the reducer saw one blade family, so no sample is fractional here"
+    )
 
 
 def test_whole_step_samples_do_not_read_outside_the_window(tmp_path):
