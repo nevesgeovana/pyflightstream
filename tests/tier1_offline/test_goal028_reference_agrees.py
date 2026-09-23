@@ -8,14 +8,15 @@ nothing compared the two: a geometry whose project carries 40 m2 beside an artif
 stating 50 posted `SREF 50.00000` next to coefficients divided by 40, a 25 percent
 error nothing in the file or the manifest could reveal.
 
-THE REQUIREMENT, as answered: refuse. The simulation's products are not written and
-the difference is named, because a table that is wrong by a constant factor is
-worse than no table.
+Since 0.26.0 the difference warns by default, preserving computable products.
+The explicit refusal mode retains the earlier reference check.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
+
+import pytest
 
 from pyflightstream.post.products import write_campaign_products
 from tests.tier1_offline.test_post_products import LOADS, _products_manifest, _unsteady_workspace
@@ -38,16 +39,17 @@ def test_the_fixture_agrees_with_itself_and_posts(tmp_path):
     assert "7001" not in _products_manifest(workspace).get("skipped", {})
 
 
-def test_an_export_divided_by_another_area_is_refused_naming_both(tmp_path):
+@pytest.mark.parametrize("asked", [False, True])
+def test_an_export_divided_by_another_area_warns_or_refuses(tmp_path, asked):
+    """Since 0.26.0 a reference doubt logs both areas without withholding by default."""
     workspace = _unsteady_workspace(tmp_path, reductions=None)
     _with_area(workspace, "40.000")
-    write_campaign_products(workspace)
+    write_campaign_products(workspace, check_frozen=asked)
     manifest = _products_manifest(workspace)
-    reason = manifest.get("skipped", {}).get("7001", "")
-    assert "40" in reason and "50" in reason and "SREF" in reason, manifest.get("skipped")
-    assert not [key for key in manifest["products"] if key.startswith("polars/")], (
-        "a polar stating SREF 50 was written beside coefficients divided by 40"
-    )
+    reason = (workspace.products_dir(None) / "post.log").read_text()
+    assert "40" in reason and "50" in reason and "SREF" in reason
+    assert ("7001" in manifest["skipped"]) is asked
+    assert bool([key for key in manifest["products"] if key.startswith("polars/")]) is not asked
 
 
 def test_the_printed_precision_of_the_export_is_not_a_difference(tmp_path):

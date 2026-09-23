@@ -419,7 +419,9 @@ def read_timestep_series(
     )
 
 
-def blade_passage_average(series: TimestepSeries, *, window: tuple[int, int]) -> FrameAverage:
+def blade_passage_average(
+    series: TimestepSeries, *, window: tuple[int, int], read_steps: set[int] | None = None
+) -> FrameAverage:
     """Average a series over one declared window of solver steps.
 
     The only implementation of this average in the package. A
@@ -441,6 +443,8 @@ def blade_passage_average(series: TimestepSeries, *, window: tuple[int, int]) ->
         Inclusive ``(first_step, last_step)`` in solver steps. Declared
         by the caller rather than derived: a blade passage is a fact
         about the rotor, not about the export.
+    read_steps : set of int or None
+        When supplied, collect the plotted steps used by this average.
 
     Returns
     -------
@@ -461,6 +465,8 @@ def blade_passage_average(series: TimestepSeries, *, window: tuple[int, int]) ->
             "(first_step, last_step) pair in solver steps"
         )
     inside = (series.steps >= first) & (series.steps <= last)
+    if read_steps is not None:
+        read_steps.update(int(step) for step in series.steps[inside])
     count = int(inside.sum())
     if count == 0:
         raise MalformedOutputError(
@@ -700,6 +706,7 @@ def phase_locked_rows(
     sense: float = 1.0,
     blades: int = 0,
     blade_families: Sequence[str] = (),
+    read_steps: set[int] | None = None,
 ) -> list[dict[str, object]]:
     """Return the mean AT EACH AZIMUTH across the last ``revolutions`` turns, a row per azimuth.
 
@@ -749,6 +756,9 @@ def phase_locked_rows(
         The rotor's blade count, which spaces the blades.
     blade_families : sequence of str
         The blade families in the rotor's own order, blade one first.
+    read_steps : set of int or None
+        Collect the plotted steps contributing to the interpolation. Every
+        nonzero interpolation weight counts, without a tolerance cutoff.
 
     Raises
     ------
@@ -851,6 +861,16 @@ def phase_locked_rows(
                 row[name] = None
                 continue
             history = np.asarray(values, dtype=float).reshape(len(steps), -1)[:, 0]
+            if read_steps is not None:
+                for moment in moments:
+                    upper = int(np.searchsorted(steps, moment, side="left"))
+                    if upper == len(steps):
+                        read_steps.add(int(steps[-1]))
+                    elif upper == 0 or steps[upper] == moment:
+                        read_steps.add(int(steps[upper]))
+                    else:
+                        # Strictly between these steps, both weights are nonzero.
+                        read_steps.update((int(steps[upper - 1]), int(steps[upper])))
             row[name] = float(np.mean(np.interp(moments, steps, history)))
         rows.append(row)
     rows.sort(key=lambda row: float(row["AZIMUTH"]))  # type: ignore[arg-type]

@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-22
 **Found by:** the independent review of GitHub `main` at `0402a02`, before the v0.25.1 tag
-**Status:** REGISTERED for 0.26.0, deliberately not fixed under a patch tag
+**Status:** CLOSED in 0.26.0
 **Affects:** 0.25.0 and 0.25.1 alike. The reviewer confirmed the gap in the 0.25.0 detector, so
 it is older than the patch whose review found it.
 
@@ -43,3 +43,30 @@ both shapes. That is 0.26.0 work with its own evidence, not a line in a patch.
 The CHANGELOG entry for 0.25.1 and the freeze section of `docs/post-processing-definitions.md`
 both state this limit where they state the rule, so nobody reading either page is told the
 protection is complete when it is not.
+
+## Closing measurement, 2026-09-23
+
+The detector now marks a terminal marker block without a residual page UNREAD,
+including a cut after `Iterat`. A page-less block immediately followed by a
+marker for the same step is a repeat and does not reset the evidence. A block
+with an actual malformed page remains unread even if the next marker repeats.
+
+`tests/tier1_offline/test_post_log.py::test_partial_iteration_anchor_is_unread_at_the_product`
+measures the row-2413 cut after `Iterat`: step 61 is unread, the default writes
+its average with a warning, and `check_frozen=True` refuses it. Before the fix,
+both parameter cases failed because the verdict was `None`. Restoring that
+terminal-block defect as a mutant returned exit 1 with those same two failures.
+`test_repeated_markers_are_not_unread` inserts an export-only marker before
+each intact marker of both committed excerpts: the healthy verdict stays
+healthy and the frozen verdict retains steps 60 and 61. Removing the repeat
+branch as a mutant lost that freeze and failed with exit 1. Existing adjacency, restart and per-blade contiguity tests remain green.
+
+Fixture census: both committed `pfs0240_row2411_steps58-61_log.txt` and
+`pfs0240_row2413_steps58-61_log.txt` have four markers for four distinct steps,
+zero page-less repeat blocks, and a complete terminal page. Scanning every file
+in `tests/tier1_offline/fixtures`, including NUL-stripped text, found no real
+repeated-marker log. The canonical repository's fixture directory had the same
+result. The previously reported 144-block/72-step log was not available at either
+location, so that historical count is not claimed as reproduced. The repeat
+regression is explicitly synthetic, derived from the documented shape; the
+terminal cut uses the committed solver bytes. No solver was run.

@@ -8,15 +8,44 @@ campaign, so each states one fact.
 
 from __future__ import annotations
 
+import numpy as np
 import pytest
 
 from pyflightstream.cases.windows import AZIMUTHAL
 from pyflightstream.post.products import (
     _frozen_window_reason,
-    _window_the_reduction_reads,
     freeze_of_log,
 )
+from pyflightstream.post.products import (
+    _window_the_reduction_reads as _reducer_steps,
+)
+from pyflightstream.post.unsteady import TimestepSeries
 from pyflightstream.results import UnjudgeableSolve
+
+
+def _window_the_reduction_reads(name, entry, window, plotted, plan=None):
+    """Keep the older endpoint cases on the reducer's new exact-set interface."""
+    plan = plan or {}
+    steps = np.asarray(plotted or list(range(window[0], window[1] + 1)))
+    columns = ["CL_TOTAL", *[f"CL_{family}" for family in plan.get("blade_families", [])]]
+    series = TimestepSeries(
+        steps=steps,
+        times_s=None,
+        points=np.zeros((1, 3)),
+        fields={column: steps[:, None] for column in columns},
+        sources=(),
+    )
+    read = _reducer_steps(
+        name,
+        entry,
+        window,
+        series,
+        columns,
+        plan.get("blades", 0),
+        {"families": plan.get("blade_families", []), "rpm": plan.get("rpm", 1)},
+    )
+    return min(read), max(read)
+
 
 #: A plan whose second blade sits at a fraction of a step behind blade one: with
 #: 53 steps per revolution and two blades the offset is 26.5, so every sample of

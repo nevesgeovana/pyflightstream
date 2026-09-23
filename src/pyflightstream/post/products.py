@@ -91,13 +91,13 @@ import tempfile
 import warnings
 from collections import Counter as Counter
 from collections.abc import Callable, Mapping, Sequence
+from contextvars import ContextVar
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 import numpy as np
-from numpy.typing import NDArray
 
 from pyflightstream._digest import file_sha256 as file_sha256
 from pyflightstream._errors import (
@@ -1692,14 +1692,18 @@ def _rotor_surfaces_carried(
     return [str(name) for name in surfaces if str(name).casefold() in owned]
 
 
-def _surface_export_skip(entry: Mapping[str, object], frozen: FrozenSolve | None) -> str | None:
+def _surface_export_skip(
+    entry: Mapping[str, object], frozen: FrozenSolve | None, *, point: str, product: str
+) -> str | None:
     """Apply the existing average refusal rule to a native surface window."""
     if "skipped" in entry:
         return str(entry["skipped"])
     window = entry.get("window")
     bounds = window.get("iterations") if isinstance(window, Mapping) else None
     if isinstance(bounds, list):
-        return _frozen_window_reason(frozen, [int(bounds[0]), int(bounds[1])])
+        return _judge_average(
+            frozen, [int(bounds[0]), int(bounds[1])], point=point, product=product
+        )
     return None
 
 
@@ -1718,114 +1722,90 @@ def _the_plan_of_a_reduction(
     return own if isinstance(own, Mapping) else plan
 
 
-def _blade_offsets(plan: Mapping[str, object] | None, per_revolution: float) -> list[float]:
-    """Return how many steps before blade one each blade column is sampled.
-
-    The same arithmetic `post.unsteady` applies: a blade at position `k` of
-    `blades` sits `k * per_revolution / blades` behind blade one, modulo the
-    revolution and with the hand of the rotation. Blade one's own offset is
-    zero, which is why the largest sample of a window is its last step.
-    """
-    if not isinstance(plan, Mapping) or per_revolution <= 0.0:
-        return [0.0]
-    declared = plan.get("blade_families")
-    families = [str(family) for family in declared] if isinstance(declared, list | tuple) else []
-    stated = plan.get("blades")
-    blades = int(stated) if isinstance(stated, int | float) and not isinstance(stated, bool) else 0
-    count = blades if blades >= len(families) else len(families)
-    if count <= 1:
-        return [0.0]
-    speed = plan.get("rpm")
-    handed = isinstance(speed, int | float) and not isinstance(speed, bool) and speed < 0
-    turning = -1.0 if handed else 1.0
-    return [0.0] + [
-        (turning * position * per_revolution / count) % per_revolution
-        for position in range(1, max(len(families), 1))
-    ]
-
-
 def _window_the_reduction_reads(
     name: str,
     entry: Mapping[str, object],
     window: tuple[int, ...],
-    plotted: Sequence[float] | NDArray[np.floating] = (),
-    plan: Mapping[str, object] | None = None,
-) -> tuple[int, int]:
-    """Return the steps a reduction's arithmetic READS, not the ones it states.
-
-    Only the AZIMUTHAL phase-locked average is interpolated. It samples, for
-    each azimuth of the final revolution and each blade offset, the moments
-    congruent to that azimuth inside the revolutions asked for, and `np.interp`
-    reads the PLOTTED steps bracketing each moment. A moment that IS a plotted
-    step brackets to itself and widens nothing.
-
-    THREE MEASUREMENTS SHAPED THIS, each from a reading of GitHub main:
-    a revolution is too narrow on a sparse history, where the interpolation
-    reaches step 1 of a window opening at 95; it is too wide on a dense one,
-    where it refused a product for a step the average does not use; and
-    bracketing the window's OPENING is still too wide, because with whole-step
-    offsets every sample lands on a plotted step and nothing outside the window
-    is read at all (2026-09-22).
-
-    ``plotted`` is the history's own step column and ``plan`` the point's
-    reduction plan, which states the blades and the rotor's hand. Without
-    either, the declared window stands.
-    """
-    declared = int(window[0]), int(window[-1])
-    if name != _PHASE_LOCKED or entry.get("shape") != AZIMUTHAL or not len(plotted):
-        # The passage series averages the steps of each passage and reads
-        # nothing else, so its window is judged as stated.
-        return declared
-    per_revolution = entry.get("steps_per_revolution")
-    if not isinstance(per_revolution, int | float) or per_revolution <= 0:
-        return declared
-    span = float(per_revolution)
-    depth = entry.get("revolutions")
-    revolutions = float(depth) if isinstance(depth, int | float) and depth else 1.0
-    last = float(window[-1])
-    opening = last - revolutions * span
-    tolerance = 1e-9 * span
-    # EVERY AZIMUTH, not only the last one. The reducer writes one row per step
-    # of the final revolution, and each blade samples each of them: with three
-    # steps per revolution and two blades, the row at azimuth 60 reads 58.5,
-    # which taking `last - offset` alone never reaches (the QA lens,
-    # 2026-09-22).
-    azimuths = range(max(int(math.floor(opening)) + 1, 1), int(last) + 1)
-    lowest = last
-    for offset in _blade_offsets(plan, span):
-        for azimuth in azimuths:
-            moment = azimuth - offset
-            steps_back = math.floor((moment - opening - tolerance) / span)
-            moment -= steps_back * span
-            if moment > opening + tolerance:
-                lowest = min(lowest, moment)
-    ordered = sorted(float(step) for step in plotted)
-    below = [step for step in ordered if step <= lowest + tolerance]
-    above = [step for step in ordered if step >= last - tolerance]
-    low = int(math.floor(below[-1])) if below else declared[0]
-    high = int(math.ceil(above[0])) if above else declared[1]
-    return min(low, declared[0]), max(high, declared[1])
+    series: TimestepSeries,
+    columns: Sequence[str],
+    blades: int,
+    facts: Mapping[str, object],
+) -> set[int]:
+    """Ask the reducer for its plotted steps, using the writer's resolved families."""
+    read: set[int] = set()
+    if name == _PHASE_LOCKED and entry.get("shape") == AZIMUTHAL:
+        stated = facts.get("families", ())
+        families = list(stated) if isinstance(stated, list | tuple) else []
+        rpm = facts.get("rpm")
+        phase_locked_rows(
+            series,
+            [column for column in columns if column not in _PLOTS_CLOCK_COLUMNS],
+            last_step=window[-1],
+            revolutions=float(entry.get("revolutions") or 0.0),  # type: ignore[arg-type]
+            steps_per_revolution=float(entry.get("steps_per_revolution") or 0.0),  # type: ignore[arg-type]
+            blade1_azimuth_deg=float(facts.get("blade1_azimuth_deg") or 0.0),  # type: ignore[arg-type]
+            sense=-1.0 if isinstance(rpm, int | float) and rpm < 0 else 1.0,
+            blades=blades,
+            blade_families=families,
+            read_steps=read,
+        )
+    else:
+        blade_passage_average(series, window=(window[0], window[-1]), read_steps=read)
+    return read
 
 
-def _frozen_window_reason(frozen: FrozenSolve | None, window: Sequence[int]) -> str | None:
+_POST_REFUSES: ContextVar[bool] = ContextVar("post_refuses", default=True)
+_POST_VERDICTS: ContextVar[dict[Path, FrozenSolve | None] | None] = ContextVar(
+    "post_verdicts", default=None
+)
+
+
+def _judge_average(
+    frozen: FrozenSolve | None,
+    steps: Sequence[int] | set[int],
+    *,
+    point: str,
+    product: str,
+) -> str | None:
+    """Warn for an affected product, and refuse it only when the stage asks."""
+    reason = _frozen_window_reason(frozen, steps)
+    if reason is not None:
+        warnings.warn(
+            f"point={point} product={product}: {reason}. "
+            "Recollect the native log or run the point again to settle this average.",
+            PyflightstreamWarning,
+            stacklevel=2,
+        )
+    return reason if _POST_REFUSES.get() else None
+
+
+def _frozen_window_reason(
+    frozen: FrozenSolve | None, window: Sequence[int] | set[int]
+) -> str | None:
     """Explain why an average reaches the frozen, or the unreadable, part of a solve."""
     # cases.windows and the products' STEP use inclusive 1-based time steps,
     # just like the log's (k/N): there is no offset and no inner-iteration mapping.
-    if frozen is None:
+    if frozen is None or not window:
         return None
+    samples = window if isinstance(window, set) else None
+    bounds = (min(window), max(window)) if isinstance(window, set) else (window[0], window[1])
     if isinstance(frozen, UnjudgeableSolve):
         # AN UNREAD BLOCK SAYS NOTHING ABOUT THE STEPS AROUND IT, which is the
         # whole difference from a freeze: a freeze contaminates every step after
         # its first, while a block the solver stopped under leaves its
         # neighbours exactly as measurable as they were. So this refuses a
         # window only when an unread step falls INSIDE it.
-        inside = [step for step in frozen.steps if window[0] <= step <= window[1]]
-        reaches_freeze = frozen.frozen_from is not None and window[1] >= frozen.frozen_from
+        inside = [
+            step
+            for step in frozen.steps
+            if (step in samples if samples is not None else bounds[0] <= step <= bounds[1])
+        ]
+        reaches_freeze = frozen.frozen_from is not None and bounds[1] >= frozen.frozen_from
         if not inside and frozen.steps and not reaches_freeze:
             return None
-        return f"{frozen.reason}; averaging window spans steps {window[0]} to {window[1]}"
-    if window[1] >= frozen.first_step:
-        return f"{frozen.reason}; averaging window spans steps {window[0]} to {window[1]}"
+        return f"{frozen.reason}; averaging samples span steps {bounds[0]} to {bounds[1]}"
+    if bounds[1] >= frozen.first_step:
+        return f"{frozen.reason}; averaging samples span steps {bounds[0]} to {bounds[1]}"
     return None
 
 
@@ -1936,7 +1916,12 @@ def _rotor_tables(
         span = (windows or {}).get(point.name, window)
         if plots is None or span is None:
             return None, "the row states no averaging window", None
-        refusal = _frozen_window_reason((frozen or {}).get(point.name), span)
+        refusal = _judge_average(
+            (frozen or {}).get(point.name),
+            span,
+            point=point.name,
+            product=f"polars/P{sim_id}-{alias}_rotor.csv",
+        )
         if refusal is not None:
             return None, refusal, None
         where = f"over steps {span[0]} to {span[1]}"
@@ -3805,8 +3790,8 @@ def _refuse_a_reference_the_solver_did_not_use(
     coefficient by the area and the length its own project file carries, and the
     loads export prints both. Every product states `SREF` and `CREF` from the
     reference ARTIFACT. Where the two differ the table is wrong by a constant
-    factor that nothing in it reveals, which is worse than no table: the products
-    of the simulation are not written and the difference is named.
+    factor that nothing in it reveals. Since 0.26.0 the campaign post warns by
+    default; its explicit refusal mode retains the reference refusal.
 
     An export that prints neither line is not refused; there is nothing to compare.
     """
@@ -3822,16 +3807,23 @@ def _refuse_a_reference_the_solver_did_not_use(
                 continue
             allowed = _REFERENCE_PRINT_TOLERANCE + _REFERENCE_RELATIVE_TOLERANCE * abs(stated)
             if abs(float(printed) - stated) > allowed:
-                raise ProductError(
+                reason = (
                     f"simulation {sim_id!r}: the loads export of {point.name} states a reference "
                     f"{label} of {float(printed):g}, which is what the solver divided its "
                     f"coefficients by, and the reference the products would state is {column} "
                     f"{stated:g}. A table stating {column} {stated:g} beside coefficients "
                     f"divided by {float(printed):g} is wrong by a constant factor nothing in it "
-                    "shows, so no product of this simulation is written. The solver takes its "
+                    "shows. The solver takes its "
                     "reference from the project file it opened: state the same area and chord on "
                     "the reference artifact the row names, or set them in that project, and post "
                     "again."
+                )
+                if _POST_REFUSES.get():
+                    raise ProductError(reason)
+                warnings.warn(
+                    f"point={point.name} product=simulation/{sim_id}: {reason}",
+                    PyflightstreamWarning,
+                    stacklevel=2,
                 )
 
 
@@ -4192,7 +4184,9 @@ def write_unsteady_polar(
             left_out.append(f"{name}: no plots table")
             continue
         point_window = (windows or {}).get(name, window)
-        refusal = _frozen_window_reason((frozen or {}).get(name), point_window)
+        refusal = _judge_average(
+            (frozen or {}).get(name), point_window, point=name, product=str(path)
+        )
         if refusal is not None:
             left_out.append(f"{name}: {refusal}")
             continue
@@ -4575,10 +4569,16 @@ def _sim_products(
         )
         record_of[stem] = record
         log_path = by_name.get(kinds.get("log", ""))
-        if check_frozen and log_path is not None and log_path.is_file():
+        if log_path is not None:
             frozen = freeze_of_log(log_path)
             if frozen is not None:
                 frozen_points[stem] = frozen
+                warnings.warn(
+                    f"point={stem} product=native-log: {frozen.reason}. "
+                    "Recollect the native log or run the point again to settle it.",
+                    PyflightstreamWarning,
+                    stacklevel=2,
+                )
         vinf = report.freestream_velocity_m_s
         vref = getattr(report, "reference_velocity_m_s", None)
         if (
@@ -5612,6 +5612,16 @@ def _refuse_aliases_a_file_name_cannot_tell_apart(
 
 
 def freeze_of_log(log_path: Path) -> FrozenSolve | None:
+    """Read a native log tolerantly, at most once during one campaign post."""
+    verdicts = _POST_VERDICTS.get()
+    if verdicts is None:
+        return _read_freeze_of_log(log_path)
+    if log_path not in verdicts:
+        verdicts[log_path] = _read_freeze_of_log(log_path)
+    return verdicts[log_path]
+
+
+def _read_freeze_of_log(log_path: Path) -> FrozenSolve | None:
     """Return this point's freeze verdict, or None, and never raise for the log.
 
     THE POST STAGE MUST SURVIVE A LOG IT CANNOT READ. The detector refuses a
@@ -5621,8 +5631,8 @@ def freeze_of_log(log_path: Path) -> FrozenSolve | None:
     log cost every product of every simulation after it. It was measured on a
     cluster campaign recorded with 0.24.0 and posted with 0.25.0 (2026-09-22).
 
-    An unreadable log returns `UnjudgeableSolve`, which refuses this point's
-    averages by name and leaves its histories and instants alone.
+    An unreadable log returns `UnjudgeableSolve`. The stage warns by default
+    and refuses affected averages only with check_frozen=True.
     """
     try:
         text = log_path.read_text(encoding="utf-8", errors="replace")
@@ -5780,42 +5790,29 @@ def _point_reductions(
             continue
         stated = entry.get("windows", ())
         windows = [tuple(int(v) for v in window) for window in stated]  # type: ignore[union-attr]
-        if name == _PHASE_LOCKED and entry.get("shape") == AZIMUTHAL and series is None:
-            # THE HISTORY DECIDES WHAT THE INTERPOLATION CAN READ, so it is
-            # loaded before the freeze judgement rather than after it -- and the
-            # dictionary is validated with it, because that check used to live
-            # inside the later load and an early one skipped it (the QA lens,
-            # 2026-09-22).
-            columns, series = plots_table_series(plots_table)
-            names = _dictionary_the_table_can_honour(columns, names, stem, skipped)
-        # THE FREEZE TAKES THE WINDOWS IT REACHES, AND ONLY THOSE. The
-        # definitions page: an average whose window ends at or after the first
-        # frozen step is skipped by name, and "windows wholly before that step
-        # keep their products". This asked whether ANY window was frozen and
-        # threw away the file, so a row whose earlier passages are clean lost
-        # them with the dead one (the independent review of GitHub main,
-        # 2026-09-20).
-        reached = [
-            (window, why)
-            for window in windows
-            if (
-                why := _frozen_window_reason(
-                    frozen,
-                    _window_the_reduction_reads(
-                        name,
-                        entry,
-                        window,
-                        () if series is None else series.steps,
-                        # THE ROTOR'S OWN FACTS where the reduction is one
-                        # rotor's: a per-rotor plan keeps its blades inside
-                        # `rotors[alias]`, and reading the top level returned no
-                        # blade offset at all (the QA lens, 2026-09-22).
-                        _the_plan_of_a_reduction(plan, rotor),
-                    ),
+        try:
+            if series is None:
+                columns, series = plots_table_series(plots_table)
+                names = _dictionary_the_table_can_honour(columns, names, stem, skipped)
+            _, facts, count = _the_rotor_of_a_reduction(rotor, plan, rotor_facts or {})
+            reached = [
+                (window, why)
+                for window in windows
+                if (
+                    why := _judge_average(
+                        frozen,
+                        _window_the_reduction_reads(
+                            name, entry, window, series, columns, count, facts
+                        ),
+                        point=stem,
+                        product=relative,
+                    )
                 )
-            )
-            is not None
-        ]
+                is not None
+            ]
+        except (PyflightstreamError, OSError, ValueError) as error:
+            skipped[relative] = str(error)
+            continue
         frozen_windows = [window for window, _ in reached]
         kept = [window for window in windows if window not in frozen_windows]
         # THE PER-BLADE TABLE HAS ONE WINDOW, collapsed from its passages, so
@@ -6049,6 +6046,87 @@ def write_campaign_products(
     matrix_stem: str | None = None,
     check_frozen: bool = False,
 ) -> list[Path]:
+    """Write campaign products and post.log; refuse doubts only with check_frozen=True.
+
+    The log is beside products.json, even on a clean or interrupted post. It
+    records every named skip and every PyflightstreamWarning emitted here.
+    A rebuild archives it with the same stamp as the products. See
+    docs/post-processing-definitions.md for the sample and refusal rules.
+    """
+    import pyflightstream
+
+    stamp = archive_stamp or datetime.now()
+    out = workspace.products_dir(matrix_stem)
+    out.mkdir(parents=True, exist_ok=True)
+    log = out / "post.log"
+    if log.exists():
+        if not overwrite:
+            raise ProductExistsError(f"{log} already exists; pass overwrite=True to rebuild")
+        _refuse_an_existing_product(log, archive=archive, stamp=stamp)
+    token = _POST_REFUSES.set(check_frozen)
+    verdict_token = _POST_VERDICTS.set({})
+    caught: list[warnings.WarningMessage] = []
+    try:
+        with (
+            log.open("w", encoding="utf-8") as stream,
+            warnings.catch_warnings(record=True) as caught,
+        ):
+            warnings.simplefilter("always", PyflightstreamWarning)
+            stream.write(
+                f"pyflightstream {pyflightstream.__version__} post\n"
+                f"workspace={workspace.root}\nmatrix={matrix_stem}\n"
+                f"time={datetime.now().astimezone().isoformat()}\n"
+                f"check_frozen={check_frozen} (refuse instead of warn)\n"
+            )
+            stream.flush()
+            try:
+                return _campaign_products(
+                    workspace,
+                    overwrite=overwrite,
+                    archive=archive,
+                    archive_stamp=stamp,
+                    matrix_stem=matrix_stem,
+                    check_frozen=check_frozen,
+                )
+            except BaseException as error:
+                stream.write(
+                    f"WARNING point=campaign product=stage: {type(error).__name__}: {error}; "
+                    "correct the stated input and post again.\n"
+                )
+                raise
+            finally:
+                for warning in caught:
+                    if issubclass(warning.category, PyflightstreamWarning):
+                        message = " ".join(str(warning.message).splitlines())
+                        stream.write(f"WARNING point=campaign product=stage: {message}\n")
+                manifest_path = out / PRODUCTS_MANIFEST
+                if manifest_path.is_file():
+                    document = json.loads(manifest_path.read_text(encoding="utf-8"))
+                    for name, reason in document.get("skipped", {}).items():
+                        detail = " ".join(str(reason).splitlines())
+                        stream.write(
+                            f"WARNING point={name} product={name}: {detail} "
+                            "Remedy: restore the required data or correct the stated inputs "
+                            "and post again.\n"
+                        )
+    finally:
+        _POST_REFUSES.reset(token)
+        _POST_VERDICTS.reset(verdict_token)
+        for warning in caught:
+            warnings.warn_explicit(
+                warning.message, warning.category, warning.filename, warning.lineno
+            )
+
+
+def _campaign_products(
+    workspace: CampaignWorkspace,
+    *,
+    overwrite: bool = False,
+    archive: bool = True,
+    archive_stamp: datetime | None = None,
+    matrix_stem: str | None = None,
+    check_frozen: bool = False,
+) -> list[Path]:
     """Write the products of the simulations in a workspace's manifest.
 
     PFS-2029.15.03. Reads the manifest alone: each successful record names
@@ -6079,17 +6157,10 @@ def write_campaign_products(
     carries the unsteady post-process's own parameters and one row per
     converged point.
 
-    ``check_frozen`` (0.25.1) asks the stage to read each point's native log
-    and REFUSE the averages a frozen solve or an unreadable residual block
-    touches, each refusal named in ``products.json`` with the step and the
-    remedy. It is ``False`` by default: the averages of a frozen solve are
-    then published like any other, and a frozen solve prints plausible
-    numbers, so nothing in the products says they are wrong. A caller that
-    relied on the 0.25.0 refusals passes ``True``. In either mode a
-    ``FAILED_DIVERGED`` point whose log proves a freeze is admitted, so its
-    histories, instants and pre-freeze averages are written, and a log that
-    cannot be read never ends the post. The definition of record is
-    ``docs/post-processing-definitions.md``.
+    Since 0.26.0 native logs are read tolerantly in both modes. Doubts warn
+    in post.log by default; check_frozen=True refuses affected averages.
+    Computable products of failed points remain available by default.
+    The definition of record is docs/post-processing-definitions.md.
     """
     # ONE STAMP PER REBUILD, taken here and threaded to every archiver.
     # The archive folder's whole claim is that a rebuild is ONE thing a
@@ -6140,6 +6211,14 @@ def write_campaign_products(
             if point_record.run_id in superseded:
                 continue
             frozen_failure = False
+            if point_record.status not in (RunStatus.CONVERGED, RunStatus.COMPLETED_MAX_ITER):
+                warnings.warn(
+                    f"point={point_record.run_id} product=available-exports: "
+                    f"the recorded status is {point_record.status.value}. "
+                    "Collect complete outputs or run the point again to settle its status.",
+                    PyflightstreamWarning,
+                    stacklevel=2,
+                )
             # THE READING THAT ADMITS A POINT IS NOT THE READING THAT REFUSES
             # ITS AVERAGES, so it is not behind `check_frozen`: gating it
             # excluded every frozen failure by default, the opposite of
@@ -6163,14 +6242,19 @@ def write_campaign_products(
                     frozen_failure = verdict is not None and (
                         not isinstance(verdict, UnjudgeableSolve) or verdict.frozen_from is not None
                     )
-            if frozen_failure or point_record.status in (
-                RunStatus.CONVERGED,
-                RunStatus.COMPLETED_MAX_ITER,
+            if (
+                not check_frozen
+                or frozen_failure
+                or point_record.status
+                in (
+                    RunStatus.CONVERGED,
+                    RunStatus.COMPLETED_MAX_ITER,
+                )
             ):
                 by_sim.setdefault(point_record.sim_id, []).append(point_record)
     written: list[Path] = []
     products_index: dict[str, dict[str, object]] = {}
-    manifest: dict[str, object] = {"products": products_index}
+    manifest: dict[str, object] = {"products": products_index, "log": "post.log"}
     # PFS-2031.16. A simulation whose product is REFUSED by design, the
     # polar under sideslip among them, is recorded as skipped with the
     # reason, and the others are written: until 2026-09-08 the first
@@ -6331,7 +6415,7 @@ def _write_the_products(
             surface_freeze: FrozenSolve | None = None
             if record.surface_time_averaging is not None and "log" in output_kinds:
                 log_path = workspace.sim_dir(sim_id) / output_kinds["log"]
-                if check_frozen and log_path.is_file():
+                if log_path is not None:
                     surface_freeze = freeze_of_log(log_path)
             for kind, name in output_kinds.items():
                 if kind not in ("tecplot", "vtk", "csv"):
@@ -6342,7 +6426,9 @@ def _write_the_products(
                     skipped[relative] = f"the recorded {kind} surface export is missing: {path}"
                     continue
                 metadata = surface_export_metadata(record)
-                reason = _surface_export_skip(metadata, surface_freeze)
+                reason = _surface_export_skip(
+                    metadata, surface_freeze, point=record.run_id, product=relative
+                )
                 if reason is not None:
                     skipped[relative] = reason
                     continue
@@ -6383,7 +6469,9 @@ def _write_the_products(
                 )
             written.extend(series_files)
             for name, entry in series_names.items():
-                reason = _surface_export_skip(entry, surface_freeze)
+                reason = _surface_export_skip(
+                    entry, surface_freeze, point=record.run_id, product=name
+                )
                 if reason is not None:
                     skipped[name] = reason
                     continue
@@ -6494,8 +6582,5 @@ def _write_the_products(
         archive_stamp=archive_stamp,
     )
     manifest["complete"] = True
-    if written or skipped or records:
-        out.mkdir(parents=True, exist_ok=True)
-        (out / PRODUCTS_MANIFEST).write_text(
-            json.dumps(manifest, indent=1) + "\n", encoding="utf-8"
-        )
+    out.mkdir(parents=True, exist_ok=True)
+    (out / PRODUCTS_MANIFEST).write_text(json.dumps(manifest, indent=1) + "\n", encoding="utf-8")
