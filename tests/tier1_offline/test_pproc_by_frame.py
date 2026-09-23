@@ -35,7 +35,7 @@ from pyflightstream.cases import (
     SweepAxis,
     select_families,
 )
-from pyflightstream.cases.workflows import _pproc_emissions
+from pyflightstream.cases.workflows import pproc_emissions
 
 
 def rotor(alias, general, blades, diameter):
@@ -111,7 +111,7 @@ def every_rotor_frame_placed() -> dict[str, int]:
 
 def emissions(frame, families, frames=None, case=None):
     """Expand one entry the way every consumer of the artifact does."""
-    return _pproc_emissions(
+    return pproc_emissions(
         case or expanding_case(),
         frame,
         families,

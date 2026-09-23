@@ -13,7 +13,7 @@ from typing import cast
 from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning
 from pyflightstream._tokens import INTEGRATED_SECTION_COLUMNS
 from pyflightstream.cases import PprocSpec, RotorBlock, SimCase, select_families
-from pyflightstream.cases.workflows import _pproc_emissions
+from pyflightstream.cases.workflows import pproc_emissions
 from pyflightstream.fsi.loads import parse_sectional_loads
 from pyflightstream.post._tables import (
     CONTEXT_COLUMNS,
@@ -136,7 +136,7 @@ def _matching_distributions(
             )
             frames = {str(b.get("frame", "")): 1 for b in record.sections_layout or []}
             try:
-                emissions = _pproc_emissions(
+                emissions = pproc_emissions(
                     case,
                     entry.frame,
                     entry.families,

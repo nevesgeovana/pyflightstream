@@ -5451,7 +5451,7 @@ def test_a_rotor_section_distribution_cuts_the_blades_and_not_the_rotor():
     whether `FRAME 4` is a blade's axis or the rotor's own. The expansion still
     carries the symbolic name, which is the thing the requirement is about.
     """
-    from pyflightstream.cases.workflows import _pproc_emissions
+    from pyflightstream.cases.workflows import pproc_emissions
 
     rotor = FIXTURE_ROTOR.model_copy(
         update={"families_general": ["S"], "families_blades": ["Blade1", "Blade2", "Blade3"]}
@@ -5465,7 +5465,7 @@ def test_a_rotor_section_distribution_cuts_the_blades_and_not_the_rotor():
         "ROTOR_RMRP3": 6,
     }
 
-    plots = _pproc_emissions(
+    plots = pproc_emissions(
         case,
         "LOCAL_AXIS",
         "all",
@@ -5474,7 +5474,7 @@ def test_a_rotor_section_distribution_cuts_the_blades_and_not_the_rotor():
         "plot group 1",
         frames,
     )
-    sections = _pproc_emissions(
+    sections = pproc_emissions(
         case,
         "LOCAL_AXIS",
         "all",

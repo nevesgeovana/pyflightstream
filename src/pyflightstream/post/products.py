@@ -1440,7 +1440,7 @@ def _plot_name_can_emit(
 
     CONSERVATIVE BY DECISION (release 0.24.0). The label a ``{family}`` group puts
     in its name is chosen by the script builder from the run's case and frames
-    (`cases.workflows._pproc_emissions`), which the post stage does not hold. Three
+    (`cases.workflows.pproc_emissions`), which the post stage does not hold. Three
     attempts to re-derive it here each let a rotor-frame or custom-frame history
     pass as global loads. So any template that COULD produce the automatic name
     counts as producing it: a history that might be the wrong one is never read,

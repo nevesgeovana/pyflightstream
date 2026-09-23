@@ -5596,7 +5596,7 @@ def _and_the_frame_it_turned_from(
     return [(frame, families, label), (kept, families, label)]
 
 
-def _pproc_emissions(
+def pproc_emissions(
     case: SimCase,
     frame: str,
     families: str | Sequence[str],
@@ -6927,7 +6927,7 @@ def _pproc_plots(case: SimCase, script: Script, frames: Frames) -> None:
     emitted: set[str] = set()
     for group in pproc.plots.groups:
         what = f"plot group {group.name!r}"
-        for frame_name, families, label in _pproc_emissions(
+        for frame_name, families, label in pproc_emissions(
             case, group.frame, group.families, inventory, pproc.is_blade, what, frames
         ):
             frame = _pproc_frame(case, frames, frame_name, what, families)
@@ -7598,7 +7598,7 @@ def _pproc_sections(case: SimCase, script: Script, frames: Frames) -> None:
         # blade's own axes is one per blade, and one measured in a rotor's
         # is one per rotor. The reference `p010.toml` writes exactly that, over
         # `["lifters", "PUSHER"]`, and means nine distributions.
-        for frame_name, families, _label in _pproc_emissions(
+        for frame_name, families, _label in pproc_emissions(
             case,
             entry.frame,
             entry.families,
