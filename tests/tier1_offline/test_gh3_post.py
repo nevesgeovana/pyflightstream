@@ -472,3 +472,67 @@ def test_ad_two_aliases_that_differ_in_case_only_are_two_aliases(tmp_path, monke
     columns, rows = read_csv_table(out / key)
     assert not set(EXTRA) & set(columns), "a case twin of the alias integrated the block"
     assert len(rows) == 4 and "missing" in manifest["skipped"].get(f"{key}#integration", "")
+
+
+def test_ad_a_rotors_members_are_boundary_names_not_words(tmp_path, monkeypatch):
+    """Rotor R declares blades [Blade1, AERO]; the alias AERO = [Blade1].
+
+    Seeding the rotor's members through the alias reader resolved AERO into
+    Blade1 and erased the declared boundary, so `families = "R"` matched the
+    recorded Blade1-only block where the builder emits Blade1 and AERO.
+    """
+    workspace = _case(tmp_path, monkeypatch)
+    record = workspace.read_manifest()[0]
+    record.sections_layout[0]["frame"] = "R_RMRP"
+    recorded = workspace.resolve_pproc("p001")
+    entry = recorded.sections.distributions[0]
+    entry.families = "R"
+    entry.frame = "RMRP"
+    entry.integrate = True
+    record.matrix_stem = "products"
+    _matrix(workspace)
+    reference = workspace.inputs_dir / "references/r001.toml"
+    reference.parent.mkdir(parents=True, exist_ok=True)
+    reference.write_text(
+        "area_m2 = 11.5\nchord_m = 1.5\nspan_m = 20.0\n"
+        '[aliases]\nAERO = ["Blade1"]\n'
+        '[rotors.R]\nalias = "R"\naxis = "Z"\ndiameter_m = 2.0\n'
+        'families_blades = ["Blade1", "AERO"]\n'
+    )
+    write_campaign_products(workspace, matrix_stem="products")
+    manifest = _products_manifest(workspace)
+    out = workspace.products_dir("products")
+    key = "sections/AL-020_sloads_Blade1.csv"
+    columns, rows = read_csv_table(out / key)
+    assert not set(EXTRA) & set(columns), "a rotor member read as an alias erased a boundary"
+    assert len(rows) == 4 and "missing" in manifest["skipped"].get(f"{key}#integration", "")
+
+
+def test_ad_a_nested_member_the_cuts_do_not_carry_may_be_a_boundary(tmp_path, monkeypatch):
+    """OUTER = [AERO], AERO = [Wing]; the geometry may carry a boundary named AERO.
+
+    The builder reads a member as the boundary of that name first, over the
+    whole geometry; the cuts hold Wing alone and cannot say whether AERO is a
+    boundary, so OUTER's membership is uncertain and the Wing-only block keeps
+    its raw columns, named missing.
+    """
+    workspace, record, recorded = _one_distribution(tmp_path, monkeypatch)
+    recorded.sections.distributions[0].families = "OUTER"
+    recorded.sections.distributions[0].integrate = True
+    record.sections_layout[0]["distribution_families"] = "OUTER"
+    record.matrix_stem = "products"
+    _matrix(workspace)
+    reference = workspace.inputs_dir / "references/r001.toml"
+    reference.parent.mkdir(parents=True, exist_ok=True)
+    reference.write_text(
+        "area_m2 = 11.5\nchord_m = 1.5\nspan_m = 20.0\n"
+        '[aliases]\nOUTER = ["AERO"]\nAERO = ["Wing"]\n'
+    )
+    write_campaign_products(workspace, matrix_stem="products")
+    manifest = _products_manifest(workspace)
+    out = workspace.products_dir("products")
+    key = "sections/AL-020_sloads_OUTER.csv"
+    columns, rows = read_csv_table(out / key)
+    assert not set(EXTRA) & set(columns), "a nested member owned the block by a guess"
+    assert {row["FAMILY"] for row in rows} == {"Wing"}
+    assert "missing" in manifest["skipped"].get(f"{key}#integration", "")

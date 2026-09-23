@@ -238,6 +238,13 @@ def _matching_distributions(
         if key is not None and key in visiting:
             return word in inventory
         if key is not None:
+            if visiting and word not in inventory:
+                # A NESTED MEMBER THE CUTS DO NOT CARRY may be a boundary the
+                # geometry carries under that very name, which the builder
+                # reads first; without the geometry nothing here can say, so
+                # the name is kept as an unrecorded member beside its alias's
+                # expansion and the equal-set test refuses: uncertain.
+                inventory.append(word)
             return all([cited(member, visiting | {key}) for member in vocabulary[key]])
         # THE FIVE SELECTOR WORDS ARE SELECTORS ONLY WHEN THEY STAND ALONE:
         # as a member of an alias the builder reads `each` or `all` as a
@@ -264,9 +271,13 @@ def _matching_distributions(
             inventory.append(word)
         return True
 
+    # A ROTOR'S MEMBERS ARE BOUNDARY NAMES the reference declares: evidence,
+    # never words to interpret, so they enter the inventory as names and a
+    # member spelt like an alias stays the boundary it names.
     for members in rotor_members.values():
         for member in members:
-            cited(member)
+            if member not in inventory:
+                inventory.append(member)
     knowable = []
     for entry in pproc.sections.distributions:
         words = [entry.families] if isinstance(entry.families, str) else entry.families
