@@ -672,9 +672,10 @@ def test_ad_a_possible_reading_that_raises_costs_no_raw_row(tmp_path, monkeypatc
     """A Wing entry that integrates beside `families = ["blades"]`, which the resolver refuses.
 
     The artifact accepts both entries; the retired selector raises when the
-    possible reading resolves it. That refusal is the entry's own and cannot
-    cost the raw split or the Wing entry's integration: the post completes,
-    the file has its rows and its integrated columns.
+    common resolver reads it, yet the expanding builder has emitted for a
+    bare selector word beside a family of that name, so the entry is
+    uncertain: the post completes, the raw split has its rows, and the Wing
+    entry's integration is withheld as ambiguous, by name.
     """
     workspace, record, recorded = _one_distribution(tmp_path, monkeypatch)
     entry = recorded.sections.distributions[0]
@@ -689,8 +690,9 @@ def test_ad_a_possible_reading_that_raises_costs_no_raw_row(tmp_path, monkeypatc
     key = "sections/AL-020_sloads_Wing.csv"
     assert key in manifest["products"], manifest["skipped"]
     columns, rows = read_csv_table(out / key)
-    assert tuple(columns[-4:]) == EXTRA, manifest["skipped"]
+    assert not set(EXTRA) & set(columns), "a retired selector word beside Wing owned nothing"
     assert len(rows) == 2 and {row["FAMILY"] for row in rows} == {"Wing"}
+    assert "ambiguous" in manifest["skipped"].get(f"{key}#integration", ""), manifest["skipped"]
 
 
 @pytest.mark.parametrize("word", ["all", "ALL"])
@@ -839,6 +841,40 @@ def test_ad_a_rotor_name_overridden_by_an_alias_is_still_a_possible_owner(tmp_pa
     manifest = _products_manifest(workspace)
     out = workspace.products_dir("products")
     for name in ("R", "Blade1"):
+        key = f"sections/AL-020_sloads_{name}.csv"
+        columns, rows = read_csv_table(out / key)
+        assert not set(EXTRA) & set(columns), f"{name} integrated through a falsely unique match"
+        assert len(rows) == 2
+        assert "ambiguous" in manifest["skipped"].get(f"{key}#integration", ""), manifest["skipped"]
+
+
+def test_ad_a_bare_selector_word_is_uncertain_not_refused(tmp_path, monkeypatch):
+    """`airframe` bare on RMRP beside `airframe1` on the literal R_RMRP, two recorded blocks.
+
+    The common resolver raises on the bare word; the expanding builder has
+    emitted for it beside a rotor family named airframe1. The matcher cannot
+    tell which path the entry takes, so it is uncertain and a possible owner;
+    a reader that refused the word outright left the literal entry alone with
+    both blocks and its flag. Both blocks are ambiguous and refused by name.
+    """
+    workspace = _case(tmp_path, monkeypatch, blocks=[(0, 1), (0, 1)])
+    record = workspace.read_manifest()[0]
+    for k, (block, name) in enumerate(
+        zip(record.sections_layout, ("airframe", "airframe1"), strict=True), 1
+    ):
+        block.update(
+            distribution=k, distribution_families=name, families=["airframe1"], frame="R_RMRP"
+        )
+    spec = workspace.resolve_pproc("p001")
+    entry = spec.sections.distributions[0]
+    spec.sections.distributions = [
+        entry.model_copy(update={"families": "airframe", "frame": "RMRP", "integrate": False}),
+        entry.model_copy(update={"families": "airframe1", "frame": "R_RMRP", "integrate": True}),
+    ]
+    write_campaign_products(workspace)
+    manifest = _products_manifest(workspace)
+    out = workspace.products_dir(None)
+    for name in ("airframe", "airframe1"):
         key = f"sections/AL-020_sloads_{name}.csv"
         columns, rows = read_csv_table(out / key)
         assert not set(EXTRA) & set(columns), f"{name} integrated through a falsely unique match"

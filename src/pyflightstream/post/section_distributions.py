@@ -233,13 +233,12 @@ def _matching_distributions(
             return word
         return next((name for name in vocabulary if name.casefold() == word.casefold()), None)
 
-    # WHAT THE READER MET while it read one entry's selection: a word the
-    # resolver REFUSES (a bare `blades` or `airframe`, which raise), so the
-    # builder emits nothing for the entry; or a word that leaves membership
-    # UNCERTAIN (an unknowable selector, a name the cuts do not carry reached
-    # by any path). The possible reading below reads no families of its own:
-    # it asks only whether the strict reading's refusal rested on uncertainty.
-    met: dict[str, bool] = {"refused": False, "uncertain": False}
+    # WHAT THE READER MET while it read one entry's selection: a word that
+    # leaves membership UNCERTAIN (a selector word, a name the cuts do not
+    # carry reached by any path). The possible reading below reads no
+    # families of its own: it asks only whether the strict reading's refusal
+    # rested on uncertainty.
+    met: dict[str, bool] = {"uncertain": False}
 
     def cited(word: str, visiting: frozenset[str] = frozenset(), *, listed: bool = False) -> bool:
         if ownership:
@@ -276,9 +275,11 @@ def _matching_distributions(
         # boundary NAME, unrecorded unless the cuts carry a boundary so
         # called, and so is `all` or `each` written inside a list.
         if not visiting and word in ("blades", "airframe"):
-            # The resolver refuses these two, so the builder emits nothing for
-            # the entry and it can own no block.
-            met["refused"] = True
+            # The common resolver refuses these two, but the expanding
+            # builder has emitted for a bare `airframe` beside a rotor family
+            # named airframe1; nothing here can tell which path the entry
+            # takes, so it is uncertain rather than refused.
+            met["uncertain"] = True
             return False
         if not visiting and not listed and word == "all":
             # The geometry's whole inventory, which the record does not carry.
@@ -311,15 +312,13 @@ def _matching_distributions(
             if member not in inventory:
                 inventory.append(member)
     knowable = []
-    refused: list[bool] = []
     uncertain: list[bool] = []
     for entry in pproc.sections.distributions:
-        met["refused"] = met["uncertain"] = False
+        met["uncertain"] = False
         if isinstance(entry.families, str):
             knowable.append(cited(entry.families))
         else:
             knowable.append(all([cited(word, listed=True) for word in entry.families]))
-        refused.append(met["refused"])
         uncertain.append(met["uncertain"])
 
     def entry_matches(k: int, entry: SectionDistribution, inventory: list[str]) -> bool:
@@ -479,13 +478,10 @@ def _matching_distributions(
     def could_own(k: int, entry: SectionDistribution) -> bool:
         # THE POSSIBLE READING READS NO FAMILIES OF ITS OWN, because every
         # rule of its own has disagreed with the builder somewhere. An entry
-        # the resolver refuses can own nothing. An entry whose selection is
-        # UNCERTAIN could own any block of its frame, plane and count. A
-        # CERTAIN entry the strict reading refused only for a rule of the
-        # strict reading's own (a literally cited frame, the kind gate) could
-        # own the block if the block lies inside what it selects.
-        if refused[k - 1]:
-            return False
+        # whose selection is UNCERTAIN could own any block of its frame, plane
+        # and count. A CERTAIN entry the strict reading refused only for a
+        # rule of the strict reading's own (a literally cited frame, the kind
+        # gate) could own the block if the block lies inside what it selects.
         frame = str(block.get("frame", ""))
         kind_re = {
             "LOCAL_AXIS": r".+_RMRP[1-9][0-9]*",
