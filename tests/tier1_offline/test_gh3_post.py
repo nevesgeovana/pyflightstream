@@ -340,3 +340,34 @@ def test_ab_a_deleted_live_alias_does_not_resurrect_its_recorded_group(tmp_path,
     reason = manifest["skipped"].get(key, "")
     assert "AERO" in reason and "selects no surface" in reason, manifest["skipped"]
     assert reason in (workspace.products_dir("products") / "post.log").read_text()
+
+
+@pytest.mark.parametrize("member", ["each", "each_blade", "all"])
+def test_ad_a_selector_word_inside_an_alias_is_a_boundary_name(tmp_path, monkeypatch, member):
+    """The live alias AERO widened from [Wing] to [Wing, <selector word>].
+
+    The builder reads a selector word that is a member of an alias as a
+    boundary NAME; the matcher read it as the selector and matched the
+    recorded Wing-only block. It is an unrecorded name, so the block is not
+    the entry's emission and keeps its raw columns, named missing.
+    """
+    workspace, record, recorded = _one_distribution(tmp_path, monkeypatch)
+    record.aliases = {"AERO": ["Wing"]}
+    recorded.sections.distributions[0].families = "AERO"
+    recorded.sections.distributions[0].integrate = True
+    record.sections_layout[0]["distribution_families"] = "AERO"
+    record.matrix_stem = "products"
+    _matrix(workspace)
+    reference = workspace.inputs_dir / "references/r001.toml"
+    reference.parent.mkdir(parents=True, exist_ok=True)
+    reference.write_text(
+        f'area_m2 = 11.5\nchord_m = 1.5\nspan_m = 20.0\n[aliases]\nAERO = ["Wing", "{member}"]\n'
+    )
+    write_campaign_products(workspace, matrix_stem="products")
+    manifest = _products_manifest(workspace)
+    out = workspace.products_dir("products")
+    key = "sections/AL-020_sloads_AERO.csv"
+    columns, rows = read_csv_table(out / key)
+    assert not set(EXTRA) & set(columns), "a selector word in an alias matched the old block"
+    assert {row["FAMILY"] for row in rows} == {"Wing"}
+    assert "missing" in manifest["skipped"].get(f"{key}#integration", "")

@@ -224,11 +224,15 @@ def _matching_distributions(
             return any(f.casefold() == folded for f in inventory)
         if folded in vocabulary:
             return all([cited(member, visiting | {folded}) for member in vocabulary[folded]])
-        if word in ("all", "blades", "airframe"):
+        # THE FIVE SELECTOR WORDS ARE SELECTORS ONLY WHEN THEY STAND ALONE:
+        # as a member of an alias the builder reads `each` or `all` as a
+        # boundary NAME, so here they are names too, unrecorded ones unless
+        # the cuts carry a boundary so called.
+        if not visiting and word in ("all", "blades", "airframe"):
             # These need the geometry's whole inventory, which the record does
             # not carry. Neither the cuts nor a rotor list proves completeness.
             return False
-        if word in ("each", "each_blade"):
+        if not visiting and word in ("each", "each_blade"):
             # Each emitted block is one known family, regardless of siblings.
             return True
         if not any(f.casefold() == folded for f in inventory):
