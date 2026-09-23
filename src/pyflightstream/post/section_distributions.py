@@ -210,18 +210,6 @@ def _matching_distributions(
     # as a possible owner, so that dropping it never makes another entry
     # falsely unique.
     recorded_names = list(inventory)
-    # THE GEOMETRY'S OWN SPELLINGS: a common-frame block records the names as
-    # the geometry carries them, while a rotor's block records the reference's
-    # spelling of its families, which the geometry may carry under another
-    # case. A name attested here reads the same over the geometry and over
-    # the maximal inventory; one attested only by a rotor's block may not.
-    layout_established = _established_aliases(record.sections_layout or [], literal)
-    attested = {
-        str(f)
-        for b in record.sections_layout or []
-        if _rotor_group(str(b.get("frame", "")), literal, layout_established)[1] == "common"
-        for f in cast(list[str], b["families"])
-    }
     # RunRecord has an inventory source, but no complete boundary inventory.
     # A layout lists exported cuts only. Keep every explicitly cited family in
     # the candidate inventory so selection cannot erase an unrecorded member.
@@ -229,6 +217,29 @@ def _matching_distributions(
     rotor_members = {
         name: [*rotor.families_general, *rotor.families_blades]
         for name, rotor in (rotors or {}).items()
+    }
+    # THE GEOMETRY'S OWN SPELLINGS: a common-frame block records the names as
+    # the geometry carries them, while a rotor's block records the reference's
+    # spelling of its families, which the geometry may carry under another
+    # case. A name attested here reads the same over the geometry and over
+    # the maximal inventory; one attested only by a rotor's block may not.
+    # A frame is common as the matcher classifies it (a user's own `X_RMRP`
+    # is), but a DECLARED rotor's block on a frame a specification cites
+    # literally is still the rotor's and carries the reference's spelling,
+    # so nothing on a declared rotor's frame attests.
+    layout_established = _established_aliases(record.sections_layout or [], literal)
+
+    def attests(frame: str) -> bool:
+        if _rotor_group(frame, literal, layout_established)[1] != "common":
+            return False
+        named = _rotor_frame(frame)
+        return named is None or named[0] not in rotor_members
+
+    attested = {
+        str(f)
+        for b in record.sections_layout or []
+        if attests(str(b.get("frame", "")))
+        for f in cast(list[str], b["families"])
     }
     # THE BUILDER'S VOCABULARY, IN THE BUILDER'S ORDER: a rotor's name is an
     # alias for its own families and the reference's alias table takes

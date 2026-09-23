@@ -1260,3 +1260,58 @@ def test_ad_a_nested_self_alias_still_leads_elsewhere(tmp_path, monkeypatch):
         assert not set(EXTRA) & set(columns), f"{name} integrated through a falsely unique match"
         assert len(rows) == 2
         assert "ambiguous" in manifest["skipped"].get(f"{key}#integration", ""), manifest["skipped"]
+
+
+def test_ad_a_rotor_block_on_a_literally_cited_frame_attests_nothing(tmp_path, monkeypatch):
+    """Cuts hold blade1 and blade2; rotor R declares Blade1; an entry cites R_RMRP1 literally.
+
+    The literal citation makes the matcher read R_RMRP1 as a common frame
+    (no uncited frame establishes R), and a classification-based attestation
+    then took the rotor's block, which records the reference's spelling
+    Blade1, as the geometry's own. The Blade1 entry read as certain over the
+    stem rule, was dropped, and the neighbour's flag went to both common
+    blocks with integrate=false on it (eighteenth reading of a8c5293). A
+    name a declared rotor spells attests nothing: both ambiguous, by name.
+    """
+    workspace = _case(tmp_path, monkeypatch, blocks=[(0, 1), (0, 1), (0, 1), (0, 1)])
+    record = workspace.read_manifest()[0]
+    layout = (
+        ("Blade1", ["blade1", "blade2"], "MRP"),
+        ("blade1-blade2", ["blade1", "blade2"], "MRP"),
+        ("R", ["Blade1"], "R_RMRP1"),
+        ("blade2-blade1", ["blade1", "blade2"], "R_RMRP1"),
+    )
+    for k, (block, (name, held, frame)) in enumerate(
+        zip(record.sections_layout, layout, strict=True), 1
+    ):
+        block.update(distribution=k, distribution_families=name, families=held, frame=frame)
+    record.matrix_stem = "products"
+    _matrix(workspace)
+    reference = workspace.inputs_dir / "references/r001.toml"
+    reference.parent.mkdir(parents=True, exist_ok=True)
+    reference.write_text(
+        "area_m2 = 11.5\nchord_m = 1.5\nspan_m = 20.0\n"
+        '[rotors.R]\nalias = "R"\naxis = "Z"\ndiameter_m = 2.0\n'
+        'families_blades = ["Blade1"]\n'
+    )
+    spec = workspace.resolve_pproc("p001")
+    entry = spec.sections.distributions[0]
+    spec.sections.distributions = [
+        entry.model_copy(update={"families": "Blade1", "frame": "MRP", "integrate": False}),
+        entry.model_copy(
+            update={"families": ["blade1", "blade2"], "frame": "MRP", "integrate": True}
+        ),
+        entry.model_copy(update={"families": "R", "frame": "LOCAL_AXIS", "integrate": False}),
+        entry.model_copy(
+            update={"families": ["blade2", "blade1"], "frame": "R_RMRP1", "integrate": False}
+        ),
+    ]
+    write_campaign_products(workspace, matrix_stem="products")
+    manifest = _products_manifest(workspace)
+    out = workspace.products_dir("products")
+    for name in ("Blade1", "blade1-blade2"):
+        key = f"sections/AL-020_sloads_{name}.csv"
+        columns, rows = read_csv_table(out / key)
+        assert not set(EXTRA) & set(columns), f"{name} integrated through a falsely unique match"
+        assert len(rows) == 2
+        assert "ambiguous" in manifest["skipped"].get(f"{key}#integration", ""), manifest["skipped"]
