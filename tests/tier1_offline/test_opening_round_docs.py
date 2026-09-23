@@ -1,6 +1,7 @@
 """The opening-round corrections keep current examples and historical reports distinct."""
 
 import inspect
+import os
 import re
 import subprocess
 import tomllib
@@ -44,6 +45,13 @@ def test_report_keeps_original_body_and_appends_closure(report):
         cwd=ROOT,
         capture_output=True,
         text=True,
+        # AN EXPLICIT ENVIRONMENT, as every spawn under tests passes one: the
+        # repository guard pins the count of spawns that inherit the whole one.
+        env={
+            "PATH": os.environ.get("PATH", ""),
+            "SYSTEMROOT": os.environ.get("SYSTEMROOT", ""),
+            "HOME": os.environ.get("HOME", os.environ.get("USERPROFILE", "")),
+        },
         encoding="utf-8",
         check=True,
     ).stdout
