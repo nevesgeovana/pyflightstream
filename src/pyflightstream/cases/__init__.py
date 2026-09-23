@@ -577,6 +577,8 @@ class SectionDistribution(BaseModel):
     #: artifact whose entries disagreed about it would be describing two cases.
     count: int | None = Field(default=None, ge=1)
     plot_direction: Literal[1, 2] | None = None
+    #: Since 0.26.0, append midpoint-strip integrals to this distribution's CSV.
+    integrate: bool = False
 
     _frame_is_named = field_validator("frame")(_a_named_frame)
 

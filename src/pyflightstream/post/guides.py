@@ -35,6 +35,7 @@ from types import UnionType
 from typing import Union, get_args, get_origin
 
 from pyflightstream._expressions import ALLOWED_FUNCTIONS
+from pyflightstream._tokens import FX_INT, FZ_INT, INTEGRATED_SECTION_COLUMNS, MY_INT, STRIP_LENGTH
 from pyflightstream.cases import EquationSpec, PhaseLockedSpec, PprocSpec
 from pyflightstream.post._tables import CONTEXT_COLUMNS
 from pyflightstream.post.products import (
@@ -57,6 +58,13 @@ PPROC_GUIDE_NAMES: tuple[str, ...] = ("VARIABLES.md", "WRITING-EQUATIONS.md")
 #: ``[glossary]`` is listed beside it and never merged into it. A test holds
 #: that every column constant listed by the variables page has an entry here.
 VARIABLE_DEFINITIONS: dict[str, str] = {
+    STRIP_LENGTH: "m. Midpoint-to-midpoint strip length; the endpoint stations get half strips",
+    FX_INT: "N. Fx times Strip_length, in the recorded section axes at this row's STEP and azimuth",
+    FZ_INT: "N. Fz times Strip_length, in the recorded section axes at this row's STEP and azimuth",
+    MY_INT: (
+        "N m. Moment times Strip_length, about this station's quarter chord (X_QC, Z_QC), "
+        "retaining the export's section-plane moment sense at this STEP and azimuth"
+    ),
     "ALPHA": "deg. The angle of attack the solver reports it ran at, as the row wrote it",
     "BETA": "deg. The sideslip angle the solver reports it ran at, as the row wrote it",
     "MACH": "-. The Mach number of that point",
@@ -181,6 +189,14 @@ def _variables_page(glossary: Sequence[tuple[str, str]]) -> str:
         "",
     ]
     lines += [_defined(name) for name in CONTEXT_COLUMNS]
+    lines += [
+        "",
+        "## Optional integrated sectional loads",
+        "",
+        "Requested per distribution with `integrate = true`.",
+        "",
+    ]
+    lines += [_defined(name) for name in INTEGRATED_SECTION_COLUMNS]
     lines += [
         "",
         "## A rotor carries these, one set per rotor",

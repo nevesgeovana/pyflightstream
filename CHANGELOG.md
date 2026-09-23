@@ -7,6 +7,15 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Added
+
+- Optional integrated sectional loads: `integrate = true` on a pproc
+  `[[sections.distributions]]` entry appends `Strip_length`, `Fx_int`, `Fz_int`
+  and `My_int` to the same sectional CSV. Each instant uses exported station
+  midpoints, half intervals at the ends, and moments about the local quarter
+  chord. Invalid distributions warn and keep the original columns; the default
+  is off and preserves the previous file bytes.
+
 ### Removed
 
 - `write_sections_table(iteration=)`: use `step=`. The old keyword raises TypeError.

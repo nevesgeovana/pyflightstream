@@ -75,3 +75,22 @@ one-alias line to write instead.
 carrying it exist. Since 0.26.0 this is plain compatibility with no countdown.
 New records write `waived_commands`; a record containing both keys is refused.
 Do not rewrite a recorded manifest to update this spelling.
+
+## Integrated sectional loads
+
+To receive forces and moments per strip as well as the exported line densities,
+add `integrate = true` to the desired `[[sections.distributions]]` pproc entry.
+The default is false, retaining the previous CSV bytes and columns. Re-posting
+existing exports can enable this option without another solver run.
+
+The same sectional file appends `Strip_length` (m), `Fx_int` and `Fz_int` (N),
+and `My_int` (N m) after `Moment`. Strip boundaries are the midpoints between
+exported stations, with half intervals at the ends. Integration is separate
+for each recorded block and STEP; it preserves the section axes and azimuth.
+`My_int` remains about each station's quarter chord, as specified by SRC-751
+p.253, with no transfer to the hub or elastic axis and no revolution envelope.
+
+An invalid block leaves the entire file in its original form and emits a
+`PyflightstreamWarning` naming the point, file and reason; post continues.
+See [Integrated sectional loads](post-processing-definitions.md#integrated-sectional-loads-since-0260)
+for the column definitions, moment-point evidence and exact strip rule.
