@@ -4488,6 +4488,23 @@ def _resolve_post_pproc(
         return pproc_id, None, f"pproc {pproc_id!r} cannot be resolved: {error}"
 
 
+def _simulation_metadata(records: Sequence[RunRecord]) -> RunRecord:
+    """Take each shared field from a carrier, preferring successful records."""
+    preferred = sorted(
+        records,
+        key=lambda record: record.status not in (RunStatus.CONVERGED, RunStatus.COMPLETED_MAX_ITER),
+    )
+    fields = ("pproc", "reference", "description", "mach", "flight_condition", "aliases")
+    values = {}
+    for field in fields:
+        for record in preferred:
+            value = getattr(record, field)
+            if value is not None and value != "" and value != {}:
+                values[field] = value
+                break
+    return preferred[0].model_copy(update=values)
+
+
 def _effective_pproc(
     workspace: CampaignWorkspace,
     sim_id: str,
@@ -4524,7 +4541,7 @@ def _sim_products(
     check_frozen: bool = False,
     effective_pproc: tuple[str | None, PprocSpec | None, str | None] | None = None,
 ) -> tuple[list[Path], dict[str, dict[str, object]], dict[str, str]]:
-    """Write one simulation's products from its successful records.
+    """Write one simulation's products from its admitted records.
 
     Returns the files written, the manifest entry of each (its run ids and,
     for a reduction, the reduction and the windows it used), and the
@@ -4536,12 +4553,22 @@ def _sim_products(
     """
     from pyflightstream.cases import classify_outputs
 
-    first = records[0]
+    first = _simulation_metadata(records)
+    skipped: dict[str, str] = {
+        f"runs/{record.run_id}": (
+            f"the run has status {record.status.value} and no pproc, Mach or reference "
+            "metadata, so it cannot supply a product row; collect its complete run metadata"
+        )
+        for record in records
+        if record.pproc is None and record.mach is None and not record.reference
+    }
     pproc_id, pproc, pproc_error = effective_pproc or _effective_pproc(
         workspace, sim_id, first, matrix_row
     )
     if pproc is None:
-        return [], {}, {sim_id: pproc_error} if pproc_error else {}
+        if pproc_error:
+            skipped[sim_id] = pproc_error
+        return [], {}, skipped
     products = pproc.products
     reference_block = first.reference
     description = first.description or ""
@@ -4555,18 +4582,16 @@ def _sim_products(
     point_windows: dict[str, tuple[int, int]] = {}
     frozen_points: dict[str, FrozenSolve] = {}
     probe_positions: dict[int, tuple[float, float, float, str]] = {}
-    # DECLARED HERE rather than with its siblings below, because the
-    # positions are read in the record loop and an unreadable file is
-    # recorded there, before the products loop that fills the rest.
-    skipped: dict[str, str] = {}
     sim_dir = workspace.sim_dir(sim_id)
     for record in records:
+        if f"runs/{record.run_id}" in skipped:
+            continue
         if not record.outputs:
             # NAMED, NOT DROPPED. A converged record with no outputs is what a
             # submitted sweep leaves per point, and it vanished from every
             # product on a bare `continue` with the manifest none the wiser.
             skipped[f"runs/{record.run_id}"] = (
-                "this run is recorded as successful and names no output file, so no "
+                f"this run has status {record.status.value} and names no output file, so no "
                 "product holds a row of it; collect it, or look at how it was submitted"
             )
             continue
@@ -4580,7 +4605,7 @@ def _sim_products(
                 else str(by_name[loads_name])
             )
             skipped[f"runs/{record.run_id}"] = (
-                f"this run is recorded as successful and its loads table is not on disk "
+                f"this run has status {record.status.value} and its loads table is not on disk "
                 f"({missing}), so no product holds a row of it"
             )
             continue
@@ -5537,6 +5562,7 @@ def _point_series(
         step=_last_time_step(record),
         pproc=recorded_pproc,
         current_pproc=pproc,
+        current_aliases=getattr(live, "aliases", None),
         integration_error=pproc_error,
         condition=condition,
         reference=reference,
@@ -6298,6 +6324,7 @@ def _campaign_products(
     superseded = superseded_by_a_continuation(
         [point for record in records for point in record.as_points()]
     )
+    skipped: dict[str, str] = {}
     for record in records:
         # FR-95. ONE JOB IS SEVERAL POINTS, so the record is expanded
         # before its status is read. A steady row is one job since 0.17.0
@@ -6358,6 +6385,12 @@ def _campaign_products(
                 )
             ):
                 by_sim.setdefault(point_record.sim_id, []).append(point_record)
+            else:
+                skipped[f"runs/{point_record.run_id}"] = (
+                    f"the recorded status is {point_record.status.value}; check_frozen=True "
+                    "withholds this run's products. Collect complete outputs or run the "
+                    "point again to settle its status."
+                )
     written: list[Path] = []
     products_index: dict[str, dict[str, object]] = {}
     manifest: dict[str, object] = {"products": products_index, "log": "post.log"}
@@ -6368,7 +6401,6 @@ def _campaign_products(
     # of its matrix its tables and the workspace its products.json. An
     # existing product without overwrite is still the whole stage's
     # refusal, since it is about the caller's flag and not about a row.
-    skipped: dict[str, str] = {}
     for old, new in superseded.items():
         skipped[f"runs/{old}"] = (
             f"this run was continued by {new}, which wrote into the same folder, so its "
@@ -6480,8 +6512,9 @@ def _write_the_products(
     the `try` that keeps the manifest true of the disk.
     """
     for sim_id, sim_records in by_sim.items():
+        simulation_metadata = _simulation_metadata(sim_records)
         effective_pproc = _effective_pproc(
-            workspace, sim_id, sim_records[0], rows_of_the_matrix.get(sim_id)
+            workspace, sim_id, simulation_metadata, rows_of_the_matrix.get(sim_id)
         )
         recorded_pprocs = {effective_pproc[0]: effective_pproc[1]}
         try:
@@ -6495,7 +6528,7 @@ def _write_the_products(
                         )
                     except PyflightstreamError:
                         continue  # The individual writers explain malformed exports.
-                    for reference_block in (sim_records[0].reference, record.reference):
+                    for reference_block in (simulation_metadata.reference, record.reference):
                         if reference_block is None:
                             continue
                         _refuse_a_reference_the_solver_did_not_use(
@@ -6620,7 +6653,7 @@ def _write_the_products(
         for name, entry in names.items():
             products_index[name] = {
                 "sim_id": sim_id,
-                "pproc": sim_records[0].pproc,
+                "pproc": effective_pproc[0],
                 **entry,
             }
         # A reduction the row could not window is a skip under the file it

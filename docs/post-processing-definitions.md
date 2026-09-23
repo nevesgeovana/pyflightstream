@@ -239,7 +239,8 @@ integration for that file to gain integrated columns.
 
 The effective matrix pproc supplies integration requests only; legacy ownership
 still resolves through the recorded pproc. Section selectors, including `each`,
-use the same expansion as the export builder. If the effective pproc cannot be
+use the same expansion as the export builder, resolving current aliases through
+the live reference to the recorded boundary families. If the effective pproc cannot be
 resolved, complete recorded layouts and available stamped exports still supply
 their histories. Integration and products needing that specification are named
 skips in `products.json` and `post.log`.
@@ -768,6 +769,9 @@ A frozen solve, an unread native-log block, a reference mismatch, or a failed
 point's status is a
 reason to warn, not to withhold a computable product. Histories, instants and
 averages remain available. A log that cannot be opened never ends the post.
+A failed point fails alone: shared metadata comes from records that carry each
+field, preferring successful records, and a record with none is a named run skip
+without suppressing healthy points' products.
 An empty or header-only unsteady log has no residual evidence: it warns by
 default and refuses affected averages with `check_frozen=True`; a steady log
 does not need unsteady residual pages.
@@ -780,6 +784,8 @@ Existing-output protection still requires an explicit rebuild request.
 **`--check-frozen` means REFUSE INSTEAD OF WARN.** It opts into the earlier
 refusals for affected averages and reference mismatches; the warning is still
 written to `post.log`.
+An excluded failed status is named under `runs/<run_id>` with the status and
+flag; rebuilding retires its previous products according to the archive choice.
 Averages wholly before a proven freeze keep their products. A freeze affects
 all steps from its first frozen step onward. An unread block affects only the
 samples that use it. Raw histories and explicitly instant products stay

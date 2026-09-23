@@ -93,6 +93,10 @@ samples it reads, and no compatibility promise waits past this release.
 
 ### Fixed
 
+- Preserve healthy polars when a metadata-poor failed record comes first;
+  name opt-in status refusals and retire their previous products on rebuild;
+  resolve integration selections through live reference aliases while keeping
+  recorded distribution ownership.
 - Legacy sectional and Cp ownership uses the recorded pproc, while the effective
   pproc selects integration, including `families = "each"`. An unresolved pproc
   preserves histories supported by recorded layouts and names integration skips.

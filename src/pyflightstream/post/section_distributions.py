@@ -6,7 +6,7 @@ import math
 import re
 import warnings
 from collections import Counter
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from typing import cast
 
@@ -109,7 +109,10 @@ def _distributions(
 
 
 def _matching_distributions(
-    record: RunRecord, pproc: PprocSpec, block: Mapping[str, object]
+    record: RunRecord,
+    pproc: PprocSpec,
+    block: Mapping[str, object],
+    aliases: Mapping[str, Sequence[str]] | None = None,
 ) -> list[int]:
     """Match current entries to recorded geometry, never to mutable positions."""
     inventory = list(
@@ -120,7 +123,10 @@ def _matching_distributions(
     matches = []
     for k, entry in enumerate(pproc.sections.distributions, 1):
         expanded_families = select_families(
-            entry.families, inventory, pproc.is_blade, record.aliases
+            entry.families,
+            inventory,
+            pproc.is_blade,
+            record.aliases if aliases is None else aliases,
         )
         families = cast(list[str], block["families"])
         expanded = {
@@ -145,7 +151,10 @@ def _matching_distributions(
 
 
 def _integration_requests(
-    record: RunRecord, pproc: PprocSpec | None, layout: list[dict[str, object]]
+    record: RunRecord,
+    pproc: PprocSpec | None,
+    layout: list[dict[str, object]],
+    aliases: Mapping[str, Sequence[str]] | None = None,
 ) -> tuple[set[int], dict[int, str]]:
     """Bind integration to recorded owners; a doubtful block keeps its file raw."""
     requested: set[int] = set()
@@ -155,7 +164,7 @@ def _integration_requests(
         return requested, errors
     for number, block in enumerate(layout, 1):
         owner = cast(int, block["distribution"])
-        matches = _matching_distributions(record, pproc, block)
+        matches = _matching_distributions(record, pproc, block, aliases)
         if len(matches) != 1:
             reason = "ambiguous" if matches else "missing"
             errors[owner] = (
@@ -203,6 +212,7 @@ def write_section_distributions(
     step: int | None,
     pproc: PprocSpec | None = None,
     current_pproc: PprocSpec | None = None,
+    current_aliases: Mapping[str, Sequence[str]] | None = None,
     integration_error: str | None = None,
     condition: Mapping[str, object] | None = None,
     reference: Mapping[str, object] | None = None,
@@ -241,6 +251,9 @@ def write_section_distributions(
         <../post-processing-definitions.md#per-distribution-sectional-loads-and-cp-0250>`_.
     current_pproc : PprocSpec or None, optional
         Effective post specification selecting integration against recorded blocks.
+    current_aliases : Mapping[str, Sequence[str]] or None, optional
+        Live reference aliases for integration selections. Recorded aliases remain
+        the fallback when no live reference is available and own legacy layouts.
     integration_error : str or None, optional
         Unresolved effective specification; retain raw files and name integration skips.
     condition : Mapping[str, object] or None, optional
@@ -299,7 +312,9 @@ def write_section_distributions(
             )
         return [], {}
     names = _file_names(selections)
-    integrate, matching_errors = _integration_requests(record, current_pproc or pproc, layout)
+    integrate, matching_errors = _integration_requests(
+        record, current_pproc or pproc, layout, current_aliases
+    )
     if integration_error is not None:
         integrate = set()
         matching_errors = dict.fromkeys(selections, integration_error)
