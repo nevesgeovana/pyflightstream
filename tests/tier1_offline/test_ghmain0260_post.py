@@ -1,0 +1,123 @@
+"""Independent main-reading regressions for metadata, retirement and live aliases."""
+
+import pytest
+
+from pyflightstream.post.products import read_csv_table, write_campaign_products
+from pyflightstream.workspace import CampaignWorkspace, RunStatus
+from tests.tier1_offline.test_b01_frozen_solve import (
+    FIXTURES,
+    _post_workspace,
+    _products_manifest,
+)
+from tests.tier1_offline.test_closing_round_post import _one_distribution
+from tests.tier1_offline.test_integrated_sectional_loads import EXTRA, _case
+
+
+def _matrix(workspace):
+    (workspace.root / "products.fs").write_text(
+        (FIXTURES / "superfile_matriz.fs").read_text().replace("6001", "7001")
+    )
+
+
+@pytest.mark.parametrize("matrix", [False, True])
+def test_v_metadata_poor_failure_first_keeps_healthy_polar(tmp_path, monkeypatch, matrix):
+    workspace = _case(tmp_path, monkeypatch, option=False)
+    healthy = workspace.read_manifest()[0]
+    healthy.matrix_stem = "products" if matrix else None
+    failed = healthy.model_copy(
+        update={
+            "run_id": "failed-script",
+            "point_name": "AL-999",
+            "sweep_name": "AL-999",
+            "status": RunStatus.FAILED_SCRIPT,
+            "pproc": None,
+            "mach": None,
+            "reference": None,
+            "description": None,
+            "outputs": [],
+        }
+    )
+    monkeypatch.setattr(CampaignWorkspace, "read_manifest", lambda self: [failed, healthy])
+    if matrix:
+        _matrix(workspace)
+    write_campaign_products(workspace, matrix_stem=healthy.matrix_stem)
+    manifest = _products_manifest(workspace)
+    key = "polars/P7001-AL-020_TOTAL.csv"
+    assert key in manifest["products"], manifest["skipped"]
+    assert manifest["products"][key]["runs"] == [healthy.run_id]
+    assert manifest["products"][key]["pproc"] == "p001"
+    out = workspace.products_dir(healthy.matrix_stem)
+    _, rows = read_csv_table(out / key)
+    assert len(rows) == 1 and float(rows[0]["MACH"]) == pytest.approx(0.2)
+    reason = manifest["skipped"].get("runs/failed-script", "")
+    assert "FAILED_SCRIPT" in reason and "metadata" in reason
+    log = (out / "post.log").read_text()
+    assert "runs/failed-script" in log and reason in log
+    assert healthy.pproc == "p001" and failed.pproc is None
+
+
+@pytest.mark.parametrize("archive", [False, True])
+def test_w_status_refusal_retires_previous_products(tmp_path, monkeypatch, archive):
+    workspace = _post_workspace(tmp_path, 2411, (58, 61))
+    record = workspace.read_manifest()[0]
+    record.status = RunStatus.FAILED_INCOMPLETE_OUTPUT
+    monkeypatch.setattr(CampaignWorkspace, "read_manifest", lambda self: [record])
+    write_campaign_products(workspace)
+    out = workspace.products_dir(None)
+    before = {key: (out / key).read_bytes() for key in _products_manifest(workspace)["products"]}
+    assert "probes/AL-020_time_average.csv" in before
+    assert "probes/AL-020_plots.csv" in before
+    assert "FAILED_INCOMPLETE_OUTPUT" in (out / "post.log").read_text()
+    write_campaign_products(workspace, overwrite=True, check_frozen=True, archive=archive)
+    manifest = _products_manifest(workspace)
+    assert manifest["complete"] is True
+    assert not manifest["products"]
+    for key, contents in before.items():
+        path = out / key
+        assert not path.exists(), f"stale product remains current: {key}"
+        copies = list(path.parent.glob(f"archive/*/{path.name}"))
+        assert len(copies) == int(archive)
+        if archive:
+            assert copies[0].read_bytes() == contents
+    reason = manifest["skipped"].get(f"runs/{record.run_id}", "")
+    assert "FAILED_INCOMPLETE_OUTPUT" in reason and "check_frozen=True" in reason
+    log = (out / "post.log").read_text()
+    assert f"runs/{record.run_id}" in log and reason in log
+
+
+@pytest.mark.parametrize("legacy", [False, True])
+def test_x_integration_resolves_new_alias_only_in_live_reference(tmp_path, monkeypatch, legacy):
+    workspace, record, recorded = _one_distribution(tmp_path, monkeypatch)
+    record.aliases = {"old_wing": ["Wing"]}
+    recorded.sections.distributions[0].families = "old_wing"
+    record.sections_layout[0]["distribution_families"] = "old_wing"
+    if legacy:
+        del record.sections_layout[0]["distribution"]
+        del record.sections_layout[0]["distribution_families"]
+    original = record.model_dump()
+    record.matrix_stem = "products"
+    _matrix(workspace)
+    reference = workspace.inputs_dir / "references/r001.toml"
+    reference.parent.mkdir(parents=True, exist_ok=True)
+    reference.write_text(
+        'area_m2 = 11.5\nchord_m = 1.5\nspan_m = 20.0\n[aliases]\nnew_wing = ["Wing"]\n'
+    )
+    current = recorded.model_copy(deep=True)
+    current.sections.distributions[0].families = "new_wing"
+    current.sections.distributions[0].integrate = True
+    specs = {"p001": recorded, "p002": current}
+    monkeypatch.setattr(CampaignWorkspace, "resolve_pproc", lambda self, key: specs[key])
+    matrix = workspace.root / "products.fs"
+    matrix.write_text(matrix.read_text().replace("p001", "p002"))
+    write_campaign_products(workspace, matrix_stem="products")
+    out = workspace.products_dir("products")
+    manifest = _products_manifest(workspace)
+    key = "sections/AL-020_sloads_old_wing.csv"
+    columns, rows = read_csv_table(out / key)
+    assert tuple(columns[-4:]) == EXTRA, manifest["skipped"]
+    assert {row["FAMILY"] for row in rows} == {"Wing"}
+    assert manifest["products"][key]["families"] == "old_wing"
+    assert f"{key}#integration" not in manifest["skipped"]
+    assert record.aliases == original["aliases"]
+    assert record.sections_layout == original["sections_layout"]
+    assert not list((out / "sections").glob("*new_wing*"))
