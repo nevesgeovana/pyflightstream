@@ -661,3 +661,44 @@ def test_ab_a_literally_cited_frame_never_stands_as_a_sibling(tmp_path, monkeypa
     columns, rows = read_csv_table(out / key)
     assert not set(EXTRA) & set(columns), "Blade1 integrated by an entry that never emitted it"
     assert len(rows) == 2 and "missing" in manifest["skipped"].get(f"{key}#integration", "")
+
+
+def test_ab_a_block_in_a_literally_cited_frame_is_no_expanding_entrys_target(tmp_path, monkeypatch):
+    """Blade1 recorded in X_RMRP by a literal entry, X established by X_RMRP1.
+
+    A current RMRP entry over Blade1 would have been emitted in R_RMRP, rotor
+    R's frame; the block in the literally cited X_RMRP is the literal entry's
+    and keeps its raw columns, named missing.
+    """
+    workspace = _case(tmp_path, monkeypatch, blocks=[(0, 1), (0, 1)])
+    record = workspace.read_manifest()[0]
+    frames = ("X_RMRP", "X_RMRP1")
+    names = ("Blade1", "Blade3")
+    for k, (block, frame, name) in enumerate(
+        zip(record.sections_layout, frames, names, strict=True), 1
+    ):
+        block.update(distribution=k, distribution_families=name, families=[name], frame=frame)
+    recorded = workspace.resolve_pproc("p001")
+    entry = recorded.sections.distributions[0]
+    recorded.sections.distributions = [
+        entry.model_copy(update={"families": "Blade1", "frame": "X_RMRP", "integrate": False}),
+        entry.model_copy(update={"families": "Blade3", "frame": "LOCAL_AXIS", "integrate": False}),
+    ]
+    current = recorded.model_copy(deep=True)
+    current.sections.distributions = [
+        entry.model_copy(update={"families": "Blade1", "frame": "RMRP", "integrate": True}),
+        entry.model_copy(update={"families": "Blade3", "frame": "LOCAL_AXIS", "integrate": False}),
+    ]
+    specs = {"p001": recorded, "p002": current}
+    monkeypatch.setattr(CampaignWorkspace, "resolve_pproc", lambda self, key: specs[key])
+    record.matrix_stem = "products"
+    _matrix(workspace)
+    matrix = workspace.root / "products.fs"
+    matrix.write_text(matrix.read_text().replace("p001", "p002"))
+    write_campaign_products(workspace, matrix_stem="products")
+    manifest = _products_manifest(workspace)
+    out = workspace.products_dir("products")
+    key = "sections/AL-020_sloads_Blade1.csv"
+    columns, rows = read_csv_table(out / key)
+    assert not set(EXTRA) & set(columns), "Blade1 integrated by an entry that never emitted it"
+    assert len(rows) == 2 and "missing" in manifest["skipped"].get(f"{key}#integration", "")

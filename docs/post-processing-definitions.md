@@ -260,7 +260,8 @@ literally (a user's own `X_RMRP`) names no rotor whatever it is called, unless
 a recorded frame no specification cites literally establishes the same rotor
 (the rotor's `ROTOR_RMRP` cited by an entry over its hub stays the rotor's
 while `ROTOR_RMRP1` is recorded); even then a literally cited frame can hold
-any family, so it never supplies a sibling's missing family, and uncertain
+any family, so it never supplies a sibling's missing family and a block
+recorded in it is that literal entry's, never an expanding entry's; uncertain
 membership keeps the raw columns. A block of any other kind than the entry's
 frame expands per, a common frame included, is not that entry's emission and
 cannot stand as a sibling of one. On an expanding frame (`LOCAL_AXIS`, `RMRP`,

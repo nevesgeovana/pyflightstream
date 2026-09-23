@@ -262,7 +262,8 @@ def _matching_distributions(
         block_set = set(families)
         layout = record.sections_layout or []
         established = _established_aliases(layout, literal)
-        group = _rotor_group(str(block.get("frame", "")), literal, established)
+        block_frame = str(block.get("frame", ""))
+        group = _rotor_group(block_frame, literal, established)
         # The kind the entry's frame expands per: a block of any other kind,
         # a common frame included, is not this entry's emission and cannot
         # stand as a sibling of one.
@@ -296,7 +297,12 @@ def _matching_distributions(
             members: Sequence[str],
             *,
             common: bool = expanded is None,
-            of_kind: bool = kind is not None and group[1].split(":")[0] == kind,
+            # A block in a literally cited frame is a literal entry's, whatever
+            # the frame is called: its membership has no evidence beyond that
+            # citation, so no expanding entry owns it.
+            of_kind: bool = kind is not None
+            and group[1].split(":")[0] == kind
+            and block_frame not in literal,
             block_set: frozenset[str] = frozenset(block_set),
             in_group: frozenset[str] = frozenset(in_group),
             elsewhere: frozenset[str] = frozenset(siblings | own_rotor),
