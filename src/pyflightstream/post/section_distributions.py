@@ -170,6 +170,15 @@ def _matching_distributions(
             "RMRP": r".+_RMRP",
             "SMRP": r".+_SMRP(?:_ORIGINAL)?",
         }.get(entry.frame.strip().upper())
+        if entry.frame.strip().upper() == "LOCAL_AXIS":
+            # No rotor definition reaches this path, so it has to know what the
+            # export builder does with a per-blade frame: one block per BLADE.
+            expanded_families = [
+                [name]
+                for members in expanded_families
+                for name in (members or inventory)
+                if pproc.is_blade(name)
+            ]
         frame_matches = (
             re.fullmatch(expanded, str(block.get("frame", ""))) is not None
             if expanded is not None

@@ -270,3 +270,35 @@ def test_aa_rotor_names_and_live_aliases_use_builder_expansion(tmp_path, monkeyp
     assert len(rows) == 4 and {row["FAMILY"] for row in rows} == {"Blade1"}
     assert f"{key}#integration" not in manifest["skipped"]
     assert manifest["products"][key]["families"] == "Blade1"
+
+
+@pytest.mark.parametrize("integrate", [False, True])
+def test_ab_legacy_layout_keeps_one_blade_frame_entry_over_two_blades(
+    tmp_path, monkeypatch, integrate
+):
+    """A blade-frame entry over two blades was recorded as one block per blade.
+
+    A legacy layout carries no distribution identity and no rotor definitions
+    reach the matcher, so the fallback has to know what the export builder does
+    with a per-blade frame: one emission per blade. The equal-set rule alone
+    rejected both singletons and the split lost its raw files.
+    """
+    workspace = _case(tmp_path, monkeypatch, option=integrate, blocks=[(0, 1), (0, 1)])
+    record = workspace.read_manifest()[0]
+    for block in record.sections_layout:
+        del block["distribution"]
+        del block["distribution_families"]
+    spec = workspace.resolve_pproc("p001")
+    entry = spec.sections.distributions[0]
+    spec.sections.distributions = [
+        entry.model_copy(update={"families": ["Blade1", "Blade2"], "frame": "LOCAL_AXIS"})
+    ]
+    write_campaign_products(workspace)
+    manifest = _products_manifest(workspace)
+    out = workspace.products_dir(None)
+    key = "sections/AL-020_sloads_Blade1-Blade2.csv"
+    assert key in manifest["products"], manifest["skipped"]
+    columns, rows = read_csv_table(out / key)
+    assert {row["FAMILY"] for row in rows} == {"Blade1", "Blade2"} and len(rows) == 4
+    assert (tuple(columns[-4:]) == EXTRA) is integrate, manifest["skipped"]
+    assert f"{key}#integration" not in manifest["skipped"]
