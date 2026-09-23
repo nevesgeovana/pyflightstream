@@ -693,9 +693,10 @@ def test_ad_a_possible_reading_that_raises_costs_no_raw_row(tmp_path, monkeypatc
     assert len(rows) == 2 and {row["FAMILY"] for row in rows} == {"Wing"}
 
 
+@pytest.mark.parametrize("word", ["all", "ALL"])
 @pytest.mark.parametrize("flags", [(False, True), (True, False)])
 def test_ad_an_entry_the_possible_reading_cannot_read_is_a_possible_owner(
-    tmp_path, monkeypatch, flags
+    tmp_path, monkeypatch, flags, word
 ):
     """Rotor R declares Blade1 and Blade2; `["all"]` on RMRP beside `Blade1` on the literal R_RMRP.
 
@@ -727,7 +728,7 @@ def test_ad_an_entry_the_possible_reading_cannot_read_is_a_possible_owner(
     spec = workspace.resolve_pproc("p001")
     entry = spec.sections.distributions[0]
     spec.sections.distributions = [
-        entry.model_copy(update={"families": ["all"], "frame": "RMRP", "integrate": flags[0]}),
+        entry.model_copy(update={"families": [word], "frame": "RMRP", "integrate": flags[0]}),
         entry.model_copy(update={"families": "Blade1", "frame": "R_RMRP", "integrate": flags[1]}),
     ]
     write_campaign_products(workspace, matrix_stem="products")
@@ -739,3 +740,33 @@ def test_ad_an_entry_the_possible_reading_cannot_read_is_a_possible_owner(
         assert not set(EXTRA) & set(columns), f"{name} integrated through a falsely unique match"
         assert len(rows) == 2
         assert "ambiguous" in manifest["skipped"].get(f"{key}#integration", ""), manifest["skipped"]
+
+
+def test_ad_ownership_of_a_legacy_layout_takes_no_possible_reading(tmp_path, monkeypatch):
+    """A legacy layout with a Wing block and a Wing+Tail block, entries Wing and [Wing, Tail].
+
+    Ownership reads the recorded pproc over its own cuts and is exact; a
+    possible reading made the combined entry a possible owner of the Wing
+    block beside it, the split was refused as ambiguous and both files were
+    lost. Both files exist, two rows each.
+    """
+    workspace = _case(tmp_path, monkeypatch, blocks=[(0, 1), (0, 1)])
+    record = workspace.read_manifest()[0]
+    for block, families in zip(record.sections_layout, (["Wing"], ["Wing", "Tail"]), strict=True):
+        block.update(families=families, frame="MRP")
+        del block["distribution"]
+        del block["distribution_families"]
+    spec = workspace.resolve_pproc("p001")
+    entry = spec.sections.distributions[0]
+    spec.sections.distributions = [
+        entry.model_copy(update={"families": "Wing", "frame": "MRP", "integrate": False}),
+        entry.model_copy(update={"families": ["Wing", "Tail"], "frame": "MRP", "integrate": False}),
+    ]
+    write_campaign_products(workspace)
+    manifest = _products_manifest(workspace)
+    out = workspace.products_dir(None)
+    for name, families in (("Wing", {"Wing"}), ("Wing-Tail", {"Wing+Tail"})):
+        key = f"sections/AL-020_sloads_{name}.csv"
+        assert key in manifest["products"], manifest["skipped"]
+        _, rows = read_csv_table(out / key)
+        assert len(rows) == 2 and {row["FAMILY"] for row in rows} == families

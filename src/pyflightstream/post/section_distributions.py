@@ -489,7 +489,7 @@ def _matching_distributions(
         union: set[str] = set()
         readable: set[str] | None = union
         for word in words:
-            part = None if word in ("all", "each", "each_blade") else permissive(word)
+            part = None if word.casefold() in ("all", "each", "each_blade") else permissive(word)
             if part is None:
                 readable = None
                 break
@@ -513,6 +513,13 @@ def _matching_distributions(
             and (readable is None or held <= readable)
         )
 
+    if ownership:
+        # OWNERSHIP OF A LEGACY LAYOUT reads the recorded pproc over its own
+        # cuts and keeps no unrecorded name, so its strict reading IS the
+        # builder's and there is nothing uncertain for a possible reading to
+        # cover; applying one made a combined entry a possible owner of a
+        # smaller block beside it and refused the split, losing both files.
+        return strict
     possible = [
         k
         for k, entry in enumerate(pproc.sections.distributions, 1)
