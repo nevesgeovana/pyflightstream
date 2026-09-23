@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import cast
 
 from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning
+from pyflightstream._fsm import names_of
 from pyflightstream._tokens import INTEGRATED_SECTION_COLUMNS
 from pyflightstream.cases import PprocSpec, RotorBlock, SimCase, select_families
 from pyflightstream.cases.workflows import pproc_emissions
@@ -213,7 +214,15 @@ def _matching_distributions(
         if word in ("each", "each_blade"):
             # Each emitted block is one known family, regardless of siblings.
             return True
-        if not any(f.casefold() == folded for f in inventory):
+        exact = any(f.casefold() == folded for f in inventory)
+        stem = not re.search(r"\d+$", word) and bool(names_of(word, inventory))
+        if not exact and not stem:
+            # A boundary NAME the recorded cuts do not carry (`Blade2` beside a
+            # recorded Blade1) is kept as an unrecorded member so selection
+            # cannot erase it; a bare family STEM the cuts already expand
+            # (`Blade` over Blade1 and Blade2) is left to resolve as the
+            # builder resolves it, because appending it as a literal name made
+            # the resolver pick the invented boundary instead of the blades.
             inventory.append(word)
         return True
 

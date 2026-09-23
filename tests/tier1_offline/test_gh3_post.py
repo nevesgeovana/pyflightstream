@@ -169,3 +169,38 @@ def test_af_released_changelog_has_no_development_version():
     release = text.split("## [0.26.0]", 1)[1].split("\n## [", 1)[0]
     assert "0.26.0.dev0" not in release
     assert "[Migrating to 0.26.0](docs/migrating-to-0.26.0.md)" in release
+
+
+@pytest.mark.parametrize("legacy", [False, True])
+@pytest.mark.parametrize("selection", ["Blade", "blade_alias"])
+def test_ad_a_family_stem_still_expands_over_the_recorded_cuts(
+    tmp_path, monkeypatch, legacy, selection
+):
+    """`families = "Blade"` over a block of Blade1 and Blade2 resolves as the builder resolves it.
+
+    The geometry inventory keeps an unrecorded member so silence cannot shrink a
+    match; a family STEM the recorded cuts already expand is not an unrecorded
+    member, and appending it as a literal boundary name made the resolver pick
+    the invented name instead of the two blades.
+    """
+    workspace = _case(tmp_path, monkeypatch)
+    record = workspace.read_manifest()[0]
+    record.aliases = {"blade_alias": ["Blade"]}
+    record.sections_layout[0].update(
+        families=["Blade1", "Blade2"], distribution_families=selection, frame="MRP"
+    )
+    if legacy:
+        del record.sections_layout[0]["distribution"]
+        del record.sections_layout[0]["distribution_families"]
+    spec = workspace.resolve_pproc("p001")
+    entry = spec.sections.distributions[0]
+    entry.families = selection
+    entry.frame = "MRP"
+    write_campaign_products(workspace)
+    manifest = _products_manifest(workspace)
+    out = workspace.products_dir(None)
+    key = f"sections/AL-020_sloads_{selection}.csv"
+    assert key in manifest["products"], manifest["skipped"]
+    columns, rows = read_csv_table(out / key)
+    assert tuple(columns[-4:]) == EXTRA, manifest["skipped"]
+    assert len(rows) == 4 and {row["FAMILY"] for row in rows} == {"Blade1+Blade2"}
