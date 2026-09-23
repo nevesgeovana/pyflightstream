@@ -595,3 +595,36 @@ def test_ad_a_selector_word_inside_a_list_is_a_boundary_name(tmp_path, monkeypat
     columns, rows = read_csv_table(out / key)
     assert tuple(columns[-4:]) == EXTRA, manifest["skipped"]
     assert len(rows) == 4 and {row["FAMILY"] for row in rows} == {"all"}
+
+
+@pytest.mark.parametrize("flags", [(True, False), (False, True)])
+def test_ad_an_uncertain_entry_is_a_possible_owner_not_a_dropped_one(tmp_path, monkeypatch, flags):
+    """Two entries, Wing and OUTER (OUTER = [AERO], AERO = [Wing]), two recorded Wing blocks.
+
+    The builder emits a Wing block for each; ownership of either block is
+    ambiguous. Dropping OUTER as uncertain left Wing the only candidate for
+    both blocks and handed its integration flag to OUTER's file (and, with
+    the flags reversed, withheld Wing's). Both blocks are refused by name.
+    """
+    workspace = _case(tmp_path, monkeypatch, blocks=[(0, 1), (0, 1)])
+    record = workspace.read_manifest()[0]
+    record.aliases = {"OUTER": ["AERO"], "AERO": ["Wing"]}
+    for k, (block, name) in enumerate(
+        zip(record.sections_layout, ("Wing", "OUTER"), strict=True), 1
+    ):
+        block.update(distribution=k, distribution_families=name, families=["Wing"], frame="MRP")
+    spec = workspace.resolve_pproc("p001")
+    entry = spec.sections.distributions[0]
+    spec.sections.distributions = [
+        entry.model_copy(update={"families": "Wing", "frame": "MRP", "integrate": flags[0]}),
+        entry.model_copy(update={"families": "OUTER", "frame": "MRP", "integrate": flags[1]}),
+    ]
+    write_campaign_products(workspace)
+    manifest = _products_manifest(workspace)
+    out = workspace.products_dir(None)
+    for name in ("Wing", "OUTER"):
+        key = f"sections/AL-020_sloads_{name}.csv"
+        columns, rows = read_csv_table(out / key)
+        assert not set(EXTRA) & set(columns), f"{name} integrated through a falsely unique match"
+        assert len(rows) == 2
+        assert "ambiguous" in manifest["skipped"].get(f"{key}#integration", ""), manifest["skipped"]

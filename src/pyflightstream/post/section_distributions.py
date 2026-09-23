@@ -12,7 +12,13 @@ from typing import cast
 
 from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning
 from pyflightstream._tokens import INTEGRATED_SECTION_COLUMNS
-from pyflightstream.cases import PprocSpec, RotorBlock, SimCase, select_families
+from pyflightstream.cases import (
+    PprocSpec,
+    RotorBlock,
+    SectionDistribution,
+    SimCase,
+    select_families,
+)
 from pyflightstream.cases.workflows import pproc_emissions
 from pyflightstream.fsi.loads import parse_sectional_loads
 from pyflightstream.post._tables import (
@@ -198,6 +204,11 @@ def _matching_distributions(
             str(f) for b in record.sections_layout or [] for f in cast(list[str], b["families"])
         )
     )
+    # The cuts alone, kept apart: an entry whose selection is uncertain is
+    # matched against them too, and where it COULD own the block it counts
+    # as a possible owner, so that dropping it never makes another entry
+    # falsely unique.
+    recorded_names = list(inventory)
     # RunRecord has an inventory source, but no complete boundary inventory.
     # A layout lists exported cuts only. Keep every explicitly cited family in
     # the candidate inventory so selection cannot erase an unrecorded member.
@@ -288,10 +299,9 @@ def _matching_distributions(
             knowable.append(cited(entry.families))
         else:
             knowable.append(all([cited(word, listed=True) for word in entry.families]))
-    matches = []
-    for k, entry in enumerate(pproc.sections.distributions, 1):
-        if not knowable[k - 1]:
-            continue
+
+    def entry_matches(k: int, entry: SectionDistribution, inventory: list[str]) -> bool:
+        """Whether this entry, read over this inventory, would have emitted the block."""
         families = cast(list[str], block["families"])
         if rotors:
             # Use the export builder's grouping and rotor vocabulary, including
@@ -325,8 +335,8 @@ def _matching_distributions(
                 and block.get("plane") in entry.planes
                 and block["count"] == (entry.count or pproc.sections.count)
             ):
-                matches.append(k)
-            continue
+                return True
+            return False
         expanded_families = select_families(
             entry.families,
             inventory,
@@ -427,8 +437,25 @@ def _matching_distributions(
             and block["count"] == (entry.count or pproc.sections.count)
             and frame_matches
         ):
-            matches.append(k)
-    return matches
+            return True
+        return False
+
+    strict = [
+        k
+        for k, entry in enumerate(pproc.sections.distributions, 1)
+        if knowable[k - 1] and entry_matches(k, entry, inventory)
+    ]
+    # AN UNCERTAIN ENTRY IS NOT DROPPED, IT IS A POSSIBLE OWNER: read over the
+    # cuts alone, as it was before the inventory kept its unrecorded names,
+    # an entry that could own the block makes the ownership ambiguous, and
+    # an ambiguous block is refused by name. Removing it instead made the
+    # other entry falsely unique and handed it that entry's integration flag.
+    possible = [
+        k
+        for k, entry in enumerate(pproc.sections.distributions, 1)
+        if k not in strict and entry_matches(k, entry, recorded_names)
+    ]
+    return strict + possible if strict else []
 
 
 def _integration_requests(
