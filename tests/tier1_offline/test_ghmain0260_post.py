@@ -164,3 +164,109 @@ def test_v_a_successful_record_wins_a_metadata_conflict_and_only_absent_fields_f
     assert chosen.mach == 0.2, "the failed record's Mach won over the successful one's"
     assert chosen.description == "FAILED_DESC", "a field the successful record lacks falls back"
     assert chosen.run_id == healthy.run_id, "the carrier of record is the successful one"
+
+
+@pytest.mark.parametrize("archive", [False, True])
+@pytest.mark.parametrize("previous", ["healthy", "failed"])
+def test_y_skipped_first_record_cannot_name_or_leave_a_stale_polar(
+    tmp_path, monkeypatch, archive, previous
+):
+    workspace, healthy, spec = _one_distribution(tmp_path, monkeypatch)
+    spec.products.polars = True
+    spec.groups = {"TOTAL": ["all"]}
+    sim = workspace.sim_dir("7001")
+    failed = healthy.model_copy(
+        update={
+            "run_id": "failed-first",
+            "point_name": "AL-999",
+            "sweep_name": "AL-999",
+            "status": RunStatus.FAILED_INCOMPLETE_OUTPUT,
+            "outputs": ["AL-999.txt"],
+        }
+    )
+    (sim / "AL-999.txt").write_bytes((sim / "AL-020.txt").read_bytes())
+    records = [healthy] if previous == "healthy" else [failed]
+    monkeypatch.setattr(CampaignWorkspace, "read_manifest", lambda self: records)
+    write_campaign_products(workspace)
+    out = workspace.products_dir(None)
+    old_key = f"polars/P7001-{'AL-020' if previous == 'healthy' else 'AL-999'}_TOTAL.csv"
+    old_bytes = (out / old_key).read_bytes()
+    records[:] = [failed, healthy]
+    (sim / "AL-999.txt").write_text("loads export truncated\n")
+    key = "polars/P7001-AL-020_TOTAL.csv"
+    for value in ("+0.4310000", "+0.5310000"):
+        native = sim / "AL-020.txt"
+        native.write_text(native.read_text().replace("+0.4310000", value))
+        write_campaign_products(workspace, overwrite=True, archive=archive)
+        manifest = _products_manifest(workspace)
+        assert key in manifest["products"], manifest["skipped"]
+        assert manifest["products"][key]["runs"] == [healthy.run_id]
+        assert float(read_csv_table(out / key)[1][0]["CLB"]) == pytest.approx(float(value))
+        assert {p.name for p in (out / "polars").glob("P7001-*_TOTAL.csv")} == {
+            "P7001-AL-020_TOTAL.csv"
+        }
+        if previous == "failed" and value == "+0.4310000":
+            assert old_key in manifest["skipped"]
+            assert old_key in (out / "post.log").read_text()
+            copies = list((out / "polars").glob("archive/*/P7001-AL-999_TOTAL.csv"))
+            assert len(copies) == int(archive)
+            if archive:
+                assert copies[0].read_bytes() == old_bytes
+
+
+def test_z_combined_entry_does_not_integrate_separate_recorded_blocks(tmp_path, monkeypatch):
+    workspace = _case(tmp_path, monkeypatch, blocks=[(0, 1), (0, 1)])
+    record = workspace.read_manifest()[0]
+    spec = workspace.resolve_pproc("p001")
+    for k, (block, family) in enumerate(
+        zip(record.sections_layout, ("Wing", "Tail"), strict=True), 1
+    ):
+        block.update(distribution=k, distribution_families=family, families=[family], frame="MRP")
+    entry = spec.sections.distributions[0]
+    spec.sections.distributions = [
+        entry.model_copy(update={"families": ["Wing", "Tail"], "frame": "MRP"})
+    ]
+    write_campaign_products(workspace)
+    manifest = _products_manifest(workspace)
+    out = workspace.products_dir(None)
+    log = (out / "post.log").read_text()
+    for number, family in enumerate(("Wing", "Tail"), 1):
+        key = f"sections/AL-020_sloads_{family}.csv"
+        columns, rows = read_csv_table(out / key)
+        assert not set(EXTRA) & set(columns), f"{family} inherited combined-entry integration"
+        assert len(rows) == 2 and {row["FAMILY"] for row in rows} == {family}
+        reason = manifest["skipped"].get(f"{key}#integration", "")
+        assert f"block {number}" in reason and "missing" in reason
+        warnings = [
+            line
+            for line in log.splitlines()
+            if key in line and "without integrated columns" in line
+        ]
+        assert len(warnings) == 1, warnings
+
+
+@pytest.mark.parametrize("selection", ["PUSHER", "renamed_blades"])
+def test_aa_rotor_names_and_live_aliases_use_builder_expansion(tmp_path, monkeypatch, selection):
+    workspace = _case(tmp_path, monkeypatch)
+    record = workspace.read_manifest()[0]
+    record.sections_layout[0]["frame"] = "PUSHER_RMRP1"
+    record.matrix_stem = "products"
+    _matrix(workspace)
+    reference = workspace.inputs_dir / "references/r001.toml"
+    reference.parent.mkdir(parents=True, exist_ok=True)
+    reference.write_text(
+        "area_m2 = 11.5\nchord_m = 1.5\nspan_m = 20.0\n"
+        '[aliases]\nrenamed_blades = ["PUSHER"]\n'
+        '[rotors.PUSHER]\nalias = "PUSHER"\naxis = "Z"\ndiameter_m = 2.0\n'
+        'families_blades = ["Blade1"]\n'
+    )
+    spec = workspace.resolve_pproc("p001")
+    spec.sections.distributions[0].families = selection
+    write_campaign_products(workspace, matrix_stem="products")
+    key = "sections/AL-020_sloads_Blade1.csv"
+    manifest = _products_manifest(workspace)
+    columns, rows = read_csv_table(workspace.products_dir("products") / key)
+    assert tuple(columns[-4:]) == EXTRA, manifest["skipped"]
+    assert len(rows) == 4 and {row["FAMILY"] for row in rows} == {"Blade1"}
+    assert f"{key}#integration" not in manifest["skipped"]
+    assert manifest["products"][key]["families"] == "Blade1"

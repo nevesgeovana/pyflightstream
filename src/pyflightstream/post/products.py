@@ -4826,14 +4826,9 @@ def _sim_products(
     # 0.21.0: THE NAMES ARE THE ONES THE RUN RECORDED. A record written before
     # 0.21.0 carries none, and naming its tables by a recomputed name would
     # set them beside files of another scheme.
-    # NON-EMPTY BY CONSTRUCTION, and the construction is twenty lines up:
-    # a point is appended only inside the loop that SKIPS a record with no
-    # outputs, so `points` is empty whenever this list would be, and
-    # `if not points: return` has already returned. The closing round of
-    # 0.21.0 put a refusal here against an IndexError at `recorded[0]`;
-    # measured by probe, no case reaches it, and a branch nothing reaches
-    # reads as covered while proving nothing.
-    recorded = [record for record in records if record.outputs]
+    # Only contributors name the table. A skipped record can still name outputs,
+    # but its failed export cannot rename the surviving points' polar.
+    recorded = [record_of[point.name] for point in points]
     if any(record.sweep_name is None or record.point_name is None for record in recorded):
         raise ProductError(
             f"simulation {sim_id!r} holds records written before 0.21.0, which carry no "
@@ -5563,6 +5558,7 @@ def _point_series(
         pproc=recorded_pproc,
         current_pproc=pproc,
         current_aliases=getattr(live, "aliases", None),
+        current_rotors=getattr(live, "rotors", None),
         integration_error=pproc_error,
         condition=condition,
         reference=reference,
@@ -6464,13 +6460,31 @@ def _campaign_products(
         )
         # Retire refused generated tables under both rebuild policies. Native exports
         # outside this folder remain evidence and are never removed here.
+        for name, entry in previous_products.items():
+            if (
+                name.startswith(f"{POLARS_DIR}/")
+                and entry.get("sim_id") in by_sim
+                and name not in products_index
+            ):
+                skipped.setdefault(
+                    name,
+                    f"retired previous table of simulation {entry['sim_id']}: no current "
+                    "product uses this name; polar names follow contributing records",
+                )
         refused = products_to_retire(skipped, previous_products)
         for name in refused - products_index.keys():
+            if name in previous_products:
+                skipped.setdefault(
+                    name, "retired previous product; its inputs no longer supply this file"
+                )
             path = out / name
             if path.resolve().is_relative_to(out.resolve()) and path.is_file():
                 _refuse_an_existing_product(path, archive=archive, stamp=archive_stamp)
                 if not archive:
                     path.unlink()
+        (out / PRODUCTS_MANIFEST).write_text(
+            json.dumps(manifest, indent=1) + "\n", encoding="utf-8"
+        )
     except BaseException as error:
         manifest["complete"] = False
         manifest["interrupted"] = f"{type(error).__name__}: {error}"
