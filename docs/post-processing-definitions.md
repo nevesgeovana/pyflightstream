@@ -258,13 +258,18 @@ still resolves through the recorded pproc. Section selectors, including `each`,
 use the same expansion as the export builder, resolving current aliases through
 the live reference to the recorded boundary families, including rotor names and
 aliases of rotor names. An expanded emission's family set must equal the recorded
-block's set. The inventory includes the live reference's rotor families and
-the pproc's cited families, resolved through aliases, even when those families
-have no sectional block. `RunRecord` carries no complete geometry inventory;
-layout silence never proves a family absent. A whole-geometry selector whose
-membership is unknown cannot establish an integration match and keeps raw
-columns with a named skip. `each` and `each_blade` still identify one known
-family per block without claiming a complete inventory.
+block's set. The recorded pproc produced the cuts, so under its own entries
+the layout is the whole evidence its selectors need: ownership, and the
+integration its own entries request, trust it, a family stem and a numbered
+name included. A different effective pproc is knowable only by exact recorded
+boundary names, by aliases and by the live reference's rotor definitions,
+whose members count even when they have no sectional block; `RunRecord`
+carries no complete geometry inventory, layout silence never proves a family
+absent, and any other word (a family stem, an unrecorded name, a
+whole-geometry selector) leaves membership uncertain, establishes no
+integration match and keeps the raw columns with a named skip. `each` and
+`each_blade` still identify one known family per block without claiming a
+complete inventory.
 In a common frame, `["Wing", "Tail"]` describes one combined block,
 so it cannot integrate separate recorded Wing and Tail blocks; both keep their
 raw columns with a named warning. Where no rotor definition reaches the match

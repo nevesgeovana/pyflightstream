@@ -11,7 +11,6 @@ from pathlib import Path
 from typing import cast
 
 from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning
-from pyflightstream._fsm import names_of
 from pyflightstream._tokens import INTEGRATED_SECTION_COLUMNS
 from pyflightstream.cases import PprocSpec, RotorBlock, SimCase, select_families
 from pyflightstream.cases.workflows import pproc_emissions
@@ -81,7 +80,7 @@ def _distributions(
         position = block.get("distribution")
         selection = block.get("distribution_families")
         if position is None and pproc is not None:
-            matches = _matching_distributions(record, pproc, block)
+            matches = _matching_distributions(record, pproc, block, recorded=True)
             if len(matches) == 1:
                 position = matches[0]
                 selection = pproc.sections.distributions[position - 1].families
@@ -182,8 +181,15 @@ def _matching_distributions(
     aliases: Mapping[str, Sequence[str]] | None = None,
     rotors: Mapping[str, RotorBlock] | None = None,
     literal: frozenset[str] = frozenset(),
+    recorded: bool = False,
 ) -> list[int]:
-    """Match current entries to recorded geometry, never to mutable positions."""
+    """Match current entries to recorded geometry, never to mutable positions.
+
+    ``recorded`` says the specification IS the record's own: its cuts are its
+    expansion, so the layout is the whole evidence its selectors need. A
+    different current specification is knowable only by exact recorded names,
+    aliases and rotor definitions; any other word leaves membership uncertain.
+    """
     literal = literal | _literal_frames(pproc)
     inventory = list(
         dict.fromkeys(
@@ -202,6 +208,12 @@ def _matching_distributions(
     vocabulary.update({name.casefold(): members for name, members in rotor_members.items()})
 
     def cited(word: str, visiting: frozenset[str] = frozenset()) -> bool:
+        if recorded:
+            # THE RECORDED SPECIFICATION PRODUCED THESE CUTS, so what the layout
+            # holds under its entries is exactly what its selectors expanded
+            # to; the cuts are the evidence, and a stem or a numbered name
+            # resolves over them as it resolved when they were exported.
+            return True
         folded = word.casefold()
         if folded in visiting:
             return any(f.casefold() == folded for f in inventory)
@@ -214,15 +226,14 @@ def _matching_distributions(
         if word in ("each", "each_blade"):
             # Each emitted block is one known family, regardless of siblings.
             return True
-        exact = any(f.casefold() == folded for f in inventory)
-        stem = not re.search(r"\d+$", word) and bool(names_of(word, inventory))
-        if not exact and not stem:
-            # A boundary NAME the recorded cuts do not carry (`Blade2` beside a
-            # recorded Blade1) is kept as an unrecorded member so selection
-            # cannot erase it; a bare family STEM the cuts already expand
-            # (`Blade` over Blade1 and Blade2) is left to resolve as the
-            # builder resolves it, because appending it as a literal name made
-            # the resolver pick the invented boundary instead of the blades.
+        if not any(f.casefold() == folded for f in inventory):
+            # A word that is neither an exact recorded name, an alias nor a
+            # rotor is kept as an unrecorded member so selection cannot erase
+            # it: a boundary the cuts do not carry (`Blade2` beside a recorded
+            # Blade1) and a family stem alike (`Blade`, which the geometry may
+            # expand to a third blade or carry as a boundary of its own; the
+            # cuts cannot say). The equal-set test then refuses and the raw
+            # columns are kept, named: uncertain membership is never owned.
             inventory.append(word)
         return True
 
@@ -323,9 +334,9 @@ def _matching_distributions(
         for b in layout:
             frame_name = str(b.get("frame", ""))
             other = _rotor_group(frame_name, literal, established)
-            recorded = {str(f) for f in cast(list[str], b["families"])}
+            held = {str(f) for f in cast(list[str], b["families"])}
             if other == group:
-                in_group |= recorded
+                in_group |= held
             elif frame_name in literal:
                 # A literally cited frame can hold ANY family (an entry may
                 # export a foreign blade into a rotor's frame), so it says
@@ -333,11 +344,11 @@ def _matching_distributions(
                 # sibling; uncertain membership keeps the raw columns. It still
                 # counts as its own rotor's frame for a per-blade entry below.
                 if per_blade and other[0] == group[0] and other[1] in ("rmrp", "smrp"):
-                    own_rotor |= recorded
+                    own_rotor |= held
             elif kind is not None and other[1].split(":")[0] == kind:
-                siblings |= recorded
+                siblings |= held
             elif per_blade and other[0] == group[0] and other[1] in ("rmrp", "smrp"):
-                own_rotor |= recorded
+                own_rotor |= held
 
         def owned(
             members: Sequence[str],
@@ -383,6 +394,7 @@ def _integration_requests(
     aliases: Mapping[str, Sequence[str]] | None = None,
     rotors: Mapping[str, RotorBlock] | None = None,
     literal: frozenset[str] = frozenset(),
+    recorded: bool = False,
 ) -> tuple[set[int], dict[int, str]]:
     """Bind integration to recorded owners; a doubtful block keeps its file raw."""
     requested: set[int] = set()
@@ -392,7 +404,9 @@ def _integration_requests(
         return requested, errors
     for number, block in enumerate(layout, 1):
         owner = cast(int, block["distribution"])
-        matches = _matching_distributions(record, pproc, block, aliases, rotors, literal)
+        matches = _matching_distributions(
+            record, pproc, block, aliases, rotors, literal, recorded=recorded
+        )
         if len(matches) != 1:
             reason = "ambiguous" if matches else "missing"
             errors[owner] = (
@@ -550,6 +564,7 @@ def write_section_distributions(
         current_aliases,
         current_rotors,
         _literal_frames(pproc, current_pproc),
+        recorded=current_pproc is None or current_pproc == pproc,
     )
     if integration_error is not None:
         integrate = set()

@@ -90,11 +90,18 @@ def test_ac_unassignable_failed_frame_keeps_healthy_polar(tmp_path, monkeypatch)
 def test_ad_unrecorded_family_cannot_shrink_integration_match(tmp_path, monkeypatch, selection):
     workspace = _case(tmp_path, monkeypatch)
     record = workspace.read_manifest()[0]
-    spec = workspace.resolve_pproc("p001")
+    # The finding is a CURRENT pproc that differs from the record's own: the
+    # recorded one produced the cuts and is trusted over them.
+    recorded = workspace.resolve_pproc("p001")
+    spec = recorded.model_copy(deep=True)
+    specs = {"p001": recorded, "p002": spec}
+    monkeypatch.setattr(CampaignWorkspace, "resolve_pproc", lambda self, key: specs[key])
+    record.matrix_stem = "products"
+    _matrix(workspace)
+    matrix = workspace.root / "products.fs"
+    matrix.write_text(matrix.read_text().replace("p001", "p002"))
     entry = spec.sections.distributions[0]
     if selection == "rotor":
-        record.matrix_stem = "products"
-        _matrix(workspace)
         reference = workspace.inputs_dir / "references/r001.toml"
         reference.parent.mkdir(parents=True, exist_ok=True)
         reference.write_text(
@@ -172,23 +179,20 @@ def test_af_released_changelog_has_no_development_version():
 
 
 @pytest.mark.parametrize("legacy", [False, True])
-@pytest.mark.parametrize("selection", ["Blade", "blade_alias"])
-def test_ad_a_family_stem_still_expands_over_the_recorded_cuts(
-    tmp_path, monkeypatch, legacy, selection
-):
-    """`families = "Blade"` over a block of Blade1 and Blade2 resolves as the builder resolves it.
+@pytest.mark.parametrize("selection", ["Blade", "blade_alias", "Blade1"])
+def test_ad_the_recorded_pproc_trusts_its_own_cuts(tmp_path, monkeypatch, legacy, selection):
+    """`families = "Blade"` (or an alias of it, or `Blade1` over Blade11 and Blade12).
 
-    The geometry inventory keeps an unrecorded member so silence cannot shrink a
-    match; a family STEM the recorded cuts already expand is not an unrecorded
-    member, and appending it as a literal boundary name made the resolver pick
-    the invented name instead of the two blades.
+    The recorded pproc produced the cuts, so under its own entries the layout
+    is the evidence: a stem or a numbered name resolves over the cuts as it did
+    when they were exported, ownership holds, and its own integration request
+    is honoured. Appending the word as an invented boundary name lost both.
     """
     workspace = _case(tmp_path, monkeypatch)
     record = workspace.read_manifest()[0]
     record.aliases = {"blade_alias": ["Blade"]}
-    record.sections_layout[0].update(
-        families=["Blade1", "Blade2"], distribution_families=selection, frame="MRP"
-    )
+    blades = ["Blade11", "Blade12"] if selection == "Blade1" else ["Blade1", "Blade2"]
+    record.sections_layout[0].update(families=blades, distribution_families=selection, frame="MRP")
     if legacy:
         del record.sections_layout[0]["distribution"]
         del record.sections_layout[0]["distribution_families"]
@@ -203,4 +207,40 @@ def test_ad_a_family_stem_still_expands_over_the_recorded_cuts(
     assert key in manifest["products"], manifest["skipped"]
     columns, rows = read_csv_table(out / key)
     assert tuple(columns[-4:]) == EXTRA, manifest["skipped"]
-    assert len(rows) == 4 and {row["FAMILY"] for row in rows} == {"Blade1+Blade2"}
+    assert len(rows) == 4 and {row["FAMILY"] for row in rows} == {"+".join(blades)}
+
+
+@pytest.mark.parametrize("selection", ["Blade", "Blade1"])
+def test_ad_a_different_pproc_cannot_know_what_a_stem_selects(tmp_path, monkeypatch, selection):
+    """A current pproc citing a stem over a recorded two-blade block integrates nothing.
+
+    The geometry may carry a third blade or a boundary named by the stem
+    itself; the cuts cannot say, so membership is uncertain and the raw
+    columns are kept, named missing.
+    """
+    workspace = _case(tmp_path, monkeypatch)
+    record = workspace.read_manifest()[0]
+    blades = ["Blade11", "Blade12"] if selection == "Blade1" else ["Blade1", "Blade2"]
+    record.sections_layout[0].update(families=blades, distribution_families=blades, frame="MRP")
+    recorded = workspace.resolve_pproc("p001")
+    entry = recorded.sections.distributions[0]
+    recorded.sections.distributions = [
+        entry.model_copy(update={"families": blades, "frame": "MRP", "integrate": False})
+    ]
+    current = recorded.model_copy(deep=True)
+    current.sections.distributions = [
+        entry.model_copy(update={"families": selection, "frame": "MRP", "integrate": True})
+    ]
+    specs = {"p001": recorded, "p002": current}
+    monkeypatch.setattr(CampaignWorkspace, "resolve_pproc", lambda self, key: specs[key])
+    record.matrix_stem = "products"
+    _matrix(workspace)
+    matrix = workspace.root / "products.fs"
+    matrix.write_text(matrix.read_text().replace("p001", "p002"))
+    write_campaign_products(workspace, matrix_stem="products")
+    manifest = _products_manifest(workspace)
+    out = workspace.products_dir("products")
+    key = f"sections/AL-020_sloads_{'-'.join(blades)}.csv"
+    columns, rows = read_csv_table(out / key)
+    assert not set(EXTRA) & set(columns), "a stem's membership owned by a guess"
+    assert len(rows) == 4 and "missing" in manifest["skipped"].get(f"{key}#integration", "")
