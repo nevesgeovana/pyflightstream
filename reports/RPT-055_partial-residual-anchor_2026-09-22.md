@@ -72,3 +72,13 @@ result. The previously reported 144-block/72-step log was not available at eithe
 location, so that historical count is not claimed as reproduced. The repeat
 regression is explicitly synthetic, derived from the documented shape; the
 terminal cut uses the committed solver bytes. No solver was run.
+
+### Clarification, 2026-09-23
+
+The terminal page-less marker rule applies only after at least one residual page
+has been seen in an unsteady marker block of the log. A log whose markers never
+carry pages is not classified as cut. This condition narrows the closure's
+statement above; the original report and closure remain unchanged.
+`test_goal024_collect_and_times_a_log_whose_markers_carry_no_page_was_not_cut`
+covers the marker-only control, and the partial-anchor regression cited above
+covers a terminal cut after earlier residual pages.

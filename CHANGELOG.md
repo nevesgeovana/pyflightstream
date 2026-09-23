@@ -67,10 +67,21 @@ FlightStream versions.
 
 ### Fixed
 
+- Legacy sectional and Cp ownership uses the recorded pproc, while the effective
+  pproc selects integration, including `families = "each"`. An unresolved pproc
+  preserves histories supported by recorded layouts and names integration skips.
+- Per-blade guards judge all samples in the final combined span, including gaps
+  between passages, while preserving end trimming. Malformed-run rebuilds retire
+  stale products through manifest run associations and keep regenerated files.
+- Steady-log recognition follows printed solver mode, with the loads export as
+  the fallback when the log's mode is unknown. Empty-group migration diagnostics
+  explain collisions with `all` and the unique-reference-alias alternative.
 - Section integration follows a uniquely matching current pproc entry by
   families, plane, frame and count, preserving recorded block ownership after
   entries are reordered. Ambiguous matches warn and retain raw columns.
-- A terminal residual block cut before the `Iteration` anchor is unread.
+- A terminal residual block cut before the `Iteration` anchor is unread only
+  when an earlier unsteady marker block printed at least one residual page.
+  A log whose markers never carry pages is not classified as cut.
   Page-less repeated markers for the same step retain their residual evidence
   and do not create false unread steps (RPT-055).
 

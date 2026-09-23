@@ -237,6 +237,13 @@ or missing match warns by point, file and block and records an `#integration`
 skip, keeping the file's original columns. All blocks in one file must request
 integration for that file to gain integrated columns.
 
+The effective matrix pproc supplies integration requests only; legacy ownership
+still resolves through the recorded pproc. Section selectors, including `each`,
+use the same expansion as the export builder. If the effective pproc cannot be
+resolved, complete recorded layouts and available stamped exports still supply
+their histories. Integration and products needing that specification are named
+skips in `products.json` and `post.log`.
+
 ```toml
 [[sections.distributions]]
 families = "blades"
@@ -813,8 +820,11 @@ Measured examples with dense plotted histories:
 ### Unread residual blocks and repeated markers
 
 A residual page stopped before its closing separator is unread. Since 0.26.0,
-a terminal marker block with no residual page is unread too, including a cut
-after `Iterat`, before the `Iteration` anchor finishes (RPT-055). A page-less
+a terminal marker block with no residual page is unread too, but only when the
+log has already printed at least one residual page in an unsteady marker block.
+A log whose markers never carry pages is not classified as cut. With earlier
+pages present, a cut after `Iterat`, before the `Iteration` anchor finishes,
+is unread (RPT-055). A page-less
 marker followed immediately by another marker for the same step is a repeat
 associated with per-step export actions; it is skipped without resetting the
 residual evidence. It is not a terminal cut.

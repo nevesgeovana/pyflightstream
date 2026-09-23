@@ -237,9 +237,11 @@ from pyflightstream.results import (
     MalformedOutputError,
     UnjudgeableSolve,
     UnsteadyPlotsReport,
+    classify_solver_mode,
     frozen_time_steps,
     labeled_value,
     parse_loads,
+    parse_log_times,
     parse_probe_points,
     parse_unsteady_plots,
     superseded_by_a_continuation,
@@ -4476,12 +4478,22 @@ def _the_axes_of_the_unsteady_rows(
     return added
 
 
+def _resolve_post_pproc(
+    workspace: CampaignWorkspace, pproc_id: str | None
+) -> tuple[str | None, PprocSpec | None, str | None]:
+    """Keep a specification failure separate from independently recorded exports."""
+    try:
+        return pproc_id, workspace.resolve_pproc(pproc_id) if pproc_id else None, None
+    except (PyflightstreamError, OSError, ValueError) as error:
+        return pproc_id, None, f"pproc {pproc_id!r} cannot be resolved: {error}"
+
+
 def _effective_pproc(
     workspace: CampaignWorkspace,
     sim_id: str,
     first: RunRecord,
     matrix_row: MatrixRow | None,
-) -> tuple[str | None, PprocSpec | None]:
+) -> tuple[str | None, PprocSpec | None, str | None]:
     """Resolve the matrix's post choices once for the simulation and its series."""
     pproc_id = first.pproc
     stated = getattr(matrix_row, "pproc_code", None)
@@ -4494,7 +4506,7 @@ def _effective_pproc(
             stacklevel=2,
         )
         pproc_id = str(stated)
-    return pproc_id, workspace.resolve_pproc(pproc_id) if pproc_id else None
+    return _resolve_post_pproc(workspace, pproc_id)
 
 
 def _sim_products(
@@ -4510,7 +4522,7 @@ def _sim_products(
     sweep_rows: Mapping[str, Mapping[str, object]] | None = None,
     drafts: list[SuperfileDraft] | None = None,
     check_frozen: bool = False,
-    effective_pproc: tuple[str | None, PprocSpec | None] | None = None,
+    effective_pproc: tuple[str | None, PprocSpec | None, str | None] | None = None,
 ) -> tuple[list[Path], dict[str, dict[str, object]], dict[str, str]]:
     """Write one simulation's products from its successful records.
 
@@ -4525,9 +4537,11 @@ def _sim_products(
     from pyflightstream.cases import classify_outputs
 
     first = records[0]
-    pproc_id, pproc = effective_pproc or _effective_pproc(workspace, sim_id, first, matrix_row)
+    pproc_id, pproc, pproc_error = effective_pproc or _effective_pproc(
+        workspace, sim_id, first, matrix_row
+    )
     if pproc is None:
-        return [], {}, {}
+        return [], {}, {sim_id: pproc_error} if pproc_error else {}
     products = pproc.products
     reference_block = first.reference
     description = first.description or ""
@@ -4592,10 +4606,8 @@ def _sim_products(
         record_of[stem] = record
         log_path = by_name.get(kinds.get("log", ""))
         if log_path is not None:
-            frozen = (
-                freeze_of_log(log_path, steady=True)
-                if record.recipe == "steady"
-                else freeze_of_log(log_path)
+            frozen = freeze_of_log(
+                log_path, steady=classify_solver_mode(report.solver_mode) == "steady"
             )
             if frozen is not None:
                 frozen_points[stem] = frozen
@@ -5450,6 +5462,8 @@ def _point_series(
     matrix_row: MatrixRow | None = None,
     skipped: dict[str, str] | None = None,
     pproc: PprocSpec | None = None,
+    recorded_pproc: PprocSpec | None = None,
+    pproc_error: str | None = None,
 ) -> tuple[list[Path], dict[str, dict[str, object]]]:
     """Write distribution tables and any per-step series of one record.
 
@@ -5521,7 +5535,9 @@ def _point_series(
         target=lambda path: _refuse_an_existing_product(path, archive=archive, stamp=archive_stamp),
         skipped=split_skips,
         step=_last_time_step(record),
-        pproc=pproc,
+        pproc=recorded_pproc,
+        current_pproc=pproc,
+        integration_error=pproc_error,
         condition=condition,
         reference=reference,
         rotors=_section_rotors(live, aliases, record),
@@ -5634,10 +5650,11 @@ def _refuse_aliases_a_file_name_cannot_tell_apart(
 
 
 def freeze_of_log(log_path: Path, *, steady: bool = False) -> FrozenSolve | None:
-    r"""Read a native log tolerantly, caching each path and recorded solver mode.
+    r"""Read a native log tolerantly, caching each path and fallback solver mode.
 
-    A steady record does not require unsteady residual evidence. Missing or
-    inaccessible files remain unjudgeable in either mode.
+    The log's printed solver mode takes precedence. If unknown, ``steady``
+    supplies the caller's fallback from the loads export; without either fact,
+    unsteady evidence is required. Missing files remain unjudgeable in either mode.
 
     Examples
     --------
@@ -5679,7 +5696,11 @@ def _read_freeze_of_log(log_path: Path, *, steady: bool = False) -> FrozenSolve 
             first_step=1, count=0, steps=(), detail=f"the log cannot be read: {error}"
         )
     text = text.replace("\x00", "")  # Match the residual detector's native-log normalization.
-    if not steady and not re.search(r"Solving unsteady time-step iteration \(\d+/\d+\)", text):
+    mode = parse_log_times(text).solver_mode
+    # For a log with no printed mode, use the loads export's mode supplied by
+    # the caller. With neither fact, require unsteady evidence conservatively.
+    is_steady = mode == "steady" if mode is not None else steady
+    if not is_steady and not re.search(r"Solving unsteady time-step iteration \(\d+/\d+\)", text):
         return UnjudgeableSolve(
             first_step=1,
             count=0,
@@ -5896,6 +5917,17 @@ def _point_reductions(
             continue
         if reached:
             windows = kept
+        if name == _PER_BLADE and windows:
+            # End trimming changes the span. Ask the reducer again for exactly
+            # what the final table reads, including samples between passages.
+            final_reads = _window_the_reduction_reads(
+                name, entry, (windows[0][0], windows[-1][1]), series, columns, count, facts
+            )
+            final_reason = _judge_average(frozen, final_reads, point=stem, product=relative)
+            if final_reason is not None:
+                target(out / relative)
+                skipped[relative] = final_reason
+                continue
         if series is None:
             columns, series = plots_table_series(plots_table)
             names = _dictionary_the_table_can_honour(columns, names, stem, skipped)
@@ -6059,11 +6091,13 @@ def products_to_retire(
     naming it, and a file left beside the new ones is read as current: the
     numbers in it are the ones the refusal says cannot be trusted.
 
-    THREE SHAPES OF SKIP KEY, because a skip is named after what was refused
+    A skip is named after what was refused
     and that is not always a file:
 
     * ``polars/<file>.csv`` -- the file itself, with or without a ``#marker``.
     * ``sections/<stem>#distributions`` -- a family of files that share a stem.
+    * ``runs/<run_id>`` -- previous entries whose ``runs`` include this point.
+      The caller keeps files regenerated from surviving points or independent exports.
     * ``polars/<sim>#rotor_tables`` -- the rotor tables of ONE SIMULATION, whose
       files are ``polars/P<sim>-<alias>_rotor.csv`` and share no prefix with the
       skip key at all. They were not retired until the independent review of
@@ -6074,6 +6108,12 @@ def products_to_retire(
     refused = {name.split("#", 1)[0] for name in skipped}
     refused.update(
         name for name, entry in previous_products.items() if entry.get("sim_id") in skipped
+    )
+    refused_runs = {name.removeprefix("runs/") for name in skipped if name.startswith("runs/")}
+    refused.update(
+        name
+        for name, entry in previous_products.items()
+        if isinstance(runs := entry.get("runs"), list) and any(run in refused_runs for run in runs)
     )
     distribution_prefixes = [
         name.split("#", 1)[0] + "_" for name in skipped if name.endswith("#distributions")
@@ -6432,6 +6472,7 @@ def _write_the_products(
         effective_pproc = _effective_pproc(
             workspace, sim_id, sim_records[0], rows_of_the_matrix.get(sim_id)
         )
+        recorded_pprocs = {effective_pproc[0]: effective_pproc[1]}
         try:
             for record in sim_records:
                 loads_name = classify_outputs(record.outputs).get("loads")
@@ -6498,6 +6539,8 @@ def _write_the_products(
                     **metadata,
                 }
             said = set(skipped)
+            if record.pproc not in recorded_pprocs:
+                recorded_pprocs[record.pproc] = _resolve_post_pproc(workspace, record.pproc)[1]
             try:
                 series_files, series_names = _point_series(
                     workspace,
@@ -6510,6 +6553,8 @@ def _write_the_products(
                     matrix_row=rows_of_the_matrix.get(sim_id),
                     skipped=skipped,
                     pproc=effective_pproc[1],
+                    recorded_pproc=recorded_pprocs[record.pproc],
+                    pproc_error=effective_pproc[2],
                 )
             except ProductExistsError:
                 raise
