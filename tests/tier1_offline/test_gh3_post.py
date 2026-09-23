@@ -628,3 +628,41 @@ def test_ad_an_uncertain_entry_is_a_possible_owner_not_a_dropped_one(tmp_path, m
         assert not set(EXTRA) & set(columns), f"{name} integrated through a falsely unique match"
         assert len(rows) == 2
         assert "ambiguous" in manifest["skipped"].get(f"{key}#integration", ""), manifest["skipped"]
+
+
+@pytest.mark.parametrize("flags", [(False, True), (True, False)])
+def test_ad_a_possible_owner_in_a_literally_cited_frame_is_still_possible(
+    tmp_path, monkeypatch, flags
+):
+    """EXPAND = [Blade1] on RMRP and DIRECT = [Blade1] on the literal R_RMRP, two recorded blocks.
+
+    The builder emits an identical R_RMRP block for each entry. The strict
+    reading refuses the expanding entry because the block's frame is cited
+    literally, and the possible reading repeated that refusal, so DIRECT was
+    the only candidate for both blocks and its flag was applied to both. Both
+    blocks are ambiguous and refused by name.
+    """
+    workspace = _case(tmp_path, monkeypatch, blocks=[(0, 1), (0, 1)])
+    record = workspace.read_manifest()[0]
+    record.aliases = {"EXPAND": ["Blade1"], "DIRECT": ["Blade1"]}
+    for k, (block, name) in enumerate(
+        zip(record.sections_layout, ("EXPAND", "DIRECT"), strict=True), 1
+    ):
+        block.update(
+            distribution=k, distribution_families=name, families=["Blade1"], frame="R_RMRP"
+        )
+    spec = workspace.resolve_pproc("p001")
+    entry = spec.sections.distributions[0]
+    spec.sections.distributions = [
+        entry.model_copy(update={"families": "EXPAND", "frame": "RMRP", "integrate": flags[0]}),
+        entry.model_copy(update={"families": "DIRECT", "frame": "R_RMRP", "integrate": flags[1]}),
+    ]
+    write_campaign_products(workspace)
+    manifest = _products_manifest(workspace)
+    out = workspace.products_dir(None)
+    for name in ("EXPAND", "DIRECT"):
+        key = f"sections/AL-020_sloads_{name}.csv"
+        columns, rows = read_csv_table(out / key)
+        assert not set(EXTRA) & set(columns), f"{name} integrated through a falsely unique match"
+        assert len(rows) == 2
+        assert "ambiguous" in manifest["skipped"].get(f"{key}#integration", ""), manifest["skipped"]

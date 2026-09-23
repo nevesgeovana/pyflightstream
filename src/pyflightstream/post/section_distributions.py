@@ -445,15 +445,43 @@ def _matching_distributions(
         for k, entry in enumerate(pproc.sections.distributions, 1)
         if knowable[k - 1] and entry_matches(k, entry, inventory)
     ]
-    # AN UNCERTAIN ENTRY IS NOT DROPPED, IT IS A POSSIBLE OWNER: read over the
-    # cuts alone, as it was before the inventory kept its unrecorded names,
-    # an entry that could own the block makes the ownership ambiguous, and
-    # an ambiguous block is refused by name. Removing it instead made the
-    # other entry falsely unique and handed it that entry's integration flag.
+
+    # AN ENTRY THE STRICT READING REFUSES IS NOT DROPPED, IT IS A POSSIBLE
+    # OWNER wherever the builder COULD have emitted this block for it: the
+    # frame of its kind, the plane and count, and the block's families inside
+    # what it selects over the cuts alone, with none of the strict reading's
+    # refusals (a literally cited frame, an unrecorded name kept, a kind
+    # gate). A possible owner makes the ownership ambiguous, and an
+    # ambiguous block is refused by name. Dropping it instead made the other
+    # entry falsely unique for every block and handed it that entry's flag.
+    def could_own(entry: SectionDistribution) -> bool:
+        try:
+            groups = select_families(entry.families, recorded_names, pproc.is_blade, vocabulary)
+        except PyflightstreamError:
+            return False
+        frame = str(block.get("frame", ""))
+        kind_re = {
+            "LOCAL_AXIS": r".+_RMRP[1-9][0-9]*",
+            "RMRP": r".+_RMRP",
+            "SMRP": r".+_SMRP(?:_ORIGINAL)?",
+        }.get(entry.frame.strip().upper())
+        frame_ok = (
+            re.fullmatch(kind_re, frame) is not None
+            if kind_re is not None
+            else frame == entry.frame
+        )
+        held = set(cast(list[str], block["families"]))
+        return (
+            frame_ok
+            and block.get("plane") in entry.planes
+            and block["count"] == (entry.count or pproc.sections.count)
+            and any(held <= set(members or recorded_names) for members in groups)
+        )
+
     possible = [
         k
         for k, entry in enumerate(pproc.sections.distributions, 1)
-        if k not in strict and entry_matches(k, entry, recorded_names)
+        if k not in strict and could_own(entry)
     ]
     return strict + possible if strict else []
 
