@@ -438,3 +438,37 @@ def test_ad_the_matchers_vocabulary_is_the_builders(tmp_path, monkeypatch, colli
     assert not set(EXTRA) & set(columns), "a vocabulary collision integrated the Wing-only block"
     assert {row["FAMILY"] for row in rows} == {"Wing"}
     assert "missing" in manifest["skipped"].get(f"{key}#integration", "")
+
+
+@pytest.mark.parametrize("order", ["exact_first", "folded_first"])
+def test_ad_two_aliases_that_differ_in_case_only_are_two_aliases(tmp_path, monkeypatch, order):
+    """AERO = [Blade1, Blade2] beside aero = [Blade1], in either insertion order.
+
+    The builder resolves the exact spelling first, so `AERO` selects both
+    blades and the recorded Blade1-only block is not its emission; a
+    case-folded vocabulary let whichever came last win and integrated it.
+    """
+    workspace = _case(tmp_path, monkeypatch)
+    record = workspace.read_manifest()[0]
+    record.sections_layout[0]["frame"] = "MRP"
+    recorded = workspace.resolve_pproc("p001")
+    recorded.sections.distributions[0].families = "AERO"
+    recorded.sections.distributions[0].frame = "MRP"
+    recorded.sections.distributions[0].integrate = True
+    record.matrix_stem = "products"
+    _matrix(workspace)
+    reference = workspace.inputs_dir / "references/r001.toml"
+    reference.parent.mkdir(parents=True, exist_ok=True)
+    lines = ['AERO = ["Blade1", "Blade2"]', 'aero = ["Blade1"]']
+    if order == "folded_first":
+        lines.reverse()
+    reference.write_text(
+        "area_m2 = 11.5\nchord_m = 1.5\nspan_m = 20.0\n[aliases]\n" + "\n".join(lines) + "\n"
+    )
+    write_campaign_products(workspace, matrix_stem="products")
+    manifest = _products_manifest(workspace)
+    out = workspace.products_dir("products")
+    key = "sections/AL-020_sloads_Blade1.csv"
+    columns, rows = read_csv_table(out / key)
+    assert not set(EXTRA) & set(columns), "a case twin of the alias integrated the block"
+    assert len(rows) == 4 and "missing" in manifest["skipped"].get(f"{key}#integration", "")
