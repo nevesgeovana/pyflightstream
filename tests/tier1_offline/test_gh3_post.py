@@ -1082,3 +1082,120 @@ def test_ad_a_name_whose_stem_another_spelling_shares_is_uncertain_on_a_common_f
         assert not set(EXTRA) & set(columns), f"{name} integrated through a falsely unique match"
         assert len(rows) == 2
         assert "ambiguous" in manifest["skipped"].get(f"{key}#integration", ""), manifest["skipped"]
+
+
+def test_ad_a_member_that_is_a_boundary_and_an_alias_leading_elsewhere_is_uncertain(
+    tmp_path, monkeypatch
+):
+    """A = [Wing], Wing = [Tail]; rotor R declares Wing (recorded so); the cuts hold Tail.
+
+    Over a geometry that carries the boundary `wing` and not `Wing`, the
+    builder follows the alias Wing to Tail for `A`; over the maximal
+    inventory, which carries the rotor's `Wing`, it stops at the boundary.
+    The A entry read as certain, was dropped, and the Tail entry's flag went
+    to both common-frame blocks. It is a possible owner: both ambiguous.
+    """
+    workspace = _case(tmp_path, monkeypatch, blocks=[(0, 1), (0, 1), (0, 1)])
+    record = workspace.read_manifest()[0]
+    layout = (("A", ["Tail"], "MRP"), ("Tail", ["Tail"], "MRP"), ("R", ["Wing"], "R_RMRP1"))
+    for k, (block, (name, held, frame)) in enumerate(
+        zip(record.sections_layout, layout, strict=True), 1
+    ):
+        block.update(distribution=k, distribution_families=name, families=held, frame=frame)
+    record.matrix_stem = "products"
+    _matrix(workspace)
+    reference = workspace.inputs_dir / "references/r001.toml"
+    reference.parent.mkdir(parents=True, exist_ok=True)
+    reference.write_text(
+        "area_m2 = 11.5\nchord_m = 1.5\nspan_m = 20.0\n"
+        '[aliases]\nA = ["Wing"]\nWing = ["Tail"]\n'
+        '[rotors.R]\nalias = "R"\naxis = "Z"\ndiameter_m = 2.0\n'
+        'families_blades = ["Wing"]\n'
+    )
+    spec = workspace.resolve_pproc("p001")
+    entry = spec.sections.distributions[0]
+    spec.sections.distributions = [
+        entry.model_copy(update={"families": "A", "frame": "MRP", "integrate": False}),
+        entry.model_copy(update={"families": "Tail", "frame": "MRP", "integrate": True}),
+        entry.model_copy(update={"families": "R", "frame": "LOCAL_AXIS", "integrate": False}),
+    ]
+    write_campaign_products(workspace, matrix_stem="products")
+    manifest = _products_manifest(workspace)
+    out = workspace.products_dir("products")
+    for name in ("A", "Tail"):
+        key = f"sections/AL-020_sloads_{name}.csv"
+        columns, rows = read_csv_table(out / key)
+        assert not set(EXTRA) & set(columns), f"{name} integrated through a falsely unique match"
+        assert len(rows) == 2
+        assert "ambiguous" in manifest["skipped"].get(f"{key}#integration", ""), manifest["skipped"]
+
+
+def test_ad_two_recorded_blades_on_a_common_frame_integrate_uniquely(tmp_path, monkeypatch):
+    """Blade1 and Blade2 entries on a COMMON frame, both recorded there, both integrating.
+
+    They share a stem, and the stem rule made each a possible owner of the
+    other's block, losing both integrations as ambiguous. A name a common
+    block attests is the geometry's own spelling and reads the same over the
+    geometry and the maximal inventory, so each entry owns its block alone.
+    """
+    workspace = _case(tmp_path, monkeypatch, blocks=[(0, 1), (0, 1)])
+    record = workspace.read_manifest()[0]
+    for k, block in enumerate(record.sections_layout, 1):
+        block.update(distribution=k, distribution_families=f"Blade{k}", frame="MRP")
+    spec = workspace.resolve_pproc("p001")
+    entry = spec.sections.distributions[0]
+    spec.sections.distributions = [
+        entry.model_copy(update={"families": f"Blade{k}", "frame": "MRP", "integrate": True})
+        for k in (1, 2)
+    ]
+    write_campaign_products(workspace)
+    manifest = _products_manifest(workspace)
+    out = workspace.products_dir(None)
+    for k in (1, 2):
+        key = f"sections/AL-020_sloads_Blade{k}.csv"
+        columns, rows = read_csv_table(out / key)
+        assert tuple(columns[-4:]) == EXTRA, manifest["skipped"]
+        assert len(rows) == 2 and {row["FAMILY"] for row in rows} == {f"Blade{k}"}
+        assert f"{key}#integration" not in manifest["skipped"]
+
+
+def test_ad_a_nested_member_recorded_by_a_rotor_block_is_uncertain(tmp_path, monkeypatch):
+    """A = [B], B = [Wing]; rotor R declares B (recorded in R_RMRP1); the geometry carries b.
+
+    The matcher's inventory holds the rotor's B, so the builder over it stops
+    at that boundary for A; over the geometry it follows B to Wing. The A
+    entry is uncertain and a possible owner of the Wing blocks: ambiguous.
+    """
+    workspace = _case(tmp_path, monkeypatch, blocks=[(0, 1), (0, 1), (0, 1)])
+    record = workspace.read_manifest()[0]
+    layout = (("A", ["Wing"], "MRP"), ("Wing", ["Wing"], "MRP"), ("R", ["B"], "R_RMRP1"))
+    for k, (block, (name, held, frame)) in enumerate(
+        zip(record.sections_layout, layout, strict=True), 1
+    ):
+        block.update(distribution=k, distribution_families=name, families=held, frame=frame)
+    record.matrix_stem = "products"
+    _matrix(workspace)
+    reference = workspace.inputs_dir / "references/r001.toml"
+    reference.parent.mkdir(parents=True, exist_ok=True)
+    reference.write_text(
+        "area_m2 = 11.5\nchord_m = 1.5\nspan_m = 20.0\n"
+        '[aliases]\nA = ["B"]\nB = ["Wing"]\n'
+        '[rotors.R]\nalias = "R"\naxis = "Z"\ndiameter_m = 2.0\n'
+        'families_blades = ["B"]\n'
+    )
+    spec = workspace.resolve_pproc("p001")
+    entry = spec.sections.distributions[0]
+    spec.sections.distributions = [
+        entry.model_copy(update={"families": "A", "frame": "MRP", "integrate": False}),
+        entry.model_copy(update={"families": "Wing", "frame": "MRP", "integrate": True}),
+        entry.model_copy(update={"families": "R", "frame": "LOCAL_AXIS", "integrate": False}),
+    ]
+    write_campaign_products(workspace, matrix_stem="products")
+    manifest = _products_manifest(workspace)
+    out = workspace.products_dir("products")
+    for name in ("A", "Wing"):
+        key = f"sections/AL-020_sloads_{name}.csv"
+        columns, rows = read_csv_table(out / key)
+        assert not set(EXTRA) & set(columns), f"{name} integrated through a falsely unique match"
+        assert len(rows) == 2
+        assert "ambiguous" in manifest["skipped"].get(f"{key}#integration", ""), manifest["skipped"]

@@ -210,6 +210,17 @@ def _matching_distributions(
     # as a possible owner, so that dropping it never makes another entry
     # falsely unique.
     recorded_names = list(inventory)
+    # THE GEOMETRY'S OWN SPELLINGS: a common-frame block records the names as
+    # the geometry carries them, while a rotor's block records the reference's
+    # spelling of its families, which the geometry may carry under another
+    # case. A name attested here reads the same over the geometry and over
+    # the maximal inventory; one attested only by a rotor's block may not.
+    attested = {
+        str(f)
+        for b in record.sections_layout or []
+        if _rotor_frame(str(b.get("frame", ""))) is None
+        for f in cast(list[str], b["families"])
+    }
     # RunRecord has an inventory source, but no complete boundary inventory.
     # A layout lists exported cuts only. Keep every explicitly cited family in
     # the candidate inventory so selection cannot erase an unrecorded member.
@@ -234,6 +245,24 @@ def _matching_distributions(
             return word
         return next((name for name in vocabulary if name.casefold() == word.casefold()), None)
 
+    def leads_elsewhere(word: str) -> bool:
+        """Whether an alias spelt like this word expands to anything but the word itself."""
+        key = alias_key(word)
+        if key is None:
+            return False
+        seen: set[str] = set()
+        stack = list(vocabulary[key])
+        while stack:
+            member = stack.pop()
+            if member.casefold() == word.casefold() or member in seen:
+                continue
+            seen.add(member)
+            inner = alias_key(member)
+            if inner is None:
+                return True
+            stack.extend(vocabulary[inner])
+        return False
+
     # WHAT THE READER MET while it read one entry's selection: a word that
     # leaves membership UNCERTAIN (a selector word, a name the cuts do not
     # carry reached by any path). The possible reading below reads no
@@ -254,7 +283,11 @@ def _matching_distributions(
             return True
         if visiting and word in inventory:
             cited_names.append(word)
-            if word not in recorded_names:
+            if word not in recorded_names or leads_elsewhere(word):
+                # A member that is at once a name of the inventory and an
+                # alias leading elsewhere: the builder stops at the boundary
+                # where the geometry carries that spelling and follows the
+                # alias where it does not, which the cuts cannot settle.
                 met["uncertain"] = True
             return True
         key = alias_key(word)
@@ -514,6 +547,7 @@ def _matching_distributions(
         if kind_re is None and any(
             family_of(name).casefold() == family_of(other).casefold()
             for name in names_of_entry[k - 1]
+            if name not in attested
             for other in inventory
             if other != name
         ):
