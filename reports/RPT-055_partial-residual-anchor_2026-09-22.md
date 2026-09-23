@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-22
 **Found by:** the independent review of GitHub `main` at `0402a02`, before the v0.25.1 tag
-**Status:** CLOSED in 0.26.0
+**Status:** REGISTERED for 0.26.0, deliberately not fixed under a patch tag
 **Affects:** 0.25.0 and 0.25.1 alike. The reviewer confirmed the gap in the 0.25.0 detector, so
 it is older than the patch whose review found it.
 
@@ -44,7 +44,9 @@ The CHANGELOG entry for 0.25.1 and the freeze section of `docs/post-processing-d
 both state this limit where they state the rule, so nobody reading either page is told the
 protection is complete when it is not.
 
-## Closing measurement, 2026-09-23
+## CLOSED in 0.26.0, 2026-09-23
+
+**Status:** CLOSED in 0.26.0
 
 The detector now marks a terminal marker block without a residual page UNREAD,
 including a cut after `Iterat`. A page-less block immediately followed by a
