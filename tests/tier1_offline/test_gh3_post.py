@@ -770,3 +770,77 @@ def test_ad_ownership_of_a_legacy_layout_takes_no_possible_reading(tmp_path, mon
         assert key in manifest["products"], manifest["skipped"]
         _, rows = read_csv_table(out / key)
         assert len(rows) == 2 and {row["FAMILY"] for row in rows} == families
+
+
+@pytest.mark.parametrize("word", ["blades", "airframe"])
+def test_ad_an_alias_named_like_a_retired_selector_is_an_alias(tmp_path, monkeypatch, word):
+    """The reference declares `blades = [Wing, Missing]`; two entries, `blades` and `Wing`.
+
+    The builder resolves a declared alias before the retirement rule, and
+    emits a Wing block for each entry. The strict reading refuses the alias
+    entry (Missing is unrecorded); a possible reading that refused the word by
+    its spelling dropped it, and the Wing entry's flag went to both blocks.
+    The alias entry is uncertain and a possible owner: both blocks ambiguous.
+    """
+    workspace = _case(tmp_path, monkeypatch, blocks=[(0, 1), (0, 1)])
+    record = workspace.read_manifest()[0]
+    record.aliases = {word: ["Wing", "Missing"]}
+    for k, (block, name) in enumerate(zip(record.sections_layout, (word, "Wing"), strict=True), 1):
+        block.update(distribution=k, distribution_families=name, families=["Wing"], frame="MRP")
+    spec = workspace.resolve_pproc("p001")
+    entry = spec.sections.distributions[0]
+    spec.sections.distributions = [
+        entry.model_copy(update={"families": word, "frame": "MRP", "integrate": False}),
+        entry.model_copy(update={"families": "Wing", "frame": "MRP", "integrate": True}),
+    ]
+    write_campaign_products(workspace)
+    manifest = _products_manifest(workspace)
+    out = workspace.products_dir(None)
+    for name in (word, "Wing"):
+        key = f"sections/AL-020_sloads_{name}.csv"
+        columns, rows = read_csv_table(out / key)
+        assert not set(EXTRA) & set(columns), f"{name} integrated through a falsely unique match"
+        assert len(rows) == 2
+        assert "ambiguous" in manifest["skipped"].get(f"{key}#integration", ""), manifest["skipped"]
+
+
+def test_ad_a_rotor_name_overridden_by_an_alias_is_still_a_possible_owner(tmp_path, monkeypatch):
+    """Rotor R declares Hub and Blade1; the alias R = [Hub] overrides its name; cuts hold Blade1.
+
+    Entry 1 selects R on RMRP, entry 2 Blade1 on the literal R_RMRP; the
+    builder emits a Blade1 block for each. The strict reading refuses entry 1
+    (Hub is declared and unrecorded); a possible reading that read R through
+    the alias saw Hub alone and dropped it, and entry 2's flag went to both.
+    Entry 1 is uncertain and a possible owner: both blocks ambiguous.
+    """
+    workspace = _case(tmp_path, monkeypatch, blocks=[(0, 1), (0, 1)])
+    record = workspace.read_manifest()[0]
+    for k, (block, name) in enumerate(zip(record.sections_layout, ("R", "Blade1"), strict=True), 1):
+        block.update(
+            distribution=k, distribution_families=name, families=["Blade1"], frame="R_RMRP"
+        )
+    record.matrix_stem = "products"
+    _matrix(workspace)
+    reference = workspace.inputs_dir / "references/r001.toml"
+    reference.parent.mkdir(parents=True, exist_ok=True)
+    reference.write_text(
+        "area_m2 = 11.5\nchord_m = 1.5\nspan_m = 20.0\n"
+        '[aliases]\nR = ["Hub"]\n'
+        '[rotors.R]\nalias = "R"\naxis = "Z"\ndiameter_m = 2.0\n'
+        'families_general = ["Hub"]\nfamilies_blades = ["Blade1"]\n'
+    )
+    spec = workspace.resolve_pproc("p001")
+    entry = spec.sections.distributions[0]
+    spec.sections.distributions = [
+        entry.model_copy(update={"families": "R", "frame": "RMRP", "integrate": False}),
+        entry.model_copy(update={"families": "Blade1", "frame": "R_RMRP", "integrate": True}),
+    ]
+    write_campaign_products(workspace, matrix_stem="products")
+    manifest = _products_manifest(workspace)
+    out = workspace.products_dir("products")
+    for name in ("R", "Blade1"):
+        key = f"sections/AL-020_sloads_{name}.csv"
+        columns, rows = read_csv_table(out / key)
+        assert not set(EXTRA) & set(columns), f"{name} integrated through a falsely unique match"
+        assert len(rows) == 2
+        assert "ambiguous" in manifest["skipped"].get(f"{key}#integration", ""), manifest["skipped"]

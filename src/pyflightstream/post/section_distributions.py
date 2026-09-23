@@ -11,7 +11,6 @@ from pathlib import Path
 from typing import cast
 
 from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning
-from pyflightstream._fsm import family_of
 from pyflightstream._tokens import INTEGRATED_SECTION_COLUMNS
 from pyflightstream.cases import (
     PprocSpec,
@@ -234,6 +233,14 @@ def _matching_distributions(
             return word
         return next((name for name in vocabulary if name.casefold() == word.casefold()), None)
 
+    # WHAT THE READER MET while it read one entry's selection: a word the
+    # resolver REFUSES (a bare `blades` or `airframe`, which raise), so the
+    # builder emits nothing for the entry; or a word that leaves membership
+    # UNCERTAIN (an unknowable selector, a name the cuts do not carry reached
+    # by any path). The possible reading below reads no families of its own:
+    # it asks only whether the strict reading's refusal rested on uncertainty.
+    met: dict[str, bool] = {"refused": False, "uncertain": False}
+
     def cited(word: str, visiting: frozenset[str] = frozenset(), *, listed: bool = False) -> bool:
         if ownership:
             # OWNERSHIP OF A LEGACY LAYOUT names and groups raw files and adds
@@ -245,11 +252,15 @@ def _matching_distributions(
             # from "current" by anything the post holds.
             return True
         if visiting and word in inventory:
+            if word not in recorded_names:
+                met["uncertain"] = True
             return True
         key = alias_key(word)
         if key is not None and key in visiting:
             return word in inventory
         if key is not None:
+            if visiting and word not in recorded_names:
+                met["uncertain"] = True
             if visiting and word not in inventory:
                 # A NESTED MEMBER THE CUTS DO NOT CARRY may be a boundary the
                 # geometry carries under that very name, which the builder
@@ -265,14 +276,19 @@ def _matching_distributions(
         # boundary NAME, unrecorded unless the cuts carry a boundary so
         # called, and so is `all` or `each` written inside a list.
         if not visiting and word in ("blades", "airframe"):
-            # These need the geometry's whole inventory, which the record does
-            # not carry. Neither the cuts nor a rotor list proves completeness.
+            # The resolver refuses these two, so the builder emits nothing for
+            # the entry and it can own no block.
+            met["refused"] = True
             return False
         if not visiting and not listed and word == "all":
+            # The geometry's whole inventory, which the record does not carry.
+            met["uncertain"] = True
             return False
         if not visiting and not listed and word in ("each", "each_blade"):
             # Each emitted block is one known family, regardless of siblings.
             return True
+        if word not in recorded_names:
+            met["uncertain"] = True
         if word not in inventory:
             # EXACT MEANS THE BUILDER'S EXACT: its boundary lookup is
             # case-sensitive, so `blade1` beside a recorded Blade1 is not that
@@ -295,11 +311,16 @@ def _matching_distributions(
             if member not in inventory:
                 inventory.append(member)
     knowable = []
+    refused: list[bool] = []
+    uncertain: list[bool] = []
     for entry in pproc.sections.distributions:
+        met["refused"] = met["uncertain"] = False
         if isinstance(entry.families, str):
             knowable.append(cited(entry.families))
         else:
             knowable.append(all([cited(word, listed=True) for word in entry.families]))
+        refused.append(met["refused"])
+        uncertain.append(met["uncertain"])
 
     def entry_matches(k: int, entry: SectionDistribution, inventory: list[str]) -> bool:
         """Whether this entry, read over this inventory, would have emitted the block."""
@@ -455,45 +476,16 @@ def _matching_distributions(
     # gate). A possible owner makes the ownership ambiguous, and an
     # ambiguous block is refused by name. Dropping it instead made the other
     # entry falsely unique for every block and handed it that entry's flag.
-    def permissive(word: str, seen: frozenset[str] = frozenset()) -> set[str] | None:
-        """Every cut this word could select, or None where its meaning cannot be read here."""
-        key = alias_key(word)
-        if key is not None and key not in seen:
-            union: set[str] = set()
-            for member in vocabulary[key]:
-                part = permissive(member, seen | {key})
-                if part is None:
-                    return None
-                union |= part
-            return union
-        return {
-            name
-            for name in recorded_names
-            if name == word or family_of(name) == word or family_of(name) == family_of(word)
-        }
-
-    def could_own(entry: SectionDistribution) -> bool:
-        # THE POSSIBLE READING RESOLVES NOTHING BY A RULE THE BUILDER DOES NOT
-        # SHARE. A word it can read (a name, a stem, an alias, a rotor) is read
-        # permissively, exact or stem, both ways; a word it cannot (a selector
-        # word, a listed `all`) makes the entry's selection unreadable here,
-        # and an unreadable entry could own any block of its frame, plane and
-        # count. Reading it with the common resolver instead dropped a live
-        # rotor's `["all"]` entry and a stem beside a cut of the stem's own
-        # name, and the other entry's flag went to both blocks.
-        words = [entry.families] if isinstance(entry.families, str) else list(entry.families)
-        if any(word in ("blades", "airframe") for word in words):
-            # The two retired selector words are refused by the resolver, so
-            # the builder emits nothing for the entry: it can own no block.
+    def could_own(k: int, entry: SectionDistribution) -> bool:
+        # THE POSSIBLE READING READS NO FAMILIES OF ITS OWN, because every
+        # rule of its own has disagreed with the builder somewhere. An entry
+        # the resolver refuses can own nothing. An entry whose selection is
+        # UNCERTAIN could own any block of its frame, plane and count. A
+        # CERTAIN entry the strict reading refused only for a rule of the
+        # strict reading's own (a literally cited frame, the kind gate) could
+        # own the block if the block lies inside what it selects.
+        if refused[k - 1]:
             return False
-        union: set[str] = set()
-        readable: set[str] | None = union
-        for word in words:
-            part = None if word.casefold() in ("all", "each", "each_blade") else permissive(word)
-            if part is None:
-                readable = None
-                break
-            union |= part
         frame = str(block.get("frame", ""))
         kind_re = {
             "LOCAL_AXIS": r".+_RMRP[1-9][0-9]*",
@@ -505,13 +497,20 @@ def _matching_distributions(
             if kind_re is not None
             else frame == entry.frame
         )
-        held = set(cast(list[str], block["families"]))
-        return (
+        if not (
             frame_ok
             and block.get("plane") in entry.planes
             and block["count"] == (entry.count or pproc.sections.count)
-            and (readable is None or held <= readable)
-        )
+        ):
+            return False
+        if uncertain[k - 1]:
+            return True
+        try:
+            groups = select_families(entry.families, inventory, pproc.is_blade, vocabulary)
+        except PyflightstreamError:
+            return False
+        held = set(cast(list[str], block["families"]))
+        return any(held <= set(members or inventory) for members in groups)
 
     if ownership:
         # OWNERSHIP OF A LEGACY LAYOUT reads the recorded pproc over its own
@@ -523,7 +522,7 @@ def _matching_distributions(
     possible = [
         k
         for k, entry in enumerate(pproc.sections.distributions, 1)
-        if k not in strict and could_own(entry)
+        if k not in strict and could_own(k, entry)
     ]
     return strict + possible if strict else []
 
