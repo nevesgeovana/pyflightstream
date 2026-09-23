@@ -38,6 +38,18 @@ PRODUCT = "probes/AL-020_phase_locked_PUSHER.csv"
 def _azimuthal_campaign(tmp_path, steps_per_revolution: float, unread: int | None = None):
     """A rotor campaign whose phase-locked reduction is taken at each azimuth."""
     workspace = _post_workspace(tmp_path, 2411, (60, 61), rotor=True)
+    # THE REFERENCE MUST NAME THE TWO BLADES, or the reducer applies no blade
+    # offset and the fractional sample this file is about never exists: the
+    # inherited reference says `families_blades = ["B"]`, one family, and the
+    # V&V lens of the closing round measured that the 59.5 sample was never
+    # taken. The plots carry `CL_MRP_Blade1` and `CL_MRP_Blade2` already.
+    reference = workspace.inputs_dir / "references" / "r002.toml"
+    reference.write_text(
+        reference.read_text(encoding="utf-8").replace(
+            'families_blades = ["B"]', 'families_blades = ["Blade1", "Blade2"]'
+        ),
+        encoding="utf-8",
+    )
     recorded = json.loads((workspace.root / "runs.json").read_text(encoding="utf-8"))
     entry = {
         "windows": [[60, 61]],

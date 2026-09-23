@@ -15,7 +15,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from pyflightstream._digest import file_sha256
+from pyflightstream._digest import optional_file_sha256
 from pyflightstream.cases import classify_outputs
 from pyflightstream.post._tables import NOT_APPLICABLE, ProductExistsError
 from pyflightstream.post.series import surface_export_metadata
@@ -311,7 +311,11 @@ def prov_document(record: RunRecord, sim_dir: Path) -> dict[str, object]:
         entity_id = f"pyfs:output/{name}"
         path = sim_dir / name
         recorded = record.outputs_sha256.get(name)
-        current = file_sha256(path) if path.is_file() else None
+        # A FILE THAT IS THERE AND CANNOT BE OPENED is recorded from the
+        # record, like one that is not there: a post never dies over a
+        # digest (the tech-writer lens of the v0.25.1 closing round, on a
+        # native log that `is_file()` and refuses to open).
+        current = optional_file_sha256(path) if path.is_file() else None
         # PFS-2038.01, GEO-039-F01. THE BYTES ON DISK MAY NOT BE THE BYTES
         # THE RUN WROTE, and this document used to say they were: it
         # preferred the current digest whenever the file existed and then

@@ -6089,6 +6089,18 @@ def write_campaign_products(
     after the plots tables of every point are on disk, because a superfile
     carries the unsteady post-process's own parameters and one row per
     converged point.
+
+    ``check_frozen`` (0.25.1) asks the stage to read each point's native log
+    and REFUSE the averages a frozen solve or an unreadable residual block
+    touches, each refusal named in ``products.json`` with the step and the
+    remedy. It is ``False`` by default: the averages of a frozen solve are
+    then published like any other, and a frozen solve prints plausible
+    numbers, so nothing in the products says they are wrong. A caller that
+    relied on the 0.25.0 refusals passes ``True``. In either mode a
+    ``FAILED_DIVERGED`` point whose log proves a freeze is admitted, so its
+    histories, instants and pre-freeze averages are written, and a log that
+    cannot be read never ends the post. The definition of record is
+    ``docs/post-processing-definitions.md``.
     """
     # ONE STAMP PER REBUILD, taken here and threaded to every archiver.
     # The archive folder's whole claim is that a rebuild is ONE thing a
@@ -6139,7 +6151,13 @@ def write_campaign_products(
             if point_record.run_id in superseded:
                 continue
             frozen_failure = False
-            if check_frozen and point_record.status is RunStatus.FAILED_DIVERGED:
+            # THE READING THAT ADMITS A POINT IS NOT THE READING THAT REFUSES
+            # ITS AVERAGES, so it is not behind `check_frozen`: gating it
+            # excluded every frozen failure by default, the opposite of
+            # "nothing is refused unless asked" (the architect lens of the
+            # closing round, 2026-09-22). This opens a failed point's log to
+            # ask whether the failure was a freeze, and refuses nothing.
+            if point_record.status is RunStatus.FAILED_DIVERGED:
                 kinds = classify_outputs(point_record.outputs)
                 log_name = kinds.get("log")
                 log_path = workspace.sim_dir(point_record.sim_id) / log_name if log_name else None

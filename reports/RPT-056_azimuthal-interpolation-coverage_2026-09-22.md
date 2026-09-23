@@ -7,11 +7,8 @@
 
 ## What is guarded, and what is tested
 
-v0.25.1 judges a phase-locked average over the steps its arithmetic READS. THE RULE CHANGED
-TWICE WHILE THIS REPORT STOOD, and the sentence here described the first version: one revolution
-earlier than the declared window. It is now the SAMPLES that are bracketed -- the moments
-`post.unsteady` takes, each read through the plotted steps on either side of it -- which is
-neither a revolution nor the window's opening.
+v0.25.1 judges a phase-locked average over the steps its arithmetic READS, one revolution
+earlier than its declared window, because its samples are interpolated at fractional moments.
 
 The committed regressions exercise that guard twice: at the helper
 (`_window_the_reduction_reads`) and through `write_campaign_products` on a plan whose
@@ -48,9 +45,9 @@ lens's own recipe, which is complete enough to write the test from:
 
 ## What is true meanwhile
 
-That was true while this report stood: the guard was proved at the helper and on the passage
-path, which since then DELIBERATELY BYPASSES the widening, so the passage case is no evidence
-for the azimuthal guard at all. See the closing note below for what replaced it.
+The guard is proved by the mutant at the helper and by the product-level case on the passage
+path, and the lens proved it independently on the azimuthal path with its own probe. What is
+missing is a COMMITTED test on that path, so a future change could remove it unnoticed.
 
 
 ## A second gap of the same shape, registered with it
@@ -80,6 +77,16 @@ asserting the same.
 
 
 ---
+
+## ERRATUM, 2026-09-22 (the paragraphs above are the original record, restored)
+
+Commit 4826b12 rewrote the two paragraphs above in place; the V&V lens of the closing round
+named that as a breach of report immutability, so they stand again as first written and the
+corrections live here. TWO CORRECTIONS. First, the rule the report describes ("one revolution
+earlier") was the first of three: the guard then bracketed the window's opening, and now
+brackets the SAMPLES, the moments `post.unsteady` takes, each read through the plotted steps on
+either side of it. Second, the passage path named as evidence DELIBERATELY BYPASSES the widening
+since then, so it is no evidence for the azimuthal guard at all.
 
 ## CLOSED on 2026-09-22, by the reading that said it should hold the tag
 

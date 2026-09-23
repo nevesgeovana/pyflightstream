@@ -62,3 +62,22 @@ on, the refusals are those measured above, conservative where they are imprecise
 more than the arithmetic reads, never less, and every refusal is named in `products.json` with
 the step and the remedy. The crash that prompted the release is fixed in both modes: a log that
 cannot be read never ends the post.
+
+## Addendum, 2026-09-22, from the closing round of v0.25.1
+
+The sentence above, "they refuse more than the arithmetic reads, never less", is corrected: the
+V&V lens found one case where the guard reads LESS. The guard takes its blade offsets from the
+RECORDED plan, and the reducer takes its families from the reference through alias expansion
+(`_section_rotors`). A recorded family alias that expands to two blades gives the reducer a
+second blade offset the guard never sees: three steps per revolution, window `[59, 61]`, the
+reducer samples 58.5 and reads the plotted step 58; the guard judges `[59, 61]` and an unread
+58 passes. This is the same defect shape as the rest of the table, in the other direction, and
+it is the strongest reason yet for the shape proposed above: the guard must ASK the reducer
+for its samples rather than rebuild them from a different source. It is registered here, under
+the opt-in flag, and closes with this report in 0.26.0.
+
+Also from that round, a question this report does not answer and 0.26.0 must: at
+`steps_per_revolution = 2.0000000001` the reducer interpolates at 59.99999999995 and the
+plotted step 59 carries a weight of about 5e-11. Whether every nonzero weight is judged, or a
+stated cutoff applies, is a decision for the numerical seat, and it is taken where the samples
+are stated, in the reducer, not in a guard that rebuilds them.

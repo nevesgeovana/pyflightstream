@@ -52,8 +52,11 @@ cluster and on Windows within an hour of each other, on campaigns recorded with
 ### Changed (breaking: the native-log freeze check is OPT-IN)
 
 - **`post` and `collect` no longer read each point's native log unless asked.**
-  `--check-frozen` turns the reading on; without it the stage never opens the
-  log. THE CONSEQUENCE, stated where it can be read: the averages of a FROZEN
+  `--check-frozen` turns the reading on; without it the stage opens a log only
+  to ADMIT a point recorded as `FAILED_DIVERGED` whose solver froze, so that
+  point's histories, instants and pre-freeze averages are written as they were
+  in 0.25.0, and nothing is refused from what it reads. THE CONSEQUENCE, stated
+  where it can be read: the averages of a FROZEN
   solve are published like any other, and a frozen solve prints plausible
   numbers, so nothing in the products says they are wrong. 0.25.0 added that
   refusal; 0.25.1 makes it a choice.
@@ -95,8 +98,9 @@ cluster and on Windows within an hour of each other, on campaigns recorded with
   than as an unread one (`reports/RPT-055`).
 - **A phase-locked average is judged over the steps it READS**, which its
   declared window does not name: the azimuthal one is interpolated, so it also
-  reads the last plotted step at or below the step before its window. The
-  passage series a pproc without a `[phase_locked]` table produces reads only
+  reads the plotted steps BRACKETING each moment it samples, one per azimuth of
+  the final revolution per blade offset; a sample that is a whole step widens
+  nothing. The passage series a pproc without a `[phase_locked]` table produces reads only
   the steps of its passages and is judged as it states. An unread step there
   moved a published average while the manifest stated a clean window. THE BOUND
   IS THE SAMPLES, not a revolution and not the window's opening: three readings
