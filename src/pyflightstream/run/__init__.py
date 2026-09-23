@@ -158,6 +158,17 @@ from pyflightstream.workspace import (
 from pyflightstream.workspace.inputs import HPC_BUILD_ALIAS, HpcProfile
 from pyflightstream.workspace.naming import ARCHIVE_STAMP, PointName, submitted_by, sweep_file_stem
 
+
+def __getattr__(name: str) -> object:
+    """Refuse the removed plot assessor with its migration instruction."""
+    if name == "assess_unsteady_from_plots":
+        raise ImportError(
+            "assess_unsteady_from_plots was removed in 0.26.0; use LoadsAssessor for "
+            "campaign assessment; history settling is the user's own analysis."
+        )
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
 __all__ = [
     "ACCEPT_UNREGISTERED_BUILD_FLAG",
     "PLAN_REQUIRED_MESSAGE",

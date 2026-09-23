@@ -72,9 +72,6 @@ def _distributions(
         families = block.get("families")
         if not isinstance(families, list) or not all(isinstance(f, str) for f in families):
             raise ProductError("sections_layout has an invalid families list")
-    inventory = list(
-        dict.fromkeys(str(f) for b in layout for f in cast(list[str], b.get("families", [])))
-    )
     for block in layout:
         count = block.get("count")
         if not isinstance(count, int) or isinstance(count, bool) or count < 1:
@@ -82,33 +79,10 @@ def _distributions(
         position = block.get("distribution")
         selection = block.get("distribution_families")
         if position is None and pproc is not None:
-            matches = []
-            for k, entry in enumerate(pproc.sections.distributions, 1):
-                tokens = [entry.families] if isinstance(entry.families, str) else entry.families
-                members = select_group_members(tokens, inventory, record.aliases)
-                families = cast(list[str], block.get("families", []))
-                frame = entry.frame.strip().upper()
-                recorded_frame = str(block.get("frame", ""))
-                expanded = {
-                    "LOCAL_AXIS": r".+_RMRP[1-9][0-9]*",
-                    "RMRP": r".+_RMRP",
-                    "SMRP": r".+_SMRP(?:_ORIGINAL)?",
-                }.get(frame)
-                frame_matches = (
-                    re.fullmatch(expanded, recorded_frame) is not None
-                    if expanded is not None
-                    else recorded_frame == entry.frame
-                )
-                if (
-                    families
-                    and set(families) <= set(members)
-                    and block.get("plane") in entry.planes
-                    and count == (entry.count or pproc.sections.count)
-                    and frame_matches
-                ):
-                    matches.append((k, entry.families))
+            matches = _matching_distributions(record, pproc, block)
             if len(matches) == 1:
-                position, selection = matches[0]
+                position = matches[0]
+                selection = pproc.sections.distributions[position - 1].families
         if (
             not isinstance(position, int)
             or isinstance(position, bool)
@@ -132,6 +106,72 @@ def _distributions(
         for k, entry in enumerate(pproc.sections.distributions, 1):
             selections.setdefault(k, entry.families)
     return layout, selections
+
+
+def _matching_distributions(
+    record: RunRecord, pproc: PprocSpec, block: Mapping[str, object]
+) -> list[int]:
+    """Match current entries to recorded geometry, never to mutable positions."""
+    inventory = list(
+        dict.fromkeys(
+            str(f) for b in record.sections_layout or [] for f in cast(list[str], b["families"])
+        )
+    )
+    matches = []
+    for k, entry in enumerate(pproc.sections.distributions, 1):
+        tokens = [entry.families] if isinstance(entry.families, str) else entry.families
+        members = select_group_members(tokens, inventory, record.aliases)
+        families = cast(list[str], block["families"])
+        expanded = {
+            "LOCAL_AXIS": r".+_RMRP[1-9][0-9]*",
+            "RMRP": r".+_RMRP",
+            "SMRP": r".+_SMRP(?:_ORIGINAL)?",
+        }.get(entry.frame.strip().upper())
+        frame_matches = (
+            re.fullmatch(expanded, str(block.get("frame", ""))) is not None
+            if expanded is not None
+            else block.get("frame", "") == entry.frame
+        )
+        if (
+            families
+            and set(families) <= set(members)
+            and block.get("plane") in entry.planes
+            and block["count"] == (entry.count or pproc.sections.count)
+            and frame_matches
+        ):
+            matches.append(k)
+    return matches
+
+
+def _integration_requests(
+    record: RunRecord, pproc: PprocSpec | None, layout: list[dict[str, object]]
+) -> tuple[set[int], dict[int, str]]:
+    """Bind integration to recorded owners; a doubtful block keeps its file raw."""
+    requested: set[int] = set()
+    errors: dict[int, str] = {}
+    disabled: dict[int, str] = {}
+    if pproc is None or not any(entry.integrate for entry in pproc.sections.distributions):
+        return requested, errors
+    for number, block in enumerate(layout, 1):
+        owner = cast(int, block["distribution"])
+        matches = _matching_distributions(record, pproc, block)
+        if len(matches) != 1:
+            reason = "ambiguous" if matches else "missing"
+            errors[owner] = (
+                f"block {number}: {reason} pproc match by families, plane, frame and count; "
+                "restore one uniquely matching distribution to integrate this file"
+            )
+        elif pproc.sections.distributions[matches[0] - 1].integrate:
+            requested.add(owner)
+        else:
+            # All blocks in one CSV must carry the same columns.
+            disabled[owner] = (
+                f"block {number}: matching pproc distribution has integrate=false; "
+                "set integrate=true on every matching block to integrate this file"
+            )
+    for owner in requested & disabled.keys():
+        errors.setdefault(owner, disabled[owner])
+    return requested, errors
 
 
 def _file_names(selections: Mapping[int, str | list[str]]) -> dict[int, str]:
@@ -243,13 +283,15 @@ def write_section_distributions(
     except ProductError as error:
         for kind in ("sloads", "cp"):
             skipped[f"sections/{stem}_{kind}#distributions"] = str(error)
+        if pproc is not None and any(entry.integrate for entry in pproc.sections.distributions):
+            warnings.warn(
+                f"{stem}: ambiguous or missing distribution identity; no integration: {error}",
+                PyflightstreamWarning,
+                stacklevel=2,
+            )
         return [], {}
     names = _file_names(selections)
-    integrate = (
-        {k for k, entry in enumerate(pproc.sections.distributions, 1) if entry.integrate}
-        if pproc is not None
-        else set()
-    )
+    integrate, matching_errors = _integration_requests(record, pproc, layout)
     delta, _ = run_clock(record)
     context = context_row(condition, reference)
     written: list[Path] = []
@@ -280,7 +322,7 @@ def write_section_distributions(
             files = [(step, end)] if end.is_file() else []
         rows: dict[int, list[tuple[object, ...]]] = {k: [] for k in names}
         integrated: dict[int, list[tuple[float, ...]]] = {k: [] for k in names}
-        integration_errors: dict[int, str] = {}
+        integration_errors = dict(matching_errors)
         tabled: dict[int, list[int | None]] = {k: [] for k in names}
         try:
             if not files:
@@ -363,8 +405,9 @@ def write_section_distributions(
                 continue
             headings = (*SECTIONS_SERIES_LEAD, *CONTEXT_COLUMNS, *columns)
             output_rows = rows[k]
-            if kind == "sloads" and k in integrate:
+            if kind == "sloads" and (k in integrate or k in matching_errors):
                 if k in integration_errors:
+                    skipped[f"{relative}#integration"] = integration_errors[k]
                     warnings.warn(
                         f"{stem}: {relative} written without integrated columns: "
                         f"{integration_errors[k]}",

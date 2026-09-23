@@ -230,6 +230,12 @@ Set `integrate = true` beside `families`, `planes` and `count` in the desired
 the sectional CSV is byte-for-byte the seven export columns and existing
 context written by 0.25.1, with no additional column. This is a post-processing
 choice in the pproc, so it also applies when posting existing recorded exports.
+The current entry must match each recorded block uniquely by families, plane,
+frame and count; reordering entries cannot move an integration request to
+another block. Recorded entry positions still own the split files. An ambiguous
+or missing match warns by point, file and block and records an `#integration`
+skip, keeping the file's original columns. All blocks in one file must request
+integration for that file to gain integrated columns.
 
 ```toml
 [[sections.distributions]]
