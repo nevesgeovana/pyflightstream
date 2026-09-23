@@ -545,16 +545,28 @@ class PprocArtifact(PprocSpec):
 
     PFS-2029.07.01, the design decision of 2026-09-02: the groups artifact IS the
     home of post-processing and is renamed. The file carries nine tables,
-    every one optional: ``[groups]`` exactly as the groups file held it,
-    a name to the boundary labels or 1-based indices it aggregates;
+    every one optional: ``[groups]`` maps each product name to one alias string;
+    define several members in the reference's ``[aliases]`` table;
     ``[exports]`` which of the eight export kinds a point writes;
     ``[sections]``, ``[plots]`` and ``[[probes]]`` the solver definitions
     the builders emit; ``[products]`` the post-processed files written
     after the run; and, since 0.24.0, ``[phase_locked]``, ``[equations]`` and
-    ``[glossary]``, which the post stage reads. Group members are stored
-    verbatim and resolved by the script layer at emission time, as before. The
+    ``[glossary]``, which the post stage reads. Group aliases are stored
+    verbatim and resolved by the script layer at emission time. Member lists,
+    including empty lists, were retired at 0.26.0. The
     shape is
     :class:`pyflightstream.cases.PprocSpec`; this class is the file.
+
+    Examples
+    --------
+    Use the built-in ``all`` only when no reference alias or boundary has that
+    name; otherwise declare a unique reference alias with the intended members.
+    The input is one string; the model normalizes it to a one-member list.
+
+    >>> PprocArtifact(groups={"TOTAL": "all"}).groups
+    {'TOTAL': ['all']}
+    >>> PprocArtifact(groups={"AIRFRAME": "airframe"}).groups
+    {'AIRFRAME': ['airframe']}
     """
 
 

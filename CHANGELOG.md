@@ -12,6 +12,10 @@ FlightStream versions.
 - Every campaign post writes `post.log` beside `products.json`, even when clean.
   It records every named skip and stage warning, carries the invocation header,
   and is archived with the products on rebuild. The manifest names the log.
+  Warning capture is process-wide, so concurrent posts in threads can mix
+  campaign warnings; post one campaign per process until
+  [RPT-058](reports/RPT-058_post-log-captures-warnings-process-wide_2026-09-23.md)
+  is resolved in the planned 0.27.0 work.
 - Optional integrated sectional loads: `integrate = true` on a pproc
   `[[sections.distributions]]` entry appends `Strip_length`, `Fx_int`, `Fz_int`
   and `My_int` to the same sectional CSV. Each instant uses exported station
@@ -28,7 +32,8 @@ FlightStream versions.
 - Row key `WINDOW_REVOLUTIONS`: write `LAST_REVS_AVG` with the same count.
 - Row key `WINDOW_DEGREES`: divide the value by 360 and write `LAST_REVS_AVG`.
 - Member lists in pproc `[groups]`: write one alias as a string. Put several
-  members in the reference's `[aliases]` table; use `"all"` for an empty list.
+  members in the reference's `[aliases]` table; use `"all"` for an empty list
+  only after the [collision check](docs/migrating-to-0.26.0.md#6-a-pproc-group-names-one-alias).
   All three retired row keys and all member lists are refused before running.
 
 ### Changed
@@ -37,6 +42,12 @@ FlightStream versions.
   while computable products are written. `--check-frozen` refuses affected
   averages instead of warning alone. Failed status alone no longer excludes
   usable exports in default mode.
+- Malformed loads skip their point by name, preserving healthy points' products.
+  Empty unsteady logs warn by default and refuse averages only when asked.
+  Sparse per-blade tables use their combined window, and the unsteady polar
+  and rotor guards judge the plotted steps their averages actually read.
+  Integrated sectional columns follow the matrix's current PPROC selection
+  while distribution identity remains recorded.
 - The reducer states its exact plotted sample set using its resolved families.
   The freeze guard no longer reconstructs azimuthal samples. Every nonzero
   interpolation weight counts, including weights near 5e-11 (RPT-057).

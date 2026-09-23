@@ -3,7 +3,7 @@
 **Date:** 2026-09-22
 **Decision:** the owner's, 2026-09-22 -- the native-log freeze check is OPT-IN in 0.25.1
 (`--check-frozen`), and the architecture is re-discussed in 0.26.0.
-**Status:** CLOSED in 0.26.0
+**Status:** REGISTERED for 0.26.0, under `GOAL-030`.
 **Superseding decision, the owner's, 2026-09-22:** nothing in the post blocks by default, and
 the post always writes a log of its own carrying a warning wherever one applies. That changes
 what this report is about: the question below stops being whether the guard refuses the right
@@ -82,7 +82,9 @@ plotted step 59 carries a weight of about 5e-11. Whether every nonzero weight is
 stated cutoff applies, is a decision for the numerical seat, and it is taken where the samples
 are stated, in the reducer, not in a guard that rebuilds them.
 
-## Closing implementation and evidence, 2026-09-23
+## CLOSED in 0.26.0, 2026-09-23
+
+**Status:** CLOSED in 0.26.0
 
 P01 is implemented as `post.log` beside `products.json`, named by its `log`
 field. Every invocation writes a header, including an empty clean campaign;
@@ -156,7 +158,7 @@ repeat-marker mutant and its measured lost freeze are recorded in RPT-055.
 The existing product-directory inventory test was updated to include the new
 `post.log`; before that contract update it failed on precisely that extra file.
 
-## Final validation, 2026-09-23
+### Final validation, 2026-09-23
 
 Each file ran in its own pytest process with this worktree's `src` first on
 PYTHONPATH. Exit statuses were read from the process, not a shell pipe.

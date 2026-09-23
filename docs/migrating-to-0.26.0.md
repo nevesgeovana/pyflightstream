@@ -65,7 +65,21 @@ AIRFRAME = "AIRFRAME"
 TOTAL = "all"
 ```
 
-An empty member list becomes `"all"`. Replace integer boundary positions with
+Before replacing an empty member list with `"all"`, check the row's reference
+for a collision: an existing boundary name or alias takes precedence over the
+built-in selection of every family. Search the reference, then inspect matches
+under `[aliases]` (including quoted keys):
+
+```text
+rg -n 'all|\[aliases\]' inputs/references/r001.toml
+```
+
+Also check the geometry inventory for a boundary named `all`. For example,
+`all = ["W"]` under `[aliases]` makes `TOTAL = "all"` select only W, while the
+retired empty list selected every surface. If `all` is taken, name a unique alias
+holding the intended members, such as `WHOLE_AIRCRAFT = ["W", "B"]` in the
+reference and `TOTAL = "WHOLE_AIRCRAFT"` in the pproc. Verify those members
+against the inventory before posting. Replace integer boundary positions with
 boundary names in the reference's alias. Every list form is refused with the
 one-alias line to write instead.
 

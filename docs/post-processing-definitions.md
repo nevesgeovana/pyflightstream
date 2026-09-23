@@ -90,10 +90,12 @@ also WARNS, naming the point, when the two differ.
 **`SREF` and `CREF` are checked against the export.** The solver divides by the
 area and the length of the project file it opened, and the loads export prints
 both. The package sets neither: it states the reference artifact's. Where the
-two differ by more than the export's printed precision, the simulation gets NO
-product and `products.json` names both numbers, because a table stating one
-area beside coefficients divided by another is wrong by a constant factor that
-nothing in it shows.
+two differ by more than the export's printed precision, post warns and writes
+every computable product by default; `check_frozen=True` refuses the simulation's
+products and `products.json` names both numbers. A table stating one area beside
+coefficients divided by another differs by a constant factor, so receiving a
+table does not establish agreement. See the single
+[default warning policy](#the-post-log-and-the-default-warning-rule-since-0260).
 
 The steady polar already carries `ALPHA`, `BETA`, `MACH` and `RE` among its
 twenty-four, so it states the rest of the block beside them. The plots table
@@ -745,11 +747,18 @@ would settle the issue. Every named manifest skip and every
 `PyflightstreamWarning` emitted during the stage is recorded there. A rebuild
 archives the previous log with the same timestamp as its products. An
 interrupted post keeps its header and the warnings collected before it stopped.
+Warning capture is process-wide, so concurrent posts in threads can put a warning
+in another campaign's log; post one campaign per process until
+[RPT-058](../reports/RPT-058_post-log-captures-warnings-process-wide_2026-09-23.md)
+is resolved.
 
 A frozen solve, an unread native-log block, a reference mismatch, or a failed
 point's status is a
 reason to warn, not to withhold a computable product. Histories, instants and
 averages remain available. A log that cannot be opened never ends the post.
+An empty or header-only unsteady log has no residual evidence: it warns by
+default and refuses affected averages with `check_frozen=True`; a steady log
+does not need unsteady residual pages.
 No-data and malformed-export cases still cannot supply numbers; missing frame,
 clock or layout facts cannot assign them to a requested product. These
 impossibilities are named skips in both the manifest and the post log.

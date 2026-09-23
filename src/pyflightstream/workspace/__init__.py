@@ -995,12 +995,8 @@ class RunRecord(BaseModel):
         A recorded manifest is never rewritten. Both keys together remain
         invalid through ``extra="forbid"``: two lists for one fact are ambiguous.
 
-        Measured 2026-09-23: the canonical repository has 46 matching rows in
-        tests/tier3_licensed/runs.json. post/matriz/plan.json,
-        post/matriz_time/plan.json and post/matriz_builds/plan.json are absent.
-        All four files are absent from the isolated development worktree.
-        The earlier census of 74 rows (46, 18, 8, 2) across four manifests
-        therefore does not reproduce in these trees; absence is not zero rows.
+        The dated manifest census lives in the 0.26.0 CHANGELOG entry for
+        ``broken_commands``; that entry is the evidence home for this reader.
         """
         if isinstance(data, dict) and "broken_commands" in data and "waived_commands" not in data:
             data = {**data, "waived_commands": data["broken_commands"]}

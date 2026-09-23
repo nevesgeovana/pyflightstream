@@ -110,6 +110,7 @@ from pyflightstream.cases import (
     AXES_PLOT_COMPONENTS,
     AXES_PLOT_GROUP,
     ROTOR_PLOT_GROUP_PREFIX,
+    PprocSpec,
     classify_outputs,
     global_frame_plot_declarations,
     select_families,
@@ -1755,7 +1756,7 @@ def _window_the_reduction_reads(
 
 
 _POST_REFUSES: ContextVar[bool] = ContextVar("post_refuses", default=True)
-_POST_VERDICTS: ContextVar[dict[Path, FrozenSolve | None] | None] = ContextVar(
+_POST_VERDICTS: ContextVar[dict[tuple[Path, bool], FrozenSolve | None] | None] = ContextVar(
     "post_verdicts", default=None
 )
 
@@ -1916,14 +1917,6 @@ def _rotor_tables(
         span = (windows or {}).get(point.name, window)
         if plots is None or span is None:
             return None, "the row states no averaging window", None
-        refusal = _judge_average(
-            (frozen or {}).get(point.name),
-            span,
-            point=point.name,
-            product=f"polars/P{sim_id}-{alias}_rotor.csv",
-        )
-        if refusal is not None:
-            return None, refusal, None
         where = f"over steps {span[0]} to {span[1]}"
         source = plots.get(point.name)
         if source is None or not source.is_file():
@@ -1981,9 +1974,18 @@ def _rotor_tables(
                 None,
             )
         try:
-            averaged = blade_passage_average(series, window=span)
+            read_steps: set[int] = set()
+            averaged = blade_passage_average(series, window=span, read_steps=read_steps)
         except (PyflightstreamError, ValueError) as error:
             return None, f"its history could not be averaged {where}: {error}", None
+        refusal = _judge_average(
+            (frozen or {}).get(point.name),
+            read_steps,
+            point=point.name,
+            product=f"polars/P{sim_id}-{alias}_rotor.csv",
+        )
+        if refusal is not None:
+            return None, refusal, None
         return (
             {
                 part: sum(float(averaged.fields[f"{part}_{name}"][0]) for name in groups)
@@ -4184,12 +4186,6 @@ def write_unsteady_polar(
             left_out.append(f"{name}: no plots table")
             continue
         point_window = (windows or {}).get(name, window)
-        refusal = _judge_average(
-            (frozen or {}).get(name), point_window, point=name, product=str(path)
-        )
-        if refusal is not None:
-            left_out.append(f"{name}: {refusal}")
-            continue
         try:
             printed_names, series = plots_table_series(source)
             # A PARTIAL COVER IS NOT A COVER, and this dropped only the point
@@ -4217,11 +4213,18 @@ def write_unsteady_polar(
                     f"history holds {held}"
                 )
                 continue
-            averaged = blade_passage_average(series, window=point_window)
+            read_steps: set[int] = set()
+            averaged = blade_passage_average(series, window=point_window, read_steps=read_steps)
         except (PyflightstreamError, ValueError) as error:
             # A history that does not cover the row's window is a run that
             # stopped early, not a fault: it costs this point its row.
             left_out.append(f"{name}: its plots table could not be read: {error}")
+            continue
+        refusal = _judge_average(
+            (frozen or {}).get(name), read_steps, point=name, product=str(path)
+        )
+        if refusal is not None:
+            left_out.append(f"{name}: {refusal}")
             continue
         values: dict[str, float] = {}
         for name in printed_names:
@@ -4464,6 +4467,27 @@ def _the_axes_of_the_unsteady_rows(
     return added
 
 
+def _effective_pproc(
+    workspace: CampaignWorkspace,
+    sim_id: str,
+    first: RunRecord,
+    matrix_row: MatrixRow | None,
+) -> tuple[str | None, PprocSpec | None]:
+    """Resolve the matrix's post choices once for the simulation and its series."""
+    pproc_id = first.pproc
+    stated = getattr(matrix_row, "pproc_code", None)
+    if stated and str(stated) not in ("-", "NA") and str(stated) != str(pproc_id):
+        warnings.warn(
+            f"simulation {sim_id}: the row names pproc {stated} and the run recorded "
+            f"{pproc_id}. The products follow {stated}; its [exports] half still describes "
+            "what the run wrote, so an export the run did not make is not there to read.",
+            PyflightstreamWarning,
+            stacklevel=2,
+        )
+        pproc_id = str(stated)
+    return pproc_id, workspace.resolve_pproc(pproc_id) if pproc_id else None
+
+
 def _sim_products(
     workspace: CampaignWorkspace,
     sim_id: str,
@@ -4477,6 +4501,7 @@ def _sim_products(
     sweep_rows: Mapping[str, Mapping[str, object]] | None = None,
     drafts: list[SuperfileDraft] | None = None,
     check_frozen: bool = False,
+    effective_pproc: tuple[str | None, PprocSpec | None] | None = None,
 ) -> tuple[list[Path], dict[str, dict[str, object]], dict[str, str]]:
     """Write one simulation's products from its successful records.
 
@@ -4491,25 +4516,9 @@ def _sim_products(
     from pyflightstream.cases import classify_outputs
 
     first = records[0]
-    pproc_id = first.pproc
-    # THE PPROC THE ROW NAMES TODAY (PO-05). Which groups, which products and which
-    # format are post-processing choices, and the matrix wins the record for those.
-    # The stage resolved the artifact the RECORD names while the row's PPROC cell
-    # was in scope and only stamped the super file, so pointing a row at another
-    # pproc and posting again changed nothing but that stamp.
-    stated = getattr(matrix_row, "pproc_code", None)
-    if stated and str(stated) not in ("-", "NA") and str(stated) != str(pproc_id):
-        warnings.warn(
-            f"simulation {sim_id}: the row names pproc {stated} and the run recorded "
-            f"{pproc_id}. The products follow {stated}; its [exports] half still describes "
-            "what the run wrote, so an export the run did not make is not there to read.",
-            PyflightstreamWarning,
-            stacklevel=2,
-        )
-        pproc_id = str(stated)
-    if pproc_id is None:
+    pproc_id, pproc = effective_pproc or _effective_pproc(workspace, sim_id, first, matrix_row)
+    if pproc is None:
         return [], {}, {}
-    pproc = workspace.resolve_pproc(pproc_id)
     products = pproc.products
     reference_block = first.reference
     description = first.description or ""
@@ -4556,7 +4565,11 @@ def _sim_products(
         try:
             report = parse_loads(text)
         except PyflightstreamError as error:
-            raise ProductError(f"{by_name[loads_name]} is not a loads table: {error}") from error
+            skipped[f"runs/{record.run_id}"] = (
+                f"{by_name[loads_name]} is not a loads table: {error}. "
+                "Recollect the complete loads export or run this point again."
+            )
+            continue
         stem = loads_name[: -len(".txt")]
         points.append(
             PolarPoint(
@@ -4570,7 +4583,11 @@ def _sim_products(
         record_of[stem] = record
         log_path = by_name.get(kinds.get("log", ""))
         if log_path is not None:
-            frozen = freeze_of_log(log_path)
+            frozen = (
+                freeze_of_log(log_path, steady=True)
+                if record.recipe == "steady"
+                else freeze_of_log(log_path)
+            )
             if frozen is not None:
                 frozen_points[stem] = frozen
                 warnings.warn(
@@ -5423,6 +5440,7 @@ def _point_series(
     archive_stamp: datetime | None = None,
     matrix_row: MatrixRow | None = None,
     skipped: dict[str, str] | None = None,
+    pproc: PprocSpec | None = None,
 ) -> tuple[list[Path], dict[str, dict[str, object]]]:
     """Write distribution tables and any per-step series of one record.
 
@@ -5486,11 +5504,6 @@ def _point_series(
     aliases = getattr(live, "aliases", None) or record.aliases
     surface_exports: dict[str, dict[str, object]] = {}
     split_skips = skipped if skipped is not None else {}
-    pproc = None
-    try:
-        pproc = workspace.resolve_pproc(record.pproc) if record.pproc else None
-    except PyflightstreamError:
-        pass  # The split writer names any missing distribution identity.
     split_files, split_names = write_section_distributions(
         sim_dir=workspace.sim_dir(sim_id),
         record=record,
@@ -5611,17 +5624,33 @@ def _refuse_aliases_a_file_name_cannot_tell_apart(
     )
 
 
-def freeze_of_log(log_path: Path) -> FrozenSolve | None:
-    """Read a native log tolerantly, at most once during one campaign post."""
+def freeze_of_log(log_path: Path, *, steady: bool = False) -> FrozenSolve | None:
+    r"""Read a native log tolerantly, caching each path and recorded solver mode.
+
+    A steady record does not require unsteady residual evidence. Missing or
+    inaccessible files remain unjudgeable in either mode.
+
+    Examples
+    --------
+    >>> from tempfile import TemporaryDirectory
+    >>> with TemporaryDirectory() as folder:
+    ...     log = Path(folder) / "point_log.txt"
+    ...     _ = log.write_text("FlightStream log header only\n")
+    ...     unread = isinstance(freeze_of_log(log), UnjudgeableSolve)
+    ...     steady = freeze_of_log(log, steady=True)
+    >>> unread, steady
+    (True, None)
+    """
     verdicts = _POST_VERDICTS.get()
     if verdicts is None:
-        return _read_freeze_of_log(log_path)
-    if log_path not in verdicts:
-        verdicts[log_path] = _read_freeze_of_log(log_path)
-    return verdicts[log_path]
+        return _read_freeze_of_log(log_path, steady=steady)
+    key = (log_path, steady)
+    if key not in verdicts:
+        verdicts[key] = _read_freeze_of_log(log_path, steady=steady)
+    return verdicts[key]
 
 
-def _read_freeze_of_log(log_path: Path) -> FrozenSolve | None:
+def _read_freeze_of_log(log_path: Path, *, steady: bool = False) -> FrozenSolve | None:
     """Return this point's freeze verdict, or None, and never raise for the log.
 
     THE POST STAGE MUST SURVIVE A LOG IT CANNOT READ. The detector refuses a
@@ -5639,6 +5668,14 @@ def _read_freeze_of_log(log_path: Path) -> FrozenSolve | None:
     except OSError as error:
         return UnjudgeableSolve(
             first_step=1, count=0, steps=(), detail=f"the log cannot be read: {error}"
+        )
+    text = text.replace("\x00", "")  # Match the residual detector's native-log normalization.
+    if not steady and not re.search(r"Solving unsteady time-step iteration \(\d+/\d+\)", text):
+        return UnjudgeableSolve(
+            first_step=1,
+            count=0,
+            steps=(),
+            detail=f"{log_path} holds no unsteady residual evidence",
         )
     # THE BLOCKS THE SOLVER DID FINISH ARE STILL EVIDENCE, and on a real log they
     # are nearly all of it: the one measured here carries 144 step blocks of which
@@ -5795,13 +5832,22 @@ def _point_reductions(
                 columns, series = plots_table_series(plots_table)
                 names = _dictionary_the_table_can_honour(columns, names, stem, skipped)
             _, facts, count = _the_rotor_of_a_reduction(rotor, plan, rotor_facts or {})
+            combined_reads = (
+                _window_the_reduction_reads(
+                    name, entry, (windows[0][0], windows[-1][1]), series, columns, count, facts
+                )
+                if name == _PER_BLADE and windows
+                else None
+            )
             reached = [
                 (window, why)
                 for window in windows
                 if (
                     why := _judge_average(
                         frozen,
-                        _window_the_reduction_reads(
+                        {step for step in combined_reads if window[0] <= step <= window[-1]}
+                        if combined_reads is not None
+                        else _window_the_reduction_reads(
                             name, entry, window, series, columns, count, facts
                         ),
                         point=stem,
@@ -6374,6 +6420,9 @@ def _write_the_products(
     the `try` that keeps the manifest true of the disk.
     """
     for sim_id, sim_records in by_sim.items():
+        effective_pproc = _effective_pproc(
+            workspace, sim_id, sim_records[0], rows_of_the_matrix.get(sim_id)
+        )
         try:
             for record in sim_records:
                 loads_name = classify_outputs(record.outputs).get("loads")
@@ -6451,6 +6500,7 @@ def _write_the_products(
                     archive_stamp=archive_stamp,
                     matrix_row=rows_of_the_matrix.get(sim_id),
                     skipped=skipped,
+                    pproc=effective_pproc[1],
                 )
             except ProductExistsError:
                 raise
@@ -6489,6 +6539,7 @@ def _write_the_products(
                 sweep_rows=sweep_rows,
                 drafts=drafts,
                 check_frozen=check_frozen,
+                effective_pproc=effective_pproc,
             )
         except ProductExistsError:
             raise
