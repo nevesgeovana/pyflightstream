@@ -400,3 +400,41 @@ def test_ad_a_case_folded_name_is_not_the_builders_exact_name(tmp_path, monkeypa
     columns, rows = read_csv_table(out / key)
     assert not set(EXTRA) & set(columns), "a case-folded name integrated the block"
     assert len(rows) == 4 and "missing" in manifest["skipped"].get(f"{key}#integration", "")
+
+
+@pytest.mark.parametrize("collision", ["rotor", "case"])
+def test_ad_the_matchers_vocabulary_is_the_builders(tmp_path, monkeypatch, collision):
+    """OUTER = [AERO], AERO = [Wing, Tail], and a colliding definition of AERO.
+
+    A rotor named AERO owning Wing only, or an alias `aero` = [Wing]: the
+    builder reads the reference's alias table first and the exact spelling
+    first, so OUTER selects Wing and Tail. The matcher's vocabulary let the
+    rotor, or the case-folded twin, overwrite AERO, dropped Tail before the
+    equality test and integrated the Wing-only block.
+    """
+    workspace, record, recorded = _one_distribution(tmp_path, monkeypatch)
+    recorded.sections.distributions[0].families = "OUTER"
+    recorded.sections.distributions[0].integrate = True
+    record.sections_layout[0]["distribution_families"] = "OUTER"
+    record.matrix_stem = "products"
+    _matrix(workspace)
+    reference = workspace.inputs_dir / "references/r001.toml"
+    reference.parent.mkdir(parents=True, exist_ok=True)
+    head = "area_m2 = 11.5\nchord_m = 1.5\nspan_m = 20.0\n"
+    aliases = '[aliases]\nOUTER = ["AERO"]\nAERO = ["Wing", "Tail"]\n'
+    if collision == "rotor":
+        tail = (
+            '[rotors.AERO]\nalias = "AERO"\naxis = "Z"\ndiameter_m = 2.0\n'
+            'families_blades = ["Wing"]\n'
+        )
+    else:
+        tail = 'aero = ["Wing"]\n'
+    reference.write_text(head + aliases + tail)
+    write_campaign_products(workspace, matrix_stem="products")
+    manifest = _products_manifest(workspace)
+    out = workspace.products_dir("products")
+    key = "sections/AL-020_sloads_OUTER.csv"
+    columns, rows = read_csv_table(out / key)
+    assert not set(EXTRA) & set(columns), "a vocabulary collision integrated the Wing-only block"
+    assert {row["FAMILY"] for row in rows} == {"Wing"}
+    assert "missing" in manifest["skipped"].get(f"{key}#integration", "")

@@ -206,8 +206,21 @@ def _matching_distributions(
         name: [*rotor.families_general, *rotor.families_blades]
         for name, rotor in (rotors or {}).items()
     }
-    vocabulary = {name.casefold(): members for name, members in known_aliases.items()}
-    vocabulary.update({name.casefold(): members for name, members in rotor_members.items()})
+    # THE BUILDER'S VOCABULARY, IN THE BUILDER'S ORDER: a rotor's name is an
+    # alias for its own families and the reference's alias table takes
+    # precedence over it; a word is looked up by its exact spelling first
+    # and case folded second; and a member that names a boundary the cuts
+    # carry is that boundary before it is anything else. Two aliases that
+    # differ in case only are two aliases, as they are to the builder.
+    vocabulary: dict[str, list[str]] = {
+        **{name: list(members) for name, members in rotor_members.items()},
+        **{name: list(members) for name, members in known_aliases.items()},
+    }
+
+    def alias_key(word: str) -> str | None:
+        if word in vocabulary:
+            return word
+        return next((name for name in vocabulary if name.casefold() == word.casefold()), None)
 
     def cited(word: str, visiting: frozenset[str] = frozenset()) -> bool:
         if ownership:
@@ -219,11 +232,13 @@ def _matching_distributions(
             # may have emitted nothing, so "recorded" cannot be told apart
             # from "current" by anything the post holds.
             return True
-        folded = word.casefold()
-        if folded in visiting:
+        if visiting and word in inventory:
+            return True
+        key = alias_key(word)
+        if key is not None and key in visiting:
             return word in inventory
-        if folded in vocabulary:
-            return all([cited(member, visiting | {folded}) for member in vocabulary[folded]])
+        if key is not None:
+            return all([cited(member, visiting | {key}) for member in vocabulary[key]])
         # THE FIVE SELECTOR WORDS ARE SELECTORS ONLY WHEN THEY STAND ALONE:
         # as a member of an alias the builder reads `each` or `all` as a
         # boundary NAME, so here they are names too, unrecorded ones unless
