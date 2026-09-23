@@ -35,10 +35,6 @@ FlightStream versions.
 
 ### Owed
 
-- **The Zenodo archive row of v0.25.1 is owed.** A version DOI is minted from
-  the GitHub release object and recorded one commit after the tag, so between
-  the tag and that commit this release has no archive row; cite the concept DOI
-  until it lands.
 - **The Zenodo archive of v0.14.0 DOES NOT EXIST**, re-measured against
   Zenodo's own API on 2026-09-14, when the v0.18.0 archive row was paid: the
   concept record lists NINETEEN archived versions and v0.14.0 is not among
