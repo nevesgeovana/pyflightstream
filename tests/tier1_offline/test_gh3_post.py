@@ -1142,17 +1142,22 @@ def test_ad_a_member_that_is_a_boundary_and_an_alias_leading_elsewhere_is_uncert
         assert "ambiguous" in manifest["skipped"].get(f"{key}#integration", ""), manifest["skipped"]
 
 
-@pytest.mark.parametrize("frame", ["MRP", "X_RMRP"])
-def test_ad_two_recorded_blades_on_a_common_frame_integrate_uniquely(tmp_path, monkeypatch, frame):
+@pytest.mark.parametrize(
+    ("frame", "unique"), [("MRP", True), ("X_RMRP", False)], ids=["common", "rotor-shaped"]
+)
+def test_ad_two_recorded_blades_on_a_common_frame_integrate_uniquely(
+    tmp_path, monkeypatch, frame, unique
+):
     """Blade1 and Blade2 entries on a COMMON frame, both recorded there, both integrating.
 
     They share a stem, and the stem rule made each a possible owner of the
     other's block, losing both integrations as ambiguous. A name a common
     block attests is the geometry's own spelling and reads the same over the
     geometry and the maximal inventory, so each entry owns its block alone.
-    A literal common frame spelt like a rotor's (`X_RMRP`, no rotor X) is a
-    common frame too: classifying it by name alone lost both integrations
-    again (QA read of f211ec2).
+    A literal common frame spelt like a rotor's (`X_RMRP`, no rotor X)
+    attests nothing, because the record carries no provenance that tells it
+    from a rotor's frame whose rotor is not declared now (nineteenth
+    reading): both refused by name, raw rows kept, registered in RPT-059.
     """
     workspace = _case(tmp_path, monkeypatch, blocks=[(0, 1), (0, 1)])
     record = workspace.read_manifest()[0]
@@ -1170,9 +1175,13 @@ def test_ad_two_recorded_blades_on_a_common_frame_integrate_uniquely(tmp_path, m
     for k in (1, 2):
         key = f"sections/AL-020_sloads_Blade{k}.csv"
         columns, rows = read_csv_table(out / key)
-        assert tuple(columns[-4:]) == EXTRA, manifest["skipped"]
         assert len(rows) == 2 and {row["FAMILY"] for row in rows} == {f"Blade{k}"}
-        assert f"{key}#integration" not in manifest["skipped"]
+        if unique:
+            assert tuple(columns[-4:]) == EXTRA, manifest["skipped"]
+            assert f"{key}#integration" not in manifest["skipped"]
+        else:
+            assert not set(EXTRA) & set(columns)
+            assert "ambiguous" in manifest["skipped"].get(f"{key}#integration", "")
 
 
 def test_ad_a_nested_member_recorded_by_a_rotor_block_is_uncertain(tmp_path, monkeypatch):
@@ -1304,6 +1313,77 @@ def test_ad_a_rotor_block_on_a_literally_cited_frame_attests_nothing(tmp_path, m
         entry.model_copy(update={"families": "R", "frame": "LOCAL_AXIS", "integrate": False}),
         entry.model_copy(
             update={"families": ["blade2", "blade1"], "frame": "R_RMRP1", "integrate": False}
+        ),
+    ]
+    write_campaign_products(workspace, matrix_stem="products")
+    manifest = _products_manifest(workspace)
+    out = workspace.products_dir("products")
+    for name in ("Blade1", "blade1-blade2"):
+        key = f"sections/AL-020_sloads_{name}.csv"
+        columns, rows = read_csv_table(out / key)
+        assert not set(EXTRA) & set(columns), f"{name} integrated through a falsely unique match"
+        assert len(rows) == 2
+        assert "ambiguous" in manifest["skipped"].get(f"{key}#integration", ""), manifest["skipped"]
+
+
+@pytest.mark.parametrize(
+    ("declared", "rotor_frames"),
+    [
+        (False, ("R_RMRP1", "R_RMRP1")),
+        (False, ("R_RMRP_ORIGINAL", "R_RMRP_ORIGINAL")),
+        (True, ("HUB", "HUB")),
+    ],
+    ids=["removed-rotor", "removed-rotor-original-twin", "custom-frame"],
+)
+def test_ad_a_rotor_spelling_attests_nothing_without_provenance(
+    tmp_path, monkeypatch, declared, rotor_frames
+):
+    """The reference's spelling Blade1 recorded where the frame's name does not say it is a rotor's.
+
+    Three shapes the nineteenth reading measured on 8b1f74a, each with the
+    cuts holding blade1 and blade2 and the neighbour integrating: rotor R
+    removed from the reference after export (its R_RMRP1 block no longer a
+    declared rotor's); the same with R's block on its `_ORIGINAL` twin,
+    which `_rotor_frame` did not name; and a declared R's spelling on a
+    custom frame an alias of the rotor cites. Each attested Blade1 as the geometry's own, the
+    Blade1 entry read as certain past the stem rule, and the neighbour's flag
+    went to both common blocks with integrate=false. Both ambiguous, by name.
+    """
+    workspace = _case(tmp_path, monkeypatch, blocks=[(0, 1), (0, 1), (0, 1), (0, 1)])
+    record = workspace.read_manifest()[0]
+    layout = (
+        ("Blade1", ["blade1", "blade2"], "MRP"),
+        ("blade1-blade2", ["blade1", "blade2"], "MRP"),
+        ("R", ["Blade1"], rotor_frames[0]),
+        ("blade2-blade1", ["blade1", "blade2"], rotor_frames[1]),
+    )
+    for k, (block, (name, held, frame)) in enumerate(
+        zip(record.sections_layout, layout, strict=True), 1
+    ):
+        block.update(distribution=k, distribution_families=name, families=held, frame=frame)
+    record.matrix_stem = "products"
+    _matrix(workspace)
+    reference = workspace.inputs_dir / "references/r001.toml"
+    reference.parent.mkdir(parents=True, exist_ok=True)
+    reference.write_text(
+        "area_m2 = 11.5\nchord_m = 1.5\nspan_m = 20.0\n"
+        + (
+            '[rotors.R]\nalias = "R"\naxis = "Z"\ndiameter_m = 2.0\nfamilies_blades = ["Blade1"]\n'
+            if declared
+            else ""
+        )
+    )
+    spec = workspace.resolve_pproc("p001")
+    entry = spec.sections.distributions[0]
+    rotor_entry_frame = "LOCAL_AXIS" if rotor_frames[0] != "HUB" else "HUB"
+    spec.sections.distributions = [
+        entry.model_copy(update={"families": "Blade1", "frame": "MRP", "integrate": False}),
+        entry.model_copy(
+            update={"families": ["blade1", "blade2"], "frame": "MRP", "integrate": True}
+        ),
+        entry.model_copy(update={"families": "R", "frame": rotor_entry_frame, "integrate": False}),
+        entry.model_copy(
+            update={"families": ["blade2", "blade1"], "frame": rotor_frames[1], "integrate": False}
         ),
     ]
     write_campaign_products(workspace, matrix_stem="products")

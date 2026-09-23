@@ -38,6 +38,22 @@ None of them costs a number: every refusal is named in `products.json` under
 the file's key with `#integration` (or `#distributions` for the unidentified
 split) and in `post.log`.
 
+## A user's own frame spelt like a rotor's, registered here on 2026-09-23
+
+Two entries on a common frame the specification names `X_RMRP`, with no
+rotor X anywhere, each integrating its own recorded block. The names those
+blocks record are the geometry's own spelling, and an attestation that read
+them so let each entry own its block alone. The record carries no provenance
+for a block, and the same frame name is a rotor's frame once that rotor is
+removed from the reference after export, or its block sits on the rotor's
+`_ORIGINAL` twin, or an alias of the rotor cites a custom frame: each of
+those recorded the reference's spelling and, attested as the geometry's,
+transferred a neighbour's integration to an entry that had it off (measured
+2026-09-23 on the nineteenth reading of 8b1f74a). Attestation now reads the
+frame's name and the declared rotors' spellings only, so on `X_RMRP` both
+entries are refused as ambiguous, by name, with their raw rows kept. The
+recorded inventory settles it with the rest.
+
 ## Why it is not fixed here
 
 The fallback cannot know the geometry. What settles each case is a live

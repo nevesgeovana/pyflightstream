@@ -223,23 +223,21 @@ def _matching_distributions(
     # spelling of its families, which the geometry may carry under another
     # case. A name attested here reads the same over the geometry and over
     # the maximal inventory; one attested only by a rotor's block may not.
-    # A frame is common as the matcher classifies it (a user's own `X_RMRP`
-    # is), but a DECLARED rotor's block on a frame a specification cites
-    # literally is still the rotor's and carries the reference's spelling,
-    # so nothing on a declared rotor's frame attests.
-    layout_established = _established_aliases(record.sections_layout or [], literal)
-
-    def attests(frame: str) -> bool:
-        if _rotor_group(frame, literal, layout_established)[1] != "common":
-            return False
-        named = _rotor_frame(frame)
-        return named is None or named[0] not in rotor_members
-
+    # The record carries no provenance for a block, so attestation reads
+    # the frame's NAME and the declared rotors' spellings, and nothing else:
+    # a frame spelt like a rotor's, its `_ORIGINAL` twin included, may be a
+    # rotor's whether or not that rotor is declared now or its frame is
+    # cited literally, and a declared rotor's spelling may be recorded on
+    # any frame an alias of the rotor names. A user's own `X_RMRP` with no
+    # rotor X therefore attests nothing either: a false miss, registered in
+    # RPT-059 with the rest of what a recorded inventory would settle.
+    rotor_spellings = {member for members in rotor_members.values() for member in members}
     attested = {
         str(f)
         for b in record.sections_layout or []
-        if attests(str(b.get("frame", "")))
+        if _rotor_frame(str(b.get("frame", "")).removesuffix(ORIGINAL_FRAME_SUFFIX)) is None
         for f in cast(list[str], b["families"])
+        if str(f) not in rotor_spellings
     }
     # THE BUILDER'S VOCABULARY, IN THE BUILDER'S ORDER: a rotor's name is an
     # alias for its own families and the reference's alias table takes
