@@ -7,6 +7,32 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Owed
+
+- **The Zenodo archive row of v0.26.0 is owed.** A version DOI is minted from
+  the GitHub release object and recorded one commit after the tag, so between
+  the tag and that commit this release has no archive row; cite the concept DOI
+  until it lands.
+- **The Zenodo archive of v0.14.0 DOES NOT EXIST**, re-measured against
+  Zenodo's own API on 2026-09-14, when the v0.18.0 archive row was paid: the
+  concept record lists NINETEEN archived versions and v0.14.0 is not among
+  them. The earlier reading of 2026-09-10 said the same and could not be
+  confirmed for four days because the service was answering 504; it is
+  confirmed now, so this is a fact about the archive rather than about its
+  availability.
+  THE RELEASE OBJECT FOR v0.14.0 EXISTS, published 2026-09-09, so the webhook
+  had what it needs and the archive still has no version for it. Whatever
+  failed, it failed silently, and re-triggering it is the repair.
+  Until that row lands this section says so, because a shipped release that
+  quietly stops being citable is the gap PFS-2024.09 is about. Cite that
+  release by the concept DOI, which resolves to the newest archived version.
+
+## [0.26.0] - 2026-09-23
+
+THE POST NEVER BLOCKS BY DEFAULT AND ALWAYS WRITES ITS LOG, the blade loads come
+integrated per strip, the freeze check is rearchitected so the reducer states the
+samples it reads, and no compatibility promise waits past this release.
+
 ### Added
 
 - Every campaign post writes `post.log` beside `products.json`, even when clean.
@@ -85,21 +111,12 @@ FlightStream versions.
   Page-less repeated markers for the same step retain their residual evidence
   and do not create false unread steps (RPT-055).
 
-### Owed
+### Changed (the type-checker debt, re-measured on the release tree)
 
-- **The Zenodo archive of v0.14.0 DOES NOT EXIST**, re-measured against
-  Zenodo's own API on 2026-09-14, when the v0.18.0 archive row was paid: the
-  concept record lists NINETEEN archived versions and v0.14.0 is not among
-  them. The earlier reading of 2026-09-10 said the same and could not be
-  confirmed for four days because the service was answering 504; it is
-  confirmed now, so this is a fact about the archive rather than about its
-  availability.
-  THE RELEASE OBJECT FOR v0.14.0 EXISTS, published 2026-09-09, so the webhook
-  had what it needs and the archive still has no version for it. Whatever
-  failed, it failed silently, and re-triggering it is the repair.
-  Until that row lands this section says so, because a shipped release that
-  quietly stops being citable is the gap PFS-2024.09 is about. Cite that
-  release by the concept DOI, which resolves to the newest archived version.
+- mypy recount 2026-09-23: 710 errors in 18 of 97 modules, against 0.25.1's 713 in 18 of 97. No
+  module arrived and none left; the three errors that went were in the post
+  stage's products module, rewritten around the post log and the
+  reducer-stated samples (`reports/RPT-029`).
 
 ## [0.25.1] - 2026-09-22
 
@@ -226,7 +243,7 @@ cluster and on Windows within an hour of each other, on campaigns recorded with
 
 ### Changed (the type-checker debt, re-measured on the release tree)
 
-- mypy recount 2026-09-20: 713 errors in 18 of 97 modules, against 0.24.0's 661
+- The type-checker re-count of 2026-09-20 read 713 errors in 18 of 97 modules, against 0.24.0's 661
   in 18 of 93. The four modules this release adds --
   `post/section_distributions.py`, `post/provenance.py`, `post/custom_polar.py`
   and `script/_surface_averaging.py` -- and the sites they carry are the rise;
@@ -11419,7 +11436,8 @@ the repository seeding and this tag (milestones M0 through M5).
 * 26.000: registered, no recorded evidence yet (honest empty column;
   backfill planned for v0.2+).
 
-[Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.25.1...HEAD
+[Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.26.0...HEAD
+[0.26.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.26.0
 [0.25.1]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.25.1
 [0.25.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.25.0
 [0.24.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.24.0
