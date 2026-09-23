@@ -536,3 +536,62 @@ def test_ad_a_nested_member_the_cuts_do_not_carry_may_be_a_boundary(tmp_path, mo
     assert not set(EXTRA) & set(columns), "a nested member owned the block by a guess"
     assert {row["FAMILY"] for row in rows} == {"Wing"}
     assert "missing" in manifest["skipped"].get(f"{key}#integration", "")
+
+
+def test_ad_a_member_that_names_a_recorded_boundary_is_that_boundary_first(tmp_path, monkeypatch):
+    """OUTER = [AERO], AERO = [Tail], Tail = [Tail], and a recorded boundary named AERO.
+
+    The builder's alias reader takes the recorded boundary first, so OUTER
+    selects AERO and the recorded AERO block IS its emission: integrated. A
+    reader that followed the alias first would refuse a match the builder
+    grants.
+    """
+    workspace = _case(tmp_path, monkeypatch)
+    record = workspace.read_manifest()[0]
+    record.sections_layout[0].update(families=["AERO"], distribution_families="OUTER", frame="MRP")
+    recorded = workspace.resolve_pproc("p001")
+    entry = recorded.sections.distributions[0]
+    entry.families = "OUTER"
+    entry.frame = "MRP"
+    entry.integrate = True
+    record.matrix_stem = "products"
+    _matrix(workspace)
+    reference = workspace.inputs_dir / "references/r001.toml"
+    reference.parent.mkdir(parents=True, exist_ok=True)
+    reference.write_text(
+        "area_m2 = 11.5\nchord_m = 1.5\nspan_m = 20.0\n"
+        '[aliases]\nOUTER = ["AERO"]\nAERO = ["Tail"]\nTail = ["Tail"]\n'
+    )
+    write_campaign_products(workspace, matrix_stem="products")
+    manifest = _products_manifest(workspace)
+    out = workspace.products_dir("products")
+    key = "sections/AL-020_sloads_OUTER.csv"
+    columns, rows = read_csv_table(out / key)
+    assert tuple(columns[-4:]) == EXTRA, manifest["skipped"]
+    assert len(rows) == 4 and {row["FAMILY"] for row in rows} == {"AERO"}
+    assert f"{key}#integration" not in manifest["skipped"]
+
+
+def test_ad_a_selector_word_inside_a_list_is_a_boundary_name(tmp_path, monkeypatch):
+    """`families = ["all"]` over a recorded boundary literally named `all`.
+
+    The builder reads a list's items as names (its `blades` and `airframe`
+    excepted), so `["all"]` selects the boundary called all and the recorded
+    block is its emission: integrated, not refused as a whole-geometry
+    selector.
+    """
+    workspace = _case(tmp_path, monkeypatch)
+    record = workspace.read_manifest()[0]
+    record.sections_layout[0].update(families=["all"], distribution_families=["all"], frame="MRP")
+    recorded = workspace.resolve_pproc("p001")
+    entry = recorded.sections.distributions[0]
+    entry.families = ["all"]
+    entry.frame = "MRP"
+    entry.integrate = True
+    write_campaign_products(workspace)
+    manifest = _products_manifest(workspace)
+    out = workspace.products_dir(None)
+    key = "sections/AL-020_sloads_all.csv"
+    columns, rows = read_csv_table(out / key)
+    assert tuple(columns[-4:]) == EXTRA, manifest["skipped"]
+    assert len(rows) == 4 and {row["FAMILY"] for row in rows} == {"all"}

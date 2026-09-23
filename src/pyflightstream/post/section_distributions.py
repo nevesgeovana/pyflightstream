@@ -222,7 +222,7 @@ def _matching_distributions(
             return word
         return next((name for name in vocabulary if name.casefold() == word.casefold()), None)
 
-    def cited(word: str, visiting: frozenset[str] = frozenset()) -> bool:
+    def cited(word: str, visiting: frozenset[str] = frozenset(), *, listed: bool = False) -> bool:
         if ownership:
             # OWNERSHIP OF A LEGACY LAYOUT names and groups raw files and adds
             # no number; the recorded pproc's cuts are the only evidence there
@@ -246,15 +246,19 @@ def _matching_distributions(
                 # expansion and the equal-set test refuses: uncertain.
                 inventory.append(word)
             return all([cited(member, visiting | {key}) for member in vocabulary[key]])
-        # THE FIVE SELECTOR WORDS ARE SELECTORS ONLY WHEN THEY STAND ALONE:
-        # as a member of an alias the builder reads `each` or `all` as a
-        # boundary NAME, so here they are names too, unrecorded ones unless
-        # the cuts carry a boundary so called.
-        if not visiting and word in ("all", "blades", "airframe"):
+        # THE SELECTOR WORDS ARE SELECTORS WHERE THE BUILDER READS THEM SO:
+        # `all`, `each` and `each_blade` only as the bare string of an entry;
+        # `blades` and `airframe` as the bare string or as an item of the
+        # entry's list; as a member of an alias every one of them is a
+        # boundary NAME, unrecorded unless the cuts carry a boundary so
+        # called, and so is `all` or `each` written inside a list.
+        if not visiting and word in ("blades", "airframe"):
             # These need the geometry's whole inventory, which the record does
             # not carry. Neither the cuts nor a rotor list proves completeness.
             return False
-        if not visiting and word in ("each", "each_blade"):
+        if not visiting and not listed and word == "all":
+            return False
+        if not visiting and not listed and word in ("each", "each_blade"):
             # Each emitted block is one known family, regardless of siblings.
             return True
         if word not in inventory:
@@ -280,8 +284,10 @@ def _matching_distributions(
                 inventory.append(member)
     knowable = []
     for entry in pproc.sections.distributions:
-        words = [entry.families] if isinstance(entry.families, str) else entry.families
-        knowable.append(all([cited(word) for word in words]))
+        if isinstance(entry.families, str):
+            knowable.append(cited(entry.families))
+        else:
+            knowable.append(all([cited(word, listed=True) for word in entry.families]))
     matches = []
     for k, entry in enumerate(pproc.sections.distributions, 1):
         if not knowable[k - 1]:
