@@ -74,7 +74,9 @@ def test_continuation_preserves_recorded_surface_window(tmp_path, monkeypatch):
     assert original_read(workspace)[-1].surface_time_averaging == WINDOW
     metadata = surface_export_metadata(successor)
     assert metadata == {"kind": "average", "window": WINDOW}
-    assert "step 60" in _surface_export_skip(metadata, frozen_time_steps(_log(2413)))
+    assert "step 60" in _surface_export_skip(
+        metadata, frozen_time_steps(_log(2413)), point="AL-020", product="surface"
+    )
 
 
 def test_manifest_refuses_malformed_window_with_run_and_remedy(tmp_path, monkeypatch):

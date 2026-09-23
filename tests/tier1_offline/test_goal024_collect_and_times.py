@@ -129,3 +129,40 @@ def test_goal024_collect_and_times_the_record_carries_the_times_to_the_manifest(
     # is the rule the parser states.
     assert row["solver_initialization_s"] is None, row
     assert row["time_steps"] is None, row
+
+
+def test_goal024_collect_and_times_a_log_whose_markers_carry_no_page_was_not_cut():
+    """The suite arm after the 0.26.0 post-log merge: a false CUT.
+
+    RPT-055 taught the reader that a marker at the END of the log with no
+    residual page is a block the solver stopped under. That is true of a log
+    that prints pages. A log whose markers never carry one, the progress lines
+    of this file appended to a steady history, was called cut and the assessor
+    raised instead of judging. No page anywhere means no table was ever printed,
+    and the verdict is simply that nothing froze.
+    """
+    from pyflightstream.results import frozen_time_steps
+
+    assert frozen_time_steps(UNSTEADY_LINES) is None
+    assert frozen_time_steps("Solver initialized in 1.70 seconds\n" + UNSTEADY_LINES) is None
+
+
+def test_goal024_collect_and_times_a_cut_log_is_unusable_evidence_and_not_an_exception(
+    tmp_path, monkeypatch
+):
+    """The assessor's freeze read is wrapped: a cut is FAILED_INCOMPLETE_OUTPUT."""
+    import pyflightstream.run as run_module
+    from pyflightstream.results import IncompleteOutputError
+    from pyflightstream.workspace import RunStatus
+    from tests.tier1_offline.test_run_campaign import FIXTURES, _assess_log
+
+    def cut(_text):
+        raise IncompleteOutputError(
+            "time step 54 ends before its Iteration anchor; recollect the log"
+        )
+
+    monkeypatch.setattr(run_module, "frozen_time_steps", cut)
+    text = (FIXTURES / "log_residuals_26.120.txt").read_text(encoding="utf-8") + UNSTEADY_LINES
+    assessment = _assess_log(tmp_path, text)
+    assert assessment.status is RunStatus.FAILED_INCOMPLETE_OUTPUT, assessment
+    assert "Iteration anchor" in (assessment.error or "")

@@ -1798,7 +1798,19 @@ class LoadsAssessor:
                     ),
                     **stamp,
                 )
-            frozen = frozen_time_steps(log_text)
+            try:
+                frozen = frozen_time_steps(log_text)
+            except IncompleteOutputError as error:
+                # A residual block the solver stopped under is unusable
+                # evidence at assessment time, the same verdict the residual
+                # history gives above; it escaped as an exception once the
+                # reader learned to call a cut a cut (0.26.0).
+                return Assessment(
+                    status=RunStatus.FAILED_INCOMPLETE_OUTPUT,
+                    iterations=final.iteration,
+                    error=f"solver log unusable: {error}",
+                    **stamp,
+                )
             if frozen is not None:
                 return Assessment(
                     status=RunStatus.FAILED_DIVERGED,

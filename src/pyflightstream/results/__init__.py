@@ -1482,17 +1482,26 @@ def frozen_time_steps(log_text: str, *, unjudged: list[int] | None = None) -> Fr
     #: step of the same number in the first could not be read (the closing
     #: round, 2026-09-22).
     unread: int | None = None
+    #: Whether ANY block of this log carried a residual page. A marker at the
+    #: end with no page is a CUT only in a log that prints pages: a log whose
+    #: markers never carry one (progress lines only, or a steady history with
+    #: unsteady markers appended, the collect fixture of 0.21.0) was not cut, it
+    #: never had tables, and calling it cut failed the assessor (the suite arm
+    #: after the 0.26.0 post-log merge).
+    pages_seen = False
     for index, marker in enumerate(markers):
         step = int(marker[1])
         end = markers[index + 1].start() if index + 1 < len(markers) else len(clean)
         block = clean[marker.end() : end]
         try:
             pages = _RESIDUAL_PAGE.split(block)[1:]
+            if pages:
+                pages_seen = True
             if not pages:
                 if index + 1 < len(markers) and int(markers[index + 1][1]) == step:
                     # Per-step export actions repeat the marker before its table.
                     continue
-                if index + 1 == len(markers):
+                if index + 1 == len(markers) and pages_seen:
                     raise IncompleteOutputError(
                         f"time step {step} ends before its Iteration anchor; recollect the log"
                     )

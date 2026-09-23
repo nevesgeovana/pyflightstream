@@ -427,10 +427,26 @@ def test_a_refused_polar_is_recorded_as_skipped_and_the_other_products_are_writt
         ("3208", {"alpha": -2.0}, other_area),
     ):
         _record_a_converged_polar(workspace, sim_id, point, text)
+    # SINCE 0.26.0 NOTHING BLOCKS BY DEFAULT: the mismatch is a warning line in
+    # post.log and on stderr, and the polar is written; `--check-frozen` asks
+    # for the refusal this test was written about, and then the skip is
+    # recorded with its reason and every other simulation's products land.
     assert main(["post", "--workspace", str(workspace.root)]) == 0
     out = capsys.readouterr()
     products = workspace.root / "post" / "products"
     polars = products / "polars"
+    assert (polars / "P3207-M200AL-020_g01.csv").is_file(), "the simulation that agrees"
+    assert (polars / "P3208-M200AL-020_g01.csv").is_file(), (
+        "by default the doubted polar is written"
+    )
+    manifest = json.loads((products / "products.json").read_text(encoding="utf-8"))
+    assert "3208" not in manifest["skipped"]
+    assert "SREF" in (products / "post.log").read_text(encoding="utf-8"), "the doubt is in the log"
+    # THE LOG IS WHERE A DOUBT IS SAID by default; the command prints the skips
+    # it records, and by default there is none. Whether the command should also
+    # count the log's warnings on stderr is a question for the closing round.
+    assert main(["post", "--workspace", str(workspace.root), "--check-frozen"]) == 0
+    out = capsys.readouterr()
     assert (polars / "P3207-M200AL-020_g01.csv").is_file(), "the simulation that agrees"
     assert not (polars / "P3208-M200AL-020_g01.csv").exists(), "the refused polar is not written"
     manifest = json.loads((products / "products.json").read_text(encoding="utf-8"))
@@ -444,7 +460,7 @@ def test_a_refused_polar_is_recorded_as_skipped_and_the_other_products_are_writt
     # makes a recorded skip exit 2 for a wrapper that must tell them apart.
     # No --overwrite since 0.17.0: a rebuild archives what is there, so
     # there is nothing to ask permission for.
-    assert main(["post", "--workspace", str(workspace.root), "--strict"]) == 3
+    assert main(["post", "--workspace", str(workspace.root), "--strict", "--check-frozen"]) == 3
     err = capsys.readouterr().err
     assert "--strict" in err and "exit 3" in err, err
     assert (polars / "P3207-M200AL-020_g01.csv").is_file(), "the products are still written in full"

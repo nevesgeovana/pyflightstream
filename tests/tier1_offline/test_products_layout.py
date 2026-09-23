@@ -182,8 +182,10 @@ def test_nothing_per_polar_is_left_loose_at_the_top_of_the_matrix_folder(tmp_pat
     write_campaign_products(workspace, matrix_stem=MATRIX)
     out = _out(workspace)
     loose = sorted(path.name for path in out.iterdir() if path.is_file())
-    assert loose == ["products.json"], (
-        f"the top of {out.name}/ holds {loose}; only the campaign's own manifest belongs there"
+    # Since 0.26.0 the post's own log sits beside its manifest: both are the
+    # campaign's files, neither is a polar's.
+    assert loose == ["post.log", "products.json"], (
+        f"the top of {out.name}/ holds {loose}; only the campaign's manifest and log belong there"
     )
 
 
