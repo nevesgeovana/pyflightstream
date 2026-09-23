@@ -48,7 +48,13 @@ license: MIT
 # 0.22.0.dev0 bump, the NINETEENTH, which was owed from the moment that tag
 # was cut: it was not made then, so the tree sat at the released identity
 # while carrying code that release does not have, which is the thing this
-# pair exists to prevent (the technical-writing lens, FIX-0212). THIS
+# pair exists to prevent (the technical-writing lens, FIX-0212). NINE MORE
+# followed without being written here, each release commit and each bump
+# from v0.22.0 through 0.26.0.dev0 and back to the v0.25.1 release, which
+# makes TWENTY-EIGHT as of 2026-09-22; the enumeration stopped at the
+# nineteenth because it had stopped being read, and the fourth independent
+# reading of v0.25.1 found the stale tally, so the count is now stated
+# with its date rather than as a list. THIS
 # COMMIT IS THE v0.25.1 RELEASE, and the paragraph is re-stated with it
 # because a tally naming a bump three releases old as "this" one is the
 # same staleness from the other side (the independent review of GitHub

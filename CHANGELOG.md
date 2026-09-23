@@ -101,8 +101,10 @@ cluster and on Windows within an hour of each other, on campaigns recorded with
 - **A phase-locked average is judged over the steps it READS**, which its
   declared window does not name: the azimuthal one is interpolated, so it also
   reads the plotted steps BRACKETING each moment it samples, one per azimuth of
-  the final revolution per blade offset; a sample that is a whole step widens
-  nothing. The passage series a pproc without a `[phase_locked]` table produces reads only
+  the final revolution per blade offset; a sample that is a whole step AND is
+  in the plotted history brackets to itself and widens nothing, while a
+  whole-step sample the history does not hold is read from its neighbours like
+  any other. The passage series a pproc without a `[phase_locked]` table produces reads only
   the steps of its passages and is judged as it states. An unread step there
   moved a published average while the manifest stated a clean window. THE BOUND
   IS THE SAMPLES, not a revolution and not the window's opening: three readings

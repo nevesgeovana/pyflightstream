@@ -106,15 +106,25 @@ def test_the_command_line_forwards_the_flag_to_the_stage(tmp_path, monkeypatch):
     """`pyfs-matrix post` passes what it was told, and nothing else, to the stage."""
     seen: list[bool] = []
 
-    def stage(ws, **kwargs):
-        seen.append(kwargs["check_frozen"])
+    def stage(ws, *, overwrite, archive, matrix_stem, check_frozen=False):
+        seen.append(check_frozen)
         return []
 
-    monkeypatch.setattr(workspace_module, "post_stages", lambda: [stage])
+    # A STAGE REGISTERED BEFORE 0.25.1 takes no `check_frozen` at all, and the
+    # bare command must still run it: forwarding the flag unconditionally
+    # raised TypeError before any stage ran (the fourth independent reading).
+    def older_stage(ws, *, overwrite, archive, matrix_stem):
+        seen.append("older")
+        return []
+
+    monkeypatch.setattr(workspace_module, "post_stages", lambda: [stage, older_stage])
     workspace = _post_workspace(tmp_path, 2411, (60, 61))
     assert main(["post", "--workspace", str(workspace.root)]) == 0
+    assert seen == [False, "older"], seen
+    seen.clear()
+    monkeypatch.setattr(workspace_module, "post_stages", lambda: [stage])
     assert main(["post", "--workspace", str(workspace.root), "--check-frozen"]) == 0
-    assert seen == [False, True], seen
+    assert seen == [True], seen
     # `collect` parses the same switch to the same destination, so the one
     # closure it hands the collector forwards the same way.
     parser = _build_parser()

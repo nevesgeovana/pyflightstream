@@ -857,12 +857,15 @@ def _cmd_collect(args: argparse.Namespace) -> int:
         # second sweep of a watch among them, the stage refused them instead
         # of archiving them as the paragraph above says it does.
         for stage in post_stages():
+            # THE FLAG TRAVELS ONLY WHEN SET: a stage registered before
+            # 0.25.1 takes no `check_frozen`, and the bare command must keep
+            # running it (the fourth independent reading of GitHub main).
             stage(
                 ws,
                 overwrite=True,
                 archive=True,
                 matrix_stem=matrix,
-                check_frozen=args.check_frozen,
+                **({"check_frozen": True} if args.check_frozen else {}),
             )
 
     try:
@@ -957,7 +960,9 @@ def _cmd_post(args: argparse.Namespace) -> int:
                         overwrite=True,
                         archive=not args.force_overwrite,
                         matrix_stem=matrix,
-                        check_frozen=args.check_frozen,
+                        # Only when set, so a stage registered before 0.25.1
+                        # keeps running under the bare command.
+                        **({"check_frozen": True} if args.check_frozen else {}),
                     )
                 )
     except (OSError, PyflightstreamError) as error:

@@ -161,8 +161,13 @@ In one line each:
   both walked campaigns recorded with 0.24.0.
 - **The blocks the solver did finish are still judged**, and only the averages whose
   window covers an unread step are refused, by name, with what would settle them.
-- **A freeze beside an unread block is not lost**: both steps are reported unread, so
-  the average falls rather than being published from half the evidence.
+  WITH `--check-frozen` ONLY: since this patch the reading is opt-in on `post` and
+  `collect`, and the bare command publishes a frozen solve's averages like any other,
+  with nothing in the products saying they are wrong (the `### Changed` entry of the
+  changelog states the consequence in full).
+- **A freeze beside an unread block is not lost**, with the same flag: both steps are
+  reported unread, so the average falls rather than being published from half the
+  evidence.
 - **The seven compatibility removals stay due at 0.26.0.** The development tree had
   moved them to 0.27.0 on 2026-09-20; the owner returned them on 2026-09-22 before this
   patch was cut, so no release ever stated the later deadline.

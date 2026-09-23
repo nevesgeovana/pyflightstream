@@ -706,8 +706,10 @@ closing rule, and that step cannot be judged. Such steps are named in
   PLOTTED STEPS BRACKETING each moment; so the judged window is the stated one
   widened to the earliest and latest plotted steps any sample brackets. A
   moment that IS a plotted step brackets to itself and widens nothing: with two
-  blades and two steps per revolution every sample is a whole step and the
-  window is judged as stated; with three steps per revolution the second blade
+  blades and two steps per revolution every sample is a whole step and, when
+  the history holds every step, the window is judged as stated (a whole-step
+  moment the history does NOT hold is read from its neighbours like any other
+  and widens to them); with three steps per revolution the second blade
   samples half a step back and the step before the window is judged with it.
   On a sparse history the bracketing step can be far earlier; a revolution is
   the wrong bound in both directions. The passage series, which a pproc
