@@ -1084,8 +1084,9 @@ def test_ad_a_name_whose_stem_another_spelling_shares_is_uncertain_on_a_common_f
         assert "ambiguous" in manifest["skipped"].get(f"{key}#integration", ""), manifest["skipped"]
 
 
+@pytest.mark.parametrize("tail_alias", ["", 'Tail = ["Tail"]\n'])
 def test_ad_a_member_that_is_a_boundary_and_an_alias_leading_elsewhere_is_uncertain(
-    tmp_path, monkeypatch
+    tmp_path, monkeypatch, tail_alias
 ):
     """A = [Wing], Wing = [Tail]; rotor R declares Wing (recorded so); the cuts hold Tail.
 
@@ -1094,6 +1095,7 @@ def test_ad_a_member_that_is_a_boundary_and_an_alias_leading_elsewhere_is_uncert
     inventory, which carries the rotor's `Wing`, it stops at the boundary.
     The A entry read as certain, was dropped, and the Tail entry's flag went
     to both common-frame blocks. It is a possible owner: both ambiguous.
+    The same with the self-alias `Tail = ["Tail"]` beside it (QA read of f211ec2).
     """
     workspace = _case(tmp_path, monkeypatch, blocks=[(0, 1), (0, 1), (0, 1)])
     record = workspace.read_manifest()[0]
@@ -1109,7 +1111,8 @@ def test_ad_a_member_that_is_a_boundary_and_an_alias_leading_elsewhere_is_uncert
     reference.write_text(
         "area_m2 = 11.5\nchord_m = 1.5\nspan_m = 20.0\n"
         '[aliases]\nA = ["Wing"]\nWing = ["Tail"]\n'
-        '[rotors.R]\nalias = "R"\naxis = "Z"\ndiameter_m = 2.0\n'
+        + tail_alias
+        + '[rotors.R]\nalias = "R"\naxis = "Z"\ndiameter_m = 2.0\n'
         'families_blades = ["Wing"]\n'
     )
     spec = workspace.resolve_pproc("p001")
@@ -1130,22 +1133,26 @@ def test_ad_a_member_that_is_a_boundary_and_an_alias_leading_elsewhere_is_uncert
         assert "ambiguous" in manifest["skipped"].get(f"{key}#integration", ""), manifest["skipped"]
 
 
-def test_ad_two_recorded_blades_on_a_common_frame_integrate_uniquely(tmp_path, monkeypatch):
+@pytest.mark.parametrize("frame", ["MRP", "X_RMRP"])
+def test_ad_two_recorded_blades_on_a_common_frame_integrate_uniquely(tmp_path, monkeypatch, frame):
     """Blade1 and Blade2 entries on a COMMON frame, both recorded there, both integrating.
 
     They share a stem, and the stem rule made each a possible owner of the
     other's block, losing both integrations as ambiguous. A name a common
     block attests is the geometry's own spelling and reads the same over the
     geometry and the maximal inventory, so each entry owns its block alone.
+    A literal common frame spelt like a rotor's (`X_RMRP`, no rotor X) is a
+    common frame too: classifying it by name alone lost both integrations
+    again (QA read of f211ec2).
     """
     workspace = _case(tmp_path, monkeypatch, blocks=[(0, 1), (0, 1)])
     record = workspace.read_manifest()[0]
     for k, block in enumerate(record.sections_layout, 1):
-        block.update(distribution=k, distribution_families=f"Blade{k}", frame="MRP")
+        block.update(distribution=k, distribution_families=f"Blade{k}", frame=frame)
     spec = workspace.resolve_pproc("p001")
     entry = spec.sections.distributions[0]
     spec.sections.distributions = [
-        entry.model_copy(update={"families": f"Blade{k}", "frame": "MRP", "integrate": True})
+        entry.model_copy(update={"families": f"Blade{k}", "frame": frame, "integrate": True})
         for k in (1, 2)
     ]
     write_campaign_products(workspace)

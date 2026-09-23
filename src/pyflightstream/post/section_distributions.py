@@ -215,10 +215,11 @@ def _matching_distributions(
     # spelling of its families, which the geometry may carry under another
     # case. A name attested here reads the same over the geometry and over
     # the maximal inventory; one attested only by a rotor's block may not.
+    layout_established = _established_aliases(record.sections_layout or [], literal)
     attested = {
         str(f)
         for b in record.sections_layout or []
-        if _rotor_frame(str(b.get("frame", ""))) is None
+        if _rotor_group(str(b.get("frame", "")), literal, layout_established)[1] == "common"
         for f in cast(list[str], b["families"])
     }
     # RunRecord has an inventory source, but no complete boundary inventory.
