@@ -4103,6 +4103,7 @@ def write_unsteady_polar(
     equation_order: Sequence[str] | None = None,
     equation_notes: list[str] | None = None,
     frozen: Mapping[str, FrozenSolve] | None = None,
+    contributor_path: Callable[[Sequence[str]], Path] | None = None,
 ) -> Path | None:
     """Write the POLAR of one unsteady simulation from the PLOTS history (item 17).
 
@@ -4174,6 +4175,9 @@ def write_unsteady_polar(
     Returns None when no point yields a row, which is an ordinary campaign -- an
     unsteady simulation whose points exported no plots -- and never a refusal
     that would cost the simulation its other products.
+
+    ``contributor_path``, when supplied, chooses the destination from the names
+    of the points that actually yield rows, before the table is written.
     """
     path = Path(path)
     columns: list[str] = []
@@ -4189,6 +4193,7 @@ def write_unsteady_polar(
     # round had fixed the two readers disagreeing about the RULE and left them
     # disagreeing about the REPORT.
     left_out = [] if left_out is None else left_out
+    contributors: list[str] = []
     for point, condition in zip(points, conditions, strict=True):
         name = str(getattr(point, "name", ""))
         name_of_point = name  # `name` is reused for the plot columns below
@@ -4257,14 +4262,17 @@ def write_unsteady_polar(
             if column is not None and len(column):
                 values[name] = float(column[0])
         if not values:
-            left_out.append(f"{name}: its plots table states no numeric plot column")
+            left_out.append(f"{name_of_point}: its plots table states no numeric plot column")
             continue
         for name in values:
             if name not in columns:
                 columns.append(name)
         rows.append((condition, values, point_window, dict((setup or {}).get(name_of_point, {}))))
+        contributors.append(name_of_point)
     if not rows:
         return None
+    if contributor_path is not None:
+        path = contributor_path(contributors)
     plot_columns = list(columns)
     axis_columns = _the_axes_of_the_unsteady_rows(rows, reference, notes, axes_groups or ())
     # ITEM 5 REACHES THIS PRODUCT TOO: a coefficient states nothing without the
@@ -4794,7 +4802,7 @@ def _sim_products(
     written_names: dict[str, dict[str, object]] = {}
     #: One entry per group: where its superfile goes and the polar rows it
     #: carries, in the point order of `points` (FR-89).
-    super_rows: dict[str, tuple[Path, list[tuple[object, ...]]]] = {}
+    super_rows: dict[str, tuple[Path, list[tuple[object, ...]], list[PolarPoint]]] = {}
     #: The plots table written for each point, read back for the superfile.
     plots_tables: dict[str, Path] = {}
 
@@ -4836,6 +4844,12 @@ def _sim_products(
             "(CLI: --workspace), then post"
         )
     table_name = str(recorded[0].sweep_name) if swept else str(recorded[0].point_name)
+
+    def contributor_name(contributors: Sequence[PolarPoint]) -> str:
+        varies = swept_axes([point.point or {} for point in contributors])
+        record = record_of[contributors[0].name]
+        return str(record.sweep_name if varies else record.point_name)
+
     # FR-89: the SUPERFILE is about the sweep the ROW DECLARES, which is the one
     # place its name differs from the polar table's beside it: a row declaring
     # a one-value sweep still names it `+sweep`. With no matrix row in reach it
@@ -4894,7 +4908,36 @@ def _sim_products(
                 skipped[f"{POLARS_DIR}/{sim_id}"] = str(clash)
         positions = {name: index for index, name in enumerate(groups, start=1)}
         for group, families in () if unsteady_window_steps is not None else groups.items():
-            relative = f"{POLARS_DIR}/{swept_polar_file_name(sim_id, name=table_name, group=group)}"
+            group_points: list[PolarPoint] = []
+            group_conditions: list[Mapping[str, object]] = []
+            rows: list[tuple[float, ...]] = []
+            absent: dict[str, str] = {}
+            for point, condition in zip(points, conditions, strict=True):
+                if families and not select_group_members(
+                    list(families), list(point.loads.surfaces), aliases
+                ):
+                    absent[point.name] = (
+                        f"point {point.name}: group {group!r} selects no surface of its loads "
+                        "export; no polar row is written. Check the alias against the "
+                        "reference's [aliases] table and recollect the complete loads export."
+                    )
+                    continue
+                try:
+                    point_rows = _polar_rows(
+                        [point], list(families), mach=mach, reference=reference, aliases=aliases
+                    )
+                except ProductError as error:
+                    skipped[f"runs/{record_of[point.name].run_id}"] = (
+                        f"point {point.name}: {error}. Recollect this point's loads in the "
+                        "geometry analysis frame with its Reynolds number to settle it."
+                    )
+                    continue
+                group_points.append(point)
+                group_conditions.append(condition)
+                rows.extend(point_rows)
+            group_name = contributor_name(group_points) if group_points else table_name
+            relative = f"{POLARS_DIR}/{swept_polar_file_name(sim_id, name=group_name, group=group)}"
+            skipped.update({f"{relative}#{name}": reason for name, reason in absent.items()})
             if families and not any(
                 select_group_members(list(families), list(point.loads.surfaces), aliases)
                 for point in points
@@ -4910,9 +4953,9 @@ def _sim_products(
                     "written. Check the alias against the reference's [aliases] table."
                 )
                 continue
-            rows = _polar_rows(
-                points, list(families), mach=mach, reference=reference, aliases=aliases
-            )
+            if not group_points:
+                continue
+            group_runs = [rid for point in group_points for rid in sources[point.name]]
             target = _target(out / relative)
             # ONE ASSEMBLY. The rows the polar table is written from are the
             # rows the superfile carries, so they are built once here and
@@ -4923,23 +4966,30 @@ def _sim_products(
                 group=str(group),
                 reference=reference,
                 rows=rows,
-                conditions=conditions,
+                conditions=group_conditions,
             )
             write_csv_table(target, POLAR_COLUMNS, full)
             if drafts is not None:
                 super_rows[str(group)] = (
-                    out / POLARS_DIR / super_file_name(sim_id, sweep=super_name, group=group),
+                    out
+                    / POLARS_DIR
+                    / super_file_name(
+                        sim_id,
+                        sweep=super_name if matrix_row is not None else group_name,
+                        group=group,
+                    ),
                     full,
+                    group_points,
                 )
             written.append(target)
-            written_names[target.relative_to(out).as_posix()] = {"runs": run_ids}
+            written_names[target.relative_to(out).as_posix()] = {"runs": group_runs}
             if products.custom_polar_format:
                 # PFS-2014.01.01: the same rows, a second time, in the
                 # format the existing tooling opens, beside the table.
                 target = _target(
                     out
                     / POLARS_DIR
-                    / swept_polar_file_name(sim_id, name=table_name, group=group, suffix=".dat")
+                    / swept_polar_file_name(sim_id, name=group_name, group=group, suffix=".dat")
                 )
                 write_custom_polar_format(
                     target,
@@ -4961,7 +5011,7 @@ def _sim_products(
                     ),
                 )
                 written.append(target)
-                written_names[target.relative_to(out).as_posix()] = {"runs": run_ids}
+                written_names[target.relative_to(out).as_posix()] = {"runs": group_runs}
 
     for point in points:
         sloads_path, plots_path, probes_path = exports[point.name]
@@ -5310,6 +5360,13 @@ def _sim_products(
         name_notes: list[str] = []
         equation_notes: list[str] = []
         unsteady_name = unsteady_polar_file_name(sim_id, name=table_name)
+
+        def unsteady_destination(names: Sequence[str]) -> Path:
+            nonlocal unsteady_name
+            contributing = [point for point in points if point.name in names]
+            unsteady_name = unsteady_polar_file_name(sim_id, name=contributor_name(contributing))
+            return _target(out / POLARS_DIR / unsteady_name)
+
         # THE FILE 0.23.0 WROTE UNDER THE OLD NAME IS ARCHIVED, NOT LEFT BESIDE THIS
         # ONE. A rebuild moves what it is about to replace, and it replaces by
         # PATH: a product whose name changed would otherwise stay in the folder,
@@ -5318,7 +5375,7 @@ def _sim_products(
         if former.is_file():
             _target(former)
         done = write_unsteady_polar(
-            _target(out / POLARS_DIR / unsteady_name),
+            out / POLARS_DIR / unsteady_name,
             points=points,
             plots=plots_tables,
             window=unsteady_window_steps,
@@ -5346,6 +5403,7 @@ def _sim_products(
             equation_notes=equation_notes,
             names=getattr(pproc, "names", None) or None,
             name_notes=name_notes,
+            contributor_path=unsteady_destination,
         )
         # THE DICTIONARY, like the two blocks above: what was not applied is SAID.
         if name_notes and done is not None:
@@ -5409,9 +5467,9 @@ def _sim_products(
             step = plots_last_row(table_rows)
             if step is not None:
                 last_step[name] = step
-        for group, (path, full) in super_rows.items():
+        for group, (path, full, group_points) in super_rows.items():
             wide: list[dict[str, str]] = []
-            for point, polar_values in zip(points, full, strict=True):
+            for point, polar_values in zip(group_points, full, strict=True):
                 run_id = (sources.get(point.name) or [""])[0]
                 wide.append(
                     superfile_row(
@@ -5462,7 +5520,7 @@ def _sim_products(
                         # loop has run (PFS-2031.04 reads `sim_id`).
                         "sim_id": sim_id,
                         "pproc": pproc_id,
-                        "runs": [(sources.get(p.name) or [""])[0] for p in points],
+                        "runs": [(sources.get(p.name) or [""])[0] for p in group_points],
                         "group": group,
                     },
                 )
