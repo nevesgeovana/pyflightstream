@@ -12,7 +12,8 @@ from typing import cast
 
 from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning
 from pyflightstream._tokens import INTEGRATED_SECTION_COLUMNS
-from pyflightstream.cases import PprocSpec, select_families
+from pyflightstream.cases import PprocSpec, RotorBlock, SimCase, select_families
+from pyflightstream.cases.workflows import _pproc_emissions
 from pyflightstream.fsi.loads import parse_sectional_loads
 from pyflightstream.post._tables import (
     CONTEXT_COLUMNS,
@@ -113,6 +114,7 @@ def _matching_distributions(
     pproc: PprocSpec,
     block: Mapping[str, object],
     aliases: Mapping[str, Sequence[str]] | None = None,
+    rotors: Mapping[str, RotorBlock] | None = None,
 ) -> list[int]:
     """Match current entries to recorded geometry, never to mutable positions."""
     inventory = list(
@@ -122,13 +124,47 @@ def _matching_distributions(
     )
     matches = []
     for k, entry in enumerate(pproc.sections.distributions, 1):
+        families = cast(list[str], block["families"])
+        if rotors:
+            # Use the export builder's grouping and rotor vocabulary, including
+            # aliases of rotor names and one emission per blade in LOCAL_AXIS.
+            case = SimCase.model_construct(
+                sim_id=record.sim_id,
+                aliases=dict(record.aliases if aliases is None else aliases),
+                rotors=dict(rotors),
+                pproc=pproc,
+            )
+            frames = {str(b.get("frame", "")): 1 for b in record.sections_layout or []}
+            try:
+                emissions = _pproc_emissions(
+                    case,
+                    entry.frame,
+                    entry.families,
+                    inventory,
+                    pproc.is_blade,
+                    f"section distribution {k}",
+                    frames,
+                    blades_only=True,
+                )
+            except PyflightstreamError:
+                # An invalid current selector cannot cost recorded raw columns.
+                emissions = []
+            if (
+                any(
+                    frame == block.get("frame", "") and set(families) == set(members or inventory)
+                    for frame, members, _ in emissions
+                )
+                and block.get("plane") in entry.planes
+                and block["count"] == (entry.count or pproc.sections.count)
+            ):
+                matches.append(k)
+            continue
         expanded_families = select_families(
             entry.families,
             inventory,
             pproc.is_blade,
             record.aliases if aliases is None else aliases,
         )
-        families = cast(list[str], block["families"])
         expanded = {
             "LOCAL_AXIS": r".+_RMRP[1-9][0-9]*",
             "RMRP": r".+_RMRP",
@@ -141,7 +177,7 @@ def _matching_distributions(
         )
         if (
             families
-            and any(set(families) <= set(members or inventory) for members in expanded_families)
+            and any(set(families) == set(members or inventory) for members in expanded_families)
             and block.get("plane") in entry.planes
             and block["count"] == (entry.count or pproc.sections.count)
             and frame_matches
@@ -155,6 +191,7 @@ def _integration_requests(
     pproc: PprocSpec | None,
     layout: list[dict[str, object]],
     aliases: Mapping[str, Sequence[str]] | None = None,
+    rotors: Mapping[str, RotorBlock] | None = None,
 ) -> tuple[set[int], dict[int, str]]:
     """Bind integration to recorded owners; a doubtful block keeps its file raw."""
     requested: set[int] = set()
@@ -164,7 +201,7 @@ def _integration_requests(
         return requested, errors
     for number, block in enumerate(layout, 1):
         owner = cast(int, block["distribution"])
-        matches = _matching_distributions(record, pproc, block, aliases)
+        matches = _matching_distributions(record, pproc, block, aliases, rotors)
         if len(matches) != 1:
             reason = "ambiguous" if matches else "missing"
             errors[owner] = (
@@ -213,6 +250,7 @@ def write_section_distributions(
     pproc: PprocSpec | None = None,
     current_pproc: PprocSpec | None = None,
     current_aliases: Mapping[str, Sequence[str]] | None = None,
+    current_rotors: Mapping[str, RotorBlock] | None = None,
     integration_error: str | None = None,
     condition: Mapping[str, object] | None = None,
     reference: Mapping[str, object] | None = None,
@@ -254,6 +292,8 @@ def write_section_distributions(
     current_aliases : Mapping[str, Sequence[str]] or None, optional
         Live reference aliases for integration selections. Recorded aliases remain
         the fallback when no live reference is available and own legacy layouts.
+    current_rotors : Mapping[str, RotorBlock] or None, optional
+        Live rotor definitions for the export builder's family and frame expansion.
     integration_error : str or None, optional
         Unresolved effective specification; retain raw files and name integration skips.
     condition : Mapping[str, object] or None, optional
@@ -313,7 +353,7 @@ def write_section_distributions(
         return [], {}
     names = _file_names(selections)
     integrate, matching_errors = _integration_requests(
-        record, current_pproc or pproc, layout, current_aliases
+        record, current_pproc or pproc, layout, current_aliases, current_rotors
     )
     if integration_error is not None:
         integrate = set()

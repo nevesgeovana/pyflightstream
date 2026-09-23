@@ -106,6 +106,13 @@ header, and the reductions read every column of it back as a plotted quantity.
 
 ## The axes of a steady polar
 
+The polar's filename uses the first record that contributes a row: its recorded
+point name when the admitted points do not vary, or its recorded sweep name when
+they do. Skipped records never supply that name. A rebuild writes the current
+numbers under the contributors' name and retires any previous table of that
+simulation that is no longer produced, naming the old file in `products.json`
+and `post.log`. Retirement follows the rebuild's archive policy.
+
 The loads export states ONE force and ONE moment per surface, in the
 geometry's own frame: **x aft, y right, z up**. Every axis column of a steady
 polar row is that pair, summed over the group's surfaces and turned.
@@ -240,7 +247,11 @@ integration for that file to gain integrated columns.
 The effective matrix pproc supplies integration requests only; legacy ownership
 still resolves through the recorded pproc. Section selectors, including `each`,
 use the same expansion as the export builder, resolving current aliases through
-the live reference to the recorded boundary families. If the effective pproc cannot be
+the live reference to the recorded boundary families, including rotor names and
+aliases of rotor names. An expanded emission's family set must equal the recorded
+block's set. In a common frame, `["Wing", "Tail"]` describes one combined block,
+so it cannot integrate separate recorded Wing and Tail blocks; both keep their
+raw columns with a named warning. If the effective pproc cannot be
 resolved, complete recorded layouts and available stamped exports still supply
 their histories. Integration and products needing that specification are named
 skips in `products.json` and `post.log`.

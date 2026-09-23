@@ -159,7 +159,17 @@ def test_q_malformed_repost_retires_run_products(tmp_path, monkeypatch, archive,
     assert "series/AL-020_sections_series.csv" in manifest["products"]
     retired = before.keys() - manifest["products"].keys()
     assert "probes/AL-020_plots.csv" in retired
-    assert any(key.startswith("polars/") for key in retired) is not survivor
+    # SINCE THE SECOND INDEPENDENT READING the polar is named from the records
+    # that contribute rows: with a survivor its table is the survivor's own
+    # name and the one named for the failed point is stale and retired by name;
+    # without a survivor the simulation's polar is simply gone.
+    if survivor:
+        assert any(key.startswith("polars/") and "AL-030" in key for key in manifest["products"]), (
+            manifest["products"]
+        )
+        assert any(key.startswith("polars/") and "AL-020" in key for key in retired), retired
+    else:
+        assert any(key.startswith("polars/") for key in retired), retired
     for key in retired:
         path = out / key
         assert not path.exists(), f"stale product remains current: {key}"
