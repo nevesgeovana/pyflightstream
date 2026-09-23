@@ -25,9 +25,11 @@ FlightStream versions.
 
 ### Removed
 
-- `write_sections_table(iteration=)`: use `step=`. The old keyword raises TypeError.
+- `write_sections_table(iteration=)`: use `step=`. The old keyword raises
+  `ProductArgumentError` naming `step=`.
 - `run.assess_unsteady_from_plots`: use `LoadsAssessor` for campaign assessment
   of native loads and solver residuals. Analyze history settling separately.
+  Importing the removed name raises ImportError with those repair instructions.
 - Row key `WINDOW_STEPS`: write `LAST_ITERS_AVG` with the same count.
 - Row key `WINDOW_REVOLUTIONS`: write `LAST_REVS_AVG` with the same count.
 - Row key `WINDOW_DEGREES`: divide the value by 360 and write `LAST_REVS_AVG`.
@@ -65,6 +67,9 @@ FlightStream versions.
 
 ### Fixed
 
+- Section integration follows a uniquely matching current pproc entry by
+  families, plane, frame and count, preserving recorded block ownership after
+  entries are reordered. Ambiguous matches warn and retain raw columns.
 - A terminal residual block cut before the `Iteration` anchor is unread.
   Page-less repeated markers for the same step retain their residual evidence
   and do not create false unread steps (RPT-055).

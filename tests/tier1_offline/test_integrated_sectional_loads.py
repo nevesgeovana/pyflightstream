@@ -25,7 +25,7 @@ OFFSETS = (0.0, 0.2, 0.7, 1.0)
 
 
 def _spec(option=None, *, validate=True):
-    entry = {"families": "Blade1", "planes": ["XZ"], "count": 4}
+    entry = {"families": "Blade1", "frame": "LOCAL_AXIS", "planes": ["XZ"], "count": 4}
     data = {
         "sections": {"distributions": [entry]},
         "products": {"sections": True},
@@ -60,6 +60,15 @@ def _case(tmp_path, monkeypatch, *, option=True, blocks=None, stamped=False, val
             "frame": f"ROTOR_RMRP{k}",
             "count": len(offsets),
         }
+        for k, offsets in enumerate(blocks, 1)
+    ]
+    # Match the synthetic blocks explicitly, including variable counts used
+    # to exercise strip failures. Recorded ownership still groups one file.
+    entry = spec.sections.distributions[0]
+    spec.sections.distributions = [
+        entry.model_copy(
+            update={"families": f"Blade{k}", "frame": "LOCAL_AXIS", "count": len(offsets)}
+        )
         for k, offsets in enumerate(blocks, 1)
     ]
     record.density_kg_m3 = 2.0 / (30.0**2 * 11.5)  # q S = 1 N
@@ -204,3 +213,65 @@ def test_descending_offsets_tile_the_same_interval(tmp_path, monkeypatch):
     _, columns, rows = _table(_case(tmp_path, monkeypatch, blocks=[tuple(reversed(OFFSETS))]))
     assert "Strip_length" in columns, "descending monotonic stations were not integrated"
     assert [float(r["Strip_length"]) for r in rows] == pytest.approx([0.15, 0.4, 0.35, 0.1])
+
+
+def _reordered_case(tmp_path, monkeypatch, *, legacy=False, ambiguous=False):
+    workspace = _case(tmp_path, monkeypatch, blocks=[OFFSETS, OFFSETS])
+    record = workspace.read_manifest()[0]
+    for position, (block, family) in enumerate(
+        zip(record.sections_layout, ("Wing", "Blade1"), strict=True), 1
+    ):
+        block.update(
+            distribution=position, distribution_families=family, families=[family], frame="MRP"
+        )
+        if legacy:
+            del block["distribution"]
+            del block["distribution_families"]
+    blade = {"families": "Blade1", "planes": ["XZ"], "count": 4, "integrate": True}
+    wing = {"families": "Wing", "planes": ["XZ"], "count": 4}
+    entries = [blade, wing]
+    if ambiguous:
+        record.aliases["blade_alias"] = ["Blade1"]
+        entries.append({**blade, "families": "blade_alias", "integrate": False})
+    spec = PprocSpec.model_validate({"sections": {"distributions": entries}})
+    monkeypatch.setattr(CampaignWorkspace, "resolve_pproc", lambda self, key: spec)
+    return workspace
+
+
+@pytest.mark.parametrize("legacy", [False, True])
+def test_reordered_pproc_integrates_recorded_blade(tmp_path, monkeypatch, legacy):
+    """Record Wing then Blade, then post Blade then Wing with only Blade opted in."""
+    out, manifest = _post(_reordered_case(tmp_path, monkeypatch, legacy=legacy))
+    blade_path = "sections/AL-020_sloads_Blade1.csv"
+    blade_columns, blade = read_csv_table(out / blade_path)
+    wing_columns, wing = read_csv_table(out / "sections/AL-020_sloads_Wing.csv")
+    assert tuple(blade_columns[-4:]) == EXTRA, "recorded Blade block lost its integration request"
+    assert tuple(wing_columns[-7:]) == BASE, "recorded Wing inherited Blade's integration request"
+    assert {r["FAMILY"] for r in blade} == {"Blade1"}
+    assert {r["FAMILY"] for r in wing} == {"Wing"}
+    assert sum(float(r["Fx_int"]) for r in blade) == pytest.approx(3.5, abs=2e-5)
+    assert manifest["products"][blade_path]["distribution"] == (1 if legacy else 2)
+
+
+def test_ambiguous_integration_warns_and_keeps_recorded_block_plain(tmp_path, monkeypatch):
+    workspace = _reordered_case(tmp_path, monkeypatch, ambiguous=True)
+    out, manifest = _post(workspace)
+    relative = "sections/AL-020_sloads_Blade1.csv"
+    columns, rows = read_csv_table(out / relative)
+    assert tuple(columns[-7:]) == BASE
+    assert len(rows) == 4
+    log = (out / "post.log").read_text()
+    assert relative in log and "ambiguous" in log, "ambiguous integration needs a named warning"
+    assert "ambiguous" in manifest["skipped"].get(f"{relative}#integration", "")
+
+
+@pytest.mark.parametrize("difference", [{"planes": ["XY"]}, {"frame": "other"}, {"count": 3}])
+def test_integration_match_uses_plane_frame_and_count(tmp_path, monkeypatch, difference):
+    workspace = _reordered_case(tmp_path, monkeypatch, ambiguous=True)
+    spec = workspace.resolve_pproc("p001")
+    spec.sections.distributions[-1] = spec.sections.distributions[-1].model_copy(update=difference)
+    out, manifest = _post(workspace)
+    relative = "sections/AL-020_sloads_Blade1.csv"
+    columns, _ = read_csv_table(out / relative)
+    assert tuple(columns[-4:]) == EXTRA
+    assert f"{relative}#integration" not in manifest["skipped"]

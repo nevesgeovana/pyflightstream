@@ -12,14 +12,22 @@ Replace `write_sections_table(path, text, mach=0.1, iteration=144)` with:
 write_sections_table(path, text, mach=0.1, step=144)
 ```
 
-`iteration=` is absent from the signature and raises TypeError, including when
-its value is `None` or it appears beside `step=`. The solver's stamped export
-filenames still use `_iteration=N`; those names do not change.
+`iteration=` remains only to raise `ProductArgumentError` (a TypeError), including
+when its value is `None` or it appears beside `step=`. The refusal is:
+
+> write_sections_table(iteration=) was removed in 0.26.0; use step= instead.
+
+The solver's stamped export filenames still use `_iteration=N`; those names do
+not change.
 
 ## 2. Campaign assessment uses `LoadsAssessor`
 
 The standalone `assess_unsteady_from_plots` function has been deleted from
-`pyflightstream.run`; importing it raises ImportError. For campaign assessment:
+`pyflightstream.run`; importing it raises ImportError with this refusal:
+
+> assess_unsteady_from_plots was removed in 0.26.0; use LoadsAssessor for campaign assessment; history settling is the user's own analysis.
+
+For campaign assessment:
 
 ```python
 from pyflightstream.run import LoadsAssessor

@@ -2564,12 +2564,16 @@ def _altitude_ft(text: str) -> float | None:
         return None
 
 
+_ITERATION_UNSET = object()
+
+
 def write_sections_table(
     path: str | Path,
     export_text: str,
     *,
     mach: float,
     step: int | None = None,
+    iteration: object = _ITERATION_UNSET,
     unsteady: bool = False,
     azimuth_deg: float | None = None,
     reference: ReferenceValues | None = None,
@@ -2613,7 +2617,8 @@ def write_sections_table(
     the file name (v0.23.0 item 13). A run with no rotor states no azimuth and
     the cell reads `NA`, which is not zero: zero is a real azimuth.
 
-    Since 0.26.0, write ``step=``; ``iteration=`` is an unknown keyword.
+    Since 0.26.0, write ``step=``; passing ``iteration=`` raises
+    :class:`ProductArgumentError` naming that replacement, even for ``None``.
 
     On a steady export, an omitted ``step`` is read from the header.
     With ``unsteady=True`` the header counts inner iterations, so the caller
@@ -2636,6 +2641,10 @@ def write_sections_table(
     otherwise make, and a run's reference is recorded beside its outputs
     rather than inside this export.
     """
+    if iteration is not _ITERATION_UNSET:
+        raise ProductArgumentError(
+            "write_sections_table(iteration=) was removed in 0.26.0; use step= instead."
+        )
     # A run that defined no distribution leaves an export declaring zero
     # sections, which the parser refuses as impossible for a real table;
     # here it is the ordinary case of a steady polar and means no product.

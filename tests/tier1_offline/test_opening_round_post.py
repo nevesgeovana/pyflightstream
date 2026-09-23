@@ -106,7 +106,8 @@ def test_integration_follows_matrix_pproc_and_keeps_recorded_identity(tmp_path, 
     record.matrix_stem = "products"
     original_layout = record.sections_layout.copy()
     specs = {"p001": _spec(False), "p002": _spec(True)}
-    # The current label cannot rename the distribution recorded by the run.
+    # A resolved current alias cannot rename the distribution recorded by the run.
+    record.aliases["new_alias"] = ["Blade1"]
     specs["p002"].sections.distributions[0].families = "new_alias"
     monkeypatch.setattr(CampaignWorkspace, "resolve_pproc", lambda self, key: specs[key])
     matrix = workspace.root / "products.fs"
