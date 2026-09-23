@@ -107,11 +107,20 @@ header, and the reductions read every column of it back as a plotted quantity.
 ## The axes of a steady polar
 
 The polar's filename uses the first record that contributes a row: its recorded
-point name when the admitted points do not vary, or its recorded sweep name when
+point name when the contributing points do not vary, or its recorded sweep name when
 they do. Skipped records never supply that name. A rebuild writes the current
 numbers under the contributors' name and retires any previous table of that
 simulation that is no longer produced, naming the old file in `products.json`
 and `post.log`. Retirement follows the rebuild's archive policy.
+
+A point whose loads export selects no surface of a polar group contributes no
+row to that group's table. Its skip is recorded under the table's key with a
+`#<point>` suffix, and `post.log` names the point, group and the alias or export
+evidence needed to settle it. Conditions, superfile rows and run provenance use
+the same contributing points. An unassignable analysis frame is a named run
+skip for that point's polar row; it cannot suppress another point's products.
+The unsteady polar follows the same naming rule using only points whose plots
+history actually contributes an averaged row, rather than every readable load.
 
 The loads export states ONE force and ONE moment per surface, in the
 geometry's own frame: **x aft, y right, z up**. Every axis column of a steady
@@ -249,7 +258,14 @@ still resolves through the recorded pproc. Section selectors, including `each`,
 use the same expansion as the export builder, resolving current aliases through
 the live reference to the recorded boundary families, including rotor names and
 aliases of rotor names. An expanded emission's family set must equal the recorded
-block's set. In a common frame, `["Wing", "Tail"]` describes one combined block,
+block's set. The inventory includes the live reference's rotor families and
+the pproc's cited families, resolved through aliases, even when those families
+have no sectional block. `RunRecord` carries no complete geometry inventory;
+layout silence never proves a family absent. A whole-geometry selector whose
+membership is unknown cannot establish an integration match and keeps raw
+columns with a named skip. `each` and `each_blade` still identify one known
+family per block without claiming a complete inventory.
+In a common frame, `["Wing", "Tail"]` describes one combined block,
 so it cannot integrate separate recorded Wing and Tail blocks; both keep their
 raw columns with a named warning. Where no rotor definition reaches the match
 (a legacy layout, or a reference without rotors), the recorded frame names

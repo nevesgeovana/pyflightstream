@@ -189,8 +189,45 @@ def _matching_distributions(
             str(f) for b in record.sections_layout or [] for f in cast(list[str], b["families"])
         )
     )
+    # RunRecord has an inventory source, but no complete boundary inventory.
+    # A layout lists exported cuts only. Keep every explicitly cited family in
+    # the candidate inventory so selection cannot erase an unrecorded member.
+    known_aliases = record.aliases if aliases is None else aliases
+    rotor_members = {
+        name: [*rotor.families_general, *rotor.families_blades]
+        for name, rotor in (rotors or {}).items()
+    }
+    vocabulary = {name.casefold(): members for name, members in known_aliases.items()}
+    vocabulary.update({name.casefold(): members for name, members in rotor_members.items()})
+
+    def cited(word: str, visiting: frozenset[str] = frozenset()) -> bool:
+        folded = word.casefold()
+        if folded in visiting:
+            return any(f.casefold() == folded for f in inventory)
+        if folded in vocabulary:
+            return all([cited(member, visiting | {folded}) for member in vocabulary[folded]])
+        if word in ("all", "blades", "airframe"):
+            # These need the geometry's whole inventory, which the record does
+            # not carry. Neither the cuts nor a rotor list proves completeness.
+            return False
+        if word in ("each", "each_blade"):
+            # Each emitted block is one known family, regardless of siblings.
+            return True
+        if not any(f.casefold() == folded for f in inventory):
+            inventory.append(word)
+        return True
+
+    for members in rotor_members.values():
+        for member in members:
+            cited(member)
+    knowable = []
+    for entry in pproc.sections.distributions:
+        words = [entry.families] if isinstance(entry.families, str) else entry.families
+        knowable.append(all([cited(word) for word in words]))
     matches = []
     for k, entry in enumerate(pproc.sections.distributions, 1):
+        if not knowable[k - 1]:
+            continue
         families = cast(list[str], block["families"])
         if rotors:
             # Use the export builder's grouping and rotor vocabulary, including

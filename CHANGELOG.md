@@ -79,8 +79,7 @@ samples it reads, and no compatibility promise waits past this release.
 - The reducer states its exact plotted sample set using its resolved families.
   The freeze guard no longer reconstructs azimuthal samples. Every nonzero
   interpolation weight counts, including weights near 5e-11 (RPT-057).
-- The development version is `0.26.0.dev0`. See
-  [Migrating to 0.26.0](docs/migrating-to-0.26.0.md) for each replacement.
+- See [Migrating to 0.26.0](docs/migrating-to-0.26.0.md) for each replacement.
 - Recorded manifest key `broken_commands` is read silently as `waived_commands`
   for as long as such manifests exist. It is plain compatibility, with no
   removal countdown; recorded manifests are never rewritten. Re-measured on
@@ -106,7 +105,12 @@ samples it reads, and no compatibility promise waits past this release.
   frame names carry: the block is exactly the selected families recorded in its
   frame, the rest of the selection is recorded in sibling frames, a per-blade
   block is one blade; two blocks in one rotor frame are never one entry's, and
-  a common frame still requires the whole selection.
+  a common frame still requires the whole selection. The third independent
+  reading adds per-point skips for polar groups selecting no surface, isolates
+  an unassignable analysis frame to its own point, includes families absent
+  from sectional layouts in integration matching, and names unsteady polars
+  from the points whose histories actually contribute rows. The released
+  section no longer states a development version.
 - Legacy sectional and Cp ownership uses the recorded pproc, while the effective
   pproc selects integration, including `families = "each"`. An unresolved pproc
   preserves histories supported by recorded layouts and names integration skips.
