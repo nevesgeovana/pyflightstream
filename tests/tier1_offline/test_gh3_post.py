@@ -1084,9 +1084,17 @@ def test_ad_a_name_whose_stem_another_spelling_shares_is_uncertain_on_a_common_f
         assert "ambiguous" in manifest["skipped"].get(f"{key}#integration", ""), manifest["skipped"]
 
 
-@pytest.mark.parametrize("tail_alias", ["", 'Tail = ["Tail"]\n'])
+@pytest.mark.parametrize(
+    "alias_table",
+    [
+        'A = ["Wing"]\nWing = ["Tail"]\n',
+        'A = ["Wing"]\nWing = ["Tail"]\nTail = ["Tail"]\n',
+        'A = ["Wing"]\nWing = ["WING"]\nWING = ["Tail"]\n',
+    ],
+    ids=["chain", "self-alias", "case-distinct"],
+)
 def test_ad_a_member_that_is_a_boundary_and_an_alias_leading_elsewhere_is_uncertain(
-    tmp_path, monkeypatch, tail_alias
+    tmp_path, monkeypatch, alias_table
 ):
     """A = [Wing], Wing = [Tail]; rotor R declares Wing (recorded so); the cuts hold Tail.
 
@@ -1095,7 +1103,10 @@ def test_ad_a_member_that_is_a_boundary_and_an_alias_leading_elsewhere_is_uncert
     inventory, which carries the rotor's `Wing`, it stops at the boundary.
     The A entry read as certain, was dropped, and the Tail entry's flag went
     to both common-frame blocks. It is a possible owner: both ambiguous.
-    The same with the self-alias `Tail = ["Tail"]` beside it (QA read of f211ec2).
+    The same with the self-alias `Tail = ["Tail"]` beside it (QA read of
+    f211ec2), and the same through a case-distinct alias, `Wing = ["WING"]`
+    with `WING = ["Tail"]`, which the builder reads as two aliases and a
+    case-folded reading took for the word itself (seventeenth reading).
     """
     workspace = _case(tmp_path, monkeypatch, blocks=[(0, 1), (0, 1), (0, 1)])
     record = workspace.read_manifest()[0]
@@ -1110,9 +1121,7 @@ def test_ad_a_member_that_is_a_boundary_and_an_alias_leading_elsewhere_is_uncert
     reference.parent.mkdir(parents=True, exist_ok=True)
     reference.write_text(
         "area_m2 = 11.5\nchord_m = 1.5\nspan_m = 20.0\n"
-        '[aliases]\nA = ["Wing"]\nWing = ["Tail"]\n'
-        + tail_alias
-        + '[rotors.R]\nalias = "R"\naxis = "Z"\ndiameter_m = 2.0\n'
+        "[aliases]\n" + alias_table + '[rotors.R]\nalias = "R"\naxis = "Z"\ndiameter_m = 2.0\n'
         'families_blades = ["Wing"]\n'
     )
     spec = workspace.resolve_pproc("p001")

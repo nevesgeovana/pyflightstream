@@ -247,16 +247,23 @@ def _matching_distributions(
         return next((name for name in vocabulary if name.casefold() == word.casefold()), None)
 
     def leads_elsewhere(word: str) -> bool:
-        """Whether an alias spelt like this word has any member but the word's own case variants.
+        """Whether an alias spelt like this word has any member but the word itself.
 
         No recursion: a member that is an alias of its own (`Tail = ["Tail"]`)
         is read by the builder as the family, which is a place the cuts cannot
-        settle, so any member that is not the word itself leads elsewhere.
+        settle, so any member that is not the word itself leads elsewhere. A
+        member is the word itself when it is a case variant of it that names
+        no OTHER alias: two aliases that differ in case only are two aliases
+        to the builder, so `Wing = ["WING"]` beside `WING = [...]` leads to
+        WING and not back to Wing.
         """
         key = alias_key(word)
         if key is None:
             return False
-        return any(member.casefold() != word.casefold() for member in vocabulary[key])
+        return any(
+            member.casefold() != word.casefold() or alias_key(member) not in (None, key)
+            for member in vocabulary[key]
+        )
 
     # WHAT THE READER MET while it read one entry's selection: a word that
     # leaves membership UNCERTAIN (a selector word, a name the cuts do not
