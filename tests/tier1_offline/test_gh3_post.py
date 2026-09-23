@@ -1199,3 +1199,48 @@ def test_ad_a_nested_member_recorded_by_a_rotor_block_is_uncertain(tmp_path, mon
         assert not set(EXTRA) & set(columns), f"{name} integrated through a falsely unique match"
         assert len(rows) == 2
         assert "ambiguous" in manifest["skipped"].get(f"{key}#integration", ""), manifest["skipped"]
+
+
+def test_ad_a_nested_self_alias_still_leads_elsewhere(tmp_path, monkeypatch):
+    """A = [B], B = [Tail], Tail = [Tail]; rotor R declares B (recorded); the cuts hold Tail.
+
+    The builder reads `Tail = ["Tail"]` as the family, not a ring, so over the
+    geometry `A` reaches Tail through B while over the maximal inventory it
+    stops at the rotor's B. A reader that walked the alias chain with a seen
+    set dropped Tail as visited and read B as leading nowhere else; the A
+    entry was read as certain and the Tail entry's flag went to both blocks.
+    Both blocks ambiguous, refused by name.
+    """
+    workspace = _case(tmp_path, monkeypatch, blocks=[(0, 1), (0, 1), (0, 1)])
+    record = workspace.read_manifest()[0]
+    layout = (("A", ["Tail"], "MRP"), ("Tail", ["Tail"], "MRP"), ("R", ["B"], "R_RMRP1"))
+    for k, (block, (name, held, frame)) in enumerate(
+        zip(record.sections_layout, layout, strict=True), 1
+    ):
+        block.update(distribution=k, distribution_families=name, families=held, frame=frame)
+    record.matrix_stem = "products"
+    _matrix(workspace)
+    reference = workspace.inputs_dir / "references/r001.toml"
+    reference.parent.mkdir(parents=True, exist_ok=True)
+    reference.write_text(
+        "area_m2 = 11.5\nchord_m = 1.5\nspan_m = 20.0\n"
+        '[aliases]\nA = ["B"]\nB = ["Tail"]\nTail = ["Tail"]\n'
+        '[rotors.R]\nalias = "R"\naxis = "Z"\ndiameter_m = 2.0\n'
+        'families_blades = ["B"]\n'
+    )
+    spec = workspace.resolve_pproc("p001")
+    entry = spec.sections.distributions[0]
+    spec.sections.distributions = [
+        entry.model_copy(update={"families": "A", "frame": "MRP", "integrate": False}),
+        entry.model_copy(update={"families": "Tail", "frame": "MRP", "integrate": True}),
+        entry.model_copy(update={"families": "R", "frame": "LOCAL_AXIS", "integrate": False}),
+    ]
+    write_campaign_products(workspace, matrix_stem="products")
+    manifest = _products_manifest(workspace)
+    out = workspace.products_dir("products")
+    for name in ("A", "Tail"):
+        key = f"sections/AL-020_sloads_{name}.csv"
+        columns, rows = read_csv_table(out / key)
+        assert not set(EXTRA) & set(columns), f"{name} integrated through a falsely unique match"
+        assert len(rows) == 2
+        assert "ambiguous" in manifest["skipped"].get(f"{key}#integration", ""), manifest["skipped"]
