@@ -22,8 +22,14 @@ def test_concurrent_log_limit_is_registered_and_linked():
     text = path.read_text(encoding="utf-8")
     assert "**Status:** REGISTERED for 0.27.0" in text
     assert "## What was measured" in text and "## Why it is not fixed here" in text
-    for name in ("docs/post-processing-definitions.md", "CHANGELOG.md"):
-        assert report in (ROOT / name).read_text(encoding="utf-8")
+    # THE PAGE NAMES THE REPORT BY ID, `reports/RPT-058`, as it names every
+    # report: a link to the reports tree is refused by the strict docs build
+    # (the docs workflow on the v0.26.0 release commit). The CHANGELOG, which
+    # is not built, may carry the file link.
+    assert "reports/RPT-058" in (ROOT / "docs/post-processing-definitions.md").read_text(
+        encoding="utf-8"
+    )
+    assert report in (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
 
 
 @pytest.mark.parametrize(

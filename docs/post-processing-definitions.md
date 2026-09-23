@@ -761,8 +761,7 @@ would settle the issue. Every named manifest skip and every
 archives the previous log with the same timestamp as its products. An
 interrupted post keeps its header and the warnings collected before it stopped.
 Warning capture is process-wide, so concurrent posts in threads can put a warning
-in another campaign's log; post one campaign per process until
-[RPT-058](../reports/RPT-058_post-log-captures-warnings-process-wide_2026-09-23.md)
+in another campaign's log; post one campaign per process until `reports/RPT-058`
 is resolved.
 
 A frozen solve, an unread native-log block, a reference mismatch, or a failed
