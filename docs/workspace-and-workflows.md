@@ -2774,6 +2774,19 @@ by surface and section by section, over the exported window. The series
 rest on the stamped files and the record alone, so a simulation whose
 polar the stage refuses keeps them.
 
+### Keeping a Linux run local
+
+Linux is the cluster: a workspace that carries a submission profile submits
+from Linux and runs locally on Windows, and no cell says so. When the Linux
+machine is a workstation, or the point is a smoke test on the machine itself,
+`pyfs-matrix run --local` keeps the run on that machine: the cluster is not
+asked, the executable resolves as on Windows (the `FS_BUILD` column through
+`inputs/executables.toml`, or `--fs-exe`), the outputs land in the simulation
+folder as for any local run, and every record's `executor` entry says
+`forced_local`. The flag changes nothing on a machine that would not have
+submitted, and `collect` is not needed afterwards: a local point runs to its
+end before its record is written.
+
 ### The build is an input
 
 A workflow declares the commands it always emits, and the builds it

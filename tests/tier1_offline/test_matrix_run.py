@@ -4527,6 +4527,72 @@ def _with_hpc_profile(tmp_path, text=HPC_PROFILE):
     return tmp_path / "inputs"
 
 
+def test_a_local_flag_keeps_a_profiled_cluster_run_on_this_machine(monkeypatch, tmp_path):
+    """`pyfs-matrix run --local` (0.27.0): the cluster is not asked, and every record says so.
+
+    A Linux machine with a profile submits (FR-99). Asked to stay local, the
+    run never consults the cluster seam, builds the local executor the way
+    Windows does, and each point's executor entry carries ``forced_local``.
+    """
+    from pyflightstream.run import matrix as matrix_module
+
+    workspace, matrix = _steady_sweep_matrix(tmp_path)
+    directory = workspace.inputs_dir / "hpc"
+    directory.mkdir(parents=True, exist_ok=True)
+    (directory / "h001.toml").write_text(HPC_PROFILE, encoding="utf-8")
+    monkeypatch.setattr(matrix_module, "on_a_cluster", lambda: True)
+
+    def never(*args, **kwargs):
+        raise AssertionError("the cluster seam was consulted under --local")
+
+    monkeypatch.setattr(matrix_module, "_cluster_executor", never)
+    built = {}
+
+    def local_executor(fs_exe, hidden=True, forced_local=False):
+        built["forced_local"] = forced_local
+        stub = StubSolver(WRITES_EVERY_EXPORT)
+        stub.forced_local = forced_local
+        return stub
+
+    monkeypatch.setattr(matrix_module, "LocalExecutor", local_executor)
+    records = run_matrix(
+        matrix,
+        workspace,
+        name="cluster",
+        default_fs_version="26.120",
+        recipes=RECIPES,
+        recipe_registry=workflow_registry(),
+        assess=converged,
+        local=True,
+    )
+    assert built == {"forced_local": True}
+    assert records and all(
+        r.executor is not None and r.executor.get("forced_local") is True for r in records
+    )
+    assert all(r.executor["class_name"] == "StubSolver" for r in records)
+
+
+def test_a_local_flag_beside_a_submitting_executor_is_refused(tmp_path):
+    """The two say opposite things about the same run, so neither wins silently."""
+    from pyflightstream.run import ExecutorConfigurationError, SubmittingExecutor
+    from pyflightstream.workspace.inputs import read_hpc_profile
+
+    workspace, matrix = _steady_sweep_matrix(tmp_path)
+    profile = read_hpc_profile(_with_hpc_profile(tmp_path) / "hpc" / "h001.toml")
+    with pytest.raises(ExecutorConfigurationError, match="local=True"):
+        run_matrix(
+            matrix,
+            workspace,
+            name="cluster",
+            default_fs_version="26.120",
+            recipes=RECIPES,
+            recipe_registry=workflow_registry(),
+            assess=converged,
+            executor=SubmittingExecutor(profile, values={"fs_build": "26.120"}, submit=False),
+            local=True,
+        )
+
+
 def test_goal019_hpc_the_profile_is_resolved_by_platform_and_not_by_a_cell(tmp_path):
     """Her decision of 2026-09-12: the code sees Linux and that is the cluster.
 

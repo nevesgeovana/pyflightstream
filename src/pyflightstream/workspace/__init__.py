@@ -68,7 +68,7 @@ from pathlib import Path
 # below 3.12, and this import branched on the interpreter while the floor
 # was 3.11. The floor follows SPEC 0 since 0.13.0 (PFS-2024.07) and is
 # 3.12, so the branch went with the leg.
-from typing import TypedDict
+from typing import NotRequired, TypedDict
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
@@ -433,11 +433,15 @@ class ExecutorRecord(TypedDict):
     row's own ``argv`` and travels here as well so the entry is one
     self-contained fact a report can be built from. Both keys are
     required: the entry is written whole or, on a point where no solver
-    ran, not at all, and the row says ``None``.
+    ran, not at all, and the row says ``None``. ``forced_local`` is
+    present, and true, only on a point that ``pyfs-matrix run --local``
+    kept on a machine that would otherwise have submitted (0.27.0); a
+    record written before it, or by a run that did not ask, has no key.
     """
 
     class_name: str
     argv: list[str]
+    forced_local: NotRequired[bool]
 
 
 class BrokenCommandRecord(TypedDict, total=False):

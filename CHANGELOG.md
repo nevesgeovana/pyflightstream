@@ -7,6 +7,16 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Added
+
+- **`pyfs-matrix run --local` keeps a run on this machine.** Linux is the
+  cluster (FR-99): a workspace carrying a submission profile submits from
+  Linux and runs locally on Windows, with no cell to remember. The flag keeps
+  a Linux run local, for a workstation or a smoke test on the machine itself;
+  the executable resolves as on Windows and every record's executor entry
+  says `forced_local`. It changes nothing on a machine that would not have
+  submitted, and it is refused beside a submitting executor given in code.
+
 ### Owed
 
 - **The Zenodo archive of v0.14.0 DOES NOT EXIST**, re-measured against

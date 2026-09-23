@@ -171,6 +171,28 @@ def test_plan_with_cost_tables_every_point_it_planned(tmp_path, monkeypatch, cap
     assert out.count("/a") >= 4 or out.count("ready") >= 1
 
 
+def test_run_local_reaches_the_library(tmp_path, monkeypatch):
+    """`--local` is the command line's word for `run_matrix(local=True)`; nothing else moves."""
+    import pyflightstream.run.cli as cli
+
+    (tmp_path / "matrix_cli_recipes.py").write_text(RECIPE_MODULE, encoding="utf-8")
+    monkeypatch.syspath_prepend(str(tmp_path))
+    workspace = make_planned_workspace(tmp_path)
+    assert main(plan_args(workspace, "matrix_cli_recipes:build")) == 0
+    seen = {}
+
+    def capture(path, workspace, **kwargs):
+        seen.update(kwargs)
+        return []
+
+    monkeypatch.setattr(cli, "run_matrix", capture)
+    main(["run", *plan_args(workspace, "matrix_cli_recipes:build")[1:], "--local"])
+    assert seen.get("local") is True
+    seen.clear()
+    main(["run", *plan_args(workspace, "matrix_cli_recipes:build")[1:]])
+    assert seen.get("local") is False
+
+
 def test_plan_without_cost_prints_no_table(tmp_path, monkeypatch, capsys):
     """The flag is what asks for it; a plan that did not ask gets the summary."""
     (tmp_path / "matrix_cli_recipes.py").write_text(RECIPE_MODULE, encoding="utf-8")

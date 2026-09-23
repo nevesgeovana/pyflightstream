@@ -484,6 +484,17 @@ def _build_parser() -> argparse.ArgumentParser:
         "of it under another name)",
     )
     run.add_argument(
+        "--local",
+        action="store_true",
+        help="run every point on THIS machine instead of submitting it. Linux is the "
+        "cluster (FR-99): a workspace carrying a submission profile submits from Linux "
+        "and runs locally on Windows, with no cell to remember. This flag keeps a Linux "
+        "run local, for a workstation or a smoke test on the machine itself; the "
+        "executable resolves as on Windows (the FS_BUILD column through "
+        "inputs/executables.toml, or --fs-exe) and every record's executor entry says "
+        "forced_local. It changes nothing on a machine that would not have submitted",
+    )
+    run.add_argument(
         "--accept-unregistered-build",
         dest="accept_unregistered_build",
         action="store_true",
@@ -1272,6 +1283,7 @@ def _cmd_run(args: argparse.Namespace, recipes: dict[str, str]) -> int:
             force_rerun=args.force_rerun,
             ignore_missing_families=_the_missing_family_choice(args),
             accept_unregistered_build=args.accept_unregistered_build,
+            local=args.local,
             # THE CHOSEN PATH GOES TO THE ONE WRITER. The library leaves the
             # table on its own, so choosing a path here and writing it below
             # left TWO: the default one from the library and the chosen one

@@ -489,7 +489,12 @@ def invocation_record(executor: Executor, result: ExecutionResult) -> ExecutorRe
         The class name and the argv, in the shape the run manifest and
         the evidence reports carry.
     """
-    return {"class_name": type(executor).__name__, "argv": list(result.argv)}
+    record: ExecutorRecord = {"class_name": type(executor).__name__, "argv": list(result.argv)}
+    # READ OFF THE EXECUTOR, like the class name: a local run that was asked
+    # for on a machine that would have submitted says so on every point.
+    if getattr(executor, "forced_local", False):
+        record["forced_local"] = True
+    return record
 
 
 def describe_invocation(
@@ -1003,11 +1008,17 @@ class LocalExecutor:
         batch mode that writes ``FlightStreamLog.txt`` on abnormal
         termination (SRC-003 p.280). Disable only for local debugging
         with the interface visible.
+    forced_local : bool
+        Whether a caller asked for this machine when the platform would
+        have submitted (``pyfs-matrix run --local``, 0.27.0). Recorded on
+        every point's executor entry; it changes nothing about how the
+        solver is called.
     """
 
-    def __init__(self, fs_exe: str | Path, hidden: bool = True):
+    def __init__(self, fs_exe: str | Path, hidden: bool = True, forced_local: bool = False):
         self.fs_exe = Path(fs_exe)
         self.hidden = hidden
+        self.forced_local = forced_local
         if not self.fs_exe.is_file():
             raise ExecutorConfigurationError(
                 f"FlightStream executable not found at {self.fs_exe}. The path is "

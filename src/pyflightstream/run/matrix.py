@@ -37,6 +37,7 @@ from pyflightstream.cases.matrix import (
 from pyflightstream.run import (
     CampaignPlan,
     Executor,
+    ExecutorConfigurationError,
     LocalExecutor,
     OutcomeAssessor,
     SolverBuild,
@@ -499,6 +500,7 @@ def run_matrix(
     ignore_missing_families: bool = True,
     accept_unregistered_build: bool = False,
     sweep_csv: str | Path | None = None,
+    local: bool = False,
 ) -> list[RunRecord]:
     """Read a run matrix and run it: the one-call first-class entry.
 
@@ -569,6 +571,12 @@ def run_matrix(
         place; forwarded to :func:`pyflightstream.run.run_campaign`, which
         writes ONE table either way. The command line spells it
         ``--sweep-csv``.
+    local : bool
+        Keep the run on this machine (0.27.0): the cluster is not asked,
+        so a Linux box carrying a submission profile runs the solver
+        itself, as Windows does, and every point's executor entry says
+        ``forced_local``. Refused beside a submitting ``executor``. The
+        command line spells it ``--local``.
     hidden : bool or None
         Windowless solver runs, forwarded to the default executor only
         and ignored when ``executor`` is given. The default is None,
@@ -695,8 +703,20 @@ def run_matrix(
         # ran it locally on the login node -- the exact failure
         # `on_a_cluster`'s own comment says it exists to prevent. All five
         # lenses found it independently (2026-09-13).
-        submitting = _cluster_executor(workspace, resolved)
-        executor = submitting or LocalExecutor(resolved.fs_exe, hidden=hidden)
+        #
+        # `local=True` (the command line's --local, 0.27.0) KEEPS THE RUN ON
+        # THIS MACHINE: the cluster is not asked, so a Linux box that carries
+        # a profile runs the solver itself, the way Windows does. The choice
+        # is recorded on every point's executor entry as `forced_local`, so a
+        # record never has to be read against the platform to know why a
+        # profiled workspace ran without a queue.
+        submitting = None if local else _cluster_executor(workspace, resolved)
+        executor = submitting or LocalExecutor(resolved.fs_exe, hidden=hidden, forced_local=local)
+    if local and isinstance(executor, SubmittingExecutor):
+        raise ExecutorConfigurationError(
+            "local=True keeps the run on this machine, and the executor given is a "
+            "submitting one; drop one of the two"
+        )
     _refuse_an_unmapped_build(executor, resolved)
     windowless = bool(hidden)
 
@@ -723,7 +743,7 @@ def run_matrix(
             return supplied
         if isinstance(executor, SubmittingExecutor):
             return executor
-        return LocalExecutor(exe, hidden=windowless)
+        return LocalExecutor(exe, hidden=windowless, forced_local=local)
 
     # AFTER the executor exists, because a `SolverBuild` names one, and
     # after the pre-flight above, which is planned from the resolved

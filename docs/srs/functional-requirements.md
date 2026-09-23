@@ -3867,6 +3867,14 @@ requirement below is one seam of that division.
     one job over all its points, submits from the simulation folder, and a
     local point still runs there.
 
+    THE FLAG THAT KEEPS A LINUX RUN LOCAL (0.27.0). `pyfs-matrix run --local`
+    does not ask the cluster: a Linux machine carrying a profile runs the
+    solver itself, the way Windows does, with the executable resolved as on
+    Windows, and every point's executor entry says `forced_local`, so a
+    profiled workspace that ran without a queue never has to be read against
+    the platform. It changes nothing where nothing would have submitted.
+    Evidence: tests/tier1_offline/test_matrix_run.py, the two `local` tests.
+
     A LINUX MACHINE WITH NO PROFILE RUNS LOCALLY. Not every Linux box is a
     cluster, and a study that never wrote a profile is saying it does not
     submit.
