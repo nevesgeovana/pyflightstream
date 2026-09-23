@@ -880,3 +880,53 @@ def test_ad_a_bare_selector_word_is_uncertain_not_refused(tmp_path, monkeypatch)
         assert not set(EXTRA) & set(columns), f"{name} integrated through a falsely unique match"
         assert len(rows) == 2
         assert "ambiguous" in manifest["skipped"].get(f"{key}#integration", ""), manifest["skipped"]
+
+
+@pytest.mark.parametrize("alias", [["R"], ["Wing"]])
+def test_ad_a_rotor_name_keeps_its_expanding_meaning_under_any_alias(tmp_path, monkeypatch, alias):
+    """Rotor R declares Blade1 (and Blade2); the alias R = [R] or R = [Wing]; cuts hold Blade1.
+
+    On RMRP the builder reads the top-level rotor name as the whole rotor and
+    emits a Blade1 block for `families = "R"`, beside the literal entry over
+    Blade1 that emits the same block. A self-referencing alias returned
+    unmarked and a rotor name shadowed by an alias of a recorded cut read as
+    certain, so entry 1 was dropped and entry 2's flag went to both blocks.
+    The builder's own reading over the maximal inventory keeps entry 1 a
+    possible owner: both blocks ambiguous and refused by name.
+    """
+    workspace = _case(tmp_path, monkeypatch, blocks=[(0, 1), (0, 1), (0, 1)])
+    record = workspace.read_manifest()[0]
+    frames = ("R_RMRP", "R_RMRP", "MRP")
+    names = ("R", "Blade1", "Wing")
+    families = (["Blade1"], ["Blade1"], ["Wing"])
+    for k, (block, frame, name, held) in enumerate(
+        zip(record.sections_layout, frames, names, families, strict=True), 1
+    ):
+        block.update(distribution=k, distribution_families=name, families=held, frame=frame)
+    record.matrix_stem = "products"
+    _matrix(workspace)
+    reference = workspace.inputs_dir / "references/r001.toml"
+    reference.parent.mkdir(parents=True, exist_ok=True)
+    members = ", ".join(f'"{m}"' for m in alias)
+    reference.write_text(
+        "area_m2 = 11.5\nchord_m = 1.5\nspan_m = 20.0\n"
+        f"[aliases]\nR = [{members}]\n"
+        '[rotors.R]\nalias = "R"\naxis = "Z"\ndiameter_m = 2.0\n'
+        'families_blades = ["Blade1", "Blade2"]\n'
+    )
+    spec = workspace.resolve_pproc("p001")
+    entry = spec.sections.distributions[0]
+    spec.sections.distributions = [
+        entry.model_copy(update={"families": "R", "frame": "RMRP", "integrate": False}),
+        entry.model_copy(update={"families": "Blade1", "frame": "R_RMRP", "integrate": True}),
+        entry.model_copy(update={"families": "Wing", "frame": "MRP", "integrate": False}),
+    ]
+    write_campaign_products(workspace, matrix_stem="products")
+    manifest = _products_manifest(workspace)
+    out = workspace.products_dir("products")
+    for name in ("R", "Blade1"):
+        key = f"sections/AL-020_sloads_{name}.csv"
+        columns, rows = read_csv_table(out / key)
+        assert not set(EXTRA) & set(columns), f"{name} integrated through a falsely unique match"
+        assert len(rows) == 2
+        assert "ambiguous" in manifest["skipped"].get(f"{key}#integration", ""), manifest["skipped"]

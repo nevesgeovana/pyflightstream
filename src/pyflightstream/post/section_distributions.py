@@ -501,12 +501,40 @@ def _matching_distributions(
             return False
         if uncertain[k - 1]:
             return True
+        # THE BUILDER'S OWN READING, over the MAXIMAL inventory: the recorded
+        # names, the declared rotor families and every name any entry cited.
+        # The geometry the cuts came from is a subset of it, so the builder's
+        # emission over it contains the block the builder emitted over the
+        # geometry, same frame; nothing of the matcher's own is read here.
+        # Where the builder cannot say (no rotor definition on an expanding
+        # frame, or a raise) the entry is possible on frame, plane and count.
+        case = SimCase.model_construct(
+            sim_id=record.sim_id,
+            aliases=dict(known_aliases),
+            rotors=dict(rotors or {}),
+            pproc=pproc,
+        )
+        frames = {str(b.get("frame", "")): 1 for b in record.sections_layout or []}
         try:
-            groups = select_families(entry.families, inventory, pproc.is_blade, vocabulary)
+            emissions = pproc_emissions(
+                case,
+                entry.frame,
+                entry.families,
+                inventory,
+                pproc.is_blade,
+                f"section distribution {k}",
+                frames,
+                blades_only=True,
+            )
         except PyflightstreamError:
-            return False
+            return True
+        if not emissions:
+            return kind_re is not None and not rotors
         held = set(cast(list[str], block["families"]))
-        return any(held <= set(members or inventory) for members in groups)
+        return any(
+            emitted == frame and held <= set(members or inventory)
+            for emitted, members, _ in emissions
+        )
 
     if ownership:
         # OWNERSHIP OF A LEGACY LAYOUT reads the recorded pproc over its own
