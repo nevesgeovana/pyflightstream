@@ -79,10 +79,8 @@ from pathlib import Path
 from typing import Protocol, runtime_checkable
 
 import pyflightstream
-from pyflightstream._deprecations import ASSESS_UNSTEADY_FROM_PLOTS
 from pyflightstream._digest import file_sha256, optional_file_sha256, text_sha256
 from pyflightstream._errors import (
-    PyflightstreamDeprecationWarning,
     PyflightstreamError,
     PyflightstreamWarning,
 )
@@ -6106,66 +6104,3 @@ def export_surface_mesh(
             f"check the simulation file and the log excerpt: {log_excerpt!r}"
         )
     return mesh_path
-
-
-def assess_unsteady_from_plots(
-    series: object,
-    *,
-    settle_tolerance: float | None = None,
-    window: tuple[int, int] | None = None,
-) -> str:
-    """Assess a supplied history's finiteness and optional fractional drift.
-
-    Deprecated since 0.25.0; removed in 0.26.0. Campaign assessment uses
-    :class:`LoadsAssessor` to judge native loads and solver residuals. History
-    settling is a separate user judgement and this helper has no campaign caller.
-
-    With no ``settle_tolerance``, finite histories return COMPLETED_MAX_ITER.
-    When supplied, the tolerance compares the last two halves of ``window``
-    (or the full history). Empty histories and empty windows raise ValueError.
-    Existing return values remain available during the deprecation period.
-    """
-    warnings.warn(
-        ASSESS_UNSTEADY_FROM_PLOTS.message(), PyflightstreamDeprecationWarning, stacklevel=2
-    )
-    import numpy as _np
-
-    columns = [values for values in series.fields.values()]
-    if not columns or not len(series.steps):
-        raise ValueError(
-            "the plots history holds no step, so nothing about this run can be judged "
-            "from it; that is a missing measurement rather than a passing one"
-        )
-    stacked = _np.concatenate(
-        [_np.asarray(values, dtype=float).reshape(len(series.steps), -1) for values in columns],
-        axis=1,
-    )
-    if not _np.isfinite(stacked).all():
-        return "FAILED_DIVERGED"
-    if settle_tolerance is None:
-        return "COMPLETED_MAX_ITER"
-    # THE WINDOW COMES FROM THE CALLER, which resolves it from the matrix row
-    # through `cases.windows.averaging_span` (the LAST revolutions or iterations
-    # the row states), and this function does not derive one. Judging settledness over
-    # the WHOLE history compares the transient against the answer and calls a
-    # perfectly converged run unsettled -- which is what the first writing of
-    # this did, and the fixture that caught it was a history whose first step
-    # was five times its last.
-    if window is not None:
-        first, last = int(window[0]), int(window[1])
-        steps = _np.asarray(series.steps, dtype=int)
-        inside = (steps >= first) & (steps <= last)
-        if not inside.any():
-            raise ValueError(
-                f"the window {window} names no step this history holds, which runs from "
-                f"{int(steps[0])} to {int(steps[-1])}"
-            )
-        stacked = stacked[inside]
-    half = max(1, len(stacked) // 2)
-    early = _np.mean(stacked[-2 * half : -half], axis=0) if len(stacked) >= 2 * half else None
-    late = _np.mean(stacked[-half:], axis=0)
-    if early is None:
-        return "COMPLETED_MAX_ITER"
-    scale = _np.maximum(_np.abs(late), 1e-12)
-    drift = _np.max(_np.abs(late - early) / scale)
-    return "CONVERGED" if drift <= settle_tolerance else "COMPLETED_MAX_ITER"

@@ -93,18 +93,15 @@ from collections import Counter as Counter
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
-from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 import numpy as np
 from numpy.typing import NDArray
 
-from pyflightstream._deprecations import WRITE_SECTIONS_ITERATION
 from pyflightstream._digest import file_sha256 as file_sha256
 from pyflightstream._errors import (
     ProductArgumentError,
-    PyflightstreamDeprecationWarning,
     PyflightstreamError,
     PyflightstreamWarning,
 )
@@ -2571,17 +2568,12 @@ def _altitude_ft(text: str) -> float | None:
         return None
 
 
-class _UnspecifiedStep(Enum):
-    VALUE = "unspecified"
-
-
 def write_sections_table(
     path: str | Path,
     export_text: str,
     *,
     mach: float,
-    step: int | None | _UnspecifiedStep = _UnspecifiedStep.VALUE,
-    iteration: int | None | _UnspecifiedStep = _UnspecifiedStep.VALUE,
+    step: int | None = None,
     unsteady: bool = False,
     azimuth_deg: float | None = None,
     reference: ReferenceValues | None = None,
@@ -2625,8 +2617,7 @@ def write_sections_table(
     the file name (v0.23.0 item 13). A run with no rotor states no azimuth and
     the cell reads `NA`, which is not zero: zero is a real azimuth.
 
-    ``iteration=`` is a deprecated alias for ``step=`` until 0.26.0. Passing
-    both keywords is refused, including when either value is None.
+    Since 0.26.0, write ``step=``; ``iteration=`` is an unknown keyword.
 
     On a steady export, an omitted ``step`` is read from the header.
     With ``unsteady=True`` the header counts inner iterations, so the caller
@@ -2649,17 +2640,6 @@ def write_sections_table(
     otherwise make, and a run's reference is recorded beside its outputs
     rather than inside this export.
     """
-    if iteration is not _UnspecifiedStep.VALUE:
-        if step is not _UnspecifiedStep.VALUE:
-            raise ProductArgumentError(
-                "write_sections_table: pass only step= or iteration=, not both"
-            )
-        warnings.warn(
-            WRITE_SECTIONS_ITERATION.message(), PyflightstreamDeprecationWarning, stacklevel=2
-        )
-        step = iteration
-    if isinstance(step, _UnspecifiedStep):
-        step = None
     # A run that defined no distribution leaves an export declaring zero
     # sections, which the parser refuses as impossible for a real table;
     # here it is the ordinary case of a steady polar and means no product.

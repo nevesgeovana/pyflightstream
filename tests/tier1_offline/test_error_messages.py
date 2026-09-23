@@ -193,7 +193,7 @@ def test_an_unlettered_setup_id_names_the_setup_letter(tmp_path):
 def test_an_unlettered_pproc_id_names_the_kind_letter(tmp_path):
     workspace = CampaignWorkspace.init(tmp_path / "camp")
     (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
-        '[groups]\nwing = ["wing_left"]\n', encoding="utf-8"
+        '[groups]\nwing = "wing_left"\n', encoding="utf-8"
     )
     with pytest.raises(
         InputArtifactError,

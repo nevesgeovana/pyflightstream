@@ -30,9 +30,9 @@
 # would show.
 
 [groups]
-"1" = ["airframe", "rotors"]
-"2" = ["airframe"]
-"3" = ["rotors"]
+"1" = "selection_p006_1"
+"2" = "airframe"
+"3" = "rotors"
 
 [exports]
 

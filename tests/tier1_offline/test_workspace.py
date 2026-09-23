@@ -628,35 +628,25 @@ def test_setup_preset_keeps_the_raw_table_verbatim(tmp_path):
     }
 
 
-def test_groups_map_names_to_labels_or_indices(tmp_path):
+def test_group_member_lists_are_refused_at_load(tmp_path):
+    """Since 0.26.0 a former member list is refused with its one-alias edit."""
     workspace = library(tmp_path)
     (workspace.inputs_dir / "pproc" / "paircraft.toml").write_text(
-        '[groups]\nwing = ["wing_left", "wing_right"]\ntail = [3, 4]\n', encoding="utf-8"
+        '[groups]\nwing = ["wing_left", "wing_right"]\n', encoding="utf-8"
     )
-    groups = workspace.resolve_pproc("paircraft")
-    assert groups.groups["wing"] == ["wing_left", "wing_right"]
-    assert groups.groups["tail"] == [3, 4]
+    with pytest.raises(InputArtifactError, match='wing = "<alias>"'):
+        workspace.resolve_pproc("paircraft")
 
 
-def test_an_empty_group_means_every_family(tmp_path):
-    """The author's decision of 2026-09-09 (PFS-2005.02): a group written empty is every
-    family the geometry carries. Until 0.14.0 the reader refused it as the
-    domain seat's undecided call; now the reader and the model both accept it,
-    and the recipe tool ``expand_group``, which numbers members by position,
-    refuses it naming the meaning, since every family has no positions to number.
-    """
-    from pyflightstream.workspace import expand_group
-
+def test_an_empty_group_is_refused_use_all(tmp_path):
+    """The empty list no longer binds; all expresses the whole selection."""
     workspace = library(tmp_path)
-    (workspace.inputs_dir / "pproc" / "pall.toml").write_text(
-        '[groups]\n"1" = []\n', encoding="utf-8"
-    )
-    artifact = workspace.resolve_pproc("pall")
-    assert artifact.groups == {"1": []}
-    assert PprocArtifact(groups={"1": []}).groups == {"1": []}
-    with pytest.raises(InputArtifactError, match="every family") as refused:
-        expand_group(artifact, "1", "pall")
-    assert "position" in str(refused.value), str(refused.value)
+    path = workspace.inputs_dir / "pproc" / "pall.toml"
+    path.write_text('[groups]\n"1" = []\n', encoding="utf-8")
+    with pytest.raises(InputArtifactError, match='1 = "all"'):
+        workspace.resolve_pproc("pall")
+    path.write_text('[groups]\n"1" = "all"\n', encoding="utf-8")
+    assert workspace.resolve_pproc("pall").groups == {"1": ["all"]}
 
 
 def test_a_geometry_resolves_by_file_name_and_a_profile_by_stem(tmp_path):
@@ -1275,8 +1265,8 @@ def test_open_carries_the_naming_template_it_was_given(tmp_path):
 
 
 GROUPS_TOML = """\
-Blade = [7, 3, 5]
-wing = ["wing_left", "wing_right"]
+Blade = "Blade1"
+wing = "wing_left"
 """
 
 
@@ -1288,21 +1278,17 @@ def _groups_library(tmp_path) -> CampaignWorkspace:
     return workspace
 
 
-def test_expanding_a_group_numbers_its_members_from_one(tmp_path):
-    """Blade with three members is Blade1, Blade2, Blade3, in DECLARED order.
-
-    The members are deliberately not in ascending order, so a sort
-    slipped into the expansion is measured rather than invisible.
-    """
+def test_expanding_a_group_numbers_its_alias_from_one(tmp_path):
+    """Since 0.26.0 the input names one alias, resolved against the inventory."""
     workspace = _groups_library(tmp_path)
-    assert workspace.expand_group("pprop", "Blade") == {"Blade1": 7, "Blade2": 3, "Blade3": 5}
+    assert workspace.expand_group("pprop", "Blade", boundaries={"Blade1": 7}) == {"Blade1": 7}
 
 
 def test_expanding_the_same_group_twice_gives_the_same_names(tmp_path):
     """A study is reproducible from its inputs: re-resolution is identical."""
     workspace = _groups_library(tmp_path)
-    first = workspace.expand_group("pprop", "Blade")
-    second = workspace.expand_group("pprop", "Blade")
+    first = workspace.expand_group("pprop", "Blade", boundaries={"Blade1": 7})
+    second = workspace.expand_group("pprop", "Blade", boundaries={"Blade1": 7})
     assert first == second
     assert list(first) == list(second), "the order is the members' order, not a set's"
 
@@ -1355,7 +1341,7 @@ def test_a_group_written_in_names_expands_against_the_geometrys_inventory(tmp_pa
     expanded = workspace.expand_group(
         "pprop", "wing", boundaries={"wing_left": 4, "wing_right": 6, "body": 1}
     )
-    assert expanded == {"wing1": 4, "wing2": 6}
+    assert expanded == {"wing1": 4}
 
     # TWO INVENTORIES, AND THE SAME GROUP MUST MOVE BETWEEN THEM. One
     # inventory alone is satisfied by a mapping hard-coded to it, which
@@ -1365,7 +1351,7 @@ def test_a_group_written_in_names_expands_against_the_geometrys_inventory(tmp_pa
     elsewhere = workspace.expand_group(
         "pprop", "wing", boundaries={"wing_left": 2, "wing_right": 7, "body": 5}
     )
-    assert elsewhere == {"wing1": 2, "wing2": 7}
+    assert elsewhere == {"wing1": 2}
     assert elsewhere != expanded, (
         "the same group resolved to the same indices against two different "
         "inventories, so it is not resolving against the inventory at all"
@@ -1387,10 +1373,10 @@ def test_a_named_member_the_geometry_lacks_is_refused_naming_what_it_has(tmp_pat
 
 def test_the_module_level_expansion_takes_the_artifact_and_its_id():
     """The artifact carries no id of its own, so the caller passes it."""
-    from pyflightstream.workspace import PprocArtifact, expand_group
+    from pyflightstream.workspace import expand_group
 
-    artifact = PprocArtifact(groups={"Blade": [3, 5, 7]})
-    assert expand_group(artifact, "Blade", "pprop") == {"Blade1": 3, "Blade2": 5, "Blade3": 7}
+    artifact = PprocArtifact(groups={"Blade": "Blade1"})
+    assert expand_group(artifact, "Blade", "pprop", boundaries={"Blade1": 3}) == {"Blade1": 3}
 
 
 # --- PFS-2025.15: ARP and ERP are named points the user writes once ---------
@@ -1848,7 +1834,7 @@ def _pre_letter_workspace(tmp_path):
     bodies = {
         "references": ("003", "area_m2 = 10.0\nchord_m = 1.2\nspan_m = 8.0\n"),
         "setups": ("002", "iterations = 800\nconvergence = 1e-6\n"),
-        "pproc": ("001", '[groups]\nwing = ["wing_left"]\n'),
+        "pproc": ("001", '[groups]\nwing = "wing_left"\n'),
     }
     for subdir, (stem, body) in bodies.items():
         (workspace.inputs_dir / subdir / f"{stem}.toml").write_text(body, encoding="utf-8")
@@ -2212,7 +2198,7 @@ def test_the_override_bypasses_the_registry_and_declares_no_version(tmp_path):
 
 SIX_TABLES = """\
 [groups]
-"1" = ["W", "B"]
+"1" = "all"
 
 [exports]
 tecplot = false
@@ -2249,7 +2235,7 @@ def test_the_pproc_artifact_validates_its_six_tables(tmp_path):
     workspace = library(tmp_path)
     (workspace.inputs_dir / "pproc" / "p010.toml").write_text(SIX_TABLES, encoding="utf-8")
     pproc = workspace.resolve_pproc("p010")
-    assert pproc.groups == {"1": ["W", "B"]}
+    assert pproc.groups == {"1": ["all"]}
     assert pproc.outputs(unsteady=False) == [
         "{name}.fsm",
         "{name}.txt",
@@ -2794,44 +2780,22 @@ def test_a_run_record_names_waived_commands():
     assert "broken_commands" not in row
 
 
-def test_an_old_manifest_key_still_reads_and_its_promise_carries_an_exit_condition():
-    """The promise that has now moved TWICE, and what ends it.
+def test_an_old_manifest_key_still_reads_silently_without_a_countdown():
+    """Recorded manifests stay readable; since 0.26.0 this is plain compatibility."""
+    import warnings
 
-    A manifest is the one surface this package cannot regenerate. Every
-    other name the 0.13.0 rename touched lives in code a user re-types;
-    a record is data a run produced once. The first move, on 2026-09-10,
-    came from the suite going red on the tier-3 fixture and the reading
-    that followed: the author's own recorded campaign at
-    `pfs0110/runs.json` carries the OLD key, and that workspace is the
-    reference her reproduction is measured against and is held.
-
-    THE MOVES OF 2026-09-11 carry the condition that ends it,
-    because a promise moved twice with no condition is a promise that
-    never expires. Measured that day over
-    `GeoverseResearch/tools/fts_workspace/*/runs.json`: 18 recorded rows
-    in 6 manifests still carry the old key. The exit is that count
-    reaching zero, not a release number, and this case asserts the
-    entry says so rather than asserting a version that will move again.
-
-    The five names of the 0.14.0 polar rename were kept ON TIME at
-    0.16.0 in the same change, which is what makes the asymmetry a
-    judgement about records rather than a habit.
-    """
-    from pyflightstream._deprecations import WAIVED_COMMANDS_MANIFEST_KEY
+    from pyflightstream._deprecations import DEPRECATIONS
 
     row = json.loads(make_record().model_dump_json())
     del row["waived_commands"]
     row["broken_commands"] = [dict(WAIVER_ROW)]
-    with pytest.warns(DeprecationWarning, match="broken_commands") as caught:
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
         record = RunRecord.model_validate(row)
+    assert not caught
     assert record.waived_commands == [WAIVER_ROW]
-    (message,) = {str(w.message) for w in caught}
-    assert message == WAIVED_COMMANDS_MANIFEST_KEY.message()
-    # THE CONDITION, not the version. A case pinned to "v0.17.0" would go
-    # red on the next move and be edited to the new number, which is how
-    # a deadline test becomes a record of the deadline moving.
-    assert "EXIT IS A MEASUREMENT AND NOT A DATE" in WAIVED_COMMANDS_MANIFEST_KEY.extra
-    assert "18 recorded rows" in WAIVED_COMMANDS_MANIFEST_KEY.extra
+    assert "broken_commands" not in record.model_dump()
+    assert not any("broken_commands" in entry.subject for entry in DEPRECATIONS)
 
 
 def test_a_row_carrying_both_spellings_is_refused():

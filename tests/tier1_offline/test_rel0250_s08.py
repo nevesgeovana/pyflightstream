@@ -48,7 +48,7 @@ def test_campaign_names_locator_reaches_manifest(tmp_path):
 
     workspace = _unsteady_workspace(tmp_path, reductions=ROTOR_PLAN)
     (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
-        '[groups]\n"1" = ["W", "B"]\n[names]\nGHOST = "MISSING"\n', encoding="utf-8", newline="\n"
+        '[groups]\n"1" = "all"\n[names]\nGHOST = "MISSING"\n', encoding="utf-8", newline="\n"
     )
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")

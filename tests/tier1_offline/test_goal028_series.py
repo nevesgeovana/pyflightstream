@@ -105,7 +105,7 @@ def _submitted_workspace(tmp_path, kinds=("", "_sloads", "_probes")):
 
     workspace = CampaignWorkspace.init(tmp_path / "camp")
     (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
-        '[groups]\n"1" = ["W", "B"]\n', encoding="utf-8"
+        '[groups]\n"1" = "all"\n', encoding="utf-8"
     )
     folder = workspace.sim_dir("7001") / "datapoints" / "DP-AL-020"
     folder.mkdir(parents=True)

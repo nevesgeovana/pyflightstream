@@ -229,7 +229,7 @@ def test_a_window_shorter_than_one_passage_of_a_rotor_is_skipped_naming_it():
             "VELOCITY": "30.0",
             "DELTA_TIME": "0.0001",
             "TIME_ITERATIONS": "720",
-            "WINDOW_STEPS": "100",
+            "LAST_ITERS_AVG": "100",
             "CLOCK_MOTION": "LIFT_L1",
         }
     )

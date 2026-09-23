@@ -292,7 +292,7 @@ def test_goal024_rename_command_leaves_a_tree_the_post_stage_reads(tmp_path):
     # selects nothing is now a named skip, by the rule that `NA` and never a zero
     # stands for no value, so the fixture names the surfaces the export has.
     (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
-        '[groups]\n"1" = ["W", "B"]\n', encoding="utf-8"
+        '[groups]\n"1" = "all"\n', encoding="utf-8"
     )
     _as_0_20(workspace, mach=0.2)
     reopened = _reopened(workspace)

@@ -4,11 +4,11 @@
 # this artifact keeps the groups, the wing section, the MRP and per-rotor plots
 # and the probes, and drops the two blade-axis entries.
 [groups]
-"1" = ["Wing", "Body", "Base", "Blade1", "Blade2"]
-"2" = ["Wing"]
-"3" = ["Body", "Base"]
-"4" = ["Blade1", "Blade2"]
-"5" = ["Base"]
+"1" = "selection_p003_1"
+"2" = "Wing"
+"3" = "selection_p003_3"
+"4" = "selection_p003_4"
+"5" = "Base"
 
 [exports]
 

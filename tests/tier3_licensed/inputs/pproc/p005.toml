@@ -19,9 +19,9 @@
 # own words, from r006's [aliases] table; nothing here is hardcoded to a
 # mesh.
 [groups]
-"1" = ["airframe", "rotors"]
-"2" = ["airframe"]
-"3" = ["rotors"]
+"1" = "selection_p005_1"
+"2" = "airframe"
+"3" = "rotors"
 
 [exports]
 

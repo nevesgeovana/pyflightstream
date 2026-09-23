@@ -5,9 +5,7 @@ did not refuse. A row without the key planned and ran, and at post took the
 STEADY route: group polars off the last time step under the steady names, beside
 a time average over a window the package had defaulted, nothing marking either.
 
-ONLY A NEW PLAN IS REFUSED. A row that still states a retired `WINDOW_*` key
-satisfies the rule until 0.26.0, because a matrix already written must keep
-planning.
+Since 0.26.0 a new plan accepts only LAST_REVS_AVG or LAST_ITERS_AVG.
 """
 
 from __future__ import annotations
@@ -46,12 +44,9 @@ def test_a_rotorless_row_is_pointed_at_the_iterations_key():
     [
         {"LAST_REVS_AVG": "0.5"},
         {"LAST_ITERS_AVG": "100"},
-        {"WINDOW_REVOLUTIONS": "1"},
-        {"WINDOW_STEPS": "36"},
-        {"WINDOW_DEGREES": "90"},
     ],
 )
-def test_a_row_that_states_a_window_in_any_spelling_that_still_binds_is_accepted(variables):
+def test_a_row_that_states_a_current_window_key_is_accepted(variables):
     _require_the_averaging_window(_case("unsteady_rotor", **variables), "unsteady_rotor")
 
 
@@ -76,6 +71,13 @@ def test_a_windowless_rotor_row_is_refused_when_its_script_is_built():
     from tests.tier1_offline.test_workflows import rendered, rotor_case
 
     with pytest.raises(CampaignConfigError) as refused:
-        rendered(rotor_case(WINDOW_DEGREES=None))
+        rendered(rotor_case(LAST_REVS_AVG=None))
     assert "LAST_REVS_AVG" in str(refused.value)
     assert "SOLVER" in rendered(rotor_case()).upper()
+
+
+@pytest.mark.parametrize("key", ["WINDOW_STEPS", "WINDOW_REVOLUTIONS", "WINDOW_DEGREES"])
+def test_a_retired_window_cannot_satisfy_the_required_window(key):
+    """A former accepted spelling must now fail with the key to write."""
+    with pytest.raises(CampaignConfigError, match=key + ".*LAST_"):
+        _require_the_averaging_window(_case("unsteady_rotor", **{key: "1"}), "unsteady_rotor")

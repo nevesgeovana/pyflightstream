@@ -72,9 +72,6 @@ from typing import NoReturn
 from pyflightstream._deprecations import (
     ROW_MOVING_BOUNDARIES,
     ROW_ROTATE_FAMILIES,
-    ROW_WINDOW_DEGREES,
-    ROW_WINDOW_REVOLUTIONS,
-    ROW_WINDOW_STEPS,
     refusal_text,
 )
 from pyflightstream._errors import (
@@ -163,9 +160,6 @@ __all__ = [
     "VELOCITY_VARIABLE",
     "LAST_ITERS_AVG_VARIABLE",
     "LAST_REVS_AVG_VARIABLE",
-    "WINDOW_DEGREES_VARIABLE",
-    "WINDOW_REVOLUTIONS_VARIABLE",
-    "WINDOW_STEPS_VARIABLE",
     "WORKFLOWS",
     "WORKFLOW_KEY",
     "ExportWindow",
@@ -426,9 +420,6 @@ REVOLUTIONS_VARIABLE = "REVOLUTIONS"
 #: residual verdict, because the iteration counter of a time loop
 #: that always runs to its prescribed end judges nothing.
 LOG_OUTPUT_VARIABLE = "LOG_OUTPUT"
-WINDOW_DEGREES_VARIABLE = "WINDOW_DEGREES"
-WINDOW_STEPS_VARIABLE = "WINDOW_STEPS"
-WINDOW_REVOLUTIONS_VARIABLE = "WINDOW_REVOLUTIONS"
 
 #: ITEM 16: THE ONE WINDOW, stated on the MATRIX ROW, one key per run type.
 #:
@@ -461,7 +452,7 @@ LAST_ITERS_AVG_VARIABLE = "LAST_ITERS_AVG"
 #: has no time loop for an action to run in.
 #:
 #: This is the "after N" form that supersedes the degrees-backwards window
-#: of PFS-2025.08 for the mid-run exports; ``WINDOW_*`` stays what it was,
+#: of PFS-2025.08 for the mid-run exports; the averaging window is separate,
 #: the averaging window of the reductions.
 EXPORT_UNSTEADY_AFTER_REV_VARIABLE = "EXPORT_UNSTEADY_AFTER_REV"
 EXPORT_UNSTEADY_AFTER_ITER_VARIABLE = "EXPORT_UNSTEADY_AFTER_ITER"
@@ -2907,24 +2898,31 @@ class ExportWindow:
     def from_case(cls, case: SimCase) -> ExportWindow:
         """Build the window from what the row declares.
 
-        Reads ``WINDOW_DEGREES``, ``WINDOW_STEPS`` or
-        ``WINDOW_REVOLUTIONS`` (exactly one), plus ``RPM``,
-        ``DELTA_TIME`` and ``TIME_ITERATIONS``.
+        Reads ``LAST_REVS_AVG`` or ``LAST_ITERS_AVG`` alongside the clock.
         """
-        degrees = revolutions = None
-        steps = None
-        if _variable(case, WINDOW_DEGREES_VARIABLE) is not None:
-            degrees = _required_float(
-                case, WINDOW_DEGREES_VARIABLE, quantity="export window", unit="degrees"
+        _refuse_retired_window_keys(case)
+        _require_the_averaging_window(case, case.recipe)
+        if (
+            _variable(case, LAST_REVS_AVG_VARIABLE) is not None
+            and _variable(case, LAST_ITERS_AVG_VARIABLE) is not None
+        ):
+            raise CampaignConfigError(
+                "LAST_REVS_AVG and LAST_ITERS_AVG are two ways to say one window; state only one."
             )
-        if _variable(case, WINDOW_REVOLUTIONS_VARIABLE) is not None:
-            revolutions = _required_float(
-                case, WINDOW_REVOLUTIONS_VARIABLE, quantity="export window", unit="revolutions"
+        revolutions = (
+            _required_float(
+                case, LAST_REVS_AVG_VARIABLE, quantity="averaging window", unit="revolutions"
             )
-        if _variable(case, WINDOW_STEPS_VARIABLE) is not None:
-            steps = _required_int(
-                case, WINDOW_STEPS_VARIABLE, quantity="export window", unit="solver steps"
+            if _variable(case, LAST_REVS_AVG_VARIABLE) is not None
+            else None
+        )
+        steps = (
+            _required_int(
+                case, LAST_ITERS_AVG_VARIABLE, quantity="averaging window", unit="iterations"
             )
+            if _variable(case, LAST_ITERS_AVG_VARIABLE) is not None
+            else None
+        )
         # THE CLOCK IS RESOLVED, NOT READ. Both the step and the count
         # may be derived from the azimuthal step and the revolutions, so
         # reading the two cells directly would leave an angular row with
@@ -2933,7 +2931,6 @@ class ExportWindow:
         speed = _optional_rotor_speed(case)
         stepping = rotor_time_stepping(case, speed=speed)
         return export_window(
-            degrees=degrees,
             steps=steps,
             revolutions=revolutions,
             rpm=None if speed is None else speed.rpm,
@@ -3554,10 +3551,8 @@ def _averaging_window(
     a window a reader can mean, and rounding it to two would
     silently average over a third more history than the row asked for.
 
-    RETURNS None WHEN THE ROW STATES NEITHER, so the caller can fall back to the
-    retired `WINDOW_*` spellings for a matrix written before this release. That
-    fallback is the whole of the migration: existing rows keep binding, and
-    the deprecation warns rather than refuses.
+    Returns None when neither averaging key is stated. Older recorded plans
+    retain their stored windows; a new plan requires an averaging key.
 
     A ROW THAT STATES REVOLUTIONS WITHOUT A CLOCK gets None rather than a guess.
     Without `steps_per_revolution` a count of revolutions has no length in steps,
@@ -3615,10 +3610,8 @@ def _averaging_window(
 def reduction_windows(case: SimCase) -> dict[str, object] | None:
     """Resolve the windows of every applicable reduction off one row, for its record.
 
-    The window is the one the row states. Where the row states an export
-    window (``WINDOW_DEGREES``, ``WINDOW_STEPS`` or ``WINDOW_REVOLUTIONS``)
-    that is the time-average window, as :class:`ReductionPlan` already
-    holds (one window, not two). Where it states none, a rotor row states
+    The window is LAST_REVS_AVG or LAST_ITERS_AVG from the row. Removed
+    WINDOW_* keys are refused. Where an older row states neither, a rotor row states
     ``DELTA_THETA`` and ``REVOLUTIONS`` (or a speed and the seconds), so a
     revolution in steps is known and the LAST revolution is the window;
     a rotorless row states ``DELTA_TIME`` and ``TIME_ITERATIONS`` and
@@ -3633,10 +3626,8 @@ def reduction_windows(case: SimCase) -> dict[str, object] | None:
     guessed: no ``BLADES`` means no passage length; a run shorter than
     one revolution has no last revolution to split by blade.
 
-    IT NEVER RAISES for a row the builder would refuse. The record is
-    built before the script, so a refusal here would abort the campaign in
-    place of the ``FAILED_SCRIPT`` record the builder writes; the reason
-    lands on every reduction instead, and the products stage records it.
+    Unresolvable clocks are recorded as skipped reductions with their reason.
+    Removed row keys are refused before any window is derived.
 
     Parameters
     ----------
@@ -3682,6 +3673,7 @@ def reduction_windows(case: SimCase) -> dict[str, object] | None:
     >>> plan["per_blade"]["windows"][-1]
     [596, 720]
     """
+    _refuse_retired_window_keys(case)
     if case.recipe not in _UNSTEADY_RECIPES:
         return None
     rotor = case.recipe == "unsteady_rotor"
@@ -3706,59 +3698,22 @@ def reduction_windows(case: SimCase) -> dict[str, object] | None:
     per_revolution = stepping.steps_per_revolution
     revolution = None if per_revolution is None else int(round(per_revolution))
 
-    # ITEM 16: THE ONE WINDOW, FROM THE ROW'S OWN AVERAGING KEY FIRST.
-    #
-    # `last_revs_avg` on a rotor row and `last_iters_avg` on a rotorless one are
-    # the keys that state the averaging window, and they take
-    # precedence over the three retired WINDOW_* spellings. A row carrying both
-    # an old key and a new one gets the NEW one, which explicitly selects
-    # the current window convention.
-    #
-    # THE SAME SPAN SERVES EVERY UNSTEADY PRODUCT of the point. It is computed
-    # once here and every reduction below cuts from it, which is what makes "one
-    # window" a property of the plan rather than a promise in a docstring.
+    # Every unsteady product shares the averaging span stated on the row.
     averaging = _averaging_window(case, last_step=last_step, per_revolution=per_revolution)
-    stated = {
-        key: value
-        for key in (WINDOW_DEGREES_VARIABLE, WINDOW_STEPS_VARIABLE, WINDOW_REVOLUTIONS_VARIABLE)
-        if (value := _variable(case, key)) is not None
-    }
-    # THE PROMISE IS SPOKEN, not merely registered. `ROW_WINDOW_*` were defined
-    # and carried into `DEPRECATIONS` -- which satisfies the ledger guard and
-    # starts a deadline -- and NOTHING WARNED, so 0.26.0 would have arrived with
-    # every `WINDOW_*` row silently in scope for removal. This repository has
-    # recorded that exact defect before, by name, about `ROW_MOVING_BOUNDARIES`.
-    # The QA lens of the release round measured it again here.
-    for key, promise in (
-        (WINDOW_DEGREES_VARIABLE, ROW_WINDOW_DEGREES),
-        (WINDOW_STEPS_VARIABLE, ROW_WINDOW_STEPS),
-        (WINDOW_REVOLUTIONS_VARIABLE, ROW_WINDOW_REVOLUTIONS),
-    ):
-        if key in stated:
-            warnings.warn(
-                f"case {case.sim_id!r}: {promise.message()}",
-                PyflightstreamWarning,
-                stacklevel=2,
-            )
     try:
         if averaging is not None:
             span, window_from = averaging
-        elif stated:
-            window = ExportWindow.from_case(case)
-            span = window.window_steps()
-            key, value = next(iter(stated.items()))
-            window_from = f"the export window the row states: {key} {value}, {window.steps} steps"
         elif revolution is not None:
             span = (max(last_step - revolution + 1, 1), last_step)
             window_from = (
                 f"the last revolution of the run, {revolution} steps: the row states its "
-                f"clock as {stepping.stated_form} and no WINDOW_* key"
+                f"clock as {stepping.stated_form} and no averaging key"
             )
         else:
             span = (1, last_step)
             window_from = (
                 "the whole run: the row states DELTA_TIME and TIME_ITERATIONS and no "
-                "WINDOW_* key, and nothing shorter is stated"
+                "averaging key, and nothing shorter is stated"
             )
     except CampaignConfigError as error:
         return _every_reduction_skipped(rotor, str(error))
@@ -7719,6 +7674,7 @@ def surface_time_averaging(case: SimCase) -> SurfaceAveragingWindow | None:
     stated = case.pproc.time_averaging if case.pproc is not None else None
     if stated is None:
         return None
+    _refuse_retired_window_keys(case)
     if case.recipe not in _UNSTEADY_RECIPES:
         raise CampaignConfigError("[time_averaging] requires an unsteady run")
     plan = reduction_windows(case)
@@ -10001,9 +9957,6 @@ _UNSTEADY_KEYS: tuple[str, ...] = (
     TIME_ITERATIONS_VARIABLE,
     DELTA_THETA_VARIABLE,
     REVOLUTIONS_VARIABLE,
-    WINDOW_DEGREES_VARIABLE,
-    WINDOW_STEPS_VARIABLE,
-    WINDOW_REVOLUTIONS_VARIABLE,
     # ITEM 16's KEY FOR A ROW THAT TURNS NOTHING. Without this registration the
     # row-key guard refuses `last_iters_avg` as "a key of no run type", so the
     # feature is unreachable from a MATRIX while every unit test passes -- the
@@ -10046,6 +9999,25 @@ _UNSTEADY_ROTOR_KEYS: tuple[str, ...] = (
 CONVERTER_PREFIX = "matrix_"
 
 
+def _refuse_retired_window_keys(case: SimCase) -> None:
+    """Refuse the three removed row keys, naming the exact replacement."""
+    for old, new in (
+        ("WINDOW_STEPS", "LAST_ITERS_AVG"),
+        ("WINDOW_REVOLUTIONS", "LAST_REVS_AVG"),
+        ("WINDOW_DEGREES", "LAST_REVS_AVG"),
+    ):
+        if old in case.variables:
+            conversion = (
+                " Divide degrees by 360: WINDOW_DEGREES: 90 becomes LAST_REVS_AVG: 0.25."
+                if old == "WINDOW_DEGREES"
+                else ""
+            )
+            raise CampaignConfigError(
+                f"case {case.sim_id!r}: {old} was removed in 0.26.0; write {new} instead."
+                + conversion
+            )
+
+
 def _require_the_averaging_window(case: SimCase, name: str) -> None:
     """Refuse an unsteady row that states no averaging window (0.24.0).
 
@@ -10055,20 +10027,14 @@ def _require_the_averaging_window(case: SimCase, name: str) -> None:
     TIME STEP under the steady names, beside a time average over a window the
     package had defaulted, with nothing in either file saying which was which.
 
-    A row that still states one of the three retired `WINDOW_*` keys SATISFIES
-    this: those keys bind, with their own deprecation warning, until 0.26.0, and a
-    matrix that already has them must keep planning.
-
     ONLY A NEW PLAN IS REFUSED. A record already written without a window is never
     refused at post: it is averaged over the window the run defaulted to, and the
     post stage says which.
     """
+    _refuse_retired_window_keys(case)
     stated = (
         LAST_REVS_AVG_VARIABLE,
         LAST_ITERS_AVG_VARIABLE,
-        WINDOW_DEGREES_VARIABLE,
-        WINDOW_STEPS_VARIABLE,
-        WINDOW_REVOLUTIONS_VARIABLE,
     )
     if any(_variable(case, key) is not None for key in stated):
         return
@@ -10308,6 +10274,7 @@ def build_script(
     >>> script.render().splitlines()[0]
     'SET_FREESTREAM CONSTANT'
     """
+    _refuse_retired_window_keys(case)
     workflow = resolve_workflow(select_workflow(case))
     require_coverage(workflow, script.version, registry=registry)
     if case.pproc is not None and case.pproc.time_averaging is not None:

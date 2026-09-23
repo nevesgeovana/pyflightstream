@@ -301,7 +301,7 @@ read by the package rather than ignored:
 | v0.17.0 | **FOUR NAMES LEFT THIS CELL AND BECAME COLUMNS**: `GEOMETRY`, `SYMMETRY`, `SYMMETRY_LOADS` and `NCPUS`, which lived here or in the setup and now have a column each, beside the two that are new in both homes, `CONFIGURATION` and `WALLTIME` (FR-93). A row that states one of the six in BOTH homes is refused naming both. The rows above still show the cell spelling because that is what a file written before 0.17.0 carries, and `pyfs-matrix upgrade` moves them |
 | v0.18.0 | `RESTART` now RUNS (FR-96). Two further names are reserved and they are the PACKAGE'S to set, never a row's: `RESTART_FROM`, the saved simulation a continuation opens, and `RESTART_ITERATIONS`, the remaining step count. The run path resolves both from the recorded run being continued and writes them onto the case; a row that states either is refused, because stating them by hand would skip the resolution that checks a recorded run exists, that its status is continuable, and that its outputs are archived before they are replaced |
 | v0.19.0 | `TRANSLATE`, a list of records, one translation of the opened mesh each, in the order written and before every rotation: `TRANSLATE: {DISTANCE: 0.05 / AXIS: PUSHER_SMRP-X / ALIAS: PUSHER}, {...}`; on every run type that reads `ROTATE`, the distance in metres along one axis of the named frame (FR-100), see [One row, one geometry, moved](#one-row-one-geometry-moved) |
-| v0.23.0 | `LAST_REVS_AVG` and `LAST_ITERS_AVG`, the AVERAGING WINDOW of an unsteady point, one per row at most: the first on `unsteady_rotor` only, a count of the last revolutions that accepts a float (`LAST_REVS_AVG: 0.25`); the second a count of the last iterations, the key of an `unsteady` row and read on a rotor row too. Written in UPPER CASE like every key of this cell, which is matched on its exact spelling: `last_revs_avg` is refused as a key of no run type. A row stating both is refused naming both. `WINDOW_DEGREES`, `WINDOW_STEPS` and `WINDOW_REVOLUTIONS` are DEPRECATED from this release: a row stating one still binds and warns, naming the replacement, until 0.26.0 removes them. See [The window, said once](#the-window-said-once) and [the definition of record](post-processing-definitions.md#the-averaging-window) |
+| v0.23.0 | `LAST_REVS_AVG` and `LAST_ITERS_AVG`, the AVERAGING WINDOW of an unsteady point, one per row at most: the first on `unsteady_rotor` only, a count of the last revolutions that accepts a float (`LAST_REVS_AVG: 0.25`); the second a count of the last iterations, the key of an `unsteady` row and read on a rotor row too. Written in UPPER CASE like every key of this cell, which is matched on its exact spelling: `last_revs_avg` is refused as a key of no run type. A row stating both is refused naming both. Since 0.26.0, `WINDOW_DEGREES`, `WINDOW_STEPS` and `WINDOW_REVOLUTIONS` are refused: write `LAST_REVS_AVG` or `LAST_ITERS_AVG`, dividing degrees by 360. See [The window, said once](#the-window-said-once) and [the definition of record](post-processing-definitions.md#the-averaging-window) |
 
 **A WORKFLOW ROW STATES ONLY WHAT THE SCRIPT WILL CARRY.** Each run type
 registers the keys it reads (`Workflow.keys` in
@@ -319,7 +319,7 @@ something the script does not carry. The row
 is marked BLOCKED with the reason naming the row (`case '7007'`), the run
 type, the key and what reads it (`FOO_BAR (a key of no run type)`), and
 the keys `steady` registers. A key ANOTHER run type reads is refused the
-same way and named with that type: `WINDOW_DEGREES: 90` on a `steady` row
+same way and named with that type: `LAST_REVS_AVG: 0.25` on a `steady` row
 is `a key of unsteady, unsteady_rotor`. The refusals a builder already
 had for a key it cannot honor come first and keep their own sentences: a
 rotor key on `unsteady` still says that nothing would turn, and an export
@@ -1557,11 +1557,11 @@ any loads export of the simulation writes no table**: it is named under
 `skipped` in `products.json` with the surfaces the export does carry, where
 before 0.24.0 it wrote a table of `0.00000`.
 
-The list form (`PUSHER = ["Blade1"]`) still binds until 0.26.0 and warns with
-the line to write instead: a one-member list becomes its string, and several
-members become ONE alias declared in the reference, which the group then names.
-A list holding a POSITION (`"2" = [1]`), which a row moves a boundary by, has no
-alias to be rewritten as and is left alone.
+Since 0.26.0 every list form is refused with the line to write instead:
+`PUSHER = ["Blade1"]` becomes `PUSHER = "Blade1"`. Several members become
+one alias declared in the reference, which the group names. An empty list
+becomes `"all"`; replace integer positions with boundary names in the
+reference's alias.
 
 **THE ONE NAME REFUSED** at `pyfs-matrix plan` is a name shaped like the
 numbered suffix itself, `g01` and its kin: a file named after it could not be
@@ -1891,7 +1891,7 @@ type's, and the window is the one the row states:
 
 | file | run type | window |
 |---|---|---|
-| `probes/<point>_time_average.csv` | `unsteady_rotor` and `unsteady` | the AVERAGING WINDOW the row states, `LAST_REVS_AVG` on a rotor row and `LAST_ITERS_AVG` on a rotorless one, ending at the run's last step; failing that a deprecated `WINDOW_DEGREES`, `WINDOW_STEPS` or `WINDOW_REVOLUTIONS`, which still binds and warns; without any (a record made before 0.24.0, since a new plan of such a row is refused), a rotor row's last revolution (from `DELTA_THETA` and `REVOLUTIONS`, or `RPM` and `DELTA_TIME`), and a rotorless row's whole run (`DELTA_TIME` and `TIME_ITERATIONS`). One row |
+| `probes/<point>_time_average.csv` | `unsteady_rotor` and `unsteady` | the AVERAGING WINDOW the row states, `LAST_REVS_AVG` on a rotor row and `LAST_ITERS_AVG` on a rotorless one, ending at the run's last step; without any (a record made before 0.24.0, since a new plan of such a row is refused), a rotor row's last revolution (from `DELTA_THETA` and `REVOLUTIONS`, or `RPM` and `DELTA_TIME`), and a rotorless row's whole run (`DELTA_TIME` and `TIME_ITERATIONS`). One row |
 | `probes/<point>_phase_locked_<ALIAS>.csv` | `unsteady_rotor`, a row naming its rotors | WITH a `[phase_locked]` table in the pproc: the last `last_revolutions_avg` revolutions OF THAT ROTOR, one row per azimuthal position, each value the mean across those revolutions at that azimuth. WITHOUT it: the time-average window cut into blade passages OF THAT ROTOR, one of its revolutions over its own blade count, a trailing partial passage dropped; one row per passage |
 | `probes/<point>_per_blade_<ALIAS>.csv` | `unsteady_rotor`, a row naming its rotors | ONE window shared by every blade: the row's `LAST_REVS_AVG`, counted in THAT ROTOR's revolutions and ending at the run's last step, and without the key that rotor's last complete revolution; ONE ROW PER BLADE since 0.24.0, each with its `BLADE`, its `FAMILY` and its `AZIMUTH_START` and `AZIMUTH_END` over that window |
 | `probes/<point>_phase_locked.csv` | `unsteady_rotor`, a row naming no rotor by alias | WITH a `[phase_locked]` table: the last `last_revolutions_avg` revolutions, one row per azimuthal position. WITHOUT it: the time-average window cut into blade passages, one revolution over `BLADES` steps each, a trailing partial passage dropped; one row per passage |
@@ -1907,9 +1907,9 @@ record](post-processing-definitions.md#per_blade) asks. The azimuthal form of
 `[phase_locked]`.
 
 **The window is required.** Since 0.24.0 `pyfs-matrix plan` refuses a new
-unsteady row that states NO window key. A deprecated `WINDOW_STEPS`,
-`WINDOW_REVOLUTIONS` or `WINDOW_DEGREES` key still plans with a warning until
-0.26.0; replace it with `LAST_REVS_AVG` or `LAST_ITERS_AVG`. The reductions and
+unsteady row that states NO window key. Since 0.26.0, `WINDOW_STEPS`,
+`WINDOW_REVOLUTIONS` and `WINDOW_DEGREES` are refused; replace them with
+`LAST_REVS_AVG` or `LAST_ITERS_AVG`, dividing degrees by 360. The reductions and
 unsteady polar of a record without the current keys use the window the run was
 given, with a warning naming the steps.
 
@@ -2517,7 +2517,7 @@ This is the matrix the suite runs for all three types, byte for byte:
 ```text title="workflow_rotor_matrix.fs"
 POL  | HIDDEN | RUN | AIRCRAFT  | CONFIGURATION | DESCRIPTION            | FLIGHT_CONDITION | SWEEP_VALUES   | GEOMETRY | REF  | SET  | PPROC  | SYMMETRY | SYMMETRY_LOADS | NCPUS | WALLTIME | FS_BUILD | WORKFLOW       | VAR_NAMES_VALUES
 ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-7001 |    1   |  1  | RotorRig  | -             | ROTOR_UNSTEADY         | TASmps:30.0, REmi:1.20, ALPHA:sweep | 0.0            | -        | r003 | s002 | p001   | -        | -              | -     | -        | 26.120   | unsteady_rotor | VELOCITY: 30.0 / RPM: 1200 / ROTOR_AXIS: X / BLADES: 4 / DELTA_TIME: 0.0001 / TIME_ITERATIONS: 720 / WINDOW_DEGREES: 90
+7001 |    1   |  1  | RotorRig  | -             | ROTOR_UNSTEADY         | TASmps:30.0, REmi:1.20, ALPHA:sweep | 0.0            | -        | r003 | s002 | p001   | -        | -              | -     | -        | 26.120   | unsteady_rotor | VELOCITY: 30.0 / RPM: 1200 / ROTOR_AXIS: X / BLADES: 4 / DELTA_TIME: 0.0001 / TIME_ITERATIONS: 720 / LAST_REVS_AVG: 0.25
 7002 |    1   |  1  | RotorRig  | -             | STEADY_REFERENCE       | TASmps:30.0, REmi:1.20, ALPHA:sweep | 0.0,2.0        | -        | r003 | s002 | p001   | -        | -              | -     | -        | 26.120   | steady         | VELOCITY: 30.0
 7003 |    1   |  1  | RotorRig  | -             | UNSTEADY_NO_ROTOR      | TASmps:30.0, REmi:1.20, ALPHA:sweep | 0.0            | -        | r003 | s002 | p001   | -        | -              | -     | -        | 26.120   | unsteady       | VELOCITY: 30.0 / DELTA_TIME: 0.00025 / TIME_ITERATIONS: 480 / LAST_ITERS_AVG: 480
 ```
@@ -2643,29 +2643,13 @@ line says how many were dropped.
 IT**: `LAST_REVS_AVG` on an `unsteady_rotor` row, a count of the last
 revolutions that accepts a float, and `LAST_ITERS_AVG` on an `unsteady` row, a
 count of the last iterations. `pyfs-matrix plan` refuses a new unsteady row that
-states NO window key. A deprecated `WINDOW_*` key still plans with a warning
-until 0.26.0. It is the one window the unsteady polar, the time average and
+states NO window key. A retired `WINDOW_*` key is refused since 0.26.0. It is the one window the unsteady polar, the time average and
 `per_blade` use. A window longer than the run is the whole run rather than a
 refusal.
 
-**DO NOT COPY ROW 7001'S WINDOW.** It states the older spelling,
-`WINDOW_DEGREES: 90`, because it is the suite's own matrix, run byte for byte,
-and it stands for a row written before the key existed. That spelling is
-DEPRECATED: it binds and warns until 0.26.0 removes it. A new row states
-`LAST_REVS_AVG: 0.25` in its place, degrees being revolutions over 360. A row stating both an old key and a new one gets the new one. What the
-next paragraph says is what the older keys do while they last.
-
-`WINDOW_DEGREES: 90` is the span the expensive exports apply over,
-counted BACKWARDS from the end of the run: the last quarter turn of the
-rotor, which is where the settled physics is. You may write
-`WINDOW_STEPS` or `WINDOW_REVOLUTIONS` instead and the package converts,
-recording both the form you wrote and the one it computed, so a later
-reader can see which was which. A window longer than the run is refused
-naming both numbers.
-
-The same window is the AVERAGING window of the reductions below. There
-is one window, not two, because two windows you have to keep consistent
-is a defect waiting to happen.
+Row 7001 states `LAST_REVS_AVG: 0.25`, the last quarter revolution counted
+backward from the end of the run. This is the averaging window for every
+unsteady product. A window longer than the run selects the whole run.
 
 ### Exports that begin after a threshold
 
@@ -2676,7 +2660,7 @@ states it as a time step instead. Put one of them on row 7001 above,
 with the azimuthal clock:
 
 ```text
-VELOCITY: 30.0 / RPM: 1200 / ROTOR_AXIS: X / BLADES: 4 / DELTA_THETA: 10 / REVOLUTIONS: 3 / WINDOW_DEGREES: 90 / EXPORT_UNSTEADY_AFTER_REV: 2
+VELOCITY: 30.0 / RPM: 1200 / ROTOR_AXIS: X / BLADES: 4 / DELTA_THETA: 10 / REVOLUTIONS: 3 / LAST_REVS_AVG: 0.25 / EXPORT_UNSTEADY_AFTER_REV: 2
 ```
 
 Ten degrees a step and three revolutions are 108 steps, and two

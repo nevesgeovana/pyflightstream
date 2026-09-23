@@ -3302,14 +3302,14 @@ def test_the_campaign_writes_its_products_and_names_them(tmp_path):
 
     workspace = CampaignWorkspace.init(tmp_path / "camp")
     (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
-        '[groups]\n"1" = ["W", "B"]\n"3" = ["W"]\n', encoding="utf-8"
+        '[groups]\n"1" = "all"\n"3" = "W"\n', encoding="utf-8"
     )
     campaign = make_campaign(tmp_path, alphas=(-2.0,), outputs=("{name}.txt",))
     case = campaign.sims[0].model_copy(
         update={
             "mach": 0.2,
             "description": "STEADY_WB",
-            "pproc": PprocSpec.model_validate({"groups": {"1": ["W", "B"], "3": ["W"]}}),
+            "pproc": PprocSpec.model_validate({"groups": {"1": "all", "3": "W"}}),
             "pproc_id": "p001",
             "reference": ReferenceData(
                 area=50.0, length=2.526, span_m=20.0, moment_point_m=(9.152, 0.0, 0.0)

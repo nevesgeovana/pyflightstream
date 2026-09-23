@@ -178,7 +178,7 @@ def _workspace(tmp_path: Path):
     (workspace.root / "matriz.fs").write_text(_MATRIX, encoding="utf-8")
     for pproc in ("p001", "p002"):
         (workspace.inputs_dir / "pproc" / f"{pproc}.toml").write_text(
-            '[groups]\n"1" = ["W", "B"]\n"2" = ["W"]\n', encoding="utf-8"
+            '[groups]\n"1" = "all"\n"2" = "W"\n', encoding="utf-8"
         )
 
     steady = workspace.sim_dir("6001") / "outputs"

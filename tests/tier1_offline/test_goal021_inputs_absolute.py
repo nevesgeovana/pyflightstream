@@ -54,7 +54,7 @@ def _rotor_row(tmp_path, *, sweep="0.0,2.0,4.0", extra=""):
         ("| 0.0            |", f"| {sweep:<14} |"),
         ("| -        | r003", "| wing_clean.fsm | r003"),
         ("| -     | -        | 26.120", f"| 8     | 1h       | {BUILD}"),
-        ("WINDOW_DEGREES: 90", "WINDOW_DEGREES: 90" + extra),
+        ("LAST_REVS_AVG: 0.25", "LAST_REVS_AVG: 0.25" + extra),
     ):
         assert before in row, (before, row)
         row = row.replace(before, after)
@@ -160,7 +160,7 @@ def test_goal021_inputs_absolute_a_probe_survey_the_user_cited(tmp_path):
     """
     workspace = _workspace(tmp_path)
     (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
-        '[groups]\n"1" = ["W", "B"]\n\n'
+        '[groups]\n"1" = "all"\n\n'
         "[[probes]]\n"
         'frame = "MRP"\n'
         'parameters = ["VELOCITY"]\n'
@@ -233,7 +233,7 @@ def test_goal021_inputs_absolute_a_survey_the_profiles_folder_does_not_hold_is_r
 
     workspace = _workspace(tmp_path)
     (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
-        '[groups]\n"1" = ["W", "B"]\n\n'
+        '[groups]\n"1" = "all"\n\n'
         "[[probes]]\n"
         'frame = "MRP"\n'
         'parameters = ["VELOCITY"]\n'

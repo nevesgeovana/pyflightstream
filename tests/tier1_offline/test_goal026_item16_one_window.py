@@ -29,16 +29,10 @@ from pyflightstream.cases.workflows import reduction_windows
 
 
 def _rotor_row(**overrides):
-    """A rotor row with the retired export window CLEARED unless a case sets one.
-
-    `WINDOW_DEGREES` is on the fixture by default, and it is the key item 16
-    retires, so a case that does not say otherwise gets a row stating none of
-    the three retired spellings. A case that DOES pass one is testing the
-    migration and keeps it.
-    """
+    """A recorded row with no averaging window unless the case supplies one."""
     from tests.tier1_offline.test_workflows import rotor_case
 
-    return rotor_case(**{"WINDOW_DEGREES": None, **overrides})
+    return rotor_case(**{"LAST_REVS_AVG": None, **overrides})
 
 
 @pytest.mark.parametrize("revs", ["0.5", "1.0", "3.0"])
@@ -68,39 +62,13 @@ def test_every_product_of_the_point_shares_the_window_at_every_value(revs):
     )
 
 
-def test_an_old_window_key_warns_that_it_is_on_a_clock():
-    """A PROMISE REGISTERED AND NEVER SPOKEN IS A DEADLINE NOBODY IS TOLD ABOUT.
+@pytest.mark.parametrize("new_key", [None, "1.0"])
+def test_an_old_window_key_is_refused_even_beside_its_replacement(new_key):
+    """Since 0.26.0 the new key cannot hide a removed key on the same row."""
+    from pyflightstream.cases import CampaignConfigError
 
-    The three `WINDOW_*` retirements were defined and carried into
-    `DEPRECATIONS`, which satisfies the ledger guard and starts the countdown to
-    0.26.0 -- and nothing warned, so a user would have met the removal rather
-    than the notice. This repository has recorded that exact defect before, by
-    name, about `ROW_MOVING_BOUNDARIES`; the QA lens of the release round
-    measured it again here.
-    """
-    import warnings
-
-    with warnings.catch_warnings(record=True) as caught:
-        warnings.simplefilter("always")
-        reduction_windows(_rotor_row(WINDOW_DEGREES="90"))
-    spoken = [str(item.message) for item in caught]
-    assert any("WINDOW_DEGREES" in text and "0.26.0" in text for text in spoken), spoken
-    # THE REPLACEMENT IS NAMED, because a notice that does not say what to write
-    # instead sends the reader to the source to find out. NAMED AS THE ROW MUST
-    # SPELL IT (0.24.0, MC-04): this asserted the lower-case `last_revs_avg`,
-    # which is the spelling the matrix does NOT read -- the next case of this
-    # file writes the key as `LAST_REVS_AVG`, and a row written in lower case is
-    # refused or ignored. The expectation encoded the defect and is corrected.
-    assert any("LAST_REVS_AVG" in text for text in spoken), spoken
-    assert not any("last_revs_avg" in text for text in spoken), spoken
-
-
-def test_a_new_key_beats_an_old_one_and_the_row_is_told_which_answered():
-    """The precedence existed only as a code comment; nothing asserted it."""
-    plan = reduction_windows(_rotor_row(WINDOW_DEGREES="90", LAST_REVS_AVG="1.0"))
-    assert plan is not None
-    assert plan["time_average"]["windows"] == [[221, 720]], plan["time_average"]
-    assert "LAST_REVS_AVG" in plan["time_average"]["window_from"], plan["time_average"]
+    with pytest.raises(CampaignConfigError, match="WINDOW_DEGREES.*LAST_REVS_AVG"):
+        reduction_windows(_rotor_row(WINDOW_DEGREES="90", LAST_REVS_AVG=new_key))
 
 
 def test_the_row_states_the_window_and_every_product_of_the_point_shares_it():
@@ -200,8 +168,7 @@ def test_a_row_that_states_neither_keeps_the_answer_it_has_always_had():
 
     Her acceptance rule governs this item like every other: a matrix written
     before 0.23.0 must bind and produce what it produced. Such a row states no
-    averaging key, so the retired `WINDOW_*` spellings still answer and
-    `per_blade` still takes the last complete revolution.
+    averaging key; the recorded default keeps the last complete revolution.
     """
     plan = reduction_windows(_rotor_row())
     assert plan is not None

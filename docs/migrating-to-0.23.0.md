@@ -271,8 +271,8 @@ check.
 
 **What judges an unsteady point did NOT change.** This page said the run
 assessor judges an unsteady point from the plots history. It does not: the
-function that would do so, `assess_unsteady_from_plots`, exists and is called by
-nothing on the run or collect path. An unsteady point is judged in 0.23.0
+former plot-history helper had no caller on the run or collect path and was
+removed in 0.26.0. An unsteady point is judged in 0.23.0
 exactly as in 0.22.0, by the standard loads assessor, from the collected loads
 table and, where one was exported, the solver log. A history that diverged and
 ended on a finite step is therefore NOT caught by this release, and whether the

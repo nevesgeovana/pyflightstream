@@ -39,7 +39,7 @@ def row(pol, run=1, desc="ROW"):
 def _workspace(tmp_path):
     workspace = make_library(tmp_path, register_build=("26.120", "C:/fs/FS.exe"))
     (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
-        '[groups]\n"1" = ["W", "B"]\n', encoding="utf-8"
+        '[groups]\n"1" = "all"\n', encoding="utf-8"
     )
     return workspace
 

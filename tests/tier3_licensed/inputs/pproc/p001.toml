@@ -5,11 +5,11 @@
 [groups]
 # The group tables the products are written per, one table per entry; the
 # families are the synthetic geometries' boundary names.
-"1" = ["Wing", "Body", "Base", "Blade1", "Blade2"]
-"2" = ["Wing"]
-"3" = ["Body", "Base"]
-"4" = ["Blade1", "Blade2"]
-"5" = ["Base"]
+"1" = "selection_p001_1"
+"2" = "Wing"
+"3" = "selection_p001_3"
+"4" = "selection_p001_4"
+"5" = "Base"
 
 [exports]
 # All eight export kinds are written unless one is set to false here.

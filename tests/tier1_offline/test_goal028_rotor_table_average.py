@@ -67,7 +67,7 @@ blade1 = {{ azimuth_deg = 0.0, zero = "Y" }}
 
 def _pproc(group: str, frame: str, families: str) -> str:
     return (
-        '[groups]\n"1" = ["W", "B"]\n\n[plots]\n'
+        '[groups]\n"1" = "all"\n\n[plots]\n'
         'parameters = ["FX", "FY", "FZ", "MX", "MY", "MZ"]\n\n'
         f'[[plots.groups]]\nname = "{group}"\nframe = "{frame}"\nfamilies = {families}\n'
     )

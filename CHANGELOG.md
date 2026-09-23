@@ -7,6 +7,32 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Removed
+
+- `write_sections_table(iteration=)`: use `step=`. The old keyword raises TypeError.
+- `run.assess_unsteady_from_plots`: use `LoadsAssessor` for campaign assessment
+  of native loads and solver residuals. Analyze history settling separately.
+- Row key `WINDOW_STEPS`: write `LAST_ITERS_AVG` with the same count.
+- Row key `WINDOW_REVOLUTIONS`: write `LAST_REVS_AVG` with the same count.
+- Row key `WINDOW_DEGREES`: divide the value by 360 and write `LAST_REVS_AVG`.
+- Member lists in pproc `[groups]`: write one alias as a string. Put several
+  members in the reference's `[aliases]` table; use `"all"` for an empty list.
+  All three retired row keys and all member lists are refused before running.
+
+### Changed
+
+- The development version is `0.26.0.dev0`. See
+  [Migrating to 0.26.0](docs/migrating-to-0.26.0.md) for each replacement.
+- Recorded manifest key `broken_commands` is read silently as `waived_commands`
+  for as long as such manifests exist. It is plain compatibility, with no
+  removal countdown; recorded manifests are never rewritten. Re-measured on
+  2026-09-23: 46 matching rows in the canonical repository's
+  `tests/tier3_licensed/runs.json`; `post/matriz/plan.json`,
+  `post/matriz_time/plan.json` and `post/matriz_builds/plan.json` are absent.
+  All four are absent from this isolated worktree. The historical census of
+  74 rows (46, 18, 8, 2) across four manifests does not reproduce here;
+  absent files are not a measurement of zero recorded rows.
+
 ### Owed
 
 - **The Zenodo archive row of v0.25.1 is owed.** A version DOI is minted from

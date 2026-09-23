@@ -448,17 +448,11 @@ define it.
 under another name in another place, and two spellings of one idea are how two
 published numbers come to disagree.
 
-**How the retirement is carried out, as of 0.23.0.** `WINDOW_STEPS`,
-`WINDOW_REVOLUTIONS` and `WINDOW_DEGREES`, all three, are DEPRECATED rather than
-refused: a row stating one still binds, with a warning that names the
-replacement, until 0.26.0 removes them. What such a row binds is the
-`time_average` window and the passages cut from it, and NOT the unsteady POLAR:
-until 0.24.0 a row that stated neither `LAST_REVS_AVG` nor `LAST_ITERS_AVG` had
-its polar read from the native export, the run's last time step. Since 0.24.0 a
-NEW plan of a row with NO window key is refused. A row with a deprecated
-`WINDOW_*` key still plans with a warning until 0.26.0. An older record without
-the current keys is averaged over the window the run was given, with a warning
-naming the steps.
+Since 0.26.0, `WINDOW_STEPS`, `WINDOW_REVOLUTIONS` and `WINDOW_DEGREES`
+are refused at plan time. Write `LAST_ITERS_AVG` for steps or `LAST_REVS_AVG`
+for revolutions; divide degrees by 360. A new unsteady plan requires one of
+these current keys. Older records retain the window the run was given, with
+a warning naming the steps when no current averaging key was recorded.
 
 ---
 

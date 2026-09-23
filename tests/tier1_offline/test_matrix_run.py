@@ -135,7 +135,7 @@ SETUP_BODIES = {
 }
 #: Keyed by NUMBER since 0.13.0 (PFS-2032.03): the polar table written per
 #: group carries the number in its name, and a word there is refused at plan.
-GROUP_BODIES = {"001": '[groups]\n"1" = ["wing_left", "wing_right"]\n"2" = [1]\n'}
+GROUP_BODIES = {"001": '[groups]\n"1" = "all"\n"2" = "wing_left"\n'}
 
 
 def fixture_codes(path=FIXTURE):
@@ -368,8 +368,8 @@ def test_resolve_matrix_applies_reference_and_setup_to_the_cases(tmp_path):
     assert by_sim["9001"].variables["matrix_set"] == code_for("9001", "set")
     # ENTRY groups come back verbatim for the script and post layers.
     assert resolved.pprocs[code_for("9001", "entry")].groups == {
-        "1": ["wing_left", "wing_right"],
-        "2": [1],
+        "1": ["all"],
+        "2": ["wing_left"],
     }
     # The unmapped preset key stays verbatim in the artifact.
     assert resolved.setups[code_for("9001", "set")].settings["wake_layers"] == 4
@@ -1488,11 +1488,6 @@ def test_no_warning_when_the_override_overrules_nothing(tmp_path):
     workspace = make_library(tmp_path, register_build=("26.120", "C:/fs26120/FlightStream.exe"))
     with _warnings.catch_warnings():
         _warnings.simplefilter("error", UserWarning)
-        # THE ONE WARNING THIS TEST IS NOT ABOUT (0.24.0). The shared library's
-        # pproc writes `[groups]` in the list form, which now binds with a
-        # deprecation warning of its own; the subject here is the FS_BUILD
-        # override, so that one message is let through and every other still errors.
-        _warnings.filterwarnings("ignore", message=r".*pproc \[groups\] entry.*")
         resolve_matrix(
             path,
             workspace,
@@ -3903,7 +3898,7 @@ def _two_matrices(tmp_path):
     """
     workspace = make_library(tmp_path, register_build=("26.120", "C:/fs26120/FlightStream.exe"))
     (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
-        '[groups]\n"1" = ["W", "B"]\n', encoding="utf-8"
+        '[groups]\n"1" = "all"\n', encoding="utf-8"
     )
     header, rule, first_row, *_ = REGISTRY_FIXTURE.read_text(encoding="utf-8").splitlines()
 
@@ -4034,23 +4029,19 @@ def test_an_empty_entity_selection_in_an_artifact_is_refused_at_plan_time(tmp_pa
     ``vorticity_drag_boundaries = []`` planned READY on both rows, because the
     reader accepted the list and nothing on a LEGACY row's path read it, and a
     workflow row would have met a refusal about a geometry carrying none of
-    no families. The setup is refused by the reader now, naming the artifact,
-    the key and what the empty list would have disabled; which keys admit an
-    empty list is the domain seat's call and is written beside each entry of
-    the table the reader consults. A pproc group ``"1" = []`` was refused the
-    same way until 0.14.0 as the author's undecided call; on the author's word of 2026-09-09 it
-    is every family, and plans READY (the products it writes are
-    ``test_an_empty_group_writes_the_polar_of_every_family``).
+    no families. The setup is refused by the reader, naming the artifact,
+    the key and what the empty list would have disabled. A pproc group now
+    states "all" explicitly; an empty member list is refused since 0.26.0.
     """
     workspace, first, _ = _two_matrices(tmp_path)
     pproc = workspace.inputs_dir / "pproc" / "p001.toml"
     setup = workspace.inputs_dir / "setups" / "s002.toml"
     kept = pproc.read_text(encoding="utf-8"), setup.read_text(encoding="utf-8")
 
-    pproc.write_text('[groups]\n"1" = []\n', encoding="utf-8")
+    pproc.write_text('[groups]\n"1" = "all"\n', encoding="utf-8")
     plan = _plan_first_matrix(workspace, first)
     assert [point.status for point in plan.points] == [PlanStatus.READY, PlanStatus.READY], (
-        "an empty group is every family and plans READY"
+        "the all selector is every family and plans READY"
     )
 
     pproc.write_text(kept[0], encoding="utf-8")
@@ -4071,34 +4062,17 @@ def test_an_empty_entity_selection_in_an_artifact_is_refused_at_plan_time(tmp_pa
     assert [point.status for point in plan.points] == [PlanStatus.READY, PlanStatus.READY]
 
 
-def test_an_empty_group_writes_the_polar_of_every_family(tmp_path):
-    """The author's decision of 2026-09-09 (PFS-2005.02): ``"1" = []`` is every family.
-    Through the campaign path the polar table it writes is, byte for byte, the
-    table of the group naming every surface the loads fixture carries, W and B,
-    which is what ``_two_matrices`` writes; the two workspaces differ in the
-    artifact alone."""
-    tables = {}
-    for spelling in ('"1" = []', '"1" = ["W", "B"]'):
-        workspace, first, _ = _two_matrices(
-            tmp_path / spelling.replace('"', "").replace("[", "").replace("]", "").strip(" =,")
-        )
-        (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
-            f"[groups]\n{spelling}\n", encoding="utf-8"
-        )
-        run_matrix(
-            first,
-            workspace,
-            name="camp",
-            default_fs_version="26.120",
-            recipes=RECIPES,
-            assess=converged,
-            executor=_writes_her_loads(tmp_path),
-            recipe_registry={"steady": matrix_recipe},
-        )
-        polars = sorted((workspace.root / "post" / "wing_alpha" / "polars").glob("P*-*_g01.csv"))
-        assert len(polars) == 2, f"one polar table per point of group 1: {polars}"
-        tables[spelling] = [path.read_bytes() for path in polars]
-    assert tables['"1" = []'] == tables['"1" = ["W", "B"]']
+def test_an_empty_group_is_refused_before_a_campaign_runs(tmp_path):
+    """Since 0.26.0 an empty list must be rewritten as the all selector."""
+    workspace, first, _ = _two_matrices(tmp_path)
+    pproc = workspace.inputs_dir / "pproc" / "p001.toml"
+    pproc.write_text('[groups]\n"1" = []\n', encoding="utf-8")
+    with pytest.raises(InputArtifactError, match='1 = "all"'):
+        _plan_first_matrix(workspace, first)
+    pproc.write_text('[groups]\n"1" = "all"\n', encoding="utf-8")
+    assert all(
+        point.status == PlanStatus.READY for point in _plan_first_matrix(workspace, first).points
+    )
 
 
 def test_an_alias_of_the_reference_reaches_the_polar_table_through_the_record(tmp_path):
@@ -4107,14 +4081,14 @@ def test_an_alias_of_the_reference_reaches_the_polar_table_through_the_record(tm
     Aliases live in the REFERENCE since 0.15.0 and the record carries
     them, so the products stage, which reads records and never the
     artifacts, resolves a group naming one. ``wing = ["W", "Missing"]`` on
-    r003 and ``"1" = ["wing"]`` on p001 write, byte for byte, the polar of
-    ``"1" = ["W"]`` against a reference declaring none; the member the
+    r003 and ``"1" = "wing"`` on p001 write, byte for byte, the polar of
+    ``"1" = "W"`` against a reference declaring none; the member the
     mesh lacks is ignored.
     """
     tables = {}
     for folder, alias_table, group in (
-        ("alias", '\n[aliases]\nwing = ["W", "Missing"]\n', '"1" = ["wing"]'),
-        ("plain", "", '"1" = ["W"]'),
+        ("alias", '\n[aliases]\nwing = ["W", "Missing"]\n', '"1" = "wing"'),
+        ("plain", "", '"1" = "W"'),
     ):
         workspace, first, _ = _two_matrices(tmp_path / folder)
         reference = workspace.inputs_dir / "references" / "r003.toml"
@@ -4175,7 +4149,7 @@ def test_the_reference_aliases_reach_the_record(tmp_path):
         encoding="utf-8",
     )
     (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
-        '[groups]\n"1" = ["wing"]\n', encoding="utf-8"
+        '[groups]\n"1" = "wing"\n', encoding="utf-8"
     )
     run_matrix(
         first,
@@ -4301,7 +4275,7 @@ def test_a_setup_still_stating_aliases_is_refused_and_the_reference_alone_works(
         'iterations = 800\n\n[aliases]\nwing = ["B"]\n', encoding="utf-8"
     )
     (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
-        '[groups]\n"1" = ["wing"]\n', encoding="utf-8"
+        '[groups]\n"1" = "wing"\n', encoding="utf-8"
     )
     with pytest.raises(PyflightstreamError, match=r"\[aliases\].*reference"):
         run_matrix(
@@ -4382,7 +4356,7 @@ def test_a_rotor_row_run_through_the_workflow_leaves_its_reductions_beside_the_p
     )
     workspace = make_library(tmp_path, register_build=("26.120", "C:/fs26120/FlightStream.exe"))
     (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
-        '[groups]\n"1" = ["W", "B"]\n', encoding="utf-8"
+        '[groups]\n"1" = "all"\n', encoding="utf-8"
     )
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", PyflightstreamWarning)
@@ -4400,13 +4374,8 @@ def test_a_rotor_row_run_through_the_workflow_leaves_its_reductions_beside_the_p
     plan = getattr(record, "reductions", None)
     assert plan is not None, "the run record carries no reduction windows"
     assert plan["time_average"]["windows"] == [[596, 720]]
-    # ONE WINDOW SINCE 0.23.0 ITEM 8, covering the last whole revolution. This
-    # asserted the LAST of four per-blade windows, `[596, 720]`, which was the
-    # fourth blade's own passage; the four are now one window over all of them,
-    # with the blades told apart by their azimuths rather than by which stretch
-    # they came from. The window still ENDS at the run, which is what this line
-    # was really guarding.
-    assert plan["per_blade"]["windows"] == [[221, 720]] and plan["blades"] == 4
+    # The migrated row states one quarter revolution for every averaged product.
+    assert plan["per_blade"]["windows"] == [[596, 720]] and plan["blades"] == 4
     assert plan["per_blade"]["windows"][0][1] == 720, "the window must end at the run"
     reread = workspace.read_manifest()[0]
     assert reread.reductions == plan, "the windows round-trip through the manifest"
@@ -4476,7 +4445,7 @@ def test_the_record_and_the_provenance_carry_the_raw_commands_of_the_setup(tmp_p
     # The stand-in solver writes the loads spreadsheet alone, so the study's
     # pproc keeps its groups and declares no other export.
     (root / "inputs" / "pproc" / "p002.toml").write_text(
-        '[groups]\n"1" = ["Wing"]\n\n[exports]\nsimulation = false\ntecplot = false\n'
+        '[groups]\n"1" = "Wing"\n\n[exports]\nsimulation = false\ntecplot = false\n'
         "sections = false\nsectional_loads = false\nprobes = false\nplots = false\nlog = false\n",
         encoding="utf-8",
     )

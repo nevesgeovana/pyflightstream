@@ -600,118 +600,6 @@ def removed_name_refusal(module: str, name: str) -> str:
     )
 
 
-#: THE ONE PROMISE OF 0.15.0 THAT MOVED RATHER THAN BEING KEPT, and the
-#: measurement that moved it. A manifest is the ONE surface this package
-#: cannot regenerate: every other name it renamed lives in code a user
-#: re-types, and a record is data a run produced once. On 2026-09-10 the
-#: removal was made and the suite went red on the tier-3 fixture, which
-#: led to the reading that matters: the reference recorded campaign at
-#: `pfs0110/runs.json` carries the OLD key, and that workspace is the
-#: reference the reproduction is compared against and is HELD, so nothing
-#: rewrites it. Keeping the promise on time would have made that recorded
-#: campaign unreadable by the release that reproduces it.
-#:
-#: So it moves to 0.16.0, deliberately and on the record, which is what
-#: the deadline guard's own message offers as the second reading. The
-#: three PROPERTY shims of the same rename were removed on time: an
-#: attribute is code, and code is re-typed.
-WAIVED_COMMANDS_MANIFEST_KEY = DeprecatedManifestKey(
-    old="broken_commands",
-    new="waived_commands",
-    deprecated_since="0.13.0",
-    removal_version="0.26.0",
-    extra=(
-        "Moved to 0.27.0 on 2026-09-20 with the other six active compatibility "
-        "promises and RETURNED to 0.26.0 on 2026-09-22 under the rule that no promise "
-        "waits past 0.26.0; no release stated the later deadline. What 0.26.0 "
-        "does with the reader of recorded manifests is decided there, on a fresh count. "
-        "The current checkout still contains 46 rows with this key in "
-        "tests/tier3_licensed/runs.json. The three post/ plan paths named in the "
-        "earlier measurement are absent at this checkout root; the research manifests "
-        "were not re-measured. The older counts below remain dated measurements, "
-        "not a new census. Historical records are not rewritten. "
-        "The entries are WAIVERS the recipe registered, not commands that broke in the "
-        "run, which is the opposite claim. EXTENDED A TENTH TIME, from 0.24.0 on "
-        "2026-09-19, when the 0.24.0 cycle opened and the deadline guard fired on the "
-        "bump, and BY TWO RELEASES rather than one: 0.26.0 is where the other row-level "
-        "promises of this ledger already come due, so the question is asked once there "
-        "instead of at every bump. RE-MEASURED AT THIS BUMP and unchanged: 74 recorded "
-        "rows across 4 manifests in this repository (46, 18, 8 and 2, the files named "
-        "below). A recorded manifest is data a run produced once and is never rewritten, "
-        "so the reader stays while rows that carry the key exist. "
-        "EXTENDED A NINTH TIME, from 0.23.0 on "
-        "2026-09-17, when the 0.23.0 cycle opened and the deadline guard fired on the "
-        "bump. RE-MEASURED AT THAT BUMP, BY COUNTING ROWS RATHER THAN FILES: 74 "
-        "recorded rows carry the key, across 4 manifests -- 46 in "
-        "tests/tier3_licensed/runs.json, 18 in post/matriz/plan.json, 8 in "
-        "post/matriz_time/plan.json and 2 in post/matriz_builds/plan.json. "
-        "THOSE 74 ARE ALL IN THIS REPOSITORY and every one of the four files is "
-        "gitignored, so a reviewer holding only a clean checkout runs the counter and "
-        "gets ZERO. A fixture is also regenerable and a user's manifest is not, so the "
-        "74 alone never carried the argument this promise rests on. "
-        "THE USER POPULATION IS NOW MEASURED TOO, at the ninth extension, which is "
-        "what closes that gap: 43 further rows across 15 manifests in the recorded "
-        "research workspaces (pfs0100, pfs0101, pfs0110, pfs0120, pfs040, pfs090), "
-        "each one a plan or runs manifest of a campaign that actually ran. 117 rows "
-        "across 19 manifests in total, and the 43 are the half that cannot be "
-        "regenerated: removing the shim would make a user's own records unreadable by "
-        "the package that wrote them. That is the conclusion, and it now rests on the "
-        "population it is about rather than on a test fixture. "
-        "THE FIGURE THIS ENTRY CARRIED BEFORE 0.22.0 DOES NOT REPRODUCE, and the "
-        "correction belongs to the EIGHTH extension rather than to this one -- what "
-        "the entry carried before THIS bump is the 74 above, which did reproduce. It "
-        "said 'UNCHANGED at 18 rows across 6 live manifests' at EVERY extension from "
-        "the third to the seventh, five readings and not two, and neither tree "
-        "produces it today: this repository holds 74 across 4 and the research "
-        "workspaces hold 43 across 15. "
-        "WHAT WAS ACTUALLY COUNTED TO GET 18 AND 6 IS NOT RECOVERABLE, and the "
-        "explanation this entry used to give -- that 18 was the row count of ONE of "
-        "the four files and 6 what a grep returns when an index and a search blob are "
-        "counted as manifests -- is DELETED rather than kept, because it describes "
-        "this repository while the readings of that period were taken elsewhere, and "
-        "an entry whose subject is a number asserted without measurement must not "
-        "explain it with another one. What is certain is the failure: the number was "
-        "carried rather than re-measured, which this estate has recorded four times "
-        "and had then made a fifth. "
-        "AND THE COUNT OF THE CARRIED READINGS WAS ITSELF CARRIED. This sentence said "
-        "'at two successive extensions' through the eighth and ninth, while the entry "
-        "below it stated the same 18/6 five times; the closing round of FIX-0230 "
-        "counted the narrative instead of reading it, which is the same discipline "
-        "this paragraph is about, applied one level up. "
-        "EXTENDED AN EIGHTH TIME earlier the same day, from 0.22.0 on the 0.22.0 bump, "
-        "at these same 74 rows across these same 4 manifests -- so the count above is "
-        "one that REPRODUCED rather than one taken once, which is the difference "
-        "between the reading this entry now carries and the one it had to correct. "
-        "EXTENDED A SEVENTH TIME from 0.21.0, when the 0.21.0 cycle opened and the "
-        "guard fired on that bump; RE-MEASURED THE SAME MINUTE and reported UNCHANGED "
-        "at 18 rows across 6 live manifests. THAT IS THE LAST OF THE FIVE READINGS "
-        "THE PARAGRAPH ABOVE CORRECTS, and it was missing from this chain until the "
-        "technical-writing lens counted the narrative and got eight where the ordinal "
-        "said nine -- an entry whose whole subject is a number carried instead of "
-        "re-measured cannot also skip one of the two extensions that carried it. "
-        "Extended a sixth time from 0.20.0 on "
-        "2026-09-14, when the 0.20.0 cycle opened and the deadline guard fired on the "
-        "bump; RE-MEASURED THE SAME MINUTE and UNCHANGED at 18 rows across 6 live "
-        "manifests. Extended a fifth time from 0.19.0 earlier the same day, the same way. "
-        "Extended a fourth time from 0.18.0 on "
-        "2026-09-14, when the 0.18.0 cycle opened and the deadline guard fired on the "
-        "bump, which is what it is for. RE-MEASURED THE SAME MINUTE and UNCHANGED at 18 "
-        "rows across 6 live manifests, archives excluded; the reference recorded campaign "
-        "is still among them. This key is extended ON THE "
-        "MEASUREMENT, not removed on the date. Extended from 0.15.0 on 2026-09-10, from "
-        "0.16.0 on 2026-09-11 and from 0.17.0 the same day when the 0.17.0 cycle opened "
-        "and the count was re-measured UNCHANGED at 18 rows in 6 manifests. The "
-        "extension carries the condition that ends "
-        "it, because a promise moved twice with no condition is a promise that never "
-        "expires. Measured 2026-09-11 over GeoverseResearch/tools/fts_workspace/*/"
-        "runs.json: 18 recorded rows in 6 manifests still carry the old key, among them "
-        "the reference campaign. A manifest is the one surface a run cannot "
-        "regenerate, so the reader stays while any recorded row needs it. THE EXIT IS A "
-        "MEASUREMENT AND NOT A DATE: when that count reaches zero the reader goes, "
-        "whatever release it is."
-    ),
-)
-
 #: THE VOCABULARY THAT MOVED TO THE REFERENCE (FR-59 and FR-72, the design
 #: of 2026-09-10). Both tables were the setup preset's at 0.14.0, are read
 #: from it with a warning at 0.15.0, and stop being read at 0.17.0. Two
@@ -750,57 +638,6 @@ ROW_MOVING_BOUNDARIES = DeprecatedParameter(
     deprecated_since="0.15.0",
     removal_version="0.18.0",
     extra=_STATED_IN_THE_BLOCK,
-)
-#: ITEM 16 RETIRES THE THREE WINDOW SPELLINGS: `WINDOW_STEPS`,
-#: `WINDOW_REVOLUTIONS` and `WINDOW_DEGREES`. Leaving one of three would
-#: preserve the split between two ways to state the same averaging window.
-#:
-#: THEY WERE THE SAME IDEA IN ANOTHER PLACE UNDER ANOTHER NAME. A window said
-#: two ways is how two published numbers come to disagree about which steps they
-#: averaged, and the averaging window now has ONE home -- the matrix row, beside
-#: the temporal setup that gives it a length.
-_ONE_WINDOW_ON_THE_ROW = (
-    "The averaging window is stated once on the matrix row, beside the clock that gives it a "
-    "length: LAST_REVS_AVG on an unsteady_rotor row, LAST_ITERS_AVG on an unsteady one."
-)
-PPROC_GROUP_MEMBER_LIST = DeprecatedParameter(
-    owner="a pproc [groups] entry",
-    old="a list of members",
-    new="ONE alias, written as a string",
-    deprecated_since="0.24.0",
-    removal_version="0.26.0",
-    extra=(
-        "A group names one alias. Where the list held one member, write it as the string; "
-        "where it held several, declare them once as an alias in the reference's [aliases] "
-        "table and point the group at that alias."
-    ),
-)
-ROW_WINDOW_STEPS = DeprecatedParameter(
-    owner="a matrix row",
-    old="WINDOW_STEPS",
-    new="LAST_ITERS_AVG",
-    deprecated_since="0.23.0",
-    removal_version="0.26.0",
-    extra=_ONE_WINDOW_ON_THE_ROW,
-)
-ROW_WINDOW_REVOLUTIONS = DeprecatedParameter(
-    owner="a matrix row",
-    old="WINDOW_REVOLUTIONS",
-    new="LAST_REVS_AVG",
-    deprecated_since="0.23.0",
-    removal_version="0.26.0",
-    extra=_ONE_WINDOW_ON_THE_ROW,
-)
-ROW_WINDOW_DEGREES = DeprecatedParameter(
-    owner="a matrix row",
-    old="WINDOW_DEGREES",
-    new="LAST_REVS_AVG",
-    deprecated_since="0.23.0",
-    removal_version="0.26.0",
-    extra=(
-        _ONE_WINDOW_ON_THE_ROW
-        + " Degrees are revolutions over 360, so WINDOW_DEGREES = 90 is LAST_REVS_AVG = 0.25."
-    ),
 )
 ROW_ROTOR_AXIS = DeprecatedParameter(
     owner="a motion record",
@@ -955,37 +792,9 @@ REFUSED_IN_0_15_0: tuple[Deprecation, ...] = (
 #: architecture lens of 2026-09-09: the mapping was private to one module
 #: and its sibling reached into it).
 
-WRITE_SECTIONS_ITERATION = DeprecatedParameter(
-    owner="write_sections_table",
-    old="iteration=",
-    new="step=",
-    deprecated_since="0.25.0",
-    removal_version="0.26.0",
-)
-
-ASSESS_UNSTEADY_FROM_PLOTS = DeprecatedFunction(
-    function="run.assess_unsteady_from_plots",
-    deprecated_since="0.25.0",
-    removal_version="0.26.0",
-    advice=(
-        "use LoadsAssessor for campaign assessment of native loads and solver residuals; "
-        "history settling remains a separate user judgement"
-    ),
-)
-
 DEPRECATIONS: tuple[Deprecation, ...] = (
-    WRITE_SECTIONS_ITERATION,
-    ASSESS_UNSTEADY_FROM_PLOTS,
     *DEPRECATED_MODULES,
     ANALYSIS_SETUP_VORTICITY_DRAG_BOUNDARIES,
     PLAN_MATRIX_FS_VERSION,
     RUN_MATRIX_FS_VERSION,
-    WAIVED_COMMANDS_MANIFEST_KEY,
-    # ITEM 16 RETIRES THE THREE WINDOW SPELLINGS. They are here rather than
-    # only defined above because the ledger guard measures exactly that gap: a
-    # promise defined and not carried is a deadline nothing counts down.
-    ROW_WINDOW_DEGREES,
-    ROW_WINDOW_REVOLUTIONS,
-    PPROC_GROUP_MEMBER_LIST,
-    ROW_WINDOW_STEPS,
 )

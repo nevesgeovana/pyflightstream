@@ -23,7 +23,7 @@ def _case(tmp_path, *, steady=False, profile="2\n2,3,4,1\n5,6,7,0\n"):
     survey.write_text(profile, encoding="utf-8", newline="\n")
     spec = PprocSpec.model_validate(
         {
-            "groups": {"1": ["W", "B"]},
+            "groups": {"1": "all"},
             "probes": [
                 {
                     "frame": "MRP",
@@ -114,7 +114,7 @@ def _post_workspace(
     workspace = _unsteady_workspace(
         tmp_path, reductions=None, recipe="steady" if steady else "unsteady"
     )
-    pproc = '[groups]\n"1" = ["W", "B"]\n'
+    pproc = '[groups]\n"1" = "all"\n'
     if drawn:
         pproc += (
             '\n[[probes]]\nframe = "MRP"\nparameters = ["MACH", "VELOCITY"]\n'

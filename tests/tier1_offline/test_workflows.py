@@ -128,7 +128,7 @@ CODES = {"010": "unsteady_rotor", "003": "steady", "020": "unsteady"}
 
 
 #: Every key that states an unsteady row's averaging window: the two of
-#: 0.23.0 and the three retired spellings that still bind until 0.26.0.
+#: current spellings and the three removed ones exercised by refusal tests.
 _WINDOW_KEYS = frozenset(
     {"LAST_REVS_AVG", "LAST_ITERS_AVG", "WINDOW_DEGREES", "WINDOW_STEPS", "WINDOW_REVOLUTIONS"}
 )
@@ -178,7 +178,7 @@ def rotor_case(**overrides) -> SimCase:
         "BLADES": "4",
         "DELTA_TIME": "0.0001",
         "TIME_ITERATIONS": "720",
-        "WINDOW_DEGREES": "90",
+        "LAST_REVS_AVG": "0.25",
     }
     for key, value in overrides.items():
         if value is None:
@@ -947,7 +947,7 @@ def test_the_conversion_agrees_with_the_coupled_driver_that_owns_the_other_copy(
 def test_the_window_comes_off_the_row():
     """The whole point: nobody types this twice."""
     window = ExportWindow.from_case(rotor_case())
-    assert window.stated_form == "degrees" and window.stated_value == 90.0
+    assert window.stated_form == "revolutions" and window.stated_value == 0.25
     assert window.steps == 125
 
 
@@ -1018,14 +1018,14 @@ def _reduction_windows():
 
 def test_a_rotor_row_states_every_window_from_its_clock_and_its_blades():
     """The rotor case: 500 steps per revolution, four blades, a 90 degree export
-    window of 125 steps. The time average is the export window; the per-blade
-    split is the last revolution cut in four; the phase-locked passages cut
-    the export window into blade passages, one here."""
+    window of 125 steps. Since 0.26.0 the migrated row states LAST_REVS_AVG,
+    so the time average and per-blade table share that quarter revolution;
+    the phase-locked reduction holds one blade passage."""
     plan = _reduction_windows()(rotor_case())
     assert plan["time_iterations"] == 720 and plan["blades"] == 4
     assert plan["steps_per_revolution"] == pytest.approx(STEPS_PER_REV)
     assert plan["time_average"]["windows"] == [[596, 720]]
-    assert "WINDOW_DEGREES" in plan["time_average"]["window_from"]
+    assert "LAST_REVS_AVG" in plan["time_average"]["window_from"]
     blades = plan["per_blade"]
     assert blades["period_steps"] == 125
     # ONE WINDOW SINCE 0.23.0 ITEM 8, and this line is what it replaced:
@@ -1036,7 +1036,7 @@ def test_a_rotor_row_states_every_window_from_its_clock_and_its_blades():
     # mixes a real azimuthal difference with a difference in WHEN each was
     # sampled, and nothing in the file said which was which. The blades are
     # still told apart -- by their azimuths, written at both ends.
-    assert blades["windows"] == [[221, 720]]
+    assert blades["windows"] == [[596, 720]]
     assert plan["phase_locked"]["windows"] == [[596, 720]]
     assert plan["phase_locked"]["period_steps"] == 125
 
@@ -1045,7 +1045,7 @@ def test_a_rotor_row_stating_no_export_window_averages_its_last_revolution():
     """The row states DELTA_THETA and REVOLUTIONS, or RPM and the seconds, so a
     revolution in steps is known; with no WINDOW_* key that revolution is the
     window, counted backwards from the end of the run."""
-    plan = _reduction_windows()(rotor_case(WINDOW_DEGREES=None))
+    plan = _reduction_windows()(rotor_case(LAST_REVS_AVG=None))
     assert plan["time_average"]["windows"] == [[221, 720]]
     assert "revolution" in plan["time_average"]["window_from"]
     # THE TWO ARE NO LONGER THE SAME SHAPE SINCE 0.23.0 ITEM 8, and this test
@@ -1092,7 +1092,7 @@ def test_a_rotorless_row_gets_the_time_average_over_the_whole_run_and_nothing_el
     """DELTA_TIME and TIME_ITERATIONS state the run; that is the window the row
     states, and a blade passage has no length, so the other two do not apply."""
     case = rotor_case(
-        RPM=None, ROTOR_AXIS=None, BLADES=None, WINDOW_DEGREES=None, DELTA_TIME="0.00025"
+        RPM=None, ROTOR_AXIS=None, BLADES=None, LAST_REVS_AVG=None, DELTA_TIME="0.00025"
     ).model_copy(update={"recipe": "unsteady"})
     case.variables[WORKFLOW_KEY] = "unsteady"
     plan = _reduction_windows()(case)
@@ -1104,7 +1104,7 @@ def test_a_rotorless_row_gets_the_time_average_over_the_whole_run_and_nothing_el
 
 def test_a_rotorless_row_stating_a_window_in_steps_averages_over_it():
     case = rotor_case(
-        RPM=None, ROTOR_AXIS=None, BLADES=None, WINDOW_DEGREES=None, WINDOW_STEPS="100"
+        RPM=None, ROTOR_AXIS=None, BLADES=None, LAST_REVS_AVG=None, LAST_ITERS_AVG="100"
     ).model_copy(update={"recipe": "unsteady"})
     case.variables[WORKFLOW_KEY] = "unsteady"
     plan = _reduction_windows()(case)
@@ -1595,7 +1595,7 @@ def steady_case_full() -> SimCase:
 def rotor_case_full() -> SimCase:
     """A rotor case in the other window form, with the optional cells set.
 
-    ``WINDOW_STEPS`` rather than ``WINDOW_DEGREES``, plus ``ROTOR_ORIGIN``
+    ``LAST_ITERS_AVG`` rather than ``LAST_REVS_AVG``, plus ``ROTOR_ORIGIN``
     and ``MOVING_BOUNDARIES``, which are the rotor branches ``bare`` does
     not reach. Names none of the three 0.8.1 keys.
 
@@ -1614,8 +1614,8 @@ def rotor_case_full() -> SimCase:
     likewise off-axis in all three components rather than only in ``z``.
     """
     return rotor_case(
-        WINDOW_DEGREES=None,
-        WINDOW_STEPS="36",
+        LAST_REVS_AVG=None,
+        LAST_ITERS_AVG="36",
         ROTOR_AXIS="Z",
         ROTOR_ORIGIN="0.1,0.2,0.3",
         MOVING_BOUNDARIES="1,2",
@@ -2995,11 +2995,10 @@ def test_the_builder_emits_the_derived_clock_and_the_derived_speed():
     case = ratio_case(
         DELTA_TIME=None,
         TIME_ITERATIONS=None,
-        WINDOW_DEGREES=None,
         **{
             DELTA_THETA_VARIABLE: "10.0",
             REVOLUTIONS_VARIABLE: "1.5",
-            "WINDOW_REVOLUTIONS": "1.0",
+            "LAST_REVS_AVG": "1.0",
         },
     )
     script = Script("26.123")
@@ -4168,7 +4167,7 @@ def _her_pproc():
 
     return PprocSpec.model_validate(
         {
-            "groups": {"1": ["Blade1", "S", "N", "W", "B"], "2": ["W", "B"]},
+            "groups": {"1": "CONFIGURATION", "2": "WB"},
             "sections": {
                 "count": 50,
                 "distributions": [
@@ -4223,6 +4222,7 @@ def _with_pproc(case: SimCase, geometry: Path, pproc=None) -> SimCase:
             "geometry": str(geometry),
             "reference": reference,
             "pproc": pproc or _her_pproc(),
+            "aliases": {"CONFIGURATION": ["Blade1", "S", "N", "W", "B"], "WB": ["W", "B"]},
             "pproc_id": "p001",
         }
     )
@@ -5194,7 +5194,7 @@ def swept_ratio_case(**overrides) -> SimCase:
         # 720 and `per_blade` skipped for that real reason, which would have
         # left the case asserting two thirds of what it claims.
         "TIME_ITERATIONS": "2100",
-        "WINDOW_DEGREES": "90",
+        "LAST_REVS_AVG": "0.25",
     }
     for key, value in overrides.items():
         if value is None:
@@ -5373,7 +5373,7 @@ def test_an_entry_states_its_own_count_and_plot_direction(tmp_path):
 
     spec = PprocSpec.model_validate(
         {
-            "groups": {"1": ["W", "B"]},
+            "groups": {"1": "all"},
             "sections": {
                 "count": 7,
                 "plot_direction": 1,
@@ -5423,7 +5423,7 @@ def test_include_symmetry_has_no_per_entry_form(tmp_path):
     with pytest.raises(ValidationError) as caught:
         PprocSpec.model_validate(
             {
-                "groups": {"1": ["W"]},
+                "groups": {"1": "W"},
                 "sections": {
                     "distributions": [
                         {"families": ["W"], "planes": ["XZ"], "include_symmetry": True}
@@ -5517,7 +5517,7 @@ def test_one_artifact_probes_two_frames_on_one_row(tmp_path):
 
     spec = PprocSpec.model_validate(
         {
-            "groups": {"1": ["W", "B"]},
+            "groups": {"1": "all"},
             "probes": [
                 {
                     "frame": "MRP",
@@ -5573,7 +5573,7 @@ def test_the_0_15_0_probes_table_is_refused_naming_the_edit():
     with pytest.raises(ValidationError) as caught:
         PprocSpec.model_validate(
             {
-                "groups": {"1": ["W"]},
+                "groups": {"1": "W"},
                 "probes": {
                     "frame": "MRP",
                     "parameters": ["VELOCITY"],
@@ -5607,7 +5607,7 @@ def test_no_workflow_exports_probe_points_it_never_created(tmp_path):
 
     pproc = PprocSpec.model_validate(
         {
-            "groups": {"1": ["W", "B"]},
+            "groups": {"1": "all"},
             "probes": [
                 {
                     "frame": "MRP",
@@ -5666,7 +5666,7 @@ def test_a_probe_entry_may_cite_a_points_file_the_user_wrote(tmp_path):
 
     spec = PprocSpec.model_validate(
         {
-            "groups": {"1": ["W", "B"]},
+            "groups": {"1": "all"},
             "probes": [
                 {
                     "frame": "MRP",
@@ -5723,7 +5723,7 @@ def test_an_unresolved_survey_citation_is_refused_rather_than_emitted(tmp_path):
 
     spec = PprocSpec.model_validate(
         {
-            "groups": {"1": ["W", "B"]},
+            "groups": {"1": "all"},
             "probes": [
                 {"frame": "MRP", "parameters": ["VELOCITY"], "points_file": "disk_survey.txt"}
             ],
@@ -5744,7 +5744,7 @@ def test_a_pproc_file_may_not_state_the_resolved_survey_path():
     with pytest.raises(ValueError, match="set by the package when a row binds"):
         PprocSpec.model_validate(
             {
-                "groups": {"1": ["W"]},
+                "groups": {"1": "W"},
                 "probes": [
                     {
                         "frame": "MRP",
@@ -5805,7 +5805,7 @@ def test_a_probe_entry_prescribes_a_rectangle_and_a_circle_point_by_point(tmp_pa
 
     spec = PprocSpec.model_validate(
         {
-            "groups": {"1": ["W", "B"]},
+            "groups": {"1": "all"},
             "probes": [
                 {
                     "frame": "MRP",

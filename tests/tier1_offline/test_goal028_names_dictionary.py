@@ -136,7 +136,7 @@ def test_the_stage_applies_the_dictionary_to_the_polar_and_the_reductions(tmp_pa
 
     workspace = _unsteady_workspace(tmp_path, reductions=ROTOR_PLAN)
     (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
-        '[groups]\n"1" = ["W", "B"]\n\n[names]\nCL_MRP_TOTAL = "CL_TOTAL"\n', encoding="utf-8"
+        '[groups]\n"1" = "all"\n\n[names]\nCL_MRP_TOTAL = "CL_TOTAL"\n', encoding="utf-8"
     )
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
@@ -163,7 +163,7 @@ def test_the_stage_says_once_per_point_when_the_dictionary_cannot_be_honoured(tm
 
     workspace = _unsteady_workspace(tmp_path, reductions=ROTOR_PLAN)
     (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
-        '[groups]\n"1" = ["W", "B"]\n\n[names]\nCL_HUB_GHOST = "CL"\n', encoding="utf-8"
+        '[groups]\n"1" = "all"\n\n[names]\nCL_HUB_GHOST = "CL"\n', encoding="utf-8"
     )
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
@@ -208,7 +208,7 @@ def test_the_dictionary_is_checked_when_an_azimuthal_reduction_loads_the_history
     }
     workspace = _unsteady_workspace(tmp_path, reductions=plan)
     (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
-        '[groups]\n"1" = ["W", "B"]\n\n[names]\nCL_HUB_GHOST = "CL"\n', encoding="utf-8"
+        '[groups]\n"1" = "all"\n\n[names]\nCL_HUB_GHOST = "CL"\n', encoding="utf-8"
     )
     with warnings.catch_warnings(record=True) as raised:
         warnings.simplefilter("always")
