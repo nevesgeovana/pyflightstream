@@ -283,7 +283,7 @@ def test_the_gate_reaches_the_row_that_does_not_name_its_rotors():
             "BLADES": "4",
             "DELTA_TIME": "0.0001",
             "TIME_ITERATIONS": "720",
-            "WINDOW_DEGREES": "90",
+            "LAST_REVS_AVG": "0.25",
         },
         pproc=PprocSpec(
             phase_locked=PhaseLockedSpec(min_revolutions=99.0, last_revolutions_avg=1.0)
@@ -329,7 +329,7 @@ def test_the_gate_counts_the_run_and_not_the_exported_window():
 
         RPM 1200, DELTA_TIME 0.0001   ->   500 solver steps per revolution
         TIME_ITERATIONS 720           ->   the RUN turns 1.44 revolutions
-        WINDOW_DEGREES 90             ->   the WINDOW holds 0.25 of one
+        LAST_REVS_AVG 0.25            ->   the WINDOW holds 0.25 of one
 
     So at `min_revolutions = 1.0` the two readings disagree by the verdict, not
     by a digit: counting the run GENERATES the reduction, counting the window
@@ -355,7 +355,7 @@ def test_the_gate_counts_the_run_and_not_the_exported_window():
                 "BLADES": "4",
                 "DELTA_TIME": "0.0001",
                 "TIME_ITERATIONS": "720",
-                "WINDOW_DEGREES": "90",
+                "LAST_REVS_AVG": "0.25",
             },
             pproc=PprocSpec(
                 phase_locked=PhaseLockedSpec(min_revolutions=minimum, last_revolutions_avg=0.1)

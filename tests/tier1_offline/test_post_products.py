@@ -288,7 +288,7 @@ SLOADS = """\
 
 def test_sections_table_round_trips(tmp_path):
     target = write_sections_table(
-        tmp_path / "sections" / "P_sections.csv", SLOADS, mach=0.2, iteration=412, azimuth_deg=37.5
+        tmp_path / "sections" / "P_sections.csv", SLOADS, mach=0.2, step=412, azimuth_deg=37.5
     )
     assert target is not None
     columns, rows = read_csv_table(target)
@@ -326,7 +326,7 @@ def test_a_sections_row_with_no_rotor_reads_not_applicable_for_the_azimuth(tmp_p
     for the column: "se não tiver rotor, ela fica na".
     """
     target = write_sections_table(
-        tmp_path / "sections" / "R_sections.csv", SLOADS, mach=0.2, iteration=7
+        tmp_path / "sections" / "R_sections.csv", SLOADS, mach=0.2, step=7
     )
     assert target is not None
     _, rows = read_csv_table(target)
@@ -583,7 +583,7 @@ def _unsteady_workspace(tmp_path, *, reductions, recipe="unsteady_rotor", rows=8
 
     workspace = CampaignWorkspace.init(tmp_path / "camp")
     (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
-        '[groups]\n"1" = ["W", "B"]\n', encoding="utf-8"
+        '[groups]\n"1" = "all"\n', encoding="utf-8"
     )
     raw = workspace.sim_dir("7001") / "outputs"
     raw.mkdir(parents=True)
@@ -997,7 +997,7 @@ def _steady_workspace_with_provenance(tmp_path):
 
     workspace = CampaignWorkspace.init(tmp_path / "camp")
     (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
-        '[groups]\n"1" = ["W", "B"]\n', encoding="utf-8"
+        '[groups]\n"1" = "all"\n', encoding="utf-8"
     )
     raw = workspace.sim_dir("3207") / "outputs"
     raw.mkdir(parents=True)
@@ -1272,7 +1272,7 @@ def test_pyfs_matrix_post_writes_her_format_beside_the_polar_tables_when_asked(t
 
     asked = _workspace(
         tmp_path / "asked",
-        '[groups]\n"1" = ["W", "B"]\n"3" = ["W"]\n[products]\ncustom_polar_format = true\n',
+        '[groups]\n"1" = "all"\n"3" = "W"\n[products]\ncustom_polar_format = true\n',
     )
     with warnings.catch_warnings():
         warnings.simplefilter("error", PyflightstreamDeprecationWarning)
@@ -1328,7 +1328,7 @@ def test_pyfs_matrix_post_writes_her_format_beside_the_polar_tables_when_asked(t
     )
     assert again.read_bytes() == first
 
-    silent = _workspace(tmp_path / "silent", '[groups]\n"1" = ["W", "B"]\n')
+    silent = _workspace(tmp_path / "silent", '[groups]\n"1" = "all"\n')
     write_campaign_products(silent)
     assert sorted(p.name for p in (silent.root / "post" / "products" / "polars").iterdir()) == [
         f"{stem}_g01.csv",
@@ -1360,7 +1360,7 @@ def _windowed_workspace(tmp_path, *, window, reductions=None, kinds=("", "_sload
 
     workspace = CampaignWorkspace.init(tmp_path / "camp")
     (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
-        '[groups]\n"1" = ["W", "B"]\n', encoding="utf-8"
+        '[groups]\n"1" = "all"\n', encoding="utf-8"
     )
     sim = workspace.sim_dir("7001")
     raw = sim / "outputs"
@@ -1725,7 +1725,7 @@ def test_the_former_key_of_the_polar_format_is_refused_on_a_real_artifact(tmp_pa
 
     workspace = CampaignWorkspace.init(tmp_path / "old")
     (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
-        '[groups]\n"1" = ["W", "B"]\n[products]\nher_polar_format = true\n', encoding="utf-8"
+        '[groups]\n"1" = "all"\n[products]\nher_polar_format = true\n', encoding="utf-8"
     )
     raw = workspace.sim_dir("3207") / "outputs"
     raw.mkdir(parents=True)
@@ -1818,7 +1818,7 @@ def test_the_probe_positions_the_record_names_reach_the_delivered_table(tmp_path
     # the numbered groups come from: the writer composes them forward from
     # these parameters rather than matching a pattern against the header.
     (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
-        '[groups]\n"1" = ["W", "B"]\n'
+        '[groups]\n"1" = "all"\n'
         "\n[[probes]]\n"
         'frame = "PUSHER_SMRP"\n'
         'parameters = ["MACH", "VELOCITY"]\n',
@@ -1936,7 +1936,7 @@ def test_an_unsteady_point_with_a_steady_probe_export_gets_the_history_table(tmp
 
     workspace = _unsteady_workspace(tmp_path, reductions=None)
     (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
-        '[groups]\n"1" = ["W", "B"]\n'
+        '[groups]\n"1" = "all"\n'
         "\n[[probes]]\n"
         'frame = "PUSHER_SMRP"\n'
         'parameters = ["MACH", "VELOCITY"]\n',
@@ -2438,7 +2438,7 @@ def test_goal019_record_a_job_writes_one_polar_row_per_point(tmp_path):
 
     workspace = CampaignWorkspace.init(tmp_path / "camp")
     (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
-        '[groups]\n"1" = ["W", "B"]\n', encoding="utf-8"
+        '[groups]\n"1" = "all"\n', encoding="utf-8"
     )
     raw = workspace.sim_dir("3207") / "outputs"
     raw.mkdir(parents=True)

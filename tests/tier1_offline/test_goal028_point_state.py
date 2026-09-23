@@ -110,7 +110,7 @@ def test_the_post_stage_re_resolves_a_point_a_record_describes_wrongly(swept):
     # And a group that selects the surfaces that export carries: one that selects
     # nothing is a named skip, not a polar of zeros.
     (swept.inputs_dir / "pproc" / "p001.toml").write_text(
-        '[groups]\n"1" = ["W", "B"]\n', encoding="utf-8"
+        '[groups]\n"1" = "all"\n', encoding="utf-8"
     )
     _as_0_23_0_wrote_them(swept)
     before = (swept.root / "runs.json").read_bytes()

@@ -23,7 +23,7 @@ PUSHER_FAMILIES = [*PUSHER.families_general, *PUSHER.families_blades]
 
 
 def _case(tmp_path, plots: dict):
-    pproc = PprocSpec.model_validate({"groups": {"1": ["W"]}, "plots": plots})
+    pproc = PprocSpec.model_validate({"groups": {"1": "W"}, "plots": plots})
     reference = ReferenceData(area=16.0, length=1.6, span_m=10.0, moment_point_m=(0.0, 0.0, 0.0))
     return two_rotor_case(tmp_path).model_copy(
         update={"pproc": pproc, "pproc_id": "p001", "reference": reference}

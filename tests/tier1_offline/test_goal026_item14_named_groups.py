@@ -275,7 +275,7 @@ def _named_workspace(tmp_path):
     workspace = _workspace(tmp_path)
     for pproc in ("p001", "p002"):
         (workspace.inputs_dir / "pproc" / f"{pproc}.toml").write_text(
-            '[groups]\nPUSHER = ["W", "B"]\nWING = ["W"]\n', encoding="utf-8"
+            '[groups]\nPUSHER = "all"\nWING = "W"\n', encoding="utf-8"
         )
     return workspace
 
@@ -329,7 +329,7 @@ def test_what_the_rename_produces_is_what_the_post_stage_writes(tmp_path):
     numbered = _named_workspace(tmp_path)
     for pproc in ("p001", "p002"):
         (numbered.inputs_dir / "pproc" / f"{pproc}.toml").write_text(
-            '[groups]\n"1" = ["W", "B"]\n"2" = ["W"]\n', encoding="utf-8"
+            '[groups]\n"1" = "all"\n"2" = "W"\n', encoding="utf-8"
         )
     _post(numbered)
     before = sorted(p.name for p in numbered.root.rglob("*_g0*.csv"))

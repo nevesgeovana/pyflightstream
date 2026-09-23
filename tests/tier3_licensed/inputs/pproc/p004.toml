@@ -5,4 +5,4 @@
 # mesh block. A row naming this artifact cites the renamed name and nothing
 # else, so the run measures which name reaches the loads export.
 [groups]
-"1" = ["MainWing"]
+"1" = "MainWing"

@@ -102,7 +102,9 @@ def test_groups_migrate_to_pproc_verbatim(tmp_path):
         "the groups are the file's own lines, comments and all"
     )
     assert not (groups / "e001.toml").exists() and not groups.exists()
-    assert workspace.resolve_pproc("p001").groups == {"1": ["Blade1", "S"], "2": ["W", "B"]}
+    # Migration preserves bytes; since 0.26.0 the user must rewrite group lists as aliases.
+    with pytest.raises(InputArtifactError, match='1 = "<alias>"'):
+        workspace.resolve_pproc("p001")
     # A second run finds nothing to move, and a groups file left at the top
     # level of a pproc file is named with the migration that fixes it.
     assert migrate_groups_to_pproc(workspace.inputs_dir) == {}

@@ -37,7 +37,6 @@ def _case(*, rotor=False, time_averaging=None, vtk_variables=None, threshold=Non
         case = rotor_case(
             DELTA_TIME=None,
             TIME_ITERATIONS=None,
-            WINDOW_DEGREES=None,
             DELTA_THETA="10",
             REVOLUTIONS="4",
             LAST_REVS_AVG="1",

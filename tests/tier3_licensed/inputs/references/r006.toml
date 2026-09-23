@@ -31,6 +31,16 @@ z_m = 0.0
 # is left out, which is what lets this one file serve the twin mesh and an
 # isolated rotor.
 [aliases]
+selection_p001_1 = ["Wing", "Body", "Base", "Blade1", "Blade2"]
+selection_p001_3 = ["Body", "Base"]
+selection_p001_4 = ["Blade1", "Blade2"]
+selection_p002_1 = ["Wing", "Body", "Base"]
+selection_p002_3 = ["Body", "Base"]
+selection_p003_1 = ["Wing", "Body", "Base", "Blade1", "Blade2"]
+selection_p003_3 = ["Body", "Base"]
+selection_p003_4 = ["Blade1", "Blade2"]
+selection_p005_1 = ["airframe", "rotors"]
+selection_p006_1 = ["airframe", "rotors"]
 airframe = ["Body", "Base"]
 # A GROUP OF ROTORS is written as a list of ROTOR NAMES, not of families.
 # An entry citing it reaches every rotor in it.

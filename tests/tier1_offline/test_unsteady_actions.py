@@ -379,7 +379,7 @@ def test_the_worked_example_on_the_page_builds_to_the_lines_it_shows():
     )
     # The cell replaces every clock and window key the hand-built case carries.
     overrides: dict[str, str | None] = dict.fromkeys(
-        ("DELTA_TIME", "TIME_ITERATIONS", "WINDOW_DEGREES")
+        ("DELTA_TIME", "TIME_ITERATIONS", "LAST_REVS_AVG")
     )
     overrides.update(variables)
     case = rotor_case(**overrides)

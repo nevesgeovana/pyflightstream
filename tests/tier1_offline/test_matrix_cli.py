@@ -117,7 +117,7 @@ def make_planned_workspace(tmp_path):
         "area_m2 = 10.0\nchord_m = 1.2\nspan_m = 8.0\n", encoding="utf-8"
     )
     (inputs / "setups" / "s002.toml").write_text("iterations = 800\n", encoding="utf-8")
-    (inputs / "pproc" / "p001.toml").write_text('[groups]\n"1" = ["wing_left"]\n', encoding="utf-8")
+    (inputs / "pproc" / "p001.toml").write_text('[groups]\n"1" = "wing_left"\n', encoding="utf-8")
     with open(inputs / "executables.toml", "a", encoding="utf-8") as handle:
         handle.write('"26.120" = "C:/fs26120/FlightStream.exe"\n')
     return workspace
@@ -277,7 +277,7 @@ def test_post_reruns_from_the_manifest_without_a_solver(tmp_path, capsys):
 
     workspace = CampaignWorkspace.init(tmp_path / "camp")
     (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
-        '[groups]\n"1" = ["W", "B"]\n', encoding="utf-8"
+        '[groups]\n"1" = "all"\n', encoding="utf-8"
     )
     raw = workspace.sim_dir("3207") / "outputs"
     raw.mkdir(parents=True)
@@ -385,7 +385,7 @@ def test_strict_exits_zero_when_nothing_was_skipped(tmp_path, capsys):
 
     workspace = CampaignWorkspace.init(tmp_path / "camp")
     (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
-        '[groups]\n"1" = ["W", "B"]\n', encoding="utf-8"
+        '[groups]\n"1" = "all"\n', encoding="utf-8"
     )
     _record_a_converged_polar(workspace, "3207", {"alpha": -2.0}, LOADS)
     assert main(["post", "--workspace", str(workspace.root), "--strict"]) == 0
@@ -415,7 +415,7 @@ def test_a_refused_polar_is_recorded_as_skipped_and_the_other_products_are_writt
 
     workspace = CampaignWorkspace.init(tmp_path / "camp")
     (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
-        '[groups]\n"1" = ["W", "B"]\n', encoding="utf-8"
+        '[groups]\n"1" = "all"\n', encoding="utf-8"
     )
     other_area = LOADS.replace(
         "Reference area (m^2)                        50.000",

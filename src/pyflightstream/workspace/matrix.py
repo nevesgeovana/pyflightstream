@@ -1304,7 +1304,7 @@ def _refuse_groups_named_by_a_word(pproc: PprocArtifact, code: str, pol: str) ->
         f"{', '.join(repr(name) for name in collides)}. That is the shape the numbered "
         "era wrote as a SUFFIX, so a product named after it could not be told from the "
         "form it supersedes, and the rename that moves the products you already have "
-        'needs that difference. Give the group a name of its own: PUSHER = ["Blade1"].',
+        'needs that difference. Give the group a name of its own: PUSHER = "Blade1".',
         kind="pproc",
         artifact_id=code,
     )

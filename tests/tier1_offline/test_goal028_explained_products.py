@@ -46,7 +46,7 @@ def test_a_default_unsteady_row_gets_its_probe_table(tmp_path):
 
     workspace = _unsteady_workspace(tmp_path, reductions=None)
     (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
-        '[groups]\n"1" = ["W", "B"]\n\n[[probes]]\nframe = "PUSHER_SMRP"\n'
+        '[groups]\n"1" = "all"\n\n[[probes]]\nframe = "PUSHER_SMRP"\n'
         'parameters = ["MACH", "VELOCITY"]\n',
         encoding="utf-8",
     )
@@ -147,9 +147,7 @@ def test_a_pproc_that_writes_no_polar_tables_still_posts_an_unsteady_row(tmp_pat
     UnboundLocalError, which no handler catches, so the stage died for everyone."""
     from pyflightstream.post.products import write_campaign_products
 
-    workspace = _windowed(
-        tmp_path, pproc='[groups]\n"1" = ["W", "B"]\n\n[products]\npolars = false\n'
-    )
+    workspace = _windowed(tmp_path, pproc='[groups]\n"1" = "all"\n\n[products]\npolars = false\n')
     written = write_campaign_products(workspace)
     names = {Path(path).name for path in written}
     assert "AL-020_time_average.csv" in names, sorted(names)
@@ -160,7 +158,7 @@ def test_the_unsteady_polar_vouches_only_for_the_points_it_holds(tmp_path):
     from pyflightstream.post.products import write_campaign_products
     from pyflightstream.workspace import RunRecord
 
-    workspace = _windowed(tmp_path, pproc='[groups]\n"1" = ["W", "B"]\n')
+    workspace = _windowed(tmp_path, pproc='[groups]\n"1" = "all"\n')
     (record,) = workspace.read_manifest()
     outputs = workspace.sim_dir("7001") / "outputs"
     (outputs / "AL+020.txt").write_text(LOADS, encoding="utf-8")

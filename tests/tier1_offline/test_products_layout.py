@@ -100,7 +100,7 @@ def _workspace(tmp_path: Path, *, plots: bool = False) -> CampaignWorkspace:
     if plots:
         products += "plots = true\n"
     (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
-        f'[groups]\n"1" = ["Wing"]\n\n[products]\n{products}', encoding="utf-8"
+        f'[groups]\n"1" = "Wing"\n\n[products]\n{products}', encoding="utf-8"
     )
     collected = workspace.sim_dir(SIM) / "outputs"
     collected.mkdir(parents=True)

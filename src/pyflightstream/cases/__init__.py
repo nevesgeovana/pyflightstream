@@ -46,7 +46,6 @@ from pydantic import (
 
 from pyflightstream._atmosphere import ISA
 from pyflightstream._deprecations import (
-    PPROC_GROUP_MEMBER_LIST,
     ROW_AIRFRAME_SELECTOR,
     ROW_BLADES_SELECTOR,
     ROW_EACH_BLADE,
@@ -782,53 +781,34 @@ class PlotsSpec(BaseModel):
 
 
 def _a_group_is_one_alias(value):
-    """Read each ``[groups]`` entry as ONE alias, and keep binding the list form (0.24.0).
+    """Read one alias per group; since 0.26.0 a member list is refused.
 
-    The requirement: a group names one alias, so its value is a STRING. What the
-    rest of the package iterates is unchanged, a list of members, so the string
-    becomes a one-member list here and nowhere else.
-
-    THE LIST FORM STILL BINDS, with a warning that writes the replacement out,
-    because a pproc a workspace already holds must not stop validating on an
-    upgrade. AN INTEGER MEMBER STAYS LEGAL: it is a POSITION, which the motion
-    path reads (`MOVING_BOUNDARIES: g1`), and refusing it here broke every row
-    that moves a boundary by position. What an integer cannot do is select a
-    surface of a loads table, and the products stage names that group as
-    skipped instead of writing it a row of zeros.
+    The internal list is the normalized selection iterated by consumers.
+    Declare several members under [aliases] in the reference and name that alias.
     """
     if not isinstance(value, Mapping):
         return value
     groups: dict[str, list[int | str]] = {}
-    written_as_lists: list[str] = []
     for name, stated in value.items():
         if isinstance(stated, str):
             groups[str(name)] = [stated]
             continue
-        members = list(stated) if isinstance(stated, list | tuple) else stated
-        if not isinstance(members, list):
-            return value  # not a shape this reads; the field's own type says so
-        groups[str(name)] = list(members)
-        if all(isinstance(member, str) for member in members):
-            # A list holding a POSITION has no alias to be rewritten as.
-            written_as_lists.append(str(name))
-    if written_as_lists:
-        examples = []
-        for name in written_as_lists:
-            members = groups[name]
-            if len(members) == 1:
-                examples.append(f'{name} = "{members[0]}"')
-            elif members:
-                examples.append(
-                    f'{name} = "<alias>", with <alias> = {members!r} '
-                    "under [aliases] in the reference"
-                )
+        if isinstance(stated, list | tuple):
+            if len(stated) == 1 and isinstance(stated[0], str):
+                replacement = f'{name} = "{stated[0]}"'
+            elif not stated:
+                replacement = f'{name} = "{EVERY_FAMILY}"'
             else:
-                examples.append(f'{name} = "{EVERY_FAMILY}"')
-        warnings.warn(
-            f"{PPROC_GROUP_MEMBER_LIST.message()} Here: " + "; ".join(examples) + ".",
-            PyflightstreamWarning,
-            stacklevel=2,
-        )
+                replacement = (
+                    f'{name} = "<alias>"; declare the members under [aliases] '
+                    "in the reference, using boundary names for positions"
+                )
+            raise InputArtifactError(
+                f"pproc [groups] entry {name!r}: member lists were removed in 0.26.0. "
+                f"Write {replacement} instead.",
+                kind="pproc",
+            )
+        return value
     return groups
 
 
@@ -1797,7 +1777,7 @@ class PprocSpec(BaseModel):
 
     #: ONE ALIAS PER GROUP, written as a string since 0.24.0; held as a list of
     #: members because that is what every reader of it iterates. The list form
-    #: still binds with a warning until 0.26.0, and an integer member is refused.
+    #: is refused since 0.26.0; write one alias as a string.
     groups: Annotated[dict[str, list[int | str]], BeforeValidator(_a_group_is_one_alias)] = Field(
         default_factory=dict
     )

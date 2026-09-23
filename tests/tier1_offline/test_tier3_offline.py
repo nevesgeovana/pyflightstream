@@ -117,7 +117,7 @@ def test_a_row_may_cite_a_boundary_by_its_renamed_name():
     pproc = tomllib.loads(
         (offline.HERE / "inputs" / "pproc" / "p004.toml").read_text(encoding="utf-8")
     )
-    assert pproc["groups"]["1"] == ["MainWing"]
+    assert pproc["groups"]["1"] == "MainWing"
     from pyflightstream.cases.matrix import read_matrix
 
     rows = {r.pol: r for r in read_matrix(offline.HERE / "matriz_geometry.fs")}
@@ -245,7 +245,7 @@ REFUSALS = {
     "a key another run type registers, on a steady row": (
         f"7009 | 0 | 1 | Wing | - | REFUSED | {STEADY}GEOMETRY: 10_WING.fsm / SYMMETRY: NONE / "
         "WINDOW_DEGREES: 90",
-        ("7009", "WINDOW_DEGREES", "'steady'", "unsteady_rotor"),
+        ("7009", "WINDOW_DEGREES", "0.26.0", "LAST_REVS_AVG"),
     ),
 }
 
@@ -363,7 +363,7 @@ def test_a_pproc_group_named_like_the_numbered_era_is_refused_at_plan_time(tmp_p
     work.
     """
     root = _tier3_copy(tmp_path)
-    _pproc(root, "p006", '[groups]\n"g01" = ["Wing"]\n')
+    _pproc(root, "p006", '[groups]\n"g01" = "Wing"\n')
     matrix = _one_row_matrix(
         root,
         "word.fs",
@@ -389,7 +389,7 @@ def test_a_top_level_base_regions_list_is_the_documented_off_switch(tmp_path):
     from pyflightstream.workspace.matrix import resolve_matrix
 
     root = _tier3_copy(tmp_path)
-    _pproc(root, "p007", 'base_regions = []\n\n[groups]\n"1" = ["Wing"]\n')
+    _pproc(root, "p007", 'base_regions = []\n\n[groups]\n"1" = "Wing"\n')
     matrix = _one_row_matrix(
         root,
         "off.fs",
@@ -398,7 +398,7 @@ def test_a_top_level_base_regions_list_is_the_documented_off_switch(tmp_path):
     )
     plan = _plan(root, matrix)
     assert not plan.blocked, plan.summary()
-    _pproc(root, "p008", 'base_regions = ["Base"]\n\n[groups]\n"1" = ["Body"]\n')
+    _pproc(root, "p008", 'base_regions = ["Base"]\n\n[groups]\n"1" = "Body"\n')
     body = _one_row_matrix(
         root,
         "on.fs",
@@ -515,15 +515,15 @@ def test_moving_boundaries_may_name_an_alias_of_the_setup(tmp_path):
     assert "ghost" in str(plan.blocked[0].error)
 
 
-def test_moving_boundaries_naming_an_empty_group_moves_every_boundary(tmp_path):
+def test_moving_boundaries_naming_all_moves_every_boundary(tmp_path):
     """The author's decision of 2026-09-09 (PFS-2005.02): a group written empty is every
     family the geometry carries, so `MOVING_BOUNDARIES: g1` against an artifact
-    whose group 1 is `[]` moves every boundary of 40_PUSHER, the three of its
+    whose group 1 is `"all"` moves every boundary of 40_PUSHER, the three of its
     inventory, and the artifact plans READY although it cites no name."""
     root = _tier3_copy(tmp_path)
-    _pproc(root, "p001", '[groups]\n"1" = []\n')
+    _pproc(root, "p001", '[groups]\n"1" = "all"\n')
     every = _one_row_matrix(root, "all.fs", _rotor_row("7208", "MOVING_BOUNDARIES: g1"))
-    assert not _plan(root, every).blocked, "an empty group is every family and plans READY"
+    assert not _plan(root, every).blocked, "the all selector is every family and plans READY"
     assert _moving_payload(root, every) == "1,2,3"
 
 
@@ -538,7 +538,7 @@ def test_a_pproc_artifact_naming_nothing_the_geometry_carries_is_refused_at_plan
     not what is refused (p002's group 3 is Body and Base, and the wing rows plan
     READY with it): the refusal is the artifact and the geometry sharing no name."""
     root = _tier3_copy(tmp_path)
-    _pproc(root, "p005", '[groups]\n"1" = ["Wing"]\n')
+    _pproc(root, "p005", '[groups]\n"1" = "Wing"\n')
     matrix = _one_row_matrix(
         root,
         "renamed.fs",
@@ -560,35 +560,30 @@ def test_a_pproc_artifact_naming_nothing_the_geometry_carries_is_refused_at_plan
     assert not _plan(root, plain).blocked
 
 
-def test_an_empty_group_does_not_disable_the_shares_no_name_refusal(tmp_path):
-    """The interface lens of 2026-09-09: `if not members: return` returned from the
-    FUNCTION, so one empty group anywhere in an artifact disabled the RPT-044 guard
-    for every other group in it; an artifact holding `"1" = []` and `"2" = ["Wing"]`
-    against 14_WING_RENAMED, whose inventory carries MainWing, planned READY and
-    every group-2 polar would have summed nothing."""
+def test_an_empty_group_is_refused_even_beside_a_named_one(tmp_path):
+    """Since 0.26.0 the removed list is refused before geometry selection."""
     root = _tier3_copy(tmp_path)
-    _pproc(root, "p007", '[groups]\n"1" = []\n"2" = ["Wing"]\n')
+    _pproc(root, "p007", '[groups]\n"1" = []\n"2" = "Wing"\n')
     matrix = _one_row_matrix(
         root,
         "empty_and_named.fs",
         f"7211 | 0 | 1 | Wing | - | RPT-044 | {WING_ROW.format(pproc='p007')}"
         "GEOMETRY: 14_WING_RENAMED.fsm / SYMMETRY: NONE",
     )
-    plan = _plan(root, matrix)
-    assert plan.blocked, "an empty group beside a named one disabled the guard"
-    message = str(plan.blocked[0].error)
-    for fragment in ("7211", "p007", "'Wing'", "14_WING_RENAMED.fsm", "'MainWing'"):
-        assert fragment in message, message
+    from pyflightstream.workspace import InputArtifactError
+
+    with pytest.raises(InputArtifactError, match='1 = "all"'):
+        _plan(root, matrix)
 
 
-def test_an_artifact_whose_only_group_is_empty_plans_ready_against_any_geometry(tmp_path):
-    """The author's decision of 2026-09-09 read at the guard: an empty group is every family
-    and resolves by construction, so an artifact that cites no name at all is not
-    the artifact-and-geometry-share-no-name case (RPT-044) and plans READY against
-    the renamed file, where a group citing `Wing` is refused. A survived mutant of
-    the QA lens of the same day: nothing held the by-construction reading."""
+def test_an_artifact_whose_only_group_is_all_plans_ready_against_any_geometry(tmp_path):
+    """The current all selector resolves against every inventory.
+
+    Since 0.26.0 an empty list is refused; the explicit string is the control
+    against the renamed geometry, where a group citing Wing is refused.
+    """
     root = _tier3_copy(tmp_path)
-    _pproc(root, "p009", '[groups]\n"1" = []\n')
+    _pproc(root, "p009", '[groups]\n"1" = "all"\n')
     matrix = _one_row_matrix(
         root,
         "only_empty.fs",
@@ -613,7 +608,7 @@ def test_the_refusal_cites_the_word_the_artifact_writes_not_the_alias_members(tm
         ),
         encoding="utf-8",
     )
-    _pproc(root, "p008", '[groups]\n"1" = ["wing"]\n')
+    _pproc(root, "p008", '[groups]\n"1" = "wing"\n')
     matrix = _one_row_matrix(
         root,
         "aliased_renamed.fs",

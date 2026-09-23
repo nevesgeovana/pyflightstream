@@ -10,11 +10,11 @@
 # a word, and the reference says which blades it has.
 
 [groups]
-"1" = []
-"2" = ["airframe"]
-"3" = ["lifters"]
-"4" = ["PUSHER"]
-"5" = ["airframe", "PUSHER"]
+"1" = "all"
+"2" = "airframe"
+"3" = "lifters"
+"4" = "PUSHER"
+"5" = "airframe_and_pusher"
 
 [exports]
 

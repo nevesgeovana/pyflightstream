@@ -58,7 +58,6 @@ import threading
 import time
 import tomllib
 import uuid
-import warnings
 import zipfile
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
@@ -73,9 +72,8 @@ from typing import TypedDict
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
-from pyflightstream._deprecations import WAIVED_COMMANDS_MANIFEST_KEY
 from pyflightstream._digest import file_sha256
-from pyflightstream._errors import PyflightstreamDeprecationWarning, PyflightstreamError
+from pyflightstream._errors import PyflightstreamError
 from pyflightstream._retired_names import WORKSPACE_ENGINE_POINT, RetiredAttributeError
 from pyflightstream.cases import BoundaryAliases, RawCommand
 from pyflightstream.cases.windows import surface_averaging_window
@@ -990,31 +988,21 @@ class RunRecord(BaseModel):
     @model_validator(mode="before")
     @classmethod
     def _take_the_earlier_name_of_the_waived_commands(cls, data: object) -> object:
-        """Read a row written under ``broken_commands``, warning from the ledger.
+        """Read an older manifest's ``broken_commands`` as ``waived_commands`` silently.
 
-        The key was renamed in 0.13.0 (PFS-2022.01.05) and a manifest is
-        the one surface that cannot be regenerated, so the old key reads
-        until the release the ledger entry names and the warning text is
-        the entry's own. A row carrying BOTH spellings is left alone, and
-        ``extra="forbid"`` then refuses it naming the old key: this
-        package never wrote such a row and two lists for one fact is not
-        a row to guess at.
+        This reader stays for as long as such manifests exist. Since 0.26.0 it
+        is plain compatibility, no longer a promise counting down to removal.
+        A recorded manifest is never rewritten. Both keys together remain
+        invalid through ``extra="forbid"``: two lists for one fact are ambiguous.
 
-        THE PROMISE HAS MOVED THREE TIMES, 0.15.0 to 0.16.0 to 0.17.0 to
-        0.18.0, and the ledger entry carries the count that moved it each
-        time rather than a preference. Read the deadline THERE and not
-        here: this sentence has been one move behind twice. The three
-        PROPERTY shims of this same rename were removed on time, because
-        an attribute is code and code is re-typed; a RECORD is data a run
-        produced once, and the reference campaign still carries
-        this key.
+        Measured 2026-09-23: the canonical repository has 46 matching rows in
+        tests/tier3_licensed/runs.json. post/matriz/plan.json,
+        post/matriz_time/plan.json and post/matriz_builds/plan.json are absent.
+        All four files are absent from the isolated development worktree.
+        The earlier census of 74 rows (46, 18, 8, 2) across four manifests
+        therefore does not reproduce in these trees; absence is not zero rows.
         """
         if isinstance(data, dict) and "broken_commands" in data and "waived_commands" not in data:
-            warnings.warn(
-                WAIVED_COMMANDS_MANIFEST_KEY.message(),
-                PyflightstreamDeprecationWarning,
-                stacklevel=2,
-            )
             data = {**data, "waived_commands": data["broken_commands"]}
             del data["broken_commands"]
         return data
@@ -1396,23 +1384,16 @@ def expand_group(
     Examples
     --------
     >>> from pyflightstream.workspace import PprocArtifact, expand_group
-    >>> artifact = PprocArtifact(groups={"Blade": [3, 5, 7]})
-    >>> expand_group(artifact, "Blade", "prop")
-    {'Blade1': 3, 'Blade2': 5, 'Blade3': 7}
+    >>> artifact = PprocArtifact(groups={"Blade": "Blade1"})
+    >>> expand_group(artifact, "Blade", "prop", boundaries={"Blade1": 3})
+    {'Blade1': 3}
 
-    A group written in NAMES expands the same way, against the boundary
-    inventory of the geometry it belongs to (PFS-2028.00). A list of names is
-    the form kept until 0.26.0: a group names ONE alias since 0.24.0, so loading
-    this one warns with the line to write instead, which is silenced here:
+    Since 0.26.0, a list is refused with the one-alias line to write:
 
-    >>> import warnings
-    >>> with warnings.catch_warnings():
-    ...     warnings.simplefilter("ignore")
-    ...     named = PprocArtifact(groups={"Blade": ["Blade1", "S"]})
-    >>> expand_group(
-    ...     named, "Blade", "prop", boundaries={"Blade1": 1, "S": 2, "N": 3}
-    ... )
-    {'Blade1': 1, 'Blade2': 2}
+    >>> PprocArtifact(groups={"Blade": ["Blade1"]})  # doctest: +ELLIPSIS
+    Traceback (most recent call last):
+        ...
+    pyflightstream._errors.InputArtifactError: ... Write Blade = "Blade1" instead.
     """
     members = artifact.groups.get(name)
     if members == []:

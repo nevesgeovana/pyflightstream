@@ -69,7 +69,9 @@ def test_no_last_step_polar_is_written_under_a_steady_name(tmp_path):
 
 
 def test_a_window_from_a_retired_key_is_said_as_that_and_not_as_a_default(tmp_path):
-    """A row with a deprecated WINDOW_* key did state a window; the run did not default.
+    """A recorded window survives removal of its row key in 0.26.0.
+
+    A new plan refuses that key; this test reads the immutable recorded reduction.
 
     Found reading the code for the architecture document of 0.24.0: the warning
     called every unstated window "the window the run defaulted to", including one a

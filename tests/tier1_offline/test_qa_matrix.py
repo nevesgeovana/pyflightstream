@@ -110,7 +110,7 @@ for index, line in enumerate(lines):
 #: switched off, because the stand-in solver writes the loads table alone
 #: and a declared export that is not there fails the point.
 STUB_PPROC = (
-    '[groups]\n"1" = ["Wing", "Blade1"]\n\n[exports]\nsimulation = false\ntecplot = false\n'
+    '[groups]\n"1" = "all"\n\n[exports]\nsimulation = false\ntecplot = false\n'
     "sections = false\nsectional_loads = false\nprobes = false\nplots = false\nlog = false\n"
 )
 

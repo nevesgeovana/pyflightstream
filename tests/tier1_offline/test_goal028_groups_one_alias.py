@@ -30,7 +30,7 @@ from pathlib import Path
 
 import pytest
 
-from pyflightstream._errors import PyflightstreamWarning
+from pyflightstream._errors import InputArtifactError, PyflightstreamWarning
 from pyflightstream.cases import PprocSpec, RotorBlock
 from pyflightstream.workspace.inputs import rotor_integration_groups
 
@@ -55,38 +55,32 @@ def test_a_group_is_one_alias_written_as_a_string():
     assert list(spec.groups["AIRFRAME"]) == ["airframe"]
 
 
-def test_the_list_form_still_binds_and_says_what_to_write_instead():
-    with pytest.warns(PyflightstreamWarning) as caught:
-        spec = PprocSpec(groups={"PUSHER": ["Blade1"], "WB": ["W", "B"]})
-    said = " ".join(str(w.message) for w in caught)
-    assert list(spec.groups["WB"]) == ["W", "B"], "a pproc she already has must keep its meaning"
-    assert 'PUSHER = "Blade1"' in said, said
-    assert "[aliases]" in said, "a group of several members is pointed at an alias of the reference"
-    assert "0.26.0" in said
+@pytest.mark.parametrize(
+    "members, replacement",
+    [
+        (["Blade1"], 'PUSHER = "Blade1"'),
+        (["W", "B"], 'PUSHER = "<alias>"'),
+        ([], 'PUSHER = "all"'),
+        ([1], 'PUSHER = "<alias>"'),
+    ],
+)
+def test_the_list_form_is_refused_with_the_one_alias_line(members, replacement):
+    """Since 0.26.0 every list is refused; the reference owns its members."""
+    with pytest.raises(InputArtifactError) as refused:
+        PprocSpec(groups={"PUSHER": members})
+    assert replacement in str(refused.value)
 
 
-def test_an_integer_member_is_a_position_and_is_never_summed_to_a_row_of_zeros(tmp_path):
-    """A position is legal: the motion path reads it (`MOVING_BOUNDARIES: g1`).
+def test_a_member_list_is_refused_by_the_artifact_loader(tmp_path):
+    """The TOML loader refuses positions too, before any product is written."""
+    from pyflightstream.workspace import CampaignWorkspace
 
-    What it cannot do is select a surface of a loads table. 0.23.0 wrote such a
-    group a polar row of plausible zeros; the stage names it as skipped instead.
-    """
-    from pyflightstream.post.products import write_campaign_products
-    from tests.tier1_offline.test_post_products import _products_manifest, _unsteady_workspace
-
-    with warnings.catch_warnings():
-        warnings.simplefilter("error", PyflightstreamWarning)
-        spec = PprocSpec(groups={"MOVED": [1]})  # no alias to rewrite it as, so no warning
-    assert spec.groups["MOVED"] == [1] and spec.group_alias("MOVED") is None
-
-    workspace = _unsteady_workspace(tmp_path, reductions=None)
+    workspace = CampaignWorkspace.init(tmp_path / "camp")
     (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
-        '[groups]\nWB = "W"\nMOVED = [1]\n', encoding="utf-8"
+        "[groups]\nMOVED = [1]\n", encoding="utf-8"
     )
-    written = write_campaign_products(workspace)
-    skipped = _products_manifest(workspace).get("skipped", {})
-    assert any(key.endswith("_MOVED.csv") for key in skipped), skipped
-    assert not any(Path(path).name.endswith("_MOVED.csv") for path in written)
+    with pytest.raises(InputArtifactError, match='MOVED = "<alias>"'):
+        workspace.resolve_pproc("p001")
 
 
 def test_a_group_naming_a_rotor_is_that_rotors_families():
@@ -150,23 +144,14 @@ def test_a_named_group_gets_its_fixed_width_polar_and_states_its_position(tmp_pa
     assert numbers == ["01", "02"], numbers
 
 
-def test_the_word_the_warning_tells_a_user_to_write_means_what_the_warning_says():
-    """An EMPTY group is every family, and the deprecation tells its owner to write `"all"`.
-
-    So `"all"`, as a group's one alias, has to select every family too. It selected
-    NOTHING: a user who followed the package's own advice turned the polar of the
-    whole configuration into a named skip. A reference that defines an alias or
-    carries a family called `all` keeps its own meaning, because those are tried
-    first.
-    """
+def test_the_replacement_for_an_empty_list_selects_every_family():
+    """The refused empty list points at all, which selects the whole inventory."""
     from pyflightstream.cases import select_group_members
 
     inventory = ["W", "B", "Blade1", "Blade2"]
-    with warnings.catch_warnings(record=True) as caught:
-        warnings.simplefilter("always")
-        spec = PprocSpec.model_validate({"groups": {"TOTAL": []}})
-    assert any('TOTAL = "all"' in str(w.message) for w in caught), [str(w.message) for w in caught]
-    assert select_group_members(spec.groups["TOTAL"], inventory) == inventory
+    with pytest.raises(InputArtifactError, match='TOTAL = "all"'):
+        PprocSpec.model_validate({"groups": {"TOTAL": []}})
     written = PprocSpec.model_validate({"groups": {"TOTAL": "all"}})
     assert select_group_members(written.groups["TOTAL"], inventory) == inventory
-    assert select_group_members(["all"], inventory, {"all": ["W"]}) == ["W"], "an alias wins"
+    with pytest.warns(PyflightstreamWarning):
+        assert select_group_members(["all"], inventory, {"all": ["W"]}) == ["W"]

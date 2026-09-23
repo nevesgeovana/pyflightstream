@@ -90,6 +90,7 @@ def expanding_case(**overrides) -> SimCase:
             # how a group of rotors is written and the case that reached no
             # rotor at all until the QA round of 2026-09-10.
             "lifters": ["LIFT_L1", "LIFT_L2"],
+            "airframe_and_pusher": ["airframe", "PUSHER"],
             "hub_only": ["LH_L1"],
         },
     }

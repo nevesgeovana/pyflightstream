@@ -21,6 +21,16 @@ rotor_diameter_m = 3.6576   # as r001, so the unsteady wing row's clock resolves
 # out, which is what lets one table serve every geometry this reference is
 # cited against.
 [aliases]
+selection_p001_1 = ["Wing", "Body", "Base", "Blade1", "Blade2"]
+selection_p001_3 = ["Body", "Base"]
+selection_p001_4 = ["Blade1", "Blade2"]
+selection_p002_1 = ["Wing", "Body", "Base"]
+selection_p002_3 = ["Body", "Base"]
+selection_p003_1 = ["Wing", "Body", "Base", "Blade1", "Blade2"]
+selection_p003_3 = ["Body", "Base"]
+selection_p003_4 = ["Blade1", "Blade2"]
+selection_p005_1 = ["airframe", "rotors"]
+selection_p006_1 = ["airframe", "rotors"]
 airframe = ["Wing", "MainWing", "Body", "Base"]
 blades = ["Blade1", "Blade2"]
 

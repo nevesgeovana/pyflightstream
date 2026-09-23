@@ -83,7 +83,7 @@ def _workspace(tmp_path, pproc: str):
         _history(), encoding="utf-8"
     )
     (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
-        '[groups]\n"1" = ["W", "B"]\n' + pproc, encoding="utf-8"
+        '[groups]\n"1" = "all"\n' + pproc, encoding="utf-8"
     )
     return workspace
 

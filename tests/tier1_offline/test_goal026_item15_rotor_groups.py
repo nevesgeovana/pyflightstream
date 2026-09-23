@@ -137,7 +137,7 @@ def test_the_binding_creates_the_group_for_a_rotor_that_has_none(tmp_path):
     reported under another rotor's coefficient. Created from the rotor itself,
     they agree by construction. That was the design; nothing performed it.
     """
-    pproc = _bound_pproc(tmp_path, declared='[groups]\nWING = ["Wing"]\n')
+    pproc = _bound_pproc(tmp_path, declared='[groups]\nWING = "Wing"\n')
 
     assert "PORT" in pproc.groups, sorted(pproc.groups)
     members = {str(name).casefold() for name in pproc.groups["PORT"]}
@@ -148,7 +148,7 @@ def test_the_binding_creates_the_group_for_a_rotor_that_has_none(tmp_path):
 
 def test_a_group_she_declared_for_the_rotor_is_not_replaced_by_the_binding(tmp_path):
     """Creation fills a gap; it never overrules what she wrote."""
-    declared = '[groups]\nPORT = ["Hub", "Blade_1", "Blade_2"]\n'
+    declared = '[groups]\nPORT = "PORT"\n'
     pproc = _bound_pproc(tmp_path, declared=declared)
     assert [str(name) for name in pproc.groups["PORT"]] == ["Hub", "Blade_1", "Blade_2"]
 
@@ -166,7 +166,7 @@ def test_the_binding_refuses_a_rotor_alias_whose_families_are_not_the_rotors(tmp
     # from the fixture itself, which is not this refusal and proves nothing. The
     # QA lens caught the same habit of mine one file away in this same round.
     with pytest.raises(InputArtifactError) as caught:
-        _bound_pproc(tmp_path, declared='[groups]\nPORT = ["Wing"]\n')
+        _bound_pproc(tmp_path, declared='[groups]\nPORT = "Wing"\n')
     message = str(caught.value)
     assert "PORT" in message, message
     assert "Wing" in message, message
@@ -202,7 +202,7 @@ def test_a_rotor_aliased_like_the_numbered_era_is_refused_at_plan_time(tmp_path)
     with pytest.raises(InputArtifactError) as caught:
         _bound_pproc(
             tmp_path,
-            declared='[groups]\nWING = ["Wing"]\n',
+            declared='[groups]\nWING = "Wing"\n',
             rotor_alias="g01",
         )
 
@@ -223,5 +223,5 @@ def test_a_rotor_aliased_by_a_word_still_binds(tmp_path):
     group, so the refusal above is discriminating between two aliases rather
     than rejecting the path.
     """
-    pproc = _bound_pproc(tmp_path, declared='[groups]\nWING = ["Wing"]\n', rotor_alias="PORT")
+    pproc = _bound_pproc(tmp_path, declared='[groups]\nWING = "Wing"\n', rotor_alias="PORT")
     assert "PORT" in pproc.groups, sorted(pproc.groups)
