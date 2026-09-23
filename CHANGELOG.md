@@ -16,6 +16,9 @@ FlightStream versions.
   the executable resolves as on Windows and every record's executor entry
   says `forced_local`. It changes nothing on a machine that would not have
   submitted, and it is refused beside a submitting executor given in code.
+  A manifest holding a forced-local record needs 0.27.0 to read it: an
+  older reader refuses the key (measured 2026-09-23 against the 0.26.0
+  schema), so post such a workspace with the same version that ran it.
 
 ### Owed
 

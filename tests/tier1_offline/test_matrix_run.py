@@ -4572,6 +4572,58 @@ def test_a_local_flag_keeps_a_profiled_cluster_run_on_this_machine(monkeypatch, 
     assert all(r.executor["class_name"] == "StubSolver" for r in records)
 
 
+def test_a_local_flag_reaches_the_executor_of_every_build(monkeypatch, tmp_path):
+    """Two rows on two installations under --local: both executors carry the flag.
+
+    The QA read of d97aac1 measured the secondary-build constructor
+    (`executor_for`) untested: dropping `forced_local=local` there left the
+    single-installation regression green. Here the second row names its own
+    build, so the campaign builds two executors, and every reread record's
+    executor entry must say `forced_local`.
+    """
+    from pyflightstream.run import matrix as matrix_module
+
+    workspace = make_library(tmp_path)
+    register(workspace, "26.120", "C:/fs26120/FlightStream.exe")
+    register(workspace, "26.123", "C:/fs26123/FlightStream.exe", version="26.123")
+    row = (
+        "700{n} | TestWing | MIXED | 3.10 | 0.0890 | AL | 0.0 | r003 | s002 | e001 | 003 "
+        "| {build} |  0 | 1 | FSM_FILE:wing_clean / OUTPUTS: loads_{{point}}.txt"
+    )
+    matrix = write_matrix(
+        tmp_path / "two_builds.fs",
+        [row.format(n=1, build="26.120"), row.format(n=2, build="26.123")],
+    )
+    monkeypatch.setattr(matrix_module, "on_a_cluster", lambda: True)
+    built = []
+
+    def local_executor(fs_exe, hidden=True, forced_local=False):
+        built.append((str(fs_exe), forced_local))
+        stub = StubSolver(WRITES_EVERY_EXPORT)
+        stub.forced_local = forced_local
+        return stub
+
+    monkeypatch.setattr(matrix_module, "LocalExecutor", local_executor)
+    records = run_matrix(
+        matrix,
+        workspace,
+        name="two",
+        default_fs_version="26.120",
+        recipes=RECIPES,
+        recipe_registry=workflow_registry(),
+        assess=converged,
+        local=True,
+    )
+    exes = {exe for exe, _ in built}
+    assert {"C:\\fs26120\\FlightStream.exe", "C:\\fs26123\\FlightStream.exe"} <= {
+        e.replace("/", "\\") for e in exes
+    }, built
+    assert all(flag is True for _, flag in built), built
+    reread = workspace.read_manifest()
+    assert len(records) == 2 and len(reread) == 2
+    assert all(r.executor is not None and r.executor.get("forced_local") is True for r in reread)
+
+
 def test_a_local_flag_beside_a_submitting_executor_is_refused(tmp_path):
     """The two say opposite things about the same run, so neither wins silently."""
     from pyflightstream.run import ExecutorConfigurationError, SubmittingExecutor

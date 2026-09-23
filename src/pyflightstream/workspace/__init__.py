@@ -434,9 +434,10 @@ class ExecutorRecord(TypedDict):
     self-contained fact a report can be built from. Both keys are
     required: the entry is written whole or, on a point where no solver
     ran, not at all, and the row says ``None``. ``forced_local`` is
-    present, and true, only on a point that ``pyfs-matrix run --local``
-    kept on a machine that would otherwise have submitted (0.27.0); a
-    record written before it, or by a run that did not ask, has no key.
+    present, and true, only on a point the run's local switch kept on a
+    machine that would otherwise have submitted (0.27.0); a record
+    written before it, or by a run that did not ask, has no key, and a
+    reader older than 0.27.0 refuses a manifest that carries one.
     """
 
     class_name: str

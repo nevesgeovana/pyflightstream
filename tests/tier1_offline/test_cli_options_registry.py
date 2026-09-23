@@ -113,6 +113,10 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     # build other than the registered one is a decision about THIS invocation,
     # recorded in every record, never a default a registry could hold.
     ("pyfs-matrix", "accept_unregistered_build"): SWITCH,
+    # 0.27.0, her ask of 2026-09-23: keeping THIS run on this machine where
+    # Linux would submit is a decision about one invocation, recorded on
+    # every record as forced_local, never a default a registry could hold.
+    ("pyfs-matrix", "local"): SWITCH,
     # 0.21.0: `rename` rehearses with --dry-run, which is a mode switch of the
     # one invocation and changes nothing about the workspace it reads.
     ("pyfs-matrix", "dry_run"): SWITCH,
@@ -266,6 +270,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-matrix", "watch"): frozenset({"collect"}),
     ("pyfs-matrix", "post"): frozenset({"collect"}),
     ("pyfs-matrix", "check_frozen"): frozenset({"collect", "post"}),
+    ("pyfs-matrix", "local"): frozenset({"run"}),
     ("pyfs-matrix", "interval"): frozenset({"collect"}),
     ("pyfs-matrix", "watch_interval"): frozenset({"collect"}),
     ("pyfs-matrix", "rounds"): frozenset({"collect"}),
