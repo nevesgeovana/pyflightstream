@@ -102,6 +102,7 @@ from pyflightstream.cases import (
 from pyflightstream.cases.workflows import (
     COLD_START_VARIABLE,
     EXPORT_LOG_VARIABLE,
+    FREESTREAM_VARIABLE,
     RAW_MESH_FORMATS,
     RESTART_FROM_VARIABLE,
     RESTART_ITERATIONS_VARIABLE,
@@ -5763,12 +5764,60 @@ def resolve_continuation(
             "continuation reopens that file, so it cannot start without it; restore it, or "
             f"remove the {RESTART_VARIABLE} key to march the point from the start."
         )
+    _refuse_a_field_the_stopped_run_did_not_read(case, tag, previous)
     return {
         "continues": previous.run_id,
         "iterations": iterations,
         "saved": str(saved),
         "form": request.form,
     }
+
+
+def _refuse_a_field_the_stopped_run_did_not_read(
+    case: SimCase, tag: str, previous: RunRecord
+) -> None:
+    """Refuse a custom free stream the run being continued did not solve in (G15).
+
+    A CONTINUATION WRITES NO FREE STREAM: it reopens the saved simulation,
+    which carries the one the stopped run solved in, and marches on in it. So
+    the field a continuing row names must be the one that run read, the file
+    its record hashes under the same name to the same digest. Any other field,
+    a key added to a row that stopped under the CONSTANT free stream or a file
+    edited since the stop, would be hashed into the new record and never
+    solved. A file no longer there is the builder's to refuse, by name.
+    """
+    if case.freestream_profile is None:
+        return
+    field = Path(case.freestream_profile)
+    if not field.is_file():
+        return
+    recorded = previous.inputs_sha256.get(field.name)
+    current = file_sha256(field)
+    if recorded == current:
+        return
+    stated = case.variables.get(FREESTREAM_VARIABLE)
+    named = (
+        f"{FREESTREAM_VARIABLE}: {stated}"
+        if stated is not None
+        else f"the custom free stream {field}"
+    )
+    if recorded is None:
+        what = f"its record hashes no {field.name}, so it solved in another free stream"
+        remedy = f"without {FREESTREAM_VARIABLE}"
+    else:
+        what = (
+            f"it read {field.name} with other bytes than the file holds now (sha256 "
+            f"{recorded[:12]}... then, {current[:12]}... now)"
+        )
+        remedy = "with the file restored to the bytes it read"
+    raise CampaignConfigError(
+        f"case {case.sim_id!r} point {tag} states {named} and {RESTART_VARIABLE}, and the run "
+        f"it continues, {previous.run_id!r}, did not solve in that field: {what}. A "
+        "continuation reopens the saved simulation and writes no free stream, so it would "
+        "march on in the stopped run's and record this field as read. Remove the "
+        f"{RESTART_VARIABLE} key to march the point from the start in the field, or continue "
+        f"it {remedy}."
+    )
 
 
 #: Every status a run ends in when it FAILED, read off the enum by name so a

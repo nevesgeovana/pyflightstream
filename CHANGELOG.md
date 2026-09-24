@@ -310,6 +310,16 @@ FlightStream versions.
 
 ### Fixed
 
+- **A continuation no longer passes over its row's custom free stream** (G15).
+  A row stating `RESTART` built its continuation before reading `FREESTREAM`,
+  so it planned and ran beside a non-zero `ALPHA` or `BETA` the same row is
+  refused without `RESTART`, and a key added to a row that stopped under the
+  CONSTANT free stream reopened that state, wrote no `SET_FREESTREAM` and was
+  recorded with the field's sha256 as read. A continuation still writes no free
+  stream, since the saved simulation carries the stopped run's; the row's field
+  is now read and refused as a run from the mesh reads and refuses it, and a
+  field the stopped run's record does not hash, or hashes with other bytes, is
+  refused at plan and at run, naming the point, the key and the run continued.
 - **`pyfs-matrix plan` calls a recorded job's points recorded, and resume
   runs a recorded job's new angles one each.** A steady row of several points
   is one job, recorded under the row's id and not under its points', and the

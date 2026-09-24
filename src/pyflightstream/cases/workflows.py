@@ -10782,7 +10782,16 @@ def _build_continuation(
     builder that passed the row's own count through would re-march the
     whole history, which is exactly what the release before this one
     refused the key to prevent.
+
+    NO FREE STREAM EITHER, and a custom one is JUDGED all the same (G15). The
+    saved file carries the free stream the stopped run solved in, and
+    :func:`~pyflightstream.run.resolve_continuation` refuses a field that run
+    did not read; the row's field is resolved and read here by the same
+    function the full builder calls, before the first emission, so an angle,
+    a body rate or a file not in its form beside it is refused on a
+    continuation exactly as on a run from the mesh.
     """
+    _the_custom_freestream(case)
     _configuration_comment(case, script)
     # ENABLE, ALWAYS, and this is the one place in this package where the
     # initialisation flag is not the row's to choose: a continuation that
