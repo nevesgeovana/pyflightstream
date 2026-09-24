@@ -88,3 +88,5 @@ nav:
       - Campaign from a run matrix: examples/campaign_matrix.md
       - Wing static deflection: examples/wing_static_deflection.md
       - FSI Campbell diagram: examples/fsi_campbell_diagram.md
+      - Wing OBJ, trailing edge by file: examples/obj_wing_trailing_edge_file.md
+      - A row with a roll rate: examples/roll_rate_row.md
