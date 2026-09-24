@@ -39,6 +39,7 @@ from pyflightstream.qa.probes import (
     printed_line,
     region_printed,
 )
+from pyflightstream.results import imported_trailing_edges
 from pyflightstream.script import Script
 from pyflightstream.script.helpers import initialize_solver, render_wake_edge_node_file
 
@@ -506,16 +507,35 @@ def _wake_edge_import_target(script: Script, workdir: Path) -> None:
     script.emit("IMPORT_WAKE_EDGES_FROM_FILE", "STANDARD", 0.0001, "METER", nodes)
 
 
+def _imported_exactly(boundary: str, count: int) -> Callable[[ProbeArtifacts], bool]:
+    """Effect: the target region logs exactly one import, ``count`` edges on ``boundary``.
+
+    Strict. Every import line of the region (``N trailing edges imported for
+    boundary <name>``, RPT-061) is read with its count and its boundary by the
+    parser the run reads the count with, one line at a time, and the whole list
+    is compared with the one import the probe wrote. A substring of the line
+    would verify 116 edges, 16 on a boundary named ``Winglet``, or a second
+    import beside the first; silence is a file that marked nothing.
+    """
+
+    def check(artifacts: ProbeArtifacts) -> bool:
+        lines = artifacts.target_region().splitlines()
+        logged = [found for found in map(imported_trailing_edges, lines) if found]
+        return logged == [{boundary: count}]
+
+    return check
+
+
 _spec(
     command="IMPORT_WAKE_EDGES_FROM_FILE",
     build_target=_wake_edge_import_target,
     prelude=_wake_edge_wing_prelude,
     save_state=True,
-    assert_effect=region_printed("16 trailing edges imported for boundary Wing"),
+    assert_effect=_imported_exactly("Wing", _WAKE_EDGE_WING.n_span),
     effect_note=(
-        "the solver logs 16 trailing edges imported for boundary Wing, one per "
-        "trailing-edge mesh edge of the wing, a line it prints only when the import "
-        "marks something (RPT-061)"
+        "the solver logs one import line, 16 trailing edges imported for boundary Wing, "
+        "one per trailing-edge mesh edge of the wing, and no other; it prints the line "
+        "only when the import marks something (RPT-061)"
     ),
 )
 _spec(

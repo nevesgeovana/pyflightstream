@@ -330,8 +330,15 @@ points it wrote, and records the point `FAILED_SCRIPT` when they differ. That
 number is read from the solver log, so the log has to be among the row's
 outputs: a file-route row declares one, a name ending in `_log.txt`, which a
 run type's default outputs carry, and a row that declares none is refused when
-its script is built. A recipe of your own that imports a file and exports no
-log is recorded `FAILED_INCOMPLETE_OUTPUT`.
+its script is built, and a row that states `EXPORT_LOG: false`, which leaves
+the script exporting no log, is refused at plan. A machine whose HPC profile
+turns the export off itself (`export_log = false` beside a `native_log`) runs
+the row: `collect` copies the log its scheduler writes to the declared name,
+and the count is read from it there. A recipe of your own that imports a file
+and exports no log is recorded `FAILED_INCOMPLETE_OUTPUT`. The count is read
+from the collected log the assessor names; an assessor of your own that names
+none, locally or at `collect`, has it read from the one collected output that
+parses as a residual history, the log the package's own assessor would find.
 
 ### Writing a points file from a blade's mesh
 

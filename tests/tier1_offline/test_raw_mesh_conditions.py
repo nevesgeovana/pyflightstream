@@ -35,20 +35,33 @@ import pytest
 
 from pyflightstream.cases import CampaignConfigError
 from pyflightstream.cases import workflows as workflows_module
+from pyflightstream.cases.matrix import MatrixError
 from pyflightstream.cases.workflows import build_script, workflow_registry
 from pyflightstream.commands import CommandNotInVersionError
 from pyflightstream.qa.geometry import WingSpec, generate_wing_stl
-from pyflightstream.run import Assessment, CampaignErrors, LocalExecutor
-from pyflightstream.run.matrix import run_matrix
+from pyflightstream.run import (
+    Assessment,
+    CampaignErrors,
+    LocalExecutor,
+    PlanStatus,
+    SubmittingExecutor,
+)
+from pyflightstream.run.matrix import plan_matrix, run_matrix
 from pyflightstream.script import Script
 from pyflightstream.workspace import InputArtifactError, RunStatus
+from pyflightstream.workspace.inputs import read_hpc_profile
 from pyflightstream.workspace.matrix import resolve_matrix
+from tests.tier1_offline.test_goal024_profile_log import LOG_TABLE as NATIVE_LOG_TABLE
+from tests.tier1_offline.test_goal024_profile_log import PROFILE as NATIVE_LOG_PROFILE
 from tests.tier1_offline.test_matrix_run import RECIPES, make_library, write_matrix
 
 GOLDENS = Path(__file__).parent / "goldens" / "raw_mesh"
 
 #: The sixteen trailing-edge mid-points of the qa wing, by construction.
 MIDPOINTS = [(1.0, -3.75 + 0.5 * k, 0.0) for k in range(16)]
+
+#: What the solver logs when it imports all sixteen onto the wing (RPT-061).
+_SIXTEEN_ON_WING = "16 trailing edges imported for boundary Wing"
 
 #: One steady row naming the wing, its loads table and its solver log.
 ROW = (
@@ -410,6 +423,150 @@ def test_a_file_route_row_runs_end_to_end_and_is_held_to_the_solver_count(
     seen = (sim_dir / "node_file_seen.txt").read_text(encoding="utf-8").splitlines()
     assert seen[:3] == ["16", "0,0,0", "1.0,-3.75,0.0"] and len(seen) == 18, seen
     assert "wing.wake_nodes.txt" in record.inputs_sha256
+
+
+def _residual_log(line: str) -> str:
+    """A recorded solver log with ``line`` printed before its residual table.
+
+    The residual table is the recorded 26.120 one; its identity line is put as
+    26.124 prints it (CMP-26124_2026-09-24), because the run's identity pre-flight
+    reads the log the stand-in writes and refuses a build other than the row's.
+    """
+    fixture = Path(__file__).parent / "fixtures" / "log_residuals_26.120.txt"
+    text = fixture.read_text(encoding="utf-8")
+    anchor = "script.txt\n"
+    assert anchor in text and "build #7012026" in text, "the fixture moved"
+    text = text.replace("build #7012026", "build #8172026", 1)
+    return text.replace(anchor, f"{anchor}\n{line}\n", 1)
+
+
+@pytest.mark.parametrize(
+    ("imported", "status"),
+    [(16, RunStatus.CONVERGED), (15, RunStatus.FAILED_SCRIPT)],
+    ids=["every-point-imported", "one-point-dropped"],
+)
+def test_a_file_route_row_judged_by_an_assessor_that_names_no_log_reads_the_exported_one(
+    tmp_path, imported, status
+):
+    """A caller's assessor answers with a status and need not say which file it read.
+    The count is then read from the log the package's own assessor would find among
+    the collected outputs, so 16 of 16 keeps the verdict and 15 is FAILED_SCRIPT;
+    neither is the FAILED_INCOMPLETE_OUTPUT of a log that was collected and unread."""
+    workspace = _library(tmp_path, FILE_ROUTE)
+    stub = tmp_path / "stub_solver.py"
+    stub.write_text(STUB, encoding="utf-8")
+    log = tmp_path / "log_to_write.txt"
+    line = f"{imported} trailing edges imported for boundary Wing"
+    log.write_text(_residual_log(line), encoding="utf-8")
+
+    def names_no_log(case, execution, sim_dir):
+        return Assessment(status=RunStatus.CONVERGED, iterations=120, residual=3.2e-6)
+
+    try:
+        run_matrix(
+            _matrix(tmp_path),
+            workspace,
+            name="matrix",
+            default_fs_version="26.124",
+            recipes=RECIPES,
+            assess=names_no_log,
+            executor=_Solver(stub, log),
+            recipe_registry=workflow_registry(),
+        )
+    except CampaignErrors:
+        pass  # a failed point is recorded in the manifest, which is what is read
+    (record,) = workspace.read_manifest()
+    assert record.status is status, (record.status, record.error)
+    if status is RunStatus.FAILED_SCRIPT:
+        assert "16" in record.error and "15" in record.error, record.error
+
+
+class _Launches(_Solver):
+    """The stand-in, counting every script it is asked to run."""
+
+    def __init__(self, stub: Path, log: Path):
+        super().__init__(stub, log)
+        self.launched: list[Path] = []
+
+    def _argv(self, script_path: Path) -> list[str]:
+        self.launched.append(script_path)
+        return super()._argv(script_path)
+
+
+def _plan(tmp_path, workspace, **matrix):
+    return plan_matrix(
+        _matrix(tmp_path, **matrix),
+        workspace,
+        name="matrix",
+        default_fs_version="26.124",
+        recipes=RECIPES,
+        recipe_registry=workflow_registry(),
+        write_plan=False,
+    )
+
+
+def test_a_file_route_row_that_turns_its_log_export_off_is_refused_before_any_launch(tmp_path):
+    """EXPORT_LOG: false in the row leaves the declared log with nothing to write it.
+    The script then exports no log, the count the run is held to cannot be read, and
+    the point would be FAILED_INCOMPLETE_OUTPUT after the seat. The plan reads the
+    script it built, refuses the point, and run_matrix, whose pre-flight is that
+    plan, launches nothing and records nothing."""
+    workspace = _library(tmp_path, FILE_ROUTE)
+    (blocked,) = _plan(tmp_path, workspace, tail=" / EXPORT_LOG: false").blocked
+    for needle in ("EXPORT_LOG", "trailing", "native_log"):
+        assert needle in blocked.error, f"the refusal does not name {needle!r}: {blocked.error}"
+
+    stub = tmp_path / "stub_solver.py"
+    stub.write_text(STUB, encoding="utf-8")
+    log = tmp_path / "log_to_write.txt"
+    log.write_text(_residual_log(_SIXTEEN_ON_WING), encoding="utf-8")
+    solver = _Launches(stub, log)
+    with pytest.raises(MatrixError, match="nothing was executed"):
+        run_matrix(
+            _matrix(tmp_path, tail=" / EXPORT_LOG: false"),
+            workspace,
+            name="matrix",
+            default_fs_version="26.124",
+            recipes=RECIPES,
+            assess=_converged_reading_the_exported_log,
+            executor=solver,
+            recipe_registry=workflow_registry(),
+        )
+    assert solver.launched == []
+    assert not workspace.manifest_path.is_file() or workspace.read_manifest() == []
+
+
+def test_a_file_route_row_that_exports_its_log_plans(tmp_path):
+    """The control: the same row without the switch plans READY."""
+    workspace = _library(tmp_path, FILE_ROUTE)
+    plan = _plan(tmp_path, workspace)
+    assert [point.status for point in plan.points] == [PlanStatus.READY], plan.summary()
+
+
+def test_a_file_route_row_is_submitted_where_the_machine_writes_its_own_log(tmp_path):
+    """The machine's profile turns EXPORT_LOG off and names the log its scheduler
+    writes, which collect copies to the declared name, where the count is read. That
+    is a log the run reads, so the file-route row is submitted, holding its 16 points,
+    and its script carries no EXPORT_LOG."""
+    workspace = _library(tmp_path, FILE_ROUTE)
+    profile = workspace.inputs_dir / "hpc" / "h001.toml"
+    profile.parent.mkdir(parents=True, exist_ok=True)
+    profile.write_text(NATIVE_LOG_PROFILE + NATIVE_LOG_TABLE, encoding="utf-8")
+    executor = SubmittingExecutor(read_hpc_profile(profile), values={}, submit=False)
+    (record,) = run_matrix(
+        _matrix(tmp_path),
+        workspace,
+        name="matrix",
+        default_fs_version="26.124",
+        recipes=RECIPES,
+        assess=_converged_reading_the_exported_log,
+        executor=executor,
+        recipe_registry=workflow_registry(),
+    )
+    assert record.status is RunStatus.SUBMITTED, (record.status, record.error)
+    assert record.submission["wake_edge_points"] == 16, record.submission
+    script = workspace.sim_dir("7001") / record.script_path
+    assert "EXPORT_LOG" not in script.read_text(encoding="utf-8").splitlines()
 
 
 if __name__ == "__main__":  # pragma: no cover - the golden writer, run by hand
