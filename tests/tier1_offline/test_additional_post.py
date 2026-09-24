@@ -1,4 +1,4 @@
-"""Tier 1: the additional post over a point's saved simulation (0.27.0, G12).
+"""Tier 1: the additional post over a point's saved simulation (0.27.0, G12, FR-111).
 
 A row may name a second pproc, ``ADDITIONAL_PPROC: p<id>``, and
 ``pyfs-matrix post --additional-pproc`` then reopens each recorded point's
@@ -29,7 +29,9 @@ by a test on its link:
   ``additional/<pid>/``, marked ``pproc``, ``additional`` and ``extraction``,
   leaves every main product as it was, keeps the run's section rows ahead of
   the additional ones, skips a stale extraction by its own key and files the
-  one-instant warning of an unsteady point in the post log.
+  one-instant warning of an unsteady point in the post log;
+* the workflows page and the definition of record state it, and every test
+  the page cites is in this module.
 
 The module imports the functions of the additional post through their module
 at call time rather than by name at the top, so on a tree without them each
@@ -40,6 +42,7 @@ from __future__ import annotations
 
 import importlib
 import json
+import re
 import tempfile
 import warnings
 from pathlib import Path
@@ -227,6 +230,7 @@ def test_g12_frames_by_name_is_the_builders_own(kind, tmp_path):
 # ----------------------------------------------------------------- the key --
 
 
+@pytest.mark.requirement("FR-111")
 def test_g12_a_row_stating_additional_pproc_plans_ready(tmp_path):
     """The key is the row's to state: every point plans READY."""
     workspace, matrix = a_campaign(tmp_path)
@@ -668,6 +672,7 @@ def test_g12_a_point_whose_saved_simulation_does_not_match_its_record_is_skipped
     assert len(stub.invocations) == 1
 
 
+@pytest.mark.requirement("FR-111")
 def test_g12_the_extraction_lands_in_additional_and_is_hashed(tmp_path):
     """One launch per point, in its own folder, a script that never solves; every file hashed."""
     workspace, matrix = a_recorded_campaign(tmp_path)
@@ -1029,3 +1034,38 @@ def test_g12_an_unsteady_extraction_is_one_instant_in_the_post_log(tmp_path):
         if record["product"].startswith("additional/") and "one instant" in record["message"]
     ]
     assert said, log["records"]
+
+
+# --------------------------------------------------------------- the pages --
+
+REPO = Path(__file__).resolve().parents[2]
+
+
+def test_g12_the_pages_state_the_additional_post_and_cite_tests_on_disk():
+    """The workflows page and the definition of record say it; every test cited is here."""
+    workflows_page = " ".join(
+        (REPO / "docs" / "workspace-and-workflows.md").read_text(encoding="utf-8").split()
+    )
+    for phrase in (
+        "datapoints/DP-<point>/additional/<pid>/",
+        f"`{KEY}`",
+        "RPT-062",
+        "never solves",
+        "additional.json",
+        "`runs.json` is never written",
+    ):
+        assert phrase in workflows_page, phrase
+    definitions = " ".join(
+        (REPO / "docs" / "post-processing-definitions.md").read_text(encoding="utf-8").split()
+    )
+    for phrase in (
+        "## The additional post",
+        "additional/<pid>/",
+        "one instant",
+        '"additional": true',
+    ):
+        assert phrase in definitions, phrase
+    cited = set(re.findall(r"`(test_g12_\w+)`", workflows_page))
+    assert len(cited) >= 4, cited
+    for name in sorted(cited):
+        assert name in globals(), f"the page cites {name}, which is not in this module"

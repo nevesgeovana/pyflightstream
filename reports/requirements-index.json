@@ -2,8 +2,8 @@
  "source": "docs/srs",
  "generated_by": "scripts/gen_requirements_index.py",
  "traceability": {
-  "cited_by_a_test": 117,
-  "total": 162,
+  "cited_by_a_test": 118,
+  "total": 163,
   "method": "upper bound: an id mentioned anywhere in tests/**/*.py excluding conftest.py, which is not the marked falsifying test NFR-13 asks for"
  },
  "requirements": [
@@ -1045,6 +1045,14 @@
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: G05 of the 0.27.0 scope, the basic GUI steps through the workflow: a volume section and its VTK or Tecplot export were reachable from no row. Evidence: tests/tier1_offline/test_g05_volume_section.py (the table and each shape's own keys, the section created after the solve and exported to the point's name, the delete before each later point of a warm sweep, the file never classified as a surface export, the refusal on both unsteady run types, and the file collected and hashed). The five commands it emits are verified one at a time on 26.120 to 26.124 by the compat probes; no licensed row has run the whole path yet.*",
+   "verification": "test"
+  },
+  {
+   "id": "FR-111",
+   "text": "A row states ADDITIONAL_PPROC: <pproc id> in its VAR_NAMES_VALUES cell; no builder reads it and the run record never carries it. pyfs-matrix post <matrix> --additional-pproc (library: pyflightstream.run.matrix.run_additional_post) then takes every recorded point of such a row whose final .fsm is on disk and hashes as its record says, copies it into datapoints/DP-<point>/additional/<pid>/, and runs one script there that opens the copy, creates the pproc's section distributions in the frames the run created, updates the sections, computes their sectional loads, exports the loads, the surface the pproc's [exports] selects, the sections, the sectional loads, the log and, on an unsteady point, the plots history, and closes, with no solve and no save. Each extraction is recorded in additional.json beside runs.json, which is never written; the post writes the products of every current extraction under post/<matrix>/additional/<pid>/, each entry marked with the pproc, \"additional\": true and the extractions it holds.",
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: G12 of the 0.27.0 scope: a finished point could not be asked for more without solving it again, although its final saved simulation is kept (FR-51) and RPT-062 measured on 26.124 what a reopened simulation gives back identically. Evidence: tests/tier1_offline/test_additional_post.py (the key planned READY and changing no byte of the run script on any run type; each plan refusal; the extraction script against one golden per pproc kind under tests/tier1_offline/goldens/additional/, never solving, saving, or creating a frame or a probe; the three skips of a row without the key, an absent saved simulation and one that does not hash as its record says, and the other skips; the run's record, manifest and files unchanged; the command line; the products marked with the pproc and a stale extraction skipped under its own key). The licensed end-to-end run of the extraction is owed.*",
    "verification": "test"
   },
   {
