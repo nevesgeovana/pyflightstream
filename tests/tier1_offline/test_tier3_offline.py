@@ -1319,7 +1319,11 @@ def test_t07_each_points_file_is_its_saved_simulations_trailing_edge_and_passes_
     )
     saved = np.asarray(prepare.trailing_edge_midpoints(prepare.LIBRARY / "30_BLADE.fsm"))
     assert found.shape == saved.shape
-    assert np.abs(np.sort(found, axis=0) - np.sort(saved, axis=0)).max() < 1e-9
+    # Half a unit in the eighth decimal: FlightStream writes an OBJ's
+    # coordinates with eight decimals, so a mid-point of two exported vertices
+    # is off the saved one by at most 5e-9 m (26.124's export measured 3.8e-9);
+    # the stand-in written offline carries the saved mesh exactly.
+    assert np.abs(np.sort(found, axis=0) - np.sort(saved, axis=0)).max() <= 5e-9 + 1e-12
 
 
 def test_t07_the_millimetre_mesh_is_the_metre_mesh_times_a_thousand():
