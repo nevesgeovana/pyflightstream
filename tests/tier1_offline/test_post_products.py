@@ -381,7 +381,17 @@ def test_plots_table_round_trips(tmp_path):
     target = write_plots_table(tmp_path / "plots" / "P_plots.csv", PLOTS)
     assert target is not None
     columns, rows = read_csv_table(target)
-    assert columns == ("Time-step", "CL_MRP_TOTAL", "CDI_MRP_TOTAL", "FX_MRP_TOTAL", "MACH1")
+    # `POL` FIRST since 0.27.0 (G16), `NA` where the caller states no polar;
+    # the export's own header follows it unchanged.
+    assert columns == (
+        "POL",
+        "Time-step",
+        "CL_MRP_TOTAL",
+        "CDI_MRP_TOTAL",
+        "FX_MRP_TOTAL",
+        "MACH1",
+    )
+    assert {row["POL"] for row in rows} == {"NA"}
     assert rows[0]["CL_MRP_TOTAL"] == "0.90152", "0.22538 times four"
     assert rows[1]["CDI_MRP_TOTAL"] == "0.00400"
     assert rows[0]["FX_MRP_TOTAL"] == "1411.90000" and rows[1]["MACH1"] == "0.20100"
@@ -653,7 +663,9 @@ def test_pyfs_matrix_post_writes_every_reduction_beside_the_plots_table(tmp_path
     # `REDUCTION` (RI-03); the moment point follows the context (CC-09); and
     # `Time-step` IS GONE (RI-07): this assertion listed it as a reduction column,
     # which is the mean of a step counter published under the same contract as CL.
-    assert columns[:6] == (
+    # `POL` FIRST since 0.27.0 (G16), as in every table the post writes.
+    assert columns[:7] == (
+        "POL",
         "REDUCTION",
         "ROTOR",
         "WINDOW",
@@ -661,8 +673,8 @@ def test_pyfs_matrix_post_writes_every_reduction_beside_the_plots_table(tmp_path
         "LAST_STEP",
         "STEPS",
     ), columns
-    assert columns[6 : 6 + len(CONTEXT_COLUMNS)] == CONTEXT_COLUMNS, columns
-    assert columns[6 + len(CONTEXT_COLUMNS) :] == (
+    assert columns[7 : 7 + len(CONTEXT_COLUMNS)] == CONTEXT_COLUMNS, columns
+    assert columns[7 + len(CONTEXT_COLUMNS) :] == (
         "XMOM",
         "YMOM",
         "ZMOM",
@@ -1436,8 +1448,9 @@ def test_a_windowed_point_gets_one_series_table_per_export_kind(tmp_path):
     workspace = _windowed_workspace(tmp_path, window=window)
     write_campaign_products(workspace)
     columns, rows = _series(workspace, "AL-020_loads_series.csv")
-    # `STEP` SINCE 0.24.0: one name for the solver step across every table.
-    assert columns[:3] == ["STEP", "time_s", "azimuth_deg"], columns
+    # `STEP` SINCE 0.24.0: one name for the solver step across every table,
+    # behind `POL` since 0.27.0 (G16).
+    assert columns[:4] == ["POL", "STEP", "time_s", "azimuth_deg"], columns
     assert [int(r["STEP"]) for r in rows] == [3, 4, 5]
     assert [float(r["time_s"]) for r in rows] == pytest.approx([0.03, 0.04, 0.05])
     assert [float(r["azimuth_deg"]) for r in rows] == pytest.approx([90.0, 120.0, 150.0])
@@ -1445,10 +1458,10 @@ def test_a_windowed_point_gets_one_series_table_per_export_kind(tmp_path):
     assert float(rows[0]["Total_CL"]) == pytest.approx(0.1882829, abs=1e-5), "five decimals"
     columns, rows = _series(workspace, "AL-020_sections_series.csv")
     # The sections series leads with its block's identity since 0.24.0 (RI-04).
-    assert columns[:2] == ["STEP", "time_s"] and "Chord" in columns, columns
+    assert columns[:3] == ["POL", "STEP", "time_s"] and "Chord" in columns, columns
     assert [int(r["STEP"]) for r in rows] == [3, 3, 4, 4, 5, 5], "two sections per step"
     columns, rows = _series(workspace, "AL-020_probes_series.csv")
-    assert columns[:3] == ["STEP", "time_s", "azimuth_deg"] and "Cp" in columns, columns
+    assert columns[:4] == ["POL", "STEP", "time_s", "azimuth_deg"] and "Cp" in columns, columns
     assert len(rows) == 3 * 12 and {int(r["STEP"]) for r in rows} == {3, 4, 5}
     index = _products_manifest(workspace)["products"]
     entry = index["series/AL-020_loads_series.csv"]
@@ -1498,7 +1511,7 @@ def test_a_rebuild_archives_the_series_tables_it_rewrites_as_it_does_every_produ
             f"{sorted(p.name for p in folder.parent.rglob('*')) if folder.parent.exists() else []}"
         )
         assert archived.read_text(encoding="utf-8") == f"the first build of {name}"
-        assert (series / name).read_text(encoding="utf-8").startswith("STEP,"), (
+        assert (series / name).read_text(encoding="utf-8").startswith("POL,STEP,"), (
             "the rebuild archived the table and did not write the new one"
         )
 
@@ -1572,7 +1585,7 @@ def test_a_target_alone_decides_what_becomes_of_an_existing_series_table(tmp_pat
     write_point_series(workspace.root, target=leave_it, **arguments)
 
     assert "AL-020_loads_series.csv" in seen, seen
-    assert table.read_text(encoding="utf-8").startswith("STEP,"), "the table was not rewritten"
+    assert table.read_text(encoding="utf-8").startswith("POL,STEP,"), "the table was not rewritten"
 
 
 def test_a_series_table_is_written_where_its_target_says(tmp_path):
@@ -1882,7 +1895,7 @@ def test_the_probe_positions_the_record_names_reach_the_delivered_table(tmp_path
         p.name for p in (workspace.root / "post" / "products" / "probes").iterdir()
     )
     columns, rows = read_csv_table(table)
-    assert tuple(columns[:6]) == ("PROBE", "X", "Y", "Z", "FRAME", "STEP")
+    assert tuple(columns[:7]) == ("POL", "PROBE", "X", "Y", "Z", "FRAME", "STEP")
     placed = {
         int(float(row["PROBE"])): (float(row["X"]), float(row["Y"]), float(row["Z"]))
         for row in rows

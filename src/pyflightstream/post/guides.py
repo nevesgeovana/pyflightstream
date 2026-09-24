@@ -56,7 +56,14 @@ from types import MappingProxyType, UnionType
 from typing import Annotated, Any, Literal, Union, get_args, get_origin
 
 from pyflightstream._expressions import ALLOWED_FUNCTIONS
-from pyflightstream._tokens import FX_INT, FZ_INT, INTEGRATED_SECTION_COLUMNS, MY_INT, STRIP_LENGTH
+from pyflightstream._tokens import (
+    FX_INT,
+    FZ_INT,
+    INTEGRATED_SECTION_COLUMNS,
+    MY_INT,
+    POLAR_ID_COLUMN,
+    STRIP_LENGTH,
+)
 from pyflightstream.cases import (
     EXPORT_KIND_MEANINGS,
     EXPORT_KINDS,
@@ -130,6 +137,10 @@ PPROC_GUIDE_NAMES: tuple[str, ...] = ("VARIABLES.md", "WRITING-EQUATIONS.md")
 #: ``[glossary]`` is listed beside it and never merged into it. A test holds
 #: that every column constant listed by the variables page has an entry here.
 VARIABLE_DEFINITIONS: dict[str, str] = {
+    POLAR_ID_COLUMN: (
+        "-. The polar a row comes from, the matrix row's POL; the first column of "
+        "every table the post writes"
+    ),
     STRIP_LENGTH: "m. Midpoint-to-midpoint strip length; the endpoint stations get half strips",
     FX_INT: "N. Fx times Strip_length, in the recorded section axes at this row's STEP and azimuth",
     FZ_INT: "N. Fz times Strip_length, in the recorded section axes at this row's STEP and azimuth",
@@ -255,6 +266,11 @@ def _variables_page(glossary: Sequence[tuple[str, str]]) -> str:
         "",
         "## Every product carries these",
         "",
+        "The first column of every table is the polar, and no line precedes the",
+        "header:",
+        "",
+        _defined(POLAR_ID_COLUMN),
+        "",
         "A file that does not state its flight condition cannot say what it is a",
         "file of, which is why these are on every product and not on the polar",
         "alone.",
@@ -283,7 +299,7 @@ def _variables_page(glossary: Sequence[tuple[str, str]]) -> str:
         "",
         "## The unsteady polar adds these",
         "",
-        "`polars/P<sim>_<name>_uns_avg.csv` opens with the window, then the block",
+        "`polars/P<sim>_<name>_uns_avg.csv` opens with `POL` and the window, then the block",
         "above and the moment point, then EVERY PLOTTED COLUMN under the name the",
         "solver's export prints, `<parameter>_<group>`, averaged over the window;",
         "then the axis coefficients below, then your `[equations]` as",

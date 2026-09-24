@@ -1821,7 +1821,8 @@ definition and the steady-plan warning.
 
 The `[products]` table names three kinds of CSV table, every one a header
 line and one row per record, so a spreadsheet or a dataframe opens it with
-nothing else. A POLAR table per group of `[groups]`, under `polars/` and
+nothing else; since 0.27.0 every table the post writes opens with `POL`, the
+polar each row comes from. A POLAR table per group of `[groups]`, under `polars/` and
 named by the same convention as the point's script with the swept
 variable's field written `<code>+sweep`
 (`polars/P0001-M150RE438AL+000BE+000J+sweep_PUSHER.csv` for a group named
@@ -1843,8 +1844,8 @@ FLOW-FIELD SAMPLES of a point under `probes/`, whatever the run type was
 (FR-87): `probes/<point>_plots.csv`, the unsteady plots export re-tabled
 with its coefficient columns brought from the solver's reference
 velocity to the free stream, and `probes/<point>_probes.csv`, the probe
-table of a row of any kind. That table opens with the same six columns
-whichever run type filled it (FR-91), `PROBE, X, Y, Z, FRAME, STEP`, and
+table of a row of any kind. That table opens with `POL` and then the same six
+columns whichever run type filled it (FR-91), `PROBE, X, Y, Z, FRAME, STEP`, and
 then carries its own export's fluid quantities in their own names and
 units: a steady row brings Mach, Cp, the velocity components and the
 boundary-layer columns; an unsteady row brings the parameters its probe
@@ -3234,10 +3235,11 @@ post/matriz/series/P7001-M144RE438AL+000BE+000_sections_series.csv
 post/matriz/series/P7001-M144RE438AL+000BE+000_probes_series.csv
 ```
 
-Every table leads with `STEP` (spelled `step` until 0.24.0), `time_s` and
-`azimuth_deg`, and then states the point's condition block; the probes series
-says WHICH probe each row is in `PROBE`, and the sections series leads with
-`STEP`, `time_s`, `FAMILY`, `PLANE`, `ROTOR`, `AZIMUTH`, the identity the
+Every table leads with `POL` (since 0.27.0), then `STEP` (spelled `step` until
+0.24.0), `time_s` and `azimuth_deg`, and then states the point's condition
+block; the probes series says WHICH probe each row is in `PROBE`, and the
+sections series leads with `POL`, `STEP`, `time_s`, `FAMILY`, `PLANE`, `ROTOR`,
+`AZIMUTH`, the identity the
 sections table carries. `time_s` and `azimuth_deg` are the step's
 time and azimuth computed from the clock the run record carries
 (`export_window.delta_time_s` and `step_deg`, written by the run since

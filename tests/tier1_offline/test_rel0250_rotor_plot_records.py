@@ -80,7 +80,7 @@ def test_b09_recorded_family_groups_produce_the_exact_window_mean(tmp_path, monk
     written, manifest, density = posted(tmp_path, monkeypatch, plot_groups())
     tables = [p for p in written if p.name.endswith("-PUSHER_rotor.csv")]
     assert tables, "the recorded family plot names did not produce a rotor table"
-    _columns, rows = read_csv_table(tables[0], skip=1)
+    _columns, rows = read_csv_table(tables[0])
     mean = sum(sum(HISTORIES[name][2:]) / 2 for name in ("ROTOR_W", "ROTOR_B"))
     expected = mean / (density * (RPM / 60) ** 2 * DIAMETER**4)
     assert abs(float(rows[0]["CT_PUSHER"])) == pytest.approx(expected, abs=5e-6)

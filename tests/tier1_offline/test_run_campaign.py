@@ -3365,7 +3365,8 @@ def test_the_campaign_writes_its_products_and_names_them(tmp_path):
     assert manifest["products"][f"polars/{stem}_g01.csv"]["runs"] == ["camp/sim_9001/M200AL-020"]
     assert manifest["products"][f"polars/{stem}_g01.csv"]["pproc"] == "p001"
     text = (products / "polars" / f"{stem}_g01.csv").read_text(encoding="utf-8").splitlines()
-    assert text[0].startswith("POLAR,DESCRIPTION,GROUP,SREF,CREF,BREF,XMOM")
+    # `POL` FIRST since 0.27.0 (G16); `POLAR` keeps its name and holds the same id.
+    assert text[0].startswith("POL,POLAR,DESCRIPTION,GROUP,SREF,CREF,BREF,XMOM")
     header = text[0].split(",")
     cells = text[1].split(",")
     # BY NAME AND NOT BY POSITION. This asserted `header[9] == "J"`, and item 5
@@ -3383,7 +3384,8 @@ def test_the_campaign_writes_its_products_and_names_them(tmp_path):
     # or from a value that went missing.
     assert cells[header.index("J")] == "NA", text[1]
     assert cells[header.index("ALPHA")] == "-2.00000", text[1]
-    assert text[1].startswith("9001,STEADY_WB,1,50.00000,2.52600,20.00000,9.15200,")
+    # `POL` and then `POLAR`, both the simulation (G16).
+    assert text[1].startswith("9001,9001,STEADY_WB,1,50.00000,2.52600,20.00000,9.15200,")
     assert ",0.02743,0.00000,0.18716," in text[1], "the body axes of the author's recorded row"
     record = workspace.read_manifest()[0]
     assert record.reference == {

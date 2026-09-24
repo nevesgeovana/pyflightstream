@@ -16,7 +16,7 @@ from pyflightstream._errors import (
     warn,
 )
 from pyflightstream._fsm import boundary_labels, family_of
-from pyflightstream._tokens import INTEGRATED_SECTION_COLUMNS
+from pyflightstream._tokens import INTEGRATED_SECTION_COLUMNS, POLAR_ID_COLUMN
 from pyflightstream.cases import (
     PprocSpec,
     RotorBlock,
@@ -1126,7 +1126,13 @@ def write_section_distributions(
                     output_rows = [
                         (*row, *extra) for row, extra in zip(rows[k], integrated[k], strict=True)
                     ]
-            done = write_csv_table(target(out / relative), headings, output_rows)
+            # THE POLAR FIRST (G16, 0.27.0), the run record's own: every row of
+            # a distribution file is a row of this one point.
+            done = write_csv_table(
+                target(out / relative),
+                (POLAR_ID_COLUMN, *headings),
+                [(record.sim_id, *row) for row in output_rows],
+            )
             written.append(done)
             key = done.relative_to(out) if done.is_relative_to(out) else done
             entries[key.as_posix()] = {

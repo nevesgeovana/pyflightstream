@@ -54,6 +54,29 @@ them was inferred from an implementation.
 
 ## What every product states
 
+**The first column of every table is the polar, and no line precedes the
+header** (since 0.27.0). Every table the post writes under `post/<matrix>/`,
+the additional post's under `additional/<pid>/` included, and the campaign
+sweep table beside them open with `POL`, named as the run matrix names its
+polar column, holding in each row the POL of the point that row comes from
+(`test_g16_every_table_the_post_writes_opens_with_the_polar_of_its_rows`). A
+table whose rows mix polars, the campaign sweep, carries each row's own. What a
+table states about all its rows is a column too, never a line before the
+header: the rotor table's rotor is its `ROTOR` column, right after `POL`. Every
+other column keeps its name and its order after them. The solver's own files
+under `datapoints/DP-<point>/` are never rewritten, and the fixed-width custom
+polar (`.dat`) keeps the title lines its format specifies; a super file written
+in the fixed-width `legacy_polar` format opens with `POL` too.
+
+**No cell holds a comma or a double quote, and no cell is quoted** (since
+0.27.0), so a reader that splits each line on `,`, as `numpy.genfromtxt` does,
+reads the header and every row to the same count. A text cell that would hold a
+comma writes `;` in its place: a list the super content echoes from the matrix
+row reads `-2.0;0.0` under `SWEEP_VALUES` and `MACH:0.2; REmi:2.3; ALPHA:sweep`
+under `FLIGHT_CONDITION`. A double quote is written as a single one, and a line
+break as a space
+(`test_g16_the_echoed_matrix_cells_write_their_lists_with_semicolons`).
+
 Every table the post stage composes states the condition it is a table OF, in
 one block, in this order:
 
@@ -102,8 +125,9 @@ table does not establish agreement. See the single
 
 The steady polar already carries `ALPHA`, `BETA`, `MACH` and `RE` among its
 twenty-four, so it states the rest of the block beside them. The plots table
-`probes/<point>_plots.csv` states NO condition, on purpose: it is the export's own
-header, and the reductions read every column of it back as a plotted quantity.
+`probes/<point>_plots.csv` states NO condition, on purpose: after `POL` it is the
+export's own header, and the reductions read every column after `POL` back as a
+plotted quantity.
 
 ---
 
@@ -124,6 +148,11 @@ the same contributing points. An unassignable analysis frame is a named run
 skip for that point's polar row; it cannot suppress another point's products.
 The unsteady polar follows the same naming rule using only points whose plots
 history actually contributes an averaged row, rather than every readable load.
+
+A steady polar row opens with `POL`, then `POLAR` (the same simulation id, in
+the place it has always had), `DESCRIPTION`, `GROUP`, the reference block
+`SREF, CREF, BREF, XMOM, YMOM, ZMOM`, the condition the twenty-four do not
+carry, and the twenty-four. Its super file opens with the same columns.
 
 The loads export states ONE force and ONE moment per surface, in the
 geometry's own frame: **x aft, y right, z up**. Every axis column of a steady
@@ -194,6 +223,7 @@ frame, one after another with no marker between them. Each row leads with:
 
 | column | what it is |
 |---|---|
+| `POL` | the polar of the point, as the matrix names it (since 0.27.0) |
 | `STEP` | on an unsteady point, the run's last TIME STEP, from the run record: the export is written when the march ends, and its own header counts the solver's inner iterations, not steps ([RPT-053](https://github.com/nevesgeovana/pyflightstream/blob/main/reports/RPT-053_what-an-unsteady-export-states-and-when_2026-09-19.md)). On a steady point, the solver iteration the export states. One name across every table |
 | `FAMILY` | the geometry families of the row's distribution, joined by `+` |
 | `PLANE` | the cutting plane of that distribution |
@@ -242,8 +272,8 @@ it holds the end-of-run export, with `STEP` interpreted as in the existing
 sections table above. The existing end-of-run table and combined
 `series/<point>_sections_series.csv` remain available.
 
-Rows lead with `STEP, time_s, FAMILY, PLANE, ROTOR, AZIMUTH`, then the shared
-condition block, then the export's columns. Sectional loads retain
+Rows lead with `POL, STEP, time_s, FAMILY, PLANE, ROTOR, AZIMUTH`, then the
+shared condition block, then the export's columns. Sectional loads retain
 `Offset, Chord, X_QC, Z_QC, Fx, Fz, Moment`. Cp carries `SECTION`, the export's
 1-based cross-section index, followed by its twenty printed columns:
 `Section_direction_value, X, Y, Z, nx, ny, nz, L, Cp, Mach, vx, vy, vz, vtot,
@@ -281,8 +311,9 @@ export skips that kind's split files; the other kind remains available.
 
 Set `integrate = true` beside `families`, `planes` and `count` in the desired
 `[[sections.distributions]]` entry. The default is `false`. Omitted or false,
-the sectional CSV is byte-for-byte the seven export columns and existing
-context written by 0.25.1, with no additional column. This is a post-processing
+the sectional CSV holds the seven export columns and the context written by
+0.25.1, behind the `POL` column every table opens with since 0.27.0, with no
+additional column. This is a post-processing
 choice in the pproc, so it also applies when posting existing recorded exports.
 The current entry must match each recorded block uniquely by families, plane,
 frame and count; reordering entries cannot move an integration request to
@@ -458,6 +489,10 @@ profiles.
 - **Steady:** both declaration forms use standard probe points, and the table
   contains the probe-points export. `STEP` is `NA`.
 
+Each row opens with `POL`, then `PROBE`, `X`, `Y`, `Z`, `FRAME`, `STEP` and the
+condition block, then the export's own columns (steady) or the sampled
+parameters (unsteady).
+
 An unsteady run recorded with 0.24.0 or earlier sampled cited profiles only at
 the final instant. Those probes have no recorded history: posting again skips
 them, names the profile and reason in `products.json`, and keeps the available
@@ -482,6 +517,12 @@ One average of the whole point over one window. It is what a POLAR row of an
 unsteady point is built from.
 
 **One window per point.** Not one per rotor, because a point has one history.
+
+`probes/<point>_time_average.csv` opens with `POL`, `REDUCTION`, `ROTOR`,
+`WINDOW`, `FIRST_STEP`, `LAST_STEP`, `STEPS`, then the condition block and the
+moment point, then the plotted columns averaged over the window. The passage
+series a pproc without `[phase_locked]` gets under the phase-locked name has the
+same columns.
 
 ---
 
@@ -516,7 +557,7 @@ of revolutions. Every blade of one rotor shares that rotor's window;
 
 Averaging from step one mixes the transient with the answer.
 
-**The rows.** Each row leads with `REDUCTION`, `ROTOR`, `BLADE`, `FAMILY`, the
+**The rows.** Each row leads with `POL`, `REDUCTION`, `ROTOR`, `BLADE`, `FAMILY`, the
 window (`FIRST_STEP`, `LAST_STEP`, `STEPS`), `AZIMUTH_START`, `AZIMUTH_END`,
 then the condition block and the moment point.
 
@@ -571,7 +612,7 @@ The operation, step by step:
 revolution, not a blade.
 
 **How the file carries it.** `probes/<point>_phase_locked[_<ALIAS>].csv` leads
-with `REDUCTION`, `ROTOR`, `AZIMUTH`, `STEP`, `REVOLUTIONS`, the steps the
+with `POL`, `REDUCTION`, `ROTOR`, `AZIMUTH`, `STEP`, `REVOLUTIONS`, the steps the
 revolutions span (`FIRST_STEP`, `LAST_STEP`, `STEPS`), the condition block and
 the moment point, then the plotted columns under the names the export prints.
 
@@ -862,6 +903,8 @@ reductions over it are the run's history read under the additional pproc.
 beside the run's own and never over them, by the builders the run's products
 use: the additional pproc's group polars on a steady point, one sections table
 per point, and on an unsteady point the plots tables and their reductions.
+Each table opens with `POL`, the polar of the point the extraction was taken
+from, like every table of the run's own.
 Every entry of `products.json` for them carries
 (`test_g12_additional_products_are_marked_with_the_pproc`):
 
@@ -915,14 +958,15 @@ nothing current supplies is archived like a refused table. The next
   row per point. Every file under `post/` comes from a sweep, so the name says
   what the file IS, the average of the unsteady history, and carries the `P`
   every per-point product carries. It was `<sim>_<name>_unsteady.csv` in 0.23.0.
-- **Each row opens with `FIRST_STEP`, `LAST_STEP`, `STEPS`**, the window THAT
-  point was averaged over, so the file says on its own that it is an average and
-  over what. The condition block follows, then `XMOM`, `YMOM`, `ZMOM`, because
-  the plots carry moments and a moment states nothing without its point.
+- **Each row opens with `POL`, then `FIRST_STEP`, `LAST_STEP`, `STEPS`**, the
+  window THAT point was averaged over, so the file says on its own that it is an
+  average and over what. The condition block follows, then `XMOM`, `YMOM`, `ZMOM`,
+  because the plots carry moments and a moment states nothing without its point.
 - **The super file's content is ADDED to this table**, after the plot columns:
   the matrix row's cells, the record's scalars, each rotor's speed, the solver
   flags. The super file is what the polar does not have; for an unsteady point it
-  is not a second file.
+  is not a second file. Its `POL` cell is the row's first column and is not
+  written a second time.
 - **The axis coefficients follow the plot columns**, the eighteen of the steady
   polar under its own names, in the order `CDW .. CNW25`, `CDS .. CNS25`,
   `CDB .. CNB25`, each suffixed with its plot group's WHOLE name
@@ -985,6 +1029,13 @@ FX_HUB_PUSHER = "FX_PUSHER"
 with the rotor's alias. They make physical sense for **one** rotor and not for
 several summed: the diameters and speeds that normalise them are different
 numbers.
+
+The table is `polars/P<sim>-<alias>_rotor.csv`. It opens with `POL` and
+`ROTOR`, the rotor's alias, on every row, then the condition block,
+`RPM_<alias>`, `DIAMETER_<alias>` and the six, `J_<alias>` to `ETAW_<alias>`.
+Its first line is its header: from 0.23.0 to 0.26.x the alias stood alone on
+the first line, before the header, so a loaded table knew its rotor, and no CSV
+reader took the file as written. The column keeps that promise.
 
 ### Where an unsteady point's numbers come from
 

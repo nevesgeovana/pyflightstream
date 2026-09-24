@@ -73,7 +73,8 @@ def test_each_row_states_its_family_plane_and_rotor_and_the_step(tmp_path):
         tmp_path / "p_sections.csv", SLOADS, mach=0.2, layout=LAYOUT, rotors=ROTORS
     )
     columns, rows = read_csv_table(written)
-    assert list(columns[:5]) == ["STEP", "FAMILY", "PLANE", "ROTOR", "AZIMUTH"], columns[:6]
+    # BEHIND THE POLAR since 0.27.0 (G16).
+    assert list(columns[:6]) == ["POL", "STEP", "FAMILY", "PLANE", "ROTOR", "AZIMUTH"], columns[:7]
     assert "ITERATION" not in columns
     assert [(r["FAMILY"], r["PLANE"], r["ROTOR"]) for r in rows] == [
         ("Wing", "XZ", NOT_APPLICABLE),

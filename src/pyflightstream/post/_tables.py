@@ -28,6 +28,10 @@ from pyflightstream._tokens import ADVANCE_RATIO_COLUMN as ADVANCE_RATIO_COLUMN
 from pyflightstream._tokens import CONTEXT_COLUMNS as CONTEXT_COLUMNS
 from pyflightstream._tokens import FLIGHT_CONDITION_COLUMNS as FLIGHT_CONDITION_COLUMNS
 from pyflightstream._tokens import NOT_APPLICABLE as NOT_APPLICABLE
+
+# DEPENDENCIES, NOT RE-EXPORTS (G16): the sections table's first column, and the
+# rule every cell is written by. The products take them from the floor themselves.
+from pyflightstream._tokens import POLAR_ID_COLUMN, plain_cell
 from pyflightstream._tokens import REFERENCE_LENGTH_COLUMNS as REFERENCE_LENGTH_COLUMNS
 from pyflightstream.post.axes import blade_azimuth_deg
 
@@ -141,7 +145,9 @@ def context_row(
 #: `PLANE` and `ROTOR` say which DISTRIBUTION a row belongs to, which nothing did.
 _SECTION_IDENTITY_COLUMNS: tuple[str, ...] = ("STEP", "FAMILY", "PLANE", "ROTOR", "AZIMUTH")
 
+#: 0.27.0 (G16): the polar first, as in every table the post writes.
 SECTION_COLUMNS: tuple[str, ...] = (
+    POLAR_ID_COLUMN,
     *_SECTION_IDENTITY_COLUMNS,
     *CONTEXT_COLUMNS,
     "Offset",
@@ -264,6 +270,15 @@ def _cell(value: object) -> str:
     `post.series` writes through `write_csv_table` and always did. An
     enumeration that has just been corrected for overclaiming is worth
     re-reading for the opposite, and nobody had.
+
+    NO CELL HOLDS A COMMA OR A DOUBLE QUOTE (G16, 0.27.0), which is the second
+    rule held here for the same reason as the first: a text cell goes through
+    :func:`pyflightstream._tokens.plain_cell`, so a comma is written ``;``, a
+    double quote a single one and a line break a space, and the CSV writer has
+    nothing to quote. A reader that splits each line on ``,`` then reads every
+    row to the header's count. The matrix cells the super content echoes were
+    the cells that broke it: ``SWEEP_VALUES`` and ``FLIGHT_CONDITION`` were
+    written quoted, commas inside.
     """
     if value is None:
         return NOT_APPLICABLE
@@ -271,18 +286,22 @@ def _cell(value: object) -> str:
         number = float(value)
         return NOT_APPLICABLE if math.isnan(number) else f"{number:.{_DECIMALS}f}"
     text = str(value)
-    return text if text.strip() else NOT_APPLICABLE
+    return plain_cell(text) if text.strip() else NOT_APPLICABLE
 
 
 def write_csv_table(
     path: str | Path, columns: Sequence[str], rows: Sequence[Sequence[object]]
 ) -> Path:
-    """Write one CSV table: a header line and one line per row, floats at five decimals."""
+    """Write one CSV table: a header line and one line per row, floats at five decimals.
+
+    The header names pass the cells' rule too (G16): no name holds a comma or a
+    double quote, so nothing on any line is quoted.
+    """
     target = Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
     with target.open("w", encoding="utf-8", newline="") as handle:
         writer = csv.writer(handle, lineterminator="\n")
-        writer.writerow(columns)
+        writer.writerow([plain_cell(str(name)) for name in columns])
         for row in rows:
             if len(row) != len(columns):
                 raise ProductError(f"a row has {len(row)} values for {len(columns)} columns")
@@ -331,11 +350,18 @@ def renamed_columns(
     return tuple(names.get(name, name) for name in columns)
 
 
-#: How a rotor table's file name ends, and how many lines lead its header: the
-#: rotor's alias, alone on line one, so a script that has loaded the file still
-#: knows which rotor it holds. Every reader of `polars/` needs both.
+#: How a rotor table's file name ends, and how many lines lead its header.
+#:
+#: NONE SINCE 0.27.0 (G16). From 0.23.0 the rotor's alias stood alone on line
+#: one, so a script that had loaded the file still knew which rotor it held;
+#: but a line before the header is a file no CSV reader takes as written. The
+#: alias is the `ROTOR` column now, right after `POL`, on every row, which keeps
+#: the promise inside the bytes and makes the first line the header. The name
+#: stays, at zero, for a reader that skips this many lines; a table written by
+#: 0.23.0 to 0.26.x still leads with its alias, and a reader of those files
+#: drops a first line of one cell (as `post.superfile` does).
 ROTOR_TABLE_SUFFIX = "_rotor.csv"
-ROTOR_TABLE_LEAD_LINES = 1
+ROTOR_TABLE_LEAD_LINES = 0
 
 
 def section_identity(

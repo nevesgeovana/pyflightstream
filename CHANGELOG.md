@@ -565,6 +565,34 @@ FlightStream versions.
 - `ACTUATOR`, `ACTUATOR_RPM`, `ACTUATOR_THRUST` and `PROFILE` are row keys of
   every run type, so a setup flag taking one of those words is refused (FR-74)
   (G06).
+- **The first column of every table is the polar, and no line precedes the
+  header (G16).** Every table the post writes under `post/<matrix>/`, the
+  additional post's included, and `campaign_sweep.csv` open with `POL`, named as
+  the run matrix names its polar column, holding the POL of the point each row
+  comes from; the sweep, whose rows mix polars, carries each row's own. The
+  rotor table's alias, alone on its first line before the header since 0.23.0,
+  is now the `ROTOR` column right after `POL`, so its first line is its header
+  and a CSV reader takes the file as written. Every other column keeps its name
+  and its order after them: a reader by name is unaffected, a reader by
+  position finds each column one place to the right, two in a rotor table. The
+  package's own readers follow: the reductions read every plots column but
+  `POL` as a plotted quantity, the super file's union reads a rotor table's
+  header from its first line and passes over the alias line of one written
+  before, and `REDUCTION_COLUMNS` begins with `POL`, so a `[names]` entry
+  cannot take the name. The public table writers take `pol=` (`NA` where the
+  caller states none), `results.sweep_table` and `results.run_table` lead with
+  `POL`, `ROTOR_TABLE_LEAD_LINES` is 0, and `rotor_table_alias_line` is removed
+  with the line it wrote. The solver's own files are not touched. See
+  `docs/migrating-to-0.27.0.md`.
+- **No cell of a table holds a comma or a double quote, and nothing is quoted
+  (G16).** A reader that splits each line on `,`, as `numpy.genfromtxt` does,
+  counted the commas inside the quoted list cells a super file and an unsteady
+  polar echo from the matrix row (`SWEEP_VALUES`, `FLIGHT_CONDITION`) as
+  columns, so a row read wider than its header. Every text cell of
+  every table the post writes, header names included, and of the campaign
+  sweep now writes a comma as `;`, a double quote as a single one and a line
+  break as a space, through one rule, `pyflightstream._tokens.plain_cell`,
+  called by the products' funnel and by the tabular layer's `write_table`.
 
 ### Changed (the type-checker debt, re-measured)
 
