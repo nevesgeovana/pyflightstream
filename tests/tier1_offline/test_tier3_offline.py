@@ -1280,10 +1280,29 @@ def test_t07_the_routes_of_one_body_share_every_cell_but_the_geometry():
             assert rows[pol].fs_build == "26.124", "the file route runs on 26.124 alone (RPT-061)"
 
 
+def _without_the_first_initialisation(pol, lines):
+    """The file route initialises, detects its wake-termination nodes and
+    initialises again (G02, RPT-069): drop the first block and the detection,
+    after checking the two blocks are one and the detection is all between."""
+    starts = [i for i, line in enumerate(lines) if line == "INITIALIZE_SOLVER"]
+    if len(starts) == 1:
+        return lines
+    assert len(starts) == 2, (pol, starts)
+    first, second = starts
+    block_end = next(i for i in range(first, second) if not lines[i].strip())
+    first_block = lines[first:block_end]
+    assert lines[second : second + len(first_block)] == first_block, pol
+    between = [line for line in lines[block_end:second] if line.strip()]
+    assert between == ["AUTO_DETECT_WAKE_TERMINATION_NODES"], (pol, between)
+    return lines[:first] + lines[second:]
+
+
 def test_t07_the_routes_of_one_body_differ_in_their_geometry_lines_alone():
     """From the first frame to CLOSE_FLIGHTSTREAM an OBJ row's script is its
-    control's, line for line: the setup, the solve, the exports and the save.
-    So a difference between their loads is how the body entered the solver."""
+    control's, line for line: the setup, the solve, the exports and the save;
+    the file route adds only its first initialisation and the termination
+    detection it waits for. So a difference between their loads is how the
+    body entered the solver."""
     rendered = _by_pol(offline.render(MESH)[1])
     for control, routes in MESH_ROUTES.items():
         control_stem, control_text = rendered[control]
@@ -1291,9 +1310,10 @@ def test_t07_the_routes_of_one_body_differ_in_their_geometry_lines_alone():
         for pol in routes:
             stem, text = rendered[pol]
             assert text.startswith("NEW_SIMULATION\nIMPORT\n"), pol
-            assert _from_the_first_frame(stem, text) == _from_the_first_frame(
-                control_stem, control_text
-            ), f"{pol} differs from {control} beyond the geometry lines"
+            route = _without_the_first_initialisation(pol, _from_the_first_frame(stem, text))
+            assert route == _from_the_first_frame(control_stem, control_text), (
+                f"{pol} differs from {control} beyond the geometry lines"
+            )
 
 
 def test_t07_each_points_file_is_its_saved_simulations_trailing_edge_and_passes_the_check():
