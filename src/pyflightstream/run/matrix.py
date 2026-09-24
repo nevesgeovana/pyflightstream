@@ -40,7 +40,7 @@ from pyflightstream.cases.matrix import (
     read_matrix,
     refuse_silent_rows_without_default,
 )
-from pyflightstream.cases.workflows import WORKFLOW_KEY
+from pyflightstream.cases.workflows import ADDITIONAL_PPROC_VARIABLE, WORKFLOW_KEY
 from pyflightstream.run import (
     CampaignPlan,
     Executor,
@@ -212,6 +212,33 @@ def _warn_the_legacy_rows_saving_no_simulation(resolved: ResolvedMatrix) -> None
             f"saves one on every point; a {LEGACY_WORKFLOW} recipe saves one only when it "
             "writes SAVEAS to a name its OUTPUTS declare, so declare that name and save "
             "to it, or leave the row as it is if its final state is not wanted.",
+            PyflightstreamWarning,
+            stacklevel=3,
+        )
+
+
+def _warn_the_rows_whose_additional_post_is_one_instant(resolved: ResolvedMatrix) -> None:
+    """Name each unsteady row stating ADDITIONAL_PPROC, whose extraction is one instant (G12).
+
+    The additional post reopens a point's final saved simulation, which holds
+    the LAST instant of an unsteady run (RPT-062), so what it extracts there is
+    one instant and not the run's per-step history. A warning, never a
+    refusal: the plan says it once per matrix, naming the rows, and the post
+    says it again per point. Called from :func:`plan_matrix` alone.
+    """
+    instants = [
+        sim.sim_id
+        for sim in resolved.campaign.sims
+        if sim.variables.get(ADDITIONAL_PPROC_VARIABLE)
+        and str(sim.variables.get(WORKFLOW_KEY, "")).startswith("unsteady")
+    ]
+    if instants:
+        warn(
+            f"POL {', '.join(instants)}: unsteady row(s) stating "
+            f"{ADDITIONAL_PPROC_VARIABLE}. The additional post reopens each point's final "
+            "saved simulation, which is the LAST instant of its run (RPT-062): what it "
+            "extracts there is that one instant and not the run's per-step history. The "
+            "plots history it exports is the run's own.",
             PyflightstreamWarning,
             stacklevel=3,
         )
@@ -447,8 +474,10 @@ def plan_matrix(
     -----
     pyflightstream.exceptions.PyflightstreamWarning
         Naming every ``LEGACY`` row whose OUTPUTS declare no ``.fsm``, so no
-        final saved simulation of it is collected or hashed (0.27.0). It
-        blocks nothing.
+        final saved simulation of it is collected or hashed (0.27.0). And
+        naming every unsteady row stating ``ADDITIONAL_PPROC``, whose
+        additional post extracts one instant, the last, and not the run's
+        history (G12, RPT-062). Neither blocks anything.
 
     Examples
     --------
@@ -475,6 +504,7 @@ def plan_matrix(
         ignore_missing_families=ignore_missing_families,
     )
     _warn_the_legacy_rows_saving_no_simulation(resolved)
+    _warn_the_rows_whose_additional_post_is_one_instant(resolved)
     plan = plan_campaign(
         resolved.campaign,
         workspace,

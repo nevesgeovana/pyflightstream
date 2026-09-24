@@ -90,12 +90,15 @@ from pyflightstream.cases.matrix import (
     to_campaign,
 )
 from pyflightstream.cases.workflows import (
+    ADDITIONAL_PPROC_VARIABLE,
     GEOMETRY_VARIABLE,
     IGNORE_MISSING_FAMILIES_VARIABLE,
     PROFILE_VARIABLE,
     RAW_MESH_FORMATS,
     ROTOR_ORIGIN_POINT_KEY,
     SIMULATION_LENGTH_UNIT,
+    refuse_an_additional_post_build,
+    refuse_what_a_saved_point_cannot_give,
 )
 from pyflightstream.script.toggles import resolve_toggle
 
@@ -256,6 +259,12 @@ class ResolvedMatrix:
         point on one caller-named executable and overrules whatever the
         cells said, which is exactly what the warning it raises says
         will be recorded.
+    additional_pprocs : dict of str to PprocArtifact
+        The additional pproc of every row stating ``ADDITIONAL_PPROC`` (G12 of
+        0.27.0), keyed by its id, resolved and judged at plan so a key the
+        additional post could not honour is refused before the run spends a
+        seat. Empty for a matrix whose rows state none. LAST, so a caller
+        building this by position keeps working.
     """
 
     campaign: Campaign
@@ -266,6 +275,7 @@ class ResolvedMatrix:
     fs_exe: Path = Path()
     builds: dict[str, RegisteredBuild] = field(default_factory=dict)
     row_builds: tuple[str | None, ...] = ()
+    additional_pprocs: dict[str, PprocArtifact] = field(default_factory=dict)
 
 
 def _name_rows(rows: list[MatrixRow], wanted: tuple[str | None, ...], build: str | None) -> str:
@@ -470,13 +480,22 @@ def _resolve_build(
     return resolved[campaign_build].fs_exe, builds, named
 
 
-def _resolve_code(workspace: CampaignWorkspace, kind: str, code: str, pol: str):
-    """Resolve one REF/SET/ENTRY code, naming the row and the target file."""
-    column, subdir, resolver = {
+def _resolve_code(
+    workspace: CampaignWorkspace, kind: str, code: str, pol: str, *, column: str | None = None
+):
+    """Resolve one REF/SET/ENTRY code, naming the row and the target file.
+
+    ``column`` names the cell the code came from where it is not the kind's own
+    column: the additional pproc of G12 is a pproc named by a ``VAR_NAMES_VALUES``
+    key, and a refusal naming "the PPROC column" would send its writer to the
+    wrong cell. Left out, every message is the one it always was.
+    """
+    own_column, subdir, resolver = {
         "reference": ("REF", "references", workspace.resolve_reference),
         "setup": ("SET", "setups", workspace.resolve_setup),
         "pproc": ("PPROC", "pproc", workspace.resolve_pproc),
     }[kind]
+    cell = f"the {own_column} column" if column is None else f"its {column} key"
     try:
         return resolver(code)
     except InputArtifactError as error:
@@ -512,7 +531,7 @@ def _resolve_code(workspace: CampaignWorkspace, kind: str, code: str, pol: str):
                 "expected"
             )
         raise InputArtifactError(
-            f"matrix row POL {pol}: the {column} column names {kind} {code!r}, which "
+            f"matrix row POL {pol}: {cell} names {kind} {code!r}, which "
             f"the workspace input library cannot resolve; {remedy}. {error}",
             # CARRIED ACROSS, as the geometry sibling already does. The
             # class docstring promises a caller can offer the user a
@@ -1969,7 +1988,13 @@ def resolve_matrix(
     pyflightstream.workspace.InputArtifactError
         A code the library cannot resolve, a ``GEOMETRY`` stem the
         library cannot resolve or that two staged files share, or a
-        preset that does not fit the case solver settings.
+        preset that does not fit the case solver settings. An
+        ``ADDITIONAL_PPROC`` id the library cannot resolve names that key.
+    pyflightstream.cases.CampaignConfigError
+        A row stating ``ADDITIONAL_PPROC`` on a build other than 26.124, or
+        naming an artifact that asks what a reopened saved simulation does not
+        give back (G12, RPT-062). The key on a ``LEGACY`` row is a
+        :class:`~pyflightstream.cases.matrix.MatrixError`.
 
     Examples
     --------
@@ -2057,6 +2082,9 @@ def resolve_matrix(
             pprocs[row.pproc_code] = _resolve_cited_profiles(
                 workspace, pprocs[row.pproc_code], row.pproc_code, row.pol
             )
+    additional = _additional_pprocs(
+        rows, row_builds, builds, workspace, fs_version=fs_version, campaign=campaign_version
+    )
     sims: list[SimCase] = []
     conditions: dict[str, ResolvedCondition] = {}
     for case, row in zip(campaign.sims, rows, strict=True):
@@ -2301,4 +2329,63 @@ def resolve_matrix(
         fs_exe=exe,
         builds=builds,
         row_builds=row_builds,
+        additional_pprocs=additional,
     )
+
+
+def _additional_pprocs(
+    rows: list[MatrixRow],
+    row_builds: tuple[str | None, ...],
+    builds: Mapping[str, RegisteredBuild],
+    workspace: CampaignWorkspace,
+    *,
+    fs_version: str | None,
+    campaign: str,
+) -> dict[str, PprocArtifact]:
+    """Resolve and judge the additional pproc every row names (G12 of 0.27.0).
+
+    AT PLAN, like the row's PPROC, and for the reason every refusal of this
+    function lives here: the additional post runs after the seat is spent, so a
+    key it could not honour must stop the plan rather than surface afterwards.
+    Refused, each by name:
+
+    * the key on a LEGACY row, whose recipe creates frames by rules of its own,
+      so nothing can say which frame of its saved simulation a distribution cites;
+    * a row whose build is not one the additional post was measured on (RPT-062);
+    * an id the input library cannot resolve, naming the key and the file;
+    * an artifact asking what a reopened simulation does not give back.
+
+    A blank value names nothing, as a blank ``GEOMETRY`` does. The value stays
+    the string it is on the case: no builder reads it.
+    """
+    resolved: dict[str, PprocArtifact] = {}
+    for row, build in zip(rows, row_builds, strict=True):
+        code = row.variables.get(ADDITIONAL_PPROC_VARIABLE, "")
+        if not code:
+            continue
+        where = f"matrix row POL {row.pol}"
+        if row.workflow == LEGACY_WORKFLOW:
+            raise MatrixError(
+                f"POL {row.pol} writes LEGACY and states {ADDITIONAL_PPROC_VARIABLE}: {code}. "
+                "The additional post cuts new distributions in the frames the point's saved "
+                "simulation holds, which it knows by building the row's run type again; a "
+                "LEGACY row is built by its own recipe, so nothing can say which frame is "
+                "which. Name a run type in the WORKFLOW column, or drop the key."
+            )
+        registered = builds.get(build) if build else None
+        version = (
+            (registered.fs_version if registered is not None else None)
+            or fs_version
+            or build
+            or campaign
+        )
+        refuse_an_additional_post_build(version, where=where)
+        if code in resolved:
+            continue
+        artifact = _resolve_code(
+            workspace, "pproc", code, row.pol, column=ADDITIONAL_PPROC_VARIABLE
+        )
+        _refuse_groups_named_by_a_word(artifact, code, row.pol)
+        refuse_what_a_saved_point_cannot_give(artifact, pproc_id=code, where=where)
+        resolved[code] = artifact
+    return resolved
