@@ -73,3 +73,17 @@ def test_the_saved_simulation_carries_the_disc_the_row_named(runs, pol, carries)
     text = saved.read_text(encoding="utf-8", errors="replace")
     named = re.search(r"\bPROP\b", text) is not None
     assert named is carries, f"{saved.name}: the disc's name PROP present is {named}"
+
+
+def test_5009_the_solver_read_the_profile_the_run_wrote(runs):
+    """The run's own copy of the profile (no final newline) is read whole: no
+    refusal in the log, and the saved disc holds one point per row (RPT-070)."""
+    record = runs.one(MATRIX, "5009", alpha=4.0)
+    log = _collected(runs, record, "_log.txt").read_text(encoding="utf-8", errors="replace")
+    assert "custom radial thrust profile file" not in log.replace("\x00", "")
+    profile = runs.workspace.root / "inputs" / "profiles" / "prop_ct.txt"
+    rows = [line for line in profile.read_text(encoding="utf-8").splitlines() if line.strip()]
+    saved = _collected(runs, record, ".fsm").read_text(encoding="latin1")
+    assert re.search(rf"^1,3,{len(rows)},2$", saved, re.M), (
+        f"the saved disc does not hold the profile's {len(rows)} points"
+    )
