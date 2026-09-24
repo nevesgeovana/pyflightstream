@@ -38,7 +38,9 @@ the last step rather than the first.
    you have, which is the question a version-aware driver exists for.
 3. [The workspace and the workflow](workspace-and-workflows.md): the reference
    chapter, from a filled-in run matrix to results.
-4. Upgrading a workspace you already have? Read the newest page under
+4. [From the GUI to pyfs](gui-to-pyfs.md): if you know FlightStream from its
+   GUI, each step you take there and the key that takes it here, or `not yet`.
+5. Upgrading a workspace you already have? Read the newest page under
    *Migrating to newer versions* below before you upgrade, then
    [the release notes](release-notes.md) for anything older.
 
@@ -74,6 +76,10 @@ a person. Both write only with an explicit `--write`.
 * [Getting started](getting-started.md): install, pick a version, build a
   script, declare and pre-flight a campaign, read the results. Half an hour,
   and no solver until the last step.
+* [From the GUI to pyfs](gui-to-pyfs.md): each step of a FlightStream GUI
+  session, from the geometry to the post, with the key that does it in a
+  workspace, the solver commands that key emits and the builds they are
+  verified on; or `not yet`, and the raw route that takes the step meanwhile.
 * [Flight conditions](flight-conditions.md): what a row states about the
   flow it runs at, which quantity gets solved for, the units that ride
   the key names, and what to run on a matrix written before v0.9.0.

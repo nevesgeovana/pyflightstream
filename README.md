@@ -18,7 +18,10 @@ kinds of artifact answers. Then
 [The workspace and the workflow](https://nevesgeovana.github.io/pyflightstream/workspace-and-workflows/)
 is the reference chapter, and
 [Which build do I have](https://nevesgeovana.github.io/pyflightstream/builds/)
-answers the question a version-aware driver exists for.
+answers the question a version-aware driver exists for. If you know
+FlightStream from its GUI,
+[From the GUI to pyfs](https://nevesgeovana.github.io/pyflightstream/gui-to-pyfs/)
+takes each step you take there and names the key that takes it here.
 
 Every example on those pages is compared against an artifact this
 repository ships, most of them under `tests/tier3_licensed/`, by a test on
