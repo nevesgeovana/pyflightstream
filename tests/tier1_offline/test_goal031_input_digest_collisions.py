@@ -843,3 +843,64 @@ def test_windows_name_aliases_are_one_file_or_refused(tmp_path):
         with pytest.raises(CampaignConfigError, match=r"Name it plainly"):
             _write_pending_files(parked, tmp_path / "DP-point", case=case, recorded={})
     assert not (tmp_path / "DP-point").exists() or not any((tmp_path / "DP-point").rglob("*"))
+
+
+def test_a_descriptor_name_windows_reads_as_an_alias_is_refused(tmp_path):
+    """A machine profile's descriptor named ``actions/pfs_walltime_clock.py::$DATA`` is
+    the clock program's own data stream on Windows; the caller's files pass the same
+    alias check as a parked one."""
+    from types import SimpleNamespace
+
+    from pyflightstream.run import _descriptor_of
+
+    submitting = SimpleNamespace(
+        profile=SimpleNamespace(descriptor_name="actions/pfs_walltime_clock.py::$DATA")
+    )
+    case = SimCase(
+        sim_id="9016",
+        aircraft="TestWing",
+        velocity=30.0,
+        sweep=SweepAxis(type="alpha", values=[0.0]),
+        recipe="actions",
+        outputs=["loads_{point}.txt"],
+    )
+    with pytest.raises(CampaignConfigError, match=r"Name it plainly"):
+        _write_pending_files(
+            Script("26.124"),
+            tmp_path,
+            case=case,
+            recorded={},
+            run_writes=_descriptor_of(submitting, tmp_path),
+        )
+
+
+def test_a_data_file_parked_through_a_link_leading_outside_the_point_is_refused(tmp_path):
+    """A junction (or a symbolic link) inside the point's folder that leads to a folder
+    several points share: the file parked through it is outside the point, and refused."""
+    shared = tmp_path / "shared"
+    shared.mkdir()
+    work = tmp_path / "sims" / "sim_9017" / "datapoints" / "DP-AL+000"
+    work.mkdir(parents=True)
+    link = work / "shared"
+    try:
+        import _winapi
+
+        _winapi.CreateJunction(str(shared), str(link))
+    except (ImportError, OSError):
+        try:
+            link.symlink_to(shared, target_is_directory=True)
+        except OSError:
+            pytest.skip("this machine can make neither a junction nor a symbolic link")
+    script = Script("26.124")
+    script._pending_input_files["shared/prop.txt"] = b"0.5,1.0\n1.0,0.0"
+    case = SimCase(
+        sim_id="9017",
+        aircraft="TestWing",
+        velocity=30.0,
+        sweep=SweepAxis(type="alpha", values=[0.0]),
+        recipe="discs",
+        outputs=["loads_{point}.txt"],
+    )
+    with pytest.raises(CampaignConfigError, match=r"folder the point runs in"):
+        _write_pending_files(script, work, case=case, recorded={})
+    assert not (shared / "prop.txt").exists(), "the shared file was written before the refusal"

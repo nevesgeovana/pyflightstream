@@ -5680,6 +5680,13 @@ def _write_pending_files(
     # into the record, when the point is submitted.
     for own in run_writes:
         key = one_file(placed(str(own)))
+        own_alias = aliased_name_fault(Path(own).name)
+        if own_alias is not None:
+            raise CampaignConfigError(
+                f"case {case.sim_id!r}: the run would write {own}, and its name {own_alias}. "
+                "Name it plainly (the machine profile's descriptor name, for one); the "
+                "solver was not started."
+            )
         if key in reserved:
             raise CampaignConfigError(
                 f"case {case.sim_id!r}: {own} is written by the run for two things: it is "
@@ -5696,10 +5703,12 @@ def _write_pending_files(
     # share, is rewritten by the next point's run while an earlier point that
     # was submitted and has not read it yet keeps the digest of the first bytes.
     # Action scripts are hashed nowhere and keep their paths (RPT-030).
-    root = os.path.normcase(os.path.normpath(os.path.abspath(work_dir)))
+    # Through the resolved path, so a link or a junction inside the point's
+    # folder that leads elsewhere is outside it.
+    root = one_file_key(work_dir)
     for parked in script.pending_input_files:
-        here = os.path.normcase(os.path.normpath(os.path.abspath(placed(parked))))
-        if here != root and not here.startswith(root + os.sep):
+        here = one_file_key(placed(parked))
+        if here != root and not here.startswith(root + "/"):
             raise CampaignConfigError(
                 f"case {case.sim_id!r}: the run would write {placed(parked)} for the solver "
                 f"and record its digest, and it is outside {work_dir}, the folder the "

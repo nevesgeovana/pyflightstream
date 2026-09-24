@@ -3683,6 +3683,29 @@ in that one log
 (`test_collect_files_a_steady_job_whose_scheduler_logs_the_job_once`,
 `test_a_steady_job_that_imported_trailing_edges_is_held_to_the_job_s_log`).
 
+### What the record's digests guard, and where that stops
+
+A run record names the bytes of every file its solver read, `inputs_sha256`
+beside `script_sha256`, and 0.27.0 holds the files the run writes to that. Before
+a single one is written, the run refuses: two files it would write on one path
+(names equal but for case, a path through a parent folder, a name Windows reads
+as another's alias such as a trailing dot, an 8.3 short name or a stream); a
+file parked on a path the run writes itself (the point's script, its probe
+points file, the scheduler's descriptor, the unsteady counter and wall-clock
+programs); a parked file that would change an input the record already hashed;
+and a data file it hashes (a trailing-edge node file, a disc's profile copy)
+outside the folder the point runs in, a link or a junction resolved. The lines
+the solver logs when it cannot use a disc's profile are read in the solver's own
+log where the job ran and in every collected output that is not a binary kind,
+whatever its name.
+
+What this does NOT defend against is a file system arranged to deceive it: a
+hard link, a link or a junction made or changed between the check and the
+write, a recipe's own Python writing files directly, or another process writing
+into a point's folder while its job is queued. A digest says which bytes were
+there when the run wrote them; keep a workspace's simulation folders to the
+runs that own them.
+
 ### Naming the build to a cluster's scheduler
 
 A row's `FS_BUILD` names ONE build, `26.123`. A scheduler often knows only an

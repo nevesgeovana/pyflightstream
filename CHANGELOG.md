@@ -855,7 +855,12 @@ gone (`docs/migrating-to-0.27.0.md`).
   Windows reads some names as another file's: a trailing dot or space
   (`prop.txt.`), an 8.3 short name (`PROP~1.TXT`), a stream (`prop.txt:x`).
   Paths are compared by the real path with those folded, and a file the run
-  would write under such a name is refused naming the reason (G06).
+  would write under such a name is refused naming the reason, the scheduler's
+  descriptor included; a data file's place in the point's folder is judged
+  through its resolved path, a link or a junction followed (G06). What these
+  guards cover, and the file-system arrangements they do not defend against,
+  is stated in `docs/workspace-and-workflows.md`, "What the record's digests
+  guard, and where that stops".
 
 ### Changed
 
