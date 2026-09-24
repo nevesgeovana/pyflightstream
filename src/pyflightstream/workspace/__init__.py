@@ -1170,8 +1170,13 @@ class RunRecord(BaseModel):
     probe_points_file: str | None = None
     #: The section distributions this point's script created, in order, each
     #: with its families by name, its plane, its frame and its count (0.24.0).
-    #: None on every record written before it, whose sections table then states
-    #: `NA` for the identity of a row rather than a guess.
+    #: The EMPTY list where the script added or removed no surface section
+    #: (since 0.27.0), and on a continuation the layout of the run it continues,
+    #: whose saved simulation it reopens. None where the layout is not known:
+    #: every record written before 0.24.0, one whose script changed sections no
+    #: run type built (a LEGACY recipe's, a raw command's), and, before 0.27.0,
+    #: one whose script created none. Its sections table then states `NA` for
+    #: the identity of a row rather than a guess.
     sections_layout: list[dict[str, object]] | None = None
     error: str | None = None
     #: The two files of a row stating an export threshold (PFS-2031.18),

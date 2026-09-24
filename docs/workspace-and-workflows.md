@@ -3219,7 +3219,11 @@ step as the existing sections table does. That table and the combined sections
 series remain available. `products.json` records each distribution, its original
 families/alias and `steps_tabled`, with named skips for missing exports or steps.
 No recorded `sections_layout` means no split: post names the missing layout.
-Older layouts require an unambiguous match to their recorded pproc, read over the
+A point whose script created no distribution records the empty layout, `[]`,
+and has nothing to split and nothing named; a record written before 0.27.0
+without a layout is given the empty one when its recorded script still hashes
+as recorded and creates no surface section, and a continuation records the
+layout of the run it continues. Older layouts require an unambiguous match to their recorded pproc, read over the
 geometry's boundary names where the record carries them or its geometry hash
 recovers them, for a block recorded in a common frame; a block in a frame spelt
 like a rotor's is matched over the recorded cuts, as in 0.26.0. See the

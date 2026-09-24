@@ -117,6 +117,7 @@ from pyflightstream.cases.workflows import (
     WALLTIME_STOP_SCRIPT,
     WorkflowConventions,
     build_steady_sweep,
+    creates_surface_sections,
     parse_restart,
     read_a_choice,
     reduction_windows,
@@ -4907,6 +4908,25 @@ def worse_of(left: RunStatus, right: RunStatus) -> RunStatus:
 _worse_of = worse_of
 
 
+def _sections_layout(script: Script) -> list[dict[str, object]] | None:
+    """Return the section layout a run records beside its script, or None.
+
+    The builder's blocks where it created distributions. THE EMPTY LAYOUT where
+    the rendered script adds or removes no surface section at all, which is
+    every steady point of a pproc declaring no distribution: its sections
+    exports state none, and a record saying nothing read as one written
+    before 0.24.0, so the post refused the split and advised a new run that
+    recorded nothing again. None where the script changes sections the builder
+    did not describe (a LEGACY recipe's or a raw command's), whose split the
+    post refuses rather than guesses.
+    """
+    if script.section_blocks:
+        return [dict(block) for block in script.section_blocks]
+    if not creates_surface_sections(script.render()):
+        return []
+    return None
+
+
 def _job_run_id(campaign: Campaign, case: SimCase) -> str:
     """Return the run id of a JOB, which no one point's tag may end.
 
@@ -5141,9 +5161,11 @@ def _execute_sweep(
     # point path records them (0.27.0). The one-job path recorded no layout
     # since 0.24.0, so the post refused the per-distribution split of every
     # steady row of several points. The builder creates the distributions
-    # once, for every point of the job, so one layout is every point's.
-    if script.section_blocks:
-        base["sections_layout"] = [dict(block) for block in script.section_blocks]
+    # once, for every point of the job, so one layout is every point's; the
+    # empty one where the job creates none (`_sections_layout`).
+    layout = _sections_layout(script)
+    if layout is not None:
+        base["sections_layout"] = layout
     # THE HOUSE CONVENTION FOR A SWEEP, not a name of this function's own.
     # A per-polar product table is named by the point name with the swept
     # variable written literally as `sweep`, and a job's script is about
@@ -6123,10 +6145,17 @@ def _execute_point(
         base["probe_points_file"] = probe_points_file
     if script.plot_groups and isinstance(base.get("reductions"), dict):
         base["reductions"]["plot_groups"] = [dict(group) for group in script.plot_groups]
-    if script.section_blocks:
-        # WHICH ROWS OF THE SECTIONS EXPORT ARE WHICH SURFACE (0.24.0), recorded
-        # beside the script that created the distributions.
-        base["sections_layout"] = [dict(block) for block in script.section_blocks]
+    # WHICH ROWS OF THE SECTIONS EXPORT ARE WHICH SURFACE (0.24.0), recorded
+    # beside the script that created the distributions, and the empty layout
+    # where it created none (`_sections_layout`). A CONTINUATION CREATES NONE
+    # AND REOPENS THOSE OF THE RUN IT CONTINUES, whose saved simulation carries
+    # them, so it records that run's layout, as it keeps its averaging window.
+    if continues is not None:
+        layout = None if creates_surface_sections(script.render()) else predecessor.sections_layout
+    else:
+        layout = _sections_layout(script)
+    if layout is not None:
+        base["sections_layout"] = [dict(block) for block in layout]
     # R03 of 0.27.0: the names the script was built over, beside the layout
     # whose selections the post reads over them.
     if script.boundary_inventory is not None:

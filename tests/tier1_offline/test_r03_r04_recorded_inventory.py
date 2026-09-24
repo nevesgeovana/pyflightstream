@@ -135,8 +135,14 @@ def test_a_steady_job_records_its_sections_layout(tmp_path):
     assert row.get("sections_layout") == expected
     for point in workspace.read_manifest()[0].as_points():
         assert point.sections_layout == expected, point.run_id
-    write_campaign_products(workspace)
-    manifest = _products_manifest(workspace)
+    # THE MATRIX'S OWN FOLDER, where its records are posted. `post/products/`
+    # holds the records of no matrix, so read there this manifest was empty
+    # and the assertion below could not fail.
+    write_campaign_products(workspace, matrix_stem=matrix.stem, overwrite=True)
+    manifest = json.loads(
+        (workspace.products_dir(matrix.stem) / "products.json").read_text(encoding="utf-8")
+    )
+    assert manifest["products"], "the post wrote no product for the job; nothing was measured"
     refused = {
         key: reason
         for key, reason in manifest["skipped"].items()

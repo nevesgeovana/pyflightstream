@@ -286,3 +286,22 @@ the opposite sign to 0.26.0: `roll_rate:40` writes
   simulation folder no longer stops a point, and a leftover in the point's
   folder does. A steady row of several points still runs in the simulation
   folder.
+
+## 17. A run records the empty section layout, and an older record's is read off its script
+
+- A record whose script adds or removes no surface section now carries
+  `sections_layout: []`, where it carried `null`: every steady point, and
+  every steady job, of a pproc declaring no distribution. `null` now means
+  the layout is not known (a record before 0.24.0, a script changing sections
+  no run type built). Code that read `null` as "no distribution" reads `[]`.
+  A 0.24.0 to 0.26.0 reader reads the empty list.
+- The post no longer names `sections/<point>_sloads#distributions` and
+  `sections/<point>_cp#distributions` as skipped for such a point, which
+  advised a new run that recorded nothing more. A record written before
+  this, on 0.24.0 to 0.26.0 or an earlier 0.27.0 build, is given the empty
+  layout when its recorded script hashes as the record says and creates no
+  surface section, so posting it again with 0.27.0 drops the two skips; no
+  new run is needed.
+- A continuation records the layout of the run it continues, so its split
+  and its identity columns are written where they were refused. A
+  continuation recorded before this keeps the refusal.

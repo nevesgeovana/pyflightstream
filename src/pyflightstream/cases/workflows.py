@@ -222,6 +222,7 @@ __all__ = [
     "build_additional_script",
     "build_script",
     "covered_builds",
+    "creates_surface_sections",
     "emit_rotor_motion",
     "export_window",
     "frame_pairs",
@@ -8612,6 +8613,54 @@ def _pproc_sections(case: SimCase, script: Script, frames: Frames) -> None:
 #: The section command, and the argument only the builds from 26.120 take.
 _SECTION_COMMAND = "NEW_SURFACE_SECTION_DISTRIBUTION"
 _SECTION_SYMMETRY_ARG = "include_symmetry"
+
+#: Every command that adds a surface section or takes one away, the builder's
+#: distribution among them. A script carrying none of them changes no section.
+_SURFACE_SECTION_COMMANDS = frozenset(
+    {
+        _SECTION_COMMAND,
+        "CREATE_NEW_SURFACE_SECTION",
+        "DELETE_SURFACE_SECTION",
+        "DELETE_ALL_SURFACE_SECTIONS",
+    }
+)
+
+
+def creates_surface_sections(text: str) -> bool:
+    r"""Say whether a rendered script adds or removes a surface section.
+
+    A script for which this is False changed no section, so the empty list is
+    its whole section layout: the sections of its export, if any, are the ones
+    the opened file carried. The run records that layout, and the post reads
+    it off the recorded script of a record written before the run did. A line
+    is read as a command by its first word, as the script renders one, and a
+    ``#`` comment is not a command.
+
+    Parameters
+    ----------
+    text : str
+        A rendered script.
+
+    Returns
+    -------
+    bool
+        True when any line is ``NEW_SURFACE_SECTION_DISTRIBUTION``,
+        ``CREATE_NEW_SURFACE_SECTION``, ``DELETE_SURFACE_SECTION`` or
+        ``DELETE_ALL_SURFACE_SECTIONS``, whichever route wrote it.
+
+    Examples
+    --------
+    >>> creates_surface_sections("START_SOLVER\nEXPORT_ALL_SURFACE_SECTIONS\nA_cp.txt\n")
+    False
+    >>> creates_surface_sections("# NEW_SURFACE_SECTION_DISTRIBUTION\nSTART_SOLVER\n")
+    False
+    >>> creates_surface_sections("NEW_SURFACE_SECTION_DISTRIBUTION\nFRAME 2\n")
+    True
+    """
+    return any(
+        line.split(" ", 1)[0].strip() in _SURFACE_SECTION_COMMANDS for line in text.splitlines()
+    )
+
 
 #: The create command of each volume-section shape (G05).
 _VOLUME_SECTION_COMMANDS = {
