@@ -227,20 +227,23 @@ def test_reducer_states_exactly_the_nonzero_samples(span, depth, last, columns, 
 def test_every_stage_warning_is_logged_even_if_the_caller_filters_it(tmp_path, monkeypatch):
     import warnings
 
-    from pyflightstream._errors import PyflightstreamWarning
+    from pyflightstream._errors import PyflightstreamWarning, warn
     from pyflightstream.post import products
 
     original = products._write_the_products
 
-    def warn(*args, **kwargs):
-        warnings.warn(
+    def stage(*args, **kwargs):
+        # THROUGH THE PACKAGE'S ROUTE since 0.27.0 (RPT-058): a stage warns with
+        # `_errors.warn`, which the post's own sink collects, and a bare
+        # `warnings.warn` is outside the package and is not logged.
+        warn(
             "point=AL-020 product=probes: restore the missing probe coordinates",
             PyflightstreamWarning,
             stacklevel=2,
         )
         return original(*args, **kwargs)
 
-    monkeypatch.setattr(products, "_write_the_products", warn)
+    monkeypatch.setattr(products, "_write_the_products", stage)
     workspace = _post_workspace(tmp_path, 2411, (60, 61))
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", PyflightstreamWarning)
@@ -302,13 +305,11 @@ def test_guard_judges_the_sample_set_not_its_envelope():
 
 
 def test_interrupted_post_keeps_its_log_and_warning(tmp_path, monkeypatch):
-    import warnings
-
-    from pyflightstream._errors import PyflightstreamWarning
+    from pyflightstream._errors import PyflightstreamWarning, warn
     from pyflightstream.post import products
 
     def interrupt(*args, **kwargs):
-        warnings.warn(
+        warn(
             "point=AL-020 product=probe: restore the missing data",
             PyflightstreamWarning,
             stacklevel=2,
@@ -323,3 +324,234 @@ def test_interrupted_post_keeps_its_log_and_warning(tmp_path, monkeypatch):
     assert manifest["log"] == "post.log" and manifest["complete"] is False
     log = (workspace.products_dir(None) / "post.log").read_text()
     assert "restore the missing data" in log and "interrupted by the test" in log
+
+
+# RPT-058. Every wait below has a timeout and every join one longer than any
+# wait, so a regression that deadlocks a post fails here instead of hanging CI.
+_WAIT_S = 10
+_JOIN_S = 30
+
+
+def _witness(point):
+    """Warn through a REAL package site, the one a frozen or unread window reaches.
+
+    Not a warning written in the test: the route under test is the one the
+    package's own sites take, so the witness takes it too, on either tree.
+    """
+    from pyflightstream.post import products
+
+    products._judge_average(UnjudgeableSolve(1, 1, steps=(1,)), {1}, point=point, product="probe")
+
+
+def _post_in_threads(workspaces, first, second, entered, ended=None):
+    """Post two campaigns in two threads; ``second`` starts once ``entered`` is set.
+
+    Each thread sets its event in ``ended``, if it has one, when its post has
+    returned or raised. Returns each thread's exception by name, so an
+    assertion inside a stage surfaces here; a thread still alive after the
+    join is a failure of the test, never a hang.
+    """
+    import threading
+
+    failures = {}
+
+    def post(name):
+        try:
+            write_campaign_products(workspaces[name])
+        except BaseException as error:
+            failures[name] = error
+        finally:
+            if ended and name in ended:
+                ended[name].set()
+
+    threads = {
+        name: threading.Thread(target=post, args=(name,), name=name, daemon=True)
+        for name in (first, second)
+    }
+    threads[first].start()
+    assert entered.wait(_WAIT_S), f"{first} never entered its post"
+    threads[second].start()
+    for thread in threads.values():
+        thread.join(_JOIN_S)
+    assert not any(thread.is_alive() for thread in threads.values()), "a post never ended"
+    return failures
+
+
+def _logs(workspaces):
+    return {
+        name: (workspace.products_dir(None) / "post.log").read_text(encoding="utf-8")
+        for name, workspace in workspaces.items()
+    }
+
+
+@pytest.mark.parametrize("interrupt_b", [False, True])
+def test_two_posts_in_two_threads_keep_their_own_warnings(tmp_path, monkeypatch, interrupt_b):
+    """Each campaign's post.log holds its own warnings, and each thread re-emits its own.
+
+    The ordering is RPT-058's: A enters its post, B enters its post, A warns
+    while B collects, B warns, B ends first. On 0.26.0 both logs held both
+    warnings and each warning was re-emitted by both threads.
+    """
+    import threading
+    import warnings
+
+    from pyflightstream.post import products
+    from pyflightstream.workspace import CampaignWorkspace
+
+    workspaces = {name: CampaignWorkspace.init(tmp_path / name.lower()) for name in "AB"}
+    a_in, b_in, a_warned, b_done = (threading.Event() for _ in range(4))
+    original_write = products._write_the_products
+    original_replay = warnings.warn_explicit
+    replayed = []
+
+    def replay(message, *args, **kwargs):
+        replayed.append((threading.current_thread().name, str(message)))
+        return original_replay(message, *args, **kwargs)
+
+    def stage(workspace, *args, **kwargs):
+        if workspace.root == workspaces["A"].root:
+            a_in.set()
+            assert b_in.wait(_WAIT_S), "B never entered its post"
+            _witness("campaign-A")
+            a_warned.set()
+            assert b_done.wait(_WAIT_S), "B's post never ended"
+        else:
+            b_in.set()
+            assert a_warned.wait(_WAIT_S), "A never warned"
+            _witness("campaign-B")
+            if interrupt_b:
+                raise RuntimeError("B interrupted by the test")
+        return original_write(workspace, *args, **kwargs)
+
+    monkeypatch.setattr(warnings, "warn_explicit", replay)
+    monkeypatch.setattr(products, "_write_the_products", stage)
+    failures = _post_in_threads(workspaces, "A", "B", a_in, ended={"B": b_done})
+    assert "A" not in failures, failures.get("A")
+    assert ("B" in failures) is interrupt_b, failures.get("B")
+
+    logs = _logs(workspaces)
+    # B FIRST: B's is the log RPT-058 measured holding A's warning.
+    assert "campaign-A" not in logs["B"], logs["B"]
+    assert logs["B"].count("campaign-B") == 1, logs["B"]
+    assert "campaign-B" not in logs["A"], logs["A"]
+    assert logs["A"].count("campaign-A") == 1, logs["A"]
+    if interrupt_b:
+        assert "B interrupted by the test" in logs["B"], logs["B"]
+    ours = sorted(
+        (thread, point)
+        for thread, message in replayed
+        for point in ("campaign-A", "campaign-B")
+        if point in message
+    )
+    assert ours == [("A", "campaign-A"), ("B", "campaign-B")], ours
+
+
+def test_one_posts_silenced_sweep_does_not_silence_another_post(tmp_path, monkeypatch):
+    """A warning is never LOST to another post's sweep table (RPT-058's second form).
+
+    The products stage reads the sweep table with that table's own warning
+    silenced. On 0.26.0 the silencing was a process-wide filter, so a warning B
+    raised while A was inside it reached neither campaign's log.
+    """
+    import threading
+
+    from pyflightstream.post import products
+    from pyflightstream.results import tables
+    from pyflightstream.workspace import CampaignWorkspace
+
+    workspaces = {name: CampaignWorkspace.init(tmp_path / name.lower()) for name in "AB"}
+    a_in_sweep, b_in, b_warned = (threading.Event() for _ in range(3))
+    original_sweep = tables.sweep_table
+    original_write = products._write_the_products
+
+    def sweep(workspace, *args, **kwargs):
+        if workspace.root == workspaces["A"].root:
+            a_in_sweep.set()
+            assert b_warned.wait(_WAIT_S), "B never warned"
+        return original_sweep(workspace, *args, **kwargs)
+
+    def stage(workspace, *args, **kwargs):
+        if workspace.root == workspaces["B"].root:
+            b_in.set()
+            assert a_in_sweep.wait(_WAIT_S), "A never reached its sweep table"
+            _witness("campaign-B")
+            b_warned.set()
+        return original_write(workspace, *args, **kwargs)
+
+    # `_sweep_rows` imports `sweep_table` when it is called, so the module
+    # attribute is what it reads.
+    monkeypatch.setattr(tables, "sweep_table", sweep)
+    monkeypatch.setattr(products, "_write_the_products", stage)
+    failures = _post_in_threads(workspaces, "B", "A", b_in)
+    assert not failures, failures
+    logs = _logs(workspaces)
+    assert logs["B"].count("campaign-B") == 1, logs["B"]
+    assert "campaign-B" not in logs["A"], logs["A"]
+
+
+def test_the_sweep_tables_own_warning_stays_out_of_the_post_log(tmp_path, monkeypatch):
+    """The sweep table's warning belongs to whoever asked for the table, not to the post.
+
+    With its control: the same route from the stage itself IS logged, so a
+    route that logged nothing could not pass the first assertion.
+    """
+    import pandas
+
+    from pyflightstream._errors import PyflightstreamWarning, warn
+    from pyflightstream.post import products
+    from pyflightstream.results import tables
+
+    original_write = products._write_the_products
+
+    def sweep(*args, **kwargs):
+        warn(
+            "point=campaign product=sweep: sweep-table witness", PyflightstreamWarning, stacklevel=2
+        )
+        return pandas.DataFrame()
+
+    def stage(*args, **kwargs):
+        warn("point=campaign product=stage: stage witness", PyflightstreamWarning, stacklevel=2)
+        return original_write(*args, **kwargs)
+
+    monkeypatch.setattr(tables, "sweep_table", sweep)
+    monkeypatch.setattr(products, "_write_the_products", stage)
+    workspace = _post_workspace(tmp_path, 2411, (60, 61))
+    write_campaign_products(workspace)
+    log = (workspace.products_dir(None) / "post.log").read_text(encoding="utf-8")
+    assert "stage witness" in log, log
+    assert "sweep-table witness" not in log, log
+
+
+def test_no_bare_warnings_warn_where_a_post_reaches():
+    """Every warning under post/, results/ and cases/ goes through `_errors.warn`.
+
+    A bare `warnings.warn` there would bypass the post's sink and be missing
+    from post.log. The walk reads the package the test IMPORTED, and its
+    floor keeps it from passing having found nothing.
+    """
+    import ast
+    from pathlib import Path
+
+    import pyflightstream
+
+    package = Path(pyflightstream.__file__).parent
+    bare = []
+    routed = 0
+    for folder in ("post", "results", "cases"):
+        for path in sorted((package / folder).rglob("*.py")):
+            for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+                if not isinstance(node, ast.Call):
+                    continue
+                function = node.func
+                if (
+                    isinstance(function, ast.Attribute)
+                    and function.attr == "warn"
+                    and isinstance(function.value, ast.Name)
+                    and function.value.id == "warnings"
+                ):
+                    bare.append((path.relative_to(package).as_posix(), node.lineno))
+                elif isinstance(function, ast.Name) and function.id == "warn":
+                    routed += 1
+    sites = [f"{relative}:{line}" for relative, line in sorted(bare)]
+    assert not sites, f"warn through pyflightstream._errors.warn instead: {sites}"
+    assert routed >= 38, f"the walk found {routed} `warn(` calls, below the floor of 38"

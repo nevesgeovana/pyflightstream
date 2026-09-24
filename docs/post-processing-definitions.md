@@ -834,13 +834,17 @@ creates `post.log` beside `products.json`, under `post/<matrix stem>/` or
 A clean campaign writes the log too. Its header states the package version,
 workspace, matrix stem, local time with UTC offset, and `check_frozen` choice.
 Each WARNING names the point and product, the step where one applies, and what
-would settle the issue. Every named manifest skip and every
-`PyflightstreamWarning` emitted during the stage is recorded there. A rebuild
+would settle the issue. Every named manifest skip and every warning the package
+emits during the post is recorded there. A rebuild
 archives the previous log with the same timestamp as its products. An
 interrupted post keeps its header and the warnings collected before it stopped.
-Warning capture is process-wide, so concurrent posts in threads can put a warning
-in another campaign's log; post one campaign per process until `reports/RPT-058`
-is resolved.
+Each post collects the package's warnings in its own campaign-local sink, held
+per thread (a `ContextVar`), so two posts in two threads of one process each log
+only their own, and one post's silenced sweep table silences no other post.
+After the log is written, the post re-emits its warnings to its caller's warning
+filters, outside every sink. A warning raised during a post by code outside the
+package is not logged. A thread the post itself started would not inherit the
+sink; the post starts none (`reports/RPT-058`, closed in 0.27.0).
 
 A frozen solve, an unread native-log block, a reference mismatch, or a failed
 point's status is a

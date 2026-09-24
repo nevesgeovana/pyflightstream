@@ -69,12 +69,11 @@ from __future__ import annotations
 
 import math
 import re
-import warnings
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning
+from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning, warn
 from pyflightstream._tokens import NOT_APPLICABLE
 from pyflightstream.cases import (
     POINT_AXIS_KEYS,
@@ -3181,7 +3180,7 @@ def convert_matrix(
     )
     undeclared = [sim.sim_id for sim in campaign.sims if not sim.outputs]
     if undeclared:
-        warnings.warn(
+        warn(
             f"{len(undeclared)} converted sim(s) declare no outputs "
             f"({', '.join(undeclared)}). The conversion is complete and lossless: the "
             f"matrix rows carry no {OUTPUTS_VARIABLE} variable, so the campaign carries "

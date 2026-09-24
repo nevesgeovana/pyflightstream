@@ -586,13 +586,18 @@ def _warn_categories_in(source: str) -> list[tuple[int, str]]:
     return found
 
 
+#: ``_errors.warn`` forwards the category its caller wrote; the caller's call is the site.
+ROUTER_FORWARDING_CALL = ("_errors.py", "category")
+
+
 def _warn_sites() -> list[tuple[str, int, str]]:
     """``(module path under src/pyflightstream, line, category)`` for the package."""
     sites: list[tuple[str, int, str]] = []
     for path in sorted(PACKAGE.rglob("*.py")):
         relative = path.relative_to(PACKAGE).as_posix()
         for line, category in _warn_categories_in(path.read_text(encoding="utf-8")):
-            sites.append((relative, line, category))
+            if (relative, category) != ROUTER_FORWARDING_CALL:
+                sites.append((relative, line, category))
     return sites
 
 

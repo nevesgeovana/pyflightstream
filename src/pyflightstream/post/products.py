@@ -104,6 +104,8 @@ from pyflightstream._errors import (
     ProductArgumentError,
     PyflightstreamError,
     PyflightstreamWarning,
+    collecting_warnings,
+    warn,
 )
 from pyflightstream._tokens import REDUCTION_COLUMNS as REDUCTION_COLUMNS
 from pyflightstream.cases import (
@@ -1840,7 +1842,7 @@ def _judge_average(
     """Warn for an affected product, and refuse it only when the stage asks."""
     reason = _frozen_window_reason(frozen, steps)
     if reason is not None:
-        warnings.warn(
+        warn(
             f"point={point} product={product}: {reason}. "
             "Recollect the native log or run the point again to settle this average.",
             PyflightstreamWarning,
@@ -2194,7 +2196,7 @@ def _rotor_tables(
             ):
                 ran = float(flight) / (abs(rpm) / 60.0 * span)
                 if abs(ran - float(requested)) > 5e-4 * max(1.0, abs(float(requested))):
-                    warnings.warn(
+                    warn(
                         f"{point.name}: the row asks for J = {float(requested):g} and rotor "
                         f"{alias} ran at J_{alias} = {ran:.5g} ({float(flight):g} m/s, "
                         f"{abs(rpm):g} rev/min, D {span:g} m). The coefficients of its rotor "
@@ -3785,11 +3787,12 @@ def _sweep_rows(
     from pyflightstream.results.tables import sweep_table
 
     try:
-        with warnings.catch_warnings():
+        with collecting_warnings():
             # The "no run yielded coefficients" warning belongs to the caller
             # who asked for a sweep table, not to a products stage reading it
-            # as one source among seven.
-            warnings.simplefilter("ignore", PyflightstreamWarning)
+            # as one source among seven. The sink is this thread's own and is
+            # discarded; the filter it replaced was process-wide and silenced
+            # every other post's warnings while this one read (RPT-058).
             frame = sweep_table(workspace, require_loads=False, matrix_stem=matrix_stem)
     except (PyflightstreamError, OSError, ValueError):
         return {}
@@ -3908,7 +3911,7 @@ def _refuse_a_reference_the_solver_did_not_use(
                 )
                 if _POST_REFUSES.get():
                     raise ProductError(reason)
-                warnings.warn(
+                warn(
                     f"point={point.name} product=simulation/{sim_id}: {reason}",
                     PyflightstreamWarning,
                     stacklevel=2,
@@ -4598,7 +4601,7 @@ def _effective_pproc(
     pproc_id = first.pproc
     stated = getattr(matrix_row, "pproc_code", None)
     if stated and str(stated) not in ("-", "NA") and str(stated) != str(pproc_id):
-        warnings.warn(
+        warn(
             f"simulation {sim_id}: the row names pproc {stated} and the run recorded "
             f"{pproc_id}. The products follow {stated}; its [exports] half still describes "
             "what the run wrote, so an export the run did not make is not there to read.",
@@ -4724,7 +4727,7 @@ def _sim_products(
         if declined:
             # ONCE PER POINT, not once per group: the polar of every group
             # holding one of these surfaces writes NA where it sums them.
-            warnings.warn(
+            warn(
                 f"point={stem} product=polars: the solver printed CDi exactly 0 for "
                 f"{', '.join(declined)}, on the vorticity induced-drag list "
                 "(SET_VORTICITY_DRAG_BOUNDARIES); a boundary there without a defined "
@@ -4742,7 +4745,7 @@ def _sim_products(
             )
             if frozen is not None:
                 frozen_points[stem] = frozen
-                warnings.warn(
+                warn(
                     f"point={stem} product=native-log: {frozen.reason}. "
                     "Recollect the native log or run the point again to settle it.",
                     PyflightstreamWarning,
@@ -4758,7 +4761,7 @@ def _sim_products(
             # SAID ONCE PER POINT (0.24.0). Both velocities are columns of every
             # product now, so nothing is hidden; what a reader still cannot see
             # from one file is that the FAMILIES differ in which one they use.
-            warnings.warn(
+            warn(
                 f"{stem}: the export states a reference velocity of {vref:g} m/s and a free "
                 f"stream of {vinf:g} m/s. The steady polar's coefficients are normalised by "
                 "the REFERENCE velocity; the plots table, the reductions and the unsteady "
@@ -4767,7 +4770,7 @@ def _sim_products(
                 stacklevel=2,
             )
         if points[-1].state is not None and points[-1].state.differs:
-            warnings.warn(
+            warn(
                 f"{stem}: the run record states the simulation's first point where this "
                 f"point swept the flow ({'; '.join(points[-1].state.differs)}). The products "
                 "use the point's own state, resolved again from its row; the record is "
@@ -4793,7 +4796,7 @@ def _sim_products(
                 # average what the run recorded, and a reader comparing them
                 # with an earlier post needs to know that it was the matrix
                 # that moved and not the data.
-                warnings.warn(
+                warn(
                     f"{stem}: the matrix now states an averaging window of steps "
                     f"{now[0]} to {now[1]} and the run recorded {ran[0]} to {ran[1]}. "
                     "Every reduction of this point follows the matrix; no re-run is needed.",
@@ -4821,7 +4824,7 @@ def _sim_products(
                 # every unstated window "the window the run defaulted to".
                 entry = (record.reductions or {}).get("time_average")
                 origin = entry.get("window_from") if isinstance(entry, Mapping) else None
-                warnings.warn(
+                warn(
                     f"{stem}: this record states no {key}. Its unsteady polar is averaged "
                     f"over the window its run recorded, steps {point_window[0]} to "
                     f"{point_window[1]}"
@@ -5291,7 +5294,7 @@ def _sim_products(
                         # to say the table is short.
                         if probe_notes:
                             skipped[f"{probe_relative}#positions"] = "; ".join(probe_notes)
-                            warnings.warn(
+                            warn(
                                 f"{probe_relative}: " + "; ".join(probe_notes),
                                 PyflightstreamWarning,
                                 stacklevel=2,
@@ -5511,13 +5514,13 @@ def _sim_products(
         # THE DICTIONARY, like the two blocks above: what was not applied is SAID.
         if name_notes and done is not None:
             skipped[f"{POLARS_DIR}/{unsteady_name}#names"] = "; ".join(name_notes)
-            warnings.warn("; ".join(name_notes), PyflightstreamWarning, stacklevel=2)
+            warn("; ".join(name_notes), PyflightstreamWarning, stacklevel=2)
         # THE EQUATIONS BLOCK, like the axes block: what is not written is SAID,
         # under the file's own name with a marker, and warned, because a derived
         # column a user asked for and did not get must not be found by accident.
         if equation_notes and done is not None:
             skipped[f"{POLARS_DIR}/{unsteady_name}#equations"] = "; ".join(equation_notes)
-            warnings.warn(
+            warn(
                 f"{POLARS_DIR}/{unsteady_name}: " + "; ".join(equation_notes),
                 PyflightstreamWarning,
                 stacklevel=2,
@@ -5526,7 +5529,7 @@ def _sim_products(
         # with a marker, so it is never mistaken for the file being absent.
         if unsteady_notes and done is not None:
             skipped[f"{POLARS_DIR}/{unsteady_name}#axes"] = "; ".join(unsteady_notes)
-            warnings.warn(
+            warn(
                 f"{POLARS_DIR}/{unsteady_name}: " + "; ".join(unsteady_notes),
                 PyflightstreamWarning,
                 stacklevel=2,
@@ -5749,7 +5752,7 @@ def _point_series(
         raise
     except ProductError as error:
         split_skips[f"series/{record.run_id}"] = str(error)
-        warnings.warn(
+        warn(
             f"series of {record.run_id} not written: {error}",
             PyflightstreamWarning,
             stacklevel=2,
@@ -5936,7 +5939,7 @@ def _dictionary_the_table_can_honour(
         renamed_columns(columns, names, printed=columns, where=_names_location(PROBES_DIR, stem))
     except ProductError as refused:
         skipped[f"{PROBES_DIR}/{stem}#names"] = str(refused)
-        warnings.warn(str(refused), PyflightstreamWarning, stacklevel=2)
+        warn(str(refused), PyflightstreamWarning, stacklevel=2)
         return None
     return names
 
@@ -6187,7 +6190,7 @@ def _point_reductions(
         if reached:
             note = "; ".join(why for _, why in reached)
             skipped[f"{relative}#windows"] = note
-            warnings.warn(f"{relative}: {note}", PyflightstreamWarning, stacklevel=2)
+            warn(f"{relative}: {note}", PyflightstreamWarning, stacklevel=2)
         record: dict[str, object] = {
             "runs": runs,
             "reduction": name,
@@ -6339,8 +6342,12 @@ def write_campaign_products(
     """Write campaign products and post.log; refuse doubts only with check_frozen=True.
 
     The log is beside products.json, even on a clean or interrupted post. It
-    records every named skip and every PyflightstreamWarning emitted here.
-    A rebuild archives it with the same stamp as the products. See
+    records every named skip and every warning the package raises during the
+    post, collected in a sink of this thread's own, so two posts in two
+    threads each log only their own (RPT-058). After the log is written the
+    warnings are re-emitted to the caller's filters, outside every sink. A
+    warning raised by code outside the package is not logged. A rebuild
+    archives the log with the same stamp as the products. See
     docs/post-processing-definitions.md for the sample and refusal rules.
     """
     import pyflightstream
@@ -6359,9 +6366,8 @@ def write_campaign_products(
     try:
         with (
             log.open("w", encoding="utf-8") as stream,
-            warnings.catch_warnings(record=True) as caught,
+            collecting_warnings() as caught,
         ):
-            warnings.simplefilter("always", PyflightstreamWarning)
             stream.write(
                 f"pyflightstream {pyflightstream.__version__} post\n"
                 f"workspace={workspace.root}\nmatrix={matrix_stem}\n"
@@ -6386,9 +6392,8 @@ def write_campaign_products(
                 raise
             finally:
                 for warning in caught:
-                    if issubclass(warning.category, PyflightstreamWarning):
-                        message = " ".join(str(warning.message).splitlines())
-                        stream.write(f"WARNING point=campaign product=stage: {message}\n")
+                    message = " ".join(str(warning.message).splitlines())
+                    stream.write(f"WARNING point=campaign product=stage: {message}\n")
                 manifest_path = out / PRODUCTS_MANIFEST
                 if manifest_path.is_file():
                     document = json.loads(manifest_path.read_text(encoding="utf-8"))
@@ -6402,6 +6407,9 @@ def write_campaign_products(
     finally:
         _POST_REFUSES.reset(token)
         _POST_VERDICTS.reset(verdict_token)
+        # THE REPLAY IS OUTSIDE THE SINK, which the `with` above has already
+        # reset, and never through `warn`: it reaches the caller's filters and
+        # no campaign's log.
         for warning in caught:
             warnings.warn_explicit(
                 warning.message, warning.category, warning.filename, warning.lineno
@@ -6503,7 +6511,7 @@ def _campaign_products(
                 continue
             frozen_failure = False
             if point_record.status not in (RunStatus.CONVERGED, RunStatus.COMPLETED_MAX_ITER):
-                warnings.warn(
+                warn(
                     f"point={point_record.run_id} product=available-exports: "
                     f"the recorded status is {point_record.status.value}. "
                     "Collect complete outputs or run the point again to settle its status.",
@@ -6580,7 +6588,7 @@ def _campaign_products(
         # not written at all.
         where = workspace.root / f"{matrix_stem}.fs"
         state = "cannot be read" if where.is_file() else "is not at the workspace root"
-        warnings.warn(
+        warn(
             f"the matrix {where.name} {state}. Every post-only choice falls back to the run "
             "records, and the rotor tables, which take their geometry from the row's "
             "reference, are not written.",
@@ -6780,7 +6788,7 @@ def _write_the_products(
                 raise
             except ProductError as error:
                 skipped[f"series/{record.run_id}"] = str(error)
-                warnings.warn(
+                warn(
                     f"series of {record.run_id} not written: {error}",
                     PyflightstreamWarning,
                     stacklevel=2,
@@ -6788,9 +6796,7 @@ def _write_the_products(
                 continue
             for name in sorted(set(skipped) - said):
                 # SAID, as every other product the stage leaves out is (MT-06).
-                warnings.warn(
-                    f"{name} not written: {skipped[name]}", PyflightstreamWarning, stacklevel=2
-                )
+                warn(f"{name} not written: {skipped[name]}", PyflightstreamWarning, stacklevel=2)
             written.extend(series_files)
             for name, entry in series_names.items():
                 reason = _surface_export_skip(
@@ -6819,7 +6825,7 @@ def _write_the_products(
             raise
         except ProductError as error:
             skipped[sim_id] = str(error)
-            warnings.warn(
+            warn(
                 f"products of simulation {sim_id} not written: {error}",
                 PyflightstreamWarning,
                 stacklevel=2,

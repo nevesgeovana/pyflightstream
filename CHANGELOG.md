@@ -52,6 +52,12 @@ FlightStream versions.
   FR-66, since 0.15.0) and that no `unsteady_rotor` script had run on a
   licensed solver (26.000, 0.20.0). The solver model is still the preset's
   and no row cell chooses it; `BLADES` still changes no emitted line (B02).
+- **Two campaign posts in two threads of one process no longer share
+  warnings.** Each post collects the package's warnings in a sink of its own
+  thread, so a warning reaches only its own campaign's `post.log` and is
+  re-emitted only by the thread that raised it. One post silencing the sweep
+  table's warning no longer silences, and loses, another post's warning
+  ([RPT-058](reports/RPT-058_post-log-captures-warnings-process-wide_2026-09-23.md)).
 
 ### Changed
 
@@ -81,6 +87,9 @@ FlightStream versions.
   accepts a tuple of boundary indices, the empty one meaning a default that
   emits no line. The snapshot of a script that selects nothing is unchanged
   (PFS-2006.01).
+- **A warning raised during a post by code outside the package is no longer
+  written to `post.log`.** It reaches the caller's warning filters as before;
+  the package's own warnings are logged as they were (RPT-058).
 
 ### Documentation
 

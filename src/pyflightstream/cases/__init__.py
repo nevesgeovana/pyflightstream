@@ -24,7 +24,6 @@ import math
 import re
 import string
 import tomllib
-import warnings
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -56,6 +55,7 @@ from pyflightstream._errors import (
     InputArtifactError,
     PyflightstreamError,
     PyflightstreamWarning,
+    warn,
 )
 from pyflightstream._expressions import ALLOWED_FUNCTIONS, expression_symbols
 from pyflightstream._fsm import names_of
@@ -2395,7 +2395,7 @@ def select_group_members(
             # geometry with a surface or a family called `all` turns the word that
             # means every surface into that one surface, and a polar of one surface
             # under the configuration's group name is a number nobody asked for.
-            warnings.warn(
+            warn(
                 f'the group member "{EVERY_FAMILY}" selected {names}, a surface, family '
                 "or alias of that name, and NOT every surface of the geometry. Rename "
                 f'that surface, or name the group\'s members, if "{EVERY_FAMILY}" meant '

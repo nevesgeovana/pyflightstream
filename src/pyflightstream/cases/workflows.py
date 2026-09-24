@@ -62,7 +62,6 @@ import csv
 import math
 import re
 import sys
-import warnings
 from collections.abc import Callable, Mapping, MutableMapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path, PurePath
@@ -77,6 +76,7 @@ from pyflightstream._deprecations import (
 from pyflightstream._errors import (
     PyflightstreamError,
     PyflightstreamWarning,
+    warn,
 )
 from pyflightstream._fsm import (
     MeshReadError,
@@ -2356,7 +2356,7 @@ def _moving_boundaries(case: SimCase, script: Script, cell: str) -> list[int | s
             f"{position} is {_named(position, labels, script.num_boundaries)}"
             for position in sorted({int(token) for token in positional})
         )
-        warnings.warn(
+        warn(
             f"case {case.sim_id!r} states {MOVING_BOUNDARIES_VARIABLE} as {cell!r}, and "
             f"{', '.join(positional)} name a POSITION in this geometry's boundary order "
             f"rather than a surface. Against {PurePath(str(case.geometry)).name}, {selected}. "
@@ -4148,7 +4148,7 @@ def _declare_boundaries(case: SimCase, script: Script) -> None:
     try:
         names = boundary_names(case.geometry)
     except MeshReadError as unreadable:
-        warnings.warn(
+        warn(
             f"case {case.sim_id!r}: {unreadable} No boundary names are declared for "
             "this run, so a row naming one is refused and a row citing positions is "
             "read exactly as it was before this release.",
@@ -4177,7 +4177,7 @@ def _declare_boundaries(case: SimCase, script: Script) -> None:
         return
     labels, ambiguous = boundary_labels(names)
     if ambiguous:
-        warnings.warn(
+        warn(
             f"case {case.sim_id!r}: {PurePath(str(case.geometry)).name} carries "
             f"{len(ambiguous)} boundary name(s) used more than once "
             f"({', '.join(sorted(ambiguous))}), and a name that means two surfaces "
@@ -4941,7 +4941,7 @@ def _row_symmetry_loads(case: SimCase, from_setup: bool | None) -> bool | None:
             "means the loads of the sector that was meshed."
         )
     if from_setup is not None and from_setup != value:
-        warnings.warn(
+        warn(
             f"case {case.sim_id!r} states {SYMMETRY_LOADS_VARIABLE}: {value} and its setup "
             f"preset states {from_setup}. The ROW wins, and the run reports the loads of "
             f"{'the whole wheel' if value else 'the meshed sector'}.",
@@ -5411,7 +5411,7 @@ def _selected_families(
         )
     if not expanded:
         known = ", ".join(sorted(case.aliases)) or "none"
-        warnings.warn(
+        warn(
             f"case {case.sim_id!r}: {what} of {_artifact_of(case)} selects "
             f"{selection!r}, and this geometry carries no family of it, so the entry is "
             f"left out. The aliases the row's setup defines are {known}; the geometry "
@@ -5744,7 +5744,7 @@ def pproc_emissions(
             if not kept
             else f"{len(kept)} of the {len(emissions)} frames it expands over"
         )
-        warnings.warn(
+        warn(
             f"case {case.sim_id!r}: {what} of {_artifact_of(case)} is measured in "
             f"{frame}, one per {kind}, and this run created {missing} "
             f"({', '.join(dropped)} not placed; placed: "
@@ -6236,7 +6236,7 @@ def _rotations(
                 if spun_about.endswith("_SMRP")
                 else f"add AUX_FRAMES: {spun_about} to the record"
             )
-            warnings.warn(
+            warn(
                 f"case {case.sim_id!r} states {ROTATE_VARIABLE} turning "
                 f"{_named_boundaries(turned_blades, labels)} by {angle} degrees about "
                 f"{token} and does not turn {spun_about}, so the blades turn and the "
@@ -7125,7 +7125,7 @@ def _pproc_probes(
     for entry_number, probes in enumerate(pproc.probes, start=1):
         if not unsteady and probes.parameters:
             # B10: on a steady run the list enables the entry and filters nothing.
-            warnings.warn(
+            warn(
                 f"case {case.sim_id!r}: {_artifact_of(case)} [[probes]] entry {entry_number} "
                 f"(frame {probes.frame!r}) lists parameters, but on a steady run this "
                 "list only enables the entry; it does not filter the probe-points "
@@ -7320,7 +7320,7 @@ def _emit_one_probe_table(case, script, frames, probes, vertex: int, *, unsteady
         and _ROTOR_FRAME_SPELLING.search(probes.frame.strip().upper()) is not None
         and frames.get(probes.frame) is None
     ):
-        warnings.warn(
+        warn(
             f"case {case.sim_id!r}: the pproc artifact {case.pproc_id!r} lays its probe "
             f"lines in {probes.frame!r}, a frame of a rotor this row does not turn, so "
             "they are left out. A row places the frames of the rotors its motions name, "

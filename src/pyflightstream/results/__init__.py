@@ -57,13 +57,12 @@ from __future__ import annotations
 
 import math
 import re
-import warnings
 from collections.abc import Sequence
 from dataclasses import dataclass
 
 import numpy as np
 
-from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning
+from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning, warn
 from pyflightstream.versions import FsVersion, known_versions, resolve
 
 _DASHED_LINE = re.compile(r"^-{4,}$")
@@ -1193,7 +1192,7 @@ def _cross_check_version(
     version = resolve(requested)
     if version.build is not None and reported_build is not None:
         if reported_build != version.build:
-            warnings.warn(
+            warn(
                 f"the output was produced by FlightStream build #{reported_build}, but "
                 f"the run requested {version.canonical}, which is build "
                 f"#{version.build}; the wrong executable ran. The version string alone "
@@ -1208,7 +1207,7 @@ def _cross_check_version(
     alias = version.alias
     consistent = alias == reported or alias.startswith(reported) or reported.startswith(alias)
     if not consistent:
-        warnings.warn(
+        warn(
             f"the output reports FlightStream {reported!r} but the run requested "
             f"{alias!r}; the wrong executable may have run. The reported string and "
             "build are recorded verbatim in the manifest (FR-18).",
@@ -1216,7 +1215,7 @@ def _cross_check_version(
             stacklevel=3,
         )
     elif version.build is None and _shares_alias(version):
-        warnings.warn(
+        warn(
             f"the output reports FlightStream {reported!r}, which cannot confirm that "
             f"{version.canonical} ran: its vendor name is shared with "
             f"{', '.join(other.canonical for other in _shares_alias(version))} and no "
