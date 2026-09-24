@@ -204,11 +204,27 @@ def test_g06_a_reference_declares_an_actuator_block(tmp_path):
             REFERENCE_WITH_A_DISC.replace("hub_radius_m = 0.1", "hub_radius_m = 0.5"),
             r"hub_radius_m = 0\.5 is not inside tip_radius_m = 0\.5",
         ),
+        (
+            REFERENCE_WITH_A_DISC + "swirl = 80\n",
+            r"(?s)PROP\.swirl.*less than or equal to 1",
+        ),
+        (
+            REFERENCE_WITH_A_DISC + "swirl = -0.1\n",
+            r"(?s)PROP\.swirl.*greater than or equal to 0",
+        ),
     ],
-    ids=["two-words", "a-frame-too", "no-kind", "hub-not-inside"],
+    ids=[
+        "two-words",
+        "a-frame-too",
+        "no-kind",
+        "hub-not-inside",
+        "swirl-a-percentage",
+        "swirl-negative",
+    ],
 )
 def test_g06_a_reference_disc_that_cannot_be_read_is_refused(tmp_path, body, words):
-    """The name is one word and one thing, the block says its kind, the hub is inside the tip."""
+    """The name is one word and one thing, the block says its kind, the hub is inside the tip,
+    and swirl is a fraction: a value written as a percentage is refused, never emitted."""
     folder = tmp_path / "inputs" / "references"
     folder.mkdir(parents=True)
     (folder / "r050.toml").write_text(body, encoding="utf-8")
