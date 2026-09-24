@@ -27,6 +27,13 @@ FlightStream versions.
   conditions for a mesh cell; 0.12.0 shipped without them. It now names the
   `.fsm` route and says no matrix cell declares boundary conditions for a
   mesh (PFS-2029.09.03).
+- **A steady row emits each probe line once.** A pproc declaring N probe
+  lines gave N squared `NEW_PROBE_LINE` commands on a steady row, so the
+  solver created and exported every point N times: three lines of eleven
+  points gave 99 points where 33 were asked for (RPT-062). A single line hid
+  it. A steady probe export made before this release from a pproc with more
+  than one line holds the declared lines N times over, in N repeated blocks
+  (B04).
 
 ### Owed
 

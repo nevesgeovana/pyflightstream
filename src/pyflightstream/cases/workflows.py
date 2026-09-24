@@ -7361,43 +7361,47 @@ def _emit_one_probe_table(case, script, frames, probes, vertex: int, *, unsteady
                         vertex=" ".join(str(value) for value in point),
                     )
 
-        if not unsteady:
-            # FR-81. A STEADY ROW CREATES THE POINTS IT EXPORTS. It has no
-            # fluid plots, which is what places a vertex on an unsteady row, so
-            # until 0.16.0 it emitted `EXPORT_PROBE_POINTS` and no creation verb
-            # at all: the script asked the solver to export a thing nobody
-            # made. WHAT THE SOLVER THEN RETURNED IS INFERRED AND NOT MEASURED,
-            # and this comment used to assert it. FR-81's measurement is of the
-            # EMITTED SCRIPT -- creation verbs none, export present -- which is
-            # a fact about this package; what an unpaired export produces at
-            # the machine is a solver behaviour no dated probe in this tree
-            # covers.
-            # That is the same defect as the fifty dummy surface sections, one
-            # family over.
-            #
-            # ONE `NEW_PROBE_LINE` PER DECLARED LINE, with the point count the
-            # entry states, rather than one command per vertex: the survey line
-            # is what the solver's own vocabulary offers for exactly this, it
-            # takes the count and the two ends, and it is verified on four
-            # builds. The coordinates are scaled the same way the vertices
-            # above are, so a `rotor_radius` entry lands on the same disk in
-            # both run types.
-            ends = [
-                [round(value * scale, 5) for value in line.start]
-                + [round(value * scale, 5) for value in line.end]
-                for line in probes.lines
-            ]
-            for first_x, first_y, first_z, last_x, last_y, last_z in ends:
-                script.emit(
-                    "NEW_PROBE_LINE",
-                    numpts=probes.points,
-                    x1=first_x,
-                    y1=first_y,
-                    z1=first_z,
-                    x2=last_x,
-                    y2=last_y,
-                    z2=last_z,
-                )
+    if not unsteady:
+        # FR-81. A STEADY ROW CREATES THE POINTS IT EXPORTS. It has no
+        # fluid plots, which is what places a vertex on an unsteady row, so
+        # until 0.16.0 it emitted `EXPORT_PROBE_POINTS` and no creation verb
+        # at all: the script asked the solver to export a thing nobody
+        # made. WHAT THE SOLVER THEN RETURNED IS INFERRED AND NOT MEASURED,
+        # and this comment used to assert it. FR-81's measurement is of the
+        # EMITTED SCRIPT -- creation verbs none, export present -- which is
+        # a fact about this package; what an unpaired export produces at
+        # the machine is a solver behaviour no dated probe in this tree
+        # covers.
+        # That is the same defect as the fifty dummy surface sections, one
+        # family over.
+        #
+        # THIS BLOCK IS OUTSIDE THE LOOP OVER THE LINES (B04). It sat inside it
+        # until 0.27.0, so N declared lines gave N squared commands and the
+        # solver exported every point N times (RPT-062: 99 points for 33).
+        #
+        # ONE `NEW_PROBE_LINE` PER DECLARED LINE, with the point count the
+        # entry states, rather than one command per vertex: the survey line
+        # is what the solver's own vocabulary offers for exactly this, it
+        # takes the count and the two ends, and it is verified on four
+        # builds. The coordinates are scaled the same way the vertices
+        # above are, so a `rotor_radius` entry lands on the same disk in
+        # both run types.
+        ends = [
+            [round(value * scale, 5) for value in line.start]
+            + [round(value * scale, 5) for value in line.end]
+            for line in probes.lines
+        ]
+        for first_x, first_y, first_z, last_x, last_y, last_z in ends:
+            script.emit(
+                "NEW_PROBE_LINE",
+                numpts=probes.points,
+                x1=first_x,
+                y1=first_y,
+                z1=first_z,
+                x2=last_x,
+                y2=last_y,
+                z2=last_z,
+            )
 
     # FR-79: A RECTANGLE AND A CIRCLE ARE EMITTED POINT BY POINT, by the
     # decision of 2026-09-10: a rectangular or circular plane is always
