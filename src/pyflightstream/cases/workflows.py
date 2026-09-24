@@ -95,6 +95,8 @@ from pyflightstream.cases import (
     RAW_PHASES,
     ROTOR_BLADE_ROTATION_AXIS,
     ROTOR_PLOT_GROUP_PREFIX,
+    VOLUME_SECTION_KINDS,
+    VOLUME_SECTION_PRISMS,
     CampaignConfigError,
     CustomFlag,
     MeshOperation,
@@ -6303,6 +6305,10 @@ def _script_solve_and_export(
     # fluid plots long before this point and needs nothing here.
     if frames is not None:
         _pproc_probes(case, script, frames, unsteady=unsteady, analysis=True)
+        # G05: the volume section is cut HERE, after the solve and in the
+        # analysis phase, where the verified probes cut it. Only a steady row
+        # reaches this with a section declared: the unsteady builders refuse it.
+        _pproc_volume_section(case, script, frames)
     _raw_commands(case, script, "export")
     _export_block(conventions, case, script, unsteady=unsteady)
 
@@ -8047,6 +8053,95 @@ def _pproc_sections(case: SimCase, script: Script, frames: Frames) -> None:
 _SECTION_COMMAND = "NEW_SURFACE_SECTION_DISTRIBUTION"
 _SECTION_SYMMETRY_ARG = "include_symmetry"
 
+#: The create command of each volume-section shape (G05).
+_VOLUME_SECTION_COMMANDS = {
+    "rectangle": "CREATE_NEW_RECTANGLE_VOLUME_SECTION",
+    "circle": "CREATE_NEW_CIRCLE_VOLUME_SECTION",
+}
+#: The index every volume-section export and delete cites. The section is the
+#: script's only one, and a later point of a sweep deletes it before cutting its
+#: own, so it is always the first.
+_VOLUME_SECTION_INDEX = 1
+
+
+def _pproc_volume_section(case: SimCase, script: Script, frames: Frames) -> None:
+    """Cut the pproc's volume section for this point, after its solve (G05).
+
+    THE ANALYSIS PHASE, AFTER ``START_SOLVER``, which is where the verified
+    create probes cut it (26.120 to 26.124: a section created there exports a
+    file). A section is a cut through a solution, and one created before the
+    solve cuts a field that does not exist yet.
+
+    A LATER POINT OF A SWEEP DELETES THE PREVIOUS SECTION FIRST. A steady row is
+    one script, so a section created per point would take indices 1, 2, 3 and
+    each point's export of index 1 would write the first point's plane under
+    its own name. `DELETE_VOLUME_SECTION` is verified alone on the same five
+    builds; the delete-then-create sequence inside one script is not measured,
+    and neither is whether a `COLD_START` clear removes a section.
+    """
+    pproc = case.pproc
+    if pproc is None or pproc.volume_section is None:
+        return
+    section = pproc.volume_section
+    frame = _pproc_frame(case, frames, section.frame, "the volume section")
+    if script.volume_section_created:
+        script.emit("DELETE_VOLUME_SECTION", _VOLUME_SECTION_INDEX)
+    prisms_type, thickness, layers, growth_rate = VOLUME_SECTION_PRISMS
+    if section.shape == "rectangle":
+        assert section.corners is not None  # the model refuses a rectangle without
+        x1, y1, x2, y2 = section.corners
+        script.emit(
+            _VOLUME_SECTION_COMMANDS["rectangle"],
+            frame=frame,
+            plane=section.plane,
+            offset=section.offset,
+            refinement_layers=section.refinement_layers,
+            x1=x1,
+            y1=y1,
+            x2=x2,
+            y2=y2,
+            prisms_type=prisms_type,
+            thickness=thickness,
+            layers=layers,
+            growth_rate=growth_rate,
+        )
+    else:
+        assert section.radii is not None and section.points is not None
+        script.emit(
+            _VOLUME_SECTION_COMMANDS["circle"],
+            frame=frame,
+            plane=section.plane,
+            offset=section.offset,
+            ipts=section.points[0],
+            jpts=section.points[1],
+            r1=section.radii[0],
+            r2=section.radii[1],
+            prisms_type=prisms_type,
+            thickness=thickness,
+            layers=layers,
+            growth_rate=growth_rate,
+        )
+    script.volume_section_created = True
+
+
+def _refuse_a_volume_section_off_a_steady_row(case: SimCase, name: str) -> None:
+    """Refuse an unsteady row whose pproc declares a volume section (G05).
+
+    The section is cut after the solve, and an unsteady row's step exports and
+    wall-clock rescue run DURING the march, before it exists; the end of the run
+    alone would be a third meaning of "the section of this point". Called before
+    a continuation is built too, since that reopens the same row.
+    """
+    if case.pproc is None or case.pproc.volume_section is None:
+        return
+    raise CampaignConfigError(
+        f"case {case.sim_id!r}: the pproc artifact {case.pproc_id!r} declares "
+        f"[volume_section] and the row names the run type {name!r}. The section is cut "
+        "after the solve, and an unsteady row's step and wall-clock exports run during "
+        "the march, before it exists; a volume section is a steady row's in 0.27.0. "
+        "Name a pproc without the table on this row."
+    )
+
 
 def surface_time_averaging(case: SimCase) -> SurfaceAveragingWindow | None:
     """Resolve the pproc's surface window on the same clock as LAST_REVS_AVG."""
@@ -8086,6 +8181,17 @@ def _surface_export(script: Script, case: SimCase, kind: str, name: str) -> bool
         if any(arg.name == "frame" for arg in script.entry(verb).args):
             args.append(1)
         script.emit(verb, *args, -1)
+    elif kind in VOLUME_SECTION_KINDS.values():
+        # G05. An export of a section nobody cut is an export of nothing, which
+        # a declared output then reports as missing on a seat; refused here.
+        if not script.volume_section_created:
+            raise CampaignConfigError(
+                f"case {case.sim_id!r} declares the volume-section output {name!r} and its "
+                "script cuts no volume section: the section is declared by the pproc's "
+                "[volume_section] table on a steady row, which also names the output"
+            )
+        verb = next(verb for each, _, verb, _ in EXPORT_KINDS if each == kind)
+        script.emit(verb, _VOLUME_SECTION_INDEX, name)
     else:
         return False
     return True
@@ -8799,6 +8905,11 @@ def action_export_lines(
     }
     if case.recipe in _UNSTEADY_RECIPES:
         kinds.pop("probes", None)
+    # G05: an action fires during the march and a volume section is cut after
+    # it; the builders refuse the table on these rows, and this is the second
+    # half of that, so an action never exports a section nobody cut.
+    for kind in VOLUME_SECTION_KINDS.values():
+        kinds.pop(kind, None)
     lines: list[str] = []
     if any(kind in kinds for kind in ("sections", "sectional_loads", "probes")):
         lines += ["UPDATE_ALL_SURFACE_SECTIONS", "COMPUTE_SURFACE_SECTIONAL_LOADS NEWTONS"]
@@ -9523,6 +9634,7 @@ def _build_unsteady(case: SimCase, script: Script, conventions: WorkflowConventi
     motion, and a clock stated directly rather than derived from a
     speed. Both refusals run before the first emission.
     """
+    _refuse_a_volume_section_off_a_steady_row(case, "unsteady")
     # A CONTINUATION IS A DIFFERENT SCRIPT, not this one with a shorter
     # march, so the branch is HERE and not further down: every line below
     # describes a run that starts from a mesh, and a continuation starts
@@ -9586,6 +9698,7 @@ def _build_unsteady_rotor(case: SimCase, script: Script, conventions: WorkflowCo
     with nothing said, and the rotary motion would then turn about a
     frame that no longer exists.
     """
+    _refuse_a_volume_section_off_a_steady_row(case, "unsteady_rotor")
     # A CONTINUATION IS A DIFFERENT SCRIPT, not this one with a shorter
     # march: the branch is here because every line below starts from a
     # mesh, and a continuation starts from the state a stopped run saved.

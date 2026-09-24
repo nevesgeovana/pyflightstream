@@ -137,7 +137,7 @@ UPDATE_ALL_VOLUME_SECTIONS:
     "26.100": {status: documented, note: "SRC-741 p.361, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.123": {status: documented, note: "SRC-751 p.372, unchanged from SRC-750 p.372"}
-    "26.124": {status: documented, note: "SRC-752 p.372, the SRC-751 file, carried from 26.123; not run on 26.124"}
+    "26.124": {status: documented, note: "SRC-752 p.372, the SRC-751 file, carried from 26.123; it ran on 26.124 without abort or logged error in reports/compat/CMP-26124_2026-09-14_full-sim.yaml, its effect not observable there (unprobed), so it stays documented"}
 
 EXPORT_VOLUME_SECTION_VTK:
   layout: inline

@@ -4282,3 +4282,35 @@ requirement below is one seam of that division.
     says the flag was used and carries the build the solver printed;
     `plan.json` records it too, so the rehearsal is the same command line the
     run executes. The library takes the same keyword.
+
+!!! requirement "FR-110 The pproc declares a volume section and each steady point exports it <span class='srs-implemented'>implemented</span>"
+
+    *Origin: G05 of the 0.27.0 scope, the basic GUI steps through the
+    workflow: a volume section and its VTK or Tecplot export were reachable
+    from no row. Evidence: `tests/tier1_offline/test_g05_volume_section.py`
+    (the table and each shape's own keys, the section created after the solve
+    and exported to the point's name, the delete before each later point of a
+    warm sweep, the file never classified as a surface export, the refusal on
+    both unsteady run types, and the file collected and hashed). The five
+    commands it emits are verified one at a time on 26.120 to 26.124 by the
+    compat probes; no licensed row has run the whole path yet.*
+
+    A pproc artifact declares at most ONE `[volume_section]`: a rectangle
+    (`corners`) or a circle (`radii`, `points`) in a `plane` of a named `frame`
+    at an `offset`, and a `format`, `vtk` or `tecplot`. Every point of a
+    steady row creates it after its solve, in the analysis phase, and exports
+    it to `{name}_vsec.vtk` or `{name}_vsec.dat`, which the point declares,
+    collects and hashes like its other outputs; a later point of a sweep deletes
+    the previous section first, so each export writes its own point's plane.
+
+    - Each shape's keys are refused on the other, and a shape missing its own
+      is refused naming them. The prism-layer arguments are not the table's:
+      the package sends the values the verified probes sent.
+    - `[exports]` cannot name the two volume-section kinds; the table declares
+      the file.
+    - An unsteady or rotor row whose pproc declares the table is refused before
+      any emission, because its step and wall-clock exports run before a section
+      cut after the march exists.
+    - Not measured: the delete-then-create sequence inside one script, a
+      `COLD_START` clear's effect on a section, and any `refinement_layers`
+      other than 1.

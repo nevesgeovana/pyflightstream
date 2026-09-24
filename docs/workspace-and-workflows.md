@@ -1235,9 +1235,10 @@ row exactly as the built-in `unsteady_rotor` workflow does.
 v0.11.0 this was the groups artifact, `inputs/groups/e<id>.toml`, a flat
 table of group name to members that nothing on the run path read; the
 owning seat decided on 2026-09-02 that it is the home of post-processing and it
-was renamed (PFS-2029.07). It carries ten tables, every one optional, and a
-file holding `[groups]` alone is what the old file was. Four are new in
-0.24.0. `[names]` renames the unsteady polar's plot columns to the names a
+was renamed (PFS-2029.07). It carries twelve tables, every one optional, and a
+file holding `[groups]` alone is what the old file was. `[volume_section]` is
+new in 0.27.0 and has [its own paragraph below](#a-volume-section-steady-rows).
+Four are new in 0.24.0. `[names]` renames the unsteady polar's plot columns to the names a
 downstream tool reads, the whole dictionary or none of it, and is defined on
 [the definition of record](post-processing-definitions.md); the other three,
 `[phase_locked]`, `[equations]` and `[glossary]`, are described under [the three tables that reduce and derive](#the-three-tables-that-reduce-and-derive).
@@ -1584,7 +1585,59 @@ and the saved simulation cannot be switched off: `loads = false` and, since
 0.27.0, `simulation = false` are refused naming the file. A setup artifact
 that names one of these tables is refused pointing here: a setup carries
 solver settings only (PFS-2029.16). The run record names the pproc id each
-point was run for.
+point was run for. The volume section's file (`_vsec.vtk` or `_vsec.dat`) is
+not an `[exports]` kind: `[volume_section]` declares it, and `[exports]`
+naming `volume_section_vtk` or `volume_section_tecplot` is refused.
+
+#### A volume section (steady rows)
+
+Since 0.27.0 the pproc may declare ONE flow-field plane, the GUI's volume
+section, and every point of a STEADY row cuts it after its solve and exports
+it under the point's own name (FR-110):
+
+```toml
+[volume_section]
+shape = "rectangle"                 # or "circle"
+frame = "MRP"                       # the frame the plane lies in; MRP unless stated
+plane = "XZ"                        # XY, XZ or YZ of that frame
+offset = 0.0                        # along the plane's normal, simulation length units
+corners = [-1.0, -1.0, 1.0, 1.0]    # rectangle: x1, y1, x2, y2, two diagonal corners
+format = "vtk"                      # or "tecplot"
+```
+
+A circle states `radii = [r1, r2]` (inner and outer, `0 <= r1 < r2`) and
+`points = [ipts, jpts]` (radial and azimuthal segments) instead of `corners`;
+a rectangle may state `refinement_layers` (1 unless stated). Each shape's keys
+are refused on the other, and a shape missing its own is refused naming them.
+The frame is `MRP` or a frame the reference declares or a rotor carries, and a
+frame the run did not create is refused when the script is built, naming the
+ones it did.
+
+What the script does, per point: after `START_SOLVER`, in the analysis phase,
+`CREATE_NEW_RECTANGLE_VOLUME_SECTION` or `CREATE_NEW_CIRCLE_VOLUME_SECTION`,
+then `EXPORT_VOLUME_SECTION_VTK 1` or `EXPORT_VOLUME_SECTION_TECPLOT 1` to
+`{name}_vsec.vtk` or `{name}_vsec.dat`, collected into the point's
+`datapoints/DP-<point>/` and hashed in its record like every other output. A
+later point of a steady sweep, which runs in the same script, first emits
+`DELETE_VOLUME_SECTION 1`, so its export writes its own plane. The prism-layer
+arguments are not the table's: the package sends `NONE 0.1 1 1.2`, the values
+the verified probes sent.
+
+WHAT HAS RUN WHERE, from the command database. The five commands the table
+emits (the two creates, the two exports and the delete) are verified on
+26.120 to 26.124, each by a probe that ran it alone, and documented only on
+25.000 to 26.101. The delete-then-create sequence of a sweep is not measured,
+nor is whether `COLD_START`'s clear removes a section, nor any
+`refinement_layers` other than 1. `UPDATE_ALL_VOLUME_SECTIONS` is not emitted:
+it ran without abort in the probes of 26.120 to 26.124 and its effect was never
+observed. `DELETE_ALL_VOLUME_SECTIONS`, `VOLUME_SECTION_WIREFRAME` and
+`EXPORT_VOLUME_SECTION_2D_VTK` have never run on any build, and
+`VOLUME_SECTION_BOUNDARY_LAYER` is documented on builds before 26.120 only;
+none of the four is reachable from the table.
+
+An unsteady or rotor row whose pproc declares the table is refused before any
+line is written: its step and wall-clock exports run during the march, before a
+section cut after it exists.
 
 ### How a point is named
 

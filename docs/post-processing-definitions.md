@@ -28,6 +28,7 @@ them was inferred from an implementation.
 - [`phase_locked`](#phase_locked)
 - [The averaging window](#the-averaging-window)
 - [Native surface flow exports](#native-surface-flow-exports)
+- [A volume section](#a-volume-section)
 - [The unsteady POLAR](#the-unsteady-polar)
 - [Rotor coefficients](#rotor-coefficients)
 - [What the package does NOT judge](#what-the-package-does-not-judge)
@@ -707,6 +708,27 @@ window at the export's step until the requested end is reached; a stopped run
 also ends its native export window at the recorded stop step. Exports before
 the averaging start are named skips. Without the table, surface entries carry
 `kind: instant`. The native files retain the solver's own format.
+
+---
+
+## A volume section
+
+A volume section is ONE flow-field plane through the solution, declared by the
+pproc's `[volume_section]` table (since 0.27.0) and cut by every point of a
+**steady** row after its solve. It is a native solver export, like the surface
+files above, and the package writes no product from it:
+
+| field | definition |
+|---|---|
+| file | `{name}_vsec.vtk` (`format = "vtk"`, `EXPORT_VOLUME_SECTION_VTK`) or `{name}_vsec.dat` (`format = "tecplot"`, `EXPORT_VOLUME_SECTION_TECPLOT`), in the point's `datapoints/DP-<point>/`, hashed in its record |
+| plane | a rectangle between two diagonal corners, or an annulus between two radii, in the `plane` of the named `frame`, `offset` along its normal |
+| instant | the converged state of THAT point: the section is created after the point's `START_SOLVER`, and a later point of a sweep deletes the previous section before creating its own, so each file is its own point's plane |
+
+The `_vsec` infix is what tells the file from a surface export of the same
+extension. There is one section per pproc; an unsteady row naming a pproc that
+declares one is refused, because its step exports run before a section cut
+after the march exists. The commands are verified on 26.120 to 26.124 one at a
+time; the delete-then-create sequence of a sweep is not measured.
 
 ---
 

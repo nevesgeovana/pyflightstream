@@ -545,15 +545,18 @@ class PprocArtifact(PprocSpec):
     """The post-processing artifact (``inputs/pproc/<id>.toml``).
 
     PFS-2029.07.01, the design decision of 2026-09-02: the groups artifact IS the
-    home of post-processing and is renamed. The file carries nine tables,
+    home of post-processing and is renamed. The file carries twelve tables,
     every one optional: ``[groups]`` maps each product name to one alias string;
     define several members in the reference's ``[aliases]`` table;
     ``[exports]`` which of the export kinds a point writes, where the
     loads table and the saved simulation cannot be switched off;
     ``[sections]``, ``[plots]`` and ``[[probes]]`` the solver definitions
     the builders emit; ``[products]`` the post-processed files written
-    after the run; and, since 0.24.0, ``[phase_locked]``, ``[equations]`` and
-    ``[glossary]``, which the post stage reads. Group aliases are stored
+    after the run; since 0.24.0, ``[phase_locked]``, ``[equations]``,
+    ``[glossary]`` and ``[names]``, which the post stage reads;
+    ``[time_averaging]`` the surface window; and, since 0.27.0,
+    ``[volume_section]``, the one flow-field plane a steady point cuts and
+    exports. Group aliases are stored
     verbatim and resolved by the script layer at emission time. Member lists,
     including empty lists, were retired at 0.26.0. The
     shape is
