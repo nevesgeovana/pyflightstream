@@ -348,6 +348,16 @@ gone (`docs/migrating-to-0.27.0.md`).
 
 ### Fixed
 
+- **The tier-3 twin configuration turns its rotors about their own hubs.** From
+  0.15.0 the reference `r006` of the tier-3 workspace put the hubs of `PORT` and
+  `STARBOARD` at y = +0.9144 and -0.9144 m while the twin mesh has its blades at
+  +2.5 and -2.5 m, so row 1022 and the vocabulary rows 8001 to 8006 turned each
+  blade about an axis 1.5856 m from its hub, and their licensed loads from 0.15.0 to
+  0.26.0 are not the twin rotors' loads: the thrust landed on the body. The
+  licensed regression of this release found it against the 0.13.0 run of 1022; the
+  reference now states 2.5 m and the rows ran again, the thrust back on the blades
+  (`reports/RPT-073`). The package is unchanged by it; a workspace of your own whose
+  rotor blocks were copied from `r006` should check its hubs against its mesh.
 - **A continuation no longer passes over its row's custom free stream** (G15).
   A row stating `RESTART` built its continuation before reading `FREESTREAM`,
   so it planned and ran beside a non-zero `ALPHA` or `BETA` the same row is
@@ -651,8 +661,9 @@ gone (`docs/migrating-to-0.27.0.md`).
   point, each point of a steady one-job sweep included, now emits
   `UPDATE_ALL_VOLUME_SECTIONS` after cutting its section and before its
   export. The command is documented on every build of the range and ran
-  without abort in the probes of 26.120 to 26.124; that it fills the export is
-  not yet measured (G05).
+  without abort in the probes of 26.120 to 26.124; the row run again with it on
+  26.124 read every one of the 96 cell values of each point non-zero and
+  different between its two points (RPT-070, G05).
 
 - **A row stating `roll_rate` or `yaw_rate` turns the free stream the way the
   rate says.** From 0.21.0 all three body rates were emitted with one sign of

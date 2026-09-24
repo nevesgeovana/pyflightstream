@@ -106,13 +106,15 @@ runs:
   rerun_15h10: 1003 (COLD_START, d2b78f0e), 1090 and 6001 (the far-field line their recipes had not passed, 159851cf),
     each with --force-rerun and its first outputs archived
   rerun_15h13: 6001 alone, the probe's log and numbered exports moved aside first
-  rerun_15h49: 1022 and 8001 to 8006 (nine points), after af13e23c put r006's hubs at y = +2.5 and -2.5 m, each
+  rerun_15h49: 1022 and 8001 to 8006 (nine points), with r006's hubs at y = +2.5 and -2.5 m in the copy (committed a
+    minute later as af13e23c), each
     with --force-rerun and its first outputs archived
   solver_processes_before_each_launch: 0
   package: 0.27.0.dev7; the first pass ran source equal to 2a7ba141's (12a32044, and bad9e76d for matriz_gui); the
     15:10 and 15:13 re-runs imported the package at e305d21e, whose source differs from 2a7ba141's by G06 (the actuator
-    profile's copy) and G16 (POLAR leaving the tables) only; the 15:49 re-run imported the package at f2d91ea9 (0.27.0),
-    whose source equals af13e23c's
+    profile's copy) and G16 (POLAR leaving the tables) only; the 15:49 re-run imported main's source at f2d91ea9, whose
+    tree says 0.27.0.dev7 (the installed metadata read 0.27.0, the release's version applied and not yet committed),
+    whose source equals af13e23c's and the release's
 scripts_sha256:
   P1001-M100RE230AL+sweep.txt: a7285badaaad5f05edaf5a8455c8736a9809e848a8513fe9817f4d1ec8b7d80f
   P1002-V0340RHO12250AL+040.txt: 87829df5628027f527c42e0750270bfcb63ced5f15f4da3a83b0c63ba8ca6554

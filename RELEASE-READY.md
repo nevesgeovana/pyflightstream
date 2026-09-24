@@ -134,14 +134,20 @@ Readings of 2026-09-24, each status read from the process:
 - `ruff check .` exit 0; `ruff format --check .` exit 0; `mypy` exit 0, "Success: no issues
   found in 100 source files".
 - The full tier-1 suite, detached, one process per file, through
-  `check_goal_031.py --suite`, on the release tree.
+  `check_goal_031.py --suite`, over the release tree on 2026-09-24: ruff and mypy exit 0,
+  and 1 red file of 299, `test_requirements_index.py`, because block 9 moved FR-109
+  without regenerating the index (fixed at eec5312b). The fourteen test files the
+  commits after that run touch were run again over this commit: 434 passed, 1 skipped,
+  exit 0.
 - `python scripts/mypy_recount.py`: 812 errors in 18 of 100 modules, against 0.26.0's 710 in 18 of 97
   (reports/RPT-029).
 - Review OF THIS RELEASE: an OPENING round of five lenses before the first block, a
   CLOSING round of five lenses over v0.26.0..e305d21e and the POLAR branch (nine
-  findings: six fixed, three registered for 0.28.0), and eight INDEPENDENT READINGS OF
-  GitHub main, one after each pushed block and one of this commit, each finding fixed
-  before the next block.
+  findings: six fixed, three registered for 0.28.0), SEVEN INDEPENDENT READINGS OF
+  GitHub main, one after each pushed block, each finding fixed before the next block,
+  and a QA and a V&V lens over e305d21e..this commit before it was pushed. THE READING
+  OF THIS COMMIT ON GitHub main is step 4 of the sequence and is owed until it runs;
+  the tag waits on it.
 
 ## What this release carries
 
@@ -166,14 +172,19 @@ Every route this release adds ran on 26.124, one run at a time, each with five
 far-field layers: the three routes to one body and the file route's root node
 (RPT-069), the volume section and the actuator disc (RPT-070), the custom free
 stream (RPT-071), the additional post end to end (RPT-072), and the licensed
-regression of every tier-3 row whose script changed (RPT-073), whose one finding,
-a warm steady sweep moving the later points' coefficients against a cold one, is
-registered for 0.28.0 rather than absorbed into a band.
+regression of every tier-3 row whose script changed (RPT-073). It found two
+things. A defect of the tier-3 inputs: from 0.15.0 the reference of row 1022 and of
+the vocabulary rows put the twin rotors' hubs 1.5856 m from their blades, so their
+licensed loads from 0.15.0 to 0.26.0 were computed about the wrong axes; fixed and
+run again (af13e23c). And a warm steady sweep moving the later points'
+coefficients against a cold one, registered for 0.28.0 rather than absorbed into a
+band.
 
 ## What is NOT done, and is not being hidden
 
 - The warm sweep (the default since 0.16.0) against a cold one: on one wing in
-  sideslip the later points differ by 3 percent in CL and in the sign of CMz. The
+  sideslip the later points differ by 1.8 and 3.0 percent in CL and in the sign of
+  CMz. The
   default is the owner's call, with a probe on a cruise polar first (0.28.0).
 - Inlets and outlets on a row (G07), which waits for a geometry to prove it on.
 - The submitting half of the additional post; the grid unit of a custom field.

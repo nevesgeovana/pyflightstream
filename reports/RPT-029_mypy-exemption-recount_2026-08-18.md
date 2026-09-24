@@ -660,7 +660,7 @@ ones stay above as the history of the figure.
 
 ## Re-measured 2026-09-24, the v0.27.0 release tree
 
-`python scripts/mypy_recount.py` on 2026-09-24, at the tree tagged v0.27.0: 812 errors in 18 of 100 modules,
+`python scripts/mypy_recount.py` on 2026-09-24, at the release commit of v0.27.0: 812 errors in 18 of 100 modules,
 against 0.26.0's 710 in 18 of 97. Three modules arrived clean (`_decimal.py`,
 `run/_wake_edge_verdict.py`, `_lengths.py`); the errors more sit inside the
 exempted set, most on the run module's record builders, which carry 628 of the

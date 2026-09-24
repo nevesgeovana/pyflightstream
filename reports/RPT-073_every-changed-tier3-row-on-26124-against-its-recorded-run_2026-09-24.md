@@ -57,15 +57,18 @@ committed `FS_BUILD` changed, so `matriz_builds` keeps its meaning.
   it now states `COLD_START: true` (d2b78f0e, below). Row 6001 ran once more at
   15:13 (see the licensed checks). An attempt at 15:07 was refused at plan,
   before any solve, because the copy's root was not on the path the recipe rows
-  import from. After af13e23c (below), 1022 and the eight points of 8001 to 8006
-  ran again at 15:49, the same way.
+  import from. With r006's hubs at y = +2.5 and -2.5 m in the copy (the change
+  committed a minute later as af13e23c, below), 1022 and the eight points of 8001
+  to 8006 ran again at 15:49, the same way.
 - **The package.** 0.27.0.dev7. The first pass ran source equal to 2a7ba141's.
   The 15:10 and 15:13 re-runs imported the package at e305d21e. Its source
   differs from 2a7ba141's only by G06 (the actuator profile's copy) and G16
   (POLAR leaving the tables), and none of the three rows uses either. Their
   scripts are among the 51 equal to the goldens (1090, 6001) or carry the
-  goldens' commands (1003). The 15:49 re-run imported the package at f2d91ea9
-  (0.27.0), whose source equals af13e23c's; its nine scripts are among the 51.
+  goldens' commands (1003). The 15:49 re-run imported main's source at f2d91ea9,
+  whose tree says 0.27.0.dev7 (the installed metadata read 0.27.0, the release's
+  version applied and not yet committed) and whose source equals af13e23c's and
+  the release's; its nine scripts are among the 51.
 
 ## What came back
 
@@ -225,7 +228,8 @@ report does not decide it.
 - **26.124 moves the wing's lift at zero incidence and its rolling moment.** On
   1090, where the build is the only change, the NACA 0012 wing's CL at 0 deg
   moves from 0.0313 to 0.0578 on a reference area of 1. That is about the shift
-  1001 shows on the wing's 8 m2 (0.0040 to 0.0075). CMx moves +33 and +37
+  1003's cold point at zero incidence and sideslip shows on the wing's 8 m2
+  (0.0039 to 0.0072). CMx moves +33 and +37
   percent (+29 on 6001). 26.120 and 26.123 agree with each other. The commands
   are the same, so the package does not cause it, and what changed inside 26.124
   is not established here. PHY-01 bands the lift at 0 deg in absolute terms
@@ -236,8 +240,7 @@ report does not decide it.
   solves of these rows with a base region. RPT-066 measured what the command
   marks, not a solve. The Base boundary, which carried nothing (Cx 0.0000074),
   now carries Cx 0.2029636, almost all of the change; the body's own CDi moves
-  +4.9 and +7.3 percent. On 1021 and 9001 to 9003 the base adds about 0.015 in
-  Cx.
+  +4.9 and +7.3 percent.
 - **The pusher of 9001 to 9003 turns the hand its reference declares.** Since
   0.22.0 the script sends `SET_MOTION_ROTOR_RPM 1 -800.0` for r007's
   `rpm_sign = -1`, where the record sent +800. On 9001 the blade's axial force
