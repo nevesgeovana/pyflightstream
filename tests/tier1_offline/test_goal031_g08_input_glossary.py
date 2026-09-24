@@ -292,10 +292,17 @@ def test_the_keys_of_blocks_four_and_five_are_on_the_page(page):
     assert {"plot_residuals", "plot_loads", "plot_sections_cp", "force_distributions"} <= keys(
         "pproc", "`[exports]`"
     )
-    # G05: the volume section.
-    assert {"shape", "frame", "plane", "offset", "corners", "radii", "points", "format"} <= keys(
-        "pproc", "`[volume_section]`"
-    )
+    # G05: the volume section, its lengths named with their unit since block 6.
+    assert {
+        "shape",
+        "frame",
+        "plane",
+        "offset_m",
+        "corners_m",
+        "radii_m",
+        "points",
+        "format",
+    } <= keys("pproc", "`[volume_section]`")
     assert "volume_section" in keys("pproc", "The tables and top-level keys")
     # G06: the actuator disc, its row keys and its reference block.
     assert {"ACTUATOR", "ACTUATOR_RPM", "ACTUATOR_THRUST", "PROFILE"} <= keys(

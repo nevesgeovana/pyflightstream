@@ -11276,6 +11276,18 @@ ROW_KEY_MEANINGS: Mapping[str, InputKey] = MappingProxyType(
             "the stem of a file of inputs/profiles/",
             "SET_PROP_ACTUATOR_PROFILE",
         ),
+        # NO COMMAND: the key reaches no line of the run's own script, and the
+        # extraction's commands are verified on more builds than the one the
+        # additional post is measured on, so a command here would lend the key
+        # builds it is refused on.
+        ADDITIONAL_PPROC_VARIABLE: InputKey(
+            "A second pproc the row names for the additional post. No builder reads it, "
+            "so the row runs byte for byte as it would without it; pyfs-matrix post "
+            "--additional-pproc reads it, reopens each recorded point's final .fsm with no "
+            "solve and extracts that pproc from it. On 26.124 only, and refused on a "
+            "LEGACY row.",
+            "one pproc id, p<id>",
+        ),
         COLD_START_VARIABLE: InputKey(
             "Starts each point of a steady sweep from a cleared solution instead of the "
             "previous point's converged one.",

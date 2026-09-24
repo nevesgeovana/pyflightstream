@@ -39,12 +39,12 @@ the unit its file is written in.
 |---|---|---|---|
 | Open a saved simulation | row key `GEOMETRY` naming a `.fsm` ([what a run matrix is](workspace-and-workflows.md#what-a-run-matrix-is)); setup key `load_solver_initialization` loads the solver state it was saved with | `OPEN` | 26.100 to 26.124 |
 | See the boundaries a saved simulation carries, in its order | sidecar key `boundaries`, which `pyfs-matrix inventory` writes from the file ([the boundary inventory sidecar](mesh-inputs.md#the-boundary-inventory-sidecar)) | none | none |
-| Start a new simulation and import a mesh file in its length unit | row key `GEOMETRY` naming an `.obj` or `.stl`; sidecar table `[import]` with its `units`, and sidecar key `boundaries`, the file's surface names in its order ([canonical mesh inputs](mesh-inputs.md#canonical-mesh-inputs)) | `NEW_SIMULATION`, `IMPORT`, `SET_SIMULATION_LENGTH_UNITS` | 26.101 to 26.124 (except `IMPORT`) |
+| Start a new simulation and import a mesh file in its length unit | row key `GEOMETRY` naming an `.obj` or `.stl`; sidecar table `[import]` with its `units`, and sidecar key `boundaries`, the file's surface names in its order ([starting from an OBJ or STL](mesh-inputs.md#starting-from-an-obj-or-stl)) | `NEW_SIMULATION`, `IMPORT`, `SET_SIMULATION_LENGTH_UNITS` | 26.101 to 26.124 (except `IMPORT`) |
 | Scale, mirror, rename, move or turn a surface of the imported mesh | sidecar table `[[import.operations]]`, one per operation ([the mesh operations of an import](mesh-inputs.md#the-mesh-operations-of-an-import)) | `SURFACE_SCALE`, `SURFACE_MIRROR`, `SURFACE_RENAME`, `TRANSLATE_SURFACE_IN_FRAME`, `ROTATE_SURFACE`, `SURFACE_ROTATE` | none |
 | Turn part of the geometry for one row: a flap, a blade's pitch | row key `ROTATE` ([one row, one geometry, turned](workspace-and-workflows.md#one-row-one-geometry-turned)) | `ROTATE_SURFACE`, `SURFACE_ROTATE`, `ROTATE_COORDINATE_SYSTEM` | none |
 | Move part of the geometry for one row | row key `TRANSLATE` ([one row, one geometry, moved](workspace-and-workflows.md#one-row-one-geometry-moved)) | `TRANSLATE_SURFACE_IN_FRAME`, `SET_COORDINATE_SYSTEM_ORIGIN` | none |
 | Name the configuration you loaded | row key `CONFIGURATION`, a label the script carries as a comment on its first line | none | none |
-| Import CAD and mesh it | not yet: prepare it in the GUI once and save a `.fsm` ([GUI once, script everything after](mesh-inputs.md#the-supported-pattern-gui-once-script-everything-after)), or setup table `[[raw]]` ([the raw route](#the-raw-route)) | `IMPORT_CAD`, `CONVERT_CAD_TO_MESH` | none |
+| Import CAD and mesh it | not yet: prepare it in the GUI once and save a `.fsm` ([GUI once, script everything after](mesh-inputs.md#the-saved-simulation-gui-once-script-everything-after)), or setup table `[[raw]]` ([the raw route](#the-raw-route)) | `IMPORT_CAD`, `CONVERT_CAD_TO_MESH` | none |
 | Build a wing, a fuselage or a body of revolution from cross-section curves | not yet: setup table `[[raw]]` ([the raw route](#the-raw-route)) | `CCS_IMPORT`, `CAD_CREATE_WING_MESH_FROM_CCS`, `CAD_CREATE_FUSELAGE_MESH_FROM_CCS`, `CAD_CREATE_REVOLVE_MESH_FROM_CCS` | none |
 | Wrap or unite meshes into one closed surface | not yet: setup table `[[raw]]` ([the raw route](#the-raw-route)) | `WRAPPER_EXECUTE`, `BOOLEAN_UNITE_MESH` | none |
 | Repair a surface: delete, combine, invert, cut by a plane, fill holes | not yet: setup table `[[raw]]` ([the raw route](#the-raw-route)) | `SURFACE_DELETE`, `SURFACE_COMBINE`, `SURFACE_INVERT`, `SURFACE_CUT_BY_PLANE`, `SURFACE_AUTO_HOLE_FILL`, `DELETE_DEGENERATE_FACES` | none |
@@ -154,19 +154,13 @@ them; a row marks base regions on either.
 | Export at every step of an unsteady run, from a step on | row keys `EXPORT_UNSTEADY_AFTER_ITER` and `EXPORT_UNSTEADY_AFTER_REV` ([exports that begin after a threshold](workspace-and-workflows.md#exports-that-begin-after-a-threshold)) | `SET_NEW_UNSTEADY_SOLVER_ACTION` | none |
 | Sum the loads of groups of surfaces into polars | pproc tables `[groups]` and `[products]` ([what the products are](workspace-and-workflows.md#what-the-products-are)) | none | none |
 | Average an unsteady run over its last steps, per blade and at each azimuth | row keys `LAST_ITERS_AVG` or `LAST_REVS_AVG`, and `BLADES`; pproc tables `[phase_locked]`, `[equations]`, `[glossary]` and `[names]`, and pproc key `blade_pattern` ([post-processing definitions](post-processing-definitions.md)) | none | none |
-| Post-process a saved simulation again, without solving it again | not yet: a recipe of your own on a `LEGACY` row, or [the raw route](#the-raw-route) | none | none |
+| Post-process a saved simulation again, without solving it again | since 0.27.0: row key `ADDITIONAL_PPROC`, naming a second pproc of sections, sectional loads and surface exports, which `pyfs-matrix post --additional-pproc` extracts from each recorded point's final `.fsm` with no solve ([extracting more from a finished point](workspace-and-workflows.md#extracting-more-from-a-finished-point-the-additional-post)) | `OPEN`, `NEW_SURFACE_SECTION_DISTRIBUTION`, `UPDATE_ALL_SURFACE_SECTIONS`, `COMPUTE_SURFACE_SECTIONAL_LOADS`, `EXPORT_SOLVER_ANALYSIS_SPREADSHEET`, `EXPORT_ALL_SURFACE_SECTIONS`, `EXPORT_SURFACE_SECTIONAL_LOADS` | 26.124 (except `UPDATE_ALL_SURFACE_SECTIONS`) |
 | Trace streamlines, on the surface or through the field | not yet: setup table `[[raw]]` ([the raw route](#the-raw-route)) | `GENERATE_ALL_SURFACE_STREAMLINES`, `NEW_OFF_BODY_STREAMLINE`, `EXPORT_ALL_SURFACE_STREAMLINES`, `EXPORT_ALL_OFF_BODY_STREAMLINES` | none |
 | Save a picture of the scene, coloured by a variable | not yet: setup table `[[raw]]` ([the raw route](#the-raw-route)) | `SET_SCENE_CONTOUR`, `SAVE_SCENE_AS_IMAGE` | none |
 | Export a boundary-layer velocity profile | not yet: setup table `[[raw]]` ([the raw route](#the-raw-route)) | `EXPORT_BL_VELOCITY_PROFILE` | none |
 | Export the surface pressures as structural loads | not yet: setup table `[[raw]]` ([the raw route](#the-raw-route)) | `EXPORT_SOLVER_ANALYSIS_PLOAD_BDF` | 26.120 to 26.124 |
 | Import probe points from a file | not yet: setup table `[[raw]]` ([the raw route](#the-raw-route)) | `PROBE_POINTS_IMPORT` | 26.101 to 26.124 |
 | Probe a surface through an unsteady run, or animate it | not yet: setup table `[[raw]]` ([the raw route](#the-raw-route)) | `NEW_UNSTEADY_SOLVER_SURFACE_PROBE`, `UNSTEADY_SOLVER_ANIMATION` | none |
-
-<!-- INTEGRATION MARK (the additional post): when ADDITIONAL_PPROC and
-`pyfs-matrix post --additional-pproc` are in the tree, the line "Post-process
-a saved simulation again, without solving it again" above becomes a reached
-line: "since 0.27.0: row key `ADDITIONAL_PPROC` and `pyfs-matrix post
---additional-pproc`", with the commands it emits. -->
 
 ## The raw route
 
@@ -204,5 +198,5 @@ written for. The whole grammar is under
 [what a solver preset may say](workspace-and-workflows.md#what-a-solver-preset-may-say-and-what-happens-to-a-key-that-reaches-nothing).
 A step that is more than a few lines, such as a geometry built from CAD, is
 done once in the GUI and saved as a `.fsm`
-([GUI once, script everything after](mesh-inputs.md#the-supported-pattern-gui-once-script-everything-after)),
+([GUI once, script everything after](mesh-inputs.md#the-saved-simulation-gui-once-script-everything-after)),
 and a `LEGACY` row runs a recipe of your own, in Python.
