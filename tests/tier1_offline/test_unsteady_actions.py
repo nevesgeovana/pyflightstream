@@ -331,6 +331,36 @@ def test_the_record_after_a_stub_run_carries_the_count_and_the_two_staged_files(
     assert _sha256(sim_dir / SCRIPT_FILE) != record.inputs_sha256[SCRIPT_FILE]
 
 
+def test_reconstruct_verifies_the_action_files_in_the_folder_the_point_ran_in(tmp_path):
+    """The counter program and the action script are written in the folder the
+    point ran in and hashed among its inputs; a reconstruction checks them
+    there, not among the simulation's staged inputs. The program matches while
+    unchanged, differs once edited and is missing once deleted; the action
+    script differs from the start, because the recorded hash is the empty file
+    the run wrote and the solver rewrote it during the run."""
+    from pyflightstream.run import reconstruct
+
+    campaign = _threshold_campaign(tmp_path, **{ITER: "4"})
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    (record,) = run_campaign(
+        campaign,
+        StubSolver(RUNS_THE_COUNTER_FOUR_TIMES),
+        workspace,
+        assess=converged,
+        recipes={"unsteady": workflow_registry()["unsteady"]},
+    )
+    assert record.status is RunStatus.CONVERGED, record.error
+    rebuilt = reconstruct(record, workspace=workspace)
+    assert rebuilt.verified[f"inputs/{PROGRAM}"] == "match", rebuilt.verified
+    assert rebuilt.verified[f"inputs/{SCRIPT_FILE}"] == "differs", rebuilt.verified
+
+    program = workspace.sim_dir("9001") / "datapoints" / f"DP-{record.point_name}" / PROGRAM
+    program.write_text("# edited\n", encoding="utf-8")
+    assert reconstruct(record, workspace=workspace).verified[f"inputs/{PROGRAM}"] == "differs"
+    program.unlink()
+    assert reconstruct(record, workspace=workspace).verified[f"inputs/{PROGRAM}"] == "missing"
+
+
 def test_a_second_point_of_the_same_case_starts_its_count_again(tmp_path):
     """Every point of a case runs in the same simulation folder; the count
     file of the first point would carry the second point's threshold past

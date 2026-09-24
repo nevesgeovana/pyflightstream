@@ -1562,6 +1562,33 @@ def test_a_run_can_be_reconstructed_by_its_run_id(tmp_path):
         reconstruct("camp/sim_9001/AL+999", workspace=workspace)
 
 
+def test_a_moved_workspace_still_checks_its_staged_input_in_its_own_inputs(tmp_path):
+    """The script names the staged geometry by absolute path, the path of the
+    workspace where it ran. Moved, the workspace still holds the staged copy
+    under the simulation's inputs/, and that copy is what a reconstruction
+    checks: it matches while unchanged and differs once edited, and the path
+    the script named, which no longer exists, is not read as a missing input."""
+    import shutil
+
+    campaign = make_campaign(tmp_path, alphas=(0.0,))
+    run_campaign(
+        campaign,
+        StubSolver(WRITES_LOADS),
+        CampaignWorkspace(tmp_path / "camp"),
+        assess=converged,
+        recipes={"steady": steady_recipe},
+    )
+    shutil.move(tmp_path / "camp", tmp_path / "moved")
+    moved = CampaignWorkspace(tmp_path / "moved")
+    rebuilt = reconstruct("camp/sim_9001/AL+000", workspace=moved)
+    assert str(tmp_path / "camp") in rebuilt.script_text, "the script names the old place"
+    assert rebuilt.verified["inputs/wing.fsm"] == "match", rebuilt.verified
+    (moved.sim_dir("9001") / "inputs" / "wing.fsm").write_bytes(b"REPLACED")
+    assert reconstruct("camp/sim_9001/AL+000", workspace=moved).verified["inputs/wing.fsm"] == (
+        "differs"
+    )
+
+
 def test_the_plan_reports_a_waived_command_before_any_solver_time(tmp_path):
     """The pre-flight already knows, and used to say nothing.
 

@@ -474,6 +474,32 @@ FlightStream versions.
   one float. The roll and yaw scorings of OPS-2011.01.03 against the recorded
   probes pass, and their strict xfails are removed (G13).
 
+- **A point whose solver could not use its actuator disc's profile file is no
+  longer recorded as a success.** When the solver cannot use the radial thrust
+  profile a row's `PROFILE` names, it logs `Failed to find`, `Failed to read`,
+  `No data found in` or `Failed to load custom radial thrust profile file:
+  <path>` and runs on to the end with the disc acting on a loading that is not
+  the file's; the point was recorded with the assessor's status, `CONVERGED` on
+  loads that are not the row's. A point whose solver log carries one of the
+  four lines is now `FAILED_SCRIPT` over any status that is not already a
+  failure, whichever assessor judged it, on a local point, on each point of a
+  steady row run as one job, and at `pyfs-matrix collect`; its `error` quotes
+  the line, names the file and says the disc did not use it (G06).
+- **`reconstruct()` checks each recorded input where the run read it.** It
+  looked for every name of a record's `inputs_sha256` in the simulation's
+  `inputs/`, where only the staged geometry is: the trailing-edge node file
+  (written in the folder the point ran in), the actuator profile (read in the
+  workspace's `inputs/profiles/`) and the unsteady action and clock programs
+  (written in the folder the point ran in) all read `missing`, so no record
+  carrying one was `faithful`, and a node file whose name the input library
+  also held read `differs` against a file the run never read. Each input is
+  now checked at the path the script names for it, among the staged inputs,
+  or in the folder the run ran in (the record's `cwd`), reads `missing` only
+  when it is not there, and still reads `differs` once changed; the keys of
+  `Reconstruction.verified` are unchanged. An action script rewritten during
+  the run reads `differs`, since the record hashes the empty file the run
+  wrote.
+
 ### Changed
 
 - **A local point runs in its own datapoint folder.** A point run on this

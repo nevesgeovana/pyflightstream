@@ -1,15 +1,19 @@
-"""The verdict on a run that imported trailing edges, read off the solver's own count.
+"""The verdicts on a run read off the solver's own log, whatever the assessor said.
 
-G02 of 0.27.0 (RPT-061, RPT-065). Private to the run layer: the point path and
-the collect path both apply it, so it lives beneath both rather than in the
-package module one of them would otherwise reach into. The rule that finds a
-point's solver log among its collected outputs lives here for the same reason:
-the package's assessor finds its log by it, and the count is read from the log
-it finds whichever assessor judged the point.
+G02 of 0.27.0 (RPT-061, RPT-065): a run that imported trailing edges is held to
+the count the solver logged. G06: a run whose solver could not use the radial
+thrust profile of its actuator disc is held to the line the solver logged about
+it. Private to the run layer: the point path and the collect path both apply
+them, so they live beneath both rather than in the package module one of them
+would otherwise reach into. The rule that finds a point's solver log among its
+collected outputs lives here for the same reason: the package's assessor finds
+its log by it, and both verdicts read the log it finds whichever assessor
+judged the point.
 """
 
 from __future__ import annotations
 
+import re
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -21,11 +25,106 @@ from pyflightstream.results import (
 from pyflightstream.workspace import RunStatus
 
 __all__ = [
+    "ACTUATOR_PROFILE_REFUSALS",
+    "actuator_profile_refusals",
+    "actuator_profile_verdict",
     "collected_solver_log",
     "reads_as_residual_history",
     "wake_edge_import_verdict",
     "with_wake_edge_verdict",
 ]
+
+#: The four sentences the solver executable carries for the radial thrust
+#: profile an actuator disc names (``SET_PROP_ACTUATOR_PROFILE``) when it cannot
+#: use the file, each followed on its own line by the file's path. 26.124 logged
+#: the second for a profile it could not read, put up a dialog, and ran on to the
+#: end with the disc acting on a loading that was not the file's (G06).
+ACTUATOR_PROFILE_REFUSALS: tuple[str, ...] = (
+    "Failed to find custom radial thrust profile file:",
+    "Failed to read custom radial thrust profile file:",
+    "No data found in custom radial thrust profile file:",
+    "Failed to load custom radial thrust profile file:",
+)
+
+_ACTUATOR_PROFILE_REFUSAL = re.compile(
+    "(?:"
+    + "|".join(re.escape(sentence) for sentence in ACTUATOR_PROFILE_REFUSALS)
+    + r")[ \t]*(?P<path>[^\r\n]*)"
+)
+
+
+def actuator_profile_refusals(log_text: str | None) -> list[tuple[str, str]]:
+    """Return each line in which the solver says it could not use a disc's profile file.
+
+    Parameters
+    ----------
+    log_text : str or None
+        A solver log, an EXPORT_LOG output, the log the solver left or a
+        scheduler's job output. The NUL bytes a hidden-mode log carries are
+        removed first.
+
+    Returns
+    -------
+    list of (str, str)
+        The line as logged, from the sentence to the end of the line, and the
+        path it names (empty when it names none), once each and in the order
+        logged. Empty for no log and for a log carrying none of the four
+        sentences.
+    """
+    if not log_text:
+        return []
+    found: list[tuple[str, str]] = []
+    for match in _ACTUATOR_PROFILE_REFUSAL.finditer(log_text.replace("\x00", "")):
+        entry = (match.group(0).strip(), match.group("path").strip())
+        if entry not in found:
+            found.append(entry)
+    return found
+
+
+def actuator_profile_verdict(*log_texts: str | None) -> tuple[RunStatus, str] | None:
+    """Judge a run by what the solver logged about its actuator disc's profile file.
+
+    G06. When the solver cannot use the radial thrust profile a disc names, it
+    logs one of the four :data:`ACTUATOR_PROFILE_REFUSALS` and the run goes on to
+    the end with the disc acting on a loading that is not the file's. The loads
+    converge and nothing else in the outputs says so, so the line decides: a run
+    whose log carries one is FAILED_SCRIPT, the status the trailing-edge count
+    gives a script whose file the solver did not take as written.
+
+    Parameters
+    ----------
+    *log_texts : str or None
+        Every log of the run there is to read: the collected log, and the one
+        the solver left or the job's. None and empty entries are skipped, and a
+        line logged in two of them is named once.
+
+    Returns
+    -------
+    tuple of (RunStatus, str) or None
+        None when no log carries one of the lines; else FAILED_SCRIPT with a
+        reason that quotes each line, names the file and says the disc did not
+        use it.
+    """
+    refusals: list[tuple[str, str]] = []
+    for text in log_texts:
+        for refusal in actuator_profile_refusals(text):
+            if refusal not in refusals:
+                refusals.append(refusal)
+    if not refusals:
+        return None
+    # QUOTED AS LOGGED, never by repr: a repr doubles every backslash of a
+    # Windows path, and the line would then not be the one the log carries.
+    reasons = [
+        f"the solver logged '{line}': it could not use the radial thrust profile file "
+        f"{path or '(no path logged)'}, so the actuator disc did not use the file"
+        for line, path in refusals
+    ]
+    return (
+        RunStatus.FAILED_SCRIPT,
+        "; ".join(reasons) + ". The run went on to the end with the disc acting on a loading "
+        "that is not the file's, so these loads are not the row's; nothing else in the "
+        "outputs says so. Check the file the row's PROFILE names and run the point again",
+    )
 
 
 def reads_as_residual_history(path: Path) -> bool:
@@ -139,7 +238,10 @@ def wake_edge_import_verdict(
 def with_wake_edge_verdict(
     status: RunStatus, error: str | None, verdict: tuple[RunStatus, str] | None
 ) -> tuple[RunStatus, str | None]:
-    """Apply a wake-edge verdict over a status that is not already a failure."""
+    """Apply a verdict read off the log over a status that is not already a failure.
+
+    The trailing-edge count's (G02) and the actuator profile's (G06) alike.
+    """
     if verdict is None or str(status).startswith("FAILED"):
         return status, error
     return verdict[0], "; ".join(part for part in (error, verdict[1]) if part)

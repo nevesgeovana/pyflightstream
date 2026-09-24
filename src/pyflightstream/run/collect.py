@@ -710,9 +710,10 @@ def _complete(
                 stamped[field_name] = value
     else:
         status, verdict = assessor(record, sim_dir)
-    # G02: a job that imported trailing edges is held to the solver's count.
+    # G02: a job that imported trailing edges is held to the solver's count;
+    # G06: one whose solver could not use its disc's profile file, to that line.
     log_file_used = stamped.get("log_file_used")
-    status, verdict = _wake_edge_verdict(
+    status, verdict = _log_verdicts(
         record,
         sim_dir,
         collected,
@@ -863,7 +864,7 @@ def _complete_sweep(
 
             shim = _RecordAsCase(as_point, velocity_is_the_point_s=set(point) <= _ATTITUDE_AXES)
             assessment = LoadsAssessor()(shim, None, sim_dir)  # type: ignore[arg-type]
-            status, verdict = _wake_edge_verdict(
+            status, verdict = _log_verdicts(
                 record,
                 sim_dir,
                 collected_by_tag[tag],
@@ -880,7 +881,7 @@ def _complete_sweep(
             )
         else:
             status, verdict = assessor(as_point, sim_dir)
-            status, verdict = _wake_edge_verdict(
+            status, verdict = _log_verdicts(
                 record, sim_dir, collected_by_tag[tag], None, status, verdict, job_log=job_log_text
             )
             entry.update(status=str(status), outputs=list(collected_by_tag[tag]))
@@ -913,7 +914,7 @@ def _complete_sweep(
     )
 
 
-def _wake_edge_verdict(
+def _log_verdicts(
     record: RunRecord,
     sim_dir: Path,
     collected: Sequence[str],
@@ -923,34 +924,42 @@ def _wake_edge_verdict(
     *,
     job_log: str | None = None,
 ) -> tuple[RunStatus, str | None]:
-    """Hold a collected job that imported trailing edges to the count its log states.
+    """Hold a collected job to what its solver log states, whatever the assessor said.
 
-    G02. The local path judges a point the same way the moment its solver
-    returns; a submitted job is judged here instead, from the number its
-    submission recorded and the solver log among the collected outputs. The
-    log is found whichever assessor judged the job: the file the package's own
-    assessor names, or, for an assessor a caller passed, which answers with a
-    status and names nothing, the one collected output that reads as a
-    residual history, as the package's own assessor finds it. A job whose
-    submission records no count imported nothing and is returned unchanged;
-    one that did, with no log collected, cannot be told to have marked
-    anything.
+    Two verdicts, each over a status that is not already a failure. G02: a job
+    that imported trailing edges is held to the count the solver logged, from
+    the number its submission recorded; a job whose submission records no count
+    imported nothing and is not held to one, and one that did, with no log
+    collected, cannot be told to have marked anything. G06: a job whose log says
+    the solver could not use its actuator disc's profile file is FAILED_SCRIPT,
+    whatever its submission recorded, so a job submitted before this was read is
+    judged by it too.
+
+    The local path judges a point the same way the moment its solver returns;
+    a submitted job is judged here instead, from the solver log among the
+    collected outputs. The log is found whichever assessor judged the job: the
+    file the package's own assessor names, or, for an assessor a caller passed,
+    which answers with a status and names nothing, the one collected output
+    that reads as a residual history, as the package's own assessor finds it.
     """
     from pyflightstream.run._wake_edge_verdict import (
+        actuator_profile_verdict,
         collected_solver_log,
         wake_edge_import_verdict,
         with_wake_edge_verdict,
     )
 
-    expected = (record.submission or {}).get("wake_edge_points")
-    if not isinstance(expected, int):
-        return status, verdict
     log_text = collected_solver_log(sim_dir, collected, log_file_used)
     # 0.27.0: a point with no log of its own is held to the job's, which is
     # the scheduler's on a machine that exports none (`_job_log_name`).
     if log_text is None:
         log_text = job_log
-    return with_wake_edge_verdict(status, verdict, wake_edge_import_verdict(expected, log_text))
+    expected = (record.submission or {}).get("wake_edge_points")
+    if isinstance(expected, int):
+        status, verdict = with_wake_edge_verdict(
+            status, verdict, wake_edge_import_verdict(expected, log_text)
+        )
+    return with_wake_edge_verdict(status, verdict, actuator_profile_verdict(log_text, job_log))
 
 
 def _collect_by_point(
