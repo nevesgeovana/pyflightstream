@@ -256,7 +256,9 @@ FlightStream versions.
   `run_additional_post` in `pyflightstream.run.matrix`, `AdditionalRecord` and
   `ExtractionStatus` in `pyflightstream.workspace`, `build_additional_script`
   and its helpers in `pyflightstream.cases.workflows`, and
-  `Script.frames_by_name`.
+  `Script.frames_by_name`. A licensed run on 26.124 extracted two finished
+  points end to end, the loads equal to the run's own, and a second post
+  extracted nothing again (`reports/RPT-072`).
 
 - **`inputs/pproc/INPUTS.md`, the glossary of every input key, generated from
   the code (G08).** Beside `VARIABLES.md`, `pyfs-workspace init`, `pyfs-matrix
@@ -910,8 +912,6 @@ FlightStream versions.
 
 ### Owed
 
-- **The licensed end-to-end run of the additional post** (T10): until it runs,
-  the extraction script is pinned by its goldens and the stub solver alone.
 - **The submitting half of the additional post** (0.28.0): completing an
   extraction handed to a scheduler.
 
