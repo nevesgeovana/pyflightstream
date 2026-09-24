@@ -665,8 +665,11 @@ FlightStream versions.
   shows its file name; no word of any page changed. Two faults the code block
   had hidden are fixed: a blank line splitting the reserved-names table, and a
   link to a heading that no longer exists. A tier-1 test renders every page
-  with the site's extensions and fails on a fence, a heading or a table row
-  the site would lose.
+  with the site's extensions and fails on a fence, a heading, a table row or a
+  table cell the site would lose. The site's table reader cuts a row wider
+  than its header to the header's width and renders the rest of the row as a
+  row, so the test compares every cell of every table a page writes with the
+  table the site renders, and names each cell the rendering drops (D07).
 
 - **The tier-3 page states which induced-drag form each case uses.** Every
   row whose golden script carries `SET_VORTICITY_DRAG_BOUNDARIES` names its
