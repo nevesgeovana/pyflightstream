@@ -11,12 +11,18 @@ row creates it after its solve and exports it under the point's own name:
 * the table is validated where the artifact is read, each shape with its own
   keys, and ``[exports]`` cannot name the volume kinds;
 * the section is created in the analysis phase, after ``START_SOLVER``, where
-  the verified probes created it, and exported with the index 1;
-* each later point of a warm sweep deletes the previous section first, so the
-  export always cites index 1 and names that point's file;
-* the file is never handed to a surface kind (``_vsec`` is claimed first);
+  the verified probes created it, and exported with the index it takes: 1,
+  unless a raw line of the row cut a section before it;
+* each later point of a warm sweep deletes the previous section first, by its
+  own index, so the export names that point's file with that point's plane;
+* every point computes its section with ``UPDATE_ALL_VOLUME_SECTIONS`` between
+  the cut and the export (RPT-070: exported without it, every cell was 0.0);
+* the file is never handed to a surface kind (``_vsec`` is claimed first),
+  while a run recorded before 0.27.0 keeps its ``_vsec`` files the surface
+  exports they were when written;
 * an unsteady or rotor row naming the table is refused before any emission;
-* the file is collected into the point's folder and hashed in the record.
+* the file is collected into the point's folder and hashed in the record;
+* the table's metres reach the solver in the simulation's length unit.
 
 Nothing here runs a solver. What the delete-then-create sequence does on a
 seat is not measured: DELETE_VOLUME_SECTION is verified alone.
@@ -24,7 +30,9 @@ seat is not measured: DELETE_VOLUME_SECTION is verified alone.
 
 from __future__ import annotations
 
+import json
 import re
+from pathlib import Path
 
 import pytest
 from pydantic import ValidationError
@@ -33,6 +41,7 @@ from pyflightstream._digest import file_sha256
 from pyflightstream.cases import (
     CampaignConfigError,
     PprocSpec,
+    RawCommand,
     ReferenceData,
     SimCase,
     SweepAxis,
@@ -45,9 +54,16 @@ from pyflightstream.cases.workflows import (
     build_steady_sweep,
     workflow_registry,
 )
+from pyflightstream.post.products import _prov_document, write_campaign_products
 from pyflightstream.run.matrix import run_matrix
 from pyflightstream.script import Script
-from pyflightstream.workspace import RunStatus
+from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
+from tests.tier1_offline.test_g06_actuator_disc import (
+    MILLIMETRES,
+    WING_PHY,
+    _saved_block,
+    _saved_copy,
+)
 from tests.tier1_offline.test_goal024_point_name import _matrix
 from tests.tier1_offline.test_matrix_run import (
     RECIPES,
@@ -66,6 +82,13 @@ CIRCLE = {
     "points": [10, 12],
     "format": "tecplot",
 }
+
+#: A circle the row's raw line cuts at the analysis seam, BEFORE the pproc's own
+#: section: the raw entry is accepted there, and it is emitted once per point.
+RAW_CIRCLE = RawCommand(
+    command="CREATE_NEW_CIRCLE_VOLUME_SECTION 1 YZ 0.5 10 12 0.2 1.0 NONE 0.1 1 1.2",
+    before="analysis",
+)
 
 
 def _pproc(**table: object) -> PprocSpec:
@@ -212,6 +235,151 @@ def test_g05_each_point_of_a_warm_sweep_exports_its_own_section():
             )
 
 
+def test_g05_the_export_cites_the_pproc_s_own_section_after_a_raw_one():
+    """A raw circle cut first takes index 1, so the pproc's rectangle is 2, and 2 is exported."""
+    case = _steady(_pproc(**RECTANGLE)).model_copy(update={"raw_commands": [RAW_CIRCLE]})
+    lines = _lines(case)
+    raw = lines.index(RAW_CIRCLE.command)
+    own = next(i for i, line in enumerate(lines) if line.startswith("CREATE_NEW_RECTANGLE"))
+    export = next(i for i, line in enumerate(lines) if line.startswith("EXPORT_VOLUME_SECTION"))
+    assert raw < own < export, "the fixture does not cut the raw circle before the pproc's plane"
+    assert (lines[export], lines[export + 1]) == ("EXPORT_VOLUME_SECTION_VTK 2", "P_vsec.vtk"), (
+        f"the pproc's rectangle is the second section the script cut, and the file its pproc "
+        f"declares, P_vsec.vtk, is exported by {lines[export]!r}: the raw circle's plane under "
+        "the rectangle's name"
+    )
+
+
+def test_g05_a_sweep_deletes_and_exports_the_pproc_s_own_section_beside_raw_ones():
+    """Per point the raw circle is cut again; the pproc deletes and exports its own by index.
+
+    Point 1: circle 1, rectangle 2, export 2. Point 2: circle 3, then the
+    rectangle of point 1 (2) is deleted, which moves circle 3 to 2, and point
+    2's rectangle is cut as 3 and exported as 3.
+    """
+    pproc = _pproc(**RECTANGLE)
+    points = [
+        case_at_point(
+            _steady(pproc, stem=f"P-A{int(alpha):+d}", alpha=alpha).model_copy(
+                update={"raw_commands": [RAW_CIRCLE]}
+            ),
+            {"alpha": alpha},
+        )
+        for alpha in (0.0, 2.0)
+    ]
+    script = Script("26.124")
+    build_steady_sweep(points, script)
+    lines = script.render().splitlines()
+    volume = [
+        line
+        for line in lines
+        if line.startswith(("CREATE_NEW_", "DELETE_VOLUME", "EXPORT_VOLUME"))
+        and "ACTUATOR" not in line
+        and "COORDINATE" not in line
+    ]
+    assert volume == [
+        RAW_CIRCLE.command,
+        next(line for line in volume if line.startswith("CREATE_NEW_RECTANGLE")),
+        "EXPORT_VOLUME_SECTION_VTK 2",
+        RAW_CIRCLE.command,
+        "DELETE_VOLUME_SECTION 2",
+        next(line for line in volume if line.startswith("CREATE_NEW_RECTANGLE")),
+        "EXPORT_VOLUME_SECTION_VTK 3",
+    ], volume
+
+
+def test_g05_a_volume_file_with_no_section_of_its_pproc_to_export_is_refused():
+    """No table, or a raw line deleting the pproc's section before its export: refused, named."""
+    declared = _steady(_pproc(**RECTANGLE))
+    bare = declared.model_copy(update={"pproc": PprocSpec(), "pproc_id": "p001"})
+    with pytest.raises(CampaignConfigError, match=r"'P_vsec\.vtk'.*cuts no volume section"):
+        _lines(bare)
+    deleted = declared.model_copy(
+        update={"raw_commands": [RawCommand(command="DELETE_VOLUME_SECTION 1", before="export")]}
+    )
+    with pytest.raises(CampaignConfigError, match=r"'P_vsec\.vtk'.*raw line deleted the one"):
+        _lines(deleted)
+    # THE CONTROL: the same row without the raw delete exports its own section.
+    assert "EXPORT_VOLUME_SECTION_VTK 1" in _lines(declared)
+
+
+def test_g05_a_raw_delete_below_the_pproc_s_section_moves_its_index_down():
+    """Raw circle 1, the pproc's rectangle 2, a raw delete of 1: the rectangle is now 1."""
+    delete_first = RawCommand(command="DELETE_VOLUME_SECTION 1", before="export")
+    case = _steady(_pproc(**RECTANGLE)).model_copy(
+        update={"raw_commands": [RAW_CIRCLE, delete_first]}
+    )
+    lines = _lines(case)
+    export = next(i for i, line in enumerate(lines) if line.startswith("EXPORT_VOLUME_SECTION"))
+    assert lines.index("DELETE_VOLUME_SECTION 1") < export, "the fixture deletes after the export"
+    assert lines[export] == "EXPORT_VOLUME_SECTION_VTK 1", (
+        f"the raw circle below the pproc's rectangle was deleted, so the rectangle is the first "
+        f"section left, and its file is exported by {lines[export]!r}"
+    )
+    # A SECTION ABOVE IT moves nothing: a raw circle cut after the rectangle (2) and
+    # deleted leaves the rectangle 1.
+    above = [
+        RawCommand(command=RAW_CIRCLE.command, before="export"),
+        RawCommand(command="DELETE_VOLUME_SECTION 2", before="export"),
+    ]
+    lines = _lines(_steady(_pproc(**RECTANGLE)).model_copy(update={"raw_commands": above}))
+    export = next(i for i, line in enumerate(lines) if line.startswith("EXPORT_VOLUME_SECTION"))
+    assert lines[export] == "EXPORT_VOLUME_SECTION_VTK 1", lines[export]
+
+
+# --- the section is computed before it is exported ---------------------------
+#
+# The licensed run of 2026-09-24 (RPT-070) exported the two points of a steady
+# one-job sweep that cut a section after START_SOLVER and exported it straight
+# away: both files were byte-identical, and every cell value in them was 0.0.
+# The manual computes the flow on a volume section with "Update all", after the
+# solution has converged, which the script command UPDATE_ALL_VOLUME_SECTIONS is.
+
+
+def _volume_lines(lines: list[str]) -> list[str]:
+    """The solves, the volume-section commands and the volume exports, in order."""
+    return [
+        line
+        for line in lines
+        if line == "START_SOLVER"
+        or ("VOLUME_SECTION" in line and not line.startswith("VOLUME_SECTION_"))
+    ]
+
+
+@pytest.mark.parametrize(
+    ("table", "export"),
+    [(RECTANGLE, "EXPORT_VOLUME_SECTION_VTK 1"), (CIRCLE, "EXPORT_VOLUME_SECTION_TECPLOT 1")],
+    ids=["rectangle-vtk", "circle-tecplot"],
+)
+def test_g05_the_section_is_updated_after_the_solve_and_before_its_export(table, export):
+    """A steady point: solve, cut, UPDATE_ALL_VOLUME_SECTIONS, and only then the export."""
+    volume = _volume_lines(_lines(_steady(_pproc(**table))))
+    assert volume[1].startswith("CREATE_NEW_"), volume
+    assert volume == ["START_SOLVER", volume[1], "UPDATE_ALL_VOLUME_SECTIONS", export], (
+        f"the point's volume commands are {volume}: a section exported without "
+        "UPDATE_ALL_VOLUME_SECTIONS after the solve holds no flow (RPT-070)"
+    )
+
+
+def test_g05_every_point_of_a_one_job_sweep_updates_its_own_section():
+    """Each point of a steady sweep, one script: solve, delete, cut, update, export."""
+    pproc = _pproc(**RECTANGLE)
+    points = [
+        case_at_point(_steady(pproc, stem=f"P-A{int(alpha):+d}", alpha=alpha), {"alpha": alpha})
+        for alpha in (0.0, 4.0, 8.0)
+    ]
+    script = Script("26.124")
+    build_steady_sweep(points, script)
+    volume = _volume_lines(script.render().splitlines())
+    cut = next(line for line in volume if line.startswith("CREATE_NEW_RECTANGLE"))
+    first = ["START_SOLVER", cut, "UPDATE_ALL_VOLUME_SECTIONS", "EXPORT_VOLUME_SECTION_VTK 1"]
+    later = ["START_SOLVER", "DELETE_VOLUME_SECTION 1", *first[1:]]
+    assert volume == first + later + later, (
+        f"the sweep's volume commands are {volume}: every point updates the section it cut "
+        "before exporting it (RPT-070)"
+    )
+
+
 def test_g05_classify_never_hands_a_volume_file_to_a_surface_kind():
     """``_vsec`` is claimed before ``.vtk`` and ``.dat``, whatever order the names come in."""
     assert classify_outputs(["P_vsec.vtk", "P.txt", "P.vtk"]) == {
@@ -224,6 +392,78 @@ def test_g05_classify_never_hands_a_volume_file_to_a_surface_kind():
         "volume_section_tecplot": "P_vsec.dat",
         "loads": "P.txt",
     }
+
+
+def _recorded(tmp_path: Path, version: str) -> tuple[CampaignWorkspace, RunRecord]:
+    """A converged point whose record, written by ``version``, names two ``_vsec`` files."""
+    workspace = CampaignWorkspace(tmp_path / f"camp-{version}")
+    record = RunRecord(
+        run_id="camp/sim_7003/AL+000",
+        sim_id="7003",
+        point_name="AL+000",
+        fs_version_requested="26.124",
+        status=RunStatus.CONVERGED,
+        outputs=["P_vsec.vtk", "P_vsec.dat"],
+        package_version=version,
+        script_sha256="",
+        raw_flag=False,
+    )
+    sim = workspace.sim_dir("7003")
+    sim.mkdir(parents=True, exist_ok=True)
+    for name in record.outputs:
+        (sim / name).write_text("native surface", encoding="utf-8")
+    workspace.append_record(record)
+    return workspace, record
+
+
+def _surface_meaning(
+    workspace: CampaignWorkspace, record: RunRecord
+) -> tuple[dict[str, object], dict[str, object]]:
+    """What the post makes of the record's files: products.json formats, PROV-JSON kinds."""
+    write_campaign_products(workspace, overwrite=True)
+    manifest = json.loads(
+        (workspace.products_dir(None) / "products.json").read_text(encoding="utf-8")
+    )
+    formats = {
+        Path(path).name: entry["format"]
+        for path, entry in manifest["products"].items()
+        if entry.get("format") in ("tecplot", "vtk", "csv")
+    }
+    document = _prov_document(record, workspace.sim_dir(record.sim_id))
+    kinds = {
+        node["pyfs:name"]: node.get("pyfs:kind")
+        for node in document["entity"].values()
+        if node.get("prov:type") == "pyfs:Output"
+    }
+    return formats, kinds
+
+
+def test_g05_a_record_from_before_0_27_0_keeps_its_vsec_files_surface_exports(tmp_path):
+    """A 0.26.0 record's ``P_vsec.vtk`` was a surface export when written, and stays one.
+
+    The suffix names a volume section since 0.27.0; a record written before
+    that release named a surface file, and upgrading the reader does not
+    rewrite what the record says.
+    """
+    formats, kinds = _surface_meaning(*_recorded(tmp_path, "0.26.0"))
+    assert formats == {"P_vsec.vtk": "vtk", "P_vsec.dat": "tecplot"}, (
+        f"products.json holds {formats} for the surface exports of a 0.26.0 record: the "
+        "reader's new suffix took them out of the native-surface entries"
+    )
+    assert kinds == {"P_vsec.vtk": "instant", "P_vsec.dat": "instant"}, (
+        f"PROV-JSON gives the 0.26.0 surface exports the kinds {kinds}"
+    )
+    # THE CONTROL: the same files in a 0.27.0 record are volume sections.
+    formats, kinds = _surface_meaning(*_recorded(tmp_path, "0.27.0.dev6"))
+    assert formats == {} and kinds == {"P_vsec.vtk": None, "P_vsec.dat": None}, (formats, kinds)
+    # AND THE CLASSIFIER BOTH READ THROUGH, by the record's version.
+    names = ["P_vsec.vtk", "P_vsec.dat", "P.txt"]
+    assert classify_outputs(names, package_version="0.26.0") == {
+        "vtk": "P_vsec.vtk",
+        "tecplot": "P_vsec.dat",
+        "loads": "P.txt",
+    }
+    assert classify_outputs(names, package_version="0.27.0") == classify_outputs(names)
 
 
 @pytest.mark.parametrize(
@@ -262,3 +502,38 @@ def test_g05_the_volume_file_is_collected_and_hashed(tmp_path):
     assert re.fullmatch(r"datapoints/DP-(?P<tag>[^/]+)/P3207-(?P=tag)_vsec\.vtk", volume[0])
     on_disk = workspace.sim_dir("3207") / volume[0]
     assert records[0].outputs_sha256[volume[0]] == file_sha256(on_disk)
+
+
+# --- the section's metres reach the solver in the simulation's unit ----------
+
+
+def test_g05_a_millimetre_simulation_takes_the_section_in_millimetres():
+    """Both create commands read their lengths in the simulation's unit: every one times 1000."""
+    rectangle = _lines(
+        _steady(_pproc(**{**RECTANGLE, "offset_m": 0.5})).model_copy(
+            update={"raw_commands": [MILLIMETRES]}
+        )
+    )
+    assert "SET_SIMULATION_LENGTH_UNITS MILLIMETER" in rectangle, "the fixture sets no unit"
+    created = next(line for line in rectangle if line.startswith("CREATE_NEW_RECTANGLE"))
+    assert created == (
+        "CREATE_NEW_RECTANGLE_VOLUME_SECTION 2 XZ 500.0 1 -1000.0 -1000.0 1000.0 1000.0 "
+        "NONE 0.1 1 1.2"
+    ), f"a 2 m square 0.5 m off its plane was cut as {created!r} in a simulation in millimetres"
+    circle = _lines(_steady(_pproc(**CIRCLE)).model_copy(update={"raw_commands": [MILLIMETRES]}))
+    cut = next(line for line in circle if line.startswith("CREATE_NEW_CIRCLE"))
+    assert (
+        cut == "CREATE_NEW_CIRCLE_VOLUME_SECTION 2 YZ 1500.0 10 12 200.0 1000.0 NONE 0.1 1 1.2"
+    ), f"an annulus of 0.2 m to 1 m, 1.5 m off its plane, was cut as {cut!r} in millimetres"
+
+
+def test_g05_a_saved_simulation_whose_unit_is_not_read_is_refused_naming_the_keys(tmp_path):
+    """The section is refused on a save whose global block the package has not read in metres."""
+    head = _saved_block("GLOBAL")
+    other = _saved_copy(tmp_path / "wing_other.fsm", "GLOBAL", [head[0], "1", *head[2:]])
+    case = _steady(_pproc(**CIRCLE)).model_copy(update={"geometry": str(other)})
+    with pytest.raises(CampaignConfigError, match=r"offset_m and radii_m.*in metres"):
+        _lines(case)
+    # THE CONTROL: the committed geometry, saved in metres, cuts the numbers as written.
+    control = _lines(_steady(_pproc(**CIRCLE)).model_copy(update={"geometry": str(WING_PHY)}))
+    assert "CREATE_NEW_CIRCLE_VOLUME_SECTION 2 YZ 1.5 10 12 0.2 1.0 NONE 0.1 1 1.2" in control

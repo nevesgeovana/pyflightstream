@@ -1742,30 +1742,47 @@ format = "vtk"                      # or "tecplot"
 A circle states `radii_m = [r1, r2]` (inner and outer, `0 <= r1 < r2`) and
 `points = [ipts, jpts]` (radial and azimuthal segments) instead of `corners_m`;
 a rectangle may state `refinement_layers` (1 unless stated). Every length is
-in metres, the simulation's length unit, and its key says so. Each shape's keys
-are refused on the other, and a shape missing its own is refused naming them.
-The frame is `MRP` or a frame the reference declares or a rotor carries, and a
-frame the run did not create is refused when the script is built, naming the
-ones it did.
+in metres, and its key says so; the script writes it in the simulation's length
+unit, as [the disc's](#one-row-one-actuator-disc) lengths are written. Each
+shape's keys are refused on the other, and a shape missing its own is refused
+naming them. The frame is `MRP` or a frame the reference declares or a rotor
+carries, and a frame the run did not create is refused when the script is
+built, naming the ones it did.
 
 What the script does, per point: after `START_SOLVER`, in the analysis phase,
 `CREATE_NEW_RECTANGLE_VOLUME_SECTION` or `CREATE_NEW_CIRCLE_VOLUME_SECTION`,
-then `EXPORT_VOLUME_SECTION_VTK 1` or `EXPORT_VOLUME_SECTION_TECPLOT 1` to
+then `UPDATE_ALL_VOLUME_SECTIONS`, which computes the flow on the section,
+then `EXPORT_VOLUME_SECTION_VTK <i>` or `EXPORT_VOLUME_SECTION_TECPLOT <i>` to
 `{name}_vsec.vtk` or `{name}_vsec.dat`, collected into the point's
 `datapoints/DP-<point>/` and hashed in its record like every other output. A
 later point of a steady sweep, which runs in the same script, first emits
-`DELETE_VOLUME_SECTION 1`, so its export writes its own plane. The prism-layer
-arguments are not the table's: the package sends `NONE 0.1 1 1.2`, the values
-the verified probes sent.
+`DELETE_VOLUME_SECTION <i>`, so its export writes its own plane. `<i>` is the
+index the pproc's section takes in the solver's list, counting every section
+the script cuts: 1, unless a raw line of the row cuts a section before it
+(a circle cut by `RAW: {COMMAND: CREATE_NEW_CIRCLE_VOLUME_SECTION ... / BEFORE:
+analysis}` makes the pproc's section 2, and its export cites 2). A raw delete
+moves the index down or, deleting the pproc's own section, leaves its file
+nothing to export, which is refused when the script is built. A section a
+saved simulation already carries is NOT counted, since the package reads none
+from the file, and it is not detected either: a point's final save carries the
+section the point cut, so such a save opened as the geometry of a row whose
+pproc declares a section would shift the index. Open a simulation saved
+without one. The prism-layer arguments are not the table's: the package sends
+`NONE 0.1 1 1.2`, the values the verified probes sent.
 
 WHAT HAS RUN WHERE, from the command database. The five commands the table
 emits (the two creates, the two exports and the delete) are verified on
 26.120 to 26.124, each by a probe that ran it alone, and documented only on
 25.000 to 26.101. The delete-then-create sequence of a sweep is not measured,
 nor is whether `COLD_START`'s clear removes a section, nor any
-`refinement_layers` other than 1. `UPDATE_ALL_VOLUME_SECTIONS` is not emitted:
-it ran without abort in the probes of 26.120 to 26.124 and its effect was never
-observed. `DELETE_ALL_VOLUME_SECTIONS`, `VOLUME_SECTION_WIREFRAME` and
+`refinement_layers` other than 1. `UPDATE_ALL_VOLUME_SECTIONS` is documented
+on every build of the range and ran without abort in the probes of 26.120 to
+26.124, with its effect not observed there. It is emitted because the licensed
+run of 2026-09-24 (RPT-070, 26.124) exported the two points of a steady sweep
+that cut a section and exported it with no update as byte-identical files whose
+every cell value was 0.0, and the manual computes a section's flow with
+"Update all" after the solution has converged. That the update fills the file
+is not yet measured. `DELETE_ALL_VOLUME_SECTIONS`, `VOLUME_SECTION_WIREFRAME` and
 `EXPORT_VOLUME_SECTION_2D_VTK` have never run on any build, and
 `VOLUME_SECTION_BOUNDARY_LAYER` is documented on builds before 26.120 only;
 none of the four is reachable from the table.
@@ -2400,6 +2417,42 @@ ones it does), a speed missing or not above zero, both loadings or neither, a
 a frame the run did not create. The block itself is refused when its name is
 not one word, when it shares its name with a rotor, an alias or a frame, and
 when it forgets `kind = "actuator"`.
+
+**A SAVED SIMULATION THAT ALREADY CARRIES AN ACTUATOR IS REFUSED**, naming the
+actuators it carries. `CREATE_NEW_ACTUATOR` appends to the actuators the opened
+file holds, and every command after it cites the disc by that index, so on
+such a file the row's axis, radius, speed and loading would configure the
+saved actuator; numbering the new disc after it would leave two discs where the
+row states one. Open a simulation saved without an actuator, or name no
+`ACTUATOR` on the row and the saved one stays as it was saved. The package
+reads the file's actuators from its physics block, walked by the block's own
+counts on the shape every save read so far holds (the two carrying a disc are
+the 26.124 saves of the tier-3 disc rows, one actuator each), and a block out of
+that shape is refused as unreadable rather than taken to hold none. A point's
+final save carries the disc its row created, so it is not a geometry for
+another disc row. A raw mesh is imported into a new simulation and carries
+none.
+
+**THE METRES ARE WRITTEN IN THE SIMULATION'S LENGTH UNIT.** `SET_ACTUATOR_AXIS`
+and `SET_ACTUATOR_RADIUS` carry no unit, and the solver reads their lengths in
+the simulation's unit, so the script converts `offset_m`, `tip_radius_m` and
+`hub_radius_m` (and a volume section's lengths the same way) into:
+
+* the unit the script set itself after the open: the metres a raw mesh is set
+  to after its import, or a unit a setup line states, as the row's
+  `RAW: {COMMAND: SET_SIMULATION_LENGTH_UNITS MILLIMETER / BEFORE: setup}`
+  does, which turns a 0.5 m radius into `500.0`;
+* on a saved simulation the script set no unit on, the unit the file was saved
+  in. The package reads it from the head of the file's global block, and it
+  reads one head only: the one every save read so far carries, the saves known
+  to be in metres among them, which it takes as metres. A file opening
+  otherwise is refused at `pyfs-matrix plan`, naming the keys, because
+  whether a save in another unit writes another head has not been measured.
+  Stating the unit the file was saved in with that setup line makes it known,
+  and the lengths are converted into it.
+
+A case that opens nothing, or a placeholder file with no global block, has no
+unit to read, and its lengths are written as stated.
 
 WHAT HAS RUN WHERE, from the command database. `CREATE_NEW_ACTUATOR` is
 verified on 26.100 and 26.120 to 26.124; `SET_ACTUATOR_AXIS`,

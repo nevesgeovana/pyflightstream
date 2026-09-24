@@ -870,11 +870,18 @@ files above, and the package writes no product from it:
 | field | definition |
 |---|---|
 | file | `{name}_vsec.vtk` (`format = "vtk"`, `EXPORT_VOLUME_SECTION_VTK`) or `{name}_vsec.dat` (`format = "tecplot"`, `EXPORT_VOLUME_SECTION_TECPLOT`), in the point's `datapoints/DP-<point>/`, hashed in its record |
-| plane | a rectangle between two diagonal corners (`corners_m`), or an annulus between two radii (`radii_m`), in the `plane` of the named `frame`, `offset_m` along its normal; every length in metres |
-| instant | the converged state of THAT point: the section is created after the point's `START_SOLVER`, and a later point of a sweep deletes the previous section before creating its own, so each file is its own point's plane |
+| plane | a rectangle between two diagonal corners (`corners_m`), or an annulus between two radii (`radii_m`), in the `plane` of the named `frame`, `offset_m` along its normal; every length in metres, written in the simulation's length unit, and a saved simulation whose unit the package cannot read is refused at plan ([the workflows page](workspace-and-workflows.md#one-row-one-actuator-disc)) |
+| instant | the converged state of THAT point: the section is created after the point's `START_SOLVER`, its flow computed by `UPDATE_ALL_VOLUME_SECTIONS` before the export, and a later point of a sweep deletes the previous section before creating its own, so each file is its own point's plane; a section exported with no update held every cell at 0.0 in the licensed run of 2026-09-24 (RPT-070), and that the update fills it is not yet measured |
+| which section | the pproc's own: the export and the delete cite the index the pproc's section takes in the solver's list, counting every section the script cuts, a raw line's included, so a section a raw line cut before it never fills the pproc's file; a raw line deleting the pproc's section leaves the file nothing to export, and the row is refused when its script is built |
 
 The `_vsec` infix is what tells the file from a surface export of the same
-extension. There is one section per pproc; an unsteady row naming a pproc that
+extension, in a run recorded by 0.27.0 or later. **A run recorded before 0.27.0
+keeps the meaning its release gave the name**: its `P_vsec.vtk` or
+`P_vsec.dat` was a surface VTK or Tecplot export, and the post keeps it one, a
+native-surface entry of `products.json` with its instant or average metadata in
+PROV-JSON, because upgrading the reader does not rewrite what a record says.
+The post reads every recorded output by the kinds the record's
+`package_version` knew. There is one section per pproc; an unsteady row naming a pproc that
 declares one is refused, because its step exports run before a section cut
 after the march exists. The commands are verified on 26.120 to 26.124 one at a
 time; the delete-then-create sequence of a sweep is not measured.

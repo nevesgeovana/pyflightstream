@@ -346,7 +346,8 @@ def prov_document(record: RunRecord, sim_dir: Path) -> dict[str, object]:
                 "pyfs:sha256_from": sha256_from,
                 **(
                     {f"pyfs:{key}": value for key, value in surface_export_metadata(record).items()}
-                    if set(classify_outputs([name])) & {"tecplot", "vtk", "csv"}
+                    if set(classify_outputs([name], package_version=record.package_version))
+                    & {"tecplot", "vtk", "csv"}
                     else {}
                 ),
             }

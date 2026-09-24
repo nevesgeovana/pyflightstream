@@ -210,7 +210,10 @@ base from a body.
 - A case written in Python that declares an output ending in `_vsec.vtk` or
   `_vsec.dat` used to export it as a surface file. That suffix now names the
   volume-section export, and without a `[volume_section]` table the case is
-  refused. Rename the output.
+  refused. Rename the output. A run already RECORDED with such an output keeps
+  it: a record written before 0.27.0 is read by the kinds its release knew, so
+  its `_vsec.vtk` or `_vsec.dat` stays a surface export in `products.json` and
+  PROV-JSON, and nothing is renamed.
 - A setup whose `[[flags]]` declares a flag named `ACTUATOR`, `ACTUATOR_RPM`,
   `ACTUATOR_THRUST` or `PROFILE` (any case) is now refused, because a run type
   reads those words. Rename the flag.

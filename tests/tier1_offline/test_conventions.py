@@ -480,7 +480,10 @@ _SRC = Path(pyflightstream.__file__).parent
 #: own docstring that it imports the errors and the standard library only, and
 #: `_tokens`. The overview's layer table does not draw them, so they are named
 #: here; the row is the floor's, and the walks now read their imports.
-_UNDRAWN_FLOOR_MODULES: tuple[str, ...] = ("_expressions", "_tokens")
+#: `_lengths` joined in 0.27.0: the metres of each length unit, which the cases
+#: layer converts the actuator disc and the volume section with and the
+#: workspace layer the trailing-edge node file.
+_UNDRAWN_FLOOR_MODULES: tuple[str, ...] = ("_expressions", "_lengths", "_tokens")
 _LAYER_ROW: dict[str, int] = (
     {name: row for row, (names, _) in enumerate(_CORE_LAYERS) for name in names}
     | {name: len(_CORE_LAYERS) for names, _ in _BASE_LAYERS for name in names}

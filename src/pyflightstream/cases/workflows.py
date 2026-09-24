@@ -83,7 +83,10 @@ from pyflightstream._fsm import (
     MeshReadError,
     boundary_labels,
     boundary_names,
+    saved_actuators,
+    saved_length_unit,
 )
+from pyflightstream._lengths import scale
 from pyflightstream._retired_names import retired_frame
 from pyflightstream.cases import (
     AXES_PLOT_COMPONENTS,
@@ -7002,7 +7005,9 @@ def _the_actuator_the_row_names(case: SimCase) -> _RowActuator | None:
     CALLED BEFORE THE FIRST EMISSION by every builder that emits a disc, so a
     row that cannot be built is refused with nothing written. A row stating
     none of the four keys returns None, whatever its reference declares: a
-    reference's disc moves nothing a row does not name.
+    reference's disc moves nothing a row does not name. A saved simulation
+    that already carries an actuator is refused here too
+    (:func:`_refuse_a_disc_beside_a_saved_one`).
     """
     stated = [key for key in ACTUATOR_KEYS if _variable(case, key) is not None]
     if not stated:
@@ -7075,7 +7080,106 @@ def _the_actuator_the_row_names(case: SimCase) -> _RowActuator | None:
                 "sets actuator_profile to the file's absolute path."
             )
         profile = case.actuator_profile
+    _refuse_a_disc_beside_a_saved_one(case, name)
     return _RowActuator(name=name, block=block, rpm=rpm, thrust=thrust, profile=profile)
+
+
+def _refuse_a_disc_beside_a_saved_one(case: SimCase, name: str) -> None:
+    """Refuse a row's disc on a saved simulation that already carries an actuator (G06).
+
+    ``CREATE_NEW_ACTUATOR`` APPENDS to the actuators the opened simulation
+    holds, and the script's ledger starts from none, so on a file that saved
+    one the axis, radius, speed and loading the script cites as actuator 1
+    would configure the SAVED actuator and leave the row's own unset. Numbering
+    the new disc after the saved ones would not answer the row either: the
+    saved actuator stays in the simulation, and the row states one disc. So
+    the row is refused, naming what the file carries
+    (:func:`pyflightstream._fsm.saved_actuators`), and a file whose actuators
+    cannot be read is refused rather than written into on a guess. A raw
+    mesh is imported into a new simulation and carries none, and a
+    placeholder with no physics block reads as none, as its inventory does.
+    """
+    geometry = case.geometry
+    if geometry is None or PurePath(str(geometry)).suffix.lower() != SIMULATION_SUFFIX:
+        return
+    file = PurePath(str(geometry)).name
+    try:
+        saved = saved_actuators(geometry)
+    except MeshReadError as error:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} names the actuator disc {name!r}, and the actuators its "
+            f"saved simulation {file} already carries cannot be read: {error}. The disc the row "
+            "creates is cited by the index after them, so it is not created on a guess; open "
+            "a simulation saved without an actuator."
+        ) from error
+    if saved:
+        carried = ", ".join(repr(each) for each in saved)
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} names the actuator disc {name!r}, and its saved simulation "
+            f"{file} already carries the actuator {carried}. The disc the script creates would "
+            f"be actuator {len(saved) + 1} beside it, the commands after it would configure the "
+            "saved one, and the row states one disc. Open a simulation saved without an "
+            "actuator, or name no ACTUATOR on this row and the saved actuator stays as it was "
+            "saved."
+        )
+
+
+def _from_metres(case: SimCase, script: Script, what: str) -> float:
+    """Return the factor that writes a length in metres in the simulation's unit (G05, G06).
+
+    The disc's and the section's lengths are stated in metres, and their
+    commands carry no unit: the solver reads them in the SIMULATION's length
+    unit, which an opened saved simulation keeps from its save. The unit is
+    taken, in this order:
+
+    * the unit THIS SCRIPT set, which the phase order puts after the open
+      (:attr:`~pyflightstream.script.Script.simulation_length_unit`): the
+      metres a raw mesh is set to after its import, or a unit a setup line
+      states;
+    * else, on a saved simulation, the unit it was saved in, as far as
+      :func:`pyflightstream._fsm.saved_length_unit` reads it: metres for the
+      head every save read carries, and refused for any other;
+    * else nothing states a unit (a case that opens nothing, or a placeholder
+      with no global block, which no solver save lacks), and the lengths are
+      written as stated, as such a file's boundary inventory is left
+      undeclared.
+
+    The conversion is the package's one table (:mod:`pyflightstream._lengths`),
+    the table the trailing-edge node file is converted with.
+
+    Raises
+    ------
+    CampaignConfigError
+        Naming ``what``: the saved simulation's unit is not one this package
+        has read, or the script set a unit that names no scale (OTHER).
+    """
+    unit = script.simulation_length_unit
+    geometry = case.geometry
+    if (
+        unit is None
+        and geometry is not None
+        and PurePath(str(geometry)).suffix.lower() == SIMULATION_SUFFIX
+    ):
+        try:
+            unit = saved_length_unit(geometry)
+        except MeshReadError as error:
+            raise CampaignConfigError(
+                f"case {case.sim_id!r}: {what} are in metres, and the solver reads them in "
+                f"the simulation's length unit, which this saved simulation does not let the "
+                f"package know: {error}. State the unit it was saved in after the open, the "
+                "row's RAW: {COMMAND: SET_SIMULATION_LENGTH_UNITS <unit> / BEFORE: setup} or "
+                "the same line in its setup's [[raw]], and the lengths are converted into it."
+            ) from error
+    if unit is None:
+        return 1.0
+    factor = scale("METER", unit)
+    if factor is None:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: {what} are in metres, and this script sets the "
+            f"simulation's length unit to {unit!r}, which names no scale, so no metre can be "
+            "written in it. Set a unit with a scale."
+        )
+    return factor
 
 
 def _actuator_disc(
@@ -7087,6 +7191,10 @@ def _actuator_disc(
     a setup definition, and ``SET_ACTUATOR_AXIS`` cites a frame that must
     already exist. The emission itself is the curated helper's, which refuses
     the profile route on a build whose grammar takes no blade count.
+
+    THE BLOCK'S METRES ARE WRITTEN IN THE SIMULATION'S UNIT, which is the unit
+    the two commands read (:func:`_from_metres`); a unit the package cannot
+    know is refused naming the three keys.
     """
     if disc is None:
         return
@@ -7100,14 +7208,19 @@ def _actuator_disc(
             "[[frames]] declares, MRP, or a frame of a rotor this row turns."
         )
     block = disc.block
+    factor = _from_metres(
+        case,
+        script,
+        f"the offset_m, tip_radius_m and hub_radius_m of the actuator disc {disc.name!r}",
+    )
     helpers.actuator_disc(
         script,
         disc.name,
         frame=frame,
         axis=block.axis,
-        offset=block.offset_m,
-        r_tip=block.tip_radius_m,
-        r_hub=block.hub_radius_m,
+        offset=block.offset_m * factor,
+        r_tip=block.tip_radius_m * factor,
+        r_hub=block.hub_radius_m * factor,
         rpm=block.rpm_sign * disc.rpm,
         thrust=disc.thrust,
         thrust_type="NEWTONS",
@@ -8744,10 +8857,6 @@ _VOLUME_SECTION_COMMANDS = {
     "rectangle": "CREATE_NEW_RECTANGLE_VOLUME_SECTION",
     "circle": "CREATE_NEW_CIRCLE_VOLUME_SECTION",
 }
-#: The index every volume-section export and delete cites. The section is the
-#: script's only one, and a later point of a sweep deletes it before cutting its
-#: own, so it is always the first.
-_VOLUME_SECTION_INDEX = 1
 
 
 def _pproc_volume_section(case: SimCase, script: Script, frames: Frames) -> None:
@@ -8758,29 +8867,51 @@ def _pproc_volume_section(case: SimCase, script: Script, frames: Frames) -> None
     file). A section is a cut through a solution, and one created before the
     solve cuts a field that does not exist yet.
 
-    A LATER POINT OF A SWEEP DELETES THE PREVIOUS SECTION FIRST. A steady row is
-    one script, so a section created per point would take indices 1, 2, 3 and
-    each point's export of index 1 would write the first point's plane under
-    its own name. `DELETE_VOLUME_SECTION` is verified alone on the same five
-    builds; the delete-then-create sequence inside one script is not measured,
-    and neither is whether a `COLD_START` clear removes a section.
+    THEN ``UPDATE_ALL_VOLUME_SECTIONS``, which computes the flow on it. A
+    section cut and exported straight away holds nothing: the licensed run of
+    2026-09-24 (RPT-070, 26.124) exported both points of a steady sweep that way
+    as byte-identical files whose every cell value was 0.0. The manual computes
+    the flow on a volume section with "Update all", after the solution has
+    converged (SRC-752 p.256; the command is p.372), so every point
+    updates after cutting its own section and before any export. The command is
+    documented on every build of the range and ran without abort in the probes
+    of 26.120 to 26.124; that it fills the export is not yet measured.
+
+    A LATER POINT OF A SWEEP DELETES THE PREVIOUS SECTION FIRST, BY ITS OWN
+    INDEX. A steady row is one script, so a section created per point would
+    take indices 1, 2, 3 and each point's export would write another point's
+    plane under its own name. The index is the one the script's ledger gives
+    the section (:attr:`~pyflightstream.script.Script.volume_section_index`),
+    counting every section the script cut: a raw line of the row may cut its
+    own before the pproc's, and the pproc's is then 2, not 1. A section a
+    saved simulation carries is not counted, since none is read from the file.
+    `DELETE_VOLUME_SECTION` is verified alone on the same five builds; the
+    delete-then-create sequence inside one script is not measured, and neither
+    is whether a `COLD_START` clear removes a section.
+
+    THE TABLE'S METRES ARE WRITTEN IN THE SIMULATION'S UNIT (:func:`_from_metres`),
+    and a unit the package cannot know is refused naming the keys. The prism
+    filler (:data:`~pyflightstream.cases.VOLUME_SECTION_PRISMS`) is not a
+    length the table states and is sent as the verified probes sent it.
     """
     pproc = case.pproc
     if pproc is None or pproc.volume_section is None:
         return
     section = pproc.volume_section
     frame = _pproc_frame(case, frames, section.frame, "the volume section")
-    if script.volume_section_created:
-        script.emit("DELETE_VOLUME_SECTION", _VOLUME_SECTION_INDEX)
+    shape_key = "corners_m" if section.shape == "rectangle" else "radii_m"
+    factor = _from_metres(case, script, f"the offset_m and {shape_key} of the [volume_section]")
+    if script.volume_section_index is not None:
+        script.emit("DELETE_VOLUME_SECTION", script.volume_section_index)
     prisms_type, thickness, layers, growth_rate = VOLUME_SECTION_PRISMS
     if section.shape == "rectangle":
         assert section.corners_m is not None  # the model refuses a rectangle without
-        x1, y1, x2, y2 = section.corners_m
+        x1, y1, x2, y2 = (corner * factor for corner in section.corners_m)
         script.emit(
             _VOLUME_SECTION_COMMANDS["rectangle"],
             frame=frame,
             plane=section.plane,
-            offset=section.offset_m,
+            offset=section.offset_m * factor,
             refinement_layers=section.refinement_layers,
             x1=x1,
             y1=y1,
@@ -8797,17 +8928,21 @@ def _pproc_volume_section(case: SimCase, script: Script, frames: Frames) -> None
             _VOLUME_SECTION_COMMANDS["circle"],
             frame=frame,
             plane=section.plane,
-            offset=section.offset_m,
+            offset=section.offset_m * factor,
             ipts=section.points[0],
             jpts=section.points[1],
-            r1=section.radii_m[0],
-            r2=section.radii_m[1],
+            r1=section.radii_m[0] * factor,
+            r2=section.radii_m[1] * factor,
             prisms_type=prisms_type,
             thickness=thickness,
             layers=layers,
             growth_rate=growth_rate,
         )
-    script.volume_section_created = True
+    # THE SECTION JUST CUT IS THE LAST OF THE LIST, so its index is the count.
+    script.volume_section_index = script.volume_sections
+    # COMPUTED BEFORE IT IS EXPORTED (RPT-070): the solve has run, and the cut
+    # holds no flow until the sections are updated.
+    script.emit("UPDATE_ALL_VOLUME_SECTIONS")
 
 
 def _refuse_a_volume_section_off_a_steady_row(case: SimCase, name: str) -> None:
@@ -8882,15 +9017,18 @@ def _surface_export(script: Script, case: SimCase, kind: str, name: str) -> bool
         script.emit(verb, *args, -1)
     elif kind in VOLUME_SECTION_KINDS.values():
         # G05. An export of a section nobody cut is an export of nothing, which
-        # a declared output then reports as missing on a seat; refused here.
-        if not script.volume_section_created:
+        # a declared output then reports as missing on a seat; refused here. The
+        # index is the pproc's own section's, never a section a raw line cut.
+        own = script.volume_section_index
+        if own is None:
             raise CampaignConfigError(
                 f"case {case.sim_id!r} declares the volume-section output {name!r} and its "
-                "script cuts no volume section: the section is declared by the pproc's "
-                "[volume_section] table on a steady row, which also names the output"
+                "script cuts no volume section of its pproc, or a raw line deleted the one "
+                "it cut: the section is declared by the pproc's [volume_section] table on a "
+                "steady row, which also names the output"
             )
         verb = next(verb for each, _, verb, _ in EXPORT_KINDS if each == kind)
-        script.emit(verb, _VOLUME_SECTION_INDEX, name)
+        script.emit(verb, own, name)
     else:
         return False
     return True
