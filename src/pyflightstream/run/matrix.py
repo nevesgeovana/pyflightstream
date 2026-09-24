@@ -119,6 +119,7 @@ def _refuse_an_unmapped_build(executor: Executor, resolved: ResolvedMatrix) -> N
 
 
 __all__ = [
+    "campaign_executor",
     "plan_matrix",
     "run_matrix",
 ]
@@ -557,6 +558,138 @@ def _row_versions(resolved: ResolvedMatrix) -> dict[str, str]:
     return versions
 
 
+def campaign_executor(
+    workspace: CampaignWorkspace,
+    resolved: ResolvedMatrix,
+    path: str | Path,
+    *,
+    executor: Executor | None = None,
+    local: bool = False,
+    hidden: bool | None = None,
+) -> tuple[Executor, Callable[[Path], Executor]]:
+    """Choose the executor a bound matrix runs on, and the one for each other build.
+
+    ONE CHOICE FOR EVERY COMMAND THAT LAUNCHES THE SOLVER OVER A MATRIX:
+    :func:`run_matrix` and the additional post of 0.27.0 (G12) both ask
+    here, so ``local`` and the cluster rule mean one thing whichever
+    command a user typed. Split out of :func:`run_matrix` with no
+    change of behaviour.
+
+    Parameters
+    ----------
+    workspace : CampaignWorkspace
+        The campaign root, whose submission profile a cluster reads.
+    resolved : pyflightstream.workspace.matrix.ResolvedMatrix
+        The bound matrix; its ``fs_exe`` is the campaign's own executable.
+    path : str or Path
+        The matrix, whose HIDDEN column decides the window when ``hidden``
+        is None.
+    executor : Executor, optional
+        A caller's executor, which then answers for every build.
+    local : bool
+        Keep the run on this machine, as ``run_matrix(local=True)``.
+    hidden : bool or None
+        Windowless solver runs; None lets the matrix decide.
+
+    Returns
+    -------
+    tuple of Executor and callable
+        The campaign's executor, and ``executor_for(exe)`` building the one
+        of another build's executable.
+
+    Raises
+    ------
+    pyflightstream.run.ExecutorConfigurationError
+        ``local`` beside a submitting executor, or a missing executable.
+    pyflightstream.workspace.InputArtifactError
+        A build the submission profile cannot name.
+    """
+    # Held before the branch below rebinds the name, because it is what
+    # tells a build's executor apart from the campaign's: a caller who
+    # supplied an executor supplied it for the whole run, whatever
+    # installation a row names, and building a LocalExecutor beside it
+    # would send some rows somewhere the caller never asked for.
+    supplied = executor
+    forced = False
+    if executor is None:
+        # The matrix has a HIDDEN column and it used to be read into the
+        # matrix_hidden variable and never acted on, so a row saying 0
+        # (show the window) ran headless anyway because this parameter
+        # defaults to True. The row decides when the caller did not
+        # (hidden=None); an explicit True or False still wins, because a
+        # caller who names it means it.
+        if hidden is None:
+            rows = read_matrix(path)
+            hidden = all(row.hidden for row in rows) if rows else True
+        # FR-99: THE CODE SEES LINUX AND THAT
+        # IS THE CLUSTER. No cell selects it, so the same matrix, unchanged
+        # in every cell, runs locally on Windows and submits on Linux.
+        #
+        # THIS BRANCH IS THE WHOLE WIRING, and without it every name the
+        # release added was dead code: `on_a_cluster`, the profile reader
+        # and the submitting executor existed, the CHANGELOG announced
+        # them in the present tense, and `run_campaign` built a
+        # LocalExecutor unconditionally, so opening the study on a cluster
+        # ran it locally on the login node -- the exact failure
+        # `on_a_cluster`'s own comment says it exists to prevent. All five
+        # lenses found it independently (2026-09-13).
+        #
+        # `local=True` (the command line's --local, 0.27.0) KEEPS THE RUN ON
+        # THIS MACHINE: the cluster is not asked, so a Linux box that carries
+        # a profile runs the solver itself, the way Windows does. The choice
+        # is recorded on every point's executor entry as `forced_local`, so a
+        # record never has to be read against the platform to know why a
+        # profiled workspace ran without a queue.
+        #
+        # `forced_local` IS THE SWITCH'S MEASURED EFFECT, not the request (the
+        # opening round of 0.27.0): it is recorded only where the platform
+        # would have submitted, a cluster with a profile. On Windows, or on a
+        # Linux box with none, the run was local anyway and nothing was forced.
+        # The profile is COUNTED rather than resolved, so a local run is never
+        # refused over an ambiguity in a profile it does not use.
+        submitting = None if local else _cluster_executor(workspace, resolved)
+        forced = local and on_a_cluster() and bool(hpc_profiles(workspace.inputs_dir))
+        executor = submitting or LocalExecutor(resolved.fs_exe, hidden=hidden, forced_local=forced)
+    # THE PROTOCOL, NOT THE CLASS: the runner submits through anything that
+    # implements `Submitting`, so a caller's own scheduler adapter that does
+    # not inherit SubmittingExecutor passed a class check and could submit
+    # under local=True (the opening round of 0.27.0, all five lenses).
+    if local and isinstance(executor, Submitting):
+        raise ExecutorConfigurationError(
+            "local=True keeps the run on this machine, and the executor given is a "
+            "submitting one; drop one of the two"
+        )
+    _refuse_an_unmapped_build(executor, resolved)
+    windowless = bool(hidden)
+
+    def executor_for(exe: Path) -> Executor:
+        """Build the executor of one row's own installation.
+
+        The window setting is the one the campaign's own executor was
+        built with, so a second build runs the same way the first does.
+
+        ON A CLUSTER EVERY BUILD SUBMITS, and this returned a LocalExecutor
+        for a row naming its own installation until 2026-09-13: a
+        multi-build matrix submitted its default-build rows and ran the
+        rest on the login node, or died at LocalExecutor's own refusal
+        about an executable path that does not exist on that machine, with
+        nothing in the message mentioning a cluster. Half-wired is harder
+        to see than not wired (the architect lens, round two).
+
+        ONE PROFILE SERVES EVERY BUILD, which is why the campaign's own
+        submitting executor is reused rather than one built per build: the
+        descriptor names the SCRIPT and the build is a field inside it,
+        which `_bind_submission_values` sets from the row.
+        """
+        if supplied is not None:
+            return supplied
+        if isinstance(executor, SubmittingExecutor):
+            return executor
+        return LocalExecutor(exe, hidden=windowless, forced_local=forced)
+
+    return executor, executor_for
+
+
 def run_matrix(
     path: str | Path,
     workspace: CampaignWorkspace,
@@ -751,89 +884,9 @@ def run_matrix(
             f"pre-flight blocked {len(plan.blocked)} matrix point(s); nothing was "
             f"executed:\n{plan.summary()}"
         )
-    # Held before the branch below rebinds the name, because it is what
-    # tells a build's executor apart from the campaign's: a caller who
-    # supplied an executor supplied it for the whole run, whatever
-    # installation a row names, and building a LocalExecutor beside it
-    # would send some rows somewhere the caller never asked for.
-    supplied = executor
-    forced = False
-    if executor is None:
-        # The matrix has a HIDDEN column and it used to be read into the
-        # matrix_hidden variable and never acted on, so a row saying 0
-        # (show the window) ran headless anyway because this parameter
-        # defaults to True. The row decides when the caller did not
-        # (hidden=None); an explicit True or False still wins, because a
-        # caller who names it means it.
-        if hidden is None:
-            rows = read_matrix(path)
-            hidden = all(row.hidden for row in rows) if rows else True
-        # FR-99: THE CODE SEES LINUX AND THAT
-        # IS THE CLUSTER. No cell selects it, so the same matrix, unchanged
-        # in every cell, runs locally on Windows and submits on Linux.
-        #
-        # THIS BRANCH IS THE WHOLE WIRING, and without it every name the
-        # release added was dead code: `on_a_cluster`, the profile reader
-        # and the submitting executor existed, the CHANGELOG announced
-        # them in the present tense, and `run_campaign` built a
-        # LocalExecutor unconditionally, so opening the study on a cluster
-        # ran it locally on the login node -- the exact failure
-        # `on_a_cluster`'s own comment says it exists to prevent. All five
-        # lenses found it independently (2026-09-13).
-        #
-        # `local=True` (the command line's --local, 0.27.0) KEEPS THE RUN ON
-        # THIS MACHINE: the cluster is not asked, so a Linux box that carries
-        # a profile runs the solver itself, the way Windows does. The choice
-        # is recorded on every point's executor entry as `forced_local`, so a
-        # record never has to be read against the platform to know why a
-        # profiled workspace ran without a queue.
-        #
-        # `forced_local` IS THE SWITCH'S MEASURED EFFECT, not the request (the
-        # opening round of 0.27.0): it is recorded only where the platform
-        # would have submitted, a cluster with a profile. On Windows, or on a
-        # Linux box with none, the run was local anyway and nothing was forced.
-        # The profile is COUNTED rather than resolved, so a local run is never
-        # refused over an ambiguity in a profile it does not use.
-        submitting = None if local else _cluster_executor(workspace, resolved)
-        forced = local and on_a_cluster() and bool(hpc_profiles(workspace.inputs_dir))
-        executor = submitting or LocalExecutor(resolved.fs_exe, hidden=hidden, forced_local=forced)
-    # THE PROTOCOL, NOT THE CLASS: the runner submits through anything that
-    # implements `Submitting`, so a caller's own scheduler adapter that does
-    # not inherit SubmittingExecutor passed a class check and could submit
-    # under local=True (the opening round of 0.27.0, all five lenses).
-    if local and isinstance(executor, Submitting):
-        raise ExecutorConfigurationError(
-            "local=True keeps the run on this machine, and the executor given is a "
-            "submitting one; drop one of the two"
-        )
-    _refuse_an_unmapped_build(executor, resolved)
-    windowless = bool(hidden)
-
-    def executor_for(exe: Path) -> Executor:
-        """Build the executor of one row's own installation.
-
-        The window setting is the one the campaign's own executor was
-        built with, so a second build runs the same way the first does.
-
-        ON A CLUSTER EVERY BUILD SUBMITS, and this returned a LocalExecutor
-        for a row naming its own installation until 2026-09-13: a
-        multi-build matrix submitted its default-build rows and ran the
-        rest on the login node, or died at LocalExecutor's own refusal
-        about an executable path that does not exist on that machine, with
-        nothing in the message mentioning a cluster. Half-wired is harder
-        to see than not wired (the architect lens, round two).
-
-        ONE PROFILE SERVES EVERY BUILD, which is why the campaign's own
-        submitting executor is reused rather than one built per build: the
-        descriptor names the SCRIPT and the build is a field inside it,
-        which `_bind_submission_values` sets from the row.
-        """
-        if supplied is not None:
-            return supplied
-        if isinstance(executor, SubmittingExecutor):
-            return executor
-        return LocalExecutor(exe, hidden=windowless, forced_local=forced)
-
+    executor, executor_for = campaign_executor(
+        workspace, resolved, path, executor=executor, local=local, hidden=hidden
+    )
     # AFTER the executor exists, because a `SolverBuild` names one, and
     # after the pre-flight above, which is planned from the resolved
     # campaign.

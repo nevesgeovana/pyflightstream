@@ -575,8 +575,50 @@ def _build_parser() -> argparse.ArgumentParser:
             "the polar, section and plot tables under post/<matrix stem>/, exactly as `run` "
             "left them; needs no executable and spends no seat (PFS-2029.15.03). Given a "
             "matrix, rebuilds that matrix's products; given none, every matrix the manifest "
-            "names, and the records naming none under post/products."
+            "names, and the records naming none under post/products. EXCEPT with "
+            "--additional-pproc, which first reopens the final saved simulation of every "
+            "recorded point whose row states ADDITIONAL_PPROC, one solver launch per point "
+            "and no solve, extracts that pproc into datapoints/DP-<point>/additional/<pid>/ "
+            "and records it in additional.json; runs.json is never written."
         ),
+    )
+    post.add_argument(
+        "--additional-pproc",
+        dest="additional_pproc",
+        action="store_true",
+        help="before the products, reopen the final .fsm of every recorded point whose row "
+        "states ADDITIONAL_PPROC: p<id>, with no solve, and extract that pproc: its section "
+        "distributions, the sections and their sectional loads, the loads, the surface "
+        "exports it selects, the log, and on an unsteady point the plots history (one "
+        "instant, the last). A point without the key, without its .fsm, or whose .fsm does "
+        "not hash as its record says is skipped by name. Needs the matrix and the "
+        "executable its rows name; one solver launch per point. 26.124 only (RPT-062)",
+    )
+    post.add_argument(
+        "--fs-version",
+        default=None,
+        help="with --additional-pproc: the version rows whose FS_BUILD cell is empty fall "
+        "back to, as for `run`",
+    )
+    post.add_argument(
+        "--fs-exe",
+        default=None,
+        help="with --additional-pproc: the explicit executable override, as for `run`",
+    )
+    post.add_argument(
+        "--local",
+        action="store_true",
+        help="with --additional-pproc: reopen the saved simulations on THIS machine, as "
+        "`run --local` runs there; the submitting half of the additional post is not built, "
+        "so a workspace that submits from here is refused without it",
+    )
+    post.add_argument(
+        "--recipe",
+        action="append",
+        default=[],
+        metavar="CODE=MODULE:FUNCTION",
+        help="with --additional-pproc: a LEGACY row's recipe code (repeatable), so a matrix "
+        "mixing LEGACY rows with rows naming a run type binds as it did for `run`",
     )
     post.add_argument(
         "--check-frozen",
@@ -905,10 +947,41 @@ def _cmd_collect(args: argparse.Namespace) -> int:
 
 
 def _cmd_post(args: argparse.Namespace) -> int:
-    """Rebuild the products from the manifest alone."""
+    """Rebuild the products from the manifest alone, after the additional post when asked."""
     from pyflightstream.workspace import post_stages
 
+    # FLAGS THAT ONLY MEAN SOMETHING TO THE ADDITIONAL POST ARE REFUSED WITHOUT
+    # IT, in the form `--yes` is refused without `--force-overwrite`: accepted and
+    # ignored, `post --fs-exe X` would read as though the rebuild ran something.
+    idle = [
+        flag
+        for flag, value in (
+            ("--fs-version", args.fs_version),
+            ("--fs-exe", args.fs_exe),
+            ("--local", args.local),
+            ("--recipe", args.recipe),
+        )
+        if value and not args.additional_pproc
+    ]
+    if idle:
+        print(
+            f"{', '.join(idle)} only mean something to --additional-pproc, which reopens the "
+            "saved simulations; the rebuild of the products launches nothing. Add "
+            "--additional-pproc, or drop "
+            f"{'them' if len(idle) > 1 else 'it'}.",
+            file=sys.stderr,
+        )
+        return 2
+    if args.additional_pproc and args.matrix is None:
+        print(
+            "--additional-pproc needs the matrix: the ADDITIONAL_PPROC key is read from its "
+            "rows. Name it: pyfs-matrix post <matrix> --additional-pproc.",
+            file=sys.stderr,
+        )
+        return 2
     workspace = CampaignWorkspace(args.workspace)
+    extraction_failed = 0
+    extraction_skipped = 0
     try:
         records = workspace.read_manifest()
         if not records:
@@ -956,6 +1029,11 @@ def _cmd_post(args: argparse.Namespace) -> int:
                 file=sys.stderr,
             )
             return 2
+        if args.additional_pproc:
+            outcome = _additional_post(args, workspace)
+            if outcome is None:
+                return 2
+            extraction_failed, extraction_skipped = outcome
         written: list[Path] = []
         for matrix in matrices:
             for stage in post_stages():
@@ -980,6 +1058,16 @@ def _cmd_post(args: argparse.Namespace) -> int:
     # A simulation whose product was refused by design is a skip the
     # manifest records (PFS-2031.16); say it where the user looks.
     skipped = _report_skips(workspace, matrices)
+    if extraction_failed:
+        # THE PRECEDENT OF `run` WITH FAILURES: the products of everything that
+        # worked are written, and the exit says a launch failed.
+        print(
+            f"--additional-pproc: {extraction_failed} extraction(s) failed; the products of "
+            "the rest were written. Each failure is in additional.json with its reason.",
+            file=sys.stderr,
+        )
+        return 2
+    skipped += extraction_skipped
     if skipped and args.strict:
         # The design decision of 2026-09-08: a skip is a success by default, since
         # everything producible was produced, and a wrapper that needs to
@@ -992,6 +1080,61 @@ def _cmd_post(args: argparse.Namespace) -> int:
         )
         return 3
     return 0
+
+
+def _additional_post(
+    args: argparse.Namespace, workspace: CampaignWorkspace
+) -> tuple[int, int] | None:
+    """Run the additional post of one matrix and print one line per recorded point (G12).
+
+    Returns how many extractions failed and how many points were skipped for a
+    reason that asks something of the user, or None for a refusal before any
+    launch, which the caller turns into exit 2. A row without the key, a point
+    already extracted and a run a continuation replaced are skips that ask
+    nothing, so ``--strict`` does not count them.
+    """
+    from pyflightstream.run.additional import AdditionalSkip, run_additional_post
+
+    try:
+        plans, records = run_additional_post(
+            args.matrix,
+            workspace,
+            default_fs_version=args.fs_version,
+            recipes=_parse_recipes(args.recipe),
+            fs_exe=args.fs_exe,
+            local=args.local,
+        )
+    except (
+        MatrixError,
+        InputArtifactError,
+        CampaignConfigError,
+        WorkflowCoverageError,
+        PyflightstreamError,
+        OSError,
+        ValueError,
+    ) as error:
+        print(f"additional post not run: {error}", file=sys.stderr)
+        return None
+    by_run = {record.run_id: record for record in records}
+    asks_nothing = {
+        AdditionalSkip.NO_KEY,
+        AdditionalSkip.ALREADY_EXTRACTED,
+        AdditionalSkip.SUPERSEDED,
+    }
+    failed = skipped = 0
+    for plan in plans:
+        record = by_run.get(plan.run_id)
+        if record is not None:
+            if record.status == "EXTRACTED":
+                print(f"{plan.run_id} [{plan.pproc}]: extracted into {record.working_dir}/")
+            else:
+                failed += 1
+                print(f"{plan.run_id} [{plan.pproc}]: failed ({record.status}): {record.error}")
+            continue
+        print(f"{plan.run_id}: skipped ({plan.reason}): {plan.message}")
+        if plan.reason not in asks_nothing:
+            skipped += 1
+    return failed, skipped
 
 
 def _report_skips(workspace: CampaignWorkspace, matrices: list[str | None]) -> int:

@@ -99,6 +99,10 @@ PUBLIC_MODULES = [
     "pyflightstream.results.conditions",
     "pyflightstream.results.tables",
     "pyflightstream.run",
+    # G12 of 0.27.0: the additional post. PUBLIC deliberately, as the collect
+    # stage is: `run_additional_post` is a thing a user drives, from
+    # `pyfs-matrix post --additional-pproc` or from a script of her own.
+    "pyflightstream.run.additional",
     "pyflightstream.run.cli",
     # FR-99 at 0.18.0. PUBLIC deliberately: the collect stage is a thing a
     # user drives, from `pyfs-matrix collect` or from a cron that imports

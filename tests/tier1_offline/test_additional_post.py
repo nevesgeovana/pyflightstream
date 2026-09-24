@@ -16,7 +16,15 @@ by a test on its link:
   extraction is one instant;
 * the extraction script opens the saved file and never solves, saves, creates
   a frame or a probe; it cites the frames the run created and computes the
-  sectional loads every time; one golden per pproc kind pins its bytes.
+  sectional loads every time; one golden per pproc kind pins its bytes;
+* a recorded point is extracted into ``datapoints/DP-<point>/additional/<pid>/``
+  once, hashed, from a copy of its ``.fsm``, recorded in ``additional.json``,
+  and the run's own record, manifest and files are untouched; a row without
+  the key, an absent ``.fsm`` and an ``.fsm`` that does not hash as its record
+  says are each skipped by name, as are a row whose frames moved since the run,
+  a build that changed and a surface averaged in time; an unsteady point is one
+  instant and says so; ``pyfs-matrix post --additional-pproc`` prints each
+  point and refuses its flags without it.
 
 The module imports the functions of the additional post through their module
 at call time rather than by name at the top, so on a tree without them each
@@ -25,6 +33,8 @@ test fails on its own line instead of the whole file failing to collect.
 
 from __future__ import annotations
 
+import importlib
+import json
 import tempfile
 import warnings
 from pathlib import Path
@@ -32,23 +42,28 @@ from pathlib import Path
 import pytest
 
 import pyflightstream.cases.workflows as workflows
+from pyflightstream._digest import file_sha256
 from pyflightstream._errors import PyflightstreamWarning
 from pyflightstream.cases import CampaignConfigError, PprocSpec, SimCase
 from pyflightstream.cases import matrix as matrix_mod
 from pyflightstream.cases.matrix import MatrixError
 from pyflightstream.cases.workflows import build_script, workflow_registry
 from pyflightstream.run import PlanStatus
-from pyflightstream.run.matrix import plan_matrix
+from pyflightstream.run import cli as matrix_cli
+from pyflightstream.run.matrix import plan_matrix, run_matrix
 from pyflightstream.script import Script
 from pyflightstream.workspace import CampaignWorkspace, InputArtifactError
 from pyflightstream.workspace.naming import MATRIX_POINT_NAME, NamingTemplate
 from tests.tier1_offline.test_matrix_run import (
     RECIPES,
     REGISTRY_FIXTURE,
+    CountingStub,
+    converged,
     make_library,
     matrix_recipe,
     stage_geometry,
 )
+from tests.tier1_offline.test_post_products import LOADS, SLOADS
 from tests.tier1_offline.test_saved_simulation import as_a_matrix_row
 from tests.tier1_offline.test_workflows import (
     _rotor_row,
@@ -519,3 +534,339 @@ def test_g12_the_additional_script_is_refused_off_26124(tmp_path):
     name, table = ADDITIONAL_KINDS["steady_sections"]
     with pytest.raises(CampaignConfigError, match="RPT-062"):
         extraction(name, table, tmp_path, build="26.123")
+
+
+# ---------------------------------------------------------- the extraction --
+
+
+def additional_post():
+    """The run layer's additional post, imported when a test reaches it.
+
+    Imported HERE and not at the top, so the tests of the key and of the
+    script collect and fail on their own assertions on a tree without it.
+    """
+    return importlib.import_module("pyflightstream.run.additional")
+
+
+def a_stub(tmp_path: Path) -> CountingStub:
+    """A solver that writes every file a script exports, the loads and sectional loads real.
+
+    The loads table and the sectional loads are the recorded exports the
+    products tests read, so a post over what it wrote writes real rows; every
+    other export is written as a placeholder. It writes where the script says,
+    relative to the folder it runs in, which is how an extraction lands in its
+    own folder.
+    """
+    table = tmp_path / "stub_exports.json"
+    table.write_text(
+        json.dumps(
+            {"EXPORT_SOLVER_ANALYSIS_SPREADSHEET": LOADS, "EXPORT_SURFACE_SECTIONAL_LOADS": SLOADS}
+        ),
+        encoding="utf-8",
+    )
+    return CountingStub(
+        "import json, pathlib, sys; "
+        "from pyflightstream.cases import EXPORT_KINDS; "
+        f"table = json.loads(pathlib.Path({str(table)!r}).read_text(encoding='utf-8')); "
+        "verbs = {kind[2] for kind in EXPORT_KINDS}; "
+        "lines = pathlib.Path(sys.argv[1]).read_text().splitlines(); "
+        "[pathlib.Path(lines[i + 1]).write_text(table.get(line.split(' ')[0], 'DATA')) "
+        "for i, line in enumerate(lines) "
+        "if line.split(' ')[0] in verbs and i + 1 < len(lines)]"
+    )
+
+
+def a_recorded_campaign(tmp_path: Path, **matrix) -> tuple[CampaignWorkspace, Path]:
+    """A campaign whose matrix has run through the stub: every point recorded, its .fsm hashed."""
+    workspace, path = a_campaign(tmp_path, **matrix)
+    run_matrix(
+        path,
+        workspace,
+        name="extracted",
+        default_fs_version=BUILD,
+        recipes=RECIPES,
+        recipe_registry=workflow_registry(),
+        assess=converged,
+        executor=a_stub(tmp_path),
+    )
+    return workspace, path
+
+
+def extract(workspace: CampaignWorkspace, matrix: Path, stub: CountingStub):
+    """Run the additional post of ``matrix`` through ``stub``; return its plans and records."""
+    return additional_post().run_additional_post(
+        matrix, workspace, default_fs_version=BUILD, executor=stub
+    )
+
+
+def saved_simulations(workspace: CampaignWorkspace) -> dict[str, Path]:
+    """Each recorded point's saved simulation, by the point's run id."""
+    found = {}
+    for record in workspace.read_manifest():
+        for point in record.as_points():
+            name = next(name for name in point.outputs if name.endswith(".fsm"))
+            found[point.run_id] = workspace.sim_dir(point.sim_id) / name
+    return found
+
+
+def test_g12_a_row_without_the_key_is_skipped_naming_why(tmp_path):
+    """The matrix no longer states the key: every point is skipped NO_KEY and nothing runs."""
+    workspace, matrix = a_recorded_campaign(tmp_path)
+    matrix.write_text(
+        matrix.read_text(encoding="utf-8").replace(f"{KEY}: p002", ""), encoding="utf-8"
+    )
+    stub = a_stub(tmp_path)
+    plans, records = extract(workspace, matrix, stub)
+    assert [plan.reason for plan in plans] == ["NO_KEY"] * 2, plans
+    assert all(KEY in plan.message for plan in plans), [plan.message for plan in plans]
+    assert records == [] and stub.invocations == []
+    assert not workspace.additional_path.exists()
+
+
+def test_g12_a_point_whose_saved_simulation_is_absent_is_skipped_naming_the_path(tmp_path):
+    """One .fsm deleted on purpose: that point is skipped naming where it looked, the other runs."""
+    workspace, matrix = a_recorded_campaign(tmp_path)
+    gone_run, gone = sorted(saved_simulations(workspace).items())[0]
+    gone.unlink()
+    stub = a_stub(tmp_path)
+    plans, records = extract(workspace, matrix, stub)
+    by_run = {plan.run_id: plan for plan in plans}
+    assert by_run[gone_run].reason == "NO_SAVED_SIMULATION"
+    assert str(gone) in by_run[gone_run].message
+    assert [record.run_id for record in records] == [run for run in by_run if run != gone_run]
+    assert len(stub.invocations) == 1
+
+
+def test_g12_a_point_whose_saved_simulation_does_not_match_its_record_is_skipped_naming_both_hashes(
+    tmp_path,
+):
+    """One byte appended to one .fsm: skipped HASH_MISMATCH with both digests, and not launched."""
+    workspace, matrix = a_recorded_campaign(tmp_path)
+    edited_run, edited = sorted(saved_simulations(workspace).items())[0]
+    recorded = file_sha256(edited)
+    with edited.open("ab") as handle:
+        handle.write(b"!")
+    stub = a_stub(tmp_path)
+    plans, records = extract(workspace, matrix, stub)
+    by_run = {plan.run_id: plan for plan in plans}
+    assert by_run[edited_run].reason == "HASH_MISMATCH"
+    assert recorded[:12] in by_run[edited_run].message
+    assert file_sha256(edited)[:12] in by_run[edited_run].message
+    assert edited_run not in [record.run_id for record in records]
+    assert len(stub.invocations) == 1
+
+
+def test_g12_the_extraction_lands_in_additional_and_is_hashed(tmp_path):
+    """One launch per point, in its own folder, a script that never solves; every file hashed."""
+    workspace, matrix = a_recorded_campaign(tmp_path)
+    stub = a_stub(tmp_path)
+    plans, records = extract(workspace, matrix, stub)
+    assert [plan.status for plan in plans] == ["READY"] * 2
+    assert len(stub.invocations) == 2 and len(records) == 2
+    run_records = {
+        point.run_id: point for r in workspace.read_manifest() for point in r.as_points()
+    }
+    for record, script in zip(records, stub.invocations, strict=True):
+        assert record.status == "EXTRACTED", record.error
+        tag = run_records[record.run_id].point_name
+        assert record.working_dir == f"datapoints/DP-{tag}/additional/p002"
+        assert script.parent.as_posix().endswith("scripts/additional/p002")
+        assert "START_SOLVER" not in script.read_text(encoding="utf-8").split()
+        assert record.outputs and all(
+            name.startswith(f"{record.working_dir}/") for name in record.outputs
+        )
+        folder = workspace.sim_dir(record.sim_id)
+        assert record.outputs_sha256 == {
+            name: file_sha256(folder / name) for name in record.outputs
+        }
+        point = run_records[record.run_id]
+        assert record.fsm_sha256 == point.outputs_sha256[record.fsm] == record.fsm_sha256_after
+        assert not list((folder / record.working_dir).glob("*.reopened.fsm")), "the copy stayed"
+    assert [record.run_id for record in workspace.read_additional()] == [
+        record.run_id for record in records
+    ]
+
+
+def test_g12_the_original_run_record_and_manifest_are_untouched(tmp_path):
+    """runs.json, every record and every file the run left hash the same before and after."""
+    workspace, matrix = a_recorded_campaign(tmp_path)
+    before_manifest = file_sha256(workspace.manifest_path)
+    before_records = workspace.read_manifest()
+    before_files = {
+        path: file_sha256(path)
+        for record in before_records
+        for point in record.as_points()
+        for path in (workspace.sim_dir(point.sim_id) / name for name in point.outputs)
+    }
+    _, records = extract(workspace, matrix, a_stub(tmp_path))
+    assert records and all(record.status == "EXTRACTED" for record in records)
+    assert file_sha256(workspace.manifest_path) == before_manifest
+    assert workspace.read_manifest() == before_records
+    assert {path: file_sha256(path) for path in before_files} == before_files
+
+
+def test_g12_an_extracted_point_is_not_extracted_twice(tmp_path):
+    """A second pass over the same bytes with the same artifact launches nothing."""
+    workspace, matrix = a_recorded_campaign(tmp_path)
+    extract(workspace, matrix, a_stub(tmp_path))
+    stub = a_stub(tmp_path)
+    plans, records = extract(workspace, matrix, stub)
+    assert [plan.reason for plan in plans] == ["ALREADY_EXTRACTED"] * 2
+    assert records == [] and stub.invocations == []
+
+
+def test_g12_a_row_whose_frames_changed_since_the_run_is_skipped(tmp_path):
+    """The reference gains a frame after the run, so the row's frames are not the saved ones."""
+    workspace, matrix = a_recorded_campaign(tmp_path)
+    reference = workspace.inputs_dir / "references" / "r050.toml"
+    reference.write_text(
+        reference.read_text(encoding="utf-8")
+        + '\n[[frames]]\nname = "NAC"\norigin = [0.42, 0.0, 0.11]\n',
+        encoding="utf-8",
+    )
+    stub = a_stub(tmp_path)
+    plans, records = extract(workspace, matrix, stub)
+    assert [plan.reason for plan in plans] == ["SCRIPT_DRIFT"] * 2, plans
+    assert all("frame" in plan.message for plan in plans)
+    assert records == [] and stub.invocations == []
+
+
+def test_g12_a_point_whose_build_changed_is_skipped(tmp_path):
+    """The row names another build today; a saved simulation reopens on the one that saved it."""
+    workspace, matrix = a_recorded_campaign(tmp_path)
+    for record in workspace.read_manifest():
+        assert record.fs_version_requested == BUILD
+    manifest = workspace.manifest_path
+    raw = json.loads(manifest.read_text(encoding="utf-8"))
+    for entry in raw:
+        entry["fs_version_requested"] = "26.123"
+    manifest.write_text(json.dumps(raw, indent=2), encoding="utf-8")
+    plans, records = extract(workspace, matrix, a_stub(tmp_path))
+    assert [plan.reason for plan in plans] == ["BUILD_CHANGED"] * 2
+    assert all("26.123" in plan.message for plan in plans)
+    assert records == []
+
+
+def test_g12_a_run_that_averaged_its_surface_in_time_is_skipped(tmp_path):
+    """Whether a reopened file gives back the average or an instant was not measured."""
+    from pyflightstream.cases.windows import surface_averaging_window
+
+    workspace, matrix = a_recorded_campaign(tmp_path)
+    window = surface_averaging_window(
+        last_step=20, per_revolution=None, last_revs=None, last_iters=10
+    )
+    manifest = workspace.manifest_path
+    raw = json.loads(manifest.read_text(encoding="utf-8"))
+    for entry in raw:
+        entry["surface_time_averaging"] = window
+    manifest.write_text(json.dumps(raw, indent=2), encoding="utf-8")
+    plans, records = extract(workspace, matrix, a_stub(tmp_path))
+    assert [plan.reason for plan in plans] == ["SURFACE_AVERAGED"] * 2
+    assert records == []
+
+
+def test_g12_an_unsteady_point_is_one_instant_and_says_so(tmp_path):
+    """Warned, recorded as unsteady with the one-instant note, and its plots history exported."""
+    workspace, matrix = a_recorded_campaign(
+        tmp_path, workflow="unsteady", cell=f"{UNSTEADY_CELL} / {KEY}: p002", values="0.0"
+    )
+    with pytest.warns(PyflightstreamWarning, match="one instant"):
+        _, records = extract(workspace, matrix, a_stub(tmp_path))
+    (record,) = records
+    assert record.status == "EXTRACTED", record.error
+    assert record.unsteady and record.note and "LAST instant" in record.note
+    assert any(name.endswith("_plots.txt") for name in record.outputs), record.outputs
+
+
+def test_g12_a_workspace_that_submits_is_refused_naming_local(tmp_path):
+    """The submitting half is not built: refused before anything is written, naming --local."""
+    from pyflightstream.run import ExecutorConfigurationError
+
+    class Scheduler(CountingStub):
+        def bind_point(self, values, *, replace=False):
+            return None
+
+        def submission_record(self):
+            return None
+
+    workspace, matrix = a_recorded_campaign(tmp_path)
+    with pytest.raises(ExecutorConfigurationError, match="--local"):
+        extract(workspace, matrix, Scheduler("pass"))
+    assert not workspace.additional_path.exists()
+
+
+# ------------------------------------------------------------ the command --
+
+
+def a_local_executor_writing_every_export(tmp_path: Path, made: list):
+    """The LocalExecutor the command line builds, replaced by the stub; ``made`` counts them."""
+    code = a_stub(tmp_path).code
+
+    class Extractor(CountingStub):
+        def __init__(self, fs_exe, hidden=True, *, forced_local=False):
+            super().__init__(code)
+            made.append(self)
+
+    return Extractor
+
+
+def test_g12_the_cli_post_additional_pproc_prints_each_point_and_exits(
+    tmp_path, monkeypatch, capsys
+):
+    """One line per point, then the products; exit 0."""
+    workspace, matrix = a_recorded_campaign(tmp_path)
+    made: list = []
+    monkeypatch.setattr(
+        "pyflightstream.run.matrix.LocalExecutor",
+        a_local_executor_writing_every_export(tmp_path, made),
+    )
+    status = matrix_cli.main(
+        ["post", str(matrix), "--workspace", str(workspace.root), "--additional-pproc"]
+    )
+    out = capsys.readouterr().out
+    assert status == 0, out
+    extracted = [line for line in out.splitlines() if "[p002]: extracted into datapoints/" in line]
+    assert len(extracted) == 2, out
+    assert sum(len(stub.invocations) for stub in made) == 2
+    # A second pass says why it runs nothing, point by point.
+    status = matrix_cli.main(
+        ["post", str(matrix), "--workspace", str(workspace.root), "--additional-pproc"]
+    )
+    out = capsys.readouterr().out
+    assert status == 0
+    assert out.count("skipped (ALREADY_EXTRACTED)") == 2, out
+
+
+@pytest.mark.parametrize(
+    "flags",
+    [["--fs-exe", "C:/fs/FS.exe"], ["--fs-version", BUILD], ["--local"], ["--recipe", "003=a:b"]],
+    ids=["fs-exe", "fs-version", "local", "recipe"],
+)
+def test_g12_a_flag_of_the_additional_post_without_it_is_refused(flags, tmp_path, capsys):
+    """Accepted and ignored, it would read as though the rebuild ran something."""
+    workspace, matrix = a_campaign(tmp_path)
+    status = matrix_cli.main(["post", str(matrix), "--workspace", str(workspace.root), *flags])
+    assert status == 2
+    assert "--additional-pproc" in capsys.readouterr().err
+
+
+def test_g12_the_additional_post_needs_the_matrix(tmp_path, capsys):
+    """The key is read from the rows, so the matrix is not optional with the flag."""
+    workspace, _ = a_campaign(tmp_path)
+    status = matrix_cli.main(["post", "--workspace", str(workspace.root), "--additional-pproc"])
+    assert status == 2
+    assert "needs the matrix" in capsys.readouterr().err
+
+
+def test_g12_post_without_the_flag_launches_nothing(tmp_path, monkeypatch, capsys):
+    """The plain rebuild builds no executor at all."""
+    workspace, matrix = a_recorded_campaign(tmp_path)
+
+    class Refused:
+        def __init__(self, *args, **kwargs):
+            raise AssertionError("the plain post built an executor")
+
+    monkeypatch.setattr("pyflightstream.run.matrix.LocalExecutor", Refused)
+    status = matrix_cli.main(["post", str(matrix), "--workspace", str(workspace.root)])
+    assert status == 0, capsys.readouterr().err
+    assert not workspace.additional_path.exists()
