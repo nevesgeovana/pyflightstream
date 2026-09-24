@@ -63,10 +63,15 @@ origin = [4.5, 0.0, 0.0]
 # row's FLIGHT_CONDITION resolves against each rotor's OWN diameter, so
 # unlike rotors turn at unlike speeds from one number. Equal diameters would
 # demonstrate nothing.
+# THE HUBS ARE WHERE THE MESH HAS THEM: 41_TWIN is generated with its rotors at
+# y = +2.5 and -2.5 m (TWIN_Y_M in tests/tier3_licensed/recipes.py), the points
+# ERP1 and ERP2 of r004. From 0.15.0 to 0.27.0 this file said 0.9144 m, so each
+# blade turned about an axis 1.5856 m from its own hub; the licensed regression
+# of 0.27.0 (T12, RPT-073) found it against the 0.13.0 run of row 1022.
 [PORT]
 kind = "rotor"
 x_m = 4.5
-y_m = 0.9144
+y_m = 2.5
 z_m = 0.0
 axis = "X"
 rpm_sign = 1
@@ -82,7 +87,7 @@ blade1 = { azimuth_deg = 0.0, zero = "Y" }
 [STARBOARD]
 kind = "rotor"
 x_m = 4.5
-y_m = -0.9144
+y_m = -2.5
 z_m = 0.0
 axis = "X"
 rpm_sign = -1        # counter-rotating, which is what the sign is for
