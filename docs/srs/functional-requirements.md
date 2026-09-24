@@ -4369,10 +4369,11 @@ requirement below is one seam of that division.
     checked at plan, the run's own copy of it written, named and hashed on every
     run type, and each form the solver would misread refused naming the line;
     each refusal of the row; the control of a row naming none; the profile
-    route refused by build before any emission). The thrust and enable commands
-    ran unobserved; the profile command ran on 26.124 under a licensed probe
-    that measured the file form it reads (RPT-070); the planning row closes on
-    a licensed run, which is owed.*
+    route refused by build before any emission). On 26.124 the licensed runs of
+    RPT-070 closed it: the disc by its net thrust moved the loads against a
+    control row and its saved simulation names the disc, and the profile file is
+    read in the form the probe measured (the rows joined by a newline, with no
+    final newline).*
 
     A reference artifact declares an actuator disc as a top-level block of
     `kind = "actuator"`: its `frame`, `axis`, `offset_m`, `tip_radius_m`,
