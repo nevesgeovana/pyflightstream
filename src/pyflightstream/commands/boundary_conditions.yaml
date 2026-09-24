@@ -119,9 +119,33 @@ AUTO_DETECT_WAKE_TERMINATION_NODES:
     "26.101": {status: documented, note: "SRC-725 p.320, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.123": {status: documented, note: "SRC-751 p.325, unchanged from SRC-750 p.325"}
-    "26.124": {status: documented, note: "SRC-752 p.325, the SRC-751 file, carried from 26.123; not run on 26.124"}
+    "26.124":
+      status: documented
+      note: >-
+        SRC-752 p.325, the SRC-751 file, carried from 26.123. Ran on 26.124
+        (reports/RPT-T07 (T07)): after IMPORT_WAKE_EDGES_FROM_FILE it marks
+        nothing until the solver has initialised, and a repeated
+        INITIALIZE_SOLVER clears the first initialisation and initialises
+        again with the node it marked
   notes: >
     Finds and marks all wake termination nodes in the geometry.
+
+    RAN ON 26.124 (reports/RPT-T07 (T07)), on a twisted blade whose root
+    end is its one wake-termination node. Emitted after
+    AUTO_DETECT_TRAILING_EDGES, the saved simulation carries that node.
+    Emitted right after IMPORT_WAKE_EDGES_FROM_FILE, which marked the same
+    twelve edges, it marks nothing and the saved simulation carries no
+    node. Emitted after INITIALIZE_SOLVER it marks the node, and the loads
+    do not move, since the solver was initialised without it; a second
+    INITIALIZE_SOLVER after it logs that the solution was cleared and the
+    initialisation removed, initialises again, and the loads then equal
+    those of the saved simulation and of the detection route to the
+    printed digit. The log reports the trailing-edge groups only during an
+    initialisation, which is the inferred reason: the detection finds the
+    ends of groups the file route has not created yet. So a workflow
+    importing its edges from a file emits it between two initialisations
+    with the same settings, and a setup command after INITIALIZE_SOLVER
+    passes the phase order only through Script.emit_after_initialization.
 
 SET_FREESTREAM:
   layout: inline
@@ -443,7 +467,13 @@ DETECT_WAKE_TERMINATION_NODES_BY_SURFACE:
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.324, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.325, unchanged from SRC-750 p.325"}
-    "26.124": {status: documented, note: "SRC-752 p.325, the SRC-751 file, carried from 26.123; not run on 26.124"}
+    "26.124":
+      status: documented
+      note: >-
+        SRC-752 p.325, the SRC-751 file, carried from 26.123. Ran on 26.124
+        once (reports/RPT-T07 (T07)), right after IMPORT_WAKE_EDGES_FROM_FILE
+        and before the solver was initialised, where it marked nothing, as
+        AUTO_DETECT_WAKE_TERMINATION_NODES marks nothing there
   notes: >
     Detects wake termination nodes on one boundary, where
     AUTO_DETECT_WAKE_TERMINATION_NODES does the whole geometry. One
@@ -666,6 +696,21 @@ IMPORT_WAKE_EDGES_FROM_FILE:
     one build where the route is offered it is now verified, and it is
     written down so a later reader does not take it for verified on the
     builds before.
+
+    WHAT IT LEAVES TO THE INITIALISATION, MEASURED ON 26.124
+    (reports/RPT-T07 (T07)). A twisted blade marked by this command, by
+    AUTO_DETECT_TRAILING_EDGES and from its saved simulation carried the
+    same twelve edges, and only this route solved 1.8 % below the other
+    two in induced drag: its saved simulation carried no wake-termination
+    node, where the other two carry the blade's root end. A wake-termination
+    detection emitted between this command and INITIALIZE_SOLVER marks
+    nothing, automatic or by surface; emitted after INITIALIZE_SOLVER it
+    marks the node, and the solver uses it once INITIALIZE_SOLVER is
+    repeated, which logs that the solution was cleared and the
+    initialisation removed and initialises again. The loads then equal the
+    other two routes' to the printed digit. The log reports the
+    trailing-edge groups only during an initialisation, which is the
+    inferred reason. The node file's row order changed nothing.
   versions:
     "26.122":
       status: documented
@@ -678,7 +723,10 @@ IMPORT_WAKE_EDGES_FROM_FILE:
         SRC-752 p.323 prints the two-value line of SRC-751; this build
         refuses that line as a syntax error, and reads the node list from
         the path on the next line only when the command line carries a
-        third token (RPT-061)
+        third token (RPT-061). After it a wake-termination detection marks
+        nothing until the solver has initialised, and a repeated
+        INITIALIZE_SOLVER clears the first initialisation and initialises
+        again (reports/RPT-T07 (T07))
       args:
         - name: type
         - name: tolerance
