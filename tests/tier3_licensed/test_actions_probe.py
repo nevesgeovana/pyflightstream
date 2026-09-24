@@ -17,13 +17,19 @@ import yaml
 
 from pyflightstream.workspace import CampaignWorkspace, RunStatus
 from tests.tier3_licensed import actions_probe
+from tests.tier3_licensed.conftest import requested_version, source_repository
 
 pytestmark = pytest.mark.needs_flightstream
 
 HERE = Path(__file__).resolve().parent
-REPO = HERE.parents[1]
+#: The reports and the command database of the code under test: this folder's
+#: repository, or the package's own checkout for a copy of the workspace
+#: outside Git (T12 of 0.27.0).
+REPO = source_repository()
 MATRIX = "matriz_actions"
 COMMAND = "SET_NEW_UNSTEADY_SOLVER_ACTION"
+#: The build the row names and the committed report and database row were
+#: measured on.
 BUILD = "26.123"
 
 
@@ -40,7 +46,12 @@ def _probe_record():
 def test_the_script_action_reread_verdict_is_recorded():
     record = _probe_record()
     assert record.status in (RunStatus.CONVERGED, RunStatus.COMPLETED_MAX_ITER), record.error
-    assert record.fs_version_requested == BUILD
+    # The version the workspace's build registry sends the row's build to: the
+    # build itself on the author's machine. Where an overlay sent it to another
+    # installation (T12 ran every row on 26.124), the verdict the files give is
+    # still compared with the report and the database row of BUILD, which is
+    # the committed evidence this test holds to the files.
+    assert record.fs_version_requested == requested_version(BUILD)
 
     measured = actions_probe.verdict()
     assert measured["invocations"] > 0, measured["meaning"]

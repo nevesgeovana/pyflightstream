@@ -16,11 +16,29 @@ from pathlib import Path
 import pytest
 
 from pyflightstream.workspace import RunStatus
-from tests.tier3_licensed.conftest import TERMINAL_OK, line, lines, value_after
+from tests.tier3_licensed.conftest import (
+    TERMINAL_OK,
+    line,
+    lines,
+    requested_executable,
+    requested_version,
+    value_after,
+)
 
 pytestmark = pytest.mark.needs_flightstream
 
 MATRIX = "matriz"
+
+
+def _frames(script: str) -> dict[str, tuple[int, float]]:
+    """Each coordinate system the script creates: its name, its frame number and its ORIGIN_Y."""
+    texts = script.splitlines()
+    frames = {}
+    for index, text in enumerate(texts):
+        if text == "EDIT_COORDINATE_SYSTEM":
+            block = dict(t.split(" ", 1) for t in texts[index + 1 : index + 6] if " " in t)
+            frames[block["NAME"]] = (int(block["FRAME"]), float(block["ORIGIN_Y"]))
+    return frames
 
 
 def test_every_active_row_of_the_tour_is_recorded_terminal_and_the_inactive_one_is_not(runs):
@@ -58,9 +76,15 @@ def test_1001_the_polar_takes_its_fluid_pins_from_the_setup(runs):
         assert "s001" in record.flight_condition_defaults_from
         assert record.fs_version_source == "row"
         script = runs.script(record)
-        assert line(script, "SOLVER_SET_AOA") == f"SOLVER_SET_AOA {record.point['alpha']}"
+        # FR-95 (0.16.0): a steady row of several points is ONE job over one
+        # script, so every point's record names that script, and it sets each
+        # angle once, in the order the points ran.
+        assert lines(script, "SOLVER_SET_AOA") == [
+            f"SOLVER_SET_AOA {alpha}" for alpha in (-2.0, 0.0, 2.0, 4.0)
+        ]
         assert line(script, "TEMPERATURE") == "TEMPERATURE 288.15"
-    polar = runs.products(MATRIX) / "1001_M10_g02.csv"
+    # Under polars/ and named for the sweep since 0.16.0 (FR-88) and 0.21.0.
+    polar = runs.polar(MATRIX, "1001", 2)
     assert polar.is_file(), "the wing group's polar table of p002"
     with polar.open(encoding="utf-8") as handle:
         rows = list(csv.DictReader(handle))
@@ -84,7 +108,10 @@ def test_1003_the_sideslip_sweep_resolves_an_altitude_and_a_hot_day_with_no_pins
     for record in records:
         assert record.flight_condition_defaults == {}, "s004 supplies no pin"
         script = runs.script(record)
-        assert line(script, "SOLVER_SET_SIDESLIP") == f"SOLVER_SET_SIDESLIP {record.point['beta']}"
+        # FR-95 (0.16.0): the row's three points are one job over one script.
+        assert lines(script, "SOLVER_SET_SIDESLIP") == [
+            f"SOLVER_SET_SIDESLIP {beta}" for beta in (-4.0, 0.0, 4.0)
+        ]
         pressure = float(line(script, "PRESSURE").split()[1])
         assert 84000.0 < pressure < 84600.0, "ISA at 5000 ft"
         temperature = float(line(script, "TEMPERATURE").split()[1])
@@ -127,9 +154,13 @@ def test_1005_the_body_detects_its_base_and_runs_on_the_second_build(runs):
     assert line(script, "DETECT_BASE_REGIONS_BY_SURFACE").startswith(
         "DETECT_BASE_REGIONS_BY_SURFACE"
     )
-    assert record.fs_version_requested == "26.123"
+    # The version and the executable the workspace's build registry sends the
+    # row's 26.123 to: that build on the author's machine, 26.124 under an
+    # overlay that sends every id there (T12 of 0.27.0).
+    assert record.fs_version_requested == requested_version("26.123")
     assert record.fs_version_source == "row"
-    assert "26123" in Path(record.fs_exe or "").name, record.fs_exe
+    expected = requested_executable("26.123").name.casefold()
+    assert Path(record.fs_exe or "").name.casefold() == expected, record.fs_exe
     assert record.fs_version_reported is not None and record.fs_version_reported.startswith("26.1")
     assert line(script, "SOLVER_SET_REF_AREA") == "SOLVER_SET_REF_AREA 0.7854"
     assert line(script, "SOLVER_SET_REF_LENGTH") == "SOLVER_SET_REF_LENGTH 4.0"
@@ -144,7 +175,9 @@ def test_1010_the_rotorless_unsteady_row_states_its_clock_in_seconds(runs):
     assert line(script, "TIME_ITERATIONS") == "TIME_ITERATIONS 12"
     assert line(script, "DELTA_TIME") == "DELTA_TIME 0.01"
     assert "UNSTEADY_SOLVER_EXPORT_PLOTS" in script
-    plots = runs.products(MATRIX) / "plots"
+    # Flow-field samples, the plots table among them, are tabled under probes/
+    # since 0.16.0 (FR-87).
+    plots = runs.products(MATRIX) / "probes"
     assert any(p.name.startswith("P1010-") for p in plots.glob("*_plots.csv")), (
         "p001 asks for the plots table of an unsteady point"
     )
@@ -152,7 +185,8 @@ def test_1010_the_rotorless_unsteady_row_states_its_clock_in_seconds(runs):
     with table.open(encoding="utf-8") as handle:
         steps = list(csv.DictReader(handle))
     assert len(steps) == 12, "one plots row per time step"
-    sweep = runs.products(MATRIX) / "sweep.csv"
+    # The campaign sweep is written once, as campaign_sweep.csv, since 0.16.0 (FR-90).
+    sweep = runs.products(MATRIX) / "campaign_sweep.csv"
     with sweep.open(encoding="utf-8") as handle:
         row = next(r for r in csv.DictReader(handle) if r["run_id"] == record.run_id)
     # The documented pairing of an unsteady loads export: the solver averaged
@@ -168,7 +202,18 @@ def test_1011_the_rotorless_unsteady_row_states_its_clock_in_azimuth(runs):
     assert line(script, "TIME_ITERATIONS") == "TIME_ITERATIONS 6", "0.5 rev at 30 deg per step"
     delta = float(line(script, "DELTA_TIME").split()[1])
     assert 0.0116 < delta < 0.0117, delta
-    assert any("J+130" in name for name in record.outputs), "J = 1.30 in every output name"
+    # A point is named by the variables its FLIGHT_CONDITION cell declares since
+    # 0.21.0 (GOAL-024 arm 2, docs/migrating-to-0.21.0.md section 1), and this
+    # row states ADVANCE_RATIO among its variables, not in the cell: every output
+    # carries the point's name and none carries J. J = 1.30 set the clock above,
+    # and the row's unsteady polar echoes it.
+    assert record.outputs
+    assert all(Path(o).name.startswith(f"P1011-{record.point_name}") for o in record.outputs)
+    assert not any("J+" in o for o in record.outputs), record.outputs
+    polar = runs.products(MATRIX) / "polars" / f"P1011_{record.point_name}_uns_avg.csv"
+    with polar.open(encoding="utf-8") as handle:
+        (row,) = list(csv.DictReader(handle))
+    assert float(row["ADVANCE_RATIO"]) == 1.3, row["ADVANCE_RATIO"]
 
 
 def test_1020_one_blade_under_periodic_symmetry_with_the_azimuthal_clock(runs):
@@ -180,7 +225,16 @@ def test_1020_one_blade_under_periodic_symmetry_with_the_azimuthal_clock(runs):
     rpm = float(line(script, "SET_MOTION_ROTOR_RPM").split()[2])
     assert rpm > 0.0, "RPM_SIGN 1"
     assert line(script, "TIME_ITERATIONS") == "TIME_ITERATIONS 6"
-    assert any("J+170" in name for name in record.outputs), "J = 1.70 in every output name"
+    # No J in the point's name since 0.21.0: the MOTIONS record states the
+    # advance ratio and the FLIGHT_CONDITION cell does not. The rotor table
+    # (polars/P<sim>-<alias>_rotor.csv) states the J the rotor turned at, to
+    # the two decimals the 0.20 name carried.
+    assert not any("J+" in o for o in record.outputs), record.outputs
+    assert [m.get("ADVANCE_RATIO") for m in record.motions] == ["1.7"]
+    table = runs.products(MATRIX) / "polars" / "P1020-ROTOR_rotor.csv"
+    with table.open(encoding="utf-8") as handle:
+        (row,) = list(csv.DictReader(handle))
+    assert abs(float(row["J_ROTOR"]) - 1.70) < 0.005, row["J_ROTOR"]
 
 
 def test_1021_the_installed_pusher_states_a_signed_rpm_and_its_hub_by_a_point(runs):
@@ -196,6 +250,12 @@ def test_1021_the_installed_pusher_states_a_signed_rpm_and_its_hub_by_a_point(ru
 
 
 def test_1022_two_rotors_from_a_motions_list_with_origins_by_reference_point(runs):
+    """Since 0.15.0 (41bbb1c7, one word for the rotating thing) the row names the
+    rotors PORT and STARBOARD of r006, whose blocks carry each hub, axis and sign,
+    where the 0.13.0 row placed its hubs at the reference points ERP1 and ERP2 of
+    r004 (y = +2.5 and -2.5 m). Each motion turns about its rotor's <ALIAS>_SMRP
+    frame, at the hub r006 states (y = +0.9144 and -0.9144 m), and STARBOARD's
+    rpm_sign -1 turns the row's RPM 800 into -800."""
     record = runs.one(MATRIX, "1022", alpha=0.0)
     script = runs.script(record)
     assert lines(script, "CREATE_NEW_MOTION") == ["CREATE_NEW_MOTION ROTARY"] * 2
@@ -203,10 +263,15 @@ def test_1022_two_rotors_from_a_motions_list_with_origins_by_reference_point(run
         "SET_MOTION_ROTOR_RPM 1 800.0",
         "SET_MOTION_ROTOR_RPM 2 -800.0",
     ]
-    assert "ORIGIN_Y 2.5" in script and "ORIGIN_Y -2.5" in script, "ERP1 and ERP2"
+    frames = _frames(script)
+    assert lines(script, "SET_MOTION_COORDINATE_SYSTEM") == [
+        f"SET_MOTION_COORDINATE_SYSTEM 1 {frames['PORT_SMRP'][0]}",
+        f"SET_MOTION_COORDINATE_SYSTEM 2 {frames['STARBOARD_SMRP'][0]}",
+    ]
+    assert (frames["PORT_SMRP"][1], frames["STARBOARD_SMRP"][1]) == (0.9144, -0.9144)
     assert len(record.motions) == 2
-    assert [m.get("ROTOR_ORIGIN_POINT") for m in record.motions] == ["ERP1", "ERP2"]
-    assert [m.get("RPM") for m in record.motions] == ["800", "-800"]
+    assert [m.get("MOVING_BC_ALIAS") for m in record.motions] == ["PORT", "STARBOARD"]
+    assert [m.get("RPM") for m in record.motions] == ["800", "800"]
 
 
 def test_1022_two_counter_rotating_rotors_cancel_in_side_force_and_roll(runs):
@@ -255,18 +320,25 @@ def test_1090_the_legacy_row_names_its_recipe_in_the_cell_and_leaves_a_log(runs)
         assert record.status in TERMINAL_OK
         script = runs.script(record)
         log_name = value_after(script, "EXPORT_LOG")
-        assert log_name == f"log_a{record.point['alpha']:+05.1f}.txt", log_name
-        assert (runs.workspace.sim_dir("1090") / log_name).is_file(), "the log the row asked for"
+        # `{point}` in a naming template is the point name since 0.21.0, where it
+        # was the 0.20 tag a+00.0.
+        assert log_name == f"log_{record.point_name}.txt", log_name
         assert record.outputs and record.outputs[0].endswith(".txt")
+        # The point ran in its own datapoint folder, so the log it wrote is there
+        # (0.27.0, docs/migrating-to-0.27.0.md section 16, 06a51049).
+        folder = (runs.workspace.sim_dir("1090") / record.outputs[0]).parent
+        assert folder.name == f"DP-{record.point_name}", record.outputs
+        assert (folder / log_name).is_file(), "the log the row asked for"
 
 
 def test_the_tour_left_its_own_plan_sweep_and_products(runs):
     folder = runs.products(MATRIX)
-    for name in ("plan.json", "sweep.csv", "campaign_sweep.csv", "products.json"):
+    # The campaign sweep is written once, as campaign_sweep.csv (FR-90, 0.16.0).
+    for name in ("plan.json", "campaign_sweep.csv", "products.json"):
         assert (folder / name).is_file(), f"{name} under post/{MATRIX}/"
     assert not (Path(runs.workspace.root) / "plan.json").exists()
     assert not (Path(runs.workspace.root) / "sweep.csv").exists()
-    with (folder / "sweep.csv").open(encoding="utf-8") as handle:
+    with (folder / "campaign_sweep.csv").open(encoding="utf-8") as handle:
         rows = list(csv.DictReader(handle))
     assert len(rows) == 18
     assert all(row["status"] in {s.value for s in RunStatus} for row in rows)
