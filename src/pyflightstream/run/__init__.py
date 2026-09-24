@@ -340,6 +340,21 @@ class ExecutionResult:
         """Whether the process timed out or returned a nonzero code."""
         return self.timed_out or self.return_code != 0
 
+    def captured_output(self) -> str:
+        """Return what the solver printed, as a scheduler's job log holds it (0.27.0).
+
+        Standard output, then standard error, one after the other. The text a
+        run writes as the declared log on a machine whose HPC profile states
+        ``export_log = false``, where no scheduler writes one for a run kept
+        local, and the text the build-identity pre-flight reads the build from
+        there. An empty string when the solver printed nothing on either.
+        """
+        stdout, stderr = self.stdout or "", self.stderr or ""
+        if stdout and stderr and not stdout.endswith("\n"):
+            stdout += "\n"
+        captured = stdout + stderr
+        return captured if captured.strip() else ""
+
     def diagnosis(self) -> str:
         """Say what happened, from every channel this run captured.
 
@@ -2286,6 +2301,11 @@ def check_solver_identity(
     Does nothing at all when the version has no registered build: there
     is nothing to compare, so no solver process is spent.
 
+    On a machine that cannot export the log (an executor whose HPC profile
+    states ``export_log = false``, 0.27.0) the sentinel script exports none and
+    the build is read from what the solver printed; a build it did not print
+    is warned about, naming the profile, and never refused.
+
     Parameters
     ----------
     executor : Executor
@@ -2328,10 +2348,16 @@ def check_solver_identity(
     log_path = workdir / "preflight_log.txt"
     if log_path.exists():
         log_path.unlink()
+    # 0.27.0: A MACHINE THAT ABORTS AT EXPORT_LOG IS NOT ASKED TO EXPORT ONE HERE
+    # EITHER. Its HPC profile says so (`export_log = false`), and the build is
+    # read from what the solver printed instead; a build it did not print is a
+    # warning naming the profile, never a refusal.
+    exports_log = _machine_exports_log(executor)
     script = Script(version)
     script.comment("pre-flight: which FlightStream build is actually installed")
     script.emit("PRINT", _IDENTITY_MARKER)
-    script.emit("EXPORT_LOG", log_path)
+    if exports_log:
+        script.emit("EXPORT_LOG", log_path)
     script.emit("CLOSE_FLIGHTSTREAM")
     script_path = workdir / "preflight.txt"
     script_path.write_text(script.render(), encoding="utf-8")
@@ -2341,8 +2367,19 @@ def check_solver_identity(
         # Real 26.120 hidden-mode exports carry NUL bytes (RPT-001).
         text = log_path.read_text(encoding="utf-8", errors="replace").replace("\x00", "")
     else:
-        text = ""
+        text = "" if exports_log else result.captured_output().replace("\x00", "")
     found = _BUILD_LINE.search(text)
+    if found is None and not exports_log:
+        warnings.warn(
+            "this machine's HPC profile (inputs/hpc/) states [log] export_log = false, so the "
+            "identity pre-flight exported no log, and the solver printed no build number "
+            "either: the installation at the campaign's executable was neither confirmed nor "
+            f"refused as {version.canonical} (build #{version.build}). Every parsed result is "
+            "still cross-checked against the registered build.",
+            VersionMismatchWarning,
+            stacklevel=2,
+        )
+        return
     if found is None:
         # THE CAUSE IS NAMED WHEN IT IS KNOWN. The result of the run was
         # discarded here, so a solver that failed to start, or one killed
@@ -5263,7 +5300,7 @@ def _execute_sweep(
     # loads export, the job's record says why, and the printed output is read
     # for the trailing-edge count the one script imported, as a job's is.
     cannot_log = isinstance(executor, LocalExecutor) and not executor.export_log
-    printed = _captured_solver_output(result) if cannot_log else ""
+    printed = result.captured_output() if cannot_log else ""
     excused = {
         name
         for _, _, point_case in point_cases
@@ -5740,19 +5777,6 @@ _NO_LOCAL_LOG_NOTE = (
 )
 
 
-def _captured_solver_output(result: ExecutionResult) -> str:
-    """Return what the executor captured of the solver, as a scheduler's job log holds it.
-
-    Standard output, then standard error, one after the other; an empty string
-    when the solver printed nothing on either.
-    """
-    stdout, stderr = result.stdout or "", result.stderr or ""
-    if stdout and stderr and not stdout.endswith("\n"):
-        stdout += "\n"
-    captured = stdout + stderr
-    return captured if captured.strip() else ""
-
-
 def _the_local_log(
     executor: object, outputs: Sequence[str], work_dir: Path, result: ExecutionResult
 ) -> _LocalLog:
@@ -5768,7 +5792,7 @@ def _the_local_log(
     declared = [str(name) for name in outputs if str(name).endswith(_LOG_OUTPUT_SUFFIX)]
     if not declared or (work_dir / declared[0]).is_file():
         return _LocalLog()
-    captured = _captured_solver_output(result)
+    captured = result.captured_output()
     if captured:
         (work_dir / declared[0]).write_text(captured, encoding="utf-8", newline="")
         return _LocalLog(

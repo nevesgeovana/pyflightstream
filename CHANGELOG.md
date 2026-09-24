@@ -295,6 +295,17 @@ FlightStream versions.
   whose solver printed nothing is recorded `FAILED_INCOMPLETE_OUTPUT` naming
   the machine. `LocalExecutor` takes `export_log` by keyword only; profiles
   that disagree about the log are refused under `--local`.
+- **The additional post and the identity pre-flight follow the profile's log
+  decision too.** On a cluster whose profile states `export_log = false`, the
+  extraction scripts of `pyfs-matrix post --additional-pproc` exported the log
+  whether planned for `--local` or for a submission, so every extraction on
+  that build stopped at `EXPORT_LOG`; they now carry none, write the declared
+  log from what the solver printed, and, with nothing printed, record in the
+  extraction's `note` why there is no log instead of failing it. The
+  build-identity pre-flight no longer exports a log there: it reads the build
+  from the solver's printed output and warns, naming the profile, when it
+  finds none. `ExecutionResult.captured_output()` returns that printed output,
+  standard output then standard error.
 - **A missing declared output no longer strands the others.** Collection
   refused before moving anything when one declared output was missing, so a
   point whose log never came left every other export in the solver's working

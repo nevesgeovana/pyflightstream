@@ -3055,6 +3055,16 @@ profile, the additional post is refused before anything is written, naming
 `--local`: completing a submitted extraction is not built in 0.27.0
 (`test_g12_a_workspace_that_submits_is_refused_naming_local`).
 
+**On a cluster whose profile states `[log] export_log = false`** the extraction
+scripts carry no `EXPORT_LOG`, whether the plan is built for `--local` or for a
+submission, since the build there aborts at it either way
+(`test_an_additional_post_planned_for_a_submission_exports_no_log`). The
+extraction writes its declared log from what the solver printed, as a run
+kept local does, and with nothing printed the log is not required; the
+extraction record's `note` says which
+(`test_an_additional_post_under_local_exports_no_log_on_such_a_machine`,
+`test_an_additional_post_writes_the_printed_output_as_its_log`).
+
 **A rerun or a continuation archives the extraction with its run**, since
 `additional/` sits inside the point's own folder. The old extraction is then
 stale, the post skips it under its own key and retires none of the run's
@@ -3294,7 +3304,11 @@ held to the count the solver logs, read from the captured output; with nothing
 captured the point is recorded `FAILED_INCOMPLETE_OUTPUT` naming the machine,
 and such a row is run submitted, where the scheduler's log is collected. Every
 profile of the workspace is read for this, and profiles that disagree about
-the log are refused under `--local`.
+the log are refused under `--local`. The build-identity pre-flight, which
+runs once per installation before the first point, exports no log on such a
+machine either: it reads the build from what the solver printed, refuses a
+build other than the registered one as it always does, and when the solver
+printed none it warns, naming the profile, and never refuses.
 
 ### The build is an input
 

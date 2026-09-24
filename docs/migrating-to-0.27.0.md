@@ -260,6 +260,11 @@ the opposite sign to 0.26.0: `roll_rate:40` writes
   solver printed, written by the run, and a point whose solver printed nothing
   has no log among its `outputs`, a `residual_note` saying why, and the status
   its loads export gives it. Nothing changes on any other machine.
+- On such a cluster the extraction scripts of `pyfs-matrix post
+  --additional-pproc` carry no `EXPORT_LOG`, with `--local` or planned for a
+  submission; an extraction's log is what the solver printed, or absent with
+  the reason in its `note`. The build-identity pre-flight exports no log there
+  either, and a build the solver did not print is a warning, not a refusal.
 - A record `FAILED_INCOMPLETE_OUTPUT` for a missing declared output now lists
   the outputs that were written, in `datapoints/DP-<point>/`, with their
   hashes; before, it listed none and they stayed where the solver wrote them.

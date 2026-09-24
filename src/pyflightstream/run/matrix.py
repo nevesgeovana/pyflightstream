@@ -46,6 +46,7 @@ from pyflightstream._errors import (
     warn,
 )
 from pyflightstream.cases import (
+    EXPORT_KINDS,
     Campaign,
     ScriptRecipe,
     SimCase,
@@ -60,6 +61,7 @@ from pyflightstream.cases.matrix import (
 )
 from pyflightstream.cases.workflows import (
     ADDITIONAL_PPROC_VARIABLE,
+    EXPORT_LOG_VARIABLE,
     WORKFLOW_KEY,
     additional_outputs,
     build_additional_script,
@@ -1306,6 +1308,12 @@ def _plan_all(
     by_run = {point.run_id: point for _, point in points}
     latest = _latest_extractions(workspace.read_additional())
     exe_digests: dict[Path, str | None] = {}
+    # THE MACHINE'S LOG DECISION REACHES THE EXTRACTION SCRIPTS (0.27.0). On a
+    # cluster whose profile states `export_log = false` the build aborts at
+    # EXPORT_LOG whether the extraction runs here or is submitted, so the plan,
+    # which is built before either is chosen, asks the machine and not the
+    # executor. Off the cluster the profile describes another machine.
+    exports_log = not on_a_cluster() or _exports_its_log_here(workspace)
     plans: list[AdditionalPointPlan] = []
     for record, point in points:
         plans.append(
@@ -1320,6 +1328,7 @@ def _plan_all(
                 latest=latest,
                 default=default_fs_version,
                 exe_digests=exe_digests,
+                exports_log=exports_log,
             )
         )
     for plan in plans:
@@ -1344,6 +1353,7 @@ def _plan_point(
     latest: Mapping[str, AdditionalRecord],
     default: str | None,
     exe_digests: dict[Path, str | None],
+    exports_log: bool = True,
 ) -> AdditionalPointPlan:
     """Judge one recorded point, and build its extraction script where it passes."""
     found = cases.get(point.sim_id)
@@ -1484,6 +1494,14 @@ def _plan_point(
             "pproc": artifact,
             "pproc_id": pid,
             "outputs": list(additional_outputs(artifact, stem=stem, unsteady=unsteady)),
+            # Only the false side is written, as `_with_the_profile_s_log`
+            # writes it onto a run's case: every other extraction is the one
+            # it was, byte for byte.
+            **(
+                {}
+                if exports_log
+                else {"variables": {**point_case.variables, EXPORT_LOG_VARIABLE: "false"}}
+            ),
         }
     )
     script = Script(version)
@@ -1512,6 +1530,7 @@ def _plan_point(
             "fsm_sha256": recorded,
             "pproc_sha256": pproc_sha256,
             "extraction_id": extraction_id,
+            "exports_log": exports_log,
             "layout": layout,
             "leading": leading,
             "frames": dict(shadow.frames_by_name or {}),
@@ -1744,6 +1763,8 @@ def _extract(
         )
     relative = folder.relative_to(sim_dir).as_posix()
     names = [f"{relative}/{name}" for name in case.outputs]
+    if not context.get("exports_log", True):
+        names = _the_extraction_s_log(base, names, sim_dir, result.captured_output())
     missing = [name for name in names if not (sim_dir / name).is_file()]
     if missing:
         return _recorded(
@@ -1762,6 +1783,41 @@ def _extract(
         original=original,
         outputs=names,
     )
+
+
+#: The suffix of a declared solver log, the log export kind's own.
+_LOG_SUFFIX = next(suffix for kind, suffix, _, _ in EXPORT_KINDS if kind == "log")
+
+
+def _the_extraction_s_log(
+    base: dict[str, object], names: list[str], sim_dir: Path, printed: str
+) -> list[str]:
+    """Write an extraction's declared log from what the solver printed, or excuse it (0.27.0).
+
+    On a machine that cannot export the log the extraction script carries no
+    ``EXPORT_LOG``, as a run's does there. What the solver printed is written
+    as the declared log; with nothing printed the log is not required, since
+    the machine cannot write one. Either way the record's ``note`` says so.
+    Returns the names the extraction is held to.
+    """
+    logs = [name for name in names if name.endswith(_LOG_SUFFIX) and not (sim_dir / name).is_file()]
+    if not logs:
+        return names
+    if printed:
+        (sim_dir / logs[0]).write_text(printed, encoding="utf-8", newline="")
+        said = (
+            f"{PurePath(logs[0]).name} is the solver's captured standard output and error, "
+            "written by this package: this machine's HPC profile states export_log = false, "
+            "so the extraction script exports no log"
+        )
+    else:
+        names = [name for name in names if name != logs[0]]
+        said = (
+            "no solver log: this machine's HPC profile states export_log = false, so the "
+            "extraction script exports none, and the solver printed nothing to capture"
+        )
+    base["note"] = "; ".join(str(part) for part in (base.get("note"), said) if part)
+    return names
 
 
 def _script_name(pproc: str, stem: str) -> str:
