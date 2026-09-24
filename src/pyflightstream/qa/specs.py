@@ -15,9 +15,10 @@ Assertion strictness follows the evidence rules: strict assertions
 (absence is ``broken``) only where the instrument is recon-proven to
 expose the state; everywhere else the assertion returns None and the
 command lands ``unprobed``, because a probe may never guess. Three
-commands carry no specification yet: SET_PROP_ACTUATOR_PROFILE and the
-two FSI commands need input-file fixtures whose format awaits a manual
-pass.
+commands carry no specification yet, each needing an input-file fixture:
+SET_PROP_ACTUATOR_PROFILE, whose file form 26.124 reads was measured by a
+licensed probe outside this catalog (RPT-070), and the two FSI commands,
+whose input-file format awaits a manual pass.
 """
 
 from __future__ import annotations

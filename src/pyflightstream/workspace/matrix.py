@@ -63,6 +63,7 @@ from pyflightstream._fsm import MeshReadError, boundary_names
 from pyflightstream.cases import (
     POINT_AXIS_KEYS,
     Campaign,
+    CampaignConfigError,
     FluidState,
     InputKey,
     MeshImport,
@@ -102,6 +103,7 @@ from pyflightstream.cases.workflows import (
     RAW_MESH_FORMATS,
     ROTOR_ORIGIN_POINT_KEY,
     SIMULATION_LENGTH_UNIT,
+    read_actuator_profile,
     refuse_an_additional_post_build,
     refuse_what_a_saved_point_cannot_give,
 )
@@ -1543,10 +1545,14 @@ def _resolve_actuator_profile(workspace: CampaignWorkspace, row: MatrixRow) -> s
     what the folder holds. The cell names the file by its STEM, which is how
     the profile library registers a file.
 
-    It is not copied beside the geometry. Staging it with the mesh would stage
-    two folders, and the library links a geometry only when every staged file
-    sits in its folder, so every disc row stating a profile would have copied
-    its mesh. The run hashes the file into the record's ``inputs_sha256``.
+    A FILE THE SOLVER WOULD MISREAD IS REFUSED HERE TOO, naming the file and
+    the line (:func:`~pyflightstream.cases.workflows.read_actuator_profile`):
+    a header or a count first, a row that is not two numbers separated by
+    one comma, fewer than two rows. A final newline and blank lines are not
+    refused, since the solver never reads this file: the run writes its own
+    copy of the rows, with no final newline, where the point runs, and the
+    script names the copy. So the user's file is never staged beside the
+    geometry, and never written; the record hashes the copy.
     """
     stem = row.variables.get(PROFILE_VARIABLE, "")
     if not stem:
@@ -1565,16 +1571,27 @@ def _resolve_actuator_profile(workspace: CampaignWorkspace, row: MatrixRow) -> s
             kind="profile",
             artifact_id=stem,
         ) from None
-    return str(path.resolve())
+    resolved = path.resolve()
+    try:
+        read_actuator_profile(resolved)
+    except CampaignConfigError as error:
+        raise InputArtifactError(
+            f"matrix row POL {row.pol}: PROFILE names {stem!r}, and {error}",
+            kind="profile",
+            artifact_id=stem,
+        ) from None
+    return str(resolved)
 
 
 def _resolve_freestream(workspace: CampaignWorkspace, row: MatrixRow) -> str | None:
     """Give a row's ``FREESTREAM`` the absolute path of its file of ``inputs/freestreams/`` (G15).
 
     THE ACTUATOR PROFILE IS THE PRECEDENT (:func:`_resolve_actuator_profile`):
-    the cell names the file by its STEM, the plan resolves it to the absolute
-    path the script names, and the file is read where it lives, never staged
-    beside the mesh; the run hashes it into the record's ``inputs_sha256``.
+    the cell names the file by its STEM and the plan resolves it to an
+    absolute path. Unlike the profile, which the run copies into the form the
+    solver reads, the field is read where it lives, by the absolute path the
+    script names, never staged beside the mesh; the run hashes it into the
+    record's ``inputs_sha256``.
 
     The EXTENSION IS THE FORM, as the manual ties them: ``<stem>.txt`` is
     STRUCTURED and ``<stem>.dat`` UNSTRUCTURED. So the folder must hold exactly

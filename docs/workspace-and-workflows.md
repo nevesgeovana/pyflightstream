@@ -2398,18 +2398,45 @@ ACTUATOR: PROP / ACTUATOR_RPM: 2400 / PROFILE: prop_ct
 magnitude whose hand is the block's `rpm_sign`; and the row states exactly one
 loading: `ACTUATOR_THRUST`, the net thrust in N (the ELLIPTICAL model, thrust
 given in NEWTONS as the manual recommends), or `PROFILE`, the stem of a file of
-the workspace's `inputs/profiles/` (the CUSTOM model). A `PROFILE` is resolved
-when the row is planned, to the absolute path the script imports, and a stem
-the folder does not hold is refused naming what it does hold; the file is read
-where it lives, never copied beside the mesh, and its sha256 joins the
-record's `inputs_sha256`. ONE DISC PER ROW. A reference declaring a disc
-changes nothing on a row that names none.
+the workspace's `inputs/profiles/` (the CUSTOM model). ONE DISC PER ROW. A
+reference declaring a disc changes nothing on a row that names none.
+
+**THE PROFILE FILE** holds the radial distribution, one station per line: two
+numbers separated by one comma, `r,F`, the radial station (normalised or
+dimensional, as you write it; the package does not convert it) and the force
+there, per blade, in the block's `profile_units`. No header line and no count
+line:
+
+```text
+0.2,0.0
+0.6,127.3
+1.0,0.0
+```
+
+Save it as any editor saves it. The solver is never handed your file: the run
+writes its own copy, `<stem>.actuator_profile.txt`, in the folder the point
+runs in (a steady row of several points: its simulation folder), and the
+script names the copy. The copy holds your rows with the blank lines and the
+spaces around the numbers removed, joined by a newline, and NO final newline,
+because 26.124 reads every line of the file as a point: measured on 26.124
+(RPT-070), eleven rows ending in a newline were read as twelve points, logged
+as unreadable and refused in a dialog that holds the solver until a person
+closes it, while the same eleven rows without the final newline were read,
+radii and forces. The copy's sha256 joins the record's `inputs_sha256`, and
+your file is never written. A `PROFILE` is resolved when the row is planned,
+and a stem the folder does not hold is refused naming what it does hold. A
+file the solver would misread is refused then too, naming the file and the
+line: a header or a count first (each read as one point more, which set every
+value to zero), a row that is not two numbers separated by one comma, a number
+that is not finite, or fewer than two rows. A case written in Python sets
+`SimCase.actuator_profile` to the file's absolute path and is held to the same
+form when its script is built.
 
 The script creates the disc after every frame exists and before the solver is
 initialised: `CREATE_NEW_ACTUATOR PROPELLER ELLIPTICAL|CUSTOM <name>`,
 `SET_ACTUATOR_AXIS`, `SET_ACTUATOR_RADIUS`, `SET_PROP_ACTUATOR_RPM`, then
-`SET_PROP_ACTUATOR_THRUST` or `SET_PROP_ACTUATOR_PROFILE` (the file on the next
-line), `SET_PROP_ACTUATOR_SWIRL` when the block states a swirl, and
+`SET_PROP_ACTUATOR_THRUST` or `SET_PROP_ACTUATOR_PROFILE` (the run's copy of the
+profile on the next line), `SET_PROP_ACTUATOR_SWIRL` when the block states a swirl, and
 `ENABLE_ACTUATOR`. Each way to get the row wrong is refused before a line is
 written, naming the key: a block the reference does not declare (listing the
 ones it does), a speed missing or not above zero, both loadings or neither, a
@@ -2462,9 +2489,12 @@ are verified on 26.121 to 26.124, each by a probe reading the saved simulation.
 error in the probes of 26.120 to 26.124, and their effect has never been
 observed, so they are documented only: a run can converge with the disc's
 thrust not applied and nothing here would say so. `SET_PROP_ACTUATOR_PROFILE`
-has NEVER RUN on any build. Every other build of the range is documented only.
-The profile route is refused on 25.000 and 25.100, whose editions print the
-command without a blade count.
+ran on 26.124 under a licensed probe (RPT-070), which measured the file form
+above by reading the saved simulation, with no solve; it stays documented
+there, since what a profile the solver read does to the loads has not been
+observed, and every other build of the range is documented only. The profile
+route is refused on 25.000 and 25.100, whose editions print the command without
+a blade count.
 
 A PROFILE THE SOLVER COULD NOT USE FAILS THE POINT. When the solver cannot use
 the file, it logs `Failed to find`, `Failed to read`, `No data found in` or
@@ -2479,8 +2509,8 @@ whose outputs name no log is not held to it.
 NOT MEASURED: the disc on an unsteady row; the disc on a rotor row, where a
 flat row with no blade frames turns every frame with its motion
 (`SET_MOTION_MOVING_FRAMES 1 -1`), the disc's frame included; the disc under
-mirror symmetry; and the format the solver expects of a profile file, which
-the package passes through unread. A continuation reopens the saved
+mirror symmetry; the loads of a disc whose profile the solver read; and the
+profile file on any build but 26.124. A continuation reopens the saved
 simulation, which carries the disc, and emits it again nowhere. Deriving the
 disc's speed from an advance ratio and its diameter is not offered; the row
 states `ACTUATOR_RPM`.

@@ -2130,8 +2130,8 @@ def reconstruct(run: RunRecord | str, *, workspace: CampaignWorkspace) -> Recons
         script names for it, among the simulation's staged inputs, or in
         the folder the run ran in (the record's ``cwd``), where the run
         writes the files it parks beside the script (the trailing-edge node
-        file, the unsteady action programs). It reads ``"missing"`` only
-        when the file is not where the run read it.
+        file, the actuator profile's copy, the unsteady action programs). It
+        reads ``"missing"`` only when the file is not where the run read it.
 
     Raises
     ------
@@ -2195,11 +2195,11 @@ def reconstruct(run: RunRecord | str, *, workspace: CampaignWorkspace) -> Recons
     script_text = script.read_text(encoding="utf-8")
     verified = {record.script_path: state(script, record.script_sha256)}
     # EACH INPUT WHERE THE RUN READ IT. Only the geometry is staged in the
-    # simulation's inputs/; the trailing-edge node file and the action programs
-    # are written in the folder the run ran in, and the actuator profile is read
-    # where it lives. Looked for among the staged inputs, every one of them read
-    # "missing", and a node file whose name the input library also holds read
-    # "differs" against a file the run never read.
+    # simulation's inputs/; the trailing-edge node file, the actuator profile's
+    # copy and the action programs are written in the folder the run ran in, and
+    # a custom free stream is read where it lives. Looked for among the staged
+    # inputs, every one of them read "missing", and a node file whose name the
+    # input library also holds read "differs" against a file the run never read.
     work_dir = Path(record.cwd) if record.cwd else sim
     named = _paths_a_script_names(script_text, work_dir)
     for name, digest in record.inputs_sha256.items():
@@ -2244,9 +2244,10 @@ def _where_the_run_read(name: str, sim: Path, work_dir: Path, named: Sequence[Pa
     In this order:
 
     1. A path the script names that ends in the input's name is where the
-       solver read it: the actuator profile where it lives, the node file in
-       the folder the run ran in. When that path is this simulation's own
-       staged input (``sim_<id>/inputs/<name>``), it is checked in this
+       solver read it: a custom free stream where it lives, the node file and
+       the actuator profile's copy in the folder the run ran in. When that
+       path is this simulation's own staged input
+       (``sim_<id>/inputs/<name>``), it is checked in this
        workspace's staged inputs, which a moved workspace still holds; else
        the first such path that holds a file, else the first, which reads
        "missing". A staged input of the same name is never substituted for it.
@@ -4612,9 +4613,10 @@ def _plan_point(
     # and the difference is one argument: the plan runs before
     # anything is staged, so a case naming a geometry renders `OPEN
     # <library path>` here and `OPEN <staged copy>` at run time. A raw mesh
-    # on the trailing-edge file route differs in a second: the script is given
-    # no working folder here, so its node file is named by its bare name (G02,
-    # `Script.working_dir`). Nothing
+    # on the trailing-edge file route, and an actuator disc loaded by a
+    # profile, differ in a second: the script is given no working folder here,
+    # so the node file and the profile's copy are named by their bare names
+    # (G02, G06, `Script.working_dir`). Nothing
     # depends on that today (the plan checks the library file exists, the
     # builder judges only the suffix, and plan.json carries no script
     # text), and it is written down so a later reader does not reuse this
@@ -4905,34 +4907,26 @@ def _prepare_case(
         # reasoning is there rather than repeated at each boundary.
         staged_geometry = str(staged)
     if case.actuator_profile is not None:
-        # G06. THE ACTUATOR PROFILE IS HASHED WHERE IT LIVES and joins the
-        # record's inputs, as the trailing-edge node file does: it is a file
-        # the solver reads, and a record that cannot say which bytes it read
-        # cannot be reproduced. NOT STAGED beside the geometry, because a
-        # second folder among the staged files turns the geometry's link into a
-        # copy (`CampaignWorkspace.stage_inputs`), which is the size every mesh
-        # is kept out of the simulation folder for.
+        # G06. THE SOLVER NEVER READS THE USER'S PROFILE: the builder parks the
+        # run's own copy of its rows, in the form 26.124 reads, and
+        # `_write_pending_files` writes it where the point runs and hashes it
+        # into the record, as it does the trailing-edge node file. So the
+        # user's file is neither staged nor hashed here, only looked for, so a
+        # file gone since the plan fails the case by name before the build.
         profile = Path(case.actuator_profile)
         if not profile.is_file():
             return (
                 recipe,
                 f"the actuator profile {profile} the row's PROFILE resolved to is no longer "
-                "there; it is read where it lives, under the workspace's inputs/profiles/",
+                "there; the run copies it from where it lives, under the workspace's "
+                "inputs/profiles/",
                 {},
                 None,
             )
-        if profile.name in inputs_sha256:
-            return (
-                recipe,
-                f"the actuator profile and the geometry share the file name {profile.name!r}, "
-                "and the record keys its inputs by name; rename one of them",
-                {},
-                None,
-            )
-        inputs_sha256 = {**inputs_sha256, profile.name: file_sha256(profile)}
     if case.freestream_profile is not None:
-        # G15. THE CUSTOM FREE STREAM, hashed where it lives for the same
-        # reason as the actuator profile above: the solver reads it.
+        # G15. THE CUSTOM FREE STREAM, hashed where it lives: the solver reads
+        # it there, and a record that cannot say which bytes it read cannot be
+        # reproduced.
         field = Path(case.freestream_profile)
         if not field.is_file():
             return (
@@ -5563,17 +5557,23 @@ def _write_pending_files(script: Script, work_dir: Path) -> dict[str, str]:
     Two kinds, both named by the script and written where it names them (a
     relative path lands in ``work_dir``, the solver's working directory):
     the child scripts of SCRIPT actions (PFS-2031.13) and the data files a
-    command reads, the trailing-edge node file today (G02). One writer for
-    both, called by the point path and by the sweep path alike; the sweep
-    path wrote neither until 0.27.0.
+    command reads, the trailing-edge node file (G02) and the run's own copy
+    of an actuator disc's radial thrust profile (G06). One writer for all,
+    called by the point path and by the sweep path alike; the sweep path
+    wrote neither kind until 0.27.0.
+
+    A data file parked as TEXT is written in text mode, as the node file
+    always was; one parked as BYTES is written exactly as it is, which is how
+    the profile's copy keeps the one form 26.124 was measured to read: rows
+    joined by a newline and no final newline (RPT-070).
 
     Returns
     -------
     dict of str to str
         The sha256 of each DATA file, keyed by its file name, for the
-        record's ``inputs_sha256``: the node file is an input the solver
-        read, and a record that could not say which bytes it read could not
-        be reproduced. The action scripts are hashed nowhere, as before.
+        record's ``inputs_sha256``: each is an input the solver read, and a
+        record that could not say which bytes it read could not be
+        reproduced. The action scripts are hashed nowhere, as before.
     """
 
     def placed(name: str) -> Path:
@@ -5585,10 +5585,13 @@ def _write_pending_files(script: Script, work_dir: Path) -> dict[str, str]:
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(action_text, encoding="utf-8")
     digests: dict[str, str] = {}
-    for input_file, text in script.pending_input_files.items():
+    for input_file, content in script.pending_input_files.items():
         target = placed(input_file)
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(text, encoding="utf-8")
+        if isinstance(content, bytes):
+            target.write_bytes(content)
+        else:
+            target.write_text(content, encoding="utf-8")
         digests[target.name] = file_sha256(target)
     return digests
 

@@ -4365,11 +4365,14 @@ requirement below is one seam of that division.
     no run type. Evidence: `tests/tier1_offline/test_g06_actuator_disc.py`
     (the disc emitted before the solver is initialised on every run type, the
     motions rotor path and the steady sweep included; the block read from the
-    reference and each way it is refused; the hand; a profile resolved at plan
-    and hashed into the record; each refusal of the row; the control of a row
-    naming none; the profile route refused by build before any emission). The
-    thrust and enable commands ran unobserved and the profile command never
-    ran; the planning row closes on a licensed run, which is owed.*
+    reference and each way it is refused; the hand; a profile resolved and
+    checked at plan, the run's own copy of it written, named and hashed on every
+    run type, and each form the solver would misread refused naming the line;
+    each refusal of the row; the control of a row naming none; the profile
+    route refused by build before any emission). The thrust and enable commands
+    ran unobserved; the profile command ran on 26.124 under a licensed probe
+    that measured the file form it reads (RPT-070); the planning row closes on
+    a licensed run, which is owed.*
 
     A reference artifact declares an actuator disc as a top-level block of
     `kind = "actuator"`: its `frame`, `axis`, `offset_m`, `tip_radius_m`,
@@ -4377,9 +4380,12 @@ requirement below is one seam of that division.
     `profile_units`. A row names ONE by `ACTUATOR`, states its speed by
     `ACTUATOR_RPM` (a magnitude; the block's `rpm_sign` is the hand) and
     exactly one loading, `ACTUATOR_THRUST` (net thrust in N) or `PROFILE` (the
-    stem of a file of `inputs/profiles/`, resolved at plan, read where it lives
-    and hashed into the record's `inputs_sha256`); every run type then emits
-    the disc in the block's frame before the solver is initialised.
+    stem of a file of `inputs/profiles/`, rows `r,F`, resolved and checked at
+    plan); every run type then emits the disc in the block's frame before the
+    solver is initialised. The solver reads the run's own copy of the profile,
+    written where the point runs in the form 26.124 reads (the rows joined by
+    a newline, with no final newline) and hashed into the record's
+    `inputs_sha256`; the user's file is never written.
 
     - A reference disc that no row names emits nothing.
     - A block the reference does not declare, a speed not above zero or
@@ -4388,10 +4394,14 @@ requirement below is one seam of that division.
       create are each refused naming the key, before any line is written.
     - The profile route is refused on 25.000 and 25.100, whose grammar of
       `SET_PROP_ACTUATOR_PROFILE` takes no blade count.
+    - A profile the solver would misread is refused at plan, naming the file
+      and the line: a header or a count first, a row that is not two numbers
+      separated by one comma, a number that is not finite, fewer than two rows.
     - Not measured: the disc on an unsteady or rotor row, where a motion that
       moves every frame moves the disc's; the disc under mirror symmetry;
-      whether the thrust and enable commands take effect; and the profile
-      command on any build.
+      whether the thrust and enable commands take effect; the loads of a disc
+      whose profile the solver read; and the profile command on any build but
+      26.124.
 
 !!! requirement "FR-110 The pproc declares a volume section and each steady point exports it <span class='srs-implemented'>implemented</span>"
 
