@@ -112,6 +112,9 @@ def test_1003_the_sideslip_sweep_resolves_an_altitude_and_a_hot_day_with_no_pins
         assert lines(script, "SOLVER_SET_SIDESLIP") == [
             f"SOLVER_SET_SIDESLIP {beta}" for beta in (-4.0, 0.0, 4.0)
         ]
+        # The row states COLD_START: every point after the first starts from a
+        # cleared solution, the condition the side-force band below was set in.
+        assert lines(script, "CLEAR_SOLUTION") == ["CLEAR_SOLUTION"] * 2
         pressure = float(line(script, "PRESSURE").split()[1])
         assert 84000.0 < pressure < 84600.0, "ISA at 5000 ft"
         temperature = float(line(script, "TEMPERATURE").split()[1])
@@ -131,7 +134,14 @@ def test_1003_sideslip_antisymmetry_of_the_side_force(runs):
     # Measured 2026-09-08 on 26.120, 12 by 16 panels: Cy(-4) = +0.000471,
     # Cy(+4) = -0.000486, a 3 percent asymmetry of the side force; the
     # identity is asserted to 5 percent of it, the solver's noise on this
-    # mesh, and the band is the author's to tighten.
+    # mesh, and the band is the author's to tighten. Each of those points
+    # started cold. Re-measured 2026-09-24 on 26.124 with five far-field
+    # layers: cold, Cy = +0.000476, -0.0000099, -0.0004883 (2.5 percent);
+    # warm, the sweep's default since 0.16.0, the two later points read
+    # -0.0000242 and -0.0005027 (5.3 percent) because each starts from the
+    # previous point's solution. So the row states COLD_START, and the warm
+    # sweep's own difference is registered for 0.28.0 rather than absorbed
+    # into this band.
     assert abs(minus["Cy"] + plus["Cy"]) <= 0.05 * side, (minus["Cy"], plus["Cy"])
     assert abs(zero["Cy"]) <= 0.05 * side, zero["Cy"]
     assert abs(minus["CL"] - plus["CL"]) <= 0.05 * max(abs(plus["CL"]), side), "lift is even"
