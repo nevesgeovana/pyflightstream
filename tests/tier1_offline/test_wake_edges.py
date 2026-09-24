@@ -22,6 +22,7 @@ The refusal has to sit where the case is assembled, which is here.
 """
 
 import math
+import re
 
 import numpy
 import pytest
@@ -29,6 +30,7 @@ import pytest
 from pyflightstream.commands import CommandRegistry
 from pyflightstream.workspace.inputs import InputArtifactError, PointXyz
 from pyflightstream.workspace.wake_edges import (
+    _METRES_PER_UNIT,
     DEFAULT_EDGE_TYPE,
     DEFAULT_TOLERANCE,
     LENGTH_UNIT_COMMAND,
@@ -37,6 +39,7 @@ from pyflightstream.workspace.wake_edges import (
     WakeEdgeImport,
     edge_types,
     evidence_notice,
+    length_scale,
     node_file_units,
     tolerance_unit,
     write_node_file,
@@ -181,38 +184,64 @@ def test_the_evidence_behind_the_default_route_is_stated_with_both_commands():
 THREE_NODES = numpy.array([[0.0, 0.5, 0.25], [1.5, -0.5, 0.25], [-2.0, 0.125, -0.75]], dtype=float)
 
 
-def test_the_node_file_carries_the_count_the_unit_and_one_row_per_node(tmp_path):
-    """The layout is pinned here, so a later edit cannot change it quietly.
-
-    The count, then the unit token, then one comma-separated row per node
-    carrying an id and three coordinates. That is the layout the manual
-    paraphrases for the node list a trailing-edge import reads
-    (SRC-003 p.319), recorded in this repository's own words.
+def test_the_node_file_is_the_count_a_placeholder_triple_and_the_midpoints_in_the_simulation_unit(
+    tmp_path,
+):
+    """G02 (RPT-061). The layout is the one 26.124 reads, pinned here so a later
+    edit cannot change it quietly: the count, one coordinate triple the solver
+    consumes and does not use, then one bare ``x,y,z`` row per edge mid-point,
+    CONVERTED to the simulation's length unit, because the file's own unit is not
+    read. No line carries a letter: a word on any line makes the import mark
+    nothing, and a unit line and id columns are exactly the layout that marked
+    nothing when it was run.
     """
-    destination = tmp_path / "wake_edges.csv"
-    written = write_node_file(destination, THREE_NODES, unit="METER")
+    destination = tmp_path / "n.txt"
+    written = write_node_file(
+        destination,
+        [[1000.0, -3750.0, 0.0], [1000.0, -3250.0, 0.0]],
+        unit="MILLIMETER",
+        simulation_unit="METER",
+    )
     assert written == destination
-
     lines = destination.read_text(encoding="utf-8").splitlines()
-    assert lines[0] == "3"
-    assert lines[1] == "METER"
-    assert lines[2:] == [
-        "1,0.0,0.5,0.25",
-        "2,1.5,-0.5,0.25",
-        "3,-2.0,0.125,-0.75",
-    ]
+    assert lines == ["2", "0,0,0", "1.0,-3.75,0.0", "1.0,-3.25,0.0"]
+    assert not [line for line in lines if re.search("[A-Za-z]", line)], lines
 
-    # Read back and compared node for node against what went in. This
-    # checks the writer against ITS OWN output and nothing more: whether
-    # the SOLVER accepts the file stays open until a probe report exists.
-    parsed = numpy.array([[float(field) for field in line.split(",")[1:]] for line in lines[2:]])
-    assert parsed == pytest.approx(THREE_NODES)
+
+def test_a_coordinate_too_small_for_a_plain_decimal_is_still_written_without_a_letter(tmp_path):
+    """A trailing-edge vertex of the committed wing sits at z = 1.665e-17, and the
+    shortest round-trip form of that number carries an exponent letter. The writer
+    spells every number as a plain decimal that reads back to the same float,
+    because no layout with a letter in it has ever marked an edge."""
+    tiny = 1.6653345369999999e-17
+    destination = write_node_file(
+        tmp_path / "tiny.txt", [[1.0, -3.75, tiny]], unit="METER", simulation_unit="METER"
+    )
+    lines = destination.read_text(encoding="utf-8").splitlines()
+    assert not re.search("[A-Za-z]", lines[2]), lines[2]
+    assert [float(value) for value in lines[2].split(",")] == [1.0, -3.75, tiny]
+
+
+def test_every_recorded_length_unit_but_other_has_a_scale():
+    """The conversion covers the solver's whole length-unit vocabulary, read from the
+    command record, except OTHER, which names no scale and is refused."""
+    assert set(node_file_units()) - {"OTHER"} == set(_METRES_PER_UNIT)
+    assert length_scale("MILLIMETER", "METER") == 0.001
+    assert length_scale("METER", "MILLIMETER") == 1000.0
+    assert length_scale("INCH", "MILLIMETER") == 25.4
+    assert length_scale("FEET", "FEET") == 1.0
+    with pytest.raises(InputArtifactError, match="OTHER"):
+        length_scale("OTHER", "METER")
+    with pytest.raises(InputArtifactError, match="furlong"):
+        length_scale("METER", "furlong")
 
 
 def test_an_empty_node_list_is_refused_because_it_marks_nothing(tmp_path):
     """A file with no rows is a marking pass that marks nothing."""
     with pytest.raises(InputArtifactError) as raised:
-        write_node_file(tmp_path / "empty.csv", numpy.zeros((0, 3)), unit="METER")
+        write_node_file(
+            tmp_path / "empty.csv", numpy.zeros((0, 3)), unit="METER", simulation_unit="METER"
+        )
     assert "0 node" in str(raised.value)
     assert not (tmp_path / "empty.csv").exists(), "a refused write must leave no file"
 
@@ -229,20 +258,19 @@ def test_an_empty_node_list_is_refused_because_it_marks_nothing(tmp_path):
 def test_an_array_that_is_not_n_by_three_is_refused_with_the_shape_it_had(wrong, tmp_path):
     """Three coordinates per node, and the shape it got is named."""
     with pytest.raises(InputArtifactError) as raised:
-        write_node_file(tmp_path / "wrong.csv", wrong, unit="METER")
+        write_node_file(tmp_path / "wrong.csv", wrong, unit="METER", simulation_unit="METER")
     assert str(tuple(wrong.shape)) in str(raised.value)
 
 
 def test_a_unit_outside_the_documented_set_is_refused_naming_the_unit_it_got(tmp_path):
-    """The coordinates are read in the unit the FILE declares.
+    """The coordinates are converted from the unit they are given in.
 
     That is what makes a wrong token expensive rather than cosmetic: the
-    solver reads the file in the unit it names, not in the simulation's,
-    so a token the solver does not know is a file whose coordinates have
-    no scale.
+    solver reads the file in the simulation's unit and never reads a unit
+    from it, so a token with no scale leaves nothing to convert by.
     """
     with pytest.raises(InputArtifactError) as raised:
-        write_node_file(tmp_path / "unit.csv", THREE_NODES, unit="furlong")
+        write_node_file(tmp_path / "unit.csv", THREE_NODES, unit="furlong", simulation_unit="METER")
     message = str(raised.value)
     assert "'furlong'" in message
     assert "METER" in message and "MILLIMETER" in message
@@ -261,7 +289,7 @@ def test_a_coordinate_that_is_not_a_finite_number_is_refused_with_its_row(tmp_pa
     nodes = THREE_NODES.copy()
     nodes[1, 2] = numpy.nan
     with pytest.raises(InputArtifactError) as raised:
-        write_node_file(tmp_path / "nan.csv", nodes, unit="METER")
+        write_node_file(tmp_path / "nan.csv", nodes, unit="METER", simulation_unit="METER")
     assert "row 2" in str(raised.value)
     assert not (tmp_path / "nan.csv").exists()
 
@@ -269,24 +297,28 @@ def test_a_coordinate_that_is_not_a_finite_number_is_refused_with_its_row(tmp_pa
 def test_an_existing_node_file_is_not_replaced_without_being_asked(tmp_path):
     """One path, one file, and the second write says so before it wins."""
     destination = tmp_path / "wake_edges.csv"
-    write_node_file(destination, THREE_NODES, unit="METER")
+    write_node_file(destination, THREE_NODES, unit="METER", simulation_unit="METER")
     with pytest.raises(InputArtifactError, match="overwrite=True"):
-        write_node_file(destination, THREE_NODES[:2], unit="METER")
+        write_node_file(destination, THREE_NODES[:2], unit="METER", simulation_unit="METER")
     assert destination.read_text(encoding="utf-8").splitlines()[0] == "3"
 
-    write_node_file(destination, THREE_NODES[:2], unit="METER", overwrite=True)
+    write_node_file(
+        destination, THREE_NODES[:2], unit="METER", simulation_unit="METER", overwrite=True
+    )
     assert destination.read_text(encoding="utf-8").splitlines()[0] == "2"
 
 
 def test_a_plain_nested_sequence_is_accepted_as_well_as_an_array(tmp_path):
     """The caller's extraction need not already be a numpy array."""
     destination = tmp_path / "plain.csv"
-    write_node_file(destination, [[0.0, 1.0, 2.0], [3.0, 4.0, 5.0]], unit="INCH")
+    write_node_file(
+        destination, [[0.0, 1.0, 2.0], [3.0, 4.0, 5.0]], unit="INCH", simulation_unit="INCH"
+    )
     assert destination.read_text(encoding="utf-8").splitlines() == [
         "2",
-        "INCH",
-        "1,0.0,1.0,2.0",
-        "2,3.0,4.0,5.0",
+        "0,0,0",
+        "0.0,1.0,2.0",
+        "3.0,4.0,5.0",
     ]
 
 
@@ -379,6 +411,8 @@ def test_something_that_is_not_coordinates_is_refused_in_this_catalogue(unreadab
     repository refuses on an exported name.
     """
     with pytest.raises(InputArtifactError) as raised:
-        write_node_file(tmp_path / "unreadable.csv", unreadable, unit="METER")
+        write_node_file(
+            tmp_path / "unreadable.csv", unreadable, unit="METER", simulation_unit="METER"
+        )
     assert "array of coordinates" in str(raised.value)
     assert not (tmp_path / "unreadable.csv").exists()

@@ -458,10 +458,8 @@ def test_the_extraction_runs_with_no_optional_extra_installed(tmp_path):
     )
     rows = written.read_text(encoding="utf-8").splitlines()
     assert rows[0] == "6"
-    assert rows[1] == "METER"
-    nodes = numpy.asarray(
-        [[float(field) for field in row.split(",")[1:]] for row in rows[2:]], dtype=float
-    )
+    assert rows[1] == "0,0,0"
+    nodes = numpy.asarray([[float(field) for field in row.split(",")] for row in rows[2:]])
     assert all(_matches(nodes, trailing, tolerance=1.0e-6)), (
         "the lean child extracted nodes that are not trailing-edge vertices"
     )
@@ -650,13 +648,9 @@ def test_the_edge_is_written_as_the_node_list_a_wake_edge_import_reads(tmp_path)
     )
     rows = written.read_text(encoding="utf-8").splitlines()
     assert rows[0] == "8", "the node count line does not carry the node count"
-    assert rows[1] == "METER", "the file does not declare the unit the solver reads it in"
+    assert rows[1] == "0,0,0", "the file lacks the coordinate line the import consumes"
     assert len(rows) == 10
-    identifiers = [int(row.split(",")[0]) for row in rows[2:]]
-    assert identifiers == list(range(1, 9))
-    nodes = numpy.asarray(
-        [[float(field) for field in row.split(",")[1:]] for row in rows[2:]], dtype=float
-    )
+    nodes = numpy.asarray([[float(field) for field in row.split(",")] for row in rows[2:]])
     assert all(_matches(nodes, trailing, tolerance=1.0e-6))
 
 

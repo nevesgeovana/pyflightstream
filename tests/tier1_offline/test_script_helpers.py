@@ -1319,6 +1319,25 @@ def test_the_marking_helper_takes_no_path_because_the_command_takes_none():
     assert set(parameters) == {"script", "edge_type", "tolerance"}
 
 
+def test_the_wake_edge_node_file_is_the_count_a_placeholder_and_bare_midpoints():
+    """G02 (RPT-061). The text the 26.124 import reads: the count, one coordinate
+    triple the solver consumes and does not use, then one ``x,y,z`` row per edge
+    mid-point, each number a plain decimal. A list that can mark nothing is
+    refused before any text exists: none, a row that is not three coordinates,
+    and a coordinate that is not finite, which would be written as a word."""
+    assert helpers.render_wake_edge_node_file([(1.0, -3.75, 0.0), (1.0, -3.25, 0.0)]) == (
+        "2\n0,0,0\n1.0,-3.75,0.0\n1.0,-3.25,0.0\n"
+    )
+    for midpoints, words in (
+        ([], "0 edge mid-points"),
+        ([(1.0, 2.0)], "three coordinates"),
+        ([(1.0, -3.75, 0.0), (1.0, math.nan, 0.0)], "point 2 of 2"),
+        ([(1.0, "x", 0.0)], "point 1 of 1"),
+    ):
+        with pytest.raises(CommandArgumentError, match=words):
+            helpers.render_wake_edge_node_file(midpoints)
+
+
 def test_exactly_one_rotation_command_resolves_on_every_registered_build():
     """The property the helper's choice actually rests on.
 

@@ -17,16 +17,26 @@ no wake where the wake was the point. A check that can only run before
 the script is written has to live above the script layer, which is
 here.
 
-THE DEFAULT ROUTE RESTS ON A COMMAND NOBODY HAS RUN, and that is stated
-rather than left for a reader to discover. Marking wake edges from a
-file replaces trailing-edge auto detection, which is an angle criterion
-and cannot find the edges this capability exists for; that is the
-reason for the trade and it is a good one. It is still a move from a
-command three committed probe reports cover to one that no run has ever
-exercised, on any build. :func:`evidence_notice` renders that sentence
-from the command database at the moment it is asked, so the day a probe
-promotes the import the sentence follows it, and a reader meeting the
-default never reads it as settled practice.
+THE DEFAULT ROUTE WAS RUN ON ONE BUILD, and that is stated rather than
+left for a reader to discover. Marking wake edges from a file replaces
+trailing-edge auto detection, which is an angle criterion and cannot
+find the edges this capability exists for; that is the reason for the
+trade and it is a good one. The import was run on 26.124 only
+(RPT-061), where it reads its node list from the path on the line after
+the command and marks the edges whose mid-points the file names; the
+builds before it print a grammar that build refuses. :func:`evidence_notice`
+renders the standing from the command database at the moment it is
+asked, so the day a compat report promotes the import the sentence
+follows it, and a reader meeting the default never reads it as settled
+practice.
+
+THE NODE FILE IS WHAT 26.124 READS (RPT-061): the count, one coordinate
+line the solver consumes and does not use, then the edge MID-POINTS in
+the simulation's length unit. The file's unit is not read, so
+:func:`write_node_file` converts the points to the simulation's unit
+rather than declaring one, and the text itself comes from
+:func:`pyflightstream.script.helpers.render_wake_edge_node_file`, the
+one place that layout is written.
 
 The two defaults are the vendor's own numbers rather than this
 package's taste: the manual page prints a sample call passing
@@ -37,12 +47,15 @@ default in its own table (SRC-750 p.324, SRC-751 p.323).
 from __future__ import annotations
 
 import math
+from fractions import Fraction
 from pathlib import Path
 
 import numpy
 from pydantic import BaseModel, ConfigDict, model_validator
 
 from pyflightstream.commands import CommandRegistry, Status
+from pyflightstream.script import CommandArgumentError
+from pyflightstream.script.helpers import render_wake_edge_node_file
 from pyflightstream.workspace.inputs import InputArtifactError, PointXyz
 
 __all__ = [
@@ -54,6 +67,7 @@ __all__ = [
     "WakeEdgeImport",
     "edge_types",
     "evidence_notice",
+    "length_scale",
     "node_file_units",
     "tolerance_unit",
     "write_node_file",
@@ -298,10 +312,73 @@ class WakeEdgeImport(BaseModel):
 
 
 #: The command whose enumeration is the simulation's length-unit
-#: vocabulary. The node file declares its own unit and the solver reads
-#: the coordinates in the unit the FILE names, so the token has to come
-#: from the solver's vocabulary and not from this package's taste.
+#: vocabulary. The solver reads the node file's coordinates in the
+#: SIMULATION's unit and reads no unit from the file (RPT-061), so points
+#: given in another unit are converted, and both units have to be tokens
+#: of the solver's vocabulary and not of this package's taste.
 LENGTH_UNIT_COMMAND = "SET_SIMULATION_LENGTH_UNITS"
+
+#: Metres in one of each length unit the solver records, exact as decimals.
+#: OTHER is absent on purpose: it names no scale, so nothing can be
+#: converted to or from it. Every other recorded token has an entry, which
+#: ``tests/tier1_offline/test_wake_edges.py`` holds against the record.
+_METRES_PER_UNIT: dict[str, Fraction] = {
+    "METER": Fraction(1),
+    "CENTIMETER": Fraction("0.01"),
+    "MILLIMETER": Fraction("0.001"),
+    "MICRON": Fraction("0.000001"),
+    "KILOMETER": Fraction(1000),
+    "INCH": Fraction("0.0254"),
+    "FEET": Fraction("0.3048"),
+    "MILE": Fraction("1609.344"),
+    "MILS": Fraction("0.0000254"),
+    "MICROINCH": Fraction("0.0000000254"),
+}
+
+
+def length_scale(from_unit: str, to_unit: str) -> float:
+    """Return the factor that turns a length in ``from_unit`` into ``to_unit``.
+
+    The ratio is taken exactly and rounded once, so a millimetre-to-metre
+    conversion multiplies by the float nearest 0.001 and a metre-to-metre
+    one by exactly 1.0.
+
+    Parameters
+    ----------
+    from_unit, to_unit : str
+        Tokens of :func:`node_file_units` other than ``OTHER``.
+
+    Returns
+    -------
+    float
+        The factor to multiply a ``from_unit`` length by.
+
+    Raises
+    ------
+    InputArtifactError
+        If either token is ``OTHER``, which names no scale, or is not a
+        recorded length unit.
+
+    Examples
+    --------
+    >>> from pyflightstream.workspace.wake_edges import length_scale
+    >>> length_scale("MILLIMETER", "METER")
+    0.001
+    """
+    for unit in (from_unit, to_unit):
+        if unit not in _METRES_PER_UNIT:
+            scaled = ", ".join(u for u in node_file_units() if u in _METRES_PER_UNIT)
+            reason = (
+                "which names no scale, so nothing can be converted to or from it"
+                if unit == "OTHER"
+                else f"which the command database does not record for {LENGTH_UNIT_COMMAND}"
+            )
+            raise InputArtifactError(
+                f"the length unit {unit!r} was given, {reason}. The units a length can be "
+                f"converted between are: {scaled}",
+                kind="wake_edges",
+            )
+    return float(_METRES_PER_UNIT[from_unit] / _METRES_PER_UNIT[to_unit])
 
 
 def node_file_units() -> tuple[str, ...]:
@@ -335,43 +412,43 @@ def write_node_file(
     nodes: object,
     *,
     unit: str,
+    simulation_unit: str,
     overwrite: bool = False,
 ) -> Path:
-    """Write the node list a wake-edge import reads, from an extraction.
+    """Write the node list the wake-edge import reads, from edge mid-points.
 
     The seam between a third-party mesh reader and a solver input
     format: the extraction happens outside, with a mesh library, and
-    this turns the coordinates it produced into the file the solver
+    this turns the mid-points it produced into the file the solver
     imports.
 
-    THE LAYOUT IS PARAPHRASED, NOT VALIDATED, AND THE CLAIM THAT THE
-    SOLVER ACCEPTS IT IS OPEN. What is written is the layout the manual
-    describes for the node list a trailing-edge import reads
-    (SRC-003 p.319, paraphrased): a vertex count, a unit token, then one
-    comma-separated row per vertex carrying an id and three coordinates.
-    :data:`WAKE_EDGE_IMPORT_COMMAND`, which is the command this campaign
-    marks its edges with, TAKES NO PATH ARGUMENT IN EITHER EDITION THAT
-    DOCUMENTS IT, and neither edition says where its node list comes
-    from, so whether it reads this same file is unstated rather than
-    known. Settling that is the manual reading PFS-2025.16.01 exists
-    for, and the claim that the solver accepts what is written here
-    stays open until a committed probe report says so. Nothing in this
-    function is evidence about the solver.
+    THE LAYOUT IS THE ONE 26.124 WAS MEASURED TO READ (RPT-061): the
+    number of points, one coordinate line the solver consumes and does
+    not use, then one ``x,y,z`` row per mesh-edge MID-POINT, in the
+    simulation's length unit, with no unit line and no ids. The layout the
+    manual prints for the GUI's import (a count, a unit token, then an id
+    and three coordinates per END VERTEX) was run and marks nothing, and
+    so does any file with a word on a line. The file's unit is not read,
+    so the points are CONVERTED from ``unit`` to ``simulation_unit`` here
+    rather than labelled. The text is
+    :func:`pyflightstream.script.helpers.render_wake_edge_node_file`'s,
+    the one place the layout is written.
 
     Parameters
     ----------
     path : str or pathlib.Path
         Destination file.
     nodes : array_like
-        Node coordinates, shape (n, 3), in the unit named by ``unit``.
-        Any nested sequence numpy can read is accepted, so a caller need
-        not convert an extraction first.
+        The mid-points of the mesh edges to mark, shape (n, 3), in the
+        unit named by ``unit``. Any nested sequence numpy can read is
+        accepted, so a caller need not convert an extraction first.
     unit : str
-        Length unit the coordinates are written in, one of
-        :func:`node_file_units`. IT IS DECLARED IN THE FILE and the
-        solver reads the coordinates in it rather than in the
-        simulation's own unit, which is why a token outside the
-        vocabulary is refused rather than passed through.
+        Length unit the given coordinates are in, one of
+        :func:`node_file_units` other than ``OTHER``.
+    simulation_unit : str
+        The simulation's length unit, the one its
+        ``SET_SIMULATION_LENGTH_UNITS`` names, which is the unit the
+        solver reads the file's coordinates in. Same vocabulary.
     overwrite : bool
         Replace an existing destination. False refuses instead, because
         one path is one file and a second write would silently win.
@@ -385,10 +462,11 @@ def write_node_file(
     ------
     InputArtifactError
         If the node list is empty, is not (n, 3), carries a coordinate
-        that is not a finite number, names a unit outside the recorded
-        vocabulary, or would replace an existing file without
-        ``overwrite``. Every one of these fires before the file is
-        opened, so a refused call leaves no partial file behind.
+        that is not a finite number, names a unit with no scale (``OTHER``
+        or a token outside the recorded vocabulary), or would replace an
+        existing file without ``overwrite``. Every one of these fires
+        before the file is opened, so a refused call leaves no partial
+        file behind.
 
     Notes
     -----
@@ -399,14 +477,18 @@ def write_node_file(
     importing it here would point upward. The rule it enforces is the
     same rule.
 
+    The file is written in the platform's text mode, as the run writes
+    the script that names it, which is the form the measured file had.
+
     Examples
     --------
     >>> import numpy
     >>> from pyflightstream.workspace.wake_edges import write_node_file
     >>> written = write_node_file(
-    ...     tmp_path / "wake_edges.csv",
-    ...     numpy.array([[0.0, 0.5, 0.25], [1.5, -0.5, 0.25]]),
-    ...     unit="METER",
+    ...     tmp_path / "wake_nodes.txt",
+    ...     numpy.array([[1000.0, -3750.0, 0.0], [1000.0, -3250.0, 0.0]]),
+    ...     unit="MILLIMETER",
+    ...     simulation_unit="METER",
     ... )  # doctest: +SKIP
     """
     destination = Path(path)
@@ -450,16 +532,10 @@ def write_node_file(
             "usually an extraction that produced no intersection for one node",
             kind="wake_edges",
         )
-    declared = node_file_units()
-    if unit not in declared:
-        raise InputArtifactError(
-            f"the node file was given the length unit {unit!r}, which the command "
-            f"database does not record for {LENGTH_UNIT_COMMAND}. The file DECLARES its "
-            "own unit and the solver reads the coordinates in it rather than in the "
-            f"simulation's, so an unrecognised token leaves the coordinates with no "
-            f"scale. The recorded units are: {', '.join(declared)}",
-            kind="wake_edges",
-        )
+    # Both units are checked before anything is opened: the solver reads the
+    # coordinates in the simulation's unit and no unit from the file, so a
+    # token with no scale leaves nothing to convert by.
+    scale = length_scale(unit, simulation_unit)
     if destination.exists() and not overwrite:
         raise InputArtifactError(
             f"{destination} already exists. Pass overwrite=True to replace it "
@@ -469,10 +545,11 @@ def write_node_file(
             kind="wake_edges",
         )
 
-    lines = [str(array.shape[0]), unit]
-    lines += [
-        ",".join([str(index + 1), repr(float(x)), repr(float(y)), repr(float(z))])
-        for index, (x, y, z) in enumerate(array)
-    ]
-    destination.write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")
+    try:
+        text = render_wake_edge_node_file((array * scale).tolist())
+    except CommandArgumentError as error:
+        # Reached only when a converted coordinate overflows to infinity;
+        # refused in this layer's vocabulary rather than the script layer's.
+        raise InputArtifactError(str(error), kind="wake_edges") from error
+    destination.write_text(text, encoding="utf-8")
     return destination

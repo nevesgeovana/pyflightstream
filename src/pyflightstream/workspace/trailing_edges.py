@@ -169,10 +169,10 @@ class TrailingEdge:
         unit : str
             Length unit the mesh coordinates are in, one of
             :func:`~pyflightstream.workspace.wake_edges.node_file_units`.
-            It is DECLARED IN THE FILE and the solver reads the
-            coordinates in it, so it must be the unit the MESH was built
-            in; nothing here can check that, which is why it is required
-            rather than defaulted.
+            The solver reads the file in the simulation's unit and reads
+            no unit from it (RPT-061), so this must be the simulation's
+            unit as well as the mesh's; nothing here can check that,
+            which is why it is required rather than defaulted.
         overwrite : bool
             Replace an existing destination.
 
@@ -189,7 +189,9 @@ class TrailingEdge:
             makes, unchanged: an unrecorded unit token, an existing
             destination without ``overwrite``, and the rest.
         """
-        return write_node_file(path, self.nodes, unit=unit, overwrite=overwrite)
+        return write_node_file(
+            path, self.nodes, unit=unit, simulation_unit=unit, overwrite=overwrite
+        )
 
 
 def _three_vector(value: Any, name: str) -> numpy.ndarray:

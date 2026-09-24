@@ -61,6 +61,7 @@ import re
 import warnings
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
+from decimal import Decimal
 from typing import Literal
 
 from pydantic import BaseModel, ValidationError
@@ -2981,6 +2982,91 @@ def unsteady_action(
 #: refusal below is that one is never silently substituted for the other.
 WAKE_EDGE_IMPORT_ROUTE = "IMPORT_WAKE_EDGES_FROM_FILE"
 WAKE_EDGE_ANGLE_ROUTE = "AUTO_DETECT_TRAILING_EDGES"
+
+#: The coordinate line the 26.124 import consumes after the count and does
+#: not use (RPT-061): the first line holding three numbers is read and
+#: discarded, so a file without it loses its first point. It is a triple
+#: because a bare number or an empty line is skipped rather than consumed.
+WAKE_EDGE_NODE_PLACEHOLDER = "0,0,0"
+
+
+def _plain_decimal(value: float) -> str:
+    """Spell a finite float as a plain decimal that reads back to the same float.
+
+    The shortest round-trip digits, never an exponent: a number such as
+    1.665e-17, which a trailing-edge vertex of a committed wing mesh
+    carries, would otherwise be written with the letter e, and a letter on
+    any line of the node file makes the import mark nothing (RPT-061).
+    """
+    return format(Decimal(repr(value)), "f")
+
+
+def render_wake_edge_node_file(midpoints: Sequence[Sequence[float]]) -> str:
+    """Return the text of the node file the wake-edge import reads on 26.124.
+
+    The layout is the one measured to mark (RPT-061): the number of points,
+    then :data:`WAKE_EDGE_NODE_PLACEHOLDER`, the coordinate line the solver
+    consumes and does not use, then one ``x,y,z`` row per trailing-edge
+    MID-POINT, in the simulation's length unit. There is no unit line and
+    no id column: the file's unit is not read, and a word or an id on any
+    line makes the import mark nothing, in silence.
+
+    Parameters
+    ----------
+    midpoints : sequence of (x, y, z)
+        The mid-points of the mesh edges to mark, already in the
+        simulation's length unit. Any sequence of three-number rows,
+        including an (n, 3) array.
+
+    Returns
+    -------
+    str
+        The file's text, newline separated and newline terminated.
+
+    Raises
+    ------
+    CommandArgumentError
+        If there is no point, a row is not three coordinates, or a
+        coordinate is not a finite number. Each names the point.
+
+    Examples
+    --------
+    >>> from pyflightstream.script import helpers
+    >>> print(helpers.render_wake_edge_node_file([(1.0, -3.75, 0.0)]), end="")
+    1
+    0,0,0
+    1.0,-3.75,0.0
+    """
+    rows = list(midpoints)
+    if not rows:
+        raise CommandArgumentError(
+            f"{WAKE_EDGE_IMPORT_ROUTE} node file: 0 edge mid-points were given, and the "
+            "points are what name the edges to mark. With none the import marks nothing "
+            "and says nothing, so the run would solve with no wake"
+        )
+    lines = [str(len(rows)), WAKE_EDGE_NODE_PLACEHOLDER]
+    for position, row in enumerate(rows, start=1):
+        where = f"point {position} of {len(rows)}"
+        try:
+            values = [float(value) for value in row]
+        except (TypeError, ValueError) as error:
+            raise CommandArgumentError(
+                f"{WAKE_EDGE_IMPORT_ROUTE} node file: {where} is {row!r}, which is not "
+                f"three coordinates ({error})"
+            ) from error
+        if len(values) != 3:
+            raise CommandArgumentError(
+                f"{WAKE_EDGE_IMPORT_ROUTE} node file: {where} holds {len(values)} values, "
+                "and every point is three coordinates, x, y and z"
+            )
+        if not all(math.isfinite(value) for value in values):
+            raise CommandArgumentError(
+                f"{WAKE_EDGE_IMPORT_ROUTE} node file: {where} is {tuple(values)!r}, and a "
+                "coordinate that is not a finite number would be written as a word, which "
+                "makes the import mark nothing"
+            )
+        lines.append(",".join(_plain_decimal(value) for value in values))
+    return "\n".join(lines) + "\n"
 
 
 def mark_wake_edges(script: Script, *, edge_type: str, tolerance: float) -> str:
