@@ -24,7 +24,12 @@ by a test on its link:
   says are each skipped by name, as are a row whose frames moved since the run,
   a build that changed and a surface averaged in time; an unsteady point is one
   instant and says so; ``pyfs-matrix post --additional-pproc`` prints each
-  point and refuses its flags without it.
+  point and refuses its flags without it;
+* the post writes the products of every current extraction under
+  ``additional/<pid>/``, marked ``pproc``, ``additional`` and ``extraction``,
+  leaves every main product as it was, keeps the run's section rows ahead of
+  the additional ones, skips a stale extraction by its own key and files the
+  one-instant warning of an unsteady point in the post log.
 
 The module imports the functions of the additional post through their module
 at call time rather than by name at the top, so on a tree without them each
@@ -48,6 +53,7 @@ from pyflightstream.cases import CampaignConfigError, PprocSpec, SimCase
 from pyflightstream.cases import matrix as matrix_mod
 from pyflightstream.cases.matrix import MatrixError
 from pyflightstream.cases.workflows import build_script, workflow_registry
+from pyflightstream.post.products import read_csv_table, write_campaign_products
 from pyflightstream.run import PlanStatus
 from pyflightstream.run import cli as matrix_cli
 from pyflightstream.run.matrix import plan_matrix, run_matrix
@@ -548,19 +554,24 @@ def additional_post():
     return importlib.import_module("pyflightstream.run.additional")
 
 
-def a_stub(tmp_path: Path) -> CountingStub:
+def a_stub(tmp_path: Path, **by_verb: str) -> CountingStub:
     """A solver that writes every file a script exports, the loads and sectional loads real.
 
     The loads table and the sectional loads are the recorded exports the
     products tests read, so a post over what it wrote writes real rows; every
-    other export is written as a placeholder. It writes where the script says,
-    relative to the folder it runs in, which is how an extraction lands in its
-    own folder.
+    other export is written as a placeholder, or as ``by_verb`` says (a rerun
+    saving ANOTHER state passes ``SAVEAS=...``). It writes where the script
+    says, relative to the folder it runs in, which is how an extraction lands
+    in its own folder.
     """
-    table = tmp_path / "stub_exports.json"
+    table = tmp_path / f"stub_exports_{len(list(tmp_path.glob('stub_exports_*')))}.json"
     table.write_text(
         json.dumps(
-            {"EXPORT_SOLVER_ANALYSIS_SPREADSHEET": LOADS, "EXPORT_SURFACE_SECTIONAL_LOADS": SLOADS}
+            {
+                "EXPORT_SOLVER_ANALYSIS_SPREADSHEET": LOADS,
+                "EXPORT_SURFACE_SECTIONAL_LOADS": SLOADS,
+                **by_verb,
+            }
         ),
         encoding="utf-8",
     )
@@ -870,3 +881,150 @@ def test_g12_post_without_the_flag_launches_nothing(tmp_path, monkeypatch, capsy
     status = matrix_cli.main(["post", str(matrix), "--workspace", str(workspace.root)])
     assert status == 0, capsys.readouterr().err
     assert not workspace.additional_path.exists()
+
+
+# ----------------------------------------------------------- the products --
+
+
+#: An additional pproc with a group of its own and one distribution of one
+#: section, so the recorded sectional loads fixture (two rows) holds the run's
+#: row and then the extraction's.
+POST_ADDITIONAL_TOML = (
+    '[groups]\n"1" = "B"\n'
+    "[[sections.distributions]]\n"
+    'families = ["W"]\n'
+    'frame = "MRP"\n'
+    'planes = ["XZ"]\n'
+    "count = 1\n"
+)
+#: The pproc the row runs with in the sections test: one distribution of one
+#: section in another plane, so the first row of the export is the run's own.
+MAIN_WITH_SECTIONS_TOML = (
+    '[groups]\n"1" = "W"\n'
+    "[[sections.distributions]]\n"
+    'families = ["W"]\n'
+    'frame = "MRP"\n'
+    'planes = ["YZ"]\n'
+    "count = 1\n"
+)
+
+
+def products_of(workspace: CampaignWorkspace, matrix: Path) -> dict[str, dict]:
+    """Post the matrix and return its products.json index."""
+    write_campaign_products(workspace, overwrite=True, matrix_stem=matrix.stem)
+    manifest = workspace.products_dir(matrix.stem) / "products.json"
+    return json.loads(manifest.read_text(encoding="utf-8"))
+
+
+def test_g12_additional_products_are_marked_with_the_pproc(tmp_path):
+    """Every additional entry carries the three marks; every main entry is as it was before."""
+    workspace, matrix = a_recorded_campaign(tmp_path, additional=POST_ADDITIONAL_TOML)
+    before = products_of(workspace, matrix)["products"]
+    _, records = extract(workspace, matrix, a_stub(tmp_path))
+    assert records and all(record.status == "EXTRACTED" for record in records)
+    after = products_of(workspace, matrix)["products"]
+    marked = {name: entry for name, entry in after.items() if entry.get("additional")}
+    tables = [name for name in marked if name.startswith("additional/p002/")]
+    assert any(name.startswith("additional/p002/polars/") for name in tables), sorted(after)
+    assert any(name.startswith("additional/p002/sections/") for name in tables), sorted(after)
+    point_of = {record.extraction_id: record.run_id for record in records}
+    for name, entry in marked.items():
+        assert entry["pproc"] == "p002", (name, entry)
+        assert entry["extraction"] and set(entry["extraction"]) <= set(point_of), (name, entry)
+        assert entry["derives_from"] == [point_of[held] for held in entry["extraction"]], entry
+        assert "runs" not in entry, (name, entry)
+    main = {name: entry for name, entry in after.items() if not entry.get("additional")}
+    assert main == before, "a main product moved when the additional post was posted"
+
+
+def test_g12_the_additional_sections_table_holds_the_run_rows_then_the_additional_ones(tmp_path):
+    """The reopened export carries the run's distribution first; the table names both (RPT-062)."""
+    workspace, matrix = a_campaign(tmp_path, additional=POST_ADDITIONAL_TOML)
+    (workspace.inputs_dir / "pproc" / "p010.toml").write_text(
+        MAIN_WITH_SECTIONS_TOML, encoding="utf-8"
+    )
+    run_matrix(
+        matrix,
+        workspace,
+        name="extracted",
+        default_fs_version=BUILD,
+        recipes=RECIPES,
+        recipe_registry=workflow_registry(),
+        assess=converged,
+        executor=a_stub(tmp_path),
+    )
+    _, records = extract(workspace, matrix, a_stub(tmp_path))
+    assert {record.leading_sections for record in records} == {1}
+    index = products_of(workspace, matrix)["products"]
+    tables = sorted(name for name in index if name.startswith("additional/p002/sections/"))
+    assert tables, sorted(index)
+    _, rows = read_csv_table(workspace.products_dir(matrix.stem) / tables[0])
+    assert [(row["FAMILY"], row["PLANE"]) for row in rows] == [("W", "YZ"), ("W", "XZ")], rows
+
+
+def test_g12_a_stale_extraction_is_skipped_and_retires_no_main_product(tmp_path):
+    """The point runs again and saves another state; the old extraction is skipped by its key."""
+    workspace, matrix = a_recorded_campaign(tmp_path, additional=POST_ADDITIONAL_TOML)
+    _, first = extract(workspace, matrix, a_stub(tmp_path))
+    products_of(workspace, matrix)
+    job = workspace.read_manifest()[0].run_id
+    run_matrix(
+        matrix,
+        workspace,
+        name="extracted",
+        default_fs_version=BUILD,
+        recipes=RECIPES,
+        recipe_registry=workflow_registry(),
+        assess=converged,
+        executor=a_stub(tmp_path, SAVEAS="ANOTHER STATE"),
+        force_rerun=[job],
+    )
+    document = products_of(workspace, matrix)
+    stale = {f"additional/p002/runs/{record.extraction_id}" for record in first}
+    assert stale <= set(document["skipped"]), sorted(document["skipped"])
+    assert not any(key.startswith("runs/") for key in document["skipped"]), document["skipped"]
+    main = [name for name, entry in document["products"].items() if not entry.get("additional")]
+    assert any(name.startswith("polars/") for name in main), main
+    assert not any(entry.get("additional") for entry in document["products"].values())
+    # And the next pass extracts the point again.
+    plans, records = extract(workspace, matrix, a_stub(tmp_path))
+    assert [plan.status for plan in plans] == ["READY"] * 2 and len(records) == 2
+
+
+def test_g12_an_extraction_of_another_state_of_the_point_is_stale(tmp_path):
+    """The point's record now names another saved state, its files untouched: no product of it."""
+    workspace, matrix = a_recorded_campaign(tmp_path, additional=POST_ADDITIONAL_TOML)
+    _, records = extract(workspace, matrix, a_stub(tmp_path))
+    manifest = workspace.manifest_path
+    raw = json.loads(manifest.read_text(encoding="utf-8"))
+    for entry in raw:
+        for name in entry["outputs_sha256"]:
+            if name.endswith(".fsm"):
+                entry["outputs_sha256"][name] = "0" * 64
+    manifest.write_text(json.dumps(raw, indent=2), encoding="utf-8")
+    document = products_of(workspace, matrix)
+    for record in records:
+        reason = document["skipped"][f"additional/p002/runs/{record.extraction_id}"]
+        assert "stale" in reason and record.fsm_sha256[:12] in reason, reason
+    assert not any(entry.get("additional") for entry in document["products"].values())
+
+
+def test_g12_an_unsteady_extraction_is_one_instant_in_the_post_log(tmp_path):
+    """The post log files the one-instant warning under the point and its additional product."""
+    workspace, matrix = a_recorded_campaign(
+        tmp_path, workflow="unsteady", cell=f"{UNSTEADY_CELL} / {KEY}: p002", values="0.0"
+    )
+    with pytest.warns(PyflightstreamWarning):
+        extract(workspace, matrix, a_stub(tmp_path))
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        products_of(workspace, matrix)
+    log = json.loads(
+        (workspace.products_dir(matrix.stem) / "post.log.json").read_text(encoding="utf-8")
+    )
+    said = [
+        record
+        for record in log["records"]
+        if record["product"].startswith("additional/") and "one instant" in record["message"]
+    ]
+    assert said, log["records"]
