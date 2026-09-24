@@ -212,3 +212,23 @@ base from a body.
   reads those words. Rename the flag.
 - A reference block with `kind = "actuator"` used to be refused as naming no
   point kind; it is now an actuator disc.
+
+## 14. A row may name an additional pproc, and the products gain an `additional/` family (G12)
+
+- A matrix whose rows state `ADDITIONAL_PPROC` cannot be planned by 0.26.0 or
+  older, which refuses it as a key of no run type. A row without the key plans
+  and runs exactly as before.
+- `products.json` may hold entries under `additional/<pid>/`, and entries for
+  native files under `datapoints/DP-<point>/additional/<pid>/`, each marked
+  `"additional": true`, carrying `extraction` and `derives_from` and no
+  `runs`. A reader that iterates every entry as a product of a run filters on
+  that key.
+- `additional.json` is new, at the workspace root beside `runs.json`, and
+  nothing older reads it. `runs.json` and every run record are unchanged by
+  the additional post.
+- `pyfs-matrix post` gains `--additional-pproc`, and with it `--fs-version`,
+  `--fs-exe`, `--local` and `--recipe`, each refused without it.
+- A forced rerun or a continuation archives a point's `additional/` folder
+  with the rest of its files; extract it again after one.
+- `ResolvedMatrix` gains a last field, `additional_pprocs`; positional
+  construction keeps working.
