@@ -19,6 +19,12 @@ FlightStream versions.
   A manifest holding a forced-local record needs 0.27.0 to read it: an
   older reader refuses the key (measured 2026-09-23 against the 0.26.0
   schema), so post such a workspace with the same version that ran it.
+- **The axes and signs of every emitted coefficient are published in one
+  place**, `help()` and the conventions page, and each family says whether it
+  is scored against the solver's own recorded output, and by which test, or
+  not yet, and which export it waits for. The emitted steady polar row is now
+  scored column by column against 48 recorded loads exports, and the body-rate
+  sense against the recorded rate probes (OPS-2011.01, RPT-063, FR-42).
 
 ### Fixed
 

@@ -92,6 +92,79 @@ def test_the_identity_discriminates_the_solver_vector_from_the_aiaa_one():
     assert abs(axes.wind_force_coefficients(force, 4.0, 2.0)[0] - stated) < 2e-7
 
 
+POLAR_NAMES = (
+    "ALPHA BETA MACH RE CDB CYB CLB CRB CMB CNB CDS CYS CLS CRS CMS CNS "
+    "CDW CYW CLW CRW CMW CNW CD0 CDI"
+).split()
+LIFTING = [row for row in ROWS if abs(float(row["CL"])) > 0.05]
+
+
+def _emitted_polar_row(row: dict[str, str]) -> dict[str, float]:
+    """The row a product writes for this export's Total, through the emitting function."""
+    from pyflightstream.post.products import GroupCoefficients, polar_row
+
+    force = (float(row["Cx"]), float(row["Cy"]), float(row["Cz"]))
+    group = GroupCoefficients(
+        0.0, 0.0, 0.0, 0.0, 0.0, 0.0, float(row["CDo"]), float(row["CDi"]), ("Total",),
+        force=force, moment=(0.0, 0.0, 0.0),
+    )  # fmt: skip
+    values = polar_row(
+        float(row["alpha_deg"]), 0.2, 1.0, group,
+        cref_m=1.0, bref_m=1.0, beta_deg=float(row["beta_deg"]),
+    )  # fmt: skip
+    return dict(zip(POLAR_NAMES, values, strict=True))
+
+
+@pytest.mark.parametrize("row", ROWS, ids=[row["export"] for row in ROWS])
+def test_every_emitted_polar_force_column_agrees_with_the_export_that_printed_it(row):
+    """OPS-2011.01.02 (RPT-063): the EMITTED row is scored, not the module under it.
+
+    The test above scores the rotation; this one scores the tuple a polar writes,
+    under sideslip and for lift too: the wind-axis drag is the export's CDi + CDo
+    at printed precision, the body-axis forces are the vector it printed, the
+    stability and wind lift agree, and the wind lift is the solver's CL within one
+    per cent and of the same sign wherever the lift is more than 0.05.
+    """
+    emitted = _emitted_polar_row(row)
+    digits = min(_decimals(row[name]) for name in ("Cx", "Cz", "CDi", "CDo"))
+    tolerance = 2.0 * 10.0 ** (-digits)
+    stated = float(row["CDi"]) + float(row["CDo"])
+    assert math.isclose(emitted["CDW"], stated, abs_tol=tolerance), (
+        f"{row['export']}: emitted CDW {emitted['CDW']:+.8f} against CDi + CDo {stated:+.8f}"
+    )
+    for column, printed in (("CDB", "Cx"), ("CYB", "Cy"), ("CLB", "Cz")):
+        assert math.isclose(emitted[column], float(row[printed]), abs_tol=1e-12), (
+            f"{row['export']}: emitted {column} is not the export's {printed}"
+        )
+    assert math.isclose(emitted["CLS"], emitted["CLW"], abs_tol=1e-12)
+    solver_cl = float(row["CL"])
+    if abs(solver_cl) > 0.05:
+        assert math.copysign(1.0, emitted["CLW"]) == math.copysign(1.0, solver_cl)
+        assert abs(solver_cl - emitted["CLW"]) <= 0.01 * abs(solver_cl), (
+            f"{row['export']}: emitted CLW {emitted['CLW']:+.6f} "
+            f"against the solver's CL {solver_cl:+.6f}"
+        )
+
+
+def test_the_lift_gap_the_pages_print_is_the_one_the_fixture_holds():
+    """The prose "0.10 to 0.25 per cent on 27 of the 28 lifting exports; one at 0.71" re-measured.
+
+    It is printed in the definitions page and in three docstrings of
+    post/products.py. A re-extraction that adds exports turns this red until
+    those four sentences are updated with it, which is the intended coupling.
+    """
+    gaps = []
+    for row in LIFTING:
+        clw = _emitted_polar_row(row)["CLW"]
+        gaps.append((float(row["CL"]) - clw) / clw * 100.0)
+    assert len(gaps) == 28, (
+        f"{len(gaps)} lifting exports; update the four prose sites with the count"
+    )
+    inside = [gap for gap in gaps if 0.10 <= gap <= 0.25]
+    assert len(inside) == 27, f"{len(inside)} of {len(gaps)} gaps lie in [0.10, 0.25] per cent"
+    assert round(max(gaps), 2) == 0.71
+
+
 @pytest.mark.skipif(
     not SIMS.is_dir(),
     reason="the recorded exports are machine output and live on the licensed machine only",

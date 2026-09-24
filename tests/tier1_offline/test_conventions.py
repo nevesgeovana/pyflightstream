@@ -58,6 +58,38 @@ def test_the_rotor_sign_convention_is_published():
         assert token in lowered, f"the rotor-sign convention is published and {why}"
 
 
+def test_every_emitted_coefficient_family_is_scored_or_says_it_is_not():
+    """OPS-2011.01.01 (RPT-063, FR-42): the axes and signs of what the package emits.
+
+    FR-42's second half, that every emitted coefficient conforms to the
+    published conventions, was asserted by no test. The decision is that each
+    family is scored against the solver's own recorded output or published as
+    not scored, naming what it waits for. This keeps the publication honest: the
+    entry names every family, every test file it cites exists and holds a test,
+    and the unscored families are said to be unscored.
+    """
+    entry = next(
+        (body for title, body in CONVENTIONS if "emitted coefficient" in title.lower()), ""
+    )
+    assert entry, (
+        "CONVENTIONS carries no entry for the axes and signs of emitted coefficients "
+        "(FR-42, OPS-2011.01)"
+    )
+    lowered = entry.lower()
+    for family in (
+        "body axes", "stability axes", "wind axes", "moment", "body rate",
+        "rotor coefficients", "sectional loads", "far field",
+    ):  # fmt: skip
+        assert family in lowered, f"the emitted-coefficient convention does not name {family!r}"
+    root = Path(__file__).resolve().parents[2]
+    cited = re.findall(r"tests/tier1_offline/\w+\.py", entry)
+    assert cited, "the convention cites no test that scores a family"
+    for path in cited:
+        text = (root / path).read_text(encoding="utf-8") if (root / path).is_file() else ""
+        assert "def test_" in text, f"the convention cites {path}, which holds no test"
+    assert "not scored" in lowered, "the convention does not say which families are not scored"
+
+
 def test_conventions_have_titles_and_prose():
     assert len(CONVENTIONS) >= 8
     for title, text in CONVENTIONS:

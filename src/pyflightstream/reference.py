@@ -220,6 +220,32 @@ CONVENTIONS: tuple[tuple[str, str], ...] = (
         "site is not worth an upward import, and neither rule generalises "
         "to a validator whose object is already below it.",
     ),
+    (
+        "Axes and signs of every emitted coefficient",
+        "A loads export states one force and one moment per surface in the "
+        "geometry's own frame, x aft, y right, z up. Body axes are that frame "
+        "turned half a turn about y (forward, right, down), so CDB is the "
+        "export's Cx and CLB its Cz; stability axes turn the body axes by "
+        "-alpha_s about y, and wind axes turn those by beta_w about z, both "
+        "angles read off the velocity the solver flies. Drag opposes +x and "
+        "lift +z of each system; the side force keeps its sign. The moment "
+        "turns as one vector and only then takes the span (CR, CN) or the "
+        "chord (CM). A body rate is flight mechanics: positive p is right wing "
+        "down, q nose up, r nose right; the sense the solver gives each "
+        "emitted rotation is measured per axis (RPT-052, RPT-060). "
+        "docs/post-processing-definitions.md is the definition of record. "
+        "SCORED against the solver's own recorded output (RPT-063): the "
+        "body-axis forces, the wind-axis drag and the stability and wind "
+        "lift of the emitted polar row "
+        "(tests/tier1_offline/test_goal028_axes_recorded_exports.py), and "
+        "the body rate sense "
+        "(tests/tier1_offline/test_ops2011_rate_sense_against_recorded_probes.py, "
+        "where roll and yaw read reversed until their sign is fixed). NOT "
+        "SCORED, each for want of a recorded export that could tell a right "
+        "sign from a wrong one: the moments and the side force in stability "
+        "and wind axes, the rotor coefficients, the sectional loads, the "
+        "unsteady history and the far field.",
+    ),
 )
 
 
