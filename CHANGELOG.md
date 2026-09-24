@@ -738,6 +738,20 @@ gone (`docs/migrating-to-0.27.0.md`).
   collected output named as a log (`_log.txt`) is now read for them too, on a
   local point, on each point of a steady row run as one job and at collect,
   and the point is `FAILED_SCRIPT` (G06).
+- **A log is every file the point was told to write its log to, whatever its
+  name.** The four lines were read in the outputs named `_log.txt` alone, so a
+  log with no residual table that a case built in Python or a LEGACY row named
+  otherwise, `FlightStreamLog.txt` through its `LOG_OUTPUT` or
+  `log_<point>.txt` through its script's `EXPORT_LOG`, was never read for
+  them: a submitted point a caller's assessor passed was recorded `CONVERGED`
+  at `pyfs-matrix collect`, and so was a local point whose script named its log
+  so, where the same log named `run_log.txt` was `FAILED_SCRIPT`. The file every
+  `EXPORT_LOG` of the point's script names, and the output its `LOG_OUTPUT`
+  names, are now read for them too, beside the `_log.txt` names and the
+  scheduler's log, on a local point, on each point of a steady row run as one
+  job and at collect; no other export is read. A submitted record's
+  `submission` lists them as `declared_logs`, and a job submitted before this
+  is read by the script it ran (G06).
 - **The actuator disc's profile file is read as it was written, and never
   stops an unattended run in a dialog.** The script named the user's file under
   `inputs/profiles/`, and an editor ends a file in a newline: 26.124 reads

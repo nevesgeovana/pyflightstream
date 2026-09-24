@@ -103,6 +103,7 @@ from pyflightstream.cases.workflows import (
     COLD_START_VARIABLE,
     EXPORT_LOG_VARIABLE,
     FREESTREAM_VARIABLE,
+    LOG_OUTPUT_VARIABLE,
     RAW_MESH_FORMATS,
     RESTART_FROM_VARIABLE,
     RESTART_ITERATIONS_VARIABLE,
@@ -149,6 +150,7 @@ from pyflightstream.run._wake_edge_verdict import (
     collected_log_texts,
     collected_solver_log,
     reads_as_residual_history,
+    script_log_names,
     wake_edge_import_verdict,
     with_wake_edge_verdict,
 )
@@ -5306,9 +5308,8 @@ def _execute_sweep(
     # exactly the same thing, so it is named the same way:
     # P5001-M090AL+sweepBE+000 (0.21.0).
     job_stem = sweep_file_stem(case.sim_id, sweep_name(case))
-    script_path, script_sha = workspace.write_script(
-        case.sim_id, f"{job_stem}.txt", script.render()
-    )
+    rendered = script.render()
+    script_path, script_sha = workspace.write_script(case.sim_id, f"{job_stem}.txt", rendered)
     base["script_path"] = str(Path(script_path).relative_to(sim_dir).as_posix())
     base["script_sha256"] = script_sha
     base["raw_flag"] = script.raw_flag
@@ -5431,6 +5432,13 @@ def _execute_sweep(
                     if script.wake_edge_points is not None
                     else {}
                 ),
+                # G06: every file the job was told to write a point's log to,
+                # whatever its name; the collector reads the four lines in each.
+                "declared_logs": list(
+                    dict.fromkeys(
+                        name for _, _, pc in point_cases for name in _declared_logs(pc, rendered)
+                    )
+                ),
             },
             points_ran=[
                 {
@@ -5526,12 +5534,15 @@ def _execute_sweep(
         )
         # G06. A point whose log says the solver could not use its actuator
         # disc's profile file ran on with a loading that is not the file's. Every
-        # collected log is read for it, a log that is no residual history too.
+        # collected log is read for it, a log that is no residual history too,
+        # and a log is every file the script or LOG_OUTPUT names as one.
         status, error = with_wake_edge_verdict(
             status,
             error,
             actuator_profile_verdict(
-                log_text, result.log_text, *collected_log_texts(sim_dir, collected)
+                log_text,
+                result.log_text,
+                *collected_log_texts(sim_dir, collected, _declared_logs(point_case, rendered)),
             ),
         )
         collected_all.extend(collected)
@@ -5667,6 +5678,28 @@ def _run_log_text(
     """
     collected_log = collected_solver_log(sim_dir, collected, log_file_used)
     return collected_log if collected_log is not None else result.log_text
+
+
+def _declared_logs(case: SimCase, script_text: str) -> list[str]:
+    """Name every output of a point that is its solver log, whatever its name (G06).
+
+    The files the point's script (``script_text``, as rendered) tells the
+    solver to write its log to, every EXPORT_LOG line, and the output the
+    case's LOG_OUTPUT names, counted from 1 among its outputs as the builders
+    count it. A case built in Python and a LEGACY row's recipe name the log as
+    they like, so the ``_log.txt`` suffix does not find it, and a line refusing
+    the disc's profile file was left unread in it. A LOG_OUTPUT that is not a
+    position among the outputs names nothing here; the builders that export it
+    refuse it before a line.
+    """
+    names = script_log_names(script_text)
+    stated = str(case.variables.get(LOG_OUTPUT_VARIABLE) or "").strip()
+    position = int(stated) if stated.isdecimal() else 0
+    if 1 <= position <= len(case.outputs):
+        name = Path(case.outputs[position - 1]).name
+        if name not in names:
+            names.append(name)
+    return names
 
 
 def _walltime_stop(state_path: Path) -> dict | None:
@@ -6370,7 +6403,8 @@ def _execute_point(
         # including its UNVERIFIED qualification; today's pproc cannot replace it.
         script.surface_time_averaging = predecessor.surface_time_averaging
     base["surface_time_averaging"] = script.surface_time_averaging
-    script_path, script_sha = workspace.write_script(case.sim_id, f"{stem}.txt", script.render())
+    rendered = script.render()
+    script_path, script_sha = workspace.write_script(case.sim_id, f"{stem}.txt", rendered)
     # FR-91. WHERE THIS SCRIPT PUT ITS PROBE POINTS, written next to the
     # script that placed them. An unsteady plots export numbers its columns
     # `MACH7`, `VELOCITY7` and never says where vertex 7 is, so this file is
@@ -6657,6 +6691,10 @@ def _execute_point(
                     if script.wake_edge_points is not None
                     else {}
                 ),
+                # G06: every file the point was told to write its log to,
+                # whatever its name, the output its LOG_OUTPUT names among them;
+                # the collector reads the four lines in each.
+                "declared_logs": _declared_logs(point_case, rendered),
             },
         )
 
@@ -6742,12 +6780,15 @@ def _execute_point(
     # profile file went on to the end with a loading that is not the file's, and
     # its outputs look like any other run's; the line is the one statement of it.
     # The log the solver left is read too, where the collected log is another,
-    # and so is every collected log, a log that is no residual history too.
+    # and so is every collected log, a log that is no residual history too; a
+    # log is every file the script or LOG_OUTPUT names as one, whatever its name.
     status, error = with_wake_edge_verdict(
         status,
         error,
         actuator_profile_verdict(
-            log_text, result.log_text, *collected_log_texts(sim_dir, collected)
+            log_text,
+            result.log_text,
+            *collected_log_texts(sim_dir, collected, _declared_logs(point_case, rendered)),
         ),
     )
     return RunRecord(

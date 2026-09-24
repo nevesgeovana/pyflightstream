@@ -977,6 +977,195 @@ def test_g06_a_local_point_whose_log_is_no_residual_history_still_refuses_the_pr
     assert statuses == ["FAILED_SCRIPT"] * len(statuses), record.points_ran
 
 
+# --- a log is every file the point's script or its row names as one, whatever its name -----
+#
+# The four lines were read in the log an assessor named or found by its residual
+# table, and in every collected output whose name ends in ``_log.txt``. A case
+# written in Python, or a LEGACY row's recipe, names its log as it likes: its
+# LOG_OUTPUT names FlightStreamLog.txt, or its script's EXPORT_LOG writes
+# log_<point>.txt. Such a log carrying the line and no residual table was read by
+# neither rule, and a point a caller's assessor passed was recorded CONVERGED,
+# where the same bytes under run_log.txt were FAILED_SCRIPT.
+
+#: The two ways a row names a log that does not end in ``_log.txt``: its
+#: outputs, its variables, and whether its recipe exports the log. The first is
+#: the LEGACY shape, LOG_OUTPUT naming the solver's own log and a recipe that
+#: exports none; the second a recipe whose EXPORT_LOG writes ``log_{point}.txt``.
+NAMED_LOGS = {
+    "log-output-names-it": (
+        ("loads_{point}.txt", "FlightStreamLog.txt"),
+        {"LOG_OUTPUT": "2"},
+        False,
+    ),
+    "export-log-names-it": (("loads_{point}.txt", "log_{point}.txt"), {}, True),
+}
+
+
+def _recipe_naming_its_log(exports_its_log: bool):
+    """A recipe of the user's own: the loads, and the log when ``exports_its_log``."""
+
+    def recipe(case, script):
+        script.emit("OPEN", case.geometry)
+        helpers.free_stream(script)
+        helpers.initialize_solver(script)
+        helpers.solver_settings(
+            script,
+            vorticity_drag_boundaries="all",
+            aoa=case.point["alpha"],
+            velocity=case.velocity,
+        )
+        helpers.start_solver(script)
+        script.emit("EXPORT_SOLVER_ANALYSIS_SPREADSHEET", case.outputs[0])
+        if exports_its_log:
+            script.emit("EXPORT_LOG", case.outputs[1])
+        script.emit("CLOSE_FLIGHTSTREAM")
+
+    return recipe
+
+
+def _run_a_row_naming_its_log(tmp_path, row: str, executor):
+    """Run the one point of a case built in Python whose log is named as ``row`` says."""
+    import sys
+
+    from pyflightstream.cases import Campaign, SweepAxis
+    from pyflightstream.run import run_campaign
+
+    outputs, variables, exports_its_log = NAMED_LOGS[row]
+    geometry = tmp_path / "wing.fsm"
+    geometry.write_bytes(b"geometry")
+    case = SimCase(
+        sim_id="9001",
+        aircraft="TestWing",
+        velocity=30.0,
+        geometry=str(geometry),
+        sweep=SweepAxis(type="alpha", values=[0.0]),
+        recipe="own",
+        outputs=list(outputs),
+        variables=dict(variables),
+    )
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    try:
+        run_campaign(
+            Campaign(name="camp", fs_version="26.120", fs_exe=sys.executable, sims=[case]),
+            executor,
+            workspace,
+            assess=converged,
+            recipes={"own": _recipe_naming_its_log(exports_its_log)},
+            preflight=False,
+        )
+    except CampaignErrors:
+        pass  # a failed point is recorded in the manifest, which is what is read
+    (record,) = workspace.read_manifest()
+    return workspace, record
+
+
+@pytest.mark.parametrize("refused", [True, False], ids=["refused", "control"])
+@pytest.mark.parametrize("row", list(NAMED_LOGS))
+def test_g06_a_collected_log_the_row_names_refuses_the_profile_whatever_its_name(
+    tmp_path, row, refused
+):
+    """A submitted point whose log is FlightStreamLog.txt by its LOG_OUTPUT, or
+    log_<point>.txt by its script's EXPORT_LOG, carrying one of the four lines and
+    no residual table, is FAILED_SCRIPT at collect though a caller's assessor
+    passed it; the same log without the line keeps CONVERGED."""
+    from pyflightstream.run import SubmittingExecutor
+    from pyflightstream.run.collect import collect_once
+    from pyflightstream.workspace.inputs import read_hpc_profile
+    from tests.tier1_offline.test_collect_stage import _no_sleep
+    from tests.tier1_offline.test_goal024_profile_log import PROFILE
+
+    # A machine that exports its log: the profile states no [log] table.
+    profile = tmp_path / "h001.toml"
+    profile.write_text(PROFILE, encoding="utf-8")
+    executor = SubmittingExecutor(
+        read_hpc_profile(profile), values={"fs_build": "26.120"}, submit=False
+    )
+    workspace, submitted = _run_a_row_naming_its_log(tmp_path, row, executor)
+    assert submitted.status is RunStatus.SUBMITTED, (submitted.status, submitted.error)
+    # WHAT THE JOB LEAVES where it ran: the loads, and the log under the row's name.
+    work = workspace.sim_dir("9001") / submitted.submission["working_dir"]
+    loads, log = submitted.submission["declared_outputs"]
+    assert not log.endswith("_log.txt"), log  # the shape of the finding
+    line = f"{PROFILE_REFUSALS[1]}{work / COPY}" if refused else None
+    (work / loads).write_text("numbers", encoding="utf-8")
+    (work / log).write_bytes(_log_without_residuals(line).encode("utf-8"))
+
+    def passed(record, sim_dir):
+        return RunStatus.CONVERGED, None
+
+    report = collect_once(workspace, interval=0.0, sleep=_no_sleep, assessor=passed)
+    (outcome,) = report.collected + report.failed
+    record = outcome.record
+    assert record is not None, outcome.detail
+    if line is None:
+        assert record.status is RunStatus.CONVERGED, record.error
+        assert record.error is None
+        return
+    assert record.status is RunStatus.FAILED_SCRIPT, (record.status, record.error)
+    assert line in record.error, record.error
+    assert "the actuator disc did not use the file" in record.error, record.error
+
+
+@pytest.mark.parametrize("refused", [True, False], ids=["refused", "control"])
+def test_g06_a_job_submitted_before_its_logs_were_recorded_is_read_by_its_script(tmp_path, refused):
+    """A record whose submission names no log is read by its script on disk: the
+    file its EXPORT_LOG writes is a log whatever its name, so a job queued before
+    the names were recorded is held to the four lines in it too."""
+    from pyflightstream.run.collect import collect_once
+    from tests.tier1_offline.test_collect_stage import _no_sleep, _submitted_workspace
+
+    workspace, sim = _submitted_workspace(tmp_path, declared=("loads.txt", "log_AL+000.txt"))
+    assert "declared_logs" not in (workspace.read_manifest()[0].submission or {})
+    script = sim / "scripts" / "point.fs"
+    script.parent.mkdir(parents=True, exist_ok=True)
+    script.write_text(
+        f"EXPORT_SOLVER_ANALYSIS_SPREADSHEET\n{sim / 'loads.txt'}\n\n"
+        f"EXPORT_LOG\n{sim / 'log_AL+000.txt'}\n\nCLOSE_FLIGHTSTREAM\n",
+        encoding="utf-8",
+    )
+    line = f"{PROFILE_REFUSALS[2]}{sim / COPY}" if refused else None
+    (sim / "loads.txt").write_text("numbers", encoding="utf-8")
+    (sim / "log_AL+000.txt").write_bytes(_log_without_residuals(line).encode("utf-8"))
+
+    def passed(record, sim_dir):
+        return RunStatus.CONVERGED, None
+
+    report = collect_once(workspace, interval=0.0, sleep=_no_sleep, assessor=passed)
+    (outcome,) = report.collected + report.failed
+    record = outcome.record
+    assert record is not None, outcome.detail
+    if line is None:
+        assert record.status is RunStatus.CONVERGED, record.error
+        return
+    assert record.status is RunStatus.FAILED_SCRIPT, (record.status, record.error)
+    assert line in record.error, record.error
+
+
+@pytest.mark.parametrize("refused", [True, False], ids=["refused", "control"])
+@pytest.mark.parametrize("row", list(NAMED_LOGS))
+def test_g06_a_local_log_the_row_names_refuses_the_profile_whatever_its_name(
+    tmp_path, row, refused
+):
+    """A local point is held to the same files: the log its script's EXPORT_LOG
+    writes, and the solver's own log its LOG_OUTPUT names, each carrying no
+    residual table."""
+    line = f"{PROFILE_REFUSALS[3]}{tmp_path / COPY}" if refused else None
+    log = tmp_path / "log_to_write.txt"
+    log.write_bytes(_log_without_residuals(line).encode("utf-8"))
+    code = _writes_every_export_and_the_log(log)
+    if not NAMED_LOGS[row][2]:
+        # THE SOLVER'S OWN LOG, written where it runs, which LOG_OUTPUT names.
+        code += "; pathlib.Path('FlightStreamLog.txt').write_bytes(log)"
+    _, record = _run_a_row_naming_its_log(tmp_path, row, StubSolver(code))
+    assert any(not name.endswith("_log.txt") for name in record.outputs[1:]), record.outputs
+    if line is None:
+        assert record.status is RunStatus.CONVERGED, (record.status, record.error)
+        assert record.error is None
+        return
+    assert record.status is RunStatus.FAILED_SCRIPT, (record.status, record.error)
+    assert line in record.error, record.error
+
+
 @pytest.mark.parametrize("values", ["0.0", "0.0,2.0"], ids=["one-point", "a-steady-job"])
 def test_g06_reconstruct_verifies_the_profile_where_the_run_read_it(tmp_path, values):
     """The solver read the run's own copy, written in the folder the point ran in and
