@@ -4475,9 +4475,12 @@ def _plan_point(
         )
     # The dry run built the same COMMANDS the campaign will, so the two
     # provenance flags are already determined here. Not the same bytes,
-    # and the difference is exactly one argument: the plan runs before
+    # and the difference is one argument: the plan runs before
     # anything is staged, so a case naming a geometry renders `OPEN
-    # <library path>` here and `OPEN <staged copy>` at run time. Nothing
+    # <library path>` here and `OPEN <staged copy>` at run time. A raw mesh
+    # on the trailing-edge file route differs in a second: the script is given
+    # no working folder here, so its node file is named by its bare name (G02,
+    # `Script.working_dir`). Nothing
     # depends on that today (the plan checks the library file exists, the
     # builder judges only the suffix, and plan.json carries no script
     # text), and it is written down so a later reader does not reuse this
@@ -5077,6 +5080,9 @@ def _execute_sweep(
         )
 
     script = Script(version=fs_version)
+    # G02: the job runs in the simulation folder, which no other simulation
+    # shares, so the node file its one script imports is named there.
+    script.working_dir = str(sim_dir)
     try:
         build_steady_sweep([pc for _, _, pc in point_cases], script, cold=cold)
         # G02: the switch is the row's, so the first point's case states it.
@@ -6033,6 +6039,11 @@ def _execute_point(
     # The BUILD's version, so a case sent to a second installation emits
     # the commands that installation documents rather than the campaign's.
     script = Script(version=fs_version)
+    # G02: the folder this point runs in (see below), given to the script before
+    # the build, so a data file it parks is named there and not beside the
+    # staged geometry, a link into the library every simulation on the mesh shares.
+    work_dir = sim_dir / SIM_DATAPOINTS_DIR / datapoint_dir_name(PointName(point_name(case, point)))
+    script.working_dir = str(work_dir)
     try:
         recipe(point_case, script)
         # G02: before the solver starts, and knowing the machine this time.
@@ -6124,7 +6135,6 @@ def _execute_point(
     # program, the clock and the trailing-edge node file, are written relative
     # to this folder below, as they are for a submitted point. The steady job
     # of several points keeps the simulation folder (`_execute_sweep`).
-    work_dir = sim_dir / SIM_DATAPOINTS_DIR / datapoint_dir_name(PointName(point_name(case, point)))
     # G02: and the data files a command reads, the trailing-edge node file,
     # whose digests join the inputs the record states.
     written = _write_pending_files(script, work_dir)

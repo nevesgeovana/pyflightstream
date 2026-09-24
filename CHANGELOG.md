@@ -91,7 +91,7 @@ FlightStream versions.
   optional `type` (STANDARD unless written) and `tolerance`. The points file
   (a unit line, then one edge mid-point per line) is checked against the mesh
   when the row is bound, converted to metres, written as the solver's node
-  file beside the point's staged geometry, and imported with
+  file in the folder the point runs in, and imported with
   `IMPORT_WAKE_EDGES_FROM_FILE` on 26.124, where that command is verified by
   a compat probe; 26.122 and 26.123 are refused naming RPT-061, and earlier
   builds are refused. `detect = "auto"` or `detect = { surfaces = [...],
@@ -402,6 +402,20 @@ FlightStream versions.
 - **The plan's cost table counts a raw-mesh row's marked boundaries** from
   its sidecar's names as the renames leave them; it printed NA for every
   raw-mesh row (G02).
+- **Two runs on one mesh no longer share a trailing-edge node file.** The
+  node file was named beside the point's staged geometry, and staging links a
+  simulation's inputs to the geometry library, so every simulation on one mesh
+  wrote one file in `inputs/geometries/`. A case submitted while another case
+  on the same mesh was queued replaced that job's points before it read them,
+  and the count check could not tell when both imported the same number of
+  edges; a points file named `<stem>.wake_nodes.txt` was written over. The
+  node file is now written in the folder the point runs in,
+  `sims/sim_<id>/datapoints/DP-<point>/`, or the simulation folder for a
+  steady row of several points, which runs as one job; the script names it
+  there by absolute path and the record hashes those bytes. Nothing is written
+  into `inputs/geometries/`. New: `Script.working_dir`, the folder the run
+  gives a script before building it; a script built outside a run names its
+  node file by its bare name (G02).
 
 - **A row stating `roll_rate` or `yaw_rate` turns the free stream the way the
   rate says.** From 0.21.0 all three body rates were emitted with one sign of

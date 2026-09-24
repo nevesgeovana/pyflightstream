@@ -241,7 +241,7 @@ operations:
 
 ```text
 IMPORT_WAKE_EDGES_FROM_FILE STANDARD 0.0001 METER
-<the point's staged folder>/wing.wake_nodes.txt
+<the folder the point runs in>/wing.wake_nodes.txt
 ```
 
 The points name edges of the mesh as the FILE holds it, so the route is
@@ -322,8 +322,13 @@ edges' end vertices fails this check at its first point. The checked points
 come back in metres.
 
 **The run writes the solver's node file and holds the solver to it.** The run
-writes the node file beside the point's staged geometry before the solver
-starts and records its digest among the run's inputs. A point that matches no
+writes the node file in the folder the point runs in,
+`sims/sim_<id>/datapoints/DP-<point>/`, or the simulation folder for a steady
+row of several points, which runs as one job, before the solver starts, and
+records its digest among the run's inputs. Nothing is written into
+`inputs/geometries/`: every simulation on one mesh reads that folder, so two
+runs on the mesh never share a node file, and a points file named
+`<stem>.wake_nodes.txt` is left as written. A point that matches no
 edge marks nothing and the solver says nothing about it, so after the run the
 package compares the number of edges the solver logs as imported with the
 points it wrote, and records the point `FAILED_SCRIPT` when they differ. That
@@ -534,10 +539,10 @@ CLEAR
 SURFACE_RENAME 1 Wing
 SET_SIMULATION_LENGTH_UNITS METER
 IMPORT_WAKE_EDGES_FROM_FILE STANDARD 0.0001 METER
-<the point's staged folder>/wing.wake_nodes.txt
+<the folder the point runs in>/wing.wake_nodes.txt
 ```
 
-and the node file the run writes beside the staged mesh holds the count, the
+and the node file the run writes in that folder holds the count, the
 coordinate line the solver consumes, and the eight points in metres:
 
 ```text
