@@ -4385,8 +4385,8 @@ def test_a_pproc_frame_the_run_did_not_create_is_refused_naming_the_created_ones
         rendered(case)
 
 
-def test_a_mesh_file_is_refused_naming_the_release(tmp_path):
-    """PFS-2029.09.03: a cell `wing.obj` passes the reader; the pre-flight names 0.12.0."""
+def test_a_mesh_file_is_refused_naming_the_route_and_no_release(tmp_path):
+    """PFS-2029.09.03: a cell `wing.obj` is refused naming the .fsm route, promising no release."""
     from pyflightstream.cases import CampaignConfigError
 
     mesh = tmp_path / "wing.obj"
@@ -4394,8 +4394,12 @@ def test_a_mesh_file_is_refused_naming_the_release(tmp_path):
     with pytest.raises(CampaignConfigError) as caught:
         rendered(steady_case(geometry=str(mesh)))
     message = str(caught.value)
-    assert "no boundary conditions" in message and "0.12.0" in message
+    assert "no boundary conditions" in message
     assert "docs/mesh-inputs.md" in message
+    assert "0.12.0" not in message, "the refusal promises a release, and 0.12.0 shipped without it"
+    assert "release" not in message.lower(), (
+        "the refusal promises a release, and no release is scheduled"
+    )
 
 
 # --- PFS-2029.06.03: the sidecar and the file must agree at OPEN ---------------------

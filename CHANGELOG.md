@@ -20,6 +20,14 @@ FlightStream versions.
   older reader refuses the key (measured 2026-09-23 against the 0.26.0
   schema), so post such a workspace with the same version that ran it.
 
+### Fixed
+
+- **A workflow refusing a mesh file no longer promises a release.** The
+  refusal of a non-`.fsm` geometry said 0.12.0 would define boundary
+  conditions for a mesh cell; 0.12.0 shipped without them. It now names the
+  `.fsm` route and says no matrix cell declares boundary conditions for a
+  mesh (PFS-2029.09.03).
+
 ### Owed
 
 - **The Zenodo archive of v0.14.0 DOES NOT EXIST**, re-measured against

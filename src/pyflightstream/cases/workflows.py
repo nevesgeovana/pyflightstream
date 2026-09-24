@@ -4053,7 +4053,8 @@ def _open_geometry(case: SimCase, script: Script) -> None:
             "stage that in inputs/geometries/ instead; docs/mesh-inputs.md carries the "
             f"route in full; search that page for '{_MESH_PAGE_ANCHOR}'. The file this "
             f"resolved to is {case.geometry!r}. A mesh carries no boundary conditions, "
-            "and 0.12.0 is the release that defines them for a mesh cell (PFS-2029.09.03)."
+            "and no matrix cell declares them for a mesh (PFS-2029.09.03); the .fsm "
+            "carries those too."
         )
     # THE INITIALISATION FLAG IS ALWAYS STATED (PFS-2030.03.01). A saved
     # simulation may carry an initialised solver, and loading it would start
