@@ -160,3 +160,31 @@ on the moment and on which surfaces gained lift.
   same declaration would turn the free stream about the wrong axis and this
   probe would not have noticed.
 - **The drag is not explained**, only recorded: see the section above.
+
+
+---
+
+## Amended 2026-09-24: roll and yaw were run, and the argument failed (G13)
+
+Nothing above is changed; the verdict for pitch stands. The first bullet of "What this
+does NOT establish" said a row that rolls or yaws rested on this measurement "plus the
+argument that one axis is not special, which is an argument and not a run". The run is
+the licensed probe T11 of the 0.27.0 work, on FlightStream 26.124 (build 8172026), seven
+converged solves on this report's mesh, reported in
+`reports/RPT-060_roll-and-yaw-rates-are-emitted-reversed_2026-09-23.md` with its
+evidence at `reports/probes/RPT-060_2026-09-23_evidence.yaml`. **The argument was
+wrong.** The solver does turn the free stream as a right-hand rotation about each frame
+axis, as this report found for y. But the body axes (forward, right, down) are the
+geometry's frame (x aft, y right, z up) turned half a turn about y, so p = -omega_x and
+r = -omega_z while q = +omega_y. One sign of +1 was right for the axis this report ran
+and reversed for the other two.
+
+- **Results already produced.** A row of 0.21.0 to 0.26.0 stating `roll_rate` or
+  `yaw_rate` was solved at the opposite rate: its coefficients are those of -p or -r.
+  That is measured on 26.124 and on this configuration's axes; on another build the same
+  line was emitted and its response is unmeasured. A row stating `pitch_rate` is
+  unaffected.
+- **The constant this report named**, `cases.workflows.FREESTREAM_ROTATION_SIGN`, is a
+  sign per body axis since 0.27.0 (G13): -1 for roll, +1 for pitch, -1 for yaw, the
+  diagonal of the export-to-body turn in `post/axes.py`. A row stating `pitch_rate`
+  writes what it wrote before.

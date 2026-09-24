@@ -121,3 +121,37 @@ Nothing above is changed; three statements are made checkable or narrowed here.
   axes only. On any other build it is the same emitted line with an unmeasured response.
 - **Where the fix is tracked:** the per-axis sign is item G13 of the 0.27.0 scope, and the
   release's CHANGELOG names it when it lands.
+
+## CLOSED in 0.27.0, 2026-09-24
+
+Nothing above is changed. The fix this report registered is in the package, as item G13.
+
+- **The emitter.** `cases.workflows.FREESTREAM_ROTATION_SIGN` is a sign per body axis,
+  taken from the export-to-body turn (`post/axes.py`, `EXPORT_TO_BODY`, half a turn about
+  y): -1 for roll, +1 for pitch, -1 for yaw. A row stating `roll_rate:40` now writes
+  `SET_FREESTREAM ROTATION <frame> X -6.667`, the line of this probe's row 4204, and
+  `yaw_rate:40` writes `Z -6.667`, the line of row 4207. `pitch_rate` writes what it
+  wrote, which RPT-052 measured right.
+- **The tests.** `tests/tier1_offline/test_goal024_freestream_rotation.py` derives the
+  expected command from the frame algebra of "The prediction" above, written in the test
+  and read from no module, and it failed on the tree before the fix for roll and yaw in
+  both signs of the rate, and passed for pitch. The two strict xfails of roll and yaw in
+  `tests/tier1_offline/test_ops2011_rate_sense_against_recorded_probes.py` are removed
+  and both pass: the line the package now emits for +40 deg/s is found among this
+  probe's recorded lines, and the left wing's lift increment it produced has the sign
+  flight mechanics gives the rate.
+- **The pages.** The conventions entry "Axes and signs of every emitted coefficient",
+  `docs/flight-conditions.md` ("A rotating free stream"), FR-42 and FR-105 say that a row
+  of 0.21.0 to 0.26.0 stating `roll_rate` or `yaw_rate` was solved at the opposite rate,
+  and that T11 measured it on 26.124 (build 8172026) in this report.
+- **One sentence of the first writing is narrowed.** "Its record carries the free-stream
+  line it emitted" is not what a run record holds: it carries the script's path and
+  sha256, and the script carries the line. An affected point is found by its name, which
+  carries the rate (`P` for roll, `R` for yaw), or by the script its record names.
+
+What stays open is what "What this does NOT establish" lists: one build, one geometry and
+incidence, and the yaw asymmetry unexplained. A `[body_axes]` table that permutes the
+axes turns about the axis it declares with its rate's sign; no probe has measured such a
+mesh.
+
+**Status:** CLOSED in 0.27.0

@@ -208,13 +208,43 @@ and so is a row stating two non-zero rates: the free stream turns about one
 axis at one speed, and two rates would be composed into an axis the row does
 not write. Every rate zero, or no rate at all, writes `CONSTANT`.
 
+**The sign of the emitted rotation is the sign of its body axis in the
+geometry's frame** (since 0.27.0). Positive p is right wing down, q nose up and
+r nose right, about body axes that point forward, right and down. The geometry's
+frame, the one a loads export states its forces in, points x aft, y right and
+z up, and the solver turns the free stream as a right-hand rotation about the
+frame axis it is given. So p = -omega_x, q = +omega_y and r = -omega_z: a row
+stating `roll_rate:40` writes `ROTATION <frame> X -6.667`, `pitch_rate:40`
+writes `Y 6.667`, and `yaw_rate:40` writes `Z -6.667` (rev/min, rounded here).
+
 **What the solver does with a positive angular velocity is not documented by
-any edition of the manual.** This package emits the rate AS WRITTEN, and the
-convention was MEASURED rather than asserted: three pitch rates on one
-wing-body on FlightStream 26.124, reported in
-`reports/RPT-052_the-sense-of-a-rotating-free-stream_2026-09-15.md`.
-A positive rate came back with the nose-down moment increment that opposes a
-nose-up rotation, which is what a flight-mechanics rate means.
+any edition of the manual**, so the sense was MEASURED on FlightStream 26.124,
+one axis at a time, on one half wing-body:
+
+- **Pitch**, three rates, reported in
+  `reports/RPT-052_the-sense-of-a-rotating-free-stream_2026-09-15.md`: a
+  positive rotation about y came back with the nose-down moment increment that
+  opposes a nose-up rotation.
+- **Roll and yaw**, the licensed probe T11 on build 8172026 of 26.124, seven
+  converged solves, reported in
+  `reports/RPT-060_roll-and-yaw-rates-are-emitted-reversed_2026-09-23.md`: a
+  positive rotation about x gave the left wing more lift and a positive rolling
+  increment, the damping of a NEGATIVE roll rate, and a positive rotation about
+  z gave the left wing less lift, the response of a NEGATIVE yaw rate.
+
+**A row of 0.21.0 to 0.26.0 stating `roll_rate` or `yaw_rate` was solved at the
+opposite rate.** Those releases emitted all three rates with one sign of +1,
+right for pitch (RPT-052) and reversed for roll and yaw (T11, RPT-060), so the
+coefficients of such a row are those of -p or -r. Such a point is found by its
+name, which carries the rate (`P` for roll, `R` for yaw), or by the script its
+run record names, whose free-stream line turns about `X` or `Z` with the sign
+of the rate the row states. A row stating `pitch_rate` is unaffected. The
+reversal is measured on 26.124 and on one configuration's axes; on another
+build the same line was emitted and its response is unmeasured.
+
+A `[body_axes]` table that permutes the axes (`roll = "Y"`, say) turns about
+the axis it declares with its rate's sign above; no probe has measured such a
+mesh.
 
 ## Which quantity gets solved for
 
